@@ -914,8 +914,7 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
             t->lookaroundTableOffset - t->lookaroundReachOffset);
 
     fprintf(f, "state space required : %u bytes\n", t->stateOffsets.end);
-    fprintf(f, " - history buffer    : %u bytes (+1 for len)\n",
-            t->historyRequired);
+    fprintf(f, " - history buffer    : %u bytes\n", t->historyRequired);
     fprintf(f, " - exhaustion vector : %u bytes\n", (t->ekeyCount + 7) / 8);
     fprintf(f, " - role state mmbit  : %u bytes\n", t->stateSize);
     fprintf(f, " - floating matcher  : %u bytes\n", t->floatingStreamState);
