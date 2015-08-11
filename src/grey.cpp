@@ -127,6 +127,8 @@ Grey::Grey(void) :
                    limitSmallWriteOutfixSize(1048576), // 1 MB
                    smallWriteMaxPatterns(10000),
                    smallWriteMaxLiterals(10000),
+                   allowTamarama(true), // Tamarama engine
+                   tamaChunkSize(100),
                    dumpFlags(0),
                    limitPatternCount(8000000), // 8M patterns
                    limitPatternLength(16000),  // 16K bytes
@@ -275,6 +277,8 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(limitSmallWriteOutfixSize);
         G_UPDATE(smallWriteMaxPatterns);
         G_UPDATE(smallWriteMaxLiterals);
+        G_UPDATE(allowTamarama);
+        G_UPDATE(tamaChunkSize);
         G_UPDATE(limitPatternCount);
         G_UPDATE(limitPatternLength);
         G_UPDATE(limitGraphVertices);

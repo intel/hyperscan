@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,36 +26,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LBR_DUMP_H
-#define LBR_DUMP_H
+/** \file
+ * \brief An algorithm to find cliques.
+ */
 
-#ifdef DUMP_SUPPORT
+#ifndef CLIQUE_H
+#define CLIQUE_H
 
-#include <cstdio>
-#include <string>
+#include "ue2common.h"
 
-struct NFA;
+#include <vector>
+
+#include <boost/graph/adjacency_list.hpp>
 
 namespace ue2 {
 
-void nfaExecLbrDot_dumpDot(const struct NFA *nfa, FILE *file,
-                           const std::string &base);
-void nfaExecLbrVerm_dumpDot(const struct NFA *nfa, FILE *file,
-                            const std::string &base);
-void nfaExecLbrNVerm_dumpDot(const struct NFA *nfa, FILE *file,
-                            const std::string &base);
-void nfaExecLbrShuf_dumpDot(const struct NFA *nfa, FILE *file,
-                            const std::string &base);
-void nfaExecLbrTruf_dumpDot(const struct NFA *nfa, FILE *file,
-                            const std::string &base);
-void nfaExecLbrDot_dumpText(const struct NFA *nfa, FILE *file);
-void nfaExecLbrVerm_dumpText(const struct NFA *nfa, FILE *file);
-void nfaExecLbrNVerm_dumpText(const struct NFA *nfa, FILE *file);
-void nfaExecLbrTruf_dumpText(const struct NFA *nfa, FILE *file);
-void nfaExecLbrShuf_dumpText(const struct NFA *nfa, FILE *file);
+struct CliqueVertexProps {
+    CliqueVertexProps() {}
+    explicit CliqueVertexProps(u32 state_in) : stateId(state_in) {}
+
+    u32 stateId = ~0U;
+};
+
+typedef boost::adjacency_list<boost::listS, boost::listS, boost::undirectedS,
+                              CliqueVertexProps> CliqueGraph;
+typedef CliqueGraph::vertex_descriptor CliqueVertex;
+
+/** \brief Returns a vector of cliques found in a graph. */
+std::vector<std::vector<u32>> removeClique(CliqueGraph &cg);
 
 } // namespace ue2
-
-#endif
 
 #endif

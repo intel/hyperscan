@@ -145,6 +145,10 @@ struct Grey {
     u32 smallWriteMaxPatterns; // only try small writes if fewer patterns
     u32 smallWriteMaxLiterals; // only try small writes if fewer literals
 
+    // Tamarama engine
+    bool allowTamarama;
+    u32 tamaChunkSize; //!< max chunk size for exclusivity analysis in Tamarama
+
     enum DumpFlags {
         DUMP_NONE       = 0,
         DUMP_BASICS     = 1 << 0, // Dump basic textual data

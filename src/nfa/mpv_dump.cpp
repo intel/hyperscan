@@ -48,7 +48,8 @@
 
 namespace ue2 {
 
-void nfaExecMpv0_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *file) {
+void nfaExecMpv0_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *file,
+                         UNUSED const std::string &base) {
 }
 
 static really_inline

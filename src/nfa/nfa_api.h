@@ -120,6 +120,13 @@ char nfaInitCompressedState(const struct NFA *nfa, u64a offset, void *state,
  */
 char nfaQueueExec(const struct NFA *nfa, struct mq *q, s64a end);
 
+/**
+ * Main execution function that doesn't perform the checks and optimisations of
+ * nfaQueueExec() and just dispatches directly to the nfa implementations. It is
+ * intended to be used by the Tamarama engine.
+ */
+char nfaQueueExec_raw(const struct NFA *nfa, struct mq *q, s64a end);
+
 /** Return value indicating that the engine is alive. */
 #define MO_ALIVE 1
 
@@ -154,6 +161,13 @@ char nfaQueueExec(const struct NFA *nfa, struct mq *q, s64a end);
  * of each event must be >= current offset.
  */
 char nfaQueueExecToMatch(const struct NFA *nfa, struct mq *q, s64a end);
+
+/**
+ * Main execution function that doesn't perform the checks and optimisations of
+ * nfaQueueExecToMatch() and just dispatches directly to the nfa
+ * implementations. It is intended to be used by the Tamarama engine.
+ */
+char nfaQueueExec2_raw(const struct NFA *nfa, struct mq *q, s64a end);
 
 /**
  * Report matches at the current queue location.

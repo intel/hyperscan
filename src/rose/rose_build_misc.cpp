@@ -34,6 +34,7 @@
 #include "nfa/mcclellancompile_util.h"
 #include "nfa/nfa_api.h"
 #include "nfa/rdfa.h"
+#include "nfa/tamaramacompile.h"
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_limex.h"
 #include "nfagraph/ng_reports.h"
@@ -909,7 +910,7 @@ set<ReportID> all_reports(const OutfixInfo &outfix) {
 
 bool RoseSuffixInfo::operator==(const RoseSuffixInfo &b) const {
     return top == b.top && graph == b.graph && castle == b.castle &&
-           rdfa == b.rdfa && haig == b.haig;
+           rdfa == b.rdfa && haig == b.haig && tamarama == b.tamarama;
 }
 
 bool RoseSuffixInfo::operator<(const RoseSuffixInfo &b) const {
@@ -919,6 +920,7 @@ bool RoseSuffixInfo::operator<(const RoseSuffixInfo &b) const {
     ORDER_CHECK(castle);
     ORDER_CHECK(haig);
     ORDER_CHECK(rdfa);
+    ORDER_CHECK(tamarama);
     assert(a.dfa_min_width == b.dfa_min_width);
     assert(a.dfa_max_width == b.dfa_max_width);
     return false;
@@ -931,13 +933,16 @@ void RoseSuffixInfo::reset(void) {
     castle.reset();
     rdfa.reset();
     haig.reset();
+    tamarama.reset();
     dfa_min_width = 0;
     dfa_max_width = depth::infinity();
 }
 
 std::set<ReportID> all_reports(const suffix_id &s) {
     assert(s.graph() || s.castle() || s.haig() || s.dfa());
-    if (s.graph()) {
+    if (s.tamarama()) {
+        return all_reports(*s.tamarama());
+    } else if (s.graph()) {
         return all_reports(*s.graph());
     } else if (s.castle()) {
         return all_reports(*s.castle());
@@ -1149,6 +1154,7 @@ void LeftEngInfo::reset(void) {
     castle.reset();
     dfa.reset();
     haig.reset();
+    tamarama.reset();
     lag = 0;
     leftfix_report = MO_INVALID_IDX;
     dfa_min_width = 0;

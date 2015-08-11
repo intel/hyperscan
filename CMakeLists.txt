@@ -478,6 +478,9 @@ set (hs_exec_SRCS
     src/nfa/shufti_common.h
     src/nfa/shufti.c
     src/nfa/shufti.h
+    src/nfa/tamarama.c
+    src/nfa/tamarama.h
+    src/nfa/tamarama_internal.h
     src/nfa/truffle_common.h
     src/nfa/truffle.c
     src/nfa/truffle.h
@@ -639,6 +642,8 @@ SET (hs_SRCS
     src/nfa/repeatcompile.h
     src/nfa/shufticompile.cpp
     src/nfa/shufticompile.h
+    src/nfa/tamaramacompile.cpp
+    src/nfa/tamaramacompile.h
     src/nfa/trufflecompile.cpp
     src/nfa/trufflecompile.h
     src/nfagraph/ng.cpp
@@ -823,6 +828,8 @@ SET (hs_SRCS
     src/rose/rose_build_compile.cpp
     src/rose/rose_build_convert.cpp
     src/rose/rose_build_convert.h
+    src/rose/rose_build_exclusive.cpp
+    src/rose/rose_build_exclusive.h
     src/rose/rose_build_groups.cpp
     src/rose/rose_build_groups.h
     src/rose/rose_build_impl.h
@@ -853,6 +860,8 @@ SET (hs_SRCS
     src/util/charreach.cpp
     src/util/charreach.h
     src/util/charreach_util.h
+    src/util/clique.cpp
+    src/util/clique.h
     src/util/compare.h
     src/util/compile_context.cpp
     src/util/compile_context.h
@@ -916,6 +925,8 @@ set(hs_dump_SRCS
     src/nfa/nfa_dump_dispatch.cpp
     src/nfa/nfa_dump_internal.cpp
     src/nfa/nfa_dump_internal.h
+    src/nfa/tamarama_dump.cpp
+    src/nfa/tamarama_dump.h
     src/parser/dump.cpp
     src/parser/dump.h
     src/parser/position_dump.h

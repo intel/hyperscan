@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,12 +32,14 @@
 #if defined(DUMP_SUPPORT)
 
 #include <cstdio>
+#include <string>
 
 struct NFA;
 
 namespace ue2 {
 
-void nfaExecMpv0_dumpDot(const struct NFA *nfa, FILE *file);
+void nfaExecMpv0_dumpDot(const struct NFA *nfa, FILE *file,
+                         const std::string &base);
 void nfaExecMpv0_dumpText(const struct NFA *nfa, FILE *file);
 
 } // namespace ue2

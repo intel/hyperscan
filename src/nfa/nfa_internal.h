@@ -67,6 +67,7 @@ enum NFAEngineType {
     LBR_NFA_Shuf,       /**< magic pseudo nfa */
     LBR_NFA_Truf,       /**< magic pseudo nfa */
     CASTLE_NFA_0,       /**< magic pseudo nfa */
+    TAMARAMA_NFA_0,     /**< magic nfa container */
     /** \brief bogus NFA - not used */
     INVALID_NFA
 };
@@ -171,6 +172,12 @@ static really_inline
 int isLbrType(u8 t) {
     return t == LBR_NFA_Dot || t == LBR_NFA_Verm || t == LBR_NFA_NVerm ||
            t == LBR_NFA_Shuf || t == LBR_NFA_Truf;
+}
+
+/** \brief True if the given type (from NFA::type) is a container engine. */
+static really_inline
+int isContainerType(u8 t) {
+    return t == TAMARAMA_NFA_0;
 }
 
 static really_inline

@@ -65,12 +65,13 @@ class SomSlotManager;
 struct suffix_id {
     suffix_id(const RoseSuffixInfo &in)
         : g(in.graph.get()), c(in.castle.get()), d(in.rdfa.get()),
-          h(in.haig.get()), dfa_min_width(in.dfa_min_width),
+          h(in.haig.get()), t(in.tamarama.get()),
+          dfa_min_width(in.dfa_min_width),
           dfa_max_width(in.dfa_max_width) {
             assert(!g || g->kind == NFA_SUFFIX);
     }
     bool operator==(const suffix_id &b) const {
-        bool rv = g == b.g && c == b.c && h == b.h && d == b.d;
+        bool rv = g == b.g && c == b.c && h == b.h && d == b.d && t == b.t;
         assert(!rv || dfa_min_width == b.dfa_min_width);
         assert(!rv || dfa_max_width == b.dfa_max_width);
         return rv;
@@ -82,6 +83,7 @@ struct suffix_id {
         ORDER_CHECK(c);
         ORDER_CHECK(d);
         ORDER_CHECK(h);
+        ORDER_CHECK(t);
         return false;
     }
 
@@ -113,6 +115,22 @@ struct suffix_id {
         }
         return c;
     }
+    TamaProto *tamarama() {
+        if (!d && !h) {
+            assert(dfa_min_width == depth(0));
+            assert(dfa_max_width == depth::infinity());
+        }
+        return t;
+    }
+    const TamaProto *tamarama() const {
+        if (!d && !h) {
+            assert(dfa_min_width == depth(0));
+            assert(dfa_max_width == depth::infinity());
+        }
+        return t;
+    }
+
+
     raw_som_dfa *haig() { return h; }
     const raw_som_dfa *haig() const { return h; }
     raw_dfa *dfa() { return d; }
@@ -125,6 +143,7 @@ private:
     CastleProto *c;
     raw_dfa *d;
     raw_som_dfa *h;
+    TamaProto *t;
     depth dfa_min_width;
     depth dfa_max_width;
 

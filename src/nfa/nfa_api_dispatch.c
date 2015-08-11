@@ -42,6 +42,7 @@
 #include "limex.h"
 #include "mcclellan.h"
 #include "mpv.h"
+#include "tamarama.h"
 
 #define DISPATCH_CASE(dc_ltype, dc_ftype, dc_subtype, dc_func_call) \
     case dc_ltype##_NFA_##dc_subtype:                               \
@@ -68,6 +69,7 @@
         DISPATCH_CASE(LBR, Lbr, Shuf, dbnt_func);             \
         DISPATCH_CASE(LBR, Lbr, Truf, dbnt_func);             \
         DISPATCH_CASE(CASTLE, Castle, 0, dbnt_func);          \
+        DISPATCH_CASE(TAMARAMA, Tamarama, 0, dbnt_func);      \
     default:                                                  \
         assert(0);                                            \
     }
@@ -103,6 +105,14 @@ static really_inline
 char nfaQueueExec2_i(const struct NFA *nfa, struct mq *q, s64a end) {
     DISPATCH_BY_NFA_TYPE(_Q2(nfa, q, end));
     return 0;
+}
+
+char nfaQueueExec_raw(const struct NFA *nfa, struct mq *q, s64a end) {
+    return nfaQueueExec_i(nfa, q, end);
+}
+
+char nfaQueueExec2_raw(const struct NFA *nfa, struct mq *q, s64a end) {
+    return nfaQueueExec2_i(nfa, q, end);
 }
 
 static really_inline

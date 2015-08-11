@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -49,23 +49,28 @@
 
 namespace ue2 {
 
-void nfaExecLbrDot_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f) {
+void nfaExecLbrDot_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f,
+                           UNUSED const std::string &base) {
     // No impl
 }
 
-void nfaExecLbrVerm_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f) {
+void nfaExecLbrVerm_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f,
+                            UNUSED const std::string &base) {
     // No impl
 }
 
-void nfaExecLbrNVerm_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f) {
+void nfaExecLbrNVerm_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f,
+                             UNUSED const std::string &base) {
     // No impl
 }
 
-void nfaExecLbrShuf_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f) {
+void nfaExecLbrShuf_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f,
+                            UNUSED const std::string &base) {
     // No impl
 }
 
-void nfaExecLbrTruf_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f) {
+void nfaExecLbrTruf_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f,
+                            UNUSED const std::string &base) {
     // No impl
 }
 

@@ -448,7 +448,8 @@ void dumpLimDotInfo(const limex_type *limex, u32 state, FILE *f) {
     }
 
 #define DUMP_DOT_FN(ddf_n)                                                     \
-    void nfaExecLimEx##ddf_n##_dumpDot(const NFA *nfa, FILE *f) {              \
+    void nfaExecLimEx##ddf_n##_dumpDot(const NFA *nfa, FILE *f,                \
+                                       UNUSED const string &base) {            \
         const LimExNFA##ddf_n *limex =                                         \
             (const LimExNFA##ddf_n *)getImplNfa(nfa);                          \
                                                                                \

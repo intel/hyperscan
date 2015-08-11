@@ -300,6 +300,18 @@ const has_accel_fn NFATraits<LBR_NFA_Truf>::has_accel = has_accel_generic;
 const char *NFATraits<LBR_NFA_Truf>::name = "Lim Bounded Repeat (M)";
 #endif
 
+template<> struct NFATraits<TAMARAMA_NFA_0> {
+    UNUSED static const char *name;
+    static const NFACategory category = NFA_OTHER;
+    static const u32 stateAlign = 32;
+    static const bool fast = true;
+    static const has_accel_fn has_accel;
+};
+const has_accel_fn NFATraits<TAMARAMA_NFA_0>::has_accel = has_accel_generic;
+#if defined(DUMP_SUPPORT)
+const char *NFATraits<TAMARAMA_NFA_0>::name = "Tamarama";
+#endif
+
 } // namespace
 
 #if defined(DUMP_SUPPORT)

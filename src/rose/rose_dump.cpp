@@ -718,7 +718,7 @@ void dumpNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         FILE *f;
 
         f = fopen(ssdot.str().c_str(), "w");
-        nfaDumpDot(n, f);
+        nfaDumpDot(n, f, base);
         fclose(f);
 
         f = fopen(sstxt.str().c_str(), "w");
@@ -778,7 +778,7 @@ void dumpRevNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         FILE *f;
 
         f = fopen(ssdot.str().c_str(), "w");
-        nfaDumpDot(n, f);
+        nfaDumpDot(n, f, base);
         fclose(f);
 
         f = fopen(sstxt.str().c_str(), "w");
@@ -809,7 +809,7 @@ void dumpAnchored(const RoseEngine *t, const string &base) {
         FILE *f;
 
         f = fopen(ssdot.str().c_str(), "w");
-        nfaDumpDot(n, f);
+        nfaDumpDot(n, f, base);
         fclose(f);
 
         f = fopen(sstxt.str().c_str(), "w");

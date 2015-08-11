@@ -33,6 +33,7 @@
 #include "hs_compile.h" // for HS_MODE_*
 #include "rose_build_add_internal.h"
 #include "rose_build_anchored.h"
+#include "rose_build_exclusive.h"
 #include "rose_build_groups.h"
 #include "rose_build_infix.h"
 #include "rose_build_lookaround.h"
@@ -50,6 +51,8 @@
 #include "nfa/nfa_build_util.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/shufticompile.h"
+#include "nfa/tamaramacompile.h"
+#include "nfa/tamarama_internal.h"
 #include "nfagraph/ng_execute.h"
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_lbr.h"
@@ -71,6 +74,7 @@
 #include "util/compile_error.h"
 #include "util/container.h"
 #include "util/graph_range.h"
+#include "util/make_unique.h"
 #include "util/multibit_build.h"
 #include "util/order_check.h"
 #include "util/queue_index_factory.h"
@@ -1423,6 +1427,296 @@ bool buildLeftfix(RoseBuildImpl &build, build_context &bc, bool prefix, u32 qi,
 }
 
 static
+unique_ptr<TamaInfo> constructTamaInfo(const RoseGraph &g,
+                     const vector<ExclusiveSubengine> &subengines,
+                     const bool is_suffix) {
+    unique_ptr<TamaInfo> tamaInfo = ue2::make_unique<TamaInfo>();
+    for (const auto &sub : subengines) {
+        const auto &rose_vertices = sub.vertices;
+        NFA *nfa = sub.nfa.get();
+        set<u32> tops;
+        for (const auto &v : rose_vertices) {
+            if (is_suffix) {
+                tops.insert(g[v].suffix.top);
+            } else {
+                for (const auto &e : in_edges_range(v, g)) {
+                    tops.insert(g[e].rose_top);
+                }
+            }
+        }
+        tamaInfo->add(nfa, tops);
+    }
+
+    return tamaInfo;
+}
+
+static
+void updateTops(const RoseGraph &g, const TamaInfo &tamaInfo,
+                TamaProto &tamaProto,
+                const vector<ExclusiveSubengine> &subengines,
+                const map<pair<const NFA *, u32>, u32> &out_top_remap,
+                const bool is_suffix) {
+    u32 i = 0;
+    for (const auto &n : tamaInfo.subengines) {
+        for (const auto &v : subengines[i].vertices) {
+            if (is_suffix) {
+                tamaProto.add(n, g[v].idx, g[v].suffix.top,
+                              out_top_remap);
+            } else {
+                for (const auto &e : in_edges_range(v, g)) {
+                    tamaProto.add(n, g[v].idx, g[e].rose_top,
+                                  out_top_remap);
+                }
+            }
+        }
+        i++;
+    }
+}
+
+static
+shared_ptr<TamaProto> constructContainerEngine(const RoseGraph &g,
+                                               build_context &bc,
+                                               const ExclusiveInfo &info,
+                                               const u32 queue,
+                                               const bool is_suffix) {
+    const auto &subengines = info.subengines;
+    auto tamaInfo =
+        constructTamaInfo(g, subengines, is_suffix);
+
+    map<pair<const NFA *, u32>, u32> out_top_remap;
+    auto n = buildTamarama(*tamaInfo, queue, out_top_remap);
+    add_nfa_to_blob(bc, *n);
+
+    DEBUG_PRINTF("queue id:%u\n", queue);
+    shared_ptr<TamaProto> tamaProto = make_shared<TamaProto>();
+    tamaProto->reports = info.reports;
+    updateTops(g, *tamaInfo, *tamaProto, subengines,
+               out_top_remap, is_suffix);
+    return tamaProto;
+}
+
+static
+void buildInfixContainer(RoseGraph &g, build_context &bc,
+                         const vector<ExclusiveInfo> &exclusive_info) {
+    // Build tamarama engine
+    for (const auto &info : exclusive_info) {
+        const u32 queue = info.queue;
+        const auto &subengines = info.subengines;
+        auto tamaProto =
+            constructContainerEngine(g, bc, info, queue, false);
+
+        for (const auto &sub : subengines) {
+            const auto &verts = sub.vertices;
+            for (const auto &v : verts) {
+                DEBUG_PRINTF("vert id:%lu\n", g[v].idx);
+                g[v].left.tamarama = tamaProto;
+            }
+        }
+    }
+}
+
+static
+void buildSuffixContainer(RoseGraph &g, build_context &bc,
+                          const vector<ExclusiveInfo> &exclusive_info) {
+    // Build tamarama engine
+    for (const auto &info : exclusive_info) {
+        const u32 queue = info.queue;
+        const auto &subengines = info.subengines;
+        auto tamaProto =
+            constructContainerEngine(g, bc, info, queue, true);
+        for (const auto &sub : subengines) {
+            const auto &verts = sub.vertices;
+            for (const auto &v : verts) {
+                DEBUG_PRINTF("vert id:%lu\n", g[v].idx);
+                g[v].suffix.tamarama = tamaProto;
+            }
+            const auto &v = verts[0];
+            suffix_id newSuffix(g[v].suffix);
+            bc.suffixes.emplace(newSuffix, queue);
+        }
+    }
+}
+
+static
+void updateExclusiveInfixProperties(const RoseBuildImpl &build,
+                                    build_context &bc,
+                                    const vector<ExclusiveInfo> &exclusive_info,
+                                    set<u32> *no_retrigger_queues) {
+    const RoseGraph &g = build.g;
+    for (const auto &info : exclusive_info) {
+        // Set leftfix optimisations, disabled for tamarama subengines
+        rose_group squash_mask = ~rose_group{0};
+        // Leftfixes can have stop alphabets.
+        vector<u8> stop(N_CHARS, 0);
+        // Infix NFAs can have bounds on their queue lengths.
+        u32 max_queuelen = 0;
+        u32 max_width = 0;
+        u8 cm_count = 0;
+        CharReach cm_cr;
+
+        const auto &qi = info.queue;
+        const auto &subengines = info.subengines;
+        bool no_retrigger = true;
+        for (const auto &sub : subengines) {
+            const auto &verts = sub.vertices;
+            const auto &v_first = verts[0];
+            left_id leftfix(g[v_first].left);
+            if (leftfix.haig() || !leftfix.graph() ||
+                !nfaStuckOn(*leftfix.graph())) {
+                no_retrigger = false;
+            }
+
+            for (const auto &v : verts) {
+                set<ue2_literal> lits;
+                for (auto u : inv_adjacent_vertices_range(v, build.g)) {
+                    for (u32 lit_id : build.g[u].literals) {
+                        lits.insert(build.literals.right.at(lit_id).s);
+                    }
+                }
+                DEBUG_PRINTF("%zu literals\n", lits.size());
+
+                u32 queuelen = findMaxInfixMatches(leftfix, lits);
+                if (queuelen < UINT32_MAX) {
+                    queuelen++;
+                }
+                max_queuelen = max(max_queuelen, queuelen);
+            }
+        }
+
+        if (no_retrigger) {
+            no_retrigger_queues->insert(qi);
+        }
+
+        for (const auto &sub : subengines) {
+            const auto &verts = sub.vertices;
+            for (const auto &v : verts) {
+                u32 lag = g[v].left.lag;
+                bc.leftfix_info.emplace(
+                    v, left_build_info(qi, lag, max_width, squash_mask, stop,
+                                       max_queuelen, cm_count, cm_cr));
+            }
+        }
+    }
+}
+
+static
+void updateExclusiveSuffixProperties(const RoseBuildImpl &build,
+                                const vector<ExclusiveInfo> &exclusive_info,
+                                set<u32> *no_retrigger_queues) {
+    const RoseGraph &g = build.g;
+    for (auto &info : exclusive_info) {
+        const auto &qi = info.queue;
+        const auto &subengines = info.subengines;
+        bool no_retrigger = true;
+        for (const auto &sub : subengines) {
+            const auto &v_first = sub.vertices[0];
+            suffix_id suffix(g[v_first].suffix);
+            if (!suffix.graph() || !nfaStuckOn(*suffix.graph())) {
+                no_retrigger = false;
+                break;
+            }
+        }
+
+        if (no_retrigger) {
+            no_retrigger_queues->insert(qi);
+        }
+    }
+}
+
+static
+void buildExclusiveInfixes(RoseBuildImpl &build, build_context &bc,
+                           QueueIndexFactory &qif,
+                           const map<left_id, set<PredTopPair>> &infixTriggers,
+                           const map<u32, vector<RoseVertex>> &vertex_map,
+                           const vector<vector<u32>> &groups,
+                           set<u32> *no_retrigger_queues) {
+    RoseGraph &g = build.g;
+    const CompileContext &cc = build.cc;
+
+    vector<ExclusiveInfo> exclusive_info;
+    for (const auto &gp : groups) {
+        ExclusiveInfo info;
+        for (const auto &id : gp) {
+            const auto &verts = vertex_map.at(id);
+            left_id leftfix(g[verts[0]].left);
+
+            bool is_transient = false;
+            auto n = makeLeftNfa(build, leftfix, false, is_transient,
+                                 infixTriggers, cc);
+            assert(n);
+
+            setLeftNfaProperties(*n, leftfix);
+
+            ExclusiveSubengine engine;
+            engine.nfa = move(n);
+            engine.vertices = verts;
+            info.subengines.push_back(move(engine));
+        }
+        info.queue = qif.get_queue();
+        exclusive_info.push_back(move(info));
+    }
+    updateExclusiveInfixProperties(build, bc, exclusive_info,
+                                   no_retrigger_queues);
+    buildInfixContainer(g, bc, exclusive_info);
+}
+
+static
+void findExclusiveInfixes(RoseBuildImpl &build, build_context &bc,
+                          QueueIndexFactory &qif,
+                          const map<left_id, set<PredTopPair>> &infixTriggers,
+                          set<u32> *no_retrigger_queues) {
+    const RoseGraph &g = build.g;
+
+    set<RoleInfo<left_id>> roleInfoSet;
+    map<u32, vector<RoseVertex>> vertex_map;
+
+    u32 role_id = 0;
+    map<left_id, u32> leftfixes;
+    for (auto v : vertices_range(g)) {
+        if (!g[v].left || build.isRootSuccessor(v)) {
+            continue;
+        }
+
+        left_id leftfix(g[v].left);
+
+        // Sanity check: our NFA should contain each of the tops mentioned on
+        // our in-edges.
+        assert(roseHasTops(g, v));
+
+        if (contains(leftfixes, leftfix)) {
+            // NFA already built.
+            u32 id = leftfixes[leftfix];
+            if (contains(vertex_map, id)) {
+                vertex_map[id].push_back(v);
+            }
+            DEBUG_PRINTF("sharing leftfix, id=%u\n", id);
+            continue;
+        }
+
+        if (leftfix.graph() || leftfix.castle()) {
+            leftfixes.emplace(leftfix, role_id);
+            vertex_map[role_id].push_back(v);
+
+            map<u32, vector<vector<CharReach>>> triggers;
+            findTriggerSequences(build, infixTriggers.at(leftfix), &triggers);
+            RoleInfo<left_id> info(leftfix, role_id);
+            if (setTriggerLiteralsInfix(info, triggers)) {
+                roleInfoSet.insert(info);
+            }
+            role_id++;
+        }
+    }
+
+    if (leftfixes.size() > 1) {
+        DEBUG_PRINTF("leftfix size:%lu\n", leftfixes.size());
+        vector<vector<u32>> groups;
+        exclusiveAnalysisInfix(build, vertex_map, roleInfoSet, groups);
+        buildExclusiveInfixes(build, bc, qif, infixTriggers, vertex_map,
+                              groups, no_retrigger_queues);
+    }
+}
+
+static
 bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
                     QueueIndexFactory &qif, set<u32> *no_retrigger_queues,
                     set<u32> *eager_queues, bool do_prefix) {
@@ -1434,8 +1728,13 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
     unordered_map<left_id, vector<RoseVertex> > succs;
     findInfixTriggers(tbi, &infixTriggers);
 
+    if (cc.grey.allowTamarama && cc.streaming && !do_prefix) {
+        findExclusiveInfixes(tbi, bc, qif, infixTriggers,
+                             no_retrigger_queues);
+    }
+
     for (auto v : vertices_range(g)) {
-        if (!g[v].left) {
+        if (!g[v].left || g[v].left.tamarama) {
             continue;
         }
 
@@ -1753,11 +2052,111 @@ void setSuffixProperties(NFA &n, const suffix_id &suff,
 }
 
 static
-bool buildSuffixes(const RoseBuildImpl &tbi, build_context &bc,
-                   set<u32> *no_retrigger_queues) {
-    map<suffix_id, set<PredTopPair> > suffixTriggers;
-    findSuffixTriggers(tbi, &suffixTriggers);
+void buildExclusiveSuffixes(RoseBuildImpl &build, build_context &bc,
+                            QueueIndexFactory &qif,
+                            map<suffix_id, set<PredTopPair>> &suffixTriggers,
+                            const map<u32, vector<RoseVertex>> &vertex_map,
+                            const vector<vector<u32>> &groups,
+                            set<u32> *no_retrigger_queues) {
+    RoseGraph &g = build.g;
 
+    vector<ExclusiveInfo> exclusive_info;
+    for (const auto &gp : groups) {
+        ExclusiveInfo info;
+        for (const auto &id : gp) {
+            const auto &verts = vertex_map.at(id);
+            suffix_id s(g[verts[0]].suffix);
+
+            const set<PredTopPair> &s_triggers = suffixTriggers.at(s);
+
+            map<u32, u32> fixed_depth_tops;
+            findFixedDepthTops(g, s_triggers, &fixed_depth_tops);
+
+            map<u32, vector<vector<CharReach>>> triggers;
+            findTriggerSequences(build, s_triggers, &triggers);
+
+            auto n = buildSuffix(build.rm, build.ssm, fixed_depth_tops,
+                                 triggers, s, build.cc);
+            assert(n);
+
+            setSuffixProperties(*n, s, build.rm);
+
+            ExclusiveSubengine engine;
+            engine.nfa = move(n);
+            engine.vertices = verts;
+            info.subengines.push_back(move(engine));
+
+            const auto &reports = all_reports(s);
+            info.reports.insert(reports.begin(), reports.end());
+        }
+        info.queue = qif.get_queue();
+        exclusive_info.push_back(move(info));
+    }
+    updateExclusiveSuffixProperties(build, exclusive_info,
+                                    no_retrigger_queues);
+    buildSuffixContainer(g, bc, exclusive_info);
+}
+
+static
+void findExclusiveSuffixes(RoseBuildImpl &tbi, build_context &bc,
+                  QueueIndexFactory &qif,
+                  map<suffix_id, set<PredTopPair>> &suffixTriggers,
+                  set<u32> *no_retrigger_queues) {
+    const RoseGraph &g = tbi.g;
+
+    map<suffix_id, u32> suffixes;
+    set<RoleInfo<suffix_id>> roleInfoSet;
+    map<u32, vector<RoseVertex>> vertex_map;
+    u32 role_id = 0;
+    for (auto v : vertices_range(g)) {
+        if (!g[v].suffix) {
+            continue;
+        }
+
+        const suffix_id s(g[v].suffix);
+
+        DEBUG_PRINTF("vertex %zu triggers suffix %p\n", g[v].idx, s.graph());
+
+        // We may have already built this NFA.
+        if (contains(suffixes, s)) {
+            u32 id = suffixes[s];
+            if (!tbi.isInETable(v)) {
+                vertex_map[id].push_back(v);
+            }
+            continue;
+        }
+
+        // Currently disable eod suffixes for exclusive analysis
+        if (!tbi.isInETable(v) && (s.graph() || s.castle())) {
+            DEBUG_PRINTF("assigning %p to id %u\n", s.graph(), role_id);
+            suffixes.emplace(s, role_id);
+
+            vertex_map[role_id].push_back(v);
+            const set<PredTopPair> &s_triggers = suffixTriggers.at(s);
+            map<u32, vector<vector<CharReach>>> triggers;
+            findTriggerSequences(tbi, s_triggers, &triggers);
+
+            RoleInfo<suffix_id> info(s, role_id);
+            if (setTriggerLiteralsSuffix(info, triggers)) {
+                roleInfoSet.insert(info);
+            }
+            role_id++;
+        }
+    }
+
+    if (suffixes.size() > 1) {
+        DEBUG_PRINTF("suffix size:%lu\n", suffixes.size());
+        vector<vector<u32>> groups;
+        exclusiveAnalysisSuffix(tbi, vertex_map, roleInfoSet, groups);
+        buildExclusiveSuffixes(tbi, bc, qif, suffixTriggers, vertex_map,
+                               groups, no_retrigger_queues);
+    }
+}
+
+static
+bool buildSuffixes(const RoseBuildImpl &tbi, build_context &bc,
+                   set<u32> *no_retrigger_queues,
+                   const map<suffix_id, set<PredTopPair>> &suffixTriggers) {
     // To ensure compile determinism, build suffix engines in order of their
     // (unique) queue indices, so that we call add_nfa_to_blob in the same
     // order.
@@ -1770,6 +2169,11 @@ bool buildSuffixes(const RoseBuildImpl &tbi, build_context &bc,
     for (const auto &e : ordered) {
         const u32 queue = e.first;
         const suffix_id &s = e.second;
+
+        if (s.tamarama()) {
+            continue;
+        }
+
         const set<PredTopPair> &s_triggers = suffixTriggers.at(s);
 
         map<u32, u32> fixed_depth_tops;
@@ -1860,11 +2264,20 @@ static
 bool buildNfas(RoseBuildImpl &tbi, build_context &bc, QueueIndexFactory &qif,
                set<u32> *no_retrigger_queues, set<u32> *eager_queues,
                u32 *leftfixBeginQueue) {
+    map<suffix_id, set<PredTopPair>> suffixTriggers;
+    findSuffixTriggers(tbi, &suffixTriggers);
+
+    if (tbi.cc.grey.allowTamarama && tbi.cc.streaming) {
+        findExclusiveSuffixes(tbi, bc, qif, suffixTriggers,
+                              no_retrigger_queues);
+    }
+
     assignSuffixQueues(tbi, bc);
 
-    if (!buildSuffixes(tbi, bc, no_retrigger_queues)) {
+    if (!buildSuffixes(tbi, bc, no_retrigger_queues, suffixTriggers)) {
         return false;
     }
+    suffixTriggers.clear();
 
     *leftfixBeginQueue = qif.allocated_count();
 
@@ -3205,7 +3618,15 @@ void makeRoleSuffix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
     assert(contains(bc.engineOffsets, qi));
     const NFA *nfa = get_nfa_from_blob(bc, qi);
     u32 suffixEvent;
-    if (isMultiTopType(nfa->type)) {
+    if (isContainerType(nfa->type)) {
+        auto tamaProto = g[v].suffix.tamarama.get();
+        assert(tamaProto);
+        u32 top = (u32)MQE_TOP_FIRST +
+                  tamaProto->top_remap.at(make_pair(g[v].idx,
+                                                    g[v].suffix.top));
+        assert(top < MQE_INVALID);
+        suffixEvent = top;
+    } else if (isMultiTopType(nfa->type)) {
         assert(!g[v].suffix.haig);
         u32 top = (u32)MQE_TOP_FIRST + g[v].suffix.top;
         assert(top < MQE_INVALID);
@@ -3283,7 +3704,13 @@ void makeRoleInfixTriggers(RoseBuildImpl &build, build_context &bc,
 
         // DFAs have no TOP_N support, so they get a classic MQE_TOP event.
         u32 top;
-        if (!isMultiTopType(nfa->type)) {
+        if (isContainerType(nfa->type)) {
+            auto tamaProto = g[v].left.tamarama.get();
+            assert(tamaProto);
+            top = MQE_TOP_FIRST + tamaProto->top_remap.at(
+                                      make_pair(g[v].idx, g[e].rose_top));
+            assert(top < MQE_INVALID);
+        } else if (!isMultiTopType(nfa->type)) {
             assert(num_tops(g[v].left) == 1);
             top = MQE_TOP;
         } else {

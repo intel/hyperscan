@@ -40,6 +40,7 @@
 #include "limex.h"
 #include "mcclellandump.h"
 #include "mpv_dump.h"
+#include "tamarama_dump.h"
 
 #ifndef DUMP_SUPPORT
 #error "no dump support"
@@ -73,12 +74,14 @@ namespace ue2 {
         DISPATCH_CASE(LBR, Lbr, Shuf, dbnt_func);             \
         DISPATCH_CASE(LBR, Lbr, Truf, dbnt_func);             \
         DISPATCH_CASE(CASTLE, Castle, 0, dbnt_func);          \
+        DISPATCH_CASE(TAMARAMA, Tamarama, 0, dbnt_func);      \
     default:                                                  \
         assert(0);                                            \
     }
 
-void nfaDumpDot(const struct NFA *nfa, FILE *dotFile) {
-    DISPATCH_BY_NFA_TYPE(_dumpDot(nfa, dotFile));
+void nfaDumpDot(const struct NFA *nfa, FILE *dotFile,
+                const std::string &base) {
+    DISPATCH_BY_NFA_TYPE(_dumpDot(nfa, dotFile, base));
 }
 
 void nfaDumpText(const struct NFA *nfa, FILE *txtFile) {
