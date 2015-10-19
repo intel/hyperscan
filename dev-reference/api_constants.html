@@ -1,0 +1,369 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>API Reference: Constants &mdash; Hyperscan 4.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '4.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="top" title="Hyperscan 4.0.0 documentation" href="index.html" />
+    <link rel="next" title="API Reference: Files" href="api_files.html" />
+    <link rel="prev" title="Performance Considerations" href="performance.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="api-reference-constants">
+<span id="api-constants"></span><h1>API Reference: Constants<a class="headerlink" href="#api-reference-constants" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="error-codes">
+<h2>Error Codes<a class="headerlink" href="#error-codes" title="Permalink to this headline">¶</a></h2>
+<dl class="define">
+<dt>
+<code class="descname">HS_SUCCESS</code></dt>
+<dd><p>The engine completed normally. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_INVALID</code></dt>
+<dd><p>A parameter passed to this function was invalid. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_NOMEM</code></dt>
+<dd><p>A memory allocation failed. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_SCAN_TERMINATED</code></dt>
+<dd><p>The engine was terminated by callback.</p>
+<p>This return value indicates that the target buffer was partially scanned, but that the callback function requested that scanning cease after a match was located. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_COMPILER_ERROR</code></dt>
+<dd><p>The pattern compiler failed, and the <a class="reference internal" href="api_files.html#project0hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span>hs_compile_error_t</span></a> should be inspected for more detail. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_DB_VERSION_ERROR</code></dt>
+<dd><p>The given database was built for a different version of Hyperscan. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_DB_PLATFORM_ERROR</code></dt>
+<dd><p>The given database was built for a different platform (i.e., CPU type). </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_DB_MODE_ERROR</code></dt>
+<dd><p>The given database was built for a different mode of operation. This error is returned when streaming calls are used with a block or vectored database and vice versa. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_BAD_ALIGN</code></dt>
+<dd><p>A parameter passed to this function was not correctly aligned. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_BAD_ALLOC</code></dt>
+<dd><p>The memory allocator (either malloc() or the allocator set with <a class="reference internal" href="api_files.html#project0hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span>hs_set_allocator()</span></a>) did not correctly return memory suitably aligned for the largest representable data type on this platform. </p>
+</dd></dl>
+
+</div>
+<div class="section" id="hs-expr-ext-flags">
+<h2>hs_expr_ext flags<a class="headerlink" href="#hs-expr-ext-flags" title="Permalink to this headline">¶</a></h2>
+<dl class="define">
+<dt>
+<code class="descname">HS_EXT_FLAG_MIN_OFFSET</code></dt>
+<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#project0strucths__expr__ext_1a006843974cb05dbf16291da621a72fa9"><span>hs_expr_ext::min_offset</span></a> field is used. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_EXT_FLAG_MAX_OFFSET</code></dt>
+<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#project0strucths__expr__ext_1a263c613f20c6b8ef30ca01785e0f55fc"><span>hs_expr_ext::max_offset</span></a> field is used. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_EXT_FLAG_MIN_LENGTH</code></dt>
+<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#project0strucths__expr__ext_1a6afdac1e0bb89d9a76d6c91ed86a6fe8"><span>hs_expr_ext::min_length</span></a> field is used. </p>
+</dd></dl>
+
+</div>
+<div class="section" id="pattern-flags">
+<h2>Pattern flags<a class="headerlink" href="#pattern-flags" title="Permalink to this headline">¶</a></h2>
+<dl class="define">
+<dt>
+<code class="descname">HS_FLAG_CASELESS</code></dt>
+<dd><p>Compile flag: Set case-insensitive matching.</p>
+<p>This flag sets the expression to be matched case-insensitively by default. The expression may still use PCRE tokens (notably <code class="docutils literal"><span class="pre">(?i)</span></code> and <code class="docutils literal"><span class="pre">(?-i)</span></code>) to switch case-insensitive matching on and off. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_FLAG_DOTALL</code></dt>
+<dd><p>Compile flag: Matching a <code class="docutils literal"><span class="pre">.</span></code> will not exclude newlines.</p>
+<p>This flag sets any instances of the <code class="docutils literal"><span class="pre">.</span></code> token to match newline characters as well as all other characters. The PCRE specification states that the <code class="docutils literal"><span class="pre">.</span></code> token does not match newline characters by default, so without this flag the <code class="docutils literal"><span class="pre">.</span></code> token will not cross line boundaries. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_FLAG_MULTILINE</code></dt>
+<dd><p>Compile flag: Set multi-line anchoring.</p>
+<p>This flag instructs the expression to make the <code class="docutils literal"><span class="pre">^</span></code> and <code class="docutils literal"><span class="pre">$</span></code> tokens match newline characters as well as the start and end of the stream. If this flag is not specified, the <code class="docutils literal"><span class="pre">^</span></code> token will only ever match at the start of a stream, and the <code class="docutils literal"><span class="pre">$</span></code> token will only ever match at the end of a stream within the guidelines of the PCRE specification. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_FLAG_SINGLEMATCH</code></dt>
+<dd><p>Compile flag: Set single-match only mode.</p>
+<p>This flag sets the expression&#8217;s match ID to match at most once. In streaming mode, this means that the expression will return only a single match over the lifetime of the stream, rather than reporting every match as per standard Hyperscan semantics. In block mode or vectored mode, only the first match for each invocation of <a class="reference internal" href="api_files.html#project0hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span>hs_scan()</span></a> or <a class="reference internal" href="api_files.html#project0hs__runtime_8h_1ad6b603921a1fd2ddf12230730d6634c6"><span>hs_scan_vector()</span></a> will be returned.</p>
+<p>If multiple expressions in the database share the same match ID, then they either must all specify <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"><span>HS_FLAG_SINGLEMATCH</span></a> or none of them specify <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"><span>HS_FLAG_SINGLEMATCH</span></a>. If a group of expressions sharing a match ID specify the flag, then at most one match with the match ID will be generated per stream.</p>
+<p>Note: The use of this flag in combination with <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span>HS_FLAG_SOM_LEFTMOST</span></a> is not currently supported. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_FLAG_ALLOWEMPTY</code></dt>
+<dd><p>Compile flag: Allow expressions that can match against empty buffers.</p>
+<p>This flag instructs the compiler to allow expressions that can match against empty buffers, such as <code class="docutils literal"><span class="pre">.?</span></code>, <code class="docutils literal"><span class="pre">.*</span></code>, <code class="docutils literal"><span class="pre">(a|)</span></code>. Since Hyperscan can return every possible match for an expression, such expressions generally execute very slowly; the default behaviour is to return an error when an attempt to compile one is made. Using this flag will force the compiler to allow such an expression. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_FLAG_UTF8</code></dt>
+<dd><p>Compile flag: Enable UTF-8 mode for this expression.</p>
+<p>This flag instructs Hyperscan to treat the pattern as a sequence of UTF-8 characters. The results of scanning invalid UTF-8 sequences with a Hyperscan library that has been compiled with one or more patterns using this flag are undefined. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_FLAG_UCP</code></dt>
+<dd><p>Compile flag: Enable Unicode property support for this expression.</p>
+<p>This flag instructs Hyperscan to use Unicode properties, rather than the default ASCII interpretations, for character mnemonics like <code class="docutils literal"><span class="pre">\w</span></code> and <code class="docutils literal"><span class="pre">\s</span></code> as well as the POSIX character classes. It is only meaningful in conjunction with <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1ga8c95741825e963834f8f53dd545132bd"><span>HS_FLAG_UTF8</span></a>. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_FLAG_PREFILTER</code></dt>
+<dd><p>Compile flag: Enable prefiltering mode for this expression.</p>
+<p>This flag instructs Hyperscan to compile an &#8220;approximate&#8221; version of this pattern for use in a prefiltering application, even if Hyperscan does not support the pattern in normal operation.</p>
+<p>The set of matches returned when this flag is used is guaranteed to be a superset of the matches specified by the non-prefiltering expression.</p>
+<p>If the pattern contains pattern constructs not supported by Hyperscan (such as zero-width assertions, back-references or conditional references) these constructs will be replaced internally with broader constructs that may match more often.</p>
+<p>Furthermore, in prefiltering mode Hyperscan may simplify a pattern that would otherwise return a &#8220;Pattern too large&#8221; error at compile time, or for performance reasons (subject to the matching guarantee above).</p>
+<p>It is generally expected that the application will subsequently confirm prefilter matches with another regular expression matcher that can provide exact matches for the pattern.</p>
+<p>Note: The use of this flag in combination with <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span>HS_FLAG_SOM_LEFTMOST</span></a> is not currently supported. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_FLAG_SOM_LEFTMOST</code></dt>
+<dd><p>Compile flag: Enable leftmost start of match reporting.</p>
+<p>This flag instructs Hyperscan to report the leftmost possible start of match offset when a match is reported for this expression. (By default, no start of match is returned.)</p>
+<p>Enabling this behaviour may reduce performance and increase stream state requirements in streaming mode. </p>
+</dd></dl>
+
+</div>
+<div class="section" id="cpu-feature-support-flags">
+<h2>CPU feature support flags<a class="headerlink" href="#cpu-feature-support-flags" title="Permalink to this headline">¶</a></h2>
+<dl class="define">
+<dt>
+<code class="descname">HS_CPU_FEATURES_AVX2</code></dt>
+<dd><p>CPU features flag - Intel(R) Advanced Vector Extensions 2 (Intel(R) AVX2)</p>
+<p>Setting this flag indicates that the target platform supports AVX2 instructions. </p>
+</dd></dl>
+
+</div>
+<div class="section" id="cpu-tuning-flags">
+<h2>CPU tuning flags<a class="headerlink" href="#cpu-tuning-flags" title="Permalink to this headline">¶</a></h2>
+<dl class="define">
+<dt>
+<code class="descname">HS_TUNE_FAMILY_GENERIC</code></dt>
+<dd><p>Tuning Parameter - Generic</p>
+<p>This indicates that the compiled database should not be tuned for any particular target platform. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_TUNE_FAMILY_SNB</code></dt>
+<dd><p>Tuning Parameter - Intel(R) microarchitecture code name Sandy Bridge</p>
+<p>This indicates that the compiled database should be tuned for the Sandy Bridge microarchitecture. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_TUNE_FAMILY_IVB</code></dt>
+<dd><p>Tuning Parameter - Intel(R) microarchitecture code name Ivy Bridge</p>
+<p>This indicates that the compiled database should be tuned for the Ivy Bridge microarchitecture. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_TUNE_FAMILY_HSW</code></dt>
+<dd><p>Tuning Parameter - Intel(R) microarchitecture code name Haswell</p>
+<p>This indicates that the compiled database should be tuned for the Haswell microarchitecture. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_TUNE_FAMILY_SLM</code></dt>
+<dd><p>Tuning Parameter - Intel(R) microarchitecture code name Silvermont</p>
+<p>This indicates that the compiled database should be tuned for the Silvermont microarchitecture. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_TUNE_FAMILY_BDW</code></dt>
+<dd><p>Tuning Parameter - Intel(R) microarchitecture code name Broadwell</p>
+<p>This indicates that the compiled database should be tuned for the Broadwell microarchitecture. </p>
+</dd></dl>
+
+</div>
+<div class="section" id="compile-mode-flags">
+<h2>Compile mode flags<a class="headerlink" href="#compile-mode-flags" title="Permalink to this headline">¶</a></h2>
+<dl class="define">
+<dt>
+<code class="descname">HS_MODE_BLOCK</code></dt>
+<dd><p>Compiler mode flag: Block scan (non-streaming) database. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_MODE_NOSTREAM</code></dt>
+<dd><p>Compiler mode flag: Alias for <a class="reference internal" href="api_files.html#project0group__HS__MODE__FLAG_1ga494ea2cf28a49627e4d131e596f489c0"><span>HS_MODE_BLOCK</span></a>. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_MODE_STREAM</code></dt>
+<dd><p>Compiler mode flag: Streaming database. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_MODE_VECTORED</code></dt>
+<dd><p>Compiler mode flag: Vectored scanning database. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_MODE_SOM_HORIZON_LARGE</code></dt>
+<dd><p>Compiler mode flag: use full precision to track start of match offsets in stream state.</p>
+<p>This mode will use the most stream state per pattern, but will always return an accurate start of match offset regardless of how far back in the past it was found.</p>
+<p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span>HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_MODE_SOM_HORIZON_MEDIUM</code></dt>
+<dd><p>Compiler mode flag: use medium precision to track start of match offsets in stream state.</p>
+<p>This mode will use less stream state than <a class="reference internal" href="api_files.html#project0group__HS__MODE__FLAG_1gaae54cf9532a990b1ef7bdb4fa51eb3c6"><span>HS_MODE_SOM_HORIZON_LARGE</span></a> and will limit start of match accuracy to offsets within 2^32 bytes of the end of match offset reported.</p>
+<p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span>HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_MODE_SOM_HORIZON_SMALL</code></dt>
+<dd><p>Compiler mode flag: use limited precision to track start of match offsets in stream state.</p>
+<p>This mode will use less stream state than <a class="reference internal" href="api_files.html#project0group__HS__MODE__FLAG_1gaae54cf9532a990b1ef7bdb4fa51eb3c6"><span>HS_MODE_SOM_HORIZON_LARGE</span></a> and will limit start of match accuracy to offsets within 2^16 bytes of the end of match offset reported.</p>
+<p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span>HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="index.html">Table Of Contents</a></h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="preface.html">Preface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compilation.html">Compiling Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">API Reference: Constants</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#error-codes">Error Codes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#hs-expr-ext-flags">hs_expr_ext flags</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pattern-flags">Pattern flags</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cpu-feature-support-flags">CPU feature support flags</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#cpu-tuning-flags">CPU tuning flags</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#compile-mode-flags">Compile mode flags</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_files.html">API Reference: Files</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2015, Intel Corporation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.6</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,343 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Getting Started &mdash; Hyperscan 4.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '4.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="top" title="Hyperscan 4.0.0 documentation" href="index.html" />
+    <link rel="next" title="Compiling Patterns" href="compilation.html" />
+    <link rel="prev" title="Introduction" href="intro.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="getting-started">
+<h1>Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="very-quick-start">
+<h2>Very Quick Start<a class="headerlink" href="#very-quick-start" title="Permalink to this headline">¶</a></h2>
+<ol class="arabic">
+<li><p class="first">Clone Hyperscan</p>
+<div class="highlight-python"><div class="highlight"><pre>cd &lt;where-you-want-hyperscan-source&gt;
+git clone git://github/01org/hyperscan
+</pre></div>
+</div>
+</li>
+<li><p class="first">Configure Hyperscan</p>
+<p>Ensure that you have the correct <a class="reference internal" href="#software"><span>dependencies</span></a> present,
+and then:</p>
+<div class="highlight-python"><div class="highlight"><pre>cd &lt;where-you-want-to-build-hyperscan&gt;
+mkdir &lt;build-dir&gt;
+cd &lt;build-dir&gt;
+cmake [-G &lt;generator&gt;] [options] &lt;hyperscan-source-path&gt;
+</pre></div>
+</div>
+<dl class="docutils">
+<dt>Known working generators:</dt>
+<dd><ul class="first last simple">
+<li><code class="docutils literal"><span class="pre">Unix</span> <span class="pre">Makefiles</span></code> &#8212; make-compatible makefiles (default on Linux/FreeBSD/Mac OS X)</li>
+<li><code class="docutils literal"><span class="pre">Ninja</span></code> &#8212; <a class="reference external" href="http://martine.github.io/ninja/">Ninja</a> build files.</li>
+</ul>
+</dd>
+<dt>Generators that might work include:</dt>
+<dd><ul class="first last simple">
+<li><code class="docutils literal"><span class="pre">Xcode</span></code> &#8212; OS X Xcode projects.</li>
+<li><code class="docutils literal"><span class="pre">Visual</span> <span class="pre">Studio</span></code> &#8212; Visual Studio projects - very experimental</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">Build Hyperscan</p>
+<dl class="docutils">
+<dt>Depending on the generator used:</dt>
+<dd><ul class="first last simple">
+<li><code class="docutils literal"><span class="pre">cmake</span> <span class="pre">--build</span> <span class="pre">.</span></code> &#8212; will build everything</li>
+<li><code class="docutils literal"><span class="pre">make</span> <span class="pre">-j&lt;jobs&gt;</span></code> &#8212; use makefiles in parallel</li>
+<li><code class="docutils literal"><span class="pre">ninja</span></code> &#8212; use Ninja build</li>
+<li>etc.</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">Check Hyperscan</p>
+<p>Run the Hyperscan unit tests:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="nb">bin</span><span class="o">/</span><span class="n">unit</span><span class="o">-</span><span class="n">hyperscan</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</div>
+<div class="section" id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="hardware">
+<h3>Hardware<a class="headerlink" href="#hardware" title="Permalink to this headline">¶</a></h3>
+<p>Hyperscan will run on x86 processors in 64-bit (Intel® 64 Architecture) and
+32-bit (IA-32 Architecture) modes.</p>
+<p>Hyperscan is a high performance software library that takes advantage of recent
+Intel architecture advances. At a minimum, support for Supplemental Streaming
+SIMD Extensions 3 (SSSE3) is required, which should be available on any modern
+x86 processor.</p>
+<p>Additionally, Hyperscan can make use of:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Intel Streaming SIMD Extensions 4.2 (SSE4.2)</li>
+<li>the POPCNT instruction</li>
+<li>Bit Manipulation Instructions (BMI, BMI2)</li>
+<li>Intel Advanced Vector Extensions 2 (Intel AVX2)</li>
+</ul>
+</div></blockquote>
+<p>if present.</p>
+<p>These can be determined at library compile time, see <a class="reference internal" href="#target-arch"><span>Target Architecture</span></a>.</p>
+</div>
+<div class="section" id="software">
+<span id="id1"></span><h3>Software<a class="headerlink" href="#software" title="Permalink to this headline">¶</a></h3>
+<p>As a software library, Hyperscan doesn&#8217;t impose any particular runtime
+software requirements, however to build the Hyperscan library we require a
+modern C and C++ compiler &#8211; in particular, Hyperscan requires C99 and C++11
+compiler support. The supported compilers are:</p>
+<blockquote>
+<div><ul class="simple">
+<li>GCC, v4.8.1 or higher</li>
+<li>Clang, v3.4 or higher (with libstdc++ or libc++)</li>
+<li>Intel C++ Compiler v15 or higher</li>
+</ul>
+</div></blockquote>
+<p>Examples of operating systems that Hyperscan is known to work on include:</p>
+<p>Linux:</p>
+<ul class="simple">
+<li>Ubuntu 14.04 LTS or newer</li>
+<li>RedHat/CentOS 7 or newer</li>
+</ul>
+<p>FreeBSD:</p>
+<ul class="simple">
+<li>10.0 or newer</li>
+</ul>
+<p>Mac OS X:</p>
+<ul class="simple">
+<li>10.8 or newer, using XCode/Clang</li>
+</ul>
+<p>Hyperscan <em>may</em> compile and run on other platforms, but there is no guarantee.
+We currently have experimental support for Windows using Intel C++ Compiler
+or Visual Studio 2015.</p>
+<p>In addition, the following software is required for compiling the Hyperscan library:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="53%" />
+<col width="11%" />
+<col width="37%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Dependency</th>
+<th class="head">Version</th>
+<th class="head">Notes</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><a class="reference external" href="http://www.cmake.org/">CMake</a></td>
+<td>&gt;=2.8.11</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><a class="reference external" href="http://www.colm.net/open-source/ragel/">Ragel</a></td>
+<td>6.9</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><a class="reference external" href="http://www.python.org/">Python</a></td>
+<td>2.7</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><a class="reference external" href="http://boost.org/">Boost</a></td>
+<td>&gt;=1.57</td>
+<td>Boost headers required</td>
+</tr>
+<tr class="row-even"><td><a class="reference external" href="http://tcpdump.org">Pcap</a></td>
+<td>&gt;=0.8</td>
+<td>Optional: needed for example code only</td>
+</tr>
+</tbody>
+</table>
+<p>Most of these dependencies can be provided by the package manager on the build
+system (e.g. Debian/Ubuntu/RedHat packages, FreeBSD ports, etc). However,
+ensure that the correct version is present.</p>
+<div class="section" id="boost-headers">
+<h4>Boost Headers<a class="headerlink" href="#boost-headers" title="Permalink to this headline">¶</a></h4>
+<p>Compiling Hyperscan depends on a recent version of the Boost C++ header
+library. If the Boost libraries are installed on the build machine in the
+usual paths, CMake will find them. An alternative is to put a copy of (or a
+symlink to) the boost subdirectory in <code class="docutils literal"><span class="pre">&lt;hyperscan-source-path&gt;/include/boost</span></code>.</p>
+<p>For example: for the Boost-1.59.0 release:</p>
+<div class="highlight-python"><div class="highlight"><pre>ln -s boost_1_59_0/boost &lt;hyperscan-source-path&gt;/include/boost
+</pre></div>
+</div>
+<p>As Hyperscan uses the header-only parts of Boost, it is not necessary to
+compile the Boost libraries.</p>
+</div>
+</div>
+<div class="section" id="cmake-configuration">
+<h3>CMake Configuration<a class="headerlink" href="#cmake-configuration" title="Permalink to this headline">¶</a></h3>
+<p>When CMake is invoked, it generates build files using the given options.
+Options are passed to CMake in the form <code class="docutils literal"><span class="pre">-D&lt;variable</span> <span class="pre">name&gt;=&lt;value&gt;</span></code>.
+Common options for CMake include:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="32%" />
+<col width="68%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Variable</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>CMAKE_C_COMPILER</td>
+<td>C compiler to use. Default is /usr/bin/cc.</td>
+</tr>
+<tr class="row-odd"><td>CMAKE_CXX_COMPILER</td>
+<td>C++ compiler to use. Default is /usr/bin/c++.</td>
+</tr>
+<tr class="row-even"><td>CMAKE_INSTALL_PREFIX</td>
+<td>Install directory for <code class="docutils literal"><span class="pre">install</span></code> target</td>
+</tr>
+<tr class="row-odd"><td>CMAKE_BUILD_TYPE</td>
+<td>Define which kind of build to generate.
+Valid options are Debug, Release, RelWithDebInfo,
+and MinSizeRel. Default is RelWithDebInfo.</td>
+</tr>
+<tr class="row-even"><td>BUILD_SHARED_LIBS</td>
+<td>Build Hyperscan as a shared library instead of
+the default static library.</td>
+</tr>
+<tr class="row-odd"><td>BUILD_STATIC_AND_SHARED</td>
+<td>Build both static and shared Hyperscan libs.
+Default off.</td>
+</tr>
+<tr class="row-even"><td>DEBUG_OUTPUT</td>
+<td>Enable very verbose debug output. Default off.</td>
+</tr>
+</tbody>
+</table>
+<p>For example, to generate a <code class="docutils literal"><span class="pre">Debug</span></code> build:</p>
+<div class="highlight-python"><div class="highlight"><pre>cd &lt;build-dir&gt;
+cmake -DCMAKE_BUILD_TYPE=Debug &lt;hyperscan-source-path&gt;
+</pre></div>
+</div>
+<div class="section" id="build-type">
+<h4>Build Type<a class="headerlink" href="#build-type" title="Permalink to this headline">¶</a></h4>
+<p>CMake determines a number of features for a build based on the Build Type.
+Hyperscan defaults to <code class="docutils literal"><span class="pre">RelWithDebInfo</span></code>, i.e. &#8220;release with debugging
+information&#8221;. This is a performance optimized build without runtime assertions
+but with debug symbols enabled.</p>
+<p>The other types of builds are:</p>
+<blockquote>
+<div><ul class="simple">
+<li><code class="docutils literal"><span class="pre">Release</span></code>: as above, but without debug symbols</li>
+<li><code class="docutils literal"><span class="pre">MinSizeRel</span></code>: a stripped release build</li>
+<li><code class="docutils literal"><span class="pre">Debug</span></code>: used when developing Hyperscan. Includes runtime assertions
+(which has a large impact on runtime performance), and will also enable
+some other build features like building internal unit
+tests.</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="target-architecture">
+<span id="target-arch"></span><h4>Target Architecture<a class="headerlink" href="#target-architecture" title="Permalink to this headline">¶</a></h4>
+<p>By default, Hyperscan will be compiled to target the instruction set of the
+processor of the machine that being used for compilation. This is done via
+the use of <code class="docutils literal"><span class="pre">-march=native</span></code>. The result of this means that a library built on
+one machine may not work on a different machine if they differ in supported
+instruction subsets.</p>
+<p>To override the use of <code class="docutils literal"><span class="pre">-march=native</span></code>, set appropriate flags for the
+compiler in <code class="docutils literal"><span class="pre">CFLAGS</span></code> and <code class="docutils literal"><span class="pre">CXXFLAGS</span></code> environment variables before invoking
+CMake, or <code class="docutils literal"><span class="pre">CMAKE_C_FLAGS</span></code> and <code class="docutils literal"><span class="pre">CMAKE_CXX_FLAGS</span></code> on the CMake command line. For
+example, to set the instruction subsets up to <code class="docutils literal"><span class="pre">SSE4.2</span></code> using GCC 4.8:</p>
+<div class="highlight-python"><div class="highlight"><pre>cmake -DCMAKE_C_FLAGS=&quot;-march=corei7&quot; \
+  -DCMAKE_CXX_FLAGS=&quot;-march=corei7&quot; &lt;hyperscan-source-path&gt;
+</pre></div>
+</div>
+<p>For more information, refer to <a class="reference internal" href="compilation.html#instr-specialization"><span>Instruction Set Specialization</span></a>.</p>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="index.html">Table Of Contents</a></h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="preface.html">Preface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Getting Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#very-quick-start">Very Quick Start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="compilation.html">Compiling Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_constants.html">API Reference: Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_files.html">API Reference: Files</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2015, Intel Corporation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.6</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
