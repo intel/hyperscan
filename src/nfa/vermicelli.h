@@ -1,0 +1,358 @@
+/*
+ * Copyright (c) 2015, Intel Corporation
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of Intel Corporation nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/** \file
+ * \brief Vermicelli: single-byte and double-byte acceleration.
+ */
+
+#ifndef VERMICELLI_H
+#define VERMICELLI_H
+
+#include "util/bitutils.h"
+#include "util/simd_utils.h"
+#include "util/unaligned.h"
+
+#include "vermicelli_sse.h"
+
+static really_inline
+const u8 *vermicelliExec(char c, char nocase, const u8 *buf,
+                         const u8 *buf_end) {
+    DEBUG_PRINTF("verm scan %s\\x%02hhx over %zu bytes\n",
+                 nocase ? "nocase " : "", c, (size_t)(buf_end - buf));
+    assert(buf < buf_end);
+
+    // Handle small scans.
+    if (buf_end - buf < VERM_BOUNDARY) {
+        for (; buf < buf_end; buf++) {
+            char cur = (char)*buf;
+            if (nocase) {
+                cur &= CASE_CLEAR;
+            }
+            if (cur == c) {
+                break;
+            }
+        }
+        return buf;
+    }
+
+    VERM_TYPE chars = VERM_SET_FN(c); /* nocase already uppercase */
+    uintptr_t min = (uintptr_t)buf % VERM_BOUNDARY;
+    if (min) {
+        // Input isn't aligned, so we need to run one iteration with an
+        // unaligned load, then skip buf forward to the next aligned address.
+        // There's some small overlap here, but we don't mind scanning it twice
+        // if we can do it quickly, do we?
+        const u8 *ptr = nocase ? vermUnalignNocase(chars, buf, 0)
+                               : vermUnalign(chars, buf, 0);
+        if (ptr) {
+            return ptr;
+        }
+
+        buf += VERM_BOUNDARY - min;
+        if (buf >= buf_end) {
+            return buf_end;
+        }
+    }
+
+    // Aligned loops from here on in
+    const u8 *ptr = nocase ? vermSearchAlignedNocase(chars, buf, buf_end - 1, 0)
+                           : vermSearchAligned(chars, buf, buf_end - 1, 0);
+    if (ptr) {
+        return ptr;
+    }
+
+    // Tidy up the mess at the end
+    ptr = nocase ? vermUnalignNocase(chars, buf_end - VERM_BOUNDARY, 0)
+                 : vermUnalign(chars, buf_end - VERM_BOUNDARY, 0);
+    return ptr ? ptr : buf_end;
+}
+
+/* like vermicelliExec except returns the address of the first character which
+ * is not c */
+static really_inline
+const u8 *nvermicelliExec(char c, char nocase, const u8 *buf,
+                         const u8 *buf_end) {
+    DEBUG_PRINTF("nverm scan %s\\x%02hhx over %zu bytes\n",
+                 nocase ? "nocase " : "", c, (size_t)(buf_end - buf));
+    assert(buf < buf_end);
+
+    // Handle small scans.
+    if (buf_end - buf < VERM_BOUNDARY) {
+        for (; buf < buf_end; buf++) {
+            char cur = (char)*buf;
+            if (nocase) {
+                cur &= CASE_CLEAR;
+            }
+            if (cur != c) {
+                break;
+            }
+        }
+        return buf;
+    }
+
+    VERM_TYPE chars = VERM_SET_FN(c); /* nocase already uppercase */
+    size_t min = (size_t)buf % VERM_BOUNDARY;
+    if (min) {
+        // Input isn't aligned, so we need to run one iteration with an
+        // unaligned load, then skip buf forward to the next aligned address.
+        // There's some small overlap here, but we don't mind scanning it twice
+        // if we can do it quickly, do we?
+        const u8 *ptr = nocase ? vermUnalignNocase(chars, buf, 1)
+                               : vermUnalign(chars, buf, 1);
+        if (ptr) {
+            return ptr;
+        }
+
+        buf += VERM_BOUNDARY - min;
+        if (buf >= buf_end) {
+            return buf_end;
+        }
+    }
+
+    // Aligned loops from here on in
+    const u8 *ptr = nocase ? vermSearchAlignedNocase(chars, buf, buf_end - 1, 1)
+                           : vermSearchAligned(chars, buf, buf_end - 1, 1);
+    if (ptr) {
+        return ptr;
+    }
+
+    // Tidy up the mess at the end
+    ptr = nocase ? vermUnalignNocase(chars, buf_end - VERM_BOUNDARY, 1)
+                 : vermUnalign(chars, buf_end - VERM_BOUNDARY, 1);
+    return ptr ? ptr : buf_end;
+}
+
+static really_inline
+const u8 *vermicelliDoubleExec(char c1, char c2, char nocase, const u8 *buf,
+                               const u8 *buf_end) {
+    DEBUG_PRINTF("double verm scan %s\\x%02hhx%02hhx over %zu bytes\n",
+                 nocase ? "nocase " : "", c1, c2, (size_t)(buf_end - buf));
+    assert(buf < buf_end);
+    assert((buf_end - buf) >= VERM_BOUNDARY);
+
+    uintptr_t min = (uintptr_t)buf % VERM_BOUNDARY;
+    VERM_TYPE chars1 = VERM_SET_FN(c1); /* nocase already uppercase */
+    VERM_TYPE chars2 = VERM_SET_FN(c2); /* nocase already uppercase */
+
+    if (min) {
+        // Input isn't aligned, so we need to run one iteration with an
+        // unaligned load, then skip buf forward to the next aligned address.
+        // There's some small overlap here, but we don't mind scanning it twice
+        // if we can do it quickly, do we?
+        const u8 *ptr = nocase
+                        ? dvermPreconditionNocase(chars1, chars2, buf)
+                        : dvermPrecondition(chars1, chars2, buf);
+        if (ptr) {
+            return ptr;
+        }
+
+        buf += VERM_BOUNDARY - min;
+        if (buf >= buf_end) {
+            return buf_end - 1;
+        }
+    }
+
+    // Aligned loops from here on in
+    if (nocase) {
+        return dvermSearchAlignedNocase(chars1, chars2, c1, c2, buf, buf_end);
+    } else {
+        return dvermSearchAligned(chars1, chars2, c1, c2, buf, buf_end);
+    }
+}
+
+// Reverse vermicelli scan. Provides exact semantics and returns (buf - 1) if
+// character not found.
+static really_inline
+const u8 *rvermicelliExec(char c, char nocase, const u8 *buf,
+                          const u8 *buf_end) {
+    DEBUG_PRINTF("rev verm scan %s\\x%02hhx over %zu bytes\n",
+                 nocase ? "nocase " : "", c, (size_t)(buf_end - buf));
+    assert(buf < buf_end);
+
+    // Handle small scans.
+    if (buf_end - buf < VERM_BOUNDARY) {
+        for (buf_end--; buf_end >= buf; buf_end--) {
+            char cur = (char)*buf_end;
+            if (nocase) {
+                cur &= CASE_CLEAR;
+            }
+            if (cur == c) {
+                break;
+            }
+        }
+        return buf_end;
+    }
+
+    VERM_TYPE chars = VERM_SET_FN(c); /* nocase already uppercase */
+    size_t min = (size_t)buf_end % VERM_BOUNDARY;
+
+    if (min) {
+        // Input isn't aligned, so we need to run one iteration with an
+        // unaligned load, then skip buf backward to the next aligned address.
+        // There's some small overlap here, but we don't mind scanning it twice
+        // if we can do it quickly, do we?
+        if (nocase) {
+            const u8 *ptr =
+                rvermUnalignNocase(chars, buf_end - VERM_BOUNDARY, 0);
+            if (ptr) {
+                return ptr;
+            }
+        } else {
+            const u8 *ptr = rvermUnalign(chars, buf_end - VERM_BOUNDARY, 0);
+            if (ptr) {
+                return ptr;
+            }
+        }
+
+        buf_end -= min;
+        if (buf >= buf_end) {
+            return buf_end;
+        }
+    }
+
+    // Aligned loops from here on in.
+    const u8 *ptr = nocase ? rvermSearchAlignedNocase(chars, buf, buf_end, 0)
+                           : rvermSearchAligned(chars, buf, buf_end, 0);
+    if (ptr) {
+        return ptr;
+    }
+
+    // Tidy up the mess at the end, return buf - 1 if not found.
+    ptr = nocase ? rvermUnalignNocase(chars, buf, 0)
+                 : rvermUnalign(chars, buf, 0);
+    return ptr ? ptr : buf - 1;
+}
+
+/* like rvermicelliExec except returns the address of the last character which
+ * is not c */
+static really_inline
+const u8 *rnvermicelliExec(char c, char nocase, const u8 *buf,
+                           const u8 *buf_end) {
+    DEBUG_PRINTF("rev verm scan %s\\x%02hhx over %zu bytes\n",
+                 nocase ? "nocase " : "", c, (size_t)(buf_end - buf));
+    assert(buf < buf_end);
+
+    // Handle small scans.
+    if (buf_end - buf < VERM_BOUNDARY) {
+        for (buf_end--; buf_end >= buf; buf_end--) {
+            char cur = (char)*buf_end;
+            if (nocase) {
+                cur &= CASE_CLEAR;
+            }
+            if (cur != c) {
+                break;
+            }
+        }
+        return buf_end;
+    }
+
+    VERM_TYPE chars = VERM_SET_FN(c); /* nocase already uppercase */
+    size_t min = (size_t)buf_end % VERM_BOUNDARY;
+
+    if (min) {
+        // Input isn't aligned, so we need to run one iteration with an
+        // unaligned load, then skip buf backward to the next aligned address.
+        // There's some small overlap here, but we don't mind scanning it twice
+        // if we can do it quickly, do we?
+        if (nocase) {
+            const u8 *ptr =
+                rvermUnalignNocase(chars, buf_end - VERM_BOUNDARY, 1);
+            if (ptr) {
+                return ptr;
+            }
+        } else {
+            const u8 *ptr = rvermUnalign(chars, buf_end - VERM_BOUNDARY, 1);
+            if (ptr) {
+                return ptr;
+            }
+        }
+
+        buf_end -= min;
+        if (buf >= buf_end) {
+            return buf_end;
+        }
+    }
+
+    // Aligned loops from here on in.
+    const u8 *ptr = nocase ? rvermSearchAlignedNocase(chars, buf, buf_end, 1)
+                           : rvermSearchAligned(chars, buf, buf_end, 1);
+    if (ptr) {
+        return ptr;
+    }
+
+    // Tidy up the mess at the end, return buf - 1 if not found.
+    ptr = nocase ? rvermUnalignNocase(chars, buf, 1)
+                 : rvermUnalign(chars, buf, 1);
+    return ptr ? ptr : buf - 1;
+}
+
+/* returns highest offset of c2 (NOTE: not c1) */
+static really_inline
+const u8 *rvermicelliDoubleExec(char c1, char c2, char nocase, const u8 *buf,
+                                const u8 *buf_end) {
+    DEBUG_PRINTF("rev double verm scan %s\\x%02hhx%02hhx over %zu bytes\n",
+                 nocase ? "nocase " : "", c1, c2, (size_t)(buf_end - buf));
+    assert(buf < buf_end);
+    assert((buf_end - buf) >= VERM_BOUNDARY);
+
+    size_t min = (size_t)buf_end % VERM_BOUNDARY;
+    VERM_TYPE chars1 = VERM_SET_FN(c1); /* nocase already uppercase */
+    VERM_TYPE chars2 = VERM_SET_FN(c2); /* nocase already uppercase */
+
+    if (min) {
+        // input not aligned, so we need to run one iteration with an unaligned
+        // load, then skip buf forward to the next aligned address. There's
+        // some small overlap here, but we don't mind scanning it twice if we
+        // can do it quickly, do we?
+        const u8 *ptr;
+        if (nocase) {
+            ptr = rdvermPreconditionNocase(chars1, chars2,
+                                           buf_end - VERM_BOUNDARY);
+        } else {
+            ptr = rdvermPrecondition(chars1, chars2, buf_end - VERM_BOUNDARY);
+        }
+
+        if (ptr) {
+            return ptr;
+        }
+
+        buf_end -= min;
+        if (buf >= buf_end) {
+            return buf_end;
+        }
+    }
+
+    // Aligned loops from here on in
+    if (nocase) {
+        return rdvermSearchAlignedNocase(chars1, chars2, c1, c2, buf, buf_end);
+    } else {
+        return rdvermSearchAligned(chars1, chars2, c1, c2, buf, buf_end);
+    }
+}
+
+#endif /* VERMICELLI_H */

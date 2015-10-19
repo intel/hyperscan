@@ -1,0 +1,101 @@
+/* used by cmake */
+
+/* "Define if the build is 32 bit" */
+#cmakedefine ARCH_32_BIT
+
+/* "Define if the build is 64 bit" */
+#cmakedefine ARCH_64_BIT
+
+/* "Define if building for IA32" */
+#cmakedefine ARCH_IA32
+
+/* "Define if building for EM64T" */
+#cmakedefine ARCH_X86_64
+
+/* internal build, switch on dump support. */
+#cmakedefine DUMP_SUPPORT
+
+/* Build tools with threading support */
+#cmakedefine ENABLE_TOOLS_THREADS
+
+/* Define to 1 if `backtrace' works. */
+#cmakedefine HAVE_BACKTRACE
+
+/* C compiler has __builtin_assume_aligned */
+#cmakedefine HAVE_CC_BUILTIN_ASSUME_ALIGNED
+
+/* C++ compiler has __builtin_assume_aligned */
+#cmakedefine HAVE_CXX_BUILTIN_ASSUME_ALIGNED
+
+/* C++ compiler has x86intrin.h */
+#cmakedefine HAVE_CXX_X86INTRIN_H
+
+/* C compiler has x86intrin.h */
+#cmakedefine HAVE_C_X86INTRIN_H
+
+/* C++ compiler has intrin.h */
+#cmakedefine HAVE_CXX_INTRIN_H
+
+/* C compiler has intrin.h */
+#cmakedefine HAVE_C_INTRIN_H
+
+/* Define to 1 if you have the declaration of `pthread_barrier_init', and to 0
+   if you don't. */
+#cmakedefine HAVE_DECL_PTHREAD_BARRIER_INIT
+
+/* Define to 1 if you have the declaration of `pthread_setaffinity_np', and to
+   0 if you don't. */
+#cmakedefine HAVE_DECL_PTHREAD_SETAFFINITY_NP
+
+/* Define to 1 if you have the `malloc_info' function. */
+#cmakedefine HAVE_MALLOC_INFO
+
+/* Define to 1 if you have the `memmem' function. */
+#cmakedefine HAVE_MEMMEM
+
+/* Define to 1 if you have a working `mmap' system call. */
+#cmakedefine HAVE_MMAP
+
+/* Define to 1 if `posix_memalign' works. */
+#cmakedefine HAVE_POSIX_MEMALIGN
+
+/* Define to 1 if you have the <pthread.h> header file. */
+#cmakedefine HAVE_PTHREAD_H
+
+/* Define to 1 if you have the `setrlimit' function. */
+#cmakedefine HAVE_SETRLIMIT
+
+/* Define to 1 if you have the `shmget' function. */
+#cmakedefine HAVE_SHMGET
+
+/* Define to 1 if you have the `sigaction' function. */
+#cmakedefine HAVE_SIGACTION
+
+/* Define to 1 if you have the `sigaltstack' function. */
+#cmakedefine HAVE_SIGALTSTACK
+
+/* Define if the sqlite3_open_v2 call is available */
+#cmakedefine HAVE_SQLITE3_OPEN_V2
+
+/* Define to 1 if you have the <tmmintrin.h> header file. */
+#cmakedefine HAVE_TMMINTRIN_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#cmakedefine HAVE_UNISTD_H
+
+/* Define to 1 if you have the `_aligned_malloc' function. */
+#cmakedefine HAVE__ALIGNED_MALLOC
+
+/* Optimize, inline critical functions */
+#cmakedefine HS_OPTIMIZE
+
+#cmakedefine HS_VERSION
+#cmakedefine HS_MAJOR_VERSION
+#cmakedefine HS_MINOR_VERSION
+#cmakedefine HS_PATCH_VERSION
+
+#cmakedefine BUILD_DATE
+
+/* define if this is a release build. */
+#cmakedefine RELEASE_BUILD
+

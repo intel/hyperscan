@@ -1,0 +1,204 @@
+/*
+ * Copyright (c) 2015, Intel Corporation
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of Intel Corporation nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/** \file
+    This file provides the internal structures and definitions required for the
+    real NFAs (aka limex NFAs );
+
+    Limex NFAs now have variable length in memory. They look like this:
+
+        LimExNFA structure
+            Fixed length, e.g. LimExNFA256.
+        Reachability table
+            Variable length array of state bitvectors, mapped into by
+            NFACommonXXX.reachMap.
+        Tops
+            Variable length array of state bitvectors, used for TOP_N events.
+        Acceleration structures
+            Variable length array of AccelAux structs.
+        Accepts
+            Variable length array of NFAAccept structs.
+        EOD Accepts
+            Variable length array of NFAAccept structs.
+        Exceptions
+            Variable length array of NFAExceptionXXX structs.
+        Repeat Structure Offsets
+            Array of u32 offsets that point at each "Repeat Structure" (below)
+        Repeat Structures
+            Variable length repeat structures, addressed via
+            NFAException32::repeatOffset etc.
+
+    The state associated with the NFA is split into:
+
+    -# The "traditional" NFA state as a bitvector. This is stored in the
+       first N bytes of the state space (length given in
+       NFACommonXXX.stateSize), and may be stored shrunk to CEIL(stateSize/8)
+       or compressed. If it is stored compressed, than the
+       LIMEX_FLAG_COMPRESS_STATE flag is set in NFACommonXXX.flags.
+    -# Extended NFA state, only used in some LimEx NFAs. This consists of a
+       variable length array of LimExNFAExtendedState structures, each with
+       pointers to a packed list of mmbit structures that follows them. Only
+       present when used.
+
+    The value of NFA.stateSize gives the total state size in bytes (the sum of
+    all the above).
+
+*/
+
+#ifndef LIMEX_INTERNAL_H
+#define LIMEX_INTERNAL_H
+
+#include "nfa_internal.h"
+#include "repeat_internal.h"
+
+// Constants
+#define MAX_MAX_SHIFT 8      /**< largest maxshift used by a LimEx NFA */
+
+#define LIMEX_FLAG_COMPRESS_STATE  1 /**< pack state into stream state */
+#define LIMEX_FLAG_COMPRESS_MASKED 2 /**< use reach mask-based compression */
+
+enum LimExTrigger {
+    LIMEX_TRIGGER_NONE = 0,
+    LIMEX_TRIGGER_POS = 1,
+    LIMEX_TRIGGER_TUG = 2
+};
+
+enum LimExSquash {
+    LIMEX_SQUASH_NONE = 0,   //!< no squash for you!
+    LIMEX_SQUASH_CYCLIC = 1, //!< squash due to cyclic state
+    LIMEX_SQUASH_TUG = 2,    //!< squash due to tug trigger with stale estate
+    LIMEX_SQUASH_REPORT = 3  //!< squash when report is raised
+};
+
+struct LimExNFABase {
+    u8 reachMap[N_CHARS];
+    u32 reachSize;
+    u32 accelCount;
+    u32 accelTableOffset;
+    u32 accelAuxCount;
+    u32 accelAuxOffset;
+    u32 acceptCount;
+    u32 acceptOffset;
+    u32 acceptEodCount;
+    u32 acceptEodOffset;
+    u32 exceptionCount;
+    u32 exceptionOffset;
+    u32 exReportOffset;
+    u32 repeatCount;
+    u32 repeatOffset;
+};
+
+/* uniform looking types for the macros */
+typedef u8   u_8;
+typedef u16  u_16;
+typedef u32  u_32;
+typedef u64a u_64;
+typedef m128 u_128;
+typedef m256 u_256;
+typedef m384 u_384;
+typedef m512 u_512;
+
+#define CREATE_NFA_LIMEX(size)                                              \
+struct NFAException##size {                                                 \
+    u_##size squash; /**< mask of states to leave on */                     \
+    u_##size successors; /**< mask of states to switch on */                \
+    u32 reports; /**< offset to start of reports list, or MO_INVALID_IDX */ \
+    u32 repeatOffset; /**< offset to NFARepeatInfo, or MO_INVALID_IDX */    \
+    u8 hasSquash; /**< from enum LimExSquash */                             \
+    u8 trigger; /**< from enum LimExTrigger */                              \
+};                                                                          \
+                                                                            \
+struct LimExNFA##size { /* MUST align with LimExNFABase */                  \
+    u8 reachMap[N_CHARS]; /**< map of char -> entry in reach[] */           \
+    u32 reachSize; /**< number of reach masks */                            \
+    u32 accelCount; /**< number of entries in accel table */                \
+    u32 accelTableOffset; /* rel. to start of LimExNFA */                   \
+    u32 accelAuxCount; /**< number of entries in aux table */               \
+    u32 accelAuxOffset; /* rel. to start of LimExNFA */                     \
+    u32 acceptCount;                                                        \
+    u32 acceptOffset; /* rel. to start of LimExNFA */                       \
+    u32 acceptEodCount;                                                     \
+    u32 acceptEodOffset; /* rel. to start of LimExNFA */                    \
+    u32 exceptionCount;                                                     \
+    u32 exceptionOffset; /* rel. to start of LimExNFA */                    \
+    u32 exReportOffset; /* rel. to start of LimExNFA */                     \
+    u32 repeatCount;                                                        \
+    u32 repeatOffset;                                                       \
+    u32 exceptionMap[size];                                                 \
+    u32 squashOffset; /* rel. to start of LimExNFA; for accept squashing */ \
+    u32 squashCount;                                                        \
+    u32 topCount;                                                           \
+    u32 topOffset; /* rel. to start of LimExNFA */                          \
+    u32 stateSize; /**< not including extended history */                   \
+    u32 flags;                                                              \
+    u_##size init;                                                          \
+    u_##size initDS;                                                        \
+    u_##size accept; /**< mask of accept states */                          \
+    u_##size acceptAtEOD; /**< mask of states that accept at EOD */         \
+    u_##size accel; /**< mask of accelerable states */                      \
+    u_##size accelPermute; /**< pshufb permute mask (not GPR) */            \
+    u_##size accelCompare; /**< pshufb compare mask (not GPR) */            \
+    u_##size accel_and_friends; /**< mask of accelerable states + likely
+                                    *  followers */                         \
+    u_##size compressMask; /**< switch off before compress */               \
+    u_##size exceptionMask;                                                 \
+    u_##size repeatCyclicMask;                                              \
+    u_##size shift[MAX_MAX_SHIFT];                                          \
+    u_##size zombieMask; /**< zombie if in any of the set states */         \
+};
+
+CREATE_NFA_LIMEX(32)
+CREATE_NFA_LIMEX(128)
+CREATE_NFA_LIMEX(256)
+CREATE_NFA_LIMEX(384)
+CREATE_NFA_LIMEX(512)
+
+/** \brief Structure describing a bounded repeat within the LimEx NFA.
+ *
+ * This struct is followed in memory by:
+ *
+ * -# a RepeatInfo structure
+ * -# a variable-sized lookup table for REPEAT_SPARSE_OPTIMAL_P repeats
+ * -# a TUG mask
+ */
+struct NFARepeatInfo {
+    u32 cyclicState;      //!< index of this repeat's cyclic state
+    u32 ctrlIndex;        //!< index of this repeat's control block
+    u32 packedCtrlOffset; //!< offset to packed control block in stream state
+    u32 stateOffset;      //!< offset to repeat state in stream state
+    u32 stateSize;        //!< total size of packed stream state for this repeat
+    u32 tugMaskOffset;    //!< offset to tug mask (rel. to NFARepeatInfo)
+};
+
+struct NFAAccept {
+    u32 state;           //!< state ID of triggering state
+    ReportID externalId; //!< report ID to raise
+    u32 squash;          //!< offset into masks, or MO_INVALID_IDX
+};
+
+#endif

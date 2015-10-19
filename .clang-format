@@ -1,0 +1,6 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+UseTab: false
+AllowShortIfStatementsOnASingleLine: false
+IndentCaseLabels: false
+AccessModifierOffset: -4

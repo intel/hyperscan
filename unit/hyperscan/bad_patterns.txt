@@ -1,0 +1,129 @@
+1:/\cз©є/ #\c must be followed by an ASCII character at index 0.
+2:/\c/ #\c must be followed by an ASCII character at index 0.
+3:/[\cз©є]/  #\c must be followed by an ASCII character at index 1.
+4:/[\c]/  #Unterminated character class starting at index 0.
+5:/\cз©є/8 #\c must be followed by an ASCII character at index 0.
+6:/<([^>+i)>.*?</\1>/sP #Unterminated character class starting at index 2.
+6:/[foo/ #Unterminated character class starting at index 0.
+7:/[\p{X}]/8 #Unknown property at index 4.
+8:/[\p{^X}]/8 #Unknown property at index 5.
+9:/[\p{L]/8 #Malformed property at index 0.
+10:/[\p{^L]/8 #Malformed property at index 0.
+11:/[\P{L]/8 #Malformed property at index 0.
+12:/[\P{^L]/8 #Malformed property at index 0.
+13:/\p/8 #Malformed property at index 0.
+14:/\P/8 #Malformed property at index 0.
+15:/\p{/8 #Malformed property at index 0.
+16:/\P{/8 #Malformed property at index 0.
+17:/\p{^/8 #Malformed property at index 0.
+18:/\P{^/8 #Malformed property at index 0.
+19:/[\p/8 #Malformed property at index 1.
+20:/[\P/8 #Malformed property at index 1.
+21:/[\p{/8 #Malformed property at index 0.
+22:/[\P{/8 #Malformed property at index 0.
+23:/[\p{^/8 #Malformed property at index 0.
+24:/[\P{^/8 #Malformed property at index 0.
+25:/\pl/8 #Unknown property at index 2.
+26:/\p{any}/8 #Unknown property at index 3.
+27:/\p{greek}/8 #Unknown property at index 3.
+28:/\b/8W #\b unsupported in UCP mode at index 0.
+29:/(*UCP)\b/8 #\b unsupported in UCP mode at index 6.
+30:/\B/8W #\B unsupported in UCP mode at index 0.
+31:/\B/W #\B unsupported in UCP mode at index 0.
+32:/foo(?{print "Hello world\n";})bar/ #Embedded code is not supported at index 3.
+33:/the (\S+)(?{ $color = $^N }) (\S+)(?{ $animal = $^N })/i #Embedded code is not supported at index 9.
+34:/foobar\E/s #Unmatched \E at index 6.
+35:/\X/8 #\X unsupported at index 0.
+36:/\B+/ #Invalid repeat at index 2.
+37:/\B?/ #Invalid repeat at index 2.
+38:/\B*/ #Invalid repeat at index 2.
+39:/\B{0,6}/ #Invalid repeat at index 2.
+40:/\b+/ #Invalid repeat at index 2.
+41:/\b?/ #Invalid repeat at index 2.
+42:/\b*/ #Invalid repeat at index 2.
+43:/\b{0,6}/ #Invalid repeat at index 2.
+44:/[.ch.]/ #Unsupported POSIX collating element at index 0.
+45:/[=ch=]/ #Unsupported POSIX collating element at index 0.
+46:/[:digit:]/ #POSIX named classes are only supported inside a class at index 0.
+47:/[[.ch.]]/ #Unsupported POSIX collating element at index 1.
+48:/[[=ch=]]/ #Unsupported POSIX collating element at index 1.
+49:/foo(?m)?bar/ #Invalid repeat at index 7.
+50:/.(?)+/ #Invalid repeat at index 4.
+51:/(abc)\2/P #Invalid back reference to expression 2.
+52:/\x{100000000}/ #Value in \x{...} sequence is too large at index 0.
+53:/^foo/{min_offset=5} #Expression is anchored and cannot satisfy min_offset=5 as it can only produce matches of length 3 bytes at most.
+54:/foobar/{min_length=20} #Expression has min_length=20 but can only produce matches of length 6 bytes at most.
+55:/foobar/{max_offset=3} #Expression has max_offset=3 but requires 6 bytes to match.
+56:/mkdzo(x|u)(\b)kd/{max_offset=29} #Pattern can never match.
+57:/[^\x00-\xff]/ #Pattern can never match.
+58:/[^\x00-\xff]foo/ #Pattern can never match.
+59:/^\Bfoo/ #Pattern can never match.
+60:/^\B\Bfoo/ #Pattern can never match.
+61:/can't_match\b\B/ #Pattern can never match.
+62:/\b\Bcan't_match/ #Pattern can never match.
+63:/^\b$/m #Pattern can never match.
+64:/^\b\Z/m #Pattern can never match.
+65:/^\b\z/m #Pattern can never match.
+66:/\A\b$/m #Pattern can never match.
+67:/\A\b\Z/m #Pattern can never match.
+68:/\A\b\z/m #Pattern can never match.
+69:/^[^\x00-\xff]foo/ #Pattern can never match.
+70:/foo[^\x00-\xff]/ #Pattern can never match.
+71:/foo[^\x00-\xff]$/ #Pattern can never match.
+72:/\Bd\B/i{min_length=2,min_offset=4,max_offset=54} #Expression has min_length=2 but can only produce matches of length 1 bytes at most.
+73:/(((.|aaa)aaaaaa.aaa){14,19}a((a|a{5,6}|aa){3,11}|aa.|a){2}){4}\Z/sm #Pattern is too large.
+74:/(((.|aaa)aaaaaa.aaa){14,19}a((a|a{5,6}|aa){3,11}|aa.|a){2}){4}\Z/smL #Pattern is too large.
+75:/\B/s8{min_length=1} #Expression has min_length=1 but can only produce matches of length 0 bytes at most.
+76:/(f|d|(\b)|i|a\Z)/mHV8{min_length=2,min_offset=9,max_offset=14} #Expression has min_length=2 but can only produce matches of length 1 bytes at most.
+77:/(f|e|d{19,}|h\Z|^j|\Aa)/smi{min_length=7,min_offset=8,max_offset=18} #Extended parameter constraints can not be satisfied for any match from this expression.
+78:/(i{13,}|i\Z)/s{min_length=3,max_offset=5} #Extended parameter constraints can not be satisfied for any match from this expression.
+79:/(?P<dupename>foo).*(?P<dupename>bar)/ #Two named subpatterns use the name 'dupename' at index 19.
+80:/_W{0,3}bazr_W{0,3}(ac[_a-z]{22}a)?e_W{0,3}bazr[_a-z](ac[a-z]{4}c{14}[a-z]{5})?e_W{0,3}bazr[_a-z](e|ac[_a-z]{4}c{16}([_a-z]|[a-p]W|[o-z]WW){3}([_a-z]|WWW))_W{0,3}bazr([_a-z]|[a-p]WW?|[o-z]WWW)a(foobar|c([a-z]W{0,3})bc([a-z]W{0,3})c{14}([_a-z]W{0,3}){6})((fooaa|[_a-z]W{0,3})bazr[_a-z]W{0,5}a(foobar|c([_a-z]|[a-z]W{1,3})bc([_a-z]|[o-z]W{1,5})c{14}([_a-f]|[A-Z0]W|~WW|;WWW){6})){40}(fooaa|_)bazr[_a-z]/sL #Pattern is too large.
+81:/[..]/ #Unsupported POSIX collating element at index 0.
+82:/[==]/ #Unsupported POSIX collating element at index 0.
+83:/[.\].]/ #Unsupported POSIX collating element at index 0.
+84:/[=\]=]/ #Unsupported POSIX collating element at index 0.
+85:/A(?!)+Z/ #Invalid repeat at index 5.
+86:/\X/ #\X unsupported at index 0.
+87:/[a\Qz\E]/ #\Q..\E sequences in character classes not supported at index 2.
+88:/[A-\d]/ #Invalid range in character class at index 3.
+89:/[A-[:digit:]]/ #Invalid range in character class at index 3.
+90:/B[--[:digit:]--]+/ #Invalid range in character class at index 4.
+91:/a\owibble/ #Value in \o{...} sequence is non-octal or missing braces at index 1.
+92:/a\o{wibble/ #Value in \o{...} sequence is non-octal or missing braces at index 1.
+93:/a\o{777}/ #Value in \o{...} sequence is too large at index 1.
+94:/(*UTF16)foo/ #(*UTF16) not supported at index 2.
+95:/(*BSR_UNICODE)abc/ #Unknown control verb at index 2.
+96:/a+(*SKIP)b/ #Unknown control verb at index 4.
+97:/foo(*/ #Invalid repeat at index 4.
+98:/[:\]:]/ #POSIX named classes are only supported inside a class at index 0.
+99:/[[:[:]/ #Invalid POSIX named class at index 1.
+100:/abc(?(1)def|ghi)/P #Invalid conditional reference to expression 1.
+101:/abc(?(<blah>)def|ghi)/P #Invalid conditional reference to label 'blah'.
+102:/(?(DEFINE)foo|bar)/P #DEFINE conditional group with more than one branch at index 17.
+103:/(?<1name>group)/ #Group name cannot begin with a digit at index 0.
+104:/abc((def)?(?(R)bar))+/P #Pattern recursion not supported at index 10.
+105:/abc((def)?(?(R2)bar))+/P #Pattern recursion not supported at index 10.
+106:/abc((def)(?(R&label)bar))+/P #Pattern recursion not supported at index 9.
+107:/\o{4200000}/8 #Value in \o{...} sequence is too large at index 0.
+108:/\o{19}/ #Value in \o{...} sequence is non-octal or missing braces at index 0.
+109:/\o{/ #Value in \o{...} sequence is non-octal or missing braces at index 0.
+110:/\o{1/ #Value in \o{...} sequence is non-octal or missing braces at index 0.
+111:/\x{0x110000}/8 #Value in \x{...} sequence is non-hex or missing } at index 0.
+112:/\cГЂ/ #\c must be followed by an ASCII character at index 0.
+113:/[\cГЂ]/ #\c must be followed by an ASCII character at index 1.
+114:/[\o{4200000}]/8 #Value in \o{...} sequence is too large at index 1.
+115:/[\x{0x110000}]/8 #Value in \x{...} sequence is non-hex or missing } at index 1.
+116:/[\o{70]/ #Value in \o{...} sequence is non-octal or missing braces at index 1.
+117:/[\x{ff]/ #Value in \x{...} sequence is non-hex or missing } at index 1.
+118:/foo/{min_offset=10,max_offset=9} #In hs_expr_ext, min_offset must be less than or equal to max_offset.
+120:/foo/{min_length=10,max_offset=9} #In hs_expr_ext, min_length must be less than or equal to max_offset.
+121:/.e(?:(((eEbd..(d[^Be]{1,7}|A)){8,22}aD.){7}|EecA?(?:\b)c|bB[Dd])){29,37}[adb](?:.|A|c|[BEA]|D)..((?:c|[Cba]))?([Ee]|D)B+(.|[dbB]|E|E).[EcCe]ce(?:C|D)dD[EA]Ac.[aE]d/smiHWP #Pattern too large.
+122:/АА/8 #Expression is not valid UTF-8.
+123:/hello \6 world/P #Invalid back reference to expression 6.
+124:/hello \6 world|dog/P #Invalid back reference to expression 6.
+125:/[~-\V]/8 #Invalid range in character class at index 3.
+126:/(*UTF8)АА/ #Expression is not valid UTF-8.
+127:/^fo?ob{ro|nax_off\Qt=10omnax+8Wnah/ссссссссссссссссссссссссссс0}l.{1,60}Car*k|npanomnax+8Wnah/8 #Expression is not valid UTF-8.
+128:/(*UTF8)^fo?ob{ro|nax_off\Qt=10omnax+8Wnah/ссссссссссссссссссссссссссс0}l.{1,60}Car*k|npanomnax+8Wnah/ #Expression is not valid UTF-8.
+129:/bignum \1111111111111111111/ #Number is too big at index 7.
