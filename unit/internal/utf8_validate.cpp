@@ -31,7 +31,7 @@
 #include "parser/utf8_validate.h"
 
 #include "ue2common.h"
-#include "util/ue2string.h"
+#include "util/string_util.h"
 
 #include "gtest/gtest.h"
 
@@ -46,7 +46,7 @@ struct ValidUtf8TestInfo {
 // Helper for gtest.
 static
 void PrintTo(const ValidUtf8TestInfo &t, ::std::ostream *os) {
-    *os << "(" << t.str << ", " << t.is_valid << ")";
+    *os << "(\"" << printable(t.str) << "\", " << t.is_valid << ")";
 }
 
 static ValidUtf8TestInfo valid_utf8_tests[] = {
@@ -118,5 +118,5 @@ INSTANTIATE_TEST_CASE_P(ValidUtf8, ValidUtf8Test, ValuesIn(valid_utf8_tests));
 TEST_P(ValidUtf8Test, check) {
     const auto &info = GetParam();
     ASSERT_EQ(info.is_valid, isValidUtf8(info.str.c_str()))
-        << "String is: " << escapeString(info.str) << std::endl;
+        << "String is: " << printable(info.str) << std::endl;
 }
