@@ -71,37 +71,35 @@ TEST(Sidecar, ns1) {
     ASSERT_TRUE(ns != nullptr);
     ASSERT_LT(0U, sidecarSize(ns.get()));
 
-    struct sidecar_enabled *enabled
-        = (struct sidecar_enabled *)aligned_zmalloc(sidecarEnabledSize(ns.get()));
-    ASSERT_TRUE(enabled);
-    sidecarEnabledInit(ns.get(), enabled);
-    struct sidecar_scratch *scratch
-        = (struct sidecar_scratch *)aligned_zmalloc(sidecarScratchSize(ns.get()));
+    auto enabled =
+        aligned_zmalloc_unique<sidecar_enabled>(sidecarEnabledSize(ns.get()));
+    sidecarEnabledInit(ns.get(), enabled.get());
+    auto scratch =
+        aligned_zmalloc_unique<sidecar_scratch>(sidecarScratchSize(ns.get()));
 
     for (u32 i = 0; i < 256; i++) {
         SCOPED_TRACE(i);
         u32 seen = 0;
         memset(data, i, data_len);
-        sidecarExec(ns.get(), data, data_len, enabled, scratch, 0, ns_cb, &seen);
+        sidecarExec(ns.get(), data, data_len, enabled.get(), scratch.get(), 0,
+                    ns_cb, &seen);
         ASSERT_EQ(0U, seen);
     }
 
-    sidecarEnabledAdd(ns.get(), enabled, 0);
+    sidecarEnabledAdd(ns.get(), enabled.get(), 0);
 
     for (u32 i = 0; i < 256; i++) {
         SCOPED_TRACE(i);
         u32 seen = 0;
         memset(data, i, data_len);
-        sidecarExec(ns.get(), data, data_len, enabled, scratch, 0, ns_cb, &seen);
+        sidecarExec(ns.get(), data, data_len, enabled.get(), scratch.get(), 0,
+                    ns_cb, &seen);
         if (i == 'f') {
             ASSERT_EQ(1U, seen);
         } else {
             ASSERT_EQ(0U, seen);
         }
     }
-
-    aligned_free(enabled);
-    aligned_free(scratch);
 }
 
 const char* sidecarStrings[] = {
@@ -186,14 +184,13 @@ TEST_P(SidecarTest, Individual) {
     ASSERT_TRUE(ns != nullptr);
     ASSERT_LT(0U, sidecarSize(ns.get()));
 
-    struct sidecar_enabled *enabled
-        = (struct sidecar_enabled *)aligned_zmalloc(sidecarEnabledSize(ns.get()));
-    ASSERT_TRUE(enabled);
-    sidecarEnabledInit(ns.get(), enabled);
-    struct sidecar_enabled *local_enabled
-        = (struct sidecar_enabled *)aligned_zmalloc(sidecarEnabledSize(ns.get()));
-    struct sidecar_scratch *scratch
-        = (struct sidecar_scratch *)aligned_zmalloc(sidecarScratchSize(ns.get()));
+    auto enabled =
+        aligned_zmalloc_unique<sidecar_enabled>(sidecarEnabledSize(ns.get()));
+    sidecarEnabledInit(ns.get(), enabled.get());
+    auto local_enabled =
+        aligned_zmalloc_unique<sidecar_enabled>(sidecarEnabledSize(ns.get()));
+    auto scratch =
+        aligned_zmalloc_unique<sidecar_scratch>(sidecarScratchSize(ns.get()));
 
     const size_t data_len = 1024;
     u8 data[data_len];
@@ -203,7 +200,8 @@ TEST_P(SidecarTest, Individual) {
         SCOPED_TRACE(i);
         memset(data, i, data_len);
         set<u32> seen;
-        sidecarExec(ns.get(), data, data_len, enabled, scratch, 0, set_cb, &seen);
+        sidecarExec(ns.get(), data, data_len, enabled.get(), scratch.get(), 0,
+                    set_cb, &seen);
         ASSERT_TRUE(seen.empty());
     }
 
@@ -213,17 +211,18 @@ TEST_P(SidecarTest, Individual) {
         SCOPED_TRACE(c);
 
         // build a "compile time" enabled structure and add class j to it.
-        sidecarEnabledInit(ns.get(), local_enabled);
-        sidecarEnabledAdd(ns.get(), local_enabled, j);
+        sidecarEnabledInit(ns.get(), local_enabled.get());
+        sidecarEnabledAdd(ns.get(), local_enabled.get(), j);
 
         // union class j into our runtime enabled structure.
-        sidecarEnabledUnion(ns.get(), enabled, local_enabled);
+        sidecarEnabledUnion(ns.get(), enabled.get(), local_enabled.get());
 
         for (u32 i = 0; i < 256; i++) {
             SCOPED_TRACE(i);
             memset(data, i, data_len);
             set<u32> seen;
-            sidecarExec(ns.get(), data, data_len, enabled, scratch, 0, set_cb, &seen);
+            sidecarExec(ns.get(), data, data_len, enabled.get(), scratch.get(),
+                        0, set_cb, &seen);
             if (i == c) {
                 ASSERT_EQ(1U, seen.size());
                 ASSERT_EQ(j, *seen.begin());
@@ -232,10 +231,6 @@ TEST_P(SidecarTest, Individual) {
             }
         }
     }
-
-    aligned_free(local_enabled);
-    aligned_free(enabled);
-    aligned_free(scratch);
 }
 
 TEST_P(SidecarTest, Together) {
@@ -253,13 +248,13 @@ TEST_P(SidecarTest, Together) {
     ASSERT_TRUE(ns != nullptr);
     ASSERT_LT(0U, sidecarSize(ns.get()));
 
-    struct sidecar_enabled *enabled
-        = (struct sidecar_enabled *)aligned_zmalloc(sidecarEnabledSize(ns.get()));
-    ASSERT_TRUE(enabled);
-    struct sidecar_enabled *local_enabled
-        = (struct sidecar_enabled *)aligned_zmalloc(sidecarEnabledSize(ns.get()));
-    struct sidecar_scratch *scratch
-        = (struct sidecar_scratch *)aligned_zmalloc(sidecarScratchSize(ns.get()));
+    auto enabled =
+        aligned_zmalloc_unique<sidecar_enabled>(sidecarEnabledSize(ns.get()));
+    sidecarEnabledInit(ns.get(), enabled.get());
+    auto local_enabled =
+        aligned_zmalloc_unique<sidecar_enabled>(sidecarEnabledSize(ns.get()));
+    auto scratch =
+        aligned_zmalloc_unique<sidecar_scratch>(sidecarScratchSize(ns.get()));
 
     const size_t data_len = 1024;
     u8 data[data_len];
@@ -269,21 +264,22 @@ TEST_P(SidecarTest, Together) {
         SCOPED_TRACE(i);
         memset(data, i, data_len);
         set<u32> seen;
-        sidecarExec(ns.get(), data, data_len, enabled, scratch, 0, set_cb, &seen);
+        sidecarExec(ns.get(), data, data_len, enabled.get(), scratch.get(), 0,
+                    set_cb, &seen);
         ASSERT_TRUE(seen.empty());
     }
 
     // test that every char class fires
     for (u32 j = 0; j < charclasses.size(); j++) {
         // enable the whole lot
-        sidecarEnabledInit(ns.get(), enabled);
+        sidecarEnabledInit(ns.get(), enabled.get());
         for (u32 i = 0; i < charclasses.size(); i++) {
             // build a "compile time" enabled structure and add class j to it.
-            sidecarEnabledInit(ns.get(), local_enabled);
-            sidecarEnabledAdd(ns.get(), local_enabled, i);
+            sidecarEnabledInit(ns.get(), local_enabled.get());
+            sidecarEnabledAdd(ns.get(), local_enabled.get(), i);
 
             // union class j into our runtime enabled structure.
-            sidecarEnabledUnion(ns.get(), enabled, local_enabled);
+            sidecarEnabledUnion(ns.get(), enabled.get(), local_enabled.get());
         }
 
         u32 c = chars[j];
@@ -293,7 +289,8 @@ TEST_P(SidecarTest, Together) {
             SCOPED_TRACE(i);
             memset(data, i, data_len);
             set<u32> seen;
-            sidecarExec(ns.get(), data, data_len, enabled, scratch, 0, set_cb, &seen);
+            sidecarExec(ns.get(), data, data_len, enabled.get(), scratch.get(),
+                        0, set_cb, &seen);
             if (i == c) {
                 // seen should contain only `c'
                 ASSERT_EQ(1U, seen.size());
@@ -306,10 +303,6 @@ TEST_P(SidecarTest, Together) {
             }
         }
     }
-
-    aligned_free(local_enabled);
-    aligned_free(enabled);
-    aligned_free(scratch);
 }
 
 INSTANTIATE_TEST_CASE_P(Sidecar, SidecarTest,
