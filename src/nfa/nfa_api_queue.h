@@ -41,24 +41,28 @@ extern "C"
 #define MAX_MQE_LEN 10
 
 /** Queue events */
-enum mqe_event {
-    MQE_START = 0,       /**< and begin! Note: stateless engines will start from
-                          *  this location */
-    MQE_END = 1,         /**< stop scanning */
-    MQE_TOP = 2,         /**< enable start + start dot star */
-    MQE_TOP_FIRST = 4, /**< first event corresponding to a TOP _N_ */
 
-    /*
-     * Additional tops (in multi-top engines) use the event values from
-     * MQE_TOP_FIRST to something.
-     */
+/** Queue event: begin scanning. Note: stateless engines will start from this
+ * location. */
+#define MQE_START 0U
 
-    MQE_INVALID = ~0U
-};
+/** Queue event: stop scanning. */
+#define MQE_END 1U
+
+/** Queue event: enable start and start-dot-star. */
+#define MQE_TOP 2U
+
+/** Queue event: first event corresponding to a numbered TOP. Additional tops
+ * (in multi-top engines) use the event values from MQE_TOP_FIRST to
+ * MQE_INVALID - 1. */
+#define MQE_TOP_FIRST 4U
+
+/** Invalid queue event */
+#define MQE_INVALID (~0U)
 
 /** Queue item */
 struct mq_item {
-    u32 type; /**< event; from mqe_event */
+    u32 type; /**< event type, from MQE_* */
     s64a location; /**< relative to the start of the current buffer */
     u64a som; /**< pattern start-of-match corresponding to a top, only used
                * by som engines. */

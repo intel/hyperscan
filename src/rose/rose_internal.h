@@ -236,7 +236,7 @@ struct LeftNfaInfo {
 // A list of these is used to trigger prefix/infix roses.
 struct RoseTrigger {
     u32 queue; // queue index of leftfix
-    u32 event; // from enum mqe_event
+    u32 event; // queue event, from MQE_*
     u8 cancel_prev_top;
 };
 
@@ -309,7 +309,7 @@ struct RoseRole {
     ReportID reportId; // report ID, or MO_INVALID_IDX
     u32 stateIndex; /**< index into state multibit, or MMB_INVALID. Roles do not
                      * require a state bit if they are terminal */
-    u32 suffixEvent; // from enum mqe_event
+    u32 suffixEvent; // queue event, from MQE_
     u8 depth; /**< depth of this vertex from root in the tree, or 255 if greater.
                */
     u32 suffixOffset; /**< suffix nfa: 0 if no suffix associated with the role,

@@ -391,7 +391,7 @@ hwlmcb_rv_t roseHandleSuffixTrigger(const struct RoseEngine *t,
         }
     }
 
-    enum mqe_event top = tr->suffixEvent;
+    u32 top = tr->suffixEvent;
     assert(top == MQE_TOP || (top >= MQE_TOP_FIRST && top < MQE_INVALID));
     pushQueueSom(q, top, loc, som);
 
@@ -977,14 +977,14 @@ void roseTriggerInfixes(const struct RoseEngine *t, const struct RoseRole *tr,
     do {
         u32 qi = curr_r->queue;
         u32 ri = queueToLeftIndex(t, qi);
-        enum mqe_event topEvent = curr_r->event;
+        u32 topEvent = curr_r->event;
         u8 cancel = curr_r->cancel_prev_top;
         assert(topEvent < MQE_INVALID);
 
         const struct LeftNfaInfo *left = getLeftInfoByQueue(t, qi);
         assert(!left->transient);
 
-        DEBUG_PRINTF("rose %u (qi=%u) event %u\n", ri, qi, (u32)topEvent);
+        DEBUG_PRINTF("rose %u (qi=%u) event %u\n", ri, qi, topEvent);
 
         struct mq *q = tctxtToScratch(tctxt)->queues + qi;
         const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
