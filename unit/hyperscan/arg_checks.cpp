@@ -740,7 +740,9 @@ TEST(HyperscanArgChecks, ResetAndCopyStreamSameToId) {
     hs_free_database(db);
 }
 
-TEST(HyperscanArgChecks, ResetAndCopyStreamNoScratch) {
+// hs_reset_and_copy_stream: You're allowed to reset and copy a stream with no
+// scratch and no callback.
+TEST(HyperscanArgChecks, ResetAndCopyStreamNoCallbackOrScratch) {
     hs_stream_t *stream = nullptr;
     hs_stream_t *stream_to = nullptr;
     hs_database_t *db = nullptr;
@@ -760,6 +762,37 @@ TEST(HyperscanArgChecks, ResetAndCopyStreamNoScratch) {
     ASSERT_EQ(HS_SUCCESS, err);
 
     err = hs_reset_and_copy_stream(stream_to, stream, nullptr, nullptr, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    hs_close_stream(stream_to, scratch, nullptr, nullptr);
+    hs_close_stream(stream, scratch, nullptr, nullptr);
+    hs_free_scratch(scratch);
+    hs_free_database(db);
+}
+
+// hs_reset_and_copy_stream: If you specify a callback, you must provide
+// scratch.
+TEST(HyperscanArgChecks, ResetAndCopyStreamNoScratch) {
+    hs_stream_t *stream = nullptr;
+    hs_stream_t *stream_to = nullptr;
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *compile_err = nullptr;
+    hs_error_t err = hs_compile("foobar", 0, HS_MODE_STREAM, nullptr, &db,
+                                &compile_err);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    hs_scratch_t *scratch = nullptr;
+    err = hs_alloc_scratch(db, &scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    err = hs_open_stream(db, 0, &stream);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    err = hs_open_stream(db, 0, &stream_to);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    err = hs_reset_and_copy_stream(stream_to, stream, nullptr, dummy_cb,
+                                   nullptr);
     ASSERT_EQ(HS_INVALID, err);
 
     hs_close_stream(stream_to, scratch, nullptr, nullptr);
@@ -793,7 +826,8 @@ TEST(HyperscanArgChecks, ResetAndCopyStreamDiffDb) {
     err = hs_open_stream(db2, 0, &stream_to);
     ASSERT_EQ(HS_SUCCESS, err);
 
-    err = hs_reset_and_copy_stream(stream_to, stream, scratch, nullptr, nullptr);
+    err = hs_reset_and_copy_stream(stream_to, stream, scratch, nullptr,
+                                   nullptr);
     ASSERT_EQ(HS_INVALID, err);
 
     hs_close_stream(stream_to, scratch, nullptr, nullptr);
@@ -2009,6 +2043,7 @@ TEST(HyperscanArgChecks, ScanStreamBadScratch) {
     free(local_garbage);
 }
 
+// hs_reset_stream: bad scratch arg
 TEST(HyperscanArgChecks, ResetStreamBadScratch) {
     hs_database_t *db = nullptr;
     hs_compile_error_t *compile_err = nullptr;
@@ -2025,7 +2060,7 @@ TEST(HyperscanArgChecks, ResetStreamBadScratch) {
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(stream != nullptr);
 
-    err = hs_reset_stream(stream, 0, scratch, nullptr, nullptr);
+    err = hs_reset_stream(stream, 0, scratch, dummy_cb, nullptr);
     EXPECT_NE(HS_SUCCESS, err);
     EXPECT_NE(HS_SCAN_TERMINATED, err);
 

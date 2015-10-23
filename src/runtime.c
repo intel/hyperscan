@@ -1163,11 +1163,10 @@ hs_error_t hs_reset_and_copy_stream(hs_stream_t *to_id,
         return HS_INVALID;
     }
 
-    if (!scratch || !validScratch(to_id->rose, scratch)) {
-        return HS_INVALID;
-    }
-
     if (onEvent) {
+        if (!scratch || !validScratch(to_id->rose, scratch)) {
+            return HS_INVALID;
+        }
         report_eod_matches(to_id, scratch, onEvent, context);
     }
 
@@ -1406,12 +1405,14 @@ HS_PUBLIC_API
 hs_error_t hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
                            hs_scratch_t *scratch, match_event_handler onEvent,
                            void *context) {
-    if (!id || !scratch || !validScratch(id->rose, scratch)) {
+    if (!id) {
         return HS_INVALID;
     }
 
-    /* user wants eod matches */
     if (onEvent) {
+        if (!scratch || !validScratch(id->rose, scratch)) {
+            return HS_INVALID;
+        }
         report_eod_matches(id, scratch, onEvent, context);
     }
 
