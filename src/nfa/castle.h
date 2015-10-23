@@ -54,7 +54,7 @@ char nfaExecCastle0_expandState(const struct NFA *nfa, void *dest,
 
 #define nfaExecCastle0_testEOD NFA_API_NO_IMPL
 #define nfaExecCastle0_B_Reverse NFA_API_NO_IMPL
-#define nfaExecCastle0_zombie_status NFA_API_NO_IMPL
+#define nfaExecCastle0_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 #ifdef __cplusplus
 }

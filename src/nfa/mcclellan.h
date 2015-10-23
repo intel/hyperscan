@@ -56,7 +56,7 @@ char nfaExecMcClellan8_expandState(const struct NFA *nfa, void *dest,
                                    const void *src, u64a offset, u8 key);
 
 #define nfaExecMcClellan8_B_Reverse NFA_API_NO_IMPL
-#define nfaExecMcClellan8_zombie_status NFA_API_NO_IMPL
+#define nfaExecMcClellan8_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 // 16-bit McClellan
 
@@ -79,7 +79,7 @@ char nfaExecMcClellan16_expandState(const struct NFA *nfa, void *dest,
                                     const void *src, u64a offset, u8 key);
 
 #define nfaExecMcClellan16_B_Reverse NFA_API_NO_IMPL
-#define nfaExecMcClellan16_zombie_status NFA_API_NO_IMPL
+#define nfaExecMcClellan16_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 /**
  * Simple streaming mode calls:

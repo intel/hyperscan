@@ -56,7 +56,7 @@ char nfaExecLbrDot_expandState(const struct NFA *nfa, void *dest,
 
 #define nfaExecLbrDot_testEOD NFA_API_NO_IMPL
 #define nfaExecLbrDot_B_Reverse NFA_API_NO_IMPL
-#define nfaExecLbrDot_zombie_status NFA_API_NO_IMPL
+#define nfaExecLbrDot_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 // LBR Verm
 
@@ -76,7 +76,7 @@ char nfaExecLbrVerm_expandState(const struct NFA *nfa, void *dest,
 
 #define nfaExecLbrVerm_testEOD NFA_API_NO_IMPL
 #define nfaExecLbrVerm_B_Reverse NFA_API_NO_IMPL
-#define nfaExecLbrVerm_zombie_status NFA_API_NO_IMPL
+#define nfaExecLbrVerm_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 // LBR Negated Verm
 
@@ -96,7 +96,7 @@ char nfaExecLbrNVerm_expandState(const struct NFA *nfa, void *dest,
 
 #define nfaExecLbrNVerm_testEOD NFA_API_NO_IMPL
 #define nfaExecLbrNVerm_B_Reverse NFA_API_NO_IMPL
-#define nfaExecLbrNVerm_zombie_status NFA_API_NO_IMPL
+#define nfaExecLbrNVerm_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 // LBR Shuf
 
@@ -116,7 +116,7 @@ char nfaExecLbrShuf_expandState(const struct NFA *nfa, void *dest,
 
 #define nfaExecLbrShuf_testEOD NFA_API_NO_IMPL
 #define nfaExecLbrShuf_B_Reverse NFA_API_NO_IMPL
-#define nfaExecLbrShuf_zombie_status NFA_API_NO_IMPL
+#define nfaExecLbrShuf_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 // LBR Truffle
 
@@ -136,7 +136,7 @@ char nfaExecLbrTruf_expandState(const struct NFA *nfa, void *dest,
 
 #define nfaExecLbrTruf_testEOD NFA_API_NO_IMPL
 #define nfaExecLbrTruf_B_Reverse NFA_API_NO_IMPL
-#define nfaExecLbrTruf_zombie_status NFA_API_NO_IMPL
+#define nfaExecLbrTruf_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 #ifdef __cplusplus
 }

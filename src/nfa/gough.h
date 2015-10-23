@@ -55,7 +55,7 @@ char nfaExecGough8_expandState(const struct NFA *nfa, void *dest,
                                const void *src, u64a offset, u8 key);
 
 #define nfaExecGough8_B_Reverse NFA_API_NO_IMPL
-#define nfaExecGough8_zombie_status NFA_API_NO_IMPL
+#define nfaExecGough8_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 // 16-bit Gough
 
@@ -77,6 +77,6 @@ char nfaExecGough16_expandState(const struct NFA *nfa, void *dest,
                                 const void *src, u64a offset, u8 key);
 
 #define nfaExecGough16_B_Reverse NFA_API_NO_IMPL
-#define nfaExecGough16_zombie_status NFA_API_NO_IMPL
+#define nfaExecGough16_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 #endif

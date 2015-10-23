@@ -50,7 +50,7 @@ char nfaExecMpv0_expandState(const struct NFA *nfa, void *dest, const void *src,
 #define nfaExecMpv0_QR NFA_API_NO_IMPL
 #define nfaExecMpv0_Q2 NFA_API_NO_IMPL /* for non-chained suffixes. */
 #define nfaExecMpv0_B_Reverse NFA_API_NO_IMPL
-#define nfaExecMpv0_zombie_status NFA_API_NO_IMPL
+#define nfaExecMpv0_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 /**
  * return 0 if the mpv dies, otherwise returns the location of the next possible
