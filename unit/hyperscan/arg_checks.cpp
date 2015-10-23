@@ -2154,6 +2154,37 @@ TEST(HyperscanArgChecks, ExprInfoNullErrPtr) {
     EXPECT_TRUE(info == nullptr);
 }
 
+// hs_expression_ext_info: Compile a NULL pattern
+TEST(HyperscanArgChecks, ExprExtInfoNullExpression) {
+    hs_expr_info_t *info = nullptr;
+    hs_compile_error_t *compile_err = nullptr;
+    hs_error_t err =
+        hs_expression_ext_info(nullptr, 0, nullptr, &info, &compile_err);
+    EXPECT_EQ(HS_COMPILER_ERROR, err);
+    EXPECT_TRUE(info == nullptr);
+    EXPECT_TRUE(compile_err != nullptr);
+    hs_free_compile_error(compile_err);
+}
+
+// hs_expression_ext_info: NULL info block ptr
+TEST(HyperscanArgChecks, ExprExtInfoNullInfoPtr) {
+    hs_compile_error_t *compile_err = nullptr;
+    hs_error_t err =
+        hs_expression_ext_info("foobar", 0, nullptr, nullptr, &compile_err);
+    EXPECT_EQ(HS_COMPILER_ERROR, err);
+    EXPECT_TRUE(compile_err != nullptr);
+    hs_free_compile_error(compile_err);
+}
+
+// hs_expression_ext_info: No compiler error block
+TEST(HyperscanArgChecks, ExprExtInfoNullErrPtr) {
+    hs_expr_info_t *info = nullptr;
+    hs_error_t err =
+        hs_expression_ext_info("foobar", 0, nullptr, &info, nullptr);
+    EXPECT_EQ(HS_COMPILER_ERROR, err);
+    EXPECT_TRUE(info == nullptr);
+}
+
 TEST(HyperscanArgChecks, hs_free_database_null) {
     hs_error_t err = hs_free_database(nullptr);
     ASSERT_EQ(HS_SUCCESS, err);

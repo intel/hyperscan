@@ -94,11 +94,34 @@ void checkVertex(const ReportManager &rm, const NGWrapper &w, NFAVertex v,
     const DepthMinMax &d = depths.at(idx);
 
     for (ReportID report_id : w[v].reports) {
-        const Report &ir = rm.getReport(report_id);
-        assert(ir.type == EXTERNAL_CALLBACK);
-        s32 adjust = ir.offsetAdjust;
-        info.min = min(info.min, d.min + adjust);
-        info.max = max(info.max, d.max + adjust);
+        const Report &report = rm.getReport(report_id);
+        assert(report.type == EXTERNAL_CALLBACK);
+
+        DepthMinMax rd = d;
+
+        // Compute graph width to this report, taking any offset adjustment
+        // into account.
+        rd.min += report.offsetAdjust;
+        rd.max += report.offsetAdjust;
+
+        // A min_length param is a lower bound for match width.
+        if (report.minLength && report.minLength <= depth::max_value()) {
+            depth min_len((u32)report.minLength);
+            rd.min = max(rd.min, min_len);
+            rd.max = max(rd.max, min_len);
+        }
+
+        // A max_offset param is an upper bound for match width.
+        if (report.maxOffset && report.maxOffset <= depth::max_value()) {
+            depth max_offset((u32)report.maxOffset);
+            rd.min = min(rd.min, max_offset);
+            rd.max = min(rd.max, max_offset);
+        }
+
+        DEBUG_PRINTF("vertex %u report %u: %s\n", w[v].index, report_id,
+                      rd.str().c_str());
+
+        info = unionDepthMinMax(info, rd);
     }
 }
 
