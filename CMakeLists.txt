@@ -80,12 +80,17 @@ endif()
 
 # -- make this work? set(python_ADDITIONAL_VERSIONS 2.7 2.6)
 find_package(PythonInterp)
-find_program(RAGEL ragel)
-
 if(PYTHONINTERP_FOUND)
     set(PYTHON ${PYTHON_EXECUTABLE})
 else()
     message(FATAL_ERROR "No python interpreter found")
+endif()
+
+find_program(RAGEL ragel)
+if(${RAGEL} STREQUAL "RAGEL-NOTFOUND")
+    message(FATAL_ERROR "Executable ragel is not found. Please install the 'ragel' package.")
+else()
+    message(STATUS "Found ragel executable in : ${RAGEL}")
 endif()
 
 option(OPTIMISE "Turns off compiler optimizations (on by default unless debug output enabled or coverage testing)" TRUE)
