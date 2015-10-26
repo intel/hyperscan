@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 2.8.11)
 project (Hyperscan C CXX)
 
 set (HS_MAJOR_VERSION 4)
