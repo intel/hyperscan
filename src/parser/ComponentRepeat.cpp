@@ -51,11 +51,11 @@ using namespace std;
 namespace ue2 {
 
 /** \brief Hard limit on the maximum repeat for bounded repeats. */
-static const u32 MAX_MAX_BOUND = 32767;
+static constexpr u32 MAX_REPEAT = 32767;
 
 /** \brief If expanding a repeat would lead to this many positions being
  * generated, we fail the pattern. */
-static const u32 MAX_POSITIONS_EXPANDED = 500000; // arbitrarily huge
+static constexpr u32 MAX_POSITIONS_EXPANDED = 500000; // arbitrarily huge
 
 /* no edge priorities means that if our subcomponent can be empty, our min
  * extent is effectively zero. */
@@ -67,7 +67,11 @@ ComponentRepeat::ComponentRepeat(unique_ptr<Component> sub_comp_in, u32 min,
     assert(sub_comp);
     assert(max > 0);
     assert(m_min <= m_max);
-    if (m_max < NoLimit && m_max > MAX_MAX_BOUND) {
+
+    if (m_min > MAX_REPEAT) {
+        throw ParseError("Bounded repeat is too large.");
+    }
+    if (m_max != NoLimit && m_max > MAX_REPEAT) {
         throw ParseError("Bounded repeat is too large.");
     }
 }
@@ -119,7 +123,7 @@ void checkPositions(vector<PositionInfo> &v, const GlushkovBuildState &bs) {
 
 void ComponentRepeat::notePositions(GlushkovBuildState &bs) {
     assert(m_max > 0);
-    assert(m_max == NoLimit || m_max < MAX_MAX_BOUND);
+    assert(m_max == NoLimit || m_max < MAX_REPEAT);
 
     /* Note: We can construct smaller subgraphs if we're not maintaining edge
      * priorities. */
