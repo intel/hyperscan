@@ -145,7 +145,6 @@ struct CliqueVertexProps {
     u32 stateId = ~0U;
     u32 parentId = ~0U;
     bool leftChild = false; /* tells us if it is the left child of its parent */
-    bool rightChildVisited = false; /* tells us if its right child is visited */
 
     vector<u32> clique1; /* clique for the left branch */
     vector<u32> indepSet1; /* independent set for the left branch */
@@ -189,56 +188,6 @@ unique_ptr<CliqueGraph> makeCG(const vector<vector<u32>> &exclusiveSet) {
 }
 
 static
-CliqueGraph createSubgraph(const CliqueGraph &cg,
-                           const vector<CliqueVertex> &vertices) {
-    CliqueGraph g;
-    map<u32, CliqueVertex> vertexMap;
-    for (auto u : vertices) {
-        u32 id = cg[u].stateId;
-        CliqueVertex v = add_vertex(CliqueVertexProps(id), g);
-        vertexMap[id] = v;
-    }
-
-    set<u32> found;
-    for (auto u : vertices) {
-        u32 srcId = cg[u].stateId;
-        CliqueVertex src = vertexMap[srcId];
-        found.insert(srcId);
-        for (auto n : adjacent_vertices_range(u, cg)) {
-            u32 dstId = cg[n].stateId;
-            if (found.find(dstId) == found.end() &&
-                vertexMap.find(dstId) != vertexMap.end()) {
-                CliqueVertex dst = vertexMap[dstId];
-                add_edge(src, dst, g);
-            }
-        }
-    }
-    return g;
-}
-
-static
-void getNeighborInfo(const CliqueGraph &g, vector<CliqueVertex> &neighbor,
-                     vector<CliqueVertex> &nonneighbor,
-                     const CliqueVertex &cv) {
-    u32 id = g[cv].stateId;
-    ue2::unordered_set<u32> neighborId;
-
-    // find neighbors for cv
-    for (auto v : adjacent_vertices_range(cv, g)) {
-        neighbor.push_back(v);
-        neighborId.insert(g[v].stateId);
-    }
-
-    // find non-neighbors for cv
-    for (auto v : vertices_range(g)) {
-        if (g[v].stateId != id &&
-            neighborId.find(g[v].stateId) == neighborId.end()) {
-            nonneighbor.push_back(v);
-        }
-    }
-}
-
-static
 void updateCliqueInfo(CliqueGraph &cg, const CliqueVertex &n,
                       vector<u32> &clique, vector<u32> &indepSet) {
     u32 id = cg[n].stateId;
@@ -258,75 +207,102 @@ void updateCliqueInfo(CliqueGraph &cg, const CliqueVertex &n,
 }
 
 static
+void getNeighborInfo(const CliqueGraph &g, vector<u32> &neighbor,
+                     vector<u32> &nonneighbor, const CliqueVertex &cv,
+                     const set<u32> &group) {
+    u32 id = g[cv].stateId;
+    ue2::unordered_set<u32> neighborId;
+
+    // find neighbors for cv
+    for (const auto &v : adjacent_vertices_range(cv, g)) {
+        if (g[v].stateId != id && contains(group, g[v].stateId)) {
+            neighbor.push_back(g[v].stateId);
+            neighborId.insert(g[v].stateId);
+        }
+    }
+
+    neighborId.insert(id);
+    // find non-neighbors for cv
+    for (const auto &v : vertices_range(g)) {
+        if (!contains(neighborId, g[v].stateId) &&
+            contains(group, g[v].stateId)) {
+            nonneighbor.push_back(g[v].stateId);
+        }
+    }
+}
+
+static
 void findCliqueGroup(CliqueGraph &cg, vector<u32> &clique,
                      vector<u32> &indepSet) {
-    stack<CliqueGraph> gStack;
-    gStack.push(cg);
+    stack<vector<u32>> gStack;
 
     // create mapping between vertex and id
     map<u32, CliqueVertex> vertexMap;
-    for (auto v : vertices_range(cg)) {
+    vector<u32> init;
+    for (auto &v : vertices_range(cg)) {
         vertexMap[cg[v].stateId] = v;
+        init.push_back(cg[v].stateId);
     }
+    gStack.push(init);
 
     // get the vertex to start from
-    ue2::unordered_set<u32> foundVertexId;
+    set<u32> foundVertexId;
+    ue2::unordered_set<u32> visitedId;
     CliqueGraph::vertex_iterator vi, ve;
     tie(vi, ve) = vertices(cg);
     CliqueVertex start = *vi;
     u32 startId = cg[start].stateId;
-
+    DEBUG_PRINTF("startId:%u\n", startId);
     bool leftChild = false;
     u32 prevId = startId;
     while (!gStack.empty()) {
-        CliqueGraph g = gStack.top();
-        gStack.pop();
+        const auto &g = gStack.top();
 
         // choose a vertex from the graph
-        tie(vi, ve) = vertices(g);
-        CliqueVertex cv = *vi;
-        u32 id = g[cv].stateId;
+        assert(!g.empty());
+        u32 id = g[0];
+        CliqueVertex &n = vertexMap.at(id);
 
-        // corresponding vertex in the original graph
-        CliqueVertex n = vertexMap.at(id);
-
-        vector<CliqueVertex> neighbor;
-        vector<CliqueVertex> nonneighbor;
-        getNeighborInfo(g, neighbor, nonneighbor, cv);
-
-        if (foundVertexId.find(id) != foundVertexId.end()) {
+        vector<u32> neighbor;
+        vector<u32> nonneighbor;
+        set<u32> subgraphId(g.begin(), g.end());
+        getNeighborInfo(cg, neighbor, nonneighbor, n, subgraphId);
+        if (contains(foundVertexId, id)) {
             prevId = id;
-            // get graph consisting of non-neighbors for right branch
-            if (!cg[n].rightChildVisited) {
-                gStack.push(g);
+            // get non-neighbors for right branch
+            if (visitedId.insert(id).second) {
+                DEBUG_PRINTF("right branch\n");
                 if (!nonneighbor.empty()) {
-                    const CliqueGraph &nSub = createSubgraph(g, nonneighbor);
-                    gStack.push(nSub);
+                    gStack.push(nonneighbor);
                     leftChild = false;
                 }
-                cg[n].rightChildVisited = true;
-            } else if (id != startId) {
-                // both the left and right branches are visited,
-                // update its parent's clique and independent sets
-                u32 parentId = cg[n].parentId;
-                CliqueVertex parent = vertexMap.at(parentId);
-                if (cg[n].leftChild) {
-                    updateCliqueInfo(cg, n, cg[parent].clique1,
-                        cg[parent].indepSet1);
-                } else {
-                    updateCliqueInfo(cg, n, cg[parent].clique2,
-                        cg[parent].indepSet2);
+            } else {
+                if (id != startId) {
+                    // both the left and right branches are visited,
+                    // update its parent's clique and independent sets
+                    u32 parentId = cg[n].parentId;
+                    CliqueVertex &parent = vertexMap.at(parentId);
+                    if (cg[n].leftChild) {
+                        updateCliqueInfo(cg, n, cg[parent].clique1,
+                                         cg[parent].indepSet1);
+                    } else {
+                        updateCliqueInfo(cg, n, cg[parent].clique2,
+                                         cg[parent].indepSet2);
+                    }
                 }
+                gStack.pop();
             }
         } else {
             foundVertexId.insert(id);
-            g[n].leftChild = leftChild;
-            g[n].parentId = prevId;
-            gStack.push(g);
-            // get graph consisting of neighbors for left branch
+            cg[n].leftChild = leftChild;
+            cg[n].parentId = prevId;
+            cg[n].clique1.clear();
+            cg[n].clique2.clear();
+            cg[n].indepSet1.clear();
+            cg[n].indepSet2.clear();
+            // get neighbors for left branch
             if (!neighbor.empty()) {
-                const CliqueGraph &sub = createSubgraph(g, neighbor);
-                gStack.push(sub);
+                gStack.push(neighbor);
                 leftChild = true;
             }
             prevId = id;
@@ -351,12 +327,12 @@ vector<u32> removeClique(CliqueGraph &cg) {
     while (!graph_empty(cg)) {
         const vector<u32> &c = cliquesVec.back();
         vector<CliqueVertex> dead;
-        for (auto v : vertices_range(cg)) {
+        for (const auto &v : vertices_range(cg)) {
             if (find(c.begin(), c.end(), cg[v].stateId) != c.end()) {
                 dead.push_back(v);
             }
         }
-        for (auto v : dead) {
+        for (const auto &v : dead) {
             clear_vertex(v, cg);
             remove_vertex(v, cg);
         }
