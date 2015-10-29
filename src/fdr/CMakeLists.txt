@@ -13,11 +13,11 @@ set(AUTOGEN_PY_FILES
 function(fdr_autogen type out)
     add_custom_command (
         COMMENT "AUTOGEN ${out}"
-        OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${out}
-        COMMAND ${PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/autogen.py ${type} > ${CMAKE_CURRENT_BINARY_DIR}/${out}
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${out}"
+        COMMAND ${PYTHON} "${CMAKE_CURRENT_SOURCE_DIR}/autogen.py" ${type} > "${CMAKE_CURRENT_BINARY_DIR}/${out}"
         DEPENDS ${AUTOGEN_PY_FILES}
         )
-    add_custom_target(autogen_${type} DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${out})
+    add_custom_target(autogen_${type} DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/${out}")
 endfunction(fdr_autogen)
 
 #now build the functions

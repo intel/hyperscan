@@ -36,19 +36,19 @@ else()
     set(RELEASE_BUILD FALSE)
 endif()
 
-set(BINDIR ${PROJECT_BINARY_DIR}/bin)
-set(LIBDIR ${PROJECT_BINARY_DIR}/lib)
+set(BINDIR "${PROJECT_BINARY_DIR}/bin")
+set(LIBDIR "${PROJECT_BINARY_DIR}/lib")
 
 # First for the generic no-config case
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BINDIR})
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIBDIR})
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIBDIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${BINDIR}")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${LIBDIR}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${LIBDIR}")
 # Second, for multi-config builds (e.g. msvc)
 foreach (OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
     string (TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG)
-    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${BINDIR})
-    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${LIBDIR})
-    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${LIBDIR})
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} "${BINDIR}")
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG} "${LIBDIR}")
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} "${LIBDIR}")
 endforeach (OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES)
 
 
@@ -71,12 +71,13 @@ find_package(Boost ${BOOST_MINVERSION})
 if(NOT Boost_FOUND)
     # we might have boost in tree, so provide a hint and try again
     message(STATUS "trying include dir for boost")
-    set(BOOST_INCLUDEDIR ${CMAKE_SOURCE_DIR}/include)
+    set(BOOST_INCLUDEDIR "${CMAKE_SOURCE_DIR}/include")
     find_package(Boost ${BOOST_MINVERSION})
     if(NOT Boost_FOUND)
-        message(FATAL_ERROR "Boost ${BOOST_MINVERSION} or later not found. Either install system pacakges if available or extract Boost headers to ${CMAKE_SOURCE_DIR}/include")
+        message(FATAL_ERROR "Boost ${BOOST_MINVERSION} or later not found. Either install system pacakges if available, extract Boost headers to ${CMAKE_SOURCE_DIR}/include, or set the CMake BOOST_ROOT variable.")
     endif()
 endif()
+
 
 # -- make this work? set(python_ADDITIONAL_VERSIONS 2.7 2.6)
 find_package(PythonInterp)
@@ -86,6 +87,10 @@ if(PYTHONINTERP_FOUND)
     set(PYTHON ${PYTHON_EXECUTABLE})
 else()
     message(FATAL_ERROR "No python interpreter found")
+endif()
+
+if(${RAGEL} STREQUAL "RAGEL-NOTFOUND")
+    message(FATAL_ERROR "Ragel state machine compiler not found")
 endif()
 
 option(OPTIMISE "Turns off compiler optimizations (on by default unless debug output enabled or coverage testing)" TRUE)
@@ -290,10 +295,10 @@ CHECK_CXX_COMPILER_FLAG("-Wunused-variable" CXX_WUNUSED_VARIABLE)
 endif()
 
 if (NOT XCODE)
-    include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+    include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 else()
     # cmake doesn't think Xcode supports isystem
-    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -isystem ${Boost_INCLUDE_DIR}")
+    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -isystem ${Boost_INCLUDE_DIRS}")
 endif()
 
 
