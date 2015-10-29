@@ -67,12 +67,18 @@ static
 bool findPaths(const NGHolder &g, vector<Path> &paths) {
     vector<NFAVertex> order = getTopoOrdering(g);
 
+    vector<size_t> read_count(num_vertices(g));
     vector<vector<Path>> built(num_vertices(g));
 
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         NFAVertex v = *it;
         auto &out = built[g[v].index];
         assert(out.empty());
+
+        read_count[g[v].index] = out_degree(v, g);
+
+        DEBUG_PRINTF("setting read_count to %zu for %u\n",
+                      read_count[g[v].index], g[v].index);
 
         if (v == g.start || v == g.startDs) {
             out.push_back({v});
@@ -94,6 +100,9 @@ bool findPaths(const NGHolder &g, vector<Path> &paths) {
                 continue;
             }
 
+            assert(!built[g[u].index].empty());
+            assert(read_count[g[u].index]);
+
             for (const auto &p : built[g[u].index]) {
                 out.push_back(p);
                 out.back().push_back(v);
@@ -104,6 +113,13 @@ bool findPaths(const NGHolder &g, vector<Path> &paths) {
                     DEBUG_PRINTF("path limit exceeded\n");
                     return false;
                 }
+            }
+
+            read_count[g[u].index]--;
+            if (!read_count[g[u].index]) {
+                DEBUG_PRINTF("clearing %u as finished reading\n", g[u].index);
+                built[g[u].index].clear();
+                built[g[u].index].shrink_to_fit();
             }
         }
     }

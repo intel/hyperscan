@@ -118,10 +118,15 @@ bool findLiterals(const NGHolder &g,
     vector<NFAVertex> order = getTopoOrdering(g);
 
     vector<set<sls_literal>> built(num_vertices(g));
+    vector<size_t> read_count(num_vertices(g));
 
     for (auto it = order.rbegin(); it != order.rend(); ++it) {
         NFAVertex v = *it;
         set<sls_literal> &out = built[g[v].index];
+        read_count[g[v].index] = out_degree(v, g);
+
+        DEBUG_PRINTF("setting read_count to %zu for %u\n",
+                      read_count[g[v].index], g[v].index);
 
         assert(out.empty());
         if (v == g.start) {
@@ -149,7 +154,10 @@ bool findLiterals(const NGHolder &g,
             }
 
             set<sls_literal> &in = built[g[u].index];
+            DEBUG_PRINTF("getting from %u (%zu reads to go)\n",
+                          g[u].index, read_count[g[u].index]);
             assert(!in.empty());
+            assert(read_count[g[u].index]);
 
             for (const sls_literal &lit : in) {
                 if (accept) {
@@ -171,9 +179,17 @@ bool findLiterals(const NGHolder &g,
                     out.insert(lit.append((u8)c, nocase));
 
                     if (out.size() + literals->size() > MAX_LITERAL_SET_SIZE) {
+                        DEBUG_PRINTF("too big %zu + %zu\n", out.size(),
+                                      literals->size());
                         return false;
                     }
                 }
+            }
+
+            read_count[g[u].index]--;
+            if (!read_count[g[u].index]) {
+                DEBUG_PRINTF("clearing %u as finished reading\n", g[u].index);
+                in.clear();
             }
         }
     }
@@ -205,6 +221,8 @@ bool handleSmallLiteralSets(RoseBuild &rose, const NGHolder &g,
         DEBUG_PRINTF("not acyclic\n");
         return false;
     }
+
+    DEBUG_PRINTF("looking for literals\n");
 
     map<sls_literal, ue2::flat_set<ReportID>> literals;
     if (!findLiterals(g, &literals)) {
