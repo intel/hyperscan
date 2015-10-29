@@ -245,6 +245,8 @@ void FDRCompiler::assignStringsToBuckets() {
     typedef pair<SCORE, u32> SCORE_INDEX_PAIR;
 
     u32 ls = verify_u32(lits.size());
+    assert(ls); // Shouldn't be called with no literals.
+
     // make a vector that contains our literals as pointers or u32 LiteralIndex values
     vector<LiteralIndex> vli;
     vli.resize(ls);
@@ -292,6 +294,8 @@ void FDRCompiler::assignStringsToBuckets() {
             currentChunk++;
         }
     }
+
+    assert(currentChunk > 0);
     count[currentChunk - 1] = ls - chunkStartID;
     // close off chunks with an empty row
     firstIds[currentChunk] = ls;
