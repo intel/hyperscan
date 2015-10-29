@@ -55,14 +55,14 @@ namespace ue2 {
 namespace {
 
 /** Distance value used to indicate that the vertex can't be reached. */
-static const int DIST_UNREACHABLE = INT_MAX;
+static constexpr int DIST_UNREACHABLE = INT_MAX;
 
 /**
  * Distance value used to indicate that the distance to a vertex is infinite
  * (for example, it's the max distance and there's a cycle in the path) or so
  * large that we should consider it effectively infinite.
  */
-static const int DIST_INFINITY = INT_MAX - 1;
+static constexpr int DIST_INFINITY = INT_MAX - 1;
 
 //
 // Filters
@@ -71,10 +71,12 @@ static const int DIST_INFINITY = INT_MAX - 1;
 template <class GraphT>
 struct NodeFilter {
     typedef typename GraphT::edge_descriptor EdgeT;
-    NodeFilter() { }
+    NodeFilter() {} // BGL filters must be default-constructible.
     NodeFilter(const vector<bool> *bad_in, const GraphT *g_in)
         : bad(bad_in), g(g_in) { }
     bool operator()(const EdgeT &e) const {
+        assert(g && bad);
+
         u32 src_idx = (*g)[source(e, *g)].index;
         u32 tar_idx = (*g)[target(e, *g)].index;
 
@@ -84,16 +86,20 @@ struct NodeFilter {
 
         return !(*bad)[src_idx] && !(*bad)[tar_idx];
     }
-    const vector<bool> *bad;
-    const GraphT *g;
+
+private:
+    const vector<bool> *bad = nullptr;
+    const GraphT *g = nullptr;
 };
 
 template <class GraphT>
 struct StartFilter {
     typedef typename GraphT::edge_descriptor EdgeT;
-    StartFilter() { }
+    StartFilter() {} // BGL filters must be default-constructible.
     explicit StartFilter(const GraphT *g_in) : g(g_in) { }
     bool operator()(const EdgeT &e) const {
+        assert(g);
+
         u32 src_idx = (*g)[source(e, *g)].index;
         u32 tar_idx = (*g)[target(e, *g)].index;
 
@@ -107,7 +113,9 @@ struct StartFilter {
         }
         return true;
     }
-    const GraphT *g;
+
+private:
+    const GraphT *g = nullptr;
 };
 
 } // namespace
