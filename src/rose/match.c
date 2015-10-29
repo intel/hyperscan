@@ -758,7 +758,7 @@ found_miracle:
 
     q_skip_forward_to(q, miracle_loc);
 
-    if (q->items[q->end - 1].type == MQE_START) {
+    if (q_last_type(q) == MQE_START) {
         DEBUG_PRINTF("miracle caused infix to die\n");
         return 0;
     }
@@ -853,7 +853,7 @@ char roseTestLeftfix(const struct RoseEngine *t, const struct RoseRole *tr,
         }
     }
 
-    if (q_cur_loc(q) < loc || q->items[q->end - 1].type != MQE_START) {
+    if (q_cur_loc(q) < loc || q_last_type(q) != MQE_START) {
         if (left->infix) {
             if (infixTooOld(q, loc)) {
                 DEBUG_PRINTF("infix %u died of old age\n", ri);

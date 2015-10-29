@@ -167,7 +167,7 @@ found_miracle:
 
         DEBUG_PRINTF("skip q forward, %lld to %lld\n", begin_loc, miracle_loc);
         q_skip_forward_to(q, miracle_loc);
-        if (q->items[q->end - 1].type == MQE_START) {
+        if (q_last_type(q) == MQE_START) {
             DEBUG_PRINTF("miracle caused infix to die\n");
             return MIRACLE_DEAD;
         }

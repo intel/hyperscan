@@ -196,6 +196,14 @@ static really_inline s64a q_cur_loc(const struct mq *q) {
     return q->items[q->cur].location;
 }
 
+/** \brief Returns the type of the last event in the queue. */
+static really_inline u32 q_last_type(const struct mq *q) {
+    assert(q->cur < q->end);
+    assert(q->end > 0);
+    assert(q->end <= MAX_MQE_LEN);
+    return q->items[q->end - 1].type;
+}
+
 /** \brief Returns the location (relative to the beginning of the current data
  * buffer) of the last event in the queue. */
 static really_inline s64a q_last_loc(const struct mq *q) {
