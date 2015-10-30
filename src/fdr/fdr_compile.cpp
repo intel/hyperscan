@@ -387,12 +387,14 @@ bool getMultiEntriesAtPosition(const FDREngineDescription &eng,
                                const vector<hwlmLiteral> &lits,
                                SuffixPositionInString pos,
                                std::map<u32, ue2::unordered_set<u32> > &m2) {
+    assert(eng.bits < 32);
+
     u32 distance = 0;
     if (eng.bits <= 8) {
         distance = 1;
     } else if (eng.bits <= 16) {
         distance = 2;
-    } else if (eng.bits <= 32) {
+    } else {
         distance = 4;
     }
 
