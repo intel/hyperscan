@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Getting Started &mdash; Hyperscan 4.0.0 documentation</title>
+    <title>Getting Started &mdash; Hyperscan 4.0.1 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.0.0',
+        VERSION:     '4.0.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 4.0.0 documentation" href="index.html" />
+    <link rel="top" title="Hyperscan 4.0.1 documentation" href="index.html" />
     <link rel="next" title="Compiling Patterns" href="compilation.html" />
     <link rel="prev" title="Introduction" href="intro.html" />
    
@@ -190,8 +190,11 @@ ensure that the correct version is present.</p>
 <h4>Boost Headers<a class="headerlink" href="#boost-headers" title="Permalink to this headline">¶</a></h4>
 <p>Compiling Hyperscan depends on a recent version of the Boost C++ header
 library. If the Boost libraries are installed on the build machine in the
-usual paths, CMake will find them. An alternative is to put a copy of (or a
-symlink to) the boost subdirectory in <code class="docutils literal"><span class="pre">&lt;hyperscan-source-path&gt;/include/boost</span></code>.</p>
+usual paths, CMake will find them. If the Boost libraries are not installed,
+the location of the Boost source tree can be specified during the CMake
+configuration step using the <code class="docutils literal"><span class="pre">BOOST_ROOT</span></code> variable (described below).</p>
+<p>Another alternative is to put a copy of (or a symlink to) the boost
+subdirectory in <code class="docutils literal"><span class="pre">&lt;hyperscan-source-path&gt;/include/boost</span></code>.</p>
 <p>For example: for the Boost-1.59.0 release:</p>
 <div class="highlight-python"><div class="highlight"><pre>ln -s boost_1_59_0/boost &lt;hyperscan-source-path&gt;/include/boost
 </pre></div>
@@ -238,7 +241,10 @@ the default static library.</td>
 <td>Build both static and shared Hyperscan libs.
 Default off.</td>
 </tr>
-<tr class="row-even"><td>DEBUG_OUTPUT</td>
+<tr class="row-even"><td>BOOST_ROOT</td>
+<td>Location of Boost source tree.</td>
+</tr>
+<tr class="row-odd"><td>DEBUG_OUTPUT</td>
 <td>Enable very verbose debug output. Default off.</td>
 </tr>
 </tbody>

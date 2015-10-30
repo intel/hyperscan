@@ -125,8 +125,12 @@ Boost Headers
 
 Compiling Hyperscan depends on a recent version of the Boost C++ header
 library. If the Boost libraries are installed on the build machine in the
-usual paths, CMake will find them. An alternative is to put a copy of (or a
-symlink to) the boost subdirectory in ``<hyperscan-source-path>/include/boost``.
+usual paths, CMake will find them. If the Boost libraries are not installed,
+the location of the Boost source tree can be specified during the CMake
+configuration step using the ``BOOST_ROOT`` variable (described below).
+
+Another alternative is to put a copy of (or a symlink to) the boost
+subdirectory in ``<hyperscan-source-path>/include/boost``.
 
 For example: for the Boost-1.59.0 release: ::
 
@@ -160,6 +164,8 @@ Common options for CMake include:
 +------------------------+----------------------------------------------------+
 | BUILD_STATIC_AND_SHARED| Build both static and shared Hyperscan libs.       |
 |                        | Default off.                                       |
++------------------------+----------------------------------------------------+
+| BOOST_ROOT             | Location of Boost source tree.                     |
 +------------------------+----------------------------------------------------+
 | DEBUG_OUTPUT           | Enable very verbose debug output. Default off.     |
 +------------------------+----------------------------------------------------+

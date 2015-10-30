@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>API Reference: Files &mdash; Hyperscan 4.0.0 documentation</title>
+    <title>API Reference: Files &mdash; Hyperscan 4.0.1 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.0.0',
+        VERSION:     '4.0.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 4.0.0 documentation" href="index.html" />
+    <link rel="top" title="Hyperscan 4.0.1 documentation" href="index.html" />
     <link rel="prev" title="API Reference: Constants" href="api_constants.html" />
    
   
@@ -1252,7 +1252,7 @@
 </li>
 <li><code class="first docutils literal"><span class="pre">flags</span></code> - <p>Flags modifying the behaviour of the stream. This parameter is provided for future use and is unused at present.</p>
 </li>
-<li><code class="first docutils literal"><span class="pre">scratch</span></code> - <p>A per-thread scratch space allocated by <a class="reference internal" href="#project0hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span>hs_alloc_scratch()</span></a>.</p>
+<li><code class="first docutils literal"><span class="pre">scratch</span></code> - <p>A per-thread scratch space allocated by <a class="reference internal" href="#project0hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span>hs_alloc_scratch()</span></a>. This is allowed to be NULL only if the <em>onEvent</em> callback is also NULL.</p>
 </li>
 <li><code class="first docutils literal"><span class="pre">onEvent</span></code> - <p>Pointer to a match event callback function. If a NULL pointer is given, no matches will be returned.</p>
 </li>
@@ -1297,7 +1297,7 @@
 </li>
 <li><code class="first docutils literal"><span class="pre">from_id</span></code> - <p>The stream (as created by <a class="reference internal" href="#project0hs__runtime_8h_1a54bc32490fdcc331d074e60169aeeda7"><span>hs_open_stream()</span></a>) to be copied.</p>
 </li>
-<li><code class="first docutils literal"><span class="pre">scratch</span></code> - <p>A per-thread scratch space allocated by <a class="reference internal" href="#project0hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span>hs_alloc_scratch()</span></a>.</p>
+<li><code class="first docutils literal"><span class="pre">scratch</span></code> - <p>A per-thread scratch space allocated by <a class="reference internal" href="#project0hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span>hs_alloc_scratch()</span></a>. This is allowed to be NULL only if the <em>onEvent</em> callback is also NULL.</p>
 </li>
 <li><code class="first docutils literal"><span class="pre">onEvent</span></code> - <p>Pointer to a match event callback function. If a NULL pointer is given, no matches will be returned.</p>
 </li>
