@@ -112,6 +112,7 @@ endif()
 #
 # build target to run unit tests
 #
+if (NOT RELEASE_BUILD)
 add_custom_target(
     unit
     COMMAND bin/unit-internal
@@ -119,3 +120,11 @@ add_custom_target(
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     DEPENDS unit-internal unit-hyperscan
 )
+else ()
+add_custom_target(
+    unit
+    COMMAND bin/unit-hyperscan
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    DEPENDS unit-hyperscan
+)
+endif()
