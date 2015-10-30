@@ -207,7 +207,6 @@ TEST_P(FDRp, SimpleSingle) {
 TEST_P(FDRp, MultiLocation) {
     const u32 hint = GetParam();
     SCOPED_TRACE(hint);
-    u8 * data;
 
     vector<hwlmLiteral> lits;
     lits.push_back(hwlmLiteral("abc", 0, 1));
@@ -216,24 +215,23 @@ TEST_P(FDRp, MultiLocation) {
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     const u32 testSize = 128;
-    data = (u8 *)malloc(testSize);
-    memset(data, 0, testSize);
+
+    vector<u8> data(testSize, 0);
+
     for (u32 i = 0; i < testSize - 3; i++) {
-        memcpy(data + i, "abc", 3);
+        memcpy(data.data() + i, "abc", 3);
         vector<match> matches;
-        fdrExec(fdr.get(), (const u8 *)data, testSize, 0, decentCallback,
-                &matches, HWLM_ALL_GROUPS);
+        fdrExec(fdr.get(), data.data(), testSize, 0, decentCallback, &matches,
+                HWLM_ALL_GROUPS);
         ASSERT_EQ(1U, matches.size());
         EXPECT_EQ(match(i, i+2, 1), matches[0]);
-        memset(data + i, 0, 3);
+        memset(data.data() + i, 0, 3);
     }
-    free(data);
 }
 
 TEST_P(FDRp, Flood) {
     const u32 hint = GetParam();
     SCOPED_TRACE(hint);
-    u8 * data;
 
     vector<hwlmLiteral> lits;
     lits.push_back(hwlmLiteral("aaaa", 0, 1));
@@ -245,11 +243,10 @@ TEST_P(FDRp, Flood) {
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     const u32 testSize = 1024;
-    data = (u8 *)malloc(testSize);
-    memset(data, 'a', testSize);
+    vector<u8> data(testSize, 'a');
 
     vector<match> matches;
-    fdrExec(fdr.get(), (const u8 *)data, testSize, 0, decentCallback, &matches,
+    fdrExec(fdr.get(), data.data(), testSize, 0, decentCallback, &matches,
             HWLM_ALL_GROUPS);
     ASSERT_EQ(testSize - 3 + testSize - 7, matches.size());
     EXPECT_EQ(match(0, 3, 1), matches[0]);
@@ -266,8 +263,6 @@ TEST_P(FDRp, Flood) {
            match(i - 3, i, 1) == matches[currentMatch])
         );
     }
-
-    free(data);
 }
 
 TEST_P(FDRp, NoRepeat1) {
@@ -483,10 +478,10 @@ TEST_P(FDRp, moveByteStream) {
 
     size_t size = fdrSize(fdrTable0.get());
 
-    FDR *fdrTable = (FDR *)aligned_zmalloc(size);
-    EXPECT_TRUE(fdrTable);
+    auto fdrTable = aligned_zmalloc_unique<FDR>(size);
+    EXPECT_NE(nullptr, fdrTable);
 
-    memcpy(fdrTable, fdrTable0.get(), size);
+    memcpy(fdrTable.get(), fdrTable0.get(), size);
 
     //  bugger up original
     for (size_t i = 0 ; i < size; i++) {
@@ -496,14 +491,13 @@ TEST_P(FDRp, moveByteStream) {
     // check matches
     vector<match> matches;
 
-    hwlm_error_t fdrStatus = fdrExec(fdrTable, (const u8 *)data, data_len, 0,
-                                     decentCallback, &matches, HWLM_ALL_GROUPS);
+    hwlm_error_t fdrStatus = fdrExec(fdrTable.get(), (const u8 *)data,
+                                     data_len, 0, decentCallback, &matches,
+                                     HWLM_ALL_GROUPS);
     ASSERT_EQ(0, fdrStatus);
 
     ASSERT_EQ(1U, matches.size());
     EXPECT_EQ(match(12, 17, 0), matches[0]);
-
-    aligned_free(fdrTable);
 }
 
 TEST_P(FDRp, Stream1) {

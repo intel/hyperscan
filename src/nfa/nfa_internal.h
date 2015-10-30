@@ -237,16 +237,32 @@ static really_inline
 int isMultiTopType(u8 t) {
     return !isDfaType(t) && !isLbrType(t);
 }
-/** Macro used in place of unimplemented NFA API functions for a given
+
+/** Macros used in place of unimplemented NFA API functions for a given
  * engine. */
 #if !defined(_WIN32)
-#define NFA_API_NO_IMPL(...)                                                  \
+
+/* Use for functions that return an integer. */
+#define NFA_API_NO_IMPL(...)                                                   \
     ({                                                                         \
         assert("not implemented for this engine!");                            \
         0; /* return value, for places that need it */                         \
     })
+
+/* Use for _zombie_status functions. */
+#define NFA_API_ZOMBIE_NO_IMPL(...)                                            \
+    ({                                                                         \
+        assert("not implemented for this engine!");                            \
+        NFA_ZOMBIE_NO;                                                         \
+    })
+
 #else
-#define NFA_API_NO_IMPL(...) 0
+
+/* Simpler implementation for compilers that don't like the GCC extension used
+ * above. */
+#define NFA_API_NO_IMPL(...)        0
+#define NFA_API_ZOMBIE_NO_IMPL(...) NFA_ZOMBIE_NO
+
 #endif
 
 #ifdef __cplusplus

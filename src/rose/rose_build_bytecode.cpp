@@ -2433,7 +2433,7 @@ vector<RoseTrigger> buildRoseTriggerList(const RoseGraph &g, RoseVertex u,
             assert(num_tops(g[v].left) == 1);
             top = MQE_TOP;
         } else {
-            top = (enum mqe_event)((u32)MQE_TOP_FIRST + g[e].rose_top);
+            top = MQE_TOP_FIRST + g[e].rose_top;
             assert(top < MQE_INVALID);
         }
 

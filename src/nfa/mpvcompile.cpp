@@ -250,7 +250,7 @@ void fillCounterInfos(vector<mpv_counter_info> *out, u32 *curr_decomp_offset,
                       const map<ClusterKey, vector<raw_puff>> &kilopuffs) {
     /* first the triggered puffs */
     map<ClusterKey, vector<raw_puff>>::const_iterator it = kilopuffs.begin();
-    while (it != kilopuffs.end() && it->first.trigger_event != ~0U) {
+    while (it != kilopuffs.end() && it->first.trigger_event != MQE_INVALID) {
         assert(!it->first.auto_restart);
         assert(it->first.trigger_event
                == MQE_TOP_FIRST + distance(kilopuffs.begin(), it));
@@ -268,7 +268,7 @@ void fillCounterInfos(vector<mpv_counter_info> *out, u32 *curr_decomp_offset,
      */
     map<ClusterKey, vector<raw_puff>>::const_iterator trig_ite = it;
     while (it != kilopuffs.end() && !it->first.auto_restart) {
-        assert(it->first.trigger_event == ~0U);
+        assert(it->first.trigger_event == MQE_INVALID);
 
         ++it;
     }
@@ -278,7 +278,7 @@ void fillCounterInfos(vector<mpv_counter_info> *out, u32 *curr_decomp_offset,
                         kilopuffs, kilopuffs.begin(), it);
     }
     while (it != kilopuffs.end() && it->first.auto_restart) {
-        assert(it->first.trigger_event == ~0U);
+        assert(it->first.trigger_event == MQE_INVALID);
 
         out->push_back(mpv_counter_info());
         map<ClusterKey, vector<raw_puff>>::const_iterator it_o = it;

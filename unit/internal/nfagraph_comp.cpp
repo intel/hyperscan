@@ -32,6 +32,7 @@
 
 #include "config.h"
 #include "gtest/gtest.h"
+#include "nfagraph_common.h"
 #include "grey.h"
 #include "hs.h"
 #include "compiler/compiler.h"
@@ -43,17 +44,8 @@
 using namespace std;
 using namespace ue2;
 
-// Helper: build us an NFA graph from a regex
-static
-unique_ptr<NGWrapper> constructGraph(const string &expr) {
-    CompileContext cc(false, false, get_current_target(), Grey());
-    ParsedExpression parsed(0, expr.c_str(), 0, 0);
-    ReportManager rm(cc.grey);
-    return buildWrapper(rm, cc, parsed);
-}
-
 TEST(NFAGraph, CalcComp1) {
-    auto graph = constructGraph("abc|def|ghi");
+    auto graph = constructGraph("abc|def|ghi", 0);
     ASSERT_TRUE(graph != nullptr);
 
     deque<unique_ptr<NGHolder>> comps = calcComponents(*graph);
@@ -61,7 +53,7 @@ TEST(NFAGraph, CalcComp1) {
 }
 
 TEST(NFAGraph, CalcComp2) {
-    auto graph = constructGraph("a|b|c|d|e|f|g|h|i");
+    auto graph = constructGraph("a|b|c|d|e|f|g|h|i", 0);
     ASSERT_TRUE(graph != nullptr);
 
     deque<unique_ptr<NGHolder>> comps = calcComponents(*graph);
@@ -72,7 +64,7 @@ TEST(NFAGraph, CalcComp2) {
 
 TEST(NFAGraph, RecalcComp1) {
     deque<unique_ptr<NGHolder>> comps;
-    comps.push_back(constructGraph("abc|def|ghi"));
+    comps.push_back(constructGraph("abc|def|ghi", 0));
     ASSERT_TRUE(comps.back() != nullptr);
 
     recalcComponents(comps);

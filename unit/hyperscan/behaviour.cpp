@@ -86,8 +86,7 @@ TEST(HyperscanTestBehaviour, ScanSeveralGigabytesNoMatch) {
     hs_error_t err;
     const size_t datalen = 1024 * 1024;
     size_t megabytes = 5 * 1024;
-    char * data = new char[datalen];
-    memset(data, 'X', datalen);
+    vector<char> data(datalen, 'X');
 
     // build a database
     hs_database_t *db = nullptr;
@@ -110,8 +109,8 @@ TEST(HyperscanTestBehaviour, ScanSeveralGigabytesNoMatch) {
     ASSERT_TRUE(stream != nullptr);
 
     while (megabytes-- > 0) {
-        err = hs_scan_stream(stream, data, datalen, 0, scratch, dummyHandler,
-                             nullptr);
+        err = hs_scan_stream(stream, data.data(), data.size(), 0, scratch,
+                             dummyHandler, nullptr);
         ASSERT_EQ(HS_SUCCESS, err);
     }
 
@@ -121,7 +120,6 @@ TEST(HyperscanTestBehaviour, ScanSeveralGigabytesNoMatch) {
     // teardown
     hs_free_scratch(scratch);
     hs_free_database(db);
-    delete [] data;
 }
 
 struct HugeScanMatchingData {
@@ -141,8 +139,7 @@ TEST_P(HyperscanScanGigabytesMatch, StreamingMatch) {
 
     hs_error_t err;
     const size_t datalen = 1024*1024;
-    char * data = new char[datalen];
-    memset(data, 'X', datalen);
+    vector<char> data(datalen, 'X');
 
     // build a database
     hs_database_t *db = nullptr;
@@ -178,7 +175,7 @@ TEST_P(HyperscanScanGigabytesMatch, StreamingMatch) {
         // streaming mode scan of our megabyte of data gb*1024 times
         unsigned long remaining = gb * 1024;
         while (remaining-- > 0) {
-            err = hs_scan_stream(stream, data, datalen, 0, scratch,
+            err = hs_scan_stream(stream, data.data(), data.size(), 0, scratch,
                                  singleHandler, nullptr);
             ASSERT_EQ(HS_SUCCESS, err);
             ASSERT_EQ(0ULL, lastMatchTo);
@@ -202,7 +199,6 @@ TEST_P(HyperscanScanGigabytesMatch, StreamingMatch) {
     // teardown
     hs_free_scratch(scratch);
     hs_free_database(db);
-    delete[] data;
 }
 
 // Helper function to actually perform scans for BlockMatch test below

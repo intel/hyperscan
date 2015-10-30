@@ -254,7 +254,7 @@ u32 compress32(u32 x, u32 m) {
 #if defined(__BMI2__)
     // BMI2 has a single instruction for this operation.
     return _pext_u32(x, m);
-#endif
+#else
 
     // Return zero quickly on trivial cases
     if ((x & m) == 0) {
@@ -281,6 +281,7 @@ u32 compress32(u32 x, u32 m) {
     }
 
     return x;
+#endif
 }
 
 static really_inline
@@ -288,7 +289,7 @@ u64a compress64(u64a x, u64a m) {
 #if defined(ARCH_X86_64) && defined(__BMI2__)
     // BMI2 has a single instruction for this operation.
     return _pext_u64(x, m);
-#endif
+#else
 
     // Return zero quickly on trivial cases
     if ((x & m) == 0) {
@@ -316,6 +317,7 @@ u64a compress64(u64a x, u64a m) {
     }
 
     return x;
+#endif
 }
 
 static really_inline
@@ -323,7 +325,7 @@ u32 expand32(u32 x, u32 m) {
 #if defined(__BMI2__)
     // BMI2 has a single instruction for this operation.
     return _pdep_u32(x, m);
-#endif
+#else
 
     // Return zero quickly on trivial cases
     if (!x || !m) {
@@ -355,6 +357,7 @@ u32 expand32(u32 x, u32 m) {
     }
 
     return x & m0; // clear out extraneous bits
+#endif
 }
 
 static really_inline
@@ -362,7 +365,7 @@ u64a expand64(u64a x, u64a m) {
 #if defined(ARCH_X86_64) && defined(__BMI2__)
     // BMI2 has a single instruction for this operation.
     return _pdep_u64(x, m);
-#endif
+#else
 
     // Return zero quickly on trivial cases
     if (!x || !m) {
@@ -395,6 +398,7 @@ u64a expand64(u64a x, u64a m) {
     }
 
     return x & m0; // clear out extraneous bits
+#endif
 }
 
 

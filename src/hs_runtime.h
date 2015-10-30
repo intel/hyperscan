@@ -250,7 +250,8 @@ hs_error_t hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
  *      for future use and is unused at present.
  *
  * @param scratch
- *      A per-thread scratch space allocated by @ref hs_alloc_scratch().
+ *      A per-thread scratch space allocated by @ref hs_alloc_scratch(). This is
+ *      allowed to be NULL only if the @a onEvent callback is also NULL.
  *
  * @param onEvent
  *      Pointer to a match event callback function. If a NULL pointer is given,
@@ -299,7 +300,8 @@ hs_error_t hs_copy_stream(hs_stream_t **to_id, const hs_stream_t *from_id);
  *      The stream (as created by @ref hs_open_stream()) to be copied.
  *
  * @param scratch
- *      A per-thread scratch space allocated by @ref hs_alloc_scratch().
+ *      A per-thread scratch space allocated by @ref hs_alloc_scratch(). This is
+ *      allowed to be NULL only if the @a onEvent callback is also NULL.
  *
  * @param onEvent
  *      Pointer to a match event callback function. If a NULL pointer is given,

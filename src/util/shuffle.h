@@ -51,7 +51,7 @@ u32 shuffleDynamic32(u32 x, u32 mask) {
 #if defined(HAVE_PEXT)
     // Intel BMI2 can do this operation in one instruction.
     return _pext_u32(x, mask);
-#endif
+#else
 
     u32 result = 0, num = 1;
     while (mask != 0) {
@@ -63,6 +63,7 @@ u32 shuffleDynamic32(u32 x, u32 mask) {
         num <<= 1;
     }
     return result;
+#endif
 }
 
 static really_inline
@@ -70,7 +71,7 @@ u32 shuffleDynamic64(u64a x, u64a mask) {
 #if defined(HAVE_PEXT) && defined(ARCH_64_BIT)
     // Intel BMI2 can do this operation in one instruction.
     return _pext_u64(x, mask);
-#endif
+#else
 
     u32 result = 0, num = 1;
     while (mask != 0) {
@@ -82,6 +83,7 @@ u32 shuffleDynamic64(u64a x, u64a mask) {
         num <<= 1;
     }
     return result;
+#endif
 }
 
 #undef HAVE_PEXT

@@ -69,7 +69,9 @@ TEST(StreamUtil, reset1) {
 
     c.matches.clear();
 
-    err = hs_reset_stream(stream, 0, scratch, nullptr, nullptr);
+    // Note: we do not need matches from this reset operation, so we do not
+    // need to supply a callback or scratch space.
+    err = hs_reset_stream(stream, 0, nullptr, nullptr, nullptr);
     ASSERT_EQ(HS_SUCCESS, err);
 
     err = hs_scan_stream(stream, data1, sizeof(data1), 0, scratch, record_cb2,
@@ -107,7 +109,9 @@ TEST(StreamUtil, reset2) {
 
     c.matches.clear();
 
-    err = hs_reset_stream(stream, 0, scratch, nullptr, nullptr);
+    // Note: we do not need matches from this reset operation, so we do not
+    // need to supply a callback or scratch space.
+    err = hs_reset_stream(stream, 0, nullptr, nullptr, nullptr);
     ASSERT_EQ(HS_SUCCESS, err);
 
     err = hs_scan_stream(stream, data1, sizeof(data1), 0, scratch, record_cb,
@@ -268,7 +272,7 @@ TEST(StreamUtil, copy_reset1) {
 
     c.matches.clear();
 
-    err = hs_reset_and_copy_stream(stream, stream2, scratch, nullptr, nullptr);
+    err = hs_reset_and_copy_stream(stream, stream2, nullptr, nullptr, nullptr);
     ASSERT_EQ(HS_SUCCESS, err);
 
     err = hs_scan_stream(stream, data1, sizeof(data1), 0, scratch, record_cb2,
@@ -312,7 +316,7 @@ TEST(StreamUtil, copy_reset2) {
 
     c.matches.clear();
 
-    err = hs_reset_and_copy_stream(stream, stream2, scratch, nullptr, nullptr);
+    err = hs_reset_and_copy_stream(stream, stream2, nullptr, nullptr, nullptr);
     ASSERT_EQ(HS_SUCCESS, err);
 
     err = hs_scan_stream(stream, data1, sizeof(data1), 0, scratch, record_cb,
@@ -355,7 +359,7 @@ TEST(StreamUtil, copy_reset3) {
 
     c.matches.clear();
 
-    err = hs_reset_and_copy_stream(stream2, stream, scratch, nullptr, nullptr);
+    err = hs_reset_and_copy_stream(stream2, stream, nullptr, nullptr, nullptr);
     ASSERT_EQ(HS_SUCCESS, err);
 
     err = hs_scan_stream(stream, data1, sizeof(data1), 0, scratch, record_cb,
@@ -408,7 +412,7 @@ TEST(StreamUtil, copy_reset4) {
 
     c.matches.clear();
 
-    err = hs_reset_and_copy_stream(stream2, stream, scratch, nullptr, nullptr);
+    err = hs_reset_and_copy_stream(stream2, stream, nullptr, nullptr, nullptr);
     ASSERT_EQ(HS_SUCCESS, err);
 
     err = hs_scan_stream(stream, data1, sizeof(data1), 0, scratch, record_cb,
@@ -458,7 +462,7 @@ TEST(StreamUtil, copy_reset5) {
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_EQ(0U, c.matches.size());
 
-    err = hs_reset_and_copy_stream(stream2, stream, scratch, nullptr, nullptr);
+    err = hs_reset_and_copy_stream(stream2, stream, nullptr, nullptr, nullptr);
     ASSERT_EQ(HS_SUCCESS, err);
 
     err = hs_scan_stream(stream, data1, sizeof(data1), 0, scratch, record_cb,

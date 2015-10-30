@@ -151,12 +151,12 @@ char JOIN(ENGINE_EXEC_NAME, _TopScan)(const struct NFA *nfa, struct mq *q,
     while (1) {
         // Find the next top with location >= the last escape we saw.
         for (; q->cur < q->end && q_cur_loc(q) <= end; q->cur++) {
-            enum mqe_event t = q_cur_type(q);
-            if ((t == MQE_TOP || t == MQE_TOP_FIRST) &&
+            u32 event = q_cur_type(q);
+            if ((event == MQE_TOP || event == MQE_TOP_FIRST) &&
                 q_cur_offset(q) >= lstate->lastEscape) {
                 goto found_top;
             }
-            DEBUG_PRINTF("skip event type=%d offset=%lld\n", t, q_cur_offset(q));
+            DEBUG_PRINTF("skip event type=%u offset=%lld\n", event, q_cur_offset(q));
         }
 
         // No more tops, we're done.
