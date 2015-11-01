@@ -700,7 +700,10 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
     ReportID arb;
     u8 single;
     u32 accelCount;
+
     u8 alphaShift = info.getAlphaShift();
+    assert(alphaShift <= 8);
+
     u16 count_real_states;
     if (allocateFSN16(info, &count_real_states)) {
         DEBUG_PRINTF("failed to allocate state numbers, %zu states total\n",
@@ -843,6 +846,7 @@ void fillInBasicState8(const dfa_info &info, mstate_aux *aux, u8 *succ_table,
                        const vector<u32> &reports_eod, u32 i) {
     dstate_id_t j = info.implId(i);
     u8 alphaShift = info.getAlphaShift();
+    assert(alphaShift <= 8);
 
     for (size_t s = 0; s < info.impl_alpha_size; s++) {
         dstate_id_t raw_succ = info.states[i].next[s];
