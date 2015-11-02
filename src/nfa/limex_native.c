@@ -83,7 +83,8 @@ int processExceptional32(u32 s, u32 estate, UNUSED u32 diffmask, u32 *succ,
     if (estate == ctx->cached_estate) {
         DEBUG_PRINTF("using cached succ from previous state\n");
         *succ |= ctx->cached_esucc;
-        if (ctx->cached_reports) {
+        if (ctx->cached_reports && (flags & CALLBACK_OUTPUT)) {
+            DEBUG_PRINTF("firing cached reports from previous state\n");
             if (unlikely(limexRunReports(ctx->cached_reports, ctx->callback,
                                          ctx->context, offset)
                         == MO_HALT_MATCHING)) {

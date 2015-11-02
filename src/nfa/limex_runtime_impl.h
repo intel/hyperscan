@@ -179,7 +179,6 @@ char STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
     assert(ISALIGNED_CL(ctx));
     assert(ISALIGNED_CL(&ctx->s));
     STATE_T s = LOAD_STATE(&ctx->s);
-    STORE_STATE(&ctx->cached_estate, ZERO_STATE); /* TODO: understand why this is required */
 
     /* assert(ISALIGNED_16(exceptions)); */
     /* assert(ISALIGNED_16(reach)); */
@@ -305,7 +304,6 @@ char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
     const ReportID *exReports = getExReports(limex);
     const u32 *exceptionMap = limex->exceptionMap;
     STATE_T s = LOAD_STATE(&ctx->s);
-    STORE_STATE(&ctx->cached_estate, ZERO_STATE); /* TODO: understand why this is required */
 
     /* assert(ISALIGNED_16(exceptions)); */
     /* assert(ISALIGNED_16(reach)); */
