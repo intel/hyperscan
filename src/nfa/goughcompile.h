@@ -70,8 +70,11 @@ struct dstate_som {
 };
 
 struct raw_som_dfa : public raw_dfa {
-    raw_som_dfa(nfa_kind k, bool unordered_som_triggers_in)
-        : raw_dfa(k), unordered_som_triggers(unordered_som_triggers_in) {
+    raw_som_dfa(nfa_kind k, bool unordered_som_triggers_in, u32 trigger,
+                u32 stream_som_loc_width_in)
+        : raw_dfa(k), stream_som_loc_width(stream_som_loc_width_in),
+        unordered_som_triggers(unordered_som_triggers_in),
+        trigger_nfa_state(trigger) {
         assert(!unordered_som_triggers || is_triggered(kind));
     }
 

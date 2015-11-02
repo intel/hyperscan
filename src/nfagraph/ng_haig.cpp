@@ -609,7 +609,6 @@ bool doHaig(const NGHolder &g,
     }
 
     haig_note_starts(g, &rdfa->new_som_nfa_states);
-    rdfa->trigger_nfa_state = NODE_START;
 
     return true;
 }
@@ -639,7 +638,8 @@ unique_ptr<raw_som_dfa> attemptToBuildHaig(NGHolder &g, som_type som,
         return nullptr;
     }
 
-    auto rdfa = ue2::make_unique<raw_som_dfa>(g.kind, unordered_som);
+    auto rdfa = ue2::make_unique<raw_som_dfa>(g.kind, unordered_som, NODE_START,
+                                              somPrecision);
 
     DEBUG_PRINTF("determinising nfa with %u vertices\n", numStates);
     bool rv;
@@ -659,7 +659,6 @@ unique_ptr<raw_som_dfa> attemptToBuildHaig(NGHolder &g, som_type som,
 
     DEBUG_PRINTF("determinised, building impl dfa (a,f) = (%hu,%hu)\n",
                  rdfa->start_anchored, rdfa->start_floating);
-    rdfa->stream_som_loc_width = somPrecision;
 
     assert(rdfa->kind == g.kind);
     return rdfa;
@@ -783,7 +782,9 @@ unique_ptr<raw_som_dfa> attemptToMergeHaig(const vector<const raw_som_dfa *> &df
 
     typedef Automaton_Haig_Merge::StateSet StateSet;
     vector<StateSet> nfa_state_map;
-    auto rdfa = ue2::make_unique<raw_som_dfa>(dfas[0]->kind, unordered_som);
+    auto rdfa = ue2::make_unique<raw_som_dfa>(dfas[0]->kind, unordered_som,
+                                              NODE_START,
+                                              dfas[0]->stream_som_loc_width);
 
     int rv = determinise(n, rdfa->states, limit, &nfa_state_map);
     if (rv) {
@@ -831,11 +832,9 @@ unique_ptr<raw_som_dfa> attemptToMergeHaig(const vector<const raw_som_dfa *> &df
     }
 
     haig_merge_note_starts(dfas, per_dfa_adj, &rdfa->new_som_nfa_states);
-    rdfa->trigger_nfa_state = NODE_START;
 
     DEBUG_PRINTF("merged, building impl dfa (a,f) = (%hu,%hu)\n",
                  rdfa->start_anchored, rdfa->start_floating);
-    rdfa->stream_som_loc_width = dfas[0]->stream_som_loc_width;
 
     return rdfa;
 }

@@ -1109,7 +1109,7 @@ aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
     u32 total_prog_size = byte_length(temp_blocks);
     curr_offset += total_prog_size;
 
-    gi.stream_som_loc_count =  slot_count;
+    gi.stream_som_loc_count = slot_count;
     gi.stream_som_loc_width = somPrecision;
 
     u32 gough_size = ROUNDUP_N(curr_offset, 16);
