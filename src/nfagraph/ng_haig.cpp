@@ -114,7 +114,7 @@ void populateAccepts(const NGHolder &g, StateSet *accept, StateSet *acceptEod) {
 }
 
 class Automaton_Base {
-public:
+protected:
     Automaton_Base(const NGHolder &graph_in,
                    const ue2::unordered_map<NFAVertex, u32> &state_ids_in)
         : graph(graph_in), state_ids(state_ids_in) {
@@ -122,6 +122,7 @@ public:
         assert(alphasize <= ALPHABET_SIZE);
     }
 
+public:
     static bool canPrune(const flat_set<ReportID> &) { return false; }
 
     const NGHolder &graph;
