@@ -271,16 +271,13 @@ public:
     typedef Holder_StateSet StateSet;
     typedef ue2::unordered_map<StateSet, dstate_id_t> StateMap;
 
-    explicit Automaton_Holder(const NGHolder &g_in) : g(g_in), bad(false) {
+    explicit Automaton_Holder(const NGHolder &g_in) : g(g_in) {
         for (auto v : vertices_range(g)) {
             vertexToIndex[v] = indexToVertex.size();
             indexToVertex.push_back(v);
         }
 
-        if (indexToVertex.size() > ANCHORED_NFA_STATE_LIMIT) {
-            bad = true;
-            return;
-        }
+        assert(indexToVertex.size() <= ANCHORED_NFA_STATE_LIMIT);
 
         DEBUG_PRINTF("%zu states\n", indexToVertex.size());
         init.wdelay = 0;
@@ -400,7 +397,6 @@ public:
     array<u16, ALPHABET_SIZE> alpha;
     array<u16, ALPHABET_SIZE> unalpha;
     u16 alphasize;
-    bool bad;
 };
 
 } // namespace
@@ -670,12 +666,12 @@ int finalise_out(RoseBuildImpl &tbi, const NGHolder &h,
 
 static
 int addAutomaton(RoseBuildImpl &tbi, const NGHolder &h, ReportID *remap) {
-    Automaton_Holder autom(h);
-
-    if (autom.bad) {
+    if (num_vertices(h) > ANCHORED_NFA_STATE_LIMIT) {
         DEBUG_PRINTF("autom bad!\n");
         return ANCHORED_FAIL;
     }
+
+    Automaton_Holder autom(h);
 
     unique_ptr<raw_dfa> out_dfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX);
     if (!determinise(autom, out_dfa->states, MAX_DFA_STATES)) {
@@ -738,7 +734,6 @@ void buildSimpleDfas(const RoseBuildImpl &tbi,
         NGHolder h;
         populate_holder(simple.first, exit_ids, &h);
         Automaton_Holder autom(h);
-        assert(!autom.bad);
         unique_ptr<raw_dfa> rdfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX);
         UNUSED int rv = determinise(autom, rdfa->states, MAX_DFA_STATES);
         assert(!rv);
