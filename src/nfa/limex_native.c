@@ -120,7 +120,9 @@ int processExceptional32(u32 s, u32 estate, UNUSED u32 diffmask, u32 *succ,
         ctx->cached_reports = new_cache.reports;
         ctx->cached_br = new_cache.br;
     } else if (cacheable == DO_NOT_CACHE_RESULT_AND_FLUSH_BR_ENTRIES) {
-        ctx->cached_estate = 0U;
+        if (ctx->cached_br) {
+            ctx->cached_estate = 0U;
+        }
     }
 
     return 0;
