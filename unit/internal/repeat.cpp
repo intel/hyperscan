@@ -448,6 +448,25 @@ TEST_P(RepeatTest, Pack) {
     }
 }
 
+TEST_P(RepeatTest, LargeGap) {
+    SCOPED_TRACE(testing::Message() << "Repeat: " << info);
+
+    if (info.repeatMax == REPEAT_INF) {
+        return; // Test not valid for FIRST-type repeats.
+    }
+
+    for (int i = 0; i < 64; i++) {
+        u64a top1 = 1000;
+        repeatStore(&info, ctrl, state, top1, 0); // first top
+        ASSERT_EQ(top1, repeatLastTop(&info, ctrl, state));
+
+        // Add a second top after a gap of 2^i bytes.
+        u64a top2 = top1 + (1ULL << i);
+        repeatStore(&info, ctrl, state, top2, 1); // second top
+        ASSERT_EQ(top2, repeatLastTop(&info, ctrl, state));
+    }
+}
+
 static
 const u32 sparsePeriods[] = {
     2,
@@ -893,6 +912,24 @@ TEST_P(SparseOptimalTest, Simple3e) {
     test_sparse3entry(info, ctrl, state, 2 * info->minPeriod - 1);
     test_sparse3entryNeg(info, ctrl, state, 2 * info->minPeriod - 1);
     test_sparse3entryExpire(info, ctrl, state, 2 * info->minPeriod - 1);
+}
+
+TEST_P(SparseOptimalTest, LargeGap) {
+    SCOPED_TRACE(testing::Message() << "Repeat: " << *info);
+
+    for (int i = 0; i < 64; i++) {
+        u64a top1 = 1000;
+        repeatStore(info, ctrl, state, top1, 0); // first top
+        ASSERT_EQ(top1, repeatLastTop(info, ctrl, state));
+
+        // Add a second top after a gap of 2^i bytes.
+        u64a top2 = top1 + (1ULL << i);
+        if (top2 - top1 < info->minPeriod) {
+            continue; // not a valid top
+        }
+        repeatStore(info, ctrl, state, top2, 1); // second top
+        ASSERT_EQ(top2, repeatLastTop(info, ctrl, state));
+    }
 }
 
 TEST_P(SparseOptimalTest, ThreeTops) {

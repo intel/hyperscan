@@ -1165,7 +1165,7 @@ static
 void storeInitialRingTopPatch(const struct RepeatInfo *info,
                               struct RepeatRingControl *xs,
                               u8 *state, u64a offset) {
-    DEBUG_PRINTF("set the first patch\n");
+    DEBUG_PRINTF("set the first patch, offset=%llu\n", offset);
     xs->offset = offset;
 
     u8 *active = state;
@@ -1340,21 +1340,33 @@ void repeatStoreSparseOptimalP(const struct RepeatInfo *info,
                                union RepeatControl *ctrl, void *state,
                                u64a offset, char is_alive) {
     struct RepeatRingControl *xs = &ctrl->ring;
-
-    u64a delta = offset - xs->offset;
-    u32 patch_size = info->patchSize;
-    u32 patch_count = info->patchCount;
-    u32 encoding_size = info->encodingSize;
-    u32 patch = delta / patch_size;
-    DEBUG_PRINTF("offset: %llu encoding_size: %u\n", offset, encoding_size);
-
     u8 *active = (u8 *)state;
-    if (!is_alive) {
+
+    DEBUG_PRINTF("offset: %llu encoding_size: %u\n", offset,
+                 info->encodingSize);
+
+    // If (a) this is the first top, or (b) the ring is stale, initialize the
+    // ring and write this offset in as the first top.
+    if (!is_alive ||
+        offset >
+            repeatLastTopSparseOptimalP(info, ctrl, state) + info->repeatMax) {
         storeInitialRingTopPatch(info, xs, active, offset);
         return;
     }
 
-    assert(offset >= xs->offset);
+    // Tops should arrive in order, with no duplicates.
+    assert(offset > repeatLastTopSparseOptimalP(info, ctrl, state));
+
+    // As the ring is not stale, our delta should fit within a u32.
+    assert(offset - xs->offset <= UINT32_MAX);
+    u32 delta = (u32)(offset - xs->offset);
+    u32 patch_size = info->patchSize;
+    u32 patch_count = info->patchCount;
+    u32 encoding_size = info->encodingSize;
+    u32 patch = delta / patch_size;
+
+    DEBUG_PRINTF("delta=%u, patch_size=%u, patch=%u\n", delta, patch_size,
+                 patch);
 
     u8 *ring = active + info->patchesOffset;
     u32 occ = ringOccupancy(xs, patch_count);
@@ -1365,10 +1377,6 @@ void repeatStoreSparseOptimalP(const struct RepeatInfo *info,
                  patch, patch_count, occ);
     if (patch >= patch_count) {
         u32 patch_shift_count = patch - patch_count + 1;
-        if (patch_shift_count >= patch_count) {
-            storeInitialRingTopPatch(info, xs, active, offset);
-            return;
-        }
         assert(patch >= patch_shift_count);
         DEBUG_PRINTF("shifting by %u\n", patch_shift_count);
         xs->offset += patch_size * patch_shift_count;
