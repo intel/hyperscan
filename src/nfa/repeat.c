@@ -39,6 +39,8 @@
 #include "util/pack_bits.h"
 #include "util/partial_store.h"
 #include "util/unaligned.h"
+
+#include <stdint.h>
 #include <string.h>
 
 /** \brief Returns the total capacity of the ring.
@@ -709,12 +711,7 @@ enum RepeatMatch repeatHasMatchRing(const struct RepeatInfo *info,
     dumpRing(info, xs, ring);
 #endif
 
-    // We work in terms of the distance between the current offset and the base
-    // offset in our history.
-    u64a delta = offset - xs->offset;
-    DEBUG_PRINTF("delta=%llu\n", delta);
-
-    if (delta < info->repeatMin) {
+    if (offset - xs->offset < info->repeatMin) {
         DEBUG_PRINTF("haven't even seen repeatMin bytes yet!\n");
         return REPEAT_NOMATCH;
     }
@@ -724,17 +721,22 @@ enum RepeatMatch repeatHasMatchRing(const struct RepeatInfo *info,
         return REPEAT_STALE;
     }
 
+    // If we're not stale, delta fits in the range [repeatMin, lastTop +
+    // repeatMax], which fits in a u32.
+    assert(offset - xs->offset < UINT32_MAX);
+    u32 delta = (u32)(offset - xs->offset);
+    DEBUG_PRINTF("delta=%u\n", delta);
+
     // Find the bounds on possible matches in the ring buffer.
-    u64a lower = delta > info->repeatMax ? delta - info->repeatMax : 0;
-    u64a upper = delta - info->repeatMin + 1;
-    upper = MIN(upper, ringOccupancy(xs, ringSize));
+    u32 lower = delta > info->repeatMax ? delta - info->repeatMax : 0;
+    u32 upper = MIN(delta - info->repeatMin + 1, ringOccupancy(xs, ringSize));
 
     if (lower >= upper) {
         DEBUG_PRINTF("no matches to check\n");
         return REPEAT_NOMATCH;
     }
 
-    DEBUG_PRINTF("possible match indices=[%llu,%llu]\n", lower, upper);
+    DEBUG_PRINTF("possible match indices=[%u,%u]\n", lower, upper);
     if (ringHasMatch(xs, ring, ringSize, lower, upper)) {
         return REPEAT_MATCH;
     }
@@ -1252,17 +1254,19 @@ u64a repeatNextMatchSparseOptimalP(const struct RepeatInfo *info,
     } else if (nextOffset >
                repeatLastTopSparseOptimalP(info, ctrl, state) +
                info->repeatMax) {
+        DEBUG_PRINTF("ring is stale\n");
         return 0;
     } else {
-        u64a delta = nextOffset - xs->offset;
-        u64a lower = delta > info->repeatMax ? delta - info->repeatMax : 0;
+        assert(nextOffset - xs->offset < UINT32_MAX); // ring is not stale
+        u32 delta = (u32)(nextOffset - xs->offset);
+        u32 lower = delta > info->repeatMax ? delta - info->repeatMax : 0;
         patch = lower / patch_size;
         tval = lower - patch * patch_size;
     }
 
     DEBUG_PRINTF("patch %u\n", patch);
     u32 patch_count = info->patchCount;
-    if (patch >= patch_count){
+    if (patch >= patch_count) {
         return 0;
     }
 
@@ -1480,7 +1484,7 @@ char sparseHasMatch(const struct RepeatInfo *info, const u8 *state,
 enum RepeatMatch repeatHasMatchSparseOptimalP(const struct RepeatInfo *info,
                                               const union RepeatControl *ctrl,
                                               const void *state, u64a offset) {
-    DEBUG_PRINTF("check for match at %llu corresponding to trigger"
+    DEBUG_PRINTF("check for match at %llu corresponding to trigger "
                  "at [%llu, %llu]\n", offset, offset - info->repeatMax,
                  offset - info->repeatMin);
 
@@ -1498,15 +1502,20 @@ enum RepeatMatch repeatHasMatchSparseOptimalP(const struct RepeatInfo *info,
         return REPEAT_STALE;
     }
 
-    u64a delta = offset - xs->offset;
-    u64a lower = delta > info->repeatMax ? delta - info->repeatMax : 0;
-    u64a upper = delta - info->repeatMin;
+    // Our delta between the base offset of the ring and the current offset
+    // must fit within the range [repeatMin, lastPossibleTop + repeatMax]. This
+    // range fits comfortably within a u32.
+    assert(offset - xs->offset <= UINT32_MAX);
+
+    u32 delta = (u32)(offset - xs->offset);
     u32 patch_size = info->patchSize;
     u32 patch_count = info->patchCount;
     u32 occ = ringOccupancy(xs, patch_count);
-    upper = MIN(upper, occ * patch_size - 1);
 
-    DEBUG_PRINTF("lower=%llu, upper=%llu\n", lower, upper);
+    u32 lower = delta > info->repeatMax ? delta - info->repeatMax : 0;
+    u32 upper = MIN(delta - info->repeatMin, occ * patch_size - 1);
+
+    DEBUG_PRINTF("lower=%u, upper=%u\n", lower, upper);
     u32 patch_lower = lower / patch_size;
     u32 patch_upper = upper / patch_size;
 

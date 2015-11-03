@@ -505,6 +505,7 @@ const RepeatTestInfo sparseRepeats[] = {
     { REPEAT_SPARSE_OPTIMAL_P, 4000, 4000 },
     { REPEAT_SPARSE_OPTIMAL_P, 4500, 4500 },
     { REPEAT_SPARSE_OPTIMAL_P, 5000, 5000 },
+    { REPEAT_SPARSE_OPTIMAL_P, 65534, 65534 },
     // {N, M} repeats
     { REPEAT_SPARSE_OPTIMAL_P, 10, 20 },
     { REPEAT_SPARSE_OPTIMAL_P, 20, 40 },
@@ -528,7 +529,8 @@ const RepeatTestInfo sparseRepeats[] = {
     { REPEAT_SPARSE_OPTIMAL_P, 3500, 4000 },
     { REPEAT_SPARSE_OPTIMAL_P, 4000, 8000 },
     { REPEAT_SPARSE_OPTIMAL_P, 4500, 8000 },
-    { REPEAT_SPARSE_OPTIMAL_P, 5000, 5001 }
+    { REPEAT_SPARSE_OPTIMAL_P, 5000, 5001 },
+    { REPEAT_SPARSE_OPTIMAL_P, 60000, 65534 }
 };
 
 static
@@ -802,7 +804,7 @@ TEST_P(SparseOptimalTest, Simple1) {
                                   1000 + info->repeatMax * 2));
     ASSERT_EQ(0U, repeatNextMatch(info, ctrl, state,
                                   1000 + info->repeatMax * 2 + 1));
-    ASSERT_EQ(0U, repeatNextMatch(info, ctrl, state, 10000));
+    ASSERT_EQ(0U, repeatNextMatch(info, ctrl, state, 100000));
 }
 
 TEST_P(SparseOptimalTest, TwoTopsNeg) {
