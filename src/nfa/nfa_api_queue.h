@@ -277,7 +277,7 @@ void debugQueue(const struct mq *q) {
             type = "MQE_TOP_N";
             break;
         }
-        DEBUG_PRINTF("\tq[%u] %lld %d:%s\n", cur, q->items[cur].location,
+        DEBUG_PRINTF("\tq[%u] %lld %u:%s\n", cur, q->items[cur].location,
                      q->items[cur].type, type);
     }
 }
