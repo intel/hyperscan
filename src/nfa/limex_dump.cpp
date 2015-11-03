@@ -317,7 +317,7 @@ template<typename limex_type>
 struct limex_labeller : public nfa_labeller {
     explicit limex_labeller(const limex_type *limex_in) : limex(limex_in) {}
 
-    void label_state(FILE *f, u32 state) const {
+    void label_state(FILE *f, u32 state) const override {
         const typename limex_traits<limex_type>::exception_type *exceptions
             = getExceptionTable(limex);
         if (!testbit((const u8 *)&limex->exceptionMask,
