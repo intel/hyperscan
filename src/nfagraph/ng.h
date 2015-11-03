@@ -64,7 +64,7 @@ public:
               bool prefilter, const som_type som, ReportID rid, u64a min_offset,
               u64a max_offset, u64a min_length);
 
-    ~NGWrapper();
+    ~NGWrapper() override;
 
     /** index of the expression represented by this graph, used
      * - down the track in error handling
