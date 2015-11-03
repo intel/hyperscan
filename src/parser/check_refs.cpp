@@ -57,7 +57,7 @@ public:
     ReferenceVisitor(size_t num_groups, const flat_set<string> &targets)
         : num_ids(num_groups), names(targets) {}
 
-    ~ReferenceVisitor();
+    ~ReferenceVisitor() override;
 
     void invalid_index(const char *component, unsigned id) {
         assert(component);
