@@ -98,18 +98,22 @@ u64a theirtoupper64(const u64a x) {
 static really_inline
 int cmpNocaseNaive(const u8 *p1, const u8 *p2, size_t len) {
     const u8 *pEnd = (const u8 *)p1 + len;
-    for (; p1 < pEnd; p1++, p2++)
-        if (mytolower(*p1) != mytolower(*p2))
+    for (; p1 < pEnd; p1++, p2++) {
+        if (mytolower(*p1) != mytolower(*p2)) {
             return 1;
+        }
+    }
     return 0;
 }
 
 static really_inline
 int cmpCaseNaive(const u8 *p1, const u8 *p2, size_t len) {
     const u8 *pEnd = (const u8 *)p1 + len;
-    for (; p1 < pEnd; p1++, p2++)
-        if (*p1 != *p2)
+    for (; p1 < pEnd; p1++, p2++) {
+        if (*p1 != *p2) {
             return 1;
+        }
+    }
     return 0;
 }
 
