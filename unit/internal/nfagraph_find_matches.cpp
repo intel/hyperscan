@@ -36,9 +36,9 @@
 #include "nfagraph/ng_builder.h"
 #include "nfagraph/ng.h"
 #include "nfagraph/ng_asserts.h"
-#include "util/target_info.h"
 #include "hs_compile.h"
-#include "ng_find_matches.h"
+#include "util/ng_find_matches.h"
+#include "util/target_info.h"
 
 using namespace std;
 using namespace testing;
