@@ -27,11 +27,11 @@ fdr_autogen(teddy_runtime teddy_autogen.c)
 fdr_autogen(teddy_compiler teddy_autogen_compiler.cpp)
 
 set(fdr_GENERATED_SRC
-${CMAKE_BINARY_DIR}/src/fdr/fdr_autogen.c
-${CMAKE_BINARY_DIR}/src/fdr/fdr_autogen_compiler.cpp
-${CMAKE_BINARY_DIR}/src/fdr/teddy_autogen.c
-${CMAKE_BINARY_DIR}/src/fdr/teddy_autogen_compiler.cpp
-PARENT_SCOPE)
+    ${PROJECT_BINARY_DIR}/src/fdr/fdr_autogen.c
+    ${PROJECT_BINARY_DIR}/src/fdr/fdr_autogen_compiler.cpp
+    ${PROJECT_BINARY_DIR}/src/fdr/teddy_autogen.c
+    ${PROJECT_BINARY_DIR}/src/fdr/teddy_autogen_compiler.cpp
+    PARENT_SCOPE)
 
 set_source_files_properties(${fdr_GENERATED_SRC} PROPERTIES GENERATED TRUE)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})

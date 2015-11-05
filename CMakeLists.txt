@@ -8,7 +8,7 @@ set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
 
 string (TIMESTAMP BUILD_DATE "%Y-%m-%d")
 
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 INCLUDE (CheckFunctionExists)
@@ -56,8 +56,9 @@ if(CMAKE_GENERATOR STREQUAL Xcode)
     set(XCODE TRUE)
 endif()
 
-include_directories(src .)
-include_directories(${CMAKE_BINARY_DIR})
+set(CMAKE_INCLUDE_CURRENT_DIR 1)
+include_directories(${PROJECT_SOURCE_DIR}/src)
+include_directories(${PROJECT_BINARY_DIR})
 include_directories(SYSTEM include)
 
 set(BOOST_USE_STATIC_LIBS OFF)
@@ -71,7 +72,7 @@ find_package(Boost ${BOOST_MINVERSION})
 if(NOT Boost_FOUND)
     # we might have boost in tree, so provide a hint and try again
     message(STATUS "trying include dir for boost")
-    set(BOOST_INCLUDEDIR "${CMAKE_SOURCE_DIR}/include")
+    set(BOOST_INCLUDEDIR "${PROJECT_SOURCE_DIR}/include")
     find_package(Boost ${BOOST_MINVERSION})
     if(NOT Boost_FOUND)
         message(FATAL_ERROR "Boost ${BOOST_MINVERSION} or later not found. Either install system pacakges if available, extract Boost headers to ${CMAKE_SOURCE_DIR}/include, or set the CMake BOOST_ROOT variable.")
@@ -219,6 +220,15 @@ CHECK_FUNCTION_EXISTS(_aligned_malloc HAVE__ALIGNED_MALLOC)
 CHECK_C_COMPILER_FLAG(-fvisibility=hidden HAS_C_HIDDEN)
 CHECK_CXX_COMPILER_FLAG(-fvisibility=hidden HAS_CXX_HIDDEN)
 
+if (RELEASE_BUILD)
+    if (HAS_C_HIDDEN)
+        set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -fvisibility=hidden")
+    endif()
+    if (HAS_CXX_HIDDEN)
+        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fvisibility=hidden")
+    endif()
+endif()
+
 # testing a builtin takes a little more work
 CHECK_C_SOURCE_COMPILES("void *aa_test(void *x) { return __builtin_assume_aligned(x, 16);}\nint main(void) { return 0; }" HAVE_CC_BUILTIN_ASSUME_ALIGNED)
 CHECK_CXX_SOURCE_COMPILES("void *aa_test(void *x) { return __builtin_assume_aligned(x, 16);}\nint main(void) { return 0; }" HAVE_CXX_BUILTIN_ASSUME_ALIGNED)
@@ -327,8 +337,8 @@ if (EXISTS ${CMAKE_SOURCE_DIR}/tools)
 endif()
 
 # do substitutions
-configure_file(${CMAKE_MODULE_PATH}/config.h.in ${CMAKE_BINARY_DIR}/config.h)
-configure_file(src/hs_version.h.in hs_version.h)
+configure_file(${CMAKE_MODULE_PATH}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
+configure_file(src/hs_version.h.in ${PROJECT_BINARY_DIR}/hs_version.h)
 
 if (PKG_CONFIG_FOUND)
     # we really only need to do this if we have pkg-config
@@ -345,7 +355,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 # include the autogen targets
 add_subdirectory(src/fdr)
 
-include_directories(${CMAKE_BINARY_DIR}/src/fdr)
+include_directories(${PROJECT_BINARY_DIR}/src/fdr)
 
 if(NOT WIN32)
 set(RAGEL_C_FLAGS "-Wno-unused")
