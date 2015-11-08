@@ -420,7 +420,7 @@ unique_ptr<ComponentClass> getLiteralComponentClass(unsigned char c,
 
 ComponentClass::ComponentClass(const ParseMode &mode_in)
     : m_negate(false), mode(mode_in), in_cand_range(false),
-      range_start(INVALID_UNICODE), finalized(false), firstChar('\0') {}
+      range_start(INVALID_UNICODE), finalized(false) {}
 
 ComponentClass::~ComponentClass() { }
 

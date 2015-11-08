@@ -1094,9 +1094,6 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
 
               # Literal character
               (any - ']') => {
-                  if (currentCls->class_empty()) {
-                      currentCls->setFirstChar(*ts);
-                  }
                   currentCls->add(*ts);
               };
 
