@@ -790,10 +790,12 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
         any => { throw LocatedParseError("Unknown property"); };
                      *|;
     charClassGuts := |*
-              # We don't like POSIX collating elements (neither does PCRE or Perl).
-              '\[\.' [^\]]* '\.\]' | 
-              '\[=' [^\]]* '=\]' => {
-                  throw LocatedParseError("Unsupported POSIX collating element");
+              # We don't support POSIX collating elements (neither does PCRE
+              # or Perl). These look like [.ch.] or [=ch=].
+              '\[\.' ( '\\]' | [^\]] )* '\.\]' |
+              '\[=' ( '\\]' | [^\]] )* '=\]' => {
+                  throw LocatedParseError("Unsupported POSIX collating "
+                                          "element");
               };
               # Named sets
               # Adding these may cause the charclass to close, hence the
@@ -1090,23 +1092,6 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
                   throwInvalidUtf8();
               };
 
-              # dot or equals at the end of a character class could be the end
-              # of a collating element, like [.blah.] or [=blah=].
-              [.=] ']' => {
-                  if (currentCls->getFirstChar() == *ts) {
-                      assert(currentClsBegin);
-                      ostringstream oss;
-                      oss << "Unsupported POSIX collating element at index "
-                          << currentClsBegin - ptr << ".";
-                      throw ParseError(oss.str());
-                  }
-                  currentCls->add(*ts);
-                  currentCls->finalize();
-                  currentSeq->addComponent(move(currentCls));
-                  inCharClass = false;
-                  fgoto main;
-              };
-
               # Literal character
               (any - ']') => {
                   if (currentCls->class_empty()) {
@@ -1231,6 +1216,13 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
               '\[:' ( '\\]' | [^\]] )* ':\]' => {
                   throw LocatedParseError("POSIX named classes are only "
                                           "supported inside a class");
+              };
+              # We don't support POSIX collating elements (neither does PCRE
+              # or Perl). These look like [.ch.] or [=ch=].
+              '\[\.' ( '\\]' | [^\]] )* '\.\]' |
+              '\[=' ( '\\]' | [^\]] )* '=\]' => {
+                  throw LocatedParseError("Unsupported POSIX collating "
+                                          "element");
               };
               # Begin eating characters for class
               '\[' => eatClass;

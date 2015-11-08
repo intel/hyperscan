@@ -128,3 +128,7 @@
 128:/(*UTF8)^fo?ob{ro|nax_off\Qt=10omnax+8Wnah/ссссссссссссссссссссссссссс0}l.{1,60}Car*k|npanomnax+8Wnah/ #Expression is not valid UTF-8.
 129:/bignum \1111111111111111111/ #Number is too big at index 7.
 130:/foo|&{5555555,}/ #Bounded repeat is too large.
+131:/[a[..]]/ #Unsupported POSIX collating element at index 2.
+132:/[a[==]]/ #Unsupported POSIX collating element at index 2.
+133:/[a[.\].]]/ #Unsupported POSIX collating element at index 2.
+134:/[a[=\]=]]/ #Unsupported POSIX collating element at index 2.
