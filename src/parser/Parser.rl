@@ -424,6 +424,7 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
         assert(!inCharClass); // not reentrant
         currentCls = getComponentClass(mode);
         inCharClass = true;
+        inCharClassEarly = true;
         currentClsBegin = ts;
         fgoto readClass;
     }
@@ -474,6 +475,7 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
     }
     action is_utf8 { mode.utf8 }
     action is_ignore_space { mode.ignore_space }
+    action is_early_charclass { inCharClassEarly }
 
     action addNumberedBackRef {
         if (accumulator == 0) {
@@ -1109,25 +1111,24 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
     # Parser to read stuff from a character class
     #############################################################
     readClass := |*
-        # the negate and right bracket out the front are special
-        '\^' => {
+        # A caret at the beginning of the class means that the rest of the
+        # class is negated.
+        '\^' when is_early_charclass => {
             if (currentCls->isNegated()) {
+                // Already seen a caret; the second one is not a meta-character.
+                inCharClassEarly = false;
                 fhold; fgoto charClassGuts;
             } else {
                 currentCls->negate();
+                // Note: we cannot switch off inCharClassEarly here, as /[^]]/
+                // needs to use the right square bracket path below.
             }
         };
-        ']' => {
-            // if this is the first thing in the class, add it and move along,
-            // otherwise jump into the char class machine to handle what might
-            // end up as fail
-            if (currentCls->class_empty()) {
-                currentCls->add(']');
-            } else {
-                // leave it for the next machine
-                fhold;
-            }
-            fgoto charClassGuts;
+        # A right square bracket before anything "real" is interpreted as a
+        # literal right square bracket.
+        ']' when is_early_charclass => {
+            currentCls->add(']');
+            inCharClassEarly = false;
         };
         # if we hit a quote before anything "real", handle it
         #'\\Q' => { fcall readQuotedClass; };
@@ -1137,7 +1138,11 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
         '\\E' => { /*noop*/};
 
         # time for the real work to happen
-        any => { fhold; fgoto charClassGuts; };
+        any => {
+            inCharClassEarly = false;
+            fhold;
+            fgoto charClassGuts;
+        };
         *|;
 
     #############################################################
@@ -1884,6 +1889,11 @@ unique_ptr<Component> parse(const char *const c_ptr, ParseMode &globalMode) {
     // True if the machine is currently inside a character class, i.e. square
     // brackets [..].
     bool inCharClass = false;
+
+    // True if the machine is inside a character class but it has not processed
+    // any "real" elements yet, i.e. it's still processing meta-characters like
+    // '^'.
+    bool inCharClassEarly = false;
 
     // Location at which the current character class began.
     const u8 *currentClsBegin = p;
