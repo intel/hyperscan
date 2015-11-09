@@ -132,3 +132,4 @@
 132:/[a[==]]/ #Unsupported POSIX collating element at index 2.
 133:/[a[.\].]]/ #Unsupported POSIX collating element at index 2.
 134:/[a[=\]=]]/ #Unsupported POSIX collating element at index 2.
+135:/[^\D\d]/8W #Pattern can never match.

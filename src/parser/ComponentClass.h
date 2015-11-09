@@ -232,8 +232,12 @@ public:
     Component *accept(ComponentVisitor &v) override = 0;
     void accept(ConstComponentVisitor &v) const override = 0;
 
-     /** True iff we have already started adding members to the class. This is
-      * a different concept to Component::empty */
+    /** \brief True if the class contains no members (i.e. it will not match
+     * against anything). This function can only be called on a finalized
+     * class.
+     *
+     * Note: This is a different concept to Component::empty.
+     */
     virtual bool class_empty(void) const = 0;
 
     virtual void add(PredefinedClass c, bool negated) = 0;

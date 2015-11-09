@@ -52,7 +52,8 @@ AsciiComponentClass *AsciiComponentClass::clone() const {
 }
 
 bool AsciiComponentClass::class_empty(void) const {
-    return cr.none() && cr_ucp.none();
+    assert(finalized);
+    return cr.none();
 }
 
 void AsciiComponentClass::createRange(unichar to) {

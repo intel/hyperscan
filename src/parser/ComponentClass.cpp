@@ -441,7 +441,6 @@ void ComponentClass::addDash(void) {
 }
 
 void ComponentClass::negate() {
-    assert(class_empty());
     m_negate = true;
 }
 

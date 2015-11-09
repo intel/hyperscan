@@ -484,7 +484,8 @@ UTF8ComponentClass *UTF8ComponentClass::clone() const {
 }
 
 bool UTF8ComponentClass::class_empty(void) const {
-    return cps.none() && cps_ucp.none();
+    assert(finalized);
+    return cps.none();
 }
 
 void UTF8ComponentClass::createRange(unichar to) {
