@@ -1414,7 +1414,8 @@ void repeatStoreSparseOptimalP(const struct RepeatInfo *info,
         }
     }
 
-    u64a diff = delta - patch * patch_size;
+    assert((u64a)patch * patch_size <= delta);
+    u32 diff = delta - patch * patch_size;
     const u64a *repeatTable = getImplTable(info);
     val += repeatTable[diff];
 
