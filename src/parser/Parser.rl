@@ -893,11 +893,7 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
                   throw LocatedParseError("Invalid POSIX named class");
               };
               '\\Q' => {
-                  // fcall readQuotedClass;
-                  ostringstream str;
-                  str << "\\Q..\\E sequences in character classes not supported at index "
-                      << ts - ptr << ".";
-                  throw ParseError(str.str());
+                  fcall readQuotedClass;
               };
               '\\E' => { /*noop*/};
               # Backspace (this is only valid for \b in char classes)
@@ -1131,10 +1127,7 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
             inCharClassEarly = false;
         };
         # if we hit a quote before anything "real", handle it
-        #'\\Q' => { fcall readQuotedClass; };
-        '\\Q' => {
-            throw LocatedParseError("\\Q..\\E sequences in character classes not supported");
-        };
+        '\\Q' => { fcall readQuotedClass; };
         '\\E' => { /*noop*/};
 
         # time for the real work to happen
@@ -1170,6 +1163,7 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
               # Literal character
               any => {
                   currentCls->add(*ts);
+                  inCharClassEarly = false;
               };
             *|;
 

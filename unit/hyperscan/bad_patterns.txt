@@ -85,7 +85,6 @@
 84:/[=\]=]/ #Unsupported POSIX collating element at index 0.
 85:/A(?!)+Z/ #Invalid repeat at index 5.
 86:/\X/ #\X unsupported at index 0.
-87:/[a\Qz\E]/ #\Q..\E sequences in character classes not supported at index 2.
 88:/[A-\d]/ #Invalid range in character class at index 3.
 89:/[A-[:digit:]]/ #Invalid range in character class at index 3.
 90:/B[--[:digit:]--]+/ #Invalid range in character class at index 4.
