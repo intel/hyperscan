@@ -33,8 +33,13 @@
 #ifndef UTIL_CONTAINER_H
 #define UTIL_CONTAINER_H
 
+#include "ue2common.h"
+
 #include <algorithm>
+#include <cassert>
+#include <cstring>
 #include <set>
+#include <type_traits>
 #include <utility>
 
 namespace ue2 {
@@ -92,9 +97,33 @@ std::set<typename C::key_type> assoc_keys(const C &container) {
     return keys;
 }
 
+/**
+ * \brief Return the length in bytes of the given vector of (POD) objects.
+ */
 template<typename T>
 typename std::vector<T>::size_type byte_length(const std::vector<T> &vec) {
+    static_assert(std::is_pod<T>::value, "should be pod");
     return vec.size() * sizeof(T);
+}
+
+/**
+ * \brief Copy the given vector of POD objects to the given location in memory.
+ * It is safe to give this function an empty vector.
+ */
+template<typename T>
+void *copy_bytes(void *dest, const std::vector<T> &vec) {
+    static_assert(std::is_pod<T>::value, "should be pod");
+    assert(dest);
+
+    // Since we're generally using this function to write into the bytecode,
+    // dest should be appropriately aligned for T.
+    assert(ISALIGNED_N(dest, alignof(T)));
+
+    if (vec.empty()) {
+        return dest; // Protect memcpy against null pointers.
+    }
+    assert(vec.data() != nullptr);
+    return std::memcpy(dest, vec.data(), byte_length(vec));
 }
 
 template<typename OrderedContainer1, typename OrderedContainer2>

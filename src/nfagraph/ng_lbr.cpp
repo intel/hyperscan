@@ -98,8 +98,7 @@ void fillNfa(NFA *nfa, lbr_common *c, ReportID report, const depth &repeatMin,
     info->packedCtrlSize = rsi.packedCtrlSize;
     info->horizon = rsi.horizon;
     info->minPeriod = minPeriod;
-    memcpy(&info->packedFieldSizes, rsi.packedFieldSizes.data(),
-           byte_length(rsi.packedFieldSizes));
+    copy_bytes(&info->packedFieldSizes, rsi.packedFieldSizes);
     info->patchCount = rsi.patchCount;
     info->patchSize = rsi.patchSize;
     info->encodingSize = rsi.encodingSize;
@@ -122,7 +121,7 @@ void fillNfa(NFA *nfa, lbr_common *c, ReportID report, const depth &repeatMin,
         nfa->length = verify_u32(len);
         info->length = verify_u32(sizeof(RepeatInfo)
                                   + sizeof(u64a) * (rsi.patchSize + 1));
-        memcpy(table, rsi.table.data(), byte_length(rsi.table));
+        copy_bytes(table, rsi.table);
     }
 }
 

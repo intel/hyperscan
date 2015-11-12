@@ -1136,16 +1136,11 @@ aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
     gough_dfa->length = gough_size;
 
     /* copy in blocks */
-    memcpy((u8 *)gough_dfa.get() + edge_prog_offset, &edge_blocks[0],
-           byte_length(edge_blocks));
+    copy_bytes((u8 *)gough_dfa.get() + edge_prog_offset, edge_blocks);
     if (top_prog_offset) {
-        memcpy((u8 *)gough_dfa.get() + top_prog_offset, &top_blocks[0],
-               byte_length(top_blocks));
+        copy_bytes((u8 *)gough_dfa.get() + top_prog_offset, top_blocks);
     }
-    if (!temp_blocks.empty()) {
-        memcpy((u8 *)gough_dfa.get() + prog_base_offset, &temp_blocks[0],
-               byte_length(temp_blocks));
-    }
+    copy_bytes((u8 *)gough_dfa.get() + prog_base_offset, temp_blocks);
 
     return gough_dfa;
 }
