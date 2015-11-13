@@ -136,7 +136,7 @@ bool firstMatchIsFirst(const NGHolder &p) {
         return false;
     }
 
-    set<NFAVertex> states;
+    ue2::flat_set<NFAVertex> states;
     /* turn on all states (except starts - avoid suffix matches) */
     /* If we were doing (1) we would also except states leading to accepts -
        avoid prefix matches */
@@ -149,7 +149,7 @@ bool firstMatchIsFirst(const NGHolder &p) {
     }
 
     /* run the prefix the main graph */
-    execute_graph(p, p, &states);
+    states = execute_graph(p, p, states);
 
     for (auto v : states) {
         /* need to check if this vertex may represent an infix match - ie
@@ -313,7 +313,7 @@ bool sentClearsTail(const NGHolder &g,
      */
 
     u32 first_bad_region = ~0U;
-    set<NFAVertex> states;
+    ue2::flat_set<NFAVertex> states;
     /* turn on all states */
     DEBUG_PRINTF("region %u is cutover\n", last_head_region);
     for (auto v : vertices_range(g)) {
@@ -327,7 +327,7 @@ bool sentClearsTail(const NGHolder &g,
     }
 
     /* run the prefix the main graph */
-    execute_graph(g, sent, &states);
+    states = execute_graph(g, sent, states);
 
     /* .. and check if we are left with anything in the tail region */
     for (auto v : states) {

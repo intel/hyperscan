@@ -35,8 +35,8 @@
 #define NG_EXECUTE_H
 
 #include "ng_holder.h"
+#include "util/ue2_containers.h"
 
-#include <set>
 #include <vector>
 
 namespace ue2 {
@@ -44,23 +44,25 @@ namespace ue2 {
 class CharReach;
 struct ue2_literal;
 
-void execute_graph(const NGHolder &g, const ue2_literal &input,
-                   std::set<NFAVertex> *states, bool kill_sds = false);
+flat_set<NFAVertex> execute_graph(const NGHolder &g, const ue2_literal &input,
+                                  const flat_set<NFAVertex> &initial,
+                                  bool kill_sds = false);
 
-void execute_graph(const NGHolder &g, const std::vector<CharReach> &input,
-                   std::set<NFAVertex> *states);
+flat_set<NFAVertex> execute_graph(const NGHolder &g,
+                                  const std::vector<CharReach> &input,
+                                  const flat_set<NFAVertex> &initial);
 
 /** on exit, states contains any state which may still be enabled after
  * receiving an input which corresponds to some path through the input_dag from
  * start or startDs to accept. input_dag MUST be acyclic aside from self-loops.
  */
-void execute_graph(const NGHolder &g, const NGHolder &input_dag,
-                   std::set<NFAVertex> *states);
+flat_set<NFAVertex> execute_graph(const NGHolder &g, const NGHolder &input_dag,
+                                  const flat_set<NFAVertex> &initial);
 
 /* as above, but able to specify the source states for the input graph */
-void execute_graph(const NGHolder &g, const NGHolder &input_dag,
-                   const std::set<NFAVertex> &input_start_states,
-                   std::set<NFAVertex> *states);
+flat_set<NFAVertex> execute_graph(const NGHolder &g, const NGHolder &input_dag,
+                                  const flat_set<NFAVertex> &input_start_states,
+                                  const flat_set<NFAVertex> &initial);
 
 } // namespace ue2
 
