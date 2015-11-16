@@ -110,6 +110,9 @@ private:
 PredefinedClass translateForUcpMode(PredefinedClass in, const ParseMode &mode);
 bool isUcp(PredefinedClass c);
 
+CodePointSet getPredefinedCodePointSet(PredefinedClass c,
+                                       const ParseMode &mode);
+
 } // namespace
 
 #endif // UTF8_COMPONENT_CLASS_H

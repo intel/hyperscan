@@ -81,8 +81,9 @@ CharReach getPredefinedCharReach(PredefinedClass c, const ParseMode &mode) {
     case CLASS_DIGIT:
         return number;
     case CLASS_GRAPH:
-    case CLASS_XGRAPH:
         return CharReach(0x21, 0x7e);
+    case CLASS_XGRAPH:
+        return to_cr(getPredefinedCodePointSet(c, mode));
     case CLASS_HORZ:
         return CharReach("\x09\x20\xA0");
     case CLASS_LOWER:
@@ -93,11 +94,15 @@ CharReach getPredefinedCharReach(PredefinedClass c, const ParseMode &mode) {
         }
     case CLASS_PRINT:
         return CharReach(0x20, 0x7e);
+    case CLASS_XPRINT:
+        return to_cr(getPredefinedCodePointSet(c, mode));
     case CLASS_PUNCT:
         return CharReach(0x21, '0' - 1)
             | CharReach('9' + 1, 'A' - 1)
             | CharReach('Z' + 1, 'a' - 1)
             | CharReach('z' + 1, 126);
+    case CLASS_XPUNCT:
+        return to_cr(getPredefinedCodePointSet(c, mode));
     case CLASS_SPACE:
         return CharReach("\x09\x0a\x0c\x0b\x0d\x20");
     case CLASS_UPPER:

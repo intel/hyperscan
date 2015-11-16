@@ -63,7 +63,9 @@ enum PredefinedClass {
     CLASS_VERT,
     CLASS_WORD,
     CLASS_XDIGIT,
-    CLASS_XGRAPH,
+    CLASS_XGRAPH, /* [:graph:] in UCP mode */
+    CLASS_XPRINT, /* [:print:] in UCP mode */
+    CLASS_XPUNCT, /* [:punct:] in UCP mode */
     CLASS_UCP_C,
     CLASS_UCP_CC,
     CLASS_UCP_CF,

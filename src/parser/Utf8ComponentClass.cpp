@@ -75,6 +75,10 @@ PredefinedClass translateForUcpMode(PredefinedClass in, const ParseMode &mode) {
         } else {
             return CLASS_UCP_LL;
         }
+    case CLASS_PRINT:
+        return CLASS_XPRINT;
+    case CLASS_PUNCT:
+        return CLASS_XPUNCT;
     case CLASS_SPACE:
         return CLASS_UCP_XPS;
     case CLASS_UPPER:
@@ -90,7 +94,6 @@ PredefinedClass translateForUcpMode(PredefinedClass in, const ParseMode &mode) {
     }
 }
 
-static
 CodePointSet getPredefinedCodePointSet(PredefinedClass c,
                                        const ParseMode &mode) {
     /* TODO: support properly PCRE_UCP mode and non PCRE_UCP mode */
@@ -115,6 +118,25 @@ CodePointSet getPredefinedCodePointSet(PredefinedClass c,
         cf.unset(0x180e);
         cf.unsetRange(0x2066, 0x2069);
         rv |= cf;
+        return rv;
+    }
+    case CLASS_XPRINT: {
+        // Same as graph, plus everything with the Zs property.
+        CodePointSet rv = getPredefinedCodePointSet(CLASS_XGRAPH, mode);
+        rv |= getUcpZs();
+        return rv;
+    }
+    case CLASS_XPUNCT: {
+        // Everything with the P (punctuation) property, plus code points in S
+        // (symbols) that are < 128.
+        // NOTE: PCRE versions 8.37 and earlier erroneously use 256 as the
+        // cut-off here, so we are compatible with that for now. PCRE bug #1718
+        // tracks this; once PCRE 8.38 is released we should correct this
+        // behaviour.
+        CodePointSet rv = getUcpP();
+        CodePointSet symbols = getUcpS();
+        symbols.unsetRange(256, MAX_UNICODE);
+        rv |= symbols;
         return rv;
     }
     case CLASS_HORZ: {
