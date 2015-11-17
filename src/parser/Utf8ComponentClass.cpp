@@ -515,16 +515,16 @@ void UTF8ComponentClass::createRange(unichar to) {
     unichar from = range_start;
     if (from > to) {
         throw LocatedParseError("Range out of order in character class");
-    } else {
-        in_cand_range = false;
-        CodePointSet ncps;
-        ncps.setRange(from, to);
-        if (mode.caseless) {
-            make_caseless(&ncps);
-        }
-        cps |= ncps;
-        range_start = INVALID_UNICODE;
     }
+
+    in_cand_range = false;
+    CodePointSet ncps;
+    ncps.setRange(from, to);
+    if (mode.caseless) {
+        make_caseless(&ncps);
+    }
+    cps |= ncps;
+    range_start = INVALID_UNICODE;
 }
 
 void UTF8ComponentClass::add(PredefinedClass c, bool negative) {
@@ -543,11 +543,7 @@ void UTF8ComponentClass::add(PredefinedClass c, bool negative) {
         pcps.flip();
     }
 
-    if (isUcp(c)) {
-        cps_ucp |= pcps;
-    } else {
-        cps |= pcps;
-    }
+    cps |= pcps;
 
     range_start = INVALID_UNICODE;
     in_cand_range = false;
@@ -585,38 +581,11 @@ void UTF8ComponentClass::finalize() {
         in_cand_range = false;
     }
 
-    cps |= cps_ucp; /* characters from ucp props always case sensitive */
-
     if (m_negate) {
         cps.flip();
     }
 
     finalized = true;
-}
-
-bool isUcp(PredefinedClass c) {
-    switch (c) {
-    case CLASS_ALNUM:
-    case CLASS_ALPHA:
-    case CLASS_ANY:
-    case CLASS_ASCII:
-    case CLASS_BLANK:
-    case CLASS_CNTRL:
-    case CLASS_DIGIT:
-    case CLASS_GRAPH:
-    case CLASS_HORZ:
-    case CLASS_LOWER:
-    case CLASS_PRINT:
-    case CLASS_PUNCT:
-    case CLASS_SPACE:
-    case CLASS_UPPER:
-    case CLASS_VERT:
-    case CLASS_WORD:
-    case CLASS_XDIGIT:
-        return false;
-    default:
-        return true;
-    }
 }
 
 Position UTF8ComponentClass::getHead(NFABuilder &builder, u8 first_byte) {

@@ -78,12 +78,10 @@ protected:
 private:
     Position position;
     CharReach cr;
-    CharReach cr_ucp;
 
     // Private copy ctor. Use clone instead.
     AsciiComponentClass(const AsciiComponentClass &other)
-        : ComponentClass(other), position(other.position), cr(other.cr),
-          cr_ucp(other.cr_ucp) {}
+        : ComponentClass(other), position(other.position), cr(other.cr) {}
 };
 
 } // namespace ue2
