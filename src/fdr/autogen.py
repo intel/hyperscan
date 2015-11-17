@@ -54,16 +54,11 @@ def produce_fdr_compiles(l):
 
 def build_fdr_matchers():
     all_matchers = [ ]
-    domains = [8, 10, 11, 12, 13]
-    big_domains = [ 14, 15 ]
+    strides = [ 1, 2, 4 ]
 
     common = { "state_width" : 128, "num_buckets" : 8, "extract_frequency" : 8, "arch" : arch_x86_64 }
-    for d in domains:
-        all_matchers += [ M3(stride = 1, domain = d, **common) ]
-        all_matchers += [ M3(stride = 2, domain = d, **common) ]
-        all_matchers += [ M3(stride = 4, domain = d, **common) ]
-    for d in big_domains:
-        all_matchers += [ M3(stride = 1, domain = d, **common) ]
+    for s in strides:
+        all_matchers += [ M3(stride = s, **common) ]
 
     return all_matchers
 

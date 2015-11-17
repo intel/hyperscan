@@ -81,6 +81,7 @@ void fdrPrintStats(const FDR *fdr, FILE *f) {
         unique_ptr<FDREngineDescription> des =
             getFdrDescription(fdr->engineID);
         if (des) {
+            fprintf(f, "    domain     %u\n", des->bits);
             fprintf(f, "    stride     %u\n", des->stride);
             fprintf(f, "    buckets    %u\n", des->getNumBuckets());
             fprintf(f, "    width      %u\n", des->schemeWidth);

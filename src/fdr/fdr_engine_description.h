@@ -43,7 +43,6 @@ struct FDREngineDef {
     u32 schemeWidth;
     u32 numBuckets;
     u32 stride;
-    u32 bits;
     u64a cpu_features;
     u32 confirmPullBackDistance;
     u32 confirmTopLevelSplit;

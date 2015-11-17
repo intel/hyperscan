@@ -184,6 +184,13 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
     ptr += floodControlTmp.second;
     aligned_free(floodControlTmp.first);
 
+    /*  we are allowing domains 9 to 15 only */
+    assert(eng.bits > 8 && eng.bits < 16);
+    fdr->domain = eng.bits;
+    fdr->schemeWidthByte = eng.schemeWidth / 8;
+    fdr->domainMask = (1 << eng.bits) - 1;
+    fdr->tabSize = (1 << eng.bits) * fdr->schemeWidthByte;
+
     if (link.first) {
         fdr->link = verify_u32(ptr - fdr_base);
         memcpy(ptr, link.first, link.second);
@@ -532,6 +539,11 @@ fdrBuildTableInternal(const vector<hwlmLiteral> &lits, bool make_small,
 
     if (!des) {
         return nullptr;
+    }
+
+    // temporary hack for unit testing
+    if (hint != HINT_INVALID) {
+        des->bits = 9;
     }
 
     FDRCompiler fc(lits, *des, make_small);

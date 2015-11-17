@@ -74,12 +74,12 @@ class ValueExtractStep(Step):
         dsb = m.datasize_bytes
         modval = offset % dsb
 
-        if m.domain > 8 and modval == dsb - 1:
+        if modval == dsb - 1:
             # Case 1: reading more than one byte over the end of the bulk load
 
             self.latency = 4
             if sub_load_cautious:
-                code_string = "cautious_forward" 
+                code_string = "cautious_forward"
             else:
                 code_string = "normal"
             load_string = m.single_load_type.load_expr_data(self.offset, code_string)
@@ -101,7 +101,7 @@ class ValueExtractStep(Step):
                     temp_string = "(%s >> %d)" % (lb_var.name, modval*8 - m.reach_shift_adjust)
 
 
-        init_string = "(%s) & 0x%x" % (temp_string, m.reach_mask)
+        init_string = "(%s) & (domain_mask << %d)" % (temp_string, m.reach_shift_adjust)
         v_var = self.nv(m.value_extract_type, "v%d" % offset)
         self.val = v_var.gen_initializer_stmt(init_string)
 
@@ -173,14 +173,10 @@ class ConfirmStep(Step):
                                           enable_confirmless = m.stride == 1, do_bailout = False)
 
 class M3(MatcherBase):
-    def get_hash_safety_parameters(self):
-        h_size = self.single_load_type.size_in_bytes()
-        return (0, h_size - 1)
-
     def produce_compile_call(self):
-        print "    { %d, %d, %d, %d, %d, %s, %d, %d }," % (
+        print "    { %d, %d, %d, %d, %s, %d, %d }," % (
               self.id, self.state_width, self.num_buckets,
-              self.stride, self.domain,
+              self.stride,
               self.arch.target, self.conf_pull_back, self.conf_top_level_split)
 
     def produce_main_loop(self, switch_variant = False):
@@ -192,8 +188,8 @@ class M3(MatcherBase):
         ctxt = CodeGenContext(self)
 
         if switch_variant:
-            print " ptr -= (iterBytes - dist);"
-            print " { " # need an extra scope around switch variant to stop its globals escaping
+            print "    ptr -= (iterBytes - dist);"
+            print "    { " # need an extra scope around switch variant to stop its globals escaping
         else:
             print "    if (doMainLoop) {"
             print "    for (; ptr + LOOP_READ_AHEAD < buf + len; ptr += iterBytes) {"
@@ -349,25 +345,30 @@ class M3(MatcherBase):
         shift_expr = "%s = %s" % (state.name, state.type.shift_expr(state.name, shift_distance))
 
         s = Template("""
-            $TYPENAME s;
-            if (a->len_history) {
-                u32 tmp = getPreStartVal(a, $DOMAIN);
-                s = *((const $TYPENAME *)ft + tmp);
-                $SHIFT_EXPR;
-            } else {
-                s = *(const $TYPENAME *)&fdr->start;
-            }
+    $TYPENAME s;
+    if (a->len_history) {
+        u32 tmp = 0;
+        if (a->start_offset == 0) {
+            tmp = a->buf_history[a->len_history - 1];
+            tmp |= (a->buf[0] << 8);
+        } else {
+            tmp = lv_u16(a->buf + a->start_offset - 1, a->buf, a->buf + a->len);
+        }
+        tmp &= fdr->domainMask;
+        s = *((const $TYPENAME *)ft + tmp);
+        $SHIFT_EXPR;
+    } else {
+        s = *(const $TYPENAME *)&fdr->start;
+    }
 """).substitute(TYPENAME = s_type.get_name(),
                 ZERO_EXPR = s_type.zero_expression(),
-                DOMAIN = self.domain,
                 SHIFT_EXPR = shift_expr)
         return s
 
     def produce_code(self):
 
-        (behind, ahead) = self.get_hash_safety_parameters()
-        loop_read_behind = behind
-        loop_read_ahead = self.loop_bytes + ahead
+        loop_read_behind = 0
+        loop_read_ahead = self.loop_bytes + 1
 
         # we set up mask and shift stuff for extracting our masks from registers
         #
@@ -380,7 +381,7 @@ class M3(MatcherBase):
         ssb = self.state_type.size / 8 # state size in bytes
 
         # Intel path
-        if ssb == 16 and self.domain == 16:
+        if ssb == 16:
             # obscure corner - we don't have the room in the register to
             # do this for all values so we don't. domain==16 is pretty
             # bad anyhow, of course
@@ -390,7 +391,6 @@ class M3(MatcherBase):
 
         shift_amts = { 1 : 0, 2 : 1, 4 : 2, 8 : 3, 16: 4 }
         self.reach_shift_adjust = shift_amts[ ssb/self.reach_mult ]
-        self.reach_mask = ((1 << self.domain) - 1) << self.reach_shift_adjust
 
         print self.produce_header(visible = False)
 
@@ -398,21 +398,19 @@ class M3(MatcherBase):
         print " Arch: " + self.arch.name,
         print " State type: " + self.state_type.get_name(),
         print " Num buckets: %d" % self.num_buckets,
-        print " Domain: %d" % self.domain,
         print " Stride: %d" % self.stride
 
         print self.produce_common_declarations()
-        print
 
-        print "\tconst size_t tabSize = %d;" % self.table_size
-        print """
-    const u8 * ft = (const u8 *)fdr + ROUNDUP_16(sizeof(struct FDR));
-    const u32 * confBase = (const u32 *)(ft + tabSize);
-"""
+        print "    assert(fdr->domain > 8 && fdr->domain < 16);"
+        print
+        print "    u64a domain_mask = fdr->domainMask;"
+        print "    const u8 * ft = (const u8 *)fdr + ROUNDUP_16(sizeof(struct FDR));"
+        print "    const u32 * confBase = (const u32 *)(ft + fdr->tabSize);"
         print self.produce_init_state()
-        print "\tconst size_t iterBytes = %d;" % self.loop_bytes
-        print "\tconst size_t START_MOD = %d;" % self.datasize_bytes
-        print "\tconst size_t LOOP_READ_AHEAD = %d;" % loop_read_ahead
+        print "    const size_t iterBytes = %d;" % self.loop_bytes
+        print "    const size_t START_MOD = %d;" % self.datasize_bytes
+        print "    const size_t LOOP_READ_AHEAD = %d;" % loop_read_ahead
 
         print """
     while (ptr < buf + len) {
@@ -451,9 +449,9 @@ class M3(MatcherBase):
         print self.produce_footer()
 
     def get_name(self):
-        return "fdr_exec_%s_d%d_s%d_w%d" % (self.arch.name, self.domain, self.stride, self.state_width)
+        return "fdr_exec_%s_s%d_w%d" % (self.arch.name, self.stride, self.state_width)
 
-    def __init__(self, state_width, domain, stride,
+    def __init__(self, state_width, stride,
                  arch,
                  table_state_width = None,
                  num_buckets = 8,
@@ -474,17 +472,9 @@ class M3(MatcherBase):
         self.table_state_width = state_width
         self.table_state_type = getRequiredType(self.table_state_width)
 
-        # domain is the number of bits that we draw from our input to
-        # index our 'reach' table
-        if not 8 <= domain <= 16:
-            fail_out("Unsupported domain: %d" % domain)
-        self.domain = domain
-        # this is the load type required for this domain if we want to
+        # this is the load type required for domain [9:15] if we want to
         # load it one at a time
-        self.single_load_type = getRequiredType(self.domain)
-
-        # table size
-        self.table_size = 2**domain * table_state_width // 8
+        self.single_load_type = IntegerType(16)
 
         # stride is the frequency with which we make data-driven
         # accesses to our reach table
