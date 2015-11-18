@@ -262,8 +262,8 @@ hwlmcb_rv_t cleanUpDelayed(size_t length, u64a offset, struct RoseContext *tctxt
 }
 
 static really_inline
-void update_depth(struct RoseContext *tctxt, const struct RoseRole *tr) {
-    u8 d = MAX(tctxt->depth, tr->depth + 1);
+void update_depth(struct RoseContext *tctxt, u8 depth) {
+    u8 d = MAX(tctxt->depth, depth + 1);
     assert(d >= tctxt->depth);
     DEBUG_PRINTF("depth now %hhu was %hhu\n", d, tctxt->depth);
     tctxt->depth = d;
@@ -322,5 +322,9 @@ void roseFlushLastByteHistory(const struct RoseEngine *t, u8 *state,
     mmbit_sparse_iter_unset(role_state, numStates, it,
                             scratch->sparse_iter_state);
 }
+
+hwlmcb_rv_t roseRunRoleProgram(const struct RoseEngine *t, u32 programOffset,
+                               u64a end, u64a *som, struct RoseContext *tctxt,
+                               int *work_done);
 
 #endif

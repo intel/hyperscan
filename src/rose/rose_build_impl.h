@@ -305,6 +305,11 @@ struct OutfixInfo { /* TODO: poly */
 
     u32 get_queue(QueueIndexFactory &qif);
 
+    u32 get_queue() const {
+        assert(queue != ~0U);
+        return queue;
+    }
+
     bool is_nonempty_mpv() const {
         return !puffettes.empty() || !triggered_puffettes.empty();
     }
@@ -328,9 +333,6 @@ struct OutfixInfo { /* TODO: poly */
     std::unique_ptr<raw_som_dfa> haig;
     std::vector<raw_puff> puffettes;
     std::vector<raw_puff> triggered_puffettes;
-
-    /** Once the outfix has been built into an engine, this will point to it. */
-    NFA *nfa = nullptr;
 
     RevAccInfo rev_info;
     u32 maxBAWidth = 0; //!< max bi-anchored width

@@ -470,6 +470,7 @@ set (hs_exec_SRCS
     src/rose/runtime.h
     src/rose/rose.h
     src/rose/rose_internal.h
+    src/rose/rose_program.h
     src/rose/rose_types.h
     src/rose/rose_common.h
     src/util/bitutils.h

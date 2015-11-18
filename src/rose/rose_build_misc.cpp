@@ -629,8 +629,6 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
     }
 
     for (const auto &outfix : tbi.outfixes) {
-        assert(!outfix.nfa); /* should not be built yet */
-
         for (const auto &report_id : all_reports(outfix)) {
             outfix_map[report_id].insert(&outfix);
         }
@@ -738,7 +736,6 @@ bool RoseDedupeAuxImpl::requiresDedupeSupport(
     for (const auto &outfix_ptr : outfixes) {
         assert(outfix_ptr);
         const OutfixInfo &out = *outfix_ptr;
-        assert(!out.nfa); /* should not be built yet */
 
         if (has_outfix || has_role || has_suffix) {
             return true;

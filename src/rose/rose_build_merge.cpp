@@ -2572,10 +2572,6 @@ void mergeOutfixCombo(RoseBuildImpl &tbi, const ReportManager &rm,
 
     for (auto it = tbi.outfixes.begin(); it != tbi.outfixes.end(); ++it) {
         assert(!it->is_dead());
-        if (it->nfa) {
-            assert(!it->rdfa && !it->holder && !it->haig);
-            continue;
-        }
         assert(!it->chained);
         if (it->rdfa) {
             dfas.push_back(it->rdfa.get());
@@ -2650,10 +2646,6 @@ void mergeOutfixes(RoseBuildImpl &tbi) {
     vector<raw_som_dfa *> som_dfas;
 
     for (const auto &outfix : tbi.outfixes) {
-        if (outfix.nfa) {
-            assert(!outfix.rdfa && !outfix.holder && !outfix.haig);
-            continue;
-        }
         assert(!outfix.chained);
         if (outfix.rdfa) {
             dfas.push_back(outfix.rdfa.get());

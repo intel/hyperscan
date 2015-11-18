@@ -2154,53 +2154,6 @@ bool hasOrphanedTops(const RoseBuildImpl &tbi) {
 
 #endif // NDEBUG
 
-/**
- * \brief Normalise vertices so that every one has <= 1 report.
- */
-static
-void normaliseRoles(RoseBuildImpl &build) {
-    DEBUG_PRINTF("normalising\n");
-    RoseGraph &g = build.g;
-
-    vector<RoseVertex> work; // Vertices with > 1 report.
-
-    for (const auto &v : vertices_range(g)) {
-        if (g[v].reports.size() > 1) {
-            work.push_back(v);
-        }
-    }
-
-    DEBUG_PRINTF("%zu vertices to normalise\n", work.size());
-
-    for (const auto &v : work) {
-        DEBUG_PRINTF("exploding vertex %zu with %zu reports\n", g[v].idx,
-                     g[v].reports.size());
-
-        // Make a copy of v for the trailing N-1 reports. Each of those gets
-        // one report and a copy of the in-edges. The first vertex retains the
-        // out-edges and suffix, if any are present. All the others don't need
-        // them.
-
-        const auto &reports = g[v].reports;
-
-        for (auto it = next(begin(reports)); it != end(reports); ++it) {
-            const ReportID &r = *it;
-            RoseVertex v2 = build.cloneVertex(v);
-            g[v2].reports = {r};
-
-            for (const auto &e : in_edges_range(v, g)) {
-                add_edge(source(e, g), v2, g[e], g);
-            }
-
-            // No out-edges or suffix.
-            g[v2].suffix.reset();
-        }
-
-        // Vertex v retains the first report.
-        g[v].reports = {*begin(reports)};
-    }
-}
-
 aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
     dumpRoseGraph(*this, nullptr, "rose_early.dot");
 
@@ -2314,10 +2267,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
     assert(historiesAreValid(g));
 
     dumpRoseGraph(*this, nullptr, "rose_pre_norm.dot");
-
-    // Ensure that every vertex has <= 1 report, since the Rose runtime
-    // requires this at present.
-    normaliseRoles(*this);
 
     return buildFinalEngine(minWidth);
 }

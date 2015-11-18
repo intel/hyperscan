@@ -169,11 +169,12 @@ int roseEodRunIterator(const struct RoseEngine *t, u8 *state, u64a offset,
             /* mark role as handled so we don't touch it again in this walk */
             fatbit_set(handled_roles, t->roleCount, role);
 
-            DEBUG_PRINTF("fire report for role %u, report=%u\n", role,
-                         tr->reportId);
-            int rv = scratch->tctxt.cb(offset, tr->reportId,
-                                       scratch->tctxt.userCtx);
-            if (rv == MO_HALT_MATCHING) {
+            u64a som = 0;
+            int work_done = 0;
+            hwlmcb_rv_t rv =
+                roseRunRoleProgram(t, tr->programOffset, offset, &som,
+                                   &(scratch->tctxt), &work_done);
+            if (rv == HWLM_TERMINATE_MATCHING) {
                 return MO_HALT_MATCHING;
             }
         }

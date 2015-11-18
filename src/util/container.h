@@ -100,8 +100,9 @@ std::set<typename C::key_type> assoc_keys(const C &container) {
 /**
  * \brief Return the length in bytes of the given vector of (POD) objects.
  */
-template<typename T>
-typename std::vector<T>::size_type byte_length(const std::vector<T> &vec) {
+template <typename T, typename Alloc>
+typename std::vector<T, Alloc>::size_type
+byte_length(const std::vector<T, Alloc> &vec) {
     static_assert(std::is_pod<T>::value, "should be pod");
     return vec.size() * sizeof(T);
 }
@@ -110,8 +111,8 @@ typename std::vector<T>::size_type byte_length(const std::vector<T> &vec) {
  * \brief Copy the given vector of POD objects to the given location in memory.
  * It is safe to give this function an empty vector.
  */
-template<typename T>
-void *copy_bytes(void *dest, const std::vector<T> &vec) {
+template<typename T, typename Alloc>
+void *copy_bytes(void *dest, const std::vector<T, Alloc> &vec) {
     static_assert(std::is_pod<T>::value, "should be pod");
     assert(dest);
 

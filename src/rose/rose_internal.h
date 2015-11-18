@@ -75,13 +75,7 @@ ReportID literalToReport(u32 id) {
 
 // Structure representing a literal. Each literal may have many roles.
 struct RoseLiteral {
-    u32 rootRoleOffset; /**< If rootRoleCount == 1, this is an offset relative
-                         * to the rose engine to the root role associated with
-                         * the literal.
-                         * If rootRoleCount > 1, this is the first index into
-                         * the rootRoleTable indicating the root roles.
-                         */
-    u32 rootRoleCount; // number of root roles
+    u32 rootProgramOffset; // role program to run for root roles.
     u32 iterOffset; // offset of sparse iterator, relative to rose
     u32 iterMapOffset; // offset of the iter mapping table, relative to rose
     rose_group groups; // bitset of groups that cause this literal to fire.
@@ -216,13 +210,6 @@ struct LeftNfaInfo {
     rose_group squash_mask; /* & mask applied when rose nfa dies */
 };
 
-// A list of these is used to trigger prefix/infix roses.
-struct RoseTrigger {
-    u32 queue; // queue index of leftfix
-    u32 event; // queue event, from MQE_*
-    u8 cancel_prev_top;
-};
-
 struct NfaInfo {
     u32 nfaOffset;
     u32 stateOffset;
@@ -238,42 +225,14 @@ struct NfaInfo {
              * matches */
 };
 
-#define ROSE_ROLE_FLAG_ANCHOR_TABLE  (1U << 0)  /**< role is triggered from
-                                                 * anchored table */
-#define ROSE_ROLE_FLAG_ACCEPT_EOD    (1U << 2)  /**< "fake" role, fires callback
-                                                 * at EOD */
-#define ROSE_ROLE_FLAG_ONLY_AT_END   (1U << 3)  /**< role can only be switched on
-                                                 * at end of block */
-#define ROSE_ROLE_FLAG_PRED_OF_EOD   (1U << 4)  /**< eod is a successor literal
-                                                 * of the role */
-#define ROSE_ROLE_FLAG_EOD_TABLE     (1U << 5)  /**< role is triggered from eod
-                                                 * table */
-#define ROSE_ROLE_FLAG_ROSE          (1U << 6)  /**< rose style prefix nfa for
-                                                 * role */
-#define ROSE_ROLE_FLAG_SOM_REPORT    (1U << 7)  /**< report id is only used to
-                                                 * manipulate som */
-#define ROSE_ROLE_FLAG_REPORT_START  (1U << 8)  /**< som som som som */
-#define ROSE_ROLE_FLAG_CHAIN_REPORT  (1U << 9)  /**< report id is only used to
-                                                 * start an outfix engine */
-#define ROSE_ROLE_FLAG_SOM_ADJUST    (1U << 10) /**< som value to use is offset
-                                                 * from match end location */
-#define ROSE_ROLE_FLAG_SOM_ROSEFIX   (1U << 11) /**< som value to use is provided
-                                                 * by prefix/infix */
-
 /* We allow different types of role-predecessor relationships. These are stored
  * in with the flags */
-#define ROSE_ROLE_PRED_NONE         (1U << 20) /**< the only pred is the root,
-                                                * [0, inf] bounds */
 #define ROSE_ROLE_PRED_SIMPLE       (1U << 21) /**< single [0,inf] pred, no
                                                 * offset tracking */
-#define ROSE_ROLE_PRED_ROOT         (1U << 22) /**< pred is root or anchored
-                                                * root, and we have bounds */
 #define ROSE_ROLE_PRED_ANY          (1U << 23) /**< any of our preds can match */
 
-#define ROSE_ROLE_PRED_CLEAR_MASK (~(ROSE_ROLE_PRED_NONE       \
-                                    | ROSE_ROLE_PRED_SIMPLE    \
-                                    | ROSE_ROLE_PRED_ROOT      \
-                                    | ROSE_ROLE_PRED_ANY))
+#define ROSE_ROLE_PRED_CLEAR_MASK                                              \
+    (~(ROSE_ROLE_PRED_SIMPLE | ROSE_ROLE_PRED_ANY))
 
 #define MAX_STORED_LEFTFIX_LAG 127 /* max leftfix lag that we can store in one
                                     * whole byte (OWB) (streaming only). Other
@@ -285,28 +244,7 @@ struct NfaInfo {
 // Structure representing a literal role.
 struct RoseRole {
     u32 flags;
-    u32 predOffset; // either offset of pred sparse iterator, or
-                    // (for ROSE_ROLE_PRED_ROOT) index of single RosePred.
-    rose_group groups; /**< groups to enable when role is set (groups of succ
-                        *  literals) */
-    ReportID reportId; // report ID, or MO_INVALID_IDX
-    u32 stateIndex; /**< index into state multibit, or MMB_INVALID. Roles do not
-                     * require a state bit if they are terminal */
-    u32 suffixEvent; // queue event, from MQE_
-    u8 depth; /**< depth of this vertex from root in the tree, or 255 if greater.
-               */
-    u32 suffixOffset; /**< suffix nfa: 0 if no suffix associated with the role,
-                       *  relative to base of the rose. */
-    ReportID leftfixReport; // (pre|in)fix report to check, or MO_INVALID_IDX.
-    u32 leftfixLag; /**< distance behind match where we need to check the
-                     * leftfix engine status */
-    u32 leftfixQueue; /**< queue index of the prefix/infix before role */
-    u32 infixTriggerOffset; /* offset to list of infix roses to trigger */
-    u32 somAdjust; /**< som for the role is offset from end match offset */
-
-    u32 lookaroundIndex; /**< index of lookaround offset/reach in table, or
-                          * MO_INVALID_IDX. */
-    u32 lookaroundCount; /**< number of lookaround entries. */
+    u32 programOffset; /**< offset to program to run. */
 };
 
 // Structure representing a predecessor relationship
@@ -513,8 +451,6 @@ struct RoseEngine {
     u32 roleCount; // number of RoseRole entries
     u32 predOffset; // offset of RosePred array (bytes)
     u32 predCount; // number of RosePred entries
-    u32 rootRoleOffset;
-    u32 rootRoleCount;
 
     u32 leftOffset;
     u32 roseCount;
@@ -584,8 +520,6 @@ struct RoseEngine {
                                    id */
     u32 somRevCount; /**< number of som reverse nfas */
     u32 somRevOffsetOffset; /**< offset to array of offsets to som rev nfas */
-    u32 nfaRegionBegin; /* start of the nfa region, debugging only */
-    u32 nfaRegionEnd; /* end of the nfa region, debugging only */
     u32 group_weak_end; /* end of weak groups, debugging only */
     u32 floatingStreamState; // size in bytes
     u32 eodLiteralId; // literal ID for eod ROSE_EVENT if used, otherwise 0.
@@ -713,13 +647,6 @@ const struct mmbit_sparse_iter *getActiveLeftIter(const struct RoseEngine *t) {
             ((const char *)t + t->activeLeftIterOffset);
     assert(ISALIGNED_N(it, 4));
     return it;
-}
-
-static really_inline
-const u32 *getRootRoleTable(const struct RoseEngine *t) {
-    const u32 *r = (const u32 *)((const char *)t + t->rootRoleOffset);
-    assert(ISALIGNED_N(r, 4));
-    return r;
 }
 
 static really_inline

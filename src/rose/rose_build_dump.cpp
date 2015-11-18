@@ -34,6 +34,7 @@
 #include "rose_build_impl.h"
 #include "rose/rose_dump.h"
 #include "rose_internal.h"
+#include "rose_program.h"
 #include "ue2common.h"
 #include "nfa/nfa_internal.h"
 #include "nfagraph/ng_dump.h"
@@ -95,6 +96,59 @@ const RoseRole *getRoseRole(const RoseBuildImpl &build,
     return &roles[role_idx];
 }
 
+#define SKIP_CASE(name)                                                        \
+    case ROSE_ROLE_INSTR_##name: {                                             \
+        const auto *ri = (const struct ROSE_ROLE_STRUCT_##name *)pc;           \
+        pc += ROUNDUP_N(sizeof(*ri), ROSE_INSTR_MIN_ALIGN);                    \
+        break;                                                                 \
+    }
+
+template<int Opcode, class Struct>
+const Struct *
+findInstruction(const RoseEngine *t, const RoseRole *role) {
+    if (!role->programOffset) {
+        return nullptr;
+    }
+
+    const char *pc = (const char *)t + role->programOffset;
+    for (;;) {
+        u8 code = *(const u8 *)pc;
+        assert(code <= ROSE_ROLE_INSTR_END);
+        if (code == Opcode) {
+            return (const Struct *)pc;
+        }
+        // Skip to the next instruction.
+        switch (code) {
+            SKIP_CASE(ANCHORED_DELAY)
+            SKIP_CASE(CHECK_ONLY_EOD)
+            SKIP_CASE(CHECK_ROOT_BOUNDS)
+            SKIP_CASE(CHECK_LEFTFIX)
+            SKIP_CASE(CHECK_LOOKAROUND)
+            SKIP_CASE(SOM_ADJUST)
+            SKIP_CASE(SOM_LEFTFIX)
+            SKIP_CASE(TRIGGER_INFIX)
+            SKIP_CASE(TRIGGER_SUFFIX)
+            SKIP_CASE(REPORT)
+            SKIP_CASE(REPORT_CHAIN)
+            SKIP_CASE(REPORT_EOD)
+            SKIP_CASE(REPORT_SOM_INT)
+            SKIP_CASE(REPORT_SOM)
+            SKIP_CASE(REPORT_SOM_KNOWN)
+            SKIP_CASE(SET_STATE)
+            SKIP_CASE(SET_GROUPS)
+        case ROSE_ROLE_INSTR_END:
+            return nullptr;
+        default:
+            assert(0);
+            return nullptr;
+        }
+    }
+
+    return nullptr;
+}
+
+#undef SKIP_CASE
+
 namespace {
 
 class RoseGraphWriter {
@@ -149,9 +203,12 @@ public:
         if (g[v].suffix) {
             os << "\\nSUFFIX (TOP " << g[v].suffix.top;
             if (r) {
-                assert(t);
-                const NFA *n = (const NFA *)((const char *)t + r->suffixOffset);
-                os << ", Q" << n->queueIndex;
+                const auto *ri =
+                    findInstruction<ROSE_ROLE_INSTR_TRIGGER_SUFFIX,
+                                    ROSE_ROLE_STRUCT_TRIGGER_SUFFIX>(t, r);
+                if (ri) {
+                    os << ", Q" << ri->queue;
+                }
             } else {
                 // Can't dump the queue number, but we can identify the suffix.
                 if (g[v].suffix.graph) {
@@ -191,7 +248,12 @@ public:
             os << "\\nROSE " << roseKind;
             os << " (";
             if (r) {
-                os << "Q" << r->leftfixQueue << ", ";
+                const auto *ri =
+                    findInstruction<ROSE_ROLE_INSTR_CHECK_LEFTFIX,
+                                    ROSE_ROLE_STRUCT_CHECK_LEFTFIX>(t, r);
+                if (ri) {
+                    os << "Q" << ri->queue << ", ";
+                }
             }
 
             os << "report " << g[v].left.leftfix_report << ")";
@@ -555,19 +617,28 @@ void dumpRoseLookaround(const RoseBuildImpl &build, const RoseEngine *t,
 
     for (RoseVertex v : vertices_range(g)) {
         const RoseRole *role = getRoseRole(build, t, v);
-        if (!role || role->lookaroundIndex == MO_INVALID_IDX) {
+        if (!role) {
             continue;
         }
 
+        const auto *ri =
+            findInstruction<ROSE_ROLE_INSTR_CHECK_LOOKAROUND,
+                            ROSE_ROLE_STRUCT_CHECK_LOOKAROUND>(t, role);
+        if (!ri) {
+            continue;
+        }
+
+        const u32 look_idx = ri->index;
+        const u32 look_count = ri->count;
+
         os << "Role " << g[v].role << endl;
         os << "  literals: " << as_string_list(g[v].literals) << endl;
-        os << "  lookaround: index=" << role->lookaroundIndex
-           << ", count=" << role->lookaroundCount << endl;
+        os << "  lookaround: index=" << look_idx << ", count=" << look_count
+           << endl;
 
-        const s8 *look = look_base + role->lookaroundIndex;
-        const s8 *look_end = look + role->lookaroundCount;
-        const u8 *reach =
-            reach_base + role->lookaroundIndex * REACH_BITVECTOR_LEN;
+        const s8 *look = look_base + look_idx;
+        const s8 *look_end = look + look_count;
+        const u8 *reach = reach_base + look_idx * REACH_BITVECTOR_LEN;
 
         for (; look < look_end; look++, reach += REACH_BITVECTOR_LEN) {
             os << "    " << std::setw(4) << std::setfill(' ') << int{*look}
