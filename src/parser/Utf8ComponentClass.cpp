@@ -129,13 +129,9 @@ CodePointSet getPredefinedCodePointSet(PredefinedClass c,
     case CLASS_XPUNCT: {
         // Everything with the P (punctuation) property, plus code points in S
         // (symbols) that are < 128.
-        // NOTE: PCRE versions 8.37 and earlier erroneously use 256 as the
-        // cut-off here, so we are compatible with that for now. PCRE bug #1718
-        // tracks this; once PCRE 8.38 is released we should correct this
-        // behaviour.
         CodePointSet rv = getUcpP();
         CodePointSet symbols = getUcpS();
-        symbols.unsetRange(256, MAX_UNICODE);
+        symbols.unsetRange(128, MAX_UNICODE);
         rv |= symbols;
         return rv;
     }
