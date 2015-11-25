@@ -124,6 +124,7 @@ CodePointSet getPredefinedCodePointSet(PredefinedClass c,
         // Same as graph, plus everything with the Zs property.
         CodePointSet rv = getPredefinedCodePointSet(CLASS_XGRAPH, mode);
         rv |= getUcpZs();
+        rv.set(0x180e); // Also included in this class by PCRE 8.38.
         return rv;
     }
     case CLASS_XPUNCT: {
