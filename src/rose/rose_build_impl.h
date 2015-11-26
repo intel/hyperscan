@@ -389,8 +389,6 @@ public:
 
     std::unique_ptr<RoseDedupeAux> generateDedupeAux() const override;
 
-    bool hasEodSideLink() const;
-
     // Find the maximum bound on the edges to this vertex's successors.
     u32 calcSuccMaxBound(RoseVertex u) const;
 
@@ -493,8 +491,6 @@ public:
     std::map<u32, std::set<u32> > group_to_literal;
     u32 group_weak_end;
     u32 group_end;
-
-    std::map<CharReach, std::set<RoseVertex> > side_squash_roles;
 
     u32 anchored_base_id;
 

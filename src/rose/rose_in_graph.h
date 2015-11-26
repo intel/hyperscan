@@ -168,12 +168,6 @@ struct RoseInEdgeProps {
     std::shared_ptr<raw_som_dfa> haig;
 
     u32 graph_lag;
-
-    /** \brief Escape characters, can be used instead of graph.
-     *
-     * currently must not intersect with succ literal and must be a literal -
-     * literal edge, TODO: handle */
-    CharReach escapes;
 };
 
 typedef boost::adjacency_list<boost::listS, boost::listS, boost::bidirectionalS,

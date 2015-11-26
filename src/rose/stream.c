@@ -37,7 +37,6 @@
 #include "nfa/nfa_api_queue.h"
 #include "nfa/nfa_internal.h"
 #include "util/fatbit.h"
-#include "rose_sidecar_runtime.h"
 #include "rose.h"
 
 static rose_inline
@@ -407,8 +406,6 @@ void ensureStreamNeatAndTidy(const struct RoseEngine *t, u8 *state,
     roseCatchUpLeftfixes(t, state, scratch);
     roseFlushLastByteHistory(t, state, offset + length, tctxt);
     tctxt->lastEndOffset = offset + length;
-    catchup_sidecar(tctxt, offset + length);
-    sidecar_enabled_preserve(t, scratch, state);
     storeGroups(t, state, tctxt->groups);
     struct RoseRuntimeState *rstate = getRuntimeState(state);
     rstate->stored_depth = tctxt->depth;
@@ -473,8 +470,6 @@ void roseStreamExec(const struct RoseEngine *t, u8 *state,
     tctxt->next_mpv_offset = 0;
     tctxt->curr_anchored_loc = MMB_INVALID;
     tctxt->curr_row_offset = 0;
-    tctxt->side_curr = offset;
-
     DEBUG_PRINTF("BEGIN: history len=%zu, buffer len=%zu\n",
                   scratch->core_info.hlen, scratch->core_info.len);
 
@@ -486,8 +481,6 @@ void roseStreamExec(const struct RoseEngine *t, u8 *state,
     if (t->outfixBeginQueue != t->outfixEndQueue) {
         streamInitSufPQ(t, state, scratch);
     }
-
-    sidecar_enabled_populate(t, scratch, state);
 
     u8 delay_rb_status = rstate->flags;
 

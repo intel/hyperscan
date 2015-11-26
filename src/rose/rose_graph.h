@@ -146,9 +146,6 @@ struct RoseVertexProps {
     /** \brief Bitmask of groups that this role sets. */
     rose_group groups = 0;
 
-    /** \brief Characters that escape and squash this role. */
-    CharReach escapes;
-
     /** \brief Minimum role (end of literal) offset depth in bytes. */
     u32 min_offset = ~u32{0};
 

@@ -42,7 +42,6 @@
 #include "database.h"
 #include "nfa/limex_context.h" // for NFAContext128 etc
 #include "nfa/nfa_api_queue.h"
-#include "sidecar/sidecar.h"
 #include "rose/rose_internal.h"
 #include "util/fatbit.h"
 #include "util/multibit.h"
@@ -101,8 +100,7 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
                   + som_store_size
                   + som_now_size
                   + som_attempted_size
-                  + som_attempted_store_size
-                  + proto->sideScratchSize + 15;
+                  + som_attempted_store_size + 15;
 
     /* the struct plus the allocated stuff plus padding for cacheline
      * alignment */
@@ -214,10 +212,6 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     s->som_attempted_set = (struct fatbit *)current;
     current += som_attempted_size;
 
-    current = ROUNDUP_PTR(current, 16);
-    s->side_scratch = (void *)current;
-    current += proto->sideScratchSize;
-
     current = ROUNDUP_PTR(current, 64);
     assert(ISALIGNED_CL(current));
     s->fullState = (char *)current;
@@ -326,12 +320,6 @@ hs_error_t hs_alloc_scratch(const hs_database_t *db, hs_scratch_t **scratch) {
     if (rose->tStateSize > proto->tStateSize) {
         resize = 1;
         proto->tStateSize = rose->tStateSize;
-    }
-
-    const struct sidecar *side = getSLiteralMatcher(rose);
-    if (side && sidecarScratchSize(side) > proto->sideScratchSize) {
-        resize = 1;
-        proto->sideScratchSize = sidecarScratchSize(side);
     }
 
     u32 som_store_count = rose->somLocationCount;

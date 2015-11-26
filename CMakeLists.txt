@@ -451,12 +451,6 @@ set (hs_exec_SRCS
     src/nfa/vermicelli.h
     src/nfa/vermicelli_run.h
     src/nfa/vermicelli_sse.h
-    src/sidecar/sidecar.c
-    src/sidecar/sidecar.h
-    src/sidecar/sidecar_generic.h
-    src/sidecar/sidecar_internal.h
-    src/sidecar/sidecar_shufti.c
-    src/sidecar/sidecar_shufti.h
     src/som/som.h
     src/som/som_runtime.h
     src/som/som_runtime.c
@@ -474,7 +468,6 @@ set (hs_exec_SRCS
     src/rose/match.c
     src/rose/miracle.h
     src/rose/runtime.h
-    src/rose/rose_sidecar_runtime.h
     src/rose/rose.h
     src/rose/rose_internal.h
     src/rose/rose_types.h
@@ -762,8 +755,6 @@ SET (hs_SRCS
     src/parser/unsupported.h
     src/parser/utf8_validate.h
     src/parser/utf8_validate.cpp
-    src/sidecar/sidecar_compile.cpp
-    src/sidecar/sidecar_compile.h
     src/smallwrite/smallwrite_build.cpp
     src/smallwrite/smallwrite_build.h
     src/smallwrite/smallwrite_internal.h
@@ -876,8 +867,6 @@ set(hs_dump_SRCS
     src/parser/dump.cpp
     src/parser/dump.h
     src/parser/position_dump.h
-    src/sidecar/sidecar_dump.cpp
-    src/sidecar/sidecar_dump.h
     src/smallwrite/smallwrite_dump.cpp
     src/smallwrite/smallwrite_dump.h
     src/som/slot_manager_dump.cpp

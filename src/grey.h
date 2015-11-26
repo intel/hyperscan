@@ -54,7 +54,6 @@ struct Grey {
     bool allowRose;
     bool allowExtendedNFA;
     bool allowLimExNFA;
-    bool allowSidecar;
     bool allowAnchoredAcyclic;
     bool allowSmallLiteralSet;
     bool allowCastle;

@@ -57,8 +57,6 @@
 #include "nfagraph/ng_stop.h"
 #include "nfagraph/ng_util.h"
 #include "nfagraph/ng_width.h"
-#include "sidecar/sidecar.h"
-#include "sidecar/sidecar_compile.h"
 #include "som/slot_manager.h"
 #include "util/alloc.h"
 #include "util/bitutils.h"
@@ -329,20 +327,14 @@ u8 pickRuntimeImpl(const RoseBuildImpl &tbi, u32 outfixEndQueue) {
 }
 
 static
-void fillStateOffsets(const RoseBuildImpl &tbi, const sidecar *side,
-                      u32 rolesWithStateCount, u32 anchorStateSize,
-                      u32 activeArrayCount, u32 activeLeftCount,
-                      u32 laggedRoseCount, u32 floatingStreamStateRequired,
-                      u32 historyRequired, RoseStateOffsets *so) {
+void fillStateOffsets(const RoseBuildImpl &tbi, u32 rolesWithStateCount,
+                      u32 anchorStateSize, u32 activeArrayCount,
+                      u32 activeLeftCount, u32 laggedRoseCount,
+                      u32 floatingStreamStateRequired, u32 historyRequired,
+                      RoseStateOffsets *so) {
     /* runtime state (including role state) first and needs to be u32-aligned */
     u32 curr_offset = sizeof(RoseRuntimeState)
                     + mmbit_size(rolesWithStateCount);
-
-    so->sidecar = curr_offset;
-    if (side) {
-        so->sidecar_size = sidecarEnabledSize(side);
-        curr_offset += so->sidecar_size;
-    }
 
     so->activeLeafArray = curr_offset; /* TODO: limit size of array */
     curr_offset += mmbit_size(activeArrayCount);
@@ -1478,82 +1470,6 @@ u32 RoseBuildImpl::calcHistoryRequired() const {
     return m ? m - 1 : 0;
 }
 
-static
-u32 sizeSideSuccMasks(const sidecar *stable,
-                      const map<set<u32>, set<RoseVertex> > &side_succ_map) {
-    if (!stable) {
-        return 0;
-    }
-
-    return verify_u32((side_succ_map.size() + 1 /* for init */)
-                      * sidecarEnabledSize(stable));
-}
-
-static
-void populateSideSuccLists(const RoseBuildImpl &tbi, build_context &bc,
-        const sidecar *stable, RoseEngine *engine, u32 base_offset,
-        const map<set<u32>, set<RoseVertex> > &sidecar_succ_map) {
-    const RoseGraph &g = tbi.g;
-
-    if (!stable) {
-        return;
-    }
-
-    u32 enabled_size = sidecarEnabledSize(stable);
-    char *curr = (char *)engine + base_offset;
-
-    for (const auto &e : sidecar_succ_map) {
-        u32 offset = verify_u32(curr - (char *)engine);
-
-        memset(curr, 0, enabled_size);
-        /* populate the list */
-        for (u32 side_id : e.first) {
-            sidecarEnabledAdd(stable, (sidecar_enabled *)curr, side_id);
-        }
-
-        curr += enabled_size;
-
-        /* update the role entries */
-        for (RoseVertex v : e.second) {
-            if (v == tbi.root) {
-                DEBUG_PRINTF("setting root emask\n");
-                engine->initSideEnableOffset = offset;
-            } else {
-                DEBUG_PRINTF("setting boring emask\n");
-                assert(g[v].role < bc.roleTable.size());
-                bc.roleTable[g[v].role].sidecarEnableOffset = offset;
-            }
-        }
-    }
-
-    if (!engine->initSideEnableOffset) {
-        DEBUG_PRINTF("add a blank enabled for root\n");
-        engine->initSideEnableOffset = verify_u32(curr - (char *)engine);
-        memset(curr, 0, enabled_size);
-        curr += enabled_size;
-    }
-}
-
-/* Also creates a map of sidecar id set to the roles which enables that set
- */
-static
-void markSideEnablers(RoseBuildImpl &build,
-                      map<set<u32>, set<RoseVertex> > *scmap) {
-    map<RoseVertex, set<u32> > enablers;
-    u32 side_id = 0;
-    for (const auto &e : build.side_squash_roles) {
-        for (RoseVertex v : e.second) {
-            enablers[v].insert(side_id);
-        }
-
-        side_id++;
-    }
-
-    for (const auto &e : enablers) {
-        (*scmap)[e.second].insert(e.first);
-    }
-}
-
 #ifdef DEBUG
 static UNUSED
 string dumpMask(const vector<u8> &v) {
@@ -1873,11 +1789,6 @@ bool isNoRunsVertex(const RoseBuildImpl &tbi, NFAVertex u) {
         return false;
     }
 
-    if (g[u].escapes.any()) {
-        DEBUG_PRINTF("u=%zu has escapes\n", g[u].idx);
-        return false;
-    }
-
     /* TODO: handle non-root roles as well. It can't be that difficult... */
 
     if (!in_degree_equal_to(u, g, 1)) {
@@ -2174,35 +2085,6 @@ aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &tbi,
     assert(*esize);
     DEBUG_PRINTF("built eod-anchored literal table size %zu bytes\n", *esize);
     return etable;
-}
-
-static
-aligned_unique_ptr<sidecar> buildSideMatcher(const RoseBuildImpl &tbi,
-                                             size_t *ssize) {
-    *ssize = 0;
-
-    if (tbi.side_squash_roles.empty()) {
-        DEBUG_PRINTF("no sidecar\n");
-        return nullptr;
-    }
-    assert(tbi.cc.grey.allowSidecar);
-
-    vector<CharReach> sl;
-
-     /* TODO: ensure useful sidecar entries only */
-    for (const CharReach &cr : tbi.side_squash_roles | map_keys) {
-        sl.push_back(cr);
-    }
-
-    aligned_unique_ptr<sidecar> stable = sidecarCompile(sl);
-    if (!stable) {
-        throw CompileError("Unable to generate bytecode.");
-    }
-
-    *ssize = sidecarSize(stable.get());
-    assert(*ssize);
-    DEBUG_PRINTF("built sidecar literal table size %zu bytes\n", *ssize);
-    return stable;
 }
 
 // Adds a sparse iterator to the end of the iterator table, returning its
@@ -3041,122 +2923,6 @@ pair<u32, u32> buildEodAnchorRoles(RoseBuildImpl &tbi, build_context &bc,
 }
 
 static
-void buildSideEntriesAndIters(const RoseBuildImpl &tbi, build_context &bc,
-                              const set<RoseVertex> &squash_roles,
-                              vector<RoseSide> &sideTable) {
-    const RoseGraph &g = tbi.g;
-
-    sideTable.push_back(RoseSide()); /* index in array gives an implicit id */
-    RoseSide &tsb = sideTable.back();
-    memset(&tsb, 0, sizeof(tsb));
-
-    if (squash_roles.empty()) {
-        return;
-    }
-
-    set<RoseVertex> squashed_succ;
-
-    // Build a vector of the roles' state IDs
-    vector<u32> states;
-    for (RoseVertex v : squash_roles) {
-        assert(g[v].role < bc.roleTable.size());
-        const RoseRole &tr = bc.roleTable[g[v].role];
-        DEBUG_PRINTF("considering role %u, state index %u\n", g[v].role,
-                     tr.stateIndex);
-        assert(tr.stateIndex != MMB_INVALID);
-
-        states.push_back(tr.stateIndex);
-        DEBUG_PRINTF("side %zu squashes state index %u/role %u\n",
-                     sideTable.size() - 1, tr.stateIndex, g[v].role);
-
-        /* we cannot allow groups to be squashed if the source vertex is in an
-         * anchored table due to ordering issue mean that a literals cannot
-         * set groups */
-        if (tbi.isAnchored(v) && g[v].max_offset != 1) {
-            DEBUG_PRINTF("%u has anchored table pred no squashy\n", g[v].role);
-            continue;
-        }
-
-        DEBUG_PRINTF("role %u is fine to g squash\n", g[v].role);
-
-        for (auto w : adjacent_vertices_range(v, g)) {
-            if (in_degree(w, g) == 1) { /* TODO: improve: check that each pred
-                                         * is in id's squash role */
-                squashed_succ.insert(w);
-            }
-        }
-    }
-
-    // Build sparse iterators and add to table.
-    assert(!states.empty());
-
-    vector<mmbit_sparse_iter> iter;
-    mmbBuildSparseIterator(iter, states, bc.numStates);
-    assert(!iter.empty());
-    tsb.squashIterOffset = addIteratorToTable(bc, iter);
-
-    // Build a mask of groups.
-    rose_group squash_groups = 0;
-    for (u32 i = 0; i < ROSE_GROUPS_MAX; i++) {
-        if (!contains(tbi.group_to_literal, i)) {
-            continue;
-        }
-
-        DEBUG_PRINTF("checking group %u for %zu's squash mask\n", i,
-                     sideTable.size() - 1);
-
-        const set<u32> &group_lits = tbi.group_to_literal.find(i)->second;
-
-        /* check for each literal in this group if it is squashed by this
-         * sidecar escape */
-        for (u32 lit : group_lits) {
-            DEBUG_PRINTF("inspecting lit %u\n", lit);
-            const rose_literal_info &this_info = tbi.literal_info.at(lit);
-
-            /* check that all roles belonging to this literal are squashed */
-            for (RoseVertex v : this_info.vertices) {
-                DEBUG_PRINTF("checking if role is squashed %u...\n", g[v].role);
-                if (squashed_succ.find(v) != squashed_succ.end()) {
-                    continue;
-                }
-
-                DEBUG_PRINTF("...role not taken %u\n", g[v].role);
-
-                /* if the literal is length 1 and anchored (0,0) when can ignore
-                 * it as any matching must have happened before the side lit
-                 * arrived */
-                if (g[v].max_offset == 1) {
-                    DEBUG_PRINTF("we can ignore this role as 1st byte only\n");
-                    continue;
-                }
-
-                goto fail_group;
-            }
-        }
-
-        continue;
-
-    fail_group:
-        DEBUG_PRINTF("group %u is not squashed\n", i);
-        /* we need to keep this group active */
-        squash_groups |= 1ULL << i;
-    }
-
-    DEBUG_PRINTF("%zu group squash mask: %016llx\n", sideTable.size() - 1,
-                 squash_groups);
-    tsb.squashGroupMask = squash_groups;
-}
-
-// Construct sparse iterators for squashes
-static
-void buildSideTable(const RoseBuildImpl &build, build_context &bc,
-                    vector<RoseSide> &sideTable) {
-    for (const auto &e : build.side_squash_roles) {
-        buildSideEntriesAndIters(build, bc, e.second, sideTable);
-    }
-}
-
-static
 void fillLookaroundTables(char *look_base, char *reach_base,
                           const vector<LookEntry> &look_vec) {
     DEBUG_PRINTF("%zu lookaround table entries\n", look_vec.size());
@@ -3195,30 +2961,11 @@ bool hasBoundaryReports(const BoundaryReports &boundary) {
 }
 
 static
-bool needsSidecarCatchup(const RoseBuildImpl &build, u32 id) {
-    const RoseGraph &g = build.g;
-
-    for (RoseVertex v : build.literal_info.at(id).vertices) {
-        if (g[v].escapes.any()) {
-            return true;
-        }
-
-        for (RoseVertex u : inv_adjacent_vertices_range(v, g)) {
-            if (g[u].escapes.any()) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-static
 void createLiteralEntry(const RoseBuildImpl &tbi, build_context &bc,
                         vector<RoseLiteral> &literalTable) {
     const u32 final_id = verify_u32(literalTable.size());
     assert(contains(tbi.final_id_to_literal, final_id));
-    const u32 literalId = *tbi.final_id_to_literal.at(final_id).begin();
+    const UNUSED u32 literalId = *tbi.final_id_to_literal.at(final_id).begin();
     /* all literal ids associated with this final id should result in identical
      * literal entry */
     const auto &lit_infos = getLiteralInfoByFinalId(tbi, final_id);
@@ -3275,8 +3022,6 @@ void createLiteralEntry(const RoseBuildImpl &tbi, build_context &bc,
     }
 
     assert(!tbi.literals.right.at(literalId).delay || !tl.delay_mask);
-
-    tl.requires_side = needsSidecarCatchup(tbi, literalId);
 }
 
 // Construct the literal table.
@@ -3836,19 +3581,13 @@ void fillMatcherDistances(const RoseBuildImpl &build, RoseEngine *engine) {
     if (!engine->anchoredDistance) {
         return;
     }
-
-    /* could be improved, if we have any side squash stuff and an anchored table
-     * set the min float distance to 0 */
-    if (!build.side_squash_roles.empty()) {
-        engine->floatingMinDistance = 0;
-    }
 }
 
 aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     DerivedBoundaryReports dboundary(boundary);
 
     // Build literal matchers
-    size_t asize = 0, fsize = 0, ssize = 0, esize = 0, sbsize = 0;
+    size_t asize = 0, fsize = 0, esize = 0, sbsize = 0;
 
     size_t floatingStreamStateRequired = 0;
     size_t historyRequired = calcHistoryRequired(); // Updated by HWLM.
@@ -3857,7 +3596,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         buildAnchoredAutomataMatcher(*this, &asize);
     aligned_unique_ptr<HWLM> ftable = buildFloatingMatcher(
         *this, &fsize, &historyRequired, &floatingStreamStateRequired);
-    aligned_unique_ptr<sidecar> stable = buildSideMatcher(*this, &ssize);
     aligned_unique_ptr<HWLM> etable = buildEodAnchoredMatcher(*this, &esize);
     aligned_unique_ptr<HWLM> sbtable = buildSmallBlockMatcher(*this, &sbsize);
 
@@ -3925,9 +3663,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     tie(eodIterMapOffset, eodIterOffset) = buildEodAnchorRoles(*this, bc,
                                                                predTable);
 
-    vector<RoseSide> sideTable;
-    buildSideTable(*this, bc, sideTable);
-
     vector<mmbit_sparse_iter> activeLeftIter;
     buildActiveLeftIter(leftInfoTable, activeLeftIter);
 
@@ -3940,7 +3675,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     u32 amatcherOffset = 0;
     u32 fmatcherOffset = 0;
-    u32 smatcherOffset = 0;
     u32 ematcherOffset = 0;
     u32 sbmatcherOffset = 0;
 
@@ -3974,12 +3708,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         currOffset += (u32)fsize;
     }
 
-    if (stable) {
-        currOffset = ROUNDUP_CL(currOffset);
-        smatcherOffset = currOffset;
-        currOffset += (u32)ssize;
-    }
-
     if (etable) {
         currOffset = ROUNDUP_CL(currOffset);
         ematcherOffset = currOffset;
@@ -4001,9 +3729,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     u32 literalOffset = ROUNDUP_N(currOffset, alignof(RoseLiteral));
     u32 literalLen = sizeof(RoseLiteral) * literalTable.size();
     currOffset = literalOffset + literalLen;
-
-    u32 sideOffset = ROUNDUP_N(currOffset, alignof(RoseSide));
-    currOffset = sideOffset + byte_length(sideTable);
 
     u32 roleOffset = ROUNDUP_N(currOffset, alignof(RoseRole));
     u32 roleLen = sizeof(RoseRole) * bc.roleTable.size();
@@ -4048,13 +3773,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     u32 anchoredReportInverseMapOffset = currOffset;
     currOffset += arit.size() * sizeof(u32);
 
-    /* sidecar may contain sse in silly cases */
-    currOffset = ROUNDUP_N(currOffset, 16);
-    u32 sideSuccListOffset = currOffset;
-    map<set<u32>, set<RoseVertex> > sidecar_succ_map;
-    markSideEnablers(*this, &sidecar_succ_map);
-    currOffset += sizeSideSuccMasks(stable.get(), sidecar_succ_map);
-
     currOffset = ROUNDUP_N(currOffset, alignof(ReportID));
     u32 multidirectOffset = currOffset;
     currOffset += mdr_reports.size() * sizeof(ReportID);
@@ -4089,7 +3807,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     RoseStateOffsets stateOffsets;
     memset(&stateOffsets, 0, sizeof(stateOffsets));
-    fillStateOffsets(*this, stable.get(), bc.numStates, anchorStateSize,
+    fillStateOffsets(*this, bc.numStates, anchorStateSize,
                      activeArrayCount, activeLeftCount, laggedRoseCount,
                      floatingStreamStateRequired, historyRequired,
                      &stateOffsets);
@@ -4125,11 +3843,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         assert(fmatcherOffset >= base_nfa_offset);
         memcpy(ptr + fmatcherOffset, ftable.get(), fsize);
     }
-    if (stable) {
-        assert(smatcherOffset);
-        assert(smatcherOffset >= base_nfa_offset);
-        memcpy(ptr + smatcherOffset, stable.get(), ssize);
-    }
     if (etable) {
         assert(ematcherOffset);
         assert(ematcherOffset >= base_nfa_offset);
@@ -4161,9 +3874,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->literalCount = verify_u32(literalTable.size());
     engine->runtimeImpl = pickRuntimeImpl(*this, outfixEndQueue);
     engine->mpvTriggeredByLeaf = anyEndfixMpvTriggers(*this);
-
-    engine->sideOffset = sideOffset;
-    engine->sideCount = verify_u32(sideTable.size());
 
     engine->activeArrayCount = activeArrayCount;
     engine->activeLeftCount = activeLeftCount;
@@ -4209,8 +3919,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->nonbenefits_base_id = nonbenefits_base_id;
     engine->literalBenefitsOffsets = base_lits_benefits_offset;
 
-    populateSideSuccLists(*this, bc, stable.get(), engine.get(),
-                          sideSuccListOffset, sidecar_succ_map);
     engine->rosePrefixCount = rosePrefixCount;
 
     engine->activeLeftIterOffset
@@ -4234,7 +3942,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->ematcherOffset = ematcherOffset;
     engine->sbmatcherOffset = sbmatcherOffset;
     engine->fmatcherOffset = fmatcherOffset;
-    engine->smatcherOffset = smatcherOffset;
     engine->amatcherMinWidth = findMinWidth(*this, ROSE_ANCHORED);
     engine->fmatcherMinWidth = findMinWidth(*this, ROSE_FLOATING);
     engine->eodmatcherMinWidth = findMinWidth(*this, ROSE_EOD_ANCHORED);
@@ -4251,7 +3958,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->hasFloatingDirectReports = floating_direct_report;
     engine->requiresEodCheck = hasEodAnchors(*this, built_nfas,
                                              outfixEndQueue);
-    engine->requiresEodSideCatchup = hasEodSideLink();
     engine->hasOutfixesInSmallBlock = hasNonSmallBlockOutfix(outfixes);
     engine->canExhaust = rm.patternSetCanExhaust();
     engine->hasSom = hasSom;
@@ -4323,7 +4029,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     copy_bytes(ptr + engine->anchoredReportInverseMapOffset, arit);
     copy_bytes(ptr + engine->multidirectOffset, mdr_reports);
     copy_bytes(ptr + engine->activeLeftIterOffset, activeLeftIter);
-    copy_bytes(ptr + engine->sideOffset, sideTable);
 
     DEBUG_PRINTF("rose done %p\n", engine.get());
     return engine;

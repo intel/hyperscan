@@ -37,8 +37,6 @@
 #include "nfa/mcclellan.h"
 #include "nfa/nfa_api_util.h"
 #include "nfa/nfa_internal.h"
-#include "sidecar/sidecar.h"
-#include "sidecar/sidecar_internal.h"
 #include "util/multibit.h"
 
 #include <string.h>
@@ -53,21 +51,6 @@ void init_rstate(const struct RoseEngine *t, u8 *state) {
     storeGroups(t, state, t->initialGroups);
     rstate->flags = 0;
     rstate->broken = NOT_BROKEN;
-}
-
-static really_inline
-void init_sidecar(const struct RoseEngine *t, u8 *state) {
-    assert(getSLiteralMatcher(t));
-
-    struct sidecar_enabled *enabled_state
-        = (struct sidecar_enabled *)(state + t->stateOffsets.sidecar);
-
-    DEBUG_PRINTF("welcome to the sidecar\n");
-    assert(t->initSideEnableOffset);
-    // We have to enable some sidecar literals
-    const char *template = (const char *)t + t->initSideEnableOffset;
-
-    memcpy(enabled_state, template, t->stateOffsets.sidecar_size);
 }
 
 static really_inline
@@ -104,11 +87,6 @@ void roseInitState(const struct RoseEngine *t, u8 *state) {
     assert(ISALIGNED_N(state, 8));
 
     init_rstate(t, state);
-
-    // Init the sidecar state
-    if (t->smatcherOffset) {
-        init_sidecar(t, state);
-    }
 
     init_state(t, state);
     init_outfixes(t, state);

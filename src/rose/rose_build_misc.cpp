@@ -210,22 +210,6 @@ bool RoseBuildImpl::hasNoFloatingRoots() const {
     return true;
 }
 
-bool RoseBuildImpl::hasEodSideLink(void) const {
-    for (auto v : vertices_range(g)) {
-        if (!g[v].eod_accept) {
-            continue;
-        }
-
-        for (auto u : inv_adjacent_vertices_range(v, g)) {
-            if (g[u].escapes.any()) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
 size_t RoseBuildImpl::maxLiteralLen(RoseVertex v) const {
     const auto &lit_ids = g[v].literals;
     assert(!lit_ids.empty());

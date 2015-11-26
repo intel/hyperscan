@@ -181,10 +181,6 @@ public:
             }
         }
 
-        if (g[v].escapes.any()) {
-            os << "\\nescapes=";
-            describeClass(os, g[v].escapes, 5, CC_OUT_DOT);
-        }
         if (ghost.find(v) != ghost.end()) {
             os << "\\nGHOST";
         }

@@ -60,8 +60,8 @@ struct BoundedRepeatSummary {
 bool improveGraph(NGHolder &g, som_type som);
 
 /** Sometimes the reach of a vertex is greater than it needs to be to reduce
- * stop chars for the benefit of the rest of our code base (accel, sidecar,
- * etc). In these circumstances, we can treat the reach as the smaller one as
+ * stop chars for the benefit of the rest of our code base (accel, etc). In
+ * these circumstances, we can treat the reach as the smaller one as
  * the graphs are equivalent. */
 CharReach reduced_cr(NFAVertex v, const NGHolder &g,
         const std::map<NFAVertex, BoundedRepeatSummary> &br_cyclic);

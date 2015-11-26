@@ -28,7 +28,6 @@
 
 #include "catchup.h"
 #include "match.h"
-#include "rose_sidecar_runtime.h"
 #include "rose.h"
 #include "util/fatbit.h"
 
@@ -98,13 +97,6 @@ hwlmcb_rv_t roseEodRunMatcher(const struct RoseEngine *t, u64a offset,
     DEBUG_PRINTF("eod offset=%llu, eod length=%zu\n", offset, eod_len);
 
     struct RoseContext *tctxt = &scratch->tctxt;
-
-    /* update side_curr for eod_len */
-    tctxt->side_curr = offset - eod_len;
-
-    /* no need to enable any sidecar groups as they are for .*A.* constructs
-     * not allowed in the eod table */
-
     const struct HWLM *etable = getELiteralMatcher(t);
 
     hwlmExec(etable, eod_data, eod_len, adj, roseCallback, tctxt, tctxt->groups);
@@ -238,9 +230,6 @@ void cleanupAfterEodMatcher(const struct RoseEngine *t, u8 *state, u64a offset,
 
     // Flush history to make sure it's consistent.
     roseFlushLastByteHistory(t, state, offset, tctxt);
-
-    // Catch up the sidecar to cope with matches raised in the etable.
-    catchup_sidecar(tctxt, offset);
 }
 
 static rose_inline
@@ -323,7 +312,6 @@ void roseEodExec_i(const struct RoseEngine *t, u8 *state, u64a offset,
         // Unset the reports we just fired so we don't fire them again below.
         mmbit_clear(getRoleState(state), t->rolesWithStateCount);
         mmbit_clear(getActiveLeafArray(t, state), t->activeArrayCount);
-        sidecar_enabled_populate(t, scratch, state);
 
         hwlmcb_rv_t rv = roseEodRunMatcher(t, offset, scratch, is_streaming);
         if (rv == HWLM_TERMINATE_MATCHING) {
@@ -368,9 +356,6 @@ void prepForEod(const struct RoseEngine *t, u8 *state, size_t length,
                 struct RoseContext *tctxt) {
     roseFlushLastByteHistory(t, state, length, tctxt);
     tctxt->lastEndOffset = length;
-    if (t->requiresEodSideCatchup) {
-        catchup_sidecar(tctxt, length);
-    }
 }
 
 void roseBlockEodExec(const struct RoseEngine *t, u64a offset,

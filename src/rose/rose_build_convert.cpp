@@ -123,11 +123,11 @@ static
 unique_ptr<NGHolder> convertLeafToHolder(const RoseGraph &g,
                                          const RoseEdge &t_e,
                                          const RoseLiteralMap &literals) {
-    RoseVertex t_u = source(t_e, g);
     RoseVertex t_v = target(t_e, g); // leaf vertex for demolition.
-    const CharReach escape_cr(~g[t_u].escapes);
     u32 minBound = g[t_e].minBound;
     u32 maxBound = g[t_e].maxBound;
+
+    const CharReach dot = CharReach::dot();
 
     assert(!g[t_v].left);
 
@@ -138,14 +138,14 @@ unique_ptr<NGHolder> convertLeafToHolder(const RoseGraph &g,
     u32 i = 1;
     NFAVertex last = out->start;
     for (; i <= minBound; i++) {
-        NFAVertex v = addHolderVertex(escape_cr, *out);
+        NFAVertex v = addHolderVertex(dot, *out);
         add_edge(last, v, *out);
         last = v;
     }
     NFAVertex last_mand = last;
     if (maxBound != ROSE_BOUND_INF) {
         for (; i <= maxBound; i++) {
-            NFAVertex v = addHolderVertex(escape_cr, *out);
+            NFAVertex v = addHolderVertex(dot, *out);
             add_edge(last_mand, v, *out);
             if (last != last_mand) {
                 add_edge(last, v, *out);
@@ -156,7 +156,7 @@ unique_ptr<NGHolder> convertLeafToHolder(const RoseGraph &g,
         if (minBound) {
             add_edge(last_mand, last_mand, *out);
         } else {
-            NFAVertex v = addHolderVertex(escape_cr, *out);
+            NFAVertex v = addHolderVertex(dot, *out);
             add_edge(last_mand, v, *out);
             add_edge(v, v, *out);
             last = v;
@@ -277,28 +277,10 @@ bool isUnconvertibleLeaf(const RoseBuildImpl &tbi, const RoseVertex v) {
         return true;
     }
 
-    /* more arbitrary magic numbers as riskier transform */
     if (g[e].maxBound == ROSE_BOUND_INF) {
-        if (!tbi.cc.grey.roseConvertInfBadLeaves) {
-            return true;
-        }
-
-        if (g[e].minBound > 20) {
-            DEBUG_PRINTF("fail minbound (%u)\n", maxbound);
-            return true;
-        }
-
-        if (max_lit_len > 2) {
-            DEBUG_PRINTF("fail length\n");
-            return true;
-        }
-
-        if (g[u].escapes.none()) {
-            /* slightly risky as nfa won't die and we don't avoid running the
-               sidecar */
-            DEBUG_PRINTF("fail: .*\n");
-            return true;
-        }
+        /* slightly risky as nfa won't die */
+        DEBUG_PRINTF("fail: .*\n");
+        return true;
     }
 
     return false;
@@ -386,7 +368,6 @@ void convertBadLeaves(RoseBuildImpl &tbi) {
 
         RoseVertex u = source(e, g);
         assert(!g[u].suffix);
-        g[u].escapes = CharReach();
         g[u].suffix.graph = h;
         DEBUG_PRINTF("%zu's nfa holder %p\n", g[u].idx, h.get());
 

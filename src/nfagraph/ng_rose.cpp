@@ -1505,16 +1505,10 @@ bool splitRoseEdge(RoseInGraph &ig, const VertLitInfo &split,
 }
 
 static
-bool isStarCliche(const NGHolder &g, const ue2_literal &succ_lit,
-                  const Grey &grey, CharReach *escapes_out) {
+bool isStarCliche(const NGHolder &g) {
     DEBUG_PRINTF("checking graph with %zu vertices\n", num_vertices(g));
 
     bool nonspecials_seen = false;
-    CharReach escapes;
-
-    // Escapes are only available if we have the Sidecar engine available to
-    // implement them.
-    const u32 max_escapes = grey.allowSidecar ? MAX_ESCAPE_CHARS : 0;
 
     for (auto v : vertices_range(g)) {
         if (is_special(v, g)) {
@@ -1526,8 +1520,7 @@ bool isStarCliche(const NGHolder &g, const ue2_literal &succ_lit,
         }
         nonspecials_seen = true;
 
-        escapes = ~g[v].char_reach;
-        if (escapes.count() > max_escapes) {
+        if (!g[v].char_reach.all()) {
             return false;
         }
 
@@ -1547,14 +1540,6 @@ bool isStarCliche(const NGHolder &g, const ue2_literal &succ_lit,
         return false;
     }
 
-    /* we need to check that succ lit does not intersect with the escapes. */
-    for (const auto &c : succ_lit) {
-        if ((escapes & c).any()) {
-            return false;
-        }
-    }
-
-    *escapes_out = escapes;
     return true;
 }
 
@@ -1620,16 +1605,13 @@ void processInfixes(RoseInGraph &ig, const CompileContext &cc) {
 
         if (delay != max_allowed_delay) {
             restoreTrailingLiteralStates(*h_new, lit2, delay);
-            delay = removeTrailingLiteralStates(*h_new, lit2,
-                                                max_allowed_delay);
+            delay = removeTrailingLiteralStates(*h_new, lit2, max_allowed_delay);
         }
 
-        CharReach escapes;
-        if (isStarCliche(*h_new, lit2, cc.grey, &escapes)) {
+        if (isStarCliche(*h_new)) {
             DEBUG_PRINTF("is a X star!\n");
             ig[e].graph.reset();
             ig[e].graph_lag = 0;
-            ig[e].escapes = escapes;
         } else {
             ig[e].graph = move(h_new);
             ig[e].graph_lag = delay;
@@ -2410,7 +2392,6 @@ static
 void makeNocaseWithPrefixMask(RoseInGraph &g, RoseInVertex v) {
     for (const auto &e : in_edges_range(v, g)) {
         const RoseInVertex u = source(e, g);
-        CharReach &escapes = g[e].escapes;
 
         if (!g[e].graph) {
             g[e].graph = make_shared<NGHolder>(whatRoseIsThis(g, e));
@@ -2420,17 +2401,13 @@ void makeNocaseWithPrefixMask(RoseInGraph &g, RoseInVertex v) {
             assert(!g[e].maxBound || g[e].maxBound == ROSE_BOUND_INF);
 
             if (g[u].type == RIV_START) {
-                assert(escapes.none());
                 add_edge(h.startDs, h.accept, h);
                 h[h.startDs].reports.insert(0);
             } else if (g[e].maxBound == ROSE_BOUND_INF) {
                 add_edge(h.start, h.accept, h);
                 NFAVertex ds = add_vertex(h);
 
-                // Cyclic vertex which takes over handling the escapes inside
-                // the prefix graph.
-                h[ds].char_reach = ~escapes;
-                escapes.clear();
+                h[ds].char_reach = CharReach::dot();
 
                 add_edge(h.start, ds, h);
                 add_edge(ds, ds, h);
@@ -2438,7 +2415,6 @@ void makeNocaseWithPrefixMask(RoseInGraph &g, RoseInVertex v) {
                 h[h.start].reports.insert(0);
                 h[ds].reports.insert(0);
             } else {
-                assert(escapes.none());
                 add_edge(h.start, h.accept, h);
                 h[h.start].reports.insert(0);
             }

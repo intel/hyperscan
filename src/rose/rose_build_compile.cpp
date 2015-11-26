@@ -485,21 +485,6 @@ size_t trailerDueToSelf(const rose_literal_id &lit) {
     return trailer;
 }
 
-/* note: last byte cannot conflict as escapes are processed after other
- * lits at same offset */
-static
-bool conflictsWithEscape(const rose_literal_id &litv, const CharReach &cr) {
-    if (cr.none()) {
-        return false;
-    }
-
-    if (litv.delay) {
-        return true;
-    }
-
-    return contains(litv.s, cr);
-}
-
 static
 RoseRoleHistory findHistoryScheme(const RoseBuildImpl &tbi, const RoseEdge &e) {
     const RoseGraph &g = tbi.g;
@@ -618,7 +603,6 @@ bool RoseBuildImpl::isDirectReport(u32 id) const {
 
         if (g[v].reports.empty() ||
             g[v].eod_accept || // no accept EOD
-            g[v].escapes.any() ||
             !g[v].isBoring() ||
             !isLeafNode(v, g) || // Must have no out-edges
             in_degree(v, g) != 1) { // Role must have exactly one in-edge
@@ -935,47 +919,6 @@ bool RoseBuildImpl::hasDirectFinalId(RoseVertex v) const {
 
 bool RoseBuildImpl::hasFinalId(u32 id) const {
     return literal_info.at(id).final_id != MO_INVALID_IDX;
-}
-
-static
-void doSidecarLiterals(RoseBuildImpl &tbi) {
-    map<CharReach, set<RoseVertex> > escapes;
-    const RoseGraph &g = tbi.g;
-
-    /* find escapes */
-    for (auto v : vertices_range(g)) {
-        const CharReach &cr = g[v].escapes;
-        if (cr.none()) {
-            continue;
-        }
-
-        DEBUG_PRINTF("vertex %zu has %zu escapes\n", g[v].idx, cr.count());
-
-        // We only have an implementation for these escapes if the Sidecar is
-        // available for use.
-        assert(tbi.cc.grey.allowSidecar);
-
-        assert(!isLeafNode(v, g));
-
-        /* Verify that all the successors are floating */
-        for (UNUSED auto w : adjacent_vertices_range(v, g)) {
-            assert(!tbi.isAnchored(w));
-        }
-
-        escapes[cr].insert(v);
-    }
-
-    if (escapes.size() > 32) {
-        /* ensure that a most one sparse iterator is triggered per char */
-        escapes = make_disjoint(escapes);
-    }
-
-    /* create the squash/escape sidecar entries for the vertices and associate
-     * with appropriate roles */
-    for (const auto &e : escapes) {
-        const CharReach &cr = e.first;
-        insert(&tbi.side_squash_roles[cr], e.second);
-    }
 }
 
 static
@@ -1311,42 +1254,6 @@ bool coversGroup(const RoseBuildImpl &tbi, const rose_literal_info &lit_info) {
 }
 
 static
-bool escapesAllPreds(const RoseGraph &g, RoseVertex v, const CharReach &cr) {
-    for (auto u : inv_adjacent_vertices_range(v, g)) {
-        if ((~g[u].escapes & cr).any()) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-static
-bool mayNotSeeSubsequentPredsInOrder(const RoseBuildImpl &tbi, RoseVertex v) {
-    const RoseGraph &g = tbi.g;
-
-    if (in_degree(v, g) == 1) {
-        /* if the pred can only match once, there are no subsequent preds */
-        RoseVertex u = source(*in_edges(v, g).first, g);
-        if (g[u].max_offset == g[u].min_offset) {
-            return false;
-        }
-    }
-
-    for (auto u : inv_adjacent_vertices_range(v, g)) {
-        for (u32 lit_id : g[u].literals) {
-            const rose_literal_id &lit = tbi.literals.right.at(lit_id);
-            if (lit.table == ROSE_ANCHORED) {
-                return true;
-            }
-        }
-
-    }
-
-    return false;
-}
-
-static
 bool isGroupSquasher(const RoseBuildImpl &tbi, const u32 id /* literal id */,
                      rose_group forbidden_squash_group) {
     const RoseGraph &g = tbi.g;
@@ -1402,35 +1309,6 @@ bool isGroupSquasher(const RoseBuildImpl &tbi, const u32 id /* literal id */,
             return false;
         }
 
-        /* Can only squash cases with escapes if all preds have the same escapes
-         * and none of the literals overlap with the escape
-         *
-         * Additionally, if we may not see one of the preds in time to turn on
-         * the group again we have problems.
-         *
-         * ARGHHHH
-         */
-        if (g[v].escapes.any()) {
-            if (!escapesAllPreds(g, v, g[v].escapes)
-                || mayNotSeeSubsequentPredsInOrder(tbi, v)) {
-                return false;
-            }
-
-            if (g[v].literals.size() == 1) {
-                if (conflictsWithEscape(tbi.literals.right.at(id),
-                                        g[v].escapes)) {
-                    return false;
-                }
-            } else {
-                for (const auto &lit_id : g[v].literals) {
-                    const rose_literal_id &lit = tbi.literals.right.at(lit_id);
-                    if (lit.delay || contains(lit.s, g[v].escapes)) {
-                        return false;
-                    }
-                }
-            }
-        }
-
         // Out-edges must have inf max bound, + no other shenanigans */
         for (const auto &e : out_edges_range(v, g)) {
             if (g[e].maxBound != ROSE_BOUND_INF) {
@@ -1453,9 +1331,8 @@ bool isGroupSquasher(const RoseBuildImpl &tbi, const u32 id /* literal id */,
     for (auto v : lit_info.vertices) {
         assert(!tbi.isAnyStart(v));
 
-        // Can't squash cases with accepts or escapes
-        if (!g[v].reports.empty()
-            || (g[v].escapes.any() && !escapesAllPreds(g, v, g[v].escapes))) {
+        // Can't squash cases with accepts
+        if (!g[v].reports.empty()) {
             return false;
         }
 
@@ -1908,7 +1785,6 @@ void addSmallBlockLiteral(RoseBuildImpl &tbi, const simple_anchored_info &sai,
             // Clone vertex with the new literal ID.
             RoseVertex v = add_vertex(g[lit_v], g);
             g[v].idx = tbi.vertexIndex++;
-            g[v].escapes.clear();
             g[v].literals.clear();
             g[v].literals.insert(lit_id);
             g[v].min_offset = sai.min_bound + sai.literal.length();
@@ -2417,9 +2293,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
     assignGroupsToLiterals();
     assignGroupsToRoles();
     findGroupSquashers(*this);
-
-    // Collect squash literals for the sidecar
-    doSidecarLiterals(*this);
 
     /* final prep work */
     remapCastleTops(*this);

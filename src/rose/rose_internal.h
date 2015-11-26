@@ -88,16 +88,9 @@ struct RoseLiteral {
     u8 minDepth; // the minimum of this literal's roles' depths (for depths > 1)
     u8 squashesGroup; /**< literal switches off its group behind it if it sets a
                        * role */
-    u8 requires_side; // need to catch up sidecar for this literal
     u32 delay_mask; /**< bit set indicates that the literal inserts a delayed
                      * match at the given offset */
     u32 delayIdsOffset; // offset to array of ids to poke in the delay structure
-};
-
-/* properties for sidecar entries, yay */
-struct RoseSide {
-    u32 squashIterOffset; // offset of the squash sparse iterator, rose relative
-    rose_group squashGroupMask; // squash literal squash masks
 };
 
 /* Allocation of Rose literal ids
@@ -130,8 +123,6 @@ struct RoseSide {
  * |  |
  * |  |
  * ----
- *
- * Note: sidecar 'literals' are in a complete separate space
  */
 
 /* Rose Literal Sources
@@ -140,11 +131,10 @@ struct RoseSide {
  * 1) The floating table
  * 2) The anchored table
  * 3) Delayed literals
- * 4) Sidecar literal matcher
- * 5) suffixes NFAs
- * 6) masksv2 (literals with benefits)
- * 7) End anchored table
- * 8) prefix / infix nfas
+ * 4) suffixes NFAs
+ * 5) masksv2 (literals with benefits)
+ * 6) End anchored table
+ * 7) prefix / infix nfas
  *
  * Care is required to ensure that events appear to come into Rose in order
  * (or sufficiently ordered for Rose to cope). Generally the progress of the
@@ -161,13 +151,6 @@ struct RoseSide {
  * Delayed literals:
  * Delayed literal ordering is handled by delivering any pending delayed
  * literals before processing any floating match.
- *
- * Sidecar:
- * The sidecar matcher is unique in that it does not return match
- * location information. Sidecar literals are escapes between two normal
- * roles. The sidecar matcher is caught up to the floating matcher
- * before any possible predecessor role, any possible successor role, and
- * at stream boundaries^3.
  *
  * Suffix:
  * Suffixes are always pure terminal roles. Prior to raising a match^2, pending
@@ -319,8 +302,6 @@ struct RoseRole {
                      * leftfix engine status */
     u32 leftfixQueue; /**< queue index of the prefix/infix before role */
     u32 infixTriggerOffset; /* offset to list of infix roses to trigger */
-    u32 sidecarEnableOffset; /**< offset to list of sidecar literals to enable
-                              */
     u32 somAdjust; /**< som for the role is offset from end match offset */
 
     u32 lookaroundIndex; /**< index of lookaround offset/reach in table, or
@@ -373,12 +354,6 @@ struct RoseStateOffsets {
      * 1 bit per exhaustible key (used by Highlander mode). If a bit is set,
      * reports with that ekey should not be delivered to the user. */
     u32 exhausted;
-
-    /** Sidecar state. */
-    u32 sidecar;
-
-    /** Size of sidecar state, in bytes. */
-    u32 sidecar_size;
 
     /** Multibit for active suffix/outfix engines. */
     u32 activeLeafArray;
@@ -460,9 +435,8 @@ struct RoseBoundaryReports {
 // In memory, we follow this with:
 //   1a. anchored 'literal' matcher table
 //   1b. floating literal matcher table
-//   1c. sidecar 'literal' matcher table
-//   1d. eod-anchored literal matcher table
-//   1e. small block table
+//   1c. eod-anchored literal matcher table
+//   1d. small block table
 //   2. array of RoseLiteral (literalCount entries)
 //   3. array of RoseRole (roleCount entries)
 //   4. array of RosePred (predCount entries)
@@ -480,8 +454,6 @@ struct RoseEngine {
     u8  noFloatingRoots; /* only need to run the anchored table if something
                           * matched in the anchored table */
     u8  requiresEodCheck; /* stuff happens at eod time */
-    u8  requiresEodSideCatchup; /* we need to do a sidecar catchup before eod
-                                 * checks */
     u8  hasEodEventLiteral; // fires a ROSE_EVENT literal at eod time.
     u8  hasOutfixesInSmallBlock; /**< has at least one outfix that must run even
                                     in small block scans. */
@@ -513,7 +485,6 @@ struct RoseEngine {
     u32 amatcherOffset; // offset of the anchored literal matcher (bytes)
     u32 ematcherOffset; // offset of the eod-anchored literal matcher (bytes)
     u32 fmatcherOffset; // offset of the floating literal matcher (bytes)
-    u32 smatcherOffset; // offset of the sidecar literal matcher (bytes)
     u32 sbmatcherOffset; // offset of the small-block literal matcher (bytes)
     u32 amatcherMinWidth; /**< minimum number of bytes required for a pattern
                            * involved with the anchored table to produce a full
@@ -534,9 +505,6 @@ struct RoseEngine {
     u32 intReportCount; /**< number of internal_report structures */
     u32 literalOffset; // offset of RoseLiteral array (bytes)
     u32 literalCount; // number of RoseLiteral entries [NOT number of literals]
-    u32 sideOffset; /**< offset of RoseSide array (bytes), indexed by
-                     *sidecar ids */
-    u32 sideCount; /**< number of RoseSide entries */
     u32 multidirectOffset; /**< offset of multi-direct report list. */
     u32 activeArrayCount; //number of nfas tracked in the active array
     u32 activeLeftCount; //number of nfas tracked in the active rose array
@@ -605,7 +573,6 @@ struct RoseEngine {
     struct RoseBoundaryReports boundary;
     u32 totalNumLiterals; /* total number of literals including dr */
     u32 asize; /* size of the atable */
-    u32 initSideEnableOffset; /* sidecar literals enabled initially */
     u32 outfixBeginQueue; /* first outfix queue */
     u32 outfixEndQueue; /* one past the last outfix queue */
     u32 leftfixBeginQueue; /* first prefix/infix queue */
@@ -684,17 +651,6 @@ const struct HWLM *getFLiteralMatcher(const struct RoseEngine *t) {
 }
 
 static really_inline
-const void *getSLiteralMatcher(const struct RoseEngine *t) {
-    if (!t->smatcherOffset) {
-        return NULL;
-    }
-
-    const char *st = (const char *)t + t->smatcherOffset;
-    assert(ISALIGNED_N(st, 8));
-    return st;
-}
-
-static really_inline
 const void *getELiteralMatcher(const struct RoseEngine *t) {
     if (!t->ematcherOffset) {
         return NULL;
@@ -722,14 +678,6 @@ const struct RoseLiteral *getLiteralTable(const struct RoseEngine *t) {
         = (const struct RoseLiteral *)((const char *)t + t->literalOffset);
     assert(ISALIGNED_N(tl, 4));
     return tl;
-}
-
-static really_inline
-const struct RoseSide *getSideEntryTable(const struct RoseEngine *t) {
-    const struct RoseSide *rs
-        = (const struct RoseSide *)((const char *)t + t->sideOffset);
-    assert(ISALIGNED(rs));
-    return rs;
 }
 
 static really_inline

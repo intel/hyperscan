@@ -34,7 +34,6 @@
 #include "nfa/nfa_rev_api.h"
 #include "nfa/mcclellan.h"
 #include "util/fatbit.h"
-#include "rose_sidecar_runtime.h"
 #include "rose.h"
 #include "rose_common.h"
 
@@ -76,20 +75,6 @@ void runAnchoredTableBlock(const struct RoseEngine *t, const void *atable,
 
         curr = (const void *)((const char *)curr + curr->next_offset);
     } while (1);
-}
-
-static really_inline
-void init_sidecar(const struct RoseEngine *t, struct hs_scratch *scratch) {
-    if (!t->smatcherOffset) {
-        return;
-    }
-
-    DEBUG_PRINTF("welcome to the sidecar\n");
-    assert(t->initSideEnableOffset);
-    // We have to enable some sidecar literals
-    const char *template = (const char *)t + t->initSideEnableOffset;
-
-    memcpy(&scratch->side_enabled, template, t->stateOffsets.sidecar_size);
 }
 
 static really_inline
@@ -172,14 +157,11 @@ void init_for_block(const struct RoseEngine *t, struct hs_scratch *scratch,
     tctxt->next_mpv_offset = 0;
     tctxt->curr_anchored_loc = MMB_INVALID;
     tctxt->curr_row_offset = 0;
-    tctxt->side_curr = 0;
 
     scratch->am_log_sum = 0; /* clear the anchored logs */
     scratch->al_log_sum = 0;
 
     fatbit_clear(scratch->aqa);
-
-    init_sidecar(t, scratch); /* Init the sidecar enabled state */
 
     scratch->catchup_pq.qm_size = 0;
 

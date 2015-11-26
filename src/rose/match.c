@@ -31,7 +31,6 @@
 #include "infix.h"
 #include "match.h"
 #include "miracle.h"
-#include "rose_sidecar_runtime.h"
 #include "rose.h"
 #include "som/som_runtime.h"
 #include "util/bitutils.h"
@@ -228,28 +227,6 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
      * already set from the original scan. */
 
     return tctx->groups;
-}
-
-/* Note: uses the stashed sparse iter state; cannot be called from
- * anybody else who is using it
- */
-static never_inline
-void roseSquashStates(const struct RoseEngine *t, const struct RoseSide *tsb,
-                      struct RoseContext *tctxt) {
-    DEBUG_PRINTF("attempting to squash states\n");
-
-    struct mmbit_sparse_state *s = tctxtToScratch(tctxt)->sparse_iter_state;
-    u8 *state = tctxt->state;
-    void *role_state = getRoleState(state);
-    u32 role_count = t->rolesWithStateCount;
-    const struct mmbit_sparse_iter *it = getByOffset(t, tsb->squashIterOffset);
-    assert(ISALIGNED(it));
-
-    /* we can squash willy-nilly */
-    DEBUG_PRINTF("squashing iter off = %u\n", tsb->squashIterOffset);
-    mmbit_sparse_iter_unset(role_state, role_count, it, s);
-    DEBUG_PRINTF("squashing groups with = %016llx\n", tsb->squashGroupMask);
-    tctxt->groups &= tsb->squashGroupMask;
 }
 
 static really_inline
@@ -936,9 +913,6 @@ void roseSetRole(const struct RoseEngine *t, u8 *state,
     // offset-tracking role.
     if (alreadySet) {
         DEBUG_PRINTF("role already set\n");
-        if (tr->sidecarEnableOffset) {
-            enable_sidecar(tctxt, tr);
-        }
         return;
     }
 
@@ -947,11 +921,6 @@ void roseSetRole(const struct RoseEngine *t, u8 *state,
 
     // Switch on this role's groups
     tctxt->groups |= tr->groups;
-
-    if (tr->sidecarEnableOffset) {
-        // We have to enable some sidecar literals
-        enable_sidecar(tctxt, tr);
-    }
 }
 
 static rose_inline
@@ -1551,20 +1520,6 @@ char roseWalkRootRoles(const struct RoseEngine *t,
     }
 }
 
-void roseSidecarCallback(UNUSED u64a offset, u32 side_id, void *context) {
-    struct RoseContext *tctxt = context;
-    const struct RoseEngine *t = tctxt->t;
-
-    DEBUG_PRINTF("SIDE MATCH side_id=%u offset=[%llu, %llu]\n", side_id,
-                 offset, offset + 1);
-    assert(side_id < t->sideCount);
-
-    const struct RoseSide *side = &getSideEntryTable(t)[side_id];
-    roseSquashStates(t, side, tctxt);
-
-    DEBUG_PRINTF("done with sc\n");
-}
-
 /* handles catchup, som, cb, etc */
 static really_inline
 hwlmcb_rv_t roseHandleReport(const struct RoseEngine *t, u8 *state,
@@ -1674,15 +1629,6 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
         tctxt->lastEndOffset = real_end;
     }
 
-    if (tl->requires_side
-        && real_end <= t->floatingMinLiteralMatchOffset) {
-        /* Catch up the sidecar to the literal location. This means that all
-         * squashing events are delivered before any 'side involved' literal
-         * matches at a given location. */
-
-        catchup_sidecar(tctxt, real_end);
-    }
-
     /* anchored literals are root only */
     if (!roseWalkRootRoles(t, tl, real_end, tctxt, 1, 0)) {
         rv = HWLM_TERMINATE_MATCHING;
@@ -1762,18 +1708,6 @@ hwlmcb_rv_t roseProcessMatch_i(const struct RoseEngine *t, u64a end, u32 id,
         return HWLM_CONTINUE_MATCHING;
     }
 
-    // If the current literal requires sidecar support, run to current
-    // location.
-    if (tl->requires_side) {
-        /* Catch up the sidecar to the literal location. This means that all
-         * squashing events are delivered before any 'side involved' literal
-         * matches at a given location. */
-
-        if (tl->rootRoleCount || tl->minDepth <= tctxt->depth) {
-            catchup_sidecar(tctxt, end);
-        }
-    }
-
     if (tl->minDepth > tctxt->depth) {
         DEBUG_PRINTF("IGNORE: minDepth=%u > %u\n", tl->minDepth, tctxt->depth);
         goto root_roles;
@@ -1848,7 +1782,7 @@ hwlmcb_rv_t playDelaySlot(struct RoseContext *tctxt, const u8 *delaySlotBase,
         DEBUG_PRINTF("DONE depth=%u, groups=0x%016llx\n", tctxt->depth,
                      tctxt->groups);
 
-        /* delayed literals can't safely set groups, squashing may from side.
+        /* delayed literals can't safely set groups.
          * However we may be setting groups that successors already have
          * worked out that we don't need to match the group */
         DEBUG_PRINTF("groups in %016llx out %016llx\n", old_groups,
@@ -1881,8 +1815,8 @@ hwlmcb_rv_t flushAnchoredLiteralAtLoc(struct RoseContext *tctxt, u32 curr_loc) {
         DEBUG_PRINTF("DONE depth=%u, groups=0x%016llx\n", tctxt->depth,
                      tctxt->groups);
 
-        /* anchored literals can't safely set groups, squashing may from
-         * side. However we may be setting groups that successors already
+        /* anchored literals can't safely set groups.
+         * However we may be setting groups that successors already
          * have worked out that we don't need to match the group */
         DEBUG_PRINTF("groups in %016llx out %016llx\n", old_groups,
                      tctxt->groups);

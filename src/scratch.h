@@ -38,7 +38,6 @@
 
 #include "ue2common.h"
 #include "util/multibit_internal.h"
-#include "sidecar/sidecar_internal.h"
 #include "rose/rose_types.h"
 
 #ifdef __cplusplus
@@ -131,7 +130,6 @@ struct RoseContext {
     u32 filledDelayedSlots;
     u32 curr_anchored_loc;   /**< last read/written row */
     u32 curr_row_offset; /**< last read/written entry */
-    u64a side_curr; /**< current location of the sidecar scan (abs offset) */
     u32 curr_qi;    /**< currently executing main queue index during
                      * \ref nfaQueueExec */
 };
@@ -181,7 +179,6 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     u32 anchored_literal_count;
     u32 delay_count;
     u32 scratchSize;
-    u32 sideScratchSize;
     u8 ALIGN_DIRECTIVE fdr_temp_buf[FDR_TEMP_BUF_SIZE];
     u32 roleCount;
     struct fatbit *handled_roles; /**< mmbit of ROLES (not states) already
@@ -196,8 +193,6 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     u64a som_set_now_offset; /**< offset at which som_set_now represents */
     u32 som_store_count;
     struct mmbit_sparse_state sparse_iter_state[MAX_SPARSE_ITER_STATES];
-    union sidecar_enabled_any ALIGN_CL_DIRECTIVE side_enabled;
-    struct sidecar_scratch *side_scratch;
 };
 
 static really_inline

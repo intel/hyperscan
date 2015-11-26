@@ -39,9 +39,6 @@
 #include "nfa/nfa_build_util.h"
 #include "nfa/nfa_dump_api.h"
 #include "nfa/nfa_internal.h"
-#include "sidecar/sidecar.h"
-#include "sidecar/sidecar_compile.h"
-#include "sidecar/sidecar_dump.h"
 #include "util/multibit_internal.h"
 
 #include <algorithm>
@@ -104,11 +101,6 @@ const void *getAnchoredMatcher(const RoseEngine *t) {
 static
 const HWLM *getFloatingMatcher(const RoseEngine *t) {
     return (const HWLM *)loadFromByteCodeOffset(t, t->fmatcherOffset);
-}
-
-static
-const sidecar *getSidecarMatcher(const RoseEngine *t) {
-    return (const sidecar *)loadFromByteCodeOffset(t, t->smatcherOffset);
 }
 
 static
@@ -582,7 +574,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
 
     const void *atable = getAnchoredMatcher(t);
     const HWLM *ftable = getFloatingMatcher(t);
-    const sidecar *stable = getSidecarMatcher(t);
     const HWLM *etable = getEodMatcher(t);
     const HWLM *sbtable = getSmallBlockMatcher(t);
 
@@ -634,16 +625,12 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     } else {
         fprintf(f, "\n");
     }
-    fprintf(f, " - sidecar matcher   : %u bytes\n",
-            stable ? sidecarSize(stable) : 0);
     fprintf(f, " - eod-anch matcher  : %zu bytes over last %u bytes\n",
             etable ? hwlmSize(etable) : 0, t->ematcherRegionSize);
     fprintf(f, " - small-blk matcher : %zu bytes over %u bytes\n",
             sbtable ? hwlmSize(sbtable) : 0, t->smallBlockDistance);
     fprintf(f, " - literal table     : %zu bytes\n",
             t->literalCount * sizeof(RoseLiteral));
-    fprintf(f, " - side table        : %zu bytes\n",
-            t->sideCount * sizeof(RoseSide));
     fprintf(f, " - role table        : %zu bytes\n",
             t->roleCount * sizeof(RoseRole));
     fprintf(f, " - pred table        : %zu bytes\n",
@@ -666,8 +653,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     fprintf(f, " - role state mmbit  : %u bytes\n", t->stateSize);
     fprintf(f, " - runtime state     : %zu bytes\n", sizeof(RoseRuntimeState));
     fprintf(f, " - floating matcher  : %u bytes\n", t->floatingStreamState);
-    fprintf(f, " - sidecar           : %u bytes\n",
-            stable ? sidecarEnabledSize(stable) : 0U);
     fprintf(f, " - active array      : %u bytes\n",
             mmbit_size(t->activeArrayCount));
     fprintf(f, " - active rose       : %u bytes\n",
@@ -690,8 +675,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
             literalsWithDirectReports(t));
     fprintf(f, " - that squash group : %u\n",
             literalsWithProp(t, &RoseLiteral::squashesGroup));
-    fprintf(f, " - need side catchup : %u\n",
-            literalsWithProp(t, &RoseLiteral::requires_side));
     fprintf(f, " - with benefits     : %u\n", t->nonbenefits_base_id);
 
     u32 group_weak_end = t->group_weak_end;
@@ -763,12 +746,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
         hwlmPrintStats(ftable, f);
     }
 
-    if (stable) {
-        fprintf(f, "\nSidecar literal matcher stats:\n\n");
-        fprintf(f, "    Side Entries : %u\n", t->sideCount);
-        sidecarDump(stable, f);
-    }
-
     if (etable) {
         fprintf(f, "\nEOD-anchored literal matcher stats:\n\n");
         hwlmPrintStats(etable, f);
@@ -792,7 +769,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U8(t, hasFloatingDirectReports);
     DUMP_U8(t, noFloatingRoots);
     DUMP_U8(t, requiresEodCheck);
-    DUMP_U8(t, requiresEodSideCatchup);
     DUMP_U8(t, hasEodEventLiteral);
     DUMP_U8(t, hasOutfixesInSmallBlock);
     DUMP_U8(t, runtimeImpl);
@@ -816,7 +792,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, amatcherOffset);
     DUMP_U32(t, ematcherOffset);
     DUMP_U32(t, fmatcherOffset);
-    DUMP_U32(t, smatcherOffset);
     DUMP_U32(t, sbmatcherOffset);
     DUMP_U32(t, amatcherMinWidth);
     DUMP_U32(t, fmatcherMinWidth);
@@ -827,8 +802,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, intReportCount);
     DUMP_U32(t, literalOffset);
     DUMP_U32(t, literalCount);
-    DUMP_U32(t, sideOffset);
-    DUMP_U32(t, sideCount);
     DUMP_U32(t, multidirectOffset);
     DUMP_U32(t, activeArrayCount);
     DUMP_U32(t, activeLeftCount);
@@ -872,8 +845,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, delayRebuildLength);
     DUMP_U32(t, stateOffsets.history);
     DUMP_U32(t, stateOffsets.exhausted);
-    DUMP_U32(t, stateOffsets.sidecar);
-    DUMP_U32(t, stateOffsets.sidecar_size);
     DUMP_U32(t, stateOffsets.activeLeafArray);
     DUMP_U32(t, stateOffsets.activeLeftArray);
     DUMP_U32(t, stateOffsets.activeLeftArray_size);
@@ -891,7 +862,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, boundary.reportZeroEodOffset);
     DUMP_U32(t, totalNumLiterals);
     DUMP_U32(t, asize);
-    DUMP_U32(t, initSideEnableOffset);
     DUMP_U32(t, outfixBeginQueue);
     DUMP_U32(t, outfixEndQueue);
     DUMP_U32(t, leftfixBeginQueue);
@@ -952,7 +922,6 @@ void roseDumpRoleStructRaw(const RoseEngine *t, FILE *f) {
         DUMP_U32(p, leftfixReport);
         DUMP_U32(p, leftfixLag);
         DUMP_U32(p, leftfixQueue);
-        DUMP_U32(p, sidecarEnableOffset);
         DUMP_U32(p, somAdjust);
         DUMP_U32(p, lookaroundIndex);
         DUMP_U32(p, lookaroundCount);
@@ -976,7 +945,6 @@ void roseDumpInternals(const RoseEngine *t, const string &base) {
 
     const void *atable = getAnchoredMatcher(t);
     const HWLM *ftable = getFloatingMatcher(t);
-    const sidecar *stable = getSidecarMatcher(t);
     const HWLM *etable = getEodMatcher(t);
 
     if (atable) {
@@ -991,14 +959,6 @@ void roseDumpInternals(const RoseEngine *t, const string &base) {
         FILE *f = fopen((base + "/floating.raw").c_str(), "w");
         if (f) {
             fwrite(ftable, 1, hwlmSize(ftable), f);
-            fclose(f);
-        }
-    }
-
-    if (stable) {
-        FILE *f = fopen((base + "/sidecar.raw").c_str(), "w");
-        if (f) {
-            fwrite(stable, 1, sidecarSize(stable), f);
             fclose(f);
         }
     }

@@ -64,7 +64,6 @@ set(unit_internal_SOURCES
     internal/repeat.cpp
     internal/rose_build_merge.cpp
     internal/rvermicelli.cpp
-    internal/sidecar.cpp
     internal/simd_utils.cpp
     internal/shuffle.cpp
     internal/shufti.cpp

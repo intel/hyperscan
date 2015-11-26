@@ -365,8 +365,7 @@ bool sameRoleProperties(const RoseBuildImpl &build, RoseVertex a, RoseVertex b) 
     const RoseGraph &g = build.g;
     const RoseVertexProps &aprops = g[a], &bprops = g[b];
 
-    if (aprops.eod_accept != bprops.eod_accept
-        || aprops.escapes != bprops.escapes) {
+    if (aprops.eod_accept != bprops.eod_accept) {
         return false;
     }
 
@@ -457,12 +456,6 @@ size_t hashRightRoleProperties(RoseVertex v, const RoseGraph &g) {
 
 static
 void removeVertexFromMaps(RoseVertex v, RoseBuildImpl &build, revRoseMap &rrm) {
-    // Remove vertex 'a' from literal squash roles.  Only sidecar literals can
-    // squash vertices, so they're the only ones we have to check.
-    for (auto &roles : build.side_squash_roles | map_values) {
-        roles.erase(v);
-    }
-
     if (build.g[v].left) {
         const left_id left(build.g[v].left);
         assert(contains(rrm[left], v));
@@ -558,7 +551,6 @@ void mergeVertices(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi,
 
     // Merge role properties.
     assert(g[a].eod_accept == g[b].eod_accept);
-    assert(g[a].escapes == g[b].escapes);
     assert(g[a].left == g[b].left);
 
     insert(&g[b].reports, g[a].reports);
@@ -596,7 +588,6 @@ void mergeVerticesDiamond(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi,
     // Merge role properties. For a diamond merge, most properties are already
     // the same (with the notable exception of the literal set).
     assert(g[a].eod_accept == g[b].eod_accept);
-    assert(g[a].escapes == g[b].escapes);
     assert(g[a].left == g[b].left);
     assert(g[a].reports == g[b].reports);
     assert(g[a].suffix == g[b].suffix);
