@@ -601,6 +601,8 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
     : tbi(tbi_in) {
     const RoseGraph &g = tbi.g;
 
+    set<suffix_id> suffixes;
+
     for (auto v : vertices_range(g)) {
         // Literals in the small block table don't count as dupes: although
         // they have copies in the anchored table, the two are never run in the
@@ -611,10 +613,16 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
             }
         }
 
+        // Several vertices may share a suffix, so we collect the set of
+        // suffixes first to avoid repeating work.
         if (g[v].suffix) {
-            for (const auto &report_id : all_reports(g[v].suffix)) {
-                suffix_map[report_id].insert(g[v].suffix);
-            }
+            suffixes.insert(g[v].suffix);
+        }
+    }
+
+    for (const auto &suffix : suffixes) {
+        for (const auto &report_id : all_reports(suffix)) {
+            suffix_map[report_id].insert(suffix);
         }
     }
 
