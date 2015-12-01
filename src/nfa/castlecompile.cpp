@@ -894,7 +894,8 @@ bool is_equal(const CastleProto &c1, const CastleProto &c2) {
     return c1.repeats == c2.repeats;
 }
 
-bool requiresDedupe(const CastleProto &proto, const set<ReportID> &reports) {
+bool requiresDedupe(const CastleProto &proto,
+                    const ue2::flat_set<ReportID> &reports) {
     ue2::unordered_set<ReportID> seen;
     for (const PureRepeat &pr : proto.repeats | map_values) {
         for (const ReportID &report : pr.reports) {

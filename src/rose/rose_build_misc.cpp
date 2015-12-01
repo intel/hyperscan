@@ -538,7 +538,7 @@ u32 RoseBuildImpl::getNewLiteralId() {
 }
 
 static
-bool requiresDedupe(const NGHolder &h, const set<ReportID> &reports,
+bool requiresDedupe(const NGHolder &h, const ue2::flat_set<ReportID> &reports,
                     const Grey &grey) {
     /* TODO: tighten */
     NFAVertex seen_vert = NFAGraph::null_vertex();
@@ -581,13 +581,14 @@ bool requiresDedupe(const NGHolder &h, const set<ReportID> &reports,
 class RoseDedupeAuxImpl : public RoseDedupeAux {
 public:
     explicit RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in);
-    bool requiresDedupeSupport(const set<ReportID> &reports) const override;
+    bool requiresDedupeSupport(
+        const ue2::flat_set<ReportID> &reports) const override;
 
     const RoseBuildImpl &tbi;
-    map<ReportID, set<RoseVertex> > vert_map;
-    map<ReportID, set<suffix_id> > suffix_map;
-    map<ReportID, set<const OutfixInfo *> > outfix_map;
-    map<ReportID, set<const raw_puff *> > puff_map;
+    map<ReportID, set<RoseVertex>> vert_map;
+    map<ReportID, set<suffix_id>> suffix_map;
+    map<ReportID, set<const OutfixInfo *>> outfix_map;
+    map<ReportID, set<const raw_puff *>> puff_map;
 };
 
 unique_ptr<RoseDedupeAux> RoseBuildImpl::generateDedupeAux() const {
@@ -644,8 +645,8 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
     }
 }
 
-bool RoseDedupeAuxImpl::requiresDedupeSupport(const set<ReportID> &reports)
-    const {
+bool RoseDedupeAuxImpl::requiresDedupeSupport(
+    const ue2::flat_set<ReportID> &reports) const {
     /* TODO: this could be expanded to check for offset or character
        constraints */
 

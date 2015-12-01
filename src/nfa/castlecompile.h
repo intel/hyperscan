@@ -38,6 +38,7 @@
 #include "nfagraph/ng_repeat.h"
 #include "util/alloc.h"
 #include "util/depth.h"
+#include "util/ue2_containers.h"
 
 #include <map>
 #include <memory>
@@ -135,7 +136,8 @@ bool is_equal(const CastleProto &c1, const CastleProto &c2);
  * \brief True if the given castle contains more than a single instance of any
  * of the reports in the given set.
  */
-bool requiresDedupe(const CastleProto &proto, const std::set<ReportID> &reports);
+bool requiresDedupe(const CastleProto &proto,
+                    const ue2::flat_set<ReportID> &reports);
 
 /**
  * \brief Build an NGHolder from a CastleProto.

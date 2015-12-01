@@ -42,6 +42,7 @@
 #include "rose_in_graph.h"
 #include "util/alloc.h"
 #include "util/charreach.h"
+#include "util/ue2_containers.h"
 #include "util/ue2string.h"
 
 #include <memory>
@@ -72,8 +73,8 @@ public:
 
     /** \brief True if we can not establish that at most a single callback will
      * be generated at a given offset from this set of reports. */
-    virtual bool requiresDedupeSupport(const std::set<ReportID> &reports) const
-        = 0;
+    virtual bool requiresDedupeSupport(const ue2::flat_set<ReportID> &reports)
+        const = 0;
 };
 
 /** \brief Abstract interface intended for callers from elsewhere in the tree,
