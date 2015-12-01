@@ -85,6 +85,8 @@ struct CastleProto {
 std::set<ReportID> all_reports(const CastleProto &proto);
 depth findMinWidth(const CastleProto &proto);
 depth findMaxWidth(const CastleProto &proto);
+depth findMinWidth(const CastleProto &proto, u32 top);
+depth findMaxWidth(const CastleProto &proto, u32 top);
 
 /**
  * \brief Remap tops to be contiguous.

@@ -94,10 +94,11 @@ u32 findMinWidth(const RoseBuildImpl &tbi, enum rose_literal_table table) {
         }
 
         if (g[v].suffix) {
-            depth suffix_width = findMinWidth(g[v].suffix);
+            depth suffix_width = findMinWidth(g[v].suffix, g[v].suffix.top);
             assert(suffix_width.is_reachable());
-            DEBUG_PRINTF("%zu has suffix (width %s), can fire report at %u\n",
-                         g[v].idx, suffix_width.str().c_str(),
+            DEBUG_PRINTF("%zu has suffix with top %u (width %s), can fire "
+                         "report at %u\n",
+                         g[v].idx, g[v].suffix.top, suffix_width.str().c_str(),
                          w + suffix_width);
             minWidth = min(minWidth, w + suffix_width);
         }
@@ -146,8 +147,9 @@ u32 findMaxBAWidth(const RoseBuildImpl &tbi) {
             if (has_non_eod_accepts(g[v].suffix)) {
                 return ROSE_BOUND_INF;
             }
-            depth suffix_width = findMaxWidth(g[v].suffix);
-            DEBUG_PRINTF("suffix max width %s\n", suffix_width.str().c_str());
+            depth suffix_width = findMaxWidth(g[v].suffix, g[v].suffix.top);
+            DEBUG_PRINTF("suffix max width for top %u is %s\n", g[v].suffix.top,
+                         suffix_width.str().c_str());
             assert(suffix_width.is_reachable());
             if (!suffix_width.is_finite()) {
                 DEBUG_PRINTF("suffix too wide\n");

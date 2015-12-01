@@ -130,6 +130,8 @@ private:
 
     friend depth findMinWidth(const suffix_id &s);
     friend depth findMaxWidth(const suffix_id &s);
+    friend depth findMinWidth(const suffix_id &s, u32 top);
+    friend depth findMaxWidth(const suffix_id &s, u32 top);
 };
 
 std::set<ReportID> all_reports(const suffix_id &s);
@@ -138,6 +140,8 @@ bool has_eod_accepts(const suffix_id &s);
 bool has_non_eod_accepts(const suffix_id &s);
 depth findMinWidth(const suffix_id &s);
 depth findMaxWidth(const suffix_id &s);
+depth findMinWidth(const suffix_id &s, u32 top);
+depth findMaxWidth(const suffix_id &s, u32 top);
 size_t hash_value(const suffix_id &s);
 
 /** \brief represents an engine to the left of a rose role */

@@ -708,6 +708,22 @@ depth findMaxWidth(const CastleProto &proto) {
     return max_width;
 }
 
+depth findMinWidth(const CastleProto &proto, u32 top) {
+    if (!contains(proto.repeats, top)) {
+        assert(0); // should not happen
+        return depth::infinity();
+    }
+    return proto.repeats.at(top).bounds.min;
+}
+
+depth findMaxWidth(const CastleProto &proto, u32 top) {
+    if (!contains(proto.repeats, top)) {
+        assert(0); // should not happen
+        return depth(0);
+    }
+    return proto.repeats.at(top).bounds.max;
+}
+
 CastleProto::CastleProto(const PureRepeat &pr) {
     assert(pr.reach.any());
     assert(pr.reports.size() == 1);

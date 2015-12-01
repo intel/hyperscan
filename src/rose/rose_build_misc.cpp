@@ -907,12 +907,36 @@ depth findMinWidth(const suffix_id &s) {
     }
 }
 
+depth findMinWidth(const suffix_id &s, u32 top) {
+    assert(s.graph() || s.castle() || s.haig() || s.dfa());
+    // TODO: take top into account for non-castle suffixes.
+    if (s.graph()) {
+        return findMinWidth(*s.graph());
+    } else if (s.castle()) {
+        return findMinWidth(*s.castle(), top);
+    } else {
+        return s.dfa_min_width;
+    }
+}
+
 depth findMaxWidth(const suffix_id &s) {
     assert(s.graph() || s.castle() || s.haig() || s.dfa());
     if (s.graph()) {
         return findMaxWidth(*s.graph());
     } else if (s.castle()) {
         return findMaxWidth(*s.castle());
+    } else {
+        return s.dfa_max_width;
+    }
+}
+
+depth findMaxWidth(const suffix_id &s, u32 top) {
+    assert(s.graph() || s.castle() || s.haig() || s.dfa());
+    // TODO: take top into account for non-castle suffixes.
+    if (s.graph()) {
+        return findMaxWidth(*s.graph());
+    } else if (s.castle()) {
+        return findMaxWidth(*s.castle(), top);
     } else {
         return s.dfa_max_width;
     }
