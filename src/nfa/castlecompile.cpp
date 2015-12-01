@@ -721,10 +721,8 @@ const CharReach &CastleProto::reach() const {
 
 static
 u32 find_next_top(const map<u32, PureRepeat> &repeats) {
-    u32 top = 0;
-    for (; contains(repeats, top); top++) {
-        // pass
-    }
+    u32 top = verify_u32(repeats.size());
+    assert(!contains(repeats, top));
     return top;
 }
 
@@ -734,7 +732,7 @@ u32 CastleProto::add(const PureRepeat &pr) {
     assert(pr.reports.size() == 1);
     u32 top = find_next_top(repeats);
     DEBUG_PRINTF("selected unused top %u\n", top);
-    repeats.insert(make_pair(top, pr));
+    repeats.emplace(top, pr);
     return top;
 }
 
@@ -783,7 +781,7 @@ bool mergeCastle(CastleProto &c1, const CastleProto &c2,
         const PureRepeat &pr = m.second;
         DEBUG_PRINTF("top %u\n", top);
         u32 new_top = find_next_top(c1.repeats);
-        c1.repeats.insert(make_pair(new_top, pr));
+        c1.repeats.emplace(new_top, pr);
         top_map[top] = new_top;
         DEBUG_PRINTF("adding repeat: map %u->%u\n", top, new_top);
     }
@@ -800,7 +798,7 @@ void remapCastleTops(CastleProto &proto, map<u32, u32> &top_map) {
         const u32 top = m.first;
         const PureRepeat &pr = m.second;
         u32 new_top = find_next_top(out);
-        out.insert(make_pair(new_top, pr));
+        out.emplace(new_top, pr);
         top_map[top] = new_top;
     }
 
