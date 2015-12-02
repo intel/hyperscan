@@ -54,7 +54,7 @@ Grey::Grey(void) :
                    allowRose(true),
                    allowExtendedNFA(true), /* bounded repeats of course */
                    allowLimExNFA(true),
-                   allowSidecar(true),
+                   allowSidecar(false),
                    allowAnchoredAcyclic(true),
                    allowSmallLiteralSet(true),
                    allowCastle(true),

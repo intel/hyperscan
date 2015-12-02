@@ -63,6 +63,7 @@ struct SubCastle {
  * - struct Castle
  * - struct SubCastle[numRepeats]
  * - tables for sparse model repeats
+ * - sparse iterator for subcastles that may be stale
  *
  * Castle stores an "active repeats" multibit in stream state, followed by the
  * packed repeat state for each SubCastle. If all SubCastles are mutual
@@ -83,6 +84,9 @@ struct ALIGN_AVX_DIRECTIVE Castle {
     char pureExclusive; //!< tells us if all SubCastles are mutual exclusive
     u8 activeIdxSize; //!< number of bytes in stream state to store
                       // active SubCastle id for exclusive mode
+    u32 staleIterOffset; //<! offset to a sparse iterator to check for stale
+                         // sub castles
+
     union {
         struct {
             char c;

@@ -189,7 +189,8 @@ char nfaInAcceptState(const struct NFA *nfa, ReportID report, struct mq *q);
  *        be monotonically increasing. If not all the data was processed during
  *        the call, the queue is updated to reflect the remaining work.
  * @param report we are interested in, if set at the end of the scan returns
- *        @ref MO_MATCHES_PENDING
+ *        @ref MO_MATCHES_PENDING. If no report is desired, MO_INVALID_IDX should
+ *        be passed in.
  * @return @ref MO_ALIVE if the nfa is still active with no matches pending,
  *         and @ref MO_MATCHES_PENDING if there are matches pending, 0 if not
  *         alive

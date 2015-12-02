@@ -32,6 +32,7 @@
 #include "castlecompile.h"
 
 #include "castle_internal.h"
+#include "limex_limits.h"
 #include "nfa_internal.h"
 #include "repeatcompile.h"
 #include "shufticompile.h"
@@ -47,6 +48,7 @@
 #include "util/dump_charclass.h"
 #include "util/graph.h"
 #include "util/make_unique.h"
+#include "util/multibit_build.h"
 #include "util/multibit_internal.h"
 #include "util/ue2_containers.h"
 #include "util/verify_types.h"
@@ -63,7 +65,6 @@ using boost::adaptors::map_values;
 
 namespace ue2 {
 
-#define CASTLE_MAX_TOPS 32
 #define CLIQUE_GRAPH_MAX_SIZE 1000
 
 static
@@ -305,7 +306,7 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
                      const vector<pair<depth, bool>> &repeatInfoPair,
                      u32 &scratchStateSize, u32 &streamStateSize,
                      u32 &tableSize, vector<u64a> &tables, u32 &sparseRepeats,
-                     const set<u32> &exclusiveGroup) {
+                     const set<u32> &exclusiveGroup, vector<u32> &may_stale) {
     u32 i = 0;
     u32 maxStreamSize = 0;
     bool exclusive = exclusiveGroup.size() > 1;
@@ -341,6 +342,10 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
 
             scratchStateSize += subScratchStateSize;
             streamStateSize += subStreamStateSize;
+        }
+
+        if (pr.bounds.max.is_finite()) {
+            may_stale.push_back(i);
         }
 
         info.type = verify_u8(rtype);
@@ -492,11 +497,20 @@ buildCastle(const CastleProto &proto,
 
     u32 tableSize = 0;
     u32 sparseRepeats = 0;
+    vector<u32> may_stale; /* sub castles that may go stale */
+
     buildSubcastles(proto, subs, infos, patchSize, repeatInfoPair,
                     scratchStateSize, streamStateSize, tableSize,
-                    tables, sparseRepeats, exclusiveGroup);
+                    tables, sparseRepeats, exclusiveGroup, may_stale);
 
-    const size_t total_size =
+    DEBUG_PRINTF("%zu subcastles may go stale\n", may_stale.size());
+    vector<mmbit_sparse_iter> stale_iter;
+    if (!may_stale.empty()) {
+        mmbBuildSparseIterator(stale_iter, may_stale, numRepeats);
+    }
+
+
+    size_t total_size =
         sizeof(NFA) +                      // initial NFA structure
         sizeof(Castle) +                   // Castle structure
         sizeof(SubCastle) * subs.size() +  // SubCastles themselves
@@ -505,6 +519,9 @@ buildCastle(const CastleProto &proto,
                                            // REPEAT_SPARSE_OPTIMAL_P
         sizeof(u64a) * sparseRepeats;      // paddings for
                                            // REPEAT_SPARSE_OPTIMAL_P tables
+
+    total_size = ROUNDUP_N(total_size, alignof(mmbit_sparse_iter));
+    total_size += byte_length(stale_iter); // stale sparse iter
 
     aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
     nfa->type = verify_u8(CASTLE_NFA_0);
@@ -515,7 +532,8 @@ buildCastle(const CastleProto &proto,
     nfa->minWidth = verify_u32(minWidth);
     nfa->maxWidth = maxWidth.is_finite() ? verify_u32(maxWidth) : 0;
 
-    char *ptr = (char *)nfa.get() + sizeof(NFA);
+    char * const base_ptr = (char *)nfa.get() + sizeof(NFA);
+    char *ptr = base_ptr;
     Castle *c = (Castle *)ptr;
     c->numRepeats = verify_u32(subs.size());
     c->exclusive = exclusive;
@@ -560,6 +578,16 @@ buildCastle(const CastleProto &proto,
             sub->exclusive = 0;
         }
     }
+
+    ptr = base_ptr + total_size - sizeof(NFA) - byte_length(stale_iter);
+
+    assert(ptr + byte_length(stale_iter) == base_ptr + total_size - sizeof(NFA));
+    if (!stale_iter.empty()) {
+        c->staleIterOffset = verify_u32(ptr - base_ptr);
+        copy_bytes(ptr, stale_iter);
+        ptr += byte_length(stale_iter);
+    }
+
     return nfa;
 }
 
@@ -893,7 +921,7 @@ unique_ptr<NGHolder> makeHolder(const CastleProto &proto, nfa_kind kind,
     unique_ptr<NGHolder> g = ue2::make_unique<NGHolder>(kind);
 
     for (const auto &m : proto.repeats) {
-        if (m.first >= CASTLE_MAX_TOPS) {
+        if (m.first >= NFA_MAX_TOP_MASKS) {
             DEBUG_PRINTF("top %u too big for an NFA\n", m.first);
             return nullptr;
         }
