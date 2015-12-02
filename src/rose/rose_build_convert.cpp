@@ -1115,12 +1115,14 @@ void convertAnchPrefixToBounds(RoseBuildImpl &tbi) {
 
         const PureRepeat &pr = castle.repeats.begin()->second;
         DEBUG_PRINTF("castle has repeat %s\n", pr.bounds.str().c_str());
+        DEBUG_PRINTF("delay adj %u\n", (u32)delay_adj);
 
         DepthMinMax bounds(pr.bounds); // copy
         if (delay_adj > bounds.min) {
-            delay_adj = bounds.min;
+            bounds.min = 0;
+        } else {
+            bounds.min -= delay_adj;
         }
-        bounds.min -= delay_adj;
         bounds.max -= delay_adj;
 
         g[e].minBound = bounds.min;

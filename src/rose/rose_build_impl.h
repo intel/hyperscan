@@ -544,6 +544,9 @@ bool hasAnchHistorySucc(const RoseGraph &g, RoseVertex v);
 bool hasLastByteHistorySucc(const RoseGraph &g, RoseVertex v);
 
 size_t maxOverlap(const rose_literal_id &a, const rose_literal_id &b);
+ue2_literal findNonOverlappingTail(const std::set<ue2_literal> &lits,
+                                   const ue2_literal &s);
+
 void setReportId(NGHolder &g, ReportID id);
 
 #ifndef NDEBUG

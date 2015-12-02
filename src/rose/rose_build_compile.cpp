@@ -31,13 +31,13 @@
 #include "grey.h"
 #include "hs_internal.h"
 #include "rose_build_anchored.h"
+#include "rose_build_castle.h"
 #include "rose_build_convert.h"
 #include "rose_build_dump.h"
 #include "rose_build_merge.h"
 #include "rose_build_role_aliasing.h"
 #include "rose_build_util.h"
 #include "ue2common.h"
-#include "nfa/castlecompile.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/rdfa.h"
 #include "nfagraph/ng_holder.h"
@@ -46,7 +46,6 @@
 #include "nfagraph/ng_is_equal.h"
 #include "nfagraph/ng_limex.h"
 #include "nfagraph/ng_mcclellan.h"
-#include "nfagraph/ng_puff.h"
 #include "nfagraph/ng_repeat.h"
 #include "nfagraph/ng_reports.h"
 #include "nfagraph/ng_stop.h"
@@ -1607,24 +1606,6 @@ map<left_id, vector<RoseVertex>> findLeftSucc(RoseBuildImpl &tbi) {
 }
 
 static
-ue2_literal findNonOverlappingTail(const set<ue2_literal> &lits,
-                                   const ue2_literal &s) {
-    size_t max_overlap = 0;
-
-    for (const auto &lit : lits) {
-        size_t overlap = lit != s ? maxStringOverlap(lit, s)
-                                  : maxStringSelfOverlap(s);
-        max_overlap = max(max_overlap, overlap);
-    }
-
-    /* find the tail that doesn't overlap */
-    ue2_literal tail = s.substr(max_overlap);
-    DEBUG_PRINTF("%zu overlap, tail: '%s'\n", max_overlap,
-                 dumpString(tail).c_str());
-    return tail;
-}
-
-static
 bool triggerKillsRoseGraph(const RoseBuildImpl &tbi, const left_id &left,
                            const set<ue2_literal> &all_lits,
                            const RoseEdge &e) {
@@ -1652,47 +1633,6 @@ bool triggerKillsRoseGraph(const RoseBuildImpl &tbi, const left_id &left,
         if (!states.empty()) {
             return false;
         }
-    }
-
-    return true;
-}
-
-static
-bool triggerKillsRoseCastle(const RoseBuildImpl &tbi, const left_id &left,
-                            const set<ue2_literal> &all_lits,
-                            const RoseEdge &e) {
-    assert(left.castle());
-    const CastleProto &c = *left.castle();
-
-    const depth max_width = findMaxWidth(c);
-    DEBUG_PRINTF("castle max width is %s\n", max_width.str().c_str());
-
-    /* check each pred literal to see if they all kill previous castle
-     * state */
-    for (u32 lit_id : tbi.g[source(e, tbi.g)].literals) {
-        const rose_literal_id &pred_lit = tbi.literals.right.at(lit_id);
-        const ue2_literal s = findNonOverlappingTail(all_lits, pred_lit.s);
-        const CharReach &cr = c.reach();
-
-        DEBUG_PRINTF("s=%s, castle reach=%s\n", dumpString(s).c_str(),
-                      describeClass(cr).c_str());
-
-        for (const auto &s_cr : s) {
-            if (!overlaps(cr, s_cr)) {
-                DEBUG_PRINTF("reach %s kills castle\n",
-                             describeClass(s_cr).c_str());
-                goto next_pred;
-            }
-        }
-
-        if (max_width < depth(s.length())) {
-            DEBUG_PRINTF("literal width >= castle max width\n");
-            goto next_pred;
-        }
-
-        return false;
-
-    next_pred:;
     }
 
     return true;
@@ -2228,232 +2168,6 @@ void addAnchoredSmallBlockLiterals(RoseBuildImpl &tbi) {
     for (OutfixInfo *oi : sep_outfixes) {
         assert(oi);
         oi->in_sbmatcher = true;
-    }
-}
-
-static
-void makeCastle(LeftEngInfo &left,
-        ue2::unordered_map<const NGHolder *, shared_ptr<CastleProto> > &cache) {
-    if (left.dfa || left.haig || left.castle) {
-        return;
-    }
-    if (!left.graph) {
-        return;
-    }
-
-    const NGHolder &h = *left.graph;
-    DEBUG_PRINTF("prefix %p\n", &h);
-
-    if (contains(cache, &h)) {
-        DEBUG_PRINTF("using cached CastleProto\n");
-        left.castle = cache[&h];
-        left.graph.reset();
-        return;
-    }
-
-    PureRepeat pr;
-    if (isPureRepeat(h, pr) && pr.reports.size() == 1) {
-        DEBUG_PRINTF("vertex preceded by infix repeat %s\n",
-                     pr.bounds.str().c_str());
-        left.castle = make_shared<CastleProto>(pr);
-        cache[&h] = left.castle;
-        left.graph.reset();
-    }
-}
-
-static
-void makeCastleSuffix(RoseBuildImpl &tbi, RoseVertex v,
-        ue2::unordered_map<const NGHolder *, shared_ptr<CastleProto> > &cache) {
-    RoseSuffixInfo &suffix = tbi.g[v].suffix;
-    if (!suffix.graph) {
-        return;
-    }
-    const NGHolder &h = *suffix.graph;
-    DEBUG_PRINTF("suffix %p\n", &h);
-
-    if (contains(cache, &h)) {
-        DEBUG_PRINTF("using cached CastleProto\n");
-        suffix.castle = cache[&h];
-        suffix.graph.reset();
-        return;
-    }
-
-    // The MPV will probably do a better job on the cases it's designed
-    // for.
-    const bool fixed_depth = tbi.g[v].min_offset == tbi.g[v].max_offset;
-    if (isPuffable(h, fixed_depth, tbi.rm, tbi.cc.grey)) {
-        DEBUG_PRINTF("leaving suffix for puff\n");
-        return;
-    }
-
-    PureRepeat pr;
-    if (isPureRepeat(h, pr) && pr.reports.size() == 1) {
-        DEBUG_PRINTF("suffix repeat %s\n", pr.bounds.str().c_str());
-
-        // Right now, the Castle uses much more stream state to represent a
-        // {m,1} repeat than just leaving it to an NFA.
-        if (pr.bounds.max <= depth(1)) {
-            DEBUG_PRINTF("leaving for other engines\n");
-            return;
-        }
-
-        suffix.castle = make_shared<CastleProto>(pr);
-        cache[&h] = suffix.castle;
-        suffix.graph.reset();
-    }
-}
-
-/**
- * Runs over all rose infix/suffix engines and converts those that are pure
- * repeats with one report into CastleProto engines.
- */
-static
-void makeCastles(RoseBuildImpl &tbi) {
-    if (!tbi.cc.grey.allowCastle && !tbi.cc.grey.allowLbr) {
-        return;
-    }
-
-    RoseGraph &g = tbi.g;
-
-    // Caches so that we can reuse analysis on graphs we've seen already.
-    ue2::unordered_map<const NGHolder *, shared_ptr<CastleProto> > left_cache;
-    ue2::unordered_map<const NGHolder *, shared_ptr<CastleProto> > suffix_cache;
-
-    for (auto v : vertices_range(g)) {
-        if (g[v].left && !tbi.isRootSuccessor(v)) {
-            makeCastle(g[v].left, left_cache);
-        }
-
-        if (g[v].suffix) {
-            makeCastleSuffix(tbi, v, suffix_cache);
-        }
-    }
-}
-
-/**
- * Identifies all the CastleProto prototypes that are small enough that they
- * would be better implemented as NFAs, and converts them back to NGHolder
- * prototypes.
- *
- * Returns true if any changes were made.
- */
-static
-bool unmakeCastles(RoseBuildImpl &tbi) {
-    RoseGraph &g = tbi.g;
-
-    const size_t MAX_UNMAKE_VERTICES = 64;
-
-    map<left_id, vector<RoseVertex> > left_castles;
-    map<suffix_id, vector<RoseVertex> > suffix_castles;
-    bool changed = false;
-
-    for (auto v : vertices_range(g)) {
-        const LeftEngInfo &left = g[v].left;
-        if (left.castle && left.castle->repeats.size() > 1) {
-            left_castles[left].push_back(v);
-        }
-        const RoseSuffixInfo &suffix = g[v].suffix;
-        if (suffix.castle && suffix.castle->repeats.size() > 1) {
-            suffix_castles[suffix].push_back(v);
-        }
-    }
-
-    for (const auto &e : left_castles) {
-        assert(e.first.castle());
-        shared_ptr<NGHolder> h = makeHolder(*e.first.castle(), NFA_INFIX,
-                                            tbi.cc);
-        if (!h || num_vertices(*h) > MAX_UNMAKE_VERTICES) {
-            continue;
-        }
-        DEBUG_PRINTF("replace rose with holder (%zu vertices)\n",
-                     num_vertices(*h));
-        for (auto v : e.second) {
-            assert(g[v].left.castle.get() == e.first.castle());
-            g[v].left.graph = h;
-            g[v].left.castle.reset();
-            changed = true;
-        }
-    }
-
-    for (const auto &e : suffix_castles) {
-        assert(e.first.castle());
-        shared_ptr<NGHolder> h = makeHolder(*e.first.castle(), NFA_SUFFIX,
-                                            tbi.cc);
-        if (!h || num_vertices(*h) > MAX_UNMAKE_VERTICES) {
-            continue;
-        }
-        DEBUG_PRINTF("replace suffix with holder (%zu vertices)\n",
-                     num_vertices(*h));
-        for (auto v : e.second) {
-            assert(g[v].suffix.castle.get() == e.first.castle());
-            g[v].suffix.graph = h;
-            g[v].suffix.castle.reset();
-            changed = true;
-        }
-    }
-
-    return changed;
-}
-
-/**
- * Runs over all the Castle engine prototypes in the graph and ensures that
- * they have tops in a contiguous range, ready for construction.
- */
-static
-void remapCastleTops(RoseBuildImpl &tbi) {
-    ue2::unordered_map<CastleProto *, vector<RoseVertex> > rose_castles;
-    ue2::unordered_map<CastleProto *, vector<RoseVertex> > suffix_castles;
-
-    RoseGraph &g = tbi.g;
-    for (auto v : vertices_range(g)) {
-        if (g[v].left.castle) {
-            rose_castles[g[v].left.castle.get()].push_back(v);
-        }
-        if (g[v].suffix.castle) {
-            suffix_castles[g[v].suffix.castle.get()].push_back(v);
-        }
-    }
-
-    DEBUG_PRINTF("%zu rose castles, %zu suffix castles\n", rose_castles.size(),
-                  suffix_castles.size());
-
-    map<u32, u32> top_map;
-
-    // Remap Rose Castles.
-    for (const auto &rc : rose_castles) {
-        CastleProto *c = rc.first;
-        const vector<RoseVertex> &verts = rc.second;
-
-        DEBUG_PRINTF("rose castle %p (%zu repeats) has %zu verts\n", c,
-                      c->repeats.size(), verts.size());
-
-        top_map.clear();
-        remapCastleTops(*c, top_map);
-
-        // Update the tops on the edges leading into vertices in v.
-        for (auto v : verts) {
-            for (const auto &e : in_edges_range(v, g)) {
-                g[e].rose_top = top_map.at(g[e].rose_top);
-            }
-        }
-    }
-
-    // Remap Suffix Castles.
-    for (const auto &e : suffix_castles) {
-        CastleProto *c = e.first;
-        const vector<RoseVertex> &verts = e.second;
-
-        DEBUG_PRINTF("suffix castle %p (%zu repeats) has %zu verts\n", c,
-                      c->repeats.size(), verts.size());
-
-        top_map.clear();
-        remapCastleTops(*c, top_map);
-
-        // Update the tops on the suffixes.
-        for (auto v : verts) {
-            assert(g[v].suffix);
-            g[v].suffix.top = top_map.at(g[v].suffix.top);
-        }
     }
 }
 

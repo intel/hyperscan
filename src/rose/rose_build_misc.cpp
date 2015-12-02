@@ -320,6 +320,23 @@ const rose_literal_id &getOverlapLiteral(const RoseBuildImpl &tbi,
     return tbi.literals.right.at(literal_id);
 }
 
+ue2_literal findNonOverlappingTail(const set<ue2_literal> &lits,
+                                   const ue2_literal &s) {
+    size_t max_overlap = 0;
+
+    for (const auto &lit : lits) {
+        size_t overlap = lit != s ? maxStringOverlap(lit, s)
+                                  : maxStringSelfOverlap(s);
+        max_overlap = max(max_overlap, overlap);
+    }
+
+    /* find the tail that doesn't overlap */
+    ue2_literal tail = s.substr(max_overlap);
+    DEBUG_PRINTF("%zu overlap, tail: '%s'\n", max_overlap,
+                 dumpString(tail).c_str());
+    return tail;
+}
+
 size_t RoseBuildImpl::maxLiteralOverlap(RoseVertex u, RoseVertex v) const {
     size_t overlap = 0;
     for (auto u_lit_id : g[u].literals) {

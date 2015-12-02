@@ -778,6 +778,8 @@ SET (hs_SRCS
     src/rose/rose_build_anchored.cpp
     src/rose/rose_build_anchored.h
     src/rose/rose_build_bytecode.cpp
+    src/rose/rose_build_castle.h
+    src/rose/rose_build_castle.cpp
     src/rose/rose_build_compile.cpp
     src/rose/rose_build_convert.cpp
     src/rose/rose_build_convert.h
