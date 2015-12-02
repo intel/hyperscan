@@ -68,7 +68,11 @@ struct CastleProto {
     explicit CastleProto(const PureRepeat &pr);
     const CharReach &reach() const;
 
+    /** \brief Add a new repeat. */
     u32 add(const PureRepeat &pr);
+
+    /** \brief Remove a repeat. */
+    void erase(u32 top);
 
     /**
      * \brief Merge in the given repeat, returning the top used.
@@ -84,6 +88,12 @@ struct CastleProto {
 
     /** \brief Mapping from report to associated tops. */
     ue2::unordered_map<ReportID, flat_set<u32>> report_map;
+
+    /**
+     * \brief Next top id to use. Repeats may be removed without top remapping,
+     * so we track this explicitly instead of using repeats.size().
+     */
+    u32 next_top = 1;
 };
 
 std::set<ReportID> all_reports(const CastleProto &proto);
