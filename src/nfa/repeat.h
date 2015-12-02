@@ -135,6 +135,8 @@ u64a repeatLastTop(const struct RepeatInfo *info,
         return repeatLastTopSparseOptimalP(info, ctrl, state);
     case REPEAT_TRAILER:
         return repeatLastTopTrailer(info, ctrl);
+    case REPEAT_ALWAYS:
+        return 0;
     }
 
     DEBUG_PRINTF("bad repeat type %u\n", info->type);
@@ -200,6 +202,8 @@ u64a repeatNextMatch(const struct RepeatInfo *info,
         return repeatNextMatchSparseOptimalP(info, ctrl, state, offset);
     case REPEAT_TRAILER:
         return repeatNextMatchTrailer(info, ctrl, offset);
+    case REPEAT_ALWAYS:
+        return offset + 1;
     }
 
     DEBUG_PRINTF("bad repeat type %u\n", info->type);
@@ -275,6 +279,9 @@ void repeatStore(const struct RepeatInfo *info, union RepeatControl *ctrl,
     case REPEAT_TRAILER:
         repeatStoreTrailer(info, ctrl, offset, is_alive);
         break;
+    case REPEAT_ALWAYS:
+        /* nothing to do - no state */
+        break;
     }
 }
 
@@ -348,6 +355,8 @@ enum RepeatMatch repeatHasMatch(const struct RepeatInfo *info,
         return repeatHasMatchSparseOptimalP(info, ctrl, state, offset);
     case REPEAT_TRAILER:
         return repeatHasMatchTrailer(info, ctrl, offset);
+    case REPEAT_ALWAYS:
+        return REPEAT_MATCH;
     }
 
     assert(0);

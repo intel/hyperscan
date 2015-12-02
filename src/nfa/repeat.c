@@ -922,6 +922,11 @@ void repeatPackOffset(char *dest, const struct RepeatInfo *info,
                       const union RepeatControl *ctrl, u64a offset) {
     const struct RepeatOffsetControl *xs = &ctrl->offset;
     DEBUG_PRINTF("packing offset %llu [h %u]\n", xs->offset, info->horizon);
+    if (!info->packedCtrlSize) {
+        assert(info->type == REPEAT_ALWAYS);
+        DEBUG_PRINTF("externally guarded .*\n");
+        return;
+    }
     storePackedRelative(dest, xs->offset, offset, info->horizon,
                         info->packedCtrlSize);
 }
@@ -1040,6 +1045,9 @@ void repeatPack(char *dest, const struct RepeatInfo *info,
     case REPEAT_TRAILER:
         repeatPackTrailer(dest, info, ctrl, offset);
         break;
+    case REPEAT_ALWAYS:
+        /* nothing to do - no state */
+        break;
     }
 }
 
@@ -1072,7 +1080,13 @@ static
 void repeatUnpackOffset(const char *src, const struct RepeatInfo *info,
                         u64a offset, union RepeatControl *ctrl) {
     struct RepeatOffsetControl *xs = &ctrl->offset;
-    xs->offset = loadPackedRelative(src, offset, info->packedCtrlSize);
+    if (!info->packedCtrlSize) {
+        assert(info->type == REPEAT_ALWAYS);
+        DEBUG_PRINTF("externally guarded .*\n");
+        xs->offset = 0;
+    } else {
+        xs->offset = loadPackedRelative(src, offset, info->packedCtrlSize);
+    }
     DEBUG_PRINTF("unpacking offset %llu [h%u]\n", xs->offset,
                  info->horizon);
 }
@@ -1148,6 +1162,9 @@ void repeatUnpack(const char *src, const struct RepeatInfo *info, u64a offset,
         break;
     case REPEAT_TRAILER:
         repeatUnpackTrailer(src, info, offset, ctrl);
+        break;
+    case REPEAT_ALWAYS:
+        /* nothing to do - no state */
         break;
     }
 }

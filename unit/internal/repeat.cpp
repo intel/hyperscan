@@ -193,7 +193,9 @@ static const RepeatTestInfo repeatTests[] = {
     { REPEAT_FIRST, 100, depth::infinity() },
     { REPEAT_FIRST, 1000, depth::infinity() },
     { REPEAT_FIRST, 3000, depth::infinity() },
-    { REPEAT_FIRST, 10000, depth::infinity() }
+    { REPEAT_FIRST, 10000, depth::infinity() },
+    // {,} repeats -- always
+    { REPEAT_ALWAYS, 0, depth::infinity() },
 };
 
 INSTANTIATE_TEST_CASE_P(Repeat, RepeatTest, ValuesIn(repeatTests));
@@ -289,6 +291,10 @@ TEST_P(RepeatTest, FillRing) {
 
 TEST_P(RepeatTest, FindTops) {
     SCOPED_TRACE(testing::Message() << "Repeat: " << info);
+    /* REPEAT_ALWAYS has no state and so does not track top locations */
+    if (info.type == REPEAT_ALWAYS) {
+        return;
+    }
 
     repeatStore(&info, ctrl, state, 1000, 0);
     ASSERT_EQ(1000, repeatLastTop(&info, ctrl, state));
@@ -364,7 +370,8 @@ TEST_P(RepeatTest, TwoTops) {
     SCOPED_TRACE(testing::Message() << "Repeat: " << info);
 
     // Only appropriate for tests that store more than one top.
-    if (info.type == REPEAT_FIRST || info.type == REPEAT_LAST) {
+    if (info.type == REPEAT_FIRST || info.type == REPEAT_LAST
+        || info.type == REPEAT_ALWAYS) {
         return;
     }
 

@@ -316,7 +316,7 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
         bool is_reset = repeatInfoPair[i].second;
 
         enum RepeatType rtype = chooseRepeatType(pr.bounds.min, pr.bounds.max,
-                                                 min_period, is_reset);
+                                                 min_period, is_reset, true);
         RepeatStateInfo rsi(rtype, pr.bounds.min, pr.bounds.max, min_period);
 
         DEBUG_PRINTF("sub %u: selected %s model for %s repeat\n", i,

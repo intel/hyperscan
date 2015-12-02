@@ -130,6 +130,9 @@ char repeatIsDead(const struct RepeatInfo *info,
         return lstate->ctrl.ring.offset == REPEAT_DEAD;
     case REPEAT_TRAILER:
         return lstate->ctrl.trailer.offset == REPEAT_DEAD;
+    case REPEAT_ALWAYS:
+        assert(!"REPEAT_ALWAYS should only be used by Castle");
+        return 0;
     }
 
     assert(0);
