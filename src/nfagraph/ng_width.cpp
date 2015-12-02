@@ -51,10 +51,16 @@ namespace ue2 {
 
 namespace {
 
-/** Filter out edges from start-to-start or accept-to-accept. */
+/**
+ * Filter out special edges, or in the top-specific variant, start edges that
+ * don't have the right top set.
+ */
 struct SpecialEdgeFilter {
     SpecialEdgeFilter() {}
-    explicit SpecialEdgeFilter(const NGHolder *h_in) : h(h_in) {}
+    explicit SpecialEdgeFilter(const NGHolder &h_in) : h(&h_in) {}
+    explicit SpecialEdgeFilter(const NGHolder &h_in, u32 top_in)
+        : h(&h_in), single_top(true), top(top_in) {}
+
     bool operator()(const NFAEdge &e) const {
         const NFAGraph &g = h->g;
         NFAVertex u = source(e, g), v = target(e, g);
@@ -62,23 +68,33 @@ struct SpecialEdgeFilter {
             (is_any_accept(u, g) && is_any_accept(v, g))) {
             return false;
         }
+        if (single_top) {
+            if (u == h->start && g[e].top != top) {
+                return false;
+            }
+            if (u == h->startDs) {
+                return false;
+            }
+        }
         return true;
 
     }
 private:
     const NGHolder *h = nullptr;
+    bool single_top = false;
+    u32 top = 0;
 };
 
 } // namespace
 
 static
-depth findMinWidth(const NGHolder &h, NFAVertex src) {
+depth findMinWidth(const NGHolder &h, const SpecialEdgeFilter &filter,
+                   NFAVertex src) {
     if (isLeafNode(src, h)) {
         return depth::unreachable();
     }
 
-    typedef boost::filtered_graph<NFAGraph, SpecialEdgeFilter> StartGraph;
-    StartGraph g(h.g, SpecialEdgeFilter(&h));
+    boost::filtered_graph<NFAGraph, SpecialEdgeFilter> g(h.g, filter);
 
     assert(hasCorrectlyNumberedVertices(h));
     const size_t num = num_vertices(h);
@@ -112,7 +128,8 @@ depth findMinWidth(const NGHolder &h, NFAVertex src) {
 }
 
 static
-depth findMaxWidth(const NGHolder &h, NFAVertex src) {
+depth findMaxWidth(const NGHolder &h, const SpecialEdgeFilter &filter,
+                   NFAVertex src) {
     if (isLeafNode(src, h.g)) {
         return depth::unreachable();
     }
@@ -122,8 +139,7 @@ depth findMaxWidth(const NGHolder &h, NFAVertex src) {
         return depth::infinity();
     }
 
-    typedef boost::filtered_graph<NFAGraph, SpecialEdgeFilter> NodeFilteredGraph;
-    NodeFilteredGraph g(h.g, SpecialEdgeFilter(&h));
+    boost::filtered_graph<NFAGraph, SpecialEdgeFilter> g(h.g, filter);
 
     assert(hasCorrectlyNumberedVertices(h));
     const size_t num = num_vertices(h);
@@ -164,7 +180,7 @@ depth findMaxWidth(const NGHolder &h, NFAVertex src) {
     if (d.is_unreachable()) {
         // If we're actually reachable, we'll have a min width, so we can
         // return infinity in this case.
-        if (findMinWidth(h, src).is_reachable()) {
+        if (findMinWidth(h, filter, src).is_reachable()) {
             return depth::infinity();
         }
         return d;
@@ -175,11 +191,10 @@ depth findMaxWidth(const NGHolder &h, NFAVertex src) {
     return d - depth(1);
 }
 
-/** Returns the minimum width in bytes of an input that will match the given
- * graph. */
-depth findMinWidth(const NGHolder &h) {
-    depth startDepth = findMinWidth(h, h.start);
-    depth dotstarDepth = findMinWidth(h, h.startDs);
+static
+depth findMinWidth(const NGHolder &h, const SpecialEdgeFilter &filter) {
+    depth startDepth = findMinWidth(h, filter, h.start);
+    depth dotstarDepth = findMinWidth(h, filter, h.startDs);
     DEBUG_PRINTF("startDepth=%s, dotstarDepth=%s\n", startDepth.str().c_str(),
                  dotstarDepth.str().c_str());
     if (startDepth.is_unreachable()) {
@@ -194,11 +209,18 @@ depth findMinWidth(const NGHolder &h) {
     }
 }
 
-/** Returns the maximum width in bytes of an input that will match the given
- * graph. If there is no maximum width, returns infinity. */
-depth findMaxWidth(const NGHolder &h) {
-    depth startDepth = findMaxWidth(h, h.start);
-    depth dotstarDepth = findMaxWidth(h, h.startDs);
+depth findMinWidth(const NGHolder &h) {
+    return findMinWidth(h, SpecialEdgeFilter(h));
+}
+
+depth findMinWidth(const NGHolder &h, u32 top) {
+    return findMinWidth(h, SpecialEdgeFilter(h, top));
+}
+
+static
+depth findMaxWidth(const NGHolder &h, const SpecialEdgeFilter &filter) {
+    depth startDepth = findMaxWidth(h, filter, h.start);
+    depth dotstarDepth = findMaxWidth(h, filter, h.startDs);
     DEBUG_PRINTF("startDepth=%s, dotstarDepth=%s\n", startDepth.str().c_str(),
                  dotstarDepth.str().c_str());
     if (startDepth.is_unreachable()) {
@@ -208,6 +230,14 @@ depth findMaxWidth(const NGHolder &h) {
     } else {
         return max(startDepth, dotstarDepth);
     }
+}
+
+depth findMaxWidth(const NGHolder &h) {
+    return findMaxWidth(h, SpecialEdgeFilter(h));
+}
+
+depth findMaxWidth(const NGHolder &h, u32 top) {
+    return findMaxWidth(h, SpecialEdgeFilter(h, top));
 }
 
 } // namespace ue2

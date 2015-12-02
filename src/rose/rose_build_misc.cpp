@@ -910,9 +910,8 @@ depth findMinWidth(const suffix_id &s) {
 
 depth findMinWidth(const suffix_id &s, u32 top) {
     assert(s.graph() || s.castle() || s.haig() || s.dfa());
-    // TODO: take top into account for non-castle suffixes.
     if (s.graph()) {
-        return findMinWidth(*s.graph());
+        return findMinWidth(*s.graph(), top);
     } else if (s.castle()) {
         return findMinWidth(*s.castle(), top);
     } else {
@@ -933,9 +932,8 @@ depth findMaxWidth(const suffix_id &s) {
 
 depth findMaxWidth(const suffix_id &s, u32 top) {
     assert(s.graph() || s.castle() || s.haig() || s.dfa());
-    // TODO: take top into account for non-castle suffixes.
     if (s.graph()) {
-        return findMaxWidth(*s.graph());
+        return findMaxWidth(*s.graph(), top);
     } else if (s.castle()) {
         return findMaxWidth(*s.castle(), top);
     } else {
