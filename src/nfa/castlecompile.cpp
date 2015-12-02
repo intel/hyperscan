@@ -58,6 +58,7 @@
 #include <boost/range/adaptor/map.hpp>
 
 using namespace std;
+using boost::adaptors::map_keys;
 using boost::adaptors::map_values;
 
 namespace ue2 {
@@ -686,8 +687,8 @@ buildCastle(const CastleProto &proto,
 
 set<ReportID> all_reports(const CastleProto &proto) {
     set<ReportID> reports;
-    for (const PureRepeat &pr : proto.repeats | map_values) {
-        reports.insert(pr.reports.begin(), pr.reports.end());
+    for (const ReportID &report : proto.report_map | map_keys) {
+        reports.insert(report);
     }
     return reports;
 }
@@ -727,7 +728,11 @@ depth findMaxWidth(const CastleProto &proto, u32 top) {
 CastleProto::CastleProto(const PureRepeat &pr) {
     assert(pr.reach.any());
     assert(pr.reports.size() == 1);
-    repeats.insert(make_pair(0, pr));
+    u32 top = 0;
+    repeats.emplace(top, pr);
+    for (const auto &report : pr.reports) {
+        report_map[report].insert(top);
+    }
 }
 
 const CharReach &CastleProto::reach() const {
@@ -749,6 +754,9 @@ u32 CastleProto::add(const PureRepeat &pr) {
     u32 top = find_next_top(repeats);
     DEBUG_PRINTF("selected unused top %u\n", top);
     repeats.emplace(top, pr);
+    for (const auto &report : pr.reports) {
+        report_map[report].insert(top);
+    }
     return top;
 }
 
@@ -796,8 +804,7 @@ bool mergeCastle(CastleProto &c1, const CastleProto &c2,
         const u32 top = m.first;
         const PureRepeat &pr = m.second;
         DEBUG_PRINTF("top %u\n", top);
-        u32 new_top = find_next_top(c1.repeats);
-        c1.repeats.emplace(new_top, pr);
+        u32 new_top = c1.add(pr);
         top_map[top] = new_top;
         DEBUG_PRINTF("adding repeat: map %u->%u\n", top, new_top);
     }
@@ -819,6 +826,17 @@ void remapCastleTops(CastleProto &proto, map<u32, u32> &top_map) {
     }
 
     proto.repeats.swap(out);
+
+    // Remap report map.
+    proto.report_map.clear();
+    for (const auto &m : proto.repeats) {
+        const u32 top = m.first;
+        const PureRepeat &pr = m.second;
+        for (const auto &report : pr.reports) {
+            proto.report_map[report].insert(top);
+        }
+    }
+
     assert(proto.repeats.size() <= proto.max_occupancy);
 }
 
@@ -896,17 +914,15 @@ bool is_equal(const CastleProto &c1, const CastleProto &c2) {
 
 bool requiresDedupe(const CastleProto &proto,
                     const ue2::flat_set<ReportID> &reports) {
-    ue2::unordered_set<ReportID> seen;
-    for (const PureRepeat &pr : proto.repeats | map_values) {
-        for (const ReportID &report : pr.reports) {
-            if (contains(reports, report)) {
-                if (contains(seen, report)) {
-                    DEBUG_PRINTF("castle proto %p has dupe report %u\n", &proto,
-                                 report);
-                    return true;
-                }
-                seen.insert(report);
-            }
+    for (const auto &report : reports) {
+        auto it = proto.report_map.find(report);
+        if (it == end(proto.report_map)) {
+            continue;
+        }
+        if (it->second.size() > 1) {
+            DEBUG_PRINTF("castle proto %p has dupe report %u\n", &proto,
+                         report);
+            return true;
         }
     }
     return false;

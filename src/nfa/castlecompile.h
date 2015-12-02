@@ -81,6 +81,9 @@ struct CastleProto {
 
     /** \brief Mapping from unique top id to repeat. */
     std::map<u32, PureRepeat> repeats;
+
+    /** \brief Mapping from report to associated tops. */
+    ue2::unordered_map<ReportID, flat_set<u32>> report_map;
 };
 
 std::set<ReportID> all_reports(const CastleProto &proto);
