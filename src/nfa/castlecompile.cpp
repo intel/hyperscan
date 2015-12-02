@@ -64,6 +64,7 @@ using boost::adaptors::map_values;
 namespace ue2 {
 
 #define CASTLE_MAX_TOPS 32
+#define CLIQUE_GRAPH_MAX_SIZE 1000
 
 static
 u32 depth_to_u32(const depth &d) {
@@ -107,50 +108,35 @@ void writeCastleScanEngine(const CharReach &cr, Castle *c) {
 }
 
 static
-size_t literalOverlap(const vector<CharReach> &a, const vector<CharReach> &b) {
+bool literalOverlap(const vector<CharReach> &a, const vector<CharReach> &b,
+                    const size_t dist) {
     for (size_t i = 0; i < b.size(); i++) {
+        if (i > dist) {
+            return true;
+        }
         size_t overlap_len = b.size() - i;
         if (overlap_len <= a.size()) {
             if (matches(a.end() - overlap_len, a.end(), b.begin(),
                         b.end() - i)) {
-                return i;
+                return false;
             }
         } else {
             assert(overlap_len > a.size());
             if (matches(a.begin(), a.end(), b.end() - i - a.size(),
                         b.end() - i)) {
-                return i;
+                return false;
             }
         }
     }
 
-    return b.size();
+    return b.size() > dist;
 }
-
-//  UE-2666 case 1: The problem of find largest exclusive subcastles group
-//  can be reformulated as finding the largest clique (subgraph where every
-//  vertex is connected to every other vertex) in the graph. We use an
-//  approximate algorithm here to find the maximum clique.
-//  References
-//  ----------
-//      [1] Boppana, R., & Halldórsson, M. M. (1992).
-//      Approximating maximum independent sets by excluding subgraphs.
-//      BIT Numerical Mathematics, 32(2), 180–196. Springer.
-//      doi:10.1007/BF01994876
-//  ----------
 
 struct CliqueVertexProps {
     CliqueVertexProps() {}
     explicit CliqueVertexProps(u32 state_in) : stateId(state_in) {}
 
     u32 stateId = ~0U;
-    u32 parentId = ~0U;
-    bool leftChild = false; /* tells us if it is the left child of its parent */
-
-    vector<u32> clique1; /* clique for the left branch */
-    vector<u32> indepSet1; /* independent set for the left branch */
-    vector<u32> clique2; /* clique for the right branch */
-    vector<u32> indepSet2; /* independent set for the right branch */
 };
 
 typedef boost::adjacency_list<boost::listS, boost::listS, boost::undirectedS,
@@ -158,158 +144,54 @@ typedef boost::adjacency_list<boost::listS, boost::listS, boost::undirectedS,
 typedef CliqueGraph::vertex_descriptor CliqueVertex;
 
 static
-unique_ptr<CliqueGraph> makeCG(const vector<vector<u32>> &exclusiveSet) {
-    u32 size = exclusiveSet.size();
-
-    vector<CliqueVertex> vertices;
-    unique_ptr<CliqueGraph> cg = make_unique<CliqueGraph>();
-    for (u32 i = 0; i < size; ++i) {
-        CliqueVertex v = add_vertex(CliqueVertexProps(i), *cg);
-        vertices.push_back(v);
-    }
-
-    // construct the complement graph, then its maximum independent sets
-    // are equal to the maximum clique of the original graph
-    for (u32 i = 0; i < size; ++i) {
-        CliqueVertex s = vertices[i];
-        vector<u32> complement(size, 0);
-        for (u32 j = 0; j < exclusiveSet[i].size(); ++j) {
-            u32 val = exclusiveSet[i][j];
-            complement[val] = 1;
-        }
-
-        for (u32 k = i + 1; k < size; ++k) {
-             if (!complement[k]) {
-                CliqueVertex d = vertices[k];
-                add_edge(s, d, *cg);
-             }
-        }
-    }
-    return cg;
-}
-
-static
-void updateCliqueInfo(CliqueGraph &cg, const CliqueVertex &n,
-                      vector<u32> &clique, vector<u32> &indepSet) {
-    u32 id = cg[n].stateId;
-    if (cg[n].clique1.size() + 1 > cg[n].clique2.size()) {
-        cg[n].clique1.push_back(id);
-        clique.swap(cg[n].clique1);
-    } else {
-        clique.swap(cg[n].clique2);
-    }
-
-    if (cg[n].indepSet2.size() + 1 > cg[n].indepSet1.size()) {
-        cg[n].indepSet2.push_back(id);
-        indepSet.swap(cg[n].indepSet2);
-    } else {
-        indepSet.swap(cg[n].indepSet1);
-    }
-}
-
-static
 void getNeighborInfo(const CliqueGraph &g, vector<u32> &neighbor,
-                     vector<u32> &nonneighbor, const CliqueVertex &cv,
-                     const set<u32> &group) {
+                     const CliqueVertex &cv, const set<u32> &group) {
     u32 id = g[cv].stateId;
     ue2::unordered_set<u32> neighborId;
 
     // find neighbors for cv
     for (const auto &v : adjacent_vertices_range(cv, g)) {
-        if (g[v].stateId != id && contains(group, g[v].stateId)) {
+        if (g[v].stateId != id && contains(group, g[v].stateId)){
             neighbor.push_back(g[v].stateId);
             neighborId.insert(g[v].stateId);
-        }
-    }
-
-    neighborId.insert(id);
-    // find non-neighbors for cv
-    for (const auto &v : vertices_range(g)) {
-        if (!contains(neighborId, g[v].stateId) &&
-            contains(group, g[v].stateId)) {
-            nonneighbor.push_back(g[v].stateId);
+            DEBUG_PRINTF("Neighbor:%u\n", g[v].stateId);
         }
     }
 }
 
 static
-void findCliqueGroup(CliqueGraph &cg, vector<u32> &clique,
-                     vector<u32> &indepSet) {
+void findCliqueGroup(CliqueGraph &cg, vector<u32> &clique) {
     stack<vector<u32>> gStack;
 
-    // create mapping between vertex and id
+    // Create mapping between vertex and id
     map<u32, CliqueVertex> vertexMap;
     vector<u32> init;
-    for (auto &v : vertices_range(cg)) {
+    for (const auto &v : vertices_range(cg)) {
         vertexMap[cg[v].stateId] = v;
         init.push_back(cg[v].stateId);
     }
     gStack.push(init);
 
-    // get the vertex to start from
-    set<u32> foundVertexId;
-    ue2::unordered_set<u32> visitedId;
+    // Get the vertex to start from
     CliqueGraph::vertex_iterator vi, ve;
     tie(vi, ve) = vertices(cg);
-    CliqueVertex start = *vi;
-    u32 startId = cg[start].stateId;
-    DEBUG_PRINTF("startId:%u\n", startId);
-    bool leftChild = false;
-    u32 prevId = startId;
     while (!gStack.empty()) {
-        const auto &g = gStack.top();
+        vector<u32> g = gStack.top();
+        gStack.pop();
 
-        // choose a vertex from the graph
-        assert(!g.empty());
+        // Choose a vertex from the graph
         u32 id = g[0];
-        CliqueVertex &n = vertexMap.at(id);
-
+        const CliqueVertex &n = vertexMap.at(id);
+        clique.push_back(id);
+        // Corresponding vertex in the original graph
         vector<u32> neighbor;
-        vector<u32> nonneighbor;
         set<u32> subgraphId(g.begin(), g.end());
-        getNeighborInfo(cg, neighbor, nonneighbor, n, subgraphId);
-        if (contains(foundVertexId, id)) {
-            prevId = id;
-            // get non-neighbors for right branch
-            if (visitedId.insert(id).second) {
-                DEBUG_PRINTF("right branch\n");
-                if (!nonneighbor.empty()) {
-                    gStack.push(nonneighbor);
-                    leftChild = false;
-                }
-            } else {
-                if (id != startId) {
-                    // both the left and right branches are visited,
-                    // update its parent's clique and independent sets
-                    u32 parentId = cg[n].parentId;
-                    CliqueVertex &parent = vertexMap.at(parentId);
-                    if (cg[n].leftChild) {
-                        updateCliqueInfo(cg, n, cg[parent].clique1,
-                                         cg[parent].indepSet1);
-                    } else {
-                        updateCliqueInfo(cg, n, cg[parent].clique2,
-                                         cg[parent].indepSet2);
-                    }
-                }
-                gStack.pop();
-            }
-        } else {
-            foundVertexId.insert(id);
-            cg[n].leftChild = leftChild;
-            cg[n].parentId = prevId;
-            cg[n].clique1.clear();
-            cg[n].clique2.clear();
-            cg[n].indepSet1.clear();
-            cg[n].indepSet2.clear();
-            // get neighbors for left branch
-            if (!neighbor.empty()) {
-                gStack.push(neighbor);
-                leftChild = true;
-            }
-            prevId = id;
+        getNeighborInfo(cg, neighbor, n, subgraphId);
+        // Get graph consisting of neighbors for left branch
+        if (!neighbor.empty()) {
+            gStack.push(neighbor);
         }
     }
-    updateCliqueInfo(cg, start, clique, indepSet);
 }
 
 template<typename Graph>
@@ -322,9 +204,8 @@ bool graph_empty(const Graph &g) {
 static
 vector<u32> removeClique(CliqueGraph &cg) {
     vector<vector<u32>> cliquesVec(1);
-    vector<vector<u32>> indepSetsVec(1);
     DEBUG_PRINTF("graph size:%lu\n", num_vertices(cg));
-    findCliqueGroup(cg, cliquesVec[0], indepSetsVec[0]);
+    findCliqueGroup(cg, cliquesVec[0]);
     while (!graph_empty(cg)) {
         const vector<u32> &c = cliquesVec.back();
         vector<CliqueVertex> dead;
@@ -341,30 +222,22 @@ vector<u32> removeClique(CliqueGraph &cg) {
             break;
         }
         vector<u32> clique;
-        vector<u32> indepSet;
-        findCliqueGroup(cg, clique, indepSet);
+        findCliqueGroup(cg, clique);
         cliquesVec.push_back(clique);
-        indepSetsVec.push_back(indepSet);
     }
 
     // get the independent set with max size
     size_t max = 0;
     size_t id = 0;
-    for (size_t j = 0; j < indepSetsVec.size(); ++j) {
-        if (indepSetsVec[j].size() > max) {
-            max = indepSetsVec[j].size();
+    for (size_t j = 0; j < cliquesVec.size(); ++j) {
+        if (cliquesVec[j].size() > max) {
+            max = cliquesVec[j].size();
             id = j;
         }
     }
 
-    DEBUG_PRINTF("clique size:%lu\n", indepSetsVec[id].size());
-    return indepSetsVec[id];
-}
-
-static
-vector<u32> findMaxClique(const vector<vector<u32>> &exclusiveSet) {
-    auto cg = makeCG(exclusiveSet);
-    return removeClique(*cg);
+    DEBUG_PRINTF("clique size:%lu\n", cliquesVec[id].size());
+    return cliquesVec[id];
 }
 
 // if the location of any reset character in one literal are after
@@ -378,10 +251,10 @@ bool findExclusivePair(const u32 id1, const u32 id2,
     const auto &triggers2 = triggers[id2];
     for (u32 i = 0; i < triggers1.size(); ++i) {
         for (u32 j = 0; j < triggers2.size(); ++j) {
-            size_t max_overlap1 = literalOverlap(triggers1[i], triggers2[j]);
-            size_t max_overlap2 = literalOverlap(triggers2[j], triggers1[i]);
-            if (max_overlap1 <= min_reset_dist[id2][j] ||
-                max_overlap2 <= min_reset_dist[id1][i]) {
+            if (!literalOverlap(triggers1[i], triggers2[j],
+                                min_reset_dist[id2][j]) ||
+                !literalOverlap(triggers2[j], triggers1[i],
+                                min_reset_dist[id1][i])) {
                 return false;
             }
         }
@@ -397,28 +270,33 @@ vector<u32> checkExclusion(const CharReach &cr,
         return group;
     }
 
-    vector<vector<size_t> > min_reset_dist;
+    vector<vector<size_t>> min_reset_dist;
     // get min reset distance for each repeat
     for (auto it = triggers.begin(); it != triggers.end(); it++) {
         const vector<size_t> &tmp_dist = minResetDistToEnd(*it, cr);
         min_reset_dist.push_back(tmp_dist);
     }
 
-    vector<vector<u32>> exclusiveSet;
+    vector<CliqueVertex> vertices;
+    unique_ptr<CliqueGraph> cg = make_unique<CliqueGraph>();
+    for (u32 i = 0; i < triggers.size(); ++i) {
+        CliqueVertex v = add_vertex(CliqueVertexProps(i), *cg);
+        vertices.push_back(v);
+    }
+
     // find exclusive pair for each repeat
     for (u32 i = 0; i < triggers.size(); ++i) {
-        vector<u32> repeatIds;
+        CliqueVertex s = vertices[i];
         for (u32 j = i + 1; j < triggers.size(); ++j) {
             if (findExclusivePair(i, j, min_reset_dist, triggers)) {
-                repeatIds.push_back(j);
+                CliqueVertex d = vertices[j];
+                add_edge(s, d, *cg);
             }
         }
-        exclusiveSet.push_back(repeatIds);
-        DEBUG_PRINTF("Exclusive pair size:%lu\n", repeatIds.size());
     }
 
     // find the largest exclusive group
-    return findMaxClique(exclusiveSet);
+    return removeClique(*cg);
 }
 
 static
@@ -576,7 +454,7 @@ buildCastle(const CastleProto &proto,
 
         repeatInfoPair.push_back(make_pair(min_period, is_reset));
 
-        if (is_reset) {
+        if (is_reset && candidateRepeats.size() < CLIQUE_GRAPH_MAX_SIZE) {
             candidateTriggers.push_back(triggers.at(top));
             candidateRepeats.push_back(i);
         }
@@ -585,7 +463,7 @@ buildCastle(const CastleProto &proto,
     // Case 1: exclusive repeats
     bool exclusive = false;
     bool pureExclusive = false;
-    u8 activeIdxSize = 0;
+    u32 activeIdxSize = 0;
     set<u32> exclusiveGroup;
     if (cc.grey.castleExclusive) {
         vector<u32> tmpGroup = checkExclusion(cr, candidateTriggers);
@@ -594,7 +472,7 @@ buildCastle(const CastleProto &proto,
             // Case 1: mutual exclusive repeats group found, initialize state
             // sizes
             exclusive = true;
-            activeIdxSize = calcPackedBytes(exclusiveSize);
+            activeIdxSize = calcPackedBytes(numRepeats + 1);
             if (exclusiveSize == numRepeats) {
                 pureExclusive = true;
                 streamStateSize = 0;
@@ -642,7 +520,7 @@ buildCastle(const CastleProto &proto,
     c->numRepeats = verify_u32(subs.size());
     c->exclusive = exclusive;
     c->pureExclusive = pureExclusive;
-    c->activeIdxSize = activeIdxSize;
+    c->activeIdxSize = verify_u8(activeIdxSize);
 
     writeCastleScanEngine(cr, c);
 
