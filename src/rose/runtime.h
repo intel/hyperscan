@@ -172,15 +172,6 @@ const struct internal_report *getInternalReport(const struct RoseEngine *t,
     return reports + intId;
 }
 
-static really_inline
-const struct RoseRole *getRoleByOffset(const struct RoseEngine *t, u32 offset) {
-        const struct RoseRole *tr = (const void *)((const char *)t + offset);
-
-        assert((size_t)(tr - getRoleTable(t)) < t->roleCount);
-        DEBUG_PRINTF("get root role %zu\n", tr - getRoleTable(t));
-        return tr;
-}
-
 #define ANCHORED_MATCH_SENTINEL (~0U)
 
 static really_inline

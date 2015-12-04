@@ -73,18 +73,55 @@ ReportID literalToReport(u32 id) {
     return id & ~LITERAL_DR_FLAG;
 }
 
-// Structure representing a literal. Each literal may have many roles.
+/** \brief Structure representing a literal. */
 struct RoseLiteral {
-    u32 rootProgramOffset; // role program to run for root roles.
-    u32 iterOffset; // offset of sparse iterator, relative to rose
-    u32 iterMapOffset; // offset of the iter mapping table, relative to rose
-    rose_group groups; // bitset of groups that cause this literal to fire.
-    u8 minDepth; // the minimum of this literal's roles' depths (for depths > 1)
-    u8 squashesGroup; /**< literal switches off its group behind it if it sets a
-                       * role */
-    u32 delay_mask; /**< bit set indicates that the literal inserts a delayed
-                     * match at the given offset */
-    u32 delayIdsOffset; // offset to array of ids to poke in the delay structure
+    /**
+     * \brief Role program to run unconditionally when this literal is seen.
+     *
+     * Offset is relative to RoseEngine, or zero for no program.
+     */
+    u32 rootProgramOffset;
+
+    /**
+     * \brief Offset of sparse iterator (mmbit_sparse_iter pointer) over
+     * predecessor states.
+     *
+     * Offset is relative to RoseEngine, set to ROSE_OFFSET_INVALID for no
+     * iterator.
+     */
+    u32 iterOffset;
+
+    /**
+     * \brief Table of role programs to run when triggered by the sparse
+     * iterator, indexed by dense sparse iter index.
+     *
+     * Offset is relative to RoseEngine, zero for no programs.
+     */
+    u32 iterProgramOffset;
+
+    /** \brief Bitset of groups that cause this literal to fire. */
+    rose_group groups;
+
+    /**
+     * \brief The minimum depth of this literal in the Rose graph (for depths
+     * greater than 1).
+     */
+    u8 minDepth;
+
+    /**
+     * \brief True if this literal switches off its group behind it when it
+     * sets a role.
+     */
+    u8 squashesGroup;
+
+    /**
+     * \brief Bitset which indicates that the literal inserts a delayed
+     * match at the given offset.
+     */
+    u32 delay_mask;
+
+    /** \brief Offset to array of ids to poke in the delay structure. */
+    u32 delayIdsOffset;
 };
 
 /* Allocation of Rose literal ids
@@ -179,15 +216,6 @@ struct RoseLiteral {
  *    terminals.
  */
 
-// We have different types of role history storage.
-enum RoseRoleHistory {
-    ROSE_ROLE_HISTORY_NONE, // I'm sorry, I don't recall.
-    ROSE_ROLE_HISTORY_ANCH, // used when previous role is at a fixed offset
-    ROSE_ROLE_HISTORY_LAST_BYTE, /* used when previous role can only match at the
-                                  * last byte of a stream */
-    ROSE_ROLE_HISTORY_INVALID // history not yet assigned
-};
-
 struct RoseCountingMiracle {
     char shufti; /** 1: count shufti class; 0: count a single character */
     u8 count; /** minimum number of occurrences for the counting
@@ -225,48 +253,12 @@ struct NfaInfo {
              * matches */
 };
 
-/* We allow different types of role-predecessor relationships. These are stored
- * in with the flags */
-#define ROSE_ROLE_PRED_SIMPLE       (1U << 21) /**< single [0,inf] pred, no
-                                                * offset tracking */
-#define ROSE_ROLE_PRED_ANY          (1U << 23) /**< any of our preds can match */
-
-#define ROSE_ROLE_PRED_CLEAR_MASK                                              \
-    (~(ROSE_ROLE_PRED_SIMPLE | ROSE_ROLE_PRED_ANY))
-
 #define MAX_STORED_LEFTFIX_LAG 127 /* max leftfix lag that we can store in one
                                     * whole byte (OWB) (streaming only). Other
                                     * values in OWB are reserved for zombie
                                     * status */
 #define OWB_ZOMBIE_ALWAYS_YES 128 /* nfa will always answer yes to any rose
                                    * prefix checks */
-
-// Structure representing a literal role.
-struct RoseRole {
-    u32 flags;
-    u32 programOffset; /**< offset to program to run. */
-};
-
-// Structure representing a predecessor relationship
-struct RosePred {
-    u32 role; // index of predecessor role
-    u32 minBound; // min bound on distance from pred (_ANCH ->absolute offset)
-    u32 maxBound; /* max bound on distance from pred, or ROSE_BOUND_INF
-                   * (_ANCH -> absolute offset ) */
-    u8 historyCheck; // from enum RoseRoleHistory
-};
-
-// Structure mapping between the dense index produced by the literal sparse
-// iterator and a list of roles.
-struct RoseIterMapping {
-    u32 offset; // offset into iter role table
-    u32 count; // number of roles
-};
-
-struct RoseIterRole {
-    u32 role;
-    u32 pred;
-};
 
 /**
  * \brief Rose state offsets.
@@ -376,8 +368,6 @@ struct RoseBoundaryReports {
 //   1c. eod-anchored literal matcher table
 //   1d. small block table
 //   2. array of RoseLiteral (literalCount entries)
-//   3. array of RoseRole (roleCount entries)
-//   4. array of RosePred (predCount entries)
 //   8. array of NFA offsets, one per queue
 //   9. array of state offsets, one per queue (+)
 //  10. array of role ids for the set of all root roles
@@ -447,10 +437,10 @@ struct RoseEngine {
     u32 activeArrayCount; //number of nfas tracked in the active array
     u32 activeLeftCount; //number of nfas tracked in the active rose array
     u32 queueCount;      /**< number of nfa queues */
-    u32 roleOffset; // offset of RoseRole array (bytes)
-    u32 roleCount; // number of RoseRole entries
-    u32 predOffset; // offset of RosePred array (bytes)
-    u32 predCount; // number of RosePred entries
+
+    /** \brief Number of keys used by CHECK_SET_HANDLED instructions in role
+     * programs. Used to size the handled_roles fatbit in scratch. */
+    u32 handledKeyCount;
 
     u32 leftOffset;
     u32 roseCount;
@@ -459,7 +449,7 @@ struct RoseEngine {
                                 * bytes each) */
 
     u32 eodIterOffset; // or 0 if no eod iterator
-    u32 eodIterMapOffset;
+    u32 eodProgramTableOffset;
 
     u32 lastByteHistoryIterOffset; // if non-zero
 
@@ -612,22 +602,6 @@ const struct RoseLiteral *getLiteralTable(const struct RoseEngine *t) {
         = (const struct RoseLiteral *)((const char *)t + t->literalOffset);
     assert(ISALIGNED_N(tl, 4));
     return tl;
-}
-
-static really_inline
-const struct RoseRole *getRoleTable(const struct RoseEngine *t) {
-    const struct RoseRole *r
-        = (const struct RoseRole *)((const char *)t + t->roleOffset);
-    assert(ISALIGNED_N(r, 4));
-    return r;
-}
-
-static really_inline
-const struct RosePred *getPredTable(const struct RoseEngine *t) {
-    const struct RosePred *p
-        = (const struct RosePred *)((const char *)t + t->predOffset);
-    assert(ISALIGNED_N(p, 4));
-    return p;
 }
 
 static really_inline

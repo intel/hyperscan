@@ -113,12 +113,11 @@ int roseEodRunIterator(const struct RoseEngine *t, u8 *state, u64a offset,
         return MO_CONTINUE_MATCHING;
     }
 
-    const struct RoseRole *roleTable = getRoleTable(t);
-    const struct RosePred *predTable = getPredTable(t);
-    const struct RoseIterMapping *iterMapBase
-        = getByOffset(t, t->eodIterMapOffset);
+    DEBUG_PRINTF("running eod iterator at offset %u\n", t->eodIterOffset);
+
+    const u32 *programTable = getByOffset(t, t->eodProgramTableOffset);
     const struct mmbit_sparse_iter *it = getByOffset(t, t->eodIterOffset);
-    assert(ISALIGNED(iterMapBase));
+    assert(ISALIGNED(programTable));
     assert(ISALIGNED(it));
 
     // Sparse iterator state was allocated earlier
@@ -133,50 +132,17 @@ int roseEodRunIterator(const struct RoseEngine *t, u8 *state, u64a offset,
 
     fatbit_clear(handled_roles);
 
+    int work_done = 0; // not read from in this path.
+
     for (; i != MMB_INVALID;
            i = mmbit_sparse_iter_next(role_state, numStates, i, &idx, it, s)) {
         DEBUG_PRINTF("pred state %u (iter idx=%u) is on\n", i, idx);
-        const struct RoseIterMapping *iterMap = iterMapBase + idx;
-        const struct RoseIterRole *roles = getByOffset(t, iterMap->offset);
-        assert(ISALIGNED(roles));
-
-        DEBUG_PRINTF("%u roles to consider\n", iterMap->count);
-        for (u32 j = 0; j != iterMap->count; j++) {
-            u32 role = roles[j].role;
-            assert(role < t->roleCount);
-            DEBUG_PRINTF("checking role %u, pred %u:\n", role, roles[j].pred);
-            const struct RoseRole *tr = roleTable + role;
-
-            if (fatbit_isset(handled_roles, t->roleCount, role)) {
-                DEBUG_PRINTF("role %u already handled by the walk, skip\n",
-                             role);
-                continue;
-            }
-
-            // Special case: if this role is a trivial case (pred type simple)
-            // we don't need to check any history and we already know the pred
-            // role is on.
-            if (tr->flags & ROSE_ROLE_PRED_SIMPLE) {
-                DEBUG_PRINTF("pred type is simple, no need for checks\n");
-            } else {
-                assert(roles[j].pred < t->predCount);
-                const struct RosePred *tp = predTable + roles[j].pred;
-                if (!roseCheckPredHistory(tp, offset)) {
-                    continue;
-                }
-            }
-
-            /* mark role as handled so we don't touch it again in this walk */
-            fatbit_set(handled_roles, t->roleCount, role);
-
-            u64a som = 0;
-            int work_done = 0;
-            hwlmcb_rv_t rv =
-                roseRunRoleProgram(t, tr->programOffset, offset, &som,
-                                   &(scratch->tctxt), &work_done);
-            if (rv == HWLM_TERMINATE_MATCHING) {
-                return MO_HALT_MATCHING;
-            }
+        u32 programOffset = programTable[idx];
+        u64a som = 0;
+        if (roseRunRoleProgram(t, programOffset, offset, &som,
+                               &(scratch->tctxt),
+                               &work_done) == HWLM_TERMINATE_MATCHING) {
+            return MO_HALT_MATCHING;
         }
     }
 

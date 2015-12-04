@@ -78,77 +78,6 @@ string to_string(nfa_kind k) {
     return "?";
 }
 
-// Get the RoseRole associated with a given vertex in the build graph from the
-// RoseEngine.
-static
-const RoseRole *getRoseRole(const RoseBuildImpl &build,
-                            const RoseEngine *engine, RoseVertex v) {
-    if (!engine) {
-        return nullptr;
-    }
-
-    u32 role_idx = build.g[v].role;
-    if (role_idx == MO_INVALID_IDX) {
-        return nullptr;
-    }
-
-    const RoseRole *roles = getRoleTable(engine);
-    return &roles[role_idx];
-}
-
-#define SKIP_CASE(name)                                                        \
-    case ROSE_ROLE_INSTR_##name: {                                             \
-        const auto *ri = (const struct ROSE_ROLE_STRUCT_##name *)pc;           \
-        pc += ROUNDUP_N(sizeof(*ri), ROSE_INSTR_MIN_ALIGN);                    \
-        break;                                                                 \
-    }
-
-template<int Opcode, class Struct>
-const Struct *
-findInstruction(const RoseEngine *t, const RoseRole *role) {
-    if (!role->programOffset) {
-        return nullptr;
-    }
-
-    const char *pc = (const char *)t + role->programOffset;
-    for (;;) {
-        u8 code = *(const u8 *)pc;
-        assert(code <= ROSE_ROLE_INSTR_END);
-        if (code == Opcode) {
-            return (const Struct *)pc;
-        }
-        // Skip to the next instruction.
-        switch (code) {
-            SKIP_CASE(ANCHORED_DELAY)
-            SKIP_CASE(CHECK_ONLY_EOD)
-            SKIP_CASE(CHECK_ROOT_BOUNDS)
-            SKIP_CASE(CHECK_LEFTFIX)
-            SKIP_CASE(CHECK_LOOKAROUND)
-            SKIP_CASE(SOM_ADJUST)
-            SKIP_CASE(SOM_LEFTFIX)
-            SKIP_CASE(TRIGGER_INFIX)
-            SKIP_CASE(TRIGGER_SUFFIX)
-            SKIP_CASE(REPORT)
-            SKIP_CASE(REPORT_CHAIN)
-            SKIP_CASE(REPORT_EOD)
-            SKIP_CASE(REPORT_SOM_INT)
-            SKIP_CASE(REPORT_SOM)
-            SKIP_CASE(REPORT_SOM_KNOWN)
-            SKIP_CASE(SET_STATE)
-            SKIP_CASE(SET_GROUPS)
-        case ROSE_ROLE_INSTR_END:
-            return nullptr;
-        default:
-            assert(0);
-            return nullptr;
-        }
-    }
-
-    return nullptr;
-}
-
-#undef SKIP_CASE
-
 namespace {
 
 class RoseGraphWriter {
@@ -174,7 +103,7 @@ public:
         }
 
         os << "[label=\"";
-        os << "role=" << g[v].role << "[i" << g[v].idx <<"]\\n";
+        os << "idx=" << g[v].idx <<"\\n";
 
         for (u32 lit_id : g[v].literals) {
             writeLiteral(os, lit_id);
@@ -198,34 +127,23 @@ public:
             os << " (rep=" << as_string_list(g[v].reports) << ")";
         }
 
-        const RoseRole *r = getRoseRole(v);
-
         if (g[v].suffix) {
             os << "\\nSUFFIX (TOP " << g[v].suffix.top;
-            if (r) {
-                const auto *ri =
-                    findInstruction<ROSE_ROLE_INSTR_TRIGGER_SUFFIX,
-                                    ROSE_ROLE_STRUCT_TRIGGER_SUFFIX>(t, r);
-                if (ri) {
-                    os << ", Q" << ri->queue;
-                }
-            } else {
-                // Can't dump the queue number, but we can identify the suffix.
-                if (g[v].suffix.graph) {
-                    os << ", graph=" << g[v].suffix.graph.get()
-                       << " " << to_string(g[v].suffix.graph->kind);
-                }
-                if (g[v].suffix.castle) {
-                    os << ", castle=" << g[v].suffix.castle.get();
-                }
-                if (g[v].suffix.rdfa) {
-                    os << ", dfa=" << g[v].suffix.rdfa.get();
-                }
-                if (g[v].suffix.haig) {
-                    os << ", haig=" << g[v].suffix.haig.get();
-                }
-
+            // Can't dump the queue number, but we can identify the suffix.
+            if (g[v].suffix.graph) {
+                os << ", graph=" << g[v].suffix.graph.get() << " "
+                   << to_string(g[v].suffix.graph->kind);
             }
+            if (g[v].suffix.castle) {
+                os << ", castle=" << g[v].suffix.castle.get();
+            }
+            if (g[v].suffix.rdfa) {
+                os << ", dfa=" << g[v].suffix.rdfa.get();
+            }
+            if (g[v].suffix.haig) {
+                os << ", haig=" << g[v].suffix.haig.get();
+            }
+
             os << ")";
         }
 
@@ -247,15 +165,6 @@ public:
                 build.isRootSuccessor(v) ? "PREFIX" : "INFIX";
             os << "\\nROSE " << roseKind;
             os << " (";
-            if (r) {
-                const auto *ri =
-                    findInstruction<ROSE_ROLE_INSTR_CHECK_LEFTFIX,
-                                    ROSE_ROLE_STRUCT_CHECK_LEFTFIX>(t, r);
-                if (ri) {
-                    os << "Q" << ri->queue << ", ";
-                }
-            }
-
             os << "report " << g[v].left.leftfix_report << ")";
 
             if (g[v].left.graph) {
@@ -348,10 +257,6 @@ private:
         }
     }
 
-    const RoseRole *getRoseRole(RoseVertex v) const {
-        return ue2::getRoseRole(build, t, v);
-    }
-
     set<RoseVertex> ghost;
     const RoseBuildImpl &build;
     const RoseEngine *t;
@@ -383,7 +288,7 @@ namespace {
 struct CompareVertexRole {
     explicit CompareVertexRole(const RoseGraph &g_in) : g(g_in) {}
     inline bool operator()(const RoseVertex &a, const RoseVertex &b) const {
-        return g[a].role < g[b].role;
+        return g[a].idx < g[b].idx;
     }
 private:
     const RoseGraph &g;
@@ -483,7 +388,7 @@ void dumpRoseLiterals(const RoseBuildImpl &build, const char *filename) {
 
         for (RoseVertex v : verts) {
             // role info
-            os << "  Role " << g[v].role << ": depth=" << depths.at(v)
+            os << "  Index " << g[v].idx << ": depth=" << depths.at(v)
                << ", groups=0x" << hex << setw(16) << setfill('0')
                << g[v].groups << dec;
 
@@ -497,14 +402,14 @@ void dumpRoseLiterals(const RoseBuildImpl &build, const char *filename) {
             os << ", max_offset=" << g[v].max_offset << endl;
             // pred info
             for (const auto &ie : in_edges_range(v, g)) {
-                os << "    Predecessor role=";
-                u32 predRole = g[source(ie, g)].role;
-                if (predRole == MO_INVALID_IDX) {
+                const auto &u = source(ie, g);
+                os << "    Predecessor idx=";
+                if (u == build.root) {
                     os << "ROOT";
-                } else if (predRole == g[build.anchored_root].role) {
+                } else if (u == build.anchored_root) {
                     os << "ANCHORED_ROOT";
                 } else {
-                    os << predRole;
+                    os << g[u].idx;
                 }
                 os << ": bounds [" << g[ie].minBound << ", ";
                 if (g[ie].maxBound == ROSE_BOUND_INF) {
@@ -589,70 +494,6 @@ void dumpRoseTestLiterals(const RoseBuildImpl &build, const string &base) {
     dumpTestLiterals(base + "rose_smallblock_test_literals.txt", lits);
 }
 
-static
-CharReach bitvectorToReach(const u8 *reach) {
-    CharReach cr;
-
-    for (size_t i = 0; i < 256; i++) {
-        if (reach[i / 8] & (1U << (i % 8))) {
-            cr.set(i);
-
-        }
-    }
-    return cr;
-}
-
-static
-void dumpRoseLookaround(const RoseBuildImpl &build, const RoseEngine *t,
-                        const Grey &grey, const string &filename) {
-    stringstream ss;
-    ss << grey.dumpPath << filename;
-    ofstream os(ss.str());
-
-    const RoseGraph &g = build.g;
-
-    const u8 *base = (const u8 *)t;
-    const s8 *look_base = (const s8 *)(base + t->lookaroundTableOffset);
-    const u8 *reach_base = base + t->lookaroundReachOffset;
-
-    for (RoseVertex v : vertices_range(g)) {
-        const RoseRole *role = getRoseRole(build, t, v);
-        if (!role) {
-            continue;
-        }
-
-        const auto *ri =
-            findInstruction<ROSE_ROLE_INSTR_CHECK_LOOKAROUND,
-                            ROSE_ROLE_STRUCT_CHECK_LOOKAROUND>(t, role);
-        if (!ri) {
-            continue;
-        }
-
-        const u32 look_idx = ri->index;
-        const u32 look_count = ri->count;
-
-        os << "Role " << g[v].role << endl;
-        os << "  literals: " << as_string_list(g[v].literals) << endl;
-        os << "  lookaround: index=" << look_idx << ", count=" << look_count
-           << endl;
-
-        const s8 *look = look_base + look_idx;
-        const s8 *look_end = look + look_count;
-        const u8 *reach = reach_base + look_idx * REACH_BITVECTOR_LEN;
-
-        for (; look < look_end; look++, reach += REACH_BITVECTOR_LEN) {
-            os << "    " << std::setw(4) << std::setfill(' ') << int{*look}
-               << ": ";
-            describeClass(os, bitvectorToReach(reach), 1000, CC_OUT_TEXT);
-            os << endl;
-        }
-
-        os << endl;
-    }
-
-    os.close();
-}
-
 void dumpRose(const RoseBuild &build_base, const RoseEngine *t,
               const Grey &grey) {
     if (!grey.dumpFlags) {
@@ -692,9 +533,6 @@ void dumpRose(const RoseBuild &build_base, const RoseEngine *t,
     f = fopen((grey.dumpPath + "/rose_struct.txt").c_str(), "w");
     roseDumpStructRaw(t, f);
     fclose(f);
-
-    // Lookaround tables.
-    dumpRoseLookaround(build, t, grey, "rose_lookaround.txt");
 }
 
 } // namespace ue2

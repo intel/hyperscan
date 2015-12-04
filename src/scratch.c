@@ -90,7 +90,7 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
                   + bStateSize + tStateSize
                   + fullStateSize + 63 /* cacheline padding */
                   + nfa_context_size
-                  + fatbit_size(proto->roleCount) /* handled roles */
+                  + fatbit_size(proto->handledKeyCount) /* handled roles */
                   + fatbit_size(queueCount) /* active queue array */
                   + 2 * fatbit_size(deduperCount) /* need odd and even logs */
                   + 2 * fatbit_size(deduperCount) /* ditto som logs */
@@ -192,7 +192,7 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     current += fatbit_size(queueCount);
 
     s->handled_roles = (struct fatbit *)current;
-    current += fatbit_size(proto->roleCount);
+    current += fatbit_size(proto->handledKeyCount);
 
     s->deduper.log[0] = (struct fatbit *)current;
     current += fatbit_size(deduperCount);
@@ -312,9 +312,9 @@ hs_error_t hs_alloc_scratch(const hs_database_t *db, hs_scratch_t **scratch) {
         proto->delay_count = rose->delay_count;
     }
 
-    if (rose->roleCount > proto->roleCount) {
+    if (rose->handledKeyCount > proto->handledKeyCount) {
         resize = 1;
-        proto->roleCount = rose->roleCount;
+        proto->handledKeyCount = rose->handledKeyCount;
     }
 
     if (rose->tStateSize > proto->tStateSize) {

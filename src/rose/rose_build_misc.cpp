@@ -89,12 +89,10 @@ RoseBuildImpl::RoseBuildImpl(ReportManager &rm_in, SomSlotManager &ssm_in,
       next_nfa_report(0) {
     // add root vertices to graph
     g[root].idx = vertexIndex++;
-    g[root].role = MO_INVALID_IDX;
     g[root].min_offset = 0;
     g[root].max_offset = 0;
 
     g[anchored_root].idx = vertexIndex++;
-    g[anchored_root].role = MO_INVALID_IDX;
     g[anchored_root].min_offset = 0;
     g[anchored_root].max_offset = 0;
 }
@@ -194,7 +192,7 @@ bool RoseBuildImpl::hasLiteralInTable(RoseVertex v,
 bool RoseBuildImpl::hasNoFloatingRoots() const {
     for (auto v : adjacent_vertices_range(root, g)) {
         if (isFloating(v)) {
-            DEBUG_PRINTF("direct floating root %u\n", g[v].role);
+            DEBUG_PRINTF("direct floating root %zu\n", g[v].idx);
             return false;
         }
     }
@@ -202,7 +200,7 @@ bool RoseBuildImpl::hasNoFloatingRoots() const {
     /* need to check if the anchored_root has any literals which are too deep */
     for (auto v : adjacent_vertices_range(anchored_root, g)) {
         if (isFloating(v)) {
-            DEBUG_PRINTF("indirect floating root %u\n", g[v].role);
+            DEBUG_PRINTF("indirect floating root %zu\n", g[v].idx);
             return false;
         }
     }

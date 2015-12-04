@@ -39,7 +39,7 @@
 
 #include "ue2common.h"
 #include "rose_build.h"
-#include "rose_internal.h" /* role history, etc */
+#include "rose_internal.h"
 #include "nfa/nfa_internal.h" // for MO_INVALID_IDX
 #include "util/charreach.h"
 #include "util/depth.h"
@@ -63,6 +63,14 @@ enum rose_literal_table {
     ROSE_EOD_ANCHORED,         //!< literals that match near EOD
     ROSE_ANCHORED_SMALL_BLOCK, //!< anchored literals for small block table
     ROSE_EVENT                 //!< "literal-like" events, such as EOD
+};
+
+/** \brief Edge history types. */
+enum RoseRoleHistory {
+    ROSE_ROLE_HISTORY_NONE,      //!< no special history
+    ROSE_ROLE_HISTORY_ANCH,      //!< previous role is at a fixed offset
+    ROSE_ROLE_HISTORY_LAST_BYTE, //!< previous role can only match at EOD
+    ROSE_ROLE_HISTORY_INVALID    //!< history not yet assigned
 };
 
 #include "util/order_check.h"
@@ -139,9 +147,6 @@ struct RoseVertexProps {
 
     /** \brief Report IDs to fire. */
     flat_set<ReportID> reports;
-
-    /** \brief Role ID for this vertex. These are what end up in the bytecode. */
-    u32 role = ~u32{0};
 
     /** \brief Bitmask of groups that this role sets. */
     rose_group groups = 0;

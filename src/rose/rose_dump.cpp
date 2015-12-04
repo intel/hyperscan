@@ -40,7 +40,9 @@
 #include "nfa/nfa_build_util.h"
 #include "nfa/nfa_dump_api.h"
 #include "nfa/nfa_internal.h"
+#include "util/dump_charclass.h"
 #include "util/multibit_internal.h"
+#include "util/multibit.h"
 
 #include <algorithm>
 #include <fstream>
@@ -115,158 +117,77 @@ const HWLM *getSmallBlockMatcher(const RoseEngine *t) {
 }
 
 static
-const RosePred *getPredTable(const RoseEngine *t, u32 *count) {
-    *count = t->predCount;
-    return (const RosePred *)loadFromByteCodeOffset(t, t->predOffset);
-}
-
-static
-u32 literalsWithDepth(const RoseEngine *t, u8 depth) {
-    u32 n = 0;
-    const RoseLiteral *tl = getLiteralTable(t);
-    const RoseLiteral *tl_end = tl + t->literalCount;
-
-    for (; tl != tl_end; ++tl) {
-        if (tl->minDepth == depth) {
-            n++;
-        }
-    }
-    return n;
-}
-
-static
 u32 literalsWithDirectReports(const RoseEngine *t) {
     return t->totalNumLiterals - t->literalCount;
 }
 
-template<typename member_type_ptr>
+template<typename Predicate>
 static
-u32 literalsWithProp(const RoseEngine *t, member_type_ptr prop) {
-    u32 n = 0;
+size_t literalsWithPredicate(const RoseEngine *t, Predicate pred) {
     const RoseLiteral *tl = getLiteralTable(t);
     const RoseLiteral *tl_end = tl + t->literalCount;
 
-    for (; tl != tl_end; ++tl) {
-        if (tl->*prop) {
-            n++;
-        }
-    }
-    return n;
-}
-
-template<typename member_type>
-static
-u32 rolesWithPropValue(const RoseEngine *t, member_type RoseRole::*prop,
-                       member_type value) {
-    u32 n = 0;
-    const RoseRole *tr = getRoleTable(t);
-    const RoseRole *tr_end = tr + t->roleCount;
-
-    for (; tr != tr_end; ++tr) {
-        if (tr->*prop == value) {
-            n++;
-        }
-    }
-    return n;
+    return count_if(tl, tl_end, pred);
 }
 
 static
-u32 literalsInGroups(const RoseEngine *t, u32 from, u32 to) {
-    u32 n = 0;
-    const RoseLiteral *tl = getLiteralTable(t);
-    const RoseLiteral *tl_end = tl + t->literalCount;
+size_t literalsWithDepth(const RoseEngine *t, u8 depth) {
+    return literalsWithPredicate(
+        t, [&depth](const RoseLiteral &l) { return l.minDepth == depth; });
+}
 
+static
+size_t literalsInGroups(const RoseEngine *t, u32 from, u32 to) {
     rose_group mask = ~((1ULL << from) - 1);
     if (to < 64) {
         mask &= ((1ULL << to) - 1);
     }
 
-    for (; tl != tl_end; ++tl) {
-        if (tl->groups & mask) {
-            n++;
-        }
-    }
-    return n;
+    return literalsWithPredicate(
+        t, [&mask](const RoseLiteral &l) { return l.groups & mask; });
 }
 
 static
-u32 rolesWithFlag(const RoseEngine *t, u32 flag) {
-    u32 n = 0;
-    const RoseRole *tr = getRoleTable(t);
-    const RoseRole *tr_end = tr + t->roleCount;
+CharReach bitvectorToReach(const u8 *reach) {
+    CharReach cr;
 
-    for (; tr != tr_end; ++tr) {
-        if (tr->flags & flag) {
-            n++;
+    for (size_t i = 0; i < 256; i++) {
+        if (reach[i / 8] & (1U << (i % 8))) {
+            cr.set(i);
+
         }
     }
-    return n;
+    return cr;
 }
-
-#define HANDLE_CASE(name)                                                      \
-    case ROSE_ROLE_INSTR_##name: {                                             \
-        const auto *ri = (const struct ROSE_ROLE_STRUCT_##name *)pc;           \
-        pc += ROUNDUP_N(sizeof(*ri), ROSE_INSTR_MIN_ALIGN);                    \
-        break;                                                                 \
-    }
 
 static
-u32 rolesWithInstr(const RoseEngine *t,
-                   enum RoseRoleInstructionCode find_code) {
-    u32 n = 0;
-    const RoseRole *tr = getRoleTable(t);
-    const RoseRole *tr_end = tr + t->roleCount;
+void dumpLookaround(ofstream &os, const RoseEngine *t,
+                    const ROSE_STRUCT_CHECK_LOOKAROUND *ri) {
+    assert(ri);
 
-    for (; tr != tr_end; ++tr) {
-        if (!tr->programOffset) {
-            continue;
-        }
+    const u8 *base = (const u8 *)t;
+    const s8 *look_base = (const s8 *)(base + t->lookaroundTableOffset);
+    const u8 *reach_base = base + t->lookaroundReachOffset;
 
-        const char *pc = (const char *)t + tr->programOffset;
-        for (;;) {
-            u8 code = *(const u8 *)pc;
-            assert(code <= ROSE_ROLE_INSTR_END);
-            if (code == find_code) {
-                n++;
-                goto next_role;
-            }
-            switch (code) {
-                HANDLE_CASE(CHECK_ONLY_EOD)
-                HANDLE_CASE(CHECK_ROOT_BOUNDS)
-                HANDLE_CASE(CHECK_LOOKAROUND)
-                HANDLE_CASE(CHECK_LEFTFIX)
-                HANDLE_CASE(ANCHORED_DELAY)
-                HANDLE_CASE(SOM_ADJUST)
-                HANDLE_CASE(SOM_LEFTFIX)
-                HANDLE_CASE(TRIGGER_INFIX)
-                HANDLE_CASE(TRIGGER_SUFFIX)
-                HANDLE_CASE(REPORT)
-                HANDLE_CASE(REPORT_CHAIN)
-                HANDLE_CASE(REPORT_EOD)
-                HANDLE_CASE(REPORT_SOM_INT)
-                HANDLE_CASE(REPORT_SOM)
-                HANDLE_CASE(REPORT_SOM_KNOWN)
-                HANDLE_CASE(SET_STATE)
-                HANDLE_CASE(SET_GROUPS)
-            case ROSE_ROLE_INSTR_END:
-                goto next_role;
-            default:
-                assert(0);
-                return 0;
-            }
-        }
-        next_role:;
+    const s8 *look = look_base + ri->index;
+    const s8 *look_end = look + ri->count;
+    const u8 *reach = reach_base + ri->index * REACH_BITVECTOR_LEN;
+
+    os << "    contents:" << endl;
+
+    for (; look < look_end; look++, reach += REACH_BITVECTOR_LEN) {
+        os << "      " << std::setw(4) << std::setfill(' ') << int{*look}
+           << ": ";
+        describeClass(os, bitvectorToReach(reach), 1000, CC_OUT_TEXT);
+        os << endl;
     }
-    return n;
 }
-
-#undef HANDLE_CASE
 
 #define PROGRAM_CASE(name)                                                     \
-    case ROSE_ROLE_INSTR_##name: {                                             \
+    case ROSE_INSTR_##name: {                                                  \
         os << "  " << std::setw(4) << std::setfill('0') << (pc - pc_base)      \
-           << ": " #name " (" << (int)ROSE_ROLE_INSTR_##name << ")" << endl;   \
-        const auto *ri = (const struct ROSE_ROLE_STRUCT_##name *)pc;
+           << ": " #name " (" << (int)ROSE_INSTR_##name << ")" << endl;        \
+        const auto *ri = (const struct ROSE_STRUCT_##name *)pc;
 
 #define PROGRAM_NEXT_INSTRUCTION                                               \
     pc += ROUNDUP_N(sizeof(*ri), ROSE_INSTR_MIN_ALIGN);                        \
@@ -274,11 +195,11 @@ u32 rolesWithInstr(const RoseEngine *t,
     }
 
 static
-void dumpRoleProgram(ofstream &os, const char *pc) {
+void dumpRoleProgram(ofstream &os, const RoseEngine *t, const char *pc) {
     const char *pc_base = pc;
     for (;;) {
         u8 code = *(const u8 *)pc;
-        assert(code <= ROSE_ROLE_INSTR_END);
+        assert(code <= ROSE_INSTR_END);
         switch (code) {
             PROGRAM_CASE(ANCHORED_DELAY) {
                 os << "    depth " << u32{ri->depth} << endl;
@@ -293,9 +214,15 @@ void dumpRoleProgram(ofstream &os, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(CHECK_ROOT_BOUNDS) {
+            PROGRAM_CASE(CHECK_BOUNDS) {
                 os << "    min_bound " << ri->min_bound << endl;
                 os << "    max_bound " << ri->max_bound << endl;
+                os << "    fail_jump +" << ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_NOT_HANDLED) {
+                os << "    key " << ri->key << endl;
                 os << "    fail_jump +" << ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
@@ -304,6 +231,7 @@ void dumpRoleProgram(ofstream &os, const char *pc) {
                 os << "    index " << ri->index << endl;
                 os << "    count " << ri->count << endl;
                 os << "    fail_jump +" << ri->fail_jump << endl;
+                dumpLookaround(os, t, ri);
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -396,26 +324,27 @@ void dumpRoleProgram(ofstream &os, const char *pc) {
 #undef PROGRAM_NEXT_INSTRUCTION
 
 static
-void dumpRoseRolePrograms(const RoseEngine *t, const string &filename) {
-    ofstream os(filename);
+void dumpSparseIterPrograms(ofstream &os, const RoseEngine *t, u32 iterOffset,
+                            u32 programTableOffset) {
+    const auto *it =
+        (const mmbit_sparse_iter *)loadFromByteCodeOffset(t, iterOffset);
+    const u32 *programTable =
+        (const u32 *)loadFromByteCodeOffset(t, programTableOffset);
 
-    const RoseRole *roles = getRoleTable(t);
-    const char *base = (const char *)t;
+    // Construct a full multibit.
+    const u32 total_bits = t->rolesWithStateCount;
+    const vector<u8> bits(mmbit_size(total_bits), u8{0xff});
 
-    for (u32 i = 0; i < t->roleCount; i++) {
-        const RoseRole *role = &roles[i];
-        os << "Role " << i << endl;
-
-        if (!role->programOffset) {
-            os << "  <no program>" << endl;
-            continue;
-        }
-
-        dumpRoleProgram(os, base + role->programOffset);
-        os << endl;
+    struct mmbit_sparse_state s[MAX_SPARSE_ITER_STATES];
+    u32 idx = 0;
+    for (u32 i = mmbit_sparse_iter_begin(bits.data(), total_bits, &idx, it, s);
+         i != MMB_INVALID;
+         i = mmbit_sparse_iter_next(bits.data(), total_bits, i, &idx, it, s)) {
+        u32 programOffset = programTable[idx];
+        os << "Sparse Iter Program " << idx << " triggered by state " << i
+           << " @ " << programOffset << ":" << endl;
+        dumpRoleProgram(os, t, (const char *)t + programOffset);
     }
-
-    os.close();
 }
 
 static
@@ -427,12 +356,23 @@ void dumpRoseLitPrograms(const RoseEngine *t, const string &filename) {
 
     for (u32 i = 0; i < t->literalCount; i++) {
         const RoseLiteral *lit = &lits[i];
-        if (!lit->rootProgramOffset) {
-            continue;
+        os << "Literal " << i << endl;
+        os << "---------------" << endl;
+
+        if (lit->rootProgramOffset) {
+            os << "Root Program @ " << lit->rootProgramOffset << ":" << endl;
+            dumpRoleProgram(os, t, base + lit->rootProgramOffset);
+        } else {
+            os << "<No Root Program>" << endl;
         }
 
-        os << "Literal " << i << endl;
-        dumpRoleProgram(os, base + lit->rootProgramOffset);
+        if (lit->iterOffset != ROSE_OFFSET_INVALID) {
+            dumpSparseIterPrograms(os, t, lit->iterOffset,
+                                   lit->iterProgramOffset);
+        } else {
+            os << "<No Sparse Iter Programs>" << endl;
+        }
+
         os << endl;
     }
 
@@ -440,37 +380,17 @@ void dumpRoseLitPrograms(const RoseEngine *t, const string &filename) {
 }
 
 static
-const char *historyName(RoseRoleHistory h) {
-    switch (h) {
-    case ROSE_ROLE_HISTORY_NONE:
-        return "history none";
-    case ROSE_ROLE_HISTORY_ANCH:
-        return "history anch";
-    case ROSE_ROLE_HISTORY_LAST_BYTE:
-        return "history last_byte";
-    default:
-        return "unknown";
-    }
-}
+void dumpRoseEodPrograms(const RoseEngine *t, const string &filename) {
+    ofstream os(filename);
 
-static
-void dumpPreds(FILE *f, const RoseEngine *t) {
-    map<RoseRoleHistory, u32> counts;
-
-    u32 predCount = 0;
-    const RosePred *tp = getPredTable(t, &predCount);
-    const RosePred *tp_end = tp + predCount;
-
-    for (; tp != tp_end; ++tp) {
-        assert(tp->historyCheck < ROSE_ROLE_HISTORY_INVALID);
-        counts[(RoseRoleHistory)tp->historyCheck] += 1;
+    if (t->eodIterOffset) {
+        dumpSparseIterPrograms(os, t, t->eodIterOffset,
+                               t->eodProgramTableOffset);
+    } else {
+        os << "<No EOD Iter Programs>" << endl;
     }
 
-    for (map<RoseRoleHistory, u32>::const_iterator it = counts.begin(),
-                                                    ite = counts.end();
-         it != ite; ++it) {
-        fprintf(f, " - %-18s: %u\n", historyName(it->first), it->second);
-    }
+    os.close();
 }
 
 static
@@ -805,16 +725,12 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
             sbtable ? hwlmSize(sbtable) : 0, t->smallBlockDistance);
     fprintf(f, " - literal table     : %zu bytes\n",
             t->literalCount * sizeof(RoseLiteral));
-    fprintf(f, " - role table        : %zu bytes\n",
-            t->roleCount * sizeof(RoseRole));
-    fprintf(f, " - pred table        : %zu bytes\n",
-            t->predCount * sizeof(RosePred));
     fprintf(f, " - role state table  : %zu bytes\n",
             t->rolesWithStateCount * sizeof(u32));
     fprintf(f, " - nfa info table    : %u bytes\n",
             t->anchoredReportMapOffset - t->nfaInfoOffset);
     fprintf(f, " - lookaround table  : %u bytes\n",
-            t->predOffset - t->lookaroundTableOffset);
+            t->nfaInfoOffset - t->lookaroundTableOffset);
     fprintf(f, " - lookaround reach  : %u bytes\n",
             t->lookaroundTableOffset - t->lookaroundReachOffset);
 
@@ -839,46 +755,30 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     fprintf(f, "\n");
 
     fprintf(f, "initial groups       : 0x%016llx\n", t->initialGroups);
+    fprintf(f, "handled key count    : %u\n", t->handledKeyCount);
     fprintf(f, "\n");
 
     fprintf(f, "number of literals   : %u\n", t->totalNumLiterals);
     fprintf(f, " - delayed           : %u\n", t->delay_count);
     fprintf(f, " - direct report     : %u\n",
             literalsWithDirectReports(t));
-    fprintf(f, " - that squash group : %u\n",
-            literalsWithProp(t, &RoseLiteral::squashesGroup));
+    fprintf(f, " - that squash group : %zu\n",
+            literalsWithPredicate(
+                t, [](const RoseLiteral &l) { return l.squashesGroup != 0; }));
     fprintf(f, " - with benefits     : %u\n", t->nonbenefits_base_id);
-
-    u32 group_weak_end = t->group_weak_end;
+    fprintf(f, " - with root program : %zu\n",
+            literalsWithPredicate(t, [](const RoseLiteral &l) {
+                return l.rootProgramOffset != 0;
+            }));
+    fprintf(f, " - with sparse iter  : %zu\n",
+            literalsWithPredicate(t, [](const RoseLiteral &l) {
+                return l.iterOffset != ROSE_OFFSET_INVALID;
+            }));
     fprintf(f, " - in groups ::\n");
-    fprintf(f, "   + weak            : %u\n",
-            literalsInGroups(t, 0, group_weak_end));
-    fprintf(f, "   + general         : %u\n",
-            literalsInGroups(t, group_weak_end, sizeof(u64a) * 8));
-    fprintf(f, "number of roles      : %u\n", t->roleCount);
-    fprintf(f, " - with state index  : %u\n", t->rolesWithStateCount);
-    fprintf(f, " - with leftfix nfa  : %u\n",
-            rolesWithInstr(t, ROSE_ROLE_INSTR_CHECK_LEFTFIX));
-    fprintf(f, " - with suffix nfa   : %u\n",
-            rolesWithInstr(t, ROSE_ROLE_INSTR_TRIGGER_SUFFIX));
-    fprintf(f, " - with lookaround   : %u\n",
-            rolesWithInstr(t, ROSE_ROLE_INSTR_CHECK_LOOKAROUND));
-    fprintf(f, " - with reports      : %u\n",
-            rolesWithInstr(t, ROSE_ROLE_INSTR_REPORT));
-    fprintf(f, " - with som reports  : %u\n",
-            rolesWithInstr(t, ROSE_ROLE_INSTR_REPORT_SOM_INT));
-    fprintf(f, " - match only at end : %u\n",
-            rolesWithInstr(t, ROSE_ROLE_INSTR_CHECK_ONLY_EOD));
-    fprintf(f, "   + anchored        : %u\n", t->anchoredMatches);
-
-    fprintf(f, " - simple preds      : %u\n",
-      rolesWithFlag(t, ROSE_ROLE_PRED_SIMPLE));
-    fprintf(f, " - bound root preds  : %u\n",
-      rolesWithInstr(t, ROSE_ROLE_INSTR_CHECK_ROOT_BOUNDS));
-    fprintf(f, " - 'any' preds       : %u\n",
-      rolesWithFlag(t, ROSE_ROLE_PRED_ANY));
-    fprintf(f, "number of preds      : %u\n", t->predCount);
-    dumpPreds(f, t);
+    fprintf(f, "   + weak            : %zu\n",
+            literalsInGroups(t, 0, t->group_weak_end));
+    fprintf(f, "   + general         : %zu\n",
+            literalsInGroups(t, t->group_weak_end, sizeof(u64a) * 8));
 
     u32 depth1 = literalsWithDepth(t, 1);
     u32 depth2 = literalsWithDepth(t, 2);
@@ -977,16 +877,13 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, activeArrayCount);
     DUMP_U32(t, activeLeftCount);
     DUMP_U32(t, queueCount);
-    DUMP_U32(t, roleOffset);
-    DUMP_U32(t, roleCount);
-    DUMP_U32(t, predOffset);
-    DUMP_U32(t, predCount);
+    DUMP_U32(t, handledKeyCount);
     DUMP_U32(t, leftOffset);
     DUMP_U32(t, roseCount);
     DUMP_U32(t, lookaroundTableOffset);
     DUMP_U32(t, lookaroundReachOffset);
     DUMP_U32(t, eodIterOffset);
-    DUMP_U32(t, eodIterMapOffset);
+    DUMP_U32(t, eodProgramTableOffset);
     DUMP_U32(t, lastByteHistoryIterOffset);
     DUMP_U32(t, minWidth);
     DUMP_U32(t, minWidthExcludingBoundaries);
@@ -1048,52 +945,15 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     fprintf(f, "sizeof(RoseEngine) = %zu\n", sizeof(RoseEngine));
 }
 
-static
-void roseDumpPredStructRaw(const RoseEngine *t, FILE *f) {
-    u32 pred_count = 0;
-    const RosePred *pred_table = getPredTable(t, &pred_count);
-    fprintf(f, "pred_count = %u\n", pred_count);
-    if (!pred_table) {
-        return;
-    }
-
-    for (const RosePred *p = pred_table; p < pred_table + pred_count; p++) {
-        fprintf(f, "pred[%zu] = {\n", p - pred_table);
-        DUMP_U32(p, role);
-        DUMP_U32(p, minBound);
-        DUMP_U32(p, maxBound);
-        DUMP_U8(p, historyCheck);
-        fprintf(f, "}\n");
-    }
-}
-
-static
-void roseDumpRoleStructRaw(const RoseEngine *t, FILE *f) {
-    const RoseRole *tr = getRoleTable(t);
-    const RoseRole *tr_end = tr + t->roleCount;
-    fprintf(f, "role_count = %zd\n", tr_end - tr);
-    if (!tr) {
-        return;
-    }
-
-    for (const RoseRole *p = tr; p < tr_end; p++) {
-        fprintf(f, "role[%zu] = {\n", p - tr);
-        DUMP_U32(p, flags);
-        DUMP_U32(p, programOffset);
-        fprintf(f, "}\n");
-    }
-}
-
-void roseDumpComponents(const RoseEngine *t, bool dump_raw, const string &base) {
+void roseDumpComponents(const RoseEngine *t, bool dump_raw,
+                        const string &base) {
     dumpComponentInfo(t, base);
     dumpNfas(t, dump_raw, base);
     dumpAnchored(t, base);
     dumpRevComponentInfo(t, base);
     dumpRevNfas(t, dump_raw, base);
-
-    // Role programs.
-    dumpRoseRolePrograms(t, base + "/rose_role_programs.txt");
-    dumpRoseLitPrograms(t, base + "/rose_lit_root_programs.txt");
+    dumpRoseLitPrograms(t, base + "/rose_lit_programs.txt");
+    dumpRoseEodPrograms(t, base + "/rose_eod_programs.txt");
 }
 
 void roseDumpInternals(const RoseEngine *t, const string &base) {
@@ -1137,14 +997,6 @@ void roseDumpInternals(const RoseEngine *t, const string &base) {
 
     f = fopen((base + "/rose_struct.txt").c_str(), "w");
     roseDumpStructRaw(t, f);
-    fclose(f);
-
-    f = fopen((base + "/rose_preds.txt").c_str(), "w");
-    roseDumpPredStructRaw(t, f);
-    fclose(f);
-
-    f = fopen((base + "/rose_roles.txt").c_str(), "w");
-    roseDumpRoleStructRaw(t, f);
     fclose(f);
 
     roseDumpComponents(t, true, base);

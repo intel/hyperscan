@@ -82,8 +82,8 @@ void init_state_for_block(const struct RoseEngine *t, u8 *state) {
     assert(t);
     assert(state);
 
-    DEBUG_PRINTF("init for Rose %p with %u roles (%u with state indices)\n",
-                 t, t->roleCount, t->rolesWithStateCount);
+    DEBUG_PRINTF("init for Rose %p with %u state indices\n", t,
+                 t->rolesWithStateCount);
 
     // Rose is guaranteed 8-aligned state
     assert(ISALIGNED_N(state, 8));

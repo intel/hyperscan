@@ -180,7 +180,7 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     u32 delay_count;
     u32 scratchSize;
     u8 ALIGN_DIRECTIVE fdr_temp_buf[FDR_TEMP_BUF_SIZE];
-    u32 roleCount;
+    u32 handledKeyCount;
     struct fatbit *handled_roles; /**< mmbit of ROLES (not states) already
                                    * handled by this literal */
     u64a *som_store; /**< array of som locations */

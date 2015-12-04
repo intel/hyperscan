@@ -269,30 +269,6 @@ void update_depth(struct RoseContext *tctxt, u8 depth) {
     tctxt->depth = d;
 }
 
-static really_inline
-int roseCheckHistoryAnch(const struct RosePred *tp, u64a end) {
-    DEBUG_PRINTF("end %llu min %u max %u\n", end, tp->minBound, tp->maxBound);
-    if (tp->maxBound == ROSE_BOUND_INF) {
-        return end >= tp->minBound;
-    } else {
-        return end >= tp->minBound && end <= tp->maxBound;
-    }
-}
-
-// Check that a predecessor's history requirements are satisfied.
-static really_inline
-int roseCheckPredHistory(const struct RosePred *tp, u64a end) {
-    DEBUG_PRINTF("pred type %u\n", tp->historyCheck);
-
-    if (tp->historyCheck == ROSE_ROLE_HISTORY_ANCH) {
-        return roseCheckHistoryAnch(tp, end);
-    }
-
-    assert(tp->historyCheck == ROSE_ROLE_HISTORY_NONE ||
-           tp->historyCheck == ROSE_ROLE_HISTORY_LAST_BYTE);
-    return 1;
-}
-
 /* Note: uses the stashed sparse iter state; cannot be called from
  * anybody else who is using it */
 static rose_inline

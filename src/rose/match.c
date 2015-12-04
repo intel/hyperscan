@@ -1107,10 +1107,10 @@ char roseCheckRootBounds(u64a end, u32 min_bound, u32 max_bound) {
 }
 
 #define PROGRAM_CASE(name)                                                     \
-    case ROSE_ROLE_INSTR_##name: {                                             \
-        DEBUG_PRINTF("instruction: " #name " (%u)\n", ROSE_ROLE_INSTR_##name); \
-        const struct ROSE_ROLE_STRUCT_##name *ri =                             \
-            (const struct ROSE_ROLE_STRUCT_##name *)pc;
+    case ROSE_INSTR_##name: {                                                  \
+        DEBUG_PRINTF("instruction: " #name " (%u)\n", ROSE_INSTR_##name);      \
+        const struct ROSE_STRUCT_##name *ri =                                  \
+            (const struct ROSE_STRUCT_##name *)pc;
 
 #define PROGRAM_NEXT_INSTRUCTION                                               \
     pc += ROUNDUP_N(sizeof(*ri), ROSE_INSTR_MIN_ALIGN);                        \
@@ -1121,26 +1121,28 @@ static really_inline
 hwlmcb_rv_t roseRunRoleProgram_i(const struct RoseEngine *t, u32 programOffset,
                                  u64a end, u64a *som, struct RoseContext *tctxt,
                                  char in_anchored, int *work_done) {
-    assert(programOffset);
-
     DEBUG_PRINTF("program begins at offset %u\n", programOffset);
+
+    assert(programOffset);
+    assert(programOffset < t->size);
 
     const char *pc = getByOffset(t, programOffset);
 
-    assert(*(const u8 *)pc != ROSE_ROLE_INSTR_END);
+    assert(*(const u8 *)pc != ROSE_INSTR_END);
 
     for (;;) {
         assert(ISALIGNED_N(pc, ROSE_INSTR_MIN_ALIGN));
         u8 code = *(const u8 *)pc;
-        assert(code <= ROSE_ROLE_INSTR_END);
+        assert(code <= ROSE_INSTR_END);
 
-        switch ((enum RoseRoleInstructionCode)code) {
+        switch ((enum RoseInstructionCode)code) {
             PROGRAM_CASE(ANCHORED_DELAY) {
                 if (in_anchored && end > t->floatingMinLiteralMatchOffset) {
                     DEBUG_PRINTF("delay until playback\n");
                     update_depth(tctxt, ri->depth);
                     tctxt->groups |= ri->groups;
                     *work_done = 1;
+                    assert(ri->done_jump); // must progress
                     pc += ri->done_jump;
                     continue;
                 }
@@ -1151,16 +1153,29 @@ hwlmcb_rv_t roseRunRoleProgram_i(const struct RoseEngine *t, u32 programOffset,
                 struct core_info *ci = &tctxtToScratch(tctxt)->core_info;
                 if (end != ci->buf_offset + ci->len) {
                     DEBUG_PRINTF("should only match at end of data\n");
+                    assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
                     continue;
                 }
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(CHECK_ROOT_BOUNDS) {
+            PROGRAM_CASE(CHECK_BOUNDS) {
                 if (!in_anchored &&
                     !roseCheckRootBounds(end, ri->min_bound, ri->max_bound)) {
                     DEBUG_PRINTF("failed root bounds check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_NOT_HANDLED) {
+                struct fatbit *handled = tctxtToScratch(tctxt)->handled_roles;
+                if (fatbit_set(handled, t->handledKeyCount, ri->key)) {
+                    DEBUG_PRINTF("key %u already set\n", ri->key);
+                    assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
                     continue;
                 }
@@ -1170,6 +1185,7 @@ hwlmcb_rv_t roseRunRoleProgram_i(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_CASE(CHECK_LOOKAROUND) {
                 if (!roseCheckLookaround(t, ri->index, ri->count, end, tctxt)) {
                     DEBUG_PRINTF("failed lookaround check\n");
+                    assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
                     continue;
                 }
@@ -1180,6 +1196,7 @@ hwlmcb_rv_t roseRunRoleProgram_i(const struct RoseEngine *t, u32 programOffset,
                 if (!roseTestLeftfix(t, ri->queue, ri->lag, ri->report, end,
                                      tctxt)) {
                     DEBUG_PRINTF("failed lookaround check\n");
+                    assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
                     continue;
                 }
@@ -1334,12 +1351,9 @@ hwlmcb_rv_t roseWalkSparseIterator(const struct RoseEngine *t,
                                    struct RoseContext *tctxt) {
     /* assert(!tctxt->in_anchored); */
     /* assert(!tctxt->in_anch_playback); */
-    const struct RoseRole *roleTable = getRoleTable(t);
-    const struct RosePred *predTable = getPredTable(t);
-    const struct RoseIterMapping *iterMapBase
-        = getByOffset(t, tl->iterMapOffset);
+    const u32 *iterProgram = getByOffset(t, tl->iterProgramOffset);
     const struct mmbit_sparse_iter *it = getByOffset(t, tl->iterOffset);
-    assert(ISALIGNED(iterMapBase));
+    assert(ISALIGNED(iterProgram));
     assert(ISALIGNED(it));
 
     // Sparse iterator state was allocated earlier
@@ -1356,50 +1370,19 @@ hwlmcb_rv_t roseWalkSparseIterator(const struct RoseEngine *t,
     fatbit_clear(handled_roles);
 
     for (; i != MMB_INVALID;
-           i = mmbit_sparse_iter_next(role_state, numStates, i, &idx, it, s)) {
-        DEBUG_PRINTF("pred state %u (iter idx=%u) is on\n", i, idx);
-        const struct RoseIterMapping *iterMap = iterMapBase + idx;
-        const struct RoseIterRole *roles = getByOffset(t, iterMap->offset);
-        assert(ISALIGNED(roles));
+         i = mmbit_sparse_iter_next(role_state, numStates, i, &idx, it, s)) {
+        u32 programOffset = iterProgram[idx];
+        DEBUG_PRINTF("pred state %u (iter idx=%u) is on -> program %u\n", i,
+                     idx, programOffset);
 
-        DEBUG_PRINTF("%u roles to consider\n", iterMap->count);
-        for (u32 j = 0; j != iterMap->count; j++) {
-            u32 role = roles[j].role;
-            assert(role < t->roleCount);
-            DEBUG_PRINTF("checking role %u, pred %u:\n", role, roles[j].pred);
-            const struct RoseRole *tr = roleTable + role;
+        // If this bit is switched on in the sparse iterator, it must be
+        // driving a program.
+        assert(programOffset);
 
-            if (fatbit_isset(handled_roles, t->roleCount, role)) {
-                DEBUG_PRINTF("role %u already handled by the walk, skip\n",
-                             role);
-                continue;
-            }
-
-            // Special case: if this role is a trivial case (pred type simple)
-            // we don't need to check any history and we already know the pred
-            // role is on.
-            if (tr->flags & ROSE_ROLE_PRED_SIMPLE) {
-                DEBUG_PRINTF("pred type is simple, no need for further"
-                             " checks\n");
-            } else {
-                assert(roles[j].pred < t->predCount);
-                const struct RosePred *tp = predTable + roles[j].pred;
-                if (!roseCheckPredHistory(tp, end)) {
-                    continue;
-                }
-            }
-
-            /* mark role as handled so we don't touch it again in this walk */
-            fatbit_set(handled_roles, t->roleCount, role);
-
-            if (!tr->programOffset) {
-                continue;
-            }
-            u64a som = 0ULL;
-            if (roseRunRoleProgram_i(t, tr->programOffset, end, &som, tctxt, 0,
-                                     &work_done) == HWLM_TERMINATE_MATCHING) {
-                return HWLM_TERMINATE_MATCHING;
-            }
+        u64a som = 0ULL;
+        if (roseRunRoleProgram_i(t, programOffset, end, &som, tctxt, 0,
+                                 &work_done) == HWLM_TERMINATE_MATCHING) {
+            return HWLM_TERMINATE_MATCHING;
         }
     }
 
