@@ -186,8 +186,7 @@ bool somMayGoBackwards(NFAVertex u, const NGHolder &g,
         return cache.smgb[u];
     }
 
-    DEBUG_PRINTF("checking if som can go backwards on %u\n",
-                  g[u].index);
+    DEBUG_PRINTF("checking if som can go backwards on %u\n", g[u].index);
 
     set<NFAEdge> be;
     BackEdges<set<NFAEdge>> backEdgeVisitor(be);
@@ -224,6 +223,7 @@ bool somMayGoBackwards(NFAVertex u, const NGHolder &g,
     NGHolder c_g;
     cloneHolder(c_g, g, &orig_to_copy);
 
+    /* treat virtual starts as unconditional - wire to startDs instead */
     for (NFAVertex v : vertices_range(g)) {
         if (!is_virtual_start(v, g)) {
             continue;
@@ -236,6 +236,7 @@ bool somMayGoBackwards(NFAVertex u, const NGHolder &g,
         clear_vertex(c_v, c_g);
     }
 
+    /* treat u as the only accept state */
     NFAVertex c_u = orig_to_copy[u];
     clear_in_edges(c_g.acceptEod, c_g);
     add_edge(c_g.accept, c_g.acceptEod, c_g);
@@ -256,7 +257,9 @@ bool somMayGoBackwards(NFAVertex u, const NGHolder &g,
         }
         for (auto v : adjacent_vertices_range(t, g)) {
             if (contains(u_succ, v)) {
-                add_edge(orig_to_copy[t], c_g.accept, c_g);
+                /* due to virtual starts being aliased with normal starts in the
+                 * copy of the graph, we may have already added the edges. */
+                add_edge_if_not_present(orig_to_copy[t], c_g.accept, c_g);
                 break;
             }
         }
