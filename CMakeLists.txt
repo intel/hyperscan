@@ -332,7 +332,7 @@ endif()
 add_subdirectory(util)
 add_subdirectory(unit)
 add_subdirectory(doc/dev-reference)
-if (EXISTS ${CMAKE_SOURCE_DIR}/tools)
+if (EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
     add_subdirectory(tools)
 endif()
 
