@@ -74,6 +74,13 @@ enum AccelType {
     ACCEL_MDSVERM_NOCASE,
     ACCEL_MDSGVERM,
     ACCEL_MDSGVERM_NOCASE,
+    /* multibyte shuftis */
+    ACCEL_MLSHUFTI,
+    ACCEL_MLGSHUFTI,
+    ACCEL_MSSHUFTI,
+    ACCEL_MSGSHUFTI,
+    ACCEL_MDSSHUFTI,
+    ACCEL_MDSGSHUFTI,
 };
 
 /** \brief Structure for accel framework. */
@@ -121,6 +128,21 @@ union AccelAux {
         m128 lo2;
         m128 hi2;
     } dshufti;
+    struct {
+        u8 accel_type;
+        u8 offset;
+        m128 lo;
+        m128 hi;
+        u8 len;
+    } mshufti;
+    struct {
+        u8 accel_type;
+        u8 offset;
+        m128 lo;
+        m128 hi;
+        u8 len1;
+        u8 len2;
+    } mdshufti;
     struct {
         u8 accel_type;
         u8 offset;

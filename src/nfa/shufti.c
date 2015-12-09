@@ -38,20 +38,9 @@
 #include "util/simd_utils.h"
 #include "util/unaligned.h"
 
-/** \brief Naive byte-by-byte implementation. */
-static really_inline
-const u8 *shuftiFwdSlow(const u8 *lo, const u8 *hi, const u8 *buf,
-                        const u8 *buf_end) {
-    assert(buf < buf_end);
+#include "shufti_common.h"
 
-    for (; buf < buf_end; ++buf) {
-        u8 c = *buf;
-        if (lo[c & 0xf] & hi[c >> 4]) {
-            break;
-        }
-    }
-    return buf;
-}
+#include "util/simd_utils_ssse3.h"
 
 /** \brief Naive byte-by-byte implementation. */
 static really_inline
@@ -68,54 +57,11 @@ const u8 *shuftiRevSlow(const u8 *lo, const u8 *hi, const u8 *buf,
     return buf_end;
 }
 
-#ifdef DEBUG
-#include <ctype.h>
-
-#define DUMP_MSK(_t)                                \
-static UNUSED                                       \
-void dumpMsk##_t(m##_t msk) {                       \
-    u8 * mskAsU8 = (u8 *)&msk;                      \
-    for (unsigned i = 0; i < sizeof(msk); i++) {    \
-        u8 c = mskAsU8[i];                          \
-        for (int j = 0; j < 8; j++) {               \
-            if ((c >> (7-j)) & 0x1)                 \
-                printf("1");                        \
-            else                                    \
-                printf("0");                        \
-        }                                           \
-        printf(" ");                                \
-    }                                               \
-}                                                   \
-static UNUSED                                       \
-void dumpMsk##_t##AsChars(m##_t msk) {              \
-    u8 * mskAsU8 = (u8 *)&msk;                      \
-    for (unsigned i = 0; i < sizeof(msk); i++) {    \
-        u8 c = mskAsU8[i];                          \
-        if (isprint(c))                             \
-            printf("%c",c);                         \
-        else                                        \
-            printf(".");                            \
-    }                                               \
-}
-
-DUMP_MSK(128)
-#endif
-
-#include "util/simd_utils_ssse3.h"
-
 #if !defined(__AVX2__)
 /* Normal SSSE3 shufti */
 
-#define GET_LO_4(chars) and128(chars, low4bits)
-#define GET_HI_4(chars) rshift2x64(andnot128(low4bits, chars), 4)
-
 static really_inline
-const u8 *firstMatch(const u8 *buf, m128 t, m128 compare) {
-#ifdef DEBUG
-    DEBUG_PRINTF("confirming match in:"); dumpMsk128(t); printf("\n");
-#endif
-
-    u32 z = movemask128(eq128(t, compare));
+const u8 *firstMatch(const u8 *buf, u32 z) {
     if (unlikely(z != 0xffff)) {
         u32 pos = ctz32(~z & 0xffff);
         assert(pos < 16);
@@ -128,19 +74,9 @@ const u8 *firstMatch(const u8 *buf, m128 t, m128 compare) {
 static really_inline
 const u8 *fwdBlock(m128 mask_lo, m128 mask_hi, m128 chars, const u8 *buf,
                    const m128 low4bits, const m128 zeroes) {
-    m128 c_lo  = pshufb(mask_lo, GET_LO_4(chars));
-    m128 c_hi  = pshufb(mask_hi, GET_HI_4(chars));
-    m128 t     = and128(c_lo, c_hi);
+    u32 z = block(mask_lo, mask_hi, chars, low4bits, zeroes);
 
-#ifdef DEBUG
-    DEBUG_PRINTF(" chars: "); dumpMsk128AsChars(chars); printf("\n");
-    DEBUG_PRINTF("  char: "); dumpMsk128(chars);        printf("\n");
-    DEBUG_PRINTF("  c_lo: "); dumpMsk128(c_lo);         printf("\n");
-    DEBUG_PRINTF("  c_hi: "); dumpMsk128(c_hi);         printf("\n");
-    DEBUG_PRINTF("     t: "); dumpMsk128(t);            printf("\n");
-#endif
-
-    return firstMatch(buf, t, zeroes);
+    return firstMatch(buf, z);
 }
 
 const u8 *shuftiExec(m128 mask_lo, m128 mask_hi, const u8 *buf,
@@ -307,7 +243,8 @@ const u8 *fwdBlock2(m128 mask1_lo, m128 mask1_hi, m128 mask2_lo, m128 mask2_hi,
     DEBUG_PRINTF("    t2: "); dumpMsk128(t2);           printf("\n");
 #endif
 
-    return firstMatch(buf, t2, ones);
+    u32 z = movemask128(eq128(t2, ones));
+    return firstMatch(buf, z);
 }
 
 const u8 *shuftiDoubleExec(m128 mask1_lo, m128 mask1_hi,
@@ -356,20 +293,8 @@ const u8 *shuftiDoubleExec(m128 mask1_lo, m128 mask1_hi,
 
 #else // AVX2 - 256 wide shuftis
 
-#ifdef DEBUG
-DUMP_MSK(256)
-#endif
-
-#define GET_LO_4(chars) and256(chars, low4bits)
-#define GET_HI_4(chars) rshift4x64(andnot256(low4bits, chars), 4)
-
 static really_inline
-const u8 *firstMatch(const u8 *buf, m256 t, m256 compare) {
-#ifdef DEBUG
-    DEBUG_PRINTF("confirming match in:"); dumpMsk256(t); printf("\n");
-#endif
-
-    u32 z = movemask256(eq256(t, compare));
+const u8 *firstMatch(const u8 *buf, u32 z) {
     if (unlikely(z != 0xffffffff)) {
         u32 pos = ctz32(~z);
         assert(pos < 32);
@@ -382,19 +307,9 @@ const u8 *firstMatch(const u8 *buf, m256 t, m256 compare) {
 static really_inline
 const u8 *fwdBlock(m256 mask_lo, m256 mask_hi, m256 chars, const u8 *buf,
                    const m256 low4bits, const m256 zeroes) {
-    m256 c_lo  = vpshufb(mask_lo, GET_LO_4(chars));
-    m256 c_hi  = vpshufb(mask_hi, GET_HI_4(chars));
-    m256 t     = and256(c_lo, c_hi);
+    u32 z = block(mask_lo, mask_hi, chars, low4bits, zeroes);
 
-#ifdef DEBUG
-    DEBUG_PRINTF(" chars: "); dumpMsk256AsChars(chars); printf("\n");
-    DEBUG_PRINTF("  char: "); dumpMsk256(chars);        printf("\n");
-    DEBUG_PRINTF("  c_lo: "); dumpMsk256(c_lo);         printf("\n");
-    DEBUG_PRINTF("  c_hi: "); dumpMsk256(c_hi);         printf("\n");
-    DEBUG_PRINTF("     t: "); dumpMsk256(t);            printf("\n");
-#endif
-
-    return firstMatch(buf, t, zeroes);
+    return firstMatch(buf, z);
 }
 
 /* takes 128 bit masks, but operates on 256 bits of data */
@@ -564,8 +479,9 @@ const u8 *fwdBlock2(m256 mask1_lo, m256 mask1_hi, m256 mask2_lo, m256 mask2_hi,
     DEBUG_PRINTF(" c2_hi: "); dumpMsk256(c2_hi);        printf("\n");
     DEBUG_PRINTF("    t2: "); dumpMsk256(t2);           printf("\n");
 #endif
+    u32 z = movemask256(eq256(t2, ones));
 
-    return firstMatch(buf, t2, ones);
+    return firstMatch(buf, z);
 }
 
 /* takes 128 bit masks, but operates on 256 bits of data */

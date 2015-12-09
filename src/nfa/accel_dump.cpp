@@ -110,9 +110,36 @@ const char *accelName(u8 accel_type) {
         return "multibyte doubleshift-grab vermicelli";
     case ACCEL_MDSGVERM_NOCASE:
         return "multibyte doubleshift-grab vermicelli nocase";
+    case ACCEL_MLSHUFTI:
+        return "multibyte long shufti";
+    case ACCEL_MLGSHUFTI:
+        return "multibyte long-grab shufti";
+    case ACCEL_MSSHUFTI:
+        return "multibyte shift shufti";
+    case ACCEL_MSGSHUFTI:
+        return "multibyte shift-grab shufti";
+    case ACCEL_MDSSHUFTI:
+        return "multibyte doubleshift shufti";
+    case ACCEL_MDSGSHUFTI:
+        return "multibyte doubleshift-grab shufti";
     default:
         return "unknown!";
     }
+}
+
+static
+void dumpShuftiCharReach(FILE *f, const m128 &lo, const m128 &hi) {
+    CharReach cr = shufti2cr(lo, hi);
+    fprintf(f, "count %zu class %s\n", cr.count(),
+            describeClass(cr).c_str());
+}
+
+static
+void dumpShuftiMasks(FILE *f, const m128 &lo, const m128 &hi) {
+    fprintf(f, "lo %s\n",
+            dumpMask((const u8 *)&lo, 128).c_str());
+    fprintf(f, "hi %s\n",
+            dumpMask((const u8 *)&hi, 128).c_str());
 }
 
 void dumpAccelInfo(FILE *f, const AccelAux &accel) {
@@ -136,25 +163,16 @@ void dumpAccelInfo(FILE *f, const AccelAux &accel) {
         break;
     case ACCEL_SHUFTI: {
         fprintf(f, "\n");
-        fprintf(f, "lo %s\n",
-                dumpMask((const u8 *)&accel.shufti.lo, 128).c_str());
-        fprintf(f, "hi %s\n",
-                dumpMask((const u8 *)&accel.shufti.hi, 128).c_str());
-        CharReach cr = shufti2cr(accel.shufti.lo, accel.shufti.hi);
-        fprintf(f, "count %zu class %s\n", cr.count(),
-                describeClass(cr).c_str());
+        dumpShuftiMasks(f, accel.shufti.lo, accel.shufti.hi);
+        dumpShuftiCharReach(f, accel.shufti.lo, accel.shufti.hi);
         break;
     }
     case ACCEL_DSHUFTI:
         fprintf(f, "\n");
-        fprintf(f, "lo1 %s\n",
-                dumpMask((const u8 *)&accel.dshufti.lo1, 128).c_str());
-        fprintf(f, "hi1 %s\n",
-                dumpMask((const u8 *)&accel.dshufti.hi1, 128).c_str());
-        fprintf(f, "lo2 %s\n",
-                dumpMask((const u8 *)&accel.dshufti.lo2, 128).c_str());
-        fprintf(f, "hi2 %s\n",
-                dumpMask((const u8 *)&accel.dshufti.hi2, 128).c_str());
+        fprintf(f, "mask 1\n");
+        dumpShuftiMasks(f, accel.dshufti.lo1, accel.dshufti.hi1);
+        fprintf(f, "mask 2\n");
+        dumpShuftiMasks(f, accel.dshufti.lo2, accel.dshufti.hi2);
         break;
     case ACCEL_TRUFFLE: {
         fprintf(f, "\n");
@@ -183,6 +201,20 @@ void dumpAccelInfo(FILE *f, const AccelAux &accel) {
     case ACCEL_MDSGVERM_NOCASE:
         fprintf(f, " [\\x%02hhx] len1:%u len2:%u\n", accel.mdverm.c, accel.mdverm.len1,
                 accel.mdverm.len2);
+        break;
+    case ACCEL_MLSHUFTI:
+    case ACCEL_MLGSHUFTI:
+    case ACCEL_MSSHUFTI:
+    case ACCEL_MSGSHUFTI:
+        fprintf(f, " len:%u\n", accel.mshufti.len);
+        dumpShuftiMasks(f, accel.mshufti.lo, accel.mshufti.hi);
+        dumpShuftiCharReach(f, accel.mshufti.lo, accel.mshufti.hi);
+        break;
+    case ACCEL_MDSSHUFTI:
+    case ACCEL_MDSGSHUFTI:
+        fprintf(f, " len1:%u len2:%u\n", accel.mdshufti.len1, accel.mdshufti.len2);
+        dumpShuftiMasks(f, accel.mdshufti.lo, accel.mdshufti.hi);
+        dumpShuftiCharReach(f, accel.mdshufti.lo, accel.mdshufti.hi);
         break;
     default:
         fprintf(f, "\n");

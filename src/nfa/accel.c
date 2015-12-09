@@ -30,6 +30,7 @@
 #include "shufti.h"
 #include "truffle.h"
 #include "vermicelli.h"
+#include "multishufti.h"
 #include "multivermicelli.h"
 #include "ue2common.h"
 
@@ -218,6 +219,60 @@ const u8 *run_accel(const union AccelAux *accel, const u8 *c, const u8 *c_end) {
 
         rv = doubleshiftgrab_vermicelliExec(accel->mdverm.c, 1, c, c_end,
                                             accel->mdverm.len1, accel->mdverm.len2);
+        break;
+    case ACCEL_MLSHUFTI:
+        DEBUG_PRINTF("accel mlshufti %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = long_shuftiExec(accel->mshufti.lo, accel->mshufti.hi, c, c_end,
+                             accel->mshufti.len);
+        break;
+    case ACCEL_MLGSHUFTI:
+        DEBUG_PRINTF("accel mlgshufti %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = longgrab_shuftiExec(accel->mshufti.lo, accel->mshufti.hi, c, c_end,
+                                 accel->mshufti.len);
+        break;
+    case ACCEL_MSSHUFTI:
+        DEBUG_PRINTF("accel msshufti %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = shift_shuftiExec(accel->mshufti.lo, accel->mshufti.hi, c, c_end,
+                              accel->mshufti.len);
+        break;
+    case ACCEL_MSGSHUFTI:
+        DEBUG_PRINTF("accel msgshufti %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = shiftgrab_shuftiExec(accel->mshufti.lo, accel->mshufti.hi, c, c_end,
+                                  accel->mshufti.len);
+        break;
+    case ACCEL_MDSSHUFTI:
+        DEBUG_PRINTF("accel mdsshufti %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = doubleshift_shuftiExec(accel->mdshufti.lo, accel->mdshufti.hi, c, c_end,
+                                     accel->mdshufti.len1, accel->mdshufti.len2);
+        break;
+    case ACCEL_MDSGSHUFTI:
+        DEBUG_PRINTF("accel msgshufti %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = doubleshiftgrab_shuftiExec(accel->mdshufti.lo, accel->mdshufti.hi, c, c_end,
+                                         accel->mdshufti.len1, accel->mdshufti.len2);
         break;
 
     default:

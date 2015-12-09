@@ -38,6 +38,7 @@
 #include "nfa_internal.h"
 #include "shufti.h"
 #include "truffle.h"
+#include "multishufti.h"
 #include "multivermicelli.h"
 #include "ue2common.h"
 #include "vermicelli.h"
@@ -149,6 +150,32 @@ const u8 *accelScan(const union AccelAux *aux, const u8 *ptr, const u8 *end) {
         offset = aux->dshufti.offset;
         ptr = shuftiDoubleExec(aux->dshufti.lo1, aux->dshufti.hi1,
                                aux->dshufti.lo2, aux->dshufti.hi2, ptr, end);
+        break;
+    case ACCEL_MLSHUFTI:
+        offset = aux->mshufti.offset;
+        ptr = long_shuftiExec(aux->mshufti.lo, aux->mshufti.hi, ptr, end, aux->mshufti.len);
+        break;
+    case ACCEL_MLGSHUFTI:
+        offset = aux->mshufti.offset;
+        ptr = longgrab_shuftiExec(aux->mshufti.lo, aux->mshufti.hi, ptr, end, aux->mshufti.len);
+        break;
+    case ACCEL_MSSHUFTI:
+        offset = aux->mshufti.offset;
+        ptr = shift_shuftiExec(aux->mshufti.lo, aux->mshufti.hi, ptr, end, aux->mshufti.len);
+        break;
+    case ACCEL_MSGSHUFTI:
+        offset = aux->mshufti.offset;
+        ptr = shiftgrab_shuftiExec(aux->mshufti.lo, aux->mshufti.hi, ptr, end, aux->mshufti.len);
+        break;
+    case ACCEL_MDSSHUFTI:
+        offset = aux->mdshufti.offset;
+        ptr = doubleshift_shuftiExec(aux->mdshufti.lo, aux->mdshufti.hi, ptr, end,
+                                     aux->mdshufti.len1, aux->mdshufti.len2);
+        break;
+    case ACCEL_MDSGSHUFTI:
+        offset = aux->mdshufti.offset;
+        ptr = doubleshiftgrab_shuftiExec(aux->mdshufti.lo, aux->mdshufti.hi, ptr, end,
+                                         aux->mdshufti.len1, aux->mdshufti.len2);
         break;
     case ACCEL_TRUFFLE:
         DEBUG_PRINTF("truffle shuffle\n");

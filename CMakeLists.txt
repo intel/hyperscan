@@ -444,6 +444,10 @@ set (hs_exec_SRCS
     src/nfa/multiaccel_longgrab.h
     src/nfa/multiaccel_shift.h
     src/nfa/multiaccel_shiftgrab.h
+    src/nfa/multishufti.c
+    src/nfa/multishufti_avx2.h
+    src/nfa/multishufti_sse.h
+    src/nfa/multishufti.h
     src/nfa/multivermicelli.c
     src/nfa/multivermicelli.h
     src/nfa/multivermicelli_sse.h
@@ -455,6 +459,7 @@ set (hs_exec_SRCS
     src/nfa/repeat.c
     src/nfa/repeat.h
     src/nfa/repeat_internal.h
+    src/nfa/shufti_common.h
     src/nfa/shufti.c
     src/nfa/shufti.h
     src/nfa/truffle.c
