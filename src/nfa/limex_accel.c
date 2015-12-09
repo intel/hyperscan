@@ -38,6 +38,7 @@
 #include "nfa_internal.h"
 #include "shufti.h"
 #include "truffle.h"
+#include "multivermicelli.h"
 #include "ue2common.h"
 #include "vermicelli.h"
 #include "util/bitutils.h"
@@ -77,6 +78,66 @@ const u8 *accelScan(const union AccelAux *aux, const u8 *ptr, const u8 *end) {
         offset = aux->dverm.offset;
         ptr = vermicelliDoubleExec(aux->dverm.c1, aux->dverm.c2,
                                    1, ptr, end);
+        break;
+    case ACCEL_MLVERM:
+        DEBUG_PRINTF("long vermicelli for 0x%02hhx\n", aux->mverm.c);
+        offset = aux->mverm.offset;
+        ptr = long_vermicelliExec(aux->mverm.c, 0, ptr, end, aux->mverm.len);
+        break;
+    case ACCEL_MLVERM_NOCASE:
+        DEBUG_PRINTF("long vermicelli-nocase for 0x%02hhx\n", aux->mverm.c);
+        offset = aux->mverm.offset;
+        ptr = long_vermicelliExec(aux->mverm.c, 1, ptr, end, aux->mverm.len);
+        break;
+    case ACCEL_MLGVERM:
+        DEBUG_PRINTF("long grab vermicelli for 0x%02hhx\n", aux->mverm.c);
+        offset = aux->mverm.offset;
+        ptr = longgrab_vermicelliExec(aux->mverm.c, 0, ptr, end, aux->mverm.len);
+        break;
+    case ACCEL_MLGVERM_NOCASE:
+        DEBUG_PRINTF("long grab vermicelli-nocase for 0x%02hhx\n", aux->mverm.c);
+        offset = aux->mverm.offset;
+        ptr = longgrab_vermicelliExec(aux->mverm.c, 1, ptr, end, aux->mverm.len);
+        break;
+    case ACCEL_MSVERM:
+        DEBUG_PRINTF("shift vermicelli for 0x%02hhx\n", aux->mverm.c);
+        offset = aux->mverm.offset;
+        ptr = shift_vermicelliExec(aux->mverm.c, 0, ptr, end, aux->mverm.len);
+        break;
+    case ACCEL_MSVERM_NOCASE:
+        DEBUG_PRINTF("shift vermicelli-nocase for 0x%02hhx\n", aux->mverm.c);
+        offset = aux->mverm.offset;
+        ptr = shift_vermicelliExec(aux->mverm.c, 1, ptr, end, aux->mverm.len);
+        break;
+    case ACCEL_MSGVERM:
+        DEBUG_PRINTF("shift grab vermicelli for 0x%02hhx\n", aux->mverm.c);
+        offset = aux->mverm.offset;
+        ptr = shiftgrab_vermicelliExec(aux->mverm.c, 0, ptr, end, aux->mverm.len);
+        break;
+    case ACCEL_MSGVERM_NOCASE:
+        DEBUG_PRINTF("shift grab vermicelli-nocase for 0x%02hhx\n", aux->mverm.c);
+        offset = aux->mverm.offset;
+        ptr = shiftgrab_vermicelliExec(aux->mverm.c, 1, ptr, end, aux->mverm.len);
+        break;
+    case ACCEL_MDSVERM:
+        DEBUG_PRINTF("double shift vermicelli for 0x%02hhx\n", aux->mdverm.c);
+        offset = aux->mdverm.offset;
+        ptr = doubleshift_vermicelliExec(aux->mdverm.c, 0, ptr, end, aux->mdverm.len1, aux->mdverm.len2);
+        break;
+    case ACCEL_MDSVERM_NOCASE:
+        DEBUG_PRINTF("double shift vermicelli-nocase for 0x%02hhx\n", aux->mdverm.c);
+        offset = aux->mverm.offset;
+        ptr = doubleshift_vermicelliExec(aux->mdverm.c, 1, ptr, end, aux->mdverm.len1, aux->mdverm.len2);
+        break;
+    case ACCEL_MDSGVERM:
+        DEBUG_PRINTF("double shift grab vermicelli for 0x%02hhx\n", aux->mdverm.c);
+        offset = aux->mverm.offset;
+        ptr = doubleshiftgrab_vermicelliExec(aux->mdverm.c, 0, ptr, end, aux->mdverm.len1, aux->mdverm.len2);
+        break;
+    case ACCEL_MDSGVERM_NOCASE:
+        DEBUG_PRINTF("double shift grab vermicelli-nocase for 0x%02hhx\n", aux->mdverm.c);
+        offset = aux->mverm.offset;
+        ptr = doubleshiftgrab_vermicelliExec(aux->mdverm.c, 1, ptr, end, aux->mdverm.len1, aux->mdverm.len2);
         break;
     case ACCEL_SHUFTI:
         DEBUG_PRINTF("single shufti\n");

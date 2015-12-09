@@ -60,7 +60,20 @@ enum AccelType {
     ACCEL_SHUFTI,
     ACCEL_DSHUFTI,
     ACCEL_TRUFFLE,
-    ACCEL_RED_TAPE
+    ACCEL_RED_TAPE,
+    /* multibyte vermicellis */
+    ACCEL_MLVERM,
+    ACCEL_MLVERM_NOCASE,
+    ACCEL_MLGVERM,
+    ACCEL_MLGVERM_NOCASE,
+    ACCEL_MSVERM,
+    ACCEL_MSVERM_NOCASE,
+    ACCEL_MSGVERM,
+    ACCEL_MSGVERM_NOCASE,
+    ACCEL_MDSVERM,
+    ACCEL_MDSVERM_NOCASE,
+    ACCEL_MDSGVERM,
+    ACCEL_MDSGVERM_NOCASE,
 };
 
 /** \brief Structure for accel framework. */
@@ -81,6 +94,19 @@ union AccelAux {
         u8 c1; // uppercase if nocase
         u8 c2; // uppercase if nocase
     } dverm;
+    struct {
+        u8 accel_type;
+        u8 offset;
+        u8 c; // uppercase if nocase
+        u8 len;
+    } mverm;
+    struct {
+        u8 accel_type;
+        u8 offset;
+        u8 c; // uppercase if nocase
+        u8 len1;
+        u8 len2;
+    } mdverm;
     struct {
         u8 accel_type;
         u8 offset;

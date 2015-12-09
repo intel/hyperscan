@@ -30,6 +30,7 @@
 #include "shufti.h"
 #include "truffle.h"
 #include "vermicelli.h"
+#include "multivermicelli.h"
 #include "ue2common.h"
 
 const u8 *run_accel(const union AccelAux *accel, const u8 *c, const u8 *c_end) {
@@ -115,6 +116,108 @@ const u8 *run_accel(const union AccelAux *accel, const u8 *c, const u8 *c_end) {
     case ACCEL_RED_TAPE:
         DEBUG_PRINTF("accel red tape %p %p\n", c, c_end);
         rv = c_end;
+        break;
+
+    /* multibyte matchers */
+    case ACCEL_MLVERM:
+        DEBUG_PRINTF("accel mlverm %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = long_vermicelliExec(accel->mverm.c, 0, c, c_end, accel->mverm.len);
+        break;
+    case ACCEL_MLVERM_NOCASE:
+        DEBUG_PRINTF("accel mlverm nc %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = long_vermicelliExec(accel->mverm.c, 1, c, c_end, accel->mverm.len);
+        break;
+    case ACCEL_MLGVERM:
+        DEBUG_PRINTF("accel mlgverm %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = longgrab_vermicelliExec(accel->mverm.c, 0, c, c_end, accel->mverm.len);
+        break;
+    case ACCEL_MLGVERM_NOCASE:
+        DEBUG_PRINTF("accel mlgverm nc %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = longgrab_vermicelliExec(accel->mverm.c, 1, c, c_end, accel->mverm.len);
+        break;
+    case ACCEL_MSVERM:
+        DEBUG_PRINTF("accel msverm %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = shift_vermicelliExec(accel->mverm.c, 0, c, c_end, accel->mverm.len);
+        break;
+    case ACCEL_MSVERM_NOCASE:
+        DEBUG_PRINTF("accel msverm nc %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = shift_vermicelliExec(accel->mverm.c, 1, c, c_end, accel->mverm.len);
+        break;
+    case ACCEL_MSGVERM:
+        DEBUG_PRINTF("accel msgverm %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = shiftgrab_vermicelliExec(accel->mverm.c, 0, c, c_end, accel->mverm.len);
+        break;
+    case ACCEL_MSGVERM_NOCASE:
+        DEBUG_PRINTF("accel msgverm nc %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = shiftgrab_vermicelliExec(accel->mverm.c, 1, c, c_end, accel->mverm.len);
+        break;
+    case ACCEL_MDSVERM:
+        DEBUG_PRINTF("accel mdsverm %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = doubleshift_vermicelliExec(accel->mdverm.c, 0, c, c_end,
+                                        accel->mdverm.len1, accel->mdverm.len2);
+        break;
+    case ACCEL_MDSVERM_NOCASE:
+        DEBUG_PRINTF("accel mdsverm nc %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = doubleshift_vermicelliExec(accel->mdverm.c, 1, c, c_end,
+                                        accel->mdverm.len1, accel->mdverm.len2);
+        break;
+    case ACCEL_MDSGVERM:
+        DEBUG_PRINTF("accel mdsgverm %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = doubleshiftgrab_vermicelliExec(accel->mdverm.c, 0, c, c_end,
+                                            accel->mdverm.len1, accel->mdverm.len2);
+        break;
+    case ACCEL_MDSGVERM_NOCASE:
+        DEBUG_PRINTF("accel mdsgverm nc %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = doubleshiftgrab_vermicelliExec(accel->mdverm.c, 1, c, c_end,
+                                            accel->mdverm.len1, accel->mdverm.len2);
         break;
 
     default:

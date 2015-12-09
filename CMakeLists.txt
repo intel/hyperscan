@@ -444,6 +444,10 @@ set (hs_exec_SRCS
     src/nfa/multiaccel_longgrab.h
     src/nfa/multiaccel_shift.h
     src/nfa/multiaccel_shiftgrab.h
+    src/nfa/multivermicelli.c
+    src/nfa/multivermicelli.h
+    src/nfa/multivermicelli_sse.h
+    src/nfa/multivermicelli_avx2.h
     src/nfa/nfa_api.h
     src/nfa/nfa_api_dispatch.c
     src/nfa/nfa_internal.h

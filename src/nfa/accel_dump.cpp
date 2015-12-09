@@ -86,6 +86,30 @@ const char *accelName(u8 accel_type) {
         return "truffle";
     case ACCEL_RED_TAPE:
         return "red tape";
+    case ACCEL_MLVERM:
+        return "multibyte long vermicelli";
+    case ACCEL_MLVERM_NOCASE:
+        return "multibyte long vermicelli nocase";
+    case ACCEL_MLGVERM:
+        return "multibyte long-grab vermicelli";
+    case ACCEL_MLGVERM_NOCASE:
+        return "multibyte long-grab vermicelli nocase";
+    case ACCEL_MSVERM:
+        return "multibyte shift vermicelli";
+    case ACCEL_MSVERM_NOCASE:
+        return "multibyte shift vermicelli nocase";
+    case ACCEL_MSGVERM:
+        return "multibyte shift-grab vermicelli";
+    case ACCEL_MSGVERM_NOCASE:
+        return "multibyte shift-grab vermicelli nocase";
+    case ACCEL_MDSVERM:
+        return "multibyte doubleshift vermicelli";
+    case ACCEL_MDSVERM_NOCASE:
+        return "multibyte doubleshift vermicelli nocase";
+    case ACCEL_MDSGVERM:
+        return "multibyte doubleshift-grab vermicelli";
+    case ACCEL_MDSGVERM_NOCASE:
+        return "multibyte doubleshift-grab vermicelli nocase";
     default:
         return "unknown!";
     }
@@ -143,6 +167,23 @@ void dumpAccelInfo(FILE *f, const AccelAux &accel) {
                 describeClass(cr).c_str());
         break;
     }
+    case ACCEL_MLVERM:
+    case ACCEL_MLVERM_NOCASE:
+    case ACCEL_MLGVERM:
+    case ACCEL_MLGVERM_NOCASE:
+    case ACCEL_MSVERM:
+    case ACCEL_MSVERM_NOCASE:
+    case ACCEL_MSGVERM:
+    case ACCEL_MSGVERM_NOCASE:
+        fprintf(f, " [\\x%02hhx] len:%u\n", accel.mverm.c, accel.mverm.len);
+        break;
+    case ACCEL_MDSVERM:
+    case ACCEL_MDSVERM_NOCASE:
+    case ACCEL_MDSGVERM:
+    case ACCEL_MDSGVERM_NOCASE:
+        fprintf(f, " [\\x%02hhx] len1:%u len2:%u\n", accel.mdverm.c, accel.mdverm.len1,
+                accel.mdverm.len2);
+        break;
     default:
         fprintf(f, "\n");
         break;
