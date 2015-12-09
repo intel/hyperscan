@@ -115,29 +115,6 @@ namespace ue2 {
 
 namespace /* anon */ {
 
-// Orders RoseEdge edges by the state index of the source node
-struct EdgeSourceStateCompare {
-    EdgeSourceStateCompare(
-        const RoseGraph &g_,
-        const ue2::unordered_map<RoseVertex, u32> &roleStateIndices_)
-        : g(g_), roleStateIndices(roleStateIndices_) {}
-
-    u32 state_index(RoseVertex v) const {
-        auto it = roleStateIndices.find(v);
-        if (it != roleStateIndices.end()) {
-            return it->second;
-        }
-        return MMB_INVALID;
-    }
-
-    bool operator()(const RoseEdge &a, const RoseEdge &b) const {
-        return state_index(source(a, g)) < state_index(source(b, g));
-    }
-
-    const RoseGraph &g;
-    const ue2::unordered_map<RoseVertex, u32> &roleStateIndices;
-};
-
 struct left_build_info {
     // Constructor for an engine implementation.
     left_build_info(u32 q, u32 l, u32 t, rose_group sm,
