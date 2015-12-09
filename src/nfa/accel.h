@@ -81,6 +81,13 @@ enum AccelType {
     ACCEL_MSGSHUFTI,
     ACCEL_MDSSHUFTI,
     ACCEL_MDSGSHUFTI,
+    /* multibyte truffles */
+    ACCEL_MLTRUFFLE,
+    ACCEL_MLGTRUFFLE,
+    ACCEL_MSTRUFFLE,
+    ACCEL_MSGTRUFFLE,
+    ACCEL_MDSTRUFFLE,
+    ACCEL_MDSGTRUFFLE
 };
 
 /** \brief Structure for accel framework. */
@@ -149,6 +156,21 @@ union AccelAux {
         m128 mask1;
         m128 mask2;
     } truffle;
+    struct {
+        u8 accel_type;
+        u8 offset;
+        m128 mask1;
+        m128 mask2;
+        u8 len;
+    } mtruffle;
+    struct {
+        u8 accel_type;
+        u8 offset;
+        m128 mask1;
+        m128 mask2;
+        u8 len1;
+        u8 len2;
+    } mdtruffle;
 };
 
 /**

@@ -31,6 +31,7 @@
 #include "truffle.h"
 #include "vermicelli.h"
 #include "multishufti.h"
+#include "multitruffle.h"
 #include "multivermicelli.h"
 #include "ue2common.h"
 
@@ -274,6 +275,65 @@ const u8 *run_accel(const union AccelAux *accel, const u8 *c, const u8 *c_end) {
         rv = doubleshiftgrab_shuftiExec(accel->mdshufti.lo, accel->mdshufti.hi, c, c_end,
                                          accel->mdshufti.len1, accel->mdshufti.len2);
         break;
+    case ACCEL_MLTRUFFLE:
+        DEBUG_PRINTF("accel mltruffle %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = long_truffleExec(accel->mtruffle.mask1, accel->mtruffle.mask2,
+                               c, c_end, accel->mtruffle.len);
+        break;
+    case ACCEL_MLGTRUFFLE:
+        DEBUG_PRINTF("accel mlgtruffle %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = longgrab_truffleExec(accel->mtruffle.mask1, accel->mtruffle.mask2,
+                                   c, c_end, accel->mtruffle.len);
+        break;
+    case ACCEL_MSTRUFFLE:
+        DEBUG_PRINTF("accel mstruffle %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = shift_truffleExec(accel->mtruffle.mask1, accel->mtruffle.mask2,
+                               c, c_end, accel->mtruffle.len);
+        break;
+    case ACCEL_MSGTRUFFLE:
+        DEBUG_PRINTF("accel msgtruffle %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = shiftgrab_truffleExec(accel->mtruffle.mask1, accel->mtruffle.mask2,
+                                   c, c_end, accel->mtruffle.len);
+        break;
+    case ACCEL_MDSTRUFFLE:
+        DEBUG_PRINTF("accel mdstruffle %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = doubleshift_truffleExec(accel->mdtruffle.mask1,
+                                     accel->mdtruffle.mask2, c, c_end,
+                                     accel->mdtruffle.len1,
+                                     accel->mdtruffle.len2);
+        break;
+    case ACCEL_MDSGTRUFFLE:
+        DEBUG_PRINTF("accel mdsgtruffle %p %p\n", c, c_end);
+        if (c + 15 >= c_end) {
+            return c;
+        }
+
+        rv = doubleshiftgrab_truffleExec(accel->mdtruffle.mask1,
+                                         accel->mdtruffle.mask2, c, c_end,
+                                         accel->mdtruffle.len1,
+                                         accel->mdtruffle.len2);
+        break;
+
 
     default:
         assert(!"not here");

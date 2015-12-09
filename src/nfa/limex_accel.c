@@ -39,6 +39,7 @@
 #include "shufti.h"
 #include "truffle.h"
 #include "multishufti.h"
+#include "multitruffle.h"
 #include "multivermicelli.h"
 #include "ue2common.h"
 #include "vermicelli.h"
@@ -181,6 +182,46 @@ const u8 *accelScan(const union AccelAux *aux, const u8 *ptr, const u8 *end) {
         DEBUG_PRINTF("truffle shuffle\n");
         offset = aux->truffle.offset;
         ptr = truffleExec(aux->truffle.mask1, aux->truffle.mask2, ptr, end);
+        break;
+    case ACCEL_MLTRUFFLE:
+        DEBUG_PRINTF("long match truffle shuffle\n");
+        offset = aux->mtruffle.offset;
+        ptr = long_truffleExec(aux->mtruffle.mask1, aux->mtruffle.mask2,
+                               ptr, end, aux->mtruffle.len);
+        break;
+    case ACCEL_MLGTRUFFLE:
+        DEBUG_PRINTF("long grab match truffle shuffle\n");
+        offset = aux->mtruffle.offset;
+        ptr = longgrab_truffleExec(aux->mtruffle.mask1, aux->mtruffle.mask2,
+                                   ptr, end, aux->mtruffle.len);
+        break;
+    case ACCEL_MSTRUFFLE:
+        DEBUG_PRINTF("shift match truffle shuffle\n");
+        offset = aux->mtruffle.offset;
+        ptr = shift_truffleExec(aux->mtruffle.mask1, aux->mtruffle.mask2,
+                               ptr, end, aux->mtruffle.len);
+        break;
+    case ACCEL_MSGTRUFFLE:
+        DEBUG_PRINTF("shift grab match truffle shuffle\n");
+        offset = aux->mtruffle.offset;
+        ptr = shiftgrab_truffleExec(aux->mtruffle.mask1, aux->mtruffle.mask2,
+                                   ptr, end, aux->mtruffle.len);
+        break;
+    case ACCEL_MDSTRUFFLE:
+        DEBUG_PRINTF("double shift match truffle shuffle\n");
+        offset = aux->mdtruffle.offset;
+        ptr = doubleshift_truffleExec(aux->mdtruffle.mask1,
+                                      aux->mdtruffle.mask2, ptr, end,
+                                      aux->mdtruffle.len1,
+                                      aux->mdtruffle.len2);
+        break;
+    case ACCEL_MDSGTRUFFLE:
+        DEBUG_PRINTF("double shift grab match truffle shuffle\n");
+        offset = aux->mdtruffle.offset;
+        ptr = doubleshiftgrab_truffleExec(aux->mdtruffle.mask1,
+                                          aux->mdtruffle.mask2, ptr, end,
+                                          aux->mdtruffle.len1,
+                                          aux->mdtruffle.len2);
         break;
     case ACCEL_RED_TAPE:
         ptr = end; /* there is no escape */

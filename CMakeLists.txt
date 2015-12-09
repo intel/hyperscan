@@ -448,6 +448,10 @@ set (hs_exec_SRCS
     src/nfa/multishufti_avx2.h
     src/nfa/multishufti_sse.h
     src/nfa/multishufti.h
+    src/nfa/multitruffle.c
+    src/nfa/multitruffle_avx2.h
+    src/nfa/multitruffle_sse.h
+    src/nfa/multitruffle.h
     src/nfa/multivermicelli.c
     src/nfa/multivermicelli.h
     src/nfa/multivermicelli_sse.h
@@ -462,6 +466,7 @@ set (hs_exec_SRCS
     src/nfa/shufti_common.h
     src/nfa/shufti.c
     src/nfa/shufti.h
+    src/nfa/truffle_common.h
     src/nfa/truffle.c
     src/nfa/truffle.h
     src/nfa/vermicelli.h
