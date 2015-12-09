@@ -37,18 +37,9 @@
 #include "util/simd_utils.h"
 #include "util/simd_utils_ssse3.h"
 
-#define shift128r(a, b) _mm_srli_epi64((a), (b))
+#include "truffle_common.h"
 
-static really_inline
-const u8 *firstMatch(const u8 *buf, u32 z) {
-    if (unlikely(z != 0xffff)) {
-        u32 pos = ctz32(~z & 0xffff);
-        assert(pos < 16);
-        return buf + pos;
-    }
-
-    return NULL; // no match
-}
+#if !defined(__AVX2__)
 
 static really_inline
 const u8 *lastMatch(const u8 *buf, u32 z) {
@@ -59,25 +50,6 @@ const u8 *lastMatch(const u8 *buf, u32 z) {
     }
 
     return NULL; // no match
-}
-
-static really_inline
-u32 block(m128 shuf_mask_lo_highclear, m128 shuf_mask_lo_highset, m128 v) {
-
-    m128 highconst = _mm_set1_epi8(0x80);
-    m128 shuf_mask_hi = _mm_set1_epi64x(0x8040201008040201);
-
-    // and now do the real work
-    m128 shuf1 = pshufb(shuf_mask_lo_highclear, v);
-    m128 t1 = xor128(v, highconst);
-    m128 shuf2 = pshufb(shuf_mask_lo_highset, t1);
-    m128 t2 = andnot128(highconst, shift128r(v, 4));
-    m128 shuf3 = pshufb(shuf_mask_hi, t2);
-    m128 tmp = and128(or128(shuf1, shuf2), shuf3);
-    m128 tmp2 = eq128(tmp, zeroes128());
-    u32 z = movemask128(tmp2);
-
-    return z;
 }
 
 static really_inline
@@ -94,30 +66,9 @@ const u8 *revBlock(m128 shuf_mask_lo_highclear, m128 shuf_mask_lo_highset,
     return lastMatch(buf, z);
 }
 
-static
-const u8 *truffleMini(m128 shuf_mask_lo_highclear, m128 shuf_mask_lo_highset,
-                       const u8 *buf, const u8 *buf_end) {
-    uintptr_t len = buf_end - buf;
-    assert(len < 16);
-
-    m128 chars = zeroes128();
-    memcpy(&chars, buf, len);
-
-    u32 z = block(shuf_mask_lo_highclear, shuf_mask_lo_highset, chars);
-    // can't be these bytes in z
-    u32 mask = (0xFFFF >> (16 - len)) ^ 0xFFFF;
-    const u8 *rv = firstMatch(buf, z| mask);
-
-    if (rv) {
-        return rv;
-    } else {
-        return buf_end;
-    }
-}
-
 const u8 *truffleExec(m128 shuf_mask_lo_highclear,
-                       m128 shuf_mask_lo_highset,
-                       const u8 *buf, const u8 *buf_end) {
+                      m128 shuf_mask_lo_highset,
+                      const u8 *buf, const u8 *buf_end) {
     DEBUG_PRINTF("len %zu\n", buf_end - buf);
 
     assert(buf && buf_end);
@@ -166,8 +117,8 @@ const u8 *truffleExec(m128 shuf_mask_lo_highclear,
 
 static
 const u8 *truffleRevMini(m128 shuf_mask_lo_highclear,
-                          m128 shuf_mask_lo_highset, const u8 *buf,
-                          const u8 *buf_end) {
+                         m128 shuf_mask_lo_highset, const u8 *buf,
+                         const u8 *buf_end) {
     uintptr_t len = buf_end - buf;
     assert(len < 16);
 
@@ -184,11 +135,9 @@ const u8 *truffleRevMini(m128 shuf_mask_lo_highclear,
     return buf - 1;
 }
 
-
 const u8 *rtruffleExec(m128 shuf_mask_lo_highclear,
                        m128 shuf_mask_lo_highset,
                        const u8 *buf, const u8 *buf_end) {
-
     assert(buf && buf_end);
     assert(buf < buf_end);
     const u8 *rv;
@@ -233,4 +182,145 @@ const u8 *rtruffleExec(m128 shuf_mask_lo_highclear,
     return buf - 1;
 }
 
+#else
 
+static really_inline
+const u8 *lastMatch(const u8 *buf, u32 z) {
+    if (unlikely(z != 0xffffffff)) {
+        u32 pos = clz32(~z);
+        assert(pos < 32);
+        return buf + (31 - pos);
+    }
+
+    return NULL; // no match
+}
+
+static really_inline
+const u8 *fwdBlock(m256 shuf_mask_lo_highclear, m256 shuf_mask_lo_highset,
+                   m256 v, const u8 *buf) {
+    u32 z = block(shuf_mask_lo_highclear, shuf_mask_lo_highset, v);
+    return firstMatch(buf, z);
+}
+
+static really_inline
+const u8 *revBlock(m256 shuf_mask_lo_highclear, m256 shuf_mask_lo_highset,
+                   m256 v, const u8 *buf) {
+    u32 z = block(shuf_mask_lo_highclear, shuf_mask_lo_highset, v);
+    return lastMatch(buf, z);
+}
+
+const u8 *truffleExec(m128 shuf_mask_lo_highclear,
+                      m128 shuf_mask_lo_highset,
+                      const u8 *buf, const u8 *buf_end) {
+    DEBUG_PRINTF("len %zu\n", buf_end - buf);
+    const m256 wide_clear = set2x128(shuf_mask_lo_highclear);
+    const m256 wide_set = set2x128(shuf_mask_lo_highset);
+
+    assert(buf && buf_end);
+    assert(buf < buf_end);
+    const u8 *rv;
+
+    if (buf_end - buf < 32) {
+        return truffleMini(wide_clear, wide_set, buf, buf_end);
+    }
+
+    size_t min = (size_t)buf % 32;
+    assert(buf_end - buf >= 32);
+
+    // Preconditioning: most of the time our buffer won't be aligned.
+    m256 chars = loadu256(buf);
+    rv = fwdBlock(wide_clear, wide_set, chars, buf);
+    if (rv) {
+        return rv;
+    }
+    buf += (32 - min);
+
+    const u8 *last_block = buf_end - 32;
+    while (buf < last_block) {
+        m256 lchars = load256(buf);
+        rv = fwdBlock(wide_clear, wide_set, lchars, buf);
+        if (rv) {
+            return rv;
+        }
+        buf += 32;
+    }
+
+    // Use an unaligned load to mop up the last 32 bytes and get an accurate
+    // picture to buf_end.
+    assert(buf <= buf_end && buf >= buf_end - 32);
+    chars = loadu256(buf_end - 32);
+    rv = fwdBlock(wide_clear, wide_set, chars, buf_end - 32);
+    if (rv) {
+        return rv;
+    }
+    return buf_end;
+}
+
+static
+const u8 *truffleRevMini(m256 shuf_mask_lo_highclear,
+                         m256 shuf_mask_lo_highset, const u8 *buf,
+                         const u8 *buf_end) {
+    uintptr_t len = buf_end - buf;
+    assert(len < 32);
+
+    m256 chars = zeroes256();
+    memcpy(&chars, buf, len);
+
+    u32 mask = (0xFFFFFFFF >> (32 - len)) ^ 0xFFFFFFFF;
+    u32 z = block(shuf_mask_lo_highclear, shuf_mask_lo_highset, chars);
+    const u8 *rv = lastMatch(buf, z | mask);
+
+    if (rv) {
+        return rv;
+    }
+    return buf - 1;
+}
+
+
+const u8 *rtruffleExec(m128 shuf_mask_lo_highclear,
+                       m128 shuf_mask_lo_highset,
+                       const u8 *buf, const u8 *buf_end) {
+    const m256 wide_clear = set2x128(shuf_mask_lo_highclear);
+    const m256 wide_set = set2x128(shuf_mask_lo_highset);
+    assert(buf && buf_end);
+    assert(buf < buf_end);
+    const u8 *rv;
+
+    DEBUG_PRINTF("len %zu\n", buf_end - buf);
+
+    if (buf_end - buf < 32) {
+        return truffleRevMini(wide_clear, wide_set, buf, buf_end);
+    }
+
+    assert(buf_end - buf >= 32);
+
+    // Preconditioning: most of the time our buffer won't be aligned.
+    m256 chars = loadu256(buf_end - 32);
+    rv = revBlock(wide_clear, wide_set, chars,
+                  buf_end - 32);
+    if (rv) {
+        return rv;
+    }
+    buf_end = (const u8 *)((size_t)buf_end & ~((size_t)0x1f));
+
+    const u8 *last_block = buf + 32;
+    while (buf_end > last_block) {
+        buf_end -= 32;
+        m256 lchars = load256(buf_end);
+        rv = revBlock(wide_clear, wide_set, lchars, buf_end);
+        if (rv) {
+            return rv;
+        }
+    }
+
+    // Use an unaligned load to mop up the last 32 bytes and get an accurate
+    // picture to buf_end.
+    chars = loadu256(buf);
+    rv = revBlock(wide_clear, wide_set, chars, buf);
+    if (rv) {
+        return rv;
+    }
+    return buf - 1;
+}
+
+#endif
