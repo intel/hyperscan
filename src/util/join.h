@@ -31,4 +31,10 @@
 #define JOIN(x, y) JOIN_AGAIN(x, y)
 #define JOIN_AGAIN(x, y) x ## y
 
+#define JOIN3(x, y, z) JOIN_AGAIN3(x, y, z)
+#define JOIN_AGAIN3(x, y, z) x ## y ## z
+
+#define JOIN4(w, x, y, z) JOIN_AGAIN4(w, x, y, z)
+#define JOIN_AGAIN4(w, x, y, z) w ## x ## y ## z
+
 #endif

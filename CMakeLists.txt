@@ -437,6 +437,13 @@ set (hs_exec_SRCS
     src/nfa/mpv.h
     src/nfa/mpv.c
     src/nfa/mpv_internal.h
+    src/nfa/multiaccel_common.h
+    src/nfa/multiaccel_doubleshift.h
+    src/nfa/multiaccel_doubleshiftgrab.h
+    src/nfa/multiaccel_long.h
+    src/nfa/multiaccel_longgrab.h
+    src/nfa/multiaccel_shift.h
+    src/nfa/multiaccel_shiftgrab.h
     src/nfa/nfa_api.h
     src/nfa/nfa_api_dispatch.c
     src/nfa/nfa_internal.h
