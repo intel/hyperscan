@@ -169,13 +169,285 @@ void buildAccelDouble(const AccelInfo &info, AccelAux *aux) {
     aux->accel_type = ACCEL_NONE;
 }
 
+static
+void buildAccelMulti(const AccelInfo &info, AccelAux *aux) {
+    if (info.ma_type == MultibyteAccelInfo::MAT_NONE) {
+        DEBUG_PRINTF("no multimatch for us :(");
+        return;
+    }
+
+    u32 offset = info.multiaccel_offset;
+    const CharReach &stops = info.multiaccel_stops;
+
+    assert(aux->accel_type == ACCEL_NONE);
+    if (stops.all()) {
+        return;
+    }
+
+    size_t outs = stops.count();
+    DEBUG_PRINTF("%zu outs\n", outs);
+    assert(outs && outs < 256);
+
+    switch (info.ma_type) {
+    case MultibyteAccelInfo::MAT_LONG:
+        if (outs == 1) {
+            aux->accel_type = ACCEL_MLVERM;
+            aux->mverm.offset = offset;
+            aux->mverm.c = stops.find_first();
+            aux->mverm.len = info.ma_len1;
+            DEBUG_PRINTF("building vermicelli caseful for 0x%02hhx\n", aux->verm.c);
+            return;
+        }
+        if (outs == 2 && stops.isCaselessChar()) {
+            aux->accel_type = ACCEL_MLVERM_NOCASE;
+            aux->mverm.offset = offset;
+            aux->mverm.c = stops.find_first() & CASE_CLEAR;
+            aux->mverm.len = info.ma_len1;
+            DEBUG_PRINTF("building vermicelli caseless for 0x%02hhx\n",
+                         aux->verm.c);
+            return;
+        }
+        break;
+    case MultibyteAccelInfo::MAT_LONGGRAB:
+        if (outs == 1) {
+            aux->accel_type = ACCEL_MLGVERM;
+            aux->mverm.offset = offset;
+            aux->mverm.c = stops.find_first();
+            aux->mverm.len = info.ma_len1;
+            DEBUG_PRINTF("building vermicelli caseful for 0x%02hhx\n", aux->verm.c);
+            return;
+        }
+        if (outs == 2 && stops.isCaselessChar()) {
+            aux->accel_type = ACCEL_MLGVERM_NOCASE;
+            aux->mverm.offset = offset;
+            aux->mverm.c = stops.find_first() & CASE_CLEAR;
+            aux->mverm.len = info.ma_len1;
+            DEBUG_PRINTF("building vermicelli caseless for 0x%02hhx\n",
+                         aux->verm.c);
+            return;
+        }
+        break;
+    case MultibyteAccelInfo::MAT_SHIFT:
+        if (outs == 1) {
+            aux->accel_type = ACCEL_MSVERM;
+            aux->mverm.offset = offset;
+            aux->mverm.c = stops.find_first();
+            aux->mverm.len = info.ma_len1;
+            DEBUG_PRINTF("building vermicelli caseful for 0x%02hhx\n", aux->verm.c);
+            return;
+        }
+        if (outs == 2 && stops.isCaselessChar()) {
+            aux->accel_type = ACCEL_MSVERM_NOCASE;
+            aux->mverm.offset = offset;
+            aux->mverm.c = stops.find_first() & CASE_CLEAR;
+            aux->mverm.len = info.ma_len1;
+            DEBUG_PRINTF("building vermicelli caseless for 0x%02hhx\n",
+                         aux->verm.c);
+            return;
+        }
+        break;
+    case MultibyteAccelInfo::MAT_SHIFTGRAB:
+        if (outs == 1) {
+            aux->accel_type = ACCEL_MSGVERM;
+            aux->mverm.offset = offset;
+            aux->mverm.c = stops.find_first();
+            aux->mverm.len = info.ma_len1;
+            DEBUG_PRINTF("building vermicelli caseful for 0x%02hhx\n", aux->verm.c);
+            return;
+        }
+        if (outs == 2 && stops.isCaselessChar()) {
+            aux->accel_type = ACCEL_MSGVERM_NOCASE;
+            aux->mverm.offset = offset;
+            aux->mverm.c = stops.find_first() & CASE_CLEAR;
+            aux->mverm.len = info.ma_len1;
+            DEBUG_PRINTF("building vermicelli caseless for 0x%02hhx\n",
+                         aux->verm.c);
+            return;
+        }
+        break;
+    case MultibyteAccelInfo::MAT_DSHIFT:
+        if (outs == 1) {
+            aux->accel_type = ACCEL_MDSVERM;
+            aux->mdverm.offset = offset;
+            aux->mdverm.c = stops.find_first();
+            aux->mdverm.len1 = info.ma_len1;
+            aux->mdverm.len2 = info.ma_len2;
+            DEBUG_PRINTF("building vermicelli caseful for 0x%02hhx\n", aux->verm.c);
+            return;
+        }
+        if (outs == 2 && stops.isCaselessChar()) {
+            aux->accel_type = ACCEL_MDSVERM_NOCASE;
+            aux->mverm.offset = offset;
+            aux->mverm.c = stops.find_first() & CASE_CLEAR;
+            aux->mdverm.len1 = info.ma_len1;
+            aux->mdverm.len2 = info.ma_len2;
+            DEBUG_PRINTF("building vermicelli caseless for 0x%02hhx\n",
+                         aux->verm.c);
+            return;
+        }
+        break;
+    case MultibyteAccelInfo::MAT_DSHIFTGRAB:
+        if (outs == 1) {
+            aux->accel_type = ACCEL_MDSGVERM;
+            aux->mdverm.offset = offset;
+            aux->mdverm.c = stops.find_first();
+            aux->mdverm.len1 = info.ma_len1;
+            aux->mdverm.len2 = info.ma_len2;
+            DEBUG_PRINTF("building vermicelli caseful for 0x%02hhx\n", aux->verm.c);
+            return;
+        }
+        if (outs == 2 && stops.isCaselessChar()) {
+            aux->accel_type = ACCEL_MDSGVERM_NOCASE;
+            aux->mverm.offset = offset;
+            aux->mverm.c = stops.find_first() & CASE_CLEAR;
+            aux->mdverm.len1 = info.ma_len1;
+            aux->mdverm.len2 = info.ma_len2;
+            DEBUG_PRINTF("building vermicelli caseless for 0x%02hhx\n",
+                         aux->verm.c);
+            return;
+        }
+        break;
+    default:
+        // shouldn't happen
+        assert(0);
+        return;
+    }
+
+    DEBUG_PRINTF("attempting shufti for %zu chars\n", outs);
+
+    switch (info.ma_type) {
+    case MultibyteAccelInfo::MAT_LONG:
+        if (shuftiBuildMasks(stops, &aux->mshufti.lo,
+                &aux->mshufti.hi) == -1) {
+            break;
+        }
+        aux->accel_type = ACCEL_MLSHUFTI;
+        aux->mshufti.offset = offset;
+        aux->mshufti.len = info.ma_len1;
+        return;
+    case MultibyteAccelInfo::MAT_LONGGRAB:
+        if (shuftiBuildMasks(stops, &aux->mshufti.lo,
+                &aux->mshufti.hi) == -1) {
+            break;
+        }
+        aux->accel_type = ACCEL_MLGSHUFTI;
+        aux->mshufti.offset = offset;
+        aux->mshufti.len = info.ma_len1;
+        return;
+    case MultibyteAccelInfo::MAT_SHIFT:
+        if (shuftiBuildMasks(stops, &aux->mshufti.lo,
+                &aux->mshufti.hi) == -1) {
+            break;
+        }
+        aux->accel_type = ACCEL_MSSHUFTI;
+        aux->mshufti.offset = offset;
+        aux->mshufti.len = info.ma_len1;
+        return;
+    case MultibyteAccelInfo::MAT_SHIFTGRAB:
+        if (shuftiBuildMasks(stops, &aux->mshufti.lo,
+                &aux->mshufti.hi) == -1) {
+            break;
+        }
+        aux->accel_type = ACCEL_MSGSHUFTI;
+        aux->mshufti.offset = offset;
+        aux->mshufti.len = info.ma_len1;
+        return;
+    case MultibyteAccelInfo::MAT_DSHIFT:
+        if (shuftiBuildMasks(stops, &aux->mdshufti.lo,
+                &aux->mdshufti.hi) == -1) {
+            break;
+        }
+        aux->accel_type = ACCEL_MDSSHUFTI;
+        aux->mdshufti.offset = offset;
+        aux->mdshufti.len1 = info.ma_len1;
+        aux->mdshufti.len2 = info.ma_len2;
+        return;
+    case MultibyteAccelInfo::MAT_DSHIFTGRAB:
+        if (shuftiBuildMasks(stops, &aux->mdshufti.lo,
+                &aux->mdshufti.hi) == -1) {
+            break;
+        }
+        aux->accel_type = ACCEL_MDSGSHUFTI;
+        aux->mdshufti.offset = offset;
+        aux->mdshufti.len1 = info.ma_len1;
+        aux->mdshufti.len2 = info.ma_len2;
+        return;
+    default:
+        // shouldn't happen
+        assert(0);
+        return;
+    }
+    DEBUG_PRINTF("shufti build failed, falling through\n");
+
+    if (outs <= ACCEL_MAX_STOP_CHAR) {
+        DEBUG_PRINTF("building Truffle for %zu chars\n", outs);
+        switch (info.ma_type) {
+        case MultibyteAccelInfo::MAT_LONG:
+            aux->accel_type = ACCEL_MLTRUFFLE;
+            aux->mtruffle.offset = offset;
+            aux->mtruffle.len = info.ma_len1;
+            truffleBuildMasks(stops, &aux->mtruffle.mask1,
+                              &aux->mtruffle.mask2);
+            break;
+        case MultibyteAccelInfo::MAT_LONGGRAB:
+            aux->accel_type = ACCEL_MLGTRUFFLE;
+            aux->mtruffle.offset = offset;
+            aux->mtruffle.len = info.ma_len1;
+            truffleBuildMasks(stops, &aux->mtruffle.mask1,
+                              &aux->mtruffle.mask2);
+            break;
+        case MultibyteAccelInfo::MAT_SHIFT:
+            aux->accel_type = ACCEL_MSTRUFFLE;
+            aux->mtruffle.offset = offset;
+            aux->mtruffle.len = info.ma_len1;
+            truffleBuildMasks(stops, &aux->mtruffle.mask1,
+                              &aux->mtruffle.mask2);
+            break;
+        case MultibyteAccelInfo::MAT_SHIFTGRAB:
+            aux->accel_type = ACCEL_MSGTRUFFLE;
+            aux->mtruffle.offset = offset;
+            aux->mtruffle.len = info.ma_len1;
+            truffleBuildMasks(stops, &aux->mtruffle.mask1,
+                              &aux->mtruffle.mask2);
+            break;
+        case MultibyteAccelInfo::MAT_DSHIFT:
+            aux->accel_type = ACCEL_MDSTRUFFLE;
+            aux->mdtruffle.offset = offset;
+            aux->mdtruffle.len1 = info.ma_len1;
+            aux->mdtruffle.len2 = info.ma_len2;
+            truffleBuildMasks(stops, &aux->mtruffle.mask1,
+                              &aux->mdtruffle.mask2);
+            break;
+        case MultibyteAccelInfo::MAT_DSHIFTGRAB:
+            aux->accel_type = ACCEL_MDSGTRUFFLE;
+            aux->mdtruffle.offset = offset;
+            aux->mdtruffle.len1 = info.ma_len1;
+            aux->mdtruffle.len2 = info.ma_len2;
+            truffleBuildMasks(stops, &aux->mtruffle.mask1,
+                              &aux->mdtruffle.mask2);
+            break;
+        default:
+            // shouldn't happen
+            assert(0);
+            return;
+        }
+        return;
+    }
+
+    DEBUG_PRINTF("unable to accelerate multibyte case with %zu outs\n", outs);
+}
+
 bool buildAccelAux(const AccelInfo &info, AccelAux *aux) {
     assert(aux->accel_type == ACCEL_NONE);
     if (info.single_stops.none()) {
         DEBUG_PRINTF("picked red tape\n");
         aux->accel_type = ACCEL_RED_TAPE;
         aux->generic.offset = info.single_offset;
-    } else {
+    }
+    if (aux->accel_type == ACCEL_NONE) {
+        buildAccelMulti(info, aux);
+    }
+    if (aux->accel_type == ACCEL_NONE) {
         buildAccelDouble(info, aux);
     }
     if (aux->accel_type == ACCEL_NONE) {

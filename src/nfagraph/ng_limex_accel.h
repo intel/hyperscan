@@ -50,6 +50,12 @@ namespace ue2 {
 #define MAX_MERGED_ACCEL_STOPS 200
 #define ACCEL_MAX_STOP_CHAR 24
 #define ACCEL_MAX_FLOATING_STOP_CHAR 192 /* accelerating sds is important */
+#define MULTIACCEL_MIN_LEN 3
+#define MULTIACCEL_MAX_LEN_SSE 15
+#define MULTIACCEL_MAX_LEN_AVX2 31
+
+// forward-declaration of CompileContext
+struct CompileContext;
 
 void findAccelFriends(const NGHolder &g, NFAVertex v,
                   const std::map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
@@ -64,6 +70,25 @@ struct DoubleAccelInfo {
 };
 
 DoubleAccelInfo findBestDoubleAccelInfo(const NGHolder &g, NFAVertex v);
+
+struct MultibyteAccelInfo {
+    /* multibyte accel schemes, ordered by strength */
+    enum multiaccel_type {
+        MAT_SHIFT,
+        MAT_SHIFTGRAB,
+        MAT_DSHIFT,
+        MAT_DSHIFTGRAB,
+        MAT_LONG,
+        MAT_LONGGRAB,
+        MAT_MAX,
+        MAT_NONE = MAT_MAX
+    };
+    CharReach cr;
+    u32 offset = 0;
+    u32 len1 = 0;
+    u32 len2 = 0;
+    multiaccel_type type = MAT_NONE;
+};
 
 struct AccelScheme {
     AccelScheme(const CharReach &cr_in, u32 offset_in)
@@ -108,6 +133,11 @@ bool nfaCheckAccel(const NGHolder &g, NFAVertex v,
                    const std::vector<CharReach> &refined_cr,
                    const std::map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
                    AccelScheme *as, bool allow_wide);
+
+/** \brief Check if vertex \a v is a multi accelerable state (for a limex NFA). */
+MultibyteAccelInfo nfaCheckMultiAccel(const NGHolder &g,
+                                      const std::vector<NFAVertex> &verts,
+                                      const CompileContext &cc);
 
 } // namespace ue2
 

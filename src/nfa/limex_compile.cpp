@@ -80,9 +80,11 @@ struct precalcAccel {
     CharReach double_cr;
     flat_set<pair<u8, u8>> double_lits; /* double-byte accel stop literals */
     u32 double_offset;
+
+    MultibyteAccelInfo ma_info;
 };
 
-struct meteor_accel_info {
+struct limex_accel_info {
     ue2::unordered_set<NFAVertex> accelerable;
     map<NFAStateSet, precalcAccel> precalc;
     ue2::unordered_map<NFAVertex, flat_set<NFAVertex> > friends;
@@ -162,7 +164,7 @@ struct build_info {
     bool stateCompression;
     const CompileContext &cc;
     u32 num_states;
-    meteor_accel_info accel;
+    limex_accel_info accel;
 };
 
 // Constants for scoring mechanism
@@ -334,12 +336,16 @@ void buildReachMapping(const build_info &args, vector<NFAStateSet> &reach,
 }
 
 struct AccelBuild {
-    AccelBuild() : v(NFAGraph::null_vertex()), state(0), offset(0) {}
+    AccelBuild() : v(NFAGraph::null_vertex()), state(0), offset(0), ma_len1(0),
+            ma_len2(0), ma_type(MultibyteAccelInfo::MAT_NONE) {}
     NFAVertex v;
     u32 state;
     u32 offset; // offset correction to apply
     CharReach stop1; // single-byte accel stop literals
     flat_set<pair<u8, u8>> stop2; // double-byte accel stop literals
+    u32 ma_len1; // multiaccel len1
+    u32 ma_len2; // multiaccel len2
+    MultibyteAccelInfo::multiaccel_type ma_type; // multiaccel type
 };
 
 static
@@ -354,7 +360,12 @@ void findStopLiterals(const build_info &bi, NFAVertex v, AccelBuild &build) {
         build.stop1 = CharReach::dot();
     } else {
         const precalcAccel &precalc = bi.accel.precalc.at(ss);
-        if (precalc.double_lits.empty()) {
+        unsigned ma_len = precalc.ma_info.len1 + precalc.ma_info.len2;
+        if (ma_len >= MULTIACCEL_MIN_LEN) {
+            build.ma_len1 = precalc.ma_info.len1;
+            build.stop1 = precalc.ma_info.cr;
+            build.offset = precalc.ma_info.offset;
+        } else if (precalc.double_lits.empty()) {
             build.stop1 = precalc.single_cr;
             build.offset = precalc.single_offset;
         } else {
@@ -534,7 +545,7 @@ void filterAccelStates(NGHolder &g, const map<u32, NFAVertex> &tops,
 }
 
 static
-bool containsBadSubset(const meteor_accel_info &accel,
+bool containsBadSubset(const limex_accel_info &accel,
                        const NFAStateSet &state_set, const u32 effective_sds) {
     NFAStateSet subset(state_set.size());
     for (size_t j = state_set.find_first(); j != state_set.npos;
@@ -559,7 +570,8 @@ void doAccelCommon(NGHolder &g,
                    ue2::unordered_map<NFAVertex, AccelScheme> &accel_map,
                    const ue2::unordered_map<NFAVertex, u32> &state_ids,
                    const map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
-                   const u32 num_states, meteor_accel_info *accel) {
+                   const u32 num_states, limex_accel_info *accel,
+                   const CompileContext &cc) {
     vector<CharReach> refined_cr = reduced_cr(g, br_cyclic);
 
     vector<NFAVertex> astates;
@@ -607,10 +619,22 @@ void doAccelCommon(NGHolder &g,
 
         DEBUG_PRINTF("accel %u ok with offset %u\n", i, as.offset);
 
+        // try multibyte acceleration first
+        MultibyteAccelInfo mai = nfaCheckMultiAccel(g, states, cc);
+
         precalcAccel &pa = accel->precalc[state_set];
+        useful |= state_set;
+
+        // if we successfully built a multibyte accel scheme, use that
+        if (mai.type != MultibyteAccelInfo::MAT_NONE) {
+            pa.ma_info = mai;
+
+            DEBUG_PRINTF("multibyte acceleration!\n");
+            continue;
+        }
+
         pa.single_offset = as.offset;
         pa.single_cr = as.cr;
-        useful |= state_set;
 
         if (states.size() == 1) {
             DoubleAccelInfo b = findBestDoubleAccelInfo(g, states.front());
@@ -660,7 +684,7 @@ void fillAccelInfo(build_info &bi) {
     filterAccelStates(bi.h, bi.tops, &bi.accel.accel_map);
     assert(bi.accel.accel_map.size() <= NFA_MAX_ACCEL_STATES);
     doAccelCommon(bi.h, bi.accel.accel_map, bi.state_ids, bi.br_cyclic,
-                  bi.num_states, &bi.accel);
+                  bi.num_states, &bi.accel, bi.cc);
 }
 
 /** The AccelAux structure has large alignment specified, and this makes some
@@ -672,7 +696,7 @@ static
 void buildAccel(const build_info &args, NFAStateSet &accelMask,
                 NFAStateSet &accelFriendsMask, AccelAuxVector &auxvec,
                 vector<u8> &accelTable) {
-    const meteor_accel_info &accel = args.accel;
+    const limex_accel_info &accel = args.accel;
 
     // Init, all zeroes.
     accelMask.resize(args.num_states);
@@ -737,8 +761,16 @@ void buildAccel(const build_info &args, NFAStateSet &accelMask,
 
         if (contains(accel.precalc, states)) {
             const precalcAccel &precalc = accel.precalc.at(states);
-            ainfo.single_offset = precalc.single_offset;
-            ainfo.single_stops = precalc.single_cr;
+            if (precalc.ma_info.type != MultibyteAccelInfo::MAT_NONE) {
+                ainfo.ma_len1 = precalc.ma_info.len1;
+                ainfo.ma_len2 = precalc.ma_info.len2;
+                ainfo.multiaccel_offset = precalc.ma_info.offset;
+                ainfo.multiaccel_stops = precalc.ma_info.cr;
+                ainfo.ma_type = precalc.ma_info.type;
+            } else {
+                ainfo.single_offset = precalc.single_offset;
+                ainfo.single_stops = precalc.single_cr;
+            }
         }
 
         buildAccelAux(ainfo, &aux);

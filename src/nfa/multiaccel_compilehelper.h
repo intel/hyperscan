@@ -26,39 +26,50 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ACCEL_COMPILE_H
-#define ACCEL_COMPILE_H
+#ifndef MULTIACCELCOMPILE_H_
+#define MULTIACCELCOMPILE_H_
 
 #include "ue2common.h"
-#include "util/charreach.h"
-#include "util/ue2_containers.h"
+
 #include "nfagraph/ng_limex_accel.h"
 
-union AccelAux;
+#include <vector>
 
 namespace ue2 {
 
-struct AccelInfo {
-    AccelInfo() : single_offset(0U), double_offset(0U),
-                  single_stops(CharReach::dot()),
-                  multiaccel_offset(0), ma_len1(0), ma_len2(0),
-                  ma_type(MultibyteAccelInfo::MAT_NONE) {}
-    u32 single_offset; /**< offset correction to apply to single schemes */
-    u32 double_offset; /**< offset correction to apply to double schemes */
-    CharReach double_stop1;  /**<  single-byte accel stop literals for double
-                            * schemes */
-    flat_set<std::pair<u8, u8>> double_stop2; /**< double-byte accel stop
-                                               * literals */
-    CharReach single_stops; /**< escapes for single byte acceleration */
-    u32 multiaccel_offset; /**< offset correction to apply to multibyte schemes */
-    CharReach multiaccel_stops; /**< escapes for multibyte acceleration */
-    u32 ma_len1; /**< multiaccel len1 */
-    u32 ma_len2; /**< multiaccel len2 */
-    MultibyteAccelInfo::multiaccel_type ma_type; /**< multiaccel type */
+/* accel scheme state machine */
+enum accel_scheme_state {
+    STATE_FIRST_RUN,
+    STATE_SECOND_RUN,
+    STATE_WAITING_FOR_GRAB,
+    STATE_FIRST_TAIL,
+    STATE_SECOND_TAIL,
+    STATE_STOPPED,
+    STATE_INVALID
 };
 
-bool buildAccelAux(const AccelInfo &info, AccelAux *aux);
+struct accel_data {
+    MultibyteAccelInfo::multiaccel_type type = MultibyteAccelInfo::MAT_NONE;
+    accel_scheme_state state = STATE_INVALID;
+    unsigned len1 = 0; /* length of first run */
+    unsigned len2 = 0; /* length of second run, if present */
+    unsigned tlen1 = 0; /* first tail length */
+    unsigned tlen2 = 0; /* second tail length */
+};
 
-} // namespace ue2
+class MultiaccelCompileHelper {
+private:
+    const CharReach &cr;
+    u32 offset;
+    std::vector<accel_data> accels;
+    unsigned max_len;
+public:
+    MultiaccelCompileHelper(const CharReach &cr, u32 off, unsigned max_len);
+    bool canAdvance();
+    MultibyteAccelInfo getBestScheme();
+    void advance(const ue2::CharReach &cr);
+};
 
-#endif
+}; // namespace
+
+#endif /* MULTIACCELCOMPILE_H_ */
