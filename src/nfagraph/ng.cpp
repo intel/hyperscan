@@ -402,6 +402,13 @@ bool NG::addGraph(NGWrapper &w) {
 
     dumpDotWrapper(w, "03_early", cc.grey);
 
+    // Perform a reduction pass to merge sibling character classes together.
+    if (cc.grey.performGraphSimplification) {
+        removeRedundancy(w, som);
+    }
+
+    dumpDotWrapper(w, "04_reduced", cc.grey);
+
     // If we've got some literals that span the graph from start to accept, we
     // can split them off into Rose from here.
     if (!som) {
