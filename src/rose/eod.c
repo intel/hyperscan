@@ -28,6 +28,7 @@
 
 #include "catchup.h"
 #include "match.h"
+#include "program_runtime.h"
 #include "rose.h"
 #include "util/fatbit.h"
 
@@ -107,43 +108,18 @@ hwlmcb_rv_t roseEodRunMatcher(const struct RoseEngine *t, u64a offset,
 }
 
 static rose_inline
-int roseEodRunIterator(const struct RoseEngine *t, u8 *state, u64a offset,
+int roseEodRunIterator(const struct RoseEngine *t, u64a offset,
                        struct hs_scratch *scratch) {
-    if (!t->eodIterOffset) {
+    if (!t->eodIterProgramOffset) {
         return MO_CONTINUE_MATCHING;
     }
 
-    DEBUG_PRINTF("running eod iterator at offset %u\n", t->eodIterOffset);
+    DEBUG_PRINTF("running eod program at offset %u\n", t->eodIterProgramOffset);
 
-    const u32 *programTable = getByOffset(t, t->eodProgramTableOffset);
-    const struct mmbit_sparse_iter *it = getByOffset(t, t->eodIterOffset);
-    assert(ISALIGNED(programTable));
-    assert(ISALIGNED(it));
-
-    // Sparse iterator state was allocated earlier
-    struct mmbit_sparse_state *s = scratch->sparse_iter_state;
-    struct fatbit *handled_roles = scratch->handled_roles;
-
-    const u32 numStates = t->rolesWithStateCount;
-
-    void *role_state = getRoleState(state);
-    u32 idx = 0;
-    u32 i = mmbit_sparse_iter_begin(role_state, numStates, &idx, it, s);
-
-    fatbit_clear(handled_roles);
-
-    int work_done = 0; // not read from in this path.
-
-    for (; i != MMB_INVALID;
-           i = mmbit_sparse_iter_next(role_state, numStates, i, &idx, it, s)) {
-        DEBUG_PRINTF("pred state %u (iter idx=%u) is on\n", i, idx);
-        u32 programOffset = programTable[idx];
-        u64a som = 0;
-        if (roseRunRoleProgram(t, programOffset, offset, &som,
-                               &(scratch->tctxt),
-                               &work_done) == HWLM_TERMINATE_MATCHING) {
-            return MO_HALT_MATCHING;
-        }
+    int work_done = 0;
+    if (roseRunProgram(t, t->eodIterProgramOffset, offset, &(scratch->tctxt), 0,
+                       &work_done) == HWLM_TERMINATE_MATCHING) {
+        return MO_HALT_MATCHING;
     }
 
     return MO_CONTINUE_MATCHING;
@@ -236,6 +212,27 @@ void roseCheckEodSuffixes(const struct RoseEngine *t, u8 *state, u64a offset,
     }
 }
 
+static rose_inline
+int roseRunEodProgram(const struct RoseEngine *t, u64a offset,
+                      struct hs_scratch *scratch) {
+    if (!t->eodProgramOffset) {
+        return MO_CONTINUE_MATCHING;
+    }
+
+    DEBUG_PRINTF("running eod program at %u\n", t->eodProgramOffset);
+
+    // There should be no pending delayed literals.
+    assert(!scratch->tctxt.filledDelayedSlots);
+
+    int work_done = 0;
+    if (roseRunProgram(t, t->eodProgramOffset, offset, &scratch->tctxt, 0,
+                       &work_done) == HWLM_TERMINATE_MATCHING) {
+        return MO_HALT_MATCHING;
+    }
+
+    return MO_CONTINUE_MATCHING;
+}
+
 static really_inline
 void roseEodExec_i(const struct RoseEngine *t, u8 *state, u64a offset,
                    struct hs_scratch *scratch, const char is_streaming) {
@@ -244,31 +241,20 @@ void roseEodExec_i(const struct RoseEngine *t, u8 *state, u64a offset,
     assert(!scratch->core_info.buf || !scratch->core_info.hbuf);
     assert(!can_stop_matching(scratch));
 
-    // Fire the special EOD event literal.
-    if (t->hasEodEventLiteral) {
-        DEBUG_PRINTF("firing eod event id %u at offset %llu\n",
-                     t->eodLiteralId, offset);
-        const struct core_info *ci = &scratch->core_info;
-        size_t len = ci->buf ? ci->len : ci->hlen;
-        assert(len || !ci->buf); /* len may be 0 if no history is required
-                                  * (bounds checks only can lead to this) */
-
-        roseRunEvent(len, t->eodLiteralId, &scratch->tctxt);
-        if (can_stop_matching(scratch)) {
-            DEBUG_PRINTF("user told us to stop\n");
-            return;
-        }
+    // Run the unconditional EOD program.
+    if (roseRunEodProgram(t, offset, scratch) == MO_HALT_MATCHING) {
+        return;
     }
 
     roseCheckNfaEod(t, state, scratch, offset, is_streaming);
 
-    if (!t->eodIterOffset && !t->ematcherOffset) {
+    if (!t->eodIterProgramOffset && !t->ematcherOffset) {
         DEBUG_PRINTF("no eod accepts\n");
         return;
     }
 
     // Handle pending EOD reports.
-    int itrv = roseEodRunIterator(t, state, offset, scratch);
+    int itrv = roseEodRunIterator(t, offset, scratch);
     if (itrv == MO_HALT_MATCHING) {
         return;
     }
@@ -288,7 +274,7 @@ void roseEodExec_i(const struct RoseEngine *t, u8 *state, u64a offset,
         cleanupAfterEodMatcher(t, state, offset, scratch);
 
         // Fire any new EOD reports.
-        roseEodRunIterator(t, state, offset, scratch);
+        roseEodRunIterator(t, offset, scratch);
 
         roseCheckEodSuffixes(t, state, offset, scratch);
     }

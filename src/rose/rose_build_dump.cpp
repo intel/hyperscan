@@ -34,7 +34,6 @@
 #include "rose_build_impl.h"
 #include "rose/rose_dump.h"
 #include "rose_internal.h"
-#include "rose_program.h"
 #include "ue2common.h"
 #include "nfa/nfa_internal.h"
 #include "nfagraph/ng_dump.h"

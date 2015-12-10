@@ -55,7 +55,6 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctx);
 hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
                                      void *ctx);
 int roseAnchoredCallback(u64a end, u32 id, void *ctx);
-void roseRunEvent(size_t end, u32 id, struct RoseContext *tctxt);
 
 /* Common code, used all over Rose runtime */
 
@@ -298,9 +297,5 @@ void roseFlushLastByteHistory(const struct RoseEngine *t, u8 *state,
     mmbit_sparse_iter_unset(role_state, numStates, it,
                             scratch->sparse_iter_state);
 }
-
-hwlmcb_rv_t roseRunRoleProgram(const struct RoseEngine *t, u32 programOffset,
-                               u64a end, u64a *som, struct RoseContext *tctxt,
-                               int *work_done);
 
 #endif

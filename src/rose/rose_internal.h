@@ -76,37 +76,14 @@ ReportID literalToReport(u32 id) {
 /** \brief Structure representing a literal. */
 struct RoseLiteral {
     /**
-     * \brief Role program to run unconditionally when this literal is seen.
+     * \brief Program to run when this literal is seen.
      *
      * Offset is relative to RoseEngine, or zero for no program.
      */
-    u32 rootProgramOffset;
-
-    /**
-     * \brief Offset of sparse iterator (mmbit_sparse_iter pointer) over
-     * predecessor states.
-     *
-     * Offset is relative to RoseEngine, set to ROSE_OFFSET_INVALID for no
-     * iterator.
-     */
-    u32 iterOffset;
-
-    /**
-     * \brief Table of role programs to run when triggered by the sparse
-     * iterator, indexed by dense sparse iter index.
-     *
-     * Offset is relative to RoseEngine, zero for no programs.
-     */
-    u32 iterProgramOffset;
+    u32 programOffset;
 
     /** \brief Bitset of groups that cause this literal to fire. */
     rose_group groups;
-
-    /**
-     * \brief The minimum depth of this literal in the Rose graph (for depths
-     * greater than 1).
-     */
-    u8 minDepth;
 
     /**
      * \brief True if this literal switches off its group behind it when it
@@ -382,7 +359,6 @@ struct RoseEngine {
     u8  noFloatingRoots; /* only need to run the anchored table if something
                           * matched in the anchored table */
     u8  requiresEodCheck; /* stuff happens at eod time */
-    u8  hasEodEventLiteral; // fires a ROSE_EVENT literal at eod time.
     u8  hasOutfixesInSmallBlock; /**< has at least one outfix that must run even
                                     in small block scans. */
     u8  runtimeImpl; /**< can we just run the floating table or a single outfix?
@@ -448,8 +424,9 @@ struct RoseEngine {
     u32 lookaroundReachOffset; /**< base of lookaround reach bitvectors (32
                                 * bytes each) */
 
-    u32 eodIterOffset; // or 0 if no eod iterator
-    u32 eodProgramTableOffset;
+    u32 eodProgramOffset; //!< Unconditional EOD program, otherwise 0.
+    u32 eodIterProgramOffset; // or 0 if no eod iterator program
+    u32 eodIterOffset; // offset to EOD sparse iter or 0 if none
 
     u32 lastByteHistoryIterOffset; // if non-zero
 
@@ -512,7 +489,6 @@ struct RoseEngine {
     u32 somRevOffsetOffset; /**< offset to array of offsets to som rev nfas */
     u32 group_weak_end; /* end of weak groups, debugging only */
     u32 floatingStreamState; // size in bytes
-    u32 eodLiteralId; // literal ID for eod ROSE_EVENT if used, otherwise 0.
 
     struct scatter_full_plan state_init;
 };

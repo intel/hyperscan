@@ -467,6 +467,7 @@ set (hs_exec_SRCS
     src/rose/match.h
     src/rose/match.c
     src/rose/miracle.h
+    src/rose/program_runtime.h
     src/rose/runtime.h
     src/rose/rose.h
     src/rose/rose_internal.h

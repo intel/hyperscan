@@ -45,6 +45,39 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
                      RoseCallback callback, RoseCallbackSom som_callback,
                      void *context);
 
+static really_inline
+int roseBlockHasEodWork(const struct RoseEngine *t,
+                        struct hs_scratch *scratch) {
+    if (t->ematcherOffset) {
+        DEBUG_PRINTF("eod matcher to run\n");
+        return 1;
+    }
+
+    if (t->eodProgramOffset) {
+        DEBUG_PRINTF("has eod program\n");
+        return 1;
+    }
+
+    void *state = scratch->core_info.state;
+    if (mmbit_any(getActiveLeafArray(t, state), t->activeArrayCount)) {
+        DEBUG_PRINTF("active outfix/suffix engines\n");
+        return 1;
+    }
+
+    if (t->eodIterOffset) {
+        u32 idx;
+        const struct mmbit_sparse_iter *it = getByOffset(t, t->eodIterOffset);
+        struct mmbit_sparse_state *s = scratch->sparse_iter_state;
+        if (mmbit_sparse_iter_begin(getRoleState(state), t->rolesWithStateCount,
+                                    &idx, it, s) != MMB_INVALID) {
+            DEBUG_PRINTF("eod iter has states on\n");
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 /* assumes core_info in scratch has been init to point to data */
 static really_inline
 void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch,
@@ -77,19 +110,8 @@ void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch,
         return;
     }
 
-    struct mmbit_sparse_state *s = scratch->sparse_iter_state;
-    const u32 numStates = t->rolesWithStateCount;
-    u8 *state = (u8 *)scratch->core_info.state;
-    void *role_state = getRoleState(state);
-    u32 idx = 0;
-    const struct mmbit_sparse_iter *it
-        = (const void *)((const u8 *)t + t->eodIterOffset);
-
-    if (!t->ematcherOffset && !t->hasEodEventLiteral
-        && !mmbit_any(getActiveLeafArray(t, state), t->activeArrayCount)
-        && (!t->eodIterOffset
-            || mmbit_sparse_iter_begin(role_state, numStates, &idx, it, s)
-            == MMB_INVALID)) {
+    if (!roseBlockHasEodWork(t, scratch)) {
+        DEBUG_PRINTF("no eod work\n");
         return;
     }
 

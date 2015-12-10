@@ -274,6 +274,13 @@ void allocateFinalLiteralId(RoseBuildImpl &tbi) {
             continue;
         }
 
+        // The special EOD event literal has its own program and does not need
+        // a real literal ID.
+        if (i == tbi.eod_event_literal_id) {
+            assert(tbi.eod_event_literal_id != MO_INVALID_IDX);
+            continue;
+        }
+
         const rose_literal_info &info = tbi.literal_info[i];
         if (info.requires_benefits) {
             assert(!tbi.isDelayed(i));

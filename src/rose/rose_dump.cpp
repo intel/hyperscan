@@ -131,12 +131,6 @@ size_t literalsWithPredicate(const RoseEngine *t, Predicate pred) {
 }
 
 static
-size_t literalsWithDepth(const RoseEngine *t, u8 depth) {
-    return literalsWithPredicate(
-        t, [&depth](const RoseLiteral &l) { return l.minDepth == depth; });
-}
-
-static
 size_t literalsInGroups(const RoseEngine *t, u32 from, u32 to) {
     rose_group mask = ~((1ULL << from) - 1);
     if (to < 64) {
@@ -195,7 +189,7 @@ void dumpLookaround(ofstream &os, const RoseEngine *t,
     }
 
 static
-void dumpRoleProgram(ofstream &os, const RoseEngine *t, const char *pc) {
+void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
     const char *pc_base = pc;
     for (;;) {
         u8 code = *(const u8 *)pc;
@@ -206,6 +200,12 @@ void dumpRoleProgram(ofstream &os, const RoseEngine *t, const char *pc) {
                 os << "    groups 0x" << std::hex << ri->groups << std::dec
                    << endl;
                 os << "    done_jump +" << ri->done_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_DEPTH) {
+                os << "    min_depth " << u32{ri->min_depth} << endl;
+                os << "    fail_jump +" << ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -309,6 +309,21 @@ void dumpRoleProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(SPARSE_ITER_BEGIN) {
+                os << "    iter_offset " << ri->iter_offset << endl;
+                os << "    jump_table " << ri->jump_table << endl;
+                os << "    fail_jump +" << ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(SPARSE_ITER_NEXT) {
+                os << "    iter_offset " << ri->iter_offset << endl;
+                os << "    jump_table " << ri->jump_table << endl;
+                os << "    state " << ri->state << endl;
+                os << "    fail_jump +" << ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(END) { return; }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -324,30 +339,6 @@ void dumpRoleProgram(ofstream &os, const RoseEngine *t, const char *pc) {
 #undef PROGRAM_NEXT_INSTRUCTION
 
 static
-void dumpSparseIterPrograms(ofstream &os, const RoseEngine *t, u32 iterOffset,
-                            u32 programTableOffset) {
-    const auto *it =
-        (const mmbit_sparse_iter *)loadFromByteCodeOffset(t, iterOffset);
-    const u32 *programTable =
-        (const u32 *)loadFromByteCodeOffset(t, programTableOffset);
-
-    // Construct a full multibit.
-    const u32 total_bits = t->rolesWithStateCount;
-    const vector<u8> bits(mmbit_size(total_bits), u8{0xff});
-
-    struct mmbit_sparse_state s[MAX_SPARSE_ITER_STATES];
-    u32 idx = 0;
-    for (u32 i = mmbit_sparse_iter_begin(bits.data(), total_bits, &idx, it, s);
-         i != MMB_INVALID;
-         i = mmbit_sparse_iter_next(bits.data(), total_bits, i, &idx, it, s)) {
-        u32 programOffset = programTable[idx];
-        os << "Sparse Iter Program " << idx << " triggered by state " << i
-           << " @ " << programOffset << ":" << endl;
-        dumpRoleProgram(os, t, (const char *)t + programOffset);
-    }
-}
-
-static
 void dumpRoseLitPrograms(const RoseEngine *t, const string &filename) {
     ofstream os(filename);
 
@@ -359,18 +350,11 @@ void dumpRoseLitPrograms(const RoseEngine *t, const string &filename) {
         os << "Literal " << i << endl;
         os << "---------------" << endl;
 
-        if (lit->rootProgramOffset) {
-            os << "Root Program @ " << lit->rootProgramOffset << ":" << endl;
-            dumpRoleProgram(os, t, base + lit->rootProgramOffset);
+        if (lit->programOffset) {
+            os << "Program @ " << lit->programOffset << ":" << endl;
+            dumpProgram(os, t, base + lit->programOffset);
         } else {
-            os << "<No Root Program>" << endl;
-        }
-
-        if (lit->iterOffset != ROSE_OFFSET_INVALID) {
-            dumpSparseIterPrograms(os, t, lit->iterOffset,
-                                   lit->iterProgramOffset);
-        } else {
-            os << "<No Sparse Iter Programs>" << endl;
+            os << "<No Program>" << endl;
         }
 
         os << endl;
@@ -382,12 +366,23 @@ void dumpRoseLitPrograms(const RoseEngine *t, const string &filename) {
 static
 void dumpRoseEodPrograms(const RoseEngine *t, const string &filename) {
     ofstream os(filename);
+    const char *base = (const char *)t;
 
-    if (t->eodIterOffset) {
-        dumpSparseIterPrograms(os, t, t->eodIterOffset,
-                               t->eodProgramTableOffset);
+    os << "Unconditional EOD Program:" << endl;
+
+    if (t->eodProgramOffset) {
+        dumpProgram(os, t, base + t->eodProgramOffset);
+        os << endl;
     } else {
-        os << "<No EOD Iter Programs>" << endl;
+        os << "<No EOD Program>" << endl;
+    }
+
+    os << "Sparse Iter EOD Program:" << endl;
+
+    if (t->eodIterProgramOffset) {
+        dumpProgram(os, t, base + t->eodIterProgramOffset);
+    } else {
+        os << "<No EOD Iter Program>" << endl;
     }
 
     os.close();
@@ -766,32 +761,14 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
             literalsWithPredicate(
                 t, [](const RoseLiteral &l) { return l.squashesGroup != 0; }));
     fprintf(f, " - with benefits     : %u\n", t->nonbenefits_base_id);
-    fprintf(f, " - with root program : %zu\n",
-            literalsWithPredicate(t, [](const RoseLiteral &l) {
-                return l.rootProgramOffset != 0;
-            }));
-    fprintf(f, " - with sparse iter  : %zu\n",
-            literalsWithPredicate(t, [](const RoseLiteral &l) {
-                return l.iterOffset != ROSE_OFFSET_INVALID;
-            }));
+    fprintf(f, " - with program      : %zu\n",
+            literalsWithPredicate(
+                t, [](const RoseLiteral &l) { return l.programOffset != 0; }));
     fprintf(f, " - in groups ::\n");
     fprintf(f, "   + weak            : %zu\n",
             literalsInGroups(t, 0, t->group_weak_end));
     fprintf(f, "   + general         : %zu\n",
             literalsInGroups(t, t->group_weak_end, sizeof(u64a) * 8));
-
-    u32 depth1 = literalsWithDepth(t, 1);
-    u32 depth2 = literalsWithDepth(t, 2);
-    u32 depth3 = literalsWithDepth(t, 3);
-    u32 depth4 = literalsWithDepth(t, 4);
-    u32 depthN = t->literalCount - (depth1 + depth2 + depth3 + depth4);
-
-    fprintf(f, "\nLiteral depths:\n");
-    fprintf(f, "  minimum depth 1    : %u\n", depth1);
-    fprintf(f, "  minimum depth 2    : %u\n", depth2);
-    fprintf(f, "  minimum depth 3    : %u\n", depth3);
-    fprintf(f, "  minimum depth 4    : %u\n", depth4);
-    fprintf(f, "  minimum depth >4   : %u\n", depthN);
 
     fprintf(f, "\n");
     fprintf(f, "  minWidth                    : %u\n", t->minWidth);
@@ -840,7 +817,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U8(t, hasFloatingDirectReports);
     DUMP_U8(t, noFloatingRoots);
     DUMP_U8(t, requiresEodCheck);
-    DUMP_U8(t, hasEodEventLiteral);
     DUMP_U8(t, hasOutfixesInSmallBlock);
     DUMP_U8(t, runtimeImpl);
     DUMP_U8(t, mpvTriggeredByLeaf);
@@ -882,8 +858,9 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, roseCount);
     DUMP_U32(t, lookaroundTableOffset);
     DUMP_U32(t, lookaroundReachOffset);
+    DUMP_U32(t, eodProgramOffset);
+    DUMP_U32(t, eodIterProgramOffset);
     DUMP_U32(t, eodIterOffset);
-    DUMP_U32(t, eodProgramTableOffset);
     DUMP_U32(t, lastByteHistoryIterOffset);
     DUMP_U32(t, minWidth);
     DUMP_U32(t, minWidthExcludingBoundaries);
@@ -940,7 +917,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, somRevOffsetOffset);
     DUMP_U32(t, group_weak_end);
     DUMP_U32(t, floatingStreamState);
-    DUMP_U32(t, eodLiteralId);
     fprintf(f, "}\n");
     fprintf(f, "sizeof(RoseEngine) = %zu\n", sizeof(RoseEngine));
 }

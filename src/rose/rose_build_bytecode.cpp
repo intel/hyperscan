@@ -170,6 +170,7 @@ public:
 
     const void *get() const {
         switch (code()) {
+        case ROSE_INSTR_CHECK_DEPTH: return &u.checkDepth;
         case ROSE_INSTR_CHECK_ONLY_EOD: return &u.checkOnlyEod;
         case ROSE_INSTR_CHECK_BOUNDS: return &u.checkBounds;
         case ROSE_INSTR_CHECK_NOT_HANDLED: return &u.checkNotHandled;
@@ -188,6 +189,8 @@ public:
         case ROSE_INSTR_REPORT_SOM_KNOWN: return &u.reportSomKnown;
         case ROSE_INSTR_SET_STATE: return &u.setState;
         case ROSE_INSTR_SET_GROUPS: return &u.setGroups;
+        case ROSE_INSTR_SPARSE_ITER_BEGIN: return &u.sparseIterBegin;
+        case ROSE_INSTR_SPARSE_ITER_NEXT: return &u.sparseIterNext;
         case ROSE_INSTR_END: return &u.end;
         }
         assert(0);
@@ -196,6 +199,7 @@ public:
 
     size_t length() const {
         switch (code()) {
+        case ROSE_INSTR_CHECK_DEPTH: return sizeof(u.checkDepth);
         case ROSE_INSTR_CHECK_ONLY_EOD: return sizeof(u.checkOnlyEod);
         case ROSE_INSTR_CHECK_BOUNDS: return sizeof(u.checkBounds);
         case ROSE_INSTR_CHECK_NOT_HANDLED: return sizeof(u.checkNotHandled);
@@ -214,12 +218,15 @@ public:
         case ROSE_INSTR_REPORT_SOM_KNOWN: return sizeof(u.reportSomKnown);
         case ROSE_INSTR_SET_STATE: return sizeof(u.setState);
         case ROSE_INSTR_SET_GROUPS: return sizeof(u.setGroups);
+        case ROSE_INSTR_SPARSE_ITER_BEGIN: return sizeof(u.sparseIterBegin);
+        case ROSE_INSTR_SPARSE_ITER_NEXT: return sizeof(u.sparseIterNext);
         case ROSE_INSTR_END: return sizeof(u.end);
         }
         return 0;
     }
 
     union {
+        ROSE_STRUCT_CHECK_DEPTH checkDepth;
         ROSE_STRUCT_CHECK_ONLY_EOD checkOnlyEod;
         ROSE_STRUCT_CHECK_BOUNDS checkBounds;
         ROSE_STRUCT_CHECK_NOT_HANDLED checkNotHandled;
@@ -238,6 +245,8 @@ public:
         ROSE_STRUCT_REPORT_SOM_KNOWN reportSomKnown;
         ROSE_STRUCT_SET_STATE setState;
         ROSE_STRUCT_SET_GROUPS setGroups;
+        ROSE_STRUCT_SPARSE_ITER_BEGIN sparseIterBegin;
+        ROSE_STRUCT_SPARSE_ITER_NEXT sparseIterNext;
         ROSE_STRUCT_END end;
     } u;
 };
@@ -2565,7 +2574,7 @@ getLiteralInfoByFinalId(const RoseBuildImpl &build, u32 final_id) {
  */
 static
 vector<RoseInstruction>
-flattenRoleProgram(const vector<vector<RoseInstruction>> &programs) {
+flattenProgram(const vector<vector<RoseInstruction>> &programs) {
     vector<RoseInstruction> out;
 
     vector<u32> offsets; // offset of each instruction (bytes)
@@ -2601,6 +2610,10 @@ flattenRoleProgram(const vector<vector<RoseInstruction>> &programs) {
             assert(targets[i] > offsets[i]); // jumps always progress
             ri.u.anchoredDelay.done_jump = targets[i] - offsets[i];
             break;
+        case ROSE_INSTR_CHECK_DEPTH:
+            assert(targets[i] > offsets[i]);
+            ri.u.checkDepth.fail_jump = targets[i] - offsets[i];
+            break;
         case ROSE_INSTR_CHECK_ONLY_EOD:
             assert(targets[i] > offsets[i]);
             ri.u.checkOnlyEod.fail_jump = targets[i] - offsets[i];
@@ -2630,9 +2643,13 @@ flattenRoleProgram(const vector<vector<RoseInstruction>> &programs) {
 }
 
 static
-u32 writeRoleProgram(build_context &bc, vector<RoseInstruction> &program) {
-    DEBUG_PRINTF("writing %zu instructions\n", program.size());
+u32 writeProgram(build_context &bc, vector<RoseInstruction> &program) {
+    if (program.empty()) {
+        DEBUG_PRINTF("no program\n");
+        return 0;
+    }
 
+    DEBUG_PRINTF("writing %zu instructions\n", program.size());
     u32 programOffset = 0;
     for (const auto &ri : program) {
         u32 offset =
@@ -2696,32 +2713,6 @@ bool hasEodAnchors(const RoseBuildImpl &tbi, const build_context &bc,
     return false;
 }
 
-/* creates (and adds to rose) a sparse iterator visiting pred states/roles,
- * returns a pair:
- * - the offset of the itermap
- * - the offset for the sparse iterator.
- */
-static
-pair<u32, u32> addPredSparseIter(build_context &bc,
-                                 const map<u32, u32> &predPrograms) {
-    vector<u32> keys;
-    vector<u32> programTable;
-    for (const auto &elem : predPrograms) {
-        keys.push_back(elem.first);
-        programTable.push_back(elem.second);
-    }
-
-    vector<mmbit_sparse_iter> iter;
-    mmbBuildSparseIterator(iter, keys, bc.numStates);
-    assert(!iter.empty());
-    DEBUG_PRINTF("iter size = %zu\n", iter.size());
-
-    u32 iterOffset = addIteratorToTable(bc, iter);
-    u32 programTableOffset =
-        add_to_engine_blob(bc, begin(programTable), end(programTable));
-    return make_pair(programTableOffset, iterOffset);
-}
-
 static
 void fillLookaroundTables(char *look_base, char *reach_base,
                           const vector<LookEntry> &look_vec) {
@@ -2770,7 +2761,6 @@ void createLiteralEntry(const RoseBuildImpl &tbi, build_context &bc,
      * literal entry */
     const auto &lit_infos = getLiteralInfoByFinalId(tbi, final_id);
     const rose_literal_info &arb_lit_info = **lit_infos.begin();
-    const auto &vertices = arb_lit_info.vertices;
 
     literalTable.push_back(RoseLiteral());
     RoseLiteral &tl = literalTable.back();
@@ -2783,11 +2773,6 @@ void createLiteralEntry(const RoseBuildImpl &tbi, build_context &bc,
 
     assert(tl.groups || tbi.literals.right.at(literalId).table == ROSE_ANCHORED
            || tbi.literals.right.at(literalId).table == ROSE_EVENT);
-
-    // Minimum depth based on this literal's roles.
-    tl.minDepth = calcMinDepth(bc.depths, vertices);
-
-    DEBUG_PRINTF("lit %u: role minDepth=%u\n", final_id, tl.minDepth);
 
     // If this literal squashes its group behind it, store that data too
     tl.squashesGroup = arb_lit_info.squash_group;
@@ -3150,8 +3135,8 @@ void makeRoleCheckBounds(const RoseBuildImpl &build, RoseVertex v,
 }
 
 static
-vector<RoseInstruction> makeRoleProgram(RoseBuildImpl &build, build_context &bc,
-                                        const RoseEdge &e) {
+vector<RoseInstruction> makeProgram(RoseBuildImpl &build, build_context &bc,
+                                    const RoseEdge &e) {
     const RoseGraph &g = build.g;
     auto v = target(e, g);
 
@@ -3183,69 +3168,6 @@ vector<RoseInstruction> makeRoleProgram(RoseBuildImpl &build, build_context &bc,
     makeRoleGroups(g[v].groups, program);
 
     return program;
-}
-
-static
-void findRootEdges(const RoseBuildImpl &build, RoseVertex src,
-                   map<u32, flat_set<RoseEdge>> &root_edges_map) {
-    const auto &g = build.g;
-    for (const auto &e : out_edges_range(src, g)) {
-        const auto &v = target(e, g);
-        if (build.hasDirectFinalId(v)) {
-            continue; // Skip direct reports.
-        }
-        for (auto lit_id : g[v].literals) {
-            assert(lit_id < build.literal_info.size());
-            u32 final_id = build.literal_info.at(lit_id).final_id;
-            if (final_id != MO_INVALID_IDX) {
-                root_edges_map[final_id].insert(e);
-            }
-        }
-    }
-}
-
-static
-void buildRootRolePrograms(RoseBuildImpl &build, build_context &bc,
-                           vector<RoseLiteral> &literalTable) {
-    const auto &g = build.g;
-
-    map<u32, flat_set<RoseEdge>> root_edges_map; // lit id -> root edges
-    findRootEdges(build, build.root, root_edges_map);
-    findRootEdges(build, build.anchored_root, root_edges_map);
-
-    for (u32 id = 0; id < literalTable.size(); id++) {
-        const auto &root_edges = root_edges_map[id];
-        DEBUG_PRINTF("lit %u has %zu root edges\n", id, root_edges.size());
-
-        // Sort edges by (source, target) vertex indices to ensure
-        // deterministic program construction.
-        vector<RoseEdge> ordered_edges(begin(root_edges), end(root_edges));
-        sort(begin(ordered_edges), end(ordered_edges),
-             [&g](const RoseEdge &a, const RoseEdge &b) {
-                 return tie(g[source(a, g)].idx, g[target(a, g)].idx) <
-                        tie(g[source(b, g)].idx, g[target(b, g)].idx);
-             });
-
-        vector<vector<RoseInstruction>> root_prog;
-        for (const auto &e : ordered_edges) {
-            DEBUG_PRINTF("edge (%zu,%zu)\n", g[source(e, g)].idx,
-                         g[target(e, g)].idx);
-            auto role_prog = makeRoleProgram(build, bc, e);
-            if (role_prog.empty()) {
-                continue;
-            }
-            root_prog.push_back(role_prog);
-        }
-
-        RoseLiteral &tl = literalTable[id];
-        if (root_prog.empty()) {
-            tl.rootProgramOffset = 0;
-            continue;
-        }
-
-        auto final_program = flattenRoleProgram(root_prog);
-        tl.rootProgramOffset = writeRoleProgram(bc, final_program);
-    }
 }
 
 static
@@ -3399,13 +3321,12 @@ void makeRoleCheckNotHandled(build_context &bc, RoseVertex v,
 }
 
 static
-vector<RoseInstruction> makeSparseIterProgram(RoseBuildImpl &build,
-                                              build_context &bc,
-                                              const RoseEdge &e) {
+vector<RoseInstruction> makePredProgram(RoseBuildImpl &build, build_context &bc,
+                                        const RoseEdge &e) {
     const RoseGraph &g = build.g;
     const RoseVertex v = target(e, g);
 
-    auto program = makeRoleProgram(build, bc, e);
+    auto program = makeProgram(build, bc, e);
 
     if (hasGreaterInDegree(1, v, g)) {
         // Only necessary when there is more than one pred.
@@ -3415,75 +3336,215 @@ vector<RoseInstruction> makeSparseIterProgram(RoseBuildImpl &build,
     return program;
 }
 
+/**
+ * Returns the pair (program offset, sparse iter offset).
+ */
 static
-void buildLitSparseIter(RoseBuildImpl &build, build_context &bc,
-                        vector<RoseVertex> &verts, RoseLiteral &tl) {
-    const auto &g = build.g;
+pair<u32, u32> makeSparseIterProgram(build_context &bc,
+                    map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
+                    const vector<RoseVertex> &verts,
+                    const vector<RoseInstruction> &root_program) {
+    vector<RoseInstruction> program;
+    u32 iter_offset = 0;
 
-    if (verts.empty()) {
-        // This literal has no non-root roles => no sparse iter
-        tl.iterOffset = ROSE_OFFSET_INVALID;
-        tl.iterProgramOffset = 0;
-        return;
+    if (!predProgramLists.empty()) {
+        // First, add the iterator itself.
+        vector<u32> keys;
+        for (const auto &elem : predProgramLists) {
+            keys.push_back(elem.first);
+        }
+        DEBUG_PRINTF("%zu keys: %s\n", keys.size(),
+                     as_string_list(keys).c_str());
+
+        vector<mmbit_sparse_iter> iter;
+        mmbBuildSparseIterator(iter, keys, bc.numStates);
+        assert(!iter.empty());
+        iter_offset = addIteratorToTable(bc, iter);
+
+        // Construct our program, starting with the SPARSE_ITER_BEGIN
+        // instruction, keeping track of the jump offset for each sub-program.
+        vector<u32> jump_table;
+        u32 curr_offset = 0;
+
+        // Add a pre-check for min depth, if it's useful.
+        if (!verts.empty()) {
+            u32 min_depth = calcMinDepth(bc.depths, verts);
+            if (min_depth > 1) {
+                auto ri = RoseInstruction(ROSE_INSTR_CHECK_DEPTH);
+                ri.u.checkDepth.min_depth = min_depth;
+                program.push_back(ri);
+                curr_offset = ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
+            }
+        }
+
+        program.push_back(RoseInstruction(ROSE_INSTR_SPARSE_ITER_BEGIN));
+        curr_offset += ROUNDUP_N(program.back().length(), ROSE_INSTR_MIN_ALIGN);
+
+        for (const auto &e : predProgramLists) {
+            DEBUG_PRINTF("subprogram %zu has offset %u\n", jump_table.size(),
+                         curr_offset);
+            jump_table.push_back(curr_offset);
+            auto subprog = flattenProgram(e.second);
+
+            if (e.first != keys.back()) {
+                // For all but the last subprogram, replace the END instruction
+                // with a SPARSE_ITER_NEXT.
+                assert(!subprog.empty());
+                assert(subprog.back().code() == ROSE_INSTR_END);
+                subprog.back() = RoseInstruction(ROSE_INSTR_SPARSE_ITER_NEXT);
+            }
+
+            for (const auto &ri : subprog) {
+                program.push_back(ri);
+                curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
+            }
+        }
+
+        const u32 end_offset = curr_offset - ROUNDUP_N(program.back().length(),
+                                                       ROSE_INSTR_MIN_ALIGN);
+
+        // Write the jump table into the bytecode.
+        const u32 jump_table_offset =
+            add_to_engine_blob(bc, begin(jump_table), end(jump_table));
+
+        // Fix up the instruction operands.
+        auto keys_it = begin(keys);
+        curr_offset = 0;
+        for (size_t i = 0; i < program.size(); i++) {
+            auto &ri = program[i];
+            switch (ri.code()) {
+            case ROSE_INSTR_CHECK_DEPTH:
+                ri.u.checkDepth.fail_jump = end_offset - curr_offset;
+                break;
+            case ROSE_INSTR_SPARSE_ITER_BEGIN:
+                ri.u.sparseIterBegin.iter_offset = iter_offset;
+                ri.u.sparseIterBegin.jump_table = jump_table_offset;
+                ri.u.sparseIterBegin.fail_jump = end_offset - curr_offset;
+                break;
+            case ROSE_INSTR_SPARSE_ITER_NEXT:
+                ri.u.sparseIterNext.iter_offset = iter_offset;
+                ri.u.sparseIterNext.jump_table = jump_table_offset;
+                assert(keys_it != end(keys));
+                ri.u.sparseIterNext.state = *keys_it++;
+                ri.u.sparseIterNext.fail_jump = end_offset - curr_offset;
+                break;
+            default:
+                break;
+            }
+            curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
+        }
     }
 
-    // Deterministic ordering.
-    sort(begin(verts), end(verts),
-         [&g](RoseVertex a, RoseVertex b) { return g[a].idx < g[b].idx; });
+    // If we have a root program, replace the END instruction with it. Note
+    // that the root program has already been flattened.
+    if (!root_program.empty()) {
+        if (!program.empty()) {
+            assert(program.back().code() == ROSE_INSTR_END);
+            program.pop_back();
+        }
+        program.insert(end(program), begin(root_program), end(root_program));
+    }
+
+    return {writeProgram(bc, program), iter_offset};
+}
+
+static
+u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
+                        const vector<RoseEdge> &lit_edges) {
+    const auto &g = build.g;
+
+    DEBUG_PRINTF("%zu lit edges\n", lit_edges.size());
 
     // pred state id -> list of programs
     map<u32, vector<vector<RoseInstruction>>> predProgramLists;
+    vector<RoseVertex> nonroot_verts;
 
-    for (const auto &v : verts) {
-        DEBUG_PRINTF("vertex %zu\n", g[v].idx);
-        for (const auto &e : in_edges_range(v, g)) {
-            const auto &u = source(e, g);
-            if (build.isAnyStart(u)) {
-                continue; // Root roles are not handled with sparse iterator.
-            }
-
-            assert(contains(bc.roleStateIndices, u));
-            u32 pred_state = bc.roleStateIndices.at(u);
-
-            DEBUG_PRINTF("pred %zu (state %u)\n", g[u].idx, pred_state);
-
-            auto program = makeSparseIterProgram(build, bc, e);
-            predProgramLists[pred_state].push_back(program);
+    // Construct sparse iter sub-programs.
+    for (const auto &e : lit_edges) {
+        const auto &u = source(e, g);
+        if (build.isAnyStart(u)) {
+            continue; // Root roles are not handled with sparse iterator.
         }
+        DEBUG_PRINTF("sparse iter edge (%zu,%zu)\n", g[u].idx,
+                     g[target(e, g)].idx);
+        assert(contains(bc.roleStateIndices, u));
+        u32 pred_state = bc.roleStateIndices.at(u);
+        auto program = makePredProgram(build, bc, e);
+        predProgramLists[pred_state].push_back(program);
+        nonroot_verts.push_back(target(e, g));
     }
 
-    map<u32, u32> predPrograms;
-    for (const auto &e : predProgramLists) {
-        auto program = flattenRoleProgram(e.second);
-        u32 offset = writeRoleProgram(bc, program);
-        predPrograms.emplace(e.first, offset);
+    // Construct sub-program for handling root roles.
+    vector<vector<RoseInstruction>> root_programs;
+    for (const auto &e : lit_edges) {
+        const auto &u = source(e, g);
+        if (!build.isAnyStart(u)) {
+            continue;
+        }
+        DEBUG_PRINTF("root edge (%zu,%zu)\n", g[u].idx, g[target(e, g)].idx);
+        auto role_prog = makeProgram(build, bc, e);
+        if (role_prog.empty()) {
+            continue;
+        }
+        root_programs.push_back(role_prog);
     }
 
-    tie(tl.iterProgramOffset, tl.iterOffset) =
-        addPredSparseIter(bc, predPrograms);
+    vector<RoseInstruction> root_program;
+    if (!root_programs.empty()) {
+        root_program = flattenProgram(root_programs);
+    }
+
+    // Put it all together.
+    return makeSparseIterProgram(bc, predProgramLists, nonroot_verts,
+                                 root_program).first;
 }
 
-// Build sparse iterators for literals.
 static
-void buildSparseIter(RoseBuildImpl &build, build_context &bc,
-                     vector<RoseLiteral> &literalTable) {
-    const RoseGraph &g = build.g;
+map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
+    // Use a set of edges while building the map to cull duplicates.
+    map<u32, flat_set<RoseEdge>> unique_lit_edge_map;
 
-    // Find all our non-root roles.
-    ue2::unordered_map<u32, vector<RoseVertex>> litNonRootVertices;
-    for (const auto &v : vertices_range(g)) {
-        if (build.isRootSuccessor(v)) {
+    const auto &g = build.g;
+    for (const auto &e : edges_range(g)) {
+        const auto &v = target(e, g);
+        if (build.hasDirectFinalId(v)) {
+            // Skip direct reports, which do not have RoseLiteral entries.
             continue;
         }
         for (const auto &lit_id : g[v].literals) {
+            assert(lit_id < build.literal_info.size());
             u32 final_id = build.literal_info.at(lit_id).final_id;
-            litNonRootVertices[final_id].push_back(v);
+            if (final_id != MO_INVALID_IDX) {
+                unique_lit_edge_map[final_id].insert(e);
+            }
         }
     }
 
+    // Build output map, sorting edges by (source, target) vertex index.
+    map<u32, vector<RoseEdge>> lit_edge_map;
+    for (const auto &m : unique_lit_edge_map) {
+        auto edge_list = vector<RoseEdge>(begin(m.second), end(m.second));
+        sort(begin(edge_list), end(edge_list),
+             [&g](const RoseEdge &a, const RoseEdge &b) {
+                 return tie(g[source(a, g)].idx, g[target(a, g)].idx) <
+                        tie(g[source(b, g)].idx, g[target(b, g)].idx);
+             });
+        lit_edge_map.emplace(m.first, edge_list);
+    }
+
+    return lit_edge_map;
+}
+
+/** \brief Build the interpreter program for each literal. */
+static
+void buildLiteralPrograms(RoseBuildImpl &build, build_context &bc,
+                     vector<RoseLiteral> &literalTable) {
+    auto lit_edge_map = findEdgesByLiteral(build);
+
     for (u32 finalId = 0; finalId != literalTable.size(); ++finalId) {
-        buildLitSparseIter(build, bc, litNonRootVertices[finalId],
-                           literalTable[finalId]);
+        const auto &lit_edges = lit_edge_map[finalId];
+        u32 offset = buildLiteralProgram(build, bc, lit_edges);
+        literalTable[finalId].programOffset = offset;
     }
 }
 
@@ -3514,9 +3575,11 @@ vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
     return program;
 }
 
-/* returns a pair containing the iter map offset and iter offset */
+/**
+ * Returns the pair (program offset, sparse iter offset).
+ */
 static
-pair<u32, u32> buildEodAnchorRoles(RoseBuildImpl &build, build_context &bc) {
+pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
     const RoseGraph &g = build.g;
 
     // pred state id -> list of programs
@@ -3546,15 +3609,35 @@ pair<u32, u32> buildEodAnchorRoles(RoseBuildImpl &build, build_context &bc) {
         return {0, 0};
     }
 
-    map<u32, u32> predPrograms;
-    for (const auto &e : predProgramLists) {
-        DEBUG_PRINTF("pred %u has %zu programs\n", e.first, e.second.size());
-        auto program = flattenRoleProgram(e.second);
-        u32 offset = writeRoleProgram(bc, program);
-        predPrograms.emplace(e.first, offset);
+    return makeSparseIterProgram(bc, predProgramLists, {}, {});
+}
+
+static
+u32 writeEodProgram(RoseBuildImpl &build, build_context &bc) {
+    if (build.eod_event_literal_id == MO_INVALID_IDX) {
+        return 0;
     }
 
-    return addPredSparseIter(bc, predPrograms);
+    const RoseGraph &g = build.g;
+    const auto &lit_info = build.literal_info.at(build.eod_event_literal_id);
+    assert(lit_info.delayed_ids.empty());
+    assert(!lit_info.squash_group);
+    assert(!lit_info.requires_benefits);
+
+    // Collect all edges leading into EOD event literal vertices.
+    vector<RoseEdge> edge_list;
+    for (const auto &v : lit_info.vertices) {
+        insert(&edge_list, edge_list.end(), in_edges(v, g));
+    }
+
+    // Sort edge list for determinism, prettiness.
+    sort(begin(edge_list), end(edge_list),
+         [&g](const RoseEdge &a, const RoseEdge &b) {
+             return tie(g[source(a, g)].idx, g[target(a, g)].idx) <
+                    tie(g[source(b, g)].idx, g[target(b, g)].idx);
+         });
+
+    return buildLiteralProgram(build, bc, edge_list);
 }
 
 static
@@ -3742,11 +3825,12 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     vector<RoseLiteral> literalTable;
     buildLiteralTable(*this, bc, literalTable);
-    buildSparseIter(*this, bc, literalTable);
+    buildLiteralPrograms(*this, bc, literalTable);
 
+    u32 eodProgramOffset = writeEodProgram(*this, bc);
+    u32 eodIterProgramOffset;
     u32 eodIterOffset;
-    u32 eodProgramTableOffset;
-    tie(eodProgramTableOffset, eodIterOffset) = buildEodAnchorRoles(*this, bc);
+    tie(eodIterProgramOffset, eodIterOffset) = buildEodAnchorProgram(*this, bc);
 
     vector<mmbit_sparse_iter> activeLeftIter;
     buildActiveLeftIter(leftInfoTable, activeLeftIter);
@@ -3757,9 +3841,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     if (num_vertices(g) > cc.grey.limitRoseRoleCount) {
         throw ResourceLimitError();
     }
-
-    // Write root programs for literals into the engine blob.
-    buildRootRolePrograms(*this, bc, literalTable);
 
     u32 amatcherOffset = 0;
     u32 fmatcherOffset = 0;
@@ -3968,8 +4049,9 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         = anchoredReportInverseMapOffset;
     engine->multidirectOffset = multidirectOffset;
 
+    engine->eodProgramOffset = eodProgramOffset;
+    engine->eodIterProgramOffset = eodIterProgramOffset;
     engine->eodIterOffset = eodIterOffset;
-    engine->eodProgramTableOffset = eodProgramTableOffset;
 
     engine->lastByteHistoryIterOffset = lastByteOffset;
 
@@ -4037,13 +4119,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     write_out(&engine->state_init, (char *)engine.get(), state_scatter,
               state_scatter_aux_offset);
-
-    if (eod_event_literal_id != MO_INVALID_IDX) {
-        engine->hasEodEventLiteral = 1;
-        DEBUG_PRINTF("eod literal id=%u, final_id=%u\n", eod_event_literal_id,
-                     literal_info.at(eod_event_literal_id).final_id);
-        engine->eodLiteralId = literal_info.at(eod_event_literal_id).final_id;
-    }
 
     if (anchoredIsMulti(*engine)) {
         DEBUG_PRINTF("multiple anchored dfas\n");
