@@ -1098,6 +1098,11 @@ void convertAnchPrefixToBounds(RoseBuildImpl &tbi) {
         DEBUG_PRINTF("castle has repeat %s\n", pr.bounds.str().c_str());
         DEBUG_PRINTF("delay adj %u\n", (u32)delay_adj);
 
+        if (delay_adj >= pr.bounds.max) {
+            DEBUG_PRINTF("delay adj too large\n");
+            continue;
+        }
+
         DepthMinMax bounds(pr.bounds); // copy
         if (delay_adj > bounds.min) {
             bounds.min = 0;
