@@ -209,7 +209,7 @@ void ComponentRepeat::buildFollowSet(GlushkovBuildState &bs,
         }
     }
 
-    wireRepeats(bs, lastPos);
+    wireRepeats(bs);
 
     DEBUG_PRINTF("leave\n");
 }
@@ -279,26 +279,24 @@ vector<PositionInfo> ComponentRepeat::last() const {
     assert(!m_firsts.empty()); // notePositions should already have run
     assert(!m_lasts.empty());
 
-    // Optimisation: when we're not maintaining edge priorities, handling
-    // optional repeats has been taken care of by our FIRSTS. Thus, only
-    // the last mandatory repeat and (if different) the last optional
-    // repeat contributes to lasts.
-    if (m_min) {
-        const vector<PositionInfo> &l = m_lasts[m_min - 1];
-        lasts.insert(lasts.end(), l.begin(), l.end());
-    }
+    const auto &l = m_min ? m_lasts[m_min - 1] : m_lasts[0];
+    lasts.insert(lasts.end(), l.begin(), l.end());
+
     if (!m_min || m_min != m_lasts.size()) {
         lasts.insert(lasts.end(), m_lasts.back().begin(), m_lasts.back().end());
     }
+
+    DEBUG_PRINTF("lasts = %s\n",
+                 dumpPositions(lasts.begin(), lasts.end()).c_str());
     return lasts;
 }
 
-void ComponentRepeat::wireRepeats(GlushkovBuildState &bs,
-                                      const vector<PositionInfo> &lastPos) {
+void ComponentRepeat::wireRepeats(GlushkovBuildState &bs) {
     /* note: m_lasts[0] already valid */
     u32 copies = m_firsts.size();
     const bool isEmpty = sub_comp->empty();
-    const vector<PositionInfo> &optLasts = m_min ? m_lasts[m_min - 1] : lastPos;
+    const vector<PositionInfo> &optLasts =
+        m_min ? m_lasts[m_min - 1] : m_lasts[0];
 
     if (!copies) {
         goto inf_check;
@@ -317,7 +315,7 @@ void ComponentRepeat::wireRepeats(GlushkovBuildState &bs,
     DEBUG_PRINTF("wiring up %d optional repeats\n", copies - m_min);
     for (u32 rep = MAX(m_min, 1); rep < copies; rep++) {
         vector<PositionInfo> lasts = m_lasts[rep - 1];
-        if (m_min && rep != m_min) {
+        if (rep != m_min) {
             lasts.insert(lasts.end(), optLasts.begin(), optLasts.end());
             sort(lasts.begin(), lasts.end());
             lasts.erase(unique(lasts.begin(), lasts.end()), lasts.end());
@@ -340,8 +338,8 @@ void ComponentRepeat::precalc_firsts() {
     /* For normal repeat, our optional repeats each have an epsilon at the end
      * of their firsts lists.
      */
-    for (u32 i = m_min; i < m_firsts.size();i++) {
-        m_firsts[i].insert(m_firsts[i].end(), GlushkovBuildState::POS_EPSILON);
+    for (u32 i = m_min; i < m_firsts.size(); i++) {
+        m_firsts[i].push_back(GlushkovBuildState::POS_EPSILON);
     }
 
     firsts_cache.clear();
@@ -352,11 +350,7 @@ void ComponentRepeat::precalc_firsts() {
     assert(!m_firsts.empty()); // notePositions should already have run
     const vector<PositionInfo> &f = m_firsts.front();
 
-    // If we're running without edge priorities, then we want to generate the
-    // repeat in such a way that the firsts do all the work. This will minimise
-    // the number of exceptional states in a LimEx NFA implementation.
-
-    if (!m_min || sub_comp->empty()) {
+    if (sub_comp->empty()) {
         // Emptiable: all our repeats contribute to firsts.
         // Each repeat's firsts is spliced in at the location of the epsilon
         // (if any) in the previous repeat's firsts.
