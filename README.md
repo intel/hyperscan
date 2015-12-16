@@ -20,3 +20,24 @@ the [Developer Reference Guide](http://01org.github.io/hyperscan/dev-reference/)
 Hyperscan is licensed under the BSD License. See the LICENSE file in the
 project repository.
 
+# Versioning
+
+The `master` branch on Github will always contain the most recent release of
+Hyperscan. Each version released to `master` goes through QA and testing before
+it is released; if you're a user, rather than a developer, this is the version
+you should be using.
+
+Further development towards the next release takes place on the `develop`
+branch.
+
+# Get Involved
+
+The official homepage for Hyperscan is at [01.org/hyperscan](https://01.org/hyperscan).
+
+If you have questions or comments, we encourage you to [join the mailing
+list](https://lists.01.org/mailman/listinfo/hyperscan). Bugs can be filed by
+sending email to the list, or by creating an issue on Github.
+
+If you wish to contact the Hyperscan team at Intel directly, without posting
+publicly to the mailing list, send email to
+[hyperscan@intel.com](mailto:hyperscan@intel.com).
