@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,11 +42,15 @@
 /** \brief Role program instruction opcodes. */
 enum RoseInstructionCode {
     ROSE_INSTR_ANCHORED_DELAY,    //!< Delay until after anchored matcher.
+    ROSE_INSTR_CHECK_LIT_MASK,    //!< Check and/cmp mask.
+    ROSE_INSTR_CHECK_LIT_EARLY,   //!< Skip matches before floating min offset.
+    ROSE_INSTR_CHECK_GROUPS,      //!< Check that literal groups are on.
     ROSE_INSTR_CHECK_ONLY_EOD,    //!< Role matches only at EOD.
     ROSE_INSTR_CHECK_BOUNDS,      //!< Bounds on distance from offset 0.
     ROSE_INSTR_CHECK_NOT_HANDLED, //!< Test & set role in "handled".
     ROSE_INSTR_CHECK_LOOKAROUND,  //!< Lookaround check.
     ROSE_INSTR_CHECK_LEFTFIX,     //!< Leftfix must be in accept state.
+    ROSE_INSTR_PUSH_DELAYED,      //!< Push delayed literal matches.
     ROSE_INSTR_SOM_ADJUST,        //!< Set SOM from a distance to EOM.
     ROSE_INSTR_SOM_LEFTFIX,       //!< Acquire SOM from a leftfix engine.
     ROSE_INSTR_TRIGGER_INFIX,     //!< Trigger an infix engine.
@@ -59,6 +63,8 @@ enum RoseInstructionCode {
     ROSE_INSTR_REPORT_SOM_KNOWN,  //!< Rose role knows its SOM offset.
     ROSE_INSTR_SET_STATE,         //!< Switch a state index on.
     ROSE_INSTR_SET_GROUPS,        //!< Set some literal group bits.
+    ROSE_INSTR_SQUASH_GROUPS,     //!< Conditionally turn off some groups.
+    ROSE_INSTR_CHECK_STATE,       //!< Test a single bit in the state multibit.
     ROSE_INSTR_SPARSE_ITER_BEGIN, //!< Begin running a sparse iter over states.
     ROSE_INSTR_SPARSE_ITER_NEXT,  //!< Continue running sparse iter over states.
     ROSE_INSTR_END                //!< End of program.
@@ -68,6 +74,29 @@ struct ROSE_STRUCT_ANCHORED_DELAY {
     u8 code; //!< From enum RoseInstructionCode.
     rose_group groups; //!< Bitmask.
     u32 done_jump; //!< Jump forward this many bytes if successful.
+};
+
+union RoseLiteralMask {
+    u64a a64[MAX_MASK2_WIDTH / sizeof(u64a)];
+    u8 a8[MAX_MASK2_WIDTH];
+};
+
+/** Note: check failure will halt program. */
+struct ROSE_STRUCT_CHECK_LIT_MASK {
+    u8 code; //!< From enum RoseInstructionCode.
+    union RoseLiteralMask and_mask;
+    union RoseLiteralMask cmp_mask;
+};
+
+/** Note: check failure will halt program. */
+struct ROSE_STRUCT_CHECK_LIT_EARLY {
+    u8 code; //!< From enum RoseInstructionCode.
+};
+
+/** Note: check failure will halt program. */
+struct ROSE_STRUCT_CHECK_GROUPS {
+    u8 code; //!< From enum RoseInstructionCode.
+    rose_group groups; //!< Bitmask.
 };
 
 struct ROSE_STRUCT_CHECK_ONLY_EOD {
@@ -101,6 +130,12 @@ struct ROSE_STRUCT_CHECK_LEFTFIX {
     u32 lag; //!< Lag of leftfix for this case.
     ReportID report; //!< ReportID of leftfix to check.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_PUSH_DELAYED {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 delay; // Number of bytes to delay.
+    u32 index; // Delay literal index (relative to first delay lit).
 };
 
 struct ROSE_STRUCT_SOM_ADJUST {
@@ -164,7 +199,18 @@ struct ROSE_STRUCT_SET_STATE {
 
 struct ROSE_STRUCT_SET_GROUPS {
     u8 code; //!< From enum RoseInstructionCode.
-    rose_group groups; //!< Bitmask.
+    rose_group groups; //!< Bitmask to OR into groups.
+};
+
+struct ROSE_STRUCT_SQUASH_GROUPS {
+    u8 code; //!< From enum RoseInstructionCode.
+    rose_group groups; //!< Bitmask to AND into groups.
+};
+
+struct ROSE_STRUCT_CHECK_STATE {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 index; //!< State index in the role multibit.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
 /**

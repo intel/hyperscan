@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -117,31 +117,6 @@ const HWLM *getSmallBlockMatcher(const RoseEngine *t) {
 }
 
 static
-u32 literalsWithDirectReports(const RoseEngine *t) {
-    return t->totalNumLiterals - t->literalCount;
-}
-
-template<typename Predicate>
-static
-size_t literalsWithPredicate(const RoseEngine *t, Predicate pred) {
-    const RoseLiteral *tl = getLiteralTable(t);
-    const RoseLiteral *tl_end = tl + t->literalCount;
-
-    return count_if(tl, tl_end, pred);
-}
-
-static
-size_t literalsInGroups(const RoseEngine *t, u32 from, u32 to) {
-    rose_group mask = ~((1ULL << from) - 1);
-    if (to < 64) {
-        mask &= ((1ULL << to) - 1);
-    }
-
-    return literalsWithPredicate(
-        t, [&mask](const RoseLiteral &l) { return l.groups & mask; });
-}
-
-static
 CharReach bitvectorToReach(const u8 *reach) {
     CharReach cr;
 
@@ -177,6 +152,16 @@ void dumpLookaround(ofstream &os, const RoseEngine *t,
     }
 }
 
+static
+string dumpStrMask(const u8 *mask, size_t len) {
+    ostringstream oss;
+    for (size_t i = 0; i < len; i++) {
+        oss << std::hex << std::setw(2) << std::setfill('0') << u32{mask[i]}
+            << " ";
+    }
+    return oss.str();
+}
+
 #define PROGRAM_CASE(name)                                                     \
     case ROSE_INSTR_##name: {                                                  \
         os << "  " << std::setw(4) << std::setfill('0') << (pc - pc_base)      \
@@ -202,14 +187,26 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(CHECK_ONLY_EOD) {
-                os << "    fail_jump +" << ri->fail_jump << endl;
+            PROGRAM_CASE(CHECK_LIT_MASK) {
+                os << "    and_mask "
+                   << dumpStrMask(ri->and_mask.a8, sizeof(ri->and_mask.a8))
+                   << endl;
+                os << "    cmp_mask "
+                   << dumpStrMask(ri->cmp_mask.a8, sizeof(ri->cmp_mask.a8))
+                   << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(CHECK_BOUNDS) {
-                os << "    min_bound " << ri->min_bound << endl;
-                os << "    max_bound " << ri->max_bound << endl;
+            PROGRAM_CASE(CHECK_LIT_EARLY) {}
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_GROUPS) {
+                os << "    groups 0x" << std::hex << ri->groups << std::dec
+                   << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_ONLY_EOD) {
                 os << "    fail_jump +" << ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
@@ -233,6 +230,12 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
                 os << "    lag " << ri->lag << endl;
                 os << "    report " << ri->report << endl;
                 os << "    fail_jump +" << ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(PUSH_DELAYED) {
+                os << "    delay " << u32{ri->delay} << endl;
+                os << "    index " << ri->index << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -301,6 +304,18 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(SQUASH_GROUPS) {
+                os << "    groups 0x" << std::hex << ri->groups << std::dec
+                   << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_STATE) {
+                os << "    index " << ri->index << endl;
+                os << "    fail_jump +" << ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(SPARSE_ITER_BEGIN) {
                 os << "    iter_offset " << ri->iter_offset << endl;
                 os << "    jump_table " << ri->jump_table << endl;
@@ -334,19 +349,30 @@ static
 void dumpRoseLitPrograms(const RoseEngine *t, const string &filename) {
     ofstream os(filename);
 
-    const RoseLiteral *lits = getLiteralTable(t);
-    const char *base = (const char *)t;
+    const u32 *litPrograms =
+        (const u32 *)loadFromByteCodeOffset(t, t->litProgramOffset);
+    const u32 *delayRebuildPrograms =
+        (const u32 *)loadFromByteCodeOffset(t, t->litDelayRebuildProgramOffset);
 
     for (u32 i = 0; i < t->literalCount; i++) {
-        const RoseLiteral *lit = &lits[i];
         os << "Literal " << i << endl;
         os << "---------------" << endl;
 
-        if (lit->programOffset) {
-            os << "Program @ " << lit->programOffset << ":" << endl;
-            dumpProgram(os, t, base + lit->programOffset);
+        if (litPrograms[i]) {
+            os << "Program @ " << litPrograms[i] << ":" << endl;
+            const char *prog =
+                (const char *)loadFromByteCodeOffset(t, litPrograms[i]);
+            dumpProgram(os, t, prog);
         } else {
             os << "<No Program>" << endl;
+        }
+
+        if (delayRebuildPrograms[i]) {
+            os << "Delay Rebuild Program @ " << delayRebuildPrograms[i] << ":"
+               << endl;
+            const char *prog = (const char *)loadFromByteCodeOffset(
+                t, delayRebuildPrograms[i]);
+            dumpProgram(os, t, prog);
         }
 
         os << endl;
@@ -710,8 +736,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
             etable ? hwlmSize(etable) : 0, t->ematcherRegionSize);
     fprintf(f, " - small-blk matcher : %zu bytes over %u bytes\n",
             sbtable ? hwlmSize(sbtable) : 0, t->smallBlockDistance);
-    fprintf(f, " - literal table     : %zu bytes\n",
-            t->literalCount * sizeof(RoseLiteral));
     fprintf(f, " - role state table  : %zu bytes\n",
             t->rolesWithStateCount * sizeof(u32));
     fprintf(f, " - nfa info table    : %u bytes\n",
@@ -745,22 +769,9 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     fprintf(f, "handled key count    : %u\n", t->handledKeyCount);
     fprintf(f, "\n");
 
-    fprintf(f, "number of literals   : %u\n", t->totalNumLiterals);
-    fprintf(f, " - delayed           : %u\n", t->delay_count);
-    fprintf(f, " - direct report     : %u\n",
-            literalsWithDirectReports(t));
-    fprintf(f, " - that squash group : %zu\n",
-            literalsWithPredicate(
-                t, [](const RoseLiteral &l) { return l.squashesGroup != 0; }));
-    fprintf(f, " - with benefits     : %u\n", t->nonbenefits_base_id);
-    fprintf(f, " - with program      : %zu\n",
-            literalsWithPredicate(
-                t, [](const RoseLiteral &l) { return l.programOffset != 0; }));
-    fprintf(f, " - in groups ::\n");
-    fprintf(f, "   + weak            : %zu\n",
-            literalsInGroups(t, 0, t->group_weak_end));
-    fprintf(f, "   + general         : %zu\n",
-            literalsInGroups(t, t->group_weak_end, sizeof(u64a) * 8));
+    fprintf(f, "total literal count  : %u\n", t->totalNumLiterals);
+    fprintf(f, "  prog table size    : %u\n", t->literalCount);
+    fprintf(f, "  delayed literals   : %u\n", t->delay_count);
 
     fprintf(f, "\n");
     fprintf(f, "  minWidth                    : %u\n", t->minWidth);
@@ -839,7 +850,8 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, fmatcherMaxBiAnchoredWidth);
     DUMP_U32(t, intReportOffset);
     DUMP_U32(t, intReportCount);
-    DUMP_U32(t, literalOffset);
+    DUMP_U32(t, litProgramOffset);
+    DUMP_U32(t, litDelayRebuildProgramOffset);
     DUMP_U32(t, literalCount);
     DUMP_U32(t, multidirectOffset);
     DUMP_U32(t, activeArrayCount);
@@ -876,7 +888,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, delay_base_id);
     DUMP_U32(t, anchored_count);
     DUMP_U32(t, anchored_base_id);
-    DUMP_U32(t, nonbenefits_base_id);
     DUMP_U32(t, maxFloatingDelayedMatch);
     DUMP_U32(t, delayRebuildLength);
     DUMP_U32(t, stateOffsets.history);
@@ -905,7 +916,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, rosePrefixCount);
     DUMP_U32(t, activeLeftIterOffset);
     DUMP_U32(t, ematcherRegionSize);
-    DUMP_U32(t, literalBenefitsOffsets);
     DUMP_U32(t, somRevCount);
     DUMP_U32(t, somRevOffsetOffset);
     DUMP_U32(t, group_weak_end);

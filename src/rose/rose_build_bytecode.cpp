@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -170,12 +170,16 @@ public:
 
     const void *get() const {
         switch (code()) {
+        case ROSE_INSTR_CHECK_LIT_MASK: return &u.checkLitMask;
+        case ROSE_INSTR_CHECK_LIT_EARLY: return &u.checkLitEarly;
+        case ROSE_INSTR_CHECK_GROUPS: return &u.checkGroups;
         case ROSE_INSTR_CHECK_ONLY_EOD: return &u.checkOnlyEod;
         case ROSE_INSTR_CHECK_BOUNDS: return &u.checkBounds;
         case ROSE_INSTR_CHECK_NOT_HANDLED: return &u.checkNotHandled;
         case ROSE_INSTR_CHECK_LOOKAROUND: return &u.checkLookaround;
         case ROSE_INSTR_CHECK_LEFTFIX: return &u.checkLeftfix;
         case ROSE_INSTR_ANCHORED_DELAY: return &u.anchoredDelay;
+        case ROSE_INSTR_PUSH_DELAYED: return &u.pushDelayed;
         case ROSE_INSTR_SOM_ADJUST: return &u.somAdjust;
         case ROSE_INSTR_SOM_LEFTFIX: return &u.somLeftfix;
         case ROSE_INSTR_TRIGGER_INFIX: return &u.triggerInfix;
@@ -188,6 +192,8 @@ public:
         case ROSE_INSTR_REPORT_SOM_KNOWN: return &u.reportSomKnown;
         case ROSE_INSTR_SET_STATE: return &u.setState;
         case ROSE_INSTR_SET_GROUPS: return &u.setGroups;
+        case ROSE_INSTR_SQUASH_GROUPS: return &u.squashGroups;
+        case ROSE_INSTR_CHECK_STATE: return &u.checkState;
         case ROSE_INSTR_SPARSE_ITER_BEGIN: return &u.sparseIterBegin;
         case ROSE_INSTR_SPARSE_ITER_NEXT: return &u.sparseIterNext;
         case ROSE_INSTR_END: return &u.end;
@@ -198,12 +204,16 @@ public:
 
     size_t length() const {
         switch (code()) {
+        case ROSE_INSTR_CHECK_LIT_MASK: return sizeof(u.checkLitMask);
+        case ROSE_INSTR_CHECK_LIT_EARLY: return sizeof(u.checkLitEarly);
+        case ROSE_INSTR_CHECK_GROUPS: return sizeof(u.checkGroups);
         case ROSE_INSTR_CHECK_ONLY_EOD: return sizeof(u.checkOnlyEod);
         case ROSE_INSTR_CHECK_BOUNDS: return sizeof(u.checkBounds);
         case ROSE_INSTR_CHECK_NOT_HANDLED: return sizeof(u.checkNotHandled);
         case ROSE_INSTR_CHECK_LOOKAROUND: return sizeof(u.checkLookaround);
         case ROSE_INSTR_CHECK_LEFTFIX: return sizeof(u.checkLeftfix);
         case ROSE_INSTR_ANCHORED_DELAY: return sizeof(u.anchoredDelay);
+        case ROSE_INSTR_PUSH_DELAYED: return sizeof(u.pushDelayed);
         case ROSE_INSTR_SOM_ADJUST: return sizeof(u.somAdjust);
         case ROSE_INSTR_SOM_LEFTFIX: return sizeof(u.somLeftfix);
         case ROSE_INSTR_TRIGGER_INFIX: return sizeof(u.triggerInfix);
@@ -216,6 +226,8 @@ public:
         case ROSE_INSTR_REPORT_SOM_KNOWN: return sizeof(u.reportSomKnown);
         case ROSE_INSTR_SET_STATE: return sizeof(u.setState);
         case ROSE_INSTR_SET_GROUPS: return sizeof(u.setGroups);
+        case ROSE_INSTR_SQUASH_GROUPS: return sizeof(u.squashGroups);
+        case ROSE_INSTR_CHECK_STATE: return sizeof(u.checkState);
         case ROSE_INSTR_SPARSE_ITER_BEGIN: return sizeof(u.sparseIterBegin);
         case ROSE_INSTR_SPARSE_ITER_NEXT: return sizeof(u.sparseIterNext);
         case ROSE_INSTR_END: return sizeof(u.end);
@@ -224,12 +236,16 @@ public:
     }
 
     union {
+        ROSE_STRUCT_CHECK_LIT_MASK checkLitMask;
+        ROSE_STRUCT_CHECK_LIT_EARLY checkLitEarly;
+        ROSE_STRUCT_CHECK_GROUPS checkGroups;
         ROSE_STRUCT_CHECK_ONLY_EOD checkOnlyEod;
         ROSE_STRUCT_CHECK_BOUNDS checkBounds;
         ROSE_STRUCT_CHECK_NOT_HANDLED checkNotHandled;
         ROSE_STRUCT_CHECK_LOOKAROUND checkLookaround;
         ROSE_STRUCT_CHECK_LEFTFIX checkLeftfix;
         ROSE_STRUCT_ANCHORED_DELAY anchoredDelay;
+        ROSE_STRUCT_PUSH_DELAYED pushDelayed;
         ROSE_STRUCT_SOM_ADJUST somAdjust;
         ROSE_STRUCT_SOM_LEFTFIX somLeftfix;
         ROSE_STRUCT_TRIGGER_INFIX triggerInfix;
@@ -242,11 +258,24 @@ public:
         ROSE_STRUCT_REPORT_SOM_KNOWN reportSomKnown;
         ROSE_STRUCT_SET_STATE setState;
         ROSE_STRUCT_SET_GROUPS setGroups;
+        ROSE_STRUCT_SQUASH_GROUPS squashGroups;
+        ROSE_STRUCT_CHECK_STATE checkState;
         ROSE_STRUCT_SPARSE_ITER_BEGIN sparseIterBegin;
         ROSE_STRUCT_SPARSE_ITER_NEXT sparseIterNext;
         ROSE_STRUCT_END end;
     } u;
 };
+
+static
+size_t hash_value(const RoseInstruction &ri) {
+    size_t val = 0;
+    const char *bytes = (const char *)ri.get();
+    const size_t len = ri.length();
+    for (size_t i = 0; i < len; i++) {
+        boost::hash_combine(val, bytes[i]);
+    }
+    return val;
+}
 
 struct build_context : boost::noncopyable {
     /** \brief information about engines to the left of a vertex */
@@ -270,6 +299,10 @@ struct build_context : boost::noncopyable {
      * up iterators in early misc. */
     map<vector<mmbit_sparse_iter>, u32> iterCache;
 
+    /** \brief Simple cache of programs written to engine blob, used for
+     * deduplication. */
+    ue2::unordered_map<vector<RoseInstruction>, u32> program_cache;
+
     /** \brief LookEntry list cache, so that we don't have to go scanning
      * through the full list to find cases we've used already. */
     ue2::unordered_map<vector<LookEntry>, size_t> lookaround_cache;
@@ -283,6 +316,9 @@ struct build_context : boost::noncopyable {
     /** \brief Mapping from queue index to bytecode offset for built engines
      * that have already been pushed into the engine_blob. */
     ue2::unordered_map<u32, u32> engineOffsets;
+
+    /** \brief Minimum offset of a match from the floating table. */
+    u32 floatingMinLiteralMatchOffset = 0;
 
     /** \brief Contents of the Rose bytecode immediately following the
      * RoseEngine. */
@@ -1453,31 +1489,6 @@ void updateNfaState(const build_context &bc, RoseStateOffsets *so,
     }
 }
 
-static
-void buildLitBenefits(const RoseBuildImpl &tbi, RoseEngine *engine,
-                      u32 base_lits_benefits_offset) {
-    lit_benefits *lba = (lit_benefits *)((char *)engine
-                                         + base_lits_benefits_offset);
-    DEBUG_PRINTF("base offset %u\n", base_lits_benefits_offset);
-    for (u32 i = 0; i < tbi.nonbenefits_base_id; i++) {
-        assert(contains(tbi.final_id_to_literal, i));
-        assert(tbi.final_id_to_literal.at(i).size() == 1);
-        u32 lit_id = *tbi.final_id_to_literal.at(i).begin();
-        const ue2_literal &s = tbi.literals.right.at(lit_id).s;
-        DEBUG_PRINTF("building mask for lit %u (fid %u) %s\n", lit_id, i,
-                     dumpString(s).c_str());
-        assert(s.length() <= MAX_MASK2_WIDTH);
-        u32 j = 0;
-        for (const auto &e : s) {
-            lba[i].and_mask.a8[j] = e.nocase ? 0 : CASE_BIT;
-            lba[i].expected.e8[j] = e.nocase ? 0 : (CASE_BIT & e.c);
-            DEBUG_PRINTF("a%02hhx e%02hhx\n", lba[i].and_mask.a8[j],
-                         lba[i].expected.e8[j]);
-            j++;
-        }
-    }
-}
-
 /* does not include history requirements for outfixes or literal matchers */
 u32 RoseBuildImpl::calcHistoryRequired() const {
     u32 m = cc.grey.minHistoryAvailable;
@@ -2232,11 +2243,11 @@ void enforceEngineSizeLimit(const NFA *n, const size_t nfa_size, const Grey &gre
 }
 
 static
-u32 findMinFloatingLiteralMatch(const RoseBuildImpl &tbi) {
-    const RoseGraph &g = tbi.g;
+u32 findMinFloatingLiteralMatch(const RoseBuildImpl &build) {
+    const RoseGraph &g = build.g;
     u32 minWidth = ROSE_BOUND_INF;
     for (auto v : vertices_range(g)) {
-        if (tbi.isAnchored(v) || tbi.isVirtualVertex(v)) {
+        if (build.isAnchored(v) || build.isVirtualVertex(v)) {
             DEBUG_PRINTF("skipping %zu anchored or root\n", g[v].idx);
             continue;
         }
@@ -2656,10 +2667,19 @@ flattenProgram(const vector<vector<RoseInstruction>> &programs) {
 }
 
 static
-u32 writeProgram(build_context &bc, vector<RoseInstruction> &program) {
+u32 writeProgram(build_context &bc, const vector<RoseInstruction> &program) {
     if (program.empty()) {
         DEBUG_PRINTF("no program\n");
         return 0;
+    }
+
+    assert(program.back().code() == ROSE_INSTR_END);
+    assert(program.size() >= 1);
+
+    auto it = bc.program_cache.find(program);
+    if (it != end(bc.program_cache)) {
+        DEBUG_PRINTF("reusing cached program at %u\n", it->second);
+        return it->second;
     }
 
     DEBUG_PRINTF("writing %zu instructions\n", program.size());
@@ -2674,6 +2694,7 @@ u32 writeProgram(build_context &bc, vector<RoseInstruction> &program) {
         }
     }
     DEBUG_PRINTF("program begins at offset %u\n", programOffset);
+    bc.program_cache.emplace(program, programOffset);
     return programOffset;
 }
 
@@ -2762,72 +2783,6 @@ bool hasBoundaryReports(const BoundaryReports &boundary) {
     }
     DEBUG_PRINTF("no boundary reports\n");
     return false;
-}
-
-static
-void createLiteralEntry(const RoseBuildImpl &tbi, build_context &bc,
-                        vector<RoseLiteral> &literalTable) {
-    const u32 final_id = verify_u32(literalTable.size());
-    assert(contains(tbi.final_id_to_literal, final_id));
-    const UNUSED u32 literalId = *tbi.final_id_to_literal.at(final_id).begin();
-    /* all literal ids associated with this final id should result in identical
-     * literal entry */
-    const auto &lit_infos = getLiteralInfoByFinalId(tbi, final_id);
-    const rose_literal_info &arb_lit_info = **lit_infos.begin();
-
-    literalTable.push_back(RoseLiteral());
-    RoseLiteral &tl = literalTable.back();
-    memset(&tl, 0, sizeof(tl));
-
-    tl.groups = 0;
-    for (const auto &li : lit_infos) {
-        tl.groups |= li->group_mask;
-    }
-
-    assert(tl.groups || tbi.literals.right.at(literalId).table == ROSE_ANCHORED
-           || tbi.literals.right.at(literalId).table == ROSE_EVENT);
-
-    // If this literal squashes its group behind it, store that data too
-    tl.squashesGroup = arb_lit_info.squash_group;
-
-    // Setup the delay stuff
-    const auto &children = arb_lit_info.delayed_ids;
-    if (children.empty()) {
-        tl.delay_mask = 0;
-        tl.delayIdsOffset = ROSE_OFFSET_INVALID;
-    } else {
-        map<u32, u32> local_delay_map; // delay -> relative child id
-        for (const auto &int_id : children) {
-            const rose_literal_id &child_literal = tbi.literals.right.at(int_id);
-            u32 child_id = tbi.literal_info[int_id].final_id;
-            u32 delay_index = child_id - tbi.delay_base_id;
-            tl.delay_mask |= 1U << child_literal.delay;
-            local_delay_map[child_literal.delay] = delay_index;
-        }
-
-        vector<u32> delayIds;
-        for (const auto &did : local_delay_map | map_values) {
-            delayIds.push_back(did);
-        }
-
-        tl.delayIdsOffset = add_to_engine_blob(bc, delayIds.begin(),
-                                               delayIds.end());
-
-    }
-
-    assert(!tbi.literals.right.at(literalId).delay || !tl.delay_mask);
-}
-
-// Construct the literal table.
-static
-void buildLiteralTable(const RoseBuildImpl &tbi, build_context &bc,
-                       vector<RoseLiteral> &literalTable) {
-    size_t numLiterals = tbi.final_id_to_literal.size();
-    literalTable.reserve(numLiterals);
-
-    for (size_t i = 0; i < numLiterals; ++i) {
-        createLiteralEntry(tbi, bc, literalTable);
-    }
 }
 
 /**
@@ -2945,8 +2900,11 @@ void makeRoleAnchoredDelay(RoseBuildImpl &build, UNUSED build_context &bc,
         return;
     }
 
-    // TODO: also limit to matches that can occur after
-    // floatingMinLiteralMatchOffset.
+    // If this match cannot occur after floatingMinLiteralMatchOffset, we do
+    // not need this check.
+    if (build.g[v].max_offset <= bc.floatingMinLiteralMatchOffset) {
+        return;
+    }
 
     auto ri = RoseInstruction(ROSE_INSTR_ANCHORED_DELAY);
     ri.u.anchoredDelay.groups = build.g[v].groups;
@@ -3111,6 +3069,13 @@ void makeRoleCheckBounds(const RoseBuildImpl &build, RoseVertex v,
                          const RoseEdge &e, vector<RoseInstruction> &program) {
     const RoseGraph &g = build.g;
     const RoseVertex u = source(e, g);
+
+    // We know that we can trust the anchored table (DFA) to always deliver us
+    // literals at the correct offset.
+    if (build.isAnchored(v)) {
+        DEBUG_PRINTF("literal in anchored table, skipping bounds check\n");
+        return;
+    }
 
     // Use the minimum literal length.
     u32 lit_length = g[v].eod_accept ? 0 : verify_u32(build.minLiteralLen(v));
@@ -3347,97 +3312,171 @@ vector<RoseInstruction> makePredProgram(RoseBuildImpl &build, build_context &bc,
     return program;
 }
 
+static
+u32 addPredBlocksSingle(
+    map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
+    u32 curr_offset, vector<RoseInstruction> &program) {
+    assert(predProgramLists.size() == 1);
+
+    u32 pred_state = predProgramLists.begin()->first;
+    auto subprog = flattenProgram(predProgramLists.begin()->second);
+
+    // Check our pred state.
+    auto ri = RoseInstruction(ROSE_INSTR_CHECK_STATE);
+    ri.u.checkState.index = pred_state;
+    program.push_back(ri);
+    curr_offset += ROUNDUP_N(program.back().length(), ROSE_INSTR_MIN_ALIGN);
+
+    // Add subprogram.
+    for (const auto &ri : subprog) {
+        program.push_back(ri);
+        curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
+    }
+
+    const u32 end_offset =
+        curr_offset - ROUNDUP_N(program.back().length(), ROSE_INSTR_MIN_ALIGN);
+
+    // Fix up the instruction operands.
+    curr_offset = 0;
+    for (size_t i = 0; i < program.size(); i++) {
+        auto &ri = program[i];
+        switch (ri.code()) {
+        case ROSE_INSTR_CHECK_STATE:
+            ri.u.checkState.fail_jump = end_offset - curr_offset;
+            break;
+        default:
+            break;
+        }
+        curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
+    }
+
+    return 0; // No iterator.
+}
+
+static
+u32 addPredBlocksMulti(build_context &bc,
+                    map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
+                    u32 curr_offset, vector<RoseInstruction> &program) {
+    assert(!predProgramLists.empty());
+
+    // First, add the iterator itself.
+    vector<u32> keys;
+    for (const auto &elem : predProgramLists) {
+        keys.push_back(elem.first);
+    }
+    DEBUG_PRINTF("%zu keys: %s\n", keys.size(), as_string_list(keys).c_str());
+
+    vector<mmbit_sparse_iter> iter;
+    mmbBuildSparseIterator(iter, keys, bc.numStates);
+    assert(!iter.empty());
+    u32 iter_offset = addIteratorToTable(bc, iter);
+
+    // Construct our program, starting with the SPARSE_ITER_BEGIN
+    // instruction, keeping track of the jump offset for each sub-program.
+    vector<u32> jump_table;
+
+    program.push_back(RoseInstruction(ROSE_INSTR_SPARSE_ITER_BEGIN));
+    curr_offset += ROUNDUP_N(program.back().length(), ROSE_INSTR_MIN_ALIGN);
+
+    for (const auto &e : predProgramLists) {
+        DEBUG_PRINTF("subprogram %zu has offset %u\n", jump_table.size(),
+                     curr_offset);
+        jump_table.push_back(curr_offset);
+        auto subprog = flattenProgram(e.second);
+
+        if (e.first != keys.back()) {
+            // For all but the last subprogram, replace the END instruction
+            // with a SPARSE_ITER_NEXT.
+            assert(!subprog.empty());
+            assert(subprog.back().code() == ROSE_INSTR_END);
+            subprog.back() = RoseInstruction(ROSE_INSTR_SPARSE_ITER_NEXT);
+        }
+
+        for (const auto &ri : subprog) {
+            program.push_back(ri);
+            curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
+        }
+    }
+
+    const u32 end_offset =
+        curr_offset - ROUNDUP_N(program.back().length(), ROSE_INSTR_MIN_ALIGN);
+
+    // Write the jump table into the bytecode.
+    const u32 jump_table_offset =
+        add_to_engine_blob(bc, begin(jump_table), end(jump_table));
+
+    // Fix up the instruction operands.
+    auto keys_it = begin(keys);
+    curr_offset = 0;
+    for (size_t i = 0; i < program.size(); i++) {
+        auto &ri = program[i];
+        switch (ri.code()) {
+        case ROSE_INSTR_SPARSE_ITER_BEGIN:
+            ri.u.sparseIterBegin.iter_offset = iter_offset;
+            ri.u.sparseIterBegin.jump_table = jump_table_offset;
+            ri.u.sparseIterBegin.fail_jump = end_offset - curr_offset;
+            break;
+        case ROSE_INSTR_SPARSE_ITER_NEXT:
+            ri.u.sparseIterNext.iter_offset = iter_offset;
+            ri.u.sparseIterNext.jump_table = jump_table_offset;
+            assert(keys_it != end(keys));
+            ri.u.sparseIterNext.state = *keys_it++;
+            ri.u.sparseIterNext.fail_jump = end_offset - curr_offset;
+            break;
+        default:
+            break;
+        }
+        curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
+    }
+
+    return iter_offset;
+}
+
+static
+u32 addPredBlocks(build_context &bc,
+                  map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
+                  u32 curr_offset, vector<RoseInstruction> &program,
+                  bool force_sparse_iter) {
+    const size_t num_preds = predProgramLists.size();
+    if (num_preds == 0) {
+        program = flattenProgram({program});
+        return 0; // No iterator.
+    } else if (!force_sparse_iter && num_preds == 1) {
+        return addPredBlocksSingle(predProgramLists, curr_offset, program);
+    } else {
+        return addPredBlocksMulti(bc, predProgramLists, curr_offset, program);
+    }
+}
+
 /**
  * Returns the pair (program offset, sparse iter offset).
  */
 static
 pair<u32, u32> makeSparseIterProgram(build_context &bc,
                     map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
-                    const vector<RoseInstruction> &root_program) {
+                    const vector<RoseInstruction> &root_program,
+                    const vector<RoseInstruction> &pre_program) {
     vector<RoseInstruction> program;
-    u32 iter_offset = 0;
+    u32 curr_offset = 0;
 
-    if (!predProgramLists.empty()) {
-        // First, add the iterator itself.
-        vector<u32> keys;
-        for (const auto &elem : predProgramLists) {
-            keys.push_back(elem.first);
-        }
-        DEBUG_PRINTF("%zu keys: %s\n", keys.size(),
-                     as_string_list(keys).c_str());
-
-        vector<mmbit_sparse_iter> iter;
-        mmbBuildSparseIterator(iter, keys, bc.numStates);
-        assert(!iter.empty());
-        iter_offset = addIteratorToTable(bc, iter);
-
-        // Construct our program, starting with the SPARSE_ITER_BEGIN
-        // instruction, keeping track of the jump offset for each sub-program.
-        vector<u32> jump_table;
-        u32 curr_offset = 0;
-
-        program.push_back(RoseInstruction(ROSE_INSTR_SPARSE_ITER_BEGIN));
-        curr_offset += ROUNDUP_N(program.back().length(), ROSE_INSTR_MIN_ALIGN);
-
-        for (const auto &e : predProgramLists) {
-            DEBUG_PRINTF("subprogram %zu has offset %u\n", jump_table.size(),
-                         curr_offset);
-            jump_table.push_back(curr_offset);
-            auto subprog = flattenProgram(e.second);
-
-            if (e.first != keys.back()) {
-                // For all but the last subprogram, replace the END instruction
-                // with a SPARSE_ITER_NEXT.
-                assert(!subprog.empty());
-                assert(subprog.back().code() == ROSE_INSTR_END);
-                subprog.back() = RoseInstruction(ROSE_INSTR_SPARSE_ITER_NEXT);
-            }
-
-            for (const auto &ri : subprog) {
-                program.push_back(ri);
-                curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
-            }
-        }
-
-        const u32 end_offset = curr_offset - ROUNDUP_N(program.back().length(),
-                                                       ROSE_INSTR_MIN_ALIGN);
-
-        // Write the jump table into the bytecode.
-        const u32 jump_table_offset =
-            add_to_engine_blob(bc, begin(jump_table), end(jump_table));
-
-        // Fix up the instruction operands.
-        auto keys_it = begin(keys);
-        curr_offset = 0;
-        for (size_t i = 0; i < program.size(); i++) {
-            auto &ri = program[i];
-            switch (ri.code()) {
-            case ROSE_INSTR_SPARSE_ITER_BEGIN:
-                ri.u.sparseIterBegin.iter_offset = iter_offset;
-                ri.u.sparseIterBegin.jump_table = jump_table_offset;
-                ri.u.sparseIterBegin.fail_jump = end_offset - curr_offset;
-                break;
-            case ROSE_INSTR_SPARSE_ITER_NEXT:
-                ri.u.sparseIterNext.iter_offset = iter_offset;
-                ri.u.sparseIterNext.jump_table = jump_table_offset;
-                assert(keys_it != end(keys));
-                ri.u.sparseIterNext.state = *keys_it++;
-                ri.u.sparseIterNext.fail_jump = end_offset - curr_offset;
-                break;
-            default:
-                break;
-            }
-            curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
-        }
+    // Add pre-program first.
+    for (const auto &ri : pre_program) {
+        program.push_back(ri);
+        curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
     }
+
+    // Add blocks to deal with non-root edges (triggered by sparse iterator or
+    // mmbit_isset checks). This operation will flatten the program up to this
+    // point.
+    u32 iter_offset =
+        addPredBlocks(bc, predProgramLists, curr_offset, program, false);
 
     // If we have a root program, replace the END instruction with it. Note
     // that the root program has already been flattened.
+    assert(!program.empty());
+    assert(program.back().code() == ROSE_INSTR_END);
     if (!root_program.empty()) {
-        if (!program.empty()) {
-            assert(program.back().code() == ROSE_INSTR_END);
-            program.pop_back();
-        }
+        program.pop_back();
         program.insert(end(program), begin(root_program), end(root_program));
     }
 
@@ -3445,15 +3484,182 @@ pair<u32, u32> makeSparseIterProgram(build_context &bc,
 }
 
 static
-u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
+void makePushDelayedInstructions(const RoseBuildImpl &build, u32 final_id,
+                                 vector<RoseInstruction> &program) {
+    const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
+    const auto &arb_lit_info = **lit_infos.begin();
+    if (arb_lit_info.delayed_ids.empty()) {
+        return;
+    }
+
+    for (const auto &int_id : arb_lit_info.delayed_ids) {
+        const auto &child_literal = build.literals.right.at(int_id);
+        u32 child_id = build.literal_info[int_id].final_id;
+        u32 delay_index = child_id - build.delay_base_id;
+
+        DEBUG_PRINTF("final_id=%u delay=%u child_id=%u\n", final_id,
+                     child_literal.delay, child_id);
+
+        auto ri = RoseInstruction(ROSE_INSTR_PUSH_DELAYED);
+        ri.u.pushDelayed.delay = verify_u8(child_literal.delay);
+        ri.u.pushDelayed.index = delay_index;
+        program.push_back(move(ri));
+    }
+}
+
+static
+void makeGroupCheckInstruction(const RoseBuildImpl &build, u32 final_id,
+                               vector<RoseInstruction> &program) {
+    assert(contains(build.final_id_to_literal, final_id));
+    const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
+
+    rose_group groups = 0;
+    for (const auto &li : lit_infos) {
+        groups |= li->group_mask;
+    }
+
+    if (!groups) {
+        return;
+    }
+
+    auto ri = RoseInstruction(ROSE_INSTR_CHECK_GROUPS);
+    ri.u.checkGroups.groups = groups;
+    program.push_back(move(ri));
+}
+
+static
+void makeCheckLitMaskInstruction(const RoseBuildImpl &build, u32 final_id,
+                                 vector<RoseInstruction> &program) {
+    assert(contains(build.final_id_to_literal, final_id));
+    const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
+    assert(!lit_infos.empty());
+
+    if (!lit_infos.front()->requires_benefits) {
+        return;
+    }
+
+    auto ri = RoseInstruction(ROSE_INSTR_CHECK_LIT_MASK);
+
+    assert(build.final_id_to_literal.at(final_id).size() == 1);
+    u32 lit_id = *build.final_id_to_literal.at(final_id).begin();
+    const ue2_literal &s = build.literals.right.at(lit_id).s;
+    DEBUG_PRINTF("building mask for lit %u (final id %u) %s\n", lit_id,
+                 final_id, dumpString(s).c_str());
+    assert(s.length() <= MAX_MASK2_WIDTH);
+    u32 i = 0;
+    for (const auto &e : s) {
+        ri.u.checkLitMask.and_mask.a8[i] = e.nocase ? 0 : CASE_BIT;
+        ri.u.checkLitMask.cmp_mask.a8[i] = e.nocase ? 0 : (CASE_BIT & e.c);
+        i++;
+    }
+
+    program.push_back(move(ri));
+}
+
+static
+void makeGroupSquashInstruction(const RoseBuildImpl &build, u32 final_id,
+                                vector<RoseInstruction> &program) {
+    assert(contains(build.final_id_to_literal, final_id));
+    const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
+
+    if (!lit_infos.front()->squash_group) {
+        return;
+    }
+
+    rose_group groups = 0;
+    for (const auto &li : lit_infos) {
+        groups |= li->group_mask;
+    }
+
+    if (!groups) {
+        return;
+    }
+
+    DEBUG_PRINTF("final_id %u squashes 0x%llx\n", final_id, groups);
+
+    auto ri = RoseInstruction(ROSE_INSTR_SQUASH_GROUPS);
+    ri.u.squashGroups.groups = ~groups; // Negated, so we can just AND it in.
+    program.push_back(move(ri));
+}
+
+static
+void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, build_context &bc,
+                                  u32 final_id,
+                                  const vector<RoseEdge> &lit_edges,
+                                  vector<RoseInstruction> &program) {
+    if (lit_edges.empty()) {
+        return;
+    }
+
+    if (bc.floatingMinLiteralMatchOffset == 0) {
+        return;
+    }
+
+    RoseVertex v = target(lit_edges.front(), build.g);
+    if (!build.isFloating(v)) {
+        return;
+    }
+
+    const auto &lit_ids = build.final_id_to_literal.at(final_id);
+    if (lit_ids.empty()) {
+        return;
+    }
+
+    size_t min_offset = SIZE_MAX;
+    for (u32 lit_id : lit_ids) {
+        const auto &lit = build.literals.right.at(lit_id);
+        min_offset = min(min_offset, lit.elength());
+    }
+
+    DEBUG_PRINTF("%zu lits, min_offset=%zu\n", lit_ids.size(), min_offset);
+
+    // If we can't match before the min offset, we don't need the check.
+    if (min_offset >= bc.floatingMinLiteralMatchOffset) {
+        DEBUG_PRINTF("no need for check, min is %u\n",
+                      bc.floatingMinLiteralMatchOffset);
+        return;
+    }
+
+    program.push_back(RoseInstruction(ROSE_INSTR_CHECK_LIT_EARLY));
+}
+
+static
+vector<RoseInstruction> buildLitInitialProgram(RoseBuildImpl &build,
+                                    build_context &bc, u32 final_id,
+                                    const vector<RoseEdge> &lit_edges) {
+    vector<RoseInstruction> pre_program;
+
+    // No initial program for EOD.
+    if (final_id == MO_INVALID_IDX) {
+        return pre_program;
+    }
+
+    DEBUG_PRINTF("final_id %u\n", final_id);
+
+    // Check lit mask.
+    makeCheckLitMaskInstruction(build, final_id, pre_program);
+
+    // Check literal groups.
+    makeGroupCheckInstruction(build, final_id, pre_program);
+
+    // Add instructions for pushing delayed matches, if there are any.
+    makePushDelayedInstructions(build, final_id, pre_program);
+
+    // Add pre-check for early literals in the floating table.
+    makeCheckLitEarlyInstruction(build, bc, final_id, lit_edges, pre_program);
+
+    return pre_program;
+}
+
+static
+u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc, u32 final_id,
                         const vector<RoseEdge> &lit_edges) {
     const auto &g = build.g;
 
-    DEBUG_PRINTF("%zu lit edges\n", lit_edges.size());
+    DEBUG_PRINTF("final id %u, %zu lit edges\n", final_id, lit_edges.size());
 
     // pred state id -> list of programs
     map<u32, vector<vector<RoseInstruction>>> predProgramLists;
-    vector<RoseVertex> nonroot_verts;
 
     // Construct sparse iter sub-programs.
     for (const auto &e : lit_edges) {
@@ -3467,7 +3673,6 @@ u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
         u32 pred_state = bc.roleStateIndices.at(u);
         auto program = makePredProgram(build, bc, e);
         predProgramLists[pred_state].push_back(program);
-        nonroot_verts.push_back(target(e, g));
     }
 
     // Construct sub-program for handling root roles.
@@ -3485,13 +3690,39 @@ u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
         root_programs.push_back(role_prog);
     }
 
+    // Literal may squash groups.
+    if (final_id != MO_INVALID_IDX) {
+        root_programs.push_back({});
+        makeGroupSquashInstruction(build, final_id, root_programs.back());
+    }
+
     vector<RoseInstruction> root_program;
     if (!root_programs.empty()) {
         root_program = flattenProgram(root_programs);
     }
 
+    auto pre_program = buildLitInitialProgram(build, bc, final_id, lit_edges);
+
     // Put it all together.
-    return makeSparseIterProgram(bc, predProgramLists, root_program).first;
+    return makeSparseIterProgram(bc, predProgramLists, root_program,
+                                 pre_program).first;
+}
+
+static
+u32 buildDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
+                             u32 final_id) {
+    const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
+    const auto &arb_lit_info = **lit_infos.begin();
+    if (arb_lit_info.delayed_ids.empty()) {
+        return 0; // No delayed IDs, no work to do.
+    }
+
+    vector<RoseInstruction> program;
+    makeCheckLitMaskInstruction(build, final_id, program);
+    makePushDelayedInstructions(build, final_id, program);
+    assert(!program.empty());
+    program = flattenProgram({program});
+    return writeProgram(bc, program);
 }
 
 static
@@ -3530,17 +3761,35 @@ map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
     return lit_edge_map;
 }
 
-/** \brief Build the interpreter program for each literal. */
+/**
+ * \brief Build the interpreter programs for each literal.
+ *
+ * Returns the base of the literal program list and the base of the delay
+ * rebuild program list.
+ */
 static
-void buildLiteralPrograms(RoseBuildImpl &build, build_context &bc,
-                     vector<RoseLiteral> &literalTable) {
+pair<u32, u32> buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
+    const u32 num_literals = build.final_id_to_literal.size();
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    for (u32 finalId = 0; finalId != literalTable.size(); ++finalId) {
+    vector<u32> litPrograms(num_literals);
+    vector<u32> delayRebuildPrograms(num_literals);
+
+    for (u32 finalId = 0; finalId != num_literals; ++finalId) {
         const auto &lit_edges = lit_edge_map[finalId];
-        u32 offset = buildLiteralProgram(build, bc, lit_edges);
-        literalTable[finalId].programOffset = offset;
+
+        litPrograms[finalId] =
+            buildLiteralProgram(build, bc, finalId, lit_edges);
+        delayRebuildPrograms[finalId] =
+            buildDelayRebuildProgram(build, bc, finalId);
     }
+
+    u32 litProgramsOffset =
+        add_to_engine_blob(bc, begin(litPrograms), end(litPrograms));
+    u32 delayRebuildProgramsOffset = add_to_engine_blob(
+        bc, begin(delayRebuildPrograms), end(delayRebuildPrograms));
+
+    return {litProgramsOffset, delayRebuildProgramsOffset};
 }
 
 static
@@ -3604,7 +3853,14 @@ pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
         return {0, 0};
     }
 
-    return makeSparseIterProgram(bc, predProgramLists, {});
+    vector<RoseInstruction> program;
+
+    // Note: we force the use of a sparse iterator for the EOD program so we
+    // can easily guard EOD execution at runtime.
+    u32 iter_offset = addPredBlocks(bc, predProgramLists, 0, program, true);
+
+    assert(program.size() > 1);
+    return {writeProgram(bc, program), iter_offset};
 }
 
 static
@@ -3634,7 +3890,7 @@ u32 writeEodProgram(RoseBuildImpl &build, build_context &bc) {
                     tie(g[source(b, g)].idx, g[target(b, g)].idx);
          });
 
-    return buildLiteralProgram(build, bc, edge_list);
+    return buildLiteralProgram(build, bc, MO_INVALID_IDX, edge_list);
 }
 
 static
@@ -3780,6 +4036,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     aligned_unique_ptr<HWLM> sbtable = buildSmallBlockMatcher(*this, &sbsize);
 
     build_context bc;
+    bc.floatingMinLiteralMatchOffset = findMinFloatingLiteralMatch(*this);
 
     // Build NFAs
     set<u32> no_retrigger_queues;
@@ -3805,10 +4062,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         throw ResourceLimitError();
     }
 
-    u32 lit_benefits_size =
-        verify_u32(sizeof(lit_benefits) * nonbenefits_base_id);
-    assert(ISALIGNED_16(lit_benefits_size));
-
     vector<u32> suffixEkeyLists;
     buildSuffixEkeyLists(*this, bc, qif, &suffixEkeyLists);
 
@@ -3820,9 +4073,10 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                        queue_count - leftfixBeginQueue, leftInfoTable,
                        &laggedRoseCount, &historyRequired);
 
-    vector<RoseLiteral> literalTable;
-    buildLiteralTable(*this, bc, literalTable);
-    buildLiteralPrograms(*this, bc, literalTable);
+    u32 litProgramOffset;
+    u32 litDelayRebuildProgramOffset;
+    tie(litProgramOffset, litDelayRebuildProgramOffset) =
+        buildLiteralPrograms(*this, bc);
 
     u32 eodProgramOffset = writeEodProgram(*this, bc);
     u32 eodIterProgramOffset;
@@ -3857,10 +4111,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     currOffset = ROUNDUP_CL(currOffset);
     DEBUG_PRINTF("currOffset %u\n", currOffset);
 
-    /* leave space for the benefits listing */
-    u32 base_lits_benefits_offset = currOffset;
-    currOffset += lit_benefits_size;
-
     if (atable) {
         currOffset = ROUNDUP_CL(currOffset);
         amatcherOffset = currOffset;
@@ -3890,10 +4140,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     currOffset = ROUNDUP_CL(currOffset);
     u32 intReportOffset = currOffset;
     currOffset += sizeof(internal_report) * int_reports.size();
-
-    u32 literalOffset = ROUNDUP_N(currOffset, alignof(RoseLiteral));
-    u32 literalLen = sizeof(RoseLiteral) * literalTable.size();
-    currOffset = literalOffset + literalLen;
 
     u32 leftOffset = ROUNDUP_N(currOffset, alignof(LeftNfaInfo));
     u32 roseLen = sizeof(LeftNfaInfo) * leftInfoTable.size();
@@ -4016,8 +4262,9 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     fillInReportInfo(engine.get(), intReportOffset, rm, int_reports);
 
-    engine->literalOffset = literalOffset;
-    engine->literalCount = verify_u32(literalTable.size());
+    engine->literalCount = verify_u32(final_id_to_literal.size());
+    engine->litProgramOffset = litProgramOffset;
+    engine->litDelayRebuildProgramOffset = litDelayRebuildProgramOffset;
     engine->runtimeImpl = pickRuntimeImpl(*this, outfixEndQueue);
     engine->mpvTriggeredByLeaf = anyEndfixMpvTriggers(*this);
 
@@ -4053,14 +4300,12 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     engine->lastByteHistoryIterOffset = lastByteOffset;
 
-    u32 delay_count = verify_u32(literalTable.size() - delay_base_id);
+    u32 delay_count = verify_u32(final_id_to_literal.size() - delay_base_id);
     engine->delay_count = delay_count;
     engine->delay_slot_size = mmbit_size(delay_count);
     engine->delay_base_id = delay_base_id;
     engine->anchored_base_id = anchored_base_id;
     engine->anchored_count = delay_base_id - anchored_base_id;
-    engine->nonbenefits_base_id = nonbenefits_base_id;
-    engine->literalBenefitsOffsets = base_lits_benefits_offset;
 
     engine->rosePrefixCount = rosePrefixCount;
 
@@ -4094,7 +4339,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->minWidth = hasBoundaryReports(boundary) ? 0 : minWidth;
     engine->minWidthExcludingBoundaries = minWidth;
     engine->maxSafeAnchoredDROffset = findMinWidth(*this, ROSE_FLOATING);
-    engine->floatingMinLiteralMatchOffset = findMinFloatingLiteralMatch(*this);
+    engine->floatingMinLiteralMatchOffset = bc.floatingMinLiteralMatchOffset;
 
     engine->maxBiAnchoredWidth = findMaxBAWidth(*this);
     engine->noFloatingRoots = hasNoFloatingRoots();
@@ -4109,7 +4354,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     fillMatcherDistances(*this, engine.get());
 
     engine->initialGroups = getInitialGroups();
-    engine->totalNumLiterals = verify_u32(literalTable.size());
+    engine->totalNumLiterals = verify_u32(literal_info.size());
     engine->asize = verify_u32(asize);
     engine->ematcherRegionSize = ematcher_region_size;
     engine->floatingStreamState = verify_u32(floatingStreamStateRequired);
@@ -4138,12 +4383,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                    &engine->scratchStateSize, &engine->nfaStateSize,
                    &engine->tStateSize);
 
-    /* do after update mask */
-    buildLitBenefits(*this, engine.get(), base_lits_benefits_offset);
-
     // Copy in other tables
     copy_bytes(ptr + bc.engine_blob_base, bc.engine_blob);
-    copy_bytes(ptr + engine->literalOffset, literalTable);
     copy_bytes(ptr + engine->leftOffset, leftInfoTable);
 
     fillLookaroundTables(ptr + lookaroundTableOffset,

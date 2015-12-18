@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -258,7 +258,6 @@ void allocateFinalLiteralId(RoseBuildImpl &tbi) {
 
     set<u32> anch;
     set<u32> norm;
-    set<u32> norm_benefits;
     set<u32> delay;
 
     /* undelayed ids come first */
@@ -281,12 +280,8 @@ void allocateFinalLiteralId(RoseBuildImpl &tbi) {
             continue;
         }
 
-        const rose_literal_info &info = tbi.literal_info[i];
-        if (info.requires_benefits) {
-            assert(!tbi.isDelayed(i));
-            norm_benefits.insert(i);
-            DEBUG_PRINTF("%u has benefits\n", i);
-        } else if (tbi.isDelayed(i)) {
+        if (tbi.isDelayed(i)) {
+            assert(!tbi.literal_info[i].requires_benefits);
             delay.insert(i);
         } else if (tbi.literals.right.at(i).table == ROSE_ANCHORED) {
             anch.insert(i);
@@ -295,12 +290,7 @@ void allocateFinalLiteralId(RoseBuildImpl &tbi) {
         }
     }
 
-    /* normal lits first (with benefits confirm)*/
-    allocateFinalIdToSet(g, norm_benefits, &tbi.literal_info,
-                         &tbi.final_id_to_literal, &next_final_id);
-
-    /* other normal lits (without benefits)*/
-    tbi.nonbenefits_base_id = next_final_id;
+    /* normal lits */
     allocateFinalIdToSet(g, norm, &tbi.literal_info, &tbi.final_id_to_literal,
                          &next_final_id);
 

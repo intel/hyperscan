@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,8 +41,107 @@
 #include "runtime.h"
 #include "scratch.h"
 #include "ue2common.h"
+#include "util/compare.h"
 #include "util/fatbit.h"
 #include "util/multibit.h"
+
+static rose_inline
+int roseCheckBenefits(struct RoseContext *tctxt, u64a end, u32 mask_rewind,
+                      const u8 *and_mask, const u8 *exp_mask) {
+    DEBUG_PRINTF("am offset = %zu, em offset = %zu\n",
+                 and_mask - (const u8 *)tctxt->t,
+                 exp_mask - (const u8 *)tctxt->t);
+    const u8 *data;
+
+    // If the check works over part of the history and part of the buffer, we
+    // create a temporary copy of the data in here so it's contiguous.
+    u8 temp[MAX_MASK2_WIDTH];
+
+    struct core_info *ci = &tctxtToScratch(tctxt)->core_info;
+    s64a buffer_offset = (s64a)end - ci->buf_offset;
+    DEBUG_PRINTF("rel offset %lld\n", buffer_offset);
+    if (buffer_offset >= mask_rewind) {
+        data = ci->buf + buffer_offset - mask_rewind;
+        DEBUG_PRINTF("all in one case data=%p buf=%p rewind=%u\n", data,
+                     ci->buf, mask_rewind);
+    } else if (buffer_offset <= 0) {
+        data = ci->hbuf + ci->hlen + buffer_offset - mask_rewind;
+        DEBUG_PRINTF("all in one case data=%p buf=%p rewind=%u\n", data,
+                     ci->buf, mask_rewind);
+    } else {
+        u32 shortfall = mask_rewind - buffer_offset;
+        DEBUG_PRINTF("shortfall of %u, rewind %u hlen %zu\n", shortfall,
+                     mask_rewind, ci->hlen);
+        data = temp;
+        memcpy(temp, ci->hbuf + ci->hlen - shortfall, shortfall);
+        memcpy(temp + shortfall, ci->buf, mask_rewind - shortfall);
+    }
+
+#ifdef DEBUG
+    DEBUG_PRINTF("DATA: ");
+    for (u32 i = 0; i < mask_rewind; i++) {
+        printf("%c", ourisprint(data[i]) ? data[i] : '?');
+    }
+    printf(" (len=%u)\n", mask_rewind);
+#endif
+
+    u32 len = mask_rewind;
+    while (len >= sizeof(u64a)) {
+        u64a a = unaligned_load_u64a(data);
+        a &= *(const u64a *)and_mask;
+        if (a != *(const u64a *)exp_mask) {
+            DEBUG_PRINTF("argh %016llx %016llx\n", a, *(const u64a *)exp_mask);
+            return 0;
+        }
+        data += sizeof(u64a);
+        and_mask += sizeof(u64a);
+        exp_mask += sizeof(u64a);
+        len -= sizeof(u64a);
+    }
+
+    while (len) {
+        u8 a = *data;
+        a &= *and_mask;
+        if (a != *exp_mask) {
+            DEBUG_PRINTF("argh d%02hhx =%02hhx am%02hhx  em%02hhx\n", a,
+                          *data, *and_mask, *exp_mask);
+            return 0;
+        }
+        data++;
+        and_mask++;
+        exp_mask++;
+        len--;
+    }
+
+    return 1;
+}
+
+static rose_inline
+void rosePushDelayedMatch(const struct RoseEngine *t, u32 delay,
+                          u32 delay_index, u64a offset,
+                          struct RoseContext *tctxt) {
+    assert(delay);
+
+    const u32 src_slot_index = delay;
+    u32 slot_index = (src_slot_index + offset) & DELAY_MASK;
+
+    if (offset + src_slot_index <= tctxt->delayLastEndOffset) {
+        DEBUG_PRINTF("skip too late\n");
+        return;
+    }
+
+    const u32 delay_count = t->delay_count;
+    u8 *slot = getDelaySlots(tctxtToScratch(tctxt)) +
+               (t->delay_slot_size * slot_index);
+
+    DEBUG_PRINTF("pushing tab %u into slot %u\n", delay_index, slot_index);
+    if (!(tctxt->filledDelayedSlots & (1U << slot_index))) {
+        tctxt->filledDelayedSlots |= 1U << slot_index;
+        mmbit_clear(slot, delay_count);
+    }
+
+    mmbit_set(slot, delay_count, delay_index);
+}
 
 static rose_inline
 char rosePrefixCheckMiracles(const struct RoseEngine *t,
@@ -782,10 +881,10 @@ char roseCheckRootBounds(u64a end, u32 min_bound, u32 max_bound) {
     break;                                                                     \
     }
 
-static really_inline
+static rose_inline
 hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
-                           u64a end, struct RoseContext *tctxt,
-                           char in_anchored, int *work_done) {
+                           u64a end, size_t match_len,
+                           struct RoseContext *tctxt, char in_anchored) {
     DEBUG_PRINTF("program begins at offset %u\n", programOffset);
 
     assert(programOffset);
@@ -800,6 +899,10 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
     // and SPARSE_ITER_NEXT instructions.
     struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
 
+    // If this program has an effect, work_done will be set to one (which may
+    // allow the program to squash groups).
+    int work_done = 0;
+
     assert(*(const u8 *)pc != ROSE_INSTR_END);
 
     for (;;) {
@@ -812,10 +915,39 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                 if (in_anchored && end > t->floatingMinLiteralMatchOffset) {
                     DEBUG_PRINTF("delay until playback\n");
                     tctxt->groups |= ri->groups;
-                    *work_done = 1;
+                    work_done = 1;
                     assert(ri->done_jump); // must progress
                     pc += ri->done_jump;
                     continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_LIT_MASK) {
+                assert(match_len);
+                if (!roseCheckBenefits(tctxt, end, match_len, ri->and_mask.a8,
+                                       ri->cmp_mask.a8)) {
+                    DEBUG_PRINTF("halt: failed mask check\n");
+                    return HWLM_CONTINUE_MATCHING;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_LIT_EARLY) {
+                if (end < t->floatingMinLiteralMatchOffset) {
+                    DEBUG_PRINTF("halt: too soon, min offset=%u\n",
+                                 t->floatingMinLiteralMatchOffset);
+                    return HWLM_CONTINUE_MATCHING;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_GROUPS) {
+                DEBUG_PRINTF("groups=0x%llx, checking instr groups=0x%llx\n",
+                             tctxt->groups, ri->groups);
+                if (!(ri->groups & tctxt->groups)) {
+                    DEBUG_PRINTF("halt: no groups are set\n");
+                    return HWLM_CONTINUE_MATCHING;
                 }
             }
             PROGRAM_NEXT_INSTRUCTION
@@ -874,6 +1006,11 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(PUSH_DELAYED) {
+                rosePushDelayedMatch(t, ri->delay, ri->index, end, tctxt);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(SOM_ADJUST) {
                 assert(ri->distance <= end);
                 som = end - ri->distance;
@@ -890,7 +1027,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_CASE(TRIGGER_INFIX) {
                 roseTriggerInfix(t, som, end, ri->queue, ri->event, ri->cancel,
                                  tctxt);
-                *work_done = 1;
+                work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -900,7 +1037,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                     HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
-                *work_done = 1;
+                work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -909,7 +1046,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                                     in_anchored) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
-                *work_done = 1;
+                work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -919,7 +1056,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                     HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
-                *work_done = 1;
+                work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -928,7 +1065,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                     MO_HALT_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
-                *work_done = 1;
+                work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -937,7 +1074,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                                   in_anchored) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
-                *work_done = 1;
+                work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -947,7 +1084,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                                      in_anchored) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
-                *work_done = 1;
+                work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -957,7 +1094,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                     HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
-                *work_done = 1;
+                work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -965,7 +1102,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                 DEBUG_PRINTF("set state index %u\n", ri->index);
                 mmbit_set(getRoleState(tctxt->state), t->rolesWithStateCount,
                           ri->index);
-                *work_done = 1;
+                work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -973,6 +1110,28 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                 tctxt->groups |= ri->groups;
                 DEBUG_PRINTF("set groups 0x%llx -> 0x%llx\n", ri->groups,
                              tctxt->groups);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(SQUASH_GROUPS) {
+                assert(popcount64(ri->groups) == 63); // Squash only one group.
+                if (work_done) {
+                    tctxt->groups &= ri->groups;
+                    DEBUG_PRINTF("squash groups 0x%llx -> 0x%llx\n", ri->groups,
+                                 tctxt->groups);
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_STATE) {
+                DEBUG_PRINTF("check state %u\n", ri->index);
+                if (!mmbit_isset(getRoleState(tctxt->state),
+                                 t->rolesWithStateCount, ri->index)) {
+                    DEBUG_PRINTF("state not on\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -1044,18 +1203,5 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
 
 #undef PROGRAM_CASE
 #undef PROGRAM_NEXT_INSTRUCTION
-
-static rose_inline
-void roseSquashGroup(struct RoseContext *tctxt, const struct RoseLiteral *tl) {
-    assert(tl->squashesGroup);
-
-    // we should be squashing a single group
-    assert(popcount64(tl->groups) == 1);
-
-    DEBUG_PRINTF("apply squash mask 0x%016llx, groups 0x%016llx -> 0x%016llx\n",
-                 ~tl->groups, tctxt->groups, tctxt->groups & ~tl->groups);
-
-    tctxt->groups &= ~tl->groups;
-}
 
 #endif // PROGRAM_RUNTIME_H

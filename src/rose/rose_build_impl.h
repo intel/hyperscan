@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -496,7 +496,6 @@ public:
 
     u32 anchored_base_id;
 
-    u32 nonbenefits_base_id;
     u32 ematcher_region_size; /**< number of bytes the eod table runs over */
 
     /** \brief Mapping from anchored literal ID to the original literal suffix

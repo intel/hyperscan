@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -78,7 +78,6 @@ RoseBuildImpl::RoseBuildImpl(ReportManager &rm_in, SomSlotManager &ssm_in,
       group_weak_end(0),
       group_end(0),
       anchored_base_id(MO_INVALID_IDX),
-      nonbenefits_base_id(MO_INVALID_IDX),
       ematcher_region_size(0),
       floating_direct_report(false),
       eod_event_literal_id(MO_INVALID_IDX),

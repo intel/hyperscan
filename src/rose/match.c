@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -71,123 +71,6 @@ void printMatch(const struct core_info *ci, u64a start, u64a end) {
 }
 #endif
 
-static rose_inline
-int roseCheckBenefits(struct RoseContext *tctxt, u64a end, u32 mask_rewind,
-                      const u8 *and_mask, const u8 *exp_mask) {
-    DEBUG_PRINTF("am offset = %zu, em offset = %zu\n",
-                 and_mask - (const u8 *)tctxt->t,
-                 exp_mask - (const u8 *)tctxt->t);
-    const u8 *data;
-
-    // If the check works over part of the history and part of the buffer, we
-    // create a temporary copy of the data in here so it's contiguous.
-    u8 temp[MAX_MASK2_WIDTH];
-
-    struct core_info *ci = &tctxtToScratch(tctxt)->core_info;
-    s64a buffer_offset = (s64a)end - ci->buf_offset;
-    DEBUG_PRINTF("rel offset %lld\n", buffer_offset);
-    if (buffer_offset >= mask_rewind) {
-        data = ci->buf + buffer_offset - mask_rewind;
-        DEBUG_PRINTF("all in one case data=%p buf=%p rewind=%u\n", data,
-                     ci->buf, mask_rewind);
-    } else if (buffer_offset <= 0) {
-        data = ci->hbuf + ci->hlen + buffer_offset - mask_rewind;
-        DEBUG_PRINTF("all in one case data=%p buf=%p rewind=%u\n", data,
-                     ci->buf, mask_rewind);
-    } else {
-        u32 shortfall = mask_rewind - buffer_offset;
-        DEBUG_PRINTF("shortfall of %u, rewind %u hlen %zu\n", shortfall,
-                     mask_rewind, ci->hlen);
-        data = temp;
-        memcpy(temp, ci->hbuf + ci->hlen - shortfall, shortfall);
-        memcpy(temp + shortfall, ci->buf, mask_rewind - shortfall);
-    }
-
-#ifdef DEBUG
-    DEBUG_PRINTF("DATA: ");
-    for (u32 i = 0; i < mask_rewind; i++) {
-        printf("%c", ourisprint(data[i]) ? data[i] : '?');
-    }
-    printf(" (len=%u)\n", mask_rewind);
-#endif
-
-    u32 len = mask_rewind;
-    while (len >= sizeof(u64a)) {
-        u64a a = unaligned_load_u64a(data);
-        a &= *(const u64a *)and_mask;
-        if (a != *(const u64a *)exp_mask) {
-            DEBUG_PRINTF("argh %016llx %016llx\n", a, *(const u64a *)exp_mask);
-            return 0;
-        }
-        data += sizeof(u64a);
-        and_mask += sizeof(u64a);
-        exp_mask += sizeof(u64a);
-        len -= sizeof(u64a);
-    }
-
-    while (len) {
-        u8 a = *data;
-        a &= *and_mask;
-        if (a != *exp_mask) {
-            DEBUG_PRINTF("argh d%02hhx =%02hhx am%02hhx  em%02hhx\n", a,
-                          *data, *and_mask, *exp_mask);
-            return 0;
-        }
-        data++;
-        and_mask++;
-        exp_mask++;
-        len--;
-    }
-
-    return 1;
-}
-
-static
-int roseCheckLiteralBenefits(u64a end, size_t mask_rewind, u32 id,
-                             struct RoseContext *tctxt) {
-    const struct RoseEngine *t = tctxt->t;
-    const struct lit_benefits *lbi = getLiteralBenefitsTable(t) + id;
-    return roseCheckBenefits(tctxt, end, mask_rewind, lbi->and_mask.a8,
-                             lbi->expected.e8);
-}
-
-static rose_inline
-void pushDelayedMatches(const struct RoseLiteral *tl, u64a offset,
-                        struct RoseContext *tctxt) {
-    u32 delay_mask = tl->delay_mask;
-    if (!delay_mask) {
-        return;
-    }
-
-    u32 delay_count = tctxt->t->delay_count;
-    u8 *delaySlotBase = getDelaySlots(tctxtToScratch(tctxt));
-    size_t delaySlotSize = tctxt->t->delay_slot_size;
-    assert(tl->delayIdsOffset != ROSE_OFFSET_INVALID);
-    const u32 *delayIds = getByOffset(tctxt->t, tl->delayIdsOffset);
-    assert(ISALIGNED(delayIds));
-
-    while (delay_mask) {
-        u32 src_slot_index = findAndClearLSB_32(&delay_mask);
-        u32 slot_index = (src_slot_index + offset) & DELAY_MASK;
-        u8 *slot = delaySlotBase + delaySlotSize * slot_index;
-
-        if (offset + src_slot_index <= tctxt->delayLastEndOffset) {
-            DEBUG_PRINTF("skip too late\n");
-            goto next;
-        }
-
-        DEBUG_PRINTF("pushing tab %u into slot %u\n", *delayIds, slot_index);
-        if (!(tctxt->filledDelayedSlots & (1U << slot_index))) {
-            tctxt->filledDelayedSlots |= 1U << slot_index;
-            mmbit_clear(slot, delay_count);
-        }
-
-        mmbit_set(slot, delay_count, *delayIds);
-    next:
-        delayIds++;
-    }
-}
-
 hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
                                      void *ctx) {
     struct hs_scratch *scratch = ctx;
@@ -211,17 +94,17 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
         return tctx->groups;
     }
 
-    if (id < t->nonbenefits_base_id
-        && !roseCheckLiteralBenefits(real_end, end - start + 1, id, tctx)) {
-        return tctx->groups;
-    }
-
     assert(id < t->literalCount);
-    const struct RoseLiteral *tl = &getLiteralTable(t)[id];
+    const u32 *delayRebuildPrograms =
+        getByOffset(t, t->litDelayRebuildProgramOffset);
+    const u32 programOffset = delayRebuildPrograms[id];
 
-    DEBUG_PRINTF("literal id=%u, groups=0x%016llx\n", id, tl->groups);
-
-    pushDelayedMatches(tl, real_end, tctx);
+    if (programOffset) {
+        const size_t match_len = end - start + 1;
+        UNUSED hwlmcb_rv_t rv =
+            roseRunProgram(t, programOffset, real_end, match_len, tctx, 0);
+        assert(rv != HWLM_TERMINATE_MATCHING);
+    }
 
     /* we are just repopulating the delay queue, groups should be
      * already set from the original scan. */
@@ -465,29 +348,26 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
     }
 
     assert(id < t->literalCount);
-    const struct RoseLiteral *tl = &getLiteralTable(t)[id];
-    assert(tl->programOffset);
-    assert(!tl->delay_mask);
+    const u32 *programs = getByOffset(t, t->litProgramOffset);
+    const u32 programOffset = programs[id];
+    assert(programOffset);
 
-    DEBUG_PRINTF("literal id=%u, groups=0x%016llx\n", id, tl->groups);
+    // Anchored literals are never delayed.
+    assert(!((const u32 *)getByOffset(t, t->litDelayRebuildProgramOffset))[id]);
+
+    DEBUG_PRINTF("literal id=%u\n", id);
 
     if (real_end <= t->floatingMinLiteralMatchOffset) {
         roseFlushLastByteHistory(t, state, real_end, tctxt);
         tctxt->lastEndOffset = real_end;
     }
 
-    int work_done = 0;
-    if (roseRunProgram(t, tl->programOffset, real_end, tctxt, 1, &work_done) ==
+    const size_t match_len = 0;
+    if (roseRunProgram(t, programOffset, real_end, match_len, tctxt, 1) ==
         HWLM_TERMINATE_MATCHING) {
         assert(can_stop_matching(tctxtToScratch(tctxt)));
         DEBUG_PRINTF("caller requested termination\n");
         return MO_HALT_MATCHING;
-    }
-
-    // If we've actually handled any roles, we might need to apply this
-    // literal's squash mask to our groups as well.
-    if (work_done && tl->squashesGroup) {
-        roseSquashGroup(tctxt, tl);
     }
 
     DEBUG_PRINTF("DONE groups=0x%016llx\n", tctxt->groups);
@@ -502,9 +382,10 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
 // Rose match-processing workhorse
 /* assumes not in_anchored */
 static really_inline
-hwlmcb_rv_t roseProcessMatch_i(const struct RoseEngine *t, u64a end, u32 id,
-                               struct RoseContext *tctxt, char do_group_check,
-                               char in_delay_play, char in_anch_playback) {
+hwlmcb_rv_t roseProcessMatch_i(const struct RoseEngine *t, u64a end,
+                               size_t match_len, u32 id,
+                               struct RoseContext *tctxt, char in_delay_play,
+                               char in_anch_playback) {
     /* assert(!tctxt->in_anchored); */
     u8 *state = tctxt->state;
 
@@ -536,63 +417,30 @@ hwlmcb_rv_t roseProcessMatch_i(const struct RoseEngine *t, u64a end, u32 id,
     }
 
     assert(id < t->literalCount);
-    const struct RoseLiteral *tl = &getLiteralTable(t)[id];
-    DEBUG_PRINTF("lit id=%u, groups=0x%016llx\n", id, tl->groups);
-
-    if (do_group_check && !(tl->groups & tctxt->groups)) {
-        DEBUG_PRINTF("IGNORE: none of this literal's groups are set.\n");
-        return HWLM_CONTINUE_MATCHING;
-    }
-
-    assert(!in_delay_play || !tl->delay_mask);
-    if (!in_delay_play) {
-        pushDelayedMatches(tl, end, tctxt);
-    }
-
-    if (end < t->floatingMinLiteralMatchOffset) {
-        DEBUG_PRINTF("too soon\n");
-        assert(!in_delay_play); /* should not have been enqueued */
-        /* continuing on may result in pushing global time back */
-        return HWLM_CONTINUE_MATCHING;
-    }
-
-    int work_done = 0;
-
-    if (tl->programOffset) {
-        DEBUG_PRINTF("running program at %u\n", tl->programOffset);
-        if (roseRunProgram(t, tl->programOffset, end, tctxt, 0, &work_done) ==
-            HWLM_TERMINATE_MATCHING) {
-            return HWLM_TERMINATE_MATCHING;
-        }
-
-    }
-
-    // If we've actually handled any roles, we might need to apply this
-    // literal's squash mask to our groups as well.
-    if (work_done && tl->squashesGroup) {
-        roseSquashGroup(tctxt, tl);
-    }
-
-    return HWLM_CONTINUE_MATCHING;
-}
-
-
-static never_inline
-hwlmcb_rv_t roseProcessDelayedMatch(const struct RoseEngine *t, u64a end, u32 id,
-                                    struct RoseContext *tctxt) {
-    return roseProcessMatch_i(t, end, id, tctxt, 1, 1, 0);
+    const u32 *programs = getByOffset(t, t->litProgramOffset);
+    return roseRunProgram(t, programs[id], end, match_len, tctxt, 0);
 }
 
 static never_inline
-hwlmcb_rv_t roseProcessDelayedAnchoredMatch(const struct RoseEngine *t, u64a end,
-                                            u32 id, struct RoseContext *tctxt) {
-    return roseProcessMatch_i(t, end, id, tctxt, 0, 0, 1);
+hwlmcb_rv_t roseProcessDelayedMatch(const struct RoseEngine *t, u64a end,
+                                    u32 id, struct RoseContext *tctxt) {
+    size_t match_len = 0;
+    return roseProcessMatch_i(t, end, match_len, id, tctxt, 1, 0);
+}
+
+static never_inline
+hwlmcb_rv_t roseProcessDelayedAnchoredMatch(const struct RoseEngine *t,
+                                            u64a end, u32 id,
+                                            struct RoseContext *tctxt) {
+    size_t match_len = 0;
+    return roseProcessMatch_i(t, end, match_len, id, tctxt, 0, 1);
 }
 
 static really_inline
-hwlmcb_rv_t roseProcessMainMatch(const struct RoseEngine *t, u64a end, u32 id,
+hwlmcb_rv_t roseProcessMainMatch(const struct RoseEngine *t, u64a end,
+                                 size_t match_len, u32 id,
                                  struct RoseContext *tctxt) {
-    return roseProcessMatch_i(t, end, id, tctxt, 1, 0, 0);
+    return roseProcessMatch_i(t, end, match_len, id, tctxt, 0, 0);
 }
 
 static rose_inline
@@ -839,11 +687,6 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
         return HWLM_TERMINATE_MATCHING;
     }
 
-    if (id < tctx->t->nonbenefits_base_id
-        && !roseCheckLiteralBenefits(real_end, end - start + 1, id, tctx)) {
-        return tctx->groups;
-    }
-
     hwlmcb_rv_t rv = flushQueuedLiterals(tctx, real_end);
     /* flushDelayed may have advanced tctx->lastEndOffset */
 
@@ -856,7 +699,8 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
         return HWLM_TERMINATE_MATCHING;
     }
 
-    rv = roseProcessMainMatch(tctx->t, real_end, id, tctx);
+    size_t match_len = end - start + 1;
+    rv = roseProcessMainMatch(tctx->t, real_end, match_len, id, tctx);
 
     DEBUG_PRINTF("DONE groups=0x%016llx\n", tctx->groups);
 

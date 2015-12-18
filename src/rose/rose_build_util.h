@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,21 +35,6 @@
 #include <algorithm>
 
 namespace ue2 {
-
-// Calculate the minimum depth for the given set of vertices, ignoring those
-// with depth 1.
-template<class Cont>
-static
-u8 calcMinDepth(const std::map<RoseVertex, u32> &depths, const Cont &verts) {
-    u8 d = 255;
-    for (RoseVertex v : verts) {
-        u8 vdepth = (u8)std::min((u32)255, depths.at(v));
-        if (vdepth > 1) {
-            d = std::min(d, vdepth);
-        }
-    }
-    return d;
-}
 
 // Comparator for vertices using their index property.
 struct VertexIndexComp {

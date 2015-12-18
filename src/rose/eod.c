@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -114,9 +114,9 @@ int roseEodRunIterator(const struct RoseEngine *t, u64a offset,
 
     DEBUG_PRINTF("running eod program at offset %u\n", t->eodIterProgramOffset);
 
-    int work_done = 0;
-    if (roseRunProgram(t, t->eodIterProgramOffset, offset, &(scratch->tctxt), 0,
-                       &work_done) == HWLM_TERMINATE_MATCHING) {
+    const size_t match_len = 0;
+    if (roseRunProgram(t, t->eodIterProgramOffset, offset, match_len,
+                       &(scratch->tctxt), 0) == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;
     }
 
@@ -233,9 +233,9 @@ int roseRunEodProgram(const struct RoseEngine *t, u64a offset,
     // There should be no pending delayed literals.
     assert(!scratch->tctxt.filledDelayedSlots);
 
-    int work_done = 0;
-    if (roseRunProgram(t, t->eodProgramOffset, offset, &scratch->tctxt, 0,
-                       &work_done) == HWLM_TERMINATE_MATCHING) {
+    const size_t match_len = 0;
+    if (roseRunProgram(t, t->eodProgramOffset, offset, match_len,
+                       &scratch->tctxt, 0) == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;
     }
 

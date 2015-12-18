@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -73,43 +73,11 @@ ReportID literalToReport(u32 id) {
     return id & ~LITERAL_DR_FLAG;
 }
 
-/** \brief Structure representing a literal. */
-struct RoseLiteral {
-    /**
-     * \brief Program to run when this literal is seen.
-     *
-     * Offset is relative to RoseEngine, or zero for no program.
-     */
-    u32 programOffset;
-
-    /** \brief Bitset of groups that cause this literal to fire. */
-    rose_group groups;
-
-    /**
-     * \brief True if this literal switches off its group behind it when it
-     * sets a role.
-     */
-    u8 squashesGroup;
-
-    /**
-     * \brief Bitset which indicates that the literal inserts a delayed
-     * match at the given offset.
-     */
-    u32 delay_mask;
-
-    /** \brief Offset to array of ids to poke in the delay structure. */
-    u32 delayIdsOffset;
-};
-
 /* Allocation of Rose literal ids
  *
  * The rose literal id space is segmented:
  *
  * ---- 0
- * |  | Normal undelayed literals in the e, or f tables which require a
- * |  | manual benefits confirm on match [a table never requires benefits]
- * |  |
- * ---- nonbenefits_base_id
  * |  | 'Normal' undelayed literals in either e or f tables
  * |  |
  * |  |
@@ -127,7 +95,7 @@ struct RoseLiteral {
  * ---- LITERAL_DR_FLAG
  * |  | Direct Report literals: immediately raise an internal report with id
  * |  | given by (lit_id & ~LITERAL_DR_FLAG). Raised by a or f tables (or e??).
- * |  | No RoseLiteral structure
+ * |  | No literal programs.
  * |  |
  * |  |
  * ----
@@ -135,14 +103,15 @@ struct RoseLiteral {
 
 /* Rose Literal Sources
  *
- * Rose currently gets events (mainly roseProcessMatch calls) from 8 sources:
+ * Rose currently gets events (mainly roseProcessMatch calls) from a number of
+ * sources:
  * 1) The floating table
  * 2) The anchored table
  * 3) Delayed literals
- * 4) suffixes NFAs
- * 5) masksv2 (literals with benefits)
- * 6) End anchored table
- * 7) prefix / infix nfas
+ * 4) Suffix NFAs
+ * 5) Literal masks
+ * 5) End anchored table
+ * 6) Prefix / Infix nfas
  *
  * Care is required to ensure that events appear to come into Rose in order
  * (or sufficiently ordered for Rose to cope). Generally the progress of the
@@ -165,7 +134,7 @@ struct RoseLiteral {
  * NFA queues are run to the current point (floating or delayed literal) as
  * appropriate.
  *
- * Maskv2:
+ * Literal Masks:
  * These are triggered from either floating literals or delayed literals and
  * inspect the data behind them. Matches are raised at the same location as the
  * trigger literal so there are no ordering issues. Masks are always pure
@@ -301,12 +270,12 @@ struct RoseStateOffsets {
 };
 
 struct RoseBoundaryReports {
-    u32 reportEodOffset; /**< 0 if no reports lits, otherwise offset of
+    u32 reportEodOffset; /**< 0 if no reports list, otherwise offset of
                           * MO_INVALID_IDX terminated list to report at EOD */
-    u32 reportZeroOffset; /**< 0 if no reports lits, otherwise offset of
+    u32 reportZeroOffset; /**< 0 if no reports list, otherwise offset of
                            * MO_INVALID_IDX terminated list to report at offset
                            * 0 */
-    u32 reportZeroEodOffset; /**< 0 if no reports lits, otherwise offset of
+    u32 reportZeroEodOffset; /**< 0 if no reports list, otherwise offset of
                               * MO_INVALID_IDX terminated list to report if eod
                               * is at offset 0. Superset of other lists. */
 };
@@ -338,18 +307,20 @@ struct RoseBoundaryReports {
 #define ROSE_RUNTIME_PURE_LITERAL  1
 #define ROSE_RUNTIME_SINGLE_OUTFIX 2
 
-// Runtime structure header for Rose.
-// In memory, we follow this with:
-//   1a. anchored 'literal' matcher table
-//   1b. floating literal matcher table
-//   1c. eod-anchored literal matcher table
-//   1d. small block table
-//   2. array of RoseLiteral (literalCount entries)
-//   8. array of NFA offsets, one per queue
-//   9. array of state offsets, one per queue (+)
-//  10. array of role ids for the set of all root roles
-//  12. multi-direct report array
-/*
+/**
+ * \brief Runtime structure header for Rose.
+ *
+ * Runtime structure header for Rose.
+ * In memory, we follow this with:
+ *   -# the "engine blob"
+ *   -# anchored 'literal' matcher table
+ *   -# floating literal matcher table
+ *   -# eod-anchored literal matcher table
+ *   -# small block table
+ *   -# array of NFA offsets, one per queue
+ *   -# array of state offsets, one per queue (+)
+ *   -# multi-direct report array
+ *
  *  (+) stateOffset array note: Offsets in the array are either into the stream
  *  state (normal case) or into the tstate region of scratch (for transient rose
  *  nfas). Rose nfa info table can distinguish the cases.
@@ -407,8 +378,22 @@ struct RoseEngine {
                                      * with the anchored table. */
     u32 intReportOffset; /**< offset of array of internal_report structures */
     u32 intReportCount; /**< number of internal_report structures */
-    u32 literalOffset; // offset of RoseLiteral array (bytes)
-    u32 literalCount; // number of RoseLiteral entries [NOT number of literals]
+
+    /** \brief Offset of u32 array of program offsets for literals. */
+    u32 litProgramOffset;
+
+    /** \brief Offset of u32 array of delay rebuild program offsets for
+     * literals. */
+    u32 litDelayRebuildProgramOffset;
+
+    /**
+     * \brief Number of entries in the arrays pointed to by litProgramOffset,
+     * litDelayRebuildProgramOffset.
+     *
+     * Note: NOT the total number of literals.
+     */
+    u32 literalCount;
+
     u32 multidirectOffset; /**< offset of multi-direct report list. */
     u32 activeArrayCount; //number of nfas tracked in the active array
     u32 activeLeftCount; //number of nfas tracked in the active rose array
@@ -468,8 +453,6 @@ struct RoseEngine {
     u32 anchored_count; /* number of anchored literal ids */
     u32 anchored_base_id; /* literal id of the first literal in the A table.
                            * anchored literal ids are contiguous */
-    u32 nonbenefits_base_id; /* first literal id without benefit conf.
-                              * contiguous, blah, blah */
     u32 maxFloatingDelayedMatch; /* max offset that a delayed literal can
                                   * usefully be reported */
     u32 delayRebuildLength; /* length of the history region which needs to be
@@ -486,25 +469,12 @@ struct RoseEngine {
     u32 rosePrefixCount; /* number of rose prefixes */
     u32 activeLeftIterOffset; /* mmbit_sparse_iter over non-transient roses */
     u32 ematcherRegionSize; /* max region size to pass to ematcher */
-    u32 literalBenefitsOffsets; /* offset to array of benefits indexed by lit
-                                   id */
     u32 somRevCount; /**< number of som reverse nfas */
     u32 somRevOffsetOffset; /**< offset to array of offsets to som rev nfas */
     u32 group_weak_end; /* end of weak groups, debugging only */
     u32 floatingStreamState; // size in bytes
 
     struct scatter_full_plan state_init;
-};
-
-struct lit_benefits {
-    union {
-        u64a a64[MAX_MASK2_WIDTH/sizeof(u64a)];
-        u8 a8[MAX_MASK2_WIDTH];
-    } and_mask;
-    union {
-        u64a e64[MAX_MASK2_WIDTH/sizeof(u64a)];
-        u8 e8[MAX_MASK2_WIDTH];
-    } expected;
 };
 
 #if defined(_WIN32)
@@ -575,14 +545,6 @@ const void *getSBLiteralMatcher(const struct RoseEngine *t) {
 }
 
 static really_inline
-const struct RoseLiteral *getLiteralTable(const struct RoseEngine *t) {
-    const struct RoseLiteral *tl
-        = (const struct RoseLiteral *)((const char *)t + t->literalOffset);
-    assert(ISALIGNED_N(tl, 4));
-    return tl;
-}
-
-static really_inline
 const struct LeftNfaInfo *getLeftTable(const struct RoseEngine *t) {
     const struct LeftNfaInfo *r
         = (const struct LeftNfaInfo *)((const char *)t + t->leftOffset);
@@ -599,13 +561,6 @@ const struct mmbit_sparse_iter *getActiveLeftIter(const struct RoseEngine *t) {
             ((const char *)t + t->activeLeftIterOffset);
     assert(ISALIGNED_N(it, 4));
     return it;
-}
-
-static really_inline
-const struct lit_benefits *getLiteralBenefitsTable(
-                                              const struct RoseEngine *t) {
-    return (const struct lit_benefits *)
-        ((const char *)t + t->literalBenefitsOffsets);
 }
 
 static really_inline
