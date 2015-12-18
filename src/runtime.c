@@ -1184,13 +1184,7 @@ void rawStreamExec(struct hs_stream *stream_state, struct hs_scratch *scratch) {
     assert(scratch);
 
     char *state = getMultiState(stream_state);
-
-    u8 broken = getBroken(state);
-    if (unlikely(broken)) {
-        assert(broken == BROKEN_FROM_USER || broken == BROKEN_EXHAUSTED);
-        scratch->core_info.broken = broken;
-        return;
-    }
+    assert(!getBroken(state));
 
     DEBUG_PRINTF("::: streaming rose ::: offset = %llu len = %zu\n",
                  stream_state->offset, scratch->core_info.len);
@@ -1215,13 +1209,7 @@ void pureLiteralStreamExec(struct hs_stream *stream_state,
     assert(scratch);
 
     char *state = getMultiState(stream_state);
-
-    u8 broken = getBroken(state);
-    if (unlikely(broken)) {
-        assert(broken == BROKEN_FROM_USER || broken == BROKEN_EXHAUSTED);
-        scratch->core_info.broken = broken;
-        return;
-    }
+    assert(!getBroken(state));
 
     const struct RoseEngine *rose = stream_state->rose;
     const struct HWLM *ftable = getFLiteralMatcher(rose);
@@ -1335,6 +1323,16 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
     if (!id->offset && rose->boundary.reportZeroOffset) {
         DEBUG_PRINTF("zero reports\n");
         processReportList(rose, rose->boundary.reportZeroOffset, 0, scratch);
+        broken = getBroken(state);
+        if (unlikely(broken)) {
+            DEBUG_PRINTF("stream is broken, halting scan\n");
+            if (broken == BROKEN_FROM_USER) {
+                return HS_SCAN_TERMINATED;
+            } else {
+                assert(broken == BROKEN_EXHAUSTED);
+                return HS_SUCCESS;
+            }
+        }
     }
 
     switch (rose->runtimeImpl) {
