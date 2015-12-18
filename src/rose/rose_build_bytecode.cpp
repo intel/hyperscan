@@ -3627,7 +3627,9 @@ u32 writeEodProgram(RoseBuildImpl &build, build_context &bc) {
     // Collect all edges leading into EOD event literal vertices.
     vector<RoseEdge> edge_list;
     for (const auto &v : lit_info.vertices) {
-        insert(&edge_list, edge_list.end(), in_edges(v, g));
+        for (const auto &e : in_edges_range(v, g)) {
+            edge_list.push_back(e);
+        }
     }
 
     // Sort edge list for determinism, prettiness.
