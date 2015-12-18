@@ -184,6 +184,13 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
     ptr += floodControlTmp.second;
     aligned_free(floodControlTmp.first);
 
+    /*  we are allowing domains 9 to 15 only */
+    assert(eng.bits > 8 && eng.bits < 16);
+    fdr->domain = eng.bits;
+    fdr->schemeWidthByte = eng.schemeWidth / 8;
+    fdr->domainMask = (1 << eng.bits) - 1;
+    fdr->tabSize = (1 << eng.bits) * fdr->schemeWidthByte;
+
     if (link.first) {
         fdr->link = verify_u32(ptr - fdr_base);
         memcpy(ptr, link.first, link.second);
@@ -245,6 +252,8 @@ void FDRCompiler::assignStringsToBuckets() {
     typedef pair<SCORE, u32> SCORE_INDEX_PAIR;
 
     u32 ls = verify_u32(lits.size());
+    assert(ls); // Shouldn't be called with no literals.
+
     // make a vector that contains our literals as pointers or u32 LiteralIndex values
     vector<LiteralIndex> vli;
     vli.resize(ls);
@@ -292,6 +301,8 @@ void FDRCompiler::assignStringsToBuckets() {
             currentChunk++;
         }
     }
+
+    assert(currentChunk > 0);
     count[currentChunk - 1] = ls - chunkStartID;
     // close off chunks with an empty row
     firstIds[currentChunk] = ls;
@@ -383,12 +394,14 @@ bool getMultiEntriesAtPosition(const FDREngineDescription &eng,
                                const vector<hwlmLiteral> &lits,
                                SuffixPositionInString pos,
                                std::map<u32, ue2::unordered_set<u32> > &m2) {
+    assert(eng.bits < 32);
+
     u32 distance = 0;
     if (eng.bits <= 8) {
         distance = 1;
     } else if (eng.bits <= 16) {
         distance = 2;
-    } else if (eng.bits <= 32) {
+    } else {
         distance = 4;
     }
 
@@ -526,6 +539,11 @@ fdrBuildTableInternal(const vector<hwlmLiteral> &lits, bool make_small,
 
     if (!des) {
         return nullptr;
+    }
+
+    // temporary hack for unit testing
+    if (hint != HINT_INVALID) {
+        des->bits = 9;
     }
 
     FDRCompiler fc(lits, *des, make_small);

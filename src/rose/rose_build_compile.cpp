@@ -1631,20 +1631,23 @@ bool triggerKillsRoseGraph(const RoseBuildImpl &tbi, const left_id &left,
     assert(left.graph());
     const NGHolder &h = *left.graph();
 
+    ue2::flat_set<NFAVertex> all_states;
+    insert(&all_states, vertices(h));
+    assert(out_degree(h.startDs, h) == 1); /* triggered don't use sds */
+    DEBUG_PRINTF("removing sds\n");
+    all_states.erase(h.startDs);
+
+    ue2::flat_set<NFAVertex> states;
+
     /* check each pred literal to see if they all kill previous graph
      * state */
     for (u32 lit_id : tbi.g[source(e, tbi.g)].literals) {
         const rose_literal_id &pred_lit = tbi.literals.right.at(lit_id);
         const ue2_literal s = findNonOverlappingTail(all_lits, pred_lit.s);
 
-        set<NFAVertex> states;
-        insert(&states, vertices(h));
-        assert(out_degree(h.startDs, h) == 1); /* triggered don't use sds */
-        DEBUG_PRINTF("removing sds\n");
-        states.erase(h.startDs);
         DEBUG_PRINTF("running graph %zu\n", states.size());
-        execute_graph(h, s, &states, true);
-        DEBUG_PRINTF("ran\n");
+        states = execute_graph(h, s, all_states, true);
+        DEBUG_PRINTF("ran, %zu states on\n", states.size());
 
         if (!states.empty()) {
             return false;

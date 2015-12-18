@@ -2688,12 +2688,6 @@ void fillInReportInfo(RoseEngine *engine, u32 reportOffset,
 }
 
 static
-void populateInvDkeyTable(char *ptr, const ReportManager &rm) {
-    vector<ReportID> table = rm.getDkeyToReportTable();
-    memcpy(ptr, table.data(), byte_length(table));
-}
-
-static
 bool hasSimpleReports(const vector<Report> &reports) {
     auto it = find_if(reports.begin(), reports.end(), isComplexReport);
 
@@ -4154,7 +4148,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->ekeyCount = rm.numEkeys();
     engine->dkeyCount = rm.numDkeys();
     engine->invDkeyOffset = dkeyOffset;
-    populateInvDkeyTable(ptr + dkeyOffset, rm);
+    copy_bytes(ptr + dkeyOffset, rm.getDkeyToReportTable());
 
     engine->somHorizon = ssm.somPrecision();
     engine->somLocationCount = ssm.numSomSlots();
@@ -4314,33 +4308,22 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     buildLitBenefits(*this, engine.get(), base_lits_benefits_offset);
 
     // Copy in other tables
-    memcpy(ptr + bc.engine_blob_base, bc.engine_blob.data(),
-           byte_length(bc.engine_blob));
-
-    memcpy(ptr + engine->literalOffset, literalTable.data(),
-           byte_length(literalTable));
-    memcpy(ptr + engine->roleOffset, bc.roleTable.data(),
-           byte_length(bc.roleTable));
-    copy(leftInfoTable.begin(), leftInfoTable.end(),
-         (LeftNfaInfo *)(ptr + engine->leftOffset));
+    copy_bytes(ptr + bc.engine_blob_base, bc.engine_blob);
+    copy_bytes(ptr + engine->literalOffset, literalTable);
+    copy_bytes(ptr + engine->roleOffset, bc.roleTable);
+    copy_bytes(ptr + engine->leftOffset, leftInfoTable);
 
     fillLookaroundTables(ptr + lookaroundTableOffset,
                          ptr + lookaroundReachOffset, bc.lookaround);
 
     fillInSomRevNfas(engine.get(), ssm, rev_nfa_table_offset, rev_nfa_offsets);
-    memcpy(ptr + engine->predOffset, predTable.data(), byte_length(predTable));
-    memcpy(ptr + engine->rootRoleOffset, rootRoleTable.data(),
-           byte_length(rootRoleTable));
-    memcpy(ptr + engine->anchoredReportMapOffset, art.data(), byte_length(art));
-    memcpy(ptr + engine->anchoredReportInverseMapOffset, arit.data(),
-           byte_length(arit));
-    memcpy(ptr + engine->multidirectOffset, mdr_reports.data(),
-           byte_length(mdr_reports));
-
-    copy(activeLeftIter.begin(), activeLeftIter.end(),
-         (mmbit_sparse_iter *)(ptr + engine->activeLeftIterOffset));
-
-    memcpy(ptr + engine->sideOffset, sideTable.data(), byte_length(sideTable));
+    copy_bytes(ptr + engine->predOffset, predTable);
+    copy_bytes(ptr + engine->rootRoleOffset, rootRoleTable);
+    copy_bytes(ptr + engine->anchoredReportMapOffset, art);
+    copy_bytes(ptr + engine->anchoredReportInverseMapOffset, arit);
+    copy_bytes(ptr + engine->multidirectOffset, mdr_reports);
+    copy_bytes(ptr + engine->activeLeftIterOffset, activeLeftIter);
+    copy_bytes(ptr + engine->sideOffset, sideTable);
 
     DEBUG_PRINTF("rose done %p\n", engine.get());
     return engine;

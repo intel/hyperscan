@@ -439,12 +439,16 @@ size_t hashRightRoleProperties(RoseVertex v, const RoseGraph &g) {
     hash_combine(val, hash_range(begin(props.reports), end(props.reports)));
 
     if (props.suffix) {
-        hash_combine(val, all_reports(props.suffix));
-        if (props.suffix.graph) {
-            hash_combine(val, num_vertices(*props.suffix.graph));
+        const auto &suffix = props.suffix;
+        if (suffix.castle) {
+            hash_combine(val, suffix.castle->reach());
+            hash_combine(val, suffix.castle->repeats.size());
         }
-        if (props.suffix.haig) {
-            hash_combine(val, hash_dfa(*props.suffix.haig));
+        if (suffix.graph) {
+            hash_combine(val, num_vertices(*suffix.graph));
+        }
+        if (suffix.haig) {
+            hash_combine(val, hash_dfa(*suffix.haig));
         }
     }
 
@@ -747,14 +751,17 @@ void pruneReportIfUnused(const RoseBuildImpl &tbi, shared_ptr<NGHolder> h,
  * Castle. */
 static
 void pruneCastle(CastleProto &castle, ReportID report) {
-    for (map<u32, PureRepeat>::iterator it = castle.repeats.begin();
-         it != castle.repeats.end(); /* incr inside */) {
-        if (contains(it->second.reports, report)) {
-            ++it;
-        } else {
-            castle.repeats.erase(it++);
+    unordered_set<u32> dead; // tops to remove.
+    for (const auto &m : castle.repeats) {
+        if (!contains(m.second.reports, report)) {
+            dead.insert(m.first);
         }
     }
+
+    for (const auto &top : dead) {
+        castle.erase(top);
+    }
+
     assert(!castle.repeats.empty());
 }
 
@@ -794,7 +801,7 @@ void pruneUnusedTops(CastleProto &castle, const RoseGraph &g,
     for (u32 top : assoc_keys(castle.repeats)) {
         if (!contains(used_tops, top)) {
             DEBUG_PRINTF("removing unused top %u\n", top);
-            castle.repeats.erase(top);
+            castle.erase(top);
         }
     }
 }

@@ -38,6 +38,7 @@
 #include "nfagraph/ng_repeat.h"
 #include "util/alloc.h"
 #include "util/depth.h"
+#include "util/ue2_containers.h"
 
 #include <map>
 #include <memory>
@@ -67,7 +68,11 @@ struct CastleProto {
     explicit CastleProto(const PureRepeat &pr);
     const CharReach &reach() const;
 
+    /** \brief Add a new repeat. */
     u32 add(const PureRepeat &pr);
+
+    /** \brief Remove a repeat. */
+    void erase(u32 top);
 
     /**
      * \brief Merge in the given repeat, returning the top used.
@@ -80,11 +85,22 @@ struct CastleProto {
 
     /** \brief Mapping from unique top id to repeat. */
     std::map<u32, PureRepeat> repeats;
+
+    /** \brief Mapping from report to associated tops. */
+    ue2::unordered_map<ReportID, flat_set<u32>> report_map;
+
+    /**
+     * \brief Next top id to use. Repeats may be removed without top remapping,
+     * so we track this explicitly instead of using repeats.size().
+     */
+    u32 next_top = 1;
 };
 
 std::set<ReportID> all_reports(const CastleProto &proto);
 depth findMinWidth(const CastleProto &proto);
 depth findMaxWidth(const CastleProto &proto);
+depth findMinWidth(const CastleProto &proto, u32 top);
+depth findMaxWidth(const CastleProto &proto, u32 top);
 
 /**
  * \brief Remap tops to be contiguous.
@@ -133,7 +149,8 @@ bool is_equal(const CastleProto &c1, const CastleProto &c2);
  * \brief True if the given castle contains more than a single instance of any
  * of the reports in the given set.
  */
-bool requiresDedupe(const CastleProto &proto, const std::set<ReportID> &reports);
+bool requiresDedupe(const CastleProto &proto,
+                    const ue2::flat_set<ReportID> &reports);
 
 /**
  * \brief Build an NGHolder from a CastleProto.

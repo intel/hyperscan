@@ -52,7 +52,8 @@ AsciiComponentClass *AsciiComponentClass::clone() const {
 }
 
 bool AsciiComponentClass::class_empty(void) const {
-    return cr.none() && cr_ucp.none();
+    assert(finalized);
+    return cr.none();
 }
 
 void AsciiComponentClass::createRange(unichar to) {
@@ -60,11 +61,15 @@ void AsciiComponentClass::createRange(unichar to) {
     unsigned char from = (u8)range_start;
     if (from > to) {
         throw LocatedParseError("Range out of order in character class");
-    } else {
-        in_cand_range = false;
-        cr.setRange(from, to);
-        range_start = INVALID_UNICODE;
     }
+
+    in_cand_range = false;
+    CharReach ncr(from, to);
+    if (mode.caseless) {
+        make_caseless(&ncr);
+    }
+    cr |= ncr;
+    range_start = INVALID_UNICODE;
 }
 
 void AsciiComponentClass::notePositions(GlushkovBuildState &bs) {
@@ -94,16 +99,13 @@ void AsciiComponentClass::add(PredefinedClass c, bool negative) {
         c = translateForUcpMode(c, mode);
     }
 
+    // Note: caselessness is handled by getPredefinedCharReach.
     CharReach pcr = getPredefinedCharReach(c, mode);
     if (negative) {
         pcr.flip();
     }
 
-    if (isUcp(c)) {
-        cr_ucp |= pcr;
-    } else {
-        cr |= pcr;
-    }
+    cr |= pcr;
     range_start = INVALID_UNICODE;
     in_cand_range = false;
 }
@@ -119,7 +121,12 @@ void AsciiComponentClass::add(unichar c) {
         return;
     }
 
-    cr.set(c);
+    CharReach ncr(c, c);
+    if (mode.caseless) {
+        make_caseless(&ncr);
+    }
+
+    cr |= ncr;
     range_start = c;
 }
 
@@ -134,12 +141,6 @@ void AsciiComponentClass::finalize() {
         cr.set('-');
         in_cand_range = false;
     }
-
-    if (mode.caseless) {
-        make_caseless(&cr);
-    }
-
-    cr |= cr_ucp; /* characters from ucp props don't participate in caseless */
 
     if (m_negate) {
         cr.flip();

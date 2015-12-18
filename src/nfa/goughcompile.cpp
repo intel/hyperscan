@@ -1109,7 +1109,7 @@ aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
     u32 total_prog_size = byte_length(temp_blocks);
     curr_offset += total_prog_size;
 
-    gi.stream_som_loc_count =  slot_count;
+    gi.stream_som_loc_count = slot_count;
     gi.stream_som_loc_width = somPrecision;
 
     u32 gough_size = ROUNDUP_N(curr_offset, 16);
@@ -1136,16 +1136,11 @@ aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
     gough_dfa->length = gough_size;
 
     /* copy in blocks */
-    memcpy((u8 *)gough_dfa.get() + edge_prog_offset, &edge_blocks[0],
-           byte_length(edge_blocks));
+    copy_bytes((u8 *)gough_dfa.get() + edge_prog_offset, edge_blocks);
     if (top_prog_offset) {
-        memcpy((u8 *)gough_dfa.get() + top_prog_offset, &top_blocks[0],
-               byte_length(top_blocks));
+        copy_bytes((u8 *)gough_dfa.get() + top_prog_offset, top_blocks);
     }
-    if (!temp_blocks.empty()) {
-        memcpy((u8 *)gough_dfa.get() + prog_base_offset, &temp_blocks[0],
-               byte_length(temp_blocks));
-    }
+    copy_bytes((u8 *)gough_dfa.get() + prog_base_offset, temp_blocks);
 
     return gough_dfa;
 }

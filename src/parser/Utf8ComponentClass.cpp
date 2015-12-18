@@ -75,6 +75,10 @@ PredefinedClass translateForUcpMode(PredefinedClass in, const ParseMode &mode) {
         } else {
             return CLASS_UCP_LL;
         }
+    case CLASS_PRINT:
+        return CLASS_XPRINT;
+    case CLASS_PUNCT:
+        return CLASS_XPUNCT;
     case CLASS_SPACE:
         return CLASS_UCP_XPS;
     case CLASS_UPPER:
@@ -90,7 +94,6 @@ PredefinedClass translateForUcpMode(PredefinedClass in, const ParseMode &mode) {
     }
 }
 
-static
 CodePointSet getPredefinedCodePointSet(PredefinedClass c,
                                        const ParseMode &mode) {
     /* TODO: support properly PCRE_UCP mode and non PCRE_UCP mode */
@@ -115,6 +118,22 @@ CodePointSet getPredefinedCodePointSet(PredefinedClass c,
         cf.unset(0x180e);
         cf.unsetRange(0x2066, 0x2069);
         rv |= cf;
+        return rv;
+    }
+    case CLASS_XPRINT: {
+        // Same as graph, plus everything with the Zs property.
+        CodePointSet rv = getPredefinedCodePointSet(CLASS_XGRAPH, mode);
+        rv |= getUcpZs();
+        rv.set(0x180e); // Also included in this class by PCRE 8.38.
+        return rv;
+    }
+    case CLASS_XPUNCT: {
+        // Everything with the P (punctuation) property, plus code points in S
+        // (symbols) that are < 128.
+        CodePointSet rv = getUcpP();
+        CodePointSet symbols = getUcpS();
+        symbols.unsetRange(128, MAX_UNICODE);
+        rv |= symbols;
         return rv;
     }
     case CLASS_HORZ: {
@@ -484,7 +503,8 @@ UTF8ComponentClass *UTF8ComponentClass::clone() const {
 }
 
 bool UTF8ComponentClass::class_empty(void) const {
-    return cps.none() && cps_ucp.none();
+    assert(finalized);
+    return cps.none();
 }
 
 void UTF8ComponentClass::createRange(unichar to) {
@@ -492,16 +512,16 @@ void UTF8ComponentClass::createRange(unichar to) {
     unichar from = range_start;
     if (from > to) {
         throw LocatedParseError("Range out of order in character class");
-    } else {
-        in_cand_range = false;
-        CodePointSet ncps;
-        ncps.setRange(from, to);
-        if (mode.caseless) {
-            make_caseless(&ncps);
-        }
-        cps |= ncps;
-        range_start = INVALID_UNICODE;
     }
+
+    in_cand_range = false;
+    CodePointSet ncps;
+    ncps.setRange(from, to);
+    if (mode.caseless) {
+        make_caseless(&ncps);
+    }
+    cps |= ncps;
+    range_start = INVALID_UNICODE;
 }
 
 void UTF8ComponentClass::add(PredefinedClass c, bool negative) {
@@ -520,11 +540,7 @@ void UTF8ComponentClass::add(PredefinedClass c, bool negative) {
         pcps.flip();
     }
 
-    if (isUcp(c)) {
-        cps_ucp |= pcps;
-    } else {
-        cps |= pcps;
-    }
+    cps |= pcps;
 
     range_start = INVALID_UNICODE;
     in_cand_range = false;
@@ -562,38 +578,11 @@ void UTF8ComponentClass::finalize() {
         in_cand_range = false;
     }
 
-    cps |= cps_ucp; /* characters from ucp props always case sensitive */
-
     if (m_negate) {
         cps.flip();
     }
 
     finalized = true;
-}
-
-bool isUcp(PredefinedClass c) {
-    switch (c) {
-    case CLASS_ALNUM:
-    case CLASS_ALPHA:
-    case CLASS_ANY:
-    case CLASS_ASCII:
-    case CLASS_BLANK:
-    case CLASS_CNTRL:
-    case CLASS_DIGIT:
-    case CLASS_GRAPH:
-    case CLASS_HORZ:
-    case CLASS_LOWER:
-    case CLASS_PRINT:
-    case CLASS_PUNCT:
-    case CLASS_SPACE:
-    case CLASS_UPPER:
-    case CLASS_VERT:
-    case CLASS_WORD:
-    case CLASS_XDIGIT:
-        return false;
-    default:
-        return true;
-    }
 }
 
 Position UTF8ComponentClass::getHead(NFABuilder &builder, u8 first_byte) {

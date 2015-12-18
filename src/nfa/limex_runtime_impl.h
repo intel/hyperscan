@@ -179,7 +179,6 @@ char STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
     assert(ISALIGNED_CL(ctx));
     assert(ISALIGNED_CL(&ctx->s));
     STATE_T s = LOAD_STATE(&ctx->s);
-    STORE_STATE(&ctx->cached_estate, ZERO_STATE); /* TODO: understand why this is required */
 
     /* assert(ISALIGNED_16(exceptions)); */
     /* assert(ISALIGNED_16(reach)); */
@@ -305,7 +304,6 @@ char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
     const ReportID *exReports = getExReports(limex);
     const u32 *exceptionMap = limex->exceptionMap;
     STATE_T s = LOAD_STATE(&ctx->s);
-    STORE_STATE(&ctx->cached_estate, ZERO_STATE); /* TODO: understand why this is required */
 
     /* assert(ISALIGNED_16(exceptions)); */
     /* assert(ISALIGNED_16(reach)); */
@@ -542,7 +540,6 @@ char JOIN(LIMEX_API_ROOT, _Q)(const struct NFA *n, struct mq *q, s64a end) {
     ctx->callback = q->cb;
     ctx->context = q->context;
     STORE_STATE(&ctx->cached_estate, ZERO_STATE);
-    STORE_STATE(&ctx->cached_esucc, ZERO_STATE);
 
     assert(q->items[q->cur].location >= 0);
     DEBUG_PRINTF("LOAD STATE\n");
@@ -638,7 +635,6 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
     ctx->callback = q->cb;
     ctx->context = q->context;
     STORE_STATE(&ctx->cached_estate, ZERO_STATE);
-    STORE_STATE(&ctx->cached_esucc, ZERO_STATE);
 
     DEBUG_PRINTF("LOAD STATE\n");
     STORE_STATE(&ctx->s, LOAD_STATE(q->state));
@@ -730,7 +726,6 @@ char JOIN(LIMEX_API_ROOT, _QR)(const struct NFA *n, struct mq *q,
     ctx->callback = NULL;
     ctx->context = NULL;
     STORE_STATE(&ctx->cached_estate, ZERO_STATE);
-    STORE_STATE(&ctx->cached_esucc, ZERO_STATE);
 
     DEBUG_PRINTF("LOAD STATE\n");
     STORE_STATE(&ctx->s, LOAD_STATE(q->state));
@@ -833,7 +828,6 @@ char JOIN(LIMEX_API_ROOT, _B_Reverse)(const struct NFA *n, u64a offset,
     ctx->callback = cb;
     ctx->context = context;
     STORE_STATE(&ctx->cached_estate, ZERO_STATE);
-    STORE_STATE(&ctx->cached_esucc, ZERO_STATE);
 
     const IMPL_NFA_T *limex = getImplNfa(n);
     STORE_STATE(&ctx->s, INITIAL_FN(limex, 0)); // always anchored

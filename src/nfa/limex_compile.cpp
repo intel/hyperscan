@@ -1397,8 +1397,7 @@ struct Factory {
             repeat->horizon = rsi.horizon;
             repeat->packedCtrlSize = rsi.packedCtrlSize;
             repeat->stateSize = rsi.stateSize;
-            memcpy(repeat->packedFieldSizes, rsi.packedFieldSizes.data(),
-                   byte_length(rsi.packedFieldSizes));
+            copy_bytes(repeat->packedFieldSizes, rsi.packedFieldSizes);
             repeat->patchCount = rsi.patchCount;
             repeat->patchSize = rsi.patchSize;
             repeat->encodingSize = rsi.encodingSize;
@@ -1413,8 +1412,7 @@ struct Factory {
             // Copy in the sparse lookup table.
             if (br.type == REPEAT_SPARSE_OPTIMAL_P) {
                 assert(!rsi.table.empty());
-                memcpy(info_ptr + tableOffset, rsi.table.data(),
-                       byte_length(rsi.table));
+                copy_bytes(info_ptr + tableOffset, rsi.table);
             }
 
             // Fill the tug mask.
@@ -1702,6 +1700,7 @@ struct Factory {
 
         for (u32 i = 0; i < num_repeats; i++) {
             repeatOffsets[i] = offset;
+            assert(repeats[i].first);
             memcpy((char *)limex + offset, repeats[i].first.get(),
                    repeats[i].second);
             offset += repeats[i].second;
@@ -1709,8 +1708,7 @@ struct Factory {
 
         // Write repeat offset lookup table.
         assert(ISALIGNED_N((char *)limex + repeatOffsetsOffset, alignof(u32)));
-        memcpy((char *)limex + repeatOffsetsOffset, repeatOffsets.data(),
-               byte_length(repeatOffsets));
+        copy_bytes((char *)limex + repeatOffsetsOffset, repeatOffsets);
 
         limex->repeatOffset = repeatOffsetsOffset;
         limex->repeatCount = num_repeats;
@@ -1725,8 +1723,7 @@ struct Factory {
         limex->exReportOffset = exceptionReportsOffset;
         assert(ISALIGNED_N((char *)limex + exceptionReportsOffset,
                            alignof(ReportID)));
-        memcpy((char *)limex + exceptionReportsOffset, reports.data(),
-               byte_length(reports));
+        copy_bytes((char *)limex + exceptionReportsOffset, reports);
     }
 
     static

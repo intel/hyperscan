@@ -363,7 +363,9 @@ TEST_P(MultiBitTest, BoundedIteratorSingle) {
     ASSERT_TRUE(ba != nullptr);
 
     // Set one bit on and run some checks.
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
+        SCOPED_TRACE(i);
+
         mmbit_clear(ba, test_size);
         mmbit_set(ba, test_size, i);
 
@@ -381,7 +383,12 @@ TEST_P(MultiBitTest, BoundedIteratorSingle) {
 
         // Scanning from one past our bit to the end should find nothing.
         if (i != test_size - 1) {
-            ASSERT_EQ(MMB_INVALID, mmbit_iterate_bounded(ba, test_size, i + 1, test_size));
+            // Ordinary iterator.
+            ASSERT_EQ(MMB_INVALID, mmbit_iterate(ba, test_size, i));
+
+            // Bounded iterator.
+            ASSERT_EQ(MMB_INVALID,
+                      mmbit_iterate_bounded(ba, test_size, i + 1, test_size));
         }
     }
 }
@@ -393,7 +400,7 @@ TEST_P(MultiBitTest, BoundedIteratorAll) {
     // Switch everything on.
     fill_mmbit(ba, test_size);
 
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         if (i != 0) {
             ASSERT_EQ(0U, mmbit_iterate_bounded(ba, test_size, 0, i));
         }
@@ -408,13 +415,13 @@ TEST_P(MultiBitTest, BoundedIteratorEven) {
 
     // Set every even-numbered bit and see what we can see.
     mmbit_clear(ba, test_size);
-    for (u32 i = 0; i < test_size; i += 2) {
+    for (u64a i = 0; i < test_size; i += 2) {
         mmbit_set(ba, test_size, i);
     }
 
     u32 even_stride = stride % 2 ? stride + 1 : stride;
 
-    for (u32 i = 0; i < test_size; i += even_stride) {
+    for (u64a i = 0; i < test_size; i += even_stride) {
         // Scanning from each even bit to the end should find itself.
         ASSERT_EQ(i, mmbit_iterate_bounded(ba, test_size, i, test_size));
 
@@ -439,13 +446,13 @@ TEST_P(MultiBitTest, BoundedIteratorOdd) {
 
     // Set every odd-numbered bit and see what we can see.
     mmbit_clear(ba, test_size);
-    for (u32 i = 1; i < test_size; i += 2) {
+    for (u64a i = 1; i < test_size; i += 2) {
         mmbit_set(ba, test_size, i);
     }
 
     u32 even_stride = stride % 2 ? stride + 1 : stride;
 
-    for (u32 i = 0; i < test_size; i += even_stride) {
+    for (u64a i = 0; i < test_size; i += even_stride) {
         // Scanning from each even bit to the end should find i+1.
         if (i+1 < test_size) {
             ASSERT_EQ(i+1, mmbit_iterate_bounded(ba, test_size, i, test_size));
@@ -473,7 +480,7 @@ TEST_P(MultiBitTest, Set) {
     mmbit_clear(ba, test_size);
     ASSERT_FALSE(mmbit_any(ba, test_size));
 
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         SCOPED_TRACE(i);
 
         // set a bit that wasn't set before
@@ -500,7 +507,7 @@ TEST_P(MultiBitTest, Iter) {
     mmbit_clear(ba, test_size);
     ASSERT_EQ(MMB_INVALID, mmbit_iterate(ba, test_size, MMB_INVALID));
 
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         SCOPED_TRACE(i);
         mmbit_clear(ba, test_size);
         mmbit_set(ba, test_size, i);
@@ -517,13 +524,13 @@ TEST_P(MultiBitTest, IterAll) {
     ASSERT_EQ(MMB_INVALID, mmbit_iterate(ba, test_size, MMB_INVALID));
 
     // Set all bits.
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         mmbit_set(ba, test_size, i);
     }
 
     // Find all bits.
     u32 it = MMB_INVALID;
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         ASSERT_EQ(i, mmbit_iterate(ba, test_size, it));
         it = i;
     }
@@ -536,7 +543,7 @@ TEST_P(MultiBitTest, AnyPrecise) {
     mmbit_clear(ba, test_size);
     ASSERT_FALSE(mmbit_any_precise(ba, test_size));
 
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         SCOPED_TRACE(i);
         mmbit_clear(ba, test_size);
         mmbit_set(ba, test_size, i);
@@ -551,7 +558,7 @@ TEST_P(MultiBitTest, Any) {
     mmbit_clear(ba, test_size);
     ASSERT_FALSE(mmbit_any(ba, test_size));
 
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         SCOPED_TRACE(i);
         mmbit_clear(ba, test_size);
         mmbit_set(ba, test_size, i);
@@ -567,7 +574,7 @@ TEST_P(MultiBitTest, UnsetRange1) {
     fill_mmbit(ba, test_size);
 
     // Use mmbit_unset_range to switch off any single bit.
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         SCOPED_TRACE(i);
         ASSERT_TRUE(mmbit_isset(ba, test_size, i));
         mmbit_unset_range(ba, test_size, i, i + 1);
@@ -590,7 +597,7 @@ TEST_P(MultiBitTest, UnsetRange2) {
     // Use mmbit_unset_range to switch off all bits.
     mmbit_unset_range(ba, test_size, 0, test_size);
 
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         SCOPED_TRACE(i);
         ASSERT_FALSE(mmbit_isset(ba, test_size, i));
     }
@@ -601,12 +608,12 @@ TEST_P(MultiBitTest, UnsetRange3) {
     ASSERT_TRUE(ba != nullptr);
 
     // Use mmbit_unset_range to switch off bits in chunks of 3.
-    for (u32 i = 0; i < test_size - 3; i += stride) {
+    for (u64a i = 0; i < test_size - 3; i += stride) {
         // Switch on the bit before, the bits in question, and the bit after.
         if (i > 0) {
             mmbit_set(ba, test_size, i - 1);
         }
-        for (u32 j = i; j < min(i + 4, test_size); j++) {
+        for (u64a j = i; j < min(i + 4, (u64a)test_size); j++) {
             mmbit_set(ba, test_size, j);
         }
 
@@ -635,7 +642,7 @@ TEST_P(MultiBitTest, InitRangeAll) {
     mmbit_init_range(ba, test_size, 0, test_size);
 
     // Make sure they're all set.
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         SCOPED_TRACE(i);
         ASSERT_TRUE(mmbit_isset(ba, test_size, i));
     }
@@ -656,7 +663,7 @@ TEST_P(MultiBitTest, InitRangeOne) {
     SCOPED_TRACE(test_size);
     ASSERT_TRUE(ba != nullptr);
 
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         mmbit_init_range(ba, test_size, i, i + 1);
 
         // Only bit 'i' should be on.
@@ -685,7 +692,7 @@ TEST_P(MultiBitTest, InitRangeChunked) {
             ASSERT_EQ(chunk_begin, mmbit_iterate(ba, test_size, MMB_INVALID));
 
             // All bits in the chunk should be on.
-            for (u32 i = chunk_begin; i < chunk_end; i += stride) {
+            for (u64a i = chunk_begin; i < chunk_end; i += stride) {
                 SCOPED_TRACE(i);
                 ASSERT_TRUE(mmbit_isset(ba, test_size, i));
             }
@@ -985,7 +992,7 @@ TEST_P(MultiBitTest, SparseIteratorBeginAll) {
     vector<mmbit_sparse_iter> it;
     vector<u32> bits;
     bits.reserve(test_size / stride);
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         bits.push_back(i);
     }
     mmbBuildSparseIterator(it, bits, test_size);
@@ -1032,7 +1039,7 @@ TEST_P(MultiBitTest, SparseIteratorBeginThirds) {
     // Switch every third bits on in state
     mmbit_clear(ba, test_size);
     ASSERT_FALSE(mmbit_any(ba, test_size));
-    for (u32 i = 0; i < test_size; i += 3) {
+    for (u64a i = 0; i < test_size; i += 3) {
         mmbit_set(ba, test_size, i);
     }
 
@@ -1044,7 +1051,7 @@ TEST_P(MultiBitTest, SparseIteratorBeginThirds) {
     ASSERT_EQ(0U, val);
     ASSERT_EQ(0U, idx);
 
-    for (u32 i = 0; i < test_size - 3; i += 3) {
+    for (u64a i = 0; i < test_size - 3; i += 3) {
         mmbit_unset(ba, test_size, i);
         val = mmbit_sparse_iter_begin(ba, test_size, &idx, &it[0], &state[0]);
         ASSERT_EQ(i+3, val);
@@ -1060,7 +1067,7 @@ TEST_P(MultiBitTest, SparseIteratorNextAll) {
     vector<mmbit_sparse_iter> it;
     vector<u32> bits;
     bits.reserve(test_size / stride);
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         bits.push_back(i);
     }
     mmbBuildSparseIterator(it, bits, test_size);
@@ -1103,7 +1110,7 @@ TEST_P(MultiBitTest, SparseIteratorNextExactStrided) {
     vector<mmbit_sparse_iter> it;
     vector<u32> bits;
     bits.reserve(test_size / stride);
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         bits.push_back(i);
         mmbit_set(ba, test_size, i);
     }
@@ -1135,7 +1142,7 @@ TEST_P(MultiBitTest, SparseIteratorNextNone) {
     vector<mmbit_sparse_iter> it;
     vector<u32> bits;
     bits.reserve(test_size / stride);
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         bits.push_back(i);
     }
     mmbBuildSparseIterator(it, bits, test_size);
@@ -1164,7 +1171,7 @@ TEST_P(MultiBitTest, SparseIteratorUnsetAll) {
     vector<mmbit_sparse_iter> it;
     vector<u32> bits;
     bits.reserve(test_size / stride);
-    for (u32 i = 0; i < test_size; i += stride) {
+    for (u64a i = 0; i < test_size; i += stride) {
         bits.push_back(i);
     }
     mmbBuildSparseIterator(it, bits, test_size);
@@ -1194,10 +1201,10 @@ TEST_P(MultiBitTest, SparseIteratorUnsetHalves) {
 
     // Two sparse iterators: one for even bits, one for odd ones
     vector<u32> even, odd;
-    for (u32 i = 0; i < test_size; i += 2) {
+    for (u64a i = 0; i < test_size; i += 2) {
         even.push_back(i);
     }
-    for (u32 i = 1; i < test_size; i += 2) {
+    for (u64a i = 1; i < test_size; i += 2) {
         odd.push_back(i);
     }
 
@@ -1277,9 +1284,9 @@ static const MultiBitTestParam multibitTests[] = {
     { 1U << 28, 15073 },
     { 1U << 29, 24413 },
     { 1U << 30, 50377 },
+    { 1U << 31, 104729 },
 
-    // XXX: cases this large segfault in mmbit_set, FIXME NOW
-    //{ 1U << 31, 3701 },
+    // { UINT32_MAX, 104729 }, // Very slow
 };
 
 INSTANTIATE_TEST_CASE_P(MultiBit, MultiBitTest, ValuesIn(multibitTests));

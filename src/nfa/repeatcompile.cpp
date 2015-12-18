@@ -75,8 +75,8 @@ u32 calcPackedBytes(u64a val) {
 }
 
 static
-u64a repeatRecurTable(struct RepeatStateInfo *info, const depth &repeatMax,
-                      const u32 minPeriod) {
+u32 repeatRecurTable(struct RepeatStateInfo *info, const depth &repeatMax,
+                     const u32 minPeriod) {
     u32 repeatTmp = info->patchCount > 2 ? 64 : (u32)repeatMax;
     u32 repeat_index = repeatTmp < minPeriod ? repeatTmp : minPeriod;
     for (u32 i = 0; i <= repeat_index; i++) {
@@ -93,7 +93,7 @@ u64a repeatRecurTable(struct RepeatStateInfo *info, const depth &repeatMax,
 
 static
 u32 findOptimalPatchSize(struct RepeatStateInfo *info, const depth &repeatMax,
-                         const u32 minPeriod, u64a rv) {
+                         const u32 minPeriod, u32 rv) {
     u32 cnt = 0;
     u32 patch_bits = 0;
     u32 total_size = 0;
@@ -171,7 +171,7 @@ RepeatStateInfo::RepeatStateInfo(enum RepeatType type, const depth &repeatMin,
         assert(minPeriod);
         assert(repeatMax.is_finite());
         {
-            u64a rv = repeatRecurTable(this, repeatMax, minPeriod);
+            u32 rv = repeatRecurTable(this, repeatMax, minPeriod);
             u32 repeatTmp = 0;
             if ((u32)repeatMax < minPeriod) {
                 repeatTmp = repeatMax;

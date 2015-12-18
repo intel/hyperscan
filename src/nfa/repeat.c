@@ -39,6 +39,8 @@
 #include "util/pack_bits.h"
 #include "util/partial_store.h"
 #include "util/unaligned.h"
+
+#include <stdint.h>
 #include <string.h>
 
 /** \brief Returns the total capacity of the ring.
@@ -709,12 +711,7 @@ enum RepeatMatch repeatHasMatchRing(const struct RepeatInfo *info,
     dumpRing(info, xs, ring);
 #endif
 
-    // We work in terms of the distance between the current offset and the base
-    // offset in our history.
-    u64a delta = offset - xs->offset;
-    DEBUG_PRINTF("delta=%llu\n", delta);
-
-    if (delta < info->repeatMin) {
+    if (offset - xs->offset < info->repeatMin) {
         DEBUG_PRINTF("haven't even seen repeatMin bytes yet!\n");
         return REPEAT_NOMATCH;
     }
@@ -724,17 +721,22 @@ enum RepeatMatch repeatHasMatchRing(const struct RepeatInfo *info,
         return REPEAT_STALE;
     }
 
+    // If we're not stale, delta fits in the range [repeatMin, lastTop +
+    // repeatMax], which fits in a u32.
+    assert(offset - xs->offset < UINT32_MAX);
+    u32 delta = (u32)(offset - xs->offset);
+    DEBUG_PRINTF("delta=%u\n", delta);
+
     // Find the bounds on possible matches in the ring buffer.
-    u64a lower = delta > info->repeatMax ? delta - info->repeatMax : 0;
-    u64a upper = delta - info->repeatMin + 1;
-    upper = MIN(upper, ringOccupancy(xs, ringSize));
+    u32 lower = delta > info->repeatMax ? delta - info->repeatMax : 0;
+    u32 upper = MIN(delta - info->repeatMin + 1, ringOccupancy(xs, ringSize));
 
     if (lower >= upper) {
         DEBUG_PRINTF("no matches to check\n");
         return REPEAT_NOMATCH;
     }
 
-    DEBUG_PRINTF("possible match indices=[%llu,%llu]\n", lower, upper);
+    DEBUG_PRINTF("possible match indices=[%u,%u]\n", lower, upper);
     if (ringHasMatch(xs, ring, ringSize, lower, upper)) {
         return REPEAT_MATCH;
     }
@@ -1163,7 +1165,7 @@ static
 void storeInitialRingTopPatch(const struct RepeatInfo *info,
                               struct RepeatRingControl *xs,
                               u8 *state, u64a offset) {
-    DEBUG_PRINTF("set the first patch\n");
+    DEBUG_PRINTF("set the first patch, offset=%llu\n", offset);
     xs->offset = offset;
 
     u8 *active = state;
@@ -1197,12 +1199,10 @@ u32 getSparseOptimalTargetValue(const struct RepeatInfo *info,
     return loc;
 }
 
-u64a repeatLastTopSparseOptimalP(const struct RepeatInfo *info,
-                                 const union RepeatControl *ctrl,
-                                 const void *state) {
+static
+u64a sparseLastTop(const struct RepeatInfo *info,
+                   const struct RepeatRingControl *xs, const u8 *state) {
     DEBUG_PRINTF("looking for last top\n");
-    const struct RepeatRingControl *xs = &ctrl->ring;
-
     u32 patch_size = info->patchSize;
     u32 patch_count = info->patchCount;
     u32 encoding_size = info->encodingSize;
@@ -1214,7 +1214,7 @@ u64a repeatLastTopSparseOptimalP(const struct RepeatInfo *info,
     }
 
     DEBUG_PRINTF("patch%u encoding_size%u occ%u\n", patch, encoding_size, occ);
-    const u8 *ring = (const u8 *)state + info->patchesOffset;
+    const u8 *ring = state + info->patchesOffset;
     u64a val = partial_load_u64a(ring + encoding_size * patch, encoding_size);
 
     DEBUG_PRINTF("val:%llu\n", val);
@@ -1229,6 +1229,12 @@ u64a repeatLastTopSparseOptimalP(const struct RepeatInfo *info,
 
     assert(0);
     return 0;
+}
+
+u64a repeatLastTopSparseOptimalP(const struct RepeatInfo *info,
+                                 const union RepeatControl *ctrl,
+                                 const void *state) {
+    return sparseLastTop(info, &ctrl->ring, state);
 }
 
 u64a repeatNextMatchSparseOptimalP(const struct RepeatInfo *info,
@@ -1249,20 +1255,20 @@ u64a repeatNextMatchSparseOptimalP(const struct RepeatInfo *info,
     if (nextOffset <= xs->offset + info->repeatMin) {
         patch = xs->first;
         tval = 0;
-    } else if (nextOffset >
-               repeatLastTopSparseOptimalP(info, ctrl, state) +
-               info->repeatMax) {
+    } else if (nextOffset > sparseLastTop(info, xs, state) + info->repeatMax) {
+        DEBUG_PRINTF("ring is stale\n");
         return 0;
     } else {
-        u64a delta = nextOffset - xs->offset;
-        u64a lower = delta > info->repeatMax ? delta - info->repeatMax : 0;
+        assert(nextOffset - xs->offset < UINT32_MAX); // ring is not stale
+        u32 delta = (u32)(nextOffset - xs->offset);
+        u32 lower = delta > info->repeatMax ? delta - info->repeatMax : 0;
         patch = lower / patch_size;
         tval = lower - patch * patch_size;
     }
 
     DEBUG_PRINTF("patch %u\n", patch);
     u32 patch_count = info->patchCount;
-    if (patch >= patch_count){
+    if (patch >= patch_count) {
         return 0;
     }
 
@@ -1336,21 +1342,32 @@ void repeatStoreSparseOptimalP(const struct RepeatInfo *info,
                                union RepeatControl *ctrl, void *state,
                                u64a offset, char is_alive) {
     struct RepeatRingControl *xs = &ctrl->ring;
-
-    u64a delta = offset - xs->offset;
-    u32 patch_size = info->patchSize;
-    u32 patch_count = info->patchCount;
-    u32 encoding_size = info->encodingSize;
-    u32 patch = delta / patch_size;
-    DEBUG_PRINTF("offset: %llu encoding_size: %u\n", offset, encoding_size);
-
     u8 *active = (u8 *)state;
-    if (!is_alive) {
+
+    DEBUG_PRINTF("offset: %llu encoding_size: %u\n", offset,
+                 info->encodingSize);
+
+    // If (a) this is the first top, or (b) the ring is stale, initialize the
+    // ring and write this offset in as the first top.
+    if (!is_alive ||
+        offset > sparseLastTop(info, xs, state) + info->repeatMax) {
         storeInitialRingTopPatch(info, xs, active, offset);
         return;
     }
 
-    assert(offset >= xs->offset);
+    // Tops should arrive in order, with no duplicates.
+    assert(offset > sparseLastTop(info, xs, state));
+
+    // As the ring is not stale, our delta should fit within a u32.
+    assert(offset - xs->offset <= UINT32_MAX);
+    u32 delta = (u32)(offset - xs->offset);
+    u32 patch_size = info->patchSize;
+    u32 patch_count = info->patchCount;
+    u32 encoding_size = info->encodingSize;
+    u32 patch = delta / patch_size;
+
+    DEBUG_PRINTF("delta=%u, patch_size=%u, patch=%u\n", delta, patch_size,
+                 patch);
 
     u8 *ring = active + info->patchesOffset;
     u32 occ = ringOccupancy(xs, patch_count);
@@ -1361,10 +1378,6 @@ void repeatStoreSparseOptimalP(const struct RepeatInfo *info,
                  patch, patch_count, occ);
     if (patch >= patch_count) {
         u32 patch_shift_count = patch - patch_count + 1;
-        if (patch_shift_count >= patch_count) {
-            storeInitialRingTopPatch(info, xs, active, offset);
-            return;
-        }
         assert(patch >= patch_shift_count);
         DEBUG_PRINTF("shifting by %u\n", patch_shift_count);
         xs->offset += patch_size * patch_shift_count;
@@ -1401,7 +1414,8 @@ void repeatStoreSparseOptimalP(const struct RepeatInfo *info,
         }
     }
 
-    u64a diff = delta - patch * patch_size;
+    assert((u64a)patch * patch_size <= delta);
+    u32 diff = delta - patch * patch_size;
     const u64a *repeatTable = getImplTable(info);
     val += repeatTable[diff];
 
@@ -1480,7 +1494,7 @@ char sparseHasMatch(const struct RepeatInfo *info, const u8 *state,
 enum RepeatMatch repeatHasMatchSparseOptimalP(const struct RepeatInfo *info,
                                               const union RepeatControl *ctrl,
                                               const void *state, u64a offset) {
-    DEBUG_PRINTF("check for match at %llu corresponding to trigger"
+    DEBUG_PRINTF("check for match at %llu corresponding to trigger "
                  "at [%llu, %llu]\n", offset, offset - info->repeatMax,
                  offset - info->repeatMin);
 
@@ -1492,21 +1506,25 @@ enum RepeatMatch repeatHasMatchSparseOptimalP(const struct RepeatInfo *info,
     if (offset < xs->offset + info->repeatMin) {
         DEBUG_PRINTF("too soon\n");
         return REPEAT_NOMATCH;
-    } else if (offset > repeatLastTopSparseOptimalP(info, ctrl, state) +
-                        info->repeatMax) {
+    } else if (offset > sparseLastTop(info, xs, state) + info->repeatMax) {
         DEBUG_PRINTF("stale\n");
         return REPEAT_STALE;
     }
 
-    u64a delta = offset - xs->offset;
-    u64a lower = delta > info->repeatMax ? delta - info->repeatMax : 0;
-    u64a upper = delta - info->repeatMin;
+    // Our delta between the base offset of the ring and the current offset
+    // must fit within the range [repeatMin, lastPossibleTop + repeatMax]. This
+    // range fits comfortably within a u32.
+    assert(offset - xs->offset <= UINT32_MAX);
+
+    u32 delta = (u32)(offset - xs->offset);
     u32 patch_size = info->patchSize;
     u32 patch_count = info->patchCount;
     u32 occ = ringOccupancy(xs, patch_count);
-    upper = MIN(upper, occ * patch_size - 1);
 
-    DEBUG_PRINTF("lower=%llu, upper=%llu\n", lower, upper);
+    u32 lower = delta > info->repeatMax ? delta - info->repeatMax : 0;
+    u32 upper = MIN(delta - info->repeatMin, occ * patch_size - 1);
+
+    DEBUG_PRINTF("lower=%u, upper=%u\n", lower, upper);
     u32 patch_lower = lower / patch_size;
     u32 patch_upper = upper / patch_size;
 

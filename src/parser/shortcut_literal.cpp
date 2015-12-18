@@ -64,7 +64,7 @@ namespace ue2 {
  */
 class ConstructLiteralVisitor : public ConstComponentVisitor {
 public:
-    ~ConstructLiteralVisitor();
+    ~ConstructLiteralVisitor() override;
 
     /** \brief Thrown if this component does not represent a literal. */
     struct NotLiteral {};

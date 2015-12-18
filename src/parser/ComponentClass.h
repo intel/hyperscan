@@ -63,7 +63,9 @@ enum PredefinedClass {
     CLASS_VERT,
     CLASS_WORD,
     CLASS_XDIGIT,
-    CLASS_XGRAPH,
+    CLASS_XGRAPH, /* [:graph:] in UCP mode */
+    CLASS_XPRINT, /* [:print:] in UCP mode */
+    CLASS_XPUNCT, /* [:punct:] in UCP mode */
     CLASS_UCP_C,
     CLASS_UCP_CC,
     CLASS_UCP_CF,
@@ -232,8 +234,12 @@ public:
     Component *accept(ComponentVisitor &v) override = 0;
     void accept(ConstComponentVisitor &v) const override = 0;
 
-     /** True iff we have already started adding members to the class. This is
-      * a different concept to Component::empty */
+    /** \brief True if the class contains no members (i.e. it will not match
+     * against anything). This function can only be called on a finalized
+     * class.
+     *
+     * Note: This is a different concept to Component::empty.
+     */
     virtual bool class_empty(void) const = 0;
 
     virtual void add(PredefinedClass c, bool negated) = 0;
@@ -244,9 +250,6 @@ public:
     virtual void finalize(void) = 0;
 
     bool isNegated() const { return m_negate; }
-
-    void setFirstChar(char c) { firstChar = c; }
-    char getFirstChar() const { return firstChar; }
 
     std::vector<PositionInfo> first() const override = 0;
     std::vector<PositionInfo> last() const override = 0;
@@ -263,19 +266,13 @@ protected:
     unichar range_start;
     bool finalized;
 
-    /** Literal character at the start of this character class, e.g. '.' for
-     * the class [.abc]. Used to identify (unsupported) POSIX collating
-     * elements. */
-    char firstChar;
-
     virtual void createRange(unichar) = 0;
 
     // Protected copy ctor. Use clone instead.
     ComponentClass(const ComponentClass &other)
         : Component(other), m_negate(other.m_negate), mode(other.mode),
           in_cand_range(other.in_cand_range), range_start(other.range_start),
-          finalized(other.finalized),
-          firstChar(other.firstChar) {}
+          finalized(other.finalized) {}
 };
 
 } // namespace ue2

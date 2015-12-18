@@ -93,7 +93,6 @@ private:
     void buildFourByte(GlushkovBuildState &bs);
 
     CodePointSet cps;
-    CodePointSet cps_ucp;
 
     std::map<u8, Position> heads;
     Position single_pos;
@@ -108,7 +107,9 @@ private:
 };
 
 PredefinedClass translateForUcpMode(PredefinedClass in, const ParseMode &mode);
-bool isUcp(PredefinedClass c);
+
+CodePointSet getPredefinedCodePointSet(PredefinedClass c,
+                                       const ParseMode &mode);
 
 } // namespace
 

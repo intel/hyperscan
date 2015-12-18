@@ -48,7 +48,7 @@ FDREngineDescription::FDREngineDescription(const FDREngineDef &def)
     : EngineDescription(def.id, targetByArchFeatures(def.cpu_features),
                         def.numBuckets, def.confirmPullBackDistance,
                         def.confirmTopLevelSplit),
-      schemeWidth(def.schemeWidth), stride(def.stride), bits(def.bits) {}
+      schemeWidth(def.schemeWidth), stride(def.stride), bits(0) {}
 
 u32 FDREngineDescription::getDefaultFloodSuffixLength() const {
     // rounding up, so that scheme width 32 and 6 buckets is 6 not 5!
@@ -105,76 +105,83 @@ unique_ptr<FDREngineDescription> chooseEngine(const target_t &target,
     DEBUG_PRINTF("%zu lits, msl=%zu, desiredStride=%u\n", vl.size(), msl,
                  desiredStride);
 
-    const FDREngineDescription *best = nullptr;
+    FDREngineDescription *best = nullptr;
     u32 best_score = 0;
 
-    for (size_t engineID = 0; engineID < allDescs.size(); engineID++) {
-        const FDREngineDescription &eng = allDescs[engineID];
-        if (!eng.isValidOnTarget(target)) {
-            continue;
-        }
-        if (msl < eng.stride) {
-            continue;
-        }
-
-        u32 score = 100;
-
-        score -= absdiff(desiredStride, eng.stride);
-
-        if (eng.stride <= desiredStride) {
-            score += eng.stride;
-        }
-
-        u32 effLits = vl.size(); /* * desiredStride;*/
-        u32 ideal;
-        if (effLits < eng.getNumBuckets()) {
-            if (eng.stride == 1) {
-                ideal = 8;
-            } else {
-                ideal = 10;
+    for (u32 domain = 9; domain <= 15; domain++) {
+        for (size_t engineID = 0; engineID < allDescs.size(); engineID++) {
+            // to make sure that domains >=14 have stride 1 according to origin
+            if (domain > 13 && engineID > 0) {
+                continue;
             }
-        } else if (effLits < 20) {
-            ideal = 10;
-        } else if (effLits < 100) {
-            ideal = 11;
-        } else if (effLits < 1000) {
-            ideal = 12;
-        } else if (effLits < 10000) {
-            ideal = 13;
-        } else {
-            ideal = 15;
-        }
+            FDREngineDescription &eng = allDescs[engineID];
+            if (!eng.isValidOnTarget(target)) {
+                continue;
+            }
+            if (msl < eng.stride) {
+                continue;
+            }
 
-        if (ideal != 8 && eng.schemeWidth == 32) {
-            ideal += 1;
-        }
+            u32 score = 100;
 
-        if (make_small) {
-            ideal -= 2;
-        }
+            score -= absdiff(desiredStride, eng.stride);
 
-        if (eng.stride > 1) {
-            ideal++;
-        }
+            if (eng.stride <= desiredStride) {
+                score += eng.stride;
+            }
 
-        DEBUG_PRINTF("effLits %u\n", effLits);
+            u32 effLits = vl.size(); /* * desiredStride;*/
+            u32 ideal;
+            if (effLits < eng.getNumBuckets()) {
+                if (eng.stride == 1) {
+                    ideal = 8;
+                } else {
+                    ideal = 10;
+                }
+            } else if (effLits < 20) {
+                ideal = 10;
+            } else if (effLits < 100) {
+                ideal = 11;
+            } else if (effLits < 1000) {
+                ideal = 12;
+            } else if (effLits < 10000) {
+                ideal = 13;
+            } else {
+                ideal = 15;
+            }
 
-        if (target.is_atom_class() && !make_small && effLits < 4000) {
-            /* Unless it is a very heavy case, we want to build smaller tables
-             * on lightweight machines due to their small caches. */
-            ideal -= 2;
-        }
+            if (ideal != 8 && eng.schemeWidth == 32) {
+                ideal += 1;
+            }
 
-        score -= absdiff(ideal, eng.bits);
+            if (make_small) {
+                ideal -= 2;
+            }
 
-        DEBUG_PRINTF("fdr %u: width=%u, bits=%u, buckets=%u, stride=%u "
-                     "-> score=%u\n",
-                     eng.getID(), eng.schemeWidth, eng.bits,
-                     eng.getNumBuckets(), eng.stride, score);
+            if (eng.stride > 1) {
+                ideal++;
+            }
 
-        if (!best || score > best_score) {
-            best = &eng;
-            best_score = score;
+            DEBUG_PRINTF("effLits %u\n", effLits);
+
+            if (target.is_atom_class() && !make_small && effLits < 4000) {
+                /* Unless it is a very heavy case, we want to build smaller tables
+                 * on lightweight machines due to their small caches. */
+                ideal -= 2;
+            }
+
+            score -= absdiff(ideal, domain);
+
+            DEBUG_PRINTF("fdr %u: width=%u, bits=%u, buckets=%u, stride=%u "
+                         "-> score=%u\n",
+                         eng.getID(), eng.schemeWidth, eng.bits,
+                         eng.getNumBuckets(), eng.stride, score);
+
+            if (!best || score > best_score) {
+                eng.bits = domain;
+                best = &eng;
+                best_score = score;
+            }
         }
     }
 

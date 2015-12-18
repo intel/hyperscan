@@ -142,23 +142,25 @@ const u32 mmbit_root_offset_from_level[7] = {
 u32 mmbit_size(u32 total_bits) {
     MDEBUG_PRINTF("%u\n", total_bits);
 
-    // UE-2228: multibit has bugs in very, very large cases that we should be
-    // protected against at compile time by resource limits.
-    assert(total_bits <= 1U << 30);
-
     // Flat model multibit structures are just stored as a bit vector.
     if (total_bits <= MMB_FLAT_MAX_BITS) {
         return ROUNDUP_N(total_bits, 8) / 8;
     }
 
-    u32 current_level = 1;
-    u32 total = 0;
+    u64a current_level = 1; // Number of blocks on current level.
+    u64a total = 0;         // Total number of blocks.
     while (current_level * MMB_KEY_BITS < total_bits) {
         total += current_level;
         current_level <<= MMB_KEY_SHIFT;
     }
-    total += (total_bits + MMB_KEY_BITS - 1)/MMB_KEY_BITS;
-    return sizeof(MMB_TYPE) * total;
+
+    // Last level is a one-for-one bit vector. It needs room for total_bits
+    // elements, rounded up to the nearest block.
+    u64a last_level = ((u64a)total_bits + MMB_KEY_BITS - 1) / MMB_KEY_BITS;
+    total += last_level;
+
+    assert(total * sizeof(MMB_TYPE) <= UINT32_MAX);
+    return (u32)(total * sizeof(MMB_TYPE));
 }
 
 #ifdef DUMP_SUPPORT

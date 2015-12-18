@@ -128,11 +128,9 @@ vector<ReportID> ReportManager::getDkeyToReportTable() const {
 }
 
 void ReportManager::assignDkeys(const RoseBuild *rose) {
-    unique_ptr<RoseDedupeAux> dedupe = rose->generateDedupeAux();
-
     DEBUG_PRINTF("assigning...\n");
 
-    map<u32, set<ReportID>> ext_to_int;
+    map<u32, ue2::flat_set<ReportID>> ext_to_int;
 
     for (u32 i = 0; i < reportIds.size(); i++) {
         const Report &ir = reportIds[i];
@@ -142,6 +140,8 @@ void ReportManager::assignDkeys(const RoseBuild *rose) {
             ext_to_int[ir.onmatch].insert(i);
         }
     }
+
+    auto dedupe = rose->generateDedupeAux();
 
     for (const auto &m : ext_to_int) {
         u32 ext = m.first;

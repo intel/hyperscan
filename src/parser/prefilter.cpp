@@ -201,7 +201,7 @@ const ComponentSequence *findCapturingGroup(const Component *root,
 class PrefilterVisitor : public DefaultComponentVisitor {
 public:
     PrefilterVisitor(Component *c, const ParseMode &m) : root(c), mode(m) {}
-    ~PrefilterVisitor();
+    ~PrefilterVisitor() override;
 
     /** \brief Calls the visitor (recursively) on a new replacement component
      * we've just created. Takes care of freeing it if the sequence is itself

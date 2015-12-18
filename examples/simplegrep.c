@@ -109,7 +109,7 @@ static char *readInputData(const char *inputFN, unsigned int *length) {
      * limit the size of our buffer appropriately. */
     if ((unsigned long)dataLen > UINT_MAX) {
         dataLen = UINT_MAX;
-        printf("WARNING: clipping data to %lu bytes\n", dataLen);
+        printf("WARNING: clipping data to %ld bytes\n", dataLen);
     } else if (dataLen == 0) {
         fprintf(stderr, "ERROR: input file \"%s\" is empty\n", inputFN);
         fclose(f);
@@ -118,7 +118,7 @@ static char *readInputData(const char *inputFN, unsigned int *length) {
 
     char *inputData = malloc(dataLen);
     if (!inputData) {
-        fprintf(stderr, "ERROR: unable to malloc %lu bytes\n", dataLen);
+        fprintf(stderr, "ERROR: unable to malloc %ld bytes\n", dataLen);
         fclose(f);
         return NULL;
     }

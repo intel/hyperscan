@@ -40,27 +40,6 @@
 #include "fdr_confirm_runtime.h"
 #include "fdr_streaming_runtime.h"
 #include "fdr_loadval.h"
-
-static really_inline UNUSED
-u32 getPreStartVal(const struct FDR_Runtime_Args *a, u32 numBits) {
-    u32 r = 0;
-    if (a->start_offset == 0) {
-        if (numBits <= 8) {
-            r = a->buf_history[a->len_history - 1];
-        } else {
-            r = a->buf_history[a->len_history - 1];
-            r |= (a->buf[0] << 8);
-        }
-    } else {
-        if (numBits <= 8) {
-            r = a->buf[a->start_offset - 1];
-        } else {
-            r = lv_u16(a->buf + a->start_offset - 1, a->buf, a->buf + a->len);
-        }
-    }
-    return r & ((1 << numBits) - 1);
-}
-
 #include "fdr_autogen.c"
 
 #define FAKE_HISTORY_SIZE 16

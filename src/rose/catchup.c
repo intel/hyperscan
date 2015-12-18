@@ -379,7 +379,7 @@ void ensureEnd(struct mq *q, UNUSED u32 qi, s64a final_loc) {
     DEBUG_PRINTF("ensure MQE_END %lld for queue %u\n", final_loc, qi);
     if (final_loc >= q_last_loc(q)) {
         /* TODO: ensure situation does not arise */
-        assert(q->items[q->end - 1].type != MQE_END);
+        assert(q_last_type(q) != MQE_END);
         pushQueueNoMerge(q, MQE_END, final_loc);
     }
 }

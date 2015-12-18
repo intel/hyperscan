@@ -7,7 +7,8 @@ if(NOT XCODE)
 else()
     set(CMAKE_CXX_FLAGS "-isystem ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CXX_FLAGS}")
 endif()
-include_directories(${CMAKE_SOURCE_DIR}/util)
+
+include_directories(${PROJECT_SOURCE_DIR})
 
 # remove some warnings
 # cmake's scope means these only apply here
@@ -26,7 +27,7 @@ endif()
 
 add_library(gtest ${gtest_SOURCES})
 
-add_definitions(-DGTEST_HAS_PTHREAD=0 -DSRCDIR=${CMAKE_SOURCE_DIR})
+add_definitions(-DGTEST_HAS_PTHREAD=0 -DSRCDIR=${PROJECT_SOURCE_DIR})
 
 if (NOT RELEASE_BUILD)
 set(unit_internal_SOURCES

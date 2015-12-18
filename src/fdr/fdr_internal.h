@@ -76,9 +76,11 @@ struct FDR {
      * structures (spillover strings and hash table) if we're a secondary
      * structure. */
     u32 link;
+    u8 domain; /* dynamic domain info */
+    u8 schemeWidthByte;  /* scheme width in bytes */
+    u16 domainMask; /* pre-computed domain mask */
+    u32 tabSize; /* pre-computed hashtable size in bytes */
     u32 pad1;
-    u32 pad2;
-    u32 pad3;
 
     union {
         u32 s_u32;

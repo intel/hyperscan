@@ -77,6 +77,8 @@ RoseBuildImpl::RoseBuildImpl(ReportManager &rm_in, SomSlotManager &ssm_in,
       hasSom(false),
       group_weak_end(0),
       group_end(0),
+      anchored_base_id(MO_INVALID_IDX),
+      nonbenefits_base_id(MO_INVALID_IDX),
       ematcher_region_size(0),
       floating_direct_report(false),
       eod_event_literal_id(MO_INVALID_IDX),
@@ -536,7 +538,7 @@ u32 RoseBuildImpl::getNewLiteralId() {
 }
 
 static
-bool requiresDedupe(const NGHolder &h, const set<ReportID> &reports,
+bool requiresDedupe(const NGHolder &h, const ue2::flat_set<ReportID> &reports,
                     const Grey &grey) {
     /* TODO: tighten */
     NFAVertex seen_vert = NFAGraph::null_vertex();
@@ -579,13 +581,14 @@ bool requiresDedupe(const NGHolder &h, const set<ReportID> &reports,
 class RoseDedupeAuxImpl : public RoseDedupeAux {
 public:
     explicit RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in);
-    bool requiresDedupeSupport(const set<ReportID> &reports) const override;
+    bool requiresDedupeSupport(
+        const ue2::flat_set<ReportID> &reports) const override;
 
     const RoseBuildImpl &tbi;
-    map<ReportID, set<RoseVertex> > vert_map;
-    map<ReportID, set<suffix_id> > suffix_map;
-    map<ReportID, set<const OutfixInfo *> > outfix_map;
-    map<ReportID, set<const raw_puff *> > puff_map;
+    map<ReportID, set<RoseVertex>> vert_map;
+    map<ReportID, set<suffix_id>> suffix_map;
+    map<ReportID, set<const OutfixInfo *>> outfix_map;
+    map<ReportID, set<const raw_puff *>> puff_map;
 };
 
 unique_ptr<RoseDedupeAux> RoseBuildImpl::generateDedupeAux() const {
@@ -599,6 +602,8 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
     : tbi(tbi_in) {
     const RoseGraph &g = tbi.g;
 
+    set<suffix_id> suffixes;
+
     for (auto v : vertices_range(g)) {
         // Literals in the small block table don't count as dupes: although
         // they have copies in the anchored table, the two are never run in the
@@ -609,10 +614,16 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
             }
         }
 
+        // Several vertices may share a suffix, so we collect the set of
+        // suffixes first to avoid repeating work.
         if (g[v].suffix) {
-            for (const auto &report_id : all_reports(g[v].suffix)) {
-                suffix_map[report_id].insert(g[v].suffix);
-            }
+            suffixes.insert(g[v].suffix);
+        }
+    }
+
+    for (const auto &suffix : suffixes) {
+        for (const auto &report_id : all_reports(suffix)) {
+            suffix_map[report_id].insert(suffix);
         }
     }
 
@@ -634,8 +645,8 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
     }
 }
 
-bool RoseDedupeAuxImpl::requiresDedupeSupport(const set<ReportID> &reports)
-    const {
+bool RoseDedupeAuxImpl::requiresDedupeSupport(
+    const ue2::flat_set<ReportID> &reports) const {
     /* TODO: this could be expanded to check for offset or character
        constraints */
 
@@ -897,12 +908,34 @@ depth findMinWidth(const suffix_id &s) {
     }
 }
 
+depth findMinWidth(const suffix_id &s, u32 top) {
+    assert(s.graph() || s.castle() || s.haig() || s.dfa());
+    if (s.graph()) {
+        return findMinWidth(*s.graph(), top);
+    } else if (s.castle()) {
+        return findMinWidth(*s.castle(), top);
+    } else {
+        return s.dfa_min_width;
+    }
+}
+
 depth findMaxWidth(const suffix_id &s) {
     assert(s.graph() || s.castle() || s.haig() || s.dfa());
     if (s.graph()) {
         return findMaxWidth(*s.graph());
     } else if (s.castle()) {
         return findMaxWidth(*s.castle());
+    } else {
+        return s.dfa_max_width;
+    }
+}
+
+depth findMaxWidth(const suffix_id &s, u32 top) {
+    assert(s.graph() || s.castle() || s.haig() || s.dfa());
+    if (s.graph()) {
+        return findMaxWidth(*s.graph(), top);
+    } else if (s.castle()) {
+        return findMaxWidth(*s.castle(), top);
     } else {
         return s.dfa_max_width;
     }

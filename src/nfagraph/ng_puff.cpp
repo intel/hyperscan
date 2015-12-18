@@ -316,7 +316,7 @@ bool doComponent(RoseBuild &rose, ReportManager &rm, NGHolder &g, NFAVertex a,
     bool unbounded = false;
     bool exhaustible = can_exhaust(g, rm);
 
-    while (a) {
+    while (true) {
         if (is_special(a, g)) {
             DEBUG_PRINTF("stopped puffing due to special vertex\n");
             break;
@@ -350,9 +350,7 @@ bool doComponent(RoseBuild &rose, ReportManager &rm, NGHolder &g, NFAVertex a,
 
         a = getSoleSourceVertex(g, a);
 
-        if (!a) {
-            break;
-        }
+        assert(a); /* already checked that old a had a proper in degree of 1 */
 
         // Snark: we can't handle this case, because we can only handle a
         // single report ID on a vertex

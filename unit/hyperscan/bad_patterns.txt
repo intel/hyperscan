@@ -85,7 +85,6 @@
 84:/[=\]=]/ #Unsupported POSIX collating element at index 0.
 85:/A(?!)+Z/ #Invalid repeat at index 5.
 86:/\X/ #\X unsupported at index 0.
-87:/[a\Qz\E]/ #\Q..\E sequences in character classes not supported at index 2.
 88:/[A-\d]/ #Invalid range in character class at index 3.
 89:/[A-[:digit:]]/ #Invalid range in character class at index 3.
 90:/B[--[:digit:]--]+/ #Invalid range in character class at index 4.
@@ -128,3 +127,8 @@
 128:/(*UTF8)^fo?ob{ro|nax_off\Qt=10omnax+8Wnah/ссссссссссссссссссссссссссс0}l.{1,60}Car*k|npanomnax+8Wnah/ #Expression is not valid UTF-8.
 129:/bignum \1111111111111111111/ #Number is too big at index 7.
 130:/foo|&{5555555,}/ #Bounded repeat is too large.
+131:/[a[..]]/ #Unsupported POSIX collating element at index 2.
+132:/[a[==]]/ #Unsupported POSIX collating element at index 2.
+133:/[a[.\].]]/ #Unsupported POSIX collating element at index 2.
+134:/[a[=\]=]]/ #Unsupported POSIX collating element at index 2.
+135:/[^\D\d]/8W #Pattern can never match.

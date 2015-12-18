@@ -41,13 +41,33 @@ namespace ue2 {
 
 class NGHolder;
 
-/** Returns the minimum width in bytes of an input that will match the given
- * graph. */
+/**
+ * \brief Compute the minimum width in bytes of an input that will match the
+ * given graph.
+ */
 depth findMinWidth(const NGHolder &h);
 
-/** Returns the maximum width in bytes of an input that will match the given
- * graph. If there is no maximum width, returns infinity. */
+/**
+ * \brief Compute the minimum width in bytes of an input that will match the
+ * given graph, considering only paths activated by the given top.
+ */
+depth findMinWidth(const NGHolder &h, u32 top);
+
+/**
+ * \brief Compute the maximum width in bytes of an input that will match the
+ * given graph.
+ *
+ * If there is no bound on the maximum width, returns infinity.
+ */
 depth findMaxWidth(const NGHolder &h);
+
+/**
+ * \brief Compute the maximum width in bytes of an input that will match the
+ * given graph, considering only paths activated by the given top.
+ *
+ * If there is no bound on the maximum width, returns infinity.
+ */
+depth findMaxWidth(const NGHolder &h, u32 top);
 
 } // namespace ue2
 

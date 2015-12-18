@@ -44,7 +44,7 @@ namespace ue2 {
  * an unsupported component. */
 class UnsupportedVisitor : public DefaultConstComponentVisitor {
 public:
-    ~UnsupportedVisitor();
+    ~UnsupportedVisitor() override;
     void pre(const ComponentAssertion &) override {
         throw ParseError("Zero-width assertions are not supported.");
     }
