@@ -63,6 +63,9 @@ described at <http://www.pcre.org/>. However, not all constructs available in
 libpcre are supported. The use of unsupported constructs will result in
 compilation errors.
 
+The version of PCRE used to validate Hyperscan's interpretation of this syntax
+is 8.38.
+
 ====================
 Supported Constructs
 ====================
