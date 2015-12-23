@@ -125,33 +125,44 @@ int roseEodRunIterator(const struct RoseEngine *t, u64a offset,
     return MO_CONTINUE_MATCHING;
 }
 
+/**
+ * \brief Check for (and deliver) reports from active output-exposed (suffix
+ * or outfix) NFAs.
+ */
 static rose_inline
 void roseCheckNfaEod(const struct RoseEngine *t, u8 *state,
                      struct hs_scratch *scratch, u64a offset,
                      const char is_streaming) {
+    if (!t->eodNfaIterOffset) {
+        DEBUG_PRINTF("no engines that report at EOD\n");
+        return;
+    }
+
     /* data, len is used for state decompress, should be full available data */
-    const u8 *aa = getActiveLeafArray(t, state);
-    const u32 aaCount = t->activeArrayCount;
-
     u8 key = 0;
-
     if (is_streaming) {
         const u8 *eod_data = scratch->core_info.hbuf;
         size_t eod_len = scratch->core_info.hlen;
         key = eod_len ? eod_data[eod_len - 1] : 0;
     }
 
-    for (u32 qi = mmbit_iterate(aa, aaCount, MMB_INVALID); qi != MMB_INVALID;
-         qi = mmbit_iterate(aa, aaCount, qi)) {
+    const u8 *aa = getActiveLeafArray(t, state);
+    const u32 aaCount = t->activeArrayCount;
+
+    const struct mmbit_sparse_iter *it = getByOffset(t, t->eodNfaIterOffset);
+    assert(ISALIGNED(it));
+
+    u32 idx = 0;
+    struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
+
+    for (u32 qi = mmbit_sparse_iter_begin(aa, aaCount, &idx, it, si_state);
+         qi != MMB_INVALID;
+         qi = mmbit_sparse_iter_next(aa, aaCount, qi, &idx, it, si_state)) {
         const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
         const struct NFA *nfa = getNfaByInfo(t, info);
 
-        if (!nfaAcceptsEod(nfa)) {
-            DEBUG_PRINTF("nfa %u does not accept eod\n", qi);
-            continue;
-        }
-
         DEBUG_PRINTF("checking nfa %u\n", qi);
+        assert(nfaAcceptsEod(nfa));
 
         char *fstate = scratch->fullState + info->fullStateOffset;
         const char *sstate = (const char *)state + info->stateOffset;

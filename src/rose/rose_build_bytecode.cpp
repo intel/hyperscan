@@ -2294,6 +2294,29 @@ void buildSuffixEkeyLists(const RoseBuildImpl &tbi, build_context &bc,
     }
 }
 
+/** Returns sparse iter offset in engine blob. */
+static
+u32 buildEodNfaIterator(build_context &bc, const u32 activeQueueCount) {
+    vector<u32> keys;
+    for (u32 qi = 0; qi < activeQueueCount; ++qi) {
+        const NFA *n = get_nfa_from_blob(bc, qi);
+        if (nfaAcceptsEod(n)) {
+            DEBUG_PRINTF("nfa qi=%u accepts eod\n", qi);
+            keys.push_back(qi);
+        }
+    }
+
+    if (keys.empty()) {
+        return 0;
+    }
+
+    DEBUG_PRINTF("building iter for %zu nfas\n", keys.size());
+
+    vector<mmbit_sparse_iter> iter;
+    mmbBuildSparseIterator(iter, keys, activeQueueCount);
+    return addIteratorToTable(bc, iter);
+}
+
 static
 bool hasMpvTrigger(const set<u32> &reports, const ReportManager &rm) {
     for (u32 r : reports) {
@@ -3802,6 +3825,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                    &leftfixBeginQueue)) {
         return nullptr;
     }
+    u32 eodNfaIterOffset = buildEodNfaIterator(bc, leftfixBeginQueue);
     buildCountingMiracles(*this, bc);
 
     u32 queue_count = qif.allocated_count(); /* excludes anchored matcher q;
@@ -4054,6 +4078,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->eodProgramOffset = eodProgramOffset;
     engine->eodIterProgramOffset = eodIterProgramOffset;
     engine->eodIterOffset = eodIterOffset;
+    engine->eodNfaIterOffset = eodNfaIterOffset;
 
     engine->lastByteHistoryIterOffset = lastByteOffset;
 
