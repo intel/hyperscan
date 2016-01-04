@@ -67,9 +67,9 @@ int roseBlockHasEodWork(const struct RoseEngine *t,
     if (t->eodIterOffset) {
         u32 idx;
         const struct mmbit_sparse_iter *it = getByOffset(t, t->eodIterOffset);
-        struct mmbit_sparse_state *s = scratch->sparse_iter_state;
+        struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
         if (mmbit_sparse_iter_begin(getRoleState(state), t->rolesWithStateCount,
-                                    &idx, it, s) != MMB_INVALID) {
+                                    &idx, it, si_state) != MMB_INVALID) {
             DEBUG_PRINTF("eod iter has states on\n");
             return 1;
         }
