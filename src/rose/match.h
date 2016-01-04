@@ -268,8 +268,6 @@ void update_depth(struct RoseContext *tctxt, u8 depth) {
     tctxt->depth = d;
 }
 
-/* Note: uses the stashed sparse iter state; cannot be called from
- * anybody else who is using it */
 static rose_inline
 void roseFlushLastByteHistory(const struct RoseEngine *t, u8 *state,
                               u64a currEnd, struct RoseContext *tctxt) {
@@ -289,13 +287,16 @@ void roseFlushLastByteHistory(const struct RoseEngine *t, u8 *state,
 
     DEBUG_PRINTF("flushing\n");
 
-    const struct mmbit_sparse_iter *it
-        = (const void *)((const char *)t + t->lastByteHistoryIterOffset);
+    const struct mmbit_sparse_iter *it =
+        getByOffset(t, t->lastByteHistoryIterOffset);
+    assert(ISALIGNED(it));
+
     const u32 numStates = t->rolesWithStateCount;
     void *role_state = getRoleState(state);
 
-    mmbit_sparse_iter_unset(role_state, numStates, it,
-                            scratch->sparse_iter_state);
+    struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
+
+    mmbit_sparse_iter_unset(role_state, numStates, it, si_state);
 }
 
 #endif
