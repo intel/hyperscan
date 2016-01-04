@@ -192,7 +192,6 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
                             * location had been writable */
     u64a som_set_now_offset; /**< offset at which som_set_now represents */
     u32 som_store_count;
-    struct mmbit_sparse_state sparse_iter_state[MAX_SPARSE_ITER_STATES];
 };
 
 static really_inline
