@@ -342,12 +342,13 @@ void roseCatchUpLeftfixes(const struct RoseEngine *t, u8 *state,
     const u32 arCount = t->activeLeftCount;
     const struct LeftNfaInfo *left_table = getLeftTable(t);
     const struct mmbit_sparse_iter *it = getActiveLeftIter(t);
-    struct mmbit_sparse_state *s = scratch->sparse_iter_state;
+
+    struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
 
     u32 idx = 0;
-    u32 ri = mmbit_sparse_iter_begin(ara, arCount, &idx, it, s);
+    u32 ri = mmbit_sparse_iter_begin(ara, arCount, &idx, it, si_state);
     for (; ri != MMB_INVALID;
-           ri = mmbit_sparse_iter_next(ara, arCount, ri, &idx, it, s)) {
+           ri = mmbit_sparse_iter_next(ara, arCount, ri, &idx, it, si_state)) {
         const struct LeftNfaInfo *left = left_table + ri;
         u32 qi = ri + t->leftfixBeginQueue;
         DEBUG_PRINTF("leftfix %u of %u, maxLag=%u, infix=%d\n", ri, arCount,
