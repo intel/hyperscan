@@ -804,6 +804,10 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
 
     u64a som = 0;
 
+    // Local sparse iterator state for programs that use the SPARSE_ITER_BEGIN
+    // and SPARSE_ITER_NEXT instructions.
+    struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
+
     assert(*(const u8 *)pc != ROSE_INSTR_END);
 
     for (;;) {
@@ -997,13 +1001,10 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                     getByOffset(t, ri->iter_offset);
                 assert(ISALIGNED(it));
 
-                struct hs_scratch *scratch = tctxtToScratch(tctxt);
-                struct mmbit_sparse_state *s = scratch->sparse_iter_state;
-
                 u32 idx = 0;
                 u32 i = mmbit_sparse_iter_begin(getRoleState(tctxt->state),
                                                 t->rolesWithStateCount, &idx,
-                                                it, s);
+                                                it, si_state);
                 if (i == MMB_INVALID) {
                     DEBUG_PRINTF("no states in sparse iter are on\n");
                     assert(ri->fail_jump); // must progress
@@ -1011,6 +1012,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                     continue;
                 }
 
+                struct hs_scratch *scratch = tctxtToScratch(tctxt);
                 fatbit_clear(scratch->handled_roles);
 
                 const u32 *jumps = getByOffset(t, ri->jump_table);
@@ -1028,13 +1030,10 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                     getByOffset(t, ri->iter_offset);
                 assert(ISALIGNED(it));
 
-                struct hs_scratch *scratch = tctxtToScratch(tctxt);
-                struct mmbit_sparse_state *s = scratch->sparse_iter_state;
-
                 u32 idx = 0;
                 u32 i = mmbit_sparse_iter_next(getRoleState(tctxt->state),
                                                t->rolesWithStateCount,
-                                               ri->state, &idx, it, s);
+                                               ri->state, &idx, it, si_state);
                 if (i == MMB_INVALID) {
                     DEBUG_PRINTF("no more states in sparse iter are on\n");
                     assert(ri->fail_jump); // must progress
