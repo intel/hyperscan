@@ -120,8 +120,6 @@ public:
     enum RepeatType type;
 
 protected:
-    /** Called by \ref buildFollowSet to connect up the various repeats. */
-    void precalc_firsts();
     void postSubNotePositionHook();
     void wireRepeats(GlushkovBuildState &bs);
 
@@ -133,8 +131,6 @@ protected:
     std::vector<std::vector<PositionInfo> > m_lasts;
     Position posFirst;
     Position posLast;
-
-    std::vector<PositionInfo> firsts_cache;
 
     ComponentRepeat(const ComponentRepeat &other);
 };

@@ -87,8 +87,7 @@ ComponentRepeat::ComponentRepeat(const ComponentRepeat &other)
       type(other.type), sub_comp(unique_ptr<Component>(other.sub_comp->clone())),
       m_min(other.m_min), m_max(other.m_max),
       m_firsts(other.m_firsts), m_lasts(other.m_lasts),
-      posFirst(other.posFirst), posLast(other.posLast),
-      firsts_cache(other.firsts_cache) {}
+      posFirst(other.posFirst), posLast(other.posLast) {}
 
 bool ComponentRepeat::empty() const {
     return m_min == 0 || sub_comp->empty();
@@ -175,14 +174,24 @@ void ComponentRepeat::notePositions(GlushkovBuildState &bs) {
     }
 
     recordPosBounds(posFirst, bs.getBuilder().numVertices());
-    precalc_firsts(); /* ComponentRepeat requires firsts to be calculated ahead
-                       * of time and cached due to expense */
+
+    // Each optional repeat has an epsilon at the end of its firsts list.
+    for (u32 i = m_min; i < m_firsts.size(); i++) {
+        m_firsts[i].push_back(GlushkovBuildState::POS_EPSILON);
+    }
+
 }
 
 vector<PositionInfo> ComponentRepeat::first() const {
-    DEBUG_PRINTF("firsts = %s\n", dumpPositions(firsts_cache.begin(),
-                                                firsts_cache.end()).c_str());
-    return firsts_cache;
+    if (!m_max) {
+        return {};
+    }
+
+    assert(!m_firsts.empty()); // notePositions should already have run
+    const vector<PositionInfo> &firsts = m_firsts.front();
+    DEBUG_PRINTF("firsts = %s\n",
+                 dumpPositions(begin(firsts), end(firsts)).c_str());
+    return firsts;
 }
 
 void ComponentRepeat::buildFollowSet(GlushkovBuildState &bs,
@@ -329,27 +338,6 @@ inf_check:
         DEBUG_PRINTF("final repeat self-loop\n");
         bs.connectRegions(m_lasts.back(), m_firsts.back());
     }
-}
-
-void ComponentRepeat::precalc_firsts() {
-    DEBUG_PRINTF("building firsts for {%u,%u} repeat with %s sub\n", m_min,
-                 m_max, sub_comp->empty() ? "emptiable" : "non-emptiable");
-
-    /* For normal repeat, our optional repeats each have an epsilon at the end
-     * of their firsts lists.
-     */
-    for (u32 i = m_min; i < m_firsts.size(); i++) {
-        m_firsts[i].push_back(GlushkovBuildState::POS_EPSILON);
-    }
-
-    firsts_cache.clear();
-    if (!m_max) {
-        return;
-    }
-
-    assert(!m_firsts.empty()); // notePositions should already have run
-    const vector<PositionInfo> &f = m_firsts.front();
-    firsts_cache.insert(firsts_cache.end(), f.begin(), f.end());
 }
 
 static
