@@ -349,18 +349,7 @@ void ComponentRepeat::precalc_firsts() {
 
     assert(!m_firsts.empty()); // notePositions should already have run
     const vector<PositionInfo> &f = m_firsts.front();
-
-    if (sub_comp->empty()) {
-        // Emptiable: all our repeats contribute to firsts.
-        // Each repeat's firsts is spliced in at the location of the epsilon
-        // (if any) in the previous repeat's firsts.
-        for (const auto &e : m_firsts) {
-            replaceEpsilons(firsts_cache, e);
-        }
-    } else {
-        // Not emptiable: firsts come from our first repeat only.
-        firsts_cache.insert(firsts_cache.end(), f.begin(), f.end());
-    }
+    firsts_cache.insert(firsts_cache.end(), f.begin(), f.end());
 }
 
 static
