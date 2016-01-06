@@ -582,6 +582,30 @@ bool getTransientPrefixReach(const NGHolder &g, u32 lag,
     return true;
 }
 
+static
+void normaliseLeftfix(map<s32, CharReach> &look) {
+    // We can erase entries where the reach is "all characters", except for the
+    // very first one -- this might be required to establish a minimum bound on
+    // the literal's match offset.
+
+    // TODO: It would be cleaner to use a literal program instruction to check
+    // the minimum bound explicitly.
+
+    if (look.empty()) {
+        return;
+    }
+
+    const auto earliest = begin(look)->first;
+
+    vector<s32> dead;
+    for (const auto &m : look) {
+        if (m.second.all() && m.first != earliest) {
+            dead.push_back(m.first);
+        }
+    }
+    erase_all(&look, dead);
+}
+
 bool makeLeftfixLookaround(const RoseBuildImpl &build, const RoseVertex v,
                            vector<LookEntry> &lookaround) {
     lookaround.clear();
@@ -606,6 +630,7 @@ bool makeLeftfixLookaround(const RoseBuildImpl &build, const RoseVertex v,
     }
 
     trimLiterals(build, v, look);
+    normaliseLeftfix(look);
 
     if (look.size() > MAX_LOOKAROUND_ENTRIES) {
         DEBUG_PRINTF("lookaround too big (%zu entries)\n", look.size());
