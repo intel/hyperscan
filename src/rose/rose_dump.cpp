@@ -203,12 +203,6 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(CHECK_DEPTH) {
-                os << "    min_depth " << u32{ri->min_depth} << endl;
-                os << "    fail_jump +" << ri->fail_jump << endl;
-            }
-            PROGRAM_NEXT_INSTRUCTION
-
             PROGRAM_CASE(CHECK_ONLY_EOD) {
                 os << "    fail_jump +" << ri->fail_jump << endl;
             }

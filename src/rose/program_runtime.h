@@ -829,18 +829,6 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(CHECK_DEPTH) {
-                DEBUG_PRINTF("current depth %u, check min depth %u\n",
-                             tctxt->depth, ri->min_depth);
-                if (ri->min_depth > tctxt->depth) {
-                    DEBUG_PRINTF("failed depth check\n");
-                    assert(ri->fail_jump); // must progress
-                    pc += ri->fail_jump;
-                    continue;
-                }
-            }
-            PROGRAM_NEXT_INSTRUCTION
-
             PROGRAM_CASE(CHECK_ONLY_EOD) {
                 struct core_info *ci = &tctxtToScratch(tctxt)->core_info;
                 if (end != ci->buf_offset + ci->len) {

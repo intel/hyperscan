@@ -42,7 +42,6 @@
 /** \brief Role program instruction opcodes. */
 enum RoseInstructionCode {
     ROSE_INSTR_ANCHORED_DELAY,    //!< Delay until after anchored matcher.
-    ROSE_INSTR_CHECK_DEPTH,       //!< Check minimum graph depth.
     ROSE_INSTR_CHECK_ONLY_EOD,    //!< Role matches only at EOD.
     ROSE_INSTR_CHECK_BOUNDS,      //!< Bounds on distance from offset 0.
     ROSE_INSTR_CHECK_NOT_HANDLED, //!< Test & set role in "handled".
@@ -70,12 +69,6 @@ struct ROSE_STRUCT_ANCHORED_DELAY {
     u8 depth; //!< Depth for this state.
     rose_group groups; //!< Bitmask.
     u32 done_jump; //!< Jump forward this many bytes if successful.
-};
-
-struct ROSE_STRUCT_CHECK_DEPTH {
-    u8 code; //!< From enum RoseInstructionCode.
-    u8 min_depth; //!< Minimum depth of this literal in the Rose graph.
-    u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
 struct ROSE_STRUCT_CHECK_ONLY_EOD {

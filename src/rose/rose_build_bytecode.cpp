@@ -170,7 +170,6 @@ public:
 
     const void *get() const {
         switch (code()) {
-        case ROSE_INSTR_CHECK_DEPTH: return &u.checkDepth;
         case ROSE_INSTR_CHECK_ONLY_EOD: return &u.checkOnlyEod;
         case ROSE_INSTR_CHECK_BOUNDS: return &u.checkBounds;
         case ROSE_INSTR_CHECK_NOT_HANDLED: return &u.checkNotHandled;
@@ -199,7 +198,6 @@ public:
 
     size_t length() const {
         switch (code()) {
-        case ROSE_INSTR_CHECK_DEPTH: return sizeof(u.checkDepth);
         case ROSE_INSTR_CHECK_ONLY_EOD: return sizeof(u.checkOnlyEod);
         case ROSE_INSTR_CHECK_BOUNDS: return sizeof(u.checkBounds);
         case ROSE_INSTR_CHECK_NOT_HANDLED: return sizeof(u.checkNotHandled);
@@ -226,7 +224,6 @@ public:
     }
 
     union {
-        ROSE_STRUCT_CHECK_DEPTH checkDepth;
         ROSE_STRUCT_CHECK_ONLY_EOD checkOnlyEod;
         ROSE_STRUCT_CHECK_BOUNDS checkBounds;
         ROSE_STRUCT_CHECK_NOT_HANDLED checkNotHandled;
@@ -2633,10 +2630,6 @@ flattenProgram(const vector<vector<RoseInstruction>> &programs) {
             assert(targets[i] > offsets[i]); // jumps always progress
             ri.u.anchoredDelay.done_jump = targets[i] - offsets[i];
             break;
-        case ROSE_INSTR_CHECK_DEPTH:
-            assert(targets[i] > offsets[i]);
-            ri.u.checkDepth.fail_jump = targets[i] - offsets[i];
-            break;
         case ROSE_INSTR_CHECK_ONLY_EOD:
             assert(targets[i] > offsets[i]);
             ri.u.checkOnlyEod.fail_jump = targets[i] - offsets[i];
@@ -3365,7 +3358,6 @@ vector<RoseInstruction> makePredProgram(RoseBuildImpl &build, build_context &bc,
 static
 pair<u32, u32> makeSparseIterProgram(build_context &bc,
                     map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
-                    const vector<RoseVertex> &verts,
                     const vector<RoseInstruction> &root_program) {
     vector<RoseInstruction> program;
     u32 iter_offset = 0;
@@ -3388,17 +3380,6 @@ pair<u32, u32> makeSparseIterProgram(build_context &bc,
         // instruction, keeping track of the jump offset for each sub-program.
         vector<u32> jump_table;
         u32 curr_offset = 0;
-
-        // Add a pre-check for min depth, if it's useful.
-        if (!verts.empty()) {
-            u32 min_depth = calcMinDepth(bc.depths, verts);
-            if (min_depth > 1) {
-                auto ri = RoseInstruction(ROSE_INSTR_CHECK_DEPTH);
-                ri.u.checkDepth.min_depth = min_depth;
-                program.push_back(ri);
-                curr_offset = ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
-            }
-        }
 
         program.push_back(RoseInstruction(ROSE_INSTR_SPARSE_ITER_BEGIN));
         curr_offset += ROUNDUP_N(program.back().length(), ROSE_INSTR_MIN_ALIGN);
@@ -3436,9 +3417,6 @@ pair<u32, u32> makeSparseIterProgram(build_context &bc,
         for (size_t i = 0; i < program.size(); i++) {
             auto &ri = program[i];
             switch (ri.code()) {
-            case ROSE_INSTR_CHECK_DEPTH:
-                ri.u.checkDepth.fail_jump = end_offset - curr_offset;
-                break;
             case ROSE_INSTR_SPARSE_ITER_BEGIN:
                 ri.u.sparseIterBegin.iter_offset = iter_offset;
                 ri.u.sparseIterBegin.jump_table = jump_table_offset;
@@ -3518,8 +3496,7 @@ u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
     }
 
     // Put it all together.
-    return makeSparseIterProgram(bc, predProgramLists, nonroot_verts,
-                                 root_program).first;
+    return makeSparseIterProgram(bc, predProgramLists, root_program).first;
 }
 
 static
@@ -3632,7 +3609,7 @@ pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
         return {0, 0};
     }
 
-    return makeSparseIterProgram(bc, predProgramLists, {}, {});
+    return makeSparseIterProgram(bc, predProgramLists, {});
 }
 
 static
