@@ -196,7 +196,6 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
         assert(code <= ROSE_INSTR_END);
         switch (code) {
             PROGRAM_CASE(ANCHORED_DELAY) {
-                os << "    depth " << u32{ri->depth} << endl;
                 os << "    groups 0x" << std::hex << ri->groups << std::dec
                    << endl;
                 os << "    done_jump +" << ri->done_jump << endl;
@@ -292,7 +291,6 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(SET_STATE) {
-                os << "    depth " << u32{ri->depth} << endl;
                 os << "    index " << ri->index << endl;
             }
             PROGRAM_NEXT_INSTRUCTION

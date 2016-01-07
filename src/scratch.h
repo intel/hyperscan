@@ -106,7 +106,6 @@ struct core_info {
 struct RoseContext {
     const struct RoseEngine *t;
     u8 *state; /**< base pointer to the full state */
-    u8 depth;
     u8 mpv_inactive;
     u64a groups;
     u64a lit_offset_adjust; /**< offset to add to matches coming from hwlm */

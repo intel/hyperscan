@@ -512,7 +512,6 @@ struct lit_benefits {
 #endif
 // Rose runtime state
 struct RoseRuntimeState {
-    u8 stored_depth; /* depth at stream boundary */
     u8 flags; /* high bit true if delay rebuild needed */
     u8 broken; /* user has requested that we stop matching */
 #if defined(_WIN32)

@@ -388,14 +388,6 @@ char roseTestLeftfix(const struct RoseEngine *t, u32 qi, u32 leftfixLag,
 }
 
 static rose_inline
-void roseSetRole(const struct RoseEngine *t, u8 *state,
-                 struct RoseContext *tctxt, u32 stateIndex, u8 depth) {
-    DEBUG_PRINTF("state idx=%u, depth=%u\n", stateIndex, depth);
-    mmbit_set(getRoleState(state), t->rolesWithStateCount, stateIndex);
-    update_depth(tctxt, depth);
-}
-
-static rose_inline
 void roseTriggerInfix(const struct RoseEngine *t, u64a start, u64a end, u32 qi,
                       u32 topEvent, u8 cancel, struct RoseContext *tctxt) {
     struct core_info *ci = &tctxtToScratch(tctxt)->core_info;
@@ -819,7 +811,6 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_CASE(ANCHORED_DELAY) {
                 if (in_anchored && end > t->floatingMinLiteralMatchOffset) {
                     DEBUG_PRINTF("delay until playback\n");
-                    update_depth(tctxt, ri->depth);
                     tctxt->groups |= ri->groups;
                     *work_done = 1;
                     assert(ri->done_jump); // must progress
@@ -971,7 +962,9 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(SET_STATE) {
-                roseSetRole(t, tctxt->state, tctxt, ri->index, ri->depth);
+                DEBUG_PRINTF("set state index %u\n", ri->index);
+                mmbit_set(getRoleState(tctxt->state), t->rolesWithStateCount,
+                          ri->index);
                 *work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION

@@ -141,7 +141,6 @@ void init_for_block(const struct RoseEngine *t, struct hs_scratch *scratch,
     struct RoseContext *tctxt = &scratch->tctxt;
 
     tctxt->t = t;
-    tctxt->depth = 1;
     tctxt->groups = t->initialGroups;
     tctxt->lit_offset_adjust = 1; // index after last byte
     tctxt->delayLastEndOffset = 0;

@@ -43,11 +43,9 @@
 
 static really_inline
 void init_rstate(const struct RoseEngine *t, u8 *state) {
-    // Set runtime state: initial depth is 1 and we take our initial groups
-    // from the RoseEngine.
+    // Set runtime state: we take our initial groups from the RoseEngine.
     DEBUG_PRINTF("setting initial groups to 0x%016llx\n", t->initialGroups);
     struct RoseRuntimeState *rstate = getRuntimeState(state);
-    rstate->stored_depth = 1;
     storeGroups(t, state, t->initialGroups);
     rstate->flags = 0;
     rstate->broken = NOT_BROKEN;

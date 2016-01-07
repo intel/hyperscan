@@ -205,8 +205,7 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
     printf("\n");
 #endif
 
-    DEBUG_PRINTF("STATE depth=%u, groups=0x%016llx\n", tctx->depth,
-                 tctx->groups);
+    DEBUG_PRINTF("STATE groups=0x%016llx\n", tctx->groups);
 
     if (isLiteralDR(id)) {
         return tctx->groups;
@@ -224,7 +223,7 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
 
     pushDelayedMatches(tl, real_end, tctx);
 
-    /* we are just repopulating the delay queue, groups and depths should be
+    /* we are just repopulating the delay queue, groups should be
      * already set from the original scan. */
 
     return tctx->groups;
@@ -425,8 +424,7 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
     u64a real_end = ci->buf_offset + end; // index after last byte
 
     DEBUG_PRINTF("MATCH id=%u offsets=[???,%llu]\n", id, real_end);
-    DEBUG_PRINTF("STATE depth=%u, groups=0x%016llx\n", tctxt->depth,
-                 tctxt->groups);
+    DEBUG_PRINTF("STATE groups=0x%016llx\n", tctxt->groups);
 
     if (can_stop_matching(tctxtToScratch(tctxt))) {
         DEBUG_PRINTF("received a match when we're already dead!\n");
@@ -492,8 +490,7 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
         roseSquashGroup(tctxt, tl);
     }
 
-    DEBUG_PRINTF("DONE depth=%u, groups=0x%016llx\n", tctxt->depth,
-                 tctxt->groups);
+    DEBUG_PRINTF("DONE groups=0x%016llx\n", tctxt->groups);
 
     if (real_end > t->floatingMinLiteralMatchOffset) {
         recordAnchoredLiteralMatch(tctxt, id, real_end);
@@ -623,8 +620,7 @@ hwlmcb_rv_t playDelaySlot(struct RoseContext *tctxt, const u8 *delaySlotBase,
         DEBUG_PRINTF("DELAYED MATCH id=%u offset=%llu\n", literal_id, offset);
         hwlmcb_rv_t rv = roseProcessDelayedMatch(tctxt->t, offset, literal_id,
                                                  tctxt);
-        DEBUG_PRINTF("DONE depth=%u, groups=0x%016llx\n", tctxt->depth,
-                     tctxt->groups);
+        DEBUG_PRINTF("DONE groups=0x%016llx\n", tctxt->groups);
 
         /* delayed literals can't safely set groups.
          * However we may be setting groups that successors already have
@@ -656,8 +652,7 @@ hwlmcb_rv_t flushAnchoredLiteralAtLoc(struct RoseContext *tctxt, u32 curr_loc) {
                      curr_loc);
         hwlmcb_rv_t rv = roseProcessDelayedAnchoredMatch(tctxt->t, curr_loc,
                                                          literal_id, tctxt);
-        DEBUG_PRINTF("DONE depth=%u, groups=0x%016llx\n", tctxt->depth,
-                     tctxt->groups);
+        DEBUG_PRINTF("DONE groups=0x%016llx\n", tctxt->groups);
 
         /* anchored literals can't safely set groups.
          * However we may be setting groups that successors already
@@ -837,8 +832,7 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
 #endif
     DEBUG_PRINTF("last end %llu\n", tctx->lastEndOffset);
 
-    DEBUG_PRINTF("STATE depth=%u, groups=0x%016llx\n", tctx->depth,
-                 tctx->groups);
+    DEBUG_PRINTF("STATE groups=0x%016llx\n", tctx->groups);
 
     if (can_stop_matching(tctxtToScratch(tctx))) {
         DEBUG_PRINTF("received a match when we're already dead!\n");
@@ -864,8 +858,7 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
 
     rv = roseProcessMainMatch(tctx->t, real_end, id, tctx);
 
-    DEBUG_PRINTF("DONE depth=%hhu, groups=0x%016llx\n", tctx->depth,
-                 tctx->groups);
+    DEBUG_PRINTF("DONE groups=0x%016llx\n", tctx->groups);
 
     if (rv != HWLM_TERMINATE_MATCHING) {
         return tctx->groups;

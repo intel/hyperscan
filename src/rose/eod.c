@@ -36,10 +36,8 @@ static really_inline
 void initContext(const struct RoseEngine *t, u8 *state, u64a offset,
                  struct hs_scratch *scratch, RoseCallback callback,
                  RoseCallbackSom som_callback, void *ctx) {
-    struct RoseRuntimeState *rstate = getRuntimeState(state);
     struct RoseContext *tctxt = &scratch->tctxt;
     tctxt->t = t;
-    tctxt->depth = rstate->stored_depth;
     tctxt->groups = loadGroups(t, state); /* TODO: diff groups for eod */
     tctxt->lit_offset_adjust = scratch->core_info.buf_offset
                              - scratch->core_info.hlen

@@ -1108,39 +1108,6 @@ LeftEngInfo::operator bool() const {
     return graph || castle || dfa || haig;
 }
 
-// Find the minimum depth in hops of each role. Note that a role may be
-// accessible from both the root and the anchored root.
-map<RoseVertex, u32> findDepths(const RoseBuildImpl &build) {
-    const RoseGraph &g = build.g;
-    map<RoseVertex, u32> depths;
-
-    depths[build.root] = 0;
-    depths[build.anchored_root] = 0;
-
-    // BFS from root first.
-    breadth_first_search(g, build.root, visitor(make_bfs_visitor(
-            record_distances(boost::make_assoc_property_map(depths),
-                             boost::on_tree_edge()))).
-            vertex_index_map(get(&RoseVertexProps::idx, g)));
-
-    // BFS from anchored root, updating depths in the graph when they get
-    // smaller.
-    map<RoseVertex, u32> depthsAnch;
-    breadth_first_search(g, build.anchored_root, visitor(make_bfs_visitor(
-            record_distances(boost::make_assoc_property_map(depthsAnch),
-                             boost::on_tree_edge()))).
-            vertex_index_map(get(&RoseVertexProps::idx, g)));
-    for (const auto &e : depthsAnch) {
-        if (contains(depths, e.first)) {
-            LIMIT_TO_AT_MOST(&depths[e.first], e.second);
-        } else {
-            depths.insert(e);
-        }
-    }
-
-    return depths;
-}
-
 u32 roseQuality(const RoseEngine *t) {
     /* Rose is low quality if the atable is a Mcclellan 16 or has multiple DFAs
      */

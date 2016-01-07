@@ -2941,7 +2941,7 @@ void makeRoleCheckLeftfix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
 }
 
 static
-void makeRoleAnchoredDelay(RoseBuildImpl &build, build_context &bc,
+void makeRoleAnchoredDelay(RoseBuildImpl &build, UNUSED build_context &bc,
                            RoseVertex v, vector<RoseInstruction> &program) {
     // Only relevant for roles that can be triggered by the anchored table.
     if (!build.isAnchored(v)) {
@@ -2952,7 +2952,6 @@ void makeRoleAnchoredDelay(RoseBuildImpl &build, build_context &bc,
     // floatingMinLiteralMatchOffset.
 
     auto ri = RoseInstruction(ROSE_INSTR_ANCHORED_DELAY);
-    ri.u.anchoredDelay.depth = (u8)min(254U, bc.depths.at(v));
     ri.u.anchoredDelay.groups = build.g[v].groups;
     program.push_back(ri);
 }
@@ -3107,7 +3106,6 @@ void makeRoleSetState(const build_context &bc, RoseVertex v,
     u32 idx = it->second;
     auto ri = RoseInstruction(ROSE_INSTR_SET_STATE);
     ri.u.setState.index = idx;
-    ri.u.setState.depth = (u8)min(254U, bc.depths.at(v));
     program.push_back(ri);
 }
 
@@ -3785,7 +3783,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     aligned_unique_ptr<HWLM> sbtable = buildSmallBlockMatcher(*this, &sbsize);
 
     build_context bc;
-    bc.depths = findDepths(*this);
 
     // Build NFAs
     set<u32> no_retrigger_queues;

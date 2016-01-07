@@ -409,7 +409,6 @@ void ensureStreamNeatAndTidy(const struct RoseEngine *t, u8 *state,
     tctxt->lastEndOffset = offset + length;
     storeGroups(t, state, tctxt->groups);
     struct RoseRuntimeState *rstate = getRuntimeState(state);
-    rstate->stored_depth = tctxt->depth;
     rstate->flags = delay_rb_status;
 }
 
@@ -454,7 +453,6 @@ void roseStreamExec(const struct RoseEngine *t, u8 *state,
 
     struct RoseContext *tctxt = &scratch->tctxt;
     tctxt->t = t;
-    tctxt->depth = rstate->stored_depth;
     tctxt->mpv_inactive = 0;
     tctxt->groups = loadGroups(t, state);
     tctxt->lit_offset_adjust = offset + 1; // index after last byte

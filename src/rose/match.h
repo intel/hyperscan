@@ -260,14 +260,6 @@ hwlmcb_rv_t cleanUpDelayed(size_t length, u64a offset, struct RoseContext *tctxt
     return HWLM_CONTINUE_MATCHING;
 }
 
-static really_inline
-void update_depth(struct RoseContext *tctxt, u8 depth) {
-    u8 d = MAX(tctxt->depth, depth + 1);
-    assert(d >= tctxt->depth);
-    DEBUG_PRINTF("depth now %hhu was %hhu\n", d, tctxt->depth);
-    tctxt->depth = d;
-}
-
 static rose_inline
 void roseFlushLastByteHistory(const struct RoseEngine *t, u8 *state,
                               u64a currEnd, struct RoseContext *tctxt) {

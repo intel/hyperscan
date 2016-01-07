@@ -562,10 +562,6 @@ void normaliseLiteralMask(const ue2_literal &s, std::vector<u8> &msk,
 void fillHamsterLiteralList(const RoseBuildImpl &tbi, rose_literal_table table,
                             std::vector<hwlmLiteral> *hl);
 
-// Find the minimum depth in hops of each role. Note that a role may be
-// accessible from both the root and the anchored root.
-std::map<RoseVertex, u32> findDepths(const RoseBuildImpl &build);
-
 #ifndef NDEBUG
 bool canImplementGraphs(const RoseBuildImpl &tbi);
 #endif

@@ -316,8 +316,6 @@ void dumpRoseLiterals(const RoseBuildImpl &build, const char *filename) {
     os << "ROSE LITERALS: a total of " << build.literals.right.size()
        << " literals and " << num_vertices(g) << " roles." << endl << endl;
 
-    const auto depths = findDepths(build);
-
     for (const auto &e : build.literals.right) {
         u32 id = e.first;
         const ue2_literal &s = e.second.s;
@@ -387,9 +385,8 @@ void dumpRoseLiterals(const RoseBuildImpl &build, const char *filename) {
 
         for (RoseVertex v : verts) {
             // role info
-            os << "  Index " << g[v].idx << ": depth=" << depths.at(v)
-               << ", groups=0x" << hex << setw(16) << setfill('0')
-               << g[v].groups << dec;
+            os << "  Index " << g[v].idx << ": groups=0x" << hex << setw(16)
+               << setfill('0') << g[v].groups << dec;
 
             if (g[v].reports.empty()) {
                 os << ", report=NONE";

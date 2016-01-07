@@ -66,7 +66,6 @@ enum RoseInstructionCode {
 
 struct ROSE_STRUCT_ANCHORED_DELAY {
     u8 code; //!< From enum RoseInstructionCode.
-    u8 depth; //!< Depth for this state.
     rose_group groups; //!< Bitmask.
     u32 done_jump; //!< Jump forward this many bytes if successful.
 };
@@ -160,7 +159,6 @@ struct ROSE_STRUCT_REPORT_SOM_KNOWN {
 
 struct ROSE_STRUCT_SET_STATE {
     u8 code; //!< From enum RoseInstructionCode.
-    u8 depth; //!< Depth for this state.
     u32 index; //!< State index in multibit.
 };
 
