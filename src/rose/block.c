@@ -233,7 +233,7 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
     if (ftable) {
         DEBUG_PRINTF("ftable fd=%u fmd %u\n", t->floatingDistance,
             t->floatingMinDistance);
-        if (t->noFloatingRoots && tctxt->depth == 1) {
+        if (t->noFloatingRoots && !roseHasInFlightMatches(t, state, scratch)) {
             DEBUG_PRINTF("skip FLOATING: no inflight matches\n");
             goto exit;
         }

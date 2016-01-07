@@ -299,4 +299,25 @@ void roseFlushLastByteHistory(const struct RoseEngine *t, u8 *state,
     mmbit_sparse_iter_unset(role_state, numStates, it, si_state);
 }
 
+static rose_inline
+int roseHasInFlightMatches(const struct RoseEngine *t, u8 *state,
+                           const struct hs_scratch *scratch) {
+    if (scratch->al_log_sum) {
+        DEBUG_PRINTF("anchored literals in log\n");
+        return 1;
+    }
+
+    if (scratch->tctxt.filledDelayedSlots) {
+        DEBUG_PRINTF("delayed literal\n");
+        return 1;
+    }
+
+    if (mmbit_any(getRoleState(state), t->rolesWithStateCount)) {
+        DEBUG_PRINTF("role state is set\n");
+        return 1;
+    }
+
+    return 0;
+}
+
 #endif

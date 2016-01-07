@@ -502,7 +502,7 @@ void roseStreamExec(const struct RoseEngine *t, u8 *state,
 
     const struct HWLM *ftable = getFLiteralMatcher(t);
     if (ftable) {
-        if (t->noFloatingRoots && tctxt->depth == 1) {
+        if (t->noFloatingRoots && !roseHasInFlightMatches(t, state, scratch)) {
             DEBUG_PRINTF("skip FLOATING: no inflight matches\n");
             goto flush_delay_and_exit;
         }
