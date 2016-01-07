@@ -447,7 +447,6 @@ struct RoseEngine {
     u32 size; // (bytes)
     u32 anchoredMatches; /* number of anchored roles generating matches */
     u32 delay_count; /* number of delayed literal ids. */
-    u32 delay_slot_size; /* size of delay slot mmbit. */
     u32 delay_base_id; /* literal id of the first delayed literal.
                         * delayed literal ids are contiguous */
     u32 anchored_count; /* number of anchored literal ids */

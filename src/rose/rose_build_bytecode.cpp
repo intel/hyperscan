@@ -4311,7 +4311,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     u32 delay_count = verify_u32(final_id_to_literal.size() - delay_base_id);
     engine->delay_count = delay_count;
-    engine->delay_slot_size = mmbit_size(delay_count);
     engine->delay_base_id = delay_base_id;
     engine->anchored_base_id = anchored_base_id;
     engine->anchored_count = delay_base_id - anchored_base_id;

@@ -37,7 +37,6 @@
 #define SCRATCH_H_DA6D4FC06FF410
 
 #include "ue2common.h"
-#include "util/multibit_internal.h"
 #include "rose/rose_types.h"
 
 #ifdef __cplusplus
@@ -133,7 +132,7 @@ struct RoseContext {
 
 struct match_deduper {
     struct fatbit *log[2]; /**< even, odd logs */
-    struct fatbit *som_log[2]; /**< even, odd mmbit logs for som */
+    struct fatbit *som_log[2]; /**< even, odd fatbit logs for som */
     u64a *som_start_log[2]; /**< even, odd start offset logs for som */
     u32 log_size;
     u64a current_report_offset;
@@ -162,9 +161,9 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     struct mq *queues;
     struct fatbit *aqa; /**< active queue array; fatbit of queues that are valid
                          * & active */
-    u8 *delay_slots;
-    u8 **am_log;
-    u8 **al_log;
+    struct fatbit **delay_slots;
+    struct fatbit **am_log;
+    struct fatbit **al_log;
     u64a am_log_sum;
     u64a al_log_sum;
     struct catchup_pq catchup_pq;
@@ -178,7 +177,7 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     u32 scratchSize;
     u8 ALIGN_DIRECTIVE fdr_temp_buf[FDR_TEMP_BUF_SIZE];
     u32 handledKeyCount;
-    struct fatbit *handled_roles; /**< mmbit of ROLES (not states) already
+    struct fatbit *handled_roles; /**< fatbit of ROLES (not states) already
                                    * handled by this literal */
     u64a *som_store; /**< array of som locations */
     u64a *som_attempted_store; /**< array of som locations for fail stores */
@@ -198,18 +197,18 @@ struct hs_scratch *tctxtToScratch(struct RoseContext *tctxt) {
 }
 
 static really_inline
-u8 **getAnchoredLog(struct hs_scratch *scratch) { /* array of mmbit ptr */
+struct fatbit **getAnchoredLog(struct hs_scratch *scratch) {
     return scratch->am_log;
 }
 
-/* array of mmbit ptr; TODO: why not an array of mmbits? */
+/* array of fatbit ptr; TODO: why not an array of fatbits? */
 static really_inline
-u8 **getAnchoredLiteralLog(struct hs_scratch *scratch) {
+struct fatbit **getAnchoredLiteralLog(struct hs_scratch *scratch) {
     return scratch->al_log;
 }
 
 static really_inline
-u8 *getDelaySlots(struct hs_scratch *scratch) {
+struct fatbit **getDelaySlots(struct hs_scratch *scratch) {
     return scratch->delay_slots;
 }
 

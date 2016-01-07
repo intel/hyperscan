@@ -40,6 +40,7 @@
 #include "nfa/nfa_api_util.h"
 #include "som/som_runtime.h"
 #include "util/bitutils.h"
+#include "util/fatbit.h"
 #include "util/internal_report.h"
 #include "util/multibit.h"
 
@@ -60,16 +61,16 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx);
 
 static rose_inline
 void resetAnchoredLog(const struct RoseEngine *t, struct hs_scratch *scratch) {
-    u8 **anchoredRows = getAnchoredLog(scratch);
+    struct fatbit **anchoredRows = getAnchoredLog(scratch);
     u32 region_width = t->anchoredMatches;
     struct RoseContext *tctxt = &scratch->tctxt;
 
     tctxt->curr_anchored_loc = bf64_iterate(scratch->am_log_sum, MMB_INVALID);
     if (tctxt->curr_anchored_loc != MMB_INVALID) {
         assert(tctxt->curr_anchored_loc < scratch->anchored_region_len);
-        u8 *curr_row = anchoredRows[tctxt->curr_anchored_loc];
-        tctxt->curr_row_offset = mmbit_iterate(curr_row, region_width,
-                                               MMB_INVALID);
+        struct fatbit *curr_row = anchoredRows[tctxt->curr_anchored_loc];
+        tctxt->curr_row_offset = fatbit_iterate(curr_row, region_width,
+                                                MMB_INVALID);
         assert(tctxt->curr_row_offset != MMB_INVALID);
     }
     DEBUG_PRINTF("AL reset --> %u, %u\n", tctxt->curr_anchored_loc,

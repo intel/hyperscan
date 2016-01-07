@@ -105,13 +105,13 @@ void nextAnchoredMatch(const struct RoseEngine *t, struct RoseContext *tctxt,
     assert(tctxt->curr_anchored_loc != MMB_INVALID);
 
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
-    u8 **anchoredRows = getAnchoredLog(scratch);
+    struct fatbit **anchoredRows = getAnchoredLog(scratch);
 
     u32 region_width = t->anchoredMatches;
-    u8 *curr_row = anchoredRows[tctxt->curr_anchored_loc];
+    struct fatbit *curr_row = anchoredRows[tctxt->curr_anchored_loc];
 
-    tctxt->curr_row_offset = mmbit_iterate(curr_row, region_width,
-                                           tctxt->curr_row_offset);
+    tctxt->curr_row_offset = fatbit_iterate(curr_row, region_width,
+                                            tctxt->curr_row_offset);
     DEBUG_PRINTF("next %u [idx = %u] @%llu\n", *reportId,
                  tctxt->curr_row_offset, *end);
     if (tctxt->curr_row_offset != MMB_INVALID) {
@@ -132,8 +132,8 @@ void nextAnchoredMatch(const struct RoseEngine *t, struct RoseContext *tctxt,
     assert(tctxt->curr_anchored_loc < scratch->anchored_region_len);
     curr_row = anchoredRows[tctxt->curr_anchored_loc];
 
-    tctxt->curr_row_offset = mmbit_iterate(curr_row, region_width,
-                                           MMB_INVALID);
+    tctxt->curr_row_offset = fatbit_iterate(curr_row, region_width,
+                                            MMB_INVALID);
     assert(tctxt->curr_row_offset != MMB_INVALID);
 
     *end = tctxt->curr_anchored_loc + t->maxSafeAnchoredDROffset + 1;

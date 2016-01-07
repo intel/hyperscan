@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -74,14 +74,16 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     assert(anchored_literal_region_len < 8 * sizeof(s->am_log_sum));
 
     size_t anchored_region_size = anchored_region_len
-        * (mmbit_size(anchored_region_width) + sizeof(u8 *));
+        * (fatbit_size(anchored_region_width) + sizeof(struct fatbit *));
     anchored_region_size = ROUNDUP_N(anchored_region_size, 8);
 
     size_t anchored_literal_region_size = anchored_literal_region_len
-        * (mmbit_size(anchored_literal_region_width) + sizeof(u8 *));
+        * (fatbit_size(anchored_literal_region_width) + sizeof(struct fatbit *));
     anchored_literal_region_size = ROUNDUP_N(anchored_literal_region_size, 8);
 
-    size_t delay_size = mmbit_size(proto->delay_count) * DELAY_SLOT_COUNT;
+    size_t delay_region_size = DELAY_SLOT_COUNT *
+        (fatbit_size(proto->delay_count) + sizeof(struct fatbit *));
+    delay_region_size = ROUNDUP_N(delay_region_size, 8);
 
     size_t nfa_context_size = 2 * sizeof(struct NFAContext512) + 127;
 
@@ -96,7 +98,8 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
                   + 2 * fatbit_size(deduperCount) /* ditto som logs */
                   + 2 * sizeof(u64a) * deduperCount /* start offsets for som */
                   + anchored_region_size
-                  + anchored_literal_region_size + qmpq_size + delay_size
+                  + anchored_literal_region_size + qmpq_size
+                  + delay_region_size
                   + som_store_size
                   + som_now_size
                   + som_attempted_size
@@ -140,23 +143,28 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     s->som_attempted_store = (u64a *)current;
     current += som_attempted_store_size;
 
-    s->delay_slots = (u8 *)current;
-    current += delay_size;
-
     current = ROUNDUP_PTR(current, 8);
-    s->am_log = (u8 **)current;
-    current += sizeof(u8 *) * anchored_region_len;
-    for (u32 i = 0; i < anchored_region_len; i++) {
-        s->am_log[i] = (u8 *)current;
-        current += mmbit_size(anchored_region_width);
+    s->delay_slots = (struct fatbit **)current;
+    current += sizeof(struct fatbit *) * DELAY_SLOT_COUNT;
+    for (u32 i = 0; i < DELAY_SLOT_COUNT; i++) {
+        s->delay_slots[i] = (struct fatbit *)current;
+        current += fatbit_size(proto->delay_count);
     }
 
     current = ROUNDUP_PTR(current, 8);
-    s->al_log = (u8 **)current;
-    current += sizeof(u8 *) * anchored_literal_region_len;
+    s->am_log = (struct fatbit **)current;
+    current += sizeof(struct fatbit *) * anchored_region_len;
+    for (u32 i = 0; i < anchored_region_len; i++) {
+        s->am_log[i] = (struct fatbit *)current;
+        current += fatbit_size(anchored_region_width);
+    }
+
+    current = ROUNDUP_PTR(current, 8);
+    s->al_log = (struct fatbit **)current;
+    current += sizeof(struct fatbit *) * anchored_literal_region_len;
     for (u32 i = 0; i < anchored_literal_region_len; i++) {
-        s->al_log[i] = (u8 *)current;
-        current += mmbit_size(anchored_literal_region_width);
+        s->al_log[i] = (struct fatbit *)current;
+        current += fatbit_size(anchored_literal_region_width);
     }
 
     current = ROUNDUP_PTR(current, 8);

@@ -127,16 +127,16 @@ void rosePushDelayedMatch(const struct RoseEngine *t, u32 delay,
     }
 
     const u32 delay_count = t->delay_count;
-    u8 *slot = getDelaySlots(tctxtToScratch(tctxt)) +
-               (t->delay_slot_size * slot_index);
+    struct fatbit **delaySlots = getDelaySlots(tctxtToScratch(tctxt));
+    struct fatbit *slot = delaySlots[slot_index];
 
     DEBUG_PRINTF("pushing tab %u into slot %u\n", delay_index, slot_index);
     if (!(tctxt->filledDelayedSlots & (1U << slot_index))) {
         tctxt->filledDelayedSlots |= 1U << slot_index;
-        mmbit_clear(slot, delay_count);
+        fatbit_clear(slot);
     }
 
-    mmbit_set(slot, delay_count, delay_index);
+    fatbit_set(slot, delay_count, delay_index);
 }
 
 static rose_inline
