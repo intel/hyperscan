@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -167,6 +167,7 @@ void reduceGraph(NGHolder &g, som_type som, bool utf8,
         changed |= removeEdgeRedundancy(g, som, cc);
         changed |= reduceGraphEquivalences(g, cc);
         changed |= removeRedundancy(g, som);
+        changed |= removeCyclicPathRedundancy(g);
         if (!changed) {
             DEBUG_PRINTF("graph unchanged after pass %u, stopping\n", pass);
             break;
@@ -183,7 +184,6 @@ void reduceGraph(NGHolder &g, som_type som, bool utf8,
         removeEdgeRedundancy(g, som, cc);
     }
 
-    removeCyclicPathRedundancy(g);
     removeCyclicDominated(g, som);
 
     if (!som) {
