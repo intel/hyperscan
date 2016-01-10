@@ -249,9 +249,6 @@ public:
 };
 
 struct build_context : boost::noncopyable {
-    /** \brief minimum depth in number of hops from root/anchored root. */
-    map<RoseVertex, u32> depths;
-
     /** \brief information about engines to the left of a vertex */
     map<RoseVertex, left_build_info> leftfix_info;
 
