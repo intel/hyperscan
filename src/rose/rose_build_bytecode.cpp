@@ -327,14 +327,14 @@ template<typename T>
 static
 u32 add_to_engine_blob(build_context &bc, const T &a) {
     static_assert(is_pod<T>::value, "should be pod");
-    return add_to_engine_blob(bc, &a, sizeof(a), alignof(a));
+    return add_to_engine_blob(bc, &a, sizeof(a), alignof(T));
 }
 
 template<typename T>
 static
 u32 add_to_engine_blob(build_context &bc, const T &a, const size_t len) {
     static_assert(is_pod<T>::value, "should be pod");
-    return add_to_engine_blob(bc, &a, len, alignof(a));
+    return add_to_engine_blob(bc, &a, len, alignof(T));
 }
 
 template<typename Iter>
