@@ -319,6 +319,44 @@ void findDerivedSquashers(const NGHolder &g, const vector<NFAVertex> &vByIndex,
     }
 }
 
+/* If there are redundant states in the graph, it may be possible for two sibling
+ * .* states to try to squash each other -- which should be prevented
+ *
+ * Note: this situation should only happen if ng_equivalence has not been run.
+ */
+static
+void clearMutualSquashers(const NGHolder &g, const vector<NFAVertex> &vByIndex,
+                          map<NFAVertex, NFAStateSet> &squash) {
+    for (auto it = squash.begin(); it != squash.end();) {
+        NFAVertex a = it->first;
+        u32 a_index = g[a].index;
+
+        NFAStateSet a_squash = ~it->second;  /* default is mask of survivors */
+        for (NFAStateSet::size_type b_index = a_squash.find_first();
+             b_index != a_squash.npos; b_index = a_squash.find_next(b_index)) {
+            assert(b_index != a_index);
+            NFAVertex b = vByIndex[b_index];
+            if (!contains(squash, b)) {
+                continue;
+            }
+            if (!squash[b].test(a_index)) {
+                /* b and a squash each other, prevent this */
+                DEBUG_PRINTF("removing mutual squash %u %zu\n",
+                             a_index, b_index);
+                squash[b].set(a_index);
+                it->second.set(b_index);
+            }
+        }
+
+        if (it->second.all()) {
+            DEBUG_PRINTF("%u is no longer an effictive squash state\n", a_index);
+            it = squash.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
 map<NFAVertex, NFAStateSet> findSquashers(const NGHolder &g, som_type som) {
     map<NFAVertex, NFAStateSet> squash;
 
@@ -459,6 +497,8 @@ map<NFAVertex, NFAStateSet> findSquashers(const NGHolder &g, som_type som) {
 
     findDerivedSquashers(g, vByIndex, pdom_tree, initStates, &squash, som,
                          som_depths, region_map, cache);
+
+    clearMutualSquashers(g, vByIndex, squash);
 
     return squash;
 }
