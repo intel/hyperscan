@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -236,6 +236,9 @@ char nfaBlockExecReverse(const struct NFA *nfa, u64a offset, const u8 *buf,
  * @param callback the callback to call for each match raised
  * @param som_cb the callback to call for each match raised (Haig)
  * @param context context pointer passed to each callback
+ *
+ * @return @ref MO_HALT_MATCHING if the user instructed us to halt, otherwise
+ *         @ref MO_CONTINUE_MATCHING.
  */
 char nfaCheckFinalState(const struct NFA *nfa, const char *state,
                         const char *streamState, u64a offset,

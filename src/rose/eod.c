@@ -168,8 +168,12 @@ void roseCheckNfaEod(const struct RoseEngine *t, char *state,
             nfaExpandState(nfa, fstate, sstate, offset, key);
         }
 
-        nfaCheckFinalState(nfa, fstate, sstate, offset, scratch->tctxt.cb,
-                           scratch->tctxt.cb_som, scratch->tctxt.userCtx);
+        if (nfaCheckFinalState(nfa, fstate, sstate, offset, scratch->tctxt.cb,
+                               scratch->tctxt.cb_som,
+                               scratch->tctxt.userCtx) == MO_HALT_MATCHING) {
+            DEBUG_PRINTF("user instructed us to stop\n");
+            return;
+        }
     }
 }
 
@@ -213,8 +217,13 @@ void roseCheckEodSuffixes(const struct RoseEngine *t, char *state, u64a offset,
          * history buffer. */
         char rv = nfaQueueExecRose(q->nfa, q, MO_INVALID_IDX);
         if (rv) { /* nfa is still alive */
-            nfaCheckFinalState(nfa, fstate, sstate, offset, scratch->tctxt.cb,
-                               scratch->tctxt.cb_som, scratch->tctxt.userCtx);
+            if (nfaCheckFinalState(nfa, fstate, sstate, offset,
+                                   scratch->tctxt.cb, scratch->tctxt.cb_som,
+                                   scratch->tctxt.userCtx) ==
+                MO_HALT_MATCHING) {
+                DEBUG_PRINTF("user instructed us to stop\n");
+                return;
+            }
         }
     }
 }

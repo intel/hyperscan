@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -445,14 +445,15 @@ char mcclellanExec8_i_ni(const struct mcclellan *m, u8 *state, const u8 *buf,
 }
 
 static really_inline
-void mcclellanCheckEOD(const struct NFA *nfa, u16 s, u64a offset,
+char mcclellanCheckEOD(const struct NFA *nfa, u16 s, u64a offset,
                        NfaCallback cb, void *ctxt) {
     const struct mcclellan *m = getImplNfa(nfa);
     const struct mstate_aux *aux = get_aux(m, s);
 
-    if (aux->accept_eod) {
-        doComplexReport(cb, ctxt, m, s, offset, 1, NULL, NULL);
+    if (!aux->accept_eod) {
+        return MO_CONTINUE_MATCHING;
     }
+    return doComplexReport(cb, ctxt, m, s, offset, 1, NULL, NULL);
 }
 
 static really_inline
@@ -1053,8 +1054,8 @@ char nfaExecMcClellan8_testEOD(const struct NFA *nfa, const char *state,
                                UNUSED const char *streamState,
                                u64a offset, NfaCallback callback,
                                UNUSED SomNfaCallback som_cb, void *context) {
-    mcclellanCheckEOD(nfa, *(const u8 *)state, offset, callback, context);
-    return 0;
+    return mcclellanCheckEOD(nfa, *(const u8 *)state, offset, callback,
+                             context);
 }
 
 char nfaExecMcClellan16_testEOD(const struct NFA *nfa, const char *state,
@@ -1062,8 +1063,8 @@ char nfaExecMcClellan16_testEOD(const struct NFA *nfa, const char *state,
                                 u64a offset, NfaCallback callback,
                                 UNUSED SomNfaCallback som_cb, void *context) {
     assert(ISALIGNED_N(state, 2));
-    mcclellanCheckEOD(nfa, *(const u16 *)state, offset, callback, context);
-    return 0;
+    return mcclellanCheckEOD(nfa, *(const u16 *)state, offset, callback,
+                             context);
 }
 
 char nfaExecMcClellan8_queueInitState(UNUSED const struct NFA *nfa, struct mq *q) {
