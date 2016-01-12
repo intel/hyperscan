@@ -33,11 +33,10 @@
 #include "util/fatbit.h"
 
 static really_inline
-void initContext(const struct RoseEngine *t, u8 *state, u64a offset,
+void initContext(const struct RoseEngine *t, char *state, u64a offset,
                  struct hs_scratch *scratch, RoseCallback callback,
                  RoseCallbackSom som_callback, void *ctx) {
     struct RoseContext *tctxt = &scratch->tctxt;
-    tctxt->t = t;
     tctxt->groups = loadGroups(t, state); /* TODO: diff groups for eod */
     tctxt->lit_offset_adjust = scratch->core_info.buf_offset
                              - scratch->core_info.hlen
@@ -45,7 +44,6 @@ void initContext(const struct RoseEngine *t, u8 *state, u64a offset,
     tctxt->delayLastEndOffset = offset;
     tctxt->lastEndOffset = offset;
     tctxt->filledDelayedSlots = 0;
-    tctxt->state = state;
     tctxt->cb = callback;
     tctxt->cb_som = som_callback;
     tctxt->userCtx = ctx;
@@ -128,7 +126,7 @@ int roseEodRunIterator(const struct RoseEngine *t, u64a offset,
  * or outfix) NFAs.
  */
 static rose_inline
-void roseCheckNfaEod(const struct RoseEngine *t, u8 *state,
+void roseCheckNfaEod(const struct RoseEngine *t, char *state,
                      struct hs_scratch *scratch, u64a offset,
                      const char is_streaming) {
     if (!t->eodNfaIterOffset) {
@@ -176,8 +174,8 @@ void roseCheckNfaEod(const struct RoseEngine *t, u8 *state,
 }
 
 static rose_inline
-void cleanupAfterEodMatcher(const struct RoseEngine *t, u8 *state, u64a offset,
-                            struct hs_scratch *scratch) {
+void cleanupAfterEodMatcher(const struct RoseEngine *t, char *state,
+                            u64a offset, struct hs_scratch *scratch) {
     struct RoseContext *tctxt = &scratch->tctxt;
 
     // Flush history to make sure it's consistent.
@@ -185,7 +183,7 @@ void cleanupAfterEodMatcher(const struct RoseEngine *t, u8 *state, u64a offset,
 }
 
 static rose_inline
-void roseCheckEodSuffixes(const struct RoseEngine *t, u8 *state, u64a offset,
+void roseCheckEodSuffixes(const struct RoseEngine *t, char *state, u64a offset,
                           struct hs_scratch *scratch) {
     const u8 *aa = getActiveLeafArray(t, state);
     const u32 aaCount = t->activeArrayCount;
@@ -243,7 +241,7 @@ int roseRunEodProgram(const struct RoseEngine *t, u64a offset,
 }
 
 static really_inline
-void roseEodExec_i(const struct RoseEngine *t, u8 *state, u64a offset,
+void roseEodExec_i(const struct RoseEngine *t, char *state, u64a offset,
                    struct hs_scratch *scratch, const char is_streaming) {
     assert(t);
     assert(scratch->core_info.buf || scratch->core_info.hbuf);
@@ -289,10 +287,9 @@ void roseEodExec_i(const struct RoseEngine *t, u8 *state, u64a offset,
     }
 }
 
-void roseEodExec(const struct RoseEngine *t, u8 *state, u64a offset,
+void roseEodExec(const struct RoseEngine *t, u64a offset,
                  struct hs_scratch *scratch, RoseCallback callback,
                  RoseCallbackSom som_callback, void *context) {
-    assert(state);
     assert(scratch);
     assert(callback);
     assert(context);
@@ -308,13 +305,16 @@ void roseEodExec(const struct RoseEngine *t, u8 *state, u64a offset,
         return;
     }
 
+    char *state = scratch->core_info.state;
+    assert(state);
+
     initContext(t, state, offset, scratch, callback, som_callback, context);
 
     roseEodExec_i(t, state, offset, scratch, 1);
 }
 
 static rose_inline
-void prepForEod(const struct RoseEngine *t, u8 *state, size_t length,
+void prepForEod(const struct RoseEngine *t, char *state, size_t length,
                 struct RoseContext *tctxt) {
     roseFlushLastByteHistory(t, state, length, tctxt);
     tctxt->lastEndOffset = length;
@@ -328,7 +328,7 @@ void roseBlockEodExec(const struct RoseEngine *t, u64a offset,
 
     assert(!can_stop_matching(scratch));
 
-    u8 *state = (u8 *)scratch->core_info.state;
+    char *state = scratch->core_info.state;
 
     // Ensure that history is correct before we look for EOD matches
     prepForEod(t, state, scratch->core_info.len, &scratch->tctxt);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -90,7 +90,7 @@ void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
     q->end = 0;
     q->cur = 0;
     q->state = scratch->fullState + info->fullStateOffset;
-    q->streamState = (char *)tctxt->state + info->stateOffset;
+    q->streamState = scratch->core_info.state + info->stateOffset;
     q->offset = scratch->core_info.buf_offset;
     q->buffer = scratch->core_info.buf;
     q->length = scratch->core_info.len;
@@ -129,7 +129,7 @@ void initRoseQueue(const struct RoseEngine *t, u32 qi,
     if (left->transient) {
         q->streamState = (char *)scratch->tstate + info->stateOffset;
     } else {
-        q->streamState = (char *)tctxt->state + info->stateOffset;
+        q->streamState = scratch->core_info.state + info->stateOffset;
     }
 
     q->offset = scratch->core_info.buf_offset;
@@ -161,7 +161,7 @@ void loadStreamState(const struct NFA *nfa, struct mq *q, s64a loc) {
 }
 
 static really_inline
-void storeRoseDelay(const struct RoseEngine *t, u8 *state,
+void storeRoseDelay(const struct RoseEngine *t, char *state,
                     const struct LeftNfaInfo *left, u32 loc) {
     u32 di = left->lagIndex;
     if (di == ROSE_OFFSET_INVALID) {
@@ -176,7 +176,7 @@ void storeRoseDelay(const struct RoseEngine *t, u8 *state,
 }
 
 static really_inline
-void setAsZombie(const struct RoseEngine *t, u8 *state,
+void setAsZombie(const struct RoseEngine *t, char *state,
                  const struct LeftNfaInfo *left) {
     u32 di = left->lagIndex;
     assert(di != ROSE_OFFSET_INVALID);
@@ -191,7 +191,7 @@ void setAsZombie(const struct RoseEngine *t, u8 *state,
 /* loadRoseDelay MUST NOT be called on the first stream write as it is only
  * initialized for running nfas on stream boundaries */
 static really_inline
-u32 loadRoseDelay(const struct RoseEngine *t, const u8 *state,
+u32 loadRoseDelay(const struct RoseEngine *t, const char *state,
                   const struct LeftNfaInfo *left) {
     u32 di = left->lagIndex;
     if (di == ROSE_OFFSET_INVALID) {
@@ -205,7 +205,7 @@ u32 loadRoseDelay(const struct RoseEngine *t, const u8 *state,
 }
 
 static really_inline
-char isZombie(const struct RoseEngine *t, const u8 *state,
+char isZombie(const struct RoseEngine *t, const char *state,
               const struct LeftNfaInfo *left) {
     u32 di = left->lagIndex;
     assert(di != ROSE_OFFSET_INVALID);
@@ -261,7 +261,7 @@ hwlmcb_rv_t cleanUpDelayed(size_t length, u64a offset, struct RoseContext *tctxt
 }
 
 static rose_inline
-void roseFlushLastByteHistory(const struct RoseEngine *t, u8 *state,
+void roseFlushLastByteHistory(const struct RoseEngine *t, char *state,
                               u64a currEnd, struct RoseContext *tctxt) {
     if (!t->lastByteHistoryIterOffset) {
         return;
@@ -292,7 +292,7 @@ void roseFlushLastByteHistory(const struct RoseEngine *t, u8 *state,
 }
 
 static rose_inline
-int roseHasInFlightMatches(const struct RoseEngine *t, u8 *state,
+int roseHasInFlightMatches(const struct RoseEngine *t, char *state,
                            const struct hs_scratch *scratch) {
     if (scratch->al_log_sum) {
         DEBUG_PRINTF("anchored literals in log\n");

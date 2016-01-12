@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -104,8 +104,6 @@ struct core_info {
 
 /** \brief Rose state information. */
 struct RoseContext {
-    const struct RoseEngine *t;
-    u8 *state; /**< base pointer to the full state */
     u8 mpv_inactive;
     u64a groups;
     u64a lit_offset_adjust; /**< offset to add to matches coming from hwlm */

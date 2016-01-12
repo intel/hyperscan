@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,7 +42,7 @@
 #include <string.h>
 
 static really_inline
-void init_rstate(const struct RoseEngine *t, u8 *state) {
+void init_rstate(const struct RoseEngine *t, char *state) {
     // Set runtime state: we take our initial groups from the RoseEngine.
     DEBUG_PRINTF("setting initial groups to 0x%016llx\n", t->initialGroups);
     struct RoseRuntimeState *rstate = getRuntimeState(state);
@@ -52,7 +52,7 @@ void init_rstate(const struct RoseEngine *t, u8 *state) {
 }
 
 static really_inline
-void init_outfixes(const struct RoseEngine *t, u8 *state) {
+void init_outfixes(const struct RoseEngine *t, char *state) {
     /* The active leaf array has been init'ed by the scatter with outfix
      * bits set on */
 
@@ -74,7 +74,7 @@ void init_outfixes(const struct RoseEngine *t, u8 *state) {
     }
 }
 
-void roseInitState(const struct RoseEngine *t, u8 *state) {
+void roseInitState(const struct RoseEngine *t, char *state) {
     assert(t);
     assert(state);
 

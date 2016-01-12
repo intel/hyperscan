@@ -46,18 +46,14 @@
 #include "util/multibit.h"
 
 static rose_inline
-int roseCheckBenefits(struct RoseContext *tctxt, u64a end, u32 mask_rewind,
+int roseCheckBenefits(const struct core_info *ci, u64a end, u32 mask_rewind,
                       const u8 *and_mask, const u8 *exp_mask) {
-    DEBUG_PRINTF("am offset = %zu, em offset = %zu\n",
-                 and_mask - (const u8 *)tctxt->t,
-                 exp_mask - (const u8 *)tctxt->t);
     const u8 *data;
 
     // If the check works over part of the history and part of the buffer, we
     // create a temporary copy of the data in here so it's contiguous.
     u8 temp[MAX_MASK2_WIDTH];
 
-    struct core_info *ci = &tctxtToScratch(tctxt)->core_info;
     s64a buffer_offset = (s64a)end - ci->buf_offset;
     DEBUG_PRINTF("rel offset %lld\n", buffer_offset);
     if (buffer_offset >= mask_rewind) {
@@ -215,7 +211,7 @@ hwlmcb_rv_t ensureQueueFlushed_i(const struct RoseEngine *t,
                                  char is_mpv, char in_anchored,
                                  char in_catchup) {
     struct RoseContext *tctxt = &scratch->tctxt;
-    u8 *aa = getActiveLeafArray(t, tctxt->state);
+    u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
     struct fatbit *activeQueues = scratch->aqa;
     u32 aaCount = t->activeArrayCount;
     u32 qCount = t->queueCount;
@@ -237,17 +233,17 @@ hwlmcb_rv_t ensureQueueFlushed_i(const struct RoseEngine *t,
             if (loc + scratch->core_info.buf_offset
                 <= tctxt->minNonMpvMatchOffset) {
                 DEBUG_PRINTF("flushing chained\n");
-                if (roseCatchUpMPV(t, tctxt->state, loc, scratch)
-                    == HWLM_TERMINATE_MATCHING) {
+                if (roseCatchUpMPV(t, scratch->core_info.state, loc,
+                                   scratch) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
                 goto done_queue_empty;
             }
         }
 
-        if (roseCatchUpTo(t, tctxt->state, loc + scratch->core_info.buf_offset,
-                          scratch, in_anchored)
-            == HWLM_TERMINATE_MATCHING) {
+        if (roseCatchUpTo(t, scratch->core_info.state,
+                          loc + scratch->core_info.buf_offset, scratch,
+                          in_anchored) == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
         }
     } else {
@@ -255,7 +251,7 @@ hwlmcb_rv_t ensureQueueFlushed_i(const struct RoseEngine *t,
         assert(is_mpv);
         DEBUG_PRINTF("flushing chained\n");
         tctxt->next_mpv_offset = 0; /* force us to catch the mpv */
-        if (roseCatchUpMPV(t, tctxt->state, loc, scratch)
+        if (roseCatchUpMPV(t, scratch->core_info.state, loc, scratch)
             == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
         }
@@ -296,8 +292,8 @@ hwlmcb_rv_t roseHandleSuffixTrigger(const struct RoseEngine *t,
                                     char in_anchored) {
     DEBUG_PRINTF("suffix qi=%u, top event=%u\n", qi, top);
 
-    u8 *aa = getActiveLeafArray(t, tctxt->state);
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
     const u32 aaCount = t->activeArrayCount;
     const u32 qCount = t->queueCount;
     struct mq *q = &scratch->queues[qi];
@@ -374,10 +370,12 @@ char roseTestLeftfix(const struct RoseEngine *t, u32 qi, u32 leftfixLag,
     assert(leftfixLag <= left->maxLag);
 
     struct mq *q = scratch->queues + qi;
+    char *state = scratch->core_info.state;
+    u8 *activeLeftArray = getActiveLeftArray(t, state);
     u32 qCount = t->queueCount;
     u32 arCount = t->activeLeftCount;
 
-    if (!mmbit_isset(getActiveLeftArray(t, tctxt->state), arCount, ri)) {
+    if (!mmbit_isset(activeLeftArray, arCount, ri)) {
         DEBUG_PRINTF("engine is dead nothing to see here\n");
         return 0;
     }
@@ -389,7 +387,7 @@ char roseTestLeftfix(const struct RoseEngine *t, u32 qi, u32 leftfixLag,
 
     if (nfaSupportsZombie(getNfaByQueue(t, qi)) && ci->buf_offset
         && !fatbit_isset(scratch->aqa, qCount, qi)
-        && isZombie(t, tctxt->state, left)) {
+        && isZombie(t, state, left)) {
         DEBUG_PRINTF("zombie\n");
         return 1;
     }
@@ -402,7 +400,7 @@ char roseTestLeftfix(const struct RoseEngine *t, u32 qi, u32 leftfixLag,
             if (left->transient) {
                 sp = -(s32)ci->hlen;
             } else {
-                sp = -(s32)loadRoseDelay(t, tctxt->state, left);
+                sp = -(s32)loadRoseDelay(t, state, left);
             }
 
             /* transient nfas are always started fresh -> state not maintained
@@ -441,7 +439,7 @@ char roseTestLeftfix(const struct RoseEngine *t, u32 qi, u32 leftfixLag,
             if (infixTooOld(q, loc)) {
                 DEBUG_PRINTF("infix %u died of old age\n", ri);
                 scratch->tctxt.groups &= left->squash_mask;
-                mmbit_unset(getActiveLeftArray(t, tctxt->state), arCount, ri);
+                mmbit_unset(activeLeftArray, arCount, ri);
                 return 0;
             }
 
@@ -451,7 +449,7 @@ char roseTestLeftfix(const struct RoseEngine *t, u32 qi, u32 leftfixLag,
         if (!rosePrefixCheckMiracles(t, left, ci, q, end)) {
             DEBUG_PRINTF("leftfix %u died due to miracle\n", ri);
             scratch->tctxt.groups &= left->squash_mask;
-            mmbit_unset(getActiveLeftArray(t, tctxt->state), arCount, ri);
+            mmbit_unset(activeLeftArray, arCount, ri);
             return 0;
         }
 
@@ -464,9 +462,8 @@ char roseTestLeftfix(const struct RoseEngine *t, u32 qi, u32 leftfixLag,
         char rv = nfaQueueExecRose(q->nfa, q, leftfixReport);
         if (!rv) { /* nfa is dead */
             DEBUG_PRINTF("leftfix %u died while trying to catch up\n", ri);
-            mmbit_unset(getActiveLeftArray(t, tctxt->state), arCount, ri);
-            assert(!mmbit_isset(getActiveLeftArray(t, tctxt->state), arCount,
-                                ri));
+            mmbit_unset(activeLeftArray, arCount, ri);
+            assert(!mmbit_isset(activeLeftArray, arCount, ri));
             tctxt->groups &= left->squash_mask;
             return 0;
         }
@@ -503,7 +500,9 @@ void roseTriggerInfix(const struct RoseEngine *t, u64a start, u64a end, u32 qi,
     struct mq *q = tctxtToScratch(tctxt)->queues + qi;
     const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
 
-    u8 *activeLeftArray = getActiveLeftArray(t, tctxt->state);
+    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    char *state = scratch->core_info.state;
+    u8 *activeLeftArray = getActiveLeftArray(t, state);
     const u32 arCount = t->activeLeftCount;
     char alive = mmbit_set(activeLeftArray, arCount, ri);
 
@@ -512,11 +511,11 @@ void roseTriggerInfix(const struct RoseEngine *t, u64a start, u64a end, u32 qi,
         return;
     }
 
-    struct fatbit *aqa = tctxtToScratch(tctxt)->aqa;
+    struct fatbit *aqa = scratch->aqa;
     const u32 qCount = t->queueCount;
 
     if (alive && nfaSupportsZombie(getNfaByInfo(t, info)) && ci->buf_offset &&
-        !fatbit_isset(aqa, qCount, qi) && isZombie(t, tctxt->state, left)) {
+        !fatbit_isset(aqa, qCount, qi) && isZombie(t, state, left)) {
         DEBUG_PRINTF("yawn - zombie\n");
         return;
     }
@@ -531,7 +530,7 @@ void roseTriggerInfix(const struct RoseEngine *t, u64a start, u64a end, u32 qi,
         DEBUG_PRINTF("initing %u\n", qi);
         initRoseQueue(t, qi, left, tctxt);
         if (alive) {
-            s32 sp = -(s32)loadRoseDelay(t, tctxt->state, left);
+            s32 sp = -(s32)loadRoseDelay(t, state, left);
             pushQueueAt(q, 0, MQE_START, sp);
             loadStreamState(q->nfa, q, sp);
         } else {
@@ -562,8 +561,8 @@ void roseTriggerInfix(const struct RoseEngine *t, u64a start, u64a end, u32 qi,
 
 /* handles the firing of external matches */
 static rose_inline
-hwlmcb_rv_t roseHandleMatch(const struct RoseEngine *t, u8 *state, ReportID id,
-                            u64a end, struct RoseContext *tctxt,
+hwlmcb_rv_t roseHandleMatch(const struct RoseEngine *t, char *state,
+                            ReportID id, u64a end, struct RoseContext *tctxt,
                             char in_anchored) {
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
 
@@ -603,7 +602,7 @@ hwlmcb_rv_t roseHandleMatch(const struct RoseEngine *t, u8 *state, ReportID id,
  * up */
 static rose_inline
 hwlmcb_rv_t roseCatchUpAndHandleChainMatch(const struct RoseEngine *t,
-                                           u8 *state, ReportID r, u64a end,
+                                           char *state, ReportID r, u64a end,
                                            struct RoseContext *tctxt,
                                            char in_anchored) {
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
@@ -617,7 +616,7 @@ hwlmcb_rv_t roseCatchUpAndHandleChainMatch(const struct RoseEngine *t,
 }
 
 static rose_inline
-hwlmcb_rv_t roseSomCatchup(const struct RoseEngine *t, u8 *state, u64a end,
+hwlmcb_rv_t roseSomCatchup(const struct RoseEngine *t, char *state, u64a end,
                            struct RoseContext *tctxt, char in_anchored) {
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
 
@@ -640,7 +639,7 @@ hwlmcb_rv_t roseSomCatchup(const struct RoseEngine *t, u8 *state, u64a end,
 }
 
 static really_inline
-hwlmcb_rv_t roseHandleSom(const struct RoseEngine *t, u8 *state, ReportID id,
+hwlmcb_rv_t roseHandleSom(const struct RoseEngine *t, char *state, ReportID id,
                           u64a end, struct RoseContext *tctxt,
                           char in_anchored) {
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
@@ -663,7 +662,7 @@ hwlmcb_rv_t roseHandleSom(const struct RoseEngine *t, u8 *state, ReportID id,
 }
 
 static rose_inline
-hwlmcb_rv_t roseHandleSomMatch(const struct RoseEngine *t, u8 *state,
+hwlmcb_rv_t roseHandleSomMatch(const struct RoseEngine *t, char *state,
                                ReportID id, u64a start, u64a end,
                                struct RoseContext *tctxt, char in_anchored) {
     if (roseCatchUpTo(t, state, end, tctxtToScratch(tctxt), in_anchored)
@@ -701,9 +700,9 @@ hwlmcb_rv_t roseHandleSomMatch(const struct RoseEngine *t, u8 *state,
 }
 
 static rose_inline
-hwlmcb_rv_t roseHandleSomSom(const struct RoseEngine *t, u8 *state, ReportID id,
-                             u64a start, u64a end, struct RoseContext *tctxt,
-                             char in_anchored) {
+hwlmcb_rv_t roseHandleSomSom(const struct RoseEngine *t, char *state,
+                             ReportID id, u64a start, u64a end,
+                             struct RoseContext *tctxt, char in_anchored) {
     DEBUG_PRINTF("id=%u, start=%llu, end=%llu, minMatchOffset=%llu\n",
                   id, start, end, tctxt->minMatchOffset);
 
@@ -903,6 +902,8 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
     // allow the program to squash groups).
     int work_done = 0;
 
+    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+
     assert(*(const u8 *)pc != ROSE_INSTR_END);
 
     for (;;) {
@@ -925,7 +926,8 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
 
             PROGRAM_CASE(CHECK_LIT_MASK) {
                 assert(match_len);
-                if (!roseCheckBenefits(tctxt, end, match_len, ri->and_mask.a8,
+                struct core_info *ci = &scratch->core_info;
+                if (!roseCheckBenefits(ci, end, match_len, ri->and_mask.a8,
                                        ri->cmp_mask.a8)) {
                     DEBUG_PRINTF("halt: failed mask check\n");
                     return HWLM_CONTINUE_MATCHING;
@@ -953,7 +955,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_ONLY_EOD) {
-                struct core_info *ci = &tctxtToScratch(tctxt)->core_info;
+                struct core_info *ci = &scratch->core_info;
                 if (end != ci->buf_offset + ci->len) {
                     DEBUG_PRINTF("should only match at end of data\n");
                     assert(ri->fail_jump); // must progress
@@ -975,7 +977,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_NOT_HANDLED) {
-                struct fatbit *handled = tctxtToScratch(tctxt)->handled_roles;
+                struct fatbit *handled = scratch->handled_roles;
                 if (fatbit_set(handled, t->handledKeyCount, ri->key)) {
                     DEBUG_PRINTF("key %u already set\n", ri->key);
                     assert(ri->fail_jump); // must progress
@@ -1042,7 +1044,8 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT) {
-                if (roseHandleMatch(t, tctxt->state, ri->report, end, tctxt,
+                if (roseHandleMatch(t, scratch->core_info.state,
+                                    ri->report, end, tctxt,
                                     in_anchored) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
@@ -1051,9 +1054,9 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_CHAIN) {
-                if (roseCatchUpAndHandleChainMatch(t, tctxt->state, ri->report,
-                                                   end, tctxt, in_anchored) ==
-                    HWLM_TERMINATE_MATCHING) {
+                if (roseCatchUpAndHandleChainMatch(
+                        t, scratch->core_info.state, ri->report, end,
+                        tctxt, in_anchored) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
                 work_done = 1;
@@ -1070,7 +1073,8 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM_INT) {
-                if (roseHandleSom(t, tctxt->state, ri->report, end, tctxt,
+                if (roseHandleSom(t, scratch->core_info.state, ri->report,
+                                  end, tctxt,
                                   in_anchored) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
@@ -1079,8 +1083,8 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM) {
-                if (roseHandleSomSom(t, tctxt->state, ri->report, som, end,
-                                     tctxt,
+                if (roseHandleSomSom(t, scratch->core_info.state,
+                                     ri->report, som, end, tctxt,
                                      in_anchored) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
@@ -1089,8 +1093,8 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM_KNOWN) {
-                if (roseHandleSomMatch(t, tctxt->state, ri->report, som, end,
-                                       tctxt, in_anchored) ==
+                if (roseHandleSomMatch(t, scratch->core_info.state, ri->report,
+                                       som, end, tctxt, in_anchored) ==
                     HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
@@ -1100,8 +1104,8 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
 
             PROGRAM_CASE(SET_STATE) {
                 DEBUG_PRINTF("set state index %u\n", ri->index);
-                mmbit_set(getRoleState(tctxt->state), t->rolesWithStateCount,
-                          ri->index);
+                mmbit_set(getRoleState(scratch->core_info.state),
+                          t->rolesWithStateCount, ri->index);
                 work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
@@ -1125,8 +1129,8 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
 
             PROGRAM_CASE(CHECK_STATE) {
                 DEBUG_PRINTF("check state %u\n", ri->index);
-                if (!mmbit_isset(getRoleState(tctxt->state),
-                                 t->rolesWithStateCount, ri->index)) {
+                const u8 *roles = getRoleState(scratch->core_info.state);
+                if (!mmbit_isset(roles, t->rolesWithStateCount, ri->index)) {
                     DEBUG_PRINTF("state not on\n");
                     assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
@@ -1141,10 +1145,11 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                     getByOffset(t, ri->iter_offset);
                 assert(ISALIGNED(it));
 
+                const u8 *roles = getRoleState(scratch->core_info.state);
+
                 u32 idx = 0;
-                u32 i = mmbit_sparse_iter_begin(getRoleState(tctxt->state),
-                                                t->rolesWithStateCount, &idx,
-                                                it, si_state);
+                u32 i = mmbit_sparse_iter_begin(roles, t->rolesWithStateCount,
+                                                &idx, it, si_state);
                 if (i == MMB_INVALID) {
                     DEBUG_PRINTF("no states in sparse iter are on\n");
                     assert(ri->fail_jump); // must progress
@@ -1152,7 +1157,6 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                     continue;
                 }
 
-                struct hs_scratch *scratch = tctxtToScratch(tctxt);
                 fatbit_clear(scratch->handled_roles);
 
                 const u32 *jumps = getByOffset(t, ri->jump_table);
@@ -1170,9 +1174,10 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
                     getByOffset(t, ri->iter_offset);
                 assert(ISALIGNED(it));
 
+                const u8 *roles = getRoleState(scratch->core_info.state);
+
                 u32 idx = 0;
-                u32 i = mmbit_sparse_iter_next(getRoleState(tctxt->state),
-                                               t->rolesWithStateCount,
+                u32 i = mmbit_sparse_iter_next(roles, t->rolesWithStateCount,
                                                ri->state, &idx, it, si_state);
                 if (i == MMB_INVALID) {
                     DEBUG_PRINTF("no more states in sparse iter are on\n");

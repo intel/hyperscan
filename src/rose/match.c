@@ -75,8 +75,8 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
                                      void *ctx) {
     struct hs_scratch *scratch = ctx;
     struct RoseContext *tctx = &scratch->tctxt;
-    const struct RoseEngine *t = tctx->t;
     struct core_info *ci = &scratch->core_info;
+    const struct RoseEngine *t = ci->rose;
     size_t rb_len = MIN(ci->hlen, t->delayRebuildLength);
 
     u64a real_end = ci->buf_offset - rb_len + end + 1; // index after last byte
@@ -123,8 +123,8 @@ hwlmcb_rv_t ensureMpvQueueFlushed(const struct RoseEngine *t,
 static rose_inline
 void recordAnchoredMatch(struct RoseContext *tctxt, ReportID reportId,
                          u64a end) {
-    const struct RoseEngine *t = tctxt->t;
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    const struct RoseEngine *t = scratch->core_info.rose;
     u8 **anchoredRows = getAnchoredLog(scratch);
 
     DEBUG_PRINTF("record %u @ %llu\n", reportId, end);
@@ -148,8 +148,8 @@ static rose_inline
 void recordAnchoredLiteralMatch(struct RoseContext *tctxt, u32 literal_id,
                                 u64a end) {
     assert(end);
-    const struct RoseEngine *t = tctxt->t;
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    const struct RoseEngine *t = scratch->core_info.rose;
     u8 **anchoredLiteralRows = getAnchoredLiteralLog(scratch);
 
     DEBUG_PRINTF("record %u @ %llu\n", literal_id, end);
@@ -173,7 +173,7 @@ hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t, ReportID r,
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
     struct core_info *ci = &scratch->core_info;
 
-    u8 *aa = getActiveLeafArray(t, tctxt->state);
+    u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
     u32 aaCount = t->activeArrayCount;
     struct fatbit *activeQueues = scratch->aqa;
     u32 qCount = t->queueCount;
@@ -255,9 +255,9 @@ event_enqueued:
 
 /* handles catchup, som, cb, etc */
 static really_inline
-hwlmcb_rv_t roseHandleReport(const struct RoseEngine *t, u8 *state,
-                             struct RoseContext *tctxt, ReportID id, u64a offset,
-                             char in_anchored) {
+hwlmcb_rv_t roseHandleReport(const struct RoseEngine *t, char *state,
+                             struct RoseContext *tctxt, ReportID id,
+                             u64a offset, char in_anchored) {
     const struct internal_report *ri = getInternalReport(t, id);
 
     if (ri) {
@@ -284,7 +284,8 @@ hwlmcb_rv_t roseHandleReport(const struct RoseEngine *t, u8 *state,
 
 static really_inline
 hwlmcb_rv_t roseHandleAnchoredDirectReport(const struct RoseEngine *t,
-                                           u8 *state, struct RoseContext *tctxt,
+                                           char *state,
+                                           struct RoseContext *tctxt,
                                            u64a real_end, ReportID report) {
     DEBUG_PRINTF("direct report %u, real_end=%llu\n", report, real_end);
 
@@ -300,9 +301,9 @@ hwlmcb_rv_t roseHandleAnchoredDirectReport(const struct RoseEngine *t,
 
 int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
     struct RoseContext *tctxt = ctx;
-    const struct RoseEngine *t = tctxt->t;
-    u8 *state = tctxt->state;
     struct core_info *ci = &tctxtToScratch(tctxt)->core_info;
+    char *state = ci->state;
+    const struct RoseEngine *t = ci->rose;
 
     u64a real_end = ci->buf_offset + end; // index after last byte
 
@@ -387,7 +388,8 @@ hwlmcb_rv_t roseProcessMatch_i(const struct RoseEngine *t, u64a end,
                                struct RoseContext *tctxt, char in_delay_play,
                                char in_anch_playback) {
     /* assert(!tctxt->in_anchored); */
-    u8 *state = tctxt->state;
+    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    char *state = scratch->core_info.state;
 
     DEBUG_PRINTF("id=%u\n", id);
 
@@ -444,30 +446,31 @@ hwlmcb_rv_t roseProcessMainMatch(const struct RoseEngine *t, u64a end,
 }
 
 static rose_inline
-hwlmcb_rv_t playDelaySlot(struct RoseContext *tctxt, const u8 *delaySlotBase,
-                          size_t delaySlotSize, u32 vicIndex, u64a offset) {
+hwlmcb_rv_t playDelaySlot(const struct RoseEngine *t, struct RoseContext *tctxt,
+                          const u8 *delaySlotBase, size_t delaySlotSize,
+                          u32 vicIndex, u64a offset) {
     /* assert(!tctxt->in_anchored); */
     assert(vicIndex < DELAY_SLOT_COUNT);
     const u8 *vicSlot = delaySlotBase + delaySlotSize * vicIndex;
-    u32 delay_count = tctxt->t->delay_count;
+    u32 delay_count = t->delay_count;
 
-    if (offset < tctxt->t->floatingMinLiteralMatchOffset) {
+    if (offset < t->floatingMinLiteralMatchOffset) {
         DEBUG_PRINTF("too soon\n");
         return HWLM_CONTINUE_MATCHING;
     }
 
-    roseFlushLastByteHistory(tctxt->t, tctxt->state, offset, tctxt);
+    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    roseFlushLastByteHistory(t, scratch->core_info.state, offset, tctxt);
     tctxt->lastEndOffset = offset;
 
     for (u32 it = mmbit_iterate(vicSlot, delay_count, MMB_INVALID);
          it != MMB_INVALID; it = mmbit_iterate(vicSlot, delay_count, it)) {
-        u32 literal_id = tctxt->t->delay_base_id + it;
+        u32 literal_id = t->delay_base_id + it;
 
         UNUSED rose_group old_groups = tctxt->groups;
 
         DEBUG_PRINTF("DELAYED MATCH id=%u offset=%llu\n", literal_id, offset);
-        hwlmcb_rv_t rv = roseProcessDelayedMatch(tctxt->t, offset, literal_id,
-                                                 tctxt);
+        hwlmcb_rv_t rv = roseProcessDelayedMatch(t, offset, literal_id, tctxt);
         DEBUG_PRINTF("DONE groups=0x%016llx\n", tctxt->groups);
 
         /* delayed literals can't safely set groups.
@@ -485,20 +488,21 @@ hwlmcb_rv_t playDelaySlot(struct RoseContext *tctxt, const u8 *delaySlotBase,
 }
 
 static really_inline
-hwlmcb_rv_t flushAnchoredLiteralAtLoc(struct RoseContext *tctxt, u32 curr_loc) {
+hwlmcb_rv_t flushAnchoredLiteralAtLoc(const struct RoseEngine *t,
+                                      struct RoseContext *tctxt, u32 curr_loc) {
     u8 *curr_row = getAnchoredLiteralLog(tctxtToScratch(tctxt))[curr_loc - 1];
-    u32 region_width = tctxt->t->anchored_count;
+    u32 region_width = t->anchored_count;
 
     DEBUG_PRINTF("report matches at curr loc\n");
     for (u32 it = mmbit_iterate(curr_row, region_width, MMB_INVALID);
          it != MMB_INVALID; it = mmbit_iterate(curr_row, region_width, it)) {
         DEBUG_PRINTF("it = %u/%u\n", it, region_width);
-        u32 literal_id = tctxt->t->anchored_base_id + it;
+        u32 literal_id = t->anchored_base_id + it;
 
         rose_group old_groups = tctxt->groups;
         DEBUG_PRINTF("ANCH REPLAY MATCH id=%u offset=%u\n", literal_id,
                      curr_loc);
-        hwlmcb_rv_t rv = roseProcessDelayedAnchoredMatch(tctxt->t, curr_loc,
+        hwlmcb_rv_t rv = roseProcessDelayedAnchoredMatch(t, curr_loc,
                                                          literal_id, tctxt);
         DEBUG_PRINTF("DONE groups=0x%016llx\n", tctxt->groups);
 
@@ -534,9 +538,11 @@ u32 anchored_it_begin(struct RoseContext *tctxt) {
 }
 
 static really_inline
-hwlmcb_rv_t flushAnchoredLiterals(struct RoseContext *tctxt,
+hwlmcb_rv_t flushAnchoredLiterals(const struct RoseEngine *t,
+                                  struct RoseContext *tctxt,
                                   u32 *anchored_it_param, u64a to_off) {
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    char *state = scratch->core_info.state;
     u32 anchored_it = *anchored_it_param;
     /* catch up any remaining anchored matches */
     for (; anchored_it != MMB_INVALID && anchored_it < to_off;
@@ -544,10 +550,10 @@ hwlmcb_rv_t flushAnchoredLiterals(struct RoseContext *tctxt,
         assert(anchored_it < scratch->anchored_literal_region_len);
         DEBUG_PRINTF("loc_it = %u\n", anchored_it);
         u32 curr_off = anchored_it + 1;
-        roseFlushLastByteHistory(tctxt->t, tctxt->state, curr_off, tctxt);
+        roseFlushLastByteHistory(t, state, curr_off, tctxt);
         tctxt->lastEndOffset = curr_off;
 
-        if (flushAnchoredLiteralAtLoc(tctxt, curr_off)
+        if (flushAnchoredLiteralAtLoc(t, tctxt, curr_off)
             == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
         }
@@ -558,9 +564,9 @@ hwlmcb_rv_t flushAnchoredLiterals(struct RoseContext *tctxt,
 }
 
 static really_inline
-hwlmcb_rv_t playVictims(struct RoseContext *tctxt, u32 *anchored_it,
-                        u64a lastEnd, u64a victimDelaySlots, u8 *delaySlotBase,
-                        size_t delaySlotSize) {
+hwlmcb_rv_t playVictims(const struct RoseEngine *t, struct RoseContext *tctxt,
+                        u32 *anchored_it, u64a lastEnd, u64a victimDelaySlots,
+                        u8 *delaySlotBase, size_t delaySlotSize) {
     /* assert (!tctxt->in_anchored); */
 
     while (victimDelaySlots) {
@@ -568,12 +574,12 @@ hwlmcb_rv_t playVictims(struct RoseContext *tctxt, u32 *anchored_it,
         DEBUG_PRINTF("vic = %u\n", vic);
         u64a vicOffset = vic + (lastEnd & ~(u64a)DELAY_MASK);
 
-        if (flushAnchoredLiterals(tctxt, anchored_it, vicOffset)
+        if (flushAnchoredLiterals(t, tctxt, anchored_it, vicOffset)
             == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
         }
 
-        if (playDelaySlot(tctxt, delaySlotBase, delaySlotSize,
+        if (playDelaySlot(t, tctxt, delaySlotBase, delaySlotSize,
                           vic % DELAY_SLOT_COUNT, vicOffset)
             == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
@@ -585,6 +591,9 @@ hwlmcb_rv_t playVictims(struct RoseContext *tctxt, u32 *anchored_it,
 
 /* call flushQueuedLiterals instead */
 hwlmcb_rv_t flushQueuedLiterals_i(struct RoseContext *tctxt, u64a currEnd) {
+    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    const struct RoseEngine *t = scratch->core_info.rose;
+
     /* assert(!tctxt->in_anchored); */
     u64a lastEnd = tctxt->delayLastEndOffset;
     DEBUG_PRINTF("flushing backed up matches @%llu up from %llu\n", currEnd,
@@ -600,8 +609,8 @@ hwlmcb_rv_t flushQueuedLiterals_i(struct RoseContext *tctxt, u64a currEnd) {
     }
 
     {
-        u8 *delaySlotBase = getDelaySlots(tctxtToScratch(tctxt));
-        size_t delaySlotSize = tctxt->t->delay_slot_size;
+        u8 *delaySlotBase = getDelaySlots(scratch);
+        size_t delaySlotSize = t->delay_slot_size;
 
         u32 lastIndex = lastEnd & DELAY_MASK;
         u32 currIndex = currEnd & DELAY_MASK;
@@ -654,7 +663,7 @@ hwlmcb_rv_t flushQueuedLiterals_i(struct RoseContext *tctxt, u64a currEnd) {
                          second_half, victimDelaySlots, lastIndex);
         }
 
-        if (playVictims(tctxt, &anchored_it, lastEnd, victimDelaySlots,
+        if (playVictims(t, tctxt, &anchored_it, lastEnd, victimDelaySlots,
                         delaySlotBase, delaySlotSize)
             == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
@@ -662,27 +671,29 @@ hwlmcb_rv_t flushQueuedLiterals_i(struct RoseContext *tctxt, u64a currEnd) {
     }
 
 anchored_leftovers:;
-    hwlmcb_rv_t rv = flushAnchoredLiterals(tctxt, &anchored_it, currEnd);
+    hwlmcb_rv_t rv = flushAnchoredLiterals(t, tctxt, &anchored_it, currEnd);
     tctxt->delayLastEndOffset = currEnd;
     return rv;
 }
 
 hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
     struct RoseContext *tctx = ctxt;
+    struct hs_scratch *scratch = tctxtToScratch(tctx);
+    const struct RoseEngine *t = scratch->core_info.rose;
+
     u64a real_end = end + tctx->lit_offset_adjust;
 
 #if defined(DEBUG)
-    struct core_info *ci = &tctxtToScratch(tctx)->core_info;
     DEBUG_PRINTF("MATCH id=%u offsets=[%llu,%llu]: ", id,
                  start + tctx->lit_offset_adjust, real_end);
-    printMatch(ci, start + tctx->lit_offset_adjust, real_end);
+    printMatch(&scratch->core_info, start + tctx->lit_offset_adjust, real_end);
     printf("\n");
 #endif
     DEBUG_PRINTF("last end %llu\n", tctx->lastEndOffset);
 
     DEBUG_PRINTF("STATE groups=0x%016llx\n", tctx->groups);
 
-    if (can_stop_matching(tctxtToScratch(tctx))) {
+    if (can_stop_matching(scratch)) {
         DEBUG_PRINTF("received a match when we're already dead!\n");
         return HWLM_TERMINATE_MATCHING;
     }
@@ -690,8 +701,8 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
     hwlmcb_rv_t rv = flushQueuedLiterals(tctx, real_end);
     /* flushDelayed may have advanced tctx->lastEndOffset */
 
-    if (real_end >= tctx->t->floatingMinLiteralMatchOffset) {
-        roseFlushLastByteHistory(tctx->t, tctx->state, real_end, tctx);
+    if (real_end >= t->floatingMinLiteralMatchOffset) {
+        roseFlushLastByteHistory(t, scratch->core_info.state, real_end, tctx);
         tctx->lastEndOffset = real_end;
     }
 
@@ -700,7 +711,7 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
     }
 
     size_t match_len = end - start + 1;
-    rv = roseProcessMainMatch(tctx->t, real_end, match_len, id, tctx);
+    rv = roseProcessMainMatch(t, real_end, match_len, id, tctx);
 
     DEBUG_PRINTF("DONE groups=0x%016llx\n", tctx->groups);
 
@@ -708,7 +719,7 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
         return tctx->groups;
     }
 
-    assert(can_stop_matching(tctxtToScratch(tctx)));
+    assert(can_stop_matching(scratch));
     DEBUG_PRINTF("user requested halt\n");
     return HWLM_TERMINATE_MATCHING;
 }

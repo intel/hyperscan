@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -73,16 +73,16 @@ hwlmcb_rv_t roseCatchUpSuf(s64a loc, struct hs_scratch *scratch);
 hwlmcb_rv_t roseCatchUpAnchoredAndSuf(s64a loc, struct hs_scratch *scratch);
 
 
-hwlmcb_rv_t roseCatchUpMPV_i(const struct RoseEngine *t, u8 *state, s64a loc,
+hwlmcb_rv_t roseCatchUpMPV_i(const struct RoseEngine *t, char *state, s64a loc,
                              struct hs_scratch *scratch);
 
-void blockInitSufPQ(const struct RoseEngine *t, u8 *state,
+void blockInitSufPQ(const struct RoseEngine *t, char *state,
                     struct hs_scratch *scratch, char is_small_block);
-void streamInitSufPQ(const struct RoseEngine *t, u8 *state,
+void streamInitSufPQ(const struct RoseEngine *t, char *state,
                      struct hs_scratch *scratch);
 
 static really_inline
-hwlmcb_rv_t roseCatchUpMPV(const struct RoseEngine *t, u8 *state,
+hwlmcb_rv_t roseCatchUpMPV(const struct RoseEngine *t, char *state,
                            s64a loc, struct hs_scratch *scratch) {
     u64a cur_offset = loc + scratch->core_info.buf_offset;
     assert(cur_offset >= scratch->tctxt.minMatchOffset);
@@ -140,7 +140,7 @@ u64a currentAnchoredEnd(const struct RoseEngine *t, struct RoseContext *tctxt) {
 
 /* catches up nfas, anchored matches and the mpv */
 static rose_inline
-hwlmcb_rv_t roseCatchUpTo(const struct RoseEngine *t, u8 *state, u64a end,
+hwlmcb_rv_t roseCatchUpTo(const struct RoseEngine *t, char *state, u64a end,
                           struct hs_scratch *scratch, char in_anchored) {
     /* no need to catch up if we are at the same offset as last time */
     if (end <= scratch->tctxt.minMatchOffset) {
@@ -156,7 +156,6 @@ hwlmcb_rv_t roseCatchUpTo(const struct RoseEngine *t, u8 *state, u64a end,
         return roseCatchUpMPV(t, state, loc, scratch);
     }
 
-    assert(t == scratch->tctxt.t);
     assert(scratch->tctxt.minMatchOffset >= scratch->core_info.buf_offset);
     u64a curr_anchored_end = currentAnchoredEnd(t, &scratch->tctxt);
     hwlmcb_rv_t rv;
@@ -189,7 +188,7 @@ hwlmcb_rv_t roseCatchUpTo(const struct RoseEngine *t, u8 *state, u64a end,
  * and suf/outfixes. The MPV will be run only to intersperse matches in
  * the output match stream if external matches are raised. */
 static rose_inline
-hwlmcb_rv_t roseCatchUpMpvFeeders(const struct RoseEngine *t, u8 *state,
+hwlmcb_rv_t roseCatchUpMpvFeeders(const struct RoseEngine *t, char *state,
                                   u64a end, struct hs_scratch *scratch,
                                   char in_anchored) {
     /* no need to catch up if we are at the same offset as last time */
@@ -201,7 +200,6 @@ hwlmcb_rv_t roseCatchUpMpvFeeders(const struct RoseEngine *t, u8 *state,
 
     s64a loc = end - scratch->core_info.buf_offset;
 
-    assert(t == scratch->tctxt.t);
     assert(t->activeArrayCount); /* mpv is in active array */
     assert(scratch->tctxt.minMatchOffset >= scratch->core_info.buf_offset);
     u64a curr_anchored_end = currentAnchoredEnd(t, &scratch->tctxt);

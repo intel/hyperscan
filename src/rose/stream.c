@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,9 +43,7 @@ static rose_inline
 void runAnchoredTableStream(const struct RoseEngine *t, const void *atable,
                             size_t alen, u64a offset,
                             struct hs_scratch *scratch) {
-    char *state_base
-        = (char *)scratch->tctxt.state + t->stateOffsets.anchorState;
-
+    char *state_base = scratch->core_info.state + t->stateOffsets.anchorState;
     const struct anchored_matcher_info *curr = atable;
 
     do {
@@ -128,7 +126,7 @@ enum MiracleAction {
 };
 
 static really_inline
-enum MiracleAction roseScanForMiracles(const struct RoseEngine *t, u8 *state,
+enum MiracleAction roseScanForMiracles(const struct RoseEngine *t, char *state,
                                        struct hs_scratch *scratch, u32 qi,
                                        const struct LeftNfaInfo *left,
                                        const struct NFA *nfa) {
@@ -177,7 +175,7 @@ found_miracle:
         nfaQueueInitState(q->nfa, q);
     } else {
         if (miracle_loc > end_loc - t->historyRequired) {
-            u8 *streamState = state + getNfaInfoByQueue(t, qi)->stateOffset;
+            char *streamState = state + getNfaInfoByQueue(t, qi)->stateOffset;
             u64a offset = ci->buf_offset + miracle_loc;
             u8 key = offset ? getByteBefore(ci, miracle_loc) : 0;
             DEBUG_PRINTF("init state, key=0x%02x, offset=%llu\n", key, offset);
@@ -205,7 +203,7 @@ found_miracle:
 
 
 static really_inline
-char roseCatchUpLeftfix(const struct RoseEngine *t, u8 *state,
+char roseCatchUpLeftfix(const struct RoseEngine *t, char *state,
                         struct hs_scratch *scratch, u32 qi,
                         const struct LeftNfaInfo *left) {
     assert(!left->transient); // active roses only
@@ -323,7 +321,7 @@ char roseCatchUpLeftfix(const struct RoseEngine *t, u8 *state,
 }
 
 static rose_inline
-void roseCatchUpLeftfixes(const struct RoseEngine *t, u8 *state,
+void roseCatchUpLeftfixes(const struct RoseEngine *t, char *state,
                           struct hs_scratch *scratch) {
     if (!t->activeLeftIterOffset) {
         // No sparse iter, no non-transient roses.
@@ -365,7 +363,7 @@ void roseCatchUpLeftfixes(const struct RoseEngine *t, u8 *state,
 
 // Saves out stream state for all our active suffix NFAs.
 static rose_inline
-void roseSaveNfaStreamState(const struct RoseEngine *t, u8 *state,
+void roseSaveNfaStreamState(const struct RoseEngine *t, char *state,
                             struct hs_scratch *scratch) {
     struct mq *queues = scratch->queues;
     u8 *aa = getActiveLeafArray(t, state);
@@ -393,7 +391,7 @@ void roseSaveNfaStreamState(const struct RoseEngine *t, u8 *state,
 }
 
 static rose_inline
-void ensureStreamNeatAndTidy(const struct RoseEngine *t, u8 *state,
+void ensureStreamNeatAndTidy(const struct RoseEngine *t, char *state,
                              struct hs_scratch *scratch, size_t length,
                              u64a offset, u8 delay_rb_status) {
     struct RoseContext *tctxt = &scratch->tctxt;
@@ -425,12 +423,11 @@ void do_rebuild(const struct RoseEngine *t, const struct HWLM *ftable,
     assert(!can_stop_matching(scratch));
 }
 
-void roseStreamExec(const struct RoseEngine *t, u8 *state,
-                   struct hs_scratch *scratch, RoseCallback callback,
-                   RoseCallbackSom som_callback, void *ctx) {
+void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
+                    RoseCallback callback, RoseCallbackSom som_callback,
+                    void *ctx) {
     DEBUG_PRINTF("OH HAI\n");
     assert(t);
-    assert(state);
     assert(scratch->core_info.hbuf);
     assert(scratch->core_info.buf);
 
@@ -449,17 +446,16 @@ void roseStreamExec(const struct RoseEngine *t, u8 *state,
         return;
     }
 
+    char *state = scratch->core_info.state;
     struct RoseRuntimeState *rstate = getRuntimeState(state);
 
     struct RoseContext *tctxt = &scratch->tctxt;
-    tctxt->t = t;
     tctxt->mpv_inactive = 0;
     tctxt->groups = loadGroups(t, state);
     tctxt->lit_offset_adjust = offset + 1; // index after last byte
     tctxt->delayLastEndOffset = offset;
     tctxt->lastEndOffset = offset;
     tctxt->filledDelayedSlots = 0;
-    tctxt->state = state;
     tctxt->cb = callback;
     tctxt->cb_som = som_callback;
     tctxt->userCtx = ctx;

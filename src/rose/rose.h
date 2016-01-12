@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,7 +37,7 @@
 #include "util/multibit.h"
 
 // Initialise state space for engine use.
-void roseInitState(const struct RoseEngine *t, u8 *state);
+void roseInitState(const struct RoseEngine *t, char *state);
 
 void roseBlockEodExec(const struct RoseEngine *t, u64a offset,
                       struct hs_scratch *scratch);
@@ -119,11 +119,11 @@ void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch,
 }
 
 /* assumes core_info in scratch has been init to point to data */
-void roseStreamExec(const struct RoseEngine *t, u8 *state,
-                    struct hs_scratch *scratch, RoseCallback callback,
-                    RoseCallbackSom som_callback, void *context);
+void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
+                    RoseCallback callback, RoseCallbackSom som_callback,
+                    void *context);
 
-void roseEodExec(const struct RoseEngine *t, u8 *state, u64a offset,
+void roseEodExec(const struct RoseEngine *t, u64a offset,
                  struct hs_scratch *scratch, RoseCallback callback,
                  RoseCallbackSom som_callback, void *context);
 

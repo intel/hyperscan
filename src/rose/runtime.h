@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -57,7 +57,7 @@
 
 /** \brief Fetch runtime state ptr. */
 static really_inline
-struct RoseRuntimeState *getRuntimeState(u8 *state) {
+struct RoseRuntimeState *getRuntimeState(char *state) {
     struct RoseRuntimeState *rs = (struct RoseRuntimeState *)(state);
     assert(ISALIGNED_N(rs, 8));
     return rs;
@@ -70,20 +70,20 @@ const void *getByOffset(const struct RoseEngine *t, u32 offset) {
 }
 
 static really_inline
-void *getRoleState(u8 *state) {
+void *getRoleState(char *state) {
     return state + sizeof(struct RoseRuntimeState);
 }
 
 /** \brief Fetch the active array for suffix nfas. */
 static really_inline
-u8 *getActiveLeafArray(const struct RoseEngine *t, u8 *state) {
-    return state + t->stateOffsets.activeLeafArray;
+u8 *getActiveLeafArray(const struct RoseEngine *t, char *state) {
+    return (u8 *)(state + t->stateOffsets.activeLeafArray);
 }
 
 /** \brief Fetch the active array for rose nfas. */
 static really_inline
-u8 *getActiveLeftArray(const struct RoseEngine *t, u8 *state) {
-    return state + t->stateOffsets.activeLeftArray;
+u8 *getActiveLeftArray(const struct RoseEngine *t, char *state) {
+    return (u8 *)(state + t->stateOffsets.activeLeftArray);
 }
 
 static really_inline
@@ -97,31 +97,32 @@ const u32 *getAnchoredMap(const struct RoseEngine *t) {
 }
 
 static really_inline
-rose_group loadGroups(const struct RoseEngine *t, const u8 *state) {
+rose_group loadGroups(const struct RoseEngine *t, const char *state) {
     return partial_load_u64a(state + t->stateOffsets.groups,
                              t->stateOffsets.groups_size);
 
 }
 
 static really_inline
-void storeGroups(const struct RoseEngine *t, u8 *state, rose_group groups) {
+void storeGroups(const struct RoseEngine *t, char *state, rose_group groups) {
     partial_store_u64a(state + t->stateOffsets.groups, groups,
                        t->stateOffsets.groups_size);
 }
 
 static really_inline
-u8 * getFloatingMatcherState(const struct RoseEngine *t, u8 *state) {
-    return state + t->stateOffsets.floatingMatcherState;
+u8 *getFloatingMatcherState(const struct RoseEngine *t, char *state) {
+    return (u8 *)(state + t->stateOffsets.floatingMatcherState);
 }
 
 static really_inline
-u8 *getLeftfixLagTable(const struct RoseEngine *t, u8 *state) {
-    return state + t->stateOffsets.leftfixLagTable;
+u8 *getLeftfixLagTable(const struct RoseEngine *t, char *state) {
+    return (u8 *)(state + t->stateOffsets.leftfixLagTable);
 }
 
 static really_inline
-const u8 *getLeftfixLagTableConst(const struct RoseEngine *t, const u8 *state) {
-    return state + t->stateOffsets.leftfixLagTable;
+const u8 *getLeftfixLagTableConst(const struct RoseEngine *t,
+                                  const char *state) {
+    return (const u8 *)(state + t->stateOffsets.leftfixLagTable);
 }
 
 static rose_inline

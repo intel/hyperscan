@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,7 +43,8 @@ typedef struct queue_match PQ_T;
 static really_inline
 int handleReportInternally(struct hs_scratch *scratch, ReportID id,
                            u64a offset) {
-    const struct internal_report *ri = getInternalReport(scratch->tctxt.t, id);
+    const struct RoseEngine *t = scratch->core_info.rose;
+    const struct internal_report *ri = getInternalReport(t, id);
     if (ri->type == EXTERNAL_CALLBACK) {
         return 0;
     }
@@ -52,8 +53,7 @@ int handleReportInternally(struct hs_scratch *scratch, ReportID id,
         return 1;
     }
     if (ri->type == INTERNAL_ROSE_CHAIN) {
-        roseHandleChainMatch(scratch->tctxt.t, id, offset, &scratch->tctxt, 0,
-                             1);
+        roseHandleChainMatch(t, id, offset, &scratch->tctxt, 0, 1);
         return 1;
     }
 
@@ -63,7 +63,8 @@ int handleReportInternally(struct hs_scratch *scratch, ReportID id,
 static really_inline
 int handleReportInternallyNoChain(struct hs_scratch *scratch, ReportID id,
                                   u64a offset) {
-    const struct internal_report *ri = getInternalReport(scratch->tctxt.t, id);
+    const struct RoseEngine *t = scratch->core_info.rose;
+    const struct internal_report *ri = getInternalReport(t, id);
     if (ri->type == EXTERNAL_CALLBACK) {
         return 0;
     }
@@ -141,8 +142,9 @@ void nextAnchoredMatch(const struct RoseEngine *t, struct RoseContext *tctxt,
 
 static really_inline
 void deactivateQueue(u8 *aa, u32 qi, struct hs_scratch *scratch) {
-    u32 aaCount = scratch->tctxt.t->activeArrayCount;
-    u32 qCount = scratch->tctxt.t->queueCount;
+    const struct RoseEngine *t = scratch->core_info.rose;
+    u32 aaCount = t->activeArrayCount;
+    u32 qCount = t->queueCount;
 
     /* this is sailing close to the wind with regards to invalidating an
      * iteration. We are saved by the fact that unsetting does not clear the
@@ -343,8 +345,8 @@ int roseNfaFinalBlastAdaptor(u64a offset, ReportID id, void *context) {
         return MO_CONTINUE_MATCHING;
     } else {
         assert(cb_rv == MO_CONTINUE_MATCHING);
-       return !roseSuffixIsExhausted(tctxt->t, 0,
-                                     scratch->core_info.exhaustionVector);
+        return !roseSuffixIsExhausted(scratch->core_info.rose, 0,
+                                      scratch->core_info.exhaustionVector);
     }
 }
 
@@ -369,8 +371,8 @@ int roseNfaFinalBlastAdaptorNoInternal(u64a offset, ReportID id,
         return MO_CONTINUE_MATCHING;
     } else {
         assert(cb_rv == MO_CONTINUE_MATCHING);
-       return !roseSuffixIsExhausted(tctxt->t, 0,
-                                     scratch->core_info.exhaustionVector);
+        return !roseSuffixIsExhausted(scratch->core_info.rose, 0,
+                                      scratch->core_info.exhaustionVector);
     }
 }
 
@@ -427,7 +429,7 @@ s64a findSecondPlace(struct catchup_pq *pq, s64a loc_limit) {
     }
 }
 
-hwlmcb_rv_t roseCatchUpMPV_i(const struct RoseEngine *t, u8 *state, s64a loc,
+hwlmcb_rv_t roseCatchUpMPV_i(const struct RoseEngine *t, char *state, s64a loc,
                              struct hs_scratch *scratch) {
     struct mq *queues = scratch->queues;
     u8 *aa = getActiveLeafArray(t, state);
@@ -518,13 +520,14 @@ static UNUSED
 int roseNfaBlastAdaptor(u64a offset, ReportID id, void *context) {
     struct RoseContext *tctxt = context;
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    const struct RoseEngine *t = scratch->core_info.rose;
 
-    const struct internal_report *ri = getInternalReport(scratch->tctxt.t, id);
+    const struct internal_report *ri = getInternalReport(t, id);
 
     DEBUG_PRINTF("called\n");
     if (ri->type != INTERNAL_ROSE_CHAIN) {
         /* INTERNAL_ROSE_CHAIN are not visible externally */
-        if (roseCatchUpMPV(tctxt->t, tctxt->state,
+        if (roseCatchUpMPV(t, scratch->core_info.state,
                            offset - scratch->core_info.buf_offset, scratch)
             == HWLM_TERMINATE_MATCHING) {
             DEBUG_PRINTF("done\n");
@@ -548,8 +551,8 @@ int roseNfaBlastAdaptor(u64a offset, ReportID id, void *context) {
         return MO_CONTINUE_MATCHING;
     } else {
         assert(cb_rv == MO_CONTINUE_MATCHING);
-       return !roseSuffixIsExhausted(tctxt->t, tctxt->curr_qi,
-                                     scratch->core_info.exhaustionVector);
+        return !roseSuffixIsExhausted(t, tctxt->curr_qi,
+                                      scratch->core_info.exhaustionVector);
     }
 }
 
@@ -557,11 +560,12 @@ static UNUSED
 int roseNfaBlastAdaptorNoInternal(u64a offset, ReportID id, void *context) {
     struct RoseContext *tctxt = context;
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    const struct RoseEngine *t = scratch->core_info.rose;
 
     DEBUG_PRINTF("called\n");
-    if (roseCatchUpMPV(tctxt->t, tctxt->state,
-                       offset - scratch->core_info.buf_offset, scratch)
-        == HWLM_TERMINATE_MATCHING) {
+    if (roseCatchUpMPV(t, scratch->core_info.state,
+                       offset - scratch->core_info.buf_offset,
+                       scratch) == HWLM_TERMINATE_MATCHING) {
         DEBUG_PRINTF("done\n");
         return MO_HALT_MATCHING;
     }
@@ -577,8 +581,8 @@ int roseNfaBlastAdaptorNoInternal(u64a offset, ReportID id, void *context) {
         return MO_CONTINUE_MATCHING;
     } else {
         assert(cb_rv == MO_CONTINUE_MATCHING);
-       return !roseSuffixIsExhausted(tctxt->t, tctxt->curr_qi,
-                                     scratch->core_info.exhaustionVector);
+        return !roseSuffixIsExhausted(t, tctxt->curr_qi,
+                                      scratch->core_info.exhaustionVector);
     }
 }
 
@@ -603,8 +607,8 @@ int roseNfaBlastAdaptorNoChain(u64a offset, ReportID id, void *context) {
         return MO_CONTINUE_MATCHING;
     } else {
         assert(cb_rv == MO_CONTINUE_MATCHING);
-       return !roseSuffixIsExhausted(tctxt->t, tctxt->curr_qi,
-                                     scratch->core_info.exhaustionVector);
+        return !roseSuffixIsExhausted(scratch->core_info.rose, tctxt->curr_qi,
+                                      scratch->core_info.exhaustionVector);
     }
 }
 
@@ -627,8 +631,8 @@ int roseNfaBlastAdaptorNoInternalNoChain(u64a offset, ReportID id,
         return MO_CONTINUE_MATCHING;
     } else {
         assert(cb_rv == MO_CONTINUE_MATCHING);
-       return !roseSuffixIsExhausted(tctxt->t, tctxt->curr_qi,
-                                     scratch->core_info.exhaustionVector);
+        return !roseSuffixIsExhausted(scratch->core_info.rose, tctxt->curr_qi,
+                                      scratch->core_info.exhaustionVector);
     }
 }
 
@@ -637,11 +641,12 @@ int roseNfaBlastSomAdaptor(u64a from_offset, u64a offset, ReportID id,
                            void *context) {
     struct RoseContext *tctxt = context;
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    const struct RoseEngine *t = scratch->core_info.rose;
 
     DEBUG_PRINTF("called\n");
-    if (roseCatchUpMPV(tctxt->t, tctxt->state,
-                       offset - scratch->core_info.buf_offset, scratch)
-        == HWLM_TERMINATE_MATCHING) {
+    if (roseCatchUpMPV(t, scratch->core_info.state,
+                       offset - scratch->core_info.buf_offset,
+                       scratch) == HWLM_TERMINATE_MATCHING) {
         DEBUG_PRINTF("roseCatchUpNfas done\n");
         return MO_HALT_MATCHING;
     }
@@ -658,8 +663,8 @@ int roseNfaBlastSomAdaptor(u64a from_offset, u64a offset, ReportID id,
         return MO_CONTINUE_MATCHING;
     } else {
         assert(cb_rv == MO_CONTINUE_MATCHING);
-       return !roseSuffixIsExhausted(tctxt->t, tctxt->curr_qi,
-                                     scratch->core_info.exhaustionVector);
+        return !roseSuffixIsExhausted(t, tctxt->curr_qi,
+                                      scratch->core_info.exhaustionVector);
     }
 }
 
@@ -799,7 +804,7 @@ hwlmcb_rv_t buildSufPQ_final(const struct RoseEngine *t, s64a report_ok_loc,
     return HWLM_CONTINUE_MATCHING;
 }
 
-void streamInitSufPQ(const struct RoseEngine *t, u8 *state,
+void streamInitSufPQ(const struct RoseEngine *t, char *state,
                      struct hs_scratch *scratch) {
     assert(scratch->catchup_pq.qm_size == 0);
     assert(t->outfixBeginQueue != t->outfixEndQueue);
@@ -844,7 +849,7 @@ void streamInitSufPQ(const struct RoseEngine *t, u8 *state,
     }
 }
 
-void blockInitSufPQ(const struct RoseEngine *t, u8 *state,
+void blockInitSufPQ(const struct RoseEngine *t, char *state,
                     struct hs_scratch *scratch, char is_small_block) {
     DEBUG_PRINTF("initSufPQ: outfixes [%u,%u)\n", t->outfixBeginQueue,
                  t->outfixEndQueue);
@@ -910,7 +915,7 @@ void blockInitSufPQ(const struct RoseEngine *t, u8 *state,
  * safe_loc is ???
  */
 static rose_inline
-hwlmcb_rv_t buildSufPQ(const struct RoseEngine *t, u8 *state, s64a safe_loc,
+hwlmcb_rv_t buildSufPQ(const struct RoseEngine *t, char *state, s64a safe_loc,
                        s64a final_loc, struct hs_scratch *scratch) {
     assert(scratch->catchup_pq.qm_size <= t->outfixEndQueue);
 
@@ -949,7 +954,7 @@ hwlmcb_rv_t buildSufPQ(const struct RoseEngine *t, u8 *state, s64a safe_loc,
     s64a report_ok_loc = tctxt->minNonMpvMatchOffset + 1
         - scratch->core_info.buf_offset;
 
-    hwlmcb_rv_t rv = roseCatchUpMPV(tctxt->t, state, report_ok_loc, scratch);
+    hwlmcb_rv_t rv = roseCatchUpMPV(t, state, report_ok_loc, scratch);
     if (rv != HWLM_CONTINUE_MATCHING) {
         return rv;
     }
@@ -986,7 +991,7 @@ hwlmcb_rv_t buildSufPQ(const struct RoseEngine *t, u8 *state, s64a safe_loc,
 }
 
 static never_inline
-hwlmcb_rv_t roseCatchUpNfas(const struct RoseEngine *t, u8 *state, s64a loc,
+hwlmcb_rv_t roseCatchUpNfas(const struct RoseEngine *t, char *state, s64a loc,
                             s64a final_loc, struct hs_scratch *scratch) {
     struct RoseContext *tctxt = &scratch->tctxt;
     assert(t->activeArrayCount);
@@ -1082,7 +1087,7 @@ exit:;
 }
 
 static really_inline
-hwlmcb_rv_t roseCatchUpNfasAndMpv(const struct RoseEngine *t, u8 *state,
+hwlmcb_rv_t roseCatchUpNfasAndMpv(const struct RoseEngine *t, char *state,
                                   s64a loc, s64a final_loc,
                                   struct hs_scratch *scratch) {
     hwlmcb_rv_t rv = roseCatchUpNfas(t, state, loc, final_loc, scratch);
@@ -1098,14 +1103,14 @@ hwlmcb_rv_t roseCatchUpNfasAndMpv(const struct RoseEngine *t, u8 *state,
 static really_inline
 hwlmcb_rv_t roseCatchUpAll_i(s64a loc, struct hs_scratch *scratch,
                              char do_full_mpv) {
-    assert(scratch->tctxt.t->activeArrayCount); /* otherwise use
-                                                 * roseCatchUpAnchoredOnly */
+    const struct RoseEngine *t = scratch->core_info.rose;
+    assert(t->activeArrayCount); /* otherwise use roseCatchUpAnchoredOnly */
     struct RoseContext *tctxt = &scratch->tctxt;
     u64a current_offset = scratch->core_info.buf_offset + loc;
 
     u64a anchored_end;
     ReportID anchored_report;
-    currentAnchoredMatch(tctxt->t, tctxt, &anchored_report, &anchored_end);
+    currentAnchoredMatch(t, tctxt, &anchored_report, &anchored_end);
 
     DEBUG_PRINTF("am current_offset %llu\n", current_offset);
     DEBUG_PRINTF("min match offset %llu\n", scratch->tctxt.minMatchOffset);
@@ -1115,7 +1120,7 @@ hwlmcb_rv_t roseCatchUpAll_i(s64a loc, struct hs_scratch *scratch,
     assert(current_offset > tctxt->minMatchOffset);
     assert(anchored_end != ANCHORED_MATCH_SENTINEL);
 
-    hwlmcb_rv_t rv = buildSufPQ(tctxt->t, tctxt->state,
+    hwlmcb_rv_t rv = buildSufPQ(t, scratch->core_info.state,
                                 anchored_end - scratch->core_info.buf_offset,
                                 loc, scratch);
     if (rv != HWLM_CONTINUE_MATCHING) {
@@ -1123,9 +1128,9 @@ hwlmcb_rv_t roseCatchUpAll_i(s64a loc, struct hs_scratch *scratch,
     }
 
     /* buildSufPQ may have caught only part of the pq upto anchored_end */
-    rv = roseCatchUpNfas(tctxt->t, tctxt->state,
-                        anchored_end - scratch->core_info.buf_offset, loc,
-                        scratch);
+    rv = roseCatchUpNfas(t, scratch->core_info.state,
+                         anchored_end - scratch->core_info.buf_offset, loc,
+                         scratch);
 
     if (rv != HWLM_CONTINUE_MATCHING) {
         return rv;
@@ -1134,7 +1139,7 @@ hwlmcb_rv_t roseCatchUpAll_i(s64a loc, struct hs_scratch *scratch,
     while (anchored_report != MO_INVALID_IDX
            && anchored_end <= current_offset) {
         if (anchored_end != tctxt->minMatchOffset) {
-            rv = roseCatchUpNfasAndMpv(tctxt->t, tctxt->state,
+            rv = roseCatchUpNfasAndMpv(t, scratch->core_info.state,
                                   anchored_end - scratch->core_info.buf_offset,
                                   loc, scratch);
             if (rv != HWLM_CONTINUE_MATCHING) {
@@ -1156,28 +1161,28 @@ hwlmcb_rv_t roseCatchUpAll_i(s64a loc, struct hs_scratch *scratch,
             return HWLM_TERMINATE_MATCHING;
         }
     next:
-         nextAnchoredMatch(tctxt->t, tctxt, &anchored_report, &anchored_end);
+         nextAnchoredMatch(t, tctxt, &anchored_report, &anchored_end);
          DEBUG_PRINTF("catch up %u %llu\n", anchored_report, anchored_end);
     }
 
     if (current_offset == tctxt->minMatchOffset) {
         DEBUG_PRINTF("caught up\n");
-        assert(scratch->catchup_pq.qm_size <= tctxt->t->outfixEndQueue);
+        assert(scratch->catchup_pq.qm_size <= t->outfixEndQueue);
         return HWLM_CONTINUE_MATCHING;
     }
 
-    rv = roseCatchUpNfas(tctxt->t, tctxt->state, loc, loc, scratch);
+    rv = roseCatchUpNfas(t, scratch->core_info.state, loc, loc, scratch);
 
     if (rv != HWLM_CONTINUE_MATCHING) {
         return rv;
     }
 
-    assert(scratch->catchup_pq.qm_size <= tctxt->t->outfixEndQueue
+    assert(scratch->catchup_pq.qm_size <= t->outfixEndQueue
            || rv == HWLM_TERMINATE_MATCHING);
 
     if (do_full_mpv) {
         /* finish off any outstanding chained matches */
-        rv = roseCatchUpMPV(tctxt->t, tctxt->state, loc, scratch);
+        rv = roseCatchUpMPV(t, scratch->core_info.state, loc, scratch);
     }
 
     DEBUG_PRINTF("catchup all done %llu\n", current_offset);
@@ -1201,24 +1206,22 @@ hwlmcb_rv_t roseCatchUpSufAndChains(s64a loc, struct hs_scratch *scratch) {
     assert(scratch->core_info.buf_offset + loc
            > scratch->tctxt.minNonMpvMatchOffset);
 
-    hwlmcb_rv_t rv = buildSufPQ(scratch->tctxt.t, scratch->tctxt.state, loc,
-                                loc, scratch);
+    const struct RoseEngine *t = scratch->core_info.rose;
+    char *state = scratch->core_info.state;
+
+    hwlmcb_rv_t rv = buildSufPQ(t, state, loc, loc, scratch);
     if (rv != HWLM_CONTINUE_MATCHING) {
         return rv;
     }
 
-    rv = roseCatchUpNfas(scratch->tctxt.t, scratch->tctxt.state, loc, loc,
-                         scratch);
-
+    rv = roseCatchUpNfas(t, state, loc, loc, scratch);
     if (rv != HWLM_CONTINUE_MATCHING) {
         return rv;
     }
 
-    rv = roseCatchUpMPV(scratch->tctxt.t, scratch->tctxt.state, loc, scratch);
-
+    rv = roseCatchUpMPV(t, state, loc, scratch);
     assert(rv != HWLM_CONTINUE_MATCHING
-           || scratch->catchup_pq.qm_size <= scratch->tctxt.t->outfixEndQueue);
-
+           || scratch->catchup_pq.qm_size <= t->outfixEndQueue);
     return rv;
 }
 
@@ -1228,29 +1231,31 @@ hwlmcb_rv_t roseCatchUpSuf(s64a loc, struct hs_scratch *scratch) {
     assert(scratch->core_info.buf_offset + loc
            > scratch->tctxt.minNonMpvMatchOffset);
 
-    hwlmcb_rv_t rv = buildSufPQ(scratch->tctxt.t, scratch->tctxt.state, loc,
-                                loc, scratch);
+    const struct RoseEngine *t = scratch->core_info.rose;
+    char *state = scratch->core_info.state;
+
+    hwlmcb_rv_t rv = buildSufPQ(t, state, loc, loc, scratch);
     if (rv != HWLM_CONTINUE_MATCHING) {
         return rv;
     }
 
-    rv = roseCatchUpNfas(scratch->tctxt.t, scratch->tctxt.state, loc, loc,
-                         scratch);
-    assert(rv != HWLM_CONTINUE_MATCHING
-           || scratch->catchup_pq.qm_size <= scratch->tctxt.t->outfixEndQueue);
+    rv = roseCatchUpNfas(t, state, loc, loc, scratch);
+    assert(rv != HWLM_CONTINUE_MATCHING ||
+           scratch->catchup_pq.qm_size <= t->outfixEndQueue);
 
     return rv;
 }
 
 hwlmcb_rv_t roseCatchUpAnchoredOnly(s64a loc, struct hs_scratch *scratch) {
+    const struct RoseEngine *t = scratch->core_info.rose;
     struct RoseContext *tctxt = &scratch->tctxt;
 
-    assert(!tctxt->t->activeArrayCount); /* otherwise use roseCatchUpAll */
+    assert(!t->activeArrayCount); /* otherwise use roseCatchUpAll */
 
     u64a current_offset = scratch->core_info.buf_offset + loc;
     u64a anchored_end;
     ReportID anchored_report;
-    currentAnchoredMatch(tctxt->t, tctxt, &anchored_report, &anchored_end);
+    currentAnchoredMatch(t, tctxt, &anchored_report, &anchored_end);
 
     DEBUG_PRINTF("am current_offset %llu\n", current_offset);
 
@@ -1272,7 +1277,7 @@ hwlmcb_rv_t roseCatchUpAnchoredOnly(s64a loc, struct hs_scratch *scratch) {
             return HWLM_TERMINATE_MATCHING;
         }
     next:
-        nextAnchoredMatch(tctxt->t, tctxt, &anchored_report, &anchored_end);
+        nextAnchoredMatch(t, tctxt, &anchored_report, &anchored_end);
         DEBUG_PRINTF("catch up %u %llu\n", anchored_report, anchored_end);
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -670,11 +670,11 @@ void processReportList(const struct RoseEngine *rose, u32 base_offset,
 
 /** \brief Initialise SOM state. Used in both block and streaming mode. */
 static really_inline
-void initSomState(const struct RoseEngine *rose, u8 *state) {
+void initSomState(const struct RoseEngine *rose, char *state) {
     assert(rose && state);
     const u32 somCount = rose->somLocationCount;
-    mmbit_clear(state + rose->stateOffsets.somValid, somCount);
-    mmbit_clear(state + rose->stateOffsets.somWritable, somCount);
+    mmbit_clear((u8 *)state + rose->stateOffsets.somValid, somCount);
+    mmbit_clear((u8 *)state + rose->stateOffsets.somWritable, somCount);
 }
 
 static really_inline
@@ -682,7 +682,7 @@ void rawBlockExec(const struct RoseEngine *rose, struct hs_scratch *scratch) {
     assert(rose);
     assert(scratch);
 
-    initSomState(rose, (u8 *)scratch->core_info.state);
+    initSomState(rose, scratch->core_info.state);
 
     DEBUG_PRINTF("blockmode scan len=%zu\n", scratch->core_info.len);
 
@@ -697,7 +697,7 @@ void pureLiteralBlockExec(const struct RoseEngine *rose,
     assert(scratch);
 
     const struct HWLM *ftable = getFLiteralMatcher(rose);
-    initSomState(rose, (u8 *)scratch->core_info.state);
+    initSomState(rose, scratch->core_info.state);
     const u8 *buffer = scratch->core_info.buf;
     size_t length = scratch->core_info.len;
     DEBUG_PRINTF("rose engine %d\n", rose->runtimeImpl);
@@ -736,7 +736,7 @@ void soleOutfixBlockExec(const struct RoseEngine *t,
     assert(t);
     assert(scratch);
 
-    initSomState(t, (u8 *)scratch->core_info.state);
+    initSomState(t, scratch->core_info.state);
     assert(t->outfixEndQueue == 1);
     assert(!t->amatcherOffset);
     assert(!t->ematcherOffset);
@@ -954,7 +954,7 @@ void init_stream(struct hs_stream *s, const struct RoseEngine *rose) {
     s->rose = rose;
     s->offset = 0;
 
-    u8 *state = (u8 *)getMultiState(s);
+    char *state = getMultiState(s);
 
     roseInitState(rose, state);
 
@@ -1017,7 +1017,7 @@ void rawEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
         return;
     }
 
-    roseEodExec(rose, (u8 *)state, id->offset, scratch, selectAdaptor(rose),
+    roseEodExec(rose, id->offset, scratch, selectAdaptor(rose),
                 selectSomAdaptor(rose), scratch);
 }
 
@@ -1191,9 +1191,8 @@ void rawStreamExec(struct hs_stream *stream_state, struct hs_scratch *scratch) {
 
     const struct RoseEngine *rose = stream_state->rose;
     assert(rose);
-    u8 *rose_state = (u8 *)state;
-    roseStreamExec(rose, rose_state, scratch, selectAdaptor(rose),
-                   selectSomAdaptor(rose), scratch);
+    roseStreamExec(rose, scratch, selectAdaptor(rose), selectSomAdaptor(rose),
+                   scratch);
 
     if (!told_to_stop_matching(scratch) &&
         isAllExhausted(rose, scratch->core_info.exhaustionVector)) {
@@ -1218,7 +1217,7 @@ void pureLiteralStreamExec(struct hs_stream *stream_state,
 
     u8 *hwlm_stream_state;
     if (rose->floatingStreamState) {
-        hwlm_stream_state = getFloatingMatcherState(rose, (u8 *)state);
+        hwlm_stream_state = getFloatingMatcherState(rose, state);
     } else {
         hwlm_stream_state = NULL;
     }
