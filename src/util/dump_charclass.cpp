@@ -72,8 +72,10 @@ void describeChar(ostream &os, char c, enum cc_output_t out_type) {
     } else if (c == 0x0d) {
         os << backslash << 'r';
     } else {
+        auto fmt(os.flags());
         os << backslash << 'x' << std::hex << std::setw(2)
-           << std::setfill('0') << (unsigned)(c & 0xff) << std::dec;
+           << std::setfill('0') << (unsigned)(c & 0xff);
+        os.flags(fmt);
     }
 }
 
