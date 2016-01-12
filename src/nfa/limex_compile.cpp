@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -662,15 +662,18 @@ void doAccelCommon(NGHolder &g,
         state_set.reset();
         state_set.set(state_id);
 
+        bool is_multi = false;
         auto p_it = accel->precalc.find(state_set);
         if (p_it != accel->precalc.end()) {
             const precalcAccel &pa = p_it->second;
             offset = max(pa.double_offset, pa.single_offset);
+            is_multi = pa.ma_info.type != MultibyteAccelInfo::MAT_NONE;
             assert(offset <= MAX_ACCEL_DEPTH);
         }
 
         accel->accelerable.insert(v);
-        findAccelFriends(g, v, br_cyclic, offset, &accel->friends[v]);
+        if (!is_multi)
+            findAccelFriends(g, v, br_cyclic, offset, &accel->friends[v]);
     }
 }
 
