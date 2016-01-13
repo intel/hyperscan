@@ -235,13 +235,9 @@ u32 anchoredStateSize(const anchored_matcher_info *atable) {
     return curr->state_offset + nfa->scratchStateSize;
 }
 
-bool anchoredIsMulti(const RoseEngine &engine) {
-    const struct anchored_matcher_info *curr
-        = (const anchored_matcher_info *)getALiteralMatcher(&engine);
-
-    return curr && curr->next_offset;
- }
-
+bool anchoredIsMulti(const anchored_matcher_info *atable) {
+    return atable && atable->next_offset;
+}
 
 namespace {
 

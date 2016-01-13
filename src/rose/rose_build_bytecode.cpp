@@ -2243,7 +2243,15 @@ void enforceEngineSizeLimit(const NFA *n, const size_t nfa_size, const Grey &gre
 }
 
 static
-u32 findMinFloatingLiteralMatch(const RoseBuildImpl &build) {
+u32 findMinFloatingLiteralMatch(const RoseBuildImpl &build,
+                                const anchored_matcher_info *atable) {
+    if (anchoredIsMulti(atable)) {
+        DEBUG_PRINTF("multiple anchored dfas\n");
+        /* We must regard matches from other anchored tables as unordered, as
+         * we do for floating matches. */
+        return 1;
+    }
+
     const RoseGraph &g = build.g;
     u32 minWidth = ROSE_BOUND_INF;
     for (auto v : vertices_range(g)) {
@@ -4036,7 +4044,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     aligned_unique_ptr<HWLM> sbtable = buildSmallBlockMatcher(*this, &sbsize);
 
     build_context bc;
-    bc.floatingMinLiteralMatchOffset = findMinFloatingLiteralMatch(*this);
+    bc.floatingMinLiteralMatchOffset =
+        findMinFloatingLiteralMatch(*this, atable.get());
 
     // Build NFAs
     set<u32> no_retrigger_queues;
@@ -4363,12 +4372,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     write_out(&engine->state_init, (char *)engine.get(), state_scatter,
               state_scatter_aux_offset);
 
-    if (anchoredIsMulti(*engine)) {
-        DEBUG_PRINTF("multiple anchored dfas\n");
+    if (anchoredIsMulti(atable.get())) {
         engine->maxSafeAnchoredDROffset = 1;
-        engine->floatingMinLiteralMatchOffset = 1; /* regard matches from other
-                                                      anchored tables as
-                                                      floating as unordered. */
     } else {
         /* overly conservative, really need the min offset of non dr anchored
            matches */
