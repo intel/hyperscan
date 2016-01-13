@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,13 +31,12 @@
 
 #include "ue2common.h"
 
-struct RoseEngine;
+struct hs_scratch;
 
-// Note: identical signature to NfaCallback, but all Rose callbacks must be
-// passed scratch as their context ptr.
+typedef int (*RoseCallback)(u64a offset, ReportID id,
+                            struct hs_scratch *scratch);
 
-typedef int (*RoseCallback)(u64a offset, ReportID id, void *context);
 typedef int (*RoseCallbackSom)(u64a from_offset, u64a to_offset, ReportID id,
-                               void *context);
+                               struct hs_scratch *scratch);
 
 #endif

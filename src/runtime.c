@@ -171,11 +171,12 @@ void setBroken(char *state, u8 broken) {
 }
 
 static really_inline
-int roseAdaptor_i(u64a offset, ReportID id, void *context, char is_simple,
-                  char do_som) {
+int roseAdaptor_i(u64a offset, ReportID id, struct hs_scratch *scratch,
+                  char is_simple, char do_som) {
     assert(id != MO_INVALID_IDX); // Should never get an invalid ID.
+    assert(scratch);
+    assert(scratch->magic == SCRATCH_MAGIC);
 
-    struct hs_scratch *scratch = (struct hs_scratch *)context;
     struct core_info *ci = &scratch->core_info;
     const struct RoseEngine *rose = ci->rose;
     DEBUG_PRINTF("internal report %u\n", id);
@@ -326,12 +327,13 @@ exit:
 
 static really_inline
 int roseSomAdaptor_i(u64a from_offset, u64a to_offset, ReportID id,
-                     void *context, char is_simple) {
+                     struct hs_scratch *scratch, char is_simple) {
     assert(id != MO_INVALID_IDX); // Should never get an invalid ID.
+    assert(scratch);
+    assert(scratch->magic == SCRATCH_MAGIC);
 
     u32 flags = 0;
 
-    struct hs_scratch *scratch = (struct hs_scratch *)context;
     struct core_info *ci = &scratch->core_info;
     const struct RoseEngine *rose = ci->rose;
     const struct internal_report *ri = getInternalReport(rose, id);
@@ -488,8 +490,8 @@ hwlmcb_rv_t multiDirectAdaptor(u64a real_end, ReportID direct_id, void *context,
 }
 
 static
-int roseAdaptor(u64a offset, ReportID id, void *context) {
-    return roseAdaptor_i(offset, id, context, 0, 0);
+int roseAdaptor(u64a offset, ReportID id, struct hs_scratch *scratch) {
+    return roseAdaptor_i(offset, id, scratch, 0, 0);
 }
 
 static
@@ -513,8 +515,8 @@ hwlmcb_rv_t hwlmAdaptor(UNUSED size_t start, size_t end, u32 direct_id,
 }
 
 static
-int roseSimpleAdaptor(u64a offset, ReportID id, void *context) {
-    return roseAdaptor_i(offset, id, context, 1, 0);
+int roseSimpleAdaptor(u64a offset, ReportID id, struct hs_scratch *scratch) {
+    return roseAdaptor_i(offset, id, scratch, 1, 0);
 }
 
 static
@@ -539,8 +541,8 @@ hwlmcb_rv_t hwlmSimpleAdaptor(UNUSED size_t start, size_t end, u32 direct_id,
 }
 
 static
-int roseSomAdaptor(u64a offset, ReportID id, void *context) {
-    return roseAdaptor_i(offset, id, context, 0, 1);
+int roseSomAdaptor(u64a offset, ReportID id, struct hs_scratch *scratch) {
+    return roseAdaptor_i(offset, id, scratch, 0, 1);
 }
 
 static
@@ -564,8 +566,8 @@ hwlmcb_rv_t hwlmSomAdaptor(UNUSED size_t start, size_t end, u32 direct_id,
 }
 
 static
-int roseSimpleSomAdaptor(u64a offset, ReportID id, void *context) {
-    return roseAdaptor_i(offset, id, context, 1, 1);
+int roseSimpleSomAdaptor(u64a offset, ReportID id, struct hs_scratch *scratch) {
+    return roseAdaptor_i(offset, id, scratch, 1, 1);
 }
 
 static
@@ -614,14 +616,14 @@ HWLMCallback selectHwlmAdaptor(const struct RoseEngine *rose) {
 
 static
 int roseSomSomAdaptor(u64a from_offset, u64a to_offset, ReportID id,
-                       void *context) {
-    return roseSomAdaptor_i(from_offset, to_offset, id, context, 0);
+                      struct hs_scratch *scratch) {
+    return roseSomAdaptor_i(from_offset, to_offset, id, scratch, 0);
 }
 
 static
 int roseSimpleSomSomAdaptor(u64a from_offset, u64a to_offset, ReportID id,
-                             void *context) {
-    return roseSomAdaptor_i(from_offset, to_offset, id, context, 1);
+                            struct hs_scratch *scratch) {
+    return roseSomAdaptor_i(from_offset, to_offset, id, scratch, 1);
 }
 
 static really_inline
@@ -629,6 +631,56 @@ RoseCallbackSom selectSomAdaptor(const struct RoseEngine *rose) {
     const char is_simple = rose->simpleCallback;
 
     return is_simple ? roseSimpleSomSomAdaptor : roseSomSomAdaptor;
+}
+
+static
+int outfixSimpleSomAdaptor(u64a offset, ReportID id, void *context) {
+    return roseAdaptor_i(offset, id, context, 1, 1);
+}
+
+static
+int outfixSimpleAdaptor(u64a offset, ReportID id, void *context) {
+    return roseAdaptor_i(offset, id, context, 1, 0);
+}
+
+static
+int outfixSomAdaptor(u64a offset, ReportID id, void *context) {
+    return roseAdaptor_i(offset, id, context, 0, 1);
+}
+
+static
+int outfixAdaptor(u64a offset, ReportID id, void *context) {
+    return roseAdaptor_i(offset, id, context, 0, 0);
+}
+
+static really_inline
+NfaCallback selectOutfixAdaptor(const struct RoseEngine *rose) {
+    const char is_simple = rose->simpleCallback;
+    const char do_som = rose->hasSom;
+
+    if (do_som) {
+        return is_simple ? outfixSimpleSomAdaptor : outfixSomAdaptor;
+    } else {
+        return is_simple ? outfixSimpleAdaptor : outfixAdaptor;
+    }
+}
+
+static
+int outfixSimpleSomSomAdaptor(u64a from_offset, u64a to_offset, ReportID id,
+                              void *context) {
+    return roseSomAdaptor_i(from_offset, to_offset, id, context, 1);
+}
+
+static
+int outfixSomSomAdaptor(u64a from_offset, u64a to_offset, ReportID id,
+                        void *context) {
+    return roseSomAdaptor_i(from_offset, to_offset, id, context, 0);
+}
+
+static really_inline
+SomNfaCallback selectOutfixSomAdaptor(const struct RoseEngine *rose) {
+    const char is_simple = rose->simpleCallback;
+    return is_simple ? outfixSimpleSomSomAdaptor : outfixSomSomAdaptor;
 }
 
 static never_inline
@@ -720,8 +772,8 @@ void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
     q->length = scratch->core_info.len;
     q->history = scratch->core_info.hbuf;
     q->hlength = scratch->core_info.hlen;
-    q->cb = selectAdaptor(t);
-    q->som_cb = selectSomAdaptor(t);
+    q->cb = selectOutfixAdaptor(t);
+    q->som_cb = selectOutfixSomAdaptor(t);
     q->context = scratch;
     q->report_current = 0;
 
@@ -792,10 +844,10 @@ void runSmallWriteEngine(const struct SmallWriteEngine *smwr,
     assert(isMcClellanType(nfa->type));
     if (nfa->type == MCCLELLAN_NFA_8) {
         nfaExecMcClellan8_B(nfa, smwr->start_offset, local_buffer,
-                            local_alen, selectAdaptor(rose), scratch);
+                            local_alen, selectOutfixAdaptor(rose), scratch);
     } else {
         nfaExecMcClellan16_B(nfa, smwr->start_offset, local_buffer,
-                             local_alen, selectAdaptor(rose), scratch);
+                             local_alen, selectOutfixAdaptor(rose), scratch);
     }
 }
 

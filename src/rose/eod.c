@@ -121,6 +121,29 @@ int roseEodRunIterator(const struct RoseEngine *t, u64a offset,
 }
 
 /**
+ * \brief Adapts an NfaCallback to the rose callback specified in the
+ * RoseContext.
+ */
+static
+int eodNfaCallback(u64a offset, ReportID report, void *context) {
+    struct hs_scratch *scratch = context;
+    assert(scratch->magic == SCRATCH_MAGIC);
+    return scratch->tctxt.cb(offset, report, scratch);
+}
+
+/**
+ * \brief Adapts a SomNfaCallback to the rose SOM callback specified in the
+ * RoseContext.
+ */
+static
+int eodNfaSomCallback(u64a from_offset, u64a to_offset, ReportID report,
+                      void *context) {
+    struct hs_scratch *scratch = context;
+    assert(scratch->magic == SCRATCH_MAGIC);
+    return scratch->tctxt.cb_som(from_offset, to_offset, report, scratch);
+}
+
+/**
  * \brief Check for (and deliver) reports from active output-exposed (suffix
  * or outfix) NFAs.
  */
@@ -167,8 +190,8 @@ void roseCheckNfaEod(const struct RoseEngine *t, char *state,
             nfaExpandState(nfa, fstate, sstate, offset, key);
         }
 
-        if (nfaCheckFinalState(nfa, fstate, sstate, offset, scratch->tctxt.cb,
-                               scratch->tctxt.cb_som,
+        if (nfaCheckFinalState(nfa, fstate, sstate, offset, eodNfaCallback,
+                               eodNfaSomCallback,
                                scratch) == MO_HALT_MATCHING) {
             DEBUG_PRINTF("user instructed us to stop\n");
             return;
@@ -216,8 +239,8 @@ void roseCheckEodSuffixes(const struct RoseEngine *t, char *state, u64a offset,
          * history buffer. */
         char rv = nfaQueueExecRose(q->nfa, q, MO_INVALID_IDX);
         if (rv) { /* nfa is still alive */
-            if (nfaCheckFinalState(nfa, fstate, sstate, offset,
-                                   scratch->tctxt.cb, scratch->tctxt.cb_som,
+            if (nfaCheckFinalState(nfa, fstate, sstate, offset, eodNfaCallback,
+                                   eodNfaSomCallback,
                                    scratch) == MO_HALT_MATCHING) {
                 DEBUG_PRINTF("user instructed us to stop\n");
                 return;
