@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -217,13 +217,12 @@ void populate_holder(const simple_anchored_info &sai, const set<u32> &exit_ids,
     h[v].reports.insert(exit_ids.begin(), exit_ids.end());
 }
 
-u32 anchoredStateSize(const void *atable) {
+u32 anchoredStateSize(const anchored_matcher_info *atable) {
     if (!atable) {
         return 0;
     }
 
-    const struct anchored_matcher_info *curr
-        = (const anchored_matcher_info *)atable;
+    const struct anchored_matcher_info *curr = atable;
 
     // Walk the list until we find the last element; total state size will be
     // that engine's state offset plus its state requirement.
@@ -812,21 +811,21 @@ size_t buildNfas(vector<unique_ptr<raw_dfa>> &anchored_dfas,
     return total_size;
 }
 
-aligned_unique_ptr<void> buildAnchoredAutomataMatcher(RoseBuildImpl &tbi,
-                                                      size_t *asize) {
-    const CompileContext &cc = tbi.cc;
-    remapAnchoredReports(tbi);
+aligned_unique_ptr<anchored_matcher_info>
+buildAnchoredAutomataMatcher(RoseBuildImpl &build, size_t *asize) {
+    const CompileContext &cc = build.cc;
+    remapAnchoredReports(build);
 
-    if (tbi.anchored_nfas.empty() && tbi.anchored_simple.empty()) {
+    if (build.anchored_nfas.empty() && build.anchored_simple.empty()) {
         DEBUG_PRINTF("empty\n");
         *asize = 0;
         return nullptr;
     }
 
     vector<unique_ptr<raw_dfa>> anchored_dfas;
-    getAnchoredDfas(tbi, &anchored_dfas);
+    getAnchoredDfas(build, &anchored_dfas);
 
-    mergeAnchoredDfas(anchored_dfas, tbi);
+    mergeAnchoredDfas(anchored_dfas, build);
 
     vector<aligned_unique_ptr<NFA>> nfas;
     vector<u32> start_offset; // start offset for each dfa (dots removed)
@@ -837,7 +836,7 @@ aligned_unique_ptr<void> buildAnchoredAutomataMatcher(RoseBuildImpl &tbi,
     }
 
     *asize = total_size;
-    aligned_unique_ptr<void> atable = aligned_zmalloc_unique<void>(total_size);
+    auto atable = aligned_zmalloc_unique<anchored_matcher_info>(total_size);
     char *curr = (char *)atable.get();
 
     u32 state_offset = 0;

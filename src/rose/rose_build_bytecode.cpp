@@ -4028,7 +4028,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     size_t floatingStreamStateRequired = 0;
     size_t historyRequired = calcHistoryRequired(); // Updated by HWLM.
 
-    aligned_unique_ptr<void> atable =
+    aligned_unique_ptr<anchored_matcher_info> atable =
         buildAnchoredAutomataMatcher(*this, &asize);
     aligned_unique_ptr<HWLM> ftable = buildFloatingMatcher(
         *this, &fsize, &historyRequired, &floatingStreamStateRequired);

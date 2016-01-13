@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,6 +38,7 @@
 #include <vector>
 #include <set>
 
+struct anchored_matcher_info;
 struct RoseEngine;
 
 namespace ue2 {
@@ -46,9 +47,10 @@ class NGHolder;
 class RoseBuildImpl;
 struct Grey;
 
-aligned_unique_ptr<void> buildAnchoredAutomataMatcher(RoseBuildImpl &tbi,
-                                                      size_t *asize);
-u32 anchoredStateSize(const void *atable);
+aligned_unique_ptr<anchored_matcher_info>
+buildAnchoredAutomataMatcher(RoseBuildImpl &build, size_t *asize);
+
+u32 anchoredStateSize(const anchored_matcher_info *atable);
 bool anchoredIsMulti(const RoseEngine &engine);
 
 #define ANCHORED_FAIL    0
