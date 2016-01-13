@@ -217,12 +217,8 @@ void populate_holder(const simple_anchored_info &sai, const set<u32> &exit_ids,
     h[v].reports.insert(exit_ids.begin(), exit_ids.end());
 }
 
-u32 anchoredStateSize(const anchored_matcher_info *atable) {
-    if (!atable) {
-        return 0;
-    }
-
-    const struct anchored_matcher_info *curr = atable;
+u32 anchoredStateSize(const anchored_matcher_info &atable) {
+    const struct anchored_matcher_info *curr = &atable;
 
     // Walk the list until we find the last element; total state size will be
     // that engine's state offset plus its state requirement.
@@ -235,8 +231,8 @@ u32 anchoredStateSize(const anchored_matcher_info *atable) {
     return curr->state_offset + nfa->scratchStateSize;
 }
 
-bool anchoredIsMulti(const anchored_matcher_info *atable) {
-    return atable && atable->next_offset;
+bool anchoredIsMulti(const anchored_matcher_info &atable) {
+    return atable.next_offset;
 }
 
 namespace {

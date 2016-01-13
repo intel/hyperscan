@@ -50,13 +50,13 @@ struct Grey;
 aligned_unique_ptr<anchored_matcher_info>
 buildAnchoredAutomataMatcher(RoseBuildImpl &build, size_t *asize);
 
-u32 anchoredStateSize(const anchored_matcher_info *atable);
+u32 anchoredStateSize(const anchored_matcher_info &atable);
 
 /**
  * \brief True if there is an anchored matcher and it consists of multiple
  * DFAs.
  */
-bool anchoredIsMulti(const anchored_matcher_info *atable);
+bool anchoredIsMulti(const anchored_matcher_info &atable);
 
 #define ANCHORED_FAIL    0
 #define ANCHORED_SUCCESS 1

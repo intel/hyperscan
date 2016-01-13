@@ -2245,7 +2245,7 @@ void enforceEngineSizeLimit(const NFA *n, const size_t nfa_size, const Grey &gre
 static
 u32 findMinFloatingLiteralMatch(const RoseBuildImpl &build,
                                 const anchored_matcher_info *atable) {
-    if (anchoredIsMulti(atable)) {
+    if (atable && anchoredIsMulti(*atable)) {
         DEBUG_PRINTF("multiple anchored dfas\n");
         /* We must regard matches from other anchored tables as unordered, as
          * we do for floating matches. */
@@ -4199,7 +4199,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     // Build engine header and copy tables into place.
 
-    u32 anchorStateSize = anchoredStateSize(atable.get());
+    u32 anchorStateSize = atable ? anchoredStateSize(*atable) : 0;
 
     DEBUG_PRINTF("rose history required %zu\n", historyRequired);
     assert(!cc.streaming || historyRequired <= cc.grey.maxHistoryAvailable);
@@ -4372,7 +4372,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     write_out(&engine->state_init, (char *)engine.get(), state_scatter,
               state_scatter_aux_offset);
 
-    if (anchoredIsMulti(atable.get())) {
+    if (atable && anchoredIsMulti(*atable)) {
         engine->maxSafeAnchoredDROffset = 1;
     } else {
         /* overly conservative, really need the min offset of non dr anchored
