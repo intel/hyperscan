@@ -1183,8 +1183,7 @@ void rawStreamExec(struct hs_stream *stream_state, struct hs_scratch *scratch) {
     assert(stream_state);
     assert(scratch);
 
-    char *state = getMultiState(stream_state);
-    assert(!getBroken(state));
+    assert(!getBroken(getMultiState(stream_state)));
 
     DEBUG_PRINTF("::: streaming rose ::: offset = %llu len = %zu\n",
                  stream_state->offset, scratch->core_info.len);
