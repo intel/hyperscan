@@ -42,8 +42,7 @@ void roseInitState(const struct RoseEngine *t, char *state);
 void roseBlockEodExec(const struct RoseEngine *t, u64a offset,
                       struct hs_scratch *scratch);
 void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
-                     RoseCallback callback, RoseCallbackSom som_callback,
-                     void *context);
+                     RoseCallback callback, RoseCallbackSom som_callback);
 
 static really_inline
 int roseBlockHasEodWork(const struct RoseEngine *t,
@@ -81,8 +80,7 @@ int roseBlockHasEodWork(const struct RoseEngine *t,
 /* assumes core_info in scratch has been init to point to data */
 static really_inline
 void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch,
-                   RoseCallback callback, RoseCallbackSom som_callback,
-                   void *context) {
+                   RoseCallback callback, RoseCallbackSom som_callback) {
     assert(t);
     assert(scratch);
     assert(scratch->core_info.buf);
@@ -99,7 +97,7 @@ void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch,
     assert(t->maxBiAnchoredWidth == ROSE_BOUND_INF
            || length <= t->maxBiAnchoredWidth);
 
-    roseBlockExec_i(t, scratch, callback, som_callback, context);
+    roseBlockExec_i(t, scratch, callback, som_callback);
 
     if (!t->requiresEodCheck) {
         return;
@@ -120,12 +118,11 @@ void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch,
 
 /* assumes core_info in scratch has been init to point to data */
 void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
-                    RoseCallback callback, RoseCallbackSom som_callback,
-                    void *context);
+                    RoseCallback callback, RoseCallbackSom som_callback);
 
 void roseEodExec(const struct RoseEngine *t, u64a offset,
                  struct hs_scratch *scratch, RoseCallback callback,
-                 RoseCallbackSom som_callback, void *context);
+                 RoseCallbackSom som_callback);
 
 #define ROSE_CONTINUE_MATCHING_NO_EXHAUST 2
 

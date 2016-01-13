@@ -424,8 +424,7 @@ void do_rebuild(const struct RoseEngine *t, const struct HWLM *ftable,
 }
 
 void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
-                    RoseCallback callback, RoseCallbackSom som_callback,
-                    void *ctx) {
+                    RoseCallback callback, RoseCallbackSom som_callback) {
     DEBUG_PRINTF("OH HAI\n");
     assert(t);
     assert(scratch->core_info.hbuf);
@@ -458,7 +457,6 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
     tctxt->filledDelayedSlots = 0;
     tctxt->cb = callback;
     tctxt->cb_som = som_callback;
-    tctxt->userCtx = ctx;
     tctxt->lastMatchOffset = 0;
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;

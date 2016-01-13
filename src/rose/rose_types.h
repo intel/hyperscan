@@ -33,7 +33,9 @@
 
 struct RoseEngine;
 
-// Note: identical signature to NfaCallback
+// Note: identical signature to NfaCallback, but all Rose callbacks must be
+// passed scratch as their context ptr.
+
 typedef int (*RoseCallback)(u64a offset, ReportID id, void *context);
 typedef int (*RoseCallbackSom)(u64a from_offset, u64a to_offset, ReportID id,
                                void *context);

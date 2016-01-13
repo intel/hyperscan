@@ -122,7 +122,6 @@ struct RoseContext {
                            * match, cleared if top events arrive */
     RoseCallback cb;
     RoseCallbackSom cb_som;
-    void *userCtx;
     u32 filledDelayedSlots;
     u32 curr_anchored_loc;   /**< last read/written row */
     u32 curr_row_offset; /**< last read/written entry */

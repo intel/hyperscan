@@ -205,6 +205,22 @@ found_miracle:
     return 1;
 }
 
+static rose_inline
+hwlmcb_rv_t roseHaltIfExhausted(const struct RoseEngine *t,
+                                struct hs_scratch *scratch) {
+    struct core_info *ci = &scratch->core_info;
+    if (isAllExhausted(t, ci->exhaustionVector)) {
+        if (!ci->broken) {
+            ci->broken = BROKEN_EXHAUSTED;
+        }
+        scratch->tctxt.groups = 0;
+        DEBUG_PRINTF("all exhausted, termination requested\n");
+        return HWLM_TERMINATE_MATCHING;
+    }
+
+    return HWLM_CONTINUE_MATCHING;
+}
+
 static really_inline
 hwlmcb_rv_t ensureQueueFlushed_i(const struct RoseEngine *t,
                                  struct hs_scratch *scratch, u32 qi, s64a loc,
@@ -266,16 +282,7 @@ done_queue_empty:
 
     assert(!isQueueFull(q));
 
-    if (isAllExhausted(t, scratch->core_info.exhaustionVector)) {
-        if (!scratch->core_info.broken) {
-            scratch->core_info.broken = BROKEN_EXHAUSTED;
-        }
-        tctxt->groups = 0;
-        DEBUG_PRINTF("termination requested\n");
-        return HWLM_TERMINATE_MATCHING;
-    }
-
-    return HWLM_CONTINUE_MATCHING;
+    return roseHaltIfExhausted(t, scratch);
 }
 
 static really_inline
@@ -575,7 +582,7 @@ hwlmcb_rv_t roseHandleMatch(const struct RoseEngine *t, char *state,
     DEBUG_PRINTF("firing callback reportId=%u, end=%llu\n", id, end);
     updateLastMatchOffset(tctxt, end);
 
-    int cb_rv = tctxt->cb(end, id, tctxt->userCtx);
+    int cb_rv = tctxt->cb(end, id, scratch);
     if (cb_rv == MO_HALT_MATCHING) {
         DEBUG_PRINTF("termination requested\n");
         return HWLM_TERMINATE_MATCHING;
@@ -585,16 +592,7 @@ hwlmcb_rv_t roseHandleMatch(const struct RoseEngine *t, char *state,
         return HWLM_CONTINUE_MATCHING;
     }
 
-    if (isAllExhausted(t, scratch->core_info.exhaustionVector)) {
-        if (!scratch->core_info.broken) {
-            scratch->core_info.broken = BROKEN_EXHAUSTED;
-        }
-        tctxt->groups = 0;
-        DEBUG_PRINTF("termination requested\n");
-        return HWLM_TERMINATE_MATCHING;
-    }
-
-    return HWLM_CONTINUE_MATCHING;
+    return roseHaltIfExhausted(t, scratch);
 }
 
 /* catches up engines enough to ensure any earlier mpv triggers are enqueued
@@ -665,7 +663,9 @@ static rose_inline
 hwlmcb_rv_t roseHandleSomMatch(const struct RoseEngine *t, char *state,
                                ReportID id, u64a start, u64a end,
                                struct RoseContext *tctxt, char in_anchored) {
-    if (roseCatchUpTo(t, state, end, tctxtToScratch(tctxt), in_anchored)
+    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+
+    if (roseCatchUpTo(t, state, end, scratch, in_anchored)
         == HWLM_TERMINATE_MATCHING) {
         return HWLM_TERMINATE_MATCHING;
     }
@@ -676,7 +676,7 @@ hwlmcb_rv_t roseHandleSomMatch(const struct RoseEngine *t, char *state,
     assert(end == tctxt->minMatchOffset);
 
     updateLastMatchOffset(tctxt, end);
-    int cb_rv = tctxt->cb_som(start, end, id, tctxt->userCtx);
+    int cb_rv = tctxt->cb_som(start, end, id, scratch);
     if (cb_rv == MO_HALT_MATCHING) {
         DEBUG_PRINTF("termination requested\n");
         return HWLM_TERMINATE_MATCHING;
@@ -686,17 +686,7 @@ hwlmcb_rv_t roseHandleSomMatch(const struct RoseEngine *t, char *state,
         return HWLM_CONTINUE_MATCHING;
     }
 
-    struct core_info *ci = &tctxtToScratch(tctxt)->core_info;
-    if (isAllExhausted(t, ci->exhaustionVector)) {
-        if (!ci->broken) {
-            ci->broken = BROKEN_EXHAUSTED;
-        }
-        tctxt->groups = 0;
-        DEBUG_PRINTF("termination requested\n");
-        return HWLM_TERMINATE_MATCHING;
-    }
-
-    return HWLM_CONTINUE_MATCHING;
+    return roseHaltIfExhausted(t, scratch);
 }
 
 static rose_inline
@@ -1064,8 +1054,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_EOD) {
-                if (tctxt->cb(end, ri->report, tctxt->userCtx) ==
-                    MO_HALT_MATCHING) {
+                if (tctxt->cb(end, ri->report, scratch) == MO_HALT_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
                 work_done = 1;

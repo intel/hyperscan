@@ -687,7 +687,7 @@ void rawBlockExec(const struct RoseEngine *rose, struct hs_scratch *scratch) {
     DEBUG_PRINTF("blockmode scan len=%zu\n", scratch->core_info.len);
 
     roseBlockExec(rose, scratch, selectAdaptor(rose),
-                  selectSomAdaptor(rose), scratch);
+                  selectSomAdaptor(rose));
 }
 
 static really_inline
@@ -1018,7 +1018,7 @@ void rawEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
     }
 
     roseEodExec(rose, id->offset, scratch, selectAdaptor(rose),
-                selectSomAdaptor(rose), scratch);
+                selectSomAdaptor(rose));
 }
 
 static never_inline
@@ -1190,8 +1190,7 @@ void rawStreamExec(struct hs_stream *stream_state, struct hs_scratch *scratch) {
 
     const struct RoseEngine *rose = stream_state->rose;
     assert(rose);
-    roseStreamExec(rose, scratch, selectAdaptor(rose), selectSomAdaptor(rose),
-                   scratch);
+    roseStreamExec(rose, scratch, selectAdaptor(rose), selectSomAdaptor(rose));
 
     if (!told_to_stop_matching(scratch) &&
         isAllExhausted(rose, scratch->core_info.exhaustionVector)) {

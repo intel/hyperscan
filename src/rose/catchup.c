@@ -338,7 +338,7 @@ int roseNfaFinalBlastAdaptor(u64a offset, ReportID id, void *context) {
         return MO_CONTINUE_MATCHING;
     }
 
-    int cb_rv = tctxt->cb(offset, id, tctxt->userCtx);
+    int cb_rv = tctxt->cb(offset, id, scratch);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -364,7 +364,7 @@ int roseNfaFinalBlastAdaptorNoInternal(u64a offset, ReportID id,
                  offset, id);
     updateLastMatchOffset(tctxt, offset);
 
-    int cb_rv = tctxt->cb(offset, id, tctxt->userCtx);
+    int cb_rv = tctxt->cb(offset, id, scratch);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -544,7 +544,7 @@ int roseNfaBlastAdaptor(u64a offset, ReportID id, void *context) {
 
     updateLastMatchOffset(tctxt, offset);
 
-    int cb_rv = tctxt->cb(offset, id, tctxt->userCtx);
+    int cb_rv = tctxt->cb(offset, id, scratch);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -574,7 +574,7 @@ int roseNfaBlastAdaptorNoInternal(u64a offset, ReportID id, void *context) {
                  offset, id);
     updateLastMatchOffset(tctxt, offset);
 
-    int cb_rv = tctxt->cb(offset, id, tctxt->userCtx);
+    int cb_rv = tctxt->cb(offset, id, scratch);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -600,7 +600,7 @@ int roseNfaBlastAdaptorNoChain(u64a offset, ReportID id, void *context) {
         return MO_CONTINUE_MATCHING;
     }
 
-    int cb_rv = tctxt->cb(offset, id, tctxt->userCtx);
+    int cb_rv = tctxt->cb(offset, id, scratch);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -624,7 +624,7 @@ int roseNfaBlastAdaptorNoInternalNoChain(u64a offset, ReportID id,
                  offset, id);
     updateLastMatchOffset(tctxt, offset);
 
-    int cb_rv = tctxt->cb(offset, id, tctxt->userCtx);
+    int cb_rv = tctxt->cb(offset, id, scratch);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -656,7 +656,7 @@ int roseNfaBlastSomAdaptor(u64a from_offset, u64a offset, ReportID id,
     updateLastMatchOffset(tctxt, offset);
 
     /* must be a external report as haig cannot directly participate in chain */
-    int cb_rv = tctxt->cb_som(from_offset, offset, id, tctxt->userCtx);
+    int cb_rv = tctxt->cb_som(from_offset, offset, id, scratch);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -679,7 +679,7 @@ int roseNfaAdaptor(u64a offset, ReportID id, void *context) {
         return MO_CONTINUE_MATCHING;
     }
 
-    int cb_rv = tctxt->cb(offset, id, tctxt->userCtx);
+    int cb_rv = tctxt->cb(offset, id, scratch);
     return cb_rv;
 }
 
@@ -688,8 +688,7 @@ int roseNfaAdaptorNoInternal(u64a offset, ReportID id, void *context) {
     DEBUG_PRINTF("masky got himself a match @%llu id %u !woot!\n", offset, id);
     updateLastMatchOffset(tctxt, offset);
 
-    int cb_rv = tctxt->cb(offset, id, tctxt->userCtx);
-    return cb_rv;
+    return tctxt->cb(offset, id, tctxtToScratch(tctxt));
 }
 
 int roseNfaSomAdaptor(u64a from_offset, u64a offset, ReportID id,
@@ -699,8 +698,7 @@ int roseNfaSomAdaptor(u64a from_offset, u64a offset, ReportID id,
     updateLastMatchOffset(tctxt, offset);
 
     /* must be a external report as haig cannot directly participate in chain */
-    int cb_rv = tctxt->cb_som(from_offset, offset, id, tctxt->userCtx);
-    return cb_rv;
+    return tctxt->cb_som(from_offset, offset, id, tctxtToScratch(tctxt));
 }
 
 static really_inline
@@ -1155,7 +1153,7 @@ hwlmcb_rv_t roseCatchUpAll_i(s64a loc, struct hs_scratch *scratch,
             goto next;
         }
 
-        if (tctxt->cb(anchored_end, anchored_report, tctxt->userCtx)
+        if (tctxt->cb(anchored_end, anchored_report, scratch)
             == MO_HALT_MATCHING) {
             DEBUG_PRINTF("termination requested\n");
             return HWLM_TERMINATE_MATCHING;
@@ -1271,7 +1269,7 @@ hwlmcb_rv_t roseCatchUpAnchoredOnly(s64a loc, struct hs_scratch *scratch) {
             goto next;
         }
 
-        if (tctxt->cb(anchored_end, anchored_report, tctxt->userCtx)
+        if (tctxt->cb(anchored_end, anchored_report, scratch)
                         == MO_HALT_MATCHING) {
             DEBUG_PRINTF("termination requested\n");
             return HWLM_TERMINATE_MATCHING;

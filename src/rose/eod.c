@@ -35,7 +35,7 @@
 static really_inline
 void initContext(const struct RoseEngine *t, char *state, u64a offset,
                  struct hs_scratch *scratch, RoseCallback callback,
-                 RoseCallbackSom som_callback, void *ctx) {
+                 RoseCallbackSom som_callback) {
     struct RoseContext *tctxt = &scratch->tctxt;
     tctxt->groups = loadGroups(t, state); /* TODO: diff groups for eod */
     tctxt->lit_offset_adjust = scratch->core_info.buf_offset
@@ -46,7 +46,6 @@ void initContext(const struct RoseEngine *t, char *state, u64a offset,
     tctxt->filledDelayedSlots = 0;
     tctxt->cb = callback;
     tctxt->cb_som = som_callback;
-    tctxt->userCtx = ctx;
     tctxt->lastMatchOffset = 0;
     tctxt->minMatchOffset = 0;
     tctxt->minNonMpvMatchOffset = 0;
@@ -170,7 +169,7 @@ void roseCheckNfaEod(const struct RoseEngine *t, char *state,
 
         if (nfaCheckFinalState(nfa, fstate, sstate, offset, scratch->tctxt.cb,
                                scratch->tctxt.cb_som,
-                               scratch->tctxt.userCtx) == MO_HALT_MATCHING) {
+                               scratch) == MO_HALT_MATCHING) {
             DEBUG_PRINTF("user instructed us to stop\n");
             return;
         }
@@ -219,8 +218,7 @@ void roseCheckEodSuffixes(const struct RoseEngine *t, char *state, u64a offset,
         if (rv) { /* nfa is still alive */
             if (nfaCheckFinalState(nfa, fstate, sstate, offset,
                                    scratch->tctxt.cb, scratch->tctxt.cb_som,
-                                   scratch->tctxt.userCtx) ==
-                MO_HALT_MATCHING) {
+                                   scratch) == MO_HALT_MATCHING) {
                 DEBUG_PRINTF("user instructed us to stop\n");
                 return;
             }
@@ -298,10 +296,9 @@ void roseEodExec_i(const struct RoseEngine *t, char *state, u64a offset,
 
 void roseEodExec(const struct RoseEngine *t, u64a offset,
                  struct hs_scratch *scratch, RoseCallback callback,
-                 RoseCallbackSom som_callback, void *context) {
+                 RoseCallbackSom som_callback) {
     assert(scratch);
     assert(callback);
-    assert(context);
     assert(t->requiresEodCheck);
     DEBUG_PRINTF("ci buf %p/%zu his %p/%zu\n", scratch->core_info.buf,
                  scratch->core_info.len, scratch->core_info.hbuf,
@@ -317,7 +314,7 @@ void roseEodExec(const struct RoseEngine *t, u64a offset,
     char *state = scratch->core_info.state;
     assert(state);
 
-    initContext(t, state, offset, scratch, callback, som_callback, context);
+    initContext(t, state, offset, scratch, callback, som_callback);
 
     roseEodExec_i(t, state, offset, scratch, 1);
 }
