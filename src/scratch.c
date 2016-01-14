@@ -46,6 +46,27 @@
 #include "util/fatbit.h"
 #include "util/multibit.h"
 
+/**
+ * Determine the space required for a correctly aligned array of fatbit
+ * structure, laid out as:
+ *
+ * - an array of num_entries pointers, each to a fatbit.
+ * - an array of fatbit structures, each of size fatbit_size(num_keys).
+ */
+static
+size_t fatbit_array_size(u32 num_entries, u32 num_keys) {
+    size_t len = 0;
+
+    // Array of pointers to each fatbit entry.
+    len += sizeof(struct fatbit *) * num_entries;
+
+    // Fatbit entries themselves.
+    len = ROUNDUP_N(len, alignof(struct fatbit));
+    len += (size_t)fatbit_size(num_keys) * num_entries;
+
+    return ROUNDUP_N(len, 8); // Round up for potential padding.
+}
+
 /** Used by hs_alloc_scratch and hs_clone_scratch to allocate a complete
  * scratch region from a prototype structure. */
 static
@@ -73,17 +94,12 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     assert(anchored_region_len < 8 * sizeof(s->am_log_sum));
     assert(anchored_literal_region_len < 8 * sizeof(s->am_log_sum));
 
-    size_t anchored_region_size = anchored_region_len
-        * (fatbit_size(anchored_region_width) + sizeof(struct fatbit *));
-    anchored_region_size = ROUNDUP_N(anchored_region_size, 8);
-
-    size_t anchored_literal_region_size = anchored_literal_region_len
-        * (fatbit_size(anchored_literal_region_width) + sizeof(struct fatbit *));
-    anchored_literal_region_size = ROUNDUP_N(anchored_literal_region_size, 8);
-
-    size_t delay_region_size = DELAY_SLOT_COUNT *
-        (fatbit_size(proto->delay_count) + sizeof(struct fatbit *));
-    delay_region_size = ROUNDUP_N(delay_region_size, 8);
+    size_t anchored_region_size =
+        fatbit_array_size(anchored_region_len, anchored_region_width);
+    size_t anchored_literal_region_size = fatbit_array_size(
+        anchored_literal_region_len, anchored_literal_region_width);
+    size_t delay_region_size =
+        fatbit_array_size(DELAY_SLOT_COUNT, proto->delay_count);
 
     size_t nfa_context_size = 2 * sizeof(struct NFAContext512) + 127;
 
@@ -143,27 +159,33 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     s->som_attempted_store = (u64a *)current;
     current += som_attempted_store_size;
 
-    current = ROUNDUP_PTR(current, 8);
+    current = ROUNDUP_PTR(current, alignof(struct fatbit *));
     s->delay_slots = (struct fatbit **)current;
     current += sizeof(struct fatbit *) * DELAY_SLOT_COUNT;
+    current = ROUNDUP_PTR(current, alignof(struct fatbit));
     for (u32 i = 0; i < DELAY_SLOT_COUNT; i++) {
         s->delay_slots[i] = (struct fatbit *)current;
+        assert(ISALIGNED(s->delay_slots[i]));
         current += fatbit_size(proto->delay_count);
     }
 
-    current = ROUNDUP_PTR(current, 8);
+    current = ROUNDUP_PTR(current, alignof(struct fatbit *));
     s->am_log = (struct fatbit **)current;
     current += sizeof(struct fatbit *) * anchored_region_len;
+    current = ROUNDUP_PTR(current, alignof(struct fatbit));
     for (u32 i = 0; i < anchored_region_len; i++) {
         s->am_log[i] = (struct fatbit *)current;
+        assert(ISALIGNED(s->am_log[i]));
         current += fatbit_size(anchored_region_width);
     }
 
-    current = ROUNDUP_PTR(current, 8);
+    current = ROUNDUP_PTR(current, alignof(struct fatbit *));
     s->al_log = (struct fatbit **)current;
     current += sizeof(struct fatbit *) * anchored_literal_region_len;
+    current = ROUNDUP_PTR(current, alignof(struct fatbit));
     for (u32 i = 0; i < anchored_literal_region_len; i++) {
         s->al_log[i] = (struct fatbit *)current;
+        assert(ISALIGNED(s->al_log[i]));
         current += fatbit_size(anchored_literal_region_width);
     }
 
