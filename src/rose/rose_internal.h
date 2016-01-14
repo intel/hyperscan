@@ -476,19 +476,11 @@ struct RoseEngine {
     struct scatter_full_plan state_init;
 };
 
-#if defined(_WIN32)
-#pragma pack(push, 1)
-#endif
 // Rose runtime state
 struct RoseRuntimeState {
     u8 flags; /* high bit true if delay rebuild needed */
     u8 broken; /* user has requested that we stop matching */
-#if defined(_WIN32)
 };
-#pragma pack(pop)
-#else
-} __attribute__((packed));
-#endif
 
 struct ALIGN_CL_DIRECTIVE anchored_matcher_info {
     u32 next_offset; /* relative to this, 0 for end */

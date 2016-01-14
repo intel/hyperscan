@@ -513,9 +513,14 @@ void fillStateOffsets(const RoseBuildImpl &tbi, u32 rolesWithStateCount,
                       u32 activeLeftCount, u32 laggedRoseCount,
                       u32 floatingStreamStateRequired, u32 historyRequired,
                       RoseStateOffsets *so) {
-    /* runtime state (including role state) first and needs to be u32-aligned */
-    u32 curr_offset = sizeof(RoseRuntimeState)
-                    + mmbit_size(rolesWithStateCount);
+    u32 curr_offset = 0;
+
+    // First, runtime state (stores per-stream state, like whether we need a
+    // delay rebuild or have been told to halt matching.)
+    curr_offset += sizeof(RoseRuntimeState);
+
+    // Role state storage.
+    curr_offset += mmbit_size(rolesWithStateCount);
 
     so->activeLeafArray = curr_offset; /* TODO: limit size of array */
     curr_offset += mmbit_size(activeArrayCount);
