@@ -124,6 +124,4 @@ void roseEodExec(const struct RoseEngine *t, u64a offset,
                  struct hs_scratch *scratch, RoseCallback callback,
                  RoseCallbackSom som_callback);
 
-#define ROSE_CONTINUE_MATCHING_NO_EXHAUST 2
-
 #endif // ROSE_H

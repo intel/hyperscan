@@ -26,6 +26,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/** \file
+ * \brief Rose runtime types (callbacks, etc).
+ */
+
 #ifndef ROSE_TYPES_H
 #define ROSE_TYPES_H
 
@@ -33,9 +37,34 @@
 
 struct hs_scratch;
 
+/**
+ * \brief Continue without checking for exhaustion.
+ *
+ * \ref RoseCallback return value indicating that execution should continue and
+ * that it is not necessary to check if all reports have been exhausted.
+ */
+#define ROSE_CONTINUE_MATCHING_NO_EXHAUST 2
+
+/**
+ * \brief The type for a Rose callback.
+ *
+ * \return
+ *  - \ref MO_HALT_MATCHING if matching should terminate;
+ *  - \ref MO_CONTINUE_MATCHING if matching should continue;
+ *  - \ref ROSE_CONTINUE_MATCHING_NO_EXHAUST if matching should continue and no
+ *    exhaustion is possible.
+ */
 typedef int (*RoseCallback)(u64a offset, ReportID id,
                             struct hs_scratch *scratch);
 
+/**
+ * \brief The type for a Rose callback which also tracks start of match.
+ *
+ * Behaves just like \ref RoseCallback except that it is provided with both a
+ * start and an end offset.
+ *
+ * \see RoseCallback
+ */
 typedef int (*RoseCallbackSom)(u64a from_offset, u64a to_offset, ReportID id,
                                struct hs_scratch *scratch);
 
