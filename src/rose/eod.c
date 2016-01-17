@@ -84,7 +84,7 @@ hwlmcb_rv_t roseEodRunMatcher(const struct RoseEngine *t, u64a offset,
     if (eod_len < t->eodmatcherMinWidth) {
         DEBUG_PRINTF("len=%zu < eodmatcherMinWidth=%u\n", eod_len,
                      t->eodmatcherMinWidth);
-        return MO_CONTINUE_MATCHING;
+        return HWLM_CONTINUE_MATCHING;
     }
 
     // Ensure that we only need scan the last N bytes, where N is the length of
