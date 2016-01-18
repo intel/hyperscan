@@ -384,6 +384,7 @@ set (hs_exec_SRCS
     src/ue2common.h
     src/alloc.c
     src/allocator.h
+    src/report.h
     src/runtime.c
     src/fdr/fdr.c
     src/fdr/fdr.h

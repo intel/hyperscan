@@ -253,33 +253,53 @@ event_enqueued:
     return HWLM_CONTINUE_MATCHING;
 }
 
+/* handles the firing of external matches */
+static rose_inline
+hwlmcb_rv_t roseHandleMatch(const struct RoseEngine *t, ReportID id, u64a end,
+                            struct hs_scratch *scratch) {
+    struct RoseContext *tctxt = &scratch->tctxt;
+
+    assert(end == tctxt->minMatchOffset);
+    DEBUG_PRINTF("firing callback id=%u, end=%llu\n", id, end);
+    updateLastMatchOffset(tctxt, end);
+
+    int cb_rv = tctxt->cb(end, id, scratch);
+    if (cb_rv == MO_HALT_MATCHING) {
+        DEBUG_PRINTF("termination requested\n");
+        return HWLM_TERMINATE_MATCHING;
+    }
+
+    if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
+        return HWLM_CONTINUE_MATCHING;
+    }
+
+    return roseHaltIfExhausted(t, scratch);
+}
+
 /* handles catchup, som, cb, etc */
 static really_inline
 hwlmcb_rv_t roseHandleReport(const struct RoseEngine *t, char *state,
                              struct RoseContext *tctxt, ReportID id,
                              u64a offset, char in_anchored) {
+    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+
+    if (roseCatchUpTo(t, state, offset, scratch, in_anchored) ==
+        HWLM_TERMINATE_MATCHING) {
+        return HWLM_TERMINATE_MATCHING;
+    }
+
     const struct internal_report *ri = getInternalReport(t, id);
-
     if (ri) {
-        // Mildly cheesy performance hack: if this report is already exhausted,
-        // we can quash the match here.
-        if (ri->ekey != INVALID_EKEY) {
-            const struct hs_scratch *scratch = tctxtToScratch(tctxt);
-            if (isExhausted(scratch->core_info.exhaustionVector, ri->ekey)) {
-                DEBUG_PRINTF("eating exhausted match (report %u, ekey %u)\n",
-                             ri->onmatch, ri->ekey);
-                return HWLM_CONTINUE_MATCHING;
-            }
-        }
-
         if (isInternalSomReport(ri)) {
-            return roseHandleSom(t, state, id, offset, tctxt, in_anchored);
+            roseHandleSom(t, scratch, id, offset);
+            return HWLM_CONTINUE_MATCHING;
         } else if (ri->type == INTERNAL_ROSE_CHAIN) {
             return roseCatchUpAndHandleChainMatch(t, state, id, offset, tctxt,
                                                   in_anchored);
         }
     }
-    return roseHandleMatch(t, state, id, offset, tctxt, in_anchored);
+
+    return roseHandleMatch(t, id, offset, scratch);
 }
 
 static really_inline

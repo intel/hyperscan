@@ -141,25 +141,42 @@ struct left_build_info {
     vector<LookEntry> lookaround; // alternative implementation to the NFA
 };
 
+/**
+ * \brief Possible jump targets for roles that perform checks.
+ *
+ * Fixed up into offsets before the program is written to bytecode.
+ */
+enum class JumpTarget {
+    NO_JUMP,        //!< Instruction does not jump.
+    PROGRAM_END,    //!< Jump to end of program.
+    NEXT_BLOCK,     //!< Jump to start of next block (sparse iter check, etc).
+    FIXUP_DONE,     //!< Target fixup already applied.
+};
+
 /** \brief Role instruction model used at compile time. */
 class RoseInstruction {
 public:
-    RoseInstruction() {
-        memset(&u, 0, sizeof(u));
-        u.end.code = ROSE_INSTR_END;
-    }
-
-    explicit RoseInstruction(enum RoseInstructionCode c) {
+    RoseInstruction(enum RoseInstructionCode c, JumpTarget j) : target(j) {
         memset(&u, 0, sizeof(u));
         u.end.code = c;
     }
 
+    explicit RoseInstruction(enum RoseInstructionCode c)
+        : RoseInstruction(c, JumpTarget::NO_JUMP) {}
+
     bool operator<(const RoseInstruction &a) const {
+        if (code() != a.code()) {
+            return code() < a.code();
+        }
+        if (target != a.target) {
+            return target < a.target;
+        }
         return memcmp(&u, &a.u, sizeof(u)) < 0;
     }
 
     bool operator==(const RoseInstruction &a) const {
-        return memcmp(&u, &a.u, sizeof(u)) == 0;
+        return code() == a.code() && target == a.target &&
+               memcmp(&u, &a.u, sizeof(u)) == 0;
     }
 
     enum RoseInstructionCode code() const {
@@ -180,16 +197,24 @@ public:
         case ROSE_INSTR_CHECK_LEFTFIX: return &u.checkLeftfix;
         case ROSE_INSTR_ANCHORED_DELAY: return &u.anchoredDelay;
         case ROSE_INSTR_PUSH_DELAYED: return &u.pushDelayed;
+        case ROSE_INSTR_CATCH_UP: return &u.catchUp;
         case ROSE_INSTR_SOM_ADJUST: return &u.somAdjust;
         case ROSE_INSTR_SOM_LEFTFIX: return &u.somLeftfix;
+        case ROSE_INSTR_SOM_FROM_REPORT: return &u.somFromReport;
+        case ROSE_INSTR_SOM_ZERO: return &u.somZero;
         case ROSE_INSTR_TRIGGER_INFIX: return &u.triggerInfix;
         case ROSE_INSTR_TRIGGER_SUFFIX: return &u.triggerSuffix;
-        case ROSE_INSTR_REPORT: return &u.report;
+        case ROSE_INSTR_DEDUPE: return &u.dedupe;
+        case ROSE_INSTR_DEDUPE_SOM: return &u.dedupeSom;
         case ROSE_INSTR_REPORT_CHAIN: return &u.reportChain;
-        case ROSE_INSTR_REPORT_EOD: return &u.reportEod;
         case ROSE_INSTR_REPORT_SOM_INT: return &u.reportSomInt;
+        case ROSE_INSTR_REPORT_SOM_AWARE: return &u.reportSom;
+        case ROSE_INSTR_REPORT: return &u.report;
+        case ROSE_INSTR_REPORT_EXHAUST: return &u.reportExhaust;
         case ROSE_INSTR_REPORT_SOM: return &u.reportSom;
-        case ROSE_INSTR_REPORT_SOM_KNOWN: return &u.reportSomKnown;
+        case ROSE_INSTR_REPORT_SOM_EXHAUST: return &u.reportSomExhaust;
+        case ROSE_INSTR_CHECK_EXHAUSTED: return &u.checkExhausted;
+        case ROSE_INSTR_CHECK_MIN_LENGTH: return &u.checkMinLength;
         case ROSE_INSTR_SET_STATE: return &u.setState;
         case ROSE_INSTR_SET_GROUPS: return &u.setGroups;
         case ROSE_INSTR_SQUASH_GROUPS: return &u.squashGroups;
@@ -214,16 +239,24 @@ public:
         case ROSE_INSTR_CHECK_LEFTFIX: return sizeof(u.checkLeftfix);
         case ROSE_INSTR_ANCHORED_DELAY: return sizeof(u.anchoredDelay);
         case ROSE_INSTR_PUSH_DELAYED: return sizeof(u.pushDelayed);
+        case ROSE_INSTR_CATCH_UP: return sizeof(u.catchUp);
         case ROSE_INSTR_SOM_ADJUST: return sizeof(u.somAdjust);
         case ROSE_INSTR_SOM_LEFTFIX: return sizeof(u.somLeftfix);
+        case ROSE_INSTR_SOM_FROM_REPORT: return sizeof(u.somFromReport);
+        case ROSE_INSTR_SOM_ZERO: return sizeof(u.somZero);
         case ROSE_INSTR_TRIGGER_INFIX: return sizeof(u.triggerInfix);
         case ROSE_INSTR_TRIGGER_SUFFIX: return sizeof(u.triggerSuffix);
-        case ROSE_INSTR_REPORT: return sizeof(u.report);
+        case ROSE_INSTR_DEDUPE: return sizeof(u.dedupe);
+        case ROSE_INSTR_DEDUPE_SOM: return sizeof(u.dedupeSom);
         case ROSE_INSTR_REPORT_CHAIN: return sizeof(u.reportChain);
-        case ROSE_INSTR_REPORT_EOD: return sizeof(u.reportEod);
         case ROSE_INSTR_REPORT_SOM_INT: return sizeof(u.reportSomInt);
+        case ROSE_INSTR_REPORT_SOM_AWARE: return sizeof(u.reportSom);
+        case ROSE_INSTR_REPORT: return sizeof(u.report);
+        case ROSE_INSTR_REPORT_EXHAUST: return sizeof(u.reportExhaust);
         case ROSE_INSTR_REPORT_SOM: return sizeof(u.reportSom);
-        case ROSE_INSTR_REPORT_SOM_KNOWN: return sizeof(u.reportSomKnown);
+        case ROSE_INSTR_REPORT_SOM_EXHAUST: return sizeof(u.reportSomExhaust);
+        case ROSE_INSTR_CHECK_EXHAUSTED: return sizeof(u.checkExhausted);
+        case ROSE_INSTR_CHECK_MIN_LENGTH: return sizeof(u.checkMinLength);
         case ROSE_INSTR_SET_STATE: return sizeof(u.setState);
         case ROSE_INSTR_SET_GROUPS: return sizeof(u.setGroups);
         case ROSE_INSTR_SQUASH_GROUPS: return sizeof(u.squashGroups);
@@ -232,6 +265,7 @@ public:
         case ROSE_INSTR_SPARSE_ITER_NEXT: return sizeof(u.sparseIterNext);
         case ROSE_INSTR_END: return sizeof(u.end);
         }
+        assert(0);
         return 0;
     }
 
@@ -246,16 +280,24 @@ public:
         ROSE_STRUCT_CHECK_LEFTFIX checkLeftfix;
         ROSE_STRUCT_ANCHORED_DELAY anchoredDelay;
         ROSE_STRUCT_PUSH_DELAYED pushDelayed;
+        ROSE_STRUCT_CATCH_UP catchUp;
         ROSE_STRUCT_SOM_ADJUST somAdjust;
         ROSE_STRUCT_SOM_LEFTFIX somLeftfix;
+        ROSE_STRUCT_SOM_FROM_REPORT somFromReport;
+        ROSE_STRUCT_SOM_ZERO somZero;
         ROSE_STRUCT_TRIGGER_INFIX triggerInfix;
         ROSE_STRUCT_TRIGGER_SUFFIX triggerSuffix;
-        ROSE_STRUCT_REPORT report;
+        ROSE_STRUCT_DEDUPE dedupe;
+        ROSE_STRUCT_DEDUPE_SOM dedupeSom;
         ROSE_STRUCT_REPORT_CHAIN reportChain;
-        ROSE_STRUCT_REPORT_EOD reportEod;
         ROSE_STRUCT_REPORT_SOM_INT reportSomInt;
+        ROSE_STRUCT_REPORT_SOM_AWARE reportSomAware;
+        ROSE_STRUCT_REPORT report;
+        ROSE_STRUCT_REPORT_EXHAUST reportExhaust;
         ROSE_STRUCT_REPORT_SOM reportSom;
-        ROSE_STRUCT_REPORT_SOM_KNOWN reportSomKnown;
+        ROSE_STRUCT_REPORT_SOM_EXHAUST reportSomExhaust;
+        ROSE_STRUCT_CHECK_EXHAUSTED checkExhausted;
+        ROSE_STRUCT_CHECK_MIN_LENGTH checkMinLength;
         ROSE_STRUCT_SET_STATE setState;
         ROSE_STRUCT_SET_GROUPS setGroups;
         ROSE_STRUCT_SQUASH_GROUPS squashGroups;
@@ -264,11 +306,15 @@ public:
         ROSE_STRUCT_SPARSE_ITER_NEXT sparseIterNext;
         ROSE_STRUCT_END end;
     } u;
+
+    JumpTarget target;
 };
 
 static
 size_t hash_value(const RoseInstruction &ri) {
     size_t val = 0;
+    boost::hash_combine(val, ri.code());
+    boost::hash_combine(val, ri.target);
     const char *bytes = (const char *)ri.get();
     const size_t len = ri.length();
     for (size_t i = 0; i < len; i++) {
@@ -2619,61 +2665,100 @@ flattenProgram(const vector<vector<RoseInstruction>> &programs) {
     vector<RoseInstruction> out;
 
     vector<u32> offsets; // offset of each instruction (bytes)
-    vector<u32> targets; // jump target for each instruction
+    vector<u32> blocks; // track which block we're in
+    vector<u32> block_offsets; // start offsets for each block
 
-    DEBUG_PRINTF("%zu programs\n", programs.size());
+    DEBUG_PRINTF("%zu program blocks\n", programs.size());
 
     size_t curr_offset = 0;
     for (const auto &program : programs) {
-        DEBUG_PRINTF("program with %zu instructions\n", program.size());
+        DEBUG_PRINTF("block with %zu instructions\n", program.size());
+        block_offsets.push_back(curr_offset);
         for (const auto &ri : program) {
+            assert(ri.code() != ROSE_INSTR_END);
             out.push_back(ri);
             offsets.push_back(curr_offset);
+            blocks.push_back(block_offsets.size() - 1);
             curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
-        }
-        for (size_t i = 0; i < program.size(); i++) {
-            targets.push_back(curr_offset);
         }
     }
 
-    // Add an END instruction.
+    // Add a final END instruction, which is its own block.
     out.emplace_back(ROSE_INSTR_END);
+    block_offsets.push_back(curr_offset);
     offsets.push_back(curr_offset);
-    targets.push_back(curr_offset);
 
-    assert(targets.size() == out.size());
     assert(offsets.size() == out.size());
 
     for (size_t i = 0; i < out.size(); i++) {
         auto &ri = out[i];
-        switch (ri.code()) {
-        case ROSE_INSTR_ANCHORED_DELAY:
-            assert(targets[i] > offsets[i]); // jumps always progress
-            ri.u.anchoredDelay.done_jump = targets[i] - offsets[i];
+
+        u32 jump_target = 0;
+        switch (ri.target) {
+        case JumpTarget::NO_JUMP:
+        case JumpTarget::FIXUP_DONE:
+            continue; // Next instruction.
+        case JumpTarget::PROGRAM_END:
+            assert(i != out.size() - 1);
+            jump_target = offsets.back();
             break;
-        case ROSE_INSTR_CHECK_ONLY_EOD:
-            assert(targets[i] > offsets[i]);
-            ri.u.checkOnlyEod.fail_jump = targets[i] - offsets[i];
-            break;
-        case ROSE_INSTR_CHECK_BOUNDS:
-            assert(targets[i] > offsets[i]);
-            ri.u.checkBounds.fail_jump = targets[i] - offsets[i];
-            break;
-        case ROSE_INSTR_CHECK_NOT_HANDLED:
-            assert(targets[i] > offsets[i]);
-            ri.u.checkNotHandled.fail_jump = targets[i] - offsets[i];
-            break;
-        case ROSE_INSTR_CHECK_LOOKAROUND:
-            assert(targets[i] > offsets[i]);
-            ri.u.checkLookaround.fail_jump = targets[i] - offsets[i];
-            break;
-        case ROSE_INSTR_CHECK_LEFTFIX:
-            assert(targets[i] > offsets[i]);
-            ri.u.checkLeftfix.fail_jump = targets[i] - offsets[i];
-            break;
-        default:
+        case JumpTarget::NEXT_BLOCK:
+            assert(blocks[i] + 1 < block_offsets.size());
+            jump_target = block_offsets[blocks[i] + 1];
             break;
         }
+
+        // We currently always make progress and never jump backwards.
+        assert(jump_target > offsets[i]);
+        assert(jump_target <= offsets.back());
+        u32 jump_val = jump_target - offsets[i];
+
+        switch (ri.code()) {
+        case ROSE_INSTR_ANCHORED_DELAY:
+            ri.u.anchoredDelay.done_jump = jump_val;
+            break;
+        case ROSE_INSTR_CHECK_ONLY_EOD:
+            ri.u.checkOnlyEod.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_CHECK_BOUNDS:
+            ri.u.checkBounds.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_CHECK_NOT_HANDLED:
+            ri.u.checkNotHandled.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_CHECK_LOOKAROUND:
+            ri.u.checkLookaround.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_CHECK_LEFTFIX:
+            ri.u.checkLeftfix.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_DEDUPE:
+            ri.u.dedupe.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_DEDUPE_SOM:
+            ri.u.dedupeSom.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_CHECK_EXHAUSTED:
+            ri.u.checkExhausted.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_CHECK_MIN_LENGTH:
+            ri.u.checkMinLength.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_CHECK_STATE:
+            ri.u.checkState.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_SPARSE_ITER_BEGIN:
+            ri.u.sparseIterBegin.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_SPARSE_ITER_NEXT:
+            ri.u.sparseIterNext.fail_jump = jump_val;
+            break;
+        default:
+            assert(0); // Unhandled opcode?
+            break;
+        }
+
+        ri.target = JumpTarget::FIXUP_DONE;
     }
 
     return out;
@@ -2688,6 +2773,13 @@ u32 writeProgram(build_context &bc, const vector<RoseInstruction> &program) {
 
     assert(program.back().code() == ROSE_INSTR_END);
     assert(program.size() >= 1);
+
+    // This program must have been flattened; i.e. all check instructions must
+    // have their jump offsets set.
+    assert(all_of(begin(program), end(program), [](const RoseInstruction &ri) {
+        return ri.target == JumpTarget::NO_JUMP ||
+               ri.target == JumpTarget::FIXUP_DONE;
+    }));
 
     auto it = bc.program_cache.find(program);
     if (it != end(bc.program_cache)) {
@@ -2877,7 +2969,8 @@ void makeRoleLookaround(RoseBuildImpl &build, build_context &bc, RoseVertex v,
     }
     u32 look_count = verify_u32(look.size());
 
-    auto ri = RoseInstruction(ROSE_INSTR_CHECK_LOOKAROUND);
+    auto ri = RoseInstruction(ROSE_INSTR_CHECK_LOOKAROUND,
+                              JumpTarget::NEXT_BLOCK);
     ri.u.checkLookaround.index = look_idx;
     ri.u.checkLookaround.count = look_count;
     program.push_back(ri);
@@ -2898,7 +2991,7 @@ void makeRoleCheckLeftfix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
     assert(!build.cc.streaming ||
            build.g[v].left.lag <= MAX_STORED_LEFTFIX_LAG);
 
-    auto ri = RoseInstruction(ROSE_INSTR_CHECK_LEFTFIX);
+    auto ri = RoseInstruction(ROSE_INSTR_CHECK_LEFTFIX, JumpTarget::NEXT_BLOCK);
     ri.u.checkLeftfix.queue = lni.queue;
     ri.u.checkLeftfix.lag = build.g[v].left.lag;
     ri.u.checkLeftfix.report = build.g[v].left.leftfix_report;
@@ -2906,7 +2999,7 @@ void makeRoleCheckLeftfix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
 }
 
 static
-void makeRoleAnchoredDelay(RoseBuildImpl &build, UNUSED build_context &bc,
+void makeRoleAnchoredDelay(RoseBuildImpl &build, build_context &bc,
                            RoseVertex v, vector<RoseInstruction> &program) {
     // Only relevant for roles that can be triggered by the anchored table.
     if (!build.isAnchored(v)) {
@@ -2919,9 +3012,148 @@ void makeRoleAnchoredDelay(RoseBuildImpl &build, UNUSED build_context &bc,
         return;
     }
 
-    auto ri = RoseInstruction(ROSE_INSTR_ANCHORED_DELAY);
+    auto ri = RoseInstruction(ROSE_INSTR_ANCHORED_DELAY,
+                              JumpTarget::NEXT_BLOCK);
     ri.u.anchoredDelay.groups = build.g[v].groups;
     program.push_back(ri);
+}
+
+static
+void makeDedupe(const ReportID id, vector<RoseInstruction> &report_block) {
+    auto ri = RoseInstruction(ROSE_INSTR_DEDUPE, JumpTarget::NEXT_BLOCK);
+    ri.u.dedupe.report = id;
+    report_block.push_back(move(ri));
+}
+
+static
+void makeDedupeSom(const ReportID id, vector<RoseInstruction> &report_block) {
+    auto ri = RoseInstruction(ROSE_INSTR_DEDUPE_SOM, JumpTarget::NEXT_BLOCK);
+    ri.u.dedupeSom.report = id;
+    report_block.push_back(move(ri));
+}
+
+static
+void makeReport(RoseBuildImpl &build, const ReportID id, const bool has_som,
+                vector<RoseInstruction> &program) {
+    assert(id < build.rm.numReports());
+    const Report &report = build.rm.getReport(id);
+
+    vector<RoseInstruction> report_block;
+
+    // If this report has an exhaustion key, we can check it in the program
+    // rather than waiting until we're in the callback adaptor.
+    if (report.ekey != INVALID_EKEY) {
+        auto ri = RoseInstruction(ROSE_INSTR_CHECK_EXHAUSTED,
+                                  JumpTarget::NEXT_BLOCK);
+        ri.u.checkExhausted.ekey = report.ekey;
+        report_block.push_back(move(ri));
+    }
+
+    // Similarly, we can handle min/max offset checks.
+    if (report.minOffset > 0 || report.maxOffset < MAX_OFFSET) {
+        auto ri = RoseInstruction(ROSE_INSTR_CHECK_BOUNDS,
+                                  JumpTarget::NEXT_BLOCK);
+        ri.u.checkBounds.min_bound = report.minOffset;
+        ri.u.checkBounds.max_bound = report.maxOffset;
+        report_block.push_back(move(ri));
+    }
+
+    // Catch up -- everything except the INTERNAL_ROSE_CHAIN report needs this.
+    // TODO: this could be floated in front of all the reports and only done
+    // once.
+    if (report.type != INTERNAL_ROSE_CHAIN) {
+        program.emplace_back(ROSE_INSTR_CATCH_UP);
+    }
+
+    // External SOM reports need their SOM value calculated.
+    if (isExternalSomReport(report)) {
+        auto ri = RoseInstruction(ROSE_INSTR_SOM_FROM_REPORT);
+        ri.u.somFromReport.report = id;
+        report_block.push_back(move(ri));
+    }
+
+    // Min length constraint.
+    if (report.minLength > 0) {
+        assert(build.hasSom);
+        auto ri = RoseInstruction(ROSE_INSTR_CHECK_MIN_LENGTH,
+                                  JumpTarget::NEXT_BLOCK);
+        ri.u.checkMinLength.end_adj = report.offsetAdjust;
+        ri.u.checkMinLength.min_length = report.minLength;
+        report_block.push_back(move(ri));
+    }
+
+    if (report.quashSom) {
+        report_block.emplace_back(ROSE_INSTR_SOM_ZERO);
+    }
+
+    switch (report.type) {
+    case EXTERNAL_CALLBACK:
+        if (!has_som) {
+            makeDedupe(id, report_block);
+            if (report.ekey == INVALID_EKEY) {
+                report_block.emplace_back(ROSE_INSTR_REPORT);
+                report_block.back().u.report.report = id;
+            } else {
+                report_block.emplace_back(ROSE_INSTR_REPORT_EXHAUST);
+                report_block.back().u.reportExhaust.report = id;
+            }
+        } else { // has_som
+            makeDedupeSom(id, report_block);
+            if (report.ekey == INVALID_EKEY) {
+                report_block.emplace_back(ROSE_INSTR_REPORT_SOM);
+                report_block.back().u.reportSom.report = id;
+            } else {
+                report_block.emplace_back(ROSE_INSTR_REPORT_SOM_EXHAUST);
+                report_block.back().u.reportSomExhaust.report = id;
+            }
+        }
+        break;
+    case INTERNAL_SOM_LOC_SET:
+    case INTERNAL_SOM_LOC_SET_IF_UNSET:
+    case INTERNAL_SOM_LOC_SET_IF_WRITABLE:
+    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA:
+    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_UNSET:
+    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_WRITABLE:
+    case INTERNAL_SOM_LOC_COPY:
+    case INTERNAL_SOM_LOC_COPY_IF_WRITABLE:
+    case INTERNAL_SOM_LOC_MAKE_WRITABLE:
+    case INTERNAL_SOM_LOC_SET_FROM:
+    case INTERNAL_SOM_LOC_SET_FROM_IF_WRITABLE:
+        if (has_som) {
+            report_block.emplace_back(ROSE_INSTR_REPORT_SOM_AWARE);
+            report_block.back().u.reportSomAware.report = id;
+        } else {
+            report_block.emplace_back(ROSE_INSTR_REPORT_SOM_INT);
+            report_block.back().u.reportSomInt.report = id;
+        }
+        break;
+    case INTERNAL_ROSE_CHAIN:
+        report_block.emplace_back(ROSE_INSTR_REPORT_CHAIN);
+        report_block.back().u.reportChain.report = id;
+        break;
+    case EXTERNAL_CALLBACK_SOM_REL:
+    case EXTERNAL_CALLBACK_SOM_STORED:
+    case EXTERNAL_CALLBACK_SOM_ABS:
+    case EXTERNAL_CALLBACK_SOM_REV_NFA:
+        makeDedupeSom(id, report_block);
+        if (report.ekey == INVALID_EKEY) {
+            report_block.emplace_back(ROSE_INSTR_REPORT_SOM);
+            report_block.back().u.reportSom.report = id;
+        } else {
+            report_block.emplace_back(ROSE_INSTR_REPORT_SOM_EXHAUST);
+            report_block.back().u.reportSomExhaust.report = id;
+        }
+        break;
+    default:
+        assert(0);
+        throw CompileError("Unable to generate bytecode.");
+    }
+
+    assert(!report_block.empty());
+    report_block = flattenProgram({report_block});
+    assert(report_block.back().code() == ROSE_INSTR_END);
+    report_block.pop_back();
+    insert(&program, program.end(), report_block);
 }
 
 static
@@ -2947,25 +3179,8 @@ void makeRoleReports(RoseBuildImpl &build, build_context &bc, RoseVertex v,
         has_som = true;
     }
 
-    // Write program instructions for reports.
     for (ReportID id : g[v].reports) {
-        assert(id < build.rm.numReports());
-        const Report &ir = build.rm.getReport(id);
-        if (isInternalSomReport(ir)) {
-            auto ri = RoseInstruction(has_som ? ROSE_INSTR_REPORT_SOM
-                                              : ROSE_INSTR_REPORT_SOM_INT);
-            ri.u.report.report = id;
-            program.push_back(ri);
-        } else if (ir.type == INTERNAL_ROSE_CHAIN) {
-            auto ri = RoseInstruction(ROSE_INSTR_REPORT_CHAIN);
-            ri.u.report.report = id;
-            program.push_back(ri);
-        } else {
-            auto ri = RoseInstruction(has_som ? ROSE_INSTR_REPORT_SOM_KNOWN
-                                              : ROSE_INSTR_REPORT);
-            ri.u.report.report = id;
-            program.push_back(ri);
-        }
+        makeReport(build, id, has_som, program);
     }
 }
 
@@ -3093,10 +3308,10 @@ void makeRoleCheckBounds(const RoseBuildImpl &build, RoseVertex v,
     // Use the minimum literal length.
     u32 lit_length = g[v].eod_accept ? 0 : verify_u32(build.minLiteralLen(v));
 
-    u32 min_bound = g[e].minBound + lit_length;
-    u32 max_bound = g[e].maxBound == ROSE_BOUND_INF
-                        ? ROSE_BOUND_INF
-                        : g[e].maxBound + lit_length;
+    u64a min_bound = g[e].minBound + lit_length;
+    u64a max_bound = g[e].maxBound == ROSE_BOUND_INF
+                         ? ROSE_BOUND_INF
+                         : g[e].maxBound + lit_length;
 
     if (g[e].history == ROSE_ROLE_HISTORY_ANCH) {
         assert(g[u].max_offset != ROSE_BOUND_INF);
@@ -3110,7 +3325,13 @@ void makeRoleCheckBounds(const RoseBuildImpl &build, RoseVertex v,
     assert(max_bound <= ROSE_BOUND_INF);
     assert(min_bound <= max_bound);
 
-    auto ri = RoseInstruction(ROSE_INSTR_CHECK_BOUNDS);
+    // CHECK_BOUNDS instruction uses 64-bit bounds, so we can use MAX_OFFSET
+    // (max value of a u64a) to represent ROSE_BOUND_INF.
+    if (max_bound == ROSE_BOUND_INF) {
+        max_bound = MAX_OFFSET;
+    }
+
+    auto ri = RoseInstruction(ROSE_INSTR_CHECK_BOUNDS, JumpTarget::NEXT_BLOCK);
     ri.u.checkBounds.min_bound = min_bound;
     ri.u.checkBounds.max_bound = max_bound;
 
@@ -3138,7 +3359,8 @@ vector<RoseInstruction> makeProgram(RoseBuildImpl &build, build_context &bc,
 
     if (onlyAtEod(build, v)) {
         DEBUG_PRINTF("only at eod\n");
-        program.push_back(RoseInstruction(ROSE_INSTR_CHECK_ONLY_EOD));
+        program.push_back(RoseInstruction(ROSE_INSTR_CHECK_ONLY_EOD,
+                                          JumpTarget::NEXT_BLOCK));
     }
 
     if (g[e].history == ROSE_ROLE_HISTORY_ANCH) {
@@ -3287,7 +3509,8 @@ void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
 static
 void makeRoleCheckNotHandled(build_context &bc, RoseVertex v,
                              vector<RoseInstruction> &program) {
-    auto ri = RoseInstruction(ROSE_INSTR_CHECK_NOT_HANDLED);
+    auto ri = RoseInstruction(ROSE_INSTR_CHECK_NOT_HANDLED,
+                              JumpTarget::NEXT_BLOCK);
 
     u32 handled_key;
     if (contains(bc.handledKeys, v)) {
@@ -3328,48 +3551,42 @@ vector<RoseInstruction> makePredProgram(RoseBuildImpl &build, build_context &bc,
 static
 u32 addPredBlocksSingle(
     map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
-    u32 curr_offset, vector<RoseInstruction> &program) {
-    assert(predProgramLists.size() == 1);
+    vector<RoseInstruction> &program) {
 
-    u32 pred_state = predProgramLists.begin()->first;
-    auto subprog = flattenProgram(predProgramLists.begin()->second);
+    vector<vector<RoseInstruction>> prog_blocks;
 
-    // Check our pred state.
-    auto ri = RoseInstruction(ROSE_INSTR_CHECK_STATE);
-    ri.u.checkState.index = pred_state;
-    program.push_back(ri);
-    curr_offset += ROUNDUP_N(program.back().length(), ROSE_INSTR_MIN_ALIGN);
+    for (const auto &m : predProgramLists) {
+        const u32 &pred_state = m.first;
+        auto subprog = flattenProgram(m.second);
 
-    // Add subprogram.
-    for (const auto &ri : subprog) {
-        program.push_back(ri);
-        curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
+        // Check our pred state.
+        auto ri = RoseInstruction(ROSE_INSTR_CHECK_STATE,
+                                  JumpTarget::NEXT_BLOCK);
+        ri.u.checkState.index = pred_state;
+        subprog.insert(begin(subprog), ri);
+        assert(subprog.back().code() == ROSE_INSTR_END);
+        subprog.pop_back();
+        prog_blocks.push_back(move(subprog));
     }
 
-    const u32 end_offset =
-        curr_offset - ROUNDUP_N(program.back().length(), ROSE_INSTR_MIN_ALIGN);
-
-    // Fix up the instruction operands.
-    curr_offset = 0;
-    for (size_t i = 0; i < program.size(); i++) {
-        auto &ri = program[i];
-        switch (ri.code()) {
-        case ROSE_INSTR_CHECK_STATE:
-            ri.u.checkState.fail_jump = end_offset - curr_offset;
-            break;
-        default:
-            break;
-        }
-        curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
-    }
-
+    auto prog = flattenProgram(prog_blocks);
+    program.insert(end(program), begin(prog), end(prog));
     return 0; // No iterator.
+}
+
+static
+u32 programLength(const vector<RoseInstruction> &program) {
+    u32 len = 0;
+    for (const auto &ri : program) {
+        len += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
+    }
+    return len;
 }
 
 static
 u32 addPredBlocksMulti(build_context &bc,
                     map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
-                    u32 curr_offset, vector<RoseInstruction> &program) {
+                    vector<RoseInstruction> &program) {
     assert(!predProgramLists.empty());
 
     // First, add the iterator itself.
@@ -3386,10 +3603,12 @@ u32 addPredBlocksMulti(build_context &bc,
 
     // Construct our program, starting with the SPARSE_ITER_BEGIN
     // instruction, keeping track of the jump offset for each sub-program.
+    vector<RoseInstruction> sparse_program;
     vector<u32> jump_table;
 
-    program.push_back(RoseInstruction(ROSE_INSTR_SPARSE_ITER_BEGIN));
-    curr_offset += ROUNDUP_N(program.back().length(), ROSE_INSTR_MIN_ALIGN);
+    sparse_program.push_back(RoseInstruction(ROSE_INSTR_SPARSE_ITER_BEGIN,
+                                             JumpTarget::PROGRAM_END));
+    u32 curr_offset = programLength(program) + programLength(sparse_program);
 
     for (const auto &e : predProgramLists) {
         DEBUG_PRINTF("subprogram %zu has offset %u\n", jump_table.size(),
@@ -3402,45 +3621,44 @@ u32 addPredBlocksMulti(build_context &bc,
             // with a SPARSE_ITER_NEXT.
             assert(!subprog.empty());
             assert(subprog.back().code() == ROSE_INSTR_END);
-            subprog.back() = RoseInstruction(ROSE_INSTR_SPARSE_ITER_NEXT);
+            subprog.back() = RoseInstruction(ROSE_INSTR_SPARSE_ITER_NEXT,
+                                             JumpTarget::PROGRAM_END);
         }
 
-        for (const auto &ri : subprog) {
-            program.push_back(ri);
-            curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
-        }
+        curr_offset += programLength(subprog);
+        insert(&sparse_program, end(sparse_program), subprog);
     }
 
-    const u32 end_offset =
-        curr_offset - ROUNDUP_N(program.back().length(), ROSE_INSTR_MIN_ALIGN);
+    // Strip the END instruction from the last block.
+    assert(sparse_program.back().code() == ROSE_INSTR_END);
+    sparse_program.pop_back();
+
+    sparse_program = flattenProgram({sparse_program});
 
     // Write the jump table into the bytecode.
     const u32 jump_table_offset =
         add_to_engine_blob(bc, begin(jump_table), end(jump_table));
 
-    // Fix up the instruction operands.
+    // Write jump table and iterator offset into sparse iter instructions.
     auto keys_it = begin(keys);
-    curr_offset = 0;
-    for (size_t i = 0; i < program.size(); i++) {
-        auto &ri = program[i];
+    for (auto &ri : sparse_program) {
         switch (ri.code()) {
         case ROSE_INSTR_SPARSE_ITER_BEGIN:
             ri.u.sparseIterBegin.iter_offset = iter_offset;
             ri.u.sparseIterBegin.jump_table = jump_table_offset;
-            ri.u.sparseIterBegin.fail_jump = end_offset - curr_offset;
             break;
         case ROSE_INSTR_SPARSE_ITER_NEXT:
             ri.u.sparseIterNext.iter_offset = iter_offset;
             ri.u.sparseIterNext.jump_table = jump_table_offset;
             assert(keys_it != end(keys));
             ri.u.sparseIterNext.state = *keys_it++;
-            ri.u.sparseIterNext.fail_jump = end_offset - curr_offset;
             break;
         default:
             break;
         }
-        curr_offset += ROUNDUP_N(ri.length(), ROSE_INSTR_MIN_ALIGN);
     }
+
+    program.insert(end(program), begin(sparse_program), end(sparse_program));
 
     return iter_offset;
 }
@@ -3448,16 +3666,16 @@ u32 addPredBlocksMulti(build_context &bc,
 static
 u32 addPredBlocks(build_context &bc,
                   map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
-                  u32 curr_offset, vector<RoseInstruction> &program,
+                  vector<RoseInstruction> &program,
                   bool force_sparse_iter) {
     const size_t num_preds = predProgramLists.size();
     if (num_preds == 0) {
         program = flattenProgram({program});
         return 0; // No iterator.
     } else if (!force_sparse_iter && num_preds == 1) {
-        return addPredBlocksSingle(predProgramLists, curr_offset, program);
+        return addPredBlocksSingle(predProgramLists, program);
     } else {
-        return addPredBlocksMulti(bc, predProgramLists, curr_offset, program);
+        return addPredBlocksMulti(bc, predProgramLists, program);
     }
 }
 
@@ -3481,8 +3699,7 @@ pair<u32, u32> makeSparseIterProgram(build_context &bc,
     // Add blocks to deal with non-root edges (triggered by sparse iterator or
     // mmbit_isset checks). This operation will flatten the program up to this
     // point.
-    u32 iter_offset =
-        addPredBlocks(bc, predProgramLists, curr_offset, program, false);
+    u32 iter_offset = addPredBlocks(bc, predProgramLists, program, false);
 
     // If we have a root program, replace the END instruction with it. Note
     // that the root program has already been flattened.
@@ -3823,10 +4040,8 @@ vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
         makeRoleCheckNotHandled(bc, v, program);
     }
 
-    for (const auto &report : g[v].reports) {
-        auto ri = RoseInstruction(ROSE_INSTR_REPORT_EOD);
-        ri.u.report.report = report;
-        program.push_back(ri);
+    for (const auto &id : g[v].reports) {
+        makeReport(build, id, false, program);
     }
 
     return program;
@@ -3870,7 +4085,7 @@ pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
 
     // Note: we force the use of a sparse iterator for the EOD program so we
     // can easily guard EOD execution at runtime.
-    u32 iter_offset = addPredBlocks(bc, predProgramLists, 0, program, true);
+    u32 iter_offset = addPredBlocks(bc, predProgramLists, program, true);
 
     assert(program.size() > 1);
     return {writeProgram(bc, program), iter_offset};

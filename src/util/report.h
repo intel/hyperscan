@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -182,6 +182,11 @@ bool isExternalReport(const Report &r) {
     }
     assert(0); // unknown?
     return true;
+}
+
+static inline
+bool isExternalSomReport(const Report &r) {
+    return r.type != EXTERNAL_CALLBACK && isExternalReport(r);
 }
 
 static inline

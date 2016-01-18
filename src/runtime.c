@@ -47,6 +47,7 @@
 #include "rose/rose.h"
 #include "rose/runtime.h"
 #include "database.h"
+#include "report.h"
 #include "scratch.h"
 #include "som/som_runtime.h"
 #include "som/som_stream.h"
@@ -55,8 +56,6 @@
 #include "util/exhaust.h"
 #include "util/fatbit.h"
 #include "util/multibit.h"
-
-#define DEDUPE_MATCHES
 
 static really_inline
 void prefetch_data(const char *data, unsigned length) {
@@ -168,306 +167,6 @@ void setBroken(char *state, u8 broken) {
            || broken == BROKEN_EXHAUSTED);
     struct RoseRuntimeState *ts = (void *)state;
     ts->broken = broken;
-}
-
-static really_inline
-int roseAdaptor_i(u64a offset, ReportID id, struct hs_scratch *scratch,
-                  char is_simple, char do_som) {
-    assert(id != MO_INVALID_IDX); // Should never get an invalid ID.
-    assert(scratch);
-    assert(scratch->magic == SCRATCH_MAGIC);
-
-    struct core_info *ci = &scratch->core_info;
-    const struct RoseEngine *rose = ci->rose;
-    DEBUG_PRINTF("internal report %u\n", id);
-    const struct internal_report *ri = getInternalReport(rose, id);
-
-    assert(isExternalReport(ri)); /* only external reports should reach here */
-
-    s32 offset_adj = ri->offsetAdjust;
-    UNUSED u32 dkey = ri->dkey;
-    u64a to_offset = offset;
-    u64a from_offset = 0;
-    UNUSED u32 dkeyCount = rose->dkeyCount;
-
-    u32 flags = 0;
-#ifndef RELEASE_BUILD
-    if (offset_adj) {
-        // alert testing tools that we've got adjusted matches
-        flags |= HS_MATCH_FLAG_ADJUSTED;
-    }
-#endif
-
-    DEBUG_PRINTF("internal match at %llu: IID=%u type=%hhu RID=%u "
-                 "offsetAdj=%d\n", offset, id, ri->type, ri->onmatch,
-                 offset_adj);
-
-    if (unlikely(can_stop_matching(scratch))) { /* ok - we are from rose */
-        DEBUG_PRINTF("pre broken - halting\n");
-        return MO_HALT_MATCHING;
-    }
-
-    if (!is_simple && ri->hasBounds) {
-        assert(ri->minOffset || ri->minLength || ri->maxOffset < MAX_OFFSET);
-        assert(ri->minOffset <= ri->maxOffset);
-        if (offset < ri->minOffset || offset > ri->maxOffset) {
-            DEBUG_PRINTF("match fell outside valid range %llu !: [%llu,%llu]\n",
-                         offset, ri->minOffset, ri->maxOffset);
-            return ROSE_CONTINUE_MATCHING_NO_EXHAUST;
-        }
-    }
-
-    if (!is_simple && unlikely(isExhausted(ci->exhaustionVector, ri->ekey))) {
-        DEBUG_PRINTF("ate exhausted match\n");
-        return MO_CONTINUE_MATCHING;
-    }
-
-    if (ri->type == EXTERNAL_CALLBACK) {
-        from_offset = 0;
-    } else if (do_som) {
-        from_offset = handleSomExternal(scratch, ri, to_offset);
-    }
-
-    to_offset += offset_adj;
-    assert(from_offset == HS_OFFSET_PAST_HORIZON || from_offset <= to_offset);
-
-    if (do_som && ri->minLength) {
-        if (from_offset != HS_OFFSET_PAST_HORIZON &&
-                (to_offset - from_offset < ri->minLength)) {
-            return ROSE_CONTINUE_MATCHING_NO_EXHAUST;
-        }
-        if (ri->quashSom) {
-            from_offset = 0;
-        }
-    }
-
-    DEBUG_PRINTF(">> reporting match @[%llu,%llu] for sig %u ctxt %p <<\n",
-                 from_offset, to_offset, ri->onmatch, ci->userContext);
-
-    int halt = 0;
-
-    if (do_som || dkey != MO_INVALID_IDX) {
-        if (offset != scratch->deduper.current_report_offset) {
-            assert(scratch->deduper.current_report_offset == ~0ULL ||
-                   scratch->deduper.current_report_offset < offset);
-            if (offset == scratch->deduper.current_report_offset + 1) {
-                fatbit_clear(scratch->deduper.log[offset % 2]);
-            } else {
-                fatbit_clear(scratch->deduper.log[0]);
-                fatbit_clear(scratch->deduper.log[1]);
-            }
-
-            DEBUG_PRINTF("adj dedupe offset %hhd\n", do_som);
-            if (do_som) {
-                halt = flushStoredSomMatches(scratch, offset);
-                if (halt) {
-                    goto exit;
-                }
-            }
-            scratch->deduper.current_report_offset = offset;
-        }
-    }
-
-#ifdef DEDUPE_MATCHES
-    if (dkey != MO_INVALID_IDX) {
-        if (ri->type == EXTERNAL_CALLBACK || ri->quashSom) {
-            DEBUG_PRINTF("checking dkey %u at offset %llu\n", dkey, to_offset);
-            assert(offset_adj == 0 || offset_adj == -1);
-            if (fatbit_set(scratch->deduper.log[to_offset % 2], dkeyCount,
-                           dkey)) {
-                /* we have already raised this report at this offset, squash dupe
-                 * match. */
-                DEBUG_PRINTF("dedupe\n");
-                goto exit;
-            }
-        } else if (do_som) {
-            /* SOM external event */
-            DEBUG_PRINTF("checking dkey %u at offset %llu\n", dkey, to_offset);
-            assert(offset_adj == 0 || offset_adj == -1);
-            u64a *starts = scratch->deduper.som_start_log[to_offset % 2];
-            if (fatbit_set(scratch->deduper.som_log[to_offset % 2], dkeyCount,
-                           dkey)) {
-                starts[dkey] = MIN(starts[dkey], from_offset);
-            } else {
-                starts[dkey] = from_offset;
-            }
-
-            if (offset_adj) {
-                scratch->deduper.som_log_dirty |= 1;
-            } else {
-                scratch->deduper.som_log_dirty |= 2;
-            }
-
-            goto exit;
-        }
-    }
-#endif
-
-    halt = ci->userCallback((unsigned int)ri->onmatch, from_offset, to_offset,
-                            flags, ci->userContext);
-#ifdef DEDUPE_MATCHES
-exit:
-#endif
-    if (halt) {
-        DEBUG_PRINTF("callback requested to terminate matches\n");
-
-        setBroken(ci->state, BROKEN_FROM_USER);
-        ci->broken = BROKEN_FROM_USER;
-
-        return MO_HALT_MATCHING;
-    }
-
-    if (!is_simple && ri->ekey != END_EXHAUST) {
-        markAsMatched(ci->exhaustionVector, ri->ekey);
-        return MO_CONTINUE_MATCHING;
-    } else {
-        return ROSE_CONTINUE_MATCHING_NO_EXHAUST;
-    }
-}
-
-static really_inline
-int roseSomAdaptor_i(u64a from_offset, u64a to_offset, ReportID id,
-                     struct hs_scratch *scratch, char is_simple) {
-    assert(id != MO_INVALID_IDX); // Should never get an invalid ID.
-    assert(scratch);
-    assert(scratch->magic == SCRATCH_MAGIC);
-
-    u32 flags = 0;
-
-    struct core_info *ci = &scratch->core_info;
-    const struct RoseEngine *rose = ci->rose;
-    const struct internal_report *ri = getInternalReport(rose, id);
-
-    /* internal events should be handled by rose directly */
-    assert(ri->type == EXTERNAL_CALLBACK);
-
-    DEBUG_PRINTF("internal match at %llu: IID=%u type=%hhu RID=%u "
-                 "offsetAdj=%d\n", to_offset, id, ri->type, ri->onmatch,
-                 ri->offsetAdjust);
-
-    if (unlikely(can_stop_matching(scratch))) {
-        DEBUG_PRINTF("pre broken - halting\n");
-        return MO_HALT_MATCHING;
-    }
-
-    if (!is_simple && ri->hasBounds) {
-        assert(ri->minOffset || ri->minLength || ri->maxOffset < MAX_OFFSET);
-        if (to_offset < ri->minOffset || to_offset > ri->maxOffset) {
-            DEBUG_PRINTF("match fell outside valid range %llu !: [%llu,%llu]\n",
-                         to_offset, ri->minOffset, ri->maxOffset);
-            return MO_CONTINUE_MATCHING;
-        }
-    }
-
-    int halt = 0;
-
-    if (!is_simple && unlikely(isExhausted(ci->exhaustionVector, ri->ekey))) {
-        DEBUG_PRINTF("ate exhausted match\n");
-        goto do_return;
-    }
-
-#ifdef DEDUPE_MATCHES
-    u64a offset = to_offset;
-#endif
-
-    to_offset += ri->offsetAdjust;
-    assert(from_offset == HS_OFFSET_PAST_HORIZON || from_offset <= to_offset);
-
-    if (!is_simple && ri->minLength) {
-        if (from_offset != HS_OFFSET_PAST_HORIZON &&
-                (to_offset - from_offset < ri->minLength)) {
-            return MO_CONTINUE_MATCHING;
-        }
-        if (ri->quashSom) {
-            from_offset = 0;
-        }
-    }
-
-    DEBUG_PRINTF(">> reporting match @[%llu,%llu] for sig %u ctxt %p <<\n",
-                 from_offset, to_offset, ri->onmatch, ci->userContext);
-
-#ifndef RELEASE_BUILD
-    if (ri->offsetAdjust != 0) {
-        // alert testing tools that we've got adjusted matches
-        flags |= HS_MATCH_FLAG_ADJUSTED;
-    }
-#endif
-
-#ifdef DEDUPE_MATCHES
-    u32 dkeyCount = rose->dkeyCount;
-
-    if (offset != scratch->deduper.current_report_offset) {
-
-        assert(scratch->deduper.current_report_offset == ~0ULL
-               || scratch->deduper.current_report_offset < offset);
-        if (offset == scratch->deduper.current_report_offset + 1) {
-            fatbit_clear(scratch->deduper.log[offset % 2]);
-        } else {
-            fatbit_clear(scratch->deduper.log[0]);
-            fatbit_clear(scratch->deduper.log[1]);
-        }
-
-        halt = flushStoredSomMatches(scratch, offset);
-        if (halt) {
-            goto do_return;
-        }
-
-        scratch->deduper.current_report_offset = offset;
-    }
-
-    u32 dkey = ri->dkey;
-    if (dkey != MO_INVALID_IDX) {
-        if (ri->quashSom) {
-            DEBUG_PRINTF("checking dkey %u at offset %llu\n", dkey, to_offset);
-            assert(ri->offsetAdjust == 0 || ri->offsetAdjust == -1);
-            if (fatbit_set(scratch->deduper.log[to_offset % 2], dkeyCount,
-                           dkey)) {
-                /* we have already raised this report at this offset, squash
-                 * dupe match. */
-                DEBUG_PRINTF("dedupe\n");
-                goto do_return;
-            }
-        } else {
-            /* SOM external event */
-            DEBUG_PRINTF("checking dkey %u at offset %llu\n", dkey, to_offset);
-            assert(ri->offsetAdjust == 0 || ri->offsetAdjust == -1);
-            u64a *starts = scratch->deduper.som_start_log[to_offset % 2];
-            if (fatbit_set(scratch->deduper.som_log[to_offset % 2], dkeyCount,
-                           dkey)) {
-                starts[dkey] = MIN(starts[dkey], from_offset);
-            } else {
-                starts[dkey] = from_offset;
-            }
-
-            if (ri->offsetAdjust) {
-                scratch->deduper.som_log_dirty |= 1;
-            } else {
-                scratch->deduper.som_log_dirty |= 2;
-            }
-
-            goto do_return;
-        }
-    }
-#endif
-
-    halt = ci->userCallback((unsigned int)ri->onmatch, from_offset, to_offset,
-                            flags, ci->userContext);
-
-    if (!is_simple) {
-        markAsMatched(ci->exhaustionVector, ri->ekey);
-    }
-
-do_return:
-    if (halt) {
-        DEBUG_PRINTF("callback requested to terminate matches\n");
-
-        setBroken(ci->state, BROKEN_FROM_USER);
-        ci->broken = BROKEN_FROM_USER;
-
-        return MO_HALT_MATCHING;
-    }
-
-    return MO_CONTINUE_MATCHING;
 }
 
 static really_inline
@@ -1055,8 +754,7 @@ hs_error_t hs_open_stream(const hs_database_t *db, UNUSED unsigned flags,
 static really_inline
 void rawEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
     const struct RoseEngine *rose = id->rose;
-    char *state = getMultiState(id);
-    u8 broken = getBroken(state);
+    u8 broken = scratch->core_info.broken;
 
     if (broken) {
         DEBUG_PRINTF("stream already broken\n");
@@ -1076,8 +774,7 @@ void rawEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
 static never_inline
 void soleOutfixEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
     const struct RoseEngine *t = id->rose;
-    char *state = getMultiState(id);
-    u8 broken = getBroken(state);
+    u8 broken = scratch->core_info.broken;
 
     if (broken) {
         DEBUG_PRINTF("stream already broken\n");
@@ -1372,9 +1069,10 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
     if (!id->offset && rose->boundary.reportZeroOffset) {
         DEBUG_PRINTF("zero reports\n");
         processReportList(rose, rose->boundary.reportZeroOffset, 0, scratch);
-        broken = getBroken(state);
+        broken = scratch->core_info.broken;
         if (unlikely(broken)) {
             DEBUG_PRINTF("stream is broken, halting scan\n");
+            setBroken(state, broken);
             if (broken == BROKEN_FROM_USER) {
                 return HS_SCAN_TERMINATED;
             } else {
@@ -1400,7 +1098,6 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
     if (rose->hasSom && !told_to_stop_matching(scratch)) {
         int halt = flushStoredSomMatches(scratch, ~0ULL);
         if (halt) {
-            setBroken(state, BROKEN_FROM_USER);
             scratch->core_info.broken = BROKEN_FROM_USER;
         }
     }
@@ -1413,6 +1110,7 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
             storeSomToStream(scratch, id->offset);
         }
     } else if (told_to_stop_matching(scratch)) {
+        setBroken(state, BROKEN_FROM_USER);
         return HS_SCAN_TERMINATED;
     } else { /* exhausted */
         setBroken(state, BROKEN_EXHAUSTED);

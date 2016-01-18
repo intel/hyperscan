@@ -51,16 +51,33 @@ enum RoseInstructionCode {
     ROSE_INSTR_CHECK_LOOKAROUND,  //!< Lookaround check.
     ROSE_INSTR_CHECK_LEFTFIX,     //!< Leftfix must be in accept state.
     ROSE_INSTR_PUSH_DELAYED,      //!< Push delayed literal matches.
+    ROSE_INSTR_CATCH_UP,          //!< Catch up engines, anchored matches.
     ROSE_INSTR_SOM_ADJUST,        //!< Set SOM from a distance to EOM.
     ROSE_INSTR_SOM_LEFTFIX,       //!< Acquire SOM from a leftfix engine.
+    ROSE_INSTR_SOM_FROM_REPORT,   //!< Acquire SOM from an internal_report.
+    ROSE_INSTR_SOM_ZERO,          //!< Set SOM to zero.
     ROSE_INSTR_TRIGGER_INFIX,     //!< Trigger an infix engine.
     ROSE_INSTR_TRIGGER_SUFFIX,    //!< Trigger a suffix engine.
-    ROSE_INSTR_REPORT,            //!< Fire an ordinary report.
+    ROSE_INSTR_DEDUPE,            //!< Run deduplication for report.
+    ROSE_INSTR_DEDUPE_SOM,        //!< Run deduplication for SOM report.
     ROSE_INSTR_REPORT_CHAIN,      //!< Fire a chained report (MPV).
-    ROSE_INSTR_REPORT_EOD,        //!< Fire a callback at EOD time.
     ROSE_INSTR_REPORT_SOM_INT,    //!< Manipulate SOM only.
-    ROSE_INSTR_REPORT_SOM,        //!< Manipulate SOM and report.
-    ROSE_INSTR_REPORT_SOM_KNOWN,  //!< Rose role knows its SOM offset.
+    ROSE_INSTR_REPORT_SOM_AWARE,  //!< Manipulate SOM from SOM-aware source.
+
+    /** \brief Fire a report. */
+    ROSE_INSTR_REPORT,
+
+    /** \brief Fire an exhaustible report. */
+    ROSE_INSTR_REPORT_EXHAUST,
+
+    /** \brief Fire a SOM report. */
+    ROSE_INSTR_REPORT_SOM,
+
+    /** \brief Fire an exhaustible SOM report. */
+    ROSE_INSTR_REPORT_SOM_EXHAUST,
+
+    ROSE_INSTR_CHECK_EXHAUSTED,   //!< Check if an ekey has already been set.
+    ROSE_INSTR_CHECK_MIN_LENGTH,  //!< Check (EOM - SOM) against min length.
     ROSE_INSTR_SET_STATE,         //!< Switch a state index on.
     ROSE_INSTR_SET_GROUPS,        //!< Set some literal group bits.
     ROSE_INSTR_SQUASH_GROUPS,     //!< Conditionally turn off some groups.
@@ -106,8 +123,8 @@ struct ROSE_STRUCT_CHECK_ONLY_EOD {
 
 struct ROSE_STRUCT_CHECK_BOUNDS {
     u8 code; //!< From enum RoseInstructionCode.
-    u32 min_bound; //!< Min distance from zero.
-    u32 max_bound; //!< Max distance from zero (or ROSE_BOUND_INF).
+    u64a min_bound; //!< Min distance from zero.
+    u64a max_bound; //!< Max distance from zero.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
@@ -138,6 +155,10 @@ struct ROSE_STRUCT_PUSH_DELAYED {
     u32 index; // Delay literal index (relative to first delay lit).
 };
 
+struct ROSE_STRUCT_CATCH_UP {
+    u8 code; //!< From enum RoseInstructionCode.
+};
+
 struct ROSE_STRUCT_SOM_ADJUST {
     u8 code; //!< From enum RoseInstructionCode.
     u32 distance; //!< Distance to EOM.
@@ -147,6 +168,15 @@ struct ROSE_STRUCT_SOM_LEFTFIX {
     u8 code; //!< From enum RoseInstructionCode.
     u32 queue; //!< Queue index of leftfix providing SOM.
     u32 lag; //!< Lag of leftfix for this case.
+};
+
+struct ROSE_STRUCT_SOM_FROM_REPORT {
+    u8 code; //!< From enum RoseInstructionCode.
+    ReportID report; //!< EXTERNAL_CALLBACK_SOM_* report to use.
+};
+
+struct ROSE_STRUCT_SOM_ZERO {
+    u8 code; //!< From enum RoseInstructionCode.
 };
 
 struct ROSE_STRUCT_TRIGGER_INFIX {
@@ -162,17 +192,19 @@ struct ROSE_STRUCT_TRIGGER_SUFFIX {
     u32 event; //!< Queue event, from MQE_*.
 };
 
-struct ROSE_STRUCT_REPORT {
+struct ROSE_STRUCT_DEDUPE {
     u8 code; //!< From enum RoseInstructionCode.
     ReportID report;
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_DEDUPE_SOM {
+    u8 code; //!< From enum RoseInstructionCode.
+    ReportID report;
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
 struct ROSE_STRUCT_REPORT_CHAIN {
-    u8 code; //!< From enum RoseInstructionCode.
-    ReportID report;
-};
-
-struct ROSE_STRUCT_REPORT_EOD {
     u8 code; //!< From enum RoseInstructionCode.
     ReportID report;
 };
@@ -182,14 +214,47 @@ struct ROSE_STRUCT_REPORT_SOM_INT {
     ReportID report;
 };
 
+struct ROSE_STRUCT_REPORT_SOM_AWARE {
+    u8 code; //!< From enum RoseInstructionCode.
+    ReportID report;
+};
+
+struct ROSE_STRUCT_REPORT {
+    u8 code; //!< From enum RoseInstructionCode.
+    ReportID report;
+};
+
+struct ROSE_STRUCT_REPORT_EXHAUST {
+    u8 code; //!< From enum RoseInstructionCode.
+    ReportID report;
+};
+
 struct ROSE_STRUCT_REPORT_SOM {
     u8 code; //!< From enum RoseInstructionCode.
     ReportID report;
 };
 
-struct ROSE_STRUCT_REPORT_SOM_KNOWN {
+struct ROSE_STRUCT_REPORT_SOM_EXHAUST {
     u8 code; //!< From enum RoseInstructionCode.
     ReportID report;
+};
+
+struct ROSE_STRUCT_REPORT_SOM_EXT {
+    u8 code; //!< From enum RoseInstructionCode.
+    ReportID report;
+};
+
+struct ROSE_STRUCT_CHECK_EXHAUSTED {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 ekey; //!< Exhaustion key to check.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_MIN_LENGTH {
+    u8 code; //!< From enum RoseInstructionCode.
+    s32 end_adj; //!< Offset adjustment to add to EOM first.
+    u64a min_length; //!< Minimum distance from SOM to EOM.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
 struct ROSE_STRUCT_SET_STATE {

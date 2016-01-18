@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -487,6 +487,7 @@ int clearSomLog(struct hs_scratch *scratch, u64a offset, struct fatbit *log,
         int halt = ci->userCallback(onmatch, from_offset, offset, flags,
                                     ci->userContext);
         if (halt) {
+            ci->broken = BROKEN_FROM_USER;
             return 1;
         }
     }

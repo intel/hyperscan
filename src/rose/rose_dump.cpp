@@ -41,6 +41,7 @@
 #include "nfa/nfa_dump_api.h"
 #include "nfa/nfa_internal.h"
 #include "util/dump_charclass.h"
+#include "util/internal_report.h"
 #include "util/multibit_internal.h"
 #include "util/multibit.h"
 
@@ -153,6 +154,61 @@ void dumpLookaround(ofstream &os, const RoseEngine *t,
 }
 
 static
+vector<u32> sparseIterValues(const mmbit_sparse_iter *it, u32 num_bits) {
+    vector<u32> keys;
+
+    if (num_bits == 0) {
+        return keys;
+    }
+
+    vector<u8> bits(mmbit_size(num_bits), u8{0xff}); // All bits on.
+    vector<mmbit_sparse_state> state(MAX_SPARSE_ITER_STATES);
+
+    const u8 *b = bits.data();
+    mmbit_sparse_state *s = state.data();
+
+    u32 idx = 0;
+    u32 i = mmbit_sparse_iter_begin(b, num_bits, &idx, it, s);
+    while (i != MMB_INVALID) {
+        keys.push_back(i);
+        i = mmbit_sparse_iter_next(b, num_bits, i, &idx, it, s);
+    }
+
+    return keys;
+}
+
+static
+void dumpJumpTable(ofstream &os, const RoseEngine *t,
+                   const ROSE_STRUCT_SPARSE_ITER_BEGIN *ri) {
+    auto *it =
+        (const mmbit_sparse_iter *)loadFromByteCodeOffset(t, ri->iter_offset);
+    auto *jumps = (const u32 *)loadFromByteCodeOffset(t, ri->jump_table);
+
+    for (const auto &key : sparseIterValues(it, t->rolesWithStateCount)) {
+        os << "      " << std::setw(4) << std::setfill(' ') << key << " : +"
+           << *jumps << endl;
+        ++jumps;
+    }
+}
+
+static
+void dumpReport(ofstream &os, const RoseEngine *t, ReportID report) {
+    const auto *ir =
+        (const internal_report *)loadFromByteCodeOffset(t, t->intReportOffset) +
+        report;
+    os << "      type=" << u32{ir->type};
+    os << ", onmatch=" << ir->onmatch;
+    if (ir->ekey != INVALID_EKEY) {
+        os << ", ekey=" << ir->ekey;
+    }
+    if (ir->dkey != MO_INVALID_IDX) {
+        os << ", dkey=" << ir->dkey;
+    }
+
+    os << endl;
+}
+
+static
 string dumpStrMask(const u8 *mask, size_t len) {
     ostringstream oss;
     for (size_t i = 0; i < len; i++) {
@@ -211,6 +267,13 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CHECK_BOUNDS) {
+                os << "    min_bound " << ri->min_bound << endl;
+                os << "    max_bound " << ri->max_bound << endl;
+                os << "    fail_jump +" << ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CHECK_NOT_HANDLED) {
                 os << "    key " << ri->key << endl;
                 os << "    fail_jump +" << ri->fail_jump << endl;
@@ -239,6 +302,9 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CATCH_UP) {}
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(SOM_ADJUST) {
                 os << "    distance " << ri->distance << endl;
             }
@@ -248,6 +314,15 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
                 os << "    queue " << ri->queue << endl;
                 os << "    lag " << ri->lag << endl;
             }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(SOM_FROM_REPORT) {
+                os << "    report " << ri->report << endl;
+                dumpReport(os, t, ri->report);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(SOM_ZERO) {}
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(TRIGGER_INFIX) {
@@ -263,33 +338,72 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(REPORT) {
+            PROGRAM_CASE(DEDUPE) {
                 os << "    report " << ri->report << endl;
+                dumpReport(os, t, ri->report);
+                os << "    fail_jump +" << ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(DEDUPE_SOM) {
+                os << "    report " << ri->report << endl;
+                dumpReport(os, t, ri->report);
+                os << "    fail_jump +" << ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_CHAIN) {
                 os << "    report " << ri->report << endl;
-            }
-            PROGRAM_NEXT_INSTRUCTION
-
-            PROGRAM_CASE(REPORT_EOD) {
-                os << "    report " << ri->report << endl;
+                dumpReport(os, t, ri->report);
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM_INT) {
                 os << "    report " << ri->report << endl;
+                dumpReport(os, t, ri->report);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(REPORT_SOM_AWARE) {
+                os << "    report " << ri->report << endl;
+                dumpReport(os, t, ri->report);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(REPORT) {
+                os << "    report " << ri->report << endl;
+                dumpReport(os, t, ri->report);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(REPORT_EXHAUST) {
+                os << "    report " << ri->report << endl;
+                dumpReport(os, t, ri->report);
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM) {
                 os << "    report " << ri->report << endl;
+                dumpReport(os, t, ri->report);
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(REPORT_SOM_KNOWN) {
+            PROGRAM_CASE(REPORT_SOM_EXHAUST) {
                 os << "    report " << ri->report << endl;
+                dumpReport(os, t, ri->report);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_EXHAUSTED) {
+                os << "    ekey " << ri->ekey << endl;
+                os << "    fail_jump +" << ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_MIN_LENGTH) {
+                os << "    end_adj " << ri->end_adj << endl;
+                os << "    min_length " << ri->min_length << endl;
+                os << "    fail_jump +" << ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -319,6 +433,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             PROGRAM_CASE(SPARSE_ITER_BEGIN) {
                 os << "    iter_offset " << ri->iter_offset << endl;
                 os << "    jump_table " << ri->jump_table << endl;
+                dumpJumpTable(os, t, ri);
                 os << "    fail_jump +" << ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION

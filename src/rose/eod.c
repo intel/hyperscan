@@ -47,9 +47,9 @@ void initContext(const struct RoseEngine *t, char *state, u64a offset,
     tctxt->cb = callback;
     tctxt->cb_som = som_callback;
     tctxt->lastMatchOffset = 0;
-    tctxt->minMatchOffset = 0;
-    tctxt->minNonMpvMatchOffset = 0;
-    tctxt->next_mpv_offset = 0;
+    tctxt->minMatchOffset = offset;
+    tctxt->minNonMpvMatchOffset = offset;
+    tctxt->next_mpv_offset = offset;
     tctxt->curr_anchored_loc = MMB_INVALID;
     tctxt->curr_row_offset = 0;
 
@@ -146,14 +146,16 @@ int eodNfaSomCallback(u64a from_offset, u64a to_offset, ReportID report,
 /**
  * \brief Check for (and deliver) reports from active output-exposed (suffix
  * or outfix) NFAs.
+ *
+ * \return MO_HALT_MATCHING if the user instructs us to stop.
  */
 static rose_inline
-void roseCheckNfaEod(const struct RoseEngine *t, char *state,
+int roseCheckNfaEod(const struct RoseEngine *t, char *state,
                      struct hs_scratch *scratch, u64a offset,
                      const char is_streaming) {
     if (!t->eodNfaIterOffset) {
         DEBUG_PRINTF("no engines that report at EOD\n");
-        return;
+        return MO_CONTINUE_MATCHING;
     }
 
     /* data, len is used for state decompress, should be full available data */
@@ -194,9 +196,11 @@ void roseCheckNfaEod(const struct RoseEngine *t, char *state,
                                eodNfaSomCallback,
                                scratch) == MO_HALT_MATCHING) {
             DEBUG_PRINTF("user instructed us to stop\n");
-            return;
+            return MO_HALT_MATCHING;
         }
     }
+
+    return MO_CONTINUE_MATCHING;
 }
 
 static rose_inline
@@ -283,7 +287,10 @@ void roseEodExec_i(const struct RoseEngine *t, char *state, u64a offset,
         return;
     }
 
-    roseCheckNfaEod(t, state, scratch, offset, is_streaming);
+    if (roseCheckNfaEod(t, state, scratch, offset, is_streaming) ==
+        MO_HALT_MATCHING) {
+        return;
+    }
 
     if (!t->eodIterProgramOffset && !t->ematcherOffset) {
         DEBUG_PRINTF("no eod accepts\n");
@@ -291,8 +298,7 @@ void roseEodExec_i(const struct RoseEngine *t, char *state, u64a offset,
     }
 
     // Handle pending EOD reports.
-    int itrv = roseEodRunIterator(t, offset, scratch);
-    if (itrv == MO_HALT_MATCHING) {
+    if (roseEodRunIterator(t, offset, scratch) == MO_HALT_MATCHING) {
         return;
     }
 
@@ -303,15 +309,17 @@ void roseEodExec_i(const struct RoseEngine *t, char *state, u64a offset,
         mmbit_clear(getRoleState(state), t->rolesWithStateCount);
         mmbit_clear(getActiveLeafArray(t, state), t->activeArrayCount);
 
-        hwlmcb_rv_t rv = roseEodRunMatcher(t, offset, scratch, is_streaming);
-        if (rv == HWLM_TERMINATE_MATCHING) {
+        if (roseEodRunMatcher(t, offset, scratch, is_streaming) ==
+            HWLM_TERMINATE_MATCHING) {
             return;
         }
 
         cleanupAfterEodMatcher(t, state, offset, scratch);
 
         // Fire any new EOD reports.
-        roseEodRunIterator(t, offset, scratch);
+        if (roseEodRunIterator(t, offset, scratch) == MO_HALT_MATCHING) {
+            return;
+        }
 
         roseCheckEodSuffixes(t, state, offset, scratch);
     }
