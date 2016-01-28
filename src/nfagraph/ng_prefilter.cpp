@@ -285,7 +285,7 @@ void replaceRegion(NGHolder &g, const RegionInfo &ri,
         verts.push_back(v);
     }
 
-    if (ri.maxWidth.is_infinite()) {
+    if (maxWidth.is_infinite()) {
         add_edge(verts.back(), verts.back(), g);
     }
 
