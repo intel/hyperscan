@@ -582,11 +582,6 @@ void fillStateOffsets(const RoseBuildImpl &tbi, u32 rolesWithStateCount,
     so->leftfixLagTable = curr_offset;
     curr_offset += laggedRoseCount;
 
-    // Anchored state is McClellan full state, and needs to be 2-byte aligned.
-    // We potentially waste a byte here.
-    if (curr_offset % 2) {
-        curr_offset++;
-    }
     so->anchorState = curr_offset;
     curr_offset += anchorStateSize;
 

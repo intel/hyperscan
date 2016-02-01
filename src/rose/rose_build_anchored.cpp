@@ -228,7 +228,7 @@ u32 anchoredStateSize(const anchored_matcher_info &atable) {
     }
 
     const NFA *nfa = (const NFA *)((const char *)curr + sizeof(*curr));
-    return curr->state_offset + nfa->scratchStateSize;
+    return curr->state_offset + nfa->streamStateSize;
 }
 
 bool anchoredIsMulti(const anchored_matcher_info &atable) {
@@ -849,15 +849,8 @@ buildAnchoredAutomataMatcher(RoseBuildImpl &build, size_t *asize) {
             ami->next_offset = verify_u32(curr - prev_curr);
         }
 
-        // State must be aligned.
-        u32 align_req = state_alignment(*nfa);
-        assert(align_req <= 2); // only DFAs.
-        while (state_offset % align_req) {
-            state_offset++;
-        }
-
         ami->state_offset = state_offset;
-        state_offset += nfa->scratchStateSize;
+        state_offset += nfa->streamStateSize;
         ami->anchoredMinDistance = start_offset[i];
     }
 

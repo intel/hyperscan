@@ -1020,34 +1020,36 @@ void nfaExecMcClellan8_SimpStream(const struct NFA *nfa, char *state,
                                   const u8 *buf, char top, size_t start_off,
                                   size_t len, NfaCallback cb, void *ctxt) {
     const struct mcclellan *m = (const struct mcclellan *)getImplNfa(nfa);
-    if (top) {
-        *(u8 *)state = m->start_anchored;
-    }
+
+    u8 s = top ? m->start_anchored : *(u8 *)state;
 
     if (m->flags & MCCLELLAN_FLAG_SINGLE) {
-        mcclellanExec8_i(m, (u8 *)state, buf + start_off, len - start_off,
+        mcclellanExec8_i(m, &s, buf + start_off, len - start_off,
                          start_off, cb, ctxt, 1, NULL, CALLBACK_OUTPUT);
     } else {
-        mcclellanExec8_i(m, (u8 *)state, buf + start_off, len - start_off,
+        mcclellanExec8_i(m, &s, buf + start_off, len - start_off,
                          start_off, cb, ctxt, 0, NULL, CALLBACK_OUTPUT);
     }
+
+    *(u8 *)state = s;
 }
 
 void nfaExecMcClellan16_SimpStream(const struct NFA *nfa, char *state,
                                    const u8 *buf, char top, size_t start_off,
                                    size_t len, NfaCallback cb, void *ctxt) {
     const struct mcclellan *m = (const struct mcclellan *)getImplNfa(nfa);
-    if (top) {
-        *(u16 *)state = m->start_anchored;
-    }
+
+    u16 s = top ? m->start_anchored : unaligned_load_u16(state);
 
     if (m->flags & MCCLELLAN_FLAG_SINGLE) {
-        mcclellanExec16_i(m, (u16 *)state, buf + start_off, len - start_off,
+        mcclellanExec16_i(m, &s, buf + start_off, len - start_off,
                          start_off, cb, ctxt, 1, NULL, CALLBACK_OUTPUT);
     } else {
-        mcclellanExec16_i(m, (u16 *)state, buf + start_off, len - start_off,
+        mcclellanExec16_i(m, &s, buf + start_off, len - start_off,
                          start_off, cb, ctxt, 0, NULL, CALLBACK_OUTPUT);
     }
+
+    unaligned_store_u16(state, s);
 }
 
 char nfaExecMcClellan8_testEOD(const struct NFA *nfa, const char *state,

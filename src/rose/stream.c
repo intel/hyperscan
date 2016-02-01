@@ -74,7 +74,7 @@ void runAnchoredTableStream(const struct RoseEngine *t, const void *atable,
                     goto next_nfa;
                 }
             } else {
-                if (!*(u16 *)state) {
+                if (!unaligned_load_u16(state)) {
                     goto next_nfa;
                 }
             }
