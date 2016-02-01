@@ -290,7 +290,7 @@ int roseAdaptor_i(u64a offset, ReportID id, struct hs_scratch *scratch,
 exit:
     if (halt) {
         DEBUG_PRINTF("callback requested to terminate matches\n");
-        ci->broken = BROKEN_FROM_USER;
+        ci->status |= STATUS_TERMINATED;
         return MO_HALT_MATCHING;
     }
 
@@ -354,7 +354,7 @@ int roseDeliverReport(u64a offset, ReportID id, struct hs_scratch *scratch,
                                 to_offset, flags, ci->userContext);
     if (halt) {
         DEBUG_PRINTF("callback requested to terminate matches\n");
-        ci->broken = BROKEN_FROM_USER;
+        ci->status |= STATUS_TERMINATED;
         return MO_HALT_MATCHING;
     }
 
@@ -455,7 +455,7 @@ int roseSomAdaptor_i(u64a from_offset, u64a to_offset, ReportID id,
 exit:
     if (halt) {
         DEBUG_PRINTF("callback requested to terminate matches\n");
-        ci->broken = BROKEN_FROM_USER;
+        ci->status |= STATUS_TERMINATED;
         return MO_HALT_MATCHING;
     }
 
@@ -515,7 +515,7 @@ int roseDeliverSomReport(u64a from_offset, u64a to_offset, ReportID id,
 
     if (halt) {
         DEBUG_PRINTF("callback requested to terminate matches\n");
-        ci->broken = BROKEN_FROM_USER;
+        ci->status |= STATUS_TERMINATED;
         return MO_HALT_MATCHING;
     }
 

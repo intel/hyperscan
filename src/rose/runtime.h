@@ -55,14 +55,6 @@
 
 #define rose_inline really_inline
 
-/** \brief Fetch runtime state ptr. */
-static really_inline
-struct RoseRuntimeState *getRuntimeState(char *state) {
-    struct RoseRuntimeState *rs = (struct RoseRuntimeState *)(state);
-    assert(ISALIGNED_N(rs, 8));
-    return rs;
-}
-
 static really_inline
 const void *getByOffset(const struct RoseEngine *t, u32 offset) {
     assert(offset < t->size);
@@ -71,7 +63,7 @@ const void *getByOffset(const struct RoseEngine *t, u32 offset) {
 
 static really_inline
 void *getRoleState(char *state) {
-    return state + sizeof(struct RoseRuntimeState);
+    return state + sizeof(u8); // status flags
 }
 
 /** \brief Fetch the active array for suffix nfas. */

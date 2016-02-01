@@ -487,7 +487,7 @@ int clearSomLog(struct hs_scratch *scratch, u64a offset, struct fatbit *log,
         int halt = ci->userCallback(onmatch, from_offset, offset, flags,
                                     ci->userContext);
         if (halt) {
-            ci->broken = BROKEN_FROM_USER;
+            ci->status |= STATUS_TERMINATED;
             return 1;
         }
     }

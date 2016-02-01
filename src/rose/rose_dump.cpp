@@ -865,7 +865,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
             t->historyRequired);
     fprintf(f, " - exhaustion vector : %u bytes\n", (t->ekeyCount + 7) / 8);
     fprintf(f, " - role state mmbit  : %u bytes\n", t->stateSize);
-    fprintf(f, " - runtime state     : %zu bytes\n", sizeof(RoseRuntimeState));
     fprintf(f, " - floating matcher  : %u bytes\n", t->floatingStreamState);
     fprintf(f, " - active array      : %u bytes\n",
             mmbit_size(t->activeArrayCount));

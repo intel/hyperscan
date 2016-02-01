@@ -211,9 +211,7 @@ hwlmcb_rv_t roseHaltIfExhausted(const struct RoseEngine *t,
                                 struct hs_scratch *scratch) {
     struct core_info *ci = &scratch->core_info;
     if (isAllExhausted(t, ci->exhaustionVector)) {
-        if (!ci->broken) {
-            ci->broken = BROKEN_EXHAUSTED;
-        }
+        ci->status |= STATUS_EXHAUSTED;
         scratch->tctxt.groups = 0;
         DEBUG_PRINTF("all exhausted, termination requested\n");
         return HWLM_TERMINATE_MATCHING;

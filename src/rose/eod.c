@@ -98,8 +98,7 @@ hwlmcb_rv_t roseEodRunMatcher(const struct RoseEngine *t, u64a offset,
     hwlmExec(etable, eod_data, eod_len, adj, roseCallback, tctxt, tctxt->groups);
 
     // We may need to fire delayed matches
-    u8 dummy_delay_mask = 0;
-    return cleanUpDelayed(0, offset, tctxt, &dummy_delay_mask);
+    return cleanUpDelayed(0, offset, scratch);
 }
 
 static rose_inline

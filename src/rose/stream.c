@@ -393,7 +393,7 @@ void roseSaveNfaStreamState(const struct RoseEngine *t, char *state,
 static rose_inline
 void ensureStreamNeatAndTidy(const struct RoseEngine *t, char *state,
                              struct hs_scratch *scratch, size_t length,
-                             u64a offset, u8 delay_rb_status) {
+                             u64a offset) {
     struct RoseContext *tctxt = &scratch->tctxt;
 
     if (roseCatchUpTo(t, state, length + scratch->core_info.buf_offset, scratch,
@@ -406,8 +406,6 @@ void ensureStreamNeatAndTidy(const struct RoseEngine *t, char *state,
     roseFlushLastByteHistory(t, state, offset + length, tctxt);
     tctxt->lastEndOffset = offset + length;
     storeGroups(t, state, tctxt->groups);
-    struct RoseRuntimeState *rstate = getRuntimeState(state);
-    rstate->flags = delay_rb_status;
 }
 
 static really_inline
@@ -417,6 +415,8 @@ void do_rebuild(const struct RoseEngine *t, const struct HWLM *ftable,
     size_t len = MIN(scratch->core_info.hlen, t->delayRebuildLength);
     const u8 *buf = scratch->core_info.hbuf + scratch->core_info.hlen - len;
     DEBUG_PRINTF("BEGIN FLOATING REBUILD over %zu bytes\n", len);
+
+    scratch->core_info.status &= ~STATUS_DELAY_DIRTY;
 
     hwlmExec(ftable, buf, len, 0, roseDelayRebuildCallback, scratch,
              scratch->tctxt.groups);
@@ -446,7 +446,6 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
     }
 
     char *state = scratch->core_info.state;
-    struct RoseRuntimeState *rstate = getRuntimeState(state);
 
     struct RoseContext *tctxt = &scratch->tctxt;
     tctxt->mpv_inactive = 0;
@@ -474,8 +473,6 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
     if (t->outfixBeginQueue != t->outfixEndQueue) {
         streamInitSufPQ(t, state, scratch);
     }
-
-    u8 delay_rb_status = rstate->flags;
 
     u32 alen = t->anchoredDistance > offset ?
         MIN(length + offset, t->anchoredDistance) - offset : 0;
@@ -507,12 +504,13 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
 
         size_t hlength = scratch->core_info.hlen;
 
-        char rebuild = hlength && (delay_rb_status & DELAY_FLOAT_DIRTY)
-            && (t->maxFloatingDelayedMatch == ROSE_BOUND_INF
-                || offset < t->maxFloatingDelayedMatch);
+        char rebuild = hlength &&
+                       (scratch->core_info.status & STATUS_DELAY_DIRTY) &&
+                       (t->maxFloatingDelayedMatch == ROSE_BOUND_INF ||
+                        offset < t->maxFloatingDelayedMatch);
         DEBUG_PRINTF("**rebuild %hhd status %hhu mfdm %u, offset %llu\n",
-                     rebuild, delay_rb_status, t->maxFloatingDelayedMatch,
-                     offset);
+                     rebuild, scratch->core_info.status,
+                     t->maxFloatingDelayedMatch, offset);
 
         if (!flen) {
             if (rebuild) { /* rebuild floating delayed match stuff */
@@ -552,17 +550,16 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
 
 flush_delay_and_exit:
     DEBUG_PRINTF("flushing floating\n");
-    if (cleanUpDelayed(length, offset, tctxt, &delay_rb_status)
-        == HWLM_TERMINATE_MATCHING) {
+    if (cleanUpDelayed(length, offset, scratch) == HWLM_TERMINATE_MATCHING) {
         return;
     }
 
 exit:
     DEBUG_PRINTF("CLEAN UP TIME\n");
     if (!can_stop_matching(scratch)) {
-        ensureStreamNeatAndTidy(t, state, scratch, length, offset,
-                                delay_rb_status);
+        ensureStreamNeatAndTidy(t, state, scratch, length, offset);
     }
-    DEBUG_PRINTF("DONE STREAMING SCAN, dirty = %hhu\n", delay_rb_status);
+    DEBUG_PRINTF("DONE STREAMING SCAN, status = %u\n",
+                 scratch->core_info.status);
     return;
 }

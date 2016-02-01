@@ -119,7 +119,8 @@ static really_inline
 void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
                       char *state, match_event_handler onEvent, void *userCtx,
                       const char *data, size_t length, const u8 *history,
-                      size_t hlen, u64a offset, UNUSED unsigned int flags) {
+                      size_t hlen, u64a offset, u8 status,
+                      UNUSED unsigned int flags) {
     assert(rose);
     s->core_info.userContext = userCtx;
     s->core_info.userCallback = onEvent ? onEvent : null_onEvent;
@@ -127,7 +128,7 @@ void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
     s->core_info.state = state; /* required for chained queues + evec */
 
     s->core_info.exhaustionVector = state + rose->stateOffsets.exhausted;
-    s->core_info.broken = NOT_BROKEN;
+    s->core_info.status = status;
     s->core_info.buf = (const u8 *)data;
     s->core_info.len = length;
     s->core_info.hbuf = history;
@@ -140,33 +141,22 @@ void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
     s->deduper.som_log_dirty = 1; /* som logs have not been cleared */
 }
 
-/** \brief Query whether this stream is broken.
- *
- * A broken stream is one on which scanning has stopped, either because the
- * user has told us to (via the return value from a match callback) or because
- * we have exhausted all reports.
- *
- * \return NOT_BROKEN, BROKEN_FROM_USER or BROKEN_EXHAUSTED.
- */
+#define STATUS_VALID_BITS                                                      \
+    (STATUS_TERMINATED | STATUS_EXHAUSTED | STATUS_DELAY_DIRTY)
+
+/** \brief Retrieve status bitmask from stream state. */
 static really_inline
-u8 getBroken(const char *state) {
-    const struct RoseRuntimeState *ts = (const void *)state;
-    assert(ts->broken == NOT_BROKEN || ts->broken == BROKEN_FROM_USER
-           || ts->broken == BROKEN_EXHAUSTED);
-    return ts->broken;
+u8 getStreamStatus(const char *state) {
+    u8 status = *(const u8 *)state;
+    assert((status & ~STATUS_VALID_BITS) == 0);
+    return status;
 }
 
-/** \brief Mark this stream with the given broken flag.
- *
- * Possible values: NOT_BROKEN, BROKEN_FROM_USER, BROKEN_EXHAUSTED.
- */
+/** \brief Store status bitmask to stream state. */
 static really_inline
-void setBroken(char *state, u8 broken) {
-    DEBUG_PRINTF("set broken=%d\n", broken);
-    assert(broken == NOT_BROKEN || broken == BROKEN_FROM_USER
-           || broken == BROKEN_EXHAUSTED);
-    struct RoseRuntimeState *ts = (void *)state;
-    ts->broken = broken;
+void setStreamStatus(char *state, u8 status) {
+    assert((status & ~STATUS_VALID_BITS) == 0);
+    *(u8 *)state = status;
 }
 
 static really_inline
@@ -585,7 +575,7 @@ hs_error_t hs_scan(const hs_database_t *db, const char *data, unsigned length,
 
     /* populate core info in scratch */
     populateCoreInfo(scratch, rose, scratch->bstate, onEvent, userCtx, data,
-                     length, NULL, 0, 0, flags);
+                     length, NULL, 0, 0, 0, flags);
 
     clearEvec(scratch->core_info.exhaustionVector, rose);
 
@@ -707,6 +697,7 @@ void init_stream(struct hs_stream *s, const struct RoseEngine *rose) {
 
     char *state = getMultiState(s);
 
+    setStreamStatus(state, 0);
     roseInitState(rose, state);
 
     clearEvec((char *)state + rose->stateOffsets.exhausted, rose);
@@ -754,11 +745,9 @@ hs_error_t hs_open_stream(const hs_database_t *db, UNUSED unsigned flags,
 static really_inline
 void rawEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
     const struct RoseEngine *rose = id->rose;
-    u8 broken = scratch->core_info.broken;
 
-    if (broken) {
+    if (can_stop_matching(scratch)) {
         DEBUG_PRINTF("stream already broken\n");
-        assert(broken == BROKEN_FROM_USER || broken == BROKEN_EXHAUSTED);
         return;
     }
 
@@ -774,11 +763,9 @@ void rawEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
 static never_inline
 void soleOutfixEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
     const struct RoseEngine *t = id->rose;
-    u8 broken = scratch->core_info.broken;
 
-    if (broken) {
+    if (can_stop_matching(scratch)) {
         DEBUG_PRINTF("stream already broken\n");
-        assert(broken == BROKEN_FROM_USER || broken == BROKEN_EXHAUSTED);
         return;
     }
 
@@ -817,15 +804,16 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
 
     const struct RoseEngine *rose = id->rose;
     char *state = getMultiState(id);
+    u8 status = getStreamStatus(state);
 
-    if (getBroken(state)) {
+    if (status == STATUS_TERMINATED || status == STATUS_EXHAUSTED) {
         DEBUG_PRINTF("stream is broken, just freeing storage\n");
         return;
     }
 
     populateCoreInfo(scratch, rose, state, onEvent, context, NULL, 0,
                      getHistory(state, rose, id->offset),
-                     getHistoryAmount(rose, id->offset), id->offset, 0);
+                     getHistoryAmount(rose, id->offset), id->offset, status, 0);
 
     if (rose->somLocationCount) {
         loadSomFromStream(scratch, id->offset);
@@ -861,8 +849,7 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
         int halt = flushStoredSomMatches(scratch, ~0ULL);
         if (halt) {
             DEBUG_PRINTF("told to stop matching\n");
-            scratch->core_info.broken = BROKEN_FROM_USER;
-            DEBUG_PRINTF("broken = %hhd\n", scratch->core_info.broken);
+            scratch->core_info.status |= STATUS_TERMINATED;
         }
     }
 }
@@ -931,8 +918,7 @@ static really_inline
 void rawStreamExec(struct hs_stream *stream_state, struct hs_scratch *scratch) {
     assert(stream_state);
     assert(scratch);
-
-    assert(!getBroken(getMultiState(stream_state)));
+    assert(!can_stop_matching(scratch));
 
     DEBUG_PRINTF("::: streaming rose ::: offset = %llu len = %zu\n",
                  stream_state->offset, scratch->core_info.len);
@@ -944,7 +930,7 @@ void rawStreamExec(struct hs_stream *stream_state, struct hs_scratch *scratch) {
     if (!told_to_stop_matching(scratch) &&
         isAllExhausted(rose, scratch->core_info.exhaustionVector)) {
         DEBUG_PRINTF("stream exhausted\n");
-        scratch->core_info.broken = BROKEN_EXHAUSTED;
+        scratch->core_info.status = STATUS_EXHAUSTED;
     }
 }
 
@@ -953,9 +939,9 @@ void pureLiteralStreamExec(struct hs_stream *stream_state,
                            struct hs_scratch *scratch) {
     assert(stream_state);
     assert(scratch);
+    assert(!can_stop_matching(scratch));
 
     char *state = getMultiState(stream_state);
-    assert(!getBroken(state));
 
     const struct RoseEngine *rose = stream_state->rose;
     const struct HWLM *ftable = getFLiteralMatcher(rose);
@@ -982,7 +968,7 @@ void pureLiteralStreamExec(struct hs_stream *stream_state,
     if (!told_to_stop_matching(scratch) &&
         isAllExhausted(rose, scratch->core_info.exhaustionVector)) {
         DEBUG_PRINTF("stream exhausted\n");
-        scratch->core_info.broken = BROKEN_EXHAUSTED;
+        scratch->core_info.status |= STATUS_EXHAUSTED;
     }
 }
 
@@ -991,6 +977,7 @@ void soleOutfixStreamExec(struct hs_stream *stream_state,
                           struct hs_scratch *scratch) {
     assert(stream_state);
     assert(scratch);
+    assert(!can_stop_matching(scratch));
 
     const struct RoseEngine *t = stream_state->rose;
     assert(t->outfixEndQueue == 1);
@@ -1017,7 +1004,7 @@ void soleOutfixStreamExec(struct hs_stream *stream_state,
     if (nfaQueueExec(q->nfa, q, scratch->core_info.len)) {
         nfaQueueCompressState(nfa, q, scratch->core_info.len);
     } else if (!told_to_stop_matching(scratch)) {
-        scratch->core_info.broken = BROKEN_EXHAUSTED;
+        scratch->core_info.status |= STATUS_EXHAUSTED;
     }
 }
 
@@ -1033,13 +1020,12 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
     const struct RoseEngine *rose = id->rose;
     char *state = getMultiState(id);
 
-    u8 broken = getBroken(state);
-    if (broken) {
+    u8 status = getStreamStatus(state);
+    if (status & (STATUS_TERMINATED | STATUS_EXHAUSTED)) {
         DEBUG_PRINTF("stream is broken, halting scan\n");
-        if (broken == BROKEN_FROM_USER) {
+        if (status & STATUS_TERMINATED) {
             return HS_SCAN_TERMINATED;
         } else {
-            assert(broken == BROKEN_EXHAUSTED);
             return HS_SUCCESS;
         }
     }
@@ -1049,14 +1035,13 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
     // cases here.
     if (unlikely(length == 0)) {
         DEBUG_PRINTF("zero length block\n");
-        assert(getBroken(state) != BROKEN_FROM_USER);
         return HS_SUCCESS;
     }
 
     u32 historyAmount = getHistoryAmount(rose, id->offset);
     populateCoreInfo(scratch, rose, state, onEvent, context, data, length,
                      getHistory(state, rose, id->offset), historyAmount,
-                     id->offset, flags);
+                     id->offset, status, flags);
     assert(scratch->core_info.hlen <= id->offset
            && scratch->core_info.hlen <= rose->historyRequired);
 
@@ -1069,14 +1054,13 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
     if (!id->offset && rose->boundary.reportZeroOffset) {
         DEBUG_PRINTF("zero reports\n");
         processReportList(rose, rose->boundary.reportZeroOffset, 0, scratch);
-        broken = scratch->core_info.broken;
-        if (unlikely(broken)) {
+        if (unlikely(can_stop_matching(scratch))) {
             DEBUG_PRINTF("stream is broken, halting scan\n");
-            setBroken(state, broken);
-            if (broken == BROKEN_FROM_USER) {
+            setStreamStatus(state, scratch->core_info.status);
+            if (told_to_stop_matching(scratch)) {
                 return HS_SCAN_TERMINATED;
             } else {
-                assert(broken == BROKEN_EXHAUSTED);
+                assert(scratch->core_info.status & STATUS_EXHAUSTED);
                 return HS_SUCCESS;
             }
         }
@@ -1098,22 +1082,21 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
     if (rose->hasSom && !told_to_stop_matching(scratch)) {
         int halt = flushStoredSomMatches(scratch, ~0ULL);
         if (halt) {
-            scratch->core_info.broken = BROKEN_FROM_USER;
+            scratch->core_info.status |= STATUS_TERMINATED;
         }
     }
 
+    setStreamStatus(state, scratch->core_info.status);
+
     if (likely(!can_stop_matching(scratch))) {
-        maintainHistoryBuffer(id->rose, getMultiState(id), data, length);
+        maintainHistoryBuffer(rose, state, data, length);
         id->offset += length; /* maintain offset */
 
         if (rose->somLocationCount) {
             storeSomToStream(scratch, id->offset);
         }
     } else if (told_to_stop_matching(scratch)) {
-        setBroken(state, BROKEN_FROM_USER);
         return HS_SCAN_TERMINATED;
-    } else { /* exhausted */
-        setBroken(state, BROKEN_EXHAUSTED);
     }
 
     return HS_SUCCESS;

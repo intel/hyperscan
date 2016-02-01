@@ -48,8 +48,6 @@ typedef u64a rose_group;
 #define MAX_DELAY                   (DELAY_SLOT_COUNT - 1)
 #define DELAY_MASK                  (DELAY_SLOT_COUNT - 1)
 
-#define DELAY_FLOAT_DIRTY      (1U << 7) /* delay literal matched in history */
-
 // Direct report stuff
 #define LITERAL_DR_FLAG   (1U << 31)
 #define LITERAL_MDR_FLAG  ((1U << 30) | (1U << 31))
@@ -214,7 +212,7 @@ struct NfaInfo {
  *
  * State not covered by this structure includes:
  *
- * -# the RoseRuntimeState structure
+ * -# the first byte, containing the status bitmask
  * -# the role state multibit
  */
 struct RoseStateOffsets {
@@ -474,12 +472,6 @@ struct RoseEngine {
     u32 floatingStreamState; // size in bytes
 
     struct scatter_full_plan state_init;
-};
-
-// Rose runtime state
-struct RoseRuntimeState {
-    u8 flags; /* high bit true if delay rebuild needed */
-    u8 broken; /* user has requested that we stop matching */
 };
 
 struct ALIGN_CL_DIRECTIVE anchored_matcher_info {

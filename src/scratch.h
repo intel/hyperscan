@@ -70,17 +70,16 @@ struct catchup_pq {
     u32 qm_size; /**< current size of the priority queue */
 };
 
+/** \brief Status flag: user requested termination. */
+#define STATUS_TERMINATED   (1U << 0)
 
-/** \brief Value indicating a stream is active (not broken). */
-#define NOT_BROKEN       0
+/** \brief Status flag: all possible matches on this stream have
+ * been raised (i.e. all its exhaustion keys are on.) */
+#define STATUS_EXHAUSTED    (1U << 1)
 
-/** \brief Value indicating that the user has requested that matching be
- * terminated. */
-#define BROKEN_FROM_USER 1
-
-/** \brief Value indicating that all possible matches on this stream have been
- * raised (i.e. all its exhaustion keys are on.) */
-#define BROKEN_EXHAUSTED 2
+/** \brief Status flag: Rose requires rebuild as delay literal matched in
+ * history. */
+#define STATUS_DELAY_DIRTY  (1U << 2)
 
 /** \brief Core information about the current scan, used everywhere. */
 struct core_info {
@@ -93,12 +92,12 @@ struct core_info {
     const struct RoseEngine *rose;
     char *state; /**< full stream state */
     char *exhaustionVector; /**< pointer to evec for this stream */
-    char broken;  /**< user told us to stop, or exhausted */
     const u8 *buf; /**< main scan buffer */
     size_t len; /**< length of main scan buffer in bytes */
     const u8 *hbuf; /**< history buffer */
     size_t hlen; /**< length of history buffer in bytes. */
     u64a buf_offset; /**< stream offset, for the base of the buffer */
+    u8 status; /**< stream status bitmask, using STATUS_ flags above */
 };
 
 /** \brief Rose state information. */
@@ -213,12 +212,12 @@ struct fatbit **getDelaySlots(struct hs_scratch *scratch) {
 
 static really_inline
 char told_to_stop_matching(const struct hs_scratch *scratch) {
-    return scratch->core_info.broken == BROKEN_FROM_USER;
+    return scratch->core_info.status & STATUS_TERMINATED;
 }
 
 static really_inline
 char can_stop_matching(const struct hs_scratch *scratch) {
-    return scratch->core_info.broken != NOT_BROKEN;
+    return scratch->core_info.status & (STATUS_TERMINATED | STATUS_EXHAUSTED);
 }
 
 #ifdef __cplusplus

@@ -561,9 +561,9 @@ void fillStateOffsets(const RoseBuildImpl &tbi, u32 rolesWithStateCount,
                       RoseStateOffsets *so) {
     u32 curr_offset = 0;
 
-    // First, runtime state (stores per-stream state, like whether we need a
+    // First, runtime status (stores per-stream state, like whether we need a
     // delay rebuild or have been told to halt matching.)
-    curr_offset += sizeof(RoseRuntimeState);
+    curr_offset += sizeof(u8);
 
     // Role state storage.
     curr_offset += mmbit_size(rolesWithStateCount);
@@ -4433,7 +4433,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                      &stateOffsets);
 
     scatter_plan_raw state_scatter;
-    buildStateScatterPlan(sizeof(RoseRuntimeState), bc.numStates,
+    buildStateScatterPlan(sizeof(u8), bc.numStates,
                           activeLeftCount, rosePrefixCount, stateOffsets,
                           cc.streaming, activeArrayCount, outfixBeginQueue,
                           outfixEndQueue, &state_scatter);

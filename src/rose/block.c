@@ -258,9 +258,7 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
     }
 
 exit:;
-    u8 dummy_delay_mask = 0;
-    if (cleanUpDelayed(length, 0, tctxt, &dummy_delay_mask)
-        == HWLM_TERMINATE_MATCHING) {
+    if (cleanUpDelayed(length, 0, scratch) == HWLM_TERMINATE_MATCHING) {
         return;
     }
 

@@ -237,12 +237,13 @@ hwlmcb_rv_t flushQueuedLiterals(struct RoseContext *tctxt, u64a end) {
 }
 
 static really_inline
-hwlmcb_rv_t cleanUpDelayed(size_t length, u64a offset, struct RoseContext *tctxt,
-                           u8 *status) {
-    if (can_stop_matching(tctxtToScratch(tctxt))) {
+hwlmcb_rv_t cleanUpDelayed(size_t length, u64a offset,
+                           struct hs_scratch *scratch) {
+    if (can_stop_matching(scratch)) {
         return HWLM_TERMINATE_MATCHING;
     }
 
+    struct RoseContext *tctxt = &scratch->tctxt;
     if (flushQueuedLiterals(tctxt, length + offset)
         == HWLM_TERMINATE_MATCHING) {
         return HWLM_TERMINATE_MATCHING;
@@ -250,9 +251,9 @@ hwlmcb_rv_t cleanUpDelayed(size_t length, u64a offset, struct RoseContext *tctxt
 
     if (tctxt->filledDelayedSlots) {
         DEBUG_PRINTF("dirty\n");
-        *status |= DELAY_FLOAT_DIRTY;
+        scratch->core_info.status |= STATUS_DELAY_DIRTY;
     } else {
-        *status &= ~DELAY_FLOAT_DIRTY;
+        scratch->core_info.status &= ~STATUS_DELAY_DIRTY;
     }
 
     tctxt->filledDelayedSlots = 0;
