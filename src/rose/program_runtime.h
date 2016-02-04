@@ -114,21 +114,22 @@ int roseCheckBenefits(const struct core_info *ci, u64a end, u32 mask_rewind,
 }
 
 static rose_inline
-void rosePushDelayedMatch(const struct RoseEngine *t, u32 delay,
-                          u32 delay_index, u64a offset,
-                          struct RoseContext *tctxt) {
+void rosePushDelayedMatch(const struct RoseEngine *t,
+                          struct hs_scratch *scratch, u32 delay,
+                          u32 delay_index, u64a offset) {
     assert(delay);
 
     const u32 src_slot_index = delay;
     u32 slot_index = (src_slot_index + offset) & DELAY_MASK;
 
+    struct RoseContext *tctxt = &scratch->tctxt;
     if (offset + src_slot_index <= tctxt->delayLastEndOffset) {
         DEBUG_PRINTF("skip too late\n");
         return;
     }
 
     const u32 delay_count = t->delay_count;
-    struct fatbit **delaySlots = getDelaySlots(tctxtToScratch(tctxt));
+    struct fatbit **delaySlots = getDelaySlots(scratch);
     struct fatbit *slot = delaySlots[slot_index];
 
     DEBUG_PRINTF("pushing tab %u into slot %u\n", delay_index, slot_index);
@@ -248,16 +249,15 @@ hwlmcb_rv_t ensureQueueFlushed_i(const struct RoseEngine *t,
             if (loc + scratch->core_info.buf_offset
                 <= tctxt->minNonMpvMatchOffset) {
                 DEBUG_PRINTF("flushing chained\n");
-                if (roseCatchUpMPV(t, scratch->core_info.state, loc,
-                                   scratch) == HWLM_TERMINATE_MATCHING) {
+                if (roseCatchUpMPV(t, loc, scratch) ==
+                    HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
                 goto done_queue_empty;
             }
         }
 
-        if (roseCatchUpTo(t, scratch->core_info.state,
-                          loc + scratch->core_info.buf_offset, scratch,
+        if (roseCatchUpTo(t, scratch, loc + scratch->core_info.buf_offset,
                           in_anchored) == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
         }
@@ -266,14 +266,13 @@ hwlmcb_rv_t ensureQueueFlushed_i(const struct RoseEngine *t,
         assert(is_mpv);
         DEBUG_PRINTF("flushing chained\n");
         tctxt->next_mpv_offset = 0; /* force us to catch the mpv */
-        if (roseCatchUpMPV(t, scratch->core_info.state, loc, scratch)
-            == HWLM_TERMINATE_MATCHING) {
+        if (roseCatchUpMPV(t, loc, scratch) == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
         }
     }
 done_queue_empty:
     if (!mmbit_set(aa, aaCount, qi)) {
-        initQueue(q, qi, t, tctxt);
+        initQueue(q, qi, t, scratch);
         nfaQueueInitState(q->nfa, q);
         pushQueueAt(q, 0, MQE_START, loc);
         fatbit_set(activeQueues, qCount, qi);
@@ -292,26 +291,24 @@ hwlmcb_rv_t ensureQueueFlushed(const struct RoseEngine *t,
 }
 
 static rose_inline
-hwlmcb_rv_t roseHandleSuffixTrigger(const struct RoseEngine *t,
-                                    u32 qi, u32 top, u64a som,
-                                    u64a end, struct RoseContext *tctxt,
-                                    char in_anchored) {
+hwlmcb_rv_t roseTriggerSuffix(const struct RoseEngine *t,
+                              struct hs_scratch *scratch, u32 qi, u32 top,
+                              u64a som, u64a end, char in_anchored) {
     DEBUG_PRINTF("suffix qi=%u, top event=%u\n", qi, top);
 
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
-    u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
+    struct core_info *ci = &scratch->core_info;
+    u8 *aa = getActiveLeafArray(t, ci->state);
     const u32 aaCount = t->activeArrayCount;
     const u32 qCount = t->queueCount;
     struct mq *q = &scratch->queues[qi];
     const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
     const struct NFA *nfa = getNfaByInfo(t, info);
 
-    struct core_info *ci = &scratch->core_info;
     s64a loc = (s64a)end - ci->buf_offset;
     assert(loc <= (s64a)ci->len && loc >= -(s64a)ci->hlen);
 
     if (!mmbit_set(aa, aaCount, qi)) {
-        initQueue(q, qi, t, tctxt);
+        initQueue(q, qi, t, scratch);
         nfaQueueInitState(nfa, q);
         pushQueueAt(q, 0, MQE_START, loc);
         fatbit_set(scratch->aqa, qCount, qi);
@@ -320,7 +317,7 @@ hwlmcb_rv_t roseHandleSuffixTrigger(const struct RoseEngine *t,
         /* nfa only needs one top; we can go home now */
         return HWLM_CONTINUE_MATCHING;
     } else if (!fatbit_set(scratch->aqa, qCount, qi)) {
-        initQueue(q, qi, t, tctxt);
+        initQueue(q, qi, t, scratch);
         loadStreamState(nfa, q, 0);
         pushQueueAt(q, 0, MQE_START, 0);
     } else if (isQueueFull(q)) {
@@ -359,10 +356,8 @@ hwlmcb_rv_t roseHandleSuffixTrigger(const struct RoseEngine *t,
 }
 
 static really_inline
-char roseTestLeftfix(const struct RoseEngine *t, u32 qi, u32 leftfixLag,
-                     ReportID leftfixReport, u64a end,
-                     struct RoseContext *tctxt) {
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
+                     u32 qi, u32 leftfixLag, ReportID leftfixReport, u64a end) {
     struct core_info *ci = &scratch->core_info;
 
     u32 ri = queueToLeftIndex(t, qi);
@@ -400,7 +395,7 @@ char roseTestLeftfix(const struct RoseEngine *t, u32 qi, u32 leftfixLag,
 
     if (!fatbit_set(scratch->aqa, qCount, qi)) {
         DEBUG_PRINTF("initing q %u\n", qi);
-        initRoseQueue(t, qi, left, tctxt);
+        initRoseQueue(t, qi, left, scratch);
         if (ci->buf_offset) { // there have been writes before us!
             s32 sp;
             if (left->transient) {
@@ -470,7 +465,7 @@ char roseTestLeftfix(const struct RoseEngine *t, u32 qi, u32 leftfixLag,
             DEBUG_PRINTF("leftfix %u died while trying to catch up\n", ri);
             mmbit_unset(activeLeftArray, arCount, ri);
             assert(!mmbit_isset(activeLeftArray, arCount, ri));
-            tctxt->groups &= left->squash_mask;
+            scratch->tctxt.groups &= left->squash_mask;
             return 0;
         }
 
@@ -490,9 +485,9 @@ char roseTestLeftfix(const struct RoseEngine *t, u32 qi, u32 leftfixLag,
 }
 
 static rose_inline
-void roseTriggerInfix(const struct RoseEngine *t, u64a start, u64a end, u32 qi,
-                      u32 topEvent, u8 cancel, struct RoseContext *tctxt) {
-    struct core_info *ci = &tctxtToScratch(tctxt)->core_info;
+void roseTriggerInfix(const struct RoseEngine *t, struct hs_scratch *scratch,
+                      u64a start, u64a end, u32 qi, u32 topEvent, u8 cancel) {
+    struct core_info *ci = &scratch->core_info;
     s64a loc = (s64a)end - ci->buf_offset;
 
     u32 ri = queueToLeftIndex(t, qi);
@@ -503,11 +498,10 @@ void roseTriggerInfix(const struct RoseEngine *t, u64a start, u64a end, u32 qi,
 
     DEBUG_PRINTF("rose %u (qi=%u) event %u\n", ri, qi, topEvent);
 
-    struct mq *q = tctxtToScratch(tctxt)->queues + qi;
+    struct mq *q = scratch->queues + qi;
     const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
 
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
-    char *state = scratch->core_info.state;
+    char *state = ci->state;
     u8 *activeLeftArray = getActiveLeftArray(t, state);
     const u32 arCount = t->activeLeftCount;
     char alive = mmbit_set(activeLeftArray, arCount, ri);
@@ -529,12 +523,12 @@ void roseTriggerInfix(const struct RoseEngine *t, u64a start, u64a end, u32 qi,
     if (cancel) {
         DEBUG_PRINTF("dominating top: (re)init\n");
         fatbit_set(aqa, qCount, qi);
-        initRoseQueue(t, qi, left, tctxt);
+        initRoseQueue(t, qi, left, scratch);
         pushQueueAt(q, 0, MQE_START, loc);
         nfaQueueInitState(q->nfa, q);
     } else if (!fatbit_set(aqa, qCount, qi)) {
         DEBUG_PRINTF("initing %u\n", qi);
-        initRoseQueue(t, qi, left, tctxt);
+        initRoseQueue(t, qi, left, scratch);
         if (alive) {
             s32 sp = -(s32)loadRoseDelay(t, state, left);
             pushQueueAt(q, 0, MQE_START, sp);
@@ -590,17 +584,15 @@ hwlmcb_rv_t roseReport(const struct RoseEngine *t, struct hs_scratch *scratch,
  * up */
 static rose_inline
 hwlmcb_rv_t roseCatchUpAndHandleChainMatch(const struct RoseEngine *t,
-                                           char *state, ReportID r, u64a end,
-                                           struct RoseContext *tctxt,
+                                           struct hs_scratch *scratch,
+                                           ReportID r, u64a end,
                                            char in_anchored) {
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
-
-    if (roseCatchUpMpvFeeders(t, state, end, scratch, in_anchored)
-        == HWLM_TERMINATE_MATCHING) {
+    if (roseCatchUpMpvFeeders(t, scratch, end, in_anchored) ==
+        HWLM_TERMINATE_MATCHING) {
         return HWLM_TERMINATE_MATCHING;
     }
 
-    return roseHandleChainMatch(t, r, end, tctxt, in_anchored, 0);
+    return roseHandleChainMatch(t, scratch, r, end, in_anchored, 0);
 }
 
 static really_inline
@@ -667,13 +659,13 @@ int reachHasBit(const u8 *reach, u8 c) {
  * are satisfied.
  */
 static rose_inline
-int roseCheckLookaround(const struct RoseEngine *t, u32 lookaroundIndex,
-                        u32 lookaroundCount, u64a end,
-                        struct RoseContext *tctxt) {
+int roseCheckLookaround(const struct RoseEngine *t,
+                        const struct hs_scratch *scratch, u32 lookaroundIndex,
+                        u32 lookaroundCount, u64a end) {
     assert(lookaroundIndex != MO_INVALID_IDX);
     assert(lookaroundCount > 0);
 
-    const struct core_info *ci = &tctxtToScratch(tctxt)->core_info;
+    const struct core_info *ci = &scratch->core_info;
     DEBUG_PRINTF("end=%llu, buf_offset=%llu, buf_end=%llu\n", end,
                  ci->buf_offset, ci->buf_offset + ci->len);
 
@@ -765,9 +757,8 @@ int roseNfaEarliestSom(u64a from_offset, UNUSED u64a offset, UNUSED ReportID id,
 }
 
 static rose_inline
-u64a roseGetHaigSom(const struct RoseEngine *t, const u32 qi,
-                    UNUSED const u32 leftfixLag,
-                    struct RoseContext *tctxt) {
+u64a roseGetHaigSom(const struct RoseEngine *t, struct hs_scratch *scratch,
+                    const u32 qi, UNUSED const u32 leftfixLag) {
     u32 ri = queueToLeftIndex(t, qi);
 
     UNUSED const struct LeftNfaInfo *left = getLeftTable(t) + ri;
@@ -778,7 +769,7 @@ u64a roseGetHaigSom(const struct RoseEngine *t, const u32 qi,
 
     assert(leftfixLag <= left->maxLag);
 
-    struct mq *q = tctxtToScratch(tctxt)->queues + qi;
+    struct mq *q = scratch->queues + qi;
 
     u64a start = ~0ULL;
 
@@ -816,9 +807,9 @@ char roseCheckBounds(u64a end, u64a min_bound, u64a max_bound) {
     }
 
 static rose_inline
-hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
-                           u64a end, size_t match_len,
-                           struct RoseContext *tctxt, char in_anchored) {
+hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
+                           struct hs_scratch *scratch, u32 programOffset,
+                           u64a end, size_t match_len, char in_anchored) {
     DEBUG_PRINTF("program begins at offset %u\n", programOffset);
 
     assert(programOffset);
@@ -837,7 +828,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
     // allow the program to squash groups).
     int work_done = 0;
 
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    struct RoseContext *tctxt = &scratch->tctxt;
 
     assert(*(const u8 *)pc != ROSE_INSTR_END);
 
@@ -922,7 +913,8 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_LOOKAROUND) {
-                if (!roseCheckLookaround(t, ri->index, ri->count, end, tctxt)) {
+                if (!roseCheckLookaround(t, scratch, ri->index, ri->count,
+                                         end)) {
                     DEBUG_PRINTF("failed lookaround check\n");
                     assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
@@ -932,9 +924,9 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_LEFTFIX) {
-                if (!roseTestLeftfix(t, ri->queue, ri->lag, ri->report, end,
-                                     tctxt)) {
-                    DEBUG_PRINTF("failed lookaround check\n");
+                if (!roseTestLeftfix(t, scratch, ri->queue, ri->lag, ri->report,
+                                     end)) {
+                    DEBUG_PRINTF("failed leftfix check\n");
                     assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
                     continue;
@@ -943,13 +935,13 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(PUSH_DELAYED) {
-                rosePushDelayedMatch(t, ri->delay, ri->index, end, tctxt);
+                rosePushDelayedMatch(t, scratch, ri->delay, ri->index, end);
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CATCH_UP) {
-                if (roseCatchUpTo(t, scratch->core_info.state, end, scratch,
-                                  in_anchored) == HWLM_TERMINATE_MATCHING) {
+                if (roseCatchUpTo(t, scratch, end, in_anchored) ==
+                    HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
             }
@@ -963,7 +955,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(SOM_LEFTFIX) {
-                som = roseGetHaigSom(t, ri->queue, ri->lag, tctxt);
+                som = roseGetHaigSom(t, scratch, ri->queue, ri->lag);
                 DEBUG_PRINTF("som from leftfix is %llu\n", som);
             }
             PROGRAM_NEXT_INSTRUCTION
@@ -983,16 +975,16 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(TRIGGER_INFIX) {
-                roseTriggerInfix(t, som, end, ri->queue, ri->event, ri->cancel,
-                                 tctxt);
+                roseTriggerInfix(t, scratch, som, end, ri->queue, ri->event,
+                                 ri->cancel);
                 work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(TRIGGER_SUFFIX) {
-                if (roseHandleSuffixTrigger(t, ri->queue, ri->event, som, end,
-                                            tctxt, in_anchored) ==
-                    HWLM_TERMINATE_MATCHING) {
+                if (roseTriggerSuffix(t, scratch, ri->queue, ri->event, som,
+                                      end, in_anchored)
+                        == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
                 work_done = 1;
@@ -1037,9 +1029,9 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t, u32 programOffset,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_CHAIN) {
-                if (roseCatchUpAndHandleChainMatch(
-                        t, scratch->core_info.state, ri->report, end,
-                        tctxt, in_anchored) == HWLM_TERMINATE_MATCHING) {
+                if (roseCatchUpAndHandleChainMatch(t, scratch, ri->report, end,
+                                                   in_anchored) ==
+                    HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
                 work_done = 1;

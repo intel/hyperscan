@@ -77,14 +77,13 @@ void resetAnchoredLog(const struct RoseEngine *t, struct hs_scratch *scratch) {
                  tctxt->curr_row_offset);
 }
 
-hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t, ReportID r,
-                                 u64a end, struct RoseContext *tctxt,
-                                 char in_anchored, char in_catchup);
+hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
+                                 struct hs_scratch *scratch, ReportID r,
+                                 u64a end, char in_anchored, char in_catchup);
 
 static really_inline
 void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
-               struct RoseContext *tctxt) {
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+               struct hs_scratch *scratch) {
     const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
     assert(scratch->fullState);
     q->nfa = getNfaByInfo(t, info);
@@ -103,7 +102,7 @@ void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
         q->cb = roseNfaAdaptor;
     }
     q->som_cb = roseNfaSomAdaptor;
-    q->context = tctxt;
+    q->context = &scratch->tctxt;
     q->report_current = 0;
 
     DEBUG_PRINTF("qi=%u, offset=%llu, fullState=%u, streamState=%u, "
@@ -114,8 +113,7 @@ void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
 static really_inline
 void initRoseQueue(const struct RoseEngine *t, u32 qi,
                    const struct LeftNfaInfo *left,
-                   struct RoseContext *tctxt) {
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+                   struct hs_scratch *scratch) {
     struct mq *q = scratch->queues + qi;
     const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
     q->nfa = getNfaByInfo(t, info);
@@ -219,36 +217,41 @@ char isZombie(const struct RoseEngine *t, const char *state,
     return leftfixDelay[di] == OWB_ZOMBIE_ALWAYS_YES;
 }
 
-hwlmcb_rv_t flushQueuedLiterals_i(struct RoseContext *tctxt, u64a end);
+hwlmcb_rv_t flushQueuedLiterals_i(const struct RoseEngine *t,
+                                  struct hs_scratch *scratch, u64a end);
 
 static really_inline
-hwlmcb_rv_t flushQueuedLiterals(struct RoseContext *tctxt, u64a end) {
+hwlmcb_rv_t flushQueuedLiterals(const struct RoseEngine *t,
+                                struct hs_scratch *scratch, u64a end) {
+    struct RoseContext *tctxt = &scratch->tctxt;
+
     if (tctxt->delayLastEndOffset == end) {
         DEBUG_PRINTF("no progress, no flush\n");
         return HWLM_CONTINUE_MATCHING;
     }
 
-    if (!tctxt->filledDelayedSlots && !tctxtToScratch(tctxt)->al_log_sum) {
+    if (!tctxt->filledDelayedSlots && !scratch->al_log_sum) {
         tctxt->delayLastEndOffset = end;
         return HWLM_CONTINUE_MATCHING;
     }
 
-    return flushQueuedLiterals_i(tctxt, end);
+    return flushQueuedLiterals_i(t, scratch, end);
 }
 
 static really_inline
-hwlmcb_rv_t cleanUpDelayed(size_t length, u64a offset,
-                           struct hs_scratch *scratch) {
+hwlmcb_rv_t cleanUpDelayed(const struct RoseEngine *t,
+                           struct hs_scratch *scratch, size_t length,
+                           u64a offset) {
     if (can_stop_matching(scratch)) {
         return HWLM_TERMINATE_MATCHING;
     }
 
-    struct RoseContext *tctxt = &scratch->tctxt;
-    if (flushQueuedLiterals(tctxt, length + offset)
+    if (flushQueuedLiterals(t, scratch, length + offset)
         == HWLM_TERMINATE_MATCHING) {
         return HWLM_TERMINATE_MATCHING;
     }
 
+    struct RoseContext *tctxt = &scratch->tctxt;
     if (tctxt->filledDelayedSlots) {
         DEBUG_PRINTF("dirty\n");
         scratch->core_info.status |= STATUS_DELAY_DIRTY;
@@ -263,13 +266,13 @@ hwlmcb_rv_t cleanUpDelayed(size_t length, u64a offset,
 }
 
 static rose_inline
-void roseFlushLastByteHistory(const struct RoseEngine *t, char *state,
-                              u64a currEnd, struct RoseContext *tctxt) {
+void roseFlushLastByteHistory(const struct RoseEngine *t,
+                              struct hs_scratch *scratch, u64a currEnd) {
     if (!t->lastByteHistoryIterOffset) {
         return;
     }
 
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    struct RoseContext *tctxt = &scratch->tctxt;
     struct core_info *ci = &scratch->core_info;
 
     /* currEnd is last byte of string + 1 */
@@ -286,7 +289,7 @@ void roseFlushLastByteHistory(const struct RoseEngine *t, char *state,
     assert(ISALIGNED(it));
 
     const u32 numStates = t->rolesWithStateCount;
-    void *role_state = getRoleState(state);
+    void *role_state = getRoleState(scratch->core_info.state);
 
     struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
 

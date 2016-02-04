@@ -105,7 +105,6 @@ void init_outfixes_for_block(const struct RoseEngine *t,
         size_t len = nfaRevAccelCheck(nfa, scratch->core_info.buf,
                                       scratch->core_info.len);
         if (len) {
-            struct RoseContext *tctxt = &scratch->tctxt;
             u8 *activeArray = getActiveLeafArray(t, state);
             const u32 activeArraySize = t->activeArrayCount;
             const u32 qCount = t->queueCount;
@@ -114,7 +113,7 @@ void init_outfixes_for_block(const struct RoseEngine *t,
             fatbit_set(scratch->aqa, qCount, 0);
 
             struct mq *q = scratch->queues;
-            initQueue(q, 0, t, tctxt);
+            initQueue(q, 0, t, scratch);
             q->length = len; /* adjust for rev_accel */
             nfaQueueInitState(nfa, q);
             pushQueueAt(q, 0, MQE_START, 0);
@@ -258,11 +257,11 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
     }
 
 exit:;
-    if (cleanUpDelayed(length, 0, scratch) == HWLM_TERMINATE_MATCHING) {
+    if (cleanUpDelayed(t, scratch, length, 0) == HWLM_TERMINATE_MATCHING) {
         return;
     }
 
     assert(!can_stop_matching(scratch));
 
-    roseCatchUpTo(t, state, length, scratch, 0);
+    roseCatchUpTo(t, scratch, length, 0);
 }

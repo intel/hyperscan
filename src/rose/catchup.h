@@ -72,8 +72,7 @@ hwlmcb_rv_t roseCatchUpSuf(s64a loc, struct hs_scratch *scratch);
 /* will only catch mpv upto last reported external match */
 hwlmcb_rv_t roseCatchUpAnchoredAndSuf(s64a loc, struct hs_scratch *scratch);
 
-
-hwlmcb_rv_t roseCatchUpMPV_i(const struct RoseEngine *t, char *state, s64a loc,
+hwlmcb_rv_t roseCatchUpMPV_i(const struct RoseEngine *t, s64a loc,
                              struct hs_scratch *scratch);
 
 void blockInitSufPQ(const struct RoseEngine *t, char *state,
@@ -82,8 +81,8 @@ void streamInitSufPQ(const struct RoseEngine *t, char *state,
                      struct hs_scratch *scratch);
 
 static really_inline
-hwlmcb_rv_t roseCatchUpMPV(const struct RoseEngine *t, char *state,
-                           s64a loc, struct hs_scratch *scratch) {
+hwlmcb_rv_t roseCatchUpMPV(const struct RoseEngine *t, s64a loc,
+                           struct hs_scratch *scratch) {
     u64a cur_offset = loc + scratch->core_info.buf_offset;
     assert(cur_offset >= scratch->tctxt.minMatchOffset);
 
@@ -115,7 +114,7 @@ hwlmcb_rv_t roseCatchUpMPV(const struct RoseEngine *t, char *state,
 
     assert(t->outfixBeginQueue == 1); /* if it exists mpv is queue 0 */
 
-    u8 *aa = getActiveLeafArray(t, state);
+    u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
     u32 aaCount = t->activeArrayCount;
 
     if (!mmbit_isset(aa, aaCount, 0)){
@@ -126,7 +125,7 @@ hwlmcb_rv_t roseCatchUpMPV(const struct RoseEngine *t, char *state,
      * they may have events pushed on during this process which may be before
      * the catch up point */
 
-    return roseCatchUpMPV_i(t, state, loc, scratch);
+    return roseCatchUpMPV_i(t, loc, scratch);
 }
 
 static really_inline
@@ -140,8 +139,9 @@ u64a currentAnchoredEnd(const struct RoseEngine *t, struct RoseContext *tctxt) {
 
 /* catches up nfas, anchored matches and the mpv */
 static rose_inline
-hwlmcb_rv_t roseCatchUpTo(const struct RoseEngine *t, char *state, u64a end,
-                          struct hs_scratch *scratch, char in_anchored) {
+hwlmcb_rv_t roseCatchUpTo(const struct RoseEngine *t,
+                          struct hs_scratch *scratch, u64a end,
+                          char in_anchored) {
     /* no need to catch up if we are at the same offset as last time */
     if (end <= scratch->tctxt.minMatchOffset) {
         /* we must already be up to date */
@@ -149,11 +149,12 @@ hwlmcb_rv_t roseCatchUpTo(const struct RoseEngine *t, char *state, u64a end,
         return HWLM_CONTINUE_MATCHING;
     }
 
+    char *state = scratch->core_info.state;
     s64a loc = end - scratch->core_info.buf_offset;
 
     if (end <= scratch->tctxt.minNonMpvMatchOffset) {
         /* only need to catch up the mpv */
-        return roseCatchUpMPV(t, state, loc, scratch);
+        return roseCatchUpMPV(t, loc, scratch);
     }
 
     assert(scratch->tctxt.minMatchOffset >= scratch->core_info.buf_offset);
@@ -188,8 +189,8 @@ hwlmcb_rv_t roseCatchUpTo(const struct RoseEngine *t, char *state, u64a end,
  * and suf/outfixes. The MPV will be run only to intersperse matches in
  * the output match stream if external matches are raised. */
 static rose_inline
-hwlmcb_rv_t roseCatchUpMpvFeeders(const struct RoseEngine *t, char *state,
-                                  u64a end, struct hs_scratch *scratch,
+hwlmcb_rv_t roseCatchUpMpvFeeders(const struct RoseEngine *t,
+                                  struct hs_scratch *scratch, u64a end,
                                   char in_anchored) {
     /* no need to catch up if we are at the same offset as last time */
     if (end <= scratch->tctxt.minNonMpvMatchOffset) {
@@ -213,6 +214,7 @@ hwlmcb_rv_t roseCatchUpMpvFeeders(const struct RoseEngine *t, char *state,
 
         /* sadly, this branch rarely gets taken as the mpv itself is usually
          * alive. */
+        char *state = scratch->core_info.state;
         if (!mmbit_any(getActiveLeafArray(t, state), t->activeArrayCount)) {
             scratch->tctxt.minNonMpvMatchOffset = end;
             return HWLM_CONTINUE_MATCHING;

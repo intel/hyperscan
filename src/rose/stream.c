@@ -190,7 +190,7 @@ found_miracle:
                      miracle_loc);
         if (!q_active) {
             fatbit_set(scratch->aqa, qCount, qi);
-            initRoseQueue(t, qi, left, &scratch->tctxt);
+            initRoseQueue(t, qi, left, scratch);
         }
         q->cur = q->end = 0;
         pushQueueAt(q, 0, MQE_START, miracle_loc);
@@ -236,7 +236,7 @@ char roseCatchUpLeftfix(const struct RoseEngine *t, char *state,
     }
 
     if (!fatbit_set(scratch->aqa, qCount, qi)) {
-        initRoseQueue(t, qi, left, &scratch->tctxt);
+        initRoseQueue(t, qi, left, scratch);
 
         s32 sp;
         if (ci->buf_offset) {
@@ -396,14 +396,13 @@ void ensureStreamNeatAndTidy(const struct RoseEngine *t, char *state,
                              u64a offset) {
     struct RoseContext *tctxt = &scratch->tctxt;
 
-    if (roseCatchUpTo(t, state, length + scratch->core_info.buf_offset, scratch,
-                     0)
-        == HWLM_TERMINATE_MATCHING) {
+    if (roseCatchUpTo(t, scratch, length + scratch->core_info.buf_offset, 0) ==
+        HWLM_TERMINATE_MATCHING) {
         return; /* dead; no need to clean up state. */
     }
     roseSaveNfaStreamState(t, state, scratch);
     roseCatchUpLeftfixes(t, state, scratch);
-    roseFlushLastByteHistory(t, state, offset + length, tctxt);
+    roseFlushLastByteHistory(t, scratch, offset + length);
     tctxt->lastEndOffset = offset + length;
     storeGroups(t, state, tctxt->groups);
 }
@@ -550,7 +549,7 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
 
 flush_delay_and_exit:
     DEBUG_PRINTF("flushing floating\n");
-    if (cleanUpDelayed(length, offset, scratch) == HWLM_TERMINATE_MATCHING) {
+    if (cleanUpDelayed(t, scratch, length, offset) == HWLM_TERMINATE_MATCHING) {
         return;
     }
 
