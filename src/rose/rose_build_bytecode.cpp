@@ -3084,7 +3084,11 @@ void makeReport(RoseBuildImpl &build, const ReportID id, const bool has_som,
     switch (report.type) {
     case EXTERNAL_CALLBACK:
         if (!has_som) {
-            makeDedupe(id, report_block);
+            // Dedupe is only necessary if this report has a dkey, or if there
+            // are SOM reports to catch up.
+            if (build.rm.getDkey(report) != ~0U || build.hasSom) {
+                makeDedupe(id, report_block);
+            }
             if (report.ekey == INVALID_EKEY) {
                 report_block.emplace_back(ROSE_INSTR_REPORT);
                 report_block.back().u.report.report = id;
