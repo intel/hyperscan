@@ -3269,10 +3269,6 @@ void makeRoleInfixTriggers(RoseBuildImpl &build, build_context &bc,
     sort(begin(infix_program), end(infix_program));
     unique_copy(begin(infix_program), end(infix_program),
                 back_inserter(program));
-
-    // Groups may be cleared by an infix going quiet. Set groups immediately
-    // after infixes are triggered.
-    makeRoleGroups(g[u].groups, program);
 }
 
 static
@@ -3373,9 +3369,13 @@ vector<RoseInstruction> makeProgram(RoseBuildImpl &build, build_context &bc,
 
     makeRoleReports(build, bc, v, program);
     makeRoleInfixTriggers(build, bc, v, program);
+
+    // Note: SET_GROUPS instruction must be after infix triggers, as an infix
+    // going dead may switch off groups.
+    makeRoleGroups(g[v].groups, program);
+
     makeRoleSuffix(build, bc, v, program);
     makeRoleSetState(bc, v, program);
-    makeRoleGroups(g[v].groups, program);
 
     return program;
 }
