@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -79,11 +79,10 @@ aligned_unique_ptr<NFA> generate(NGHolder &g,
                         const CompileContext &cc);
 
 /**
- * \brief For a given graph, count the number of accel states it will have in
- * an implementation.
+ * \brief For a given graph, count the number of accelerable states it has.
  *
- * \return the number of accel states, or NFA_MAX_ACCEL_STATES + 1 if an
- * implementation would not be constructible.
+ * Note that this number may be greater than the number that are actually
+ * implementable.
  */
 u32 countAccelStates(NGHolder &h,
                      const ue2::unordered_map<NFAVertex, u32> &states,

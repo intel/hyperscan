@@ -2187,7 +2187,7 @@ u32 countAccelStates(NGHolder &h,
 
     if (!cc.grey.allowLimExNFA) {
         DEBUG_PRINTF("limex not allowed\n");
-        return NFA_MAX_ACCEL_STATES + 1;
+        return 0;
     }
 
     // Sanity check the input data.
@@ -2201,11 +2201,11 @@ u32 countAccelStates(NGHolder &h,
                   do_accel, state_compression, cc, num_states);
 
     // Acceleration analysis.
-    fillAccelInfo(bi);
+    nfaFindAccelSchemes(bi.h, bi.br_cyclic, &bi.accel.accel_map);
 
-    u32 num_accel = verify_u32(bi.accel.accelerable.size());
+    u32 num_accel = verify_u32(bi.accel.accel_map.size());
     DEBUG_PRINTF("found %u accel states\n", num_accel);
-    return min(num_accel, (u32)NFA_MAX_ACCEL_STATES);
+    return num_accel;
 }
 
 } // namespace ue2

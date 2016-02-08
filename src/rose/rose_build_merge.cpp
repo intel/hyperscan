@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -105,6 +105,10 @@ static const size_t DFA_MERGE_MAX_STATES = 8000;
  * merging with other graphs. */
 static const size_t LARGE_LBR_MIN_VERTICES = 32;
 
+/** \brief In block mode, merge two prefixes even if they don't have identical
+ * literal sets if they have fewer than this many states and the merged graph
+ * is also small. */
+static constexpr size_t MAX_BLOCK_PREFIX_MERGE_VERTICES = 32;
 
 static
 size_t small_merge_max_vertices(const CompileContext &cc) {
@@ -930,6 +934,99 @@ bool compatibleLiteralsForMerge(
     return true;
 }
 
+/**
+ * True if this graph has few enough accel states to be implemented as an NFA
+ * with all of those states actually becoming accel schemes.
+ */
+static
+bool isAccelerableLeftfix(const RoseBuildImpl &build, const NGHolder &g) {
+    u32 num = countAccelStates(g, &build.rm, build.cc);
+    DEBUG_PRINTF("graph with %zu vertices has %u accel states\n",
+                  num_vertices(g), num);
+    return num <= NFA_MAX_ACCEL_STATES;
+}
+
+/**
+ * In block mode, we want to be a little more selective, We will only merge
+ * prefix engines when the literal sets are the same, or if the merged graph
+ * has only grown by a small amount.
+ */
+static
+bool safeBlockModeMerge(const RoseBuildImpl &build, RoseVertex u,
+                        RoseVertex v) {
+    assert(!build.cc.streaming);
+    assert(build.isRootSuccessor(u) == build.isRootSuccessor(v));
+
+    // Always merge infixes if we can (subject to the other criteria in
+    // mergeableRoseVertices).
+    if (!build.isRootSuccessor(u)) {
+        return true;
+    }
+
+    const RoseGraph &g = build.g;
+
+    // Merge prefixes with identical literal sets (as we'd have to run them
+    // both when we see those literals anyway).
+    if (g[u].literals == g[v].literals) {
+        return true;
+    }
+
+    // The rest of this function only deals with the case when both vertices
+    // have graph leftfixes.
+    if (!g[u].left.graph || !g[v].left.graph) {
+        return false;
+    }
+
+    const size_t u_count = num_vertices(*g[u].left.graph);
+    const size_t v_count = num_vertices(*g[v].left.graph);
+    DEBUG_PRINTF("u prefix has %zu vertices, v prefix has %zu vertices\n",
+                 u_count, v_count);
+    if (u_count > MAX_BLOCK_PREFIX_MERGE_VERTICES ||
+        v_count > MAX_BLOCK_PREFIX_MERGE_VERTICES) {
+        DEBUG_PRINTF("prefixes too big already\n");
+        return false;
+    }
+
+    DEBUG_PRINTF("trying merge\n");
+    NGHolder h;
+    cloneHolder(h, *g[v].left.graph);
+    if (!mergeNfaPair(*g[u].left.graph, h, nullptr, build.cc)) {
+        DEBUG_PRINTF("couldn't merge\n");
+        return false;
+    }
+
+    const size_t merged_count = num_vertices(h);
+    DEBUG_PRINTF("merged result has %zu vertices\n", merged_count);
+    if (merged_count > MAX_BLOCK_PREFIX_MERGE_VERTICES) {
+        DEBUG_PRINTF("exceeded limit\n");
+        return false;
+    }
+
+    // We want to only perform merges that take advantage of some
+    // commonality in the two input graphs, so we check that the number of
+    // vertices has only grown a small amount: somewhere between the sum
+    // (no commonality) and the max (no growth at all) of the vertex counts
+    // of the input graphs.
+    const size_t max_size = u_count + v_count;
+    const size_t min_size = max(u_count, v_count);
+    const size_t max_growth = ((max_size - min_size) * 25) / 100;
+    if (merged_count > min_size + max_growth) {
+        DEBUG_PRINTF("grew too much\n");
+        return false;
+    }
+
+    // We don't want to squander any chances at accelerating.
+    if (!isAccelerableLeftfix(build, h) &&
+        (isAccelerableLeftfix(build, *g[u].left.graph) ||
+         isAccelerableLeftfix(build, *g[v].left.graph))) {
+        DEBUG_PRINTF("would lose accel property\n");
+        return false;
+    }
+
+    DEBUG_PRINTF("safe to merge\n");
+    return true;
+}
+
 bool mergeableRoseVertices(const RoseBuildImpl &tbi, RoseVertex u,
                            RoseVertex v) {
     assert(u != v);
@@ -938,15 +1035,8 @@ bool mergeableRoseVertices(const RoseBuildImpl &tbi, RoseVertex u,
         return false;
     }
 
-    // UE-1675: in block mode, we want to be a little more selective -- only
-    // merge prefix roses when the literal sets are the same.
-    if (!tbi.cc.streaming && tbi.isRootSuccessor(u)) {
-        assert(tbi.isRootSuccessor(v));
-
-        if (tbi.g[u].literals != tbi.g[v].literals) {
-            DEBUG_PRINTF("literals aren't identical (block mode prefix)\n");
-            return false;
-        }
+    if (!tbi.cc.streaming && !safeBlockModeMerge(tbi, u, v)) {
+        return false;
     }
 
     /* We cannot merge prefixes/vertices if they are successors of different
@@ -1102,15 +1192,8 @@ bool mergeableRoseVertices(const RoseBuildImpl &tbi,
 
     vector<pair<const rose_literal_id *, u32>> ulits; /* lit + lag pairs */
     for (auto a : verts1) {
-        // UE-1675: in block mode, we want to be a little more selective --
-        // only merge prefix roses when the literal sets are the same.
-        if (!tbi.cc.streaming && is_prefix) {
-            assert(tbi.isRootSuccessor(a));
-
-            if (tbi.g[u_front].literals != tbi.g[a].literals) {
-                DEBUG_PRINTF("literals aren't identical (block mode prefix)\n");
-                return false;
-            }
+        if (!tbi.cc.streaming && !safeBlockModeMerge(tbi, u_front, a)) {
+            return false;
         }
 
         u32 ulag = tbi.g[a].left.lag;
@@ -1121,15 +1204,8 @@ bool mergeableRoseVertices(const RoseBuildImpl &tbi,
 
     vector<pair<const rose_literal_id *, u32>> vlits;
     for (auto a : verts2) {
-        // UE-1675: in block mode, we want to be a little more selective --
-        // only merge prefix roses when the literal sets are the same.
-        if (!tbi.cc.streaming && is_prefix) {
-            assert(tbi.isRootSuccessor(a));
-
-            if (tbi.g[u_front].literals != tbi.g[a].literals) {
-                DEBUG_PRINTF("literals aren't identical (block mode prefix)\n");
-                return false;
-            }
+        if (!tbi.cc.streaming && !safeBlockModeMerge(tbi, u_front, a)) {
+            return false;
         }
 
         u32 vlag = tbi.g[a].left.lag;
