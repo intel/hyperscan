@@ -76,10 +76,9 @@ enum DedupeResult dedupeCatchup(const struct RoseEngine *rose,
                  from_offset, to_offset, ri->dkey, do_som);
     DEBUG_PRINTF("report type=%u, quashSom=%d\n", ri->type, ri->quashSom);
     const u32 dkey = ri->dkey;
-    if (!do_som && dkey == MO_INVALID_IDX) {
-        DEBUG_PRINTF("nothing to do\n");
-        return DEDUPE_CONTINUE;
-    }
+
+    // We should not have been called if there's no dedupe work to do.
+    assert(do_som || dkey != MO_INVALID_IDX);
 
     struct match_deduper *deduper = &scratch->deduper;
     if (offset != deduper->current_report_offset) {
@@ -272,17 +271,19 @@ int roseAdaptor_i(u64a offset, ReportID id, struct hs_scratch *scratch,
 
     int halt = 0;
 
-    enum DedupeResult dedupe_rv = dedupeCatchup(rose, ri, scratch, offset,
+    if (do_som || ri->dkey != MO_INVALID_IDX) {
+        enum DedupeResult dedupe_rv = dedupeCatchup(rose, ri, scratch, offset,
                                                 from_offset, to_offset, do_som);
-    switch (dedupe_rv) {
-    case DEDUPE_HALT:
-        halt = 1;
-        goto exit;
-    case DEDUPE_SKIP:
-        halt = 0;
-        goto exit;
-    case DEDUPE_CONTINUE:
-        break;
+        switch (dedupe_rv) {
+        case DEDUPE_HALT:
+            halt = 1;
+            goto exit;
+        case DEDUPE_SKIP:
+            halt = 0;
+            goto exit;
+        case DEDUPE_CONTINUE:
+            break;
+        }
     }
 
     halt = ci->userCallback((unsigned int)ri->onmatch, from_offset, to_offset,
