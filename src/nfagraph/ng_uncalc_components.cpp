@@ -486,52 +486,48 @@ void buildNfaMergeQueue(const vector<NGHolder *> &cluster,
     }
 }
 
-/** True if the graphs have compatible starts for merging, i.e. they are NOT
- * both vacuous with different reports on the starts. */
+/**
+ * True if the graphs have mergeable starts.
+ *
+ * Nowadays, this means that any vacuous edges must have the same tops. In
+ * addition, mixed-accept cases need to have matching reports.
+ */
 static
 bool mergeableStarts(const NGHolder &h1, const NGHolder &h2) {
-    bool vac1 = isVacuous(h1), vac2 = isVacuous(h2);
-
-    // Safety tests: reports should be empty on non-vacuous graphs.
-    if (!vac1) {
-        assert(h1[h1.start].reports.empty());
-        assert(h1[h1.startDs].reports.empty());
-    }
-    if (!vac2) {
-        assert(h2[h2.start].reports.empty());
-        assert(h2[h2.startDs].reports.empty());
+    if (!isVacuous(h1) || !isVacuous(h2)) {
+        return true;
     }
 
-    if (vac1 && vac2) {
-        // Graphs must have the same reports on their starts to be mergeable
-        // (and top on start->accept).
-        if (h1[h1.start].reports
-            != h2[h2.start].reports) {
+    // Vacuous edges from startDs should not occur: we have better ways to
+    // implement true dot-star relationships. Just in case they do, ban them
+    // from being merged unless they have identical reports.
+    if (is_match_vertex(h1.startDs, h1) || is_match_vertex(h2.startDs, h2)) {
+        assert(0);
+        return false;
+    }
+
+    // If both graphs have edge (start, accept), the tops must match.
+    auto e1_accept = edge(h1.start, h1.accept, h1);
+    auto e2_accept = edge(h2.start, h2.accept, h2);
+    if (e1_accept.second && e2_accept.second &&
+        h1[e1_accept.first].top != h2[e2_accept.first].top) {
+        return false;
+    }
+
+    // If both graphs have edge (start, acceptEod), the tops must match.
+    auto e1_eod = edge(h1.start, h1.acceptEod, h1);
+    auto e2_eod = edge(h2.start, h2.acceptEod, h2);
+    if (e1_eod.second && e2_eod.second &&
+        h1[e1_eod.first].top != h2[e2_eod.first].top) {
+        return false;
+    }
+
+    // If one graph has an edge to accept and the other has an edge to
+    // acceptEod, the reports must match for the merge to be safe.
+    if ((e1_accept.second && e2_eod.second) ||
+        (e2_accept.second && e1_eod.second)) {
+        if (h1[h1.start].reports != h2[h2.start].reports) {
             return false;
-        }
-
-        if (h1[h1.startDs].reports
-            != h2[h2.startDs].reports) {
-            return false;
-        }
-
-        pair<NFAEdge, bool> e1, e2;
-        e1 = edge(h1.start, h1.accept, h1);
-        e2 = edge(h2.start, h2.accept, h2);
-        if (e1.second || e2.second) {
-            if (e1.second && e2.second &&
-                h1[e1.first].top != h2[e2.first].top) {
-                return false;
-            }
-        }
-
-        e1 = edge(h1.start, h1.acceptEod, h1);
-        e2 = edge(h2.start, h2.acceptEod, h2);
-        if (e1.second || e2.second) {
-            if (e1.second && e2.second &&
-                h1[e1.first].top != h2[e2.first].top) {
-                return false;
-            }
         }
     }
 
@@ -545,20 +541,14 @@ bool mergeNfaPair(NGHolder &ga, NGHolder &gb, const ReportManager *rm,
     auto a_state_ids = numberStates(ga);
     auto b_state_ids = numberStates(gb);
 
-    // At the moment, since our vertices can only have one report ID each,
-    // we must ensure that our start vertices have the same report ID,
-    // otherwise they can't be merged. This happens in vacuous NFAs, used
-    // by Rose.
-    // XXX: the multi-top code has this limitation, too.
+    // Vacuous NFAs require special checks on their starts to ensure that tops
+    // match, and that reports match for mixed-accept cases.
     if (!mergeableStarts(ga, gb)) {
         DEBUG_PRINTF("starts aren't mergeable\n");
         return false;
     }
 
-    // NOTE: states must be numbered already.
-
     u32 cpl = commonPrefixLength(ga, a_state_ids, gb, b_state_ids);
-
     if (!shouldMerge(gb, b_state_ids, ga, a_state_ids, cpl, rm, cc)) {
         return false;
     }
