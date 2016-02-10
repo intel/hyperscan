@@ -679,7 +679,7 @@ void dumpRevComponentInfo(const RoseEngine *t, const string &base) {
     ss << base << "som_rev_components.txt";
     ofstream fout(ss.str().c_str());
 
-    fout << "Index  Offset\tEngine               \tStates S.State Bytes   Notes\n";
+    fout << "Index  Offset\tEngine               \tStates S.State Bytes\n";
 
     const char *tp = (const char *)t;
     const u32 *rev_offsets = (const u32 *)(tp + t->somRevOffsetOffset);
@@ -696,17 +696,13 @@ void dumpRevComponentInfo(const RoseEngine *t, const string &base) {
 
         fout << left << setw(6) << n->nPositions << " ";
         fout << left << setw(7) << n->streamStateSize << " ";
-        fout << left << setw(7) << n->length << " ";
-
-        dumpNfaNotes(fout, t, n);
-
+        fout << left << setw(7) << n->length;
         fout << endl;
     }
 }
 
 static
 void dumpRevNfas(const RoseEngine *t, bool dump_raw, const string &base) {
-
     const char *tp = (const char *)t;
     const u32 *rev_offsets = (const u32 *)(tp + t->somRevOffsetOffset);
 
