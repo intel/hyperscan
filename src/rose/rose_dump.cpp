@@ -288,7 +288,15 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(CHECK_LEFTFIX) {
+            PROGRAM_CASE(CHECK_INFIX) {
+                os << "    queue " << ri->queue << endl;
+                os << "    lag " << ri->lag << endl;
+                os << "    report " << ri->report << endl;
+                os << "    fail_jump +" << ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_PREFIX) {
                 os << "    queue " << ri->queue << endl;
                 os << "    lag " << ri->lag << endl;
                 os << "    report " << ri->report << endl;

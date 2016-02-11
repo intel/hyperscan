@@ -49,7 +49,8 @@ enum RoseInstructionCode {
     ROSE_INSTR_CHECK_BOUNDS,      //!< Bounds on distance from offset 0.
     ROSE_INSTR_CHECK_NOT_HANDLED, //!< Test & set role in "handled".
     ROSE_INSTR_CHECK_LOOKAROUND,  //!< Lookaround check.
-    ROSE_INSTR_CHECK_LEFTFIX,     //!< Leftfix must be in accept state.
+    ROSE_INSTR_CHECK_INFIX,       //!< Infix engine must be in accept state.
+    ROSE_INSTR_CHECK_PREFIX,      //!< Prefix engine must be in accept state.
     ROSE_INSTR_PUSH_DELAYED,      //!< Push delayed literal matches.
     ROSE_INSTR_CATCH_UP,          //!< Catch up engines, anchored matches.
     ROSE_INSTR_SOM_ADJUST,        //!< Set SOM from a distance to EOM.
@@ -141,7 +142,15 @@ struct ROSE_STRUCT_CHECK_LOOKAROUND {
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
-struct ROSE_STRUCT_CHECK_LEFTFIX {
+struct ROSE_STRUCT_CHECK_INFIX {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 queue; //!< Queue of leftfix to check.
+    u32 lag; //!< Lag of leftfix for this case.
+    ReportID report; //!< ReportID of leftfix to check.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_PREFIX {
     u8 code; //!< From enum RoseInstructionCode.
     u32 queue; //!< Queue of leftfix to check.
     u32 lag; //!< Lag of leftfix for this case.

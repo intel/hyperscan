@@ -194,7 +194,8 @@ public:
         case ROSE_INSTR_CHECK_BOUNDS: return &u.checkBounds;
         case ROSE_INSTR_CHECK_NOT_HANDLED: return &u.checkNotHandled;
         case ROSE_INSTR_CHECK_LOOKAROUND: return &u.checkLookaround;
-        case ROSE_INSTR_CHECK_LEFTFIX: return &u.checkLeftfix;
+        case ROSE_INSTR_CHECK_INFIX: return &u.checkInfix;
+        case ROSE_INSTR_CHECK_PREFIX: return &u.checkPrefix;
         case ROSE_INSTR_ANCHORED_DELAY: return &u.anchoredDelay;
         case ROSE_INSTR_PUSH_DELAYED: return &u.pushDelayed;
         case ROSE_INSTR_CATCH_UP: return &u.catchUp;
@@ -236,7 +237,8 @@ public:
         case ROSE_INSTR_CHECK_BOUNDS: return sizeof(u.checkBounds);
         case ROSE_INSTR_CHECK_NOT_HANDLED: return sizeof(u.checkNotHandled);
         case ROSE_INSTR_CHECK_LOOKAROUND: return sizeof(u.checkLookaround);
-        case ROSE_INSTR_CHECK_LEFTFIX: return sizeof(u.checkLeftfix);
+        case ROSE_INSTR_CHECK_INFIX: return sizeof(u.checkInfix);
+        case ROSE_INSTR_CHECK_PREFIX: return sizeof(u.checkPrefix);
         case ROSE_INSTR_ANCHORED_DELAY: return sizeof(u.anchoredDelay);
         case ROSE_INSTR_PUSH_DELAYED: return sizeof(u.pushDelayed);
         case ROSE_INSTR_CATCH_UP: return sizeof(u.catchUp);
@@ -277,7 +279,8 @@ public:
         ROSE_STRUCT_CHECK_BOUNDS checkBounds;
         ROSE_STRUCT_CHECK_NOT_HANDLED checkNotHandled;
         ROSE_STRUCT_CHECK_LOOKAROUND checkLookaround;
-        ROSE_STRUCT_CHECK_LEFTFIX checkLeftfix;
+        ROSE_STRUCT_CHECK_INFIX checkInfix;
+        ROSE_STRUCT_CHECK_PREFIX checkPrefix;
         ROSE_STRUCT_ANCHORED_DELAY anchoredDelay;
         ROSE_STRUCT_PUSH_DELAYED pushDelayed;
         ROSE_STRUCT_CATCH_UP catchUp;
@@ -2724,8 +2727,11 @@ flattenProgram(const vector<vector<RoseInstruction>> &programs) {
         case ROSE_INSTR_CHECK_LOOKAROUND:
             ri.u.checkLookaround.fail_jump = jump_val;
             break;
-        case ROSE_INSTR_CHECK_LEFTFIX:
-            ri.u.checkLeftfix.fail_jump = jump_val;
+        case ROSE_INSTR_CHECK_INFIX:
+            ri.u.checkInfix.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_CHECK_PREFIX:
+            ri.u.checkPrefix.fail_jump = jump_val;
             break;
         case ROSE_INSTR_DEDUPE:
             ri.u.dedupe.fail_jump = jump_val;
@@ -2986,11 +2992,22 @@ void makeRoleCheckLeftfix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
     assert(!build.cc.streaming ||
            build.g[v].left.lag <= MAX_STORED_LEFTFIX_LAG);
 
-    auto ri = RoseInstruction(ROSE_INSTR_CHECK_LEFTFIX, JumpTarget::NEXT_BLOCK);
-    ri.u.checkLeftfix.queue = lni.queue;
-    ri.u.checkLeftfix.lag = build.g[v].left.lag;
-    ri.u.checkLeftfix.report = build.g[v].left.leftfix_report;
-    program.push_back(ri);
+    bool is_prefix = build.isRootSuccessor(v);
+    if (is_prefix) {
+        auto ri =
+            RoseInstruction(ROSE_INSTR_CHECK_PREFIX, JumpTarget::NEXT_BLOCK);
+        ri.u.checkPrefix.queue = lni.queue;
+        ri.u.checkPrefix.lag = build.g[v].left.lag;
+        ri.u.checkPrefix.report = build.g[v].left.leftfix_report;
+        program.push_back(move(ri));
+    } else {
+        auto ri =
+            RoseInstruction(ROSE_INSTR_CHECK_INFIX, JumpTarget::NEXT_BLOCK);
+        ri.u.checkInfix.queue = lni.queue;
+        ri.u.checkInfix.lag = build.g[v].left.lag;
+        ri.u.checkInfix.report = build.g[v].left.leftfix_report;
+        program.push_back(move(ri));
+    }
 }
 
 static

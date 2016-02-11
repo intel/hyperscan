@@ -144,8 +144,9 @@ void rosePushDelayedMatch(const struct RoseEngine *t,
 static rose_inline
 char roseLeftfixCheckMiracles(const struct RoseEngine *t,
                               const struct LeftNfaInfo *left,
-                              struct core_info *ci, struct mq *q, u64a end) {
-    if (left->transient) {
+                              struct core_info *ci, struct mq *q, u64a end,
+                              const char is_infix) {
+    if (!is_infix && left->transient) {
         // Miracles won't help us with transient leftfix engines; they only
         // scan for a limited time anyway.
         return 1;
@@ -178,7 +179,7 @@ found_miracle:
 
     // If we're a prefix, then a miracle effectively results in us needing to
     // re-init our state and start fresh.
-    if (!left->infix) {
+    if (!is_infix) {
         if (miracle_loc != begin_loc) {
             DEBUG_PRINTF("re-init prefix state\n");
             q->cur = q->end = 0;
@@ -355,9 +356,10 @@ hwlmcb_rv_t roseTriggerSuffix(const struct RoseEngine *t,
     return HWLM_CONTINUE_MATCHING;
 }
 
-static rose_inline
+static really_inline
 char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
-                     u32 qi, u32 leftfixLag, ReportID leftfixReport, u64a end) {
+                     u32 qi, u32 leftfixLag, ReportID leftfixReport, u64a end,
+                     const char is_infix) {
     struct core_info *ci = &scratch->core_info;
 
     u32 ri = queueToLeftIndex(t, qi);
@@ -365,10 +367,12 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
 
     DEBUG_PRINTF("testing %s %s %u/%u with lag %u (maxLag=%u)\n",
                  (left->transient ? "transient" : "active"),
-                 (left->infix ? "infix" : "prefix"),
+                 (is_infix ? "infix" : "prefix"),
                  ri, qi, leftfixLag, left->maxLag);
 
     assert(leftfixLag <= left->maxLag);
+    assert(left->infix == is_infix);
+    assert(!is_infix || !left->transient); // Only prefixes can be transient.
 
     struct mq *q = scratch->queues + qi;
     char *state = scratch->core_info.state;
@@ -398,7 +402,7 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
         initRoseQueue(t, qi, left, scratch);
         if (ci->buf_offset) { // there have been writes before us!
             s32 sp;
-            if (left->transient) {
+            if (!is_infix && left->transient) {
                 sp = -(s32)ci->hlen;
             } else {
                 sp = -(s32)loadRoseDelay(t, state, left);
@@ -408,7 +412,7 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
              * at stream boundary */
 
             pushQueueAt(q, 0, MQE_START, sp);
-            if (left->infix || (ci->buf_offset + sp > 0 && !left->transient)) {
+            if (is_infix || (ci->buf_offset + sp > 0 && !left->transient)) {
                 loadStreamState(q->nfa, q, sp);
             } else {
                 pushQueueAt(q, 1, MQE_TOP, sp);
@@ -425,7 +429,7 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
     assert(loc >= q_cur_loc(q));
     assert(leftfixReport != MO_INVALID_IDX);
 
-    if (left->transient) {
+    if (!is_infix && left->transient) {
         s64a start_loc = loc - left->transient;
         if (q_cur_loc(q) < start_loc) {
             q->cur = q->end = 0;
@@ -436,7 +440,7 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
     }
 
     if (q_cur_loc(q) < loc || q_last_type(q) != MQE_START) {
-        if (left->infix) {
+        if (is_infix) {
             if (infixTooOld(q, loc)) {
                 DEBUG_PRINTF("infix %u died of old age\n", ri);
                 goto nfa_dead;
@@ -445,7 +449,7 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
             reduceInfixQueue(q, loc, left->maxQueueLen, q->nfa->maxWidth);
         }
 
-        if (!roseLeftfixCheckMiracles(t, left, ci, q, end)) {
+        if (!roseLeftfixCheckMiracles(t, left, ci, q, end, is_infix)) {
             DEBUG_PRINTF("leftfix %u died due to miracle\n", ri);
             goto nfa_dead;
         }
@@ -480,6 +484,18 @@ nfa_dead:
     mmbit_unset(activeLeftArray, arCount, ri);
     scratch->tctxt.groups &= left->squash_mask;
     return 0;
+}
+
+static rose_inline
+char roseTestPrefix(const struct RoseEngine *t, struct hs_scratch *scratch,
+                    u32 qi, u32 leftfixLag, ReportID leftfixReport, u64a end) {
+    return roseTestLeftfix(t, scratch, qi, leftfixLag, leftfixReport, end, 0);
+}
+
+static rose_inline
+char roseTestInfix(const struct RoseEngine *t, struct hs_scratch *scratch,
+                   u32 qi, u32 leftfixLag, ReportID leftfixReport, u64a end) {
+    return roseTestLeftfix(t, scratch, qi, leftfixLag, leftfixReport, end, 1);
 }
 
 static rose_inline
@@ -921,10 +937,21 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(CHECK_LEFTFIX) {
-                if (!roseTestLeftfix(t, scratch, ri->queue, ri->lag, ri->report,
-                                     end)) {
-                    DEBUG_PRINTF("failed leftfix check\n");
+            PROGRAM_CASE(CHECK_INFIX) {
+                if (!roseTestInfix(t, scratch, ri->queue, ri->lag, ri->report,
+                                   end)) {
+                    DEBUG_PRINTF("failed infix check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_PREFIX) {
+                if (!roseTestPrefix(t, scratch, ri->queue, ri->lag, ri->report,
+                                    end)) {
+                    DEBUG_PRINTF("failed prefix check\n");
                     assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
                     continue;
