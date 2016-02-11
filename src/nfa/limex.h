@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -65,14 +65,13 @@ extern "C"
                                        void *state, u8 key);                   \
     char gf_name##_B_Reverse(const struct NFA *n, u64a offset, const u8 *buf,  \
                              size_t buflen, const u8 *hbuf, size_t hlen,       \
-                             struct hs_scratch *scratch, NfaCallback cb,       \
-                             void *context);                                   \
+                             NfaCallback cb, void *context);                   \
     char gf_name##_queueCompressState(const struct NFA *nfa,                   \
                                       const struct mq *q, s64a loc);           \
     char gf_name##_expandState(const struct NFA *nfa, void *dest,              \
                                const void *src, u64a offset, u8 key);          \
-    enum nfa_zombie_status gf_name##_zombie_status(const struct NFA *nfa,    \
-                                                   struct mq *q, s64a loc); \
+    enum nfa_zombie_status gf_name##_zombie_status(const struct NFA *nfa,      \
+                                                   struct mq *q, s64a loc);    \
     GENERATE_NFA_DUMP_DECL(gf_name)
 
 GENERATE_NFA_DECL(nfaExecLimEx32_1)

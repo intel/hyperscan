@@ -151,7 +151,7 @@ void runRevNfa(struct hs_scratch *scratch, const struct internal_report *ri,
     *from_offset = to_offset;
 
     nfaBlockExecReverse(nfa, to_offset, buf, buf_bytes, hbuf, history_bytes,
-                        scratch, somRevCallback, from_offset);
+                        somRevCallback, from_offset);
 
     assert(*from_offset <= to_offset);
 }

@@ -811,7 +811,6 @@ char JOIN(LIMEX_API_ROOT, _reportCurrent)(const struct NFA *n, struct mq *q) {
 char JOIN(LIMEX_API_ROOT, _B_Reverse)(const struct NFA *n, u64a offset,
                                       const u8 *buf, size_t buflen,
                                       const u8 *hbuf, size_t hlen,
-                                      UNUSED struct hs_scratch *scratch,
                                       NfaCallback cb, void *context) {
     assert(buf || hbuf);
     assert(buflen || hlen);

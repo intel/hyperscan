@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -369,7 +369,7 @@ TEST_P(LimExReverseTest, BlockExecReverse) {
     const size_t hlen = 0;
 
     nfaBlockExecReverse(nfa.get(), offset, buf, buflen, hbuf, hlen,
-                        scratch.get(), onMatch, &matches);
+                        onMatch, &matches);
 
     ASSERT_EQ(3, matches);
 }

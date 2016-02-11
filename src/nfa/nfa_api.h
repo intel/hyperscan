@@ -44,7 +44,6 @@ extern "C"
 #include "callback.h"
 #include "ue2common.h"
 
-struct hs_scratch;
 struct mq;
 struct NFA;
 
@@ -212,16 +211,12 @@ char nfaQueueExecRose(const struct NFA *nfa, struct mq *q, ReportID report);
  * @param buflen length of buf
  * @param hbuf history buf
  * @param hlen length of hbuf
- * @param scratch scratch
  * @param callback the callback to call for each match raised
  * @param context context pointer passed to each callback
- *
- * Note: is NOT reentrant
  */
 char nfaBlockExecReverse(const struct NFA *nfa, u64a offset, const u8 *buf,
                          size_t buflen, const u8 *hbuf, size_t hlen,
-                         struct hs_scratch *scratch, NfaCallback callback,
-                         void *context);
+                         NfaCallback callback, void *context);
 
 /**
  * Check whether the given NFA's state indicates that it is in one or more
