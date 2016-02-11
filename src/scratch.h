@@ -153,8 +153,6 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     char *bstate; /**< block mode states */
     char *tstate; /**< state for transient roses */
     char *qNfaState; /**< queued NFA temp state */
-    void *nfaContext; /**< use for your NFAContextNNN struct */
-    void *nfaContextSom; /**< use for your NFAContextNNN struct by som_runtime */
     char *fullState; /**< uncompressed NFA state */
     struct mq *queues;
     struct fatbit *aqa; /**< active queue array; fatbit of queues that are valid

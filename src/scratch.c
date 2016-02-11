@@ -40,7 +40,6 @@
 #include "state.h"
 #include "ue2common.h"
 #include "database.h"
-#include "nfa/limex_context.h" // for NFAContext128 etc
 #include "nfa/nfa_api_queue.h"
 #include "rose/rose_internal.h"
 #include "util/fatbit.h"
@@ -101,13 +100,10 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     size_t delay_region_size =
         fatbit_array_size(DELAY_SLOT_COUNT, proto->delay_count);
 
-    size_t nfa_context_size = 2 * sizeof(struct NFAContext512) + 127;
-
     // the size is all the allocated stuff, not including the struct itself
     size_t size = queue_size + 63
                   + bStateSize + tStateSize
                   + fullStateSize + 63 /* cacheline padding */
-                  + nfa_context_size
                   + fatbit_size(proto->handledKeyCount) /* handled roles */
                   + fatbit_size(queueCount) /* active queue array */
                   + 2 * fatbit_size(deduperCount) /* need odd and even logs */
@@ -202,13 +198,6 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     current += tStateSize;
 
     current = ROUNDUP_PTR(current, 64);
-    assert(ISALIGNED_CL(current));
-    s->nfaContext = current;
-    current += sizeof(struct NFAContext512);
-    current = ROUNDUP_PTR(current, 64);
-    assert(ISALIGNED_CL(current));
-    s->nfaContextSom = current;
-    current += sizeof(struct NFAContext512);
 
     assert(ISALIGNED_N(current, 8));
     s->deduper.som_start_log[0] = (u64a *)current;

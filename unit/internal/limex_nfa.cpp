@@ -91,7 +91,6 @@ protected:
         // Mock up a scratch structure that contains the pieces that we need
         // for NFA execution.
         scratch = aligned_zmalloc_unique<hs_scratch>(sizeof(struct hs_scratch));
-        scratch->nfaContext = nfa_context.get();
     }
 
     virtual void initQueue() {
@@ -339,7 +338,6 @@ protected:
         // Mock up a scratch structure that contains the pieces that we need
         // for reverse NFA execution.
         scratch = aligned_zmalloc_unique<hs_scratch>(sizeof(struct hs_scratch));
-        scratch->nfaContextSom = nfa_context.get();
     }
 
     // NFA type (enum NFAEngineType)
@@ -409,7 +407,6 @@ protected:
         // Mock up a scratch structure that contains the pieces that we need
         // for NFA execution.
         scratch = aligned_zmalloc_unique<hs_scratch>(sizeof(struct hs_scratch));
-        scratch->nfaContext = nfa_context.get();
     }
 
     virtual void initQueue() {
