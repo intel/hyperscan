@@ -439,9 +439,7 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
         if (left->infix) {
             if (infixTooOld(q, loc)) {
                 DEBUG_PRINTF("infix %u died of old age\n", ri);
-                scratch->tctxt.groups &= left->squash_mask;
-                mmbit_unset(activeLeftArray, arCount, ri);
-                return 0;
+                goto nfa_dead;
             }
 
             reduceQueue(q, loc, left->maxQueueLen, q->nfa->maxWidth);
@@ -449,9 +447,7 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
 
         if (!rosePrefixCheckMiracles(t, left, ci, q, end)) {
             DEBUG_PRINTF("leftfix %u died due to miracle\n", ri);
-            scratch->tctxt.groups &= left->squash_mask;
-            mmbit_unset(activeLeftArray, arCount, ri);
-            return 0;
+            goto nfa_dead;
         }
 
 #ifdef DEBUG
@@ -463,10 +459,7 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
         char rv = nfaQueueExecRose(q->nfa, q, leftfixReport);
         if (!rv) { /* nfa is dead */
             DEBUG_PRINTF("leftfix %u died while trying to catch up\n", ri);
-            mmbit_unset(activeLeftArray, arCount, ri);
-            assert(!mmbit_isset(activeLeftArray, arCount, ri));
-            scratch->tctxt.groups &= left->squash_mask;
-            return 0;
+            goto nfa_dead;
         }
 
         // Queue must have next start loc before we call nfaInAcceptState.
@@ -482,6 +475,11 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
         DEBUG_PRINTF("leftfix done %hhd\n", (signed char)rv);
         return rv;
     }
+
+nfa_dead:
+    mmbit_unset(activeLeftArray, arCount, ri);
+    scratch->tctxt.groups &= left->squash_mask;
+    return 0;
 }
 
 static rose_inline
