@@ -442,7 +442,7 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
                 goto nfa_dead;
             }
 
-            reduceQueue(q, loc, left->maxQueueLen, q->nfa->maxWidth);
+            reduceInfixQueue(q, loc, left->maxQueueLen, q->nfa->maxWidth);
         }
 
         if (!rosePrefixCheckMiracles(t, left, ci, q, end)) {
@@ -540,10 +540,10 @@ void roseTriggerInfix(const struct RoseEngine *t, struct hs_scratch *scratch,
         pushQueueAt(q, 0, MQE_START, loc);
         nfaQueueInitState(q->nfa, q);
     } else if (isQueueFull(q)) {
-        reduceQueue(q, loc, left->maxQueueLen, q->nfa->maxWidth);
+        reduceInfixQueue(q, loc, left->maxQueueLen, q->nfa->maxWidth);
 
         if (isQueueFull(q)) {
-            /* still full - reduceQueue did nothing */
+            /* still full - reduceInfixQueue did nothing */
             DEBUG_PRINTF("queue %u full (%u items) -> catching up nfa\n", qi,
                          q->end - q->cur);
             pushQueueNoMerge(q, MQE_END, loc);

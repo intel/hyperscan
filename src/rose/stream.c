@@ -291,7 +291,7 @@ char roseCatchUpLeftfix(const struct RoseEngine *t, char *state,
             DEBUG_PRINTF("infix died of old age\n");
             return 0;
         }
-        reduceQueue(q, last_loc, left->maxQueueLen, q->nfa->maxWidth);
+        reduceInfixQueue(q, last_loc, left->maxQueueLen, q->nfa->maxWidth);
     }
 
     DEBUG_PRINTF("end scan at %lld\n", last_loc);

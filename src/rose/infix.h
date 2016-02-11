@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -63,12 +63,13 @@ int infixTooOld(struct mq *q, s64a curr_loc) {
  * engine.
  */
 static really_inline
-void reduceQueue(struct mq *q, s64a curr_loc, u32 maxTops, u32 maxAge) {
+void reduceInfixQueue(struct mq *q, s64a curr_loc, u32 maxTops, u32 maxAge) {
     assert(q->end > q->cur);
     assert(maxTops);
     u32 qlen = q->end - q->cur; /* includes MQE_START */
     DEBUG_PRINTF("q=%p, len=%u, maxTops=%u maxAge=%u\n", q, qlen, maxTops,
                  maxAge);
+
     char any_work = 0;
     if (maxAge && q->items[q->cur].location + maxAge < curr_loc) {
         any_work = 1;
