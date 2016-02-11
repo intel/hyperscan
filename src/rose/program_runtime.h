@@ -283,7 +283,7 @@ done_queue_empty:
     return roseHaltIfExhausted(t, scratch);
 }
 
-static really_inline
+static rose_inline
 hwlmcb_rv_t ensureQueueFlushed(const struct RoseEngine *t,
                                struct hs_scratch *scratch, u32 qi, s64a loc,
                                char in_anchored) {
@@ -355,7 +355,7 @@ hwlmcb_rv_t roseTriggerSuffix(const struct RoseEngine *t,
     return HWLM_CONTINUE_MATCHING;
 }
 
-static really_inline
+static rose_inline
 char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
                      u32 qi, u32 leftfixLag, ReportID leftfixReport, u64a end) {
     struct core_info *ci = &scratch->core_info;
@@ -593,7 +593,7 @@ hwlmcb_rv_t roseCatchUpAndHandleChainMatch(const struct RoseEngine *t,
     return roseHandleChainMatch(t, scratch, r, end, in_anchored, 0);
 }
 
-static really_inline
+static rose_inline
 void roseHandleSom(const struct RoseEngine *t, struct hs_scratch *scratch,
                    ReportID id, u64a end) {
     DEBUG_PRINTF("id=%u, end=%llu, minMatchOffset=%llu\n", id, end,
