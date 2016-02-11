@@ -142,9 +142,9 @@ void rosePushDelayedMatch(const struct RoseEngine *t,
 }
 
 static rose_inline
-char rosePrefixCheckMiracles(const struct RoseEngine *t,
-                             const struct LeftNfaInfo *left,
-                             struct core_info *ci, struct mq *q, u64a end) {
+char roseLeftfixCheckMiracles(const struct RoseEngine *t,
+                              const struct LeftNfaInfo *left,
+                              struct core_info *ci, struct mq *q, u64a end) {
     if (left->transient) {
         // Miracles won't help us with transient leftfix engines; they only
         // scan for a limited time anyway.
@@ -445,7 +445,7 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
             reduceInfixQueue(q, loc, left->maxQueueLen, q->nfa->maxWidth);
         }
 
-        if (!rosePrefixCheckMiracles(t, left, ci, q, end)) {
+        if (!roseLeftfixCheckMiracles(t, left, ci, q, end)) {
             DEBUG_PRINTF("leftfix %u died due to miracle\n", ri);
             goto nfa_dead;
         }
