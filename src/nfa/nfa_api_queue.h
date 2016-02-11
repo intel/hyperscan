@@ -91,7 +91,6 @@ struct mq {
                         * history buffer; (logically) immediately before the
                         * main buffer */
     size_t hlength; /**< length of the history buffer */
-    struct hs_scratch *scratch; /**< global scratch space */
     char report_current; /**<
                           * report_current matches at starting offset through
                           * callback. If true, the queue must be located at a

@@ -104,7 +104,6 @@ protected:
         q.length = SCAN_DATA.size();
         q.history = nullptr;
         q.hlength = 0;
-        q.scratch = scratch.get();
         q.report_current = 0;
         q.cb = onMatch;
         q.som_cb = nullptr; // only used by Haig
@@ -420,7 +419,6 @@ protected:
         q.length = ZOMBIE_SCAN_DATA.length();
         q.history = nullptr;
         q.hlength = 0;
-        q.scratch = scratch.get();
         q.report_current = 0;
         q.cb = onMatch;
         q.som_cb = nullptr; // only used by Haig
