@@ -44,6 +44,26 @@ int infixTooOld(struct mq *q, s64a curr_loc) {
     return q_last_loc(q) + maxAge < curr_loc;
 }
 
+static really_inline
+int canReduceQueue(const struct mq *q, s64a curr_loc, u32 maxTops, u32 maxAge) {
+    u32 qlen = q->end - q->cur; /* includes MQE_START */
+
+    if (maxAge && q->items[q->cur].location + maxAge < curr_loc) {
+        return 1;
+    }
+
+    if (qlen - 1 > maxTops) {
+        return 1;
+    }
+
+    if (qlen - 1 == maxTops
+        && q->items[q->cur].location != q->items[q->cur + 1].location) {
+        /* we can advance start to the first top location */
+        return 1;
+    }
+
+    return 0;
+}
 
 /**
  * Removes tops which are known not to affect the final state from the queue.
@@ -70,22 +90,7 @@ void reduceInfixQueue(struct mq *q, s64a curr_loc, u32 maxTops, u32 maxAge) {
     DEBUG_PRINTF("q=%p, len=%u, maxTops=%u maxAge=%u\n", q, qlen, maxTops,
                  maxAge);
 
-    char any_work = 0;
-    if (maxAge && q->items[q->cur].location + maxAge < curr_loc) {
-        any_work = 1;
-    }
-
-    if (qlen - 1 > maxTops) {
-        any_work = 1;
-    }
-
-    if (qlen - 1 == maxTops
-        && q->items[q->cur].location != q->items[q->cur + 1].location) {
-        /* we can advance start to the first top location */
-        any_work = 1;
-    }
-
-    if (!any_work) {
+    if (!canReduceQueue(q, curr_loc, maxTops, maxAge)) {
         DEBUG_PRINTF("nothing to do\n");
         return;
     }
