@@ -41,16 +41,18 @@
 
 /*
  * ROSE STATE LAYOUT:
- *   state multibit
- *   runtime state structure
- *   full history table
- *   last history table
- *   short history table
- *   short queues (two multibits)
- *   last queues (two multibits)
- *   active array
- *   delay rb dirty
- *   nfa state
+ *
+ * - runtime status byte (halt status, delay rebuild dirty, etc)
+ * - rose state multibit
+ * - active leaf array (multibit)
+ * - active leftfix array (multibit)
+ * - leftfix lag table
+ * - anchored matcher state
+ * - literal groups
+ * - history buffer
+ * - exhausted bitvector
+ * - som slots, som multibit arrays
+ * - nfa stream state (for each nfa)
  */
 
 #define rose_inline really_inline
