@@ -39,7 +39,6 @@
 #include "nfa/nfa_api.h"
 #include "nfa/nfa_api_util.h"
 #include "nfa/nfa_internal.h"
-#include "scratch.h"
 #include "util/alloc.h"
 #include "util/target_info.h"
 
@@ -86,11 +85,6 @@ protected:
 
         full_state = aligned_zmalloc_unique<char>(nfa->scratchStateSize);
         stream_state = aligned_zmalloc_unique<char>(nfa->streamStateSize);
-        nfa_context = aligned_zmalloc_unique<void>(sizeof(NFAContext512));
-
-        // Mock up a scratch structure that contains the pieces that we need
-        // for NFA execution.
-        scratch = aligned_zmalloc_unique<hs_scratch>(sizeof(struct hs_scratch));
     }
 
     virtual void initQueue() {
@@ -124,12 +118,6 @@ protected:
 
     // Space for stream state.
     aligned_unique_ptr<char> stream_state;
-
-    // Space for NFAContext structure.
-    aligned_unique_ptr<void> nfa_context;
-
-    // Mock scratch.
-    aligned_unique_ptr<hs_scratch> scratch;
 
     // Queue structure.
     struct mq q;
@@ -331,12 +319,6 @@ protected:
 
         nfa = constructReversedNFA(g_rev, type, cc);
         ASSERT_TRUE(nfa != nullptr);
-
-        nfa_context = aligned_zmalloc_unique<void>(sizeof(NFAContext512));
-
-        // Mock up a scratch structure that contains the pieces that we need
-        // for reverse NFA execution.
-        scratch = aligned_zmalloc_unique<hs_scratch>(sizeof(struct hs_scratch));
     }
 
     // NFA type (enum NFAEngineType)
@@ -347,12 +329,6 @@ protected:
 
     // Compiled NFA structure.
     aligned_unique_ptr<NFA> nfa;
-
-    // Space for NFAContext structure.
-    aligned_unique_ptr<void> nfa_context;
-
-    // Mock scratch.
-    aligned_unique_ptr<hs_scratch> scratch;
 };
 
 INSTANTIATE_TEST_CASE_P(LimExReverse, LimExReverseTest,
@@ -401,11 +377,6 @@ protected:
 
         full_state = aligned_zmalloc_unique<char>(nfa->scratchStateSize);
         stream_state = aligned_zmalloc_unique<char>(nfa->streamStateSize);
-        nfa_context = aligned_zmalloc_unique<void>(sizeof(NFAContext512));
-
-        // Mock up a scratch structure that contains the pieces that we need
-        // for NFA execution.
-        scratch = aligned_zmalloc_unique<hs_scratch>(sizeof(struct hs_scratch));
     }
 
     virtual void initQueue() {
@@ -439,12 +410,6 @@ protected:
 
     // Space for stream state.
     aligned_unique_ptr<char> stream_state;
-
-    // Space for NFAContext structure.
-    aligned_unique_ptr<void> nfa_context;
-
-    // Mock scratch.
-    aligned_unique_ptr<hs_scratch> scratch;
 
     // Queue structure.
     struct mq q;

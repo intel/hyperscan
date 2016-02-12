@@ -36,7 +36,6 @@
 #include "nfa/nfa_internal.h"
 #include "nfa/nfa_api_util.h"
 #include "nfagraph/ng_lbr.h"
-#include "scratch.h"
 #include "util/alloc.h"
 #include "util/compile_context.h"
 #include "grey.h"
@@ -154,9 +153,6 @@ protected:
 
     // Space for stream state.
     aligned_unique_ptr<char> stream_state;
-
-    // Space for NFAContext structure.
-    aligned_unique_ptr<void> nfa_context;
 
     // Queue structure.
     struct mq q;
