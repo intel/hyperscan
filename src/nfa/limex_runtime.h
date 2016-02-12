@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,7 +42,6 @@
 #include "limex_internal.h"
 #include "nfa_api_util.h"
 #include "nfa_internal.h"
-#include "scratch.h"
 #include "util/uniform_ops.h"
 
 ////////////////////////////////////////////////////////////////////////////
