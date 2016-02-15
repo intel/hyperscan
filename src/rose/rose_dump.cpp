@@ -235,11 +235,12 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
     for (;;) {
         u8 code = *(const u8 *)pc;
         assert(code <= ROSE_INSTR_END);
+        const size_t offset = pc - pc_base;
         switch (code) {
             PROGRAM_CASE(ANCHORED_DELAY) {
                 os << "    groups 0x" << std::hex << ri->groups << std::dec
                    << endl;
-                os << "    done_jump +" << ri->done_jump << endl;
+                os << "    done_jump " << offset + ri->done_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -263,27 +264,27 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_ONLY_EOD) {
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_BOUNDS) {
                 os << "    min_bound " << ri->min_bound << endl;
                 os << "    max_bound " << ri->max_bound << endl;
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_NOT_HANDLED) {
                 os << "    key " << ri->key << endl;
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_LOOKAROUND) {
                 os << "    index " << ri->index << endl;
                 os << "    count " << ri->count << endl;
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
                 dumpLookaround(os, t, ri);
             }
             PROGRAM_NEXT_INSTRUCTION
@@ -292,7 +293,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
                 os << "    queue " << ri->queue << endl;
                 os << "    lag " << ri->lag << endl;
                 os << "    report " << ri->report << endl;
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -300,7 +301,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
                 os << "    queue " << ri->queue << endl;
                 os << "    lag " << ri->lag << endl;
                 os << "    report " << ri->report << endl;
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -349,14 +350,14 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             PROGRAM_CASE(DEDUPE) {
                 os << "    report " << ri->report << endl;
                 dumpReport(os, t, ri->report);
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(DEDUPE_SOM) {
                 os << "    report " << ri->report << endl;
                 dumpReport(os, t, ri->report);
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -404,14 +405,14 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
 
             PROGRAM_CASE(CHECK_EXHAUSTED) {
                 os << "    ekey " << ri->ekey << endl;
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_MIN_LENGTH) {
                 os << "    end_adj " << ri->end_adj << endl;
                 os << "    min_length " << ri->min_length << endl;
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -434,7 +435,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
 
             PROGRAM_CASE(CHECK_STATE) {
                 os << "    index " << ri->index << endl;
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -442,7 +443,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
                 os << "    iter_offset " << ri->iter_offset << endl;
                 os << "    jump_table " << ri->jump_table << endl;
                 dumpJumpTable(os, t, ri);
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -450,7 +451,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
                 os << "    iter_offset " << ri->iter_offset << endl;
                 os << "    jump_table " << ri->jump_table << endl;
                 os << "    state " << ri->state << endl;
-                os << "    fail_jump +" << ri->fail_jump << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
