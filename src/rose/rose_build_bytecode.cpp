@@ -3035,15 +3035,6 @@ void makeReport(RoseBuildImpl &build, const ReportID id, const bool has_som,
 
     vector<RoseInstruction> report_block;
 
-    // If this report has an exhaustion key, we can check it in the program
-    // rather than waiting until we're in the callback adaptor.
-    if (report.ekey != INVALID_EKEY) {
-        auto ri = RoseInstruction(ROSE_INSTR_CHECK_EXHAUSTED,
-                                  JumpTarget::NEXT_BLOCK);
-        ri.u.checkExhausted.ekey = report.ekey;
-        report_block.push_back(move(ri));
-    }
-
     // Similarly, we can handle min/max offset checks.
     if (report.minOffset > 0 || report.maxOffset < MAX_OFFSET) {
         auto ri = RoseInstruction(ROSE_INSTR_CHECK_BOUNDS,
@@ -3057,7 +3048,16 @@ void makeReport(RoseBuildImpl &build, const ReportID id, const bool has_som,
     // TODO: this could be floated in front of all the reports and only done
     // once.
     if (report.type != INTERNAL_ROSE_CHAIN) {
-        program.emplace_back(ROSE_INSTR_CATCH_UP);
+        report_block.emplace_back(ROSE_INSTR_CATCH_UP);
+    }
+
+    // If this report has an exhaustion key, we can check it in the program
+    // rather than waiting until we're in the callback adaptor.
+    if (report.ekey != INVALID_EKEY) {
+        auto ri = RoseInstruction(ROSE_INSTR_CHECK_EXHAUSTED,
+                                  JumpTarget::NEXT_BLOCK);
+        ri.u.checkExhausted.ekey = report.ekey;
+        report_block.push_back(move(ri));
     }
 
     // External SOM reports need their SOM value calculated.
