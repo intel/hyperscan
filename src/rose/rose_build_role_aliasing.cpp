@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -347,13 +347,7 @@ bool isAliasingCandidate(RoseVertex v, const RoseBuildImpl &tbi) {
         return false;
     }
 
-    u32 id = *props.literals.begin();
-    assert(id != MO_INVALID_IDX);
-
-    // Ignore direct reports.
-    if (tbi.isDirectReport(id)) {
-        return false;
-    }
+    assert(*props.literals.begin() != MO_INVALID_IDX);
 
     // Any vertex involved in a "ghost" relationship has already been disallowed
 
