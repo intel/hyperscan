@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,8 @@
 #define SSSE3 (1 << 9)
 #define SSE4_1 (1 << 19)
 #define SSE4_2 (1 << 20)
+#define XSAVE (1 << 27)
+#define AVX (1 << 28)
 
 // EDX
 #define SSE (1 << 25)
@@ -50,6 +52,10 @@
 #define BMI (1 << 3)
 #define AVX2 (1 << 5)
 #define BMI2 (1 << 8)
+
+// Extended Control Register 0 (XCR0) values
+#define XCR0_SSE (1 << 1)
+#define XCR0_AVX (1 << 2)
 
 static __inline
 void cpuid(unsigned int op, unsigned int leaf, unsigned int *eax,
@@ -66,19 +72,61 @@ void cpuid(unsigned int op, unsigned int leaf, unsigned int *eax,
 #endif
 }
 
-u64a cpuid_flags(void) {
-    unsigned int eax, ebx, ecx, edx;
-    u64a cap = 0;
+static inline
+u64a xgetbv(u32 op) {
+#if defined(_WIN32) || defined(__INTEL_COMPILER)
+    return _xgetbv(op);
+#else
+    u32 a, d;
+    __asm__ volatile (
+            "xgetbv\n"
+            : "=a"(a),
+              "=d"(d)
+            : "c"(op));
+    return ((u64a)d << 32) + a;
+#endif
+}
 
-    // version info
+static
+int check_avx2(void) {
+#if defined(__INTEL_COMPILER)
+    return _may_i_use_cpu_feature(_FEATURE_AVX2);
+#else
+    unsigned int eax, ebx, ecx, edx;
+
     cpuid(1, 0, &eax, &ebx, &ecx, &edx);
 
-    /* ECX and EDX contain capability flags */
+    /* check AVX is supported and XGETBV is enabled by OS */
+    if ((ecx & (AVX | XSAVE)) != (AVX | XSAVE)) {
+        DEBUG_PRINTF("AVX and XSAVE not supported\n");
+        return 0;
+    }
 
+    /* check that SSE and AVX registers are enabled by OS */
+    u64a xcr0 = xgetbv(0);
+    if ((xcr0 & (XCR0_SSE | XCR0_AVX)) != (XCR0_SSE | XCR0_AVX)) {
+        DEBUG_PRINTF("SSE and AVX registers not enabled\n");
+        return 0;
+    }
+
+    /* ECX and EDX contain capability flags */
     ecx = 0;
     cpuid(7, 0, &eax, &ebx, &ecx, &edx);
 
     if (ebx & AVX2) {
+        DEBUG_PRINTF("AVX2 enabled\n");
+        return 1;
+    }
+
+    return 0;
+#endif
+}
+
+u64a cpuid_flags(void) {
+    u64a cap = 0;
+
+    if (check_avx2()) {
+        DEBUG_PRINTF("AVX2 enabled\n");
         cap |= HS_CPU_FEATURES_AVX2;
     }
 
