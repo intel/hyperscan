@@ -849,7 +849,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
     for (;;) {
         assert(ISALIGNED_N(pc, ROSE_INSTR_MIN_ALIGN));
         assert(pc >= pc_base);
-        assert((pc - pc_base) < t->size);
+        assert((size_t)(pc - pc_base) < t->size);
         const u8 code = *(const u8 *)pc;
         assert(code <= ROSE_INSTR_END);
 
