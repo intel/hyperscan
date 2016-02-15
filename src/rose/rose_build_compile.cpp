@@ -248,6 +248,44 @@ bool isUsedLiteral(const RoseBuildImpl &build, u32 lit_id) {
 }
 
 static
+void makeDirectReport(RoseBuildImpl &build, u32 i) {
+    if (build.literals.right.at(i).table == ROSE_FLOATING) {
+        build.floating_direct_report = true;
+    }
+
+    rose_literal_info &info = build.literal_info[i];
+    assert(!info.vertices.empty());
+
+    vector<ReportID> reports;
+    for (const auto &v : info.vertices) {
+        const auto &r = build.g[v].reports;
+        reports.insert(end(reports), begin(r), end(r));
+    }
+    sort(begin(reports), end(reports));
+    reports.erase(unique(begin(reports), end(reports)), end(reports));
+
+    if (reports.size() == 1) {
+        // A single direct report. We set the high bit to indicate it's a
+        // direct report and encode the ReportID itself in the final_id
+        // field.
+        ReportID report = reports.front();
+        assert(!(report & LITERAL_DR_FLAG));
+        info.final_id = LITERAL_DR_FLAG | report;
+        DEBUG_PRINTF("direct report %u -> %u\n", info.final_id, report);
+    } else {
+        // A multi-direct report. Here we write the report set into a list
+        // to be triggered when we see this literal.
+        u32 mdr_index = verify_u32(build.mdr_reports.size());
+        info.final_id = LITERAL_MDR_FLAG | mdr_index;
+        DEBUG_PRINTF("multi direct report %u -> [%s]\n", info.final_id,
+                     as_string_list(reports).c_str());
+        build.mdr_reports.insert(end(build.mdr_reports), begin(reports),
+                                 end(reports));
+        build.mdr_reports.push_back(MO_INVALID_IDX);
+    }
+}
+
+static
 void allocateFinalLiteralId(RoseBuildImpl &tbi) {
     /* allocate final literal ids - these are the literal ids used in the
      * bytecode.
@@ -264,12 +302,15 @@ void allocateFinalLiteralId(RoseBuildImpl &tbi) {
     assert(tbi.final_id_to_literal.empty());
     u32 next_final_id = 0;
     for (u32 i = 0; i < tbi.literal_info.size(); i++) {
-        if (tbi.hasFinalId(i)) {
-            continue;
-        }
+        assert(!tbi.hasFinalId(i));
 
         if (!isUsedLiteral(tbi, i)) {
             /* what is this literal good for? absolutely nothing */
+            continue;
+        }
+
+        if (tbi.isDirectReport(i)) {
+            makeDirectReport(tbi, i);
             continue;
         }
 
@@ -303,51 +344,6 @@ void allocateFinalLiteralId(RoseBuildImpl &tbi) {
     tbi.delay_base_id = next_final_id;
     allocateFinalIdToSet(g, delay, &tbi.literal_info, &tbi.final_id_to_literal,
                          &next_final_id);
-}
-
-static
-void findDirectReports(RoseBuildImpl &tbi) {
-    const RoseGraph &g = tbi.g;
-
-    for (u32 i = 0; i < tbi.literal_info.size(); i++) {
-        if (!tbi.isDirectReport(i)) {
-            continue;
-        }
-
-        if (tbi.literals.right.at(i).table == ROSE_FLOATING) {
-            tbi.floating_direct_report = true;
-        }
-
-        rose_literal_info &info = tbi.literal_info[i];
-        const auto &verts = info.vertices;
-
-        assert(!verts.empty());
-        if (verts.size() == 1 && g[*verts.begin()].reports.size() == 1) {
-            // A single direct report. We set the high bit to indicate it's a
-            // direct report and encode the ReportID itself in the final_id
-            // field.
-            ReportID report = *(g[*verts.begin()].reports.begin());
-            assert(!(report & LITERAL_DR_FLAG));
-            info.final_id = LITERAL_DR_FLAG | report;
-        } else {
-            // A multi-direct report. Here we write the report set into a list
-            // to be triggered when we see this literal.
-            u32 mdr_index = verify_u32(tbi.mdr_reports.size());
-            info.final_id = LITERAL_MDR_FLAG | mdr_index;
-
-            // Temporary set for deduplication and determinism.
-            flat_set<ReportID> reports;
-
-            for (auto v : verts) {
-                insert(&reports, g[v].reports);
-            }
-            tbi.mdr_reports.insert(tbi.mdr_reports.end(), reports.begin(),
-                                   reports.end());
-            tbi.mdr_reports.push_back(MO_INVALID_IDX);
-        }
-
-        DEBUG_PRINTF("allocating final id %u to %u\n", info.final_id, i);
-    }
 }
 
 #define MAX_EXPLOSION_NC 3
@@ -2172,9 +2168,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
 
     // If we've got a very small number of EOD-anchored literals, consider
     // moving them into the floating table so that we only have one literal
-    // matcher to run. Note that this should happen before findDirectReports as
-    // it modifies the literal/vertex set. Note also that this needs to happen
-    // before addAnchoredSmallBlockLiterals as it may create anchored literals.
+    // matcher to run. Note that this needs to happen before
+    // addAnchoredSmallBlockLiterals as it may create anchored literals.
     assert(roleOffsetsAreValid(g));
     stealEodVertices(*this);
 
@@ -2189,8 +2184,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
 
     assert(roleOffsetsAreValid(g));
     handleMixedSensitivity();
-
-    findDirectReports(*this);
 
     assignHistories(*this);
 
