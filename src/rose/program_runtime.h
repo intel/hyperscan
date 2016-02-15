@@ -808,10 +808,10 @@ char roseCheckBounds(u64a end, u64a min_bound, u64a max_bound) {
     return end >= min_bound && end <= max_bound;
 }
 
-
 #define PROGRAM_CASE(name)                                                     \
     case ROSE_INSTR_##name: {                                                  \
-        DEBUG_PRINTF("instruction: " #name " (%u)\n", ROSE_INSTR_##name);      \
+        DEBUG_PRINTF("instruction: " #name " (pc=%u)\n",                       \
+                     programOffset + (u32)(pc - pc_base));                     \
         const struct ROSE_STRUCT_##name *ri =                                  \
             (const struct ROSE_STRUCT_##name *)pc;
 
@@ -848,7 +848,9 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
 
     for (;;) {
         assert(ISALIGNED_N(pc, ROSE_INSTR_MIN_ALIGN));
-        u8 code = *(const u8 *)pc;
+        assert(pc >= pc_base);
+        assert((pc - pc_base) < t->size);
+        const u8 code = *(const u8 *)pc;
         assert(code <= ROSE_INSTR_END);
 
         switch ((enum RoseInstructionCode)code) {
