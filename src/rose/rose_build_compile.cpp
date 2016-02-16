@@ -598,6 +598,13 @@ bool RoseBuildImpl::isDirectReport(u32 id) const {
             return false;
         }
 
+        // Use the program to handle cases that aren't external reports.
+        for (const ReportID &id : g[v].reports) {
+            if (!isExternalReport(rm.getReport(id))) {
+                return false;
+            }
+        }
+
         if (literals.right.at(id).table == ROSE_ANCHORED) {
             /* in-edges are irrelevant for anchored region. */
             continue;
