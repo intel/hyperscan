@@ -274,23 +274,15 @@ hwlmcb_rv_t roseHandleMatch(const struct RoseEngine *t, ReportID id, u64a end,
 
 /* handles catchup, som, cb, etc */
 static really_inline
-hwlmcb_rv_t roseHandleReport(const struct RoseEngine *t,
-                             struct hs_scratch *scratch, ReportID id,
-                             u64a offset, char in_anchored) {
+hwlmcb_rv_t roseHandleDirectReport(const struct RoseEngine *t,
+                                   struct hs_scratch *scratch, ReportID id,
+                                   u64a offset, char in_anchored) {
+    // The direct report path is only used for external reports.
+    assert(isExternalReport(getInternalReport(t, id)));
+
     if (roseCatchUpTo(t, scratch, offset, in_anchored) ==
         HWLM_TERMINATE_MATCHING) {
         return HWLM_TERMINATE_MATCHING;
-    }
-
-    const struct internal_report *ri = getInternalReport(t, id);
-    if (ri) {
-        if (isInternalSomReport(ri)) {
-            roseHandleSom(t, scratch, id, offset);
-            return HWLM_CONTINUE_MATCHING;
-        } else if (ri->type == INTERNAL_ROSE_CHAIN) {
-            return roseCatchUpAndHandleChainMatch(t, scratch, id, offset,
-                                                  in_anchored);
-        }
     }
 
     return roseHandleMatch(t, id, offset, scratch);
@@ -308,7 +300,8 @@ hwlmcb_rv_t roseHandleAnchoredDirectReport(const struct RoseEngine *t,
         return HWLM_CONTINUE_MATCHING;
     }
 
-    return roseHandleReport(t, scratch, report, real_end, 1 /* in anchored */);
+    return roseHandleDirectReport(t, scratch, report, real_end,
+                                  1 /* in anchored */);
 }
 
 int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
@@ -409,8 +402,8 @@ hwlmcb_rv_t roseProcessMatch_i(const struct RoseEngine *t,
                 mdr_offset;
             for (; *report != MO_INVALID_IDX; report++) {
                 DEBUG_PRINTF("handle multi-direct report %u\n", *report);
-                hwlmcb_rv_t rv = roseHandleReport(t, scratch, *report, end,
-                                                  0 /* in anchored */);
+                hwlmcb_rv_t rv = roseHandleDirectReport(t, scratch, *report,
+                                                    end, 0 /* in anchored */);
                 if (rv == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
@@ -420,8 +413,8 @@ hwlmcb_rv_t roseProcessMatch_i(const struct RoseEngine *t,
             // Single direct report.
             ReportID report = literalToReport(id);
             DEBUG_PRINTF("handle direct report %u\n", report);
-            return roseHandleReport(t, scratch, report, end,
-                                    0 /* in anchored */);
+            return roseHandleDirectReport(t, scratch, report, end,
+                                          0 /* in anchored */);
         }
     }
 
