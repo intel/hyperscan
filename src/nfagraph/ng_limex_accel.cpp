@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -464,16 +464,13 @@ void dumpPaths(const vector<vector<CharReach> > &paths) {
 #endif
 
 static
-void blowoutPathsLessStrictSegment(vector<vector<CharReach> > *paths) {
+void blowoutPathsLessStrictSegment(vector<vector<CharReach> > &paths) {
     /* paths segments which are a superset of an earlier segment should never be
      * picked as an acceleration segment -> to improve processing just replace
      * with dot */
-    for (vector<vector<CharReach> >::iterator p = paths->begin();
-         p != paths->end(); ++p) {
-        for (vector<CharReach>::iterator it = p->begin(); it != p->end();
-             ++it) {
-            vector<CharReach>::iterator jt = it;
-            for (++jt; jt != p->end(); ++jt) {
+    for (auto &p : paths) {
+        for (auto it = p.begin(); it != p.end();  ++it) {
+            for (auto jt = next(it); jt != p.end(); ++jt) {
                 if (it->isSubsetOf(*jt)) {
                     *jt = CharReach::dot();
                 }
@@ -483,10 +480,10 @@ void blowoutPathsLessStrictSegment(vector<vector<CharReach> > *paths) {
 }
 
 static
-void unifyPathsLastSegment(vector<vector<CharReach> > *paths) {
+void unifyPathsLastSegment(vector<vector<CharReach> > &paths) {
     /* try to unify paths which only differ in the last segment */
-    for (vector<vector<CharReach> >::iterator p = paths->begin();
-         p != paths->end() && p + 1 != paths->end();) {
+    for (vector<vector<CharReach> >::iterator p = paths.begin();
+         p != paths.end() && p + 1 != paths.end();) {
         vector<CharReach> &a = *p;
         vector<CharReach> &b = *(p + 1);
 
@@ -504,7 +501,7 @@ void unifyPathsLastSegment(vector<vector<CharReach> > *paths) {
         if (i == a.size() - 1) {
             /* we can unify these paths */
             a[i] |= b[i];
-            paths->erase(p + 1);
+            paths.erase(p + 1);
         } else {
             ++p;
         }
@@ -512,21 +509,57 @@ void unifyPathsLastSegment(vector<vector<CharReach> > *paths) {
 }
 
 static
-void improvePaths(vector<vector<CharReach> > *paths) {
+void improvePaths(vector<vector<CharReach> > &paths) {
 #ifdef DEBUG
     DEBUG_PRINTF("orig paths\n");
-    dumpPaths(*paths);
+    dumpPaths(paths);
 #endif
     blowoutPathsLessStrictSegment(paths);
 
-    sort(paths->begin(), paths->end());
+    sort(paths.begin(), paths.end());
 
     unifyPathsLastSegment(paths);
 
 #ifdef DEBUG
     DEBUG_PRINTF("opt paths\n");
-    dumpPaths(*paths);
+    dumpPaths(paths);
 #endif
+}
+
+AccelScheme findBestAccelScheme(vector<vector<CharReach> > paths,
+                                const CharReach &terminating) {
+    improvePaths(paths);
+
+    DEBUG_PRINTF("we have %zu paths\n", paths.size());
+    if (paths.size() > 40) {
+        return AccelScheme(); /* too many paths to explore */
+    }
+
+    /* if we were smart we would do something netflowy on the paths to find the
+     * best cut. But we aren't, so we will just brute force it.
+     */
+    AccelScheme curr(terminating, 0U);
+    AccelScheme best;
+    findBest(paths.begin(), paths.end(), curr, &best);
+
+    /* find best is a bit lazy in terms of minimising the offset, see if we can
+     * make it better. need to find the min max offset that we need.*/
+    u32 offset = 0;
+    for (vector<vector<CharReach> >::iterator p = paths.begin();
+         p != paths.end(); ++p) {
+        u32 i = 0;
+        for (vector<CharReach>::iterator it = p->begin(); it != p->end();
+             ++it, i++) {
+            if (it->isSubsetOf(best.cr)) {
+                break;
+            }
+        }
+        offset = MAX(offset, i);
+    }
+    assert(offset <= best.offset);
+    best.offset = offset;
+
+    return best;
 }
 
 AccelScheme nfaFindAccel(const NGHolder &g, const vector<NFAVertex> &verts,
@@ -579,36 +612,7 @@ AccelScheme nfaFindAccel(const NGHolder &g, const vector<NFAVertex> &verts,
         reverse(it->begin(), it->end());
     }
 
-    improvePaths(&paths);
-    DEBUG_PRINTF("we have %zu paths\n", paths.size());
-    if (paths.size() > 40) {
-        return AccelScheme(); /* too many paths to explore */
-    }
-
-    /* if we were smart we would do something netflowy on the paths to find the
-     * best cut. But we aren't, so we will just brute force it.
-     */
-    AccelScheme curr(terminating, 0U);
-    AccelScheme best;
-    findBest(paths.begin(), paths.end(), curr, &best);
-
-    /* find best is a bit lazy in terms of minimising the offset, see if we can
-     * make it better. need to find the min max offset that we need.*/
-    u32 offset = 0;
-    for (vector<vector<CharReach> >::iterator p = paths.begin();
-         p != paths.end(); ++p) {
-        u32 i = 0;
-        for (vector<CharReach>::iterator it = p->begin(); it != p->end();
-             ++it, i++) {
-            if (it->isSubsetOf(best.cr)) {
-                break;
-            }
-        }
-        offset = MAX(offset, i);
-    }
-    assert(offset <= best.offset);
-    best.offset = offset;
-    return best;
+    return findBestAccelScheme(std::move(paths), terminating);
 }
 
 NFAVertex get_sds_or_proxy(const NGHolder &g) {

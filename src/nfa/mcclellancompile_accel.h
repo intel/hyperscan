@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,31 +26,39 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MCCLELLAN_COMPILE_UTIL_H
-#define MCCLELLAN_COMPILE_UTIL_H
+#ifndef MCCLELLANCOMPILE_ACCEL_H
+#define MCCLELLANCOMPILE_ACCEL_H
 
-#include "rdfa.h"
-#include "ue2common.h"
+#include "mcclellancompile.h"
 
-#include <set>
+#include <map>
 
 namespace ue2 {
 
-u32 remove_leading_dots(raw_dfa &raw);
-void prune_overlong(raw_dfa &raw, u32 max_offset);
-std::set<ReportID> all_reports(const raw_dfa &rdfa);
-bool has_eod_accepts(const raw_dfa &rdfa);
-bool has_non_eod_accepts(const raw_dfa &rdfa);
+struct Grey;
 
-/** \brief Compute a simple hash of this raw_dfa. Does not include report
- * information. */
-size_t hash_dfa_no_reports(const raw_dfa &rdfa);
+#define ACCEL_DFA_MAX_OFFSET_DEPTH 4
 
-/** \brief Compute a simple hash of this raw_dfa, including its reports. */
-size_t hash_dfa(const raw_dfa &rdfa);
+/** Maximum tolerated number of escape character from an accel state.
+ * This is larger than nfa, as we don't have a budget and the nfa cheats on stop
+ * characters for sets of states */
+#define ACCEL_DFA_MAX_STOP_CHAR 160
 
-dstate_id_t get_sds_or_proxy(const raw_dfa &raw);
+/** Maximum tolerated number of escape character from a sds accel state. Larger
+ * than normal states as accelerating sds is important. Matches NFA value */
+#define ACCEL_DFA_MAX_FLOATING_STOP_CHAR 192
 
-} // namespace ue2
+escape_info look_for_offset_accel(const raw_dfa &rdfa, dstate_id_t base,
+                                  u32 max_allowed_accel_offset);
+
+std::map<dstate_id_t, escape_info> populateAccelerationInfo(const raw_dfa &rdfa,
+                                                   const dfa_build_strat &strat,
+                                                   const Grey &grey);
+
+escape_info find_mcclellan_escape_info(const raw_dfa &rdfa,
+                                       dstate_id_t this_idx,
+                                       u32 max_allowed_accel_offset);
+
+}
 
 #endif

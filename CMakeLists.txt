@@ -596,6 +596,8 @@ SET (hs_SRCS
     src/nfa/mcclellan_internal.h
     src/nfa/mcclellancompile.cpp
     src/nfa/mcclellancompile.h
+    src/nfa/mcclellancompile_accel.cpp
+    src/nfa/mcclellancompile_accel.h
     src/nfa/mcclellancompile_util.cpp
     src/nfa/mcclellancompile_util.h
     src/nfa/limex_compile.cpp

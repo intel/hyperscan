@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,6 +59,7 @@ struct escape_info {
     CharReach outs2_single;
     flat_set<std::pair<u8, u8>> outs2;
     bool outs2_broken = false;
+    u32 offset = 0;
 };
 
 class dfa_build_strat {
@@ -70,10 +71,10 @@ public:
                                std::vector<u32> &reports_eod /* out */,
                                u8 *isSingleReport /* out */,
                                ReportID *arbReport  /* out */) const = 0;
-    virtual void find_escape_strings(dstate_id_t this_idx,
-                                     escape_info *out) const = 0;
+    virtual escape_info find_escape_strings(dstate_id_t this_idx) const = 0;
     virtual size_t accelSize(void) const = 0;
-    virtual void buildAccel(dstate_id_t this_idx, void *accel_out) = 0;
+    virtual void buildAccel(dstate_id_t this_idx, const escape_info &info,
+                            void *accel_out) = 0;
 };
 
 class mcclellan_build_strat : public dfa_build_strat {
@@ -81,14 +82,15 @@ public:
     explicit mcclellan_build_strat(raw_dfa &r) : rdfa(r) {}
     raw_dfa &get_raw() const override { return rdfa; }
     std::unique_ptr<raw_report_info> gatherReports(
-                                   std::vector<u32> &reports /* out */,
-                                   std::vector<u32> &reports_eod /* out */,
-                                   u8 *isSingleReport /* out */,
-                                   ReportID *arbReport  /* out */) const override;
-    void find_escape_strings(dstate_id_t this_idx,
-                             escape_info *out) const override;
+                                  std::vector<u32> &reports /* out */,
+                                  std::vector<u32> &reports_eod /* out */,
+                                  u8 *isSingleReport /* out */,
+                                  ReportID *arbReport  /* out */) const override;
+    escape_info find_escape_strings(dstate_id_t this_idx) const override;
     size_t accelSize(void) const override;
-    void buildAccel(dstate_id_t this_idx, void *accel_out) override;
+    void buildAccel(dstate_id_t this_idx,const escape_info &info,
+                    void *accel_out) override;
+    virtual u32 max_allowed_offset_accel() const;
 
 private:
     raw_dfa &rdfa;

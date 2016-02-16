@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -332,6 +332,65 @@ size_t hash_dfa(const raw_dfa &rdfa) {
     hash_combine(v, hash_dfa_no_reports(rdfa));
     hash_combine(v, all_reports(rdfa));
     return v;
+}
+
+static
+bool has_self_loop(dstate_id_t s, const raw_dfa &raw) {
+    u16 top_remap = raw.alpha_remap[TOP];
+    for (u32 i = 0; i < raw.states[s].next.size(); i++) {
+        if (i != top_remap && raw.states[s].next[i] == s) {
+            return true;
+        }
+    }
+    return false;
+}
+
+dstate_id_t get_sds_or_proxy(const raw_dfa &raw) {
+    if (raw.start_floating != DEAD_STATE) {
+        DEBUG_PRINTF("has floating start\n");
+        return raw.start_floating;
+    }
+
+    DEBUG_PRINTF("looking for SDS proxy\n");
+
+    dstate_id_t s = raw.start_anchored;
+
+    if (has_self_loop(s, raw)) {
+        return s;
+    }
+
+    u16 top_remap = raw.alpha_remap[TOP];
+
+    ue2::unordered_set<dstate_id_t> seen;
+    while (true) {
+        seen.insert(s);
+        DEBUG_PRINTF("basis %hu\n", s);
+
+        /* check if we are connected to a state with a self loop */
+        for (u32 i = 0; i < raw.states[s].next.size(); i++) {
+            dstate_id_t t = raw.states[s].next[i];
+            if (i != top_remap && t != DEAD_STATE && has_self_loop(t, raw)) {
+                return t;
+            }
+        }
+
+        /* find a neighbour to use as a basis for looking for the sds proxy */
+        dstate_id_t t = DEAD_STATE;
+        for (u32 i = 0; i < raw.states[s].next.size(); i++) {
+            dstate_id_t tt = raw.states[s].next[i];
+            if (i != top_remap && tt != DEAD_STATE && !contains(seen, tt)) {
+                t = tt;
+                break;
+            }
+        }
+
+        if (t == DEAD_STATE) {
+            /* we were unable to find a state to use as a SDS proxy */
+            return DEAD_STATE;
+        }
+
+        s = t;
+    }
 }
 
 } // namespace ue2

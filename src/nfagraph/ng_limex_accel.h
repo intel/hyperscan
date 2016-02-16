@@ -110,6 +110,9 @@ AccelScheme nfaFindAccel(const NGHolder &g, const std::vector<NFAVertex> &verts,
                     const std::map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
                     bool allow_wide);
 
+AccelScheme findBestAccelScheme(std::vector<std::vector<CharReach> > paths,
+                                const CharReach &terminating);
+
 /** \brief Check if vertex \a v is an accelerable state (for a limex NFA). */
 bool nfaCheckAccel(const NGHolder &g, NFAVertex v,
                    const std::vector<CharReach> &refined_cr,

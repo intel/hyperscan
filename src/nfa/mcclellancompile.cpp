@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,8 @@
 #include "accel.h"
 #include "grey.h"
 #include "mcclellan_internal.h"
+#include "mcclellancompile_accel.h"
+#include "mcclellancompile_util.h"
 #include "nfa_internal.h"
 #include "shufticompile.h"
 #include "trufflecompile.h"
@@ -56,25 +58,18 @@
 #include <set>
 #include <vector>
 
+#include <boost/range/adaptor/map.hpp>
+
 using namespace std;
+using boost::adaptors::map_keys;
 
 namespace ue2 {
-
-/* compile time accel defs */
-#define ACCEL_MAX_STOP_CHAR 160 /* larger than nfa, as we don't have a budget
-                                   and the nfa cheats on stop characters for
-                                   sets of states */
-#define ACCEL_MAX_FLOATING_STOP_CHAR 192 /* accelerating sds is important */
-
 
 namespace /* anon */ {
 
 struct dstate_extra {
-    u16 daddytaken;
-    bool shermanState;
-    bool accelerable;
-    dstate_extra(void) : daddytaken(0), shermanState(false),
-                         accelerable(false) {}
+    u16 daddytaken = 0;
+    bool shermanState = false;
 };
 
 struct dfa_info {
@@ -105,10 +100,6 @@ struct dfa_info {
         return extra[raw_id].shermanState;
     }
 
-    bool is_accel(dstate_id_t raw_id) const {
-        return extra[raw_id].accelerable;
-    }
-
     size_t size(void) const { return states.size(); }
 };
 
@@ -133,6 +124,14 @@ mstate_aux *getAux(NFA *n, dstate_id_t i) {
     mstate_aux *aux = aux_base + i;
     assert((const char *)aux < (const char *)n + m->length);
     return aux;
+}
+
+static
+bool double_byte_ok(const escape_info &info) {
+    return !info.outs2_broken
+        && info.outs2_single.count() + info.outs2.size() <= 8
+        && info.outs2_single.count() < info.outs2.size()
+        && info.outs2_single.count() <= 2 && !info.outs2.empty();
 }
 
 static
@@ -186,75 +185,43 @@ void markEdges(NFA *n, u16 *succ_table, const dfa_info &info) {
     }
 }
 
-void mcclellan_build_strat::find_escape_strings(dstate_id_t this_idx,
-                                                escape_info *out) const {
-    const dstate &raw = rdfa.states[this_idx];
-    const auto &alpha_remap = rdfa.alpha_remap;
+u32 mcclellan_build_strat::max_allowed_offset_accel() const {
+    return ACCEL_DFA_MAX_OFFSET_DEPTH;
+}
 
-    flat_set<pair<u8, u8>> outs2_local;
-    for (unsigned i = 0; i < N_CHARS; i++) {
-        outs2_local.clear();
-
-        if (raw.next[alpha_remap[i]] != this_idx) {
-            out->outs.set(i);
-
-            DEBUG_PRINTF("next is %hu\n", raw.next[alpha_remap[i]]);
-            const dstate &raw_next = rdfa.states[raw.next[alpha_remap[i]]];
-
-            if (!raw_next.reports.empty() && generates_callbacks(rdfa.kind)) {
-                DEBUG_PRINTF("leads to report\n");
-                out->outs2_broken = true;  /* cannot accelerate over reports */
-            }
-
-            for (unsigned j = 0; !out->outs2_broken && j < N_CHARS; j++) {
-                if (raw_next.next[alpha_remap[j]] == raw.next[alpha_remap[j]]) {
-                    continue;
-                }
-
-                DEBUG_PRINTF("adding %02x %02x -> %hu to 2 \n", i, j,
-                             raw_next.next[alpha_remap[j]]);
-                outs2_local.emplace((u8)i, (u8)j);
-            }
-
-            if (outs2_local.size() > 8) {
-                DEBUG_PRINTF("adding %02x to outs2_single\n", i);
-                out->outs2_single.set(i);
-            } else {
-                insert(&out->outs2, outs2_local);
-            }
-            if (out->outs2.size() > 8) {
-                DEBUG_PRINTF("outs2 too big\n");
-                out->outs2_broken = true;
-            }
-        }
-    }
+escape_info mcclellan_build_strat::find_escape_strings(dstate_id_t this_idx)
+    const {
+    return find_mcclellan_escape_info(rdfa, this_idx,
+                                      max_allowed_offset_accel());
 }
 
 /** builds acceleration schemes for states */
-void mcclellan_build_strat::buildAccel(dstate_id_t this_idx, void *accel_out) {
+void mcclellan_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
+                                       const escape_info &info,
+                                       void *accel_out) {
     AccelAux *accel = (AccelAux *)accel_out;
-    escape_info out;
 
-    find_escape_strings(this_idx, &out);
+    DEBUG_PRINTF("accelerations scheme has offset %u\n", info.offset);
+    accel->generic.offset = verify_u8(info.offset);
 
-    if (!out.outs2_broken && out.outs2_single.none()
-        && out.outs2.size() == 1) {
+    if (double_byte_ok(info) && info.outs2_single.none()
+        && info.outs2.size() == 1) {
         accel->accel_type = ACCEL_DVERM;
-        accel->dverm.c1 = out.outs2.begin()->first;
-        accel->dverm.c2 = out.outs2.begin()->second;
+        accel->dverm.c1 = info.outs2.begin()->first;
+        accel->dverm.c2 = info.outs2.begin()->second;
         DEBUG_PRINTF("state %hu is double vermicelli\n", this_idx);
         return;
     }
 
-    if (!out.outs2_broken && out.outs2_single.none()
-        && (out.outs2.size() == 2 || out.outs2.size() == 4)) {
+    if (double_byte_ok(info) && info.outs2_single.none()
+        && (info.outs2.size() == 2 || info.outs2.size() == 4)) {
         bool ok = true;
 
-        assert(!out.outs2.empty());
-        u8 firstC = out.outs2.begin()->first & CASE_CLEAR;
-        u8 secondC = out.outs2.begin()->second & CASE_CLEAR;
+        assert(!info.outs2.empty());
+        u8 firstC = info.outs2.begin()->first & CASE_CLEAR;
+        u8 secondC = info.outs2.begin()->second & CASE_CLEAR;
 
-        for (const pair<u8, u8> &p : out.outs2) {
+        for (const pair<u8, u8> &p : info.outs2) {
             if ((p.first & CASE_CLEAR) != firstC
              || (p.second & CASE_CLEAR) != secondC) {
                 ok = false;
@@ -271,12 +238,9 @@ void mcclellan_build_strat::buildAccel(dstate_id_t this_idx, void *accel_out) {
         }
     }
 
-    if (!out.outs2_broken &&
-        (out.outs2_single.count() + out.outs2.size()) <= 8 &&
-        out.outs2_single.count() < out.outs2.size() &&
-        out.outs2_single.count() <= 2 && !out.outs2.empty()) {
+    if (double_byte_ok(info)) {
         accel->accel_type = ACCEL_DSHUFTI;
-        shuftiBuildDoubleMasks(out.outs2_single, out.outs2,
+        shuftiBuildDoubleMasks(info.outs2_single, info.outs2,
                                &accel->dshufti.lo1,
                                &accel->dshufti.hi1,
                                &accel->dshufti.lo2,
@@ -285,164 +249,44 @@ void mcclellan_build_strat::buildAccel(dstate_id_t this_idx, void *accel_out) {
         return;
     }
 
-    if (out.outs.none()) {
+    if (info.outs.none()) {
         accel->accel_type = ACCEL_RED_TAPE;
         DEBUG_PRINTF("state %hu is a dead end full of bureaucratic red tape"
                      " from which there is no escape\n", this_idx);
         return;
     }
 
-    if (out.outs.count() == 1) {
+    if (info.outs.count() == 1) {
         accel->accel_type = ACCEL_VERM;
-        accel->verm.c = out.outs.find_first();
+        accel->verm.c = info.outs.find_first();
         DEBUG_PRINTF("state %hu is vermicelli\n", this_idx);
         return;
     }
 
-    if (out.outs.count() == 2 && out.outs.isCaselessChar()) {
+    if (info.outs.count() == 2 && info.outs.isCaselessChar()) {
         accel->accel_type = ACCEL_VERM_NOCASE;
-        accel->verm.c = out.outs.find_first() & CASE_CLEAR;
+        accel->verm.c = info.outs.find_first() & CASE_CLEAR;
         DEBUG_PRINTF("state %hu is caseless vermicelli\n", this_idx);
         return;
     }
 
-    if (out.outs.count() > ACCEL_MAX_FLOATING_STOP_CHAR) {
+    if (info.outs.count() > ACCEL_DFA_MAX_FLOATING_STOP_CHAR) {
         accel->accel_type = ACCEL_NONE;
         DEBUG_PRINTF("state %hu is too broad\n", this_idx);
         return;
     }
 
     accel->accel_type = ACCEL_SHUFTI;
-    if (-1 != shuftiBuildMasks(out.outs, &accel->shufti.lo,
+    if (-1 != shuftiBuildMasks(info.outs, &accel->shufti.lo,
                                &accel->shufti.hi)) {
         DEBUG_PRINTF("state %hu is shufti\n", this_idx);
         return;
     }
 
-    assert(!out.outs.none());
+    assert(!info.outs.none());
     accel->accel_type = ACCEL_TRUFFLE;
-    truffleBuildMasks(out.outs, &accel->truffle.mask1, &accel->truffle.mask2);
+    truffleBuildMasks(info.outs, &accel->truffle.mask1, &accel->truffle.mask2);
     DEBUG_PRINTF("state %hu is truffle\n", this_idx);
-}
-
-static
-bool is_accel(const raw_dfa &raw, dstate_id_t sds_or_proxy,
-              dstate_id_t this_idx) {
-    if (!this_idx /* dead state is not accelerable */) {
-        return false;
-    }
-
-    /* Note on report acceleration states: While we can't accelerate while we
-     * are spamming out callbacks, the QR code paths don't raise reports
-     * during scanning so they can accelerate report states. */
-
-    if (generates_callbacks(raw.kind)
-        && !raw.states[this_idx].reports.empty()) {
-        return false;
-    }
-
-    size_t single_limit = this_idx == sds_or_proxy ?
-                             ACCEL_MAX_FLOATING_STOP_CHAR : ACCEL_MAX_STOP_CHAR;
-    DEBUG_PRINTF("inspecting %hu/%hu: %zu\n", this_idx, sds_or_proxy,
-                  single_limit);
-
-    CharReach out;
-    for (u32 i = 0; i < N_CHARS; i++) {
-        if (raw.states[this_idx].next[raw.alpha_remap[i]] != this_idx) {
-            out.set(i);
-        }
-    }
-
-    if (out.count() <= single_limit) {
-        DEBUG_PRINTF("state %hu should be accelerable %zu\n", this_idx,
-                     out.count());
-        return true;
-    }
-
-    DEBUG_PRINTF("state %hu is not accelerable has %zu\n", this_idx,
-                  out.count());
-
-    return false;
-}
-
-static
-bool has_self_loop(dstate_id_t s, const raw_dfa &raw) {
-    u16 top_remap = raw.alpha_remap[TOP];
-    for (u32 i = 0; i < raw.states[s].next.size(); i++) {
-        if (i != top_remap && raw.states[s].next[i] == s) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static
-dstate_id_t get_sds_or_proxy(const raw_dfa &raw) {
-    if (raw.start_floating != DEAD_STATE) {
-        DEBUG_PRINTF("has floating start\n");
-        return raw.start_floating;
-    }
-
-    DEBUG_PRINTF("looking for SDS proxy\n");
-
-    dstate_id_t s = raw.start_anchored;
-
-    if (has_self_loop(s, raw)) {
-        return s;
-    }
-
-    u16 top_remap = raw.alpha_remap[TOP];
-
-    ue2::unordered_set<dstate_id_t> seen;
-    while (true) {
-        seen.insert(s);
-        DEBUG_PRINTF("basis %hu\n", s);
-
-        /* check if we are connected to a state with a self loop */
-        for (u32 i = 0; i < raw.states[s].next.size(); i++) {
-            dstate_id_t t = raw.states[s].next[i];
-            if (i != top_remap && t != DEAD_STATE && has_self_loop(t, raw)) {
-                return t;
-            }
-        }
-
-        /* find a neighbour to use as a basis for looking for the sds proxy */
-        dstate_id_t t = DEAD_STATE;
-        for (u32 i = 0; i < raw.states[s].next.size(); i++) {
-            dstate_id_t tt = raw.states[s].next[i];
-            if (i != top_remap && tt != DEAD_STATE && !contains(seen, tt)) {
-                t = tt;
-                break;
-            }
-        }
-
-        if (t == DEAD_STATE) {
-            /* we were unable to find a state to use as a SDS proxy */
-            return DEAD_STATE;
-        }
-
-        s = t;
-        seen.insert(t);
-    }
-}
-
-static
-void populateAccelerationInfo(dfa_info &info, u32 *ac, const Grey &grey) {
-    *ac = 0; /* number of accelerable states */
-
-    if (!grey.accelerateDFA) {
-        return;
-    }
-
-    dstate_id_t sds_proxy = get_sds_or_proxy(info.raw);
-    DEBUG_PRINTF("sds %hu\n", sds_proxy);
-
-    for (size_t i = 0; i < info.size(); i++) {
-        if (is_accel(info.raw, sds_proxy, i)) {
-            ++*ac;
-            info.extra[i].accelerable = true;
-        }
-    }
 }
 
 static
@@ -626,6 +470,14 @@ void raw_report_info_impl::fillReportLists(NFA *n, size_t base_offset,
 }
 
 static
+void fillAccelOut(const map<dstate_id_t, escape_info> &accel_escape_info,
+                  set<dstate_id_t> *accel_states) {
+    for (dstate_id_t i : accel_escape_info | map_keys) {
+        accel_states->insert(i);
+    }
+}
+
+static
 size_t calcShermanRegionSize(const dfa_info &info) {
     size_t rv = 0;
 
@@ -692,14 +544,14 @@ int allocateFSN16(dfa_info &info, dstate_id_t *sherman_base) {
 
 static
 aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
-                                           const CompileContext &cc) {
+                                           const CompileContext &cc,
+                                           set<dstate_id_t> *accel_states) {
     DEBUG_PRINTF("building mcclellan 16\n");
 
     vector<u32> reports; /* index in ri for the appropriate report list */
     vector<u32> reports_eod; /* as above */
     ReportID arb;
     u8 single;
-    u32 accelCount;
 
     u8 alphaShift = info.getAlphaShift();
     assert(alphaShift <= 8);
@@ -713,7 +565,8 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
 
     unique_ptr<raw_report_info> ri
         = info.strat.gatherReports(reports, reports_eod, &single, &arb);
-    populateAccelerationInfo(info, &accelCount, cc.grey);
+    map<dstate_id_t, escape_info> accel_escape_info
+        = populateAccelerationInfo(info.raw, info.strat, cc.grey);
 
     size_t tran_size = (1 << info.getAlphaShift())
         * sizeof(u16) * count_real_states;
@@ -721,7 +574,7 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
     size_t aux_size = sizeof(mstate_aux) * info.size();
 
     size_t aux_offset = ROUNDUP_16(sizeof(NFA) + sizeof(mcclellan) + tran_size);
-    size_t accel_size = info.strat.accelSize() * accelCount;
+    size_t accel_size = info.strat.accelSize() * accel_escape_info.size();
     size_t accel_offset = ROUNDUP_N(aux_offset + aux_size
                                     + ri->getReportListSize(), 32);
     size_t sherman_offset = ROUNDUP_16(accel_offset + accel_size);
@@ -736,7 +589,7 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
     char *nfa_base = (char *)nfa.get();
 
     populateBasicInfo(sizeof(u16), info, total_size, aux_offset, accel_offset,
-                      accelCount, arb, single, nfa.get());
+                      accel_escape_info.size(), arb, single, nfa.get());
 
     vector<u32> reportOffsets;
 
@@ -769,12 +622,12 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
 
         fillInAux(&aux[fs], i, info, reports, reports_eod, reportOffsets);
 
-        if (info.is_accel(i)) {
+        if (contains(accel_escape_info, i)) {
             this_aux->accel_offset = accel_offset;
             accel_offset += info.strat.accelSize();
             assert(accel_offset + sizeof(NFA) <= sherman_offset);
             assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
-            info.strat.buildAccel(i,
+            info.strat.buildAccel(i, accel_escape_info.at(i),
                                   (void *)((char *)m + this_aux->accel_offset));
         }
     }
@@ -798,12 +651,12 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
 
         fillInAux(this_aux, i, info, reports, reports_eod, reportOffsets);
 
-        if (info.is_accel(i)) {
+        if (contains(accel_escape_info, i)) {
             this_aux->accel_offset = accel_offset;
             accel_offset += info.strat.accelSize();
             assert(accel_offset + sizeof(NFA) <= sherman_offset);
             assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
-            info.strat.buildAccel(i,
+            info.strat.buildAccel(i, accel_escape_info.at(i),
                                   (void *)((char *)m + this_aux->accel_offset));
         }
 
@@ -835,6 +688,10 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
     }
 
     markEdges(nfa.get(), succ_table, info);
+
+    if (accel_states && nfa) {
+        fillAccelOut(accel_escape_info, accel_states);
+    }
 
     return nfa;
 }
@@ -874,7 +731,9 @@ void fillInBasicState8(const dfa_info &info, mstate_aux *aux, u8 *succ_table,
 }
 
 static
-void allocateFSN8(dfa_info &info, u16 *accel_limit, u16 *accept_limit) {
+void allocateFSN8(dfa_info &info,
+                  const map<dstate_id_t, escape_info> &accel_escape_info,
+                  u16 *accel_limit, u16 *accept_limit) {
     info.states[0].impl_id = 0; /* dead is always 0 */
 
     vector<dstate_id_t> norm;
@@ -886,7 +745,7 @@ void allocateFSN8(dfa_info &info, u16 *accel_limit, u16 *accept_limit) {
     for (u32 i = 1; i < info.size(); i++) {
         if (!info.states[i].reports.empty()) {
             accept.push_back(i);
-        } else if (info.is_accel(i)) {
+        } else if (contains(accel_escape_info, i)) {
             accel.push_back(i);
         } else {
             norm.push_back(i);
@@ -915,23 +774,24 @@ void allocateFSN8(dfa_info &info, u16 *accel_limit, u16 *accept_limit) {
 
 static
 aligned_unique_ptr<NFA> mcclellanCompile8(dfa_info &info,
-                                          const CompileContext &cc) {
+                                          const CompileContext &cc,
+                                          set<dstate_id_t> *accel_states) {
     DEBUG_PRINTF("building mcclellan 8\n");
 
     vector<u32> reports;
     vector<u32> reports_eod;
     ReportID arb;
     u8 single;
-    u32 accelCount;
 
     unique_ptr<raw_report_info> ri
         = info.strat.gatherReports(reports, reports_eod, &single, &arb);
-    populateAccelerationInfo(info, &accelCount, cc.grey);
+    map<dstate_id_t, escape_info> accel_escape_info
+        = populateAccelerationInfo(info.raw, info.strat, cc.grey);
 
     size_t tran_size = sizeof(u8) * (1 << info.getAlphaShift()) * info.size();
     size_t aux_size = sizeof(mstate_aux) * info.size();
     size_t aux_offset = ROUNDUP_16(sizeof(NFA) + sizeof(mcclellan) + tran_size);
-    size_t accel_size = info.strat.accelSize() * accelCount;
+    size_t accel_size = info.strat.accelSize() * accel_escape_info.size();
     size_t accel_offset = ROUNDUP_N(aux_offset + aux_size
                                      + ri->getReportListSize(), 32);
     size_t total_size = accel_offset + accel_size;
@@ -951,9 +811,9 @@ aligned_unique_ptr<NFA> mcclellanCompile8(dfa_info &info,
 
     mcclellan *m = (mcclellan *)getMutableImplNfa(nfa.get());
 
-    allocateFSN8(info, &m->accel_limit_8, &m->accept_limit_8);
+    allocateFSN8(info, accel_escape_info, &m->accel_limit_8, &m->accept_limit_8);
     populateBasicInfo(sizeof(u8), info, total_size, aux_offset, accel_offset,
-                      accelCount, arb, single, nfa.get());
+                      accel_escape_info.size(), arb, single, nfa.get());
 
     vector<u32> reportOffsets;
 
@@ -964,13 +824,14 @@ aligned_unique_ptr<NFA> mcclellanCompile8(dfa_info &info,
     mstate_aux *aux = (mstate_aux *)(nfa_base + aux_offset);
 
     for (size_t i = 0; i < info.size(); i++) {
-        if (info.is_accel(i)) {
+        if (contains(accel_escape_info, i)) {
             u32 j = info.implId(i);
 
             aux[j].accel_offset = accel_offset;
             accel_offset += info.strat.accelSize();
 
-            info.strat.buildAccel(i, (void *)((char *)m + aux[j].accel_offset));
+            info.strat.buildAccel(i, accel_escape_info.at(i),
+                                  (void *)((char *)m + aux[j].accel_offset));
         }
 
         fillInBasicState8(info, aux, succ_table, reportOffsets, reports,
@@ -980,6 +841,10 @@ aligned_unique_ptr<NFA> mcclellanCompile8(dfa_info &info,
     assert(accel_offset + sizeof(NFA) <= total_size);
 
     DEBUG_PRINTF("rl size %zu\n", ri->size());
+
+    if (accel_states && nfa) {
+        fillAccelOut(accel_escape_info, accel_states);
+    }
 
     return nfa;
 }
@@ -1163,15 +1028,6 @@ bool is_cyclic_near(const raw_dfa &raw, dstate_id_t root) {
     return false;
 }
 
-static
-void fillAccelOut(const dfa_info &info, set<dstate_id_t> *accel_states) {
-    for (size_t i = 0; i < info.size(); i++) {
-        if (info.is_accel(i)) {
-            accel_states->insert(i);
-        }
-    }
-}
-
 aligned_unique_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, dfa_build_strat &strat,
                                            const CompileContext &cc,
                                            set<dstate_id_t> *accel_states) {
@@ -1200,17 +1056,13 @@ aligned_unique_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, dfa_build_strat &strat,
 
     aligned_unique_ptr<NFA> nfa;
     if (!using8bit) {
-        nfa = mcclellanCompile16(info, cc);
+        nfa = mcclellanCompile16(info, cc, accel_states);
     } else {
-        nfa = mcclellanCompile8(info, cc);
+        nfa = mcclellanCompile8(info, cc, accel_states);
     }
 
     if (has_eod_reports) {
         nfa->flags |= NFA_ACCEPTS_EOD;
-    }
-
-    if (accel_states && nfa) {
-        fillAccelOut(info, accel_states);
     }
 
     DEBUG_PRINTF("compile done\n");
