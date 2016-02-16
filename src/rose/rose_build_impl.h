@@ -440,8 +440,18 @@ public:
 
     bool isDirectReport(u32 id) const;
     bool isDelayed(u32 id) const;
+
+    /**
+     * \brief True if the given literal ID is a direct or multi-direct report.
+     */
     bool hasDirectFinalId(u32 id) const;
-    bool hasDirectFinalId(RoseVertex v) const;
+
+    /**
+     * \brief True if all the literals associated with the given vertex are
+     * direct or multi-direct reports.
+     */
+    bool allDirectFinalIds(RoseVertex v) const;
+
     bool hasFinalId(u32 id) const;
 
     bool isAnchored(RoseVertex v) const; /* true iff has literal in anchored

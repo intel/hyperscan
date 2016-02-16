@@ -501,7 +501,7 @@ bool isPureFloating(const RoseBuildImpl &tbi) {
             continue;
         }
 
-        if (!tbi.hasDirectFinalId(v) || !tbi.isFloating(v)) {
+        if (!tbi.allDirectFinalIds(v) || !tbi.isFloating(v)) {
             DEBUG_PRINTF("vertex %zu isn't floating and direct\n", g[v].idx);
             return false;
         }
@@ -3979,16 +3979,14 @@ map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
     const auto &g = build.g;
     for (const auto &e : edges_range(g)) {
         const auto &v = target(e, g);
-        if (build.hasDirectFinalId(v)) {
-            // Skip direct reports, which do not have RoseLiteral entries.
-            continue;
-        }
         for (const auto &lit_id : g[v].literals) {
             assert(lit_id < build.literal_info.size());
             u32 final_id = build.literal_info.at(lit_id).final_id;
-            if (final_id != MO_INVALID_IDX) {
-                unique_lit_edge_map[final_id].insert(e);
+            if (final_id == MO_INVALID_IDX || final_id & LITERAL_MDR_FLAG) {
+                // Unused, special or direct report IDs are handled elsewhere.
+                continue;
             }
+            unique_lit_edge_map[final_id].insert(e);
         }
     }
 

@@ -588,11 +588,7 @@ bool RoseBuildImpl::isDirectReport(u32 id) const {
     // role's reports from a list.
 
     for (auto v : info.vertices) {
-        if (g[v].literals.size() != 1) {
-            return false; // Avoid roles with multiple literals at this stage.
-        }
-
-        assert(*g[v].literals.begin() == id);
+        assert(contains(g[v].literals, id));
 
         if (g[v].reports.empty() ||
             g[v].eod_accept || // no accept EOD
@@ -903,11 +899,17 @@ bool RoseBuildImpl::hasDirectFinalId(u32 id) const {
     return literal_info.at(id).final_id & LITERAL_MDR_FLAG;
 }
 
-bool RoseBuildImpl::hasDirectFinalId(RoseVertex v) const {
-    if (g[v].literals.empty()) {
+bool RoseBuildImpl::allDirectFinalIds(RoseVertex v) const {
+    const auto &lits = g[v].literals;
+    if (lits.empty()) {
         return false;
     }
-    return hasDirectFinalId(*g[v].literals.begin());
+    for (const auto &lit : lits) {
+        if (!hasDirectFinalId(lit)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool RoseBuildImpl::hasFinalId(u32 id) const {
