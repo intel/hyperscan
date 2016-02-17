@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,9 +46,9 @@ class ComponentCondReference : public ComponentSequence {
     friend class ReferenceVisitor;
     friend class PrintVisitor;
 public:
-    ComponentCondReference(unsigned ref);
-    ComponentCondReference(const std::string &name);
-    ComponentCondReference(std::unique_ptr<Component> c);
+    explicit ComponentCondReference(unsigned ref);
+    explicit ComponentCondReference(const std::string &name);
+    explicit ComponentCondReference(std::unique_ptr<Component> c);
 
     ~ComponentCondReference() override;
     ComponentCondReference *clone() const override;
