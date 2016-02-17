@@ -77,6 +77,9 @@ enum RoseInstructionCode {
     /** \brief Fire an exhaustible SOM report. */
     ROSE_INSTR_REPORT_SOM_EXHAUST,
 
+    /** \brief Super-instruction combining DEDUPE and REPORT. */
+    ROSE_INSTR_DEDUPE_AND_REPORT,
+
     ROSE_INSTR_CHECK_EXHAUSTED,   //!< Check if an ekey has already been set.
     ROSE_INSTR_CHECK_MIN_LENGTH,  //!< Check (EOM - SOM) against min length.
     ROSE_INSTR_SET_STATE,         //!< Switch a state index on.
@@ -230,12 +233,17 @@ struct ROSE_STRUCT_REPORT_SOM_AWARE {
 
 struct ROSE_STRUCT_REPORT {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report;
+    ReportID report; //!< Internal report ID (used for assertions).
+    ReportID onmatch; //!< Report ID to deliver to user.
+    s32 offset_adjust; //!< Offset adjustment to apply to end offset.
 };
 
 struct ROSE_STRUCT_REPORT_EXHAUST {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report;
+    ReportID report; //!< Internal report ID (used for assertions).
+    ReportID onmatch; //!< Report ID to deliver to user.
+    s32 offset_adjust; //!< Offset adjustment to apply to end offset.
+    u32 ekey; //!< Exhaustion key.
 };
 
 struct ROSE_STRUCT_REPORT_SOM {
@@ -251,6 +259,12 @@ struct ROSE_STRUCT_REPORT_SOM_EXHAUST {
 struct ROSE_STRUCT_REPORT_SOM_EXT {
     u8 code; //!< From enum RoseInstructionCode.
     ReportID report;
+};
+
+struct ROSE_STRUCT_DEDUPE_AND_REPORT {
+    u8 code; //!< From enum RoseInstructionCode.
+    ReportID report;
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
 struct ROSE_STRUCT_CHECK_EXHAUSTED {

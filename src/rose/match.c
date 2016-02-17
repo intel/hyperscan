@@ -90,19 +90,15 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
 
     DEBUG_PRINTF("STATE groups=0x%016llx\n", tctx->groups);
 
-    if (isLiteralDR(id)) {
-        return tctx->groups;
-    }
-
-    assert(id < t->literalCount);
     const u32 *delayRebuildPrograms =
         getByOffset(t, t->litDelayRebuildProgramOffset);
-    const u32 programOffset = delayRebuildPrograms[id];
+    assert(id < t->literalCount);
+    const u32 program = delayRebuildPrograms[id];
 
-    if (programOffset) {
+    if (program) {
         const size_t match_len = end - start + 1;
         UNUSED hwlmcb_rv_t rv =
-            roseRunProgram(t, scratch, programOffset, real_end, match_len, 0);
+            roseRunProgram(t, scratch, program, real_end, match_len, 0);
         assert(rv != HWLM_TERMINATE_MATCHING);
     }
 
@@ -115,31 +111,8 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
 static really_inline
 hwlmcb_rv_t ensureMpvQueueFlushed(const struct RoseEngine *t,
                                   struct hs_scratch *scratch, u32 qi, s64a loc,
-                                  char in_anchored, char in_chained) {
-    return ensureQueueFlushed_i(t, scratch, qi, loc, 1, in_anchored,
-                                in_chained);
-}
-
-static rose_inline
-void recordAnchoredMatch(const struct RoseEngine *t, struct hs_scratch *scratch,
-                         ReportID reportId, u64a end) {
-    struct fatbit **anchoredRows = getAnchoredLog(scratch);
-
-    DEBUG_PRINTF("record %u @ %llu\n", reportId, end);
-    assert(end - t->maxSafeAnchoredDROffset >= 1);
-    u32 adj_end = end - t->maxSafeAnchoredDROffset - 1;
-    DEBUG_PRINTF("adjusted location %u/%u\n", adj_end,
-                  scratch->anchored_region_len);
-
-    if (!bf64_set(&scratch->am_log_sum, adj_end)) {
-        // first time, clear row
-        fatbit_clear(anchoredRows[adj_end]);
-    }
-
-    u32 idx = getAnchoredInverseMap(t)[reportId];
-    DEBUG_PRINTF("record %u @ %llu index %u\n", reportId, end, idx);
-    assert(idx < t->anchoredMatches);
-    fatbit_set(anchoredRows[adj_end], t->anchoredMatches, idx);
+                                  char in_chained) {
+    return ensureQueueFlushed_i(t, scratch, qi, loc, 1, in_chained);
 }
 
 static rose_inline
@@ -166,7 +139,7 @@ void recordAnchoredLiteralMatch(const struct RoseEngine *t,
 
 hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
                                  struct hs_scratch *scratch, ReportID r,
-                                 u64a end, char in_anchored, char in_catchup) {
+                                 u64a end, char in_catchup) {
     struct core_info *ci = &scratch->core_info;
 
     u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
@@ -209,7 +182,7 @@ hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
         DEBUG_PRINTF("queue %u full -> catching up nfas\n", qi);
         /* we know it is a chained nfa and the suffixes/outfixes must already
          * be known to be consistent */
-        if (ensureMpvQueueFlushed(t, scratch, qi, loc, in_anchored, in_catchup)
+        if (ensureMpvQueueFlushed(t, scratch, qi, loc, in_catchup)
             == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
         }
@@ -255,7 +228,7 @@ hwlmcb_rv_t roseHandleMatch(const struct RoseEngine *t, ReportID id, u64a end,
                             struct hs_scratch *scratch) {
     struct RoseContext *tctxt = &scratch->tctxt;
 
-    assert(end == tctxt->minMatchOffset);
+    assert(!t->needsCatchup || end == tctxt->minMatchOffset);
     DEBUG_PRINTF("firing callback id=%u, end=%llu\n", id, end);
     updateLastMatchOffset(tctxt, end);
 
@@ -270,38 +243,6 @@ hwlmcb_rv_t roseHandleMatch(const struct RoseEngine *t, ReportID id, u64a end,
     }
 
     return roseHaltIfExhausted(t, scratch);
-}
-
-/* handles catchup, som, cb, etc */
-static really_inline
-hwlmcb_rv_t roseHandleDirectReport(const struct RoseEngine *t,
-                                   struct hs_scratch *scratch, ReportID id,
-                                   u64a offset, char in_anchored) {
-    // The direct report path is only used for external reports.
-    assert(isExternalReport(getInternalReport(t, id)));
-
-    if (roseCatchUpTo(t, scratch, offset, in_anchored) ==
-        HWLM_TERMINATE_MATCHING) {
-        return HWLM_TERMINATE_MATCHING;
-    }
-
-    return roseHandleMatch(t, id, offset, scratch);
-}
-
-static really_inline
-hwlmcb_rv_t roseHandleAnchoredDirectReport(const struct RoseEngine *t,
-                                           struct hs_scratch *scratch,
-                                           u64a real_end, ReportID report) {
-    DEBUG_PRINTF("direct report %u, real_end=%llu\n", report, real_end);
-
-    if (real_end > t->maxSafeAnchoredDROffset) {
-        DEBUG_PRINTF("match in overlapped anchored region --> stash\n");
-        recordAnchoredMatch(t, scratch, report, real_end);
-        return HWLM_CONTINUE_MATCHING;
-    }
-
-    return roseHandleDirectReport(t, scratch, report, real_end,
-                                  1 /* in anchored */);
 }
 
 int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
@@ -320,7 +261,7 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
         return MO_HALT_MATCHING;
     }
 
-    hwlmcb_rv_t rv = HWLM_CONTINUE_MATCHING;
+    const size_t match_len = 0;
 
     /* delayed literals need to be delivered before real literals; however
      * delayed literals only come from the floating table so if we are going
@@ -329,46 +270,14 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
     /* no history checks from anchored region and we are before the flush
      * boundary */
 
-    if (isLiteralMDR(id)) {
-        // Multi-direct report, list of reports indexed by the ID.
-        u32 mdr_offset = id & ~LITERAL_MDR_FLAG;
-        const ReportID *report =
-            (const ReportID *)((const char *)t + t->multidirectOffset) +
-            mdr_offset;
-        for (; *report != MO_INVALID_IDX; report++) {
-            rv = roseHandleAnchoredDirectReport(t, scratch, real_end, *report);
-            if (rv == HWLM_TERMINATE_MATCHING) {
-                return MO_HALT_MATCHING;
-            }
-        }
-        return MO_CONTINUE_MATCHING;
-    } else if (isLiteralDR(id)) {
-        // Single direct report.
-        ReportID report = literalToReport(id);
-        rv = roseHandleAnchoredDirectReport(t, scratch, real_end, report);
-        if (rv == HWLM_TERMINATE_MATCHING) {
-            return MO_HALT_MATCHING;
-        }
-        return MO_CONTINUE_MATCHING;
-    }
-
-    assert(id < t->literalCount);
-    const u32 *programs = getByOffset(t, t->litProgramOffset);
-    const u32 programOffset = programs[id];
-    assert(programOffset);
-
-    // Anchored literals are never delayed.
-    assert(!((const u32 *)getByOffset(t, t->litDelayRebuildProgramOffset))[id]);
-
-    DEBUG_PRINTF("literal id=%u\n", id);
-
     if (real_end <= t->floatingMinLiteralMatchOffset) {
         roseFlushLastByteHistory(t, scratch, real_end);
         tctxt->lastEndOffset = real_end;
     }
 
-    const size_t match_len = 0;
-    if (roseRunProgram(t, scratch, programOffset, real_end, match_len, 1) ==
+    const u32 *programs = getByOffset(t, t->litProgramOffset);
+    assert(id < t->literalCount);
+    if (roseRunProgram(t, scratch, programs[id], real_end, match_len, 1) ==
         HWLM_TERMINATE_MATCHING) {
         assert(can_stop_matching(scratch));
         DEBUG_PRINTF("caller requested termination\n");
@@ -387,63 +296,13 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
 // Rose match-processing workhorse
 /* assumes not in_anchored */
 static really_inline
-hwlmcb_rv_t roseProcessMatch_i(const struct RoseEngine *t,
-                               struct hs_scratch *scratch, u64a end,
-                               size_t match_len, u32 id, char in_delay_play,
-                               char in_anch_playback) {
+hwlmcb_rv_t roseProcessMatch(const struct RoseEngine *t,
+                             struct hs_scratch *scratch, u64a end,
+                             size_t match_len, u32 id) {
     DEBUG_PRINTF("id=%u\n", id);
-
-    if (!in_anch_playback && !in_delay_play) {
-        if (isLiteralMDR(id)) {
-            // Multi-direct report, list of reports indexed by the ID.
-            u32 mdr_offset = id & ~LITERAL_MDR_FLAG;
-            const ReportID *report =
-                (const ReportID *)((const char *)t + t->multidirectOffset) +
-                mdr_offset;
-            for (; *report != MO_INVALID_IDX; report++) {
-                DEBUG_PRINTF("handle multi-direct report %u\n", *report);
-                hwlmcb_rv_t rv = roseHandleDirectReport(t, scratch, *report,
-                                                    end, 0 /* in anchored */);
-                if (rv == HWLM_TERMINATE_MATCHING) {
-                    return HWLM_TERMINATE_MATCHING;
-                }
-            }
-            return HWLM_CONTINUE_MATCHING;
-        } else if (isLiteralDR(id)) {
-            // Single direct report.
-            ReportID report = literalToReport(id);
-            DEBUG_PRINTF("handle direct report %u\n", report);
-            return roseHandleDirectReport(t, scratch, report, end,
-                                          0 /* in anchored */);
-        }
-    }
-
-    assert(id < t->literalCount);
     const u32 *programs = getByOffset(t, t->litProgramOffset);
+    assert(id < t->literalCount);
     return roseRunProgram(t, scratch, programs[id], end, match_len, 0);
-}
-
-static never_inline
-hwlmcb_rv_t roseProcessDelayedMatch(const struct RoseEngine *t,
-                                    struct hs_scratch *scratch, u64a end,
-                                    u32 id) {
-    size_t match_len = 0;
-    return roseProcessMatch_i(t, scratch, end, match_len, id, 1, 0);
-}
-
-static never_inline
-hwlmcb_rv_t roseProcessDelayedAnchoredMatch(const struct RoseEngine *t,
-                                            struct hs_scratch *scratch,
-                                            u64a end, u32 id) {
-    size_t match_len = 0;
-    return roseProcessMatch_i(t, scratch, end, match_len, id, 0, 1);
-}
-
-static really_inline
-hwlmcb_rv_t roseProcessMainMatch(const struct RoseEngine *t,
-                                 struct hs_scratch *scratch, u64a end,
-                                 size_t match_len, u32 id) {
-    return roseProcessMatch_i(t, scratch, end, match_len, id, 0, 0);
 }
 
 static rose_inline
@@ -472,8 +331,7 @@ hwlmcb_rv_t playDelaySlot(const struct RoseEngine *t,
         UNUSED rose_group old_groups = tctxt->groups;
 
         DEBUG_PRINTF("DELAYED MATCH id=%u offset=%llu\n", literal_id, offset);
-        hwlmcb_rv_t rv =
-            roseProcessDelayedMatch(t, scratch, offset, literal_id);
+        hwlmcb_rv_t rv = roseProcessMatch(t, scratch, offset, 0, literal_id);
         DEBUG_PRINTF("DONE groups=0x%016llx\n", tctxt->groups);
 
         /* delayed literals can't safely set groups.
@@ -507,8 +365,7 @@ hwlmcb_rv_t flushAnchoredLiteralAtLoc(const struct RoseEngine *t,
         rose_group old_groups = tctxt->groups;
         DEBUG_PRINTF("ANCH REPLAY MATCH id=%u offset=%u\n", literal_id,
                      curr_loc);
-        hwlmcb_rv_t rv =
-            roseProcessDelayedAnchoredMatch(t, scratch, curr_loc, literal_id);
+        hwlmcb_rv_t rv = roseProcessMatch(t, scratch, curr_loc, 0, literal_id);
         DEBUG_PRINTF("DONE groups=0x%016llx\n", tctxt->groups);
 
         /* anchored literals can't safely set groups.
@@ -707,7 +564,7 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
     }
 
     size_t match_len = end - start + 1;
-    rv = roseProcessMainMatch(t, scratch, real_end, match_len, id);
+    rv = roseProcessMatch(t, scratch, real_end, match_len, id);
 
     DEBUG_PRINTF("DONE groups=0x%016llx\n", tctx->groups);
 
@@ -718,4 +575,24 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
     assert(can_stop_matching(scratch));
     DEBUG_PRINTF("user requested halt\n");
     return HWLM_TERMINATE_MATCHING;
+}
+
+/**
+ * \brief Match callback adaptor used for matches from pure-literal cases.
+ *
+ * Literal match IDs in this path run limited Rose programs that do not use
+ * Rose state (which is not initialised in the pure-literal path). They can
+ * still, for example, check lookarounds or literal masks.
+ */
+hwlmcb_rv_t rosePureLiteralCallback(size_t start, size_t end, u32 id,
+                                    void *context) {
+    DEBUG_PRINTF("start=%zu, end=%zu, id=%u\n", start, end, id);
+    struct hs_scratch *scratch = context;
+    struct core_info *ci = &scratch->core_info;
+    const u64a real_end = (u64a)end + ci->buf_offset + 1;
+    const size_t match_len = end - start + 1;
+    const struct RoseEngine *rose = ci->rose;
+    const u32 *programs = getByOffset(rose, rose->litProgramOffset);
+    assert(id < rose->literalCount);
+    return roseRunProgram(rose, scratch, programs[id], real_end, match_len, 0);
 }

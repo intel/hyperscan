@@ -48,29 +48,6 @@ typedef u64a rose_group;
 #define MAX_DELAY                   (DELAY_SLOT_COUNT - 1)
 #define DELAY_MASK                  (DELAY_SLOT_COUNT - 1)
 
-// Direct report stuff
-#define LITERAL_DR_FLAG   (1U << 31)
-#define LITERAL_MDR_FLAG  ((1U << 30) | (1U << 31))
-
-/** \brief True if literal is either a direct report or a multi-direct report.
- * */
-static really_inline
-u32 isLiteralDR(u32 id) {
-    return id & LITERAL_DR_FLAG;
-}
-
-static really_inline
-u32 isLiteralMDR(u32 id) {
-    return (id & LITERAL_MDR_FLAG) == LITERAL_MDR_FLAG;
-}
-
-static really_inline
-ReportID literalToReport(u32 id) {
-    assert(id & LITERAL_DR_FLAG);
-    assert(!(id & (LITERAL_MDR_FLAG ^ LITERAL_DR_FLAG)));
-    return id & ~LITERAL_DR_FLAG;
-}
-
 /* Allocation of Rose literal ids
  *
  * The rose literal id space is segmented:
@@ -87,16 +64,6 @@ ReportID literalToReport(u32 id) {
  * |  | Delayed version of normal literals
  * |  |
  * ---- literalCount
- * ...
- * ...
- * ...
- * ---- LITERAL_DR_FLAG
- * |  | Direct Report literals: immediately raise an internal report with id
- * |  | given by (lit_id & ~LITERAL_DR_FLAG). Raised by a or f tables (or e??).
- * |  | No literal programs.
- * |  |
- * |  |
- * ----
  */
 
 /* Rose Literal Sources
@@ -317,14 +284,12 @@ struct RoseBoundaryReports {
  *   -# small block table
  *   -# array of NFA offsets, one per queue
  *   -# array of state offsets, one per queue (+)
- *   -# multi-direct report array
  *
  *  (+) stateOffset array note: Offsets in the array are either into the stream
  *  state (normal case) or into the tstate region of scratch (for transient rose
  *  nfas). Rose nfa info table can distinguish the cases.
  */
 struct RoseEngine {
-    u8  hasFloatingDirectReports; // has at least one floating direct report literal
     u8  noFloatingRoots; /* only need to run the anchored table if something
                           * matched in the anchored table */
     u8  requiresEodCheck; /* stuff happens at eod time */
@@ -339,6 +304,7 @@ struct RoseEngine {
                         SOM precision) */
     u8  simpleCallback; /**< has only external reports with no bounds checks,
                              plus no exhaustion keys */
+    u8 needsCatchup; /** catch up needs to be run on every report. */
     u32 mode; /**< scanning mode, one of HS_MODE_{BLOCK,STREAM,VECTORED} */
     u32 historyRequired; /**< max amount of history required for streaming */
     u32 ekeyCount; /**< number of exhaustion keys */
@@ -392,7 +358,6 @@ struct RoseEngine {
      */
     u32 literalCount;
 
-    u32 multidirectOffset; /**< offset of multi-direct report list. */
     u32 activeArrayCount; //number of nfas tracked in the active array
     u32 activeLeftCount; //number of nfas tracked in the active rose array
     u32 queueCount;      /**< number of nfa queues */
@@ -432,18 +397,12 @@ struct RoseEngine {
     u32 floatingMinDistance; /* start of region to run floating table over */
     u32 smallBlockDistance; /* end of region to run the floating table over
                                ROSE_BOUND_INF if not bounded */
-    u32 maxSafeAnchoredDROffset; /* the maximum offset that we can safely raise
-                                  * a direct report from the anchored table
-                                  * without delaying it */
     u32 floatingMinLiteralMatchOffset; /* the minimum offset that we can get a
                                         * 'valid' match from the floating
                                         * table */
     u32 nfaInfoOffset; /* offset to the nfa info offset array */
-    u32 anchoredReportMapOffset; /* am_log index --> reportid */
-    u32 anchoredReportInverseMapOffset; /*  reportid --> am_log index */
     rose_group initialGroups;
     u32 size; // (bytes)
-    u32 anchoredMatches; /* number of anchored roles generating matches */
     u32 delay_count; /* number of delayed literal ids. */
     u32 delay_base_id; /* literal id of the first delayed literal.
                         * delayed literal ids are contiguous */

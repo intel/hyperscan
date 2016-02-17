@@ -403,6 +403,13 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(DEDUPE_AND_REPORT) {
+                os << "    report " << ri->report << endl;
+                dumpReport(os, t, ri->report);
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CHECK_EXHAUSTED) {
                 os << "    ekey " << ri->ekey << endl;
                 os << "    fail_jump " << offset + ri->fail_jump << endl;
@@ -858,8 +865,8 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
             sbtable ? hwlmSize(sbtable) : 0, t->smallBlockDistance);
     fprintf(f, " - role state table  : %zu bytes\n",
             t->rolesWithStateCount * sizeof(u32));
-    fprintf(f, " - nfa info table    : %u bytes\n",
-            t->anchoredReportMapOffset - t->nfaInfoOffset);
+    fprintf(f, " - nfa info table    : %zu bytes\n",
+            t->queueCount * sizeof(NfaInfo));
     fprintf(f, " - lookaround table  : %u bytes\n",
             t->nfaInfoOffset - t->lookaroundTableOffset);
     fprintf(f, " - lookaround reach  : %u bytes\n",
@@ -898,8 +905,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
             t->minWidthExcludingBoundaries);
     fprintf(f, "  maxBiAnchoredWidth          : %s\n",
             rose_off(t->maxBiAnchoredWidth).str().c_str());
-    fprintf(f, "  maxSafeAnchoredDROffset     : %s\n",
-            rose_off(t->maxSafeAnchoredDROffset).str().c_str());
     fprintf(f, "  minFloatLitMatchOffset      : %s\n",
             rose_off(t->floatingMinLiteralMatchOffset).str().c_str());
     fprintf(f, "  delay_base_id               : %u\n", t->delay_base_id);
@@ -936,7 +941,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
 
 void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     fprintf(f, "struct RoseEngine {\n");
-    DUMP_U8(t, hasFloatingDirectReports);
     DUMP_U8(t, noFloatingRoots);
     DUMP_U8(t, requiresEodCheck);
     DUMP_U8(t, hasOutfixesInSmallBlock);
@@ -946,6 +950,7 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U8(t, hasSom);
     DUMP_U8(t, somHorizon);
     DUMP_U8(t, simpleCallback);
+    DUMP_U8(t, needsCatchup);
     DUMP_U32(t, mode);
     DUMP_U32(t, historyRequired);
     DUMP_U32(t, ekeyCount);
@@ -972,7 +977,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, litProgramOffset);
     DUMP_U32(t, litDelayRebuildProgramOffset);
     DUMP_U32(t, literalCount);
-    DUMP_U32(t, multidirectOffset);
     DUMP_U32(t, activeArrayCount);
     DUMP_U32(t, activeLeftCount);
     DUMP_U32(t, queueCount);
@@ -994,14 +998,10 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, floatingDistance);
     DUMP_U32(t, floatingMinDistance);
     DUMP_U32(t, smallBlockDistance);
-    DUMP_U32(t, maxSafeAnchoredDROffset);
     DUMP_U32(t, floatingMinLiteralMatchOffset);
     DUMP_U32(t, nfaInfoOffset);
-    DUMP_U32(t, anchoredReportMapOffset);
-    DUMP_U32(t, anchoredReportInverseMapOffset);
     DUMP_U64(t, initialGroups);
     DUMP_U32(t, size);
-    DUMP_U32(t, anchoredMatches);
     DUMP_U32(t, delay_count);
     DUMP_U32(t, delay_base_id);
     DUMP_U32(t, anchored_count);

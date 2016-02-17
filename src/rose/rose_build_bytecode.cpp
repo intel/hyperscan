@@ -214,6 +214,7 @@ public:
         case ROSE_INSTR_REPORT_EXHAUST: return &u.reportExhaust;
         case ROSE_INSTR_REPORT_SOM: return &u.reportSom;
         case ROSE_INSTR_REPORT_SOM_EXHAUST: return &u.reportSomExhaust;
+        case ROSE_INSTR_DEDUPE_AND_REPORT: return &u.dedupeAndReport;
         case ROSE_INSTR_CHECK_EXHAUSTED: return &u.checkExhausted;
         case ROSE_INSTR_CHECK_MIN_LENGTH: return &u.checkMinLength;
         case ROSE_INSTR_SET_STATE: return &u.setState;
@@ -257,6 +258,7 @@ public:
         case ROSE_INSTR_REPORT_EXHAUST: return sizeof(u.reportExhaust);
         case ROSE_INSTR_REPORT_SOM: return sizeof(u.reportSom);
         case ROSE_INSTR_REPORT_SOM_EXHAUST: return sizeof(u.reportSomExhaust);
+        case ROSE_INSTR_DEDUPE_AND_REPORT: return sizeof(u.dedupeAndReport);
         case ROSE_INSTR_CHECK_EXHAUSTED: return sizeof(u.checkExhausted);
         case ROSE_INSTR_CHECK_MIN_LENGTH: return sizeof(u.checkMinLength);
         case ROSE_INSTR_SET_STATE: return sizeof(u.setState);
@@ -299,6 +301,7 @@ public:
         ROSE_STRUCT_REPORT_EXHAUST reportExhaust;
         ROSE_STRUCT_REPORT_SOM reportSom;
         ROSE_STRUCT_REPORT_SOM_EXHAUST reportSomExhaust;
+        ROSE_STRUCT_DEDUPE_AND_REPORT dedupeAndReport;
         ROSE_STRUCT_CHECK_EXHAUSTED checkExhausted;
         ROSE_STRUCT_CHECK_MIN_LENGTH checkMinLength;
         ROSE_STRUCT_SET_STATE setState;
@@ -325,6 +328,25 @@ size_t hash_value(const RoseInstruction &ri) {
     }
     return val;
 }
+
+/**
+ * \brief Structure tracking which resources are used by this Rose instance at
+ * runtime.
+ *
+ * We use this to control how much initialisation we need to do at the
+ * beginning of a stream/block at runtime.
+ */
+struct RoseResources {
+    bool has_outfixes = false;
+    bool has_suffixes = false;
+    bool has_leftfixes = false;
+    bool has_literals = false;
+    bool has_states = false;
+    bool checks_groups = false;
+    bool has_lit_delay = false;
+    bool has_lit_mask = false;
+    bool has_anchored = false;
+};
 
 struct build_context : boost::noncopyable {
     /** \brief information about engines to the left of a vertex */
@@ -372,6 +394,13 @@ struct build_context : boost::noncopyable {
     /** \brief Contents of the Rose bytecode immediately following the
      * RoseEngine. */
     vector<char, AlignedAllocator<char, 64>> engine_blob;
+
+    /** \brief True if reports need CATCH_UP instructions, to catch up anchored
+     * matches, suffixes, outfixes etc. */
+    bool needs_catchup = false;
+
+    /** \brief Resources in use (tracked as programs are added). */
+    RoseResources resources;
 
     /** \brief Base offset of engine_blob in the Rose engine bytecode. */
     static constexpr u32 engine_blob_base = ROUNDUP_CL(sizeof(RoseEngine));
@@ -477,42 +506,74 @@ u32 countRosePrefixes(const vector<LeftNfaInfo> &roses) {
     return num;
 }
 
+/**
+ * \brief True if this Rose engine needs to run a catch up whenever a report is
+ * generated.
+ *
+ * This is only the case if there are no anchored literals, suffixes, outfixes
+ * etc.
+ */
 static
-bool isPureFloating(const RoseBuildImpl &tbi) {
-    if (!tbi.outfixes.empty()) {
+bool needsCatchup(const RoseBuildImpl &build) {
+    if (!build.outfixes.empty()) {
         DEBUG_PRINTF("has outfixes\n");
-        return false;
+        return true;
     }
 
-    const RoseGraph &g = tbi.g;
+    const RoseGraph &g = build.g;
 
-    if (!isLeafNode(tbi.anchored_root, g)) {
+    if (!isLeafNode(build.anchored_root, g)) {
         DEBUG_PRINTF("has anchored vertices\n");
-        return false;
+        return true;
     }
 
     for (auto v : vertices_range(g)) {
-        if (tbi.root == v) {
+        if (build.root == v) {
             continue;
         }
 
-        if (tbi.anchored_root == v) {
+        if (build.anchored_root == v) {
             assert(isLeafNode(v, g));
             continue;
         }
 
-        if (!tbi.allDirectFinalIds(v) || !tbi.isFloating(v)) {
-            DEBUG_PRINTF("vertex %zu isn't floating and direct\n", g[v].idx);
-            return false;
+        if (g[v].suffix) {
+            DEBUG_PRINTF("vertex %zu has suffix\n", g[v].idx);
+            return true;
         }
 
-        for (ReportID r : g[v].reports) {
-            const Report &ri = tbi.rm.getReport(r);
-            if (!isExternalReport(ri)) {
-                DEBUG_PRINTF("vertex %zu has non-external report\n", g[v].idx);
-                return false;
-            }
-        }
+    }
+
+    DEBUG_PRINTF("no need for catch-up on report\n");
+    return false;
+}
+
+static
+bool isPureFloating(const RoseResources &resources) {
+    if (resources.has_outfixes || resources.has_suffixes ||
+        resources.has_leftfixes) {
+        DEBUG_PRINTF("has engines\n");
+        return false;
+    }
+
+    if (resources.has_anchored) {
+        DEBUG_PRINTF("has anchored matcher\n");
+        return false;
+    }
+
+    if (resources.has_states) {
+        DEBUG_PRINTF("has states\n");
+        return false;
+    }
+
+    if (resources.has_lit_delay) {
+        DEBUG_PRINTF("has delayed literals\n");
+        return false;
+    }
+
+    if (resources.checks_groups) {
+        DEBUG_PRINTF("has group checks\n");
+        return false;
     }
 
     DEBUG_PRINTF("pure floating literals\n");
@@ -544,12 +605,23 @@ bool isSingleOutfix(const RoseBuildImpl &tbi, u32 outfixEndQueue) {
 }
 
 static
-u8 pickRuntimeImpl(const RoseBuildImpl &tbi, u32 outfixEndQueue) {
-    if (isPureFloating(tbi)) {
+u8 pickRuntimeImpl(const RoseBuildImpl &build, const build_context &bc,
+                   u32 outfixEndQueue) {
+    DEBUG_PRINTF("has_outfixes=%d\n", bc.resources.has_outfixes);
+    DEBUG_PRINTF("has_suffixes=%d\n", bc.resources.has_suffixes);
+    DEBUG_PRINTF("has_leftfixes=%d\n", bc.resources.has_leftfixes);
+    DEBUG_PRINTF("has_literals=%d\n", bc.resources.has_literals);
+    DEBUG_PRINTF("has_states=%d\n", bc.resources.has_states);
+    DEBUG_PRINTF("checks_groups=%d\n", bc.resources.checks_groups);
+    DEBUG_PRINTF("has_lit_delay=%d\n", bc.resources.has_lit_delay);
+    DEBUG_PRINTF("has_lit_mask=%d\n", bc.resources.has_lit_mask);
+    DEBUG_PRINTF("has_anchored=%d\n", bc.resources.has_anchored);
+
+    if (isPureFloating(bc.resources)) {
         return ROSE_RUNTIME_PURE_LITERAL;
     }
 
-    if (isSingleOutfix(tbi, outfixEndQueue)) {
+    if (isSingleOutfix(build, outfixEndQueue)) {
         return ROSE_RUNTIME_SINGLE_OUTFIX;
     }
 
@@ -1880,31 +1952,27 @@ bool findHamsterMask(const RoseBuildImpl &tbi, const rose_literal_id &id,
 }
 
 static
-bool isDirectHighlander(const RoseBuildImpl &tbi,
+bool isDirectHighlander(const RoseBuildImpl &build, const u32 id,
                         const rose_literal_info &info) {
-    u32 final_id = info.final_id;
-    assert(final_id != MO_INVALID_IDX);
-
-    if ((final_id & LITERAL_MDR_FLAG) == LITERAL_MDR_FLAG) {
-        u32 i = final_id & ~LITERAL_MDR_FLAG;
-        assert(i < tbi.mdr_reports.size());
-        for (ReportID report = tbi.mdr_reports[i]; report != MO_INVALID_IDX;
-             report = tbi.mdr_reports[++i]) {
-            const Report &ir = tbi.rm.getReport(report);
-            if (!isSimpleExhaustible(ir)) {
-                return false;
-            }
-        }
-        return true;
-    } else if (final_id & LITERAL_DR_FLAG) {
-        ReportID report = final_id & ~LITERAL_DR_FLAG;
-        const Report &ir = tbi.rm.getReport(report);
-        if (isSimpleExhaustible(ir)) {
-            return true;
-        }
+    if (!build.isDirectReport(id)) {
+        return false;
     }
 
-    return false;
+    auto is_simple_exhaustible = [&build](ReportID id) {
+        const Report &report = build.rm.getReport(id);
+        return isSimpleExhaustible(report);
+    };
+
+    assert(!info.vertices.empty());
+    for (const auto &v : info.vertices) {
+        const auto &reports = build.g[v].reports;
+        assert(!reports.empty());
+        if (!all_of(begin(reports), end(reports),
+                    is_simple_exhaustible)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // Called by isNoRunsLiteral below.
@@ -1958,7 +2026,7 @@ bool isNoRunsVertex(const RoseBuildImpl &tbi, NFAVertex u) {
 }
 
 static
-bool isNoRunsLiteral(const RoseBuildImpl &tbi, UNUSED const u32 id,
+bool isNoRunsLiteral(const RoseBuildImpl &tbi, const u32 id,
                      const rose_literal_info &info) {
     DEBUG_PRINTF("lit id %u\n", id);
 
@@ -1967,7 +2035,7 @@ bool isNoRunsLiteral(const RoseBuildImpl &tbi, UNUSED const u32 id,
         return false;
     }
 
-    if (isDirectHighlander(tbi, info)) {
+    if (isDirectHighlander(tbi, id, info)) {
         DEBUG_PRINTF("highlander direct report\n");
         return true;
     }
@@ -2293,8 +2361,8 @@ void enforceEngineSizeLimit(const NFA *n, const size_t nfa_size, const Grey &gre
 
 static
 u32 findMinFloatingLiteralMatch(const RoseBuildImpl &build,
-                                const anchored_matcher_info *atable) {
-    if (atable && anchoredIsMulti(*atable)) {
+                                const vector<raw_dfa> &anchored_dfas) {
+    if (anchored_dfas.size() > 1) {
         DEBUG_PRINTF("multiple anchored dfas\n");
         /* We must regard matches from other anchored tables as unordered, as
          * we do for floating matches. */
@@ -2739,6 +2807,9 @@ flattenProgram(const vector<vector<RoseInstruction>> &programs) {
         case ROSE_INSTR_DEDUPE_SOM:
             ri.u.dedupeSom.fail_jump = jump_val;
             break;
+        case ROSE_INSTR_DEDUPE_AND_REPORT:
+            ri.u.dedupeAndReport.fail_jump = jump_val;
+            break;
         case ROSE_INSTR_CHECK_EXHAUSTED:
             ri.u.checkExhausted.fail_jump = jump_val;
             break;
@@ -2766,6 +2837,55 @@ flattenProgram(const vector<vector<RoseInstruction>> &programs) {
 }
 
 static
+void recordResources(RoseResources &resources,
+                     const vector<RoseInstruction> &program) {
+    for (const auto &ri : program) {
+        switch (ri.code()) {
+        case ROSE_INSTR_TRIGGER_SUFFIX:
+            resources.has_suffixes = true;
+            break;
+        case ROSE_INSTR_TRIGGER_INFIX:
+        case ROSE_INSTR_CHECK_INFIX:
+        case ROSE_INSTR_CHECK_PREFIX:
+        case ROSE_INSTR_SOM_LEFTFIX:
+            resources.has_leftfixes = true;
+            break;
+        case ROSE_INSTR_SET_STATE:
+        case ROSE_INSTR_CHECK_STATE:
+        case ROSE_INSTR_SPARSE_ITER_BEGIN:
+        case ROSE_INSTR_SPARSE_ITER_NEXT:
+            resources.has_states = true;
+            break;
+        case ROSE_INSTR_CHECK_GROUPS:
+            resources.checks_groups = true;
+            break;
+        case ROSE_INSTR_PUSH_DELAYED:
+            resources.has_lit_delay = true;
+            break;
+        case ROSE_INSTR_CHECK_LIT_MASK:
+            resources.has_lit_mask = true;
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+static
+void recordResources(RoseResources &resources,
+                     const RoseBuildImpl &build) {
+    if (!build.outfixes.empty()) {
+        resources.has_outfixes = true;
+    }
+    for (u32 i = 0; i < build.literal_info.size(); i++) {
+        if (build.hasFinalId(i)) {
+            resources.has_literals = true;
+            break;
+        }
+    }
+}
+
+static
 u32 writeProgram(build_context &bc, const vector<RoseInstruction> &program) {
     if (program.empty()) {
         DEBUG_PRINTF("no program\n");
@@ -2787,6 +2907,8 @@ u32 writeProgram(build_context &bc, const vector<RoseInstruction> &program) {
         DEBUG_PRINTF("reusing cached program at %u\n", it->second);
         return it->second;
     }
+
+    recordResources(bc.resources, program);
 
     DEBUG_PRINTF("writing %zu instructions\n", program.size());
     u32 programOffset = 0;
@@ -3045,14 +3167,14 @@ void makeDedupeSom(const ReportID id, vector<RoseInstruction> &report_block) {
 }
 
 static
-void makeReport(RoseBuildImpl &build, const ReportID id, const bool has_som,
-                vector<RoseInstruction> &program) {
+void makeReport(RoseBuildImpl &build, build_context &bc, const ReportID id,
+                const bool has_som, vector<RoseInstruction> &program) {
     assert(id < build.rm.numReports());
     const Report &report = build.rm.getReport(id);
 
     vector<RoseInstruction> report_block;
 
-    // Similarly, we can handle min/max offset checks.
+    // Handle min/max offset checks.
     if (report.minOffset > 0 || report.maxOffset < MAX_OFFSET) {
         auto ri = RoseInstruction(ROSE_INSTR_CHECK_BOUNDS,
                                   JumpTarget::NEXT_BLOCK);
@@ -3064,7 +3186,7 @@ void makeReport(RoseBuildImpl &build, const ReportID id, const bool has_som,
     // Catch up -- everything except the INTERNAL_ROSE_CHAIN report needs this.
     // TODO: this could be floated in front of all the reports and only done
     // once.
-    if (report.type != INTERNAL_ROSE_CHAIN) {
+    if (bc.needs_catchup && report.type != INTERNAL_ROSE_CHAIN) {
         report_block.emplace_back(ROSE_INSTR_CATCH_UP);
     }
 
@@ -3103,15 +3225,29 @@ void makeReport(RoseBuildImpl &build, const ReportID id, const bool has_som,
         if (!has_som) {
             // Dedupe is only necessary if this report has a dkey, or if there
             // are SOM reports to catch up.
-            if (build.rm.getDkey(report) != ~0U || build.hasSom) {
-                makeDedupe(id, report_block);
-            }
+            bool needs_dedupe = build.rm.getDkey(report) != ~0U || build.hasSom;
             if (report.ekey == INVALID_EKEY) {
-                report_block.emplace_back(ROSE_INSTR_REPORT);
-                report_block.back().u.report.report = id;
+                if (needs_dedupe) {
+                    report_block.emplace_back(ROSE_INSTR_DEDUPE_AND_REPORT,
+                                              JumpTarget::NEXT_BLOCK);
+                    report_block.back().u.dedupeAndReport.report = id;
+                } else {
+                    report_block.emplace_back(ROSE_INSTR_REPORT);
+                    auto &ri = report_block.back();
+                    ri.u.report.report = id;
+                    ri.u.report.onmatch = report.onmatch;
+                    ri.u.report.offset_adjust = report.offsetAdjust;
+                }
             } else {
+                if (needs_dedupe) {
+                    makeDedupe(id, report_block);
+                }
                 report_block.emplace_back(ROSE_INSTR_REPORT_EXHAUST);
-                report_block.back().u.reportExhaust.report = id;
+                auto &ri = report_block.back();
+                ri.u.reportExhaust.report = id;
+                ri.u.reportExhaust.onmatch = report.onmatch;
+                ri.u.reportExhaust.offset_adjust = report.offsetAdjust;
+                ri.u.reportExhaust.ekey = report.ekey;
             }
         } else { // has_som
             makeDedupeSom(id, report_block);
@@ -3196,7 +3332,7 @@ void makeRoleReports(RoseBuildImpl &build, build_context &bc, RoseVertex v,
     }
 
     for (ReportID id : g[v].reports) {
-        makeReport(build, id, has_som, program);
+        makeReport(build, bc, id, has_som, program);
     }
 }
 
@@ -3870,6 +4006,20 @@ void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, build_context &bc,
 }
 
 static
+bool hasDelayedLiteral(RoseBuildImpl &build,
+                       const vector<RoseEdge> &lit_edges) {
+    auto is_delayed = bind(&RoseBuildImpl::isDelayed, &build, _1);
+    for (const auto &e : lit_edges) {
+        auto v = target(e, build.g);
+        const auto &lits = build.g[v].literals;
+        if (any_of(begin(lits), end(lits), is_delayed)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static
 vector<RoseInstruction> buildLitInitialProgram(RoseBuildImpl &build,
                                     build_context &bc, u32 final_id,
                                     const vector<RoseEdge> &lit_edges) {
@@ -3885,8 +4035,12 @@ vector<RoseInstruction> buildLitInitialProgram(RoseBuildImpl &build,
     // Check lit mask.
     makeCheckLitMaskInstruction(build, final_id, pre_program);
 
-    // Check literal groups.
-    makeGroupCheckInstruction(build, final_id, pre_program);
+    // Check literal groups. This is an optimisation that we only perform for
+    // delayed literals, as their groups may be switched off; ordinarily, we
+    // can trust the HWLM matcher.
+    if (hasDelayedLiteral(build, lit_edges)) {
+        makeGroupCheckInstruction(build, final_id, pre_program);
+    }
 
     // Add instructions for pushing delayed matches, if there are any.
     makePushDelayedInstructions(build, final_id, pre_program);
@@ -3982,8 +4136,8 @@ map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
         for (const auto &lit_id : g[v].literals) {
             assert(lit_id < build.literal_info.size());
             u32 final_id = build.literal_info.at(lit_id).final_id;
-            if (final_id == MO_INVALID_IDX || final_id & LITERAL_MDR_FLAG) {
-                // Unused, special or direct report IDs are handled elsewhere.
+            if (final_id == MO_INVALID_IDX) {
+                // Unused, special report IDs are handled elsewhere.
                 continue;
             }
             unique_lit_edge_map[final_id].insert(e);
@@ -4054,8 +4208,9 @@ vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
         makeRoleCheckNotHandled(bc, v, program);
     }
 
+    const bool has_som = false;
     for (const auto &id : g[v].reports) {
-        makeReport(build, id, false, program);
+        makeReport(build, bc, id, has_som, program);
     }
 
     return program;
@@ -4133,34 +4288,6 @@ u32 writeEodProgram(RoseBuildImpl &build, build_context &bc) {
          });
 
     return buildLiteralProgram(build, bc, MO_INVALID_IDX, edge_list);
-}
-
-static
-void calcAnchoredMatches(const RoseBuildImpl &build, vector<ReportID> &art,
-                         vector<u32> &arit) {
-    const RoseGraph &g = build.g;
-
-    u32 max_report = 0;
-
-    for (RoseVertex v : vertices_range(g)) {
-        if (!build.isAnchored(v)) {
-            continue;
-        }
-
-        for (ReportID r : g[v].reports) {
-            art.push_back(r);
-            max_report = max(max_report, r);
-        }
-    }
-
-    assert(max_report < MO_INVALID_IDX);
-
-    arit.resize(max_report + 1, MO_INVALID_IDX);
-    for (u32 i = 0; i < art.size(); i++) {
-        DEBUG_PRINTF("art[%u] = %u\n", i, art[i]);
-        arit[art[i]] = i;
-        DEBUG_PRINTF("arit[%u] = %u\n", art[i], arit[art[i]]);
-    }
 }
 
 static
@@ -4264,22 +4391,18 @@ void fillMatcherDistances(const RoseBuildImpl &build, RoseEngine *engine) {
 aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     DerivedBoundaryReports dboundary(boundary);
 
-    // Build literal matchers
-    size_t asize = 0, fsize = 0, esize = 0, sbsize = 0;
-
-    size_t floatingStreamStateRequired = 0;
     size_t historyRequired = calcHistoryRequired(); // Updated by HWLM.
 
-    aligned_unique_ptr<anchored_matcher_info> atable =
-        buildAnchoredAutomataMatcher(*this, &asize);
-    aligned_unique_ptr<HWLM> ftable = buildFloatingMatcher(
-        *this, &fsize, &historyRequired, &floatingStreamStateRequired);
-    aligned_unique_ptr<HWLM> etable = buildEodAnchoredMatcher(*this, &esize);
-    aligned_unique_ptr<HWLM> sbtable = buildSmallBlockMatcher(*this, &sbsize);
+    auto anchored_dfas = buildAnchoredDfas(*this);
 
     build_context bc;
     bc.floatingMinLiteralMatchOffset =
-        findMinFloatingLiteralMatch(*this, atable.get());
+        findMinFloatingLiteralMatch(*this, anchored_dfas);
+    bc.needs_catchup = needsCatchup(*this);
+    recordResources(bc.resources, *this);
+    if (!anchored_dfas.empty()) {
+        bc.resources.has_anchored = true;
+    }
 
     // Build NFAs
     set<u32> no_retrigger_queues;
@@ -4336,11 +4459,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         throw ResourceLimitError();
     }
 
-    u32 amatcherOffset = 0;
-    u32 fmatcherOffset = 0;
-    u32 ematcherOffset = 0;
-    u32 sbmatcherOffset = 0;
-
     u32 currOffset;  /* relative to base of RoseEngine */
     if (!bc.engine_blob.empty()) {
         currOffset = bc.engine_blob_base + byte_length(bc.engine_blob);
@@ -4354,28 +4472,46 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     currOffset = ROUNDUP_CL(currOffset);
     DEBUG_PRINTF("currOffset %u\n", currOffset);
 
+    // Build anchored matcher.
+    size_t asize = 0;
+    u32 amatcherOffset = 0;
+    auto atable = buildAnchoredMatcher(*this, anchored_dfas, &asize);
     if (atable) {
         currOffset = ROUNDUP_CL(currOffset);
         amatcherOffset = currOffset;
-        currOffset += (u32)asize;
+        currOffset += verify_u32(asize);
     }
 
+    // Build floating HWLM matcher.
+    size_t fsize = 0;
+    size_t floatingStreamStateRequired = 0;
+    auto ftable = buildFloatingMatcher(*this, &fsize, &historyRequired,
+                                       &floatingStreamStateRequired);
+    u32 fmatcherOffset = 0;
     if (ftable) {
         currOffset = ROUNDUP_CL(currOffset);
         fmatcherOffset = currOffset;
-        currOffset += (u32)fsize;
+        currOffset += verify_u32(fsize);
     }
 
+    // Build EOD-anchored HWLM matcher.
+    size_t esize = 0;
+    auto etable = buildEodAnchoredMatcher(*this, &esize);
+    u32 ematcherOffset = 0;
     if (etable) {
         currOffset = ROUNDUP_CL(currOffset);
         ematcherOffset = currOffset;
-        currOffset += (u32)esize;
+        currOffset += verify_u32(esize);
     }
 
+    // Build small-block HWLM matcher.
+    size_t sbsize = 0;
+    auto sbtable = buildSmallBlockMatcher(*this, &sbsize);
+    u32 sbmatcherOffset = 0;
     if (sbtable) {
         currOffset = ROUNDUP_CL(currOffset);
         sbmatcherOffset = currOffset;
-        currOffset += (u32)sbsize;
+        currOffset += verify_u32(sbsize);
     }
 
     const vector<Report> &int_reports = rm.reports();
@@ -4399,22 +4535,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     u32 nfaInfoOffset = ROUNDUP_N(currOffset, sizeof(u32));
     u32 nfaInfoLen = sizeof(NfaInfo) * queue_count;
     currOffset = nfaInfoOffset + nfaInfoLen;
-
-    vector<ReportID> art; // Reports raised by anchored roles
-    vector<u32> arit; // inverse reportID -> position in art
-    calcAnchoredMatches(*this, art, arit);
-
-    currOffset = ROUNDUP_N(currOffset, sizeof(ReportID));
-    u32 anchoredReportMapOffset = currOffset;
-    currOffset += art.size() * sizeof(ReportID);
-
-    currOffset = ROUNDUP_N(currOffset, sizeof(u32));
-    u32 anchoredReportInverseMapOffset = currOffset;
-    currOffset += arit.size() * sizeof(u32);
-
-    currOffset = ROUNDUP_N(currOffset, alignof(ReportID));
-    u32 multidirectOffset = currOffset;
-    currOffset += mdr_reports.size() * sizeof(ReportID);
 
     currOffset = ROUNDUP_N(currOffset, alignof(mmbit_sparse_iter));
     u32 activeLeftIterOffset = currOffset;
@@ -4502,13 +4622,14 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->somLocationCount = ssm.numSomSlots();
 
     engine->simpleCallback = !rm.numEkeys() && hasSimpleReports(rm.reports());
+    engine->needsCatchup = bc.needs_catchup ? 1 : 0;
 
     fillInReportInfo(engine.get(), intReportOffset, rm, int_reports);
 
     engine->literalCount = verify_u32(final_id_to_literal.size());
     engine->litProgramOffset = litProgramOffset;
     engine->litDelayRebuildProgramOffset = litDelayRebuildProgramOffset;
-    engine->runtimeImpl = pickRuntimeImpl(*this, outfixEndQueue);
+    engine->runtimeImpl = pickRuntimeImpl(*this, bc, outfixEndQueue);
     engine->mpvTriggeredByLeaf = anyEndfixMpvTriggers(*this);
 
     engine->activeArrayCount = activeArrayCount;
@@ -4531,10 +4652,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->stateSize = mmbit_size(bc.numStates);
     engine->anchorStateSize = anchorStateSize;
     engine->nfaInfoOffset = nfaInfoOffset;
-    engine->anchoredReportMapOffset = anchoredReportMapOffset;
-    engine->anchoredReportInverseMapOffset
-        = anchoredReportInverseMapOffset;
-    engine->multidirectOffset = multidirectOffset;
 
     engine->eodProgramOffset = eodProgramOffset;
     engine->eodIterProgramOffset = eodIterProgramOffset;
@@ -4580,17 +4697,14 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->size = currOffset;
     engine->minWidth = hasBoundaryReports(boundary) ? 0 : minWidth;
     engine->minWidthExcludingBoundaries = minWidth;
-    engine->maxSafeAnchoredDROffset = findMinWidth(*this, ROSE_FLOATING);
     engine->floatingMinLiteralMatchOffset = bc.floatingMinLiteralMatchOffset;
 
     engine->maxBiAnchoredWidth = findMaxBAWidth(*this);
     engine->noFloatingRoots = hasNoFloatingRoots();
-    engine->hasFloatingDirectReports = floating_direct_report;
     engine->requiresEodCheck = hasEodAnchors(*this, bc, outfixEndQueue);
     engine->hasOutfixesInSmallBlock = hasNonSmallBlockOutfix(outfixes);
     engine->canExhaust = rm.patternSetCanExhaust();
     engine->hasSom = hasSom;
-    engine->anchoredMatches = verify_u32(art.size());
 
     /* populate anchoredDistance, floatingDistance, floatingMinDistance, etc */
     fillMatcherDistances(*this, engine.get());
@@ -4604,15 +4718,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     write_out(&engine->state_init, (char *)engine.get(), state_scatter,
               state_scatter_aux_offset);
-
-    if (atable && anchoredIsMulti(*atable)) {
-        engine->maxSafeAnchoredDROffset = 1;
-    } else {
-        /* overly conservative, really need the min offset of non dr anchored
-           matches */
-        engine->maxSafeAnchoredDROffset = MIN(engine->maxSafeAnchoredDROffset,
-                                        engine->floatingMinLiteralMatchOffset);
-    }
 
     NfaInfo *nfa_infos = (NfaInfo *)(ptr + nfaInfoOffset);
     populateNfaInfoBasics(*this, bc, outfixes, suffixEkeyLists,
@@ -4629,9 +4734,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                          ptr + lookaroundReachOffset, bc.lookaround);
 
     fillInSomRevNfas(engine.get(), ssm, rev_nfa_table_offset, rev_nfa_offsets);
-    copy_bytes(ptr + engine->anchoredReportMapOffset, art);
-    copy_bytes(ptr + engine->anchoredReportInverseMapOffset, arit);
-    copy_bytes(ptr + engine->multidirectOffset, mdr_reports);
     copy_bytes(ptr + engine->activeLeftIterOffset, activeLeftIter);
 
     // Safety check: we shouldn't have written anything to the engine blob

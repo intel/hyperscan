@@ -247,51 +247,12 @@ bool isUsedLiteral(const RoseBuildImpl &build, u32 lit_id) {
     return false;
 }
 
-static
-void makeDirectReport(RoseBuildImpl &build, u32 i) {
-    if (build.literals.right.at(i).table == ROSE_FLOATING) {
-        build.floating_direct_report = true;
-    }
-
-    rose_literal_info &info = build.literal_info[i];
-    assert(!info.vertices.empty());
-
-    vector<ReportID> reports;
-    for (const auto &v : info.vertices) {
-        const auto &r = build.g[v].reports;
-        reports.insert(end(reports), begin(r), end(r));
-    }
-    sort(begin(reports), end(reports));
-    reports.erase(unique(begin(reports), end(reports)), end(reports));
-
-    if (reports.size() == 1) {
-        // A single direct report. We set the high bit to indicate it's a
-        // direct report and encode the ReportID itself in the final_id
-        // field.
-        ReportID report = reports.front();
-        assert(!(report & LITERAL_DR_FLAG));
-        info.final_id = LITERAL_DR_FLAG | report;
-        DEBUG_PRINTF("direct report %u -> %u\n", info.final_id, report);
-    } else {
-        // A multi-direct report. Here we write the report set into a list
-        // to be triggered when we see this literal.
-        u32 mdr_index = verify_u32(build.mdr_reports.size());
-        info.final_id = LITERAL_MDR_FLAG | mdr_index;
-        DEBUG_PRINTF("multi direct report %u -> [%s]\n", info.final_id,
-                     as_string_list(reports).c_str());
-        build.mdr_reports.insert(end(build.mdr_reports), begin(reports),
-                                 end(reports));
-        build.mdr_reports.push_back(MO_INVALID_IDX);
-    }
-}
-
+/** \brief Allocate final literal IDs for all literals.
+ *
+ * These are the literal ids used in the bytecode.
+ */
 static
 void allocateFinalLiteralId(RoseBuildImpl &tbi) {
-    /* allocate final literal ids - these are the literal ids used in the
-     * bytecode.
-     * DRs already have special final ids allocated
-     */
-
     RoseGraph &g = tbi.g;
 
     set<u32> anch;
@@ -306,11 +267,6 @@ void allocateFinalLiteralId(RoseBuildImpl &tbi) {
 
         if (!isUsedLiteral(tbi, i)) {
             /* what is this literal good for? absolutely nothing */
-            continue;
-        }
-
-        if (tbi.isDirectReport(i)) {
-            makeDirectReport(tbi, i);
             continue;
         }
 
@@ -900,23 +856,6 @@ void stealEodVertices(RoseBuildImpl &tbi) {
 
 bool RoseBuildImpl::isDelayed(u32 id) const {
     return literal_info.at(id).undelayed_id != id;
-}
-
-bool RoseBuildImpl::hasDirectFinalId(u32 id) const {
-    return literal_info.at(id).final_id & LITERAL_MDR_FLAG;
-}
-
-bool RoseBuildImpl::allDirectFinalIds(RoseVertex v) const {
-    const auto &lits = g[v].literals;
-    if (lits.empty()) {
-        return false;
-    }
-    for (const auto &lit : lits) {
-        if (!hasDirectFinalId(lit)) {
-            return false;
-        }
-    }
-    return true;
 }
 
 bool RoseBuildImpl::hasFinalId(u32 id) const {

@@ -122,8 +122,6 @@ struct RoseContext {
     RoseCallback cb;
     RoseCallbackSom cb_som;
     u32 filledDelayedSlots;
-    u32 curr_anchored_loc;   /**< last read/written row */
-    u32 curr_row_offset; /**< last read/written entry */
     u32 curr_qi;    /**< currently executing main queue index during
                      * \ref nfaQueueExec */
 };
@@ -158,15 +156,11 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     struct fatbit *aqa; /**< active queue array; fatbit of queues that are valid
                          * & active */
     struct fatbit **delay_slots;
-    struct fatbit **am_log;
     struct fatbit **al_log;
-    u64a am_log_sum;
     u64a al_log_sum;
     struct catchup_pq catchup_pq;
     struct core_info core_info;
     struct match_deduper deduper;
-    u32 anchored_region_len;
-    u32 anchored_region_width;
     u32 anchored_literal_region_len;
     u32 anchored_literal_count;
     u32 delay_count;
@@ -190,11 +184,6 @@ static really_inline
 struct hs_scratch *tctxtToScratch(struct RoseContext *tctxt) {
     return (struct hs_scratch *)
         ((char *)tctxt - offsetof(struct hs_scratch, tctxt));
-}
-
-static really_inline
-struct fatbit **getAnchoredLog(struct hs_scratch *scratch) {
-    return scratch->am_log;
 }
 
 /* array of fatbit ptr; TODO: why not an array of fatbits? */

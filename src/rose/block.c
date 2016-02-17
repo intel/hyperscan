@@ -150,10 +150,7 @@ void init_for_block(const struct RoseEngine *t, struct hs_scratch *scratch,
     tctxt->minMatchOffset = 0;
     tctxt->minNonMpvMatchOffset = 0;
     tctxt->next_mpv_offset = 0;
-    tctxt->curr_anchored_loc = MMB_INVALID;
-    tctxt->curr_row_offset = 0;
 
-    scratch->am_log_sum = 0; /* clear the anchored logs */
     scratch->al_log_sum = 0;
 
     fatbit_clear(scratch->aqa);
@@ -219,7 +216,6 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
             goto exit;
         }
 
-        resetAnchoredLog(t, scratch);
     skip_atable:;
     }
 
@@ -263,5 +259,5 @@ exit:;
 
     assert(!can_stop_matching(scratch));
 
-    roseCatchUpTo(t, scratch, length, 0);
+    roseCatchUpTo(t, scratch, length);
 }

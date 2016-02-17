@@ -59,27 +59,9 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx);
 
 /* Common code, used all over Rose runtime */
 
-static rose_inline
-void resetAnchoredLog(const struct RoseEngine *t, struct hs_scratch *scratch) {
-    struct fatbit **anchoredRows = getAnchoredLog(scratch);
-    u32 region_width = t->anchoredMatches;
-    struct RoseContext *tctxt = &scratch->tctxt;
-
-    tctxt->curr_anchored_loc = bf64_iterate(scratch->am_log_sum, MMB_INVALID);
-    if (tctxt->curr_anchored_loc != MMB_INVALID) {
-        assert(tctxt->curr_anchored_loc < scratch->anchored_region_len);
-        struct fatbit *curr_row = anchoredRows[tctxt->curr_anchored_loc];
-        tctxt->curr_row_offset = fatbit_iterate(curr_row, region_width,
-                                                MMB_INVALID);
-        assert(tctxt->curr_row_offset != MMB_INVALID);
-    }
-    DEBUG_PRINTF("AL reset --> %u, %u\n", tctxt->curr_anchored_loc,
-                 tctxt->curr_row_offset);
-}
-
 hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
                                  struct hs_scratch *scratch, ReportID r,
-                                 u64a end, char in_anchored, char in_catchup);
+                                 u64a end, char in_catchup);
 
 static really_inline
 void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,

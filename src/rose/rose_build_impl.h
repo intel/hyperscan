@@ -415,7 +415,6 @@ public:
 
     // Is the Rose anchored?
     bool hasNoFloatingRoots() const;
-    bool hasDirectReports() const;
 
     RoseVertex cloneVertex(RoseVertex v);
 
@@ -440,17 +439,6 @@ public:
 
     bool isDirectReport(u32 id) const;
     bool isDelayed(u32 id) const;
-
-    /**
-     * \brief True if the given literal ID is a direct or multi-direct report.
-     */
-    bool hasDirectFinalId(u32 id) const;
-
-    /**
-     * \brief True if all the literals associated with the given vertex are
-     * direct or multi-direct reports.
-     */
-    bool allDirectFinalIds(RoseVertex v) const;
 
     bool hasFinalId(u32 id) const;
 
@@ -526,15 +514,9 @@ public:
      * null again). */
     std::unique_ptr<OutfixInfo> mpv_outfix = nullptr;
 
-    bool floating_direct_report;
-
     u32 eod_event_literal_id; // ID of EOD event literal, or MO_INVALID_IDX.
 
     u32 max_rose_anchored_floating_overlap;
-
-    /** \brief Flattened list of report IDs for multi-direct reports, indexed
-     * by MDR final_id. */
-    std::vector<ReportID> mdr_reports;
 
     QueueIndexFactory qif;
     ReportManager &rm;

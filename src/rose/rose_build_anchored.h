@@ -46,17 +46,22 @@ namespace ue2 {
 class NGHolder;
 class RoseBuildImpl;
 struct Grey;
-
-aligned_unique_ptr<anchored_matcher_info>
-buildAnchoredAutomataMatcher(RoseBuildImpl &build, size_t *asize);
-
-u32 anchoredStateSize(const anchored_matcher_info &atable);
+struct raw_dfa;
 
 /**
- * \brief True if there is an anchored matcher and it consists of multiple
- * DFAs.
+ * \brief Construct a set of anchored DFAs from our anchored literals/engines.
  */
-bool anchoredIsMulti(const anchored_matcher_info &atable);
+std::vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build);
+
+/**
+ * \brief Construct an anchored_matcher_info runtime structure from the given
+ * set of DFAs.
+ */
+aligned_unique_ptr<anchored_matcher_info>
+buildAnchoredMatcher(RoseBuildImpl &build, std::vector<raw_dfa> &dfas,
+                     size_t *asize);
+
+u32 anchoredStateSize(const anchored_matcher_info &atable);
 
 #define ANCHORED_FAIL    0
 #define ANCHORED_SUCCESS 1

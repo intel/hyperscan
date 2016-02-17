@@ -75,8 +75,6 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     u32 bStateSize = proto->bStateSize;
     u32 tStateSize = proto->tStateSize;
     u32 fullStateSize = proto->fullStateSize;
-    u32 anchored_region_len = proto->anchored_region_len;
-    u32 anchored_region_width = proto->anchored_region_width;
     u32 anchored_literal_region_len = proto->anchored_literal_region_len;
     u32 anchored_literal_region_width = proto->anchored_literal_count;
 
@@ -90,11 +88,8 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     size_t queue_size = queueCount * sizeof(struct mq);
     size_t qmpq_size = queueCount * sizeof(struct queue_match);
 
-    assert(anchored_region_len < 8 * sizeof(s->am_log_sum));
-    assert(anchored_literal_region_len < 8 * sizeof(s->am_log_sum));
+    assert(anchored_literal_region_len < 8 * sizeof(s->al_log_sum));
 
-    size_t anchored_region_size =
-        fatbit_array_size(anchored_region_len, anchored_region_width);
     size_t anchored_literal_region_size = fatbit_array_size(
         anchored_literal_region_len, anchored_literal_region_width);
     size_t delay_region_size =
@@ -109,7 +104,6 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
                   + 2 * fatbit_size(deduperCount) /* need odd and even logs */
                   + 2 * fatbit_size(deduperCount) /* ditto som logs */
                   + 2 * sizeof(u64a) * deduperCount /* start offsets for som */
-                  + anchored_region_size
                   + anchored_literal_region_size + qmpq_size
                   + delay_region_size
                   + som_store_size
@@ -163,16 +157,6 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
         s->delay_slots[i] = (struct fatbit *)current;
         assert(ISALIGNED(s->delay_slots[i]));
         current += fatbit_size(proto->delay_count);
-    }
-
-    current = ROUNDUP_PTR(current, alignof(struct fatbit *));
-    s->am_log = (struct fatbit **)current;
-    current += sizeof(struct fatbit *) * anchored_region_len;
-    current = ROUNDUP_PTR(current, alignof(struct fatbit));
-    for (u32 i = 0; i < anchored_region_len; i++) {
-        s->am_log[i] = (struct fatbit *)current;
-        assert(ISALIGNED(s->am_log[i]));
-        current += fatbit_size(anchored_region_width);
     }
 
     current = ROUNDUP_PTR(current, alignof(struct fatbit *));
@@ -294,22 +278,6 @@ hs_error_t hs_alloc_scratch(const hs_database_t *db, hs_scratch_t **scratch) {
         resize = 1;
     }
     proto->scratch_alloc = (char *)proto_tmp;
-
-    u32 max_anchored_match = rose->anchoredDistance;
-    if (max_anchored_match > rose->maxSafeAnchoredDROffset) {
-        u32 anchored_region_len = max_anchored_match
-            - rose->maxSafeAnchoredDROffset;
-        if (anchored_region_len > proto->anchored_region_len) {
-            resize = 1;
-            proto->anchored_region_len = anchored_region_len;
-        }
-    }
-
-    u32 anchored_region_width = rose->anchoredMatches;
-    if (anchored_region_width > proto->anchored_region_width) {
-        resize = 1;
-        proto->anchored_region_width = anchored_region_width;
-    }
 
     if (rose->anchoredDistance > proto->anchored_literal_region_len) {
         resize = 1;

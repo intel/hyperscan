@@ -81,16 +81,6 @@ u8 *getActiveLeftArray(const struct RoseEngine *t, char *state) {
 }
 
 static really_inline
-const u32 *getAnchoredInverseMap(const struct RoseEngine *t) {
-    return (const u32 *)(((const u8 *)t) + t->anchoredReportInverseMapOffset);
-}
-
-static really_inline
-const u32 *getAnchoredMap(const struct RoseEngine *t) {
-    return (const u32 *)(((const u8 *)t) + t->anchoredReportMapOffset);
-}
-
-static really_inline
 rose_group loadGroups(const struct RoseEngine *t, const char *state) {
     return partial_load_u64a(state + t->stateOffsets.groups,
                              t->stateOffsets.groups_size);
@@ -166,8 +156,6 @@ const struct internal_report *getInternalReport(const struct RoseEngine *t,
     assert(intId < t->intReportCount);
     return reports + intId;
 }
-
-#define ANCHORED_MATCH_SENTINEL (~0U)
 
 static really_inline
 void updateLastMatchOffset(struct RoseContext *tctxt, u64a offset) {

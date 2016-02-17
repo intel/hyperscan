@@ -85,6 +85,10 @@ void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch,
     assert(scratch);
     assert(scratch->core_info.buf);
 
+    // We should not have been called if we've already been told to terminate
+    // matching.
+    assert(!told_to_stop_matching(scratch));
+
     // If this block is shorter than our minimum width, then no pattern in this
     // RoseEngine could match.
     /* minWidth checks should have already been performed by the caller */
@@ -123,5 +127,8 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
 void roseEodExec(const struct RoseEngine *t, u64a offset,
                  struct hs_scratch *scratch, RoseCallback callback,
                  RoseCallbackSom som_callback);
+
+hwlmcb_rv_t rosePureLiteralCallback(size_t start, size_t end, u32 id,
+                                    void *context);
 
 #endif // ROSE_H

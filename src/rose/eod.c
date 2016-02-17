@@ -50,8 +50,6 @@ void initContext(const struct RoseEngine *t, char *state, u64a offset,
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;
     tctxt->next_mpv_offset = offset;
-    tctxt->curr_anchored_loc = MMB_INVALID;
-    tctxt->curr_row_offset = 0;
 
     scratch->catchup_pq.qm_size = 0;
     scratch->al_log_sum = 0; /* clear the anchored logs */
@@ -331,6 +329,10 @@ void roseEodExec(const struct RoseEngine *t, u64a offset,
     DEBUG_PRINTF("ci buf %p/%zu his %p/%zu\n", scratch->core_info.buf,
                  scratch->core_info.len, scratch->core_info.hbuf,
                  scratch->core_info.hlen);
+
+    // We should not have been called if we've already been told to terminate
+    // matching.
+    assert(!told_to_stop_matching(scratch));
 
     if (t->maxBiAnchoredWidth != ROSE_BOUND_INF
         && offset > t->maxBiAnchoredWidth) {

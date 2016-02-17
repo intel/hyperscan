@@ -56,12 +56,6 @@ void dumpScratch(const struct hs_scratch *s, FILE *f) {
     fprintf(f, "  bStateSize           : %u bytes\n", s->bStateSize);
     fprintf(f, "  active queue array   : %u bytes\n",
             mmbit_size(s->queueCount));
-
-    size_t anchored_region_size =
-        s->anchored_region_len * mmbit_size(s->anchored_region_width) +
-        sizeof(u8 *) + mmbit_size(s->anchored_region_len);
-
-    fprintf(f, "  anchored region      : %zu bytes\n", anchored_region_size);
     fprintf(f, "  qmpq                 : %zu bytes\n",
             s->queueCount * sizeof(struct queue_match));
     fprintf(f, "  delay info           : %u bytes\n",

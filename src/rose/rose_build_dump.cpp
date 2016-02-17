@@ -146,15 +146,6 @@ public:
             os << ")";
         }
 
-        if (!g[v].literals.empty()) {
-            u32 id = *g[v].literals.begin();
-            if (id < build.literal_info.size()
-                && build.literal_info[id].final_id != MO_INVALID_IDX
-                && (build.literal_info[id].final_id & LITERAL_DR_FLAG)) {
-                os << "\\nDIRECT REPORT";
-            }
-        }
-
         if (ghost.find(v) != ghost.end()) {
             os << "\\nGHOST";
         }

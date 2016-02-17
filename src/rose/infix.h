@@ -32,6 +32,7 @@
 #include "ue2common.h"
 #include "nfa/nfa_api.h"
 #include "nfa/nfa_api_queue.h"
+#include "nfa/nfa_internal.h"
 
 static really_inline
 int infixTooOld(struct mq *q, s64a curr_loc) {

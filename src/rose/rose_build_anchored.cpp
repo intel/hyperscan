@@ -231,10 +231,6 @@ u32 anchoredStateSize(const anchored_matcher_info &atable) {
     return curr->state_offset + nfa->streamStateSize;
 }
 
-bool anchoredIsMulti(const anchored_matcher_info &atable) {
-    return atable.next_offset;
-}
-
 namespace {
 
 typedef bitfield<ANCHORED_NFA_STATE_LIMIT> nfa_state_set;
@@ -742,21 +738,24 @@ void buildSimpleDfas(const RoseBuildImpl &tbi,
  * from RoseBuildImpl.
  */
 static
-void getAnchoredDfas(RoseBuildImpl &tbi,
-                     vector<unique_ptr<raw_dfa>> *anchored_dfas) {
+vector<unique_ptr<raw_dfa>> getAnchoredDfas(RoseBuildImpl &build) {
+    vector<unique_ptr<raw_dfa>> dfas;
+
     // DFAs that already exist as raw_dfas.
-    for (auto &anch_dfas : tbi.anchored_nfas) {
+    for (auto &anch_dfas : build.anchored_nfas) {
         for (auto &rdfa : anch_dfas.second) {
-            anchored_dfas->push_back(move(rdfa));
+            dfas.push_back(move(rdfa));
         }
     }
-    tbi.anchored_nfas.clear();
+    build.anchored_nfas.clear();
 
     // DFAs we currently have as simple literals.
-    if (!tbi.anchored_simple.empty()) {
-        buildSimpleDfas(tbi, anchored_dfas);
-        tbi.anchored_simple.clear();
+    if (!build.anchored_simple.empty()) {
+        buildSimpleDfas(build, &dfas);
+        build.anchored_simple.clear();
     }
+
+    return dfas;
 }
 
 /**
@@ -770,9 +769,9 @@ void getAnchoredDfas(RoseBuildImpl &tbi,
  * \return Total bytes required for the complete anchored matcher.
  */
 static
-size_t buildNfas(vector<unique_ptr<raw_dfa>> &anchored_dfas,
-                 vector<aligned_unique_ptr<NFA>> *nfas, vector<u32> *start_offset,
-                 const CompileContext &cc) {
+size_t buildNfas(vector<raw_dfa> &anchored_dfas,
+                 vector<aligned_unique_ptr<NFA>> *nfas,
+                 vector<u32> *start_offset, const CompileContext &cc) {
     const size_t num_dfas = anchored_dfas.size();
 
     nfas->reserve(num_dfas);
@@ -781,12 +780,12 @@ size_t buildNfas(vector<unique_ptr<raw_dfa>> &anchored_dfas,
     size_t total_size = 0;
 
     for (auto &rdfa : anchored_dfas) {
-        u32 removed_dots = remove_leading_dots(*rdfa);
+        u32 removed_dots = remove_leading_dots(rdfa);
         start_offset->push_back(removed_dots);
 
-        minimize_hopcroft(*rdfa, cc.grey);
+        minimize_hopcroft(rdfa, cc.grey);
 
-        aligned_unique_ptr<NFA> nfa = mcclellanCompile(*rdfa, cc);
+        auto nfa = mcclellanCompile(rdfa, cc);
         if (!nfa) {
             assert(0);
             throw std::bad_alloc();
@@ -803,25 +802,41 @@ size_t buildNfas(vector<unique_ptr<raw_dfa>> &anchored_dfas,
     return total_size;
 }
 
-aligned_unique_ptr<anchored_matcher_info>
-buildAnchoredAutomataMatcher(RoseBuildImpl &build, size_t *asize) {
-    const CompileContext &cc = build.cc;
-    remapAnchoredReports(build);
+vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build) {
+    vector<raw_dfa> dfas;
 
     if (build.anchored_nfas.empty() && build.anchored_simple.empty()) {
+        DEBUG_PRINTF("empty\n");
+        return dfas;
+    }
+
+    remapAnchoredReports(build);
+
+    auto anch_dfas = getAnchoredDfas(build);
+    mergeAnchoredDfas(anch_dfas, build);
+
+    dfas.reserve(anch_dfas.size());
+    for (auto &rdfa : anch_dfas) {
+        assert(rdfa);
+        dfas.push_back(move(*rdfa));
+    }
+    return dfas;
+}
+
+aligned_unique_ptr<anchored_matcher_info>
+buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
+                     size_t *asize) {
+    const CompileContext &cc = build.cc;
+
+    if (dfas.empty()) {
         DEBUG_PRINTF("empty\n");
         *asize = 0;
         return nullptr;
     }
 
-    vector<unique_ptr<raw_dfa>> anchored_dfas;
-    getAnchoredDfas(build, &anchored_dfas);
-
-    mergeAnchoredDfas(anchored_dfas, build);
-
     vector<aligned_unique_ptr<NFA>> nfas;
     vector<u32> start_offset; // start offset for each dfa (dots removed)
-    size_t total_size = buildNfas(anchored_dfas, &nfas, &start_offset, cc);
+    size_t total_size = buildNfas(dfas, &nfas, &start_offset, cc);
 
     if (total_size > cc.grey.limitRoseAnchoredSize) {
         throw ResourceLimitError();

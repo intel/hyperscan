@@ -396,7 +396,7 @@ void ensureStreamNeatAndTidy(const struct RoseEngine *t, char *state,
                              u64a offset) {
     struct RoseContext *tctxt = &scratch->tctxt;
 
-    if (roseCatchUpTo(t, scratch, length + scratch->core_info.buf_offset, 0) ==
+    if (roseCatchUpTo(t, scratch, length + scratch->core_info.buf_offset) ==
         HWLM_TERMINATE_MATCHING) {
         return; /* dead; no need to clean up state. */
     }
@@ -429,6 +429,10 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
     assert(scratch->core_info.hbuf);
     assert(scratch->core_info.buf);
 
+    // We should not have been called if we've already been told to terminate
+    // matching.
+    assert(!told_to_stop_matching(scratch));
+
     assert(mmbit_sparse_iter_state_size(t->rolesWithStateCount)
            < MAX_SPARSE_ITER_STATES);
 
@@ -459,13 +463,10 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;
     tctxt->next_mpv_offset = 0;
-    tctxt->curr_anchored_loc = MMB_INVALID;
-    tctxt->curr_row_offset = 0;
     DEBUG_PRINTF("BEGIN: history len=%zu, buffer len=%zu\n",
                   scratch->core_info.hlen, scratch->core_info.len);
 
     fatbit_clear(scratch->aqa);
-    scratch->am_log_sum = 0; /* clear the anchored logs */
     scratch->al_log_sum = 0;
     scratch->catchup_pq.qm_size = 0;
 
@@ -484,8 +485,6 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
         if (can_stop_matching(scratch)) {
             goto exit;
         }
-
-        resetAnchoredLog(t, scratch);
     }
 
     const struct HWLM *ftable = getFLiteralMatcher(t);

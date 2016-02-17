@@ -68,14 +68,14 @@ enum DedupeResult {
 
 static really_inline
 enum DedupeResult dedupeCatchup(const struct RoseEngine *rose,
-                                const struct internal_report *ri,
+                                const struct internal_report *ir,
                                 struct hs_scratch *scratch, u64a offset,
                                 u64a from_offset, u64a to_offset,
                                 const char do_som) {
     DEBUG_PRINTF("offset=%llu, match=[%llu,%llu], dkey=%u, do_som=%d\n", offset,
-                 from_offset, to_offset, ri->dkey, do_som);
-    DEBUG_PRINTF("report type=%u, quashSom=%d\n", ri->type, ri->quashSom);
-    const u32 dkey = ri->dkey;
+                 from_offset, to_offset, ir->dkey, do_som);
+    DEBUG_PRINTF("report type=%u, quashSom=%d\n", ir->type, ir->quashSom);
+    const u32 dkey = ir->dkey;
 
     // We should not have been called if there's no dedupe work to do.
     assert(do_som || dkey != MO_INVALID_IDX);
@@ -99,8 +99,8 @@ enum DedupeResult dedupeCatchup(const struct RoseEngine *rose,
 
     if (dkey != MO_INVALID_IDX) {
         const u32 dkeyCount = rose->dkeyCount;
-        const s32 offset_adj = ri->offsetAdjust;
-        if (ri->type == EXTERNAL_CALLBACK || ri->quashSom) {
+        const s32 offset_adj = ir->offsetAdjust;
+        if (ir->type == EXTERNAL_CALLBACK || ir->quashSom) {
             DEBUG_PRINTF("checking dkey %u at offset %llu\n", dkey, to_offset);
             assert(offset_adj == 0 || offset_adj == -1);
             if (fatbit_set(deduper->log[to_offset % 2], dkeyCount, dkey)) {
@@ -136,12 +136,12 @@ enum DedupeResult dedupeCatchup(const struct RoseEngine *rose,
 
 static really_inline
 enum DedupeResult dedupeCatchupSom(const struct RoseEngine *rose,
-                                   const struct internal_report *ri,
+                                   const struct internal_report *ir,
                                    struct hs_scratch *scratch, u64a offset,
                                    u64a from_offset, u64a to_offset) {
     DEBUG_PRINTF("offset=%llu, match=[%llu,%llu], dkey=%u\n", offset,
-                 from_offset, to_offset, ri->dkey);
-    DEBUG_PRINTF("report type=%u, quashSom=%d\n", ri->type, ri->quashSom);
+                 from_offset, to_offset, ir->dkey);
+    DEBUG_PRINTF("report type=%u, quashSom=%d\n", ir->type, ir->quashSom);
 
     struct match_deduper *deduper = &scratch->deduper;
     if (offset != deduper->current_report_offset) {
@@ -160,11 +160,11 @@ enum DedupeResult dedupeCatchupSom(const struct RoseEngine *rose,
         deduper->current_report_offset = offset;
     }
 
-    const u32 dkey = ri->dkey;
+    const u32 dkey = ir->dkey;
     if (dkey != MO_INVALID_IDX) {
         const u32 dkeyCount = rose->dkeyCount;
-        const s32 offset_adj = ri->offsetAdjust;
-        if (ri->quashSom) {
+        const s32 offset_adj = ir->offsetAdjust;
+        if (ir->quashSom) {
             DEBUG_PRINTF("checking dkey %u at offset %llu\n", dkey, to_offset);
             assert(offset_adj == 0 || offset_adj == -1);
             if (fatbit_set(deduper->log[to_offset % 2], dkeyCount, dkey)) {
@@ -208,11 +208,11 @@ int roseAdaptor_i(u64a offset, ReportID id, struct hs_scratch *scratch,
     struct core_info *ci = &scratch->core_info;
     const struct RoseEngine *rose = ci->rose;
     DEBUG_PRINTF("internal report %u\n", id);
-    const struct internal_report *ri = getInternalReport(rose, id);
+    const struct internal_report *ir = getInternalReport(rose, id);
 
-    assert(isExternalReport(ri)); /* only external reports should reach here */
+    assert(isExternalReport(ir)); /* only external reports should reach here */
 
-    s32 offset_adj = ri->offsetAdjust;
+    s32 offset_adj = ir->offsetAdjust;
     u64a to_offset = offset;
     u64a from_offset = 0;
 
@@ -225,7 +225,7 @@ int roseAdaptor_i(u64a offset, ReportID id, struct hs_scratch *scratch,
 #endif
 
     DEBUG_PRINTF("internal match at %llu: IID=%u type=%hhu RID=%u "
-                 "offsetAdj=%d\n", offset, id, ri->type, ri->onmatch,
+                 "offsetAdj=%d\n", offset, id, ir->type, ir->onmatch,
                  offset_adj);
 
     if (unlikely(can_stop_matching(scratch))) { /* ok - we are from rose */
@@ -233,46 +233,46 @@ int roseAdaptor_i(u64a offset, ReportID id, struct hs_scratch *scratch,
         return MO_HALT_MATCHING;
     }
 
-    if (!is_simple && ri->hasBounds) {
-        assert(ri->minOffset || ri->minLength || ri->maxOffset < MAX_OFFSET);
-        assert(ri->minOffset <= ri->maxOffset);
-        if (offset < ri->minOffset || offset > ri->maxOffset) {
+    if (!is_simple && ir->hasBounds) {
+        assert(ir->minOffset || ir->minLength || ir->maxOffset < MAX_OFFSET);
+        assert(ir->minOffset <= ir->maxOffset);
+        if (offset < ir->minOffset || offset > ir->maxOffset) {
             DEBUG_PRINTF("match fell outside valid range %llu !: [%llu,%llu]\n",
-                         offset, ri->minOffset, ri->maxOffset);
+                         offset, ir->minOffset, ir->maxOffset);
             return ROSE_CONTINUE_MATCHING_NO_EXHAUST;
         }
     }
 
-    if (!is_simple && unlikely(isExhausted(ci->exhaustionVector, ri->ekey))) {
+    if (!is_simple && unlikely(isExhausted(ci->exhaustionVector, ir->ekey))) {
         DEBUG_PRINTF("ate exhausted match\n");
         return MO_CONTINUE_MATCHING;
     }
 
-    if (ri->type == EXTERNAL_CALLBACK) {
+    if (ir->type == EXTERNAL_CALLBACK) {
         from_offset = 0;
     } else if (do_som) {
-        from_offset = handleSomExternal(scratch, ri, to_offset);
+        from_offset = handleSomExternal(scratch, ir, to_offset);
     }
 
     to_offset += offset_adj;
     assert(from_offset == HS_OFFSET_PAST_HORIZON || from_offset <= to_offset);
 
-    if (do_som && ri->minLength) {
-        if (!satisfiesMinLength(ri->minLength, from_offset, to_offset)) {
+    if (do_som && ir->minLength) {
+        if (!satisfiesMinLength(ir->minLength, from_offset, to_offset)) {
             return ROSE_CONTINUE_MATCHING_NO_EXHAUST;
         }
-        if (ri->quashSom) {
+        if (ir->quashSom) {
             from_offset = 0;
         }
     }
 
     DEBUG_PRINTF(">> reporting match @[%llu,%llu] for sig %u ctxt %p <<\n",
-                 from_offset, to_offset, ri->onmatch, ci->userContext);
+                 from_offset, to_offset, ir->onmatch, ci->userContext);
 
     int halt = 0;
 
-    if (do_som || ri->dkey != MO_INVALID_IDX) {
-        enum DedupeResult dedupe_rv = dedupeCatchup(rose, ri, scratch, offset,
+    if (do_som || ir->dkey != MO_INVALID_IDX) {
+        enum DedupeResult dedupe_rv = dedupeCatchup(rose, ir, scratch, offset,
                                                 from_offset, to_offset, do_som);
         switch (dedupe_rv) {
         case DEDUPE_HALT:
@@ -286,7 +286,7 @@ int roseAdaptor_i(u64a offset, ReportID id, struct hs_scratch *scratch,
         }
     }
 
-    halt = ci->userCallback((unsigned int)ri->onmatch, from_offset, to_offset,
+    halt = ci->userCallback((unsigned int)ir->onmatch, from_offset, to_offset,
                             flags, ci->userContext);
 exit:
     if (halt) {
@@ -295,8 +295,8 @@ exit:
         return MO_HALT_MATCHING;
     }
 
-    if (!is_simple && ri->ekey != END_EXHAUST) {
-        markAsMatched(ci->exhaustionVector, ri->ekey);
+    if (!is_simple && ir->ekey != END_EXHAUST) {
+        markAsMatched(ci->exhaustionVector, ir->ekey);
         return MO_CONTINUE_MATCHING;
     } else {
         return ROSE_CONTINUE_MATCHING_NO_EXHAUST;
@@ -310,58 +310,52 @@ exit:
  * that dedupe catchup has been done.
  */
 static really_inline
-int roseDeliverReport(u64a offset, ReportID id, struct hs_scratch *scratch,
-                      char is_exhaustible) {
-    assert(id != MO_INVALID_IDX); // Should never get an invalid ID.
+int roseDeliverReport(u64a offset, UNUSED ReportID id, ReportID onmatch,
+                      s32 offset_adjust, struct hs_scratch *scratch, u32 ekey) {
     assert(scratch);
     assert(scratch->magic == SCRATCH_MAGIC);
 
     struct core_info *ci = &scratch->core_info;
-    const struct RoseEngine *rose = ci->rose;
-    DEBUG_PRINTF("internal report %u\n", id);
-    const struct internal_report *ri = getInternalReport(rose, id);
 
-    assert(isExternalReport(ri)); /* only external reports should reach here */
-
-    const s32 offset_adj = ri->offsetAdjust;
     u32 flags = 0;
 #ifndef RELEASE_BUILD
-    if (offset_adj) {
+    if (offset_adjust) {
         // alert testing tools that we've got adjusted matches
         flags |= HS_MATCH_FLAG_ADJUSTED;
     }
 #endif
 
-    DEBUG_PRINTF("internal match at %llu: IID=%u type=%hhu RID=%u "
-                 "offsetAdj=%d\n", offset, id, ri->type, ri->onmatch,
-                 offset_adj);
+#ifndef NDEBUG
+    // Assertions for development builds.
+    UNUSED const struct internal_report *ir = getInternalReport(ci->rose, id);
+    assert(isExternalReport(ir)); /* only external reports should reach here */
 
     assert(!can_stop_matching(scratch));
-    assert(!ri->hasBounds ||
-           (offset >= ri->minOffset && offset <= ri->maxOffset));
-    assert(ri->type == EXTERNAL_CALLBACK);
-    assert(!ri->minLength);
-    assert(!ri->quashSom);
-    assert(ri->ekey == INVALID_EKEY ||
-           !isExhausted(ci->exhaustionVector, ri->ekey));
+    assert(!ir->hasBounds ||
+           (offset >= ir->minOffset && offset <= ir->maxOffset));
+    assert(ir->type == EXTERNAL_CALLBACK);
+    assert(!ir->minLength);
+    assert(!ir->quashSom);
+#endif
+
+    assert(ekey == INVALID_EKEY || !isExhausted(ci->exhaustionVector, ekey));
 
     u64a from_offset = 0;
-    u64a to_offset = offset + offset_adj;
+    u64a to_offset = offset + offset_adjust;
 
     DEBUG_PRINTF(">> reporting match @[%llu,%llu] for sig %u ctxt %p <<\n",
-                 from_offset, to_offset, ri->onmatch, ci->userContext);
+                 from_offset, to_offset, onmatch, ci->userContext);
 
-    int halt = ci->userCallback((unsigned int)ri->onmatch, from_offset,
-                                to_offset, flags, ci->userContext);
+    int halt = ci->userCallback(onmatch, from_offset, to_offset, flags,
+                                ci->userContext);
     if (halt) {
         DEBUG_PRINTF("callback requested to terminate matches\n");
         ci->status |= STATUS_TERMINATED;
         return MO_HALT_MATCHING;
     }
 
-    if (is_exhaustible) {
-        assert(ri->ekey != INVALID_EKEY);
-        markAsMatched(ci->exhaustionVector, ri->ekey);
+    if (ekey != INVALID_EKEY) {
+        markAsMatched(ci->exhaustionVector, ekey);
         return MO_CONTINUE_MATCHING;
     } else {
         return ROSE_CONTINUE_MATCHING_NO_EXHAUST;
@@ -379,62 +373,62 @@ int roseSomAdaptor_i(u64a from_offset, u64a to_offset, ReportID id,
 
     struct core_info *ci = &scratch->core_info;
     const struct RoseEngine *rose = ci->rose;
-    const struct internal_report *ri = getInternalReport(rose, id);
+    const struct internal_report *ir = getInternalReport(rose, id);
 
     /* internal events should be handled by rose directly */
-    assert(ri->type == EXTERNAL_CALLBACK);
+    assert(ir->type == EXTERNAL_CALLBACK);
 
     DEBUG_PRINTF("internal match at %llu: IID=%u type=%hhu RID=%u "
-                 "offsetAdj=%d\n", to_offset, id, ri->type, ri->onmatch,
-                 ri->offsetAdjust);
+                 "offsetAdj=%d\n", to_offset, id, ir->type, ir->onmatch,
+                 ir->offsetAdjust);
 
     if (unlikely(can_stop_matching(scratch))) {
         DEBUG_PRINTF("pre broken - halting\n");
         return MO_HALT_MATCHING;
     }
 
-    if (!is_simple && ri->hasBounds) {
-        assert(ri->minOffset || ri->minLength || ri->maxOffset < MAX_OFFSET);
-        if (to_offset < ri->minOffset || to_offset > ri->maxOffset) {
+    if (!is_simple && ir->hasBounds) {
+        assert(ir->minOffset || ir->minLength || ir->maxOffset < MAX_OFFSET);
+        if (to_offset < ir->minOffset || to_offset > ir->maxOffset) {
             DEBUG_PRINTF("match fell outside valid range %llu !: [%llu,%llu]\n",
-                         to_offset, ri->minOffset, ri->maxOffset);
+                         to_offset, ir->minOffset, ir->maxOffset);
             return MO_CONTINUE_MATCHING;
         }
     }
 
     int halt = 0;
 
-    if (!is_simple && unlikely(isExhausted(ci->exhaustionVector, ri->ekey))) {
+    if (!is_simple && unlikely(isExhausted(ci->exhaustionVector, ir->ekey))) {
         DEBUG_PRINTF("ate exhausted match\n");
         goto exit;
     }
 
     u64a offset = to_offset;
 
-    to_offset += ri->offsetAdjust;
+    to_offset += ir->offsetAdjust;
     assert(from_offset == HS_OFFSET_PAST_HORIZON || from_offset <= to_offset);
 
-    if (!is_simple && ri->minLength) {
-        if (!satisfiesMinLength(ri->minLength, from_offset, to_offset)) {
+    if (!is_simple && ir->minLength) {
+        if (!satisfiesMinLength(ir->minLength, from_offset, to_offset)) {
             return MO_CONTINUE_MATCHING;
         }
-        if (ri->quashSom) {
+        if (ir->quashSom) {
             from_offset = 0;
         }
     }
 
     DEBUG_PRINTF(">> reporting match @[%llu,%llu] for sig %u ctxt %p <<\n",
-                 from_offset, to_offset, ri->onmatch, ci->userContext);
+                 from_offset, to_offset, ir->onmatch, ci->userContext);
 
 #ifndef RELEASE_BUILD
-    if (ri->offsetAdjust != 0) {
+    if (ir->offsetAdjust != 0) {
         // alert testing tools that we've got adjusted matches
         flags |= HS_MATCH_FLAG_ADJUSTED;
     }
 #endif
 
     enum DedupeResult dedupe_rv =
-        dedupeCatchupSom(rose, ri, scratch, offset, from_offset, to_offset);
+        dedupeCatchupSom(rose, ir, scratch, offset, from_offset, to_offset);
     switch (dedupe_rv) {
     case DEDUPE_HALT:
         halt = 1;
@@ -446,11 +440,11 @@ int roseSomAdaptor_i(u64a from_offset, u64a to_offset, ReportID id,
         break;
     }
 
-    halt = ci->userCallback((unsigned int)ri->onmatch, from_offset, to_offset,
+    halt = ci->userCallback((unsigned int)ir->onmatch, from_offset, to_offset,
                             flags, ci->userContext);
 
     if (!is_simple) {
-        markAsMatched(ci->exhaustionVector, ri->ekey);
+        markAsMatched(ci->exhaustionVector, ir->ekey);
     }
 
 exit:
@@ -470,48 +464,41 @@ exit:
  * that dedupe catchup has been done.
  */
 static really_inline
-int roseDeliverSomReport(u64a from_offset, u64a to_offset, ReportID id,
+int roseDeliverSomReport(u64a from_offset, u64a to_offset,
+                         const struct internal_report *ir,
                          struct hs_scratch *scratch, char is_exhaustible) {
-    assert(id != MO_INVALID_IDX); // Should never get an invalid ID.
     assert(scratch);
     assert(scratch->magic == SCRATCH_MAGIC);
-
-    u32 flags = 0;
+    assert(isExternalReport(ir)); /* only external reports should reach here */
 
     struct core_info *ci = &scratch->core_info;
-    const struct RoseEngine *rose = ci->rose;
-    const struct internal_report *ri = getInternalReport(rose, id);
 
-    assert(isExternalReport(ri)); /* only external reports should reach here */
-
-    DEBUG_PRINTF("internal match at %llu: IID=%u type=%hhu RID=%u "
-                 "offsetAdj=%d\n", to_offset, id, ri->type, ri->onmatch,
-                 ri->offsetAdjust);
-
-    assert(!can_stop_matching(scratch));
-    assert(!ri->hasBounds ||
-           (to_offset >= ri->minOffset && to_offset <= ri->maxOffset));
-    assert(ri->ekey == INVALID_EKEY ||
-           !isExhausted(ci->exhaustionVector, ri->ekey));
-
-    to_offset += ri->offsetAdjust;
-    assert(from_offset == HS_OFFSET_PAST_HORIZON || from_offset <= to_offset);
-
-    assert(!ri->minLength ||
-           satisfiesMinLength(ri->minLength, from_offset, to_offset));
-    assert(!ri->quashSom || from_offset == 0);
-
-    DEBUG_PRINTF(">> reporting match @[%llu,%llu] for sig %u ctxt %p <<\n",
-                 from_offset, to_offset, ri->onmatch, ci->userContext);
-
+    u32 flags = 0;
 #ifndef RELEASE_BUILD
-    if (ri->offsetAdjust != 0) {
+    if (ir->offsetAdjust != 0) {
         // alert testing tools that we've got adjusted matches
         flags |= HS_MATCH_FLAG_ADJUSTED;
     }
 #endif
 
-    int halt = ci->userCallback((unsigned int)ri->onmatch, from_offset,
+    assert(!can_stop_matching(scratch));
+    assert(!ir->hasBounds ||
+           (to_offset >= ir->minOffset && to_offset <= ir->maxOffset));
+    assert(ir->ekey == INVALID_EKEY ||
+           !isExhausted(ci->exhaustionVector, ir->ekey));
+
+    to_offset += ir->offsetAdjust;
+    assert(from_offset == HS_OFFSET_PAST_HORIZON || from_offset <= to_offset);
+
+    assert(!ir->minLength ||
+           satisfiesMinLength(ir->minLength, from_offset, to_offset));
+    assert(!ir->quashSom || from_offset == 0);
+
+    DEBUG_PRINTF(">> reporting match @[%llu,%llu] for sig %u ctxt %p <<\n",
+                 from_offset, to_offset, ir->onmatch, ci->userContext);
+
+
+    int halt = ci->userCallback((unsigned int)ir->onmatch, from_offset,
                                 to_offset, flags, ci->userContext);
 
     if (halt) {
@@ -521,8 +508,8 @@ int roseDeliverSomReport(u64a from_offset, u64a to_offset, ReportID id,
     }
 
     if (is_exhaustible) {
-        assert(ri->ekey != INVALID_EKEY);
-        markAsMatched(ci->exhaustionVector, ri->ekey);
+        assert(ir->ekey != INVALID_EKEY);
+        markAsMatched(ci->exhaustionVector, ir->ekey);
         return MO_CONTINUE_MATCHING;
     } else {
         return ROSE_CONTINUE_MATCHING_NO_EXHAUST;

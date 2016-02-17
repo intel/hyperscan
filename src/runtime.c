@@ -159,48 +159,9 @@ void setStreamStatus(char *state, u8 status) {
     *(u8 *)state = status;
 }
 
-static really_inline
-hwlmcb_rv_t multiDirectAdaptor(u64a real_end, ReportID direct_id, void *context,
-                               struct core_info *ci, char is_simple,
-                               char do_som) {
-    // Multi-direct report, list of reports indexed by the ID.
-    u32 mdr_offset = direct_id & ~LITERAL_MDR_FLAG;
-    const struct RoseEngine *t = ci->rose;
-    const ReportID *id
-        = (const ReportID *)((const char *)t + t->multidirectOffset)
-        + mdr_offset;
-    for (; *id != MO_INVALID_IDX; id++) {
-        int rv = roseAdaptor_i(real_end, *id, context, is_simple, do_som);
-        if (rv == MO_HALT_MATCHING) {
-            return HWLM_TERMINATE_MATCHING;
-        }
-    }
-    return HWLM_CONTINUE_MATCHING;
-}
-
 static
 int roseAdaptor(u64a offset, ReportID id, struct hs_scratch *scratch) {
     return roseAdaptor_i(offset, id, scratch, 0, 0);
-}
-
-static
-hwlmcb_rv_t hwlmAdaptor(UNUSED size_t start, size_t end, u32 direct_id,
-                        void *context) {
-    struct hs_scratch *scratch = (struct hs_scratch *)context;
-    struct core_info *ci = &scratch->core_info;
-    u64a real_end = (u64a)end + ci->buf_offset + 1;
-
-    if (isLiteralMDR(direct_id)) {
-        return multiDirectAdaptor(real_end, direct_id, context, ci, 0, 0);
-    }
-
-    ReportID id = literalToReport(direct_id);
-    int rv = roseAdaptor_i(real_end, id, context, 0, 0);
-    if (rv == MO_CONTINUE_MATCHING || rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
-        return HWLM_CONTINUE_MATCHING;
-    } else {
-        return HWLM_TERMINATE_MATCHING;
-    }
 }
 
 static
@@ -209,74 +170,13 @@ int roseSimpleAdaptor(u64a offset, ReportID id, struct hs_scratch *scratch) {
 }
 
 static
-hwlmcb_rv_t hwlmSimpleAdaptor(UNUSED size_t start, size_t end, u32 direct_id,
-                              void *context) {
-    struct hs_scratch *scratch = (struct hs_scratch *)context;
-    struct core_info *ci = &scratch->core_info;
-    u64a real_end = (u64a)end + ci->buf_offset + 1;
-
-    if (isLiteralMDR(direct_id)) {
-        return multiDirectAdaptor(real_end, direct_id, context, ci, 1, 0);
-    }
-
-    // Single direct report.
-    ReportID id = literalToReport(direct_id);
-    int rv = roseAdaptor_i(real_end, id, context, 1, 0);
-    if (rv == MO_CONTINUE_MATCHING || rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
-        return HWLM_CONTINUE_MATCHING;
-    } else {
-        return HWLM_TERMINATE_MATCHING;
-    }
-}
-
-static
 int roseSomAdaptor(u64a offset, ReportID id, struct hs_scratch *scratch) {
     return roseAdaptor_i(offset, id, scratch, 0, 1);
 }
 
 static
-hwlmcb_rv_t hwlmSomAdaptor(UNUSED size_t start, size_t end, u32 direct_id,
-                           void *context) {
-    struct hs_scratch *scratch = (struct hs_scratch *)context;
-    struct core_info *ci = &scratch->core_info;
-    u64a real_end = (u64a)end + ci->buf_offset + 1;
-
-    if (isLiteralMDR(direct_id)) {
-        return multiDirectAdaptor(real_end, direct_id, context, ci, 0, 1);
-    }
-
-    ReportID id = literalToReport(direct_id);
-    int rv = roseAdaptor_i(real_end, id, context, 0, 1);
-    if (rv == MO_CONTINUE_MATCHING || rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
-        return HWLM_CONTINUE_MATCHING;
-    } else {
-        return HWLM_TERMINATE_MATCHING;
-    }
-}
-
-static
 int roseSimpleSomAdaptor(u64a offset, ReportID id, struct hs_scratch *scratch) {
     return roseAdaptor_i(offset, id, scratch, 1, 1);
-}
-
-static
-hwlmcb_rv_t hwlmSimpleSomAdaptor(UNUSED size_t start, size_t end, u32 direct_id,
-                                 void *context) {
-    struct hs_scratch *scratch = (struct hs_scratch *)context;
-    struct core_info *ci = &scratch->core_info;
-    u64a real_end = (u64a)end + ci->buf_offset + 1;
-
-    if (isLiteralMDR(direct_id)) {
-        return multiDirectAdaptor(real_end, direct_id, context, ci, 1, 1);
-    }
-
-    ReportID id = literalToReport(direct_id);
-    int rv = roseAdaptor_i(real_end, id, context, 1, 1);
-    if (rv == MO_CONTINUE_MATCHING || rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
-        return HWLM_CONTINUE_MATCHING;
-    } else {
-        return HWLM_TERMINATE_MATCHING;
-    }
 }
 
 static really_inline
@@ -288,18 +188,6 @@ RoseCallback selectAdaptor(const struct RoseEngine *rose) {
         return is_simple ? roseSimpleSomAdaptor : roseSomAdaptor;
     } else {
         return is_simple ? roseSimpleAdaptor : roseAdaptor;
-    }
-}
-
-static really_inline
-HWLMCallback selectHwlmAdaptor(const struct RoseEngine *rose) {
-    const char is_simple = rose->simpleCallback;
-    const char do_som = rose->hasSom;
-
-    if (do_som) {
-        return is_simple ? hwlmSimpleSomAdaptor : hwlmSomAdaptor;
-    } else {
-        return is_simple ? hwlmSimpleAdaptor : hwlmAdaptor;
     }
 }
 
@@ -372,14 +260,21 @@ SomNfaCallback selectOutfixSomAdaptor(const struct RoseEngine *rose) {
     return is_simple ? outfixSimpleSomSomAdaptor : outfixSomSomAdaptor;
 }
 
+/**
+ * \brief Fire callbacks for a boundary report list.
+ *
+ * Returns MO_HALT_MATCHING if the user has instructed us to halt, and
+ * MO_CONTINUE_MATCHING otherwise.
+ */
+
 static never_inline
-void processReportList(const struct RoseEngine *rose, u32 base_offset,
-                       u64a stream_offset, hs_scratch_t *scratch) {
+int processReportList(const struct RoseEngine *rose, u32 base_offset,
+                      u64a stream_offset, hs_scratch_t *scratch) {
     DEBUG_PRINTF("running report list at offset %u\n", base_offset);
 
     if (told_to_stop_matching(scratch)) {
         DEBUG_PRINTF("matching has been terminated\n");
-        return;
+        return MO_HALT_MATCHING;
     }
 
     if (rose->hasSom && scratch->deduper.current_report_offset == ~0ULL) {
@@ -393,20 +288,27 @@ void processReportList(const struct RoseEngine *rose, u32 base_offset,
         scratch->deduper.som_log_dirty = 0;
     }
 
-    const ReportID *report =
-        (const ReportID *)((const char *)rose + base_offset);
+    const ReportID *report = getByOffset(rose, base_offset);
 
     /* never required to do som as vacuous reports are always external */
 
     if (rose->simpleCallback) {
         for (; *report != MO_INVALID_IDX; report++) {
-            roseSimpleAdaptor(stream_offset, *report, scratch);
+            int rv = roseSimpleAdaptor(stream_offset, *report, scratch);
+            if (rv == MO_HALT_MATCHING) {
+                return MO_HALT_MATCHING;
+            }
         }
     } else {
         for (; *report != MO_INVALID_IDX; report++) {
-            roseAdaptor(stream_offset, *report, scratch);
+            int rv = roseAdaptor(stream_offset, *report, scratch);
+            if (rv == MO_HALT_MATCHING) {
+                return MO_HALT_MATCHING;
+            }
         }
     }
+
+    return MO_CONTINUE_MATCHING;
 }
 
 /** \brief Initialise SOM state. Used in both block and streaming mode. */
@@ -443,13 +345,13 @@ void pureLiteralBlockExec(const struct RoseEngine *rose,
     size_t length = scratch->core_info.len;
     DEBUG_PRINTF("rose engine %d\n", rose->runtimeImpl);
 
-    hwlmExec(ftable, buffer, length, 0, selectHwlmAdaptor(rose), scratch,
+    hwlmExec(ftable, buffer, length, 0, rosePureLiteralCallback, scratch,
              rose->initialGroups);
 }
 
 static really_inline
-void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
-               struct hs_scratch *scratch) {
+void initOutfixQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
+                     struct hs_scratch *scratch) {
     const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
     q->nfa = getNfaByInfo(t, info);
     q->end = 0;
@@ -492,7 +394,7 @@ void soleOutfixBlockExec(const struct RoseEngine *t,
     }
 
     struct mq *q = scratch->queues;
-    initQueue(q, 0, t, scratch);
+    initOutfixQueue(q, 0, t, scratch);
     q->length = len; /* adjust for rev_accel */
     nfaQueueInitState(nfa, q);
     pushQueueAt(q, 0, MQE_START, 0);
@@ -579,6 +481,11 @@ hs_error_t hs_scan(const hs_database_t *db, const char *data, unsigned length,
 
     clearEvec(scratch->core_info.exhaustionVector, rose);
 
+    // Rose program execution (used for some report paths) depends on these
+    // values being initialised.
+    scratch->tctxt.lastMatchOffset = 0;
+    scratch->tctxt.minMatchOffset = 0;
+
     if (!length) {
         if (rose->boundary.reportZeroEodOffset) {
             processReportList(rose, rose->boundary.reportZeroEodOffset, 0,
@@ -588,7 +495,11 @@ hs_error_t hs_scan(const hs_database_t *db, const char *data, unsigned length,
     }
 
     if (rose->boundary.reportZeroOffset) {
-        processReportList(rose, rose->boundary.reportZeroOffset, 0, scratch);
+        int rv = processReportList(rose, rose->boundary.reportZeroOffset, 0,
+                                   scratch);
+        if (rv == MO_HALT_MATCHING) {
+            goto set_retval;
+        }
     }
 
     if (rose->minWidthExcludingBoundaries > length) {
@@ -648,7 +559,8 @@ done_scan:
     }
 
     if (rose->boundary.reportEodOffset) {
-        processReportList(rose, rose->boundary.reportEodOffset, length, scratch);
+        processReportList(rose, rose->boundary.reportEodOffset, length,
+                          scratch);
     }
 
 set_retval:
@@ -782,7 +694,7 @@ void soleOutfixEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
     const struct NFA *nfa = getNfaByQueue(t, 0);
 
     struct mq *q = scratch->queues;
-    initQueue(q, 0, t, scratch);
+    initOutfixQueue(q, 0, t, scratch);
     if (!scratch->core_info.buf_offset) {
         DEBUG_PRINTF("buf_offset is zero\n");
         return; /* no vacuous engines */
@@ -821,13 +733,21 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
 
     if (!id->offset) {
         if (rose->boundary.reportZeroEodOffset) {
-            processReportList(rose, rose->boundary.reportZeroEodOffset, 0,
-                              scratch);
+            int rv = processReportList(rose, rose->boundary.reportZeroEodOffset,
+                                       0, scratch);
+            if (rv == MO_HALT_MATCHING) {
+                scratch->core_info.status |= STATUS_TERMINATED;
+                return;
+            }
         }
     } else {
         if (rose->boundary.reportEodOffset) {
-            processReportList(rose, rose->boundary.reportEodOffset,
+            int rv = processReportList(rose, rose->boundary.reportEodOffset,
                               id->offset, scratch);
+            if (rv == MO_HALT_MATCHING) {
+                scratch->core_info.status |= STATUS_TERMINATED;
+                return;
+            }
         }
 
         if (rose->requiresEodCheck) {
@@ -962,7 +882,7 @@ void pureLiteralStreamExec(struct hs_stream *stream_state,
     // start the match region at zero.
     const size_t start = 0;
 
-    hwlmExecStreaming(ftable, scratch, len2, start, selectHwlmAdaptor(rose),
+    hwlmExecStreaming(ftable, scratch, len2, start, rosePureLiteralCallback,
                       scratch, rose->initialGroups, hwlm_stream_state);
 
     if (!told_to_stop_matching(scratch) &&
@@ -988,7 +908,7 @@ void soleOutfixStreamExec(struct hs_stream *stream_state,
     const struct NFA *nfa = getNfaByQueue(t, 0);
 
     struct mq *q = scratch->queues;
-    initQueue(q, 0, t, scratch);
+    initOutfixQueue(q, 0, t, scratch);
     if (!scratch->core_info.buf_offset) {
         nfaQueueInitState(nfa, q);
         pushQueueAt(q, 0, MQE_START, 0);
@@ -1044,6 +964,11 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
                      id->offset, status, flags);
     assert(scratch->core_info.hlen <= id->offset
            && scratch->core_info.hlen <= rose->historyRequired);
+
+    // Rose program execution (used for some report paths) depends on these
+    // values being initialised.
+    scratch->tctxt.lastMatchOffset = 0;
+    scratch->tctxt.minMatchOffset = id->offset;
 
     prefetch_data(data, length);
 
