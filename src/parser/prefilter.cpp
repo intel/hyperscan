@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -79,6 +79,9 @@ public:
         DEBUG_PRINTF("numPositions = %zu\n", numPositions);
         return numPositions <= MAX_REFERENT_POSITIONS;
     }
+
+    using DefaultConstComponentVisitor::pre;
+    using DefaultConstComponentVisitor::post;
 
     void pre(const AsciiComponentClass &) override {
         numPositions++;
@@ -164,6 +167,8 @@ public:
     explicit FindSequenceVisitor(unsigned ref_id) : id(ref_id) {}
     explicit FindSequenceVisitor(const std::string &s) : name(s) {}
 
+    using DefaultConstComponentVisitor::pre;
+
     void pre(const ComponentSequence &c) override {
         if (!name.empty()) {
             if (c.getCaptureName() == name) {
@@ -202,6 +207,8 @@ class PrefilterVisitor : public DefaultComponentVisitor {
 public:
     PrefilterVisitor(Component *c, const ParseMode &m) : root(c), mode(m) {}
     ~PrefilterVisitor() override;
+
+    using DefaultComponentVisitor::visit;
 
     /** \brief Calls the visitor (recursively) on a new replacement component
      * we've just created. Takes care of freeing it if the sequence is itself

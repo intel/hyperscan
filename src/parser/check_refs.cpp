@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -72,6 +72,8 @@ public:
         str << "Invalid " << component << " to label '" << label << "'.";
         throw ParseError(str.str());
     }
+
+    using DefaultConstComponentVisitor::pre;
 
     void pre(const ComponentBackReference &c) override {
         if (c.ref_id) {
