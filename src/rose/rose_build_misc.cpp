@@ -641,6 +641,38 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
     }
 }
 
+static
+vector<CharReach> makePath(const rose_literal_id &lit) {
+    vector<CharReach> path(begin(lit.s), end(lit.s));
+    for (u32 i = 0; i < lit.delay; i++) {
+        path.push_back(CharReach::dot());
+    }
+    return path;
+}
+
+/**
+ * \brief True if one of the given literals overlaps with the suffix of
+ * another, meaning that they could arrive at the same offset.
+ */
+static
+bool literalsCouldRace(const rose_literal_id &lit1,
+                       const rose_literal_id &lit2) {
+    DEBUG_PRINTF("compare %s (delay %u) and %s (delay %u)\n",
+                 dumpString(lit1.s).c_str(), lit1.delay,
+                 dumpString(lit2.s).c_str(), lit2.delay);
+
+    // Add dots on the end of each literal for delay.
+    const auto v1 = makePath(lit1);
+    const auto v2 = makePath(lit2);
+
+    // See if the smaller path is a suffix of the larger path.
+    const auto *smaller = v1.size() < v2.size() ? &v1 : &v2;
+    const auto *bigger = v1.size() < v2.size() ? &v2 : &v1;
+    auto r = mismatch(smaller->rbegin(), smaller->rend(), bigger->rbegin(),
+                      overlaps);
+    return r.first == smaller->rend();
+}
+
 bool RoseDedupeAuxImpl::requiresDedupeSupport(
     const ue2::flat_set<ReportID> &reports) const {
     /* TODO: this could be expanded to check for offset or character
@@ -689,11 +721,20 @@ bool RoseDedupeAuxImpl::requiresDedupeSupport(
 
         has_role = true;
 
-        /* TODO: extend handled roles so that we don't have to worry about
-         * multiple literals */
         if (g[v].literals.size() > 1) {
-            return true; /* fear that role may be triggered multiple times
-                          * at same offset. */
+            const auto &lits = g[v].literals;
+            DEBUG_PRINTF("vertex %zu lits: %s\n", g[v].idx,
+                          as_string_list(lits).c_str());
+            for (auto it = begin(lits); it != end(lits); ++it) {
+                const auto &lit1 = tbi.literals.right.at(*it);
+                for (auto jt = next(it); jt != end(lits); ++jt) {
+                    const auto &lit2 = tbi.literals.right.at(*jt);
+                    if (literalsCouldRace(lit1, lit2)) {
+                        DEBUG_PRINTF("literals could race\n");
+                        return true;
+                    }
+                }
+            }
         }
 
         if (g[v].eod_accept) {
