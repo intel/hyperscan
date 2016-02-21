@@ -680,7 +680,6 @@ bool RoseDedupeAuxImpl::requiresDedupeSupport(
 
     const RoseGraph &g = tbi.g;
 
-    bool has_role = false;
     bool has_suffix = false;
     bool has_outfix = false;
 
@@ -713,33 +712,40 @@ bool RoseDedupeAuxImpl::requiresDedupeSupport(
     }
 
     /* roles */
+
+    map<u32, u32> lits; // Literal ID -> count of occurrences.
+
+    const bool has_role = !roles.empty();
     for (auto v : roles) {
-        if (has_role) {
-            return true; /* fear that multiple roles may trigger at same
-                            offset */
+        for (const auto &lit : g[v].literals) {
+            lits[lit]++;
         }
-
-        has_role = true;
-
-        if (g[v].literals.size() > 1) {
-            const auto &lits = g[v].literals;
-            DEBUG_PRINTF("vertex %zu lits: %s\n", g[v].idx,
-                          as_string_list(lits).c_str());
-            for (auto it = begin(lits); it != end(lits); ++it) {
-                const auto &lit1 = tbi.literals.right.at(*it);
-                for (auto jt = next(it); jt != end(lits); ++jt) {
-                    const auto &lit2 = tbi.literals.right.at(*jt);
-                    if (literalsCouldRace(lit1, lit2)) {
-                        DEBUG_PRINTF("literals could race\n");
-                        return true;
-                    }
+        if (g[v].eod_accept) {
+            // Literals plugged into this EOD accept must be taken into account
+            // as well.
+            for (auto u : inv_adjacent_vertices_range(v, g)) {
+                for (const auto &lit : g[u].literals) {
+                    lits[lit]++;
                 }
             }
         }
+    }
 
-        if (g[v].eod_accept) {
-            if (in_degree(v, g) > 1) {
-                /* may actually map to a number of terminal vertices */
+    /* literals */
+
+    for (const auto &m : lits) {
+        if (m.second > 1) {
+            DEBUG_PRINTF("lit %u used by >1 reporting roles\n", m.first);
+            return true;
+        }
+    }
+
+    for (auto it = begin(lits); it != end(lits); ++it) {
+        const auto &lit1 = tbi.literals.right.at(it->first);
+        for (auto jt = next(it); jt != end(lits); ++jt) {
+            const auto &lit2 = tbi.literals.right.at(jt->first);
+            if (literalsCouldRace(lit1, lit2)) {
+                DEBUG_PRINTF("literals could race\n");
                 return true;
             }
         }
