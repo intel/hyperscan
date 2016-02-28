@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -245,14 +245,14 @@ int isMultiTopType(u8 t) {
 /* Use for functions that return an integer. */
 #define NFA_API_NO_IMPL(...)                                                   \
     ({                                                                         \
-        assert("not implemented for this engine!");                            \
+        assert(!"not implemented for this engine!");                            \
         0; /* return value, for places that need it */                         \
     })
 
 /* Use for _zombie_status functions. */
 #define NFA_API_ZOMBIE_NO_IMPL(...)                                            \
     ({                                                                         \
-        assert("not implemented for this engine!");                            \
+        assert(!"not implemented for this engine!");                            \
         NFA_ZOMBIE_NO;                                                         \
     })
 
