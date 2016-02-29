@@ -75,7 +75,7 @@ if(NOT Boost_FOUND)
     set(BOOST_INCLUDEDIR "${PROJECT_SOURCE_DIR}/include")
     find_package(Boost ${BOOST_MINVERSION})
     if(NOT Boost_FOUND)
-        message(FATAL_ERROR "Boost ${BOOST_MINVERSION} or later not found. Either install system pacakges if available, extract Boost headers to ${CMAKE_SOURCE_DIR}/include, or set the CMake BOOST_ROOT variable.")
+        message(FATAL_ERROR "Boost ${BOOST_MINVERSION} or later not found. Either install system packages if available, extract Boost headers to ${CMAKE_SOURCE_DIR}/include, or set the CMake BOOST_ROOT variable.")
     endif()
 endif()
 
