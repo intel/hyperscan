@@ -340,8 +340,7 @@ endif()
 configure_file(${CMAKE_MODULE_PATH}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
 configure_file(src/hs_version.h.in ${PROJECT_BINARY_DIR}/hs_version.h)
 
-if (PKG_CONFIG_FOUND)
-    # we really only need to do this if we have pkg-config
+if (NOT WIN32)
     configure_file(libhs.pc.in libhs.pc @ONLY) # only replace @ quoted vars
     install(FILES ${CMAKE_BINARY_DIR}/libhs.pc
             DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig")
