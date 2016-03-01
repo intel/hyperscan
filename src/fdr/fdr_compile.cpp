@@ -144,7 +144,7 @@ void FDRCompiler::createInitialState(FDR *fdr) {
 aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
     size_t tabSize = eng.getTabSizeBytes();
 
-    pair<u8 *, size_t> floodControlTmp = setupFDRFloodControl(lits, eng);
+    auto floodControlTmp = setupFDRFloodControl(lits, eng);
 
     pair<u8 *, size_t> confirmTmp =
         setupFullMultiConfs(lits, eng, bucketToLits, make_small);
@@ -180,9 +180,8 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
     aligned_free(confirmTmp.first);
 
     fdr->floodOffset = verify_u32(ptr - fdr_base);
-    memcpy(ptr, floodControlTmp.first, floodControlTmp.second);
+    memcpy(ptr, floodControlTmp.first.get(), floodControlTmp.second);
     ptr += floodControlTmp.second;
-    aligned_free(floodControlTmp.first);
 
     /*  we are allowing domains 9 to 15 only */
     assert(eng.bits > 8 && eng.bits < 16);

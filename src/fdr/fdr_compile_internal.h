@@ -31,6 +31,7 @@
 
 #include "ue2common.h"
 #include "hwlm/hwlm_literal.h"
+#include "util/alloc.h"
 
 #include <map>
 #include <utility>
@@ -65,7 +66,7 @@ std::pair<u8 *, size_t> setupFullMultiConfs(
 // we always read a full-scale flood "behind" us in terms of what's in our
 // state; if we don't have a flood that's long enough we won't be in the
 // right state yet to allow blindly advancing
-std::pair<u8 *, size_t>
+std::pair<aligned_unique_ptr<u8>, size_t>
 setupFDRFloodControl(const std::vector<hwlmLiteral> &lits,
                      const EngineDescription &eng);
 
