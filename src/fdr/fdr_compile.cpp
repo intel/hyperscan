@@ -145,9 +145,7 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
     size_t tabSize = eng.getTabSizeBytes();
 
     auto floodControlTmp = setupFDRFloodControl(lits, eng);
-
-    pair<u8 *, size_t> confirmTmp =
-        setupFullMultiConfs(lits, eng, bucketToLits, make_small);
+    auto confirmTmp = setupFullMultiConfs(lits, eng, bucketToLits, make_small);
 
     assert(ISALIGNED_16(tabSize));
     assert(ISALIGNED_16(confirmTmp.second));
@@ -175,9 +173,8 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
     copy(tab.begin(), tab.end(), ptr);
     ptr += tabSize;
 
-    memcpy(ptr, confirmTmp.first, confirmTmp.second);
+    memcpy(ptr, confirmTmp.first.get(), confirmTmp.second);
     ptr += confirmTmp.second;
-    aligned_free(confirmTmp.first);
 
     fdr->floodOffset = verify_u32(ptr - fdr_base);
     memcpy(ptr, floodControlTmp.first.get(), floodControlTmp.second);

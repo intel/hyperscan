@@ -57,9 +57,9 @@ class EngineDescription;
 class FDREngineDescription;
 struct hwlmStreamingControl;
 
-std::pair<u8 *, size_t> setupFullMultiConfs(
+std::pair<aligned_unique_ptr<u8>, size_t> setupFullMultiConfs(
     const std::vector<hwlmLiteral> &lits, const EngineDescription &eng,
-    std::map<BucketIndex, std::vector<LiteralIndex> > &bucketToLits,
+    std::map<BucketIndex, std::vector<LiteralIndex>> &bucketToLits,
     bool make_small);
 
 // all suffixes include an implicit max_bucket_width suffix to ensure that

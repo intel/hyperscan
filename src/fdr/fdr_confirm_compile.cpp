@@ -435,10 +435,11 @@ u32 setupMultiConfirms(const vector<hwlmLiteral> &lits,
     return totalConfirmSize;
 }
 
-pair<u8 *, size_t> setupFullMultiConfs(const vector<hwlmLiteral> &lits,
-        const EngineDescription &eng,
-        map<BucketIndex, vector<LiteralIndex> > &bucketToLits,
-        bool make_small) {
+pair<aligned_unique_ptr<u8>, size_t>
+setupFullMultiConfs(const vector<hwlmLiteral> &lits,
+                    const EngineDescription &eng,
+                    map<BucketIndex, vector<LiteralIndex>> &bucketToLits,
+                    bool make_small) {
     BC2CONF bc2Conf;
     u32 totalConfirmSize = setupMultiConfirms(lits, eng, bc2Conf, bucketToLits,
                                               make_small);
@@ -448,24 +449,24 @@ pair<u8 *, size_t> setupFullMultiConfs(const vector<hwlmLiteral> &lits,
     u32 totalConfSwitchSize = primarySwitch * nBuckets * sizeof(u32);
     u32 totalSize = ROUNDUP_16(totalConfSwitchSize + totalConfirmSize);
 
-    u8 *buf = (u8 *)aligned_zmalloc(totalSize);
+    auto buf = aligned_zmalloc_unique<u8>(totalSize);
     assert(buf); // otherwise would have thrown std::bad_alloc
 
-    u32 *confBase = (u32 *)buf;
-    u8 *ptr = buf + totalConfSwitchSize;
+    u32 *confBase = (u32 *)buf.get();
+    u8 *ptr = buf.get() + totalConfSwitchSize;
 
     for (const auto &m : bc2Conf) {
         const BucketIndex &b = m.first.first;
         const u8 &c = m.first.second;
         const pair<aligned_unique_ptr<FDRConfirm>, size_t> &p = m.second;
         // confirm offset is relative to the base of this structure, now
-        u32 confirm_offset = verify_u32(ptr - (u8 *)buf);
+        u32 confirm_offset = verify_u32(ptr - buf.get());
         memcpy(ptr, p.first.get(), p.second);
         ptr += p.second;
         u32 idx = c * nBuckets + b;
         confBase[idx] = confirm_offset;
     }
-    return make_pair(buf, totalSize);
+    return make_pair(move(buf), totalSize);
 }
 
 } // namespace ue2

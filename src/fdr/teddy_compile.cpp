@@ -315,8 +315,7 @@ aligned_unique_ptr<FDR> TeddyCompiler::build(pair<u8 *, size_t> link) {
     size_t maskLen = eng.numMasks * 16 * 2 * maskWidth;
 
     auto floodControlTmp = setupFDRFloodControl(lits, eng);
-    pair<u8 *, size_t> confirmTmp
-        = setupFullMultiConfs(lits, eng, bucketToLits, make_small);
+    auto confirmTmp = setupFullMultiConfs(lits, eng, bucketToLits, make_small);
 
     size_t size = ROUNDUP_N(sizeof(Teddy) +
                              maskLen +
@@ -334,9 +333,8 @@ aligned_unique_ptr<FDR> TeddyCompiler::build(pair<u8 *, size_t> link) {
     teddy->maxStringLen = verify_u32(maxLen(lits));
 
     u8 *ptr = teddy_base + sizeof(Teddy) + maskLen;
-    memcpy(ptr, confirmTmp.first, confirmTmp.second);
+    memcpy(ptr, confirmTmp.first.get(), confirmTmp.second);
     ptr += confirmTmp.second;
-    aligned_free(confirmTmp.first);
 
     teddy->floodOffset = verify_u32(ptr - teddy_base);
     memcpy(ptr, floodControlTmp.first.get(), floodControlTmp.second);
