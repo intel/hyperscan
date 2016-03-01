@@ -205,7 +205,7 @@ bool graph_empty(const Graph &g) {
 static
 vector<u32> removeClique(CliqueGraph &cg) {
     vector<vector<u32>> cliquesVec(1);
-    DEBUG_PRINTF("graph size:%lu\n", num_vertices(cg));
+    DEBUG_PRINTF("graph size:%zu\n", num_vertices(cg));
     findCliqueGroup(cg, cliquesVec[0]);
     while (!graph_empty(cg)) {
         const vector<u32> &c = cliquesVec.back();
@@ -237,7 +237,7 @@ vector<u32> removeClique(CliqueGraph &cg) {
         }
     }
 
-    DEBUG_PRINTF("clique size:%lu\n", cliquesVec[id].size());
+    DEBUG_PRINTF("clique size:%zu\n", cliquesVec[id].size());
     return cliquesVec[id];
 }
 
@@ -315,7 +315,7 @@ vector<vector<u32>> checkExclusion(u32 &streamStateSize,
 
         lower += CLIQUE_GRAPH_MAX_SIZE;
     }
-    DEBUG_PRINTF("clique size %lu, num of repeats %lu\n",
+    DEBUG_PRINTF("clique size %zu, num of repeats %zu\n",
                  total, numRepeats);
     if (total == numRepeats) {
         exclusive = PURE_EXCLUSIVE;
