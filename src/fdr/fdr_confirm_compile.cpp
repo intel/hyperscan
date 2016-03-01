@@ -45,10 +45,10 @@ using namespace std;
 
 namespace ue2 {
 
-typedef u8 ConfSplitType;
-typedef pair<BucketIndex, ConfSplitType> BucketSplitPair;
-typedef map<BucketSplitPair, pair<aligned_unique_ptr<FDRConfirm>, size_t>>
-    BC2CONF;
+using ConfSplitType = u8;
+using BucketSplitPair = pair<BucketIndex, ConfSplitType>;
+using BC2CONF = map<BucketSplitPair,
+                    pair<aligned_unique_ptr<FDRConfirm>, size_t>>;
 
 // return the number of bytes beyond a length threshold in all strings in lits
 static
