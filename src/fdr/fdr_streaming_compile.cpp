@@ -94,14 +94,13 @@ static
 bool setupLongLits(const vector<hwlmLiteral> &lits,
                    vector<hwlmLiteral> &long_lits, size_t max_len) {
     long_lits.reserve(lits.size());
-    for (vector<hwlmLiteral>::const_iterator it = lits.begin();
-         it != lits.end(); ++it) {
-        if (it->s.length() > max_len) {
-            hwlmLiteral tmp = *it; // copy
-            tmp.s.erase(tmp.s.size() - 1, 1); // erase last char
+    for (const auto &lit : lits) {
+        if (lit.s.length() > max_len) {
+            hwlmLiteral tmp = lit; // copy
+            tmp.s.pop_back();
             tmp.id = 0; // recalc later
             tmp.groups = 0; // filled in later by hash bucket(s)
-            long_lits.push_back(tmp);
+            long_lits.push_back(move(tmp));
         }
     }
 
@@ -112,15 +111,12 @@ bool setupLongLits(const vector<hwlmLiteral> &lits,
     // sort long_literals by caseful/caseless and in lexicographical order,
     // remove duplicates
     stable_sort(long_lits.begin(), long_lits.end(), LongLitOrder());
-    vector<hwlmLiteral>::iterator new_end =
-        unique(long_lits.begin(), long_lits.end(), hwlmLitEqual);
+    auto new_end = unique(long_lits.begin(), long_lits.end(), hwlmLitEqual);
     long_lits.erase(new_end, long_lits.end());
 
     // fill in ids; not currently used
-    for (vector<hwlmLiteral>::iterator i = long_lits.begin(),
-                                       e = long_lits.end();
-         i != e; ++i) {
-        i->id = i - long_lits.begin();
+    for (auto i = long_lits.begin(), e = long_lits.end(); i != e; ++i) {
+        i->id = distance(long_lits.begin(), i);
     }
     return true;
 }
@@ -143,23 +139,19 @@ void analyzeLits(const vector<hwlmLiteral> &long_lits, size_t max_len,
         hashedPositions[m] = 0;
     }
 
-    for (vector<hwlmLiteral>::const_iterator i = long_lits.begin(),
-                                             e = long_lits.end();
-         i != e; ++i) {
+    for (auto i = long_lits.begin(), e = long_lits.end(); i != e; ++i) {
         if (i->nocase) {
-            boundaries[CASEFUL] = verify_u32(i - long_lits.begin());
+            boundaries[CASEFUL] = verify_u32(distance(long_lits.begin(), i));
             break;
         }
     }
 
-    for (vector<hwlmLiteral>::const_iterator i = long_lits.begin(),
-                                             e = long_lits.end();
-         i != e; ++i) {
-        MODES m = i->nocase ? CASELESS : CASEFUL;
-        for (u32 j = 1; j < i->s.size() - max_len + 1; j++) {
+    for (const auto &lit : long_lits) {
+        MODES m = lit.nocase ? CASELESS : CASEFUL;
+        for (u32 j = 1; j < lit.s.size() - max_len + 1; j++) {
             hashedPositions[m]++;
         }
-        positions[m] += i->s.size();
+        positions[m] += lit.s.size();
     }
 
     for (u32 m = CASEFUL; m < MAX_MODES; m++) {
@@ -209,18 +201,15 @@ void fillHashes(const vector<hwlmLiteral> &long_lits, size_t max_len,
     map<u32, deque<pair<u32, u32> > > bucketToLitOffPairs;
     map<u32, u64a> bucketToBitfield;
 
-    for (vector<hwlmLiteral>::const_iterator i = long_lits.begin(),
-                                             e = long_lits.end();
-         i != e; ++i) {
-        const hwlmLiteral &l = *i;
-        if ((m == CASELESS) != i->nocase) {
+    for (const auto &lit : long_lits) {
+        if ((m == CASELESS) != lit.nocase) {
             continue;
         }
-        for (u32 j = 1; j < i->s.size() - max_len + 1; j++) {
-            u32 h = hashLit(l, j, max_len, m);
+        for (u32 j = 1; j < lit.s.size() - max_len + 1; j++) {
+            u32 h = hashLit(lit, j, max_len, m);
             u32 h_ent = h & ((1U << nbits) - 1);
             u32 h_low = (h >> nbits) & 63;
-            bucketToLitOffPairs[h_ent].push_back(make_pair(i->id, j));
+            bucketToLitOffPairs[h_ent].emplace_back(lit.id, j);
             bucketToBitfield[h_ent] |= (1ULL << h_low);
         }
     }
@@ -231,11 +220,9 @@ void fillHashes(const vector<hwlmLiteral> &long_lits, size_t max_len,
 
     // sweep out bitfield entries and save the results swapped accordingly
     // also, anything with bitfield entries is put in filledBuckets
-    for (map<u32, u64a>::const_iterator i = bucketToBitfield.begin(),
-                                        e = bucketToBitfield.end();
-         i != e; ++i) {
-        u32 bucket = i->first;
-        u64a contents = i->second;
+    for (const auto &m : bucketToBitfield) {
+        const u32 &bucket = m.first;
+        const u64a &contents = m.second;
         tab[bucket].bitfield = contents;
         filledBuckets.set(bucket);
     }
@@ -243,12 +230,9 @@ void fillHashes(const vector<hwlmLiteral> &long_lits, size_t max_len,
     // store out all our chains based on free values in our hash table.
     // find nearest free locations that are empty (there will always be more
     // entries than strings, at present)
-    for (map<u32, deque<pair<u32, u32> > >::iterator
-             i = bucketToLitOffPairs.begin(),
-             e = bucketToLitOffPairs.end();
-         i != e; ++i) {
-        u32 bucket = i->first;
-        deque<pair<u32, u32> > &d = i->second;
+    for (auto &m : bucketToLitOffPairs) {
+        u32 bucket = m.first;
+        deque<pair<u32, u32>> &d = m.second;
 
         // sort d by distance of the residual string (len minus our depth into
         // the string). We need to put the 'furthest back' string first...
@@ -299,9 +283,8 @@ void fillHashes(const vector<hwlmLiteral> &long_lits, size_t max_len,
 static
 size_t maxMaskLen(const vector<hwlmLiteral> &lits) {
     size_t rv = 0;
-    vector<hwlmLiteral>::const_iterator it, ite;
-    for (it = lits.begin(), ite = lits.end(); it != ite; ++it) {
-        rv = max(rv, it->msk.size());
+    for (const auto &lit : lits) {
+        rv = max(rv, lit.msk.size());
     }
     return rv;
 }
@@ -407,9 +390,7 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
     ptr += litTabSize;
 
     map<u32, u32> litToOffsetVal;
-    for (vector<hwlmLiteral>::const_iterator i = long_lits.begin(),
-                                             e = long_lits.end();
-         i != e; ++i) {
+    for (auto i = long_lits.begin(), e = long_lits.end(); i != e; ++i) {
         u32 entry = verify_u32(i - long_lits.begin());
         u32 offset = verify_u32(ptr - secondaryTable.get());
 
