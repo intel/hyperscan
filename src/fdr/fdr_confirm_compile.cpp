@@ -308,14 +308,12 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
 
     // Walk the map by hash value assigning indexes and laying out the
     // elements (and their associated string confirm material) in memory.
-    for (std::map<u32, vector<LiteralIndex> >::const_iterator
-             i = res2lits.begin(), e = res2lits.end(); i != e; ++i) {
-        const u32 hash = i->first;
-        const vector<LiteralIndex> &vlidx = i->second;
+    for (const auto &m : res2lits) {
+        const u32 hash = m.first;
+        const vector<LiteralIndex> &vlidx = m.second;
         bitsToLitIndex[hash] = verify_u32(ptr - fdrc_base);
-        for (vector<LiteralIndex>::const_iterator i2 = vlidx.begin(),
-             e2 = vlidx.end(); i2 != e2; ++i2) {
-            LiteralIndex litIdx = *i2;
+        for (auto i = vlidx.begin(), e = vlidx.end(); i != e; ++i) {
+            LiteralIndex litIdx = *i;
 
             // Write LitInfo header.
             u8 *oldPtr = ptr;
@@ -334,7 +332,7 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
             }
 
             ptr = ROUNDUP_PTR(ptr, alignof(LitInfo));
-            if (i2 + 1 == e2) {
+            if (next(i) == e) {
                 finalLI.next = 0x0;
             } else {
                 // our next field represents an adjustment on top of
@@ -377,12 +375,9 @@ u32 setupMultiConfirms(const vector<hwlmLiteral> &lits,
     u32 totalConfirmSize = 0;
     for (BucketIndex b = 0; b < eng.getNumBuckets(); b++) {
         if (!bucketToLits[b].empty()) {
-            vector<vector<hwlmLiteral> > vl(eng.getConfirmTopLevelSplit());
-            for (vector<LiteralIndex>::const_iterator
-                     i = bucketToLits[b].begin(),
-                     e = bucketToLits[b].end();
-                 i != e; ++i) {
-                hwlmLiteral lit = lits[*i]; // copy
+            vector<vector<hwlmLiteral>> vl(eng.getConfirmTopLevelSplit());
+            for (const LiteralIndex &lit_idx : bucketToLits[b]) {
+                hwlmLiteral lit = lits[lit_idx]; // copy
                 // c is last char of this literal
                 u8 c = *(lit.s.rbegin());
 
