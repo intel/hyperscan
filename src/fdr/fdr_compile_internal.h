@@ -56,9 +56,6 @@ class EngineDescription;
 class FDREngineDescription;
 struct hwlmStreamingControl;
 
-size_t getFDRConfirm(const std::vector<hwlmLiteral> &lits, FDRConfirm **fdrc_p,
-                     bool make_small);
-
 std::pair<u8 *, size_t> setupFullMultiConfs(
     const std::vector<hwlmLiteral> &lits, const EngineDescription &eng,
     std::map<BucketIndex, std::vector<LiteralIndex> > &bucketToLits,
