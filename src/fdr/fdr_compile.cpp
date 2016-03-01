@@ -124,10 +124,8 @@ void FDRCompiler::createInitialState(FDR *fdr) {
         // Find the minimum length for the literals in this bucket.
         const vector<LiteralIndex> &bucket_lits = bucketToLits[b];
         u32 min_len = ~0U;
-        for (vector<LiteralIndex>::const_iterator it = bucket_lits.begin(),
-                                                  ite = bucket_lits.end();
-             it != ite; ++it) {
-            min_len = min(min_len, verify_u32(lits[*it].s.length()));
+        for (const LiteralIndex &lit_idx : bucket_lits) {
+            min_len = min(min_len, verify_u32(lits[lit_idx].s.length()));
         }
 
         DEBUG_PRINTF("bucket %u has min_len=%u\n", b, min_len);
@@ -213,13 +211,11 @@ struct LitOrder {
         if (len1 != len2) {
             return len1 < len2;
         } else {
-            string::const_reverse_iterator it1, it2;
-            tie(it1, it2) =
-                std::mismatch(i1s.rbegin(), i1s.rend(), i2s.rbegin());
-            if (it1 == i1s.rend()) {
+            auto p = std::mismatch(i1s.rbegin(), i1s.rend(), i2s.rbegin());
+            if (p.first == i1s.rend()) {
                 return false;
             }
-            return *it1 < *it2;
+            return *p.first < *p.second;
         }
     }
 
@@ -262,9 +258,8 @@ void FDRCompiler::assignStringsToBuckets() {
     stable_sort(vli.begin(), vli.end(), LitOrder(lits));
 
 #ifdef DEBUG_ASSIGNMENT
-    for (map<u32, u32>::iterator i = lenCounts.begin(), e = lenCounts.end();
-         i != e; ++i) {
-        printf("l<%d>:%d ", i->first, i->second);
+    for (const auto &m : lenCounts) {
+        printf("l<%u>:%u ", m.first, m.second);
     }
     printf("\n");
 #endif
@@ -401,8 +396,7 @@ bool getMultiEntriesAtPosition(const FDREngineDescription &eng,
         distance = 4;
     }
 
-    for (vector<LiteralIndex>::const_iterator i = vl.begin(), e = vl.end();
-         i != e; ++i) {
+    for (auto i = vl.begin(), e = vl.end(); i != e; ++i) {
         if (e - i > 5) {
             __builtin_prefetch(&lits[*(i + 5)]);
         }
@@ -456,31 +450,25 @@ void FDRCompiler::setupTab() {
         memcpy(tabIndexToMask(i), &defaultMask[0], mask_size);
     }
 
-    typedef std::map<u32, ue2::unordered_set<u32> > M2SET;
-
     for (BucketIndex b = 0; b < eng.getNumBuckets(); b++) {
         const vector<LiteralIndex> &vl = bucketToLits[b];
         SuffixPositionInString pLimit = eng.getBucketWidth(b);
         for (SuffixPositionInString pos = 0; pos < pLimit; pos++) {
             u32 bit = eng.getSchemeBit(b, pos);
-            M2SET m2;
+            map<u32, ue2::unordered_set<u32>> m2;
             bool done = getMultiEntriesAtPosition(eng, vl, lits, pos, m2);
             if (done) {
                 clearbit(&defaultMask[0], bit);
                 continue;
             }
-            for (M2SET::const_iterator i = m2.begin(), e = m2.end(); i != e;
-                 ++i) {
-                u32 dc = i->first;
-                const ue2::unordered_set<u32> &mskSet = i->second;
+            for (const auto &elem : m2) {
+                u32 dc = elem.first;
+                const ue2::unordered_set<u32> &mskSet = elem.second;
                 u32 v = ~dc;
                 do {
                     u32 b2 = v & dc;
-                    for (ue2::unordered_set<u32>::const_iterator
-                             i2 = mskSet.begin(),
-                             e2 = mskSet.end();
-                         i2 != e2; ++i2) {
-                        u32 val = (*i2 & ~dc) | b2;
+                    for (const u32 &mskVal : mskSet) {
+                        u32 val = (mskVal & ~dc) | b2;
                         clearbit(tabIndexToMask(val), bit);
                     }
                     v = (v + (dc & -dc)) | ~dc;
