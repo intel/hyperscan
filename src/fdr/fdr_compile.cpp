@@ -81,7 +81,7 @@ private:
     void dumpMasks(const u8 *defaultMask);
 #endif
     void setupTab();
-    aligned_unique_ptr<FDR> setupFDR(pair<u8 *, size_t> link);
+    aligned_unique_ptr<FDR> setupFDR(pair<aligned_unique_ptr<u8>, size_t> &link);
     void createInitialState(FDR *fdr);
 
 public:
@@ -90,7 +90,7 @@ public:
         : eng(eng_in), tab(eng_in.getTabSizeBytes()), lits(lits_in),
           make_small(make_small_in) {}
 
-    aligned_unique_ptr<FDR> build(pair<u8 *, size_t> link);
+    aligned_unique_ptr<FDR> build(pair<aligned_unique_ptr<u8>, size_t> &link);
 };
 
 u8 *FDRCompiler::tabIndexToMask(u32 indexInTable) {
@@ -141,7 +141,8 @@ void FDRCompiler::createInitialState(FDR *fdr) {
     }
 }
 
-aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
+aligned_unique_ptr<FDR>
+FDRCompiler::setupFDR(pair<aligned_unique_ptr<u8>, size_t> &link) {
     size_t tabSize = eng.getTabSizeBytes();
 
     auto floodControlTmp = setupFDRFloodControl(lits, eng);
@@ -189,8 +190,7 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
 
     if (link.first) {
         fdr->link = verify_u32(ptr - fdr_base);
-        memcpy(ptr, link.first, link.second);
-        aligned_free(link.first);
+        memcpy(ptr, link.first.get(), link.second);
     } else {
         fdr->link = 0;
     }
@@ -498,7 +498,8 @@ void FDRCompiler::setupTab() {
 #endif
 }
 
-aligned_unique_ptr<FDR> FDRCompiler::build(pair<u8 *, size_t> link) {
+aligned_unique_ptr<FDR>
+FDRCompiler::build(pair<aligned_unique_ptr<u8>, size_t> &link) {
     assignStringsToBuckets();
     setupTab();
     return setupFDR(link);
@@ -511,16 +512,15 @@ aligned_unique_ptr<FDR>
 fdrBuildTableInternal(const vector<hwlmLiteral> &lits, bool make_small,
                       const target_t &target, const Grey &grey, u32 hint,
                       hwlmStreamingControl *stream_control) {
-    pair<u8 *, size_t> link(nullptr, 0);
+    pair<aligned_unique_ptr<u8>, size_t> link(nullptr, 0);
     if (stream_control) {
-        link = fdrBuildTableStreaming(lits, stream_control);
+        link = fdrBuildTableStreaming(lits, *stream_control);
     }
 
     DEBUG_PRINTF("cpu has %s\n", target.has_avx2() ? "avx2" : "no-avx2");
 
     if (grey.fdrAllowTeddy) {
-        aligned_unique_ptr<FDR> fdr
-            = teddyBuildTableHinted(lits, make_small, hint, target, link);
+        auto fdr = teddyBuildTableHinted(lits, make_small, hint, target, link);
         if (fdr) {
             DEBUG_PRINTF("build with teddy succeeded\n");
             return fdr;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -49,7 +49,7 @@ struct hwlmLiteral;
 ue2::aligned_unique_ptr<FDR>
 teddyBuildTableHinted(const std::vector<hwlmLiteral> &lits, bool make_small,
                       u32 hint, const target_t &target,
-                      std::pair<u8 *, size_t> link);
+                      std::pair<aligned_unique_ptr<u8>, size_t> &link);
 
 } // namespace ue2
 

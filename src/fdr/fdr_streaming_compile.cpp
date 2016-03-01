@@ -306,24 +306,24 @@ size_t maxMaskLen(const vector<hwlmLiteral> &lits) {
     return rv;
 }
 
-pair<u8 *, size_t>
+pair<aligned_unique_ptr<u8>, size_t>
 fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
-                       hwlmStreamingControl *stream_control) {
+                       hwlmStreamingControl &stream_control) {
     // refuse to compile if we are forced to have smaller than minimum
     // history required for long-literal support, full stop
     // otherwise, choose the maximum of the preferred history quantity
     // (currently a fairly extravagant 32) or the already used history
-    // quantity - subject to the limitation of stream_control->history_max
+    // quantity - subject to the limitation of stream_control.history_max
 
     const size_t MIN_HISTORY_REQUIRED = 32;
 
-    if (MIN_HISTORY_REQUIRED > stream_control->history_max) {
+    if (MIN_HISTORY_REQUIRED > stream_control.history_max) {
         throw std::logic_error("Cannot set history to minimum history required");
     }
 
     size_t max_len =
-        MIN(stream_control->history_max,
-            MAX(MIN_HISTORY_REQUIRED, stream_control->history_min));
+        MIN(stream_control.history_max,
+            MAX(MIN_HISTORY_REQUIRED, stream_control.history_min));
     assert(max_len >= MIN_HISTORY_REQUIRED);
     size_t max_mask_len = maxMaskLen(lits);
 
@@ -334,9 +334,9 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
 
         // we want enough history to manage the longest literal and the longest
         // mask.
-        stream_control->literal_history_required =
+        stream_control.literal_history_required =
                     max(maxLen(lits), max_mask_len) - 1;
-        stream_control->literal_stream_state_required = 0;
+        stream_control.literal_stream_state_required = 0;
         return make_pair(nullptr, size_t{0});
     }
 
@@ -381,11 +381,11 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
     streamBits[CASELESS] = lg2(roundUpToPowerOfTwo(positions[CASELESS] + 2));
     u32 tot_state_bytes = (streamBits[CASEFUL] + streamBits[CASELESS] + 7) / 8;
 
-    u8 * secondaryTable = (u8 *)aligned_zmalloc(tabSize);
+    auto secondaryTable = aligned_zmalloc_unique<u8>(tabSize);
     assert(secondaryTable); // otherwise would have thrown std::bad_alloc
 
     // then fill it in
-    u8 * ptr = secondaryTable;
+    u8 * ptr = secondaryTable.get();
     FDRSTableHeader * header = (FDRSTableHeader *)ptr;
     // fill in header
     header->pseudoEngineID = (u32)0xffffffff;
@@ -411,7 +411,7 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
                                              e = long_lits.end();
          i != e; ++i) {
         u32 entry = verify_u32(i - long_lits.begin());
-        u32 offset = verify_u32(ptr - secondaryTable);
+        u32 offset = verify_u32(ptr - secondaryTable.get());
 
         // point the table entry to the string location
         litTabPtr[entry].offset = offset;
@@ -425,10 +425,10 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
     }
 
     // fill in final lit table entry with current ptr (serves as end value)
-    litTabPtr[long_lits.size()].offset = verify_u32(ptr - secondaryTable);
+    litTabPtr[long_lits.size()].offset = verify_u32(ptr - secondaryTable.get());
 
     // fill hash tables
-    ptr = secondaryTable + htOffset[CASEFUL];
+    ptr = secondaryTable.get() + htOffset[CASEFUL];
     for (u32 m = CASEFUL; m < MAX_MODES; ++m) {
         fillHashes(long_lits, max_len, (FDRSHashEntry *)ptr, hashEntries[m],
                    (MODES)m, litToOffsetVal);
@@ -436,9 +436,9 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
     }
 
     // tell the world what we did
-    stream_control->literal_history_required = max_len;
-    stream_control->literal_stream_state_required = tot_state_bytes;
-    return make_pair(secondaryTable, tabSize);
+    stream_control.literal_history_required = max_len;
+    stream_control.literal_stream_state_required = tot_state_bytes;
+    return make_pair(move(secondaryTable), tabSize);
 }
 
 } // namespace ue2

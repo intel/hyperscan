@@ -74,7 +74,7 @@ public:
                   const TeddyEngineDescription &eng_in, bool make_small_in)
         : eng(eng_in), lits(lits_in), make_small(make_small_in) {}
 
-    aligned_unique_ptr<FDR> build(pair<u8 *, size_t> link);
+    aligned_unique_ptr<FDR> build(pair<aligned_unique_ptr<u8>, size_t> &link);
     bool pack(map<BucketIndex, std::vector<LiteralIndex> > &bucketToLits);
 };
 
@@ -281,7 +281,8 @@ bool TeddyCompiler::pack(map<BucketIndex,
     return true;
 }
 
-aligned_unique_ptr<FDR> TeddyCompiler::build(pair<u8 *, size_t> link) {
+aligned_unique_ptr<FDR>
+TeddyCompiler::build(pair<aligned_unique_ptr<u8>, size_t> &link) {
     if (lits.size() > eng.getNumBuckets() * TEDDY_BUCKET_LOAD) {
         DEBUG_PRINTF("too many literals: %zu\n", lits.size());
         return nullptr;
@@ -342,8 +343,7 @@ aligned_unique_ptr<FDR> TeddyCompiler::build(pair<u8 *, size_t> link) {
 
     if (link.first) {
         teddy->link = verify_u32(ptr - teddy_base);
-        memcpy(ptr, link.first, link.second);
-        aligned_free(link.first);
+        memcpy(ptr, link.first.get(), link.second);
     } else {
         teddy->link = 0;
     }
@@ -436,10 +436,10 @@ aligned_unique_ptr<FDR> TeddyCompiler::build(pair<u8 *, size_t> link) {
 
 } // namespace
 
-aligned_unique_ptr<FDR> teddyBuildTableHinted(const vector<hwlmLiteral> &lits,
-                                              bool make_small, u32 hint,
-                                              const target_t &target,
-                                              pair<u8 *, size_t> link) {
+aligned_unique_ptr<FDR>
+teddyBuildTableHinted(const vector<hwlmLiteral> &lits, bool make_small,
+                      u32 hint, const target_t &target,
+                      pair<aligned_unique_ptr<u8>, size_t> &link) {
     unique_ptr<TeddyEngineDescription> des;
     if (hint == HINT_INVALID) {
         des = chooseTeddyEngine(target, lits);

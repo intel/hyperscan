@@ -70,9 +70,9 @@ std::pair<aligned_unique_ptr<u8>, size_t>
 setupFDRFloodControl(const std::vector<hwlmLiteral> &lits,
                      const EngineDescription &eng);
 
-std::pair<u8 *, size_t>
+std::pair<aligned_unique_ptr<u8>, size_t>
 fdrBuildTableStreaming(const std::vector<hwlmLiteral> &lits,
-                       hwlmStreamingControl *stream_control);
+                       hwlmStreamingControl &stream_control);
 
 static constexpr u32 HINT_INVALID = 0xffffffff;
 
