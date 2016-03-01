@@ -47,7 +47,8 @@ namespace ue2 {
 
 typedef u8 ConfSplitType;
 typedef pair<BucketIndex, ConfSplitType> BucketSplitPair;
-typedef map<BucketSplitPair, pair<FDRConfirm *, size_t> > BC2CONF;
+typedef map<BucketSplitPair, pair<aligned_unique_ptr<FDRConfirm>, size_t>>
+    BC2CONF;
 
 // return the number of bytes beyond a length threshold in all strings in lits
 static
@@ -149,9 +150,9 @@ void fillLitInfo(const vector<hwlmLiteral> &lits, vector<LitInfo> &tmpLitInfo,
 
 //#define FDR_CONFIRM_DUMP 1
 
-static
-size_t getFDRConfirm(const vector<hwlmLiteral> &lits, FDRConfirm **fdrc_p,
-                     bool applyOneCharOpt, bool make_small, bool make_confirm) {
+static pair<aligned_unique_ptr<FDRConfirm>, size_t>
+getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
+              bool make_small, bool make_confirm) {
     vector<LitInfo> tmpLitInfo(lits.size());
     CONF_TYPE andmsk;
     fillLitInfo(lits, tmpLitInfo, andmsk);
@@ -281,7 +282,7 @@ size_t getFDRConfirm(const vector<hwlmLiteral> &lits, FDRConfirm **fdrc_p,
                   sizeof(LitInfo) * lits.size() + totalLitSize;
     size = ROUNDUP_N(size, alignof(FDRConfirm));
 
-    FDRConfirm *fdrc = (FDRConfirm *)aligned_zmalloc(size);
+    auto fdrc = aligned_zmalloc_unique<FDRConfirm>(size);
     assert(fdrc); // otherwise would have thrown std::bad_alloc
 
     fdrc->andmsk = andmsk;
@@ -295,7 +296,7 @@ size_t getFDRConfirm(const vector<hwlmLiteral> &lits, FDRConfirm **fdrc_p,
     fdrc->groups = gm;
 
     // After the FDRConfirm, we have the lit index array.
-    u8 *fdrc_base = (u8 *)fdrc;
+    u8 *fdrc_base = (u8 *)fdrc.get();
     u8 *ptr = fdrc_base + sizeof(*fdrc);
     ptr = ROUNDUP_PTR(ptr, alignof(u32));
     u32 *bitsToLitIndex = (u32 *)ptr;
@@ -311,7 +312,7 @@ size_t getFDRConfirm(const vector<hwlmLiteral> &lits, FDRConfirm **fdrc_p,
              i = res2lits.begin(), e = res2lits.end(); i != e; ++i) {
         const u32 hash = i->first;
         const vector<LiteralIndex> &vlidx = i->second;
-        bitsToLitIndex[hash] = verify_u32(ptr - (u8 *)fdrc);
+        bitsToLitIndex[hash] = verify_u32(ptr - fdrc_base);
         for (vector<LiteralIndex>::const_iterator i2 = vlidx.begin(),
              e2 = vlidx.end(); i2 != e2; ++i2) {
             LiteralIndex litIdx = *i2;
@@ -348,14 +349,13 @@ size_t getFDRConfirm(const vector<hwlmLiteral> &lits, FDRConfirm **fdrc_p,
         assert((size_t)(ptr - fdrc_base) <= size);
     }
 
-    *fdrc_p = fdrc;
-
     // Return actual used size, not worst-case size. Must be rounded up to
     // FDRConfirm alignment so that the caller can lay out a sequence of these.
     size_t actual_size = ROUNDUP_N((size_t)(ptr - fdrc_base),
                                    alignof(FDRConfirm));
     assert(actual_size <= size);
-    return actual_size;
+
+    return {move(fdrc), actual_size};
 }
 
 static
@@ -424,16 +424,16 @@ u32 setupMultiConfirms(const vector<hwlmLiteral> &lits,
             }
 
             for (u32 c = 0; c < eng.getConfirmTopLevelSplit(); c++) {
-                if (!vl[c].empty()) {
-                    DEBUG_PRINTF("b %d c %02x sz %zu\n", b, c, vl[c].size());
-                    FDRConfirm *fdrc;
-                    size_t size = getFDRConfirm(vl[c], &fdrc,
-                                                eng.typicallyHoldsOneCharLits(),
-                                                make_small, makeConfirm);
-                    BucketSplitPair p = make_pair(b, c);
-                    bc2Conf[p] = make_pair(fdrc, size);
-                    totalConfirmSize += size;
+                if (vl[c].empty()) {
+                    continue;
                 }
+                DEBUG_PRINTF("b %d c %02x sz %zu\n", b, c, vl[c].size());
+                auto key = make_pair(b, c);
+                auto fc = getFDRConfirm(vl[c], eng.typicallyHoldsOneCharLits(),
+                                        make_small, makeConfirm);
+                totalConfirmSize += fc.second;
+                assert(bc2Conf.find(key) == end(bc2Conf));
+                bc2Conf.emplace(key, move(fc));
             }
         }
     }
@@ -459,16 +459,14 @@ pair<u8 *, size_t> setupFullMultiConfs(const vector<hwlmLiteral> &lits,
     u32 *confBase = (u32 *)buf;
     u8 *ptr = buf + totalConfSwitchSize;
 
-    for (BC2CONF::const_iterator i = bc2Conf.begin(), e = bc2Conf.end(); i != e;
-         ++i) {
-        const pair<FDRConfirm *, size_t> &p = i->second;
+    for (const auto &m : bc2Conf) {
+        const BucketIndex &b = m.first.first;
+        const u8 &c = m.first.second;
+        const pair<aligned_unique_ptr<FDRConfirm>, size_t> &p = m.second;
         // confirm offset is relative to the base of this structure, now
         u32 confirm_offset = verify_u32(ptr - (u8 *)buf);
-        memcpy(ptr, p.first, p.second);
+        memcpy(ptr, p.first.get(), p.second);
         ptr += p.second;
-        aligned_free(p.first);
-        BucketIndex b = i->first.first;
-        u8 c = i->first.second;
         u32 idx = c * nBuckets + b;
         confBase[idx] = confirm_offset;
     }
