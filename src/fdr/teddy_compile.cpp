@@ -106,8 +106,8 @@ public:
         }
         printf("\nnlits: %zu\nLit ids: ", litCount());
         printf("Prob: %llu\n", probability());
-        for (set<u32>::iterator i = litIds.begin(), e = litIds.end(); i != e; ++i) {
-            printf("%u ", *i);
+        for (const auto &id : litIds) {
+            printf("%u ", id);
         }
         printf("\n");
         printf("Flood prone : %s\n", isRunProne()?"yes":"no");
@@ -193,20 +193,18 @@ bool TeddyCompiler::pack(map<BucketIndex,
     while (1) {
 #ifdef TEDDY_DEBUG
         printf("Size %zu\n", sts.size());
-        for (set<TeddySet>::const_iterator i1 = sts.begin(), e1 = sts.end(); i1 != e1; ++i1) {
-            printf("\n"); i1->dump();
+        for (const TeddySet &ts : sts) {
+            printf("\n"); ts.dump();
         }
         printf("\n===============================================\n");
 #endif
 
-        set<TeddySet>::iterator m1 = sts.end(), m2 = sts.end();
+        auto m1 = sts.end(), m2 = sts.end();
         u64a best = 0xffffffffffffffffULL;
 
-        for (set<TeddySet>::iterator i1 = sts.begin(), e1 = sts.end(); i1 != e1; ++i1) {
-            set<TeddySet>::iterator i2 = i1;
-            ++i2;
+        for (auto i1 = sts.begin(), e1 = sts.end(); i1 != e1; ++i1) {
             const TeddySet &s1 = *i1;
-            for (set<TeddySet>::iterator e2 = sts.end(); i2 != e2; ++i2) {
+            for (auto i2 = next(i1), e2 = sts.end(); i2 != e2; ++i2) {
                 const TeddySet &s2 = *i2;
 
                 // be more conservative if we don't absolutely need to
@@ -263,19 +261,16 @@ bool TeddyCompiler::pack(map<BucketIndex,
         sts.erase(m2);
         sts.insert(nts);
     }
-    u32 cnt = 0;
 
     if (sts.size() > eng.getNumBuckets()) {
         return false;
     }
 
-    for (set<TeddySet>::const_iterator i = sts.begin(), e = sts.end(); i != e;
-         ++i) {
-        for (set<u32>::const_iterator i2 = i->getLits().begin(),
-                                      e2 = i->getLits().end();
-             i2 != e2; ++i2) {
-            bucketToLits[cnt].push_back(*i2);
-        }
+    u32 cnt = 0;
+    for (const TeddySet &ts : sts) {
+        const auto &lits = ts.getLits();
+        bucketToLits[cnt].insert(end(bucketToLits[cnt]), begin(lits),
+                                 end(lits));
         cnt++;
     }
     return true;
@@ -350,19 +345,13 @@ TeddyCompiler::build(pair<aligned_unique_ptr<u8>, size_t> &link) {
 
     u8 *baseMsk = teddy_base + sizeof(Teddy);
 
-    for (map<BucketIndex, std::vector<LiteralIndex> >::const_iterator
-             i = bucketToLits.begin(),
-             e = bucketToLits.end();
-         i != e; ++i) {
-        const u32 bucket_id = i->first;
-        const vector<LiteralIndex> &ids = i->second;
+    for (const auto &b2l : bucketToLits) {
+        const u32 &bucket_id = b2l.first;
+        const vector<LiteralIndex> &ids = b2l.second;
         const u8 bmsk = 1U << (bucket_id % 8);
 
-        for (vector<LiteralIndex>::const_iterator i2 = ids.begin(),
-                                                  e2 = ids.end();
-             i2 != e2; ++i2) {
-            LiteralIndex lit_id = *i2;
-            const hwlmLiteral & l = lits[lit_id];
+        for (const LiteralIndex &lit_id : ids) {
+            const hwlmLiteral &l = lits[lit_id];
             DEBUG_PRINTF("putting lit %u into bucket %u\n", lit_id, bucket_id);
             const u32 sz = verify_u32(l.s.size());
 
