@@ -58,7 +58,6 @@ namespace ue2 {
 struct BoundaryReports;
 struct CastleProto;
 struct CompileContext;
-struct hwlmLiteral;
 class ReportManager;
 class SomSlotManager;
 
@@ -549,9 +548,6 @@ u64a findMaxOffset(const std::set<ReportID> &reports, const ReportManager &rm);
 // literal.
 void normaliseLiteralMask(const ue2_literal &s, std::vector<u8> &msk,
                           std::vector<u8> &cmp);
-
-void fillHamsterLiteralList(const RoseBuildImpl &tbi, rose_literal_table table,
-                            std::vector<hwlmLiteral> *hl);
 
 #ifndef NDEBUG
 bool canImplementGraphs(const RoseBuildImpl &tbi);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@
 
 #include "hwlm/hwlm_build.h"
 #include "rose_build_impl.h"
+#include "rose_build_matchers.h"
 #include "rose/rose_dump.h"
 #include "rose_internal.h"
 #include "ue2common.h"
@@ -458,23 +459,18 @@ struct LongerThanLimit {
 
 static
 void dumpRoseTestLiterals(const RoseBuildImpl &build, const string &base) {
-
-    vector<hwlmLiteral> lits;
-
-    fillHamsterLiteralList(build, ROSE_ANCHORED, &lits);
+    auto lits = fillHamsterLiteralList(build, ROSE_ANCHORED);
     dumpTestLiterals(base + "rose_anchored_test_literals.txt", lits);
 
-    lits.clear();
-    fillHamsterLiteralList(build, ROSE_FLOATING, &lits);
+    lits = fillHamsterLiteralList(build, ROSE_FLOATING);
     dumpTestLiterals(base + "rose_float_test_literals.txt", lits);
 
-    lits.clear();
-    fillHamsterLiteralList(build, ROSE_EOD_ANCHORED, &lits);
+    lits = fillHamsterLiteralList(build, ROSE_EOD_ANCHORED);
     dumpTestLiterals(base + "rose_eod_test_literals.txt", lits);
 
-    lits.clear();
-    fillHamsterLiteralList(build, ROSE_FLOATING, &lits);
-    fillHamsterLiteralList(build, ROSE_ANCHORED_SMALL_BLOCK, &lits);
+    lits = fillHamsterLiteralList(build, ROSE_FLOATING);
+    auto lits2 = fillHamsterLiteralList(build, ROSE_ANCHORED_SMALL_BLOCK);
+    lits.insert(end(lits), begin(lits2), end(lits2));
     lits.erase(remove_if(lits.begin(), lits.end(),
                          LongerThanLimit(ROSE_SMALL_BLOCK_LEN)),
                lits.end());

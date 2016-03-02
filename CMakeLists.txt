@@ -810,6 +810,8 @@ SET (hs_SRCS
     src/rose/rose_build_infix.h
     src/rose/rose_build_lookaround.cpp
     src/rose/rose_build_lookaround.h
+    src/rose/rose_build_matchers.cpp
+    src/rose/rose_build_matchers.h
     src/rose/rose_build_merge.cpp
     src/rose/rose_build_merge.h
     src/rose/rose_build_misc.cpp
