@@ -573,3 +573,39 @@ hwlmcb_rv_t rosePureLiteralCallback(size_t start, size_t end, u32 id,
     assert(id < rose->literalCount);
     return roseRunProgram(rose, scratch, programs[id], real_end, match_len, 0);
 }
+
+/**
+ * \brief Execute a boundary report program.
+ *
+ * Returns MO_HALT_MATCHING if the stream is exhausted or the user has
+ * instructed us to halt, or MO_CONTINUE_MATCHING otherwise.
+ */
+int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
+                           u64a stream_offset, struct hs_scratch *scratch) {
+    DEBUG_PRINTF("running boundary program at offset %u\n", program);
+
+    if (can_stop_matching(scratch)) {
+        DEBUG_PRINTF("can stop matching\n");
+        return MO_HALT_MATCHING;
+    }
+
+    if (rose->hasSom && scratch->deduper.current_report_offset == ~0ULL) {
+        /* we cannot delay the initialization of the som deduper logs any longer
+         * as we are reporting matches. This is done explicitly as we are
+         * shortcutting the som handling in the vacuous repeats as we know they
+         * all come from non-som patterns. */
+        fatbit_clear(scratch->deduper.som_log[0]);
+        fatbit_clear(scratch->deduper.som_log[1]);
+        scratch->deduper.som_log_dirty = 0;
+    }
+
+    const size_t match_len = 0;
+    const char in_anchored = 0;
+    hwlmcb_rv_t rv = roseRunProgram(rose, scratch, program, stream_offset,
+                                    match_len, in_anchored);
+    if (rv == HWLM_TERMINATE_MATCHING) {
+        return MO_HALT_MATCHING;
+    }
+
+    return MO_CONTINUE_MATCHING;
+}

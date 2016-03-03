@@ -1942,70 +1942,6 @@ struct DerivedBoundaryReports {
 };
 
 static
-void reserveBoundaryReports(const BoundaryReports &boundary,
-                            const DerivedBoundaryReports &dboundary,
-                            RoseBoundaryReports *out, u32 *currOffset) {
-    u32 curr = *currOffset;
-    curr = ROUNDUP_N(curr, alignof(ReportID));
-    memset(out, 0, sizeof(*out));
-
-    /* report lists are + 1 in size due to terminator */
-    if (!boundary.report_at_eod.empty()) {
-        out->reportEodOffset = curr;
-        curr += sizeof(ReportID) * (boundary.report_at_eod.size() + 1);
-    }
-    if (!boundary.report_at_0.empty()) {
-        out->reportZeroOffset = curr;
-        curr += sizeof(ReportID) * (boundary.report_at_0.size() + 1);
-    }
-    if (!dboundary.report_at_0_eod_full.empty()) {
-        out->reportZeroEodOffset = curr;
-        curr += sizeof(ReportID) * (dboundary.report_at_0_eod_full.size() + 1);
-    }
-
-    DEBUG_PRINTF("report ^:  %zu\n", boundary.report_at_0.size());
-    DEBUG_PRINTF("report $:  %zu\n", boundary.report_at_eod.size());
-    DEBUG_PRINTF("report ^$: %zu\n", dboundary.report_at_0_eod_full.size());
-
-    *currOffset = curr;
-}
-
-static
-void fillInBoundaryReports(RoseEngine *engine, u32 offset,
-                           const set<ReportID> &rl) {
-    if (rl.empty()) {
-        return;
-    }
-
-    u32 *out = (u32 *)((char *)engine + offset);
-    assert(ISALIGNED(out));
-
-    for (ReportID r : rl) {
-        *out = r;
-        ++out;
-    }
-
-    *out = MO_INVALID_IDX;
-}
-
-static
-void populateBoundaryReports(RoseEngine *engine,
-                             const BoundaryReports &boundary,
-                             const DerivedBoundaryReports &dboundary,
-                             const RoseBoundaryReports &offsets) {
-    engine->boundary.reportEodOffset = offsets.reportEodOffset;
-    engine->boundary.reportZeroOffset = offsets.reportZeroOffset;
-    engine->boundary.reportZeroEodOffset = offsets.reportZeroEodOffset;
-
-    fillInBoundaryReports(engine, offsets.reportEodOffset,
-                          boundary.report_at_eod);
-    fillInBoundaryReports(engine, offsets.reportZeroOffset,
-                          boundary.report_at_0);
-    fillInBoundaryReports(engine, offsets.reportZeroEodOffset,
-                          dboundary.report_at_0_eod_full);
-}
-
-static
 void fillInReportInfo(RoseEngine *engine, u32 reportOffset,
                       const ReportManager &rm, const vector<Report> &reports) {
     internal_report *dest = (internal_report *)((char *)engine + reportOffset);
@@ -2918,6 +2854,43 @@ vector<RoseInstruction> makeProgram(RoseBuildImpl &build, build_context &bc,
 }
 
 static
+u32 writeBoundaryProgram(RoseBuildImpl &build, build_context &bc,
+                         const set<ReportID> &reports) {
+    if (reports.empty()) {
+        return 0;
+    }
+
+    const bool has_som = false;
+    vector<RoseInstruction> program;
+    for (const auto &id : reports) {
+        makeReport(build, bc, id, has_som, program);
+    }
+    return writeProgram(bc, flattenProgram({program}));
+}
+
+static
+RoseBoundaryReports
+makeBoundaryPrograms(RoseBuildImpl &build, build_context &bc,
+                     const BoundaryReports &boundary,
+                     const DerivedBoundaryReports &dboundary) {
+    RoseBoundaryReports out;
+    memset(&out, 0, sizeof(out));
+
+    DEBUG_PRINTF("report ^:  %zu\n", boundary.report_at_0.size());
+    DEBUG_PRINTF("report $:  %zu\n", boundary.report_at_eod.size());
+    DEBUG_PRINTF("report ^$: %zu\n", dboundary.report_at_0_eod_full.size());
+
+    out.reportEodOffset =
+        writeBoundaryProgram(build, bc, boundary.report_at_eod);
+    out.reportZeroOffset =
+        writeBoundaryProgram(build, bc, boundary.report_at_0);
+    out.reportZeroEodOffset =
+        writeBoundaryProgram(build, bc, dboundary.report_at_0_eod_full);
+
+    return out;
+}
+
+static
 void assignStateIndices(const RoseBuildImpl &build, build_context &bc) {
     const auto &g = build.g;
 
@@ -3788,6 +3761,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         bc.resources.has_anchored = true;
     }
 
+    auto boundary_out = makeBoundaryPrograms(*this, bc, boundary, dboundary);
+
     // Build NFAs
     set<u32> no_retrigger_queues;
     bool mpv_as_outfix;
@@ -3927,9 +3902,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     u32 activeArrayCount = leftfixBeginQueue;
     u32 activeLeftCount = leftInfoTable.size();
     u32 rosePrefixCount = countRosePrefixes(leftInfoTable);
-
-    RoseBoundaryReports boundary_out;
-    reserveBoundaryReports(boundary, dboundary, &boundary_out, &currOffset);
 
     u32 rev_nfa_table_offset;
     vector<u32> rev_nfa_offsets;
@@ -4098,7 +4070,10 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->asize = verify_u32(asize);
     engine->ematcherRegionSize = ematcher_region_size;
     engine->floatingStreamState = verify_u32(floatingStreamStateRequired);
-    populateBoundaryReports(engine.get(), boundary, dboundary, boundary_out);
+
+    engine->boundary.reportEodOffset = boundary_out.reportEodOffset;
+    engine->boundary.reportZeroOffset = boundary_out.reportZeroOffset;
+    engine->boundary.reportZeroEodOffset = boundary_out.reportZeroEodOffset;
 
     write_out(&engine->state_init, (char *)engine.get(), state_scatter,
               state_scatter_aux_offset);

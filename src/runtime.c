@@ -260,57 +260,6 @@ SomNfaCallback selectOutfixSomAdaptor(const struct RoseEngine *rose) {
     return is_simple ? outfixSimpleSomSomAdaptor : outfixSomSomAdaptor;
 }
 
-/**
- * \brief Fire callbacks for a boundary report list.
- *
- * Returns MO_HALT_MATCHING if the user has instructed us to halt, and
- * MO_CONTINUE_MATCHING otherwise.
- */
-
-static never_inline
-int processReportList(const struct RoseEngine *rose, u32 base_offset,
-                      u64a stream_offset, hs_scratch_t *scratch) {
-    DEBUG_PRINTF("running report list at offset %u\n", base_offset);
-
-    if (told_to_stop_matching(scratch)) {
-        DEBUG_PRINTF("matching has been terminated\n");
-        return MO_HALT_MATCHING;
-    }
-
-    if (rose->hasSom && scratch->deduper.current_report_offset == ~0ULL) {
-        /* we cannot delay the initialization of the som deduper logs any longer
-         * as we are reporting matches. This is done explicitly as we are
-         * shortcutting the som handling in the vacuous repeats as we know they
-         * all come from non-som patterns. */
-
-        fatbit_clear(scratch->deduper.som_log[0]);
-        fatbit_clear(scratch->deduper.som_log[1]);
-        scratch->deduper.som_log_dirty = 0;
-    }
-
-    const ReportID *report = getByOffset(rose, base_offset);
-
-    /* never required to do som as vacuous reports are always external */
-
-    if (rose->simpleCallback) {
-        for (; *report != MO_INVALID_IDX; report++) {
-            int rv = roseSimpleAdaptor(stream_offset, *report, scratch);
-            if (rv == MO_HALT_MATCHING) {
-                return MO_HALT_MATCHING;
-            }
-        }
-    } else {
-        for (; *report != MO_INVALID_IDX; report++) {
-            int rv = roseAdaptor(stream_offset, *report, scratch);
-            if (rv == MO_HALT_MATCHING) {
-                return MO_HALT_MATCHING;
-            }
-        }
-    }
-
-    return MO_CONTINUE_MATCHING;
-}
-
 /** \brief Initialise SOM state. Used in both block and streaming mode. */
 static really_inline
 void initSomState(const struct RoseEngine *rose, char *state) {
@@ -488,15 +437,15 @@ hs_error_t hs_scan(const hs_database_t *db, const char *data, unsigned length,
 
     if (!length) {
         if (rose->boundary.reportZeroEodOffset) {
-            processReportList(rose, rose->boundary.reportZeroEodOffset, 0,
-                              scratch);
+            roseRunBoundaryProgram(rose, rose->boundary.reportZeroEodOffset, 0,
+                                   scratch);
         }
         goto set_retval;
     }
 
     if (rose->boundary.reportZeroOffset) {
-        int rv = processReportList(rose, rose->boundary.reportZeroOffset, 0,
-                                   scratch);
+        int rv = roseRunBoundaryProgram(rose, rose->boundary.reportZeroOffset,
+                                        0, scratch);
         if (rv == MO_HALT_MATCHING) {
             goto set_retval;
         }
@@ -559,8 +508,8 @@ done_scan:
     }
 
     if (rose->boundary.reportEodOffset) {
-        processReportList(rose, rose->boundary.reportEodOffset, length,
-                          scratch);
+        roseRunBoundaryProgram(rose, rose->boundary.reportEodOffset, length,
+                               scratch);
     }
 
 set_retval:
@@ -727,25 +676,28 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
                      getHistory(state, rose, id->offset),
                      getHistoryAmount(rose, id->offset), id->offset, status, 0);
 
+    // Rose program execution (used for some report paths) depends on these
+    // values being initialised.
+    scratch->tctxt.lastMatchOffset = 0;
+    scratch->tctxt.minMatchOffset = id->offset;
+
     if (rose->somLocationCount) {
         loadSomFromStream(scratch, id->offset);
     }
 
     if (!id->offset) {
         if (rose->boundary.reportZeroEodOffset) {
-            int rv = processReportList(rose, rose->boundary.reportZeroEodOffset,
-                                       0, scratch);
+            int rv = roseRunBoundaryProgram(
+                rose, rose->boundary.reportZeroEodOffset, 0, scratch);
             if (rv == MO_HALT_MATCHING) {
-                scratch->core_info.status |= STATUS_TERMINATED;
                 return;
             }
         }
     } else {
         if (rose->boundary.reportEodOffset) {
-            int rv = processReportList(rose, rose->boundary.reportEodOffset,
-                              id->offset, scratch);
+            int rv = roseRunBoundaryProgram(
+                rose, rose->boundary.reportEodOffset, id->offset, scratch);
             if (rv == MO_HALT_MATCHING) {
-                scratch->core_info.status |= STATUS_TERMINATED;
                 return;
             }
         }
@@ -978,9 +930,10 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
 
     if (!id->offset && rose->boundary.reportZeroOffset) {
         DEBUG_PRINTF("zero reports\n");
-        processReportList(rose, rose->boundary.reportZeroOffset, 0, scratch);
-        if (unlikely(can_stop_matching(scratch))) {
-            DEBUG_PRINTF("stream is broken, halting scan\n");
+        int rv = roseRunBoundaryProgram(rose, rose->boundary.reportZeroOffset,
+                                        0, scratch);
+        if (rv == MO_HALT_MATCHING) {
+            DEBUG_PRINTF("halting scan\n");
             setStreamStatus(state, scratch->core_info.status);
             if (told_to_stop_matching(scratch)) {
                 return HS_SCAN_TERMINATED;

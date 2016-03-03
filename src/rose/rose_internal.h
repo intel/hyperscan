@@ -235,14 +235,17 @@ struct RoseStateOffsets {
 };
 
 struct RoseBoundaryReports {
-    u32 reportEodOffset; /**< 0 if no reports list, otherwise offset of
-                          * MO_INVALID_IDX terminated list to report at EOD */
-    u32 reportZeroOffset; /**< 0 if no reports list, otherwise offset of
-                           * MO_INVALID_IDX terminated list to report at offset
-                           * 0 */
-    u32 reportZeroEodOffset; /**< 0 if no reports list, otherwise offset of
-                              * MO_INVALID_IDX terminated list to report if eod
-                              * is at offset 0. Superset of other lists. */
+    /** \brief 0 if no reports list, otherwise offset of program to run to
+     * deliver reports at EOD. */
+    u32 reportEodOffset;
+
+    /** \brief 0 if no reports list, otherwise offset of program to run to
+     * deliver reports at offset 0. */
+    u32 reportZeroOffset;
+
+    /** \brief 0 if no reports list, otherwise offset of program to run to
+     * deliver reports if EOD is at offset 0. Superset of other programs. */
+    u32 reportZeroEodOffset;
 };
 
 /* NFA Queue Assignment

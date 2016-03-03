@@ -131,4 +131,7 @@ void roseEodExec(const struct RoseEngine *t, u64a offset,
 hwlmcb_rv_t rosePureLiteralCallback(size_t start, size_t end, u32 id,
                                     void *context);
 
+int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
+                           u64a stream_offset, struct hs_scratch *scratch);
+
 #endif // ROSE_H
