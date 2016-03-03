@@ -222,29 +222,6 @@ event_enqueued:
     return HWLM_CONTINUE_MATCHING;
 }
 
-/* handles the firing of external matches */
-static rose_inline
-hwlmcb_rv_t roseHandleMatch(const struct RoseEngine *t, ReportID id, u64a end,
-                            struct hs_scratch *scratch) {
-    struct RoseContext *tctxt = &scratch->tctxt;
-
-    assert(!t->needsCatchup || end == tctxt->minMatchOffset);
-    DEBUG_PRINTF("firing callback id=%u, end=%llu\n", id, end);
-    updateLastMatchOffset(tctxt, end);
-
-    int cb_rv = tctxt->cb(end, id, scratch);
-    if (cb_rv == MO_HALT_MATCHING) {
-        DEBUG_PRINTF("termination requested\n");
-        return HWLM_TERMINATE_MATCHING;
-    }
-
-    if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
-        return HWLM_CONTINUE_MATCHING;
-    }
-
-    return roseHaltIfExhausted(t, scratch);
-}
-
 int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
     struct RoseContext *tctxt = ctx;
     struct hs_scratch *scratch = tctxtToScratch(tctxt);
