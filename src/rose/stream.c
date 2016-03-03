@@ -83,11 +83,11 @@ void runAnchoredTableStream(const struct RoseEngine *t, const void *atable,
         if (nfa->type == MCCLELLAN_NFA_8) {
             nfaExecMcClellan8_SimpStream(nfa, state, scratch->core_info.buf,
                                          start, adj, alen, roseAnchoredCallback,
-                                         &scratch->tctxt);
+                                         scratch);
         } else {
             nfaExecMcClellan16_SimpStream(nfa, state, scratch->core_info.buf,
-                                          start, adj, alen, roseAnchoredCallback,
-                                          &scratch->tctxt);
+                                          start, adj, alen,
+                                          roseAnchoredCallback, scratch);
         }
 
     next_nfa:
@@ -542,7 +542,7 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
         }
 
         DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
-        hwlmExecStreaming(ftable, scratch, flen, start, roseCallback, tctxt,
+        hwlmExecStreaming(ftable, scratch, flen, start, roseCallback, scratch,
                           tctxt->groups, stream_state);
     }
 

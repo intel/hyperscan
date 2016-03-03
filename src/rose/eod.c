@@ -93,7 +93,8 @@ hwlmcb_rv_t roseEodRunMatcher(const struct RoseEngine *t, u64a offset,
     struct RoseContext *tctxt = &scratch->tctxt;
     const struct HWLM *etable = getELiteralMatcher(t);
 
-    hwlmExec(etable, eod_data, eod_len, adj, roseCallback, tctxt, tctxt->groups);
+    hwlmExec(etable, eod_data, eod_len, adj, roseCallback, scratch,
+             tctxt->groups);
 
     // We may need to fire delayed matches
     return cleanUpDelayed(t, scratch, 0, offset);

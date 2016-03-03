@@ -223,8 +223,8 @@ event_enqueued:
 }
 
 int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
-    struct RoseContext *tctxt = ctx;
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    struct hs_scratch *scratch = ctx;
+    struct RoseContext *tctxt = &scratch->tctxt;
     struct core_info *ci = &scratch->core_info;
     const struct RoseEngine *t = ci->rose;
 
@@ -507,8 +507,8 @@ anchored_leftovers:;
 }
 
 hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
-    struct RoseContext *tctx = ctxt;
-    struct hs_scratch *scratch = tctxtToScratch(tctx);
+    struct hs_scratch *scratch = ctxt;
+    struct RoseContext *tctx = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
 
     u64a real_end = end + tctx->lit_offset_adjust;

@@ -61,11 +61,11 @@ void runAnchoredTableBlock(const struct RoseEngine *t, const void *atable,
             if (nfa->type == MCCLELLAN_NFA_8) {
                 nfaExecMcClellan8_B(nfa, curr->anchoredMinDistance,
                                     local_buffer, local_alen,
-                                    roseAnchoredCallback, &scratch->tctxt);
+                                    roseAnchoredCallback, scratch);
             } else {
                 nfaExecMcClellan16_B(nfa, curr->anchoredMinDistance,
                                      local_buffer, local_alen,
-                                     roseAnchoredCallback, &scratch->tctxt);
+                                     roseAnchoredCallback, scratch);
             }
         }
 
@@ -193,7 +193,7 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
         DEBUG_PRINTF("BEGIN SMALL BLOCK (over %zu/%zu)\n", sblen, length);
         DEBUG_PRINTF("-- %016llx\n", tctxt->groups);
         hwlmExec(sbtable, scratch->core_info.buf, sblen, 0, roseCallback,
-                 tctxt, tctxt->groups);
+                 scratch, tctxt->groups);
         goto exit;
     }
 
@@ -249,7 +249,7 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
         DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
         DEBUG_PRINTF("-- %016llx\n", tctxt->groups);
         hwlmExec(ftable, buffer, flen, t->floatingMinDistance,
-                 roseCallback, tctxt, tctxt->groups);
+                 roseCallback, scratch, tctxt->groups);
     }
 
 exit:;
