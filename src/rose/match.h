@@ -84,7 +84,7 @@ void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
         q->cb = roseNfaAdaptor;
     }
     q->som_cb = roseNfaSomAdaptor;
-    q->context = &scratch->tctxt;
+    q->context = scratch;
     q->report_current = 0;
 
     DEBUG_PRINTF("qi=%u, offset=%llu, fullState=%u, streamState=%u, "

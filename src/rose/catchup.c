@@ -272,8 +272,8 @@ restart:
 /* for use by mpv (chained) only */
 static UNUSED
 int roseNfaFinalBlastAdaptor(u64a offset, ReportID id, void *context) {
-    struct RoseContext *tctxt = context;
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    struct hs_scratch *scratch = context;
+    struct RoseContext *tctxt = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
 
     DEBUG_PRINTF("called\n");
@@ -302,8 +302,8 @@ int roseNfaFinalBlastAdaptor(u64a offset, ReportID id, void *context) {
 static UNUSED
 int roseNfaFinalBlastAdaptorNoInternal(u64a offset, ReportID id,
                                        void *context) {
-    struct RoseContext *tctxt = context;
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    struct hs_scratch *scratch = context;
+    struct RoseContext *tctxt = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
 
     DEBUG_PRINTF("called\n");
@@ -468,8 +468,8 @@ done:
 
 static UNUSED
 int roseNfaBlastAdaptor(u64a offset, ReportID id, void *context) {
-    struct RoseContext *tctxt = context;
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    struct hs_scratch *scratch = context;
+    struct RoseContext *tctxt = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
 
     const struct internal_report *ri = getInternalReport(t, id);
@@ -507,8 +507,8 @@ int roseNfaBlastAdaptor(u64a offset, ReportID id, void *context) {
 
 static UNUSED
 int roseNfaBlastAdaptorNoInternal(u64a offset, ReportID id, void *context) {
-    struct RoseContext *tctxt = context;
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    struct hs_scratch *scratch = context;
+    struct RoseContext *tctxt = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
 
     DEBUG_PRINTF("called\n");
@@ -536,8 +536,8 @@ int roseNfaBlastAdaptorNoInternal(u64a offset, ReportID id, void *context) {
 
 static UNUSED
 int roseNfaBlastAdaptorNoChain(u64a offset, ReportID id, void *context) {
-    struct RoseContext *tctxt = context;
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    struct hs_scratch *scratch = context;
+    struct RoseContext *tctxt = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
 
     DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
@@ -564,8 +564,8 @@ int roseNfaBlastAdaptorNoChain(u64a offset, ReportID id, void *context) {
 static UNUSED
 int roseNfaBlastAdaptorNoInternalNoChain(u64a offset, ReportID id,
                                          void *context) {
-    struct RoseContext *tctxt = context;
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    struct hs_scratch *scratch = context;
+    struct RoseContext *tctxt = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
 
     /* chained nfas are run under the control of the anchored catchup */
@@ -589,8 +589,8 @@ int roseNfaBlastAdaptorNoInternalNoChain(u64a offset, ReportID id,
 static UNUSED
 int roseNfaBlastSomAdaptor(u64a from_offset, u64a offset, ReportID id,
                            void *context) {
-    struct RoseContext *tctxt = context;
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    struct hs_scratch *scratch = context;
+    struct RoseContext *tctxt = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
 
     DEBUG_PRINTF("called\n");
@@ -618,12 +618,12 @@ int roseNfaBlastSomAdaptor(u64a from_offset, u64a offset, ReportID id,
 }
 
 int roseNfaAdaptor(u64a offset, ReportID id, void *context) {
-    struct RoseContext *tctxt = context;
+    struct hs_scratch *scratch = context;
+    struct RoseContext *tctxt = &scratch->tctxt;
     DEBUG_PRINTF("masky got himself a match @%llu id %u !woot!\n", offset, id);
 
     updateLastMatchOffset(tctxt, offset);
 
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
     const struct RoseEngine *t = scratch->core_info.rose;
     if (handleReportInternally(t, scratch, id, offset)) {
         return MO_CONTINUE_MATCHING;
@@ -633,21 +633,23 @@ int roseNfaAdaptor(u64a offset, ReportID id, void *context) {
 }
 
 int roseNfaAdaptorNoInternal(u64a offset, ReportID id, void *context) {
-    struct RoseContext *tctxt = context;
+    struct hs_scratch *scratch = context;
+    struct RoseContext *tctxt = &scratch->tctxt;
     DEBUG_PRINTF("masky got himself a match @%llu id %u !woot!\n", offset, id);
     updateLastMatchOffset(tctxt, offset);
 
-    return tctxt->cb(offset, id, tctxtToScratch(tctxt));
+    return tctxt->cb(offset, id, scratch);
 }
 
 int roseNfaSomAdaptor(u64a from_offset, u64a offset, ReportID id,
                       void *context) {
-    struct RoseContext *tctxt = context;
+    struct hs_scratch *scratch = context;
+    struct RoseContext *tctxt = &scratch->tctxt;
     DEBUG_PRINTF("masky got himself a match @%llu id %u !woot!\n", offset, id);
     updateLastMatchOffset(tctxt, offset);
 
     /* must be a external report as haig cannot directly participate in chain */
-    return tctxt->cb_som(from_offset, offset, id, tctxtToScratch(tctxt));
+    return tctxt->cb_som(from_offset, offset, id, scratch);
 }
 
 static really_inline
