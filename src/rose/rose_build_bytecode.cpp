@@ -2511,7 +2511,7 @@ void makeCatchup(RoseBuildImpl &build, build_context &bc,
 }
 
 static
-void makeReport(RoseBuildImpl &build, build_context &bc, const ReportID id,
+void makeReport(RoseBuildImpl &build, const ReportID id,
                 const bool has_som, vector<RoseInstruction> &program) {
     assert(id < build.rm.numReports());
     const Report &report = build.rm.getReport(id);
@@ -2672,7 +2672,7 @@ void makeRoleReports(RoseBuildImpl &build, build_context &bc, RoseVertex v,
     makeCatchup(build, bc, reports, program);
 
     for (ReportID id : reports) {
-        makeReport(build, bc, id, has_som, program);
+        makeReport(build, id, has_som, program);
     }
 }
 
@@ -2887,7 +2887,7 @@ u32 writeBoundaryProgram(RoseBuildImpl &build, build_context &bc,
     const bool has_som = false;
     vector<RoseInstruction> program;
     for (const auto &id : reports) {
-        makeReport(build, bc, id, has_som, program);
+        makeReport(build, id, has_som, program);
     }
     return writeProgram(bc, flattenProgram({program}));
 }
@@ -3594,7 +3594,7 @@ vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
 
     const bool has_som = false;
     for (const auto &id : reports) {
-        makeReport(build, bc, id, has_som, program);
+        makeReport(build, id, has_som, program);
     }
 
     return program;
