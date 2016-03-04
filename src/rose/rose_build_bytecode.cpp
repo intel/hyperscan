@@ -2487,6 +2487,30 @@ void makeDedupeSom(const ReportID id, vector<RoseInstruction> &report_block) {
 }
 
 static
+void makeCatchup(RoseBuildImpl &build, build_context &bc,
+                 const flat_set<ReportID> &reports,
+                 vector<RoseInstruction> &program) {
+    if (!bc.needs_catchup) {
+        return;
+    }
+
+    // Everything except the INTERNAL_ROSE_CHAIN report needs catchup to run
+    // before reports are triggered.
+
+    auto report_needs_catchup = [&](const ReportID &id) {
+        const Report &report = build.rm.getReport(id);
+        return report.type != INTERNAL_ROSE_CHAIN;
+    };
+
+    if (!any_of(begin(reports), end(reports), report_needs_catchup)) {
+        DEBUG_PRINTF("none of the given reports needs catchup\n");
+        return;
+    }
+
+    program.emplace_back(ROSE_INSTR_CATCH_UP);
+}
+
+static
 void makeReport(RoseBuildImpl &build, build_context &bc, const ReportID id,
                 const bool has_som, vector<RoseInstruction> &program) {
     assert(id < build.rm.numReports());
@@ -2501,13 +2525,6 @@ void makeReport(RoseBuildImpl &build, build_context &bc, const ReportID id,
         ri.u.checkBounds.min_bound = report.minOffset;
         ri.u.checkBounds.max_bound = report.maxOffset;
         report_block.push_back(move(ri));
-    }
-
-    // Catch up -- everything except the INTERNAL_ROSE_CHAIN report needs this.
-    // TODO: this could be floated in front of all the reports and only done
-    // once.
-    if (bc.needs_catchup && report.type != INTERNAL_ROSE_CHAIN) {
-        report_block.emplace_back(ROSE_INSTR_CATCH_UP);
     }
 
     // If this report has an exhaustion key, we can check it in the program
@@ -2651,7 +2668,10 @@ void makeRoleReports(RoseBuildImpl &build, build_context &bc, RoseVertex v,
         has_som = true;
     }
 
-    for (ReportID id : g[v].reports) {
+    const auto &reports = g[v].reports;
+    makeCatchup(build, bc, reports, program);
+
+    for (ReportID id : reports) {
         makeReport(build, bc, id, has_som, program);
     }
 }
@@ -2859,6 +2879,10 @@ u32 writeBoundaryProgram(RoseBuildImpl &build, build_context &bc,
     if (reports.empty()) {
         return 0;
     }
+
+    // Note: no CATCHUP instruction is necessary in the boundary case, as we
+    // should always be caught up (and may not even have the resources in
+    // scratch to support it).
 
     const bool has_som = false;
     vector<RoseInstruction> program;
@@ -3565,8 +3589,11 @@ vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
         makeRoleCheckNotHandled(bc, v, program);
     }
 
+    const auto &reports = g[v].reports;
+    makeCatchup(build, bc, reports, program);
+
     const bool has_som = false;
-    for (const auto &id : g[v].reports) {
+    for (const auto &id : reports) {
         makeReport(build, bc, id, has_som, program);
     }
 

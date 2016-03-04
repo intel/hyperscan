@@ -599,6 +599,12 @@ int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
         scratch->deduper.som_log_dirty = 0;
     }
 
+    // Keep assertions in program report path happy. At offset zero, there can
+    // have been no earlier reports. At EOD, all earlier reports should have
+    // been handled and we will have been caught up to the stream offset by the
+    // time we are running boundary report programs.
+    scratch->tctxt.minMatchOffset = stream_offset;
+
     const size_t match_len = 0;
     const char in_anchored = 0;
     hwlmcb_rv_t rv = roseRunProgram(rose, scratch, program, stream_offset,
