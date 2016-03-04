@@ -177,6 +177,7 @@ vector<vector<CharReach> > generate_paths(const raw_dfa &rdfa, dstate_id_t base,
     return rv;
 }
 
+static
 escape_info look_for_offset_accel(const raw_dfa &rdfa, dstate_id_t base,
                                   u32 max_allowed_accel_offset) {
     DEBUG_PRINTF("looking for accel for %hu\n", base);
@@ -190,7 +191,6 @@ escape_info look_for_offset_accel(const raw_dfa &rdfa, dstate_id_t base,
     DEBUG_PRINTF("found %s + %u\n", describeClass(as.cr).c_str(), as.offset);
     return rv;
 }
-
 
 static
 vector<u16> find_nonexit_symbols(const raw_dfa &rdfa,
@@ -251,6 +251,17 @@ bool better(const escape_info &a, const escape_info &b) {
     }
 
     return a.outs.count() < b.outs.count();
+}
+
+static
+vector<CharReach> reverse_alpha_remapping(const raw_dfa &rdfa) {
+    vector<CharReach> rv(rdfa.alpha_size - 1); /* TOP not required */
+
+    for (u32 i = 0; i < N_CHARS; i++) {
+        rv.at(rdfa.alpha_remap[i]).set(i);
+    }
+
+    return rv;
 }
 
 map<dstate_id_t, escape_info> populateAccelerationInfo(const raw_dfa &rdfa,
@@ -321,43 +332,56 @@ escape_info find_mcclellan_escape_info(const raw_dfa &rdfa,
                                        u32 max_allowed_accel_offset) {
     escape_info rv;
     const dstate &raw = rdfa.states[this_idx];
-    const auto &alpha_remap = rdfa.alpha_remap;
+    const vector<CharReach> rev_map = reverse_alpha_remapping(rdfa);
 
-    flat_set<pair<u8, u8>> outs2_local;
-    for (unsigned i = 0; i < N_CHARS; i++) {
-        outs2_local.clear();
+    for (u32 i = 0; i < rev_map.size(); i++) {
+        if (raw.next[i] == this_idx) {
+            continue;
+        }
 
-        if (raw.next[alpha_remap[i]] != this_idx) {
-            rv.outs.set(i);
+        const CharReach &cr_i = rev_map.at(i);
 
-            DEBUG_PRINTF("next is %hu\n", raw.next[alpha_remap[i]]);
-            const dstate &raw_next = rdfa.states[raw.next[alpha_remap[i]]];
+        rv.outs |= cr_i;
 
-            if (!raw_next.reports.empty() && generates_callbacks(rdfa.kind)) {
-                DEBUG_PRINTF("leads to report\n");
-                rv.outs2_broken = true;  /* cannot accelerate over reports */
+        DEBUG_PRINTF("next is %hu\n", raw.next[i]);
+        const dstate &raw_next = rdfa.states[raw.next[i]];
+
+        if (!raw_next.reports.empty() && generates_callbacks(rdfa.kind)) {
+            DEBUG_PRINTF("leads to report\n");
+            rv.outs2_broken = true;  /* cannot accelerate over reports */
+        }
+
+        if (rv.outs2_broken) {
+            continue;
+        }
+
+        CharReach cr_all_j;
+        for (u32 j = 0; j < rev_map.size(); j++) {
+            if (raw_next.next[j] == raw.next[j]) {
+                continue;
             }
 
-            for (unsigned j = 0; !rv.outs2_broken && j < N_CHARS; j++) {
-                if (raw_next.next[alpha_remap[j]] == raw.next[alpha_remap[j]]) {
-                    continue;
+            DEBUG_PRINTF("adding sym %u sym %u -> %hu to 2 \n", i, j,
+                         raw_next.next[j]);
+            cr_all_j |= rev_map.at(j);
+        }
+
+        if (cr_i.count() * cr_all_j.count() > 8) {
+            DEBUG_PRINTF("adding sym %u to outs2_single\n", i);
+            rv.outs2_single |= cr_i;
+        } else {
+            for (auto ii = cr_i.find_first(); ii != CharReach::npos;
+                 ii = cr_i.find_next(ii)) {
+                for (auto jj = cr_all_j.find_first(); jj != CharReach::npos;
+                     jj = cr_all_j.find_next(jj)) {
+                    rv.outs2.emplace((u8)ii, (u8)jj);
                 }
+            }
+        }
 
-                DEBUG_PRINTF("adding %02x %02x -> %hu to 2 \n", i, j,
-                             raw_next.next[alpha_remap[j]]);
-                outs2_local.emplace((u8)i, (u8)j);
-            }
-
-            if (outs2_local.size() > 8) {
-                DEBUG_PRINTF("adding %02x to outs2_single\n", i);
-                rv.outs2_single.set(i);
-            } else {
-                insert(&rv.outs2, outs2_local);
-            }
-            if (rv.outs2.size() > 8) {
-                DEBUG_PRINTF("outs2 too big\n");
-                rv.outs2_broken = true;
-            }
+        if (rv.outs2.size() > 8) {
+            DEBUG_PRINTF("outs2 too big\n");
+            rv.outs2_broken = true;
         }
     }
 

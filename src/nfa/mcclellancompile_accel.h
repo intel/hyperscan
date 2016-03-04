@@ -48,9 +48,6 @@ struct Grey;
  * than normal states as accelerating sds is important. Matches NFA value */
 #define ACCEL_DFA_MAX_FLOATING_STOP_CHAR 192
 
-escape_info look_for_offset_accel(const raw_dfa &rdfa, dstate_id_t base,
-                                  u32 max_allowed_accel_offset);
-
 std::map<dstate_id_t, escape_info> populateAccelerationInfo(const raw_dfa &rdfa,
                                                    const dfa_build_strat &strat,
                                                    const Grey &grey);
