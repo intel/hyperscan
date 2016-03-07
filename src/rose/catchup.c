@@ -488,7 +488,8 @@ int roseNfaBlastAdaptor(u64a offset, ReportID id, void *context) {
                  offset, id);
 
     if (handleReportInternally(t, scratch, id, offset)) {
-        return MO_CONTINUE_MATCHING;
+        return can_stop_matching(scratch) ? MO_HALT_MATCHING
+                                          : MO_CONTINUE_MATCHING;
     }
 
     updateLastMatchOffset(tctxt, offset);
@@ -626,7 +627,8 @@ int roseNfaAdaptor(u64a offset, ReportID id, void *context) {
 
     const struct RoseEngine *t = scratch->core_info.rose;
     if (handleReportInternally(t, scratch, id, offset)) {
-        return MO_CONTINUE_MATCHING;
+        return can_stop_matching(scratch) ? MO_HALT_MATCHING
+                                          : MO_CONTINUE_MATCHING;
     }
 
     return tctxt->cb(offset, id, scratch);
@@ -905,6 +907,7 @@ hwlmcb_rv_t buildSufPQ(const struct RoseEngine *t, char *state, s64a safe_loc,
 
     hwlmcb_rv_t rv = roseCatchUpMPV(t, report_ok_loc, scratch);
     if (rv != HWLM_CONTINUE_MATCHING) {
+        DEBUG_PRINTF("terminating...\n");
         return rv;
     }
 
@@ -1060,6 +1063,7 @@ hwlmcb_rv_t roseCatchUpAll(s64a loc, struct hs_scratch *scratch) {
     rv = roseCatchUpMPV(t, loc, scratch);
     assert(rv != HWLM_CONTINUE_MATCHING
            || scratch->catchup_pq.qm_size <= t->outfixEndQueue);
+    assert(!can_stop_matching(scratch) || rv == HWLM_TERMINATE_MATCHING);
     return rv;
 }
 

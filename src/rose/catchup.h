@@ -105,6 +105,7 @@ hwlmcb_rv_t roseCatchUpMPV(const struct RoseEngine *t, s64a loc,
                            struct hs_scratch *scratch) {
     u64a cur_offset = loc + scratch->core_info.buf_offset;
     assert(cur_offset >= scratch->tctxt.minMatchOffset);
+    assert(!can_stop_matching(scratch));
 
     if (canSkipCatchUpMPV(t, scratch, cur_offset)) {
         updateMinMatchOffsetFromMpv(&scratch->tctxt, cur_offset);
@@ -151,6 +152,7 @@ hwlmcb_rv_t roseCatchUpTo(const struct RoseEngine *t,
            || scratch->tctxt.minMatchOffset == end);
     assert(rv != HWLM_CONTINUE_MATCHING
            || scratch->tctxt.minNonMpvMatchOffset == end);
+    assert(!can_stop_matching(scratch) || rv == HWLM_TERMINATE_MATCHING);
     return rv;
 }
 

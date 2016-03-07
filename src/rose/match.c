@@ -184,6 +184,7 @@ hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
          * be known to be consistent */
         if (ensureMpvQueueFlushed(t, scratch, qi, loc, in_catchup)
             == HWLM_TERMINATE_MATCHING) {
+            DEBUG_PRINTF("terminating...\n");
             return HWLM_TERMINATE_MATCHING;
         }
     }
