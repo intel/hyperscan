@@ -84,3 +84,14 @@ TEST_P(NFAWidthTest, Check) {
     ASSERT_EQ(t.minWidth, findMinWidth(*w));
     ASSERT_EQ(t.maxWidth, findMaxWidth(*w));
 }
+
+// for google test
+void PrintTo(const WidthTest &w, ::std::ostream *os) {
+    *os << "WidthTest: " << w.pattern << "{" << w.minWidth << ',';
+    if (w.maxWidth == depth::infinity()) {
+        *os << "inf";
+    } else {
+        *os << w.maxWidth;
+    }
+    *os << '}';
+}

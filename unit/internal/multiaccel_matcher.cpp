@@ -287,3 +287,8 @@ static const MultiaccelTestParam multiaccelTests[] = {
 };
 
 INSTANTIATE_TEST_CASE_P(Multiaccel, MultiaccelTest, ValuesIn(multiaccelTests));
+
+// boring stuff for google test
+void PrintTo(const MultiaccelTestParam &p, ::std::ostream *os) {
+    *os << "MultiaccelTestParam: " << p.match_pattern;
+}
