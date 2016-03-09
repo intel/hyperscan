@@ -133,199 +133,6 @@ void findAccelFriends(const NGHolder &g, NFAVertex v,
 }
 
 static
-void buildTwoByteStops(flat_set<pair<u8, u8>> &twobyte, const CharReach &cr1,
-                       const CharReach &cr2) {
-    for (size_t c1 = cr1.find_first(); c1 != cr1.npos; c1 = cr1.find_next(c1)) {
-        for (size_t c2 = cr2.find_first(); c2 != cr2.npos;
-             c2 = cr2.find_next(c2)) {
-            twobyte.emplace((u8)c1, (u8)c2);
-        }
-    }
-}
-
-static
-void findStopLiteralsAtVertex(NFAVertex v, const NGHolder &g,
-                              DoubleAccelInfo &build) {
-    DEBUG_PRINTF("state %u\n", g[v].index);
-
-    // double-byte accel is possible: calculate all single- and double-byte
-    // accel literals.
-    const CharReach &cr1 = g[v].char_reach;
-
-    if (edge(v, g.accept, g).second) {
-        // If this first byte is an accept state, it must contribute a
-        // single-byte escape. We can still go on and calculate additional
-        // double-byte ones, though.
-        /* TODO: fix for rose */
-        build.stop1 |= cr1;
-    }
-
-    flat_set<pair<u8, u8>> twobyte; // for just this starting state
-    bool single = false;
-
-    for (auto w : adjacent_vertices_range(v, g)) {
-        if (w == g.accept || w == g.acceptEod) {
-            continue;
-        }
-        const CharReach &cr2 = g[w].char_reach;
-        size_t count = cr1.count() * cr2.count() + build.stop2.size();
-        if (count > 0 && count <= 8) { // can't do more than 8 two-byte
-            buildTwoByteStops(twobyte, cr1, cr2);
-        } else {
-            // two many two-byte literals, add the first byte as single
-            single = true;
-            break;
-        }
-    }
-
-    if (single || twobyte.empty()) {
-        assert(!cr1.none());
-        build.stop1 |= cr1;
-    } else {
-        assert(!twobyte.empty());
-        build.stop2.insert(twobyte.begin(), twobyte.end());
-    }
-}
-
-static
-bool is_bit5_insensitive(const flat_set<pair<u8, u8>> &stop) {
-    if (stop.size() != 4) {
-        return false;
-    }
-
-    const u8 a = stop.begin()->first & CASE_CLEAR;
-    const u8 b = stop.begin()->second & CASE_CLEAR;
-
-    for (flat_set<pair<u8, u8>>::const_iterator it = stop.begin();
-         it != stop.end(); ++it) {
-        if ((it->first & CASE_CLEAR) != a || (it->second & CASE_CLEAR) != b) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-static
-bool is_dverm(const DoubleAccelInfo &a) {
-    if (a.stop1.any()) {
-        return false;
-    }
-
-    if (a.stop2.size() == 1) {
-        return true;
-    }
-
-    return is_bit5_insensitive(a.stop2);
-}
-
-static
-bool is_double_better(const DoubleAccelInfo &a, const DoubleAccelInfo &b) {
-    /* Note: this is not an operator< */
-
-    if (a.stop2.empty()) {
-        return false;
-    }
-
-    if (b.stop2.empty()) {
-        return true;
-    }
-
-    if (a.stop1.count() > b.stop1.count()) {
-        return false;
-    }
-
-    if (a.stop1.count() < b.stop1.count()) {
-        return true;
-    }
-
-    bool a_dvm = is_dverm(a);
-    bool b_dvm = is_dverm(b);
-
-    if (b_dvm && !a_dvm) {
-        return false;
-    }
-
-    if (!b_dvm && a_dvm) {
-        return true;
-    }
-
-    if (a.stop2.size() > b.stop2.size()) {
-        return false;
-    }
-
-    if (a.stop2.size() < b.stop2.size()) {
-        return true;
-    }
-
-    return a.offset < b.offset;
-}
-
-/** \brief Find the escape literals for a two byte accel at the given accel
- * offset */
-static
-void findDoubleAccel(const NGHolder &g, NFAVertex v, u32 accel_offset,
-                     DoubleAccelInfo &build) {
-    DEBUG_PRINTF("find double accel +%u for vertex %u\n", accel_offset,
-                  g[v].index);
-    build.offset = accel_offset;
-
-    // Our accel state contributes single-byte escapes
-    build.stop1 |= ~g[v].char_reach;
-
-    flat_set<NFAVertex> searchStates; // states that contribute stop literals
-    searchStates.insert(v); /* TODO: verify */
-
-    /* Note: We cannot search past an accepting state */
-    /* TODO: remove restriction for non-callback generating */
-    flat_set<NFAVertex> nextStates;
-
-    insert(&nextStates, adjacent_vertices(v, g));
-    nextStates.erase(v);
-    nextStates.erase(g.accept);
-    nextStates.erase(g.acceptEod);
-
-    searchStates.swap(nextStates);
-    nextStates.clear();
-
-    // subsequent iterations are simpler, just follow all edges
-    for (u32 j = 1; j <= accel_offset; j++) {
-        for (auto u : searchStates) {
-            insert(&nextStates, adjacent_vertices(u, g));
-            if (edge(u, g.accept, g).second) {
-                nextStates.clear();
-                break;
-            }
-            nextStates.erase(g.accept);
-            nextStates.erase(g.acceptEod);
-        }
-
-        searchStates.swap(nextStates);
-        nextStates.clear();
-    }
-
-    vector<NFAVertex> sorted;
-    insert(&sorted, sorted.end(), searchStates);
-    sort(sorted.begin(), sorted.end(), make_index_ordering(g));
-    for (auto sv : sorted) {
-        findStopLiteralsAtVertex(sv, g, build);
-    }
-}
-
-DoubleAccelInfo findBestDoubleAccelInfo(const NGHolder &g, NFAVertex v) {
-    DoubleAccelInfo rv;
-    for (u32 offset = 0; offset <= MAX_ACCEL_DEPTH; offset++) {
-        DoubleAccelInfo b_temp;
-        findDoubleAccel(g, v, offset, b_temp);
-        if (is_double_better(b_temp, rv)) {
-            rv = b_temp;
-        }
-    }
-
-    return rv;
-}
-
-static
 void findPaths(const NGHolder &g, NFAVertex v,
                const vector<CharReach> &refined_cr,
                vector<vector<CharReach> > *paths,
@@ -384,8 +191,13 @@ void findPaths(const NGHolder &g, NFAVertex v,
 }
 
 static
-AccelScheme merge(const AccelScheme &a, const AccelScheme &b) {
-    return AccelScheme(a.cr | b.cr, MAX(a.offset, b.offset));
+AccelScheme merge(AccelScheme a, const AccelScheme &b) {
+    a.cr |= b.cr;
+    ENSURE_AT_LEAST(&a.offset, b.offset);
+    a.double_cr |= b.double_cr;
+    insert(&a.double_byte, b.double_byte);
+    ENSURE_AT_LEAST(&a.double_offset, b.double_offset);
+    return a;
 }
 
 static
@@ -445,8 +257,106 @@ void findBest(vector<vector<CharReach> >::const_iterator pb,
     }
 }
 
-#ifdef DEBUG
+static
+AccelScheme make_double_accel(AccelScheme as, CharReach cr_1,
+                              const CharReach &cr_2_in, u32 offset_in) {
+    cr_1 &= ~as.double_cr;
+    CharReach cr_2 = cr_2_in & ~as.double_cr;
+    u32 offset = offset_in;
 
+    if (cr_1.none()) {
+        DEBUG_PRINTF("empty first element\n");
+        as.double_offset = offset;
+        return as;
+    }
+
+    if (cr_2_in != cr_2 || cr_2.none()) {
+        offset = offset_in + 1;
+    }
+
+    size_t two_count = cr_1.count() * cr_2.count();
+
+    DEBUG_PRINTF("will generate raw %zu pairs\n", two_count);
+
+    if (!two_count) {
+        DEBUG_PRINTF("empty element\n");
+        as.double_offset = offset;
+        return as;
+    }
+
+    if (two_count > 8) {
+        if (cr_2.count() < cr_1.count()) {
+            as.double_cr |= cr_2;
+            offset = offset_in + 1;
+        } else {
+            as.double_cr |= cr_1;
+        }
+    } else {
+        for (auto i = cr_1.find_first(); i != CharReach::npos;
+             i = cr_1.find_next(i)) {
+            for (auto j = cr_2.find_first(); j != CharReach::npos;
+                 j = cr_2.find_next(j)) {
+                as.double_byte.insert(make_pair(i, j));
+            }
+        }
+    }
+
+    as.double_offset = offset;
+    DEBUG_PRINTF("construct da %zu pairs, %zu singles, offset %u\n",
+                 as.double_byte.size(), as.double_cr.count(), as.offset);
+    return as;
+}
+
+static
+void findDoubleBest(vector<vector<CharReach> >::const_iterator pb,
+              vector<vector<CharReach> >::const_iterator pe,
+              const AccelScheme &curr, AccelScheme *best) {
+    assert(curr.offset <= MAX_ACCEL_DEPTH);
+    DEBUG_PRINTF("paths left %zu\n", pe - pb);
+    if (pb == pe) {
+        *best = curr;
+        return;
+    }
+
+    DEBUG_PRINTF("p len %zu\n", pb->end() - pb->begin());
+
+    vector<AccelScheme> priority_path;
+    u32 i = 0;
+    for (vector<CharReach>::const_iterator p = pb->begin();
+         p != pb->end() && next(p) != pb->end();
+         ++p, i++) {
+        priority_path.push_back(make_double_accel(curr, *p, *next(p), i));
+    }
+
+    sort(priority_path.begin(), priority_path.end());
+
+    DEBUG_PRINTF("input best: %zu pairs, %zu singles, offset %u\n",
+                 best->double_byte.size(), best->double_cr.count(),
+                 best->offset);
+
+    for (vector<AccelScheme>::const_iterator it = priority_path.begin();
+         it != priority_path.end(); ++it) {
+
+        AccelScheme in = merge(curr, *it);
+        DEBUG_PRINTF("in: %zu pairs, %zu singles, offset %u\n",
+                     in.double_byte.size(), in.double_cr.count(), in.offset);
+
+        if (in > *best) {
+            DEBUG_PRINTF("worse\n");
+            continue;
+        }
+        AccelScheme temp = *best;
+        findDoubleBest(pb + 1, pe, in, &temp);
+        if (temp < *best) {
+            *best = temp;
+            DEBUG_PRINTF("new best: %zu pairs, %zu singles, offset %u\n",
+                         best->double_byte.size(), best->double_cr.count(),
+                         best->offset);
+        }
+    }
+}
+
+#ifdef DEBUG
 static
 void dumpPaths(const vector<vector<CharReach> > &paths) {
     for (vector<vector<CharReach> >::const_iterator p = paths.begin();
@@ -526,13 +436,56 @@ void improvePaths(vector<vector<CharReach> > &paths) {
 #endif
 }
 
+#define MAX_DOUBLE_ACCEL_PATHS 10
+
+static
+AccelScheme findBestDoubleAccelScheme(vector<vector<CharReach> > paths,
+                                      const CharReach &terminating) {
+    DEBUG_PRINTF("looking for double accel, %zu terminating symbols\n",
+                 terminating.count());
+    unifyPathsLastSegment(paths);
+    AccelScheme curr;
+    curr.double_cr = terminating;
+    curr.offset = 0;
+    /* if there are too many paths, shorten the paths to reduce the number of
+     * distinct paths we have to consider */
+    while (paths.size() > MAX_DOUBLE_ACCEL_PATHS) {
+        for (auto &p : paths) {
+            if (p.empty()) {
+                return curr;
+            }
+            p.pop_back();
+        }
+        unifyPathsLastSegment(paths);
+    }
+
+    if (paths.empty()) {
+        return curr;
+    }
+
+    AccelScheme best;
+    best.double_cr = CharReach::dot();
+    findDoubleBest(paths.begin(), paths.end(), curr, &best);
+    curr = best;
+    DEBUG_PRINTF("da %zu pairs, %zu singles\n", curr.double_byte.size(),
+                 curr.double_cr.count());
+    return curr;
+}
+
 AccelScheme findBestAccelScheme(vector<vector<CharReach> > paths,
-                                const CharReach &terminating) {
+                                const CharReach &terminating,
+                                bool look_for_double_byte) {
+    AccelScheme da;
+
+    if (look_for_double_byte) {
+        da = findBestDoubleAccelScheme(paths, terminating);
+    }
+
     improvePaths(paths);
 
     DEBUG_PRINTF("we have %zu paths\n", paths.size());
     if (paths.size() > 40) {
-        return AccelScheme(); /* too many paths to explore */
+        return da; /* too many paths to explore */
     }
 
     /* if we were smart we would do something netflowy on the paths to find the
@@ -559,13 +512,21 @@ AccelScheme findBestAccelScheme(vector<vector<CharReach> > paths,
     assert(offset <= best.offset);
     best.offset = offset;
 
+    /* merge best single and best double */
+    if (!da.double_byte.empty() && da.double_byte.size() <= 8
+        && da.double_cr.count() < best.cr.count()) {
+        best.double_byte = da.double_byte;
+        best.double_cr = da.double_cr;
+        best.double_offset = da.double_offset;
+    }
+
     return best;
 }
 
 AccelScheme nfaFindAccel(const NGHolder &g, const vector<NFAVertex> &verts,
                          const vector<CharReach> &refined_cr,
                          const map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
-                         bool allow_wide) {
+                         bool allow_wide, bool look_for_double_byte) {
     CharReach terminating;
     for (auto v : verts) {
         if (!hasSelfLoop(v, g)) {
@@ -612,7 +573,8 @@ AccelScheme nfaFindAccel(const NGHolder &g, const vector<NFAVertex> &verts,
         reverse(it->begin(), it->end());
     }
 
-    return findBestAccelScheme(std::move(paths), terminating);
+    return findBestAccelScheme(std::move(paths), terminating,
+                               look_for_double_byte);
 }
 
 NFAVertex get_sds_or_proxy(const NGHolder &g) {
@@ -903,9 +865,9 @@ depth_done:
         }
     }
 
-    // Look for one byte accel schemes verm/shufti;
+    // Look for offset accel schemes verm/shufti;
     vector<NFAVertex> verts(1, v);
-    *as = nfaFindAccel(g, verts, refined_cr, br_cyclic, allow_wide);
+    *as = nfaFindAccel(g, verts, refined_cr, br_cyclic, allow_wide, true);
     DEBUG_PRINTF("as width %zu\n", as->cr.count());
     return as->cr.count() <= ACCEL_MAX_STOP_CHAR || allow_wide;
 }

@@ -201,7 +201,8 @@ void mcclellan_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
                                        void *accel_out) {
     AccelAux *accel = (AccelAux *)accel_out;
 
-    DEBUG_PRINTF("accelerations scheme has offset %u\n", info.offset);
+    DEBUG_PRINTF("accelerations scheme has offset s%u/d%u\n", info.offset,
+                 info.outs2_offset);
     accel->generic.offset = verify_u8(info.offset);
 
     if (double_byte_ok(info) && info.outs2_single.none()
@@ -209,6 +210,7 @@ void mcclellan_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
         accel->accel_type = ACCEL_DVERM;
         accel->dverm.c1 = info.outs2.begin()->first;
         accel->dverm.c2 = info.outs2.begin()->second;
+        accel->dverm.offset = verify_u8(info.outs2_offset);
         DEBUG_PRINTF("state %hu is double vermicelli\n", this_idx);
         return;
     }
@@ -233,6 +235,7 @@ void mcclellan_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
             accel->accel_type = ACCEL_DVERM_NOCASE;
             accel->dverm.c1 = firstC;
             accel->dverm.c2 = secondC;
+            accel->dverm.offset = verify_u8(info.outs2_offset);
             DEBUG_PRINTF("state %hu is nc double vermicelli\n", this_idx);
             return;
         }
@@ -240,6 +243,7 @@ void mcclellan_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
 
     if (double_byte_ok(info)) {
         accel->accel_type = ACCEL_DSHUFTI;
+        accel->dshufti.offset = verify_u8(info.outs2_offset);
         shuftiBuildDoubleMasks(info.outs2_single, info.outs2,
                                &accel->dshufti.lo1,
                                &accel->dshufti.hi1,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -94,7 +94,6 @@ void buildAccelSingle(const AccelInfo &info, AccelAux *aux) {
     DEBUG_PRINTF("unable to accelerate case with %zu outs\n", outs);
 }
 
-static
 bool isCaselessDouble(const flat_set<pair<u8, u8>> &stop) {
     // test for vector containing <A,Z> <A,z> <a,Z> <a,z>
     if (stop.size() != 4) {

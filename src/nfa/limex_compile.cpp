@@ -566,12 +566,29 @@ bool containsBadSubset(const limex_accel_info &accel,
 }
 
 static
-void doAccelCommon(NGHolder &g,
-                   ue2::unordered_map<NFAVertex, AccelScheme> &accel_map,
-                   const ue2::unordered_map<NFAVertex, u32> &state_ids,
-                   const map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
-                   const u32 num_states, limex_accel_info *accel,
-                   const CompileContext &cc) {
+bool is_too_wide(const AccelScheme &as) {
+    return as.cr.count() > MAX_MERGED_ACCEL_STOPS;
+}
+
+static
+void fillAccelInfo(build_info &bi) {
+    if (!bi.do_accel) {
+        return;
+    }
+
+    NGHolder &g = bi.h;
+    limex_accel_info &accel = bi.accel;
+    unordered_map<NFAVertex, AccelScheme> &accel_map = accel.accel_map;
+    const map<NFAVertex, BoundedRepeatSummary> &br_cyclic = bi.br_cyclic;
+    const CompileContext &cc = bi.cc;
+    const unordered_map<NFAVertex, u32> &state_ids = bi.state_ids;
+    const u32 num_states = bi.num_states;
+
+    nfaFindAccelSchemes(g, br_cyclic, &accel_map);
+    filterAccelStates(g, bi.tops, &accel_map);
+
+    assert(accel_map.size() <= NFA_MAX_ACCEL_STATES);
+
     vector<CharReach> refined_cr = reduced_cr(g, br_cyclic);
 
     vector<NFAVertex> astates;
@@ -602,7 +619,7 @@ void doAccelCommon(NGHolder &g,
             }
         }
 
-        if (containsBadSubset(*accel, state_set, effective_sds)) {
+        if (containsBadSubset(accel, state_set, effective_sds)) {
             DEBUG_PRINTF("accel %u has bad subset\n", i);
             continue; /* if a subset failed to build we would too */
         }
@@ -610,19 +627,20 @@ void doAccelCommon(NGHolder &g,
         const bool allow_wide = allow_wide_accel(states, g, sds_or_proxy);
 
         AccelScheme as = nfaFindAccel(g, states, refined_cr, br_cyclic,
-                                      allow_wide);
-        if (as.cr.count() > MAX_MERGED_ACCEL_STOPS) {
+                                      allow_wide, true);
+        if (is_too_wide(as)) {
             DEBUG_PRINTF("accel %u too wide (%zu, %d)\n", i,
                          as.cr.count(), MAX_MERGED_ACCEL_STOPS);
             continue;
         }
 
-        DEBUG_PRINTF("accel %u ok with offset %u\n", i, as.offset);
+        DEBUG_PRINTF("accel %u ok with offset s%u, d%u\n", i, as.offset,
+                     as.double_offset);
 
         // try multibyte acceleration first
         MultibyteAccelInfo mai = nfaCheckMultiAccel(g, states, cc);
 
-        precalcAccel &pa = accel->precalc[state_set];
+        precalcAccel &pa = accel.precalc[state_set];
         useful |= state_set;
 
         // if we successfully built a multibyte accel scheme, use that
@@ -635,17 +653,11 @@ void doAccelCommon(NGHolder &g,
 
         pa.single_offset = as.offset;
         pa.single_cr = as.cr;
-
-        if (states.size() == 1) {
-            DoubleAccelInfo b = findBestDoubleAccelInfo(g, states.front());
-            if (pa.single_cr.count() > b.stop1.count()) {
-                /* insert this information into the precalc accel info as it is
-                 * better than the single scheme */
-                pa.double_offset = b.offset;
-                pa.double_lits = b.stop2;
-                pa.double_cr = b.stop1;
-            }
-        }
+        if (as.double_byte.size() != 0) {
+            pa.double_offset = as.double_offset;
+            pa.double_lits = as.double_byte;
+            pa.double_cr = as.double_cr;
+        };
     }
 
     for (const auto &m : accel_map) {
@@ -663,31 +675,19 @@ void doAccelCommon(NGHolder &g,
         state_set.set(state_id);
 
         bool is_multi = false;
-        auto p_it = accel->precalc.find(state_set);
-        if (p_it != accel->precalc.end()) {
+        auto p_it = accel.precalc.find(state_set);
+        if (p_it != accel.precalc.end()) {
             const precalcAccel &pa = p_it->second;
             offset = max(pa.double_offset, pa.single_offset);
             is_multi = pa.ma_info.type != MultibyteAccelInfo::MAT_NONE;
             assert(offset <= MAX_ACCEL_DEPTH);
         }
 
-        accel->accelerable.insert(v);
-        if (!is_multi)
-            findAccelFriends(g, v, br_cyclic, offset, &accel->friends[v]);
+        accel.accelerable.insert(v);
+        if (!is_multi) {
+            findAccelFriends(g, v, br_cyclic, offset, &accel.friends[v]);
+        }
     }
-}
-
-static
-void fillAccelInfo(build_info &bi) {
-    if (!bi.do_accel) {
-        return;
-    }
-
-    nfaFindAccelSchemes(bi.h, bi.br_cyclic, &bi.accel.accel_map);
-    filterAccelStates(bi.h, bi.tops, &bi.accel.accel_map);
-    assert(bi.accel.accel_map.size() <= NFA_MAX_ACCEL_STATES);
-    doAccelCommon(bi.h, bi.accel.accel_map, bi.state_ids, bi.br_cyclic,
-                  bi.num_states, &bi.accel, bi.cc);
 }
 
 /** The AccelAux structure has large alignment specified, and this makes some

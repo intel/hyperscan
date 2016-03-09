@@ -183,11 +183,18 @@ escape_info look_for_offset_accel(const raw_dfa &rdfa, dstate_id_t base,
     DEBUG_PRINTF("looking for accel for %hu\n", base);
     vector<vector<CharReach> > paths = generate_paths(rdfa, base,
                                                    max_allowed_accel_offset + 1);
-    AccelScheme as = findBestAccelScheme(paths, CharReach());
+    AccelScheme as = findBestAccelScheme(paths, CharReach(), true);
     escape_info rv;
-    rv.outs2_broken = true;
     rv.offset = as.offset;
     rv.outs = as.cr;
+    if (!as.double_byte.empty()) {
+        rv.outs2_single = as.double_cr;
+        rv.outs2 = as.double_byte;
+        rv.outs2_offset = as.double_offset;
+        rv.outs2_broken = false;
+    } else {
+        rv.outs2_broken = true;
+    }
     DEBUG_PRINTF("found %s + %u\n", describeClass(as.cr).c_str(), as.offset);
     return rv;
 }
@@ -308,10 +315,15 @@ map<dstate_id_t, escape_info> populateAccelerationInfo(const raw_dfa &rdfa,
 
     /* provide accleration states to states in the region of sds */
     if (contains(rv, sds_proxy)) {
-        auto sds_region = find_region(rdfa, sds_proxy, rv[sds_proxy]);
+        escape_info sds_ei = rv[sds_proxy];
+        sds_ei.outs2_broken = true; /* region based on single byte scheme
+                                     * may differ from double byte */
+        DEBUG_PRINTF("looking to expand offset accel to nearby states, %zu\n",
+                     sds_ei.outs.count());
+        auto sds_region = find_region(rdfa, sds_proxy, sds_ei);
         for (auto s : sds_region) {
-            if (!contains(rv, s) || better(rv[sds_proxy], rv[s])) {
-                rv[s] = rv[sds_proxy];
+            if (!contains(rv, s) || better(sds_ei, rv[s])) {
+                rv[s] = sds_ei;
             }
         }
     }
@@ -395,7 +407,7 @@ escape_info find_mcclellan_escape_info(const raw_dfa &rdfa,
                                             max_allowed_accel_offset);
         DEBUG_PRINTF("width %zu vs %zu\n", offset.outs.count(),
                       rv.outs.count());
-        if (offset.outs.count() < rv.outs.count()) {
+        if (double_byte_ok(offset) || offset.outs.count() < rv.outs.count()) {
             DEBUG_PRINTF("using offset accel\n");
             rv = offset;
         }

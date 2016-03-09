@@ -60,6 +60,7 @@ struct escape_info {
     flat_set<std::pair<u8, u8>> outs2;
     bool outs2_broken = false;
     u32 offset = 0;
+    u32 outs2_offset = 0;
 };
 
 class dfa_build_strat {

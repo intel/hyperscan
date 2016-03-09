@@ -63,15 +63,6 @@ void findAccelFriends(const NGHolder &g, NFAVertex v,
                       u32 offset,
                       ue2::flat_set<NFAVertex> *friends);
 
-struct DoubleAccelInfo {
-    DoubleAccelInfo() : offset(0) {}
-    u32 offset;                         //!< offset correction to apply
-    CharReach stop1;                    //!< single-byte accel stop literals
-    flat_set<std::pair<u8, u8>> stop2;  //!< double-byte accel stop literals
-};
-
-DoubleAccelInfo findBestDoubleAccelInfo(const NGHolder &g, NFAVertex v);
-
 struct AccelScheme {
     AccelScheme(const CharReach &cr_in, u32 offset_in)
         : cr(cr_in), offset(offset_in) {
@@ -84,6 +75,36 @@ struct AccelScheme {
 
         // Don't use ORDER_CHECK as it will (stupidly) eval count() too many
         // times.
+        size_t a_dcount = double_cr.count();
+        size_t b_dcount = b.double_cr.count();
+
+        bool feasible_double_a
+            = !a.double_byte.empty() && a.double_byte.size() <= 8;
+        bool feasible_double_b
+            = !b.double_byte.empty() && b.double_byte.size() <= 8;
+
+        if (feasible_double_a != feasible_double_b) {
+            return feasible_double_a > feasible_double_b;
+        }
+
+        if (feasible_double_a) {
+            if (a_dcount != b_dcount) {
+                return a_dcount < b_dcount;
+            }
+
+            if ((a.double_byte.size() == 1) != (b.double_byte.size() == 1)) {
+                return a.double_byte.size() < b.double_byte.size();
+            }
+
+            bool cd_a = isCaselessDouble(a.double_byte);
+            bool cd_b = isCaselessDouble(b.double_byte);
+            if (cd_a != cd_b) {
+                return cd_a > cd_b;
+            }
+            ORDER_CHECK(double_byte.size());
+            ORDER_CHECK(double_offset);
+        }
+
         const size_t a_count = cr.count(), b_count = b.cr.count();
         if (a_count != b_count) {
             return a_count < b_count;
@@ -92,6 +113,9 @@ struct AccelScheme {
         /* TODO: give bonus if one is a 'caseless' character */
         ORDER_CHECK(offset);
         ORDER_CHECK(cr);
+        ORDER_CHECK(double_byte);
+        ORDER_CHECK(double_cr);
+        ORDER_CHECK(double_offset);
         return false;
     }
 
@@ -99,8 +123,11 @@ struct AccelScheme {
         return b < *this;
     }
 
+    ue2::flat_set<std::pair<u8, u8> > double_byte;
     CharReach cr;
+    CharReach double_cr;
     u32 offset;
+    u32 double_offset = 0;
 };
 
 NFAVertex get_sds_or_proxy(const NGHolder &g);
@@ -108,12 +135,15 @@ NFAVertex get_sds_or_proxy(const NGHolder &g);
 AccelScheme nfaFindAccel(const NGHolder &g, const std::vector<NFAVertex> &verts,
                     const std::vector<CharReach> &refined_cr,
                     const std::map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
-                    bool allow_wide);
+                    bool allow_wide, bool look_for_double_byte = false);
 
 AccelScheme findBestAccelScheme(std::vector<std::vector<CharReach> > paths,
-                                const CharReach &terminating);
+                                const CharReach &terminating,
+                                bool look_for_double_byte = false);
 
-/** \brief Check if vertex \a v is an accelerable state (for a limex NFA). */
+/** \brief Check if vertex \a v is an accelerable state (for a limex NFA). If a
+ *  single byte accel scheme is found it is placed into *as
+ */
 bool nfaCheckAccel(const NGHolder &g, NFAVertex v,
                    const std::vector<CharReach> &refined_cr,
                    const std::map<NFAVertex, BoundedRepeatSummary> &br_cyclic,

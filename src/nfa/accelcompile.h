@@ -56,6 +56,8 @@ struct MultibyteAccelInfo {
     multiaccel_type type = MAT_NONE;
 };
 
+bool isCaselessDouble(const flat_set<std::pair<u8, u8>> &stop);
+
 struct AccelInfo {
     AccelInfo() : single_offset(0U), double_offset(0U),
                   single_stops(CharReach::dot()),
