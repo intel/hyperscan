@@ -67,6 +67,7 @@ enum NFAEngineType {
     LBR_NFA_Shuf,       /**< magic pseudo nfa */
     LBR_NFA_Truf,       /**< magic pseudo nfa */
     CASTLE_NFA_0,       /**< magic pseudo nfa */
+    SHENG_NFA_0,        /**< magic pseudo nfa */
     TAMARAMA_NFA_0,     /**< magic nfa container */
     /** \brief bogus NFA - not used */
     INVALID_NFA
@@ -146,10 +147,17 @@ static really_inline int isGoughType(u8 t) {
     return t == GOUGH_NFA_8 || t == GOUGH_NFA_16;
 }
 
-/** \brief True if the given type (from NFA::type) is a McClellan or Gough DFA.
- * */
+/** \brief True if the given type (from NFA::type) is a Sheng DFA. */
+static really_inline int isShengType(u8 t) {
+    return t == SHENG_NFA_0;
+}
+
+/**
+ * \brief True if the given type (from NFA::type) is a McClellan, Gough or
+ * Sheng DFA.
+ */
 static really_inline int isDfaType(u8 t) {
-    return isMcClellanType(t) || isGoughType(t);
+    return isMcClellanType(t) || isGoughType(t) || isShengType(t);
 }
 
 /** \brief True if the given type (from NFA::type) is an NFA. */

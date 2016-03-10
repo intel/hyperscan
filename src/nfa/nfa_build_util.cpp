@@ -30,6 +30,7 @@
 
 #include "limex_internal.h"
 #include "mcclellancompile.h"
+#include "shengcompile.h"
 #include "nfa_internal.h"
 #include "repeat_internal.h"
 #include "ue2common.h"
@@ -213,7 +214,7 @@ template<> struct NFATraits<MCCLELLAN_NFA_8> {
     static const nfa_dispatch_fn has_repeats;
     static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_8>::has_accel = has_accel_dfa;
+const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_8>::has_accel = has_accel_mcclellan;
 const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_8>::has_repeats = dispatch_false;
 const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_8>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
@@ -229,7 +230,7 @@ template<> struct NFATraits<MCCLELLAN_NFA_16> {
     static const nfa_dispatch_fn has_repeats;
     static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_16>::has_accel = has_accel_dfa;
+const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_16>::has_accel = has_accel_mcclellan;
 const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_16>::has_repeats = dispatch_false;
 const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_16>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
@@ -245,7 +246,7 @@ template<> struct NFATraits<GOUGH_NFA_8> {
     static const nfa_dispatch_fn has_repeats;
     static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const nfa_dispatch_fn NFATraits<GOUGH_NFA_8>::has_accel = has_accel_dfa;
+const nfa_dispatch_fn NFATraits<GOUGH_NFA_8>::has_accel = has_accel_mcclellan;
 const nfa_dispatch_fn NFATraits<GOUGH_NFA_8>::has_repeats = dispatch_false;
 const nfa_dispatch_fn NFATraits<GOUGH_NFA_8>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
@@ -261,7 +262,7 @@ template<> struct NFATraits<GOUGH_NFA_16> {
     static const nfa_dispatch_fn has_repeats;
     static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const nfa_dispatch_fn NFATraits<GOUGH_NFA_16>::has_accel = has_accel_dfa;
+const nfa_dispatch_fn NFATraits<GOUGH_NFA_16>::has_accel = has_accel_mcclellan;
 const nfa_dispatch_fn NFATraits<GOUGH_NFA_16>::has_repeats = dispatch_false;
 const nfa_dispatch_fn NFATraits<GOUGH_NFA_16>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
@@ -378,6 +379,22 @@ const nfa_dispatch_fn NFATraits<LBR_NFA_Truf>::has_repeats = dispatch_false;
 const nfa_dispatch_fn NFATraits<LBR_NFA_Truf>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<LBR_NFA_Truf>::name = "Lim Bounded Repeat (M)";
+#endif
+
+template<> struct NFATraits<SHENG_NFA_0> {
+    UNUSED static const char *name;
+    static const NFACategory category = NFA_OTHER;
+    static const u32 stateAlign = 1;
+    static const bool fast = true;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
+};
+const nfa_dispatch_fn NFATraits<SHENG_NFA_0>::has_accel = has_accel_sheng;
+const nfa_dispatch_fn NFATraits<SHENG_NFA_0>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<SHENG_NFA_0>::has_repeats_other_than_firsts = dispatch_false;
+#if defined(DUMP_SUPPORT)
+const char *NFATraits<SHENG_NFA_0>::name = "Sheng";
 #endif
 
 template<> struct NFATraits<TAMARAMA_NFA_0> {

@@ -50,6 +50,7 @@ struct Grey {
     bool allowLitHaig;
     bool allowLbr;
     bool allowMcClellan;
+    bool allowSheng;
     bool allowPuff;
     bool allowLiteral;
     bool allowRose;
@@ -149,6 +150,7 @@ struct Grey {
 
     // SmallWrite engine
     bool allowSmallWrite;
+    bool allowSmallWriteSheng;
     u32 smallWriteLargestBuffer;  // largest buffer that can be small write
     u32 smallWriteLargestBufferBad;// largest buffer that can be small write
     u32 limitSmallWriteOutfixSize; //!< max total size of outfix DFAs

@@ -42,6 +42,7 @@
 #include "limex.h"
 #include "mcclellan.h"
 #include "mpv.h"
+#include "sheng.h"
 #include "tamarama.h"
 
 #define DISPATCH_CASE(dc_ltype, dc_ftype, dc_subtype, dc_func_call) \
@@ -69,6 +70,7 @@
         DISPATCH_CASE(LBR, Lbr, Shuf, dbnt_func);             \
         DISPATCH_CASE(LBR, Lbr, Truf, dbnt_func);             \
         DISPATCH_CASE(CASTLE, Castle, 0, dbnt_func);          \
+        DISPATCH_CASE(SHENG, Sheng, 0, dbnt_func);            \
         DISPATCH_CASE(TAMARAMA, Tamarama, 0, dbnt_func);      \
     default:                                                  \
         assert(0);                                            \

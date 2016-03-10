@@ -43,6 +43,7 @@
 #include "nfa/nfa_api_util.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/nfa_rev_api.h"
+#include "nfa/sheng.h"
 #include "smallwrite/smallwrite_internal.h"
 #include "rose/rose.h"
 #include "rose/runtime.h"
@@ -286,13 +287,16 @@ void runSmallWriteEngine(const struct SmallWriteEngine *smwr,
     size_t local_alen = length - smwr->start_offset;
     const u8 *local_buffer = buffer + smwr->start_offset;
 
-    assert(isMcClellanType(nfa->type));
+    assert(isDfaType(nfa->type));
     if (nfa->type == MCCLELLAN_NFA_8) {
         nfaExecMcClellan8_B(nfa, smwr->start_offset, local_buffer,
                             local_alen, roseReportAdaptor, scratch);
-    } else {
+    } else if (nfa->type == MCCLELLAN_NFA_16){
         nfaExecMcClellan16_B(nfa, smwr->start_offset, local_buffer,
                              local_alen, roseReportAdaptor, scratch);
+    } else {
+        nfaExecSheng0_B(nfa, smwr->start_offset, local_buffer,
+                        local_alen, roseReportAdaptor, scratch);
     }
 }
 

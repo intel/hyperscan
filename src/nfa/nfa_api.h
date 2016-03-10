@@ -127,6 +127,9 @@ char nfaQueueExec(const struct NFA *nfa, struct mq *q, s64a end);
  */
 char nfaQueueExec_raw(const struct NFA *nfa, struct mq *q, s64a end);
 
+/** Return value indicating that the engine is dead. */
+#define MO_DEAD 0
+
 /** Return value indicating that the engine is alive. */
 #define MO_ALIVE 1
 

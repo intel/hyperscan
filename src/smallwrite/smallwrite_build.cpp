@@ -34,6 +34,7 @@
 #include "nfa/mcclellancompile_util.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/rdfa_merge.h"
+#include "nfa/shengcompile.h"
 #include "nfagraph/ng.h"
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_mcclellan.h"
@@ -313,6 +314,20 @@ bool is_slow(const raw_dfa &rdfa, const set<dstate_id_t> &accel,
 }
 
 static
+aligned_unique_ptr<NFA> getDfa(raw_dfa &rdfa, const CompileContext &cc,
+                               const ReportManager &rm,
+                               set<dstate_id_t> &accel_states) {
+    aligned_unique_ptr<NFA> dfa = nullptr;
+    if (cc.grey.allowSmallWriteSheng) {
+        dfa = shengCompile(rdfa, cc, rm, &accel_states);
+    }
+    if (!dfa) {
+        dfa = mcclellanCompile(rdfa, cc, rm, &accel_states);
+    }
+    return dfa;
+}
+
+static
 aligned_unique_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
                                    const CompileContext &cc,
                                    const ReportManager &rm, u32 *start_offset,
@@ -322,9 +337,9 @@ aligned_unique_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
     // Unleash the McClellan!
     set<dstate_id_t> accel_states;
 
-    auto nfa = mcclellanCompile(rdfa, cc, rm, &accel_states);
+    auto nfa = getDfa(rdfa, cc, rm, accel_states);
     if (!nfa) {
-        DEBUG_PRINTF("mcclellan compile failed for smallwrite NFA\n");
+        DEBUG_PRINTF("DFA compile failed for smallwrite NFA\n");
         return nullptr;
     }
 
@@ -340,9 +355,9 @@ aligned_unique_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
                 return nullptr;
             }
 
-            nfa = mcclellanCompile(rdfa, cc, rm, &accel_states);
+            nfa = getDfa(rdfa, cc, rm, accel_states);
             if (!nfa) {
-                DEBUG_PRINTF("mcclellan compile failed for smallwrite NFA\n");
+                DEBUG_PRINTF("DFA compile failed for smallwrite NFA\n");
                 assert(0); /* able to build orig dfa but not the trimmed? */
                 return nullptr;
             }
@@ -351,7 +366,7 @@ aligned_unique_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
         *small_region = cc.grey.smallWriteLargestBuffer;
     }
 
-    assert(isMcClellanType(nfa->type));
+    assert(isDfaType(nfa->type));
     if (nfa->length > cc.grey.limitSmallWriteOutfixSize
         || nfa->length > cc.grey.limitDFASize) {
         DEBUG_PRINTF("smallwrite outfix size too large\n");

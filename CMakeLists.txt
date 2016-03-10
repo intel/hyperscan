@@ -476,6 +476,12 @@ set (hs_exec_SRCS
     src/nfa/repeat.c
     src/nfa/repeat.h
     src/nfa/repeat_internal.h
+    src/nfa/sheng.c
+    src/nfa/sheng.h
+    src/nfa/sheng_defs.h
+    src/nfa/sheng_impl.h
+    src/nfa/sheng_impl4.h
+    src/nfa/sheng_internal.h
     src/nfa/shufti_common.h
     src/nfa/shufti.c
     src/nfa/shufti.h
@@ -641,6 +647,9 @@ SET (hs_SRCS
     src/nfa/repeat_internal.h
     src/nfa/repeatcompile.cpp
     src/nfa/repeatcompile.h
+    src/nfa/sheng_internal.h
+    src/nfa/shengcompile.cpp
+    src/nfa/shengcompile.h
     src/nfa/shufticompile.cpp
     src/nfa/shufticompile.h
     src/nfa/tamaramacompile.cpp
@@ -927,6 +936,8 @@ set(hs_dump_SRCS
     src/nfa/nfa_dump_dispatch.cpp
     src/nfa/nfa_dump_internal.cpp
     src/nfa/nfa_dump_internal.h
+    src/nfa/shengdump.cpp
+    src/nfa/shengdump.h
     src/nfa/tamarama_dump.cpp
     src/nfa/tamarama_dump.h
     src/parser/dump.cpp

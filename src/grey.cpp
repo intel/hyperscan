@@ -50,6 +50,7 @@ Grey::Grey(void) :
                    allowLitHaig(true),
                    allowLbr(true),
                    allowMcClellan(true),
+                   allowSheng(true),
                    allowPuff(true),
                    allowLiteral(true),
                    allowRose(true),
@@ -127,6 +128,7 @@ Grey::Grey(void) :
                    equivalenceEnable(true),
 
                    allowSmallWrite(true), // McClellan dfas for small patterns
+                   allowSmallWriteSheng(false), // allow use of Sheng for SMWR
 
                    smallWriteLargestBuffer(70), // largest buffer that can be
                                                 // considered a small write
@@ -214,6 +216,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(allowLitHaig);
         G_UPDATE(allowLbr);
         G_UPDATE(allowMcClellan);
+        G_UPDATE(allowSheng);
         G_UPDATE(allowPuff);
         G_UPDATE(allowLiteral);
         G_UPDATE(allowRose);
@@ -290,6 +293,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(miracleHistoryBonus);
         G_UPDATE(equivalenceEnable);
         G_UPDATE(allowSmallWrite);
+        G_UPDATE(allowSmallWriteSheng);
         G_UPDATE(smallWriteLargestBuffer);
         G_UPDATE(smallWriteLargestBufferBad);
         G_UPDATE(limitSmallWriteOutfixSize);

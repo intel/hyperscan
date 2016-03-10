@@ -1009,7 +1009,7 @@ u32 mcclellanStartReachSize(const raw_dfa *raw) {
     return out.count();
 }
 
-bool has_accel_dfa(const NFA *nfa) {
+bool has_accel_mcclellan(const NFA *nfa) {
     const mcclellan *m = (const mcclellan *)getImplNfa(nfa);
     return m->has_accel;
 }

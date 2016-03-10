@@ -505,6 +505,9 @@ aligned_unique_ptr<NFA> constructReversedNFA(const NGHolder &h_in, u32 hint,
 
 u32 isImplementableNFA(const NGHolder &g, const ReportManager *rm,
                        const CompileContext &cc) {
+    if (!cc.grey.allowLimExNFA) {
+        return false;
+    }
     // Quick check: we can always implement an NFA with less than NFA_MAX_STATES
     // states. Note that top masks can generate extra states, so we account for
     // those here too.
