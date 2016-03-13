@@ -361,25 +361,22 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
         DEBUG_PRINTF("sub %u: selected %s model for %s repeat\n", i,
                      repeatTypeName(rtype), pr.bounds.str().c_str());
 
-        u32 subScratchStateSize;
-        u32 subStreamStateSize;
-
         SubCastle &sub = subs[i];
         RepeatInfo &info = infos[i];
 
-        // handle exclusive case differently
+        info.packedCtrlSize = rsi.packedCtrlSize;
+        u32 subStreamStateSize = verify_u32(rsi.packedCtrlSize + rsi.stateSize);
+
+        // Handle stream/scratch space alloc for exclusive case differently.
         if (contains(groupId, i)) {
             u32 id = groupId.at(i);
-            maxStreamSize[id] = MAX(maxStreamSize[id], rsi.packedCtrlSize);
+            maxStreamSize[id] = max(maxStreamSize[id], subStreamStateSize);
+            // SubCastle full/stream state offsets are written in for the group
+            // below.
         } else {
-            subScratchStateSize = verify_u32(sizeof(RepeatControl));
-            subStreamStateSize = verify_u32(rsi.packedCtrlSize + rsi.stateSize);
-
-            info.packedCtrlSize = rsi.packedCtrlSize;
             sub.fullStateOffset = scratchStateSize;
             sub.streamStateOffset = streamStateSize;
-
-            scratchStateSize += subScratchStateSize;
+            scratchStateSize += verify_u32(sizeof(RepeatControl));
             streamStateSize += subStreamStateSize;
         }
 
@@ -420,8 +417,6 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
         u32 top = j.first;
         u32 id = j.second;
         SubCastle &sub = subs[top];
-        RepeatInfo &info = infos[top];
-        info.packedCtrlSize = maxStreamSize[id];
         if (!scratchOffset[id]) {
             sub.fullStateOffset = scratchStateSize;
             sub.streamStateOffset = streamStateSize;
