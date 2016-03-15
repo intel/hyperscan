@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -161,15 +161,6 @@ void shuftiBuildDoubleMasks(const CharReach &onechar,
     memcpy(lo2, lo2_a.data(), sizeof(m128));
     memcpy(hi1, hi1_a.data(), sizeof(m128));
     memcpy(hi2, hi2_a.data(), sizeof(m128));
-}
-
-void mergeShuftiMask(m128 *lo, const m128 lo_in, u32 lo_bits) {
-    assert(lo_bits <= 8);
-    const u8 *lo_in_p = (const u8 *)&lo_in;
-    u8 *lo_p = (u8 *)lo;
-    for (u32 i = 0; i < 16; i++) {
-        lo_p[i] |= lo_in_p[i] << lo_bits;
-    }
 }
 
 #ifdef DUMP_SUPPORT
