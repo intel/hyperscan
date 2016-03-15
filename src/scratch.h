@@ -180,12 +180,6 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     u32 som_store_count;
 };
 
-static really_inline
-struct hs_scratch *tctxtToScratch(struct RoseContext *tctxt) {
-    return (struct hs_scratch *)
-        ((char *)tctxt - offsetof(struct hs_scratch, tctxt));
-}
-
 /* array of fatbit ptr; TODO: why not an array of fatbits? */
 static really_inline
 struct fatbit **getAnchoredLiteralLog(struct hs_scratch *scratch) {
