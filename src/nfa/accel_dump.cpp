@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,15 +37,19 @@
 #include "shufticompile.h"
 #include "trufflecompile.h"
 #include "ue2common.h"
+#include "util/bitutils.h"
 #include "util/charreach.h"
 #include "util/dump_charclass.h"
 #include "util/dump_mask.h"
 
 #include <cstdio>
+#include <vector>
 
 #ifndef DUMP_SUPPORT
 #error No dump support!
 #endif
+
+using namespace std;
 
 namespace ue2 {
 
@@ -147,6 +151,60 @@ void dumpShuftiCharReach(FILE *f, const m128 &lo, const m128 &hi) {
 }
 
 static
+vector<CharReach> shufti2cr_array(const m128 lo_in, const m128 hi_in) {
+    const u8 *lo = (const u8 *)&lo_in;
+    const u8 *hi = (const u8 *)&hi_in;
+    vector<CharReach> crs(8);
+    for (u32 i = 0; i < 256; i++) {
+        u32 combined = lo[(u8)i & 0xf] & hi[(u8)i >> 4];
+        while (combined) {
+            u32 j = findAndClearLSB_32(&combined);
+            crs.at(j).set(i);
+        }
+    }
+    return crs;
+}
+
+static
+void dumpDShuftiCharReach(FILE *f, const m128 &lo1, const m128 &hi1,
+                                   const m128 &lo2, const m128 &hi2) {
+    vector<CharReach> cr1 = shufti2cr_array(~lo1, ~hi1);
+    vector<CharReach> cr2 = shufti2cr_array(~lo2, ~hi2);
+    map<CharReach, set<u32> > cr1_group;
+    assert(cr1.size() == 8 && cr2.size() == 8);
+    for (u32 i = 0; i < 8; i++) {
+        if (!cr1[i].any()) {
+            continue;
+        }
+        cr1_group[cr1[i]].insert(i);
+    }
+    map<CharReach, CharReach> rev;
+    for (const auto &e : cr1_group) {
+        CharReach rhs;
+        for (u32 r : e.second) {
+            rhs |= cr2.at(r);
+        }
+
+        rev[rhs] |= e.first;
+    }
+    fprintf(f, "escapes: {");
+    for (auto it = rev.begin(); it != rev.end(); ++it) {
+        const auto &e = *it;
+        if (it != rev.begin()) {
+            fprintf(f, ", ");
+        }
+
+        if (e.first.all()) {
+            fprintf(f, "%s", describeClass(e.second).c_str());
+        } else {
+            fprintf(f, "%s%s", describeClass(e.second).c_str(),
+                    describeClass(e.first).c_str());
+        }
+    }
+    fprintf(f, "}\n");
+}
+
+static
 void dumpShuftiMasks(FILE *f, const m128 &lo, const m128 &hi) {
     fprintf(f, "lo %s\n",
             dumpMask((const u8 *)&lo, 128).c_str());
@@ -201,6 +259,8 @@ void dumpAccelInfo(FILE *f, const AccelAux &accel) {
         dumpShuftiMasks(f, accel.dshufti.lo1, accel.dshufti.hi1);
         fprintf(f, "mask 2\n");
         dumpShuftiMasks(f, accel.dshufti.lo2, accel.dshufti.hi2);
+        dumpDShuftiCharReach(f, accel.dshufti.lo1, accel.dshufti.hi1,
+                             accel.dshufti.lo2, accel.dshufti.hi2);
         break;
     case ACCEL_TRUFFLE: {
         fprintf(f, "\n");
