@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -82,6 +82,18 @@ const u8 *run_accel(const union AccelAux *accel, const u8 *c, const u8 *c_end) {
         /* need to stop one early to get an accurate end state */
         rv = vermicelliDoubleExec(accel->dverm.c1, accel->dverm.c2, 1, c,
                                   c_end - 1);
+        break;
+
+    case ACCEL_DVERM_MASKED:
+        DEBUG_PRINTF("accel dverm masked %p %p\n", c, c_end);
+        if (c + 16 + 1 >= c_end) {
+            return c;
+        }
+
+        /* need to stop one early to get an accurate end state */
+        rv = vermicelliDoubleMaskedExec(accel->dverm.c1, accel->dverm.c2,
+                                        accel->dverm.m1, accel->dverm.m2,
+                                        c, c_end - 1);
         break;
 
     case ACCEL_SHUFTI:

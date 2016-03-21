@@ -94,6 +94,48 @@ void buildAccelSingle(const AccelInfo &info, AccelAux *aux) {
     DEBUG_PRINTF("unable to accelerate case with %zu outs\n", outs);
 }
 
+bool buildDvermMask(const flat_set<pair<u8, u8>> &escape_set, u8 *m1_out,
+                    u8 *m2_out) {
+    u8 a1 = 0xff;
+    u8 a2 = 0xff;
+    u8 b1 = 0xff;
+    u8 b2 = 0xff;
+
+    for (const auto &e : escape_set) {
+        DEBUG_PRINTF("%0hhx %0hhx\n", e.first, e.second);
+        a1 &= e.first;
+        b1 &= ~e.first;
+        a2 &= e.second;
+        b2 &= ~e.second;
+    }
+
+    u8 m1 = a1 | b1;
+    u8 m2 = a2 | b2;
+
+    u32 holes1 = 8 - popcount32(m1);
+    u32 holes2 = 8 - popcount32(m2);
+
+    DEBUG_PRINTF("aaaa %0hhx %0hhx\n", a1, a2);
+    DEBUG_PRINTF("bbbb %0hhx %0hhx\n", b1, b2);
+    DEBUG_PRINTF("mask %0hhx %0hhx\n", m1, m2);
+
+    assert(holes1 <= 8 && holes2 <= 8);
+    assert(escape_set.size() <= 1U << (holes1 + holes2));
+    if (escape_set.size() != 1U << (holes1 + holes2)) {
+        return false;
+    }
+
+    if (m1_out) {
+        *m1_out = m1;
+    }
+    if (m2_out) {
+        *m2_out = m2;
+    }
+
+    return true;
+}
+
+static
 bool isCaselessDouble(const flat_set<pair<u8, u8>> &stop) {
     // test for vector containing <A,Z> <A,z> <a,Z> <a,z>
     if (stop.size() != 4) {
@@ -146,6 +188,23 @@ void buildAccelDouble(const AccelInfo &info, AccelAux *aux) {
         DEBUG_PRINTF("building double-vermicelli caseless for 0x%02hhx%02hhx\n",
                      aux->dverm.c1, aux->dverm.c2);
         return;
+    }
+
+    if (outs1 == 0) {
+        u8 m1;
+        u8 m2;
+
+        if (buildDvermMask(info.double_stop2, &m1, &m2)) {
+            aux->accel_type = ACCEL_DVERM_MASKED;
+            aux->dverm.offset = offset;
+            aux->dverm.c1 = info.double_stop2.begin()->first & m1;
+            aux->dverm.c2 = info.double_stop2.begin()->second & m2;
+            aux->dverm.m1 = m1;
+            aux->dverm.m2 = m2;
+            DEBUG_PRINTF("building maskeddouble-vermicelli for 0x%02hhx%02hhx\n",
+                         aux->dverm.c1, aux->dverm.c2);
+            return;
+        }
     }
 
     if (outs1 + outs2 <= 8) {

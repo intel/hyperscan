@@ -96,10 +96,12 @@ struct AccelScheme {
                 return a.double_byte.size() < b.double_byte.size();
             }
 
-            bool cd_a = isCaselessDouble(a.double_byte);
-            bool cd_b = isCaselessDouble(b.double_byte);
-            if (cd_a != cd_b) {
-                return cd_a > cd_b;
+            if (!a_dcount) {
+                bool cd_a = buildDvermMask(a.double_byte);
+                bool cd_b = buildDvermMask(b.double_byte);
+                if (cd_a != cd_b) {
+                    return cd_a > cd_b;
+                }
             }
             ORDER_CHECK(double_byte.size());
             ORDER_CHECK(double_offset);

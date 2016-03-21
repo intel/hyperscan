@@ -66,6 +66,8 @@ const char *accelName(u8 accel_type) {
         return "double-vermicelli";
     case ACCEL_DVERM_NOCASE:
         return "double-vermicelli nocase";
+    case ACCEL_DVERM_MASKED:
+        return "double-vermicelli masked";
     case ACCEL_RVERM:
         return "reverse vermicelli";
     case ACCEL_RVERM_NOCASE:
@@ -246,6 +248,10 @@ void dumpAccelInfo(FILE *f, const AccelAux &accel) {
     case ACCEL_RDVERM:
     case ACCEL_RDVERM_NOCASE:
         fprintf(f, " [\\x%02hhx\\x%02hhx]\n", accel.dverm.c1, accel.dverm.c2);
+        break;
+    case ACCEL_DVERM_MASKED:
+        fprintf(f, " [\\x%02hhx\\x%02hhx] & [\\x%02hhx\\x%02hhx]\n",
+                accel.dverm.c1, accel.dverm.c2, accel.dverm.m1, accel.dverm.m2);
         break;
     case ACCEL_SHUFTI: {
         fprintf(f, "\n");

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -87,7 +87,10 @@ enum AccelType {
     ACCEL_MSTRUFFLE,
     ACCEL_MSGTRUFFLE,
     ACCEL_MDSTRUFFLE,
-    ACCEL_MDSGTRUFFLE
+    ACCEL_MDSGTRUFFLE,
+    /* masked dverm */
+    ACCEL_DVERM_MASKED,
+
 };
 
 /** \brief Structure for accel framework. */
@@ -107,6 +110,8 @@ union AccelAux {
         u8 offset;
         u8 c1; // uppercase if nocase
         u8 c2; // uppercase if nocase
+        u8 m1; // masked variant
+        u8 m2; // masked variant
     } dverm;
     struct {
         u8 accel_type;

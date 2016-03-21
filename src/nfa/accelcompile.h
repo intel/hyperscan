@@ -56,8 +56,6 @@ struct MultibyteAccelInfo {
     multiaccel_type type = MAT_NONE;
 };
 
-bool isCaselessDouble(const flat_set<std::pair<u8, u8>> &stop);
-
 struct AccelInfo {
     AccelInfo() : single_offset(0U), double_offset(0U),
                   single_stops(CharReach::dot()),
@@ -78,6 +76,10 @@ struct AccelInfo {
 };
 
 bool buildAccelAux(const AccelInfo &info, AccelAux *aux);
+
+/* returns true is the escape set can be handled with a masked double_verm */
+bool buildDvermMask(const flat_set<std::pair<u8, u8>> &escape_set,
+                    u8 *m1_out = nullptr, u8 *m2_out = nullptr);
 
 } // namespace ue2
 

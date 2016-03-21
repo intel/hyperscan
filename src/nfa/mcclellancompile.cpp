@@ -29,6 +29,7 @@
 #include "mcclellancompile.h"
 
 #include "accel.h"
+#include "accelcompile.h"
 #include "grey.h"
 #include "mcclellan_internal.h"
 #include "mcclellancompile_accel.h"
@@ -237,6 +238,20 @@ void mcclellan_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
             accel->dverm.c2 = secondC;
             accel->dverm.offset = verify_u8(info.outs2_offset);
             DEBUG_PRINTF("state %hu is nc double vermicelli\n", this_idx);
+            return;
+        }
+
+        u8 m1;
+        u8 m2;
+        if (buildDvermMask(info.outs2, &m1, &m2)) {
+            accel->accel_type = ACCEL_DVERM_MASKED;
+            accel->dverm.offset = verify_u8(info.outs2_offset);
+            accel->dverm.c1 = info.outs2.begin()->first & m1;
+            accel->dverm.c2 = info.outs2.begin()->second & m2;
+            accel->dverm.m1 = m1;
+            accel->dverm.m2 = m2;
+            DEBUG_PRINTF("building maskeddouble-vermicelli for 0x%02hhx%02hhx\n",
+                         accel->dverm.c1, accel->dverm.c2);
             return;
         }
     }

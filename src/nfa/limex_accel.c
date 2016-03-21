@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -80,6 +80,15 @@ const u8 *accelScan(const union AccelAux *aux, const u8 *ptr, const u8 *end) {
         offset = aux->dverm.offset;
         ptr = vermicelliDoubleExec(aux->dverm.c1, aux->dverm.c2,
                                    1, ptr, end);
+        break;
+    case ACCEL_DVERM_MASKED:
+        DEBUG_PRINTF("double vermicelli masked for "
+                     "0x%02hhx%02hhx/0x%02hhx%02hhx\n",
+                     aux->dverm.c1, aux->dverm.c2,
+                     aux->dverm.m1, aux->dverm.m2);
+        offset = aux->dverm.offset;
+        ptr = vermicelliDoubleMaskedExec(aux->dverm.c1, aux->dverm.c2,
+                                         aux->dverm.m1, aux->dverm.m2, ptr, end);
         break;
     case ACCEL_MLVERM:
         DEBUG_PRINTF("long vermicelli for 0x%02hhx\n", aux->mverm.c);
