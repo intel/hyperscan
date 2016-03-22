@@ -133,7 +133,6 @@ void init_outfixes_for_block(const struct RoseEngine *t,
 
 static really_inline
 void init_for_block(const struct RoseEngine *t, struct hs_scratch *scratch,
-                    RoseCallback callback, RoseCallbackSom som_callback,
                     char *state, char is_small_block) {
     init_state_for_block(t, state);
 
@@ -144,8 +143,6 @@ void init_for_block(const struct RoseEngine *t, struct hs_scratch *scratch,
     tctxt->delayLastEndOffset = 0;
     tctxt->lastEndOffset = 0;
     tctxt->filledDelayedSlots = 0;
-    tctxt->cb = callback;
-    tctxt->cb_som = som_callback;
     tctxt->lastMatchOffset = 0;
     tctxt->minMatchOffset = 0;
     tctxt->minNonMpvMatchOffset = 0;
@@ -160,8 +157,7 @@ void init_for_block(const struct RoseEngine *t, struct hs_scratch *scratch,
     init_outfixes_for_block(t, scratch, state, is_small_block);
 }
 
-void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
-                     RoseCallback callback, RoseCallbackSom som_callback) {
+void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch) {
     assert(t);
     assert(scratch);
     assert(scratch->core_info.buf);
@@ -179,8 +175,7 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
 
     char *state = scratch->core_info.state;
 
-    init_for_block(t, scratch, callback, som_callback, state,
-                   is_small_block);
+    init_for_block(t, scratch, state, is_small_block);
 
     struct RoseContext *tctxt = &scratch->tctxt;
 

@@ -293,7 +293,7 @@ void constructPuff(NGHolder &g, const NFAVertex a, const NFAVertex puffv,
         u32 squashDistance = allowedSquashDistance(cr, width, g, puffv,
                                                    prefilter);
 
-        Report ir = makeRoseTrigger(event, squashDistance);
+        Report ir = makeMpvTrigger(event, squashDistance);
         /* only need to trigger once if floatingUnboundedDot */
         bool floatingUnboundedDot = unbounded && cr.all() && !fixed_depth;
         if (floatingUnboundedDot) {

@@ -41,7 +41,6 @@
 #include "nfa/nfa_dump_api.h"
 #include "nfa/nfa_internal.h"
 #include "util/dump_charclass.h"
-#include "util/internal_report.h"
 #include "util/multibit_internal.h"
 #include "util/multibit.h"
 
@@ -192,20 +191,20 @@ void dumpJumpTable(ofstream &os, const RoseEngine *t,
 }
 
 static
-void dumpReport(ofstream &os, const RoseEngine *t, ReportID report) {
-    const auto *ir =
-        (const internal_report *)loadFromByteCodeOffset(t, t->intReportOffset) +
-        report;
-    os << "      type=" << u32{ir->type};
-    os << ", onmatch=" << ir->onmatch;
-    if (ir->ekey != INVALID_EKEY) {
-        os << ", ekey=" << ir->ekey;
+void dumpSomOperation(ofstream &os, const som_operation &op) {
+    os << "    som (type=" << u32{op.type} << ", onmatch=" << op.onmatch;
+    switch (op.type) {
+    case SOM_EXTERNAL_CALLBACK_REV_NFA:
+    case SOM_INTERNAL_LOC_SET_REV_NFA:
+    case SOM_INTERNAL_LOC_SET_REV_NFA_IF_UNSET:
+    case SOM_INTERNAL_LOC_SET_REV_NFA_IF_WRITABLE:
+        os << ", revNfaIndex=" << op.aux.revNfaIndex;
+        break;
+    default:
+        os << ", somDistance=" << op.aux.somDistance;
+        break;
     }
-    if (ir->dkey != MO_INVALID_IDX) {
-        os << ", dkey=" << ir->dkey;
-    }
-
-    os << endl;
+    os << ")" << endl;
 }
 
 static
@@ -314,6 +313,9 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             PROGRAM_CASE(CATCH_UP) {}
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CATCH_UP_MPV) {}
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(SOM_ADJUST) {
                 os << "    distance " << ri->distance << endl;
             }
@@ -326,8 +328,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(SOM_FROM_REPORT) {
-                os << "    report " << ri->report << endl;
-                dumpReport(os, t, ri->report);
+                dumpSomOperation(os, ri->som);
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -348,64 +349,69 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(DEDUPE) {
-                os << "    report " << ri->report << endl;
-                dumpReport(os, t, ri->report);
+                os << "    quash_som " << u32{ri->quash_som} << endl;
+                os << "    dkey " << ri->dkey << endl;
+                os << "    offset_adjust " << ri->offset_adjust << endl;
                 os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(DEDUPE_SOM) {
-                os << "    report " << ri->report << endl;
-                dumpReport(os, t, ri->report);
+                os << "    quash_som " << u32{ri->quash_som} << endl;
+                os << "    dkey " << ri->dkey << endl;
+                os << "    offset_adjust " << ri->offset_adjust << endl;
                 os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_CHAIN) {
-                os << "    report " << ri->report << endl;
-                dumpReport(os, t, ri->report);
+                os << "    event " << ri->event << endl;
+                os << "    top_squash_distance " << ri->top_squash_distance
+                   << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM_INT) {
-                os << "    report " << ri->report << endl;
-                dumpReport(os, t, ri->report);
+                dumpSomOperation(os, ri->som);
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM_AWARE) {
-                os << "    report " << ri->report << endl;
-                dumpReport(os, t, ri->report);
+                dumpSomOperation(os, ri->som);
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT) {
-                os << "    report " << ri->report << endl;
-                dumpReport(os, t, ri->report);
+                os << "    onmatch " << ri->onmatch << endl;
+                os << "    offset_adjust " << ri->offset_adjust << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_EXHAUST) {
-                os << "    report " << ri->report << endl;
-                dumpReport(os, t, ri->report);
+                os << "    onmatch " << ri->onmatch << endl;
+                os << "    offset_adjust " << ri->offset_adjust << endl;
+                os << "    ekey " << ri->ekey << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM) {
-                os << "    report " << ri->report << endl;
-                dumpReport(os, t, ri->report);
+                os << "    onmatch " << ri->onmatch << endl;
+                os << "    offset_adjust " << ri->offset_adjust << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM_EXHAUST) {
-                os << "    report " << ri->report << endl;
-                dumpReport(os, t, ri->report);
+                os << "    onmatch " << ri->onmatch << endl;
+                os << "    offset_adjust " << ri->offset_adjust << endl;
+                os << "    ekey " << ri->ekey << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(DEDUPE_AND_REPORT) {
-                os << "    report " << ri->report << endl;
-                dumpReport(os, t, ri->report);
+                os << "    quash_som " << u32{ri->quash_som} << endl;
+                os << "    dkey " << ri->dkey << endl;
+                os << "    onmatch " << ri->onmatch << endl;
+                os << "    offset_adjust " << ri->offset_adjust << endl;
                 os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
@@ -532,6 +538,30 @@ void dumpRoseEodPrograms(const RoseEngine *t, const string &filename) {
         dumpProgram(os, t, base + t->eodIterProgramOffset);
     } else {
         os << "<No EOD Iter Program>" << endl;
+    }
+
+    os.close();
+}
+
+static
+void dumpRoseReportPrograms(const RoseEngine *t, const string &filename) {
+    ofstream os(filename);
+
+    const u32 *programs =
+        (const u32 *)loadFromByteCodeOffset(t, t->reportProgramOffset);
+
+    for (u32 i = 0; i < t->reportProgramCount; i++) {
+        os << "Report " << i << endl;
+        os << "---------------" << endl;
+
+        if (programs[i]) {
+            os << "Program @ " << programs[i] << ":" << endl;
+            const char *prog =
+                (const char *)loadFromByteCodeOffset(t, programs[i]);
+            dumpProgram(os, t, prog);
+        } else {
+            os << "<No Program>" << endl;
+        }
     }
 
     os.close();
@@ -834,9 +864,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     if (t->hasSom) {
         fprintf(f, " hasSom");
     }
-    if (t->simpleCallback) {
-        fprintf(f, " simpleCallback");
-    }
     fprintf(f, "\n");
 
     fprintf(f, "dkey count           : %u\n", t->dkeyCount);
@@ -949,7 +976,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U8(t, canExhaust);
     DUMP_U8(t, hasSom);
     DUMP_U8(t, somHorizon);
-    DUMP_U8(t, simpleCallback);
     DUMP_U8(t, needsCatchup);
     DUMP_U32(t, mode);
     DUMP_U32(t, historyRequired);
@@ -972,10 +998,10 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, eodmatcherMinWidth);
     DUMP_U32(t, amatcherMaxBiAnchoredWidth);
     DUMP_U32(t, fmatcherMaxBiAnchoredWidth);
-    DUMP_U32(t, intReportOffset);
-    DUMP_U32(t, intReportCount);
     DUMP_U32(t, litProgramOffset);
     DUMP_U32(t, litDelayRebuildProgramOffset);
+    DUMP_U32(t, reportProgramOffset);
+    DUMP_U32(t, reportProgramCount);
     DUMP_U32(t, literalCount);
     DUMP_U32(t, activeArrayCount);
     DUMP_U32(t, activeLeftCount);
@@ -1051,6 +1077,7 @@ void roseDumpComponents(const RoseEngine *t, bool dump_raw,
     dumpRevNfas(t, dump_raw, base);
     dumpRoseLitPrograms(t, base + "/rose_lit_programs.txt");
     dumpRoseEodPrograms(t, base + "/rose_eod_programs.txt");
+    dumpRoseReportPrograms(t, base + "/rose_report_programs.txt");
 }
 
 void roseDumpInternals(const RoseEngine *t, const string &base) {

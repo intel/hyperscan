@@ -34,8 +34,7 @@
 
 static really_inline
 void initContext(const struct RoseEngine *t, char *state, u64a offset,
-                 struct hs_scratch *scratch, RoseCallback callback,
-                 RoseCallbackSom som_callback) {
+                 struct hs_scratch *scratch) {
     struct RoseContext *tctxt = &scratch->tctxt;
     tctxt->groups = loadGroups(t, state); /* TODO: diff groups for eod */
     tctxt->lit_offset_adjust = scratch->core_info.buf_offset
@@ -44,8 +43,6 @@ void initContext(const struct RoseEngine *t, char *state, u64a offset,
     tctxt->delayLastEndOffset = offset;
     tctxt->lastEndOffset = offset;
     tctxt->filledDelayedSlots = 0;
-    tctxt->cb = callback;
-    tctxt->cb_som = som_callback;
     tctxt->lastMatchOffset = 0;
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;
@@ -109,36 +106,19 @@ int roseEodRunIterator(const struct RoseEngine *t, u64a offset,
 
     DEBUG_PRINTF("running eod program at offset %u\n", t->eodIterProgramOffset);
 
+    const u64a som = 0;
     const size_t match_len = 0;
-    if (roseRunProgram(t, scratch, t->eodIterProgramOffset, offset, match_len,
-                       0) == HWLM_TERMINATE_MATCHING) {
+    const char in_anchored = 0;
+    const char in_catchup = 0;
+    const char from_mpv = 0;
+    const char skip_mpv_catchup = 1;
+    if (roseRunProgram(t, scratch, t->eodIterProgramOffset, som, offset,
+                       match_len, in_anchored, in_catchup,
+                       from_mpv, skip_mpv_catchup) == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;
     }
 
     return MO_CONTINUE_MATCHING;
-}
-
-/**
- * \brief Adapts an NfaCallback to the rose callback specified in the
- * RoseContext.
- */
-static
-int eodNfaCallback(u64a offset, ReportID report, void *context) {
-    struct hs_scratch *scratch = context;
-    assert(scratch->magic == SCRATCH_MAGIC);
-    return scratch->tctxt.cb(offset, report, scratch);
-}
-
-/**
- * \brief Adapts a SomNfaCallback to the rose SOM callback specified in the
- * RoseContext.
- */
-static
-int eodNfaSomCallback(u64a from_offset, u64a to_offset, ReportID report,
-                      void *context) {
-    struct hs_scratch *scratch = context;
-    assert(scratch->magic == SCRATCH_MAGIC);
-    return scratch->tctxt.cb_som(from_offset, to_offset, report, scratch);
 }
 
 /**
@@ -190,8 +170,8 @@ int roseCheckNfaEod(const struct RoseEngine *t, char *state,
             nfaExpandState(nfa, fstate, sstate, offset, key);
         }
 
-        if (nfaCheckFinalState(nfa, fstate, sstate, offset, eodNfaCallback,
-                               eodNfaSomCallback,
+        if (nfaCheckFinalState(nfa, fstate, sstate, offset, roseReportAdaptor,
+                               roseReportSomAdaptor,
                                scratch) == MO_HALT_MATCHING) {
             DEBUG_PRINTF("user instructed us to stop\n");
             return MO_HALT_MATCHING;
@@ -239,8 +219,8 @@ void roseCheckEodSuffixes(const struct RoseEngine *t, char *state, u64a offset,
          * history buffer. */
         char rv = nfaQueueExecRose(q->nfa, q, MO_INVALID_IDX);
         if (rv) { /* nfa is still alive */
-            if (nfaCheckFinalState(nfa, fstate, sstate, offset, eodNfaCallback,
-                                   eodNfaSomCallback,
+            if (nfaCheckFinalState(nfa, fstate, sstate, offset,
+                                   roseReportAdaptor, roseReportSomAdaptor,
                                    scratch) == MO_HALT_MATCHING) {
                 DEBUG_PRINTF("user instructed us to stop\n");
                 return;
@@ -261,9 +241,15 @@ int roseRunEodProgram(const struct RoseEngine *t, u64a offset,
     // There should be no pending delayed literals.
     assert(!scratch->tctxt.filledDelayedSlots);
 
+    const u64a som = 0;
     const size_t match_len = 0;
-    if (roseRunProgram(t, scratch, t->eodProgramOffset, offset, match_len, 0) ==
-        HWLM_TERMINATE_MATCHING) {
+    const char in_anchored = 0;
+    const char in_catchup = 0;
+    const char from_mpv = 0;
+    const char skip_mpv_catchup = 1;
+    if (roseRunProgram(t, scratch, t->eodProgramOffset, som, offset, match_len,
+                       in_anchored, in_catchup, from_mpv,
+                       skip_mpv_catchup) == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;
     }
 
@@ -322,10 +308,8 @@ void roseEodExec_i(const struct RoseEngine *t, char *state, u64a offset,
 }
 
 void roseEodExec(const struct RoseEngine *t, u64a offset,
-                 struct hs_scratch *scratch, RoseCallback callback,
-                 RoseCallbackSom som_callback) {
+                 struct hs_scratch *scratch) {
     assert(scratch);
-    assert(callback);
     assert(t->requiresEodCheck);
     DEBUG_PRINTF("ci buf %p/%zu his %p/%zu\n", scratch->core_info.buf,
                  scratch->core_info.len, scratch->core_info.hbuf,
@@ -345,7 +329,7 @@ void roseEodExec(const struct RoseEngine *t, u64a offset,
     char *state = scratch->core_info.state;
     assert(state);
 
-    initContext(t, state, offset, scratch, callback, som_callback);
+    initContext(t, state, offset, scratch);
 
     roseEodExec_i(t, state, offset, scratch, 1);
 }

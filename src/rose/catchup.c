@@ -33,6 +33,7 @@
 
 #include "catchup.h"
 #include "match.h"
+#include "program_runtime.h"
 #include "rose.h"
 #include "nfa/nfa_rev_api.h"
 #include "nfa/mpv.h"
@@ -46,43 +47,18 @@ typedef struct queue_match PQ_T;
 #include "util/pqueue.h"
 
 static really_inline
-int handleReportInternally(const struct RoseEngine *t,
-                           struct hs_scratch *scratch, ReportID id,
-                           u64a offset) {
-    const struct internal_report *ri = getInternalReport(t, id);
-    if (ri->type == EXTERNAL_CALLBACK) {
-        return 0;
-    }
-    if (isInternalSomReport(ri)) {
-        handleSomInternal(scratch, ri, offset);
-        return 1;
-    }
-    if (ri->type == INTERNAL_ROSE_CHAIN) {
-        roseHandleChainMatch(t, scratch, id, offset, 1);
-        return 1;
-    }
+int roseNfaRunProgram(const struct RoseEngine *rose, struct hs_scratch *scratch,
+                      u64a som, u64a offset, ReportID id, const char from_mpv) {
+    assert(id < rose->reportProgramCount);
+    const u32 *programs = getByOffset(rose, rose->reportProgramOffset);
 
-    return 0;
-}
+    const size_t match_len = 0; // Unused in this path.
+    const char in_anchored = 0;
+    const char in_catchup = 1;
+    roseRunProgram(rose, scratch, programs[id], som, offset, match_len,
+                   in_anchored, in_catchup, from_mpv, 0);
 
-static really_inline
-int handleReportInternallyNoChain(const struct RoseEngine *t,
-                                  struct hs_scratch *scratch, ReportID id,
-                                  u64a offset) {
-    const struct internal_report *ri = getInternalReport(t, id);
-    if (ri->type == EXTERNAL_CALLBACK) {
-        return 0;
-    }
-    if (isInternalSomReport(ri)) {
-        handleSomInternal(scratch, ri, offset);
-        return 1;
-    }
-    if (ri->type == INTERNAL_ROSE_CHAIN) {
-        assert(0); /* chained engines cannot trigger other engines */
-        return 1;
-    }
-
-    return 0;
+    return can_stop_matching(scratch) ? MO_HALT_MATCHING : MO_CONTINUE_MATCHING;
 }
 
 static really_inline
@@ -270,50 +246,15 @@ restart:
 }
 
 /* for use by mpv (chained) only */
-static UNUSED
+static
 int roseNfaFinalBlastAdaptor(u64a offset, ReportID id, void *context) {
     struct hs_scratch *scratch = context;
-    struct RoseContext *tctxt = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
-
-    DEBUG_PRINTF("called\n");
 
     DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
                  offset, id);
-    updateLastMatchOffset(tctxt, offset);
 
-    if (handleReportInternallyNoChain(t, scratch, id, offset)) {
-        return MO_CONTINUE_MATCHING;
-    }
-
-    int cb_rv = tctxt->cb(offset, id, scratch);
-    if (cb_rv == MO_HALT_MATCHING) {
-        return MO_HALT_MATCHING;
-    } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
-        return MO_CONTINUE_MATCHING;
-    } else {
-        assert(cb_rv == MO_CONTINUE_MATCHING);
-        return !roseSuffixIsExhausted(t, 0,
-                                      scratch->core_info.exhaustionVector);
-    }
-}
-
-/* for use by mpv (chained) only */
-static UNUSED
-int roseNfaFinalBlastAdaptorNoInternal(u64a offset, ReportID id,
-                                       void *context) {
-    struct hs_scratch *scratch = context;
-    struct RoseContext *tctxt = &scratch->tctxt;
-    const struct RoseEngine *t = scratch->core_info.rose;
-
-    DEBUG_PRINTF("called\n");
-    /* chained nfas are run under the control of the anchored catchup */
-
-    DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
-                 offset, id);
-    updateLastMatchOffset(tctxt, offset);
-
-    int cb_rv = tctxt->cb(offset, id, scratch);
+    int cb_rv = roseNfaRunProgram(t, scratch, 0, offset, id, 1);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -418,11 +359,7 @@ hwlmcb_rv_t roseCatchUpMPV_i(const struct RoseEngine *t, s64a loc,
 
     assert(!q->report_current);
 
-    if (info->only_external) {
-        q->cb = roseNfaFinalBlastAdaptorNoInternal;
-    } else {
-        q->cb = roseNfaFinalBlastAdaptor;
-    }
+    q->cb = roseNfaFinalBlastAdaptor;
     q->som_cb = NULL;
 
     DEBUG_PRINTF("queue %u blasting, %u/%u [%lld/%lld]\n",
@@ -466,35 +403,28 @@ done:
                                       : HWLM_CONTINUE_MATCHING;
 }
 
-static UNUSED
+static really_inline
+char in_mpv(const struct RoseEngine *rose, const struct hs_scratch *scratch) {
+    const struct RoseContext *tctxt = &scratch->tctxt;
+    assert(tctxt->curr_qi < rose->queueCount);
+    if (tctxt->curr_qi < rose->outfixBeginQueue) {
+        assert(getNfaByQueue(rose, tctxt->curr_qi)->type == MPV_NFA_0);
+        return 1;
+    }
+    return 0;
+}
+
+static
 int roseNfaBlastAdaptor(u64a offset, ReportID id, void *context) {
     struct hs_scratch *scratch = context;
     struct RoseContext *tctxt = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
 
-    const struct internal_report *ri = getInternalReport(t, id);
-
-    DEBUG_PRINTF("called\n");
-    if (ri->type != INTERNAL_ROSE_CHAIN) {
-        /* INTERNAL_ROSE_CHAIN are not visible externally */
-        if (roseCatchUpMPV(t, offset - scratch->core_info.buf_offset,
-                           scratch) == HWLM_TERMINATE_MATCHING) {
-            DEBUG_PRINTF("done\n");
-            return MO_HALT_MATCHING;
-        }
-    }
-
     DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
                  offset, id);
 
-    if (handleReportInternally(t, scratch, id, offset)) {
-        return can_stop_matching(scratch) ? MO_HALT_MATCHING
-                                          : MO_CONTINUE_MATCHING;
-    }
-
-    updateLastMatchOffset(tctxt, offset);
-
-    int cb_rv = tctxt->cb(offset, id, scratch);
+    const char from_mpv = in_mpv(t, scratch);
+    int cb_rv = roseNfaRunProgram(t, scratch, 0, offset, id, from_mpv);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -506,24 +436,18 @@ int roseNfaBlastAdaptor(u64a offset, ReportID id, void *context) {
     }
 }
 
-static UNUSED
+static
 int roseNfaBlastAdaptorNoInternal(u64a offset, ReportID id, void *context) {
     struct hs_scratch *scratch = context;
     struct RoseContext *tctxt = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
 
-    DEBUG_PRINTF("called\n");
-    if (roseCatchUpMPV(t, offset - scratch->core_info.buf_offset, scratch) ==
-        HWLM_TERMINATE_MATCHING) {
-        DEBUG_PRINTF("done\n");
-        return MO_HALT_MATCHING;
-    }
-
     DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
                  offset, id);
-    updateLastMatchOffset(tctxt, offset);
 
-    int cb_rv = tctxt->cb(offset, id, scratch);
+    assert(!in_mpv(t, scratch));
+
+    int cb_rv = roseNfaRunProgram(t, scratch, 0, offset, id, 0);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -535,78 +459,21 @@ int roseNfaBlastAdaptorNoInternal(u64a offset, ReportID id, void *context) {
     }
 }
 
-static UNUSED
-int roseNfaBlastAdaptorNoChain(u64a offset, ReportID id, void *context) {
-    struct hs_scratch *scratch = context;
-    struct RoseContext *tctxt = &scratch->tctxt;
-    const struct RoseEngine *t = scratch->core_info.rose;
-
-    DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
-                 offset, id);
-
-    updateLastMatchOffset(tctxt, offset);
-
-    if (handleReportInternallyNoChain(t, scratch, id, offset)) {
-        return MO_CONTINUE_MATCHING;
-    }
-
-    int cb_rv = tctxt->cb(offset, id, scratch);
-    if (cb_rv == MO_HALT_MATCHING) {
-        return MO_HALT_MATCHING;
-    } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
-        return MO_CONTINUE_MATCHING;
-    } else {
-        assert(cb_rv == MO_CONTINUE_MATCHING);
-        return !roseSuffixIsExhausted(t, tctxt->curr_qi,
-                                      scratch->core_info.exhaustionVector);
-    }
-}
-
-static UNUSED
-int roseNfaBlastAdaptorNoInternalNoChain(u64a offset, ReportID id,
-                                         void *context) {
-    struct hs_scratch *scratch = context;
-    struct RoseContext *tctxt = &scratch->tctxt;
-    const struct RoseEngine *t = scratch->core_info.rose;
-
-    /* chained nfas are run under the control of the anchored catchup */
-
-    DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
-                 offset, id);
-    updateLastMatchOffset(tctxt, offset);
-
-    int cb_rv = tctxt->cb(offset, id, scratch);
-    if (cb_rv == MO_HALT_MATCHING) {
-        return MO_HALT_MATCHING;
-    } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
-        return MO_CONTINUE_MATCHING;
-    } else {
-        assert(cb_rv == MO_CONTINUE_MATCHING);
-        return !roseSuffixIsExhausted(t, tctxt->curr_qi,
-                                      scratch->core_info.exhaustionVector);
-    }
-}
-
-static UNUSED
+static
 int roseNfaBlastSomAdaptor(u64a from_offset, u64a offset, ReportID id,
                            void *context) {
     struct hs_scratch *scratch = context;
     struct RoseContext *tctxt = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
 
-    DEBUG_PRINTF("called\n");
-    if (roseCatchUpMPV(t, offset - scratch->core_info.buf_offset, scratch) ==
-        HWLM_TERMINATE_MATCHING) {
-        DEBUG_PRINTF("roseCatchUpNfas done\n");
-        return MO_HALT_MATCHING;
-    }
-
     DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
                  offset, id);
-    updateLastMatchOffset(tctxt, offset);
+
+    assert(!in_mpv(t, scratch));
 
     /* must be a external report as haig cannot directly participate in chain */
-    int cb_rv = tctxt->cb_som(from_offset, offset, id, scratch);
+    int cb_rv = roseNfaRunProgram(scratch->core_info.rose, scratch, from_offset,
+                                  offset, id, 0);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -620,38 +487,20 @@ int roseNfaBlastSomAdaptor(u64a from_offset, u64a offset, ReportID id,
 
 int roseNfaAdaptor(u64a offset, ReportID id, void *context) {
     struct hs_scratch *scratch = context;
-    struct RoseContext *tctxt = &scratch->tctxt;
     DEBUG_PRINTF("masky got himself a match @%llu id %u !woot!\n", offset, id);
 
-    updateLastMatchOffset(tctxt, offset);
-
-    const struct RoseEngine *t = scratch->core_info.rose;
-    if (handleReportInternally(t, scratch, id, offset)) {
-        return can_stop_matching(scratch) ? MO_HALT_MATCHING
-                                          : MO_CONTINUE_MATCHING;
-    }
-
-    return tctxt->cb(offset, id, scratch);
-}
-
-int roseNfaAdaptorNoInternal(u64a offset, ReportID id, void *context) {
-    struct hs_scratch *scratch = context;
-    struct RoseContext *tctxt = &scratch->tctxt;
-    DEBUG_PRINTF("masky got himself a match @%llu id %u !woot!\n", offset, id);
-    updateLastMatchOffset(tctxt, offset);
-
-    return tctxt->cb(offset, id, scratch);
+    return roseNfaRunProgram(scratch->core_info.rose, scratch, 0, offset, id,
+                             0);
 }
 
 int roseNfaSomAdaptor(u64a from_offset, u64a offset, ReportID id,
                       void *context) {
     struct hs_scratch *scratch = context;
-    struct RoseContext *tctxt = &scratch->tctxt;
     DEBUG_PRINTF("masky got himself a match @%llu id %u !woot!\n", offset, id);
-    updateLastMatchOffset(tctxt, offset);
 
     /* must be a external report as haig cannot directly participate in chain */
-    return tctxt->cb_som(from_offset, offset, id, scratch);
+    return roseNfaRunProgram(scratch->core_info.rose, scratch, from_offset,
+                             offset, id, 0);
 }
 
 static really_inline
@@ -661,29 +510,17 @@ char blast_queue(const struct RoseEngine *t, struct hs_scratch *scratch,
     const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
 
     tctxt->curr_qi = qi;
-    if (has_chained_nfas(t)) {
-        if (info->only_external) {
-            q->cb = roseNfaBlastAdaptorNoInternal;
-        } else {
-            q->cb = roseNfaBlastAdaptor;
-        }
+    if (info->only_external) {
+        q->cb = roseNfaBlastAdaptorNoInternal;
     } else {
-        if (info->only_external) {
-            q->cb = roseNfaBlastAdaptorNoInternalNoChain;
-        } else {
-            q->cb = roseNfaBlastAdaptorNoChain;
-        }
+        q->cb = roseNfaBlastAdaptor;
     }
     q->report_current = report_current;
     q->som_cb = roseNfaBlastSomAdaptor;
     DEBUG_PRINTF("queue %u blasting, %u/%u [%lld/%lld]\n", qi, q->cur, q->end,
                  q_cur_loc(q), to_loc);
     char alive = nfaQueueExec(q->nfa, q, to_loc);
-    if (info->only_external) {
-        q->cb = roseNfaAdaptorNoInternal;
-    } else {
-        q->cb = roseNfaAdaptor;
-    }
+    q->cb = roseNfaAdaptor;
     q->som_cb = roseNfaSomAdaptor;
     assert(!q->report_current);
 
@@ -945,13 +782,15 @@ hwlmcb_rv_t buildSufPQ(const struct RoseEngine *t, char *state, s64a safe_loc,
 static never_inline
 hwlmcb_rv_t roseCatchUpNfas(const struct RoseEngine *t, s64a loc,
                             s64a final_loc, struct hs_scratch *scratch) {
-    struct RoseContext *tctxt = &scratch->tctxt;
     assert(t->activeArrayCount);
 
-    assert(scratch->core_info.buf_offset + loc >= tctxt->minNonMpvMatchOffset);
-    DEBUG_PRINTF("roseCatchUpNfas %lld/%lld\n", loc, final_loc);
+    DEBUG_PRINTF("roseCatchUpNfas offset=%llu + %lld/%lld\n",
+                 scratch->core_info.buf_offset, loc, final_loc);
     DEBUG_PRINTF("min non mpv match offset %llu\n",
                  scratch->tctxt.minNonMpvMatchOffset);
+
+    struct RoseContext *tctxt = &scratch->tctxt;
+    assert(scratch->core_info.buf_offset + loc >= tctxt->minNonMpvMatchOffset);
 
     char *state = scratch->core_info.state;
     struct mq *queues = scratch->queues;

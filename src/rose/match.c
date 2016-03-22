@@ -96,9 +96,15 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
     const u32 program = delayRebuildPrograms[id];
 
     if (program) {
+        const u64a som = 0;
         const size_t match_len = end - start + 1;
+        const char in_anchored = 0;
+        const char in_catchup = 0;
+        const char from_mpv = 0;
+        const char skip_mpv_catchup = 0;
         UNUSED hwlmcb_rv_t rv =
-            roseRunProgram(t, scratch, program, real_end, match_len, 0);
+            roseRunProgram(t, scratch, program, som, real_end, match_len,
+                           in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
         assert(rv != HWLM_TERMINATE_MATCHING);
     }
 
@@ -138,8 +144,10 @@ void recordAnchoredLiteralMatch(const struct RoseEngine *t,
 }
 
 hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
-                                 struct hs_scratch *scratch, ReportID r,
-                                 u64a end, char in_catchup) {
+                                 struct hs_scratch *scratch, u32 event,
+                                 u64a top_squash_distance, u64a end,
+                                 char in_catchup) {
+    assert(event == MQE_TOP || event >= MQE_TOP_FIRST);
     struct core_info *ci = &scratch->core_info;
 
     u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
@@ -147,18 +155,7 @@ hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
     struct fatbit *activeQueues = scratch->aqa;
     u32 qCount = t->queueCount;
 
-    const struct internal_report *ri = getInternalReport(t, r);
-    assert(ri->type == INTERNAL_ROSE_CHAIN);
-
-    u32 qi = 0; /* MPV is always queue 0 if it exists */
-    u32 event = ri->onmatch;
-    assert(event == MQE_TOP || event >= MQE_TOP_FIRST);
-
-    /* TODO: populate INTERNAL_ROSE_CHAIN internal reports with offset where
-     * possible */
-    if (end < ri->minOffset || (ri->maxOffset && end > ri->maxOffset)) {
-        return HWLM_CONTINUE_MATCHING;
-    }
+    const u32 qi = 0; /* MPV is always queue 0 if it exists */
     struct mq *q = &scratch->queues[qi];
     const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
 
@@ -189,11 +186,11 @@ hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
         }
     }
 
-    if (ri->aux.topSquashDistance) {
+    if (top_squash_distance) {
         assert(q->cur != q->end);
         struct mq_item *last = &q->items[q->end - 1];
         if (last->type == event
-            && last->location >= loc - (s64a)ri->aux.topSquashDistance) {
+            && last->location >= loc - (s64a)top_squash_distance) {
             last->location = loc;
             goto event_enqueued;
         }
@@ -255,8 +252,14 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
 
     const u32 *programs = getByOffset(t, t->litProgramOffset);
     assert(id < t->literalCount);
-    if (roseRunProgram(t, scratch, programs[id], real_end, match_len, 1) ==
-        HWLM_TERMINATE_MATCHING) {
+    const u64a som = 0;
+    const char in_anchored = 1;
+    const char in_catchup = 0;
+    const char from_mpv = 0;
+    const char skip_mpv_catchup = 0;
+    if (roseRunProgram(t, scratch, programs[id], som, real_end, match_len,
+                       in_anchored, in_catchup, from_mpv,
+                       skip_mpv_catchup) == HWLM_TERMINATE_MATCHING) {
         assert(can_stop_matching(scratch));
         DEBUG_PRINTF("caller requested termination\n");
         return MO_HALT_MATCHING;
@@ -280,7 +283,13 @@ hwlmcb_rv_t roseProcessMatch(const struct RoseEngine *t,
     DEBUG_PRINTF("id=%u\n", id);
     const u32 *programs = getByOffset(t, t->litProgramOffset);
     assert(id < t->literalCount);
-    return roseRunProgram(t, scratch, programs[id], end, match_len, 0);
+    const u64a som = 0;
+    const char in_anchored = 0;
+    const char in_catchup = 0;
+    const char from_mpv = 0;
+    const char skip_mpv_catchup = 0;
+    return roseRunProgram(t, scratch, programs[id], som, end, match_len,
+                          in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
 }
 
 static rose_inline
@@ -568,11 +577,17 @@ hwlmcb_rv_t rosePureLiteralCallback(size_t start, size_t end, u32 id,
     struct hs_scratch *scratch = context;
     struct core_info *ci = &scratch->core_info;
     const u64a real_end = (u64a)end + ci->buf_offset + 1;
+    const u64a som = 0;
     const size_t match_len = end - start + 1;
     const struct RoseEngine *rose = ci->rose;
     const u32 *programs = getByOffset(rose, rose->litProgramOffset);
     assert(id < rose->literalCount);
-    return roseRunProgram(rose, scratch, programs[id], real_end, match_len, 0);
+    const char in_anchored = 0;
+    const char in_catchup = 0;
+    const char from_mpv = 0;
+    const char skip_mpv_catchup = 0;
+    return roseRunProgram(rose, scratch, programs[id], som, real_end, match_len,
+                          in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
 }
 
 /**
@@ -606,13 +621,53 @@ int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
     // time we are running boundary report programs.
     scratch->tctxt.minMatchOffset = stream_offset;
 
+    const u64a som = 0;
     const size_t match_len = 0;
     const char in_anchored = 0;
-    hwlmcb_rv_t rv = roseRunProgram(rose, scratch, program, stream_offset,
-                                    match_len, in_anchored);
+    const char in_catchup = 0;
+    const char from_mpv = 0;
+    const char skip_mpv_catchup = 0;
+    hwlmcb_rv_t rv =
+        roseRunProgram(rose, scratch, program, som, stream_offset, match_len,
+                       in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
     if (rv == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;
     }
 
     return MO_CONTINUE_MATCHING;
+}
+
+static really_inline
+int roseReportAdaptor_i(u64a som, u64a offset, ReportID id, void *context) {
+    struct hs_scratch *scratch = context;
+    assert(scratch && scratch->magic == SCRATCH_MAGIC);
+
+    const struct RoseEngine *rose = scratch->core_info.rose;
+
+    assert(id < rose->reportProgramCount);
+    const u32 *programs = getByOffset(rose, rose->reportProgramOffset);
+
+    const size_t match_len = 0; // Unused in this path.
+    const char in_anchored = 0;
+    const char in_catchup = 0;
+    const char from_mpv = 0;
+    const char skip_mpv_catchup = 1;
+    hwlmcb_rv_t rv =
+        roseRunProgram(rose, scratch, programs[id], som, offset, match_len,
+                       in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+    if (rv == HWLM_TERMINATE_MATCHING) {
+        return MO_HALT_MATCHING;
+    }
+
+    return can_stop_matching(scratch) ? MO_HALT_MATCHING : MO_CONTINUE_MATCHING;
+}
+
+int roseReportAdaptor(u64a offset, ReportID id, void *context) {
+    DEBUG_PRINTF("offset=%llu, id=%u\n", offset, id);
+    return roseReportAdaptor_i(0, offset, id, context);
+}
+
+int roseReportSomAdaptor(u64a som, u64a offset, ReportID id, void *context) {
+    DEBUG_PRINTF("som=%llu, offset=%llu, id=%u\n", som, offset, id);
+    return roseReportAdaptor_i(som, offset, id, context);
 }

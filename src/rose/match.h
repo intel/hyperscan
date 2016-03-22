@@ -41,13 +41,11 @@
 #include "som/som_runtime.h"
 #include "util/bitutils.h"
 #include "util/fatbit.h"
-#include "util/internal_report.h"
 #include "util/multibit.h"
 
 /* Callbacks, defined in catchup.c */
 
 int roseNfaAdaptor(u64a offset, ReportID id, void *context);
-int roseNfaAdaptorNoInternal(u64a offset, ReportID id, void *context);
 int roseNfaSomAdaptor(u64a from_offset, u64a offset, ReportID id, void *context);
 
 /* Callbacks, defined in match.c */
@@ -60,8 +58,9 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx);
 /* Common code, used all over Rose runtime */
 
 hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
-                                 struct hs_scratch *scratch, ReportID r,
-                                 u64a end, char in_catchup);
+                                 struct hs_scratch *scratch, u32 event,
+                                 u64a top_squash_distance, u64a end,
+                                 char in_catchup);
 
 static really_inline
 void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
@@ -78,11 +77,7 @@ void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
     q->length = scratch->core_info.len;
     q->history = scratch->core_info.hbuf;
     q->hlength = scratch->core_info.hlen;
-    if (info->only_external) {
-        q->cb = roseNfaAdaptorNoInternal;
-    } else {
-        q->cb = roseNfaAdaptor;
-    }
+    q->cb = roseNfaAdaptor;
     q->som_cb = roseNfaSomAdaptor;
     q->context = scratch;
     q->report_current = 0;

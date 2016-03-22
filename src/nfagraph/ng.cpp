@@ -130,6 +130,7 @@ bool addComponentSom(NG &ng, NGHolder &g, const NGWrapper &w,
 
     assert(g.kind == NFA_OUTFIX);
     dumpComponent(g, "haig", w.expressionIndex, comp_id, ng.cc.grey);
+    makeReportsSomPass(ng.rm, g);
     auto haig = attemptToBuildHaig(g, som, ng.ssm.somPrecision(), triggers,
                                    ng.cc.grey);
     if (haig) {

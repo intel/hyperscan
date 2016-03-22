@@ -479,6 +479,7 @@ set (hs_exec_SRCS
     src/nfa/vermicelli_run.h
     src/nfa/vermicelli_sse.h
     src/som/som.h
+    src/som/som_operation.h
     src/som/som_runtime.h
     src/som/som_runtime.c
     src/som/som_stream.c
@@ -795,6 +796,7 @@ SET (hs_SRCS
     src/som/slot_manager.h
     src/som/slot_manager_internal.h
     src/som/som.h
+    src/som/som_operation.h
     src/rose/rose_build.h
     src/rose/rose_build_add.cpp
     src/rose/rose_build_add_internal.h
@@ -849,7 +851,6 @@ SET (hs_SRCS
     src/util/dump_mask.cpp
     src/util/dump_mask.h
     src/util/graph.h
-    src/util/internal_report.h
     src/util/multibit_build.cpp
     src/util/multibit_build.h
     src/util/order_check.h
@@ -857,7 +858,6 @@ SET (hs_SRCS
     src/util/partitioned_set.h
     src/util/popcount.h
     src/util/queue_index_factory.h
-    src/util/report.cpp
     src/util/report.h
     src/util/report_manager.cpp
     src/util/report_manager.h

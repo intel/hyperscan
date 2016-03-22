@@ -33,6 +33,7 @@
 #ifndef ROSE_ROSE_PROGRAM_H
 #define ROSE_ROSE_PROGRAM_H
 
+#include "som/som_operation.h"
 #include "rose_internal.h"
 #include "ue2common.h"
 
@@ -53,9 +54,10 @@ enum RoseInstructionCode {
     ROSE_INSTR_CHECK_PREFIX,      //!< Prefix engine must be in accept state.
     ROSE_INSTR_PUSH_DELAYED,      //!< Push delayed literal matches.
     ROSE_INSTR_CATCH_UP,          //!< Catch up engines, anchored matches.
+    ROSE_INSTR_CATCH_UP_MPV,      //!< Catch up the MPV.
     ROSE_INSTR_SOM_ADJUST,        //!< Set SOM from a distance to EOM.
     ROSE_INSTR_SOM_LEFTFIX,       //!< Acquire SOM from a leftfix engine.
-    ROSE_INSTR_SOM_FROM_REPORT,   //!< Acquire SOM from an internal_report.
+    ROSE_INSTR_SOM_FROM_REPORT,   //!< Acquire SOM from a som_operation.
     ROSE_INSTR_SOM_ZERO,          //!< Set SOM to zero.
     ROSE_INSTR_TRIGGER_INFIX,     //!< Trigger an infix engine.
     ROSE_INSTR_TRIGGER_SUFFIX,    //!< Trigger a suffix engine.
@@ -171,6 +173,10 @@ struct ROSE_STRUCT_CATCH_UP {
     u8 code; //!< From enum RoseInstructionCode.
 };
 
+struct ROSE_STRUCT_CATCH_UP_MPV {
+    u8 code; //!< From enum RoseInstructionCode.
+};
+
 struct ROSE_STRUCT_SOM_ADJUST {
     u8 code; //!< From enum RoseInstructionCode.
     u32 distance; //!< Distance to EOM.
@@ -184,7 +190,7 @@ struct ROSE_STRUCT_SOM_LEFTFIX {
 
 struct ROSE_STRUCT_SOM_FROM_REPORT {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report; //!< EXTERNAL_CALLBACK_SOM_* report to use.
+    struct som_operation som;
 };
 
 struct ROSE_STRUCT_SOM_ZERO {
@@ -206,41 +212,49 @@ struct ROSE_STRUCT_TRIGGER_SUFFIX {
 
 struct ROSE_STRUCT_DEDUPE {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report;
+    u8 quash_som; //!< Force SOM to zero for this report.
+    u32 dkey; //!< Dedupe key.
+    s32 offset_adjust; //!< Offset adjustment to apply to end offset.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
 struct ROSE_STRUCT_DEDUPE_SOM {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report;
+    u8 quash_som; //!< Force SOM to zero for this report.
+    u32 dkey; //!< Dedupe key.
+    s32 offset_adjust; //!< Offset adjustment to apply to end offset.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
 struct ROSE_STRUCT_REPORT_CHAIN {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report;
+    u32 event; //!< Queue event, from MQE_*. Must be a top.
+
+    /**
+     * \brief Number of bytes behind us that we are allowed to squash
+     * identical top events on the queue.
+     */
+    u64a top_squash_distance;
 };
 
 struct ROSE_STRUCT_REPORT_SOM_INT {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report;
+    struct som_operation som;
 };
 
 struct ROSE_STRUCT_REPORT_SOM_AWARE {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report;
+    struct som_operation som;
 };
 
 struct ROSE_STRUCT_REPORT {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report; //!< Internal report ID (used for assertions).
     ReportID onmatch; //!< Report ID to deliver to user.
     s32 offset_adjust; //!< Offset adjustment to apply to end offset.
 };
 
 struct ROSE_STRUCT_REPORT_EXHAUST {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report; //!< Internal report ID (used for assertions).
     ReportID onmatch; //!< Report ID to deliver to user.
     s32 offset_adjust; //!< Offset adjustment to apply to end offset.
     u32 ekey; //!< Exhaustion key.
@@ -248,22 +262,23 @@ struct ROSE_STRUCT_REPORT_EXHAUST {
 
 struct ROSE_STRUCT_REPORT_SOM {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report;
+    ReportID onmatch; //!< Report ID to deliver to user.
+    s32 offset_adjust; //!< Offset adjustment to apply to end offset.
 };
 
 struct ROSE_STRUCT_REPORT_SOM_EXHAUST {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report;
-};
-
-struct ROSE_STRUCT_REPORT_SOM_EXT {
-    u8 code; //!< From enum RoseInstructionCode.
-    ReportID report;
+    ReportID onmatch; //!< Report ID to deliver to user.
+    s32 offset_adjust; //!< Offset adjustment to apply to end offset.
+    u32 ekey; //!< Exhaustion key.
 };
 
 struct ROSE_STRUCT_DEDUPE_AND_REPORT {
     u8 code; //!< From enum RoseInstructionCode.
-    ReportID report;
+    u8 quash_som; //!< Force SOM to zero for this report.
+    u32 dkey; //!< Dedupe key.
+    ReportID onmatch; //!< Report ID to deliver to user.
+    s32 offset_adjust; //!< Offset adjustment to apply to end offset.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 

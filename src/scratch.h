@@ -119,8 +119,6 @@ struct RoseContext {
                                 * still allowed to report */
     u64a next_mpv_offset; /**< earliest offset that the MPV can next report a
                            * match, cleared if top events arrive */
-    RoseCallback cb;
-    RoseCallbackSom cb_som;
     u32 filledDelayedSlots;
     u32 curr_qi;    /**< currently executing main queue index during
                      * \ref nfaQueueExec */

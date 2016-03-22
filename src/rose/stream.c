@@ -422,8 +422,7 @@ void do_rebuild(const struct RoseEngine *t, const struct HWLM *ftable,
     assert(!can_stop_matching(scratch));
 }
 
-void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
-                    RoseCallback callback, RoseCallbackSom som_callback) {
+void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     DEBUG_PRINTF("OH HAI\n");
     assert(t);
     assert(scratch->core_info.hbuf);
@@ -457,8 +456,6 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
     tctxt->delayLastEndOffset = offset;
     tctxt->lastEndOffset = offset;
     tctxt->filledDelayedSlots = 0;
-    tctxt->cb = callback;
-    tctxt->cb_som = som_callback;
     tctxt->lastMatchOffset = 0;
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;

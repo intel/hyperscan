@@ -41,8 +41,7 @@ void roseInitState(const struct RoseEngine *t, char *state);
 
 void roseBlockEodExec(const struct RoseEngine *t, u64a offset,
                       struct hs_scratch *scratch);
-void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
-                     RoseCallback callback, RoseCallbackSom som_callback);
+void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch);
 
 static really_inline
 int roseBlockHasEodWork(const struct RoseEngine *t,
@@ -79,8 +78,7 @@ int roseBlockHasEodWork(const struct RoseEngine *t,
 
 /* assumes core_info in scratch has been init to point to data */
 static really_inline
-void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch,
-                   RoseCallback callback, RoseCallbackSom som_callback) {
+void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     assert(t);
     assert(scratch);
     assert(scratch->core_info.buf);
@@ -101,7 +99,7 @@ void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch,
     assert(t->maxBiAnchoredWidth == ROSE_BOUND_INF
            || length <= t->maxBiAnchoredWidth);
 
-    roseBlockExec_i(t, scratch, callback, som_callback);
+    roseBlockExec_i(t, scratch);
 
     if (!t->requiresEodCheck) {
         return;
@@ -121,15 +119,16 @@ void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch,
 }
 
 /* assumes core_info in scratch has been init to point to data */
-void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch,
-                    RoseCallback callback, RoseCallbackSom som_callback);
+void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch);
 
 void roseEodExec(const struct RoseEngine *t, u64a offset,
-                 struct hs_scratch *scratch, RoseCallback callback,
-                 RoseCallbackSom som_callback);
+                 struct hs_scratch *scratch);
 
 hwlmcb_rv_t rosePureLiteralCallback(size_t start, size_t end, u32 id,
                                     void *context);
+
+int roseReportAdaptor(u64a offset, ReportID id, void *context);
+int roseReportSomAdaptor(u64a som, u64a offset, ReportID id, void *context);
 
 int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
                            u64a stream_offset, struct hs_scratch *scratch);

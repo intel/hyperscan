@@ -34,9 +34,11 @@
 #define EXHAUST_H
 
 #include "rose/rose_internal.h"
-#include "util/internal_report.h"
 #include "util/multibit.h"
 #include "ue2common.h"
+
+/** Index meaning a given exhaustion key is invalid. */
+#define INVALID_EKEY    (~(u32)0)
 
 /** \brief Test whether the given key (\a ekey) is set in the exhaustion vector
  * \a evec. */

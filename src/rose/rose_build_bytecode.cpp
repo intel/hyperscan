@@ -68,7 +68,6 @@
 #include "util/compile_error.h"
 #include "util/container.h"
 #include "util/graph_range.h"
-#include "util/internal_report.h"
 #include "util/multibit_build.h"
 #include "util/order_check.h"
 #include "util/queue_index_factory.h"
@@ -196,6 +195,7 @@ public:
         case ROSE_INSTR_ANCHORED_DELAY: return &u.anchoredDelay;
         case ROSE_INSTR_PUSH_DELAYED: return &u.pushDelayed;
         case ROSE_INSTR_CATCH_UP: return &u.catchUp;
+        case ROSE_INSTR_CATCH_UP_MPV: return &u.catchUpMpv;
         case ROSE_INSTR_SOM_ADJUST: return &u.somAdjust;
         case ROSE_INSTR_SOM_LEFTFIX: return &u.somLeftfix;
         case ROSE_INSTR_SOM_FROM_REPORT: return &u.somFromReport;
@@ -206,7 +206,7 @@ public:
         case ROSE_INSTR_DEDUPE_SOM: return &u.dedupeSom;
         case ROSE_INSTR_REPORT_CHAIN: return &u.reportChain;
         case ROSE_INSTR_REPORT_SOM_INT: return &u.reportSomInt;
-        case ROSE_INSTR_REPORT_SOM_AWARE: return &u.reportSom;
+        case ROSE_INSTR_REPORT_SOM_AWARE: return &u.reportSomAware;
         case ROSE_INSTR_REPORT: return &u.report;
         case ROSE_INSTR_REPORT_EXHAUST: return &u.reportExhaust;
         case ROSE_INSTR_REPORT_SOM: return &u.reportSom;
@@ -240,6 +240,7 @@ public:
         case ROSE_INSTR_ANCHORED_DELAY: return sizeof(u.anchoredDelay);
         case ROSE_INSTR_PUSH_DELAYED: return sizeof(u.pushDelayed);
         case ROSE_INSTR_CATCH_UP: return sizeof(u.catchUp);
+        case ROSE_INSTR_CATCH_UP_MPV: return sizeof(u.catchUpMpv);
         case ROSE_INSTR_SOM_ADJUST: return sizeof(u.somAdjust);
         case ROSE_INSTR_SOM_LEFTFIX: return sizeof(u.somLeftfix);
         case ROSE_INSTR_SOM_FROM_REPORT: return sizeof(u.somFromReport);
@@ -250,7 +251,7 @@ public:
         case ROSE_INSTR_DEDUPE_SOM: return sizeof(u.dedupeSom);
         case ROSE_INSTR_REPORT_CHAIN: return sizeof(u.reportChain);
         case ROSE_INSTR_REPORT_SOM_INT: return sizeof(u.reportSomInt);
-        case ROSE_INSTR_REPORT_SOM_AWARE: return sizeof(u.reportSom);
+        case ROSE_INSTR_REPORT_SOM_AWARE: return sizeof(u.reportSomAware);
         case ROSE_INSTR_REPORT: return sizeof(u.report);
         case ROSE_INSTR_REPORT_EXHAUST: return sizeof(u.reportExhaust);
         case ROSE_INSTR_REPORT_SOM: return sizeof(u.reportSom);
@@ -283,6 +284,7 @@ public:
         ROSE_STRUCT_ANCHORED_DELAY anchoredDelay;
         ROSE_STRUCT_PUSH_DELAYED pushDelayed;
         ROSE_STRUCT_CATCH_UP catchUp;
+        ROSE_STRUCT_CATCH_UP_MPV catchUpMpv;
         ROSE_STRUCT_SOM_ADJUST somAdjust;
         ROSE_STRUCT_SOM_LEFTFIX somLeftfix;
         ROSE_STRUCT_SOM_FROM_REPORT somFromReport;
@@ -395,6 +397,9 @@ struct build_context : boost::noncopyable {
     /** \brief True if reports need CATCH_UP instructions, to catch up anchored
      * matches, suffixes, outfixes etc. */
     bool needs_catchup = false;
+
+    /** \brief True if this Rose engine has an MPV engine. */
+    bool needs_mpv_catchup = false;
 
     /** \brief Resources in use (tracked as programs are added). */
     RoseResources resources;
@@ -578,7 +583,7 @@ bool isPureFloating(const RoseResources &resources) {
 }
 
 static
-bool isSingleOutfix(const RoseBuildImpl &tbi, u32 outfixEndQueue) {
+bool isSingleOutfix(const RoseBuildImpl &tbi) {
     for (auto v : vertices_range(tbi.g)) {
         if (tbi.isAnyStart(v)) {
             continue;
@@ -598,12 +603,12 @@ bool isSingleOutfix(const RoseBuildImpl &tbi, u32 outfixEndQueue) {
         return false; /* streaming runtime makes liberal use of broken flag */
     }
 
-    return outfixEndQueue == 1;
+    return tbi.outfixes.size() == 1;
 }
 
 static
 u8 pickRuntimeImpl(const RoseBuildImpl &build, const build_context &bc,
-                   u32 outfixEndQueue) {
+                   UNUSED u32 outfixEndQueue) {
     DEBUG_PRINTF("has_outfixes=%d\n", bc.resources.has_outfixes);
     DEBUG_PRINTF("has_suffixes=%d\n", bc.resources.has_suffixes);
     DEBUG_PRINTF("has_leftfixes=%d\n", bc.resources.has_leftfixes);
@@ -618,11 +623,36 @@ u8 pickRuntimeImpl(const RoseBuildImpl &build, const build_context &bc,
         return ROSE_RUNTIME_PURE_LITERAL;
     }
 
-    if (isSingleOutfix(build, outfixEndQueue)) {
+    if (isSingleOutfix(build)) {
         return ROSE_RUNTIME_SINGLE_OUTFIX;
     }
 
     return ROSE_RUNTIME_FULL_ROSE;
+}
+
+/**
+ * \brief True if this Rose engine needs to run MPV catch up in front of
+ * non-MPV reports.
+ */
+static
+bool needsMpvCatchup(const RoseBuildImpl &build) {
+    const auto &outfixes = build.outfixes;
+    bool has_mpv =
+        any_of(begin(outfixes), end(outfixes), [](const OutfixInfo &outfix) {
+            return outfix.is_nonempty_mpv();
+        });
+
+    if (!has_mpv) {
+        DEBUG_PRINTF("no mpv\n");
+        return false;
+    }
+
+    if (isSingleOutfix(build)) {
+        DEBUG_PRINTF("single outfix\n");
+        return false;
+    }
+
+    return true;
 }
 
 static
@@ -1942,32 +1972,6 @@ struct DerivedBoundaryReports {
 };
 
 static
-void fillInReportInfo(RoseEngine *engine, u32 reportOffset,
-                      const ReportManager &rm, const vector<Report> &reports) {
-    internal_report *dest = (internal_report *)((char *)engine + reportOffset);
-    engine->intReportOffset = reportOffset;
-    engine->intReportCount = (u32)reports.size();
-
-    assert(ISALIGNED(dest));
-
-    for (const auto &report : reports) {
-        writeInternalReport(report, rm, dest++);
-    }
-
-    DEBUG_PRINTF("%zu reports of size %zu\n", reports.size(),
-                 sizeof(internal_report));
-}
-
-static
-bool hasSimpleReports(const vector<Report> &reports) {
-    auto it = find_if(reports.begin(), reports.end(), isComplexReport);
-
-    DEBUG_PRINTF("runtime has %scomplex reports\n",
-                 it == reports.end() ? "no " : "");
-    return it == reports.end();
-}
-
-static
 void prepSomRevNfas(const SomSlotManager &ssm, u32 *rev_nfa_table_offset,
                     vector<u32> *nfa_offsets, u32 *currOffset) {
     const deque<aligned_unique_ptr<NFA>> &nfas = ssm.getRevNfas();
@@ -2473,16 +2477,22 @@ void makeRoleAnchoredDelay(RoseBuildImpl &build, build_context &bc,
 }
 
 static
-void makeDedupe(const ReportID id, vector<RoseInstruction> &report_block) {
+void makeDedupe(const RoseBuildImpl &build, const Report &report,
+                vector<RoseInstruction> &report_block) {
     auto ri = RoseInstruction(ROSE_INSTR_DEDUPE, JumpTarget::NEXT_BLOCK);
-    ri.u.dedupe.report = id;
+    ri.u.dedupe.quash_som = report.quashSom;
+    ri.u.dedupe.dkey = build.rm.getDkey(report);
+    ri.u.dedupe.offset_adjust = report.offsetAdjust;
     report_block.push_back(move(ri));
 }
 
 static
-void makeDedupeSom(const ReportID id, vector<RoseInstruction> &report_block) {
+void makeDedupeSom(const RoseBuildImpl &build, const Report &report,
+                   vector<RoseInstruction> &report_block) {
     auto ri = RoseInstruction(ROSE_INSTR_DEDUPE_SOM, JumpTarget::NEXT_BLOCK);
-    ri.u.dedupeSom.report = id;
+    ri.u.dedupeSom.quash_som = report.quashSom;
+    ri.u.dedupeSom.dkey = build.rm.getDkey(report);
+    ri.u.dedupeSom.offset_adjust = report.offsetAdjust;
     report_block.push_back(move(ri));
 }
 
@@ -2511,6 +2521,92 @@ void makeCatchup(RoseBuildImpl &build, build_context &bc,
 }
 
 static
+void makeCatchupMpv(RoseBuildImpl &build, build_context &bc, ReportID id,
+                    vector<RoseInstruction> &program) {
+    if (!bc.needs_mpv_catchup) {
+        return;
+    }
+
+    const Report &report = build.rm.getReport(id);
+    if (report.type == INTERNAL_ROSE_CHAIN) {
+        return;
+    }
+
+    program.emplace_back(ROSE_INSTR_CATCH_UP_MPV);
+}
+
+static
+void writeSomOperation(const Report &report, som_operation *op) {
+    assert(op);
+
+    switch (report.type) {
+    case EXTERNAL_CALLBACK_SOM_REL:
+        op->type = SOM_EXTERNAL_CALLBACK_REL;
+        break;
+    case INTERNAL_SOM_LOC_SET:
+        op->type = SOM_INTERNAL_LOC_SET;
+        break;
+    case INTERNAL_SOM_LOC_SET_IF_UNSET:
+        op->type = SOM_INTERNAL_LOC_SET_IF_UNSET;
+        break;
+    case INTERNAL_SOM_LOC_SET_IF_WRITABLE:
+        op->type = SOM_INTERNAL_LOC_SET_IF_WRITABLE;
+        break;
+    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA:
+        op->type = SOM_INTERNAL_LOC_SET_REV_NFA;
+        break;
+    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_UNSET:
+        op->type = SOM_INTERNAL_LOC_SET_REV_NFA_IF_UNSET;
+        break;
+    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_WRITABLE:
+        op->type = SOM_INTERNAL_LOC_SET_REV_NFA_IF_WRITABLE;
+        break;
+    case INTERNAL_SOM_LOC_COPY:
+        op->type = SOM_INTERNAL_LOC_COPY;
+        break;
+    case INTERNAL_SOM_LOC_COPY_IF_WRITABLE:
+        op->type = SOM_INTERNAL_LOC_COPY_IF_WRITABLE;
+        break;
+    case INTERNAL_SOM_LOC_MAKE_WRITABLE:
+        op->type = SOM_INTERNAL_LOC_MAKE_WRITABLE;
+        break;
+    case EXTERNAL_CALLBACK_SOM_STORED:
+        op->type = SOM_EXTERNAL_CALLBACK_STORED;
+        break;
+    case EXTERNAL_CALLBACK_SOM_ABS:
+        op->type = SOM_EXTERNAL_CALLBACK_ABS;
+        break;
+    case EXTERNAL_CALLBACK_SOM_REV_NFA:
+        op->type = SOM_EXTERNAL_CALLBACK_REV_NFA;
+        break;
+    case INTERNAL_SOM_LOC_SET_FROM:
+        op->type = SOM_INTERNAL_LOC_SET_FROM;
+        break;
+    case INTERNAL_SOM_LOC_SET_FROM_IF_WRITABLE:
+        op->type = SOM_INTERNAL_LOC_SET_FROM_IF_WRITABLE;
+        break;
+    default:
+        // This report doesn't correspond to a SOM operation.
+        assert(0);
+        throw CompileError("Unable to generate bytecode.");
+    }
+
+    op->onmatch = report.onmatch;
+
+    switch (report.type) {
+    case EXTERNAL_CALLBACK_SOM_REV_NFA:
+    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA:
+    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_UNSET:
+    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_WRITABLE:
+        op->aux.revNfaIndex = report.revNfaIndex;
+        break;
+    default:
+        op->aux.somDistance = report.somDistance;
+        break;
+    }
+}
+
+static
 void makeReport(RoseBuildImpl &build, const ReportID id,
                 const bool has_som, vector<RoseInstruction> &program) {
     assert(id < build.rm.numReports());
@@ -2536,10 +2632,12 @@ void makeReport(RoseBuildImpl &build, const ReportID id,
         report_block.push_back(move(ri));
     }
 
-    // External SOM reports need their SOM value calculated.
-    if (isExternalSomReport(report)) {
+    // External SOM reports that aren't passthrough need their SOM value
+    // calculated.
+    if (isExternalSomReport(report) &&
+        report.type != EXTERNAL_CALLBACK_SOM_PASS) {
         auto ri = RoseInstruction(ROSE_INSTR_SOM_FROM_REPORT);
-        ri.u.somFromReport.report = id;
+        writeSomOperation(report, &ri.u.somFromReport.som);
         report_block.push_back(move(ri));
     }
 
@@ -2567,33 +2665,40 @@ void makeReport(RoseBuildImpl &build, const ReportID id,
                 if (needs_dedupe) {
                     report_block.emplace_back(ROSE_INSTR_DEDUPE_AND_REPORT,
                                               JumpTarget::NEXT_BLOCK);
-                    report_block.back().u.dedupeAndReport.report = id;
+                    auto &ri = report_block.back();
+                    ri.u.dedupeAndReport.quash_som = report.quashSom;
+                    ri.u.dedupeAndReport.dkey = build.rm.getDkey(report);
+                    ri.u.dedupeAndReport.onmatch = report.onmatch;
+                    ri.u.dedupeAndReport.offset_adjust = report.offsetAdjust;
                 } else {
                     report_block.emplace_back(ROSE_INSTR_REPORT);
                     auto &ri = report_block.back();
-                    ri.u.report.report = id;
                     ri.u.report.onmatch = report.onmatch;
                     ri.u.report.offset_adjust = report.offsetAdjust;
                 }
             } else {
                 if (needs_dedupe) {
-                    makeDedupe(id, report_block);
+                    makeDedupe(build, report, report_block);
                 }
                 report_block.emplace_back(ROSE_INSTR_REPORT_EXHAUST);
                 auto &ri = report_block.back();
-                ri.u.reportExhaust.report = id;
                 ri.u.reportExhaust.onmatch = report.onmatch;
                 ri.u.reportExhaust.offset_adjust = report.offsetAdjust;
                 ri.u.reportExhaust.ekey = report.ekey;
             }
         } else { // has_som
-            makeDedupeSom(id, report_block);
+            makeDedupeSom(build, report, report_block);
             if (report.ekey == INVALID_EKEY) {
                 report_block.emplace_back(ROSE_INSTR_REPORT_SOM);
-                report_block.back().u.reportSom.report = id;
+                auto &ri = report_block.back();
+                ri.u.reportSom.onmatch = report.onmatch;
+                ri.u.reportSom.offset_adjust = report.offsetAdjust;
             } else {
                 report_block.emplace_back(ROSE_INSTR_REPORT_SOM_EXHAUST);
-                report_block.back().u.reportSomExhaust.report = id;
+                auto &ri = report_block.back();
+                ri.u.reportSomExhaust.onmatch = report.onmatch;
+                ri.u.reportSomExhaust.offset_adjust = report.offsetAdjust;
+                ri.u.reportSomExhaust.ekey = report.ekey;
             }
         }
         break;
@@ -2610,29 +2715,55 @@ void makeReport(RoseBuildImpl &build, const ReportID id,
     case INTERNAL_SOM_LOC_SET_FROM_IF_WRITABLE:
         if (has_som) {
             report_block.emplace_back(ROSE_INSTR_REPORT_SOM_AWARE);
-            report_block.back().u.reportSomAware.report = id;
+            auto &ri = report_block.back();
+            writeSomOperation(report, &ri.u.reportSomAware.som);
         } else {
             report_block.emplace_back(ROSE_INSTR_REPORT_SOM_INT);
-            report_block.back().u.reportSomInt.report = id;
+            auto &ri = report_block.back();
+            writeSomOperation(report, &ri.u.reportSomInt.som);
         }
         break;
-    case INTERNAL_ROSE_CHAIN:
+    case INTERNAL_ROSE_CHAIN: {
         report_block.emplace_back(ROSE_INSTR_REPORT_CHAIN);
-        report_block.back().u.reportChain.report = id;
+        auto &ri = report_block.back();
+        ri.u.reportChain.event = report.onmatch;
+        ri.u.reportChain.top_squash_distance = report.topSquashDistance;
         break;
+    }
     case EXTERNAL_CALLBACK_SOM_REL:
     case EXTERNAL_CALLBACK_SOM_STORED:
     case EXTERNAL_CALLBACK_SOM_ABS:
     case EXTERNAL_CALLBACK_SOM_REV_NFA:
-        makeDedupeSom(id, report_block);
+        makeDedupeSom(build, report, report_block);
         if (report.ekey == INVALID_EKEY) {
             report_block.emplace_back(ROSE_INSTR_REPORT_SOM);
-            report_block.back().u.reportSom.report = id;
+            auto &ri = report_block.back();
+            ri.u.reportSom.onmatch = report.onmatch;
+            ri.u.reportSom.offset_adjust = report.offsetAdjust;
         } else {
             report_block.emplace_back(ROSE_INSTR_REPORT_SOM_EXHAUST);
-            report_block.back().u.reportSomExhaust.report = id;
+            auto &ri = report_block.back();
+            ri.u.reportSomExhaust.onmatch = report.onmatch;
+            ri.u.reportSomExhaust.offset_adjust = report.offsetAdjust;
+            ri.u.reportSomExhaust.ekey = report.ekey;
         }
         break;
+    case EXTERNAL_CALLBACK_SOM_PASS:
+        makeDedupeSom(build, report, report_block);
+        if (report.ekey == INVALID_EKEY) {
+            report_block.emplace_back(ROSE_INSTR_REPORT_SOM);
+            auto &ri = report_block.back();
+            ri.u.reportSom.onmatch = report.onmatch;
+            ri.u.reportSom.offset_adjust = report.offsetAdjust;
+        } else {
+            report_block.emplace_back(ROSE_INSTR_REPORT_SOM_EXHAUST);
+            auto &ri = report_block.back();
+            ri.u.reportSomExhaust.onmatch = report.onmatch;
+            ri.u.reportSomExhaust.offset_adjust = report.offsetAdjust;
+            ri.u.reportSomExhaust.ekey = report.ekey;
+        }
+        break;
+
     default:
         assert(0);
         throw CompileError("Unable to generate bytecode.");
@@ -3572,6 +3703,26 @@ pair<u32, u32> buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
 }
 
 static
+u32 buildReportPrograms(RoseBuildImpl &build, build_context &bc) {
+    const auto &rm = build.rm;
+    const u32 numReports = verify_u32(rm.numReports());
+    vector<u32> programs(numReports);
+
+    vector<RoseInstruction> program;
+    for (ReportID id = 0; id < numReports; id++) {
+        program.clear();
+        const bool has_som = false;
+        makeCatchupMpv(build, bc, id, program);
+        makeReport(build, id, has_som, program);
+        programs[id] = writeProgram(bc, flattenProgram({program}));
+        DEBUG_PRINTF("program for report %u @ %u (%zu instructions)\n", id,
+                     programs.back(), program.size());
+    }
+
+    return add_to_engine_blob(bc, begin(programs), end(programs));
+}
+
+static
 vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
                                              build_context &bc,
                                              const RoseEdge &e) {
@@ -3787,6 +3938,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     if (!anchored_dfas.empty()) {
         bc.resources.has_anchored = true;
     }
+    bc.needs_mpv_catchup = needsMpvCatchup(*this);
 
     auto boundary_out = makeBoundaryPrograms(*this, bc, boundary, dboundary);
 
@@ -3834,6 +3986,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     u32 eodIterProgramOffset;
     u32 eodIterOffset;
     tie(eodIterProgramOffset, eodIterOffset) = buildEodAnchorProgram(*this, bc);
+
+    u32 reportProgramOffset = buildReportPrograms(*this, bc);
 
     vector<mmbit_sparse_iter> activeLeftIter;
     buildActiveLeftIter(leftInfoTable, activeLeftIter);
@@ -3899,12 +4053,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         sbmatcherOffset = currOffset;
         currOffset += verify_u32(sbsize);
     }
-
-    const vector<Report> &int_reports = rm.reports();
-
-    currOffset = ROUNDUP_CL(currOffset);
-    u32 intReportOffset = currOffset;
-    currOffset += sizeof(internal_report) * int_reports.size();
 
     u32 leftOffset = ROUNDUP_N(currOffset, alignof(LeftNfaInfo));
     u32 roseLen = sizeof(LeftNfaInfo) * leftInfoTable.size();
@@ -4004,14 +4152,13 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->somHorizon = ssm.somPrecision();
     engine->somLocationCount = ssm.numSomSlots();
 
-    engine->simpleCallback = !rm.numEkeys() && hasSimpleReports(rm.reports());
     engine->needsCatchup = bc.needs_catchup ? 1 : 0;
-
-    fillInReportInfo(engine.get(), intReportOffset, rm, int_reports);
 
     engine->literalCount = verify_u32(final_id_to_literal.size());
     engine->litProgramOffset = litProgramOffset;
     engine->litDelayRebuildProgramOffset = litDelayRebuildProgramOffset;
+    engine->reportProgramOffset = reportProgramOffset;
+    engine->reportProgramCount = verify_u32(rm.reports().size());
     engine->runtimeImpl = pickRuntimeImpl(*this, bc, outfixEndQueue);
     engine->mpvTriggeredByLeaf = anyEndfixMpvTriggers(*this);
 

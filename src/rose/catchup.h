@@ -56,9 +56,6 @@
 #include "ue2common.h"
 #include "util/multibit.h"
 
-
-/* Callbacks, defined in catchup.c */
-
 hwlmcb_rv_t roseCatchUpAll(s64a loc, struct hs_scratch *scratch);
 
 /* will only catch mpv up to last reported external match */

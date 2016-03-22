@@ -573,14 +573,13 @@ void roseTriggerInfix(const struct RoseEngine *t, struct hs_scratch *scratch,
 
 static rose_inline
 hwlmcb_rv_t roseReport(const struct RoseEngine *t, struct hs_scratch *scratch,
-                       u64a end, ReportID id, ReportID onmatch,
-                       s32 offset_adjust, u32 ekey) {
+                       u64a end, ReportID onmatch, s32 offset_adjust,
+                       u32 ekey) {
     assert(!t->needsCatchup || end == scratch->tctxt.minMatchOffset);
-    DEBUG_PRINTF("firing callback id=%u, end=%llu\n", id, end);
+    DEBUG_PRINTF("firing callback onmatch=%u, end=%llu\n", onmatch, end);
     updateLastMatchOffset(&scratch->tctxt, end);
 
-    int cb_rv = roseDeliverReport(end, id, onmatch, offset_adjust, scratch,
-                                  ekey);
+    int cb_rv = roseDeliverReport(end, onmatch, offset_adjust, scratch, ekey);
     if (cb_rv == MO_HALT_MATCHING) {
         DEBUG_PRINTF("termination requested\n");
         return HWLM_TERMINATE_MATCHING;
@@ -599,47 +598,45 @@ hwlmcb_rv_t roseReport(const struct RoseEngine *t, struct hs_scratch *scratch,
 static rose_inline
 hwlmcb_rv_t roseCatchUpAndHandleChainMatch(const struct RoseEngine *t,
                                            struct hs_scratch *scratch,
-                                           ReportID r, u64a end) {
-    if (roseCatchUpMpvFeeders(t, scratch, end) == HWLM_TERMINATE_MATCHING) {
+                                           u32 event, u64a top_squash_distance,
+                                           u64a end, const char in_catchup) {
+    if (!in_catchup &&
+        roseCatchUpMpvFeeders(t, scratch, end) == HWLM_TERMINATE_MATCHING) {
         return HWLM_TERMINATE_MATCHING;
     }
-
-    return roseHandleChainMatch(t, scratch, r, end, 0);
+    return roseHandleChainMatch(t, scratch, event, top_squash_distance, end,
+                                in_catchup);
 }
 
 static rose_inline
-void roseHandleSom(const struct RoseEngine *t, struct hs_scratch *scratch,
-                   ReportID id, u64a end) {
-    DEBUG_PRINTF("id=%u, end=%llu, minMatchOffset=%llu\n", id, end,
-                  scratch->tctxt.minMatchOffset);
-
-    // Reach into reports and handle internal reports that just manipulate SOM
-    // slots ourselves, rather than going through the callback.
+void roseHandleSom(UNUSED const struct RoseEngine *t,
+                   struct hs_scratch *scratch, const struct som_operation *sr,
+                   u64a end) {
+    DEBUG_PRINTF("end=%llu, minMatchOffset=%llu\n", end,
+                 scratch->tctxt.minMatchOffset);
 
     assert(!t->needsCatchup || end == scratch->tctxt.minMatchOffset);
-    DEBUG_PRINTF("firing som callback id=%u, end=%llu\n", id, end);
     updateLastMatchOffset(&scratch->tctxt, end);
-
-    const struct internal_report *ri = getInternalReport(t, id);
-    handleSomInternal(scratch, ri, end);
+    handleSomInternal(scratch, sr, end);
 }
 
 static rose_inline
 hwlmcb_rv_t roseReportSom(const struct RoseEngine *t,
-                          struct hs_scratch *scratch, ReportID id, u64a start,
-                          u64a end, char is_exhaustible) {
+                          struct hs_scratch *scratch, u64a start, u64a end,
+                          ReportID onmatch, s32 offset_adjust, u32 ekey) {
     assert(!t->needsCatchup || end == scratch->tctxt.minMatchOffset);
-    DEBUG_PRINTF("firing som callback id=%u, end=%llu\n", id, end);
+    DEBUG_PRINTF("firing som callback onmatch=%u, start=%llu, end=%llu\n",
+                 onmatch, start, end);
     updateLastMatchOffset(&scratch->tctxt, end);
 
-    const struct internal_report *ir = getInternalReport(t, id);
-    int cb_rv = roseDeliverSomReport(start, end, ir, scratch, is_exhaustible);
+    int cb_rv = roseDeliverSomReport(start, end, onmatch, offset_adjust,
+                                     scratch, ekey);
     if (cb_rv == MO_HALT_MATCHING) {
         DEBUG_PRINTF("termination requested\n");
         return HWLM_TERMINATE_MATCHING;
     }
 
-    if (!is_exhaustible || cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
+    if (ekey == INVALID_EKEY || cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
         return HWLM_CONTINUE_MATCHING;
     }
 
@@ -647,19 +644,15 @@ hwlmcb_rv_t roseReportSom(const struct RoseEngine *t,
 }
 
 static rose_inline
-void roseHandleSomSom(const struct RoseEngine *t, ReportID id, u64a start,
-                      u64a end, struct hs_scratch *scratch) {
-    DEBUG_PRINTF("id=%u, start=%llu, end=%llu, minMatchOffset=%llu\n",
-                  id, start, end, scratch->tctxt.minMatchOffset);
-
-    // Reach into reports and handle internal reports that just manipulate SOM
-    // slots ourselves, rather than going through the callback.
+void roseHandleSomSom(UNUSED const struct RoseEngine *t,
+                      struct hs_scratch *scratch,
+                      const struct som_operation *sr, u64a start, u64a end) {
+    DEBUG_PRINTF("start=%llu, end=%llu, minMatchOffset=%llu\n", start, end,
+                 scratch->tctxt.minMatchOffset);
 
     assert(!t->needsCatchup || end == scratch->tctxt.minMatchOffset);
     updateLastMatchOffset(&scratch->tctxt, end);
-
-    const struct internal_report *ri = getInternalReport(t, id);
-    setSomFromSomAware(scratch, ri, start, end);
+    setSomFromSomAware(scratch, sr, start, end);
 }
 
 static really_inline
@@ -807,6 +800,16 @@ char roseCheckBounds(u64a end, u64a min_bound, u64a max_bound) {
     return end >= min_bound && end <= max_bound;
 }
 
+static
+void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
+                    const char from_mpv) {
+    if (from_mpv) {
+        updateMinMatchOffsetFromMpv(tctxt, offset);
+    } else {
+        updateMinMatchOffset(tctxt, offset);
+    }
+}
+
 #define PROGRAM_CASE(name)                                                     \
     case ROSE_INSTR_##name: {                                                  \
         DEBUG_PRINTF("instruction: " #name " (pc=%u)\n",                       \
@@ -822,16 +825,16 @@ char roseCheckBounds(u64a end, u64a min_bound, u64a max_bound) {
 static rose_inline
 hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                            struct hs_scratch *scratch, u32 programOffset,
-                           u64a end, size_t match_len, char in_anchored) {
-    DEBUG_PRINTF("program begins at offset %u\n", programOffset);
+                           u64a som, u64a end, size_t match_len,
+                           char in_anchored, char in_catchup, char from_mpv,
+                           char skip_mpv_catchup) {
+    DEBUG_PRINTF("program=%u, offsets [%llu,%llu]\n", programOffset, som, end);
 
     assert(programOffset);
     assert(programOffset < t->size);
 
     const char *pc_base = getByOffset(t, programOffset);
     const char *pc = pc_base;
-
-    u64a som = 0;
 
     // Local sparse iterator state for programs that use the SPARSE_ITER_BEGIN
     // and SPARSE_ITER_NEXT instructions.
@@ -972,6 +975,17 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CATCH_UP_MPV) {
+                if (from_mpv || skip_mpv_catchup) {
+                    DEBUG_PRINTF("skipping mpv catchup\n");
+                } else if (roseCatchUpMPV(t,
+                                          end - scratch->core_info.buf_offset,
+                                          scratch) == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(SOM_ADJUST) {
                 assert(ri->distance <= end);
                 som = end - ri->distance;
@@ -986,10 +1000,9 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(SOM_FROM_REPORT) {
-                const struct internal_report *ir =
-                    getInternalReport(t, ri->report);
-                som = handleSomExternal(scratch, ir, end);
-                DEBUG_PRINTF("som from report %u is %llu\n", ri->report, som);
+                som = handleSomExternal(scratch, &ri->som, end);
+                DEBUG_PRINTF("som from report %u is %llu\n", ri->som.onmatch,
+                             som);
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -1016,11 +1029,13 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(DEDUPE) {
-                const struct internal_report *ir =
-                    getInternalReport(t, ri->report);
-                const char do_som = t->hasSom; // FIXME: constant propagate
-                enum DedupeResult rv = dedupeCatchup(
-                    t, ir, scratch, end, som, end + ir->offsetAdjust, do_som);
+                updateSeqPoint(tctxt, end, from_mpv);
+                const char do_som = t->hasSom; // TODO: constant propagate
+                const char is_external_report = 1;
+                enum DedupeResult rv =
+                    dedupeCatchup(t, scratch, end, som, end + ri->offset_adjust,
+                                  ri->dkey, ri->offset_adjust,
+                                  is_external_report, ri->quash_som, do_som);
                 switch (rv) {
                 case DEDUPE_HALT:
                     return HWLM_TERMINATE_MATCHING;
@@ -1035,10 +1050,13 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(DEDUPE_SOM) {
-                const struct internal_report *ir =
-                    getInternalReport(t, ri->report);
-                enum DedupeResult rv = dedupeCatchupSom(
-                    t, ir, scratch, end, som, end + ir->offsetAdjust);
+                updateSeqPoint(tctxt, end, from_mpv);
+                const char is_external_report = 0;
+                const char do_som = 1;
+                enum DedupeResult rv =
+                    dedupeCatchup(t, scratch, end, som, end + ri->offset_adjust,
+                                  ri->dkey, ri->offset_adjust,
+                                  is_external_report, ri->quash_som, do_som);
                 switch (rv) {
                 case DEDUPE_HALT:
                     return HWLM_TERMINATE_MATCHING;
@@ -1053,9 +1071,10 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_CHAIN) {
-                if (roseCatchUpAndHandleChainMatch(t, scratch, ri->report,
-                                                   end) ==
-                    HWLM_TERMINATE_MATCHING) {
+                // Note: sequence points updated inside this function.
+                if (roseCatchUpAndHandleChainMatch(
+                        t, scratch, ri->event, ri->top_squash_distance, end,
+                        in_catchup) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
                 work_done = 1;
@@ -1063,20 +1082,22 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM_INT) {
-                roseHandleSom(t, scratch, ri->report, end);
+                updateSeqPoint(tctxt, end, from_mpv);
+                roseHandleSom(t, scratch, &ri->som, end);
                 work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM_AWARE) {
-                roseHandleSomSom(t, ri->report, som, end, scratch);
+                updateSeqPoint(tctxt, end, from_mpv);
+                roseHandleSomSom(t, scratch, &ri->som, som, end);
                 work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT) {
-                if (roseReport(t, scratch, end, ri->report, ri->onmatch,
-                               ri->offset_adjust,
+                updateSeqPoint(tctxt, end, from_mpv);
+                if (roseReport(t, scratch, end, ri->onmatch, ri->offset_adjust,
                                INVALID_EKEY) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
@@ -1085,8 +1106,8 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_EXHAUST) {
-                if (roseReport(t, scratch, end, ri->report, ri->onmatch,
-                               ri->offset_adjust,
+                updateSeqPoint(tctxt, end, from_mpv);
+                if (roseReport(t, scratch, end, ri->onmatch, ri->offset_adjust,
                                ri->ekey) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
@@ -1095,9 +1116,10 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM) {
-                const char is_exhaustible = 0;
-                if (roseReportSom(t, scratch, ri->report, som, end,
-                                  is_exhaustible) == HWLM_TERMINATE_MATCHING) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                if (roseReportSom(t, scratch, som, end, ri->onmatch,
+                                  ri->offset_adjust,
+                                  INVALID_EKEY) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
                 work_done = 1;
@@ -1105,9 +1127,10 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM_EXHAUST) {
-                const char is_exhaustible = 1;
-                if (roseReportSom(t, scratch, ri->report, som, end,
-                                  is_exhaustible) == HWLM_TERMINATE_MATCHING) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                if (roseReportSom(t, scratch, som, end, ri->onmatch,
+                                  ri->offset_adjust,
+                                  ri->ekey) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
                 work_done = 1;
@@ -1115,11 +1138,13 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(DEDUPE_AND_REPORT) {
-                const struct internal_report *ir =
-                    getInternalReport(t, ri->report);
-                const char do_som = t->hasSom; // FIXME: constant propagate
-                enum DedupeResult rv = dedupeCatchup(
-                    t, ir, scratch, end, som, end + ir->offsetAdjust, do_som);
+                updateSeqPoint(tctxt, end, from_mpv);
+                const char do_som = t->hasSom; // TODO: constant propagate
+                const char is_external_report = 1;
+                enum DedupeResult rv =
+                    dedupeCatchup(t, scratch, end, som, end + ri->offset_adjust,
+                                  ri->dkey, ri->offset_adjust,
+                                  is_external_report, ri->quash_som, do_som);
                 switch (rv) {
                 case DEDUPE_HALT:
                     return HWLM_TERMINATE_MATCHING;
@@ -1132,8 +1157,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                 }
 
                 const u32 ekey = INVALID_EKEY;
-                if (roseReport(t, scratch, end, ri->report, ir->onmatch,
-                               ir->offsetAdjust,
+                if (roseReport(t, scratch, end, ri->onmatch, ri->offset_adjust,
                                ekey) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }

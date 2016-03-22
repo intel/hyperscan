@@ -2833,7 +2833,7 @@ void mergePuffixes(RoseBuildImpl &tbi) {
         u32 squashDistance =
             allowedSquashDistance(repeat.reach, repeat.bounds.min, tbi, v);
 
-        Report ir = makeRoseTrigger(event, squashDistance);
+        Report ir = makeMpvTrigger(event, squashDistance);
         ReportID id = tbi.rm.getInternalId(ir);
 
         DEBUG_PRINTF("puffette event q%u t%u\n", queue, event);

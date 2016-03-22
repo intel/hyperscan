@@ -39,6 +39,7 @@
  */
 
 #include "hs_internal.h"
+#include "som_operation.h"
 #include "som_runtime.h"
 #include "scratch.h"
 #include "ue2common.h"
@@ -47,11 +48,10 @@
 #include "nfa/nfa_internal.h"
 #include "util/fatbit.h"
 #include "util/multibit.h"
-#include "util/internal_report.h"
 
 static really_inline
 void setSomLoc(struct fatbit *som_set_now, u64a *som_store, u32 som_store_count,
-               const struct internal_report *ri, u64a to_offset) {
+               const struct som_operation *ri, u64a to_offset) {
     /* validity handled by callers */
     assert(to_offset >= ri->aux.somDistance);
     u64a start_offset = to_offset - ri->aux.somDistance;
@@ -112,7 +112,7 @@ const struct NFA *getSomRevNFA(const struct RoseEngine *t, u32 i) {
 }
 
 static
-void runRevNfa(struct hs_scratch *scratch, const struct internal_report *ri,
+void runRevNfa(struct hs_scratch *scratch, const struct som_operation *ri,
                const u64a to_offset, u64a *from_offset) {
     struct core_info *ci = &scratch->core_info;
 
@@ -159,7 +159,7 @@ void runRevNfa(struct hs_scratch *scratch, const struct internal_report *ri,
 static really_inline
 void setSomLocRevNfa(struct hs_scratch *scratch, struct fatbit *som_set_now,
                      u64a *som_store, u32 som_store_count,
-                     const struct internal_report *ri, u64a to_offset) {
+                     const struct som_operation *ri, u64a to_offset) {
     /* validity handled by callers */
     u64a from_offset = 0;
     runRevNfa(scratch, ri, to_offset, &from_offset);
@@ -178,7 +178,7 @@ void setSomLocRevNfa(struct hs_scratch *scratch, struct fatbit *som_set_now,
 }
 
 void handleSomInternal(struct hs_scratch *scratch,
-                       const struct internal_report *ri, const u64a to_offset) {
+                       const struct som_operation *ri, const u64a to_offset) {
     assert(scratch);
     assert(ri);
     DEBUG_PRINTF("-->som action required at %llu\n", to_offset);
@@ -209,21 +209,21 @@ void handleSomInternal(struct hs_scratch *scratch,
     }
 
     switch (ri->type) {
-    case INTERNAL_SOM_LOC_SET:
-        DEBUG_PRINTF("INTERNAL_SOM_LOC_SET\n");
+    case SOM_INTERNAL_LOC_SET:
+        DEBUG_PRINTF("SOM_INTERNAL_LOC_SET\n");
         mmbit_set(som_store_valid, som_store_count, ri->onmatch);
         setSomLoc(som_set_now, som_store, som_store_count, ri, to_offset);
         return;
-    case INTERNAL_SOM_LOC_SET_IF_UNSET:
-        DEBUG_PRINTF("INTERNAL_SOM_LOC_SET_IF_UNSET\n");
+    case SOM_INTERNAL_LOC_SET_IF_UNSET:
+        DEBUG_PRINTF("SOM_INTERNAL_LOC_SET_IF_UNSET\n");
         if (ok_and_mark_if_unset(som_store_valid, som_set_now, som_store_count,
                                  ri->onmatch)) {
             setSomLoc(som_set_now, som_store, som_store_count, ri, to_offset);
         }
         return;
-    case INTERNAL_SOM_LOC_SET_IF_WRITABLE: {
+    case SOM_INTERNAL_LOC_SET_IF_WRITABLE: {
         u32 slot = ri->onmatch;
-        DEBUG_PRINTF("INTERNAL_SOM_LOC_SET_IF_WRITABLE\n");
+        DEBUG_PRINTF("SOM_INTERNAL_LOC_SET_IF_WRITABLE\n");
         if (ok_and_mark_if_write(som_store_valid, som_set_now,
                                  som_store_writable, som_store_count, slot)) {
             setSomLoc(som_set_now, som_store, som_store_count, ri, to_offset);
@@ -245,23 +245,23 @@ void handleSomInternal(struct hs_scratch *scratch,
         }
         return;
     }
-    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA:
-        DEBUG_PRINTF("INTERNAL_SOM_LOC_SET_SOM_REV_NFA\n");
+    case SOM_INTERNAL_LOC_SET_REV_NFA:
+        DEBUG_PRINTF("SOM_INTERNAL_LOC_SET_REV_NFA\n");
         mmbit_set(som_store_valid, som_store_count, ri->onmatch);
         setSomLocRevNfa(scratch, som_set_now, som_store, som_store_count, ri,
                         to_offset);
         return;
-    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_UNSET:
-        DEBUG_PRINTF("INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_UNSET\n");
+    case SOM_INTERNAL_LOC_SET_REV_NFA_IF_UNSET:
+        DEBUG_PRINTF("SOM_INTERNAL_LOC_SET_REV_NFA_IF_UNSET\n");
         if (ok_and_mark_if_unset(som_store_valid, som_set_now, som_store_count,
                                  ri->onmatch)) {
             setSomLocRevNfa(scratch, som_set_now, som_store, som_store_count,
                             ri, to_offset);
         }
         return;
-    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_WRITABLE: {
+    case SOM_INTERNAL_LOC_SET_REV_NFA_IF_WRITABLE: {
         u32 slot = ri->onmatch;
-        DEBUG_PRINTF("INTERNAL_SOM_LOC_SET_IF_WRITABLE\n");
+        DEBUG_PRINTF("SOM_INTERNAL_LOC_SET_IF_WRITABLE\n");
         if (ok_and_mark_if_write(som_store_valid, som_set_now,
                                  som_store_writable, som_store_count, slot)) {
             setSomLocRevNfa(scratch, som_set_now, som_store, som_store_count,
@@ -285,10 +285,10 @@ void handleSomInternal(struct hs_scratch *scratch,
         }
         return;
     }
-    case INTERNAL_SOM_LOC_COPY: {
+    case SOM_INTERNAL_LOC_COPY: {
         u32 slot_in = ri->aux.somDistance;
         u32 slot_out = ri->onmatch;
-        DEBUG_PRINTF("INTERNAL_SOM_LOC_COPY S[%u] = S[%u]\n", slot_out,
+        DEBUG_PRINTF("SOM_INTERNAL_LOC_COPY S[%u] = S[%u]\n", slot_out,
                      slot_in);
         assert(mmbit_isset(som_store_valid, som_store_count, slot_in));
         mmbit_set(som_store_valid, som_store_count, slot_out);
@@ -297,10 +297,10 @@ void handleSomInternal(struct hs_scratch *scratch,
 
         return;
     }
-    case INTERNAL_SOM_LOC_COPY_IF_WRITABLE: {
+    case SOM_INTERNAL_LOC_COPY_IF_WRITABLE: {
         u32 slot_in = ri->aux.somDistance;
         u32 slot_out = ri->onmatch;
-        DEBUG_PRINTF("INTERNAL_SOM_LOC_COPY_IF_WRITABLE S[%u] = S[%u]\n",
+        DEBUG_PRINTF("SOM_INTERNAL_LOC_COPY_IF_WRITABLE S[%u] = S[%u]\n",
                      slot_out, slot_in);
         assert(mmbit_isset(som_store_valid, som_store_count, slot_in));
         if (ok_and_mark_if_write(som_store_valid, som_set_now,
@@ -322,9 +322,9 @@ void handleSomInternal(struct hs_scratch *scratch,
         }
         return;
     }
-    case INTERNAL_SOM_LOC_MAKE_WRITABLE: {
+    case SOM_INTERNAL_LOC_MAKE_WRITABLE: {
         u32 slot = ri->onmatch;
-        DEBUG_PRINTF("INTERNAL_SOM_LOC_MAKE_WRITABLE\n");
+        DEBUG_PRINTF("SOM_INTERNAL_LOC_MAKE_WRITABLE\n");
         /* if just written to the loc, ignore the racing escape */
         if (fatbit_isset(som_set_now, som_store_count, slot)) {
             DEBUG_PRINTF("just written\n");
@@ -347,14 +347,14 @@ void handleSomInternal(struct hs_scratch *scratch,
         break;
     }
 
-    // All valid internal_report types should be handled and returned above.
+    // All valid som_operation types should be handled and returned above.
     assert(0);
     return;
 }
 
 // Returns the SOM offset.
 u64a handleSomExternal(struct hs_scratch *scratch,
-                       const struct internal_report *ri,
+                       const struct som_operation *ri,
                        const u64a to_offset) {
     assert(scratch);
     assert(ri);
@@ -368,20 +368,20 @@ u64a handleSomExternal(struct hs_scratch *scratch,
     assert(rose->hasSom);
 
     switch (ri->type) {
-    case EXTERNAL_CALLBACK_SOM_REL:
-        DEBUG_PRINTF("EXTERNAL_CALLBACK_SOM_REL: som is %llu chars back\n",
+    case SOM_EXTERNAL_CALLBACK_REL:
+        DEBUG_PRINTF("SOM_EXTERNAL_CALLBACK_REL: som is %llu chars back\n",
                      ri->aux.somDistance);
         assert(to_offset >= ri->aux.somDistance);
         return to_offset - ri->aux.somDistance;
-    case EXTERNAL_CALLBACK_SOM_ABS:
-        DEBUG_PRINTF("EXTERNAL_CALLBACK_SOM_ABS: som is at %llu\n",
+    case SOM_EXTERNAL_CALLBACK_ABS:
+        DEBUG_PRINTF("SOM_EXTERNAL_CALLBACK_ABS: som is at %llu\n",
                      ri->aux.somDistance);
         assert(to_offset >= ri->aux.somDistance);
         return ri->aux.somDistance;
-    case EXTERNAL_CALLBACK_SOM_STORED: {
+    case SOM_EXTERNAL_CALLBACK_STORED: {
         const u64a *som_store = scratch->som_store;
         u32 slot = ri->aux.somDistance;
-        DEBUG_PRINTF("EXTERNAL_CALLBACK_SOM_STORED: <- som_store[%u]=%llu\n",
+        DEBUG_PRINTF("SOM_EXTERNAL_CALLBACK_STORED: <- som_store[%u]=%llu\n",
                      slot, som_store[slot]);
 
         UNUSED const u32 som_store_count = rose->somLocationCount;
@@ -391,8 +391,8 @@ u64a handleSomExternal(struct hs_scratch *scratch,
         assert(mmbit_isset(som_store_valid, som_store_count, slot));
         return som_store[slot];
     }
-    case EXTERNAL_CALLBACK_SOM_REV_NFA: {
-        DEBUG_PRINTF("EXTERNAL_CALLBACK_REV_NFA\n");
+    case SOM_EXTERNAL_CALLBACK_REV_NFA: {
+        DEBUG_PRINTF("SOM_EXTERNAL_CALLBACK_REV_NFA\n");
         u64a from_offset = 0;
         runRevNfa(scratch, ri, to_offset, &from_offset);
         return from_offset;
@@ -402,19 +402,19 @@ u64a handleSomExternal(struct hs_scratch *scratch,
         break;
     }
 
-    // All valid internal_report types should be handled and returned above.
+    // All valid som_operation types should be handled and returned above.
     assert(0);
     return 0;
 }
 
 void setSomFromSomAware(struct hs_scratch *scratch,
-                        const struct internal_report *ri, u64a from_offset,
+                        const struct som_operation *ri, u64a from_offset,
                         u64a to_offset) {
     assert(scratch);
     assert(ri);
     assert(to_offset);
-    assert(ri->type == INTERNAL_SOM_LOC_SET_FROM
-           || ri->type == INTERNAL_SOM_LOC_SET_FROM_IF_WRITABLE);
+    assert(ri->type == SOM_INTERNAL_LOC_SET_FROM
+           || ri->type == SOM_INTERNAL_LOC_SET_FROM_IF_WRITABLE);
 
     struct core_info *ci = &scratch->core_info;
     const struct RoseEngine *rose = ci->rose;
@@ -435,12 +435,12 @@ void setSomFromSomAware(struct hs_scratch *scratch,
         scratch->som_set_now_offset = to_offset;
     }
 
-    if (ri->type == INTERNAL_SOM_LOC_SET_FROM) {
-        DEBUG_PRINTF("INTERNAL_SOM_LOC_SET_FROM\n");
+    if (ri->type == SOM_INTERNAL_LOC_SET_FROM) {
+        DEBUG_PRINTF("SOM_INTERNAL_LOC_SET_FROM\n");
         mmbit_set(som_store_valid, som_store_count, ri->onmatch);
         setSomLoc(som_set_now, som_store, som_store_count, ri, from_offset);
     } else {
-        DEBUG_PRINTF("INTERNAL_SOM_LOC_SET_FROM_IF_WRITABLE\n");
+        DEBUG_PRINTF("SOM_INTERNAL_LOC_SET_FROM_IF_WRITABLE\n");
         if (ok_and_mark_if_write(som_store_valid, som_set_now,
                                  som_store_writable, som_store_count,
                                  ri->onmatch)) {

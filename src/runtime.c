@@ -139,6 +139,12 @@ void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
     s->som_set_now_offset = ~0ULL;
     s->deduper.current_report_offset = ~0ULL;
     s->deduper.som_log_dirty = 1; /* som logs have not been cleared */
+
+    // Rose program execution (used for some report paths) depends on these
+    // values being initialised.
+    s->tctxt.lastMatchOffset = 0;
+    s->tctxt.minMatchOffset = offset;
+    s->tctxt.minNonMpvMatchOffset = offset;
 }
 
 #define STATUS_VALID_BITS                                                      \
@@ -159,107 +165,6 @@ void setStreamStatus(char *state, u8 status) {
     *(u8 *)state = status;
 }
 
-static
-int roseAdaptor(u64a offset, ReportID id, struct hs_scratch *scratch) {
-    return roseAdaptor_i(offset, id, scratch, 0, 0);
-}
-
-static
-int roseSimpleAdaptor(u64a offset, ReportID id, struct hs_scratch *scratch) {
-    return roseAdaptor_i(offset, id, scratch, 1, 0);
-}
-
-static
-int roseSomAdaptor(u64a offset, ReportID id, struct hs_scratch *scratch) {
-    return roseAdaptor_i(offset, id, scratch, 0, 1);
-}
-
-static
-int roseSimpleSomAdaptor(u64a offset, ReportID id, struct hs_scratch *scratch) {
-    return roseAdaptor_i(offset, id, scratch, 1, 1);
-}
-
-static really_inline
-RoseCallback selectAdaptor(const struct RoseEngine *rose) {
-    const char is_simple = rose->simpleCallback;
-    const char do_som = rose->hasSom;
-
-    if (do_som) {
-        return is_simple ? roseSimpleSomAdaptor : roseSomAdaptor;
-    } else {
-        return is_simple ? roseSimpleAdaptor : roseAdaptor;
-    }
-}
-
-static
-int roseSomSomAdaptor(u64a from_offset, u64a to_offset, ReportID id,
-                      struct hs_scratch *scratch) {
-    return roseSomAdaptor_i(from_offset, to_offset, id, scratch, 0);
-}
-
-static
-int roseSimpleSomSomAdaptor(u64a from_offset, u64a to_offset, ReportID id,
-                            struct hs_scratch *scratch) {
-    return roseSomAdaptor_i(from_offset, to_offset, id, scratch, 1);
-}
-
-static really_inline
-RoseCallbackSom selectSomAdaptor(const struct RoseEngine *rose) {
-    const char is_simple = rose->simpleCallback;
-
-    return is_simple ? roseSimpleSomSomAdaptor : roseSomSomAdaptor;
-}
-
-static
-int outfixSimpleSomAdaptor(u64a offset, ReportID id, void *context) {
-    return roseAdaptor_i(offset, id, context, 1, 1);
-}
-
-static
-int outfixSimpleAdaptor(u64a offset, ReportID id, void *context) {
-    return roseAdaptor_i(offset, id, context, 1, 0);
-}
-
-static
-int outfixSomAdaptor(u64a offset, ReportID id, void *context) {
-    return roseAdaptor_i(offset, id, context, 0, 1);
-}
-
-static
-int outfixAdaptor(u64a offset, ReportID id, void *context) {
-    return roseAdaptor_i(offset, id, context, 0, 0);
-}
-
-static really_inline
-NfaCallback selectOutfixAdaptor(const struct RoseEngine *rose) {
-    const char is_simple = rose->simpleCallback;
-    const char do_som = rose->hasSom;
-
-    if (do_som) {
-        return is_simple ? outfixSimpleSomAdaptor : outfixSomAdaptor;
-    } else {
-        return is_simple ? outfixSimpleAdaptor : outfixAdaptor;
-    }
-}
-
-static
-int outfixSimpleSomSomAdaptor(u64a from_offset, u64a to_offset, ReportID id,
-                              void *context) {
-    return roseSomAdaptor_i(from_offset, to_offset, id, context, 1);
-}
-
-static
-int outfixSomSomAdaptor(u64a from_offset, u64a to_offset, ReportID id,
-                        void *context) {
-    return roseSomAdaptor_i(from_offset, to_offset, id, context, 0);
-}
-
-static really_inline
-SomNfaCallback selectOutfixSomAdaptor(const struct RoseEngine *rose) {
-    const char is_simple = rose->simpleCallback;
-    return is_simple ? outfixSimpleSomSomAdaptor : outfixSomSomAdaptor;
-}
-
 /** \brief Initialise SOM state. Used in both block and streaming mode. */
 static really_inline
 void initSomState(const struct RoseEngine *rose, char *state) {
@@ -278,8 +183,7 @@ void rawBlockExec(const struct RoseEngine *rose, struct hs_scratch *scratch) {
 
     DEBUG_PRINTF("blockmode scan len=%zu\n", scratch->core_info.len);
 
-    roseBlockExec(rose, scratch, selectAdaptor(rose),
-                  selectSomAdaptor(rose));
+    roseBlockExec(rose, scratch);
 }
 
 static really_inline
@@ -312,8 +216,8 @@ void initOutfixQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
     q->length = scratch->core_info.len;
     q->history = scratch->core_info.hbuf;
     q->hlength = scratch->core_info.hlen;
-    q->cb = selectOutfixAdaptor(t);
-    q->som_cb = selectOutfixSomAdaptor(t);
+    q->cb = roseReportAdaptor;
+    q->som_cb = roseReportSomAdaptor;
     q->context = scratch;
     q->report_current = 0;
 
@@ -376,18 +280,16 @@ void runSmallWriteEngine(const struct SmallWriteEngine *smwr,
 
     const struct NFA *nfa = getSmwrNfa(smwr);
 
-    const struct RoseEngine *rose = scratch->core_info.rose;
-
     size_t local_alen = length - smwr->start_offset;
     const u8 *local_buffer = buffer + smwr->start_offset;
 
     assert(isMcClellanType(nfa->type));
     if (nfa->type == MCCLELLAN_NFA_8) {
         nfaExecMcClellan8_B(nfa, smwr->start_offset, local_buffer,
-                            local_alen, selectOutfixAdaptor(rose), scratch);
+                            local_alen, roseReportAdaptor, scratch);
     } else {
         nfaExecMcClellan16_B(nfa, smwr->start_offset, local_buffer,
-                             local_alen, selectOutfixAdaptor(rose), scratch);
+                             local_alen, roseReportAdaptor, scratch);
     }
 }
 
@@ -429,11 +331,6 @@ hs_error_t hs_scan(const hs_database_t *db, const char *data, unsigned length,
                      length, NULL, 0, 0, 0, flags);
 
     clearEvec(rose, scratch->core_info.exhaustionVector);
-
-    // Rose program execution (used for some report paths) depends on these
-    // values being initialised.
-    scratch->tctxt.lastMatchOffset = 0;
-    scratch->tctxt.minMatchOffset = 0;
 
     if (!length) {
         if (rose->boundary.reportZeroEodOffset) {
@@ -617,8 +514,7 @@ void rawEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
         return;
     }
 
-    roseEodExec(rose, id->offset, scratch, selectAdaptor(rose),
-                selectSomAdaptor(rose));
+    roseEodExec(rose, id->offset, scratch);
 }
 
 static never_inline
@@ -675,11 +571,6 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
     populateCoreInfo(scratch, rose, state, onEvent, context, NULL, 0,
                      getHistory(state, rose, id->offset),
                      getHistoryAmount(rose, id->offset), id->offset, status, 0);
-
-    // Rose program execution (used for some report paths) depends on these
-    // values being initialised.
-    scratch->tctxt.lastMatchOffset = 0;
-    scratch->tctxt.minMatchOffset = id->offset;
 
     if (rose->somLocationCount) {
         loadSomFromStream(scratch, id->offset);
@@ -797,7 +688,7 @@ void rawStreamExec(struct hs_stream *stream_state, struct hs_scratch *scratch) {
 
     const struct RoseEngine *rose = stream_state->rose;
     assert(rose);
-    roseStreamExec(rose, scratch, selectAdaptor(rose), selectSomAdaptor(rose));
+    roseStreamExec(rose, scratch);
 
     if (!told_to_stop_matching(scratch) &&
         isAllExhausted(rose, scratch->core_info.exhaustionVector)) {
@@ -916,11 +807,6 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
                      id->offset, status, flags);
     assert(scratch->core_info.hlen <= id->offset
            && scratch->core_info.hlen <= rose->historyRequired);
-
-    // Rose program execution (used for some report paths) depends on these
-    // values being initialised.
-    scratch->tctxt.lastMatchOffset = 0;
-    scratch->tctxt.minMatchOffset = id->offset;
 
     prefetch_data(data, length);
 

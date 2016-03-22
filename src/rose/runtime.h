@@ -33,10 +33,9 @@
 #ifndef ROSE_RUNTIME_H
 #define ROSE_RUNTIME_H
 
-#include "scratch.h"
 #include "rose_internal.h"
+#include "scratch.h"
 #include "util/exhaust.h" // for isExhausted
-#include "util/internal_report.h"
 #include "util/partial_store.h"
 
 /*
@@ -145,16 +144,6 @@ char roseSuffixIsExhausted(const struct RoseEngine *t, u32 qi,
 static really_inline
 u32 has_chained_nfas(const struct RoseEngine *t) {
     return t->outfixBeginQueue;
-}
-
-/** \brief Fetch \ref internal_report structure for this internal ID. */
-static really_inline
-const struct internal_report *getInternalReport(const struct RoseEngine *t,
-                                                ReportID intId) {
-    const struct internal_report *reports =
-        (const struct internal_report *)((const u8 *)t + t->intReportOffset);
-    assert(intId < t->intReportCount);
-    return reports + intId;
 }
 
 static really_inline
