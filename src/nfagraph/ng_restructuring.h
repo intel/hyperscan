@@ -81,6 +81,13 @@ u32 countStates(const NGHolder &g,
 /** Optimisation: drop unnecessary start states. */
 void dropUnusedStarts(NGHolder &g, ue2::unordered_map<NFAVertex, u32> &states);
 
+/**
+ * \brief Returns a set of vertices that will not participate in an
+ * implementation (NFA, DFA etc) of this graph. For example, starts with no
+ * successors.
+ */
+flat_set<NFAVertex> findUnusedStates(const NGHolder &g);
+
 } // namespace ue2
 
 #endif

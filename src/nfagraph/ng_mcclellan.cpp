@@ -152,12 +152,11 @@ void getFullTransitionFromState(const raw_dfa &n, dstate_id_t state,
 
 template<typename stateset>
 static
-void populateInit(const NGHolder &g,
-                  const ue2::unordered_map<NFAVertex, u32> &state_ids,
+void populateInit(const NGHolder &g, const flat_set<NFAVertex> &unused,
                   stateset *init, stateset *init_deep,
                   vector<NFAVertex> *v_by_index) {
     for (auto v : vertices_range(g)) {
-        if (state_ids.at(v) == NO_STATE) {
+        if (contains(unused, v)) {
             continue;
         }
 
@@ -188,21 +187,22 @@ void populateInit(const NGHolder &g,
 }
 
 template<typename StateSet>
-void populateAccepts(const NGHolder &g,
-                     const ue2::unordered_map<NFAVertex, u32> &state_ids,
+void populateAccepts(const NGHolder &g, const flat_set<NFAVertex> &unused,
                      StateSet *accept, StateSet *acceptEod) {
     for (auto v : inv_adjacent_vertices_range(g.accept, g)) {
-        if (state_ids.at(v) != NO_STATE) {
-            accept->set(g[v].index);
+        if (contains(unused, v)) {
+            continue;
         }
+        accept->set(g[v].index);
     }
     for (auto v : inv_adjacent_vertices_range(g.acceptEod, g)) {
         if (v == g.accept) {
             continue;
         }
-        if (state_ids.at(v) != NO_STATE) {
-            acceptEod->set(g[v].index);
+        if (contains(unused, v)) {
+            continue;
         }
+        acceptEod->set(g[v].index);
     }
 }
 
@@ -315,8 +315,7 @@ bool triggerAllowed(const NGHolder &g, const NFAVertex v,
     return true;
 }
 
-void markToppableStarts(const NGHolder &g,
-                        const ue2::unordered_map<NFAVertex, u32> &state_ids,
+void markToppableStarts(const NGHolder &g, const flat_set<NFAVertex> &unused,
                         bool single_trigger,
                         const vector<vector<CharReach>> &triggers,
                         dynamic_bitset<> *out) {
@@ -325,14 +324,13 @@ void markToppableStarts(const NGHolder &g,
     }
 
     for (auto v : vertices_range(g)) {
-        if (state_ids.at(v) == NO_STATE) {
+        if (contains(unused, v)) {
             continue;
         }
-        u32 vert_id = g[v].index;
         for (const auto &trigger : triggers) {
             if (triggerAllowed(g, v, triggers, trigger)) {
-                DEBUG_PRINTF("idx %u is valid location for top\n", vert_id);
-                out->set(vert_id);
+                DEBUG_PRINTF("idx %u is valid location for top\n", g[v].index);
+                out->set(g[v].index);
                 break;
             }
         }
@@ -349,15 +347,14 @@ public:
     typedef map<StateSet, dstate_id_t> StateMap;
 
     Automaton_Big(const ReportManager *rm_in, const NGHolder &graph_in,
-                  const ue2::unordered_map<NFAVertex, u32> &state_ids_in,
-                  bool single_trigger,
+                  const flat_set<NFAVertex> &unused_in, bool single_trigger,
                   const vector<vector<CharReach>> &triggers, bool prunable_in)
-        : rm(rm_in), graph(graph_in), state_ids(state_ids_in),
-          numStates(num_vertices(graph)), init(numStates), initDS(numStates),
+        : rm(rm_in), graph(graph_in), numStates(num_vertices(graph)),
+          unused(unused_in), init(numStates), initDS(numStates),
           squash(numStates), accept(numStates), acceptEod(numStates),
           toppable(numStates), prunable(prunable_in), dead(numStates) {
-        populateInit(graph, state_ids, &init, &initDS, &v_by_index);
-        populateAccepts(graph, state_ids, &accept, &acceptEod);
+        populateInit(graph, unused, &init, &initDS, &v_by_index);
+        populateAccepts(graph, unused, &accept, &acceptEod);
 
         start_anchored = DEAD_STATE + 1;
         if (initDS == init) {
@@ -379,7 +376,7 @@ public:
 
         cr_by_index = populateCR(graph, v_by_index, alpha);
         if (is_triggered(graph)) {
-            markToppableStarts(graph, state_ids, single_trigger, triggers,
+            markToppableStarts(graph, unused, single_trigger, triggers,
                                &toppable);
         }
     }
@@ -438,8 +435,8 @@ private:
     const ReportManager *rm;
 public:
     const NGHolder &graph;
-    const ue2::unordered_map<NFAVertex, u32> &state_ids;
     u32 numStates;
+    const flat_set<NFAVertex> &unused;
     vector<NFAVertex> v_by_index;
     vector<CharReach> cr_by_index; /* pre alpha'ed */
     StateSet init;
@@ -466,13 +463,11 @@ public:
     typedef ue2::unordered_map<StateSet, dstate_id_t> StateMap;
 
     Automaton_Graph(const ReportManager *rm_in, const NGHolder &graph_in,
-                    const ue2::unordered_map<NFAVertex, u32> &state_ids_in,
-                    bool single_trigger,
+                    const flat_set<NFAVertex> &unused_in, bool single_trigger,
                     const vector<vector<CharReach>> &triggers, bool prunable_in)
-        : rm(rm_in), graph(graph_in), state_ids(state_ids_in),
-          prunable(prunable_in) {
-        populateInit(graph, state_ids, &init, &initDS, &v_by_index);
-        populateAccepts(graph, state_ids, &accept, &acceptEod);
+        : rm(rm_in), graph(graph_in), unused(unused_in), prunable(prunable_in) {
+        populateInit(graph, unused, &init, &initDS, &v_by_index);
+        populateAccepts(graph, unused, &accept, &acceptEod);
 
         start_anchored = DEAD_STATE + 1;
         if (initDS == init) {
@@ -496,8 +491,7 @@ public:
         cr_by_index = populateCR(graph, v_by_index, alpha);
         if (is_triggered(graph)) {
             dynamic_bitset<> temp(NFA_STATE_LIMIT);
-            markToppableStarts(graph, state_ids, single_trigger, triggers,
-                               &temp);
+            markToppableStarts(graph, unused, single_trigger, triggers, &temp);
             toppable = bitfield<NFA_STATE_LIMIT>(temp);
         }
     }
@@ -557,7 +551,7 @@ private:
     const ReportManager *rm;
 public:
     const NGHolder &graph;
-    const ue2::unordered_map<NFAVertex, u32> &state_ids;
+    const flat_set<NFAVertex> &unused;
     vector<NFAVertex> v_by_index;
     vector<CharReach> cr_by_index; /* pre alpha'ed */
     StateSet init;
@@ -580,20 +574,15 @@ public:
 
 } // namespace
 
-unique_ptr<raw_dfa> buildMcClellan(const NGHolder &g, const ReportManager *rm,
-                                   bool single_trigger,
+unique_ptr<raw_dfa> buildMcClellan(const NGHolder &graph,
+                                   const ReportManager *rm, bool single_trigger,
                                    const vector<vector<CharReach>> &triggers,
                                    const Grey &grey, bool finalChance) {
     if (!grey.allowMcClellan) {
         return nullptr;
     }
 
-    // Construct a mutable copy of the graph so that we can drop unused starts.
-    auto g_copy = cloneHolder(g);
-    NGHolder &graph = *g_copy;
-
-    auto state_ids = numberStates(graph);
-    dropUnusedStarts(graph, state_ids);
+    auto unused = findUnusedStates(graph);
 
     DEBUG_PRINTF("attempting to build ?%d? mcclellan\n", (int)graph.kind);
     assert(allMatchStatesHaveReports(graph));
@@ -620,7 +609,7 @@ unique_ptr<raw_dfa> buildMcClellan(const NGHolder &g, const ReportManager *rm,
     if (numStates <= NFA_STATE_LIMIT) {
         /* Fast path. Automaton_Graph uses a bitfield internally to represent
          * states and is quicker than Automaton_Big. */
-        Automaton_Graph n(rm, graph, state_ids, single_trigger, triggers,
+        Automaton_Graph n(rm, graph, unused, single_trigger, triggers,
                           prunable);
         if (determinise(n, rdfa->states, state_limit)) {
             DEBUG_PRINTF("state limit exceeded\n");
@@ -633,8 +622,7 @@ unique_ptr<raw_dfa> buildMcClellan(const NGHolder &g, const ReportManager *rm,
         rdfa->alpha_remap = n.alpha;
     } else {
         /* Slow path. Too many states to use Automaton_Graph. */
-        Automaton_Big n(rm, graph, state_ids, single_trigger, triggers,
-                        prunable);
+        Automaton_Big n(rm, graph, unused, single_trigger, triggers, prunable);
         if (determinise(n, rdfa->states, state_limit)) {
             DEBUG_PRINTF("state limit exceeded\n");
             return nullptr; /* over state limit */

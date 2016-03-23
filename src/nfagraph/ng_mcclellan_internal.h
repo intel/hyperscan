@@ -64,8 +64,7 @@ void getFullTransitionFromState(const raw_dfa &n, u16 state,
                                 u16 *out_table);
 
 /** produce a map of states on which it is valid to receive tops */
-void markToppableStarts(const NGHolder &g,
-                        const ue2::unordered_map<NFAVertex, u32> &state_ids,
+void markToppableStarts(const NGHolder &g, const flat_set<NFAVertex> &unused,
                         bool single_trigger,
                         const std::vector<std::vector<CharReach>> &triggers,
                         boost::dynamic_bitset<> *out);
@@ -76,7 +75,7 @@ void transition_graph(autom &nfa, const std::vector<NFAVertex> &vByStateId,
                       typename autom::StateSet *next) {
     typedef typename autom::StateSet StateSet;
     const NGHolder &graph = nfa.graph;
-    const auto &state_ids = nfa.state_ids;
+    const auto &unused = nfa.unused;
     const auto &alpha = nfa.alpha;
     const StateSet &squash = nfa.squash;
     const std::map<u32, StateSet> &squash_mask = nfa.squash_mask;
@@ -94,7 +93,7 @@ void transition_graph(autom &nfa, const std::vector<NFAVertex> &vByStateId,
         NFAVertex u = vByStateId[i];
 
         for (const auto &v : adjacent_vertices_range(u, graph)) {
-            if (state_ids.at(v) == NO_STATE) {
+            if (contains(unused, v)) {
                 continue;
             }
             succ.set(graph[v].index);
