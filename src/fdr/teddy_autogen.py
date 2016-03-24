@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Copyright (c) 2015, Intel Corporation
+# Copyright (c) 2015-2016, Intel Corporation
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -27,19 +27,110 @@
 
 import sys
 from autogen_utils import *
-from base_autogen import *
 from string import Template
 
-class MT(MatcherBase):
+class MT:
+    def produce_header(self, visible, header_only = False):
+        s = ""
+        if not visible:
+            s += "static never_inline"
+        s += """
+hwlm_error_t %s(UNUSED const struct FDR *fdr,
+                UNUSED const struct FDR_Runtime_Args * a)""" % self.get_name()
+        if header_only:
+            s += ";"
+        else:
+            s += "{"
+        s += "\n"
+        return s
+
+    def produce_guard(self):
+        print self.arch.get_guard()
+
+    def produce_zero_alternative(self):
+        print """
+#else
+#define %s 0
+#endif
+""" % self.get_name()
+
+    def close_guard(self):
+        print "#endif"
+
+    def produce_confirm_base(self, conf_var_name, conf_var_size, offset, cautious, enable_confirmless, do_bailout = False):
+        if cautious:
+            caution_string = "VECTORING"
+        else:
+            caution_string = "NOT_CAUTIOUS"
+        conf_split_mask = IntegerType(32).constant_to_string(
+                            self.conf_top_level_split - 1)
+        if enable_confirmless:
+            quick_check_string = """
+        if (!fdrc->mult) {
+            u32 id = fdrc->nBitsOrSoleID;
+            if ((last_match == id) && (fdrc->flags & NoRepeat))
+                continue;
+           last_match = id;
+           controlVal = a->cb(ptr+byte-buf, ptr+byte-buf, id, a->ctxt);
+           continue;
+        } """
+        else:
+            quick_check_string = ""
+        if do_bailout:
+            bailout_string = """
+        if ((ptr + byte < buf + a->start_offset) || (ptr + byte >= buf + len)) continue;"""
+        else:
+            bailout_string = ""
+
+        return Template("""
+if (P0(!!$CONFVAR)) {
+    do  {
+        u32 bit = findAndClearLSB_$CONFVAR_SIZE(&$CONFVAR);
+        u32 byte  = bit / $NUM_BUCKETS + $OFFSET;
+        u32 bitRem  = bit % $NUM_BUCKETS;
+        $BAILOUT_STRING
+        u32 confSplit = *(ptr+byte) & $SPLIT_MASK;
+        u32 idx = confSplit * $NUM_BUCKETS + bitRem;
+        u32 cf = confBase[idx];
+        if (!cf)
+            continue;
+        fdrc = (const struct FDRConfirm *)((const u8 *)confBase + cf);
+        if (!(fdrc->groups & *control))
+            continue;
+        $QUICK_CHECK_STRING
+        CautionReason reason = $CAUTION_STRING;
+        CONF_TYPE v;
+        const u8 * confirm_loc = ptr + byte - $CONF_PULL_BACK - 7;
+        if (likely(reason == NOT_CAUTIOUS || confirm_loc >= buf)) {
+            v = lv_u64a(confirm_loc, buf, buf + len);
+        } else { // r == VECTORING, confirm_loc < buf
+            u64a histBytes = a->histBytes;
+            v = lv_u64a_ce(confirm_loc, buf, buf + len);
+            // stitch together v (which doesn't move) and history (which does)
+            u32 overhang = buf - confirm_loc;
+            histBytes >>= 64 - (overhang * 8);
+            v |= histBytes;
+        }
+        confWithBit(fdrc, a, ptr - buf + byte, $CONF_PULL_BACK, control, &last_match, v);
+    } while(P0(!!$CONFVAR));
+    if (P0(controlVal == HWLM_TERMINATE_MATCHING)) {
+        *a->groups = controlVal;
+        return HWLM_TERMINATED;
+    }
+}""").substitute(CONFVAR = conf_var_name,
+                 CONFVAR_SIZE = conf_var_size,
+                 NUM_BUCKETS = self.num_buckets,
+                 OFFSET = offset,
+                 SPLIT_MASK = conf_split_mask,
+                 QUICK_CHECK_STRING = quick_check_string,
+                 BAILOUT_STRING = bailout_string,
+                 CAUTION_STRING = caution_string,
+                 CONF_PULL_BACK = self.conf_pull_back)
+
     def produce_confirm(self, iter, var_name, offset, bits, cautious = True):
         if self.packed:
             print self.produce_confirm_base(var_name, bits, iter*16 + offset, cautious, enable_confirmless = False, do_bailout = False)
         else:
-            if self.num_masks == 1:
-                conf_func = "confWithBit1"
-            else:
-                conf_func = "confWithBitMany"
-
             if cautious:
                 caution_string = "VECTORING"
             else:
@@ -48,16 +139,33 @@ class MT(MatcherBase):
             print "            if (P0(!!%s)) {" % var_name
             print "                do  {"
             if bits == 64:
-                print "                    bit = findAndClearLSB_64(&%s);" % (var_name)
+                print "                    u32 bit = findAndClearLSB_64(&%s);" % (var_name)
             else:
-                print "                    bit = findAndClearLSB_32(&%s);" % (var_name)
-            print "                    byte  = bit / %d + %d;" % (self.num_buckets, iter*16 + offset)
-            print "                    idx  = bit %% %d;" % self.num_buckets
-            print "                    cf = confBase[idx];"
+                print "                    u32 bit = findAndClearLSB_32(&%s);" % (var_name)
+            print "                    u32 byte  = bit / %d + %d;" % (self.num_buckets, iter*16 + offset)
+            print "                    u32 idx  = bit %% %d;" % self.num_buckets
+            print "                    u32 cf = confBase[idx];"
             print "                    fdrc = (const struct FDRConfirm *)((const u8 *)confBase + cf);"
             print "                    if (!(fdrc->groups & *control))"
             print "                        continue;"
-            print "                    %s(fdrc, a, ptr - buf + byte, %s, control, &last_match);" % (conf_func, caution_string)
+            print """
+                CautionReason reason = %s;
+                CONF_TYPE v;
+                const u8 * confirm_loc = ptr + byte - 7;
+                if (likely(reason == NOT_CAUTIOUS || confirm_loc >= buf)) {
+                    v = lv_u64a(confirm_loc, buf, buf + len);
+                } else { // r == VECTORING, confirm_loc < buf
+                    u64a histBytes = a->histBytes;
+                    v = lv_u64a_ce(confirm_loc, buf, buf + len);
+                    // stitch together v (which doesn't move) and history (which does)
+                    u32 overhang = buf - confirm_loc;
+                    histBytes >>= 64 - (overhang * 8);
+                    v |= histBytes;
+                }""" % (caution_string)
+            if self.num_masks == 1:
+                print "                    confWithBit1(fdrc, a, ptr - buf + byte, control, &last_match, v);"
+            else:
+                print "                    confWithBitMany(fdrc, a, ptr - buf + byte, %s, control, &last_match, v);" % (caution_string)
             print "                } while(P0(!!%s));" % var_name
             print "                if (P0(controlVal == HWLM_TERMINATE_MATCHING)) {"
             print "                    *a->groups = controlVal;"
@@ -146,7 +254,17 @@ class MT(MatcherBase):
 
     def produce_code(self):
         print self.produce_header(visible = True, header_only = False)
-        print self.produce_common_declarations()
+        print """
+    const u8 * buf = a->buf;
+    const size_t len = a->len;
+    const u8 * ptr = buf + a->start_offset;
+    hwlmcb_rv_t controlVal = *a->groups;
+    hwlmcb_rv_t * control = &controlVal;
+    u32 floodBackoff = FLOOD_BACKOFF_START;
+    const u8 * tryFloodDetect = a->firstFloodDetect;
+    const struct FDRConfirm *fdrc;
+    u32 last_match = (u32)-1;
+"""
         print
 
         self.produce_needed_temporaries(self.num_iterations)
@@ -179,10 +297,17 @@ class MT(MatcherBase):
         print "         ptr += 16;"
         print "    }"
 
-        print "    for ( ; ptr + iterBytes <= buf + len; ptr += iterBytes) {"
-        print "        __builtin_prefetch(ptr + (iterBytes*4));"
-        print self.produce_flood_check()
-
+        print """
+    for ( ; ptr + iterBytes <= buf + len; ptr += iterBytes) {
+        __builtin_prefetch(ptr + (iterBytes*4));
+        if (P0(ptr > tryFloodDetect)) {
+            tryFloodDetect = floodDetect(fdr, a, &ptr, tryFloodDetect, &floodBackoff, &controlVal, iterBytes);
+            if (P0(controlVal == HWLM_TERMINATE_MATCHING)) {
+                *a->groups = controlVal;
+                return HWLM_TERMINATED;
+            }
+        }
+"""
         for iter in range(self.num_iterations):
             self.produce_one_iteration(iter, self.num_iterations, cautious = False, confirmCautious = False)
 
@@ -192,7 +317,11 @@ class MT(MatcherBase):
         self.produce_one_iteration(0, 1, cautious = True, confirmCautious = True, save_old = True)
         print "    }"
 
-        print self.produce_footer()
+        print """
+    *a->groups = controlVal;
+    return HWLM_SUCCESS;
+}
+"""
 
     def produce_compile_call(self):
         packed_str = { False : "false", True : "true"}[self.packed]
@@ -256,7 +385,17 @@ class MTFat(MT):
 
     def produce_code(self):
         print self.produce_header(visible = True, header_only = False)
-        print self.produce_common_declarations()
+        print """
+    const u8 * buf = a->buf;
+    const size_t len = a->len;
+    const u8 * ptr = buf + a->start_offset;
+    hwlmcb_rv_t controlVal = *a->groups;
+    hwlmcb_rv_t * control = &controlVal;
+    u32 floodBackoff = FLOOD_BACKOFF_START;
+    const u8 * tryFloodDetect = a->firstFloodDetect;
+    const struct FDRConfirm *fdrc;
+    u32 last_match = (u32)-1;
+"""
         print
 
         self.produce_needed_temporaries(self.num_iterations)
@@ -289,9 +428,17 @@ class MTFat(MT):
         print "         ptr += 16;"
         print "    }"
 
-        print "    for ( ; ptr + iterBytes <= buf + len; ptr += iterBytes) {"
-        print "        __builtin_prefetch(ptr + (iterBytes*4));"
-        print self.produce_flood_check()
+        print """
+    for ( ; ptr + iterBytes <= buf + len; ptr += iterBytes) {
+        __builtin_prefetch(ptr + (iterBytes*4));
+        if (P0(ptr > tryFloodDetect)) {
+            tryFloodDetect = floodDetect(fdr, a, &ptr, tryFloodDetect, &floodBackoff, &controlVal, iterBytes);
+            if (P0(controlVal == HWLM_TERMINATE_MATCHING)) {
+                *a->groups = controlVal;
+                return HWLM_TERMINATED;
+            }
+        }
+"""
 
         for iter in range(self.num_iterations):
             self.produce_one_iteration(iter, self.num_iterations, False, confirmCautious = False)
@@ -302,7 +449,11 @@ class MTFat(MT):
         self.produce_one_iteration(0, 1, cautious = True, confirmCautious = True, save_old = True)
         print "    }"
 
-        print self.produce_footer()
+        print """
+    *a->groups = controlVal;
+    return HWLM_SUCCESS;
+}
+"""
 
     def produce_one_iteration_state_calc(self, iter, effective_num_iterations,
                                          cautious, save_old):
@@ -367,7 +518,33 @@ class MTFat(MT):
         print "#endif"
         print "        }"
 
-class MTFast(MatcherBase):
+class MTFast:
+    def produce_header(self, visible, header_only = False):
+        s = ""
+        if not visible:
+            s += "static never_inline"
+        s += """
+hwlm_error_t %s(UNUSED const struct FDR *fdr,
+                UNUSED const struct FDR_Runtime_Args * a)""" % self.get_name()
+        if header_only:
+            s += ";"
+        else:
+            s += "{"
+        s += "\n"
+        return s
+
+    def produce_guard(self):
+        print self.arch.get_guard()
+
+    def produce_zero_alternative(self):
+        print """
+#else
+#define %s 0
+#endif
+""" % self.get_name()
+
+    def close_guard(self):
+        print "#endif"
 
     def produce_confirm(self, cautious):
         if cautious:
@@ -376,24 +553,52 @@ class MTFast(MatcherBase):
             cautious_str = "NOT_CAUTIOUS"
 
         print "            for (u32 i = 0; i < arrCnt; i++) {"
-        print "                byte = bitArr[i] / 8;"
+        print "                u32 byte = bitArr[i] / 8;"
         if self.packed:
             conf_split_mask = IntegerType(32).constant_to_string(
                                 self.conf_top_level_split - 1)
-            print "                bitRem  = bitArr[i] % 8;"
-            print "                confSplit = *(ptr+byte) & 0x1f;"
-            print "                idx = confSplit * %d + bitRem;" % self.num_buckets
-            print "                cf = confBase[idx];"
+            print "                u32 bitRem  = bitArr[i] % 8;"
+            print "                u32 confSplit = *(ptr+byte) & 0x1f;"
+            print "                u32 idx = confSplit * %d + bitRem;" % self.num_buckets
+            print "                u32 cf = confBase[idx];"
             print "                if (!cf)"
             print "                    continue;"
             print "                fdrc = (const struct FDRConfirm *)((const u8 *)confBase + cf);"
             print "                if (!(fdrc->groups & *control))"
             print "                    continue;"
-            print "                confWithBit(fdrc, a, ptr - buf + byte, %s, 0, control, &last_match);" % cautious_str
+            print """
+                CautionReason reason = %s;
+                CONF_TYPE v;
+                const u8 * confirm_loc = ptr + byte - 7;
+                if (likely(reason == NOT_CAUTIOUS || confirm_loc >= buf)) {
+                    v = lv_u64a(confirm_loc, buf, buf + len);
+                } else { // r == VECTORING, confirm_loc < buf
+                    u64a histBytes = a->histBytes;
+                    v = lv_u64a_ce(confirm_loc, buf, buf + len);
+                    // stitch together v (which doesn't move) and history (which does)
+                    u32 overhang = buf - confirm_loc;
+                    histBytes >>= 64 - (overhang * 8);
+                    v |= histBytes;
+                }""" % (cautious_str)
+            print "                confWithBit(fdrc, a, ptr - buf + byte, 0, control, &last_match, v);"
         else:
-            print "                cf = confBase[bitArr[i] % 8];"
+            print "                u32 cf = confBase[bitArr[i] % 8];"
             print "                fdrc = (const struct FDRConfirm *)((const u8 *)confBase + cf);"
-            print "                confWithBit1(fdrc, a, ptr - buf + byte, %s, control, &last_match);" % cautious_str
+            print """
+                CautionReason reason = %s;
+                CONF_TYPE v;
+                const u8 * confirm_loc = ptr + byte - 7;
+                if (likely(reason == NOT_CAUTIOUS || confirm_loc >= buf)) {
+                    v = lv_u64a(confirm_loc, buf, buf + len);
+                } else { // r == VECTORING, confirm_loc < buf
+                    u64a histBytes = a->histBytes;
+                    v = lv_u64a_ce(confirm_loc, buf, buf + len);
+                    // stitch together v (which doesn't move) and history (which does)
+                    u32 overhang = buf - confirm_loc;
+                    histBytes >>= 64 - (overhang * 8);
+                    v |= histBytes;
+                }""" % (cautious_str)
+            print "                confWithBit1(fdrc, a, ptr - buf + byte, control, &last_match, v);"
         print "                if (P0(controlVal == HWLM_TERMINATE_MATCHING)) {"
         print "                    *a->groups = controlVal;"
         print "                    return HWLM_TERMINATED;"
@@ -467,7 +672,17 @@ class MTFast(MatcherBase):
 
     def produce_code(self):
         print self.produce_header(visible = True, header_only = False)
-        print self.produce_common_declarations()
+        print """
+    const u8 * buf = a->buf;
+    const size_t len = a->len;
+    const u8 * ptr = buf + a->start_offset;
+    hwlmcb_rv_t controlVal = *a->groups;
+    hwlmcb_rv_t * control = &controlVal;
+    u32 floodBackoff = FLOOD_BACKOFF_START;
+    const u8 * tryFloodDetect = a->firstFloodDetect;
+    const struct FDRConfirm *fdrc;
+    u32 last_match = (u32)-1;
+"""
         print
 
         self.produce_needed_temporaries(self.num_iterations)
@@ -498,9 +713,18 @@ class MTFast(MatcherBase):
         self.produce_bit_check_256(iter = 0, single_iter = True, cautious = True)
         print "        ptr += 32;"
         print "    }"
-        print "    for ( ; ptr + iterBytes <= buf + len; ptr += iterBytes) {"
-        print "        __builtin_prefetch(ptr + (iterBytes*4));"
-        print self.produce_flood_check()
+        print """
+    for ( ; ptr + iterBytes <= buf + len; ptr += iterBytes) {
+        __builtin_prefetch(ptr + (iterBytes*4));
+        if (P0(ptr > tryFloodDetect)) {
+            tryFloodDetect = floodDetect(fdr, a, &ptr, tryFloodDetect, &floodBackoff, &controlVal, iterBytes);
+            if (P0(controlVal == HWLM_TERMINATE_MATCHING)) {
+                *a->groups = controlVal;
+                return HWLM_TERMINATED;
+            }
+        }
+"""
+
         for iter in range (0, self.num_iterations):
             self.produce_one_iteration_state_calc(iter = iter, cautious = False)
         print "        arrCnt = 0;"
@@ -514,7 +738,11 @@ class MTFast(MatcherBase):
         self.produce_bit_check_256(iter = 0, single_iter = True, cautious = True)
         print "    }"
 
-        print self.produce_footer()
+        print """
+    *a->groups = controlVal;
+    return HWLM_SUCCESS;
+}
+"""
 
     def get_name(self):
         if self.packed:

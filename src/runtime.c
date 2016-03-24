@@ -450,10 +450,18 @@ void maintainHistoryBuffer(const struct RoseEngine *rose, char *state,
 
 static really_inline
 void init_stream(struct hs_stream *s, const struct RoseEngine *rose) {
+    char *state = getMultiState(s);
+
+    // Make absolutely sure that the 16 bytes leading up to the end of the
+    // history buffer are initialised, as we rely on this (regardless of the
+    // actual values used) in FDR.
+    char *hist_end = state + rose->stateOffsets.history + rose->historyRequired;
+    assert(hist_end - 16 >= (const char *)s);
+    unaligned_store_u64a(hist_end - 16, 0xDEADDEADDEADDEADull);
+    unaligned_store_u64a(hist_end - 8, 0xDEADDEADDEADDEADull);
+
     s->rose = rose;
     s->offset = 0;
-
-    char *state = getMultiState(s);
 
     setStreamStatus(state, 0);
     roseInitState(rose, state);

@@ -964,7 +964,7 @@ endif()
 add_library(hs STATIC ${hs_SRCS} $<TARGET_OBJECTS:hs_exec>)
 
 add_dependencies(hs ragel_Parser)
-add_dependencies(hs autogen_compiler autogen_teddy_compiler)
+add_dependencies(hs autogen_teddy_compiler)
 
 if (NOT BUILD_SHARED_LIBS)
 install(TARGETS hs DESTINATION lib)

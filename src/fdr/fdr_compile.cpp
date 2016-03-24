@@ -187,9 +187,9 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
     /*  we are allowing domains 9 to 15 only */
     assert(eng.bits > 8 && eng.bits < 16);
     fdr->domain = eng.bits;
-    fdr->schemeWidthByte = eng.schemeWidth / 8;
     fdr->domainMask = (1 << eng.bits) - 1;
-    fdr->tabSize = (1 << eng.bits) * fdr->schemeWidthByte;
+    fdr->tabSize = (1 << eng.bits) * (eng.schemeWidth / 8);
+    fdr->stride = eng.stride;
 
     if (link.first) {
         fdr->link = verify_u32(ptr - fdr_base);
@@ -544,6 +544,7 @@ fdrBuildTableInternal(const vector<hwlmLiteral> &lits, bool make_small,
     // temporary hack for unit testing
     if (hint != HINT_INVALID) {
         des->bits = 9;
+        des->stride = 1;
     }
 
     FDRCompiler fc(lits, *des, make_small);

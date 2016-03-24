@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,7 +37,12 @@
 #define MAKE_LOADVAL(type, name) \
     static really_inline type name (const u8 * ptr, UNUSED const u8 * lo, UNUSED const u8 * hi)
 
-#define NORMAL_SAFE(type)            assert(ptr >= lo && (ptr + sizeof(type) - 1) < hi)
+#define NORMAL_SAFE(type)                                               \
+    do {                                                                \
+        assert(ptr >= lo);                                              \
+        assert(ptr + sizeof(type) - 1 < hi);                            \
+    } while(0)
+
 #define ALIGNED_SAFE(type)           NORMAL_SAFE(type); assert(((size_t)ptr % sizeof(type)) == 0);
 // these ones need asserts to test the property that we're not handling dynamically
 #define CAUTIOUS_FORWARD_SAFE(type)  assert(ptr >= lo)

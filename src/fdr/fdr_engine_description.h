@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,7 +42,6 @@ struct FDREngineDef {
     u32 id;
     u32 schemeWidth;
     u32 numBuckets;
-    u32 stride;
     u64a cpu_features;
     u32 confirmPullBackDistance;
     u32 confirmTopLevelSplit;
@@ -73,7 +72,6 @@ chooseEngine(const target_t &target, const std::vector<hwlmLiteral> &vl,
              bool make_small);
 std::unique_ptr<FDREngineDescription> getFdrDescription(u32 engineID);
 void getFdrDescriptions(std::vector<FDREngineDescription> *out);
-
 } // namespace ue2
 
 #endif

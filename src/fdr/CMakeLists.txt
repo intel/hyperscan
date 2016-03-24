@@ -5,8 +5,6 @@ set(AUTOGEN_PY_FILES
     arch.py
     autogen.py
     autogen_utils.py
-    base_autogen.py
-    fdr_autogen.py
     teddy_autogen.py
 )
 
@@ -22,18 +20,14 @@ endfunction(fdr_autogen)
 
 #now build the functions
 fdr_autogen(runtime fdr_autogen.c)
-fdr_autogen(compiler fdr_autogen_compiler.cpp)
 fdr_autogen(teddy_runtime teddy_autogen.c)
 fdr_autogen(teddy_compiler teddy_autogen_compiler.cpp)
 
 set(fdr_GENERATED_SRC
     ${PROJECT_BINARY_DIR}/src/fdr/fdr_autogen.c
-    ${PROJECT_BINARY_DIR}/src/fdr/fdr_autogen_compiler.cpp
     ${PROJECT_BINARY_DIR}/src/fdr/teddy_autogen.c
     ${PROJECT_BINARY_DIR}/src/fdr/teddy_autogen_compiler.cpp
     PARENT_SCOPE)
 
 set_source_files_properties(${fdr_GENERATED_SRC} PROPERTIES GENERATED TRUE)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
-
-

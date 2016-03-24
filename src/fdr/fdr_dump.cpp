@@ -68,8 +68,7 @@ void fdrPrintStats(const FDR *fdr, FILE *f) {
     }
 
     if (isTeddy) {
-        unique_ptr<TeddyEngineDescription> des =
-            getTeddyDescription(fdr->engineID);
+        auto des = getTeddyDescription(fdr->engineID);
         if (des) {
             fprintf(f, "    masks      %u\n", des->numMasks);
             fprintf(f, "    buckets    %u\n", des->getNumBuckets());
@@ -78,16 +77,8 @@ void fdrPrintStats(const FDR *fdr, FILE *f) {
             fprintf(f, "   <unknown engine>\n");
         }
     } else {
-        unique_ptr<FDREngineDescription> des =
-            getFdrDescription(fdr->engineID);
-        if (des) {
-            fprintf(f, "    domain     %u\n", des->bits);
-            fprintf(f, "    stride     %u\n", des->stride);
-            fprintf(f, "    buckets    %u\n", des->getNumBuckets());
-            fprintf(f, "    width      %u\n", des->schemeWidth);
-        } else {
-            fprintf(f, "   <unknown engine>\n");
-        }
+        fprintf(f, "    domain     %u\n", fdr->domain);
+        fprintf(f, "    stride     %u\n", fdr->stride);
     }
 
     fprintf(f, "    strings    ???\n");

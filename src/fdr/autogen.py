@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Copyright (c) 2015, Intel Corporation
+# Copyright (c) 2015-2016, Intel Corporation
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -27,40 +27,8 @@
 
 import sys
 from autogen_utils import *
-from fdr_autogen import *
 from teddy_autogen import *
 from arch import *
-
-# FDR setup
-
-# these are either produced - if the guard succeeds, or #defined to zeroes.
-# either the function or the zero is fine in our array of function pointers
-
-def produce_fdr_runtimes(l):
-    for m in l:
-        m.produce_code()
-
-def produce_fdr_compiles(l):
-    print "void getFdrDescriptions(vector<FDREngineDescription> *out) {"
-    print "    static const FDREngineDef defns[] = {"
-    for m in l:
-        m.produce_compile_call()
-    print "    };"
-    print "    out->clear();"
-    print "    for (size_t i = 0; i < ARRAY_LENGTH(defns); i++) {"
-    print "        out->push_back(FDREngineDescription(defns[i]));"
-    print "    }"
-    print "}"
-
-def build_fdr_matchers():
-    all_matchers = [ ]
-    strides = [ 1, 2, 4 ]
-
-    common = { "state_width" : 128, "num_buckets" : 8, "extract_frequency" : 8, "arch" : arch_x86_64 }
-    for s in strides:
-        all_matchers += [ M3(stride = s, **common) ]
-
-    return all_matchers
 
 # teddy setup
 
@@ -124,7 +92,8 @@ def make_fdr_function_pointers(matcher_list):
 typedef hwlm_error_t (*FDRFUNCTYPE)(const struct FDR *fdr, const struct FDR_Runtime_Args *a);
 static FDRFUNCTYPE funcs[] = {
 """
-    all_funcs = ",\n".join([ "    %s" % m.get_name() for m in matcher_list ])
+    all_funcs = "    fdr_engine_exec,\n"
+    all_funcs += ",\n".join([ "    %s" % m.get_name() for m in matcher_list ])
     print all_funcs
     print """
 };
@@ -138,16 +107,11 @@ def assign_ids(matcher_list, next_id):
 
 # Main entry point
 
-m = build_fdr_matchers()
-next_id = assign_ids(m, 0)
 tm = build_teddy_matchers()
-next_id = assign_ids(tm, next_id)
-if sys.argv[1] == "compiler":
-    produce_fdr_compiles(m)
-elif sys.argv[1] == "runtime":
-    produce_fdr_runtimes(m)
+next_id = assign_ids(tm, 1)
+if sys.argv[1] == "runtime":
     produce_teddy_headers(tm)
-    make_fdr_function_pointers(m+tm)
+    make_fdr_function_pointers(tm)
 elif sys.argv[1] == "teddy_runtime":
     produce_teddy_runtimes(tm)
 elif sys.argv[1] == "teddy_compiler":

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -403,8 +403,11 @@ TEST_P(FDRFloodp, WithMask) {
 TEST_P(FDRFloodp, StreamingMask) {
     const u32 hint = GetParam();
     SCOPED_TRACE(hint);
+    const size_t fake_history_size = 16;
+    const vector<u8> fake_history(fake_history_size, 0);
     const size_t dataSize = 1024;
     vector<u8> data(dataSize);
+    vector<u8> tempdata(dataSize + fake_history_size); // headroom
     u8 c = '\0';
 
     while (1) {
@@ -487,18 +490,28 @@ TEST_P(FDRFloodp, StreamingMask) {
 
         for (u32 streamChunk = 1; streamChunk <= 16; streamChunk *= 2) {
             matchesCounts.clear();
-            fdrStatus = fdrExecStreaming(fdr.get(), nullptr, 0, &data[0], streamChunk,
-                            0, countCallback, &matchesCounts, HWLM_ALL_GROUPS, nullptr);
+            const u8 *d = data.data();
+            // reference past the end of fake history to allow headroom
+            const u8 *fhist = fake_history.data() + fake_history_size;
+            fdrStatus = fdrExecStreaming(fdr.get(), fhist, 0, d, streamChunk, 0,
+                                         countCallback, &matchesCounts,
+                                         HWLM_ALL_GROUPS, nullptr);
             ASSERT_EQ(0, fdrStatus);
             for (u32 j = streamChunk; j < dataSize; j += streamChunk) {
-                if (j < 8) {
-                    fdrStatus = fdrExecStreaming(fdr.get(), &data[0], j,
-                            &data[0] + j, streamChunk, 0, countCallback,
-                            &matchesCounts, HWLM_ALL_GROUPS, nullptr);
+                if (j < 16) {
+                    /* allow 16 bytes headroom on read to avoid invalid
+                     * memory read during the FDR zone creation.*/
+                    memset(tempdata.data(), c, dataSize + fake_history_size);
+                    const u8 *tmp_d = tempdata.data() + fake_history_size;
+                    fdrStatus = fdrExecStreaming(fdr.get(), tmp_d, j, tmp_d + j,
+                                                 streamChunk, 0, countCallback,
+                                                 &matchesCounts,
+                                                 HWLM_ALL_GROUPS, nullptr);
                 } else {
-                    fdrStatus = fdrExecStreaming(fdr.get(), &data[0] + j - 8,
-                            8, &data[0] + j, streamChunk, 0, countCallback,
-                            &matchesCounts, HWLM_ALL_GROUPS, nullptr);
+                    fdrStatus = fdrExecStreaming(fdr.get(), d + j - 8, 8, d + j,
+                                                 streamChunk, 0, countCallback,
+                                                 &matchesCounts,
+                                                 HWLM_ALL_GROUPS, nullptr);
                 }
                 ASSERT_EQ(0, fdrStatus);
             }
