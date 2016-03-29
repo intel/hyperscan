@@ -15,9 +15,6 @@
 /* internal build, switch on dump support. */
 #cmakedefine DUMP_SUPPORT
 
-/* Build tools with threading support */
-#cmakedefine ENABLE_TOOLS_THREADS
-
 /* Define to 1 if `backtrace' works. */
 #cmakedefine HAVE_BACKTRACE
 
