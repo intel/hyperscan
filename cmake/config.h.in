@@ -52,9 +52,6 @@
 /* Define to 1 if `posix_memalign' works. */
 #cmakedefine HAVE_POSIX_MEMALIGN
 
-/* Define to 1 if you have the <pthread.h> header file. */
-#cmakedefine HAVE_PTHREAD_H
-
 /* Define to 1 if you have the `setrlimit' function. */
 #cmakedefine HAVE_SETRLIMIT
 
