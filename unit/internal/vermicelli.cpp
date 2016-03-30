@@ -31,8 +31,6 @@
 #include "gtest/gtest.h"
 #include "nfa/vermicelli.h"
 
-#define BOUND (~(VERM_BOUNDARY - 1))
-
 TEST(Vermicelli, ExecNoMatch1) {
     char t1[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
@@ -128,27 +126,27 @@ TEST(DoubleVermicelli, ExecNoMatch1) {
             const u8 *rv = vermicelliDoubleExec('a', 'b', 0, (u8 *)t1 + i,
                                                 (u8 *)t1 + strlen(t1) - j);
 
-            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1), (size_t)rv);
 
             rv = vermicelliDoubleExec('B', 'b', 0, (u8 *)t1 + i,
                                 (u8 *)t1 + strlen(t1) - j);
 
-            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1), (size_t)rv);
 
             rv = vermicelliDoubleExec('A', 'B', 1, (u8 *)t1 + i,
                                 (u8 *)t1 + strlen(t1) - j);
 
-            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1), (size_t)rv);
 
             rv = vermicelliDoubleExec('b', 'B', 0, (u8 *)t1 + i,
                                 (u8 *)t1 + strlen(t1) - j);
 
-            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1), (size_t)rv);
 
             rv = vermicelliDoubleExec('B', 'A', 1, (u8 *)t1 + i,
                                 (u8 *)t1 + strlen(t1) - j);
 
-            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1), (size_t)rv);
         }
     }
 }
@@ -355,31 +353,30 @@ TEST(DoubleVermicelliMasked, ExecNoMatch1) {
                                                   t1_raw + i,
                                                   t1_raw + t1.length() - i - j);
 
-            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j - 1) & BOUND, (size_t)rv);
-
+            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j - 1), (size_t)rv);
             rv = vermicelliDoubleMaskedExec('B', 'b', 0xff, CASE_CLEAR,
                                             t1_raw + i,
                                             t1_raw + t1.length() - i - j);
 
-            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j  - 1), (size_t)rv);
 
             rv = vermicelliDoubleMaskedExec('A', 'B', CASE_CLEAR, CASE_CLEAR,
                                             t1_raw + i,
                                             t1_raw + t1.length() -i - j);
 
-            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j  - 1), (size_t)rv);
 
             rv = vermicelliDoubleMaskedExec('b', 'B', CASE_CLEAR, 0xff,
                                             t1_raw + i,
                                             t1_raw + t1.length() - i - j);
 
-            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j  - 1), (size_t)rv);
 
             rv = vermicelliDoubleMaskedExec('B', 'A', 0xff, 0xff,
                                             t1_raw + i,
                                             t1_raw + t1.length() - i - j);
 
-            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j - 1), (size_t)rv);
         }
     }
 }

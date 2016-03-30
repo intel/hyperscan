@@ -178,11 +178,21 @@ const u8 *vermicelliDoubleExec(char c1, char c2, char nocase, const u8 *buf,
     }
 
     // Aligned loops from here on in
-    if (nocase) {
-        return dvermSearchAlignedNocase(chars1, chars2, c1, c2, buf, buf_end);
-    } else {
-        return dvermSearchAligned(chars1, chars2, c1, c2, buf, buf_end);
+    const u8 *ptr = nocase ? dvermSearchAlignedNocase(chars1, chars2, c1, c2,
+                                                      buf, buf_end)
+                           : dvermSearchAligned(chars1, chars2, c1, c2, buf,
+                                                buf_end);
+    if (ptr) {
+        return ptr;
     }
+
+    // Tidy up the mess at the end
+    ptr = nocase ? dvermPreconditionNocase(chars1, chars2,
+                                           buf_end - VERM_BOUNDARY)
+                 : dvermPrecondition(chars1, chars2, buf_end - VERM_BOUNDARY);
+    /* buf_end - 1 to be conservative in case last byte is a partial match */
+    return ptr ? ptr :  buf_end - 1;
+
 }
 
 static really_inline
@@ -216,8 +226,18 @@ const u8 *vermicelliDoubleMaskedExec(char c1, char c2, char m1, char m2,
     }
 
     // Aligned loops from here on in
-    return dvermSearchAlignedMasked(chars1, chars2, mask1, mask2, c1, c2, m1, m2,
-                                    buf, buf_end);
+    const u8 *ptr = dvermSearchAlignedMasked(chars1, chars2, mask1, mask2, c1,
+                                             c2, m1, m2, buf, buf_end);
+    if (ptr) {
+        return ptr;
+    }
+
+    // Tidy up the mess at the end
+    ptr = dvermPreconditionMasked(chars1, chars2, mask1, mask2,
+                                  buf_end - VERM_BOUNDARY);
+    /* buf_end - 1 to be conservative in case last byte is a partial match */
+    return ptr ? ptr : buf_end - 1;
+
 }
 
 // Reverse vermicelli scan. Provides exact semantics and returns (buf - 1) if

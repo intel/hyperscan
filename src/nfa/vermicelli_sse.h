@@ -147,7 +147,8 @@ const u8 *dvermSearchAligned(m128 chars1, m128 chars2, u8 c1, u8 c2,
             return buf + pos;
         }
     }
-    return buf;
+
+    return NULL;
 }
 
 static really_inline
@@ -169,7 +170,8 @@ const u8 *dvermSearchAlignedNocase(m128 chars1, m128 chars2, u8 c1, u8 c2,
             return buf + pos;
         }
     }
-    return buf;
+
+    return NULL;
 }
 
 static really_inline
@@ -190,7 +192,8 @@ const u8 *dvermSearchAlignedMasked(m128 chars1, m128 chars2,
             return buf + pos;
         }
     }
-    return buf;
+
+    return NULL;
 }
 
 // returns NULL if not found

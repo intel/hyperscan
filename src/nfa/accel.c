@@ -357,5 +357,7 @@ const u8 *run_accel(const union AccelAux *accel, const u8 *c, const u8 *c_end) {
     rv = MAX(c + accel->generic.offset, rv);
     rv -= accel->generic.offset;
 
+    DEBUG_PRINTF("advanced %zd\n", rv - c);
+
     return rv;
 }
