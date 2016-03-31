@@ -357,11 +357,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 
 
-# include the autogen targets
-add_subdirectory(src/fdr)
-
-include_directories(${PROJECT_BINARY_DIR}/src/fdr)
-
 if(NOT WIN32)
 set(RAGEL_C_FLAGS "-Wno-unused")
 endif()
@@ -381,8 +376,6 @@ SET(hs_HEADERS
 )
 install(FILES ${hs_HEADERS} DESTINATION include/hs)
 
-set(fdr_autogen_targets autogen_runtime autogen_teddy_runtime)
-
 set (hs_exec_SRCS
     ${hs_HEADERS}
     src/hs_version.h
@@ -400,7 +393,10 @@ set (hs_exec_SRCS
     src/fdr/flood_runtime.h
     src/fdr/fdr_loadval.h
     src/fdr/teddy.c
+    src/fdr/teddy_avx2.c
+    src/fdr/teddy.h
     src/fdr/teddy_internal.h
+    src/fdr/teddy_runtime_common.h
     src/hwlm/hwlm.c
     src/hwlm/hwlm.h
     src/hwlm/hwlm_internal.h
@@ -929,11 +925,9 @@ set (LIB_VERSION ${HS_VERSION})
 set (LIB_SOVERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION})
 
 add_library(hs_exec OBJECT ${hs_exec_SRCS})
-add_dependencies(hs_exec ${fdr_autogen_targets})
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
 add_library(hs_exec_shared OBJECT ${hs_exec_SRCS})
-add_dependencies(hs_exec_shared ${fdr_autogen_targets})
 set_target_properties(hs_exec_shared PROPERTIES
     POSITION_INDEPENDENT_CODE TRUE)
 endif()
@@ -964,7 +958,6 @@ endif()
 add_library(hs STATIC ${hs_SRCS} $<TARGET_OBJECTS:hs_exec>)
 
 add_dependencies(hs ragel_Parser)
-add_dependencies(hs autogen_teddy_compiler)
 
 if (NOT BUILD_SHARED_LIBS)
 install(TARGETS hs DESTINATION lib)
@@ -973,7 +966,6 @@ endif()
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
     add_library(hs_shared SHARED ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_shared>)
     add_dependencies(hs_shared ragel_Parser)
-    add_dependencies(hs_shared autogen_compiler autogen_teddy_compiler)
     set_target_properties(hs_shared PROPERTIES
         OUTPUT_NAME hs
         VERSION ${LIB_VERSION}

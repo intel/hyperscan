@@ -33,6 +33,7 @@
 #include "fdr_loadval.h"
 #include "fdr_streaming_runtime.h"
 #include "flood_runtime.h"
+#include "teddy.h"
 #include "teddy_internal.h"
 #include "util/simd_utils.h"
 #include "util/simd_utils_ssse3.h"
@@ -764,7 +765,34 @@ hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
     return HWLM_SUCCESS;
 }
 
-#include "fdr_autogen.c"
+#if defined(__AVX2__)
+#define ONLY_AVX2(func) func
+#else
+#define ONLY_AVX2(func) NULL
+#endif
+
+typedef hwlm_error_t (*FDRFUNCTYPE)(const struct FDR *fdr, const struct FDR_Runtime_Args *a);
+static const FDRFUNCTYPE funcs[] = {
+    fdr_engine_exec,
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks1_fast),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks1_pck_fast),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks1_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks1_pck_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks2_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks2_pck_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks3_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks3_pck_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks4_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks4_pck_fat),
+    fdr_exec_teddy_msks1,
+    fdr_exec_teddy_msks1_pck,
+    fdr_exec_teddy_msks2,
+    fdr_exec_teddy_msks2_pck,
+    fdr_exec_teddy_msks3,
+    fdr_exec_teddy_msks3_pck,
+    fdr_exec_teddy_msks4,
+    fdr_exec_teddy_msks4_pck,
+};
 
 #define FAKE_HISTORY_SIZE 16
 static const u8 fake_history[FAKE_HISTORY_SIZE];
