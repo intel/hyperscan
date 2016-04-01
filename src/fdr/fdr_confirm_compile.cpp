@@ -221,55 +221,61 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
 #ifdef FDR_CONFIRM_DUMP
     // print out the literals reversed - makes it easier to line up analyses
     // that are end-offset based
-    for (map<u32, vector<LiteralIndex> >::iterator i = res2lits.begin(),
-         e = res2lits.end(); i != e; ++i) {
-        u32 hash = i->first;
-        vector<LiteralIndex> & vlidx = i->second;
-        if (vlidx.size() > 1) {
-            printf("%x -> %zu literals\n", hash, vlidx.size());
-            u32 min_len = lits[vlidx.front()].s.size();
-            vector<set<u8> > vsl; // contains the set of chars at each location
-                                  // reversed from the end
-            vsl.resize(1024);
-            u32 total_string_size = 0;
-            for (vector<LiteralIndex>::iterator i2 = vlidx.begin(),
-                 e2 = vlidx.end(); i2 != e2; ++i2) {
-                LiteralIndex litIdx = *i2;
-                total_string_size += lits[litIdx].s.size();
-                for (u32 j = lits[litIdx].s.size(); j != 0 ; j--) {
-                    vsl[lits[litIdx].s.size()-j].insert(lits[litIdx].s.c_str()[j - 1]);
-                }
-                min_len = MIN(min_len, lits[litIdx].s.size());
+    for (const auto &m : res2lits) {
+        const u32 &hash = m.first;
+        const vector<LiteralIndex> &vlidx = m.second;
+        if (vlidx.size() <= 1) {
+            continue;
+        }
+        printf("%x -> %zu literals\n", hash, vlidx.size());
+        size_t min_len = lits[vlidx.front()].s.size();
+
+        vector<set<u8>> vsl; // contains the set of chars at each location
+                             // reversed from the end
+
+        for (const auto &litIdx : vlidx) {
+            const auto &lit = lits[litIdx];
+            if (lit.s.size() > vsl.size()) {
+                vsl.resize(lit.s.size());
             }
-            printf("common     ");
-            for (u32 j = 0; j < min_len; j++) {
-                if (vsl[j].size() == 1) {
-                    printf("%02x", (u32)*vsl[j].begin());
-                } else {
+            for (size_t j = lit.s.size(); j != 0; j--) {
+                vsl[lit.s.size() - j].insert(lit.s[j - 1]);
+            }
+            min_len = min(min_len, lit.s.size());
+        }
+        printf("common     ");
+        for (size_t j = 0; j < min_len; j++) {
+            if (vsl[j].size() == 1) {
+                printf("%02x", *vsl[j].begin());
+            } else {
+                printf("__");
+            }
+        }
+        printf("\n");
+        for (const auto &litIdx : vlidx) {
+            const auto &lit = lits[litIdx];
+            printf("%8x  %c", lit.id, lit.nocase ? '!' : ' ');
+            for (size_t j = lit.s.size(); j != 0; j--) {
+                size_t dist_from_end = lit.s.size() - j;
+                if (dist_from_end < min_len && vsl[dist_from_end].size() == 1) {
                     printf("__");
+                } else {
+                    printf("%02x", lit.s[j - 1]);
                 }
             }
             printf("\n");
-            for (vector<LiteralIndex>::iterator i2 = vlidx.begin(),
-                 e2 = vlidx.end(); i2 != e2; ++i2) {
-                LiteralIndex litIdx = *i2;
-                printf("%8x  %c", lits[litIdx].id, lits[litIdx].nocase ? '!' : ' ');
-                for (u32 j = lits[litIdx].s.size(); j != 0 ; j--) {
-                    u32 dist_from_end = lits[litIdx].s.size() - j;
-                    if (dist_from_end < min_len && vsl[dist_from_end].size() == 1) {
-                        printf("__");
-                    } else {
-                        printf("%02x", (u32)lits[litIdx].s.c_str()[j-1]);
-                    }
-                }
-                printf("\n");
-            }
-            u32 total_compares = 0;
-            for (u32 j = 0; j < 1024; j++) { // naughty
-                total_compares += vsl[j].size();
-            }
-            printf("Total compare load: %d Total string size: %d\n\n", total_compares, total_string_size);
         }
+        size_t total_compares = 0;
+        for (const auto &v : vsl) {
+            total_compares += v.size();
+        }
+        size_t total_string_size = 0;
+        for (const auto &litIdx : vlidx) {
+            const auto &lit = lits[litIdx];
+            total_string_size += lit.s.size();
+        }
+        printf("Total compare load: %zu Total string size: %zu\n\n",
+               total_compares, total_string_size);
     }
 #endif
 
