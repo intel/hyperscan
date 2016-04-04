@@ -243,7 +243,8 @@ int roseAdaptor_i(u64a offset, ReportID id, struct hs_scratch *scratch,
         }
     }
 
-    if (!is_simple && unlikely(isExhausted(ci->exhaustionVector, ir->ekey))) {
+    if (!is_simple &&
+        unlikely(isExhausted(ci->rose, ci->exhaustionVector, ir->ekey))) {
         DEBUG_PRINTF("ate exhausted match\n");
         return MO_CONTINUE_MATCHING;
     }
@@ -296,7 +297,7 @@ exit:
     }
 
     if (!is_simple && ir->ekey != END_EXHAUST) {
-        markAsMatched(ci->exhaustionVector, ir->ekey);
+        markAsMatched(ci->rose, ci->exhaustionVector, ir->ekey);
         return MO_CONTINUE_MATCHING;
     } else {
         return ROSE_CONTINUE_MATCHING_NO_EXHAUST;
@@ -338,7 +339,8 @@ int roseDeliverReport(u64a offset, UNUSED ReportID id, ReportID onmatch,
     assert(!ir->quashSom);
 #endif
 
-    assert(ekey == INVALID_EKEY || !isExhausted(ci->exhaustionVector, ekey));
+    assert(ekey == INVALID_EKEY ||
+           !isExhausted(ci->rose, ci->exhaustionVector, ekey));
 
     u64a from_offset = 0;
     u64a to_offset = offset + offset_adjust;
@@ -355,7 +357,7 @@ int roseDeliverReport(u64a offset, UNUSED ReportID id, ReportID onmatch,
     }
 
     if (ekey != INVALID_EKEY) {
-        markAsMatched(ci->exhaustionVector, ekey);
+        markAsMatched(ci->rose, ci->exhaustionVector, ekey);
         return MO_CONTINUE_MATCHING;
     } else {
         return ROSE_CONTINUE_MATCHING_NO_EXHAUST;
@@ -398,7 +400,8 @@ int roseSomAdaptor_i(u64a from_offset, u64a to_offset, ReportID id,
 
     int halt = 0;
 
-    if (!is_simple && unlikely(isExhausted(ci->exhaustionVector, ir->ekey))) {
+    if (!is_simple &&
+        unlikely(isExhausted(ci->rose, ci->exhaustionVector, ir->ekey))) {
         DEBUG_PRINTF("ate exhausted match\n");
         goto exit;
     }
@@ -444,7 +447,7 @@ int roseSomAdaptor_i(u64a from_offset, u64a to_offset, ReportID id,
                             flags, ci->userContext);
 
     if (!is_simple) {
-        markAsMatched(ci->exhaustionVector, ir->ekey);
+        markAsMatched(ci->rose, ci->exhaustionVector, ir->ekey);
     }
 
 exit:
@@ -485,7 +488,7 @@ int roseDeliverSomReport(u64a from_offset, u64a to_offset,
     assert(!ir->hasBounds ||
            (to_offset >= ir->minOffset && to_offset <= ir->maxOffset));
     assert(ir->ekey == INVALID_EKEY ||
-           !isExhausted(ci->exhaustionVector, ir->ekey));
+           !isExhausted(ci->rose, ci->exhaustionVector, ir->ekey));
 
     to_offset += ir->offsetAdjust;
     assert(from_offset == HS_OFFSET_PAST_HORIZON || from_offset <= to_offset);
@@ -509,7 +512,7 @@ int roseDeliverSomReport(u64a from_offset, u64a to_offset,
 
     if (is_exhaustible) {
         assert(ir->ekey != INVALID_EKEY);
-        markAsMatched(ci->exhaustionVector, ir->ekey);
+        markAsMatched(ci->rose, ci->exhaustionVector, ir->ekey);
         return MO_CONTINUE_MATCHING;
     } else {
         return ROSE_CONTINUE_MATCHING_NO_EXHAUST;

@@ -123,7 +123,7 @@ char roseSuffixInfoIsExhausted(const struct RoseEngine *t,
     const u32 *ekeys = (const u32 *)((const char *)t + info->ekeyListOffset);
     while (*ekeys != END_EXHAUST) {
         DEBUG_PRINTF("check %u\n", *ekeys);
-        if (!isExhausted(exhausted, *ekeys)) {
+        if (!isExhausted(t, exhausted, *ekeys)) {
             DEBUG_PRINTF("not exhausted -> alive\n");
             return 0;
         }

@@ -1146,7 +1146,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                 assert(ri->ekey != INVALID_EKEY);
                 assert(ri->ekey < t->ekeyCount);
                 const char *evec = scratch->core_info.exhaustionVector;
-                if (isExhausted(evec, ri->ekey)) {
+                if (isExhausted(t, evec, ri->ekey)) {
                     DEBUG_PRINTF("ekey %u already set, match is exhausted\n",
                                  ri->ekey);
                     assert(ri->fail_jump); // must progress

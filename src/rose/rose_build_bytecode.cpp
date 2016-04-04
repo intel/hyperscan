@@ -666,9 +666,9 @@ void fillStateOffsets(const RoseBuildImpl &tbi, u32 rolesWithStateCount,
     so->history = curr_offset;
     curr_offset += historyRequired;
 
-    // Exhausted bit vector.
+    // Exhaustion multibit.
     so->exhausted = curr_offset;
-    curr_offset += ROUNDUP_N(tbi.rm.numEkeys(), 8) / 8;
+    curr_offset += mmbit_size(tbi.rm.numEkeys());
 
     // SOM locations and valid/writeable multibit structures.
     if (tbi.ssm.numSomSlots()) {
