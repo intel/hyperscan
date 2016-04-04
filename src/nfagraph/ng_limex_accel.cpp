@@ -284,7 +284,7 @@ AccelScheme make_double_accel(AccelScheme as, CharReach cr_1,
         return as;
     }
 
-    if (two_count > 8) {
+    if (two_count > DOUBLE_SHUFTI_LIMIT) {
         if (cr_2.count() < cr_1.count()) {
             as.double_cr |= cr_2;
             offset = offset_in + 1;
@@ -513,7 +513,7 @@ AccelScheme findBestAccelScheme(vector<vector<CharReach> > paths,
     best.offset = offset;
 
     /* merge best single and best double */
-    if (!da.double_byte.empty() && da.double_byte.size() <= 8
+    if (!da.double_byte.empty() && da.double_byte.size() <= DOUBLE_SHUFTI_LIMIT
         && da.double_cr.count() < best.cr.count()) {
         best.double_byte = da.double_byte;
         best.double_cr = da.double_cr;
@@ -857,7 +857,8 @@ depth_done:
     // literals)
     if (depth > 1) {
         for (unsigned int i = 0; i < (depth - 1); i++) {
-            if (depthReach[i].count()*depthReach[i+1].count() <= 8) {
+            if (depthReach[i].count() * depthReach[i+1].count()
+                <= DOUBLE_SHUFTI_LIMIT) {
                 DEBUG_PRINTF("two-byte shufti, depth %u\n", i);
                 *as = AccelScheme(CharReach::dot(), i);
                 return true;

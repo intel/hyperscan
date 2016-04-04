@@ -207,17 +207,14 @@ void buildAccelDouble(const AccelInfo &info, AccelAux *aux) {
         }
     }
 
-    if (outs1 + outs2 <= 8) {
-        if (outs1 < outs2 && outs1 <= 2) { // Heuristic from UE-438.
-            DEBUG_PRINTF("building double-shufti for %zu one-byte and %zu"
-                         " two-byte literals\n", outs1, outs2);
-            aux->accel_type = ACCEL_DSHUFTI;
-            aux->dshufti.offset = offset;
-            shuftiBuildDoubleMasks(info.double_stop1, info.double_stop2,
-                                   &aux->dshufti.lo1,
-                                   &aux->dshufti.hi1,
-                                   &aux->dshufti.lo2,
-                                   &aux->dshufti.hi2);
+    if (outs1 < outs2 && outs1 <= 2) { // Heuristic from UE-438.
+        DEBUG_PRINTF("building double-shufti for %zu one-byte and %zu"
+                     " two-byte literals\n", outs1, outs2);
+        aux->accel_type = ACCEL_DSHUFTI;
+        aux->dshufti.offset = offset;
+        if (shuftiBuildDoubleMasks(info.double_stop1, info.double_stop2,
+                                   &aux->dshufti.lo1, &aux->dshufti.hi1,
+                                   &aux->dshufti.lo2, &aux->dshufti.hi2)) {
             return;
         }
     }

@@ -334,7 +334,6 @@ map<dstate_id_t, escape_info> populateAccelerationInfo(const raw_dfa &rdfa,
 static
 bool double_byte_ok(const escape_info &info) {
     return !info.outs2_broken
-        && info.outs2_single.count() + info.outs2.size() <= 8
         && info.outs2_single.count() < info.outs2.size()
         && info.outs2_single.count() <= 2 && !info.outs2.empty();
 }

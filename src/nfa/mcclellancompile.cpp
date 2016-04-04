@@ -130,7 +130,6 @@ mstate_aux *getAux(NFA *n, dstate_id_t i) {
 static
 bool double_byte_ok(const escape_info &info) {
     return !info.outs2_broken
-        && info.outs2_single.count() + info.outs2.size() <= 8
         && info.outs2_single.count() < info.outs2.size()
         && info.outs2_single.count() <= 2 && !info.outs2.empty();
 }
@@ -256,14 +255,12 @@ void mcclellan_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
         }
     }
 
-    if (double_byte_ok(info)) {
+    if (double_byte_ok(info)
+        && shuftiBuildDoubleMasks(info.outs2_single, info.outs2,
+                                  &accel->dshufti.lo1, &accel->dshufti.hi1,
+                                  &accel->dshufti.lo2, &accel->dshufti.hi2)) {
         accel->accel_type = ACCEL_DSHUFTI;
         accel->dshufti.offset = verify_u8(info.outs2_offset);
-        shuftiBuildDoubleMasks(info.outs2_single, info.outs2,
-                               &accel->dshufti.lo1,
-                               &accel->dshufti.hi1,
-                               &accel->dshufti.lo2,
-                               &accel->dshufti.hi2);
         DEBUG_PRINTF("state %hu is double shufti\n", this_idx);
         return;
     }

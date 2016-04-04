@@ -63,6 +63,8 @@ void findAccelFriends(const NGHolder &g, NFAVertex v,
                       u32 offset,
                       ue2::flat_set<NFAVertex> *friends);
 
+#define DOUBLE_SHUFTI_LIMIT 20
+
 struct AccelScheme {
     AccelScheme(const CharReach &cr_in, u32 offset_in)
         : cr(cr_in), offset(offset_in) {
@@ -78,10 +80,10 @@ struct AccelScheme {
         size_t a_dcount = double_cr.count();
         size_t b_dcount = b.double_cr.count();
 
-        bool feasible_double_a
-            = !a.double_byte.empty() && a.double_byte.size() <= 8;
-        bool feasible_double_b
-            = !b.double_byte.empty() && b.double_byte.size() <= 8;
+        bool feasible_double_a = !a.double_byte.empty()
+            && a.double_byte.size() <= DOUBLE_SHUFTI_LIMIT;
+        bool feasible_double_b = !b.double_byte.empty()
+            && b.double_byte.size() <= DOUBLE_SHUFTI_LIMIT;
 
         if (feasible_double_a != feasible_double_b) {
             return feasible_double_a > feasible_double_b;
