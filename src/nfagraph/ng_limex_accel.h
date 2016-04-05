@@ -66,71 +66,10 @@ void findAccelFriends(const NGHolder &g, NFAVertex v,
 #define DOUBLE_SHUFTI_LIMIT 20
 
 struct AccelScheme {
-    AccelScheme(const CharReach &cr_in, u32 offset_in)
-        : cr(cr_in), offset(offset_in) {
-        assert(offset <= MAX_ACCEL_DEPTH);
-    }
-    AccelScheme() : cr(CharReach::dot()), offset(MAX_ACCEL_DEPTH + 1) {}
-
-    bool operator<(const AccelScheme &b) const {
-        const AccelScheme &a = *this;
-
-        // Don't use ORDER_CHECK as it will (stupidly) eval count() too many
-        // times.
-        size_t a_dcount = double_cr.count();
-        size_t b_dcount = b.double_cr.count();
-
-        bool feasible_double_a = !a.double_byte.empty()
-            && a.double_byte.size() <= DOUBLE_SHUFTI_LIMIT;
-        bool feasible_double_b = !b.double_byte.empty()
-            && b.double_byte.size() <= DOUBLE_SHUFTI_LIMIT;
-
-        if (feasible_double_a != feasible_double_b) {
-            return feasible_double_a > feasible_double_b;
-        }
-
-        if (feasible_double_a) {
-            if (a_dcount != b_dcount) {
-                return a_dcount < b_dcount;
-            }
-
-            if ((a.double_byte.size() == 1) != (b.double_byte.size() == 1)) {
-                return a.double_byte.size() < b.double_byte.size();
-            }
-
-            if (!a_dcount) {
-                bool cd_a = buildDvermMask(a.double_byte);
-                bool cd_b = buildDvermMask(b.double_byte);
-                if (cd_a != cd_b) {
-                    return cd_a > cd_b;
-                }
-            }
-            ORDER_CHECK(double_byte.size());
-            ORDER_CHECK(double_offset);
-        }
-
-        const size_t a_count = cr.count(), b_count = b.cr.count();
-        if (a_count != b_count) {
-            return a_count < b_count;
-        }
-
-        /* TODO: give bonus if one is a 'caseless' character */
-        ORDER_CHECK(offset);
-        ORDER_CHECK(cr);
-        ORDER_CHECK(double_byte);
-        ORDER_CHECK(double_cr);
-        ORDER_CHECK(double_offset);
-        return false;
-    }
-
-    bool operator>(const AccelScheme &b) const {
-        return b < *this;
-    }
-
     ue2::flat_set<std::pair<u8, u8> > double_byte;
-    CharReach cr;
+    CharReach cr = CharReach::dot();
     CharReach double_cr;
-    u32 offset;
+    u32 offset = MAX_ACCEL_DEPTH + 1;
     u32 double_offset = 0;
 };
 
@@ -153,7 +92,8 @@ bool nfaCheckAccel(const NGHolder &g, NFAVertex v,
                    const std::map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
                    AccelScheme *as, bool allow_wide);
 
-/** \brief Check if vertex \a v is a multi accelerable state (for a limex NFA). */
+/** \brief Check if vertex \a v is a multi accelerable state (for a limex NFA).
+ */
 MultibyteAccelInfo nfaCheckMultiAccel(const NGHolder &g,
                                       const std::vector<NFAVertex> &verts,
                                       const CompileContext &cc);

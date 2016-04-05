@@ -190,83 +190,148 @@ void findPaths(const NGHolder &g, NFAVertex v,
     }
 }
 
-static
-AccelScheme merge(AccelScheme a, const AccelScheme &b) {
-    a.cr |= b.cr;
-    ENSURE_AT_LEAST(&a.offset, b.offset);
-    a.double_cr |= b.double_cr;
-    insert(&a.double_byte, b.double_byte);
-    ENSURE_AT_LEAST(&a.double_offset, b.double_offset);
-    return a;
-}
+struct SAccelScheme {
+    SAccelScheme(const CharReach &cr_in, u32 offset_in)
+        : cr(cr_in), offset(offset_in) {
+        assert(offset <= MAX_ACCEL_DEPTH);
+    }
+
+    SAccelScheme() {}
+
+    bool operator<(const SAccelScheme &b) const {
+        const SAccelScheme &a = *this;
+
+        const size_t a_count = cr.count(), b_count = b.cr.count();
+        if (a_count != b_count) {
+            return a_count < b_count;
+        }
+
+        /* TODO: give bonus if one is a 'caseless' character */
+        ORDER_CHECK(offset);
+        ORDER_CHECK(cr);
+        return false;
+    }
+
+    CharReach cr = CharReach::dot();
+    u32 offset = MAX_ACCEL_DEPTH + 1;
+};
 
 static
 void findBest(vector<vector<CharReach> >::const_iterator pb,
               vector<vector<CharReach> >::const_iterator pe,
-              const AccelScheme &curr, AccelScheme *best) {
+              const SAccelScheme &curr, SAccelScheme *best) {
     assert(curr.offset <= MAX_ACCEL_DEPTH);
     DEBUG_PRINTF("paths left %zu\n", pe - pb);
     if (pb == pe) {
+        if (curr < *best) {
+            DEBUG_PRINTF("new best\n");
+            *best = curr;
+        }
         *best = curr;
         return;
     }
 
     DEBUG_PRINTF("p len %zu\n", pb->end() - pb->begin());
 
-    vector<AccelScheme> priority_path;
+    vector<SAccelScheme> priority_path;
+    priority_path.reserve(pb->size());
     u32 i = 0;
     for (vector<CharReach>::const_iterator p = pb->begin(); p != pb->end();
          ++p, i++) {
-        priority_path.push_back(AccelScheme(*p & ~curr.cr, i));
+        SAccelScheme as(*p | curr.cr, MAX(i, curr.offset));
+        if (*best < as) {
+            DEBUG_PRINTF("worse\n");
+            continue;
+        }
+        priority_path.push_back(move(as));
     }
 
     sort(priority_path.begin(), priority_path.end());
-    for (vector<AccelScheme>::iterator it = priority_path.begin();
-         it != priority_path.end(); ++it) {
-        vector<AccelScheme>::iterator jt = it + 1;
+    for (auto it = priority_path.begin(); it != priority_path.end(); ++it) {
+        auto jt = next(it);
         for (; jt != priority_path.end(); ++jt) {
             if (!it->cr.isSubsetOf(jt->cr)) {
                 break;
             }
         }
-        priority_path.erase(it + 1, jt);
+        priority_path.erase(next(it), jt);
         DEBUG_PRINTF("||%zu\n", it->cr.count());
     }
     DEBUG_PRINTF("---\n");
 
-    for (vector<AccelScheme>::const_iterator it = priority_path.begin();
+    for (vector<SAccelScheme>::const_iterator it = priority_path.begin();
          it != priority_path.end(); ++it) {
         DEBUG_PRINTF("%u:|| = %zu; p remaining len %zu\n", i, it->cr.count(),
                      priority_path.end() - it);
 
-        AccelScheme in = merge(curr, *it);
+        SAccelScheme in = move(*it);
 
-        if (in > *best) {
+        if (*best < in) {
             DEBUG_PRINTF("worse\n");
             continue;
         }
-        AccelScheme temp = *best;
-        findBest(pb + 1, pe, in, &temp);
-        if (temp < *best) {
-            DEBUG_PRINTF("new best\n");
-            *best = temp;
-            if (curr.cr == best->cr) {
-                return; /* could only get better by offset */
-            }
+        findBest(pb + 1, pe, in, best);
+
+        if (curr.cr == best->cr) {
+            return; /* could only get better by offset */
         }
     }
 }
 
+struct DAccelScheme {
+    DAccelScheme(const CharReach &cr_in, u32 offset_in)
+        : double_cr(cr_in), double_offset(offset_in) {
+        assert(double_offset <= MAX_ACCEL_DEPTH);
+    }
+
+    DAccelScheme() {}
+
+    bool operator<(const DAccelScheme &b) const {
+        const DAccelScheme &a = *this;
+
+        size_t a_dcount = a.double_cr.count();
+        size_t b_dcount = b.double_cr.count();
+
+        assert(!a.double_byte.empty() || a_dcount || a.double_offset);
+        assert(!b.double_byte.empty() || b_dcount || b.double_offset);
+
+        if (a_dcount != b_dcount) {
+            return a_dcount < b_dcount;
+        }
+
+        if (!a_dcount) {
+            bool cd_a = buildDvermMask(a.double_byte);
+            bool cd_b = buildDvermMask(b.double_byte);
+            if (cd_a != cd_b) {
+                return cd_a > cd_b;
+            }
+        }
+
+        ORDER_CHECK(double_byte.size());
+        ORDER_CHECK(double_offset);
+
+        /* TODO: give bonus if one is a 'caseless' character */
+        ORDER_CHECK(double_byte);
+        ORDER_CHECK(double_cr);
+
+        return false;
+    }
+
+    ue2::flat_set<std::pair<u8, u8> > double_byte;
+    CharReach double_cr;
+    u32 double_offset = 0;
+};
+
 static
-AccelScheme make_double_accel(AccelScheme as, CharReach cr_1,
-                              const CharReach &cr_2_in, u32 offset_in) {
+DAccelScheme make_double_accel(DAccelScheme as, CharReach cr_1,
+                               const CharReach &cr_2_in, u32 offset_in) {
     cr_1 &= ~as.double_cr;
     CharReach cr_2 = cr_2_in & ~as.double_cr;
     u32 offset = offset_in;
 
     if (cr_1.none()) {
         DEBUG_PRINTF("empty first element\n");
-        as.double_offset = offset;
+        ENSURE_AT_LEAST(&as.double_offset, offset);
         return as;
     }
 
@@ -280,7 +345,7 @@ AccelScheme make_double_accel(AccelScheme as, CharReach cr_1,
 
     if (!two_count) {
         DEBUG_PRINTF("empty element\n");
-        as.double_offset = offset;
+        ENSURE_AT_LEAST(&as.double_offset, offset);
         return as;
     }
 
@@ -296,63 +361,69 @@ AccelScheme make_double_accel(AccelScheme as, CharReach cr_1,
              i = cr_1.find_next(i)) {
             for (auto j = cr_2.find_first(); j != CharReach::npos;
                  j = cr_2.find_next(j)) {
-                as.double_byte.insert(make_pair(i, j));
+                as.double_byte.emplace(i, j);
             }
         }
     }
 
-    as.double_offset = offset;
+    ENSURE_AT_LEAST(&as.double_offset, offset);
     DEBUG_PRINTF("construct da %zu pairs, %zu singles, offset %u\n",
-                 as.double_byte.size(), as.double_cr.count(), as.offset);
+                 as.double_byte.size(), as.double_cr.count(), as.double_offset);
     return as;
 }
 
 static
 void findDoubleBest(vector<vector<CharReach> >::const_iterator pb,
               vector<vector<CharReach> >::const_iterator pe,
-              const AccelScheme &curr, AccelScheme *best) {
-    assert(curr.offset <= MAX_ACCEL_DEPTH);
+              const DAccelScheme &curr, DAccelScheme *best) {
+    assert(curr.double_offset <= MAX_ACCEL_DEPTH);
     DEBUG_PRINTF("paths left %zu\n", pe - pb);
+    DEBUG_PRINTF("current base: %zu pairs, %zu singles, offset %u\n",
+                 curr.double_byte.size(), curr.double_cr.count(),
+                 curr.double_offset);
     if (pb == pe) {
-        *best = curr;
+        if (curr < *best) {
+            *best = curr;
+            DEBUG_PRINTF("new best: %zu pairs, %zu singles, offset %u\n",
+                         best->double_byte.size(), best->double_cr.count(),
+                         best->double_offset);
+        }
         return;
     }
 
     DEBUG_PRINTF("p len %zu\n", pb->end() - pb->begin());
 
-    vector<AccelScheme> priority_path;
+    vector<DAccelScheme> priority_path;
+    priority_path.reserve(pb->size());
     u32 i = 0;
     for (vector<CharReach>::const_iterator p = pb->begin();
          p != pb->end() && next(p) != pb->end();
          ++p, i++) {
-        priority_path.push_back(make_double_accel(curr, *p, *next(p), i));
-    }
-
-    sort(priority_path.begin(), priority_path.end());
-
-    DEBUG_PRINTF("input best: %zu pairs, %zu singles, offset %u\n",
-                 best->double_byte.size(), best->double_cr.count(),
-                 best->offset);
-
-    for (vector<AccelScheme>::const_iterator it = priority_path.begin();
-         it != priority_path.end(); ++it) {
-
-        AccelScheme in = merge(curr, *it);
-        DEBUG_PRINTF("in: %zu pairs, %zu singles, offset %u\n",
-                     in.double_byte.size(), in.double_cr.count(), in.offset);
-
-        if (in > *best) {
+        DAccelScheme as = make_double_accel(curr, *p, *next(p), i);
+        if (*best < as) {
             DEBUG_PRINTF("worse\n");
             continue;
         }
-        AccelScheme temp = *best;
-        findDoubleBest(pb + 1, pe, in, &temp);
-        if (temp < *best) {
-            *best = temp;
-            DEBUG_PRINTF("new best: %zu pairs, %zu singles, offset %u\n",
-                         best->double_byte.size(), best->double_cr.count(),
-                         best->offset);
+        priority_path.push_back(move(as));
+    }
+
+    sort(priority_path.begin(), priority_path.end());
+    DEBUG_PRINTF("%zu candidates for this path\n", priority_path.size());
+    DEBUG_PRINTF("input best: %zu pairs, %zu singles, offset %u\n",
+                 best->double_byte.size(), best->double_cr.count(),
+                 best->double_offset);
+
+    for (vector<DAccelScheme>::const_iterator it = priority_path.begin();
+         it != priority_path.end(); ++it) {
+        DAccelScheme in = move(*it);
+        DEBUG_PRINTF("in: %zu pairs, %zu singles, offset %u\n",
+                     in.double_byte.size(), in.double_cr.count(),
+                     in.double_offset);
+        if (*best < in) {
+            DEBUG_PRINTF("worse\n");
+            continue;
         }
+        findDoubleBest(pb + 1, pe, in, best);
     }
 }
 
@@ -439,20 +510,23 @@ void improvePaths(vector<vector<CharReach> > &paths) {
 #define MAX_DOUBLE_ACCEL_PATHS 10
 
 static
-AccelScheme findBestDoubleAccelScheme(vector<vector<CharReach> > paths,
-                                      const CharReach &terminating) {
+DAccelScheme findBestDoubleAccelScheme(vector<vector<CharReach> > paths,
+                                       const CharReach &terminating) {
     DEBUG_PRINTF("looking for double accel, %zu terminating symbols\n",
                  terminating.count());
     unifyPathsLastSegment(paths);
-    AccelScheme curr;
-    curr.double_cr = terminating;
-    curr.offset = 0;
+
+#ifdef DEBUG
+    DEBUG_PRINTF("paths:\n");
+    dumpPaths(paths);
+#endif
+
     /* if there are too many paths, shorten the paths to reduce the number of
      * distinct paths we have to consider */
     while (paths.size() > MAX_DOUBLE_ACCEL_PATHS) {
         for (auto &p : paths) {
             if (p.empty()) {
-                return curr;
+                return DAccelScheme(terminating, 0U);
             }
             p.pop_back();
         }
@@ -460,39 +534,44 @@ AccelScheme findBestDoubleAccelScheme(vector<vector<CharReach> > paths,
     }
 
     if (paths.empty()) {
-        return curr;
+        return DAccelScheme(terminating, 0U);
     }
 
-    AccelScheme best;
-    best.double_cr = CharReach::dot();
+    DAccelScheme curr(terminating, 0U);
+    DAccelScheme best(CharReach::dot(), 0U);
     findDoubleBest(paths.begin(), paths.end(), curr, &best);
-    curr = best;
-    DEBUG_PRINTF("da %zu pairs, %zu singles\n", curr.double_byte.size(),
-                 curr.double_cr.count());
-    return curr;
+    DEBUG_PRINTF("da %zu pairs, %zu singles\n", best.double_byte.size(),
+                 best.double_cr.count());
+    return best;
 }
+
+#define MAX_EXPLORE_PATHS 40
 
 AccelScheme findBestAccelScheme(vector<vector<CharReach> > paths,
                                 const CharReach &terminating,
                                 bool look_for_double_byte) {
-    AccelScheme da;
-
+    AccelScheme rv;
     if (look_for_double_byte) {
-        da = findBestDoubleAccelScheme(paths, terminating);
+        DAccelScheme da = findBestDoubleAccelScheme(paths, terminating);
+        if (da.double_byte.size() <= DOUBLE_SHUFTI_LIMIT) {
+            rv.double_byte = move(da.double_byte);
+            rv.double_cr = move(da.double_cr);
+            rv.double_offset = da.double_offset;
+        }
     }
 
     improvePaths(paths);
 
     DEBUG_PRINTF("we have %zu paths\n", paths.size());
-    if (paths.size() > 40) {
-        return da; /* too many paths to explore */
+    if (paths.size() > MAX_EXPLORE_PATHS) {
+        return rv; /* too many paths to explore */
     }
 
     /* if we were smart we would do something netflowy on the paths to find the
      * best cut. But we aren't, so we will just brute force it.
      */
-    AccelScheme curr(terminating, 0U);
-    AccelScheme best;
+    SAccelScheme curr(terminating, 0U);
+    SAccelScheme best;
     findBest(paths.begin(), paths.end(), curr, &best);
 
     /* find best is a bit lazy in terms of minimising the offset, see if we can
@@ -512,15 +591,13 @@ AccelScheme findBestAccelScheme(vector<vector<CharReach> > paths,
     assert(offset <= best.offset);
     best.offset = offset;
 
-    /* merge best single and best double */
-    if (!da.double_byte.empty() && da.double_byte.size() <= DOUBLE_SHUFTI_LIMIT
-        && da.double_cr.count() < best.cr.count()) {
-        best.double_byte = da.double_byte;
-        best.double_cr = da.double_cr;
-        best.double_offset = da.double_offset;
+    rv.offset = best.offset;
+    rv.cr = best.cr;
+    if (rv.cr.count() < rv.double_cr.count()) {
+        rv.double_byte.clear();
     }
 
-    return best;
+    return rv;
 }
 
 AccelScheme nfaFindAccel(const NGHolder &g, const vector<NFAVertex> &verts,
@@ -832,7 +909,9 @@ depth_done:
     for (unsigned int i = 0; i < depth; i++) {
         if (depthReach[i].none()) {
             DEBUG_PRINTF("red tape acceleration engine depth %u\n", i);
-            *as = AccelScheme(CharReach(), i);
+            *as = AccelScheme();
+            as->offset = i;
+            as->cr = CharReach();
             return true;
         }
     }
@@ -847,7 +926,8 @@ depth_done:
                 || (cra.count() == 2 && crb.count() == 2
                     && cra.isBit5Insensitive() && crb.isBit5Insensitive())) {
                 DEBUG_PRINTF("two-byte vermicelli, depth %u\n", i);
-                *as = AccelScheme(CharReach::dot(), i);
+                *as = AccelScheme();
+                as->offset = i;
                 return true;
             }
         }
@@ -860,7 +940,8 @@ depth_done:
             if (depthReach[i].count() * depthReach[i+1].count()
                 <= DOUBLE_SHUFTI_LIMIT) {
                 DEBUG_PRINTF("two-byte shufti, depth %u\n", i);
-                *as = AccelScheme(CharReach::dot(), i);
+                *as = AccelScheme();
+                as->offset = i;
                 return true;
             }
         }
