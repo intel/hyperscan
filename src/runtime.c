@@ -667,7 +667,7 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
     char *state = getMultiState(id);
     u8 status = getStreamStatus(state);
 
-    if (status == STATUS_TERMINATED || status == STATUS_EXHAUSTED) {
+    if (status & (STATUS_TERMINATED | STATUS_EXHAUSTED)) {
         DEBUG_PRINTF("stream is broken, just freeing storage\n");
         return;
     }
@@ -802,7 +802,7 @@ void rawStreamExec(struct hs_stream *stream_state, struct hs_scratch *scratch) {
     if (!told_to_stop_matching(scratch) &&
         isAllExhausted(rose, scratch->core_info.exhaustionVector)) {
         DEBUG_PRINTF("stream exhausted\n");
-        scratch->core_info.status = STATUS_EXHAUSTED;
+        scratch->core_info.status |= STATUS_EXHAUSTED;
     }
 }
 
