@@ -742,7 +742,7 @@ u32 mmbit_iterate_bounded_big(const u8 *bits, u32 total_bits, u32 it_start, u32 
     for (;;) {
         assert(level <= max_level);
 
-        u32 block_width = MMB_KEY_BITS << ks;
+        u64a block_width = MMB_KEY_BITS << ks;
         u64a block_base = key * block_width;
         u64a block_min = MAX(it_start, block_base);
         u64a block_max = MIN(it_end, block_base + block_width - 1);
