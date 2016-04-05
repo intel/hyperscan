@@ -601,17 +601,6 @@ static really_inline m256 loadu256(const void *ptr) {
 #endif
 }
 
-// unaligned load of 128-bit value to low and high part of 256-bit value
-static really_inline m256 loadu2x128(const void *ptr) {
-#if defined(__AVX2__)
-    return set2x128(loadu128(ptr));
-#else
-    m256 rv;
-    rv.hi = rv.lo = loadu128(ptr);
-    return rv;
-#endif
-}
-
 // packed unaligned store of first N bytes
 static really_inline
 void storebytes256(void *ptr, m256 a, unsigned int n) {
