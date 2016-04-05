@@ -79,7 +79,6 @@ public:
 };
 
 class TeddySet {
-    const vector<hwlmLiteral> &lits;
     u32 len;
     // nibbleSets is a series of bitfields over 16 predicates
     // that represent the whether shufti nibble set
@@ -89,8 +88,7 @@ class TeddySet {
     vector<u16> nibbleSets;
     set<u32> litIds;
 public:
-    TeddySet(const vector<hwlmLiteral> &lits_in, u32 len_in)
-        : lits(lits_in), len(len_in), nibbleSets(len_in * 2, 0) {}
+    explicit TeddySet(u32 len_in) : len(len_in), nibbleSets(len_in * 2, 0) {}
     const set<u32> & getLits() const { return litIds; }
     size_t litCount() const { return litIds.size(); }
 
@@ -118,15 +116,15 @@ public:
         return nibbleSets == ts.nibbleSets;
     }
 
-    void addLiteral(u32 lit_id) {
-        const string &s = lits[lit_id].s;
+    void addLiteral(u32 lit_id, const hwlmLiteral &lit) {
+        const string &s = lit.s;
         for (u32 i = 0; i < len; i++) {
             if (i < s.size()) {
                 u8 c = s[s.size() - i - 1];
                 u8 c_hi = (c >> 4) & 0xf;
                 u8 c_lo = c & 0xf;
                 nibbleSets[i*2] = 1 << c_lo;
-                if (lits[lit_id].nocase && ourisalpha(c)) {
+                if (lit.nocase && ourisalpha(c)) {
                     nibbleSets[i*2+1] =  (1 << (c_hi&0xd)) | (1 << (c_hi|0x2));
                 } else {
                     nibbleSets[i*2+1] =  1 << c_hi;
@@ -185,8 +183,8 @@ bool TeddyCompiler::pack(map<BucketIndex,
     set<TeddySet> sts;
 
     for (u32 i = 0; i < lits.size(); i++) {
-        TeddySet ts(lits, eng.numMasks);
-        ts.addLiteral(i);
+        TeddySet ts(eng.numMasks);
+        ts.addLiteral(i, lits[i]);
         sts.insert(ts);
     }
 
@@ -214,7 +212,7 @@ bool TeddyCompiler::pack(map<BucketIndex,
                     continue;
                 }
 
-                TeddySet tmpSet(lits, eng.numMasks);
+                TeddySet tmpSet(eng.numMasks);
                 tmpSet.merge(s1);
                 tmpSet.merge(s2);
                 u64a newScore = tmpSet.heuristic();
@@ -244,7 +242,7 @@ bool TeddyCompiler::pack(map<BucketIndex,
         }
 
         // do the merge
-        TeddySet nts(lits, eng.numMasks);
+        TeddySet nts(eng.numMasks);
         nts.merge(*m1);
         nts.merge(*m2);
 #ifdef TEDDY_DEBUG
