@@ -37,7 +37,13 @@
 namespace ue2 {
 
 u32 remove_leading_dots(raw_dfa &raw);
-void prune_overlong(raw_dfa &raw, u32 max_offset);
+
+/**
+ * Prunes any states which cannot be reached within max_offset from start of
+ * stream. Returns false if no changes are made to the rdfa
+ */
+bool prune_overlong(raw_dfa &raw, u32 max_offset);
+
 std::set<ReportID> all_reports(const raw_dfa &rdfa);
 bool has_eod_accepts(const raw_dfa &rdfa);
 bool has_non_eod_accepts(const raw_dfa &rdfa);
