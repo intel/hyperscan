@@ -176,7 +176,7 @@ char processReportsForRange(const struct mpv *m, u8 *reporters,
         return MO_CONTINUE_MATCHING;
     }
 
-    for (u32 i = 2; i <= length; i++) {
+    for (size_t i = 2; i <= length; i++) {
         for (u32 j = 0; j < rl_count; j++) {
             if (cb(first_offset + i, rl[j], ctxt) == MO_HALT_MATCHING) {
                 DEBUG_PRINTF("bailing\n");
