@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,10 +53,8 @@ namespace ue2 {
 namespace {
 struct pcomp {
     bool operator()(const raw_puff &a, const raw_puff &b) const {
-        ORDER_CHECK(repeats);
-        ORDER_CHECK(unbounded);
-        ORDER_CHECK(report);
-        return false;
+        return tie(a.repeats, a.unbounded, a.simple_exhaust, a.report) <
+               tie(b.repeats, b.unbounded, b.simple_exhaust, b.report);
     }
 };
 
@@ -89,6 +87,7 @@ void writePuffette(mpv_puffette *out, const raw_puff &rp) {
                  rp.report, out);
     out->repeats = rp.repeats;
     out->unbounded = rp.unbounded;
+    out->simple_exhaust = rp.simple_exhaust;
     out->report = rp.report;
 }
 

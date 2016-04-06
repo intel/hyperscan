@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -108,6 +108,9 @@ void dumpKilo(FILE *f, const mpv *m, const mpv_kilopuff *k) {
         fprintf(f, "    Puffette %u\n", i);
         fprintf(f, "        repeats:   %u%s\n", p[i].repeats,
                 p[i].unbounded ? "," : "");
+        if (p[i].simple_exhaust) {
+            fprintf(f, "        simple exhaustible\n");
+        }
         fprintf(f, "        report id: %u\n", p[i].report);
     }
 

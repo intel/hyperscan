@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -124,7 +124,7 @@ char processReports(const struct mpv *m, u8 *reporters,
                 DEBUG_PRINTF("report %u at %llu\n", curr->report,
                               report_offset);
 
-                if (curr->unbounded) {
+                if (curr->unbounded && !curr->simple_exhaust) {
                     assert(rl_count < m->puffette_count);
                     *rl = curr->report;
                     ++rl;
@@ -175,6 +175,8 @@ char processReportsForRange(const struct mpv *m, u8 *reporters,
     if (!rl_count) {
         return MO_CONTINUE_MATCHING;
     }
+
+    DEBUG_PRINTF("length=%zu, rl_count=%u\n", length, rl_count);
 
     for (size_t i = 2; i <= length; i++) {
         for (u32 j = 0; j < rl_count; j++) {

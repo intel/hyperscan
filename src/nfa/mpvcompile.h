@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,12 +42,15 @@ namespace ue2 {
 
 struct raw_puff {
     raw_puff(u32 repeats_in, bool unbounded_in, ReportID report_in,
-             const CharReach &reach_in, bool auto_restart_in = false)
+             const CharReach &reach_in, bool auto_restart_in = false,
+             bool simple_exhaust_in = false)
         : repeats(repeats_in), unbounded(unbounded_in),
-          auto_restart(auto_restart_in), report(report_in), reach(reach_in) {}
+          auto_restart(auto_restart_in), simple_exhaust(simple_exhaust_in),
+          report(report_in), reach(reach_in) {}
     u32 repeats; /**< report match after this many matching bytes */
     bool unbounded; /**< keep producing matches after repeats are reached */
     bool auto_restart; /**< for /[^X]{n}/ type patterns */
+    bool simple_exhaust; /* first report will exhaust us */
     ReportID report;
     CharReach reach; /**< = ~escapes */
 };
