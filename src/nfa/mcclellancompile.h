@@ -31,6 +31,7 @@
 
 #include "rdfa.h"
 #include "ue2common.h"
+#include "util/accel_scheme.h"
 #include "util/alloc.h"
 #include "util/charreach.h"
 #include "util/ue2_containers.h"
@@ -54,15 +55,6 @@ struct raw_report_info {
                                  std::vector<u32> &ro /* out */) const = 0;
 };
 
-struct escape_info {
-    CharReach outs;
-    CharReach outs2_single;
-    flat_set<std::pair<u8, u8>> outs2;
-    bool outs2_broken = false;
-    u32 offset = 0;
-    u32 outs2_offset = 0;
-};
-
 class dfa_build_strat {
 public:
     virtual ~dfa_build_strat();
@@ -72,9 +64,9 @@ public:
                                std::vector<u32> &reports_eod /* out */,
                                u8 *isSingleReport /* out */,
                                ReportID *arbReport  /* out */) const = 0;
-    virtual escape_info find_escape_strings(dstate_id_t this_idx) const = 0;
+    virtual AccelScheme find_escape_strings(dstate_id_t this_idx) const = 0;
     virtual size_t accelSize(void) const = 0;
-    virtual void buildAccel(dstate_id_t this_idx, const escape_info &info,
+    virtual void buildAccel(dstate_id_t this_idx, const AccelScheme &info,
                             void *accel_out) = 0;
 };
 
@@ -87,9 +79,9 @@ public:
                                   std::vector<u32> &reports_eod /* out */,
                                   u8 *isSingleReport /* out */,
                                   ReportID *arbReport  /* out */) const override;
-    escape_info find_escape_strings(dstate_id_t this_idx) const override;
+    AccelScheme find_escape_strings(dstate_id_t this_idx) const override;
     size_t accelSize(void) const override;
-    void buildAccel(dstate_id_t this_idx,const escape_info &info,
+    void buildAccel(dstate_id_t this_idx,const AccelScheme &info,
                     void *accel_out) override;
     virtual u32 max_allowed_offset_accel() const;
 

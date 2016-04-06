@@ -128,10 +128,10 @@ mstate_aux *getAux(NFA *n, dstate_id_t i) {
 }
 
 static
-bool double_byte_ok(const escape_info &info) {
-    return !info.outs2_broken
-        && info.outs2_single.count() < info.outs2.size()
-        && info.outs2_single.count() <= 2 && !info.outs2.empty();
+bool double_byte_ok(const AccelScheme &info) {
+    return !info.double_byte.empty()
+        && info.double_cr.count() < info.double_byte.size()
+        && info.double_cr.count() <= 2 && !info.double_byte.empty();
 }
 
 static
@@ -189,7 +189,7 @@ u32 mcclellan_build_strat::max_allowed_offset_accel() const {
     return ACCEL_DFA_MAX_OFFSET_DEPTH;
 }
 
-escape_info mcclellan_build_strat::find_escape_strings(dstate_id_t this_idx)
+AccelScheme mcclellan_build_strat::find_escape_strings(dstate_id_t this_idx)
     const {
     return find_mcclellan_escape_info(rdfa, this_idx,
                                       max_allowed_offset_accel());
@@ -197,33 +197,33 @@ escape_info mcclellan_build_strat::find_escape_strings(dstate_id_t this_idx)
 
 /** builds acceleration schemes for states */
 void mcclellan_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
-                                       const escape_info &info,
+                                       const AccelScheme &info,
                                        void *accel_out) {
     AccelAux *accel = (AccelAux *)accel_out;
 
     DEBUG_PRINTF("accelerations scheme has offset s%u/d%u\n", info.offset,
-                 info.outs2_offset);
+                 info.double_offset);
     accel->generic.offset = verify_u8(info.offset);
 
-    if (double_byte_ok(info) && info.outs2_single.none()
-        && info.outs2.size() == 1) {
+    if (double_byte_ok(info) && info.double_cr.none()
+        && info.double_byte.size() == 1) {
         accel->accel_type = ACCEL_DVERM;
-        accel->dverm.c1 = info.outs2.begin()->first;
-        accel->dverm.c2 = info.outs2.begin()->second;
-        accel->dverm.offset = verify_u8(info.outs2_offset);
+        accel->dverm.c1 = info.double_byte.begin()->first;
+        accel->dverm.c2 = info.double_byte.begin()->second;
+        accel->dverm.offset = verify_u8(info.double_offset);
         DEBUG_PRINTF("state %hu is double vermicelli\n", this_idx);
         return;
     }
 
-    if (double_byte_ok(info) && info.outs2_single.none()
-        && (info.outs2.size() == 2 || info.outs2.size() == 4)) {
+    if (double_byte_ok(info) && info.double_cr.none()
+        && (info.double_byte.size() == 2 || info.double_byte.size() == 4)) {
         bool ok = true;
 
-        assert(!info.outs2.empty());
-        u8 firstC = info.outs2.begin()->first & CASE_CLEAR;
-        u8 secondC = info.outs2.begin()->second & CASE_CLEAR;
+        assert(!info.double_byte.empty());
+        u8 firstC = info.double_byte.begin()->first & CASE_CLEAR;
+        u8 secondC = info.double_byte.begin()->second & CASE_CLEAR;
 
-        for (const pair<u8, u8> &p : info.outs2) {
+        for (const pair<u8, u8> &p : info.double_byte) {
             if ((p.first & CASE_CLEAR) != firstC
              || (p.second & CASE_CLEAR) != secondC) {
                 ok = false;
@@ -235,18 +235,18 @@ void mcclellan_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
             accel->accel_type = ACCEL_DVERM_NOCASE;
             accel->dverm.c1 = firstC;
             accel->dverm.c2 = secondC;
-            accel->dverm.offset = verify_u8(info.outs2_offset);
+            accel->dverm.offset = verify_u8(info.double_offset);
             DEBUG_PRINTF("state %hu is nc double vermicelli\n", this_idx);
             return;
         }
 
         u8 m1;
         u8 m2;
-        if (buildDvermMask(info.outs2, &m1, &m2)) {
+        if (buildDvermMask(info.double_byte, &m1, &m2)) {
             accel->accel_type = ACCEL_DVERM_MASKED;
-            accel->dverm.offset = verify_u8(info.outs2_offset);
-            accel->dverm.c1 = info.outs2.begin()->first & m1;
-            accel->dverm.c2 = info.outs2.begin()->second & m2;
+            accel->dverm.offset = verify_u8(info.double_offset);
+            accel->dverm.c1 = info.double_byte.begin()->first & m1;
+            accel->dverm.c2 = info.double_byte.begin()->second & m2;
             accel->dverm.m1 = m1;
             accel->dverm.m2 = m2;
             DEBUG_PRINTF("building maskeddouble-vermicelli for 0x%02hhx%02hhx\n",
@@ -256,52 +256,52 @@ void mcclellan_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
     }
 
     if (double_byte_ok(info)
-        && shuftiBuildDoubleMasks(info.outs2_single, info.outs2,
+        && shuftiBuildDoubleMasks(info.double_cr, info.double_byte,
                                   &accel->dshufti.lo1, &accel->dshufti.hi1,
                                   &accel->dshufti.lo2, &accel->dshufti.hi2)) {
         accel->accel_type = ACCEL_DSHUFTI;
-        accel->dshufti.offset = verify_u8(info.outs2_offset);
+        accel->dshufti.offset = verify_u8(info.double_offset);
         DEBUG_PRINTF("state %hu is double shufti\n", this_idx);
         return;
     }
 
-    if (info.outs.none()) {
+    if (info.cr.none()) {
         accel->accel_type = ACCEL_RED_TAPE;
         DEBUG_PRINTF("state %hu is a dead end full of bureaucratic red tape"
                      " from which there is no escape\n", this_idx);
         return;
     }
 
-    if (info.outs.count() == 1) {
+    if (info.cr.count() == 1) {
         accel->accel_type = ACCEL_VERM;
-        accel->verm.c = info.outs.find_first();
+        accel->verm.c = info.cr.find_first();
         DEBUG_PRINTF("state %hu is vermicelli\n", this_idx);
         return;
     }
 
-    if (info.outs.count() == 2 && info.outs.isCaselessChar()) {
+    if (info.cr.count() == 2 && info.cr.isCaselessChar()) {
         accel->accel_type = ACCEL_VERM_NOCASE;
-        accel->verm.c = info.outs.find_first() & CASE_CLEAR;
+        accel->verm.c = info.cr.find_first() & CASE_CLEAR;
         DEBUG_PRINTF("state %hu is caseless vermicelli\n", this_idx);
         return;
     }
 
-    if (info.outs.count() > ACCEL_DFA_MAX_FLOATING_STOP_CHAR) {
+    if (info.cr.count() > ACCEL_DFA_MAX_FLOATING_STOP_CHAR) {
         accel->accel_type = ACCEL_NONE;
         DEBUG_PRINTF("state %hu is too broad\n", this_idx);
         return;
     }
 
     accel->accel_type = ACCEL_SHUFTI;
-    if (-1 != shuftiBuildMasks(info.outs, &accel->shufti.lo,
+    if (-1 != shuftiBuildMasks(info.cr, &accel->shufti.lo,
                                &accel->shufti.hi)) {
         DEBUG_PRINTF("state %hu is shufti\n", this_idx);
         return;
     }
 
-    assert(!info.outs.none());
+    assert(!info.cr.none());
     accel->accel_type = ACCEL_TRUFFLE;
-    truffleBuildMasks(info.outs, &accel->truffle.mask1, &accel->truffle.mask2);
+    truffleBuildMasks(info.cr, &accel->truffle.mask1, &accel->truffle.mask2);
     DEBUG_PRINTF("state %hu is truffle\n", this_idx);
 }
 
@@ -486,7 +486,7 @@ void raw_report_info_impl::fillReportLists(NFA *n, size_t base_offset,
 }
 
 static
-void fillAccelOut(const map<dstate_id_t, escape_info> &accel_escape_info,
+void fillAccelOut(const map<dstate_id_t, AccelScheme> &accel_escape_info,
                   set<dstate_id_t> *accel_states) {
     for (dstate_id_t i : accel_escape_info | map_keys) {
         accel_states->insert(i);
@@ -581,7 +581,7 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
 
     unique_ptr<raw_report_info> ri
         = info.strat.gatherReports(reports, reports_eod, &single, &arb);
-    map<dstate_id_t, escape_info> accel_escape_info
+    map<dstate_id_t, AccelScheme> accel_escape_info
         = populateAccelerationInfo(info.raw, info.strat, cc.grey);
 
     size_t tran_size = (1 << info.getAlphaShift())
@@ -748,7 +748,7 @@ void fillInBasicState8(const dfa_info &info, mstate_aux *aux, u8 *succ_table,
 
 static
 void allocateFSN8(dfa_info &info,
-                  const map<dstate_id_t, escape_info> &accel_escape_info,
+                  const map<dstate_id_t, AccelScheme> &accel_escape_info,
                   u16 *accel_limit, u16 *accept_limit) {
     info.states[0].impl_id = 0; /* dead is always 0 */
 
@@ -801,7 +801,7 @@ aligned_unique_ptr<NFA> mcclellanCompile8(dfa_info &info,
 
     unique_ptr<raw_report_info> ri
         = info.strat.gatherReports(reports, reports_eod, &single, &arb);
-    map<dstate_id_t, escape_info> accel_escape_info
+    map<dstate_id_t, AccelScheme> accel_escape_info
         = populateAccelerationInfo(info.raw, info.strat, cc.grey);
 
     size_t tran_size = sizeof(u8) * (1 << info.getAlphaShift()) * info.size();

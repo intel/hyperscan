@@ -178,25 +178,14 @@ vector<vector<CharReach> > generate_paths(const raw_dfa &rdfa, dstate_id_t base,
 }
 
 static
-escape_info look_for_offset_accel(const raw_dfa &rdfa, dstate_id_t base,
+AccelScheme look_for_offset_accel(const raw_dfa &rdfa, dstate_id_t base,
                                   u32 max_allowed_accel_offset) {
     DEBUG_PRINTF("looking for accel for %hu\n", base);
     vector<vector<CharReach> > paths = generate_paths(rdfa, base,
                                                    max_allowed_accel_offset + 1);
     AccelScheme as = findBestAccelScheme(paths, CharReach(), true);
-    escape_info rv;
-    rv.offset = as.offset;
-    rv.outs = as.cr;
-    if (!as.double_byte.empty()) {
-        rv.outs2_single = as.double_cr;
-        rv.outs2 = as.double_byte;
-        rv.outs2_offset = as.double_offset;
-        rv.outs2_broken = false;
-    } else {
-        rv.outs2_broken = true;
-    }
     DEBUG_PRINTF("found %s + %u\n", describeClass(as.cr).c_str(), as.offset);
-    return rv;
+    return as;
 }
 
 static
@@ -214,18 +203,18 @@ vector<u16> find_nonexit_symbols(const raw_dfa &rdfa,
 
 static
 set<dstate_id_t> find_region(const raw_dfa &rdfa, dstate_id_t base,
-                             const escape_info &ei) {
+                             const AccelScheme &ei) {
     DEBUG_PRINTF("looking for region around %hu\n", base);
 
     set<dstate_id_t> region = {base};
 
-    if (!ei.outs2_broken) {
+    if (!ei.double_byte.empty()) {
         return region;
     }
 
-    DEBUG_PRINTF("accel %s+%u\n", describeClass(ei.outs).c_str(), ei.offset);
+    DEBUG_PRINTF("accel %s+%u\n", describeClass(ei.cr).c_str(), ei.offset);
 
-    const CharReach &escape = ei.outs;
+    const CharReach &escape = ei.cr;
     auto nonexit_symbols = find_nonexit_symbols(rdfa, escape);
 
     vector<dstate_id_t> pending = {base};
@@ -248,16 +237,16 @@ set<dstate_id_t> find_region(const raw_dfa &rdfa, dstate_id_t base,
 }
 
 static
-bool better(const escape_info &a, const escape_info &b) {
-    if (!a.outs2_broken && b.outs2_broken) {
+bool better(const AccelScheme &a, const AccelScheme &b) {
+    if (!a.double_byte.empty() && b.double_byte.empty()) {
         return true;
     }
 
-    if (!b.outs2_broken) {
+    if (!b.double_byte.empty()) {
         return false;
     }
 
-    return a.outs.count() < b.outs.count();
+    return a.cr.count() < b.cr.count();
 }
 
 static
@@ -271,10 +260,10 @@ vector<CharReach> reverse_alpha_remapping(const raw_dfa &rdfa) {
     return rv;
 }
 
-map<dstate_id_t, escape_info> populateAccelerationInfo(const raw_dfa &rdfa,
+map<dstate_id_t, AccelScheme> populateAccelerationInfo(const raw_dfa &rdfa,
                                                    const dfa_build_strat &strat,
                                                    const Grey &grey) {
-    map<dstate_id_t, escape_info> rv;
+    map<dstate_id_t, AccelScheme> rv;
     if (!grey.accelerateDFA) {
         return rv;
     }
@@ -283,7 +272,7 @@ map<dstate_id_t, escape_info> populateAccelerationInfo(const raw_dfa &rdfa,
     DEBUG_PRINTF("sds %hu\n", sds_proxy);
 
     for (size_t i = 0; i < rdfa.states.size(); i++) {
-        escape_info ei = strat.find_escape_strings(i);
+        AccelScheme ei = strat.find_escape_strings(i);
 
         if (i == DEAD_STATE) {
             continue;
@@ -301,25 +290,25 @@ map<dstate_id_t, escape_info> populateAccelerationInfo(const raw_dfa &rdfa,
                                              : ACCEL_DFA_MAX_STOP_CHAR;
         DEBUG_PRINTF("inspecting %zu/%hu: %zu\n", i, sds_proxy, single_limit);
 
-        if (ei.outs.count() > single_limit) {
+        if (ei.cr.count() > single_limit) {
             DEBUG_PRINTF("state %zu is not accelerable has %zu\n", i,
-                         ei.outs.count());
+                         ei.cr.count());
             continue;
         }
 
         DEBUG_PRINTF("state %zu should be accelerable %zu\n",
-                     i, ei.outs.count());
+                     i, ei.cr.count());
 
         rv[i] = ei;
     }
 
     /* provide accleration states to states in the region of sds */
     if (contains(rv, sds_proxy)) {
-        escape_info sds_ei = rv[sds_proxy];
-        sds_ei.outs2_broken = true; /* region based on single byte scheme
+        AccelScheme sds_ei = rv[sds_proxy];
+        sds_ei.double_byte.clear(); /* region based on single byte scheme
                                      * may differ from double byte */
         DEBUG_PRINTF("looking to expand offset accel to nearby states, %zu\n",
-                     sds_ei.outs.count());
+                     sds_ei.cr.count());
         auto sds_region = find_region(rdfa, sds_proxy, sds_ei);
         for (auto s : sds_region) {
             if (!contains(rv, s) || better(sds_ei, rv[s])) {
@@ -332,18 +321,20 @@ map<dstate_id_t, escape_info> populateAccelerationInfo(const raw_dfa &rdfa,
 }
 
 static
-bool double_byte_ok(const escape_info &info) {
-    return !info.outs2_broken
-        && info.outs2_single.count() < info.outs2.size()
-        && info.outs2_single.count() <= 2 && !info.outs2.empty();
+bool double_byte_ok(const AccelScheme &info) {
+    return !info.double_byte.empty()
+        && info.double_cr.count() < info.double_byte.size()
+        && info.double_cr.count() <= 2 && !info.double_byte.empty();
 }
 
-escape_info find_mcclellan_escape_info(const raw_dfa &rdfa,
-                                       dstate_id_t this_idx,
+AccelScheme find_mcclellan_escape_info(const raw_dfa &rdfa, dstate_id_t this_idx,
                                        u32 max_allowed_accel_offset) {
-    escape_info rv;
+    AccelScheme rv;
+    rv.cr.clear();
+    rv.offset = 0;
     const dstate &raw = rdfa.states[this_idx];
     const vector<CharReach> rev_map = reverse_alpha_remapping(rdfa);
+    bool outs2_broken = false;
 
     for (u32 i = 0; i < rev_map.size(); i++) {
         if (raw.next[i] == this_idx) {
@@ -352,17 +343,17 @@ escape_info find_mcclellan_escape_info(const raw_dfa &rdfa,
 
         const CharReach &cr_i = rev_map.at(i);
 
-        rv.outs |= cr_i;
+        rv.cr |= cr_i;
 
         DEBUG_PRINTF("next is %hu\n", raw.next[i]);
         const dstate &raw_next = rdfa.states[raw.next[i]];
 
         if (!raw_next.reports.empty() && generates_callbacks(rdfa.kind)) {
             DEBUG_PRINTF("leads to report\n");
-            rv.outs2_broken = true;  /* cannot accelerate over reports */
+            outs2_broken = true;  /* cannot accelerate over reports */
         }
 
-        if (rv.outs2_broken) {
+        if (outs2_broken) {
             continue;
         }
 
@@ -378,35 +369,39 @@ escape_info find_mcclellan_escape_info(const raw_dfa &rdfa,
         }
 
         if (cr_i.count() * cr_all_j.count() > 8) {
-            DEBUG_PRINTF("adding sym %u to outs2_single\n", i);
-            rv.outs2_single |= cr_i;
+            DEBUG_PRINTF("adding sym %u to double_cr\n", i);
+            rv.double_cr |= cr_i;
         } else {
             for (auto ii = cr_i.find_first(); ii != CharReach::npos;
                  ii = cr_i.find_next(ii)) {
                 for (auto jj = cr_all_j.find_first(); jj != CharReach::npos;
                      jj = cr_all_j.find_next(jj)) {
-                    rv.outs2.emplace((u8)ii, (u8)jj);
+                    rv.double_byte.emplace((u8)ii, (u8)jj);
                 }
             }
         }
 
-        if (rv.outs2.size() > 8) {
+        if (rv.double_byte.size() > 8) {
             DEBUG_PRINTF("outs2 too big\n");
-            rv.outs2_broken = true;
+            outs2_broken = true;
         }
     }
 
+    if (outs2_broken) {
+        rv.double_byte.clear();
+    }
+
     DEBUG_PRINTF("this %u, sds proxy %hu\n", this_idx, get_sds_or_proxy(rdfa));
-    DEBUG_PRINTF("broken %d\n", rv.outs2_broken);
+    DEBUG_PRINTF("broken %d\n", outs2_broken);
     if (!double_byte_ok(rv) && !is_triggered(rdfa.kind)
         && this_idx == rdfa.start_floating
         && this_idx != DEAD_STATE) {
         DEBUG_PRINTF("looking for offset accel at %u\n", this_idx);
         auto offset = look_for_offset_accel(rdfa, this_idx,
                                             max_allowed_accel_offset);
-        DEBUG_PRINTF("width %zu vs %zu\n", offset.outs.count(),
-                      rv.outs.count());
-        if (double_byte_ok(offset) || offset.outs.count() < rv.outs.count()) {
+        DEBUG_PRINTF("width %zu vs %zu\n", offset.cr.count(),
+                      rv.cr.count());
+        if (double_byte_ok(offset) || offset.cr.count() < rv.cr.count()) {
             DEBUG_PRINTF("using offset accel\n");
             rv = offset;
         }

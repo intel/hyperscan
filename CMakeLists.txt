@@ -827,6 +827,7 @@ SET (hs_SRCS
     src/rose/rose_in_graph.h
     src/rose/rose_in_util.cpp
     src/rose/rose_in_util.h
+    src/util/accel_scheme.h
     src/util/alloc.cpp
     src/util/alloc.h
     src/util/bitfield.h

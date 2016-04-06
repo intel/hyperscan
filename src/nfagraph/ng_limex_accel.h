@@ -37,6 +37,7 @@
 #include "ng_misc_opt.h"
 #include "ue2common.h"
 #include "nfa/accelcompile.h"
+#include "util/accel_scheme.h"
 #include "util/charreach.h"
 #include "util/order_check.h"
 #include "util/ue2_containers.h"
@@ -47,7 +48,6 @@
 namespace ue2 {
 
 /* compile time accel defs */
-#define MAX_ACCEL_DEPTH 4
 #define MAX_MERGED_ACCEL_STOPS 200
 #define ACCEL_MAX_STOP_CHAR 24
 #define ACCEL_MAX_FLOATING_STOP_CHAR 192 /* accelerating sds is important */
@@ -64,14 +64,6 @@ void findAccelFriends(const NGHolder &g, NFAVertex v,
                       ue2::flat_set<NFAVertex> *friends);
 
 #define DOUBLE_SHUFTI_LIMIT 20
-
-struct AccelScheme {
-    ue2::flat_set<std::pair<u8, u8> > double_byte;
-    CharReach cr = CharReach::dot();
-    CharReach double_cr;
-    u32 offset = MAX_ACCEL_DEPTH + 1;
-    u32 double_offset = 0;
-};
 
 NFAVertex get_sds_or_proxy(const NGHolder &g);
 

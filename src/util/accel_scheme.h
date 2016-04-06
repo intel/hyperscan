@@ -26,35 +26,25 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MCCLELLANCOMPILE_ACCEL_H
-#define MCCLELLANCOMPILE_ACCEL_H
+#ifndef ACCEL_SCHEME_H
+#define ACCEL_SCHEME_H
 
-#include "mcclellancompile.h"
+#include "util/charreach.h"
+#include "util/ue2_containers.h"
 
-#include <map>
+#include <utility>
 
 namespace ue2 {
 
-struct Grey;
+#define MAX_ACCEL_DEPTH 4
 
-#define ACCEL_DFA_MAX_OFFSET_DEPTH 4
-
-/** Maximum tolerated number of escape character from an accel state.
- * This is larger than nfa, as we don't have a budget and the nfa cheats on stop
- * characters for sets of states */
-#define ACCEL_DFA_MAX_STOP_CHAR 160
-
-/** Maximum tolerated number of escape character from a sds accel state. Larger
- * than normal states as accelerating sds is important. Matches NFA value */
-#define ACCEL_DFA_MAX_FLOATING_STOP_CHAR 192
-
-std::map<dstate_id_t, AccelScheme> populateAccelerationInfo(const raw_dfa &rdfa,
-                                                   const dfa_build_strat &strat,
-                                                   const Grey &grey);
-
-AccelScheme find_mcclellan_escape_info(const raw_dfa &rdfa,
-                                       dstate_id_t this_idx,
-                                       u32 max_allowed_accel_offset);
+struct AccelScheme {
+    flat_set<std::pair<u8, u8> > double_byte;
+    CharReach cr = CharReach::dot();
+    CharReach double_cr;
+    u32 offset = MAX_ACCEL_DEPTH + 1;
+    u32 double_offset = 0;
+};
 
 }
 
