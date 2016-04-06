@@ -25,7 +25,7 @@ if(CXX_WUNUSED_VARIABLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
 endif()
 
-add_library(gtest ${gtest_SOURCES})
+add_library(gtest STATIC ${gtest_SOURCES})
 
 add_definitions(-DGTEST_HAS_PTHREAD=0 -DSRCDIR=${PROJECT_SOURCE_DIR})
 
