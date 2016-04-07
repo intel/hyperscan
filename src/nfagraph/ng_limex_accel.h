@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,6 +36,7 @@
 #include "ng_holder.h"
 #include "ng_misc_opt.h"
 #include "ue2common.h"
+#include "nfa/accelcompile.h"
 #include "util/charreach.h"
 #include "util/order_check.h"
 #include "util/ue2_containers.h"
@@ -70,25 +71,6 @@ struct DoubleAccelInfo {
 };
 
 DoubleAccelInfo findBestDoubleAccelInfo(const NGHolder &g, NFAVertex v);
-
-struct MultibyteAccelInfo {
-    /* multibyte accel schemes, ordered by strength */
-    enum multiaccel_type {
-        MAT_SHIFT,
-        MAT_SHIFTGRAB,
-        MAT_DSHIFT,
-        MAT_DSHIFTGRAB,
-        MAT_LONG,
-        MAT_LONGGRAB,
-        MAT_MAX,
-        MAT_NONE = MAT_MAX
-    };
-    CharReach cr;
-    u32 offset = 0;
-    u32 len1 = 0;
-    u32 len2 = 0;
-    multiaccel_type type = MAT_NONE;
-};
 
 struct AccelScheme {
     AccelScheme(const CharReach &cr_in, u32 offset_in)
