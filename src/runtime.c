@@ -428,7 +428,7 @@ hs_error_t hs_scan(const hs_database_t *db, const char *data, unsigned length,
     populateCoreInfo(scratch, rose, scratch->bstate, onEvent, userCtx, data,
                      length, NULL, 0, 0, 0, flags);
 
-    clearEvec(scratch->core_info.exhaustionVector, rose);
+    clearEvec(rose, scratch->core_info.exhaustionVector);
 
     // Rose program execution (used for some report paths) depends on these
     // values being initialised.
@@ -561,7 +561,7 @@ void init_stream(struct hs_stream *s, const struct RoseEngine *rose) {
     setStreamStatus(state, 0);
     roseInitState(rose, state);
 
-    clearEvec((char *)state + rose->stateOffsets.exhausted, rose);
+    clearEvec(rose, state + rose->stateOffsets.exhausted);
 
     // SOM state multibit structures.
     initSomState(rose, state);

@@ -243,7 +243,7 @@ int roseAdaptor_i(u64a offset, ReportID id, struct hs_scratch *scratch,
         }
     }
 
-    if (!is_simple &&
+    if (!is_simple && ir->ekey != INVALID_EKEY &&
         unlikely(isExhausted(ci->rose, ci->exhaustionVector, ir->ekey))) {
         DEBUG_PRINTF("ate exhausted match\n");
         return MO_CONTINUE_MATCHING;
@@ -296,7 +296,7 @@ exit:
         return MO_HALT_MATCHING;
     }
 
-    if (!is_simple && ir->ekey != END_EXHAUST) {
+    if (!is_simple && ir->ekey != INVALID_EKEY) {
         markAsMatched(ci->rose, ci->exhaustionVector, ir->ekey);
         return MO_CONTINUE_MATCHING;
     } else {
@@ -400,7 +400,7 @@ int roseSomAdaptor_i(u64a from_offset, u64a to_offset, ReportID id,
 
     int halt = 0;
 
-    if (!is_simple &&
+    if (!is_simple && ir->ekey != INVALID_EKEY &&
         unlikely(isExhausted(ci->rose, ci->exhaustionVector, ir->ekey))) {
         DEBUG_PRINTF("ate exhausted match\n");
         goto exit;
@@ -446,7 +446,7 @@ int roseSomAdaptor_i(u64a from_offset, u64a to_offset, ReportID id,
     halt = ci->userCallback((unsigned int)ir->onmatch, from_offset, to_offset,
                             flags, ci->userContext);
 
-    if (!is_simple) {
+    if (!is_simple && ir->ekey != INVALID_EKEY) {
         markAsMatched(ci->rose, ci->exhaustionVector, ir->ekey);
     }
 

@@ -34,19 +34,18 @@
 #define EXHAUST_H
 
 #include "rose/rose_internal.h"
+#include "util/internal_report.h"
 #include "util/multibit.h"
 #include "ue2common.h"
 
-/** \brief Sentinel value meaning no further exhaustion keys. */
-#define END_EXHAUST (~(u32)0)
-
-/** \brief Test whether the given key (\a eoff) is set in the exhaustion vector
+/** \brief Test whether the given key (\a ekey) is set in the exhaustion vector
  * \a evec. */
 static really_inline
-int isExhausted(const struct RoseEngine *t, const char *evec, u32 eoff) {
-    DEBUG_PRINTF("checking exhaustion %p %u\n", evec, eoff);
-    return eoff != END_EXHAUST &&
-           mmbit_isset((const u8 *)evec, t->ekeyCount, eoff);
+int isExhausted(const struct RoseEngine *t, const char *evec, u32 ekey) {
+    DEBUG_PRINTF("checking exhaustion %p %u\n", evec, ekey);
+    assert(ekey != INVALID_EKEY);
+    assert(ekey < t->ekeyCount);
+    return mmbit_isset((const u8 *)evec, t->ekeyCount, ekey);
 }
 
 /** \brief Returns 1 if all exhaustion keys in the bitvector are on. */
@@ -59,18 +58,18 @@ int isAllExhausted(const struct RoseEngine *t, const char *evec) {
     return mmbit_all((const u8 *)evec, t->ekeyCount);
 }
 
-/** \brief Mark key \a eoff on in the exhaustion vector. */
+/** \brief Mark key \a ekey on in the exhaustion vector. */
 static really_inline
-void markAsMatched(const struct RoseEngine *t, char *evec, u32 eoff) {
-    if (eoff != END_EXHAUST) {
-        DEBUG_PRINTF("marking as exhausted key %u\n", eoff);
-        mmbit_set((u8 *)evec, t->ekeyCount, eoff);
-    }
+void markAsMatched(const struct RoseEngine *t, char *evec, u32 ekey) {
+    DEBUG_PRINTF("marking as exhausted key %u\n", ekey);
+    assert(ekey != INVALID_EKEY);
+    assert(ekey < t->ekeyCount);
+    mmbit_set((u8 *)evec, t->ekeyCount, ekey);
 }
 
 /** \brief Clear all keys in the exhaustion vector. */
 static really_inline
-void clearEvec(char *evec, const struct RoseEngine *t) {
+void clearEvec(const struct RoseEngine *t, char *evec) {
     DEBUG_PRINTF("clearing evec %p %u\n", evec, t->ekeyCount);
     mmbit_clear((u8 *)evec, t->ekeyCount);
 }
