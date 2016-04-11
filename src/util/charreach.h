@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -135,22 +135,38 @@ public:
     size_t find_nth(size_t n) const { return bits.find_nth(n); }
 
     /// Bitwise OR.
-    CharReach operator|(const CharReach &a) const;
+    CharReach operator|(const CharReach &a) const {
+        CharReach cr(*this);
+        cr.bits |= a.bits;
+        return cr;
+    }
 
     /// Bitwise OR-equals.
-    void operator|=(const CharReach &a);
+    void operator|=(const CharReach &a) { bits |= a.bits; }
 
     /// Bitwise AND.
-    CharReach operator&(const CharReach &a) const;
+    CharReach operator&(const CharReach &a) const {
+        CharReach cr(*this);
+        cr.bits &= a.bits;
+        return cr;
+    }
 
     /// Bitwise AND-equals.
-    void operator&=(const CharReach &a);
+    void operator&=(const CharReach &a) { bits &= a.bits; }
 
     /// Bitwise XOR.
-    CharReach operator^(const CharReach &a) const;
+    CharReach operator^(const CharReach &a) const {
+        CharReach cr(*this);
+        cr.bits ^= a.bits;
+        return cr;
+    }
 
     /// Bitwise complement.
-    CharReach operator~(void) const;
+    CharReach operator~(void) const {
+        CharReach cr(*this);
+        cr.flip();
+        return cr;
+    }
 
     /// Do we only contain bits representing alpha characters?
     bool isAlpha() const;

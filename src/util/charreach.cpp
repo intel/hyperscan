@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,44 +48,6 @@ void CharReach::set(const std::string &s) {
     for (const auto &c : s) {
         set(c);
     }
-}
-
-/// Bitwise OR.
-CharReach CharReach::operator|(const CharReach &a) const {
-    CharReach cr(*this);
-    cr.bits |= a.bits;
-    return cr;
-}
-
-/// Bitwise OR-equals.
-void CharReach::operator|=(const CharReach &a) {
-    bits |= a.bits;
-}
-
-/// Bitwise AND.
-CharReach CharReach::operator&(const CharReach &a) const {
-    CharReach cr(*this);
-    cr.bits &= a.bits;
-    return cr;
-}
-
-/// Bitwise AND-equals.
-void CharReach::operator&=(const CharReach &a) {
-    bits &= a.bits;
-}
-
-/// Bitwise complement.
-CharReach CharReach::operator~(void) const {
-    CharReach cr(*this);
-    cr.flip();
-    return cr;
-}
-
-/// Bitwise XOR.
-CharReach CharReach::operator^(const CharReach &a) const {
-    CharReach cr(*this);
-    cr.bits ^= a.bits;
-    return cr;
 }
 
 /// Do we only contain bits representing alpha characters?
