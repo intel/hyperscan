@@ -41,6 +41,7 @@
 #include "util/charreach.h"
 #include "util/dump_charclass.h"
 #include "util/dump_mask.h"
+#include "util/simd_utils.h"
 
 #include <cstdio>
 #include <vector>
@@ -170,8 +171,8 @@ vector<CharReach> shufti2cr_array(const m128 lo_in, const m128 hi_in) {
 static
 void dumpDShuftiCharReach(FILE *f, const m128 &lo1, const m128 &hi1,
                                    const m128 &lo2, const m128 &hi2) {
-    vector<CharReach> cr1 = shufti2cr_array(~lo1, ~hi1);
-    vector<CharReach> cr2 = shufti2cr_array(~lo2, ~hi2);
+    vector<CharReach> cr1 = shufti2cr_array(not128(lo1), not128(hi1));
+    vector<CharReach> cr2 = shufti2cr_array(not128(lo2), not128(hi2));
     map<CharReach, set<u32> > cr1_group;
     assert(cr1.size() == 8 && cr2.size() == 8);
     for (u32 i = 0; i < 8; i++) {
