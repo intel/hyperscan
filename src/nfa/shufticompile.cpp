@@ -155,15 +155,17 @@ bool shuftiBuildDoubleMasks(const CharReach &onechar,
         u16 a_hi = 1U << (p.first  >> 4);
         u16 b_lo = 1U << (p.second & 0xf);
         u16 b_hi = 1U << (p.second >> 4);
-        nibble_masks.push_back({a_lo, a_hi, b_lo, b_hi});
+        nibble_masks.push_back({{a_lo, a_hi, b_lo, b_hi}});
     }
 
     // one-byte literals (second byte is a wildcard)
     for (size_t it = onechar.find_first(); it != CharReach::npos;
          it = onechar.find_next(it)) {
         DEBUG_PRINTF("%02hhx\n", (u8)it);
-        nibble_masks.push_back({(u16)(1U << (it & 0xf)), (u16)(1U << (it >> 4)),
-                                0xffff, 0xffff});
+        u16 a_lo = 1U << (it & 0xf);
+        u16 a_hi = 1U << (it >> 4);
+        u16 wildcard = 0xffff;
+        nibble_masks.push_back({{a_lo, a_hi, wildcard, wildcard}});
     }
 
     // try to merge strings into shared buckets
