@@ -272,8 +272,6 @@ map<dstate_id_t, AccelScheme> populateAccelerationInfo(const raw_dfa &rdfa,
     DEBUG_PRINTF("sds %hu\n", sds_proxy);
 
     for (size_t i = 0; i < rdfa.states.size(); i++) {
-        AccelScheme ei = strat.find_escape_strings(i);
-
         if (i == DEAD_STATE) {
             continue;
         }
@@ -281,8 +279,7 @@ map<dstate_id_t, AccelScheme> populateAccelerationInfo(const raw_dfa &rdfa,
         /* Note on report acceleration states: While we can't accelerate while we
          * are spamming out callbacks, the QR code paths don't raise reports
          * during scanning so they can accelerate report states. */
-        if (generates_callbacks(rdfa.kind)
-            && !rdfa.states[i].reports.empty()) {
+        if (generates_callbacks(rdfa.kind) && !rdfa.states[i].reports.empty()) {
             continue;
         }
 
@@ -290,6 +287,7 @@ map<dstate_id_t, AccelScheme> populateAccelerationInfo(const raw_dfa &rdfa,
                                              : ACCEL_DFA_MAX_STOP_CHAR;
         DEBUG_PRINTF("inspecting %zu/%hu: %zu\n", i, sds_proxy, single_limit);
 
+        AccelScheme ei = strat.find_escape_strings(i);
         if (ei.cr.count() > single_limit) {
             DEBUG_PRINTF("state %zu is not accelerable has %zu\n", i,
                          ei.cr.count());
@@ -335,6 +333,7 @@ AccelScheme find_mcclellan_escape_info(const raw_dfa &rdfa, dstate_id_t this_idx
     const dstate &raw = rdfa.states[this_idx];
     const vector<CharReach> rev_map = reverse_alpha_remapping(rdfa);
     bool outs2_broken = false;
+    map<dstate_id_t, CharReach> succs;
 
     for (u32 i = 0; i < rev_map.size(); i++) {
         if (raw.next[i] == this_idx) {
@@ -344,39 +343,49 @@ AccelScheme find_mcclellan_escape_info(const raw_dfa &rdfa, dstate_id_t this_idx
         const CharReach &cr_i = rev_map.at(i);
 
         rv.cr |= cr_i;
+        dstate_id_t next_id = raw.next[i];
 
-        DEBUG_PRINTF("next is %hu\n", raw.next[i]);
-        const dstate &raw_next = rdfa.states[raw.next[i]];
-
-        if (!raw_next.reports.empty() && generates_callbacks(rdfa.kind)) {
-            DEBUG_PRINTF("leads to report\n");
-            outs2_broken = true;  /* cannot accelerate over reports */
-        }
+        DEBUG_PRINTF("next is %hu\n", next_id);
+        const dstate &raw_next = rdfa.states[next_id];
 
         if (outs2_broken) {
             continue;
         }
 
-        CharReach cr_all_j;
-        for (u32 j = 0; j < rev_map.size(); j++) {
-            if (raw_next.next[j] == raw.next[j]) {
-                continue;
+        if (!raw_next.reports.empty() && generates_callbacks(rdfa.kind)) {
+            DEBUG_PRINTF("leads to report\n");
+            outs2_broken = true;  /* cannot accelerate over reports */
+            continue;
+        }
+        succs[next_id] |= cr_i;
+    }
+
+    if (!outs2_broken) {
+        for (const auto &e : succs) {
+            const CharReach &cr_i = e.second;
+            const dstate &raw_next = rdfa.states[e.first];
+
+            CharReach cr_all_j;
+            for (u32 j = 0; j < rev_map.size(); j++) {
+                if (raw_next.next[j] == raw.next[j]) {
+                    continue;
+                }
+
+                DEBUG_PRINTF("state %hu: adding sym %u -> %hu to 2 \n", e.first,
+                             j, raw_next.next[j]);
+                cr_all_j |= rev_map.at(j);
             }
 
-            DEBUG_PRINTF("adding sym %u sym %u -> %hu to 2 \n", i, j,
-                         raw_next.next[j]);
-            cr_all_j |= rev_map.at(j);
-        }
-
-        if (cr_i.count() * cr_all_j.count() > 8) {
-            DEBUG_PRINTF("adding sym %u to double_cr\n", i);
-            rv.double_cr |= cr_i;
-        } else {
-            for (auto ii = cr_i.find_first(); ii != CharReach::npos;
-                 ii = cr_i.find_next(ii)) {
-                for (auto jj = cr_all_j.find_first(); jj != CharReach::npos;
-                     jj = cr_all_j.find_next(jj)) {
-                    rv.double_byte.emplace((u8)ii, (u8)jj);
+            if (cr_i.count() * cr_all_j.count() > 8) {
+                DEBUG_PRINTF("adding %zu to double_cr\n", cr_i.count());
+                rv.double_cr |= cr_i;
+            } else {
+                for (auto ii = cr_i.find_first(); ii != CharReach::npos;
+                     ii = cr_i.find_next(ii)) {
+                    for (auto jj = cr_all_j.find_first(); jj != CharReach::npos;
+                         jj = cr_all_j.find_next(jj)) {
+                        rv.double_byte.emplace((u8)ii, (u8)jj);
+                    }
                 }
             }
         }
@@ -385,10 +394,10 @@ AccelScheme find_mcclellan_escape_info(const raw_dfa &rdfa, dstate_id_t this_idx
             DEBUG_PRINTF("outs2 too big\n");
             outs2_broken = true;
         }
-    }
 
-    if (outs2_broken) {
-        rv.double_byte.clear();
+        if (outs2_broken) {
+            rv.double_byte.clear();
+        }
     }
 
     DEBUG_PRINTF("this %u, sds proxy %hu\n", this_idx, get_sds_or_proxy(rdfa));
