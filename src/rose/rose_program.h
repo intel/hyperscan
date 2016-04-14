@@ -82,6 +82,12 @@ enum RoseInstructionCode {
     /** \brief Super-instruction combining DEDUPE and REPORT. */
     ROSE_INSTR_DEDUPE_AND_REPORT,
 
+    /**
+     * \brief Fire a report and stop program execution. This is a
+     * specialisation intended for short, frequently-executed programs.
+     */
+    ROSE_INSTR_FINAL_REPORT,
+
     ROSE_INSTR_CHECK_EXHAUSTED,   //!< Check if an ekey has already been set.
     ROSE_INSTR_CHECK_MIN_LENGTH,  //!< Check (EOM - SOM) against min length.
     ROSE_INSTR_SET_STATE,         //!< Switch a state index on.
@@ -280,6 +286,12 @@ struct ROSE_STRUCT_DEDUPE_AND_REPORT {
     ReportID onmatch; //!< Report ID to deliver to user.
     s32 offset_adjust; //!< Offset adjustment to apply to end offset.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_FINAL_REPORT {
+    u8 code; //!< From enum RoseInstructionCode.
+    ReportID onmatch; //!< Report ID to deliver to user.
+    s32 offset_adjust; //!< Offset adjustment to apply to end offset.
 };
 
 struct ROSE_STRUCT_CHECK_EXHAUSTED {

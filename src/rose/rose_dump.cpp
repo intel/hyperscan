@@ -416,6 +416,12 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(FINAL_REPORT) {
+                os << "    onmatch " << ri->onmatch << endl;
+                os << "    offset_adjust " << ri->offset_adjust << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CHECK_EXHAUSTED) {
                 os << "    ekey " << ri->ekey << endl;
                 os << "    fail_jump " << offset + ri->fail_jump << endl;

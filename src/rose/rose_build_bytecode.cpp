@@ -212,6 +212,7 @@ public:
         case ROSE_INSTR_REPORT_SOM: return &u.reportSom;
         case ROSE_INSTR_REPORT_SOM_EXHAUST: return &u.reportSomExhaust;
         case ROSE_INSTR_DEDUPE_AND_REPORT: return &u.dedupeAndReport;
+        case ROSE_INSTR_FINAL_REPORT: return &u.finalReport;
         case ROSE_INSTR_CHECK_EXHAUSTED: return &u.checkExhausted;
         case ROSE_INSTR_CHECK_MIN_LENGTH: return &u.checkMinLength;
         case ROSE_INSTR_SET_STATE: return &u.setState;
@@ -257,6 +258,7 @@ public:
         case ROSE_INSTR_REPORT_SOM: return sizeof(u.reportSom);
         case ROSE_INSTR_REPORT_SOM_EXHAUST: return sizeof(u.reportSomExhaust);
         case ROSE_INSTR_DEDUPE_AND_REPORT: return sizeof(u.dedupeAndReport);
+        case ROSE_INSTR_FINAL_REPORT: return sizeof(u.finalReport);
         case ROSE_INSTR_CHECK_EXHAUSTED: return sizeof(u.checkExhausted);
         case ROSE_INSTR_CHECK_MIN_LENGTH: return sizeof(u.checkMinLength);
         case ROSE_INSTR_SET_STATE: return sizeof(u.setState);
@@ -301,6 +303,7 @@ public:
         ROSE_STRUCT_REPORT_SOM reportSom;
         ROSE_STRUCT_REPORT_SOM_EXHAUST reportSomExhaust;
         ROSE_STRUCT_DEDUPE_AND_REPORT dedupeAndReport;
+        ROSE_STRUCT_FINAL_REPORT finalReport;
         ROSE_STRUCT_CHECK_EXHAUSTED checkExhausted;
         ROSE_STRUCT_CHECK_MIN_LENGTH checkMinLength;
         ROSE_STRUCT_SET_STATE setState;
@@ -2161,6 +2164,31 @@ flattenProgram(const vector<vector<RoseInstruction>> &programs) {
 }
 
 static
+void applyFinalSpecialisation(vector<RoseInstruction> &program) {
+    assert(!program.empty());
+    assert(program.back().code() == ROSE_INSTR_END);
+    if (program.size() < 2) {
+        return;
+    }
+
+    /* Replace the second-to-last instruction (before END) with a one-shot
+     * specialisation if available. */
+    auto &ri = *(next(program.rbegin()));
+    switch (ri.code()) {
+    case ROSE_INSTR_REPORT: {
+        DEBUG_PRINTF("replacing REPORT with FINAL_REPORT\n");
+        auto ri2 = RoseInstruction(ROSE_INSTR_FINAL_REPORT);
+        ri2.u.finalReport.onmatch = ri.u.report.onmatch;
+        ri2.u.finalReport.offset_adjust = ri.u.report.offset_adjust;
+        ri = ri2;
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+static
 void recordResources(RoseResources &resources,
                      const vector<RoseInstruction> &program) {
     for (const auto &ri : program) {
@@ -3020,7 +3048,9 @@ u32 writeBoundaryProgram(RoseBuildImpl &build, build_context &bc,
     for (const auto &id : reports) {
         makeReport(build, id, has_som, program);
     }
-    return writeProgram(bc, flattenProgram({program}));
+    program = flattenProgram({program});
+    applyFinalSpecialisation(program);
+    return writeProgram(bc, program);
 }
 
 static
@@ -3374,6 +3404,7 @@ pair<u32, u32> makeSparseIterProgram(build_context &bc,
         program.insert(end(program), begin(root_program), end(root_program));
     }
 
+    applyFinalSpecialisation(program);
     return {writeProgram(bc, program), iter_offset};
 }
 
@@ -3634,6 +3665,7 @@ u32 buildDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
     makePushDelayedInstructions(build, final_id, program);
     assert(!program.empty());
     program = flattenProgram({program});
+    applyFinalSpecialisation(program);
     return writeProgram(bc, program);
 }
 
@@ -3714,7 +3746,9 @@ u32 buildReportPrograms(RoseBuildImpl &build, build_context &bc) {
         const bool has_som = false;
         makeCatchupMpv(build, bc, id, program);
         makeReport(build, id, has_som, program);
-        programs[id] = writeProgram(bc, flattenProgram({program}));
+        program = flattenProgram({program});
+        applyFinalSpecialisation(program);
+        programs[id] = writeProgram(bc, program);
         DEBUG_PRINTF("program for report %u @ %u (%zu instructions)\n", id,
                      programs.back(), program.size());
     }
@@ -3792,6 +3826,7 @@ pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
     u32 iter_offset = addPredBlocks(bc, predProgramLists, program, true);
 
     assert(program.size() > 1);
+    applyFinalSpecialisation(program);
     return {writeProgram(bc, program), iter_offset};
 }
 

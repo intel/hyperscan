@@ -1165,6 +1165,18 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(FINAL_REPORT) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                if (roseReport(t, scratch, end, ri->onmatch, ri->offset_adjust,
+                               INVALID_EKEY) == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+                /* One-shot specialisation: this instruction always terminates
+                 * execution of the program. */
+                return HWLM_CONTINUE_MATCHING;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CHECK_EXHAUSTED) {
                 DEBUG_PRINTF("check ekey %u\n", ri->ekey);
                 assert(ri->ekey != INVALID_EKEY);
