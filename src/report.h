@@ -44,21 +44,6 @@
 #include "util/exhaust.h"
 #include "util/fatbit.h"
 
-static really_inline
-int satisfiesMinLength(u64a min_len, u64a from_offset,
-                       u64a to_offset) {
-    assert(min_len);
-
-    if (from_offset == HS_OFFSET_PAST_HORIZON) {
-        DEBUG_PRINTF("SOM beyond horizon\n");
-        return 1;
-    }
-
-    DEBUG_PRINTF("match len=%llu, min len=%llu\n", to_offset - from_offset,
-                 min_len);
-    return to_offset - from_offset >= min_len;
-}
-
 enum DedupeResult {
     DEDUPE_CONTINUE, //!< Continue with match, not a dupe.
     DEDUPE_SKIP, //!< Don't report this match, dupe or delayed due to SOM.
