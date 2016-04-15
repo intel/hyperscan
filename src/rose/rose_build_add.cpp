@@ -1776,11 +1776,13 @@ bool RoseBuildImpl::addOutfix(const NGHolder &h, const raw_som_dfa &haig) {
 
 bool RoseBuildImpl::addOutfix(const raw_puff &rp) {
     if (!mpv_outfix) {
-        mpv_outfix = make_unique<OutfixInfo>();
+        mpv_outfix = make_unique<OutfixInfo>(MpvProto());
         mpv_outfix->chained = true;
     }
 
-    mpv_outfix->mpv.puffettes.push_back(rp);
+    auto *mpv = mpv_outfix->mpv();
+    assert(mpv);
+    mpv->puffettes.push_back(rp);
 
     mpv_outfix->maxBAWidth = ROSE_BOUND_INF; /* not ba */
     mpv_outfix->minWidth = min(mpv_outfix->minWidth, depth(rp.repeats));
@@ -1800,11 +1802,13 @@ bool RoseBuildImpl::addOutfix(const raw_puff &rp) {
 bool RoseBuildImpl::addChainTail(const raw_puff &rp, u32 *queue_out,
                                  u32 *event_out) {
     if (!mpv_outfix) {
-        mpv_outfix = make_unique<OutfixInfo>();
+        mpv_outfix = make_unique<OutfixInfo>(MpvProto());
         mpv_outfix->chained = true;
     }
 
-    mpv_outfix->mpv.triggered_puffettes.push_back(rp);
+    auto *mpv = mpv_outfix->mpv();
+    assert(mpv);
+    mpv->triggered_puffettes.push_back(rp);
 
     mpv_outfix->maxBAWidth = ROSE_BOUND_INF; /* not ba */
     mpv_outfix->minWidth = min(mpv_outfix->minWidth, depth(rp.repeats));
@@ -1816,7 +1820,7 @@ bool RoseBuildImpl::addChainTail(const raw_puff &rp, u32 *queue_out,
                                             * the caller */
 
     *queue_out = mpv_outfix->get_queue(qif);
-    *event_out = MQE_TOP_FIRST + mpv_outfix->mpv.triggered_puffettes.size() - 1;
+    *event_out = MQE_TOP_FIRST + mpv->triggered_puffettes.size() - 1;
 
     return true; /* failure is not yet an option */
 }

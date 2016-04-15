@@ -48,6 +48,7 @@
 #include <vector>
 #include <boost/bimap.hpp>
 #include <boost/functional/hash/hash.hpp>
+#include <boost/variant.hpp>
 
 struct RoseEngine;
 
@@ -302,17 +303,11 @@ struct MpvProto {
     std::vector<raw_puff> triggered_puffettes;
 };
 
-struct OutfixInfo { /* TODO: poly */
-    OutfixInfo() {}
-    explicit OutfixInfo(std::unique_ptr<raw_dfa> r) : rdfa(std::move(r)) {
-        assert(rdfa);
-    }
-    explicit OutfixInfo(std::unique_ptr<NGHolder> h) : holder(std::move(h)) {
-        assert(holder);
-    }
-    explicit OutfixInfo(std::unique_ptr<raw_som_dfa> r) : haig(std::move(r)) {
-        assert(haig);
-    }
+struct OutfixInfo {
+    template<class T>
+    explicit OutfixInfo(std::unique_ptr<T> x) : proto(std::move(x)) {}
+
+    explicit OutfixInfo(MpvProto mpv) : proto(std::move(mpv)) {}
 
     u32 get_queue(QueueIndexFactory &qif);
 
@@ -322,25 +317,68 @@ struct OutfixInfo { /* TODO: poly */
     }
 
     bool is_nonempty_mpv() const {
-        return !mpv.empty();
+        auto *mpv = boost::get<MpvProto>(&proto);
+        return mpv && !mpv->empty();
     }
 
     bool is_dead() const {
-        return !holder && !rdfa && !haig && mpv.empty();
+        auto *mpv = boost::get<MpvProto>(&proto);
+        if (mpv) {
+            return mpv->empty();
+        }
+        return boost::get<boost::blank>(&proto) != nullptr;
     }
 
     void clear() {
-        holder.reset();
-        rdfa.reset();
-        haig.reset();
-        mpv.reset();
-        assert(is_dead());
+        proto = boost::blank();
     }
 
-    std::unique_ptr<NGHolder> holder;
-    std::unique_ptr<raw_dfa> rdfa;
-    std::unique_ptr<raw_som_dfa> haig;
-    MpvProto mpv;
+    // Convenience accessor functions.
+
+    NGHolder *holder() {
+        auto *up = boost::get<std::unique_ptr<NGHolder>>(&proto);
+        return up ? up->get() : nullptr;
+    }
+    raw_dfa *rdfa() {
+        auto *up = boost::get<std::unique_ptr<raw_dfa>>(&proto);
+        return up ? up->get() : nullptr;
+    }
+    raw_som_dfa *haig() {
+        auto *up = boost::get<std::unique_ptr<raw_som_dfa>>(&proto);
+        return up ? up->get() : nullptr;
+    }
+    MpvProto *mpv() {
+        return boost::get<MpvProto>(&proto);
+    }
+
+    // Convenience const accessor functions.
+
+    const NGHolder *holder() const {
+        auto *up = boost::get<std::unique_ptr<NGHolder>>(&proto);
+        return up ? up->get() : nullptr;
+    }
+    const raw_dfa *rdfa() const {
+        auto *up = boost::get<std::unique_ptr<raw_dfa>>(&proto);
+        return up ? up->get() : nullptr;
+    }
+    const raw_som_dfa *haig() const {
+        auto *up = boost::get<std::unique_ptr<raw_som_dfa>>(&proto);
+        return up ? up->get() : nullptr;
+    }
+    const MpvProto *mpv() const {
+        return boost::get<MpvProto>(&proto);
+    }
+
+    /**
+     * \brief Variant wrapping the various engine types. If this is
+     * boost::blank, it means that this outfix is unused (dead).
+     */
+    boost::variant<
+        boost::blank,
+        std::unique_ptr<NGHolder>,
+        std::unique_ptr<raw_dfa>,
+        std::unique_ptr<raw_som_dfa>,
+        MpvProto> proto = boost::blank();
 
     RevAccInfo rev_info;
     u32 maxBAWidth = 0; //!< max bi-anchored width

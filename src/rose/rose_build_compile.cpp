@@ -1904,8 +1904,8 @@ bool extractSEPLiterals(const OutfixInfo &outfix, const ReportManager &rm,
     // SEP cases should always become DFAs, so that's the only extract code we
     // have implemented here.
 
-    if (outfix.rdfa) {
-        return extractSEPLiterals(*outfix.rdfa, lits_out);
+    if (outfix.rdfa()) {
+        return extractSEPLiterals(*outfix.rdfa(), lits_out);
     }
 
     DEBUG_PRINTF("cannot extract literals from outfix type\n");

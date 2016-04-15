@@ -2451,8 +2451,9 @@ void mergeOutfixNfas(RoseBuildImpl &tbi, vector<NGHolder *> &nfas) {
 
     map<NGHolder *, size_t> nfa_mapping;
     for (size_t i = 0; i < outfixes.size(); i++) {
-        if (outfixes[i].holder) {
-            nfa_mapping[outfixes[i].holder.get()] = i;
+        auto *holder = outfixes[i].holder();
+        if (holder) {
+            nfa_mapping[holder] = i;
         }
     }
 
@@ -2485,7 +2486,7 @@ struct MergeMcClellan {
     }
 
     static void transfer(OutfixInfo &outfix, unique_ptr<raw_dfa> d) {
-        outfix.rdfa = move(d);
+        outfix.proto = move(d);
     }
 
 private:
@@ -2503,7 +2504,7 @@ struct MergeHaig {
     }
 
     static void transfer(OutfixInfo &outfix, unique_ptr<raw_som_dfa> d) {
-        outfix.haig = move(d);
+        outfix.proto = move(d);
     }
 
 private:
@@ -2602,8 +2603,9 @@ void mergeOutfixDfas(RoseBuildImpl &tbi, vector<raw_dfa *> &dfas) {
      * element addition. */
     ue2::unordered_map<raw_dfa *, size_t> dfa_mapping;
     for (size_t i = 0; i < outfixes.size(); i++) {
-        if (outfixes[i].rdfa) {
-            dfa_mapping[outfixes[i].rdfa.get()] = i;
+        auto *rdfa = outfixes[i].rdfa();
+        if (rdfa) {
+            dfa_mapping[rdfa] = i;
         }
     }
 
@@ -2624,10 +2626,10 @@ void mergeOutfixCombo(RoseBuildImpl &tbi, const ReportManager &rm,
     bool seen_dfa = false;
     u32 nfa_count = 0;
     for (const auto &outfix : tbi.outfixes) {
-        if (outfix.holder) {
+        if (outfix.holder()) {
             DEBUG_PRINTF("nfa\n");
             nfa_count++;
-        } else if (outfix.rdfa) {
+        } else if (outfix.rdfa()) {
             DEBUG_PRINTF("dfa\n");
             seen_dfa = true;
         }
@@ -2647,27 +2649,29 @@ void mergeOutfixCombo(RoseBuildImpl &tbi, const ReportManager &rm,
     vector<raw_dfa *> dfas;
 
     for (auto it = tbi.outfixes.begin(); it != tbi.outfixes.end(); ++it) {
-        assert(!it->is_dead());
-        assert(!it->chained);
-        if (it->rdfa) {
-            dfas.push_back(it->rdfa.get());
-            dfa_mapping[it->rdfa.get()] = it - tbi.outfixes.begin();
+        auto &outfix = *it;
+        assert(!outfix.is_dead());
+        assert(!outfix.chained);
+
+        if (outfix.rdfa()) {
+            auto *rdfa = outfix.rdfa();
+            dfas.push_back(rdfa);
+            dfa_mapping[rdfa] = it - tbi.outfixes.begin();
             continue;
         }
 
-        if (!it->holder) {
+        if (!outfix.holder()) {
             continue;
         }
 
-        NGHolder *h = it->holder.get();
+        NGHolder *h = outfix.holder();
         assert(h->kind == NFA_OUTFIX);
         auto rdfa = buildMcClellan(*h, &rm, grey);
         if (rdfa) {
             // Transform this outfix into a DFA and add it to the merge set.
             dfa_mapping[rdfa.get()] = it - tbi.outfixes.begin();
             dfas.push_back(rdfa.get());
-            it->clear();
-            it->rdfa = move(rdfa);
+            outfix.proto = move(rdfa);
             new_dfas++;
         }
     }
@@ -2695,8 +2699,9 @@ void mergeOutfixHaigs(RoseBuildImpl &tbi, vector<raw_som_dfa *> &dfas,
 
     ue2::unordered_map<raw_som_dfa *, size_t> dfa_mapping;
     for (size_t i = 0; i < outfixes.size(); i++) {
-        if (outfixes[i].haig) {
-            dfa_mapping[outfixes[i].haig.get()] = i;
+        auto *haig = outfixes[i].haig();
+        if (haig) {
+            dfa_mapping[haig] = i;
         }
     }
 
@@ -2721,14 +2726,14 @@ void mergeOutfixes(RoseBuildImpl &tbi) {
     vector<raw_dfa *> dfas;
     vector<raw_som_dfa *> som_dfas;
 
-    for (const auto &outfix : tbi.outfixes) {
+    for (auto &outfix : tbi.outfixes) {
         assert(!outfix.chained);
-        if (outfix.rdfa) {
-            dfas.push_back(outfix.rdfa.get());
-        } else if (outfix.holder) {
-            nfas.push_back(outfix.holder.get());
-        } else if (outfix.haig) {
-            som_dfas.push_back(outfix.haig.get());
+        if (outfix.rdfa()) {
+            dfas.push_back(outfix.rdfa());
+        } else if (outfix.holder()) {
+            nfas.push_back(outfix.holder());
+        } else if (outfix.haig()) {
+            som_dfas.push_back(outfix.haig());
         }
     }
 

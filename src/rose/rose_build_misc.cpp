@@ -631,10 +631,11 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
     }
 
     if (tbi.mpv_outfix) {
-        for (const auto &puff : tbi.mpv_outfix->mpv.puffettes) {
+        auto *mpv = tbi.mpv_outfix->mpv();
+        for (const auto &puff : mpv->puffettes) {
             puff_map[puff.report].insert(&puff);
         }
-        for (const auto &puff : tbi.mpv_outfix->mpv.triggered_puffettes) {
+        for (const auto &puff : mpv->triggered_puffettes) {
             puff_map[puff.report].insert(&puff);
         }
     }
@@ -785,12 +786,13 @@ bool RoseDedupeAuxImpl::requiresDedupeSupport(
         }
         has_outfix = true;
 
-        if (out.haig) {
+        if (out.haig()) {
             return true; /* haig may report matches with different SOM at the
                             same offset */
         }
 
-        if (out.holder && requiresDedupe(*out.holder, reports, tbi.cc.grey)) {
+        if (out.holder() &&
+            requiresDedupe(*out.holder(), reports, tbi.cc.grey)) {
             return true;
         }
     }
@@ -874,25 +876,33 @@ u32 OutfixInfo::get_queue(QueueIndexFactory &qif) {
     return queue;
 }
 
+namespace {
+class OutfixAllReports : public boost::static_visitor<set<ReportID>> {
+public:
+    set<ReportID> operator()(const boost::blank &) const {
+        return {};
+    }
+
+    template<class T>
+    set<ReportID> operator()(const unique_ptr<T> &x) const {
+        return all_reports(*x);
+    }
+
+    set<ReportID> operator()(const MpvProto &mpv) const {
+        set<ReportID> reports;
+        for (const auto &puff : mpv.puffettes) {
+            reports.insert(puff.report);
+        }
+        for (const auto &puff : mpv.triggered_puffettes) {
+            reports.insert(puff.report);
+        }
+        return reports;
+    }
+};
+}
+
 set<ReportID> all_reports(const OutfixInfo &outfix) {
-    set<ReportID> reports;
-    if (outfix.holder) {
-        insert(&reports, all_reports(*outfix.holder));
-    }
-    if (outfix.rdfa) {
-        insert(&reports, all_reports(*outfix.rdfa));
-    }
-    if (outfix.haig) {
-        insert(&reports, all_reports(*outfix.haig));
-    }
-
-    for (const auto &puff : outfix.mpv.puffettes) {
-        reports.insert(puff.report);
-    }
-    for (const auto &puff : outfix.mpv.triggered_puffettes) {
-        reports.insert(puff.report);
-    }
-
+    auto reports = boost::apply_visitor(OutfixAllReports(), outfix.proto);
     assert(!reports.empty());
     return reports;
 }

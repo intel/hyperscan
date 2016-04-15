@@ -1264,14 +1264,14 @@ aligned_unique_ptr<NFA> buildOutfix(RoseBuildImpl &tbi, OutfixInfo &outfix) {
     const ReportManager &rm = tbi.rm;
 
     aligned_unique_ptr<NFA> n;
-    if (outfix.rdfa) {
+    if (auto *rdfa = outfix.rdfa()) {
         // Unleash the McClellan!
-        n = mcclellanCompile(*outfix.rdfa, cc);
-    } else if (outfix.haig) {
+        n = mcclellanCompile(*rdfa, cc);
+    } else if (auto *haig = outfix.haig()) {
         // Unleash the Goughfish!
-        n = goughCompile(*outfix.haig, tbi.ssm.somPrecision(), cc);
-    } else if (outfix.holder) {
-        NGHolder &h = *outfix.holder;
+        n = goughCompile(*haig, tbi.ssm.somPrecision(), cc);
+    } else if (auto *holder = outfix.holder()) {
+        NGHolder &h = *holder;
         assert(h.kind == NFA_OUTFIX);
 
         // Build NFA.
@@ -1294,8 +1294,8 @@ aligned_unique_ptr<NFA> buildOutfix(RoseBuildImpl &tbi, OutfixInfo &outfix) {
                 }
             }
         }
-    } else if (!outfix.mpv.puffettes.empty()) {
-        assert(0);
+    } else if (auto *mpv = outfix.mpv()) {
+        assert(mpv->puffettes.empty());
     }
 
     if (n && tbi.cc.grey.reverseAccelerate) {
@@ -1310,34 +1310,36 @@ void prepMpv(RoseBuildImpl &tbi, build_context &bc, size_t *historyRequired,
              bool *mpv_as_outfix) {
     assert(bc.engineOffsets.empty()); // MPV should be first
     *mpv_as_outfix = false;
-    OutfixInfo *mpv = nullptr;
+    OutfixInfo *mpv_outfix = nullptr;
 
     /* assume outfixes are just above chain tails in queue indices */
     for (auto &out : tbi.outfixes) {
         if (out.is_nonempty_mpv()) {
-            assert(!mpv);
-            mpv = &out;
+            assert(!mpv_outfix);
+            mpv_outfix = &out;
         } else {
             assert(!out.chained);
         }
     }
 
-    if (!mpv) {
+    if (!mpv_outfix) {
         return;
     }
 
-    assert(mpv->chained);
-    auto nfa = mpvCompile(mpv->mpv.puffettes, mpv->mpv.triggered_puffettes);
+    assert(mpv_outfix->chained);
+    auto *mpv = mpv_outfix->mpv();
+    auto nfa = mpvCompile(mpv->puffettes, mpv->triggered_puffettes);
     assert(nfa);
     if (!nfa) {
         throw CompileError("Unable to generate bytecode.");
     }
 
     if (tbi.cc.grey.reverseAccelerate) {
-        buildReverseAcceleration(nfa.get(), mpv->rev_info, mpv->minWidth);
+        buildReverseAcceleration(nfa.get(), mpv_outfix->rev_info,
+                                 mpv_outfix->minWidth);
     }
 
-    u32 qi = mpv->get_queue(tbi.qif);
+    u32 qi = mpv_outfix->get_queue(tbi.qif);
     nfa->queueIndex = qi;
 
     DEBUG_PRINTF("built mpv\n");
@@ -1347,7 +1349,7 @@ void prepMpv(RoseBuildImpl &tbi, build_context &bc, size_t *historyRequired,
     }
 
     add_nfa_to_blob(bc, *nfa);
-    *mpv_as_outfix = !mpv->mpv.puffettes.empty();
+    *mpv_as_outfix = !mpv->puffettes.empty();
 }
 
 static
@@ -1387,8 +1389,7 @@ bool prepOutfixes(RoseBuildImpl &tbi, build_context &bc,
         if (out.chained) {
             continue; /* already done */
         }
-        DEBUG_PRINTF("building outfix %zd (holder %p rdfa %p)\n",
-                     &out - &tbi.outfixes[0], out.holder.get(), out.rdfa.get());
+        DEBUG_PRINTF("building outfix %zd\n", &out - &tbi.outfixes[0]);
         auto n = buildOutfix(tbi, out);
         if (!n) {
             assert(0);
