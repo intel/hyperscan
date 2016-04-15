@@ -290,6 +290,18 @@ bool operator<(const simple_anchored_info &a, const simple_anchored_info &b) {
     return 0;
 }
 
+struct MpvProto {
+    bool empty() const {
+        return puffettes.empty() && triggered_puffettes.empty();
+    }
+    void reset() {
+        puffettes.clear();
+        triggered_puffettes.clear();
+    }
+    std::vector<raw_puff> puffettes;
+    std::vector<raw_puff> triggered_puffettes;
+};
+
 struct OutfixInfo { /* TODO: poly */
     OutfixInfo() {}
     explicit OutfixInfo(std::unique_ptr<raw_dfa> r) : rdfa(std::move(r)) {
@@ -310,28 +322,25 @@ struct OutfixInfo { /* TODO: poly */
     }
 
     bool is_nonempty_mpv() const {
-        return !puffettes.empty() || !triggered_puffettes.empty();
+        return !mpv.empty();
     }
 
     bool is_dead() const {
-        return !holder && !rdfa && !haig && puffettes.empty() &&
-               triggered_puffettes.empty();
+        return !holder && !rdfa && !haig && mpv.empty();
     }
 
     void clear() {
         holder.reset();
         rdfa.reset();
         haig.reset();
-        puffettes.clear();
-        triggered_puffettes.clear();
+        mpv.reset();
         assert(is_dead());
     }
 
     std::unique_ptr<NGHolder> holder;
     std::unique_ptr<raw_dfa> rdfa;
     std::unique_ptr<raw_som_dfa> haig;
-    std::vector<raw_puff> puffettes;
-    std::vector<raw_puff> triggered_puffettes;
+    MpvProto mpv;
 
     RevAccInfo rev_info;
     u32 maxBAWidth = 0; //!< max bi-anchored width

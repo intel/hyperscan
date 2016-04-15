@@ -1294,7 +1294,7 @@ aligned_unique_ptr<NFA> buildOutfix(RoseBuildImpl &tbi, OutfixInfo &outfix) {
                 }
             }
         }
-    } else if (!outfix.puffettes.empty()) {
+    } else if (!outfix.mpv.puffettes.empty()) {
         assert(0);
     }
 
@@ -1327,7 +1327,7 @@ void prepMpv(RoseBuildImpl &tbi, build_context &bc, size_t *historyRequired,
     }
 
     assert(mpv->chained);
-    auto nfa = mpvCompile(mpv->puffettes, mpv->triggered_puffettes);
+    auto nfa = mpvCompile(mpv->mpv.puffettes, mpv->mpv.triggered_puffettes);
     assert(nfa);
     if (!nfa) {
         throw CompileError("Unable to generate bytecode.");
@@ -1347,7 +1347,7 @@ void prepMpv(RoseBuildImpl &tbi, build_context &bc, size_t *historyRequired,
     }
 
     add_nfa_to_blob(bc, *nfa);
-    *mpv_as_outfix = !mpv->puffettes.empty();
+    *mpv_as_outfix = !mpv->mpv.puffettes.empty();
 }
 
 static

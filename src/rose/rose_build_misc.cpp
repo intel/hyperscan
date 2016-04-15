@@ -631,10 +631,10 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
     }
 
     if (tbi.mpv_outfix) {
-        for (const auto &puff : tbi.mpv_outfix->puffettes) {
+        for (const auto &puff : tbi.mpv_outfix->mpv.puffettes) {
             puff_map[puff.report].insert(&puff);
         }
-        for (const auto &puff : tbi.mpv_outfix->triggered_puffettes) {
+        for (const auto &puff : tbi.mpv_outfix->mpv.triggered_puffettes) {
             puff_map[puff.report].insert(&puff);
         }
     }
@@ -886,10 +886,10 @@ set<ReportID> all_reports(const OutfixInfo &outfix) {
         insert(&reports, all_reports(*outfix.haig));
     }
 
-    for (const auto &puff : outfix.puffettes) {
+    for (const auto &puff : outfix.mpv.puffettes) {
         reports.insert(puff.report);
     }
-    for (const auto &puff : outfix.triggered_puffettes) {
+    for (const auto &puff : outfix.mpv.triggered_puffettes) {
         reports.insert(puff.report);
     }
 
