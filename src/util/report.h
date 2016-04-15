@@ -145,36 +145,6 @@ struct Report {
 };
 
 static inline
-bool isInternalSomReport(const Report &r) {
-    switch (r.type) {
-    case INTERNAL_SOM_LOC_SET:
-    case INTERNAL_SOM_LOC_SET_IF_UNSET:
-    case INTERNAL_SOM_LOC_SET_IF_WRITABLE:
-    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA:
-    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_UNSET:
-    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_WRITABLE:
-    case INTERNAL_SOM_LOC_COPY:
-    case INTERNAL_SOM_LOC_COPY_IF_WRITABLE:
-    case INTERNAL_SOM_LOC_MAKE_WRITABLE:
-    case INTERNAL_SOM_LOC_SET_FROM:
-    case INTERNAL_SOM_LOC_SET_FROM_IF_WRITABLE:
-        return true;
-    case EXTERNAL_CALLBACK:
-    case EXTERNAL_CALLBACK_SOM_REL:
-    case EXTERNAL_CALLBACK_SOM_STORED:
-    case EXTERNAL_CALLBACK_SOM_ABS:
-    case EXTERNAL_CALLBACK_SOM_REV_NFA:
-    case INTERNAL_ROSE_CHAIN:
-    case EXTERNAL_CALLBACK_SOM_PASS:
-        return false;
-    default:
-        break; // fall through
-    }
-    assert(0); // unknown?
-    return false;
-}
-
-static inline
 bool isExternalReport(const Report &r) {
     switch (r.type) {
     case INTERNAL_SOM_LOC_SET:
