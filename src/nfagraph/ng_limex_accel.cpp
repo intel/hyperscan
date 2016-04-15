@@ -284,8 +284,6 @@ struct DAccelScheme {
         assert(double_offset <= MAX_ACCEL_DEPTH);
     }
 
-    DAccelScheme() {}
-
     bool operator<(const DAccelScheme &b) const {
         const DAccelScheme &a = *this;
 
