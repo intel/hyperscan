@@ -1256,36 +1256,42 @@ bool hasNonSmallBlockOutfix(const vector<OutfixInfo> &outfixes) {
     return false;
 }
 
-static
-aligned_unique_ptr<NFA> buildOutfix(RoseBuildImpl &tbi, OutfixInfo &outfix) {
-    assert(!outfix.is_dead()); // should not be marked dead.
+namespace {
+class OutfixBuilder : public boost::static_visitor<aligned_unique_ptr<NFA>> {
+public:
+    explicit OutfixBuilder(const RoseBuildImpl &build_in) : build(build_in) {}
 
-    const CompileContext &cc = tbi.cc;
-    const ReportManager &rm = tbi.rm;
+    aligned_unique_ptr<NFA> operator()(boost::blank&) const {
+        return nullptr;
+    };
 
-    aligned_unique_ptr<NFA> n;
-    if (auto *rdfa = outfix.rdfa()) {
+    aligned_unique_ptr<NFA> operator()(unique_ptr<raw_dfa> &rdfa) const {
         // Unleash the McClellan!
-        n = mcclellanCompile(*rdfa, cc);
-    } else if (auto *haig = outfix.haig()) {
+        return mcclellanCompile(*rdfa, build.cc);
+    }
+
+    aligned_unique_ptr<NFA> operator()(unique_ptr<raw_som_dfa> &haig) const {
         // Unleash the Goughfish!
-        n = goughCompile(*haig, tbi.ssm.somPrecision(), cc);
-    } else if (auto *holder = outfix.holder()) {
+        return goughCompile(*haig, build.ssm.somPrecision(), build.cc);
+    }
+
+    aligned_unique_ptr<NFA> operator()(unique_ptr<NGHolder> &holder) const {
+        const CompileContext &cc = build.cc;
+        const ReportManager &rm = build.rm;
+
         NGHolder &h = *holder;
         assert(h.kind == NFA_OUTFIX);
 
         // Build NFA.
-        if (!n) {
-            const map<u32, u32> fixed_depth_tops; /* no tops */
-            const map<u32, vector<vector<CharReach>>> triggers; /* no tops */
-            bool compress_state = cc.streaming;
-            n = constructNFA(h, &rm, fixed_depth_tops, triggers, compress_state,
-                             cc);
-        }
+        const map<u32, u32> fixed_depth_tops; /* no tops */
+        const map<u32, vector<vector<CharReach>>> triggers; /* no tops */
+        bool compress_state = cc.streaming;
+        auto n = constructNFA(h, &rm, fixed_depth_tops, triggers,
+                              compress_state, cc);
 
         // Try for a DFA upgrade.
-        if (n && cc.grey.roseMcClellanOutfix
-            && !has_bounded_repeats_other_than_firsts(*n)) {
+        if (n && cc.grey.roseMcClellanOutfix &&
+            !has_bounded_repeats_other_than_firsts(*n)) {
             auto rdfa = buildMcClellan(h, &rm, cc.grey);
             if (rdfa) {
                 auto d = mcclellanCompile(*rdfa, cc);
@@ -1294,11 +1300,27 @@ aligned_unique_ptr<NFA> buildOutfix(RoseBuildImpl &tbi, OutfixInfo &outfix) {
                 }
             }
         }
-    } else if (auto *mpv = outfix.mpv()) {
-        assert(mpv->puffettes.empty());
+
+        return n;
     }
 
-    if (n && tbi.cc.grey.reverseAccelerate) {
+    aligned_unique_ptr<NFA> operator()(UNUSED MpvProto &mpv) const {
+        // MPV construction handled separately.
+        assert(mpv.puffettes.empty());
+        return nullptr;
+    }
+
+private:
+    const RoseBuildImpl &build;
+};
+}
+
+static
+aligned_unique_ptr<NFA> buildOutfix(RoseBuildImpl &build, OutfixInfo &outfix) {
+    assert(!outfix.is_dead()); // should not be marked dead.
+
+    auto n = boost::apply_visitor(OutfixBuilder(build), outfix.proto);
+    if (n && build.cc.grey.reverseAccelerate) {
         buildReverseAcceleration(n.get(), outfix.rev_info, outfix.minWidth);
     }
 
