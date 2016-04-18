@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -75,6 +75,15 @@ m128 pshufb(m128 a, m128 b) {
     __asm__("pshufb\t%1,%0" : "=x"(result) : "xm"(b), "0"(a));
 #endif
     return result;
+}
+
+extern const char vbs_mask_data[];
+
+static really_inline
+m128 variable_byte_shift_m128(m128 in, s32 amount) {
+    assert(amount >= -16 && amount <= 16);
+    m128 shift_mask = loadu128(vbs_mask_data + 16 - amount);
+    return pshufb(in, shift_mask);
 }
 
 #if defined(__AVX2__)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -199,6 +199,7 @@ static really_inline m128 shiftLeft8Bits(m128 a) {
 }
 
 #define byteShiftRight128(a, count_immed) _mm_srli_si128(a, count_immed)
+#define byteShiftLeft128(a, count_immed) _mm_slli_si128(a, count_immed)
 
 #if !defined(__AVX2__)
 // TODO: this entire file needs restructuring - this carveout is awful

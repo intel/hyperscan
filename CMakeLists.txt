@@ -521,6 +521,7 @@ set (hs_exec_SRCS
     src/util/shuffle_ssse3.h
     src/util/simd_utils.h
     src/util/simd_utils_ssse3.h
+    src/util/simd_utils_ssse3.c
     src/util/state_compress.h
     src/util/state_compress.c
     src/util/unaligned.h
