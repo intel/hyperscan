@@ -2482,10 +2482,6 @@ struct MergeMcClellan {
         return mergeTwoDfas(d1, d2, DFA_MERGE_MAX_STATES, &rm, grey);
     }
 
-    static void transfer(OutfixInfo &outfix, unique_ptr<raw_dfa> d) {
-        outfix.proto = move(d);
-    }
-
 private:
     const ReportManager &rm;
     const Grey &grey;
@@ -2498,10 +2494,6 @@ struct MergeHaig {
                                        const raw_som_dfa *d2) const {
         assert(d1 && d2);
         return attemptToMergeHaig({d1, d2}, limit);
-    }
-
-    static void transfer(OutfixInfo &outfix, unique_ptr<raw_som_dfa> d) {
-        outfix.proto = move(d);
     }
 
 private:
@@ -2550,7 +2542,7 @@ void pairwiseDfaMerge(vector<RawDfa *> &dfas,
             RawDfa *dfa_ptr = rdfa.get();
             dfa_mapping[dfa_ptr] = dfa_mapping[*it];
             dfa_mapping.erase(*it);
-            merge_func.transfer(winner, move(rdfa));
+            winner.proto = move(rdfa);
 
             mergeOutfixInfo(winner, victim);
 
