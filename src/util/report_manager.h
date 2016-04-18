@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -113,6 +113,14 @@ public:
      * ~0U if no dkey is needed. */
     u32 getDkey(const Report &r) const;
 
+    /** \brief Register a Rose program offset with the given report. */
+    void setProgramOffset(ReportID id, u32 programOffset);
+
+    /** \brief Fetch the program offset for a given report. It is a fatal error
+     * for this to be called with a report for which no program offset has been
+     * set. */
+    u32 getProgramOffset(ReportID id) const;
+
 private:
     /** \brief Grey box ref, for checking resource limits. */
     const Grey &grey;
@@ -126,6 +134,9 @@ private:
 
     /** \brief Mapping from ReportID to dedupe key. */
     std::map<ReportID, u32> reportIdToDedupeKey;
+
+    /** \brief Mapping from ReportID to Rose program offset in bytecode. */
+    std::map<ReportID, u32> reportIdToProgramOffset;
 
     /** \brief Mapping from external match ids to information about that
      * id. */

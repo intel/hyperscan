@@ -3771,6 +3771,7 @@ u32 buildReportPrograms(RoseBuildImpl &build, build_context &bc) {
         program = flattenProgram({program});
         applyFinalSpecialisation(program);
         programs[id] = writeProgram(bc, program);
+        build.rm.setProgramOffset(id, programs[id]);
         DEBUG_PRINTF("program for report %u @ %u (%zu instructions)\n", id,
                      programs.back(), program.size());
     }
