@@ -148,7 +148,6 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     struct RoseContext tctxt;
     char *bstate; /**< block mode states */
     char *tstate; /**< state for transient roses */
-    char *qNfaState; /**< queued NFA temp state */
     char *fullState; /**< uncompressed NFA state */
     struct mq *queues;
     struct fatbit *aqa; /**< active queue array; fatbit of queues that are valid
