@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -50,8 +50,9 @@
 #include "util/compile_context.h"
 #include "util/container.h"
 #include "util/graph_range.h"
-#include "util/verify_types.h"
+#include "util/report_manager.h"
 #include "util/ue2_containers.h"
+#include "util/verify_types.h"
 
 #include <map>
 #include <vector>
@@ -347,6 +348,25 @@ prepareGraph(const NGHolder &h_in, const ReportManager *rm,
 }
 
 static
+void remapReportsToPrograms(NGHolder &h, const ReportManager &rm) {
+    for (const auto &v : vertices_range(h)) {
+        auto &reports = h[v].reports;
+        if (reports.empty()) {
+            continue;
+        }
+        auto old_reports = reports;
+        reports.clear();
+        for (const ReportID &id : old_reports) {
+            u32 program = rm.getProgramOffset(id);
+            reports.insert(program);
+        }
+        DEBUG_PRINTF("vertex %u: remapped reports {%s} to programs {%s}\n",
+                     h[v].index, as_string_list(old_reports).c_str(),
+                     as_string_list(reports).c_str());
+    }
+}
+
+static
 aligned_unique_ptr<NFA>
 constructNFA(const NGHolder &h_in, const ReportManager *rm,
              const map<u32, u32> &fixed_depth_tops,
@@ -392,6 +412,11 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
     }
 
     set<NFAVertex> zombies = findZombies(*h, br_cyclic, state_ids, cc);
+
+    if (generates_callbacks(*h)) {
+        assert(rm);
+        remapReportsToPrograms(*h, *rm);
+    }
 
     if (!cc.streaming || !cc.grey.compressNFAState) {
         compress_state = false;

@@ -395,4 +395,27 @@ dstate_id_t get_sds_or_proxy(const raw_dfa &raw) {
     }
 }
 
+static
+void remapReportsToPrograms(flat_set<ReportID> &reports,
+                            const ReportManager &rm) {
+    if (reports.empty()) {
+        return;
+    }
+    auto old_reports = reports;
+    reports.clear();
+    for (const ReportID &id : old_reports) {
+        u32 program = rm.getProgramOffset(id);
+        reports.insert(program);
+    }
+}
+
+void remapReportsToPrograms(raw_dfa &rdfa, const ReportManager &rm) {
+    DEBUG_PRINTF("remap dfa reports\n");
+    for (auto &ds : rdfa.states) {
+        remapReportsToPrograms(ds.reports, rm);
+        remapReportsToPrograms(ds.reports_eod, rm);
+    }
+}
+
+
 } // namespace ue2

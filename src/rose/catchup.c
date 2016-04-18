@@ -49,14 +49,15 @@ typedef struct queue_match PQ_T;
 static really_inline
 int roseNfaRunProgram(const struct RoseEngine *rose, struct hs_scratch *scratch,
                       u64a som, u64a offset, ReportID id, const char from_mpv) {
-    assert(id < rose->reportProgramCount);
-    const u32 *programs = getByOffset(rose, rose->reportProgramOffset);
+    const u32 program = id;
+    assert(program > 0);
+    assert(program % ROSE_INSTR_MIN_ALIGN == 0);
 
     const size_t match_len = 0; // Unused in this path.
     const char in_anchored = 0;
     const char in_catchup = 1;
-    roseRunProgram(rose, scratch, programs[id], som, offset, match_len,
-                   in_anchored, in_catchup, from_mpv, 0);
+    roseRunProgram(rose, scratch, program, som, offset, match_len, in_anchored,
+                   in_catchup, from_mpv, 0);
 
     return can_stop_matching(scratch) ? MO_HALT_MATCHING : MO_CONTINUE_MATCHING;
 }

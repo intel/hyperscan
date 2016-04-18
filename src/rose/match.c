@@ -644,16 +644,15 @@ int roseReportAdaptor_i(u64a som, u64a offset, ReportID id, void *context) {
 
     const struct RoseEngine *rose = scratch->core_info.rose;
 
-    assert(id < rose->reportProgramCount);
-    const u32 *programs = getByOffset(rose, rose->reportProgramOffset);
-
+    // Our match ID is the program offset.
+    const u32 program = id;
     const size_t match_len = 0; // Unused in this path.
     const char in_anchored = 0;
     const char in_catchup = 0;
     const char from_mpv = 0;
     const char skip_mpv_catchup = 1;
     hwlmcb_rv_t rv =
-        roseRunProgram(rose, scratch, programs[id], som, offset, match_len,
+        roseRunProgram(rose, scratch, program, som, offset, match_len,
                        in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
     if (rv == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,40 +26,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MCCLELLAN_COMPILE_UTIL_H
-#define MCCLELLAN_COMPILE_UTIL_H
-
-#include "rdfa.h"
-#include "ue2common.h"
-#include "util/report_manager.h"
-
-#include <set>
+#ifndef GOUGHCOMPILE_UTIL_H
+#define GOUGHCOMPILE_UTIL_H
 
 namespace ue2 {
 
-u32 remove_leading_dots(raw_dfa &raw);
+struct raw_som_dfa;
+class ReportManager;
 
-/**
- * Prunes any states which cannot be reached within max_offset from start of
- * stream. Returns false if no changes are made to the rdfa
- */
-bool prune_overlong(raw_dfa &raw, u32 max_offset);
-
-std::set<ReportID> all_reports(const raw_dfa &rdfa);
-bool has_eod_accepts(const raw_dfa &rdfa);
-bool has_non_eod_accepts(const raw_dfa &rdfa);
-
-/** \brief Compute a simple hash of this raw_dfa. Does not include report
- * information. */
-size_t hash_dfa_no_reports(const raw_dfa &rdfa);
-
-/** \brief Compute a simple hash of this raw_dfa, including its reports. */
-size_t hash_dfa(const raw_dfa &rdfa);
-
-dstate_id_t get_sds_or_proxy(const raw_dfa &raw);
-
-void remapReportsToPrograms(raw_dfa &rdfa, const ReportManager &rm);
+void remapReportsToPrograms(raw_som_dfa &haig, const ReportManager &rm);
 
 } // namespace ue2
 
-#endif
+#endif // GOUGHCOMPILE_UTIL_H

@@ -43,7 +43,9 @@
 #include "hwlm/hwlm.h" /* engine types */
 #include "nfa/castlecompile.h"
 #include "nfa/goughcompile.h"
+#include "nfa/goughcompile_util.h"
 #include "nfa/mcclellancompile.h"
+#include "nfa/mcclellancompile_util.h"
 #include "nfa/nfa_api_queue.h"
 #include "nfa/nfa_build_util.h"
 #include "nfa/nfa_internal.h"
@@ -885,19 +887,25 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
             const map<u32, vector<vector<CharReach>>> &triggers,
             suffix_id suff, const CompileContext &cc) {
     if (suff.castle()) {
-        auto n = buildRepeatEngine(*suff.castle(), triggers, cc);
+        auto remapped_castle = *suff.castle();
+        remapReportsToPrograms(remapped_castle, rm);
+        auto n = buildRepeatEngine(remapped_castle, triggers, cc);
         assert(n);
         return n;
     }
 
     if (suff.haig()) {
-        auto n = goughCompile(*suff.haig(), ssm.somPrecision(), cc);
+        auto remapped_haig = *suff.haig();
+        remapReportsToPrograms(remapped_haig, rm);
+        auto n = goughCompile(remapped_haig, ssm.somPrecision(), cc);
         assert(n);
         return n;
     }
 
     if (suff.dfa()) {
-        auto d = mcclellanCompile(*suff.dfa(), cc);
+        auto remapped_rdfa = *suff.dfa();
+        remapReportsToPrograms(remapped_rdfa, rm);
+        auto d = mcclellanCompile(remapped_rdfa, cc);
         assert(d);
         return d;
     }
@@ -910,7 +918,9 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
 
     // Take a shot at the LBR engine.
     if (oneTop) {
-        auto lbr = constructLBR(holder, triggers.at(0), cc);
+        auto remapped_holder = cloneHolder(holder);
+        remapReportsToPrograms(*remapped_holder, rm);
+        auto lbr = constructLBR(*remapped_holder, triggers.at(0), cc);
         if (lbr) {
             return lbr;
         }
@@ -926,6 +936,7 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
             auto rdfa = buildMcClellan(holder, &rm, false, triggers.at(0),
                                        cc.grey);
             if (rdfa) {
+                remapReportsToPrograms(*rdfa, rm);
                 auto d = mcclellanCompile(*rdfa, cc);
                 assert(d);
                 if (cc.grey.roseMcClellanSuffix != 2) {
@@ -1267,12 +1278,16 @@ public:
 
     aligned_unique_ptr<NFA> operator()(unique_ptr<raw_dfa> &rdfa) const {
         // Unleash the McClellan!
-        return mcclellanCompile(*rdfa, build.cc);
+        raw_dfa tmp(*rdfa);
+        remapReportsToPrograms(tmp, build.rm);
+        return mcclellanCompile(tmp, build.cc);
     }
 
     aligned_unique_ptr<NFA> operator()(unique_ptr<raw_som_dfa> &haig) const {
         // Unleash the Goughfish!
-        return goughCompile(*haig, build.ssm.somPrecision(), build.cc);
+        raw_som_dfa tmp(*haig);
+        remapReportsToPrograms(tmp, build.rm);
+        return goughCompile(tmp, build.ssm.somPrecision(), build.cc);
     }
 
     aligned_unique_ptr<NFA> operator()(unique_ptr<NGHolder> &holder) const {
@@ -1328,6 +1343,16 @@ aligned_unique_ptr<NFA> buildOutfix(RoseBuildImpl &build, OutfixInfo &outfix) {
 }
 
 static
+void remapReportsToPrograms(MpvProto &mpv, const ReportManager &rm) {
+    for (auto &puff : mpv.puffettes) {
+        puff.report = rm.getProgramOffset(puff.report);
+    }
+    for (auto &puff : mpv.triggered_puffettes) {
+        puff.report = rm.getProgramOffset(puff.report);
+    }
+}
+
+static
 void prepMpv(RoseBuildImpl &tbi, build_context &bc, size_t *historyRequired,
              bool *mpv_as_outfix) {
     assert(bc.engineOffsets.empty()); // MPV should be first
@@ -1349,7 +1374,9 @@ void prepMpv(RoseBuildImpl &tbi, build_context &bc, size_t *historyRequired,
     }
 
     auto *mpv = mpv_outfix->mpv();
-    auto nfa = mpvCompile(mpv->puffettes, mpv->triggered_puffettes);
+    auto tmp = *mpv; // copy
+    remapReportsToPrograms(tmp, tbi.rm);
+    auto nfa = mpvCompile(tmp.puffettes, tmp.triggered_puffettes);
     assert(nfa);
     if (!nfa) {
         throw CompileError("Unable to generate bytecode.");
@@ -4000,6 +4027,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     auto boundary_out = makeBoundaryPrograms(*this, bc, boundary, dboundary);
 
+    u32 reportProgramOffset = buildReportPrograms(*this, bc);
+
     // Build NFAs
     set<u32> no_retrigger_queues;
     bool mpv_as_outfix;
@@ -4044,8 +4073,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     u32 eodIterProgramOffset;
     u32 eodIterOffset;
     tie(eodIterProgramOffset, eodIterOffset) = buildEodAnchorProgram(*this, bc);
-
-    u32 reportProgramOffset = buildReportPrograms(*this, bc);
 
     vector<mmbit_sparse_iter> activeLeftIter;
     buildActiveLeftIter(leftInfoTable, activeLeftIter);

@@ -50,6 +50,7 @@
 #include "util/make_unique.h"
 #include "util/multibit_build.h"
 #include "util/multibit_internal.h"
+#include "util/report_manager.h"
 #include "util/ue2_containers.h"
 #include "util/verify_types.h"
 #include "grey.h"
@@ -988,6 +989,31 @@ unique_ptr<NGHolder> makeHolder(const CastleProto &proto, nfa_kind kind,
     removeRedundancy(*g, SOM_NONE);
 
     return g;
+}
+
+static
+void remapReportsToPrograms(PureRepeat &pr, const ReportManager &rm) {
+    if (pr.reports.empty()) {
+        return;
+    }
+    auto old_reports = pr.reports;
+    pr.reports.clear();
+    for (const auto &r : old_reports) {
+        pr.reports.insert(rm.getProgramOffset(r));
+    }
+}
+
+void remapReportsToPrograms(CastleProto &castle, const ReportManager &rm) {
+    for (auto &m : castle.repeats) {
+        remapReportsToPrograms(m.second, rm);
+    }
+
+    auto old_report_map = castle.report_map;
+    castle.report_map.clear();
+    for (auto &m : old_report_map) {
+        u32 program = rm.getProgramOffset(m.first);
+        castle.report_map[program].insert(begin(m.second), end(m.second));
+    }
 }
 
 } // namespace ue2

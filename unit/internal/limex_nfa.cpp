@@ -46,7 +46,9 @@ using namespace std;
 using namespace testing;
 using namespace ue2;
 
-static const string SCAN_DATA = "___foo______\n___foofoo_foo_^^^^^^^^^^^^^^^^^^^^^^__bar_bar______0_______z_____bar";
+static const string SCAN_DATA = "___foo______\n___foofoo_foo_^^^^^^^^^^^^^^^^^^"
+                                "^^^^__bar_bar______0_______z_____bar";
+static const u32 MATCH_REPORT = 1024;
 
 static
 int onMatch(u64a, ReportID, void *ctx) {
@@ -74,6 +76,8 @@ protected:
         ParsedExpression parsed(0, expr.c_str(), flags, 0);
         unique_ptr<NGWrapper> g = buildWrapper(rm, cc, parsed);
         ASSERT_TRUE(g != nullptr);
+
+        rm.setProgramOffset(0, MATCH_REPORT);
 
         const map<u32, u32> fixed_depth_tops;
         const map<u32, vector<vector<CharReach>>> triggers;
@@ -223,7 +227,7 @@ TEST_P(LimExModelTest, QueueExecToMatch) {
     char rv = nfaQueueExecToMatch(nfa.get(), &q, end);
     ASSERT_EQ(MO_MATCHES_PENDING, rv);
     ASSERT_EQ(0, matches);
-    ASSERT_NE(0, nfaInAcceptState(nfa.get(), 0, &q));
+    ASSERT_NE(0, nfaInAcceptState(nfa.get(), MATCH_REPORT, &q));
     nfaReportCurrentMatches(nfa.get(), &q);
     ASSERT_EQ(1, matches);
 
@@ -232,7 +236,7 @@ TEST_P(LimExModelTest, QueueExecToMatch) {
     rv = nfaQueueExecToMatch(nfa.get(), &q, end);
     ASSERT_EQ(MO_MATCHES_PENDING, rv);
     ASSERT_EQ(1, matches);
-    ASSERT_NE(0, nfaInAcceptState(nfa.get(), 0, &q));
+    ASSERT_NE(0, nfaInAcceptState(nfa.get(), MATCH_REPORT, &q));
     nfaReportCurrentMatches(nfa.get(), &q);
     ASSERT_EQ(2, matches);
 
@@ -241,7 +245,7 @@ TEST_P(LimExModelTest, QueueExecToMatch) {
     rv = nfaQueueExecToMatch(nfa.get(), &q, end);
     ASSERT_EQ(MO_MATCHES_PENDING, rv);
     ASSERT_EQ(2, matches);
-    ASSERT_NE(0, nfaInAcceptState(nfa.get(), 0, &q));
+    ASSERT_NE(0, nfaInAcceptState(nfa.get(), MATCH_REPORT, &q));
     nfaReportCurrentMatches(nfa.get(), &q);
     ASSERT_EQ(3, matches);
 
@@ -267,10 +271,10 @@ TEST_P(LimExModelTest, QueueExecRose) {
     pushQueue(&q, MQE_TOP, 0);
     pushQueue(&q, MQE_END, end);
 
-    char rv = nfaQueueExecRose(nfa.get(), &q, 0 /* report id */);
+    char rv = nfaQueueExecRose(nfa.get(), &q, MATCH_REPORT);
     ASSERT_EQ(MO_MATCHES_PENDING, rv);
     pushQueue(&q, MQE_START, end);
-    ASSERT_NE(0, nfaInAcceptState(nfa.get(), 0, &q));
+    ASSERT_NE(0, nfaInAcceptState(nfa.get(), MATCH_REPORT, &q));
 }
 
 TEST_P(LimExModelTest, CheckFinalState) {
@@ -366,6 +370,8 @@ protected:
         ReportManager rm(cc.grey);
         unique_ptr<NGWrapper> g = buildWrapper(rm, cc, parsed);
         ASSERT_TRUE(g != nullptr);
+
+        rm.setProgramOffset(0, MATCH_REPORT);
 
         const map<u32, u32> fixed_depth_tops;
         const map<u32, vector<vector<CharReach>>> triggers;

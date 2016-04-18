@@ -376,6 +376,8 @@ SmallWriteBuildImpl::build(u32 roseQuality) {
 
     DEBUG_PRINTF("building rdfa %p\n", rdfa.get());
 
+    remapReportsToPrograms(*rdfa, rm);
+
     u32 start_offset;
     u32 small_region;
     auto nfa = prepEngine(*rdfa, roseQuality, cc, &start_offset, &small_region);

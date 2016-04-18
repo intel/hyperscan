@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,6 +51,7 @@ namespace ue2 {
 
 class CharReach;
 class NGHolder;
+class ReportManager;
 struct CompileContext;
 
 /**
@@ -157,6 +158,8 @@ bool requiresDedupe(const CastleProto &proto,
  */
 std::unique_ptr<NGHolder> makeHolder(const CastleProto &castle, nfa_kind kind,
                                      const CompileContext &cc);
+
+void remapReportsToPrograms(CastleProto &castle, const ReportManager &rm);
 
 } // namespace ue2
 
