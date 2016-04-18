@@ -1340,7 +1340,7 @@ void prepMpv(RoseBuildImpl &tbi, build_context &bc, size_t *historyRequired,
             assert(!mpv_outfix);
             mpv_outfix = &out;
         } else {
-            assert(!out.chained);
+            assert(!out.mpv());
         }
     }
 
@@ -1348,7 +1348,6 @@ void prepMpv(RoseBuildImpl &tbi, build_context &bc, size_t *historyRequired,
         return;
     }
 
-    assert(mpv_outfix->chained);
     auto *mpv = mpv_outfix->mpv();
     auto nfa = mpvCompile(mpv->puffettes, mpv->triggered_puffettes);
     assert(nfa);
@@ -1408,7 +1407,7 @@ bool prepOutfixes(RoseBuildImpl &tbi, build_context &bc,
     assert(tbi.qif.allocated_count() == bc.engineOffsets.size());
 
     for (auto &out : tbi.outfixes) {
-        if (out.chained) {
+        if (out.mpv()) {
             continue; /* already done */
         }
         DEBUG_PRINTF("building outfix %zd\n", &out - &tbi.outfixes[0]);

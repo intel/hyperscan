@@ -2417,9 +2417,6 @@ void mergeOutfixInfo(OutfixInfo &winner, const OutfixInfo &victim) {
     // layer at runtime will protect us from extra matches if only one was in
     // the small block matcher.
     winner.in_sbmatcher &= victim.in_sbmatcher;
-
-    // We should never have merged outfixes that differ in these properties.
-    assert(winner.chained == victim.chained);
 }
 
 static
@@ -2651,7 +2648,6 @@ void mergeOutfixCombo(RoseBuildImpl &tbi, const ReportManager &rm,
     for (auto it = tbi.outfixes.begin(); it != tbi.outfixes.end(); ++it) {
         auto &outfix = *it;
         assert(!outfix.is_dead());
-        assert(!outfix.chained);
 
         if (outfix.rdfa()) {
             auto *rdfa = outfix.rdfa();
@@ -2727,7 +2723,6 @@ void mergeOutfixes(RoseBuildImpl &tbi) {
     vector<raw_som_dfa *> som_dfas;
 
     for (auto &outfix : tbi.outfixes) {
-        assert(!outfix.chained);
         if (outfix.rdfa()) {
             dfas.push_back(outfix.rdfa());
         } else if (outfix.holder()) {

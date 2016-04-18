@@ -1777,7 +1777,6 @@ bool RoseBuildImpl::addOutfix(const NGHolder &h, const raw_som_dfa &haig) {
 bool RoseBuildImpl::addOutfix(const raw_puff &rp) {
     if (!mpv_outfix) {
         mpv_outfix = make_unique<OutfixInfo>(MpvProto());
-        mpv_outfix->chained = true;
     }
 
     auto *mpv = mpv_outfix->mpv();
@@ -1803,7 +1802,6 @@ bool RoseBuildImpl::addChainTail(const raw_puff &rp, u32 *queue_out,
                                  u32 *event_out) {
     if (!mpv_outfix) {
         mpv_outfix = make_unique<OutfixInfo>(MpvProto());
-        mpv_outfix->chained = true;
     }
 
     auto *mpv = mpv_outfix->mpv();

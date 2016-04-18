@@ -385,7 +385,6 @@ struct OutfixInfo {
     depth minWidth = depth::infinity();
     depth maxWidth = 0;
     u64a maxOffset = 0;
-    bool chained = false;
     bool in_sbmatcher = false; //!< handled by small-block matcher.
 
 private:
