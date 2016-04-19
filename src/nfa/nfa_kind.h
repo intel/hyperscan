@@ -26,6 +26,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file
+ * \brief Data structures and helper functions used to describe the purpose of
+ * a particular NFA engine at build time.
+ */
+
 #ifndef NFA_KIND_H
 #define NFA_KIND_H
 
@@ -43,6 +49,7 @@ enum nfa_kind {
     NFA_REV_PREFIX, //! reverse running prefixes (for som)
 };
 
+/** \brief True if this kind of engine is triggered by a top event. */
 inline
 bool is_triggered(enum nfa_kind k) {
     switch (k) {
@@ -55,6 +62,10 @@ bool is_triggered(enum nfa_kind k) {
     }
 }
 
+/**
+ * \brief True if this kind of engine generates callback events when it
+ * enters accept states.
+ */
 inline
 bool generates_callbacks(enum nfa_kind k) {
     switch (k) {
@@ -68,6 +79,10 @@ bool generates_callbacks(enum nfa_kind k) {
     }
 }
 
+/**
+ * \brief True if this kind of engine has reports that are managed by the \ref
+ * ReportManager.
+ */
 inline
 bool has_managed_reports(enum nfa_kind k) {
     switch (k) {
