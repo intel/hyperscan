@@ -36,17 +36,19 @@
 #include "ng_holder.h"
 #include "ng_repeat.h"
 #include "ng_reports.h"
-#include "nfa/shufticompile.h"
-#include "nfa/trufflecompile.h"
+#include "nfa/castlecompile.h"
 #include "nfa/lbr_internal.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/repeatcompile.h"
+#include "nfa/shufticompile.h"
+#include "nfa/trufflecompile.h"
 #include "util/alloc.h"
 #include "util/bitutils.h" // for lg2
 #include "util/compile_context.h"
 #include "util/container.h"
 #include "util/depth.h"
 #include "util/dump_charclass.h"
+#include "util/report_manager.h"
 #include "util/verify_types.h"
 
 using namespace std;
@@ -294,13 +296,19 @@ aligned_unique_ptr<NFA> constructLBR(const CharReach &cr,
     return nfa;
 }
 
-aligned_unique_ptr<NFA> constructLBR(const PureRepeat &repeat,
+aligned_unique_ptr<NFA> constructLBR(const CastleProto &proto,
                                      const vector<vector<CharReach>> &triggers,
-                                     const CompileContext &cc) {
+                                     const CompileContext &cc,
+                                     const ReportManager &rm) {
     if (!cc.grey.allowLbr) {
         return nullptr;
     }
 
+    if (proto.repeats.size() != 1) {
+        return nullptr;
+    }
+
+    const PureRepeat &repeat = proto.repeats.begin()->second;
     assert(!repeat.reach.none());
 
     if (repeat.reports.size() != 1) {
@@ -317,6 +325,9 @@ aligned_unique_ptr<NFA> constructLBR(const PureRepeat &repeat,
     }
 
     ReportID report = *repeat.reports.begin();
+    if (has_managed_reports(proto.kind)) {
+        report = rm.getProgramOffset(report);
+    }
 
     DEBUG_PRINTF("building LBR %s\n", repeat.bounds.str().c_str());
     return constructLBR(repeat.reach, repeat.bounds.min, repeat.bounds.max,
@@ -326,7 +337,8 @@ aligned_unique_ptr<NFA> constructLBR(const PureRepeat &repeat,
 /** \brief Construct an LBR engine from the given graph \p g. */
 aligned_unique_ptr<NFA> constructLBR(const NGHolder &g,
                                      const vector<vector<CharReach>> &triggers,
-                                     const CompileContext &cc) {
+                                     const CompileContext &cc,
+                                     const ReportManager &rm) {
     if (!cc.grey.allowLbr) {
         return nullptr;
     }
@@ -335,8 +347,13 @@ aligned_unique_ptr<NFA> constructLBR(const NGHolder &g,
     if (!isPureRepeat(g, repeat)) {
         return nullptr;
     }
+    if (repeat.reports.size() != 1) {
+        DEBUG_PRINTF("too many reports\n");
+        return nullptr;
+    }
 
-    return constructLBR(repeat, triggers, cc);
+    CastleProto proto(g.kind, repeat);
+    return constructLBR(proto, triggers, cc, rm);
 }
 
 /** \brief True if graph \p g could be turned into an LBR engine. */

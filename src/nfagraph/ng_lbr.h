@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,22 +46,22 @@ namespace ue2 {
 class CharReach;
 class NGHolder;
 class ReportManager;
+struct CastleProto;
 struct CompileContext;
-struct DepthMinMax;
 struct Grey;
-struct PureRepeat;
 
 /** \brief Construct an LBR engine from the given graph \p g. */
 aligned_unique_ptr<NFA>
 constructLBR(const NGHolder &g,
              const std::vector<std::vector<CharReach>> &triggers,
-             const CompileContext &cc);
+             const CompileContext &cc, const ReportManager &rm);
 
-/** \brief Construct an LBR engine from the given PureRepeat. */
+/** \brief Construct an LBR engine from the given CastleProto, which should
+ * contain only one repeat. */
 aligned_unique_ptr<NFA>
-constructLBR(const PureRepeat &repeat,
+constructLBR(const CastleProto &proto,
              const std::vector<std::vector<CharReach>> &triggers,
-             const CompileContext &cc);
+             const CompileContext &cc, const ReportManager &rm);
 
 /** \brief True if graph \p g could be turned into an LBR engine. */
 bool isLBR(const NGHolder &g, const Grey &grey);

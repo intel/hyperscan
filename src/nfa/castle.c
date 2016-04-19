@@ -96,7 +96,8 @@ char subCastleReportCurrent(const struct Castle *c, struct mq *q,
         repeatHasMatch(info, rctrl, rstate, offset);
     DEBUG_PRINTF("repeatHasMatch returned %d\n", match);
     if (match == REPEAT_MATCH) {
-        DEBUG_PRINTF("firing match at %llu for sub %u\n", offset, subIdx);
+        DEBUG_PRINTF("firing match at %llu for sub %u, report %u\n", offset,
+                     subIdx, sub->report);
         if (q->cb(offset, sub->report, q->context) == MO_HALT_MATCHING) {
             return MO_HALT_MATCHING;
         }

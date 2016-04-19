@@ -123,7 +123,7 @@ void remapCastleTops(CastleProto &proto, std::map<u32, u32> &top_map);
 ue2::aligned_unique_ptr<NFA>
 buildCastle(const CastleProto &proto,
             const std::map<u32, std::vector<std::vector<CharReach>>> &triggers,
-            const CompileContext &cc);
+            const CompileContext &cc, const ReportManager &rm);
 
 /**
  * \brief Merge two CastleProto prototypes together, if possible.
@@ -161,8 +161,6 @@ bool requiresDedupe(const CastleProto &proto,
  */
 std::unique_ptr<NGHolder> makeHolder(const CastleProto &castle,
                                      const CompileContext &cc);
-
-void remapReportsToPrograms(CastleProto &castle, const ReportManager &rm);
 
 } // namespace ue2
 

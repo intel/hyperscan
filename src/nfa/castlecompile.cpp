@@ -344,11 +344,14 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
                      u32 &scratchStateSize, u32 &streamStateSize,
                      u32 &tableSize, vector<u64a> &tables, u32 &sparseRepeats,
                      const ExclusiveInfo &exclusiveInfo,
-                     vector<u32> &may_stale) {
+                     vector<u32> &may_stale, const ReportManager &rm) {
+    const bool remap_reports = has_managed_reports(proto.kind);
+
     u32 i = 0;
     const auto &groupId = exclusiveInfo.groupId;
     const auto &numGroups = exclusiveInfo.numGroups;
     vector<u32> maxStreamSize(numGroups, 0);
+
     for (auto it = proto.repeats.begin(), ite = proto.repeats.end();
          it != ite; ++it, ++i) {
         const PureRepeat &pr = it->second;
@@ -400,7 +403,9 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
         info.encodingSize = rsi.encodingSize;
         info.patchesOffset = rsi.patchesOffset;
 
-        sub.report = *pr.reports.begin();
+        assert(pr.reports.size() == 1);
+        ReportID id = *pr.reports.begin();
+        sub.report = remap_reports ? rm.getProgramOffset(id) : id;
 
         if (rtype == REPEAT_SPARSE_OPTIMAL_P) {
             for (u32 j = 0; j < rsi.patchSize; j++) {
@@ -435,7 +440,7 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
 aligned_unique_ptr<NFA>
 buildCastle(const CastleProto &proto,
             const map<u32, vector<vector<CharReach>>> &triggers,
-            const CompileContext &cc) {
+            const CompileContext &cc, const ReportManager &rm) {
     assert(cc.grey.allowCastle);
 
     const size_t numRepeats = proto.repeats.size();
@@ -548,7 +553,7 @@ buildCastle(const CastleProto &proto,
 
     buildSubcastles(proto, subs, infos, patchSize, repeatInfoPair,
                     scratchStateSize, streamStateSize, tableSize,
-                    tables, sparseRepeats, exclusiveInfo, may_stale);
+                    tables, sparseRepeats, exclusiveInfo, may_stale, rm);
 
     DEBUG_PRINTF("%zu subcastles may go stale\n", may_stale.size());
     vector<mmbit_sparse_iter> stale_iter;
@@ -816,6 +821,7 @@ bool is_equal(const CastleProto &c1, ReportID report1, const CastleProto &c2,
               ReportID report2) {
     assert(!c1.repeats.empty());
     assert(!c2.repeats.empty());
+    assert(c1.kind == c2.kind);
 
     if (c1.reach() != c2.reach()) {
         DEBUG_PRINTF("different reach\n");
@@ -862,6 +868,7 @@ bool is_equal(const CastleProto &c1, ReportID report1, const CastleProto &c2,
 bool is_equal(const CastleProto &c1, const CastleProto &c2) {
     assert(!c1.repeats.empty());
     assert(!c2.repeats.empty());
+    assert(c1.kind == c2.kind);
 
     if (c1.reach() != c2.reach()) {
         DEBUG_PRINTF("different reach\n");
@@ -990,31 +997,6 @@ unique_ptr<NGHolder> makeHolder(const CastleProto &proto,
     removeRedundancy(*g, SOM_NONE);
 
     return g;
-}
-
-static
-void remapReportsToPrograms(PureRepeat &pr, const ReportManager &rm) {
-    if (pr.reports.empty()) {
-        return;
-    }
-    auto old_reports = pr.reports;
-    pr.reports.clear();
-    for (const auto &r : old_reports) {
-        pr.reports.insert(rm.getProgramOffset(r));
-    }
-}
-
-void remapReportsToPrograms(CastleProto &castle, const ReportManager &rm) {
-    for (auto &m : castle.repeats) {
-        remapReportsToPrograms(m.second, rm);
-    }
-
-    auto old_report_map = castle.report_map;
-    castle.report_map.clear();
-    for (auto &m : old_report_map) {
-        u32 program = rm.getProgramOffset(m.first);
-        castle.report_map[program].insert(begin(m.second), end(m.second));
-    }
 }
 
 } // namespace ue2

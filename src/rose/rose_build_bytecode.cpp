@@ -866,14 +866,14 @@ static
 aligned_unique_ptr<NFA>
 buildRepeatEngine(const CastleProto &proto,
                   const map<u32, vector<vector<CharReach>>> &triggers,
-                  const CompileContext &cc) {
+                  const CompileContext &cc, const ReportManager &rm) {
     // If we only have one repeat, the LBR should always be the best possible
     // implementation.
     if (proto.repeats.size() == 1 && cc.grey.allowLbr) {
-        return constructLBR(proto.repeats.begin()->second, triggers.at(0), cc);
+        return constructLBR(proto, triggers.at(0), cc, rm);
     }
 
-    aligned_unique_ptr<NFA> castle_nfa = buildCastle(proto, triggers, cc);
+    auto castle_nfa = buildCastle(proto, triggers, cc, rm);
     assert(castle_nfa); // Should always be constructible.
     return castle_nfa;
 }
@@ -886,9 +886,7 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
             const map<u32, vector<vector<CharReach>>> &triggers,
             suffix_id suff, const CompileContext &cc) {
     if (suff.castle()) {
-        auto remapped_castle = *suff.castle();
-        remapReportsToPrograms(remapped_castle, rm);
-        auto n = buildRepeatEngine(remapped_castle, triggers, cc);
+        auto n = buildRepeatEngine(*suff.castle(), triggers, cc, rm);
         assert(n);
         return n;
     }
@@ -913,9 +911,7 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
 
     // Take a shot at the LBR engine.
     if (oneTop) {
-        auto remapped_holder = cloneHolder(holder);
-        remapReportsToPrograms(*remapped_holder, rm);
-        auto lbr = constructLBR(*remapped_holder, triggers.at(0), cc);
+        auto lbr = constructLBR(holder, triggers.at(0), cc, rm);
         if (lbr) {
             return lbr;
         }
@@ -1044,7 +1040,7 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
         assert(!is_prefix);
         map<u32, vector<vector<CharReach> > > triggers;
         findTriggerSequences(tbi, infixTriggers.at(left), &triggers);
-        n = buildRepeatEngine(*left.castle(), triggers, cc);
+        n = buildRepeatEngine(*left.castle(), triggers, cc, rm);
         assert(n);
         return n; // Castles/LBRs are always best!
     }
@@ -1064,7 +1060,7 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
         map<u32, vector<vector<CharReach> > > triggers;
         findTriggerSequences(tbi, infixTriggers.at(left), &triggers);
         assert(contains(triggers, 0)); // single top
-        n = constructLBR(*left.graph(), triggers[0], cc);
+        n = constructLBR(*left.graph(), triggers[0], cc, rm);
     }
 
     if (!n && left.graph()) {
