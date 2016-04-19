@@ -680,7 +680,7 @@ depth findMaxWidth(const CastleProto &proto, u32 top) {
     return proto.repeats.at(top).bounds.max;
 }
 
-CastleProto::CastleProto(const PureRepeat &pr) {
+CastleProto::CastleProto(nfa_kind k, const PureRepeat &pr) : kind(k) {
     assert(pr.reach.any());
     assert(pr.reports.size() == 1);
     u32 top = 0;
@@ -742,6 +742,7 @@ u32 CastleProto::merge(const PureRepeat &pr) {
 bool mergeCastle(CastleProto &c1, const CastleProto &c2,
                  map<u32, u32> &top_map) {
     assert(&c1 != &c2);
+    assert(c1.kind == c2.kind);
 
     DEBUG_PRINTF("c1 has %zu repeats, c2 has %zu repeats\n", c1.repeats.size(),
                  c2.repeats.size());
@@ -954,7 +955,7 @@ bool hasZeroMinBound(const CastleProto &proto) {
     return false;
 }
 
-unique_ptr<NGHolder> makeHolder(const CastleProto &proto, nfa_kind kind,
+unique_ptr<NGHolder> makeHolder(const CastleProto &proto,
                                 const CompileContext &cc) {
     assert(!proto.repeats.empty());
 
@@ -967,7 +968,7 @@ unique_ptr<NGHolder> makeHolder(const CastleProto &proto, nfa_kind kind,
         }
     }
 
-    unique_ptr<NGHolder> g = ue2::make_unique<NGHolder>(kind);
+    auto g = ue2::make_unique<NGHolder>(proto.kind);
 
     for (const auto &m : proto.repeats) {
         if (m.first >= NFA_MAX_TOP_MASKS) {

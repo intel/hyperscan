@@ -77,7 +77,7 @@ void makeCastle(LeftEngInfo &left,
     if (isPureRepeat(h, pr) && pr.reports.size() == 1) {
         DEBUG_PRINTF("vertex preceded by infix repeat %s\n",
                      pr.bounds.str().c_str());
-        left.castle = make_shared<CastleProto>(pr);
+        left.castle = make_shared<CastleProto>(h.kind, pr);
         cache[&h] = left.castle;
         left.graph.reset();
     }
@@ -119,7 +119,7 @@ void makeCastleSuffix(RoseBuildImpl &tbi, RoseVertex v,
             return;
         }
 
-        suffix.castle = make_shared<CastleProto>(pr);
+        suffix.castle = make_shared<CastleProto>(h.kind, pr);
         cache[&h] = suffix.castle;
         suffix.graph.reset();
     }
@@ -264,8 +264,7 @@ bool unmakeCastles(RoseBuildImpl &tbi) {
 
     for (const auto &e : left_castles) {
         assert(e.first.castle());
-        shared_ptr<NGHolder> h = makeHolder(*e.first.castle(), NFA_INFIX,
-                                            tbi.cc);
+        shared_ptr<NGHolder> h = makeHolder(*e.first.castle(), tbi.cc);
         if (!h || num_vertices(*h) > MAX_UNMAKE_VERTICES) {
             continue;
         }
@@ -281,8 +280,7 @@ bool unmakeCastles(RoseBuildImpl &tbi) {
 
     for (const auto &e : suffix_castles) {
         assert(e.first.castle());
-        shared_ptr<NGHolder> h = makeHolder(*e.first.castle(), NFA_SUFFIX,
-                                            tbi.cc);
+        shared_ptr<NGHolder> h = makeHolder(*e.first.castle(), tbi.cc);
         if (!h || num_vertices(*h) > MAX_UNMAKE_VERTICES) {
             continue;
         }

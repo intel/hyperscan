@@ -66,7 +66,7 @@ struct CompileContext;
  */
 struct CastleProto {
     static constexpr size_t max_occupancy = 65536; // arbitrary limit
-    explicit CastleProto(const PureRepeat &pr);
+    CastleProto(nfa_kind k, const PureRepeat &pr);
     const CharReach &reach() const;
 
     /** \brief Add a new repeat. */
@@ -95,6 +95,9 @@ struct CastleProto {
      * so we track this explicitly instead of using repeats.size().
      */
     u32 next_top = 1;
+
+    /** \brief Kind for this engine. */
+    nfa_kind kind;
 };
 
 std::set<ReportID> all_reports(const CastleProto &proto);
@@ -156,7 +159,7 @@ bool requiresDedupe(const CastleProto &proto,
 /**
  * \brief Build an NGHolder from a CastleProto.
  */
-std::unique_ptr<NGHolder> makeHolder(const CastleProto &castle, nfa_kind kind,
+std::unique_ptr<NGHolder> makeHolder(const CastleProto &castle,
                                      const CompileContext &cc);
 
 void remapReportsToPrograms(CastleProto &castle, const ReportManager &rm);
