@@ -40,6 +40,7 @@ extern "C" {
 #include "nfa/multivermicelli.h"
 #include "nfa/multishufti.h"
 #include "nfa/multitruffle.h"
+#include "util/alloc.h"
 #include "util/charreach.h"
 
 #include <string>
@@ -68,17 +69,18 @@ char getChar(const CharReach &cr, bool match) {
 
 // appends a string with matches/unmatches according to input match pattern
 static
-void getMatch(vector<u8> &result, const string &pattern, const CharReach &cr) {
+void getMatch(u8 *result, u32 start, const string &pattern,
+              const CharReach &cr) {
     for (const auto &c : pattern) {
-        result.push_back(getChar(cr, c == '1'));
+        result[start++] = getChar(cr, c == '1');
     }
 }
 
 // appends non-matching noise of certain lengths
 static
-void getNoise(vector<u8> &result, u32 len, const CharReach &cr) {
+void getNoise(u8 *result, u32 start, u32 len, const CharReach &cr) {
     for (unsigned i = 0; i < len; i++) {
-        result.push_back(getChar(cr, false));
+        result[start + i] = getChar(cr, false);
     }
 }
 
@@ -111,7 +113,7 @@ protected:
         const MultiaccelTestParam &p = GetParam();
 
         // reserve space in our buffer
-        buffer.reserve(BUF_SIZE);
+        buffer = (u8 *)aligned_zmalloc(BUF_SIZE);
 
         // store the index where we expect to see the match. note that it may
         // be different from where the match pattern has started since we may
@@ -129,13 +131,16 @@ protected:
         const MultiaccelTestParam &p = GetParam();
 
         // step 1: fill prefix with non-matching noise
-        getNoise(buffer, p.match_pattern_start_idx, cr);
+        u32 start = 0;
+        getNoise(buffer, start, p.match_pattern_start_idx, cr);
 
         // step 2: add a match
-        getMatch(buffer, p.match_pattern, cr);
+        start += p.match_pattern_start_idx;
+        getMatch(buffer, start, p.match_pattern, cr);
 
         // step 3: fill in the rest of the buffer with non-matching noise
-        getNoise(buffer, BUF_SIZE - p.match_pattern.size() -
+        start += p.match_pattern.size();
+        getNoise(buffer, start, BUF_SIZE - p.match_pattern.size() -
                  p.match_pattern_start_idx, cr);
     }
 
@@ -159,24 +164,25 @@ protected:
     }
 
     virtual void TearDown() {
+        aligned_free(buffer);
     }
 
     u32 match_idx;
-    vector<u8> buffer;
+    u8 *buffer;
     bool test_all_offsets;
 };
 
 static
-void runTest(const vector<u8> &buffer, AccelAux *aux, unsigned match_idx,
+void runTest(const u8 *buffer, AccelAux *aux, unsigned match_idx,
              bool test_all_offsets) {
-    const u8 *start = buffer.data();
-    const u8 *end = start + buffer.size();
+    const u8 *start = buffer;
+    const u8 *end = start + BUF_SIZE;
     const u8 *match = start + match_idx;
 
     // comparing indexes into the buffer is easier to understand than pointers
     if (test_all_offsets) {
         // run_accel can only scan >15 byte buffers
-        u32 end_offset = min(match_idx, (u32) buffer.size() - 15);
+        u32 end_offset = min(match_idx, BUF_SIZE - 15);
 
         for (unsigned offset = 0; offset < end_offset; offset++) {
             const u8 *ptr = run_accel(aux, (start + offset), end);
