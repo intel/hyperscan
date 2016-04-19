@@ -1334,16 +1334,6 @@ aligned_unique_ptr<NFA> buildOutfix(RoseBuildImpl &build, OutfixInfo &outfix) {
 }
 
 static
-void remapReportsToPrograms(MpvProto &mpv, const ReportManager &rm) {
-    for (auto &puff : mpv.puffettes) {
-        puff.report = rm.getProgramOffset(puff.report);
-    }
-    for (auto &puff : mpv.triggered_puffettes) {
-        puff.report = rm.getProgramOffset(puff.report);
-    }
-}
-
-static
 void prepMpv(RoseBuildImpl &tbi, build_context &bc, size_t *historyRequired,
              bool *mpv_as_outfix) {
     assert(bc.engineOffsets.empty()); // MPV should be first
@@ -1365,9 +1355,7 @@ void prepMpv(RoseBuildImpl &tbi, build_context &bc, size_t *historyRequired,
     }
 
     auto *mpv = mpv_outfix->mpv();
-    auto tmp = *mpv; // copy
-    remapReportsToPrograms(tmp, tbi.rm);
-    auto nfa = mpvCompile(tmp.puffettes, tmp.triggered_puffettes);
+    auto nfa = mpvCompile(mpv->puffettes, mpv->triggered_puffettes, tbi.rm);
     assert(nfa);
     if (!nfa) {
         throw CompileError("Unable to generate bytecode.");

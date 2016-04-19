@@ -40,6 +40,8 @@ struct NFA;
 
 namespace ue2 {
 
+class ReportManager;
+
 struct raw_puff {
     raw_puff(u32 repeats_in, bool unbounded_in, ReportID report_in,
              const CharReach &reach_in, bool auto_restart_in = false,
@@ -59,9 +61,9 @@ struct raw_puff {
  * puffs in the triggered_puffs vector are enabled when an TOP_N event is
  * delivered corresponding to their index in the vector
  */
-aligned_unique_ptr<NFA>
-mpvCompile(const std::vector<raw_puff> &puffs,
-           const std::vector<raw_puff> &triggered_puffs);
+aligned_unique_ptr<NFA> mpvCompile(const std::vector<raw_puff> &puffs,
+                                   const std::vector<raw_puff> &triggered_puffs,
+                                   const ReportManager &rm);
 
 } // namespace ue2
 
