@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,17 +39,44 @@ enum nfa_kind {
     NFA_INFIX,  //!< rose infix
     NFA_SUFFIX, //!< rose suffix
     NFA_OUTFIX,  //!< "outfix" nfa not triggered by external events
+    NFA_OUTFIX_RAW, //!< "outfix", but with unmanaged reports
     NFA_REV_PREFIX, //! reverse running prefixes (for som)
 };
 
-static UNUSED
+inline
 bool is_triggered(enum nfa_kind k) {
-    return k == NFA_INFIX || k == NFA_SUFFIX || k == NFA_REV_PREFIX;
+    switch (k) {
+    case NFA_INFIX:
+    case NFA_SUFFIX:
+    case NFA_REV_PREFIX:
+        return true;
+    default:
+        return false;
+    }
 }
 
-static UNUSED
+inline
 bool generates_callbacks(enum nfa_kind k) {
-    return k == NFA_SUFFIX || k == NFA_OUTFIX || k == NFA_REV_PREFIX;
+    switch (k) {
+    case NFA_SUFFIX:
+    case NFA_OUTFIX:
+    case NFA_OUTFIX_RAW:
+    case NFA_REV_PREFIX:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline
+bool has_managed_reports(enum nfa_kind k) {
+    switch (k) {
+    case NFA_SUFFIX:
+    case NFA_OUTFIX:
+        return true;
+    default:
+        return false;
+    }
 }
 
 } // namespace ue2

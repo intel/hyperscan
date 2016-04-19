@@ -660,7 +660,7 @@ int addAutomaton(RoseBuildImpl &tbi, const NGHolder &h, ReportID *remap) {
 
     Automaton_Holder autom(h);
 
-    unique_ptr<raw_dfa> out_dfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX);
+    unique_ptr<raw_dfa> out_dfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
     if (!determinise(autom, out_dfa->states, MAX_DFA_STATES)) {
         return finalise_out(tbi, h, autom, move(out_dfa), remap);
     }
@@ -721,7 +721,7 @@ void buildSimpleDfas(const RoseBuildImpl &tbi,
         NGHolder h;
         populate_holder(simple.first, exit_ids, &h);
         Automaton_Holder autom(h);
-        unique_ptr<raw_dfa> rdfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX);
+        unique_ptr<raw_dfa> rdfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
         UNUSED int rv = determinise(autom, rdfa->states, MAX_DFA_STATES);
         assert(!rv);
         rdfa->start_anchored = INIT_STATE;
@@ -771,7 +771,8 @@ vector<unique_ptr<raw_dfa>> getAnchoredDfas(RoseBuildImpl &build) {
 static
 size_t buildNfas(vector<raw_dfa> &anchored_dfas,
                  vector<aligned_unique_ptr<NFA>> *nfas,
-                 vector<u32> *start_offset, const CompileContext &cc) {
+                 vector<u32> *start_offset, const CompileContext &cc,
+                 const ReportManager &rm) {
     const size_t num_dfas = anchored_dfas.size();
 
     nfas->reserve(num_dfas);
@@ -785,7 +786,7 @@ size_t buildNfas(vector<raw_dfa> &anchored_dfas,
 
         minimize_hopcroft(rdfa, cc.grey);
 
-        auto nfa = mcclellanCompile(rdfa, cc);
+        auto nfa = mcclellanCompile(rdfa, cc, rm);
         if (!nfa) {
             assert(0);
             throw std::bad_alloc();
@@ -836,7 +837,7 @@ buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
 
     vector<aligned_unique_ptr<NFA>> nfas;
     vector<u32> start_offset; // start offset for each dfa (dots removed)
-    size_t total_size = buildNfas(dfas, &nfas, &start_offset, cc);
+    size_t total_size = buildNfas(dfas, &nfas, &start_offset, cc, build.rm);
 
     if (total_size > cc.grey.limitRoseAnchoredSize) {
         throw ResourceLimitError();

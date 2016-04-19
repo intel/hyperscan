@@ -1039,6 +1039,7 @@ bool canImplementGraph(RoseBuildImpl *tbi, const RoseInGraph &in, NGHolder &h,
             }
             break;
         case NFA_REV_PREFIX:
+        case NFA_OUTFIX_RAW:
             DEBUG_PRINTF("kind %u\n", (u32)h.kind);
             assert(0);
         }

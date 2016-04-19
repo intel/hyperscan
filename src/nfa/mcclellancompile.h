@@ -44,6 +44,7 @@ struct NFA;
 
 namespace ue2 {
 
+class ReportManager;
 struct CompileContext;
 
 struct raw_report_info {
@@ -57,6 +58,7 @@ struct raw_report_info {
 
 class dfa_build_strat {
 public:
+    explicit dfa_build_strat(const ReportManager &rm_in) : rm(rm_in) {}
     virtual ~dfa_build_strat();
     virtual raw_dfa &get_raw() const = 0;
     virtual std::unique_ptr<raw_report_info> gatherReports(
@@ -68,11 +70,14 @@ public:
     virtual size_t accelSize(void) const = 0;
     virtual void buildAccel(dstate_id_t this_idx, const AccelScheme &info,
                             void *accel_out) = 0;
+protected:
+    const ReportManager &rm;
 };
 
 class mcclellan_build_strat : public dfa_build_strat {
 public:
-    explicit mcclellan_build_strat(raw_dfa &r) : rdfa(r) {}
+    mcclellan_build_strat(raw_dfa &rdfa_in, const ReportManager &rm_in)
+        : dfa_build_strat(rm_in), rdfa(rdfa_in) {}
     raw_dfa &get_raw() const override { return rdfa; }
     std::unique_ptr<raw_report_info> gatherReports(
                                   std::vector<u32> &reports /* out */,
@@ -93,6 +98,7 @@ private:
  * states */
 ue2::aligned_unique_ptr<NFA>
 mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
+                 const ReportManager &rm,
                  std::set<dstate_id_t> *accel_states = nullptr);
 
 /* used internally by mcclellan/haig/gough compile process */

@@ -31,7 +31,6 @@
 
 #include "rdfa.h"
 #include "ue2common.h"
-#include "util/report_manager.h"
 
 #include <set>
 
@@ -57,8 +56,6 @@ size_t hash_dfa_no_reports(const raw_dfa &rdfa);
 size_t hash_dfa(const raw_dfa &rdfa);
 
 dstate_id_t get_sds_or_proxy(const raw_dfa &raw);
-
-void remapReportsToPrograms(raw_dfa &rdfa, const ReportManager &rm);
 
 } // namespace ue2
 

@@ -46,6 +46,7 @@
 #include "util/container.h"
 #include "util/make_unique.h"
 #include "util/order_check.h"
+#include "util/report_manager.h"
 #include "util/ue2_containers.h"
 #include "util/unaligned.h"
 #include "util/verify_types.h"
@@ -356,8 +357,16 @@ namespace {
 struct raw_report_list {
     flat_set<ReportID> reports;
 
-    explicit raw_report_list(const flat_set<ReportID> &reports_in)
-        : reports(reports_in) {}
+    raw_report_list(const flat_set<ReportID> &reports_in,
+                    const ReportManager &rm, bool do_remap) {
+        if (do_remap) {
+            for (auto &id : reports_in) {
+                reports.insert(rm.getProgramOffset(id));
+            }
+        } else {
+            reports = reports_in;
+        }
+    }
 
     bool operator<(const raw_report_list &b) const {
         return reports < b.reports;
@@ -380,6 +389,8 @@ unique_ptr<raw_report_info> mcclellan_build_strat::gatherReports(
                                                   ReportID *arbReport) const {
     DEBUG_PRINTF("gathering reports\n");
 
+    const bool remap_reports = has_managed_reports(rdfa.kind);
+
     auto ri = ue2::make_unique<raw_report_info_impl>();
     map<raw_report_list, u32> rev;
 
@@ -389,7 +400,7 @@ unique_ptr<raw_report_info> mcclellan_build_strat::gatherReports(
             continue;
         }
 
-        raw_report_list rrl(s.reports);
+        raw_report_list rrl(s.reports, rm, remap_reports);
         DEBUG_PRINTF("non empty r\n");
         if (rev.find(rrl) != rev.end()) {
             reports.push_back(rev[rrl]);
@@ -408,7 +419,7 @@ unique_ptr<raw_report_info> mcclellan_build_strat::gatherReports(
         }
 
         DEBUG_PRINTF("non empty r eod\n");
-        raw_report_list rrl(s.reports_eod);
+        raw_report_list rrl(s.reports_eod, rm, remap_reports);
         if (rev.find(rrl) != rev.end()) {
             reports_eod.push_back(rev[rrl]);
             continue;
@@ -579,8 +590,7 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
         return nullptr;
     }
 
-    unique_ptr<raw_report_info> ri
-        = info.strat.gatherReports(reports, reports_eod, &single, &arb);
+    auto ri = info.strat.gatherReports(reports, reports_eod, &single, &arb);
     map<dstate_id_t, AccelScheme> accel_escape_info
         = populateAccelerationInfo(info.raw, info.strat, cc.grey);
 
@@ -799,8 +809,7 @@ aligned_unique_ptr<NFA> mcclellanCompile8(dfa_info &info,
     ReportID arb;
     u8 single;
 
-    unique_ptr<raw_report_info> ri
-        = info.strat.gatherReports(reports, reports_eod, &single, &arb);
+    auto ri = info.strat.gatherReports(reports, reports_eod, &single, &arb);
     map<dstate_id_t, AccelScheme> accel_escape_info
         = populateAccelerationInfo(info.raw, info.strat, cc.grey);
 
@@ -1086,8 +1095,9 @@ aligned_unique_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, dfa_build_strat &strat,
 }
 
 aligned_unique_ptr<NFA> mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
+                                         const ReportManager &rm,
                                          set<dstate_id_t> *accel_states) {
-    mcclellan_build_strat mbs(raw);
+    mcclellan_build_strat mbs(raw, rm);
     return mcclellanCompile_i(raw, mbs, cc, accel_states);
 }
 

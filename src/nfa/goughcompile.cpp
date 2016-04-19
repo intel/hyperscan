@@ -41,8 +41,9 @@
 #include "util/graph_range.h"
 #include "util/make_unique.h"
 #include "util/order_check.h"
-#include "util/verify_types.h"
+#include "util/report_manager.h"
 #include "util/ue2_containers.h"
+#include "util/verify_types.h"
 
 #include "ue2common.h"
 
@@ -77,9 +78,10 @@ namespace {
 
 class gough_build_strat : public mcclellan_build_strat {
 public:
-    gough_build_strat(raw_som_dfa &r, const GoughGraph &g,
-            const map<dstate_id_t, gough_accel_state_info> &accel_info)
-        : mcclellan_build_strat(r), rdfa(r), gg(g),
+    gough_build_strat(
+        raw_som_dfa &r, const GoughGraph &g, const ReportManager &rm,
+        const map<dstate_id_t, gough_accel_state_info> &accel_info)
+        : mcclellan_build_strat(r, rm), rdfa(r), gg(g),
           accel_gough_info(accel_info) {}
     unique_ptr<raw_report_info> gatherReports(vector<u32> &reports /* out */,
                             vector<u32> &reports_eod /* out */,
@@ -1035,7 +1037,8 @@ void update_accel_prog_offset(const gough_build_strat &gbs,
 }
 
 aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
-                                     const CompileContext &cc) {
+                                     const CompileContext &cc,
+                                     const ReportManager &rm) {
     assert(somPrecision == 2 || somPrecision == 4 || somPrecision == 8
            || !cc.streaming);
 
@@ -1067,7 +1070,7 @@ aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
 
     map<dstate_id_t, gough_accel_state_info> accel_allowed;
     find_allowed_accel_states(*cfg, blocks, &accel_allowed);
-    gough_build_strat gbs(raw, *cfg, accel_allowed);
+    gough_build_strat gbs(raw, *cfg, rm, accel_allowed);
     aligned_unique_ptr<NFA> basic_dfa = mcclellanCompile_i(raw, gbs, cc);
     assert(basic_dfa);
     if (!basic_dfa) {
@@ -1195,10 +1198,11 @@ namespace {
 struct raw_gough_report_list {
     set<som_report> reports;
 
-    explicit raw_gough_report_list(
-        const vector<pair<ReportID, GoughSSAVar *>> &raw_reports) {
+    raw_gough_report_list(
+        const vector<pair<ReportID, GoughSSAVar *>> &raw_reports,
+        const ReportManager &rm, bool do_remap) {
         for (const auto &m : raw_reports) {
-            ReportID r = m.first;
+            ReportID r = do_remap ? rm.getProgramOffset(m.first) : m.first;
             u32 impl_slot = INVALID_SLOT;
             if (m.second) {
                 impl_slot = m.second->slot;
@@ -1227,10 +1231,12 @@ unique_ptr<raw_report_info> gough_build_strat::gatherReports(
                                                   vector<u32> &reports_eod,
                                                   u8 *isSingleReport,
                                                   ReportID *arbReport) const {
-    unique_ptr<raw_gough_report_info_impl> ri =
-        ue2::make_unique<raw_gough_report_info_impl>();
-    map<raw_gough_report_list, u32> rev;
     DEBUG_PRINTF("gathering reports\n");
+
+    const bool remap_reports = has_managed_reports(rdfa.kind);
+
+    auto ri = ue2::make_unique<raw_gough_report_info_impl>();
+    map<raw_gough_report_list, u32> rev;
 
     assert(!rdfa.states.empty());
 
@@ -1250,7 +1256,7 @@ unique_ptr<raw_report_info> gough_build_strat::gatherReports(
             continue;
         }
 
-        raw_gough_report_list rrl(gg[v].reports);
+        raw_gough_report_list rrl(gg[v].reports, rm, remap_reports);
         DEBUG_PRINTF("non empty r %zu\n", reports.size());
         if (rev.find(rrl) != rev.end()) {
             reports.push_back(rev[rrl]);
@@ -1269,7 +1275,7 @@ unique_ptr<raw_report_info> gough_build_strat::gatherReports(
         }
 
         DEBUG_PRINTF("non empty r eod\n");
-        raw_gough_report_list rrl(gg[v].reports_eod);
+        raw_gough_report_list rrl(gg[v].reports_eod, rm, remap_reports);
         if (rev.find(rrl) != rev.end()) {
             reports_eod.push_back(rev[rrl]);
             continue;

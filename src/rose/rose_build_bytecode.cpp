@@ -43,7 +43,6 @@
 #include "hwlm/hwlm.h" /* engine types */
 #include "nfa/castlecompile.h"
 #include "nfa/goughcompile.h"
-#include "nfa/goughcompile_util.h"
 #include "nfa/mcclellancompile.h"
 #include "nfa/mcclellancompile_util.h"
 #include "nfa/nfa_api_queue.h"
@@ -895,17 +894,13 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
     }
 
     if (suff.haig()) {
-        auto remapped_haig = *suff.haig();
-        remapReportsToPrograms(remapped_haig, rm);
-        auto n = goughCompile(remapped_haig, ssm.somPrecision(), cc);
+        auto n = goughCompile(*suff.haig(), ssm.somPrecision(), cc, rm);
         assert(n);
         return n;
     }
 
     if (suff.dfa()) {
-        auto remapped_rdfa = *suff.dfa();
-        remapReportsToPrograms(remapped_rdfa, rm);
-        auto d = mcclellanCompile(remapped_rdfa, cc);
+        auto d = mcclellanCompile(*suff.dfa(), cc, rm);
         assert(d);
         return d;
     }
@@ -936,8 +931,7 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
             auto rdfa = buildMcClellan(holder, &rm, false, triggers.at(0),
                                        cc.grey);
             if (rdfa) {
-                remapReportsToPrograms(*rdfa, rm);
-                auto d = mcclellanCompile(*rdfa, cc);
+                auto d = mcclellanCompile(*rdfa, cc, rm);
                 assert(d);
                 if (cc.grey.roseMcClellanSuffix != 2) {
                     n = pickImpl(move(d), move(n));
@@ -1024,6 +1018,8 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
             const bool is_prefix, const bool is_transient,
             const map<left_id, set<PredTopPair> > &infixTriggers,
             const CompileContext &cc) {
+    const ReportManager &rm = tbi.rm;
+
     aligned_unique_ptr<NFA> n;
 
     // Should compress state if this rose is non-transient and we're in
@@ -1054,12 +1050,12 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
     }
 
     if (left.dfa()) {
-        n = mcclellanCompile(*left.dfa(), cc);
+        n = mcclellanCompile(*left.dfa(), cc, rm);
     } else if (left.graph() && cc.grey.roseMcClellanPrefix == 2 && is_prefix &&
                !is_transient) {
         auto rdfa = buildMcClellan(*left.graph(), nullptr, cc.grey);
         if (rdfa) {
-            n = mcclellanCompile(*rdfa, cc);
+            n = mcclellanCompile(*rdfa, cc, rm);
         }
     }
 
@@ -1083,7 +1079,7 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
         && (!n || !has_bounded_repeats_other_than_firsts(*n) || !is_fast(*n))) {
         auto rdfa = buildMcClellan(*left.graph(), nullptr, cc.grey);
         if (rdfa) {
-            auto d = mcclellanCompile(*rdfa, cc);
+            auto d = mcclellanCompile(*rdfa, cc, rm);
             assert(d);
             n = pickImpl(move(d), move(n));
         }
@@ -1115,6 +1111,7 @@ bool buildLeftfixes(const RoseBuildImpl &tbi, build_context &bc,
                     bool do_prefix) {
     const RoseGraph &g = tbi.g;
     const CompileContext &cc = tbi.cc;
+    const ReportManager &rm = tbi.rm;
 
     ue2::unordered_map<left_id, u32> seen; // already built queue indices
 
@@ -1165,7 +1162,8 @@ bool buildLeftfixes(const RoseBuildImpl &tbi, build_context &bc,
             // Need to build NFA, which is either predestined to be a Haig (in
             // SOM mode) or could be all manner of things.
             if (leftfix.haig()) {
-                nfa = goughCompile(*leftfix.haig(), tbi.ssm.somPrecision(), cc);
+                nfa = goughCompile(*leftfix.haig(), tbi.ssm.somPrecision(), cc,
+                                   rm);
             }  else {
                 assert(tbi.isNonRootSuccessor(v) != tbi.isRootSuccessor(v));
                 nfa = makeLeftNfa(tbi, leftfix, is_prefix, is_transient,
@@ -1278,16 +1276,13 @@ public:
 
     aligned_unique_ptr<NFA> operator()(unique_ptr<raw_dfa> &rdfa) const {
         // Unleash the McClellan!
-        raw_dfa tmp(*rdfa);
-        remapReportsToPrograms(tmp, build.rm);
-        return mcclellanCompile(tmp, build.cc);
+        return mcclellanCompile(*rdfa, build.cc, build.rm);
     }
 
     aligned_unique_ptr<NFA> operator()(unique_ptr<raw_som_dfa> &haig) const {
         // Unleash the Goughfish!
-        raw_som_dfa tmp(*haig);
-        remapReportsToPrograms(tmp, build.rm);
-        return goughCompile(tmp, build.ssm.somPrecision(), build.cc);
+        return goughCompile(*haig, build.ssm.somPrecision(), build.cc,
+                            build.rm);
     }
 
     aligned_unique_ptr<NFA> operator()(unique_ptr<NGHolder> &holder) const {
@@ -1309,7 +1304,7 @@ public:
             !has_bounded_repeats_other_than_firsts(*n)) {
             auto rdfa = buildMcClellan(h, &rm, cc.grey);
             if (rdfa) {
-                auto d = mcclellanCompile(*rdfa, cc);
+                auto d = mcclellanCompile(*rdfa, cc, rm);
                 if (d) {
                     n = pickImpl(move(d), move(n));
                 }

@@ -73,6 +73,8 @@ string to_string(nfa_kind k) {
         return "o";
     case NFA_REV_PREFIX:
         return "r";
+    case NFA_OUTFIX_RAW:
+        return "O";
     }
     assert(0);
     return "?";

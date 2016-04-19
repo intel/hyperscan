@@ -593,8 +593,6 @@ SET (hs_SRCS
     src/nfa/goughcompile_accel.cpp
     src/nfa/goughcompile_internal.h
     src/nfa/goughcompile_reg.cpp
-    src/nfa/goughcompile_util.cpp
-    src/nfa/goughcompile_util.h
     src/nfa/mcclellan.h
     src/nfa/mcclellan_internal.h
     src/nfa/mcclellancompile.cpp

@@ -303,14 +303,15 @@ bool is_slow(const raw_dfa &rdfa, const set<dstate_id_t> &accel,
 
 static
 aligned_unique_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
-                                   const CompileContext &cc, u32 *start_offset,
+                                   const CompileContext &cc,
+                                   const ReportManager &rm, u32 *start_offset,
                                    u32 *small_region) {
     *start_offset = remove_leading_dots(rdfa);
 
     // Unleash the McClellan!
     set<dstate_id_t> accel_states;
 
-    auto nfa = mcclellanCompile(rdfa, cc, &accel_states);
+    auto nfa = mcclellanCompile(rdfa, cc, rm, &accel_states);
     if (!nfa) {
         DEBUG_PRINTF("mcclellan compile failed for smallwrite NFA\n");
         return nullptr;
@@ -328,7 +329,7 @@ aligned_unique_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
                 return nullptr;
             }
 
-            nfa = mcclellanCompile(rdfa, cc, &accel_states);
+            nfa = mcclellanCompile(rdfa, cc, rm, &accel_states);
             if (!nfa) {
                 DEBUG_PRINTF("mcclellan compile failed for smallwrite NFA\n");
                 assert(0); /* able to build orig dfa but not the trimmed? */
@@ -376,11 +377,10 @@ SmallWriteBuildImpl::build(u32 roseQuality) {
 
     DEBUG_PRINTF("building rdfa %p\n", rdfa.get());
 
-    remapReportsToPrograms(*rdfa, rm);
-
     u32 start_offset;
     u32 small_region;
-    auto nfa = prepEngine(*rdfa, roseQuality, cc, &start_offset, &small_region);
+    auto nfa =
+        prepEngine(*rdfa, roseQuality, cc, rm, &start_offset, &small_region);
     if (!nfa) {
         DEBUG_PRINTF("some smallwrite outfix could not be prepped\n");
         /* just skip the smallwrite optimization */
