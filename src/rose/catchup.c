@@ -50,9 +50,6 @@ static really_inline
 int roseNfaRunProgram(const struct RoseEngine *rose, struct hs_scratch *scratch,
                       u64a som, u64a offset, ReportID id, const char from_mpv) {
     const u32 program = id;
-    assert(program > 0);
-    assert(program % ROSE_INSTR_MIN_ALIGN == 0);
-
     const size_t match_len = 0; // Unused in this path.
     const char in_anchored = 0;
     const char in_catchup = 1;

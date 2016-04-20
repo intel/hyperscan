@@ -830,7 +830,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                            char skip_mpv_catchup) {
     DEBUG_PRINTF("program=%u, offsets [%llu,%llu]\n", programOffset, som, end);
 
-    assert(programOffset);
+    assert(programOffset >= sizeof(struct RoseEngine));
     assert(programOffset < t->size);
 
     const char *pc_base = getByOffset(t, programOffset);
