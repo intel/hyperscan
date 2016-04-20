@@ -341,18 +341,24 @@ void markToppableStarts(const NGHolder &g, const flat_set<NFAVertex> &unused,
 
 namespace {
 
-class Automaton_Big {
+template<typename Automaton_Traits>
+class Automaton_Base {
 public:
-    typedef dynamic_bitset<> StateSet;
-    typedef map<StateSet, dstate_id_t> StateMap;
+    using StateSet = typename Automaton_Traits::StateSet;
+    using StateMap = typename Automaton_Traits::StateMap;
 
-    Automaton_Big(const ReportManager *rm_in, const NGHolder &graph_in,
-                  const flat_set<NFAVertex> &unused_in, bool single_trigger,
-                  const vector<vector<CharReach>> &triggers, bool prunable_in)
+    Automaton_Base(const ReportManager *rm_in, const NGHolder &graph_in,
+                   const flat_set<NFAVertex> &unused_in, bool single_trigger,
+                   const vector<vector<CharReach>> &triggers, bool prunable_in)
         : rm(rm_in), graph(graph_in), numStates(num_vertices(graph)),
-          unused(unused_in), init(numStates), initDS(numStates),
-          squash(numStates), accept(numStates), acceptEod(numStates),
-          toppable(numStates), prunable(prunable_in), dead(numStates) {
+          unused(unused_in), init(Automaton_Traits::init_states(numStates)),
+          initDS(Automaton_Traits::init_states(numStates)),
+          squash(Automaton_Traits::init_states(numStates)),
+          accept(Automaton_Traits::init_states(numStates)),
+          acceptEod(Automaton_Traits::init_states(numStates)),
+          toppable(Automaton_Traits::init_states(numStates)),
+          dead(Automaton_Traits::init_states(numStates)),
+          prunable(prunable_in) {
         populateInit(graph, unused, &init, &initDS, &v_by_index);
         populateAccepts(graph, unused, &accept, &acceptEod);
 
@@ -376,15 +382,17 @@ public:
 
         cr_by_index = populateCR(graph, v_by_index, alpha);
         if (is_triggered(graph)) {
+            dynamic_bitset<> temp(numStates);
             markToppableStarts(graph, unused, single_trigger, triggers,
-                               &toppable);
+                               &temp);
+            toppable = Automaton_Traits::copy_states(temp, numStates);
         }
     }
 
 private:
     // Convert an NFAStateSet (as used by the squash code) into a StateSet
     StateSet shrinkStateSet(const NFAStateSet &in) const {
-        StateSet out(dead.size());
+        StateSet out = Automaton_Traits::init_states(numStates);
         for (size_t i = in.find_first(); i != in.npos && i < out.size();
              i = in.find_next(i)) {
             out.set(i);
@@ -398,7 +406,7 @@ public:
     }
 
     const vector<StateSet> initial() {
-        vector<StateSet> rv(1, init);
+        vector<StateSet> rv = {init};
         if (start_floating != DEAD_STATE && start_floating != start_anchored) {
             rv.push_back(initDS);
         }
@@ -446,9 +454,9 @@ public:
     StateSet acceptEod;
     StateSet toppable; /* states which are allowed to be on when a top arrives,
                         * triggered dfas only */
+    StateSet dead;
     map<u32, StateSet> squash_mask;
     bool prunable;
-    StateSet dead;
     array<u16, ALPHABET_SIZE> alpha;
     array<u16, ALPHABET_SIZE> unalpha;
     u16 alphasize;
@@ -457,119 +465,55 @@ public:
     u16 start_floating;
 };
 
-class Automaton_Graph {
-public:
-    typedef bitfield<NFA_STATE_LIMIT> StateSet;
-    typedef ue2::unordered_map<StateSet, dstate_id_t> StateMap;
+struct Big_Traits {
+    using StateSet = dynamic_bitset<>;
+    using StateMap = map<StateSet, dstate_id_t>;
 
-    Automaton_Graph(const ReportManager *rm_in, const NGHolder &graph_in,
-                    const flat_set<NFAVertex> &unused_in, bool single_trigger,
-                    const vector<vector<CharReach>> &triggers, bool prunable_in)
-        : rm(rm_in), graph(graph_in), unused(unused_in), prunable(prunable_in) {
-        populateInit(graph, unused, &init, &initDS, &v_by_index);
-        populateAccepts(graph, unused, &accept, &acceptEod);
-
-        start_anchored = DEAD_STATE + 1;
-        if (initDS == init) {
-            start_floating = start_anchored;
-        } else if (initDS.any()) {
-            start_floating = start_anchored + 1;
-        } else {
-            start_floating = DEAD_STATE;
-        }
-
-        calculateAlphabet(graph, alpha, unalpha, &alphasize);
-        assert(alphasize <= ALPHABET_SIZE);
-
-        for (const auto &sq : findSquashers(graph)) {
-            NFAVertex v = sq.first;
-            u32 vert_id = graph[v].index;
-            squash.set(vert_id);
-            squash_mask[vert_id] = shrinkStateSet(sq.second);
-        }
-
-        cr_by_index = populateCR(graph, v_by_index, alpha);
-        if (is_triggered(graph)) {
-            dynamic_bitset<> temp(NFA_STATE_LIMIT);
-            markToppableStarts(graph, unused, single_trigger, triggers, &temp);
-            toppable = bitfield<NFA_STATE_LIMIT>(temp);
-        }
+    static StateSet init_states(u32 num) {
+        return StateSet(num);
     }
 
-private:
-    // Convert an NFAStateSet (as used by the squash code) into a StateSet
-    StateSet shrinkStateSet(const NFAStateSet &in) const {
-        StateSet out;
+    static StateSet copy_states(const dynamic_bitset<> &in, UNUSED u32 num) {
+        assert(in.size() == num);
+        return in;
+    }
+};
+
+class Automaton_Big : public Automaton_Base<Big_Traits> {
+public:
+    Automaton_Big(const ReportManager *rm_in, const NGHolder &graph_in,
+                  const flat_set<NFAVertex> &unused_in, bool single_trigger,
+                  const vector<vector<CharReach>> &triggers, bool prunable_in)
+        : Automaton_Base(rm_in, graph_in, unused_in, single_trigger, triggers,
+                         prunable_in) {}
+};
+
+struct Graph_Traits {
+    using StateSet = bitfield<NFA_STATE_LIMIT>;
+    using StateMap = ue2::unordered_map<StateSet, dstate_id_t>;
+
+    static StateSet init_states(UNUSED u32 num) {
+        assert(num <= NFA_STATE_LIMIT);
+        return StateSet();
+    }
+
+    static StateSet copy_states(const dynamic_bitset<> &in, u32 num) {
+        StateSet out = init_states(num);
         for (size_t i = in.find_first(); i != in.npos && i < out.size();
              i = in.find_next(i)) {
             out.set(i);
         }
         return out;
     }
+};
 
+class Automaton_Graph : public Automaton_Base<Graph_Traits> {
 public:
-    void transition(const StateSet &in, StateSet *next) {
-        transition_graph(*this, v_by_index, in, next);
-    }
-
-    const vector<StateSet> initial() {
-        vector<StateSet> rv(1, init);
-        if (start_floating != DEAD_STATE && start_floating != start_anchored) {
-            rv.push_back(initDS);
-        }
-        return rv;
-    }
-
-private:
-    void reports_i(const StateSet &in, bool eod, flat_set<ReportID> &rv) {
-        StateSet acc = in & (eod ? acceptEod : accept);
-        for (size_t i = acc.find_first(); i != StateSet::npos;
-             i = acc.find_next(i)) {
-            NFAVertex v = v_by_index[i];
-            DEBUG_PRINTF("marking report\n");
-            const auto &my_reports = graph[v].reports;
-            rv.insert(my_reports.begin(), my_reports.end());
-        }
-    }
-
-public:
-    void reports(const StateSet &in, flat_set<ReportID> &rv) {
-        reports_i(in, false, rv);
-    }
-    void reportsEod(const StateSet &in, flat_set<ReportID> &rv) {
-        reports_i(in, true, rv);
-    }
-
-    bool canPrune(const flat_set<ReportID> &test_reports) const {
-        if (!rm || !prunable || !canPruneEdgesFromAccept(*rm, graph)) {
-            return false;
-        }
-        return allExternalReports(*rm, test_reports);
-    }
-
-private:
-    const ReportManager *rm;
-public:
-    const NGHolder &graph;
-    const flat_set<NFAVertex> &unused;
-    vector<NFAVertex> v_by_index;
-    vector<CharReach> cr_by_index; /* pre alpha'ed */
-    StateSet init;
-    StateSet initDS;
-    StateSet squash; /* states which allow us to mask out other states */
-    StateSet accept;
-    StateSet acceptEod;
-    StateSet toppable; /* states which are allowed to be on when a top arrives,
-                        * triggered dfas only */
-    map<u32, StateSet> squash_mask;
-    bool prunable;
-    StateSet dead;
-    array<u16, ALPHABET_SIZE> alpha;
-    array<u16, ALPHABET_SIZE> unalpha;
-    u16 alphasize;
-
-    u16 start_anchored;
-    u16 start_floating;
+    Automaton_Graph(const ReportManager *rm_in, const NGHolder &graph_in,
+                  const flat_set<NFAVertex> &unused_in, bool single_trigger,
+                  const vector<vector<CharReach>> &triggers, bool prunable_in)
+        : Automaton_Base(rm_in, graph_in, unused_in, single_trigger, triggers,
+                         prunable_in) {}
 };
 
 } // namespace
