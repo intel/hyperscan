@@ -130,7 +130,7 @@ protected:
 
 INSTANTIATE_TEST_CASE_P(
     LimEx, LimExModelTest,
-    Range((int)LIMEX_NFA_32_1, (int)LIMEX_NFA_512_7));
+    Range((int)LIMEX_NFA_32, (int)LIMEX_NFA_512));
 
 TEST_P(LimExModelTest, StateSize) {
     ASSERT_TRUE(nfa != nullptr);
@@ -337,7 +337,7 @@ protected:
 };
 
 INSTANTIATE_TEST_CASE_P(LimExReverse, LimExReverseTest,
-                        Range((int)LIMEX_NFA_32_1, (int)LIMEX_NFA_512_7));
+                        Range((int)LIMEX_NFA_32, (int)LIMEX_NFA_512));
 
 TEST_P(LimExReverseTest, BlockExecReverse) {
     ASSERT_TRUE(nfa != nullptr);
@@ -424,7 +424,7 @@ protected:
 };
 
 INSTANTIATE_TEST_CASE_P(LimExZombie, LimExZombieTest,
-                        Range((int)LIMEX_NFA_32_1, (int)LIMEX_NFA_512_7));
+                        Range((int)LIMEX_NFA_32, (int)LIMEX_NFA_512));
 
 TEST_P(LimExZombieTest, GetZombieStatus) {
     ASSERT_TRUE(nfa != nullptr);

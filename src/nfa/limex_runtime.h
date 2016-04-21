@@ -73,34 +73,35 @@ struct proto_cache {
 };
 
 // Shift macros for Limited NFAs. Defined in terms of uniform ops.
+// LimExNFAxxx ptr in 'limex' and the current state in 's'
 #define NFA_EXEC_LIM_SHIFT(nels_type, nels_i)                                  \
     (JOIN(shift_, nels_type)(                                                  \
         JOIN(and_, nels_type)(s,                                               \
                               JOIN(load_, nels_type)(&limex->shift[nels_i])),  \
-        nels_i))
+        limex->shiftAmount[nels_i]))
 
-// Calculate the (limited model) successors for a given max shift. Assumes
-// LimExNFAxxx ptr in 'l', current state in 's' and successors in 'succ'.
+// Calculate the (limited model) successors for a number of variable shifts.
+// Assumes current state in 's' and successors in 'succ'.
 
-#define NFA_EXEC_GET_LIM_SUCC(gls_type, gls_shift)                             \
+#define NFA_EXEC_GET_LIM_SUCC(gls_type)                                        \
     do {                                                                       \
-        succ =                                                                 \
-            JOIN(and_, gls_type)(s, JOIN(load_, gls_type)(&limex->shift[0]));  \
-        switch (gls_shift) {                                                   \
-        case 7:                                                                \
+        succ = NFA_EXEC_LIM_SHIFT(gls_type, 0);                                \
+        switch (limex->shiftCount) {                                           \
+        case 8:                                                                \
             succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 7)); \
-        case 6:                                                                \
+        case 7:                                                                \
             succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 6)); \
-        case 5:                                                                \
+        case 6:                                                                \
             succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 5)); \
-        case 4:                                                                \
+        case 5:                                                                \
             succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 4)); \
-        case 3:                                                                \
+        case 4:                                                                \
             succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 3)); \
-        case 2:                                                                \
+        case 3:                                                                \
             succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 2)); \
-        case 1:                                                                \
+        case 2:                                                                \
             succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 1)); \
+        case 1:                                                                \
         case 0:                                                                \
             ;                                                                  \
         }                                                                      \

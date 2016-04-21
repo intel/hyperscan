@@ -37,11 +37,11 @@
   * Version 2.0: now with X-Macros, so you get line numbers in your debugger.
   */
 
-#if !defined(SIZE) || !defined(STATE_T) || !defined(SHIFT)
-#  error Must define SIZE and STATE_T and SHIFT in includer.
+#if !defined(SIZE) || !defined(STATE_T)
+#  error Must define SIZE and STATE_T in includer.
 #endif
 
-#define LIMEX_API_ROOT   JOIN(JOIN(JOIN(nfaExecLimEx, SIZE), _), SHIFT)
+#define LIMEX_API_ROOT   JOIN(nfaExecLimEx, SIZE)
 
 #define IMPL_NFA_T          JOIN(struct LimExNFA, SIZE)
 
@@ -201,7 +201,7 @@ without_accel:
 
         u8 c = input[i];
         STATE_T succ;
-        NFA_EXEC_GET_LIM_SUCC(STATE_T, SHIFT);
+        NFA_EXEC_GET_LIM_SUCC(STATE_T);
 
         if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, exceptionMap, s,
                               EXCEPTION_MASK, i, offset, &succ, final_loc, ctx,
@@ -252,7 +252,7 @@ with_accel:
 
         u8 c = input[i];
         STATE_T succ;
-        NFA_EXEC_GET_LIM_SUCC(STATE_T, SHIFT);
+        NFA_EXEC_GET_LIM_SUCC(STATE_T);
 
         if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, exceptionMap, s,
                               EXCEPTION_MASK, i, offset, &succ, final_loc, ctx,
@@ -318,7 +318,7 @@ char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
 
         u8 c = input[i-1];
         STATE_T succ;
-        NFA_EXEC_GET_LIM_SUCC(STATE_T, SHIFT);
+        NFA_EXEC_GET_LIM_SUCC(STATE_T);
 
         if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, exceptionMap, s,
                               EXCEPTION_MASK, i, offset, &succ, final_loc, ctx,
@@ -935,5 +935,4 @@ enum nfa_zombie_status JOIN(LIMEX_API_ROOT, _zombie_status)(
 // Parameters.
 #undef SIZE
 #undef STATE_T
-#undef SHIFT
 #undef LIMEX_API_ROOT

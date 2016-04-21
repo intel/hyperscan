@@ -81,7 +81,6 @@ Grey::Grey(void) :
                    allowZombies(true),
                    floodAsPuffette(false),
                    nfaForceSize(0),
-                   nfaForceShifts(0),
                    maxHistoryAvailable(DEFAULT_MAX_HISTORY),
                    minHistoryAvailable(0), /* debugging only */
                    maxAnchoredRegion(63), /* for rose's atable to run over */
@@ -234,7 +233,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(allowZombies);
         G_UPDATE(floodAsPuffette);
         G_UPDATE(nfaForceSize);
-        G_UPDATE(nfaForceShifts);
         G_UPDATE(highlanderSquash);
         G_UPDATE(maxHistoryAvailable);
         G_UPDATE(minHistoryAvailable);

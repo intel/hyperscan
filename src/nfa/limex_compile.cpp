@@ -169,10 +169,10 @@ struct build_info {
 
 // Constants for scoring mechanism
 
-#define LAST_LIMEX_NFA LIMEX_NFA_512_7
+#define LAST_LIMEX_NFA LIMEX_NFA_512
 
 const int LIMEX_INITIAL_SCORE = 2000;
-const int SHIFT_COST = 20; // limex: cost per shift mask
+const int SHIFT_COST = 10; // limex: cost per shift mask
 const int EXCEPTION_COST = 4; // limex: per exception
 
 template<NFAEngineType t> struct NFATraits { };
@@ -259,6 +259,17 @@ void maskSetBits(Mask &m, const NFAStateSet &bits) {
     for (size_t i = bits.find_first(); i != bits.npos; i = bits.find_next(i)) {
         maskSetBit(m, i);
     }
+}
+
+template<class Mask>
+bool isMaskZero(Mask &m) {
+    u8 *m8 = (u8 *)&m;
+    for (u32 i = 0; i < sizeof(m); i++) {
+        if (m8[i]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // Sets an entire byte in a mask to the given value
@@ -1315,31 +1326,101 @@ u32 depth_to_u32(const depth &d) {
     return d_val;
 }
 
+static
+bool isExceptionalTransition(const NGHolder &h, const NFAEdge &e,
+                             const build_info &args, u32 maxShift) {
+    NFAVertex from = source(e, h);
+    NFAVertex to = target(e, h);
+    u32 f = args.state_ids.at(from);
+    u32 t = args.state_ids.at(to);
+    if (!isLimitedTransition(f, t, maxShift)) {
+        return true;
+    }
+
+    // All transitions out of a tug trigger are exceptional.
+    if (contains(args.tugs, from)) {
+        return true;
+    }
+    return false;
+}
+
+static
+u32 findMaxVarShift(const build_info &args, u32 nShifts) {
+    const NGHolder &h = args.h;
+    u32 shiftMask = 0;
+    for (const auto &e : edges_range(h)) {
+        u32 from = args.state_ids.at(source(e, h));
+        u32 to = args.state_ids.at(target(e, h));
+        if (from == NO_STATE || to == NO_STATE) {
+            continue;
+        }
+        if (!isExceptionalTransition(h, e, args, MAX_SHIFT_AMOUNT)) {
+            shiftMask |= (1UL << (to - from));
+        }
+    }
+
+    u32 maxVarShift = 0;
+    for (u32 shiftCnt = 0; shiftMask != 0 && shiftCnt < nShifts; shiftCnt++) {
+        maxVarShift = findAndClearLSB_32(&shiftMask);
+    }
+
+    return maxVarShift;
+}
+
+static
+int getLimexScore(const build_info &args, u32 nShifts) {
+    const NGHolder &h = args.h;
+    u32 maxVarShift = nShifts;
+    int score = LIMEX_INITIAL_SCORE;
+
+    score -= SHIFT_COST * nShifts;
+    maxVarShift = findMaxVarShift(args, nShifts);
+
+    NFAStateSet exceptionalStates(args.num_states);
+    for (const auto &e : edges_range(h)) {
+        u32 from = args.state_ids.at(source(e, h));
+        u32 to = args.state_ids.at(target(e, h));
+        if (from == NO_STATE || to == NO_STATE) {
+            continue;
+        }
+        if (isExceptionalTransition(h, e, args, maxVarShift)) {
+            exceptionalStates.set(from);
+        }
+    }
+    score -= EXCEPTION_COST * exceptionalStates.count();
+    if (score < 0) {
+        score = 0;
+    }
+    return score;
+}
+
+// This function finds the best shift scheme with highest score
+// Returns number of shifts and score calculated for appropriate scheme
+// Returns zero if no appropriate scheme was found
+static
+u32 findBestNumOfVarShifts(const build_info &args,
+                           int *bestScoreRet = nullptr) {
+    u32 bestNumOfVarShifts = 0;
+    int bestScore = 0;
+    for (u32 shiftCount = 1; shiftCount <= MAX_SHIFT_COUNT; shiftCount++) {
+        int score = getLimexScore(args, shiftCount);
+        if (score > bestScore) {
+            bestScore = score;
+            bestNumOfVarShifts = shiftCount;
+        }
+    }
+    if (bestScoreRet != nullptr) {
+        *bestScoreRet = bestScore;
+    }
+    return bestNumOfVarShifts;
+}
+
 template<NFAEngineType dtype>
 struct Factory {
     // typedefs for readability, for types derived from traits
     typedef typename NFATraits<dtype>::exception_t exception_t;
     typedef typename NFATraits<dtype>::implNFA_t implNFA_t;
     typedef typename NFATraits<dtype>::tableRow_t tableRow_t;
-
-    static
-    bool isExceptionalTransition(const NGHolder &h, const NFAEdge &e,
-                                 const ue2::unordered_map<NFAVertex, u32> &state_ids,
-                                 const ue2::unordered_set<NFAVertex> &tugs) {
-        NFAVertex from = source(e, h);
-        NFAVertex to = target(e, h);
-        u32 f = state_ids.at(from);
-        u32 t = state_ids.at(to);
-        if (!isLimitedTransition(f, t, NFATraits<dtype>::maxShift)) {
-            return true;
-        }
-
-        // All transitions out of a tug trigger are exceptional.
-        if (contains(tugs, from)) {
-            return true;
-        }
-        return false;
-    }
 
     static
     void allocState(NFA *nfa, u32 repeatscratchStateSize,
@@ -1504,6 +1585,9 @@ struct Factory {
     static
     void writeShiftMasks(const build_info &args, implNFA_t *limex) {
         const NGHolder &h = args.h;
+        u32 maxShift = findMaxVarShift(args, limex->shiftCount);
+        u32 shiftMask = 0;
+        int shiftMaskIdx = 0;
 
         for (const auto &e : edges_range(h)) {
             u32 from = args.state_ids.at(source(e, h));
@@ -1515,15 +1599,32 @@ struct Factory {
             // We check for exceptional transitions here, as we don't want tug
             // trigger transitions emitted as limited transitions (even if they
             // could be in this model).
-            if (!isExceptionalTransition(h, e, args.state_ids, args.tugs)) {
-                maskSetBit(limex->shift[to - from], from);
+            if (!isExceptionalTransition(h, e, args, maxShift)) {
+                u32 shift = to - from;
+                if ((shiftMask & (1UL << shift)) == 0UL) {
+                    shiftMask |= (1UL << shift);
+                    limex->shiftAmount[shiftMaskIdx++] = (u8)shift;
+                }
+                assert(limex->shiftCount <= MAX_SHIFT_COUNT);
+                for (u32 i = 0; i < limex->shiftCount; i++) {
+                    if (limex->shiftAmount[i] == (u8)shift) {
+                        maskSetBit(limex->shift[i], from);
+                        break;
+                    }
+                }
+            }
+        }
+        if (maxShift && limex->shiftCount > 1) {
+            for (u32 i = 0; i < limex->shiftCount; i++) {
+                assert(!isMaskZero(limex->shift[i]));
             }
         }
     }
 
     static
     void findExceptionalTransitions(const build_info &args,
-                                    ue2::unordered_set<NFAEdge> &exceptional) {
+                                    ue2::unordered_set<NFAEdge> &exceptional,
+                                    u32 maxShift) {
         const NGHolder &h = args.h;
 
         for (const auto &e : edges_range(h)) {
@@ -1533,7 +1634,7 @@ struct Factory {
                 continue;
             }
 
-            if (isExceptionalTransition(h, e, args.state_ids, args.tugs)) {
+            if (isExceptionalTransition(h, e, args, maxShift)) {
                 exceptional.insert(e);
             }
         }
@@ -1778,7 +1879,10 @@ struct Factory {
         }
 
         ue2::unordered_set<NFAEdge> exceptional;
-        findExceptionalTransitions(args, exceptional);
+        u32 shiftCount = findBestNumOfVarShifts(args);
+        assert(shiftCount);
+        u32 maxShift = findMaxVarShift(args, shiftCount);
+        findExceptionalTransitions(args, exceptional, maxShift);
 
         map<ExceptionProto, vector<u32> > exceptionMap;
         vector<ReportID> exceptionReports;
@@ -1874,6 +1978,7 @@ struct Factory {
         writeAccepts(acceptMask, acceptEodMask, accepts, acceptsEod, squash,
                      limex, acceptsOffset, acceptsEodOffset, squashOffset);
 
+        limex->shiftCount = shiftCount;
         writeShiftMasks(args, limex);
 
         // Determine the state required for our state vector.
@@ -1907,8 +2012,6 @@ struct Factory {
     }
 
     static int score(const build_info &args) {
-        const NGHolder &h = args.h;
-
         // LimEx NFAs are available in sizes from 32 to 512-bit.
         size_t num_states = args.num_states;
 
@@ -1928,45 +2031,17 @@ struct Factory {
             sz = args.cc.grey.nfaForceSize;
         }
 
-        if (args.cc.grey.nfaForceShifts &&
-            NFATraits<dtype>::maxShift != args.cc.grey.nfaForceShifts) {
-            return -1;
-        }
-
         if (sz != NFATraits<dtype>::maxStates) {
             return -1; // fail, size not appropriate
         }
 
         // We are of the right size, calculate a score based on the number
         // of exceptions and the number of shifts used by this LimEx.
-        int score = LIMEX_INITIAL_SCORE;
-        if (NFATraits<dtype>::maxShift != 0) {
-            score -= SHIFT_COST / 2; // first shift mask is cheap
-            score -= SHIFT_COST * (NFATraits<dtype>::maxShift - 1);
+        int score;
+        u32 shiftCount = findBestNumOfVarShifts(args, &score);
+        if (shiftCount == 0) {
+            return -1;
         }
-
-        NFAStateSet exceptionalStates(num_states); // outbound exc trans
-
-        for (const auto &e : edges_range(h)) {
-            u32 from = args.state_ids.at(source(e, h));
-            u32 to = args.state_ids.at(target(e, h));
-            if (from == NO_STATE || to == NO_STATE) {
-                continue;
-            }
-
-            if (isExceptionalTransition(h, e, args.state_ids, args.tugs)) {
-                exceptionalStates.set(from);
-            }
-        }
-        DEBUG_PRINTF("%zu exceptional states\n", exceptionalStates.count());
-        score -= EXCEPTION_COST * exceptionalStates.count();
-
-        /* ensure that we always report a valid score if have the right number
-         * of states */
-        if (score < 0) {
-            score = 0;
-        }
-
         return score;
     }
 };
@@ -1985,50 +2060,19 @@ struct scoreNfa {
     }
 };
 
-#define MAKE_LIMEX_TRAITS(mlt_size, mlt_shift)                          \
-    template<> struct NFATraits<LIMEX_NFA_##mlt_size##_##mlt_shift> {   \
-        typedef LimExNFA##mlt_size implNFA_t;                           \
-        typedef u_##mlt_size tableRow_t;                                \
-        typedef NFAException##mlt_size exception_t;                     \
-        static const size_t maxStates = mlt_size;                       \
-        static const u32 maxShift = mlt_shift;                          \
-    };                                                                  \
+#define MAKE_LIMEX_TRAITS(mlt_size)                                            \
+    template<> struct NFATraits<LIMEX_NFA_##mlt_size> {                        \
+        typedef LimExNFA##mlt_size implNFA_t;                                  \
+        typedef u_##mlt_size tableRow_t;                                       \
+        typedef NFAException##mlt_size exception_t;                            \
+        static const size_t maxStates = mlt_size;                              \
+    };
 
-MAKE_LIMEX_TRAITS(32, 1)
-MAKE_LIMEX_TRAITS(32, 2)
-MAKE_LIMEX_TRAITS(32, 3)
-MAKE_LIMEX_TRAITS(32, 4)
-MAKE_LIMEX_TRAITS(32, 5)
-MAKE_LIMEX_TRAITS(32, 6)
-MAKE_LIMEX_TRAITS(32, 7)
-MAKE_LIMEX_TRAITS(128, 1)
-MAKE_LIMEX_TRAITS(128, 2)
-MAKE_LIMEX_TRAITS(128, 3)
-MAKE_LIMEX_TRAITS(128, 4)
-MAKE_LIMEX_TRAITS(128, 5)
-MAKE_LIMEX_TRAITS(128, 6)
-MAKE_LIMEX_TRAITS(128, 7)
-MAKE_LIMEX_TRAITS(256, 1)
-MAKE_LIMEX_TRAITS(256, 2)
-MAKE_LIMEX_TRAITS(256, 3)
-MAKE_LIMEX_TRAITS(256, 4)
-MAKE_LIMEX_TRAITS(256, 5)
-MAKE_LIMEX_TRAITS(256, 6)
-MAKE_LIMEX_TRAITS(256, 7)
-MAKE_LIMEX_TRAITS(384, 1)
-MAKE_LIMEX_TRAITS(384, 2)
-MAKE_LIMEX_TRAITS(384, 3)
-MAKE_LIMEX_TRAITS(384, 4)
-MAKE_LIMEX_TRAITS(384, 5)
-MAKE_LIMEX_TRAITS(384, 6)
-MAKE_LIMEX_TRAITS(384, 7)
-MAKE_LIMEX_TRAITS(512, 1)
-MAKE_LIMEX_TRAITS(512, 2)
-MAKE_LIMEX_TRAITS(512, 3)
-MAKE_LIMEX_TRAITS(512, 4)
-MAKE_LIMEX_TRAITS(512, 5)
-MAKE_LIMEX_TRAITS(512, 6)
-MAKE_LIMEX_TRAITS(512, 7)
+MAKE_LIMEX_TRAITS(32)
+MAKE_LIMEX_TRAITS(128)
+MAKE_LIMEX_TRAITS(256)
+MAKE_LIMEX_TRAITS(384)
+MAKE_LIMEX_TRAITS(512)
 
 } // namespace
 

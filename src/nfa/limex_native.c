@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -132,35 +132,4 @@ int processExceptional32(u32 s, u32 estate, UNUSED u32 diffmask, u32 *succ,
 
 #define SIZE                32
 #define STATE_T             u32
-#define SHIFT               1
-#include "limex_runtime_impl.h"
-
-#define SIZE                32
-#define STATE_T             u32
-#define SHIFT               2
-#include "limex_runtime_impl.h"
-
-#define SIZE                32
-#define STATE_T             u32
-#define SHIFT               3
-#include "limex_runtime_impl.h"
-
-#define SIZE                32
-#define STATE_T             u32
-#define SHIFT               4
-#include "limex_runtime_impl.h"
-
-#define SIZE                32
-#define STATE_T             u32
-#define SHIFT               5
-#include "limex_runtime_impl.h"
-
-#define SIZE                32
-#define STATE_T             u32
-#define SHIFT               6
-#include "limex_runtime_impl.h"
-
-#define SIZE                32
-#define STATE_T             u32
-#define SHIFT               7
 #include "limex_runtime_impl.h"

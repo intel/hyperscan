@@ -88,7 +88,6 @@ struct Grey {
     bool floodAsPuffette;
 
     u32 nfaForceSize;
-    u32 nfaForceShifts;
 
     u32 maxHistoryAvailable;
     u32 minHistoryAvailable;

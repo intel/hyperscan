@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -140,8 +140,8 @@ enum NFACategory {NFA_LIMEX, NFA_OTHER};
 #define DO_IF_DUMP_SUPPORT(a)
 #endif
 
-#define MAKE_LIMEX_TRAITS(mlt_size, mlt_shift)                          \
-    template<> struct NFATraits<LIMEX_NFA_##mlt_size##_##mlt_shift> {   \
+#define MAKE_LIMEX_TRAITS(mlt_size)                                     \
+    template<> struct NFATraits<LIMEX_NFA_##mlt_size> {                 \
         static UNUSED const char *name;                                 \
         static const NFACategory category = NFA_LIMEX;                  \
         typedef LimExNFA##mlt_size implNFA_t;                           \
@@ -151,52 +151,22 @@ enum NFACategory {NFA_LIMEX, NFA_OTHER};
                 MAX(alignof(tableRow_t), alignof(RepeatControl));       \
         static const bool fast = mlt_size <= 64;                        \
     };                                                                  \
-    const has_accel_fn NFATraits<LIMEX_NFA_##mlt_size##_##mlt_shift>::has_accel \
+    const has_accel_fn NFATraits<LIMEX_NFA_##mlt_size>::has_accel       \
             = has_accel_limex<LimExNFA##mlt_size>;                      \
     DO_IF_DUMP_SUPPORT(                                                 \
-    const char *NFATraits<LIMEX_NFA_##mlt_size##_##mlt_shift>::name     \
-        = "LimEx (0-"#mlt_shift") "#mlt_size;                           \
-    template<> struct getDescription<LIMEX_NFA_##mlt_size##_##mlt_shift> { \
-        static string call(const void *ptr) {                            \
-            return getDescriptionLimEx<LIMEX_NFA_##mlt_size##_##mlt_shift>((const NFA *)ptr); \
+    const char *NFATraits<LIMEX_NFA_##mlt_size>::name                   \
+        = "LimEx "#mlt_size;                                            \
+    template<> struct getDescription<LIMEX_NFA_##mlt_size> {            \
+        static string call(const void *ptr) {                           \
+            return getDescriptionLimEx<LIMEX_NFA_##mlt_size>((const NFA *)ptr); \
         } \
     };)
 
-MAKE_LIMEX_TRAITS(32, 1)
-MAKE_LIMEX_TRAITS(32, 2)
-MAKE_LIMEX_TRAITS(32, 3)
-MAKE_LIMEX_TRAITS(32, 4)
-MAKE_LIMEX_TRAITS(32, 5)
-MAKE_LIMEX_TRAITS(32, 6)
-MAKE_LIMEX_TRAITS(32, 7)
-MAKE_LIMEX_TRAITS(128, 1)
-MAKE_LIMEX_TRAITS(128, 2)
-MAKE_LIMEX_TRAITS(128, 3)
-MAKE_LIMEX_TRAITS(128, 4)
-MAKE_LIMEX_TRAITS(128, 5)
-MAKE_LIMEX_TRAITS(128, 6)
-MAKE_LIMEX_TRAITS(128, 7)
-MAKE_LIMEX_TRAITS(256, 1)
-MAKE_LIMEX_TRAITS(256, 2)
-MAKE_LIMEX_TRAITS(256, 3)
-MAKE_LIMEX_TRAITS(256, 4)
-MAKE_LIMEX_TRAITS(256, 5)
-MAKE_LIMEX_TRAITS(256, 6)
-MAKE_LIMEX_TRAITS(256, 7)
-MAKE_LIMEX_TRAITS(384, 1)
-MAKE_LIMEX_TRAITS(384, 2)
-MAKE_LIMEX_TRAITS(384, 3)
-MAKE_LIMEX_TRAITS(384, 4)
-MAKE_LIMEX_TRAITS(384, 5)
-MAKE_LIMEX_TRAITS(384, 6)
-MAKE_LIMEX_TRAITS(384, 7)
-MAKE_LIMEX_TRAITS(512, 1)
-MAKE_LIMEX_TRAITS(512, 2)
-MAKE_LIMEX_TRAITS(512, 3)
-MAKE_LIMEX_TRAITS(512, 4)
-MAKE_LIMEX_TRAITS(512, 5)
-MAKE_LIMEX_TRAITS(512, 6)
-MAKE_LIMEX_TRAITS(512, 7)
+MAKE_LIMEX_TRAITS(32)
+MAKE_LIMEX_TRAITS(128)
+MAKE_LIMEX_TRAITS(256)
+MAKE_LIMEX_TRAITS(384)
+MAKE_LIMEX_TRAITS(512)
 
 template<> struct NFATraits<MCCLELLAN_NFA_8> {
     UNUSED static const char *name;

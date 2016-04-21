@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -246,6 +246,16 @@ void dumpLimexExceptions(const limex_type *limex, FILE *f) {
 
 template<typename limex_type>
 static
+void dumpLimexShifts(const limex_type *limex, FILE *f) {
+    u32 size = limex_traits<limex_type>::size;
+    fprintf(f, "Shift Masks:\n");
+    for(u32 i = 0; i < limex->shiftCount; i++) {
+        fprintf(f, "\t Shift %u(%hhu)\t\tMask: %s\n", i, limex->shiftAmount[i],
+                dumpMask((const u8 *)&limex->shift[i], size).c_str());
+    }
+}
+template<typename limex_type>
+static
 void dumpLimexText(const limex_type *limex, FILE *f) {
     u32 size = limex_traits<limex_type>::size;
 
@@ -269,6 +279,9 @@ void dumpLimexText(const limex_type *limex, FILE *f) {
         dumpMask(f, name.str().c_str(), topMask, size);
         topMask += size / 8;
     }
+
+    // Dump shift masks
+    dumpLimexShifts(limex, f);
 
     dumpSquash(limex, f);
 
@@ -420,78 +433,44 @@ void dumpExDotInfo(const limex_type *limex, u32 state, FILE *f) {
 template<typename limex_type>
 static
 void dumpLimDotInfo(const limex_type *limex, u32 state, FILE *f) {
-    for (u32 j = 0; j < MAX_MAX_SHIFT; j++) {
+    for (u32 j = 0; j < limex->shiftCount; j++) {
+        const u32 shift_amount = limex->shiftAmount[j];
         if (testbit((const u8 *)&limex->shift[j],
                     limex_traits<limex_type>::size, state)) {
-            fprintf(f, "%u -> %u;\n", state, state + j);
+            fprintf(f, "%u -> %u;\n", state, state + shift_amount);
         }
     }
 }
 
-#define DUMP_TEXT_FN(ddf_u, ddf_n, ddf_s)                                      \
-    void nfaExecLimEx##ddf_n##_##ddf_s##_dumpText(const NFA *nfa, FILE *f) {   \
+#define DUMP_TEXT_FN(ddf_n)                                                    \
+    void nfaExecLimEx##ddf_n##_dumpText(const NFA *nfa, FILE *f) {             \
         dumpLimexText((const LimExNFA##ddf_n *)getImplNfa(nfa), f);            \
     }
 
-#define DUMP_DOT_FN(ddf_u, ddf_n, ddf_s)                                       \
-    void nfaExecLimEx##ddf_n##_##ddf_s##_dumpDot(const NFA *nfa, FILE *f) {    \
+#define DUMP_DOT_FN(ddf_n)                                                     \
+    void nfaExecLimEx##ddf_n##_dumpDot(const NFA *nfa, FILE *f) {              \
         const LimExNFA##ddf_n *limex =                                         \
             (const LimExNFA##ddf_n *)getImplNfa(nfa);                          \
                                                                                \
         dumpDotPreamble(f);                                                    \
-        u32 state_count = nfa->nPositions;                              \
+        u32 state_count = nfa->nPositions;                                     \
         dumpVertexDotInfo(limex, state_count, f,                               \
                           limex_labeller<LimExNFA##ddf_n>(limex));             \
         for (u32 i = 0; i < state_count; i++) {                                \
             dumpLimDotInfo(limex, i, f);                                       \
             dumpExDotInfo(limex, i, f);                                        \
         }                                                                      \
-                                                                               \
         dumpDotTrailer(f);                                                     \
     }
 
-#define LIMEX_DUMP_FNS(ntype, size, shifts)                                    \
-    DUMP_TEXT_FN(ntype, size, shifts)                                          \
-    DUMP_DOT_FN(ntype, size, shifts)
+#define LIMEX_DUMP_FNS(size)                                                   \
+    DUMP_TEXT_FN(size)                                                         \
+    DUMP_DOT_FN(size)
 
-LIMEX_DUMP_FNS(u32, 32, 1)
-LIMEX_DUMP_FNS(u32, 32, 2)
-LIMEX_DUMP_FNS(u32, 32, 3)
-LIMEX_DUMP_FNS(u32, 32, 4)
-LIMEX_DUMP_FNS(u32, 32, 5)
-LIMEX_DUMP_FNS(u32, 32, 6)
-LIMEX_DUMP_FNS(u32, 32, 7)
-
-LIMEX_DUMP_FNS(m128, 128, 1)
-LIMEX_DUMP_FNS(m128, 128, 2)
-LIMEX_DUMP_FNS(m128, 128, 3)
-LIMEX_DUMP_FNS(m128, 128, 4)
-LIMEX_DUMP_FNS(m128, 128, 5)
-LIMEX_DUMP_FNS(m128, 128, 6)
-LIMEX_DUMP_FNS(m128, 128, 7)
-
-LIMEX_DUMP_FNS(m256, 256, 1)
-LIMEX_DUMP_FNS(m256, 256, 2)
-LIMEX_DUMP_FNS(m256, 256, 3)
-LIMEX_DUMP_FNS(m256, 256, 4)
-LIMEX_DUMP_FNS(m256, 256, 5)
-LIMEX_DUMP_FNS(m256, 256, 6)
-LIMEX_DUMP_FNS(m256, 256, 7)
-
-LIMEX_DUMP_FNS(m384, 384, 1)
-LIMEX_DUMP_FNS(m384, 384, 2)
-LIMEX_DUMP_FNS(m384, 384, 3)
-LIMEX_DUMP_FNS(m384, 384, 4)
-LIMEX_DUMP_FNS(m384, 384, 5)
-LIMEX_DUMP_FNS(m384, 384, 6)
-LIMEX_DUMP_FNS(m384, 384, 7)
-
-LIMEX_DUMP_FNS(m512, 512, 1)
-LIMEX_DUMP_FNS(m512, 512, 2)
-LIMEX_DUMP_FNS(m512, 512, 3)
-LIMEX_DUMP_FNS(m512, 512, 4)
-LIMEX_DUMP_FNS(m512, 512, 5)
-LIMEX_DUMP_FNS(m512, 512, 6)
-LIMEX_DUMP_FNS(m512, 512, 7)
+LIMEX_DUMP_FNS(32)
+LIMEX_DUMP_FNS(128)
+LIMEX_DUMP_FNS(256)
+LIMEX_DUMP_FNS(384)
+LIMEX_DUMP_FNS(512)
 
 } // namespace ue2

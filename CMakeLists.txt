@@ -438,9 +438,7 @@ set (hs_exec_SRCS
     src/nfa/limex_simd128.c
     src/nfa/limex_simd256.c
     src/nfa/limex_simd384.c
-    src/nfa/limex_simd512a.c
-    src/nfa/limex_simd512b.c
-    src/nfa/limex_simd512c.c
+    src/nfa/limex_simd512.c
     src/nfa/limex.h
     src/nfa/limex_common_impl.h
     src/nfa/limex_context.h

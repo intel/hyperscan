@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -58,12 +58,6 @@
 #define INLINE_ATTR really_inline
 #include "limex_common_impl.h"
 
-#define SIZE                512
-#define STATE_T             m512
-#define SHIFT               6
-#include "limex_runtime_impl.h"
-
-#define SIZE                512
-#define STATE_T             m512
-#define SHIFT               7
+#define SIZE 512
+#define STATE_T m512
 #include "limex_runtime_impl.h"
