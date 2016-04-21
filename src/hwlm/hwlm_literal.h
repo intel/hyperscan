@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -95,11 +95,6 @@ struct hwlmLiteral {
      */
     std::vector<u8> cmp;
 
-    /** \brief Simple constructor: no group information, no msk/cmp. */
-    hwlmLiteral(const std::string &s_in, bool nocase_in, u32 id_in)
-        : s(s_in), id(id_in), nocase(nocase_in), noruns(false),
-          groups(HWLM_ALL_GROUPS), msk(0), cmp(0) {}
-
     /** \brief Complete constructor, takes group information and msk/cmp.
      *
      * This constructor takes a msk/cmp pair. Both must be vectors of length <=
@@ -107,6 +102,10 @@ struct hwlmLiteral {
     hwlmLiteral(const std::string &s_in, bool nocase_in, bool noruns_in,
                 u32 id_in, hwlm_group_t groups_in,
                 const std::vector<u8> &msk_in, const std::vector<u8> &cmp_in);
+
+    /** \brief Simple constructor: no group information, no msk/cmp. */
+    hwlmLiteral(const std::string &s_in, bool nocase_in, u32 id_in)
+        : hwlmLiteral(s_in, nocase_in, false, id_in, HWLM_ALL_GROUPS, {}, {}) {}
 };
 
 /**
