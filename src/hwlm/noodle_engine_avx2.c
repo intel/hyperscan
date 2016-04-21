@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -221,7 +221,7 @@ hwlm_error_t scanDoubleFast(const u8 *buf, size_t len, const u8 *key,
         u32 z0 = movemask256(eq256(mask1, v));
         u32 z1 = movemask256(eq256(mask2, v));
         u32 z = (lastz0 | (z0 << 1)) & z1;
-        lastz0 = (z0 & 0x80000000) >> 31;
+        lastz0 = z0 >> 31;
 
         // On large packet buffers, this prefetch appears to get us about 2%.
         __builtin_prefetch(d + 128);
