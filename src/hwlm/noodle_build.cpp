@@ -26,28 +26,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief Noodle literal matcher: build code.
  */
-#include <cstring> // for memcpy
 
 #include "noodle_build.h"
+
+#include "hwlm_literal.h"
 #include "noodle_internal.h"
-#include "ue2common.h"
 #include "util/alloc.h"
 #include "util/compare.h"
 #include "util/verify_types.h"
+#include "ue2common.h"
+
+#include <cstring> // for memcpy
 
 namespace ue2 {
 
 static
-size_t findNoodFragOffset(const u8 *lit, size_t len, bool nocase) {
+size_t findNoodFragOffset(const hwlmLiteral &lit) {
+    const auto &s = lit.s;
+    const size_t len = lit.s.length();
+
     size_t offset = 0;
     for (size_t i = 0; i + 1 < len; i++) {
         int diff = 0;
-        const char c = lit[i];
-        const char d = lit[i + 1];
-        if (nocase && ourisalpha(c)) {
+        const char c = s[i];
+        const char d = s[i + 1];
+        if (lit.nocase && ourisalpha(c)) {
             diff = (mytoupper(c) != mytoupper(d));
         } else {
             diff = (c != d);
@@ -60,21 +67,24 @@ size_t findNoodFragOffset(const u8 *lit, size_t len, bool nocase) {
     return offset;
 }
 
-/** \brief Construct a Noodle matcher for the given literal. */
-aligned_unique_ptr<noodTable> noodBuildTable(const u8 *lit, size_t len,
-                                             bool nocase, u32 id) {
-    size_t noodle_len = sizeof(noodTable) + len;
-    aligned_unique_ptr<noodTable> n =
-        aligned_zmalloc_unique<noodTable>(noodle_len);
+aligned_unique_ptr<noodTable> noodBuildTable(const hwlmLiteral &lit) {
+    if (!lit.msk.empty()) {
+        DEBUG_PRINTF("noodle can't handle supplementary masks\n");
+        return nullptr;
+    }
+
+    const auto &s = lit.s;
+    size_t noodle_len = sizeof(noodTable) + s.length();
+    auto n = aligned_zmalloc_unique<noodTable>(noodle_len);
     assert(n);
 
-    size_t key_offset = findNoodFragOffset(lit, len, nocase);
+    size_t key_offset = findNoodFragOffset(lit);
 
-    n->id = id;
-    n->len = verify_u32(len);
+    n->id = lit.id;
+    n->len = verify_u32(s.length());
     n->key_offset = verify_u32(key_offset);
-    n->nocase = nocase ? 1 : 0;
-    memcpy(n->str, lit, len);
+    n->nocase = lit.nocase ? 1 : 0;
+    memcpy(n->str, s.c_str(), s.length());
 
     return n;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -526,8 +526,7 @@ aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
         DEBUG_PRINTF("build noodle table\n");
         engType = HWLM_ENGINE_NOOD;
         const hwlmLiteral &lit = lits.front();
-        auto noodle = noodBuildTable((const u8 *)lit.s.c_str(), lit.s.length(),
-                                     lit.nocase, lit.id);
+        auto noodle = noodBuildTable(lit);
         if (noodle) {
             engSize = noodSize(noodle.get());
         }

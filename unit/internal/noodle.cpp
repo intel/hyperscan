@@ -32,6 +32,7 @@
 #include "hwlm/noodle_build.h"
 #include "hwlm/noodle_engine.h"
 #include "hwlm/hwlm.h"
+#include "hwlm/hwlm_literal.h"
 #include "util/alloc.h"
 #include "util/ue2string.h"
 
@@ -65,15 +66,11 @@ hwlmcb_rv_t hlmSimpleCallback(size_t from, size_t to, u32 id, void *context) {
 }
 
 static
-void noodleMatch(const u8 *data, size_t data_len, const char *lit,
+void noodleMatch(const u8 *data, size_t data_len, const char *lit_str,
                  size_t lit_len, char nocase, HWLMCallback cb, void *ctxt) {
-    // Coerce to upper-case if nocase.
-    std::string s(lit, lit_len);
-    if (nocase) {
-        upperString(s);
-    }
-
-    auto n = noodBuildTable((const u8 *)s.c_str(), s.length(), nocase, 0);
+    u32 id = 1000;
+    hwlmLiteral lit(std::string(lit_str, lit_len), nocase, id);
+    auto n = noodBuildTable(lit);
     ASSERT_TRUE(n != nullptr);
 
     hwlm_error_t rv;
