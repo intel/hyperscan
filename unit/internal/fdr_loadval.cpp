@@ -39,55 +39,26 @@ using namespace ue2;
 // Normal (unaligned) load.
 template <typename T> T lv(const u8 *ptr, const u8 *lo, const u8 *hi);
 
-// Aligned load.
-template <typename T> T lv_a(const u8 *ptr, const u8 *lo, const u8 *hi);
-
-// Cautious forward load.
-template <typename T> T lv_cf(const u8 *ptr, const u8 *lo, const u8 *hi);
-
-// Cautious backward load.
-template <typename T> T lv_cb(const u8 *ptr, const u8 *lo, const u8 *hi);
-
 // Cautious everywhere load.
 template <typename T> T lv_ce(const u8 *ptr, const u8 *lo, const u8 *hi);
-
-// Special case: there is no specific _a "aligned load" func for u8. We proxy
-// that to the normal load.
-static u8 lv_u8_a(const u8 *ptr, const u8 *lo, const u8 *hi) {
-    return lv_u8(ptr, lo, hi);
-}
 
 #define BUILD_LOADVALS(vtype)                                                  \
     template <> vtype lv<vtype>(const u8 *ptr, const u8 *lo, const u8 *hi) {   \
         return lv_##vtype(ptr, lo, hi);                                        \
-    }                                                                          \
-    template <> vtype lv_a<vtype>(const u8 *ptr, const u8 *lo, const u8 *hi) { \
-        return lv_##vtype##_a(ptr, lo, hi);                                    \
-    }                                                                          \
-    template <>                                                                \
-    vtype lv_cf<vtype>(const u8 *ptr, const u8 *lo, const u8 *hi) {            \
-        return lv_##vtype##_cf(ptr, lo, hi);                                   \
-    }                                                                          \
-    template <>                                                                \
-    vtype lv_cb<vtype>(const u8 *ptr, const u8 *lo, const u8 *hi) {            \
-        return lv_##vtype##_cb(ptr, lo, hi);                                   \
     }                                                                          \
     template <>                                                                \
     vtype lv_ce<vtype>(const u8 *ptr, const u8 *lo, const u8 *hi) {            \
         return lv_##vtype##_ce(ptr, lo, hi);                                   \
     }
 
-BUILD_LOADVALS(u8)
 BUILD_LOADVALS(u16)
-BUILD_LOADVALS(u32)
 BUILD_LOADVALS(u64a)
-BUILD_LOADVALS(m128)
 
 template <typename T> class FDR_Loadval : public testing::Test {
     // empty
 };
 
-typedef ::testing::Types<u8, u16, u32, u64a, m128> LoadvalTypes;
+typedef ::testing::Types<u16, u64a> LoadvalTypes;
 
 TYPED_TEST_CASE(FDR_Loadval, LoadvalTypes);
 
@@ -111,73 +82,6 @@ TYPED_TEST(FDR_Loadval, Normal) {
         TypeParam val = lv<TypeParam>(src, src, src + len);
         // Should be identical to 'src' in byte order.
         ASSERT_EQ(0, memcmp(&val, src, len));
-    }
-}
-
-TYPED_TEST(FDR_Loadval, Aligned) {
-    const size_t len = sizeof(TypeParam);
-    aligned_unique_ptr<u8> mem_p = aligned_zmalloc_unique<u8>(len); // 16 aligned
-    u8 * mem = mem_p.get();
-    ASSERT_TRUE(ISALIGNED_16(mem));
-    fillWithBytes(mem, len);
-
-    TypeParam val = lv_a<TypeParam>(mem, mem, mem + len);
-
-    // Should be identical to 'mem' in byte order.
-    ASSERT_EQ(0, memcmp(&val, mem, len));
-}
-
-TYPED_TEST(FDR_Loadval, CautiousForward) {
-    // For a cautious forward load, we will get zeroes for all bytes after the
-    // 'hi' ptr.
-    const size_t len = sizeof(TypeParam);
-
-    aligned_unique_ptr<u8> mem_p = aligned_zmalloc_unique<u8>(len + 1);
-    u8 *mem = mem_p.get() + 1; // force unaligned
-    fillWithBytes(mem, len);
-
-    for (size_t i = 1; i <= len; i++) {
-        const u8 *ptr = mem;
-        const u8 *lo = ptr;
-        const u8 *hi = ptr + i;
-        union {
-            TypeParam val;
-            u8 bytes[sizeof(TypeParam)];
-        } x;
-
-        x.val = lv_cf<TypeParam>(ptr, lo, hi);
-
-        // Low bytes will be correct, bytes >= hi will be zero.
-        for (size_t j = 0; j < len; j++) {
-            ASSERT_EQ(j < i ? mem[j] : 0, x.bytes[j]);
-        }
-    }
-}
-
-TYPED_TEST(FDR_Loadval, CautiousBackward) {
-    // For a cautious backwards load, we will get zeroes for all bytes before
-    // the 'lo' ptr.
-    const size_t len = sizeof(TypeParam);
-
-    aligned_unique_ptr<u8> mem_p = aligned_zmalloc_unique<u8>(len + 1);
-    u8 *mem = mem_p.get() + 1; // force unaligned
-    fillWithBytes(mem, len);
-
-    for (size_t i = 1; i <= len; i++) {
-        const u8 *ptr = mem;
-        const u8 *lo = ptr + sizeof(TypeParam) - i;
-        const u8 *hi = ptr + sizeof(TypeParam);
-        union {
-            TypeParam val;
-            u8 bytes[sizeof(TypeParam)];
-        } x;
-
-        x.val = lv_cb<TypeParam>(ptr, lo, hi);
-
-        // Low bytes will be zero, bytes >= lo will be correct.
-        for (size_t j = 0; j < len; j++) {
-            ASSERT_EQ(j < sizeof(TypeParam) - i ? 0 : mem[j], x.bytes[j]);
-        }
     }
 }
 
