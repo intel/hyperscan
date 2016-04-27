@@ -29,7 +29,7 @@
 /** \file
  * \brief FDR literal matcher: build API.
  */
-#include "fdr.h"
+
 #include "fdr_internal.h"
 #include "fdr_compile.h"
 #include "fdr_confirm.h"
