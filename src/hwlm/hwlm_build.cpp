@@ -37,7 +37,6 @@
 #include "noodle_build.h"
 #include "ue2common.h"
 #include "fdr/fdr_compile.h"
-#include "fdr/fdr.h"
 #include "nfa/shufticompile.h"
 #include "util/alloc.h"
 #include "util/bitutils.h"

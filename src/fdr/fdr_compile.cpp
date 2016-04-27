@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -571,10 +571,9 @@ fdrBuildTableHinted(const vector<hwlmLiteral> &lits, bool make_small, u32 hint,
 
 #endif
 
-} // namespace ue2
-
-// FIXME: should be compile-time only
 size_t fdrSize(const FDR *fdr) {
     assert(fdr);
     return fdr->size;
 }
+
+} // namespace ue2

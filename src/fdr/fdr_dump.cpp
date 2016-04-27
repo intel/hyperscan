@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,11 +28,11 @@
 
 #include "config.h"
 
-#include "fdr.h"
-#include "fdr_internal.h"
+#include "fdr_compile.h"
 #include "fdr_compile_internal.h"
 #include "fdr_dump.h"
 #include "fdr_engine_description.h"
+#include "fdr_internal.h"
 #include "teddy_engine_description.h"
 #include "ue2common.h"
 
