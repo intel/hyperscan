@@ -140,6 +140,7 @@ struct match_deduper {
  */
 struct ALIGN_CL_DIRECTIVE hs_scratch {
     u32 magic;
+    u8 in_use; /**< non-zero when being used by an API call. */
     char *scratch_alloc; /* user allocated scratch object */
     u32 queueCount;
     u32 bStateSize; /**< sizeof block mode states */
@@ -196,6 +197,34 @@ char told_to_stop_matching(const struct hs_scratch *scratch) {
 static really_inline
 char can_stop_matching(const struct hs_scratch *scratch) {
     return scratch->core_info.status & (STATUS_TERMINATED | STATUS_EXHAUSTED);
+}
+
+/**
+ * \brief Mark scratch as in use.
+ *
+ * Returns non-zero if it was already in use, zero otherwise.
+ */
+static really_inline
+char markScratchInUse(struct hs_scratch *scratch) {
+    DEBUG_PRINTF("marking scratch as in use\n");
+    assert(scratch && scratch->magic == SCRATCH_MAGIC);
+    if (scratch->in_use) {
+        DEBUG_PRINTF("scratch already in use!\n");
+        return 1;
+    }
+    scratch->in_use = 1;
+    return 0;
+}
+
+/**
+ * \brief Mark scratch as no longer in use.
+ */
+static really_inline
+void unmarkScratchInUse(struct hs_scratch *scratch) {
+    DEBUG_PRINTF("marking scratch as not in use\n");
+    assert(scratch && scratch->magic == SCRATCH_MAGIC);
+    assert(scratch->in_use == 1);
+    scratch->in_use = 0;
 }
 
 #ifdef __cplusplus

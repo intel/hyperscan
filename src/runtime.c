@@ -319,8 +319,13 @@ hs_error_t hs_scan(const hs_database_t *db, const char *data, unsigned length,
         return HS_INVALID;
     }
 
+    if (unlikely(markScratchInUse(scratch))) {
+        return HS_SCRATCH_IN_USE;
+    }
+
     if (rose->minWidth > length) {
         DEBUG_PRINTF("minwidth=%u > length=%u\n", rose->minWidth, length);
+        unmarkScratchInUse(scratch);
         return HS_SUCCESS;
     }
 
@@ -394,12 +399,14 @@ hs_error_t hs_scan(const hs_database_t *db, const char *data, unsigned length,
 
 done_scan:
     if (told_to_stop_matching(scratch)) {
+        unmarkScratchInUse(scratch);
         return HS_SCAN_TERMINATED;
     }
 
     if (rose->hasSom) {
         int halt = flushStoredSomMatches(scratch, ~0ULL);
         if (halt) {
+            unmarkScratchInUse(scratch);
             return HS_SCAN_TERMINATED;
         }
     }
@@ -412,7 +419,10 @@ done_scan:
 set_retval:
     DEBUG_PRINTF("done. told_to_stop_matching=%d\n",
                  told_to_stop_matching(scratch));
-    return told_to_stop_matching(scratch) ? HS_SCAN_TERMINATED : HS_SUCCESS;
+    hs_error_t rv = told_to_stop_matching(scratch) ? HS_SCAN_TERMINATED
+                                                   : HS_SUCCESS;
+    unmarkScratchInUse(scratch);
+    return rv;
 }
 
 static really_inline
@@ -674,7 +684,11 @@ hs_error_t hs_reset_and_copy_stream(hs_stream_t *to_id,
         if (!scratch || !validScratch(to_id->rose, scratch)) {
             return HS_INVALID;
         }
+        if (unlikely(markScratchInUse(scratch))) {
+            return HS_SCRATCH_IN_USE;
+        }
         report_eod_matches(to_id, scratch, onEvent, context);
+        unmarkScratchInUse(scratch);
     }
 
     size_t stateSize
@@ -784,7 +798,10 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
                                    unsigned length, UNUSED unsigned flags,
                                    hs_scratch_t *scratch,
                                    match_event_handler onEvent, void *context) {
-    if (unlikely(!id || !scratch || !data || !validScratch(id->rose, scratch))) {
+    assert(id);
+    assert(scratch);
+
+    if (unlikely(!data)) {
         return HS_INVALID;
     }
 
@@ -878,8 +895,18 @@ HS_PUBLIC_API
 hs_error_t hs_scan_stream(hs_stream_t *id, const char *data, unsigned length,
                           unsigned flags, hs_scratch_t *scratch,
                           match_event_handler onEvent, void *context) {
-    return hs_scan_stream_internal(id, data, length, flags, scratch,
-                                       onEvent, context);
+    if (unlikely(!id || !scratch || !data ||
+                 !validScratch(id->rose, scratch))) {
+        return HS_INVALID;
+    }
+
+    if (unlikely(markScratchInUse(scratch))) {
+        return HS_SCRATCH_IN_USE;
+    }
+    hs_error_t rv = hs_scan_stream_internal(id, data, length, flags, scratch,
+                                            onEvent, context);
+    unmarkScratchInUse(scratch);
+    return rv;
 }
 
 HS_PUBLIC_API
@@ -893,7 +920,11 @@ hs_error_t hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
         if (!scratch || !validScratch(id->rose, scratch)) {
             return HS_INVALID;
         }
+        if (unlikely(markScratchInUse(scratch))) {
+            return HS_SCRATCH_IN_USE;
+        }
         report_eod_matches(id, scratch, onEvent, context);
+        unmarkScratchInUse(scratch);
     }
 
     hs_stream_free(id);
@@ -913,7 +944,11 @@ hs_error_t hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
         if (!scratch || !validScratch(id->rose, scratch)) {
             return HS_INVALID;
         }
+        if (unlikely(markScratchInUse(scratch))) {
+            return HS_SCRATCH_IN_USE;
+        }
         report_eod_matches(id, scratch, onEvent, context);
+        unmarkScratchInUse(scratch);
     }
 
     init_stream(id, id->rose);
@@ -995,6 +1030,10 @@ hs_error_t hs_scan_vector(const hs_database_t *db, const char * const * data,
         return HS_INVALID;
     }
 
+    if (unlikely(markScratchInUse(scratch))) {
+        return HS_SCRATCH_IN_USE;
+    }
+
     hs_stream_t *id = (hs_stream_t *)(scratch->bstate);
 
     init_stream(id, rose); /* open stream */
@@ -1009,6 +1048,7 @@ hs_error_t hs_scan_vector(const hs_database_t *db, const char * const * data,
             = hs_scan_stream_internal(id, data[i], length[i], 0, scratch,
                                       onEvent, context);
         if (ret != HS_SUCCESS) {
+            unmarkScratchInUse(scratch);
             return ret;
         }
     }
@@ -1018,9 +1058,12 @@ hs_error_t hs_scan_vector(const hs_database_t *db, const char * const * data,
         report_eod_matches(id, scratch, onEvent, context);
 
         if (told_to_stop_matching(scratch)) {
+            unmarkScratchInUse(scratch);
             return HS_SCAN_TERMINATED;
         }
     }
+
+    unmarkScratchInUse(scratch);
 
     return HS_SUCCESS;
 }

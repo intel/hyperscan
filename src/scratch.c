@@ -129,6 +129,7 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     *s = *proto;
 
     s->magic = SCRATCH_MAGIC;
+    s->in_use = 1;
     s->scratchSize = alloc_size;
     s->scratch_alloc = (char *)s_tmp;
 
@@ -254,6 +255,9 @@ hs_error_t hs_alloc_scratch(const hs_database_t *db, hs_scratch_t **scratch) {
         if ((*scratch)->magic != SCRATCH_MAGIC) {
             return HS_INVALID;
         }
+        if (markScratchInUse(*scratch)) {
+            return HS_SCRATCH_IN_USE;
+        }
     }
 
     const struct RoseEngine *rose = hs_get_bytecode(db);
@@ -355,6 +359,7 @@ hs_error_t hs_alloc_scratch(const hs_database_t *db, hs_scratch_t **scratch) {
         hs_scratch_free(proto_tmp); /* kill off temp used for sizing */
     }
 
+    unmarkScratchInUse(*scratch);
     return HS_SUCCESS;
 }
 
@@ -384,6 +389,10 @@ hs_error_t hs_free_scratch(hs_scratch_t *scratch) {
         if (scratch->magic != SCRATCH_MAGIC) {
             return HS_INVALID;
         }
+        if (markScratchInUse(scratch)) {
+            return HS_SCRATCH_IN_USE;
+        }
+
         scratch->magic = 0;
         assert(scratch->scratch_alloc);
         DEBUG_PRINTF("scratch %p is really at %p : freeing\n", scratch,

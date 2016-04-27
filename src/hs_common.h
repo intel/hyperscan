@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -499,6 +499,25 @@ const char *hs_version(void);
  * largest representable data type on this platform.
  */
 #define HS_BAD_ALLOC            (-9)
+
+/**
+ * The scratch region was already in use.
+ *
+ * This error is returned when Hyperscan is able to detect that the scratch
+ * region given is already in use by another Hyperscan API call.
+ *
+ * A separate scratch region, allocated with @ref hs_alloc_scratch() or @ref
+ * hs_clone_scratch(), is required for every concurrent caller of the Hyperscan
+ * API.
+ *
+ * For example, this error might be returned when @ref hs_scan() has been
+ * called inside a callback delivered by a currently-executing @ref hs_scan()
+ * call using the same scratch region.
+ *
+ * Note: Not all concurrent uses of scratch regions may be detected. This error
+ * is intended as a best-effort debugging tool, not a guarantee.
+ */
+#define HS_SCRATCH_IN_USE       (-10)
 
 /** @} */
 
