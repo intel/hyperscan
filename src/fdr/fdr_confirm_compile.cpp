@@ -472,7 +472,7 @@ setupFullMultiConfs(const vector<hwlmLiteral> &lits,
         u32 idx = c * nBuckets + b;
         confBase[idx] = confirm_offset;
     }
-    return make_pair(move(buf), totalSize);
+    return {move(buf), totalSize};
 }
 
 } // namespace ue2

@@ -217,7 +217,7 @@ setupFDRFloodControl(const vector<hwlmLiteral> &lits,
     DEBUG_PRINTF("made a flood structure with %zu + %zu = %zu\n",
                  floodHeaderSize, floodStructSize, totalSize);
 
-    return make_pair(move(buf), totalSize);
+    return {move(buf), totalSize};
 }
 
 } // namespace ue2

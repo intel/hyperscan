@@ -315,12 +315,12 @@ void FDRCompiler::assignStringsToBuckets() {
         for (u32 k = j; k < nChunks; ++k) {
             cnt += count[k];
         }
-        t[j][0] = make_pair(getScoreUtil(length[j], cnt), 0);
+        t[j][0] = {getScoreUtil(length[j], cnt), 0};
     }
 
     for (u32 i = 1; i < nb; i++) {
         for (u32 j = 0; j < nChunks - 1; j++) { // don't process last, empty row
-            SCORE_INDEX_PAIR best = make_pair(MAX_SCORE, 0);
+            SCORE_INDEX_PAIR best = {MAX_SCORE, 0};
             u32 cnt = count[j];
             for (u32 k = j + 1; k < nChunks - 1; k++, cnt += count[k]) {
                 SCORE score = getScoreUtil(length[j], cnt);
@@ -329,12 +329,12 @@ void FDRCompiler::assignStringsToBuckets() {
                 }
                 score += t[k][i-1].first;
                 if (score < best.first) {
-                    best = make_pair(score, k);
+                    best = {score, k};
                 }
             }
             t[j][i] = best;
         }
-        t[nChunks - 1][i] = make_pair(0,0); // fill in empty final row for next iteration
+        t[nChunks - 1][i] = {0,0}; // fill in empty final row for next iteration
     }
 
 #ifdef DEBUG_ASSIGNMENT

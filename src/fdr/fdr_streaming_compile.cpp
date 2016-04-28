@@ -320,7 +320,7 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
         stream_control.literal_history_required =
                     max(maxLen(lits), max_mask_len) - 1;
         stream_control.literal_stream_state_required = 0;
-        return make_pair(nullptr, size_t{0});
+        return {nullptr, size_t{0}};
     }
 
     // Ensure that we have enough room for the longest mask.
@@ -419,7 +419,7 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
     // tell the world what we did
     stream_control.literal_history_required = max_len;
     stream_control.literal_stream_state_required = tot_state_bytes;
-    return make_pair(move(secondaryTable), tabSize);
+    return {move(secondaryTable), tabSize};
 }
 
 } // namespace ue2
