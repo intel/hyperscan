@@ -355,7 +355,7 @@ void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *controlVal,
                                ptr_main + byte - a->buf, id, a->ctxt);
            continue;
         }
-        u64a confVal = *(const u64a *)(confLoc + byte - sizeof(u64a));
+        u64a confVal = unaligned_load_u64a(confLoc + byte - sizeof(u64a));
         confWithBit(fdrc, a, ptr_main - a->buf + byte, pullback,
                     control, last_match_id, confVal);
     } while (unlikely(!!*conf));
