@@ -1125,7 +1125,7 @@ bool checkPredDelays(const RoseBuildImpl &tbi, const deque<RoseVertex> &v1,
     }
 
     for (auto u : preds) {
-        if (!contains(known_good_preds, &u)) {
+        if (!contains(known_good_preds, u)) {
             insert(&pred_lits, tbi.g[u].literals);
         }
     }
