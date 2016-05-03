@@ -30,4 +30,4 @@ and/or other countries.
 
 \*Other names and brands may be claimed as the property of others.
 
-Copyright |copy| 2015, Intel Corporation. All rights reserved.
+Copyright |copy| 2015-2016, Intel Corporation. All rights reserved.
