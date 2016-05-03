@@ -253,7 +253,9 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(CHECK_LIT_EARLY) {}
+            PROGRAM_CASE(CHECK_LIT_EARLY) {
+                os << "    min_offset " << ri->min_offset << endl;
+            }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_GROUPS) {

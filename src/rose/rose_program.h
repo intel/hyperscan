@@ -120,6 +120,7 @@ struct ROSE_STRUCT_CHECK_LIT_MASK {
 /** Note: check failure will halt program. */
 struct ROSE_STRUCT_CHECK_LIT_EARLY {
     u8 code; //!< From enum RoseInstructionCode.
+    u32 min_offset; //!< Minimum offset for this literal.
 };
 
 /** Note: check failure will halt program. */

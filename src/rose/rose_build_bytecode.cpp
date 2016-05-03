@@ -3569,6 +3569,19 @@ void makeGroupSquashInstruction(const RoseBuildImpl &build, u32 final_id,
 }
 
 static
+u32 findMinOffset(const RoseBuildImpl &build, u32 lit_id) {
+    const auto &lit_vertices = build.literal_info.at(lit_id).vertices;
+    assert(!lit_vertices.empty());
+
+    u32 min_offset = UINT32_MAX;
+    for (const auto &v : lit_vertices) {
+        min_offset = min(min_offset, build.g[v].min_offset);
+    }
+
+    return min_offset;
+}
+
+static
 void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, build_context &bc,
                                   u32 final_id,
                                   const vector<RoseEdge> &lit_edges,
@@ -3591,22 +3604,36 @@ void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, build_context &bc,
         return;
     }
 
-    size_t min_offset = SIZE_MAX;
+    size_t min_len = SIZE_MAX;
+    u32 min_offset = UINT32_MAX;
     for (u32 lit_id : lit_ids) {
         const auto &lit = build.literals.right.at(lit_id);
-        min_offset = min(min_offset, lit.elength());
+        size_t lit_min_len = lit.elength();
+        u32 lit_min_offset = findMinOffset(build, lit_id);
+        DEBUG_PRINTF("lit_id=%u has min_len=%zu, min_offset=%u\n", lit_id,
+                     lit_min_len, lit_min_offset);
+        min_len = min(min_len, lit_min_len);
+        min_offset = min(min_offset, lit_min_offset);
     }
 
-    DEBUG_PRINTF("%zu lits, min_offset=%zu\n", lit_ids.size(), min_offset);
+    DEBUG_PRINTF("final_id=%u has min_len=%zu, min_offset=%u, "
+                 "global min is %u\n", final_id, min_len, min_offset,
+                 bc.floatingMinLiteralMatchOffset);
 
     // If we can't match before the min offset, we don't need the check.
-    if (min_offset >= bc.floatingMinLiteralMatchOffset) {
+    if (min_len >= bc.floatingMinLiteralMatchOffset) {
         DEBUG_PRINTF("no need for check, min is %u\n",
-                      bc.floatingMinLiteralMatchOffset);
+                     bc.floatingMinLiteralMatchOffset);
         return;
     }
 
-    program.push_back(RoseInstruction(ROSE_INSTR_CHECK_LIT_EARLY));
+    assert(min_offset >= bc.floatingMinLiteralMatchOffset);
+    assert(min_offset < UINT32_MAX);
+
+    DEBUG_PRINTF("adding lit early check, min_offset=%u\n", min_offset);
+    auto ri = RoseInstruction(ROSE_INSTR_CHECK_LIT_EARLY);
+    ri.u.checkLitEarly.min_offset = min_offset;
+    program.push_back(move(ri));
 }
 
 static

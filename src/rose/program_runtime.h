@@ -880,9 +880,9 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_LIT_EARLY) {
-                if (end < t->floatingMinLiteralMatchOffset) {
-                    DEBUG_PRINTF("halt: too soon, min offset=%u\n",
-                                 t->floatingMinLiteralMatchOffset);
+                if (end < ri->min_offset) {
+                    DEBUG_PRINTF("halt: before min_offset=%u\n",
+                                 ri->min_offset);
                     return HWLM_CONTINUE_MATCHING;
                 }
             }
