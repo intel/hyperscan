@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,8 @@
 
 #include "fdr_streaming_internal.h"
 #include "util/partial_store.h"
+
+#include <string.h>
 
 static really_inline
 const struct FDRSTableHeader * getSHDR(const struct FDR * fdr) {
