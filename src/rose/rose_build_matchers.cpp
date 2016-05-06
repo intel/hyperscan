@@ -359,7 +359,7 @@ bool isDirectHighlander(const RoseBuildImpl &build, const u32 id,
 
 // Called by isNoRunsLiteral below.
 static
-bool isNoRunsVertex(const RoseBuildImpl &build, NFAVertex u) {
+bool isNoRunsVertex(const RoseBuildImpl &build, RoseVertex u) {
     const RoseGraph &g = build.g;
     if (!g[u].isBoring()) {
         DEBUG_PRINTF("u=%zu is not boring\n", g[u].idx);

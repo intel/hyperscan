@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -2245,7 +2245,7 @@ bool improveLHS(RoseInGraph &ig, const vector<RoseInEdge> &edges,
         const vector<RoseInEdge> &local = by_src[v];
 
         vector<NGHolder *> graphs;
-        map<RoseInVertex, vector<RoseInEdge> > by_graph;
+        map<NGHolder *, vector<RoseInEdge> > by_graph;
         for (const auto &e : local) {
             NGHolder *gp = ig[e].graph.get();
             if (!contains(by_graph, gp)) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -315,7 +315,7 @@ void createVertices(RoseBuildImpl *tbi,
             w = created[key];
         }
 
-        NFAVertex p = pv.first;
+        RoseVertex p = pv.first;
 
         RoseEdge e;
         bool added;
@@ -943,7 +943,7 @@ void populateRoseGraph(RoseBuildImpl *tbi, RoseBuildData &bd) {
             const vector<RoseVertex> &images = vertex_map[u];
 
             // We should have no dupes.
-            assert(set<NFAVertex>(images.begin(), images.end()).size()
+            assert(set<RoseVertex>(images.begin(), images.end()).size()
                    == images.size());
 
             for (auto v_image : images) {
@@ -1133,7 +1133,7 @@ u32 maxAvailableDelay(const ue2_literal &pred_key, const ue2_literal &lit_key) {
 }
 
 static
-u32 findMaxSafeDelay(const RoseInGraph &ig, RoseInVertex u, RoseVertex v) {
+u32 findMaxSafeDelay(const RoseInGraph &ig, RoseInVertex u, RoseInVertex v) {
     // First, check the overlap constraints on (u,v).
     size_t max_delay;
     if (ig[v].type == RIV_LITERAL) {

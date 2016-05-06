@@ -1185,8 +1185,7 @@ bool attemptRoseGraphMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
         ReportID new_report = tbi.getNewNfaReport();
         shared_ptr<NGHolder> new_graph = cloneHolder(*b_h);
         duplicateReport(*new_graph, b_left.leftfix_report, new_report);
-        pruneReportIfUnused(tbi, new_graph, set<NFAVertex>(),
-                            b_left.leftfix_report);
+        pruneReportIfUnused(tbi, new_graph, {}, b_left.leftfix_report);
 
         rrm[a_left_id].erase(a);
         rrm[b_left_id].erase(b);
