@@ -129,7 +129,9 @@ string dumpString(const ue2_literal &lit) {
 #endif
 
 void upperString(string &s) {
-    transform(s.begin(), s.end(), s.begin(), (int(*)(int)) mytoupper);
+    for (auto &c : s) {
+        c = mytoupper(c);
+    }
 }
 
 size_t maxStringOverlap(const string &a, const string &b, bool nocase) {
