@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,8 +59,8 @@ using namespace ue2;
 #define CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint)                                 \
     {                                                                          \
         auto descr = getTeddyDescription(hint);                                \
-        if (descr && fdr != nullptr) {                                         \
-            return;                                                            \
+        if (descr && fdr == nullptr) {                                         \
+            return; /* cannot build Teddy for this set of literals */          \
         } else {                                                               \
             ASSERT_TRUE(fdr != nullptr);                                       \
         }                                                                      \
