@@ -133,23 +133,25 @@ hwlmcb_rv_t decentCallbackT(size_t start, size_t end, u32 id, void *ctxt) {
 
 } // namespace
 
-static vector<u32> getValidFdrEngines() {
+static
+vector<u32> getValidFdrEngines() {
+    const auto target = get_current_target();
+
     vector<u32> ret;
-    vector<FDREngineDescription> des;
-    getFdrDescriptions(&des);
-    for (vector<FDREngineDescription>::const_iterator it = des.begin();
-         it != des.end(); ++it) {
-        if (it->isValidOnTarget(get_current_target())) {
-            ret.push_back(it->getID());
+
+    vector<FDREngineDescription> fdr_descriptions;
+    getFdrDescriptions(&fdr_descriptions);
+    for (const FDREngineDescription &d : fdr_descriptions) {
+        if (d.isValidOnTarget(target)) {
+            ret.push_back(d.getID());
         }
     }
 
-    vector<TeddyEngineDescription> tDes;
-    getTeddyDescriptions(&tDes);
-    for (vector<TeddyEngineDescription>::const_iterator it = tDes.begin();
-         it != tDes.end(); ++it) {
-        if (it->isValidOnTarget(get_current_target())) {
-            ret.push_back(it->getID());
+    vector<TeddyEngineDescription> teddy_descriptions;
+    getTeddyDescriptions(&teddy_descriptions);
+    for (const TeddyEngineDescription &d : teddy_descriptions) {
+        if (d.isValidOnTarget(target)) {
+            ret.push_back(d.getID());
         }
     }
 
