@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -157,7 +157,8 @@ protected:
         }
 
         // teardown
-        hs_free_scratch(scratch);
+        err = hs_free_scratch(scratch);
+        ASSERT_EQ(HS_SUCCESS, err);
     }
 
     virtual void zeroLengthScan() {
@@ -195,7 +196,8 @@ protected:
         }
 
         // teardown
-        hs_free_scratch(scratch);
+        err = hs_free_scratch(scratch);
+        ASSERT_EQ(HS_SUCCESS, err);
     }
 
     // Can we allocate and clone scratch
@@ -212,8 +214,10 @@ protected:
         ASSERT_EQ(HS_SUCCESS, err);
         EXPECT_TRUE(cloned != nullptr);
 
-        hs_free_scratch(scratch);
-        hs_free_scratch(cloned);
+        err = hs_free_scratch(scratch);
+        EXPECT_EQ(HS_SUCCESS, err);
+        err = hs_free_scratch(cloned);
+        EXPECT_EQ(HS_SUCCESS, err);
     }
 
     // Can we scan with the database (ignoring the matches, and using
@@ -412,7 +416,8 @@ protected:
         // that platform produces HS_SUCCESS.
         if (err == HS_SUCCESS) {
             // host platform.
-            hs_free_scratch(scratch);
+            err = hs_free_scratch(scratch);
+            ASSERT_EQ(HS_SUCCESS, err);
         } else {
             ASSERT_EQ(HS_DB_PLATFORM_ERROR, err);
             ASSERT_TRUE(!scratch);
@@ -519,7 +524,8 @@ TEST_P(HyperscanTestMatchTerminate, MoreThanOne) {
     ASSERT_EQ(HS_SUCCESS, err) << "hs_scan didn't return HS_SCAN_TERMINATED";
     ASSERT_LT(1, count) << "Number of matches returned was not greater than 1.";
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -538,7 +544,8 @@ TEST_P(HyperscanTestMatchTerminate, Block) {
         << "hs_scan didn't return HS_SCAN_TERMINATED";
     ASSERT_EQ(1, count) << "Number of matches returned was not 1.";
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -563,7 +570,8 @@ TEST_P(HyperscanTestMatchTerminate, StreamWhole) {
     err = hs_close_stream(stream, scratch, terminateHandler, &count);
     ASSERT_EQ(1, count) << "Number of matches returned was not 1.";
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -591,7 +599,8 @@ TEST_P(HyperscanTestMatchTerminate, StreamByteByByte) {
     err = hs_close_stream(stream, scratch, terminateHandler, &count);
     ASSERT_EQ(1, count) << "Number of matches returned was not 1.";
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 

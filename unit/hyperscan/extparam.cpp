@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -70,7 +70,8 @@ TEST(ExtParam, LargeMinOffset) {
     ASSERT_EQ(1U, c.matches.size());
     ASSERT_EQ(MatchRecord(100000, 0), c.matches[0]);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -116,7 +117,8 @@ TEST(ExtParam, LargeExactOffset) {
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_EQ(0U, c.matches.size());
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -153,6 +155,7 @@ TEST(ExtParam, LargeMinLength) {
     ASSERT_EQ(1U, c.matches.size());
     ASSERT_EQ(MatchRecord(110000, 0), c.matches[0]);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }

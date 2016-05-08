@@ -83,7 +83,8 @@ void runBlockTest(match_event_handler cb_func) {
     ASSERT_EQ(1, rc.matches);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }
 
 // Generic streaming mode test that uses the given scan callback.
@@ -112,7 +113,8 @@ void runStreamingTest(match_event_handler cb_func) {
 
     // teardown
     hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }
 
 // Generic vectored mode test that uses the given scan callback.
@@ -139,7 +141,8 @@ void runVectoredTest(match_event_handler cb_func) {
     ASSERT_EQ(1, rc.matches);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }
 
 static

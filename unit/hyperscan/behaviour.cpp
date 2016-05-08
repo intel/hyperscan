@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -118,7 +118,8 @@ TEST(HyperscanTestBehaviour, ScanSeveralGigabytesNoMatch) {
     ASSERT_EQ(HS_SUCCESS, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -197,7 +198,8 @@ TEST_P(HyperscanScanGigabytesMatch, StreamingMatch) {
     }
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -287,7 +289,8 @@ TEST_P(HyperscanScanGigabytesMatch, BlockMatch) {
     }
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -349,7 +352,8 @@ TEST(HyperscanTestBehaviour, StreamingThereCanBeOnlyOne) {
     ASSERT_EQ(HS_SUCCESS, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -379,7 +383,8 @@ TEST(HyperscanTestBehaviour, BlockThereCanBeOnlyOne) {
     EXPECT_EQ(1U, matchCount); // only one match
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -425,7 +430,8 @@ TEST_P(HyperscanLiteralLengthTest, FloatingBlock) {
     EXPECT_EQ(0U, matchCount); // no matches
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -463,7 +469,8 @@ TEST_P(HyperscanLiteralLengthTest, AnchoredBlock) {
 
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -505,7 +512,8 @@ TEST_P(CallbackReturnStop, Block) {
     ASSERT_EQ(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -543,7 +551,8 @@ TEST_P(CallbackReturnStop, Streaming) {
     ASSERT_EQ(HS_SUCCESS, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -575,7 +584,8 @@ TEST_P(CallbackReturnStop, Vectored) {
     ASSERT_EQ(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -642,7 +652,8 @@ TEST(HyperscanTestBehaviour, SerializedDogfood1) {
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_EQ(len, lastMatchTo);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db2);
 }
 
@@ -734,7 +745,8 @@ TEST(HyperscanTestBehaviour, SerializedDogfood2) {
     ASSERT_EQ(len2, lastMatchTo);
     ASSERT_EQ(ids[3], lastMatchId);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db2);
 }
 
@@ -805,7 +817,8 @@ TEST(HyperscanTestBehaviour, SerializedDogfood3) {
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_EQ(len, lastMatchTo);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     free(mem);
 }
 
@@ -840,7 +853,8 @@ TEST(HyperscanTestBehaviour, CloseStreamMatch) {
     EXPECT_EQ(1U, matchCount); // our match was returned
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -876,7 +890,8 @@ TEST(HyperscanTestBehaviour, NoMainCB) {
     EXPECT_EQ(1U, matchCount); // our match was returned
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -913,7 +928,8 @@ TEST(HyperscanTestBehaviour, CloseStreamNoMatch) {
     EXPECT_EQ(0U, matchCount); // no match was returned
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -948,7 +964,8 @@ TEST(HyperscanTestBehaviour, CloseStreamAfterTermination) {
     ASSERT_EQ(HS_SUCCESS, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -976,7 +993,8 @@ TEST(HyperscanTestBehaviour, Vectored1) {
     EXPECT_EQ(1U, matchCount);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1004,7 +1022,8 @@ TEST(HyperscanTestBehaviour, Vectored2) {
     EXPECT_EQ(1U, matchCount);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1032,7 +1051,8 @@ TEST(HyperscanTestBehaviour, Vectored3) {
     EXPECT_EQ(1U, matchCount);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1060,7 +1080,8 @@ TEST(HyperscanTestBehaviour, Vectored4) {
     EXPECT_EQ(1U, matchCount);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1088,7 +1109,8 @@ TEST(HyperscanTestBehaviour, Vectored5) {
     EXPECT_EQ(0U, matchCount);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1116,7 +1138,8 @@ TEST(HyperscanTestBehaviour, Vectored6) {
     EXPECT_EQ(1U, matchCount);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1144,7 +1167,8 @@ TEST(HyperscanTestBehaviour, Vectored7) {
     EXPECT_EQ(1U, matchCount);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1189,7 +1213,8 @@ TEST(regression, UE_1005) {
               != c.matches.end());
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1293,7 +1318,8 @@ TEST(regression, UE_2762) {
                 c.matches.end());
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1333,7 +1359,8 @@ TEST(regression, UE_2763) {
                 c.matches.end());
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1378,7 +1405,8 @@ TEST(regression, UE_2798) {
                 c.matches.end());
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1403,7 +1431,8 @@ TEST(PcreSpace, NewPcre) {
     EXPECT_EQ(data.size(), matchCount); // all are spaces
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1428,7 +1457,8 @@ TEST(PcreSpace, NewPcreClass) {
     EXPECT_EQ(data.size(), matchCount); // all are spaces
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1453,7 +1483,8 @@ TEST(PcreSpace, NewPcreNeg) {
     EXPECT_EQ(0, matchCount); // no matches, all are spaces
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1478,7 +1509,8 @@ TEST(PcreSpace, NewPcreClassNeg) {
     EXPECT_EQ(0, matchCount); // no matches, all are spaces
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1502,7 +1534,8 @@ TEST(Parser, NewlineTerminatedComment) {
     EXPECT_EQ(1, matchCount);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -132,7 +132,8 @@ TEST_P(SomTest, PastHorizon) {
     ASSERT_EQ(HS_SUCCESS, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -190,7 +191,8 @@ TEST_P(SomTest, NearHorizon) {
     ASSERT_EQ(HS_SUCCESS, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 

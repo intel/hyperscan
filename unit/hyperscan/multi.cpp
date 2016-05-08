@@ -67,7 +67,8 @@ TEST(MMAdaptor, norm_cont1) { // UE-901
     ASSERT_EQ(MatchRecord(12, 31), c.matches[2]);
 
     hs_free_database(db);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }
 
 TEST(MMAdaptor, norm_cont2) {
@@ -99,7 +100,8 @@ TEST(MMAdaptor, norm_cont2) {
     ASSERT_TRUE(c.matches.end() != find(c.matches.begin(), c.matches.end(), MatchRecord(28, 31)));
 
     hs_free_database(db);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }
 
 TEST(MMAdaptor, norm_halt1) {
@@ -129,7 +131,8 @@ TEST(MMAdaptor, norm_halt1) {
     ASSERT_EQ(MatchRecord(4, 30), c.matches[0]);
 
     hs_free_database(db);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }
 
 TEST(MMAdaptor, norm_halt2) { // UE-901
@@ -159,7 +162,8 @@ TEST(MMAdaptor, norm_halt2) { // UE-901
     ASSERT_EQ(MatchRecord(20, 30), c.matches[0]);
 
     hs_free_database(db);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }
 
 TEST(MMAdaptor, high_cont1) { // UE-901
@@ -190,7 +194,8 @@ TEST(MMAdaptor, high_cont1) { // UE-901
     ASSERT_TRUE(c.matches.end() != find(c.matches.begin(), c.matches.end(), MatchRecord(12, 31)));
 
     hs_free_database(db);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }
 
 TEST(MMAdaptor, high_cont2) {
@@ -221,7 +226,8 @@ TEST(MMAdaptor, high_cont2) {
     ASSERT_TRUE(c.matches.end() != find(c.matches.begin(), c.matches.end(), MatchRecord(28, 31)));
 
     hs_free_database(db);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }
 
 TEST(MMAdaptor, high_halt1) {
@@ -251,7 +257,8 @@ TEST(MMAdaptor, high_halt1) {
     ASSERT_EQ(MatchRecord(4, 30), c.matches[0]);
 
     hs_free_database(db);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }
 
 TEST(MMAdaptor, high_halt2) {
@@ -282,7 +289,8 @@ TEST(MMAdaptor, high_halt2) {
                 || MatchRecord(28, 31) == c.matches[0]);
 
     hs_free_database(db);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }
 
 TEST(MPV, UE_2395) {
@@ -322,5 +330,6 @@ TEST(MPV, UE_2395) {
     ASSERT_EQ(300, seen);
 
     hs_free_database(db);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }

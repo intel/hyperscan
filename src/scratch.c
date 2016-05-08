@@ -129,7 +129,7 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     *s = *proto;
 
     s->magic = SCRATCH_MAGIC;
-    s->in_use = 1;
+    s->in_use = 0;
     s->scratchSize = alloc_size;
     s->scratch_alloc = (char *)s_tmp;
 
@@ -357,9 +357,10 @@ hs_error_t hs_alloc_scratch(const hs_database_t *db, hs_scratch_t **scratch) {
         }
     } else {
         hs_scratch_free(proto_tmp); /* kill off temp used for sizing */
+        unmarkScratchInUse(*scratch);
     }
 
-    unmarkScratchInUse(*scratch);
+    assert(!(*scratch)->in_use);
     return HS_SUCCESS;
 }
 
@@ -376,6 +377,7 @@ hs_error_t hs_clone_scratch(const hs_scratch_t *src, hs_scratch_t **dest) {
         return ret;
     }
 
+    assert(!(*dest)->in_use);
     return HS_SUCCESS;
 }
 
