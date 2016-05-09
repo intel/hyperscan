@@ -800,12 +800,16 @@ static const u8 fake_history[FAKE_HISTORY_SIZE];
 hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
                      size_t start, HWLMCallback cb, void *ctxt,
                      hwlm_group_t groups) {
+    // We guarantee (for safezone construction) that it is safe to read 16
+    // bytes before the end of the history buffer.
+    const u8 *hbuf = fake_history + FAKE_HISTORY_SIZE;
+
     const struct FDR_Runtime_Args a = {
         buf,
         len,
-        fake_history,
+        hbuf,
         0,
-        fake_history, // nocase
+        hbuf, // nocase
         0,
         start,
         cb,
