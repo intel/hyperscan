@@ -98,16 +98,14 @@ static really_inline
 m256 vpshufb(m256 a, m256 b) {
     return _mm256_shuffle_epi8(a, b);
 }
+
 #if defined(USE_GCC_COMPOUND_STATEMENTS)
 #define vpalignr(r, l, offset) ({                   \
     m256 res = _mm256_alignr_epi8(r, l, offset);    \
     res;                                            \
 })
 #else
-static really_inline
-m256 vpalignr(m256 r, m256 l, const int offset) {
-    return _mm256_alignr_epi8(r, l, offset);
-}
+#define vpalignr(r, l, offset) _mm256_alignr_epi8(r, l, offset)
 #endif
 
 #else // not __AVX2__
