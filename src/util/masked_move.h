@@ -35,8 +35,14 @@
 #include "simd_utils.h"
 #include "simd_utils_ssse3.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 extern const u32 mm_mask_mask[16];
 extern const u32 mm_shuffle_end[32][8];
+#ifdef __cplusplus
+}
+#endif
 
 /* load mask for len bytes from start of buffer */
 static really_inline m256
