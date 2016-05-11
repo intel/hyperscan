@@ -77,7 +77,13 @@ m128 pshufb(m128 a, m128 b) {
     return result;
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 extern const char vbs_mask_data[];
+#ifdef __cplusplus
+}
+#endif
 
 static really_inline
 m128 variable_byte_shift_m128(m128 in, s32 amount) {
