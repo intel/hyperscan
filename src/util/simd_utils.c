@@ -26,6 +26,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/** \file
+ * \brief Lookup tables to support SIMD operations.
+ */
+
 #include "simd_utils.h"
 
 const char vbs_mask_data[] ALIGN_CL_DIRECTIVE = {
@@ -37,4 +41,20 @@ const char vbs_mask_data[] ALIGN_CL_DIRECTIVE = {
 
     0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0,
     0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0,
+};
+
+#define ZEROES_8 0, 0, 0, 0, 0, 0, 0, 0
+#define ZEROES_31 ZEROES_8, ZEROES_8, ZEROES_8, 0, 0, 0, 0, 0, 0, 0
+#define ZEROES_32 ZEROES_8, ZEROES_8, ZEROES_8, ZEROES_8
+
+/** \brief LUT for the mask1bit functions. */
+const u8 simd_onebit_masks[] ALIGN_CL_DIRECTIVE = {
+    ZEROES_31, 0x01, ZEROES_32,
+    ZEROES_31, 0x02, ZEROES_32,
+    ZEROES_31, 0x04, ZEROES_32,
+    ZEROES_31, 0x08, ZEROES_32,
+    ZEROES_31, 0x10, ZEROES_32,
+    ZEROES_31, 0x20, ZEROES_32,
+    ZEROES_31, 0x40, ZEROES_32,
+    ZEROES_31, 0x80, ZEROES_32,
 };

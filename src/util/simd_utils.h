@@ -245,47 +245,37 @@ m128 loadbytes128(const void *ptr, unsigned int n) {
     return a;
 }
 
+extern const u8 simd_onebit_masks[];
+
+static really_inline
+m128 mask1bit128(unsigned int n) {
+    assert(n < sizeof(m128) * 8);
+    u32 mask_idx = ((n % 8) * 64) + 31;
+    mask_idx -= n / 8;
+    return loadu128(&simd_onebit_masks[mask_idx]);
+}
+
 // switches on bit N in the given vector.
 static really_inline
 void setbit128(m128 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    // We should be able to figure out a better way than this.
-    union {
-        m128 simd;
-        u8 bytes[sizeof(m128)];
-    } x;
-    x.simd = *ptr;
-
-    u8 *b = &x.bytes[n / 8];
-    *b |= 1U << (n % 8);
-
-    *ptr = x.simd;
+    *ptr = or128(mask1bit128(n), *ptr);
 }
 
 // switches off bit N in the given vector.
 static really_inline
 void clearbit128(m128 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    // We should be able to figure out a better way than this.
-    union {
-        m128 simd;
-        u8 bytes[sizeof(m128)];
-    } x;
-    x.simd = *ptr;
-
-    u8 *b = &x.bytes[n / 8];
-    *b &= ~(1U << (n % 8));
-
-    *ptr = x.simd;
+    *ptr = andnot128(mask1bit128(n), *ptr);
 }
 
 // tests bit N in the given vector.
 static really_inline
 char testbit128(const m128 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    // We should be able to figure out a better way than this.
-    const char *bytes = (const char *)ptr;
-    return !!(bytes[n / 8] & (1 << (n % 8)));
+    const m128 mask = mask1bit128(n);
+#if defined(__SSE4_1__)
+    return !_mm_testz_si128(mask, *ptr);
+#else
+    return isnonzero128(and128(mask, *ptr));
+#endif
 }
 
 // offset must be an immediate
@@ -551,6 +541,14 @@ m256 loadbytes256(const void *ptr, unsigned int n) {
     return a;
 }
 
+static really_inline
+m256 mask1bit256(unsigned int n) {
+    assert(n < sizeof(m256) * 8);
+    u32 mask_idx = ((n % 8) * 64) + 31;
+    mask_idx -= n / 8;
+    return loadu256(&simd_onebit_masks[mask_idx]);
+}
+
 #if !defined(__AVX2__)
 // switches on bit N in the given vector.
 static really_inline
@@ -599,42 +597,19 @@ char testbit256(const m256 *ptr, unsigned int n) {
 // switches on bit N in the given vector.
 static really_inline
 void setbit256(m256 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    // We should be able to figure out a better way than this.
-    union {
-        m256 simd;
-        u8 bytes[sizeof(m256)];
-    } x;
-    x.simd = *ptr;
-
-    u8 *b = &x.bytes[n / 8];
-    *b |= 1U << (n % 8);
-
-    *ptr = x.simd;
+    *ptr = or256(mask1bit256(n), *ptr);
 }
 
-// TODO: can we do this better in avx-land?
 static really_inline
 void clearbit256(m256 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    union {
-        m256 simd;
-        u8 bytes[sizeof(m256)];
-    } x;
-    x.simd = *ptr;
-
-    u8 *b = &x.bytes[n / 8];
-    *b &= ~(1U << (n % 8));
-
-    *ptr = x.simd;
+    *ptr = andnot256(mask1bit256(n), *ptr);
 }
 
 // tests bit N in the given vector.
 static really_inline
 char testbit256(const m256 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    const char *bytes = (const char *)ptr;
-    return !!(bytes[n / 8] & (1 << (n % 8)));
+    const m256 mask = mask1bit256(n);
+    return !_mm256_testz_si256(mask, *ptr);
 }
 
 static really_really_inline
