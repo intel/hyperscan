@@ -50,6 +50,8 @@ enum RoseInstructionCode {
     ROSE_INSTR_CHECK_BOUNDS,      //!< Bounds on distance from offset 0.
     ROSE_INSTR_CHECK_NOT_HANDLED, //!< Test & set role in "handled".
     ROSE_INSTR_CHECK_LOOKAROUND,  //!< Lookaround check.
+    ROSE_INSTR_CHECK_MASK,        //!< 8-bytes mask check.
+    ROSE_INSTR_CHECK_BYTE,        //!< Single Byte check.
     ROSE_INSTR_CHECK_INFIX,       //!< Infix engine must be in accept state.
     ROSE_INSTR_CHECK_PREFIX,      //!< Prefix engine must be in accept state.
     ROSE_INSTR_PUSH_DELAYED,      //!< Push delayed literal matches.
@@ -162,6 +164,24 @@ struct ROSE_STRUCT_CHECK_LOOKAROUND {
     u8 code; //!< From enum RoseInstructionCode.
     u32 index;
     u32 count;
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_MASK {
+    u8 code; //!< From enum roseInstructionCode.
+    u64a and_mask; //!< 64-bits and mask.
+    u64a cmp_mask; //!< 64-bits cmp mask.
+    u64a neg_mask; //!< 64-bits negation mask.
+    s32 offset; //!< Relative offset of the first byte.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_BYTE {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 and_mask; //!< 8-bits and mask.
+    u8 cmp_mask; //!< 8-bits cmp mask.
+    u8 negation; //!< Flag about negation.
+    s32 offset; //!< The relative offset.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 

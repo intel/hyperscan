@@ -512,6 +512,7 @@ set (hs_exec_SRCS
     src/rose/rose_program.h
     src/rose/rose_types.h
     src/rose/rose_common.h
+    src/rose/validate_mask.h
     src/util/bitutils.h
     src/util/exhaust.h
     src/util/fatbit.h

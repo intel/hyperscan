@@ -65,6 +65,7 @@ set(unit_internal_SOURCES
     internal/pqueue.cpp
     internal/repeat.cpp
     internal/rose_build_merge.cpp
+    internal/rose_mask.cpp
     internal/rvermicelli.cpp
     internal/simd_utils.cpp
     internal/shuffle.cpp

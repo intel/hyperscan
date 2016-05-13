@@ -44,6 +44,7 @@
 #include "rose_internal.h"
 #include "rose_program.h"
 #include "rose_types.h"
+#include "validate_mask.h"
 #include "runtime.h"
 #include "scratch.h"
 #include "ue2common.h"
@@ -608,6 +609,154 @@ int reachHasBit(const u8 *reach, u8 c) {
     return !!(reach[c / 8U] & (u8)1U << (c % 8U));
 }
 
+/*
+ * Generate a 8-byte valid_mask with #high bytes 0 from the highest side
+ * and #low bytes 0 from the lowest side
+ * and (8 - high - low) bytes '0xff' in the middle.
+ */
+static rose_inline
+u64a generateValidMask(const s32 high, const s32 low) {
+    assert(high + low < 8);
+    DEBUG_PRINTF("high %d low %d\n", high, low);
+    const u64a ones = ~0ull;
+    return (ones << ((high + low) * 8)) >> (high * 8);
+}
+
+/*
+ * Do the single-byte check if only one lookaround entry exists
+ * and it's a single mask.
+ * Return success if the byte is in the future or before history
+ * (offset is greater than (history) buffer length).
+ */
+static rose_inline
+int roseCheckByte(const struct core_info *ci, u8 and_mask, u8 cmp_mask,
+                  u8 negation, s32 checkOffset, u64a end) {
+    DEBUG_PRINTF("end=%llu, buf_offset=%llu, buf_end=%llu\n", end,
+                 ci->buf_offset, ci->buf_offset + ci->len);
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    const s64a base_offset = end - ci->buf_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("checkOffset=%d offset=%lld\n", checkOffset, offset);
+    u8 c;
+    if (offset >= 0) {
+        if (offset >= (s64a)ci->len) {
+            DEBUG_PRINTF("in the future\n");
+            return 1;
+        } else {
+            assert(offset < (s64a)ci->len);
+            DEBUG_PRINTF("check byte in buffer\n");
+            c = ci->buf[offset];
+        }
+    } else {
+        if (offset >= -(s64a) ci->hlen) {
+            DEBUG_PRINTF("check byte in history\n");
+            c = ci->hbuf[ci->hlen + offset];
+        } else {
+            DEBUG_PRINTF("before history and return\n");
+            return 1;
+        }
+    }
+
+    if (((and_mask & c) != cmp_mask) ^ negation) {
+        DEBUG_PRINTF("char 0x%02x at offset %lld failed byte check\n",
+                     c, offset);
+        return 0;
+    }
+
+    DEBUG_PRINTF("real offset=%lld char=%02x\n", offset, c);
+    DEBUG_PRINTF("OK :)\n");
+    return 1;
+}
+
+static rose_inline
+int roseCheckMask(const struct core_info *ci, u64a and_mask, u64a cmp_mask,
+                  u64a neg_mask, s32 checkOffset, u64a end) {
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("rel offset %lld\n",base_offset);
+    DEBUG_PRINTF("checkOffset %d offset %lld\n", checkOffset, offset);
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    u64a data = 0;
+    u64a valid_data_mask = ~0ULL; // mask for validate check.
+    //A 0xff byte means that this byte is in the buffer.
+    s32 shift_l = 0; // size of bytes in the future.
+    s32 shift_r = 0; // size of bytes before the history.
+    s32 h_len = 0; // size of bytes in the history buffer.
+    s32 c_len = 8; // size of bytes in the current buffer.
+    //s64a c_start = offset; // offset of start pointer in current buffer.
+    if (offset < 0) {
+        // in or before history buffer.
+        if (offset + 8 <= -(s64a)ci->hlen) {
+            DEBUG_PRINTF("before history and return\n");
+            return 1;
+        }
+        const u8 *h_start = ci->hbuf; // start pointer in history buffer.
+        if (offset < -(s64a)ci->hlen) {
+            // some bytes are before history.
+            shift_r = -(offset + (s64a)ci->hlen);
+            DEBUG_PRINTF("shift_r %d", shift_r);
+        } else {
+            h_start += ci->hlen + offset;
+        }
+        if (offset + 7 < 0) {
+            DEBUG_PRINTF("all in history buffer\n");
+            data = partial_load_u64a(h_start, 8 - shift_r);
+        } else {
+            // history part
+            c_len = offset + 8;
+            h_len = -offset - shift_r;
+            DEBUG_PRINTF("%d bytes in history\n", h_len);
+            s64a data_h = 0;
+            data_h = partial_load_u64a(h_start, h_len);
+            // current part
+            if (c_len > (s64a)ci->len) {
+                shift_l = c_len - ci->len;
+                c_len = ci->len;
+            }
+            data = partial_load_u64a(ci->buf, c_len);
+            data <<= h_len << 3;
+            data |= data_h;
+        }
+        if (shift_r) {
+            data <<= shift_r << 3;
+        }
+    } else {
+        // current buffer.
+        if (offset + c_len > (s64a)ci->len) {
+            if (offset >= (s64a)ci->len) {
+                DEBUG_PRINTF("all in the future\n");
+                return 1;
+            }
+            // some  bytes in the future.
+            shift_l = offset + c_len - ci->len;
+            c_len = ci->len - offset;
+            data = partial_load_u64a(ci->buf + offset, c_len);
+        } else {
+            data = unaligned_load_u64a(ci->buf + offset);
+        }
+    }
+
+    if (shift_l || shift_r) {
+        valid_data_mask = generateValidMask(shift_l, shift_r);
+    }
+    DEBUG_PRINTF("valid_data_mask %llx\n", valid_data_mask);
+
+    if (validateMask(data, valid_data_mask,
+                     and_mask, cmp_mask, neg_mask)) {
+        DEBUG_PRINTF("check mask successfully\n");
+        return 1;
+    } else {
+        return 0;
+    }
+}
 /**
  * \brief Scan around a literal, checking that that "lookaround" reach masks
  * are satisfied.
@@ -1019,6 +1168,30 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                 if (!roseCheckLookaround(t, scratch, ri->index, ri->count,
                                          end)) {
                     DEBUG_PRINTF("failed lookaround check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_MASK) {
+                struct core_info *ci = &scratch->core_info;
+                if (!roseCheckMask(ci, ri->and_mask, ri->cmp_mask,
+                                   ri->neg_mask, ri->offset, end)) {
+                    DEBUG_PRINTF("failed mask check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_BYTE) {
+                const struct core_info *ci = &scratch->core_info;
+                if (!roseCheckByte(ci, ri->and_mask, ri->cmp_mask,
+                                   ri->negation, ri->offset, end)) {
+                    DEBUG_PRINTF("failed byte check\n");
                     assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
                     continue;
