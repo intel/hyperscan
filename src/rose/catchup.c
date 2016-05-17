@@ -787,7 +787,7 @@ hwlmcb_rv_t buildSufPQ(const struct RoseEngine *t, char *state, s64a safe_loc,
             = scratch->catchup_pq.qm_size ? pq_top_loc(&scratch->catchup_pq)
                                           : safe_loc;
         second_place_loc = MIN(second_place_loc, safe_loc);
-        if (n_qi == MMB_INVALID && report_ok_loc < second_place_loc) {
+        if (n_qi == MMB_INVALID && report_ok_loc <= second_place_loc) {
             if (buildSufPQ_final(t, report_ok_loc, second_place_loc, final_loc,
                                  scratch, aa, a_qi)
                 == HWLM_TERMINATE_MATCHING) {
