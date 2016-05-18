@@ -115,7 +115,9 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
 endif()
 
 #for config
-set(HS_OPTIMIZE OPTIMISE)
+if (OPTIMISE)
+    set(HS_OPTIMIZE ON)
+endif()
 
 CMAKE_DEPENDENT_OPTION(DUMP_SUPPORT "Dump code support; normally on, except in release builds" ON "NOT RELEASE_BUILD" OFF)
 
