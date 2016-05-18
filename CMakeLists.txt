@@ -244,6 +244,11 @@ else()
 
 endif()
 
+if (MINGW)
+    set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -posix")
+    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -posix")
+endif()
+
 CHECK_INCLUDE_FILES(unistd.h HAVE_UNISTD_H)
 CHECK_INCLUDE_FILES(intrin.h HAVE_C_INTRIN_H)
 CHECK_INCLUDE_FILE_CXX(intrin.h HAVE_CXX_INTRIN_H)
