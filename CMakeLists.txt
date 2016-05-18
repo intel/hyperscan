@@ -951,7 +951,10 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
         OUTPUT_NAME hs_runtime
         MACOSX_RPATH ON
         LINKER_LANGUAGE C)
-    install(TARGETS hs_runtime_shared DESTINATION lib)
+    install(TARGETS hs_runtime_shared
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib)
 endif()
 
 # we want the static lib for testing
@@ -971,7 +974,10 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
         VERSION ${LIB_VERSION}
         SOVERSION ${LIB_SOVERSION}
         MACOSX_RPATH ON)
-install(TARGETS hs_shared DESTINATION lib)
+install(TARGETS hs_shared
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib)
 endif()
 
 if(NOT WIN32)
