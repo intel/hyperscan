@@ -32,7 +32,6 @@
 #include "accelcompile.h"
 #include "grey.h"
 #include "mcclellan_internal.h"
-#include "mcclellancompile_accel.h"
 #include "mcclellancompile_util.h"
 #include "nfa_internal.h"
 #include "shufticompile.h"
@@ -65,6 +64,17 @@
 using namespace std;
 using boost::adaptors::map_keys;
 
+#define ACCEL_DFA_MAX_OFFSET_DEPTH 4
+
+/** Maximum tolerated number of escape character from an accel state.
+ * This is larger than nfa, as we don't have a budget and the nfa cheats on stop
+ * characters for sets of states */
+#define ACCEL_DFA_MAX_STOP_CHAR 160
+
+/** Maximum tolerated number of escape character from a sds accel state. Larger
+ * than normal states as accelerating sds is important. Matches NFA value */
+#define ACCEL_DFA_MAX_FLOATING_STOP_CHAR 192
+
 namespace ue2 {
 
 namespace /* anon */ {
@@ -75,7 +85,7 @@ struct dstate_extra {
 };
 
 struct dfa_info {
-    dfa_build_strat &strat;
+    accel_dfa_build_strat &strat;
     raw_dfa &raw;
     vector<dstate> &states;
     vector<dstate_extra> extra;
@@ -85,7 +95,7 @@ struct dfa_info {
 
     u8 getAlphaShift() const;
 
-    explicit dfa_info(dfa_build_strat &s)
+    explicit dfa_info(accel_dfa_build_strat &s)
                                 : strat(s),
                                   raw(s.get_raw()),
                                   states(raw.states),
@@ -126,13 +136,6 @@ mstate_aux *getAux(NFA *n, dstate_id_t i) {
     mstate_aux *aux = aux_base + i;
     assert((const char *)aux < (const char *)n + m->length);
     return aux;
-}
-
-static
-bool double_byte_ok(const AccelScheme &info) {
-    return !info.double_byte.empty()
-        && info.double_cr.count() < info.double_byte.size()
-        && info.double_cr.count() <= 2 && !info.double_byte.empty();
 }
 
 static
@@ -190,120 +193,12 @@ u32 mcclellan_build_strat::max_allowed_offset_accel() const {
     return ACCEL_DFA_MAX_OFFSET_DEPTH;
 }
 
-AccelScheme mcclellan_build_strat::find_escape_strings(dstate_id_t this_idx)
-    const {
-    return find_mcclellan_escape_info(rdfa, this_idx,
-                                      max_allowed_offset_accel());
+u32 mcclellan_build_strat::max_stop_char() const {
+    return ACCEL_DFA_MAX_STOP_CHAR;
 }
 
-/** builds acceleration schemes for states */
-void mcclellan_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
-                                       const AccelScheme &info,
-                                       void *accel_out) {
-    AccelAux *accel = (AccelAux *)accel_out;
-
-    DEBUG_PRINTF("accelerations scheme has offset s%u/d%u\n", info.offset,
-                 info.double_offset);
-    accel->generic.offset = verify_u8(info.offset);
-
-    if (double_byte_ok(info) && info.double_cr.none()
-        && info.double_byte.size() == 1) {
-        accel->accel_type = ACCEL_DVERM;
-        accel->dverm.c1 = info.double_byte.begin()->first;
-        accel->dverm.c2 = info.double_byte.begin()->second;
-        accel->dverm.offset = verify_u8(info.double_offset);
-        DEBUG_PRINTF("state %hu is double vermicelli\n", this_idx);
-        return;
-    }
-
-    if (double_byte_ok(info) && info.double_cr.none()
-        && (info.double_byte.size() == 2 || info.double_byte.size() == 4)) {
-        bool ok = true;
-
-        assert(!info.double_byte.empty());
-        u8 firstC = info.double_byte.begin()->first & CASE_CLEAR;
-        u8 secondC = info.double_byte.begin()->second & CASE_CLEAR;
-
-        for (const pair<u8, u8> &p : info.double_byte) {
-            if ((p.first & CASE_CLEAR) != firstC
-             || (p.second & CASE_CLEAR) != secondC) {
-                ok = false;
-                break;
-            }
-        }
-
-        if (ok) {
-            accel->accel_type = ACCEL_DVERM_NOCASE;
-            accel->dverm.c1 = firstC;
-            accel->dverm.c2 = secondC;
-            accel->dverm.offset = verify_u8(info.double_offset);
-            DEBUG_PRINTF("state %hu is nc double vermicelli\n", this_idx);
-            return;
-        }
-
-        u8 m1;
-        u8 m2;
-        if (buildDvermMask(info.double_byte, &m1, &m2)) {
-            accel->accel_type = ACCEL_DVERM_MASKED;
-            accel->dverm.offset = verify_u8(info.double_offset);
-            accel->dverm.c1 = info.double_byte.begin()->first & m1;
-            accel->dverm.c2 = info.double_byte.begin()->second & m2;
-            accel->dverm.m1 = m1;
-            accel->dverm.m2 = m2;
-            DEBUG_PRINTF("building maskeddouble-vermicelli for 0x%02hhx%02hhx\n",
-                         accel->dverm.c1, accel->dverm.c2);
-            return;
-        }
-    }
-
-    if (double_byte_ok(info)
-        && shuftiBuildDoubleMasks(info.double_cr, info.double_byte,
-                                  &accel->dshufti.lo1, &accel->dshufti.hi1,
-                                  &accel->dshufti.lo2, &accel->dshufti.hi2)) {
-        accel->accel_type = ACCEL_DSHUFTI;
-        accel->dshufti.offset = verify_u8(info.double_offset);
-        DEBUG_PRINTF("state %hu is double shufti\n", this_idx);
-        return;
-    }
-
-    if (info.cr.none()) {
-        accel->accel_type = ACCEL_RED_TAPE;
-        DEBUG_PRINTF("state %hu is a dead end full of bureaucratic red tape"
-                     " from which there is no escape\n", this_idx);
-        return;
-    }
-
-    if (info.cr.count() == 1) {
-        accel->accel_type = ACCEL_VERM;
-        accel->verm.c = info.cr.find_first();
-        DEBUG_PRINTF("state %hu is vermicelli\n", this_idx);
-        return;
-    }
-
-    if (info.cr.count() == 2 && info.cr.isCaselessChar()) {
-        accel->accel_type = ACCEL_VERM_NOCASE;
-        accel->verm.c = info.cr.find_first() & CASE_CLEAR;
-        DEBUG_PRINTF("state %hu is caseless vermicelli\n", this_idx);
-        return;
-    }
-
-    if (info.cr.count() > ACCEL_DFA_MAX_FLOATING_STOP_CHAR) {
-        accel->accel_type = ACCEL_NONE;
-        DEBUG_PRINTF("state %hu is too broad\n", this_idx);
-        return;
-    }
-
-    accel->accel_type = ACCEL_SHUFTI;
-    if (-1 != shuftiBuildMasks(info.cr, &accel->shufti.lo,
-                               &accel->shufti.hi)) {
-        DEBUG_PRINTF("state %hu is shufti\n", this_idx);
-        return;
-    }
-
-    assert(!info.cr.none());
-    accel->accel_type = ACCEL_TRUFFLE;
-    truffleBuildMasks(info.cr, &accel->truffle.mask1, &accel->truffle.mask2);
-    DEBUG_PRINTF("state %hu is truffle\n", this_idx);
+u32 mcclellan_build_strat::max_floating_stop_char() const {
+    return ACCEL_DFA_MAX_FLOATING_STOP_CHAR;
 }
 
 static
@@ -341,15 +236,6 @@ void populateBasicInfo(size_t state_size, const dfa_info &info,
     if (single) {
         m->flags |= MCCLELLAN_FLAG_SINGLE;
     }
-}
-
-raw_dfa::~raw_dfa() {
-}
-
-raw_report_info::raw_report_info() {
-}
-
-raw_report_info::~raw_report_info() {
 }
 
 namespace {
@@ -592,7 +478,7 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
 
     auto ri = info.strat.gatherReports(reports, reports_eod, &single, &arb);
     map<dstate_id_t, AccelScheme> accel_escape_info
-        = populateAccelerationInfo(info.raw, info.strat, cc.grey);
+            = info.strat.getAccelInfo(cc.grey);
 
     size_t tran_size = (1 << info.getAlphaShift())
         * sizeof(u16) * count_real_states;
@@ -811,7 +697,7 @@ aligned_unique_ptr<NFA> mcclellanCompile8(dfa_info &info,
 
     auto ri = info.strat.gatherReports(reports, reports_eod, &single, &arb);
     map<dstate_id_t, AccelScheme> accel_escape_info
-        = populateAccelerationInfo(info.raw, info.strat, cc.grey);
+        = info.strat.getAccelInfo(cc.grey);
 
     size_t tran_size = sizeof(u8) * (1 << info.getAlphaShift()) * info.size();
     size_t aux_size = sizeof(mstate_aux) * info.size();
@@ -1053,7 +939,7 @@ bool is_cyclic_near(const raw_dfa &raw, dstate_id_t root) {
     return false;
 }
 
-aligned_unique_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, dfa_build_strat &strat,
+aligned_unique_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
                                            const CompileContext &cc,
                                            set<dstate_id_t> *accel_states) {
     u16 total_daddy = 0;
@@ -1126,9 +1012,6 @@ u32 mcclellanStartReachSize(const raw_dfa *raw) {
 bool has_accel_dfa(const NFA *nfa) {
     const mcclellan *m = (const mcclellan *)getImplNfa(nfa);
     return m->has_accel;
-}
-
-dfa_build_strat::~dfa_build_strat() {
 }
 
 } // namespace ue2

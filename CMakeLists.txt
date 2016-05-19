@@ -597,11 +597,15 @@ SET (hs_SRCS
     src/hwlm/noodle_build.h
     src/hwlm/noodle_internal.h
     src/nfa/accel.h
+    src/nfa/accel_dfa_build_strat.cpp
+    src/nfa/accel_dfa_build_strat.h
     src/nfa/accelcompile.cpp
     src/nfa/accelcompile.h
     src/nfa/callback.h
     src/nfa/castlecompile.cpp
     src/nfa/castlecompile.h
+    src/nfa/dfa_build_strat.cpp
+    src/nfa/dfa_build_strat.h
     src/nfa/dfa_min.cpp
     src/nfa/dfa_min.h
     src/nfa/goughcompile.cpp
@@ -613,8 +617,6 @@ SET (hs_SRCS
     src/nfa/mcclellan_internal.h
     src/nfa/mcclellancompile.cpp
     src/nfa/mcclellancompile.h
-    src/nfa/mcclellancompile_accel.cpp
-    src/nfa/mcclellancompile_accel.h
     src/nfa/mcclellancompile_util.cpp
     src/nfa/mcclellancompile_util.h
     src/nfa/limex_compile.cpp

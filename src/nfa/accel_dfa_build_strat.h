@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,36 +26,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MCCLELLANCOMPILE_ACCEL_H
-#define MCCLELLANCOMPILE_ACCEL_H
+#ifndef ACCEL_DFA_BUILD_STRAT_H
+#define ACCEL_DFA_BUILD_STRAT_H
 
-#include "mcclellancompile.h"
+#include "rdfa.h"
+#include "dfa_build_strat.h"
+#include "ue2common.h"
+#include "util/accel_scheme.h"
 
 #include <map>
 
 namespace ue2 {
 
+class ReportManager;
 struct Grey;
 
-#define ACCEL_DFA_MAX_OFFSET_DEPTH 4
+class accel_dfa_build_strat : public dfa_build_strat {
+public:
+    explicit accel_dfa_build_strat(const ReportManager &rm_in)
+        : dfa_build_strat(rm_in) {}
+    virtual AccelScheme find_escape_strings(dstate_id_t this_idx) const;
+    virtual size_t accelSize(void) const = 0;
+    virtual u32 max_allowed_offset_accel() const = 0;
+    virtual u32 max_stop_char() const = 0;
+    virtual u32 max_floating_stop_char() const = 0;
+    virtual void buildAccel(dstate_id_t this_idx, const AccelScheme &info,
+                            void *accel_out);
+    virtual std::map<dstate_id_t, AccelScheme> getAccelInfo(const Grey &grey);
+};
 
-/** Maximum tolerated number of escape character from an accel state.
- * This is larger than nfa, as we don't have a budget and the nfa cheats on stop
- * characters for sets of states */
-#define ACCEL_DFA_MAX_STOP_CHAR 160
+} // namespace ue2
 
-/** Maximum tolerated number of escape character from a sds accel state. Larger
- * than normal states as accelerating sds is important. Matches NFA value */
-#define ACCEL_DFA_MAX_FLOATING_STOP_CHAR 192
-
-std::map<dstate_id_t, AccelScheme> populateAccelerationInfo(const raw_dfa &rdfa,
-                                                   const dfa_build_strat &strat,
-                                                   const Grey &grey);
-
-AccelScheme find_mcclellan_escape_info(const raw_dfa &rdfa,
-                                       dstate_id_t this_idx,
-                                       u32 max_allowed_accel_offset);
-
-}
-
-#endif
+#endif // ACCEL_DFA_BUILD_STRAT_H

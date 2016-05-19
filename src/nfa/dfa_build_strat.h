@@ -26,37 +26,43 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MCCLELLAN_COMPILE_UTIL_H
-#define MCCLELLAN_COMPILE_UTIL_H
+#ifndef DFA_BUILD_STRAT_H
+#define DFA_BUILD_STRAT_H
 
 #include "rdfa.h"
 #include "ue2common.h"
 
-#include <set>
+#include <memory>
+#include <vector>
+
+struct NFA;
 
 namespace ue2 {
 
-u32 remove_leading_dots(raw_dfa &raw);
+class ReportManager;
 
-/**
- * Prunes any states which cannot be reached within max_offset from start of
- * stream. Returns false if no changes are made to the rdfa
- */
-bool prune_overlong(raw_dfa &raw, u32 max_offset);
+struct raw_report_info {
+    virtual ~raw_report_info();
+    virtual u32 getReportListSize() const = 0; /* in bytes */
+    virtual size_t size() const = 0; /* number of lists */
+    virtual void fillReportLists(NFA *n, size_t base_offset,
+                                 std::vector<u32> &ro /* out */) const = 0;
+};
 
-std::set<ReportID> all_reports(const raw_dfa &rdfa);
-bool has_eod_accepts(const raw_dfa &rdfa);
-bool has_non_eod_accepts(const raw_dfa &rdfa);
-
-/** \brief Compute a simple hash of this raw_dfa. Does not include report
- * information. */
-size_t hash_dfa_no_reports(const raw_dfa &rdfa);
-
-/** \brief Compute a simple hash of this raw_dfa, including its reports. */
-size_t hash_dfa(const raw_dfa &rdfa);
-
-bool can_die_early(const raw_dfa &raw, u32 age_limit);
+class dfa_build_strat {
+public:
+    explicit dfa_build_strat(const ReportManager &rm_in) : rm(rm_in) {}
+    virtual ~dfa_build_strat();
+    virtual raw_dfa &get_raw() const = 0;
+    virtual std::unique_ptr<raw_report_info> gatherReports(
+                               std::vector<u32> &reports /* out */,
+                               std::vector<u32> &reports_eod /* out */,
+                               u8 *isSingleReport /* out */,
+                               ReportID *arbReport /* out */) const = 0;
+protected:
+    const ReportManager &rm;
+};
 
 } // namespace ue2
 
-#endif
+#endif // DFA_BUILD_STRAT_H
