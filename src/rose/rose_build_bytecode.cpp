@@ -350,6 +350,7 @@ struct RoseResources {
     bool has_lit_delay = false;
     bool has_lit_mask = false;
     bool has_anchored = false;
+    bool has_eod = false;
 };
 
 struct build_context : boost::noncopyable {
@@ -575,6 +576,11 @@ bool isPureFloating(const RoseResources &resources) {
         return false;
     }
 
+    if (resources.has_eod) {
+        DEBUG_PRINTF("has eod work to do\n");
+        return false;
+    }
+
     if (resources.has_states) {
         DEBUG_PRINTF("has states\n");
         return false;
@@ -630,6 +636,7 @@ u8 pickRuntimeImpl(const RoseBuildImpl &build, const build_context &bc,
     DEBUG_PRINTF("has_lit_delay=%d\n", bc.resources.has_lit_delay);
     DEBUG_PRINTF("has_lit_mask=%d\n", bc.resources.has_lit_mask);
     DEBUG_PRINTF("has_anchored=%d\n", bc.resources.has_anchored);
+    DEBUG_PRINTF("has_eod=%d\n", bc.resources.has_eod);
 
     if (isPureFloating(bc.resources)) {
         return ROSE_RUNTIME_PURE_LITERAL;
@@ -1775,9 +1782,13 @@ u32 buildLastByteIter(const RoseGraph &g, build_context &bc) {
     vector<u32> lb_roles;
 
     for (auto v : vertices_range(g)) {
-        if (hasLastByteHistoryOutEdge(g, v)) {
-            assert(contains(bc.roleStateIndices, v));
-            lb_roles.push_back(bc.roleStateIndices.at(v));
+        if (!hasLastByteHistoryOutEdge(g, v)) {
+            continue;
+        }
+        // Eager EOD reporters won't have state indices.
+        auto it = bc.roleStateIndices.find(v);
+        if (it != end(bc.roleStateIndices)) {
+            lb_roles.push_back(it->second);
         }
     }
 
@@ -2273,6 +2284,18 @@ void recordResources(RoseResources &resources,
             break;
         }
     }
+
+    const auto &g = build.g;
+    for (const auto &v : vertices_range(g)) {
+        if (g[v].eod_accept) {
+            resources.has_eod = true;
+            break;
+        }
+        if (g[v].suffix && has_eod_accepts(g[v].suffix)) {
+            resources.has_eod = true;
+            break;
+        }
+    }
 }
 
 static
@@ -2338,7 +2361,37 @@ void buildActiveLeftIter(const vector<LeftNfaInfo> &leftTable,
 }
 
 static
-bool hasEodAnchors(const RoseBuildImpl &tbi, const build_context &bc,
+bool canEagerlyReportAtEod(const RoseBuildImpl &build, const RoseEdge &e) {
+    const auto &g = build.g;
+    const auto v = target(e, g);
+
+    if (!build.g[v].eod_accept) {
+        return false;
+    }
+
+    // If there's a graph between us and EOD, we shouldn't be eager.
+    if (build.g[v].left) {
+        return false;
+    }
+
+    // Must be exactly at EOD.
+    if (g[e].minBound != 0 || g[e].maxBound != 0) {
+        return false;
+    }
+
+    // In streaming mode, we can only eagerly report EOD for literals in the
+    // EOD-anchored table, as that's the only time we actually know where EOD
+    // is. In block mode, we always have this information.
+    const auto u = source(e, g);
+    if (build.cc.streaming && !build.isInETable(u)) {
+        return false;
+    }
+
+    return true;
+}
+
+static
+bool hasEodAnchors(const RoseBuildImpl &build, const build_context &bc,
                    u32 outfixEndQueue) {
     for (u32 i = 0; i < outfixEndQueue; i++) {
         if (nfaAcceptsEod(get_nfa_from_blob(bc, i))) {
@@ -2347,16 +2400,18 @@ bool hasEodAnchors(const RoseBuildImpl &tbi, const build_context &bc,
         }
     }
 
-    if (tbi.eod_event_literal_id != MO_INVALID_IDX) {
+    if (build.eod_event_literal_id != MO_INVALID_IDX) {
         DEBUG_PRINTF("eod is an event to be celebrated\n");
         return true;
     }
-    for (auto v : vertices_range(tbi.g)) {
-        if (tbi.g[v].eod_accept) {
+
+    const RoseGraph &g = build.g;
+    for (auto v : vertices_range(g)) {
+        if (g[v].eod_accept) {
             DEBUG_PRINTF("literally report eod\n");
             return true;
         }
-        if (tbi.g[v].suffix && has_eod_accepts(tbi.g[v].suffix)) {
+        if (g[v].suffix && has_eod_accepts(g[v].suffix)) {
             DEBUG_PRINTF("eod suffix\n");
             return true;
         }
@@ -3086,6 +3141,30 @@ void makeRoleCheckNotHandled(build_context &bc, RoseVertex v,
 }
 
 static
+void makeRoleEagerEodReports(RoseBuildImpl &build, build_context &bc,
+                             RoseVertex v, vector<RoseInstruction> &program) {
+    vector<RoseInstruction> eod_program;
+
+    for (const auto &e : out_edges_range(v, build.g)) {
+        if (canEagerlyReportAtEod(build, e)) {
+            makeRoleReports(build, bc, target(e, build.g), eod_program);
+        }
+    }
+
+    if (eod_program.empty()) {
+        return;
+    }
+
+    if (!onlyAtEod(build, v)) {
+        // The rest of our program wasn't EOD anchored, so we need to guard
+        // these reports with a check.
+        program.emplace_back(ROSE_INSTR_CHECK_ONLY_EOD, JumpTarget::NEXT_BLOCK);
+    }
+
+    program.insert(end(program), begin(eod_program), end(eod_program));
+}
+
+static
 vector<RoseInstruction> makeProgram(RoseBuildImpl &build, build_context &bc,
                                     const RoseEdge &e) {
     const RoseGraph &g = build.g;
@@ -3129,7 +3208,12 @@ vector<RoseInstruction> makeProgram(RoseBuildImpl &build, build_context &bc,
     makeRoleGroups(build, bc, v, program);
 
     makeRoleSuffix(build, bc, v, program);
+
     makeRoleSetState(bc, v, program);
+
+    // Note: EOD eager reports may generate a CHECK_ONLY_EOD instruction (if
+    // the program doesn't have one already).
+    makeRoleEagerEodReports(build, bc, v, program);
 
     return program;
 }
@@ -3189,10 +3273,21 @@ void assignStateIndices(const RoseBuildImpl &build, build_context &bc) {
         if (build.isVirtualVertex(v)) {
             continue;
         }
-        // Leaf nodes don't need state indices, as they don't have successors.
-        if (isLeafNode(v, g)) {
+
+        // We only need a state index if we have successors that are not
+        // eagerly-reported EOD vertices.
+        bool needs_state_index = false;
+        for (const auto &e : out_edges_range(v, g)) {
+            if (!canEagerlyReportAtEod(build, e)) {
+                needs_state_index = true;
+                break;
+            }
+        }
+
+        if (!needs_state_index) {
             continue;
         }
+
         /* TODO: also don't need a state index if all edges are nfa based */
         bc.roleStateIndices.emplace(v, state++);
     }
@@ -3894,6 +3989,11 @@ pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
 
         for (const auto &e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
+
+            if (canEagerlyReportAtEod(build, e)) {
+                DEBUG_PRINTF("already done report for vertex %zu\n", g[u].idx);
+                continue;
+            }
 
             assert(contains(bc.roleStateIndices, u));
             u32 predStateIdx = bc.roleStateIndices.at(u);
