@@ -38,15 +38,6 @@
 struct FDR; // forward declaration from fdr_internal.h
 struct FDR_Runtime_Args;
 
-hwlm_error_t fdr_exec_s1_w128(const struct FDR *fdr,
-                              const struct FDR_Runtime_Args *a);
-
-hwlm_error_t fdr_exec_s2_w128(const struct FDR *fdr,
-                              const struct FDR_Runtime_Args *a);
-
-hwlm_error_t fdr_exec_s4_w128(const struct FDR *fdr,
-                              const struct FDR_Runtime_Args *a);
-
 hwlm_error_t fdr_exec_teddy_msks1(const struct FDR *fdr,
                                   const struct FDR_Runtime_Args *a);
 
