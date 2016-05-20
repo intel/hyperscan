@@ -33,8 +33,6 @@
 #ifndef TEDDY_H_
 #define TEDDY_H_
 
-#include "hwlm/hwlm.h"
-
 struct FDR; // forward declaration from fdr_internal.h
 struct FDR_Runtime_Args;
 
