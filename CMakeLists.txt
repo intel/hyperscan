@@ -237,6 +237,9 @@ if (RELEASE_BUILD)
     endif()
 endif()
 
+# ensure we are building for the right target arch
+include (${CMAKE_MODULE_PATH}/arch.cmake)
+
 # testing a builtin takes a little more work
 CHECK_C_SOURCE_COMPILES("void *aa_test(void *x) { return __builtin_assume_aligned(x, 16);}\nint main(void) { return 0; }" HAVE_CC_BUILTIN_ASSUME_ALIGNED)
 CHECK_CXX_SOURCE_COMPILES("void *aa_test(void *x) { return __builtin_assume_aligned(x, 16);}\nint main(void) { return 0; }" HAVE_CXX_BUILTIN_ASSUME_ALIGNED)
@@ -403,7 +406,6 @@ set (hs_exec_SRCS
     src/fdr/flood_runtime.h
     src/fdr/fdr_loadval.h
     src/fdr/teddy.c
-    src/fdr/teddy_avx2.c
     src/fdr/teddy.h
     src/fdr/teddy_internal.h
     src/fdr/teddy_runtime_common.h
@@ -513,7 +515,6 @@ set (hs_exec_SRCS
     src/util/fatbit.h
     src/util/fatbit.c
     src/util/join.h
-    src/util/masked_move.c
     src/util/masked_move.h
     src/util/multibit.h
     src/util/multibit_internal.h
@@ -539,6 +540,14 @@ set (hs_exec_SRCS
     src/database.c
     src/database.h
 )
+
+if (HAVE_AVX2)
+    set (hs_exec_SRCS
+        ${hs_exec_SRCS}
+        src/fdr/teddy_avx2.c
+        src/util/masked_move.c
+        )
+endif ()
 
 
 SET (hs_SRCS
