@@ -1102,7 +1102,7 @@ void setLeftNfaProperties(NFA &n, const left_id &left) {
 }
 
 static
-bool buildLeftfixes(const RoseBuildImpl &tbi, build_context &bc,
+bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
                     QueueIndexFactory &qif, set<u32> *no_retrigger_queues,
                     bool do_prefix) {
     const RoseGraph &g = tbi.g;
@@ -1174,6 +1174,7 @@ bool buildLeftfixes(const RoseBuildImpl &tbi, build_context &bc,
             setLeftNfaProperties(*nfa, leftfix);
 
             qi = qif.get_queue();
+            tbi.leftfix_queue_map.emplace(leftfix, qi);
             nfa->queueIndex = qi;
 
             if (!is_prefix && !leftfix.haig() && leftfix.graph() &&
@@ -1458,6 +1459,7 @@ void assignSuffixQueues(RoseBuildImpl &build, build_context &bc) {
         u32 queue = build.qif.get_queue();
         DEBUG_PRINTF("assigning %p to queue %u\n", s.graph(), queue);
         bc.suffixes.emplace(s, queue);
+        build.suffix_queue_map.emplace(s, queue);
     }
 }
 

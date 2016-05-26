@@ -30,12 +30,13 @@
 
 #include "rose_build_dump.h"
 
-#include "hwlm/hwlm_build.h"
 #include "rose_build_impl.h"
 #include "rose_build_matchers.h"
 #include "rose/rose_dump.h"
 #include "rose_internal.h"
 #include "ue2common.h"
+#include "hwlm/hwlm_build.h"
+#include "nfa/castlecompile.h"
 #include "nfa/nfa_internal.h"
 #include "nfagraph/ng_dump.h"
 #include "som/slot_manager_dump.h"
@@ -64,20 +65,38 @@ static
 string to_string(nfa_kind k) {
     switch (k) {
     case NFA_PREFIX:
-        return "p";
+        return "PREFIX";
     case NFA_INFIX:
-        return "i";
+        return "INFIX";
     case NFA_SUFFIX:
-        return "s";
+        return "SUFFIX";
     case NFA_OUTFIX:
-        return "o";
+        return "OUTFIX";
     case NFA_REV_PREFIX:
-        return "r";
+        return "REV_PREFIX";
     case NFA_OUTFIX_RAW:
-        return "O";
+        return "OUTFIX_RAW";
     }
     assert(0);
     return "?";
+}
+
+/** \brief Return the kind of a left_id or a suffix_id. */
+template<class Graph>
+string render_kind(const Graph &g) {
+    if (g.graph()) {
+        return to_string(g.graph()->kind);
+    }
+    if (g.dfa()) {
+        return to_string(g.dfa()->kind);
+    }
+    if (g.haig()) {
+        return to_string(g.haig()->kind);
+    }
+    if (g.castle()) {
+        return to_string(g.castle()->kind);
+    }
+    return "UNKNOWN";
 }
 
 namespace {
@@ -130,22 +149,12 @@ public:
         }
 
         if (g[v].suffix) {
-            os << "\\nSUFFIX (TOP " << g[v].suffix.top;
-            // Can't dump the queue number, but we can identify the suffix.
-            if (g[v].suffix.graph) {
-                os << ", graph=" << g[v].suffix.graph.get() << " "
-                   << to_string(g[v].suffix.graph->kind);
+            suffix_id suff(g[v].suffix);
+            os << "\\n" << render_kind(suff) << " (top " << g[v].suffix.top;
+            auto it = build.suffix_queue_map.find(suff);
+            if (it != end(build.suffix_queue_map)) {
+                os << ", queue " << it->second;
             }
-            if (g[v].suffix.castle) {
-                os << ", castle=" << g[v].suffix.castle.get();
-            }
-            if (g[v].suffix.rdfa) {
-                os << ", dfa=" << g[v].suffix.rdfa.get();
-            }
-            if (g[v].suffix.haig) {
-                os << ", haig=" << g[v].suffix.haig.get();
-            }
-
             os << ")";
         }
 
@@ -154,15 +163,15 @@ public:
         }
 
         if (g[v].left) {
-            const char *roseKind =
-                build.isRootSuccessor(v) ? "PREFIX" : "INFIX";
-            os << "\\nROSE " << roseKind;
-            os << " (";
-            os << "report " << g[v].left.leftfix_report << ")";
-
-            if (g[v].left.graph) {
-                os << " " << to_string(g[v].left.graph->kind);
+            left_id left(g[v].left);
+            os << "\\n" << render_kind(left) << " (queue ";
+            auto it = build.leftfix_queue_map.find(left);
+            if (it != end(build.leftfix_queue_map)) {
+                os << it->second;
+            } else {
+                os << "??";
             }
+            os << ", report " << g[v].left.leftfix_report << ")";
         }
 
         os << "\"";

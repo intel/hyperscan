@@ -541,6 +541,12 @@ public:
 
     u32 ematcher_region_size; /**< number of bytes the eod table runs over */
 
+    /** \brief Mapping from leftfix to queue ID (used in dump code). */
+    unordered_map<left_id, u32> leftfix_queue_map;
+
+    /** \brief Mapping from suffix to queue ID (used in dump code). */
+    unordered_map<suffix_id, u32> suffix_queue_map;
+
     /** \brief Mapping from anchored literal ID to the original literal suffix
      * present when the literal was added to the literal matcher. Used for
      * overlap calculation in history assignment. */
