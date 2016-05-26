@@ -115,6 +115,42 @@ enum DedupeResult dedupeCatchup(const struct RoseEngine *rose,
     return DEDUPE_CONTINUE;
 }
 
+/** \brief Test whether the given key (\a ekey) is set in the exhaustion vector
+ * \a evec. */
+static really_inline
+int isExhausted(const struct RoseEngine *rose, const char *evec, u32 ekey) {
+    DEBUG_PRINTF("checking exhaustion %p %u\n", evec, ekey);
+    assert(ekey != INVALID_EKEY);
+    assert(ekey < rose->ekeyCount);
+    return mmbit_isset((const u8 *)evec, rose->ekeyCount, ekey);
+}
+
+/** \brief Returns 1 if all exhaustion keys in the bitvector are on. */
+static really_inline
+int isAllExhausted(const struct RoseEngine *rose, const char *evec) {
+    if (!rose->canExhaust) {
+        return 0; /* pattern set is inexhaustible */
+    }
+
+    return mmbit_all((const u8 *)evec, rose->ekeyCount);
+}
+
+/** \brief Mark key \a ekey on in the exhaustion vector. */
+static really_inline
+void markAsMatched(const struct RoseEngine *rose, char *evec, u32 ekey) {
+    DEBUG_PRINTF("marking as exhausted key %u\n", ekey);
+    assert(ekey != INVALID_EKEY);
+    assert(ekey < rose->ekeyCount);
+    mmbit_set((u8 *)evec, rose->ekeyCount, ekey);
+}
+
+/** \brief Clear all keys in the exhaustion vector. */
+static really_inline
+void clearEvec(const struct RoseEngine *rose, char *evec) {
+    DEBUG_PRINTF("clearing evec %p %u\n", evec, rose->ekeyCount);
+    mmbit_clear((u8 *)evec, rose->ekeyCount);
+}
+
 /**
  * \brief Deliver the given report to the user callback.
  *

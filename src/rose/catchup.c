@@ -59,6 +59,39 @@ int roseNfaRunProgram(const struct RoseEngine *rose, struct hs_scratch *scratch,
     return can_stop_matching(scratch) ? MO_HALT_MATCHING : MO_CONTINUE_MATCHING;
 }
 
+static rose_inline
+char roseSuffixInfoIsExhausted(const struct RoseEngine *rose,
+                               const struct NfaInfo *info,
+                               const char *exhausted) {
+    if (!info->ekeyListOffset) {
+        return 0;
+    }
+
+    DEBUG_PRINTF("check exhaustion -> start at %u\n", info->ekeyListOffset);
+
+    /* INVALID_EKEY terminated list */
+    const u32 *ekeys = getByOffset(rose, info->ekeyListOffset);
+    while (*ekeys != INVALID_EKEY) {
+        DEBUG_PRINTF("check %u\n", *ekeys);
+        if (!isExhausted(rose, exhausted, *ekeys)) {
+            DEBUG_PRINTF("not exhausted -> alive\n");
+            return 0;
+        }
+        ++ekeys;
+    }
+
+    DEBUG_PRINTF("all ekeys exhausted -> dead\n");
+    return 1;
+}
+
+static really_inline
+char roseSuffixIsExhausted(const struct RoseEngine *rose, u32 qi,
+                           const char *exhausted) {
+    DEBUG_PRINTF("check queue %u\n", qi);
+    const struct NfaInfo *info = getNfaInfoByQueue(rose, qi);
+    return roseSuffixInfoIsExhausted(rose, info, exhausted);
+}
+
 static really_inline
 void deactivateQueue(const struct RoseEngine *t, u8 *aa, u32 qi,
                      struct hs_scratch *scratch) {
