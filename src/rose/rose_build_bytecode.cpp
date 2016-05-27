@@ -3020,6 +3020,25 @@ void makeRoleCheckBounds(const RoseBuildImpl &build, RoseVertex v,
 }
 
 static
+void makeRoleCheckNotHandled(build_context &bc, RoseVertex v,
+                             vector<RoseInstruction> &program) {
+    auto ri = RoseInstruction(ROSE_INSTR_CHECK_NOT_HANDLED,
+                              JumpTarget::NEXT_BLOCK);
+
+    u32 handled_key;
+    if (contains(bc.handledKeys, v)) {
+        handled_key = bc.handledKeys.at(v);
+    } else {
+        handled_key = verify_u32(bc.handledKeys.size());
+        bc.handledKeys.emplace(v, handled_key);
+    }
+
+    ri.u.checkNotHandled.key = handled_key;
+
+    program.push_back(move(ri));
+}
+
+static
 vector<RoseInstruction> makeProgram(RoseBuildImpl &build, build_context &bc,
                                     const RoseEdge &e) {
     const RoseGraph &g = build.g;
@@ -3040,6 +3059,13 @@ vector<RoseInstruction> makeProgram(RoseBuildImpl &build, build_context &bc,
 
     if (g[e].history == ROSE_ROLE_HISTORY_ANCH) {
         makeRoleCheckBounds(build, v, e, program);
+    }
+
+    // This program may be triggered by different predecessors, with different
+    // offset bounds. We must ensure we put this check/set operation after the
+    // bounds check to deal with this case.
+    if (hasGreaterInDegree(1, v, g)) {
+        makeRoleCheckNotHandled(bc, v, program);
     }
 
     makeRoleLookaround(build, bc, v, program);
@@ -3226,48 +3252,6 @@ void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
 
     DEBUG_PRINTF("built %u roses with lag indices\n", lagIndex);
     *laggedRoseCount = lagIndex;
-}
-
-static
-void makeRoleCheckNotHandled(build_context &bc, RoseVertex v,
-                             vector<RoseInstruction> &program) {
-    auto ri = RoseInstruction(ROSE_INSTR_CHECK_NOT_HANDLED,
-                              JumpTarget::NEXT_BLOCK);
-
-    u32 handled_key;
-    if (contains(bc.handledKeys, v)) {
-        handled_key = bc.handledKeys.at(v);
-    } else {
-        handled_key = verify_u32(bc.handledKeys.size());
-        bc.handledKeys.emplace(v, handled_key);
-    }
-
-    ri.u.checkNotHandled.key = handled_key;
-
-    // This program may be triggered by different predecessors, with different
-    // offset bounds. We must ensure we put this check/set operation after the
-    // bounds check to deal with this case.
-    auto it =
-        find_if(begin(program), end(program), [](const RoseInstruction &ri) {
-            return ri.code() > ROSE_INSTR_CHECK_BOUNDS;
-        });
-    program.insert(it, ri);
-}
-
-static
-vector<RoseInstruction> makePredProgram(RoseBuildImpl &build, build_context &bc,
-                                        const RoseEdge &e) {
-    const RoseGraph &g = build.g;
-    const RoseVertex v = target(e, g);
-
-    auto program = makeProgram(build, bc, e);
-
-    if (hasGreaterInDegree(1, v, g)) {
-        // Only necessary when there is more than one pred.
-        makeRoleCheckNotHandled(bc, v, program);
-    }
-
-    return program;
 }
 
 static
@@ -3642,7 +3626,7 @@ u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc, u32 final_id,
                      g[target(e, g)].idx);
         assert(contains(bc.roleStateIndices, u));
         u32 pred_state = bc.roleStateIndices.at(u);
-        auto program = makePredProgram(build, bc, e);
+        auto program = makeProgram(build, bc, e);
         predProgramLists[pred_state].push_back(program);
     }
 
