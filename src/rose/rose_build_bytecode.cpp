@@ -3010,13 +3010,7 @@ void makeRoleCheckBounds(const RoseBuildImpl &build, RoseVertex v,
     ri.u.checkBounds.min_bound = min_bound;
     ri.u.checkBounds.max_bound = max_bound;
 
-    // This precondition instruction should go near the start of
-    // the program, after the ONLY_EOD check if it's present.
-    auto it =
-        find_if(begin(program), end(program), [](const RoseInstruction &ri) {
-            return ri.code() > ROSE_INSTR_CHECK_ONLY_EOD;
-        });
-    program.insert(it, ri);
+    program.push_back(move(ri));
 }
 
 static
