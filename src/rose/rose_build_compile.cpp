@@ -34,6 +34,7 @@
 #include "rose_build_castle.h"
 #include "rose_build_convert.h"
 #include "rose_build_dump.h"
+#include "rose_build_matchers.h"
 #include "rose_build_merge.h"
 #include "rose_build_role_aliasing.h"
 #include "rose_build_util.h"
@@ -2180,6 +2181,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
     mergeOutfixes(*this);
 
     assert(!danglingVertexRef(*this));
+
+    findMoreLiteralMasks(*this);
 
     assignGroupsToLiterals();
     assignGroupsToRoles();

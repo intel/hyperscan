@@ -58,6 +58,8 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
 aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
                                                  size_t *esize);
 
+void findMoreLiteralMasks(RoseBuildImpl &build);
+
 } // namespace ue2
 
 #endif // ROSE_BUILD_MATCHERS_H

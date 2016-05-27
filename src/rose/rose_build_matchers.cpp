@@ -333,6 +333,73 @@ bool findHamsterMask(const RoseBuildImpl &build, const rose_literal_id &id,
     return true;
 }
 
+void findMoreLiteralMasks(RoseBuildImpl &build) {
+    if (!build.cc.grey.roseHamsterMasks) {
+        return;
+    }
+
+    vector<u32> candidates;
+    for (const auto &e : build.literals.right) {
+        const u32 id = e.first;
+        const auto &lit = e.second;
+
+        // This pass takes place before final IDs are assigned to literals.
+        assert(!build.hasFinalId(id));
+
+        if (lit.delay || build.isDelayed(id)) {
+            continue;
+        }
+
+        // Literal masks are only allowed for literals that will end up in an
+        // HWLM table.
+        switch (lit.table) {
+        case ROSE_FLOATING:
+        case ROSE_EOD_ANCHORED:
+        case ROSE_ANCHORED_SMALL_BLOCK:
+            break;
+        default:
+            continue;
+        }
+
+        if (!lit.msk.empty()) {
+            continue;
+        }
+
+        const auto &lit_info = build.literal_info.at(id);
+        if (lit_info.requires_benefits) {
+            continue;
+        }
+        candidates.push_back(id);
+    }
+
+    for (const u32 &id : candidates) {
+        const auto &lit = build.literals.right.at(id);
+        auto &lit_info = build.literal_info.at(id);
+
+        vector<u8> msk, cmp;
+        if (!findHamsterMask(build, lit, lit_info, msk, cmp)) {
+            continue;
+        }
+        assert(!msk.empty());
+        DEBUG_PRINTF("found advisory mask for lit_id=%u\n", id);
+        u32 new_id = build.getLiteralId(lit.s, msk, cmp, lit.delay, lit.table);
+        assert(new_id != id);
+        DEBUG_PRINTF("replacing with new lit_id=%u\n", new_id);
+
+        // Note that our new literal may already exist and have vertices, etc.
+        // We assume that this transform is happening prior to group assignment.
+        assert(lit_info.group_mask == 0);
+        auto &new_info = build.literal_info.at(new_id);
+        new_info.vertices.insert(begin(lit_info.vertices),
+                                 end(lit_info.vertices));
+        for (auto v : lit_info.vertices) {
+            build.g[v].literals.erase(id);
+            build.g[v].literals.insert(new_id);
+        }
+        lit_info.vertices.clear();
+    }
+}
+
 static
 bool isDirectHighlander(const RoseBuildImpl &build, const u32 id,
                         const rose_literal_info &info) {
@@ -472,17 +539,8 @@ vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
 
         DEBUG_PRINTF("lit='%s'\n", escapeString(lit).c_str());
 
-        vector<u8> msk = e.second.msk; // copy
-        vector<u8> cmp = e.second.cmp; // copy
-
-        if (msk.empty()) {
-            // Try and pick up an advisory mask.
-            if (!findHamsterMask(build, e.second, info, msk, cmp)) {
-                msk.clear(); cmp.clear();
-            } else {
-                DEBUG_PRINTF("picked up late mask %zu\n", msk.size());
-            }
-        }
+        const vector<u8> &msk = e.second.msk;
+        const vector<u8> &cmp = e.second.cmp;
 
         bool noruns = isNoRunsLiteral(build, id, info);
 
@@ -514,8 +572,7 @@ vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
                 continue;
             }
 
-            lits.emplace_back(lit.get_string(), lit.any_nocase(), noruns,
-                              final_id, groups, msk, cmp);
+            lits.emplace_back(s, nocase, noruns, final_id, groups, msk, cmp);
         }
     }
 
