@@ -2435,6 +2435,33 @@ bool onlyAtEod(const RoseBuildImpl &tbi, RoseVertex v) {
 }
 
 static
+u32 addLookaround(build_context &bc, const vector<LookEntry> &look) {
+    // Check the cache.
+    auto it = bc.lookaround_cache.find(look);
+    if (it != bc.lookaround_cache.end()) {
+        DEBUG_PRINTF("reusing look at idx %zu\n", it->second);
+        return verify_u32(it->second);
+    }
+
+    // Linear scan for sequence.
+    auto seq_it = search(begin(bc.lookaround), end(bc.lookaround), begin(look),
+                         end(look));
+    if (seq_it != end(bc.lookaround)) {
+        size_t idx = distance(begin(bc.lookaround), seq_it);
+        DEBUG_PRINTF("linear scan found look at idx %zu\n", idx);
+        bc.lookaround_cache.emplace(look, idx);
+        return verify_u32(idx);
+    }
+
+    // New sequence.
+    size_t idx = bc.lookaround.size();
+    bc.lookaround_cache.emplace(look, idx);
+    insert(&bc.lookaround, bc.lookaround.end(), look);
+    DEBUG_PRINTF("adding look at idx %zu\n", idx);
+    return verify_u32(idx);
+}
+
+static
 void makeRoleLookaround(RoseBuildImpl &build, build_context &bc, RoseVertex v,
                         vector<RoseInstruction> &program) {
     if (!build.cc.grey.roseLookaroundMasks) {
@@ -2460,18 +2487,7 @@ void makeRoleLookaround(RoseBuildImpl &build, build_context &bc, RoseVertex v,
     }
 
     DEBUG_PRINTF("role has lookaround\n");
-    u32 look_idx;
-    auto it = bc.lookaround_cache.find(look);
-    if (it != bc.lookaround_cache.end()) {
-        DEBUG_PRINTF("reusing look at idx %zu\n", it->second);
-        look_idx = verify_u32(it->second);
-    } else {
-        size_t idx = bc.lookaround.size();
-        bc.lookaround_cache.emplace(look, idx);
-        insert(&bc.lookaround, bc.lookaround.end(), look);
-        DEBUG_PRINTF("adding look at idx %zu\n", idx);
-        look_idx = verify_u32(idx);
-    }
+    u32 look_idx = addLookaround(bc, look);
     u32 look_count = verify_u32(look.size());
 
     auto ri = RoseInstruction(ROSE_INSTR_CHECK_LOOKAROUND,
