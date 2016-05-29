@@ -1,0 +1,39 @@
+sudo: false # Use container-based infrastructure
+
+addons:
+  apt:
+    sources:
+      - kubuntu-backports
+      - ubuntu-toolchain-r-test
+    packages:
+      - gcc-4.8
+      - g++-4.8
+      - cmake
+      - ragel
+
+env:
+  - BUILD_SHARED_LIBS="ON" CMAKE_BUILD_TYPE="RelWithDebInfo"
+  - BUILD_SHARED_LIBS="ON" CMAKE_BUILD_TYPE="Debug"
+  - BUILD_SHARED_LIBS="OFF" CMAKE_BUILD_TYPE="RelWithDebInfo"
+  - BUILD_SHARED_LIBS="OFF" CMAKE_BUILD_TYPE="Debug"
+
+before_install:
+  # use gcc 4.8
+  - export CC=gcc-4.8
+  - export CXX=g++-4.8
+
+  # boost
+  - wget 'http://downloads.sourceforge.net/project/boost/boost/1.60.0/boost_1_60_0.tar.bz2'
+  - echo '686affff989ac2488f79a97b9479efb9f2abae035b5ed4d8226de6857933fd3b  boost_1_60_0.tar.bz2' | sha256sum -c -
+  - tar -xf boost_1_60_0.tar.bz2
+  - ln -s ../boost_1_60_0/boost include/
+
+install:
+  - mkdir build
+  - cd build
+  - cmake .. -DBUILD_SHARED_LIBS="$BUILD_SHARED_LIBS" -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE"
+  - cd ..
+  - make -j 2 -C "build"
+
+script:
+  - make unit -C "build"
