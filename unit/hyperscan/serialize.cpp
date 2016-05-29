@@ -483,4 +483,71 @@ TEST(Serialize, DeserializeUnalignedMalloc) {
     free(bytes);
 }
 
+TEST(Serialize, DeserializeGarbage) {
+    hs_database_t *db;
+    hs_compile_error_t *c_err;
+    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+
+    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(db != nullptr);
+
+    // determine database size for subsequent hs_deserialize_database_at
+    size_t db_len;
+    err = hs_database_size(db, &db_len);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_NE(0, db_len);
+
+    // serialize
+    char *bytes = nullptr;
+    size_t bytes_len = 0;
+
+    err = hs_serialize_database(db, &bytes, &bytes_len);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_NE(0, bytes_len);
+
+    hs_free_database(db);
+
+    // append '\0' byte to the serialized string to spoil it
+    bytes = (char *)realloc(bytes, bytes_len + 1);
+    ASSERT_NE(nullptr, bytes);
+    bytes[bytes_len] = '\0';
+
+    // create set of invalid serializations
+    struct Arg {
+        char *start;
+        size_t len;
+    };
+
+    const Arg invalid_args[] = {
+        {bytes + 1, bytes_len},
+        {bytes + 1, bytes_len - 1},
+        {bytes, bytes_len - 1},
+        {bytes, bytes_len + 1},
+    };
+
+    for (const Arg &arg : invalid_args) {
+        hs_database_t *db;
+        err = hs_deserialize_database(arg.start, arg.len, &db);
+        ASSERT_NE(HS_SUCCESS, err);
+
+        char *new_db = (char *)malloc(db_len);
+        ASSERT_NE(nullptr, new_db);
+        err = hs_deserialize_database_at(arg.start, arg.len,
+                                         (hs_database_t *)(new_db));
+        ASSERT_NE(HS_SUCCESS, err);
+        free(new_db);
+
+        char *info;
+        err = hs_serialized_database_info(arg.start, arg.len, &info);
+        ASSERT_NE(HS_SUCCESS, err);
+
+        size_t ser_len;
+        err = hs_serialized_database_size(arg.start, arg.len, &ser_len);
+        ASSERT_NE(HS_SUCCESS, err);
+    }
+
+    free(bytes);
+}
+
 }
