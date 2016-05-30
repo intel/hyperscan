@@ -124,7 +124,7 @@ The following regex constructs are supported by Hyperscan:
     * Case-sensitivity: :regexp:`(?i)` and :regexp:`(?-i)`
     * Multi-line: :regexp:`(?m)` and :regexp:`(?-m)`
     * Dot-all: :regexp:`(?s)` and :regexp:`(?-s)`
-    * Extended syntax: :regexp:`(?s)` and :regexp:`(?-s)`
+    * Extended syntax: :regexp:`(?x)` and :regexp:`(?-x)`
 
 * The :regexp:`\\b` and :regexp:`\\B` zero-width assertions (word boundary and
   'not word boundary', respectively).
