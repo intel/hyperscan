@@ -65,7 +65,8 @@ namespace { // unnamed
 // Concrete impl class
 class SmallWriteBuildImpl : public SmallWriteBuild {
 public:
-    SmallWriteBuildImpl(const ReportManager &rm, const CompileContext &cc);
+    SmallWriteBuildImpl(size_t num_patterns, const ReportManager &rm,
+                        const CompileContext &cc);
 
     // Construct a runtime implementation.
     aligned_unique_ptr<SmallWriteEngine> build(u32 roseQuality) override;
@@ -87,11 +88,14 @@ public:
 
 SmallWriteBuild::~SmallWriteBuild() { }
 
-SmallWriteBuildImpl::SmallWriteBuildImpl(const ReportManager &rm_in,
+SmallWriteBuildImpl::SmallWriteBuildImpl(size_t num_patterns,
+                                         const ReportManager &rm_in,
                                          const CompileContext &cc_in)
     : rm(rm_in), cc(cc_in),
       /* small write is block mode only */
-      poisoned(!cc.grey.allowSmallWrite || cc.streaming) {
+      poisoned(!cc.grey.allowSmallWrite
+               || cc.streaming
+               || num_patterns > cc.grey.smallWriteMaxPatterns) {
 }
 
 void SmallWriteBuildImpl::add(const NGWrapper &w) {
@@ -163,6 +167,10 @@ void SmallWriteBuildImpl::add(const ue2_literal &literal, ReportID r) {
     }
 
     cand_literals.push_back(make_pair(literal, r));
+
+    if (cand_literals.size() > cc.grey.smallWriteMaxLiterals) {
+        poisoned = true;
+    }
 }
 
 static
@@ -181,6 +189,7 @@ void lit_to_graph(NGHolder *h, const ue2_literal &literal, ReportID r) {
 bool SmallWriteBuildImpl::determiniseLiterals() {
     DEBUG_PRINTF("handling literals\n");
     assert(!poisoned);
+    assert(cand_literals.size() <= cc.grey.smallWriteMaxLiterals);
 
     if (cand_literals.empty()) {
         return true; /* nothing to do */
@@ -352,9 +361,10 @@ aligned_unique_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
 }
 
 // SmallWriteBuild factory
-unique_ptr<SmallWriteBuild> makeSmallWriteBuilder(const ReportManager &rm,
+unique_ptr<SmallWriteBuild> makeSmallWriteBuilder(size_t num_patterns,
+                                                  const ReportManager &rm,
                                                   const CompileContext &cc) {
-    return ue2::make_unique<SmallWriteBuildImpl>(rm, cc);
+    return ue2::make_unique<SmallWriteBuildImpl>(num_patterns, rm, cc);
 }
 
 aligned_unique_ptr<SmallWriteEngine>

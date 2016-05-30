@@ -75,14 +75,15 @@ using namespace std;
 
 namespace ue2 {
 
-NG::NG(const CompileContext &in_cc, unsigned in_somPrecision)
+NG::NG(const CompileContext &in_cc, size_t num_patterns,
+       unsigned in_somPrecision)
     : maxSomRevHistoryAvailable(in_cc.grey.somMaxRevNfaLength),
       minWidth(depth::infinity()),
       rm(in_cc.grey),
       ssm(in_somPrecision),
       cc(in_cc),
       rose(makeRoseBuilder(rm, ssm, cc, boundary)),
-      smwr(makeSmallWriteBuilder(rm, cc)) {
+      smwr(makeSmallWriteBuilder(num_patterns, rm, cc)) {
 }
 
 NG::~NG() {

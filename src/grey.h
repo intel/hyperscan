@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -143,6 +143,8 @@ struct Grey {
     u32 smallWriteLargestBuffer;  // largest buffer that can be small write
     u32 smallWriteLargestBufferBad;// largest buffer that can be small write
     u32 limitSmallWriteOutfixSize; //!< max total size of outfix DFAs
+    u32 smallWriteMaxPatterns; // only try small writes if fewer patterns
+    u32 smallWriteMaxLiterals; // only try small writes if fewer literals
 
     enum DumpFlags {
         DUMP_NONE       = 0,

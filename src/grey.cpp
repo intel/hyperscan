@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -126,6 +126,8 @@ Grey::Grey(void) :
                                                 // are given to rose &co
                    smallWriteLargestBufferBad(35),
                    limitSmallWriteOutfixSize(1048576), // 1 MB
+                   smallWriteMaxPatterns(10000),
+                   smallWriteMaxLiterals(10000),
                    dumpFlags(0),
                    limitPatternCount(8000000), // 8M patterns
                    limitPatternLength(16000),  // 16K bytes
@@ -273,6 +275,8 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(smallWriteLargestBuffer);
         G_UPDATE(smallWriteLargestBufferBad);
         G_UPDATE(limitSmallWriteOutfixSize);
+        G_UPDATE(smallWriteMaxPatterns);
+        G_UPDATE(smallWriteMaxLiterals);
         G_UPDATE(limitPatternCount);
         G_UPDATE(limitPatternLength);
         G_UPDATE(limitGraphVertices);

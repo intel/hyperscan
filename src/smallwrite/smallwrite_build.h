@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -64,7 +64,8 @@ public:
 };
 
 // Construct a usable SmallWrite builder.
-std::unique_ptr<SmallWriteBuild> makeSmallWriteBuilder(const ReportManager &rm,
+std::unique_ptr<SmallWriteBuild> makeSmallWriteBuilder(size_t num_patterns,
+                                                       const ReportManager &rm,
                                                        const CompileContext &cc);
 
 size_t smwrSize(const SmallWriteEngine *t);
