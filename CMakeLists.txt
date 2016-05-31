@@ -825,6 +825,8 @@ SET (hs_SRCS
     src/rose/rose_build_compile.cpp
     src/rose/rose_build_convert.cpp
     src/rose/rose_build_convert.h
+    src/rose/rose_build_groups.cpp
+    src/rose/rose_build_groups.h
     src/rose/rose_build_impl.h
     src/rose/rose_build_infix.cpp
     src/rose/rose_build_infix.h

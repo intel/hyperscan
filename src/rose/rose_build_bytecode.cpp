@@ -33,6 +33,7 @@
 #include "hs_compile.h" // for HS_MODE_*
 #include "rose_build_add_internal.h"
 #include "rose_build_anchored.h"
+#include "rose_build_groups.h"
 #include "rose_build_infix.h"
 #include "rose_build_lookaround.h"
 #include "rose_build_matchers.h"
@@ -407,6 +408,13 @@ struct build_context : boost::noncopyable {
 
     /** \brief Resources in use (tracked as programs are added). */
     RoseResources resources;
+
+    /** \brief Mapping from every vertex to the groups that must be on for that
+     * vertex to be reached. */
+    ue2::unordered_map<RoseVertex, rose_group> vertex_group_map;
+
+    /** \brief Global bitmap of groups that can be squashed. */
+    rose_group squashable_groups = 0;
 
     /** \brief Base offset of engine_blob in the Rose engine bytecode. */
     static constexpr u32 engine_blob_base = ROUNDUP_CL(sizeof(RoseEngine));
@@ -2911,11 +2919,38 @@ void makeRoleSuffix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
 }
 
 static
-void makeRoleGroups(const rose_group &groups,
+void makeRoleGroups(RoseBuildImpl &build, build_context &bc, RoseVertex v,
                     vector<RoseInstruction> &program) {
+    const auto &g = build.g;
+    rose_group groups = g[v].groups;
     if (!groups) {
         return;
     }
+
+    // The set of "already on" groups as we process this vertex is the
+    // intersection of the groups set by our predecessors.
+    assert(in_degree(v, g) > 0);
+    rose_group already_on = ~rose_group{0};
+    for (const auto &u : inv_adjacent_vertices_range(v, g)) {
+        already_on &= bc.vertex_group_map.at(u);
+    }
+
+    DEBUG_PRINTF("already_on=0x%llx\n", already_on);
+    DEBUG_PRINTF("squashable=0x%llx\n", bc.squashable_groups);
+    DEBUG_PRINTF("groups=0x%llx\n", groups);
+
+    already_on &= ~bc.squashable_groups;
+    DEBUG_PRINTF("squashed already_on=0x%llx\n", already_on);
+
+    // We don't *have* to mask off the groups that we know are already on, but
+    // this will make bugs more apparent.
+    groups &= ~already_on;
+
+    if (!groups) {
+        DEBUG_PRINTF("no new groups to set, skipping\n");
+        return;
+    }
+
     auto ri = RoseInstruction(ROSE_INSTR_SET_GROUPS);
     ri.u.setGroups.groups = groups;
     program.push_back(ri);
@@ -3086,11 +3121,12 @@ vector<RoseInstruction> makeProgram(RoseBuildImpl &build, build_context &bc,
     // Next, we can add program instructions that have effects.
 
     makeRoleReports(build, bc, v, program);
+
     makeRoleInfixTriggers(build, bc, v, program);
 
     // Note: SET_GROUPS instruction must be after infix triggers, as an infix
     // going dead may switch off groups.
-    makeRoleGroups(g[v].groups, program);
+    makeRoleGroups(build, bc, v, program);
 
     makeRoleSuffix(build, bc, v, program);
     makeRoleSetState(bc, v, program);
@@ -3457,8 +3493,7 @@ void makePushDelayedInstructions(const RoseBuildImpl &build, u32 final_id,
 }
 
 static
-void makeGroupCheckInstruction(const RoseBuildImpl &build, u32 final_id,
-                               vector<RoseInstruction> &program) {
+rose_group getFinalIdGroupsUnion(const RoseBuildImpl &build, u32 final_id) {
     assert(contains(build.final_id_to_literal, final_id));
     const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
 
@@ -3466,7 +3501,13 @@ void makeGroupCheckInstruction(const RoseBuildImpl &build, u32 final_id,
     for (const auto &li : lit_infos) {
         groups |= li->group_mask;
     }
+    return groups;
+}
 
+static
+void makeGroupCheckInstruction(const RoseBuildImpl &build, u32 final_id,
+                               vector<RoseInstruction> &program) {
+    rose_group groups = getFinalIdGroupsUnion(build, final_id);
     if (!groups) {
         return;
     }
@@ -3515,11 +3556,7 @@ void makeGroupSquashInstruction(const RoseBuildImpl &build, u32 final_id,
         return;
     }
 
-    rose_group groups = 0;
-    for (const auto &li : lit_infos) {
-        groups |= li->group_mask;
-    }
-
+    rose_group groups = getFinalIdGroupsUnion(build, final_id);
     if (!groups) {
         return;
     }
@@ -3999,6 +4036,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         bc.resources.has_anchored = true;
     }
     bc.needs_mpv_catchup = needsMpvCatchup(*this);
+    bc.vertex_group_map = getVertexGroupMap(*this);
+    bc.squashable_groups = getSquashableGroups(*this);
 
     auto boundary_out = makeBoundaryPrograms(*this, bc, boundary, dboundary);
 
