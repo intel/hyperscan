@@ -122,6 +122,7 @@ protected:
         q.length = 0; // filled in by test
         q.history = nullptr;
         q.hlength = 0;
+        q.scratch = nullptr; // not needed by LBR
         q.report_current = 0;
         q.cb = onMatch;
         q.som_cb = nullptr; // only used by Haig

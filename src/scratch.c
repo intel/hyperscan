@@ -227,6 +227,11 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     // Don't get too big for your boots
     assert((size_t)(current - (char *)s) <= alloc_size);
 
+    // Init q->scratch ptr for every queue.
+    for (struct mq *qi = s->queues; qi != s->queues + queueCount; ++qi) {
+        qi->scratch = s;
+    }
+
     return HS_SUCCESS;
 }
 
