@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,6 +26,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file
+ * \brief Data structures and helper functions used to describe the purpose of
+ * a particular NFA engine at build time.
+ */
+
 #ifndef NFA_KIND_H
 #define NFA_KIND_H
 
@@ -39,17 +45,53 @@ enum nfa_kind {
     NFA_INFIX,  //!< rose infix
     NFA_SUFFIX, //!< rose suffix
     NFA_OUTFIX,  //!< "outfix" nfa not triggered by external events
+    NFA_OUTFIX_RAW, //!< "outfix", but with unmanaged reports
     NFA_REV_PREFIX, //! reverse running prefixes (for som)
 };
 
-static UNUSED
+/** \brief True if this kind of engine is triggered by a top event. */
+inline
 bool is_triggered(enum nfa_kind k) {
-    return k == NFA_INFIX || k == NFA_SUFFIX || k == NFA_REV_PREFIX;
+    switch (k) {
+    case NFA_INFIX:
+    case NFA_SUFFIX:
+    case NFA_REV_PREFIX:
+        return true;
+    default:
+        return false;
+    }
 }
 
-static UNUSED
+/**
+ * \brief True if this kind of engine generates callback events when it
+ * enters accept states.
+ */
+inline
 bool generates_callbacks(enum nfa_kind k) {
-    return k == NFA_SUFFIX || k == NFA_OUTFIX || k == NFA_REV_PREFIX;
+    switch (k) {
+    case NFA_SUFFIX:
+    case NFA_OUTFIX:
+    case NFA_OUTFIX_RAW:
+    case NFA_REV_PREFIX:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/**
+ * \brief True if this kind of engine has reports that are managed by the \ref
+ * ReportManager.
+ */
+inline
+bool has_managed_reports(enum nfa_kind k) {
+    switch (k) {
+    case NFA_SUFFIX:
+    case NFA_OUTFIX:
+        return true;
+    default:
+        return false;
+    }
 }
 
 } // namespace ue2

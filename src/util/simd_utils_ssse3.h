@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -77,22 +77,35 @@ m128 pshufb(m128 a, m128 b) {
     return result;
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern const char vbs_mask_data[];
+#ifdef __cplusplus
+}
+#endif
+
+static really_inline
+m128 variable_byte_shift_m128(m128 in, s32 amount) {
+    assert(amount >= -16 && amount <= 16);
+    m128 shift_mask = loadu128(vbs_mask_data + 16 - amount);
+    return pshufb(in, shift_mask);
+}
+
 #if defined(__AVX2__)
 
 static really_inline
 m256 vpshufb(m256 a, m256 b) {
     return _mm256_shuffle_epi8(a, b);
 }
+
 #if defined(USE_GCC_COMPOUND_STATEMENTS)
 #define vpalignr(r, l, offset) ({                   \
     m256 res = _mm256_alignr_epi8(r, l, offset);    \
     res;                                            \
 })
 #else
-static really_inline
-m256 vpalignr(m256 r, m256 l, const int offset) {
-    return _mm256_alignr_epi8(r, l, offset);
-}
+#define vpalignr(r, l, offset) _mm256_alignr_epi8(r, l, offset)
 #endif
 
 #else // not __AVX2__

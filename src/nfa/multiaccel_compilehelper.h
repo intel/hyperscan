@@ -26,36 +26,50 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SIDECAR_COMPILE_H
-#define SIDECAR_COMPILE_H
+#ifndef MULTIACCELCOMPILE_H_
+#define MULTIACCELCOMPILE_H_
 
 #include "ue2common.h"
-#include "util/alloc.h"
 
-#include <memory>
+#include "nfagraph/ng_limex_accel.h"
+
 #include <vector>
-
-struct sidecar;
-struct sidecar_enabled;
 
 namespace ue2 {
 
-class CharReach;
+/* accel scheme state machine */
+enum accel_scheme_state {
+    STATE_FIRST_RUN,
+    STATE_SECOND_RUN,
+    STATE_WAITING_FOR_GRAB,
+    STATE_FIRST_TAIL,
+    STATE_SECOND_TAIL,
+    STATE_STOPPED,
+    STATE_INVALID
+};
 
-#define SIDECAR_NO_HINT (-1)
+struct accel_data {
+    MultibyteAccelInfo::multiaccel_type type = MultibyteAccelInfo::MAT_NONE;
+    accel_scheme_state state = STATE_INVALID;
+    unsigned len1 = 0; /* length of first run */
+    unsigned len2 = 0; /* length of second run, if present */
+    unsigned tlen1 = 0; /* first tail length */
+    unsigned tlen2 = 0; /* second tail length */
+};
 
-/*
- * match ids are given by position in the report_map vector
- */
-aligned_unique_ptr<sidecar>
-sidecarCompile(const std::vector<CharReach> &classes,
-               int hint = SIDECAR_NO_HINT);
+class MultiaccelCompileHelper {
+private:
+    const CharReach &cr;
+    u32 offset;
+    std::vector<accel_data> accels;
+    unsigned max_len;
+public:
+    MultiaccelCompileHelper(const CharReach &cr, u32 off, unsigned max_len);
+    bool canAdvance();
+    MultibyteAccelInfo getBestScheme();
+    void advance(const ue2::CharReach &cr);
+};
 
-u32 sidecarSize(const sidecar *ns);
-u32 sidecarEnabledSize(const sidecar *n);
-void sidecarEnabledAdd(const sidecar *n, struct sidecar_enabled *enabled,
-                       u32 id);
+}; // namespace
 
-} // namespace ue2
-
-#endif
+#endif /* MULTIACCELCOMPILE_H_ */

@@ -39,6 +39,7 @@
 #include "compiler/error.h"
 #include "nfagraph/ng.h"
 #include "nfagraph/ng_expr_info.h"
+#include "nfagraph/ng_extparam.h"
 #include "parser/parse_error.h"
 #include "parser/Parser.h"
 #include "parser/prefilter.h"
@@ -310,7 +311,8 @@ hs_error_t hs_compile_ext_multi(const char * const *expressions,
 
 static
 hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
-                                  unsigned int mode, hs_expr_info_t **info,
+                                  const hs_expr_ext_t *ext, unsigned int mode,
+                                  hs_expr_info_t **info,
                                   hs_compile_error_t **error) {
     if (!error) {
         // nowhere to write an error, but we can still return an error code.
@@ -347,7 +349,7 @@ hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
         }
 
         ReportManager rm(cc.grey);
-        ParsedExpression pe(0, expression, flags, 0);
+        ParsedExpression pe(0, expression, flags, 0, ext);
         assert(pe.component);
 
         // Apply prefiltering transformations if desired.
@@ -362,6 +364,7 @@ hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
             throw ParseError("Internal error.");
         }
 
+        handleExtendedParams(rm, *g, cc);
         fillExpressionInfo(rm, *g, &local_info);
     }
     catch (const CompileError &e) {
@@ -394,7 +397,16 @@ extern "C" HS_PUBLIC_API
 hs_error_t hs_expression_info(const char *expression, unsigned int flags,
                               hs_expr_info_t **info,
                               hs_compile_error_t **error) {
-    return hs_expression_info_int(expression, flags, HS_MODE_BLOCK, info,
+    return hs_expression_info_int(expression, flags, nullptr, HS_MODE_BLOCK,
+                                  info, error);
+}
+
+extern "C" HS_PUBLIC_API
+hs_error_t hs_expression_ext_info(const char *expression, unsigned int flags,
+                                  const hs_expr_ext_t *ext,
+                                  hs_expr_info_t **info,
+                                  hs_compile_error_t **error) {
+    return hs_expression_info_int(expression, flags, ext, HS_MODE_BLOCK, info,
                                   error);
 }
 

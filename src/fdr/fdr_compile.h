@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -60,6 +60,9 @@ fdrBuildTableHinted(const std::vector<hwlmLiteral> &lits, bool make_small,
                     hwlmStreamingControl *stream_control = nullptr);
 
 #endif
+
+/** \brief Returns size in bytes of the given FDR engine. */
+size_t fdrSize(const struct FDR *fdr);
 
 } // namespace ue2
 

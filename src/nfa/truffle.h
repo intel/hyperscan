@@ -26,9 +26,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/** \file
+ * \brief Truffle: fully general character class acceleration.
+ *
+ * Utilises the SSSE3 pshufb or AVX2 vpshufb shuffle instructions
+ */
+
 #ifndef TRUFFLE_H
 #define TRUFFLE_H
+
 #include "util/simd_types.h"
+
 #ifdef __cplusplus
 extern "C"
 {

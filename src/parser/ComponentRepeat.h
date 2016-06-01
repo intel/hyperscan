@@ -42,30 +42,33 @@
 
 namespace ue2 {
 
-/** \brief Encapsulates a repeat of a subexpression ('*', '+', '?', '{M,N}',
+/**
+ * \brief Encapsulates a repeat of a subexpression ('*', '+', '?', '{M,N}',
  * etc).
  *
- * Ascii Art Time:
+ * ASCII Art Time:
  *
  * Our standard representation of standard repeats. Other constructions (fan-in
  * vs fan-out) would also be possible and equivalent for our purposes.
  *
  * {n,m}
  *
- * S->M->M->M->O->O->O->T
- *          |     ^  ^  ^
- *          |     |  |  |
- *          \-----------/
+ *     S->M->M->M->O->O->O->T
+ *              |     ^  ^  ^
+ *              |     |  |  |
+ *              \-----------/
  *
  * {0,m}
  *
- * S->O->O->O->T
- * |     ^  ^  ^
- * |     |  |  |
- * \-----------/
+ *     /-----------\
+ *     |           |
+ *     |           V
+ *     S->O->O->O->T
+ *        |  ^  ^  ^
+ *        |  |  |  |
+ *        \--------/
  *
  */
-
 class ComponentRepeat : public Component {
     friend class ConstructLiteralVisitor;
     friend class DumpVisitor;
@@ -117,11 +120,8 @@ public:
     enum RepeatType type;
 
 protected:
-    /** Called by \ref buildFollowSet to connect up the various repeats. */
-    void precalc_firsts();
     void postSubNotePositionHook();
-    void wireRepeats(GlushkovBuildState &bs,
-                     const std::vector<PositionInfo> &lastPos);
+    void wireRepeats(GlushkovBuildState &bs);
 
     std::unique_ptr<Component> sub_comp;
     u32 m_min;
@@ -131,8 +131,6 @@ protected:
     std::vector<std::vector<PositionInfo> > m_lasts;
     Position posFirst;
     Position posLast;
-
-    std::vector<PositionInfo> firsts_cache;
 
     ComponentRepeat(const ComponentRepeat &other);
 };

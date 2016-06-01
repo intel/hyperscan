@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@
 #include "castlecompile.h"
 
 #include "castle_internal.h"
+#include "limex_limits.h"
 #include "nfa_internal.h"
 #include "repeatcompile.h"
 #include "shufticompile.h"
@@ -47,7 +48,9 @@
 #include "util/dump_charclass.h"
 #include "util/graph.h"
 #include "util/make_unique.h"
+#include "util/multibit_build.h"
 #include "util/multibit_internal.h"
+#include "util/report_manager.h"
 #include "util/ue2_containers.h"
 #include "util/verify_types.h"
 #include "grey.h"
@@ -63,7 +66,6 @@ using boost::adaptors::map_values;
 
 namespace ue2 {
 
-#define CASTLE_MAX_TOPS 32
 #define CLIQUE_GRAPH_MAX_SIZE 1000
 
 static
@@ -204,7 +206,7 @@ bool graph_empty(const Graph &g) {
 static
 vector<u32> removeClique(CliqueGraph &cg) {
     vector<vector<u32>> cliquesVec(1);
-    DEBUG_PRINTF("graph size:%lu\n", num_vertices(cg));
+    DEBUG_PRINTF("graph size:%zu\n", num_vertices(cg));
     findCliqueGroup(cg, cliquesVec[0]);
     while (!graph_empty(cg)) {
         const vector<u32> &c = cliquesVec.back();
@@ -236,7 +238,7 @@ vector<u32> removeClique(CliqueGraph &cg) {
         }
     }
 
-    DEBUG_PRINTF("clique size:%lu\n", cliquesVec[id].size());
+    DEBUG_PRINTF("clique size:%zu\n", cliquesVec[id].size());
     return cliquesVec[id];
 }
 
@@ -244,17 +246,18 @@ vector<u32> removeClique(CliqueGraph &cg) {
 // the end locations where it overlaps with other literals,
 // then the literals are mutual exclusive
 static
-bool findExclusivePair(const u32 id1, const u32 id2,
+bool findExclusivePair(const size_t id1, const size_t id2,
+                       const size_t lower,
                        const vector<vector<size_t>> &min_reset_dist,
                        const vector<vector<vector<CharReach>>> &triggers) {
     const auto &triggers1 = triggers[id1];
     const auto &triggers2 = triggers[id2];
-    for (u32 i = 0; i < triggers1.size(); ++i) {
-        for (u32 j = 0; j < triggers2.size(); ++j) {
+    for (size_t i = 0; i < triggers1.size(); ++i) {
+        for (size_t j = 0; j < triggers2.size(); ++j) {
             if (!literalOverlap(triggers1[i], triggers2[j],
-                                min_reset_dist[id2][j]) ||
+                                min_reset_dist[id2 - lower][j]) ||
                 !literalOverlap(triggers2[j], triggers1[i],
-                                min_reset_dist[id1][i])) {
+                                min_reset_dist[id1 - lower][i])) {
                 return false;
             }
         }
@@ -263,40 +266,75 @@ bool findExclusivePair(const u32 id1, const u32 id2,
 }
 
 static
-vector<u32> checkExclusion(const CharReach &cr,
-                           const vector<vector<vector<CharReach>>> &triggers) {
-    vector<u32> group;
-    if (!triggers.size() || triggers.size() == 1) {
-        return group;
-    }
+vector<vector<u32>> checkExclusion(u32 &streamStateSize,
+                       const CharReach &cr,
+                       const vector<vector<vector<CharReach>>> &triggers,
+                       enum ExclusiveType &exclusive,
+                       const size_t numRepeats) {
+    vector<vector<u32>> groups;
+    size_t trigSize = triggers.size();
+    DEBUG_PRINTF("trigSize %zu\n", trigSize);
 
-    vector<vector<size_t>> min_reset_dist;
-    // get min reset distance for each repeat
-    for (auto it = triggers.begin(); it != triggers.end(); it++) {
-        const vector<size_t> &tmp_dist = minResetDistToEnd(*it, cr);
-        min_reset_dist.push_back(tmp_dist);
-    }
+    size_t lower = 0;
+    size_t total = 0;
+    while (lower < trigSize) {
+        vector<CliqueVertex> vertices;
+        unique_ptr<CliqueGraph> cg = make_unique<CliqueGraph>();
 
-    vector<CliqueVertex> vertices;
-    unique_ptr<CliqueGraph> cg = make_unique<CliqueGraph>();
-    for (u32 i = 0; i < triggers.size(); ++i) {
-        CliqueVertex v = add_vertex(CliqueVertexProps(i), *cg);
-        vertices.push_back(v);
-    }
+        vector<vector<size_t>> min_reset_dist;
+        size_t upper = min(lower + CLIQUE_GRAPH_MAX_SIZE, trigSize);
+        // get min reset distance for each repeat
+        for (size_t i = lower; i < upper; i++) {
+            CliqueVertex v = add_vertex(CliqueVertexProps(i), *cg);
+            vertices.push_back(v);
 
-    // find exclusive pair for each repeat
-    for (u32 i = 0; i < triggers.size(); ++i) {
-        CliqueVertex s = vertices[i];
-        for (u32 j = i + 1; j < triggers.size(); ++j) {
-            if (findExclusivePair(i, j, min_reset_dist, triggers)) {
-                CliqueVertex d = vertices[j];
-                add_edge(s, d, *cg);
+            const vector<size_t> &tmp_dist =
+                minResetDistToEnd(triggers[i], cr);
+            min_reset_dist.push_back(tmp_dist);
+        }
+
+        // find exclusive pair for each repeat
+        for (size_t i = lower; i < upper; i++) {
+            CliqueVertex s = vertices[i - lower];
+            for (size_t j = i + 1; j < upper; j++) {
+                if (findExclusivePair(i, j, lower, min_reset_dist,
+                                      triggers)) {
+                    CliqueVertex d = vertices[j - lower];
+                    add_edge(s, d, *cg);
+                }
             }
         }
-    }
 
-    // find the largest exclusive group
-    return removeClique(*cg);
+        // find the largest exclusive group
+        auto clique = removeClique(*cg);
+        size_t cliqueSize = clique.size();
+        if (cliqueSize > 1) {
+            groups.push_back(clique);
+            exclusive = EXCLUSIVE;
+            total += cliqueSize;
+        }
+
+        lower += CLIQUE_GRAPH_MAX_SIZE;
+    }
+    DEBUG_PRINTF("clique size %zu, num of repeats %zu\n",
+                 total, numRepeats);
+    if (total == numRepeats) {
+        exclusive = PURE_EXCLUSIVE;
+        streamStateSize = 0;
+    };
+
+    return groups;
+}
+
+namespace {
+struct ExclusiveInfo {
+
+    /** Mapping between top and exclusive group id */
+    map<u32, u32> groupId;
+
+    /** Number of exclusive groups */
+    u32 numGroups = 0;
+};
 }
 
 static
@@ -305,10 +343,15 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
                      const vector<pair<depth, bool>> &repeatInfoPair,
                      u32 &scratchStateSize, u32 &streamStateSize,
                      u32 &tableSize, vector<u64a> &tables, u32 &sparseRepeats,
-                     const set<u32> &exclusiveGroup) {
+                     const ExclusiveInfo &exclusiveInfo,
+                     vector<u32> &may_stale, const ReportManager &rm) {
+    const bool remap_reports = has_managed_reports(proto.kind);
+
     u32 i = 0;
-    u32 maxStreamSize = 0;
-    bool exclusive = exclusiveGroup.size() > 1;
+    const auto &groupId = exclusiveInfo.groupId;
+    const auto &numGroups = exclusiveInfo.numGroups;
+    vector<u32> maxStreamSize(numGroups, 0);
+
     for (auto it = proto.repeats.begin(), ite = proto.repeats.end();
          it != ite; ++it, ++i) {
         const PureRepeat &pr = it->second;
@@ -316,31 +359,33 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
         bool is_reset = repeatInfoPair[i].second;
 
         enum RepeatType rtype = chooseRepeatType(pr.bounds.min, pr.bounds.max,
-                                                 min_period, is_reset);
+                                                 min_period, is_reset, true);
         RepeatStateInfo rsi(rtype, pr.bounds.min, pr.bounds.max, min_period);
 
         DEBUG_PRINTF("sub %u: selected %s model for %s repeat\n", i,
                      repeatTypeName(rtype), pr.bounds.str().c_str());
 
-        u32 subScratchStateSize;
-        u32 subStreamStateSize;
-
         SubCastle &sub = subs[i];
         RepeatInfo &info = infos[i];
 
-        // handle exclusive case differently
-        if (exclusive && exclusiveGroup.find(i) != exclusiveGroup.end()) {
-            maxStreamSize = MAX(maxStreamSize, rsi.packedCtrlSize);
-        } else {
-            subScratchStateSize = verify_u32(sizeof(RepeatControl));
-            subStreamStateSize = verify_u32(rsi.packedCtrlSize + rsi.stateSize);
+        info.packedCtrlSize = rsi.packedCtrlSize;
+        u32 subStreamStateSize = verify_u32(rsi.packedCtrlSize + rsi.stateSize);
 
-            info.packedCtrlSize = rsi.packedCtrlSize;
+        // Handle stream/scratch space alloc for exclusive case differently.
+        if (contains(groupId, i)) {
+            u32 id = groupId.at(i);
+            maxStreamSize[id] = max(maxStreamSize[id], subStreamStateSize);
+            // SubCastle full/stream state offsets are written in for the group
+            // below.
+        } else {
             sub.fullStateOffset = scratchStateSize;
             sub.streamStateOffset = streamStateSize;
-
-            scratchStateSize += subScratchStateSize;
+            scratchStateSize += verify_u32(sizeof(RepeatControl));
             streamStateSize += subStreamStateSize;
+        }
+
+        if (pr.bounds.max.is_finite()) {
+            may_stale.push_back(i);
         }
 
         info.type = verify_u8(rtype);
@@ -358,35 +403,44 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
         info.encodingSize = rsi.encodingSize;
         info.patchesOffset = rsi.patchesOffset;
 
-        sub.report = *pr.reports.begin();
+        assert(pr.reports.size() == 1);
+        ReportID id = *pr.reports.begin();
+        sub.report = remap_reports ? rm.getProgramOffset(id) : id;
 
         if (rtype == REPEAT_SPARSE_OPTIMAL_P) {
-           for (u32 j = 0; j < rsi.patchSize; j++) {
-               tables.push_back(rsi.table[j]);
-           }
-           sparseRepeats++;
-           patchSize[i] = rsi.patchSize;
-           tableSize += rsi.patchSize;
+            for (u32 j = 0; j < rsi.patchSize; j++) {
+                tables.push_back(rsi.table[j]);
+            }
+            sparseRepeats++;
+            patchSize[i] = rsi.patchSize;
+            tableSize += rsi.patchSize;
         }
     }
 
-    if (exclusive) {
-        for (auto k : exclusiveGroup) {
-            SubCastle &sub = subs[k];
-            RepeatInfo &info = infos[k];
-            info.packedCtrlSize = maxStreamSize;
+    vector<u32> scratchOffset(numGroups, 0);
+    vector<u32> streamOffset(numGroups, 0);
+    for (const auto &j : groupId) {
+        u32 top = j.first;
+        u32 id = j.second;
+        SubCastle &sub = subs[top];
+        if (!scratchOffset[id]) {
             sub.fullStateOffset = scratchStateSize;
             sub.streamStateOffset = streamStateSize;
+            scratchOffset[id] = scratchStateSize;
+            streamOffset[id] = streamStateSize;
+            scratchStateSize += verify_u32(sizeof(RepeatControl));
+            streamStateSize += maxStreamSize[id];
+        } else {
+            sub.fullStateOffset = scratchOffset[id];
+            sub.streamStateOffset = streamOffset[id];
         }
-        scratchStateSize += verify_u32(sizeof(RepeatControl));
-        streamStateSize += maxStreamSize;
     }
 }
 
 aligned_unique_ptr<NFA>
 buildCastle(const CastleProto &proto,
             const map<u32, vector<vector<CharReach>>> &triggers,
-            const CompileContext &cc) {
+            const CompileContext &cc, const ReportManager &rm) {
     assert(cc.grey.allowCastle);
 
     const size_t numRepeats = proto.repeats.size();
@@ -418,8 +472,9 @@ buildCastle(const CastleProto &proto,
     depth maxWidth(0);
 
     u32 i = 0;
-    vector<u32> candidateRepeats;
+    ExclusiveInfo exclusiveInfo;
     vector<vector<vector<CharReach>>> candidateTriggers;
+    vector<u32> candidateRepeats;
     vector<pair<depth, bool>> repeatInfoPair;
     for (auto it = proto.repeats.begin(), ite = proto.repeats.end();
          it != ite; ++it, ++i) {
@@ -454,49 +509,60 @@ buildCastle(const CastleProto &proto,
 
         repeatInfoPair.push_back(make_pair(min_period, is_reset));
 
-        if (is_reset && candidateRepeats.size() < CLIQUE_GRAPH_MAX_SIZE) {
-            candidateTriggers.push_back(triggers.at(top));
-            candidateRepeats.push_back(i);
-        }
+        candidateTriggers.push_back(triggers.at(top));
+        candidateRepeats.push_back(i);
     }
 
     // Case 1: exclusive repeats
-    bool exclusive = false;
-    bool pureExclusive = false;
+    enum ExclusiveType exclusive = NOT_EXCLUSIVE;
     u32 activeIdxSize = 0;
-    set<u32> exclusiveGroup;
+    u32 groupIterOffset = 0;
     if (cc.grey.castleExclusive) {
-        vector<u32> tmpGroup = checkExclusion(cr, candidateTriggers);
-        const u32 exclusiveSize = tmpGroup.size();
-        if (exclusiveSize > 1) {
-            // Case 1: mutual exclusive repeats group found, initialize state
-            // sizes
-            exclusive = true;
+        auto cliqueGroups =
+            checkExclusion(streamStateSize, cr, candidateTriggers,
+                           exclusive, numRepeats);
+        for (const auto &group : cliqueGroups) {
+            // mutual exclusive repeats group found,
+            // update state sizes
             activeIdxSize = calcPackedBytes(numRepeats + 1);
-            if (exclusiveSize == numRepeats) {
-                pureExclusive = true;
-                streamStateSize = 0;
-                scratchStateSize = 0;
-            }
             streamStateSize += activeIdxSize;
 
             // replace with top values
-            for (const auto &val : tmpGroup) {
-                exclusiveGroup.insert(candidateRepeats[val]);
+            for (const auto &val : group) {
+                const u32 top = candidateRepeats[val];
+                exclusiveInfo.groupId[top] = exclusiveInfo.numGroups;
             }
+            exclusiveInfo.numGroups++;
         }
+
+        if (exclusive) {
+            groupIterOffset = streamStateSize;
+            streamStateSize += mmbit_size(exclusiveInfo.numGroups);
+        }
+
+        DEBUG_PRINTF("num of groups:%u\n", exclusiveInfo.numGroups);
     }
+    candidateRepeats.clear();
 
     DEBUG_PRINTF("reach %s exclusive %u\n", describeClass(cr).c_str(),
                  exclusive);
 
     u32 tableSize = 0;
     u32 sparseRepeats = 0;
+    vector<u32> may_stale; /* sub castles that may go stale */
+
     buildSubcastles(proto, subs, infos, patchSize, repeatInfoPair,
                     scratchStateSize, streamStateSize, tableSize,
-                    tables, sparseRepeats, exclusiveGroup);
+                    tables, sparseRepeats, exclusiveInfo, may_stale, rm);
 
-    const size_t total_size =
+    DEBUG_PRINTF("%zu subcastles may go stale\n", may_stale.size());
+    vector<mmbit_sparse_iter> stale_iter;
+    if (!may_stale.empty()) {
+        mmbBuildSparseIterator(stale_iter, may_stale, numRepeats);
+    }
+
+
+    size_t total_size =
         sizeof(NFA) +                      // initial NFA structure
         sizeof(Castle) +                   // Castle structure
         sizeof(SubCastle) * subs.size() +  // SubCastles themselves
@@ -505,6 +571,9 @@ buildCastle(const CastleProto &proto,
                                            // REPEAT_SPARSE_OPTIMAL_P
         sizeof(u64a) * sparseRepeats;      // paddings for
                                            // REPEAT_SPARSE_OPTIMAL_P tables
+
+    total_size = ROUNDUP_N(total_size, alignof(mmbit_sparse_iter));
+    total_size += byte_length(stale_iter); // stale sparse iter
 
     aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
     nfa->type = verify_u8(CASTLE_NFA_0);
@@ -515,12 +584,15 @@ buildCastle(const CastleProto &proto,
     nfa->minWidth = verify_u32(minWidth);
     nfa->maxWidth = maxWidth.is_finite() ? verify_u32(maxWidth) : 0;
 
-    char *ptr = (char *)nfa.get() + sizeof(NFA);
+    char * const base_ptr = (char *)nfa.get() + sizeof(NFA);
+    char *ptr = base_ptr;
     Castle *c = (Castle *)ptr;
     c->numRepeats = verify_u32(subs.size());
-    c->exclusive = exclusive;
-    c->pureExclusive = pureExclusive;
+    c->numGroups = exclusiveInfo.numGroups;
+    c->exclusive = verify_s8(exclusive);
     c->activeIdxSize = verify_u8(activeIdxSize);
+    c->activeOffset = verify_u32(c->numGroups * activeIdxSize);
+    c->groupIterOffset = groupIterOffset;
 
     writeCastleScanEngine(cr, c);
 
@@ -554,12 +626,22 @@ buildCastle(const CastleProto &proto,
         }
 
         // set exclusive group info
-        if (exclusiveGroup.find(i) != exclusiveGroup.end()) {
-            sub->exclusive = 1;
+        if (contains(exclusiveInfo.groupId, i)) {
+            sub->exclusiveId = exclusiveInfo.groupId[i];
         } else {
-            sub->exclusive = 0;
+            sub->exclusiveId = numRepeats;
         }
     }
+
+    ptr = base_ptr + total_size - sizeof(NFA) - byte_length(stale_iter);
+
+    assert(ptr + byte_length(stale_iter) == base_ptr + total_size - sizeof(NFA));
+    if (!stale_iter.empty()) {
+        c->staleIterOffset = verify_u32(ptr - base_ptr);
+        copy_bytes(ptr, stale_iter);
+        ptr += byte_length(stale_iter);
+    }
+
     return nfa;
 }
 
@@ -603,7 +685,7 @@ depth findMaxWidth(const CastleProto &proto, u32 top) {
     return proto.repeats.at(top).bounds.max;
 }
 
-CastleProto::CastleProto(const PureRepeat &pr) {
+CastleProto::CastleProto(nfa_kind k, const PureRepeat &pr) : kind(k) {
     assert(pr.reach.any());
     assert(pr.reports.size() == 1);
     u32 top = 0;
@@ -665,6 +747,7 @@ u32 CastleProto::merge(const PureRepeat &pr) {
 bool mergeCastle(CastleProto &c1, const CastleProto &c2,
                  map<u32, u32> &top_map) {
     assert(&c1 != &c2);
+    assert(c1.kind == c2.kind);
 
     DEBUG_PRINTF("c1 has %zu repeats, c2 has %zu repeats\n", c1.repeats.size(),
                  c2.repeats.size());
@@ -738,6 +821,7 @@ bool is_equal(const CastleProto &c1, ReportID report1, const CastleProto &c2,
               ReportID report2) {
     assert(!c1.repeats.empty());
     assert(!c2.repeats.empty());
+    assert(c1.kind == c2.kind);
 
     if (c1.reach() != c2.reach()) {
         DEBUG_PRINTF("different reach\n");
@@ -784,6 +868,7 @@ bool is_equal(const CastleProto &c1, ReportID report1, const CastleProto &c2,
 bool is_equal(const CastleProto &c1, const CastleProto &c2) {
     assert(!c1.repeats.empty());
     assert(!c2.repeats.empty());
+    assert(c1.kind == c2.kind);
 
     if (c1.reach() != c2.reach()) {
         DEBUG_PRINTF("different reach\n");
@@ -877,7 +962,7 @@ bool hasZeroMinBound(const CastleProto &proto) {
     return false;
 }
 
-unique_ptr<NGHolder> makeHolder(const CastleProto &proto, nfa_kind kind,
+unique_ptr<NGHolder> makeHolder(const CastleProto &proto,
                                 const CompileContext &cc) {
     assert(!proto.repeats.empty());
 
@@ -890,10 +975,10 @@ unique_ptr<NGHolder> makeHolder(const CastleProto &proto, nfa_kind kind,
         }
     }
 
-    unique_ptr<NGHolder> g = ue2::make_unique<NGHolder>(kind);
+    auto g = ue2::make_unique<NGHolder>(proto.kind);
 
     for (const auto &m : proto.repeats) {
-        if (m.first >= CASTLE_MAX_TOPS) {
+        if (m.first >= NFA_MAX_TOP_MASKS) {
             DEBUG_PRINTF("top %u too big for an NFA\n", m.first);
             return nullptr;
         }

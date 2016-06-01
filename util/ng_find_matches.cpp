@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,34 +47,59 @@
 using namespace std;
 using namespace ue2;
 
-// convenience typedefs
-typedef map<NFAVertex,size_t> SOMMap;
-typedef set<pair<size_t, size_t> > MatchSet;
+namespace {
+
+struct StateSet {
+    explicit StateSet(size_t sz) : s(sz), som(sz, 0) {}
+    boost::dynamic_bitset<> s; // bitset of states that are on
+    vector<size_t> som; // som value for each state
+};
+
+using MatchSet = set<pair<size_t, size_t>>;
 
 struct fmstate {
-    SOMMap states;
-    SOMMap next;
-    size_t offset;
-    unsigned char cur;
-    unsigned char prev;
+    const size_t num_states; // number of vertices in graph
+    StateSet states; // currently active states
+    StateSet next; // states on after this iteration
+    vector<NFAVertex> vertices; // mapping from index to vertex
+    size_t offset = 0;
+    unsigned char cur = 0;
+    unsigned char prev = 0;
     const bool som;
     const bool utf8;
     const bool allowStartDs;
     const ReportManager &rm;
 
-    fmstate(const bool som_in, const bool utf8_in, const bool aSD_in,
+    boost::dynamic_bitset<> accept; // states leading to accept
+    boost::dynamic_bitset<> accept_with_eod; // states leading to accept or eod
+
+    fmstate(const NGHolder &g, bool som_in, bool utf8_in, bool aSD_in,
             const ReportManager &rm_in)
-        : offset(0), cur(0), prev(0), som(som_in), utf8(utf8_in),
-          allowStartDs(aSD_in), rm(rm_in) {}
+        : num_states(num_vertices(g)), states(num_states), next(num_states),
+          vertices(num_vertices(g), NFAGraph::null_vertex()), som(som_in),
+          utf8(utf8_in), allowStartDs(aSD_in), rm(rm_in), accept(num_states),
+          accept_with_eod(num_states) {
+        // init states
+        states.s.set(g[g.start].index);
+        if (allowStartDs) {
+            states.s.set(g[g.startDs].index);
+        }
+        // fill vertex mapping
+        for (const auto &v : vertices_range(g)) {
+            vertices[g[v].index] = v;
+        }
+        // init accept states
+        for (const auto &u : inv_adjacent_vertices_range(g.accept, g)) {
+            accept.set(g[u].index);
+        }
+        accept_with_eod = accept;
+        for (const auto &u : inv_adjacent_vertices_range(g.acceptEod, g)) {
+            accept_with_eod.set(g[u].index);
+        }
+    }
 };
 
-static
-void initStates(const NGHolder &g, struct fmstate &state) {
-    state.states.insert(make_pair(g.start, 0));
-    if (state.allowStartDs) {
-        state.states.insert(make_pair(g.startDs, 0));
-    }
-}
+} // namespace
 
 static
 bool isWordChar(const unsigned char c) {
@@ -115,17 +140,9 @@ bool isUtf8CodePoint(const char c) {
 }
 
 static
-bool canReach(const NGHolder &g, const NFAVertex &src, const NFAVertex &dst,
+bool canReach(const NGHolder &g, const NFAEdge &e,
               struct fmstate &state) {
-    // find relevant edge and see whether it has asserts
-    NFAEdge e;
-    bool exists;
-    u32 flags;
-
-    tie(e, exists) = edge(src, dst, g);
-    assert(exists);
-
-    flags = g[e].assert_flags;
+    auto flags = g[e].assert_flags;
     if (!flags) {
         return true;
     }
@@ -160,33 +177,35 @@ bool canReach(const NGHolder &g, const NFAVertex &src, const NFAVertex &dst,
 static
 void getMatches(const NGHolder &g, MatchSet &matches, struct fmstate &state,
                 bool allowEodMatches) {
-    SOMMap::const_iterator it, ite;
+    auto acc_states = state.states.s;
+    acc_states &= allowEodMatches ? state.accept_with_eod : state.accept;
 
-    for (it = state.states.begin(), ite = state.states.end(); it != ite; ++it) {
-        NFAGraph::adjacency_iterator ai, ae;
+    for (size_t i = acc_states.find_first(); i != acc_states.npos;
+         i = acc_states.find_next(i)) {
+        const NFAVertex u = state.vertices[i];
+        const size_t &som_offset = state.states.som[i];
 
-        // we can't accept anything from startDs inbetween UTF-8 codepoints
-        if (state.utf8 && it->first == g.startDs && !isUtf8CodePoint(state.cur)) {
+        // we can't accept anything from startDs in between UTF-8 codepoints
+        if (state.utf8 && u == g.startDs && !isUtf8CodePoint(state.cur)) {
             continue;
         }
 
-        for (tie(ai, ae) = adjacent_vertices(it->first, g); ai != ae; ++ai) {
-            if (*ai == g.accept || (*ai == g.acceptEod && allowEodMatches)) {
+        for (const auto &e : out_edges_range(u, g)) {
+            NFAVertex v = target(e, g);
+            if (v == g.accept || (v == g.acceptEod && allowEodMatches)) {
                 // check edge assertions if we are allowed to reach accept
-                if (!canReach(g, it->first, *ai, state)) {
+                if (!canReach(g, e, state)) {
                     continue;
                 }
                 DEBUG_PRINTF("match found at %zu\n", state.offset);
 
-                assert(!g[it->first].reports.empty());
-                for (const auto &report_id :
-                     g[it->first].reports) {
+                assert(!g[u].reports.empty());
+                for (const auto &report_id : g[u].reports) {
                     const Report &ri = state.rm.getReport(report_id);
 
                     DEBUG_PRINTF("report %u has offset adjustment %d\n",
                                  report_id, ri.offsetAdjust);
-                    matches.insert(
-                        make_pair(it->second, state.offset + ri.offsetAdjust));
+                    matches.emplace(som_offset, state.offset + ri.offsetAdjust);
                 }
             }
         }
@@ -195,55 +214,57 @@ void getMatches(const NGHolder &g, MatchSet &matches, struct fmstate &state,
 
 static
 void step(const NGHolder &g, struct fmstate &state) {
-    state.next.clear();
-    SOMMap::iterator it, ite;
+    state.next.s.reset();
 
-    for (it = state.states.begin(), ite = state.states.end(); it != ite; ++it) {
-        NFAGraph::adjacency_iterator ai, ae;
+    for (size_t i = state.states.s.find_first(); i != state.states.s.npos;
+         i = state.states.s.find_next(i)) {
+        const NFAVertex &u = state.vertices[i];
+        const size_t &u_som_offset = state.states.som[i];
 
-        for (tie(ai, ae) = adjacent_vertices(it->first, g); ai != ae; ++ai) {
-            if (*ai == g.acceptEod) {
+        for (const auto &e : out_edges_range(u, g)) {
+            NFAVertex v = target(e, g);
+            if (v == g.acceptEod) {
                 // can't know the future: we don't know if we're at EOD.
                 continue;
             }
-            if (*ai == g.accept) {
+            if (v == g.accept) {
                 continue;
             }
 
-            if (!state.allowStartDs && *ai == g.startDs) {
+            if (!state.allowStartDs && v == g.startDs) {
                 continue;
             }
 
-            const CharReach &cr = g[*ai].char_reach;
+            const CharReach &cr = g[v].char_reach;
+            const size_t v_idx = g[v].index;
+
             // check reachability and edge assertions
-            if (cr.test(state.cur) && canReach(g, it->first, *ai, state)) {
-                SOMMap::const_iterator ni;
-                size_t next_som;
-
+            if (cr.test(state.cur) && canReach(g, e, state)) {
                 // if we aren't in SOM mode, just set every SOM to 0
                 if (!state.som) {
-                    state.next[*ai] = 0;
+                    state.next.s.set(v_idx);
+                    state.next.som[v_idx] = 0;
                     continue;
                 }
 
                 // if this is first vertex since start, use current offset as SOM
-                if (it->first == g.start || it->first == g.startDs ||
-                        is_virtual_start(it->first, g)) {
+                size_t next_som;
+                if (u == g.start || u == g.startDs || is_virtual_start(u, g)) {
                     next_som = state.offset;
                 } else {
                     // else, inherit SOM from predecessor
-                    next_som = it->second;
+                    next_som = u_som_offset;
                 }
 
                 // check if the vertex is already active
-                ni = state.next.find(*ai);
-
                 // if this vertex is not yet active, use current SOM
-                if (ni == state.next.end()) {
-                    state.next[*ai] = next_som;
+                if (!state.next.s.test(v_idx)) {
+                    state.next.s.set(v_idx);
+                    state.next.som[v_idx] = next_som;
                 } else {
                     // else, work out leftmost SOM
-                    state.next[*ai] = min(next_som, ni->second);
+                    state.next.som[v_idx] =
+                        min(next_som, state.next.som[v_idx]);
                 }
             }
         }
@@ -251,34 +272,32 @@ void step(const NGHolder &g, struct fmstate &state) {
 }
 
 // filter extraneous matches
-static void filterMatches(MatchSet &matches) {
+static
+void filterMatches(MatchSet &matches) {
     set<size_t> eom;
-    MatchSet::iterator msit;
 
     // first, collect all end-offset matches
-    for (msit = matches.begin(); msit != matches.end(); ++msit) {
-        eom.insert(msit->second);
+    for (const auto &match : matches) {
+        eom.insert(match.second);
     }
 
     // now, go through all the end-offsets and filter extra matches
-    set<size_t>::const_iterator eomit;
-    for (eomit = eom.begin(); eomit != eom.end(); ++eomit) {
-
+    for (const auto &elem : eom) {
         // find minimum SOM for this EOM
         size_t min_som = -1U;
-        for (msit = matches.begin(); msit != matches.end(); ++msit) {
+        for (const auto &match : matches) {
             // skip entries with wrong EOM
-            if (msit->second != *eomit) {
+            if (match.second != elem) {
                 continue;
             }
 
-            min_som = min(min_som, msit->first);
+            min_som = min(min_som, match.first);
         }
 
-        msit = matches.begin();
+        auto msit = matches.begin();
         while (msit != matches.end()) {
             // skip everything that doesn't match
-            if (msit->second != *eomit || msit->first <= min_som) {
+            if (msit->second != elem || msit->first <= min_som) {
                 ++msit;
                 continue;
             }
@@ -295,14 +314,13 @@ static void filterMatches(MatchSet &matches) {
 void findMatches(const NGHolder &g, const ReportManager &rm,
                  const string &input, MatchSet &matches, const bool notEod,
                  const bool som, const bool utf8) {
+    assert(hasCorrectlyNumberedVertices(g));
+
     const bool allowStartDs = (proper_out_degree(g.startDs, g) > 0);
 
-    struct fmstate state(som, utf8, allowStartDs, rm);
+    struct fmstate state(g, som, utf8, allowStartDs, rm);
 
-    initStates(g, state);
-
-    string::const_iterator it, ite;
-    for (it = input.begin(), ite = input.end(); it != ite; ++it) {
+    for (auto it = input.begin(), ite = input.end(); it != ite; ++it) {
         state.offset = distance(input.begin(), it);
         state.cur = *it;
 
@@ -310,14 +328,15 @@ void findMatches(const NGHolder &g, const ReportManager &rm,
 
         getMatches(g, matches, state, false);
 
-        DEBUG_PRINTF("index %zu, %zu states on\n", state.offset, state.next.size());
-        if (state.next.empty()) {
+        DEBUG_PRINTF("index %zu, %zu states on\n", state.offset,
+                     state.next.s.count());
+        if (state.next.s.empty()) {
             if (state.som) {
                 filterMatches(matches);
             }
             return;
         }
-        state.states.swap(state.next);
+        state.states = state.next;
         state.prev = state.cur;
     }
     state.offset = input.size();

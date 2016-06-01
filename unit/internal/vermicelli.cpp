@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,8 +30,6 @@
 
 #include "gtest/gtest.h"
 #include "nfa/vermicelli.h"
-
-#define BOUND (~(VERM_BOUNDARY - 1))
 
 TEST(Vermicelli, ExecNoMatch1) {
     char t1[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -128,27 +126,27 @@ TEST(DoubleVermicelli, ExecNoMatch1) {
             const u8 *rv = vermicelliDoubleExec('a', 'b', 0, (u8 *)t1 + i,
                                                 (u8 *)t1 + strlen(t1) - j);
 
-            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1), (size_t)rv);
 
             rv = vermicelliDoubleExec('B', 'b', 0, (u8 *)t1 + i,
                                 (u8 *)t1 + strlen(t1) - j);
 
-            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1), (size_t)rv);
 
             rv = vermicelliDoubleExec('A', 'B', 1, (u8 *)t1 + i,
                                 (u8 *)t1 + strlen(t1) - j);
 
-            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1), (size_t)rv);
 
             rv = vermicelliDoubleExec('b', 'B', 0, (u8 *)t1 + i,
                                 (u8 *)t1 + strlen(t1) - j);
 
-            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1), (size_t)rv);
 
             rv = vermicelliDoubleExec('B', 'A', 1, (u8 *)t1 + i,
                                 (u8 *)t1 + strlen(t1) - j);
 
-            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1) & BOUND, (size_t)rv);
+            ASSERT_EQ(((size_t)t1 + strlen(t1) - j  - 1), (size_t)rv);
         }
     }
 }
@@ -342,6 +340,181 @@ TEST(NVermicelli, Exec4) {
         rv = nvermicelliExec('B', 1, (u8 *)t1, (u8 *)t1 + strlen(t1));
 
         ASSERT_EQ((size_t)&t1[48 - i], (size_t)rv);
+    }
+}
+
+TEST(DoubleVermicelliMasked, ExecNoMatch1) {
+    std::string t1("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    const u8 *t1_raw = (const u8 *)t1.c_str();
+
+    for (size_t i = 0; i < 16; i++) {
+        for (size_t j = 0; j < 16; j++) {
+            const u8 *rv = vermicelliDoubleMaskedExec('a', 'b', 0xff, 0xff,
+                                                  t1_raw + i,
+                                                  t1_raw + t1.length() - i - j);
+
+            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j - 1), (size_t)rv);
+            rv = vermicelliDoubleMaskedExec('B', 'b', 0xff, CASE_CLEAR,
+                                            t1_raw + i,
+                                            t1_raw + t1.length() - i - j);
+
+            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j  - 1), (size_t)rv);
+
+            rv = vermicelliDoubleMaskedExec('A', 'B', CASE_CLEAR, CASE_CLEAR,
+                                            t1_raw + i,
+                                            t1_raw + t1.length() -i - j);
+
+            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j  - 1), (size_t)rv);
+
+            rv = vermicelliDoubleMaskedExec('b', 'B', CASE_CLEAR, 0xff,
+                                            t1_raw + i,
+                                            t1_raw + t1.length() - i - j);
+
+            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j  - 1), (size_t)rv);
+
+            rv = vermicelliDoubleMaskedExec('B', 'A', 0xff, 0xff,
+                                            t1_raw + i,
+                                            t1_raw + t1.length() - i - j);
+
+            ASSERT_EQ(((size_t)t1_raw + t1.length() - i - j - 1), (size_t)rv);
+        }
+    }
+}
+
+TEST(DoubleVermicelliMasked, Exec1) {
+    std::string t1("bbbbbbbbbbbbbbbbbbabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbabbbbbbbbbbb");
+    const u8 *t1_raw = (const u8 *)t1.c_str();
+
+    for (size_t i = 0; i < 16; i++) {
+        const u8 *rv = vermicelliDoubleMaskedExec('a', 'b', 0xff, 0xff,
+                                                  t1_raw + i,
+                                                  t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 18, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('A', 'B', CASE_CLEAR, CASE_CLEAR,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 18, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('a', 'B', 0xff, CASE_CLEAR,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 18, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('A', 'b', CASE_CLEAR, 0xff,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 18, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('b', 'a', 0xff, 0xff,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 17, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('B', 'A', CASE_CLEAR, CASE_CLEAR,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 17, (size_t)rv);
+    }
+}
+
+TEST(DoubleVermicelliMasked,  Exec2) {
+    std::string t1("bbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbaaaaabbbbbbbb");
+    const u8 *t1_raw = (const u8 *)t1.c_str();
+
+    for (size_t i = 0; i < 16; i++) {
+        const u8 *rv = vermicelliDoubleMaskedExec('a', 'a', 0xff, 0xff,
+                                                  t1_raw + i,
+                                                  t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 17, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('A', 'A', CASE_CLEAR, CASE_CLEAR,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 17, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('a', 'A', 0xff, CASE_CLEAR,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 17, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('A', 'a', CASE_CLEAR, 0xff,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 17, (size_t)rv);
+}
+}
+
+TEST(DoubleVermicelliMasked,  Exec3) {
+    /*              012345678901234567890123 */
+    std::string t1("bbbbbbbbbbbbbbbbbaAaaAAaaaaaaaaaaaaaaaaaabbbbbbbaaaaabbbbbbbb");
+    const u8 *t1_raw = (const u8 *)t1.c_str();
+
+    for (size_t i = 0; i < 16; i++) {
+        const u8 *rv = vermicelliDoubleMaskedExec('A', 'a', 0xff, 0xff,
+                                                  t1_raw + i,
+                                                  t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 18, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('A', 'A', CASE_CLEAR, CASE_CLEAR,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 17, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('A', 'A', 0xff, 0xff,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 21, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('a', 'A', 0xff, 0xff,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 17, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('a', 'A', 0xff, CASE_CLEAR,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 17, (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('A', 'a', CASE_CLEAR, 0xff,
+                                        t1_raw + i,
+                                        t1_raw + t1.length() - i);
+
+        ASSERT_EQ((size_t)t1_raw + 18, (size_t)rv);
+}
+}
+
+TEST(DoubleVermicelliMasked, Exec4) {
+    std::string t1("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    const u8 *t1_raw = (const u8 *)t1.c_str();
+
+    for (size_t i = 0; i < 31; i++) {
+        t1[48 - i] = 'a';
+        t1[48 - i + 1] = 'a';
+        const u8 *rv = vermicelliDoubleMaskedExec('a', 'a', 0xff, 0xff, t1_raw,
+                                                  t1_raw + t1.length());
+
+        ASSERT_EQ((size_t)&t1_raw[48 - i], (size_t)rv);
+
+        rv = vermicelliDoubleMaskedExec('A', 'A', CASE_CLEAR, CASE_CLEAR, t1_raw,
+                                        t1_raw + t1.length());
+
+        ASSERT_EQ((size_t)&t1_raw[48 - i], (size_t)rv);
     }
 }
 

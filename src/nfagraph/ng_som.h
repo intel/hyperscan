@@ -72,6 +72,8 @@ sombe_rv doSom(NG &ng, NGHolder &h, const NGWrapper &w, u32 comp_id,
 sombe_rv doSomWithHaig(NG &ng, NGHolder &h, const NGWrapper &w, u32 comp_id,
                        som_type som);
 
+void makeReportsSomPass(ReportManager &rm, NGHolder &g);
+
 } // namespace ue2
 
 #endif // NG_SOM_H

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -303,35 +303,38 @@ bool is_slow(const raw_dfa &rdfa, const set<dstate_id_t> &accel,
 
 static
 aligned_unique_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
-                                   const CompileContext &cc, u32 *start_offset,
+                                   const CompileContext &cc,
+                                   const ReportManager &rm, u32 *start_offset,
                                    u32 *small_region) {
     *start_offset = remove_leading_dots(rdfa);
 
     // Unleash the McClellan!
     set<dstate_id_t> accel_states;
 
-    auto nfa = mcclellanCompile(rdfa, cc, &accel_states);
+    auto nfa = mcclellanCompile(rdfa, cc, rm, &accel_states);
     if (!nfa) {
         DEBUG_PRINTF("mcclellan compile failed for smallwrite NFA\n");
         return nullptr;
     }
 
     if (is_slow(rdfa, accel_states, roseQuality)) {
+        DEBUG_PRINTF("is slow\n");
         *small_region = cc.grey.smallWriteLargestBufferBad;
         if (*small_region <= *start_offset) {
             return nullptr;
         }
-        prune_overlong(rdfa, *small_region - *start_offset);
-        if (rdfa.start_anchored == DEAD_STATE) {
-            DEBUG_PRINTF("all patterns pruned out\n");
-            return nullptr;
-        }
+        if (prune_overlong(rdfa, *small_region - *start_offset)) {
+            if (rdfa.start_anchored == DEAD_STATE) {
+                DEBUG_PRINTF("all patterns pruned out\n");
+                return nullptr;
+            }
 
-        nfa = mcclellanCompile(rdfa, cc, &accel_states);
-        if (!nfa) {
-            DEBUG_PRINTF("mcclellan compile failed for smallwrite NFA\n");
-            assert(0); /* we were able to build orig dfa but not the trimmed? */
-            return nullptr;
+            nfa = mcclellanCompile(rdfa, cc, rm, &accel_states);
+            if (!nfa) {
+                DEBUG_PRINTF("mcclellan compile failed for smallwrite NFA\n");
+                assert(0); /* able to build orig dfa but not the trimmed? */
+                return nullptr;
+            }
         }
     } else {
         *small_region = cc.grey.smallWriteLargestBuffer;
@@ -376,7 +379,8 @@ SmallWriteBuildImpl::build(u32 roseQuality) {
 
     u32 start_offset;
     u32 small_region;
-    auto nfa = prepEngine(*rdfa, roseQuality, cc, &start_offset, &small_region);
+    auto nfa =
+        prepEngine(*rdfa, roseQuality, cc, rm, &start_offset, &small_region);
     if (!nfa) {
         DEBUG_PRINTF("some smallwrite outfix could not be prepped\n");
         /* just skip the smallwrite optimization */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,6 +51,7 @@ namespace ue2 {
 
 class CharReach;
 class NGHolder;
+class ReportManager;
 struct CompileContext;
 
 /**
@@ -65,7 +66,7 @@ struct CompileContext;
  */
 struct CastleProto {
     static constexpr size_t max_occupancy = 65536; // arbitrary limit
-    explicit CastleProto(const PureRepeat &pr);
+    CastleProto(nfa_kind k, const PureRepeat &pr);
     const CharReach &reach() const;
 
     /** \brief Add a new repeat. */
@@ -94,6 +95,9 @@ struct CastleProto {
      * so we track this explicitly instead of using repeats.size().
      */
     u32 next_top = 1;
+
+    /** \brief Kind for this engine. */
+    nfa_kind kind;
 };
 
 std::set<ReportID> all_reports(const CastleProto &proto);
@@ -119,7 +123,7 @@ void remapCastleTops(CastleProto &proto, std::map<u32, u32> &top_map);
 ue2::aligned_unique_ptr<NFA>
 buildCastle(const CastleProto &proto,
             const std::map<u32, std::vector<std::vector<CharReach>>> &triggers,
-            const CompileContext &cc);
+            const CompileContext &cc, const ReportManager &rm);
 
 /**
  * \brief Merge two CastleProto prototypes together, if possible.
@@ -155,7 +159,7 @@ bool requiresDedupe(const CastleProto &proto,
 /**
  * \brief Build an NGHolder from a CastleProto.
  */
-std::unique_ptr<NGHolder> makeHolder(const CastleProto &castle, nfa_kind kind,
+std::unique_ptr<NGHolder> makeHolder(const CastleProto &castle,
                                      const CompileContext &cc);
 
 } // namespace ue2

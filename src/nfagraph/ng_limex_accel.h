@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,6 +36,8 @@
 #include "ng_holder.h"
 #include "ng_misc_opt.h"
 #include "ue2common.h"
+#include "nfa/accelcompile.h"
+#include "util/accel_scheme.h"
 #include "util/charreach.h"
 #include "util/order_check.h"
 #include "util/ue2_containers.h"
@@ -46,68 +48,47 @@
 namespace ue2 {
 
 /* compile time accel defs */
-#define MAX_ACCEL_DEPTH 4
 #define MAX_MERGED_ACCEL_STOPS 200
 #define ACCEL_MAX_STOP_CHAR 24
 #define ACCEL_MAX_FLOATING_STOP_CHAR 192 /* accelerating sds is important */
+#define MULTIACCEL_MIN_LEN 3
+#define MULTIACCEL_MAX_LEN_SSE 15
+#define MULTIACCEL_MAX_LEN_AVX2 31
+
+// forward-declaration of CompileContext
+struct CompileContext;
 
 void findAccelFriends(const NGHolder &g, NFAVertex v,
                   const std::map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
                       u32 offset,
                       ue2::flat_set<NFAVertex> *friends);
 
-struct DoubleAccelInfo {
-    DoubleAccelInfo() : offset(0) {}
-    u32 offset;                         //!< offset correction to apply
-    CharReach stop1;                    //!< single-byte accel stop literals
-    flat_set<std::pair<u8, u8>> stop2;  //!< double-byte accel stop literals
-};
-
-DoubleAccelInfo findBestDoubleAccelInfo(const NGHolder &g, NFAVertex v);
-
-struct AccelScheme {
-    AccelScheme(const CharReach &cr_in, u32 offset_in)
-        : cr(cr_in), offset(offset_in) {
-        assert(offset <= MAX_ACCEL_DEPTH);
-    }
-    AccelScheme() : cr(CharReach::dot()), offset(MAX_ACCEL_DEPTH + 1) {}
-
-    bool operator<(const AccelScheme &b) const {
-        const AccelScheme &a = *this;
-
-        // Don't use ORDER_CHECK as it will (stupidly) eval count() too many
-        // times.
-        const size_t a_count = cr.count(), b_count = b.cr.count();
-        if (a_count != b_count) {
-            return a_count < b_count;
-        }
-
-        /* TODO: give bonus if one is a 'caseless' character */
-        ORDER_CHECK(offset);
-        ORDER_CHECK(cr);
-        return false;
-    }
-
-    bool operator>(const AccelScheme &b) const {
-        return b < *this;
-    }
-
-    CharReach cr;
-    u32 offset;
-};
+#define DOUBLE_SHUFTI_LIMIT 20
 
 NFAVertex get_sds_or_proxy(const NGHolder &g);
 
 AccelScheme nfaFindAccel(const NGHolder &g, const std::vector<NFAVertex> &verts,
                     const std::vector<CharReach> &refined_cr,
                     const std::map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
-                    bool allow_wide);
+                    bool allow_wide, bool look_for_double_byte = false);
 
-/** \brief Check if vertex \a v is an accelerable state (for a limex NFA). */
+AccelScheme findBestAccelScheme(std::vector<std::vector<CharReach> > paths,
+                                const CharReach &terminating,
+                                bool look_for_double_byte = false);
+
+/** \brief Check if vertex \a v is an accelerable state (for a limex NFA). If a
+ *  single byte accel scheme is found it is placed into *as
+ */
 bool nfaCheckAccel(const NGHolder &g, NFAVertex v,
                    const std::vector<CharReach> &refined_cr,
                    const std::map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
                    AccelScheme *as, bool allow_wide);
+
+/** \brief Check if vertex \a v is a multi accelerable state (for a limex NFA).
+ */
+MultibyteAccelInfo nfaCheckMultiAccel(const NGHolder &g,
+                                      const std::vector<NFAVertex> &verts,
+                                      const CompileContext &cc);
 
 } // namespace ue2
 

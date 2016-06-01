@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,7 +42,9 @@ struct SubCastle {
     u32 streamStateOffset;  //!< offset within stream state
     u32 repeatInfoOffset;   //!< offset of RepeatInfo structure
                             //   relative to the start of SubCastle
-    char exclusive;         //!< exclusive info of this SubCastle
+    u32 exclusiveId;        //!< exclusive group id of this SubCastle,
+                            //   set to the number of SubCastles in Castle
+                            //   if it is not exclusive
 };
 
 #define CASTLE_DOT 0
@@ -50,6 +52,12 @@ struct SubCastle {
 #define CASTLE_NVERM 2
 #define CASTLE_SHUFTI 3
 #define CASTLE_TRUFFLE 4
+
+enum ExclusiveType {
+    NOT_EXCLUSIVE,     //!< no subcastles are exclusive
+    EXCLUSIVE,         //!< a subset of subcastles are exclusive
+    PURE_EXCLUSIVE     //!< all subcastles are exclusive
+};
 
 /**
  * \brief Castle engine structure.
@@ -63,26 +71,60 @@ struct SubCastle {
  * - struct Castle
  * - struct SubCastle[numRepeats]
  * - tables for sparse model repeats
+ * - sparse iterator for subcastles that may be stale
  *
  * Castle stores an "active repeats" multibit in stream state, followed by the
- * packed repeat state for each SubCastle. If all SubCastles are mutual
- * exclusive, we store current active SubCastle id instead of "active repeats"
- * multibit in stream state. If there are both exclusive and non-exclusive
- * SubCastle groups, we use an active id for the exclusive group and a multibit
- * for the non-exclusive group.
+ * packed repeat state for each SubCastle. If there are both exclusive and
+ * non-exclusive SubCastle groups, we use an active id for each exclusive group
+ * and a multibit for the non-exclusive group. We also store an "active
+ * exclusive groups" multibit for exclusive groups. If all SubCastles are mutual
+ * exclusive, we remove "active repeats" multibit from stream state.
+ * * Castle stream state:
+ * *
+ * * |---|
+ * * |   | active subengine id for exclusive group 1
+ * * |---|
+ * * |   | active subengine id for exclusive group 2(if necessary)
+ * * |---|
+ * * ...
+ * * |---|
+ * * |   | "active repeats" multibit for non-exclusive subcastles
+ * * |   | (if not all subcastles are exclusive)
+ * * |---|
+ * * |   | active multibit for exclusive groups
+ * * |   |
+ * * |---|
+ * * ||-|| common pool of stream state for exclusive group 1
+ * * ||-||
+ * * |---|
+ * * ||-|| common pool of stream state for exclusive group 2(if necessary)
+ * * ||-||
+ * * |---|
+ * * ...
+ * * |---|
+ * * |   | stream state for each non-exclusive subcastles
+ * * ...
+ * * |   |
+ * * |---|
  *
  * In full state (stored in scratch space) it stores a temporary multibit over
  * the repeats (used by \ref castleMatchLoop), followed by the repeat control
- * blocks for each SubCastle. If all SubCastles are mutual exclusive, we only
- * need to store the repeat control blocks for each SubCastle.
+ * blocks for each SubCastle.
  */
 struct ALIGN_AVX_DIRECTIVE Castle {
-    u32 numRepeats;
-    u8 type; //!< tells us which scanning mechanism (below) to use
-    char exclusive; //!< tells us if there are mutual exclusive SubCastles
-    char pureExclusive; //!< tells us if all SubCastles are mutual exclusive
-    u8 activeIdxSize; //!< number of bytes in stream state to store
-                      // active SubCastle id for exclusive mode
+    u32 numRepeats;         //!< number of repeats in Castle
+    u32 numGroups;          //!< number of exclusive groups
+    u8 type;                //!< tells us which scanning mechanism (below) to use
+    u8 exclusive;           //!< tells us if there are mutual exclusive SubCastles
+    u8 activeIdxSize;       //!< number of bytes in stream state to store
+                            // active SubCastle id for exclusive mode
+    u32 activeOffset;       //!< offset to active multibit for non-exclusive
+                            // SubCastles
+    u32 staleIterOffset;    //!< offset to a sparse iterator to check for stale
+                            // sub castles
+    u32 groupIterOffset;    //!< offset to a iterator to check the aliveness of
+                            // exclusive groups
+
     union {
         struct {
             char c;

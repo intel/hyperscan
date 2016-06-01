@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,41 +37,19 @@
 #include "nfa/mcclellan.h"
 #include "nfa/nfa_api_util.h"
 #include "nfa/nfa_internal.h"
-#include "sidecar/sidecar.h"
-#include "sidecar/sidecar_internal.h"
 #include "util/multibit.h"
 
 #include <string.h>
 
 static really_inline
-void init_rstate(const struct RoseEngine *t, u8 *state) {
-    // Set runtime state: initial depth is 1 and we take our initial groups
-    // from the RoseEngine.
+void init_rstate(const struct RoseEngine *t, char *state) {
+    // Set runtime state: we take our initial groups from the RoseEngine.
     DEBUG_PRINTF("setting initial groups to 0x%016llx\n", t->initialGroups);
-    struct RoseRuntimeState *rstate = getRuntimeState(state);
-    rstate->stored_depth = 1;
     storeGroups(t, state, t->initialGroups);
-    rstate->flags = 0;
-    rstate->broken = NOT_BROKEN;
 }
 
 static really_inline
-void init_sidecar(const struct RoseEngine *t, u8 *state) {
-    assert(getSLiteralMatcher(t));
-
-    struct sidecar_enabled *enabled_state
-        = (struct sidecar_enabled *)(state + t->stateOffsets.sidecar);
-
-    DEBUG_PRINTF("welcome to the sidecar\n");
-    assert(t->initSideEnableOffset);
-    // We have to enable some sidecar literals
-    const char *template = (const char *)t + t->initSideEnableOffset;
-
-    memcpy(enabled_state, template, t->stateOffsets.sidecar_size);
-}
-
-static really_inline
-void init_outfixes(const struct RoseEngine *t, u8 *state) {
+void init_outfixes(const struct RoseEngine *t, char *state) {
     /* The active leaf array has been init'ed by the scatter with outfix
      * bits set on */
 
@@ -93,22 +71,17 @@ void init_outfixes(const struct RoseEngine *t, u8 *state) {
     }
 }
 
-void roseInitState(const struct RoseEngine *t, u8 *state) {
+void roseInitState(const struct RoseEngine *t, char *state) {
     assert(t);
     assert(state);
 
-    DEBUG_PRINTF("init for Rose %p with %u roles (%u with state indices)\n",
-                 t, t->roleCount, t->rolesWithStateCount);
+    DEBUG_PRINTF("init for Rose %p with %u state indices)\n", t,
+                 t->rolesWithStateCount);
 
     // Rose is guaranteed 8-aligned state
     assert(ISALIGNED_N(state, 8));
 
     init_rstate(t, state);
-
-    // Init the sidecar state
-    if (t->smatcherOffset) {
-        init_sidecar(t, state);
-    }
 
     init_state(t, state);
     init_outfixes(t, state);

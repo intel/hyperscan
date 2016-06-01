@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -82,7 +82,8 @@ TEST(StreamUtil, reset1) {
     ASSERT_EQ(MatchRecord(1009, 0), c2.matches[0]);
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -122,7 +123,8 @@ TEST(StreamUtil, reset2) {
     ASSERT_EQ(MatchRecord(9, 0), c2.matches[0]);
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -150,7 +152,8 @@ TEST(StreamUtil, reset_matches) {
     ASSERT_EQ(MatchRecord(9, 0), c.matches[0]);
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -198,7 +201,8 @@ TEST(StreamUtil, copy1) {
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_close_stream(stream2, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -241,7 +245,8 @@ TEST(StreamUtil, copy2) {
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_close_stream(stream2, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -284,7 +289,8 @@ TEST(StreamUtil, copy_reset1) {
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_close_stream(stream2, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -328,7 +334,8 @@ TEST(StreamUtil, copy_reset2) {
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_close_stream(stream2, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -380,7 +387,8 @@ TEST(StreamUtil, copy_reset3) {
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_close_stream(stream2, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -427,7 +435,8 @@ TEST(StreamUtil, copy_reset4) {
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_close_stream(stream2, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -483,7 +492,8 @@ TEST(StreamUtil, copy_reset5) {
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_close_stream(stream2, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -519,7 +529,8 @@ TEST(StreamUtil, copy_reset_matches) {
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_close_stream(stream2, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -554,7 +565,8 @@ TEST(StreamUtil, size) {
     hs_set_allocator(nullptr, nullptr);
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -629,7 +641,8 @@ TEST(StreamUtil, Alloc) {
 
     hs_close_stream(stream, scratch, record_cb, (void *)&c);
     ASSERT_EQ(alloc_called, 0);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
     hs_free_compile_error(compile_err);
     hs_set_allocator(nullptr, nullptr);
@@ -670,7 +683,8 @@ TEST(StreamUtil, MoreAlloc) {
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
     ASSERT_EQ(alloc_called, 2);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_EQ(alloc_called, 1);
     hs_free_database(db);
     ASSERT_EQ(alloc_called, 0);
@@ -702,7 +716,8 @@ TEST(StreamUtil, BadStreamAlloc) {
     err = hs_open_stream(db, 0, &stream);
     ASSERT_NE(HS_SUCCESS, err);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
     hs_free_compile_error(compile_err);
     hs_set_stream_allocator(nullptr, nullptr);
@@ -758,7 +773,8 @@ TEST(StreamUtil, StreamAllocUsage) {
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_close_stream(stream2, scratch, nullptr, nullptr);
     hs_close_stream(stream3, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
     hs_free_compile_error(compile_err);
     hs_set_allocator(nullptr, nullptr);

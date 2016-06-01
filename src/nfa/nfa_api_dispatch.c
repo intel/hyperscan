@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -332,13 +332,12 @@ char nfaQueueExecRose(const struct NFA *nfa, struct mq *q, ReportID r) {
 
 char nfaBlockExecReverse(const struct NFA *nfa, u64a offset, const u8 *buf,
                          size_t buflen, const u8 *hbuf, size_t hlen,
-                         struct hs_scratch *scratch, NfaCallback callback,
-                         void *context) {
+                         NfaCallback callback, void *context) {
     assert(nfa);
     assert(ISALIGNED_CL(nfa) && ISALIGNED_CL(getImplNfa(nfa)));
 
     DISPATCH_BY_NFA_TYPE(_B_Reverse(nfa, offset, buf, buflen, hbuf, hlen,
-                                    scratch, callback, context));
+                                    callback, context));
     return 0;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,34 +26,790 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "util/simd_utils.h"
-
-#define P0(cnd) unlikely(cnd)
-
 #include "fdr.h"
-#include "fdr_internal.h"
-#include "teddy_internal.h"
-
-#include "flood_runtime.h"
-
 #include "fdr_confirm.h"
 #include "fdr_confirm_runtime.h"
-#include "fdr_streaming_runtime.h"
+#include "fdr_internal.h"
 #include "fdr_loadval.h"
-#include "fdr_autogen.c"
+#include "fdr_streaming_runtime.h"
+#include "flood_runtime.h"
+#include "teddy.h"
+#include "teddy_internal.h"
+#include "util/simd_utils.h"
+#include "util/simd_utils_ssse3.h"
+
+/** \brief number of bytes processed in each iteration */
+#define ITER_BYTES          16
+
+/** \brief total zone buffer size */
+#define ZONE_TOTAL_SIZE     64
+
+/** \brief maximum number of allowed zones */
+#define ZONE_MAX            3
+
+/** \brief zone information.
+ *
+ * Zone represents a region of data to scan in FDR.
+ *
+ * The incoming buffer is to split in multiple zones to ensure two properties:
+ * 1: that we can read 8? bytes behind to generate a hash safely
+ * 2: that we can read the byte after the current byte (domain > 8)
+ */
+struct zone {
+    /** \brief copied buffer, used only when it is a boundary zone. */
+    u8 ALIGN_CL_DIRECTIVE buf[ZONE_TOTAL_SIZE];
+
+    /** \brief shift amount for fdr state to avoid unwanted match. */
+    u8 shift;
+
+    /** \brief if boundary zone, start points into the zone buffer after the
+     * pre-padding. Otherwise, points to the main buffer, appropriately. */
+    const u8 *start;
+
+    /** \brief if boundary zone, end points to the end of zone. Otherwise,
+     * pointer to the main buffer, appropriately. */
+    const u8 *end;
+
+    /** \brief the amount to adjust to go from a pointer in the zones region
+     * (between start and end) to a pointer in the original data buffer. */
+    ptrdiff_t zone_pointer_adjust;
+
+    /** \brief firstFloodDetect from FDR_Runtime_Args for non-boundary zones,
+     * otherwise end of the zone buf. floodPtr always points inside the same
+     * buffer as the start pointe. */
+    const u8 *floodPtr;
+};
+
+static
+const ALIGN_CL_DIRECTIVE u8 zone_or_mask[ITER_BYTES+1][ITER_BYTES] = {
+    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+      0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+      0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+      0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+      0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+      0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00 },
+    { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00 },
+    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+};
+
+/* generates an initial state mask based on the last byte-ish of history rather
+ * than being all accepting. If there is no history to consider, the state is
+ * generated based on the minimum length of each bucket in order to prevent
+ * confirms.
+ */
+static really_inline
+m128 getInitState(const struct FDR *fdr, u8 len_history, const u8 *ft,
+                  const struct zone *z) {
+    m128 s;
+    if (len_history) {
+        /* +1: the zones ensure that we can read the byte at z->end */
+        u32 tmp = lv_u16(z->start + z->shift - 1, z->buf, z->end + 1);
+        tmp &= fdr->domainMask;
+        s = *((const m128 *)ft + tmp);
+        s = shiftRight8Bits(s);
+    } else {
+        s = fdr->start;
+    }
+    return s;
+}
+
+static really_inline
+void get_conf_stride_1(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
+                       u64a domain_mask_adjusted, const u8 *ft, u64a *conf0,
+                       u64a *conf8, m128 *s) {
+    /* +1: the zones ensure that we can read the byte at z->end */
+
+    u64a current_data_0;
+    u64a current_data_8;
+
+    current_data_0 = lv_u64a(itPtr + 0, start_ptr, end_ptr);
+    u64a v7 = (lv_u16(itPtr + 7, start_ptr, end_ptr + 1) << 1) &
+               domain_mask_adjusted;
+    u64a v0 = (current_data_0 << 1) & domain_mask_adjusted;
+    u64a v1 = (current_data_0 >> 7) & domain_mask_adjusted;
+    u64a v2 = (current_data_0 >> 15) & domain_mask_adjusted;
+    u64a v3 = (current_data_0 >> 23) & domain_mask_adjusted;
+    u64a v4 = (current_data_0 >> 31) & domain_mask_adjusted;
+    u64a v5 = (current_data_0 >> 39) & domain_mask_adjusted;
+    u64a v6 = (current_data_0 >> 47) & domain_mask_adjusted;
+    current_data_8 = lv_u64a(itPtr + 8, start_ptr, end_ptr);
+    u64a v15 = (lv_u16(itPtr + 15, start_ptr, end_ptr + 1) << 1) &
+               domain_mask_adjusted;
+    u64a v8 = (current_data_8 << 1) & domain_mask_adjusted;
+    u64a v9 = (current_data_8 >> 7) & domain_mask_adjusted;
+    u64a v10 = (current_data_8 >> 15) & domain_mask_adjusted;
+    u64a v11 = (current_data_8 >> 23) & domain_mask_adjusted;
+    u64a v12 = (current_data_8 >> 31) & domain_mask_adjusted;
+    u64a v13 = (current_data_8 >> 39) & domain_mask_adjusted;
+    u64a v14 = (current_data_8 >> 47) & domain_mask_adjusted;
+
+    m128 st0 = *(const m128 *)(ft + v0*8);
+    m128 st1 = *(const m128 *)(ft + v1*8);
+    m128 st2 = *(const m128 *)(ft + v2*8);
+    m128 st3 = *(const m128 *)(ft + v3*8);
+    m128 st4 = *(const m128 *)(ft + v4*8);
+    m128 st5 = *(const m128 *)(ft + v5*8);
+    m128 st6 = *(const m128 *)(ft + v6*8);
+    m128 st7 = *(const m128 *)(ft + v7*8);
+    m128 st8 = *(const m128 *)(ft + v8*8);
+    m128 st9 = *(const m128 *)(ft + v9*8);
+    m128 st10 = *(const m128 *)(ft + v10*8);
+    m128 st11 = *(const m128 *)(ft + v11*8);
+    m128 st12 = *(const m128 *)(ft + v12*8);
+    m128 st13 = *(const m128 *)(ft + v13*8);
+    m128 st14 = *(const m128 *)(ft + v14*8);
+    m128 st15 = *(const m128 *)(ft + v15*8);
+
+    st1 = byteShiftLeft128(st1, 1);
+    st2 = byteShiftLeft128(st2, 2);
+    st3 = byteShiftLeft128(st3, 3);
+    st4 = byteShiftLeft128(st4, 4);
+    st5 = byteShiftLeft128(st5, 5);
+    st6 = byteShiftLeft128(st6, 6);
+    st7 = byteShiftLeft128(st7, 7);
+    st9 = byteShiftLeft128(st9, 1);
+    st10 = byteShiftLeft128(st10, 2);
+    st11 = byteShiftLeft128(st11, 3);
+    st12 = byteShiftLeft128(st12, 4);
+    st13 = byteShiftLeft128(st13, 5);
+    st14 = byteShiftLeft128(st14, 6);
+    st15 = byteShiftLeft128(st15, 7);
+
+    *s = or128(*s, st0);
+    *s = or128(*s, st1);
+    *s = or128(*s, st2);
+    *s = or128(*s, st3);
+    *s = or128(*s, st4);
+    *s = or128(*s, st5);
+    *s = or128(*s, st6);
+    *s = or128(*s, st7);
+    *conf0 = movq(*s);
+    *s = byteShiftRight128(*s, 8);
+    *conf0 ^= ~0ULL;
+
+    *s = or128(*s, st8);
+    *s = or128(*s, st9);
+    *s = or128(*s, st10);
+    *s = or128(*s, st11);
+    *s = or128(*s, st12);
+    *s = or128(*s, st13);
+    *s = or128(*s, st14);
+    *s = or128(*s, st15);
+    *conf8 = movq(*s);
+    *s = byteShiftRight128(*s, 8);
+    *conf8 ^= ~0ULL;
+}
+
+static really_inline
+void get_conf_stride_2(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
+                       u64a domain_mask_adjusted, const u8 *ft, u64a *conf0,
+                       u64a *conf8, m128 *s) {
+    u64a current_data_0;
+    u64a current_data_8;
+
+    current_data_0 = lv_u64a(itPtr + 0, start_ptr, end_ptr);
+    u64a v0 = (current_data_0 << 1) & domain_mask_adjusted;
+    u64a v2 = (current_data_0 >> 15) & domain_mask_adjusted;
+    u64a v4 = (current_data_0 >> 31) & domain_mask_adjusted;
+    u64a v6 = (current_data_0 >> 47) & domain_mask_adjusted;
+    current_data_8 = lv_u64a(itPtr + 8, start_ptr, end_ptr);
+    u64a v8 = (current_data_8 << 1) & domain_mask_adjusted;
+    u64a v10 = (current_data_8 >> 15) & domain_mask_adjusted;
+    u64a v12 = (current_data_8 >> 31) & domain_mask_adjusted;
+    u64a v14 = (current_data_8 >> 47) & domain_mask_adjusted;
+
+    m128 st0 = *(const m128 *)(ft + v0*8);
+    m128 st2 = *(const m128 *)(ft + v2*8);
+    m128 st4 = *(const m128 *)(ft + v4*8);
+    m128 st6 = *(const m128 *)(ft + v6*8);
+    m128 st8 = *(const m128 *)(ft + v8*8);
+    m128 st10 = *(const m128 *)(ft + v10*8);
+    m128 st12 = *(const m128 *)(ft + v12*8);
+    m128 st14 = *(const m128 *)(ft + v14*8);
+
+    st2 = byteShiftLeft128(st2, 2);
+    st4 = byteShiftLeft128(st4, 4);
+    st6 = byteShiftLeft128(st6, 6);
+    st10 = byteShiftLeft128(st10, 2);
+    st12 = byteShiftLeft128(st12, 4);
+    st14 = byteShiftLeft128(st14, 6);
+
+    *s = or128(*s, st0);
+    *s = or128(*s, st2);
+    *s = or128(*s, st4);
+    *s = or128(*s, st6);
+    *conf0 = movq(*s);
+    *s = byteShiftRight128(*s, 8);
+    *conf0 ^= ~0ULL;
+
+    *s = or128(*s, st8);
+    *s = or128(*s, st10);
+    *s = or128(*s, st12);
+    *s = or128(*s, st14);
+    *conf8 = movq(*s);
+    *s = byteShiftRight128(*s, 8);
+    *conf8 ^= ~0ULL;
+}
+
+static really_inline
+void get_conf_stride_4(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
+                       u64a domain_mask_adjusted, const u8 *ft, u64a *conf0,
+                       u64a *conf8, m128 *s) {
+    u64a current_data_0;
+    u64a current_data_8;
+
+    current_data_0 = lv_u64a(itPtr + 0, start_ptr, end_ptr);
+    u64a v0 = (current_data_0 << 1) & domain_mask_adjusted;
+    u64a v4 = (current_data_0 >> 31) & domain_mask_adjusted;
+    current_data_8 = lv_u64a(itPtr + 8, start_ptr, end_ptr);
+    u64a v8 = (current_data_8 << 1) & domain_mask_adjusted;
+    u64a v12 = (current_data_8 >> 31) & domain_mask_adjusted;
+
+    m128 st0 = *(const m128 *)(ft + v0*8);
+    m128 st4 = *(const m128 *)(ft + v4*8);
+    m128 st8 = *(const m128 *)(ft + v8*8);
+    m128 st12 = *(const m128 *)(ft + v12*8);
+
+    st4 = byteShiftLeft128(st4, 4);
+    st12 = byteShiftLeft128(st12, 4);
+
+    *s = or128(*s, st0);
+    *s = or128(*s, st4);
+    *conf0 = movq(*s);
+    *s = byteShiftRight128(*s, 8);
+    *conf0 ^= ~0ULL;
+
+    *s = or128(*s, st8);
+    *s = or128(*s, st12);
+    *conf8 = movq(*s);
+    *s = byteShiftRight128(*s, 8);
+    *conf8 ^= ~0ULL;
+}
+
+static really_inline
+void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *controlVal,
+                    const u32 *confBase, const struct FDR_Runtime_Args *a,
+                    const u8 *ptr, hwlmcb_rv_t *control, u32 *last_match_id,
+                    struct zone *z) {
+    const u8 bucket = 8;
+    const u8 pullback = 1;
+
+    if (likely(!*conf)) {
+        return;
+    }
+
+    /* ptr is currently referring to a location in the zone's buffer, we also
+     * need a pointer in the original, main buffer for the final string compare.
+     */
+    const u8 *ptr_main = (const u8 *)((uintptr_t)ptr + z->zone_pointer_adjust);
+
+    const u8 *confLoc = ptr;
+
+    do  {
+        u32 bit = findAndClearLSB_64(conf);
+        u32 byte = bit / bucket + offset;
+        u32 bitRem = bit % bucket;
+        u32 confSplit = *(ptr + byte);
+        u32 idx = confSplit * bucket + bitRem;
+        u32 cf = confBase[idx];
+        if (!cf) {
+            continue;
+        }
+        const struct FDRConfirm *fdrc = (const struct FDRConfirm *)
+                                        ((const u8 *)confBase + cf);
+        if (!(fdrc->groups & *control)) {
+            continue;
+        }
+        if (!fdrc->mult) {
+            u32 id = fdrc->nBitsOrSoleID;
+            if ((*last_match_id == id) && (fdrc->flags & NoRepeat)) {
+                continue;
+            }
+           *last_match_id = id;
+           *controlVal = a->cb(ptr_main + byte - a->buf,
+                               ptr_main + byte - a->buf, id, a->ctxt);
+           continue;
+        }
+        u64a confVal = unaligned_load_u64a(confLoc + byte - sizeof(u64a));
+        confWithBit(fdrc, a, ptr_main - a->buf + byte, pullback,
+                    control, last_match_id, confVal);
+    } while (unlikely(!!*conf));
+}
+
+static really_inline
+void dumpZoneInfo(UNUSED struct zone *z, UNUSED size_t zone_id) {
+#ifdef DEBUG
+    DEBUG_PRINTF("zone: zone=%zu, bufPtr=%p\n", zone_id, z->buf);
+    DEBUG_PRINTF("zone: startPtr=%p, endPtr=%p, shift=%u\n",
+                 z->start, z->end, z->shift);
+    DEBUG_PRINTF("zone: zone_pointer_adjust=%zd, floodPtr=%p\n",
+                 z->zone_pointer_adjust, z->floodPtr);
+    DEBUG_PRINTF("zone buf:");
+    for (size_t i = 0; i < ZONE_TOTAL_SIZE; i++) {
+        if (i % 8 == 0) {
+            printf("_");
+        }
+        if (z->buf[i]) {
+            printf("%02x", z->buf[i]);
+        } else {
+            printf("..");
+        }
+    }
+    printf("\n");
+#endif
+};
+
+/**
+ * \brief Updates attributes for non-boundary region zone.
+ */
+static really_inline
+void createMainZone(const u8 *flood, const u8 *begin, const u8 *end,
+                    struct zone *z) {
+    z->zone_pointer_adjust = 0; /* zone buffer is the main buffer */
+    z->start = begin;
+    z->end = end;
+    z->floodPtr = flood;
+    z->shift = 0;
+}
+
+/**
+ * \brief Create zone for short cases (<= ITER_BYTES).
+ *
+ * For this case we need to copy everything into the zone's internal buffer.
+ *
+ * We need to ensure that we run over real data if it exists (in history or
+ * before zone begin). We also need to ensure 8 bytes before any data being
+ * matched can be read (to perform a conf hash).
+ *
+ * We also need to ensure that the data at z->end can be read.
+ *
+ * Hence, the zone consists of:
+ *     16 bytes of history,
+ *     1 - 24 bytes of data form the buffer (ending at end),
+ *     1 byte of final padding
+ */
+static really_inline
+void createShortZone(const u8 *buf, const u8 *hend, const u8 *begin,
+                     const u8 *end, struct zone *z) {
+    /* the floodPtr for BOUNDARY zones are maximum of end of zone buf to avoid
+     * the checks in boundary zone. */
+    z->floodPtr = z->buf + ZONE_TOTAL_SIZE;
+
+    ptrdiff_t z_len = end - begin;
+    assert(z_len > 0);
+    assert(z_len <= ITER_BYTES);
+
+    z->shift = ITER_BYTES - z_len; /* ignore bytes outside region specified */
+
+    static const size_t ZONE_SHORT_DATA_OFFSET = 16; /* after history */
+
+    /* we are guaranteed to always have 16 initialised bytes at the end of
+     * the history buffer (they may be garbage coming from the stream state
+     * preceding hbuf, but bytes that don't correspond to actual history
+     * shouldn't affect computations). */
+    *(m128 *)z->buf = loadu128(hend - sizeof(m128));
+
+    /* The amount of data we have to copy from main buffer. */
+    size_t copy_len = MIN((size_t)(end - buf),
+                          ITER_BYTES + sizeof(CONF_TYPE));
+
+    u8 *zone_data = z->buf + ZONE_SHORT_DATA_OFFSET;
+    switch (copy_len) {
+    case 1:
+        *zone_data = *(end - 1);
+        break;
+    case 2:
+        *(u16 *)zone_data = unaligned_load_u16(end - 2);
+        break;
+    case 3:
+        *(u16 *)zone_data = unaligned_load_u16(end - 3);
+        *(zone_data + 2) = *(end - 1);
+        break;
+    case 4:
+        *(u32 *)zone_data = unaligned_load_u32(end - 4);
+        break;
+    case 5:
+    case 6:
+    case 7:
+        /* perform copy with 2 overlapping 4-byte chunks from buf. */
+        *(u32 *)zone_data = unaligned_load_u32(end - copy_len);
+        unaligned_store_u32(zone_data + copy_len - sizeof(u32),
+                            unaligned_load_u32(end - sizeof(u32)));
+        break;
+    case 8:
+        *(u64a *)zone_data = unaligned_load_u64a(end - 8);
+        break;
+    case 9:
+    case 10:
+    case 11:
+    case 12:
+    case 13:
+    case 14:
+    case 15:
+        /* perform copy with 2 overlapping 8-byte chunks from buf. */
+        *(u64a *)zone_data = unaligned_load_u64a(end - copy_len);
+        unaligned_store_u64a(zone_data + copy_len - sizeof(u64a),
+                             unaligned_load_u64a(end - sizeof(u64a)));
+        break;
+    case 16:
+        /* copy 16-bytes from buf. */
+        *(m128 *)zone_data = loadu128(end - 16);
+        break;
+    default:
+        assert(copy_len <= sizeof(m128) + sizeof(u64a));
+
+        /* perform copy with (potentially overlapping) 8-byte and 16-byte chunks.
+         */
+        *(u64a *)zone_data = unaligned_load_u64a(end - copy_len);
+        storeu128(zone_data + copy_len - sizeof(m128),
+                  loadu128(end - sizeof(m128)));
+        break;
+    }
+
+    /* set the start and end location of the zone buf
+     * to be scanned */
+    u8 *z_end = z->buf + ZONE_SHORT_DATA_OFFSET + copy_len;
+    assert(ZONE_SHORT_DATA_OFFSET + copy_len >= ITER_BYTES);
+
+    /* copy the post-padding byte; this is required for domain > 8 due to
+     * overhang */
+    *z_end = 0;
+
+    z->end = z_end;
+    z->start = z_end - ITER_BYTES;
+    z->zone_pointer_adjust = (ptrdiff_t)((uintptr_t)end - (uintptr_t)z_end);
+    assert(z->start + z->shift == z_end - z_len);
+}
+
+/**
+ * \brief Create a zone for the start region.
+ *
+ * This function requires that there is > ITER_BYTES of data in the buffer to
+ * scan. The start zone itself is always responsible for scanning exactly
+ * ITER_BYTES of data - there are no warmup/junk bytes scanned.
+ *
+ * This zone ensures that the byte at z->end can be read and corresponds to
+ * the next byte of data.
+ *
+ * 8 bytes of history data are provided before z->start to allow proper hash
+ * generation in streaming mode. If buf != begin, upto 8 bytes of data
+ * prior to begin is also provided.
+ *
+ * Although we are not interested in bare literals which start before begin
+ * if buf != begin, lookarounds associated with the literal may require
+ * the data prior to begin for hash purposes.
+ */
+static really_inline
+void createStartZone(const u8 *buf, const u8 *hend, const u8 *begin,
+                     struct zone *z) {
+    assert(ITER_BYTES == sizeof(m128));
+    assert(sizeof(CONF_TYPE) == 8);
+    static const size_t ZONE_START_BEGIN = sizeof(CONF_TYPE);
+
+    const u8 *end = begin + ITER_BYTES;
+
+    /* set floodPtr to the end of zone buf to avoid checks in start zone */
+    z->floodPtr = z->buf + ZONE_TOTAL_SIZE;
+
+    z->shift = 0; /* we are processing ITER_BYTES of real data */
+
+    /* we are guaranteed to always have 16 initialised bytes at the end of the
+     * history buffer (they may be garbage coming from the stream state
+     * preceding hbuf, but bytes that don't correspond to actual history
+     * shouldn't affect computations). However, for start zones, history is only
+     * required for conf hash purposes so we only need 8 bytes */
+    unaligned_store_u64a(z->buf, unaligned_load_u64a(hend - sizeof(u64a)));
+
+    /* The amount of data we have to copy from main buffer. */
+    size_t copy_len = MIN((size_t)(end - buf),
+                          ITER_BYTES + sizeof(CONF_TYPE));
+    assert(copy_len >= 16);
+
+    /* copy the post-padding byte; this is required for domain > 8 due to
+     * overhang. The start requires that there is data after the zone so it
+     * it safe to dereference end */
+    z->buf[ZONE_START_BEGIN + copy_len] = *end;
+
+    /* set the start and end location of the zone buf to be scanned */
+    u8 *z_end = z->buf + ZONE_START_BEGIN + copy_len;
+    z->end = z_end;
+    z->start = z_end - ITER_BYTES;
+
+    /* copy the first 8 bytes of the valid region */
+    unaligned_store_u64a(z->buf + ZONE_START_BEGIN,
+                         unaligned_load_u64a(end - copy_len));
+
+    /* copy the last 16 bytes, may overlap with the previous 8 byte write */
+    storeu128(z_end - sizeof(m128), loadu128(end - sizeof(m128)));
+
+    z->zone_pointer_adjust = (ptrdiff_t)((uintptr_t)end - (uintptr_t)z_end);
+}
+
+/**
+ * \brief Create a zone for the end region.
+ *
+ * This function requires that there is > ITER_BYTES of data in the buffer to
+ * scan. The end zone, however, is only responsible for a scanning the <=
+ * ITER_BYTES rump of data. The end zone is required to handle a full ITER_BYTES
+ * iteration as the main loop cannot handle the last byte of the buffer.
+ *
+ * This zone ensures that the byte at z->end can be read by filling it with a
+ * padding character.
+ *
+ * Upto 8 bytes of data prior to begin is also provided for the purposes of
+ * generating hashes. History is not copied, as all locations which require
+ * history for generating a hash are the responsiblity of the start zone.
+ */
+static really_inline
+void createEndZone(const u8 *buf, const u8 *begin, const u8 *end,
+                   struct zone *z) {
+    /* the floodPtr for BOUNDARY zones are maximum of end of zone buf to avoid
+     * the checks in boundary zone. */
+    z->floodPtr = z->buf + ZONE_TOTAL_SIZE;
+
+    ptrdiff_t z_len = end - begin;
+    assert(z_len > 0);
+    assert(z_len <= ITER_BYTES);
+
+    z->shift = ITER_BYTES - z_len;
+
+    /* The amount of data we have to copy from main buffer. */
+    size_t copy_len = MIN((size_t)(end - buf),
+                          ITER_BYTES + sizeof(CONF_TYPE));
+    assert(copy_len >= 16);
+
+    /* copy the post-padding byte; this is required for domain > 8 due to
+     * overhang */
+    z->buf[copy_len] = 0;
+
+    /* set the start and end location of the zone buf
+     * to be scanned */
+    u8 *z_end = z->buf + copy_len;
+    z->end = z_end;
+    z->start = z_end - ITER_BYTES;
+    assert(z->start + z->shift == z_end - z_len);
+
+    /* copy the first 8 bytes of the valid region */
+    unaligned_store_u64a(z->buf, unaligned_load_u64a(end - copy_len));
+
+    /* copy the last 16 bytes, may overlap with the previous 8 byte write */
+    storeu128(z_end - sizeof(m128), loadu128(end - sizeof(m128)));
+
+    z->zone_pointer_adjust = (ptrdiff_t)((uintptr_t)end - (uintptr_t)z_end);
+}
+
+/**
+ * \brief Prepare zones.
+ *
+ * This function prepares zones with actual buffer and some padded bytes.
+ * The actual ITER_BYTES bytes in zone is preceded by main buf and/or
+ * history buf and succeeded by padded bytes possibly from main buf,
+ * if available.
+ */
+static really_inline
+size_t prepareZones(const u8 *buf, size_t len, const u8 *hend,
+                    size_t start, const u8 *flood, struct zone *zoneArr) {
+    const u8 *ptr = buf + start;
+    size_t remaining = len - start;
+
+    if (remaining <= ITER_BYTES) {
+        /* enough bytes to make only one zone */
+        createShortZone(buf, hend, ptr, buf + len, &zoneArr[0]);
+        return 1;
+    }
+
+    /* enough bytes to make more than one zone */
+
+    size_t numZone = 0;
+    createStartZone(buf, hend, ptr, &zoneArr[numZone++]);
+    ptr += ITER_BYTES;
+
+    assert(ptr < buf + len);
+
+    /* find maximum buffer location that the main zone can scan
+     * - must be a multiple of ITER_BYTES, and
+     * - cannot contain the last byte (due to overhang)
+     */
+    const u8 *main_end = buf + start + ROUNDDOWN_N(len - start - 1, ITER_BYTES);
+    assert(main_end >= ptr);
+
+    /* create a zone if multiple of ITER_BYTES are found */
+    if (main_end != ptr) {
+        createMainZone(flood, ptr, main_end, &zoneArr[numZone++]);
+        ptr = main_end;
+    }
+    /* create a zone with rest of the data from the main buffer */
+    createEndZone(buf, ptr, buf + len, &zoneArr[numZone++]);
+    return numZone;
+}
+
+#define INVALID_MATCH_ID (~0U)
+
+#define FDR_MAIN_LOOP(zz, s, get_conf_fn)                                   \
+    do {                                                                    \
+        const u8 *tryFloodDetect = zz->floodPtr;                            \
+        const u8 *start_ptr = zz->start;                                    \
+        const u8 *end_ptr = zz->end;                                        \
+                                                                            \
+        for (const u8 *itPtr = start_ptr; itPtr + ITER_BYTES <= end_ptr;    \
+            itPtr += ITER_BYTES) {                                          \
+            if (unlikely(itPtr > tryFloodDetect)) {                         \
+                tryFloodDetect = floodDetect(fdr, a, &itPtr, tryFloodDetect,\
+                                             &floodBackoff, &controlVal,    \
+                                             ITER_BYTES);                   \
+                if (unlikely(controlVal == HWLM_TERMINATE_MATCHING)) {      \
+                    return HWLM_TERMINATED;                                 \
+                }                                                           \
+            }                                                               \
+            __builtin_prefetch(itPtr + (ITER_BYTES*4));                     \
+            u64a conf0;                                                     \
+            u64a conf8;                                                     \
+            get_conf_fn(itPtr, start_ptr, end_ptr, domain_mask_adjusted,    \
+                        ft, &conf0, &conf8, &s);                            \
+            do_confirm_fdr(&conf0, 0, &controlVal, confBase, a, itPtr,      \
+                           control, &last_match_id, zz);                    \
+            do_confirm_fdr(&conf8, 8, &controlVal, confBase, a, itPtr,      \
+                           control, &last_match_id, zz);                    \
+            if (unlikely(controlVal == HWLM_TERMINATE_MATCHING)) {          \
+                return HWLM_TERMINATED;                                     \
+            }                                                               \
+        } /* end for loop */                                                \
+    } while (0)                                                             \
+
+static never_inline
+hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
+                             const struct FDR_Runtime_Args *a) {
+    hwlmcb_rv_t controlVal = *a->groups;
+    hwlmcb_rv_t *control = &controlVal;
+    u32 floodBackoff = FLOOD_BACKOFF_START;
+    u32 last_match_id = INVALID_MATCH_ID;
+    u64a domain_mask_adjusted = fdr->domainMask << 1;
+    u8 stride = fdr->stride;
+    const u8 *ft = (const u8 *)fdr + ROUNDUP_16(sizeof(struct FDR));
+    const u32 *confBase = (const u32 *)(ft + fdr->tabSize);
+    struct zone zones[ZONE_MAX];
+    assert(fdr->domain > 8 && fdr->domain < 16);
+
+    size_t numZone = prepareZones(a->buf, a->len,
+                                  a->buf_history + a->len_history,
+                                  a->start_offset, a->firstFloodDetect, zones);
+    assert(numZone <= ZONE_MAX);
+    m128 state = getInitState(fdr, a->len_history, ft, &zones[0]);
+
+    for (size_t curZone = 0; curZone < numZone; curZone++) {
+        struct zone *z = &zones[curZone];
+        dumpZoneInfo(z, curZone);
+
+        /* When a zone contains less data than is processed in an iteration
+         * of FDR_MAIN_LOOP(), we need to scan over some extra data.
+         *
+         * We have chosen to scan this extra data at the start of the
+         * iteration. The extra data is either data we have already scanned or
+         * garbage (if it is earlier than offset 0),
+         *
+         * As a result we need to shift the incoming state back so that it will
+         * properly line up with the data being scanned.
+         *
+         * We also need to forbid reporting any matches in the data being
+         * rescanned as they have already been reported (or are over garbage but
+         * later stages should also provide that safety guarantee).
+         */
+
+        u8 shift = z->shift;
+
+        state = variable_byte_shift_m128(state, shift);
+
+        state = or128(state, load128(zone_or_mask[shift]));
+
+        switch (stride) {
+        case 1:
+            FDR_MAIN_LOOP(z, state, get_conf_stride_1);
+            break;
+        case 2:
+            FDR_MAIN_LOOP(z, state, get_conf_stride_2);
+            break;
+        case 4:
+            FDR_MAIN_LOOP(z, state, get_conf_stride_4);
+            break;
+        default:
+            break;
+        }
+    }
+
+    return HWLM_SUCCESS;
+}
+
+#if defined(__AVX2__)
+#define ONLY_AVX2(func) func
+#else
+#define ONLY_AVX2(func) NULL
+#endif
+
+typedef hwlm_error_t (*FDRFUNCTYPE)(const struct FDR *fdr, const struct FDR_Runtime_Args *a);
+static const FDRFUNCTYPE funcs[] = {
+    fdr_engine_exec,
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks1_fast),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks1_pck_fast),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks1_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks1_pck_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks2_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks2_pck_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks3_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks3_pck_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks4_fat),
+    ONLY_AVX2(fdr_exec_teddy_avx2_msks4_pck_fat),
+    fdr_exec_teddy_msks1,
+    fdr_exec_teddy_msks1_pck,
+    fdr_exec_teddy_msks2,
+    fdr_exec_teddy_msks2_pck,
+    fdr_exec_teddy_msks3,
+    fdr_exec_teddy_msks3_pck,
+    fdr_exec_teddy_msks4,
+    fdr_exec_teddy_msks4_pck,
+};
 
 #define FAKE_HISTORY_SIZE 16
 static const u8 fake_history[FAKE_HISTORY_SIZE];
 
-hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len, size_t start,
-                     HWLMCallback cb, void *ctxt, hwlm_group_t groups) {
+hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
+                     size_t start, HWLMCallback cb, void *ctxt,
+                     hwlm_group_t groups) {
+    // We guarantee (for safezone construction) that it is safe to read 16
+    // bytes before the end of the history buffer.
+    const u8 *hbuf = fake_history + FAKE_HISTORY_SIZE;
 
     const struct FDR_Runtime_Args a = {
         buf,
         len,
-        fake_history,
+        hbuf,
         0,
-        fake_history, // nocase
+        hbuf, // nocase
         0,
         start,
         cb,
@@ -73,7 +829,7 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len, size_t st
 hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
                               size_t hlen, const u8 *buf, size_t len,
                               size_t start, HWLMCallback cb, void *ctxt,
-                              hwlm_group_t groups, u8 * stream_state) {
+                              hwlm_group_t groups, u8 *stream_state) {
     struct FDR_Runtime_Args a = {
         buf,
         len,
@@ -86,9 +842,9 @@ hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
         ctxt,
         &groups,
         nextFloodDetect(buf, len, FLOOD_BACKOFF_START),
-        hbuf ? CONF_LOADVAL_CALL_CAUTIOUS(hbuf + hlen - 8, hbuf, hbuf + hlen)
-             : (u64a)0
-
+        /* we are guaranteed to always have 16 initialised bytes at the end of
+         * the history buffer (they may be garbage). */
+        hbuf ? unaligned_load_u64a(hbuf + hlen - sizeof(u64a)) : (u64a)0
     };
     fdrUnpackState(fdr, &a, stream_state);
 

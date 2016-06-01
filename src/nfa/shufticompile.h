@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -50,11 +50,13 @@ namespace ue2 {
  */
 int shuftiBuildMasks(const CharReach &chars, m128 *lo, m128 *hi);
 
-void shuftiBuildDoubleMasks(const CharReach &onechar,
+/** \brief Double-byte variant
+ *
+ * Returns false if we are unable to build the masks (too many buckets required)
+ */
+bool shuftiBuildDoubleMasks(const CharReach &onechar,
                             const flat_set<std::pair<u8, u8>> &twochar,
                             m128 *lo1, m128 *hi1, m128 *lo2, m128 *hi2);
-
-void mergeShuftiMask(m128 *lo, const m128 lo_in, u32 lo_bits);
 
 #ifdef DUMP_SUPPORT
 

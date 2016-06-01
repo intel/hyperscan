@@ -80,6 +80,10 @@ static const size_t BOUNDED_REPEAT_COUNT = 4;
 /** Scoring penalty for boundary regions. */
 static const size_t PENALTY_BOUNDARY = 32;
 
+/** Regions with max bounds greater than this value will have their max bound
+ * replaced with inf. */
+static const size_t MAX_REPLACE_BOUND = 10000;
+
 namespace {
 
 /** Information describing a region. */
@@ -158,7 +162,7 @@ void markBoundaryRegions(const NGHolder &h,
         }
         u32 id = region_map.at(v);
 
-        map<u32, RegionInfo>::iterator ri = regions.find(id);
+        auto ri = regions.find(id);
         if (ri == regions.end()) {
             continue; // Not tracking this region as it's too small.
         }
@@ -176,16 +180,14 @@ map<u32, RegionInfo> findRegionInfo(const NGHolder &h,
             continue;
         }
         u32 id = region_map.at(v);
-        RegionInfo &ri = regions.insert(
-                    make_pair(id, RegionInfo(id))).first->second;
+        RegionInfo &ri = regions.emplace(id, RegionInfo(id)).first->second;
         ri.vertices.push_back(v);
         ri.reach |= h[v].char_reach;
     }
 
     // There's no point tracking more information about regions that we won't
     // consider replacing, so we remove them from the region map.
-    for (map<u32, RegionInfo>::iterator it = regions.begin();
-         it != regions.end();) {
+    for (auto it = regions.begin(); it != regions.end();) {
         if (it->second.vertices.size() < MIN_REPLACE_VERTICES) {
             regions.erase(it++);
         } else {
@@ -217,7 +219,10 @@ void copyInEdges(NGHolder &g, NFAVertex from, NFAVertex to,
         if (contains(rverts, u)) {
             continue;
         }
-        if (edge(u, to, g).second) {
+
+        // Check with edge_by_target to cope with predecessors with large
+        // fan-out.
+        if (edge_by_target(u, to, g).second) {
             continue;
         }
 
@@ -250,17 +255,27 @@ void replaceRegion(NGHolder &g, const RegionInfo &ri,
     assert(ri.vertices.size() >= MIN_REPLACE_VERTICES);
     assert(ri.minWidth.is_finite());
 
+    depth minWidth = ri.minWidth;
+    depth maxWidth = ri.maxWidth;
+
+    if (maxWidth > depth(MAX_REPLACE_BOUND)) {
+        DEBUG_PRINTF("using inf instead of large bound %s\n",
+                     maxWidth.str().c_str());
+        maxWidth = depth::infinity();
+    }
+
     size_t replacementSize;
-    if (ri.minWidth == ri.maxWidth || ri.maxWidth.is_infinite()) {
-        replacementSize = ri.minWidth; // {N} or {N,}
+    if (minWidth == maxWidth || maxWidth.is_infinite()) {
+        replacementSize = minWidth; // {N} or {N,}
     } else {
-        replacementSize = ri.maxWidth; // {N,M} case
+        replacementSize = maxWidth; // {N,M} case
     }
 
     DEBUG_PRINTF("orig size %zu, replace size %zu\n", ri.vertices.size(),
                  replacementSize);
 
-    deque<NFAVertex> verts;
+    vector<NFAVertex> verts;
+    verts.reserve(replacementSize);
     for (size_t i = 0; i < replacementSize; i++) {
         NFAVertex v = add_vertex(g);
         g[v].char_reach = ri.reach;
@@ -270,7 +285,7 @@ void replaceRegion(NGHolder &g, const RegionInfo &ri,
         verts.push_back(v);
     }
 
-    if (ri.maxWidth.is_infinite()) {
+    if (maxWidth.is_infinite()) {
         add_edge(verts.back(), verts.back(), g);
     }
 
@@ -360,7 +375,8 @@ void prefilterReductions(NGHolder &h, const CompileContext &cc) {
         return;
     }
 
-    DEBUG_PRINTF("graph with %zu vertices\n", num_vertices(h));
+    DEBUG_PRINTF("before: graph with %zu vertices, %zu edges\n",
+                 num_vertices(h), num_edges(h));
 
     h.renumberVertices();
     h.renumberEdges();
@@ -369,6 +385,10 @@ void prefilterReductions(NGHolder &h, const CompileContext &cc) {
 
     h.renumberVertices();
     h.renumberEdges();
+
+    DEBUG_PRINTF("after: graph with %zu vertices, %zu edges\n",
+                 num_vertices(h), num_edges(h));
+
 }
 
 } // namespace ue2

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,9 +37,30 @@ union AccelAux;
 
 namespace ue2 {
 
+struct MultibyteAccelInfo {
+    /* multibyte accel schemes, ordered by strength */
+    enum multiaccel_type {
+        MAT_SHIFT,
+        MAT_SHIFTGRAB,
+        MAT_DSHIFT,
+        MAT_DSHIFTGRAB,
+        MAT_LONG,
+        MAT_LONGGRAB,
+        MAT_MAX,
+        MAT_NONE = MAT_MAX
+    };
+    CharReach cr;
+    u32 offset = 0;
+    u32 len1 = 0;
+    u32 len2 = 0;
+    multiaccel_type type = MAT_NONE;
+};
+
 struct AccelInfo {
     AccelInfo() : single_offset(0U), double_offset(0U),
-                  single_stops(CharReach::dot()) {}
+                  single_stops(CharReach::dot()),
+                  multiaccel_offset(0), ma_len1(0), ma_len2(0),
+                  ma_type(MultibyteAccelInfo::MAT_NONE) {}
     u32 single_offset; /**< offset correction to apply to single schemes */
     u32 double_offset; /**< offset correction to apply to double schemes */
     CharReach double_stop1;  /**<  single-byte accel stop literals for double
@@ -47,9 +68,18 @@ struct AccelInfo {
     flat_set<std::pair<u8, u8>> double_stop2; /**< double-byte accel stop
                                                * literals */
     CharReach single_stops; /**< escapes for single byte acceleration */
+    u32 multiaccel_offset; /**< offset correction to apply to multibyte schemes */
+    CharReach multiaccel_stops; /**< escapes for multibyte acceleration */
+    u32 ma_len1; /**< multiaccel len1 */
+    u32 ma_len2; /**< multiaccel len2 */
+    MultibyteAccelInfo::multiaccel_type ma_type; /**< multiaccel type */
 };
 
 bool buildAccelAux(const AccelInfo &info, AccelAux *aux);
+
+/* returns true is the escape set can be handled with a masked double_verm */
+bool buildDvermMask(const flat_set<std::pair<u8, u8>> &escape_set,
+                    u8 *m1_out = nullptr, u8 *m2_out = nullptr);
 
 } // namespace ue2
 

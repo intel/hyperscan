@@ -76,9 +76,6 @@
 #define storeu_u32(ptr, a)   unaligned_store_u32(ptr, a)
 #define storeu_u64a(ptr, a)  unaligned_store_u64a(ptr, a)
 #define storeu_m128(ptr, a)  storeu128(ptr, a)
-#define storeu_m256(ptr, a)  storeu256(ptr, a)
-#define storeu_m384(ptr, a)  storeu384(ptr, a)
-#define storeu_m512(ptr, a)  storeu512(ptr, a)
 
 #define zero_u8             0
 #define zero_u32            0

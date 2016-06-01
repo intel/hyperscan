@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -91,7 +91,8 @@ TEST(order, ordering1) {
     EXPECT_EQ(5U, countMatchesById(c.matches, 4));
     EXPECT_EQ(5U, countMatchesById(c.matches, 5));
     ASSERT_TRUE(matchesOrdered(c.matches));
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -122,7 +123,8 @@ TEST(order, ordering2) {
     EXPECT_EQ(5U, countMatchesById(c.matches, 4));
     EXPECT_EQ(5U, countMatchesById(c.matches, 5));
     ASSERT_TRUE(matchesOrdered(c.matches));
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -152,7 +154,8 @@ TEST(order, ordering3) {
     EXPECT_EQ(5U, countMatchesById(c.matches, 4));
     EXPECT_EQ(0U, countMatchesById(c.matches, 5));
     ASSERT_TRUE(matchesOrdered(c.matches));
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -182,7 +185,8 @@ TEST(order, ordering4) {
     EXPECT_EQ(0U, countMatchesById(c.matches, 4));
     EXPECT_EQ(0U, countMatchesById(c.matches, 5));
     ASSERT_TRUE(matchesOrdered(c.matches));
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -225,7 +229,8 @@ TEST(order, ordering5) {
         c.matches.clear();
         hs_close_stream(stream, scratch, record_cb, (void *)&c);
     }
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -267,7 +272,8 @@ TEST(order, ordering6) {
         c.matches.clear();
         hs_close_stream(stream, scratch, record_cb, (void *)&c);
     }
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -308,7 +314,8 @@ TEST(order, ordering7) {
         c.matches.clear();
         hs_close_stream(stream, scratch, record_cb, (void *)&c);
     }
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -349,7 +356,8 @@ TEST(order, ordering8) {
         c.matches.clear();
         hs_close_stream(stream, scratch, record_cb, (void *)&c);
     }
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 

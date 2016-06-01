@@ -27,75 +27,82 @@
  */
 
 #include "config.h"
-
-#include "sidecar_dump.h"
-#include "sidecar_internal.h"
 #include "ue2common.h"
 
-#include <cstdio>
+#include "multivermicelli.h"
 
-#ifndef DUMP_SUPPORT
-#error No dump support!
+#include "multiaccel_common.h"
+
+#if !defined(__AVX2__)
+
+#define MATCH_ALGO long_
+#include "multiaccel_long.h"
+#include "multivermicelli_sse.h"
+#undef MATCH_ALGO
+
+#define MATCH_ALGO longgrab_
+#include "multiaccel_longgrab.h"
+#include "multivermicelli_sse.h"
+#undef MATCH_ALGO
+
+#define MATCH_ALGO shift_
+#include "multiaccel_shift.h"
+#include "multivermicelli_sse.h"
+#undef MATCH_ALGO
+
+#define MATCH_ALGO shiftgrab_
+#include "multiaccel_shiftgrab.h"
+#include "multivermicelli_sse.h"
+#undef MATCH_ALGO
+
+#define MULTIACCEL_DOUBLE
+
+#define MATCH_ALGO doubleshift_
+#include "multiaccel_doubleshift.h"
+#include "multivermicelli_sse.h"
+#undef MATCH_ALGO
+
+#define MATCH_ALGO doubleshiftgrab_
+#include "multiaccel_doubleshiftgrab.h"
+#include "multivermicelli_sse.h"
+#undef MATCH_ALGO
+
+#undef MULTIACCEL_DOUBLE
+
+#else
+
+#define MATCH_ALGO long_
+#include "multiaccel_long.h"
+#include "multivermicelli_avx2.h"
+#undef MATCH_ALGO
+
+#define MATCH_ALGO longgrab_
+#include "multiaccel_longgrab.h"
+#include "multivermicelli_avx2.h"
+#undef MATCH_ALGO
+
+#define MATCH_ALGO shift_
+#include "multiaccel_shift.h"
+#include "multivermicelli_avx2.h"
+#undef MATCH_ALGO
+
+#define MATCH_ALGO shiftgrab_
+#include "multiaccel_shiftgrab.h"
+#include "multivermicelli_avx2.h"
+#undef MATCH_ALGO
+
+#define MULTIACCEL_DOUBLE
+
+#define MATCH_ALGO doubleshift_
+#include "multiaccel_doubleshift.h"
+#include "multivermicelli_avx2.h"
+#undef MATCH_ALGO
+
+#define MATCH_ALGO doubleshiftgrab_
+#include "multiaccel_doubleshiftgrab.h"
+#include "multivermicelli_avx2.h"
+#undef MATCH_ALGO
+
+#undef MULTIACCEL_DOUBLE
+
 #endif
-
-namespace ue2 {
-
-static
-void dumpSideShuf(const sidecar_S *s, FILE *f) {
-    fprintf(f, "lo:");
-    for (u32 i = 0; i < 16; i++) {
-        fprintf(f, " %02hhx", ((const u8 *)&s->lo)[i]);
-    }
-    fprintf(f, "\n");
-
-    fprintf(f, "hi:");
-    for (u32 i = 0; i < 16; i++) {
-        fprintf(f, " %02hhx", ((const u8 *)&s->hi)[i]);
-    }
-    fprintf(f, "\n");
-
-    const u8 *enables = (const u8 *)sidecar_ids_to_mask_const(s);
-    fprintf(f, "shufti masks per id\n");
-    for (u32 i = 0; i < s->header.id_count; i++) {
-        fprintf(f, "%u: %02hhx\n", i, enables[i]);
-    }
-}
-
-void sidecarDump(const sidecar *s, FILE *f) {
-    const char *type = "?";
-    switch(s->type) {
-    case SIDECAR_8:
-        type = "8";
-        break;
-    case SIDECAR_32:
-        type = "32";
-        break;
-    case SIDECAR_64:
-        type = "64";
-        break;
-    case SIDECAR_128:
-        type = "128";
-        break;
-    case SIDECAR_256:
-        type = "256";
-        break;
-    case SIDECAR_N:
-        type = "N";
-        break;
-    case SIDECAR_S:
-        type = "S";
-        break;
-    default:
-        assert(0);
-    }
-
-    fprintf(f, "Sidecar:           %s\n", type);
-    fprintf(f, "    size:          %u\n", s->size);
-    fprintf(f, "    used bits:     %u\n", s->mask_bit_count);
-    fprintf(f, "    ids:           %u\n", s->id_count);
-    if (s->type == SIDECAR_S) {
-        dumpSideShuf((const sidecar_S *)s, f);
-    }
-}
-
-} // namespace ue2

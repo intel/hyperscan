@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,6 @@
 #include "nfa/nfa_rev_api.h"
 #include "nfa/mcclellan.h"
 #include "util/fatbit.h"
-#include "rose_sidecar_runtime.h"
 #include "rose.h"
 #include "rose_common.h"
 
@@ -62,11 +61,11 @@ void runAnchoredTableBlock(const struct RoseEngine *t, const void *atable,
             if (nfa->type == MCCLELLAN_NFA_8) {
                 nfaExecMcClellan8_B(nfa, curr->anchoredMinDistance,
                                     local_buffer, local_alen,
-                                    roseAnchoredCallback, &scratch->tctxt);
+                                    roseAnchoredCallback, scratch);
             } else {
                 nfaExecMcClellan16_B(nfa, curr->anchoredMinDistance,
                                      local_buffer, local_alen,
-                                     roseAnchoredCallback, &scratch->tctxt);
+                                     roseAnchoredCallback, scratch);
             }
         }
 
@@ -79,26 +78,12 @@ void runAnchoredTableBlock(const struct RoseEngine *t, const void *atable,
 }
 
 static really_inline
-void init_sidecar(const struct RoseEngine *t, struct hs_scratch *scratch) {
-    if (!t->smatcherOffset) {
-        return;
-    }
-
-    DEBUG_PRINTF("welcome to the sidecar\n");
-    assert(t->initSideEnableOffset);
-    // We have to enable some sidecar literals
-    const char *template = (const char *)t + t->initSideEnableOffset;
-
-    memcpy(&scratch->side_enabled, template, t->stateOffsets.sidecar_size);
-}
-
-static really_inline
-void init_state_for_block(const struct RoseEngine *t, u8 *state) {
+void init_state_for_block(const struct RoseEngine *t, char *state) {
     assert(t);
     assert(state);
 
-    DEBUG_PRINTF("init for Rose %p with %u roles (%u with state indices)\n",
-                 t, t->roleCount, t->rolesWithStateCount);
+    DEBUG_PRINTF("init for Rose %p with %u state indices\n", t,
+                 t->rolesWithStateCount);
 
     // Rose is guaranteed 8-aligned state
     assert(ISALIGNED_N(state, 8));
@@ -108,7 +93,7 @@ void init_state_for_block(const struct RoseEngine *t, u8 *state) {
 
 static really_inline
 void init_outfixes_for_block(const struct RoseEngine *t,
-                             struct hs_scratch *scratch, u8 *state,
+                             struct hs_scratch *scratch, char *state,
                              char is_small_block) {
     /* active leaf array has been cleared by the init scatter */
 
@@ -120,7 +105,6 @@ void init_outfixes_for_block(const struct RoseEngine *t,
         size_t len = nfaRevAccelCheck(nfa, scratch->core_info.buf,
                                       scratch->core_info.len);
         if (len) {
-            struct RoseContext *tctxt = &scratch->tctxt;
             u8 *activeArray = getActiveLeafArray(t, state);
             const u32 activeArraySize = t->activeArrayCount;
             const u32 qCount = t->queueCount;
@@ -129,7 +113,7 @@ void init_outfixes_for_block(const struct RoseEngine *t,
             fatbit_set(scratch->aqa, qCount, 0);
 
             struct mq *q = scratch->queues;
-            initQueue(q, 0, t, tctxt);
+            initQueue(q, 0, t, scratch);
             q->length = len; /* adjust for rev_accel */
             nfaQueueInitState(nfa, q);
             pushQueueAt(q, 0, MQE_START, 0);
@@ -149,46 +133,31 @@ void init_outfixes_for_block(const struct RoseEngine *t,
 
 static really_inline
 void init_for_block(const struct RoseEngine *t, struct hs_scratch *scratch,
-                    RoseCallback callback, RoseCallbackSom som_callback,
-                    void *ctxt, u8 *state, char is_small_block) {
+                    char *state, char is_small_block) {
     init_state_for_block(t, state);
 
     struct RoseContext *tctxt = &scratch->tctxt;
 
-    tctxt->t = t;
-    tctxt->depth = 1;
     tctxt->groups = t->initialGroups;
     tctxt->lit_offset_adjust = 1; // index after last byte
     tctxt->delayLastEndOffset = 0;
     tctxt->lastEndOffset = 0;
     tctxt->filledDelayedSlots = 0;
-    tctxt->state = state;
-    tctxt->cb = callback;
-    tctxt->cb_som = som_callback;
-    tctxt->userCtx = ctxt;
     tctxt->lastMatchOffset = 0;
     tctxt->minMatchOffset = 0;
     tctxt->minNonMpvMatchOffset = 0;
     tctxt->next_mpv_offset = 0;
-    tctxt->curr_anchored_loc = MMB_INVALID;
-    tctxt->curr_row_offset = 0;
-    tctxt->side_curr = 0;
 
-    scratch->am_log_sum = 0; /* clear the anchored logs */
     scratch->al_log_sum = 0;
 
     fatbit_clear(scratch->aqa);
-
-    init_sidecar(t, scratch); /* Init the sidecar enabled state */
 
     scratch->catchup_pq.qm_size = 0;
 
     init_outfixes_for_block(t, scratch, state, is_small_block);
 }
 
-void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
-                     RoseCallback callback, RoseCallbackSom som_callback,
-                     void *ctx) {
+void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch) {
     assert(t);
     assert(scratch);
     assert(scratch->core_info.buf);
@@ -204,10 +173,9 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
     const char is_small_block =
         (length < ROSE_SMALL_BLOCK_LEN && t->sbmatcherOffset);
 
-    u8 *state = (u8 *)scratch->core_info.state;
+    char *state = scratch->core_info.state;
 
-    init_for_block(t, scratch, callback, som_callback, ctx, state,
-                   is_small_block);
+    init_for_block(t, scratch, state, is_small_block);
 
     struct RoseContext *tctxt = &scratch->tctxt;
 
@@ -220,7 +188,7 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
         DEBUG_PRINTF("BEGIN SMALL BLOCK (over %zu/%zu)\n", sblen, length);
         DEBUG_PRINTF("-- %016llx\n", tctxt->groups);
         hwlmExec(sbtable, scratch->core_info.buf, sblen, 0, roseCallback,
-                 tctxt, tctxt->groups);
+                 scratch, tctxt->groups);
         goto exit;
     }
 
@@ -243,7 +211,6 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
             goto exit;
         }
 
-        resetAnchoredLog(t, scratch);
     skip_atable:;
     }
 
@@ -251,7 +218,7 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
     if (ftable) {
         DEBUG_PRINTF("ftable fd=%u fmd %u\n", t->floatingDistance,
             t->floatingMinDistance);
-        if (t->noFloatingRoots && tctxt->depth == 1) {
+        if (t->noFloatingRoots && !roseHasInFlightMatches(t, state, scratch)) {
             DEBUG_PRINTF("skip FLOATING: no inflight matches\n");
             goto exit;
         }
@@ -277,17 +244,15 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch,
         DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
         DEBUG_PRINTF("-- %016llx\n", tctxt->groups);
         hwlmExec(ftable, buffer, flen, t->floatingMinDistance,
-                 roseCallback, tctxt, tctxt->groups);
+                 roseCallback, scratch, tctxt->groups);
     }
 
 exit:;
-    u8 dummy_delay_mask = 0;
-    if (cleanUpDelayed(length, 0, tctxt, &dummy_delay_mask)
-        == HWLM_TERMINATE_MATCHING) {
+    if (cleanUpDelayed(t, scratch, length, 0) == HWLM_TERMINATE_MATCHING) {
         return;
     }
 
     assert(!can_stop_matching(scratch));
 
-    roseCatchUpTo(t, state, length, scratch, 0);
+    roseCatchUpTo(t, scratch, length);
 }

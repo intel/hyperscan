@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -64,7 +64,8 @@ TEST_P(IdenticalTest, Block) {
                   record_cb, &cb);
     ASSERT_EQ(HS_SUCCESS, err);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 
     ASSERT_EQ(patterns.size(), cb.matches.size());
@@ -111,7 +112,8 @@ TEST_P(IdenticalTest, Stream) {
     err = hs_close_stream(stream, scratch, record_cb, &cb);
     ASSERT_EQ(HS_SUCCESS, err);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 
     ASSERT_EQ(patterns.size(), cb.matches.size());
@@ -151,7 +153,8 @@ TEST_P(IdenticalTest, Vectored) {
     err = hs_scan_vector(db, data, datalen, 1, 0, scratch, record_cb, &cb);
     ASSERT_EQ(HS_SUCCESS, err);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 
     ASSERT_EQ(patterns.size(), cb.matches.size());

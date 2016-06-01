@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -199,6 +199,7 @@ static really_inline m128 shiftLeft8Bits(m128 a) {
 }
 
 #define byteShiftRight128(a, count_immed) _mm_srli_si128(a, count_immed)
+#define byteShiftLeft128(a, count_immed) _mm_slli_si128(a, count_immed)
 
 #if !defined(__AVX2__)
 // TODO: this entire file needs restructuring - this carveout is awful
@@ -597,17 +598,6 @@ static really_inline m256 loadu256(const void *ptr) {
     return _mm256_loadu_si256((const m256 *)ptr);
 #else
     m256 rv = { loadu128(ptr), loadu128((const char *)ptr + 16) };
-    return rv;
-#endif
-}
-
-// unaligned load of 128-bit value to low and high part of 256-bit value
-static really_inline m256 loadu2x128(const void *ptr) {
-#if defined(__AVX2__)
-    return set2x128(loadu128(ptr));
-#else
-    m256 rv;
-    rv.hi = rv.lo = loadu128(ptr);
     return rv;
 #endif
 }

@@ -78,50 +78,41 @@ void aligned_free_internal(void *ptr);
 
 /** \brief Aligned allocator class for use with STL containers. Ensures that
  * your objects are aligned to N bytes. */
-template <typename T, std::size_t N> class AlignedAllocator {
+template <class T, std::size_t N>
+class AlignedAllocator {
 public:
-    typedef T value_type;
-    typedef std::size_t size_type;
-    typedef std::ptrdiff_t difference_type;
-    typedef T *pointer;
-    typedef const T *const_pointer;
-    typedef T &reference;
-    typedef const T &const_reference;
+    using value_type = T;
 
-    template <typename U> struct rebind {
-        typedef AlignedAllocator<U, N> other;
+    AlignedAllocator() noexcept {}
+
+    template <class U, std::size_t N2>
+    AlignedAllocator(const AlignedAllocator<U, N2> &) noexcept {}
+
+    template <class U> struct rebind {
+        using other = AlignedAllocator<U, N>;
     };
 
-    pointer address(reference x) const { return &x; }
-    const_pointer address(const_reference x) const { return &x; }
-
-    size_type max_size() const {
-        return std::numeric_limits<size_type>::max() / sizeof(value_type);
+    T *allocate(std::size_t size) const {
+        size_t alloc_size = size * sizeof(T);
+        return static_cast<T *>(aligned_malloc_internal(alloc_size, N));
     }
 
-    pointer allocate(size_type size) const {
-        return static_cast<pointer>(
-            aligned_malloc_internal(size * sizeof(value_type), N));
-    }
-
-    void deallocate(pointer x, size_type) const { aligned_free_internal(x); }
-
-    void construct(pointer x, const value_type &val) const {
-        new (x) value_type(val);
-    }
-
-    void destroy(pointer p) const { p->~value_type(); }
-
-    bool operator==(const AlignedAllocator<T, N> &) const {
-        // All instances of AlignedAllocator can dealloc each others' memory.
-        return true;
-    }
-
-    bool operator!=(const AlignedAllocator<T, N> &) const {
-        // All instances of AlignedAllocator can dealloc each others' memory.
-        return false;
+    void deallocate(T *x, std::size_t) const noexcept {
+        aligned_free_internal(x);
     }
 };
+
+template <class T, class U, std::size_t N, std::size_t N2>
+bool operator==(const AlignedAllocator<T, N> &,
+                const AlignedAllocator<U, N2> &) {
+    return true;
+}
+
+template <class T, class U, std::size_t N, std::size_t N2>
+bool operator!=(const AlignedAllocator<T, N> &a,
+                const AlignedAllocator<U, N2> &b) {
+    return !(a == b);
+}
 
 } // namespace ue2
 

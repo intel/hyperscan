@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,21 +38,17 @@
 // We have a native popcount where the compiler has defined __POPCNT__.
 #if defined(__POPCNT__)
 #define HAVE_POPCOUNT_INSTR
-#endif
-
-#if defined(_WIN32) && defined(__AVX__) // TODO: fix win preproc
+#elif defined(_WIN32) && defined(__AVX__) // TODO: fix win preproc
 #define HAVE_POPCOUNT_INSTR
-#define __builtin_popcount __popcnt
-#define __builtin_popcountll __popcnt64
 #endif
 
 static really_inline
 u32 popcount32(u32 x) {
 #if defined(HAVE_POPCOUNT_INSTR)
     // Single-instruction builtin.
-    return (u32)__builtin_popcount(x);
+    return _mm_popcnt_u32(x);
 #else
-    // Fast branch-free version from bit-twiddling hacks as most Intel
+    // Fast branch-free version from bit-twiddling hacks as older Intel
     // processors do not have a POPCNT instruction.
     x -= (x >> 1) & 0x55555555;
     x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
@@ -62,16 +58,18 @@ u32 popcount32(u32 x) {
 
 static really_inline
 u32 popcount64(u64a x) {
-#if defined(HAVE_POPCOUNT_INSTR)
+#if defined(ARCH_X86_64)
+# if defined(HAVE_POPCOUNT_INSTR)
     // Single-instruction builtin.
-    return (u32)__builtin_popcountll(x);
-#elif defined(ARCH_X86_64)
-    // Fast branch-free version from bit-twiddling hacks as most Intel
+    return (u32)_mm_popcnt_u64(x);
+# else
+    // Fast branch-free version from bit-twiddling hacks as older Intel
     // processors do not have a POPCNT instruction.
     x -= (x >> 1) & 0x5555555555555555;
     x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333);
     x = (x + (x >> 4)) & 0x0f0f0f0f0f0f0f0f;
     return (x * 0x0101010101010101) >> 56;
+# endif
 #else
     // Synthesise from two 32-bit cases.
     return popcount32(x >> 32) + popcount32(x);

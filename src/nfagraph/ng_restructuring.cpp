@@ -281,6 +281,17 @@ void dropUnusedStarts(NGHolder &g, ue2::unordered_map<NFAVertex, u32> &states) {
     }
 }
 
+flat_set<NFAVertex> findUnusedStates(const NGHolder &g) {
+    flat_set<NFAVertex> dead;
+    if (startIsRedundant(g)) {
+        dead.insert(g.start);
+    }
+    if (proper_out_degree(g.startDs, g) == 0) {
+        dead.insert(g.startDs);
+    }
+    return dead;
+}
+
 /** Construct a reversed copy of an arbitrary NGHolder, mapping starts to
  * accepts. */
 void reverseHolder(const NGHolder &g_in, NGHolder &g) {

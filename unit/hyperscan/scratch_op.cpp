@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -75,7 +75,8 @@ TEST(scratch, testAlloc) {
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_EQ(last_alloc_size, curr_size);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
     hs_set_allocator(nullptr, nullptr);
 }
@@ -114,7 +115,8 @@ TEST(scratch, testScratchAlloc) {
     ASSERT_EQ(allocated_count, curr_size);
     ASSERT_EQ(allocated_count_b, old_b);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
     hs_set_allocator(nullptr, nullptr);
 
@@ -185,7 +187,8 @@ TEST(scratch, testScratchRealloc) {
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_EQ(last_alloc_size, curr_size);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
     hs_free_database(db2);
     hs_set_scratch_allocator(nullptr, nullptr);
@@ -217,7 +220,8 @@ TEST(scratch, tooSmallForDatabase) {
     err = hs_scan(db2, "somedata", 8, 0, scratch, dummy_cb, nullptr);
     ASSERT_EQ(HS_SUCCESS, err);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db2);
 }
 
@@ -252,7 +256,8 @@ TEST(scratch, tooSmallForDatabase2) {
     err = hs_close_stream(stream, scratch, nullptr, nullptr);
     ASSERT_EQ(HS_SUCCESS, err);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db2);
 }
 

@@ -16,7 +16,7 @@ set(expressionutil_SRCS
     ExpressionParser.h
     ExpressionParser.cpp
     )
-add_library(expressionutil ${expressionutil_SRCS})
+add_library(expressionutil STATIC ${expressionutil_SRCS})
 add_dependencies(expressionutil ragel_ExpressionParser)
 
 SET(corpusomatic_SRCS
@@ -29,5 +29,5 @@ SET(corpusomatic_SRCS
     ng_find_matches.h
     ng_find_matches.cpp
 )
-add_library(corpusomatic ${corpusomatic_SRCS})
+add_library(corpusomatic STATIC ${corpusomatic_SRCS})
 

@@ -25,7 +25,7 @@ if(CXX_WUNUSED_VARIABLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
 endif()
 
-add_library(gtest ${gtest_SOURCES})
+add_library(gtest STATIC ${gtest_SOURCES})
 
 add_definitions(-DGTEST_HAS_PTHREAD=0 -DSRCDIR=${PROJECT_SOURCE_DIR})
 
@@ -47,6 +47,8 @@ set(unit_internal_SOURCES
     internal/limex_nfa.cpp
     internal/masked_move.cpp
     internal/multi_bit.cpp
+    internal/multiaccel_matcher.cpp
+    internal/multiaccel_shift.cpp
     internal/nfagraph_common.h
     internal/nfagraph_comp.cpp
     internal/nfagraph_equivalence.cpp
@@ -64,7 +66,6 @@ set(unit_internal_SOURCES
     internal/repeat.cpp
     internal/rose_build_merge.cpp
     internal/rvermicelli.cpp
-    internal/sidecar.cpp
     internal/simd_utils.cpp
     internal/shuffle.cpp
     internal/shufti.cpp
@@ -96,6 +97,7 @@ set(unit_hyperscan_SOURCES
     hyperscan/multi.cpp
     hyperscan/order.cpp
     hyperscan/scratch_op.cpp
+    hyperscan/scratch_in_use.cpp
     hyperscan/serialize.cpp
     hyperscan/single.cpp
     hyperscan/som.cpp

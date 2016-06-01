@@ -46,10 +46,6 @@ sqlite3
 src/config.h
 src/config.h.in
 src/hs_version.h
-src/fdr/fdr_autogen.c
-src/fdr/fdr_autogen_compiler.cpp
-src/fdr/teddy_autogen.c
-src/fdr/teddy_autogen_compiler.cpp
 src/parser/Parser.cpp
 
 # Generated PCRE files

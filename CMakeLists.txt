@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.8.11)
 project (Hyperscan C CXX)
 
 set (HS_MAJOR_VERSION 4)
-set (HS_MINOR_VERSION 1)
+set (HS_MINOR_VERSION 2)
 set (HS_PATCH_VERSION 0)
 set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
 
@@ -75,7 +75,7 @@ if(NOT Boost_FOUND)
     set(BOOST_INCLUDEDIR "${PROJECT_SOURCE_DIR}/include")
     find_package(Boost ${BOOST_MINVERSION})
     if(NOT Boost_FOUND)
-        message(FATAL_ERROR "Boost ${BOOST_MINVERSION} or later not found. Either install system pacakges if available, extract Boost headers to ${CMAKE_SOURCE_DIR}/include, or set the CMake BOOST_ROOT variable.")
+        message(FATAL_ERROR "Boost ${BOOST_MINVERSION} or later not found. Either install system packages if available, extract Boost headers to ${CMAKE_SOURCE_DIR}/include, or set the CMake BOOST_ROOT variable.")
     endif()
 endif()
 
@@ -115,7 +115,9 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
 endif()
 
 #for config
-set(HS_OPTIMIZE OPTIMISE)
+if (OPTIMISE)
+    set(HS_OPTIMIZE ON)
+endif()
 
 CMAKE_DEPENDENT_OPTION(DUMP_SUPPORT "Dump code support; normally on, except in release builds" ON "NOT RELEASE_BUILD" OFF)
 
@@ -171,8 +173,14 @@ else()
     endif()
 
     # set compiler flags - more are tested and added later
-    set(EXTRA_C_FLAGS "-std=c99 -Wall -Wextra -Wshadow -Wcast-qual -Werror")
-    set(EXTRA_CXX_FLAGS "-std=c++11 -Wall -Wextra -Werror -Wno-shadow -Wswitch -Wreturn-type -Wcast-qual -Wno-deprecated -Wnon-virtual-dtor")
+    set(EXTRA_C_FLAGS "-std=c99 -Wall -Wextra -Wshadow -Wcast-qual")
+    set(EXTRA_CXX_FLAGS "-std=c++11 -Wall -Wextra -Wno-shadow -Wswitch -Wreturn-type -Wcast-qual -Wno-deprecated -Wnon-virtual-dtor")
+    if (NOT RELEASE_BUILD)
+        # -Werror is most useful during development, don't potentially break
+        # release builds
+        set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -Werror")
+        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Werror")
+    endif()
 
     if (NOT CMAKE_C_FLAGS MATCHES .*march.*)
         message(STATUS "Building for current host CPU")
@@ -228,6 +236,9 @@ if (RELEASE_BUILD)
         set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fvisibility=hidden")
     endif()
 endif()
+
+# ensure we are building for the right target arch
+include (${CMAKE_MODULE_PATH}/arch.cmake)
 
 # testing a builtin takes a little more work
 CHECK_C_SOURCE_COMPILES("void *aa_test(void *x) { return __builtin_assume_aligned(x, 16);}\nint main(void) { return 0; }" HAVE_CC_BUILTIN_ASSUME_ALIGNED)
@@ -332,7 +343,7 @@ endif()
 add_subdirectory(util)
 add_subdirectory(unit)
 add_subdirectory(doc/dev-reference)
-if (EXISTS ${CMAKE_SOURCE_DIR}/tools)
+if (EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
     add_subdirectory(tools)
 endif()
 
@@ -340,8 +351,15 @@ endif()
 configure_file(${CMAKE_MODULE_PATH}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
 configure_file(src/hs_version.h.in ${PROJECT_BINARY_DIR}/hs_version.h)
 
-if (PKG_CONFIG_FOUND)
-    # we really only need to do this if we have pkg-config
+if (NOT WIN32)
+    # expand out library names for pkgconfig static link info
+    foreach (LIB ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES})
+        # this is fragile, but protects us from toolchain specific files
+        if (NOT EXISTS ${LIB})
+            set(PRIVATE_LIBS "${PRIVATE_LIBS} -l${LIB}")
+        endif()
+    endforeach()
+
     configure_file(libhs.pc.in libhs.pc @ONLY) # only replace @ quoted vars
     install(FILES ${CMAKE_BINARY_DIR}/libhs.pc
             DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig")
@@ -351,11 +369,6 @@ endif()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 
-
-# include the autogen targets
-add_subdirectory(src/fdr)
-
-include_directories(${PROJECT_BINARY_DIR}/src/fdr)
 
 if(NOT WIN32)
 set(RAGEL_C_FLAGS "-Wno-unused")
@@ -376,14 +389,13 @@ SET(hs_HEADERS
 )
 install(FILES ${hs_HEADERS} DESTINATION include/hs)
 
-set(fdr_autogen_targets autogen_runtime autogen_teddy_runtime)
-
 set (hs_exec_SRCS
     ${hs_HEADERS}
     src/hs_version.h
     src/ue2common.h
     src/alloc.c
     src/allocator.h
+    src/report.h
     src/runtime.c
     src/fdr/fdr.c
     src/fdr/fdr.h
@@ -394,7 +406,9 @@ set (hs_exec_SRCS
     src/fdr/flood_runtime.h
     src/fdr/fdr_loadval.h
     src/fdr/teddy.c
+    src/fdr/teddy.h
     src/fdr/teddy_internal.h
+    src/fdr/teddy_runtime_common.h
     src/hwlm/hwlm.c
     src/hwlm/hwlm.h
     src/hwlm/hwlm_internal.h
@@ -437,6 +451,25 @@ set (hs_exec_SRCS
     src/nfa/mpv.h
     src/nfa/mpv.c
     src/nfa/mpv_internal.h
+    src/nfa/multiaccel_common.h
+    src/nfa/multiaccel_doubleshift.h
+    src/nfa/multiaccel_doubleshiftgrab.h
+    src/nfa/multiaccel_long.h
+    src/nfa/multiaccel_longgrab.h
+    src/nfa/multiaccel_shift.h
+    src/nfa/multiaccel_shiftgrab.h
+    src/nfa/multishufti.c
+    src/nfa/multishufti_avx2.h
+    src/nfa/multishufti_sse.h
+    src/nfa/multishufti.h
+    src/nfa/multitruffle.c
+    src/nfa/multitruffle_avx2.h
+    src/nfa/multitruffle_sse.h
+    src/nfa/multitruffle.h
+    src/nfa/multivermicelli.c
+    src/nfa/multivermicelli.h
+    src/nfa/multivermicelli_sse.h
+    src/nfa/multivermicelli_avx2.h
     src/nfa/nfa_api.h
     src/nfa/nfa_api_dispatch.c
     src/nfa/nfa_internal.h
@@ -444,20 +477,17 @@ set (hs_exec_SRCS
     src/nfa/repeat.c
     src/nfa/repeat.h
     src/nfa/repeat_internal.h
+    src/nfa/shufti_common.h
     src/nfa/shufti.c
     src/nfa/shufti.h
+    src/nfa/truffle_common.h
     src/nfa/truffle.c
     src/nfa/truffle.h
     src/nfa/vermicelli.h
     src/nfa/vermicelli_run.h
     src/nfa/vermicelli_sse.h
-    src/sidecar/sidecar.c
-    src/sidecar/sidecar.h
-    src/sidecar/sidecar_generic.h
-    src/sidecar/sidecar_internal.h
-    src/sidecar/sidecar_shufti.c
-    src/sidecar/sidecar_shufti.h
     src/som/som.h
+    src/som/som_operation.h
     src/som/som_runtime.h
     src/som/som_runtime.c
     src/som/som_stream.c
@@ -473,10 +503,11 @@ set (hs_exec_SRCS
     src/rose/match.h
     src/rose/match.c
     src/rose/miracle.h
+    src/rose/program_runtime.h
     src/rose/runtime.h
-    src/rose/rose_sidecar_runtime.h
     src/rose/rose.h
     src/rose/rose_internal.h
+    src/rose/rose_program.h
     src/rose/rose_types.h
     src/rose/rose_common.h
     src/util/bitutils.h
@@ -484,7 +515,6 @@ set (hs_exec_SRCS
     src/util/fatbit.h
     src/util/fatbit.c
     src/util/join.h
-    src/util/masked_move.c
     src/util/masked_move.h
     src/util/multibit.h
     src/util/multibit_internal.h
@@ -498,6 +528,7 @@ set (hs_exec_SRCS
     src/util/shuffle_ssse3.h
     src/util/simd_utils.h
     src/util/simd_utils_ssse3.h
+    src/util/simd_utils_ssse3.c
     src/util/state_compress.h
     src/util/state_compress.c
     src/util/unaligned.h
@@ -509,6 +540,14 @@ set (hs_exec_SRCS
     src/database.c
     src/database.h
 )
+
+if (HAVE_AVX2)
+    set (hs_exec_SRCS
+        ${hs_exec_SRCS}
+        src/fdr/teddy_avx2.c
+        src/util/masked_move.c
+        )
+endif ()
 
 
 SET (hs_SRCS
@@ -574,6 +613,8 @@ SET (hs_SRCS
     src/nfa/mcclellan_internal.h
     src/nfa/mcclellancompile.cpp
     src/nfa/mcclellancompile.h
+    src/nfa/mcclellancompile_accel.cpp
+    src/nfa/mcclellancompile_accel.h
     src/nfa/mcclellancompile_util.cpp
     src/nfa/mcclellancompile_util.h
     src/nfa/limex_compile.cpp
@@ -583,6 +624,8 @@ SET (hs_SRCS
     src/nfa/mpv_internal.h
     src/nfa/mpvcompile.cpp
     src/nfa/mpvcompile.h
+    src/nfa/multiaccel_compilehelper.cpp
+    src/nfa/multiaccel_compilehelper.h
     src/nfa/nfa_api.h
     src/nfa/nfa_api_queue.h
     src/nfa/nfa_api_util.h
@@ -762,8 +805,6 @@ SET (hs_SRCS
     src/parser/unsupported.h
     src/parser/utf8_validate.h
     src/parser/utf8_validate.cpp
-    src/sidecar/sidecar_compile.cpp
-    src/sidecar/sidecar_compile.h
     src/smallwrite/smallwrite_build.cpp
     src/smallwrite/smallwrite_build.h
     src/smallwrite/smallwrite_internal.h
@@ -771,6 +812,7 @@ SET (hs_SRCS
     src/som/slot_manager.h
     src/som/slot_manager_internal.h
     src/som/som.h
+    src/som/som_operation.h
     src/rose/rose_build.h
     src/rose/rose_build_add.cpp
     src/rose/rose_build_add_internal.h
@@ -778,6 +820,8 @@ SET (hs_SRCS
     src/rose/rose_build_anchored.cpp
     src/rose/rose_build_anchored.h
     src/rose/rose_build_bytecode.cpp
+    src/rose/rose_build_castle.h
+    src/rose/rose_build_castle.cpp
     src/rose/rose_build_compile.cpp
     src/rose/rose_build_convert.cpp
     src/rose/rose_build_convert.h
@@ -786,6 +830,8 @@ SET (hs_SRCS
     src/rose/rose_build_infix.h
     src/rose/rose_build_lookaround.cpp
     src/rose/rose_build_lookaround.h
+    src/rose/rose_build_matchers.cpp
+    src/rose/rose_build_matchers.h
     src/rose/rose_build_merge.cpp
     src/rose/rose_build_merge.h
     src/rose/rose_build_misc.cpp
@@ -799,6 +845,7 @@ SET (hs_SRCS
     src/rose/rose_in_graph.h
     src/rose/rose_in_util.cpp
     src/rose/rose_in_util.h
+    src/util/accel_scheme.h
     src/util/alloc.cpp
     src/util/alloc.h
     src/util/bitfield.h
@@ -820,7 +867,6 @@ SET (hs_SRCS
     src/util/dump_mask.cpp
     src/util/dump_mask.h
     src/util/graph.h
-    src/util/internal_report.h
     src/util/multibit_build.cpp
     src/util/multibit_build.h
     src/util/order_check.h
@@ -828,7 +874,6 @@ SET (hs_SRCS
     src/util/partitioned_set.h
     src/util/popcount.h
     src/util/queue_index_factory.h
-    src/util/report.cpp
     src/util/report.h
     src/util/report_manager.cpp
     src/util/report_manager.h
@@ -874,8 +919,6 @@ set(hs_dump_SRCS
     src/parser/dump.cpp
     src/parser/dump.h
     src/parser/position_dump.h
-    src/sidecar/sidecar_dump.cpp
-    src/sidecar/sidecar_dump.h
     src/smallwrite/smallwrite_dump.cpp
     src/smallwrite/smallwrite_dump.h
     src/som/slot_manager_dump.cpp
@@ -901,11 +944,9 @@ set (LIB_VERSION ${HS_VERSION})
 set (LIB_SOVERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION})
 
 add_library(hs_exec OBJECT ${hs_exec_SRCS})
-add_dependencies(hs_exec ${fdr_autogen_targets})
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
 add_library(hs_exec_shared OBJECT ${hs_exec_SRCS})
-add_dependencies(hs_exec_shared ${fdr_autogen_targets})
 set_target_properties(hs_exec_shared PROPERTIES
     POSITION_INDEPENDENT_CODE TRUE)
 endif()
@@ -929,14 +970,16 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
         OUTPUT_NAME hs_runtime
         MACOSX_RPATH ON
         LINKER_LANGUAGE C)
-    install(TARGETS hs_runtime_shared DESTINATION lib)
+    install(TARGETS hs_runtime_shared
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib)
 endif()
 
 # we want the static lib for testing
 add_library(hs STATIC ${hs_SRCS} $<TARGET_OBJECTS:hs_exec>)
 
 add_dependencies(hs ragel_Parser)
-add_dependencies(hs autogen_compiler autogen_teddy_compiler)
 
 if (NOT BUILD_SHARED_LIBS)
 install(TARGETS hs DESTINATION lib)
@@ -945,13 +988,15 @@ endif()
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
     add_library(hs_shared SHARED ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_shared>)
     add_dependencies(hs_shared ragel_Parser)
-    add_dependencies(hs_shared autogen_compiler autogen_teddy_compiler)
     set_target_properties(hs_shared PROPERTIES
         OUTPUT_NAME hs
         VERSION ${LIB_VERSION}
         SOVERSION ${LIB_SOVERSION}
         MACOSX_RPATH ON)
-install(TARGETS hs_shared DESTINATION lib)
+install(TARGETS hs_shared
+    RUNTIME DESTINATION bin
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib)
 endif()
 
 if(NOT WIN32)

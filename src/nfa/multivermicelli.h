@@ -26,49 +26,37 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SIDECAR_H
-#define SIDECAR_H
-
-#include "ue2common.h"
+#ifndef MULTIVERMICELLI_H_
+#define MULTIVERMICELLI_H_
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-struct sidecar;
-struct sidecar_enabled;
-struct sidecar_scratch;
+const u8 *long_vermicelliExec(char c, char nocase, const u8 *buf,
+                              const u8 *buf_end, const u8 run_len);
 
-/*
- * Sidecar is guaranteed to return the first match of a given id. However, in
- * various cases later matches may also be returned, as may matches for disabled
- * ids
- */
-typedef void (*SidecarCallback)(u64a offset, u32 id, void *context);
+const u8 *longgrab_vermicelliExec(char c, char nocase, const u8 *buf,
+                                  const u8 *buf_end, const u8 run_len);
 
-void sidecarExec(const struct sidecar *n, const u8 *buffer, size_t len,
-                 struct sidecar_enabled *enabled,
-                 struct sidecar_scratch *sidecar_scratch,
-                 u64a base_offset, SidecarCallback cb, void *context);
+const u8 *shift_vermicelliExec(char c, char nocase, const u8 *buf,
+                               const u8 *buf_end, const u8 run_len);
 
-u32 sidecarScratchSize(const struct sidecar *n);
+const u8 *shiftgrab_vermicelliExec(char c, char nocase, const u8 *buf,
+                                   const u8 *buf_end, const u8 run_len);
 
-void sidecarEnabledInit(const struct sidecar *n,
-                        struct sidecar_enabled *enabled);
+const u8 *doubleshift_vermicelliExec(char c, char nocase, const u8 *buf,
+                                     const u8 *buf_end, const u8 run_len,
+                                     const u8 run2_len);
 
-/* Note: sidecar literals need to be reenabled after they match.
- * This is purely because this behaviour is handy for rose.
- * In rose, they always set their roles when fired (never have to postpone due
- * to history) and if cleared their preds are also cleared so a pred would also
- * have to match again before we need to care about them again
- */
-void sidecarEnabledUnion(const struct sidecar *n, struct sidecar_enabled *dest,
-                         const struct sidecar_enabled *src);
-
-#define ID_TERMINATOR (~0U)
+const u8 *doubleshiftgrab_vermicelliExec(char c, char nocase, const u8 *buf,
+                                         const u8 *buf_end, const u8 run_len,
+                                         const u8 run2_len);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+
+#endif /* MULTIVERMICELLI_H_ */

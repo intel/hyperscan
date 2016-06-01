@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -86,10 +86,20 @@ u32 clz32(u32 x) {
 static really_inline
 u32 clz64(u64a x) {
     assert(x); // behaviour not defined for x == 0
-#if defined(_WIN32)
+#if defined(_WIN64)
     unsigned long r;
     _BitScanReverse64(&r, x);
     return 63 - r;
+#elif defined(_WIN32)
+    unsigned long x1 = (u32)x;
+    unsigned long x2 = (u32)(x >> 32);
+    unsigned long r;
+    if (x2) {
+        _BitScanReverse(&r, x2);
+        return (u32)(31 - r);
+    }
+    _BitScanReverse(&r, (u32)x1);
+    return (u32)(63 - r);
 #else
     return (u32)__builtin_clzll(x);
 #endif
@@ -111,10 +121,17 @@ u32 ctz32(u32 x) {
 static really_inline
 u32 ctz64(u64a x) {
     assert(x); // behaviour not defined for x == 0
-#if defined(_WIN32)
+#if defined(_WIN64)
     unsigned long r;
     _BitScanForward64(&r, x);
     return r;
+#elif defined(_WIN32)
+    unsigned long r;
+    if (_BitScanForward(&r, (u32)x)) {
+        return (u32)r;
+    }
+    _BitScanForward(&r, x >> 32);
+    return (u32)(r + 32);
 #else
     return (u32)__builtin_ctzll(x);
 #endif
@@ -177,8 +194,8 @@ u32 findAndClearLSB_64(u64a *v) {
 #else
     // fall back to doing things with two 32-bit cases, since gcc-4.1 doesn't
     // inline calls to __builtin_ctzll
-    u32 v1 = *v;
-    u32 v2 = (*v >> 32);
+    u32 v1 = (u32)*v;
+    u32 v2 = (u32)(*v >> 32);
     u32 offset;
     if (v1) {
         offset = findAndClearLSB_32(&v1);
@@ -233,7 +250,7 @@ u32 findAndClearMSB_64(u64a *v) {
 #else
     // fall back to doing things with two 32-bit cases, since gcc-4.1 doesn't
     // inline calls to __builtin_ctzll
-    u32 v1 = *v;
+    u32 v1 = (u32)*v;
     u32 v2 = (*v >> 32);
     u32 offset;
     if (v2) {

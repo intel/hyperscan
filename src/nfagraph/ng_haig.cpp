@@ -69,17 +69,15 @@ struct haig_too_wide {
 
 template<typename stateset>
 static
-void populateInit(const NGHolder &g,
-                  const ue2::unordered_map<NFAVertex, u32> &state_ids,
+void populateInit(const NGHolder &g, const flat_set<NFAVertex> &unused,
                   stateset *init, stateset *initDS,
                   vector<NFAVertex> *v_by_index) {
     DEBUG_PRINTF("graph kind: %u\n", (int)g.kind);
     for (auto v : vertices_range(g)) {
-        u32 v_index = g[v].index;
-        if (state_ids.at(v) == NO_STATE) {
+        if (contains(unused, v)) {
             continue;
         }
-
+        u32 v_index = g[v].index;
         if (is_any_start(v, g)) {
             init->set(v_index);
             if (hasSelfLoop(v, g) || is_triggered(g)) {
@@ -113,20 +111,106 @@ void populateAccepts(const NGHolder &g, StateSet *accept, StateSet *acceptEod) {
     }
 }
 
+template<typename Automaton_Traits>
 class Automaton_Base {
+public:
+    using StateSet = typename Automaton_Traits::StateSet;
+    using StateMap = typename Automaton_Traits::StateMap;
+
 protected:
     Automaton_Base(const NGHolder &graph_in,
-                   const ue2::unordered_map<NFAVertex, u32> &state_ids_in)
-        : graph(graph_in), state_ids(state_ids_in) {
+                   const flat_set<NFAVertex> &unused_in, som_type som,
+                   const vector<vector<CharReach>> &triggers,
+                   bool unordered_som)
+        : graph(graph_in), numStates(num_vertices(graph)), unused(unused_in),
+          init(Automaton_Traits::init_states(numStates)),
+          initDS(Automaton_Traits::init_states(numStates)),
+          squash(Automaton_Traits::init_states(numStates)),
+          accept(Automaton_Traits::init_states(numStates)),
+          acceptEod(Automaton_Traits::init_states(numStates)),
+          toppable(Automaton_Traits::init_states(numStates)),
+          dead(Automaton_Traits::init_states(numStates)) {
         calculateAlphabet(graph, alpha, unalpha, &alphasize);
         assert(alphasize <= ALPHABET_SIZE);
+
+        populateInit(graph, unused, &init, &initDS, &v_by_index);
+        populateAccepts(graph, &accept, &acceptEod);
+
+        start_anchored = DEAD_STATE + 1;
+        if (initDS == init) {
+            start_floating = start_anchored;
+        } else if (initDS.any()) {
+            start_floating = start_anchored + 1;
+        } else {
+            start_floating = DEAD_STATE;
+        }
+
+        cr_by_index = populateCR(graph, v_by_index, alpha);
+
+        if (!unordered_som) {
+            for (const auto &sq : findSquashers(graph, som)) {
+                NFAVertex v = sq.first;
+                u32 vert_id = graph[v].index;
+                squash.set(vert_id);
+                squash_mask[vert_id] = shrinkStateSet(sq.second);
+            }
+        }
+
+        if (is_triggered(graph)) {
+            dynamic_bitset<> temp(numStates);
+            markToppableStarts(graph, unused, false, triggers, &temp);
+            toppable = Automaton_Traits::copy_states(temp, numStates);
+        }
+    }
+
+private:
+    // Convert an NFAStateSet (as used by the squash code) into a StateSet.
+    StateSet shrinkStateSet(const NFAStateSet &in) const {
+        StateSet out = Automaton_Traits::init_states(numStates);
+        for (size_t i = in.find_first(); i != in.npos && i < out.size();
+             i = in.find_next(i)) {
+            out.set(i);
+        }
+        return out;
+    }
+
+    void reports_i(const StateSet &in, bool eod, flat_set<ReportID> &rv) {
+        StateSet acc = in & (eod ? acceptEod : accept);
+        for (size_t i = acc.find_first(); i != StateSet::npos;
+             i = acc.find_next(i)) {
+            NFAVertex v = v_by_index[i];
+            DEBUG_PRINTF("marking report\n");
+            const auto &my_reports = graph[v].reports;
+            rv.insert(my_reports.begin(), my_reports.end());
+        }
     }
 
 public:
+    void transition(const StateSet &in, StateSet *next) {
+        transition_graph(*this, v_by_index, in, next);
+    }
+
+    const vector<StateSet> initial() {
+        vector<StateSet> rv = {init};
+        if (start_floating != DEAD_STATE && start_floating != start_anchored) {
+            rv.push_back(initDS);
+        }
+        return rv;
+    }
+
+    void reports(const StateSet &in, flat_set<ReportID> &rv) {
+        reports_i(in, false, rv);
+    }
+
+    void reportsEod(const StateSet &in, flat_set<ReportID> &rv) {
+        reports_i(in, true, rv);
+    }
+
     static bool canPrune(const flat_set<ReportID> &) { return false; }
 
     const NGHolder &graph;
-    const ue2::unordered_map<NFAVertex, u32> &state_ids;
+    const u32 numStates;
+    const flat_set<NFAVertex> &unused;
 
     array<u16, ALPHABET_SIZE> alpha;
     array<u16, ALPHABET_SIZE> unalpha;
@@ -137,202 +221,68 @@ public:
 
     u16 start_anchored;
     u16 start_floating;
+
+    vector<NFAVertex> v_by_index;
+    vector<CharReach> cr_by_index; /* pre alpha'ed */
+    StateSet init;
+    StateSet initDS;
+    StateSet squash; /* states which allow us to mask out other states */
+    StateSet accept;
+    StateSet acceptEod;
+    StateSet toppable; /* states which are allowed to be on when a top arrives,
+                        * triggered dfas only */
+    map<u32, StateSet> squash_mask;
+    StateSet dead;
 };
 
-class Automaton_Big : public Automaton_Base {
-public:
-    typedef dynamic_bitset<> StateSet;
-    typedef map<StateSet, dstate_id_t> StateMap;
+struct Big_Traits {
+    using StateSet = dynamic_bitset<>;
+    using StateMap = map<StateSet, dstate_id_t>;
 
+    static StateSet init_states(u32 num) {
+        return StateSet(num);
+    }
+
+    static StateSet copy_states(const dynamic_bitset<> &in, UNUSED u32 num) {
+        assert(in.size() == num);
+        return in;
+    }
+};
+
+class Automaton_Big : public Automaton_Base<Big_Traits> {
+public:
     Automaton_Big(const NGHolder &graph_in,
-                  const ue2::unordered_map<NFAVertex, u32> &state_ids_in,
-                  som_type som, const vector<vector<CharReach>> &triggers,
-                  bool unordered_som)
-        : Automaton_Base(graph_in, state_ids_in), numStates(num_vertices(graph)),
-          init(numStates), initDS(numStates), squash(numStates),
-          accept(numStates), acceptEod(numStates), toppable(numStates),
-          dead(numStates) {
-        populateInit(graph, state_ids, &init, &initDS, &v_by_index);
-        populateAccepts(graph, &accept, &acceptEod);
-
-        start_anchored = DEAD_STATE + 1;
-        if (initDS == init) {
-            start_floating = start_anchored;
-        } else if (initDS.any()) {
-            start_floating = start_anchored + 1;
-        } else {
-            start_floating = DEAD_STATE;
-        }
-
-        if (!unordered_som) {
-            for (const auto &sq : findSquashers(graph, som)) {
-                NFAVertex v = sq.first;
-                u32 vert_id = graph[v].index;
-                squash.set(vert_id);
-                squash_mask[vert_id] = shrinkStateSet(sq.second);
-            }
-        }
-
-        cr_by_index = populateCR(graph, v_by_index, alpha);
-        if (is_triggered(graph)) {
-            markToppableStarts(graph, state_ids, false, triggers, &toppable);
-        }
-    }
-
-private:
-    // Convert an NFAStateSet (as used by the squash code) into a StateSet.
-    StateSet shrinkStateSet(const NFAStateSet &in) const {
-        StateSet out(dead.size());
-        for (size_t i = in.find_first(); i != in.npos && i < out.size();
-             i = in.find_next(i)) {
-            out.set(i);
-        }
-        return out;
-    }
-
-public:
-    void transition(const StateSet &in, StateSet *next) {
-        transition_graph(*this, v_by_index, in, next);
-    }
-
-    const vector<StateSet> initial() {
-        vector<StateSet> rv(1, init);
-        if (start_floating != DEAD_STATE && start_floating != start_anchored) {
-            rv.push_back(initDS);
-        }
-        return rv;
-    }
-
-private:
-    void reports_i(const StateSet &in, bool eod, flat_set<ReportID> &rv) {
-        StateSet acc = in & (eod ? acceptEod : accept);
-        for (size_t i = acc.find_first(); i != StateSet::npos;
-             i = acc.find_next(i)) {
-            NFAVertex v = v_by_index[i];
-            DEBUG_PRINTF("marking report\n");
-            const auto &my_reports = graph[v].reports;
-            rv.insert(my_reports.begin(), my_reports.end());
-        }
-    }
-
-public:
-    void reports(const StateSet &in, flat_set<ReportID> &rv) {
-        reports_i(in, false, rv);
-    }
-    void reportsEod(const StateSet &in, flat_set<ReportID> &rv) {
-        reports_i(in, true, rv);
-    }
-
-public:
-    u32 numStates;
-    vector<NFAVertex> v_by_index;
-    vector<CharReach> cr_by_index; /* pre alpha'ed */
-    StateSet init;
-    StateSet initDS;
-    StateSet squash; /* states which allow us to mask out other states */
-    StateSet accept;
-    StateSet acceptEod;
-    StateSet toppable; /* states which are allowed to be on when a top arrives,
-                        * triggered dfas only */
-    map<u32, StateSet> squash_mask;
-    StateSet dead;
+                  const flat_set<NFAVertex> &unused_in, som_type som,
+                  const vector<vector<CharReach>> &triggers, bool unordered_som)
+        : Automaton_Base(graph_in, unused_in, som, triggers, unordered_som) {}
 };
 
-class Automaton_Graph : public Automaton_Base {
-public:
-    typedef bitfield<NFA_STATE_LIMIT> StateSet;
-    typedef ue2::unordered_map<StateSet, dstate_id_t> StateMap;
+struct Graph_Traits {
+    using StateSet = bitfield<NFA_STATE_LIMIT>;
+    using StateMap = ue2::unordered_map<StateSet, dstate_id_t>;
 
-    Automaton_Graph(const NGHolder &graph_in,
-                    const ue2::unordered_map<NFAVertex, u32> &state_ids_in,
-                    som_type som, const vector<vector<CharReach>> &triggers,
-                    bool unordered_som)
-        : Automaton_Base(graph_in, state_ids_in) {
-        populateInit(graph, state_ids, &init, &initDS, &v_by_index);
-        populateAccepts(graph, &accept, &acceptEod);
-
-        start_anchored = DEAD_STATE + 1;
-        if (initDS == init) {
-            start_floating = start_anchored;
-        } else if (initDS.any()) {
-            start_floating = start_anchored + 1;
-        } else {
-            start_floating = DEAD_STATE;
-        }
-
-        if (!unordered_som) {
-            for (const auto &sq : findSquashers(graph, som)) {
-                NFAVertex v = sq.first;
-                u32 vert_id = graph[v].index;
-                squash.set(vert_id);
-                squash_mask[vert_id] = shrinkStateSet(sq.second);
-            }
-        }
-
-        cr_by_index = populateCR(graph, v_by_index, alpha);
-        if (is_triggered(graph)) {
-            dynamic_bitset<> temp(NFA_STATE_LIMIT);
-            markToppableStarts(graph, state_ids, false, triggers, &temp);
-            toppable = bitfield<NFA_STATE_LIMIT>(temp);
-        }
+    static StateSet init_states(UNUSED u32 num) {
+        assert(num <= NFA_STATE_LIMIT);
+        return StateSet();
     }
 
-private:
-    // Convert an NFAStateSet (as used by the squash code) into a StateSet.
-    StateSet shrinkStateSet(const NFAStateSet &in) const {
-        StateSet out;
+    static StateSet copy_states(const dynamic_bitset<> &in, u32 num) {
+        StateSet out = init_states(num);
         for (size_t i = in.find_first(); i != in.npos && i < out.size();
              i = in.find_next(i)) {
             out.set(i);
         }
         return out;
     }
+};
 
+class Automaton_Graph : public Automaton_Base<Graph_Traits> {
 public:
-    void transition(const StateSet &in, StateSet *next) {
-        transition_graph(*this, v_by_index, in, next);
-    }
-
-    const vector<StateSet> initial() {
-        vector<StateSet> rv(1, init);
-        if (start_floating != DEAD_STATE && start_floating != start_anchored) {
-            rv.push_back(initDS);
-        }
-        return rv;
-    }
-
-private:
-    void reports_i(const StateSet &in, bool eod, flat_set<ReportID> &rv) {
-        StateSet acc = in & (eod ? acceptEod : accept);
-        for (size_t i = acc.find_first(); i != StateSet::npos;
-             i = acc.find_next(i)) {
-            NFAVertex v = v_by_index[i];
-            DEBUG_PRINTF("marking report\n");
-            const auto &my_reports = graph[v].reports;
-            rv.insert(my_reports.begin(), my_reports.end());
-        }
-    }
-
-public:
-    void reports(const StateSet &in, flat_set<ReportID> &rv) {
-        reports_i(in, false, rv);
-    }
-    void reportsEod(const StateSet &in, flat_set<ReportID> &rv) {
-        reports_i(in, true, rv);
-    }
-
-public:
-    vector<NFAVertex> v_by_index;
-    vector<CharReach> cr_by_index; /* pre alpha'ed */
-    StateSet init;
-    StateSet initDS;
-    StateSet squash; /* states which allow us to mask out other states */
-    StateSet accept;
-    StateSet acceptEod;
-    StateSet toppable; /* states which are allowed to be on when a top arrives,
-                        * triggered dfas only */
-    map<u32, StateSet> squash_mask;
-    StateSet dead;
+    Automaton_Graph(const NGHolder &graph_in,
+                    const flat_set<NFAVertex> &unused_in, som_type som,
+                    const vector<vector<CharReach>> &triggers,
+                    bool unordered_som)
+        : Automaton_Base(graph_in, unused_in, som, triggers, unordered_som) {}
 };
 
 class Automaton_Haig_Merge {
@@ -481,11 +431,10 @@ bool is_any_start_inc_virtual(NFAVertex v, const NGHolder &g) {
 }
 
 static
-s32 getSlotID(const NGHolder &g,
-              UNUSED const ue2::unordered_map<NFAVertex, u32> &state_ids,
+s32 getSlotID(const NGHolder &g, UNUSED const flat_set<NFAVertex> &unused,
               NFAVertex v) {
     if (is_triggered(g) && v == g.start) {
-        assert(state_ids.at(v) != NO_STATE);
+        assert(!contains(unused, v));
     } else if (is_any_start_inc_virtual(v, g)) {
         return CREATE_NEW_SOM;
     }
@@ -516,8 +465,7 @@ void haig_do_preds(const NGHolder &g, const stateset &nfa_states,
 
 template<typename stateset>
 static
-void haig_do_report(const NGHolder &g,
-                    const ue2::unordered_map<NFAVertex, u32> &state_ids,
+void haig_do_report(const NGHolder &g, const flat_set<NFAVertex> &unused,
                     NFAVertex accept_v, const stateset &source_nfa_states,
                     const vector<NFAVertex> &state_mapping,
                     set<som_report> &out) {
@@ -528,7 +476,7 @@ void haig_do_report(const NGHolder &g,
             continue;
         }
         for (ReportID report_id : g[v].reports) {
-            out.insert(som_report(report_id, getSlotID(g, state_ids, v)));
+            out.insert(som_report(report_id, getSlotID(g, unused, v)));
         }
     }
 }
@@ -565,14 +513,14 @@ void haig_note_starts(const NGHolder &g, map<u32, u32> *out) {
 template<class Auto>
 static
 bool doHaig(const NGHolder &g,
-            const ue2::unordered_map<NFAVertex, u32> &state_ids,
+            const flat_set<NFAVertex> &unused,
             som_type som, const vector<vector<CharReach>> &triggers,
             bool unordered_som, raw_som_dfa *rdfa) {
     u32 state_limit = HAIG_FINAL_DFA_STATE_LIMIT; /* haig never backs down from
                                                      a fight */
     typedef typename Auto::StateSet StateSet;
     vector<StateSet> nfa_state_map;
-    Auto n(g, state_ids, som, triggers, unordered_som);
+    Auto n(g, unused, som, triggers, unordered_som);
     try {
         if (determinise(n, rdfa->states, state_limit, &nfa_state_map)) {
             DEBUG_PRINTF("state limit exceeded\n");
@@ -602,9 +550,9 @@ bool doHaig(const NGHolder &g,
         haig_do_preds(g, source_states, n.v_by_index,
                       rdfa->state_som.back().preds);
 
-        haig_do_report(g, state_ids, g.accept, source_states, n.v_by_index,
+        haig_do_report(g, unused, g.accept, source_states, n.v_by_index,
                        rdfa->state_som.back().reports);
-        haig_do_report(g, state_ids, g.acceptEod, source_states, n.v_by_index,
+        haig_do_report(g, unused, g.acceptEod, source_states, n.v_by_index,
                        rdfa->state_som.back().reports_eod);
     }
 
@@ -613,10 +561,10 @@ bool doHaig(const NGHolder &g,
     return true;
 }
 
-unique_ptr<raw_som_dfa> attemptToBuildHaig(NGHolder &g, som_type som,
-                                   u32 somPrecision,
-                                   const vector<vector<CharReach> > &triggers,
-                                   const Grey &grey, bool unordered_som) {
+unique_ptr<raw_som_dfa>
+attemptToBuildHaig(const NGHolder &g, som_type som, u32 somPrecision,
+                   const vector<vector<CharReach>> &triggers, const Grey &grey,
+                   bool unordered_som) {
     assert(is_triggered(g) != triggers.empty());
     assert(!unordered_som || is_triggered(g));
 
@@ -625,12 +573,11 @@ unique_ptr<raw_som_dfa> attemptToBuildHaig(NGHolder &g, som_type som,
         return nullptr;
     }
 
-    auto state_ids = numberStates(g);
-    dropUnusedStarts(g, state_ids);
-
     DEBUG_PRINTF("attempting to build haig \n");
     assert(allMatchStatesHaveReports(g));
     assert(hasCorrectlyNumberedVertices(g));
+
+    auto unused = findUnusedStates(g);
 
     u32 numStates = num_vertices(g);
     if (numStates > HAIG_MAX_NFA_STATE) {
@@ -645,11 +592,11 @@ unique_ptr<raw_som_dfa> attemptToBuildHaig(NGHolder &g, som_type som,
     bool rv;
     if (numStates <= NFA_STATE_LIMIT) {
         /* fast path */
-        rv = doHaig<Automaton_Graph>(g, state_ids, som, triggers, unordered_som,
+        rv = doHaig<Automaton_Graph>(g, unused, som, triggers, unordered_som,
                                      rdfa.get());
     } else {
         /* not the fast path */
-        rv = doHaig<Automaton_Big>(g, state_ids, som, triggers, unordered_som,
+        rv = doHaig<Automaton_Big>(g, unused, som, triggers, unordered_som,
                                    rdfa.get());
     }
 

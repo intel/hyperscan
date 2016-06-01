@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -882,15 +882,25 @@ enum RepeatMatch repeatHasMatchTrailer(const struct RepeatInfo *info,
     return REPEAT_NOMATCH;
 }
 
+/** \brief True if the given value can be packed into len bytes.  */
+static really_inline
+int fits_in_len_bytes(u64a val, u32 len) {
+    if (len >= 8) {
+        return 1;
+    }
+    return val <= (1ULL << (len * 8));
+}
+
 static really_inline
 void storePackedRelative(char *dest, u64a val, u64a offset, u64a max, u32 len) {
     assert(val <= offset);
-    assert(max < (1ULL << (8 * len)));
+    assert(fits_in_len_bytes(max, len));
     u64a delta = offset - val;
     if (delta >= max) {
         delta = max;
     }
     DEBUG_PRINTF("delta %llu\n", delta);
+    assert(fits_in_len_bytes(delta, len));
     partial_store_u64a(dest, delta, len);
 }
 
@@ -922,6 +932,11 @@ void repeatPackOffset(char *dest, const struct RepeatInfo *info,
                       const union RepeatControl *ctrl, u64a offset) {
     const struct RepeatOffsetControl *xs = &ctrl->offset;
     DEBUG_PRINTF("packing offset %llu [h %u]\n", xs->offset, info->horizon);
+    if (!info->packedCtrlSize) {
+        assert(info->type == REPEAT_ALWAYS);
+        DEBUG_PRINTF("externally guarded .*\n");
+        return;
+    }
     storePackedRelative(dest, xs->offset, offset, info->horizon,
                         info->packedCtrlSize);
 }
@@ -962,6 +977,7 @@ void repeatPackBitmap(char *dest, const struct RepeatInfo *info,
     DEBUG_PRINTF("packing %llu into %u bytes\n", bitmap, info->packedCtrlSize);
 
     // Write out packed bitmap.
+    assert(fits_in_len_bytes(bitmap, info->packedCtrlSize));
     partial_store_u64a(dest, bitmap, info->packedCtrlSize);
 }
 
@@ -1040,6 +1056,9 @@ void repeatPack(char *dest, const struct RepeatInfo *info,
     case REPEAT_TRAILER:
         repeatPackTrailer(dest, info, ctrl, offset);
         break;
+    case REPEAT_ALWAYS:
+        /* nothing to do - no state */
+        break;
     }
 }
 
@@ -1072,7 +1091,13 @@ static
 void repeatUnpackOffset(const char *src, const struct RepeatInfo *info,
                         u64a offset, union RepeatControl *ctrl) {
     struct RepeatOffsetControl *xs = &ctrl->offset;
-    xs->offset = loadPackedRelative(src, offset, info->packedCtrlSize);
+    if (!info->packedCtrlSize) {
+        assert(info->type == REPEAT_ALWAYS);
+        DEBUG_PRINTF("externally guarded .*\n");
+        xs->offset = 0;
+    } else {
+        xs->offset = loadPackedRelative(src, offset, info->packedCtrlSize);
+    }
     DEBUG_PRINTF("unpacking offset %llu [h%u]\n", xs->offset,
                  info->horizon);
 }
@@ -1148,6 +1173,9 @@ void repeatUnpack(const char *src, const struct RepeatInfo *info, u64a offset,
         break;
     case REPEAT_TRAILER:
         repeatUnpackTrailer(src, info, offset, ctrl);
+        break;
+    case REPEAT_ALWAYS:
+        /* nothing to do - no state */
         break;
     }
 }
@@ -1423,6 +1451,7 @@ void repeatStoreSparseOptimalP(const struct RepeatInfo *info,
     DEBUG_PRINTF("xs->first:%u xs->last:%u patch:%u\n",
                  xs->first, xs->last, patch);
     DEBUG_PRINTF("value:%llu\n", val);
+    assert(fits_in_len_bytes(val, encoding_size));
     partial_store_u64a(ring + encoding_size * idx, val, encoding_size);
     mmbit_set(active, patch_count, idx);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -270,12 +270,16 @@ void constructPuff(NGHolder &g, const NFAVertex a, const NFAVertex puffv,
     DEBUG_PRINTF("constructing Puff for report %u\n", report);
     DEBUG_PRINTF("a = %u\n", g[a].index);
 
+    const Report &puff_report = rm.getReport(report);
+    const bool simple_exhaust = isSimpleExhaustible(puff_report);
+
     const bool pureAnchored = a == g.start && singleStart(g);
     if (!pureAnchored) {
         if (a == g.startDs || a == g.start) {
             DEBUG_PRINTF("add outfix ar(false)\n");
 
-            raw_puff rp(width, unbounded, report, cr, auto_restart);
+            raw_puff rp(width, unbounded, report, cr, auto_restart,
+                        simple_exhaust);
             rose.addOutfix(rp);
             return;
         }
@@ -289,7 +293,7 @@ void constructPuff(NGHolder &g, const NFAVertex a, const NFAVertex puffv,
         u32 squashDistance = allowedSquashDistance(cr, width, g, puffv,
                                                    prefilter);
 
-        Report ir = makeRoseTrigger(event, squashDistance);
+        Report ir = makeMpvTrigger(event, squashDistance);
         /* only need to trigger once if floatingUnboundedDot */
         bool floatingUnboundedDot = unbounded && cr.all() && !fixed_depth;
         if (floatingUnboundedDot) {
@@ -300,7 +304,7 @@ void constructPuff(NGHolder &g, const NFAVertex a, const NFAVertex puffv,
     } else {
         DEBUG_PRINTF("add outfix ar(%d)\n", (int)auto_restart);
         assert(!auto_restart || unbounded);
-        raw_puff rp(width, unbounded, report, cr, auto_restart);
+        raw_puff rp(width, unbounded, report, cr, auto_restart, simple_exhaust);
         rose.addOutfix(rp);
     }
 }

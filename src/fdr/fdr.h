@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,9 +42,6 @@ extern "C" {
 #endif
 
 struct FDR;
-
-/** \brief Returns size in bytes of the given FDR engine. */
-size_t fdrSize(const struct FDR *fdr);
 
 /** \brief Returns non-zero if the contents of the stream state indicate that
  * there is active FDR history beyond the regularly used history. */

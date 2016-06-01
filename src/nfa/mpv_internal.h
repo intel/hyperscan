@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,15 @@
 struct mpv_puffette {
     u32 repeats;
     char unbounded;
+
+    /**
+     * \brief Report is simple-exhaustible.
+     *
+     * If this is true, we do best-effort suppression of runs of reports, only
+     * delivering the first one.
+     */
+    char simple_exhaust;
+
     ReportID report;
 };
 

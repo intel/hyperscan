@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,13 +40,12 @@
 #include "nfa/nfa_api_util.h"
 #include "som/som_runtime.h"
 #include "util/bitutils.h"
-#include "util/internal_report.h"
+#include "util/fatbit.h"
 #include "util/multibit.h"
 
 /* Callbacks, defined in catchup.c */
 
 int roseNfaAdaptor(u64a offset, ReportID id, void *context);
-int roseNfaAdaptorNoInternal(u64a offset, ReportID id, void *context);
 int roseNfaSomAdaptor(u64a from_offset, u64a offset, ReportID id, void *context);
 
 /* Callbacks, defined in match.c */
@@ -55,55 +54,32 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctx);
 hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
                                      void *ctx);
 int roseAnchoredCallback(u64a end, u32 id, void *ctx);
-void roseRunEvent(size_t end, u32 id, struct RoseContext *tctxt);
 
 /* Common code, used all over Rose runtime */
 
-static rose_inline
-void resetAnchoredLog(const struct RoseEngine *t, struct hs_scratch *scratch) {
-    u8 **anchoredRows = getAnchoredLog(scratch);
-    u32 region_width = t->anchoredMatches;
-    struct RoseContext *tctxt = &scratch->tctxt;
-
-    tctxt->curr_anchored_loc = bf64_iterate(scratch->am_log_sum, MMB_INVALID);
-    if (tctxt->curr_anchored_loc != MMB_INVALID) {
-        assert(tctxt->curr_anchored_loc < scratch->anchored_region_len);
-        u8 *curr_row = anchoredRows[tctxt->curr_anchored_loc];
-        tctxt->curr_row_offset = mmbit_iterate(curr_row, region_width,
-                                               MMB_INVALID);
-        assert(tctxt->curr_row_offset != MMB_INVALID);
-    }
-    DEBUG_PRINTF("AL reset --> %u, %u\n", tctxt->curr_anchored_loc,
-                 tctxt->curr_row_offset);
-}
-
-hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t, ReportID r,
-                                 u64a end, struct RoseContext *tctxt,
-                                 char in_anchored, char in_catchup);
+hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
+                                 struct hs_scratch *scratch, u32 event,
+                                 u64a top_squash_distance, u64a end,
+                                 char in_catchup);
 
 static really_inline
 void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
-               struct RoseContext *tctxt) {
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+               struct hs_scratch *scratch) {
     const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
     assert(scratch->fullState);
     q->nfa = getNfaByInfo(t, info);
     q->end = 0;
     q->cur = 0;
     q->state = scratch->fullState + info->fullStateOffset;
-    q->streamState = (char *)tctxt->state + info->stateOffset;
+    q->streamState = scratch->core_info.state + info->stateOffset;
     q->offset = scratch->core_info.buf_offset;
     q->buffer = scratch->core_info.buf;
     q->length = scratch->core_info.len;
     q->history = scratch->core_info.hbuf;
     q->hlength = scratch->core_info.hlen;
-    if (info->only_external) {
-        q->cb = roseNfaAdaptorNoInternal;
-    } else {
-        q->cb = roseNfaAdaptor;
-    }
+    q->cb = roseNfaAdaptor;
     q->som_cb = roseNfaSomAdaptor;
-    q->context = tctxt;
+    q->context = scratch;
     q->report_current = 0;
 
     DEBUG_PRINTF("qi=%u, offset=%llu, fullState=%u, streamState=%u, "
@@ -114,8 +90,7 @@ void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
 static really_inline
 void initRoseQueue(const struct RoseEngine *t, u32 qi,
                    const struct LeftNfaInfo *left,
-                   struct RoseContext *tctxt) {
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+                   struct hs_scratch *scratch) {
     struct mq *q = scratch->queues + qi;
     const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
     q->nfa = getNfaByInfo(t, info);
@@ -130,7 +105,7 @@ void initRoseQueue(const struct RoseEngine *t, u32 qi,
     if (left->transient) {
         q->streamState = (char *)scratch->tstate + info->stateOffset;
     } else {
-        q->streamState = (char *)tctxt->state + info->stateOffset;
+        q->streamState = scratch->core_info.state + info->stateOffset;
     }
 
     q->offset = scratch->core_info.buf_offset;
@@ -162,7 +137,7 @@ void loadStreamState(const struct NFA *nfa, struct mq *q, s64a loc) {
 }
 
 static really_inline
-void storeRoseDelay(const struct RoseEngine *t, u8 *state,
+void storeRoseDelay(const struct RoseEngine *t, char *state,
                     const struct LeftNfaInfo *left, u32 loc) {
     u32 di = left->lagIndex;
     if (di == ROSE_OFFSET_INVALID) {
@@ -177,7 +152,7 @@ void storeRoseDelay(const struct RoseEngine *t, u8 *state,
 }
 
 static really_inline
-void setAsZombie(const struct RoseEngine *t, u8 *state,
+void setAsZombie(const struct RoseEngine *t, char *state,
                  const struct LeftNfaInfo *left) {
     u32 di = left->lagIndex;
     assert(di != ROSE_OFFSET_INVALID);
@@ -192,7 +167,7 @@ void setAsZombie(const struct RoseEngine *t, u8 *state,
 /* loadRoseDelay MUST NOT be called on the first stream write as it is only
  * initialized for running nfas on stream boundaries */
 static really_inline
-u32 loadRoseDelay(const struct RoseEngine *t, const u8 *state,
+u32 loadRoseDelay(const struct RoseEngine *t, const char *state,
                   const struct LeftNfaInfo *left) {
     u32 di = left->lagIndex;
     if (di == ROSE_OFFSET_INVALID) {
@@ -206,7 +181,7 @@ u32 loadRoseDelay(const struct RoseEngine *t, const u8 *state,
 }
 
 static really_inline
-char isZombie(const struct RoseEngine *t, const u8 *state,
+char isZombie(const struct RoseEngine *t, const char *state,
               const struct LeftNfaInfo *left) {
     u32 di = left->lagIndex;
     assert(di != ROSE_OFFSET_INVALID);
@@ -219,40 +194,46 @@ char isZombie(const struct RoseEngine *t, const u8 *state,
     return leftfixDelay[di] == OWB_ZOMBIE_ALWAYS_YES;
 }
 
-hwlmcb_rv_t flushQueuedLiterals_i(struct RoseContext *tctxt, u64a end);
+hwlmcb_rv_t flushQueuedLiterals_i(const struct RoseEngine *t,
+                                  struct hs_scratch *scratch, u64a end);
 
 static really_inline
-hwlmcb_rv_t flushQueuedLiterals(struct RoseContext *tctxt, u64a end) {
+hwlmcb_rv_t flushQueuedLiterals(const struct RoseEngine *t,
+                                struct hs_scratch *scratch, u64a end) {
+    struct RoseContext *tctxt = &scratch->tctxt;
+
     if (tctxt->delayLastEndOffset == end) {
         DEBUG_PRINTF("no progress, no flush\n");
         return HWLM_CONTINUE_MATCHING;
     }
 
-    if (!tctxt->filledDelayedSlots && !tctxtToScratch(tctxt)->al_log_sum) {
+    if (!tctxt->filledDelayedSlots && !scratch->al_log_sum) {
         tctxt->delayLastEndOffset = end;
         return HWLM_CONTINUE_MATCHING;
     }
 
-    return flushQueuedLiterals_i(tctxt, end);
+    return flushQueuedLiterals_i(t, scratch, end);
 }
 
 static really_inline
-hwlmcb_rv_t cleanUpDelayed(size_t length, u64a offset, struct RoseContext *tctxt,
-                           u8 *status) {
-    if (can_stop_matching(tctxtToScratch(tctxt))) {
+hwlmcb_rv_t cleanUpDelayed(const struct RoseEngine *t,
+                           struct hs_scratch *scratch, size_t length,
+                           u64a offset) {
+    if (can_stop_matching(scratch)) {
         return HWLM_TERMINATE_MATCHING;
     }
 
-    if (flushQueuedLiterals(tctxt, length + offset)
+    if (flushQueuedLiterals(t, scratch, length + offset)
         == HWLM_TERMINATE_MATCHING) {
         return HWLM_TERMINATE_MATCHING;
     }
 
+    struct RoseContext *tctxt = &scratch->tctxt;
     if (tctxt->filledDelayedSlots) {
         DEBUG_PRINTF("dirty\n");
-        *status |= DELAY_FLOAT_DIRTY;
+        scratch->core_info.status |= STATUS_DELAY_DIRTY;
     } else {
-        *status &= ~DELAY_FLOAT_DIRTY;
+        scratch->core_info.status &= ~STATUS_DELAY_DIRTY;
     }
 
     tctxt->filledDelayedSlots = 0;
@@ -261,48 +242,14 @@ hwlmcb_rv_t cleanUpDelayed(size_t length, u64a offset, struct RoseContext *tctxt
     return HWLM_CONTINUE_MATCHING;
 }
 
-static really_inline
-void update_depth(struct RoseContext *tctxt, const struct RoseRole *tr) {
-    u8 d = MAX(tctxt->depth, tr->depth + 1);
-    assert(d >= tctxt->depth);
-    DEBUG_PRINTF("depth now %hhu was %hhu\n", d, tctxt->depth);
-    tctxt->depth = d;
-}
-
-static really_inline
-int roseCheckHistoryAnch(const struct RosePred *tp, u64a end) {
-    DEBUG_PRINTF("end %llu min %u max %u\n", end, tp->minBound, tp->maxBound);
-    if (tp->maxBound == ROSE_BOUND_INF) {
-        return end >= tp->minBound;
-    } else {
-        return end >= tp->minBound && end <= tp->maxBound;
-    }
-}
-
-// Check that a predecessor's history requirements are satisfied.
-static really_inline
-int roseCheckPredHistory(const struct RosePred *tp, u64a end) {
-    DEBUG_PRINTF("pred type %u\n", tp->historyCheck);
-
-    if (tp->historyCheck == ROSE_ROLE_HISTORY_ANCH) {
-        return roseCheckHistoryAnch(tp, end);
-    }
-
-    assert(tp->historyCheck == ROSE_ROLE_HISTORY_NONE ||
-           tp->historyCheck == ROSE_ROLE_HISTORY_LAST_BYTE);
-    return 1;
-}
-
-/* Note: uses the stashed sparse iter state; cannot be called from
- * anybody else who is using it */
 static rose_inline
-void roseFlushLastByteHistory(const struct RoseEngine *t, u8 *state,
-                              u64a currEnd, struct RoseContext *tctxt) {
+void roseFlushLastByteHistory(const struct RoseEngine *t,
+                              struct hs_scratch *scratch, u64a currEnd) {
     if (!t->lastByteHistoryIterOffset) {
         return;
     }
 
-    struct hs_scratch *scratch = tctxtToScratch(tctxt);
+    struct RoseContext *tctxt = &scratch->tctxt;
     struct core_info *ci = &scratch->core_info;
 
     /* currEnd is last byte of string + 1 */
@@ -314,13 +261,37 @@ void roseFlushLastByteHistory(const struct RoseEngine *t, u8 *state,
 
     DEBUG_PRINTF("flushing\n");
 
-    const struct mmbit_sparse_iter *it
-        = (const void *)((const char *)t + t->lastByteHistoryIterOffset);
-    const u32 numStates = t->rolesWithStateCount;
-    void *role_state = getRoleState(state);
+    const struct mmbit_sparse_iter *it =
+        getByOffset(t, t->lastByteHistoryIterOffset);
+    assert(ISALIGNED(it));
 
-    mmbit_sparse_iter_unset(role_state, numStates, it,
-                            scratch->sparse_iter_state);
+    const u32 numStates = t->rolesWithStateCount;
+    void *role_state = getRoleState(scratch->core_info.state);
+
+    struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
+
+    mmbit_sparse_iter_unset(role_state, numStates, it, si_state);
+}
+
+static rose_inline
+int roseHasInFlightMatches(const struct RoseEngine *t, char *state,
+                           const struct hs_scratch *scratch) {
+    if (scratch->al_log_sum) {
+        DEBUG_PRINTF("anchored literals in log\n");
+        return 1;
+    }
+
+    if (scratch->tctxt.filledDelayedSlots) {
+        DEBUG_PRINTF("delayed literal\n");
+        return 1;
+    }
+
+    if (mmbit_any(getRoleState(state), t->rolesWithStateCount)) {
+        DEBUG_PRINTF("role state is set\n");
+        return 1;
+    }
+
+    return 0;
 }
 
 #endif

@@ -89,7 +89,8 @@ struct raw_som_dfa : public raw_dfa {
 };
 
 aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
-                                     const CompileContext &cc);
+                                     const CompileContext &cc,
+                                     const ReportManager &rm);
 
 } // namespace ue2
 

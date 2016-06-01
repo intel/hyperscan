@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -58,21 +58,25 @@ void fatbit_clear(struct fatbit *bits) {
 
 static really_inline
 char fatbit_set(struct fatbit *bits, u32 total_bits, u32 key) {
+    assert(ISALIGNED(bits));
     return mmbit_set(bits->fb_int.raw, total_bits, key);
 }
 
 static really_inline
 void fatbit_unset(struct fatbit *bits, u32 total_bits, u32 key) {
+    assert(ISALIGNED(bits));
      mmbit_unset(bits->fb_int.raw, total_bits, key);
 }
 
 static really_inline
 char fatbit_isset(const struct fatbit *bits, u32 total_bits, u32 key) {
+    assert(ISALIGNED(bits));
     return mmbit_isset(bits->fb_int.raw, total_bits, key);
 }
 
 static really_inline
 u32 fatbit_iterate(const struct fatbit *bits, u32 total_bits, u32 it_in) {
+    assert(ISALIGNED(bits));
     /* TODO: iterate_flat could be specialised as we don't have to worry about
      * partial blocks. */
     return mmbit_iterate(bits->fb_int.raw, total_bits, it_in);

@@ -26,13 +26,44 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SIDECAR_SHUFTI_H
-#define SIDECAR_SHUFTI_H
+#ifndef ROSE_BUILD_CASTLE_H
+#define ROSE_BUILD_CASTLE_H
 
-#include "ue2common.h"
+#include "rose_graph.h"
 
-struct sidecar_S;
+#include <set>
 
-u8 sidecarExec_S_int(const struct sidecar_S *n, const u8 *b, size_t len,
-                     u8 state_in);
+namespace ue2 {
+
+class RoseBuildImpl;
+struct left_id;
+struct ue2_literal;
+
+/**
+ * Runs over all rose infix/suffix engines and converts those that are pure
+ * repeats with one report into CastleProto engines.
+ */
+void makeCastles(RoseBuildImpl &tbi);
+
+/**
+ * Identifies all the CastleProto prototypes that are small enough that they
+ * would be better implemented as NFAs, and converts them back to NGHolder
+ * prototypes.
+ *
+ * Returns true if any changes were made.
+ */
+bool unmakeCastles(RoseBuildImpl &tbi);
+
+/**
+ * Runs over all the Castle engine prototypes in the graph and ensures that
+ * they have tops in a contiguous range, ready for construction.
+ */
+void remapCastleTops(RoseBuildImpl &tbi);
+
+bool triggerKillsRoseCastle(const RoseBuildImpl &tbi, const left_id &left,
+                            const std::set<ue2_literal> &all_lits,
+                            const RoseEdge &e);
+
+}
+
 #endif

@@ -117,7 +117,6 @@
 117:/[\x{ff]/ #Value in \x{...} sequence is non-hex or missing } at index 1.
 118:/foo/{min_offset=10,max_offset=9} #In hs_expr_ext, min_offset must be less than or equal to max_offset.
 120:/foo/{min_length=10,max_offset=9} #In hs_expr_ext, min_length must be less than or equal to max_offset.
-121:/.e(?:(((eEbd..(d[^Be]{1,7}|A)){8,22}aD.){7}|EecA?(?:\b)c|bB[Dd])){29,37}[adb](?:.|A|c|[BEA]|D)..((?:c|[Cba]))?([Ee]|D)B+(.|[dbB]|E|E).[EcCe]ce(?:C|D)dD[EA]Ac.[aE]d/smiHWP #Pattern too large.
 122:/¿¿/8 #Expression is not valid UTF-8.
 123:/hello \6 world/P #Invalid back reference to expression 6.
 124:/hello \6 world|dog/P #Invalid back reference to expression 6.

@@ -47,26 +47,26 @@ enum RepeatType {
     /** General mechanism for tracking {N,M} repeats. Stores the first top as
      * an absolute offset, then subsequent tops in the {N,M} range as a ring of
      * relative top indices stored in a multibit. */
-    REPEAT_RING = 0,
+    REPEAT_RING,
 
     /** Used to track {N,} repeats. Uses the \ref RepeatOffsetControl structure,
      * since only the first top encountered needs to be stored. */
-    REPEAT_FIRST = 1,
+    REPEAT_FIRST,
 
     /** Used to track {0,N} repeats. Much like ::REPEAT_FIRST, except that we
      * store the most recent top encountered. */
-    REPEAT_LAST = 2,
+    REPEAT_LAST,
 
     /** Like ::REPEAT_RING, this is also used for {N,M} repeats, but for cases
      * where there is a large difference between N and M, and developed to
      * reduce the state requirements of this case (relative to the RING model).
      * Uses a small ordered array of top indices relative to \ref
      * RepeatRangeControl::offset. */
-    REPEAT_RANGE = 3,
+    REPEAT_RANGE,
 
     /** Used for {N,M} repeats where 0 < M <= 64. Uses the \ref
      * RepeatBitmapControl structure at runtime. */
-    REPEAT_BITMAP = 4,
+    REPEAT_BITMAP,
 
     /** Optimal mechanism for tracking {N,M} repeats when there is a bound on
      * how frequently they can be retriggered.
@@ -78,13 +78,17 @@ enum RepeatType {
      * referencing a table that stores values from f(0, min) to f(repeat, min)
      * eg: repeat = 5, min = 2.  10001 => f(4,2) + f(0,2) = 9.
      * We search the optimal patch size between min and repeat in advance and
-     * use the scheme above to do encoding and decoding to reduce stream state size
-     * */
-    REPEAT_SPARSE_OPTIMAL_P = 5,
+     * use the scheme above to do encoding and decoding to reduce stream state
+     * size. */
+    REPEAT_SPARSE_OPTIMAL_P,
 
-    /** Used for {N,M} repeats where 0 < N < 64. Uses the \ref RepeatTrailerControl
-     * structure at runtime. */
-    REPEAT_TRAILER = 6,
+    /** Used for {N,M} repeats where 0 < N < 64. Uses the
+     * \ref RepeatTrailerControl structure at runtime. */
+    REPEAT_TRAILER,
+
+    /** Degenerate repeat that always returns true. Used by castle for pseudo
+     * [^X]* repeats. */
+    REPEAT_ALWAYS,
 };
 
 /**
@@ -204,6 +208,8 @@ const char *repeatTypeName(u8 type) {
         return "SPARSE_OPTIMAL_P";
     case REPEAT_TRAILER:
         return "TRAILER";
+    case REPEAT_ALWAYS:
+        return "ALWAYS";
     }
     assert(0);
     return "UNKNOWN";

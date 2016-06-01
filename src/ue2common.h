@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -194,12 +194,20 @@ typedef u32 ReportID;
 #define unlikely(x)	(x)
 #endif
 
+#if !defined(RELEASE_BUILD) || defined(DEBUG)
+#ifdef _WIN32
+#define PATH_SEP '\\'
+#else
+#define PATH_SEP '/'
+#endif
+#endif
+
 #if defined(DEBUG) && !defined(DEBUG_PRINTF)
 #include <string.h>
 #include <stdio.h>
 #define DEBUG_PRINTF(format, ...) printf("%s:%s:%d:" format, \
-                                         strrchr(__FILE__, '/') + 1, __func__, \
-                                         __LINE__,  ## __VA_ARGS__)
+                                         strrchr(__FILE__, PATH_SEP) + 1, \
+                                         __func__, __LINE__,  ## __VA_ARGS__)
 #elif !defined(DEBUG_PRINTF)
 #define DEBUG_PRINTF(format, ...) do { } while(0)
 #endif
@@ -208,8 +216,8 @@ typedef u32 ReportID;
 #include <string.h>
 #include <stdio.h>
 #define ADEBUG_PRINTF(format, ...) printf("!%s:%s:%d:" format, \
-                                         strrchr(__FILE__, '/') + 1, __func__, \
-                                         __LINE__,  ## __VA_ARGS__)
+                                          strrchr(__FILE__, PATH_SEP) + 1, \
+                                          __func__, __LINE__,  ## __VA_ARGS__)
 #else
 #define ADEBUG_PRINTF(format, ...) do { } while(0)
 #endif

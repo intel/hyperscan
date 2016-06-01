@@ -113,6 +113,7 @@ void splitLHS(const NGHolder &base, const vector<NFAVertex> &pivots,
         lhs->kind = NFA_INFIX;
         break;
     case NFA_REV_PREFIX:
+    case NFA_OUTFIX_RAW:
         assert(0);
         break;
     }
@@ -154,6 +155,7 @@ void splitRHS(const NGHolder &base, const vector<NFAVertex> &pivots,
         rhs->kind = NFA_SUFFIX;
         break;
     case NFA_REV_PREFIX:
+    case NFA_OUTFIX_RAW:
         assert(0);
         break;
     }

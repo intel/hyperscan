@@ -26,9 +26,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief SOM runtime code.
- *
  *
  * Runtime code for SOM handling called by the Rose callback adaptors.
  */
@@ -39,17 +39,17 @@
 #include "scratch.h"
 #include "ue2common.h"
 
-struct internal_report;
+struct som_operation;
 
 void handleSomInternal(struct hs_scratch *scratch,
-                       const struct internal_report *ri, const u64a to_offset);
+                       const struct som_operation *ri, const u64a to_offset);
 
 // Returns the from_offset.
 u64a handleSomExternal(struct hs_scratch *scratch,
-                       const struct internal_report *ri, const u64a to_offset);
+                       const struct som_operation *ri, const u64a to_offset);
 
 void setSomFromSomAware(struct hs_scratch *scratch,
-                        const struct internal_report *ri, u64a from_offset,
+                        const struct som_operation *ri, u64a from_offset,
                         u64a to_offset);
 
 int flushStoredSomMatches_i(struct hs_scratch *scratch, u64a offset);

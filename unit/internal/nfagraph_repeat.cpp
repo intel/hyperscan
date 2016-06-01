@@ -103,3 +103,9 @@ TEST_P(NFAPureRepeatTest, Check) {
     ASSERT_EQ(t.minBound, repeat.bounds.min);
     ASSERT_EQ(t.maxBound, repeat.bounds.max);
 }
+
+// for google test
+void PrintTo(const PureRepeatTest &p, ::std::ostream *os) {
+    *os << "PureRepeatTest: " << p.pattern
+        << "{" << p.minBound << ',' << p.maxBound << '}';
+}

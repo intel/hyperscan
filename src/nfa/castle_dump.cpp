@@ -100,6 +100,7 @@ void nfaExecCastle0_dumpText(const struct NFA *nfa, FILE *f) {
         fprintf(f, "unknown type %u\n", c->type);
         break;
     }
+    fprintf(f, "Stale Iter Offset:          %u\n", c->staleIterOffset);
 
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);

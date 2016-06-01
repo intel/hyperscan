@@ -54,10 +54,10 @@ struct raw_som_dfa;
  * between)
  */
 
-std::unique_ptr<raw_som_dfa> attemptToBuildHaig(NGHolder &g, som_type som,
-                         u32 somPrecision,
-                         const std::vector<std::vector<CharReach> > &triggers,
-                         const Grey &grey, bool unordered_som_triggers = false);
+std::unique_ptr<raw_som_dfa>
+attemptToBuildHaig(const NGHolder &g, som_type som, u32 somPrecision,
+                   const std::vector<std::vector<CharReach>> &triggers,
+                   const Grey &grey, bool unordered_som_triggers = false);
 
 std::unique_ptr<raw_som_dfa>
 attemptToMergeHaig(const std::vector<const raw_som_dfa *> &dfas,

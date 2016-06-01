@@ -7,4 +7,5 @@ Name: libhs
 Description: Intel(R) Hyperscan Library
 Version: @HS_VERSION@
 Libs: -L${libdir} -lhs
+Libs.private: @PRIVATE_LIBS@
 Cflags: -I${includedir}/hs

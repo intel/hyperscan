@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1049,15 +1049,16 @@ char nfaExecGough16_inAccept(const struct NFA *n, ReportID report,
 }
 
 static
-void goughCheckEOD(const struct NFA *nfa, u16 s,
+char goughCheckEOD(const struct NFA *nfa, u16 s,
                    const struct gough_som_info *som,
                    u64a offset, SomNfaCallback cb, void *ctxt) {
     const struct mcclellan *m = (const struct mcclellan *)getImplNfa(nfa);
     const struct mstate_aux *aux = get_aux(m, s);
 
-    if (aux->accept_eod) {
-        doReports(cb, ctxt, m, som, s, offset, 1, NULL, NULL, NULL);
+    if (!aux->accept_eod) {
+        return MO_CONTINUE_MATCHING;
     }
+    return doReports(cb, ctxt, m, som, s, offset, 1, NULL, NULL, NULL);
 }
 
 char nfaExecGough8_testEOD(const struct NFA *nfa, const char *state,
@@ -1065,8 +1066,8 @@ char nfaExecGough8_testEOD(const struct NFA *nfa, const char *state,
                           UNUSED NfaCallback callback,
                           SomNfaCallback som_callback, void *context) {
     const struct gough_som_info *som = getSomInfoConst(state);
-    goughCheckEOD(nfa, *(const u8 *)state, som, offset, som_callback, context);
-    return 0;
+    return goughCheckEOD(nfa, *(const u8 *)state, som, offset, som_callback,
+                         context);
 }
 
 char nfaExecGough16_testEOD(const struct NFA *nfa, const char *state,
@@ -1075,8 +1076,8 @@ char nfaExecGough16_testEOD(const struct NFA *nfa, const char *state,
                            SomNfaCallback som_callback, void *context) {
     assert(ISALIGNED_N(state, 8));
     const struct gough_som_info *som = getSomInfoConst(state);
-    goughCheckEOD(nfa, *(const u16 *)state, som, offset, som_callback, context);
-    return 0;
+    return goughCheckEOD(nfa, *(const u16 *)state, som, offset, som_callback,
+                         context);
 }
 
 char nfaExecGough8_queueInitState(UNUSED const struct NFA *nfa, struct mq *q) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -93,6 +93,7 @@ static const size_t SMALL_MERGE_MAX_VERTICES_BLOCK = 64;
 static const size_t SMALL_ROSE_THRESHOLD_STREAM = 32;
 static const size_t SMALL_ROSE_THRESHOLD_BLOCK = 10;
 static const size_t MERGE_GROUP_SIZE_MAX = 200;
+static const size_t MERGE_CASTLE_GROUP_SIZE_MAX = 1000;
 
 /** \brief Max number of DFAs (McClellan, Haig) to pairwise merge together. */
 static const size_t DFA_CHUNK_SIZE_MAX = 200;
@@ -104,6 +105,10 @@ static const size_t DFA_MERGE_MAX_STATES = 8000;
  * merging with other graphs. */
 static const size_t LARGE_LBR_MIN_VERTICES = 32;
 
+/** \brief In block mode, merge two prefixes even if they don't have identical
+ * literal sets if they have fewer than this many states and the merged graph
+ * is also small. */
+static constexpr size_t MAX_BLOCK_PREFIX_MERGE_VERTICES = 32;
 
 static
 size_t small_merge_max_vertices(const CompileContext &cc) {
@@ -799,47 +804,69 @@ static void chunkBouquets(const Bouquet<EngineRef> &in,
     }
 }
 
+static
+bool stringsCanFinishAtSameSpot(const ue2_literal &u,
+                                ue2_literal::const_iterator v_b,
+                                ue2_literal::const_iterator v_e) {
+    ue2_literal::const_iterator u_e = u.end();
+    ue2_literal::const_iterator u_b = u.begin();
+
+    while (u_e != u_b && v_e != v_b) {
+        --u_e;
+        --v_e;
+
+        if (!overlaps(*u_e, *v_e)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 /**
- * Prefix analysis: For lit1 with delay1 and lit2 with delay2, let L be the
- * length of the largest suffix of lit1 that is a prefix of lit2. A merge is
- * bad if L - delay1 > len(lit2) - delay2.
+ * Check that if after u has been seen, that it is impossible for the arrival of
+ * v to require the inspection of an engine earlier than u did.
  *
- * OR if we would have to check 2 literals of differing lags at the same
- * point.
+ * Let delta be the earliest that v can be seen after u (may be zero)
+ *
+ * ie, we require u_loc - ulag <= v_loc - vlag (v_loc = u_loc + delta)
+ * ==> - ulag <= delta - vlag
+ * ==> vlag - ulag <= delta
  */
 static
 bool checkPrefix(const rose_literal_id &ul, const u32 ulag,
                  const rose_literal_id &vl, const u32 vlag) {
-    DEBUG_PRINTF("%s %s\n", escapeString(ul.s).c_str(),
-                 escapeString(vl.s).c_str());
-    if (ulag != vlag && (vl.delay || ul.delay || isSuffix(ul.s, vl.s))) {
-        /* rose literals should not be delayed anyway */
+    DEBUG_PRINTF("'%s'-%u '%s'-%u\n", escapeString(ul.s).c_str(), ulag,
+                 escapeString(vl.s).c_str(), vlag);
+
+    if (vl.delay || ul.delay) {
+        /* engine related literals should not be delayed anyway */
         return false;
     }
 
-    // Note that maxOverlap also picks up infixes.
-    size_t overlap = maxOverlap(ul, vl);
-    if (overlap < ulag) {
-        return true; /* avoiding underflow */
+    if (ulag >= vlag) {
+        assert(maxOverlap(ul, vl) <= vl.elength() - vlag + ulag);
+        return true;
     }
-    return overlap - ulag <= vl.elength() - vlag;
+
+    size_t min_allowed_delta = vlag - ulag;
+    DEBUG_PRINTF("min allow distace %zu\n", min_allowed_delta);
+
+    for (size_t i = 0; i < min_allowed_delta; i++) {
+        if (stringsCanFinishAtSameSpot(ul.s, vl.s.begin(), vl.s.end() - i)) {
+            DEBUG_PRINTF("v can follow u at a (too close) distance of %zu\n", i);
+            return false;
+        }
+    }
+
+    DEBUG_PRINTF("OK\n");
+    return true;
 }
 
-bool mergeableRoseVertices(const RoseBuildImpl &tbi, RoseVertex u,
-                           RoseVertex v) {
-    assert(u != v);
-
-    const auto &ulits = tbi.g[u].literals;
-    const auto &vlits = tbi.g[v].literals;
-
-    // We cannot merge roses that prefix literals in different tables.
-    if (tbi.literals.right.at(*ulits.begin()).table !=
-            tbi.literals.right.at(*vlits.begin()).table) {
-        DEBUG_PRINTF("literals in different tables\n");
-        return false;
-    }
-
-    const left_id u_left(tbi.g[u].left), v_left(tbi.g[v].left);
+static
+bool hasSameEngineType(const RoseVertexProps &u_prop,
+                       const RoseVertexProps &v_prop) {
+    const left_id u_left(u_prop.left), v_left(v_prop.left);
 
     if (u_left.haig() || v_left.haig()) {
         if (u_left.graph() != v_left.graph()) {
@@ -859,14 +886,157 @@ bool mergeableRoseVertices(const RoseBuildImpl &tbi, RoseVertex u,
         }
     }
 
-    // UE-1675: in block mode, we want to be a little more selective -- only
-    // merge prefix roses when the literal sets are the same.
-    if (!tbi.cc.streaming && tbi.isRootSuccessor(u)) {
-        assert(tbi.isRootSuccessor(v));
-        if (ulits != vlits) {
-            DEBUG_PRINTF("literals aren't identical (block mode prefix)\n");
-            return false;
+    return true;
+}
+
+static
+bool compatibleLiteralsForMerge(
+                     const vector<pair<const rose_literal_id *, u32>> &ulits,
+                     const vector<pair<const rose_literal_id *, u32>> &vlits) {
+    assert(!ulits.empty());
+    assert(!vlits.empty());
+
+    // We cannot merge engines that prefix literals in different tables.
+    if (ulits[0].first->table != vlits[0].first->table) {
+        DEBUG_PRINTF("literals in different tables\n");
+        return false;
+    }
+
+    /* An engine requires that all accesses to it are ordered by offsets. (ie,
+       we can not check an engine's state at offset Y, if we have already
+       checked its status at offset X and X > Y). If we can not establish that
+       the literals used for triggering will statisfy this property, then it is
+       not safe to merge the engine. */
+    for (const auto &ue : ulits) {
+        const rose_literal_id &ul = *ue.first;
+        u32 ulag = ue.second;
+
+        if (ul.delay) {
+            return false; // We don't handle delayed cases yet.
         }
+
+        for (const auto &ve : vlits) {
+            const rose_literal_id &vl = *ve.first;
+            u32 vlag = ve.second;
+
+            if (vl.delay) {
+                return false; // We don't handle delayed cases yet.
+            }
+
+            if (!checkPrefix(ul, ulag, vl, vlag)
+                || !checkPrefix(vl, vlag, ul, ulag)) {
+                DEBUG_PRINTF("prefix check failed\n");
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+/**
+ * True if this graph has few enough accel states to be implemented as an NFA
+ * with all of those states actually becoming accel schemes.
+ */
+static
+bool isAccelerableLeftfix(const RoseBuildImpl &build, const NGHolder &g) {
+    u32 num = countAccelStates(g, &build.rm, build.cc);
+    DEBUG_PRINTF("graph with %zu vertices has %u accel states\n",
+                  num_vertices(g), num);
+    return num <= NFA_MAX_ACCEL_STATES;
+}
+
+/**
+ * In block mode, we want to be a little more selective, We will only merge
+ * prefix engines when the literal sets are the same, or if the merged graph
+ * has only grown by a small amount.
+ */
+static
+bool safeBlockModeMerge(const RoseBuildImpl &build, RoseVertex u,
+                        RoseVertex v) {
+    assert(!build.cc.streaming);
+    assert(build.isRootSuccessor(u) == build.isRootSuccessor(v));
+
+    // Always merge infixes if we can (subject to the other criteria in
+    // mergeableRoseVertices).
+    if (!build.isRootSuccessor(u)) {
+        return true;
+    }
+
+    const RoseGraph &g = build.g;
+
+    // Merge prefixes with identical literal sets (as we'd have to run them
+    // both when we see those literals anyway).
+    if (g[u].literals == g[v].literals) {
+        return true;
+    }
+
+    // The rest of this function only deals with the case when both vertices
+    // have graph leftfixes.
+    if (!g[u].left.graph || !g[v].left.graph) {
+        return false;
+    }
+
+    const size_t u_count = num_vertices(*g[u].left.graph);
+    const size_t v_count = num_vertices(*g[v].left.graph);
+    DEBUG_PRINTF("u prefix has %zu vertices, v prefix has %zu vertices\n",
+                 u_count, v_count);
+    if (u_count > MAX_BLOCK_PREFIX_MERGE_VERTICES ||
+        v_count > MAX_BLOCK_PREFIX_MERGE_VERTICES) {
+        DEBUG_PRINTF("prefixes too big already\n");
+        return false;
+    }
+
+    DEBUG_PRINTF("trying merge\n");
+    NGHolder h;
+    cloneHolder(h, *g[v].left.graph);
+    if (!mergeNfaPair(*g[u].left.graph, h, nullptr, build.cc)) {
+        DEBUG_PRINTF("couldn't merge\n");
+        return false;
+    }
+
+    const size_t merged_count = num_vertices(h);
+    DEBUG_PRINTF("merged result has %zu vertices\n", merged_count);
+    if (merged_count > MAX_BLOCK_PREFIX_MERGE_VERTICES) {
+        DEBUG_PRINTF("exceeded limit\n");
+        return false;
+    }
+
+    // We want to only perform merges that take advantage of some
+    // commonality in the two input graphs, so we check that the number of
+    // vertices has only grown a small amount: somewhere between the sum
+    // (no commonality) and the max (no growth at all) of the vertex counts
+    // of the input graphs.
+    const size_t max_size = u_count + v_count;
+    const size_t min_size = max(u_count, v_count);
+    const size_t max_growth = ((max_size - min_size) * 25) / 100;
+    if (merged_count > min_size + max_growth) {
+        DEBUG_PRINTF("grew too much\n");
+        return false;
+    }
+
+    // We don't want to squander any chances at accelerating.
+    if (!isAccelerableLeftfix(build, h) &&
+        (isAccelerableLeftfix(build, *g[u].left.graph) ||
+         isAccelerableLeftfix(build, *g[v].left.graph))) {
+        DEBUG_PRINTF("would lose accel property\n");
+        return false;
+    }
+
+    DEBUG_PRINTF("safe to merge\n");
+    return true;
+}
+
+bool mergeableRoseVertices(const RoseBuildImpl &tbi, RoseVertex u,
+                           RoseVertex v) {
+    assert(u != v);
+
+    if (!hasSameEngineType(tbi.g[u], tbi.g[v])) {
+        return false;
+    }
+
+    if (!tbi.cc.streaming && !safeBlockModeMerge(tbi, u, v)) {
+        return false;
     }
 
     /* We cannot merge prefixes/vertices if they are successors of different
@@ -883,88 +1053,104 @@ bool mergeableRoseVertices(const RoseBuildImpl &tbi, RoseVertex u,
         }
     }
 
-    // We accept any pair of literal sets A and B where no literal in A
-    // contains a literal in B and no literal in B contains a literal in A.
-
-    const u32 ulag = tbi.g[u].left.lag;
-    const u32 vlag = tbi.g[v].left.lag;
-
-    for (const u32 &ulit : ulits) {
-        const rose_literal_id &ul = tbi.literals.right.at(ulit);
-
-        if (ul.delay) {
-            return false; // We don't handle delayed cases here.
-        }
-
-        for (const u32 &vlit : vlits) {
-            const rose_literal_id &vl = tbi.literals.right.at(vlit);
-
-            if (vl.delay) {
-                return false; // We don't handle delayed cases here.
-            }
-
-            if (!checkPrefix(ul, ulag, vl, vlag) ||
-                !checkPrefix(vl, vlag, ul, ulag)) {
-                DEBUG_PRINTF("prefix check failed\n");
-                return false;
-            }
-        }
+    u32 ulag = tbi.g[u].left.lag;
+    vector<pair<const rose_literal_id *, u32>> ulits;
+    ulits.reserve(tbi.g[u].literals.size());
+    for (u32 id : tbi.g[u].literals) {
+        ulits.push_back(make_pair(&tbi.literals.right.at(id), ulag));
     }
 
-    DEBUG_PRINTF("roses on %zu and %zu are mergeable\n",
-                 tbi.g[u].idx, tbi.g[v].idx);
+    u32 vlag = tbi.g[v].left.lag;
+    vector<pair<const rose_literal_id *, u32>> vlits;
+    vlits.reserve(tbi.g[v].literals.size());
+    for (u32 id : tbi.g[v].literals) {
+        vlits.push_back(make_pair(&tbi.literals.right.at(id), vlag));
+    }
+
+    if (!compatibleLiteralsForMerge(ulits, vlits)) {
+        return false;
+    }
+
+    DEBUG_PRINTF("roses on %zu and %zu are mergeable\n", tbi.g[u].idx,
+                 tbi.g[v].idx);
     return true;
 }
 
+/* We cannot merge an engine, if a trigger literal and a post literal overlap
+ * in such a way that engine status needs to be check at a point before the
+ * engine's current location.
+ *
+ * i.e., for a trigger literal u and a pos literal v,
+ * where delta is the earliest v can appear after t,
+ * we require that v_loc - v_lag >= u_loc
+ * ==> u_loc + delta - v_lag >= u_loc
+ * ==> delta >= v_lag
+ *
+ */
 static
-bool mergeableDelays(const RoseBuildImpl &tbi, const flat_set<u32> &ulits,
-                     const flat_set<u32> &vlits, u32 vlag) {
-    for (const u32 &ulit : ulits) {
-        const rose_literal_id &ul = tbi.literals.right.at(ulit);
-        assert(!ul.delay); // this should never have got this far?
-        for (const u32 vlit : vlits) {
-            const rose_literal_id &vl = tbi.literals.right.at(vlit);
-            assert(!vl.delay); // this should never have got this far?
+bool checkPredDelay(const rose_literal_id &ul, const rose_literal_id &vl,
+                    u32 vlag) {
+    DEBUG_PRINTF("%s %s (lag %u)\n", escapeString(ul.s).c_str(),
+                 escapeString(vl.s).c_str(), vlag);
 
-            DEBUG_PRINTF("%s %s (lag %u, overlap %zu)\n",
-                         escapeString(ul.s).c_str(),
-                         escapeString(vl.s).c_str(), vlag,
-                         maxOverlap(ul, vl));
-            size_t l = vl.elength() - maxOverlap(ul, vl);
-            if (vlag > l) {
-                DEBUG_PRINTF("failed lag check!\n");
-                return false;
-            }
+    for (size_t i = 0; i < vlag; i++) {
+        if (stringsCanFinishAtSameSpot(ul.s, vl.s.begin(), vl.s.end() - i)) {
+            DEBUG_PRINTF("v can follow u at a (too close) distance of %zu\n", i);
+            return false;
         }
     }
+
+    DEBUG_PRINTF("OK\n");
     return true;
 }
 
-static
+static never_inline
 bool checkPredDelays(const RoseBuildImpl &tbi, const deque<RoseVertex> &v1,
                      const deque<RoseVertex> &v2) {
-    set<RoseVertex> preds;
+    flat_set<RoseVertex> preds;
     for (auto v : v1) {
         insert(&preds, inv_adjacent_vertices(v, tbi.g));
     }
 
+    flat_set<u32> pred_lits;
+
+    /* No need to examine delays of a common pred - as it must already have
+     * survived the delay checks.
+     *
+     * This is important when the pred is in the anchored table as
+     * the literal is no longer available. */
+    flat_set<RoseVertex> known_good_preds;
+    for (auto v : v2) {
+        insert(&known_good_preds, inv_adjacent_vertices(v, tbi.g));
+    }
+
     for (auto u : preds) {
-        const auto &pred_lits = tbi.g[u].literals;
-        for (auto v : v2) {
-            u32 vlag = tbi.g[v].left.lag;
-            DEBUG_PRINTF("consider (%zu, %zu) lag=%u\n", tbi.g[u].idx,
-                         tbi.g[v].idx, vlag);
-            if (edge_by_target(u, v, tbi.g).second) {
-                /* no need to examine delays as it is a common pred - so checks
-                 * must already have survived the delay checks.
-                 * This is important when the pred is in the anchored table as
-                 * the literal is no longer available. */
-                DEBUG_PRINTF("ok, also %zu is also a pred of %zu\n",
-                             tbi.g[u].idx, tbi.g[v].idx);
-                continue;
-            }
-            if (!mergeableDelays(tbi, pred_lits, tbi.g[v].literals, vlag)) {
-                return false;
+        if (!contains(known_good_preds, u)) {
+            insert(&pred_lits, tbi.g[u].literals);
+        }
+    }
+
+    vector<const rose_literal_id *> pred_rose_lits;
+    pred_rose_lits.reserve(pred_lits.size());
+    for (const auto &p : pred_lits) {
+        pred_rose_lits.push_back(&tbi.literals.right.at(p));
+    }
+
+    for (auto v : v2) {
+        u32 vlag = tbi.g[v].left.lag;
+        if (!vlag) {
+            continue;
+        }
+
+        for (const u32 vlit : tbi.g[v].literals) {
+            const rose_literal_id &vl = tbi.literals.right.at(vlit);
+            assert(!vl.delay); // this should never have got this far?
+            for (const auto &ul : pred_rose_lits) {
+                assert(!ul->delay); // this should never have got this far?
+
+                if (!checkPredDelay(*ul, vl, vlag)) {
+                    return false;
+                }
             }
         }
     }
@@ -976,17 +1162,65 @@ static
 bool mergeableRoseVertices(const RoseBuildImpl &tbi,
                            const deque<RoseVertex> &verts1,
                            const deque<RoseVertex> &verts2) {
-    for (auto v1 : verts1) {
-        for (auto v2 : verts2) {
-            if (!mergeableRoseVertices(tbi, v1, v2)) {
-                return false;
-            }
+    assert(!verts1.empty());
+    assert(!verts2.empty());
+
+    RoseVertex u_front = verts1.front();
+    RoseVertex v_front = verts2.front();
+
+    /* all vertices must have the same engine type: assume all verts in each
+     * group are already of the same type */
+    if (!hasSameEngineType(tbi.g[u_front], tbi.g[v_front])) {
+        return false;
+    }
+
+    bool is_prefix = tbi.isRootSuccessor(u_front);
+
+    /* We cannot merge prefixes/vertices if they are successors of different
+     * root vertices: similarly, assume the grouped vertices are compatible */
+    if (is_prefix) {
+        assert(tbi.isRootSuccessor(v_front));
+        set<RoseVertex> u_preds;
+        set<RoseVertex> v_preds;
+        insert(&u_preds, inv_adjacent_vertices(u_front, tbi.g));
+        insert(&v_preds, inv_adjacent_vertices(v_front, tbi.g));
+
+        if (u_preds != v_preds) {
+            return false;
         }
     }
 
+    vector<pair<const rose_literal_id *, u32>> ulits; /* lit + lag pairs */
+    for (auto a : verts1) {
+        if (!tbi.cc.streaming && !safeBlockModeMerge(tbi, u_front, a)) {
+            return false;
+        }
+
+        u32 ulag = tbi.g[a].left.lag;
+        for (u32 id : tbi.g[a].literals) {
+            ulits.push_back(make_pair(&tbi.literals.right.at(id), ulag));
+        }
+    }
+
+    vector<pair<const rose_literal_id *, u32>> vlits;
+    for (auto a : verts2) {
+        if (!tbi.cc.streaming && !safeBlockModeMerge(tbi, u_front, a)) {
+            return false;
+        }
+
+        u32 vlag = tbi.g[a].left.lag;
+        for (u32 id : tbi.g[a].literals) {
+            vlits.push_back(make_pair(&tbi.literals.right.at(id), vlag));
+        }
+    }
+
+    if (!compatibleLiteralsForMerge(ulits, vlits)) {
+        return false;
+    }
+
     // Check preds are compatible as well.
-    if (!checkPredDelays(tbi, verts1, verts2) ||
-        !checkPredDelays(tbi, verts2, verts1)) {
+    if (!checkPredDelays(tbi, verts1, verts2)
+        || !checkPredDelays(tbi, verts2, verts1)) {
         return false;
     }
 
@@ -1741,33 +1975,31 @@ void mergeNfaLeftfixes(RoseBuildImpl &tbi, RoseBouquet &roses) {
 }
 
 static
-void mergeCastleRoses(RoseBuildImpl &tbi, RoseBouquet &roses) {
+void mergeCastleChunk(RoseBuildImpl &tbi, RoseBouquet &cands) {
+    /* caller must have already ensured that candidates have the same reach */
     RoseGraph &g = tbi.g;
-    DEBUG_PRINTF("%zu castle rose merge candidates\n", roses.size());
+    DEBUG_PRINTF("%zu castle rose merge candidates\n", cands.size());
 
     deque<left_id> merged;
 
-    for (auto it = roses.begin(); it != roses.end(); ++it) {
+    for (auto it = cands.begin(); it != cands.end(); ++it) {
         left_id r1 = *it;
         CastleProto &castle1 = *r1.castle();
-        const deque<RoseVertex> &verts1 = roses.vertices(r1);
+        const deque<RoseVertex> &verts1 = cands.vertices(r1);
 
         merged.clear();
 
-        for (auto jt = next(it); jt != roses.end(); ++jt) {
+        for (auto jt = next(it); jt != cands.end(); ++jt) {
             left_id r2 = *jt;
             CastleProto &castle2 = *r2.castle();
-            const deque<RoseVertex> &verts2 = roses.vertices(r2);
+            const deque<RoseVertex> &verts2 = cands.vertices(r2);
 
             if (castle1.repeats.size() == castle1.max_occupancy) {
                 DEBUG_PRINTF("castle1 has hit max occupancy\n");
                 break; // next castle1
             }
 
-            if (castle1.reach() != castle2.reach()) {
-                DEBUG_PRINTF("different reach\n");
-                continue; // next castle2
-            }
+            assert(castle1.reach() == castle2.reach());
 
             if (!mergeableRoseVertices(tbi, verts1, verts2)) {
                 DEBUG_PRINTF("not mergeable\n");
@@ -1793,12 +2025,12 @@ void mergeCastleRoses(RoseBuildImpl &tbi, RoseBouquet &roses) {
                 }
             }
 
-            roses.insert(r1, verts2);
+            cands.insert(r1, verts2);
             merged.push_back(r2);
         }
 
         DEBUG_PRINTF("%zu roses merged\n", merged.size());
-        roses.erase_all(merged.begin(), merged.end());
+        cands.erase_all(merged.begin(), merged.end());
     }
 }
 
@@ -1924,13 +2156,13 @@ void mergeCastleLeftfixes(RoseBuildImpl &tbi) {
     for (auto &m : by_reach) {
         DEBUG_PRINTF("%zu castles for reach: %s\n", m.second.size(),
                      describeClass(m.first).c_str());
-        RoseBouquet &roses = m.second;
-        deque<RoseBouquet> rose_groups;
-        chunkBouquets(roses, rose_groups, MERGE_GROUP_SIZE_MAX);
-        roses.clear();
+        RoseBouquet &candidates = m.second;
+        deque<RoseBouquet> cand_groups;
+        chunkBouquets(candidates, cand_groups, MERGE_CASTLE_GROUP_SIZE_MAX);
+        candidates.clear();
 
-        for (auto &group : rose_groups) {
-            mergeCastleRoses(tbi, group);
+        for (auto &group : cand_groups) {
+            mergeCastleChunk(tbi, group);
         }
     }
 }
@@ -2185,9 +2417,6 @@ void mergeOutfixInfo(OutfixInfo &winner, const OutfixInfo &victim) {
     // layer at runtime will protect us from extra matches if only one was in
     // the small block matcher.
     winner.in_sbmatcher &= victim.in_sbmatcher;
-
-    // We should never have merged outfixes that differ in these properties.
-    assert(winner.chained == victim.chained);
 }
 
 static
@@ -2219,8 +2448,9 @@ void mergeOutfixNfas(RoseBuildImpl &tbi, vector<NGHolder *> &nfas) {
 
     map<NGHolder *, size_t> nfa_mapping;
     for (size_t i = 0; i < outfixes.size(); i++) {
-        if (outfixes[i].holder) {
-            nfa_mapping[outfixes[i].holder.get()] = i;
+        auto *holder = outfixes[i].holder();
+        if (holder) {
+            nfa_mapping[holder] = i;
         }
     }
 
@@ -2252,10 +2482,6 @@ struct MergeMcClellan {
         return mergeTwoDfas(d1, d2, DFA_MERGE_MAX_STATES, &rm, grey);
     }
 
-    static void transfer(OutfixInfo &outfix, unique_ptr<raw_dfa> d) {
-        outfix.rdfa = move(d);
-    }
-
 private:
     const ReportManager &rm;
     const Grey &grey;
@@ -2268,10 +2494,6 @@ struct MergeHaig {
                                        const raw_som_dfa *d2) const {
         assert(d1 && d2);
         return attemptToMergeHaig({d1, d2}, limit);
-    }
-
-    static void transfer(OutfixInfo &outfix, unique_ptr<raw_som_dfa> d) {
-        outfix.haig = move(d);
     }
 
 private:
@@ -2320,7 +2542,7 @@ void pairwiseDfaMerge(vector<RawDfa *> &dfas,
             RawDfa *dfa_ptr = rdfa.get();
             dfa_mapping[dfa_ptr] = dfa_mapping[*it];
             dfa_mapping.erase(*it);
-            merge_func.transfer(winner, move(rdfa));
+            winner.proto = move(rdfa);
 
             mergeOutfixInfo(winner, victim);
 
@@ -2370,8 +2592,9 @@ void mergeOutfixDfas(RoseBuildImpl &tbi, vector<raw_dfa *> &dfas) {
      * element addition. */
     ue2::unordered_map<raw_dfa *, size_t> dfa_mapping;
     for (size_t i = 0; i < outfixes.size(); i++) {
-        if (outfixes[i].rdfa) {
-            dfa_mapping[outfixes[i].rdfa.get()] = i;
+        auto *rdfa = outfixes[i].rdfa();
+        if (rdfa) {
+            dfa_mapping[rdfa] = i;
         }
     }
 
@@ -2392,10 +2615,10 @@ void mergeOutfixCombo(RoseBuildImpl &tbi, const ReportManager &rm,
     bool seen_dfa = false;
     u32 nfa_count = 0;
     for (const auto &outfix : tbi.outfixes) {
-        if (outfix.holder) {
+        if (outfix.holder()) {
             DEBUG_PRINTF("nfa\n");
             nfa_count++;
-        } else if (outfix.rdfa) {
+        } else if (outfix.rdfa()) {
             DEBUG_PRINTF("dfa\n");
             seen_dfa = true;
         }
@@ -2415,31 +2638,28 @@ void mergeOutfixCombo(RoseBuildImpl &tbi, const ReportManager &rm,
     vector<raw_dfa *> dfas;
 
     for (auto it = tbi.outfixes.begin(); it != tbi.outfixes.end(); ++it) {
-        assert(!it->is_dead());
-        if (it->nfa) {
-            assert(!it->rdfa && !it->holder && !it->haig);
-            continue;
-        }
-        assert(!it->chained);
-        if (it->rdfa) {
-            dfas.push_back(it->rdfa.get());
-            dfa_mapping[it->rdfa.get()] = it - tbi.outfixes.begin();
+        auto &outfix = *it;
+        assert(!outfix.is_dead());
+
+        if (outfix.rdfa()) {
+            auto *rdfa = outfix.rdfa();
+            dfas.push_back(rdfa);
+            dfa_mapping[rdfa] = it - tbi.outfixes.begin();
             continue;
         }
 
-        if (!it->holder) {
+        if (!outfix.holder()) {
             continue;
         }
 
-        NGHolder *h = it->holder.get();
+        NGHolder *h = outfix.holder();
         assert(h->kind == NFA_OUTFIX);
         auto rdfa = buildMcClellan(*h, &rm, grey);
         if (rdfa) {
             // Transform this outfix into a DFA and add it to the merge set.
             dfa_mapping[rdfa.get()] = it - tbi.outfixes.begin();
             dfas.push_back(rdfa.get());
-            it->clear();
-            it->rdfa = move(rdfa);
+            outfix.proto = move(rdfa);
             new_dfas++;
         }
     }
@@ -2467,8 +2687,9 @@ void mergeOutfixHaigs(RoseBuildImpl &tbi, vector<raw_som_dfa *> &dfas,
 
     ue2::unordered_map<raw_som_dfa *, size_t> dfa_mapping;
     for (size_t i = 0; i < outfixes.size(); i++) {
-        if (outfixes[i].haig) {
-            dfa_mapping[outfixes[i].haig.get()] = i;
+        auto *haig = outfixes[i].haig();
+        if (haig) {
+            dfa_mapping[haig] = i;
         }
     }
 
@@ -2493,18 +2714,13 @@ void mergeOutfixes(RoseBuildImpl &tbi) {
     vector<raw_dfa *> dfas;
     vector<raw_som_dfa *> som_dfas;
 
-    for (const auto &outfix : tbi.outfixes) {
-        if (outfix.nfa) {
-            assert(!outfix.rdfa && !outfix.holder && !outfix.haig);
-            continue;
-        }
-        assert(!outfix.chained);
-        if (outfix.rdfa) {
-            dfas.push_back(outfix.rdfa.get());
-        } else if (outfix.holder) {
-            nfas.push_back(outfix.holder.get());
-        } else if (outfix.haig) {
-            som_dfas.push_back(outfix.haig.get());
+    for (auto &outfix : tbi.outfixes) {
+        if (outfix.rdfa()) {
+            dfas.push_back(outfix.rdfa());
+        } else if (outfix.holder()) {
+            nfas.push_back(outfix.holder());
+        } else if (outfix.haig()) {
+            som_dfas.push_back(outfix.haig());
         }
     }
 
@@ -2609,7 +2825,7 @@ void mergePuffixes(RoseBuildImpl &tbi) {
         u32 squashDistance =
             allowedSquashDistance(repeat.reach, repeat.bounds.min, tbi, v);
 
-        Report ir = makeRoseTrigger(event, squashDistance);
+        Report ir = makeMpvTrigger(event, squashDistance);
         ReportID id = tbi.rm.getInternalId(ir);
 
         DEBUG_PRINTF("puffette event q%u t%u\n", queue, event);

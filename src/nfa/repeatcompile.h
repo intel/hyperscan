@@ -68,7 +68,8 @@ struct RepeatStateInfo {
  * type.
  */
 enum RepeatType chooseRepeatType(const depth &repeatMin, const depth &repeatMax,
-                                 u32 minPeriod, bool is_reset);
+                                 u32 minPeriod, bool is_reset,
+                                 bool has_external_guard = false);
 
 u32 calcPackedBytes(u64a val);
 

@@ -124,13 +124,19 @@ databases, only a single scratch region is necessary: in this case, calling
 will ensure that the scratch space is large enough to support scanning against
 any of the given databases.
 
-Importantly, only one such space is required per thread and can (and indeed
-should) be allocated before data scanning is to commence. In a scenario where a
-set of expressions are compiled by a single "master" thread and data will be
-scanned by multiple "worker" threads, the convenience function
-:c:func:`hs_clone_scratch` allows multiple copies of an existing scratch space
-to be made for each thread (rather than forcing the caller to pass all the
-compiled databases through :c:func:`hs_alloc_scratch` multiple times).
+While the Hyperscan library is re-entrant, the use of scratch spaces is not.
+For example, if by design it is deemed necessary to run recursive or nested
+scanning (say, from the match callback function), then an additional scratch
+space is required for that context.
+
+In the absence of recursive scanning, only one such space is required per thread
+and can (and indeed should) be allocated before data scanning is to commence.
+
+In a scenario where a set of expressions are compiled by a single "master"
+thread and data will be scanned by multiple "worker" threads, the convenience
+function :c:func:`hs_clone_scratch` allows multiple copies of an existing
+scratch space to be made for each thread (rather than forcing the caller to pass
+all the compiled databases through :c:func:`hs_alloc_scratch` multiple times).
 
 For example:
 
@@ -162,14 +168,6 @@ For example:
 
     /* Now two threads can both scan against database db,
        each with its own scratch space. */
-
-While the Hyperscan library is re-entrant, the use of scratch spaces is not.
-For example, if by design it is deemed necessary to run recursive or nested
-scanning (say, from the match callback function), then an additional scratch
-space is required for that context.
-
-The easiest way to achieve this is to build up a single scratch space as a
-prototype, then clone it for each context:
 
 *****************
 Custom Allocators

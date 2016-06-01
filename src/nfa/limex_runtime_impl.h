@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -176,8 +176,6 @@ char STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
     const EXCEPTION_T *exceptions = getExceptionTable(EXCEPTION_T, limex);
     const ReportID *exReports = getExReports(limex);
     const u32 *exceptionMap = limex->exceptionMap;
-    assert(ISALIGNED_CL(ctx));
-    assert(ISALIGNED_CL(&ctx->s));
     STATE_T s = LOAD_STATE(&ctx->s);
 
     /* assert(ISALIGNED_16(exceptions)); */
@@ -533,17 +531,17 @@ char JOIN(LIMEX_API_ROOT, _Q)(const struct NFA *n, struct mq *q, s64a end) {
 
     assert(q->cur + 1 < q->end); /* require at least two items */
 
-    struct CONTEXT_T *ctx = q->scratch->nfaContext;
-    assert(ISALIGNED_CL(ctx));
-    ctx->repeat_ctrl = getRepeatControlBase(q->state, sizeof(STATE_T));
-    ctx->repeat_state = q->streamState + limex->stateSize;
-    ctx->callback = q->cb;
-    ctx->context = q->context;
-    STORE_STATE(&ctx->cached_estate, ZERO_STATE);
+    struct CONTEXT_T ctx;
+    ctx.repeat_ctrl = getRepeatControlBase(q->state, sizeof(STATE_T));
+    ctx.repeat_state = q->streamState + limex->stateSize;
+    ctx.callback = q->cb;
+    ctx.context = q->context;
+    STORE_STATE(&ctx.cached_estate, ZERO_STATE);
+    ctx.cached_br = 0;
 
     assert(q->items[q->cur].location >= 0);
     DEBUG_PRINTF("LOAD STATE\n");
-    STORE_STATE(&ctx->s, LOAD_STATE(q->state));
+    STORE_STATE(&ctx.s, LOAD_STATE(q->state));
     assert(q->items[q->cur].type == MQE_START);
 
     u64a offset = q->offset;
@@ -565,7 +563,7 @@ char JOIN(LIMEX_API_ROOT, _Q)(const struct NFA *n, struct mq *q, s64a end) {
         /* do main buffer region */
         DEBUG_PRINTF("MAIN BUFFER SCAN\n");
         assert(ep - offset <= q->length);
-        if (STREAMCB_FN(limex, q->buffer + sp - offset, ep - sp, ctx, sp)
+        if (STREAMCB_FN(limex, q->buffer + sp - offset, ep - sp, &ctx, sp)
                 == MO_HALT_MATCHING) {
             STORE_STATE(q->state, ZERO_STATE);
             return 0;
@@ -584,19 +582,19 @@ char JOIN(LIMEX_API_ROOT, _Q)(const struct NFA *n, struct mq *q, s64a end) {
            q->items[q->cur].type = MQE_START;
            q->items[q->cur].location = sp - offset;
            DEBUG_PRINTF("bailing q->cur %u q->end %u\n", q->cur, q->end);
-           STORE_STATE(q->state, LOAD_STATE(&ctx->s));
+           STORE_STATE(q->state, LOAD_STATE(&ctx.s));
            return MO_ALIVE;
        }
 
-        JOIN(LIMEX_API_ROOT, _HandleEvent)(limex, q, ctx, sp);
+        JOIN(LIMEX_API_ROOT, _HandleEvent)(limex, q, &ctx, sp);
 
         q->cur++;
     }
 
-    EXPIRE_ESTATE_FN(limex, ctx, sp);
+    EXPIRE_ESTATE_FN(limex, &ctx, sp);
 
     DEBUG_PRINTF("END\n");
-    STORE_STATE(q->state, LOAD_STATE(&ctx->s));
+    STORE_STATE(q->state, LOAD_STATE(&ctx.s));
 
     if (q->cur != q->end) {
         q->cur--;
@@ -605,7 +603,7 @@ char JOIN(LIMEX_API_ROOT, _Q)(const struct NFA *n, struct mq *q, s64a end) {
         return MO_ALIVE;
     }
 
-    return ISNONZERO_STATE(LOAD_STATE(&ctx->s));
+    return ISNONZERO_STATE(LOAD_STATE(&ctx.s));
 }
 
 /* used by suffix execution in Rose */
@@ -628,16 +626,16 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
 
     assert(q->cur + 1 < q->end); /* require at least two items */
 
-    struct CONTEXT_T *ctx = q->scratch->nfaContext;
-    assert(ISALIGNED_CL(ctx));
-    ctx->repeat_ctrl = getRepeatControlBase(q->state, sizeof(STATE_T));
-    ctx->repeat_state = q->streamState + limex->stateSize;
-    ctx->callback = q->cb;
-    ctx->context = q->context;
-    STORE_STATE(&ctx->cached_estate, ZERO_STATE);
+    struct CONTEXT_T ctx;
+    ctx.repeat_ctrl = getRepeatControlBase(q->state, sizeof(STATE_T));
+    ctx.repeat_state = q->streamState + limex->stateSize;
+    ctx.callback = q->cb;
+    ctx.context = q->context;
+    STORE_STATE(&ctx.cached_estate, ZERO_STATE);
+    ctx.cached_br = 0;
 
     DEBUG_PRINTF("LOAD STATE\n");
-    STORE_STATE(&ctx->s, LOAD_STATE(q->state));
+    STORE_STATE(&ctx.s, LOAD_STATE(q->state));
     assert(q->items[q->cur].type == MQE_START);
 
     u64a offset = q->offset;
@@ -661,7 +659,7 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
         /* do main buffer region */
         u64a final_look = 0;
         assert(ep - offset <= q->length);
-        if (STREAMFIRST_FN(limex, q->buffer + sp - offset, ep - sp, ctx, sp,
+        if (STREAMFIRST_FN(limex, q->buffer + sp - offset, ep - sp, &ctx, sp,
                            &final_look) == MO_HALT_MATCHING) {
             DEBUG_PRINTF("final_look:%llu sp:%llu end_abs:%llu offset:%llu\n",
                          final_look, sp, end_abs, offset);
@@ -669,7 +667,7 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
             q->cur--;
             q->items[q->cur].type = MQE_START;
             q->items[q->cur].location = sp + final_look - offset;
-            STORE_STATE(q->state, LOAD_STATE(&ctx->s));
+            STORE_STATE(q->state, LOAD_STATE(&ctx.s));
             return MO_MATCHES_PENDING;
         }
 
@@ -685,19 +683,19 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
             q->items[q->cur].type = MQE_START;
             q->items[q->cur].location = sp - offset;
             DEBUG_PRINTF("bailing q->cur %u q->end %u\n", q->cur, q->end);
-            STORE_STATE(q->state, LOAD_STATE(&ctx->s));
+            STORE_STATE(q->state, LOAD_STATE(&ctx.s));
             return MO_ALIVE;
         }
 
-        JOIN(LIMEX_API_ROOT, _HandleEvent)(limex, q, ctx, sp);
+        JOIN(LIMEX_API_ROOT, _HandleEvent)(limex, q, &ctx, sp);
 
         q->cur++;
     }
 
-    EXPIRE_ESTATE_FN(limex, ctx, sp);
+    EXPIRE_ESTATE_FN(limex, &ctx, sp);
 
     DEBUG_PRINTF("END\n");
-    STORE_STATE(q->state, LOAD_STATE(&ctx->s));
+    STORE_STATE(q->state, LOAD_STATE(&ctx.s));
 
     if (q->cur != q->end) {
         q->cur--;
@@ -706,7 +704,7 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
         return MO_ALIVE;
     }
 
-    return ISNONZERO_STATE(LOAD_STATE(&ctx->s));
+    return ISNONZERO_STATE(LOAD_STATE(&ctx.s));
 }
 
 // Used for execution Rose prefix/infixes.
@@ -720,15 +718,16 @@ char JOIN(LIMEX_API_ROOT, _QR)(const struct NFA *n, struct mq *q,
 
     assert(q->cur + 1 < q->end); /* require at least two items */
 
-    struct CONTEXT_T *ctx = q->scratch->nfaContext;
-    ctx->repeat_ctrl = getRepeatControlBase(q->state, sizeof(STATE_T));
-    ctx->repeat_state = q->streamState + limex->stateSize;
-    ctx->callback = NULL;
-    ctx->context = NULL;
-    STORE_STATE(&ctx->cached_estate, ZERO_STATE);
+    struct CONTEXT_T ctx;
+    ctx.repeat_ctrl = getRepeatControlBase(q->state, sizeof(STATE_T));
+    ctx.repeat_state = q->streamState + limex->stateSize;
+    ctx.callback = NULL;
+    ctx.context = NULL;
+    STORE_STATE(&ctx.cached_estate, ZERO_STATE);
+    ctx.cached_br = 0;
 
     DEBUG_PRINTF("LOAD STATE\n");
-    STORE_STATE(&ctx->s, LOAD_STATE(q->state));
+    STORE_STATE(&ctx.s, LOAD_STATE(q->state));
     assert(q->items[q->cur].type == MQE_START);
 
     u64a offset = q->offset;
@@ -740,7 +739,7 @@ char JOIN(LIMEX_API_ROOT, _QR)(const struct NFA *n, struct mq *q,
         if (n->maxWidth) {
             if (ep - sp > n->maxWidth) {
                 sp = ep - n->maxWidth;
-                STORE_STATE(&ctx->s, INITIAL_FN(limex, !!sp));
+                STORE_STATE(&ctx.s, INITIAL_FN(limex, !!sp));
             }
         }
         assert(ep >= sp);
@@ -751,7 +750,7 @@ char JOIN(LIMEX_API_ROOT, _QR)(const struct NFA *n, struct mq *q,
             u64a local_ep = MIN(offset, ep);
             /* we are starting inside the history buffer */
             STREAMSILENT_FN(limex, q->history + q->hlength + sp - offset,
-                            local_ep - sp, ctx, sp);
+                            local_ep - sp, &ctx, sp);
 
             sp = local_ep;
         }
@@ -763,30 +762,30 @@ char JOIN(LIMEX_API_ROOT, _QR)(const struct NFA *n, struct mq *q,
         /* do main buffer region */
         DEBUG_PRINTF("MAIN BUFFER SCAN\n");
         assert(ep - offset <= q->length);
-        STREAMSILENT_FN(limex, q->buffer + sp - offset, ep - sp, ctx, sp);
+        STREAMSILENT_FN(limex, q->buffer + sp - offset, ep - sp, &ctx, sp);
 
         DEBUG_PRINTF("SCAN DONE\n");
     scan_done:
         sp = ep;
 
-        JOIN(LIMEX_API_ROOT, _HandleEvent)(limex, q, ctx, sp);
+        JOIN(LIMEX_API_ROOT, _HandleEvent)(limex, q, &ctx, sp);
 
         q->cur++;
     }
 
-    EXPIRE_ESTATE_FN(limex, ctx, sp);
+    EXPIRE_ESTATE_FN(limex, &ctx, sp);
 
     DEBUG_PRINTF("END, nfa is %s\n",
-                 ISNONZERO_STATE(ctx->s) ? "still alive" : "dead");
+                 ISNONZERO_STATE(ctx.s) ? "still alive" : "dead");
 
-    STORE_STATE(q->state, LOAD_STATE(&ctx->s));
+    STORE_STATE(q->state, LOAD_STATE(&ctx.s));
 
-    if (JOIN(limexInAccept, SIZE)(limex, LOAD_STATE(&ctx->s), ctx->repeat_ctrl,
-                                  ctx->repeat_state, sp + 1, report)) {
+    if (JOIN(limexInAccept, SIZE)(limex, LOAD_STATE(&ctx.s), ctx.repeat_ctrl,
+                                  ctx.repeat_state, sp + 1, report)) {
         return MO_MATCHES_PENDING;
     }
 
-    return ISNONZERO_STATE(LOAD_STATE(&ctx->s));
+    return ISNONZERO_STATE(LOAD_STATE(&ctx.s));
 }
 
 char JOIN(LIMEX_API_ROOT, _testEOD)(const struct NFA *n, const char *state,
@@ -813,42 +812,40 @@ char JOIN(LIMEX_API_ROOT, _reportCurrent)(const struct NFA *n, struct mq *q) {
 
 // Block mode reverse scan.
 char JOIN(LIMEX_API_ROOT, _B_Reverse)(const struct NFA *n, u64a offset,
-                                         const u8 *buf, size_t buflen,
-                                         const u8 *hbuf, size_t hlen,
-                                         struct hs_scratch *scratch,
-                                         NfaCallback cb, void *context) {
+                                      const u8 *buf, size_t buflen,
+                                      const u8 *hbuf, size_t hlen,
+                                      NfaCallback cb, void *context) {
     assert(buf || hbuf);
     assert(buflen || hlen);
 
-    /* This may be called INSIDE another NFA, so we need a separate
-     * context --> Hence the nfaContextSom */
-    struct CONTEXT_T *ctx = scratch->nfaContextSom;
-    ctx->repeat_ctrl = NULL;
-    ctx->repeat_state = NULL;
-    ctx->callback = cb;
-    ctx->context = context;
-    STORE_STATE(&ctx->cached_estate, ZERO_STATE);
+    struct CONTEXT_T ctx;
+    ctx.repeat_ctrl = NULL;
+    ctx.repeat_state = NULL;
+    ctx.callback = cb;
+    ctx.context = context;
+    STORE_STATE(&ctx.cached_estate, ZERO_STATE);
+    ctx.cached_br = 0;
 
     const IMPL_NFA_T *limex = getImplNfa(n);
-    STORE_STATE(&ctx->s, INITIAL_FN(limex, 0)); // always anchored
+    STORE_STATE(&ctx.s, INITIAL_FN(limex, 0)); // always anchored
 
     // 'buf' may be null, for example when we're scanning at EOD time.
     if (buflen) {
         assert(buf);
         DEBUG_PRINTF("MAIN BUFFER SCAN, %zu bytes\n", buflen);
         offset -= buflen;
-        REV_STREAM_FN(limex, buf, buflen, ctx, offset);
+        REV_STREAM_FN(limex, buf, buflen, &ctx, offset);
     }
 
     if (hlen) {
         assert(hbuf);
         DEBUG_PRINTF("HISTORY BUFFER SCAN, %zu bytes\n", hlen);
         offset -= hlen;
-        REV_STREAM_FN(limex, hbuf, hlen, ctx, offset);
+        REV_STREAM_FN(limex, hbuf, hlen, &ctx, offset);
     }
 
-    if (offset == 0 && ISNONZERO_STATE(LOAD_STATE(&ctx->s))) {
-        TESTEOD_REV_FN(limex, &ctx->s, offset, cb, context);
+    if (offset == 0 && ISNONZERO_STATE(LOAD_STATE(&ctx.s))) {
+        TESTEOD_REV_FN(limex, &ctx.s, offset, cb, context);
     }
 
     // NOTE: return value is unused.

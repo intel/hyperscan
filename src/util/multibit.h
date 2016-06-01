@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -665,6 +665,84 @@ char mmbit_any_precise(const u8 *bits, u32 total_bits) {
 }
 
 static really_inline
+char mmbit_all_flat(const u8 *bits, u32 total_bits) {
+    while (total_bits > MMB_KEY_BITS) {
+        if (mmb_load(bits) != MMB_ALL_ONES) {
+            return 0;
+        }
+        bits += sizeof(MMB_TYPE);
+        total_bits -= MMB_KEY_BITS;
+    }
+    while (total_bits > 8) {
+        if (*bits != 0xff) {
+            return 0;
+        }
+        bits++;
+        total_bits -= 8;
+    }
+    u8 mask = (u8)mmb_mask_zero_to_nocheck(total_bits);
+    return (*bits & mask) == mask;
+}
+
+static really_inline
+char mmbit_all_big(const u8 *bits, u32 total_bits) {
+    u32 ks = mmbit_keyshift(total_bits);
+
+    u32 level = 0;
+    for (;;) {
+        // Number of bits we expect to see switched on on this level.
+        u32 level_bits;
+        if (ks != 0) {
+            u32 next_level_width = MMB_KEY_BITS << (ks - MMB_KEY_SHIFT);
+            level_bits = ROUNDUP_N(total_bits, next_level_width) >> ks;
+        } else {
+            level_bits = total_bits;
+        }
+
+        const u8 *block_ptr = mmbit_get_level_root_const(bits, level);
+
+        // All full-size blocks should be all-ones.
+        while (level_bits >= MMB_KEY_BITS) {
+            MMB_TYPE block = mmb_load(block_ptr);
+            if (block != MMB_ALL_ONES) {
+                return 0;
+            }
+            block_ptr += sizeof(MMB_TYPE);
+            level_bits -= MMB_KEY_BITS;
+        }
+
+        // If we have bits remaining, we have a runt block on the end.
+        if (level_bits > 0) {
+            MMB_TYPE block = mmb_load(block_ptr);
+            MMB_TYPE mask = mmb_mask_zero_to_nocheck(level_bits);
+            if ((block & mask) != mask) {
+                return 0;
+            }
+        }
+
+        if (ks == 0) {
+            break;
+        }
+
+        ks -= MMB_KEY_SHIFT;
+        level++;
+    }
+
+    return 1;
+}
+
+/** \brief True if all keys are on. Guaranteed precise. */
+static really_inline
+char mmbit_all(const u8 *bits, u32 total_bits) {
+    MDEBUG_PRINTF("%p total_bits %u\n", bits, total_bits);
+
+    if (mmbit_is_flat_model(total_bits)) {
+        return mmbit_all_flat(bits, total_bits);
+    }
+    return mmbit_all_big(bits, total_bits);
+}
+
+static really_inline
 MMB_TYPE get_flat_masks(u32 base, u32 it_start, u32 it_end) {
     if (it_end <= base) {
         return 0;
@@ -742,7 +820,7 @@ u32 mmbit_iterate_bounded_big(const u8 *bits, u32 total_bits, u32 it_start, u32 
     for (;;) {
         assert(level <= max_level);
 
-        u32 block_width = MMB_KEY_BITS << ks;
+        u64a block_width = MMB_KEY_BITS << ks;
         u64a block_base = key * block_width;
         u64a block_min = MAX(it_start, block_base);
         u64a block_max = MIN(it_end, block_base + block_width - 1);

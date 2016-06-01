@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,13 +31,13 @@
 #include "grey.h"
 #include "hs_internal.h"
 #include "rose_build_anchored.h"
+#include "rose_build_castle.h"
 #include "rose_build_convert.h"
 #include "rose_build_dump.h"
 #include "rose_build_merge.h"
 #include "rose_build_role_aliasing.h"
 #include "rose_build_util.h"
 #include "ue2common.h"
-#include "nfa/castlecompile.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/rdfa.h"
 #include "nfagraph/ng_holder.h"
@@ -46,7 +46,6 @@
 #include "nfagraph/ng_is_equal.h"
 #include "nfagraph/ng_limex.h"
 #include "nfagraph/ng_mcclellan.h"
-#include "nfagraph/ng_puff.h"
 #include "nfagraph/ng_repeat.h"
 #include "nfagraph/ng_reports.h"
 #include "nfagraph/ng_stop.h"
@@ -248,39 +247,38 @@ bool isUsedLiteral(const RoseBuildImpl &build, u32 lit_id) {
     return false;
 }
 
+/** \brief Allocate final literal IDs for all literals.
+ *
+ * These are the literal ids used in the bytecode.
+ */
 static
 void allocateFinalLiteralId(RoseBuildImpl &tbi) {
-    /* allocate final literal ids - these are the literal ids used in the
-     * bytecode.
-     * DRs already have special final ids allocated
-     */
-
     RoseGraph &g = tbi.g;
 
     set<u32> anch;
     set<u32> norm;
-    set<u32> norm_benefits;
     set<u32> delay;
 
     /* undelayed ids come first */
     assert(tbi.final_id_to_literal.empty());
     u32 next_final_id = 0;
     for (u32 i = 0; i < tbi.literal_info.size(); i++) {
-        if (tbi.hasFinalId(i)) {
-            continue;
-        }
+        assert(!tbi.hasFinalId(i));
 
         if (!isUsedLiteral(tbi, i)) {
             /* what is this literal good for? absolutely nothing */
             continue;
         }
 
-        const rose_literal_info &info = tbi.literal_info[i];
-        if (info.requires_benefits) {
-            assert(!tbi.isDelayed(i));
-            norm_benefits.insert(i);
-            DEBUG_PRINTF("%u has benefits\n", i);
-        } else if (tbi.isDelayed(i)) {
+        // The special EOD event literal has its own program and does not need
+        // a real literal ID.
+        if (i == tbi.eod_event_literal_id) {
+            assert(tbi.eod_event_literal_id != MO_INVALID_IDX);
+            continue;
+        }
+
+        if (tbi.isDelayed(i)) {
+            assert(!tbi.literal_info[i].requires_benefits);
             delay.insert(i);
         } else if (tbi.literals.right.at(i).table == ROSE_ANCHORED) {
             anch.insert(i);
@@ -289,12 +287,7 @@ void allocateFinalLiteralId(RoseBuildImpl &tbi) {
         }
     }
 
-    /* normal lits first (with benefits confirm)*/
-    allocateFinalIdToSet(g, norm_benefits, &tbi.literal_info,
-                         &tbi.final_id_to_literal, &next_final_id);
-
-    /* other normal lits (without benefits)*/
-    tbi.nonbenefits_base_id = next_final_id;
+    /* normal lits */
     allocateFinalIdToSet(g, norm, &tbi.literal_info, &tbi.final_id_to_literal,
                          &next_final_id);
 
@@ -307,51 +300,6 @@ void allocateFinalLiteralId(RoseBuildImpl &tbi) {
     tbi.delay_base_id = next_final_id;
     allocateFinalIdToSet(g, delay, &tbi.literal_info, &tbi.final_id_to_literal,
                          &next_final_id);
-}
-
-static
-void findDirectReports(RoseBuildImpl &tbi) {
-    const RoseGraph &g = tbi.g;
-
-    for (u32 i = 0; i < tbi.literal_info.size(); i++) {
-        if (!tbi.isDirectReport(i)) {
-            continue;
-        }
-
-        if (tbi.literals.right.at(i).table == ROSE_FLOATING) {
-            tbi.floating_direct_report = true;
-        }
-
-        rose_literal_info &info = tbi.literal_info[i];
-        const auto &verts = info.vertices;
-
-        assert(!verts.empty());
-        if (verts.size() == 1 && g[*verts.begin()].reports.size() == 1) {
-            // A single direct report. We set the high bit to indicate it's a
-            // direct report and encode the ReportID itself in the final_id
-            // field.
-            ReportID report = *(g[*verts.begin()].reports.begin());
-            assert(!(report & LITERAL_DR_FLAG));
-            info.final_id = LITERAL_DR_FLAG | report;
-        } else {
-            // A multi-direct report. Here we write the report set into a list
-            // to be triggered when we see this literal.
-            u32 mdr_index = verify_u32(tbi.mdr_reports.size());
-            info.final_id = LITERAL_MDR_FLAG | mdr_index;
-
-            // Temporary set for deduplication and determinism.
-            flat_set<ReportID> reports;
-
-            for (auto v : verts) {
-                insert(&reports, g[v].reports);
-            }
-            tbi.mdr_reports.insert(tbi.mdr_reports.end(), reports.begin(),
-                                   reports.end());
-            tbi.mdr_reports.push_back(MO_INVALID_IDX);
-        }
-
-        DEBUG_PRINTF("allocating final id %u to %u\n", info.final_id, i);
-    }
 }
 
 #define MAX_EXPLOSION_NC 3
@@ -486,21 +434,6 @@ size_t trailerDueToSelf(const rose_literal_id &lit) {
     return trailer;
 }
 
-/* note: last byte cannot conflict as escapes are processed after other
- * lits at same offset */
-static
-bool conflictsWithEscape(const rose_literal_id &litv, const CharReach &cr) {
-    if (cr.none()) {
-        return false;
-    }
-
-    if (litv.delay) {
-        return true;
-    }
-
-    return contains(litv.s, cr);
-}
-
 static
 RoseRoleHistory findHistoryScheme(const RoseBuildImpl &tbi, const RoseEdge &e) {
     const RoseGraph &g = tbi.g;
@@ -611,19 +544,21 @@ bool RoseBuildImpl::isDirectReport(u32 id) const {
     // role's reports from a list.
 
     for (auto v : info.vertices) {
-        if (g[v].literals.size() != 1) {
-            return false; // Avoid roles with multiple literals at this stage.
-        }
-
-        assert(*g[v].literals.begin() == id);
+        assert(contains(g[v].literals, id));
 
         if (g[v].reports.empty() ||
             g[v].eod_accept || // no accept EOD
-            g[v].escapes.any() ||
             !g[v].isBoring() ||
             !isLeafNode(v, g) || // Must have no out-edges
             in_degree(v, g) != 1) { // Role must have exactly one in-edge
             return false;
+        }
+
+        // Use the program to handle cases that aren't external reports.
+        for (const ReportID &id : g[v].reports) {
+            if (!isExternalReport(rm.getReport(id))) {
+                return false;
+            }
         }
 
         if (literals.right.at(id).table == ROSE_ANCHORED) {
@@ -923,60 +858,8 @@ bool RoseBuildImpl::isDelayed(u32 id) const {
     return literal_info.at(id).undelayed_id != id;
 }
 
-bool RoseBuildImpl::hasDirectFinalId(u32 id) const {
-    return literal_info.at(id).final_id & LITERAL_MDR_FLAG;
-}
-
-bool RoseBuildImpl::hasDirectFinalId(RoseVertex v) const {
-    if (g[v].literals.empty()) {
-        return false;
-    }
-    return hasDirectFinalId(*g[v].literals.begin());
-}
-
 bool RoseBuildImpl::hasFinalId(u32 id) const {
     return literal_info.at(id).final_id != MO_INVALID_IDX;
-}
-
-static
-void doSidecarLiterals(RoseBuildImpl &tbi) {
-    map<CharReach, set<RoseVertex> > escapes;
-    const RoseGraph &g = tbi.g;
-
-    /* find escapes */
-    for (auto v : vertices_range(g)) {
-        const CharReach &cr = g[v].escapes;
-        if (cr.none()) {
-            continue;
-        }
-
-        DEBUG_PRINTF("vertex %zu has %zu escapes\n", g[v].idx, cr.count());
-
-        // We only have an implementation for these escapes if the Sidecar is
-        // available for use.
-        assert(tbi.cc.grey.allowSidecar);
-
-        assert(!isLeafNode(v, g));
-
-        /* Verify that all the successors are floating */
-        for (UNUSED auto w : adjacent_vertices_range(v, g)) {
-            assert(!tbi.isAnchored(w));
-        }
-
-        escapes[cr].insert(v);
-    }
-
-    if (escapes.size() > 32) {
-        /* ensure that a most one sparse iterator is triggered per char */
-        escapes = make_disjoint(escapes);
-    }
-
-    /* create the squash/escape sidecar entries for the vertices and associate
-     * with appropriate roles */
-    for (const auto &e : escapes) {
-        const CharReach &cr = e.first;
-        insert(&tbi.side_squash_roles[cr], e.second);
-    }
 }
 
 static
@@ -1312,42 +1195,6 @@ bool coversGroup(const RoseBuildImpl &tbi, const rose_literal_info &lit_info) {
 }
 
 static
-bool escapesAllPreds(const RoseGraph &g, RoseVertex v, const CharReach &cr) {
-    for (auto u : inv_adjacent_vertices_range(v, g)) {
-        if ((~g[u].escapes & cr).any()) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-static
-bool mayNotSeeSubsequentPredsInOrder(const RoseBuildImpl &tbi, RoseVertex v) {
-    const RoseGraph &g = tbi.g;
-
-    if (in_degree(v, g) == 1) {
-        /* if the pred can only match once, there are no subsequent preds */
-        RoseVertex u = source(*in_edges(v, g).first, g);
-        if (g[u].max_offset == g[u].min_offset) {
-            return false;
-        }
-    }
-
-    for (auto u : inv_adjacent_vertices_range(v, g)) {
-        for (u32 lit_id : g[u].literals) {
-            const rose_literal_id &lit = tbi.literals.right.at(lit_id);
-            if (lit.table == ROSE_ANCHORED) {
-                return true;
-            }
-        }
-
-    }
-
-    return false;
-}
-
-static
 bool isGroupSquasher(const RoseBuildImpl &tbi, const u32 id /* literal id */,
                      rose_group forbidden_squash_group) {
     const RoseGraph &g = tbi.g;
@@ -1403,35 +1250,6 @@ bool isGroupSquasher(const RoseBuildImpl &tbi, const u32 id /* literal id */,
             return false;
         }
 
-        /* Can only squash cases with escapes if all preds have the same escapes
-         * and none of the literals overlap with the escape
-         *
-         * Additionally, if we may not see one of the preds in time to turn on
-         * the group again we have problems.
-         *
-         * ARGHHHH
-         */
-        if (g[v].escapes.any()) {
-            if (!escapesAllPreds(g, v, g[v].escapes)
-                || mayNotSeeSubsequentPredsInOrder(tbi, v)) {
-                return false;
-            }
-
-            if (g[v].literals.size() == 1) {
-                if (conflictsWithEscape(tbi.literals.right.at(id),
-                                        g[v].escapes)) {
-                    return false;
-                }
-            } else {
-                for (const auto &lit_id : g[v].literals) {
-                    const rose_literal_id &lit = tbi.literals.right.at(lit_id);
-                    if (lit.delay || contains(lit.s, g[v].escapes)) {
-                        return false;
-                    }
-                }
-            }
-        }
-
         // Out-edges must have inf max bound, + no other shenanigans */
         for (const auto &e : out_edges_range(v, g)) {
             if (g[e].maxBound != ROSE_BOUND_INF) {
@@ -1454,9 +1272,8 @@ bool isGroupSquasher(const RoseBuildImpl &tbi, const u32 id /* literal id */,
     for (auto v : lit_info.vertices) {
         assert(!tbi.isAnyStart(v));
 
-        // Can't squash cases with accepts or escapes
-        if (!g[v].reports.empty()
-            || (g[v].escapes.any() && !escapesAllPreds(g, v, g[v].escapes))) {
+        // Can't squash cases with accepts
+        if (!g[v].reports.empty()) {
             return false;
         }
 
@@ -1607,24 +1424,6 @@ map<left_id, vector<RoseVertex>> findLeftSucc(RoseBuildImpl &tbi) {
 }
 
 static
-ue2_literal findNonOverlappingTail(const set<ue2_literal> &lits,
-                                   const ue2_literal &s) {
-    size_t max_overlap = 0;
-
-    for (const auto &lit : lits) {
-        size_t overlap = lit != s ? maxStringOverlap(lit, s)
-                                  : maxStringSelfOverlap(s);
-        max_overlap = max(max_overlap, overlap);
-    }
-
-    /* find the tail that doesn't overlap */
-    ue2_literal tail = s.substr(max_overlap);
-    DEBUG_PRINTF("%zu overlap, tail: '%s'\n", max_overlap,
-                 dumpString(tail).c_str());
-    return tail;
-}
-
-static
 bool triggerKillsRoseGraph(const RoseBuildImpl &tbi, const left_id &left,
                            const set<ue2_literal> &all_lits,
                            const RoseEdge &e) {
@@ -1652,47 +1451,6 @@ bool triggerKillsRoseGraph(const RoseBuildImpl &tbi, const left_id &left,
         if (!states.empty()) {
             return false;
         }
-    }
-
-    return true;
-}
-
-static
-bool triggerKillsRoseCastle(const RoseBuildImpl &tbi, const left_id &left,
-                            const set<ue2_literal> &all_lits,
-                            const RoseEdge &e) {
-    assert(left.castle());
-    const CastleProto &c = *left.castle();
-
-    const depth max_width = findMaxWidth(c);
-    DEBUG_PRINTF("castle max width is %s\n", max_width.str().c_str());
-
-    /* check each pred literal to see if they all kill previous castle
-     * state */
-    for (u32 lit_id : tbi.g[source(e, tbi.g)].literals) {
-        const rose_literal_id &pred_lit = tbi.literals.right.at(lit_id);
-        const ue2_literal s = findNonOverlappingTail(all_lits, pred_lit.s);
-        const CharReach &cr = c.reach();
-
-        DEBUG_PRINTF("s=%s, castle reach=%s\n", dumpString(s).c_str(),
-                      describeClass(cr).c_str());
-
-        for (const auto &s_cr : s) {
-            if (!overlaps(cr, s_cr)) {
-                DEBUG_PRINTF("reach %s kills castle\n",
-                             describeClass(s_cr).c_str());
-                goto next_pred;
-            }
-        }
-
-        if (max_width < depth(s.length())) {
-            DEBUG_PRINTF("literal width >= castle max width\n");
-            goto next_pred;
-        }
-
-        return false;
-
-    next_pred:;
     }
 
     return true;
@@ -1968,7 +1726,6 @@ void addSmallBlockLiteral(RoseBuildImpl &tbi, const simple_anchored_info &sai,
             // Clone vertex with the new literal ID.
             RoseVertex v = add_vertex(g[lit_v], g);
             g[v].idx = tbi.vertexIndex++;
-            g[v].escapes.clear();
             g[v].literals.clear();
             g[v].literals.insert(lit_id);
             g[v].min_offset = sai.min_bound + sai.literal.length();
@@ -2147,8 +1904,8 @@ bool extractSEPLiterals(const OutfixInfo &outfix, const ReportManager &rm,
     // SEP cases should always become DFAs, so that's the only extract code we
     // have implemented here.
 
-    if (outfix.rdfa) {
-        return extractSEPLiterals(*outfix.rdfa, lits_out);
+    if (outfix.rdfa()) {
+        return extractSEPLiterals(*outfix.rdfa(), lits_out);
     }
 
     DEBUG_PRINTF("cannot extract literals from outfix type\n");
@@ -2228,232 +1985,6 @@ void addAnchoredSmallBlockLiterals(RoseBuildImpl &tbi) {
     for (OutfixInfo *oi : sep_outfixes) {
         assert(oi);
         oi->in_sbmatcher = true;
-    }
-}
-
-static
-void makeCastle(LeftEngInfo &left,
-        ue2::unordered_map<const NGHolder *, shared_ptr<CastleProto> > &cache) {
-    if (left.dfa || left.haig || left.castle) {
-        return;
-    }
-    if (!left.graph) {
-        return;
-    }
-
-    const NGHolder &h = *left.graph;
-    DEBUG_PRINTF("prefix %p\n", &h);
-
-    if (contains(cache, &h)) {
-        DEBUG_PRINTF("using cached CastleProto\n");
-        left.castle = cache[&h];
-        left.graph.reset();
-        return;
-    }
-
-    PureRepeat pr;
-    if (isPureRepeat(h, pr) && pr.reports.size() == 1) {
-        DEBUG_PRINTF("vertex preceded by infix repeat %s\n",
-                     pr.bounds.str().c_str());
-        left.castle = make_shared<CastleProto>(pr);
-        cache[&h] = left.castle;
-        left.graph.reset();
-    }
-}
-
-static
-void makeCastleSuffix(RoseBuildImpl &tbi, RoseVertex v,
-        ue2::unordered_map<const NGHolder *, shared_ptr<CastleProto> > &cache) {
-    RoseSuffixInfo &suffix = tbi.g[v].suffix;
-    if (!suffix.graph) {
-        return;
-    }
-    const NGHolder &h = *suffix.graph;
-    DEBUG_PRINTF("suffix %p\n", &h);
-
-    if (contains(cache, &h)) {
-        DEBUG_PRINTF("using cached CastleProto\n");
-        suffix.castle = cache[&h];
-        suffix.graph.reset();
-        return;
-    }
-
-    // The MPV will probably do a better job on the cases it's designed
-    // for.
-    const bool fixed_depth = tbi.g[v].min_offset == tbi.g[v].max_offset;
-    if (isPuffable(h, fixed_depth, tbi.rm, tbi.cc.grey)) {
-        DEBUG_PRINTF("leaving suffix for puff\n");
-        return;
-    }
-
-    PureRepeat pr;
-    if (isPureRepeat(h, pr) && pr.reports.size() == 1) {
-        DEBUG_PRINTF("suffix repeat %s\n", pr.bounds.str().c_str());
-
-        // Right now, the Castle uses much more stream state to represent a
-        // {m,1} repeat than just leaving it to an NFA.
-        if (pr.bounds.max <= depth(1)) {
-            DEBUG_PRINTF("leaving for other engines\n");
-            return;
-        }
-
-        suffix.castle = make_shared<CastleProto>(pr);
-        cache[&h] = suffix.castle;
-        suffix.graph.reset();
-    }
-}
-
-/**
- * Runs over all rose infix/suffix engines and converts those that are pure
- * repeats with one report into CastleProto engines.
- */
-static
-void makeCastles(RoseBuildImpl &tbi) {
-    if (!tbi.cc.grey.allowCastle && !tbi.cc.grey.allowLbr) {
-        return;
-    }
-
-    RoseGraph &g = tbi.g;
-
-    // Caches so that we can reuse analysis on graphs we've seen already.
-    ue2::unordered_map<const NGHolder *, shared_ptr<CastleProto> > left_cache;
-    ue2::unordered_map<const NGHolder *, shared_ptr<CastleProto> > suffix_cache;
-
-    for (auto v : vertices_range(g)) {
-        if (g[v].left && !tbi.isRootSuccessor(v)) {
-            makeCastle(g[v].left, left_cache);
-        }
-
-        if (g[v].suffix) {
-            makeCastleSuffix(tbi, v, suffix_cache);
-        }
-    }
-}
-
-/**
- * Identifies all the CastleProto prototypes that are small enough that they
- * would be better implemented as NFAs, and converts them back to NGHolder
- * prototypes.
- *
- * Returns true if any changes were made.
- */
-static
-bool unmakeCastles(RoseBuildImpl &tbi) {
-    RoseGraph &g = tbi.g;
-
-    const size_t MAX_UNMAKE_VERTICES = 64;
-
-    map<left_id, vector<RoseVertex> > left_castles;
-    map<suffix_id, vector<RoseVertex> > suffix_castles;
-    bool changed = false;
-
-    for (auto v : vertices_range(g)) {
-        const LeftEngInfo &left = g[v].left;
-        if (left.castle && left.castle->repeats.size() > 1) {
-            left_castles[left].push_back(v);
-        }
-        const RoseSuffixInfo &suffix = g[v].suffix;
-        if (suffix.castle && suffix.castle->repeats.size() > 1) {
-            suffix_castles[suffix].push_back(v);
-        }
-    }
-
-    for (const auto &e : left_castles) {
-        assert(e.first.castle());
-        shared_ptr<NGHolder> h = makeHolder(*e.first.castle(), NFA_INFIX,
-                                            tbi.cc);
-        if (!h || num_vertices(*h) > MAX_UNMAKE_VERTICES) {
-            continue;
-        }
-        DEBUG_PRINTF("replace rose with holder (%zu vertices)\n",
-                     num_vertices(*h));
-        for (auto v : e.second) {
-            assert(g[v].left.castle.get() == e.first.castle());
-            g[v].left.graph = h;
-            g[v].left.castle.reset();
-            changed = true;
-        }
-    }
-
-    for (const auto &e : suffix_castles) {
-        assert(e.first.castle());
-        shared_ptr<NGHolder> h = makeHolder(*e.first.castle(), NFA_SUFFIX,
-                                            tbi.cc);
-        if (!h || num_vertices(*h) > MAX_UNMAKE_VERTICES) {
-            continue;
-        }
-        DEBUG_PRINTF("replace suffix with holder (%zu vertices)\n",
-                     num_vertices(*h));
-        for (auto v : e.second) {
-            assert(g[v].suffix.castle.get() == e.first.castle());
-            g[v].suffix.graph = h;
-            g[v].suffix.castle.reset();
-            changed = true;
-        }
-    }
-
-    return changed;
-}
-
-/**
- * Runs over all the Castle engine prototypes in the graph and ensures that
- * they have tops in a contiguous range, ready for construction.
- */
-static
-void remapCastleTops(RoseBuildImpl &tbi) {
-    ue2::unordered_map<CastleProto *, vector<RoseVertex> > rose_castles;
-    ue2::unordered_map<CastleProto *, vector<RoseVertex> > suffix_castles;
-
-    RoseGraph &g = tbi.g;
-    for (auto v : vertices_range(g)) {
-        if (g[v].left.castle) {
-            rose_castles[g[v].left.castle.get()].push_back(v);
-        }
-        if (g[v].suffix.castle) {
-            suffix_castles[g[v].suffix.castle.get()].push_back(v);
-        }
-    }
-
-    DEBUG_PRINTF("%zu rose castles, %zu suffix castles\n", rose_castles.size(),
-                  suffix_castles.size());
-
-    map<u32, u32> top_map;
-
-    // Remap Rose Castles.
-    for (const auto &rc : rose_castles) {
-        CastleProto *c = rc.first;
-        const vector<RoseVertex> &verts = rc.second;
-
-        DEBUG_PRINTF("rose castle %p (%zu repeats) has %zu verts\n", c,
-                      c->repeats.size(), verts.size());
-
-        top_map.clear();
-        remapCastleTops(*c, top_map);
-
-        // Update the tops on the edges leading into vertices in v.
-        for (auto v : verts) {
-            for (const auto &e : in_edges_range(v, g)) {
-                g[e].rose_top = top_map.at(g[e].rose_top);
-            }
-        }
-    }
-
-    // Remap Suffix Castles.
-    for (const auto &e : suffix_castles) {
-        CastleProto *c = e.first;
-        const vector<RoseVertex> &verts = e.second;
-
-        DEBUG_PRINTF("suffix castle %p (%zu repeats) has %zu verts\n", c,
-                      c->repeats.size(), verts.size());
-
-        top_map.clear();
-        remapCastleTops(*c, top_map);
-
-        // Update the tops on the suffixes.
-        for (auto v : verts) {
-            assert(g[v].suffix);
-            g[v].suffix.top = top_map.at(g[v].suffix.top);
-        }
     }
 }
 
@@ -2564,53 +2095,6 @@ bool hasOrphanedTops(const RoseBuildImpl &tbi) {
 
 #endif // NDEBUG
 
-/**
- * \brief Normalise vertices so that every one has <= 1 report.
- */
-static
-void normaliseRoles(RoseBuildImpl &build) {
-    DEBUG_PRINTF("normalising\n");
-    RoseGraph &g = build.g;
-
-    vector<RoseVertex> work; // Vertices with > 1 report.
-
-    for (const auto &v : vertices_range(g)) {
-        if (g[v].reports.size() > 1) {
-            work.push_back(v);
-        }
-    }
-
-    DEBUG_PRINTF("%zu vertices to normalise\n", work.size());
-
-    for (const auto &v : work) {
-        DEBUG_PRINTF("exploding vertex %zu with %zu reports\n", g[v].idx,
-                     g[v].reports.size());
-
-        // Make a copy of v for the trailing N-1 reports. Each of those gets
-        // one report and a copy of the in-edges. The first vertex retains the
-        // out-edges and suffix, if any are present. All the others don't need
-        // them.
-
-        const auto &reports = g[v].reports;
-
-        for (auto it = next(begin(reports)); it != end(reports); ++it) {
-            const ReportID &r = *it;
-            RoseVertex v2 = build.cloneVertex(v);
-            g[v2].reports = {r};
-
-            for (const auto &e : in_edges_range(v, g)) {
-                add_edge(source(e, g), v2, g[e], g);
-            }
-
-            // No out-edges or suffix.
-            g[v2].suffix.reset();
-        }
-
-        // Vertex v retains the first report.
-        g[v].reports = {*begin(reports)};
-    }
-}
-
 aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
     dumpRoseGraph(*this, nullptr, "rose_early.dot");
 
@@ -2632,9 +2116,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
 
     // If we've got a very small number of EOD-anchored literals, consider
     // moving them into the floating table so that we only have one literal
-    // matcher to run. Note that this should happen before findDirectReports as
-    // it modifies the literal/vertex set. Note also that this needs to happen
-    // before addAnchoredSmallBlockLiterals as it may create anchored literals.
+    // matcher to run. Note that this needs to happen before
+    // addAnchoredSmallBlockLiterals as it may create anchored literals.
     assert(roleOffsetsAreValid(g));
     stealEodVertices(*this);
 
@@ -2649,8 +2132,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
 
     assert(roleOffsetsAreValid(g));
     handleMixedSensitivity();
-
-    findDirectReports(*this);
 
     assignHistories(*this);
 
@@ -2704,9 +2185,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
     assignGroupsToRoles();
     findGroupSquashers(*this);
 
-    // Collect squash literals for the sidecar
-    doSidecarLiterals(*this);
-
     /* final prep work */
     remapCastleTops(*this);
     allocateFinalLiteralId(*this);
@@ -2727,10 +2205,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
     assert(historiesAreValid(g));
 
     dumpRoseGraph(*this, nullptr, "rose_pre_norm.dot");
-
-    // Ensure that every vertex has <= 1 report, since the Rose runtime
-    // requires this at present.
-    normaliseRoles(*this);
 
     return buildFinalEngine(minWidth);
 }

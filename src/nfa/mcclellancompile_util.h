@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,16 +29,21 @@
 #ifndef MCCLELLAN_COMPILE_UTIL_H
 #define MCCLELLAN_COMPILE_UTIL_H
 
+#include "rdfa.h"
 #include "ue2common.h"
 
 #include <set>
 
 namespace ue2 {
 
-struct raw_dfa;
-
 u32 remove_leading_dots(raw_dfa &raw);
-void prune_overlong(raw_dfa &raw, u32 max_offset);
+
+/**
+ * Prunes any states which cannot be reached within max_offset from start of
+ * stream. Returns false if no changes are made to the rdfa
+ */
+bool prune_overlong(raw_dfa &raw, u32 max_offset);
+
 std::set<ReportID> all_reports(const raw_dfa &rdfa);
 bool has_eod_accepts(const raw_dfa &rdfa);
 bool has_non_eod_accepts(const raw_dfa &rdfa);
@@ -49,6 +54,8 @@ size_t hash_dfa_no_reports(const raw_dfa &rdfa);
 
 /** \brief Compute a simple hash of this raw_dfa, including its reports. */
 size_t hash_dfa(const raw_dfa &rdfa);
+
+dstate_id_t get_sds_or_proxy(const raw_dfa &raw);
 
 } // namespace ue2
 

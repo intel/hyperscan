@@ -15,9 +15,6 @@
 /* internal build, switch on dump support. */
 #cmakedefine DUMP_SUPPORT
 
-/* Build tools with threading support */
-#cmakedefine ENABLE_TOOLS_THREADS
-
 /* Define to 1 if `backtrace' works. */
 #cmakedefine HAVE_BACKTRACE
 
@@ -39,10 +36,6 @@
 /* C compiler has intrin.h */
 #cmakedefine HAVE_C_INTRIN_H
 
-/* Define to 1 if you have the declaration of `pthread_barrier_init', and to 0
-   if you don't. */
-#cmakedefine HAVE_DECL_PTHREAD_BARRIER_INIT
-
 /* Define to 1 if you have the declaration of `pthread_setaffinity_np', and to
    0 if you don't. */
 #cmakedefine HAVE_DECL_PTHREAD_SETAFFINITY_NP
@@ -58,9 +51,6 @@
 
 /* Define to 1 if `posix_memalign' works. */
 #cmakedefine HAVE_POSIX_MEMALIGN
-
-/* Define to 1 if you have the <pthread.h> header file. */
-#cmakedefine HAVE_PTHREAD_H
 
 /* Define to 1 if you have the `setrlimit' function. */
 #cmakedefine HAVE_SETRLIMIT

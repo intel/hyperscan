@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,7 @@
 #include "util/alloc.h"
 #include "util/make_unique.h"
 #include "util/simd_utils.h"
-
+#include "util/simd_utils_ssse3.h"
 
 using namespace std;
 using namespace ue2;
@@ -639,5 +639,59 @@ TEST(SimdUtilsTest, set2x128) {
     }
 }
 #endif
+
+TEST(SimdUtilsTest, variableByteShift128) {
+    char base[] = "0123456789ABCDEF";
+    m128 in = loadu128(base);
+
+    EXPECT_TRUE(!diff128(byteShiftRight128(in, 0),
+                         variable_byte_shift_m128(in, 0)));
+    EXPECT_TRUE(!diff128(byteShiftRight128(in, 1),
+                         variable_byte_shift_m128(in, -1)));
+    EXPECT_TRUE(!diff128(byteShiftRight128(in, 2),
+                         variable_byte_shift_m128(in, -2)));
+    EXPECT_TRUE(!diff128(byteShiftRight128(in, 3),
+                         variable_byte_shift_m128(in, -3)));
+    EXPECT_TRUE(!diff128(byteShiftRight128(in, 4),
+                         variable_byte_shift_m128(in, -4)));
+    EXPECT_TRUE(!diff128(byteShiftRight128(in, 5),
+                         variable_byte_shift_m128(in, -5)));
+    EXPECT_TRUE(!diff128(byteShiftRight128(in, 6),
+                         variable_byte_shift_m128(in, -6)));
+    EXPECT_TRUE(!diff128(byteShiftRight128(in, 7),
+                         variable_byte_shift_m128(in, -7)));
+    EXPECT_TRUE(!diff128(byteShiftRight128(in, 8),
+                         variable_byte_shift_m128(in, -8)));
+    EXPECT_TRUE(!diff128(byteShiftRight128(in, 9),
+                         variable_byte_shift_m128(in, -9)));
+    EXPECT_TRUE(!diff128(byteShiftRight128(in, 10),
+                         variable_byte_shift_m128(in, -10)));
+
+    EXPECT_TRUE(!diff128(byteShiftLeft128(in, 0),
+                         variable_byte_shift_m128(in, 0)));
+    EXPECT_TRUE(!diff128(byteShiftLeft128(in, 1),
+                         variable_byte_shift_m128(in, 1)));
+    EXPECT_TRUE(!diff128(byteShiftLeft128(in, 2),
+                         variable_byte_shift_m128(in, 2)));
+    EXPECT_TRUE(!diff128(byteShiftLeft128(in, 3),
+                         variable_byte_shift_m128(in, 3)));
+    EXPECT_TRUE(!diff128(byteShiftLeft128(in, 4),
+                         variable_byte_shift_m128(in, 4)));
+    EXPECT_TRUE(!diff128(byteShiftLeft128(in, 5),
+                         variable_byte_shift_m128(in, 5)));
+    EXPECT_TRUE(!diff128(byteShiftLeft128(in, 6),
+                         variable_byte_shift_m128(in, 6)));
+    EXPECT_TRUE(!diff128(byteShiftLeft128(in, 7),
+                         variable_byte_shift_m128(in, 7)));
+    EXPECT_TRUE(!diff128(byteShiftLeft128(in, 8),
+                         variable_byte_shift_m128(in, 8)));
+    EXPECT_TRUE(!diff128(byteShiftLeft128(in, 9),
+                         variable_byte_shift_m128(in, 9)));
+    EXPECT_TRUE(!diff128(byteShiftLeft128(in, 10),
+                         variable_byte_shift_m128(in, 10)));
+
+    EXPECT_TRUE(!diff128(zeroes128(), variable_byte_shift_m128(in, 16)));
+    EXPECT_TRUE(!diff128(zeroes128(), variable_byte_shift_m128(in, -16)));
+}
 
 } // namespace

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -80,9 +80,11 @@ struct precalcAccel {
     CharReach double_cr;
     flat_set<pair<u8, u8>> double_lits; /* double-byte accel stop literals */
     u32 double_offset;
+
+    MultibyteAccelInfo ma_info;
 };
 
-struct meteor_accel_info {
+struct limex_accel_info {
     ue2::unordered_set<NFAVertex> accelerable;
     map<NFAStateSet, precalcAccel> precalc;
     ue2::unordered_map<NFAVertex, flat_set<NFAVertex> > friends;
@@ -162,7 +164,7 @@ struct build_info {
     bool stateCompression;
     const CompileContext &cc;
     u32 num_states;
-    meteor_accel_info accel;
+    limex_accel_info accel;
 };
 
 // Constants for scoring mechanism
@@ -334,12 +336,16 @@ void buildReachMapping(const build_info &args, vector<NFAStateSet> &reach,
 }
 
 struct AccelBuild {
-    AccelBuild() : v(NFAGraph::null_vertex()), state(0), offset(0) {}
+    AccelBuild() : v(NFAGraph::null_vertex()), state(0), offset(0), ma_len1(0),
+            ma_len2(0), ma_type(MultibyteAccelInfo::MAT_NONE) {}
     NFAVertex v;
     u32 state;
     u32 offset; // offset correction to apply
     CharReach stop1; // single-byte accel stop literals
     flat_set<pair<u8, u8>> stop2; // double-byte accel stop literals
+    u32 ma_len1; // multiaccel len1
+    u32 ma_len2; // multiaccel len2
+    MultibyteAccelInfo::multiaccel_type ma_type; // multiaccel type
 };
 
 static
@@ -354,7 +360,12 @@ void findStopLiterals(const build_info &bi, NFAVertex v, AccelBuild &build) {
         build.stop1 = CharReach::dot();
     } else {
         const precalcAccel &precalc = bi.accel.precalc.at(ss);
-        if (precalc.double_lits.empty()) {
+        unsigned ma_len = precalc.ma_info.len1 + precalc.ma_info.len2;
+        if (ma_len >= MULTIACCEL_MIN_LEN) {
+            build.ma_len1 = precalc.ma_info.len1;
+            build.stop1 = precalc.ma_info.cr;
+            build.offset = precalc.ma_info.offset;
+        } else if (precalc.double_lits.empty()) {
             build.stop1 = precalc.single_cr;
             build.offset = precalc.single_offset;
         } else {
@@ -534,7 +545,7 @@ void filterAccelStates(NGHolder &g, const map<u32, NFAVertex> &tops,
 }
 
 static
-bool containsBadSubset(const meteor_accel_info &accel,
+bool containsBadSubset(const limex_accel_info &accel,
                        const NFAStateSet &state_set, const u32 effective_sds) {
     NFAStateSet subset(state_set.size());
     for (size_t j = state_set.find_first(); j != state_set.npos;
@@ -555,11 +566,29 @@ bool containsBadSubset(const meteor_accel_info &accel,
 }
 
 static
-void doAccelCommon(NGHolder &g,
-                   ue2::unordered_map<NFAVertex, AccelScheme> &accel_map,
-                   const ue2::unordered_map<NFAVertex, u32> &state_ids,
-                   const map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
-                   const u32 num_states, meteor_accel_info *accel) {
+bool is_too_wide(const AccelScheme &as) {
+    return as.cr.count() > MAX_MERGED_ACCEL_STOPS;
+}
+
+static
+void fillAccelInfo(build_info &bi) {
+    if (!bi.do_accel) {
+        return;
+    }
+
+    NGHolder &g = bi.h;
+    limex_accel_info &accel = bi.accel;
+    unordered_map<NFAVertex, AccelScheme> &accel_map = accel.accel_map;
+    const map<NFAVertex, BoundedRepeatSummary> &br_cyclic = bi.br_cyclic;
+    const CompileContext &cc = bi.cc;
+    const unordered_map<NFAVertex, u32> &state_ids = bi.state_ids;
+    const u32 num_states = bi.num_states;
+
+    nfaFindAccelSchemes(g, br_cyclic, &accel_map);
+    filterAccelStates(g, bi.tops, &accel_map);
+
+    assert(accel_map.size() <= NFA_MAX_ACCEL_STATES);
+
     vector<CharReach> refined_cr = reduced_cr(g, br_cyclic);
 
     vector<NFAVertex> astates;
@@ -590,7 +619,7 @@ void doAccelCommon(NGHolder &g,
             }
         }
 
-        if (containsBadSubset(*accel, state_set, effective_sds)) {
+        if (containsBadSubset(accel, state_set, effective_sds)) {
             DEBUG_PRINTF("accel %u has bad subset\n", i);
             continue; /* if a subset failed to build we would too */
         }
@@ -598,30 +627,37 @@ void doAccelCommon(NGHolder &g,
         const bool allow_wide = allow_wide_accel(states, g, sds_or_proxy);
 
         AccelScheme as = nfaFindAccel(g, states, refined_cr, br_cyclic,
-                                      allow_wide);
-        if (as.cr.count() > MAX_MERGED_ACCEL_STOPS) {
+                                      allow_wide, true);
+        if (is_too_wide(as)) {
             DEBUG_PRINTF("accel %u too wide (%zu, %d)\n", i,
                          as.cr.count(), MAX_MERGED_ACCEL_STOPS);
             continue;
         }
 
-        DEBUG_PRINTF("accel %u ok with offset %u\n", i, as.offset);
+        DEBUG_PRINTF("accel %u ok with offset s%u, d%u\n", i, as.offset,
+                     as.double_offset);
 
-        precalcAccel &pa = accel->precalc[state_set];
-        pa.single_offset = as.offset;
-        pa.single_cr = as.cr;
+        // try multibyte acceleration first
+        MultibyteAccelInfo mai = nfaCheckMultiAccel(g, states, cc);
+
+        precalcAccel &pa = accel.precalc[state_set];
         useful |= state_set;
 
-        if (states.size() == 1) {
-            DoubleAccelInfo b = findBestDoubleAccelInfo(g, states.front());
-            if (pa.single_cr.count() > b.stop1.count()) {
-                /* insert this information into the precalc accel info as it is
-                 * better than the single scheme */
-                pa.double_offset = b.offset;
-                pa.double_lits = b.stop2;
-                pa.double_cr = b.stop1;
-            }
+        // if we successfully built a multibyte accel scheme, use that
+        if (mai.type != MultibyteAccelInfo::MAT_NONE) {
+            pa.ma_info = mai;
+
+            DEBUG_PRINTF("multibyte acceleration!\n");
+            continue;
         }
+
+        pa.single_offset = as.offset;
+        pa.single_cr = as.cr;
+        if (as.double_byte.size() != 0) {
+            pa.double_offset = as.double_offset;
+            pa.double_lits = as.double_byte;
+            pa.double_cr = as.double_cr;
+        };
     }
 
     for (const auto &m : accel_map) {
@@ -638,29 +674,20 @@ void doAccelCommon(NGHolder &g,
         state_set.reset();
         state_set.set(state_id);
 
-        auto p_it = accel->precalc.find(state_set);
-        if (p_it != accel->precalc.end()) {
+        bool is_multi = false;
+        auto p_it = accel.precalc.find(state_set);
+        if (p_it != accel.precalc.end()) {
             const precalcAccel &pa = p_it->second;
             offset = max(pa.double_offset, pa.single_offset);
+            is_multi = pa.ma_info.type != MultibyteAccelInfo::MAT_NONE;
             assert(offset <= MAX_ACCEL_DEPTH);
         }
 
-        accel->accelerable.insert(v);
-        findAccelFriends(g, v, br_cyclic, offset, &accel->friends[v]);
+        accel.accelerable.insert(v);
+        if (!is_multi) {
+            findAccelFriends(g, v, br_cyclic, offset, &accel.friends[v]);
+        }
     }
-}
-
-static
-void fillAccelInfo(build_info &bi) {
-    if (!bi.do_accel) {
-        return;
-    }
-
-    nfaFindAccelSchemes(bi.h, bi.br_cyclic, &bi.accel.accel_map);
-    filterAccelStates(bi.h, bi.tops, &bi.accel.accel_map);
-    assert(bi.accel.accel_map.size() <= NFA_MAX_ACCEL_STATES);
-    doAccelCommon(bi.h, bi.accel.accel_map, bi.state_ids, bi.br_cyclic,
-                  bi.num_states, &bi.accel);
 }
 
 /** The AccelAux structure has large alignment specified, and this makes some
@@ -672,7 +699,7 @@ static
 void buildAccel(const build_info &args, NFAStateSet &accelMask,
                 NFAStateSet &accelFriendsMask, AccelAuxVector &auxvec,
                 vector<u8> &accelTable) {
-    const meteor_accel_info &accel = args.accel;
+    const limex_accel_info &accel = args.accel;
 
     // Init, all zeroes.
     accelMask.resize(args.num_states);
@@ -737,8 +764,16 @@ void buildAccel(const build_info &args, NFAStateSet &accelMask,
 
         if (contains(accel.precalc, states)) {
             const precalcAccel &precalc = accel.precalc.at(states);
-            ainfo.single_offset = precalc.single_offset;
-            ainfo.single_stops = precalc.single_cr;
+            if (precalc.ma_info.type != MultibyteAccelInfo::MAT_NONE) {
+                ainfo.ma_len1 = precalc.ma_info.len1;
+                ainfo.ma_len2 = precalc.ma_info.len2;
+                ainfo.multiaccel_offset = precalc.ma_info.offset;
+                ainfo.multiaccel_stops = precalc.ma_info.cr;
+                ainfo.ma_type = precalc.ma_info.type;
+            } else {
+                ainfo.single_offset = precalc.single_offset;
+                ainfo.single_stops = precalc.single_cr;
+            }
         }
 
         buildAccelAux(ainfo, &aux);
@@ -2152,7 +2187,7 @@ u32 countAccelStates(NGHolder &h,
 
     if (!cc.grey.allowLimExNFA) {
         DEBUG_PRINTF("limex not allowed\n");
-        return NFA_MAX_ACCEL_STATES + 1;
+        return 0;
     }
 
     // Sanity check the input data.
@@ -2166,11 +2201,11 @@ u32 countAccelStates(NGHolder &h,
                   do_accel, state_compression, cc, num_states);
 
     // Acceleration analysis.
-    fillAccelInfo(bi);
+    nfaFindAccelSchemes(bi.h, bi.br_cyclic, &bi.accel.accel_map);
 
-    u32 num_accel = verify_u32(bi.accel.accelerable.size());
+    u32 num_accel = verify_u32(bi.accel.accel_map.size());
     DEBUG_PRINTF("found %u accel states\n", num_accel);
-    return min(num_accel, (u32)NFA_MAX_ACCEL_STATES);
+    return num_accel;
 }
 
 } // namespace ue2

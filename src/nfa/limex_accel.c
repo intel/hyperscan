@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,6 +38,9 @@
 #include "nfa_internal.h"
 #include "shufti.h"
 #include "truffle.h"
+#include "multishufti.h"
+#include "multitruffle.h"
+#include "multivermicelli.h"
 #include "ue2common.h"
 #include "vermicelli.h"
 #include "util/bitutils.h"
@@ -45,74 +48,6 @@
 #include "util/simd_utils.h"
 #include "util/simd_utils_ssse3.h"
 #include "util/shuffle_ssse3.h"
-
-static
-const u8 *accelScan(const union AccelAux *aux, const u8 *ptr, const u8 *end) {
-    assert(ISALIGNED(aux)); // must be SIMD aligned for shufti
-    assert(end > ptr);
-    assert(end - ptr >= 16); // must be at least 16 bytes to scan
-
-    const u8 *start = ptr;
-    u8 offset;
-    switch (aux->accel_type) {
-    case ACCEL_VERM:
-        DEBUG_PRINTF("single vermicelli for 0x%02hhx\n", aux->verm.c);
-        offset = aux->verm.offset;
-        ptr = vermicelliExec(aux->verm.c, 0, ptr, end);
-        break;
-    case ACCEL_VERM_NOCASE:
-        DEBUG_PRINTF("single vermicelli-nocase for 0x%02hhx\n", aux->verm.c);
-        offset = aux->verm.offset;
-        ptr = vermicelliExec(aux->verm.c, 1, ptr, end);
-        break;
-    case ACCEL_DVERM:
-        DEBUG_PRINTF("double vermicelli for 0x%02hhx%02hhx\n",
-                     aux->dverm.c1, aux->dverm.c2);
-        offset = aux->dverm.offset;
-        ptr = vermicelliDoubleExec(aux->dverm.c1, aux->dverm.c2, 0, ptr, end);
-        break;
-    case ACCEL_DVERM_NOCASE:
-        DEBUG_PRINTF("double vermicelli-nocase for 0x%02hhx%02hhx\n",
-                     aux->dverm.c1, aux->dverm.c2);
-        offset = aux->dverm.offset;
-        ptr = vermicelliDoubleExec(aux->dverm.c1, aux->dverm.c2,
-                                   1, ptr, end);
-        break;
-    case ACCEL_SHUFTI:
-        DEBUG_PRINTF("single shufti\n");
-        offset = aux->shufti.offset;
-        ptr = shuftiExec(aux->shufti.lo, aux->shufti.hi, ptr, end);
-        break;
-    case ACCEL_DSHUFTI:
-        DEBUG_PRINTF("double shufti\n");
-        offset = aux->dshufti.offset;
-        ptr = shuftiDoubleExec(aux->dshufti.lo1, aux->dshufti.hi1,
-                               aux->dshufti.lo2, aux->dshufti.hi2, ptr, end);
-        break;
-    case ACCEL_TRUFFLE:
-        DEBUG_PRINTF("truffle shuffle\n");
-        offset = aux->truffle.offset;
-        ptr = truffleExec(aux->truffle.mask1, aux->truffle.mask2, ptr, end);
-        break;
-    case ACCEL_RED_TAPE:
-        ptr = end; /* there is no escape */
-        offset = aux->generic.offset;
-        break;
-    default:
-        /* no acceleration, fall through and return current ptr */
-        offset = 0;
-        break;
-    }
-
-    if (offset) {
-        ptr -= offset;
-        if (ptr < start) {
-            return start;
-        }
-    }
-
-    return ptr;
-}
 
 static really_inline
 size_t accelScanWrapper(const u8 *accelTable, const union AccelAux *aux,
@@ -134,7 +69,7 @@ size_t accelScanWrapper(const u8 *accelTable, const union AccelAux *aux,
     }
 
     aux = aux + aux_idx;
-    const u8 *ptr = accelScan(aux, &input[i], &input[end]);
+    const u8 *ptr = run_accel(aux, &input[i], &input[end]);
     assert(ptr >= &input[i]);
     size_t j = (size_t)(ptr - input);
     DEBUG_PRINTF("accel skipped %zu of %zu chars\n", (j - i), (end - i));

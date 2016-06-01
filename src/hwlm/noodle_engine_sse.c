@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -190,8 +190,8 @@ hwlm_error_t scanDoubleFast(const u8 *buf, size_t len, const u8 *key,
         m128 v = noCase ? and128(load128(d), caseMask) : load128(d);
         m128 z1 = eq128(mask1, v);
         m128 z2 = eq128(mask2, v);
-        u32 z = movemask128(and128(or128(lastz1, shiftLeft8Bits(z1)), z2));
-        lastz1 = _mm_srli_si128(z1, 15);
+        u32 z = movemask128(and128(palignr(z1, lastz1, 15), z2));
+        lastz1 = z1;
 
         // On large packet buffers, this prefetch appears to get us about 2%.
         __builtin_prefetch(d + 128);

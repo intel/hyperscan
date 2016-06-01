@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -404,7 +404,8 @@ TEST(HyperscanArgChecks, ScanStreamNoStreamID) {
     EXPECT_NE(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -430,8 +431,10 @@ TEST(HyperscanArgChecks, ScanStreamNoData) {
     EXPECT_NE(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_close_stream(stream, scratch, dummy_cb, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_close_stream(stream, scratch, dummy_cb, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -457,8 +460,10 @@ TEST(HyperscanArgChecks, ScanStreamNoScratch) {
     EXPECT_NE(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_close_stream(stream, scratch, dummy_cb, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_close_stream(stream, scratch, dummy_cb, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -479,7 +484,8 @@ TEST(HyperscanArgChecks, CloseStreamNoStream) {
     ASSERT_NE(HS_SUCCESS, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -544,7 +550,8 @@ TEST(HyperscanArgChecks, CloseStreamNoMatchNoStream) {
     ASSERT_NE(HS_SUCCESS, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -588,7 +595,8 @@ TEST(HyperscanArgChecks, ChangeStreamContext) {
 
     // teardown
     hs_free_database(db);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 }
 
 // hs_reset_stream: Call with no stream id
@@ -606,7 +614,8 @@ TEST(HyperscanArgChecks, ResetStreamNoId) {
 
     err = hs_reset_stream(nullptr, 0, scratch, dummy_cb, nullptr);
     ASSERT_EQ(HS_INVALID, err);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -632,7 +641,8 @@ TEST(HyperscanArgChecks, ResetStreamNoScratch) {
     ASSERT_EQ(HS_SUCCESS, err);
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -664,7 +674,8 @@ TEST(HyperscanArgChecks, CopyStreamNoToId) {
     ASSERT_EQ(HS_SUCCESS, err);
 
     hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -687,8 +698,10 @@ TEST(HyperscanArgChecks, ResetAndCopyStreamNoToId) {
     err = hs_reset_and_copy_stream(nullptr, stream, scratch, nullptr, nullptr);
     ASSERT_EQ(HS_INVALID, err);
 
-    hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_close_stream(stream, scratch, nullptr, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -711,8 +724,10 @@ TEST(HyperscanArgChecks, ResetAndCopyStreamNoFromId) {
     err = hs_reset_and_copy_stream(stream, nullptr, scratch, nullptr, nullptr);
     ASSERT_EQ(HS_INVALID, err);
 
-    hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_close_stream(stream, scratch, nullptr, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -735,8 +750,10 @@ TEST(HyperscanArgChecks, ResetAndCopyStreamSameToId) {
     err = hs_reset_and_copy_stream(stream, stream, scratch, nullptr, nullptr);
     ASSERT_EQ(HS_INVALID, err);
 
-    hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_close_stream(stream, scratch, nullptr, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -764,9 +781,12 @@ TEST(HyperscanArgChecks, ResetAndCopyStreamNoCallbackOrScratch) {
     err = hs_reset_and_copy_stream(stream_to, stream, nullptr, nullptr, nullptr);
     ASSERT_EQ(HS_SUCCESS, err);
 
-    hs_close_stream(stream_to, scratch, nullptr, nullptr);
-    hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_close_stream(stream_to, scratch, nullptr, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_close_stream(stream, scratch, nullptr, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -795,9 +815,12 @@ TEST(HyperscanArgChecks, ResetAndCopyStreamNoScratch) {
                                    nullptr);
     ASSERT_EQ(HS_INVALID, err);
 
-    hs_close_stream(stream_to, scratch, nullptr, nullptr);
-    hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_close_stream(stream_to, scratch, nullptr, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_close_stream(stream, scratch, nullptr, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -830,9 +853,12 @@ TEST(HyperscanArgChecks, ResetAndCopyStreamDiffDb) {
                                    nullptr);
     ASSERT_EQ(HS_INVALID, err);
 
-    hs_close_stream(stream_to, scratch, nullptr, nullptr);
-    hs_close_stream(stream, scratch, nullptr, nullptr);
-    hs_free_scratch(scratch);
+    err = hs_close_stream(stream_to, scratch, nullptr, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_close_stream(stream, scratch, nullptr, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
     hs_free_database(db2);
 }
@@ -854,7 +880,8 @@ TEST(HyperscanArgChecks, ScanBlockNoDatabase) {
     EXPECT_NE(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -878,7 +905,8 @@ TEST(HyperscanArgChecks, ScanBlockBrokenDatabaseMagic) {
     ASSERT_EQ(HS_INVALID, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     free(db);
 }
 
@@ -902,7 +930,8 @@ TEST(HyperscanArgChecks, ScanBlockBrokenDatabaseVersion) {
     ASSERT_EQ(HS_DB_VERSION_ERROR, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -926,7 +955,8 @@ TEST(HyperscanArgChecks, ScanBlockBrokenDatabaseBytecode) {
     ASSERT_EQ(HS_INVALID, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -947,7 +977,8 @@ TEST(HyperscanArgChecks, ScanBlockStreamingDatabase) {
     ASSERT_EQ(HS_DB_MODE_ERROR, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -967,7 +998,8 @@ TEST(HyperscanArgChecks, ScanBlockVectoredDatabase) {
     ASSERT_EQ(HS_DB_MODE_ERROR, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -989,7 +1021,8 @@ TEST(HyperscanArgChecks, ScanBlockNoData) {
     EXPECT_NE(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1026,7 +1059,8 @@ TEST(HyperscanArgChecks, ScanBlockNoHandler) {
     EXPECT_NE(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1049,7 +1083,8 @@ TEST(HyperscanArgChecks, ScanVectorNoDatabase) {
     EXPECT_NE(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1075,7 +1110,8 @@ TEST(HyperscanArgChecks, ScanVectorBrokenDatabaseMagic) {
     ASSERT_EQ(HS_INVALID, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     free(db);
 }
 
@@ -1101,7 +1137,8 @@ TEST(HyperscanArgChecks, ScanVectorBrokenDatabaseVersion) {
     ASSERT_EQ(HS_DB_VERSION_ERROR, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1127,7 +1164,8 @@ TEST(HyperscanArgChecks, ScanVectorBrokenDatabaseBytecode) {
     ASSERT_EQ(HS_INVALID, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1150,7 +1188,8 @@ TEST(HyperscanArgChecks, ScanVectorStreamingDatabase) {
     ASSERT_EQ(HS_DB_MODE_ERROR, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1172,7 +1211,8 @@ TEST(HyperscanArgChecks, ScanVectorBlockDatabase) {
     ASSERT_EQ(HS_DB_MODE_ERROR, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1195,7 +1235,8 @@ TEST(HyperscanArgChecks, ScanVectorNoDataArray) {
     EXPECT_NE(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1218,7 +1259,8 @@ TEST(HyperscanArgChecks, ScanVectorNoDataBlock) {
     EXPECT_NE(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1240,7 +1282,8 @@ TEST(HyperscanArgChecks, ScanVectorNoLenArray) {
     EXPECT_NE(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1281,7 +1324,8 @@ TEST(HyperscanArgChecks, ScanVectorNoHandler) {
     EXPECT_NE(HS_SCAN_TERMINATED, err);
 
     // teardown
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -1421,7 +1465,8 @@ TEST(HyperscanArgChecks, AllocScratchBadDatabaseCRC) {
     hs_scratch_t *scratch = nullptr;
     err = hs_alloc_scratch(db, &scratch);
     ASSERT_EQ(HS_SUCCESS, err);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
 
     // for want of a better case, corrupt the "middle byte" of the database.
     char *mid = (char *)db + len/2;
@@ -1959,7 +2004,8 @@ TEST(HyperscanArgChecks, ScratchSizeNoSize) {
     err = hs_scratch_size(scratch, nullptr);
     ASSERT_EQ(HS_INVALID, err);
 
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     hs_free_database(db);
 }
 
@@ -2039,7 +2085,8 @@ TEST(HyperscanArgChecks, ScanStreamBadScratch) {
     ASSERT_TRUE(scratch != nullptr);
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_free_database(db);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     free(local_garbage);
 }
 
@@ -2073,7 +2120,8 @@ TEST(HyperscanArgChecks, ResetStreamBadScratch) {
     ASSERT_TRUE(scratch != nullptr);
     hs_close_stream(stream, scratch, nullptr, nullptr);
     hs_free_database(db);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     free(local_garbage);
 }
 
@@ -2116,7 +2164,8 @@ TEST(HyperscanArgChecks, ScanFreedScratch) {
     err = hs_alloc_scratch(db, &scratch);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(scratch != NULL);
-    hs_free_scratch(scratch);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
     err = hs_scan(db, "data", 4, 0, scratch, dummy_cb, 0);
     ASSERT_EQ(HS_INVALID, err);
     EXPECT_NE(HS_SCAN_TERMINATED, err);
@@ -2150,6 +2199,37 @@ TEST(HyperscanArgChecks, ExprInfoNullInfoPtr) {
 TEST(HyperscanArgChecks, ExprInfoNullErrPtr) {
     hs_expr_info_t *info = nullptr;
     hs_error_t err = hs_expression_info("foobar", 0, &info, nullptr);
+    EXPECT_EQ(HS_COMPILER_ERROR, err);
+    EXPECT_TRUE(info == nullptr);
+}
+
+// hs_expression_ext_info: Compile a NULL pattern
+TEST(HyperscanArgChecks, ExprExtInfoNullExpression) {
+    hs_expr_info_t *info = nullptr;
+    hs_compile_error_t *compile_err = nullptr;
+    hs_error_t err =
+        hs_expression_ext_info(nullptr, 0, nullptr, &info, &compile_err);
+    EXPECT_EQ(HS_COMPILER_ERROR, err);
+    EXPECT_TRUE(info == nullptr);
+    EXPECT_TRUE(compile_err != nullptr);
+    hs_free_compile_error(compile_err);
+}
+
+// hs_expression_ext_info: NULL info block ptr
+TEST(HyperscanArgChecks, ExprExtInfoNullInfoPtr) {
+    hs_compile_error_t *compile_err = nullptr;
+    hs_error_t err =
+        hs_expression_ext_info("foobar", 0, nullptr, nullptr, &compile_err);
+    EXPECT_EQ(HS_COMPILER_ERROR, err);
+    EXPECT_TRUE(compile_err != nullptr);
+    hs_free_compile_error(compile_err);
+}
+
+// hs_expression_ext_info: No compiler error block
+TEST(HyperscanArgChecks, ExprExtInfoNullErrPtr) {
+    hs_expr_info_t *info = nullptr;
+    hs_error_t err =
+        hs_expression_ext_info("foobar", 0, nullptr, &info, nullptr);
     EXPECT_EQ(HS_COMPILER_ERROR, err);
     EXPECT_TRUE(info == nullptr);
 }

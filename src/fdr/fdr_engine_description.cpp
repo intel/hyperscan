@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,18 +42,22 @@ using namespace std;
 
 namespace ue2 {
 
-#include "fdr_autogen_compiler.cpp"
-
 FDREngineDescription::FDREngineDescription(const FDREngineDef &def)
     : EngineDescription(def.id, targetByArchFeatures(def.cpu_features),
                         def.numBuckets, def.confirmPullBackDistance,
                         def.confirmTopLevelSplit),
-      schemeWidth(def.schemeWidth), stride(def.stride), bits(0) {}
+      schemeWidth(def.schemeWidth), stride(0), bits(0) {}
 
 u32 FDREngineDescription::getDefaultFloodSuffixLength() const {
     // rounding up, so that scheme width 32 and 6 buckets is 6 not 5!
     // the +1 avoids pain due to various reach choices
     return ((getSchemeWidth() + getNumBuckets() - 1) / getNumBuckets()) + 1;
+}
+
+void getFdrDescriptions(vector<FDREngineDescription> *out) {
+    static const FDREngineDef def = {0, 128, 8, 0, 1, 256};
+    out->clear();
+    out->emplace_back(def);
 }
 
 static
@@ -108,32 +112,33 @@ unique_ptr<FDREngineDescription> chooseEngine(const target_t &target,
     FDREngineDescription *best = nullptr;
     u32 best_score = 0;
 
+    FDREngineDescription &eng = allDescs[0];
+
     for (u32 domain = 9; domain <= 15; domain++) {
-        for (size_t engineID = 0; engineID < allDescs.size(); engineID++) {
+        for (size_t stride = 1; stride <= 4; stride *= 2) {
             // to make sure that domains >=14 have stride 1 according to origin
-            if (domain > 13 && engineID > 0) {
+            if (domain > 13 && stride > 1) {
                 continue;
             }
-            FDREngineDescription &eng = allDescs[engineID];
             if (!eng.isValidOnTarget(target)) {
                 continue;
             }
-            if (msl < eng.stride) {
+            if (msl < stride) {
                 continue;
             }
 
             u32 score = 100;
 
-            score -= absdiff(desiredStride, eng.stride);
+            score -= absdiff(desiredStride, stride);
 
-            if (eng.stride <= desiredStride) {
-                score += eng.stride;
+            if (stride <= desiredStride) {
+                score += stride;
             }
 
             u32 effLits = vl.size(); /* * desiredStride;*/
             u32 ideal;
             if (effLits < eng.getNumBuckets()) {
-                if (eng.stride == 1) {
+                if (stride == 1) {
                     ideal = 8;
                 } else {
                     ideal = 10;
@@ -158,27 +163,28 @@ unique_ptr<FDREngineDescription> chooseEngine(const target_t &target,
                 ideal -= 2;
             }
 
-            if (eng.stride > 1) {
+            if (stride > 1) {
                 ideal++;
             }
 
             DEBUG_PRINTF("effLits %u\n", effLits);
 
             if (target.is_atom_class() && !make_small && effLits < 4000) {
-                /* Unless it is a very heavy case, we want to build smaller tables
-                 * on lightweight machines due to their small caches. */
+                /* Unless it is a very heavy case, we want to build smaller
+                 * tables on lightweight machines due to their small caches. */
                 ideal -= 2;
             }
 
             score -= absdiff(ideal, domain);
 
-            DEBUG_PRINTF("fdr %u: width=%u, bits=%u, buckets=%u, stride=%u "
+            DEBUG_PRINTF("fdr %u: width=%u, domain=%u, buckets=%u, stride=%zu "
                          "-> score=%u\n",
-                         eng.getID(), eng.schemeWidth, eng.bits,
-                         eng.getNumBuckets(), eng.stride, score);
+                         eng.getID(), eng.schemeWidth, domain,
+                         eng.getNumBuckets(), stride, score);
 
             if (!best || score > best_score) {
                 eng.bits = domain;
+                eng.stride = stride;
                 best = &eng;
                 best_score = score;
             }

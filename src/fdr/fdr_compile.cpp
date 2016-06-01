@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,7 @@
 /** \file
  * \brief FDR literal matcher: build API.
  */
-#include "fdr.h"
+
 #include "fdr_internal.h"
 #include "fdr_compile.h"
 #include "fdr_confirm.h"
@@ -187,9 +187,9 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
     /*  we are allowing domains 9 to 15 only */
     assert(eng.bits > 8 && eng.bits < 16);
     fdr->domain = eng.bits;
-    fdr->schemeWidthByte = eng.schemeWidth / 8;
     fdr->domainMask = (1 << eng.bits) - 1;
-    fdr->tabSize = (1 << eng.bits) * fdr->schemeWidthByte;
+    fdr->tabSize = (1 << eng.bits) * (eng.schemeWidth / 8);
+    fdr->stride = eng.stride;
 
     if (link.first) {
         fdr->link = verify_u32(ptr - fdr_base);
@@ -544,6 +544,7 @@ fdrBuildTableInternal(const vector<hwlmLiteral> &lits, bool make_small,
     // temporary hack for unit testing
     if (hint != HINT_INVALID) {
         des->bits = 9;
+        des->stride = 1;
     }
 
     FDRCompiler fc(lits, *des, make_small);
@@ -571,10 +572,9 @@ fdrBuildTableHinted(const vector<hwlmLiteral> &lits, bool make_small, u32 hint,
 
 #endif
 
-} // namespace ue2
-
-// FIXME: should be compile-time only
 size_t fdrSize(const FDR *fdr) {
     assert(fdr);
     return fdr->size;
 }
+
+} // namespace ue2

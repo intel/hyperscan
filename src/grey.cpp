@@ -54,7 +54,6 @@ Grey::Grey(void) :
                    allowRose(true),
                    allowExtendedNFA(true), /* bounded repeats of course */
                    allowLimExNFA(true),
-                   allowSidecar(true),
                    allowAnchoredAcyclic(true),
                    allowSmallLiteralSet(true),
                    allowCastle(true),
@@ -207,7 +206,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(allowRose);
         G_UPDATE(allowExtendedNFA);
         G_UPDATE(allowLimExNFA);
-        G_UPDATE(allowSidecar);
         G_UPDATE(allowAnchoredAcyclic);
         G_UPDATE(allowSmallLiteralSet);
         G_UPDATE(allowCastle);

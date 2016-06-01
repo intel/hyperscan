@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -564,6 +564,24 @@ TEST_P(MultiBitTest, Any) {
         mmbit_set(ba, test_size, i);
         ASSERT_TRUE(mmbit_any(ba, test_size));
     }
+}
+
+TEST_P(MultiBitTest, All) {
+    SCOPED_TRACE(test_size);
+    ASSERT_TRUE(ba != nullptr);
+
+    mmbit_clear(ba, test_size);
+    ASSERT_FALSE(mmbit_all(ba, test_size));
+
+    for (u64a i = 0; i < test_size - 1; i += stride) {
+        SCOPED_TRACE(i);
+        mmbit_set(ba, test_size, i);
+        ASSERT_FALSE(mmbit_all(ba, test_size));
+    }
+
+    // Set all bits.
+    fill_mmbit(ba, test_size);
+    ASSERT_TRUE(mmbit_all(ba, test_size));
 }
 
 TEST_P(MultiBitTest, UnsetRange1) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -78,9 +78,7 @@ RoseBuildImpl::RoseBuildImpl(ReportManager &rm_in, SomSlotManager &ssm_in,
       group_weak_end(0),
       group_end(0),
       anchored_base_id(MO_INVALID_IDX),
-      nonbenefits_base_id(MO_INVALID_IDX),
       ematcher_region_size(0),
-      floating_direct_report(false),
       eod_event_literal_id(MO_INVALID_IDX),
       max_rose_anchored_floating_overlap(0),
       rm(rm_in),
@@ -89,12 +87,10 @@ RoseBuildImpl::RoseBuildImpl(ReportManager &rm_in, SomSlotManager &ssm_in,
       next_nfa_report(0) {
     // add root vertices to graph
     g[root].idx = vertexIndex++;
-    g[root].role = MO_INVALID_IDX;
     g[root].min_offset = 0;
     g[root].max_offset = 0;
 
     g[anchored_root].idx = vertexIndex++;
-    g[anchored_root].role = MO_INVALID_IDX;
     g[anchored_root].min_offset = 0;
     g[anchored_root].max_offset = 0;
 }
@@ -194,7 +190,7 @@ bool RoseBuildImpl::hasLiteralInTable(RoseVertex v,
 bool RoseBuildImpl::hasNoFloatingRoots() const {
     for (auto v : adjacent_vertices_range(root, g)) {
         if (isFloating(v)) {
-            DEBUG_PRINTF("direct floating root %u\n", g[v].role);
+            DEBUG_PRINTF("direct floating root %zu\n", g[v].idx);
             return false;
         }
     }
@@ -202,28 +198,12 @@ bool RoseBuildImpl::hasNoFloatingRoots() const {
     /* need to check if the anchored_root has any literals which are too deep */
     for (auto v : adjacent_vertices_range(anchored_root, g)) {
         if (isFloating(v)) {
-            DEBUG_PRINTF("indirect floating root %u\n", g[v].role);
+            DEBUG_PRINTF("indirect floating root %zu\n", g[v].idx);
             return false;
         }
     }
 
     return true;
-}
-
-bool RoseBuildImpl::hasEodSideLink(void) const {
-    for (auto v : vertices_range(g)) {
-        if (!g[v].eod_accept) {
-            continue;
-        }
-
-        for (auto u : inv_adjacent_vertices_range(v, g)) {
-            if (g[u].escapes.any()) {
-                return true;
-            }
-        }
-    }
-
-    return false;
 }
 
 size_t RoseBuildImpl::maxLiteralLen(RoseVertex v) const {
@@ -318,6 +298,23 @@ const rose_literal_id &getOverlapLiteral(const RoseBuildImpl &tbi,
         return it->second;
     }
     return tbi.literals.right.at(literal_id);
+}
+
+ue2_literal findNonOverlappingTail(const set<ue2_literal> &lits,
+                                   const ue2_literal &s) {
+    size_t max_overlap = 0;
+
+    for (const auto &lit : lits) {
+        size_t overlap = lit != s ? maxStringOverlap(lit, s)
+                                  : maxStringSelfOverlap(s);
+        max_overlap = max(max_overlap, overlap);
+    }
+
+    /* find the tail that doesn't overlap */
+    ue2_literal tail = s.substr(max_overlap);
+    DEBUG_PRINTF("%zu overlap, tail: '%s'\n", max_overlap,
+                 dumpString(tail).c_str());
+    return tail;
 }
 
 size_t RoseBuildImpl::maxLiteralOverlap(RoseVertex u, RoseVertex v) const {
@@ -628,21 +625,52 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
     }
 
     for (const auto &outfix : tbi.outfixes) {
-        assert(!outfix.nfa); /* should not be built yet */
-
         for (const auto &report_id : all_reports(outfix)) {
             outfix_map[report_id].insert(&outfix);
         }
     }
 
     if (tbi.mpv_outfix) {
-        for (const auto &puff : tbi.mpv_outfix->puffettes) {
+        auto *mpv = tbi.mpv_outfix->mpv();
+        for (const auto &puff : mpv->puffettes) {
             puff_map[puff.report].insert(&puff);
         }
-        for (const auto &puff : tbi.mpv_outfix->triggered_puffettes) {
+        for (const auto &puff : mpv->triggered_puffettes) {
             puff_map[puff.report].insert(&puff);
         }
     }
+}
+
+static
+vector<CharReach> makePath(const rose_literal_id &lit) {
+    vector<CharReach> path(begin(lit.s), end(lit.s));
+    for (u32 i = 0; i < lit.delay; i++) {
+        path.push_back(CharReach::dot());
+    }
+    return path;
+}
+
+/**
+ * \brief True if one of the given literals overlaps with the suffix of
+ * another, meaning that they could arrive at the same offset.
+ */
+static
+bool literalsCouldRace(const rose_literal_id &lit1,
+                       const rose_literal_id &lit2) {
+    DEBUG_PRINTF("compare %s (delay %u) and %s (delay %u)\n",
+                 dumpString(lit1.s).c_str(), lit1.delay,
+                 dumpString(lit2.s).c_str(), lit2.delay);
+
+    // Add dots on the end of each literal for delay.
+    const auto v1 = makePath(lit1);
+    const auto v2 = makePath(lit2);
+
+    // See if the smaller path is a suffix of the larger path.
+    const auto *smaller = v1.size() < v2.size() ? &v1 : &v2;
+    const auto *bigger = v1.size() < v2.size() ? &v2 : &v1;
+    auto r = mismatch(smaller->rbegin(), smaller->rend(), bigger->rbegin(),
+                      overlaps);
+    return r.first == smaller->rend();
 }
 
 bool RoseDedupeAuxImpl::requiresDedupeSupport(
@@ -652,7 +680,6 @@ bool RoseDedupeAuxImpl::requiresDedupeSupport(
 
     const RoseGraph &g = tbi.g;
 
-    bool has_role = false;
     bool has_suffix = false;
     bool has_outfix = false;
 
@@ -685,24 +712,40 @@ bool RoseDedupeAuxImpl::requiresDedupeSupport(
     }
 
     /* roles */
+
+    map<u32, u32> lits; // Literal ID -> count of occurrences.
+
+    const bool has_role = !roles.empty();
     for (auto v : roles) {
-        if (has_role) {
-            return true; /* fear that multiple roles may trigger at same
-                            offset */
+        for (const auto &lit : g[v].literals) {
+            lits[lit]++;
         }
-
-        has_role = true;
-
-        /* TODO: extend handled roles so that we don't have to worry about
-         * multiple literals */
-        if (g[v].literals.size() > 1) {
-            return true; /* fear that role may be triggered multiple times
-                          * at same offset. */
-        }
-
         if (g[v].eod_accept) {
-            if (in_degree(v, g) > 1) {
-                /* may actually map to a number of terminal vertices */
+            // Literals plugged into this EOD accept must be taken into account
+            // as well.
+            for (auto u : inv_adjacent_vertices_range(v, g)) {
+                for (const auto &lit : g[u].literals) {
+                    lits[lit]++;
+                }
+            }
+        }
+    }
+
+    /* literals */
+
+    for (const auto &m : lits) {
+        if (m.second > 1) {
+            DEBUG_PRINTF("lit %u used by >1 reporting roles\n", m.first);
+            return true;
+        }
+    }
+
+    for (auto it = begin(lits); it != end(lits); ++it) {
+        const auto &lit1 = tbi.literals.right.at(it->first);
+        for (auto jt = next(it); jt != end(lits); ++jt) {
+            const auto &lit2 = tbi.literals.right.at(jt->first);
+            if (literalsCouldRace(lit1, lit2)) {
+                DEBUG_PRINTF("literals could race\n");
                 return true;
             }
         }
@@ -737,19 +780,19 @@ bool RoseDedupeAuxImpl::requiresDedupeSupport(
     for (const auto &outfix_ptr : outfixes) {
         assert(outfix_ptr);
         const OutfixInfo &out = *outfix_ptr;
-        assert(!out.nfa); /* should not be built yet */
 
         if (has_outfix || has_role || has_suffix) {
             return true;
         }
         has_outfix = true;
 
-        if (out.haig) {
+        if (out.haig()) {
             return true; /* haig may report matches with different SOM at the
                             same offset */
         }
 
-        if (out.holder && requiresDedupe(*out.holder, reports, tbi.cc.grey)) {
+        if (out.holder() &&
+            requiresDedupe(*out.holder(), reports, tbi.cc.grey)) {
             return true;
         }
     }
@@ -833,25 +876,33 @@ u32 OutfixInfo::get_queue(QueueIndexFactory &qif) {
     return queue;
 }
 
+namespace {
+class OutfixAllReports : public boost::static_visitor<set<ReportID>> {
+public:
+    set<ReportID> operator()(const boost::blank &) const {
+        return {};
+    }
+
+    template<class T>
+    set<ReportID> operator()(const unique_ptr<T> &x) const {
+        return all_reports(*x);
+    }
+
+    set<ReportID> operator()(const MpvProto &mpv) const {
+        set<ReportID> reports;
+        for (const auto &puff : mpv.puffettes) {
+            reports.insert(puff.report);
+        }
+        for (const auto &puff : mpv.triggered_puffettes) {
+            reports.insert(puff.report);
+        }
+        return reports;
+    }
+};
+}
+
 set<ReportID> all_reports(const OutfixInfo &outfix) {
-    set<ReportID> reports;
-    if (outfix.holder) {
-        insert(&reports, all_reports(*outfix.holder));
-    }
-    if (outfix.rdfa) {
-        insert(&reports, all_reports(*outfix.rdfa));
-    }
-    if (outfix.haig) {
-        insert(&reports, all_reports(*outfix.haig));
-    }
-
-    for (const auto &puff : outfix.puffettes) {
-        reports.insert(puff.report);
-    }
-    for (const auto &puff : outfix.triggered_puffettes) {
-        reports.insert(puff.report);
-    }
-
+    auto reports = boost::apply_visitor(OutfixAllReports(), outfix.proto);
     assert(!reports.empty());
     return reports;
 }
@@ -1110,39 +1161,6 @@ LeftEngInfo::operator bool() const {
     assert(!dfa || graph); /* dfas always have the graph as well */
     assert(!haig || graph);
     return graph || castle || dfa || haig;
-}
-
-// Find the minimum depth in hops of each role. Note that a role may be
-// accessible from both the root and the anchored root.
-map<RoseVertex, u32> findDepths(const RoseBuildImpl &build) {
-    const RoseGraph &g = build.g;
-    map<RoseVertex, u32> depths;
-
-    depths[build.root] = 0;
-    depths[build.anchored_root] = 0;
-
-    // BFS from root first.
-    breadth_first_search(g, build.root, visitor(make_bfs_visitor(
-            record_distances(boost::make_assoc_property_map(depths),
-                             boost::on_tree_edge()))).
-            vertex_index_map(get(&RoseVertexProps::idx, g)));
-
-    // BFS from anchored root, updating depths in the graph when they get
-    // smaller.
-    map<RoseVertex, u32> depthsAnch;
-    breadth_first_search(g, build.anchored_root, visitor(make_bfs_visitor(
-            record_distances(boost::make_assoc_property_map(depthsAnch),
-                             boost::on_tree_edge()))).
-            vertex_index_map(get(&RoseVertexProps::idx, g)));
-    for (const auto &e : depthsAnch) {
-        if (contains(depths, e.first)) {
-            LIMIT_TO_AT_MOST(&depths[e.first], e.second);
-        } else {
-            depths.insert(e);
-        }
-    }
-
-    return depths;
 }
 
 u32 roseQuality(const RoseEngine *t) {

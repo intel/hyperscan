@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,44 +26,36 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "internal_report.h"
-#include "report.h"
-#include "report_manager.h"
+#ifndef MCCLELLANCOMPILE_ACCEL_H
+#define MCCLELLANCOMPILE_ACCEL_H
+
+#include "mcclellancompile.h"
+
+#include <map>
 
 namespace ue2 {
 
-void writeInternalReport(const Report &report, const ReportManager &rm,
-                         internal_report *ir) {
-    assert(ir);
-    assert(ISALIGNED(ir));
+struct Grey;
 
-    ir->type = report.type;
-    ir->hasBounds = report.hasBounds() ? 1 : 0;
-    ir->quashSom = report.quashSom ? 1 : 0;
-    ir->minOffset = report.minOffset;
-    ir->maxOffset = report.maxOffset;
-    ir->minLength = report.minLength;
-    ir->ekey = report.ekey;
-    ir->offsetAdjust = report.offsetAdjust;
-    ir->onmatch = report.onmatch;
+#define ACCEL_DFA_MAX_OFFSET_DEPTH 4
 
-    switch (report.type) {
-    case INTERNAL_ROSE_CHAIN:
-        ir->aux.topSquashDistance = report.topSquashDistance;
-        break;
-    case EXTERNAL_CALLBACK_SOM_REV_NFA:
-    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA:
-    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_UNSET:
-    case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_WRITABLE:
-        ir->aux.revNfaIndex = report.revNfaIndex;
-        break;
-    default:
-        ir->aux.somDistance = report.somDistance;
-        break;
-    }
+/** Maximum tolerated number of escape character from an accel state.
+ * This is larger than nfa, as we don't have a budget and the nfa cheats on stop
+ * characters for sets of states */
+#define ACCEL_DFA_MAX_STOP_CHAR 160
 
-    // Dedupe keys are managed by ReportManager.
-    ir->dkey = rm.getDkey(report);
+/** Maximum tolerated number of escape character from a sds accel state. Larger
+ * than normal states as accelerating sds is important. Matches NFA value */
+#define ACCEL_DFA_MAX_FLOATING_STOP_CHAR 192
+
+std::map<dstate_id_t, AccelScheme> populateAccelerationInfo(const raw_dfa &rdfa,
+                                                   const dfa_build_strat &strat,
+                                                   const Grey &grey);
+
+AccelScheme find_mcclellan_escape_info(const raw_dfa &rdfa,
+                                       dstate_id_t this_idx,
+                                       u32 max_allowed_accel_offset);
+
 }
 
-} // namespace ue2
+#endif

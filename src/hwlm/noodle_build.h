@@ -40,9 +40,10 @@ struct noodTable;
 
 namespace ue2 {
 
+struct hwlmLiteral;
+
 /** \brief Construct a Noodle matcher for the given literal. */
-ue2::aligned_unique_ptr<noodTable> noodBuildTable(const u8 *lit, size_t len,
-                                                  bool nocase, u32 id);
+ue2::aligned_unique_ptr<noodTable> noodBuildTable(const hwlmLiteral &lit);
 
 size_t noodSize(const noodTable *n);
 

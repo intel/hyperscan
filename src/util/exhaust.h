@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,65 +34,46 @@
 #define EXHAUST_H
 
 #include "rose/rose_internal.h"
+#include "util/multibit.h"
 #include "ue2common.h"
-#include <string.h>
 
-/** \brief Sentinel value meaning no further exhaustion keys. */
-#define END_EXHAUST (~(u32)0)
+/** Index meaning a given exhaustion key is invalid. */
+#define INVALID_EKEY    (~(u32)0)
 
-/** \brief Test whether the given key (\a eoff) is set in the exhaustion vector
+/** \brief Test whether the given key (\a ekey) is set in the exhaustion vector
  * \a evec. */
 static really_inline
-int isExhausted(const char *evec, u32 eoff) {
-    DEBUG_PRINTF("checking exhaustion %p %u\n", evec, eoff);
-    return eoff != END_EXHAUST && (evec[eoff >> 3] & (1 << (eoff % 8)));
+int isExhausted(const struct RoseEngine *t, const char *evec, u32 ekey) {
+    DEBUG_PRINTF("checking exhaustion %p %u\n", evec, ekey);
+    assert(ekey != INVALID_EKEY);
+    assert(ekey < t->ekeyCount);
+    return mmbit_isset((const u8 *)evec, t->ekeyCount, ekey);
 }
 
 /** \brief Returns 1 if all exhaustion keys in the bitvector are on. */
 static really_inline
-int isAllExhausted(const struct RoseEngine *t, const char *evec_in) {
+int isAllExhausted(const struct RoseEngine *t, const char *evec) {
     if (!t->canExhaust) {
         return 0; /* pattern set is inexhaustible */
     }
 
-    const u8 *evec = (const u8 *)evec_in;
-
-    u32 whole_bytes = t->ekeyCount / 8;
-    for (u32 i = 0; i < whole_bytes; i++) {
-        if (evec[i] != 0xff) {
-            DEBUG_PRINTF("unexhausted pattern in byte %u\n", i);
-            return 0;
-        }
-    }
-
-    u32 rem = t->ekeyCount % 8;
-    if (t->ekeyCount % 8) {
-        u8 mask = (1 << rem) - 1;
-        if (evec[whole_bytes] != (char)mask) {
-            DEBUG_PRINTF("unexhausted pattern (%hhu) in final byte\n", mask);
-            return 0;
-        }
-    }
-
-    DEBUG_PRINTF("pattern set is exhausted\n");
-    return 1;
+    return mmbit_all((const u8 *)evec, t->ekeyCount);
 }
 
-/** \brief Mark key \a eoff on in the exhaustion vector. */
+/** \brief Mark key \a ekey on in the exhaustion vector. */
 static really_inline
-void markAsMatched(char *evec, u32 eoff) {
-    if (eoff != END_EXHAUST) {
-        DEBUG_PRINTF("marking as exhausted key %u\n", eoff);
-        evec[eoff >> 3] |= 1 << (eoff % 8);
-    }
+void markAsMatched(const struct RoseEngine *t, char *evec, u32 ekey) {
+    DEBUG_PRINTF("marking as exhausted key %u\n", ekey);
+    assert(ekey != INVALID_EKEY);
+    assert(ekey < t->ekeyCount);
+    mmbit_set((u8 *)evec, t->ekeyCount, ekey);
 }
 
 /** \brief Clear all keys in the exhaustion vector. */
 static really_inline
-void clearEvec(char *ev, const struct RoseEngine *t) {
-    size_t size = (t->ekeyCount + 7) / 8;
-    DEBUG_PRINTF("clearing evec %p %zu\n", ev, size);
-    memset(ev, 0, size);
+void clearEvec(const struct RoseEngine *t, char *evec) {
+    DEBUG_PRINTF("clearing evec %p %u\n", evec, t->ekeyCount);
+    mmbit_clear((u8 *)evec, t->ekeyCount);
 }
 
 #endif

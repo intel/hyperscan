@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,7 +44,6 @@ extern "C"
 #include "callback.h"
 #include "ue2common.h"
 
-struct hs_scratch;
 struct mq;
 struct NFA;
 
@@ -189,7 +188,8 @@ char nfaInAcceptState(const struct NFA *nfa, ReportID report, struct mq *q);
  *        be monotonically increasing. If not all the data was processed during
  *        the call, the queue is updated to reflect the remaining work.
  * @param report we are interested in, if set at the end of the scan returns
- *        @ref MO_MATCHES_PENDING
+ *        @ref MO_MATCHES_PENDING. If no report is desired, MO_INVALID_IDX should
+ *        be passed in.
  * @return @ref MO_ALIVE if the nfa is still active with no matches pending,
  *         and @ref MO_MATCHES_PENDING if there are matches pending, 0 if not
  *         alive
@@ -211,16 +211,12 @@ char nfaQueueExecRose(const struct NFA *nfa, struct mq *q, ReportID report);
  * @param buflen length of buf
  * @param hbuf history buf
  * @param hlen length of hbuf
- * @param scratch scratch
  * @param callback the callback to call for each match raised
  * @param context context pointer passed to each callback
- *
- * Note: is NOT reentrant
  */
 char nfaBlockExecReverse(const struct NFA *nfa, u64a offset, const u8 *buf,
                          size_t buflen, const u8 *hbuf, size_t hlen,
-                         struct hs_scratch *scratch, NfaCallback callback,
-                         void *context);
+                         NfaCallback callback, void *context);
 
 /**
  * Check whether the given NFA's state indicates that it is in one or more
@@ -235,6 +231,9 @@ char nfaBlockExecReverse(const struct NFA *nfa, u64a offset, const u8 *buf,
  * @param callback the callback to call for each match raised
  * @param som_cb the callback to call for each match raised (Haig)
  * @param context context pointer passed to each callback
+ *
+ * @return @ref MO_HALT_MATCHING if the user instructed us to halt, otherwise
+ *         @ref MO_CONTINUE_MATCHING.
  */
 char nfaCheckFinalState(const struct NFA *nfa, const char *state,
                         const char *streamState, u64a offset,

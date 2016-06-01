@@ -377,7 +377,7 @@ void partitionGraph(ptr_vector<VertexInfo> &infos, ClassMap &classes,
             work_queue.push(eq_class);
         }
     }
-    DEBUG_PRINTF("partitioned, %lu equivalence classes\n", classinfomap.size());
+    DEBUG_PRINTF("partitioned, %zu equivalence classes\n", classinfomap.size());
 }
 
 // generalized equivalence processing (left and right)

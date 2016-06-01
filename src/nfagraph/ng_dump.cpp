@@ -358,35 +358,38 @@ void dumpSmallWrite(const RoseEngine *rose, const Grey &grey) {
     smwrDumpNFA(smwr, false, grey.dumpPath);
 }
 
-static UNUSED
-const char *irTypeToString(u8 type) {
-#define IR_TYPE_CASE(x) case x: return #x
+static
+const char *reportTypeToString(ReportType type) {
+#define REPORT_TYPE_CASE(x) case x: return #x
     switch (type) {
-        IR_TYPE_CASE(EXTERNAL_CALLBACK);
-        IR_TYPE_CASE(EXTERNAL_CALLBACK_SOM_REL);
-        IR_TYPE_CASE(INTERNAL_SOM_LOC_SET);
-        IR_TYPE_CASE(INTERNAL_SOM_LOC_SET_IF_UNSET);
-        IR_TYPE_CASE(INTERNAL_SOM_LOC_SET_IF_WRITABLE);
-        IR_TYPE_CASE(INTERNAL_SOM_LOC_SET_SOM_REV_NFA);
-        IR_TYPE_CASE(INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_UNSET);
-        IR_TYPE_CASE(INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_WRITABLE);
-        IR_TYPE_CASE(INTERNAL_SOM_LOC_COPY);
-        IR_TYPE_CASE(INTERNAL_SOM_LOC_COPY_IF_WRITABLE);
-        IR_TYPE_CASE(INTERNAL_SOM_LOC_MAKE_WRITABLE);
-        IR_TYPE_CASE(EXTERNAL_CALLBACK_SOM_STORED);
-        IR_TYPE_CASE(EXTERNAL_CALLBACK_SOM_ABS);
-        IR_TYPE_CASE(EXTERNAL_CALLBACK_SOM_REV_NFA);
-        IR_TYPE_CASE(INTERNAL_SOM_LOC_SET_FROM);
-        IR_TYPE_CASE(INTERNAL_SOM_LOC_SET_FROM_IF_WRITABLE);
-        IR_TYPE_CASE(INTERNAL_ROSE_CHAIN);
-    default: return "<unknown>";
+        REPORT_TYPE_CASE(EXTERNAL_CALLBACK);
+        REPORT_TYPE_CASE(EXTERNAL_CALLBACK_SOM_REL);
+        REPORT_TYPE_CASE(INTERNAL_SOM_LOC_SET);
+        REPORT_TYPE_CASE(INTERNAL_SOM_LOC_SET_IF_UNSET);
+        REPORT_TYPE_CASE(INTERNAL_SOM_LOC_SET_IF_WRITABLE);
+        REPORT_TYPE_CASE(INTERNAL_SOM_LOC_SET_SOM_REV_NFA);
+        REPORT_TYPE_CASE(INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_UNSET);
+        REPORT_TYPE_CASE(INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_WRITABLE);
+        REPORT_TYPE_CASE(INTERNAL_SOM_LOC_COPY);
+        REPORT_TYPE_CASE(INTERNAL_SOM_LOC_COPY_IF_WRITABLE);
+        REPORT_TYPE_CASE(INTERNAL_SOM_LOC_MAKE_WRITABLE);
+        REPORT_TYPE_CASE(EXTERNAL_CALLBACK_SOM_STORED);
+        REPORT_TYPE_CASE(EXTERNAL_CALLBACK_SOM_ABS);
+        REPORT_TYPE_CASE(EXTERNAL_CALLBACK_SOM_REV_NFA);
+        REPORT_TYPE_CASE(INTERNAL_SOM_LOC_SET_FROM);
+        REPORT_TYPE_CASE(INTERNAL_SOM_LOC_SET_FROM_IF_WRITABLE);
+        REPORT_TYPE_CASE(INTERNAL_ROSE_CHAIN);
+        REPORT_TYPE_CASE(EXTERNAL_CALLBACK_SOM_PASS);
     }
-#undef IR_TYPE_CASE
+#undef REPORT_TYPE_CASE
+
+    assert(0);
+    return "<unknown>";
 }
 
-static really_inline
-int isReverseNfaReport(const Report &ri) {
-    switch (ri.type) {
+static
+int isReverseNfaReport(const Report &report) {
+    switch (report.type) {
     case INTERNAL_SOM_LOC_SET_SOM_REV_NFA:
     case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_UNSET:
     case INTERNAL_SOM_LOC_SET_SOM_REV_NFA_IF_WRITABLE:
@@ -398,9 +401,9 @@ int isReverseNfaReport(const Report &ri) {
     return 0;
 }
 
-static really_inline
-int isSomRelSetReport(const Report &ri) {
-    switch (ri.type) {
+static
+int isSomRelSetReport(const Report &report) {
+    switch (report.type) {
     case INTERNAL_SOM_LOC_SET:
     case INTERNAL_SOM_LOC_SET_IF_UNSET:
     case INTERNAL_SOM_LOC_SET_IF_WRITABLE:
@@ -420,31 +423,34 @@ void dumpReportManager(const ReportManager &rm, const Grey &grey) {
     ss << grey.dumpPath << "internal_reports.txt";
     FILE *f = fopen(ss.str().c_str(), "w");
     const vector<Report> &reports = rm.reports();
-    for (u32 i = 0; i < reports.size(); i++) {
-        const Report &ir = reports[i];
-        fprintf(f, "int %u: %s onmatch: %u", i, irTypeToString(ir.type),
-                ir.onmatch);
+    for (size_t i = 0; i < reports.size(); i++) {
+        const Report &report = reports[i];
+        fprintf(f, "%zu: %s onmatch: %u", i, reportTypeToString(report.type),
+                report.onmatch);
 
-        u32 dkey = rm.getDkey(ir);
+        u32 dkey = rm.getDkey(report);
         if (dkey != MO_INVALID_IDX) {
             fprintf(f, " dkey %u", dkey);
         }
-        if (ir.ekey != MO_INVALID_IDX) {
-            fprintf(f, " ekey %u", ir.ekey);
+        if (report.ekey != INVALID_EKEY) {
+            fprintf(f, " ekey %u", report.ekey);
         }
-        if (ir.hasBounds()) {
+        if (report.hasBounds()) {
             fprintf(f, " hasBounds (minOffset=%llu, maxOffset=%llu, "
                        "minLength=%llu)",
-                    ir.minOffset, ir.maxOffset, ir.minLength);
+                    report.minOffset, report.maxOffset, report.minLength);
         }
-        if (ir.offsetAdjust != 0) {
-            fprintf(f, " offsetAdjust: %d", ir.offsetAdjust);
+        if (report.quashSom) {
+            fprintf(f, " quashSom");
         }
-        if (isReverseNfaReport(ir)) {
-            fprintf(f, " reverse nfa: %u", ir.revNfaIndex);
+        if (report.offsetAdjust != 0) {
+            fprintf(f, " offsetAdjust: %d", report.offsetAdjust);
         }
-        if (isSomRelSetReport(ir)) {
-            fprintf(f, " set, adjust: %lld", ir.somDistance);
+        if (isReverseNfaReport(report)) {
+            fprintf(f, " reverse nfa: %u", report.revNfaIndex);
+        }
+        if (isSomRelSetReport(report)) {
+            fprintf(f, " set, adjust: %lld", report.somDistance);
         }
         fprintf(f, "\n");
     }

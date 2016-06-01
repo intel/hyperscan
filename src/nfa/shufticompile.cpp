@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@
 #include "shufticompile.h"
 #include "ue2common.h"
 #include "util/charreach.h"
+#include "util/container.h"
 #include "util/ue2_containers.h"
 
 #include <array>
@@ -107,13 +108,35 @@ int shuftiBuildMasks(const CharReach &c, m128 *lo, m128 *hi) {
     return bit_index;
 }
 
-void shuftiBuildDoubleMasks(const CharReach &onechar,
+static
+array<u16, 4> or_array(array<u16, 4> a, const array<u16, 4> &b) {
+    a[0] |= b[0];
+    a[1] |= b[1];
+    a[2] |= b[2];
+    a[3] |= b[3];
+
+    return a;
+}
+
+
+#define MAX_BUCKETS 8
+static
+void set_buckets_from_mask(u16 nibble_mask, u32 bucket,
+                           array<u8, 16> &byte_mask) {
+    assert(bucket < MAX_BUCKETS);
+
+    u32 mask = nibble_mask;
+    while (mask) {
+        u32 n = findAndClearLSB_32(&mask);
+        byte_mask[n]  &= ~(1 << bucket);
+    }
+}
+
+bool shuftiBuildDoubleMasks(const CharReach &onechar,
                             const flat_set<pair<u8, u8>> &twochar,
                             m128 *lo1, m128 *hi1, m128 *lo2, m128 *hi2) {
     DEBUG_PRINTF("unibytes %zu dibytes %zu\n", onechar.size(),
                  twochar.size());
-    assert(onechar.count() + twochar.size() <= 8);
-
     array<u8, 16> lo1_a;
     array<u8, 16> lo2_a;
     array<u8, 16> hi1_a;
@@ -124,52 +147,65 @@ void shuftiBuildDoubleMasks(const CharReach &onechar,
     hi1_a.fill(0xff);
     hi2_a.fill(0xff);
 
-    u32 i = 0;
-
     // two-byte literals
-    for (flat_set<pair<u8, u8>>::const_iterator it = twochar.begin();
-         it != twochar.end(); ++it, i++) {
-        DEBUG_PRINTF("%u: %02hhx %02hhx\n", i, it->first, it->second);
-        u8 b1 = it->first & 0xf;
-        u8 t1 = it->first >> 4;
-        u8 b2 = it->second & 0xf;
-        u8 t2 = it->second >> 4;
-
-        lo1_a[b1] &= ~(1 << i);
-        hi1_a[t1] &= ~(1 << i);
-        lo2_a[b2] &= ~(1 << i);
-        hi2_a[t2] &= ~(1 << i);
+    vector<array<u16, 4>> nibble_masks;
+    for (const auto &p : twochar) {
+        DEBUG_PRINTF("%02hhx %02hhx\n", p.first, p.second);
+        u16 a_lo = 1U << (p.first  & 0xf);
+        u16 a_hi = 1U << (p.first  >> 4);
+        u16 b_lo = 1U << (p.second & 0xf);
+        u16 b_hi = 1U << (p.second >> 4);
+        nibble_masks.push_back({{a_lo, a_hi, b_lo, b_hi}});
     }
 
     // one-byte literals (second byte is a wildcard)
     for (size_t it = onechar.find_first(); it != CharReach::npos;
-         it = onechar.find_next(it), i++) {
-        DEBUG_PRINTF("%u: %02hhx\n", i, (u8)it);
-        u8 b1 = it & 0xf;
-        u8 t1 = it >> 4;
+         it = onechar.find_next(it)) {
+        DEBUG_PRINTF("%02hhx\n", (u8)it);
+        u16 a_lo = 1U << (it & 0xf);
+        u16 a_hi = 1U << (it >> 4);
+        u16 wildcard = 0xffff;
+        nibble_masks.push_back({{a_lo, a_hi, wildcard, wildcard}});
+    }
 
-        lo1_a[b1] &= ~(1 << i);
-        hi1_a[t1] &= ~(1 << i);
-
-        for (int j = 0; j < 16; j++) {
-            lo2_a[j] &= ~(1 << i);
-            hi2_a[j] &= ~(1 << i);
+    // try to merge strings into shared buckets
+    for (u32 i = 0; i < 4; i++) {
+        map<array<u16, 4>, array<u16, 4>> new_masks;
+        for (const auto &a : nibble_masks) {
+            auto key = a;
+            key[i] = 0;
+            if (!contains(new_masks, key)) {
+                new_masks[key] = a;
+            } else {
+                new_masks[key] = or_array(new_masks[key], a);
+            }
         }
+        nibble_masks.clear();
+        for (const auto &e : new_masks) {
+            nibble_masks.push_back(e.second);
+        }
+    }
+
+    if (nibble_masks.size() > MAX_BUCKETS) {
+        DEBUG_PRINTF("too many buckets needed (%zu)\n", nibble_masks.size());
+        return false;
+    }
+
+    u32 i = 0;
+    for (const auto &a : nibble_masks) {
+        set_buckets_from_mask(a[0], i, lo1_a);
+        set_buckets_from_mask(a[1], i, hi1_a);
+        set_buckets_from_mask(a[2], i, lo2_a);
+        set_buckets_from_mask(a[3], i, hi2_a);
+        i++;
     }
 
     memcpy(lo1, lo1_a.data(), sizeof(m128));
     memcpy(lo2, lo2_a.data(), sizeof(m128));
     memcpy(hi1, hi1_a.data(), sizeof(m128));
     memcpy(hi2, hi2_a.data(), sizeof(m128));
-}
 
-void mergeShuftiMask(m128 *lo, const m128 lo_in, u32 lo_bits) {
-    assert(lo_bits <= 8);
-    const u8 *lo_in_p = (const u8 *)&lo_in;
-    u8 *lo_p = (u8 *)lo;
-    for (u32 i = 0; i < 16; i++) {
-        lo_p[i] |= lo_in_p[i] << lo_bits;
-    }
+    return true;
 }
 
 #ifdef DUMP_SUPPORT

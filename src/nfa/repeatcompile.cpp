@@ -206,6 +206,13 @@ RepeatStateInfo::RepeatStateInfo(enum RepeatType type, const depth &repeatMin,
         packedFieldSizes[1] = repeatMin;
         packedCtrlSize = (packedFieldSizes[0] + packedFieldSizes[1] + 7U) / 8U;
         break;
+    case REPEAT_ALWAYS:
+        assert(repeatMin == 0ULL);
+        assert(repeatMax.is_infinite());
+        stateSize = 0; // everything is in the control block.
+        horizon = 0;
+        packedCtrlSize = 0;
+        break;
     }
     DEBUG_PRINTF("stateSize=%u, packedCtrlSize=%u, horizon=%u\n", stateSize,
                  packedCtrlSize, horizon);
@@ -232,9 +239,14 @@ u32 streamStateSize(enum RepeatType type, const depth &repeatMin,
 }
 
 enum RepeatType chooseRepeatType(const depth &repeatMin, const depth &repeatMax,
-                                 u32 minPeriod, bool is_reset) {
+                                 u32 minPeriod, bool is_reset,
+                                 bool has_external_guard) {
     if (repeatMax.is_infinite()) {
-        return REPEAT_FIRST;
+        if (has_external_guard && !repeatMin) {
+            return REPEAT_ALWAYS;
+        } else {
+            return REPEAT_FIRST;
+        }
     }
 
     if (repeatMin == depth(0) || is_reset) {

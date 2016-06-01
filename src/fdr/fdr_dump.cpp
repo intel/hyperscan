@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,11 +28,11 @@
 
 #include "config.h"
 
-#include "fdr.h"
-#include "fdr_internal.h"
+#include "fdr_compile.h"
 #include "fdr_compile_internal.h"
 #include "fdr_dump.h"
 #include "fdr_engine_description.h"
+#include "fdr_internal.h"
 #include "teddy_engine_description.h"
 #include "ue2common.h"
 
@@ -68,8 +68,7 @@ void fdrPrintStats(const FDR *fdr, FILE *f) {
     }
 
     if (isTeddy) {
-        unique_ptr<TeddyEngineDescription> des =
-            getTeddyDescription(fdr->engineID);
+        auto des = getTeddyDescription(fdr->engineID);
         if (des) {
             fprintf(f, "    masks      %u\n", des->numMasks);
             fprintf(f, "    buckets    %u\n", des->getNumBuckets());
@@ -78,16 +77,8 @@ void fdrPrintStats(const FDR *fdr, FILE *f) {
             fprintf(f, "   <unknown engine>\n");
         }
     } else {
-        unique_ptr<FDREngineDescription> des =
-            getFdrDescription(fdr->engineID);
-        if (des) {
-            fprintf(f, "    domain     %u\n", des->bits);
-            fprintf(f, "    stride     %u\n", des->stride);
-            fprintf(f, "    buckets    %u\n", des->getNumBuckets());
-            fprintf(f, "    width      %u\n", des->schemeWidth);
-        } else {
-            fprintf(f, "   <unknown engine>\n");
-        }
+        fprintf(f, "    domain     %u\n", fdr->domain);
+        fprintf(f, "    stride     %u\n", fdr->stride);
     }
 
     fprintf(f, "    strings    ???\n");

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,7 +26,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "fdr.h"
 #include "fdr_internal.h"
 #include "fdr_compile_internal.h"
 #include "fdr_confirm.h"
@@ -65,7 +64,32 @@ bool TeddyEngineDescription::needConfirm(const vector<hwlmLiteral> &lits) const 
     return false;
 }
 
-#include "teddy_autogen_compiler.cpp"
+void getTeddyDescriptions(vector<TeddyEngineDescription> *out) {
+    static const TeddyEngineDef defns[] = {
+        { 1, 0 | HS_CPU_FEATURES_AVX2, 1, 8, false, 0, 1 },
+        { 2, 0 | HS_CPU_FEATURES_AVX2, 1, 8, true, 0, 32 },
+        { 3, 0 | HS_CPU_FEATURES_AVX2, 1, 16, false, 0, 1 },
+        { 4, 0 | HS_CPU_FEATURES_AVX2, 1, 16, true, 0, 32 },
+        { 5, 0 | HS_CPU_FEATURES_AVX2, 2, 16, false, 0, 1 },
+        { 6, 0 | HS_CPU_FEATURES_AVX2, 2, 16, true, 0, 32 },
+        { 7, 0 | HS_CPU_FEATURES_AVX2, 3, 16, false, 0, 1 },
+        { 8, 0 | HS_CPU_FEATURES_AVX2, 3, 16, true, 0, 32 },
+        { 9, 0 | HS_CPU_FEATURES_AVX2, 4, 16, false, 0, 1 },
+        { 10, 0 | HS_CPU_FEATURES_AVX2, 4, 16, true, 0, 32 },
+        { 11, 0, 1, 8, false, 0, 1 },
+        { 12, 0, 1, 8, true, 0, 32 },
+        { 13, 0, 2, 8, false, 0, 1 },
+        { 14, 0, 2, 8, true, 0, 32 },
+        { 15, 0, 3, 8, false, 0, 1 },
+        { 16, 0, 3, 8, true, 0, 32 },
+        { 17, 0, 4, 8, false, 0, 1 },
+        { 18, 0, 4, 8, true, 0, 32 },
+    };
+    out->clear();
+    for (const auto &def : defns) {
+        out->emplace_back(def);
+    }
+}
 
 static
 size_t maxFloodTailLen(const vector<hwlmLiteral> &vl) {

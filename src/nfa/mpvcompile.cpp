@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,6 +36,7 @@
 #include "util/alloc.h"
 #include "util/multibit_internal.h"
 #include "util/order_check.h"
+#include "util/report_manager.h"
 #include "util/verify_types.h"
 
 #include <algorithm>
@@ -53,10 +54,8 @@ namespace ue2 {
 namespace {
 struct pcomp {
     bool operator()(const raw_puff &a, const raw_puff &b) const {
-        ORDER_CHECK(repeats);
-        ORDER_CHECK(unbounded);
-        ORDER_CHECK(report);
-        return false;
+        return tie(a.repeats, a.unbounded, a.simple_exhaust, a.report) <
+               tie(b.repeats, b.unbounded, b.simple_exhaust, b.report);
     }
 };
 
@@ -84,12 +83,21 @@ struct ClusterKey {
 } // namespace
 
 static
-void writePuffette(mpv_puffette *out, const raw_puff &rp) {
+void writePuffette(mpv_puffette *out, const raw_puff &rp,
+                   const ReportManager &rm) {
     DEBUG_PRINTF("outputting %u %d %u to %p\n", rp.repeats, (int)rp.unbounded,
                  rp.report, out);
     out->repeats = rp.repeats;
     out->unbounded = rp.unbounded;
-    out->report = rp.report;
+    out->simple_exhaust = rp.simple_exhaust;
+    out->report = rm.getProgramOffset(rp.report);
+}
+
+static
+void writeSentinel(mpv_puffette *out) {
+    DEBUG_PRINTF("outputting sentinel to %p\n", out);
+    memset(out, 0, sizeof(*out));
+    out->report = INVALID_REPORT;
 }
 
 static
@@ -148,8 +156,8 @@ void populateClusters(const vector<raw_puff> &puffs_in,
 
 static
 void writeKiloPuff(const map<ClusterKey, vector<raw_puff>>::const_iterator &it,
-                   u32 counter_offset, mpv *m, mpv_kilopuff *kp,
-                   mpv_puffette **pa) {
+                   const ReportManager &rm, u32 counter_offset, mpv *m,
+                   mpv_kilopuff *kp, mpv_puffette **pa) {
     const CharReach &reach = it->first.reach;
     const vector<raw_puff> &puffs = it->second;
 
@@ -182,11 +190,11 @@ void writeKiloPuff(const map<ClusterKey, vector<raw_puff>>::const_iterator &it,
     kp->puffette_offset = verify_u32((char *)*pa - (char *)m);
     for (size_t i = 0; i < puffs.size(); i++) {
         assert(!it->first.auto_restart || puffs[i].unbounded);
-        writePuffette(*pa + i, puffs[i]);
+        writePuffette(*pa + i, puffs[i], rm);
     }
 
     *pa += puffs.size();
-    writePuffette(*pa, raw_puff(0U, false, INVALID_REPORT, CharReach()));
+    writeSentinel(*pa);
     ++*pa;
 
     writeDeadPoint(kp, puffs);
@@ -301,7 +309,8 @@ const mpv_counter_info &findCounter(const vector<mpv_counter_info> &counters,
 }
 
 aligned_unique_ptr<NFA> mpvCompile(const vector<raw_puff> &puffs_in,
-                                   const vector<raw_puff> &triggered_puffs) {
+                                   const vector<raw_puff> &triggered_puffs,
+                                   const ReportManager &rm) {
     assert(!puffs_in.empty() || !triggered_puffs.empty());
     u32 puffette_count = puffs_in.size() + triggered_puffs.size();
 
@@ -341,7 +350,7 @@ aligned_unique_ptr<NFA> mpvCompile(const vector<raw_puff> &puffs_in,
          + sizeof(mpv_counter_info) * counters.size());
     mpv_puffette *pa = pa_base;
 
-    writePuffette(pa, raw_puff(0U, false, INVALID_REPORT, CharReach()));
+    writeSentinel(pa);
 
     ++pa; /* skip init sentinel */
 
@@ -367,8 +376,9 @@ aligned_unique_ptr<NFA> mpvCompile(const vector<raw_puff> &puffs_in,
     mpv_kilopuff *kp_begin = (mpv_kilopuff *)(m + 1);
     mpv_kilopuff *kp = kp_begin;
     for (auto it = puff_clusters.begin(); it != puff_clusters.end(); ++it) {
-        writeKiloPuff(it, findCounter(counters, kp - kp_begin).counter_offset,
-                      m, kp, &pa);
+        writeKiloPuff(it, rm,
+                      findCounter(counters, kp - kp_begin).counter_offset, m,
+                      kp, &pa);
         ++kp;
     }
     assert((char *)pa == (char *)nfa.get() + len);

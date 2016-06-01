@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,7 @@
 
 #include "rdfa.h"
 #include "ue2common.h"
+#include "util/accel_scheme.h"
 #include "util/alloc.h"
 #include "util/charreach.h"
 #include "util/ue2_containers.h"
@@ -43,6 +44,7 @@ struct NFA;
 
 namespace ue2 {
 
+class ReportManager;
 struct CompileContext;
 
 struct raw_report_info {
@@ -54,15 +56,9 @@ struct raw_report_info {
                                  std::vector<u32> &ro /* out */) const = 0;
 };
 
-struct escape_info {
-    CharReach outs;
-    CharReach outs2_single;
-    flat_set<std::pair<u8, u8>> outs2;
-    bool outs2_broken = false;
-};
-
 class dfa_build_strat {
 public:
+    explicit dfa_build_strat(const ReportManager &rm_in) : rm(rm_in) {}
     virtual ~dfa_build_strat();
     virtual raw_dfa &get_raw() const = 0;
     virtual std::unique_ptr<raw_report_info> gatherReports(
@@ -70,25 +66,29 @@ public:
                                std::vector<u32> &reports_eod /* out */,
                                u8 *isSingleReport /* out */,
                                ReportID *arbReport  /* out */) const = 0;
-    virtual void find_escape_strings(dstate_id_t this_idx,
-                                     escape_info *out) const = 0;
+    virtual AccelScheme find_escape_strings(dstate_id_t this_idx) const = 0;
     virtual size_t accelSize(void) const = 0;
-    virtual void buildAccel(dstate_id_t this_idx, void *accel_out) = 0;
+    virtual void buildAccel(dstate_id_t this_idx, const AccelScheme &info,
+                            void *accel_out) = 0;
+protected:
+    const ReportManager &rm;
 };
 
 class mcclellan_build_strat : public dfa_build_strat {
 public:
-    explicit mcclellan_build_strat(raw_dfa &r) : rdfa(r) {}
+    mcclellan_build_strat(raw_dfa &rdfa_in, const ReportManager &rm_in)
+        : dfa_build_strat(rm_in), rdfa(rdfa_in) {}
     raw_dfa &get_raw() const override { return rdfa; }
     std::unique_ptr<raw_report_info> gatherReports(
-                                   std::vector<u32> &reports /* out */,
-                                   std::vector<u32> &reports_eod /* out */,
-                                   u8 *isSingleReport /* out */,
-                                   ReportID *arbReport  /* out */) const override;
-    void find_escape_strings(dstate_id_t this_idx,
-                             escape_info *out) const override;
+                                  std::vector<u32> &reports /* out */,
+                                  std::vector<u32> &reports_eod /* out */,
+                                  u8 *isSingleReport /* out */,
+                                  ReportID *arbReport  /* out */) const override;
+    AccelScheme find_escape_strings(dstate_id_t this_idx) const override;
     size_t accelSize(void) const override;
-    void buildAccel(dstate_id_t this_idx, void *accel_out) override;
+    void buildAccel(dstate_id_t this_idx,const AccelScheme &info,
+                    void *accel_out) override;
+    virtual u32 max_allowed_offset_accel() const;
 
 private:
     raw_dfa &rdfa;
@@ -98,6 +98,7 @@ private:
  * states */
 ue2::aligned_unique_ptr<NFA>
 mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
+                 const ReportManager &rm,
                  std::set<dstate_id_t> *accel_states = nullptr);
 
 /* used internally by mcclellan/haig/gough compile process */

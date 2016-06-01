@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -55,6 +55,7 @@ public:
     u32 getNumBuckets() const { return numBuckets; }
     u32 getConfirmPullBackDistance() const { return confirmPullBackDistance; }
     u32 getConfirmTopLevelSplit() const { return confirmTopLevelSplit; }
+    void setConfirmTopLevelSplit(u32 split) { confirmTopLevelSplit = split; }
 
     bool isValidOnTarget(const target_t &target_in) const;
     virtual u32 getDefaultFloodSuffixLength() const = 0;

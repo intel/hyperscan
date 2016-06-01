@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,8 +41,9 @@
 #include "util/graph_range.h"
 #include "util/make_unique.h"
 #include "util/order_check.h"
-#include "util/verify_types.h"
+#include "util/report_manager.h"
 #include "util/ue2_containers.h"
+#include "util/verify_types.h"
 
 #include "ue2common.h"
 
@@ -77,18 +78,20 @@ namespace {
 
 class gough_build_strat : public mcclellan_build_strat {
 public:
-    gough_build_strat(raw_som_dfa &r, const GoughGraph &g,
-            const map<dstate_id_t, gough_accel_state_info> &accel_info)
-        : mcclellan_build_strat(r), rdfa(r), gg(g),
+    gough_build_strat(
+        raw_som_dfa &r, const GoughGraph &g, const ReportManager &rm,
+        const map<dstate_id_t, gough_accel_state_info> &accel_info)
+        : mcclellan_build_strat(r, rm), rdfa(r), gg(g),
           accel_gough_info(accel_info) {}
     unique_ptr<raw_report_info> gatherReports(vector<u32> &reports /* out */,
                             vector<u32> &reports_eod /* out */,
                             u8 *isSingleReport /* out */,
                             ReportID *arbReport  /* out */) const override;
-    void find_escape_strings(dstate_id_t this_idx,
-                             escape_info *out) const override;
+    AccelScheme find_escape_strings(dstate_id_t this_idx) const override;
     size_t accelSize(void) const override { return sizeof(gough_accel); }
-    void buildAccel(dstate_id_t this_idx, void *accel_out) override;
+    void buildAccel(dstate_id_t this_idx, const AccelScheme &info,
+                    void *accel_out) override;
+    u32 max_allowed_offset_accel() const override { return 0; }
 
     raw_som_dfa &rdfa;
     const GoughGraph &gg;
@@ -1034,7 +1037,8 @@ void update_accel_prog_offset(const gough_build_strat &gbs,
 }
 
 aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
-                                     const CompileContext &cc) {
+                                     const CompileContext &cc,
+                                     const ReportManager &rm) {
     assert(somPrecision == 2 || somPrecision == 4 || somPrecision == 8
            || !cc.streaming);
 
@@ -1066,7 +1070,7 @@ aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
 
     map<dstate_id_t, gough_accel_state_info> accel_allowed;
     find_allowed_accel_states(*cfg, blocks, &accel_allowed);
-    gough_build_strat gbs(raw, *cfg, accel_allowed);
+    gough_build_strat gbs(raw, *cfg, rm, accel_allowed);
     aligned_unique_ptr<NFA> basic_dfa = mcclellanCompile_i(raw, gbs, cc);
     assert(basic_dfa);
     if (!basic_dfa) {
@@ -1145,32 +1149,44 @@ aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
     return gough_dfa;
 }
 
-void gough_build_strat::find_escape_strings(dstate_id_t this_idx,
-                                            escape_info *out) const {
+AccelScheme gough_build_strat::find_escape_strings(dstate_id_t this_idx) const {
+    AccelScheme rv;
     if (!contains(accel_gough_info, this_idx)) {
-        out->outs = CharReach::dot();
-        out->outs2_broken = true;
-        return;
+        rv.cr = CharReach::dot();
+        rv.double_byte.clear();
+        return rv;
     }
 
-    mcclellan_build_strat::find_escape_strings(this_idx, out);
+    rv = mcclellan_build_strat::find_escape_strings(this_idx);
 
-    if (!accel_gough_info.at(this_idx).two_byte) {
-        out->outs2_broken = true;
+    assert(!rv.offset || rv.cr.all()); /* should have been limited by strat */
+    if (rv.offset) {
+        rv.cr = CharReach::dot();
+        rv.double_byte.clear();
+        return rv;
     }
+
+    if (rv.double_offset
+        || !accel_gough_info.at(this_idx).two_byte) {
+        rv.double_byte.clear();
+    }
+
+    return rv;
 }
 
-void gough_build_strat::buildAccel(dstate_id_t this_idx, void *accel_out) {
+void gough_build_strat::buildAccel(dstate_id_t this_idx, const AccelScheme &info,
+                                   void *accel_out) {
     assert(mcclellan_build_strat::accelSize() == sizeof(AccelAux));
     gough_accel *accel = (gough_accel *)accel_out;
     /* build a plain accelaux so we can work out where we can get to */
-    mcclellan_build_strat::buildAccel(this_idx, &accel->accel);
+    mcclellan_build_strat::buildAccel(this_idx, info, &accel->accel);
     DEBUG_PRINTF("state %hu is accel with type %hhu\n", this_idx,
                  accel->accel.accel_type);
     if (accel->accel.accel_type == ACCEL_NONE) {
         return;
     }
 
+    assert(!accel->accel.generic.offset);
     assert(contains(accel_gough_info, this_idx));
     accel->margin_dist = verify_u8(accel_gough_info.at(this_idx).margin);
     built_accel[accel] = this_idx;
@@ -1182,10 +1198,11 @@ namespace {
 struct raw_gough_report_list {
     set<som_report> reports;
 
-    explicit raw_gough_report_list(
-        const vector<pair<ReportID, GoughSSAVar *>> &raw_reports) {
+    raw_gough_report_list(
+        const vector<pair<ReportID, GoughSSAVar *>> &raw_reports,
+        const ReportManager &rm, bool do_remap) {
         for (const auto &m : raw_reports) {
-            ReportID r = m.first;
+            ReportID r = do_remap ? rm.getProgramOffset(m.first) : m.first;
             u32 impl_slot = INVALID_SLOT;
             if (m.second) {
                 impl_slot = m.second->slot;
@@ -1214,10 +1231,12 @@ unique_ptr<raw_report_info> gough_build_strat::gatherReports(
                                                   vector<u32> &reports_eod,
                                                   u8 *isSingleReport,
                                                   ReportID *arbReport) const {
-    unique_ptr<raw_gough_report_info_impl> ri =
-        ue2::make_unique<raw_gough_report_info_impl>();
-    map<raw_gough_report_list, u32> rev;
     DEBUG_PRINTF("gathering reports\n");
+
+    const bool remap_reports = has_managed_reports(rdfa.kind);
+
+    auto ri = ue2::make_unique<raw_gough_report_info_impl>();
+    map<raw_gough_report_list, u32> rev;
 
     assert(!rdfa.states.empty());
 
@@ -1237,7 +1256,7 @@ unique_ptr<raw_report_info> gough_build_strat::gatherReports(
             continue;
         }
 
-        raw_gough_report_list rrl(gg[v].reports);
+        raw_gough_report_list rrl(gg[v].reports, rm, remap_reports);
         DEBUG_PRINTF("non empty r %zu\n", reports.size());
         if (rev.find(rrl) != rev.end()) {
             reports.push_back(rev[rrl]);
@@ -1256,7 +1275,7 @@ unique_ptr<raw_report_info> gough_build_strat::gatherReports(
         }
 
         DEBUG_PRINTF("non empty r eod\n");
-        raw_gough_report_list rrl(gg[v].reports_eod);
+        raw_gough_report_list rrl(gg[v].reports_eod, rm, remap_reports);
         if (rev.find(rrl) != rev.end()) {
             reports_eod.push_back(rev[rrl]);
             continue;

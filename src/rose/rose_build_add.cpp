@@ -115,7 +115,6 @@ RoseVertex createVertex(RoseBuildImpl *build, u32 literalId, u32 min_offset,
     g[v].idx = build->vertexIndex++;
     g[v].min_offset = min_offset;
     g[v].max_offset = max_offset;
-    /* no escapes */
 
     DEBUG_PRINTF("insert vertex %zu into literal %u's vertex set\n", g[v].idx,
                  literalId);
@@ -201,19 +200,16 @@ RoseVertex duplicate(RoseBuildImpl *build, RoseVertex v) {
 namespace {
 struct created_key {
     explicit created_key(const RoseInEdgeProps &trep)
-        : prefix(trep.graph.get()), lag(trep.graph_lag), escapes(trep.escapes) {
-        assert(escapes.none() || !prefix);
+        : prefix(trep.graph.get()), lag(trep.graph_lag) {
     }
     bool operator<(const created_key &b) const {
         const created_key &a = *this;
         ORDER_CHECK(prefix);
         ORDER_CHECK(lag);
-        ORDER_CHECK(escapes);
         return false;
     }
     NGHolder *prefix;
     u32 lag;
-    CharReach escapes;
 };
 }
 
@@ -320,15 +316,6 @@ void createVertices(RoseBuildImpl *tbi,
         }
 
         NFAVertex p = pv.first;
-        if (isLeafNode(p, g)) {
-            DEBUG_PRINTF("setting escapes (reach %s) on parent\n",
-                         describeClass(key.escapes, 20, CC_OUT_TEXT).c_str());
-            g[p].escapes = key.escapes;
-        } else if (key.escapes != g[p].escapes) {
-            DEBUG_PRINTF("creating differently escaped version of parent\n");
-            p = duplicate(tbi, p);
-            g[p].escapes = key.escapes;
-        }
 
         RoseEdge e;
         bool added;
@@ -1052,6 +1039,7 @@ bool canImplementGraph(RoseBuildImpl *tbi, const RoseInGraph &in, NGHolder &h,
             }
             break;
         case NFA_REV_PREFIX:
+        case NFA_OUTFIX_RAW:
             DEBUG_PRINTF("kind %u\n", (u32)h.kind);
             assert(0);
         }
@@ -1104,10 +1092,6 @@ bool predsAreDelaySensitive(const RoseInGraph &ig, RoseInVertex v) {
         }
         if (ig[e].minBound || ig[e].maxBound != ROSE_BOUND_INF) {
             DEBUG_PRINTF("edge bounds\n");
-            return true;
-        }
-        if (ig[e].escapes.any()) {
-            DEBUG_PRINTF("escapes\n");
             return true;
         }
 
@@ -1793,11 +1777,12 @@ bool RoseBuildImpl::addOutfix(const NGHolder &h, const raw_som_dfa &haig) {
 
 bool RoseBuildImpl::addOutfix(const raw_puff &rp) {
     if (!mpv_outfix) {
-        mpv_outfix = make_unique<OutfixInfo>();
-        mpv_outfix->chained = true;
+        mpv_outfix = make_unique<OutfixInfo>(MpvProto());
     }
 
-    mpv_outfix->puffettes.push_back(rp);
+    auto *mpv = mpv_outfix->mpv();
+    assert(mpv);
+    mpv->puffettes.push_back(rp);
 
     mpv_outfix->maxBAWidth = ROSE_BOUND_INF; /* not ba */
     mpv_outfix->minWidth = min(mpv_outfix->minWidth, depth(rp.repeats));
@@ -1817,11 +1802,12 @@ bool RoseBuildImpl::addOutfix(const raw_puff &rp) {
 bool RoseBuildImpl::addChainTail(const raw_puff &rp, u32 *queue_out,
                                  u32 *event_out) {
     if (!mpv_outfix) {
-        mpv_outfix = make_unique<OutfixInfo>();
-        mpv_outfix->chained = true;
+        mpv_outfix = make_unique<OutfixInfo>(MpvProto());
     }
 
-    mpv_outfix->triggered_puffettes.push_back(rp);
+    auto *mpv = mpv_outfix->mpv();
+    assert(mpv);
+    mpv->triggered_puffettes.push_back(rp);
 
     mpv_outfix->maxBAWidth = ROSE_BOUND_INF; /* not ba */
     mpv_outfix->minWidth = min(mpv_outfix->minWidth, depth(rp.repeats));
@@ -1833,7 +1819,7 @@ bool RoseBuildImpl::addChainTail(const raw_puff &rp, u32 *queue_out,
                                             * the caller */
 
     *queue_out = mpv_outfix->get_queue(qif);
-    *event_out = MQE_TOP_FIRST + mpv_outfix->triggered_puffettes.size() - 1;
+    *event_out = MQE_TOP_FIRST + mpv->triggered_puffettes.size() - 1;
 
     return true; /* failure is not yet an option */
 }

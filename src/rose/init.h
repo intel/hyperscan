@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,7 +39,7 @@
  */
 
 static really_inline
-void init_state(const struct RoseEngine *t, u8 *state) {
+void init_state(const struct RoseEngine *t, char *state) {
     scatter(state, t, &t->state_init);
 }
 

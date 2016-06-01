@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -130,6 +130,7 @@ bool addComponentSom(NG &ng, NGHolder &g, const NGWrapper &w,
 
     assert(g.kind == NFA_OUTFIX);
     dumpComponent(g, "haig", w.expressionIndex, comp_id, ng.cc.grey);
+    makeReportsSomPass(ng.rm, g);
     auto haig = attemptToBuildHaig(g, som, ng.ssm.somPrecision(), triggers,
                                    ng.cc.grey);
     if (haig) {
@@ -167,6 +168,7 @@ void reduceGraph(NGHolder &g, som_type som, bool utf8,
         changed |= removeEdgeRedundancy(g, som, cc);
         changed |= reduceGraphEquivalences(g, cc);
         changed |= removeRedundancy(g, som);
+        changed |= removeCyclicPathRedundancy(g);
         if (!changed) {
             DEBUG_PRINTF("graph unchanged after pass %u, stopping\n", pass);
             break;
@@ -183,7 +185,6 @@ void reduceGraph(NGHolder &g, som_type som, bool utf8,
         removeEdgeRedundancy(g, som, cc);
     }
 
-    removeCyclicPathRedundancy(g);
     removeCyclicDominated(g, som);
 
     if (!som) {
@@ -401,6 +402,13 @@ bool NG::addGraph(NGWrapper &w) {
     }
 
     dumpDotWrapper(w, "03_early", cc.grey);
+
+    // Perform a reduction pass to merge sibling character classes together.
+    if (cc.grey.performGraphSimplification) {
+        removeRedundancy(w, som);
+    }
+
+    dumpDotWrapper(w, "04_reduced", cc.grey);
 
     // If we've got some literals that span the graph from start to accept, we
     // can split them off into Rose from here.

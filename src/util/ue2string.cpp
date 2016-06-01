@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -129,7 +129,9 @@ string dumpString(const ue2_literal &lit) {
 #endif
 
 void upperString(string &s) {
-    transform(s.begin(), s.end(), s.begin(), (int(*)(int)) mytoupper);
+    for (auto &c : s) {
+        c = mytoupper(c);
+    }
 }
 
 size_t maxStringOverlap(const string &a, const string &b, bool nocase) {
@@ -173,7 +175,16 @@ size_t maxStringSelfOverlap(const string &a, bool nocase) {
 }
 
 u32 cmp(const char *a, const char *b, size_t len, bool nocase) {
-    return cmpForward((const u8 *)a, (const u8 *)b, len, nocase);
+    if (!nocase) {
+        return memcmp(a, b, len);
+    }
+
+    for (const auto *a_end = a + len; a < a_end; a++, b++) {
+        if (mytoupper(*a) != mytoupper(*b)) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 case_iter::case_iter(const ue2_literal &ss) : s(ss.get_string()),

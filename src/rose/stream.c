@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,16 +37,13 @@
 #include "nfa/nfa_api_queue.h"
 #include "nfa/nfa_internal.h"
 #include "util/fatbit.h"
-#include "rose_sidecar_runtime.h"
 #include "rose.h"
 
 static rose_inline
 void runAnchoredTableStream(const struct RoseEngine *t, const void *atable,
                             size_t alen, u64a offset,
                             struct hs_scratch *scratch) {
-    char *state_base
-        = (char *)scratch->tctxt.state + t->stateOffsets.anchorState;
-
+    char *state_base = scratch->core_info.state + t->stateOffsets.anchorState;
     const struct anchored_matcher_info *curr = atable;
 
     do {
@@ -77,7 +74,7 @@ void runAnchoredTableStream(const struct RoseEngine *t, const void *atable,
                     goto next_nfa;
                 }
             } else {
-                if (!*(u16 *)state) {
+                if (!unaligned_load_u16(state)) {
                     goto next_nfa;
                 }
             }
@@ -86,11 +83,11 @@ void runAnchoredTableStream(const struct RoseEngine *t, const void *atable,
         if (nfa->type == MCCLELLAN_NFA_8) {
             nfaExecMcClellan8_SimpStream(nfa, state, scratch->core_info.buf,
                                          start, adj, alen, roseAnchoredCallback,
-                                         &scratch->tctxt);
+                                         scratch);
         } else {
             nfaExecMcClellan16_SimpStream(nfa, state, scratch->core_info.buf,
-                                          start, adj, alen, roseAnchoredCallback,
-                                          &scratch->tctxt);
+                                          start, adj, alen,
+                                          roseAnchoredCallback, scratch);
         }
 
     next_nfa:
@@ -129,7 +126,7 @@ enum MiracleAction {
 };
 
 static really_inline
-enum MiracleAction roseScanForMiracles(const struct RoseEngine *t, u8 *state,
+enum MiracleAction roseScanForMiracles(const struct RoseEngine *t, char *state,
                                        struct hs_scratch *scratch, u32 qi,
                                        const struct LeftNfaInfo *left,
                                        const struct NFA *nfa) {
@@ -178,7 +175,7 @@ found_miracle:
         nfaQueueInitState(q->nfa, q);
     } else {
         if (miracle_loc > end_loc - t->historyRequired) {
-            u8 *streamState = state + getNfaInfoByQueue(t, qi)->stateOffset;
+            char *streamState = state + getNfaInfoByQueue(t, qi)->stateOffset;
             u64a offset = ci->buf_offset + miracle_loc;
             u8 key = offset ? getByteBefore(ci, miracle_loc) : 0;
             DEBUG_PRINTF("init state, key=0x%02x, offset=%llu\n", key, offset);
@@ -193,7 +190,7 @@ found_miracle:
                      miracle_loc);
         if (!q_active) {
             fatbit_set(scratch->aqa, qCount, qi);
-            initRoseQueue(t, qi, left, &scratch->tctxt);
+            initRoseQueue(t, qi, left, scratch);
         }
         q->cur = q->end = 0;
         pushQueueAt(q, 0, MQE_START, miracle_loc);
@@ -206,7 +203,7 @@ found_miracle:
 
 
 static really_inline
-char roseCatchUpLeftfix(const struct RoseEngine *t, u8 *state,
+char roseCatchUpLeftfix(const struct RoseEngine *t, char *state,
                         struct hs_scratch *scratch, u32 qi,
                         const struct LeftNfaInfo *left) {
     assert(!left->transient); // active roses only
@@ -239,7 +236,7 @@ char roseCatchUpLeftfix(const struct RoseEngine *t, u8 *state,
     }
 
     if (!fatbit_set(scratch->aqa, qCount, qi)) {
-        initRoseQueue(t, qi, left, &scratch->tctxt);
+        initRoseQueue(t, qi, left, scratch);
 
         s32 sp;
         if (ci->buf_offset) {
@@ -294,7 +291,7 @@ char roseCatchUpLeftfix(const struct RoseEngine *t, u8 *state,
             DEBUG_PRINTF("infix died of old age\n");
             return 0;
         }
-        reduceQueue(q, last_loc, left->maxQueueLen, q->nfa->maxWidth);
+        reduceInfixQueue(q, last_loc, left->maxQueueLen, q->nfa->maxWidth);
     }
 
     DEBUG_PRINTF("end scan at %lld\n", last_loc);
@@ -324,7 +321,7 @@ char roseCatchUpLeftfix(const struct RoseEngine *t, u8 *state,
 }
 
 static rose_inline
-void roseCatchUpLeftfixes(const struct RoseEngine *t, u8 *state,
+void roseCatchUpLeftfixes(const struct RoseEngine *t, char *state,
                           struct hs_scratch *scratch) {
     if (!t->activeLeftIterOffset) {
         // No sparse iter, no non-transient roses.
@@ -343,12 +340,13 @@ void roseCatchUpLeftfixes(const struct RoseEngine *t, u8 *state,
     const u32 arCount = t->activeLeftCount;
     const struct LeftNfaInfo *left_table = getLeftTable(t);
     const struct mmbit_sparse_iter *it = getActiveLeftIter(t);
-    struct mmbit_sparse_state *s = scratch->sparse_iter_state;
+
+    struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
 
     u32 idx = 0;
-    u32 ri = mmbit_sparse_iter_begin(ara, arCount, &idx, it, s);
+    u32 ri = mmbit_sparse_iter_begin(ara, arCount, &idx, it, si_state);
     for (; ri != MMB_INVALID;
-           ri = mmbit_sparse_iter_next(ara, arCount, ri, &idx, it, s)) {
+           ri = mmbit_sparse_iter_next(ara, arCount, ri, &idx, it, si_state)) {
         const struct LeftNfaInfo *left = left_table + ri;
         u32 qi = ri + t->leftfixBeginQueue;
         DEBUG_PRINTF("leftfix %u of %u, maxLag=%u, infix=%d\n", ri, arCount,
@@ -365,7 +363,7 @@ void roseCatchUpLeftfixes(const struct RoseEngine *t, u8 *state,
 
 // Saves out stream state for all our active suffix NFAs.
 static rose_inline
-void roseSaveNfaStreamState(const struct RoseEngine *t, u8 *state,
+void roseSaveNfaStreamState(const struct RoseEngine *t, char *state,
                             struct hs_scratch *scratch) {
     struct mq *queues = scratch->queues;
     u8 *aa = getActiveLeafArray(t, state);
@@ -393,26 +391,20 @@ void roseSaveNfaStreamState(const struct RoseEngine *t, u8 *state,
 }
 
 static rose_inline
-void ensureStreamNeatAndTidy(const struct RoseEngine *t, u8 *state,
+void ensureStreamNeatAndTidy(const struct RoseEngine *t, char *state,
                              struct hs_scratch *scratch, size_t length,
-                             u64a offset, u8 delay_rb_status) {
+                             u64a offset) {
     struct RoseContext *tctxt = &scratch->tctxt;
 
-    if (roseCatchUpTo(t, state, length + scratch->core_info.buf_offset, scratch,
-                     0)
-        == HWLM_TERMINATE_MATCHING) {
+    if (roseCatchUpTo(t, scratch, length + scratch->core_info.buf_offset) ==
+        HWLM_TERMINATE_MATCHING) {
         return; /* dead; no need to clean up state. */
     }
     roseSaveNfaStreamState(t, state, scratch);
     roseCatchUpLeftfixes(t, state, scratch);
-    roseFlushLastByteHistory(t, state, offset + length, tctxt);
+    roseFlushLastByteHistory(t, scratch, offset + length);
     tctxt->lastEndOffset = offset + length;
-    catchup_sidecar(tctxt, offset + length);
-    sidecar_enabled_preserve(t, scratch, state);
     storeGroups(t, state, tctxt->groups);
-    struct RoseRuntimeState *rstate = getRuntimeState(state);
-    rstate->stored_depth = tctxt->depth;
-    rstate->flags = delay_rb_status;
 }
 
 static really_inline
@@ -423,19 +415,22 @@ void do_rebuild(const struct RoseEngine *t, const struct HWLM *ftable,
     const u8 *buf = scratch->core_info.hbuf + scratch->core_info.hlen - len;
     DEBUG_PRINTF("BEGIN FLOATING REBUILD over %zu bytes\n", len);
 
+    scratch->core_info.status &= ~STATUS_DELAY_DIRTY;
+
     hwlmExec(ftable, buf, len, 0, roseDelayRebuildCallback, scratch,
              scratch->tctxt.groups);
     assert(!can_stop_matching(scratch));
 }
 
-void roseStreamExec(const struct RoseEngine *t, u8 *state,
-                   struct hs_scratch *scratch, RoseCallback callback,
-                   RoseCallbackSom som_callback, void *ctx) {
+void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     DEBUG_PRINTF("OH HAI\n");
     assert(t);
-    assert(state);
     assert(scratch->core_info.hbuf);
     assert(scratch->core_info.buf);
+
+    // We should not have been called if we've already been told to terminate
+    // matching.
+    assert(!told_to_stop_matching(scratch));
 
     assert(mmbit_sparse_iter_state_size(t->rolesWithStateCount)
            < MAX_SPARSE_ITER_STATES);
@@ -452,44 +447,29 @@ void roseStreamExec(const struct RoseEngine *t, u8 *state,
         return;
     }
 
-    struct RoseRuntimeState *rstate = getRuntimeState(state);
+    char *state = scratch->core_info.state;
 
     struct RoseContext *tctxt = &scratch->tctxt;
-    tctxt->t = t;
-    tctxt->depth = rstate->stored_depth;
     tctxt->mpv_inactive = 0;
     tctxt->groups = loadGroups(t, state);
     tctxt->lit_offset_adjust = offset + 1; // index after last byte
     tctxt->delayLastEndOffset = offset;
     tctxt->lastEndOffset = offset;
     tctxt->filledDelayedSlots = 0;
-    tctxt->state = state;
-    tctxt->cb = callback;
-    tctxt->cb_som = som_callback;
-    tctxt->userCtx = ctx;
     tctxt->lastMatchOffset = 0;
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;
     tctxt->next_mpv_offset = 0;
-    tctxt->curr_anchored_loc = MMB_INVALID;
-    tctxt->curr_row_offset = 0;
-    tctxt->side_curr = offset;
-
     DEBUG_PRINTF("BEGIN: history len=%zu, buffer len=%zu\n",
                   scratch->core_info.hlen, scratch->core_info.len);
 
     fatbit_clear(scratch->aqa);
-    scratch->am_log_sum = 0; /* clear the anchored logs */
     scratch->al_log_sum = 0;
     scratch->catchup_pq.qm_size = 0;
 
     if (t->outfixBeginQueue != t->outfixEndQueue) {
         streamInitSufPQ(t, state, scratch);
     }
-
-    sidecar_enabled_populate(t, scratch, state);
-
-    u8 delay_rb_status = rstate->flags;
 
     u32 alen = t->anchoredDistance > offset ?
         MIN(length + offset, t->anchoredDistance) - offset : 0;
@@ -502,13 +482,11 @@ void roseStreamExec(const struct RoseEngine *t, u8 *state,
         if (can_stop_matching(scratch)) {
             goto exit;
         }
-
-        resetAnchoredLog(t, scratch);
     }
 
     const struct HWLM *ftable = getFLiteralMatcher(t);
     if (ftable) {
-        if (t->noFloatingRoots && tctxt->depth == 1) {
+        if (t->noFloatingRoots && !roseHasInFlightMatches(t, state, scratch)) {
             DEBUG_PRINTF("skip FLOATING: no inflight matches\n");
             goto flush_delay_and_exit;
         }
@@ -521,12 +499,13 @@ void roseStreamExec(const struct RoseEngine *t, u8 *state,
 
         size_t hlength = scratch->core_info.hlen;
 
-        char rebuild = hlength && (delay_rb_status & DELAY_FLOAT_DIRTY)
-            && (t->maxFloatingDelayedMatch == ROSE_BOUND_INF
-                || offset < t->maxFloatingDelayedMatch);
+        char rebuild = hlength &&
+                       (scratch->core_info.status & STATUS_DELAY_DIRTY) &&
+                       (t->maxFloatingDelayedMatch == ROSE_BOUND_INF ||
+                        offset < t->maxFloatingDelayedMatch);
         DEBUG_PRINTF("**rebuild %hhd status %hhu mfdm %u, offset %llu\n",
-                     rebuild, delay_rb_status, t->maxFloatingDelayedMatch,
-                     offset);
+                     rebuild, scratch->core_info.status,
+                     t->maxFloatingDelayedMatch, offset);
 
         if (!flen) {
             if (rebuild) { /* rebuild floating delayed match stuff */
@@ -560,23 +539,22 @@ void roseStreamExec(const struct RoseEngine *t, u8 *state,
         }
 
         DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
-        hwlmExecStreaming(ftable, scratch, flen, start, roseCallback, tctxt,
+        hwlmExecStreaming(ftable, scratch, flen, start, roseCallback, scratch,
                           tctxt->groups, stream_state);
     }
 
 flush_delay_and_exit:
     DEBUG_PRINTF("flushing floating\n");
-    if (cleanUpDelayed(length, offset, tctxt, &delay_rb_status)
-        == HWLM_TERMINATE_MATCHING) {
+    if (cleanUpDelayed(t, scratch, length, offset) == HWLM_TERMINATE_MATCHING) {
         return;
     }
 
 exit:
     DEBUG_PRINTF("CLEAN UP TIME\n");
     if (!can_stop_matching(scratch)) {
-        ensureStreamNeatAndTidy(t, state, scratch, length, offset,
-                                delay_rb_status);
+        ensureStreamNeatAndTidy(t, state, scratch, length, offset);
     }
-    DEBUG_PRINTF("DONE STREAMING SCAN, dirty = %hhu\n", delay_rb_status);
+    DEBUG_PRINTF("DONE STREAMING SCAN, status = %u\n",
+                 scratch->core_info.status);
     return;
 }
