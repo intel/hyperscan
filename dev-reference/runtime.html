@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Scanning for Patterns &mdash; Hyperscan 4.1.0 documentation</title>
+    <title>Scanning for Patterns &mdash; Hyperscan 4.2.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.1.0',
+        VERSION:     '4.2.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,12 +25,12 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 4.1.0 documentation" href="index.html" />
-    <link rel="next" title="Performance Considerations" href="performance.html" />
+    <link rel="top" title="Hyperscan 4.2.0 documentation" href="index.html" />
+    <link rel="next" title="Serialization" href="serialization.html" />
     <link rel="prev" title="Compiling Patterns" href="compilation.html" />
    
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
   <body role="document">  
@@ -141,24 +141,28 @@ databases, only a single scratch region is necessary: in this case, calling
 <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> on each database (with the same <code class="docutils literal"><span class="pre">scratch</span></code> pointer)
 will ensure that the scratch space is large enough to support scanning against
 any of the given databases.</p>
-<p>Importantly, only one such space is required per thread and can (and indeed
-should) be allocated before data scanning is to commence. In a scenario where a
-set of expressions are compiled by a single &#8220;master&#8221; thread and data will be
-scanned by multiple &#8220;worker&#8221; threads, the convenience function
-<a class="reference internal" href="api_files.html#c.hs_clone_scratch" title="hs_clone_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_clone_scratch()</span></code></a> allows multiple copies of an existing scratch space
-to be made for each thread (rather than forcing the caller to pass all the
-compiled databases through <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> multiple times).</p>
+<p>While the Hyperscan library is re-entrant, the use of scratch spaces is not.
+For example, if by design it is deemed necessary to run recursive or nested
+scanning (say, from the match callback function), then an additional scratch
+space is required for that context.</p>
+<p>In the absence of recursive scanning, only one such space is required per thread
+and can (and indeed should) be allocated before data scanning is to commence.</p>
+<p>In a scenario where a set of expressions are compiled by a single &#8220;master&#8221;
+thread and data will be scanned by multiple &#8220;worker&#8221; threads, the convenience
+function <a class="reference internal" href="api_files.html#c.hs_clone_scratch" title="hs_clone_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_clone_scratch()</span></code></a> allows multiple copies of an existing
+scratch space to be made for each thread (rather than forcing the caller to pass
+all the compiled databases through <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> multiple times).</p>
 <p>For example:</p>
-<div class="highlight-c"><div class="highlight"><pre><span class="kt">hs_error_t</span> <span class="n">err</span><span class="p">;</span>
-<span class="kt">hs_scratch_t</span> <span class="o">*</span><span class="n">scratch_prototype</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+<div class="highlight-c"><div class="highlight"><pre><span class="n">hs_error_t</span> <span class="n">err</span><span class="p">;</span>
+<span class="n">hs_scratch_t</span> <span class="o">*</span><span class="n">scratch_prototype</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
 <span class="n">err</span> <span class="o">=</span> <span class="n">hs_alloc_scratch</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">scratch_prototype</span><span class="p">);</span>
 <span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">!=</span> <span class="n">HS_SUCCESS</span><span class="p">)</span> <span class="p">{</span>
     <span class="n">printf</span><span class="p">(</span><span class="s">&quot;hs_alloc_scratch failed!&quot;</span><span class="p">);</span>
     <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
 <span class="p">}</span>
 
-<span class="kt">hs_scratch_t</span> <span class="o">*</span><span class="n">scratch_thread1</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-<span class="kt">hs_scratch_t</span> <span class="o">*</span><span class="n">scratch_thread2</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="n">hs_scratch_t</span> <span class="o">*</span><span class="n">scratch_thread1</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="n">hs_scratch_t</span> <span class="o">*</span><span class="n">scratch_thread2</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
 
 <span class="n">err</span> <span class="o">=</span> <span class="n">hs_clone_scratch</span><span class="p">(</span><span class="n">scratch_prototype</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">scratch_thread1</span><span class="p">);</span>
 <span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">!=</span> <span class="n">HS_SUCCESS</span><span class="p">)</span> <span class="p">{</span>
@@ -177,12 +181,6 @@ compiled databases through <a class="reference internal" href="api_files.html#c.
 <span class="cm">   each with its own scratch space. */</span>
 </pre></div>
 </div>
-<p>While the Hyperscan library is re-entrant, the use of scratch spaces is not.
-For example, if by design it is deemed necessary to run recursive or nested
-scanning (say, from the match callback function), then an additional scratch
-space is required for that context.</p>
-<p>The easiest way to achieve this is to build up a single scratch space as a
-prototype, then clone it for each context:</p>
 </div>
 <div class="section" id="custom-allocators">
 <h2>Custom Allocators<a class="headerlink" href="#custom-allocators" title="Permalink to this headline">¶</a></h2>
@@ -230,6 +228,7 @@ allocators to the same allocate/free pair.</p>
 <li class="toctree-l2"><a class="reference internal" href="#custom-allocators">Custom Allocators</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_constants.html">API Reference: Constants</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_files.html">API Reference: Files</a></li>
@@ -253,11 +252,11 @@ allocators to the same allocate/free pair.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2015, Intel Corporation.
+      &copy;2015-2016, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.6</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
       
     </div>
 

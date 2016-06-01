@@ -119,12 +119,21 @@ The following regex constructs are supported by Hyperscan:
 * The anchors :regexp:`^`, :regexp:`$`, :regexp:`\\A`, :regexp:`\\Z` and
   :regexp:`\\z`.
 
-* Option modifiers for:
+* Option modifiers:
 
-    * Case-sensitivity: :regexp:`(?i)` and :regexp:`(?-i)`
-    * Multi-line: :regexp:`(?m)` and :regexp:`(?-m)`
-    * Dot-all: :regexp:`(?s)` and :regexp:`(?-s)`
-    * Extended syntax: :regexp:`(?s)` and :regexp:`(?-s)`
+  These allow behaviour to be switched on (with :regexp:`(?<option>)`) and off
+  (with :regexp:`(?-<option>)`) for a sub-pattern. The supported options are:
+
+    * :regexp:`i`: Case-insensitive matching, as per
+      :c:member:`HS_FLAG_CASELESS`.
+    * :regexp:`m`: Multi-line matching, as per :c:member:`HS_FLAG_MULTILINE`.
+    * :regexp:`s`: Interpret ``.`` as "any character", as per
+      :c:member:`HS_FLAG_DOTALL`.
+    * :regexp:`x`: Extended syntax, which will ignore most whitespace in the
+      pattern for compatibility with libpcre's ``PCRE_EXTENDED`` option.
+
+  For example, the expression :regexp:`foo(?i)bar(?-i)baz` will switch on
+  case-insensitive matching *only* for the ``bar`` portion of the match.
 
 * The :regexp:`\\b` and :regexp:`\\B` zero-width assertions (word boundary and
   'not word boundary', respectively).

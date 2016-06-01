@@ -1,0 +1,153 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Serialization &mdash; Hyperscan 4.2.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '4.2.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="top" title="Hyperscan 4.2.0 documentation" href="index.html" />
+    <link rel="next" title="Performance Considerations" href="performance.html" />
+    <link rel="prev" title="Scanning for Patterns" href="runtime.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="serialization">
+<span id="id1"></span><h1>Serialization<a class="headerlink" href="#serialization" title="Permalink to this headline">¶</a></h1>
+<p>For some applications, compiling Hyperscan pattern databases immediately prior
+to use is not an appropriate design. Some users may wish to:</p>
+<ul class="simple">
+<li>Compile pattern databases on a different host;</li>
+<li>Persist compiled databases to storage and only re-compile pattern databases
+when the patterns change;</li>
+<li>Control the region of memory in which the compiled database is located.</li>
+</ul>
+<p>Hyperscan pattern databases are not completely flat in memory: they contain
+pointers and have specific alignment requirements. Therefore, they cannot be
+copied (or otherwise relocated) directly. To enable these use cases, Hyperscan
+provides functionality for serializing and deserializing compiled pattern
+databases.</p>
+<p>The API provides the following functions:</p>
+<ol class="arabic simple">
+<li><a class="reference internal" href="api_files.html#c.hs_serialize_database" title="hs_serialize_database"><code class="xref c c-func docutils literal"><span class="pre">hs_serialize_database()</span></code></a>: serializes a pattern database into a
+flat relocatable buffer of bytes.</li>
+<li><a class="reference internal" href="api_files.html#c.hs_deserialize_database" title="hs_deserialize_database"><code class="xref c c-func docutils literal"><span class="pre">hs_deserialize_database()</span></code></a>: reconstructs a newly allocated pattern
+database from the output of <a class="reference internal" href="api_files.html#c.hs_serialize_database" title="hs_serialize_database"><code class="xref c c-func docutils literal"><span class="pre">hs_serialize_database()</span></code></a>.</li>
+<li><a class="reference internal" href="api_files.html#c.hs_deserialize_database_at" title="hs_deserialize_database_at"><code class="xref c c-func docutils literal"><span class="pre">hs_deserialize_database_at()</span></code></a>: reconstructs a pattern
+database at a given memory location from the output of
+<a class="reference internal" href="api_files.html#c.hs_serialize_database" title="hs_serialize_database"><code class="xref c c-func docutils literal"><span class="pre">hs_serialize_database()</span></code></a>.</li>
+<li><a class="reference internal" href="api_files.html#c.hs_serialized_database_size" title="hs_serialized_database_size"><code class="xref c c-func docutils literal"><span class="pre">hs_serialized_database_size()</span></code></a>: given a serialized pattern database,
+returns the size of the memory block required by the database when
+deserialized.</li>
+<li><a class="reference internal" href="api_files.html#c.hs_serialized_database_info" title="hs_serialized_database_info"><code class="xref c c-func docutils literal"><span class="pre">hs_serialized_database_info()</span></code></a>: given a serialized pattern database,
+returns a string containing information about the database. This call is
+analogous to <a class="reference internal" href="api_files.html#c.hs_database_info" title="hs_database_info"><code class="xref c c-func docutils literal"><span class="pre">hs_database_info()</span></code></a>.</li>
+</ol>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Hyperscan performs both version and platform compatibility checks
+upon deserialization. The <a class="reference internal" href="api_files.html#c.hs_deserialize_database" title="hs_deserialize_database"><code class="xref c c-func docutils literal"><span class="pre">hs_deserialize_database()</span></code></a> and
+<a class="reference internal" href="api_files.html#c.hs_deserialize_database_at" title="hs_deserialize_database_at"><code class="xref c c-func docutils literal"><span class="pre">hs_deserialize_database_at()</span></code></a> functions will only permit the
+deserialization of databases compiled with (a) the same version of Hyperscan
+and (b) platform features supported by the current host platform. See
+<a class="reference internal" href="compilation.html#instr-specialization"><span>Instruction Set Specialization</span></a> for more information on platform specialization.</p>
+</div>
+<div class="section" id="the-runtime-library">
+<h2>The Runtime Library<a class="headerlink" href="#the-runtime-library" title="Permalink to this headline">¶</a></h2>
+<p>The main Hyperscan library (<code class="docutils literal"><span class="pre">libhs</span></code>) contains both the compiler and runtime
+portions of the library. This means that in order to support the Hyperscan
+compiler, which is written in C++, it requires C++ linkage and has a
+dependency on the C++ standard library.</p>
+<p>Many embedded applications require only the scanning (&#8220;runtime&#8221;) portion of the
+Hyperscan library. In these cases, pattern compilation generally takes place on
+another host, and serialized pattern databases are delivered to the application
+for use.</p>
+<p>To support these applications without requiring the C++ dependency, a
+runtime-only version of the Hyperscan library, called <code class="docutils literal"><span class="pre">libhs_runtime</span></code>, is also
+distributed. This library does not depend on the C++ standard library and
+provides all Hyperscan functions other that those used to compile databases.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="index.html">Table Of Contents</a></h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="preface.html">Preface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compilation.html">Compiling Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Serialization</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#the-runtime-library">The Runtime Library</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_constants.html">API Reference: Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_files.html">API Reference: Files</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2015-2016, Intel Corporation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

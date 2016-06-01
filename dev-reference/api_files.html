@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>API Reference: Files &mdash; Hyperscan 4.1.0 documentation</title>
+    <title>API Reference: Files &mdash; Hyperscan 4.2.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.1.0',
+        VERSION:     '4.2.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,11 +25,11 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 4.1.0 documentation" href="index.html" />
+    <link rel="top" title="Hyperscan 4.2.0 documentation" href="index.html" />
     <link rel="prev" title="API Reference: Constants" href="api_constants.html" />
    
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
   <body role="document">  
@@ -113,6 +113,16 @@
 <dt id="c.HS_BAD_ALLOC">
 <span class="target" id="project0group__HS__ERROR_1ga9fd16f0296f0444eb6d7047ecbfddf4e"></span><code class="descname">HS_BAD_ALLOC</code><a class="headerlink" href="#c.HS_BAD_ALLOC" title="Permalink to this definition">¶</a></dt>
 <dd><p>The memory allocator (either malloc() or the allocator set with <a class="reference internal" href="#project0hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span>hs_set_allocator()</span></a>) did not correctly return memory suitably aligned for the largest representable data type on this platform. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.HS_SCRATCH_IN_USE">
+<span class="target" id="project0group__HS__ERROR_1gae8edde7b8d481066abf249741277c8a5"></span><code class="descname">HS_SCRATCH_IN_USE</code><a class="headerlink" href="#c.HS_SCRATCH_IN_USE" title="Permalink to this definition">¶</a></dt>
+<dd><p>The scratch region was already in use.</p>
+<p>This error is returned when Hyperscan is able to detect that the scratch region given is already in use by another Hyperscan API call.</p>
+<p>A separate scratch region, allocated with <a class="reference internal" href="#project0hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span>hs_alloc_scratch()</span></a> or <a class="reference internal" href="#project0hs__runtime_8h_1a5ccab293a24ee56fcb82c715a7dca861"><span>hs_clone_scratch()</span></a>, is required for every concurrent caller of the Hyperscan API.</p>
+<p>For example, this error might be returned when <a class="reference internal" href="#project0hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span>hs_scan()</span></a> has been called inside a callback delivered by a currently-executing <a class="reference internal" href="#project0hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span>hs_scan()</span></a> call using the same scratch region.</p>
+<p>Note: Not all concurrent uses of scratch regions may be detected. This error is intended as a best-effort debugging tool, not a guarantee. </p>
 </dd></dl>
 
 </div>
@@ -723,13 +733,13 @@
 <dl class="typedef">
 <dt id="c.hs_expr_info_t">
 <span class="target" id="project0hs__compile_8h_1ad5498775e1679920539b6bd120dfbbe8"></span><em class="property">typedef </em><code class="descname">hs_expr_info_t</code><a class="headerlink" href="#c.hs_expr_info_t" title="Permalink to this definition">¶</a></dt>
-<dd><p>A type containing information related to an expression that is returned by <a class="reference internal" href="#project0hs__compile_8h_1a414dfeeb4fee8d2444b531cef4bed0a4"><span>hs_expression_info()</span></a>. </p>
+<dd><p>A type containing information related to an expression that is returned by <a class="reference internal" href="#project0hs__compile_8h_1a414dfeeb4fee8d2444b531cef4bed0a4"><span>hs_expression_info()</span></a> or <a class="reference internal" href="#project0hs__compile_8h_1a007328330e6e0abbb4be5422015384b7"><span>hs_expression_ext_info</span></a>. </p>
 </dd></dl>
 
 <dl class="typedef">
 <dt id="c.hs_expr_ext_t">
 <span class="target" id="project0hs__compile_8h_1a1e03f1d3837c16364ca2e96287b7eb34"></span><em class="property">typedef </em><code class="descname">hs_expr_ext_t</code><a class="headerlink" href="#c.hs_expr_ext_t" title="Permalink to this definition">¶</a></dt>
-<dd><p>A structure containing additional parameters related to an expression, passed in at build time to <a class="reference internal" href="#project0hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span>hs_compile_ext_multi()</span></a>.</p>
+<dd><p>A structure containing additional parameters related to an expression, passed in at build time to <a class="reference internal" href="#project0hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span>hs_compile_ext_multi()</span></a> or <a class="reference internal" href="#project0hs__compile_8h_1a007328330e6e0abbb4be5422015384b7"><span>hs_expression_ext_info</span></a>.</p>
 <p>These parameters allow the set of matches produced by a pattern to be constrained at compile time, rather than relying on the application to process unwanted matches at runtime. </p>
 </dd></dl>
 
@@ -821,7 +831,7 @@
 <dl class="function">
 <dt id="c.hs_compile_ext_multi">
 <span class="target" id="project0hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="descname">hs_compile_ext_multi</code><span class="sig-paren">(</span>const char *const *<em>&nbsp;expressions</em>, const unsigned int *<em>&nbsp;flags</em>, const unsigned int *<em>&nbsp;ids</em>, const  <a class="reference internal" href="#c.hs_expr_ext_t" title="hs_expr_ext_t">hs_expr_ext_t</a>  *const *<em>&nbsp;ext</em>, unsigned int<em>&nbsp;elements</em>, unsigned int<em>&nbsp;mode</em>, const  <a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a>  *<em>&nbsp;platform</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  **<em>&nbsp;db</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a>  **<em>&nbsp;error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compile_ext_multi" title="Permalink to this definition">¶</a></dt>
-<dd><p>The multiple regular expression compiler with extended pattern support.</p>
+<dd><p>The multiple regular expression compiler with extended parameter support.</p>
 <p>This function call compiles a group of expressions into a database in the same way as <a class="reference internal" href="#project0hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"><span>hs_compile_multi()</span></a>, but allows additional parameters to be specified via an <a class="reference internal" href="#project0hs__compile_8h_1a1e03f1d3837c16364ca2e96287b7eb34"><span>hs_expr_ext_t</span></a> structure per expression.</p>
 <p><dl class="docutils">
 <dt><strong>Return</strong></dt>
@@ -903,6 +913,42 @@
 <li>HS_FLAG_SOM_LEFTMOST - Report the leftmost start of match offset when a match is found.</li>
 </ul>
 </p>
+</li>
+<li><code class="first docutils literal"><span class="pre">info</span></code> - <p>On success, a pointer to the pattern information will be returned in this parameter, or NULL on failure. This structure is allocated using the allocator supplied in <a class="reference internal" href="#project0hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span>hs_set_allocator()</span></a> (or malloc() if no allocator was set) and should be freed by the caller.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">error</span></code> - <p>If the call fails, a pointer to a <a class="reference internal" href="#project0hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span>hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#project0hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span>hs_free_compile_error()</span></a> function.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.hs_expression_ext_info">
+<span class="target" id="project0hs__compile_8h_1a007328330e6e0abbb4be5422015384b7"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="descname">hs_expression_ext_info</code><span class="sig-paren">(</span>const char *<em>&nbsp;expression</em>, unsigned int<em>&nbsp;flags</em>, const  <a class="reference internal" href="#c.hs_expr_ext_t" title="hs_expr_ext_t">hs_expr_ext_t</a>  *<em>&nbsp;ext</em>, <a class="reference internal" href="#c.hs_expr_info_t" title="hs_expr_info_t">hs_expr_info_t</a>  **<em>&nbsp;info</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a>  **<em>&nbsp;error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_expression_ext_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Utility function providing information about a regular expression, with extended parameter support. The information provided in <a class="reference internal" href="#project0hs__compile_8h_1ad5498775e1679920539b6bd120dfbbe8"><span>hs_expr_info_t</span></a> includes the minimum and maximum width of a pattern match.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span>HS_SUCCESS</span></a> is returned on successful compilation; <a class="reference internal" href="#project0group__HS__ERROR_1gae73b85ba0cafa46768c9b61f435410ca"><span>HS_COMPILER_ERROR</span></a> on failure, with details provided in the error parameter. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">expression</span></code> - <p>The NULL-terminated expression to parse. Note that this string must represent ONLY the pattern to be matched, with no delimiters or flags; any global flags should be specified with the <em>flags</em> argument. For example, the expression <code class="docutils literal"><span class="pre">/abc?def/i</span></code> should be compiled by providing <code class="docutils literal"><span class="pre">abc?def</span></code> as the <em>expression</em>, and <a class="reference internal" href="#project0group__HS__PATTERN__FLAG_1gac933fc9be6a6d3ea8eeb5532dd974236"><span>HS_FLAG_CASELESS</span></a> as the <em>flags</em>.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">flags</span></code> - <p>Flags which modify the behaviour of the expression. Multiple flags may be used by ORing them together. Valid values are:<ul class="simple">
+<li>HS_FLAG_CASELESS - Matching will be performed case-insensitively.</li>
+<li>HS_FLAG_DOTALL - Matching a <code class="docutils literal"><span class="pre">.</span></code> will not exclude newlines.</li>
+<li>HS_FLAG_MULTILINE - <code class="docutils literal"><span class="pre">^</span></code> and <code class="docutils literal"><span class="pre">$</span></code> anchors match any newlines in data.</li>
+<li>HS_FLAG_SINGLEMATCH - Only one match will be generated by the expression per stream.</li>
+<li>HS_FLAG_ALLOWEMPTY - Allow expressions which can match against an empty string, such as <code class="docutils literal"><span class="pre">.*</span></code>.</li>
+<li>HS_FLAG_UTF8 - Treat this pattern as a sequence of UTF-8 characters.</li>
+<li>HS_FLAG_UCP - Use Unicode properties for character classes.</li>
+<li>HS_FLAG_PREFILTER - Compile pattern in prefiltering mode.</li>
+<li>HS_FLAG_SOM_LEFTMOST - Report the leftmost start of match offset when a match is found.</li>
+</ul>
+</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">ext</span></code> - <p>A pointer to a filled <a class="reference internal" href="#project0hs__compile_8h_1a1e03f1d3837c16364ca2e96287b7eb34"><span>hs_expr_ext_t</span></a> structure that defines extended behaviour for this pattern. NULL may be specified if no extended parameters are needed.</p>
 </li>
 <li><code class="first docutils literal"><span class="pre">info</span></code> - <p>On success, a pointer to the pattern information will be returned in this parameter, or NULL on failure. This structure is allocated using the allocator supplied in <a class="reference internal" href="#project0hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span>hs_set_allocator()</span></a> (or malloc() if no allocator was set) and should be freed by the caller.</p>
 </li>
@@ -1023,7 +1069,7 @@
 <dl class="struct">
 <dt id="c.hs_expr_info">
 <span class="target" id="project0strucths__expr__info"></span><em class="property">struct </em><code class="descname">hs_expr_info</code><a class="headerlink" href="#c.hs_expr_info" title="Permalink to this definition">¶</a></dt>
-<dd><em>#include &lt;hs_compile.h&gt;</em><p>A type containing information related to an expression that is returned by <a class="reference internal" href="#project0hs__compile_8h_1a414dfeeb4fee8d2444b531cef4bed0a4"><span>hs_expression_info()</span></a>. </p>
+<dd><em>#include &lt;hs_compile.h&gt;</em><p>A type containing information related to an expression that is returned by <a class="reference internal" href="#project0hs__compile_8h_1a414dfeeb4fee8d2444b531cef4bed0a4"><span>hs_expression_info()</span></a> or <a class="reference internal" href="#project0hs__compile_8h_1a007328330e6e0abbb4be5422015384b7"><span>hs_expression_ext_info</span></a>. </p>
 <div class="breathe-sectiondef container">
 <p class="breathe-sectiondef-title rubric">Public Members</p>
 <dl class="variable">
@@ -1063,7 +1109,7 @@
 <dl class="struct">
 <dt id="c.hs_expr_ext">
 <span class="target" id="project0strucths__expr__ext"></span><em class="property">struct </em><code class="descname">hs_expr_ext</code><a class="headerlink" href="#c.hs_expr_ext" title="Permalink to this definition">¶</a></dt>
-<dd><em>#include &lt;hs_compile.h&gt;</em><p>A structure containing additional parameters related to an expression, passed in at build time to <a class="reference internal" href="#project0hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span>hs_compile_ext_multi()</span></a>.</p>
+<dd><em>#include &lt;hs_compile.h&gt;</em><p>A structure containing additional parameters related to an expression, passed in at build time to <a class="reference internal" href="#project0hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span>hs_compile_ext_multi()</span></a> or <a class="reference internal" href="#project0hs__compile_8h_1a007328330e6e0abbb4be5422015384b7"><span>hs_expression_ext_info</span></a>.</p>
 <p>These parameters allow the set of matches produced by a pattern to be constrained at compile time, rather than relying on the application to process unwanted matches at runtime. </p>
 <div class="breathe-sectiondef container">
 <p class="breathe-sectiondef-title rubric">Public Members</p>
@@ -1466,6 +1512,7 @@
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="compilation.html">Compiling Patterns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_constants.html">API Reference: Constants</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="">API Reference: Files</a><ul>
@@ -1495,11 +1542,11 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2015, Intel Corporation.
+      &copy;2015-2016, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.6</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
       
     </div>
 

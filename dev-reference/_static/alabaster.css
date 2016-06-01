@@ -56,6 +56,10 @@ div.body {
     padding: 0 30px 0 30px;
 }
 
+div.body > .section {
+    text-align: left;
+}
+
 div.footer {
     width: 940px;
     margin: 20px auto 30px auto;
@@ -168,8 +172,8 @@ div.sphinxsidebar input {
 div.sphinxsidebar hr {
     border: none;
     height: 1px;
-    color: #999;
-    background: #999;
+    color: #AAA;
+    background: #AAA;
 
     text-align: left;
     margin-left: 0;
@@ -348,6 +352,10 @@ table.field-list th {
 
 table.field-list td {
     padding: 0;
+}
+
+table.field-list p {
+    margin-bottom: 0.8em;
 }
 
 table.footnote td.label {

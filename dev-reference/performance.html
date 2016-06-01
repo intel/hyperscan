@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Performance Considerations &mdash; Hyperscan 4.1.0 documentation</title>
+    <title>Performance Considerations &mdash; Hyperscan 4.2.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.1.0',
+        VERSION:     '4.2.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,12 +25,12 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 4.1.0 documentation" href="index.html" />
+    <link rel="top" title="Hyperscan 4.2.0 documentation" href="index.html" />
     <link rel="next" title="API Reference: Constants" href="api_constants.html" />
-    <link rel="prev" title="Scanning for Patterns" href="runtime.html" />
+    <link rel="prev" title="Serialization" href="serialization.html" />
    
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
   <body role="document">  
@@ -159,12 +159,12 @@ instead of allocating one scratch space for every database used by an
 application, one can call <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> with a pointer to the same
 <a class="reference internal" href="api_files.html#c.hs_scratch_t" title="hs_scratch_t"><code class="xref c c-type docutils literal"><span class="pre">hs_scratch_t</span></code></a> and it will be sized appropriately for use with any of
 the given databases. For example:</p>
-<div class="highlight-c"><div class="highlight"><pre><span class="kt">hs_database_t</span> <span class="o">*</span><span class="n">db1</span> <span class="o">=</span> <span class="n">buildDatabaseOne</span><span class="p">();</span>
-<span class="kt">hs_database_t</span> <span class="o">*</span><span class="n">db2</span> <span class="o">=</span> <span class="n">buildDatabaseTwo</span><span class="p">();</span>
-<span class="kt">hs_database_t</span> <span class="o">*</span><span class="n">db3</span> <span class="o">=</span> <span class="n">buildDatabaseThree</span><span class="p">();</span>
+<div class="highlight-c"><div class="highlight"><pre><span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db1</span> <span class="o">=</span> <span class="n">buildDatabaseOne</span><span class="p">();</span>
+<span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db2</span> <span class="o">=</span> <span class="n">buildDatabaseTwo</span><span class="p">();</span>
+<span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db3</span> <span class="o">=</span> <span class="n">buildDatabaseThree</span><span class="p">();</span>
 
-<span class="kt">hs_error_t</span> <span class="n">err</span><span class="p">;</span>
-<span class="kt">hs_scratch_t</span> <span class="o">*</span><span class="n">scratch</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="n">hs_error_t</span> <span class="n">err</span><span class="p">;</span>
+<span class="n">hs_scratch_t</span> <span class="o">*</span><span class="n">scratch</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
 <span class="n">err</span> <span class="o">=</span> <span class="n">hs_alloc_scratch</span><span class="p">(</span><span class="n">db1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">scratch</span><span class="p">);</span>
 <span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">!=</span> <span class="n">HS_SUCCESS</span><span class="p">)</span> <span class="p">{</span>
     <span class="n">printf</span><span class="p">(</span><span class="s">&quot;hs_alloc_scratch failed!&quot;</span><span class="p">);</span>
@@ -358,6 +358,7 @@ flag and post-confirming match length in the calling application.</p>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="compilation.html">Compiling Patterns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="">Performance Considerations</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#regular-expression-constructs">Regular expression constructs</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#library-usage">Library usage</a></li>
@@ -396,11 +397,11 @@ flag and post-confirming match length in the calling application.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2015, Intel Corporation.
+      &copy;2015-2016, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.6</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
       
     </div>
 

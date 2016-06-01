@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Compiling Patterns &mdash; Hyperscan 4.1.0 documentation</title>
+    <title>Compiling Patterns &mdash; Hyperscan 4.2.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.1.0',
+        VERSION:     '4.2.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,12 +25,12 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 4.1.0 documentation" href="index.html" />
+    <link rel="top" title="Hyperscan 4.2.0 documentation" href="index.html" />
     <link rel="next" title="Scanning for Patterns" href="runtime.html" />
     <link rel="prev" title="Getting Started" href="getting_started.html" />
    
   
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9">
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
   <body role="document">  
@@ -140,15 +140,22 @@ non-capturing forms. However, capturing is ignored.</p>
 <li><p class="first">The anchors <code class="regexp docutils literal"><span class="pre">^</span></code>, <code class="regexp docutils literal"><span class="pre">$</span></code>, <code class="regexp docutils literal"><span class="pre">\A</span></code>, <code class="regexp docutils literal"><span class="pre">\Z</span></code> and
 <code class="regexp docutils literal"><span class="pre">\z</span></code>.</p>
 </li>
-<li><p class="first">Option modifiers for:</p>
+<li><p class="first">Option modifiers:</p>
+<p>These allow behaviour to be switched on (with <code class="regexp docutils literal"><span class="pre">(?&lt;option&gt;)</span></code>) and off
+(with <code class="regexp docutils literal"><span class="pre">(?-&lt;option&gt;)</span></code>) for a sub-pattern. The supported options are:</p>
 <blockquote>
 <div><ul class="simple">
-<li>Case-sensitivity: <code class="regexp docutils literal"><span class="pre">(?i)</span></code> and <code class="regexp docutils literal"><span class="pre">(?-i)</span></code></li>
-<li>Multi-line: <code class="regexp docutils literal"><span class="pre">(?m)</span></code> and <code class="regexp docutils literal"><span class="pre">(?-m)</span></code></li>
-<li>Dot-all: <code class="regexp docutils literal"><span class="pre">(?s)</span></code> and <code class="regexp docutils literal"><span class="pre">(?-s)</span></code></li>
-<li>Extended syntax: <code class="regexp docutils literal"><span class="pre">(?s)</span></code> and <code class="regexp docutils literal"><span class="pre">(?-s)</span></code></li>
+<li><code class="regexp docutils literal"><span class="pre">i</span></code>: Case-insensitive matching, as per
+<a class="reference internal" href="api_files.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_CASELESS</span></code></a>.</li>
+<li><code class="regexp docutils literal"><span class="pre">m</span></code>: Multi-line matching, as per <a class="reference internal" href="api_files.html#c.HS_FLAG_MULTILINE" title="HS_FLAG_MULTILINE"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_MULTILINE</span></code></a>.</li>
+<li><code class="regexp docutils literal"><span class="pre">s</span></code>: Interpret <code class="docutils literal"><span class="pre">.</span></code> as &#8220;any character&#8221;, as per
+<a class="reference internal" href="api_files.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_DOTALL</span></code></a>.</li>
+<li><code class="regexp docutils literal"><span class="pre">x</span></code>: Extended syntax, which will ignore most whitespace in the
+pattern for compatibility with libpcre&#8217;s <code class="docutils literal"><span class="pre">PCRE_EXTENDED</span></code> option.</li>
 </ul>
 </div></blockquote>
+<p>For example, the expression <code class="regexp docutils literal"><span class="pre">foo(?i)bar(?-i)baz</span></code> will switch on
+case-insensitive matching <em>only</em> for the <code class="docutils literal"><span class="pre">bar</span></code> portion of the match.</p>
 </li>
 <li><p class="first">The <code class="regexp docutils literal"><span class="pre">\b</span></code> and <code class="regexp docutils literal"><span class="pre">\B</span></code> zero-width assertions (word boundary and
 &#8216;not word boundary&#8217;, respectively).</p>
@@ -403,6 +410,7 @@ built with the <a class="reference internal" href="api_files.html#c.hs_populate_
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_constants.html">API Reference: Constants</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_files.html">API Reference: Files</a></li>
@@ -426,11 +434,11 @@ built with the <a class="reference internal" href="api_files.html#c.hs_populate_
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2015, Intel Corporation.
+      &copy;2015-2016, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.1</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.6</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
       
     </div>
 
