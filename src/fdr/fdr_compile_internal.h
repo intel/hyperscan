@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,7 +45,6 @@ namespace ue2 {
 // a pile of decorative typedefs
 // good for documentation purposes more than anything else
 typedef u32 LiteralIndex;
-typedef u32 ConfirmIndex;
 typedef u32 SuffixPositionInString; // zero is last byte, counting back
                                     // into the string
 typedef u32 BucketIndex;
