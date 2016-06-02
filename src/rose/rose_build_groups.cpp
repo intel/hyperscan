@@ -363,20 +363,23 @@ rose_group RoseBuildImpl::getSuccGroups(RoseVertex start) const {
  * The groups that a role sets are determined by the union of its successor
  * literals. Requires the literals already have had groups assigned.
  */
-void RoseBuildImpl::assignGroupsToRoles() {
+void assignGroupsToRoles(RoseBuildImpl &build) {
+    auto &g = build.g;
+
     /* Note: if there is a succ literal in the sidematcher, its successors
      * literals must be added instead */
     for (auto v : vertices_range(g)) {
-        if (isAnyStart(v)) {
+        if (build.isAnyStart(v)) {
             continue;
         }
 
-        const rose_group succ_groups = getSuccGroups(v);
+        const rose_group succ_groups = build.getSuccGroups(v);
         g[v].groups |= succ_groups;
 
-        if (ghost.find(v) != ghost.end()) {
+        auto ghost_it = build.ghost.find(v);
+        if (ghost_it != end(build.ghost)) {
             /* delayed roles need to supply their groups to the ghost role */
-            g[ghost[v]].groups |= succ_groups;
+            g[ghost_it->second].groups |= succ_groups;
         }
 
         DEBUG_PRINTF("vertex %zu: groups=%llx\n", g[v].idx, g[v].groups);

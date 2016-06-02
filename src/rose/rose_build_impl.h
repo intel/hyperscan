@@ -439,10 +439,6 @@ public:
     // Find the maximum bound on the edges to this vertex's successors.
     u32 calcSuccMaxBound(RoseVertex u) const;
 
-    // Assign roles to groups, writing the groups bitset into each role in the
-    // graph.
-    void assignGroupsToRoles();
-
     /* Returns the ID of the given literal in the literal map, adding it if
      * necessary. */
     u32 getLiteralId(const ue2_literal &s, u32 delay, rose_literal_table table);

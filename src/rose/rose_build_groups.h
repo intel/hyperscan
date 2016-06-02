@@ -44,6 +44,8 @@ getVertexGroupMap(const RoseBuildImpl &build);
 
 rose_group getSquashableGroups(const RoseBuildImpl &build);
 
+void assignGroupsToRoles(RoseBuildImpl &build);
+
 void findGroupSquashers(RoseBuildImpl &build);
 
 } // namespace ue2
