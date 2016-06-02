@@ -1050,30 +1050,6 @@ void findGroupSquashers(RoseBuildImpl &tbi) {
     }
 }
 
-/**
- * The groups that a role sets are determined by the union of its successor
- * literals. Requires the literals already have had groups assigned.
- */
-void RoseBuildImpl::assignGroupsToRoles() {
-    /* Note: if there is a succ literal in the sidematcher, its successors
-     * literals must be added instead */
-    for (auto v : vertices_range(g)) {
-        if (isAnyStart(v)) {
-            continue;
-        }
-
-        const rose_group succ_groups = getSuccGroups(v);
-        g[v].groups |= succ_groups;
-
-        if (ghost.find(v) != ghost.end()) {
-            /* delayed roles need to supply their groups to the ghost role */
-            g[ghost[v]].groups |= succ_groups;
-        }
-
-        DEBUG_PRINTF("vertex %zu: groups=%llx\n", g[v].idx, g[v].groups);
-    }
-}
-
 void RoseBuildImpl::findTransientLeftfixes(void) {
     for (auto v : vertices_range(g)) {
         if (!g[v].left) {
