@@ -335,6 +335,30 @@ void RoseBuildImpl::assignGroupsToLiterals() {
     }
 }
 
+rose_group RoseBuildImpl::getGroups(RoseVertex v) const {
+    rose_group groups = 0;
+
+    for (u32 id : g[v].literals) {
+        u32 lit_id = literal_info.at(id).undelayed_id;
+
+        rose_group mygroups = literal_info[lit_id].group_mask;
+        groups |= mygroups;
+    }
+
+    return groups;
+}
+
+/** \brief Get the groups of the successor literals of a given vertex. */
+rose_group RoseBuildImpl::getSuccGroups(RoseVertex start) const {
+    rose_group initialGroups = 0;
+
+    for (auto v : adjacent_vertices_range(start, g)) {
+        initialGroups |= getGroups(v);
+    }
+
+    return initialGroups;
+}
+
 /**
  * The groups that a role sets are determined by the union of its successor
  * literals. Requires the literals already have had groups assigned.
