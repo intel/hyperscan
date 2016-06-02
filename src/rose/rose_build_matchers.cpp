@@ -381,7 +381,8 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
             continue;
         }
         assert(!msk.empty());
-        DEBUG_PRINTF("found advisory mask for lit_id=%u\n", id);
+        DEBUG_PRINTF("found advisory mask for lit_id=%u (%s)\n", id,
+                     dumpString(lit.s).c_str());
         u32 new_id = build.getLiteralId(lit.s, msk, cmp, lit.delay, lit.table);
         assert(new_id != id);
         DEBUG_PRINTF("replacing with new lit_id=%u\n", new_id);
@@ -390,6 +391,8 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
         // We assume that this transform is happening prior to group assignment.
         assert(lit_info.group_mask == 0);
         auto &new_info = build.literal_info.at(new_id);
+
+        // Move the vertices across.
         new_info.vertices.insert(begin(lit_info.vertices),
                                  end(lit_info.vertices));
         for (auto v : lit_info.vertices) {
@@ -397,6 +400,10 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
             build.g[v].literals.insert(new_id);
         }
         lit_info.vertices.clear();
+
+        // Preserve other properties.
+        new_info.requires_explode = lit_info.requires_explode;
+        new_info.requires_benefits = lit_info.requires_benefits;
     }
 }
 
@@ -546,17 +553,24 @@ vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
 
         if (info.requires_explode) {
             DEBUG_PRINTF("exploding lit\n");
-            const vector<u8> empty_msk; // msk/cmp will be empty
             case_iter cit = caseIterateBegin(lit);
             case_iter cite = caseIterateEnd();
             for (; cit != cite; ++cit) {
+                string s = *cit;
+                bool nocase = false;
+
                 DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d msk=%s, "
                              "cmp=%s (exploded)\n",
-                             final_id, escapeString(lit.get_string()).c_str(),
-                             0, noruns, dumpMask(msk).c_str(),
-                             dumpMask(cmp).c_str());
-                lits.emplace_back(*cit, false, noruns, final_id, groups,
-                                  empty_msk, empty_msk);
+                             final_id, escapeString(s).c_str(), nocase, noruns,
+                             dumpMask(msk).c_str(), dumpMask(cmp).c_str());
+
+                if (!maskIsConsistent(s, nocase, msk, cmp)) {
+                    DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
+                    continue;
+                }
+
+                lits.emplace_back(move(s), nocase, noruns, final_id, groups,
+                                  msk, cmp);
             }
         } else {
             const std::string &s = lit.get_string();
