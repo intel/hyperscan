@@ -1660,7 +1660,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
 
     findMoreLiteralMasks(*this);
 
-    assignGroupsToLiterals();
+    assignGroupsToLiterals(*this);
     assignGroupsToRoles(*this);
     findGroupSquashers(*this);
 

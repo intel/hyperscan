@@ -170,9 +170,10 @@ u32 next_available_group(u32 counter, u32 min_start_group) {
     return counter;
 }
 
-// Assigns groups to literals in the general case, when we have more literals
-// than available groups.
-void RoseBuildImpl::assignGroupsToLiterals() {
+void assignGroupsToLiterals(RoseBuildImpl &build) {
+    auto &literals = build.literals;
+    auto &literal_info = build.literal_info;
+
     bool small_literal_count = literal_info.size() <= MAX_LIGHT_LITERAL_CASE;
 
     map<u8, u32> groupCount; /* group index to number of members */
@@ -193,7 +194,7 @@ void RoseBuildImpl::assignGroupsToLiterals() {
         // If this literal has a root role, we always have to search for it
         // anyway, so it goes in the always-on group.
         /* We could end up squashing it if it is followed by a .* */
-        if (eligibleForAlwaysOnGroup(*this, id)) {
+        if (eligibleForAlwaysOnGroup(build, id)) {
             info.group_mask = 1ULL << group_always_on;
             groupCount[group_always_on]++;
             continue;
@@ -223,7 +224,7 @@ void RoseBuildImpl::assignGroupsToLiterals() {
             continue;
         }
 
-        assert(!eligibleForAlwaysOnGroup(*this, id));
+        assert(!eligibleForAlwaysOnGroup(build, id));
         pq.push(make_pair(make_pair(-(s32)literal_info[id].vertices.size(),
                                     -(s32)lit.s.length()), id));
     }
@@ -237,8 +238,8 @@ void RoseBuildImpl::assignGroupsToLiterals() {
 
         u8 group_id = 0;
         rose_group group = ~0ULL;
-        for (auto v : getAssociatedVertices(*this, id)) {
-            rose_group local_group = calcLocalGroup(v, g, literal_info,
+        for (auto v : getAssociatedVertices(build, id)) {
+            rose_group local_group = calcLocalGroup(v, build.g, literal_info,
                                                     small_literal_count);
             group &= local_group;
             if (!group) {
@@ -323,14 +324,14 @@ void RoseBuildImpl::assignGroupsToLiterals() {
         rose_group groups = literal_info[id].group_mask;
         while (groups) {
             u32 group_id = findAndClearLSB_64(&groups);
-            group_to_literal[group_id].insert(id);
+            build.group_to_literal[group_id].insert(id);
         }
     }
 
     /* find how many groups we allocated */
     for (u32 i = 0; i < ROSE_GROUPS_MAX; i++) {
         if (groupCount[i]) {
-            group_end = MAX(group_end, i + 1);
+            build.group_end = max(build.group_end, i + 1);
         }
     }
 }

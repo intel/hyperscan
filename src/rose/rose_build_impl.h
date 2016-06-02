@@ -470,8 +470,6 @@ public:
     bool hasLiteralInTable(RoseVertex v, enum rose_literal_table t) const;
     bool hasAnchoredTablePred(RoseVertex v) const;
 
-    void assignGroupsToLiterals(void);
-
     // Is the given vertex a successor of either root or anchored_root?
     bool isRootSuccessor(const RoseVertex &v) const;
     /* Is the given vertex a successor of something other than root or
