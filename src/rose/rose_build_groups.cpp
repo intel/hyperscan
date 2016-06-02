@@ -212,7 +212,7 @@ void assignGroupsToLiterals(RoseBuildImpl &build) {
     }
 
     u32 min_start_group = counter;
-    priority_queue<pair<pair<s32, s32>, u32> > pq;
+    priority_queue<tuple<s32, s32, u32>> pq;
 
     // Second pass: the other literals.
     for (const auto &e : literals.right) {
@@ -225,12 +225,11 @@ void assignGroupsToLiterals(RoseBuildImpl &build) {
         }
 
         assert(!eligibleForAlwaysOnGroup(build, id));
-        pq.push(make_pair(make_pair(-(s32)literal_info[id].vertices.size(),
-                                    -(s32)lit.s.length()), id));
+        pq.emplace(-(s32)info.vertices.size(), -(s32)lit.s.length(), id);
     }
     vector<u32> long_lits;
     while (!pq.empty()) {
-        u32 id = pq.top().second;
+        u32 id = get<2>(pq.top());
         pq.pop();
         UNUSED const rose_literal_id &lit = literals.right.at(id);
         DEBUG_PRINTF("assigning groups to lit %u (v %zu l %zu)\n", id,
