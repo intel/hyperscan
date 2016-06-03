@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -64,10 +64,6 @@ namespace {
 /* Small literal graph type used for the suffix tree used in
  * compressAndScore. */
 
-typedef boost::adjacency_list_traits<boost::vecS, boost::vecS,
-                                     boost::bidirectionalS> LitGraphTraits;
-typedef LitGraphTraits::vertex_descriptor LitVertex;
-typedef LitGraphTraits::edge_descriptor LitEdge;
 
 struct LitGraphVertexProps {
     LitGraphVertexProps() {}
@@ -79,11 +75,15 @@ struct LitGraphEdgeProps {
     LitGraphEdgeProps() {}
     explicit LitGraphEdgeProps(u64a score_in) : score(score_in) {}
     u64a score = NO_LITERAL_AT_EDGE_SCORE;
+    size_t index; /* only initialised when the reverse edges are added. */
 };
 
+/* keep edgeList = listS as you cannot remove edges if edgeList = vecS */
 typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS,
                               LitGraphVertexProps, LitGraphEdgeProps,
                               boost::no_property> LitGraph;
+typedef LitGraph::vertex_descriptor LitVertex;
+typedef LitGraph::edge_descriptor LitEdge;
 
 typedef pair<LitVertex, NFAVertex> VertexPair;
 typedef std::queue<VertexPair> LitVertexQ;
@@ -474,43 +474,36 @@ const char *describeColor(boost::default_color_type c) {
 
 /**
  * The BGL's boykov_kolmogorov_max_flow requires that all edges have their
- * reverse edge in the graph. This function adds them, returning the new edges
- * and constructing a map of (edge, rev edge).
+ * reverse edge in the graph. This function adds them, returning a vector
+ * mapping edge index to reverse edge. Note: LitGraph should be a DAG so there
+ * should be no existing reverse_edges.
  */
 static
-vector<LitEdge> addReverseEdges(LitGraph &lg,
-                ue2::unordered_map<LitEdge, LitEdge> &reverse_edge_map) {
-    vector<LitEdge> reverseMe;
+vector<LitEdge> add_reverse_edges_and_index(LitGraph &lg) {
+    vector<LitEdge> fwd_edges;
 
-    reverse_edge_map.clear();
-    reverse_edge_map.reserve(num_edges(lg) * 2);
-
+    size_t next_index = 0;
     for (const auto &e : edges_range(lg)) {
-        LitVertex u = source(e, lg), v = target(e, lg);
-        assert(u != v);
-
-        bool exists;
-        LitEdge rev;
-        tie(rev, exists) = edge(v, u, lg);
-        if (exists) {
-            reverse_edge_map[e] = rev;
-        } else {
-            reverseMe.push_back(e);
-        }
+        lg[e].index = next_index++;
+        fwd_edges.push_back(e);
     }
 
-    vector<LitEdge> reverseEdges;
-    reverseEdges.reserve(reverseMe.size());
+    vector<LitEdge> rev_map(2 * num_edges(lg));
 
-    for (const auto &e : reverseMe) {
-        LitVertex u = source(e, lg), v = target(e, lg);
-        LitEdge rev = add_edge(v, u, lg[e], lg).first;
-        reverseEdges.push_back(rev);
-        reverse_edge_map[e] = rev;
-        reverse_edge_map[rev] = e;
+    for (const auto &e : fwd_edges) {
+        LitVertex u = source(e, lg);
+        LitVertex v = target(e, lg);
+
+        assert(!edge(v, u, lg).second);
+
+        LitEdge rev = add_edge(v, u, lg).first;
+        lg[rev].score = 0;
+        lg[rev].index = next_index++;
+        rev_map[lg[e].index] = rev;
+        rev_map[lg[rev].index] = e;
     }
 
-    return reverseEdges;
+    return rev_map;
 }
 
 static
@@ -522,33 +515,33 @@ void findMinCut(LitGraph &lg, const LitVertex &root, const LitVertex &sink,
 
     assert(!in_degree(root, lg));
     assert(!out_degree(sink, lg));
+    size_t num_real_edges = num_edges(lg);
 
     // Add reverse edges for the convenience of the BGL's max flow algorithm.
-    ue2::unordered_map<LitEdge, LitEdge> reverse_edge_map;
-    vector<LitEdge> tempEdges = addReverseEdges(lg, reverse_edge_map);
+    vector<LitEdge> rev_edges = add_reverse_edges_and_index(lg);
 
     const auto v_index_map = get(vertex_index, lg);
+    const auto e_index_map = get(&LitGraphEdgeProps::index, lg);
     const size_t num_verts = num_vertices(lg);
     vector<boost::default_color_type> colors(num_verts);
     vector<s32> distances(num_verts);
     vector<LitEdge> predecessors(num_verts);
-    ue2::unordered_map<LitEdge, u64a> residuals;
-    residuals.reserve(num_edges(lg));
+    vector<u64a> residuals(num_edges(lg));
 
     UNUSED u64a flow = boykov_kolmogorov_max_flow(lg,
             get(&LitGraphEdgeProps::score, lg),
-            make_assoc_property_map(residuals),
-            make_assoc_property_map(reverse_edge_map),
+            make_iterator_property_map(residuals.begin(), e_index_map),
+            make_iterator_property_map(rev_edges.begin(), e_index_map),
             make_iterator_property_map(predecessors.begin(), v_index_map),
             make_iterator_property_map(colors.begin(), v_index_map),
             make_iterator_property_map(distances.begin(), v_index_map),
-            get(vertex_index, lg), root, sink);
+            v_index_map, root, sink);
     DEBUG_PRINTF("done, flow = %llu\n", flow);
 
-    // Remove temporary reverse edges.
-    for (const auto &e : tempEdges) {
-        remove_edge(e, lg);
-    }
+    /* remove reverse edges */
+    remove_edge_if([&](const LitEdge &e) {
+                       return lg[e].index >= num_real_edges;
+                   }, lg);
 
     vector<LitEdge> white_cut, black_cut;
     u64a white_flow = 0, black_flow = 0;
