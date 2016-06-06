@@ -33,6 +33,10 @@
 #ifndef SIMD_UTILS
 #define SIMD_UTILS
 
+#if !defined(_WIN32) && !defined(__SSSE3__)
+#error SSSE3 instructions must be enabled
+#endif
+
 #include "config.h"
 #include <string.h> // for memcpy
 
@@ -91,6 +95,14 @@
 // Fallback to identity case.
 #ifndef assume_aligned
 #define assume_aligned(x, y) (x)
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern const char vbs_mask_data[];
+#ifdef __cplusplus
+}
 #endif
 
 static really_inline m128 ones128(void) {
@@ -159,7 +171,6 @@ static really_inline unsigned short cmpmsk8(m128 a, m128 b) {
 #define rshift2x64(a, b) _mm_srli_epi64((a), (b))
 #define eq128(a, b)      _mm_cmpeq_epi8((a), (b))
 #define movemask128(a)  ((u32)_mm_movemask_epi8((a)))
-
 
 // We found that this generated better code with gcc-4.1 and with the default
 // tuning settings on gcc-4.4 than just using the _mm_set1_epi8() instrinsic.
@@ -317,6 +328,36 @@ char testbit128(const m128 *ptr, unsigned int n) {
     const char *bytes = (const char *)ptr;
     return !!(bytes[n / 8] & (1 << (n % 8)));
 }
+
+// offset must be an immediate
+#define palignr(r, l, offset) _mm_alignr_epi8(r, l, offset)
+
+static really_inline
+m128 pshufb(m128 a, m128 b) {
+    m128 result;
+    result = _mm_shuffle_epi8(a, b);
+    return result;
+}
+
+static really_inline
+m256 vpshufb(m256 a, m256 b) {
+#if defined(__AVX2__)
+    return _mm256_shuffle_epi8(a, b);
+#else
+    m256 rv;
+    rv.lo = pshufb(a.lo, b.lo);
+    rv.hi = pshufb(a.hi, b.hi);
+    return rv;
+#endif
+}
+
+static really_inline
+m128 variable_byte_shift_m128(m128 in, s32 amount) {
+    assert(amount >= -16 && amount <= 16);
+    m128 shift_mask = loadu128(vbs_mask_data + 16 - amount);
+    return pshufb(in, shift_mask);
+}
+
 
 /****
  **** 256-bit Primitives
@@ -735,6 +776,7 @@ m256 shift256Left8Bits(m256 a) {
 #define extractlow32from256(a) movd(cast256to128(a))
 #define interleave256hi(a, b) _mm256_unpackhi_epi8(a, b);
 #define interleave256lo(a, b) _mm256_unpacklo_epi8(a, b);
+#define vpalignr(r, l, offset) _mm256_alignr_epi8(r, l, offset)
 
 #endif //AVX2
 

@@ -445,6 +445,7 @@ set (hs_exec_SRCS
     src/nfa/limex_internal.h
     src/nfa/limex_runtime.h
     src/nfa/limex_runtime_impl.h
+    src/nfa/limex_shuffle.h
     src/nfa/limex_state_impl.h
     src/nfa/mpv.h
     src/nfa/mpv.c
@@ -525,11 +526,8 @@ set (hs_exec_SRCS
     src/util/pqueue.h
     src/util/scatter.h
     src/util/scatter_runtime.h
-    src/util/shuffle.h
-    src/util/shuffle_ssse3.h
     src/util/simd_utils.h
-    src/util/simd_utils_ssse3.h
-    src/util/simd_utils_ssse3.c
+    src/util/simd_utils.c
     src/util/state_compress.h
     src/util/state_compress.c
     src/util/unaligned.h
@@ -887,7 +885,6 @@ SET (hs_SRCS
     src/util/report_manager.cpp
     src/util/report_manager.h
     src/util/simd_utils.h
-    src/util/simd_utils_ssse3.h
     src/util/target_info.cpp
     src/util/target_info.h
     src/util/ue2_containers.h

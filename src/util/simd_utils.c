@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "simd_utils_ssse3.h"
+#include "simd_utils.h"
 
 const char vbs_mask_data[] ALIGN_CL_DIRECTIVE = {
     0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0,

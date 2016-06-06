@@ -32,7 +32,6 @@
 #include "util/alloc.h"
 #include "util/make_unique.h"
 #include "util/simd_utils.h"
-#include "util/simd_utils_ssse3.h"
 
 using namespace std;
 using namespace ue2;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,20 +34,19 @@
  * be faster and actually correct if these assumptions don't hold true.
  */
 
-#ifndef SHUFFLE_H
-#define SHUFFLE_H
+#ifndef LIMEX_SHUFFLE_H
+#define LIMEX_SHUFFLE_H
 
-#include "config.h"
-#include "bitutils.h"
-#include "simd_utils.h"
 #include "ue2common.h"
+#include "util/bitutils.h"
+#include "util/simd_utils.h"
 
 #if defined(__BMI2__) || (defined(_WIN32) && defined(__AVX2__))
 #define HAVE_PEXT
 #endif
 
 static really_inline
-u32 shuffleDynamic32(u32 x, u32 mask) {
+u32 packedExtract32(u32 x, u32 mask) {
 #if defined(HAVE_PEXT)
     // Intel BMI2 can do this operation in one instruction.
     return _pext_u32(x, mask);
@@ -67,7 +66,7 @@ u32 shuffleDynamic32(u32 x, u32 mask) {
 }
 
 static really_inline
-u32 shuffleDynamic64(u64a x, u64a mask) {
+u32 packedExtract64(u64a x, u64a mask) {
 #if defined(HAVE_PEXT) && defined(ARCH_64_BIT)
     // Intel BMI2 can do this operation in one instruction.
     return _pext_u64(x, mask);
@@ -88,4 +87,24 @@ u32 shuffleDynamic64(u64a x, u64a mask) {
 
 #undef HAVE_PEXT
 
-#endif // SHUFFLE_H
+static really_inline
+u32 packedExtract128(m128 s, const m128 permute, const m128 compare) {
+    m128 shuffled = pshufb(s, permute);
+    m128 compared = and128(shuffled, compare);
+    u16 rv = ~cmpmsk8(compared, shuffled);
+    return (u32)rv;
+}
+
+#if defined(__AVX2__)
+static really_inline
+u32 packedExtract256(m256 s, const m256 permute, const m256 compare) {
+    // vpshufb doesn't cross lanes, so this is a bit of a cheat
+    m256 shuffled = vpshufb(s, permute);
+    m256 compared = and256(shuffled, compare);
+    u32 rv = ~movemask256(eq256(compared, shuffled));
+    // stitch the lane-wise results back together
+    return (u32)((rv >> 16) | (rv & 0xffffU));
+}
+#endif // AVX2
+
+#endif // LIMEX_SHUFFLE_H

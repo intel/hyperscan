@@ -36,7 +36,6 @@
 #include "teddy.h"
 #include "teddy_internal.h"
 #include "util/simd_utils.h"
-#include "util/simd_utils_ssse3.h"
 
 /** \brief number of bytes processed in each iteration */
 #define ITER_BYTES          16

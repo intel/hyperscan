@@ -37,7 +37,6 @@
 #include "util/compare.h"
 #include "util/masked_move.h"
 #include "util/simd_utils.h"
-#include "util/simd_utils_ssse3.h"
 
 #include <ctype.h>
 #include <stdbool.h>
