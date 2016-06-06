@@ -88,10 +88,6 @@
 #  endif
 #endif
 
-#ifdef _WIN32
-#define NO_ASM
-#endif
-
 // Fallback to identity case.
 #ifndef assume_aligned
 #define assume_aligned(x, y) (x)
@@ -106,13 +102,12 @@ extern const char vbs_mask_data[];
 #endif
 
 static really_inline m128 ones128(void) {
-#if !defined(NO_ASM)
-    // trick from Intel's optimization guide to generate all-ones. We have to
-    // use inline asm, as there's no intrinsic for this yet.
-    m128 ret;
-    __asm__ ("pcmpeqb %0,%0" : "=x"(ret));
-    return ret;
+#if defined(__GNUC__) || defined(__INTEL_COMPILER)
+    /* gcc gets this right */
+    return _mm_set1_epi8(0xFF);
 #else
+    /* trick from Intel's optimization guide to generate all-ones.
+     * ICC converts this to the single cmpeq instruction */
     return _mm_cmpeq_epi8(_mm_setzero_si128(), _mm_setzero_si128());
 #endif
 }
@@ -172,19 +167,8 @@ static really_inline unsigned short cmpmsk8(m128 a, m128 b) {
 #define eq128(a, b)      _mm_cmpeq_epi8((a), (b))
 #define movemask128(a)  ((u32)_mm_movemask_epi8((a)))
 
-// We found that this generated better code with gcc-4.1 and with the default
-// tuning settings on gcc-4.4 than just using the _mm_set1_epi8() instrinsic.
 static really_inline m128 set16x8(u8 c) {
-#if !defined(__AVX2__)
-    m128 a = _mm_cvtsi32_si128((int)c);
-    a = _mm_unpacklo_epi8(a, a);
-    a = _mm_unpacklo_epi8(a, a);
-    a = _mm_shuffle_epi32(a, 0);
-    return a;
-#else
-    // uses a broadcast for much win
     return _mm_set1_epi8(c);
-#endif
 }
 
 static really_inline u32 movd(const m128 in) {
@@ -369,8 +353,7 @@ m128 variable_byte_shift_m128(m128 in, s32 amount) {
 
 static really_inline
 m256 set32x8(u32 in) {
-    m128 a = _mm_cvtsi32_si128(in);
-    return _mm256_broadcastb_epi8(a);
+    return _mm256_set1_epi8(in);
 }
 
 #define eq256(a, b)     _mm256_cmpeq_epi8((a), (b))
@@ -423,12 +406,7 @@ static really_inline m256 zeroes256(void) {
 
 static really_inline m256 ones256(void) {
 #if defined(__AVX2__)
-    m256 rv;
-#if defined(NO_ASM)
-    rv = eq256(zeroes256(), zeroes256());
-#else
-    __asm__ ("vpcmpeqb %0,%0,%0" : "=x"(rv));
-#endif
+    m256 rv = _mm256_set1_epi8(0xFF);
 #else
     m256 rv = {ones128(), ones128()};
 #endif
