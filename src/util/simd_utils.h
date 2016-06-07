@@ -72,10 +72,6 @@
 #include "ue2common.h"
 #include "simd_types.h"
 
-#if defined(__GNUC__)
-#define USE_GCC_COMPOUND_STATEMENTS
-#endif
-
 // Define a common assume_aligned using an appropriate compiler built-in, if
 // it's available. Note that we need to handle C or C++ compilation.
 #ifdef __cplusplus
@@ -417,13 +413,6 @@ static really_inline m256 ones256(void) {
 static really_inline m256 and256(m256 a, m256 b) {
     return _mm256_and_si256(a, b);
 }
-#elif defined(USE_GCC_COMPOUND_STATEMENTS)
-#define and256(a, b) ({                                                 \
-    m256 rv_and256;                                                     \
-    rv_and256.lo = and128((a).lo, (b).lo);                              \
-    rv_and256.hi = and128((a).hi, (b).hi);                              \
-    rv_and256;                                                          \
-})
 #else
 static really_inline m256 and256(m256 a, m256 b) {
     m256 rv;
@@ -437,13 +426,6 @@ static really_inline m256 and256(m256 a, m256 b) {
 static really_inline m256 or256(m256 a, m256 b) {
     return _mm256_or_si256(a, b);
 }
-#elif defined(USE_GCC_COMPOUND_STATEMENTS)
-#define or256(a, b) ({                                                  \
-    m256 rv_or256;                                                      \
-    rv_or256.lo = or128((a).lo, (b).lo);                                \
-    rv_or256.hi = or128((a).hi, (b).hi);                                \
-    rv_or256;                                                           \
-})
 #else
 static really_inline m256 or256(m256 a, m256 b) {
     m256 rv;
@@ -457,13 +439,6 @@ static really_inline m256 or256(m256 a, m256 b) {
 static really_inline m256 xor256(m256 a, m256 b) {
     return _mm256_xor_si256(a, b);
 }
-#elif defined(USE_GCC_COMPOUND_STATEMENTS)
-#define xor256(a, b) ({                                                 \
-    m256 rv_xor256;                                                     \
-    rv_xor256.lo = xor128((a).lo, (b).lo);                              \
-    rv_xor256.hi = xor128((a).hi, (b).hi);                              \
-    rv_xor256;                                                          \
-})
 #else
 static really_inline m256 xor256(m256 a, m256 b) {
     m256 rv;
@@ -477,13 +452,6 @@ static really_inline m256 xor256(m256 a, m256 b) {
 static really_inline m256 not256(m256 a) {
     return _mm256_xor_si256(a, ones256());
 }
-#elif defined(USE_GCC_COMPOUND_STATEMENTS)
-#define not256(a) ({                                                    \
-    m256 rv_not256;                                                     \
-    rv_not256.lo = not128((a).lo);                                      \
-    rv_not256.hi = not128((a).hi);                                      \
-    rv_not256;                                                          \
-})
 #else
 static really_inline m256 not256(m256 a) {
     m256 rv;
@@ -497,13 +465,6 @@ static really_inline m256 not256(m256 a) {
 static really_inline m256 andnot256(m256 a, m256 b) {
     return _mm256_andnot_si256(a, b);
 }
-#elif defined(USE_GCC_COMPOUND_STATEMENTS)
-#define andnot256(a, b) ({                                              \
-    m256 rv_andnot256;                                                  \
-    rv_andnot256.lo = andnot128((a).lo, (b).lo);                        \
-    rv_andnot256.hi = andnot128((a).hi, (b).hi);                        \
-    rv_andnot256;                                                       \
-})
 #else
 static really_inline m256 andnot256(m256 a, m256 b) {
     m256 rv;
@@ -513,19 +474,11 @@ static really_inline m256 andnot256(m256 a, m256 b) {
 }
 #endif
 
-// The shift amount is an immediate, so we define these operations as macros on
-// Intel SIMD (using a GNU C extension).
+// The shift amount is an immediate
 #if defined(__AVX2__)
 #define shift256(a, b)  _mm256_slli_epi64((a), (b))
-#elif defined(__GNUC__)
-#define shift256(a, b)  ({                                              \
-    m256 rv_shift256;                                                   \
-    rv_shift256.lo = shift128(a.lo, b);                                 \
-    rv_shift256.hi = shift128(a.hi, b);                                 \
-    rv_shift256;                                                        \
-})
 #else
-static really_inline m256 shift256(m256 a, unsigned b) {
+static really_really_inline m256 shift256(m256 a, unsigned b) {
     m256 rv;
     rv.lo = shift128(a.lo, b);
     rv.hi = shift128(a.hi, b);
@@ -762,15 +715,6 @@ m256 shift256Left8Bits(m256 a) {
  **** 384-bit Primitives
  ****/
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define and384(a, b) ({                                                 \
-    m384 rv_and384;                                                     \
-    rv_and384.lo = and128((a).lo, (b).lo);                              \
-    rv_and384.mid = and128((a).mid, (b).mid);                           \
-    rv_and384.hi = and128((a).hi, (b).hi);                              \
-    rv_and384;                                                          \
-})
-#else
 static really_inline m384 and384(m384 a, m384 b) {
     m384 rv;
     rv.lo = and128(a.lo, b.lo);
@@ -778,17 +722,7 @@ static really_inline m384 and384(m384 a, m384 b) {
     rv.hi = and128(a.hi, b.hi);
     return rv;
 }
-#endif
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define or384(a, b) ({                                                  \
-    m384 rv_or384;                                                      \
-    rv_or384.lo = or128((a).lo, (b).lo);                                \
-    rv_or384.mid = or128((a).mid, (b).mid);                             \
-    rv_or384.hi = or128((a).hi, (b).hi);                                \
-    rv_or384;                                                           \
-})
-#else
 static really_inline m384 or384(m384 a, m384 b) {
     m384 rv;
     rv.lo = or128(a.lo, b.lo);
@@ -796,17 +730,7 @@ static really_inline m384 or384(m384 a, m384 b) {
     rv.hi = or128(a.hi, b.hi);
     return rv;
 }
-#endif
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define xor384(a, b) ({                                                 \
-    m384 rv_xor384;                                                     \
-    rv_xor384.lo = xor128((a).lo, (b).lo);                              \
-    rv_xor384.mid = xor128((a).mid, (b).mid);                           \
-    rv_xor384.hi = xor128((a).hi, (b).hi);                              \
-    rv_xor384;                                                          \
-})
-#else
 static really_inline m384 xor384(m384 a, m384 b) {
     m384 rv;
     rv.lo = xor128(a.lo, b.lo);
@@ -814,17 +738,6 @@ static really_inline m384 xor384(m384 a, m384 b) {
     rv.hi = xor128(a.hi, b.hi);
     return rv;
 }
-#endif
-
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define not384(a) ({                                                    \
-    m384 rv_not384;                                                     \
-    rv_not384.lo = not128((a).lo);                                      \
-    rv_not384.mid = not128((a).mid);                                    \
-    rv_not384.hi = not128((a).hi);                                      \
-    rv_not384;                                                          \
-})
-#else
 static really_inline m384 not384(m384 a) {
     m384 rv;
     rv.lo = not128(a.lo);
@@ -832,17 +745,6 @@ static really_inline m384 not384(m384 a) {
     rv.hi = not128(a.hi);
     return rv;
 }
-#endif
-
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define andnot384(a, b) ({                                              \
-    m384 rv_andnot384;                                                  \
-    rv_andnot384.lo = andnot128((a).lo, (b).lo);                        \
-    rv_andnot384.mid = andnot128((a).mid, (b).mid);                     \
-    rv_andnot384.hi = andnot128((a).hi, (b).hi);                        \
-    rv_andnot384;                                                       \
-})
-#else
 static really_inline m384 andnot384(m384 a, m384 b) {
     m384 rv;
     rv.lo = andnot128(a.lo, b.lo);
@@ -850,27 +752,15 @@ static really_inline m384 andnot384(m384 a, m384 b) {
     rv.hi = andnot128(a.hi, b.hi);
     return rv;
 }
-#endif
 
-// The shift amount is an immediate, so we define these operations as macros on
-// Intel SIMD (using a GNU C extension).
-#if defined(__GNUC__)
-#define shift384(a, b)  ({                                              \
-    m384 rv;                                                            \
-    rv.lo = shift128(a.lo, b);                                          \
-    rv.mid = shift128(a.mid, b);                                        \
-    rv.hi = shift128(a.hi, b);                                          \
-    rv;                                                                 \
-})
-#else
-static really_inline m384 shift384(m384 a, unsigned b) {
+// The shift amount is an immediate
+static really_really_inline m384 shift384(m384 a, unsigned b) {
     m384 rv;
     rv.lo = shift128(a.lo, b);
     rv.mid = shift128(a.mid, b);
     rv.hi = shift128(a.hi, b);
     return rv;
 }
-#endif
 
 static really_inline m384 zeroes384(void) {
     m384 rv = {zeroes128(), zeroes128(), zeroes128()};
@@ -1000,103 +890,48 @@ char testbit384(const m384 *ptr, unsigned int n) {
  **** 512-bit Primitives
  ****/
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define and512(a, b) ({                                                 \
-    m512 rv_and512;                                                     \
-    rv_and512.lo = and256((a).lo, (b).lo);                              \
-    rv_and512.hi = and256((a).hi, (b).hi);                              \
-    rv_and512;                                                          \
-})
-#else
 static really_inline m512 and512(m512 a, m512 b) {
     m512 rv;
     rv.lo = and256(a.lo, b.lo);
     rv.hi = and256(a.hi, b.hi);
     return rv;
 }
-#endif
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define or512(a, b) ({                                                  \
-    m512 rv_or512;                                                      \
-    rv_or512.lo = or256((a).lo, (b).lo);                                \
-    rv_or512.hi = or256((a).hi, (b).hi);                                \
-    rv_or512;                                                           \
-})
-#else
 static really_inline m512 or512(m512 a, m512 b) {
     m512 rv;
     rv.lo = or256(a.lo, b.lo);
     rv.hi = or256(a.hi, b.hi);
     return rv;
 }
-#endif
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define xor512(a, b) ({                                                 \
-    m512 rv_xor512;                                                     \
-    rv_xor512.lo = xor256((a).lo, (b).lo);                              \
-    rv_xor512.hi = xor256((a).hi, (b).hi);                              \
-    rv_xor512;                                                          \
-})
-#else
 static really_inline m512 xor512(m512 a, m512 b) {
     m512 rv;
     rv.lo = xor256(a.lo, b.lo);
     rv.hi = xor256(a.hi, b.hi);
     return rv;
 }
-#endif
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define not512(a) ({                                                    \
-    m512 rv_not512;                                                     \
-    rv_not512.lo = not256((a).lo);                                      \
-    rv_not512.hi = not256((a).hi);                                      \
-    rv_not512;                                                          \
-})
-#else
 static really_inline m512 not512(m512 a) {
     m512 rv;
     rv.lo = not256(a.lo);
     rv.hi = not256(a.hi);
     return rv;
 }
-#endif
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define andnot512(a, b) ({                                              \
-    m512 rv_andnot512;                                                  \
-    rv_andnot512.lo = andnot256((a).lo, (b).lo);                        \
-    rv_andnot512.hi = andnot256((a).hi, (b).hi);                        \
-    rv_andnot512;                                                       \
-})
-#else
 static really_inline m512 andnot512(m512 a, m512 b) {
     m512 rv;
     rv.lo = andnot256(a.lo, b.lo);
     rv.hi = andnot256(a.hi, b.hi);
     return rv;
 }
-#endif
 
-// The shift amount is an immediate, so we define these operations as macros on
-// Intel SIMD (using a GNU C extension).
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define shift512(a, b)  ({                                              \
-    m512 rv_shift512;                                                   \
-    rv_shift512.lo = shift256(a.lo, b);                                 \
-    rv_shift512.hi = shift256(a.hi, b);                                 \
-    rv_shift512;                                                        \
-})
-#else
-static really_inline m512 shift512(m512 a, unsigned b) {
+// The shift amount is an immediate
+static really_really_inline m512 shift512(m512 a, unsigned b) {
     m512 rv;
     rv.lo = shift256(a.lo, b);
     rv.hi = shift256(a.hi, b);
     return rv;
 }
-#endif
 
 static really_inline m512 zeroes512(void) {
     m512 rv = {zeroes256(), zeroes256()};
