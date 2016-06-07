@@ -204,7 +204,7 @@ do {                                                                        \
     if (unlikely(isnonzero256(var))) {                                      \
         u32 arrCnt = 0;                                                     \
         m128 lo = cast256to128(var);                                        \
-        m128 hi = cast256to128(swap128in256(var));                          \
+        m128 hi = movdq_hi(var);                                            \
         bit_array_fast_teddy(lo, bitArr, &arrCnt, offset);                  \
         bit_array_fast_teddy(hi, bitArr, &arrCnt, offset + 2);              \
         for (u32 i = 0; i < arrCnt; i++) {                                  \
