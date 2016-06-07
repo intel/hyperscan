@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,46 +43,15 @@ extern "C" {
 #include "util/alloc.h"
 #include "util/charreach.h"
 
+#include <algorithm>
+#include <iostream>
+#include <random>
 #include <string>
 #include <vector>
-#include <algorithm>
-#include <stdlib.h>
-#include <iostream>
 
 using namespace ue2;
 using namespace std;
 using namespace testing;
-
-/*
- * Static functions needed for this test's wellbeing
- */
-
-// char generator
-static inline
-char getChar(const CharReach &cr, bool match) {
-    char result;
-    do {
-        result = rand() % CharReach::npos;
-    } while (cr.test(result) != match);
-    return result;
-}
-
-// appends a string with matches/unmatches according to input match pattern
-static
-void getMatch(u8 *result, u32 start, const string &pattern,
-              const CharReach &cr) {
-    for (const auto &c : pattern) {
-        result[start++] = getChar(cr, c == '1');
-    }
-}
-
-// appends non-matching noise of certain lengths
-static
-void getNoise(u8 *result, u32 start, u32 len, const CharReach &cr) {
-    for (unsigned i = 0; i < len; i++) {
-        result[start + i] = getChar(cr, false);
-    }
-}
 
 // test parameters structure
 struct MultiaccelTestParam {
@@ -126,6 +95,34 @@ protected:
         test_all_offsets = p.test_all_offsets;
     }
 
+    char getChar(const CharReach &cr) {
+        assert(cr.count() > 0);
+        auto dist = uniform_int_distribution<size_t>(0, cr.count() - 1);
+        size_t result = cr.find_nth(dist(prng));
+        assert(result != CharReach::npos);
+        return (char)result;
+    }
+
+    // char generator
+    char getChar(const CharReach &cr, bool match) {
+        return getChar(match ? cr : ~cr);
+    }
+
+    // appends a string with matches/unmatches according to input match pattern
+    void getMatch(u8 *result, u32 start, const string &pattern,
+                  const CharReach &cr) {
+        for (const auto &c : pattern) {
+            result[start++] = getChar(cr, c == '1');
+        }
+    }
+
+    // appends non-matching noise of certain lengths
+    void getNoise(u8 *result, u32 start, u32 len, const CharReach &cr) {
+        for (unsigned i = 0; i < len; i++) {
+            result[start + i] = getChar(cr, false);
+        }
+    }
+
     // deferred buffer generation, as we don't know CharReach before we run the test
     void GenerateBuffer(const CharReach &cr) {
         const MultiaccelTestParam &p = GetParam();
@@ -166,6 +163,10 @@ protected:
     virtual void TearDown() {
         aligned_free(buffer);
     }
+
+    // We want our tests to be deterministic, so we use a PRNG in the test
+    // fixture.
+    mt19937 prng;
 
     u32 match_idx;
     u8 *buffer;
