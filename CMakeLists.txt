@@ -207,7 +207,7 @@ else()
         set(EXTRA_CXX_FLAGS "-O0 ${EXTRA_CXX_FLAGS}")
     endif(OPTIMISE)
 
-    if(NOT RELEASE_BUILD)
+    if (NOT(ARCH_IA32 AND RELEASE_BUILD))
         set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -fno-omit-frame-pointer")
         set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fno-omit-frame-pointer")
     endif()
