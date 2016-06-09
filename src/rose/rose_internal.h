@@ -380,9 +380,6 @@ struct RoseEngine {
     u32 eodIterProgramOffset; // or 0 if no eod iterator program
     u32 eodIterOffset; // offset to EOD sparse iter or 0 if none
 
-    /** \brief Offset to sparse iter over outfix/suffix NFAs that accept EOD. */
-    u32 eodNfaIterOffset;
-
     u32 lastByteHistoryIterOffset; // if non-zero
 
     /** \brief Minimum number of bytes required to match. */

@@ -800,6 +800,57 @@ char roseCheckBounds(u64a end, u64a min_bound, u64a max_bound) {
     return end >= min_bound && end <= max_bound;
 }
 
+static rose_inline
+hwlmcb_rv_t roseEnginesEod(const struct RoseEngine *rose,
+                           struct hs_scratch *scratch, u64a offset,
+                           u32 iter_offset) {
+    const char is_streaming = rose->mode != HS_MODE_BLOCK;
+
+    /* data, len is used for state decompress, should be full available data */
+    u8 key = 0;
+    if (is_streaming) {
+        const u8 *eod_data = scratch->core_info.hbuf;
+        size_t eod_len = scratch->core_info.hlen;
+        key = eod_len ? eod_data[eod_len - 1] : 0;
+    }
+
+    const u8 *aa = getActiveLeafArray(rose, scratch->core_info.state);
+    const u32 aaCount = rose->activeArrayCount;
+
+    const struct mmbit_sparse_iter *it = getByOffset(rose, iter_offset);
+    assert(ISALIGNED(it));
+
+    u32 idx = 0;
+    struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
+
+    for (u32 qi = mmbit_sparse_iter_begin(aa, aaCount, &idx, it, si_state);
+         qi != MMB_INVALID;
+         qi = mmbit_sparse_iter_next(aa, aaCount, qi, &idx, it, si_state)) {
+        const struct NfaInfo *info = getNfaInfoByQueue(rose, qi);
+        const struct NFA *nfa = getNfaByInfo(rose, info);
+
+        DEBUG_PRINTF("checking nfa %u\n", qi);
+        assert(nfaAcceptsEod(nfa));
+
+        char *fstate = scratch->fullState + info->fullStateOffset;
+        const char *sstate = scratch->core_info.state + info->stateOffset;
+
+        if (is_streaming) {
+            // Decompress stream state.
+            nfaExpandState(nfa, fstate, sstate, offset, key);
+        }
+
+        if (nfaCheckFinalState(nfa, fstate, sstate, offset, roseReportAdaptor,
+                               roseReportSomAdaptor,
+                               scratch) == MO_HALT_MATCHING) {
+            DEBUG_PRINTF("user instructed us to stop\n");
+            return HWLM_TERMINATE_MATCHING;
+        }
+    }
+
+    return HWLM_CONTINUE_MATCHING;
+}
+
 static
 void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
                     const char from_mpv) {
@@ -1298,6 +1349,14 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                              jumps[idx]);
                 pc = pc_base + jumps[idx];
                 continue;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(ENGINES_EOD) {
+                if (roseEnginesEod(t, scratch, end, ri->iter_offset) ==
+                    HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
             }
             PROGRAM_NEXT_INSTRUCTION
 

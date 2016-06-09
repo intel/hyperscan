@@ -96,6 +96,10 @@ enum RoseInstructionCode {
     ROSE_INSTR_CHECK_STATE,       //!< Test a single bit in the state multibit.
     ROSE_INSTR_SPARSE_ITER_BEGIN, //!< Begin running a sparse iter over states.
     ROSE_INSTR_SPARSE_ITER_NEXT,  //!< Continue running sparse iter over states.
+
+    /** \brief Check outfixes and suffixes for EOD and fire reports if so. */
+    ROSE_INSTR_ENGINES_EOD,
+
     ROSE_INSTR_END                //!< End of program.
 };
 
@@ -350,6 +354,11 @@ struct ROSE_STRUCT_SPARSE_ITER_NEXT {
     u32 jump_table; //!< Offset of jump table indexed by sparse iterator.
     u32 state; // Current state index.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_ENGINES_EOD {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 iter_offset; //!< Offset of mmbit_sparse_iter structure.
 };
 
 struct ROSE_STRUCT_END {

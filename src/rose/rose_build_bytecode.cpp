@@ -223,6 +223,7 @@ public:
         case ROSE_INSTR_CHECK_STATE: return &u.checkState;
         case ROSE_INSTR_SPARSE_ITER_BEGIN: return &u.sparseIterBegin;
         case ROSE_INSTR_SPARSE_ITER_NEXT: return &u.sparseIterNext;
+        case ROSE_INSTR_ENGINES_EOD: return &u.enginesEod;
         case ROSE_INSTR_END: return &u.end;
         }
         assert(0);
@@ -269,6 +270,7 @@ public:
         case ROSE_INSTR_CHECK_STATE: return sizeof(u.checkState);
         case ROSE_INSTR_SPARSE_ITER_BEGIN: return sizeof(u.sparseIterBegin);
         case ROSE_INSTR_SPARSE_ITER_NEXT: return sizeof(u.sparseIterNext);
+        case ROSE_INSTR_ENGINES_EOD: return sizeof(u.enginesEod);
         case ROSE_INSTR_END: return sizeof(u.end);
         }
         assert(0);
@@ -314,6 +316,7 @@ public:
         ROSE_STRUCT_CHECK_STATE checkState;
         ROSE_STRUCT_SPARSE_ITER_BEGIN sparseIterBegin;
         ROSE_STRUCT_SPARSE_ITER_NEXT sparseIterNext;
+        ROSE_STRUCT_ENGINES_EOD enginesEod;
         ROSE_STRUCT_END end;
     } u;
 
@@ -3532,7 +3535,7 @@ u32 addPredBlocks(build_context &bc,
  * Returns the pair (program offset, sparse iter offset).
  */
 static
-pair<u32, u32> makeSparseIterProgram(build_context &bc,
+vector<RoseInstruction> makeSparseIterProgram(build_context &bc,
                     map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
                     const vector<RoseInstruction> &root_program,
                     const vector<RoseInstruction> &pre_program) {
@@ -3548,7 +3551,7 @@ pair<u32, u32> makeSparseIterProgram(build_context &bc,
     // Add blocks to deal with non-root edges (triggered by sparse iterator or
     // mmbit_isset checks). This operation will flatten the program up to this
     // point.
-    u32 iter_offset = addPredBlocks(bc, predProgramLists, program, false);
+    addPredBlocks(bc, predProgramLists, program, false);
 
     // If we have a root program, replace the END instruction with it. Note
     // that the root program has already been flattened.
@@ -3559,8 +3562,7 @@ pair<u32, u32> makeSparseIterProgram(build_context &bc,
         program.insert(end(program), begin(root_program), end(root_program));
     }
 
-    applyFinalSpecialisation(program);
-    return {writeProgram(bc, program), iter_offset};
+    return program;
 }
 
 static
@@ -3778,8 +3780,9 @@ vector<RoseInstruction> buildLitInitialProgram(RoseBuildImpl &build,
 }
 
 static
-u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc, u32 final_id,
-                        const vector<RoseEdge> &lit_edges) {
+vector<RoseInstruction> buildLiteralProgram(RoseBuildImpl &build,
+                                            build_context &bc, u32 final_id,
+                                            const vector<RoseEdge> &lit_edges) {
     const auto &g = build.g;
 
     DEBUG_PRINTF("final id %u, %zu lit edges\n", final_id, lit_edges.size());
@@ -3831,7 +3834,19 @@ u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc, u32 final_id,
 
     // Put it all together.
     return makeSparseIterProgram(bc, predProgramLists, root_program,
-                                 pre_program).first;
+                                 pre_program);
+}
+
+static
+u32 writeLiteralProgram(RoseBuildImpl &build, build_context &bc, u32 final_id,
+                        const vector<RoseEdge> &lit_edges) {
+    auto program = buildLiteralProgram(build, bc, final_id, lit_edges);
+    if (program.empty()) {
+        return 0;
+    }
+    // Note: already flattened.
+    applyFinalSpecialisation(program);
+    return writeProgram(bc, program);
 }
 
 static
@@ -3904,7 +3919,7 @@ pair<u32, u32> buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
         const auto &lit_edges = lit_edge_map[finalId];
 
         litPrograms[finalId] =
-            buildLiteralProgram(build, bc, finalId, lit_edges);
+            writeLiteralProgram(build, bc, finalId, lit_edges);
         delayRebuildPrograms[finalId] =
             buildDelayRebuildProgram(build, bc, finalId);
     }
@@ -4020,33 +4035,53 @@ pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
 }
 
 static
-u32 writeEodProgram(RoseBuildImpl &build, build_context &bc) {
-    if (build.eod_event_literal_id == MO_INVALID_IDX) {
+u32 writeEodProgram(RoseBuildImpl &build, build_context &bc,
+                    u32 eodNfaIterOffset) {
+    vector<RoseInstruction> program;
+
+    if (build.eod_event_literal_id != MO_INVALID_IDX) {
+        const RoseGraph &g = build.g;
+        const auto &lit_info =
+            build.literal_info.at(build.eod_event_literal_id);
+        assert(lit_info.delayed_ids.empty());
+        assert(!lit_info.squash_group);
+        assert(!lit_info.requires_benefits);
+
+        // Collect all edges leading into EOD event literal vertices.
+        vector<RoseEdge> edge_list;
+        for (const auto &v : lit_info.vertices) {
+            for (const auto &e : in_edges_range(v, g)) {
+                edge_list.push_back(e);
+            }
+        }
+
+        // Sort edge list for determinism, prettiness.
+        sort(begin(edge_list), end(edge_list),
+             [&g](const RoseEdge &a, const RoseEdge &b) {
+                 return tie(g[source(a, g)].idx, g[target(a, g)].idx) <
+                        tie(g[source(b, g)].idx, g[target(b, g)].idx);
+             });
+
+        program = buildLiteralProgram(build, bc, MO_INVALID_IDX, edge_list);
+    }
+
+    if (eodNfaIterOffset) {
+        auto ri = RoseInstruction(ROSE_INSTR_ENGINES_EOD);
+        ri.u.enginesEod.iter_offset = eodNfaIterOffset;
+        if (!program.empty()) {
+            assert(program.back().code() == ROSE_INSTR_END);
+            program.pop_back();
+        }
+        program.push_back(move(ri));
+        program = flattenProgram({program});
+    }
+
+    if (program.empty()) {
         return 0;
     }
 
-    const RoseGraph &g = build.g;
-    const auto &lit_info = build.literal_info.at(build.eod_event_literal_id);
-    assert(lit_info.delayed_ids.empty());
-    assert(!lit_info.squash_group);
-    assert(!lit_info.requires_benefits);
-
-    // Collect all edges leading into EOD event literal vertices.
-    vector<RoseEdge> edge_list;
-    for (const auto &v : lit_info.vertices) {
-        for (const auto &e : in_edges_range(v, g)) {
-            edge_list.push_back(e);
-        }
-    }
-
-    // Sort edge list for determinism, prettiness.
-    sort(begin(edge_list), end(edge_list),
-         [&g](const RoseEdge &a, const RoseEdge &b) {
-             return tie(g[source(a, g)].idx, g[target(a, g)].idx) <
-                    tie(g[source(b, g)].idx, g[target(b, g)].idx);
-         });
-
-    return buildLiteralProgram(build, bc, MO_INVALID_IDX, edge_list);
+    applyFinalSpecialisation(program);
+    return writeProgram(bc, program);
 }
 
 static
@@ -4210,7 +4245,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     tie(litProgramOffset, litDelayRebuildProgramOffset) =
         buildLiteralPrograms(*this, bc);
 
-    u32 eodProgramOffset = writeEodProgram(*this, bc);
+    u32 eodProgramOffset = writeEodProgram(*this, bc, eodNfaIterOffset);
     u32 eodIterProgramOffset;
     u32 eodIterOffset;
     tie(eodIterProgramOffset, eodIterOffset) = buildEodAnchorProgram(*this, bc);
@@ -4412,7 +4447,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->eodProgramOffset = eodProgramOffset;
     engine->eodIterProgramOffset = eodIterProgramOffset;
     engine->eodIterOffset = eodIterOffset;
-    engine->eodNfaIterOffset = eodNfaIterOffset;
 
     engine->lastByteHistoryIterOffset = lastByteOffset;
 

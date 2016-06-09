@@ -122,65 +122,6 @@ int roseEodRunIterator(const struct RoseEngine *t, u64a offset,
     return MO_CONTINUE_MATCHING;
 }
 
-/**
- * \brief Check for (and deliver) reports from active output-exposed (suffix
- * or outfix) NFAs.
- *
- * \return MO_HALT_MATCHING if the user instructs us to stop.
- */
-static rose_inline
-int roseCheckNfaEod(const struct RoseEngine *t, struct hs_scratch *scratch,
-                    u64a offset, const char is_streaming) {
-    if (!t->eodNfaIterOffset) {
-        DEBUG_PRINTF("no engines that report at EOD\n");
-        return MO_CONTINUE_MATCHING;
-    }
-
-    /* data, len is used for state decompress, should be full available data */
-    u8 key = 0;
-    if (is_streaming) {
-        const u8 *eod_data = scratch->core_info.hbuf;
-        size_t eod_len = scratch->core_info.hlen;
-        key = eod_len ? eod_data[eod_len - 1] : 0;
-    }
-
-    const u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
-    const u32 aaCount = t->activeArrayCount;
-
-    const struct mmbit_sparse_iter *it = getByOffset(t, t->eodNfaIterOffset);
-    assert(ISALIGNED(it));
-
-    u32 idx = 0;
-    struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
-
-    for (u32 qi = mmbit_sparse_iter_begin(aa, aaCount, &idx, it, si_state);
-         qi != MMB_INVALID;
-         qi = mmbit_sparse_iter_next(aa, aaCount, qi, &idx, it, si_state)) {
-        const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
-        const struct NFA *nfa = getNfaByInfo(t, info);
-
-        DEBUG_PRINTF("checking nfa %u\n", qi);
-        assert(nfaAcceptsEod(nfa));
-
-        char *fstate = scratch->fullState + info->fullStateOffset;
-        const char *sstate = scratch->core_info.state + info->stateOffset;
-
-        if (is_streaming) {
-            // Decompress stream state.
-            nfaExpandState(nfa, fstate, sstate, offset, key);
-        }
-
-        if (nfaCheckFinalState(nfa, fstate, sstate, offset, roseReportAdaptor,
-                               roseReportSomAdaptor,
-                               scratch) == MO_HALT_MATCHING) {
-            DEBUG_PRINTF("user instructed us to stop\n");
-            return MO_HALT_MATCHING;
-        }
-    }
-
-    return MO_CONTINUE_MATCHING;
-}
-
 static rose_inline
 void cleanupAfterEodMatcher(const struct RoseEngine *t, u64a offset,
                             struct hs_scratch *scratch) {
@@ -266,10 +207,6 @@ void roseEodExec_i(const struct RoseEngine *t, u64a offset,
 
     // Run the unconditional EOD program.
     if (roseRunEodProgram(t, offset, scratch) == MO_HALT_MATCHING) {
-        return;
-    }
-
-    if (roseCheckNfaEod(t, scratch, offset, is_streaming) == MO_HALT_MATCHING) {
         return;
     }
 

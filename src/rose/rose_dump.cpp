@@ -476,6 +476,11 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(ENGINES_EOD) {
+                os << "    iter_offset " << ri->iter_offset << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(END) { return; }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -1022,7 +1027,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, eodProgramOffset);
     DUMP_U32(t, eodIterProgramOffset);
     DUMP_U32(t, eodIterOffset);
-    DUMP_U32(t, eodNfaIterOffset);
     DUMP_U32(t, lastByteHistoryIterOffset);
     DUMP_U32(t, minWidth);
     DUMP_U32(t, minWidthExcludingBoundaries);
