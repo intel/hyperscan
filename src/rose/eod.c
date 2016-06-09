@@ -33,10 +33,11 @@
 #include "util/fatbit.h"
 
 static really_inline
-void initContext(const struct RoseEngine *t, char *state, u64a offset,
+void initContext(const struct RoseEngine *t, u64a offset,
                  struct hs_scratch *scratch) {
     struct RoseContext *tctxt = &scratch->tctxt;
-    tctxt->groups = loadGroups(t, state); /* TODO: diff groups for eod */
+    /* TODO: diff groups for eod */
+    tctxt->groups = loadGroups(t, scratch->core_info.state);
     tctxt->lit_offset_adjust = scratch->core_info.buf_offset
                              - scratch->core_info.hlen
                              + 1; // index after last byte
@@ -128,9 +129,8 @@ int roseEodRunIterator(const struct RoseEngine *t, u64a offset,
  * \return MO_HALT_MATCHING if the user instructs us to stop.
  */
 static rose_inline
-int roseCheckNfaEod(const struct RoseEngine *t, char *state,
-                     struct hs_scratch *scratch, u64a offset,
-                     const char is_streaming) {
+int roseCheckNfaEod(const struct RoseEngine *t, struct hs_scratch *scratch,
+                    u64a offset, const char is_streaming) {
     if (!t->eodNfaIterOffset) {
         DEBUG_PRINTF("no engines that report at EOD\n");
         return MO_CONTINUE_MATCHING;
@@ -144,7 +144,7 @@ int roseCheckNfaEod(const struct RoseEngine *t, char *state,
         key = eod_len ? eod_data[eod_len - 1] : 0;
     }
 
-    const u8 *aa = getActiveLeafArray(t, state);
+    const u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
     const u32 aaCount = t->activeArrayCount;
 
     const struct mmbit_sparse_iter *it = getByOffset(t, t->eodNfaIterOffset);
@@ -163,7 +163,7 @@ int roseCheckNfaEod(const struct RoseEngine *t, char *state,
         assert(nfaAcceptsEod(nfa));
 
         char *fstate = scratch->fullState + info->fullStateOffset;
-        const char *sstate = (const char *)state + info->stateOffset;
+        const char *sstate = scratch->core_info.state + info->stateOffset;
 
         if (is_streaming) {
             // Decompress stream state.
@@ -189,9 +189,9 @@ void cleanupAfterEodMatcher(const struct RoseEngine *t, u64a offset,
 }
 
 static rose_inline
-void roseCheckEodSuffixes(const struct RoseEngine *t, char *state, u64a offset,
+void roseCheckEodSuffixes(const struct RoseEngine *t, u64a offset,
                           struct hs_scratch *scratch) {
-    const u8 *aa = getActiveLeafArray(t, state);
+    const u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
     const u32 aaCount = t->activeArrayCount;
     UNUSED u32 qCount = t->queueCount;
 
@@ -208,7 +208,7 @@ void roseCheckEodSuffixes(const struct RoseEngine *t, char *state, u64a offset,
                                                            triggered */
 
         char *fstate = scratch->fullState + info->fullStateOffset;
-        const char *sstate = (const char *)state + info->stateOffset;
+        const char *sstate = scratch->core_info.state + info->stateOffset;
 
         struct mq *q = scratch->queues + qi;
 
@@ -257,7 +257,7 @@ int roseRunEodProgram(const struct RoseEngine *t, u64a offset,
 }
 
 static really_inline
-void roseEodExec_i(const struct RoseEngine *t, char *state, u64a offset,
+void roseEodExec_i(const struct RoseEngine *t, u64a offset,
                    struct hs_scratch *scratch, const char is_streaming) {
     assert(t);
     assert(scratch->core_info.buf || scratch->core_info.hbuf);
@@ -269,8 +269,7 @@ void roseEodExec_i(const struct RoseEngine *t, char *state, u64a offset,
         return;
     }
 
-    if (roseCheckNfaEod(t, state, scratch, offset, is_streaming) ==
-        MO_HALT_MATCHING) {
+    if (roseCheckNfaEod(t, scratch, offset, is_streaming) == MO_HALT_MATCHING) {
         return;
     }
 
@@ -288,6 +287,7 @@ void roseEodExec_i(const struct RoseEngine *t, char *state, u64a offset,
     if (t->ematcherOffset) {
         assert(t->ematcherRegionSize);
         // Unset the reports we just fired so we don't fire them again below.
+        char *state = scratch->core_info.state;
         mmbit_clear(getRoleState(state), t->rolesWithStateCount);
         mmbit_clear(getActiveLeafArray(t, state), t->activeArrayCount);
 
@@ -303,7 +303,7 @@ void roseEodExec_i(const struct RoseEngine *t, char *state, u64a offset,
             return;
         }
 
-        roseCheckEodSuffixes(t, state, offset, scratch);
+        roseCheckEodSuffixes(t, offset, scratch);
     }
 }
 
@@ -326,12 +326,8 @@ void roseEodExec(const struct RoseEngine *t, u64a offset,
         return;
     }
 
-    char *state = scratch->core_info.state;
-    assert(state);
-
-    initContext(t, state, offset, scratch);
-
-    roseEodExec_i(t, state, offset, scratch, 1);
+    initContext(t, offset, scratch);
+    roseEodExec_i(t, offset, scratch, 1);
 }
 
 static rose_inline
@@ -349,10 +345,7 @@ void roseBlockEodExec(const struct RoseEngine *t, u64a offset,
 
     assert(!can_stop_matching(scratch));
 
-    char *state = scratch->core_info.state;
-
     // Ensure that history is correct before we look for EOD matches
     prepForEod(t, scratch, scratch->core_info.len);
-
-    roseEodExec_i(t, state, offset, scratch, 0);
+    roseEodExec_i(t, offset, scratch, 0);
 }
