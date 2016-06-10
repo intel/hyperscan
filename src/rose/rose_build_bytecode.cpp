@@ -3958,7 +3958,8 @@ u32 buildReportPrograms(RoseBuildImpl &build, build_context &bc) {
 static
 vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
                                              build_context &bc,
-                                             const RoseEdge &e) {
+                                             const RoseEdge &e,
+                                             const bool multiple_preds) {
     const RoseGraph &g = build.g;
     const RoseVertex v = target(e, g);
 
@@ -3968,7 +3969,7 @@ vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
         makeRoleCheckBounds(build, v, e, program);
     }
 
-    if (hasGreaterInDegree(1, v, g)) {
+    if (multiple_preds) {
         // Only necessary when there is more than one pred.
         makeRoleCheckNotHandled(bc, v, program);
     }
@@ -4002,23 +4003,27 @@ pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
         DEBUG_PRINTF("vertex %zu (with %zu preds) fires on EOD\n", g[v].idx,
                      in_degree(v, g));
 
+        vector<RoseEdge> edge_list;
         for (const auto &e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
-
             if (!build.isInETable(u)) {
                 DEBUG_PRINTF("pred %zu is not in etable\n", g[u].idx);
                 continue;
             }
-
             if (canEagerlyReportAtEod(build, e)) {
                 DEBUG_PRINTF("already done report for vertex %zu\n", g[u].idx);
                 continue;
             }
+            edge_list.push_back(e);
+        }
 
+        const bool multiple_preds = edge_list.size() > 1;
+        for (const auto &e : edge_list) {
+            RoseVertex u = source(e, g);
             assert(contains(bc.roleStateIndices, u));
             u32 predStateIdx = bc.roleStateIndices.at(u);
 
-            auto program = makeEodAnchorProgram(build, bc, e);
+            auto program = makeEodAnchorProgram(build, bc, e, multiple_preds);
             predProgramLists[predStateIdx].push_back(program);
         }
     }
@@ -4055,23 +4060,27 @@ void addGeneralEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
         DEBUG_PRINTF("vertex %zu (with %zu preds) fires on EOD\n", g[v].idx,
                      in_degree(v, g));
 
+        vector<RoseEdge> edge_list;
         for (const auto &e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
-
             if (build.isInETable(u)) {
                 DEBUG_PRINTF("pred %zu is in etable\n", g[u].idx);
                 continue;
             }
-
             if (canEagerlyReportAtEod(build, e)) {
                 DEBUG_PRINTF("already done report for vertex %zu\n", g[u].idx);
                 continue;
             }
+            edge_list.push_back(e);
+        }
 
+        const bool multiple_preds = edge_list.size() > 1;
+        for (const auto &e : edge_list) {
+            RoseVertex u = source(e, g);
             assert(contains(bc.roleStateIndices, u));
             u32 predStateIdx = bc.roleStateIndices.at(u);
 
-            auto program = makeEodAnchorProgram(build, bc, e);
+            auto program = makeEodAnchorProgram(build, bc, e, multiple_preds);
             predProgramLists[predStateIdx].push_back(program);
         }
     }
@@ -4085,9 +4094,7 @@ void addGeneralEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
         assert(program.back().code() == ROSE_INSTR_END);
         program.pop_back();
     }
-    // TODO: don't force sparse iter, be more careful with generating
-    // CHECK_NOT_HANDLED.
-    addPredBlocks(bc, predProgramLists, program, true);
+    addPredBlocks(bc, predProgramLists, program, false);
 }
 
 static
