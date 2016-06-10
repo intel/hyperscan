@@ -210,16 +210,6 @@ void roseEodExec_i(const struct RoseEngine *t, u64a offset,
         return;
     }
 
-    if (!t->eodIterProgramOffset && !t->ematcherOffset) {
-        DEBUG_PRINTF("no eod accepts\n");
-        return;
-    }
-
-    // Handle pending EOD reports.
-    if (roseEodRunIterator(t, offset, scratch) == MO_HALT_MATCHING) {
-        return;
-    }
-
     // Run the EOD anchored matcher if there is one.
     if (t->ematcherOffset) {
         assert(t->ematcherRegionSize);

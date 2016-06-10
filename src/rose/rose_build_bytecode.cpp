@@ -4005,6 +4005,11 @@ pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
         for (const auto &e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
 
+            if (!build.isInETable(u)) {
+                DEBUG_PRINTF("pred %zu is not in etable\n", g[u].idx);
+                continue;
+            }
+
             if (canEagerlyReportAtEod(build, e)) {
                 DEBUG_PRINTF("already done report for vertex %zu\n", g[u].idx);
                 continue;
@@ -4032,6 +4037,57 @@ pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
     assert(program.size() > 1);
     applyFinalSpecialisation(program);
     return {writeProgram(bc, program), iter_offset};
+}
+
+static
+void addGeneralEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
+                                vector<RoseInstruction> &program) {
+    const RoseGraph &g = build.g;
+
+    // pred state id -> list of programs
+    map<u32, vector<vector<RoseInstruction>>> predProgramLists;
+
+    for (auto v : vertices_range(g)) {
+        if (!g[v].eod_accept) {
+            continue;
+        }
+
+        DEBUG_PRINTF("vertex %zu (with %zu preds) fires on EOD\n", g[v].idx,
+                     in_degree(v, g));
+
+        for (const auto &e : in_edges_range(v, g)) {
+            RoseVertex u = source(e, g);
+
+            if (build.isInETable(u)) {
+                DEBUG_PRINTF("pred %zu is in etable\n", g[u].idx);
+                continue;
+            }
+
+            if (canEagerlyReportAtEod(build, e)) {
+                DEBUG_PRINTF("already done report for vertex %zu\n", g[u].idx);
+                continue;
+            }
+
+            assert(contains(bc.roleStateIndices, u));
+            u32 predStateIdx = bc.roleStateIndices.at(u);
+
+            auto program = makeEodAnchorProgram(build, bc, e);
+            predProgramLists[predStateIdx].push_back(program);
+        }
+    }
+
+    if (predProgramLists.empty()) {
+        DEBUG_PRINTF("no eod anchored roles\n");
+        return;
+    }
+
+    if (!program.empty()) {
+        assert(program.back().code() == ROSE_INSTR_END);
+        program.pop_back();
+    }
+    // TODO: don't force sparse iter, be more careful with generating
+    // CHECK_NOT_HANDLED.
+    addPredBlocks(bc, predProgramLists, program, true);
 }
 
 static
@@ -4075,6 +4131,8 @@ u32 writeEodProgram(RoseBuildImpl &build, build_context &bc,
         program.push_back(move(ri));
         program = flattenProgram({program});
     }
+
+    addGeneralEodAnchorProgram(build, bc, program);
 
     if (program.empty()) {
         return 0;
