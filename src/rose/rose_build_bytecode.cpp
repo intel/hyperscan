@@ -3989,7 +3989,7 @@ vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
  * Returns the pair (program offset, sparse iter offset).
  */
 static
-pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
+u32 writeEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
     const RoseGraph &g = build.g;
 
     // pred state id -> list of programs
@@ -4030,18 +4030,15 @@ pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
 
     if (predProgramLists.empty()) {
         DEBUG_PRINTF("no eod anchored roles\n");
-        return {0, 0};
+        return 0;
     }
 
     vector<RoseInstruction> program;
-
-    // Note: we force the use of a sparse iterator for the EOD program so we
-    // can easily guard EOD execution at runtime.
-    u32 iter_offset = addPredBlocks(bc, predProgramLists, program, true);
+    addPredBlocks(bc, predProgramLists, program, false);
 
     assert(program.size() > 1);
     applyFinalSpecialisation(program);
-    return {writeProgram(bc, program), iter_offset};
+    return writeProgram(bc, program);
 }
 
 static
@@ -4311,9 +4308,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         buildLiteralPrograms(*this, bc);
 
     u32 eodProgramOffset = writeEodProgram(*this, bc, eodNfaIterOffset);
-    u32 eodIterProgramOffset;
-    u32 eodIterOffset;
-    tie(eodIterProgramOffset, eodIterOffset) = buildEodAnchorProgram(*this, bc);
+    u32 eodIterProgramOffset = writeEodAnchorProgram(*this, bc);
 
     vector<mmbit_sparse_iter> activeLeftIter;
     buildActiveLeftIter(leftInfoTable, activeLeftIter);
@@ -4511,7 +4506,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     engine->eodProgramOffset = eodProgramOffset;
     engine->eodIterProgramOffset = eodIterProgramOffset;
-    engine->eodIterOffset = eodIterOffset;
 
     engine->lastByteHistoryIterOffset = lastByteOffset;
 

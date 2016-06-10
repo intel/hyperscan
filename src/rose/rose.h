@@ -43,39 +43,6 @@ void roseBlockEodExec(const struct RoseEngine *t, u64a offset,
                       struct hs_scratch *scratch);
 void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch);
 
-static really_inline
-int roseBlockHasEodWork(const struct RoseEngine *t,
-                        struct hs_scratch *scratch) {
-    if (t->ematcherOffset) {
-        DEBUG_PRINTF("eod matcher to run\n");
-        return 1;
-    }
-
-    if (t->eodProgramOffset) {
-        DEBUG_PRINTF("has eod program\n");
-        return 1;
-    }
-
-    void *state = scratch->core_info.state;
-    if (mmbit_any(getActiveLeafArray(t, state), t->activeArrayCount)) {
-        DEBUG_PRINTF("active outfix/suffix engines\n");
-        return 1;
-    }
-
-    if (t->eodIterOffset) {
-        u32 idx;
-        const struct mmbit_sparse_iter *it = getByOffset(t, t->eodIterOffset);
-        struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
-        if (mmbit_sparse_iter_begin(getRoleState(state), t->rolesWithStateCount,
-                                    &idx, it, si_state) != MMB_INVALID) {
-            DEBUG_PRINTF("eod iter has states on\n");
-            return 1;
-        }
-    }
-
-    return 0;
-}
-
 /* assumes core_info in scratch has been init to point to data */
 static really_inline
 void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
@@ -102,16 +69,12 @@ void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     roseBlockExec_i(t, scratch);
 
     if (!t->requiresEodCheck) {
+        DEBUG_PRINTF("no eod check required\n");
         return;
     }
 
     if (can_stop_matching(scratch)) {
         DEBUG_PRINTF("bailing, already halted\n");
-        return;
-    }
-
-    if (!roseBlockHasEodWork(t, scratch)) {
-        DEBUG_PRINTF("no eod work\n");
         return;
     }
 

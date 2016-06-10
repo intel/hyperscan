@@ -378,7 +378,6 @@ struct RoseEngine {
 
     u32 eodProgramOffset; //!< Unconditional EOD program, otherwise 0.
     u32 eodIterProgramOffset; // or 0 if no eod iterator program
-    u32 eodIterOffset; // offset to EOD sparse iter or 0 if none
 
     u32 lastByteHistoryIterOffset; // if non-zero
 

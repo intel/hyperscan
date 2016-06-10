@@ -1026,7 +1026,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, lookaroundReachOffset);
     DUMP_U32(t, eodProgramOffset);
     DUMP_U32(t, eodIterProgramOffset);
-    DUMP_U32(t, eodIterOffset);
     DUMP_U32(t, lastByteHistoryIterOffset);
     DUMP_U32(t, minWidth);
     DUMP_U32(t, minWidthExcludingBoundaries);
