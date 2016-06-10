@@ -3404,7 +3404,7 @@ void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
 }
 
 static
-u32 addPredBlocksSingle(
+void addPredBlocksSingle(
     map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
     vector<RoseInstruction> &program) {
 
@@ -3426,7 +3426,6 @@ u32 addPredBlocksSingle(
 
     auto prog = flattenProgram(prog_blocks);
     program.insert(end(program), begin(prog), end(prog));
-    return 0; // No iterator.
 }
 
 static
@@ -3439,7 +3438,7 @@ u32 programLength(const vector<RoseInstruction> &program) {
 }
 
 static
-u32 addPredBlocksMulti(build_context &bc,
+void addPredBlocksMulti(build_context &bc,
                     map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
                     vector<RoseInstruction> &program) {
     assert(!predProgramLists.empty());
@@ -3514,24 +3513,24 @@ u32 addPredBlocksMulti(build_context &bc,
     }
 
     program.insert(end(program), begin(sparse_program), end(sparse_program));
-
-    return iter_offset;
 }
 
 static
-u32 addPredBlocks(build_context &bc,
-                  map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
-                  vector<RoseInstruction> &program,
-                  bool force_sparse_iter) {
+void addPredBlocks(build_context &bc,
+                   map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
+                   vector<RoseInstruction> &program) {
     const size_t num_preds = predProgramLists.size();
     if (num_preds == 0) {
         program = flattenProgram({program});
-        return 0; // No iterator.
-    } else if (!force_sparse_iter && num_preds == 1) {
-        return addPredBlocksSingle(predProgramLists, program);
-    } else {
-        return addPredBlocksMulti(bc, predProgramLists, program);
+        return;
     }
+
+    if (num_preds == 1) {
+        addPredBlocksSingle(predProgramLists, program);
+        return;
+    }
+
+    addPredBlocksMulti(bc, predProgramLists, program);
 }
 
 /**
@@ -3554,7 +3553,7 @@ vector<RoseInstruction> makeSparseIterProgram(build_context &bc,
     // Add blocks to deal with non-root edges (triggered by sparse iterator or
     // mmbit_isset checks). This operation will flatten the program up to this
     // point.
-    addPredBlocks(bc, predProgramLists, program, false);
+    addPredBlocks(bc, predProgramLists, program);
 
     // If we have a root program, replace the END instruction with it. Note
     // that the root program has already been flattened.
@@ -4046,7 +4045,7 @@ u32 writeEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
 
     vector<RoseInstruction> program;
     if (!predProgramLists.empty()) {
-        addPredBlocks(bc, predProgramLists, program, false);
+        addPredBlocks(bc, predProgramLists, program);
     }
 
     if (hasEodAnchoredSuffix(build)) {
@@ -4118,7 +4117,7 @@ void addGeneralEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
         assert(program.back().code() == ROSE_INSTR_END);
         program.pop_back();
     }
-    addPredBlocks(bc, predProgramLists, program, false);
+    addPredBlocks(bc, predProgramLists, program);
 }
 
 static
