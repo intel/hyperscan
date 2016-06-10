@@ -100,6 +100,10 @@ enum RoseInstructionCode {
     /** \brief Check outfixes and suffixes for EOD and fire reports if so. */
     ROSE_INSTR_ENGINES_EOD,
 
+    /** \brief Catch up and check active suffixes for EOD and fire reports if
+     * so. */
+    ROSE_INSTR_SUFFIXES_EOD,
+
     ROSE_INSTR_END                //!< End of program.
 };
 
@@ -359,6 +363,10 @@ struct ROSE_STRUCT_SPARSE_ITER_NEXT {
 struct ROSE_STRUCT_ENGINES_EOD {
     u8 code; //!< From enum RoseInstructionCode.
     u32 iter_offset; //!< Offset of mmbit_sparse_iter structure.
+};
+
+struct ROSE_STRUCT_SUFFIXES_EOD {
+    u8 code; //!< From enum RoseInstructionCode.
 };
 
 struct ROSE_STRUCT_END {

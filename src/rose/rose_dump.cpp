@@ -481,6 +481,9 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(SUFFIXES_EOD) {}
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(END) { return; }
             PROGRAM_NEXT_INSTRUCTION
 

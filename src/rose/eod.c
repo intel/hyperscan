@@ -130,47 +130,6 @@ void cleanupAfterEodMatcher(const struct RoseEngine *t, u64a offset,
 }
 
 static rose_inline
-void roseCheckEodSuffixes(const struct RoseEngine *t, u64a offset,
-                          struct hs_scratch *scratch) {
-    const u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
-    const u32 aaCount = t->activeArrayCount;
-    UNUSED u32 qCount = t->queueCount;
-
-    for (u32 qi = mmbit_iterate(aa, aaCount, MMB_INVALID); qi != MMB_INVALID;
-         qi = mmbit_iterate(aa, aaCount, qi)) {
-        const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
-        const struct NFA *nfa = getNfaByInfo(t, info);
-
-        assert(nfaAcceptsEod(nfa));
-
-        DEBUG_PRINTF("checking nfa %u\n", qi);
-
-        assert(fatbit_isset(scratch->aqa, qCount, qi)); /* we have just been
-                                                           triggered */
-
-        char *fstate = scratch->fullState + info->fullStateOffset;
-        const char *sstate = scratch->core_info.state + info->stateOffset;
-
-        struct mq *q = scratch->queues + qi;
-
-        pushQueueNoMerge(q, MQE_END, scratch->core_info.len);
-
-        q->context = NULL;
-        /* rose exec is used as we don't want to / can't raise matches in the
-         * history buffer. */
-        char rv = nfaQueueExecRose(q->nfa, q, MO_INVALID_IDX);
-        if (rv) { /* nfa is still alive */
-            if (nfaCheckFinalState(nfa, fstate, sstate, offset,
-                                   roseReportAdaptor, roseReportSomAdaptor,
-                                   scratch) == MO_HALT_MATCHING) {
-                DEBUG_PRINTF("user instructed us to stop\n");
-                return;
-            }
-        }
-    }
-}
-
-static rose_inline
 int roseRunEodProgram(const struct RoseEngine *t, u64a offset,
                       struct hs_scratch *scratch) {
     if (!t->eodProgramOffset) {
@@ -229,8 +188,6 @@ void roseEodExec_i(const struct RoseEngine *t, u64a offset,
         if (roseEodRunIterator(t, offset, scratch) == MO_HALT_MATCHING) {
             return;
         }
-
-        roseCheckEodSuffixes(t, offset, scratch);
     }
 }
 

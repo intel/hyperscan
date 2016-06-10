@@ -224,6 +224,7 @@ public:
         case ROSE_INSTR_SPARSE_ITER_BEGIN: return &u.sparseIterBegin;
         case ROSE_INSTR_SPARSE_ITER_NEXT: return &u.sparseIterNext;
         case ROSE_INSTR_ENGINES_EOD: return &u.enginesEod;
+        case ROSE_INSTR_SUFFIXES_EOD: return &u.suffixesEod;
         case ROSE_INSTR_END: return &u.end;
         }
         assert(0);
@@ -271,6 +272,7 @@ public:
         case ROSE_INSTR_SPARSE_ITER_BEGIN: return sizeof(u.sparseIterBegin);
         case ROSE_INSTR_SPARSE_ITER_NEXT: return sizeof(u.sparseIterNext);
         case ROSE_INSTR_ENGINES_EOD: return sizeof(u.enginesEod);
+        case ROSE_INSTR_SUFFIXES_EOD: return sizeof(u.suffixesEod);
         case ROSE_INSTR_END: return sizeof(u.end);
         }
         assert(0);
@@ -317,6 +319,7 @@ public:
         ROSE_STRUCT_SPARSE_ITER_BEGIN sparseIterBegin;
         ROSE_STRUCT_SPARSE_ITER_NEXT sparseIterNext;
         ROSE_STRUCT_ENGINES_EOD enginesEod;
+        ROSE_STRUCT_SUFFIXES_EOD suffixesEod;
         ROSE_STRUCT_END end;
     } u;
 
@@ -3985,6 +3988,19 @@ vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
     return program;
 }
 
+static
+bool hasEodAnchoredSuffix(const RoseBuildImpl &build) {
+    const RoseGraph &g = build.g;
+    for (auto v : vertices_range(g)) {
+        if (g[v].suffix && build.isInETable(v)) {
+            DEBUG_PRINTF("vertex %zu is in eod table and has a suffix\n",
+                         g[v].idx);
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * Returns the pair (program offset, sparse iter offset).
  */
@@ -4028,13 +4044,24 @@ u32 writeEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
         }
     }
 
-    if (predProgramLists.empty()) {
-        DEBUG_PRINTF("no eod anchored roles\n");
+    vector<RoseInstruction> program;
+    if (!predProgramLists.empty()) {
+        addPredBlocks(bc, predProgramLists, program, false);
+    }
+
+    if (hasEodAnchoredSuffix(build)) {
+        if (!program.empty()) {
+            assert(program.back().code() == ROSE_INSTR_END);
+            program.pop_back();
+        }
+        program.emplace_back(ROSE_INSTR_SUFFIXES_EOD);
+    }
+
+    if (program.empty()) {
         return 0;
     }
 
-    vector<RoseInstruction> program;
-    addPredBlocks(bc, predProgramLists, program, false);
+    program = flattenProgram({program});
 
     assert(program.size() > 1);
     applyFinalSpecialisation(program);

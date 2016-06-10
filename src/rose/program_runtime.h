@@ -851,6 +851,48 @@ hwlmcb_rv_t roseEnginesEod(const struct RoseEngine *rose,
     return HWLM_CONTINUE_MATCHING;
 }
 
+static rose_inline
+hwlmcb_rv_t roseSuffixesEod(const struct RoseEngine *rose,
+                            struct hs_scratch *scratch, u64a offset) {
+    const u8 *aa = getActiveLeafArray(rose, scratch->core_info.state);
+    const u32 aaCount = rose->activeArrayCount;
+
+    for (u32 qi = mmbit_iterate(aa, aaCount, MMB_INVALID); qi != MMB_INVALID;
+         qi = mmbit_iterate(aa, aaCount, qi)) {
+        const struct NfaInfo *info = getNfaInfoByQueue(rose, qi);
+        const struct NFA *nfa = getNfaByInfo(rose, info);
+
+        assert(nfaAcceptsEod(nfa));
+
+        DEBUG_PRINTF("checking nfa %u\n", qi);
+
+        /* We have just been triggered. */
+        assert(fatbit_isset(scratch->aqa, rose->queueCount, qi));
+
+        char *fstate = scratch->fullState + info->fullStateOffset;
+        const char *sstate = scratch->core_info.state + info->stateOffset;
+
+        struct mq *q = scratch->queues + qi;
+
+        pushQueueNoMerge(q, MQE_END, scratch->core_info.len);
+
+        q->context = NULL;
+        /* rose exec is used as we don't want to / can't raise matches in the
+         * history buffer. */
+        if (!nfaQueueExecRose(q->nfa, q, MO_INVALID_IDX)) {
+            DEBUG_PRINTF("nfa is dead\n");
+            continue;
+        }
+        if (nfaCheckFinalState(nfa, fstate, sstate, offset, roseReportAdaptor,
+                               roseReportSomAdaptor,
+                               scratch) == MO_HALT_MATCHING) {
+            DEBUG_PRINTF("user instructed us to stop\n");
+            return HWLM_TERMINATE_MATCHING;
+        }
+    }
+    return HWLM_CONTINUE_MATCHING;
+}
+
 static
 void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
                     const char from_mpv) {
@@ -1354,6 +1396,14 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
 
             PROGRAM_CASE(ENGINES_EOD) {
                 if (roseEnginesEod(t, scratch, end, ri->iter_offset) ==
+                    HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(SUFFIXES_EOD) {
+                if (roseSuffixesEod(t, scratch, end) ==
                     HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
