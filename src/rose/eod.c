@@ -55,11 +55,17 @@ void initContext(const struct RoseEngine *t, u64a offset,
     fatbit_clear(scratch->aqa);
 }
 
-static rose_inline
-int roseRunEodProgram(const struct RoseEngine *t, u64a offset,
-                      struct hs_scratch *scratch) {
+static really_inline
+void roseEodExec_i(const struct RoseEngine *t, u64a offset,
+                   struct hs_scratch *scratch, UNUSED const char is_streaming) {
+    assert(t);
+    assert(scratch->core_info.buf || scratch->core_info.hbuf);
+    assert(!scratch->core_info.buf || !scratch->core_info.hbuf);
+    assert(!can_stop_matching(scratch));
+
     if (!t->eodProgramOffset) {
-        return MO_CONTINUE_MATCHING;
+        DEBUG_PRINTF("no eod program\n");
+        return;
     }
 
     DEBUG_PRINTF("running eod program at %u\n", t->eodProgramOffset);
@@ -73,25 +79,11 @@ int roseRunEodProgram(const struct RoseEngine *t, u64a offset,
     const char in_catchup = 0;
     const char from_mpv = 0;
     const char skip_mpv_catchup = 1;
-    if (roseRunProgram(t, scratch, t->eodProgramOffset, som, offset, match_len,
-                       in_anchored, in_catchup, from_mpv,
-                       skip_mpv_catchup) == HWLM_TERMINATE_MATCHING) {
-        return MO_HALT_MATCHING;
-    }
 
-    return MO_CONTINUE_MATCHING;
-}
-
-static really_inline
-void roseEodExec_i(const struct RoseEngine *t, u64a offset,
-                   struct hs_scratch *scratch, UNUSED const char is_streaming) {
-    assert(t);
-    assert(scratch->core_info.buf || scratch->core_info.hbuf);
-    assert(!scratch->core_info.buf || !scratch->core_info.hbuf);
-    assert(!can_stop_matching(scratch));
-
-    // Run the unconditional EOD program.
-    roseRunEodProgram(t, offset, scratch);
+    // Note: we ignore the result, as this is the last thing to ever happen on
+    // a scan.
+    roseRunProgram(t, scratch, t->eodProgramOffset, som, offset, match_len,
+                   in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
 }
 
 void roseEodExec(const struct RoseEngine *t, u64a offset,
