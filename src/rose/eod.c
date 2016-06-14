@@ -55,39 +55,8 @@ void initContext(const struct RoseEngine *t, u64a offset,
     fatbit_clear(scratch->aqa);
 }
 
-static really_inline
-void roseEodExec_i(const struct RoseEngine *t, u64a offset,
-                   struct hs_scratch *scratch, UNUSED const char is_streaming) {
-    assert(t);
-    assert(scratch->core_info.buf || scratch->core_info.hbuf);
-    assert(!scratch->core_info.buf || !scratch->core_info.hbuf);
-    assert(!can_stop_matching(scratch));
-
-    if (!t->eodProgramOffset) {
-        DEBUG_PRINTF("no eod program\n");
-        return;
-    }
-
-    DEBUG_PRINTF("running eod program at %u\n", t->eodProgramOffset);
-
-    // There should be no pending delayed literals.
-    assert(!scratch->tctxt.filledDelayedSlots);
-
-    const u64a som = 0;
-    const size_t match_len = 0;
-    const char in_anchored = 0;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 1;
-
-    // Note: we ignore the result, as this is the last thing to ever happen on
-    // a scan.
-    roseRunProgram(t, scratch, t->eodProgramOffset, som, offset, match_len,
-                   in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
-}
-
-void roseEodExec(const struct RoseEngine *t, u64a offset,
-                 struct hs_scratch *scratch) {
+void roseStreamEodExec(const struct RoseEngine *t, u64a offset,
+                       struct hs_scratch *scratch) {
     assert(scratch);
     assert(t->requiresEodCheck);
     DEBUG_PRINTF("ci buf %p/%zu his %p/%zu\n", scratch->core_info.buf,
@@ -105,6 +74,27 @@ void roseEodExec(const struct RoseEngine *t, u64a offset,
         return;
     }
 
+    if (!t->eodProgramOffset) {
+        DEBUG_PRINTF("no eod program\n");
+        return;
+    }
+
     initContext(t, offset, scratch);
-    roseEodExec_i(t, offset, scratch, 1);
+
+    DEBUG_PRINTF("running eod program at %u\n", t->eodProgramOffset);
+
+    // There should be no pending delayed literals.
+    assert(!scratch->tctxt.filledDelayedSlots);
+
+    const u64a som = 0;
+    const size_t match_len = 0;
+    const char in_anchored = 0;
+    const char in_catchup = 0;
+    const char from_mpv = 0;
+    const char skip_mpv_catchup = 1;
+
+    // Note: we ignore the result, as this is the last thing to ever happen on
+    // a scan.
+    roseRunProgram(t, scratch, t->eodProgramOffset, som, offset, match_len,
+                   in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
 }

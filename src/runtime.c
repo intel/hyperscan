@@ -532,7 +532,7 @@ void rawEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
         return;
     }
 
-    roseEodExec(rose, id->offset, scratch);
+    roseStreamEodExec(rose, id->offset, scratch);
 }
 
 static never_inline

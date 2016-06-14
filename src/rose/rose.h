@@ -43,8 +43,8 @@ void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch);
 /* assumes core_info in scratch has been init to point to data */
 void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch);
 
-void roseEodExec(const struct RoseEngine *t, u64a offset,
-                 struct hs_scratch *scratch);
+void roseStreamEodExec(const struct RoseEngine *t, u64a offset,
+                       struct hs_scratch *scratch);
 
 hwlmcb_rv_t rosePureLiteralCallback(size_t start, size_t end, u32 id,
                                     void *context);
