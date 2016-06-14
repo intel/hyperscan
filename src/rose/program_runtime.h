@@ -826,22 +826,18 @@ hwlmcb_rv_t roseEnginesEod(const struct RoseEngine *rose,
     for (u32 qi = mmbit_sparse_iter_begin(aa, aaCount, &idx, it, si_state);
          qi != MMB_INVALID;
          qi = mmbit_sparse_iter_next(aa, aaCount, qi, &idx, it, si_state)) {
-        const struct NfaInfo *info = getNfaInfoByQueue(rose, qi);
-        const struct NFA *nfa = getNfaByInfo(rose, info);
-
         DEBUG_PRINTF("checking nfa %u\n", qi);
-        assert(nfaAcceptsEod(nfa));
-
-        char *fstate = scratch->fullState + info->fullStateOffset;
-        const char *sstate = scratch->core_info.state + info->stateOffset;
+        struct mq *q = scratch->queues + qi;
+        assert(q->nfa == getNfaByQueue(rose, qi));
+        assert(nfaAcceptsEod(q->nfa));
 
         if (is_streaming) {
             // Decompress stream state.
-            nfaExpandState(nfa, fstate, sstate, offset, key);
+            nfaExpandState(q->nfa, q->state, q->streamState, offset, key);
         }
 
-        if (nfaCheckFinalState(nfa, fstate, sstate, offset, roseReportAdaptor,
-                               roseReportSomAdaptor,
+        if (nfaCheckFinalState(q->nfa, q->state, q->streamState, offset,
+                               roseReportAdaptor, roseReportSomAdaptor,
                                scratch) == MO_HALT_MATCHING) {
             DEBUG_PRINTF("user instructed us to stop\n");
             return HWLM_TERMINATE_MATCHING;
