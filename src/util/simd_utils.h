@@ -152,12 +152,6 @@ static really_inline u32 diffrich64_128(m128 a, m128 b) {
 // forward decl
 static really_inline m128 xor128(m128 a, m128 b);
 
-/** \brief Return msb mask of packet 8 bit compare equal */
-static really_inline unsigned short cmpmsk8(m128 a, m128 b) {
-    m128 tmp = _mm_cmpeq_epi8(a, b);
-    return _mm_movemask_epi8(tmp);
-}
-
 #define shift2x64(a, b)  _mm_slli_epi64((a), (b))
 #define rshift2x64(a, b) _mm_srli_epi64((a), (b))
 #define eq128(a, b)      _mm_cmpeq_epi8((a), (b))
@@ -355,10 +349,6 @@ m256 set32x8(u32 in) {
 #define eq256(a, b)     _mm256_cmpeq_epi8((a), (b))
 #define movemask256(a)  ((u32)_mm256_movemask_epi8((a)))
 
-static really_inline u32 cmpmsk16(m256 a, m256 b) {
-    m256 tmp = _mm256_cmpeq_epi8(a, b);
-    return _mm256_movemask_epi8(tmp);
-}
 static really_inline
 m256 set2x128(m128 a) {
     return _mm256_broadcastsi128_si256(a);

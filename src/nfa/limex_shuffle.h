@@ -91,7 +91,7 @@ static really_inline
 u32 packedExtract128(m128 s, const m128 permute, const m128 compare) {
     m128 shuffled = pshufb(s, permute);
     m128 compared = and128(shuffled, compare);
-    u16 rv = ~cmpmsk8(compared, shuffled);
+    u16 rv = ~movemask128(eq128(compared, shuffled));
     return (u32)rv;
 }
 
