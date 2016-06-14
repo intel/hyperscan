@@ -1777,21 +1777,11 @@ u32 addIteratorToTable(build_context &bc,
 }
 
 static
-bool hasLastByteHistoryOutEdge(const RoseGraph &g, RoseVertex v) {
-    for (const auto &e : out_edges_range(v, g)) {
-        if (g[e].history == ROSE_ROLE_HISTORY_LAST_BYTE) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static
 u32 buildLastByteIter(const RoseGraph &g, build_context &bc) {
     vector<u32> lb_roles;
 
     for (auto v : vertices_range(g)) {
-        if (!hasLastByteHistoryOutEdge(g, v)) {
+        if (!hasLastByteHistorySucc(g, v)) {
             continue;
         }
         // Eager EOD reporters won't have state indices.
