@@ -104,6 +104,9 @@ enum RoseInstructionCode {
      * so. */
     ROSE_INSTR_SUFFIXES_EOD,
 
+    /** \brief Run the EOD-anchored HWLM literal matcher. */
+    ROSE_INSTR_MATCHER_EOD,
+
     ROSE_INSTR_END                //!< End of program.
 };
 
@@ -366,6 +369,10 @@ struct ROSE_STRUCT_ENGINES_EOD {
 };
 
 struct ROSE_STRUCT_SUFFIXES_EOD {
+    u8 code; //!< From enum RoseInstructionCode.
+};
+
+struct ROSE_STRUCT_MATCHER_EOD {
     u8 code; //!< From enum RoseInstructionCode.
 };
 

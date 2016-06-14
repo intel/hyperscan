@@ -47,6 +47,13 @@
 #include "util/multibit.h"
 
 static rose_inline
+hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
+                           struct hs_scratch *scratch, u32 programOffset,
+                           u64a som, u64a end, size_t match_len,
+                           char in_anchored, char in_catchup, char from_mpv,
+                           char skip_mpv_catchup);
+
+static rose_inline
 int roseCheckBenefits(const struct core_info *ci, u64a end, u32 mask_rewind,
                       const u8 *and_mask, const u8 *exp_mask) {
     const u8 *data;
@@ -893,6 +900,93 @@ hwlmcb_rv_t roseSuffixesEod(const struct RoseEngine *rose,
     return HWLM_CONTINUE_MATCHING;
 }
 
+static rose_inline
+int roseEodRunIterator(const struct RoseEngine *t, u64a offset,
+                       struct hs_scratch *scratch) {
+    if (!t->eodIterProgramOffset) {
+        return MO_CONTINUE_MATCHING;
+    }
+
+    DEBUG_PRINTF("running eod program at offset %u\n", t->eodIterProgramOffset);
+
+    const u64a som = 0;
+    const size_t match_len = 0;
+    const char in_anchored = 0;
+    const char in_catchup = 0;
+    const char from_mpv = 0;
+    const char skip_mpv_catchup = 1;
+    if (roseRunProgram(t, scratch, t->eodIterProgramOffset, som, offset,
+                       match_len, in_anchored, in_catchup,
+                       from_mpv, skip_mpv_catchup) == HWLM_TERMINATE_MATCHING) {
+        return MO_HALT_MATCHING;
+    }
+
+    return MO_CONTINUE_MATCHING;
+}
+
+static
+hwlmcb_rv_t roseMatcherEod(const struct RoseEngine *rose,
+                           struct hs_scratch *scratch, u64a offset) {
+    assert(rose->ematcherOffset);
+    assert(rose->ematcherRegionSize);
+
+    // Clear role state and active engines, since we have already handled all
+    // outstanding work there.
+    DEBUG_PRINTF("clear role state and active leaf array\n");
+    char *state = scratch->core_info.state;
+    mmbit_clear(getRoleState(state), rose->rolesWithStateCount);
+    mmbit_clear(getActiveLeafArray(rose, state), rose->activeArrayCount);
+
+    const char is_streaming = rose->mode != HS_MODE_BLOCK;
+
+    size_t eod_len;
+    const u8 *eod_data;
+    if (!is_streaming) { /* Block */
+        eod_data = scratch->core_info.buf;
+        eod_len = scratch->core_info.len;
+    } else { /* Streaming */
+        eod_len = scratch->core_info.hlen;
+        eod_data = scratch->core_info.hbuf;
+    }
+
+    assert(eod_data);
+    assert(eod_len);
+
+    DEBUG_PRINTF("%zu bytes of eod data to scan at offset %llu\n", eod_len,
+                 offset);
+
+    // If we don't have enough bytes to produce a match from an EOD table scan,
+    // there's no point scanning.
+    if (eod_len < rose->eodmatcherMinWidth) {
+        DEBUG_PRINTF("too short for min width %u\n", rose->eodmatcherMinWidth);
+        return HWLM_CONTINUE_MATCHING;
+    }
+
+    // Ensure that we only need scan the last N bytes, where N is the length of
+    // the eod-anchored matcher region.
+    size_t adj = eod_len - MIN(eod_len, rose->ematcherRegionSize);
+
+    const struct HWLM *etable = getELiteralMatcher(rose);
+    hwlmExec(etable, eod_data, eod_len, adj, roseCallback, scratch,
+             scratch->tctxt.groups);
+
+    // We may need to fire delayed matches.
+    if (cleanUpDelayed(rose, scratch, 0, offset) == HWLM_TERMINATE_MATCHING) {
+        DEBUG_PRINTF("user instructed us to stop\n");
+        return HWLM_TERMINATE_MATCHING;
+    }
+
+    roseFlushLastByteHistory(rose, scratch, offset);
+
+    // Fire any new EOD reports.
+    if (roseEodRunIterator(rose, offset, scratch) == MO_HALT_MATCHING) {
+        DEBUG_PRINTF("user instructed us to stop\n");
+        return HWLM_TERMINATE_MATCHING;
+    }
+
+    return HWLM_CONTINUE_MATCHING;
+}
+
 static
 void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
                     const char from_mpv) {
@@ -1404,6 +1498,14 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
 
             PROGRAM_CASE(SUFFIXES_EOD) {
                 if (roseSuffixesEod(t, scratch, end) ==
+                    HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(MATCHER_EOD) {
+                if (roseMatcherEod(t, scratch, end) ==
                     HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }

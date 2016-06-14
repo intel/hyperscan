@@ -225,6 +225,7 @@ public:
         case ROSE_INSTR_SPARSE_ITER_NEXT: return &u.sparseIterNext;
         case ROSE_INSTR_ENGINES_EOD: return &u.enginesEod;
         case ROSE_INSTR_SUFFIXES_EOD: return &u.suffixesEod;
+        case ROSE_INSTR_MATCHER_EOD: return &u.matcherEod;
         case ROSE_INSTR_END: return &u.end;
         }
         assert(0);
@@ -273,6 +274,7 @@ public:
         case ROSE_INSTR_SPARSE_ITER_NEXT: return sizeof(u.sparseIterNext);
         case ROSE_INSTR_ENGINES_EOD: return sizeof(u.enginesEod);
         case ROSE_INSTR_SUFFIXES_EOD: return sizeof(u.suffixesEod);
+        case ROSE_INSTR_MATCHER_EOD: return sizeof(u.matcherEod);
         case ROSE_INSTR_END: return sizeof(u.end);
         }
         assert(0);
@@ -320,6 +322,7 @@ public:
         ROSE_STRUCT_SPARSE_ITER_NEXT sparseIterNext;
         ROSE_STRUCT_ENGINES_EOD enginesEod;
         ROSE_STRUCT_SUFFIXES_EOD suffixesEod;
+        ROSE_STRUCT_MATCHER_EOD matcherEod;
         ROSE_STRUCT_END end;
     } u;
 
@@ -4000,6 +4003,18 @@ bool hasEodAnchoredSuffix(const RoseBuildImpl &build) {
     return false;
 }
 
+static
+bool hasEodMatcher(const RoseBuildImpl &build) {
+    const RoseGraph &g = build.g;
+    for (auto v : vertices_range(g)) {
+        if (build.isInETable(v)) {
+            DEBUG_PRINTF("vertex %zu is in eod table\n", g[v].idx);
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * Returns the pair (program offset, sparse iter offset).
  */
@@ -4108,16 +4123,22 @@ void addGeneralEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
         }
     }
 
-    if (predProgramLists.empty()) {
-        DEBUG_PRINTF("no eod anchored roles\n");
-        return;
+    if (!predProgramLists.empty()) {
+        if (!program.empty()) {
+            assert(program.back().code() == ROSE_INSTR_END);
+            program.pop_back();
+        }
+        addPredBlocks(bc, predProgramLists, program);
     }
 
-    if (!program.empty()) {
-        assert(program.back().code() == ROSE_INSTR_END);
-        program.pop_back();
+    if (hasEodMatcher(build)) {
+        if (!program.empty()) {
+            assert(program.back().code() == ROSE_INSTR_END);
+            program.pop_back();
+        }
+        program.emplace_back(ROSE_INSTR_MATCHER_EOD);
+        program.emplace_back(ROSE_INSTR_END);
     }
-    addPredBlocks(bc, predProgramLists, program);
 }
 
 static
