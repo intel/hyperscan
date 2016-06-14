@@ -190,6 +190,82 @@ void roseBlockEodExec(const struct RoseEngine *t, u64a offset,
                    in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
 }
 
+/**
+ * \brief Run the anchored matcher, if any. Returns non-zero if matching should
+ * halt.
+ */
+static rose_inline
+int roseBlockAnchored(const struct RoseEngine *t, struct hs_scratch *scratch) {
+    const void *atable = getALiteralMatcher(t);
+    if (!atable) {
+        DEBUG_PRINTF("no anchored table\n");
+        return 0;
+    }
+
+    const size_t length = scratch->core_info.len;
+
+    if (t->amatcherMaxBiAnchoredWidth != ROSE_BOUND_INF &&
+        length > t->amatcherMaxBiAnchoredWidth) {
+        return 0;
+    }
+
+    if (length < t->amatcherMinWidth) {
+        return 0;
+    }
+
+    runAnchoredTableBlock(t, atable, scratch);
+
+    return can_stop_matching(scratch);
+}
+
+/**
+ * \brief Run the floating matcher, if any. Returns non-zero if matching should
+ * halt.
+ */
+static rose_inline
+int roseBlockFloating(const struct RoseEngine *t, struct hs_scratch *scratch) {
+    const struct HWLM *ftable = getFLiteralMatcher(t);
+    if (!ftable) {
+        return 0;
+    }
+
+    const size_t length = scratch->core_info.len;
+    char *state = scratch->core_info.state;
+    struct RoseContext *tctxt = &scratch->tctxt;
+
+    DEBUG_PRINTF("ftable fd=%u fmd %u\n", t->floatingDistance,
+                 t->floatingMinDistance);
+    if (t->noFloatingRoots && !roseHasInFlightMatches(t, state, scratch)) {
+        DEBUG_PRINTF("skip FLOATING: no inflight matches\n");
+        return 0;
+    }
+
+    if (t->fmatcherMaxBiAnchoredWidth != ROSE_BOUND_INF &&
+        length > t->fmatcherMaxBiAnchoredWidth) {
+        return 0;
+    }
+
+    if (length < t->fmatcherMinWidth) {
+        return 0;
+    }
+
+    const u8 *buffer = scratch->core_info.buf;
+    size_t flen = length;
+    if (t->floatingDistance != ROSE_BOUND_INF) {
+        flen = MIN(t->floatingDistance, length);
+    }
+    if (flen <= t->floatingMinDistance) {
+        return 0;
+    }
+
+    DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
+    DEBUG_PRINTF("-- %016llx\n", tctxt->groups);
+    hwlmExec(ftable, buffer, flen, t->floatingMinDistance, roseCallback,
+             scratch, tctxt->groups);
+
+    return can_stop_matching(scratch);
+}
+
 void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch) {
     assert(t);
     assert(scratch);
@@ -222,65 +298,15 @@ void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch) {
         DEBUG_PRINTF("-- %016llx\n", tctxt->groups);
         hwlmExec(sbtable, scratch->core_info.buf, sblen, 0, roseCallback,
                  scratch, tctxt->groups);
-        goto exit;
+    } else {
+        if (roseBlockAnchored(t, scratch)) {
+            return;
+        }
+        if (roseBlockFloating(t, scratch)) {
+            return;
+        }
     }
 
-    const void *atable = getALiteralMatcher(t);
-
-    if (atable) {
-        if (t->amatcherMaxBiAnchoredWidth != ROSE_BOUND_INF
-            && length > t->amatcherMaxBiAnchoredWidth) {
-            goto skip_atable;
-        }
-
-        if (length < t->amatcherMinWidth) {
-            goto skip_atable;
-        }
-
-
-        runAnchoredTableBlock(t, atable, scratch);
-
-        if (can_stop_matching(scratch)) {
-            goto exit;
-        }
-
-    skip_atable:;
-    }
-
-    const struct HWLM *ftable = getFLiteralMatcher(t);
-    if (ftable) {
-        DEBUG_PRINTF("ftable fd=%u fmd %u\n", t->floatingDistance,
-            t->floatingMinDistance);
-        if (t->noFloatingRoots && !roseHasInFlightMatches(t, state, scratch)) {
-            DEBUG_PRINTF("skip FLOATING: no inflight matches\n");
-            goto exit;
-        }
-
-        if (t->fmatcherMaxBiAnchoredWidth != ROSE_BOUND_INF
-            && length > t->fmatcherMaxBiAnchoredWidth) {
-            goto exit;
-        }
-
-        if (length < t->fmatcherMinWidth) {
-            goto exit;
-        }
-
-        const u8 *buffer = scratch->core_info.buf;
-        size_t flen = length;
-        if (t->floatingDistance != ROSE_BOUND_INF) {
-            flen = MIN(t->floatingDistance, length);
-        }
-        if (flen <= t->floatingMinDistance) {
-            goto exit;
-        }
-
-        DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
-        DEBUG_PRINTF("-- %016llx\n", tctxt->groups);
-        hwlmExec(ftable, buffer, flen, t->floatingMinDistance,
-                 roseCallback, scratch, tctxt->groups);
-    }
-
-exit:;
     if (cleanUpDelayed(t, scratch, length, 0) == HWLM_TERMINATE_MATCHING) {
         return;
     }
