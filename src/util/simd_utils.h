@@ -149,9 +149,6 @@ static really_inline u32 diffrich64_128(m128 a, m128 b) {
 #endif
 }
 
-// forward decl
-static really_inline m128 xor128(m128 a, m128 b);
-
 #define shift2x64(a, b)  _mm_slli_epi64((a), (b))
 #define rshift2x64(a, b) _mm_srli_epi64((a), (b))
 #define eq128(a, b)      _mm_cmpeq_epi8((a), (b))
