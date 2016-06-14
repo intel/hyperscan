@@ -108,23 +108,3 @@ void roseEodExec(const struct RoseEngine *t, u64a offset,
     initContext(t, offset, scratch);
     roseEodExec_i(t, offset, scratch, 1);
 }
-
-static rose_inline
-void prepForEod(const struct RoseEngine *t, struct hs_scratch *scratch,
-                size_t length) {
-    roseFlushLastByteHistory(t, scratch, length);
-    scratch->tctxt.lastEndOffset = length;
-}
-
-void roseBlockEodExec(const struct RoseEngine *t, u64a offset,
-                      struct hs_scratch *scratch) {
-    assert(t->requiresEodCheck);
-    assert(t->maxBiAnchoredWidth == ROSE_BOUND_INF
-           || offset <= t->maxBiAnchoredWidth);
-
-    assert(!can_stop_matching(scratch));
-
-    // Ensure that history is correct before we look for EOD matches
-    prepForEod(t, scratch, scratch->core_info.len);
-    roseEodExec_i(t, offset, scratch, 0);
-}

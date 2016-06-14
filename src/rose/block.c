@@ -29,13 +29,14 @@
 #include "catchup.h"
 #include "init.h"
 #include "match.h"
+#include "program_runtime.h"
+#include "rose.h"
+#include "rose_common.h"
 #include "nfa/nfa_api.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/nfa_rev_api.h"
 #include "nfa/mcclellan.h"
 #include "util/fatbit.h"
-#include "rose.h"
-#include "rose_common.h"
 
 static rose_inline
 void runAnchoredTableBlock(const struct RoseEngine *t, const void *atable,
@@ -157,6 +158,38 @@ void init_for_block(const struct RoseEngine *t, struct hs_scratch *scratch,
     init_outfixes_for_block(t, scratch, state, is_small_block);
 }
 
+static rose_inline
+void roseBlockEodExec(const struct RoseEngine *t, u64a offset,
+                      struct hs_scratch *scratch) {
+    assert(t->requiresEodCheck);
+    assert(t->maxBiAnchoredWidth == ROSE_BOUND_INF
+           || offset <= t->maxBiAnchoredWidth);
+
+    assert(!can_stop_matching(scratch));
+    assert(t->eodProgramOffset);
+
+    // Ensure that history is correct before we look for EOD matches.
+    roseFlushLastByteHistory(t, scratch, offset);
+    scratch->tctxt.lastEndOffset = offset;
+
+    DEBUG_PRINTF("running eod program at %u\n", t->eodProgramOffset);
+
+    // There should be no pending delayed literals.
+    assert(!scratch->tctxt.filledDelayedSlots);
+
+    const u64a som = 0;
+    const size_t match_len = 0;
+    const char in_anchored = 0;
+    const char in_catchup = 0;
+    const char from_mpv = 0;
+    const char skip_mpv_catchup = 1;
+
+    // Note: we ignore the result, as this is the last thing to ever happen on
+    // a scan.
+    roseRunProgram(t, scratch, t->eodProgramOffset, som, offset, match_len,
+                   in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+}
+
 void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch) {
     assert(t);
     assert(scratch);
@@ -255,4 +288,16 @@ exit:;
     assert(!can_stop_matching(scratch));
 
     roseCatchUpTo(t, scratch, length);
+
+    if (!t->requiresEodCheck || !t->eodProgramOffset) {
+        DEBUG_PRINTF("no eod check required\n");
+        return;
+    }
+
+    if (can_stop_matching(scratch)) {
+        DEBUG_PRINTF("bailing, already halted\n");
+        return;
+    }
+
+    roseBlockEodExec(t, length, scratch);
 }

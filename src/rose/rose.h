@@ -39,8 +39,6 @@
 // Initialise state space for engine use.
 void roseInitState(const struct RoseEngine *t, char *state);
 
-void roseBlockEodExec(const struct RoseEngine *t, u64a offset,
-                      struct hs_scratch *scratch);
 void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch);
 
 /* assumes core_info in scratch has been init to point to data */
@@ -57,28 +55,15 @@ void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     // If this block is shorter than our minimum width, then no pattern in this
     // RoseEngine could match.
     /* minWidth checks should have already been performed by the caller */
-    const size_t length = scratch->core_info.len;
-    assert(length >= t->minWidth);
+    assert(scratch->core_info.len >= t->minWidth);
 
     // Similarly, we may have a maximum width (for engines constructed entirely
     // of bi-anchored patterns).
     /* This check is now handled by the interpreter */
     assert(t->maxBiAnchoredWidth == ROSE_BOUND_INF
-           || length <= t->maxBiAnchoredWidth);
+           || scratch->core_info.len <= t->maxBiAnchoredWidth);
 
     roseBlockExec_i(t, scratch);
-
-    if (!t->requiresEodCheck) {
-        DEBUG_PRINTF("no eod check required\n");
-        return;
-    }
-
-    if (can_stop_matching(scratch)) {
-        DEBUG_PRINTF("bailing, already halted\n");
-        return;
-    }
-
-    roseBlockEodExec(t, length, scratch);
 }
 
 /* assumes core_info in scratch has been init to point to data */
