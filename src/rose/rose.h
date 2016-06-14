@@ -29,42 +29,16 @@
 #ifndef ROSE_H
 #define ROSE_H
 
-#include "rose_types.h"
-#include "rose_internal.h"
-#include "runtime.h"
-#include "scratch.h"
 #include "ue2common.h"
-#include "util/multibit.h"
+
+struct RoseEngine;
+struct hs_scratch;
 
 // Initialise state space for engine use.
 void roseInitState(const struct RoseEngine *t, char *state);
 
-void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch);
-
 /* assumes core_info in scratch has been init to point to data */
-static really_inline
-void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
-    assert(t);
-    assert(scratch);
-    assert(scratch->core_info.buf);
-
-    // We should not have been called if we've already been told to terminate
-    // matching.
-    assert(!told_to_stop_matching(scratch));
-
-    // If this block is shorter than our minimum width, then no pattern in this
-    // RoseEngine could match.
-    /* minWidth checks should have already been performed by the caller */
-    assert(scratch->core_info.len >= t->minWidth);
-
-    // Similarly, we may have a maximum width (for engines constructed entirely
-    // of bi-anchored patterns).
-    /* This check is now handled by the interpreter */
-    assert(t->maxBiAnchoredWidth == ROSE_BOUND_INF
-           || scratch->core_info.len <= t->maxBiAnchoredWidth);
-
-    roseBlockExec_i(t, scratch);
-}
+void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch);
 
 /* assumes core_info in scratch has been init to point to data */
 void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch);

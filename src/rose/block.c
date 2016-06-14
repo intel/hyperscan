@@ -266,12 +266,27 @@ int roseBlockFloating(const struct RoseEngine *t, struct hs_scratch *scratch) {
     return can_stop_matching(scratch);
 }
 
-void roseBlockExec_i(const struct RoseEngine *t, struct hs_scratch *scratch) {
+void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     assert(t);
     assert(scratch);
     assert(scratch->core_info.buf);
     assert(mmbit_sparse_iter_state_size(t->rolesWithStateCount)
            < MAX_SPARSE_ITER_STATES);
+
+    // We should not have been called if we've already been told to terminate
+    // matching.
+    assert(!told_to_stop_matching(scratch));
+
+    // If this block is shorter than our minimum width, then no pattern in this
+    // RoseEngine could match.
+    /* minWidth checks should have already been performed by the caller */
+    assert(scratch->core_info.len >= t->minWidth);
+
+    // Similarly, we may have a maximum width (for engines constructed entirely
+    // of bi-anchored patterns).
+    /* This check is now handled by the interpreter */
+    assert(t->maxBiAnchoredWidth == ROSE_BOUND_INF
+           || scratch->core_info.len <= t->maxBiAnchoredWidth);
 
     const size_t length = scratch->core_info.len;
 
