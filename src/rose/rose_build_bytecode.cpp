@@ -4015,11 +4015,9 @@ bool hasEodMatcher(const RoseBuildImpl &build) {
     return false;
 }
 
-/**
- * Returns the pair (program offset, sparse iter offset).
- */
 static
-u32 writeEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
+void addEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
+                         vector<RoseInstruction> &program) {
     const RoseGraph &g = build.g;
 
     // pred state id -> list of programs
@@ -4058,10 +4056,7 @@ u32 writeEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
         }
     }
 
-    vector<RoseInstruction> program;
-    if (!predProgramLists.empty()) {
-        addPredBlocks(bc, predProgramLists, program);
-    }
+    addPredBlocks(bc, predProgramLists, program);
 
     if (hasEodAnchoredSuffix(build)) {
         if (!program.empty()) {
@@ -4069,17 +4064,8 @@ u32 writeEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
             program.pop_back();
         }
         program.emplace_back(ROSE_INSTR_SUFFIXES_EOD);
+        program.emplace_back(ROSE_INSTR_END);
     }
-
-    if (program.empty()) {
-        return 0;
-    }
-
-    program = flattenProgram({program});
-
-    assert(program.size() > 1);
-    applyFinalSpecialisation(program);
-    return writeProgram(bc, program);
 }
 
 static
@@ -4139,6 +4125,11 @@ void addGeneralEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
         program.emplace_back(ROSE_INSTR_MATCHER_EOD);
         program.emplace_back(ROSE_INSTR_END);
     }
+
+    if (!program.empty()) {
+        assert(program.back().code() == ROSE_INSTR_END);
+        program.pop_back();
+    }
 }
 
 static
@@ -4184,10 +4175,17 @@ u32 writeEodProgram(RoseBuildImpl &build, build_context &bc,
     }
 
     addGeneralEodAnchorProgram(build, bc, program);
+    addEodAnchorProgram(build, bc, program);
+
+    if (program.size() == 1) {
+        assert(program.back().code() == ROSE_INSTR_END);
+        return 0;
+    }
 
     if (program.empty()) {
         return 0;
     }
+
 
     applyFinalSpecialisation(program);
     return writeProgram(bc, program);
@@ -4355,7 +4353,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         buildLiteralPrograms(*this, bc);
 
     u32 eodProgramOffset = writeEodProgram(*this, bc, eodNfaIterOffset);
-    u32 eodIterProgramOffset = writeEodAnchorProgram(*this, bc);
 
     vector<mmbit_sparse_iter> activeLeftIter;
     buildActiveLeftIter(leftInfoTable, activeLeftIter);
@@ -4552,7 +4549,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->nfaInfoOffset = nfaInfoOffset;
 
     engine->eodProgramOffset = eodProgramOffset;
-    engine->eodIterProgramOffset = eodIterProgramOffset;
 
     engine->lastByteHistoryIterOffset = lastByteOffset;
 

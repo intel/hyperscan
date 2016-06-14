@@ -542,21 +542,13 @@ void dumpRoseEodPrograms(const RoseEngine *t, const string &filename) {
     ofstream os(filename);
     const char *base = (const char *)t;
 
-    os << "Unconditional EOD Program:" << endl;
+    os << "EOD Program:" << endl;
 
     if (t->eodProgramOffset) {
         dumpProgram(os, t, base + t->eodProgramOffset);
         os << endl;
     } else {
         os << "<No EOD Program>" << endl;
-    }
-
-    os << "Sparse Iter EOD Program:" << endl;
-
-    if (t->eodIterProgramOffset) {
-        dumpProgram(os, t, base + t->eodIterProgramOffset);
-    } else {
-        os << "<No EOD Iter Program>" << endl;
     }
 
     os.close();
@@ -1031,7 +1023,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, lookaroundTableOffset);
     DUMP_U32(t, lookaroundReachOffset);
     DUMP_U32(t, eodProgramOffset);
-    DUMP_U32(t, eodIterProgramOffset);
     DUMP_U32(t, lastByteHistoryIterOffset);
     DUMP_U32(t, minWidth);
     DUMP_U32(t, minWidthExcludingBoundaries);

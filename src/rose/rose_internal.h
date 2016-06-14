@@ -376,8 +376,7 @@ struct RoseEngine {
     u32 lookaroundReachOffset; /**< base of lookaround reach bitvectors (32
                                 * bytes each) */
 
-    u32 eodProgramOffset; //!< Unconditional EOD program, otherwise 0.
-    u32 eodIterProgramOffset; // or 0 if no eod iterator program
+    u32 eodProgramOffset; //!< EOD program, otherwise 0.
 
     u32 lastByteHistoryIterOffset; // if non-zero
 

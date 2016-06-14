@@ -47,13 +47,6 @@
 #include "util/multibit.h"
 
 static rose_inline
-hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
-                           struct hs_scratch *scratch, u32 programOffset,
-                           u64a som, u64a end, size_t match_len,
-                           char in_anchored, char in_catchup, char from_mpv,
-                           char skip_mpv_catchup);
-
-static rose_inline
 int roseCheckBenefits(const struct core_info *ci, u64a end, u32 mask_rewind,
                       const u8 *and_mask, const u8 *exp_mask) {
     const u8 *data;
@@ -901,30 +894,6 @@ hwlmcb_rv_t roseSuffixesEod(const struct RoseEngine *rose,
 }
 
 static rose_inline
-int roseEodRunIterator(const struct RoseEngine *t, u64a offset,
-                       struct hs_scratch *scratch) {
-    if (!t->eodIterProgramOffset) {
-        return MO_CONTINUE_MATCHING;
-    }
-
-    DEBUG_PRINTF("running eod program at offset %u\n", t->eodIterProgramOffset);
-
-    const u64a som = 0;
-    const size_t match_len = 0;
-    const char in_anchored = 0;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 1;
-    if (roseRunProgram(t, scratch, t->eodIterProgramOffset, som, offset,
-                       match_len, in_anchored, in_catchup,
-                       from_mpv, skip_mpv_catchup) == HWLM_TERMINATE_MATCHING) {
-        return MO_HALT_MATCHING;
-    }
-
-    return MO_CONTINUE_MATCHING;
-}
-
-static
 hwlmcb_rv_t roseMatcherEod(const struct RoseEngine *rose,
                            struct hs_scratch *scratch, u64a offset) {
     assert(rose->ematcherOffset);
@@ -977,13 +946,6 @@ hwlmcb_rv_t roseMatcherEod(const struct RoseEngine *rose,
     }
 
     roseFlushLastByteHistory(rose, scratch, offset);
-
-    // Fire any new EOD reports.
-    if (roseEodRunIterator(rose, offset, scratch) == MO_HALT_MATCHING) {
-        DEBUG_PRINTF("user instructed us to stop\n");
-        return HWLM_TERMINATE_MATCHING;
-    }
-
     return HWLM_CONTINUE_MATCHING;
 }
 
