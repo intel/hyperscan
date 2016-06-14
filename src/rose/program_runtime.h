@@ -935,7 +935,7 @@ hwlmcb_rv_t roseMatcherEod(const struct RoseEngine *rose,
     // the eod-anchored matcher region.
     size_t adj = eod_len - MIN(eod_len, rose->ematcherRegionSize);
 
-    const struct HWLM *etable = getELiteralMatcher(rose);
+    const struct HWLM *etable = getByOffset(rose, rose->ematcherOffset);
     hwlmExec(etable, eod_data, eod_len, adj, roseCallback, scratch,
              scratch->tctxt.groups);
 

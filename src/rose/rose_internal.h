@@ -464,17 +464,6 @@ const struct HWLM *getFLiteralMatcher(const struct RoseEngine *t) {
 }
 
 static really_inline
-const void *getELiteralMatcher(const struct RoseEngine *t) {
-    if (!t->ematcherOffset) {
-        return NULL;
-    }
-
-    const char *et = (const char *)t + t->ematcherOffset;
-    assert(ISALIGNED_N(et, 8));
-    return et;
-}
-
-static really_inline
 const void *getSBLiteralMatcher(const struct RoseEngine *t) {
     if (!t->sbmatcherOffset) {
         return NULL;
