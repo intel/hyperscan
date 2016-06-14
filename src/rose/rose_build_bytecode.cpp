@@ -4017,7 +4017,7 @@ bool hasEodMatcher(const RoseBuildImpl &build) {
 
 static
 void addEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
-                         vector<RoseInstruction> &program) {
+                         bool in_etable, vector<RoseInstruction> &program) {
     const RoseGraph &g = build.g;
 
     // pred state id -> list of programs
@@ -4034,8 +4034,9 @@ void addEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
         vector<RoseEdge> edge_list;
         for (const auto &e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
-            if (!build.isInETable(u)) {
-                DEBUG_PRINTF("pred %zu is not in etable\n", g[u].idx);
+            if (build.isInETable(u) != in_etable) {
+                DEBUG_PRINTF("pred %zu %s in etable\n", g[u].idx,
+                             in_etable ? "is not" : "is");
                 continue;
             }
             if (canEagerlyReportAtEod(build, e)) {
@@ -4056,80 +4057,93 @@ void addEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
         }
     }
 
-    addPredBlocks(bc, predProgramLists, program);
-
-    if (hasEodAnchoredSuffix(build)) {
-        if (!program.empty()) {
-            assert(program.back().code() == ROSE_INSTR_END);
-            program.pop_back();
-        }
-        program.emplace_back(ROSE_INSTR_SUFFIXES_EOD);
-        program.emplace_back(ROSE_INSTR_END);
+    if (predProgramLists.empty()) {
+        return;
     }
+    if (!program.empty()) {
+        assert(program.back().code() == ROSE_INSTR_END);
+        program.pop_back();
+    }
+    addPredBlocks(bc, predProgramLists, program);
 }
 
 static
-void addGeneralEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
-                                vector<RoseInstruction> &program) {
+void addEodEventProgram(RoseBuildImpl &build, build_context &bc,
+                        vector<RoseInstruction> &program) {
+    if (build.eod_event_literal_id == MO_INVALID_IDX) {
+        return;
+    }
+
     const RoseGraph &g = build.g;
+    const auto &lit_info = build.literal_info.at(build.eod_event_literal_id);
+    assert(lit_info.delayed_ids.empty());
+    assert(!lit_info.squash_group);
+    assert(!lit_info.requires_benefits);
 
-    // pred state id -> list of programs
-    map<u32, vector<vector<RoseInstruction>>> predProgramLists;
-
-    for (auto v : vertices_range(g)) {
-        if (!g[v].eod_accept) {
-            continue;
-        }
-
-        DEBUG_PRINTF("vertex %zu (with %zu preds) fires on EOD\n", g[v].idx,
-                     in_degree(v, g));
-
-        vector<RoseEdge> edge_list;
+    // Collect all edges leading into EOD event literal vertices.
+    vector<RoseEdge> edge_list;
+    for (const auto &v : lit_info.vertices) {
         for (const auto &e : in_edges_range(v, g)) {
-            RoseVertex u = source(e, g);
-            if (build.isInETable(u)) {
-                DEBUG_PRINTF("pred %zu is in etable\n", g[u].idx);
-                continue;
-            }
-            if (canEagerlyReportAtEod(build, e)) {
-                DEBUG_PRINTF("already done report for vertex %zu\n", g[u].idx);
-                continue;
-            }
             edge_list.push_back(e);
         }
-
-        const bool multiple_preds = edge_list.size() > 1;
-        for (const auto &e : edge_list) {
-            RoseVertex u = source(e, g);
-            assert(contains(bc.roleStateIndices, u));
-            u32 predStateIdx = bc.roleStateIndices.at(u);
-
-            auto program = makeEodAnchorProgram(build, bc, e, multiple_preds);
-            predProgramLists[predStateIdx].push_back(program);
-        }
     }
 
-    if (!predProgramLists.empty()) {
-        if (!program.empty()) {
-            assert(program.back().code() == ROSE_INSTR_END);
-            program.pop_back();
-        }
-        addPredBlocks(bc, predProgramLists, program);
+    // Sort edge list for determinism, prettiness.
+    sort(begin(edge_list), end(edge_list),
+         [&g](const RoseEdge &a, const RoseEdge &b) {
+             return tie(g[source(a, g)].idx, g[target(a, g)].idx) <
+                    tie(g[source(b, g)].idx, g[target(b, g)].idx);
+         });
+
+    auto prog = buildLiteralProgram(build, bc, MO_INVALID_IDX, edge_list);
+    program.insert(end(program), begin(prog), end(prog));
+}
+
+static
+void addEnginesEodProgram(u32 eodNfaIterOffset,
+                          vector<RoseInstruction> &program) {
+    if (!eodNfaIterOffset) {
+        return;
     }
 
-    if (hasEodMatcher(build)) {
-        if (!program.empty()) {
-            assert(program.back().code() == ROSE_INSTR_END);
-            program.pop_back();
-        }
-        program.emplace_back(ROSE_INSTR_MATCHER_EOD);
-        program.emplace_back(ROSE_INSTR_END);
+    auto ri = RoseInstruction(ROSE_INSTR_ENGINES_EOD);
+    ri.u.enginesEod.iter_offset = eodNfaIterOffset;
+    if (!program.empty()) {
+        assert(program.back().code() == ROSE_INSTR_END);
+        program.pop_back();
+    }
+    program.push_back(move(ri));
+    program.emplace_back(ROSE_INSTR_END);
+}
+
+static
+void addSuffixesEodProgram(const RoseBuildImpl &build,
+                           vector<RoseInstruction> &program) {
+    if (!hasEodAnchoredSuffix(build)) {
+        return;
     }
 
     if (!program.empty()) {
         assert(program.back().code() == ROSE_INSTR_END);
         program.pop_back();
     }
+    program.emplace_back(ROSE_INSTR_SUFFIXES_EOD);
+    program.emplace_back(ROSE_INSTR_END);
+}
+
+static
+void addMatcherEodProgram(const RoseBuildImpl &build,
+                          vector<RoseInstruction> &program) {
+    if (!hasEodMatcher(build)) {
+        return;
+    }
+
+    if (!program.empty()) {
+        assert(program.back().code() == ROSE_INSTR_END);
+        program.pop_back();
+    }
+    program.emplace_back(ROSE_INSTR_MATCHER_EOD);
+    program.emplace_back(ROSE_INSTR_END);
 }
 
 static
@@ -4137,45 +4151,12 @@ u32 writeEodProgram(RoseBuildImpl &build, build_context &bc,
                     u32 eodNfaIterOffset) {
     vector<RoseInstruction> program;
 
-    if (build.eod_event_literal_id != MO_INVALID_IDX) {
-        const RoseGraph &g = build.g;
-        const auto &lit_info =
-            build.literal_info.at(build.eod_event_literal_id);
-        assert(lit_info.delayed_ids.empty());
-        assert(!lit_info.squash_group);
-        assert(!lit_info.requires_benefits);
-
-        // Collect all edges leading into EOD event literal vertices.
-        vector<RoseEdge> edge_list;
-        for (const auto &v : lit_info.vertices) {
-            for (const auto &e : in_edges_range(v, g)) {
-                edge_list.push_back(e);
-            }
-        }
-
-        // Sort edge list for determinism, prettiness.
-        sort(begin(edge_list), end(edge_list),
-             [&g](const RoseEdge &a, const RoseEdge &b) {
-                 return tie(g[source(a, g)].idx, g[target(a, g)].idx) <
-                        tie(g[source(b, g)].idx, g[target(b, g)].idx);
-             });
-
-        program = buildLiteralProgram(build, bc, MO_INVALID_IDX, edge_list);
-    }
-
-    if (eodNfaIterOffset) {
-        auto ri = RoseInstruction(ROSE_INSTR_ENGINES_EOD);
-        ri.u.enginesEod.iter_offset = eodNfaIterOffset;
-        if (!program.empty()) {
-            assert(program.back().code() == ROSE_INSTR_END);
-            program.pop_back();
-        }
-        program.push_back(move(ri));
-        program = flattenProgram({program});
-    }
-
-    addGeneralEodAnchorProgram(build, bc, program);
-    addEodAnchorProgram(build, bc, program);
+    addEodEventProgram(build, bc, program);
+    addEnginesEodProgram(eodNfaIterOffset, program);
+    addEodAnchorProgram(build, bc, false, program);
+    addMatcherEodProgram(build, program);
+    addEodAnchorProgram(build, bc, true, program);
+    addSuffixesEodProgram(build, program);
 
     if (program.size() == 1) {
         assert(program.back().code() == ROSE_INSTR_END);
@@ -4185,7 +4166,6 @@ u32 writeEodProgram(RoseBuildImpl &build, build_context &bc,
     if (program.empty()) {
         return 0;
     }
-
 
     applyFinalSpecialisation(program);
     return writeProgram(bc, program);
