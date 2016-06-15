@@ -495,7 +495,6 @@ set (hs_exec_SRCS
     src/rose/block.c
     src/rose/catchup.h
     src/rose/catchup.c
-    src/rose/eod.c
     src/rose/infix.h
     src/rose/init.h
     src/rose/init.c

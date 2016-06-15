@@ -31,13 +31,14 @@
 #include "infix.h"
 #include "match.h"
 #include "miracle.h"
+#include "program_runtime.h"
+#include "rose.h"
 #include "hwlm/hwlm.h"
 #include "nfa/mcclellan.h"
 #include "nfa/nfa_api.h"
 #include "nfa/nfa_api_queue.h"
 #include "nfa/nfa_internal.h"
 #include "util/fatbit.h"
-#include "rose.h"
 
 static rose_inline
 void runAnchoredTableStream(const struct RoseEngine *t, const void *atable,
@@ -557,4 +558,71 @@ exit:
     DEBUG_PRINTF("DONE STREAMING SCAN, status = %u\n",
                  scratch->core_info.status);
     return;
+}
+
+static rose_inline
+void roseStreamInitEod(const struct RoseEngine *t, u64a offset,
+                       struct hs_scratch *scratch) {
+    struct RoseContext *tctxt = &scratch->tctxt;
+    /* TODO: diff groups for eod */
+    tctxt->groups = loadGroups(t, scratch->core_info.state);
+    tctxt->lit_offset_adjust = scratch->core_info.buf_offset
+                             - scratch->core_info.hlen
+                             + 1; // index after last byte
+    tctxt->delayLastEndOffset = offset;
+    tctxt->lastEndOffset = offset;
+    tctxt->filledDelayedSlots = 0;
+    tctxt->lastMatchOffset = 0;
+    tctxt->minMatchOffset = offset;
+    tctxt->minNonMpvMatchOffset = offset;
+    tctxt->next_mpv_offset = offset;
+
+    scratch->catchup_pq.qm_size = 0;
+    scratch->al_log_sum = 0; /* clear the anchored logs */
+
+    fatbit_clear(scratch->aqa);
+}
+
+void roseStreamEodExec(const struct RoseEngine *t, u64a offset,
+                       struct hs_scratch *scratch) {
+    assert(scratch);
+    assert(t->requiresEodCheck);
+    DEBUG_PRINTF("ci buf %p/%zu his %p/%zu\n", scratch->core_info.buf,
+                 scratch->core_info.len, scratch->core_info.hbuf,
+                 scratch->core_info.hlen);
+
+    // We should not have been called if we've already been told to terminate
+    // matching.
+    assert(!told_to_stop_matching(scratch));
+
+    if (t->maxBiAnchoredWidth != ROSE_BOUND_INF
+        && offset > t->maxBiAnchoredWidth) {
+        DEBUG_PRINTF("bailing, we are beyond max width\n");
+        /* also some of the history/state may be stale */
+        return;
+    }
+
+    if (!t->eodProgramOffset) {
+        DEBUG_PRINTF("no eod program\n");
+        return;
+    }
+
+    roseStreamInitEod(t, offset, scratch);
+
+    DEBUG_PRINTF("running eod program at %u\n", t->eodProgramOffset);
+
+    // There should be no pending delayed literals.
+    assert(!scratch->tctxt.filledDelayedSlots);
+
+    const u64a som = 0;
+    const size_t match_len = 0;
+    const char in_anchored = 0;
+    const char in_catchup = 0;
+    const char from_mpv = 0;
+    const char skip_mpv_catchup = 1;
+
+    // Note: we ignore the result, as this is the last thing to ever happen on
+    // a scan.
+    roseRunProgram(t, scratch, t->eodProgramOffset, som, offset, match_len,
+                   in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
 }
