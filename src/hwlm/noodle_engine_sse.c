@@ -115,7 +115,8 @@ hwlm_error_t scanDoubleShort(const u8 *buf, size_t len, const u8 *key,
         v = and128(v, caseMask);
     }
 
-    u32 z = movemask128(and128(shiftLeft8Bits(eq128(mask1, v)), eq128(mask2, v)));
+    u32 z = movemask128(and128(lshiftbyte_m128(eq128(mask1, v), 1),
+                               eq128(mask2, v)));
 
     // mask out where we can't match
     u32 mask = (0xFFFF >> (16 - l));
@@ -142,7 +143,8 @@ hwlm_error_t scanDoubleUnaligned(const u8 *buf, size_t len, size_t offset,
         v = and128(v, caseMask);
     }
 
-    u32 z = movemask128(and128(shiftLeft8Bits(eq128(mask1, v)), eq128(mask2, v)));
+    u32 z = movemask128(and128(lshiftbyte_m128(eq128(mask1, v), 1),
+                               eq128(mask2, v)));
 
     // mask out where we can't match
     u32 buf_off = start - offset;

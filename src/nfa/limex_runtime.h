@@ -75,7 +75,7 @@ struct proto_cache {
 // Shift macros for Limited NFAs. Defined in terms of uniform ops.
 // LimExNFAxxx ptr in 'limex' and the current state in 's'
 #define NFA_EXEC_LIM_SHIFT(nels_type, nels_i)                                  \
-    (JOIN(shift_, nels_type)(                                                  \
+    (JOIN(lshift_, nels_type)(                                                 \
         JOIN(and_, nels_type)(s,                                               \
                               JOIN(load_, nels_type)(&limex->shift[nels_i])),  \
         limex->shiftAmount[nels_i]))

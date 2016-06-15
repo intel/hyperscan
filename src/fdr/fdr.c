@@ -131,7 +131,7 @@ m128 getInitState(const struct FDR *fdr, u8 len_history, const u8 *ft,
         u32 tmp = lv_u16(z->start + z->shift - 1, z->buf, z->end + 1);
         tmp &= fdr->domainMask;
         s = *((const m128 *)ft + tmp);
-        s = shiftRight8Bits(s);
+        s = rshiftbyte_m128(s, 1);
     } else {
         s = fdr->start;
     }
@@ -185,20 +185,20 @@ void get_conf_stride_1(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     m128 st14 = *(const m128 *)(ft + v14*8);
     m128 st15 = *(const m128 *)(ft + v15*8);
 
-    st1 = byteShiftLeft128(st1, 1);
-    st2 = byteShiftLeft128(st2, 2);
-    st3 = byteShiftLeft128(st3, 3);
-    st4 = byteShiftLeft128(st4, 4);
-    st5 = byteShiftLeft128(st5, 5);
-    st6 = byteShiftLeft128(st6, 6);
-    st7 = byteShiftLeft128(st7, 7);
-    st9 = byteShiftLeft128(st9, 1);
-    st10 = byteShiftLeft128(st10, 2);
-    st11 = byteShiftLeft128(st11, 3);
-    st12 = byteShiftLeft128(st12, 4);
-    st13 = byteShiftLeft128(st13, 5);
-    st14 = byteShiftLeft128(st14, 6);
-    st15 = byteShiftLeft128(st15, 7);
+    st1 = lshiftbyte_m128(st1, 1);
+    st2 = lshiftbyte_m128(st2, 2);
+    st3 = lshiftbyte_m128(st3, 3);
+    st4 = lshiftbyte_m128(st4, 4);
+    st5 = lshiftbyte_m128(st5, 5);
+    st6 = lshiftbyte_m128(st6, 6);
+    st7 = lshiftbyte_m128(st7, 7);
+    st9 = lshiftbyte_m128(st9, 1);
+    st10 = lshiftbyte_m128(st10, 2);
+    st11 = lshiftbyte_m128(st11, 3);
+    st12 = lshiftbyte_m128(st12, 4);
+    st13 = lshiftbyte_m128(st13, 5);
+    st14 = lshiftbyte_m128(st14, 6);
+    st15 = lshiftbyte_m128(st15, 7);
 
     *s = or128(*s, st0);
     *s = or128(*s, st1);
@@ -209,7 +209,7 @@ void get_conf_stride_1(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     *s = or128(*s, st6);
     *s = or128(*s, st7);
     *conf0 = movq(*s);
-    *s = byteShiftRight128(*s, 8);
+    *s = rshiftbyte_m128(*s, 8);
     *conf0 ^= ~0ULL;
 
     *s = or128(*s, st8);
@@ -221,7 +221,7 @@ void get_conf_stride_1(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     *s = or128(*s, st14);
     *s = or128(*s, st15);
     *conf8 = movq(*s);
-    *s = byteShiftRight128(*s, 8);
+    *s = rshiftbyte_m128(*s, 8);
     *conf8 ^= ~0ULL;
 }
 
@@ -252,19 +252,19 @@ void get_conf_stride_2(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     m128 st12 = *(const m128 *)(ft + v12*8);
     m128 st14 = *(const m128 *)(ft + v14*8);
 
-    st2 = byteShiftLeft128(st2, 2);
-    st4 = byteShiftLeft128(st4, 4);
-    st6 = byteShiftLeft128(st6, 6);
-    st10 = byteShiftLeft128(st10, 2);
-    st12 = byteShiftLeft128(st12, 4);
-    st14 = byteShiftLeft128(st14, 6);
+    st2  = lshiftbyte_m128(st2, 2);
+    st4  = lshiftbyte_m128(st4, 4);
+    st6  = lshiftbyte_m128(st6, 6);
+    st10 = lshiftbyte_m128(st10, 2);
+    st12 = lshiftbyte_m128(st12, 4);
+    st14 = lshiftbyte_m128(st14, 6);
 
     *s = or128(*s, st0);
     *s = or128(*s, st2);
     *s = or128(*s, st4);
     *s = or128(*s, st6);
     *conf0 = movq(*s);
-    *s = byteShiftRight128(*s, 8);
+    *s = rshiftbyte_m128(*s, 8);
     *conf0 ^= ~0ULL;
 
     *s = or128(*s, st8);
@@ -272,7 +272,7 @@ void get_conf_stride_2(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     *s = or128(*s, st12);
     *s = or128(*s, st14);
     *conf8 = movq(*s);
-    *s = byteShiftRight128(*s, 8);
+    *s = rshiftbyte_m128(*s, 8);
     *conf8 ^= ~0ULL;
 }
 
@@ -295,19 +295,19 @@ void get_conf_stride_4(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     m128 st8 = *(const m128 *)(ft + v8*8);
     m128 st12 = *(const m128 *)(ft + v12*8);
 
-    st4 = byteShiftLeft128(st4, 4);
-    st12 = byteShiftLeft128(st12, 4);
+    st4 = lshiftbyte_m128(st4, 4);
+    st12 = lshiftbyte_m128(st12, 4);
 
     *s = or128(*s, st0);
     *s = or128(*s, st4);
     *conf0 = movq(*s);
-    *s = byteShiftRight128(*s, 8);
+    *s = rshiftbyte_m128(*s, 8);
     *conf0 ^= ~0ULL;
 
     *s = or128(*s, st8);
     *s = or128(*s, st12);
     *conf8 = movq(*s);
-    *s = byteShiftRight128(*s, 8);
+    *s = rshiftbyte_m128(*s, 8);
     *conf8 ^= ~0ULL;
 }
 

@@ -79,7 +79,7 @@ const u8 ALIGN_DIRECTIVE p_mask_arr[17][32] = {
 do {                                                                        \
     if (unlikely(isnonzero128(var))) {                                      \
         u64a lo = movq(var);                                                \
-        u64a hi = movq(byteShiftRight128(var, 8));                          \
+        u64a hi = movq(rshiftbyte_m128(var, 8));                            \
         if (unlikely(lo)) {                                                 \
             conf_fn(&lo, bucket, offset, confBase, reason, a, ptr,          \
                     control, &last_match);                                  \
@@ -97,9 +97,9 @@ do {                                                                        \
 do {                                                                        \
     if (unlikely(isnonzero128(var))) {                                      \
         u32 part1 = movd(var);                                              \
-        u32 part2 = movd(byteShiftRight128(var, 4));                        \
-        u32 part3 = movd(byteShiftRight128(var, 8));                        \
-        u32 part4 = movd(byteShiftRight128(var, 12));                       \
+        u32 part2 = movd(rshiftbyte_m128(var, 4));                          \
+        u32 part3 = movd(rshiftbyte_m128(var, 8));                          \
+        u32 part4 = movd(rshiftbyte_m128(var, 12));                         \
         if (unlikely(part1)) {                                              \
             conf_fn(&part1, bucket, offset, confBase, reason, a, ptr,       \
                     control, &last_match);                                  \
@@ -128,7 +128,7 @@ static really_inline
 m128 prep_conf_teddy_m1(const m128 *maskBase, m128 p_mask, m128 val) {
     m128 mask = set16x8(0xf);
     m128 lo = and128(val, mask);
-    m128 hi = and128(rshift2x64(val, 4), mask);
+    m128 hi = and128(rshift64_m128(val, 4), mask);
     return and128(and128(pshufb(maskBase[0*2], lo),
                          pshufb(maskBase[0*2+1], hi)), p_mask);
 }
@@ -138,7 +138,7 @@ m128 prep_conf_teddy_m2(const m128 *maskBase, m128 *old_1, m128 p_mask,
                         m128 val) {
     m128 mask = set16x8(0xf);
     m128 lo = and128(val, mask);
-    m128 hi = and128(rshift2x64(val, 4), mask);
+    m128 hi = and128(rshift64_m128(val, 4), mask);
     m128 r = prep_conf_teddy_m1(maskBase, p_mask, val);
 
     m128 res_1 = and128(pshufb(maskBase[1*2], lo),
@@ -153,7 +153,7 @@ m128 prep_conf_teddy_m3(const m128 *maskBase, m128 *old_1, m128 *old_2,
                         m128 p_mask, m128 val) {
     m128 mask = set16x8(0xf);
     m128 lo = and128(val, mask);
-    m128 hi = and128(rshift2x64(val, 4), mask);
+    m128 hi = and128(rshift64_m128(val, 4), mask);
     m128 r = prep_conf_teddy_m2(maskBase, old_1, p_mask, val);
 
     m128 res_2 = and128(pshufb(maskBase[2*2], lo),
@@ -168,7 +168,7 @@ m128 prep_conf_teddy_m4(const m128 *maskBase, m128 *old_1, m128 *old_2,
                         m128 *old_3, m128 p_mask, m128 val) {
     m128 mask = set16x8(0xf);
     m128 lo = and128(val, mask);
-    m128 hi = and128(rshift2x64(val, 4), mask);
+    m128 hi = and128(rshift64_m128(val, 4), mask);
     m128 r = prep_conf_teddy_m3(maskBase, old_1, old_2, p_mask, val);
 
     m128 res_3 = and128(pshufb(maskBase[3*2], lo),

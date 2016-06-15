@@ -149,8 +149,8 @@ static really_inline u32 diffrich64_128(m128 a, m128 b) {
 #endif
 }
 
-#define shift2x64(a, b)  _mm_slli_epi64((a), (b))
-#define rshift2x64(a, b) _mm_srli_epi64((a), (b))
+#define lshift64_m128(a, b) _mm_slli_epi64((a), (b))
+#define rshift64_m128(a, b) _mm_srli_epi64((a), (b))
 #define eq128(a, b)      _mm_cmpeq_epi8((a), (b))
 #define movemask128(a)  ((u32)_mm_movemask_epi8((a)))
 
@@ -172,16 +172,8 @@ static really_inline u64a movq(const m128 in) {
 #endif
 }
 
-static really_inline m128 shiftRight8Bits(m128 a) {
-    return _mm_srli_si128(a,1);
-}
-
-static really_inline m128 shiftLeft8Bits(m128 a) {
-    return _mm_slli_si128(a,1);
-}
-
-#define byteShiftRight128(a, count_immed) _mm_srli_si128(a, count_immed)
-#define byteShiftLeft128(a, count_immed) _mm_slli_si128(a, count_immed)
+#define rshiftbyte_m128(a, count_immed) _mm_srli_si128(a, count_immed)
+#define lshiftbyte_m128(a, count_immed) _mm_slli_si128(a, count_immed)
 
 #if !defined(__AVX2__)
 // TODO: this entire file needs restructuring - this carveout is awful
@@ -191,8 +183,8 @@ static really_inline m128 shiftLeft8Bits(m128 a) {
 #define extract32from256(a, imm) _mm_extract_epi32((imm >> 2) ? a.hi : a.lo, imm % 4)
 #define extract64from256(a, imm) _mm_extract_epi64((imm >> 2) ? a.hi : a.lo, imm % 2)
 #else
-#define extract32from256(a, imm) movd(byteShiftRight128((imm >> 2) ? a.hi : a.lo, (imm % 4) * 8))
-#define extract64from256(a, imm) movq(byteShiftRight128((imm >> 2) ? a.hi : a.lo, (imm % 2) * 8))
+#define extract32from256(a, imm) movd(_mm_srli_si128((imm >> 2) ? a.hi : a.lo, (imm % 4) * 8))
+#define extract64from256(a, imm) movq(_mm_srli_si128((imm >> 2) ? a.hi : a.lo, (imm % 2) * 8))
 #endif
 
 #endif // !AVX2
@@ -212,10 +204,6 @@ static really_inline m128 or128(m128 a, m128 b) {
 static really_inline m128 andnot128(m128 a, m128 b) {
     return _mm_andnot_si128(a, b);
 }
-
-// The shift amount is an immediate, so we define these operations as macros on
-// Intel SIMD.
-#define shift128(a, b)  _mm_slli_epi64((a), (b))
 
 // aligned load
 static really_inline m128 load128(const void *ptr) {
@@ -335,8 +323,8 @@ m128 variable_byte_shift_m128(m128 in, s32 amount) {
  ****/
 
 #if defined(__AVX2__)
-#define shift4x64(a, b)  _mm256_slli_epi64((a), (b))
-#define rshift4x64(a, b) _mm256_srli_epi64((a), (b))
+#define lshift64_m256(a, b) _mm256_slli_epi64((a), (b))
+#define rshift64_m256(a, b) _mm256_srli_epi64((a), (b))
 
 static really_inline
 m256 set32x8(u32 in) {
@@ -354,18 +342,18 @@ m256 set2x128(m128 a) {
 #else
 
 static really_inline
-m256 shift4x64(m256 a, int b) {
+m256 lshift64_m256(m256 a, int b) {
     m256 rv = a;
-    rv.lo = shift2x64(rv.lo, b);
-    rv.hi = shift2x64(rv.hi, b);
+    rv.lo = lshift64_m128(rv.lo, b);
+    rv.hi = lshift64_m128(rv.hi, b);
     return rv;
 }
 
 static really_inline
-m256 rshift4x64(m256 a, int b) {
+m256 rshift64_m256(m256 a, int b) {
     m256 rv = a;
-    rv.lo = rshift2x64(rv.lo, b);
-    rv.hi = rshift2x64(rv.hi, b);
+    rv.lo = rshift64_m128(rv.lo, b);
+    rv.hi = rshift64_m128(rv.hi, b);
     return rv;
 }
 static really_inline
@@ -457,18 +445,6 @@ static really_inline m256 andnot256(m256 a, m256 b) {
     m256 rv;
     rv.lo = andnot128(a.lo, b.lo);
     rv.hi = andnot128(a.hi, b.hi);
-    return rv;
-}
-#endif
-
-// The shift amount is an immediate
-#if defined(__AVX2__)
-#define shift256(a, b)  _mm256_slli_epi64((a), (b))
-#else
-static really_really_inline m256 shift256(m256 a, unsigned b) {
-    m256 rv;
-    rv.lo = shift128(a.lo, b);
-    rv.hi = shift128(a.hi, b);
     return rv;
 }
 #endif
@@ -673,21 +649,12 @@ m128 movdq_lo(m256 x) {
     return _mm256_extracti128_si256(x, 0);
 }
 
-static really_inline
-m256 shift256Right8Bits(m256 a) {
-    return _mm256_srli_si256(a, 1);
-}
-
-static really_inline
-m256 shift256Left8Bits(m256 a) {
-    return _mm256_slli_si256(a, 1);
-}
 #define cast256to128(a) _mm256_castsi256_si128(a)
 #define cast128to256(a) _mm256_castsi128_si256(a)
 #define swap128in256(a) _mm256_permute4x64_epi64(a, 0x4E)
 #define insert128to256(a, b, imm) _mm256_inserti128_si256(a, b, imm)
-#define byteShiftRight256(a, count_immed) _mm256_srli_si256(a, count_immed)
-#define byteShiftLeft256(a, count_immed) _mm256_slli_si256(a, count_immed)
+#define rshift128_m256(a, count_immed) _mm256_srli_si256(a, count_immed)
+#define lshift128_m256(a, count_immed) _mm256_slli_si256(a, count_immed)
 #define extract64from256(a, imm) _mm_extract_epi64(_mm256_extracti128_si256(a, imm >> 1), imm % 2)
 #define extract32from256(a, imm) _mm_extract_epi32(_mm256_extracti128_si256(a, imm >> 2), imm % 4)
 #define extractlow64from256(a) _mm_cvtsi128_si64(cast256to128(a))
@@ -741,11 +708,12 @@ static really_inline m384 andnot384(m384 a, m384 b) {
 }
 
 // The shift amount is an immediate
-static really_really_inline m384 shift384(m384 a, unsigned b) {
+static really_really_inline
+m384 lshift64_m384(m384 a, unsigned b) {
     m384 rv;
-    rv.lo = shift128(a.lo, b);
-    rv.mid = shift128(a.mid, b);
-    rv.hi = shift128(a.hi, b);
+    rv.lo = lshift64_m128(a.lo, b);
+    rv.mid = lshift64_m128(a.mid, b);
+    rv.hi = lshift64_m128(a.hi, b);
     return rv;
 }
 
@@ -913,10 +881,11 @@ static really_inline m512 andnot512(m512 a, m512 b) {
 }
 
 // The shift amount is an immediate
-static really_really_inline m512 shift512(m512 a, unsigned b) {
+static really_really_inline
+m512 lshift64_m512(m512 a, unsigned b) {
     m512 rv;
-    rv.lo = shift256(a.lo, b);
-    rv.hi = shift256(a.hi, b);
+    rv.lo = lshift64_m256(a.lo, b);
+    rv.hi = lshift64_m256(a.hi, b);
     return rv;
 }
 

@@ -48,7 +48,6 @@ const u8 *firstMatch(const u8 *buf, u32 z) {
     return NULL; // no match
 }
 
-#define shift128r(a, b) _mm_srli_epi64((a), (b))
 static really_inline
 u32 block(m128 shuf_mask_lo_highclear, m128 shuf_mask_lo_highset, m128 v) {
 
@@ -59,7 +58,7 @@ u32 block(m128 shuf_mask_lo_highclear, m128 shuf_mask_lo_highset, m128 v) {
     m128 shuf1 = pshufb(shuf_mask_lo_highclear, v);
     m128 t1 = xor128(v, highconst);
     m128 shuf2 = pshufb(shuf_mask_lo_highset, t1);
-    m128 t2 = andnot128(highconst, shift128r(v, 4));
+    m128 t2 = andnot128(highconst, rshift64_m128(v, 4));
     m128 shuf3 = pshufb(shuf_mask_hi, t2);
     m128 tmp = and128(or128(shuf1, shuf2), shuf3);
     m128 tmp2 = eq128(tmp, zeroes128());
@@ -102,7 +101,6 @@ const u8 *firstMatch(const u8 *buf, u32 z) {
     return NULL; // no match
 }
 
-#define shift256r(a, b) _mm256_srli_epi64((a), (b))
 static really_inline
 u32 block(m256 shuf_mask_lo_highclear, m256 shuf_mask_lo_highset, m256 v) {
 
@@ -113,7 +111,7 @@ u32 block(m256 shuf_mask_lo_highclear, m256 shuf_mask_lo_highset, m256 v) {
     m256 shuf1 = vpshufb(shuf_mask_lo_highclear, v);
     m256 t1 = xor256(v, highconst);
     m256 shuf2 = vpshufb(shuf_mask_lo_highset, t1);
-    m256 t2 = andnot256(highconst, shift256r(v, 4));
+    m256 t2 = andnot256(highconst, rshift64_m256(v, 4));
     m256 shuf3 = vpshufb(shuf_mask_hi, t2);
     m256 tmp = and256(or256(shuf1, shuf2), shuf3);
     m256 tmp2 = eq256(tmp, zeroes256());

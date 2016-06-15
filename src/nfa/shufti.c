@@ -40,7 +40,6 @@
 
 #include "shufti_common.h"
 
-
 /** \brief Naive byte-by-byte implementation. */
 static really_inline
 const u8 *shuftiRevSlow(const u8 *lo, const u8 *hi, const u8 *buf,
@@ -234,7 +233,7 @@ const u8 *fwdBlock2(m128 mask1_lo, m128 mask1_hi, m128 mask2_lo, m128 mask2_hi,
 
     m128 c2_lo  = pshufb(mask2_lo, chars_lo);
     m128 c2_hi  = pshufb(mask2_hi, chars_hi);
-    m128 t2     = or128(t, shiftRight8Bits(or128(c2_lo, c2_hi)));
+    m128 t2     = or128(t, rshiftbyte_m128(or128(c2_lo, c2_hi), 1));
 
 #ifdef DEBUG
     DEBUG_PRINTF(" c2_lo: "); dumpMsk128(c2_lo);        printf("\n");
@@ -471,7 +470,7 @@ const u8 *fwdBlock2(m256 mask1_lo, m256 mask1_hi, m256 mask2_lo, m256 mask2_hi,
 
     m256 c2_lo  = vpshufb(mask2_lo, chars_lo);
     m256 c2_hi  = vpshufb(mask2_hi, chars_hi);
-    m256 t2     = or256(t, shift256Right8Bits(or256(c2_lo, c2_hi)));
+    m256 t2 = or256(t, rshift128_m256(or256(c2_lo, c2_hi), 1));
 
 #ifdef DEBUG
     DEBUG_PRINTF(" c2_lo: "); dumpMsk256(c2_lo);        printf("\n");

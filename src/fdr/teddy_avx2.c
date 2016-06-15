@@ -371,7 +371,7 @@ void bit_array_fast_teddy(m128 var, u16 *bitArr, u32 *arrCnt, u32 offset) {
                                     64 * (offset);
             *arrCnt += 1;
         }
-        u64a part_1 = movq(byteShiftRight128(var, 8));
+        u64a part_1 = movq(rshiftbyte_m128(var, 8));
         while (unlikely(part_1)) {
             bitArr[*arrCnt] = (u16) TEDDY_FIND_AND_CLEAR_LSB(&part_1) +
                                     64 * (offset + 1);
@@ -384,19 +384,19 @@ void bit_array_fast_teddy(m128 var, u16 *bitArr, u32 *arrCnt, u32 offset) {
                                     32 * (offset * 2);
             *arrCnt += 1;
         }
-        u32 part_1 = movd(byteShiftRight128(var, 4));
+        u32 part_1 = movd(rshiftbyte_m128(var, 4));
         while (unlikely(part_1)) {
             bitArr[*arrCnt] = (u16) TEDDY_FIND_AND_CLEAR_LSB(&part_1) +
                                     32 * (offset * 2 + 1);
             *arrCnt += 1;
         }
-        u32 part_2 = movd(byteShiftRight128(var, 8));
+        u32 part_2 = movd(rshiftbyte_m128(var, 8));
         while (unlikely(part_2)) {
             bitArr[*arrCnt] = (u16) TEDDY_FIND_AND_CLEAR_LSB(&part_2) +
                                     32 * (offset * 2 + 2);
             *arrCnt += 1;
         }
-        u32 part_3 = movd(byteShiftRight128(var, 12));
+        u32 part_3 = movd(rshiftbyte_m128(var, 12));
         while (unlikely(part_3)) {
             bitArr[*arrCnt] = (u16) TEDDY_FIND_AND_CLEAR_LSB(&part_3) +
                                     32 * (offset * 2 + 3);
@@ -410,7 +410,7 @@ static really_inline
 m256 prep_conf_fat_teddy_m1(const m256 *maskBase, m256 p_mask, m256 val) {
     m256 mask = set32x8(0xf);
     m256 lo = and256(val, mask);
-    m256 hi = and256(rshift4x64(val, 4), mask);
+    m256 hi = and256(rshift64_m256(val, 4), mask);
     return and256(and256(vpshufb(maskBase[0*2], lo),
                          vpshufb(maskBase[0*2+1], hi)), p_mask);
 }
@@ -420,7 +420,7 @@ m256 prep_conf_fat_teddy_m2(const m256 *maskBase, m256 *old_1, m256 p_mask,
                             m256 val) {
     m256 mask = set32x8(0xf);
     m256 lo = and256(val, mask);
-    m256 hi = and256(rshift4x64(val, 4), mask);
+    m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 r = prep_conf_fat_teddy_m1(maskBase, p_mask, val);
 
     m256 res_1 = and256(vpshufb(maskBase[1*2], lo),
@@ -435,7 +435,7 @@ m256 prep_conf_fat_teddy_m3(const m256 *maskBase, m256 *old_1, m256 *old_2,
                             m256 p_mask, m256 val) {
     m256 mask = set32x8(0xf);
     m256 lo = and256(val, mask);
-    m256 hi = and256(rshift4x64(val, 4), mask);
+    m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 r = prep_conf_fat_teddy_m2(maskBase, old_1, p_mask, val);
 
     m256 res_2 = and256(vpshufb(maskBase[2*2], lo),
@@ -450,7 +450,7 @@ m256 prep_conf_fat_teddy_m4(const m256 *maskBase, m256 *old_1, m256 *old_2,
                             m256 *old_3, m256 p_mask, m256 val) {
     m256 mask = set32x8(0xf);
     m256 lo = and256(val, mask);
-    m256 hi = and256(rshift4x64(val, 4), mask);
+    m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 r = prep_conf_fat_teddy_m3(maskBase, old_1, old_2, p_mask, val);
 
     m256 res_3 = and256(vpshufb(maskBase[3*2], lo),
@@ -464,7 +464,7 @@ static really_inline
 m256 prep_conf_fast_teddy_m1(m256 val, m256 mask, m256 maskLo, m256 maskHi,
                              m256 p_mask) {
     m256 lo = and256(val, mask);
-    m256 hi = and256(rshift4x64(val, 4), mask);
+    m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 res = and256(vpshufb(maskLo, lo), vpshufb(maskHi, hi));
     return and256(res, p_mask);
 }
