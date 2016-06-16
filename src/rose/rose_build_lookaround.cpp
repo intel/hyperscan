@@ -539,6 +539,36 @@ void findLookaroundMasks(const RoseBuildImpl &tbi, const RoseVertex v,
 }
 
 static
+bool hasSingleFloatingStart(const NGHolder &g) {
+    NFAVertex initial = NGHolder::null_vertex();
+    for (auto v : adjacent_vertices_range(g.startDs, g)) {
+        if (v == g.startDs) {
+            continue;
+        }
+        if (initial != NGHolder::null_vertex()) {
+            DEBUG_PRINTF("more than one start\n");
+            return false;
+        }
+        initial = v;
+    }
+
+    if (initial == NGHolder::null_vertex()) {
+        DEBUG_PRINTF("no floating starts\n");
+        return false;
+    }
+
+    // Anchored start must have no successors other than startDs and initial.
+    for (auto v : adjacent_vertices_range(g.start, g)) {
+        if (v != initial && v != g.startDs) {
+            DEBUG_PRINTF("anchored start\n");
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static
 bool getTransientPrefixReach(const NGHolder &g, u32 lag,
                              map<s32, CharReach> &look) {
     if (in_degree(g.accept, g) != 1) {
@@ -546,15 +576,9 @@ bool getTransientPrefixReach(const NGHolder &g, u32 lag,
         return false;
     }
 
-    // Currently we don't handle anchored prefixes, as we would need to be able
-    // to represent the bounds from the anchor as well.
-    if (out_degree(g.start, g) != 1) {
-        DEBUG_PRINTF("anchored\n");
-        return false;
-    }
-
-    if (out_degree(g.startDs, g) != 2) {
-        DEBUG_PRINTF("more than one start\n");
+    // Must be a floating chain wired to startDs.
+    if (!hasSingleFloatingStart(g)) {
+        DEBUG_PRINTF("not a single floating start\n");
         return false;
     }
 
@@ -569,12 +593,28 @@ bool getTransientPrefixReach(const NGHolder &g, u32 lag,
 
         look[0 - i] = g[v].char_reach;
 
-        if (in_degree(v, g) != 1) {
+        NFAVertex next = NGHolder::null_vertex();
+        for (auto u : inv_adjacent_vertices_range(v, g)) {
+            if (u == g.start) {
+                continue; // Benign, checked by hasSingleFloatingStart
+            }
+            if (next == NGHolder::null_vertex()) {
+                next = u;
+                continue;
+            }
             DEBUG_PRINTF("branch\n");
             return false;
         }
 
-        v = *(inv_adjacent_vertices(v, g).first);
+        if (next == NGHolder::null_vertex() || next == v) {
+            DEBUG_PRINTF("no predecessor or only self-loop\n");
+            // This graph is malformed -- all vertices in a graph that makes it
+            // to this analysis should have predecessors.
+            assert(0);
+            return false;
+        }
+
+        v = next;
         i++;
     }
 

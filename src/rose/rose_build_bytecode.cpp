@@ -1160,7 +1160,11 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
         u32 lag = g[v].left.lag;
         bool is_transient = contains(tbi.transient, leftfix);
 
-        if (is_transient && tbi.cc.grey.roseLookaroundMasks) {
+        // Transient leftfixes can sometimes be implemented solely with
+        // lookarounds, in which case we don't need to build an engine.
+        // TODO: Handle SOM-tracking cases as well.
+        if (cc.grey.roseLookaroundMasks && is_transient &&
+            !g[v].left.tracksSom()) {
             vector<LookEntry> lookaround;
             if (makeLeftfixLookaround(tbi, v, lookaround)) {
                 DEBUG_PRINTF("implementing as lookaround!\n");
