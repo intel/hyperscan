@@ -380,15 +380,19 @@ bool sameGhostProperties(const RoseBuildImpl &build, RoseVertex a,
             ghost_b.push_back(e.first);
         }
     }
-    if (!ghost_a.empty() || !ghost_a.empty()) {
-        DEBUG_PRINTF("ghost map targets\n");
-        if (build.g[a].literals != build.g[b].literals) {
-            DEBUG_PRINTF("diff literals\n");
-            return false;
-        }
+
+    if (ghost_a.empty() && ghost_b.empty()) {
+        return true;
     }
 
-    return true;
+    if (ghost_a.empty() || ghost_b.empty()) {
+        DEBUG_PRINTF("only one is a ghost vertex\n");
+        return false;
+    }
+
+    // Both are ghost vertices: it is only safe to merge them if their literals
+    // are the same.
+    return build.g[a].literals == build.g[b].literals;
 }
 
 static
