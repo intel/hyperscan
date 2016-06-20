@@ -348,8 +348,45 @@ bool isAliasingCandidate(RoseVertex v, const RoseBuildImpl &tbi) {
     }
 
     assert(*props.literals.begin() != MO_INVALID_IDX);
+    return true;
+}
 
-    // Any vertex involved in a "ghost" relationship has already been disallowed
+static
+bool sameGhostProperties(const RoseBuildImpl &build, RoseVertex a,
+                         RoseVertex b) {
+    // If these are ghost mapping keys, then they must map to the same vertex.
+    if (contains(build.ghost, a) || contains(build.ghost, b)) {
+        DEBUG_PRINTF("checking ghost key compat\n");
+        if (!contains(build.ghost, a) || !contains(build.ghost, b)) {
+            DEBUG_PRINTF("missing ghost mapping\n");
+            return false;
+        }
+        if (build.ghost.at(a) != build.ghost.at(b)) {
+            DEBUG_PRINTF("diff ghost mapping\n");
+            return false;
+        }
+        DEBUG_PRINTF("ghost mappings ok\n");
+        return true;
+    }
+
+    // If they are ghost vertices, then they must have the same literals.
+    // FIXME: get rid of linear scan
+    vector<RoseVertex> ghost_a, ghost_b;
+    for (const auto &e : build.ghost) {
+        if (e.second == a) {
+            ghost_a.push_back(e.first);
+        }
+        if (e.second == b) {
+            ghost_b.push_back(e.first);
+        }
+    }
+    if (!ghost_a.empty() || !ghost_a.empty()) {
+        DEBUG_PRINTF("ghost map targets\n");
+        if (build.g[a].literals != build.g[b].literals) {
+            DEBUG_PRINTF("diff literals\n");
+            return false;
+        }
+    }
 
     return true;
 }
@@ -377,6 +414,10 @@ bool sameRoleProperties(const RoseBuildImpl &build, RoseVertex a, RoseVertex b) 
     }
 
     if (aprops.som_adjust != bprops.som_adjust) {
+        return false;
+    }
+
+    if (!sameGhostProperties(build, a, b)) {
         return false;
     }
 
@@ -536,6 +577,28 @@ void mergeLiteralSets(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi) {
     insert(&g[b].literals, a_literals);
 }
 
+static
+void updateGhostMap(RoseBuildImpl &build, RoseVertex a, RoseVertex b) {
+    // Ghost keys.
+    if (contains(build.ghost, a)) {
+        auto it = build.ghost.find(a);
+        assert(it->second == build.ghost[b]);
+        build.ghost.erase(it);
+    }
+
+    // Ghost values. FIXME: this will be slow at scale.
+    vector<RoseVertex> ghost_refs;
+    for (const auto &e : build.ghost) {
+        if (e.second == a) {
+            ghost_refs.push_back(e.first);
+        }
+    }
+    for (const auto &v : ghost_refs) {
+        build.ghost.erase(v);
+        build.ghost.emplace(v, b);
+    }
+}
+
 // Merge role 'a' into 'b'.
 static
 void mergeVertices(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi,
@@ -566,6 +629,9 @@ void mergeVertices(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi,
     }
 
     mergeEdges(a, b, g);
+
+    updateGhostMap(tbi, a, b);
+
     removeVertexFromMaps(a, tbi, rrm);
 }
 
@@ -600,21 +666,7 @@ void mergeVerticesDiamond(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi,
 
 static never_inline
 void findCandidates(const RoseBuildImpl &tbi, CandidateSet *candidates) {
-    ue2::unordered_set<RoseVertex> disallowed;
-
-    // We currently deny candidature to any vertex involved in a "ghost"
-    // relationship.
-    for (const auto &m : tbi.ghost) {
-        disallowed.insert(m.first);
-        disallowed.insert(m.second);
-    }
-
     for (auto v : vertices_range(tbi.g)) {
-        // Ignore ghost relationships.
-        if (contains(disallowed, v)) {
-            continue;
-        }
-
         if (isAliasingCandidate(v, tbi)) {
             DEBUG_PRINTF("candidate %zu\n", tbi.g[v].idx);
             DEBUG_PRINTF("lits: %u\n", *tbi.g[v].literals.begin());
