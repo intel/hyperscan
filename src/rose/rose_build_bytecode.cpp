@@ -3409,6 +3409,7 @@ void addPredBlocksSingle(
 
     for (const auto &m : predProgramLists) {
         const u32 &pred_state = m.first;
+        assert(!m.second.empty());
         auto subprog = flattenProgram(m.second);
 
         // Check our pred state.
@@ -3465,6 +3466,7 @@ void addPredBlocksMulti(build_context &bc,
         DEBUG_PRINTF("subprogram %zu has offset %u\n", jump_table.size(),
                      curr_offset);
         jump_table.push_back(curr_offset);
+        assert(!e.second.empty());
         auto subprog = flattenProgram(e.second);
 
         if (e.first != keys.back()) {
@@ -3800,6 +3802,9 @@ vector<RoseInstruction> buildLiteralProgram(RoseBuildImpl &build,
         assert(contains(bc.roleStateIndices, u));
         u32 pred_state = bc.roleStateIndices.at(u);
         auto program = makeProgram(build, bc, e);
+        if (program.empty()) {
+            continue;
+        }
         predProgramLists[pred_state].push_back(program);
     }
 
@@ -4047,6 +4052,9 @@ void addEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
             u32 predStateIdx = bc.roleStateIndices.at(u);
 
             auto program = makeEodAnchorProgram(build, bc, e, multiple_preds);
+            if (program.empty()) {
+                continue;
+            }
             predProgramLists[predStateIdx].push_back(program);
         }
     }
