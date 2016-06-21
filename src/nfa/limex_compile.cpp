@@ -167,11 +167,9 @@ struct build_info {
     limex_accel_info accel;
 };
 
-// Constants for scoring mechanism
-
 #define LAST_LIMEX_NFA LIMEX_NFA_512
 
-const int LIMEX_INITIAL_SCORE = 2000;
+// Constants for scoring mechanism
 const int SHIFT_COST = 10; // limex: cost per shift mask
 const int EXCEPTION_COST = 4; // limex: per exception
 
@@ -1371,9 +1369,9 @@ static
 int getLimexScore(const build_info &args, u32 nShifts) {
     const NGHolder &h = args.h;
     u32 maxVarShift = nShifts;
-    int score = LIMEX_INITIAL_SCORE;
+    int score = 0;
 
-    score -= SHIFT_COST * nShifts;
+    score += SHIFT_COST * nShifts;
     maxVarShift = findMaxVarShift(args, nShifts);
 
     NFAStateSet exceptionalStates(args.num_states);
@@ -1387,10 +1385,7 @@ int getLimexScore(const build_info &args, u32 nShifts) {
             exceptionalStates.set(from);
         }
     }
-    score -= EXCEPTION_COST * exceptionalStates.count();
-    if (score < 0) {
-        score = 0;
-    }
+    score += EXCEPTION_COST * exceptionalStates.count();
     return score;
 }
 
@@ -1401,10 +1396,10 @@ static
 u32 findBestNumOfVarShifts(const build_info &args,
                            int *bestScoreRet = nullptr) {
     u32 bestNumOfVarShifts = 0;
-    int bestScore = 0;
+    int bestScore = INT_MAX;
     for (u32 shiftCount = 1; shiftCount <= MAX_SHIFT_COUNT; shiftCount++) {
         int score = getLimexScore(args, shiftCount);
-        if (score > bestScore) {
+        if (score < bestScore) {
             bestScore = score;
             bestNumOfVarShifts = shiftCount;
         }
@@ -2188,8 +2183,8 @@ aligned_unique_ptr<NFA> generate(NGHolder &h,
             NFAEngineType ntype = (NFAEngineType)i;
 
             int score = DISPATCH_BY_LIMEX_TYPE(ntype, scoreNfa, arg);
+            DEBUG_PRINTF("%s scores %d\n", nfa_type_name(ntype), score);
             if (score >= 0) {
-                DEBUG_PRINTF("%s scores %d\n", nfa_type_name(ntype), score);
                 scores.push_back(make_pair(score, ntype));
             }
         }
@@ -2200,7 +2195,7 @@ aligned_unique_ptr<NFA> generate(NGHolder &h,
         return nullptr;
     }
 
-    sort(scores.begin(), scores.end(), greater<EngineScore>());
+    sort(scores.begin(), scores.end(), less<EngineScore>());
 
     aligned_unique_ptr<NFA> nfa;
     for (auto i = scores.begin(); !nfa && i != scores.end(); ++i) {
