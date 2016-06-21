@@ -2172,20 +2172,18 @@ aligned_unique_ptr<NFA> generate(NGHolder &h,
     // Acceleration analysis.
     fillAccelInfo(arg);
 
-    typedef pair<int, NFAEngineType> EngineScore;
-    vector<EngineScore> scores;
+    vector<pair<int, NFAEngineType>> scores;
 
     if (hint != INVALID_NFA) {
         // The caller has told us what to (attempt to) build.
-        scores.push_back(make_pair(0, (NFAEngineType)hint));
+        scores.emplace_back(0, (NFAEngineType)hint);
     } else {
         for (size_t i = 0; i <= LAST_LIMEX_NFA; i++) {
             NFAEngineType ntype = (NFAEngineType)i;
-
             int score = DISPATCH_BY_LIMEX_TYPE(ntype, scoreNfa, arg);
-            DEBUG_PRINTF("%s scores %d\n", nfa_type_name(ntype), score);
             if (score >= 0) {
-                scores.push_back(make_pair(score, ntype));
+                DEBUG_PRINTF("%s scores %d\n", nfa_type_name(ntype), score);
+                scores.emplace_back(score, ntype);
             }
         }
     }
@@ -2195,22 +2193,22 @@ aligned_unique_ptr<NFA> generate(NGHolder &h,
         return nullptr;
     }
 
-    sort(scores.begin(), scores.end(), less<EngineScore>());
+    // Sort acceptable models in priority order, lowest score first.
+    sort(scores.begin(), scores.end());
 
-    aligned_unique_ptr<NFA> nfa;
-    for (auto i = scores.begin(); !nfa && i != scores.end(); ++i) {
-        assert(i->first >= 0);
-        nfa = DISPATCH_BY_LIMEX_TYPE(i->second, generateNfa, arg);
+    for (const auto &elem : scores) {
+        assert(elem.first >= 0);
+        NFAEngineType limex_model = elem.second;
+        auto nfa = DISPATCH_BY_LIMEX_TYPE(limex_model, generateNfa, arg);
+        if (nfa) {
+            DEBUG_PRINTF("successful build with NFA engine: %s\n",
+                         nfa_type_name(limex_model));
+            return nfa;
+        }
     }
 
-    if (!nfa) {
-        DEBUG_PRINTF("NFA build failed.\n");
-        return nullptr;
-    }
-
-    DEBUG_PRINTF("successful build with NFA engine: %s\n",
-                 nfa_type_name((NFAEngineType)nfa->type));
-    return nfa;
+    DEBUG_PRINTF("NFA build failed.\n");
+    return nullptr;
 }
 
 u32 countAccelStates(NGHolder &h,
