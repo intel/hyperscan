@@ -27,14 +27,9 @@
  */
 
 #include "catchup.h"
-#include "counting_miracle.h"
-#include "infix.h"
 #include "match.h"
-#include "miracle.h"
 #include "program_runtime.h"
-#include "rose_program.h"
 #include "rose.h"
-#include "som/som_runtime.h"
 #include "util/bitutils.h"
 #include "util/fatbit.h"
 
@@ -98,13 +93,9 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
     if (program) {
         const u64a som = 0;
         const size_t match_len = end - start + 1;
-        const char in_anchored = 0;
-        const char in_catchup = 0;
-        const char from_mpv = 0;
-        const char skip_mpv_catchup = 0;
-        UNUSED hwlmcb_rv_t rv =
-            roseRunProgram(t, scratch, program, som, real_end, match_len,
-                           in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+        const u8 flags = 0;
+        UNUSED hwlmcb_rv_t rv = roseRunProgram(t, scratch, program, som,
+                                               real_end, match_len, flags);
         assert(rv != HWLM_TERMINATE_MATCHING);
     }
 
@@ -253,13 +244,9 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
     const u32 *programs = getByOffset(t, t->litProgramOffset);
     assert(id < t->literalCount);
     const u64a som = 0;
-    const char in_anchored = 1;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 0;
+    const u8 flags = ROSE_PROG_FLAG_IN_ANCHORED;
     if (roseRunProgram(t, scratch, programs[id], som, real_end, match_len,
-                       in_anchored, in_catchup, from_mpv,
-                       skip_mpv_catchup) == HWLM_TERMINATE_MATCHING) {
+                       flags) == HWLM_TERMINATE_MATCHING) {
         assert(can_stop_matching(scratch));
         DEBUG_PRINTF("caller requested termination\n");
         return MO_HALT_MATCHING;
@@ -284,12 +271,8 @@ hwlmcb_rv_t roseProcessMatch(const struct RoseEngine *t,
     const u32 *programs = getByOffset(t, t->litProgramOffset);
     assert(id < t->literalCount);
     const u64a som = 0;
-    const char in_anchored = 0;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 0;
-    return roseRunProgram(t, scratch, programs[id], som, end, match_len,
-                          in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+    const u8 flags = 0;
+    return roseRunProgram(t, scratch, programs[id], som, end, match_len, flags);
 }
 
 static rose_inline
@@ -594,12 +577,9 @@ hwlmcb_rv_t rosePureLiteralCallback(size_t start, size_t end, u32 id,
     const struct RoseEngine *rose = ci->rose;
     const u32 *programs = getByOffset(rose, rose->litProgramOffset);
     assert(id < rose->literalCount);
-    const char in_anchored = 0;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 0;
+    const u8 flags = 0;
     return roseRunProgram(rose, scratch, programs[id], som, real_end, match_len,
-                          in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+                          flags);
 }
 
 /**
@@ -635,13 +615,9 @@ int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
 
     const u64a som = 0;
     const size_t match_len = 0;
-    const char in_anchored = 0;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 0;
-    hwlmcb_rv_t rv =
-        roseRunProgram(rose, scratch, program, som, stream_offset, match_len,
-                       in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+    const u8 flags = 0;
+    hwlmcb_rv_t rv = roseRunProgram(rose, scratch, program, som, stream_offset,
+                                    match_len, flags);
     if (rv == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;
     }
@@ -659,13 +635,9 @@ int roseReportAdaptor_i(u64a som, u64a offset, ReportID id, void *context) {
     // Our match ID is the program offset.
     const u32 program = id;
     const size_t match_len = 0; // Unused in this path.
-    const char in_anchored = 0;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 1;
+    const u8 flags = ROSE_PROG_FLAG_SKIP_MPV_CATCHUP;
     hwlmcb_rv_t rv =
-        roseRunProgram(rose, scratch, program, som, offset, match_len,
-                       in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+        roseRunProgram(rose, scratch, program, som, offset, match_len, flags);
     if (rv == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;
     }

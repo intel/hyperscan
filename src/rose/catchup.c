@@ -39,6 +39,7 @@
 #include "nfa/mpv.h"
 #include "som/som_runtime.h"
 #include "util/fatbit.h"
+#include "report.h"
 
 typedef struct queue_match PQ_T;
 #define PQ_COMP(pqc_items, a, b) ((pqc_items)[a].loc < (pqc_items)[b].loc)
@@ -51,10 +52,12 @@ int roseNfaRunProgram(const struct RoseEngine *rose, struct hs_scratch *scratch,
                       u64a som, u64a offset, ReportID id, const char from_mpv) {
     const u32 program = id;
     const size_t match_len = 0; // Unused in this path.
-    const char in_anchored = 0;
-    const char in_catchup = 1;
-    roseRunProgram(rose, scratch, program, som, offset, match_len, in_anchored,
-                   in_catchup, from_mpv, 0);
+    u8 flags = ROSE_PROG_FLAG_IN_CATCHUP;
+    if (from_mpv) {
+        flags |= ROSE_PROG_FLAG_FROM_MPV;
+    }
+
+    roseRunProgram(rose, scratch, program, som, offset, match_len, flags);
 
     return can_stop_matching(scratch) ? MO_HALT_MATCHING : MO_CONTINUE_MATCHING;
 }

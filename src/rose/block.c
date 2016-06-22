@@ -179,15 +179,12 @@ void roseBlockEodExec(const struct RoseEngine *t, u64a offset,
 
     const u64a som = 0;
     const size_t match_len = 0;
-    const char in_anchored = 0;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 1;
+    const u8 flags = ROSE_PROG_FLAG_SKIP_MPV_CATCHUP;
 
     // Note: we ignore the result, as this is the last thing to ever happen on
     // a scan.
     roseRunProgram(t, scratch, t->eodProgramOffset, som, offset, match_len,
-                   in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+                   flags);
 }
 
 /**
