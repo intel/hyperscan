@@ -401,6 +401,7 @@ struct RoseEngine {
                                         * table */
     u32 nfaInfoOffset; /* offset to the nfa info offset array */
     rose_group initialGroups;
+    rose_group floating_group_mask; /* groups that are used by the ftable */
     u32 size; // (bytes)
     u32 delay_count; /* number of delayed literal ids. */
     u32 delay_base_id; /* literal id of the first delayed literal.

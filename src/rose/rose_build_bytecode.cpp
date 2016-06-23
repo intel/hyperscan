@@ -4370,9 +4370,10 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     }
 
     // Build floating HWLM matcher.
+    rose_group fgroups = 0;
     size_t fsize = 0;
     size_t floatingStreamStateRequired = 0;
-    auto ftable = buildFloatingMatcher(*this, &fsize, &historyRequired,
+    auto ftable = buildFloatingMatcher(*this, &fgroups, &fsize, &historyRequired,
                                        &floatingStreamStateRequired);
     u32 fmatcherOffset = 0;
     if (ftable) {
@@ -4584,6 +4585,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     fillMatcherDistances(*this, engine.get());
 
     engine->initialGroups = getInitialGroups();
+    engine->floating_group_mask = fgroups;
     engine->totalNumLiterals = verify_u32(literal_info.size());
     engine->asize = verify_u32(asize);
     engine->ematcherRegionSize = ematcher_region_size;

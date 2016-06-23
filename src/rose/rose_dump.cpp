@@ -930,6 +930,7 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     fprintf(f, "\n");
 
     fprintf(f, "initial groups       : 0x%016llx\n", t->initialGroups);
+    fprintf(f, "floating groups      : 0x%016llx\n", t->floating_group_mask);
     fprintf(f, "handled key count    : %u\n", t->handledKeyCount);
     fprintf(f, "\n");
 
@@ -1035,6 +1036,7 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, floatingMinLiteralMatchOffset);
     DUMP_U32(t, nfaInfoOffset);
     DUMP_U64(t, initialGroups);
+    DUMP_U64(t, floating_group_mask);
     DUMP_U32(t, size);
     DUMP_U32(t, delay_count);
     DUMP_U32(t, delay_base_id);

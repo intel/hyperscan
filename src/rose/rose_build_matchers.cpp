@@ -580,15 +580,21 @@ vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
 }
 
 aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
+                                              rose_group *fgroups,
                                               size_t *fsize,
                                               size_t *historyRequired,
                                               size_t *streamStateRequired) {
     *fsize = 0;
+    *fgroups = 0;
 
     auto fl = fillHamsterLiteralList(build, ROSE_FLOATING);
     if (fl.empty()) {
         DEBUG_PRINTF("empty floating matcher\n");
         return nullptr;
+    }
+
+    for (const hwlmLiteral &hlit : fl) {
+        *fgroups |= hlit.groups;
     }
 
     hwlmStreamingControl ctl;

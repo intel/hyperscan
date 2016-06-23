@@ -48,6 +48,7 @@ std::vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
                                                 rose_literal_table table);
 
 aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
+                                              rose_group *fgroups,
                                               size_t *fsize,
                                               size_t *historyRequired,
                                               size_t *streamStateRequired);

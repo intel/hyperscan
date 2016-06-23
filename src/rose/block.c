@@ -260,8 +260,8 @@ int roseBlockFloating(const struct RoseEngine *t, struct hs_scratch *scratch) {
 
     DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
     DEBUG_PRINTF("-- %016llx\n", tctxt->groups);
-    hwlmExec(ftable, buffer, flen, t->floatingMinDistance, roseCallback,
-             scratch, tctxt->groups);
+    hwlmExec(ftable, buffer, flen, t->floatingMinDistance, roseFloatingCallback,
+             scratch, tctxt->groups & t->floating_group_mask);
 
     return can_stop_matching(scratch);
 }

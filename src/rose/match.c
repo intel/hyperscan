@@ -516,7 +516,8 @@ anchored_leftovers:;
     return rv;
 }
 
-hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
+static really_inline
+hwlmcb_rv_t roseCallback_i(size_t start, size_t end, u32 id, void *ctxt) {
     struct hs_scratch *scratch = ctxt;
     struct RoseContext *tctx = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
@@ -562,6 +563,17 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
     assert(can_stop_matching(scratch));
     DEBUG_PRINTF("user requested halt\n");
     return HWLM_TERMINATE_MATCHING;
+}
+
+hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
+    return roseCallback_i(start, end, id, ctxt);
+}
+
+hwlmcb_rv_t roseFloatingCallback(size_t start, size_t end, u32 id, void *ctxt) {
+    struct hs_scratch *scratch = ctxt;
+    const struct RoseEngine *t = scratch->core_info.rose;
+
+    return roseCallback_i(start, end, id, ctxt) & t->floating_group_mask;
 }
 
 /**

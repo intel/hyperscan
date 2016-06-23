@@ -461,8 +461,8 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;
     tctxt->next_mpv_offset = 0;
-    DEBUG_PRINTF("BEGIN: history len=%zu, buffer len=%zu\n",
-                  scratch->core_info.hlen, scratch->core_info.len);
+    DEBUG_PRINTF("BEGIN: history len=%zu, buffer len=%zu groups=%016llx\n",
+                 scratch->core_info.hlen, scratch->core_info.len, tctxt->groups);
 
     fatbit_clear(scratch->aqa);
     scratch->al_log_sum = 0;
@@ -540,8 +540,9 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
         }
 
         DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
-        hwlmExecStreaming(ftable, scratch, flen, start, roseCallback, scratch,
-                          tctxt->groups, stream_state);
+        hwlmExecStreaming(ftable, scratch, flen, start, roseFloatingCallback,
+                          scratch, tctxt->groups & t->floating_group_mask,
+                          stream_state);
     }
 
 flush_delay_and_exit:
