@@ -150,7 +150,7 @@ struct left_id {
         : g(in.graph.get()), c(in.castle.get()), d(in.dfa.get()),
           h(in.haig.get()), dfa_min_width(in.dfa_min_width),
           dfa_max_width(in.dfa_max_width) {
-        assert(!g || !generates_callbacks(*g));
+        assert(!g || !has_managed_reports(*g));
     }
     bool operator==(const left_id &b) const {
         bool rv = g == b.g && c == b.c && h == b.h && d == b.d;

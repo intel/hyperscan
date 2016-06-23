@@ -605,6 +605,9 @@ void dumpNfaNotes(ofstream &fout, const RoseEngine *t, const NFA *n) {
     }
 
     const LeftNfaInfo *left = getLeftInfoByQueue(t, qindex);
+    if (left->eager) {
+        fout << "eager ";
+    }
     if (left->transient) {
         fout << "transient " << (u32)left->transient << " ";
     }
@@ -1018,6 +1021,7 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, activeArrayCount);
     DUMP_U32(t, activeLeftCount);
     DUMP_U32(t, queueCount);
+    DUMP_U32(t, eagerIterOffset);
     DUMP_U32(t, handledKeyCount);
     DUMP_U32(t, leftOffset);
     DUMP_U32(t, roseCount);

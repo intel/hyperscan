@@ -1048,6 +1048,14 @@ char nfaExecGough16_inAccept(const struct NFA *n, ReportID report,
     return nfaExecMcClellan16_inAccept(n, report, q);
 }
 
+char nfaExecGough8_inAnyAccept(const struct NFA *n, struct mq *q) {
+    return nfaExecMcClellan8_inAnyAccept(n, q);
+}
+
+char nfaExecGough16_inAnyAccept(const struct NFA *n, struct mq *q) {
+    return nfaExecMcClellan16_inAnyAccept(n, q);
+}
+
 static
 char goughCheckEOD(const struct NFA *nfa, u16 s,
                    const struct gough_som_info *som,

@@ -266,6 +266,86 @@ int roseBlockFloating(const struct RoseEngine *t, struct hs_scratch *scratch) {
     return can_stop_matching(scratch);
 }
 
+static rose_inline
+void runEagerPrefixesBlock(const struct RoseEngine *t,
+                           struct hs_scratch *scratch) {
+    if (!t->eagerIterOffset) {
+        return;
+    }
+
+    char *state = scratch->core_info.state;
+    u8 *ara = getActiveLeftArray(t, state); /* indexed by offsets into
+                                             * left_table */
+    const u32 arCount = t->activeLeftCount;
+    const u32 qCount = t->queueCount;
+    const struct LeftNfaInfo *left_table = getLeftTable(t);
+    const struct mmbit_sparse_iter *it = getByOffset(t, t->eagerIterOffset);
+
+    struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
+
+    u32 idx = 0;
+    u32 ri = mmbit_sparse_iter_begin(ara, arCount, &idx, it, si_state);
+    for (; ri != MMB_INVALID;
+           ri = mmbit_sparse_iter_next(ara, arCount, ri, &idx, it, si_state)) {
+        const struct LeftNfaInfo *left = left_table + ri;
+        u32 qi = ri + t->leftfixBeginQueue;
+        DEBUG_PRINTF("leftfix %u/%u, maxLag=%u\n", ri, arCount, left->maxLag);
+
+        assert(!fatbit_isset(scratch->aqa, qCount, qi));
+        assert(left->eager);
+        assert(!left->infix);
+
+        struct mq *q = scratch->queues + qi;
+        const struct NFA *nfa = getNfaByQueue(t, qi);
+
+        if (scratch->core_info.len < nfa->minWidth) {
+            /* we know that there is not enough data for this to ever match, so
+             * we can immediately squash/ */
+            mmbit_unset(ara, arCount, ri);
+            scratch->tctxt.groups &= left->squash_mask;
+        }
+
+        s64a loc = MIN(scratch->core_info.len, EAGER_STOP_OFFSET);
+
+        fatbit_set(scratch->aqa, qCount, qi);
+        initRoseQueue(t, qi, left, scratch);
+
+        pushQueueAt(q, 0, MQE_START, 0);
+        pushQueueAt(q, 1, MQE_TOP, 0);
+        pushQueueAt(q, 2, MQE_END, loc);
+        nfaQueueInitState(nfa, q);
+
+        char alive = nfaQueueExecToMatch(q->nfa, q, loc);
+
+        if (!alive) {
+            DEBUG_PRINTF("queue %u dead, squashing\n", qi);
+            mmbit_unset(ara, arCount, ri);
+            fatbit_unset(scratch->aqa, qCount, qi);
+            scratch->tctxt.groups &= left->squash_mask;
+        } else if (q->cur == q->end) {
+            assert(alive != MO_MATCHES_PENDING);
+            if (loc == (s64a)scratch->core_info.len) {
+                /* We know that the prefix does not match in the block so we
+                 * can squash the groups anyway even though it did not die */
+                /* TODO: if we knew the minimum lag the leftfix is checked at we
+                 * could make this check tighter */
+                DEBUG_PRINTF("queue %u has no match in block, squashing\n", qi);
+                mmbit_unset(ara, arCount, ri);
+                fatbit_unset(scratch->aqa, qCount, qi);
+                scratch->tctxt.groups &= left->squash_mask;
+            } else {
+                DEBUG_PRINTF("queue %u finished, nfa lives\n", qi);
+                q->cur = q->end = 0;
+                pushQueueAt(q, 0, MQE_START, loc);
+            }
+        } else {
+            assert(alive == MO_MATCHES_PENDING);
+            DEBUG_PRINTF("queue %u unfinished, nfa lives\n", qi);
+            q->end--; /* remove end item */
+        }
+    }
+}
+
 void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     assert(t);
     assert(scratch);
@@ -314,6 +394,8 @@ void roseBlockExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
         hwlmExec(sbtable, scratch->core_info.buf, sblen, 0, roseCallback,
                  scratch, tctxt->groups);
     } else {
+        runEagerPrefixesBlock(t, scratch);
+
         if (roseBlockAnchored(t, scratch)) {
             return;
         }

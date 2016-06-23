@@ -373,7 +373,7 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
              const map<u32, vector<vector<CharReach>>> &triggers,
              bool compress_state, bool do_accel, bool impl_test_only, u32 hint,
              const CompileContext &cc) {
-    if (!generates_callbacks(h_in)) {
+    if (!has_managed_reports(h_in)) {
         rm = nullptr;
     } else {
         assert(rm);
@@ -413,7 +413,7 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
 
     set<NFAVertex> zombies = findZombies(*h, br_cyclic, state_ids, cc);
 
-    if (generates_callbacks(*h)) {
+    if (has_managed_reports(*h)) {
         assert(rm);
         remapReportsToPrograms(*h, *rm);
     }
@@ -508,7 +508,7 @@ u32 isImplementableNFA(const NGHolder &g, const ReportManager *rm,
         return true;
     }
 
-    if (!generates_callbacks(g)) {
+    if (!has_managed_reports(g)) {
         rm = nullptr;
     } else {
         assert(rm);
@@ -547,7 +547,7 @@ void reduceImplementableGraph(NGHolder &g, som_type som, const ReportManager *rm
 
     removeRedundancy(g, som);
 
-    if (rm && generates_callbacks(g)) {
+    if (rm && has_managed_reports(g)) {
         pruneHighlanderDominated(g, *rm);
     }
 
@@ -560,7 +560,7 @@ void reduceImplementableGraph(NGHolder &g, som_type som, const ReportManager *rm
 
 u32 countAccelStates(const NGHolder &g, const ReportManager *rm,
                      const CompileContext &cc) {
-    if (!generates_callbacks(g)) {
+    if (!has_managed_reports(g)) {
         rm = nullptr;
     } else {
         assert(rm);

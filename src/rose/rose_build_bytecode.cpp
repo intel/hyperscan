@@ -50,6 +50,7 @@
 #include "nfa/nfa_build_util.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/shufticompile.h"
+#include "nfagraph/ng_execute.h"
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_lbr.h"
 #include "nfagraph/ng_limex.h"
@@ -1046,8 +1047,9 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
     // streaming mode.
     const bool compress_state = !is_transient;
 
-    assert(!left.graph()
-           || left.graph()->kind == (is_prefix ? NFA_PREFIX : NFA_INFIX));
+    assert(is_prefix || !left.graph() || left.graph()->kind == NFA_INFIX);
+    assert(!is_prefix || !left.graph() || left.graph()->kind == NFA_PREFIX
+           || left.graph()->kind == NFA_EAGER_PREFIX);
 
     // Holder should be implementable as an NFA at the very least.
     if (!left.dfa() && left.graph()) {
@@ -1089,7 +1091,9 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
 
     if (!n && left.graph()) {
         map<u32, vector<vector<CharReach>>> triggers;
-        findTriggerSequences(tbi, infixTriggers.at(left), &triggers);
+        if (left.graph()->kind == NFA_INFIX) {
+            findTriggerSequences(tbi, infixTriggers.at(left), &triggers);
+        }
         n = constructNFA(*left.graph(), nullptr, fixed_depth_tops, triggers,
                          compress_state, cc);
     }
@@ -1126,16 +1130,308 @@ void setLeftNfaProperties(NFA &n, const left_id &left) {
 }
 
 static
+void appendTailToHolder(NGHolder &h, const flat_set<ReportID> &reports,
+                        const vector<NFAVertex> &starts,
+                        const vector<CharReach> &tail) {
+    assert(!tail.empty());
+    NFAVertex curr = add_vertex(h);
+    for (NFAVertex v : starts) {
+        assert(!edge(v, h.acceptEod, h).second);
+        assert(h[v].reports == reports);
+        h[v].reports.clear();
+        remove_edge(v, h.accept, h);
+        add_edge(v, curr, h);
+    }
+    auto it = tail.begin();
+    h[curr].char_reach = *it;
+    ++it;
+    while (it != tail.end()) {
+        NFAVertex old = curr;
+        curr = add_vertex(h);
+        add_edge(old, curr, h);
+        assert(!it->none());
+        h[curr].char_reach = *it;
+        ++it;
+    }
+
+    h[curr].reports = reports;
+    add_edge(curr, h.accept, h);
+}
+
+static
+void appendTailToHolder(NGHolder &h, const vector<CharReach> &tail) {
+    assert(in_degree(h.acceptEod, h) == 1);
+    assert(!tail.empty());
+
+    map<flat_set<ReportID>, vector<NFAVertex> > reporters;
+    for (auto v : inv_adjacent_vertices_range(h.accept, h)) {
+        reporters[h[v].reports].push_back(v);
+    }
+
+    for (const auto &e : reporters) {
+        appendTailToHolder(h, e.first, e.second, tail);
+    }
+
+    h.renumberEdges();
+}
+
+static
+u32 decreaseLag(const RoseBuildImpl &build, NGHolder &h,
+                const vector<RoseVertex> &succs) {
+    const RoseGraph &rg = build.g;
+    static const size_t MAX_RESTORE_LEN = 5;
+
+    vector<CharReach> restored(MAX_RESTORE_LEN);
+    for (RoseVertex v : succs) {
+        u32 lag = rg[v].left.lag;
+        for (u32 lit_id : rg[v].literals) {
+            u32 delay = build.literals.right.at(lit_id).delay;
+            const ue2_literal &literal = build.literals.right.at(lit_id).s;
+            assert(lag <= literal.length() + delay);
+            size_t base = literal.length() + delay - lag;
+            if (base >= literal.length()) {
+                return 0;
+            }
+            size_t len = literal.length() - base;
+            len = MIN(len, restored.size());
+            restored.resize(len);
+            auto lit_it = literal.begin() + base;
+            for (u32 i = 0; i < len; i++) {
+                assert(lit_it != literal.end());
+                restored[i] |= *lit_it;
+                ++lit_it;
+            }
+        }
+    }
+
+    assert(!restored.empty());
+
+    appendTailToHolder(h, restored);
+
+    return restored.size();
+}
+
+#define EAGER_DIE_BEFORE_LIMIT 10
+
+struct eager_info {
+    shared_ptr<NGHolder> new_graph;
+    u32 lag_adjust = 0;
+};
+
+static
+bool checkSuitableForEager(bool is_prefix, const left_id &left,
+                           const RoseBuildImpl &build,
+                           const vector<RoseVertex> &succs,
+                           rose_group squash_mask, rose_group initial_groups,
+                           eager_info &ei, const CompileContext &cc) {
+    DEBUG_PRINTF("checking prefix --> %016llx...\n", squash_mask);
+
+    const RoseGraph &rg = build.g;
+
+    if (!is_prefix) {
+        DEBUG_PRINTF("not prefix\n");
+        return false; /* only prefixes (for now...) */
+    }
+
+    if ((initial_groups & squash_mask) == initial_groups) {
+        DEBUG_PRINTF("no squash -- useless\n");
+        return false;
+    }
+
+    for (RoseVertex s : succs) {
+        if (build.isInETable(s)
+            || contains(rg[s].literals, build.eod_event_literal_id)) {
+            return false; /* Ignore EOD related prefixes */
+        }
+    }
+
+    if (left.dfa()) {
+        const raw_dfa &dfa = *left.dfa();
+        if (dfa.start_floating != DEAD_STATE) {
+            return false; /* not purely anchored */
+        }
+        if (!dfa.states[dfa.start_anchored].reports.empty()) {
+            return false; /* vacuous (todo: handle?) */
+        }
+
+        if (!can_die_early(dfa, EAGER_DIE_BEFORE_LIMIT)) {
+            return false;
+        }
+        ei.new_graph = rg[succs[0]].left.graph;
+    } else if (left.graph()) {
+        const NGHolder &g = *left.graph();
+        if (proper_out_degree(g.startDs, g)) {
+            return false; /* not purely anchored */
+        }
+        if (is_match_vertex(g.start, g)) {
+            return false; /* vacuous (todo: handle?) */
+        }
+
+        ei.new_graph = cloneHolder(*left.graph());
+        auto gg = ei.new_graph;
+        gg->kind = NFA_EAGER_PREFIX;
+
+        ei.lag_adjust = decreaseLag(build, *gg, succs);
+
+        if (!can_die_early(*gg, EAGER_DIE_BEFORE_LIMIT)) {
+            DEBUG_PRINTF("not eager as stuck alive\n");
+            return false;
+        }
+
+        /* We need to ensure that adding in the literals does not cause us to no
+         * longer be able to build an nfa. */
+        bool ok = isImplementableNFA(*gg, nullptr, cc);
+        if (!ok) {
+            return false;
+        }
+    } else {
+        DEBUG_PRINTF("unable to determine if good for eager running\n");
+        return false;
+    }
+
+    DEBUG_PRINTF("eager prefix\n");
+    return true;
+}
+
+static
+left_id updateLeftfixWithEager(RoseGraph &g, const eager_info &ei,
+                               const vector<RoseVertex> &succs) {
+    u32 lag_adjust = ei.lag_adjust;
+    auto gg = ei.new_graph;
+    for (RoseVertex v : succs) {
+        g[v].left.graph = gg;
+        assert(g[v].left.lag >= lag_adjust);
+        g[v].left.lag -= lag_adjust;
+        DEBUG_PRINTF("added %u literal chars back, new lag %u\n", lag_adjust,
+                     g[v].left.lag);
+    }
+    left_id leftfix = g[succs[0]].left;
+
+    if (leftfix.graph()) {
+        assert(leftfix.graph()->kind == NFA_PREFIX
+               || leftfix.graph()->kind == NFA_EAGER_PREFIX);
+        leftfix.graph()->kind = NFA_EAGER_PREFIX;
+    }
+    if (leftfix.dfa()) {
+        assert(leftfix.dfa()->kind == NFA_PREFIX);
+        leftfix.dfa()->kind = NFA_EAGER_PREFIX;
+    }
+
+    return leftfix;
+}
+
+static
+bool buildLeftfix(RoseBuildImpl &build, build_context &bc, bool prefix, u32 qi,
+                  const map<left_id, set<PredTopPair> > &infixTriggers,
+                  set<u32> *no_retrigger_queues, set<u32> *eager_queues,
+                  const map<left_id, eager_info> &eager,
+                  const vector<RoseVertex> &succs, left_id leftfix) {
+    RoseGraph &g = build.g;
+    const CompileContext &cc = build.cc;
+    const ReportManager &rm = build.rm;
+
+    bool is_transient = contains(build.transient, leftfix);
+    rose_group squash_mask = build.rose_squash_masks.at(leftfix);
+
+    DEBUG_PRINTF("making %sleftfix\n", is_transient ? "transient " : "");
+
+    if (contains(eager, leftfix)) {
+        eager_queues->insert(qi);
+        leftfix = updateLeftfixWithEager(g, eager.at(leftfix), succs);
+    }
+
+    aligned_unique_ptr<NFA> nfa;
+    // Need to build NFA, which is either predestined to be a Haig (in SOM mode)
+    // or could be all manner of things.
+    if (leftfix.haig()) {
+        nfa = goughCompile(*leftfix.haig(), build.ssm.somPrecision(), cc, rm);
+    }  else {
+        nfa = makeLeftNfa(build, leftfix, prefix, is_transient, infixTriggers,
+                          cc);
+    }
+
+    if (!nfa) {
+        assert(!"failed to build leftfix");
+        return false;
+    }
+
+    setLeftNfaProperties(*nfa, leftfix);
+
+    build.leftfix_queue_map.emplace(leftfix, qi);
+    nfa->queueIndex = qi;
+
+    if (!prefix && !leftfix.haig() && leftfix.graph()
+        && nfaStuckOn(*leftfix.graph())) {
+        DEBUG_PRINTF("%u sticks on\n", qi);
+        no_retrigger_queues->insert(qi);
+    }
+
+    DEBUG_PRINTF("built leftfix, qi=%u\n", qi);
+    add_nfa_to_blob(bc, *nfa);
+
+    // Leftfixes can have stop alphabets.
+    vector<u8> stop(N_CHARS, 0);
+    /* haigs track som information - need more care */
+    som_type som = leftfix.haig() ? SOM_LEFT : SOM_NONE;
+    if (leftfix.graph()) {
+        stop = findLeftOffsetStopAlphabet(*leftfix.graph(), som);
+    } else if (leftfix.castle()) {
+        stop = findLeftOffsetStopAlphabet(*leftfix.castle(), som);
+    }
+
+    // Infix NFAs can have bounds on their queue lengths.
+    u32 max_queuelen = UINT32_MAX;
+    if (!prefix) {
+        set<ue2_literal> lits;
+        for (RoseVertex v : succs) {
+            for (auto u : inv_adjacent_vertices_range(v, g)) {
+                for (u32 lit_id : g[u].literals) {
+                    lits.insert(build.literals.right.at(lit_id).s);
+                }
+            }
+        }
+        DEBUG_PRINTF("%zu literals\n", lits.size());
+        max_queuelen = findMaxInfixMatches(leftfix, lits);
+        if (max_queuelen < UINT32_MAX) {
+            max_queuelen++;
+        }
+    }
+
+    u32 max_width;
+    if (is_transient) {
+        depth d = findMaxWidth(leftfix);
+        assert(d.is_finite());
+        max_width = d;
+    } else {
+        max_width = 0;
+    }
+
+    u8 cm_count = 0;
+    CharReach cm_cr;
+    if (cc.grey.allowCountingMiracles) {
+        findCountingMiracleInfo(leftfix, stop, &cm_count, &cm_cr);
+    }
+
+    for (RoseVertex v : succs) {
+        bc.leftfix_info.emplace(v, left_build_info(qi, g[v].left.lag, max_width,
+                                                   squash_mask, stop,
+                                                   max_queuelen, cm_count,
+                                                   cm_cr));
+    }
+
+    return true;
+}
+
+static
 bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
                     QueueIndexFactory &qif, set<u32> *no_retrigger_queues,
-                    bool do_prefix) {
-    const RoseGraph &g = tbi.g;
+                    set<u32> *eager_queues, bool do_prefix) {
+    RoseGraph &g = tbi.g;
     const CompileContext &cc = tbi.cc;
-    const ReportManager &rm = tbi.rm;
-
-    ue2::unordered_map<left_id, u32> seen; // already built queue indices
 
     map<left_id, set<PredTopPair> > infixTriggers;
+    vector<left_id> order;
+    unordered_map<left_id, vector<RoseVertex> > succs;
     findInfixTriggers(tbi, &infixTriggers);
 
     for (auto v : vertices_range(g)) {
@@ -1143,6 +1439,7 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
             continue;
         }
 
+        assert(tbi.isNonRootSuccessor(v) != tbi.isRootSuccessor(v));
         bool is_prefix = tbi.isRootSuccessor(v);
 
         if (do_prefix != is_prefix) {
@@ -1156,8 +1453,6 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
         // our in-edges.
         assert(roseHasTops(g, v));
 
-        u32 qi; // queue index, set below.
-        u32 lag = g[v].left.lag;
         bool is_transient = contains(tbi.transient, leftfix);
 
         // Transient leftfixes can sometimes be implemented solely with
@@ -1173,95 +1468,42 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
             }
         }
 
-        if (contains(seen, leftfix)) {
-            // NFA already built.
-            qi = seen[leftfix];
-            assert(contains(bc.engineOffsets, qi));
-            DEBUG_PRINTF("sharing leftfix, qi=%u\n", qi);
-        } else {
-            DEBUG_PRINTF("making %sleftfix\n", is_transient ? "transient " : "");
-
-            aligned_unique_ptr<NFA> nfa;
-
-            // Need to build NFA, which is either predestined to be a Haig (in
-            // SOM mode) or could be all manner of things.
-            if (leftfix.haig()) {
-                nfa = goughCompile(*leftfix.haig(), tbi.ssm.somPrecision(), cc,
-                                   rm);
-            }  else {
-                assert(tbi.isNonRootSuccessor(v) != tbi.isRootSuccessor(v));
-                nfa = makeLeftNfa(tbi, leftfix, is_prefix, is_transient,
-                                  infixTriggers, cc);
-            }
-
-            if (!nfa) {
-                assert(!"failed to build leftfix");
-                return false;
-            }
-
-            setLeftNfaProperties(*nfa, leftfix);
-
-            qi = qif.get_queue();
-            tbi.leftfix_queue_map.emplace(leftfix, qi);
-            nfa->queueIndex = qi;
-
-            if (!is_prefix && !leftfix.haig() && leftfix.graph() &&
-                nfaStuckOn(*leftfix.graph())) {
-                DEBUG_PRINTF("%u sticks on\n", qi);
-                no_retrigger_queues->insert(qi);
-            }
-
-            DEBUG_PRINTF("built leftfix, qi=%u\n", qi);
-            add_nfa_to_blob(bc, *nfa);
-            seen.emplace(leftfix, qi);
+        if (!contains(succs, leftfix)) {
+            order.push_back(leftfix);
         }
+
+        succs[leftfix].push_back(v);
+    }
+
+    rose_group initial_groups = tbi.getInitialGroups();
+    rose_group combined_eager_squashed_mask = ~0ULL;
+
+    map<left_id, eager_info> eager;
+
+    for (const left_id &leftfix : order) {
+        const auto &left_succs = succs[leftfix];
 
         rose_group squash_mask = tbi.rose_squash_masks.at(leftfix);
+        eager_info ei;
 
-        // Leftfixes can have stop alphabets.
-        vector<u8> stop(N_CHARS, 0);
-        /* haigs track som information - need more care */
-        som_type som = leftfix.haig() ? SOM_LEFT : SOM_NONE;
-        if (leftfix.graph()) {
-            stop = findLeftOffsetStopAlphabet(*leftfix.graph(), som);
-        } else if (leftfix.castle()) {
-            stop = findLeftOffsetStopAlphabet(*leftfix.castle(), som);
+        if (checkSuitableForEager(do_prefix, leftfix, tbi, left_succs,
+                                  squash_mask, initial_groups, ei, cc)) {
+            eager[leftfix] = ei;
+            combined_eager_squashed_mask &= squash_mask;
+            DEBUG_PRINTF("combo %016llx...\n", combined_eager_squashed_mask);
         }
+    }
 
-        // Infix NFAs can have bounds on their queue lengths.
-        u32 max_queuelen = UINT32_MAX;
-        if (!is_prefix) {
-            set<ue2_literal> lits;
-            for (auto u : inv_adjacent_vertices_range(v, tbi.g)) {
-                for (u32 lit_id : tbi.g[u].literals) {
-                    lits.insert(tbi.literals.right.at(lit_id).s);
-                }
-            }
-            DEBUG_PRINTF("%zu literals\n", lits.size());
-            max_queuelen = findMaxInfixMatches(leftfix, lits);
-            if (max_queuelen < UINT32_MAX) {
-                max_queuelen++;
-            }
-        }
+    if (do_prefix && combined_eager_squashed_mask & initial_groups) {
+        DEBUG_PRINTF("eager groups won't squash everyone - be lazy\n");
+        eager_queues->clear();
+        eager.clear();
+    }
 
-        u32 max_width;
-        if (is_transient) {
-            depth d = findMaxWidth(leftfix);
-            assert(d.is_finite());
-            max_width = d;
-        } else {
-            max_width = 0;
-        }
-
-        u8 cm_count = 0;
-        CharReach cm_cr;
-        if (cc.grey.allowCountingMiracles) {
-            findCountingMiracleInfo(leftfix, stop, &cm_count, &cm_cr);
-        }
-
-        bc.leftfix_info.emplace(
-            v, left_build_info(qi, lag, max_width, squash_mask, stop,
-                               max_queuelen, cm_count, cm_cr));
+    for (const left_id &leftfix : order) {
+        buildLeftfix(tbi, bc, do_prefix, qif.get_queue(), infixTriggers,
+                     no_retrigger_queues, eager_queues, eager, succs[leftfix],
+                     leftfix);
     }
 
     return true;
@@ -1613,9 +1855,11 @@ void buildCountingMiracles(RoseBuildImpl &build, build_context &bc) {
     }
 }
 
+/* Note: buildNfas may reduce the lag for vertices that have prefixes */
 static
 bool buildNfas(RoseBuildImpl &tbi, build_context &bc, QueueIndexFactory &qif,
-               set<u32> *no_retrigger_queues, u32 *leftfixBeginQueue) {
+               set<u32> *no_retrigger_queues, set<u32> *eager_queues,
+               u32 *leftfixBeginQueue) {
     assignSuffixQueues(tbi, bc);
 
     if (!buildSuffixes(tbi, bc, no_retrigger_queues)) {
@@ -1624,11 +1868,13 @@ bool buildNfas(RoseBuildImpl &tbi, build_context &bc, QueueIndexFactory &qif,
 
     *leftfixBeginQueue = qif.allocated_count();
 
-    if (!buildLeftfixes(tbi, bc, qif, no_retrigger_queues, true)) {
+    if (!buildLeftfixes(tbi, bc, qif, no_retrigger_queues, eager_queues,
+                        true)) {
         return false;
     }
 
-    if (!buildLeftfixes(tbi, bc, qif, no_retrigger_queues, false)) {
+    if (!buildLeftfixes(tbi, bc, qif, no_retrigger_queues, eager_queues,
+                        false)) {
         return false;
     }
 
@@ -1672,10 +1918,10 @@ static
 void findTransientQueues(const map<RoseVertex, left_build_info> &leftfix_info,
                          set<u32> *out) {
     DEBUG_PRINTF("curating transient queues\n");
-    for (const auto &rbi : leftfix_info | map_values) {
-        if (rbi.transient) {
-            DEBUG_PRINTF("q %u is transient\n", rbi.queue);
-            out->insert(rbi.queue);
+    for (const auto &build : leftfix_info | map_values) {
+        if (build.transient) {
+            DEBUG_PRINTF("q %u is transient\n", build.queue);
+            out->insert(build.queue);
         }
     }
 }
@@ -3301,9 +3547,9 @@ void assignStateIndices(const RoseBuildImpl &build, build_context &bc) {
 }
 
 static
-bool hasUsefulStops(const left_build_info &rbi) {
+bool hasUsefulStops(const left_build_info &build) {
     for (u32 i = 0; i < N_CHARS; i++) {
-        if (rbi.stopAlphabet[i]) {
+        if (build.stopAlphabet[i]) {
             return true;
         }
     }
@@ -3312,6 +3558,7 @@ bool hasUsefulStops(const left_build_info &rbi) {
 
 static
 void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
+                        const set<u32> &eager_queues,
                         u32 leftfixBeginQueue, u32 leftfixCount,
                         vector<LeftNfaInfo> &leftTable, u32 *laggedRoseCount,
                         size_t *history) {
@@ -3371,6 +3618,7 @@ void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
             DEBUG_PRINTF("mw = %u\n", lbi.transient);
             left.transient = verify_u8(lbi.transient);
             left.infix = tbi.isNonRootSuccessor(v);
+            left.eager = contains(eager_queues, lbi.queue);
 
             // A rose has a lagIndex if it's non-transient and we are
             // streaming.
@@ -4271,6 +4519,25 @@ void fillMatcherDistances(const RoseBuildImpl &build, RoseEngine *engine) {
     }
 }
 
+static
+u32 buildEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
+                        u32 queue_count,
+                        build_context &bc) {
+    if (eager.empty()) {
+        return 0;
+    }
+
+    vector<u32> vec;
+    for (u32 q : eager) {
+        assert(q >= leftfixBeginQueue);
+        vec.push_back(q - leftfixBeginQueue);
+    }
+
+    vector<mmbit_sparse_iter> iter;
+    mmbBuildSparseIterator(iter, vec, queue_count - leftfixBeginQueue);
+    return addIteratorToTable(bc, iter);
+}
+
 aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     DerivedBoundaryReports dboundary(boundary);
 
@@ -4305,7 +4572,10 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     u32 outfixEndQueue = qif.allocated_count();
     u32 leftfixBeginQueue = outfixEndQueue;
 
-    if (!buildNfas(*this, bc, qif, &no_retrigger_queues,
+    set<u32> eager_queues;
+
+    /* Note: buildNfas may reduce the lag for vertices that have prefixes */
+    if (!buildNfas(*this, bc, qif, &no_retrigger_queues, &eager_queues,
                    &leftfixBeginQueue)) {
         return nullptr;
     }
@@ -4325,7 +4595,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     u32 laggedRoseCount = 0;
     vector<LeftNfaInfo> leftInfoTable;
-    buildLeftInfoTable(*this, bc, leftfixBeginQueue,
+    buildLeftInfoTable(*this, bc, eager_queues, leftfixBeginQueue,
                        queue_count - leftfixBeginQueue, leftInfoTable,
                        &laggedRoseCount, &historyRequired);
 
@@ -4340,6 +4610,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     buildActiveLeftIter(leftInfoTable, activeLeftIter);
 
     u32 lastByteOffset = buildLastByteIter(g, bc);
+    u32 eagerIterOffset = buildEagerQueueIter(eager_queues, leftfixBeginQueue,
+                                              queue_count, bc);
 
     // Enforce role table resource limit.
     if (num_vertices(g) > cc.grey.limitRoseRoleCount) {
@@ -4513,6 +4785,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->activeArrayCount = activeArrayCount;
     engine->activeLeftCount = activeLeftCount;
     engine->queueCount = queue_count;
+    engine->eagerIterOffset = eagerIterOffset;
     engine->handledKeyCount = bc.handledKeys.size();
 
     engine->group_weak_end = group_weak_end;

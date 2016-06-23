@@ -144,6 +144,7 @@ struct LeftNfaInfo {
     u32 stopTable; // stop table index, or ROSE_OFFSET_INVALID
     u8 transient; /**< 0 if not transient, else max width of transient prefix */
     char infix; /* TODO: make flags */
+    char eager; /**< nfa should be run eagerly to first match or death */
     char eod_check; /**< nfa is used by the event eod literal */
     u32 countingMiracleOffset; /** if not 0, offset to RoseCountingMiracle. */
     rose_group squash_mask; /* & mask applied when rose nfa dies */
@@ -365,6 +366,9 @@ struct RoseEngine {
     u32 activeArrayCount; //number of nfas tracked in the active array
     u32 activeLeftCount; //number of nfas tracked in the active rose array
     u32 queueCount;      /**< number of nfa queues */
+
+    u32 eagerIterOffset; /**< offset to sparse iter for eager prefixes or 0 if
+                          * none */
 
     /** \brief Number of keys used by CHECK_SET_HANDLED instructions in role
      * programs. Used to size the handled_roles fatbit in scratch. */

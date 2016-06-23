@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -63,6 +63,9 @@ flat_set<NFAVertex> execute_graph(const NGHolder &g, const NGHolder &input_dag,
 flat_set<NFAVertex> execute_graph(const NGHolder &g, const NGHolder &input_dag,
                                   const flat_set<NFAVertex> &input_start_states,
                                   const flat_set<NFAVertex> &initial);
+
+/* returns true if it is possible for the nfa to die within age_limit bytes */
+bool can_die_early(const NGHolder &g, u32 age_limit);
 
 } // namespace ue2
 

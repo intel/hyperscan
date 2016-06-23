@@ -60,6 +60,7 @@ extern "C"
     char gf_name##_reportCurrent(const struct NFA *n, struct mq *q);           \
     char gf_name##_inAccept(const struct NFA *n, ReportID report,              \
                             struct mq *q);                                     \
+    char gf_name##_inAnyAccept(const struct NFA *n, struct mq *q);             \
     char gf_name##_queueInitState(const struct NFA *n, struct mq *q);          \
     char gf_name##_initCompressedState(const struct NFA *n, u64a offset,       \
                                        void *state, u8 key);                   \

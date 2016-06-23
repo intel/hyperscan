@@ -47,6 +47,7 @@ enum nfa_kind {
     NFA_OUTFIX,  //!< "outfix" nfa not triggered by external events
     NFA_OUTFIX_RAW, //!< "outfix", but with unmanaged reports
     NFA_REV_PREFIX, //! reverse running prefixes (for som)
+    NFA_EAGER_PREFIX, //!< rose prefix that is also run up to matches
 };
 
 /** \brief True if this kind of engine is triggered by a top event. */
@@ -63,8 +64,10 @@ bool is_triggered(enum nfa_kind k) {
 }
 
 /**
- * \brief True if this kind of engine generates callback events when it
- * enters accept states.
+ * \brief True if this kind of engine generates actively checks for accept
+ * states either to halt matching or to raise a callback. Only these engines
+ * generated with this property should call nfaQueueExec() or
+ * nfaQueueExecToMatch().
  */
 inline
 bool generates_callbacks(enum nfa_kind k) {
@@ -73,6 +76,24 @@ bool generates_callbacks(enum nfa_kind k) {
     case NFA_OUTFIX:
     case NFA_OUTFIX_RAW:
     case NFA_REV_PREFIX:
+    case NFA_EAGER_PREFIX:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/**
+ * \brief True if this kind of engine has its state inspected to see if it is in
+ * an accept state. Engines generated with this property will commonly call
+ * nfaQueueExecRose(), nfaInAcceptState(), and nfaInAnyAcceptState().
+ */
+inline
+bool inspects_states_for_accepts(enum nfa_kind k) {
+    switch (k) {
+    case NFA_PREFIX:
+    case NFA_INFIX:
+    case NFA_EAGER_PREFIX:
         return true;
     default:
         return false;

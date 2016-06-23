@@ -76,6 +76,8 @@ string to_string(nfa_kind k) {
         return "REV_PREFIX";
     case NFA_OUTFIX_RAW:
         return "OUTFIX_RAW";
+    case NFA_EAGER_PREFIX:
+        return "EAGER_PREFIX";
     }
     assert(0);
     return "?";

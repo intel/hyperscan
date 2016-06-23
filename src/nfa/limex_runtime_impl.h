@@ -650,7 +650,27 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
         ep = MIN(ep, end_abs);
         assert(ep >= sp);
 
-        assert(sp >= offset); // We no longer do history buffer scans here.
+        if (sp < offset) {
+            DEBUG_PRINTF("HISTORY BUFFER SCAN\n");
+            assert(offset - sp <= q->hlength);
+            u64a local_ep = MIN(offset, ep);
+            u64a final_look = 0;
+            /* we are starting inside the history buffer */
+            if (STREAMFIRST_FN(limex, q->history + q->hlength + sp - offset,
+                               local_ep - sp, &ctx, sp,
+                               &final_look) == MO_HALT_MATCHING) {
+                DEBUG_PRINTF("final_look:%llu sp:%llu end_abs:%llu "
+                             "offset:%llu\n", final_look, sp, end_abs, offset);
+                assert(q->cur);
+                q->cur--;
+                q->items[q->cur].type = MQE_START;
+                q->items[q->cur].location = sp + final_look - offset;
+                STORE_STATE(q->state, LOAD_STATE(&ctx.s));
+                return MO_MATCHES_PENDING;
+            }
+
+            sp = local_ep;
+        }
 
         if (sp >= ep) {
             goto scan_done;
@@ -866,6 +886,21 @@ char JOIN(LIMEX_API_ROOT, _inAccept)(const struct NFA *nfa,
 
     return JOIN(limexInAccept, SIZE)(limex, state, repeat_ctrl, repeat_state,
                                      offset, report);
+}
+
+char JOIN(LIMEX_API_ROOT, _inAnyAccept)(const struct NFA *nfa, struct mq *q) {
+    assert(nfa && q);
+    assert(q->state && q->streamState);
+
+    const IMPL_NFA_T *limex = getImplNfa(nfa);
+    union RepeatControl *repeat_ctrl =
+        getRepeatControlBase(q->state, sizeof(STATE_T));
+    char *repeat_state = q->streamState + limex->stateSize;
+    STATE_T state = LOAD_STATE(q->state);
+    u64a offset = q->offset + q_last_loc(q) + 1;
+
+    return JOIN(limexInAnyAccept, SIZE)(limex, state, repeat_ctrl, repeat_state,
+                                        offset);
 }
 
 enum nfa_zombie_status JOIN(LIMEX_API_ROOT, _zombie_status)(

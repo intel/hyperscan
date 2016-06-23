@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,6 +47,7 @@ char nfaExecMcClellan8_QR(const struct NFA *n, struct mq *q, ReportID report);
 char nfaExecMcClellan8_reportCurrent(const struct NFA *n, struct mq *q);
 char nfaExecMcClellan8_inAccept(const struct NFA *n, ReportID report,
                                 struct mq *q);
+char nfaExecMcClellan8_inAnyAccept(const struct NFA *n, struct mq *q);
 char nfaExecMcClellan8_queueInitState(const struct NFA *n, struct mq *q);
 char nfaExecMcClellan8_initCompressedState(const struct NFA *n, u64a offset,
                                            void *state, u8 key);
@@ -70,6 +71,7 @@ char nfaExecMcClellan16_QR(const struct NFA *n, struct mq *q, ReportID report);
 char nfaExecMcClellan16_reportCurrent(const struct NFA *n, struct mq *q);
 char nfaExecMcClellan16_inAccept(const struct NFA *n, ReportID report,
                                  struct mq *q);
+char nfaExecMcClellan16_inAnyAccept(const struct NFA *n, struct mq *q);
 char nfaExecMcClellan16_queueInitState(const struct NFA *n, struct mq *q);
 char nfaExecMcClellan16_initCompressedState(const struct NFA *n, u64a offset,
                                             void *state, u8 key);

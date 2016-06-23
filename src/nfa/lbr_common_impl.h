@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -92,6 +92,15 @@ char JOIN(ENGINE_EXEC_NAME, _inAccept)(const struct NFA *nfa,
 
     u64a offset = q->offset + q_last_loc(q);
     return lbrInAccept(l, lstate, q->streamState, offset, report);
+}
+
+char JOIN(ENGINE_EXEC_NAME, _inAnyAccept)(const struct NFA *nfa, struct mq *q) {
+    assert(nfa && q);
+    assert(isLbrType(nfa->type));
+    DEBUG_PRINTF("entry\n");
+
+    const struct lbr_common *l = getImplNfa(nfa);
+    return JOIN(ENGINE_EXEC_NAME, _inAccept)(nfa, l->report, q);
 }
 
 char JOIN(ENGINE_EXEC_NAME, _queueInitState)(const struct NFA *nfa,

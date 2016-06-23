@@ -423,6 +423,92 @@ void do_rebuild(const struct RoseEngine *t, const struct HWLM *ftable,
     assert(!can_stop_matching(scratch));
 }
 
+static rose_inline
+void runEagerPrefixesStream(const struct RoseEngine *t,
+                            struct hs_scratch *scratch) {
+    if (!t->eagerIterOffset
+        || scratch->core_info.buf_offset >= EAGER_STOP_OFFSET) {
+        return;
+    }
+
+    char *state = scratch->core_info.state;
+    u8 *ara = getActiveLeftArray(t, state); /* indexed by offsets into
+                                             * left_table */
+    const u32 arCount = t->activeLeftCount;
+    const u32 qCount = t->queueCount;
+    const struct LeftNfaInfo *left_table = getLeftTable(t);
+    const struct mmbit_sparse_iter *it = getByOffset(t, t->eagerIterOffset);
+
+    struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
+
+    u32 idx = 0;
+    u32 ri = mmbit_sparse_iter_begin(ara, arCount, &idx, it, si_state);
+    for (; ri != MMB_INVALID;
+           ri = mmbit_sparse_iter_next(ara, arCount, ri, &idx, it, si_state)) {
+        const struct LeftNfaInfo *left = left_table + ri;
+        u32 qi = ri + t->leftfixBeginQueue;
+        DEBUG_PRINTF("leftfix %u of %u, maxLag=%u\n", ri, arCount, left->maxLag);
+
+        assert(!fatbit_isset(scratch->aqa, qCount, qi));
+        assert(left->eager);
+        assert(!left->infix);
+
+        struct mq *q = scratch->queues + qi;
+        const struct NFA *nfa = getNfaByQueue(t, qi);
+        s64a loc = MIN(scratch->core_info.len,
+                       EAGER_STOP_OFFSET - scratch->core_info.buf_offset);
+
+        fatbit_set(scratch->aqa, qCount, qi);
+        initRoseQueue(t, qi, left, scratch);
+
+        if (scratch->core_info.buf_offset) {
+            s64a sp = left->transient ? -(s64a)scratch->core_info.hlen
+                                      : -(s64a)loadRoseDelay(t, state, left);
+            pushQueueAt(q, 0, MQE_START, sp);
+            if (scratch->core_info.buf_offset + sp > 0) {
+                loadStreamState(nfa, q, sp);
+                /* if the leftfix fix is currently in a match state, we cannot
+                 * advance it. */
+                if (nfaInAnyAcceptState(nfa, q)) {
+                    continue;
+                }
+                pushQueueAt(q, 1, MQE_END, loc);
+            } else {
+                pushQueueAt(q, 1, MQE_TOP, sp);
+                pushQueueAt(q, 2, MQE_END, loc);
+                nfaQueueInitState(q->nfa, q);
+            }
+        } else {
+            pushQueueAt(q, 0, MQE_START, 0);
+            pushQueueAt(q, 1, MQE_TOP, 0);
+            pushQueueAt(q, 2, MQE_END, loc);
+            nfaQueueInitState(nfa, q);
+        }
+
+        char alive = nfaQueueExecToMatch(q->nfa, q, loc);
+
+        if (!alive) {
+            DEBUG_PRINTF("queue %u dead, squashing\n", qi);
+            mmbit_unset(ara, arCount, ri);
+            fatbit_unset(scratch->aqa, qCount, qi);
+            scratch->tctxt.groups &= left->squash_mask;
+        } else if (q->cur == q->end) {
+            assert(alive != MO_MATCHES_PENDING);
+            /* unlike in block mode we cannot squash groups if there is no match
+             * in this block as we need the groups on for later stream writes */
+            /* TODO: investigate possibility of a method to suppress groups for
+             * a single stream block. */
+            DEBUG_PRINTF("queue %u finished, nfa lives\n", qi);
+            q->cur = q->end = 0;
+            pushQueueAt(q, 0, MQE_START, loc);
+        } else {
+            assert(alive == MO_MATCHES_PENDING);
+            DEBUG_PRINTF("queue %u unfinished, nfa lives\n", qi);
+            q->end--; /* remove end item */
+        }
+    }
+}
+
 void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     DEBUG_PRINTF("OH HAI\n");
     assert(t);
@@ -471,6 +557,8 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     if (t->outfixBeginQueue != t->outfixEndQueue) {
         streamInitSufPQ(t, state, scratch);
     }
+
+    runEagerPrefixesStream(t, scratch);
 
     u32 alen = t->anchoredDistance > offset ?
         MIN(length + offset, t->anchoredDistance) - offset : 0;

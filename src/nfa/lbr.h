@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,6 +46,7 @@ char nfaExecLbrDot_Q2(const struct NFA *n, struct mq *q, s64a end);
 char nfaExecLbrDot_QR(const struct NFA *n, struct mq *q, ReportID report);
 char nfaExecLbrDot_reportCurrent(const struct NFA *n, struct mq *q);
 char nfaExecLbrDot_inAccept(const struct NFA *n, ReportID report, struct mq *q);
+char nfaExecLbrDot_inAnyAccept(const struct NFA *n, struct mq *q);
 char nfaExecLbrDot_queueInitState(const struct NFA *n, struct mq *q);
 char nfaExecLbrDot_initCompressedState(const struct NFA *n, u64a offset,
                                        void *state, u8 key);
@@ -66,6 +67,7 @@ char nfaExecLbrVerm_QR(const struct NFA *n, struct mq *q, ReportID report);
 char nfaExecLbrVerm_reportCurrent(const struct NFA *n, struct mq *q);
 char nfaExecLbrVerm_inAccept(const struct NFA *n, ReportID report,
                              struct mq *q);
+char nfaExecLbrVerm_inAnyAccept(const struct NFA *n, struct mq *q);
 char nfaExecLbrVerm_queueInitState(const struct NFA *n, struct mq *q);
 char nfaExecLbrVerm_initCompressedState(const struct NFA *n, u64a offset,
                                         void *state, u8 key);
@@ -86,6 +88,7 @@ char nfaExecLbrNVerm_QR(const struct NFA *n, struct mq *q, ReportID report);
 char nfaExecLbrNVerm_reportCurrent(const struct NFA *n, struct mq *q);
 char nfaExecLbrNVerm_inAccept(const struct NFA *n, ReportID report,
                               struct mq *q);
+char nfaExecLbrNVerm_inAnyAccept(const struct NFA *n, struct mq *q);
 char nfaExecLbrNVerm_queueInitState(const struct NFA *n, struct mq *q);
 char nfaExecLbrNVerm_initCompressedState(const struct NFA *n, u64a offset,
                                          void *state, u8 key);
@@ -106,6 +109,7 @@ char nfaExecLbrShuf_QR(const struct NFA *n, struct mq *q, ReportID report);
 char nfaExecLbrShuf_reportCurrent(const struct NFA *n, struct mq *q);
 char nfaExecLbrShuf_inAccept(const struct NFA *n, ReportID report,
                              struct mq *q);
+char nfaExecLbrShuf_inAnyAccept(const struct NFA *n, struct mq *q);
 char nfaExecLbrShuf_queueInitState(const struct NFA *n, struct mq *q);
 char nfaExecLbrShuf_initCompressedState(const struct NFA *n, u64a offset,
                                         void *state, u8 key);
@@ -126,6 +130,7 @@ char nfaExecLbrTruf_QR(const struct NFA *n, struct mq *q, ReportID report);
 char nfaExecLbrTruf_reportCurrent(const struct NFA *n, struct mq *q);
 char nfaExecLbrTruf_inAccept(const struct NFA *n, ReportID report,
                              struct mq *q);
+char nfaExecLbrTruf_inAnyAccept(const struct NFA *n, struct mq *q);
 char nfaExecLbrTruf_queueInitState(const struct NFA *n, struct mq *q);
 char nfaExecLbrTruf_initCompressedState(const struct NFA *n, u64a offset,
                                         void *state, u8 key);

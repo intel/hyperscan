@@ -55,6 +55,11 @@
 
 #define rose_inline really_inline
 
+/* Maximum offset that we will eagerly run prefixes to. Beyond this point, eager
+ * prefixes are always run in exactly the same way as normal prefixes. */
+#define EAGER_STOP_OFFSET 64
+
+
 static really_inline
 const void *getByOffset(const struct RoseEngine *t, u32 offset) {
     assert(offset < t->size);

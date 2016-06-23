@@ -979,6 +979,46 @@ char nfaExecCastle0_inAccept(const struct NFA *n, ReportID report,
     return castleInAccept(c, q, report, q_cur_offset(q));
 }
 
+char nfaExecCastle0_inAnyAccept(const struct NFA *n, struct mq *q) {
+    assert(n && q);
+    assert(n->type == CASTLE_NFA_0);
+    DEBUG_PRINTF("entry\n");
+
+    const struct Castle *c = getImplNfa(n);
+    const u64a offset = q_cur_offset(q);
+    DEBUG_PRINTF("offset=%llu\n", offset);
+
+    if (c->exclusive) {
+        u8 *active = (u8 *)q->streamState;
+        u8 *groups = active + c->groupIterOffset;
+        for (u32 i = mmbit_iterate(groups, c->numGroups, MMB_INVALID);
+             i != MMB_INVALID; i = mmbit_iterate(groups, c->numGroups, i)) {
+            u8 *cur = active + i * c->activeIdxSize;
+            const u32 activeIdx = partial_load_u32(cur, c->activeIdxSize);
+            DEBUG_PRINTF("subcastle %u\n", activeIdx);
+            const struct SubCastle *sub = getSubCastle(c, activeIdx);
+            if (subCastleInAccept(c, q, sub->report, offset, activeIdx)) {
+                return 1;
+            }
+        }
+    }
+
+    if (c->exclusive != PURE_EXCLUSIVE) {
+        const u8 *active = (const u8 *)q->streamState + c->activeOffset;
+        for (u32 i = mmbit_iterate(active, c->numRepeats, MMB_INVALID);
+             i != MMB_INVALID; i = mmbit_iterate(active, c->numRepeats, i)) {
+            DEBUG_PRINTF("subcastle %u\n", i);
+            const struct SubCastle *sub = getSubCastle(c, i);
+            if (subCastleInAccept(c, q, sub->report, offset, i)) {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
+
 char nfaExecCastle0_queueInitState(UNUSED const struct NFA *n, struct mq *q) {
     assert(n && q);
     assert(n->type == CASTLE_NFA_0);

@@ -176,9 +176,15 @@ char nfaReportCurrentMatches(const struct NFA *nfa, struct mq *q);
 char nfaInAcceptState(const struct NFA *nfa, ReportID report, struct mq *q);
 
 /**
+ * Returns non-zero if the NFA is in any accept state regardless of report
+ * ID.
+ */
+char nfaInAnyAcceptState(const struct NFA *nfa, struct mq *q);
+
+/**
  * Process the queued commands on the given NFA up to end or the first match.
  *
- * Note: This version is meant for rose prefix NFAs:
+ * Note: This version is meant for rose prefix/infix NFAs:
  *  - never uses a callback
  *  - loading of state at a point in history is not special cased
  *
@@ -187,9 +193,9 @@ char nfaInAcceptState(const struct NFA *nfa, ReportID report, struct mq *q);
  *        end with some variant of end. The location field of the events must
  *        be monotonically increasing. If not all the data was processed during
  *        the call, the queue is updated to reflect the remaining work.
- * @param report we are interested in, if set at the end of the scan returns
- *        @ref MO_MATCHES_PENDING. If no report is desired, MO_INVALID_IDX should
- *        be passed in.
+ * @param report we are interested in. If the given report will be raised at
+ *        the end location, the function returns @ref MO_MATCHES_PENDING. If no
+ *        match information is desired, MO_INVALID_IDX should be passed in.
  * @return @ref MO_ALIVE if the nfa is still active with no matches pending,
  *         and @ref MO_MATCHES_PENDING if there are matches pending, 0 if not
  *         alive

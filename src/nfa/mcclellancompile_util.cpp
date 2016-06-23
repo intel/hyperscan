@@ -395,4 +395,36 @@ dstate_id_t get_sds_or_proxy(const raw_dfa &raw) {
     }
 }
 
+static
+bool can_die_early(const raw_dfa &raw, dstate_id_t s,
+                   map<dstate_id_t, u32> &visited, u32 age_limit) {
+    if (contains(visited, s) && visited[s] >= age_limit) {
+        /* we have already visited (or are in the process of visiting) here with
+         * a looser limit. */
+        return false;
+    }
+    visited[s] = age_limit;
+
+    if (s == DEAD_STATE) {
+        return true;
+    }
+
+    if (age_limit == 0) {
+        return false;
+    }
+
+    for (const auto &next : raw.states[s].next) {
+        if (can_die_early(raw, next, visited, age_limit - 1)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool can_die_early(const raw_dfa &raw, u32 age_limit) {
+    map<dstate_id_t, u32> visited;
+    return can_die_early(raw, raw.start_anchored, visited, age_limit);
+}
+
 } // namespace ue2

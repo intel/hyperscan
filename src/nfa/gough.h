@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,6 +46,7 @@ char nfaExecGough8_Q2(const struct NFA *n, struct mq *q, s64a end);
 char nfaExecGough8_QR(const struct NFA *n, struct mq *q, ReportID report);
 char nfaExecGough8_reportCurrent(const struct NFA *n, struct mq *q);
 char nfaExecGough8_inAccept(const struct NFA *n, ReportID report, struct mq *q);
+char nfaExecGough8_inAnyAccept(const struct NFA *n, struct mq *q);
 char nfaExecGough8_queueInitState(const struct NFA *n, struct mq *q);
 char nfaExecGough8_initCompressedState(const struct NFA *n, u64a offset,
                                        void *state, u8 key);
@@ -68,6 +69,7 @@ char nfaExecGough16_Q2(const struct NFA *n, struct mq *q, s64a end);
 char nfaExecGough16_QR(const struct NFA *n, struct mq *q, ReportID report);
 char nfaExecGough16_reportCurrent(const struct NFA *n, struct mq *q);
 char nfaExecGough16_inAccept(const struct NFA *n, ReportID report, struct mq *q);
+char nfaExecGough16_inAnyAccept(const struct NFA *n, struct mq *q);
 char nfaExecGough16_queueInitState(const struct NFA *n, struct mq *q);
 char nfaExecGough16_initCompressedState(const struct NFA *n, u64a offset,
                                         void *state, u8 key);

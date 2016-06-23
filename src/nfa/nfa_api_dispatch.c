@@ -228,7 +228,6 @@ char nfaQueueExecToMatch(const struct NFA *nfa, struct mq *q, s64a end) {
 
     assert(q);
     assert(end >= 0);
-    assert(q->context);
     assert(q->state);
     assert(q->cur < q->end);
     assert(q->end <= MAX_MQE_LEN);
@@ -282,6 +281,11 @@ char nfaReportCurrentMatches(const struct NFA *nfa, struct mq *q) {
 
 char nfaInAcceptState(const struct NFA *nfa, ReportID report, struct mq *q) {
     DISPATCH_BY_NFA_TYPE(_inAccept(nfa, report, q));
+    return 0;
+}
+
+char nfaInAnyAcceptState(const struct NFA *nfa, struct mq *q) {
+    DISPATCH_BY_NFA_TYPE(_inAnyAccept(nfa, q));
     return 0;
 }
 

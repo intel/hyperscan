@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -112,6 +112,12 @@ void splitLHS(const NGHolder &base, const vector<NFAVertex> &pivots,
     case NFA_SUFFIX:
         lhs->kind = NFA_INFIX;
         break;
+    case NFA_EAGER_PREFIX:
+        /* Current code should not be assigning eager until well after all the
+         * splitting is done. */
+        assert(0);
+        lhs->kind = NFA_EAGER_PREFIX;
+        break;
     case NFA_REV_PREFIX:
     case NFA_OUTFIX_RAW:
         assert(0);
@@ -153,6 +159,12 @@ void splitRHS(const NGHolder &base, const vector<NFAVertex> &pivots,
     case NFA_SUFFIX:
     case NFA_OUTFIX:
         rhs->kind = NFA_SUFFIX;
+        break;
+    case NFA_EAGER_PREFIX:
+        /* Current code should not be assigning eager until well after all the
+         * splitting is done. */
+        assert(0);
+        rhs->kind = NFA_INFIX;
         break;
     case NFA_REV_PREFIX:
     case NFA_OUTFIX_RAW:

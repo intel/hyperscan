@@ -57,6 +57,8 @@ size_t hash_dfa(const raw_dfa &rdfa);
 
 dstate_id_t get_sds_or_proxy(const raw_dfa &raw);
 
+bool can_die_early(const raw_dfa &raw, u32 age_limit);
+
 } // namespace ue2
 
 #endif

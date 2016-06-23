@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -315,15 +315,26 @@ void remove_edges(const Container &c, NGHolder &h, bool renumber = true) {
     remove_edges(c.begin(), c.end(), h, renumber);
 }
 
-static UNUSED
+inline
 bool is_triggered(const NGHolder &g) {
     return is_triggered(g.kind);
 }
 
-static UNUSED
+inline
 bool generates_callbacks(const NGHolder &g) {
     return generates_callbacks(g.kind);
 }
+
+inline
+bool has_managed_reports(const NGHolder &g) {
+    return has_managed_reports(g.kind);
+}
+
+inline
+bool inspects_states_for_accepts(const NGHolder &g) {
+    return inspects_states_for_accepts(g.kind);
+}
+
 } // namespace ue2
 
 #endif

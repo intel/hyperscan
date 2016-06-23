@@ -424,7 +424,7 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
     }
 
     s64a loc = (s64a)end - ci->buf_offset - leftfixLag;
-    assert(loc >= q_cur_loc(q));
+    assert(loc >= q_cur_loc(q) || left->eager);
     assert(leftfixReport != MO_INVALID_IDX);
 
     if (!is_infix && left->transient) {
@@ -471,7 +471,13 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
         DEBUG_PRINTF("checking for report %u\n", leftfixReport);
         DEBUG_PRINTF("leftfix done %hhd\n", (signed char)rv);
         return rv == MO_MATCHES_PENDING;
+    } else if (q_cur_loc(q) > loc) {
+        /* an eager leftfix may have already progressed past loc if there is no
+         * match at loc. */
+        assert(left->eager);
+        return 0;
     } else {
+        assert(q_cur_loc(q) == loc);
         DEBUG_PRINTF("checking for report %u\n", leftfixReport);
         char rv = nfaInAcceptState(q->nfa, leftfixReport, q);
         DEBUG_PRINTF("leftfix done %hhd\n", (signed char)rv);

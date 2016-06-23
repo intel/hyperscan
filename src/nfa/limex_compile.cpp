@@ -1008,7 +1008,8 @@ void findMaskedCompressionStates(const build_info &args,
     // Suffixes and outfixes can mask out leaf states, which should all be
     // accepts. Right now we can only do this when there is nothing in initDs,
     // as we switch that on unconditionally in the expand call.
-    if (generates_callbacks(h) && !hasInitDsStates(h, args.state_ids)) {
+    if (!inspects_states_for_accepts(h)
+        && !hasInitDsStates(h, args.state_ids)) {
         NFAStateSet nonleaf(args.num_states);
         for (const auto &e : edges_range(h)) {
             u32 from = args.state_ids.at(source(e, h));
