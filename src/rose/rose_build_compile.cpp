@@ -537,6 +537,45 @@ bool RoseBuildImpl::isDirectReport(u32 id) const {
     return true;
 }
 
+
+/* If we have prefixes that can squash all the floating roots, we can have a
+ * somewhat-conditional floating table. As we can't yet look at squash_masks, we
+ * have to make some guess as to if we are in this case but the win for not
+ * running a floating table over a large portion of the stream is significantly
+ * larger than avoiding running an eod table over the last N bytes. */
+static
+bool checkFloatingKillableByPrefixes(const RoseBuildImpl &tbi) {
+    for (auto v : vertices_range(tbi.g)) {
+        if (!tbi.isRootSuccessor(v)) {
+            continue;
+        }
+
+        if (!tbi.isFloating(v)) {
+            continue;
+        }
+
+        if (!tbi.g[v].left) {
+            DEBUG_PRINTF("unguarded floating root\n");
+            return false;
+        }
+
+        if (tbi.g[v].left.graph) {
+            const NGHolder &h = *tbi.g[v].left.graph;
+            if (proper_out_degree(h.startDs, h)) {
+                DEBUG_PRINTF("floating nfa prefix, won't die\n");
+                return false;
+            }
+        } else if (tbi.g[v].left.dfa) {
+            if (tbi.g[v].left.dfa->start_floating != DEAD_STATE) {
+                DEBUG_PRINTF("floating dfa prefix, won't die\n");
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 static
 bool checkEodStealFloating(const RoseBuildImpl &tbi,
                            const vector<u32> &eodLiteralsForFloating,
@@ -556,6 +595,11 @@ bool checkEodStealFloating(const RoseBuildImpl &tbi,
         DEBUG_PRINTF("skipping as floating table is conditional\n");
         /* TODO: investigate putting stuff in atable */
         return false;
+    }
+
+    if (checkFloatingKillableByPrefixes(tbi)) {
+         DEBUG_PRINTF("skipping as prefixes may make ftable conditional\n");
+         return false;
     }
 
     DEBUG_PRINTF("%zu are eod literals, %u floating; floating len=%zu\n",
