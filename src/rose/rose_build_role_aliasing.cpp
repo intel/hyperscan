@@ -491,16 +491,6 @@ size_t hashRightRoleProperties(RoseVertex v, const RoseGraph &g) {
 }
 
 static
-void removeVertexFromMaps(RoseVertex v, RoseBuildImpl &build,
-                          RoseAliasingInfo &rai) {
-    if (build.g[v].left) {
-        const left_id left(build.g[v].left);
-        assert(contains(rai.rev_leftfix[left], v));
-        rai.rev_leftfix[left].erase(v);
-    }
-}
-
-static
 void mergeEdgeAdd(RoseVertex u, RoseVertex v, const RoseEdge &from_edge,
                   const RoseEdge *to_edge, RoseGraph &g) {
     const RoseEdgeProps &from_props = g[from_edge];
@@ -580,8 +570,13 @@ void mergeLiteralSets(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi) {
 }
 
 static
-void updateGhostMap(RoseBuildImpl &build, RoseAliasingInfo &rai, RoseVertex a,
-                    RoseVertex b) {
+void updateAliasingInfo(RoseBuildImpl &build, RoseAliasingInfo &rai,
+                        RoseVertex a, RoseVertex b) {
+    if (build.g[a].left) {
+        const left_id left(build.g[a].left);
+        assert(contains(rai.rev_leftfix[left], a));
+        rai.rev_leftfix[left].erase(a);
+    }
     if (contains(build.ghost, a)) {
         auto ghost = build.ghost.at(a);
         assert(contains(build.ghost, b) && ghost == build.ghost.at(b));
@@ -628,8 +623,7 @@ void mergeVertices(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi,
     }
 
     mergeEdges(a, b, g);
-    updateGhostMap(tbi, rai, a, b);
-    removeVertexFromMaps(a, tbi, rai);
+    updateAliasingInfo(tbi, rai, a, b);
 }
 
 /**
@@ -658,7 +652,7 @@ void mergeVerticesDiamond(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi,
     g[b].max_offset = max(g[a].max_offset, g[b].max_offset);
 
     mergeLiteralSets(a, b, tbi);
-    removeVertexFromMaps(a, tbi, rai);
+    updateAliasingInfo(tbi, rai, a, b);
 }
 
 static never_inline
