@@ -809,10 +809,8 @@ char JOIN(LIMEX_API_ROOT, _QR)(const struct NFA *n, struct mq *q,
 }
 
 char JOIN(LIMEX_API_ROOT, _testEOD)(const struct NFA *n, const char *state,
-                                       const char *streamState, u64a offset,
-                                       NfaCallback callback,
-                                       UNUSED SomNfaCallback som_callback,
-                                       void *context) {
+                                    const char *streamState, u64a offset,
+                                    NfaCallback callback, void *context) {
     assert(n && state);
 
     const IMPL_NFA_T *limex = getImplNfa(n);

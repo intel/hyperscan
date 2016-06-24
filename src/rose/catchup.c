@@ -281,14 +281,15 @@ restart:
 
 /* for use by mpv (chained) only */
 static
-int roseNfaFinalBlastAdaptor(u64a offset, ReportID id, void *context) {
+int roseNfaFinalBlastAdaptor(u64a som, u64a offset, ReportID id,
+                             void *context) {
     struct hs_scratch *scratch = context;
     const struct RoseEngine *t = scratch->core_info.rose;
 
     DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
                  offset, id);
 
-    int cb_rv = roseNfaRunProgram(t, scratch, 0, offset, id, 1);
+    int cb_rv = roseNfaRunProgram(t, scratch, som, offset, id, 1);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -394,7 +395,6 @@ hwlmcb_rv_t roseCatchUpMPV_i(const struct RoseEngine *t, s64a loc,
     assert(!q->report_current);
 
     q->cb = roseNfaFinalBlastAdaptor;
-    q->som_cb = NULL;
 
     DEBUG_PRINTF("queue %u blasting, %u/%u [%lld/%lld]\n",
                   qi, q->cur, q->end, q->items[q->cur].location, loc);
@@ -449,7 +449,7 @@ char in_mpv(const struct RoseEngine *rose, const struct hs_scratch *scratch) {
 }
 
 static
-int roseNfaBlastAdaptor(u64a offset, ReportID id, void *context) {
+int roseNfaBlastAdaptor(u64a som, u64a offset, ReportID id, void *context) {
     struct hs_scratch *scratch = context;
     struct RoseContext *tctxt = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
@@ -458,7 +458,7 @@ int roseNfaBlastAdaptor(u64a offset, ReportID id, void *context) {
                  offset, id);
 
     const char from_mpv = in_mpv(t, scratch);
-    int cb_rv = roseNfaRunProgram(t, scratch, 0, offset, id, from_mpv);
+    int cb_rv = roseNfaRunProgram(t, scratch, som, offset, id, from_mpv);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -470,65 +470,8 @@ int roseNfaBlastAdaptor(u64a offset, ReportID id, void *context) {
     }
 }
 
-static
-int roseNfaBlastAdaptorNoInternal(u64a offset, ReportID id, void *context) {
-    struct hs_scratch *scratch = context;
-    struct RoseContext *tctxt = &scratch->tctxt;
-    const struct RoseEngine *t = scratch->core_info.rose;
-
-    DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
-                 offset, id);
-
-    assert(!in_mpv(t, scratch));
-
-    int cb_rv = roseNfaRunProgram(t, scratch, 0, offset, id, 0);
-    if (cb_rv == MO_HALT_MATCHING) {
-        return MO_HALT_MATCHING;
-    } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
-        return MO_CONTINUE_MATCHING;
-    } else {
-        assert(cb_rv == MO_CONTINUE_MATCHING);
-        return !roseSuffixIsExhausted(t, tctxt->curr_qi,
-                                      scratch->core_info.exhaustionVector);
-    }
-}
-
-static
-int roseNfaBlastSomAdaptor(u64a from_offset, u64a offset, ReportID id,
-                           void *context) {
-    struct hs_scratch *scratch = context;
-    struct RoseContext *tctxt = &scratch->tctxt;
-    const struct RoseEngine *t = scratch->core_info.rose;
-
-    DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
-                 offset, id);
-
-    assert(!in_mpv(t, scratch));
-
-    /* must be a external report as haig cannot directly participate in chain */
-    int cb_rv = roseNfaRunProgram(scratch->core_info.rose, scratch, from_offset,
-                                  offset, id, 0);
-    if (cb_rv == MO_HALT_MATCHING) {
-        return MO_HALT_MATCHING;
-    } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
-        return MO_CONTINUE_MATCHING;
-    } else {
-        assert(cb_rv == MO_CONTINUE_MATCHING);
-        return !roseSuffixIsExhausted(t, tctxt->curr_qi,
-                                      scratch->core_info.exhaustionVector);
-    }
-}
-
-int roseNfaAdaptor(u64a offset, ReportID id, void *context) {
-    struct hs_scratch *scratch = context;
-    DEBUG_PRINTF("masky got himself a match @%llu id %u !woot!\n", offset, id);
-
-    return roseNfaRunProgram(scratch->core_info.rose, scratch, 0, offset, id,
-                             0);
-}
-
-int roseNfaSomAdaptor(u64a from_offset, u64a offset, ReportID id,
-                      void *context) {
+int roseNfaAdaptor(u64a from_offset, u64a offset, ReportID id,
+                   void *context) {
     struct hs_scratch *scratch = context;
     DEBUG_PRINTF("masky got himself a match @%llu id %u !woot!\n", offset, id);
 
@@ -538,24 +481,15 @@ int roseNfaSomAdaptor(u64a from_offset, u64a offset, ReportID id,
 }
 
 static really_inline
-char blast_queue(const struct RoseEngine *t, struct hs_scratch *scratch,
-                 struct mq *q, u32 qi, s64a to_loc, char report_current) {
-    struct RoseContext *tctxt = &scratch->tctxt;
-    const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
-
-    tctxt->curr_qi = qi;
-    if (info->only_external) {
-        q->cb = roseNfaBlastAdaptorNoInternal;
-    } else {
-        q->cb = roseNfaBlastAdaptor;
-    }
+char blast_queue(struct hs_scratch *scratch, struct mq *q, u32 qi, s64a to_loc,
+                 char report_current) {
+    scratch->tctxt.curr_qi = qi;
+    q->cb = roseNfaBlastAdaptor;
     q->report_current = report_current;
-    q->som_cb = roseNfaBlastSomAdaptor;
     DEBUG_PRINTF("queue %u blasting, %u/%u [%lld/%lld]\n", qi, q->cur, q->end,
                  q_cur_loc(q), to_loc);
     char alive = nfaQueueExec(q->nfa, q, to_loc);
     q->cb = roseNfaAdaptor;
-    q->som_cb = roseNfaSomAdaptor;
     assert(!q->report_current);
 
     return alive;
@@ -585,7 +519,7 @@ hwlmcb_rv_t buildSufPQ_final(const struct RoseEngine *t, s64a report_ok_loc,
 
     ensureEnd(q, a_qi, final_loc);
 
-    char alive = blast_queue(t, scratch, q, a_qi, second_place_loc, 0);
+    char alive = blast_queue(scratch, q, a_qi, second_place_loc, 0);
 
     /* We have three possible outcomes:
      * (1) the nfa died
@@ -881,7 +815,7 @@ hwlmcb_rv_t roseCatchUpNfas(const struct RoseEngine *t, s64a loc,
             continue;
         }
 
-        char alive = blast_queue(t, scratch, q, qi, second_place_loc, 1);
+        char alive = blast_queue(scratch, q, qi, second_place_loc, 1);
 
         if (!alive) {
             if (can_stop_matching(scratch)) {

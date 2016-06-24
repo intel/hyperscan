@@ -42,13 +42,13 @@
 
 static really_inline
 char doComplexReport(NfaCallback cb, void *ctxt, const struct mcclellan *m,
-                     u16 s, u64a loc, char eod, u16 * const cached_accept_state,
-                     u32 * const cached_accept_id) {
+                     u16 s, u64a loc, char eod, u16 *const cached_accept_state,
+                     u32 *const cached_accept_id) {
     DEBUG_PRINTF("reporting state = %hu, loc=%llu, eod %hhu\n",
                  (u16)(s & STATE_MASK), loc, eod);
 
     if (!eod && s == *cached_accept_state) {
-        if (cb(loc, *cached_accept_id, ctxt) == MO_HALT_MATCHING) {
+        if (cb(0, loc, *cached_accept_id, ctxt) == MO_HALT_MATCHING) {
             return MO_HALT_MATCHING; /* termination requested */
         }
 
@@ -71,7 +71,7 @@ char doComplexReport(NfaCallback cb, void *ctxt, const struct mcclellan *m,
         *cached_accept_id = rl->report[0];
 
         DEBUG_PRINTF("reporting %u\n", rl->report[0]);
-        if (cb(loc, rl->report[0], ctxt) == MO_HALT_MATCHING) {
+        if (cb(0, loc, rl->report[0], ctxt) == MO_HALT_MATCHING) {
             return MO_HALT_MATCHING; /* termination requested */
         }
 
@@ -80,7 +80,7 @@ char doComplexReport(NfaCallback cb, void *ctxt, const struct mcclellan *m,
 
     for (u32 i = 0; i < count; i++) {
         DEBUG_PRINTF("reporting %u\n", rl->report[i]);
-        if (cb(loc, rl->report[i], ctxt) == MO_HALT_MATCHING) {
+        if (cb(0, loc, rl->report[i], ctxt) == MO_HALT_MATCHING) {
             return MO_HALT_MATCHING; /* termination requested */
         }
     }
@@ -146,7 +146,7 @@ without_accel:
 
             if (single) {
                 DEBUG_PRINTF("reporting %u\n", m->arb_report);
-                if (cb(loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {
+                if (cb(0, loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {
                     return MO_HALT_MATCHING; /* termination requested */
                 }
             } else if (doComplexReport(cb, ctxt, m, s & STATE_MASK, loc, 0,
@@ -186,7 +186,7 @@ with_accel:
 
             if (single) {
                 DEBUG_PRINTF("reporting %u\n", m->arb_report);
-                if (cb(loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {
+                if (cb(0, loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {
                     return MO_HALT_MATCHING; /* termination requested */
                 }
             } else if (doComplexReport(cb, ctxt, m, s & STATE_MASK, loc, 0,
@@ -328,7 +328,7 @@ without_accel:
             u64a loc = (c - 1) - buf + offAdj + 1;
             if (single) {
                 DEBUG_PRINTF("reporting %u\n", m->arb_report);
-                if (cb(loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {
+                if (cb(0, loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {
                     return MO_HALT_MATCHING;
                 }
             } else if (doComplexReport(cb, ctxt, m, s, loc, 0,
@@ -360,7 +360,7 @@ with_accel:
                 u64a loc = (c - 1) - buf + offAdj + 1;
                 if (single) {
                     DEBUG_PRINTF("reporting %u\n", m->arb_report);
-                    if (cb(loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {
+                    if (cb(0, loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {
                         return MO_HALT_MATCHING;
                     }
                 } else if (doComplexReport(cb, ctxt, m, s, loc, 0,
@@ -475,7 +475,7 @@ char nfaExecMcClellan16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
         int rv;
         if (single) {
             DEBUG_PRINTF("reporting %u\n", m->arb_report);
-            rv = cb(q_cur_offset(q), m->arb_report, context);
+            rv = cb(0, q_cur_offset(q), m->arb_report, context);
         } else {
             u32 cached_accept_id = 0;
             u16 cached_accept_state = 0;
@@ -632,7 +632,7 @@ char nfaExecMcClellan8_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
         int rv;
         if (single) {
             DEBUG_PRINTF("reporting %u\n", m->arb_report);
-            rv = cb(q_cur_offset(q), m->arb_report, context);
+            rv = cb(0, q_cur_offset(q), m->arb_report, context);
         } else {
             u32 cached_accept_id = 0;
             u16 cached_accept_state = 0;
@@ -836,7 +836,7 @@ char nfaExecMcClellan8_reportCurrent(const struct NFA *n, struct mq *q) {
     if (s >= m->accept_limit_8) {
         if (single) {
             DEBUG_PRINTF("reporting %u\n", m->arb_report);
-            cb(offset, m->arb_report, ctxt);
+            cb(0, offset, m->arb_report, ctxt);
         } else {
             u32 cached_accept_id = 0;
             u16 cached_accept_state = 0;
@@ -864,7 +864,7 @@ char nfaExecMcClellan16_reportCurrent(const struct NFA *n, struct mq *q) {
     if (aux->accept) {
         if (single) {
             DEBUG_PRINTF("reporting %u\n", m->arb_report);
-            cb(offset, m->arb_report, ctxt);
+            cb(0, offset, m->arb_report, ctxt);
         } else {
             u32 cached_accept_id = 0;
             u16 cached_accept_state = 0;
@@ -1073,17 +1073,15 @@ void nfaExecMcClellan16_SimpStream(const struct NFA *nfa, char *state,
 }
 
 char nfaExecMcClellan8_testEOD(const struct NFA *nfa, const char *state,
-                               UNUSED const char *streamState,
-                               u64a offset, NfaCallback callback,
-                               UNUSED SomNfaCallback som_cb, void *context) {
+                               UNUSED const char *streamState, u64a offset,
+                               NfaCallback callback, void *context) {
     return mcclellanCheckEOD(nfa, *(const u8 *)state, offset, callback,
                              context);
 }
 
 char nfaExecMcClellan16_testEOD(const struct NFA *nfa, const char *state,
-                                UNUSED const char *streamState,
-                                u64a offset, NfaCallback callback,
-                                UNUSED SomNfaCallback som_cb, void *context) {
+                                UNUSED const char *streamState, u64a offset,
+                                NfaCallback callback, void *context) {
     assert(ISALIGNED_N(state, 2));
     return mcclellanCheckEOD(nfa, *(const u16 *)state, offset, callback,
                              context);

@@ -85,7 +85,6 @@ void copyQueueProperties(const struct mq *q1, struct mq *q2,
     q2->history = q1->history;
     q2->hlength = q1->hlength;
     q2->cb = q1->cb;
-    q2->som_cb = q1->som_cb;
     q2->context = q1->context;
     q2->scratch = q1->scratch;
     q2->report_current = q1->report_current;
@@ -266,8 +265,7 @@ void copyBack(const struct  Tamarama *t, struct mq *q, struct mq *q1) {
 
 char nfaExecTamarama0_testEOD(const struct NFA *n, const char *state,
                               const char *streamState, u64a offset,
-                              NfaCallback callback, SomNfaCallback som_cb,
-                              void *context) {
+                              NfaCallback callback, void *context) {
     const struct Tamarama *t = getImplNfa(n);
     u32 activeIdx = loadActiveIdx(streamState, t->activeIdxSize);
     if (activeIdx == t->numSubEngines) {
@@ -278,8 +276,8 @@ char nfaExecTamarama0_testEOD(const struct NFA *n, const char *state,
     if (nfaAcceptsEod(sub)) {
         assert(!isContainerType(sub->type));
         const char *subStreamState = streamState + t->activeIdxSize;
-        return nfaCheckFinalState(sub, state, subStreamState,
-                                  offset, callback, som_cb, context);
+        return nfaCheckFinalState(sub, state, subStreamState, offset, callback,
+                                  context);
     }
 
     return MO_CONTINUE_MATCHING;

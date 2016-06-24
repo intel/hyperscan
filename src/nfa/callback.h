@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,14 +53,8 @@
  * are 0, which means 'stop running the engine' or non-zero, which means
  * 'continue matching'.
  */
-typedef int (*NfaCallback)(u64a offset, ReportID id, void *context);
-
-/** \brief The type for an NFA callback which also tracks start of match.
- *
- * see \ref NfaCallback
- */
-typedef int (*SomNfaCallback)(u64a from_offset, u64a to_offset, ReportID id,
-                              void *context);
+typedef int (*NfaCallback)(u64a from_offset, u64a to_offset, ReportID id,
+                           void *context);
 
 /**
  * standard \ref NfaCallback return value indicating that engine execution

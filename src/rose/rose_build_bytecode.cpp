@@ -2617,16 +2617,6 @@ bool anyEndfixMpvTriggers(const RoseBuildImpl &tbi) {
 }
 
 static
-bool hasInternalReport(const set<ReportID> &reports, const ReportManager &rm) {
-    for (ReportID r : reports) {
-        if (!isExternalReport(rm.getReport(r))) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static
 void populateNfaInfoBasics(const RoseBuildImpl &build, const build_context &bc,
                            const vector<OutfixInfo> &outfixes,
                            const vector<u32> &ekeyListOffsets,
@@ -2643,24 +2633,10 @@ void populateNfaInfoBasics(const RoseBuildImpl &build, const build_context &bc,
         info.no_retrigger = contains(no_retrigger_queues, qi) ? 1 : 0;
     }
 
-    // Mark outfixes that only trigger external reports.
+    // Mark outfixes that are in the small block matcher.
     for (const auto &out : outfixes) {
         const u32 qi = out.get_queue();
-
         infos[qi].in_sbmatcher = out.in_sbmatcher;
-        if (!hasInternalReport(all_reports(out), build.rm)) {
-            infos[qi].only_external = 1;
-        }
-    }
-
-    // Mark suffixes that only trigger external reports.
-    for (const auto &e : bc.suffixes) {
-        const suffix_id &s = e.first;
-        u32 qi = e.second;
-
-        if (!hasInternalReport(all_reports(s), build.rm)) {
-            infos[qi].only_external = 1;
-        }
     }
 
     // Mark suffixes triggered by EOD table literals.

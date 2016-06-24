@@ -211,7 +211,7 @@ event_enqueued:
     return HWLM_CONTINUE_MATCHING;
 }
 
-int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
+int roseAnchoredCallback(u64a som, u64a end, u32 id, void *ctx) {
     struct hs_scratch *scratch = ctx;
     struct RoseContext *tctxt = &scratch->tctxt;
     struct core_info *ci = &scratch->core_info;
@@ -243,7 +243,6 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
 
     const u32 *programs = getByOffset(t, t->litProgramOffset);
     assert(id < t->literalCount);
-    const u64a som = 0;
     const u8 flags = ROSE_PROG_FLAG_IN_ANCHORED;
     if (roseRunProgram(t, scratch, programs[id], som, real_end, match_len,
                        flags) == HWLM_TERMINATE_MATCHING) {
@@ -648,8 +647,8 @@ int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
     return MO_CONTINUE_MATCHING;
 }
 
-static really_inline
-int roseReportAdaptor_i(u64a som, u64a offset, ReportID id, void *context) {
+int roseReportAdaptor(u64a som, u64a offset, ReportID id, void *context) {
+    DEBUG_PRINTF("som=%llu, offset=%llu, id=%u\n", som, offset, id);
     struct hs_scratch *scratch = context;
     assert(scratch && scratch->magic == SCRATCH_MAGIC);
 
@@ -666,14 +665,4 @@ int roseReportAdaptor_i(u64a som, u64a offset, ReportID id, void *context) {
     }
 
     return can_stop_matching(scratch) ? MO_HALT_MATCHING : MO_CONTINUE_MATCHING;
-}
-
-int roseReportAdaptor(u64a offset, ReportID id, void *context) {
-    DEBUG_PRINTF("offset=%llu, id=%u\n", offset, id);
-    return roseReportAdaptor_i(0, offset, id, context);
-}
-
-int roseReportSomAdaptor(u64a som, u64a offset, ReportID id, void *context) {
-    DEBUG_PRINTF("som=%llu, offset=%llu, id=%u\n", som, offset, id);
-    return roseReportAdaptor_i(som, offset, id, context);
 }

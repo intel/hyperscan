@@ -71,7 +71,7 @@ struct LbrTestParams {
 };
 
 static
-int onMatch(u64a, ReportID, void *ctx) {
+int onMatch(u64a, u64a, ReportID, void *ctx) {
     unsigned *matches = (unsigned *)ctx;
     (*matches)++;
     return MO_CONTINUE_MATCHING;
@@ -125,7 +125,6 @@ protected:
         q.scratch = nullptr; // not needed by LBR
         q.report_current = 0;
         q.cb = onMatch;
-        q.som_cb = nullptr; // only used by Haig
         q.context = &matches;
     }
 

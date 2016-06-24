@@ -39,8 +39,7 @@ struct mq;
 
 char nfaExecGough8_testEOD(const struct NFA *nfa, const char *state,
                            const char *streamState, u64a offset,
-                           NfaCallback callback, SomNfaCallback som_cb,
-                           void *context);
+                           NfaCallback callback, void *context);
 char nfaExecGough8_Q(const struct NFA *n, struct mq *q, s64a end);
 char nfaExecGough8_Q2(const struct NFA *n, struct mq *q, s64a end);
 char nfaExecGough8_QR(const struct NFA *n, struct mq *q, ReportID report);
@@ -62,8 +61,7 @@ char nfaExecGough8_expandState(const struct NFA *nfa, void *dest,
 
 char nfaExecGough16_testEOD(const struct NFA *nfa, const char *state,
                             const char *streamState, u64a offset,
-                            NfaCallback callback, SomNfaCallback som_cb,
-                            void *context);
+                            NfaCallback callback, void *context);
 char nfaExecGough16_Q(const struct NFA *n, struct mq *q, s64a end);
 char nfaExecGough16_Q2(const struct NFA *n, struct mq *q, s64a end);
 char nfaExecGough16_QR(const struct NFA *n, struct mq *q, ReportID report);

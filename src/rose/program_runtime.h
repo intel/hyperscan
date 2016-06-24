@@ -722,13 +722,13 @@ u64a roseGetHaigSom(const struct RoseEngine *t, struct hs_scratch *scratch,
     u64a start = ~0ULL;
 
     /* switch the callback + context for a fun one */
-    q->som_cb = roseNfaEarliestSom;
+    q->cb = roseNfaEarliestSom;
     q->context = &start;
 
     nfaReportCurrentMatches(q->nfa, q);
 
     /* restore the old callback + context */
-    q->som_cb = roseNfaSomAdaptor;
+    q->cb = roseNfaAdaptor;
     q->context = NULL;
     DEBUG_PRINTF("earliest som is %llu\n", start);
     return start;
@@ -779,7 +779,7 @@ hwlmcb_rv_t roseEnginesEod(const struct RoseEngine *rose,
         }
 
         if (nfaCheckFinalState(q->nfa, q->state, q->streamState, offset,
-                               roseReportAdaptor, roseReportSomAdaptor,
+                               roseReportAdaptor,
                                scratch) == MO_HALT_MATCHING) {
             DEBUG_PRINTF("user instructed us to stop\n");
             return HWLM_TERMINATE_MATCHING;
@@ -815,7 +815,7 @@ hwlmcb_rv_t roseSuffixesEod(const struct RoseEngine *rose,
             continue;
         }
         if (nfaCheckFinalState(q->nfa, q->state, q->streamState, offset,
-                               roseReportAdaptor, roseReportSomAdaptor,
+                               roseReportAdaptor,
                                scratch) == MO_HALT_MATCHING) {
             DEBUG_PRINTF("user instructed us to stop\n");
             return HWLM_TERMINATE_MATCHING;

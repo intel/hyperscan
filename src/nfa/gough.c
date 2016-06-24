@@ -110,7 +110,7 @@ u64a expandSomValue(u32 comp_slot_width, u64a curr_offset,
 }
 
 static really_inline
-char doReports(SomNfaCallback cb, void *ctxt, const struct mcclellan *m,
+char doReports(NfaCallback cb, void *ctxt, const struct mcclellan *m,
                const struct gough_som_info *som, u16 s, u64a loc,
                char eod, u16 * const cached_accept_state,
                u32 * const cached_accept_id, u32 * const cached_accept_som) {
@@ -307,7 +307,7 @@ u16 goughEnableStarts(const struct mcclellan *m, u16 s, u64a som_offset,
 static really_inline
 char goughExec16_i(const struct mcclellan *m, struct gough_som_info *som,
                    u16 *state, const u8 *buf, size_t len, u64a offAdj,
-                   SomNfaCallback cb, void *ctxt, const u8 **c_final,
+                   NfaCallback cb, void *ctxt, const u8 **c_final,
                    enum MatchMode mode) {
     assert(ISALIGNED_N(state, 2));
 
@@ -461,7 +461,7 @@ with_accel:
 static really_inline
 char goughExec8_i(const struct mcclellan *m, struct gough_som_info *som,
                   u8 *state, const u8 *buf, size_t len, u64a offAdj,
-                  SomNfaCallback cb, void *ctxt, const u8 **c_final,
+                  NfaCallback cb, void *ctxt, const u8 **c_final,
                   enum MatchMode mode) {
     u8 s = *state;
     const u8 *c = buf, *c_end = buf + len;
@@ -595,7 +595,7 @@ with_accel:
 static never_inline
 char goughExec8_i_ni(const struct mcclellan *m, struct gough_som_info *som,
                      u8 *state, const u8 *buf, size_t len, u64a offAdj,
-                     SomNfaCallback cb, void *ctxt, const u8 **final_point,
+                     NfaCallback cb, void *ctxt, const u8 **final_point,
                      enum MatchMode mode) {
     return goughExec8_i(m, som, state, buf, len, offAdj, cb, ctxt, final_point,
                         mode);
@@ -604,7 +604,7 @@ char goughExec8_i_ni(const struct mcclellan *m, struct gough_som_info *som,
 static never_inline
 char goughExec16_i_ni(const struct mcclellan *m, struct gough_som_info *som,
                       u16 *state, const u8 *buf, size_t len, u64a offAdj,
-                      SomNfaCallback cb, void *ctxt, const u8 **final_point,
+                      NfaCallback cb, void *ctxt, const u8 **final_point,
                       enum MatchMode mode) {
     return goughExec16_i(m, som, state, buf, len, offAdj, cb, ctxt, final_point,
                          mode);
@@ -622,7 +622,7 @@ const struct gough_som_info *getSomInfoConst(const char *state_base) {
 
 static really_inline
 char nfaExecGough8_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
-                      const u8 *hend, SomNfaCallback cb, void *context,
+                      const u8 *hend, NfaCallback cb, void *context,
                       struct mq *q, s64a end, enum MatchMode mode) {
     DEBUG_PRINTF("enter\n");
     struct gough_som_info *som = getSomInfo(q->state);
@@ -755,7 +755,7 @@ char nfaExecGough8_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
 
 static really_inline
 char nfaExecGough16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
-                       const u8 *hend, SomNfaCallback cb, void *context,
+                       const u8 *hend, NfaCallback cb, void *context,
                        struct mq *q, s64a end, enum MatchMode mode) {
     struct gough_som_info *som = getSomInfo(q->state);
     assert(n->type == GOUGH_NFA_16);
@@ -887,7 +887,7 @@ char nfaExecGough16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
 char nfaExecGough8_Q(const struct NFA *n, struct mq *q, s64a end) {
     u64a offset = q->offset;
     const u8 *buffer = q->buffer;
-    SomNfaCallback cb = q->som_cb;
+    NfaCallback cb = q->cb;
     void *context = q->context;
     assert(n->type == GOUGH_NFA_8);
     const u8 *hend = q->history + q->hlength;
@@ -899,7 +899,7 @@ char nfaExecGough8_Q(const struct NFA *n, struct mq *q, s64a end) {
 char nfaExecGough16_Q(const struct NFA *n, struct mq *q, s64a end) {
     u64a offset = q->offset;
     const u8 *buffer = q->buffer;
-    SomNfaCallback cb = q->som_cb;
+    NfaCallback cb = q->cb;
     void *context = q->context;
     assert(n->type == GOUGH_NFA_16);
     const u8 *hend = q->history + q->hlength;
@@ -911,7 +911,7 @@ char nfaExecGough16_Q(const struct NFA *n, struct mq *q, s64a end) {
 char nfaExecGough8_Q2(const struct NFA *n, struct mq *q, s64a end) {
     u64a offset = q->offset;
     const u8 *buffer = q->buffer;
-    SomNfaCallback cb = q->som_cb;
+    NfaCallback cb = q->cb;
     void *context = q->context;
     assert(n->type == GOUGH_NFA_8);
     const u8 *hend = q->history + q->hlength;
@@ -923,7 +923,7 @@ char nfaExecGough8_Q2(const struct NFA *n, struct mq *q, s64a end) {
 char nfaExecGough16_Q2(const struct NFA *n, struct mq *q, s64a end) {
     u64a offset = q->offset;
     const u8 *buffer = q->buffer;
-    SomNfaCallback cb = q->som_cb;
+    NfaCallback cb = q->cb;
     void *context = q->context;
     assert(n->type == GOUGH_NFA_16);
     const u8 *hend = q->history + q->hlength;
@@ -935,7 +935,7 @@ char nfaExecGough16_Q2(const struct NFA *n, struct mq *q, s64a end) {
 char nfaExecGough8_QR(const struct NFA *n, struct mq *q, ReportID report) {
     u64a offset = q->offset;
     const u8 *buffer = q->buffer;
-    SomNfaCallback cb = q->som_cb;
+    NfaCallback cb = q->cb;
     void *context = q->context;
     assert(n->type == GOUGH_NFA_8);
     const u8 *hend = q->history + q->hlength;
@@ -952,7 +952,7 @@ char nfaExecGough8_QR(const struct NFA *n, struct mq *q, ReportID report) {
 char nfaExecGough16_QR(const struct NFA *n, struct mq *q, ReportID report) {
     u64a offset = q->offset;
     const u8 *buffer = q->buffer;
-    SomNfaCallback cb = q->som_cb;
+    NfaCallback cb = q->cb;
     void *context = q->context;
     assert(n->type == GOUGH_NFA_16);
     const u8 *hend = q->history + q->hlength;
@@ -994,7 +994,7 @@ char nfaExecGough16_initCompressedState(const struct NFA *nfa, u64a offset,
 
 char nfaExecGough8_reportCurrent(const struct NFA *n, struct mq *q) {
     const struct mcclellan *m = (const struct mcclellan *)getImplNfa(n);
-    SomNfaCallback cb = q->som_cb;
+    NfaCallback cb = q->cb;
     void *ctxt = q->context;
     u8 s = *(u8 *)q->state;
     u64a offset = q_cur_offset(q);
@@ -1016,7 +1016,7 @@ char nfaExecGough8_reportCurrent(const struct NFA *n, struct mq *q) {
 
 char nfaExecGough16_reportCurrent(const struct NFA *n, struct mq *q) {
     const struct mcclellan *m = (const struct mcclellan *)getImplNfa(n);
-    SomNfaCallback cb = q->som_cb;
+    NfaCallback cb = q->cb;
     void *ctxt = q->context;
     u16 s = *(u16 *)q->state;
     const struct mstate_aux *aux = get_aux(m, s);
@@ -1059,7 +1059,7 @@ char nfaExecGough16_inAnyAccept(const struct NFA *n, struct mq *q) {
 static
 char goughCheckEOD(const struct NFA *nfa, u16 s,
                    const struct gough_som_info *som,
-                   u64a offset, SomNfaCallback cb, void *ctxt) {
+                   u64a offset, NfaCallback cb, void *ctxt) {
     const struct mcclellan *m = (const struct mcclellan *)getImplNfa(nfa);
     const struct mstate_aux *aux = get_aux(m, s);
 
@@ -1070,21 +1070,19 @@ char goughCheckEOD(const struct NFA *nfa, u16 s,
 }
 
 char nfaExecGough8_testEOD(const struct NFA *nfa, const char *state,
-                          UNUSED const char *streamState, u64a offset,
-                          UNUSED NfaCallback callback,
-                          SomNfaCallback som_callback, void *context) {
+                           UNUSED const char *streamState, u64a offset,
+                           NfaCallback callback, void *context) {
     const struct gough_som_info *som = getSomInfoConst(state);
-    return goughCheckEOD(nfa, *(const u8 *)state, som, offset, som_callback,
+    return goughCheckEOD(nfa, *(const u8 *)state, som, offset, callback,
                          context);
 }
 
 char nfaExecGough16_testEOD(const struct NFA *nfa, const char *state,
-                           UNUSED const char *streamState, u64a offset,
-                           UNUSED NfaCallback callback,
-                           SomNfaCallback som_callback, void *context) {
+                            UNUSED const char *streamState, u64a offset,
+                            NfaCallback callback, void *context) {
     assert(ISALIGNED_N(state, 8));
     const struct gough_som_info *som = getSomInfoConst(state);
-    return goughCheckEOD(nfa, *(const u16 *)state, som, offset, som_callback,
+    return goughCheckEOD(nfa, *(const u16 *)state, som, offset, callback,
                          context);
 }
 

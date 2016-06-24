@@ -54,8 +54,7 @@ extern "C"
 #define GENERATE_NFA_DECL(gf_name)                                             \
     char gf_name##_testEOD(const struct NFA *nfa, const char *state,           \
                            const char *streamState, u64a offset,               \
-                           NfaCallback callback, SomNfaCallback som_cb,        \
-                           void *context);                                     \
+                           NfaCallback callback, void *context);               \
     char gf_name##_Q(const struct NFA *n, struct mq *q, s64a end);             \
     char gf_name##_Q2(const struct NFA *n, struct mq *q, s64a end);            \
     char gf_name##_QR(const struct NFA *n, struct mq *q, ReportID report);     \

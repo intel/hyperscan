@@ -43,8 +43,7 @@ struct hs_scratch;
 
 char nfaExecTamarama0_testEOD(const struct NFA *n, const char *state,
                               const char *streamState, u64a offset,
-                              NfaCallback callback, SomNfaCallback som_cb,
-                              void *context);
+                              NfaCallback callback, void *context);
 char nfaExecTamarama0_QR(const struct NFA *n, struct mq *q, ReportID report);
 char nfaExecTamarama0_reportCurrent(const struct NFA *n, struct mq *q);
 char nfaExecTamarama0_inAccept(const struct NFA *n, ReportID report,

@@ -225,6 +225,9 @@ char nfaQueueExecRose(const struct NFA *nfa, struct mq *q, ReportID report);
  * Runs an NFA in reverse from (buf + buflen) to buf and then from (hbuf + hlen)
  * to hbuf (main buffer and history buffer).
  *
+ * Note: provides the match location as the "end" offset when the callback is
+ * called.
+ *
  * @param nfa engine to run
  * @param offset base offset of buf
  * @param buf main buffer
@@ -249,7 +252,6 @@ char nfaBlockExecReverse(const struct NFA *nfa, u64a offset, const u8 *buf,
  *        (including br region)
  * @param offset the offset to return (via the callback) with each match
  * @param callback the callback to call for each match raised
- * @param som_cb the callback to call for each match raised (Haig)
  * @param context context pointer passed to each callback
  *
  * @return @ref MO_HALT_MATCHING if the user instructed us to halt, otherwise
@@ -257,8 +259,7 @@ char nfaBlockExecReverse(const struct NFA *nfa, u64a offset, const u8 *buf,
  */
 char nfaCheckFinalState(const struct NFA *nfa, const char *state,
                         const char *streamState, u64a offset,
-                        NfaCallback callback, SomNfaCallback som_cb,
-                        void *context);
+                        NfaCallback callback, void *context);
 
 /**
  * Indicates if an engine is a zombie.

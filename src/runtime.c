@@ -217,7 +217,6 @@ void initOutfixQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
     q->history = scratch->core_info.hbuf;
     q->hlength = scratch->core_info.hlen;
     q->cb = roseReportAdaptor;
-    q->som_cb = roseReportSomAdaptor;
     q->context = scratch;
     q->report_current = 0;
 
@@ -257,8 +256,8 @@ void soleOutfixBlockExec(const struct RoseEngine *t,
     char rv = nfaQueueExec(q->nfa, q, scratch->core_info.len);
 
     if (rv && nfaAcceptsEod(nfa) && len == scratch->core_info.len) {
-        nfaCheckFinalState(nfa, q->state, q->streamState, q->length,
-                        q->cb, q->som_cb, scratch);
+        nfaCheckFinalState(nfa, q->state, q->streamState, q->length, q->cb,
+                           scratch);
     }
 }
 
@@ -568,7 +567,7 @@ void soleOutfixEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
 
     assert(nfaAcceptsEod(nfa));
     nfaCheckFinalState(nfa, q->state, q->streamState, q->offset, q->cb,
-                       q->som_cb, scratch);
+                       scratch);
 }
 
 static really_inline

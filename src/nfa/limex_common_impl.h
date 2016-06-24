@@ -119,7 +119,7 @@ char PROCESS_ACCEPTS_FN(const IMPL_NFA_T *limex, STATE_T *s,
         if (TESTBIT_STATE(s, a->state)) {
             DEBUG_PRINTF("state %u is on, firing report id=%u, offset=%llu\n",
                          a->state, a->externalId, offset);
-            int rv = callback(offset, a->externalId, context);
+            int rv = callback(0, offset, a->externalId, context);
             if (unlikely(rv == MO_HALT_MATCHING)) {
                 return 1;
             }
@@ -150,7 +150,7 @@ char PROCESS_ACCEPTS_NOSQUASH_FN(const STATE_T *s,
         if (TESTBIT_STATE(s, a->state)) {
             DEBUG_PRINTF("state %u is on, firing report id=%u, offset=%llu\n",
                          a->state, a->externalId, offset);
-            int rv = callback(offset, a->externalId, context);
+            int rv = callback(0, offset, a->externalId, context);
             if (unlikely(rv == MO_HALT_MATCHING)) {
                 return 1;
             }

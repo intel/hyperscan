@@ -130,7 +130,7 @@ int limexRunReports(const ReportID *reports, NfaCallback callback,
     for (; *reports != MO_INVALID_IDX; ++reports) {
         DEBUG_PRINTF("firing report for id %u at offset %llu\n",
                      *reports, offset);
-        int rv = callback(offset, *reports, context);
+        int rv = callback(0, offset, *reports, context);
         if (rv == MO_HALT_MATCHING) {
             return MO_HALT_MATCHING;
         }

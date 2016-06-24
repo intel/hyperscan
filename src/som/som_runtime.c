@@ -87,7 +87,7 @@ char ok_and_mark_if_unset(u8 *som_store_valid, struct fatbit *som_set_now,
 }
 
 static
-int somRevCallback(u64a offset, ReportID id, void *ctx) {
+int somRevCallback(UNUSED u64a som, u64a offset, ReportID id, void *ctx) {
     DEBUG_PRINTF("offset=%llu, id=%u\n", offset, id);
 
     // We use the id to store the offset adjustment (for assertions like a

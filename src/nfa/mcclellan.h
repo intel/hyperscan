@@ -39,8 +39,7 @@ struct NFA;
 
 char nfaExecMcClellan8_testEOD(const struct NFA *nfa, const char *state,
                                const char *streamState, u64a offset,
-                               NfaCallback callback, SomNfaCallback som_cb,
-                               void *context);
+                               NfaCallback callback, void *context);
 char nfaExecMcClellan8_Q(const struct NFA *n, struct mq *q, s64a end);
 char nfaExecMcClellan8_Q2(const struct NFA *n, struct mq *q, s64a end);
 char nfaExecMcClellan8_QR(const struct NFA *n, struct mq *q, ReportID report);
@@ -63,8 +62,7 @@ char nfaExecMcClellan8_expandState(const struct NFA *nfa, void *dest,
 
 char nfaExecMcClellan16_testEOD(const struct NFA *nfa, const char *state,
                                 const char *streamState, u64a offset,
-                                NfaCallback callback, SomNfaCallback som_cb,
-                                void *context);
+                                NfaCallback callback, void *context);
 char nfaExecMcClellan16_Q(const struct NFA *n, struct mq *q, s64a end);
 char nfaExecMcClellan16_Q2(const struct NFA *n, struct mq *q, s64a end);
 char nfaExecMcClellan16_QR(const struct NFA *n, struct mq *q, ReportID report);

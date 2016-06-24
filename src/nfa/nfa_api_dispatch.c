@@ -76,15 +76,14 @@
 
 char nfaCheckFinalState(const struct NFA *nfa, const char *state,
                         const char *streamState, u64a offset,
-                        NfaCallback callback, SomNfaCallback som_cb,
-                        void *context) {
+                        NfaCallback callback, void *context) {
     assert(ISALIGNED_CL(nfa) && ISALIGNED_CL(getImplNfa(nfa)));
 
     // Caller should avoid calling us if we can never produce matches.
     assert(nfaAcceptsEod(nfa));
 
     DISPATCH_BY_NFA_TYPE(_testEOD(nfa, state, streamState, offset, callback,
-                                  som_cb, context));
+                                  context));
     return 0;
 }
 

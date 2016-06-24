@@ -98,7 +98,7 @@ char subCastleReportCurrent(const struct Castle *c, struct mq *q,
     if (match == REPEAT_MATCH) {
         DEBUG_PRINTF("firing match at %llu for sub %u, report %u\n", offset,
                      subIdx, sub->report);
-        if (q->cb(offset, sub->report, q->context) == MO_HALT_MATCHING) {
+        if (q->cb(0, offset, sub->report, q->context) == MO_HALT_MATCHING) {
             return MO_HALT_MATCHING;
         }
     }
@@ -457,7 +457,7 @@ char subCastleFireMatch(const struct Castle *c, const void *full_state,
          i = mmbit_iterate(matching, c->numRepeats, i)) {
         const struct SubCastle *sub = getSubCastle(c, i);
         DEBUG_PRINTF("firing match at %llu for sub %u\n", offset, i);
-        if (cb(offset, sub->report, ctx) == MO_HALT_MATCHING) {
+        if (cb(0, offset, sub->report, ctx) == MO_HALT_MATCHING) {
             DEBUG_PRINTF("caller told us to halt\n");
             return MO_HALT_MATCHING;
         }

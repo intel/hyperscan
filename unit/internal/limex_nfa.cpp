@@ -51,7 +51,7 @@ static const string SCAN_DATA = "___foo______\n___foofoo_foo_^^^^^^^^^^^^^^^^^^"
 static const u32 MATCH_REPORT = 1024;
 
 static
-int onMatch(u64a, ReportID, void *ctx) {
+int onMatch(u64a, u64a, ReportID, void *ctx) {
     unsigned *matches = (unsigned *)ctx;
     (*matches)++;
     return MO_CONTINUE_MATCHING;
@@ -105,7 +105,6 @@ protected:
         q.scratch = nullptr; /* limex does not use scratch */
         q.report_current = 0;
         q.cb = onMatch;
-        q.som_cb = nullptr; // only used by Haig
         q.context = &matches;
     }
 
@@ -293,8 +292,7 @@ TEST_P(LimExModelTest, CheckFinalState) {
 
     // Check for EOD matches.
     char rv = nfaCheckFinalState(nfa.get(), full_state.get(),
-                                 stream_state.get(), end, onMatch, nullptr,
-                                 &matches);
+                                 stream_state.get(), end, onMatch, &matches);
     ASSERT_EQ(MO_CONTINUE_MATCHING, rv);
 }
 
@@ -400,7 +398,6 @@ protected:
         q.scratch = nullptr; /* limex does not use scratch */
         q.report_current = 0;
         q.cb = onMatch;
-        q.som_cb = nullptr; // only used by Haig
         q.context = &matches;
     }
 

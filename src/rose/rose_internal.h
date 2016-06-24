@@ -156,8 +156,6 @@ struct NfaInfo {
     u32 fullStateOffset; /* offset in scratch, relative to ??? */
     u32 ekeyListOffset; /* suffix, relative to base of rose, 0 if no ekeys */
     u8 no_retrigger; /* TODO */
-    u8 only_external; /**< does not raise any som internal events or chained
-                       * rose events */
     u8 in_sbmatcher;  /**< this outfix should not be run in small-block
                        * execution, as it will be handled by the sbmatcher
                        * HWLM table. */

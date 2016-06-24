@@ -48,8 +48,7 @@
 
 /* Callbacks, defined in catchup.c */
 
-int roseNfaAdaptor(u64a offset, ReportID id, void *context);
-int roseNfaSomAdaptor(u64a from_offset, u64a offset, ReportID id, void *context);
+int roseNfaAdaptor(u64a from_offset, u64a offset, ReportID id, void *context);
 
 /* Callbacks, defined in match.c */
 
@@ -57,7 +56,7 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctx);
 hwlmcb_rv_t roseFloatingCallback(size_t start, size_t end, u32 id, void *ctx);
 hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
                                      void *ctx);
-int roseAnchoredCallback(u64a end, u32 id, void *ctx);
+int roseAnchoredCallback(u64a som, u64a end, u32 id, void *ctx);
 
 /* Common code, used all over Rose runtime */
 
@@ -82,7 +81,6 @@ void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
     q->history = scratch->core_info.hbuf;
     q->hlength = scratch->core_info.hlen;
     q->cb = roseNfaAdaptor;
-    q->som_cb = roseNfaSomAdaptor;
     q->context = scratch;
     q->report_current = 0;
 
