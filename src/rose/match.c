@@ -261,8 +261,31 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
     return MO_CONTINUE_MATCHING;
 }
 
-// Rose match-processing workhorse
-/* assumes not in_anchored */
+/**
+ * \brief Run the program for the given literal ID, with the interpreter
+ * inlined into this call.
+ *
+ * Assumes not in_anchored.
+ */
+static really_inline
+hwlmcb_rv_t roseProcessMatchInline(const struct RoseEngine *t,
+                             struct hs_scratch *scratch, u64a end,
+                             size_t match_len, u32 id) {
+    DEBUG_PRINTF("id=%u\n", id);
+    const u32 *programs = getByOffset(t, t->litProgramOffset);
+    assert(id < t->literalCount);
+    const u64a som = 0;
+    const u8 flags = 0;
+    return roseRunProgram_i(t, scratch, programs[id], som, end, match_len,
+                            flags);
+}
+
+/**
+ * \brief Run the program for the given literal ID, with the interpreter
+ * out of line.
+ *
+ * Assumes not in_anchored.
+ */
 static really_inline
 hwlmcb_rv_t roseProcessMatch(const struct RoseEngine *t,
                              struct hs_scratch *scratch, u64a end,
@@ -535,7 +558,7 @@ hwlmcb_rv_t roseCallback_i(size_t start, size_t end, u32 id, void *ctxt) {
     }
 
     size_t match_len = end - start + 1;
-    rv = roseProcessMatch(t, scratch, real_end, match_len, id);
+    rv = roseProcessMatchInline(t, scratch, real_end, match_len, id);
 
     DEBUG_PRINTF("DONE groups=0x%016llx\n", tctx->groups);
 
