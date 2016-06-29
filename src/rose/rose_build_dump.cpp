@@ -273,13 +273,17 @@ void dumpRoseGraph(const RoseBuild &build_base, const RoseEngine *t,
     const RoseBuildImpl &build = dynamic_cast<const RoseBuildImpl &>(build_base);
 
     const Grey &grey = build.cc.grey;
-    if (!grey.dumpFlags) {
+
+    /* "early" rose graphs should only be dumped if we are dumping intermediate
+     * graphs. Early graphs can be identified by the lack of a RoseEngine. */
+    u32 flag_test = t ? Grey::DUMP_IMPL : Grey::DUMP_INT_GRAPH;
+
+    if (!(grey.dumpFlags & flag_test)) {
         return;
     }
 
     stringstream ss;
     ss << grey.dumpPath << filename;
-
 
     DEBUG_PRINTF("dumping graph to %s\n", ss.str().c_str());
     ofstream os(ss.str());

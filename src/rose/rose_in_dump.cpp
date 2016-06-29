@@ -51,7 +51,7 @@ namespace ue2 {
 
 void dumpPreRoseGraph(const RoseInGraph &ig, const Grey &grey,
                       const char *filename) {
-    if (!grey.dumpFlags) {
+    if (!(grey.dumpFlags & Grey::DUMP_INT_GRAPH)) {
         return;
     }
 
