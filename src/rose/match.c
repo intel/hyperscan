@@ -211,8 +211,9 @@ event_enqueued:
     return HWLM_CONTINUE_MATCHING;
 }
 
-int roseAnchoredCallback(u64a som, u64a end, u32 id, void *ctx) {
+int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx) {
     struct hs_scratch *scratch = ctx;
+    assert(scratch && scratch->magic == SCRATCH_MAGIC);
     struct RoseContext *tctxt = &scratch->tctxt;
     struct core_info *ci = &scratch->core_info;
     const struct RoseEngine *t = ci->rose;
@@ -244,7 +245,7 @@ int roseAnchoredCallback(u64a som, u64a end, u32 id, void *ctx) {
     const u32 *programs = getByOffset(t, t->litProgramOffset);
     assert(id < t->literalCount);
     const u8 flags = ROSE_PROG_FLAG_IN_ANCHORED;
-    if (roseRunProgram(t, scratch, programs[id], som, real_end, match_len,
+    if (roseRunProgram(t, scratch, programs[id], start, real_end, match_len,
                        flags) == HWLM_TERMINATE_MATCHING) {
         assert(can_stop_matching(scratch));
         DEBUG_PRINTF("caller requested termination\n");
@@ -647,10 +648,11 @@ int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
     return MO_CONTINUE_MATCHING;
 }
 
-int roseReportAdaptor(u64a som, u64a offset, ReportID id, void *context) {
-    DEBUG_PRINTF("som=%llu, offset=%llu, id=%u\n", som, offset, id);
+int roseReportAdaptor(u64a start, u64a end, ReportID id, void *context) {
     struct hs_scratch *scratch = context;
     assert(scratch && scratch->magic == SCRATCH_MAGIC);
+
+    DEBUG_PRINTF("id=%u matched at [%llu,%llu]\n", id, start, end);
 
     const struct RoseEngine *rose = scratch->core_info.rose;
 
@@ -659,7 +661,7 @@ int roseReportAdaptor(u64a som, u64a offset, ReportID id, void *context) {
     const size_t match_len = 0; // Unused in this path.
     const u8 flags = ROSE_PROG_FLAG_SKIP_MPV_CATCHUP;
     hwlmcb_rv_t rv =
-        roseRunProgram(rose, scratch, program, som, offset, match_len, flags);
+        roseRunProgram(rose, scratch, program, start, end, match_len, flags);
     if (rv == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;
     }

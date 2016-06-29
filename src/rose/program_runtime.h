@@ -702,8 +702,8 @@ int roseCheckLookaround(const struct RoseEngine *t,
     return 1;
 }
 
-int roseNfaEarliestSom(u64a from_offset, u64a offset, ReportID id,
-                       void *context);
+int roseNfaEarliestSom(u64a start, u64a end, ReportID id, void *context);
+
 static rose_inline
 u64a roseGetHaigSom(const struct RoseEngine *t, struct hs_scratch *scratch,
                     const u32 qi, UNUSED const u32 leftfixLag) {

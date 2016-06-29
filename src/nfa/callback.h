@@ -37,24 +37,26 @@
 
 /** \brief The type for an NFA callback.
  *
- * This is a function that takes as arguments the current offset where the
- * match occurs, the id of the match and the context pointer that was passed
- * into the NFA API function that executed the NFA.
+ * This is a function that takes as arguments the current start and end offsets
+ * where the match occurs, the id of the match and the context pointer that was
+ * passed into the NFA API function that executed the NFA.
  *
- * The offset where the match occurs will be the offset after the character
- * that caused the match. Thus, if we have a buffer containing 'abc', then a
- * pattern that matches an empty string will have an offset of 0, a pattern
- * that matches 'a' will have an offset of 1, and a pattern that matches 'abc'
- * will have an offset of 3, which will be a value that is 'beyond' the size of
- * the buffer. That is, if we have n characters in the buffer, there are n+1
- * different potential offsets for matches.
+ * The start offset is the "start of match" (SOM) offset for the match. It is
+ * only provided by engines that natively support SOM tracking (e.g. Gough).
+ *
+ * The end offset will be the offset after the character that caused the match.
+ * Thus, if we have a buffer containing 'abc', then a pattern that matches an
+ * empty string will have an offset of 0, a pattern that matches 'a' will have
+ * an offset of 1, and a pattern that matches 'abc' will have an offset of 3,
+ * which will be a value that is 'beyond' the size of the buffer. That is, if
+ * we have n characters in the buffer, there are n+1 different potential
+ * offsets for matches.
  *
  * This function should return an int - currently the possible return values
  * are 0, which means 'stop running the engine' or non-zero, which means
  * 'continue matching'.
  */
-typedef int (*NfaCallback)(u64a from_offset, u64a to_offset, ReportID id,
-                           void *context);
+typedef int (*NfaCallback)(u64a start, u64a end, ReportID id, void *context);
 
 /**
  * standard \ref NfaCallback return value indicating that engine execution

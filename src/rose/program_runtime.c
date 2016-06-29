@@ -33,10 +33,11 @@
 
 #include "program_runtime.h"
 
-int roseNfaEarliestSom(u64a from_offset, UNUSED u64a offset, UNUSED ReportID id,
+int roseNfaEarliestSom(u64a start, UNUSED u64a end, UNUSED ReportID id,
                        void *context) {
+    assert(context);
     u64a *som = context;
-    *som = MIN(*som, from_offset);
+    *som = MIN(*som, start);
     return MO_CONTINUE_MATCHING;
 }
 

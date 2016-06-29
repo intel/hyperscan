@@ -281,15 +281,14 @@ restart:
 
 /* for use by mpv (chained) only */
 static
-int roseNfaFinalBlastAdaptor(u64a som, u64a offset, ReportID id,
-                             void *context) {
+int roseNfaFinalBlastAdaptor(u64a start, u64a end, ReportID id, void *context) {
     struct hs_scratch *scratch = context;
+    assert(scratch && scratch->magic == SCRATCH_MAGIC);
     const struct RoseEngine *t = scratch->core_info.rose;
 
-    DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
-                 offset, id);
+    DEBUG_PRINTF("id=%u matched at [%llu,%llu]\n", id, start, end);
 
-    int cb_rv = roseNfaRunProgram(t, scratch, som, offset, id, 1);
+    int cb_rv = roseNfaRunProgram(t, scratch, start, end, id, 1);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
@@ -449,35 +448,35 @@ char in_mpv(const struct RoseEngine *rose, const struct hs_scratch *scratch) {
 }
 
 static
-int roseNfaBlastAdaptor(u64a som, u64a offset, ReportID id, void *context) {
+int roseNfaBlastAdaptor(u64a start, u64a end, ReportID id, void *context) {
     struct hs_scratch *scratch = context;
-    struct RoseContext *tctxt = &scratch->tctxt;
+    assert(scratch && scratch->magic == SCRATCH_MAGIC);
     const struct RoseEngine *t = scratch->core_info.rose;
 
-    DEBUG_PRINTF("masky got himself a blasted match @%llu id %u !woot!\n",
-                 offset, id);
+    DEBUG_PRINTF("id=%u matched at [%llu,%llu]\n", id, start, end);
 
     const char from_mpv = in_mpv(t, scratch);
-    int cb_rv = roseNfaRunProgram(t, scratch, som, offset, id, from_mpv);
+    int cb_rv = roseNfaRunProgram(t, scratch, start, end, id, from_mpv);
     if (cb_rv == MO_HALT_MATCHING) {
         return MO_HALT_MATCHING;
     } else if (cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
         return MO_CONTINUE_MATCHING;
     } else {
         assert(cb_rv == MO_CONTINUE_MATCHING);
-        return !roseSuffixIsExhausted(t, tctxt->curr_qi,
+        return !roseSuffixIsExhausted(t, scratch->tctxt.curr_qi,
                                       scratch->core_info.exhaustionVector);
     }
 }
 
-int roseNfaAdaptor(u64a from_offset, u64a offset, ReportID id,
-                   void *context) {
+int roseNfaAdaptor(u64a start, u64a end, ReportID id, void *context) {
     struct hs_scratch *scratch = context;
-    DEBUG_PRINTF("masky got himself a match @%llu id %u !woot!\n", offset, id);
+    assert(scratch && scratch->magic == SCRATCH_MAGIC);
+
+    DEBUG_PRINTF("id=%u matched at [%llu,%llu]\n", id, start, end);
 
     /* must be a external report as haig cannot directly participate in chain */
-    return roseNfaRunProgram(scratch->core_info.rose, scratch, from_offset,
-                             offset, id, 0);
+    return roseNfaRunProgram(scratch->core_info.rose, scratch, start, end, id,
+                             0);
 }
 
 static really_inline

@@ -49,7 +49,7 @@ void roseStreamEodExec(const struct RoseEngine *t, u64a offset,
 hwlmcb_rv_t rosePureLiteralCallback(size_t start, size_t end, u32 id,
                                     void *context);
 
-int roseReportAdaptor(u64a som, u64a offset, ReportID id, void *context);
+int roseReportAdaptor(u64a start, u64a end, ReportID id, void *context);
 
 int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
                            u64a stream_offset, struct hs_scratch *scratch);

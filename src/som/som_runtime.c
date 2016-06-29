@@ -87,14 +87,14 @@ char ok_and_mark_if_unset(u8 *som_store_valid, struct fatbit *som_set_now,
 }
 
 static
-int somRevCallback(UNUSED u64a som, u64a offset, ReportID id, void *ctx) {
-    DEBUG_PRINTF("offset=%llu, id=%u\n", offset, id);
+int somRevCallback(UNUSED u64a start, u64a end, ReportID id, void *ctx) {
+    DEBUG_PRINTF("offset=%llu, id=%u\n", end, id);
 
     // We use the id to store the offset adjustment (for assertions like a
     // leading \b or multiline mode).
     assert(id <= 1);
     u64a *from_offset = ctx;
-    LIMIT_TO_AT_MOST(from_offset, offset + id);
+    LIMIT_TO_AT_MOST(from_offset, end + id);
     return 1; // continue matching.
 }
 
