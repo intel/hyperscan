@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,6 +37,7 @@
 #include "fdr/fdr.h"
 #include "nfa/accel.h"
 #include "nfa/shufti.h"
+#include "nfa/truffle.h"
 #include "nfa/vermicelli.h"
 #include <string.h>
 
@@ -64,8 +65,13 @@ const u8 *run_hwlm_accel(const union AccelAux *aux, const u8 *ptr,
     case ACCEL_SHUFTI:
         DEBUG_PRINTF("single shufti\n");
         return shuftiExec(aux->shufti.lo, aux->shufti.hi, ptr, end);
+    case ACCEL_TRUFFLE:
+        DEBUG_PRINTF("truffle\n");
+        return truffleExec(aux->truffle.mask1, aux->truffle.mask2, ptr, end);
     default:
         /* no acceleration, fall through and return current ptr */
+        DEBUG_PRINTF("no accel; %u\n", (int)aux->accel_type);
+        assert(aux->accel_type == ACCEL_NONE);
         return ptr;
     }
 }

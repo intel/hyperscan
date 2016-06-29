@@ -38,6 +38,7 @@
 #include "ue2common.h"
 #include "fdr/fdr_compile.h"
 #include "nfa/shufticompile.h"
+#include "nfa/trufflecompile.h"
 #include "util/alloc.h"
 #include "util/bitutils.h"
 #include "util/charreach.h"
@@ -372,12 +373,9 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
         for (u32 i = 0; i < MAX_ACCEL_OFFSET && i < lit.s.length(); i++) {
             unsigned char c = lit.s[i];
             if (lit.nocase) {
-                DEBUG_PRINTF("adding %02hhx to %u\n", mytoupper(c), i);
-                DEBUG_PRINTF("adding %02hhx to %u\n", mytolower(c), i);
                 reach[i].set(mytoupper(c));
                 reach[i].set(mytolower(c));
             } else {
-                DEBUG_PRINTF("adding %02hhx to %u\n", c, i);
                 reach[i].set(c);
             }
         }
@@ -397,7 +395,7 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
     assert(min_offset <= min_len);
 
     if (min_count > MAX_SHUFTI_WIDTH) {
-        DEBUG_PRINTF("min shufti with %u chars is too wide\n", min_count);
+        DEBUG_PRINTF("FAIL: min shufti with %u chars is too wide\n", min_count);
         return;
     }
 
@@ -410,7 +408,11 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
         return;
     }
 
-    DEBUG_PRINTF("fail\n");
+    truffleBuildMasks(cr, &aux->truffle.mask1, &aux->truffle.mask2);
+    DEBUG_PRINTF("built truffle for %s (%zu chars, offset %u)\n",
+                 describeClass(cr).c_str(), cr.count(), min_offset);
+    aux->truffle.accel_type = ACCEL_TRUFFLE;
+    aux->truffle.offset = verify_u8(min_offset);
 }
 
 static
