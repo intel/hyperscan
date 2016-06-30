@@ -54,12 +54,11 @@ void nfaExecTamarama0_dumpDot(const struct NFA *nfa, UNUSED FILE *f,
     const u32 *subOffset =
         (const u32 *)((const char *)t + sizeof(struct Tamarama) +
                       t->numSubEngines * sizeof(u32));
-    const char *offset = (const char *)nfa;
     for (u32 i = 0; i < t->numSubEngines; i++) {
         std::stringstream ssdot;
         ssdot << base << "rose_nfa_" << nfa->queueIndex
             << "_sub_" << i << ".dot";
-        const NFA *sub = (const struct NFA *)(offset + subOffset[i]);
+        const NFA *sub = (const struct NFA *)((const char *)t + subOffset[i]);
         FILE *f1 = fopen(ssdot.str().c_str(), "w");
         nfaDumpDot(sub, f1, base);
         fclose(f1);
@@ -80,10 +79,9 @@ void nfaExecTamarama0_dumpText(const struct NFA *nfa, FILE *f) {
     const u32 *subOffset =
         (const u32 *)((const char *)t + sizeof(struct Tamarama) +
                       t->numSubEngines * sizeof(u32));
-    const char *offset = (const char *)nfa;
     for (u32 i = 0; i < t->numSubEngines; i++) {
         fprintf(f, "Sub %u:\n", i);
-        const NFA *sub = (const struct NFA *)(offset + subOffset[i]);
+        const NFA *sub = (const struct NFA *)((const char *)t + subOffset[i]);
         nfaDumpText(sub, f);
         fprintf(f, "\n");
     }
