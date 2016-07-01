@@ -348,6 +348,25 @@ void filterLits(const vector<hwlmLiteral> &lits, hwlm_group_t expected_groups,
 }
 
 static
+bool litGuardedByCharReach(const CharReach &cr, const hwlmLiteral &lit,
+                           u32 max_offset) {
+    for (u32 i = 0; i <= max_offset && i < lit.s.length(); i++) {
+         unsigned char c = lit.s[i];
+         if (lit.nocase) {
+             if (cr.test(mytoupper(c)) && cr.test(mytolower(c))) {
+                 return true;
+             }
+         } else {
+             if (cr.test(c)) {
+                 return true;
+             }
+         }
+    }
+
+    return false;
+}
+
+static
 void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
                             hwlm_group_t expected_groups, AccelAux *aux) {
     DEBUG_PRINTF("building accel expected=%016llx\n", expected_groups);
@@ -364,26 +383,33 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
         return;
     }
 
+    /* look for shufti/truffle */
+
     vector<CharReach> reach(MAX_ACCEL_OFFSET, CharReach());
     for (const auto &lit : lits) {
         if (!(lit.groups & expected_groups)) {
             continue;
         }
 
-        for (u32 i = 0; i < MAX_ACCEL_OFFSET && i < lit.s.length(); i++) {
-            unsigned char c = lit.s[i];
+        for (u32 i = 0; i < MAX_ACCEL_OFFSET; i++) {
+            CharReach &reach_i = reach[i];
+
+            if (litGuardedByCharReach(reach_i, lit, i)) {
+                continue;
+            }
+            unsigned char c = i < lit.s.length() ? lit.s[i] : lit.s.back();
             if (lit.nocase) {
-                reach[i].set(mytoupper(c));
-                reach[i].set(mytolower(c));
+                reach_i.set(mytoupper(c));
+                reach_i.set(mytolower(c));
             } else {
-                reach[i].set(c);
+                reach_i.set(c);
             }
         }
     }
 
     u32 min_count = ~0U;
     u32 min_offset = ~0U;
-    for (u32 i = 0; i < min_len; i++) {
+    for (u32 i = 0; i < MAX_ACCEL_OFFSET; i++) {
         size_t count = reach[i].count();
         DEBUG_PRINTF("offset %u is %s (reach %zu)\n", i,
                      describeClass(reach[i]).c_str(), count);
@@ -392,7 +418,6 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
             min_offset = i;
         }
     }
-    assert(min_offset <= min_len);
 
     if (min_count > MAX_SHUFTI_WIDTH) {
         DEBUG_PRINTF("FAIL: min shufti with %u chars is too wide\n", min_count);
