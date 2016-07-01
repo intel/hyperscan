@@ -880,7 +880,7 @@ namespace {
 class OutfixAllReports : public boost::static_visitor<set<ReportID>> {
 public:
     set<ReportID> operator()(const boost::blank &) const {
-        return {};
+        return set<ReportID>();
     }
 
     template<class T>
