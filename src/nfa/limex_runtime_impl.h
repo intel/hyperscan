@@ -363,16 +363,24 @@ void COMPRESS_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, void *src,
     char *state_base = (char *)dest + limex->stateSize;
 
     for (u32 i = 0; i < limex->repeatCount; i++) {
+        DEBUG_PRINTF("repeat %u\n", i);
         const struct NFARepeatInfo *info = GET_NFA_REPEAT_INFO_FN(limex, i);
-        const struct RepeatInfo *repeat = getRepeatInfo(info);
 
-        if (TESTBIT_STATE(&s, info->cyclicState) &&
-            repeatHasMatch(repeat, &ctrl[i], state_base + info->stateOffset,
-                           offset) == REPEAT_STALE) {
-            DEBUG_PRINTF("repeat %u is stale\n", i);
-            CLEARBIT_STATE(&s, info->cyclicState);
+        if (!TESTBIT_STATE(&s, info->cyclicState)) {
+            DEBUG_PRINTF("is dead\n");
+            continue;
         }
 
+        const struct RepeatInfo *repeat = getRepeatInfo(info);
+        if (repeatHasMatch(repeat, &ctrl[i], state_base + info->stateOffset,
+                           offset) == REPEAT_STALE) {
+            DEBUG_PRINTF("is stale, clearing state\n");
+            CLEARBIT_STATE(&s, info->cyclicState);
+            continue;
+        }
+
+        DEBUG_PRINTF("packing state (packedCtrlOffset=%u)\n",
+                     info->packedCtrlOffset);
         repeatPack(state_base + info->packedCtrlOffset, repeat, &ctrl[i],
                    offset);
     }
@@ -398,15 +406,24 @@ void EXPAND_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, const void *src,
         return;
     }
 
-    // Note: we expand all repeats, as they may have *just* had their
-    // cyclic states switched off a moment ago. TODO: is this required?
+    // Note: state has already been expanded into 'dest'.
+    STATE_T s = LOAD_STATE(dest);
 
     union RepeatControl *ctrl =
         getRepeatControlBase((char *)dest, sizeof(STATE_T));
     const char *state_base = (const char *)src + limex->stateSize;
 
     for (u32 i = 0; i < limex->repeatCount; i++) {
+        DEBUG_PRINTF("repeat %u\n", i);
         const struct NFARepeatInfo *info = GET_NFA_REPEAT_INFO_FN(limex, i);
+
+        if (!TESTBIT_STATE(&s, info->cyclicState)) {
+            DEBUG_PRINTF("is dead\n");
+            continue;
+        }
+
+        DEBUG_PRINTF("unpacking state (packedCtrlOffset=%u)\n",
+                     info->packedCtrlOffset);
         const struct RepeatInfo *repeat = getRepeatInfo(info);
         repeatUnpack(state_base + info->packedCtrlOffset, repeat, offset,
                      &ctrl[i]);
