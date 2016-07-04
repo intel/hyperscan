@@ -371,14 +371,13 @@ void COMPRESS_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, const void *src,
 }
 
 char JOIN(LIMEX_API_ROOT, _queueCompressState)(const struct NFA *n,
-                                                  const struct mq *q,
-                                                  s64a loc) {
+                                               const struct mq *q, s64a loc) {
     void *dest = q->streamState;
     const void *src = q->state;
     u8 key = queue_prev_byte(q, loc);
     const IMPL_NFA_T *limex = getImplNfa(n);
-    COMPRESS_FN(limex, dest, src, key);
     COMPRESS_REPEATS_FN(limex, dest, src, q->offset + loc);
+    COMPRESS_FN(limex, dest, src, key);
     return 0;
 }
 
