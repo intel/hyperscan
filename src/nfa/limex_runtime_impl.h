@@ -73,6 +73,7 @@
 #define ANDNOT_STATE        JOIN(andnot_, STATE_T)
 #define OR_STATE            JOIN(or_, STATE_T)
 #define TESTBIT_STATE       JOIN(testbit_, STATE_T)
+#define CLEARBIT_STATE      JOIN(clearbit_, STATE_T)
 #define ZERO_STATE          JOIN(zero_, STATE_T)
 #define ISNONZERO_STATE     JOIN(isNonZero_, STATE_T)
 #define ISZERO_STATE        JOIN(isZero_, STATE_T)
@@ -349,14 +350,13 @@ char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
 }
 
 static really_inline
-void COMPRESS_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, const void *src,
+void COMPRESS_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, void *src,
                          u64a offset) {
     if (!limex->repeatCount) {
         return;
     }
 
-    // Note: we compress all repeats, as they may have *just* had their
-    // cyclic states switched off a moment ago. TODO: is this required
+    STATE_T s = LOAD_STATE(src);
 
     const union RepeatControl *ctrl =
         getRepeatControlBaseConst((const char *)src, sizeof(STATE_T));
@@ -365,15 +365,25 @@ void COMPRESS_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, const void *src,
     for (u32 i = 0; i < limex->repeatCount; i++) {
         const struct NFARepeatInfo *info = GET_NFA_REPEAT_INFO_FN(limex, i);
         const struct RepeatInfo *repeat = getRepeatInfo(info);
+
+        if (TESTBIT_STATE(&s, info->cyclicState) &&
+            repeatHasMatch(repeat, &ctrl[i], state_base + info->stateOffset,
+                           offset) == REPEAT_STALE) {
+            DEBUG_PRINTF("repeat %u is stale\n", i);
+            CLEARBIT_STATE(&s, info->cyclicState);
+        }
+
         repeatPack(state_base + info->packedCtrlOffset, repeat, &ctrl[i],
                    offset);
     }
+
+    STORE_STATE(src, s);
 }
 
 char JOIN(LIMEX_API_ROOT, _queueCompressState)(const struct NFA *n,
                                                const struct mq *q, s64a loc) {
     void *dest = q->streamState;
-    const void *src = q->state;
+    void *src = q->state;
     u8 key = queue_prev_byte(q, loc);
     const IMPL_NFA_T *limex = getImplNfa(n);
     COMPRESS_REPEATS_FN(limex, dest, src, q->offset + loc);
@@ -952,6 +962,7 @@ enum nfa_zombie_status JOIN(LIMEX_API_ROOT, _zombie_status)(
 #undef ANDNOT_STATE
 #undef OR_STATE
 #undef TESTBIT_STATE
+#undef CLEARBIT_STATE
 #undef ZERO_STATE
 #undef ISNONZERO_STATE
 #undef ISZERO_STATE
