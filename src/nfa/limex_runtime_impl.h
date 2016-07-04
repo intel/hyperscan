@@ -358,6 +358,11 @@ void COMPRESS_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, void *src,
 
     STATE_T s = LOAD_STATE(src);
 
+    if (ISZERO_STATE(AND_STATE(s, LOAD_STATE(&limex->repeatCyclicMask)))) {
+        DEBUG_PRINTF("no cyclics are on\n");
+        return;
+    }
+
     const union RepeatControl *ctrl =
         getRepeatControlBaseConst((const char *)src, sizeof(STATE_T));
     char *state_base = (char *)dest + limex->stateSize;
@@ -407,7 +412,12 @@ void EXPAND_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, const void *src,
     }
 
     // Note: state has already been expanded into 'dest'.
-    STATE_T s = LOAD_STATE(dest);
+    const STATE_T cyclics =
+        AND_STATE(LOAD_STATE(dest), LOAD_STATE(&limex->repeatCyclicMask));
+    if (ISZERO_STATE(cyclics)) {
+        DEBUG_PRINTF("no cyclics are on\n");
+        return;
+    }
 
     union RepeatControl *ctrl =
         getRepeatControlBase((char *)dest, sizeof(STATE_T));
@@ -417,7 +427,7 @@ void EXPAND_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, const void *src,
         DEBUG_PRINTF("repeat %u\n", i);
         const struct NFARepeatInfo *info = GET_NFA_REPEAT_INFO_FN(limex, i);
 
-        if (!TESTBIT_STATE(&s, info->cyclicState)) {
+        if (!TESTBIT_STATE(&cyclics, info->cyclicState)) {
             DEBUG_PRINTF("is dead\n");
             continue;
         }
