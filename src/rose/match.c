@@ -583,29 +583,6 @@ hwlmcb_rv_t roseFloatingCallback(size_t start, size_t end, u32 id, void *ctxt) {
 }
 
 /**
- * \brief Match callback adaptor used for matches from pure-literal cases.
- *
- * Literal match IDs in this path run limited Rose programs that do not use
- * Rose state (which is not initialised in the pure-literal path). They can
- * still, for example, check lookarounds or literal masks.
- */
-hwlmcb_rv_t rosePureLiteralCallback(size_t start, size_t end, u32 id,
-                                    void *context) {
-    DEBUG_PRINTF("start=%zu, end=%zu, id=%u\n", start, end, id);
-    struct hs_scratch *scratch = context;
-    struct core_info *ci = &scratch->core_info;
-    const u64a real_end = (u64a)end + ci->buf_offset + 1;
-    const u64a som = 0;
-    const size_t match_len = end - start + 1;
-    const struct RoseEngine *rose = ci->rose;
-    const u32 *programs = getByOffset(rose, rose->litProgramOffset);
-    assert(id < rose->literalCount);
-    const u8 flags = 0;
-    return roseRunProgram(rose, scratch, programs[id], som, real_end, match_len,
-                          flags);
-}
-
-/**
  * \brief Execute a boundary report program.
  *
  * Returns MO_HALT_MATCHING if the stream is exhausted or the user has

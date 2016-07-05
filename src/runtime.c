@@ -198,7 +198,11 @@ void pureLiteralBlockExec(const struct RoseEngine *rose,
     size_t length = scratch->core_info.len;
     DEBUG_PRINTF("rose engine %d\n", rose->runtimeImpl);
 
-    hwlmExec(ftable, buffer, length, 0, rosePureLiteralCallback, scratch,
+    // RoseContext values that need to be set for use by roseCallback.
+    scratch->tctxt.groups = rose->initialGroups;
+    scratch->tctxt.lit_offset_adjust = 1;
+
+    hwlmExec(ftable, buffer, length, 0, roseCallback, scratch,
              rose->initialGroups);
 }
 
@@ -742,11 +746,15 @@ void pureLiteralStreamExec(struct hs_stream *stream_state,
     DEBUG_PRINTF("::: streaming rose ::: offset = %llu len = %zu\n",
                  stream_state->offset, scratch->core_info.len);
 
+    // RoseContext values that need to be set for use by roseCallback.
+    scratch->tctxt.groups = loadGroups(rose, scratch->core_info.state);
+    scratch->tctxt.lit_offset_adjust = scratch->core_info.buf_offset + 1;
+
     // Pure literal cases don't have floatingMinDistance set, so we always
     // start the match region at zero.
     const size_t start = 0;
 
-    hwlmExecStreaming(ftable, scratch, len2, start, rosePureLiteralCallback,
+    hwlmExecStreaming(ftable, scratch, len2, start, roseCallback,
                       scratch, rose->initialGroups, hwlm_stream_state);
 
     if (!told_to_stop_matching(scratch) &&
