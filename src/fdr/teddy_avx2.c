@@ -121,22 +121,22 @@ do {                                                                        \
         u64a part4 = extract64from256(r, 1);                                \
         if (unlikely(part1)) {                                              \
             conf_fn(&part1, bucket, offset, confBase, reason, a, ptr,       \
-                    control, &last_match);                                  \
+                    &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
         if (unlikely(part2)) {                                              \
             conf_fn(&part2, bucket, offset + 4, confBase, reason, a, ptr,   \
-                    control, &last_match);                                  \
+                    &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
         if (unlikely(part3)) {                                              \
             conf_fn(&part3, bucket, offset + 8, confBase, reason, a, ptr,   \
-                    control, &last_match);                                  \
+                    &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
         if (unlikely(part4)) {                                              \
             conf_fn(&part4, bucket, offset + 12, confBase, reason, a, ptr,  \
-                    control, &last_match);                                  \
+                    &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
     }                                                                       \
@@ -158,41 +158,41 @@ do {                                                                        \
         u32 part8 = extract32from256(r, 3);                                 \
         if (unlikely(part1)) {                                              \
             conf_fn(&part1, bucket, offset, confBase, reason, a, ptr,       \
-                    control, &last_match);                                  \
+                    &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
         if (unlikely(part2)) {                                              \
             conf_fn(&part2, bucket, offset + 2, confBase, reason, a, ptr,   \
-                    control, &last_match);                                  \
+                    &control, &last_match);                                 \
         }                                                                   \
         if (unlikely(part3)) {                                              \
             conf_fn(&part3, bucket, offset + 4, confBase, reason, a, ptr,   \
-                    control, &last_match);                                  \
+                    &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
         if (unlikely(part4)) {                                              \
             conf_fn(&part4, bucket, offset + 6, confBase, reason, a, ptr,   \
-                    control, &last_match);                                  \
+                    &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
         if (unlikely(part5)) {                                              \
             conf_fn(&part5, bucket, offset + 8, confBase, reason, a, ptr,   \
-                    control, &last_match);                                  \
+                    &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
         if (unlikely(part6)) {                                              \
             conf_fn(&part6, bucket, offset + 10, confBase, reason, a, ptr,  \
-                    control, &last_match);                                  \
+                    &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
         if (unlikely(part7)) {                                              \
             conf_fn(&part7, bucket, offset + 12, confBase, reason, a, ptr,  \
-                    control, &last_match);                                  \
+                    &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
         if (unlikely(part8)) {                                              \
             conf_fn(&part8, bucket, offset + 14, confBase, reason, a, ptr,  \
-                    control, &last_match);                                  \
+                    &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
     }                                                                       \
@@ -208,7 +208,7 @@ do {                                                                        \
         bit_array_fast_teddy(lo, bitArr, &arrCnt, offset);                  \
         bit_array_fast_teddy(hi, bitArr, &arrCnt, offset + 2);              \
         for (u32 i = 0; i < arrCnt; i++) {                                  \
-            conf_fn(bitArr[i], confBase, reason, a, ptr, control,           \
+            conf_fn(bitArr[i], confBase, reason, a, ptr, &control,          \
                     &last_match);                                           \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
@@ -484,8 +484,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
                                            const struct FDR_Runtime_Args *a) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t controlVal = *a->groups;
-    hwlmcb_rv_t *control = &controlVal;
+    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -532,7 +531,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
         m256 r_0 = prep_conf_fat_teddy_m1(maskBase, p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit1_teddy);
     }
-    *a->groups = controlVal;
+    *a->groups = control;
     return HWLM_SUCCESS;
 }
 
@@ -540,8 +539,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fat(const struct FDR *fdr,
                                                const struct FDR_Runtime_Args *a) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t controlVal = *a->groups;
-    hwlmcb_rv_t *control = &controlVal;
+    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -588,7 +586,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fat(const struct FDR *fdr,
         m256 r_0 = prep_conf_fat_teddy_m1(maskBase, p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
     }
-    *a->groups = controlVal;
+    *a->groups = control;
     return HWLM_SUCCESS;
 }
 
@@ -596,8 +594,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_fat(const struct FDR *fdr,
                                            const struct FDR_Runtime_Args *a) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t controlVal = *a->groups;
-    hwlmcb_rv_t *control = &controlVal;
+    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -647,7 +644,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_fat(const struct FDR *fdr,
         m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
     }
-    *a->groups = controlVal;
+    *a->groups = control;
     return HWLM_SUCCESS;
 }
 
@@ -655,8 +652,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_pck_fat(const struct FDR *fdr,
                                                const struct FDR_Runtime_Args *a) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t controlVal = *a->groups;
-    hwlmcb_rv_t *control = &controlVal;
+    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -706,7 +702,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_pck_fat(const struct FDR *fdr,
         m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
     }
-    *a->groups = controlVal;
+    *a->groups = control;
     return HWLM_SUCCESS;
 }
 
@@ -714,8 +710,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_fat(const struct FDR *fdr,
                                            const struct FDR_Runtime_Args *a) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t controlVal = *a->groups;
-    hwlmcb_rv_t *control = &controlVal;
+    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -768,7 +763,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_fat(const struct FDR *fdr,
                                           p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
     }
-    *a->groups = controlVal;
+    *a->groups = control;
     return HWLM_SUCCESS;
 }
 
@@ -776,8 +771,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_pck_fat(const struct FDR *fdr,
                                                const struct FDR_Runtime_Args *a) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t controlVal = *a->groups;
-    hwlmcb_rv_t *control = &controlVal;
+    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -830,7 +824,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_pck_fat(const struct FDR *fdr,
                                           p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
     }
-    *a->groups = controlVal;
+    *a->groups = control;
     return HWLM_SUCCESS;
 }
 
@@ -838,8 +832,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
                                            const struct FDR_Runtime_Args *a) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t controlVal = *a->groups;
-    hwlmcb_rv_t *control = &controlVal;
+    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -896,7 +889,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
                                           &res_old_3, p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
     }
-    *a->groups = controlVal;
+    *a->groups = control;
     return HWLM_SUCCESS;
 }
 
@@ -904,8 +897,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
                                                const struct FDR_Runtime_Args *a) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t controlVal = *a->groups;
-    hwlmcb_rv_t *control = &controlVal;
+    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -962,7 +954,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
                                           &res_old_3, p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
     }
-    *a->groups = controlVal;
+    *a->groups = control;
     return HWLM_SUCCESS;
 }
 
@@ -970,8 +962,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fast(const struct FDR *fdr,
                                             const struct FDR_Runtime_Args *a) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t controlVal = *a->groups;
-    hwlmcb_rv_t *control = &controlVal;
+    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -1032,7 +1023,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fast(const struct FDR *fdr,
                                              p_mask);
         CONFIRM_FAST_TEDDY(res_0, 0, VECTORING, do_confWithBit1_fast_teddy);
     }
-    *a->groups = controlVal;
+    *a->groups = control;
     return HWLM_SUCCESS;
 }
 
@@ -1040,8 +1031,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fast(const struct FDR *fdr,
                                                 const struct FDR_Runtime_Args *a) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t controlVal = *a->groups;
-    hwlmcb_rv_t *control = &controlVal;
+    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -1102,7 +1092,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fast(const struct FDR *fdr,
                                              p_mask);
         CONFIRM_FAST_TEDDY(res_0, 0, VECTORING, do_confWithBit_fast_teddy);
     }
-    *a->groups = controlVal;
+    *a->groups = control;
     return HWLM_SUCCESS;
 }
 
