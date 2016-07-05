@@ -228,7 +228,7 @@ hwlm_error_t fdr_exec_teddy_msks1(const struct FDR *fdr,
         m128 r_0 = prep_conf_teddy_m1(maskBase, p_mask, val_0);
         CONFIRM_TEDDY(r_0, 8, 0, VECTORING, do_confWithBit1_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -282,7 +282,7 @@ hwlm_error_t fdr_exec_teddy_msks1_pck(const struct FDR *fdr,
         m128 r_0 = prep_conf_teddy_m1(maskBase, p_mask, val_0);
         CONFIRM_TEDDY(r_0, 8, 0, VECTORING, do_confWithBit_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -340,7 +340,7 @@ hwlm_error_t fdr_exec_teddy_msks2(const struct FDR *fdr,
         m128 r_0 = prep_conf_teddy_m2(maskBase, &res_old_1, p_mask, val_0);
         CONFIRM_TEDDY(r_0, 8, 0, VECTORING, do_confWithBitMany_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -398,7 +398,7 @@ hwlm_error_t fdr_exec_teddy_msks2_pck(const struct FDR *fdr,
         m128 r_0 = prep_conf_teddy_m2(maskBase, &res_old_1, p_mask, val_0);
         CONFIRM_TEDDY(r_0, 8, 0, VECTORING, do_confWithBit_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -459,7 +459,7 @@ hwlm_error_t fdr_exec_teddy_msks3(const struct FDR *fdr,
                                       p_mask, val_0);
         CONFIRM_TEDDY(r_0, 8, 0, VECTORING, do_confWithBitMany_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -520,7 +520,7 @@ hwlm_error_t fdr_exec_teddy_msks3_pck(const struct FDR *fdr,
                                       p_mask, val_0);
         CONFIRM_TEDDY(r_0, 8, 0, VECTORING, do_confWithBit_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -582,7 +582,7 @@ hwlm_error_t fdr_exec_teddy_msks4(const struct FDR *fdr,
                                       &res_old_3, p_mask, val_0);
         CONFIRM_TEDDY(r_0, 8, 0, VECTORING, do_confWithBitMany_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -644,6 +644,6 @@ hwlm_error_t fdr_exec_teddy_msks4_pck(const struct FDR *fdr,
                                       &res_old_3, p_mask, val_0);
         CONFIRM_TEDDY(r_0, 8, 0, VECTORING, do_confWithBit_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }

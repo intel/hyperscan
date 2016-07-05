@@ -531,7 +531,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
         m256 r_0 = prep_conf_fat_teddy_m1(maskBase, p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit1_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -586,7 +586,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fat(const struct FDR *fdr,
         m256 r_0 = prep_conf_fat_teddy_m1(maskBase, p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -644,7 +644,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_fat(const struct FDR *fdr,
         m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -702,7 +702,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_pck_fat(const struct FDR *fdr,
         m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -763,7 +763,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_fat(const struct FDR *fdr,
                                           p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -824,7 +824,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_pck_fat(const struct FDR *fdr,
                                           p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -889,7 +889,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
                                           &res_old_3, p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -954,7 +954,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
                                           &res_old_3, p_mask, val_0);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -1023,7 +1023,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fast(const struct FDR *fdr,
                                              p_mask);
         CONFIRM_FAST_TEDDY(res_0, 0, VECTORING, do_confWithBit1_fast_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 
@@ -1092,7 +1092,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fast(const struct FDR *fdr,
                                              p_mask);
         CONFIRM_FAST_TEDDY(res_0, 0, VECTORING, do_confWithBit_fast_teddy);
     }
-    *a->groups = control;
+
     return HWLM_SUCCESS;
 }
 

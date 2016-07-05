@@ -52,7 +52,6 @@ extern const u8 ALIGN_DIRECTIVE p_mask_arr[17][32];
 #define CHECK_HWLM_TERMINATE_MATCHING                                       \
 do {                                                                        \
     if (unlikely(control == HWLM_TERMINATE_MATCHING)) {                     \
-        *a->groups = control;                                               \
         return HWLM_TERMINATED;                                             \
     }                                                                       \
 } while (0);
