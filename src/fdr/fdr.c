@@ -312,10 +312,9 @@ void get_conf_stride_4(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
 }
 
 static really_inline
-void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *controlVal,
+void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *control,
                     const u32 *confBase, const struct FDR_Runtime_Args *a,
-                    const u8 *ptr, hwlmcb_rv_t *control, u32 *last_match_id,
-                    struct zone *z) {
+                    const u8 *ptr, u32 *last_match_id, struct zone *z) {
     const u8 bucket = 8;
     const u8 pullback = 1;
 
@@ -351,13 +350,13 @@ void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *controlVal,
                 continue;
             }
            *last_match_id = id;
-           *controlVal = a->cb(ptr_main + byte - a->buf,
-                               ptr_main + byte - a->buf, id, a->ctxt);
+           *control = a->cb(ptr_main + byte - a->buf, ptr_main + byte - a->buf,
+                            id, a->ctxt);
            continue;
         }
         u64a confVal = unaligned_load_u64a(confLoc + byte - sizeof(u64a));
-        confWithBit(fdrc, a, ptr_main - a->buf + byte, pullback,
-                    control, last_match_id, confVal);
+        confWithBit(fdrc, a, ptr_main - a->buf + byte, pullback, control,
+                    last_match_id, confVal);
     } while (unlikely(!!*conf));
 }
 
@@ -680,9 +679,9 @@ size_t prepareZones(const u8 *buf, size_t len, const u8 *hend,
             itPtr += ITER_BYTES) {                                          \
             if (unlikely(itPtr > tryFloodDetect)) {                         \
                 tryFloodDetect = floodDetect(fdr, a, &itPtr, tryFloodDetect,\
-                                             &floodBackoff, &controlVal,    \
+                                             &floodBackoff, &control,       \
                                              ITER_BYTES);                   \
-                if (unlikely(controlVal == HWLM_TERMINATE_MATCHING)) {      \
+                if (unlikely(control == HWLM_TERMINATE_MATCHING)) {         \
                     return HWLM_TERMINATED;                                 \
                 }                                                           \
             }                                                               \
@@ -691,11 +690,11 @@ size_t prepareZones(const u8 *buf, size_t len, const u8 *hend,
             u64a conf8;                                                     \
             get_conf_fn(itPtr, start_ptr, end_ptr, domain_mask_adjusted,    \
                         ft, &conf0, &conf8, &s);                            \
-            do_confirm_fdr(&conf0, 0, &controlVal, confBase, a, itPtr,      \
-                           control, &last_match_id, zz);                    \
-            do_confirm_fdr(&conf8, 8, &controlVal, confBase, a, itPtr,      \
-                           control, &last_match_id, zz);                    \
-            if (unlikely(controlVal == HWLM_TERMINATE_MATCHING)) {          \
+            do_confirm_fdr(&conf0, 0, &control, confBase, a, itPtr,         \
+                           &last_match_id, zz);                             \
+            do_confirm_fdr(&conf8, 8, &control, confBase, a, itPtr,         \
+                           &last_match_id, zz);                             \
+            if (unlikely(control == HWLM_TERMINATE_MATCHING)) {             \
                 return HWLM_TERMINATED;                                     \
             }                                                               \
         } /* end for loop */                                                \
@@ -704,8 +703,7 @@ size_t prepareZones(const u8 *buf, size_t len, const u8 *hend,
 static never_inline
 hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
                              const struct FDR_Runtime_Args *a) {
-    hwlmcb_rv_t controlVal = *a->groups;
-    hwlmcb_rv_t *control = &controlVal;
+    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     u32 last_match_id = INVALID_MATCH_ID;
     u64a domain_mask_adjusted = fdr->domainMask << 1;
