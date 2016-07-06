@@ -581,8 +581,12 @@ public:
     bool requiresDedupeSupport(
         const ue2::flat_set<ReportID> &reports) const override;
 
+private:
+    bool hasSafeMultiReports(const ue2::flat_set<ReportID> &reports) const;
+
     const RoseBuildImpl &tbi;
-    map<ReportID, set<RoseVertex>> vert_map;
+    map<ReportID, set<RoseVertex>> vert_map; //!< ordinary literals
+    map<ReportID, set<RoseVertex>> sb_vert_map; //!< small block literals
     map<ReportID, set<suffix_id>> suffix_map;
     map<ReportID, set<const OutfixInfo *>> outfix_map;
     map<ReportID, set<const raw_puff *>> puff_map;
@@ -602,10 +606,14 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
     set<suffix_id> suffixes;
 
     for (auto v : vertices_range(g)) {
-        // Literals in the small block table don't count as dupes: although
-        // they have copies in the anchored table, the two are never run in the
-        // same runtime invocation. All other literals count, though.
-        if (!tbi.hasLiteralInTable(v, ROSE_ANCHORED_SMALL_BLOCK)) {
+        // Literals in the small block table are "shadow" copies of literals in
+        // the other tables that do not run in the same runtime invocation.
+        // Dedupe key assignment will be taken care of by the real literals.
+        if (tbi.hasLiteralInTable(v, ROSE_ANCHORED_SMALL_BLOCK)) {
+            for (const auto &report_id : g[v].reports) {
+                sb_vert_map[report_id].insert(v);
+            }
+        } else {
             for (const auto &report_id : g[v].reports) {
                 vert_map[report_id].insert(v);
             }
@@ -673,19 +681,54 @@ bool literalsCouldRace(const rose_literal_id &lit1,
     return r.first == smaller->rend();
 }
 
+bool RoseDedupeAuxImpl::hasSafeMultiReports(
+    const flat_set<ReportID> &reports) const {
+    if (reports.size() <= 1) {
+        return true;
+    }
+
+    /* We have more than one ReportID corresponding to the external ID that is
+     * presented to the user. These may differ in offset adjustment, bounds
+     * checks, etc. */
+
+    /* TODO: work out if these differences will actually cause problems */
+
+    /* One common case where we know we don't have a problem is if there are
+     * precisely two reports, one for the main Rose path and one for the
+     * "small block matcher" path. */
+    if (reports.size() == 2) {
+        ReportID id1 = *reports.begin();
+        ReportID id2 = *reports.rbegin();
+
+        bool has_verts_1 = contains(vert_map, id1);
+        bool has_verts_2 = contains(vert_map, id2);
+        bool has_sb_verts_1 = contains(sb_vert_map, id1);
+        bool has_sb_verts_2 = contains(sb_vert_map, id2);
+
+        if (has_verts_1 != has_verts_2 && has_sb_verts_1 != has_sb_verts_2) {
+            DEBUG_PRINTF("two reports, one full and one small block: ok\n");
+            return true;
+        }
+    }
+
+    DEBUG_PRINTF("more than one report\n");
+    return false;
+}
+
 bool RoseDedupeAuxImpl::requiresDedupeSupport(
     const ue2::flat_set<ReportID> &reports) const {
     /* TODO: this could be expanded to check for offset or character
        constraints */
+
+    DEBUG_PRINTF("reports: %s\n", as_string_list(reports).c_str());
 
     const RoseGraph &g = tbi.g;
 
     bool has_suffix = false;
     bool has_outfix = false;
 
-    if (reports.size() > 1) {
-        /* may have offset adjust */
-        /* TODO: work out if the offset adjust will actually cause problems */
+    if (!hasSafeMultiReports(reports)) {
+        DEBUG_PRINTF("multiple reports not safe\n");
         return true;
     }
 
@@ -697,7 +740,6 @@ bool RoseDedupeAuxImpl::requiresDedupeSupport(
         if (contains(vert_map, r)) {
             insert(&roles, vert_map.at(r));
         }
-
         if (contains(suffix_map, r)) {
             insert(&suffixes, suffix_map.at(r));
         }
