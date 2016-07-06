@@ -460,7 +460,7 @@ u32 add_to_engine_blob(build_context &bc, const T &a, const size_t len) {
 template<typename Iter>
 static
 u32 add_to_engine_blob(build_context &bc, Iter b, const Iter &e) {
-    using value_type = typename Iter::value_type;
+    using value_type = typename std::iterator_traits<Iter>::value_type;
     static_assert(is_pod<value_type>::value, "should be pod");
 
     if (b == e) {
