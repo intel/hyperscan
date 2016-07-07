@@ -429,7 +429,6 @@ struct RoseEngine {
     u32 ematcherRegionSize; /* max region size to pass to ematcher */
     u32 somRevCount; /**< number of som reverse nfas */
     u32 somRevOffsetOffset; /**< offset to array of offsets to som rev nfas */
-    u32 group_weak_end; /* end of weak groups, debugging only */
     u32 floatingStreamState; // size in bytes
 
     struct scatter_full_plan state_init;

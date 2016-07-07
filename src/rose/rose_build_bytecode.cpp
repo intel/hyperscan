@@ -5191,8 +5191,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->eagerIterOffset = eagerIterOffset;
     engine->handledKeyCount = bc.handledKeys.size();
 
-    engine->group_weak_end = group_weak_end;
-
     engine->rolesWithStateCount = bc.numStates;
 
     engine->leftOffset = leftOffset;

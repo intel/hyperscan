@@ -1076,7 +1076,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, ematcherRegionSize);
     DUMP_U32(t, somRevCount);
     DUMP_U32(t, somRevOffsetOffset);
-    DUMP_U32(t, group_weak_end);
     DUMP_U32(t, floatingStreamState);
     fprintf(f, "}\n");
     fprintf(f, "sizeof(RoseEngine) = %zu\n", sizeof(RoseEngine));

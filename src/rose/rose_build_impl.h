@@ -547,7 +547,6 @@ public:
     std::map<size_t, std::vector<std::unique_ptr<raw_dfa>>> anchored_nfas;
     std::map<simple_anchored_info, std::set<u32>> anchored_simple;
     std::map<u32, std::set<u32> > group_to_literal;
-    u32 group_weak_end;
     u32 group_end;
 
     u32 anchored_base_id;
