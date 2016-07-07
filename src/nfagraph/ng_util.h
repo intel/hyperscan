@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -65,7 +65,7 @@ bool is_dot(NFAVertex v, const GraphT &g) {
 template<class U>
 static really_inline
 void succ(const NGHolder &g, NFAVertex v, U *s) {
-    NFAGraph::adjacency_iterator ai, ae;
+    NGHolder::adjacency_iterator ai, ae;
     tie(ai, ae) = adjacent_vertices(v, g);
     s->insert(ai, ae);
 }
@@ -74,14 +74,14 @@ void succ(const NGHolder &g, NFAVertex v, U *s) {
 template<class U>
 static really_inline
 void pred(const NGHolder &g, NFAVertex v, U *p) {
-    NFAGraph::inv_adjacency_iterator it, ite;
+    NGHolder::inv_adjacency_iterator it, ite;
     tie(it, ite) = inv_adjacent_vertices(v, g);
     p->insert(it, ite);
 }
 
 /** returns a vertex with an out edge from v and is not v.
  * v must have exactly one out-edge excluding self-loops.
- * will return NFAGraph::null_vertex() if the preconditions don't hold.
+ * will return NGHolder::null_vertex() if the preconditions don't hold.
  */
 NFAVertex getSoleDestVertex(const NGHolder &g, NFAVertex v);
 

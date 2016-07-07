@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -135,7 +135,7 @@ void findWidths(const NGHolder &g,
     // Wire our entries to start and our exits to accept.
     for (auto v : ri.vertices) {
         NFAVertex v_new = mapping[v];
-        assert(v_new != NFAGraph::null_vertex());
+        assert(v_new != NGHolder::null_vertex());
 
         if (isRegionEntry(g, v, region_map) &&
             !edge(rg.start, v_new, rg).second) {

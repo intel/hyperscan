@@ -780,7 +780,7 @@ bool literalIsWholeGraph(const NGHolder &g, const ue2_literal &lit) {
     NFAVertex v = g.accept;
 
     for (auto it = lit.rbegin(), ite = lit.rend(); it != ite; ++it) {
-        NFAGraph::inv_adjacency_iterator ai, ae;
+        NGHolder::inv_adjacency_iterator ai, ae;
         tie(ai, ae) = inv_adjacent_vertices(v, g);
         if (ai == ae) {
             assert(0); // no predecessors?

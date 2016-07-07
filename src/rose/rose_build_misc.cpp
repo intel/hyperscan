@@ -538,11 +538,11 @@ static
 bool requiresDedupe(const NGHolder &h, const ue2::flat_set<ReportID> &reports,
                     const Grey &grey) {
     /* TODO: tighten */
-    NFAVertex seen_vert = NFAGraph::null_vertex();
+    NFAVertex seen_vert = NGHolder::null_vertex();
 
     for (auto v : inv_adjacent_vertices_range(h.accept, h)) {
         if (has_intersection(h[v].reports, reports)) {
-            if (seen_vert != NFAGraph::null_vertex()) {
+            if (seen_vert != NGHolder::null_vertex()) {
                 return true;
             }
             seen_vert = v;
@@ -551,7 +551,7 @@ bool requiresDedupe(const NGHolder &h, const ue2::flat_set<ReportID> &reports,
 
     for (auto v : inv_adjacent_vertices_range(h.acceptEod, h)) {
         if (has_intersection(h[v].reports, reports)) {
-            if (seen_vert != NFAGraph::null_vertex()) {
+            if (seen_vert != NGHolder::null_vertex()) {
                 return true;
             }
             seen_vert = v;

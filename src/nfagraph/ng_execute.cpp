@@ -58,7 +58,7 @@ namespace ue2 {
 
 struct StateInfo {
     StateInfo(NFAVertex v, const CharReach &cr) : vertex(v), reach(cr) {}
-    StateInfo() : vertex(NFAGraph::null_vertex()) {}
+    StateInfo() : vertex(NGHolder::null_vertex()) {}
     NFAVertex vertex;
     CharReach reach;
 };

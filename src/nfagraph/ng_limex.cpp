@@ -164,7 +164,7 @@ void makeTopStates(NGHolder &g, map<u32, NFAVertex> &tops,
 
         assert(!contains(tops, t));
 
-        NFAVertex s = NFAGraph::null_vertex();
+        NFAVertex s = NGHolder::null_vertex();
         flat_set<NFAVertex> succs;
         insert(&succs, top.second);
 

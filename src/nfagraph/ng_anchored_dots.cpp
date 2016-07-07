@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -119,7 +119,7 @@ NFAVertex findReformable(const NGHolder &g, const set<NFAVertex> &starts,
     }
 
     if (dotq.empty()) {
-        return NFAGraph::null_vertex();
+        return NGHolder::null_vertex();
     }
 
     const DotInfo &dot = dotq.top();
@@ -165,10 +165,10 @@ void reformAnchoredRepeatsComponent(NGHolder &g,
         return;
     }
 
-    NFAVertex dotV = NFAGraph::null_vertex();
+    NFAVertex dotV = NGHolder::null_vertex();
     set<NFAVertex> otherV;
     dotV = findReformable(g, compAnchoredStarts, otherV);
-    if (dotV == NFAGraph::null_vertex()) {
+    if (dotV == NGHolder::null_vertex()) {
         DEBUG_PRINTF("no candidate reformable dot found.\n");
         return;
     }
@@ -268,10 +268,10 @@ void reformUnanchoredRepeatsComponent(NGHolder &g,
     }
 
     while (true) {
-        NFAVertex dotV = NFAGraph::null_vertex();
+        NFAVertex dotV = NGHolder::null_vertex();
         set<NFAVertex> otherV;
         dotV = findReformable(g, compUnanchoredStarts, otherV);
-        if (dotV == NFAGraph::null_vertex()) {
+        if (dotV == NGHolder::null_vertex()) {
             DEBUG_PRINTF("no candidate reformable dot found.\n");
             return;
         }
@@ -464,7 +464,7 @@ void collapseVariableDotRepeat(NGHolder &g, NFAVertex start,
     // The first of our optional dots must be connected to start. The jump edge
     // past it will be verified in gatherParticipants(). If start is
     // graph.start, it should not be connected to startDs.
-    NFAVertex initialDot = NFAGraph::null_vertex();
+    NFAVertex initialDot = NGHolder::null_vertex();
     for (auto v : adjacent_vertices_range(start, g)) {
         if (is_special(v, g)) {
             continue;

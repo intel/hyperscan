@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -89,11 +89,11 @@ void populateInit(const NGHolder &g, const flat_set<NFAVertex> &unused,
     }
 
     v_by_index->clear();
-    v_by_index->resize(num_vertices(g), NFAGraph::null_vertex());
+    v_by_index->resize(num_vertices(g), NGHolder::null_vertex());
 
     for (auto v : vertices_range(g)) {
         u32 v_index = g[v].index;
-        assert((*v_by_index)[v_index] == NFAGraph::null_vertex());
+        assert((*v_by_index)[v_index] == NGHolder::null_vertex());
         (*v_by_index)[v_index] = v;
     }
 }

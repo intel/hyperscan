@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -78,26 +78,26 @@ depth maxDistFromStartOfData(const NFAVertexDepth &vd) {
 }
 
 NFAVertex getSoleDestVertex(const NGHolder &g, NFAVertex a) {
-    assert(a != NFAGraph::null_vertex());
+    assert(a != NGHolder::null_vertex());
 
-    NFAGraph::out_edge_iterator ii, iie;
+    NGHolder::out_edge_iterator ii, iie;
     tie(ii, iie) = out_edges(a, g);
     if (ii == iie) {
-        return NFAGraph::null_vertex();
+        return NGHolder::null_vertex();
     }
     NFAVertex b = target(*ii, g);
     if (a == b) {
         ++ii;
         if (ii == iie) {
-            return NFAGraph::null_vertex();
+            return NGHolder::null_vertex();
         }
 
         b = target(*ii, g);
         if (++ii != iie) {
-            return NFAGraph::null_vertex();
+            return NGHolder::null_vertex();
         }
     } else if (++ii != iie && (target(*ii, g) != a || ++ii != iie)) {
-        return NFAGraph::null_vertex();
+        return NGHolder::null_vertex();
     }
 
     assert(a != b);
@@ -105,23 +105,23 @@ NFAVertex getSoleDestVertex(const NGHolder &g, NFAVertex a) {
 }
 
 NFAVertex getSoleSourceVertex(const NGHolder &g, NFAVertex a) {
-    assert(a != NFAGraph::null_vertex());
+    assert(a != NGHolder::null_vertex());
 
     u32 idegree = in_degree(a, g);
     if (idegree != 1 && !(idegree == 2 && hasSelfLoop(a, g))) {
-        return NFAGraph::null_vertex();
+        return NGHolder::null_vertex();
     }
 
-    NFAGraph::in_edge_iterator ii, iie;
+    NGHolder::in_edge_iterator ii, iie;
     tie(ii, iie) = in_edges(a, g);
     if (ii == iie) {
-        return NFAGraph::null_vertex();
+        return NGHolder::null_vertex();
     }
     NFAVertex b = source(*ii, g);
     if (a == b) {
         ++ii;
         if (ii == iie) {
-            return NFAGraph::null_vertex();
+            return NGHolder::null_vertex();
         }
 
         b = source(*ii, g);
@@ -321,7 +321,7 @@ bool can_match_at_eod(const NGHolder &h) {
 }
 
 bool can_only_match_at_eod(const NGHolder &g) {
-    NFAGraph::in_edge_iterator ie, ee;
+    NGHolder::in_edge_iterator ie, ee;
     tie(ie, ee) = in_edges(g.accept, g);
 
     return ie == ee;

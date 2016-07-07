@@ -345,7 +345,7 @@ void buildReachMapping(const build_info &args, vector<NFAStateSet> &reach,
 }
 
 struct AccelBuild {
-    AccelBuild() : v(NFAGraph::null_vertex()), state(0), offset(0), ma_len1(0),
+    AccelBuild() : v(NGHolder::null_vertex()), state(0), offset(0), ma_len1(0),
             ma_len2(0), ma_type(MultibyteAccelInfo::MAT_NONE) {}
     NFAVertex v;
     u32 state;

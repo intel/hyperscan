@@ -314,10 +314,8 @@ protected:
         // Reverse the graph and add some reports on the accept vertices.
         NGHolder g_rev(NFA_REV_PREFIX);
         reverseHolder(*g, g_rev);
-        NFAGraph::inv_adjacency_iterator ai, ae;
-        for (tie(ai, ae) = inv_adjacent_vertices(g_rev.accept, g_rev); ai != ae;
-             ++ai) {
-            g_rev[*ai].reports.insert(0);
+        for (NFAVertex v : inv_adjacent_vertices_range(g_rev.accept, g_rev)) {
+            g_rev[v].reports.insert(0);
         }
 
         nfa = constructReversedNFA(g_rev, type, cc);

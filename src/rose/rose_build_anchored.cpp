@@ -476,7 +476,7 @@ NFAVertex extractLiteral(const NGHolder &h, ue2_literal *lit) {
     }
 
     if (lit_verts.empty()) {
-        return NFAGraph::null_vertex();
+        return NGHolder::null_vertex();
     }
 
     bool nocase = false;
@@ -488,7 +488,7 @@ NFAVertex extractLiteral(const NGHolder &h, ue2_literal *lit) {
         if (cr.isAlpha()) {
             bool cr_nocase = cr.count() != 1;
             if (case_set && cr_nocase != nocase) {
-                return NFAGraph::null_vertex();
+                return NGHolder::null_vertex();
             }
 
             case_set = true;
@@ -511,7 +511,7 @@ bool isSimple(const NGHolder &h, u32 *min_bound, u32 *max_bound,
     DEBUG_PRINTF("looking for simple case\n");
     NFAVertex lit_head = extractLiteral(h, lit);
 
-    if (lit_head == NFAGraph::null_vertex()) {
+    if (lit_head == NGHolder::null_vertex()) {
         DEBUG_PRINTF("no literal found\n");
         return false;
     }

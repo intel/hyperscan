@@ -173,11 +173,11 @@ void populateInit(const NGHolder &g, const flat_set<NFAVertex> &unused,
     }
 
     v_by_index->clear();
-    v_by_index->resize(num_vertices(g), NFAGraph::null_vertex());
+    v_by_index->resize(num_vertices(g), NGHolder::null_vertex());
 
     for (auto v : vertices_range(g)) {
         u32 vert_id = g[v].index;
-        assert((*v_by_index)[vert_id] == NFAGraph::null_vertex());
+        assert((*v_by_index)[vert_id] == NGHolder::null_vertex());
         (*v_by_index)[vert_id] = v;
     }
 

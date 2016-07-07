@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,7 +27,8 @@
  */
 
 /**
- * Unit tests for checking the removeGraphEquivalences code in nfagraph/ng_equivalence.cpp.
+ * Unit tests for checking the removeGraphEquivalences code in
+ * nfagraph/ng_equivalence.cpp.
  */
 
 #include "config.h"
@@ -71,10 +72,9 @@ TEST(NFAGraph, RemoveEquivalence1) {
     ASSERT_EQ(2U, in_degree(g.accept, g));
 
     // Find a vertex that goes right after startDs
-    NFAVertex a = NFAGraph::null_vertex();
-    NFAGraph::adjacency_iterator ai, ae;
-    for (tie(ai, ae) = adjacent_vertices(g.startDs, g); ai != ae; ++ai) {
-        a = *ai;
+    NFAVertex a = NGHolder::null_vertex();
+    for (NFAVertex v : adjacent_vertices_range(g.startDs, g)) {
+        a = v;
         if (a == g.startDs) {
             continue;
         }
@@ -87,8 +87,8 @@ TEST(NFAGraph, RemoveEquivalence1) {
     ASSERT_TRUE(a != nullptr);
 
     // There should be two edges from v to nodes with reachability 'b' and 'c'
-    NFAVertex b = NFAGraph::null_vertex();
-    NFAVertex c = NFAGraph::null_vertex();
+    NFAVertex b = NGHolder::null_vertex();
+    NFAVertex c = NGHolder::null_vertex();
     for (NFAVertex tmp : adjacent_vertices_range(a, g)) {
         const CharReach &tmpcr = g[tmp].char_reach;
         ASSERT_EQ(1U, tmpcr.count());
@@ -133,11 +133,9 @@ TEST(NFAGraph, RemoveEquivalence2) {
     ASSERT_EQ(1U, in_degree(g.accept, g));
 
     // Find a vertex leading to accept
-    NFAVertex a = NFAGraph::null_vertex();
-    NFAGraph::inv_adjacency_iterator ai, ae;
-    for (tie(ai, ae) = inv_adjacent_vertices(g.accept, g); ai != ae;
-         ++ai) {
-        a = *ai;
+    NFAVertex a = NGHolder::null_vertex();
+    for (NFAVertex v : inv_adjacent_vertices_range(g.accept, g)) {
+        a = v;
         if (a == g.accept) {
             continue;
         }
@@ -150,8 +148,8 @@ TEST(NFAGraph, RemoveEquivalence2) {
     ASSERT_TRUE(a != nullptr);
 
     // There should be two edges from v to nodes with reachability 'b' and 'c'
-    NFAVertex b = NFAGraph::null_vertex();
-    NFAVertex c = NFAGraph::null_vertex();
+    NFAVertex b = NGHolder::null_vertex();
+    NFAVertex c = NGHolder::null_vertex();
     for (NFAVertex tmp : inv_adjacent_vertices_range(a, g)) {
         const CharReach &tmpcr = g[tmp].char_reach;
         ASSERT_EQ(1U, tmpcr.count());
@@ -197,10 +195,9 @@ TEST(NFAGraph, RemoveEquivalence3) {
     ASSERT_EQ(2U, in_degree(g.accept, g));
 
     // Find a vertex 'a' that goes right after startDs
-    NFAVertex a = NFAGraph::null_vertex();
-    NFAGraph::adjacency_iterator ai, ae;
-    for (tie(ai, ae) = adjacent_vertices(g.startDs, g); ai != ae; ++ai) {
-        a = *ai;
+    NFAVertex a = NGHolder::null_vertex();
+    for (NFAVertex v : adjacent_vertices_range(g.startDs, g)) {
+        a = v;
         if (a == g.startDs) {
             continue;
         }
@@ -234,10 +231,9 @@ TEST(NFAGraph, RemoveEquivalence3) {
     ASSERT_TRUE(edge(dot2, dot1, g).second);
 
     // now, let's find X and Y nodes
-    NFAVertex X = NFAGraph::null_vertex();
-    NFAVertex Y = NFAGraph::null_vertex();
-    for (tie(ai, ae) = adjacent_vertices(dot2, g); ai != ae; ++ai) {
-        NFAVertex tmp = *ai;
+    NFAVertex X = NGHolder::null_vertex();
+    NFAVertex Y = NGHolder::null_vertex();
+    for (NFAVertex tmp : adjacent_vertices_range(dot2, g)) {
 
         // we already know about dot1, so skip it
         if (tmp == dot1) {
@@ -290,12 +286,9 @@ TEST(NFAGraph, RemoveEquivalence4) {
     ASSERT_EQ(1U, in_degree(g.accept, g));
 
     // Find X and Y nodes that are connected to startDs
-    NFAVertex X = NFAGraph::null_vertex();
-    NFAVertex Y = NFAGraph::null_vertex();
-    NFAGraph::adjacency_iterator ai, ae;
-    for (tie(ai, ae) = adjacent_vertices(g.startDs, g); ai != ae; ++ai) {
-        NFAVertex tmp = *ai;
-
+    NFAVertex X = NGHolder::null_vertex();
+    NFAVertex Y = NGHolder::null_vertex();
+    for (NFAVertex tmp : adjacent_vertices_range(g.startDs, g)) {
         // skip startDs
         if (tmp == g.startDs) {
             continue;
@@ -341,10 +334,8 @@ TEST(NFAGraph, RemoveEquivalence4) {
     ASSERT_TRUE(edge(dot2, dot1, g).second);
 
     // now find 'a'
-    NFAVertex a = NFAGraph::null_vertex();
-    for (tie(ai, ae) = adjacent_vertices(dot2, g); ai != ae; ++ai) {
-        NFAVertex tmp = *ai;
-
+    NFAVertex a = NGHolder::null_vertex();
+    for (NFAVertex tmp : adjacent_vertices_range(dot2, g)) {
         // skip dot1
         if (tmp == dot1) {
             continue;
@@ -392,10 +383,9 @@ TEST(NFAGraph, RemoveEquivalence5) {
     ASSERT_EQ(1U, in_degree(g.accept, g));
 
     // find first vertex and ensure it has a self loop
-    NFAVertex v = NFAGraph::null_vertex();
-    NFAGraph::adjacency_iterator ai, ae;
-    for (tie(ai, ae) = adjacent_vertices(g.startDs, g); ai != ae; ++ai) {
-        v = *ai;
+    NFAVertex v = NGHolder::null_vertex();
+    for (NFAVertex t : adjacent_vertices_range(g.startDs, g)) {
+        v = t;
         if (v == g.startDs) {
             continue;
         }
@@ -409,15 +399,13 @@ TEST(NFAGraph, RemoveEquivalence5) {
     ASSERT_TRUE(v != nullptr);
 
     // now, find the vertex leading to accept
-    NFAVertex v2 = NFAGraph::null_vertex();
-    for (tie(ai, ae) = adjacent_vertices(v, g); ai != ae; ++ai) {
-        NFAVertex tmp = *ai;
-
+    NFAVertex v2 = NGHolder::null_vertex();
+    for (NFAVertex tmp : adjacent_vertices_range(v, g)) {
         // skip self-loop
         if (tmp == v) {
             continue;
         }
-        v2 = *ai;
+        v2 = tmp;
         // get char reach
         const CharReach tmpcr = g[tmp].char_reach;
 
@@ -450,10 +438,9 @@ TEST(NFAGraph, RemoveEquivalence6) {
     ASSERT_EQ(1U, in_degree(g.accept, g));
 
     // find that vertex and ensure it has no self loops and an edge to accept
-    NFAVertex v = NFAGraph::null_vertex();
-    NFAGraph::adjacency_iterator ai, ae;
-    for (tie(ai, ae) = adjacent_vertices(g.startDs, g); ai != ae; ++ai) {
-        v = *ai;
+    NFAVertex v = NGHolder::null_vertex();
+    for (NFAVertex t : adjacent_vertices_range(g.startDs, g)) {
+        v = t;
         if (v == g.startDs) {
             continue;
         }
@@ -492,13 +479,12 @@ TEST(NFAGraph, RemoveEquivalence7) {
     ASSERT_EQ(1U, in_degree(g.accept, g));
 
     // find that vertex and ensure it's a dot self loop and has one outgoing edge
-    NFAVertex v = NFAGraph::null_vertex();
-    NFAGraph::adjacency_iterator ai, ae;
-    for (tie(ai, ae) = adjacent_vertices(g.start, g); ai != ae; ++ai) {
-        if (*ai == g.startDs) {
+    NFAVertex v = NGHolder::null_vertex();
+    for (NFAVertex t : adjacent_vertices_range(g.start, g)) {
+        if (t == g.startDs) {
             continue;
         }
-        v = *ai;
+        v = t;
         // check if it has the right char reach
         const CharReach &tmpcr = g[v].char_reach;
         ASSERT_TRUE(tmpcr.all());
@@ -509,13 +495,13 @@ TEST(NFAGraph, RemoveEquivalence7) {
     ASSERT_TRUE(v != nullptr);
 
     // find the next vertex and ensure it has an edge to accept
-    NFAVertex v2 = NFAGraph::null_vertex();
-    for (tie(ai, ae) = adjacent_vertices(v, g); ai != ae; ++ai) {
+    NFAVertex v2 = NGHolder::null_vertex();
+    for (NFAVertex t : adjacent_vertices_range(v, g)) {
         // skip self loop
-        if (*ai == v) {
+        if (t == v) {
             continue;
         }
-        v2 = *ai;
+        v2 = t;
         // check if it has the right char reach
         const CharReach &tmpcr = g[v2].char_reach;
         ASSERT_EQ(1U, tmpcr.count());

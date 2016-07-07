@@ -472,7 +472,7 @@ bool doComponent(RoseBuild &rose, ReportManager &rm, NGHolder &g, NFAVertex a,
     }
 
     NFAVertex puffv = nodes.back();
-    assert(puffv != NFAGraph::null_vertex());
+    assert(puffv != NGHolder::null_vertex());
     u32 width = countChain(g, nodes.back());
 
     flat_set<ReportID> chain_reports;

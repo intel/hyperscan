@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -384,7 +384,7 @@ makePrefix(const NGHolder &g, const ue2::unordered_map<NFAVertex, u32> &regions,
     add_edge(prefix.accept, prefix.acceptEod, prefix);
 
     assert(!next_enters.empty());
-    assert(next_enters.front() != NFAGraph::null_vertex());
+    assert(next_enters.front() != NGHolder::null_vertex());
     u32 dead_region = regions.at(next_enters.front());
     DEBUG_PRINTF("curr_region %u, dead_region %u\n",
                  regions.at(curr_exits.front()), dead_region);
@@ -2537,7 +2537,7 @@ bool doHaigLitHaigSom(NG &ng, NGHolder &g,
     RoseInVertex v = add_vertex(RoseInVertexProps::makeLiteral(lit), ig);
 
     bool lhs_all_vac = true;
-    NFAGraph::adjacency_iterator ai, ae;
+    NGHolder::adjacency_iterator ai, ae;
     for (tie(ai, ae) = adjacent_vertices(lhs->startDs, *lhs);
          ai != ae && lhs_all_vac; ++ai) {
         if (!is_special(*ai, *lhs)) {
