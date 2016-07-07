@@ -481,10 +481,10 @@ const u32 * getConfBase_avx2(const struct Teddy *teddy, u8 numMask) {
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
-                                           const struct FDR_Runtime_Args *a) {
+                                           const struct FDR_Runtime_Args *a,
+                                           hwlm_group_t control) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -536,10 +536,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fat(const struct FDR *fdr,
-                                               const struct FDR_Runtime_Args *a) {
+                                               const struct FDR_Runtime_Args *a,
+                                               hwlm_group_t control) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -591,10 +591,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fat(const struct FDR *fdr,
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks2_fat(const struct FDR *fdr,
-                                           const struct FDR_Runtime_Args *a) {
+                                           const struct FDR_Runtime_Args *a,
+                                           hwlm_group_t control) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -649,10 +649,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_fat(const struct FDR *fdr,
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks2_pck_fat(const struct FDR *fdr,
-                                               const struct FDR_Runtime_Args *a) {
+                                               const struct FDR_Runtime_Args *a,
+                                               hwlm_group_t control) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -707,10 +707,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_pck_fat(const struct FDR *fdr,
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks3_fat(const struct FDR *fdr,
-                                           const struct FDR_Runtime_Args *a) {
+                                           const struct FDR_Runtime_Args *a,
+                                           hwlm_group_t control) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -768,10 +768,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_fat(const struct FDR *fdr,
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks3_pck_fat(const struct FDR *fdr,
-                                               const struct FDR_Runtime_Args *a) {
+                                               const struct FDR_Runtime_Args *a,
+                                               hwlm_group_t control) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -829,10 +829,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_pck_fat(const struct FDR *fdr,
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
-                                           const struct FDR_Runtime_Args *a) {
+                                           const struct FDR_Runtime_Args *a,
+                                           hwlm_group_t control) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -894,10 +894,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
-                                               const struct FDR_Runtime_Args *a) {
+                                               const struct FDR_Runtime_Args *a,
+                                               hwlm_group_t control) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -959,10 +959,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks1_fast(const struct FDR *fdr,
-                                            const struct FDR_Runtime_Args *a) {
+                                            const struct FDR_Runtime_Args *a,
+                                            hwlm_group_t control) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;
@@ -1028,10 +1028,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fast(const struct FDR *fdr,
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fast(const struct FDR *fdr,
-                                                const struct FDR_Runtime_Args *a) {
+                                            const struct FDR_Runtime_Args *a,
+                                            hwlm_group_t control) {
     const u8 *buf_end = a->buf + a->len;
     const u8 *ptr = a->buf + a->start_offset;
-    hwlmcb_rv_t control = *a->groups;
     u32 floodBackoff = FLOOD_BACKOFF_START;
     const u8 *tryFloodDetect = a->firstFloodDetect;
     u32 last_match = (u32)-1;

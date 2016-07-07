@@ -702,8 +702,8 @@ size_t prepareZones(const u8 *buf, size_t len, const u8 *hend,
 
 static never_inline
 hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
-                             const struct FDR_Runtime_Args *a) {
-    hwlmcb_rv_t control = *a->groups;
+                             const struct FDR_Runtime_Args *a,
+                             hwlm_group_t control) {
     u32 floodBackoff = FLOOD_BACKOFF_START;
     u32 last_match_id = INVALID_MATCH_ID;
     u64a domain_mask_adjusted = fdr->domainMask << 1;
@@ -768,7 +768,10 @@ hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
 #define ONLY_AVX2(func) NULL
 #endif
 
-typedef hwlm_error_t (*FDRFUNCTYPE)(const struct FDR *fdr, const struct FDR_Runtime_Args *a);
+typedef hwlm_error_t (*FDRFUNCTYPE)(const struct FDR *fdr,
+                                    const struct FDR_Runtime_Args *a,
+                                    hwlm_group_t control);
+
 static const FDRFUNCTYPE funcs[] = {
     fdr_engine_exec,
     ONLY_AVX2(fdr_exec_teddy_avx2_msks1_fast),
@@ -811,7 +814,6 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
         start,
         cb,
         ctxt,
-        &groups,
         nextFloodDetect(buf, len, FLOOD_BACKOFF_START),
         0
     };
@@ -819,7 +821,7 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
         return HWLM_SUCCESS;
     } else {
         assert(funcs[fdr->engineID]);
-        return funcs[fdr->engineID](fdr, &a);
+        return funcs[fdr->engineID](fdr, &a, groups);
     }
 }
 
@@ -837,7 +839,6 @@ hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
         start,
         cb,
         ctxt,
-        &groups,
         nextFloodDetect(buf, len, FLOOD_BACKOFF_START),
         /* we are guaranteed to always have 16 initialised bytes at the end of
          * the history buffer (they may be garbage). */
@@ -850,7 +851,7 @@ hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
         ret = HWLM_SUCCESS;
     } else {
         assert(funcs[fdr->engineID]);
-        ret = funcs[fdr->engineID](fdr, &a);
+        ret = funcs[fdr->engineID](fdr, &a, groups);
     }
 
     fdrPackState(fdr, &a, stream_state);

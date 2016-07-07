@@ -105,7 +105,6 @@ struct FDR_Runtime_Args {
     size_t start_offset;
     HWLMCallback cb;
     void *ctxt;
-    hwlm_group_t *groups;
     const u8 *firstFloodDetect;
     const u64a histBytes;
 };
