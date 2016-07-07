@@ -493,11 +493,10 @@ static really_inline u32 diffrich64_256(m256 a, m256 b) {
 
 // aligned load
 static really_inline m256 load256(const void *ptr) {
-#if defined(__AVX2__)
     assert(ISALIGNED_N(ptr, alignof(m256)));
+#if defined(__AVX2__)
     return _mm256_load_si256((const m256 *)ptr);
 #else
-    assert(ISALIGNED_N(ptr, alignof(m128)));
     m256 rv = { load128(ptr), load128((const char *)ptr + 16) };
     return rv;
 #endif
@@ -517,11 +516,10 @@ static really_inline m256 load2x128(const void *ptr) {
 
 // aligned store
 static really_inline void store256(void *ptr, m256 a) {
-#if defined(__AVX2__)
     assert(ISALIGNED_N(ptr, alignof(m256)));
+#if defined(__AVX2__)
     _mm256_store_si256((m256 *)ptr, a);
 #else
-    assert(ISALIGNED_16(ptr));
     ptr = assume_aligned(ptr, 16);
     *(m256 *)ptr = a;
 #endif
@@ -943,19 +941,19 @@ static really_inline u32 diffrich64_512(m512 a, m512 b) {
 
 // aligned load
 static really_inline m512 load512(const void *ptr) {
-    assert(ISALIGNED_16(ptr));
+    assert(ISALIGNED_N(ptr, alignof(m256)));
     m512 rv = { load256(ptr), load256((const char *)ptr + 32) };
     return rv;
 }
 
 // aligned store
 static really_inline void store512(void *ptr, m512 a) {
+    assert(ISALIGNED_N(ptr, alignof(m256)));
 #if defined(__AVX2__)
     m512 *x = (m512 *)ptr;
     store256(&x->lo, a.lo);
     store256(&x->hi, a.hi);
 #else
-    assert(ISALIGNED_16(ptr));
     ptr = assume_aligned(ptr, 16);
     *(m512 *)ptr = a;
 #endif
