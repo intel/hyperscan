@@ -38,12 +38,14 @@
 #include "hwlm/hwlm_build.h"
 #include "hwlm/hwlm_literal.h"
 #include "nfa/castlecompile.h"
+#include "nfa/nfa_api_queue.h"
 #include "util/charreach_util.h"
 #include "util/compile_context.h"
 #include "util/compile_error.h"
 #include "util/dump_charclass.h"
 #include "util/report.h"
 #include "util/report_manager.h"
+#include "util/verify_types.h"
 #include "ue2common.h"
 
 #include <iomanip>
@@ -519,8 +521,111 @@ bool isNoRunsLiteral(const RoseBuildImpl &build, const u32 id,
     return true;
 }
 
+static
+const raw_puff &getChainedPuff(const RoseBuildImpl &build,
+                               const Report &report) {
+    DEBUG_PRINTF("chained report, event %u\n", report.onmatch);
+
+    // MPV has already been moved to the outfixes vector.
+    assert(!build.mpv_outfix);
+
+    auto mpv_outfix_it = find_if(
+        begin(build.outfixes), end(build.outfixes),
+        [](const OutfixInfo &outfix) { return outfix.is_nonempty_mpv(); });
+    assert(mpv_outfix_it != end(build.outfixes));
+    const auto *mpv = mpv_outfix_it->mpv();
+
+    u32 puff_index = report.onmatch - MQE_TOP_FIRST;
+    assert(puff_index < mpv->triggered_puffettes.size());
+    return mpv->triggered_puffettes.at(puff_index);
+}
+
+/**
+ * \brief Returns a conservative estimate of the minimum offset at which the
+ * given literal can lead to a report.
+ *
+ * TODO: This could be made more precise by calculating a "distance to accept"
+ * for every vertex in the graph; right now we're only accurate for leaf nodes.
+ */
+static
+u64a literalMinReportOffset(const RoseBuildImpl &build,
+                           const rose_literal_id &lit,
+                           const rose_literal_info &info) {
+    const auto &g = build.g;
+
+    const u32 lit_len = verify_u32(lit.elength());
+
+    u64a lit_min_offset = UINT64_MAX;
+
+    for (const auto &v : info.vertices) {
+        DEBUG_PRINTF("vertex %zu min_offset=%u\n", g[v].idx, g[v].min_offset);
+
+        u64a vert_offset = g[v].min_offset;
+
+        if (vert_offset >= lit_min_offset) {
+            continue;
+        }
+
+        u64a min_offset = UINT64_MAX;
+
+        for (const auto &id : g[v].reports) {
+            const Report &report = build.rm.getReport(id);
+            DEBUG_PRINTF("report id %u, min offset=%llu\n", id,
+                         report.minOffset);
+            if (report.type == INTERNAL_ROSE_CHAIN) {
+                // This vertex triggers an MPV, which will fire reports after
+                // repeating for a while.
+                assert(report.minOffset == 0); // Should not have bounds.
+                const auto &puff = getChainedPuff(build, report);
+                DEBUG_PRINTF("chained puff repeats=%u\n", puff.repeats);
+                const Report &puff_report = build.rm.getReport(puff.report);
+                DEBUG_PRINTF("puff report %u, min offset=%llu\n", puff.report,
+                              puff_report.minOffset);
+                min_offset = min(min_offset, max(vert_offset + puff.repeats,
+                                                 puff_report.minOffset));
+            } else {
+                DEBUG_PRINTF("report min offset=%llu\n", report.minOffset);
+                min_offset = min(min_offset, max(vert_offset,
+                                                 report.minOffset));
+            }
+        }
+
+        if (g[v].suffix) {
+            depth suffix_width = findMinWidth(g[v].suffix, g[v].suffix.top);
+            assert(suffix_width.is_reachable());
+            DEBUG_PRINTF("suffix with width %s\n", suffix_width.str().c_str());
+            min_offset = min(min_offset, vert_offset + suffix_width);
+        }
+
+        if (!isLeafNode(v, g) || min_offset == UINT64_MAX) {
+            min_offset = vert_offset;
+        }
+
+        lit_min_offset = min(lit_min_offset, min_offset);
+    }
+
+    // If this literal in the undelayed literal corresponding to some delayed
+    // literals, we must take their minimum offsets into account.
+    for (const u32 &delayed_id : info.delayed_ids) {
+        const auto &delayed_lit = build.literals.right.at(delayed_id);
+        const auto &delayed_info = build.literal_info.at(delayed_id);
+        u64a delayed_min_offset = literalMinReportOffset(build, delayed_lit,
+                                                         delayed_info);
+        DEBUG_PRINTF("delayed_id=%u, min_offset = %llu\n", delayed_id,
+                     delayed_min_offset);
+        lit_min_offset = min(lit_min_offset, delayed_min_offset);
+    }
+
+    // If we share a vertex with a shorter literal, our min offset might dip
+    // below the length of this one.
+    lit_min_offset = max(lit_min_offset, u64a{lit_len});
+
+    return lit_min_offset;
+}
+
 vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
-                                           rose_literal_table table) {
+                                           rose_literal_table table,
+                                           u32 max_offset) {
     vector<hwlmLiteral> lits;
 
     for (const auto &e : build.literals.right) {
@@ -545,6 +650,15 @@ vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
         const ue2_literal &lit = e.second.s;
 
         DEBUG_PRINTF("lit='%s'\n", escapeString(lit).c_str());
+
+        if (max_offset != ROSE_BOUND_INF) {
+            u64a min_report = literalMinReportOffset(build, e.second, info);
+            if (min_report > max_offset) {
+                DEBUG_PRINTF("min report offset=%llu exceeds max_offset=%u\n",
+                             min_report, max_offset);
+                continue;
+            }
+        }
 
         const vector<u8> &msk = e.second.msk;
         const vector<u8> &cmp = e.second.cmp;
@@ -664,7 +778,8 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
         return nullptr;
     }
 
-    auto lits = fillHamsterLiteralList(build, ROSE_FLOATING);
+    auto lits = fillHamsterLiteralList(build, ROSE_FLOATING,
+                                       ROSE_SMALL_BLOCK_LEN);
     if (lits.empty()) {
         DEBUG_PRINTF("no floating table\n");
         return nullptr;
@@ -673,8 +788,8 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
         return nullptr;
     }
 
-    auto anchored_lits =
-        fillHamsterLiteralList(build, ROSE_ANCHORED_SMALL_BLOCK);
+    auto anchored_lits = fillHamsterLiteralList(build,
+                            ROSE_ANCHORED_SMALL_BLOCK, ROSE_SMALL_BLOCK_LEN);
     if (anchored_lits.empty()) {
         DEBUG_PRINTF("no small-block anchored literals\n");
         return nullptr;
@@ -682,15 +797,10 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
 
     lits.insert(lits.end(), anchored_lits.begin(), anchored_lits.end());
 
-    // Remove literals that are longer than our small block length, as they can
-    // never match. TODO: improve by removing literals that have a min match
-    // offset greater than ROSE_SMALL_BLOCK_LEN, which will catch anchored cases
-    // with preceding dots that put them over the limit.
-    auto longer_than_limit = [](const hwlmLiteral &lit) {
-        return lit.s.length() > ROSE_SMALL_BLOCK_LEN;
-    };
-    lits.erase(remove_if(lits.begin(), lits.end(), longer_than_limit),
-               lits.end());
+    // None of our literals should be longer than the small block limit.
+    assert(all_of(begin(lits), end(lits), [](const hwlmLiteral &lit) {
+        return lit.s.length() <= ROSE_SMALL_BLOCK_LEN;
+    }));
 
     if (lits.empty()) {
         DEBUG_PRINTF("no literals shorter than small block len\n");

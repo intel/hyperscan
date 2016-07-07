@@ -458,18 +458,6 @@ void dumpTestLiterals(const string &filename, const vector<hwlmLiteral> &lits) {
     of.close();
 }
 
-namespace {
-struct LongerThanLimit {
-    explicit LongerThanLimit(size_t len) : max_len(len) {}
-    bool operator()(const hwlmLiteral &lit) const {
-        return lit.s.length() > max_len;
-    }
-
-  private:
-    size_t max_len;
-};
-}
-
 static
 void dumpRoseTestLiterals(const RoseBuildImpl &build, const string &base) {
     auto lits = fillHamsterLiteralList(build, ROSE_ANCHORED);
@@ -481,12 +469,10 @@ void dumpRoseTestLiterals(const RoseBuildImpl &build, const string &base) {
     lits = fillHamsterLiteralList(build, ROSE_EOD_ANCHORED);
     dumpTestLiterals(base + "rose_eod_test_literals.txt", lits);
 
-    lits = fillHamsterLiteralList(build, ROSE_FLOATING);
-    auto lits2 = fillHamsterLiteralList(build, ROSE_ANCHORED_SMALL_BLOCK);
+    lits = fillHamsterLiteralList(build, ROSE_FLOATING, ROSE_SMALL_BLOCK_LEN);
+    auto lits2 = fillHamsterLiteralList(build, ROSE_ANCHORED_SMALL_BLOCK,
+                                        ROSE_SMALL_BLOCK_LEN);
     lits.insert(end(lits), begin(lits2), end(lits2));
-    lits.erase(remove_if(lits.begin(), lits.end(),
-                         LongerThanLimit(ROSE_SMALL_BLOCK_LEN)),
-               lits.end());
     dumpTestLiterals(base + "rose_smallblock_test_literals.txt", lits);
 }
 
