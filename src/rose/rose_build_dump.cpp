@@ -469,11 +469,14 @@ void dumpRoseTestLiterals(const RoseBuildImpl &build, const string &base) {
     lits = fillHamsterLiteralList(build, ROSE_EOD_ANCHORED);
     dumpTestLiterals(base + "rose_eod_test_literals.txt", lits);
 
-    lits = fillHamsterLiteralList(build, ROSE_FLOATING, ROSE_SMALL_BLOCK_LEN);
-    auto lits2 = fillHamsterLiteralList(build, ROSE_ANCHORED_SMALL_BLOCK,
-                                        ROSE_SMALL_BLOCK_LEN);
-    lits.insert(end(lits), begin(lits2), end(lits2));
-    dumpTestLiterals(base + "rose_smallblock_test_literals.txt", lits);
+    if (!build.cc.streaming) {
+        lits = fillHamsterLiteralList(build, ROSE_FLOATING,
+                                      ROSE_SMALL_BLOCK_LEN);
+        auto lits2 = fillHamsterLiteralList(build, ROSE_ANCHORED_SMALL_BLOCK,
+                                            ROSE_SMALL_BLOCK_LEN);
+        lits.insert(end(lits), begin(lits2), end(lits2));
+        dumpTestLiterals(base + "rose_smallblock_test_literals.txt", lits);
+    }
 }
 
 void dumpRose(const RoseBuild &build_base, const RoseEngine *t,
