@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -651,6 +651,26 @@ CharReach getReachOfNormalVertex(const NGHolder &g) {
     return CharReach();
 }
 
+/**
+ * \brief Set the edge bounds and appropriate history on the given edge in the
+ * Rose graph.
+ */
+static
+void setEdgeBounds(RoseGraph &g, const RoseEdge &e, u32 min_bound,
+                   u32 max_bound) {
+    assert(min_bound <= max_bound);
+    assert(max_bound <= ROSE_BOUND_INF);
+
+    g[e].minBound = min_bound;
+    g[e].maxBound = max_bound;
+
+    if (min_bound || max_bound < ROSE_BOUND_INF) {
+        g[e].history = ROSE_ROLE_HISTORY_ANCH;
+    } else {
+        g[e].history = ROSE_ROLE_HISTORY_NONE;
+    }
+}
+
 static
 bool handleStartPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
                              const RoseEdge &e_old, RoseVertex ar,
@@ -686,18 +706,13 @@ bool handleStartPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
     if (source(e_old, g) == ar) {
         assert(g[e_old].minBound <= bound_min);
         assert(g[e_old].maxBound >= bound_max);
-        g[e_old].minBound = bound_min;
-        g[e_old].maxBound = bound_max;
-        g[e_old].history = ROSE_ROLE_HISTORY_ANCH;
+        setEdgeBounds(g, e_old, bound_min, bound_max);
     } else {
         RoseEdge e_new;
         UNUSED bool added;
         tie(e_new, added) = add_edge(ar, v, g);
         assert(added);
-        g[e_new].minBound = bound_min;
-        g[e_new].maxBound = bound_max;
-        g[e_new].history = ROSE_ROLE_HISTORY_ANCH;
-
+        setEdgeBounds(g, e_new, bound_min, bound_max);
         to_delete->push_back(e_old);
     }
 
@@ -751,9 +766,7 @@ bool handleStartDsPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
 
     /* update bounds on edge */
     assert(g[e].minBound <= repeatCount);
-    g[e].minBound = repeatCount;
-    g[e].maxBound = ROSE_BOUND_INF;
-    g[e].history = ROSE_ROLE_HISTORY_ANCH;
+    setEdgeBounds(g, e, repeatCount, ROSE_BOUND_INF);
 
     g[v].left.reset(); /* clear the prefix info */
 
@@ -893,26 +906,19 @@ bool handleMixedPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
         }
 
         if (source(e_old, g) == ar) {
-            g[e_old].minBound = ri.repeatMin + width;
-            g[e_old].maxBound = ri.repeatMax + width;
-            g[e_old].history = ROSE_ROLE_HISTORY_ANCH;
+            setEdgeBounds(g, e_old, ri.repeatMin + width, ri.repeatMax + width);
         } else {
             RoseEdge e_new;
             UNUSED bool added;
             tie(e_new, added) = add_edge(ar, v, g);
             assert(added);
-            g[e_new].minBound = ri.repeatMin + width;
-            g[e_new].maxBound = ri.repeatMax + width;
-            g[e_new].history = ROSE_ROLE_HISTORY_ANCH;
-
+            setEdgeBounds(g, e_new, ri.repeatMin + width, ri.repeatMax + width);
             to_delete->push_back(e_old);
         }
 
     } else {
         assert(g[e_old].minBound <= ri.repeatMin + width);
-        g[e_old].minBound = ri.repeatMin + width;
-        g[e_old].maxBound = ROSE_BOUND_INF;
-        g[e_old].history = ROSE_ROLE_HISTORY_ANCH;
+        setEdgeBounds(g, e_old, ri.repeatMin + width, ROSE_BOUND_INF);
     }
 
     g[v].left.dfa.reset();
@@ -1110,19 +1116,9 @@ void convertAnchPrefixToBounds(RoseBuildImpl &tbi) {
             bounds.min -= delay_adj;
         }
         bounds.max -= delay_adj;
-
-        g[e].minBound = bounds.min;
-        g[e].maxBound =
-            bounds.max.is_finite() ? (u32)bounds.max : ROSE_BOUND_INF;
-
-        // It's possible that a (0,inf) case might sneak through here, in which
-        // case we don't need ANCH history at all.
-        if (g[e].minBound == 0 && g[e].maxBound == ROSE_BOUND_INF) {
-            g[e].history = ROSE_ROLE_HISTORY_NONE;
-        } else {
-            g[e].history = ROSE_ROLE_HISTORY_ANCH;
-        }
-
+        setEdgeBounds(g, e, bounds.min, bounds.max.is_finite()
+                                            ? (u32)bounds.max
+                                            : ROSE_BOUND_INF);
         g[v].left.reset();
     }
 }
