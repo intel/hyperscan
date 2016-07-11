@@ -243,13 +243,15 @@ void copyBack(const struct  Tamarama *t, struct mq *q, struct mq *q1) {
     u32 numItems = q1->end > q1->cur + 1 ? q1->end - q1->cur - 1 : 1;
     // Also need to copy MQE_END if the main queue is empty
     if (q->cur == q->end) {
-        numItems++;
+        assert(q->cur > 1 && q1->items[q1->end - 1].type == MQE_END);
+        q->items[--q->cur] = q1->items[q1->end - 1];
     }
     u32 cur = q->cur - numItems;
     q->items[cur] = q1->items[q1->cur++];
     q->items[cur].type = MQE_START;
     q->cur = cur++;
     for (u32 i = 0; i < numItems - 1; ++i) {
+        assert(q1->cur < q1->end);
         u32 type = q1->items[q1->cur].type;
         if (type > MQE_END) {
             q1->items[q1->cur].type = type - event_base + base;
