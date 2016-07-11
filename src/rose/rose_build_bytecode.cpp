@@ -3766,6 +3766,10 @@ void makeRoleCheckBounds(const RoseBuildImpl &build, RoseVertex v,
         max_bound = MAX_OFFSET;
     }
 
+    // This instruction should be doing _something_ -- bounds should be tighter
+    // than just {length, inf}.
+    assert(min_bound > lit_length || max_bound < MAX_OFFSET);
+
     auto ri = RoseInstruction(ROSE_INSTR_CHECK_BOUNDS, JumpTarget::NEXT_BLOCK);
     ri.u.checkBounds.min_bound = min_bound;
     ri.u.checkBounds.max_bound = max_bound;
