@@ -453,7 +453,8 @@ RoseRoleHistory findHistoryScheme(const RoseBuildImpl &tbi, const RoseEdge &e) {
         return ROSE_ROLE_HISTORY_NONE;
     }
 
-    if (g[u].fixedOffset()) {
+    if (g[u].fixedOffset() &&
+        (g[e].minBound || g[e].maxBound != ROSE_BOUND_INF)) {
         DEBUG_PRINTF("fixed offset -> anch\n");
         return ROSE_ROLE_HISTORY_ANCH;
     }
