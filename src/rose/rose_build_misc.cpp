@@ -1234,6 +1234,11 @@ u32 roseQuality(const RoseEngine *t) {
         always_run++;
     }
 
+    if (t->eagerIterOffset) {
+        /* eager prefixes are always run */
+        always_run++;
+    }
+
     const HWLM *ftable = getFLiteralMatcher(t);
     if (ftable) {
         /* TODO: ignore conditional ftables, or ftables beyond smwr region */

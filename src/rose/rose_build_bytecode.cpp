@@ -1274,15 +1274,16 @@ bool checkSuitableForEager(bool is_prefix, const left_id &left,
         if (proper_out_degree(g.startDs, g)) {
             return false; /* not purely anchored */
         }
-        if (is_match_vertex(g.start, g)) {
-            return false; /* vacuous (todo: handle?) */
-        }
 
         ei.new_graph = cloneHolder(*left.graph());
         auto gg = ei.new_graph;
         gg->kind = NFA_EAGER_PREFIX;
 
         ei.lag_adjust = decreaseLag(build, *gg, succs);
+
+        if (is_match_vertex(gg->start, *gg)) {
+            return false; /* should not still be vacuous as lag decreased */
+        }
 
         if (!can_die_early(*gg, EAGER_DIE_BEFORE_LIMIT)) {
             DEBUG_PRINTF("not eager as stuck alive\n");
