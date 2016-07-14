@@ -39,13 +39,10 @@
 #include <set>
 
 struct anchored_matcher_info;
-struct RoseEngine;
 
 namespace ue2 {
 
-class NGHolder;
 class RoseBuildImpl;
-struct Grey;
 struct raw_dfa;
 
 /**
