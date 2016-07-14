@@ -205,6 +205,28 @@ void remapAnchoredReports(RoseBuildImpl &tbi) {
 }
 
 static
+void remapIds(flat_set<ReportID> &reports, const vector<u32> &litPrograms) {
+    flat_set<ReportID> new_reports;
+    for (auto id : reports) {
+        assert(id < litPrograms.size());
+        new_reports.insert(litPrograms.at(id));
+    }
+    reports = move(new_reports);
+}
+
+/**
+ * \brief Replace the reports (which are literal final_ids) in the given
+ * raw_dfa with program offsets.
+ */
+static
+void remapIdsToPrograms(raw_dfa &rdfa, const vector<u32> &litPrograms) {
+    for (dstate &ds : rdfa.states) {
+        remapIds(ds.reports, litPrograms);
+        remapIds(ds.reports_eod, litPrograms);
+    }
+}
+
+static
 void populate_holder(const simple_anchored_info &sai, const set<u32> &exit_ids,
                      NGHolder *h_in) {
     DEBUG_PRINTF("populating holder for ^.{%u,%u}%s\n", sai.min_bound,
@@ -826,13 +848,17 @@ vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build) {
 
 aligned_unique_ptr<anchored_matcher_info>
 buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
-                     size_t *asize) {
+                     const vector<u32> &litPrograms, size_t *asize) {
     const CompileContext &cc = build.cc;
 
     if (dfas.empty()) {
         DEBUG_PRINTF("empty\n");
         *asize = 0;
         return nullptr;
+    }
+
+    for (auto &rdfa : dfas) {
+        remapIdsToPrograms(rdfa, litPrograms);
     }
 
     vector<aligned_unique_ptr<NFA>> nfas;

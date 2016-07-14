@@ -220,10 +220,9 @@ int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx) {
         tctxt->lastEndOffset = real_end;
     }
 
-    const u32 *programs = getByOffset(t, t->litProgramOffset);
-    assert(id < t->literalCount);
+    // Note that the "id" we have been handed is the program offset.
     const u8 flags = ROSE_PROG_FLAG_IN_ANCHORED;
-    if (roseRunProgram(t, scratch, programs[id], start, real_end, match_len,
+    if (roseRunProgram(t, scratch, id, start, real_end, match_len,
                        flags) == HWLM_TERMINATE_MATCHING) {
         assert(can_stop_matching(scratch));
         DEBUG_PRINTF("caller requested termination\n");

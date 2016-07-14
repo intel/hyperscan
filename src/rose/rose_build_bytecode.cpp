@@ -417,6 +417,10 @@ struct build_context : boost::noncopyable {
      * that have already been pushed into the engine_blob. */
     ue2::unordered_map<u32, u32> engineOffsets;
 
+    /** \brief Literal programs, indexed by final_id, after they have been
+     * written to the engine_blob. */
+    vector<u32> litPrograms;
+
     /** \brief Minimum offset of a match from the floating table. */
     u32 floatingMinLiteralMatchOffset = 0;
 
@@ -4736,20 +4740,20 @@ pair<u32, u32> buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
     const u32 num_literals = build.final_id_to_literal.size();
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    vector<u32> litPrograms(num_literals);
+    bc.litPrograms.resize(num_literals);
     vector<u32> delayRebuildPrograms(num_literals);
 
     for (u32 finalId = 0; finalId != num_literals; ++finalId) {
         const auto &lit_edges = lit_edge_map[finalId];
 
-        litPrograms[finalId] =
+        bc.litPrograms[finalId] =
             writeLiteralProgram(build, bc, finalId, lit_edges);
         delayRebuildPrograms[finalId] =
             buildDelayRebuildProgram(build, bc, finalId);
     }
 
     u32 litProgramsOffset =
-        add_to_engine_blob(bc, begin(litPrograms), end(litPrograms));
+        add_to_engine_blob(bc, begin(bc.litPrograms), end(bc.litPrograms));
     u32 delayRebuildProgramsOffset = add_to_engine_blob(
         bc, begin(delayRebuildPrograms), end(delayRebuildPrograms));
 
@@ -5206,7 +5210,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     // Build anchored matcher.
     size_t asize = 0;
     u32 amatcherOffset = 0;
-    auto atable = buildAnchoredMatcher(*this, anchored_dfas, &asize);
+    auto atable = buildAnchoredMatcher(*this, anchored_dfas, bc.litPrograms,
+                                       &asize);
     if (atable) {
         currOffset = ROUNDUP_CL(currOffset);
         amatcherOffset = currOffset;
