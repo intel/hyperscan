@@ -74,6 +74,8 @@ public:
     void add(const NGWrapper &w) override;
     void add(const ue2_literal &literal, ReportID r) override;
 
+    set<ReportID> all_reports() const override;
+
     bool determiniseLiterals();
 
     const ReportManager &rm;
@@ -411,6 +413,20 @@ SmallWriteBuildImpl::build(u32 roseQuality) {
 
     DEBUG_PRINTF("smallwrite done %p\n", smwr.get());
     return smwr;
+}
+
+set<ReportID> SmallWriteBuildImpl::all_reports() const {
+    set<ReportID> reports;
+    if (poisoned) {
+        return reports;
+    }
+    if (rdfa) {
+        insert(&reports, ::ue2::all_reports(*rdfa));
+    }
+    for (const auto &cand : cand_literals) {
+        reports.insert(cand.second);
+    }
+    return reports;
 }
 
 size_t smwrSize(const SmallWriteEngine *smwr) {

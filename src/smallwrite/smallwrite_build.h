@@ -38,6 +38,8 @@
 #include "ue2common.h"
 #include "util/alloc.h"
 
+#include <set>
+
 #include <boost/core/noncopyable.hpp>
 
 struct SmallWriteEngine;
@@ -61,6 +63,8 @@ public:
 
     virtual void add(const NGWrapper &w) = 0;
     virtual void add(const ue2_literal &literal, ReportID r) = 0;
+
+    virtual std::set<ReportID> all_reports() const = 0;
 };
 
 // Construct a usable SmallWrite builder.

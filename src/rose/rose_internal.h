@@ -347,10 +347,15 @@ struct RoseEngine {
      * literals. */
     u32 litDelayRebuildProgramOffset;
 
-    /** \brief Offset of u32 array of program offsets for internal reports. */
+    /**
+     * \brief Offset of u32 array of program offsets for reports used by
+     * output-exposed engines.
+     */
     u32 reportProgramOffset;
 
-    /** \brief Number of programs for internal reports. */
+    /**
+     * \brief Number of programs for reports used by output-exposed engines.
+     */
     u32 reportProgramCount;
 
     /**

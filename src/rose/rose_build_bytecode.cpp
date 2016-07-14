@@ -4761,27 +4761,57 @@ pair<u32, u32> buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
     return {litProgramsOffset, delayRebuildProgramsOffset};
 }
 
+/**
+ * \brief Returns all reports used by output-exposed engines, for which we need
+ * to generate programs.
+ */
 static
-u32 buildReportPrograms(RoseBuildImpl &build, build_context &bc) {
-    const auto &rm = build.rm;
-    const u32 numReports = verify_u32(rm.numReports());
-    vector<u32> programs(numReports);
+set<ReportID> findEngineReports(const RoseBuildImpl &build) {
+    set<ReportID> reports;
+
+    // The small write engine uses these engine report programs.
+    insert(&reports, build.smwr.all_reports());
+
+    for (const auto &outfix : build.outfixes) {
+        insert(&reports, all_reports(outfix));
+    }
+
+    const auto &g = build.g;
+    for (auto v : vertices_range(g)) {
+        if (g[v].suffix) {
+            insert(&reports, all_reports(g[v].suffix));
+        }
+    }
+
+    DEBUG_PRINTF("%zu engine reports (of %zu)\n", reports.size(),
+                 build.rm.numReports());
+    return reports;
+}
+
+static
+pair<u32, u32> buildReportPrograms(RoseBuildImpl &build, build_context &bc) {
+    const auto reports = findEngineReports(build);
+    vector<u32> programs;
+    programs.reserve(reports.size());
 
     vector<RoseInstruction> program;
-    for (ReportID id = 0; id < numReports; id++) {
+    for (ReportID id : reports) {
         program.clear();
         const bool has_som = false;
         makeCatchupMpv(build, bc, id, program);
         makeReport(build, id, has_som, program);
         program = flattenProgram({program});
         applyFinalSpecialisation(program);
-        programs[id] = writeProgram(bc, program);
-        build.rm.setProgramOffset(id, programs[id]);
+        u32 offset = writeProgram(bc, program);
+        programs.push_back(offset);
+        build.rm.setProgramOffset(id, offset);
         DEBUG_PRINTF("program for report %u @ %u (%zu instructions)\n", id,
                      programs.back(), program.size());
     }
 
-    return add_to_engine_blob(bc, begin(programs), end(programs));
+    u32 offset = add_to_engine_blob(bc, begin(programs), end(programs));
+    u32 count = verify_u32(programs.size());
+    return {offset, count};
 }
 
 static
@@ -5174,7 +5204,10 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     auto boundary_out = makeBoundaryPrograms(*this, bc, boundary, dboundary);
 
-    u32 reportProgramOffset = buildReportPrograms(*this, bc);
+    u32 reportProgramOffset;
+    u32 reportProgramCount;
+    tie(reportProgramOffset, reportProgramCount) =
+        buildReportPrograms(*this, bc);
 
     // Build NFAs
     set<u32> no_retrigger_queues;
@@ -5394,7 +5427,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->litProgramOffset = litProgramOffset;
     engine->litDelayRebuildProgramOffset = litDelayRebuildProgramOffset;
     engine->reportProgramOffset = reportProgramOffset;
-    engine->reportProgramCount = verify_u32(rm.reports().size());
+    engine->reportProgramCount = reportProgramCount;
     engine->runtimeImpl = pickRuntimeImpl(*this, bc, outfixEndQueue);
     engine->mpvTriggeredByLeaf = anyEndfixMpvTriggers(*this);
 
