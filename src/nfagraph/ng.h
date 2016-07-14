@@ -119,8 +119,8 @@ public:
     BoundaryReports boundary;
     const CompileContext cc;
 
-    const std::unique_ptr<RoseBuild> rose; //!< Rose builder.
     const std::unique_ptr<SmallWriteBuild> smwr; //!< SmallWrite builder.
+    const std::unique_ptr<RoseBuild> rose; //!< Rose builder.
 };
 
 /** \brief Run graph reduction passes.

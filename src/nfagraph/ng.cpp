@@ -62,8 +62,8 @@
 #include "ng_width.h"
 #include "ue2common.h"
 #include "nfa/goughcompile.h"
-#include "smallwrite/smallwrite_build.h"
 #include "rose/rose_build.h"
+#include "smallwrite/smallwrite_build.h"
 #include "util/compile_error.h"
 #include "util/container.h"
 #include "util/depth.h"
@@ -82,8 +82,8 @@ NG::NG(const CompileContext &in_cc, size_t num_patterns,
       rm(in_cc.grey),
       ssm(in_somPrecision),
       cc(in_cc),
-      rose(makeRoseBuilder(rm, ssm, cc, boundary)),
-      smwr(makeSmallWriteBuilder(num_patterns, rm, cc)) {
+      smwr(makeSmallWriteBuilder(num_patterns, rm, cc)),
+      rose(makeRoseBuilder(rm, ssm, *smwr, cc, boundary)) {
 }
 
 NG::~NG() {
@@ -580,7 +580,8 @@ bool NG::addLiteral(const ue2_literal &literal, u32 expr_index,
 
     minWidth = min(minWidth, depth(literal.length()));
 
-    smwr->add(literal, id); /* inform small write handler about this literal */
+    /* inform small write handler about this literal */
+    smwr->add(literal, id);
 
     return true;
 }

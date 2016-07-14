@@ -67,7 +67,9 @@ namespace ue2 {
 // just to get it out of the header
 RoseBuild::~RoseBuild() { }
 
-RoseBuildImpl::RoseBuildImpl(ReportManager &rm_in, SomSlotManager &ssm_in,
+RoseBuildImpl::RoseBuildImpl(ReportManager &rm_in,
+                             SomSlotManager &ssm_in,
+                             SmallWriteBuild &smwr_in,
                              const CompileContext &cc_in,
                              const BoundaryReports &boundary_in)
     : cc(cc_in),
@@ -83,6 +85,7 @@ RoseBuildImpl::RoseBuildImpl(ReportManager &rm_in, SomSlotManager &ssm_in,
       max_rose_anchored_floating_overlap(0),
       rm(rm_in),
       ssm(ssm_in),
+      smwr(smwr_in),
       boundary(boundary_in),
       next_nfa_report(0) {
     // add root vertices to graph
@@ -233,10 +236,12 @@ size_t RoseBuildImpl::minLiteralLen(RoseVertex v) const {
 }
 
 // RoseBuild factory
-unique_ptr<RoseBuild> makeRoseBuilder(ReportManager &rm, SomSlotManager &ssm,
+unique_ptr<RoseBuild> makeRoseBuilder(ReportManager &rm,
+                                      SomSlotManager &ssm,
+                                      SmallWriteBuild &smwr,
                                       const CompileContext &cc,
                                       const BoundaryReports &boundary) {
-    return ue2::make_unique<RoseBuildImpl>(rm, ssm, cc, boundary);
+    return ue2::make_unique<RoseBuildImpl>(rm, ssm, smwr, cc, boundary);
 }
 
 size_t roseSize(const RoseEngine *t) {
@@ -1277,30 +1282,6 @@ u32 roseQuality(const RoseEngine *t) {
     }
 
     return 1;
-}
-
-/** \brief Add a SMWR engine to the given RoseEngine. */
-aligned_unique_ptr<RoseEngine> roseAddSmallWrite(const RoseEngine *t,
-                                                 const SmallWriteEngine *smwr) {
-    assert(t);
-    assert(smwr);
-
-    const u32 mainSize = roseSize(t);
-    const u32 smallWriteSize = smwrSize(smwr);
-
-    u32 smwrOffset = ROUNDUP_CL(mainSize);
-    u32 newSize = smwrOffset + smallWriteSize;
-
-    aligned_unique_ptr<RoseEngine> t2 =
-        aligned_zmalloc_unique<RoseEngine>(newSize);
-    char *ptr = (char *)t2.get();
-    memcpy(ptr, t, mainSize);
-    memcpy(ptr + smwrOffset, smwr, smallWriteSize);
-
-    t2->smallWriteOffset = smwrOffset;
-    t2->size = newSize;
-
-    return t2;
 }
 
 #ifndef NDEBUG

@@ -64,6 +64,7 @@
 #include "nfagraph/ng_stop.h"
 #include "nfagraph/ng_util.h"
 #include "nfagraph/ng_width.h"
+#include "smallwrite/smallwrite_build.h"
 #include "som/slot_manager.h"
 #include "util/alloc.h"
 #include "util/bitutils.h"
@@ -5114,6 +5115,41 @@ u32 buildEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
     return addIteratorToTable(bc, iter);
 }
 
+static
+aligned_unique_ptr<RoseEngine> addSmallWriteEngine(RoseBuildImpl &build,
+                                        aligned_unique_ptr<RoseEngine> rose) {
+    assert(rose);
+
+    if (roseIsPureLiteral(rose.get())) {
+        DEBUG_PRINTF("pure literal case, not adding smwr\n");
+        return rose;
+    }
+
+    u32 qual = roseQuality(rose.get());
+    auto smwr_engine = build.smwr.build(qual);
+    if (!smwr_engine) {
+        DEBUG_PRINTF("no smwr built\n");
+        return rose;
+    }
+
+    const size_t mainSize = roseSize(rose.get());
+    const size_t smallWriteSize = smwrSize(smwr_engine.get());
+    DEBUG_PRINTF("adding smwr engine, size=%zu\n", smallWriteSize);
+
+    const size_t smwrOffset = ROUNDUP_CL(mainSize);
+    const size_t newSize = smwrOffset + smallWriteSize;
+
+    auto rose2 = aligned_zmalloc_unique<RoseEngine>(newSize);
+    char *ptr = (char *)rose2.get();
+    memcpy(ptr, rose.get(), mainSize);
+    memcpy(ptr + smwrOffset, smwr_engine.get(), smallWriteSize);
+
+    rose2->smallWriteOffset = verify_u32(smwrOffset);
+    rose2->size = verify_u32(newSize);
+
+    return rose2;
+}
+
 aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     DerivedBoundaryReports dboundary(boundary);
 
@@ -5466,6 +5502,9 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     // Safety check: we shouldn't have written anything to the engine blob
     // after we copied it into the engine bytecode.
     assert(byte_length(bc.engine_blob) == engineBlobSize);
+
+    // Add a small write engine if appropriate.
+    engine = addSmallWriteEngine(*this, move(engine));
 
     DEBUG_PRINTF("rose done %p\n", engine.get());
     return engine;

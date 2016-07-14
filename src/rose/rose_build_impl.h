@@ -60,6 +60,7 @@ struct BoundaryReports;
 struct CastleProto;
 struct CompileContext;
 class ReportManager;
+class SmallWriteBuild;
 class SomSlotManager;
 
 struct suffix_id {
@@ -415,7 +416,7 @@ std::set<ReportID> all_reports(const OutfixInfo &outfix);
 // Concrete impl class
 class RoseBuildImpl : public RoseBuild {
 public:
-    RoseBuildImpl(ReportManager &rm, SomSlotManager &ssm,
+    RoseBuildImpl(ReportManager &rm, SomSlotManager &ssm, SmallWriteBuild &smwr,
                   const CompileContext &cc, const BoundaryReports &boundary);
 
     ~RoseBuildImpl() override;
@@ -584,6 +585,7 @@ public:
     QueueIndexFactory qif;
     ReportManager &rm;
     SomSlotManager &ssm;
+    SmallWriteBuild &smwr;
     const BoundaryReports &boundary;
 
 private:
