@@ -112,28 +112,6 @@ hwlmcb_rv_t ensureMpvQueueFlushed(const struct RoseEngine *t,
     return ensureQueueFlushed_i(t, scratch, qi, loc, 1, in_chained);
 }
 
-static rose_inline
-void recordAnchoredLiteralMatch(const struct RoseEngine *t,
-                                struct hs_scratch *scratch, u32 literal_id,
-                                u64a end) {
-    assert(end);
-    struct fatbit **anchoredLiteralRows = getAnchoredLiteralLog(scratch);
-
-    DEBUG_PRINTF("record %u @ %llu\n", literal_id, end);
-
-    if (!bf64_set(&scratch->al_log_sum, end - 1)) {
-        // first time, clear row
-        DEBUG_PRINTF("clearing %llu/%u\n", end - 1, t->anchored_count);
-        fatbit_clear(anchoredLiteralRows[end - 1]);
-    }
-
-    u32 rel_idx = literal_id - t->anchored_base_id;
-    DEBUG_PRINTF("record %u @ %llu index %u/%u\n", literal_id, end, rel_idx,
-                 t->anchored_count);
-    assert(rel_idx < t->anchored_count);
-    fatbit_set(anchoredLiteralRows[end - 1], t->anchored_count, rel_idx);
-}
-
 hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
                                  struct hs_scratch *scratch, u32 event,
                                  u64a top_squash_distance, u64a end,
@@ -253,10 +231,6 @@ int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx) {
     }
 
     DEBUG_PRINTF("DONE groups=0x%016llx\n", tctxt->groups);
-
-    if (real_end > t->floatingMinLiteralMatchOffset) {
-        recordAnchoredLiteralMatch(t, scratch, id, real_end);
-    }
 
     return MO_CONTINUE_MATCHING;
 }

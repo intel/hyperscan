@@ -166,6 +166,33 @@ void rosePushDelayedMatch(const struct RoseEngine *t,
 }
 
 static rose_inline
+void recordAnchoredLiteralMatch(const struct RoseEngine *t,
+                                struct hs_scratch *scratch, u32 literal_id,
+                                u64a end) {
+    assert(end);
+
+    if (end <= t->floatingMinLiteralMatchOffset) {
+        return;
+    }
+
+    struct fatbit **anchoredLiteralRows = getAnchoredLiteralLog(scratch);
+
+    DEBUG_PRINTF("record %u @ %llu\n", literal_id, end);
+
+    if (!bf64_set(&scratch->al_log_sum, end - 1)) {
+        // first time, clear row
+        DEBUG_PRINTF("clearing %llu/%u\n", end - 1, t->anchored_count);
+        fatbit_clear(anchoredLiteralRows[end - 1]);
+    }
+
+    u32 rel_idx = literal_id - t->anchored_base_id;
+    DEBUG_PRINTF("record %u @ %llu index %u/%u\n", literal_id, end, rel_idx,
+                 t->anchored_count);
+    assert(rel_idx < t->anchored_count);
+    fatbit_set(anchoredLiteralRows[end - 1], t->anchored_count, rel_idx);
+}
+
+static rose_inline
 char roseLeftfixCheckMiracles(const struct RoseEngine *t,
                               const struct LeftNfaInfo *left,
                               struct core_info *ci, struct mq *q, u64a end,
@@ -1223,6 +1250,11 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
 
             PROGRAM_CASE(PUSH_DELAYED) {
                 rosePushDelayedMatch(t, scratch, ri->delay, ri->index, end);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(RECORD_ANCHORED) {
+                recordAnchoredLiteralMatch(t, scratch, ri->id, end);
             }
             PROGRAM_NEXT_INSTRUCTION
 

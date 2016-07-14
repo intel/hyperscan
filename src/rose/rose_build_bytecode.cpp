@@ -204,6 +204,7 @@ public:
         case ROSE_INSTR_CHECK_PREFIX: return &u.checkPrefix;
         case ROSE_INSTR_ANCHORED_DELAY: return &u.anchoredDelay;
         case ROSE_INSTR_PUSH_DELAYED: return &u.pushDelayed;
+        case ROSE_INSTR_RECORD_ANCHORED: return &u.recordAnchored;
         case ROSE_INSTR_CATCH_UP: return &u.catchUp;
         case ROSE_INSTR_CATCH_UP_MPV: return &u.catchUpMpv;
         case ROSE_INSTR_SOM_ADJUST: return &u.somAdjust;
@@ -255,6 +256,7 @@ public:
         case ROSE_INSTR_CHECK_PREFIX: return sizeof(u.checkPrefix);
         case ROSE_INSTR_ANCHORED_DELAY: return sizeof(u.anchoredDelay);
         case ROSE_INSTR_PUSH_DELAYED: return sizeof(u.pushDelayed);
+        case ROSE_INSTR_RECORD_ANCHORED: return sizeof(u.recordAnchored);
         case ROSE_INSTR_CATCH_UP: return sizeof(u.catchUp);
         case ROSE_INSTR_CATCH_UP_MPV: return sizeof(u.catchUpMpv);
         case ROSE_INSTR_SOM_ADJUST: return sizeof(u.somAdjust);
@@ -305,6 +307,7 @@ public:
         ROSE_STRUCT_CHECK_PREFIX checkPrefix;
         ROSE_STRUCT_ANCHORED_DELAY anchoredDelay;
         ROSE_STRUCT_PUSH_DELAYED pushDelayed;
+        ROSE_STRUCT_RECORD_ANCHORED recordAnchored;
         ROSE_STRUCT_CATCH_UP catchUp;
         ROSE_STRUCT_CATCH_UP_MPV catchUpMpv;
         ROSE_STRUCT_SOM_ADJUST somAdjust;
@@ -4433,6 +4436,49 @@ void makeGroupSquashInstruction(const RoseBuildImpl &build, u32 final_id,
 }
 
 static
+u32 findMaxOffset(const RoseBuildImpl &build, u32 lit_id) {
+    const auto &lit_vertices = build.literal_info.at(lit_id).vertices;
+    assert(!lit_vertices.empty());
+
+    u32 max_offset = 0;
+    for (const auto &v : lit_vertices) {
+        max_offset = max(max_offset, build.g[v].max_offset);
+    }
+
+    return max_offset;
+}
+
+static
+void makeRecordAnchoredInstruction(const RoseBuildImpl &build,
+                                   build_context &bc, u32 final_id,
+                                   vector<RoseInstruction> &program) {
+    assert(contains(build.final_id_to_literal, final_id));
+    const auto &lit_ids = build.final_id_to_literal.at(final_id);
+
+    // Must be anchored.
+    assert(!lit_ids.empty());
+    if (build.literals.right.at(*begin(lit_ids)).table != ROSE_ANCHORED) {
+        return;
+    }
+
+    // If this anchored literal can never match past
+    // floatingMinLiteralMatchOffset, we will never have to record it.
+    u32 max_offset = 0;
+    for (u32 lit_id : lit_ids) {
+        assert(build.literals.right.at(lit_id).table == ROSE_ANCHORED);
+        max_offset = max(max_offset, findMaxOffset(build, lit_id));
+    }
+
+    if (max_offset <= bc.floatingMinLiteralMatchOffset) {
+        return;
+    }
+
+    auto ri = RoseInstruction(ROSE_INSTR_RECORD_ANCHORED);
+    ri.u.recordAnchored.id = final_id;
+    program.push_back(move(ri));
+}
+
+static
 u32 findMinOffset(const RoseBuildImpl &build, u32 lit_id) {
     const auto &lit_vertices = build.literal_info.at(lit_id).vertices;
     assert(!lit_vertices.empty());
@@ -4589,10 +4635,18 @@ vector<RoseInstruction> buildLiteralProgram(RoseBuildImpl &build,
         root_programs.push_back(role_prog);
     }
 
-    // Literal may squash groups.
     if (final_id != MO_INVALID_IDX) {
-        root_programs.push_back({});
-        makeGroupSquashInstruction(build, final_id, root_programs.back());
+        vector<RoseInstruction> prog;
+
+        // Literal may squash groups.
+        makeGroupSquashInstruction(build, final_id, prog);
+
+        // Literal may be anchored and need to be recorded.
+        makeRecordAnchoredInstruction(build, bc, final_id, prog);
+
+        if (!prog.empty()) {
+            root_programs.push_back(move(prog));
+        }
     }
 
     vector<RoseInstruction> root_program;

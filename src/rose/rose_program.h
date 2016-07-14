@@ -55,6 +55,7 @@ enum RoseInstructionCode {
     ROSE_INSTR_CHECK_INFIX,       //!< Infix engine must be in accept state.
     ROSE_INSTR_CHECK_PREFIX,      //!< Prefix engine must be in accept state.
     ROSE_INSTR_PUSH_DELAYED,      //!< Push delayed literal matches.
+    ROSE_INSTR_RECORD_ANCHORED,   //!< Record an anchored literal match.
     ROSE_INSTR_CATCH_UP,          //!< Catch up engines, anchored matches.
     ROSE_INSTR_CATCH_UP_MPV,      //!< Catch up the MPV.
     ROSE_INSTR_SOM_ADJUST,        //!< Set SOM from a distance to EOM.
@@ -205,6 +206,11 @@ struct ROSE_STRUCT_PUSH_DELAYED {
     u8 code; //!< From enum RoseInstructionCode.
     u8 delay; // Number of bytes to delay.
     u32 index; // Delay literal index (relative to first delay lit).
+};
+
+struct ROSE_STRUCT_RECORD_ANCHORED {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 id; //!< Literal ID.
 };
 
 struct ROSE_STRUCT_CATCH_UP {

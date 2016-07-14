@@ -337,6 +337,11 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(RECORD_ANCHORED) {
+                os << "    id " << ri->id << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CATCH_UP) {}
             PROGRAM_NEXT_INSTRUCTION
 
