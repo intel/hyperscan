@@ -458,33 +458,16 @@ hs_error_t hs_serialized_database_info(const char *bytes, size_t length,
     }
     *info = NULL;
 
-    if (!bytes || length < sizeof(struct hs_database)) {
-        return HS_INVALID;
+    // Decode and check the header
+    hs_database_t header;
+    hs_error_t ret = db_decode_header(&bytes, length, &header);
+    if (ret != HS_SUCCESS) {
+        return ret;
     }
 
-    const u32 *buf = (const u32 *)bytes;
+    u32 mode = unaligned_load_u32(bytes + offsetof(struct RoseEngine, mode));
 
-    u32 magic = unaligned_load_u32(buf++);
-    if (magic != HS_DB_MAGIC) {
-        return HS_INVALID;
-    }
-
-    u32 version = unaligned_load_u32(buf++);
-
-    buf++; /* length */
-
-    platform_t plat;
-    plat = unaligned_load_u64a(buf);
-    buf += 2;
-
-    buf++; /* crc */
-    buf++; /* reserved 0 */
-    buf++; /* reserved 1 */
-
-    const char *t_raw = (const char *)buf;
-    u32 mode = unaligned_load_u32(t_raw + offsetof(struct RoseEngine, mode));
-
-    return print_database_string(info, version, plat, mode);
+    return print_database_string(info, header.version, header.platform, mode);
 }
 
 HS_PUBLIC_API
