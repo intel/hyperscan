@@ -173,45 +173,34 @@ void mergeAnchoredDfas(vector<unique_ptr<raw_dfa>> &dfas,
 }
 
 static
-void translateReportSet(flat_set<ReportID> *rset, const RoseBuildImpl &tbi) {
-    flat_set<ReportID> old;
-    old.swap(*rset);
-    for (auto report_id : old) {
-        DEBUG_PRINTF("updating %u -> %u\n", report_id,
-                     tbi.literal_info[report_id].final_id);
-        rset->insert(tbi.literal_info[report_id].final_id);
+void remapAnchoredReports(raw_dfa &rdfa, const RoseBuildImpl &build) {
+    for (dstate &ds : rdfa.states) {
+        assert(ds.reports_eod.empty()); // Not used in anchored matcher.
+        if (ds.reports.empty()) {
+            continue;
+        }
+
+        flat_set<ReportID> new_reports;
+        for (auto id : ds.reports) {
+            assert(id < build.literal_info.size());
+            new_reports.insert(build.literal_info.at(id).final_id);
+        }
+        ds.reports = move(new_reports);
     }
 }
 
+/**
+ * \brief Replaces the report ids currently in the dfas (rose graph literal
+ * ids) with the final id for each literal.
+ */
 static
-void remapAnchoredReports(raw_dfa &dfa, const RoseBuildImpl &tbi) {
-    for (dstate &ds : dfa.states) {
-        translateReportSet(&ds.reports, tbi);
-        translateReportSet(&ds.reports_eod, tbi);
-    }
-}
-
-/* Replaces the report ids currently in the dfas (rose graph literal ids) with
- * the final id used by the runtime. */
-static
-void remapAnchoredReports(RoseBuildImpl &tbi) {
-    for (auto it = tbi.anchored_nfas.begin(); it != tbi.anchored_nfas.end();
-         ++it) {
-        for (auto &rdfa : it->second) {
+void remapAnchoredReports(RoseBuildImpl &build) {
+    for (auto &m : build.anchored_nfas) {
+        for (auto &rdfa : m.second) {
             assert(rdfa);
-            remapAnchoredReports(*rdfa, tbi);
+            remapAnchoredReports(*rdfa, build);
         }
     }
-}
-
-static
-void remapIds(flat_set<ReportID> &reports, const vector<u32> &litPrograms) {
-    flat_set<ReportID> new_reports;
-    for (auto id : reports) {
-        assert(id < litPrograms.size());
-        new_reports.insert(litPrograms.at(id));
-    }
-    reports = move(new_reports);
 }
 
 /**
@@ -221,8 +210,17 @@ void remapIds(flat_set<ReportID> &reports, const vector<u32> &litPrograms) {
 static
 void remapIdsToPrograms(raw_dfa &rdfa, const vector<u32> &litPrograms) {
     for (dstate &ds : rdfa.states) {
-        remapIds(ds.reports, litPrograms);
-        remapIds(ds.reports_eod, litPrograms);
+        assert(ds.reports_eod.empty()); // Not used in anchored matcher.
+        if (ds.reports.empty()) {
+            continue;
+        }
+
+        flat_set<ReportID> new_reports;
+        for (auto id : ds.reports) {
+            assert(id < litPrograms.size());
+            new_reports.insert(litPrograms.at(id));
+        }
+        ds.reports = move(new_reports);
     }
 }
 
