@@ -1718,7 +1718,7 @@ bool makeTransientFromLongLiteral(NGHolder &h, RoseInGraph &vg,
                                   const vector<RoseInEdge> &ee,
                                   const CompileContext &cc) {
     /* check max width and literal lengths to see if possible */
-    size_t min_lit = ~0ULL;
+    size_t min_lit = (size_t)~0ULL;
     for (const RoseInEdge &e : ee) {
         RoseInVertex v = target(e, vg);
         LIMIT_TO_AT_MOST(&min_lit, vg[v].s.length());
