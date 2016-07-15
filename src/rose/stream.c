@@ -510,7 +510,8 @@ void runEagerPrefixesStream(const struct RoseEngine *t,
 }
 
 void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
-    DEBUG_PRINTF("OH HAI\n");
+    DEBUG_PRINTF("OH HAI [%llu, %llu)\n", scratch->core_info.buf_offset,
+                 scratch->core_info.buf_offset + (u64a)scratch->core_info.len);
     assert(t);
     assert(scratch->core_info.hbuf);
     assert(scratch->core_info.buf);

@@ -100,7 +100,12 @@ void splitLHS(const NGHolder &base, const vector<NFAVertex> &pivots,
         add_edge((*lhs_map)[pivot], lhs->accept, *lhs);
     }
 
-    pruneUseless(*lhs);
+    /* should do the renumbering unconditionally as we know edges are already
+     * misnumbered */
+    pruneUseless(*lhs, false);
+    renumber_edges(*lhs);
+    renumber_vertices(*lhs);
+
     filterSplitMap(*lhs, lhs_map);
 
     switch (base.kind) {
@@ -148,7 +153,12 @@ void splitRHS(const NGHolder &base, const vector<NFAVertex> &pivots,
         assert(contains(*rhs_map, pivot));
         add_edge(rhs->start, (*rhs_map)[pivot], *rhs);
     }
-    pruneUseless(*rhs);
+
+     /* should do the renumbering unconditionally as we know edges are already
+      * misnumbered */
+    pruneUseless(*rhs, false);
+    renumber_edges(*rhs);
+    renumber_vertices(*rhs);
     filterSplitMap(*rhs, rhs_map);
 
     switch (base.kind) {

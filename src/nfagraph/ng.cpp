@@ -57,6 +57,7 @@
 #include "ng_small_literal_set.h"
 #include "ng_som.h"
 #include "ng_vacuous.h"
+#include "ng_violet.h"
 #include "ng_utf8.h"
 #include "ng_util.h"
 #include "ng_width.h"
@@ -244,6 +245,10 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
         return true;
     }
 
+    if (doViolet(*ng.rose, g, w.prefilter, cc)) {
+        return true;
+    }
+
     if (splitOffRose(*ng.rose, g, w.prefilter, cc)) {
         return true;
     }
@@ -258,6 +263,10 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
     }
 
     if (handleDecoratedLiterals(*ng.rose, g, cc)) {
+        return true;
+    }
+
+    if (doViolet(*ng.rose, g, w.prefilter, cc)) {
         return true;
     }
 

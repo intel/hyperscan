@@ -61,28 +61,6 @@ using namespace std;
 
 namespace ue2 {
 
-static
-string to_string(nfa_kind k) {
-    switch (k) {
-    case NFA_PREFIX:
-        return "PREFIX";
-    case NFA_INFIX:
-        return "INFIX";
-    case NFA_SUFFIX:
-        return "SUFFIX";
-    case NFA_OUTFIX:
-        return "OUTFIX";
-    case NFA_REV_PREFIX:
-        return "REV_PREFIX";
-    case NFA_OUTFIX_RAW:
-        return "OUTFIX_RAW";
-    case NFA_EAGER_PREFIX:
-        return "EAGER_PREFIX";
-    }
-    assert(0);
-    return "?";
-}
-
 /** \brief Return the kind of a left_id or a suffix_id. */
 template<class Graph>
 string render_kind(const Graph &g) {

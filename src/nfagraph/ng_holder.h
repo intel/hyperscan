@@ -239,6 +239,16 @@ vertices(const NGHolder &h) {
  */
 void clear_graph(NGHolder &h);
 
+inline
+void renumber_edges(NGHolder &h) {
+    h.renumberEdges();
+}
+
+inline
+void renumber_vertices(NGHolder &h) {
+    h.renumberVertices();
+}
+
 /*
  * \brief Clear and remove all of the vertices pointed to by the given iterator
  * range.

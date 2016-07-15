@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,31 +26,27 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ROSE_IN_UTIL_H
-#define ROSE_IN_UTIL_H
+/** \file
+ * \brief Violet method of rose construction from NGHolder.
+ */
 
-#include "rose_in_graph.h"
-#include "nfa/nfa_kind.h"
+#ifndef NG_VIOLET_H
+#define NG_VIOLET_H
 
-#include <vector>
+#include "ue2common.h"
 
 namespace ue2 {
 
-/* Returns a topological ordering of the vertices in g. That is the starts are
- * at the front and all the predecessors of a vertex occur earlier in the list
- * than the vertex. */
-std::vector<RoseInVertex> topo_order(const RoseInGraph &g);
+class NGHolder;
+class RoseBuild;
 
-std::unique_ptr<RoseInGraph> cloneRoseGraph(const RoseInGraph &ig);
-void calcVertexOffsets(RoseInGraph &ig);
-enum nfa_kind whatRoseIsThis(const RoseInGraph &in, const RoseInEdge &e);
-void pruneUseless(RoseInGraph &g);
+struct CompileContext;
 
-inline
-bool is_any_accept(RoseInVertex v, const RoseInGraph &g) {
-    return g[v].type == RIV_ACCEPT || g[v].type == RIV_ACCEPT_EOD;
-}
+/** \brief Attempt to consume the entire pattern in graph \a h with Rose.
+ * Returns true if successful. */
+bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
+              const CompileContext &cc);
 
-}
+} // namespace ue2
 
 #endif

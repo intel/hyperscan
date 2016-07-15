@@ -748,6 +748,8 @@ SET (hs_SRCS
     src/nfagraph/ng_util.h
     src/nfagraph/ng_vacuous.cpp
     src/nfagraph/ng_vacuous.h
+    src/nfagraph/ng_violet.cpp
+    src/nfagraph/ng_violet.h
     src/nfagraph/ng_width.cpp
     src/nfagraph/ng_width.h
     src/parser/AsciiComponentClass.cpp

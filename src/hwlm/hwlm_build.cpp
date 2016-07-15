@@ -35,6 +35,7 @@
 #include "hwlm_internal.h"
 #include "noodle_engine.h"
 #include "noodle_build.h"
+#include "scratch.h"
 #include "ue2common.h"
 #include "fdr/fdr_compile.h"
 #include "nfa/shufticompile.h"
@@ -491,6 +492,10 @@ bool isNoodleable(const vector<hwlmLiteral> &lits,
             DEBUG_PRINTF("length of %zu too long for history max %zu\n",
                          lits.front().s.length(),
                          stream_control->history_max);
+            return false;
+        }
+        if (2 * lits.front().s.length() - 2 > FDR_TEMP_BUF_SIZE) {
+            assert(0);
             return false;
         }
     }

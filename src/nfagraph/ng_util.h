@@ -228,6 +228,10 @@ bool isVacuous(const NGHolder &h);
  * proper successors). */
 bool isAnchored(const NGHolder &h);
 
+/** \brief True if the graph contains no anchored vertices (start has no
+ * successors aside from startDs or vertices connected to startDs). */
+bool isFloating(const NGHolder &h);
+
 /** True if the graph contains no back-edges at all, other than the
  * startDs self-loop. */
 bool isAcyclic(const NGHolder &g);

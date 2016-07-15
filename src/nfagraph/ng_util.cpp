@@ -209,6 +209,15 @@ bool isAnchored(const NGHolder &g) {
     return true;
 }
 
+bool isFloating(const NGHolder &g) {
+    for (auto v : adjacent_vertices_range(g.start, g)) {
+        if (v != g.startDs && !edge(g.startDs, v, g).second) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool isAcyclic(const NGHolder &g) {
     try {
         depth_first_search(
@@ -657,7 +666,8 @@ bool hasCorrectlyNumberedVertices(const NGHolder &g) {
         }
         ids[id] = true;
     }
-    return find(ids.begin(), ids.end(), false) == ids.end();
+    return find(ids.begin(), ids.end(), false) == ids.end()
+        && num_vertices(g) == num_vertices(g.g);
 }
 
 /** Assertion: returns true if the edges in this graph are contiguously (and
@@ -672,8 +682,10 @@ bool hasCorrectlyNumberedEdges(const NGHolder &g) {
         }
         ids[id] = true;
     }
-    return find(ids.begin(), ids.end(), false) == ids.end();
+    return find(ids.begin(), ids.end(), false) == ids.end()
+        && num_edges(g) == num_edges(g.g);
 }
+
 #endif // NDEBUG
 
 } // namespace ue2

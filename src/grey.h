@@ -51,7 +51,9 @@ struct Grey {
     bool allowLbr;
     bool allowMcClellan;
     bool allowPuff;
+    bool allowLiteral;
     bool allowRose;
+    bool allowViolet;
     bool allowExtendedNFA;
     bool allowLimExNFA;
     bool allowAnchoredAcyclic;
@@ -61,6 +63,14 @@ struct Grey {
 
     bool allowNoodle;
     bool fdrAllowTeddy;
+
+    u32  violetAvoidSuffixes; /* 0=never, 1=sometimes, 2=always */
+    bool violetAvoidWeakInfixes;
+    bool violetDoubleCut;
+    bool violetExtractStrongLiterals;
+    bool violetLiteralChains;
+    u32  violetDoubleCutLiteralLen;
+    u32  violetEarlyCleanLiteralLen;
 
     bool puffImproveHead;
     bool castleExclusive; // enable castle mutual exclusion analysis

@@ -34,7 +34,7 @@
 #include <string>
 #include <vector>
 
-#define DEFAULT_MAX_HISTORY 60
+#define DEFAULT_MAX_HISTORY 110
 
 using namespace std;
 
@@ -51,7 +51,9 @@ Grey::Grey(void) :
                    allowLbr(true),
                    allowMcClellan(true),
                    allowPuff(true),
+                   allowLiteral(true),
                    allowRose(true),
+                   allowViolet(true),
                    allowExtendedNFA(true), /* bounded repeats of course */
                    allowLimExNFA(true),
                    allowAnchoredAcyclic(true),
@@ -60,6 +62,13 @@ Grey::Grey(void) :
                    allowDecoratedLiteral(true),
                    allowNoodle(true),
                    fdrAllowTeddy(true),
+                   violetAvoidSuffixes(true),
+                   violetAvoidWeakInfixes(true),
+                   violetDoubleCut(true),
+                   violetExtractStrongLiterals(true),
+                   violetLiteralChains(true),
+                   violetDoubleCutLiteralLen(3),
+                   violetEarlyCleanLiteralLen(6),
                    puffImproveHead(true),
                    castleExclusive(true),
                    mergeSEP(true), /* short exhaustible passthroughs */
@@ -206,7 +215,9 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(allowLbr);
         G_UPDATE(allowMcClellan);
         G_UPDATE(allowPuff);
+        G_UPDATE(allowLiteral);
         G_UPDATE(allowRose);
+        G_UPDATE(allowViolet);
         G_UPDATE(allowExtendedNFA);
         G_UPDATE(allowLimExNFA);
         G_UPDATE(allowAnchoredAcyclic);
@@ -215,6 +226,13 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(allowDecoratedLiteral);
         G_UPDATE(allowNoodle);
         G_UPDATE(fdrAllowTeddy);
+        G_UPDATE(violetAvoidSuffixes);
+        G_UPDATE(violetAvoidWeakInfixes);
+        G_UPDATE(violetDoubleCut);
+        G_UPDATE(violetExtractStrongLiterals);
+        G_UPDATE(violetLiteralChains);
+        G_UPDATE(violetDoubleCutLiteralLen);
+        G_UPDATE(violetEarlyCleanLiteralLen);
         G_UPDATE(puffImproveHead);
         G_UPDATE(castleExclusive);
         G_UPDATE(mergeSEP);
@@ -315,7 +333,9 @@ void applyGreyOverrides(Grey *g, const string &s) {
             g->allowLitHaig = false;
             g->allowMcClellan = false;
             g->allowPuff = false;
+            g->allowLiteral = false;
             g->allowRose = false;
+            g->allowViolet = false;
             g->allowSmallLiteralSet = false;
             g->roseMasks = false;
             done = true;
@@ -331,7 +351,9 @@ void applyGreyOverrides(Grey *g, const string &s) {
             g->allowLitHaig = false;
             g->allowMcClellan = true;
             g->allowPuff = false;
+            g->allowLiteral = false;
             g->allowRose = false;
+            g->allowViolet = false;
             g->allowSmallLiteralSet = false;
             g->roseMasks = false;
             done = true;
@@ -347,7 +369,9 @@ void applyGreyOverrides(Grey *g, const string &s) {
             g->allowLitHaig = false;
             g->allowMcClellan = true;
             g->allowPuff = false;
+            g->allowLiteral = false;
             g->allowRose = false;
+            g->allowViolet = false;
             g->allowSmallLiteralSet = false;
             g->roseMasks = false;
             done = true;

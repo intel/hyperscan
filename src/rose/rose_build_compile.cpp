@@ -433,6 +433,9 @@ RoseRoleHistory findHistoryScheme(const RoseBuildImpl &tbi, const RoseEdge &e) {
 
         // If the bounds are {0,0}, this role can only match precisely at EOD.
         if (minBound == 0 && maxBound == 0) {
+            /* last byte history will squash the state byte so cannot have other
+             * succ */
+            assert(out_degree(u, g) == 1);
             return ROSE_ROLE_HISTORY_LAST_BYTE;
         }
 
@@ -915,19 +918,32 @@ void RoseBuildImpl::findTransientLeftfixes(void) {
             continue;
         }
 
-        u32 his = g[v].left.lag + max_width;
+        if (cc.streaming) {
+            /* STREAMING: transient prefixes must be able to run using history
+             * rather than storing state. */
+            u32 his = g[v].left.lag + max_width;
 
-        // If this vertex has an event literal, we need to add one to cope
-        // with it.
-        if (hasLiteralInTable(v, ROSE_EVENT)) {
-            his++;
-        }
+            // If this vertex has an event literal, we need to add one to cope
+            // with it.
+            if (hasLiteralInTable(v, ROSE_EVENT)) {
+                his++;
+            }
 
-        /* +1 as trigger must appear in main buffer and no byte is needed to
-         * decompress the state */
-        if (his <= cc.grey.maxHistoryAvailable + 1) {
-            transient.insert(left);
-            DEBUG_PRINTF("a transient leftfix has been spotted his=%u\n", his);
+            /* +1 as trigger must appear in main buffer and no byte is needed to
+             * decompress the state */
+            if (his <= cc.grey.maxHistoryAvailable + 1) {
+                transient.insert(left);
+                DEBUG_PRINTF("a transient leftfix spotted his=%u\n", his);
+            }
+        } else {
+            /* BLOCK: transientness is less important and more fuzzy, ideally
+             * it should be quick to calculate the state. No need to worry about
+             * history (and hence lag). */
+            if (max_width < depth(ROSE_BLOCK_TRANSIENT_MAX_WIDTH)) {
+                transient.insert(left);
+                DEBUG_PRINTF("a transient block leftfix spotted [%u]\n",
+                             (u32)max_width);
+            }
         }
     }
 }

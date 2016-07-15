@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -684,6 +684,10 @@ bool makeLeftfixLookaround(const RoseBuildImpl &build, const RoseVertex v,
 
     lookaround.reserve(look.size());
     for (const auto &m : look) {
+        if (m.first < -128 || m.first > 127) {
+            DEBUG_PRINTF("range too big\n");
+            return false;
+        }
         s8 offset = verify_s8(m.first);
         lookaround.emplace_back(offset, m.second);
     }

@@ -2064,8 +2064,7 @@ sombe_rv doHaigLitSom(NG &ng, NGHolder &g, const NGWrapper &w, u32 comp_id,
     ReportManager &rm = ng.rm;
     SomSlotManager &ssm = ng.ssm;
 
-    // This approach relies on Rose.
-    if (!cc.grey.allowRose) {
+    if (!cc.grey.allowHaigLit) {
         return SOMBE_FAIL;
     }
 

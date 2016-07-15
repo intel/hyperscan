@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,8 +54,6 @@ size_t maxStringSelfOverlap(const std::string &a, bool nocase);
 
 /// Compares two strings, returns non-zero if they're different.
 u32 cmp(const char *a, const char *b, size_t len, bool nocase);
-
-class CharReach;
 
 struct ue2_literal {
 public:
@@ -123,6 +121,13 @@ public:
     ue2_literal(ue2_literal &&) = default;
     ue2_literal &operator=(const ue2_literal &) = default;
     ue2_literal &operator=(ue2_literal &&) = default;
+
+    template<typename InputIt>
+    ue2_literal(InputIt b, InputIt e) {
+        for (; b != e; ++b) {
+            push_back(*b);
+        }
+    }
 
     size_type length() const { return s.length(); }
     bool empty() const { return s.empty(); }

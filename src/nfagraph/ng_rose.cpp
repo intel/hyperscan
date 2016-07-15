@@ -773,51 +773,6 @@ unique_ptr<VertLitInfo> LitCollection::pickNext() {
 
 }
 
-/** \brief Returns true if the given literal is the only thing in the graph,
- * from start to accept. */
-static
-bool literalIsWholeGraph(const NGHolder &g, const ue2_literal &lit) {
-    NFAVertex v = g.accept;
-
-    for (auto it = lit.rbegin(), ite = lit.rend(); it != ite; ++it) {
-        NGHolder::inv_adjacency_iterator ai, ae;
-        tie(ai, ae) = inv_adjacent_vertices(v, g);
-        if (ai == ae) {
-            assert(0); // no predecessors?
-            return false;
-        }
-        v = *ai++;
-        if (ai != ae) {
-            DEBUG_PRINTF("branch, fail\n");
-            return false;
-        }
-
-        if (is_special(v, g)) {
-            DEBUG_PRINTF("special found, fail\n");
-            return false;
-        }
-
-        const CharReach &cr = g[v].char_reach;
-        if (cr != *it) {
-            DEBUG_PRINTF("reach fail\n");
-            return false;
-        }
-    }
-
-    // Our last value for v should have only start states for predecessors.
-    for (auto u : inv_adjacent_vertices_range(v, g)) {
-        if (!is_any_start(u, g)) {
-            DEBUG_PRINTF("pred is not start\n");
-            return false;
-        }
-    }
-
-    assert(num_vertices(g) == lit.length() + N_SPECIALS);
-
-    DEBUG_PRINTF("ok\n");
-    return true;
-}
-
 static
 bool can_match(const NGHolder &g, const ue2_literal &lit, bool overhang_ok) {
     set<NFAVertex> curr, next;
@@ -933,19 +888,10 @@ u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     return delay;
 }
 
-static
 void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
-                                  u32 delay) {
+                                  u32 delay, const vector<NFAVertex> &preds) {
     assert(delay <= lit.length());
     DEBUG_PRINTF("adding on '%s' %u\n", ((const string &)lit).c_str(), delay);
-
-    vector<NFAVertex> preds;
-    insert(&preds, preds.end(), inv_adjacent_vertices(g.accept, g));
-    clear_in_edges(g.accept, g);
-
-    for (auto v : preds) {
-        g[v].reports.clear(); /* clear report from old accepts */
-    }
 
     NFAVertex prev = g.accept;
     auto it = lit.rbegin();
@@ -970,6 +916,19 @@ void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     g.renumberVertices();
     g.renumberEdges();
     assert(allMatchStatesHaveReports(g));
+}
+
+void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
+                                  u32 delay) {
+    vector<NFAVertex> preds;
+    insert(&preds, preds.end(), inv_adjacent_vertices(g.accept, g));
+    clear_in_edges(g.accept, g);
+
+    for (auto v : preds) {
+        g[v].reports.clear(); /* clear report from old accepts */
+    }
+
+    restoreTrailingLiteralStates(g, lit, delay, preds);
 }
 
 /* return false if we should get rid of the edge altogether */

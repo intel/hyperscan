@@ -37,6 +37,8 @@
 
 #include "ue2common.h"
 
+#include <string>
+
 namespace ue2 {
 
 /** \brief Specify the use-case for an nfa engine. */
@@ -114,6 +116,32 @@ bool has_managed_reports(enum nfa_kind k) {
         return false;
     }
 }
+
+#if defined(DEBUG) || defined(DUMP_SUPPORT)
+
+inline
+std::string to_string(nfa_kind k) {
+    switch (k) {
+    case NFA_PREFIX:
+        return "PREFIX";
+    case NFA_INFIX:
+        return "INFIX";
+    case NFA_SUFFIX:
+        return "SUFFIX";
+    case NFA_OUTFIX:
+        return "OUTFIX";
+    case NFA_REV_PREFIX:
+        return "REV_PREFIX";
+    case NFA_OUTFIX_RAW:
+        return "OUTFIX_RAW";
+    case NFA_EAGER_PREFIX:
+        return "EAGER_PREFIX";
+    }
+    assert(0);
+    return "?";
+}
+
+#endif
 
 } // namespace ue2
 
