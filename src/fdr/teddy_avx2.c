@@ -407,36 +407,35 @@ void bit_array_fast_teddy(m128 var, u16 *bitArr, u32 *arrCnt, u32 offset) {
 }
 
 static really_inline
-m256 prep_conf_fat_teddy_m1(const m256 *maskBase, m256 p_mask, m256 val) {
+m256 prep_conf_fat_teddy_m1(const m256 *maskBase, m256 val) {
     m256 mask = set32x8(0xf);
     m256 lo = and256(val, mask);
     m256 hi = and256(rshift64_m256(val, 4), mask);
-    return and256(and256(vpshufb(maskBase[0*2], lo),
-                         vpshufb(maskBase[0*2+1], hi)), p_mask);
+    return and256(vpshufb(maskBase[0*2], lo),
+                  vpshufb(maskBase[0*2+1], hi));
 }
 
 static really_inline
-m256 prep_conf_fat_teddy_m2(const m256 *maskBase, m256 *old_1, m256 p_mask,
-                            m256 val) {
+m256 prep_conf_fat_teddy_m2(const m256 *maskBase, m256 *old_1, m256 val) {
     m256 mask = set32x8(0xf);
     m256 lo = and256(val, mask);
     m256 hi = and256(rshift64_m256(val, 4), mask);
-    m256 r = prep_conf_fat_teddy_m1(maskBase, p_mask, val);
+    m256 r = prep_conf_fat_teddy_m1(maskBase, val);
 
     m256 res_1 = and256(vpshufb(maskBase[1*2], lo),
                         vpshufb(maskBase[1*2+1], hi));
     m256 res_shifted_1 = vpalignr(res_1, *old_1, 16-1);
     *old_1 = res_1;
-    return and256(and256(r, p_mask), res_shifted_1);
+    return and256(r, res_shifted_1);
 }
 
 static really_inline
 m256 prep_conf_fat_teddy_m3(const m256 *maskBase, m256 *old_1, m256 *old_2,
-                            m256 p_mask, m256 val) {
+                            m256 val) {
     m256 mask = set32x8(0xf);
     m256 lo = and256(val, mask);
     m256 hi = and256(rshift64_m256(val, 4), mask);
-    m256 r = prep_conf_fat_teddy_m2(maskBase, old_1, p_mask, val);
+    m256 r = prep_conf_fat_teddy_m2(maskBase, old_1, val);
 
     m256 res_2 = and256(vpshufb(maskBase[2*2], lo),
                         vpshufb(maskBase[2*2+1], hi));
@@ -447,11 +446,11 @@ m256 prep_conf_fat_teddy_m3(const m256 *maskBase, m256 *old_1, m256 *old_2,
 
 static really_inline
 m256 prep_conf_fat_teddy_m4(const m256 *maskBase, m256 *old_1, m256 *old_2,
-                            m256 *old_3, m256 p_mask, m256 val) {
+                            m256 *old_3, m256 val) {
     m256 mask = set32x8(0xf);
     m256 lo = and256(val, mask);
     m256 hi = and256(rshift64_m256(val, 4), mask);
-    m256 r = prep_conf_fat_teddy_m3(maskBase, old_1, old_2, p_mask, val);
+    m256 r = prep_conf_fat_teddy_m3(maskBase, old_1, old_2, val);
 
     m256 res_3 = and256(vpshufb(maskBase[3*2], lo),
                         vpshufb(maskBase[3*2+1], hi));
@@ -461,12 +460,10 @@ m256 prep_conf_fat_teddy_m4(const m256 *maskBase, m256 *old_1, m256 *old_2,
 }
 
 static really_inline
-m256 prep_conf_fast_teddy_m1(m256 val, m256 mask, m256 maskLo, m256 maskHi,
-                             m256 p_mask) {
+m256 prep_conf_fast_teddy_m1(m256 val, m256 mask, m256 maskLo, m256 maskHi) {
     m256 lo = and256(val, mask);
     m256 hi = and256(rshift64_m256(val, 4), mask);
-    m256 res = and256(vpshufb(maskLo, lo), vpshufb(maskHi, hi));
-    return and256(res, p_mask);
+    return and256(vpshufb(maskLo, lo), vpshufb(maskHi, hi));
 }
 
 static really_inline
@@ -503,13 +500,14 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
         m256 p_mask;
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 1);
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, p_mask, val_0);
+        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit1_teddy);
         ptr += 16;
     }
 
     if (ptr + 16 < buf_end) {
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, ones256(), load2x128(ptr));
+        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit1_teddy);
         ptr += 16;
     }
@@ -517,10 +515,9 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
     for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {
         __builtin_prefetch(ptr + (iterBytes*4));
         CHECK_FLOOD;
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, ones256(), load2x128(ptr));
+        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBit1_teddy);
-        m256 r_1 = prep_conf_fat_teddy_m1(maskBase, ones256(),
-                                          load2x128(ptr + 16));
+        m256 r_1 = prep_conf_fat_teddy_m1(maskBase, load2x128(ptr + 16));
         CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBit1_teddy);
     }
 
@@ -528,7 +525,8 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
         m256 p_mask;
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 1);
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, p_mask, val_0);
+        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit1_teddy);
     }
 
@@ -558,13 +556,14 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fat(const struct FDR *fdr,
         m256 p_mask;
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 1);
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, p_mask, val_0);
+        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
         ptr += 16;
     }
 
     if (ptr + 16 < buf_end) {
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, ones256(), load2x128(ptr));
+        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
         ptr += 16;
     }
@@ -572,10 +571,9 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fat(const struct FDR *fdr,
     for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {
         __builtin_prefetch(ptr + (iterBytes*4));
         CHECK_FLOOD;
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, ones256(), load2x128(ptr));
+        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBit_teddy);
-        m256 r_1 = prep_conf_fat_teddy_m1(maskBase, ones256(),
-                                          load2x128(ptr + 16));
+        m256 r_1 = prep_conf_fat_teddy_m1(maskBase, load2x128(ptr + 16));
         CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBit_teddy);
     }
 
@@ -583,7 +581,8 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fat(const struct FDR *fdr,
         m256 p_mask;
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 1);
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, p_mask, val_0);
+        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
     }
 
@@ -614,14 +613,14 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_fat(const struct FDR *fdr,
         m256 p_mask;
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 2);
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, p_mask, val_0);
+        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
         ptr += 16;
     }
 
     if (ptr + 16 < buf_end) {
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, ones256(),
-                                          load2x128(ptr));
+        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
         ptr += 16;
     }
@@ -629,10 +628,9 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_fat(const struct FDR *fdr,
     for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {
         __builtin_prefetch(ptr + (iterBytes*4));
         CHECK_FLOOD;
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, ones256(),
-                                          load2x128(ptr));
+        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBitMany_teddy);
-        m256 r_1 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, ones256(),
+        m256 r_1 = prep_conf_fat_teddy_m2(maskBase, &res_old_1,
                                           load2x128(ptr + 16));
         CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBitMany_teddy);
     }
@@ -641,7 +639,8 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_fat(const struct FDR *fdr,
         m256 p_mask;
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 2);
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, p_mask, val_0);
+        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
     }
 
@@ -672,25 +671,24 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_pck_fat(const struct FDR *fdr,
         m256 p_mask;
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 2);
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, p_mask, val_0);
+        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
         ptr += 16;
     }
 
     if (ptr + 16 < buf_end) {
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, ones256(),
-                                          load2x128(ptr));
+        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-         ptr += 16;
+        ptr += 16;
     }
 
     for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {
         __builtin_prefetch(ptr + (iterBytes*4));
         CHECK_FLOOD;
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, ones256(),
-                                          load2x128(ptr));
+        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBit_teddy);
-        m256 r_1 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, ones256(),
+        m256 r_1 = prep_conf_fat_teddy_m2(maskBase, &res_old_1,
                                           load2x128(ptr + 16));
         CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBit_teddy);
     }
@@ -699,7 +697,8 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_pck_fat(const struct FDR *fdr,
         m256 p_mask;
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 2);
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, p_mask, val_0);
+        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
     }
 
@@ -732,14 +731,15 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_fat(const struct FDR *fdr,
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 3);
         m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          p_mask, val_0);
+                                          val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
         ptr += 16;
     }
 
     if (ptr + 16 < buf_end) {
         m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          ones256(), load2x128(ptr));
+                                          load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
         ptr += 16;
     }
@@ -748,10 +748,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_fat(const struct FDR *fdr,
         __builtin_prefetch(ptr + (iterBytes*4));
         CHECK_FLOOD;
         m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          ones256(), load2x128(ptr));
+                                          load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBitMany_teddy);
         m256 r_1 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          ones256(), load2x128(ptr + 16));
+                                          load2x128(ptr + 16));
         CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBitMany_teddy);
     }
 
@@ -760,7 +760,8 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_fat(const struct FDR *fdr,
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 3);
         m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          p_mask, val_0);
+                                          val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
     }
 
@@ -793,14 +794,15 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_pck_fat(const struct FDR *fdr,
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 3);
         m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          p_mask, val_0);
+                                          val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
         ptr += 16;
     }
 
     if (ptr + 16 < buf_end) {
         m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          ones256(), load2x128(ptr));
+                                          load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
         ptr += 16;
     }
@@ -809,10 +811,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_pck_fat(const struct FDR *fdr,
         __builtin_prefetch(ptr + (iterBytes*4));
         CHECK_FLOOD;
         m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          ones256(), load2x128(ptr));
+                                          load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBit_teddy);
         m256 r_1 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          ones256(), load2x128(ptr + 16));
+                                          load2x128(ptr + 16));
         CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBit_teddy);
     }
 
@@ -821,7 +823,8 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_pck_fat(const struct FDR *fdr,
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 3);
         m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          p_mask, val_0);
+                                          val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
     }
 
@@ -855,15 +858,15 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 4);
         m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, p_mask, val_0);
+                                          &res_old_3, val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
         ptr += 16;
     }
 
     if (ptr + 16 < buf_end) {
         m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, ones256(),
-                                          load2x128(ptr));
+                                          &res_old_3, load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
         ptr += 16;
     }
@@ -872,12 +875,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
         __builtin_prefetch(ptr + (iterBytes*4));
         CHECK_FLOOD;
         m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, ones256(),
-                                          load2x128(ptr));
+                                          &res_old_3, load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBitMany_teddy);
         m256 r_1 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, ones256(),
-                                          load2x128(ptr + 16));
+                                          &res_old_3, load2x128(ptr + 16));
         CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBitMany_teddy);
     }
 
@@ -886,7 +887,8 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 4);
         m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, p_mask, val_0);
+                                          &res_old_3, val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
     }
 
@@ -920,15 +922,15 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 4);
         m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, p_mask, val_0);
+                                          &res_old_3, val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
         ptr += 16;
     }
 
     if (ptr + 16 < buf_end) {
         m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, ones256(),
-                                          load2x128(ptr));
+                                          &res_old_3, load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
         ptr += 16;
     }
@@ -937,12 +939,10 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
         __builtin_prefetch(ptr + (iterBytes*4));
         CHECK_FLOOD;
         m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, ones256(),
-                                          load2x128(ptr));
+                                          &res_old_3, load2x128(ptr));
         CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBit_teddy);
         m256 r_1 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, ones256(),
-                                          load2x128(ptr + 16));
+                                          &res_old_3, load2x128(ptr + 16));
         CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBit_teddy);
     }
 
@@ -951,7 +951,8 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
         m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
                                        a->buf_history, a->len_history, 4);
         m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, p_mask, val_0);
+                                          &res_old_3, val_0);
+        r_0 = and256(r_0, p_mask);
         CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
     }
 
@@ -986,16 +987,15 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fast(const struct FDR *fdr,
         m256 p_mask;
         m256 val_0 = vectoredLoad256(&p_mask, ptr, a->buf + a->start_offset,
                                      buf_end, a->buf_history, a->len_history);
-        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi,
-                                             p_mask);
+        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi);
+        res_0 = and256(res_0, p_mask);
         CONFIRM_FAST_TEDDY(res_0, 0, VECTORING, do_confWithBit1_fast_teddy);
         ptr += 32;
     }
 
     if (ptr + 32 < buf_end) {
         m256 val_0 = load256(ptr + 0);
-        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi,
-                                             ones256());
+        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi);
         CONFIRM_FAST_TEDDY(res_0, 0, VECTORING, do_confWithBit1_fast_teddy);
         ptr += 32;
     }
@@ -1005,13 +1005,11 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fast(const struct FDR *fdr,
         CHECK_FLOOD;
 
         m256 val_0 = load256(ptr + 0);
-        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi,
-                                             ones256());
+        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi);
         CONFIRM_FAST_TEDDY(res_0, 0, NOT_CAUTIOUS, do_confWithBit1_fast_teddy);
 
         m256 val_1 = load256(ptr + 32);
-        m256 res_1 = prep_conf_fast_teddy_m1(val_1, mask, maskLo, maskHi,
-                                             ones256());
+        m256 res_1 = prep_conf_fast_teddy_m1(val_1, mask, maskLo, maskHi);
         CONFIRM_FAST_TEDDY(res_1, 4, NOT_CAUTIOUS, do_confWithBit1_fast_teddy);
     }
 
@@ -1019,8 +1017,8 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fast(const struct FDR *fdr,
         m256 p_mask;
         m256 val_0 = vectoredLoad256(&p_mask, ptr, a->buf + a->start_offset,
                                      buf_end, a->buf_history, a->len_history);
-        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi,
-                                             p_mask);
+        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi);
+        res_0 = and256(res_0, p_mask);
         CONFIRM_FAST_TEDDY(res_0, 0, VECTORING, do_confWithBit1_fast_teddy);
     }
 
@@ -1055,16 +1053,15 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fast(const struct FDR *fdr,
         m256 p_mask;
         m256 val_0 = vectoredLoad256(&p_mask, ptr, a->buf + a->start_offset,
                                      buf_end, a->buf_history, a->len_history);
-        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi,
-                                             p_mask);
+        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi);
+        res_0 = and256(res_0, p_mask);
         CONFIRM_FAST_TEDDY(res_0, 0, VECTORING, do_confWithBit_fast_teddy);
         ptr += 32;
     }
 
     if (ptr + 32 < buf_end) {
         m256 val_0 = load256(ptr + 0);
-        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi,
-                                             ones256());
+        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi);
         CONFIRM_FAST_TEDDY(res_0, 0, VECTORING, do_confWithBit_fast_teddy);
         ptr += 32;
     }
@@ -1074,13 +1071,11 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fast(const struct FDR *fdr,
         CHECK_FLOOD;
 
         m256 val_0 = load256(ptr + 0);
-        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi,
-                                             ones256());
+        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi);
         CONFIRM_FAST_TEDDY(res_0, 0, NOT_CAUTIOUS, do_confWithBit_fast_teddy);
 
         m256 val_1 = load256(ptr + 32);
-        m256 res_1 = prep_conf_fast_teddy_m1(val_1, mask, maskLo, maskHi,
-                                             ones256());
+        m256 res_1 = prep_conf_fast_teddy_m1(val_1, mask, maskLo, maskHi);
         CONFIRM_FAST_TEDDY(res_1, 4, NOT_CAUTIOUS, do_confWithBit_fast_teddy);
     }
 
@@ -1088,8 +1083,8 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fast(const struct FDR *fdr,
         m256 p_mask;
         m256 val_0 = vectoredLoad256(&p_mask, ptr, a->buf + a->start_offset,
                                      buf_end, a->buf_history, a->len_history);
-        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi,
-                                             p_mask);
+        m256 res_0 = prep_conf_fast_teddy_m1(val_0, mask, maskLo, maskHi);
+        res_0 = and256(res_0, p_mask);
         CONFIRM_FAST_TEDDY(res_0, 0, VECTORING, do_confWithBit_fast_teddy);
     }
 
