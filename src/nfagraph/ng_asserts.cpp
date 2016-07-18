@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -553,6 +553,7 @@ void ensureCodePointStart(ReportManager &rm, NGWrapper &g) {
         add_edge(g.startDs, v_4, g);
         remove_edge(orig, g);
         g.renumberEdges();
+        clearReports(g);
     }
 }
 

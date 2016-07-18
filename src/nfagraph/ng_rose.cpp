@@ -872,6 +872,7 @@ u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     }
 
     clear_in_edges(g.accept, g);
+    clearReports(g);
 
     vector<NFAVertex> verts(pred.begin(), pred.end());
     sort(verts.begin(), verts.end(), VertexIndexOrdering<NGHolder>(g));

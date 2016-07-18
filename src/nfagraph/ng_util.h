@@ -297,15 +297,29 @@ void clearReports(NGHolder &g);
 void duplicateReport(NGHolder &g, ReportID r_old, ReportID r_new);
 
 #ifndef NDEBUG
-// Assertions: only available in internal builds
 
-/** \brief Used in sanity-checking assertions: returns true if all vertices
- * leading to accept or acceptEod have at least one report ID. */
+// Assertions: only available in internal builds.
+
+/**
+ * Used in sanity-checking assertions: returns true if all vertices
+ * with edges to accept or acceptEod have at least one report ID. Additionally,
+ * checks that ONLY vertices with edges to accept or acceptEod has reports.
+ */
 bool allMatchStatesHaveReports(const NGHolder &g);
 
+/**
+ * Assertion: returns true if the vertices in this graph are contiguously (and
+ * uniquely) numbered from zero.
+ */
 bool hasCorrectlyNumberedVertices(const NGHolder &g);
+
+/**
+ * Assertion: returns true if the edges in this graph are contiguously (and
+ * uniquely) numbered from zero.
+ */
 bool hasCorrectlyNumberedEdges(const NGHolder &g);
-#endif
+
+#endif // NDEBUG
 
 } // namespace ue2
 

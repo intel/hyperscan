@@ -363,6 +363,12 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
         *shell_comp = true;
     }
 
+    // Ensure that only vertices with accept edges have reports.
+    for (auto &gc : comps) {
+        assert(gc);
+        clearReports(*gc);
+    }
+
     // We should never produce empty component graphs.
     assert(all_of(begin(comps), end(comps),
                   [](const unique_ptr<NGHolder> &g_comp) {

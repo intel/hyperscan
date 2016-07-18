@@ -631,16 +631,18 @@ unique_ptr<NGHolder> cloneHolder(const NGHolder &in) {
 }
 
 #ifndef NDEBUG
-/** \brief Used in sanity-checking assertions: returns true if all vertices
- * leading to accept or acceptEod have at least one report ID. */
+
 bool allMatchStatesHaveReports(const NGHolder &g) {
+    unordered_set<NFAVertex> reporters;
     for (auto v : inv_adjacent_vertices_range(g.accept, g)) {
         if (g[v].reports.empty()) {
             DEBUG_PRINTF("vertex %u has no reports!\n",
                          g[v].index);
             return false;
         }
+        reporters.insert(v);
     }
+
     for (auto v : inv_adjacent_vertices_range(g.acceptEod, g)) {
         if (v == g.accept) {
             continue; // stylised edge
@@ -650,12 +652,20 @@ bool allMatchStatesHaveReports(const NGHolder &g) {
                          g[v].index);
             return false;
         }
+        reporters.insert(v);
     }
+
+    for (auto v : vertices_range(g)) {
+        if (!contains(reporters, v) && !g[v].reports.empty()) {
+            DEBUG_PRINTF("vertex %u is not a match state, but has reports!\n",
+                         g[v].index);
+            return false;
+        }
+    }
+
     return true;
 }
 
-/** Assertion: returns true if the vertices in this graph are contiguously (and
- * uniquely) numbered from zero. */
 bool hasCorrectlyNumberedVertices(const NGHolder &g) {
     size_t count = num_vertices(g);
     vector<bool> ids(count, false);
@@ -670,8 +680,6 @@ bool hasCorrectlyNumberedVertices(const NGHolder &g) {
         && num_vertices(g) == num_vertices(g.g);
 }
 
-/** Assertion: returns true if the edges in this graph are contiguously (and
- * uniquely) numbered from zero. */
 bool hasCorrectlyNumberedEdges(const NGHolder &g) {
     size_t count = num_edges(g);
     vector<bool> ids(count, false);

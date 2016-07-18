@@ -79,13 +79,17 @@ bool sanityCheckGraph(const NGHolder &g,
             }
         }
 
-        // Vertices with edges to accept or acceptEod must have reports.
+        // Vertices with edges to accept or acceptEod must have reports and
+        // other vertices must not have them.
         if (is_match_vertex(v, g) && v != g.accept) {
             if (g[v].reports.empty()) {
-                DEBUG_PRINTF("vertex %u has no reports\n",
-                             g[v].index);
+                DEBUG_PRINTF("vertex %u has no reports\n", g[v].index);
                 return false;
             }
+        } else if (!g[v].reports.empty()) {
+            DEBUG_PRINTF("vertex %u has reports but no accept edge\n",
+                         g[v].index);
+            return false;
         }
 
         // Participant vertices should have distinct state indices.

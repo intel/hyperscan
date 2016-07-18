@@ -105,6 +105,7 @@ bool addComponentSom(NG &ng, NGHolder &g, const NGWrapper &w,
     DEBUG_PRINTF("doing som\n");
     dumpComponent(g, "03_presom", w.expressionIndex, comp_id, ng.cc.grey);
     assert(hasCorrectlyNumberedVertices(g));
+    assert(allMatchStatesHaveReports(w));
 
     // First, we try the "SOM chain" support in ng_som.cpp.
 
@@ -208,6 +209,8 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
 
     dumpComponent(g, "01_begin", w.expressionIndex, comp_id, ng.cc.grey);
 
+    assert(allMatchStatesHaveReports(w));
+
     reduceGraph(g, som, w.utf8, cc);
 
     dumpComponent(g, "02_reduced", w.expressionIndex, comp_id, ng.cc.grey);
@@ -231,6 +234,8 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
             return true;
         }
     }
+
+    assert(allMatchStatesHaveReports(w));
 
     if (splitOffAnchoredAcyclic(*ng.rose, g, cc)) {
         return true;

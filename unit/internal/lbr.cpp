@@ -36,6 +36,7 @@
 #include "nfa/nfa_internal.h"
 #include "nfa/nfa_api_util.h"
 #include "nfagraph/ng_lbr.h"
+#include "nfagraph/ng_util.h"
 #include "util/alloc.h"
 #include "util/compile_context.h"
 #include "grey.h"
@@ -97,6 +98,7 @@ protected:
         ParsedExpression parsed(0, pattern.c_str(), flags, 0);
         unique_ptr<NGWrapper> g = buildWrapper(rm, cc, parsed);
         ASSERT_TRUE(g != nullptr);
+        clearReports(*g);
 
         ASSERT_TRUE(isLBR(*g, grey));
 
