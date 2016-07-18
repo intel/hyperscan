@@ -277,6 +277,17 @@ struct rose_literal_id {
     u32 distinctiveness;
 
     size_t elength(void) const { return s.length() + delay; }
+    size_t elength_including_mask(void) const {
+        size_t mask_len = msk.size();
+        for (u8 c : msk) {
+            if (!c) {
+                mask_len--;
+            } else {
+                break;
+            }
+        }
+        return MAX(mask_len, s.length()) + delay;
+    }
 };
 
 static inline

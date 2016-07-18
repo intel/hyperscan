@@ -65,6 +65,28 @@ static const unsigned int MAX_ACCEL_OFFSET = 16;
 static const unsigned int MAX_SHUFTI_WIDTH = 240;
 
 static
+size_t mask_overhang(const hwlmLiteral &lit) {
+    size_t msk_true_size = lit.msk.size();
+    assert(msk_true_size <= HWLM_MASKLEN);
+    assert(HWLM_MASKLEN <= MAX_ACCEL_OFFSET);
+    for (u8 c : lit.msk) {
+        if (!c) {
+            msk_true_size--;
+        } else {
+            break;
+        }
+    }
+
+    if (lit.s.length() >= msk_true_size) {
+        return 0;
+    }
+
+    /* only short literals should be able to have a mask which overhangs */
+    assert(lit.s.length() < MAX_ACCEL_OFFSET);
+    return msk_true_size - lit.s.length();
+}
+
+static
 bool findDVerm(const vector<const hwlmLiteral *> &lits, AccelAux *aux) {
     const hwlmLiteral &first = *lits.front();
 
@@ -169,7 +191,8 @@ bool findDVerm(const vector<const hwlmLiteral *> &lits, AccelAux *aux) {
                 }
 
                 if (found) {
-                    curr.max_offset = MAX(curr.max_offset, j);
+                    assert(j + mask_overhang(lit) <= MAX_ACCEL_OFFSET);
+                    ENSURE_AT_LEAST(&curr.max_offset, j + mask_overhang(lit));
                     break;
                 }
             }
@@ -290,8 +313,8 @@ bool findSVerm(const vector<const hwlmLiteral *> &lits, AccelAux *aux) {
                 }
 
                 if (found) {
-                    curr.max_offset = MAX(curr.max_offset, j);
-                    break;
+                    assert(j + mask_overhang(lit) <= MAX_ACCEL_OFFSET);
+                    ENSURE_AT_LEAST(&curr.max_offset, j + mask_overhang(lit));
                 }
             }
         }
@@ -392,13 +415,25 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
             continue;
         }
 
-        for (u32 i = 0; i < MAX_ACCEL_OFFSET; i++) {
+        u32 overhang = mask_overhang(lit);
+        for (u32 i = 0; i < overhang; i++) {
+            /* this offset overhangs the start of the real literal; look at the
+             * msk/cmp */
+            for (u32 j = 0; j < N_CHARS; j++) {
+                if ((j & lit.msk[i]) == lit.cmp[i]) {
+                    reach[i].set(j);
+                }
+            }
+        }
+        for (u32 i = overhang; i < MAX_ACCEL_OFFSET; i++) {
             CharReach &reach_i = reach[i];
+            u32 i_effective = i - overhang;
 
-            if (litGuardedByCharReach(reach_i, lit, i)) {
+            if (litGuardedByCharReach(reach_i, lit, i_effective)) {
                 continue;
             }
-            unsigned char c = i < lit.s.length() ? lit.s[i] : lit.s.back();
+            unsigned char c = i_effective < lit.s.length() ? lit.s[i_effective]
+                                                           : lit.s.back();
             if (lit.nocase) {
                 reach_i.set(mytoupper(c));
                 reach_i.set(mytolower(c));

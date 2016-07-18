@@ -5031,6 +5031,9 @@ void fillMatcherDistances(const RoseBuildImpl &build, RoseEngine *engine) {
             u32 max_d = g[v].max_offset;
             u32 min_d = g[v].min_offset;
 
+            DEBUG_PRINTF("checking %u: elen %zu min/max %u/%u\n", lit_id,
+                         key.elength_including_mask(), min_d, max_d);
+
             if (build.literal_info[lit_id].undelayed_id != lit_id) {
                 /* this is a delayed match; need to update delay properties */
                 /* TODO: can delayed literals ever be in another table ? */
@@ -5050,9 +5053,9 @@ void fillMatcherDistances(const RoseBuildImpl &build, RoseEngine *engine) {
             switch (key.table) {
             case ROSE_FLOATING:
                 ENSURE_AT_LEAST(&engine->floatingDistance, max_d);
-                if (min_d >= key.elength()) {
+                if (min_d >= key.elength_including_mask()) {
                     LIMIT_TO_AT_MOST(&engine->floatingMinDistance,
-                                     min_d - (u32)key.elength());
+                                     min_d - (u32)key.elength_including_mask());
                 } else {
                     /* overlapped literals from rose + anchored table can
                      * cause us to underflow due to sloppiness in
