@@ -317,6 +317,11 @@ if (CXX_UNUSED_CONST_VAR)
     set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-unused-const-variable")
 endif()
 
+# gcc 6 complains about type attributes that get ignored, like alignment
+CHECK_CXX_COMPILER_FLAG("-Wignored-attributes" CXX_IGNORED_ATTR)
+if (CXX_IGNORED_ATTR)
+    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-ignored-attributes")
+endif()
 
 # note this for later
 # g++ doesn't have this flag but clang does
