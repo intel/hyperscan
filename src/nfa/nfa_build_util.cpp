@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -401,7 +401,7 @@ const char *NFATraits<SHENG_NFA>::name = "Sheng";
 template<> struct NFATraits<TAMARAMA_NFA> {
     UNUSED static const char *name;
     static const NFACategory category = NFA_OTHER;
-    static const u32 stateAlign = 32;
+    static const u32 stateAlign = 64;
     static const bool fast = true;
     static const nfa_dispatch_fn has_accel;
     static const nfa_dispatch_fn has_repeats;

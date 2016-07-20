@@ -151,18 +151,20 @@ size_t doAccel512(const m512 *state, const struct LimExNFA512 *limex,
     DEBUG_PRINTF("using PSHUFB for 512-bit shuffle\n");
     m512 accelPerm = limex->accelPermute;
     m512 accelComp = limex->accelCompare;
-#if !defined(HAVE_AVX2)
+#if defined(HAVE_AVX512)
+    idx = packedExtract512(s, accelPerm, accelComp);
+#elif defined(HAVE_AVX2)
+    u32 idx1 = packedExtract256(s.lo, accelPerm.lo, accelComp.lo);
+    u32 idx2 = packedExtract256(s.hi, accelPerm.hi, accelComp.hi);
+    assert((idx1 & idx2) == 0); // should be no shared bits
+    idx = idx1 | idx2;
+#else
     u32 idx1 = packedExtract128(s.lo.lo, accelPerm.lo.lo, accelComp.lo.lo);
     u32 idx2 = packedExtract128(s.lo.hi, accelPerm.lo.hi, accelComp.lo.hi);
     u32 idx3 = packedExtract128(s.hi.lo, accelPerm.hi.lo, accelComp.hi.lo);
     u32 idx4 = packedExtract128(s.hi.hi, accelPerm.hi.hi, accelComp.hi.hi);
     assert((idx1 & idx2 & idx3 & idx4) == 0); // should be no shared bits
     idx = idx1 | idx2 | idx3 | idx4;
-#else
-    u32 idx1 = packedExtract256(s.lo, accelPerm.lo, accelComp.lo);
-    u32 idx2 = packedExtract256(s.hi, accelPerm.hi, accelComp.hi);
-    assert((idx1 & idx2) == 0); // should be no shared bits
-    idx = idx1 | idx2;
 #endif
     return accelScanWrapper(accelTable, aux, input, idx, i, end);
 }

@@ -46,9 +46,12 @@ typedef __m256i m256;
 typedef struct ALIGN_AVX_DIRECTIVE {m128 lo; m128 hi;} m256;
 #endif
 
-// these should align to 16 and 32 respectively
 typedef struct {m128 lo; m128 mid; m128 hi;} m384;
-typedef struct {m256 lo; m256 hi;} m512;
+#if defined(HAVE_AVX512)
+typedef __m512i m512;
+#else
+typedef struct ALIGN_ATTR(64) {m256 lo; m256 hi;} m512;
+#endif
 
 #endif /* SIMD_TYPES_H */
 

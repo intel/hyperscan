@@ -590,7 +590,7 @@ TEST(SimdUtilsTest, alignment) {
     ASSERT_EQ(16, alignof(m128));
     ASSERT_EQ(32, alignof(m256));
     ASSERT_EQ(16, alignof(m384));
-    ASSERT_EQ(32, alignof(m512));
+    ASSERT_EQ(64, alignof(m512));
 }
 
 TEST(SimdUtilsTest, movq) {

@@ -31,5 +31,24 @@ int main(){
     (void)_mm256_xor_si256(z, z);
 }" HAVE_AVX2)
 
+if (NOT HAVE_AVX2)
+    message(STATUS "Building without AVX2 support")
+endif ()
+
+# and now for AVX512
+CHECK_C_SOURCE_COMPILES("#include <${INTRIN_INC_H}>
+#if !defined(__AVX512BW__)
+#error no avx512bw
+#endif
+
+int main(){
+    __m512i z = _mm512_setzero_si512();
+    (void)_mm512_abs_epi8(z);
+}" HAVE_AVX512)
+
+if (NOT HAVE_AVX512)
+    message(STATUS "Building without AVX512 support")
+endif ()
+
 unset (CMAKE_REQUIRED_FLAGS)
 unset (INTRIN_INC_H)

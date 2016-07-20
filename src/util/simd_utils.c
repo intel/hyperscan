@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -49,6 +49,7 @@ ALIGN_CL_DIRECTIVE const char vbs_mask_data[] = {
 
 /** \brief LUT for the mask1bit functions. */
 ALIGN_CL_DIRECTIVE const u8 simd_onebit_masks[] = {
+    ZEROES_32, ZEROES_32,
     ZEROES_31, 0x01, ZEROES_32,
     ZEROES_31, 0x02, ZEROES_32,
     ZEROES_31, 0x04, ZEROES_32,
@@ -57,4 +58,5 @@ ALIGN_CL_DIRECTIVE const u8 simd_onebit_masks[] = {
     ZEROES_31, 0x20, ZEROES_32,
     ZEROES_31, 0x40, ZEROES_32,
     ZEROES_31, 0x80, ZEROES_32,
+    ZEROES_32, ZEROES_32,
 };

@@ -547,16 +547,21 @@ m512 loadcompressed512_32bit(const void *ptr, m512 mvec) {
                   expand32(v[14], m[14]), expand32(v[15], m[15]) };
 
     m512 xvec;
-#if !defined(HAVE_AVX2)
-    xvec.lo.lo = _mm_set_epi32(x[3], x[2], x[1], x[0]);
-    xvec.lo.hi = _mm_set_epi32(x[7], x[6], x[5], x[4]);
-    xvec.hi.lo = _mm_set_epi32(x[11], x[10], x[9], x[8]);
-    xvec.hi.hi = _mm_set_epi32(x[15], x[14], x[13], x[12]);
-#else
+#if defined(HAVE_AVX512)
+    xvec = _mm512_set_epi32(x[15], x[14], x[13], x[12],
+                            x[11], x[10], x[9], x[8],
+                            x[7], x[6], x[5], x[4],
+                            x[3], x[2], x[1], x[0]);
+#elif defined(HAVE_AVX2)
     xvec.lo = _mm256_set_epi32(x[7], x[6], x[5], x[4],
                                x[3], x[2], x[1], x[0]);
     xvec.hi = _mm256_set_epi32(x[15], x[14], x[13], x[12],
                                x[11], x[10], x[9], x[8]);
+#else
+    xvec.lo.lo = _mm_set_epi32(x[3], x[2], x[1], x[0]);
+    xvec.lo.hi = _mm_set_epi32(x[7], x[6], x[5], x[4]);
+    xvec.hi.lo = _mm_set_epi32(x[11], x[10], x[9], x[8]);
+    xvec.hi.hi = _mm_set_epi32(x[15], x[14], x[13], x[12]);
 #endif
     return xvec;
 }
@@ -582,14 +587,17 @@ m512 loadcompressed512_64bit(const void *ptr, m512 mvec) {
                   expand64(v[4], m[4]), expand64(v[5], m[5]),
                   expand64(v[6], m[6]), expand64(v[7], m[7]) };
 
-#if !defined(HAVE_AVX2)
+#if defined(HAVE_AVX512)
+    m512 xvec = _mm512_set_epi64(x[7], x[6], x[5], x[4],
+                                 x[3], x[2], x[1], x[0]);
+#elif defined(HAVE_AVX2)
+    m512 xvec = { .lo = _mm256_set_epi64x(x[3], x[2], x[1], x[0]),
+                  .hi = _mm256_set_epi64x(x[7], x[6], x[5], x[4])};
+#else
     m512 xvec = { .lo = { _mm_set_epi64x(x[1], x[0]),
                           _mm_set_epi64x(x[3], x[2]) },
                   .hi = { _mm_set_epi64x(x[5], x[4]),
                           _mm_set_epi64x(x[7], x[6]) } };
-#else
-    m512 xvec = { .lo = _mm256_set_epi64x(x[3], x[2], x[1], x[0]),
-                  .hi = _mm256_set_epi64x(x[7], x[6], x[5], x[4])};
 #endif
     return xvec;
 }
