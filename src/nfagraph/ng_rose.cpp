@@ -750,7 +750,7 @@ unique_ptr<VertLitInfo> LitCollection::pickNext() {
         for (auto v : lits.back()->vv) {
             if (contains(poisoned, v)) {
                 DEBUG_PRINTF("skipping '%s' as overlapped\n",
-                     ((const string &)*lits.back()->lit.begin()).c_str());
+                             dumpString(*(lits.back()->lit.begin())).c_str());
                 lits.pop_back();
                 goto next_lit;
             }
@@ -760,7 +760,7 @@ unique_ptr<VertLitInfo> LitCollection::pickNext() {
         lits.pop_back();
         poisonCandidates(*rv);
         DEBUG_PRINTF("best is '%s' %u a%d t%d\n",
-                     ((const string &)*rv->lit.begin()).c_str(),
+                     dumpString(*(rv->lit.begin())).c_str(),
                      g[rv->vv.front()].index,
                      (int)createsAnchoredLHS(g, rv->vv, depths, grey),
                      (int)createsTransientLHS(g, rv->vv, depths, grey));
@@ -815,7 +815,7 @@ u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
         max_delay--;
     }
 
-    DEBUG_PRINTF("killing off '%s'\n", ((const string &)lit).c_str());
+    DEBUG_PRINTF("killing off '%s'\n", dumpString(lit).c_str());
     set<NFAVertex> curr, next;
     curr.insert(g.accept);
 
@@ -892,7 +892,7 @@ u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
 void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
                                   u32 delay, const vector<NFAVertex> &preds) {
     assert(delay <= lit.length());
-    DEBUG_PRINTF("adding on '%s' %u\n", ((const string &)lit).c_str(), delay);
+    DEBUG_PRINTF("adding on '%s' %u\n", dumpString(lit).c_str(), delay);
 
     NFAVertex prev = g.accept;
     auto it = lit.rbegin();
@@ -1786,7 +1786,7 @@ bool doNetflowCut(RoseInGraph &ig, const vector<RoseInEdge> &to_cut,
         cut_lits[e] = lits;
 
         DEBUG_PRINTF("cut lit '%s'\n",
-                     ((const string &)*cut_lits[e].begin()).c_str());
+                     dumpString(*cut_lits[e].begin()).c_str());
     }
 
     /* if literals are underlength bail or if it involves a forbidden edge*/

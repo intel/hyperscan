@@ -375,7 +375,7 @@ void createVertices(RoseBuildImpl *tbi,
 /* ensure the holder does not accept any paths which do not end with lit */
 static
 void removeFalsePaths(NGHolder &g, const ue2_literal &lit) {
-    DEBUG_PRINTF("strip '%s'\n", ((const string &)lit).c_str());
+    DEBUG_PRINTF("strip '%s'\n", dumpString(lit).c_str());
     set<NFAVertex> curr, next;
     curr.insert(g.accept);
     curr.insert(g.acceptEod);
