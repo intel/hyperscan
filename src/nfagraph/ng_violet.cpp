@@ -672,7 +672,7 @@ unique_ptr<VertLitInfo> findBestSplit(const NGHolder &g,
     }
 
     DEBUG_PRINTF("best is '%s' %u a%d t%d\n",
-        ((const string &)*best->lit.begin()).c_str(),
+        dumpString(*best->lit.begin()).c_str(),
         g[best->vv.front()].index,
         depths ? (int)createsAnchoredLHS(g, best->vv, *depths, cc.grey) : 0,
         depths ? (int)createsTransientLHS(g, best->vv, *depths, cc.grey) : 0);
@@ -1287,7 +1287,7 @@ bool doNetflowCut(NGHolder &h,
         cut_lits[e] = lits;
 
         DEBUG_PRINTF("cut lit '%s' %u->%u\n",
-                     ((const string &)*cut_lits[e].begin()).c_str(),
+                     dumpString(*cut_lits[e].begin()).c_str(),
                      h[source(e, h)].index, h[target(e, h)].index);
     }
 
