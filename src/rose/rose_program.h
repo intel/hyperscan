@@ -51,6 +51,7 @@ enum RoseInstructionCode {
     ROSE_INSTR_CHECK_NOT_HANDLED, //!< Test & set role in "handled".
     ROSE_INSTR_CHECK_LOOKAROUND,  //!< Lookaround check.
     ROSE_INSTR_CHECK_MASK,        //!< 8-bytes mask check.
+    ROSE_INSTR_CHECK_MASK_32,     //!< 32-bytes and/cmp/neg mask check.
     ROSE_INSTR_CHECK_BYTE,        //!< Single Byte check.
     ROSE_INSTR_CHECK_INFIX,       //!< Infix engine must be in accept state.
     ROSE_INSTR_CHECK_PREFIX,      //!< Prefix engine must be in accept state.
@@ -170,9 +171,18 @@ struct ROSE_STRUCT_CHECK_LOOKAROUND {
 
 struct ROSE_STRUCT_CHECK_MASK {
     u8 code; //!< From enum roseInstructionCode.
-    u64a and_mask; //!< 64-bits and mask.
-    u64a cmp_mask; //!< 64-bits cmp mask.
-    u64a neg_mask; //!< 64-bits negation mask.
+    u64a and_mask; //!< 8-byte and mask.
+    u64a cmp_mask; //!< 8-byte cmp mask.
+    u64a neg_mask; //!< 8-byte negation mask.
+    s32 offset; //!< Relative offset of the first byte.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_MASK_32 {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 and_mask[32]; //!< 32-byte and mask.
+    u8 cmp_mask[32]; //!< 32-byte cmp mask.
+    u32 neg_mask; //!< negation mask with 32 bits.
     s32 offset; //!< Relative offset of the first byte.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };

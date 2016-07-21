@@ -71,6 +71,7 @@
 
 #include "ue2common.h"
 #include "simd_types.h"
+#include "unaligned.h"
 
 // Define a common assume_aligned using an appropriate compiler built-in, if
 // it's available. Note that we need to handle C or C++ compilation.
@@ -354,6 +355,21 @@ m256 set32x8(u32 in) {
     return rv;
 }
 
+static really_inline
+m256 eq256(m256 a, m256 b) {
+    m256 rv;
+    rv.lo = eq128(a.lo, b.lo);
+    rv.hi = eq128(a.hi, b.hi);
+    return rv;
+}
+
+static really_inline
+u32 movemask256(m256 a) {
+    u32 lo_mask = movemask128(a.lo);
+    u32 hi_mask = movemask128(a.hi);
+    return lo_mask | (hi_mask << 16);
+}
+
 #endif
 
 static really_inline m256 zeroes256(void) {
@@ -522,6 +538,16 @@ static really_inline m256 loadu256(const void *ptr) {
 #else
     m256 rv = { loadu128(ptr), loadu128((const char *)ptr + 16) };
     return rv;
+#endif
+}
+
+// unaligned store
+static really_inline void storeu256(void *ptr, m256 a) {
+#if defined(__AVX2__)
+    _mm256_storeu_si256((m256 *)ptr, a);
+#else
+    storeu128(ptr, a.lo);
+    storeu128((char *)ptr + 16, a.hi);
 #endif
 }
 

@@ -71,6 +71,7 @@ set(unit_internal_SOURCES
     internal/repeat.cpp
     internal/rose_build_merge.cpp
     internal/rose_mask.cpp
+    internal/rose_mask_32.cpp
     internal/rvermicelli.cpp
     internal/simd_utils.cpp
     internal/shuffle.cpp

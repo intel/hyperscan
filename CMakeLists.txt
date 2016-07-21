@@ -555,6 +555,7 @@ set (hs_exec_SRCS
     src/rose/rose_common.h
     src/rose/validate_mask.h
     src/util/bitutils.h
+    src/util/copybytes.h
     src/util/exhaust.h
     src/util/fatbit.h
     src/util/fatbit.c

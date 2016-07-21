@@ -201,6 +201,7 @@ public:
         case ROSE_INSTR_CHECK_NOT_HANDLED: return &u.checkNotHandled;
         case ROSE_INSTR_CHECK_LOOKAROUND: return &u.checkLookaround;
         case ROSE_INSTR_CHECK_MASK: return &u.checkMask;
+        case ROSE_INSTR_CHECK_MASK_32: return &u.checkMask32;
         case ROSE_INSTR_CHECK_BYTE: return &u.checkByte;
         case ROSE_INSTR_CHECK_INFIX: return &u.checkInfix;
         case ROSE_INSTR_CHECK_PREFIX: return &u.checkPrefix;
@@ -253,6 +254,7 @@ public:
         case ROSE_INSTR_CHECK_NOT_HANDLED: return sizeof(u.checkNotHandled);
         case ROSE_INSTR_CHECK_LOOKAROUND: return sizeof(u.checkLookaround);
         case ROSE_INSTR_CHECK_MASK: return sizeof(u.checkMask);
+        case ROSE_INSTR_CHECK_MASK_32: return sizeof(u.checkMask32);
         case ROSE_INSTR_CHECK_BYTE: return sizeof(u.checkByte);
         case ROSE_INSTR_CHECK_INFIX: return sizeof(u.checkInfix);
         case ROSE_INSTR_CHECK_PREFIX: return sizeof(u.checkPrefix);
@@ -304,6 +306,7 @@ public:
         ROSE_STRUCT_CHECK_NOT_HANDLED checkNotHandled;
         ROSE_STRUCT_CHECK_LOOKAROUND checkLookaround;
         ROSE_STRUCT_CHECK_MASK checkMask;
+        ROSE_STRUCT_CHECK_MASK_32 checkMask32;
         ROSE_STRUCT_CHECK_BYTE checkByte;
         ROSE_STRUCT_CHECK_INFIX checkInfix;
         ROSE_STRUCT_CHECK_PREFIX checkPrefix;
@@ -2847,6 +2850,9 @@ flattenProgram(const vector<vector<RoseInstruction>> &programs) {
         case ROSE_INSTR_CHECK_MASK:
             ri.u.checkMask.fail_jump = jump_val;
             break;
+        case ROSE_INSTR_CHECK_MASK_32:
+            ri.u.checkMask32.fail_jump = jump_val;
+            break;
         case ROSE_INSTR_CHECK_BYTE:
             ri.u.checkByte.fail_jump = jump_val;
             break;
@@ -3292,6 +3298,60 @@ bool makeRoleMask(const vector<LookEntry> &look,
     return false;
 }
 
+static UNUSED
+string convertMaskstoString(u8 *p, int byte_len) {
+    string s;
+    for (int i = 0; i < byte_len; i++) {
+        u8 hi = *p >> 4;
+        u8 lo = *p & 0xf;
+        s += (char)(hi + (hi < 10 ? 48 : 87));
+        s += (char)(lo + (lo < 10 ? 48 : 87));
+        p++;
+    }
+    return s;
+}
+
+static
+bool makeRoleMask32(const vector<LookEntry> &look,
+                    vector<RoseInstruction> &program) {
+    if (look.back().offset >= look.front().offset + 32) {
+        return false;
+    }
+    s32 base_offset = verify_s32(look.front().offset);
+    u8 and_mask[32], cmp_mask[32];
+    memset(and_mask, 0, sizeof(and_mask));
+    memset(cmp_mask, 0, sizeof(cmp_mask));
+    u32 neg_mask = 0;
+    for (const auto &entry : look) {
+        u8 andmask_u8, cmpmask_u8, flip;
+        if (!checkReachWithFlip(entry.reach, andmask_u8,
+                                cmpmask_u8, flip)) {
+            return false;
+        }
+        u32 shift = entry.offset - base_offset;
+        assert(shift < 32);
+        and_mask[shift] = andmask_u8;
+        cmp_mask[shift] = cmpmask_u8;
+        if (flip) {
+            neg_mask |= 1 << shift;
+        }
+    }
+
+    DEBUG_PRINTF("and_mask %s\n", convertMaskstoString(and_mask, 32).c_str());
+    DEBUG_PRINTF("cmp_mask %s\n", convertMaskstoString(cmp_mask, 32).c_str());
+    DEBUG_PRINTF("neg_mask %08x\n", neg_mask);
+    DEBUG_PRINTF("base_offset %d\n", base_offset);
+
+    auto ri = RoseInstruction(ROSE_INSTR_CHECK_MASK_32,
+                              JumpTarget::NEXT_BLOCK);
+    memcpy(ri.u.checkMask32.and_mask, and_mask, sizeof(and_mask));
+    memcpy(ri.u.checkMask32.cmp_mask, cmp_mask, sizeof(cmp_mask));
+    ri.u.checkMask32.neg_mask = neg_mask;
+    ri.u.checkMask32.offset = base_offset;
+    program.push_back(ri);
+    return true;
+}
+
 static
 void makeRoleLookaround(RoseBuildImpl &build, build_context &bc, RoseVertex v,
                         vector<RoseInstruction> &program) {
@@ -3322,6 +3382,10 @@ void makeRoleLookaround(RoseBuildImpl &build, build_context &bc, RoseVertex v,
     }
 
     if (makeRoleMask(look, program)) {
+        return;
+    }
+
+    if (makeRoleMask32(look, program)) {
         return;
     }
 

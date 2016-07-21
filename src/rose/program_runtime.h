@@ -50,6 +50,7 @@
 #include "ue2common.h"
 #include "hwlm/hwlm.h" // for hwlmcb_rv_t
 #include "util/compare.h"
+#include "util/copybytes.h"
 #include "util/fatbit.h"
 #include "util/multibit.h"
 
@@ -783,6 +784,82 @@ int roseCheckMask(const struct core_info *ci, u64a and_mask, u64a cmp_mask,
         return 0;
     }
 }
+
+static rose_inline
+int roseCheckMask32(const struct core_info *ci, const u8 *and_mask,
+                    const u8 *cmp_mask, const u32 neg_mask,
+                    s32 checkOffset, u64a end) {
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("end %lld base_offset %lld\n", end, base_offset);
+    DEBUG_PRINTF("checkOffset %d offset %lld\n", checkOffset, offset);
+
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    m256 data = zeroes256(); // consists of the following four parts.
+    s32 c_shift = 0; // blank bytes after current.
+    s32 h_shift = 0; // blank bytes before history.
+    s32 h_len = 32; // number of bytes from history buffer.
+    s32 c_len = 0; // number of bytes from current buffer.
+    /* h_shift + h_len + c_len + c_shift = 32 need to be hold.*/
+
+    if (offset < 0) {
+        s32 h_offset = 0; // the start offset in history buffer.
+        if (offset < -(s64a)ci->hlen) {
+            if (offset + 32 <= -(s64a)ci->hlen) {
+                DEBUG_PRINTF("all before history\n");
+                return 1;
+            }
+            h_shift = -(offset + (s64a)ci->hlen);
+            h_len = 32 - h_shift;
+        } else {
+            h_offset = ci->hlen + offset;
+        }
+        if (offset + 32 > 0) {
+            // part in current buffer.
+            c_len = offset + 32;
+            h_len = -(offset + h_shift);
+            if (c_len > (s64a)ci->len) {
+                // out of current buffer.
+                c_shift = c_len - ci->len;
+                c_len = ci->len;
+            }
+            copy_upto_32_bytes((u8 *)&data - offset, ci->buf, c_len);
+        }
+        assert(h_shift + h_len + c_len + c_shift == 32);
+        copy_upto_32_bytes((u8 *)&data + h_shift, ci->hbuf + h_offset, h_len);
+    } else {
+        if (offset + 32 > (s64a)ci->len) {
+            if (offset >= (s64a)ci->len) {
+                DEBUG_PRINTF("all in the future.\n");
+                return 1;
+            }
+            c_len = ci->len - offset;
+            c_shift = 32 - c_len;
+            copy_upto_32_bytes((u8 *)&data, ci->buf + offset, c_len);
+        } else {
+            data = loadu256(ci->buf + offset);
+        }
+    }
+    DEBUG_PRINTF("h_shift %d c_shift %d\n", h_shift, c_shift);
+    DEBUG_PRINTF("h_len %d c_len %d\n", h_len, c_len);
+    // we use valid_data_mask to blind bytes before history/in the future.
+    u32 valid_data_mask;
+    valid_data_mask = (~0u) << (h_shift + c_shift) >> (c_shift);
+
+    m256 and_mask_m256 = loadu256(and_mask);
+    m256 cmp_mask_m256 = loadu256(cmp_mask);
+    if (validateMask32(data, valid_data_mask, and_mask_m256,
+                       cmp_mask_m256, neg_mask)) {
+        DEBUG_PRINTF("Mask32 passed\n");
+        return 1;
+    }
+    return 0;
+}
+
 /**
  * \brief Scan around a literal, checking that that "lookaround" reach masks
  * are satisfied.
@@ -1207,6 +1284,17 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                                    ri->neg_mask, ri->offset, end)) {
                     DEBUG_PRINTF("failed mask check\n");
                     assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_MASK_32) {
+                struct core_info *ci = &scratch->core_info;
+                if (!roseCheckMask32(ci, ri->and_mask, ri->cmp_mask,
+                                     ri->neg_mask, ri->offset, end)) {
+                    assert(ri->fail_jump);
                     pc += ri->fail_jump;
                     continue;
                 }

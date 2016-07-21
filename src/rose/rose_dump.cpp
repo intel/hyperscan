@@ -303,6 +303,20 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CHECK_MASK_32) {
+                os << "    and_mask "
+                   << dumpStrMask(ri->and_mask, sizeof(ri->and_mask))
+                   << endl;
+                os << "    cmp_mask "
+                   << dumpStrMask(ri->cmp_mask, sizeof(ri->cmp_mask))
+                   << endl;
+                os << "    neg_mask 0x" << std::hex << std::setw(8)
+                   << std::setfill('0') << ri->neg_mask << std::dec << endl;
+                os << "    offset " << ri->offset << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CHECK_BYTE) {
                 os << "    and_mask 0x" << std::hex << std::setw(2)
                    << std::setfill('0') << u32{ri->and_mask} << std::dec
