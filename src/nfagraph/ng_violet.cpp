@@ -1007,20 +1007,24 @@ bool splitRoseEdge(const NGHolder &base_graph, RoseInGraph &vg,
         insert(&splitter_reports, base_graph[v].reports);
     }
 
-    /* find the targets of each source vertex */
-    map<RoseInVertex, flat_set<RoseInVertex> > images;
+    /* find the targets of each source vertex; note the use of vectors to
+     * preserve deterministic ordering */
+    vector<RoseInVertex> sources;
+    map<RoseInVertex, vector<RoseInVertex>> images;
     for (const RoseInEdge &e : ee) {
         RoseInVertex src = source(e, vg);
         RoseInVertex dest = target(e, vg);
-        images[src].insert(dest);
+        if (!contains(images, src)) {
+            sources.push_back(src);
+        }
+        images[src].push_back(dest);
         remove_edge(e, vg);
     }
 
-    map<flat_set<RoseInVertex>, vector<RoseInVertex> > verts_by_image;
+    map<vector<RoseInVertex>, vector<RoseInVertex>> verts_by_image;
 
-    for (const auto &elem : images) {
-        RoseInVertex u = elem.first;
-        const auto &image = elem.second;
+    for (const auto &u : sources) {
+        const auto &image = images[u];
 
         if (contains(verts_by_image, image)) {
             for (RoseInVertex v : verts_by_image[image]) {
