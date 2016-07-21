@@ -418,6 +418,7 @@ void removeFalsePaths(NGHolder &g, const ue2_literal &lit) {
     }
 
     pruneUseless(g);
+    clearReports(g);
     assert(in_degree(g.accept, g) || in_degree(g.acceptEod, g) > 1);
     assert(allMatchStatesHaveReports(g));
 
