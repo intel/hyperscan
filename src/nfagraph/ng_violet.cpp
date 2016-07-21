@@ -1622,7 +1622,8 @@ void removeRedundantLiteralsFromInfix(const NGHolder &h, RoseInGraph &ig,
 static
 void removeRedundantLiteralsFromInfixes(RoseInGraph &g,
                                         const CompileContext &cc) {
-    map<NGHolder *, vector<RoseInEdge> > infixes;
+    vector<NGHolder *> seen_order;
+    map<NGHolder *, vector<RoseInEdge>> infixes;
 
     for (const RoseInEdge &e : edges_range(g)) {
         RoseInVertex s = source(e, g);
@@ -1637,11 +1638,16 @@ void removeRedundantLiteralsFromInfixes(RoseInGraph &g,
         }
 
         assert(!g[t].delay);
-        infixes[&*g[e].graph].push_back(e);
+
+        NGHolder *h = g[e].graph.get();
+        if (!contains(infixes, h)) {
+            seen_order.push_back(h);
+        }
+        infixes[h].push_back(e);
     }
 
-    for (const auto &info : infixes) {
-        removeRedundantLiteralsFromInfix(*info.first, g, info.second, cc);
+    for (NGHolder *h : seen_order) {
+        removeRedundantLiteralsFromInfix(*h, g, infixes[h], cc);
     }
 }
 
