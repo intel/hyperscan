@@ -338,7 +338,7 @@ struct OutfixInfo {
     template<class T>
     explicit OutfixInfo(std::unique_ptr<T> x) : proto(std::move(x)) {}
 
-    explicit OutfixInfo(MpvProto mpv) : proto(std::move(mpv)) {}
+    explicit OutfixInfo(MpvProto mpv_in) : proto(std::move(mpv_in)) {}
 
     u32 get_queue(QueueIndexFactory &qif);
 
@@ -348,14 +348,14 @@ struct OutfixInfo {
     }
 
     bool is_nonempty_mpv() const {
-        auto *mpv = boost::get<MpvProto>(&proto);
-        return mpv && !mpv->empty();
+        auto *m = boost::get<MpvProto>(&proto);
+        return m && !m->empty();
     }
 
     bool is_dead() const {
-        auto *mpv = boost::get<MpvProto>(&proto);
-        if (mpv) {
-            return mpv->empty();
+        auto *m = boost::get<MpvProto>(&proto);
+        if (m) {
+            return m->empty();
         }
         return boost::get<boost::blank>(&proto) != nullptr;
     }
