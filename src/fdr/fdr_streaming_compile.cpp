@@ -147,7 +147,7 @@ void analyzeLits(const vector<hwlmLiteral> &long_lits, size_t max_len,
     }
 
     for (const auto &lit : long_lits) {
-        MODES m = lit.nocase ? CASELESS : CASEFUL;
+        Modes m = lit.nocase ? CASELESS : CASEFUL;
         for (u32 j = 1; j < lit.s.size() - max_len + 1; j++) {
             hashedPositions[m]++;
         }
@@ -162,7 +162,7 @@ void analyzeLits(const vector<hwlmLiteral> &long_lits, size_t max_len,
 
 #ifdef DEBUG_COMPILE
     printf("analyzeLits:\n");
-    for (MODES m = CASEFUL; m < MAX_MODES; m++) {
+    for (Modes m = CASEFUL; m < MAX_MODES; m++) {
         printf("mode %s boundary %d positions %d hashedPositions %d "
                "hashEntries %d\n",
                (m == CASEFUL) ? "caseful" : "caseless", boundaries[m],
@@ -173,7 +173,7 @@ void analyzeLits(const vector<hwlmLiteral> &long_lits, size_t max_len,
 }
 
 static
-u32 hashLit(const hwlmLiteral &l, u32 offset, size_t max_len, MODES m) {
+u32 hashLit(const hwlmLiteral &l, u32 offset, size_t max_len, Modes m) {
     return streaming_hash((const u8 *)l.s.c_str() + offset, max_len, m);
 }
 
@@ -195,7 +195,7 @@ struct OffsetIDFromEndOrder {
 
 static
 void fillHashes(const vector<hwlmLiteral> &long_lits, size_t max_len,
-                FDRSHashEntry *tab, size_t numEntries, MODES mode,
+                FDRSHashEntry *tab, size_t numEntries, Modes mode,
                 map<u32, u32> &litToOffsetVal) {
     const u32 nbits = lg2(numEntries);
     map<u32, deque<pair<u32, u32> > > bucketToLitOffPairs;
@@ -412,7 +412,7 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
     ptr = secondaryTable.get() + htOffset[CASEFUL];
     for (u32 m = CASEFUL; m < MAX_MODES; ++m) {
         fillHashes(long_lits, max_len, (FDRSHashEntry *)ptr, hashEntries[m],
-                   (MODES)m, litToOffsetVal);
+                   (Modes)m, litToOffsetVal);
         ptr += htSize[m];
     }
 

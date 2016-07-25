@@ -143,7 +143,7 @@ u32 fdrStreamStateActive(const struct FDR * fdr, const u8 * stream_state) {
 // binary search for the literal index that contains the current state
 static really_inline
 u32 findLitTabEntry(const struct FDRSTableHeader * streamingTable,
-                    u32 stateValue, MODES m) {
+                    u32 stateValue, enum Modes m) {
     const struct FDRSLiteral * litTab = getLitTab(streamingTable);
     u32 lo = get_start_lit_idx(streamingTable, m);
     u32 hi = get_end_lit_idx(streamingTable, m);
@@ -175,7 +175,7 @@ void fdrUnpackStateMode(struct FDR_Runtime_Args *a,
                         const struct FDRSTableHeader *streamingTable,
                         const struct FDRSLiteral * litTab,
                         const u32 *state_table,
-                        const MODES m) {
+                        const enum Modes m) {
     if (!state_table[m]) {
         return;
     }
@@ -213,8 +213,9 @@ void fdrUnpackState(const struct FDR * fdr, struct FDR_Runtime_Args * a,
 }
 
 static really_inline
-u32 do_single_confirm(const struct FDRSTableHeader * streamingTable,
-                      const struct FDR_Runtime_Args * a, u32 hashState, MODES m) {
+u32 do_single_confirm(const struct FDRSTableHeader *streamingTable,
+                      const struct FDR_Runtime_Args *a, u32 hashState,
+                      enum Modes m) {
     const struct FDRSLiteral * litTab = getLitTab(streamingTable);
     u32 idx = findLitTabEntry(streamingTable, hashState, m);
     size_t found_offset = litTab[idx].offset;
@@ -279,7 +280,7 @@ void fdrFindStreamingHash(const struct FDR_Runtime_Args *a,
 
 static really_inline
 const struct FDRSHashEntry *getEnt(const struct FDRSTableHeader *streamingTable,
-                                   u32 h, const MODES m) {
+                                   u32 h, const enum Modes m) {
     u32 nbits = streamingTable->hashNBits[m];
     if (!nbits) {
         return NULL;
@@ -303,7 +304,7 @@ const struct FDRSHashEntry *getEnt(const struct FDRSTableHeader *streamingTable,
 static really_inline
 void fdrPackStateMode(u32 *state_table, const struct FDR_Runtime_Args *a,
                       const struct FDRSTableHeader *streamingTable,
-                      const struct FDRSHashEntry *ent, const MODES m) {
+                      const struct FDRSHashEntry *ent, const enum Modes m) {
     assert(ent);
     assert(streamingTable->hashNBits[m]);
 
