@@ -416,8 +416,8 @@ bool isDirectHighlander(const RoseBuildImpl &build, const u32 id,
         return false;
     }
 
-    auto is_simple_exhaustible = [&build](ReportID id) {
-        const Report &report = build.rm.getReport(id);
+    auto is_simple_exhaustible = [&build](ReportID rid) {
+        const Report &report = build.rm.getReport(rid);
         return isSimpleExhaustible(report);
     };
 

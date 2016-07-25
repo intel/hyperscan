@@ -174,7 +174,7 @@ else()
 
     # set compiler flags - more are tested and added later
     set(EXTRA_C_FLAGS "-std=c99 -Wall -Wextra -Wshadow -Wcast-qual -fno-strict-aliasing")
-    set(EXTRA_CXX_FLAGS "-std=c++11 -Wall -Wextra -Wno-shadow -Wswitch -Wreturn-type -Wcast-qual -Wno-deprecated -Wnon-virtual-dtor -fno-strict-aliasing")
+    set(EXTRA_CXX_FLAGS "-std=c++11 -Wall -Wextra -Wshadow -Wswitch -Wreturn-type -Wcast-qual -Wno-deprecated -Wnon-virtual-dtor -fno-strict-aliasing")
     if (NOT RELEASE_BUILD)
         # -Werror is most useful during development, don't potentially break
         # release builds

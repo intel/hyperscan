@@ -195,18 +195,18 @@ struct OffsetIDFromEndOrder {
 
 static
 void fillHashes(const vector<hwlmLiteral> &long_lits, size_t max_len,
-                FDRSHashEntry *tab, size_t numEntries, MODES m,
+                FDRSHashEntry *tab, size_t numEntries, MODES mode,
                 map<u32, u32> &litToOffsetVal) {
     const u32 nbits = lg2(numEntries);
     map<u32, deque<pair<u32, u32> > > bucketToLitOffPairs;
     map<u32, u64a> bucketToBitfield;
 
     for (const auto &lit : long_lits) {
-        if ((m == CASELESS) != lit.nocase) {
+        if ((mode == CASELESS) != lit.nocase) {
             continue;
         }
         for (u32 j = 1; j < lit.s.size() - max_len + 1; j++) {
-            u32 h = hashLit(lit, j, max_len, m);
+            u32 h = hashLit(lit, j, max_len, mode);
             u32 h_ent = h & ((1U << nbits) - 1);
             u32 h_low = (h >> nbits) & 63;
             bucketToLitOffPairs[h_ent].emplace_back(lit.id, j);

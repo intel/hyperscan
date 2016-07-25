@@ -1880,15 +1880,15 @@ bool improvePrefix(NGHolder &h, RoseInGraph &vg, const vector<RoseInEdge> &ee,
         trimmed.clear();
         for (auto &elem : trimmed_vec) {
             shared_ptr<NGHolder> &hp = elem.first;
-            NGHolder &h = *hp;
+            NGHolder &eh = *hp;
 
             vector<NFAVertex> base_states;
             insert(&base_states, base_states.end(),
-                   inv_adjacent_vertices(h.accept, h));
-            clear_in_edges(h.accept, h);
+                   inv_adjacent_vertices(eh.accept, eh));
+            clear_in_edges(eh.accept, eh);
 
             for (auto v : base_states) {
-                h[v].reports.clear(); /* clear report from old accepts */
+                eh[v].reports.clear(); /* clear report from old accepts */
             }
 
             for (const auto &edge_delay : elem.second) {

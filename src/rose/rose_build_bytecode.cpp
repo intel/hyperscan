@@ -4906,11 +4906,11 @@ void addEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
             assert(contains(bc.roleStateIndices, u));
             u32 predStateIdx = bc.roleStateIndices.at(u);
 
-            auto program = makeEodAnchorProgram(build, bc, e, multiple_preds);
-            if (program.empty()) {
+            auto prog = makeEodAnchorProgram(build, bc, e, multiple_preds);
+            if (prog.empty()) {
                 continue;
             }
-            predProgramLists[predStateIdx].push_back(program);
+            predProgramLists[predStateIdx].push_back(prog);
         }
     }
 

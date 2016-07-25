@@ -709,7 +709,6 @@ void makeEodEventLeftfix(RoseBuildImpl &build, RoseVertex u,
         g[v].literals.insert(eod_event);
         build.literal_info[eod_event].vertices.insert(v);
 
-        map<u32, set<ReportID> > report_remap;
         g[v].left.graph = eod_leftfix;
         g[v].left.leftfix_report = report_mapping.second;
         g[v].left.lag = 0;

@@ -266,9 +266,9 @@ bool TeddyCompiler::pack(map<BucketIndex,
 
     u32 bucket_id = 0;
     for (const TeddySet &ts : sts) {
-        const auto &lits = ts.getLits();
+        const auto &ts_lits = ts.getLits();
         auto &bucket_lits = bucketToLits[bucket_id];
-        bucket_lits.insert(end(bucket_lits), begin(lits), end(lits));
+        bucket_lits.insert(end(bucket_lits), begin(ts_lits), end(ts_lits));
         bucket_id++;
     }
     return true;

@@ -511,8 +511,8 @@ bool RoseBuildImpl::isDirectReport(u32 id) const {
         }
 
         // Use the program to handle cases that aren't external reports.
-        for (const ReportID &id : g[v].reports) {
-            if (!isExternalReport(rm.getReport(id))) {
+        for (const ReportID &rid : g[v].reports) {
+            if (!isExternalReport(rm.getReport(rid))) {
                 return false;
             }
         }
