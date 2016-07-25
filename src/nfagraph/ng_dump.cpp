@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -450,7 +450,13 @@ void dumpReportManager(const ReportManager &rm, const Grey &grey) {
             fprintf(f, " reverse nfa: %u", report.revNfaIndex);
         }
         if (isSomRelSetReport(report)) {
-            fprintf(f, " set, adjust: %lld", report.somDistance);
+            fprintf(f, " set, adjust: %llu", report.somDistance);
+        }
+        if (report.type == EXTERNAL_CALLBACK_SOM_REL) {
+            fprintf(f, " relative: %llu", report.somDistance);
+        }
+        if (report.type == EXTERNAL_CALLBACK_SOM_ABS) {
+            fprintf(f, " absolute: %llu", report.somDistance);
         }
         fprintf(f, "\n");
     }
