@@ -1126,18 +1126,19 @@ static
 void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
                      const vector<RoseInEdge> &to_cut,
                      const vector<NFAEdge> &cut,
-                     const map<NFAEdge, set<ue2_literal> > &cut_lits) {
-    set<RoseInVertex> sources;
-    for (const RoseInEdge &ve : to_cut) {
-        assert(&h == &*vg[ve].graph);
-        sources.insert(source(ve, vg));
-    }
-
+                     const map<NFAEdge, set<ue2_literal>> &cut_lits) {
     DEBUG_PRINTF("splitting %s:\n", to_string(h.kind).c_str());
 
     /* create literal vertices and connect preds */
-    map<RoseInVertex, vector<pair<RoseInVertex, NFAVertex> > > verts_by_source;
-    for (RoseInVertex src : sources) {
+    unordered_set<RoseInVertex> done_sources;
+    map<RoseInVertex, vector<pair<RoseInVertex, NFAVertex>>> verts_by_source;
+    for (const RoseInEdge &ve : to_cut) {
+        assert(&h == &*vg[ve].graph);
+        RoseInVertex src = source(ve, vg);
+        if (!done_sources.insert(src).second) {
+            continue; /* already processed */
+        }
+
         /* iterate over cut for determinism */
         for (const auto &e : cut) {
             NFAVertex prev_v = source(e, h);
