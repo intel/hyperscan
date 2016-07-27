@@ -1333,7 +1333,10 @@ bool deanchorIfNeeded(NGHolder &g) {
 
         if (succ_v == succ_g) {
             DEBUG_PRINTF("found ^.*\n");
-            for (auto succ : succ_g) {
+            for (auto succ : adjacent_vertices_range(g.start, g)) {
+                if (succ == g.startDs) {
+                    continue;
+                }
                 add_edge(g.startDs, succ, g);
             }
             clear_vertex(v, g);
