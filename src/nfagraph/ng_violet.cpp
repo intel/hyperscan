@@ -2529,15 +2529,22 @@ bool lookForCleanSplit(const NGHolder &h, const vector<RoseInEdge> &ee,
 static
 void lookForCleanEarlySplits(RoseInGraph &vg, const CompileContext &cc) {
     u32 gen = 0;
-    set<RoseInVertex> prev = {getStart(vg)};
+
+    vector<RoseInVertex> prev = {getStart(vg)};
 
     while (gen < MAX_DESIRED_CLEAN_SPLIT_DEPTH) {
-        set<RoseInVertex> curr;
+        /* collect vertices in edge order for determinism */
+        vector<RoseInVertex> curr;
+        set<RoseInVertex> curr_seen;
         for (RoseInVertex u : prev) {
-            insert(&curr, adjacent_vertices(u, vg));
+            for (auto v : adjacent_vertices_range(u, vg)) {
+                if (curr_seen.insert(v).second) {
+                    curr.push_back(v);
+                }
+            }
         }
 
-        map<const NGHolder *, vector<RoseInEdge> > rightfixes;
+        map<const NGHolder *, vector<RoseInEdge>> rightfixes;
         vector<NGHolder *> ordered_graphs;
         for (RoseInVertex v : curr) {
             for (const RoseInEdge &e : out_edges_range(v, vg)) {
