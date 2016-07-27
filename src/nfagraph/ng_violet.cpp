@@ -878,7 +878,7 @@ unique_ptr<VertLitInfo> findBestPrefixSplit(const NGHolder &g,
     auto rv = findBestSplit(g, &depths, true, cc.grey.minRoseLiteralLength,
                             nullptr, &bad_vertices, cc);
 
-    /* large back edges may prevent us identifing anchored or transient cases
+    /* large back edges may prevent us identifying anchored or transient cases
      * properly - use a simple walk instead */
     if (!rv || !(rv->creates_transient || rv->creates_anchored)) {
         auto rv2 = findSimplePrefixSplit(g, cc);
@@ -1601,7 +1601,7 @@ void removeRedundantLiteralsFromInfix(const NGHolder &h, RoseInGraph &ig,
                                                 max_allowed_delay);
 
         if (delay == MO_INVALID_IDX) {
-            /* successor literal could not match infix -> ignore flase path */
+            /* successor literal could not match infix -> ignore false path */
             assert(0);
             continue;
         }
@@ -1677,7 +1677,9 @@ RoseInVertex getStart(RoseInGraph &vg) {
     return RoseInGraph::null_vertex();
 }
 
-/* Finds the intial accept vertex created to which suffix/outfixes are attached
+/**
+ * Finds the initial accept vertex created to which suffix/outfixes are
+ * attached.
  */
 static
 RoseInVertex getPrimaryAccept(RoseInGraph &vg) {
