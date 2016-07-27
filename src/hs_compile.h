@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -97,6 +97,12 @@ extern "C"
  *
  *      The library was unable to allocate temporary storage used during
  *      compilation time.
+ *
+ *    - *Allocator returned misaligned memory*
+ *
+ *      The memory allocator (either malloc() or the allocator set with @ref
+ *      hs_set_allocator()) did not correctly return memory suitably aligned
+ *      for the largest representable data type on this platform.
  *
  *    - *Internal error*
  *
