@@ -1226,9 +1226,8 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
               '\\Q' => {
                   fgoto readQuotedLiteral;
               };
-              '\\E' => {
-                  throw LocatedParseError("Unmatched \\E");
-              };
+              # An \E that is not preceded by a \Q is ignored
+              '\\E' => { /* noop */ };
               # Match any character
               '\.' => {
                   currentSeq->addComponent(generateComponent(CLASS_ANY, false, mode));
