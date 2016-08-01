@@ -40,6 +40,7 @@
 #include "nfa/nfa_build_util.h"
 #include "nfa/nfa_dump_api.h"
 #include "nfa/nfa_internal.h"
+#include "nfa/nfa_kind.h"
 #include "util/dump_charclass.h"
 #include "util/multibit_internal.h"
 #include "util/multibit.h"
@@ -697,6 +698,76 @@ void dumpComponentInfo(const RoseEngine *t, const string &base) {
     }
 }
 
+
+static
+void dumpComponentInfoCsv(const RoseEngine *t, const string &base) {
+    FILE *f = fopen((base +"rose_components.csv").c_str(), "w");
+
+    fprintf(f, "Index, Offset,Engine Type,States,Stream State,Bytecode Size,"
+            "Kind,Notes\n");
+
+    for (u32 i = 0; i < t->queueCount; i++) {
+        const NfaInfo *nfa_info = getNfaInfoByQueue(t, i);
+        const NFA *n = getNfaByInfo(t, nfa_info);
+        nfa_kind kind;
+        stringstream notes;
+
+        if (i < t->outfixBeginQueue) {
+            notes << "chained;";
+        }
+
+        if (nfa_info->eod) {
+            notes << "eod;";
+        }
+
+        if (i < t->outfixEndQueue) {
+            kind = NFA_OUTFIX;
+        } else if (i < t->leftfixBeginQueue) {
+            kind = NFA_SUFFIX;
+        } else {
+            const LeftNfaInfo *left = getLeftInfoByQueue(t, i);
+            if (left->eager) {
+                notes << "eager;";
+            }
+            if (left->transient) {
+                notes << "transient " << (u32)left->transient << ";";
+            }
+            if (left->infix) {
+                kind = NFA_INFIX;
+                u32 maxQueueLen = left->maxQueueLen;
+                if (maxQueueLen != (u32)(-1)) {
+                    notes << "maxqlen=" << maxQueueLen << ";";
+                }
+            } else {
+                kind = NFA_PREFIX;
+            }
+            notes << "maxlag=" << left->maxLag << ";";
+            if (left->stopTable) {
+                notes << "miracles;";
+            }
+            if (left->countingMiracleOffset) {
+                auto cm = (const RoseCountingMiracle *)
+                    ((const char *)t + left->countingMiracleOffset);
+                notes << "counting_miracle:" << (int)cm->count
+                      << (cm->shufti ? "s" : "v") << ";";
+            }
+            if (nfaSupportsZombie(n)) {
+                notes << " zombie;";
+            }
+            if (left->eod_check) {
+            notes << "left_eod;";
+            }
+        }
+
+        fprintf(f, "%u,%zd,\"%s\",%u,%u,%u,%s,%s\n", i,
+                (const char *)n - (const char *)t, describe(*n).c_str(),
+                n->nPositions, n->streamStateSize, n->length,
+                to_string(kind).c_str(), notes.str().c_str());
+    }
+    fclose(f);
+}
+
+
 static
 void dumpExhaust(const RoseEngine *t, const string &base) {
     stringstream sstxt;
@@ -1113,6 +1184,7 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
 void roseDumpComponents(const RoseEngine *t, bool dump_raw,
                         const string &base) {
     dumpComponentInfo(t, base);
+    dumpComponentInfoCsv(t, base);
     dumpNfas(t, dump_raw, base);
     dumpAnchored(t, base);
     dumpRevComponentInfo(t, base);
