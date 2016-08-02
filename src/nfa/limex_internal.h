@@ -99,24 +99,6 @@ enum LimExSquash {
     LIMEX_SQUASH_REPORT = 3  //!< squash when report is raised
 };
 
-struct LimExNFABase {
-    u8 reachMap[N_CHARS];
-    u32 reachSize;
-    u32 accelCount;
-    u32 accelTableOffset;
-    u32 accelAuxCount;
-    u32 accelAuxOffset;
-    u32 acceptCount;
-    u32 acceptOffset;
-    u32 acceptEodCount;
-    u32 acceptEodOffset;
-    u32 exceptionCount;
-    u32 exceptionOffset;
-    u32 exReportOffset;
-    u32 repeatCount;
-    u32 repeatOffset;
-};
-
 /* uniform looking types for the macros */
 typedef u8   u_8;
 typedef u16  u_16;
@@ -137,7 +119,7 @@ struct NFAException##size {                                                 \
     u8 trigger; /**< from enum LimExTrigger */                              \
 };                                                                          \
                                                                             \
-struct LimExNFA##size { /* MUST align with LimExNFABase */                  \
+struct LimExNFA##size {                                                     \
     u8 reachMap[N_CHARS]; /**< map of char -> entry in reach[] */           \
     u32 reachSize; /**< number of reach masks */                            \
     u32 accelCount; /**< number of entries in accel table */                \
