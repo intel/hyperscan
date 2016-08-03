@@ -74,7 +74,6 @@
 static really_inline
 int processExceptional32(u32 s, u32 estate, UNUSED u32 diffmask, u32 *succ,
                          const struct LimExNFA32 *limex,
-                         const u32 *exceptionMap,
                          const struct NFAException32 *exceptions,
                          const ReportID *exReports, u64a offset,
                          struct NFAContext32 *ctx, char in_rev, char flags) {
@@ -104,7 +103,7 @@ int processExceptional32(u32 s, u32 estate, UNUSED u32 diffmask, u32 *succ,
 
     do {
         u32 bit = findAndClearLSB_32(&estate);
-        u32 idx = exceptionMap[bit];
+        u32 idx = rank_in_mask32(limex->exceptionMask, bit);
         const struct NFAException32 *e = &exceptions[idx];
         if (!runException32(e, s, succ, &local_succ, limex, exReports, offset,
                             ctx, &new_cache, &cacheable, in_rev, flags)) {

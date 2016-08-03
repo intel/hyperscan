@@ -105,8 +105,8 @@
 // continue, 1 if an accept was fired and the user instructed us to halt.
 static really_inline
 char RUN_EXCEPTIONS_FN(const IMPL_NFA_T *limex, const EXCEPTION_T *exceptions,
-                       const ReportID *exReports, const u32 *exceptionMap,
-                       STATE_T s, const STATE_T emask, size_t i, u64a offset,
+                       const ReportID *exReports, STATE_T s,
+                       const STATE_T emask, size_t i, u64a offset,
                        STATE_T *succ, u64a *final_loc, struct CONTEXT_T *ctx,
                        const char flags, const char in_rev,
                        const char first_match) {
@@ -133,8 +133,8 @@ char RUN_EXCEPTIONS_FN(const IMPL_NFA_T *limex, const EXCEPTION_T *exceptions,
     char localflags = (!i && !in_rev) ? NO_OUTPUT | FIRST_BYTE : flags;
 
     int rv = JOIN(processExceptional, SIZE)(
-        pass_state, pass_estate, diffmask, succ, limex, exceptionMap,
-        exceptions, exReports, callback_offset, ctx, in_rev, localflags);
+        pass_state, pass_estate, diffmask, succ, limex, exceptions, exReports,
+        callback_offset, ctx, in_rev, localflags);
     if (rv == PE_RV_HALT) {
         return 1; // Halt matching.
     }
@@ -176,7 +176,6 @@ char STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
         (const union AccelAux *)((const char *)limex + limex->accelAuxOffset);
     const EXCEPTION_T *exceptions = getExceptionTable(EXCEPTION_T, limex);
     const ReportID *exReports = getExReports(limex);
-    const u32 *exceptionMap = limex->exceptionMap;
     STATE_T s = LOAD_STATE(&ctx->s);
 
     /* assert(ISALIGNED_16(exceptions)); */
@@ -204,9 +203,9 @@ without_accel:
         STATE_T succ;
         NFA_EXEC_GET_LIM_SUCC(STATE_T);
 
-        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, exceptionMap, s,
-                              EXCEPTION_MASK, i, offset, &succ, final_loc, ctx,
-                              flags, 0, first_match)) {
+        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, s, EXCEPTION_MASK,
+                              i, offset, &succ, final_loc, ctx, flags, 0,
+                              first_match)) {
             return MO_HALT_MATCHING;
         }
 
@@ -255,9 +254,9 @@ with_accel:
         STATE_T succ;
         NFA_EXEC_GET_LIM_SUCC(STATE_T);
 
-        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, exceptionMap, s,
-                              EXCEPTION_MASK, i, offset, &succ, final_loc, ctx,
-                              flags, 0, first_match)) {
+        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, s,  EXCEPTION_MASK,
+                              i, offset, &succ, final_loc, ctx, flags, 0,
+                              first_match)) {
             return MO_HALT_MATCHING;
         }
 
@@ -301,7 +300,6 @@ char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
 #endif
     const EXCEPTION_T *exceptions = getExceptionTable(EXCEPTION_T, limex);
     const ReportID *exReports = getExReports(limex);
-    const u32 *exceptionMap = limex->exceptionMap;
     STATE_T s = LOAD_STATE(&ctx->s);
 
     /* assert(ISALIGNED_16(exceptions)); */
@@ -321,7 +319,7 @@ char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
         STATE_T succ;
         NFA_EXEC_GET_LIM_SUCC(STATE_T);
 
-        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, exceptionMap, s,
+        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, s,
                               EXCEPTION_MASK, i, offset, &succ, final_loc, ctx,
                               flags, 1, 0)) {
             return MO_HALT_MATCHING;

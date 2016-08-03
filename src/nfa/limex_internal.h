@@ -135,7 +135,6 @@ struct LimExNFA##size {                                                     \
     u32 exReportOffset; /* rel. to start of LimExNFA */                     \
     u32 repeatCount;                                                        \
     u32 repeatOffset;                                                       \
-    u32 exceptionMap[size];                                                 \
     u32 squashOffset; /* rel. to start of LimExNFA; for accept squashing */ \
     u32 squashCount;                                                        \
     u32 topCount;                                                           \

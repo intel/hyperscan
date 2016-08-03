@@ -80,6 +80,21 @@ void dumpMask(FILE *f, const char *name, const u8 *mask, u32 mask_bits) {
     fprintf(f, "MSK %-20s %s\n", name, dumpMask(mask, mask_bits).c_str());
 }
 
+template<typename mask_t>
+static
+u32 rank_in_mask(mask_t mask, u32 bit) {
+    u32 chunks[sizeof(mask)/sizeof(u32)];
+    memcpy(chunks, &mask, sizeof(mask));
+    u32 base_rank = 0;
+    for (u32 i = 0; i < bit / 32; i++) {
+        base_rank += popcount32(chunks[i]);
+    }
+    u32 chunk = chunks[bit / 32];
+    u32 local_bit = bit % 32;
+    assert(chunk & (1U << local_bit));
+    return base_rank + popcount32(chunk & ((1U << local_bit) - 1));
+}
+
 template <typename limex_type>
 static
 void dumpRepeats(const limex_type *limex, u32 model_size, FILE *f) {
@@ -338,7 +353,7 @@ struct limex_labeller : public nfa_labeller {
             return;
         }
 
-        u32 ex_index = limex->exceptionMap[state];
+        u32 ex_index = rank_in_mask(limex->exceptionMask, state);
         const typename limex_traits<limex_type>::exception_type *e
             = &exceptions[ex_index];
 
@@ -409,7 +424,7 @@ void dumpExDotInfo(const limex_type *limex, u32 state, FILE *f) {
     const typename limex_traits<limex_type>::exception_type *exceptions
         = getExceptionTable(limex);
 
-    u32 ex_index = limex->exceptionMap[state];
+    u32 ex_index = rank_in_mask(limex->exceptionMask, state);
     const typename limex_traits<limex_type>::exception_type *e
         = &exceptions[ex_index];
 

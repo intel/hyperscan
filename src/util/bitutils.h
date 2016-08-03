@@ -454,4 +454,20 @@ void bf64_unset(u64a *bitfield, u32 i) {
     *bitfield &= ~(1ULL << i);
 }
 
+static really_inline
+u32 rank_in_mask32(u32 mask, u32 bit) {
+    assert(bit < sizeof(u32) * 8);
+    assert(mask & (u32)(1U << bit));
+    mask &= (u32)(1U << bit) - 1;
+    return popcount32(mask);
+}
+
+static really_inline
+u32 rank_in_mask64(u64a mask, u32 bit) {
+    assert(bit < sizeof(u64a) * 8);
+    assert(mask & (u64a)(1ULL << bit));
+    mask &= (u64a)(1ULL << bit) - 1;
+    return popcount64(mask);
+}
+
 #endif // BITUTILS_H

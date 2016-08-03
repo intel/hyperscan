@@ -1172,12 +1172,13 @@ u32 getReportListIndex(const flat_set<ReportID> &reports,
 }
 
 static
-void buildExceptionMap(const build_info &args,
-                       const ue2::unordered_set<NFAEdge> &exceptional,
-                       map<ExceptionProto, vector<u32> > &exceptionMap,
-                       vector<ReportID> &exceptionReports) {
+u32 buildExceptionMap(const build_info &args,
+                      const ue2::unordered_set<NFAEdge> &exceptional,
+                      map<ExceptionProto, vector<u32> > &exceptionMap,
+                      vector<ReportID> &exceptionReports) {
     const NGHolder &h = args.h;
     const u32 num_states = args.num_states;
+    u32 exceptionCount = 0;
 
     ue2::unordered_map<NFAVertex, u32> pos_trigger;
     ue2::unordered_map<NFAVertex, u32> tug_trigger;
@@ -1307,10 +1308,13 @@ void buildExceptionMap(const build_info &args,
             assert(e.succ_states.size() == num_states);
             assert(e.squash_states.size() == num_states);
             exceptionMap[e].push_back(i);
+            exceptionCount++;
         }
     }
 
-    DEBUG_PRINTF("%zu unique exceptions found.\n", exceptionMap.size());
+    DEBUG_PRINTF("%u exceptions found (%zu unique)\n", exceptionCount,
+                 exceptionMap.size());
+    return exceptionCount;
 }
 
 static
@@ -1642,19 +1646,25 @@ struct Factory {
                          implNFA_t *limex, const u32 exceptionsOffset) {
         DEBUG_PRINTF("exceptionsOffset=%u\n", exceptionsOffset);
 
-        // to make testing easier, we pre-set the exceptionMap to all invalid
-        // values
-        memset(limex->exceptionMap, 0xff, sizeof(limex->exceptionMap));
-
         exception_t *etable = (exception_t *)((char *)limex + exceptionsOffset);
         assert(ISALIGNED(etable));
 
-        u32 ecount = 0;
+        map<u32, ExceptionProto> exception_by_state;
         for (const auto &m : exceptionMap) {
             const ExceptionProto &proto = m.first;
             const vector<u32> &states = m.second;
-            DEBUG_PRINTF("exception %u, triggered by %zu states.\n", ecount,
-                         states.size());
+            for (u32 i : states) {
+                assert(!contains(exception_by_state, i));
+                exception_by_state.emplace(i, proto);
+            }
+        }
+
+        u32 ecount = 0;
+        for (const auto &m : exception_by_state) {
+            const ExceptionProto &proto = m.second;
+            u32 state_id = m.first;
+            DEBUG_PRINTF("exception %u, triggered by state %u\n", ecount,
+                         state_id);
 
             // Write the exception entry.
             exception_t &e = etable[ecount];
@@ -1668,13 +1678,10 @@ struct Factory {
                                     : repeatOffsets[proto.repeat_index];
             e.repeatOffset = repeat_offset;
 
-            // for each state that can switch it on
-            for (auto state_id : states) {
-                // set this bit in the exception mask
-                maskSetBit(limex->exceptionMask, state_id);
-                // set this index in the exception map
-                limex->exceptionMap[state_id] = ecount;
-            }
+            // for the state that can switch it on
+            // set this bit in the exception mask
+            maskSetBit(limex->exceptionMask, state_id);
+
             ecount++;
         }
 
@@ -1882,12 +1889,10 @@ struct Factory {
 
         map<ExceptionProto, vector<u32> > exceptionMap;
         vector<ReportID> exceptionReports;
-        buildExceptionMap(args, exceptional, exceptionMap, exceptionReports);
+        u32 exceptionCount = buildExceptionMap(args, exceptional, exceptionMap,
+                                               exceptionReports);
 
-        if (exceptionMap.size() > ~0U) {
-            DEBUG_PRINTF("too many exceptions!\n");
-            return nullptr;
-        }
+        assert(exceptionCount <= args.num_states);
 
         // Build reach table and character mapping.
         vector<NFAStateSet> reach;
@@ -1942,7 +1947,7 @@ struct Factory {
 
         offset = ROUNDUP_CL(offset);
         const u32 exceptionsOffset = offset;
-        offset += sizeof(exception_t) * exceptionMap.size();
+        offset += sizeof(exception_t) * exceptionCount;
 
         const u32 exceptionReportsOffset = offset;
         offset += sizeof(ReportID) * exceptionReports.size();
