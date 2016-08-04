@@ -1600,6 +1600,28 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(SPARSE_ITER_ANY) {
+                DEBUG_PRINTF("iter_offset=%u\n", ri->iter_offset);
+                const struct mmbit_sparse_iter *it =
+                    getByOffset(t, ri->iter_offset);
+                assert(ISALIGNED(it));
+
+                const u8 *roles = getRoleState(scratch->core_info.state);
+
+                u32 idx = 0;
+                u32 i = mmbit_sparse_iter_begin(roles, t->rolesWithStateCount,
+                                                &idx, it, si_state);
+                if (i == MMB_INVALID) {
+                    DEBUG_PRINTF("no states in sparse iter are on\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+                DEBUG_PRINTF("state %u (idx=%u) is on\n", i, idx);
+                fatbit_clear(scratch->handled_roles);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(ENGINES_EOD) {
                 if (roseEnginesEod(t, scratch, end, ri->iter_offset) ==
                     HWLM_TERMINATE_MATCHING) {

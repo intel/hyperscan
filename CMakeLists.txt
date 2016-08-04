@@ -877,6 +877,7 @@ SET (hs_SRCS
     src/rose/rose_build_compile.cpp
     src/rose/rose_build_convert.cpp
     src/rose/rose_build_convert.h
+    src/rose/rose_build_engine_blob.h
     src/rose/rose_build_exclusive.cpp
     src/rose/rose_build_exclusive.h
     src/rose/rose_build_groups.cpp
@@ -891,6 +892,8 @@ SET (hs_SRCS
     src/rose/rose_build_merge.cpp
     src/rose/rose_build_merge.h
     src/rose/rose_build_misc.cpp
+    src/rose/rose_build_program.cpp
+    src/rose/rose_build_program.h
     src/rose/rose_build_role_aliasing.cpp
     src/rose/rose_build_scatter.cpp
     src/rose/rose_build_scatter.h

@@ -511,6 +511,12 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(SPARSE_ITER_ANY) {
+                os << "    iter_offset " << ri->iter_offset << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(ENGINES_EOD) {
                 os << "    iter_offset " << ri->iter_offset << endl;
             }
@@ -577,9 +583,8 @@ void dumpRoseEodPrograms(const RoseEngine *t, const string &filename) {
     ofstream os(filename);
     const char *base = (const char *)t;
 
-    os << "EOD Program:" << endl;
-
     if (t->eodProgramOffset) {
+        os << "EOD Program @ " << t->eodProgramOffset << ":" << endl;
         dumpProgram(os, t, base + t->eodProgramOffset);
         os << endl;
     } else {
