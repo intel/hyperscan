@@ -718,7 +718,6 @@ int roseCheckMask(const struct core_info *ci, u64a and_mask, u64a cmp_mask,
     s32 shift_r = 0; // size of bytes before the history.
     s32 h_len = 0; // size of bytes in the history buffer.
     s32 c_len = 8; // size of bytes in the current buffer.
-    //s64a c_start = offset; // offset of start pointer in current buffer.
     if (offset < 0) {
         // in or before history buffer.
         if (offset + 8 <= -(s64a)ci->hlen) {
