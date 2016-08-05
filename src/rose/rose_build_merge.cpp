@@ -2189,6 +2189,11 @@ void mergeSuffixes(RoseBuildImpl &tbi, SuffixBouquet &suffixes,
         suffix_id s1 = *it;
         const deque<RoseVertex> &verts1 = suffixes.vertices(s1);
         assert(s1.graph() && s1.graph()->kind == NFA_SUFFIX);
+
+        // Caller should ensure that we don't propose merges of graphs that are
+        // already too big.
+        assert(num_vertices(*s1.graph()) < small_merge_max_vertices(tbi.cc));
+
         deque<suffix_id> merged;
         for (auto jt = next(it); jt != suffixes.end(); ++jt) {
             suffix_id s2 = *jt;
@@ -2305,6 +2310,10 @@ void mergeAcyclicSuffixes(RoseBuildImpl &tbi) {
         }
 
         assert(!g[v].suffix.haig);
+
+        if (num_vertices(*h) >= small_merge_max_vertices(tbi.cc)) {
+            continue;
+        }
 
         if (!isAcyclic(*h)) {
             continue;
