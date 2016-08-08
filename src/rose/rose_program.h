@@ -43,7 +43,6 @@
 /** \brief Role program instruction opcodes. */
 enum RoseInstructionCode {
     ROSE_INSTR_ANCHORED_DELAY,    //!< Delay until after anchored matcher.
-    ROSE_INSTR_CHECK_LIT_MASK,    //!< Check and/cmp mask.
     ROSE_INSTR_CHECK_LIT_EARLY,   //!< Skip matches before floating min offset.
     ROSE_INSTR_CHECK_GROUPS,      //!< Check that literal groups are on.
     ROSE_INSTR_CHECK_ONLY_EOD,    //!< Role matches only at EOD.
@@ -118,18 +117,6 @@ struct ROSE_STRUCT_ANCHORED_DELAY {
     u8 code; //!< From enum RoseInstructionCode.
     rose_group groups; //!< Bitmask.
     u32 done_jump; //!< Jump forward this many bytes if successful.
-};
-
-union RoseLiteralMask {
-    u64a a64[MAX_MASK2_WIDTH / sizeof(u64a)];
-    u8 a8[MAX_MASK2_WIDTH];
-};
-
-/** Note: check failure will halt program. */
-struct ROSE_STRUCT_CHECK_LIT_MASK {
-    u8 code; //!< From enum RoseInstructionCode.
-    union RoseLiteralMask and_mask;
-    union RoseLiteralMask cmp_mask;
 };
 
 /** Note: check failure will halt program. */

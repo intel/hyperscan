@@ -193,7 +193,6 @@ public:
 
     const void *get() const {
         switch (code()) {
-        case ROSE_INSTR_CHECK_LIT_MASK: return &u.checkLitMask;
         case ROSE_INSTR_CHECK_LIT_EARLY: return &u.checkLitEarly;
         case ROSE_INSTR_CHECK_GROUPS: return &u.checkGroups;
         case ROSE_INSTR_CHECK_ONLY_EOD: return &u.checkOnlyEod;
@@ -246,7 +245,6 @@ public:
 
     size_t length() const {
         switch (code()) {
-        case ROSE_INSTR_CHECK_LIT_MASK: return sizeof(u.checkLitMask);
         case ROSE_INSTR_CHECK_LIT_EARLY: return sizeof(u.checkLitEarly);
         case ROSE_INSTR_CHECK_GROUPS: return sizeof(u.checkGroups);
         case ROSE_INSTR_CHECK_ONLY_EOD: return sizeof(u.checkOnlyEod);
@@ -298,7 +296,6 @@ public:
     }
 
     union {
-        ROSE_STRUCT_CHECK_LIT_MASK checkLitMask;
         ROSE_STRUCT_CHECK_LIT_EARLY checkLitEarly;
         ROSE_STRUCT_CHECK_GROUPS checkGroups;
         ROSE_STRUCT_CHECK_ONLY_EOD checkOnlyEod;
@@ -377,7 +374,6 @@ struct RoseResources {
     bool has_states = false;
     bool checks_groups = false;
     bool has_lit_delay = false;
-    bool has_lit_mask = false;
     bool has_anchored = false;
     bool has_eod = false;
 };
@@ -667,7 +663,6 @@ u8 pickRuntimeImpl(const RoseBuildImpl &build, const build_context &bc,
     DEBUG_PRINTF("has_states=%d\n", bc.resources.has_states);
     DEBUG_PRINTF("checks_groups=%d\n", bc.resources.checks_groups);
     DEBUG_PRINTF("has_lit_delay=%d\n", bc.resources.has_lit_delay);
-    DEBUG_PRINTF("has_lit_mask=%d\n", bc.resources.has_lit_mask);
     DEBUG_PRINTF("has_anchored=%d\n", bc.resources.has_anchored);
     DEBUG_PRINTF("has_eod=%d\n", bc.resources.has_eod);
 
@@ -2947,9 +2942,6 @@ void recordResources(RoseResources &resources,
             break;
         case ROSE_INSTR_PUSH_DELAYED:
             resources.has_lit_delay = true;
-            break;
-        case ROSE_INSTR_CHECK_LIT_MASK:
-            resources.has_lit_mask = true;
             break;
         default:
             break;

@@ -72,73 +72,6 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
 /* Inline implementation follows. */
 
 static rose_inline
-int roseCheckBenefits(const struct core_info *ci, u64a end, u32 mask_rewind,
-                      const u8 *and_mask, const u8 *exp_mask) {
-    const u8 *data;
-
-    // If the check works over part of the history and part of the buffer, we
-    // create a temporary copy of the data in here so it's contiguous.
-    u8 temp[MAX_MASK2_WIDTH];
-
-    s64a buffer_offset = (s64a)end - ci->buf_offset;
-    DEBUG_PRINTF("rel offset %lld\n", buffer_offset);
-    if (buffer_offset >= mask_rewind) {
-        data = ci->buf + buffer_offset - mask_rewind;
-        DEBUG_PRINTF("all in one case data=%p buf=%p rewind=%u\n", data,
-                     ci->buf, mask_rewind);
-    } else if (buffer_offset <= 0) {
-        data = ci->hbuf + ci->hlen + buffer_offset - mask_rewind;
-        DEBUG_PRINTF("all in one case data=%p buf=%p rewind=%u\n", data,
-                     ci->buf, mask_rewind);
-    } else {
-        u32 shortfall = mask_rewind - buffer_offset;
-        DEBUG_PRINTF("shortfall of %u, rewind %u hlen %zu\n", shortfall,
-                     mask_rewind, ci->hlen);
-        data = temp;
-        memcpy(temp, ci->hbuf + ci->hlen - shortfall, shortfall);
-        memcpy(temp + shortfall, ci->buf, mask_rewind - shortfall);
-    }
-
-#ifdef DEBUG
-    DEBUG_PRINTF("DATA: ");
-    for (u32 i = 0; i < mask_rewind; i++) {
-        printf("%c", ourisprint(data[i]) ? data[i] : '?');
-    }
-    printf(" (len=%u)\n", mask_rewind);
-#endif
-
-    u32 len = mask_rewind;
-    while (len >= sizeof(u64a)) {
-        u64a a = unaligned_load_u64a(data);
-        a &= *(const u64a *)and_mask;
-        if (a != *(const u64a *)exp_mask) {
-            DEBUG_PRINTF("argh %016llx %016llx\n", a, *(const u64a *)exp_mask);
-            return 0;
-        }
-        data += sizeof(u64a);
-        and_mask += sizeof(u64a);
-        exp_mask += sizeof(u64a);
-        len -= sizeof(u64a);
-    }
-
-    while (len) {
-        u8 a = *data;
-        a &= *and_mask;
-        if (a != *exp_mask) {
-            DEBUG_PRINTF("argh d%02hhx =%02hhx am%02hhx  em%02hhx\n", a,
-                          *data, *and_mask, *exp_mask);
-            return 0;
-        }
-        data++;
-        and_mask++;
-        exp_mask++;
-        len--;
-    }
-
-    return 1;
-}
-
-static rose_inline
 void rosePushDelayedMatch(const struct RoseEngine *t,
                           struct hs_scratch *scratch, u32 delay,
                           u32 delay_index, u64a offset) {
@@ -1157,7 +1090,7 @@ void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
 static rose_inline
 hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                              struct hs_scratch *scratch, u32 programOffset,
-                             u64a som, u64a end, size_t match_len,
+                             u64a som, u64a end, UNUSED size_t match_len,
                              u8 prog_flags) {
     DEBUG_PRINTF("program=%u, offsets [%llu,%llu], flags=%u\n", programOffset,
                  som, end, prog_flags);
@@ -1201,17 +1134,6 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                     assert(ri->done_jump); // must progress
                     pc += ri->done_jump;
                     continue;
-                }
-            }
-            PROGRAM_NEXT_INSTRUCTION
-
-            PROGRAM_CASE(CHECK_LIT_MASK) {
-                assert(match_len);
-                struct core_info *ci = &scratch->core_info;
-                if (!roseCheckBenefits(ci, end, match_len, ri->and_mask.a8,
-                                       ri->cmp_mask.a8)) {
-                    DEBUG_PRINTF("halt: failed mask check\n");
-                    return HWLM_CONTINUE_MATCHING;
                 }
             }
             PROGRAM_NEXT_INSTRUCTION

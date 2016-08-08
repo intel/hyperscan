@@ -244,16 +244,6 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(CHECK_LIT_MASK) {
-                os << "    and_mask "
-                   << dumpStrMask(ri->and_mask.a8, sizeof(ri->and_mask.a8))
-                   << endl;
-                os << "    cmp_mask "
-                   << dumpStrMask(ri->cmp_mask.a8, sizeof(ri->cmp_mask.a8))
-                   << endl;
-            }
-            PROGRAM_NEXT_INSTRUCTION
-
             PROGRAM_CASE(CHECK_LIT_EARLY) {
                 os << "    min_offset " << ri->min_offset << endl;
             }
