@@ -3352,6 +3352,37 @@ bool makeRoleMask32(const vector<LookEntry> &look,
     return true;
 }
 
+/**
+ * Builds a lookaround instruction, or an appropriate specialization if one is
+ * available.
+ */
+static
+void makeLookaroundInstruction(build_context &bc, const vector<LookEntry> &look,
+                               vector<RoseInstruction> &program) {
+    assert(!look.empty());
+
+    if (makeRoleByte(look, program)) {
+        return;
+    }
+
+    if (makeRoleMask(look, program)) {
+        return;
+    }
+
+    if (makeRoleMask32(look, program)) {
+        return;
+    }
+
+    u32 look_idx = addLookaround(bc, look);
+    u32 look_count = verify_u32(look.size());
+
+    auto ri = RoseInstruction(ROSE_INSTR_CHECK_LOOKAROUND,
+                              JumpTarget::NEXT_BLOCK);
+    ri.u.checkLookaround.index = look_idx;
+    ri.u.checkLookaround.count = look_count;
+    program.push_back(ri);
+}
+
 static
 void makeRoleLookaround(RoseBuildImpl &build, build_context &bc, RoseVertex v,
                         vector<RoseInstruction> &program) {
@@ -3377,27 +3408,7 @@ void makeRoleLookaround(RoseBuildImpl &build, build_context &bc, RoseVertex v,
         return;
     }
 
-    if (makeRoleByte(look, program)) {
-        return;
-    }
-
-    if (makeRoleMask(look, program)) {
-        return;
-    }
-
-    if (makeRoleMask32(look, program)) {
-        return;
-    }
-
-    DEBUG_PRINTF("role has lookaround\n");
-    u32 look_idx = addLookaround(bc, look);
-    u32 look_count = verify_u32(look.size());
-
-    auto ri = RoseInstruction(ROSE_INSTR_CHECK_LOOKAROUND,
-                              JumpTarget::NEXT_BLOCK);
-    ri.u.checkLookaround.index = look_idx;
-    ri.u.checkLookaround.count = look_count;
-    program.push_back(ri);
+    makeLookaroundInstruction(bc, look, program);
 }
 
 static
@@ -4377,7 +4388,7 @@ void addPredBlocks(build_context &bc,
                    vector<RoseInstruction> &program) {
     const size_t num_preds = predProgramLists.size();
     if (num_preds == 0) {
-        program = flattenProgram({program});
+        program.emplace_back(ROSE_INSTR_END);
         return;
     }
 
@@ -4420,6 +4431,10 @@ vector<RoseInstruction> makeSparseIterProgram(build_context &bc,
         program.insert(end(program), begin(root_program), end(root_program));
     }
 
+    assert(!program.empty());
+    assert(program.back().code() == ROSE_INSTR_END);
+    program.pop_back();
+    program = flattenProgram({program});
     return program;
 }
 
@@ -4473,7 +4488,8 @@ void makeGroupCheckInstruction(const RoseBuildImpl &build, u32 final_id,
 }
 
 static
-void makeCheckLitMaskInstruction(const RoseBuildImpl &build, u32 final_id,
+void makeCheckLitMaskInstruction(const RoseBuildImpl &build, build_context &bc,
+                                 u32 final_id,
                                  vector<RoseInstruction> &program) {
     assert(contains(build.final_id_to_literal, final_id));
     const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
@@ -4483,7 +4499,7 @@ void makeCheckLitMaskInstruction(const RoseBuildImpl &build, u32 final_id,
         return;
     }
 
-    auto ri = RoseInstruction(ROSE_INSTR_CHECK_LIT_MASK);
+    vector<LookEntry> look;
 
     assert(build.final_id_to_literal.at(final_id).size() == 1);
     u32 lit_id = *build.final_id_to_literal.at(final_id).begin();
@@ -4491,14 +4507,16 @@ void makeCheckLitMaskInstruction(const RoseBuildImpl &build, u32 final_id,
     DEBUG_PRINTF("building mask for lit %u (final id %u) %s\n", lit_id,
                  final_id, dumpString(s).c_str());
     assert(s.length() <= MAX_MASK2_WIDTH);
-    u32 i = 0;
+    s32 i = 0 - s.length();
     for (const auto &e : s) {
-        ri.u.checkLitMask.and_mask.a8[i] = e.nocase ? 0 : CASE_BIT;
-        ri.u.checkLitMask.cmp_mask.a8[i] = e.nocase ? 0 : (CASE_BIT & e.c);
+        if (!e.nocase) {
+            look.emplace_back(verify_s8(i), e);
+        }
         i++;
     }
 
-    program.push_back(move(ri));
+    assert(!look.empty());
+    makeLookaroundInstruction(bc, look, program);
 }
 
 static
@@ -4662,7 +4680,7 @@ vector<RoseInstruction> buildLitInitialProgram(RoseBuildImpl &build,
     DEBUG_PRINTF("final_id %u\n", final_id);
 
     // Check lit mask.
-    makeCheckLitMaskInstruction(build, final_id, pre_program);
+    makeCheckLitMaskInstruction(build, bc, final_id, pre_program);
 
     // Check literal groups. This is an optimisation that we only perform for
     // delayed literals, as their groups may be switched off; ordinarily, we
@@ -4771,7 +4789,7 @@ u32 buildDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
     }
 
     vector<RoseInstruction> program;
-    makeCheckLitMaskInstruction(build, final_id, program);
+    makeCheckLitMaskInstruction(build, bc, final_id, program);
     makePushDelayedInstructions(build, final_id, program);
     assert(!program.empty());
     program = flattenProgram({program});
