@@ -36,12 +36,14 @@
 #include "util/arch.h"
 #include "util/bitutils.h"
 #include "util/compare.h"
+#include "util/join.h"
 #include "util/masked_move.h"
 #include "util/simd_utils.h"
 
 #include <ctype.h>
 #include <stdbool.h>
 #include <string.h>
+#include <x86intrin.h>
 
 /** \brief Noodle runtime context. */
 struct cb_info {
@@ -50,6 +52,24 @@ struct cb_info {
     void *ctx; //!< caller-supplied context to pass to callback
     size_t offsetAdj; //!< used in streaming mode
 };
+
+#if defined(HAVE_AVX512)
+#define CHUNKSIZE 64
+#define MASK_TYPE m512
+#define Z_BITS 64
+#define Z_TYPE u64a
+#elif defined(HAVE_AVX2)
+#define CHUNKSIZE 32
+#define MASK_TYPE m256
+#define Z_BITS 32
+#define Z_TYPE u32
+#else
+#define CHUNKSIZE 16
+#define MASK_TYPE m128
+#define Z_BITS 32
+#define Z_TYPE u32
+#endif
+
 
 #define RETURN_IF_TERMINATED(x)                                                \
     {                                                                          \
@@ -61,8 +81,9 @@ struct cb_info {
 #define SINGLE_ZSCAN()                                                         \
     do {                                                                       \
         while (unlikely(z)) {                                                  \
-            u32 pos = findAndClearLSB_32(&z);                                  \
+            Z_TYPE pos = JOIN(findAndClearLSB_, Z_BITS)(&z);                   \
             size_t matchPos = d - buf + pos;                                   \
+            DEBUG_PRINTF("match pos %zu\n", matchPos);                        \
             hwlmcb_rv_t rv = final(buf, len, key, 1, 0, 0, noCase, cbi,        \
                                    matchPos);                                  \
             RETURN_IF_TERMINATED(rv);                                          \
@@ -72,8 +93,9 @@ struct cb_info {
 #define DOUBLE_ZSCAN()                                                         \
     do {                                                                       \
         while (unlikely(z)) {                                                  \
-            u32 pos = findAndClearLSB_32(&z);                                  \
+            Z_TYPE pos = JOIN(findAndClearLSB_, Z_BITS)(&z);                   \
             size_t matchPos = d - buf + pos - 1;                               \
+            DEBUG_PRINTF("match pos %zu\n", matchPos);                        \
             hwlmcb_rv_t rv = final(buf, len, key, keyLen, keyOffset, 1,        \
                                    noCase, cbi, matchPos);                     \
             RETURN_IF_TERMINATED(rv);                                          \
@@ -110,7 +132,11 @@ hwlm_error_t final(const u8 *buf, size_t len, const u8 *key, size_t keyLen,
     return HWLM_SUCCESS;
 }
 
-#if defined(HAVE_AVX2)
+#if defined(HAVE_AVX512)
+#define CHUNKSIZE 64
+#define MASK_TYPE m512
+#include "noodle_engine_avx512.c"
+#elif defined(HAVE_AVX2)
 #define CHUNKSIZE 32
 #define MASK_TYPE m256
 #include "noodle_engine_avx2.c"
@@ -123,11 +149,13 @@ hwlm_error_t final(const u8 *buf, size_t len, const u8 *key, size_t keyLen,
 static really_inline
 hwlm_error_t scanSingleMain(const u8 *buf, size_t len, const u8 *key,
                             bool noCase, const struct cb_info *cbi) {
-    hwlm_error_t rv;
-    size_t end = len;
 
     const MASK_TYPE mask1 = getMask(key[0], noCase);
     const MASK_TYPE caseMask = getCaseMask();
+
+#if !defined(HAVE_AVX512)
+    hwlm_error_t rv;
+    size_t end = len;
 
     if (len < CHUNKSIZE) {
         rv = scanSingleShort(buf, len, key, noCase, caseMask, mask1, cbi, 0, len);
@@ -173,13 +201,15 @@ hwlm_error_t scanSingleMain(const u8 *buf, size_t len, const u8 *key,
                              cbi, s2End, end);
 
     return rv;
+#else // HAVE_AVX512
+    return scanSingle512(buf, len, key, noCase, caseMask, mask1, cbi);
+#endif
 }
 
 static really_inline
 hwlm_error_t scanDoubleMain(const u8 *buf, size_t len, const u8 *key,
                             size_t keyLen, size_t keyOffset, bool noCase,
                             const struct cb_info *cbi) {
-    hwlm_error_t rv;
     // we stop scanning for the key-fragment when the rest of the key can't
     // possibly fit in the remaining buffer
     size_t end = len - keyLen + keyOffset + 2;
@@ -187,6 +217,9 @@ hwlm_error_t scanDoubleMain(const u8 *buf, size_t len, const u8 *key,
     const MASK_TYPE caseMask = getCaseMask();
     const MASK_TYPE mask1 = getMask(key[keyOffset + 0], noCase);
     const MASK_TYPE mask2 = getMask(key[keyOffset + 1], noCase);
+
+#if !defined(HAVE_AVX512)
+    hwlm_error_t rv;
 
     if (end - keyOffset < CHUNKSIZE) {
         rv = scanDoubleShort(buf, len, key, keyLen, keyOffset, noCase, caseMask,
@@ -244,6 +277,10 @@ hwlm_error_t scanDoubleMain(const u8 *buf, size_t len, const u8 *key,
                              caseMask, mask1, mask2, cbi, off, end);
 
     return rv;
+#else // AVX512
+    return scanDouble512(buf, len, key, keyLen, keyOffset, noCase, caseMask,
+                         mask1, mask2, cbi, keyOffset, end);
+#endif // AVX512
 }
 
 
