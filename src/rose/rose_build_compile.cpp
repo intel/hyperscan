@@ -1256,7 +1256,8 @@ void addSmallBlockLiteral(RoseBuildImpl &tbi, const simple_anchored_info &sai,
         assert(old_id < tbi.literal_info.size());
         const rose_literal_info &li = tbi.literal_info[old_id];
 
-        // For compile determinism, operate over literal vertices in index order.
+        // For compile determinism, operate over literal vertices in index
+        // order.
         vector<RoseVertex> lit_verts(begin(li.vertices), end(li.vertices));
         sort(begin(lit_verts), end(lit_verts), VertexIndexComp(g));
 
@@ -1270,40 +1271,9 @@ void addSmallBlockLiteral(RoseBuildImpl &tbi, const simple_anchored_info &sai,
             g[v].max_offset = sai.max_bound + sai.literal.length();
             lit_info.vertices.insert(v);
 
-            assert(!g[v].reports.empty());
-
-            bool doDirectReports = true;
-            for (ReportID report_id : g[v].reports) {
-                const Report &old_rep = tbi.rm.getReport(report_id);
-                if (!isExternalReport(old_rep) || old_rep.hasBounds()) {
-                    doDirectReports = false;
-                    break;
-                }
-            }
-
-            if (doDirectReports) {
-                flat_set<ReportID> dr_reports;
-                for (ReportID report_id : g[v].reports) {
-                    // These new literal roles can be made direct reports, with
-                    // their bounds handled by the bounds on their Report
-                    // structures.
-                    Report rep(tbi.rm.getReport(report_id)); // copy
-                    assert(!rep.hasBounds());
-                    rep.minOffset = sai.literal.length() + sai.min_bound;
-                    rep.maxOffset = sai.literal.length() + sai.max_bound;
-                    dr_reports.insert(tbi.rm.getInternalId(rep));
-                }
-                g[v].reports = dr_reports;
-                RoseEdge e = add_edge(tbi.root, v, g).first;
-                g[e].minBound = 0;             // handled by internal_report
-                g[e].maxBound = ROSE_BOUND_INF; // handled by internal_report
-            } else {
-                // If we have a complex internal report, these must become
-                // anchored literals with their own roles.
-                RoseEdge e = add_edge(anchored_root, v, g).first;
-                g[e].minBound = sai.min_bound;
-                g[e].maxBound = sai.max_bound;
-            }
+            RoseEdge e = add_edge(anchored_root, v, g).first;
+            g[e].minBound = sai.min_bound;
+            g[e].maxBound = sai.max_bound;
         }
     }
 }
