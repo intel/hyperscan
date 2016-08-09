@@ -596,37 +596,67 @@ void updateAliasingInfo(RoseBuildImpl &build, RoseAliasingInfo &rai,
     }
 }
 
-// Merge role 'a' into 'b'.
+/** \brief Common role merge code used by variants below. */
 static
-void mergeVertices(RoseVertex a, RoseVertex b, RoseBuildImpl &build,
-                   RoseAliasingInfo &rai) {
+void mergeCommon(RoseBuildImpl &build, RoseAliasingInfo &rai, RoseVertex a,
+                 RoseVertex b) {
     RoseGraph &g = build.g;
-    DEBUG_PRINTF("merging vertex %zu into %zu\n", g[a].idx, g[b].idx);
 
-    // Merge role properties.
     assert(g[a].eod_accept == g[b].eod_accept);
     assert(g[a].left == g[b].left);
-
-    insert(&g[b].reports, g[a].reports);
+    assert(!g[a].suffix || g[a].suffix == g[b].suffix);
 
     // In some situations (ghost roles etc), we can have different groups.
     assert(!g[a].groups && !g[b].groups); /* current structure means groups
                                            * haven't been assigned yet */
     g[b].groups |= g[a].groups;
 
-    g[b].min_offset = min(g[a].min_offset, g[b].min_offset);
-    g[b].max_offset = max(g[a].max_offset, g[b].max_offset);
-
     mergeLiteralSets(a, b, build);
+    updateAliasingInfo(build, rai, a, b);
+
+    // Our min and max_offsets should be sane.
+    assert(g[b].min_offset <= g[b].max_offset);
+
+    // Safety check: we should not have created through a merge a vertex that
+    // has an out-edge with ANCH history but is not fixed-offset.
+    assert(!hasAnchHistorySucc(g, b) || g[b].fixedOffset());
+}
+
+/** \brief Merge role 'a' into 'b', left merge path. */
+static
+void mergeVerticesLeft(RoseVertex a, RoseVertex b, RoseBuildImpl &build,
+                       RoseAliasingInfo &rai) {
+    RoseGraph &g = build.g;
+    DEBUG_PRINTF("merging vertex %zu into %zu\n", g[a].idx, g[b].idx);
+
+    insert(&g[b].reports, g[a].reports);
+
+    // Since it is a left merge (identical LHS) we should pick the tighter
+    // bound.
+    g[b].min_offset = max(g[a].min_offset, g[b].min_offset);
+    g[b].max_offset = min(g[a].max_offset, g[b].max_offset);
 
     if (!g[b].suffix) {
         g[b].suffix = g[a].suffix;
-    } else {
-        assert(!g[a].suffix || g[b].suffix == g[a].suffix);
     }
 
     mergeEdges(a, b, g);
-    updateAliasingInfo(build, rai, a, b);
+    mergeCommon(build, rai, a, b);
+}
+
+/** \brief Merge role 'a' into 'b', right merge path. */
+static
+void mergeVerticesRight(RoseVertex a, RoseVertex b, RoseBuildImpl &build,
+                        RoseAliasingInfo &rai) {
+    RoseGraph &g = build.g;
+    DEBUG_PRINTF("merging vertex %zu into %zu\n", g[a].idx, g[b].idx);
+
+    insert(&g[b].reports, g[a].reports);
+    g[b].min_offset = min(g[a].min_offset, g[b].min_offset);
+    g[b].max_offset = max(g[a].max_offset, g[b].max_offset);
+
+    mergeEdges(a, b, g);
+    mergeCommon(build, rai, a, b);
 }
 
 /**
@@ -639,23 +669,15 @@ void mergeVerticesDiamond(RoseVertex a, RoseVertex b, RoseBuildImpl &build,
     RoseGraph &g = build.g;
     DEBUG_PRINTF("merging vertex %zu into %zu\n", g[a].idx, g[b].idx);
 
-    // Merge role properties. For a diamond merge, most properties are already
-    // the same (with the notable exception of the literal set).
-    assert(g[a].eod_accept == g[b].eod_accept);
-    assert(g[a].left == g[b].left);
+    // For a diamond merge, most properties are already the same (with the
+    // notable exception of the literal set).
     assert(g[a].reports == g[b].reports);
     assert(g[a].suffix == g[b].suffix);
-
-    // In some situations (ghost roles etc), we can have different groups.
-    assert(!g[a].groups && !g[b].groups); /* current structure means groups
-                                           * haven't been assigned yet */
-    g[b].groups |= g[a].groups;
 
     g[b].min_offset = min(g[a].min_offset, g[b].min_offset);
     g[b].max_offset = max(g[a].max_offset, g[b].max_offset);
 
-    mergeLiteralSets(a, b, build);
-    updateAliasingInfo(build, rai, a, b);
+    mergeCommon(build, rai, a, b);
 }
 
 static never_inline
@@ -1709,7 +1731,7 @@ void leftMergePass(CandidateSet &candidates, RoseBuildImpl &build,
             continue;
         }
 
-        mergeVertices(a, b, build, rai);
+        mergeVerticesLeft(a, b, build, rai);
         dead->push_back(a);
         candidates.erase(ait);
     }
@@ -1924,7 +1946,7 @@ void rightMergePass(CandidateSet &candidates, RoseBuildImpl &build,
         }
 
         RoseVertex b = *jt;
-        mergeVertices(a, b, build, rai);
+        mergeVerticesRight(a, b, build, rai);
         dead->push_back(a);
         candidates.erase(ait);
     }

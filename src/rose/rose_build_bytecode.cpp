@@ -3887,7 +3887,7 @@ void makeRoleCheckBounds(const RoseBuildImpl &build, RoseVertex v,
                          : g[e].maxBound + lit_length;
 
     if (g[e].history == ROSE_ROLE_HISTORY_ANCH) {
-        assert(g[u].max_offset != ROSE_BOUND_INF);
+        assert(g[u].fixedOffset());
         // Make offsets absolute.
         min_bound += g[u].max_offset;
         if (max_bound != ROSE_BOUND_INF) {
