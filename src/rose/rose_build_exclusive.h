@@ -89,7 +89,7 @@ struct RoleInfo {
     CharReach cr; // reach of engine graph
     const role_id role; // infix or suffix info
     const u32 id; // infix or suffix id
-    u32 score; // score for exclusive analysis
+    u32 score = ~0U; // score for exclusive analysis
 };
 
 /**
