@@ -83,6 +83,8 @@ void dumpMask(FILE *f, const char *name, const u8 *mask, u32 mask_bits) {
 template<typename mask_t>
 static
 u32 rank_in_mask(mask_t mask, u32 bit) {
+    assert(bit < 8 * sizeof(mask));
+
     u32 chunks[sizeof(mask)/sizeof(u32)];
     memcpy(chunks, &mask, sizeof(mask));
     u32 base_rank = 0;
