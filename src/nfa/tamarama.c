@@ -431,6 +431,9 @@ char nfaExecTamarama0_Q2(const struct NFA *n,
         rv = nfaQueueExec2_raw(q1.nfa, &q1, end);
         q->report_current = q1.report_current;
         copy = 1;
+        if (can_stop_matching(q->scratch)) {
+            break;
+        }
     }
     if (copy) {
         copyBack(t, q, &q1);
