@@ -1290,10 +1290,6 @@ bool doNetflowCut(NGHolder &h,
         sanitizeAndCompressAndScore(lits);
 
         cut_lits[e] = lits;
-
-        DEBUG_PRINTF("cut lit '%s' %u->%u\n",
-                     dumpString(*cut_lits[e].begin()).c_str(),
-                     h[source(e, h)].index, h[target(e, h)].index);
     }
 
     /* if literals are underlength bail or if it involves a forbidden edge*/

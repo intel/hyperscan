@@ -1784,9 +1784,6 @@ bool doNetflowCut(RoseInGraph &ig, const vector<RoseInEdge> &to_cut,
         set<ue2_literal> lits = getLiteralSet(h, e);
         compressAndScore(lits);
         cut_lits[e] = lits;
-
-        DEBUG_PRINTF("cut lit '%s'\n",
-                     dumpString(*cut_lits[e].begin()).c_str());
     }
 
     /* if literals are underlength bail or if it involves a forbidden edge*/
