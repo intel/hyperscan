@@ -1000,7 +1000,7 @@ endif()
 # choose which ones to build
 
 set (LIB_VERSION ${HS_VERSION})
-set (LIB_SOVERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION})
+set (LIB_SOVERSION ${HS_MAJOR_VERSION})
 
 add_library(hs_exec OBJECT ${hs_exec_SRCS})
 
