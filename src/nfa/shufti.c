@@ -242,6 +242,7 @@ const u8 *fwdBlock2(m128 mask1_lo, m128 mask1_hi, m128 mask2_lo, m128 mask2_hi,
 #endif
 
     u32 z = movemask128(eq128(t2, ones));
+    DEBUG_PRINTF("    z: 0x%08x\n", z);
     return firstMatch(buf, z);
 }
 
@@ -303,6 +304,40 @@ const u8 *firstMatch(const u8 *buf, u32 z) {
 }
 
 static really_inline
+const u8 *fwdBlockShort(m256 mask, m128 chars, const u8 *buf,
+                        const m256 low4bits) {
+    // do the hi and lo shuffles in the one avx register
+    m256 c = set2x128(chars);
+    c = _mm256_srlv_epi64(c, _mm256_set_epi64x(0, 0, 4, 4));
+    c = and256(c, low4bits);
+    m256 c_shuf = vpshufb(mask, c);
+    m128 t = and128(movdq_hi(c_shuf), cast256to128(c_shuf));
+    // the upper 32-bits can't match
+    u32 z = 0xffff0000U | movemask128(eq128(t, zeroes128()));
+
+    return firstMatch(buf, z);
+}
+
+static really_inline
+const u8 *shuftiFwdShort(m128 mask_lo, m128 mask_hi, const u8 *buf,
+                         const u8 *buf_end, const m256 low4bits) {
+    // run shufti over two overlapping 16-byte unaligned reads
+    const m256 mask = combine2x128(mask_hi, mask_lo);
+    m128 chars = loadu128(buf);
+    const u8 *rv = fwdBlockShort(mask, chars, buf, low4bits);
+    if (rv) {
+        return rv;
+    }
+
+    chars = loadu128(buf_end - 16);
+    rv = fwdBlockShort(mask, chars, buf_end - 16, low4bits);
+    if (rv) {
+        return rv;
+    }
+    return buf_end;
+}
+
+static really_inline
 const u8 *fwdBlock(m256 mask_lo, m256 mask_hi, m256 chars, const u8 *buf,
                    const m256 low4bits, const m256 zeroes) {
     u32 z = block(mask_lo, mask_hi, chars, low4bits, zeroes);
@@ -315,15 +350,21 @@ const u8 *shuftiExec(m128 mask_lo, m128 mask_hi, const u8 *buf,
                      const u8 *buf_end) {
     assert(buf && buf_end);
     assert(buf < buf_end);
+    DEBUG_PRINTF("shufti %p len %zu\n", buf, buf_end - buf);
 
     // Slow path for small cases.
-    if (buf_end - buf < 32) {
+    if (buf_end - buf < 16) {
         return shuftiFwdSlow((const u8 *)&mask_lo, (const u8 *)&mask_hi,
                              buf, buf_end);
     }
 
-    const m256 zeroes = zeroes256();
     const m256 low4bits = set32x8(0xf);
+
+    if (buf_end - buf <= 32) {
+        return shuftiFwdShort(mask_lo, mask_hi, buf, buf_end, low4bits);
+    }
+
+    const m256 zeroes = zeroes256();
     const m256 wide_mask_lo = set2x128(mask_lo);
     const m256 wide_mask_hi = set2x128(mask_hi);
     const u8 *rv;
@@ -365,12 +406,7 @@ const u8 *shuftiExec(m128 mask_lo, m128 mask_hi, const u8 *buf,
 }
 
 static really_inline
-const u8 *lastMatch(const u8 *buf, m256 t, m256 compare) {
-#ifdef DEBUG
-    DEBUG_PRINTF("confirming match in:"); dumpMsk256(t); printf("\n");
-#endif
-
-    u32 z = movemask256(eq256(t, compare));
+const u8 *lastMatch(const u8 *buf, u32 z) {
     if (unlikely(z != 0xffffffff)) {
         u32 pos = clz32(~z);
         DEBUG_PRINTF("buf=%p, pos=%u\n", buf, pos);
@@ -395,8 +431,45 @@ const u8 *revBlock(m256 mask_lo, m256 mask_hi, m256 chars, const u8 *buf,
     DEBUG_PRINTF("     t: "); dumpMsk256(t);            printf("\n");
 #endif
 
-    return lastMatch(buf, t, zeroes);
+    u32 z = movemask256(eq256(t, zeroes));
+    return lastMatch(buf, z);
 }
+
+static really_inline
+const u8 *revBlockShort(m256 mask, m128 chars, const u8 *buf,
+                        const m256 low4bits) {
+    // do the hi and lo shuffles in the one avx register
+    m256 c = set2x128(chars);
+    c = _mm256_srlv_epi64(c, _mm256_set_epi64x(0, 0, 4, 4));
+    c = and256(c, low4bits);
+    m256 c_shuf = vpshufb(mask, c);
+    m128 t = and128(movdq_hi(c_shuf), cast256to128(c_shuf));
+    // the upper 32-bits can't match
+    u32 z = 0xffff0000U | movemask128(eq128(t, zeroes128()));
+
+    return lastMatch(buf, z);
+}
+
+static really_inline
+const u8 *shuftiRevShort(m128 mask_lo, m128 mask_hi, const u8 *buf,
+                         const u8 *buf_end, const m256 low4bits) {
+    // run shufti over two overlapping 16-byte unaligned reads
+    const m256 mask = combine2x128(mask_hi, mask_lo);
+
+    m128 chars = loadu128(buf_end - 16);
+    const u8 *rv = revBlockShort(mask, chars, buf_end - 16, low4bits);
+    if (rv) {
+        return rv;
+    }
+
+    chars = loadu128(buf);
+    rv = revBlockShort(mask, chars, buf, low4bits);
+    if (rv) {
+        return rv;
+    }
+    return buf - 1;
+}
+
 
 /* takes 128 bit masks, but operates on 256 bits of data */
 const u8 *rshuftiExec(m128 mask_lo, m128 mask_hi, const u8 *buf,
@@ -405,13 +478,18 @@ const u8 *rshuftiExec(m128 mask_lo, m128 mask_hi, const u8 *buf,
     assert(buf < buf_end);
 
     // Slow path for small cases.
-    if (buf_end - buf < 64) {
+    if (buf_end - buf < 16) {
         return shuftiRevSlow((const u8 *)&mask_lo, (const u8 *)&mask_hi,
                              buf, buf_end);
     }
 
-    const m256 zeroes = zeroes256();
     const m256 low4bits = set32x8(0xf);
+
+    if (buf_end - buf <= 32) {
+        return shuftiRevShort(mask_lo, mask_hi, buf, buf_end, low4bits);
+    }
+
+    const m256 zeroes = zeroes256();
     const m256 wide_mask_lo = set2x128(mask_lo);
     const m256 wide_mask_hi = set2x128(mask_hi);
     const u8 *rv;
@@ -482,14 +560,57 @@ const u8 *fwdBlock2(m256 mask1_lo, m256 mask1_hi, m256 mask2_lo, m256 mask2_hi,
     return firstMatch(buf, z);
 }
 
+static really_inline
+const u8 *fwdBlockShort2(m256 mask1, m256 mask2, m128 chars, const u8 *buf,
+                         const m256 low4bits) {
+    // do the hi and lo shuffles in the one avx register
+    m256 c = set2x128(chars);
+    c = _mm256_srlv_epi64(c, _mm256_set_epi64x(0, 0, 4, 4));
+    c = and256(c, low4bits);
+    m256 c_shuf1 = vpshufb(mask1, c);
+    m256 c_shuf2 = rshift128_m256(vpshufb(mask2, c), 1);
+    m256 t0 = or256(c_shuf1, c_shuf2);
+    m128 t = or128(movdq_hi(t0), cast256to128(t0));
+    // the upper 32-bits can't match
+    u32 z = 0xffff0000U | movemask128(eq128(t, ones128()));
+
+    return firstMatch(buf, z);
+}
+
+static really_inline
+const u8 *shuftiDoubleShort(m128 mask1_lo, m128 mask1_hi, m128 mask2_lo,
+                            m128 mask2_hi, const u8 *buf, const u8 *buf_end) {
+    DEBUG_PRINTF("buf %p len %zu\n", buf, buf_end - buf);
+    const m256 low4bits = set32x8(0xf);
+    // run shufti over two overlapping 16-byte unaligned reads
+    const m256 mask1 = combine2x128(mask1_hi, mask1_lo);
+    const m256 mask2 = combine2x128(mask2_hi, mask2_lo);
+    m128 chars = loadu128(buf);
+    const u8 *rv = fwdBlockShort2(mask1, mask2, chars, buf, low4bits);
+    if (rv) {
+        return rv;
+    }
+
+    chars = loadu128(buf_end - 16);
+    rv = fwdBlockShort2(mask1, mask2, chars, buf_end - 16, low4bits);
+    if (rv) {
+        return rv;
+    }
+    return buf_end;
+}
+
 /* takes 128 bit masks, but operates on 256 bits of data */
 const u8 *shuftiDoubleExec(m128 mask1_lo, m128 mask1_hi,
                            m128 mask2_lo, m128 mask2_hi,
                            const u8 *buf, const u8 *buf_end) {
+    /* we should always have at least 16 bytes */
+    assert(buf_end - buf >= 16);
+
     if (buf_end - buf < 32) {
-        // not worth it
-        return buf;
+        return shuftiDoubleShort(mask1_lo, mask1_hi, mask2_lo, mask2_hi, buf,
+                                 buf_end);
     }
+
     const m256 ones = ones256();
     const m256 low4bits = set32x8(0xf);
     const m256 wide_mask1_lo = set2x128(mask1_lo);
