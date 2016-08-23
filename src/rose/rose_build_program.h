@@ -34,13 +34,16 @@
 #include "som/som_operation.h"
 #include "util/alloc.h"
 #include "util/container.h"
+#include "util/hash.h"
 #include "util/make_unique.h"
 #include "util/ue2_containers.h"
 
 #include <algorithm>
 #include <array>
 #include <vector>
+
 #include <boost/functional/hash/hash_fwd.hpp>
+#include <boost/range/adaptor/map.hpp>
 
 namespace ue2 {
 
@@ -193,7 +196,7 @@ public:
     virtual bool operator==(const RoseInstrType &) const { return true; }
 
     size_t hash() const override {
-        return Opcode;
+        return boost::hash_value(static_cast<int>(Opcode));
     }
 
     bool equiv_to(const RoseInstrType &, const RoseInstruction::OffsetMap &,
@@ -223,9 +226,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, groups);
-        return v;
+        return hash_all(static_cast<int>(opcode), groups);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -252,9 +253,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, min_offset);
-        return v;
+        return hash_all(static_cast<int>(opcode), min_offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -280,9 +279,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, groups);
-        return v;
+        return hash_all(static_cast<int>(opcode), groups);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -309,8 +306,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        return v;
+        return boost::hash_value(static_cast<int>(opcode));
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -340,10 +336,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, min_bound);
-        boost::hash_combine(v, max_bound);
-        return v;
+        return hash_all(static_cast<int>(opcode), min_bound, max_bound);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -372,9 +365,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, key);
-        return v;
+        return hash_all(static_cast<int>(opcode), key);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -405,10 +396,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, index);
-        boost::hash_combine(v, count);
-        return v;
+        return hash_all(static_cast<int>(opcode), index, count);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -444,12 +432,8 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, and_mask);
-        boost::hash_combine(v, cmp_mask);
-        boost::hash_combine(v, neg_mask);
-        boost::hash_combine(v, offset);
-        return v;
+        return hash_all(static_cast<int>(opcode), and_mask, cmp_mask, neg_mask,
+                        offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -487,12 +471,8 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, and_mask);
-        boost::hash_combine(v, cmp_mask);
-        boost::hash_combine(v, neg_mask);
-        boost::hash_combine(v, offset);
-        return v;
+        return hash_all(static_cast<int>(opcode), and_mask, cmp_mask, neg_mask,
+                        offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -529,12 +509,8 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, and_mask);
-        boost::hash_combine(v, cmp_mask);
-        boost::hash_combine(v, negation);
-        boost::hash_combine(v, offset);
-        return v;
+        return hash_all(static_cast<int>(opcode), and_mask, cmp_mask, negation,
+                        offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -568,11 +544,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, queue);
-        boost::hash_combine(v, lag);
-        boost::hash_combine(v, report);
-        return v;
+        return hash_all(static_cast<int>(opcode), queue, lag, report);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -605,11 +577,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, queue);
-        boost::hash_combine(v, lag);
-        boost::hash_combine(v, report);
-        return v;
+        return hash_all(static_cast<int>(opcode), queue, lag, report);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -638,10 +606,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, delay);
-        boost::hash_combine(v, index);
-        return v;
+        return hash_all(static_cast<int>(opcode), delay, index);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -667,9 +632,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, id);
-        return v;
+        return hash_all(static_cast<int>(opcode), id);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -710,9 +673,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, distance);
-        return v;
+        return hash_all(static_cast<int>(opcode), distance);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -740,10 +701,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, queue);
-        boost::hash_combine(v, lag);
-        return v;
+        return hash_all(static_cast<int>(opcode), queue, lag);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -771,10 +729,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, som.type);
-        boost::hash_combine(v, som.onmatch);
-        return v;
+        return hash_all(static_cast<int>(opcode), som.type, som.onmatch);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -810,11 +765,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, cancel);
-        boost::hash_combine(v, queue);
-        boost::hash_combine(v, event);
-        return v;
+        return hash_all(static_cast<int>(opcode), cancel, queue, event);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -842,10 +793,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, queue);
-        boost::hash_combine(v, event);
-        return v;
+        return hash_all(static_cast<int>(opcode), queue, event);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -877,11 +825,8 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, quash_som);
-        boost::hash_combine(v, dkey);
-        boost::hash_combine(v, offset_adjust);
-        return v;
+        return hash_all(static_cast<int>(opcode), quash_som, dkey,
+                        offset_adjust);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -916,11 +861,8 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, quash_som);
-        boost::hash_combine(v, dkey);
-        boost::hash_combine(v, offset_adjust);
-        return v;
+        return hash_all(static_cast<int>(opcode), quash_som, dkey,
+                        offset_adjust);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -951,10 +893,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, event);
-        boost::hash_combine(v, top_squash_distance);
-        return v;
+        return hash_all(static_cast<int>(opcode), event, top_squash_distance);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -983,10 +922,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, som.type);
-        boost::hash_combine(v, som.onmatch);
-        return v;
+        return hash_all(static_cast<int>(opcode), som.type, som.onmatch);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1014,10 +950,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, som.type);
-        boost::hash_combine(v, som.onmatch);
-        return v;
+        return hash_all(static_cast<int>(opcode), som.type, som.onmatch);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1044,10 +977,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, onmatch);
-        boost::hash_combine(v, offset_adjust);
-        return v;
+        return hash_all(static_cast<int>(opcode), onmatch, offset_adjust);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1078,11 +1008,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, onmatch);
-        boost::hash_combine(v, offset_adjust);
-        boost::hash_combine(v, ekey);
-        return v;
+        return hash_all(static_cast<int>(opcode), onmatch, offset_adjust, ekey);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1111,10 +1037,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, onmatch);
-        boost::hash_combine(v, offset_adjust);
-        return v;
+        return hash_all(static_cast<int>(opcode), onmatch, offset_adjust);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1145,11 +1068,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, onmatch);
-        boost::hash_combine(v, offset_adjust);
-        boost::hash_combine(v, ekey);
-        return v;
+        return hash_all(static_cast<int>(opcode), onmatch, offset_adjust, ekey);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1186,12 +1105,8 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, quash_som);
-        boost::hash_combine(v, dkey);
-        boost::hash_combine(v, onmatch);
-        boost::hash_combine(v, offset_adjust);
-        return v;
+        return hash_all(static_cast<int>(opcode), quash_som, dkey, onmatch,
+                        offset_adjust);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1221,10 +1136,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, onmatch);
-        boost::hash_combine(v, offset_adjust);
-        return v;
+        return hash_all(static_cast<int>(opcode), onmatch, offset_adjust);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1252,9 +1164,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, ekey);
-        return v;
+        return hash_all(static_cast<int>(opcode), ekey);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1286,10 +1196,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, end_adj);
-        boost::hash_combine(v, min_length);
-        return v;
+        return hash_all(static_cast<int>(opcode), end_adj, min_length);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1315,9 +1222,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, index);
-        return v;
+        return hash_all(static_cast<int>(opcode), index);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1343,9 +1248,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, groups);
-        return v;
+        return hash_all(static_cast<int>(opcode), groups);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1371,9 +1274,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, groups);
-        return v;
+        return hash_all(static_cast<int>(opcode), groups);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1401,9 +1302,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, index);
-        return v;
+        return hash_all(static_cast<int>(opcode), index);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1435,10 +1334,9 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, num_keys);
-        for (const auto &jump : jump_table) {
-            boost::hash_combine(v, jump.first);
+        size_t v = hash_all(static_cast<int>(opcode), num_keys);
+        for (const u32 &key : jump_table | boost::adaptors::map_keys) {
+            boost::hash_combine(v, key);
         }
         return v;
     }
@@ -1508,9 +1406,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, state);
-        return v;
+        return hash_all(static_cast<int>(opcode), state);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1554,10 +1450,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, num_keys);
-        boost::hash_combine(v, keys);
-        return v;
+        return hash_all(static_cast<int>(opcode), num_keys, keys);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1584,9 +1477,7 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = opcode;
-        boost::hash_combine(v, iter_offset);
-        return v;
+        return hash_all(static_cast<int>(opcode), iter_offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,

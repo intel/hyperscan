@@ -928,6 +928,7 @@ SET (hs_SRCS
     src/util/dump_mask.cpp
     src/util/dump_mask.h
     src/util/graph.h
+    src/util/hash.h
     src/util/multibit_build.cpp
     src/util/multibit_build.h
     src/util/order_check.h
