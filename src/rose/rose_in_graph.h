@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -103,6 +103,12 @@ public:
     static RoseInVertexProps makeAcceptEod(const ReportContainer &rep) {
         DEBUG_PRINTF("making accept-eod for %zu reports\n", rep.size());
         return RoseInVertexProps(RIV_ACCEPT_EOD, ue2_literal(), rep, 0,
+                                 ROSE_BOUND_INF);
+    }
+
+    /* for when there is a suffix graph which handles the reports */
+    static RoseInVertexProps makeAcceptEod() {
+        return RoseInVertexProps(RIV_ACCEPT_EOD, ue2_literal(), 0,
                                  ROSE_BOUND_INF);
     }
 

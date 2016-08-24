@@ -31,13 +31,14 @@
 #include "infix.h"
 #include "match.h"
 #include "miracle.h"
+#include "program_runtime.h"
+#include "rose.h"
 #include "hwlm/hwlm.h"
 #include "nfa/mcclellan.h"
 #include "nfa/nfa_api.h"
 #include "nfa/nfa_api_queue.h"
 #include "nfa/nfa_internal.h"
 #include "util/fatbit.h"
-#include "rose.h"
 
 static rose_inline
 void runAnchoredTableStream(const struct RoseEngine *t, const void *atable,
@@ -422,8 +423,95 @@ void do_rebuild(const struct RoseEngine *t, const struct HWLM *ftable,
     assert(!can_stop_matching(scratch));
 }
 
+static rose_inline
+void runEagerPrefixesStream(const struct RoseEngine *t,
+                            struct hs_scratch *scratch) {
+    if (!t->eagerIterOffset
+        || scratch->core_info.buf_offset >= EAGER_STOP_OFFSET) {
+        return;
+    }
+
+    char *state = scratch->core_info.state;
+    u8 *ara = getActiveLeftArray(t, state); /* indexed by offsets into
+                                             * left_table */
+    const u32 arCount = t->activeLeftCount;
+    const u32 qCount = t->queueCount;
+    const struct LeftNfaInfo *left_table = getLeftTable(t);
+    const struct mmbit_sparse_iter *it = getByOffset(t, t->eagerIterOffset);
+
+    struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
+
+    u32 idx = 0;
+    u32 ri = mmbit_sparse_iter_begin(ara, arCount, &idx, it, si_state);
+    for (; ri != MMB_INVALID;
+           ri = mmbit_sparse_iter_next(ara, arCount, ri, &idx, it, si_state)) {
+        const struct LeftNfaInfo *left = left_table + ri;
+        u32 qi = ri + t->leftfixBeginQueue;
+        DEBUG_PRINTF("leftfix %u of %u, maxLag=%u\n", ri, arCount, left->maxLag);
+
+        assert(!fatbit_isset(scratch->aqa, qCount, qi));
+        assert(left->eager);
+        assert(!left->infix);
+
+        struct mq *q = scratch->queues + qi;
+        const struct NFA *nfa = getNfaByQueue(t, qi);
+        s64a loc = MIN(scratch->core_info.len,
+                       EAGER_STOP_OFFSET - scratch->core_info.buf_offset);
+
+        fatbit_set(scratch->aqa, qCount, qi);
+        initRoseQueue(t, qi, left, scratch);
+
+        if (scratch->core_info.buf_offset) {
+            s64a sp = left->transient ? -(s64a)scratch->core_info.hlen
+                                      : -(s64a)loadRoseDelay(t, state, left);
+            pushQueueAt(q, 0, MQE_START, sp);
+            if (scratch->core_info.buf_offset + sp > 0) {
+                loadStreamState(nfa, q, sp);
+                /* if the leftfix fix is currently in a match state, we cannot
+                 * advance it. */
+                if (nfaInAnyAcceptState(nfa, q)) {
+                    continue;
+                }
+                pushQueueAt(q, 1, MQE_END, loc);
+            } else {
+                pushQueueAt(q, 1, MQE_TOP, sp);
+                pushQueueAt(q, 2, MQE_END, loc);
+                nfaQueueInitState(q->nfa, q);
+            }
+        } else {
+            pushQueueAt(q, 0, MQE_START, 0);
+            pushQueueAt(q, 1, MQE_TOP, 0);
+            pushQueueAt(q, 2, MQE_END, loc);
+            nfaQueueInitState(nfa, q);
+        }
+
+        char alive = nfaQueueExecToMatch(q->nfa, q, loc);
+
+        if (!alive) {
+            DEBUG_PRINTF("queue %u dead, squashing\n", qi);
+            mmbit_unset(ara, arCount, ri);
+            fatbit_unset(scratch->aqa, qCount, qi);
+            scratch->tctxt.groups &= left->squash_mask;
+        } else if (q->cur == q->end) {
+            assert(alive != MO_MATCHES_PENDING);
+            /* unlike in block mode we cannot squash groups if there is no match
+             * in this block as we need the groups on for later stream writes */
+            /* TODO: investigate possibility of a method to suppress groups for
+             * a single stream block. */
+            DEBUG_PRINTF("queue %u finished, nfa lives\n", qi);
+            q->cur = q->end = 0;
+            pushQueueAt(q, 0, MQE_START, loc);
+        } else {
+            assert(alive == MO_MATCHES_PENDING);
+            DEBUG_PRINTF("queue %u unfinished, nfa lives\n", qi);
+            q->end--; /* remove end item */
+        }
+    }
+}
+
 void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
-    DEBUG_PRINTF("OH HAI\n");
+    DEBUG_PRINTF("OH HAI [%llu, %llu)\n", scratch->core_info.buf_offset,
+                 scratch->core_info.buf_offset + (u64a)scratch->core_info.len);
     assert(t);
     assert(scratch->core_info.hbuf);
     assert(scratch->core_info.buf);
@@ -460,8 +548,8 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;
     tctxt->next_mpv_offset = 0;
-    DEBUG_PRINTF("BEGIN: history len=%zu, buffer len=%zu\n",
-                  scratch->core_info.hlen, scratch->core_info.len);
+    DEBUG_PRINTF("BEGIN: history len=%zu, buffer len=%zu groups=%016llx\n",
+                 scratch->core_info.hlen, scratch->core_info.len, tctxt->groups);
 
     fatbit_clear(scratch->aqa);
     scratch->al_log_sum = 0;
@@ -470,6 +558,8 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     if (t->outfixBeginQueue != t->outfixEndQueue) {
         streamInitSufPQ(t, state, scratch);
     }
+
+    runEagerPrefixesStream(t, scratch);
 
     u32 alen = t->anchoredDistance > offset ?
         MIN(length + offset, t->anchoredDistance) - offset : 0;
@@ -539,8 +629,9 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
         }
 
         DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
-        hwlmExecStreaming(ftable, scratch, flen, start, roseCallback, scratch,
-                          tctxt->groups, stream_state);
+        hwlmExecStreaming(ftable, scratch, flen, start, roseFloatingCallback,
+                          scratch, tctxt->groups & t->floating_group_mask,
+                          stream_state);
     }
 
 flush_delay_and_exit:
@@ -557,4 +648,68 @@ exit:
     DEBUG_PRINTF("DONE STREAMING SCAN, status = %u\n",
                  scratch->core_info.status);
     return;
+}
+
+static rose_inline
+void roseStreamInitEod(const struct RoseEngine *t, u64a offset,
+                       struct hs_scratch *scratch) {
+    struct RoseContext *tctxt = &scratch->tctxt;
+    /* TODO: diff groups for eod */
+    tctxt->groups = loadGroups(t, scratch->core_info.state);
+    tctxt->lit_offset_adjust = scratch->core_info.buf_offset
+                             - scratch->core_info.hlen
+                             + 1; // index after last byte
+    tctxt->delayLastEndOffset = offset;
+    tctxt->lastEndOffset = offset;
+    tctxt->filledDelayedSlots = 0;
+    tctxt->lastMatchOffset = 0;
+    tctxt->minMatchOffset = offset;
+    tctxt->minNonMpvMatchOffset = offset;
+    tctxt->next_mpv_offset = offset;
+
+    scratch->catchup_pq.qm_size = 0;
+    scratch->al_log_sum = 0; /* clear the anchored logs */
+
+    fatbit_clear(scratch->aqa);
+}
+
+void roseStreamEodExec(const struct RoseEngine *t, u64a offset,
+                       struct hs_scratch *scratch) {
+    assert(scratch);
+    assert(t->requiresEodCheck);
+    DEBUG_PRINTF("ci buf %p/%zu his %p/%zu\n", scratch->core_info.buf,
+                 scratch->core_info.len, scratch->core_info.hbuf,
+                 scratch->core_info.hlen);
+
+    // We should not have been called if we've already been told to terminate
+    // matching.
+    assert(!told_to_stop_matching(scratch));
+
+    if (t->maxBiAnchoredWidth != ROSE_BOUND_INF
+        && offset > t->maxBiAnchoredWidth) {
+        DEBUG_PRINTF("bailing, we are beyond max width\n");
+        /* also some of the history/state may be stale */
+        return;
+    }
+
+    if (!t->eodProgramOffset) {
+        DEBUG_PRINTF("no eod program\n");
+        return;
+    }
+
+    roseStreamInitEod(t, offset, scratch);
+
+    DEBUG_PRINTF("running eod program at %u\n", t->eodProgramOffset);
+
+    // There should be no pending delayed literals.
+    assert(!scratch->tctxt.filledDelayedSlots);
+
+    const u64a som = 0;
+    const size_t match_len = 0;
+    const u8 flags = ROSE_PROG_FLAG_SKIP_MPV_CATCHUP;
+
+    // Note: we ignore the result, as this is the last thing to ever happen on
+    // a scan.
+    roseRunProgram(t, scratch, t->eodProgramOffset, som, offset, match_len,
+                   flags);
 }

@@ -37,11 +37,11 @@
   * Version 2.0: now with X-Macros, so you get line numbers in your debugger.
   */
 
-#if !defined(SIZE) || !defined(STATE_T) || !defined(SHIFT)
-#  error Must define SIZE and STATE_T and SHIFT in includer.
+#if !defined(SIZE) || !defined(STATE_T)
+#  error Must define SIZE and STATE_T in includer.
 #endif
 
-#define LIMEX_API_ROOT   JOIN(JOIN(JOIN(nfaExecLimEx, SIZE), _), SHIFT)
+#define LIMEX_API_ROOT   JOIN(nfaExecLimEx, SIZE)
 
 #define IMPL_NFA_T          JOIN(struct LimExNFA, SIZE)
 
@@ -73,6 +73,7 @@
 #define ANDNOT_STATE        JOIN(andnot_, STATE_T)
 #define OR_STATE            JOIN(or_, STATE_T)
 #define TESTBIT_STATE       JOIN(testbit_, STATE_T)
+#define CLEARBIT_STATE      JOIN(clearbit_, STATE_T)
 #define ZERO_STATE          JOIN(zero_, STATE_T)
 #define ISNONZERO_STATE     JOIN(isNonZero_, STATE_T)
 #define ISZERO_STATE        JOIN(isZero_, STATE_T)
@@ -104,8 +105,8 @@
 // continue, 1 if an accept was fired and the user instructed us to halt.
 static really_inline
 char RUN_EXCEPTIONS_FN(const IMPL_NFA_T *limex, const EXCEPTION_T *exceptions,
-                       const ReportID *exReports, const u32 *exceptionMap,
-                       STATE_T s, const STATE_T emask, size_t i, u64a offset,
+                       const ReportID *exReports, STATE_T s,
+                       const STATE_T emask, size_t i, u64a offset,
                        STATE_T *succ, u64a *final_loc, struct CONTEXT_T *ctx,
                        const char flags, const char in_rev,
                        const char first_match) {
@@ -132,8 +133,8 @@ char RUN_EXCEPTIONS_FN(const IMPL_NFA_T *limex, const EXCEPTION_T *exceptions,
     char localflags = (!i && !in_rev) ? NO_OUTPUT | FIRST_BYTE : flags;
 
     int rv = JOIN(processExceptional, SIZE)(
-        pass_state, pass_estate, diffmask, succ, limex, exceptionMap,
-        exceptions, exReports, callback_offset, ctx, in_rev, localflags);
+        pass_state, pass_estate, diffmask, succ, limex, exceptions, exReports,
+        callback_offset, ctx, in_rev, localflags);
     if (rv == PE_RV_HALT) {
         return 1; // Halt matching.
     }
@@ -175,7 +176,6 @@ char STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
         (const union AccelAux *)((const char *)limex + limex->accelAuxOffset);
     const EXCEPTION_T *exceptions = getExceptionTable(EXCEPTION_T, limex);
     const ReportID *exReports = getExReports(limex);
-    const u32 *exceptionMap = limex->exceptionMap;
     STATE_T s = LOAD_STATE(&ctx->s);
 
     /* assert(ISALIGNED_16(exceptions)); */
@@ -201,11 +201,11 @@ without_accel:
 
         u8 c = input[i];
         STATE_T succ;
-        NFA_EXEC_GET_LIM_SUCC(STATE_T, SHIFT);
+        NFA_EXEC_GET_LIM_SUCC(STATE_T);
 
-        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, exceptionMap, s,
-                              EXCEPTION_MASK, i, offset, &succ, final_loc, ctx,
-                              flags, 0, first_match)) {
+        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, s, EXCEPTION_MASK,
+                              i, offset, &succ, final_loc, ctx, flags, 0,
+                              first_match)) {
             return MO_HALT_MATCHING;
         }
 
@@ -252,11 +252,11 @@ with_accel:
 
         u8 c = input[i];
         STATE_T succ;
-        NFA_EXEC_GET_LIM_SUCC(STATE_T, SHIFT);
+        NFA_EXEC_GET_LIM_SUCC(STATE_T);
 
-        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, exceptionMap, s,
-                              EXCEPTION_MASK, i, offset, &succ, final_loc, ctx,
-                              flags, 0, first_match)) {
+        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, s,  EXCEPTION_MASK,
+                              i, offset, &succ, final_loc, ctx, flags, 0,
+                              first_match)) {
             return MO_HALT_MATCHING;
         }
 
@@ -300,7 +300,6 @@ char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
 #endif
     const EXCEPTION_T *exceptions = getExceptionTable(EXCEPTION_T, limex);
     const ReportID *exReports = getExReports(limex);
-    const u32 *exceptionMap = limex->exceptionMap;
     STATE_T s = LOAD_STATE(&ctx->s);
 
     /* assert(ISALIGNED_16(exceptions)); */
@@ -318,9 +317,9 @@ char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
 
         u8 c = input[i-1];
         STATE_T succ;
-        NFA_EXEC_GET_LIM_SUCC(STATE_T, SHIFT);
+        NFA_EXEC_GET_LIM_SUCC(STATE_T);
 
-        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, exceptionMap, s,
+        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, s,
                               EXCEPTION_MASK, i, offset, &succ, final_loc, ctx,
                               flags, 1, 0)) {
             return MO_HALT_MATCHING;
@@ -349,36 +348,57 @@ char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
 }
 
 static really_inline
-void COMPRESS_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, const void *src,
+void COMPRESS_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, void *src,
                          u64a offset) {
     if (!limex->repeatCount) {
         return;
     }
 
-    // Note: we compress all repeats, as they may have *just* had their
-    // cyclic states switched off a moment ago. TODO: is this required
+    STATE_T s = LOAD_STATE(src);
+
+    if (ISZERO_STATE(AND_STATE(s, LOAD_STATE(&limex->repeatCyclicMask)))) {
+        DEBUG_PRINTF("no cyclics are on\n");
+        return;
+    }
 
     const union RepeatControl *ctrl =
         getRepeatControlBaseConst((const char *)src, sizeof(STATE_T));
     char *state_base = (char *)dest + limex->stateSize;
 
     for (u32 i = 0; i < limex->repeatCount; i++) {
+        DEBUG_PRINTF("repeat %u\n", i);
         const struct NFARepeatInfo *info = GET_NFA_REPEAT_INFO_FN(limex, i);
+
+        if (!TESTBIT_STATE(&s, info->cyclicState)) {
+            DEBUG_PRINTF("is dead\n");
+            continue;
+        }
+
         const struct RepeatInfo *repeat = getRepeatInfo(info);
+        if (repeatHasMatch(repeat, &ctrl[i], state_base + info->stateOffset,
+                           offset) == REPEAT_STALE) {
+            DEBUG_PRINTF("is stale, clearing state\n");
+            CLEARBIT_STATE(&s, info->cyclicState);
+            continue;
+        }
+
+        DEBUG_PRINTF("packing state (packedCtrlOffset=%u)\n",
+                     info->packedCtrlOffset);
         repeatPack(state_base + info->packedCtrlOffset, repeat, &ctrl[i],
                    offset);
     }
+
+    STORE_STATE(src, s);
 }
 
 char JOIN(LIMEX_API_ROOT, _queueCompressState)(const struct NFA *n,
-                                                  const struct mq *q,
-                                                  s64a loc) {
+                                               const struct mq *q, s64a loc) {
     void *dest = q->streamState;
-    const void *src = q->state;
+    void *src = q->state;
     u8 key = queue_prev_byte(q, loc);
     const IMPL_NFA_T *limex = getImplNfa(n);
-    COMPRESS_FN(limex, dest, src, key);
     COMPRESS_REPEATS_FN(limex, dest, src, q->offset + loc);
+    COMPRESS_FN(limex, dest, src, key);
     return 0;
 }
 
@@ -389,15 +409,29 @@ void EXPAND_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, const void *src,
         return;
     }
 
-    // Note: we expand all repeats, as they may have *just* had their
-    // cyclic states switched off a moment ago. TODO: is this required?
+    // Note: state has already been expanded into 'dest'.
+    const STATE_T cyclics =
+        AND_STATE(LOAD_STATE(dest), LOAD_STATE(&limex->repeatCyclicMask));
+    if (ISZERO_STATE(cyclics)) {
+        DEBUG_PRINTF("no cyclics are on\n");
+        return;
+    }
 
     union RepeatControl *ctrl =
         getRepeatControlBase((char *)dest, sizeof(STATE_T));
     const char *state_base = (const char *)src + limex->stateSize;
 
     for (u32 i = 0; i < limex->repeatCount; i++) {
+        DEBUG_PRINTF("repeat %u\n", i);
         const struct NFARepeatInfo *info = GET_NFA_REPEAT_INFO_FN(limex, i);
+
+        if (!TESTBIT_STATE(&cyclics, info->cyclicState)) {
+            DEBUG_PRINTF("is dead\n");
+            continue;
+        }
+
+        DEBUG_PRINTF("unpacking state (packedCtrlOffset=%u)\n",
+                     info->packedCtrlOffset);
         const struct RepeatInfo *repeat = getRepeatInfo(info);
         repeatUnpack(state_base + info->packedCtrlOffset, repeat, offset,
                      &ctrl[i]);
@@ -650,7 +684,27 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
         ep = MIN(ep, end_abs);
         assert(ep >= sp);
 
-        assert(sp >= offset); // We no longer do history buffer scans here.
+        if (sp < offset) {
+            DEBUG_PRINTF("HISTORY BUFFER SCAN\n");
+            assert(offset - sp <= q->hlength);
+            u64a local_ep = MIN(offset, ep);
+            u64a final_look = 0;
+            /* we are starting inside the history buffer */
+            if (STREAMFIRST_FN(limex, q->history + q->hlength + sp - offset,
+                               local_ep - sp, &ctx, sp,
+                               &final_look) == MO_HALT_MATCHING) {
+                DEBUG_PRINTF("final_look:%llu sp:%llu end_abs:%llu "
+                             "offset:%llu\n", final_look, sp, end_abs, offset);
+                assert(q->cur);
+                q->cur--;
+                q->items[q->cur].type = MQE_START;
+                q->items[q->cur].location = sp + final_look - offset;
+                STORE_STATE(q->state, LOAD_STATE(&ctx.s));
+                return MO_MATCHES_PENDING;
+            }
+
+            sp = local_ep;
+        }
 
         if (sp >= ep) {
             goto scan_done;
@@ -789,10 +843,8 @@ char JOIN(LIMEX_API_ROOT, _QR)(const struct NFA *n, struct mq *q,
 }
 
 char JOIN(LIMEX_API_ROOT, _testEOD)(const struct NFA *n, const char *state,
-                                       const char *streamState, u64a offset,
-                                       NfaCallback callback,
-                                       UNUSED SomNfaCallback som_callback,
-                                       void *context) {
+                                    const char *streamState, u64a offset,
+                                    NfaCallback callback, void *context) {
     assert(n && state);
 
     const IMPL_NFA_T *limex = getImplNfa(n);
@@ -868,6 +920,21 @@ char JOIN(LIMEX_API_ROOT, _inAccept)(const struct NFA *nfa,
                                      offset, report);
 }
 
+char JOIN(LIMEX_API_ROOT, _inAnyAccept)(const struct NFA *nfa, struct mq *q) {
+    assert(nfa && q);
+    assert(q->state && q->streamState);
+
+    const IMPL_NFA_T *limex = getImplNfa(nfa);
+    union RepeatControl *repeat_ctrl =
+        getRepeatControlBase(q->state, sizeof(STATE_T));
+    char *repeat_state = q->streamState + limex->stateSize;
+    STATE_T state = LOAD_STATE(q->state);
+    u64a offset = q->offset + q_last_loc(q) + 1;
+
+    return JOIN(limexInAnyAccept, SIZE)(limex, state, repeat_ctrl, repeat_state,
+                                        offset);
+}
+
 enum nfa_zombie_status JOIN(LIMEX_API_ROOT, _zombie_status)(
                                                          const struct NFA *nfa,
                                                          struct mq *q,
@@ -920,6 +987,7 @@ enum nfa_zombie_status JOIN(LIMEX_API_ROOT, _zombie_status)(
 #undef ANDNOT_STATE
 #undef OR_STATE
 #undef TESTBIT_STATE
+#undef CLEARBIT_STATE
 #undef ZERO_STATE
 #undef ISNONZERO_STATE
 #undef ISZERO_STATE
@@ -935,5 +1003,4 @@ enum nfa_zombie_status JOIN(LIMEX_API_ROOT, _zombie_status)(
 // Parameters.
 #undef SIZE
 #undef STATE_T
-#undef SHIFT
 #undef LIMEX_API_ROOT

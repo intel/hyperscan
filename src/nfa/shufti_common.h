@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,6 @@
 #include "util/bitutils.h"
 #include "util/simd_utils.h"
 #include "util/unaligned.h"
-#include "util/simd_utils_ssse3.h"
 
 /*
  * Common stuff for all versions of shufti (single, multi and multidouble)
@@ -94,7 +93,7 @@ DUMP_MSK(128)
 #endif
 
 #define GET_LO_4(chars) and128(chars, low4bits)
-#define GET_HI_4(chars) rshift2x64(andnot128(low4bits, chars), 4)
+#define GET_HI_4(chars) rshift64_m128(andnot128(low4bits, chars), 4)
 
 static really_inline
 u32 block(m128 mask_lo, m128 mask_hi, m128 chars, const m128 low4bits,
@@ -120,7 +119,7 @@ DUMP_MSK(256)
 #endif
 
 #define GET_LO_4(chars) and256(chars, low4bits)
-#define GET_HI_4(chars) rshift4x64(andnot256(low4bits, chars), 4)
+#define GET_HI_4(chars) rshift64_m256(andnot256(low4bits, chars), 4)
 
 static really_inline
 u32 block(m256 mask_lo, m256 mask_hi, m256 chars, const m256 low4bits,

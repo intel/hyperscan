@@ -51,8 +51,7 @@ extern const u8 ALIGN_DIRECTIVE p_mask_arr[17][32];
 
 #define CHECK_HWLM_TERMINATE_MATCHING                                       \
 do {                                                                        \
-    if (unlikely(controlVal == HWLM_TERMINATE_MATCHING)) {                  \
-        *a->groups = controlVal;                                            \
+    if (unlikely(control == HWLM_TERMINATE_MATCHING)) {                     \
         return HWLM_TERMINATED;                                             \
     }                                                                       \
 } while (0);
@@ -61,8 +60,7 @@ do {                                                                        \
 do {                                                                        \
     if (unlikely(ptr > tryFloodDetect)) {                                   \
         tryFloodDetect = floodDetect(fdr, a, &ptr, tryFloodDetect,          \
-                                     &floodBackoff, &controlVal,            \
-                                     iterBytes);                            \
+                                     &floodBackoff, &control, iterBytes);   \
         CHECK_HWLM_TERMINATE_MATCHING;                                      \
     }                                                                       \
 } while (0);

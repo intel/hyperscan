@@ -94,14 +94,13 @@ static
 bool setupLongLits(const vector<hwlmLiteral> &lits,
                    vector<hwlmLiteral> &long_lits, size_t max_len) {
     long_lits.reserve(lits.size());
-    for (vector<hwlmLiteral>::const_iterator it = lits.begin();
-         it != lits.end(); ++it) {
-        if (it->s.length() > max_len) {
-            hwlmLiteral tmp = *it; // copy
-            tmp.s.erase(tmp.s.size() - 1, 1); // erase last char
+    for (const auto &lit : lits) {
+        if (lit.s.length() > max_len) {
+            hwlmLiteral tmp = lit; // copy
+            tmp.s.pop_back();
             tmp.id = 0; // recalc later
             tmp.groups = 0; // filled in later by hash bucket(s)
-            long_lits.push_back(tmp);
+            long_lits.push_back(move(tmp));
         }
     }
 
@@ -112,15 +111,12 @@ bool setupLongLits(const vector<hwlmLiteral> &lits,
     // sort long_literals by caseful/caseless and in lexicographical order,
     // remove duplicates
     stable_sort(long_lits.begin(), long_lits.end(), LongLitOrder());
-    vector<hwlmLiteral>::iterator new_end =
-        unique(long_lits.begin(), long_lits.end(), hwlmLitEqual);
+    auto new_end = unique(long_lits.begin(), long_lits.end(), hwlmLitEqual);
     long_lits.erase(new_end, long_lits.end());
 
     // fill in ids; not currently used
-    for (vector<hwlmLiteral>::iterator i = long_lits.begin(),
-                                       e = long_lits.end();
-         i != e; ++i) {
-        i->id = i - long_lits.begin();
+    for (auto i = long_lits.begin(), e = long_lits.end(); i != e; ++i) {
+        i->id = distance(long_lits.begin(), i);
     }
     return true;
 }
@@ -143,23 +139,19 @@ void analyzeLits(const vector<hwlmLiteral> &long_lits, size_t max_len,
         hashedPositions[m] = 0;
     }
 
-    for (vector<hwlmLiteral>::const_iterator i = long_lits.begin(),
-                                             e = long_lits.end();
-         i != e; ++i) {
+    for (auto i = long_lits.begin(), e = long_lits.end(); i != e; ++i) {
         if (i->nocase) {
-            boundaries[CASEFUL] = verify_u32(i - long_lits.begin());
+            boundaries[CASEFUL] = verify_u32(distance(long_lits.begin(), i));
             break;
         }
     }
 
-    for (vector<hwlmLiteral>::const_iterator i = long_lits.begin(),
-                                             e = long_lits.end();
-         i != e; ++i) {
-        MODES m = i->nocase ? CASELESS : CASEFUL;
-        for (u32 j = 1; j < i->s.size() - max_len + 1; j++) {
+    for (const auto &lit : long_lits) {
+        Modes m = lit.nocase ? CASELESS : CASEFUL;
+        for (u32 j = 1; j < lit.s.size() - max_len + 1; j++) {
             hashedPositions[m]++;
         }
-        positions[m] += i->s.size();
+        positions[m] += lit.s.size();
     }
 
     for (u32 m = CASEFUL; m < MAX_MODES; m++) {
@@ -170,7 +162,7 @@ void analyzeLits(const vector<hwlmLiteral> &long_lits, size_t max_len,
 
 #ifdef DEBUG_COMPILE
     printf("analyzeLits:\n");
-    for (MODES m = CASEFUL; m < MAX_MODES; m++) {
+    for (Modes m = CASEFUL; m < MAX_MODES; m++) {
         printf("mode %s boundary %d positions %d hashedPositions %d "
                "hashEntries %d\n",
                (m == CASEFUL) ? "caseful" : "caseless", boundaries[m],
@@ -181,7 +173,7 @@ void analyzeLits(const vector<hwlmLiteral> &long_lits, size_t max_len,
 }
 
 static
-u32 hashLit(const hwlmLiteral &l, u32 offset, size_t max_len, MODES m) {
+u32 hashLit(const hwlmLiteral &l, u32 offset, size_t max_len, Modes m) {
     return streaming_hash((const u8 *)l.s.c_str() + offset, max_len, m);
 }
 
@@ -203,24 +195,21 @@ struct OffsetIDFromEndOrder {
 
 static
 void fillHashes(const vector<hwlmLiteral> &long_lits, size_t max_len,
-                FDRSHashEntry *tab, size_t numEntries, MODES m,
+                FDRSHashEntry *tab, size_t numEntries, Modes mode,
                 map<u32, u32> &litToOffsetVal) {
     const u32 nbits = lg2(numEntries);
     map<u32, deque<pair<u32, u32> > > bucketToLitOffPairs;
     map<u32, u64a> bucketToBitfield;
 
-    for (vector<hwlmLiteral>::const_iterator i = long_lits.begin(),
-                                             e = long_lits.end();
-         i != e; ++i) {
-        const hwlmLiteral &l = *i;
-        if ((m == CASELESS) != i->nocase) {
+    for (const auto &lit : long_lits) {
+        if ((mode == CASELESS) != lit.nocase) {
             continue;
         }
-        for (u32 j = 1; j < i->s.size() - max_len + 1; j++) {
-            u32 h = hashLit(l, j, max_len, m);
+        for (u32 j = 1; j < lit.s.size() - max_len + 1; j++) {
+            u32 h = hashLit(lit, j, max_len, mode);
             u32 h_ent = h & ((1U << nbits) - 1);
             u32 h_low = (h >> nbits) & 63;
-            bucketToLitOffPairs[h_ent].push_back(make_pair(i->id, j));
+            bucketToLitOffPairs[h_ent].emplace_back(lit.id, j);
             bucketToBitfield[h_ent] |= (1ULL << h_low);
         }
     }
@@ -231,11 +220,9 @@ void fillHashes(const vector<hwlmLiteral> &long_lits, size_t max_len,
 
     // sweep out bitfield entries and save the results swapped accordingly
     // also, anything with bitfield entries is put in filledBuckets
-    for (map<u32, u64a>::const_iterator i = bucketToBitfield.begin(),
-                                        e = bucketToBitfield.end();
-         i != e; ++i) {
-        u32 bucket = i->first;
-        u64a contents = i->second;
+    for (const auto &m : bucketToBitfield) {
+        const u32 &bucket = m.first;
+        const u64a &contents = m.second;
         tab[bucket].bitfield = contents;
         filledBuckets.set(bucket);
     }
@@ -243,12 +230,9 @@ void fillHashes(const vector<hwlmLiteral> &long_lits, size_t max_len,
     // store out all our chains based on free values in our hash table.
     // find nearest free locations that are empty (there will always be more
     // entries than strings, at present)
-    for (map<u32, deque<pair<u32, u32> > >::iterator
-             i = bucketToLitOffPairs.begin(),
-             e = bucketToLitOffPairs.end();
-         i != e; ++i) {
-        u32 bucket = i->first;
-        deque<pair<u32, u32> > &d = i->second;
+    for (auto &m : bucketToLitOffPairs) {
+        u32 bucket = m.first;
+        deque<pair<u32, u32>> &d = m.second;
 
         // sort d by distance of the residual string (len minus our depth into
         // the string). We need to put the 'furthest back' string first...
@@ -299,31 +283,30 @@ void fillHashes(const vector<hwlmLiteral> &long_lits, size_t max_len,
 static
 size_t maxMaskLen(const vector<hwlmLiteral> &lits) {
     size_t rv = 0;
-    vector<hwlmLiteral>::const_iterator it, ite;
-    for (it = lits.begin(), ite = lits.end(); it != ite; ++it) {
-        rv = max(rv, it->msk.size());
+    for (const auto &lit : lits) {
+        rv = max(rv, lit.msk.size());
     }
     return rv;
 }
 
-pair<u8 *, size_t>
+pair<aligned_unique_ptr<u8>, size_t>
 fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
-                       hwlmStreamingControl *stream_control) {
+                       hwlmStreamingControl &stream_control) {
     // refuse to compile if we are forced to have smaller than minimum
     // history required for long-literal support, full stop
     // otherwise, choose the maximum of the preferred history quantity
     // (currently a fairly extravagant 32) or the already used history
-    // quantity - subject to the limitation of stream_control->history_max
+    // quantity - subject to the limitation of stream_control.history_max
 
     const size_t MIN_HISTORY_REQUIRED = 32;
 
-    if (MIN_HISTORY_REQUIRED > stream_control->history_max) {
+    if (MIN_HISTORY_REQUIRED > stream_control.history_max) {
         throw std::logic_error("Cannot set history to minimum history required");
     }
 
     size_t max_len =
-        MIN(stream_control->history_max,
-            MAX(MIN_HISTORY_REQUIRED, stream_control->history_min));
+        MIN(stream_control.history_max,
+            MAX(MIN_HISTORY_REQUIRED, stream_control.history_min));
     assert(max_len >= MIN_HISTORY_REQUIRED);
     size_t max_mask_len = maxMaskLen(lits);
 
@@ -334,10 +317,10 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
 
         // we want enough history to manage the longest literal and the longest
         // mask.
-        stream_control->literal_history_required =
+        stream_control.literal_history_required =
                     max(maxLen(lits), max_mask_len) - 1;
-        stream_control->literal_stream_state_required = 0;
-        return make_pair(nullptr, size_t{0});
+        stream_control.literal_stream_state_required = 0;
+        return {nullptr, size_t{0}};
     }
 
     // Ensure that we have enough room for the longest mask.
@@ -381,11 +364,11 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
     streamBits[CASELESS] = lg2(roundUpToPowerOfTwo(positions[CASELESS] + 2));
     u32 tot_state_bytes = (streamBits[CASEFUL] + streamBits[CASELESS] + 7) / 8;
 
-    u8 * secondaryTable = (u8 *)aligned_zmalloc(tabSize);
+    auto secondaryTable = aligned_zmalloc_unique<u8>(tabSize);
     assert(secondaryTable); // otherwise would have thrown std::bad_alloc
 
     // then fill it in
-    u8 * ptr = secondaryTable;
+    u8 * ptr = secondaryTable.get();
     FDRSTableHeader * header = (FDRSTableHeader *)ptr;
     // fill in header
     header->pseudoEngineID = (u32)0xffffffff;
@@ -407,11 +390,9 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
     ptr += litTabSize;
 
     map<u32, u32> litToOffsetVal;
-    for (vector<hwlmLiteral>::const_iterator i = long_lits.begin(),
-                                             e = long_lits.end();
-         i != e; ++i) {
+    for (auto i = long_lits.begin(), e = long_lits.end(); i != e; ++i) {
         u32 entry = verify_u32(i - long_lits.begin());
-        u32 offset = verify_u32(ptr - secondaryTable);
+        u32 offset = verify_u32(ptr - secondaryTable.get());
 
         // point the table entry to the string location
         litTabPtr[entry].offset = offset;
@@ -425,20 +406,20 @@ fdrBuildTableStreaming(const vector<hwlmLiteral> &lits,
     }
 
     // fill in final lit table entry with current ptr (serves as end value)
-    litTabPtr[long_lits.size()].offset = verify_u32(ptr - secondaryTable);
+    litTabPtr[long_lits.size()].offset = verify_u32(ptr - secondaryTable.get());
 
     // fill hash tables
-    ptr = secondaryTable + htOffset[CASEFUL];
+    ptr = secondaryTable.get() + htOffset[CASEFUL];
     for (u32 m = CASEFUL; m < MAX_MODES; ++m) {
         fillHashes(long_lits, max_len, (FDRSHashEntry *)ptr, hashEntries[m],
-                   (MODES)m, litToOffsetVal);
+                   (Modes)m, litToOffsetVal);
         ptr += htSize[m];
     }
 
     // tell the world what we did
-    stream_control->literal_history_required = max_len;
-    stream_control->literal_stream_state_required = tot_state_bytes;
-    return make_pair(secondaryTable, tabSize);
+    stream_control.literal_history_required = max_len;
+    stream_control.literal_stream_state_required = tot_state_bytes;
+    return {move(secondaryTable), tabSize};
 }
 
 } // namespace ue2

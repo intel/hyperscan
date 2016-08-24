@@ -173,34 +173,54 @@ void mergeAnchoredDfas(vector<unique_ptr<raw_dfa>> &dfas,
 }
 
 static
-void translateReportSet(flat_set<ReportID> *rset, const RoseBuildImpl &tbi) {
-    flat_set<ReportID> old;
-    old.swap(*rset);
-    for (auto report_id : old) {
-        DEBUG_PRINTF("updating %u -> %u\n", report_id,
-                     tbi.literal_info[report_id].final_id);
-        rset->insert(tbi.literal_info[report_id].final_id);
-    }
-}
-
-static
-void remapAnchoredReports(raw_dfa &dfa, const RoseBuildImpl &tbi) {
-    for (dstate &ds : dfa.states) {
-        translateReportSet(&ds.reports, tbi);
-        translateReportSet(&ds.reports_eod, tbi);
-    }
-}
-
-/* Replaces the report ids currently in the dfas (rose graph literal ids) with
- * the final id used by the runtime. */
-static
-void remapAnchoredReports(RoseBuildImpl &tbi) {
-    for (auto it = tbi.anchored_nfas.begin(); it != tbi.anchored_nfas.end();
-         ++it) {
-        for (auto &rdfa : it->second) {
-            assert(rdfa);
-            remapAnchoredReports(*rdfa, tbi);
+void remapAnchoredReports(raw_dfa &rdfa, const RoseBuildImpl &build) {
+    for (dstate &ds : rdfa.states) {
+        assert(ds.reports_eod.empty()); // Not used in anchored matcher.
+        if (ds.reports.empty()) {
+            continue;
         }
+
+        flat_set<ReportID> new_reports;
+        for (auto id : ds.reports) {
+            assert(id < build.literal_info.size());
+            new_reports.insert(build.literal_info.at(id).final_id);
+        }
+        ds.reports = move(new_reports);
+    }
+}
+
+/**
+ * \brief Replaces the report ids currently in the dfas (rose graph literal
+ * ids) with the final id for each literal.
+ */
+static
+void remapAnchoredReports(RoseBuildImpl &build) {
+    for (auto &m : build.anchored_nfas) {
+        for (auto &rdfa : m.second) {
+            assert(rdfa);
+            remapAnchoredReports(*rdfa, build);
+        }
+    }
+}
+
+/**
+ * \brief Replace the reports (which are literal final_ids) in the given
+ * raw_dfa with program offsets.
+ */
+static
+void remapIdsToPrograms(raw_dfa &rdfa, const vector<u32> &litPrograms) {
+    for (dstate &ds : rdfa.states) {
+        assert(ds.reports_eod.empty()); // Not used in anchored matcher.
+        if (ds.reports.empty()) {
+            continue;
+        }
+
+        flat_set<ReportID> new_reports;
+        for (auto id : ds.reports) {
+            assert(id < litPrograms.size());
+            new_reports.insert(litPrograms.at(id));
+        }
+        ds.reports = move(new_reports);
     }
 }
 
@@ -476,7 +496,7 @@ NFAVertex extractLiteral(const NGHolder &h, ue2_literal *lit) {
     }
 
     if (lit_verts.empty()) {
-        return NFAGraph::null_vertex();
+        return NGHolder::null_vertex();
     }
 
     bool nocase = false;
@@ -488,7 +508,7 @@ NFAVertex extractLiteral(const NGHolder &h, ue2_literal *lit) {
         if (cr.isAlpha()) {
             bool cr_nocase = cr.count() != 1;
             if (case_set && cr_nocase != nocase) {
-                return NFAGraph::null_vertex();
+                return NGHolder::null_vertex();
             }
 
             case_set = true;
@@ -511,7 +531,7 @@ bool isSimple(const NGHolder &h, u32 *min_bound, u32 *max_bound,
     DEBUG_PRINTF("looking for simple case\n");
     NFAVertex lit_head = extractLiteral(h, lit);
 
-    if (lit_head == NFAGraph::null_vertex()) {
+    if (lit_head == NGHolder::null_vertex()) {
         DEBUG_PRINTF("no literal found\n");
         return false;
     }
@@ -826,13 +846,17 @@ vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build) {
 
 aligned_unique_ptr<anchored_matcher_info>
 buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
-                     size_t *asize) {
+                     const vector<u32> &litPrograms, size_t *asize) {
     const CompileContext &cc = build.cc;
 
     if (dfas.empty()) {
         DEBUG_PRINTF("empty\n");
         *asize = 0;
         return nullptr;
+    }
+
+    for (auto &rdfa : dfas) {
+        remapIdsToPrograms(rdfa, litPrograms);
     }
 
     vector<aligned_unique_ptr<NFA>> nfas;

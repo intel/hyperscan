@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -267,7 +267,8 @@ void dumpDotPreambleDfa(FILE *f) {
     fprintf(f, "0 [style=invis];\n");
 }
 
-void nfaExecMcClellan16_dumpDot(const NFA *nfa, FILE *f) {
+void nfaExecMcClellan16_dumpDot(const NFA *nfa, FILE *f,
+                                UNUSED const string &base) {
     assert(nfa->type == MCCLELLAN_NFA_16);
     const mcclellan *m = (const mcclellan *)getImplNfa(nfa);
 
@@ -286,7 +287,8 @@ void nfaExecMcClellan16_dumpDot(const NFA *nfa, FILE *f) {
     fprintf(f, "}\n");
 }
 
-void nfaExecMcClellan8_dumpDot(const NFA *nfa, FILE *f) {
+void nfaExecMcClellan8_dumpDot(const NFA *nfa, FILE *f,
+                               UNUSED const string &base) {
     assert(nfa->type == MCCLELLAN_NFA_8);
     const mcclellan *m = (const mcclellan *)getImplNfa(nfa);
 

@@ -82,7 +82,7 @@ private:
     void increment() { ++it; }
     void decrement() { --it; }
     void advance(size_t n) { it += n; }
-    typename WrappedIter::difference_type
+    typename std::iterator_traits<WrappedIter>::difference_type
     distance_to(const iter_wrapper &other) const {
         return other.it - it;
     }

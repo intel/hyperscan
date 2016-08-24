@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,9 @@
 #include "test_util.h"
 
 #include <cstdlib>
+#include <string>
+
+using std::string;
 
 static void *null_malloc(size_t) { return nullptr; }
 
@@ -79,6 +82,22 @@ TEST(CustomAllocator, TwoAlignedCompile) {
     ASSERT_EQ(HS_COMPILER_ERROR, err);
     ASSERT_EQ(nullptr, db);
     ASSERT_NE(nullptr, compile_err);
+    hs_free_compile_error(compile_err);
+    hs_set_database_allocator(nullptr, nullptr);
+}
+
+TEST(CustomAllocator, TwoAlignedCompileError) {
+    hs_set_misc_allocator(two_aligned_malloc, two_aligned_free);
+
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *compile_err = nullptr;
+    const hs_platform_info_t *platform = nullptr;
+    hs_error_t err =
+        hs_compile("\\1", 0, HS_MODE_BLOCK, platform, &db, &compile_err);
+    ASSERT_EQ(HS_COMPILER_ERROR, err);
+    ASSERT_EQ(nullptr, db);
+    ASSERT_NE(nullptr, compile_err);
+    EXPECT_STREQ("Allocator returned misaligned memory.", compile_err->message);
     hs_free_compile_error(compile_err);
     hs_set_database_allocator(nullptr, nullptr);
 }
@@ -148,4 +167,31 @@ TEST(CustomAllocator, TwoAlignedAllocScratch) {
 
     hs_set_scratch_allocator(nullptr, nullptr);
     hs_free_database(db);
+}
+
+TEST(CustomAllocator, NullMallocExpressionInfo) {
+    hs_set_allocator(null_malloc, nullptr);
+
+    string pattern = "foobar";
+    hs_expr_info_t *info = nullptr;
+    hs_compile_error_t *c_err = nullptr;
+    hs_error_t err = hs_expression_info(pattern.c_str(), 0, &info, &c_err);
+    ASSERT_EQ(HS_COMPILER_ERROR, err);
+    ASSERT_NE(nullptr, c_err);
+    hs_free_compile_error(c_err);
+    hs_set_allocator(nullptr, nullptr);
+}
+
+TEST(CustomAllocator, TwoAlignedExpressionInfo) {
+    hs_set_misc_allocator(two_aligned_malloc, two_aligned_free);
+
+    string pattern = "\\1";
+    hs_expr_info_t *info = nullptr;
+    hs_compile_error_t *c_err = nullptr;
+    hs_error_t err = hs_expression_info(pattern.c_str(), 0, &info, &c_err);
+    ASSERT_EQ(HS_COMPILER_ERROR, err);
+    ASSERT_NE(nullptr, c_err);
+    EXPECT_STREQ("Allocator returned misaligned memory.", c_err->message);
+    hs_free_compile_error(c_err);
+    hs_set_allocator(nullptr, nullptr);
 }

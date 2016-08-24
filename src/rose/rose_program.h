@@ -50,9 +50,12 @@ enum RoseInstructionCode {
     ROSE_INSTR_CHECK_BOUNDS,      //!< Bounds on distance from offset 0.
     ROSE_INSTR_CHECK_NOT_HANDLED, //!< Test & set role in "handled".
     ROSE_INSTR_CHECK_LOOKAROUND,  //!< Lookaround check.
+    ROSE_INSTR_CHECK_MASK,        //!< 8-bytes mask check.
+    ROSE_INSTR_CHECK_BYTE,        //!< Single Byte check.
     ROSE_INSTR_CHECK_INFIX,       //!< Infix engine must be in accept state.
     ROSE_INSTR_CHECK_PREFIX,      //!< Prefix engine must be in accept state.
     ROSE_INSTR_PUSH_DELAYED,      //!< Push delayed literal matches.
+    ROSE_INSTR_RECORD_ANCHORED,   //!< Record an anchored literal match.
     ROSE_INSTR_CATCH_UP,          //!< Catch up engines, anchored matches.
     ROSE_INSTR_CATCH_UP_MPV,      //!< Catch up the MPV.
     ROSE_INSTR_SOM_ADJUST,        //!< Set SOM from a distance to EOM.
@@ -96,6 +99,17 @@ enum RoseInstructionCode {
     ROSE_INSTR_CHECK_STATE,       //!< Test a single bit in the state multibit.
     ROSE_INSTR_SPARSE_ITER_BEGIN, //!< Begin running a sparse iter over states.
     ROSE_INSTR_SPARSE_ITER_NEXT,  //!< Continue running sparse iter over states.
+
+    /** \brief Check outfixes and suffixes for EOD and fire reports if so. */
+    ROSE_INSTR_ENGINES_EOD,
+
+    /** \brief Catch up and check active suffixes for EOD and fire reports if
+     * so. */
+    ROSE_INSTR_SUFFIXES_EOD,
+
+    /** \brief Run the EOD-anchored HWLM literal matcher. */
+    ROSE_INSTR_MATCHER_EOD,
+
     ROSE_INSTR_END                //!< End of program.
 };
 
@@ -120,6 +134,7 @@ struct ROSE_STRUCT_CHECK_LIT_MASK {
 /** Note: check failure will halt program. */
 struct ROSE_STRUCT_CHECK_LIT_EARLY {
     u8 code; //!< From enum RoseInstructionCode.
+    u32 min_offset; //!< Minimum offset for this literal.
 };
 
 /** Note: check failure will halt program. */
@@ -153,6 +168,24 @@ struct ROSE_STRUCT_CHECK_LOOKAROUND {
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
+struct ROSE_STRUCT_CHECK_MASK {
+    u8 code; //!< From enum roseInstructionCode.
+    u64a and_mask; //!< 64-bits and mask.
+    u64a cmp_mask; //!< 64-bits cmp mask.
+    u64a neg_mask; //!< 64-bits negation mask.
+    s32 offset; //!< Relative offset of the first byte.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_BYTE {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 and_mask; //!< 8-bits and mask.
+    u8 cmp_mask; //!< 8-bits cmp mask.
+    u8 negation; //!< Flag about negation.
+    s32 offset; //!< The relative offset.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
 struct ROSE_STRUCT_CHECK_INFIX {
     u8 code; //!< From enum RoseInstructionCode.
     u32 queue; //!< Queue of leftfix to check.
@@ -173,6 +206,11 @@ struct ROSE_STRUCT_PUSH_DELAYED {
     u8 code; //!< From enum RoseInstructionCode.
     u8 delay; // Number of bytes to delay.
     u32 index; // Delay literal index (relative to first delay lit).
+};
+
+struct ROSE_STRUCT_RECORD_ANCHORED {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 id; //!< Literal ID.
 };
 
 struct ROSE_STRUCT_CATCH_UP {
@@ -349,6 +387,19 @@ struct ROSE_STRUCT_SPARSE_ITER_NEXT {
     u32 jump_table; //!< Offset of jump table indexed by sparse iterator.
     u32 state; // Current state index.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_ENGINES_EOD {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 iter_offset; //!< Offset of mmbit_sparse_iter structure.
+};
+
+struct ROSE_STRUCT_SUFFIXES_EOD {
+    u8 code; //!< From enum RoseInstructionCode.
+};
+
+struct ROSE_STRUCT_MATCHER_EOD {
+    u8 code; //!< From enum RoseInstructionCode.
 };
 
 struct ROSE_STRUCT_END {

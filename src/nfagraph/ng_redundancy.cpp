@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -158,7 +158,7 @@ void populateContainers(const NGHolder &g, VertexInfoMap &infoMap) {
 static
 void inplaceIntersection(vector<NFAVertex> &vset1,
                          const flat_set<NFAVertex> &vset2) {
-    const NFAVertex GONE = NFAGraph::null_vertex();
+    const NFAVertex GONE = NGHolder::null_vertex();
 
     vector<NFAVertex>::iterator it = vset1.begin(), ite = vset1.end();
     flat_set<NFAVertex>::const_iterator jt = vset2.begin(), jte = vset2.end();

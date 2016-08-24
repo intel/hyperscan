@@ -31,14 +31,15 @@
 
 #include "grey.h"
 #include "compiler/compiler.h"
-#include "nfagraph/ng.h"
-#include "nfagraph/ng_limex.h"
-#include "nfagraph/ng_restructuring.h"
 #include "nfa/limex_context.h"
 #include "nfa/limex_internal.h"
 #include "nfa/nfa_api.h"
 #include "nfa/nfa_api_util.h"
 #include "nfa/nfa_internal.h"
+#include "nfagraph/ng.h"
+#include "nfagraph/ng_limex.h"
+#include "nfagraph/ng_restructuring.h"
+#include "nfagraph/ng_util.h"
 #include "util/alloc.h"
 #include "util/target_info.h"
 
@@ -51,7 +52,7 @@ static const string SCAN_DATA = "___foo______\n___foofoo_foo_^^^^^^^^^^^^^^^^^^"
 static const u32 MATCH_REPORT = 1024;
 
 static
-int onMatch(u64a, ReportID, void *ctx) {
+int onMatch(u64a, u64a, ReportID, void *ctx) {
     unsigned *matches = (unsigned *)ctx;
     (*matches)++;
     return MO_CONTINUE_MATCHING;
@@ -76,6 +77,7 @@ protected:
         ParsedExpression parsed(0, expr.c_str(), flags, 0);
         unique_ptr<NGWrapper> g = buildWrapper(rm, cc, parsed);
         ASSERT_TRUE(g != nullptr);
+        clearReports(*g);
 
         rm.setProgramOffset(0, MATCH_REPORT);
 
@@ -102,9 +104,9 @@ protected:
         q.length = SCAN_DATA.size();
         q.history = nullptr;
         q.hlength = 0;
+        q.scratch = nullptr; /* limex does not use scratch */
         q.report_current = 0;
         q.cb = onMatch;
-        q.som_cb = nullptr; // only used by Haig
         q.context = &matches;
     }
 
@@ -129,7 +131,7 @@ protected:
 
 INSTANTIATE_TEST_CASE_P(
     LimEx, LimExModelTest,
-    Range((int)LIMEX_NFA_32_1, (int)LIMEX_NFA_512_7));
+    Range((int)LIMEX_NFA_32, (int)LIMEX_NFA_512));
 
 TEST_P(LimExModelTest, StateSize) {
     ASSERT_TRUE(nfa != nullptr);
@@ -292,8 +294,7 @@ TEST_P(LimExModelTest, CheckFinalState) {
 
     // Check for EOD matches.
     char rv = nfaCheckFinalState(nfa.get(), full_state.get(),
-                                 stream_state.get(), end, onMatch, nullptr,
-                                 &matches);
+                                 stream_state.get(), end, onMatch, &matches);
     ASSERT_EQ(MO_CONTINUE_MATCHING, rv);
 }
 
@@ -311,14 +312,14 @@ protected:
         ParsedExpression parsed(0, expr.c_str(), flags, 0);
         unique_ptr<NGWrapper> g = buildWrapper(rm, cc, parsed);
         ASSERT_TRUE(g != nullptr);
+        clearReports(*g);
 
         // Reverse the graph and add some reports on the accept vertices.
         NGHolder g_rev(NFA_REV_PREFIX);
         reverseHolder(*g, g_rev);
-        NFAGraph::inv_adjacency_iterator ai, ae;
-        for (tie(ai, ae) = inv_adjacent_vertices(g_rev.accept, g_rev); ai != ae;
-             ++ai) {
-            g_rev[*ai].reports.insert(0);
+        clearReports(g_rev);
+        for (NFAVertex v : inv_adjacent_vertices_range(g_rev.accept, g_rev)) {
+            g_rev[v].reports.insert(0);
         }
 
         nfa = constructReversedNFA(g_rev, type, cc);
@@ -336,7 +337,7 @@ protected:
 };
 
 INSTANTIATE_TEST_CASE_P(LimExReverse, LimExReverseTest,
-                        Range((int)LIMEX_NFA_32_1, (int)LIMEX_NFA_512_7));
+                        Range((int)LIMEX_NFA_32, (int)LIMEX_NFA_512));
 
 TEST_P(LimExReverseTest, BlockExecReverse) {
     ASSERT_TRUE(nfa != nullptr);
@@ -370,6 +371,7 @@ protected:
         ReportManager rm(cc.grey);
         unique_ptr<NGWrapper> g = buildWrapper(rm, cc, parsed);
         ASSERT_TRUE(g != nullptr);
+        clearReports(*g);
 
         rm.setProgramOffset(0, MATCH_REPORT);
 
@@ -396,9 +398,9 @@ protected:
         q.length = ZOMBIE_SCAN_DATA.length();
         q.history = nullptr;
         q.hlength = 0;
+        q.scratch = nullptr; /* limex does not use scratch */
         q.report_current = 0;
         q.cb = onMatch;
-        q.som_cb = nullptr; // only used by Haig
         q.context = &matches;
     }
 
@@ -422,7 +424,7 @@ protected:
 };
 
 INSTANTIATE_TEST_CASE_P(LimExZombie, LimExZombieTest,
-                        Range((int)LIMEX_NFA_32_1, (int)LIMEX_NFA_512_7));
+                        Range((int)LIMEX_NFA_32, (int)LIMEX_NFA_512));
 
 TEST_P(LimExZombieTest, GetZombieStatus) {
     ASSERT_TRUE(nfa != nullptr);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,66 +26,24 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- * \brief Naive dynamic shuffles.
- *
- * These are written with the assumption that the provided masks are sparsely
- * populated and never contain more than 32 on bits. Other implementations will
- * be faster and actually correct if these assumptions don't hold true.
- */
+#ifndef SHENGDUMP_H_
+#define SHENGDUMP_H_
 
-#ifndef SHUFFLE_H
-#define SHUFFLE_H
+#ifdef DUMP_SUPPORT
 
-#include "config.h"
-#include "bitutils.h"
-#include "simd_utils.h"
-#include "ue2common.h"
+#include <cstdio>
+#include <string>
 
-#if defined(__BMI2__) || (defined(_WIN32) && defined(__AVX2__))
-#define HAVE_PEXT
-#endif
+struct NFA;
 
-static really_inline
-u32 shuffleDynamic32(u32 x, u32 mask) {
-#if defined(HAVE_PEXT)
-    // Intel BMI2 can do this operation in one instruction.
-    return _pext_u32(x, mask);
-#else
+namespace ue2 {
 
-    u32 result = 0, num = 1;
-    while (mask != 0) {
-        u32 bit = findAndClearLSB_32(&mask);
-        if (x & (1U << bit)) {
-            assert(num != 0); // more than 32 bits!
-            result |= num;
-        }
-        num <<= 1;
-    }
-    return result;
-#endif
-}
+void nfaExecSheng0_dumpDot(const struct NFA *nfa, FILE *file,
+                           const std::string &base);
+void nfaExecSheng0_dumpText(const struct NFA *nfa, FILE *file);
 
-static really_inline
-u32 shuffleDynamic64(u64a x, u64a mask) {
-#if defined(HAVE_PEXT) && defined(ARCH_64_BIT)
-    // Intel BMI2 can do this operation in one instruction.
-    return _pext_u64(x, mask);
-#else
+} // namespace ue2
 
-    u32 result = 0, num = 1;
-    while (mask != 0) {
-        u32 bit = findAndClearLSB_64(&mask);
-        if (x & (1ULL << bit)) {
-            assert(num != 0); // more than 32 bits!
-            result |= num;
-        }
-        num <<= 1;
-    }
-    return result;
-#endif
-}
+#endif // DUMP_SUPPORT
 
-#undef HAVE_PEXT
-
-#endif // SHUFFLE_H
+#endif /* SHENGDUMP_H_ */

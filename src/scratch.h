@@ -45,7 +45,7 @@ extern "C"
 #endif
 
 UNUSED static const u32 SCRATCH_MAGIC = 0x544F4259;
-#define FDR_TEMP_BUF_SIZE 200
+#define FDR_TEMP_BUF_SIZE 220
 
 struct fatbit;
 struct hs_scratch;
@@ -141,7 +141,6 @@ struct match_deduper {
 struct ALIGN_CL_DIRECTIVE hs_scratch {
     u32 magic;
     u8 in_use; /**< non-zero when being used by an API call. */
-    char *scratch_alloc; /* user allocated scratch object */
     u32 queueCount;
     u32 bStateSize; /**< sizeof block mode states */
     u32 tStateSize; /**< sizeof transient rose states */
@@ -161,10 +160,6 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     struct match_deduper deduper;
     u32 anchored_literal_region_len;
     u32 anchored_literal_count;
-    u32 delay_count;
-    u32 scratchSize;
-    u8 ALIGN_DIRECTIVE fdr_temp_buf[FDR_TEMP_BUF_SIZE];
-    u32 handledKeyCount;
     struct fatbit *handled_roles; /**< fatbit of ROLES (not states) already
                                    * handled by this literal */
     u64a *som_store; /**< array of som locations */
@@ -176,6 +171,11 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
                             * location had been writable */
     u64a som_set_now_offset; /**< offset at which som_set_now represents */
     u32 som_store_count;
+    u32 handledKeyCount;
+    u32 delay_count;
+    u32 scratchSize;
+    char *scratch_alloc; /* user allocated scratch object */
+    u8 ALIGN_DIRECTIVE fdr_temp_buf[FDR_TEMP_BUF_SIZE];
 };
 
 /* array of fatbit ptr; TODO: why not an array of fatbits? */

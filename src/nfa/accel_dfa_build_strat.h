@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,15 +26,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "simd_utils_ssse3.h"
+#ifndef ACCEL_DFA_BUILD_STRAT_H
+#define ACCEL_DFA_BUILD_STRAT_H
 
-const char vbs_mask_data[] ALIGN_CL_DIRECTIVE = {
-    0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0,
-    0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0,
+#include "rdfa.h"
+#include "dfa_build_strat.h"
+#include "ue2common.h"
+#include "util/accel_scheme.h"
 
-    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-    0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+#include <map>
 
-    0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0,
-    0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0,
+namespace ue2 {
+
+class ReportManager;
+struct Grey;
+
+class accel_dfa_build_strat : public dfa_build_strat {
+public:
+    explicit accel_dfa_build_strat(const ReportManager &rm_in)
+        : dfa_build_strat(rm_in) {}
+    virtual AccelScheme find_escape_strings(dstate_id_t this_idx) const;
+    virtual size_t accelSize(void) const = 0;
+    virtual u32 max_allowed_offset_accel() const = 0;
+    virtual u32 max_stop_char() const = 0;
+    virtual u32 max_floating_stop_char() const = 0;
+    virtual void buildAccel(dstate_id_t this_idx, const AccelScheme &info,
+                            void *accel_out);
+    virtual std::map<dstate_id_t, AccelScheme> getAccelInfo(const Grey &grey);
 };
+
+} // namespace ue2
+
+#endif // ACCEL_DFA_BUILD_STRAT_H

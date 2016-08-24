@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,12 +42,16 @@ using std::string;
 
 static const char failureNoMemory[] = "Unable to allocate memory.";
 static const char failureInternal[] = "Internal error.";
+static const char failureBadAlloc[] = "Allocator returned misaligned memory.";
 
 extern const hs_compile_error_t hs_enomem = {
     const_cast<char *>(failureNoMemory), 0
 };
 extern const hs_compile_error_t hs_einternal = {
     const_cast<char *>(failureInternal), 0
+};
+extern const hs_compile_error_t hs_badalloc = {
+    const_cast<char *>(failureBadAlloc), 0
 };
 
 namespace ue2 {
@@ -56,8 +60,18 @@ hs_compile_error_t *generateCompileError(const string &err, int expression) {
     hs_compile_error_t *ret =
         (struct hs_compile_error *)hs_misc_alloc(sizeof(hs_compile_error_t));
     if (ret) {
+        hs_error_t e = hs_check_alloc(ret);
+        if (e != HS_SUCCESS) {
+            hs_misc_free(ret);
+            return const_cast<hs_compile_error_t *>(&hs_badalloc);
+        }
         char *msg = (char *)hs_misc_alloc(err.size() + 1);
         if (msg) {
+            e = hs_check_alloc(msg);
+            if (e != HS_SUCCESS) {
+                hs_misc_free(msg);
+                return const_cast<hs_compile_error_t *>(&hs_badalloc);
+            }
             memcpy(msg, err.c_str(), err.size() + 1);
             ret->message = msg;
         } else {
@@ -83,7 +97,8 @@ void freeCompileError(hs_compile_error_t *error) {
     if (!error) {
         return;
     }
-    if (error == &hs_enomem || error == &hs_einternal) {
+    if (error == &hs_enomem || error == &hs_einternal ||
+        error == &hs_badalloc) {
         // These are not allocated.
         return;
     }

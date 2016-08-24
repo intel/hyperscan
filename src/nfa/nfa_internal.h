@@ -51,41 +51,11 @@ extern "C"
 // Common data structures for NFAs
 
 enum NFAEngineType {
-    LIMEX_NFA_32_1,
-    LIMEX_NFA_32_2,
-    LIMEX_NFA_32_3,
-    LIMEX_NFA_32_4,
-    LIMEX_NFA_32_5,
-    LIMEX_NFA_32_6,
-    LIMEX_NFA_32_7,
-    LIMEX_NFA_128_1,
-    LIMEX_NFA_128_2,
-    LIMEX_NFA_128_3,
-    LIMEX_NFA_128_4,
-    LIMEX_NFA_128_5,
-    LIMEX_NFA_128_6,
-    LIMEX_NFA_128_7,
-    LIMEX_NFA_256_1,
-    LIMEX_NFA_256_2,
-    LIMEX_NFA_256_3,
-    LIMEX_NFA_256_4,
-    LIMEX_NFA_256_5,
-    LIMEX_NFA_256_6,
-    LIMEX_NFA_256_7,
-    LIMEX_NFA_384_1,
-    LIMEX_NFA_384_2,
-    LIMEX_NFA_384_3,
-    LIMEX_NFA_384_4,
-    LIMEX_NFA_384_5,
-    LIMEX_NFA_384_6,
-    LIMEX_NFA_384_7,
-    LIMEX_NFA_512_1,
-    LIMEX_NFA_512_2,
-    LIMEX_NFA_512_3,
-    LIMEX_NFA_512_4,
-    LIMEX_NFA_512_5,
-    LIMEX_NFA_512_6,
-    LIMEX_NFA_512_7,
+    LIMEX_NFA_32,
+    LIMEX_NFA_128,
+    LIMEX_NFA_256,
+    LIMEX_NFA_384,
+    LIMEX_NFA_512,
     MCCLELLAN_NFA_8,    /**< magic pseudo nfa */
     MCCLELLAN_NFA_16,   /**< magic pseudo nfa */
     GOUGH_NFA_8,        /**< magic pseudo nfa */
@@ -97,6 +67,8 @@ enum NFAEngineType {
     LBR_NFA_Shuf,       /**< magic pseudo nfa */
     LBR_NFA_Truf,       /**< magic pseudo nfa */
     CASTLE_NFA_0,       /**< magic pseudo nfa */
+    SHENG_NFA_0,        /**< magic pseudo nfa */
+    TAMARAMA_NFA_0,     /**< magic nfa container */
     /** \brief bogus NFA - not used */
     INVALID_NFA
 };
@@ -175,50 +147,27 @@ static really_inline int isGoughType(u8 t) {
     return t == GOUGH_NFA_8 || t == GOUGH_NFA_16;
 }
 
-/** \brief True if the given type (from NFA::type) is a McClellan or Gough DFA.
- * */
+/** \brief True if the given type (from NFA::type) is a Sheng DFA. */
+static really_inline int isShengType(u8 t) {
+    return t == SHENG_NFA_0;
+}
+
+/**
+ * \brief True if the given type (from NFA::type) is a McClellan, Gough or
+ * Sheng DFA.
+ */
 static really_inline int isDfaType(u8 t) {
-    return isMcClellanType(t) || isGoughType(t);
+    return isMcClellanType(t) || isGoughType(t) || isShengType(t);
 }
 
 /** \brief True if the given type (from NFA::type) is an NFA. */
 static really_inline int isNfaType(u8 t) {
     switch (t) {
-    case LIMEX_NFA_32_1:
-    case LIMEX_NFA_32_2:
-    case LIMEX_NFA_32_3:
-    case LIMEX_NFA_32_4:
-    case LIMEX_NFA_32_5:
-    case LIMEX_NFA_32_6:
-    case LIMEX_NFA_32_7:
-    case LIMEX_NFA_128_1:
-    case LIMEX_NFA_128_2:
-    case LIMEX_NFA_128_3:
-    case LIMEX_NFA_128_4:
-    case LIMEX_NFA_128_5:
-    case LIMEX_NFA_128_6:
-    case LIMEX_NFA_128_7:
-    case LIMEX_NFA_256_1:
-    case LIMEX_NFA_256_2:
-    case LIMEX_NFA_256_3:
-    case LIMEX_NFA_256_4:
-    case LIMEX_NFA_256_5:
-    case LIMEX_NFA_256_6:
-    case LIMEX_NFA_256_7:
-    case LIMEX_NFA_384_1:
-    case LIMEX_NFA_384_2:
-    case LIMEX_NFA_384_3:
-    case LIMEX_NFA_384_4:
-    case LIMEX_NFA_384_5:
-    case LIMEX_NFA_384_6:
-    case LIMEX_NFA_384_7:
-    case LIMEX_NFA_512_1:
-    case LIMEX_NFA_512_2:
-    case LIMEX_NFA_512_3:
-    case LIMEX_NFA_512_4:
-    case LIMEX_NFA_512_5:
-    case LIMEX_NFA_512_6:
-    case LIMEX_NFA_512_7:
+    case LIMEX_NFA_32:
+    case LIMEX_NFA_128:
+    case LIMEX_NFA_256:
+    case LIMEX_NFA_384:
+    case LIMEX_NFA_512:
         return 1;
     default:
         break;
@@ -231,6 +180,12 @@ static really_inline
 int isLbrType(u8 t) {
     return t == LBR_NFA_Dot || t == LBR_NFA_Verm || t == LBR_NFA_NVerm ||
            t == LBR_NFA_Shuf || t == LBR_NFA_Truf;
+}
+
+/** \brief True if the given type (from NFA::type) is a container engine. */
+static really_inline
+int isContainerType(u8 t) {
+    return t == TAMARAMA_NFA_0;
 }
 
 static really_inline

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,6 @@
 #include "rose_internal.h"
 #include "nfa/nfa_api_queue.h"
 #include "util/simd_utils.h"
-#include "util/simd_utils_ssse3.h"
 
 /** \brief Maximum number of bytes to scan when looking for a "counting miracle"
  * stop character. */
@@ -83,7 +82,7 @@ char roseCountingMiracleScan(u8 c, const u8 *d, const u8 *d_end,
 }
 
 #define GET_LO_4(chars) and128(chars, low4bits)
-#define GET_HI_4(chars) rshift2x64(andnot128(low4bits, chars), 4)
+#define GET_HI_4(chars) rshift64_m128(andnot128(low4bits, chars), 4)
 
 static really_inline
 u32 roseCountingMiracleScanShufti(m128 mask_lo, m128 mask_hi, u8 poison,

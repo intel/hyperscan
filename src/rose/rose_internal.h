@@ -144,6 +144,7 @@ struct LeftNfaInfo {
     u32 stopTable; // stop table index, or ROSE_OFFSET_INVALID
     u8 transient; /**< 0 if not transient, else max width of transient prefix */
     char infix; /* TODO: make flags */
+    char eager; /**< nfa should be run eagerly to first match or death */
     char eod_check; /**< nfa is used by the event eod literal */
     u32 countingMiracleOffset; /** if not 0, offset to RoseCountingMiracle. */
     rose_group squash_mask; /* & mask applied when rose nfa dies */
@@ -155,8 +156,6 @@ struct NfaInfo {
     u32 fullStateOffset; /* offset in scratch, relative to ??? */
     u32 ekeyListOffset; /* suffix, relative to base of rose, 0 if no ekeys */
     u8 no_retrigger; /* TODO */
-    u8 only_external; /**< does not raise any som internal events or chained
-                       * rose events */
     u8 in_sbmatcher;  /**< this outfix should not be run in small-block
                        * execution, as it will be handled by the sbmatcher
                        * HWLM table. */
@@ -348,10 +347,15 @@ struct RoseEngine {
      * literals. */
     u32 litDelayRebuildProgramOffset;
 
-    /** \brief Offset of u32 array of program offsets for internal reports. */
+    /**
+     * \brief Offset of u32 array of program offsets for reports used by
+     * output-exposed engines.
+     */
     u32 reportProgramOffset;
 
-    /** \brief Number of programs for internal reports. */
+    /**
+     * \brief Number of programs for reports used by output-exposed engines.
+     */
     u32 reportProgramCount;
 
     /**
@@ -366,6 +370,9 @@ struct RoseEngine {
     u32 activeLeftCount; //number of nfas tracked in the active rose array
     u32 queueCount;      /**< number of nfa queues */
 
+    u32 eagerIterOffset; /**< offset to sparse iter for eager prefixes or 0 if
+                          * none */
+
     /** \brief Number of keys used by CHECK_SET_HANDLED instructions in role
      * programs. Used to size the handled_roles fatbit in scratch. */
     u32 handledKeyCount;
@@ -376,12 +383,7 @@ struct RoseEngine {
     u32 lookaroundReachOffset; /**< base of lookaround reach bitvectors (32
                                 * bytes each) */
 
-    u32 eodProgramOffset; //!< Unconditional EOD program, otherwise 0.
-    u32 eodIterProgramOffset; // or 0 if no eod iterator program
-    u32 eodIterOffset; // offset to EOD sparse iter or 0 if none
-
-    /** \brief Offset to sparse iter over outfix/suffix NFAs that accept EOD. */
-    u32 eodNfaIterOffset;
+    u32 eodProgramOffset; //!< EOD program, otherwise 0.
 
     u32 lastByteHistoryIterOffset; // if non-zero
 
@@ -406,6 +408,7 @@ struct RoseEngine {
                                         * table */
     u32 nfaInfoOffset; /* offset to the nfa info offset array */
     rose_group initialGroups;
+    rose_group floating_group_mask; /* groups that are used by the ftable */
     u32 size; // (bytes)
     u32 delay_count; /* number of delayed literal ids. */
     u32 delay_base_id; /* literal id of the first delayed literal.
@@ -431,7 +434,6 @@ struct RoseEngine {
     u32 ematcherRegionSize; /* max region size to pass to ematcher */
     u32 somRevCount; /**< number of som reverse nfas */
     u32 somRevOffsetOffset; /**< offset to array of offsets to som rev nfas */
-    u32 group_weak_end; /* end of weak groups, debugging only */
     u32 floatingStreamState; // size in bytes
 
     struct scatter_full_plan state_init;
@@ -466,17 +468,6 @@ const struct HWLM *getFLiteralMatcher(const struct RoseEngine *t) {
     const char *lt = (const char *)t + t->fmatcherOffset;
     assert(ISALIGNED_CL(lt));
     return (const struct HWLM *)lt;
-}
-
-static really_inline
-const void *getELiteralMatcher(const struct RoseEngine *t) {
-    if (!t->ematcherOffset) {
-        return NULL;
-    }
-
-    const char *et = (const char *)t + t->ematcherOffset;
-    assert(ISALIGNED_N(et, 8));
-    return et;
 }
 
 static really_inline

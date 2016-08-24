@@ -57,13 +57,14 @@
 #include "ng_small_literal_set.h"
 #include "ng_som.h"
 #include "ng_vacuous.h"
+#include "ng_violet.h"
 #include "ng_utf8.h"
 #include "ng_util.h"
 #include "ng_width.h"
 #include "ue2common.h"
 #include "nfa/goughcompile.h"
-#include "smallwrite/smallwrite_build.h"
 #include "rose/rose_build.h"
+#include "smallwrite/smallwrite_build.h"
 #include "util/compile_error.h"
 #include "util/container.h"
 #include "util/depth.h"
@@ -75,14 +76,15 @@ using namespace std;
 
 namespace ue2 {
 
-NG::NG(const CompileContext &in_cc, unsigned in_somPrecision)
+NG::NG(const CompileContext &in_cc, size_t num_patterns,
+       unsigned in_somPrecision)
     : maxSomRevHistoryAvailable(in_cc.grey.somMaxRevNfaLength),
       minWidth(depth::infinity()),
       rm(in_cc.grey),
       ssm(in_somPrecision),
       cc(in_cc),
-      rose(makeRoseBuilder(rm, ssm, cc, boundary)),
-      smwr(makeSmallWriteBuilder(rm, cc)) {
+      smwr(makeSmallWriteBuilder(num_patterns, rm, cc)),
+      rose(makeRoseBuilder(rm, ssm, *smwr, cc, boundary)) {
 }
 
 NG::~NG() {
@@ -103,6 +105,7 @@ bool addComponentSom(NG &ng, NGHolder &g, const NGWrapper &w,
     DEBUG_PRINTF("doing som\n");
     dumpComponent(g, "03_presom", w.expressionIndex, comp_id, ng.cc.grey);
     assert(hasCorrectlyNumberedVertices(g));
+    assert(allMatchStatesHaveReports(w));
 
     // First, we try the "SOM chain" support in ng_som.cpp.
 
@@ -206,6 +209,8 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
 
     dumpComponent(g, "01_begin", w.expressionIndex, comp_id, ng.cc.grey);
 
+    assert(allMatchStatesHaveReports(w));
+
     reduceGraph(g, som, w.utf8, cc);
 
     dumpComponent(g, "02_reduced", w.expressionIndex, comp_id, ng.cc.grey);
@@ -230,6 +235,8 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
         }
     }
 
+    assert(allMatchStatesHaveReports(w));
+
     if (splitOffAnchoredAcyclic(*ng.rose, g, cc)) {
         return true;
     }
@@ -240,6 +247,10 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
     }
 
     if (handleDecoratedLiterals(*ng.rose, g, cc)) {
+        return true;
+    }
+
+    if (doViolet(*ng.rose, g, w.prefilter, cc)) {
         return true;
     }
 
@@ -257,6 +268,10 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
     }
 
     if (handleDecoratedLiterals(*ng.rose, g, cc)) {
+        return true;
+    }
+
+    if (doViolet(*ng.rose, g, w.prefilter, cc)) {
         return true;
     }
 
@@ -579,7 +594,8 @@ bool NG::addLiteral(const ue2_literal &literal, u32 expr_index,
 
     minWidth = min(minWidth, depth(literal.length()));
 
-    smwr->add(literal, id); /* inform small write handler about this literal */
+    /* inform small write handler about this literal */
+    smwr->add(literal, id);
 
     return true;
 }

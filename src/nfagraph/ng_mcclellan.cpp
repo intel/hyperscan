@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -173,11 +173,11 @@ void populateInit(const NGHolder &g, const flat_set<NFAVertex> &unused,
     }
 
     v_by_index->clear();
-    v_by_index->resize(num_vertices(g), NFAGraph::null_vertex());
+    v_by_index->resize(num_vertices(g), NGHolder::null_vertex());
 
     for (auto v : vertices_range(g)) {
         u32 vert_id = g[v].index;
-        assert((*v_by_index)[vert_id] == NFAGraph::null_vertex());
+        assert((*v_by_index)[vert_id] == NGHolder::null_vertex());
         (*v_by_index)[vert_id] = v;
     }
 
@@ -531,9 +531,9 @@ unique_ptr<raw_dfa> buildMcClellan(const NGHolder &graph,
     DEBUG_PRINTF("attempting to build ?%d? mcclellan\n", (int)graph.kind);
     assert(allMatchStatesHaveReports(graph));
 
-    bool prunable = grey.highlanderPruneDFA && generates_callbacks(graph);
-    assert(rm || !generates_callbacks(graph));
-    if (!generates_callbacks(graph)) {
+    bool prunable = grey.highlanderPruneDFA && has_managed_reports(graph);
+    assert(rm || !has_managed_reports(graph));
+    if (!has_managed_reports(graph)) {
         rm = nullptr;
     }
 

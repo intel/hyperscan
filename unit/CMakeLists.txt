@@ -25,6 +25,11 @@ if(CXX_WUNUSED_VARIABLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
 endif()
 
+if(CMAKE_COMPILER_IS_GNUCC)
+    # spurious warnings?
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-array-bounds")
+endif()
+
 add_library(gtest STATIC ${gtest_SOURCES})
 
 add_definitions(-DGTEST_HAS_PTHREAD=0 -DSRCDIR=${PROJECT_SOURCE_DIR})
@@ -65,6 +70,7 @@ set(unit_internal_SOURCES
     internal/pqueue.cpp
     internal/repeat.cpp
     internal/rose_build_merge.cpp
+    internal/rose_mask.cpp
     internal/rvermicelli.cpp
     internal/simd_utils.cpp
     internal/shuffle.cpp

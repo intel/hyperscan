@@ -29,31 +29,34 @@
 #ifndef ROSE_MATCH_H
 #define ROSE_MATCH_H
 
-#include "hwlm/hwlm.h"
+#include "catchup.h"
 #include "runtime.h"
 #include "scratch.h"
+#include "report.h"
 #include "rose_common.h"
 #include "rose_internal.h"
 #include "ue2common.h"
+#include "hwlm/hwlm.h"
 #include "nfa/nfa_api.h"
 #include "nfa/nfa_api_queue.h"
 #include "nfa/nfa_api_util.h"
 #include "som/som_runtime.h"
 #include "util/bitutils.h"
+#include "util/exhaust.h"
 #include "util/fatbit.h"
 #include "util/multibit.h"
 
 /* Callbacks, defined in catchup.c */
 
-int roseNfaAdaptor(u64a offset, ReportID id, void *context);
-int roseNfaSomAdaptor(u64a from_offset, u64a offset, ReportID id, void *context);
+int roseNfaAdaptor(u64a start, u64a end, ReportID id, void *context);
 
 /* Callbacks, defined in match.c */
 
 hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctx);
+hwlmcb_rv_t roseFloatingCallback(size_t start, size_t end, u32 id, void *ctx);
 hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
                                      void *ctx);
-int roseAnchoredCallback(u64a end, u32 id, void *ctx);
+int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx);
 
 /* Common code, used all over Rose runtime */
 
@@ -78,7 +81,6 @@ void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
     q->history = scratch->core_info.hbuf;
     q->hlength = scratch->core_info.hlen;
     q->cb = roseNfaAdaptor;
-    q->som_cb = roseNfaSomAdaptor;
     q->context = scratch;
     q->report_current = 0;
 
@@ -292,6 +294,87 @@ int roseHasInFlightMatches(const struct RoseEngine *t, char *state,
     }
 
     return 0;
+}
+
+static rose_inline
+hwlmcb_rv_t roseHaltIfExhausted(const struct RoseEngine *t,
+                                struct hs_scratch *scratch) {
+    struct core_info *ci = &scratch->core_info;
+    if (isAllExhausted(t, ci->exhaustionVector)) {
+        ci->status |= STATUS_EXHAUSTED;
+        scratch->tctxt.groups = 0;
+        DEBUG_PRINTF("all exhausted, termination requested\n");
+        return HWLM_TERMINATE_MATCHING;
+    }
+
+    return HWLM_CONTINUE_MATCHING;
+}
+
+static really_inline
+hwlmcb_rv_t ensureQueueFlushed_i(const struct RoseEngine *t,
+                                 struct hs_scratch *scratch, u32 qi, s64a loc,
+                                 char is_mpv, char in_catchup) {
+    struct RoseContext *tctxt = &scratch->tctxt;
+    u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
+    struct fatbit *activeQueues = scratch->aqa;
+    u32 aaCount = t->activeArrayCount;
+    u32 qCount = t->queueCount;
+
+    struct mq *q = &scratch->queues[qi];
+    DEBUG_PRINTF("qcl %lld, loc: %lld, min (non mpv) match offset: %llu\n",
+                 q_cur_loc(q), loc, tctxt->minNonMpvMatchOffset);
+    if (q_cur_loc(q) == loc) {
+        /* too many tops enqueued at the one spot; need to flatten this queue.
+         * We can use the full catchups as it will short circuit as we are
+         * already at this location. It also saves waking everybody up */
+        pushQueueNoMerge(q, MQE_END, loc);
+        nfaQueueExec(q->nfa, q, loc);
+        q->cur = q->end = 0;
+        pushQueueAt(q, 0, MQE_START, loc);
+    } else if (!in_catchup) {
+        if (is_mpv) {
+            tctxt->next_mpv_offset = 0; /* force us to catch the mpv */
+            if (loc + scratch->core_info.buf_offset
+                <= tctxt->minNonMpvMatchOffset) {
+                DEBUG_PRINTF("flushing chained\n");
+                if (roseCatchUpMPV(t, loc, scratch) ==
+                    HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+                goto done_queue_empty;
+            }
+        }
+
+        if (roseCatchUpTo(t, scratch, loc + scratch->core_info.buf_offset) ==
+            HWLM_TERMINATE_MATCHING) {
+            return HWLM_TERMINATE_MATCHING;
+        }
+    } else {
+        /* we must be a chained nfa */
+        assert(is_mpv);
+        DEBUG_PRINTF("flushing chained\n");
+        tctxt->next_mpv_offset = 0; /* force us to catch the mpv */
+        if (roseCatchUpMPV(t, loc, scratch) == HWLM_TERMINATE_MATCHING) {
+            return HWLM_TERMINATE_MATCHING;
+        }
+    }
+done_queue_empty:
+    if (!mmbit_set(aa, aaCount, qi)) {
+        initQueue(q, qi, t, scratch);
+        nfaQueueInitState(q->nfa, q);
+        pushQueueAt(q, 0, MQE_START, loc);
+        fatbit_set(activeQueues, qCount, qi);
+    }
+
+    assert(!isQueueFull(q));
+
+    return roseHaltIfExhausted(t, scratch);
+}
+
+static rose_inline
+hwlmcb_rv_t ensureQueueFlushed(const struct RoseEngine *t,
+                               struct hs_scratch *scratch, u32 qi, s64a loc) {
+    return ensureQueueFlushed_i(t, scratch, qi, loc, 0, 0);
 }
 
 #endif

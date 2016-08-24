@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,6 +38,8 @@
 #include "ue2common.h"
 #include "util/alloc.h"
 
+#include <set>
+
 #include <boost/core/noncopyable.hpp>
 
 struct SmallWriteEngine;
@@ -61,10 +63,13 @@ public:
 
     virtual void add(const NGWrapper &w) = 0;
     virtual void add(const ue2_literal &literal, ReportID r) = 0;
+
+    virtual std::set<ReportID> all_reports() const = 0;
 };
 
 // Construct a usable SmallWrite builder.
-std::unique_ptr<SmallWriteBuild> makeSmallWriteBuilder(const ReportManager &rm,
+std::unique_ptr<SmallWriteBuild> makeSmallWriteBuilder(size_t num_patterns,
+                                                       const ReportManager &rm,
                                                        const CompileContext &cc);
 
 size_t smwrSize(const SmallWriteEngine *t);

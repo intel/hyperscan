@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -131,7 +131,7 @@ NFABuilderImpl::~NFABuilderImpl() {
 NFAVertex NFABuilderImpl::getVertex(Position pos) const {
     assert(id2vertex.size() >= pos);
     const NFAVertex v = id2vertex[pos];
-    assert(v != NFAGraph::null_vertex());
+    assert(v != NGHolder::null_vertex());
     assert(graph->g[v].index == pos);
     return v;
 }

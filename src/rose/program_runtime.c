@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,49 +26,25 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- * \brief LimEx NFA: 512-bit SIMD runtime implementations.
+/**
+ * \file
+ * \brief Rose runtime: program interpreter.
  */
 
-//#define DEBUG_INPUT
-//#define DEBUG_EXCEPTIONS
+#include "program_runtime.h"
 
-#include "limex.h"
+int roseNfaEarliestSom(u64a start, UNUSED u64a end, UNUSED ReportID id,
+                       void *context) {
+    assert(context);
+    u64a *som = context;
+    *som = MIN(*som, start);
+    return MO_CONTINUE_MATCHING;
+}
 
-#include "accel.h"
-#include "limex_internal.h"
-#include "nfa_internal.h"
-#include "ue2common.h"
-#include "util/bitutils.h"
-#include "util/simd_utils.h"
-
-// Common code
-#include "limex_runtime.h"
-
-#define SIZE 512
-#define STATE_T m512
-#include "limex_exceptional.h"
-
-#define SIZE 512
-#define STATE_T m512
-#include "limex_state_impl.h"
-
-#define SIZE 512
-#define STATE_T m512
-#define INLINE_ATTR really_inline
-#include "limex_common_impl.h"
-
-#define SIZE                512
-#define STATE_T             m512
-#define SHIFT               2
-#include "limex_runtime_impl.h"
-
-#define SIZE                512
-#define STATE_T             m512
-#define SHIFT               1
-#include "limex_runtime_impl.h"
-
-#define SIZE                512
-#define STATE_T             m512
-#define SHIFT               3
-#include "limex_runtime_impl.h"
+hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
+                           struct hs_scratch *scratch, u32 programOffset,
+                           u64a som, u64a end, size_t match_len,
+                           u8 prog_flags) {
+    return roseRunProgram_i(t, scratch, programOffset, som, end, match_len,
+                            prog_flags);
+}

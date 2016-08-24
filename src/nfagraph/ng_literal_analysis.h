@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,9 +42,7 @@
 namespace ue2 {
 
 #define NO_LITERAL_AT_EDGE_SCORE  10000000ULL
-
-/* Score for special-to-special edges */
-#define INVALID_EDGE_CAP 100000000ULL
+#define INVALID_EDGE_CAP         100000000ULL /* special-to-special score */
 
 class NGHolder;
 
@@ -59,15 +57,32 @@ std::set<ue2_literal> getLiteralSet(const NGHolder &g, const NFAVertex &v,
                                     bool only_first_encounter = true);
 std::set<ue2_literal> getLiteralSet(const NGHolder &g, const NFAEdge &e);
 
-/** Score all the edges in the given graph, returning them in \p scores indexed
+/**
+ * Returns true if we are unable to use a mixed sensitivity literal in rose (as
+ * our literal matchers are generally either case sensitive or not).
+ *
+ * Shortish mixed sensitivity literals can be handled by confirm checks in rose
+ * and are not flagged as bad.
+ */
+bool bad_mixed_sensitivity(const ue2_literal &s);
+
+/**
+ * Score all the edges in the given graph, returning them in \p scores indexed
  * by edge_index. */
-std::vector<u64a> scoreEdges(const NGHolder &h);
+std::vector<u64a> scoreEdges(const NGHolder &h,
+                             const flat_set<NFAEdge> &known_bad = {});
 
 /** Returns a score for a literal set. Lower scores are better. */
 u64a scoreSet(const std::set<ue2_literal> &s);
 
 /** Compress a literal set to fewer literals. */
 u64a compressAndScore(std::set<ue2_literal> &s);
+
+/**
+ * Compress a literal set to fewer literals and replace any long mixed
+ * sensitivity literals with supported literals.
+ */
+u64a sanitizeAndCompressAndScore(std::set<ue2_literal> &s);
 
 bool splitOffLeadingLiteral(const NGHolder &g, ue2_literal *lit_out,
                             NGHolder *rhs);
@@ -76,6 +91,10 @@ bool splitOffAnchoredLeadingLiteral(const NGHolder &g, ue2_literal *lit_out,
                             NGHolder *rhs);
 
 bool getTrailingLiteral(const NGHolder &g, ue2_literal *lit_out);
+
+/** \brief Returns true if the given literal is the only thing in the graph,
+ * from (start or startDs) to accept. */
+bool literalIsWholeGraph(const NGHolder &g, const ue2_literal &lit);
 
 } // namespace ue2
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -336,7 +336,8 @@ void buildLiteralMask(const vector<CharReach> &mask, vector<u8> &msk,
 }
 
 static
-bool validateTransientMask(const vector<CharReach> &mask, bool eod, const Grey &grey) {
+bool validateTransientMask(const vector<CharReach> &mask, bool anchored,
+                           bool eod, const Grey &grey) {
     assert(!mask.empty());
 
     // An EOD anchored mask requires that everything fit into history, while an
@@ -345,6 +346,12 @@ bool validateTransientMask(const vector<CharReach> &mask, bool eod, const Grey &
     const size_t max_width = grey.maxHistoryAvailable + (eod ? 0 : 1);
     if (mask.size() > max_width) {
         DEBUG_PRINTF("mask too long for max available history\n");
+        return false;
+    }
+
+    /* although anchored masks cannot be transient, short masks may be placed
+     * into the atable. */
+    if (anchored && mask.size() > grey.maxAnchoredRegion) {
         return false;
     }
 
@@ -703,7 +710,7 @@ bool checkAllowMask(const vector<CharReach> &mask, ue2_literal *lit,
 
 bool RoseBuildImpl::add(bool anchored, const vector<CharReach> &mask,
                         const ue2::flat_set<ReportID> &reports) {
-    if (validateTransientMask(mask, false, cc.grey)) {
+    if (validateTransientMask(mask, anchored, false, cc.grey)) {
         bool eod = false;
         addTransientMask(*this, mask, reports, anchored, eod);
         return true;
@@ -726,8 +733,8 @@ bool RoseBuildImpl::add(bool anchored, const vector<CharReach> &mask,
 
 bool RoseBuildImpl::validateMask(const vector<CharReach> &mask,
                                  UNUSED const ue2::flat_set<ReportID> &reports,
-                                 UNUSED bool anchored, bool eod) const {
-    return validateTransientMask(mask, eod, cc.grey);
+                                 bool anchored, bool eod) const {
+    return validateTransientMask(mask, anchored, eod, cc.grey);
 }
 
 static

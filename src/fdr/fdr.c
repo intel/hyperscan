@@ -36,7 +36,6 @@
 #include "teddy.h"
 #include "teddy_internal.h"
 #include "util/simd_utils.h"
-#include "util/simd_utils_ssse3.h"
 
 /** \brief number of bytes processed in each iteration */
 #define ITER_BYTES          16
@@ -132,7 +131,7 @@ m128 getInitState(const struct FDR *fdr, u8 len_history, const u8 *ft,
         u32 tmp = lv_u16(z->start + z->shift - 1, z->buf, z->end + 1);
         tmp &= fdr->domainMask;
         s = *((const m128 *)ft + tmp);
-        s = shiftRight8Bits(s);
+        s = rshiftbyte_m128(s, 1);
     } else {
         s = fdr->start;
     }
@@ -186,20 +185,20 @@ void get_conf_stride_1(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     m128 st14 = *(const m128 *)(ft + v14*8);
     m128 st15 = *(const m128 *)(ft + v15*8);
 
-    st1 = byteShiftLeft128(st1, 1);
-    st2 = byteShiftLeft128(st2, 2);
-    st3 = byteShiftLeft128(st3, 3);
-    st4 = byteShiftLeft128(st4, 4);
-    st5 = byteShiftLeft128(st5, 5);
-    st6 = byteShiftLeft128(st6, 6);
-    st7 = byteShiftLeft128(st7, 7);
-    st9 = byteShiftLeft128(st9, 1);
-    st10 = byteShiftLeft128(st10, 2);
-    st11 = byteShiftLeft128(st11, 3);
-    st12 = byteShiftLeft128(st12, 4);
-    st13 = byteShiftLeft128(st13, 5);
-    st14 = byteShiftLeft128(st14, 6);
-    st15 = byteShiftLeft128(st15, 7);
+    st1 = lshiftbyte_m128(st1, 1);
+    st2 = lshiftbyte_m128(st2, 2);
+    st3 = lshiftbyte_m128(st3, 3);
+    st4 = lshiftbyte_m128(st4, 4);
+    st5 = lshiftbyte_m128(st5, 5);
+    st6 = lshiftbyte_m128(st6, 6);
+    st7 = lshiftbyte_m128(st7, 7);
+    st9 = lshiftbyte_m128(st9, 1);
+    st10 = lshiftbyte_m128(st10, 2);
+    st11 = lshiftbyte_m128(st11, 3);
+    st12 = lshiftbyte_m128(st12, 4);
+    st13 = lshiftbyte_m128(st13, 5);
+    st14 = lshiftbyte_m128(st14, 6);
+    st15 = lshiftbyte_m128(st15, 7);
 
     *s = or128(*s, st0);
     *s = or128(*s, st1);
@@ -210,7 +209,7 @@ void get_conf_stride_1(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     *s = or128(*s, st6);
     *s = or128(*s, st7);
     *conf0 = movq(*s);
-    *s = byteShiftRight128(*s, 8);
+    *s = rshiftbyte_m128(*s, 8);
     *conf0 ^= ~0ULL;
 
     *s = or128(*s, st8);
@@ -222,7 +221,7 @@ void get_conf_stride_1(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     *s = or128(*s, st14);
     *s = or128(*s, st15);
     *conf8 = movq(*s);
-    *s = byteShiftRight128(*s, 8);
+    *s = rshiftbyte_m128(*s, 8);
     *conf8 ^= ~0ULL;
 }
 
@@ -253,19 +252,19 @@ void get_conf_stride_2(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     m128 st12 = *(const m128 *)(ft + v12*8);
     m128 st14 = *(const m128 *)(ft + v14*8);
 
-    st2 = byteShiftLeft128(st2, 2);
-    st4 = byteShiftLeft128(st4, 4);
-    st6 = byteShiftLeft128(st6, 6);
-    st10 = byteShiftLeft128(st10, 2);
-    st12 = byteShiftLeft128(st12, 4);
-    st14 = byteShiftLeft128(st14, 6);
+    st2  = lshiftbyte_m128(st2, 2);
+    st4  = lshiftbyte_m128(st4, 4);
+    st6  = lshiftbyte_m128(st6, 6);
+    st10 = lshiftbyte_m128(st10, 2);
+    st12 = lshiftbyte_m128(st12, 4);
+    st14 = lshiftbyte_m128(st14, 6);
 
     *s = or128(*s, st0);
     *s = or128(*s, st2);
     *s = or128(*s, st4);
     *s = or128(*s, st6);
     *conf0 = movq(*s);
-    *s = byteShiftRight128(*s, 8);
+    *s = rshiftbyte_m128(*s, 8);
     *conf0 ^= ~0ULL;
 
     *s = or128(*s, st8);
@@ -273,7 +272,7 @@ void get_conf_stride_2(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     *s = or128(*s, st12);
     *s = or128(*s, st14);
     *conf8 = movq(*s);
-    *s = byteShiftRight128(*s, 8);
+    *s = rshiftbyte_m128(*s, 8);
     *conf8 ^= ~0ULL;
 }
 
@@ -296,27 +295,26 @@ void get_conf_stride_4(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     m128 st8 = *(const m128 *)(ft + v8*8);
     m128 st12 = *(const m128 *)(ft + v12*8);
 
-    st4 = byteShiftLeft128(st4, 4);
-    st12 = byteShiftLeft128(st12, 4);
+    st4 = lshiftbyte_m128(st4, 4);
+    st12 = lshiftbyte_m128(st12, 4);
 
     *s = or128(*s, st0);
     *s = or128(*s, st4);
     *conf0 = movq(*s);
-    *s = byteShiftRight128(*s, 8);
+    *s = rshiftbyte_m128(*s, 8);
     *conf0 ^= ~0ULL;
 
     *s = or128(*s, st8);
     *s = or128(*s, st12);
     *conf8 = movq(*s);
-    *s = byteShiftRight128(*s, 8);
+    *s = rshiftbyte_m128(*s, 8);
     *conf8 ^= ~0ULL;
 }
 
 static really_inline
-void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *controlVal,
+void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *control,
                     const u32 *confBase, const struct FDR_Runtime_Args *a,
-                    const u8 *ptr, hwlmcb_rv_t *control, u32 *last_match_id,
-                    struct zone *z) {
+                    const u8 *ptr, u32 *last_match_id, struct zone *z) {
     const u8 bucket = 8;
     const u8 pullback = 1;
 
@@ -352,13 +350,13 @@ void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *controlVal,
                 continue;
             }
            *last_match_id = id;
-           *controlVal = a->cb(ptr_main + byte - a->buf,
-                               ptr_main + byte - a->buf, id, a->ctxt);
+           *control = a->cb(ptr_main + byte - a->buf, ptr_main + byte - a->buf,
+                            id, a->ctxt);
            continue;
         }
         u64a confVal = unaligned_load_u64a(confLoc + byte - sizeof(u64a));
-        confWithBit(fdrc, a, ptr_main - a->buf + byte, pullback,
-                    control, last_match_id, confVal);
+        confWithBit(fdrc, a, ptr_main - a->buf + byte, pullback, control,
+                    last_match_id, confVal);
     } while (unlikely(!!*conf));
 }
 
@@ -681,9 +679,9 @@ size_t prepareZones(const u8 *buf, size_t len, const u8 *hend,
             itPtr += ITER_BYTES) {                                          \
             if (unlikely(itPtr > tryFloodDetect)) {                         \
                 tryFloodDetect = floodDetect(fdr, a, &itPtr, tryFloodDetect,\
-                                             &floodBackoff, &controlVal,    \
+                                             &floodBackoff, &control,       \
                                              ITER_BYTES);                   \
-                if (unlikely(controlVal == HWLM_TERMINATE_MATCHING)) {      \
+                if (unlikely(control == HWLM_TERMINATE_MATCHING)) {         \
                     return HWLM_TERMINATED;                                 \
                 }                                                           \
             }                                                               \
@@ -692,11 +690,11 @@ size_t prepareZones(const u8 *buf, size_t len, const u8 *hend,
             u64a conf8;                                                     \
             get_conf_fn(itPtr, start_ptr, end_ptr, domain_mask_adjusted,    \
                         ft, &conf0, &conf8, &s);                            \
-            do_confirm_fdr(&conf0, 0, &controlVal, confBase, a, itPtr,      \
-                           control, &last_match_id, zz);                    \
-            do_confirm_fdr(&conf8, 8, &controlVal, confBase, a, itPtr,      \
-                           control, &last_match_id, zz);                    \
-            if (unlikely(controlVal == HWLM_TERMINATE_MATCHING)) {          \
+            do_confirm_fdr(&conf0, 0, &control, confBase, a, itPtr,         \
+                           &last_match_id, zz);                             \
+            do_confirm_fdr(&conf8, 8, &control, confBase, a, itPtr,         \
+                           &last_match_id, zz);                             \
+            if (unlikely(control == HWLM_TERMINATE_MATCHING)) {             \
                 return HWLM_TERMINATED;                                     \
             }                                                               \
         } /* end for loop */                                                \
@@ -704,9 +702,8 @@ size_t prepareZones(const u8 *buf, size_t len, const u8 *hend,
 
 static never_inline
 hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
-                             const struct FDR_Runtime_Args *a) {
-    hwlmcb_rv_t controlVal = *a->groups;
-    hwlmcb_rv_t *control = &controlVal;
+                             const struct FDR_Runtime_Args *a,
+                             hwlm_group_t control) {
     u32 floodBackoff = FLOOD_BACKOFF_START;
     u32 last_match_id = INVALID_MATCH_ID;
     u64a domain_mask_adjusted = fdr->domainMask << 1;
@@ -771,7 +768,10 @@ hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
 #define ONLY_AVX2(func) NULL
 #endif
 
-typedef hwlm_error_t (*FDRFUNCTYPE)(const struct FDR *fdr, const struct FDR_Runtime_Args *a);
+typedef hwlm_error_t (*FDRFUNCTYPE)(const struct FDR *fdr,
+                                    const struct FDR_Runtime_Args *a,
+                                    hwlm_group_t control);
+
 static const FDRFUNCTYPE funcs[] = {
     fdr_engine_exec,
     ONLY_AVX2(fdr_exec_teddy_avx2_msks1_fast),
@@ -814,7 +814,6 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
         start,
         cb,
         ctxt,
-        &groups,
         nextFloodDetect(buf, len, FLOOD_BACKOFF_START),
         0
     };
@@ -822,7 +821,7 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
         return HWLM_SUCCESS;
     } else {
         assert(funcs[fdr->engineID]);
-        return funcs[fdr->engineID](fdr, &a);
+        return funcs[fdr->engineID](fdr, &a, groups);
     }
 }
 
@@ -840,7 +839,6 @@ hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
         start,
         cb,
         ctxt,
-        &groups,
         nextFloodDetect(buf, len, FLOOD_BACKOFF_START),
         /* we are guaranteed to always have 16 initialised bytes at the end of
          * the history buffer (they may be garbage). */
@@ -853,7 +851,7 @@ hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
         ret = HWLM_SUCCESS;
     } else {
         assert(funcs[fdr->engineID]);
-        ret = funcs[fdr->engineID](fdr, &a);
+        ret = funcs[fdr->engineID](fdr, &a, groups);
     }
 
     fdrPackState(fdr, &a, stream_state);

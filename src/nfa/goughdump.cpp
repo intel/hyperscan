@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -259,7 +259,8 @@ void dumpTransitions(const NFA *nfa, FILE *f,
     fprintf(f, "\n");
 }
 
-void nfaExecGough8_dumpDot(const struct NFA *nfa, FILE *f) {
+void nfaExecGough8_dumpDot(const struct NFA *nfa, FILE *f,
+                           UNUSED const string &base) {
     assert(nfa->type == GOUGH_NFA_8);
     const mcclellan *m = (const mcclellan *)getImplNfa(nfa);
 
@@ -302,7 +303,8 @@ void nfaExecGough8_dumpText(const struct NFA *nfa, FILE *f) {
     dumpTextReverse(nfa, f);
 }
 
-void nfaExecGough16_dumpDot(const struct NFA *nfa, FILE *f) {
+void nfaExecGough16_dumpDot(const struct NFA *nfa, FILE *f,
+                            UNUSED const string &base) {
     assert(nfa->type == GOUGH_NFA_16);
     const mcclellan *m = (const mcclellan *)getImplNfa(nfa);
 

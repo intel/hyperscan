@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,19 +39,11 @@
 #include "util/compile_context.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
+#include "smallwrite/smallwrite_build.h"
 #include "som/slot_manager.h"
 
 using std::vector;
 using namespace ue2;
-
-static
-std::unique_ptr<RoseBuild> constructBuilder(const Grey &grey) {
-    CompileContext cc(true, false, get_current_target(), grey);
-    ReportManager rm(cc.grey);
-    SomSlotManager ssm(8); // som precision
-    BoundaryReports boundary;
-    return makeRoseBuilder(rm, ssm, cc, boundary);
-}
 
 static
 std::unique_ptr<NGHolder> makeSuffixGraph(ReportID report) {
@@ -100,7 +92,12 @@ size_t numUniqueSuffixGraphs(const RoseGraph &g) {
 
 TEST(RoseMerge, uncalcLeaves_nonleaf) {
     Grey grey;
-    auto build_base = constructBuilder(grey);
+    CompileContext cc(true, false, get_current_target(), grey);
+    ReportManager rm(cc.grey);
+    SomSlotManager ssm(8); // som precision
+    auto smwr = makeSmallWriteBuilder(1, rm, cc);
+    BoundaryReports boundary;
+    auto build_base = makeRoseBuilder(rm, ssm, *smwr, cc, boundary);
     ASSERT_NE(nullptr, build_base);
 
     RoseBuildImpl &build = static_cast<RoseBuildImpl &>(*build_base);

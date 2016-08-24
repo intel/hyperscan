@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -750,7 +750,7 @@ unique_ptr<VertLitInfo> LitCollection::pickNext() {
         for (auto v : lits.back()->vv) {
             if (contains(poisoned, v)) {
                 DEBUG_PRINTF("skipping '%s' as overlapped\n",
-                     ((const string &)*lits.back()->lit.begin()).c_str());
+                             dumpString(*(lits.back()->lit.begin())).c_str());
                 lits.pop_back();
                 goto next_lit;
             }
@@ -760,7 +760,7 @@ unique_ptr<VertLitInfo> LitCollection::pickNext() {
         lits.pop_back();
         poisonCandidates(*rv);
         DEBUG_PRINTF("best is '%s' %u a%d t%d\n",
-                     ((const string &)*rv->lit.begin()).c_str(),
+                     dumpString(*(rv->lit.begin())).c_str(),
                      g[rv->vv.front()].index,
                      (int)createsAnchoredLHS(g, rv->vv, depths, grey),
                      (int)createsTransientLHS(g, rv->vv, depths, grey));
@@ -771,51 +771,6 @@ unique_ptr<VertLitInfo> LitCollection::pickNext() {
     return nullptr;
 }
 
-}
-
-/** \brief Returns true if the given literal is the only thing in the graph,
- * from start to accept. */
-static
-bool literalIsWholeGraph(const NGHolder &g, const ue2_literal &lit) {
-    NFAVertex v = g.accept;
-
-    for (auto it = lit.rbegin(), ite = lit.rend(); it != ite; ++it) {
-        NFAGraph::inv_adjacency_iterator ai, ae;
-        tie(ai, ae) = inv_adjacent_vertices(v, g);
-        if (ai == ae) {
-            assert(0); // no predecessors?
-            return false;
-        }
-        v = *ai++;
-        if (ai != ae) {
-            DEBUG_PRINTF("branch, fail\n");
-            return false;
-        }
-
-        if (is_special(v, g)) {
-            DEBUG_PRINTF("special found, fail\n");
-            return false;
-        }
-
-        const CharReach &cr = g[v].char_reach;
-        if (cr != *it) {
-            DEBUG_PRINTF("reach fail\n");
-            return false;
-        }
-    }
-
-    // Our last value for v should have only start states for predecessors.
-    for (auto u : inv_adjacent_vertices_range(v, g)) {
-        if (!is_any_start(u, g)) {
-            DEBUG_PRINTF("pred is not start\n");
-            return false;
-        }
-    }
-
-    assert(num_vertices(g) == lit.length() + N_SPECIALS);
-
-    DEBUG_PRINTF("ok\n");
-    return true;
 }
 
 static
@@ -860,7 +815,7 @@ u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
         max_delay--;
     }
 
-    DEBUG_PRINTF("killing off '%s'\n", ((const string &)lit).c_str());
+    DEBUG_PRINTF("killing off '%s'\n", dumpString(lit).c_str());
     set<NFAVertex> curr, next;
     curr.insert(g.accept);
 
@@ -917,6 +872,7 @@ u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     }
 
     clear_in_edges(g.accept, g);
+    clearReports(g);
 
     vector<NFAVertex> verts(pred.begin(), pred.end());
     sort(verts.begin(), verts.end(), VertexIndexOrdering<NGHolder>(g));
@@ -933,19 +889,10 @@ u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     return delay;
 }
 
-static
 void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
-                                  u32 delay) {
+                                  u32 delay, const vector<NFAVertex> &preds) {
     assert(delay <= lit.length());
-    DEBUG_PRINTF("adding on '%s' %u\n", ((const string &)lit).c_str(), delay);
-
-    vector<NFAVertex> preds;
-    insert(&preds, preds.end(), inv_adjacent_vertices(g.accept, g));
-    clear_in_edges(g.accept, g);
-
-    for (auto v : preds) {
-        g[v].reports.clear(); /* clear report from old accepts */
-    }
+    DEBUG_PRINTF("adding on '%s' %u\n", dumpString(lit).c_str(), delay);
 
     NFAVertex prev = g.accept;
     auto it = lit.rbegin();
@@ -970,6 +917,19 @@ void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     g.renumberVertices();
     g.renumberEdges();
     assert(allMatchStatesHaveReports(g));
+}
+
+void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
+                                  u32 delay) {
+    vector<NFAVertex> preds;
+    insert(&preds, preds.end(), inv_adjacent_vertices(g.accept, g));
+    clear_in_edges(g.accept, g);
+
+    for (auto v : preds) {
+        g[v].reports.clear(); /* clear report from old accepts */
+    }
+
+    restoreTrailingLiteralStates(g, lit, delay, preds);
 }
 
 /* return false if we should get rid of the edge altogether */
@@ -1824,9 +1784,6 @@ bool doNetflowCut(RoseInGraph &ig, const vector<RoseInEdge> &to_cut,
         set<ue2_literal> lits = getLiteralSet(h, e);
         compressAndScore(lits);
         cut_lits[e] = lits;
-
-        DEBUG_PRINTF("cut lit '%s'\n",
-                     ((const string &)*cut_lits[e].begin()).c_str());
     }
 
     /* if literals are underlength bail or if it involves a forbidden edge*/
@@ -2245,7 +2202,7 @@ bool improveLHS(RoseInGraph &ig, const vector<RoseInEdge> &edges,
         const vector<RoseInEdge> &local = by_src[v];
 
         vector<NGHolder *> graphs;
-        map<RoseInVertex, vector<RoseInEdge> > by_graph;
+        map<NGHolder *, vector<RoseInEdge> > by_graph;
         for (const auto &e : local) {
             NGHolder *gp = ig[e].graph.get();
             if (!contains(by_graph, gp)) {

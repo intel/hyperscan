@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,7 +51,7 @@ namespace ue2 {
 
 void dumpPreRoseGraph(const RoseInGraph &ig, const Grey &grey,
                       const char *filename) {
-    if (!grey.dumpFlags) {
+    if (!(grey.dumpFlags & Grey::DUMP_INT_GRAPH)) {
         return;
     }
 
@@ -107,7 +107,8 @@ void dumpPreRoseGraph(const RoseInGraph &ig, const Grey &grey,
                 size_t id = graph_ids.size();
                 graph_ids[&*ig[e].graph] = id;
             }
-            fprintf(f, "graph %zu", graph_ids[&*ig[e].graph]);
+            fprintf(f, "graph %zu\n%s", graph_ids[&*ig[e].graph],
+                    to_string(ig[e].graph->kind).c_str());
         }
         if (ig[e].haig) {
             fprintf(f, "haig ");

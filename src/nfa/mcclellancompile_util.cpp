@@ -337,62 +337,35 @@ size_t hash_dfa(const raw_dfa &rdfa) {
 }
 
 static
-bool has_self_loop(dstate_id_t s, const raw_dfa &raw) {
-    u16 top_remap = raw.alpha_remap[TOP];
-    for (u32 i = 0; i < raw.states[s].next.size(); i++) {
-        if (i != top_remap && raw.states[s].next[i] == s) {
+bool can_die_early(const raw_dfa &raw, dstate_id_t s,
+                   map<dstate_id_t, u32> &visited, u32 age_limit) {
+    if (contains(visited, s) && visited[s] >= age_limit) {
+        /* we have already visited (or are in the process of visiting) here with
+         * a looser limit. */
+        return false;
+    }
+    visited[s] = age_limit;
+
+    if (s == DEAD_STATE) {
+        return true;
+    }
+
+    if (age_limit == 0) {
+        return false;
+    }
+
+    for (const auto &next : raw.states[s].next) {
+        if (can_die_early(raw, next, visited, age_limit - 1)) {
             return true;
         }
     }
+
     return false;
 }
 
-dstate_id_t get_sds_or_proxy(const raw_dfa &raw) {
-    if (raw.start_floating != DEAD_STATE) {
-        DEBUG_PRINTF("has floating start\n");
-        return raw.start_floating;
-    }
-
-    DEBUG_PRINTF("looking for SDS proxy\n");
-
-    dstate_id_t s = raw.start_anchored;
-
-    if (has_self_loop(s, raw)) {
-        return s;
-    }
-
-    u16 top_remap = raw.alpha_remap[TOP];
-
-    ue2::unordered_set<dstate_id_t> seen;
-    while (true) {
-        seen.insert(s);
-        DEBUG_PRINTF("basis %hu\n", s);
-
-        /* check if we are connected to a state with a self loop */
-        for (u32 i = 0; i < raw.states[s].next.size(); i++) {
-            dstate_id_t t = raw.states[s].next[i];
-            if (i != top_remap && t != DEAD_STATE && has_self_loop(t, raw)) {
-                return t;
-            }
-        }
-
-        /* find a neighbour to use as a basis for looking for the sds proxy */
-        dstate_id_t t = DEAD_STATE;
-        for (u32 i = 0; i < raw.states[s].next.size(); i++) {
-            dstate_id_t tt = raw.states[s].next[i];
-            if (i != top_remap && tt != DEAD_STATE && !contains(seen, tt)) {
-                t = tt;
-                break;
-            }
-        }
-
-        if (t == DEAD_STATE) {
-            /* we were unable to find a state to use as a SDS proxy */
-            return DEAD_STATE;
-        }
-
-        s = t;
-    }
+bool can_die_early(const raw_dfa &raw, u32 age_limit) {
+    map<dstate_id_t, u32> visited;
+    return can_die_early(raw, raw.start_anchored, visited, age_limit);
 }
 
 } // namespace ue2

@@ -81,7 +81,7 @@ private:
     void dumpMasks(const u8 *defaultMask);
 #endif
     void setupTab();
-    aligned_unique_ptr<FDR> setupFDR(pair<u8 *, size_t> link);
+    aligned_unique_ptr<FDR> setupFDR(pair<aligned_unique_ptr<u8>, size_t> &link);
     void createInitialState(FDR *fdr);
 
 public:
@@ -90,7 +90,7 @@ public:
         : eng(eng_in), tab(eng_in.getTabSizeBytes()), lits(lits_in),
           make_small(make_small_in) {}
 
-    aligned_unique_ptr<FDR> build(pair<u8 *, size_t> link);
+    aligned_unique_ptr<FDR> build(pair<aligned_unique_ptr<u8>, size_t> &link);
 };
 
 u8 *FDRCompiler::tabIndexToMask(u32 indexInTable) {
@@ -124,10 +124,8 @@ void FDRCompiler::createInitialState(FDR *fdr) {
         // Find the minimum length for the literals in this bucket.
         const vector<LiteralIndex> &bucket_lits = bucketToLits[b];
         u32 min_len = ~0U;
-        for (vector<LiteralIndex>::const_iterator it = bucket_lits.begin(),
-                                                  ite = bucket_lits.end();
-             it != ite; ++it) {
-            min_len = min(min_len, verify_u32(lits[*it].s.length()));
+        for (const LiteralIndex &lit_idx : bucket_lits) {
+            min_len = min(min_len, verify_u32(lits[lit_idx].s.length()));
         }
 
         DEBUG_PRINTF("bucket %u has min_len=%u\n", b, min_len);
@@ -141,13 +139,12 @@ void FDRCompiler::createInitialState(FDR *fdr) {
     }
 }
 
-aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
+aligned_unique_ptr<FDR>
+FDRCompiler::setupFDR(pair<aligned_unique_ptr<u8>, size_t> &link) {
     size_t tabSize = eng.getTabSizeBytes();
 
-    pair<u8 *, size_t> floodControlTmp = setupFDRFloodControl(lits, eng);
-
-    pair<u8 *, size_t> confirmTmp =
-        setupFullMultiConfs(lits, eng, bucketToLits, make_small);
+    auto floodControlTmp = setupFDRFloodControl(lits, eng);
+    auto confirmTmp = setupFullMultiConfs(lits, eng, bucketToLits, make_small);
 
     assert(ISALIGNED_16(tabSize));
     assert(ISALIGNED_16(confirmTmp.second));
@@ -175,14 +172,12 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
     copy(tab.begin(), tab.end(), ptr);
     ptr += tabSize;
 
-    memcpy(ptr, confirmTmp.first, confirmTmp.second);
+    memcpy(ptr, confirmTmp.first.get(), confirmTmp.second);
     ptr += confirmTmp.second;
-    aligned_free(confirmTmp.first);
 
     fdr->floodOffset = verify_u32(ptr - fdr_base);
-    memcpy(ptr, floodControlTmp.first, floodControlTmp.second);
+    memcpy(ptr, floodControlTmp.first.get(), floodControlTmp.second);
     ptr += floodControlTmp.second;
-    aligned_free(floodControlTmp.first);
 
     /*  we are allowing domains 9 to 15 only */
     assert(eng.bits > 8 && eng.bits < 16);
@@ -193,8 +188,7 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR(pair<u8 *, size_t> link) {
 
     if (link.first) {
         fdr->link = verify_u32(ptr - fdr_base);
-        memcpy(ptr, link.first, link.second);
-        aligned_free(link.first);
+        memcpy(ptr, link.first.get(), link.second);
     } else {
         fdr->link = 0;
     }
@@ -217,13 +211,11 @@ struct LitOrder {
         if (len1 != len2) {
             return len1 < len2;
         } else {
-            string::const_reverse_iterator it1, it2;
-            tie(it1, it2) =
-                std::mismatch(i1s.rbegin(), i1s.rend(), i2s.rbegin());
-            if (it1 == i1s.rend()) {
+            auto p = std::mismatch(i1s.rbegin(), i1s.rend(), i2s.rbegin());
+            if (p.first == i1s.rend()) {
                 return false;
             }
-            return *it1 < *it2;
+            return *p.first < *p.second;
         }
     }
 
@@ -266,9 +258,8 @@ void FDRCompiler::assignStringsToBuckets() {
     stable_sort(vli.begin(), vli.end(), LitOrder(lits));
 
 #ifdef DEBUG_ASSIGNMENT
-    for (map<u32, u32>::iterator i = lenCounts.begin(), e = lenCounts.end();
-         i != e; ++i) {
-        printf("l<%d>:%d ", i->first, i->second);
+    for (const auto &m : lenCounts) {
+        printf("l<%u>:%u ", m.first, m.second);
     }
     printf("\n");
 #endif
@@ -324,12 +315,12 @@ void FDRCompiler::assignStringsToBuckets() {
         for (u32 k = j; k < nChunks; ++k) {
             cnt += count[k];
         }
-        t[j][0] = make_pair(getScoreUtil(length[j], cnt), 0);
+        t[j][0] = {getScoreUtil(length[j], cnt), 0};
     }
 
     for (u32 i = 1; i < nb; i++) {
         for (u32 j = 0; j < nChunks - 1; j++) { // don't process last, empty row
-            SCORE_INDEX_PAIR best = make_pair(MAX_SCORE, 0);
+            SCORE_INDEX_PAIR best = {MAX_SCORE, 0};
             u32 cnt = count[j];
             for (u32 k = j + 1; k < nChunks - 1; k++, cnt += count[k]) {
                 SCORE score = getScoreUtil(length[j], cnt);
@@ -338,12 +329,12 @@ void FDRCompiler::assignStringsToBuckets() {
                 }
                 score += t[k][i-1].first;
                 if (score < best.first) {
-                    best = make_pair(score, k);
+                    best = {score, k};
                 }
             }
             t[j][i] = best;
         }
-        t[nChunks - 1][i] = make_pair(0,0); // fill in empty final row for next iteration
+        t[nChunks - 1][i] = {0,0}; // fill in empty final row for next iteration
     }
 
 #ifdef DEBUG_ASSIGNMENT
@@ -405,8 +396,7 @@ bool getMultiEntriesAtPosition(const FDREngineDescription &eng,
         distance = 4;
     }
 
-    for (vector<LiteralIndex>::const_iterator i = vl.begin(), e = vl.end();
-         i != e; ++i) {
+    for (auto i = vl.begin(), e = vl.end(); i != e; ++i) {
         if (e - i > 5) {
             __builtin_prefetch(&lits[*(i + 5)]);
         }
@@ -460,31 +450,25 @@ void FDRCompiler::setupTab() {
         memcpy(tabIndexToMask(i), &defaultMask[0], mask_size);
     }
 
-    typedef std::map<u32, ue2::unordered_set<u32> > M2SET;
-
     for (BucketIndex b = 0; b < eng.getNumBuckets(); b++) {
         const vector<LiteralIndex> &vl = bucketToLits[b];
         SuffixPositionInString pLimit = eng.getBucketWidth(b);
         for (SuffixPositionInString pos = 0; pos < pLimit; pos++) {
             u32 bit = eng.getSchemeBit(b, pos);
-            M2SET m2;
+            map<u32, ue2::unordered_set<u32>> m2;
             bool done = getMultiEntriesAtPosition(eng, vl, lits, pos, m2);
             if (done) {
                 clearbit(&defaultMask[0], bit);
                 continue;
             }
-            for (M2SET::const_iterator i = m2.begin(), e = m2.end(); i != e;
-                 ++i) {
-                u32 dc = i->first;
-                const ue2::unordered_set<u32> &mskSet = i->second;
+            for (const auto &elem : m2) {
+                u32 dc = elem.first;
+                const ue2::unordered_set<u32> &mskSet = elem.second;
                 u32 v = ~dc;
                 do {
                     u32 b2 = v & dc;
-                    for (ue2::unordered_set<u32>::const_iterator
-                             i2 = mskSet.begin(),
-                             e2 = mskSet.end();
-                         i2 != e2; ++i2) {
-                        u32 val = (*i2 & ~dc) | b2;
+                    for (const u32 &mskVal : mskSet) {
+                        u32 val = (mskVal & ~dc) | b2;
                         clearbit(tabIndexToMask(val), bit);
                     }
                     v = (v + (dc & -dc)) | ~dc;
@@ -502,7 +486,8 @@ void FDRCompiler::setupTab() {
 #endif
 }
 
-aligned_unique_ptr<FDR> FDRCompiler::build(pair<u8 *, size_t> link) {
+aligned_unique_ptr<FDR>
+FDRCompiler::build(pair<aligned_unique_ptr<u8>, size_t> &link) {
     assignStringsToBuckets();
     setupTab();
     return setupFDR(link);
@@ -515,16 +500,15 @@ aligned_unique_ptr<FDR>
 fdrBuildTableInternal(const vector<hwlmLiteral> &lits, bool make_small,
                       const target_t &target, const Grey &grey, u32 hint,
                       hwlmStreamingControl *stream_control) {
-    pair<u8 *, size_t> link(nullptr, 0);
+    pair<aligned_unique_ptr<u8>, size_t> link(nullptr, 0);
     if (stream_control) {
-        link = fdrBuildTableStreaming(lits, stream_control);
+        link = fdrBuildTableStreaming(lits, *stream_control);
     }
 
     DEBUG_PRINTF("cpu has %s\n", target.has_avx2() ? "avx2" : "no-avx2");
 
     if (grey.fdrAllowTeddy) {
-        aligned_unique_ptr<FDR> fdr
-            = teddyBuildTableHinted(lits, make_small, hint, target, link);
+        auto fdr = teddyBuildTableHinted(lits, make_small, hint, target, link);
         if (fdr) {
             DEBUG_PRINTF("build with teddy succeeded\n");
             return fdr;

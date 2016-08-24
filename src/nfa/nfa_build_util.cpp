@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 
 #include "limex_internal.h"
 #include "mcclellancompile.h"
+#include "shengcompile.h"
 #include "nfa_internal.h"
 #include "repeat_internal.h"
 #include "ue2common.h"
@@ -78,7 +79,7 @@ struct DISPATCH_BY_NFA_TYPE_INT<sfunc, rv_t, arg_t, INVALID_NFA> {
                              decltype(arg), (NFAEngineType)0>::doOp(i, arg)
 }
 
-typedef bool (*has_accel_fn)(const NFA *nfa);
+typedef bool (*nfa_dispatch_fn)(const NFA *nfa);
 
 template<typename T>
 static
@@ -87,8 +88,37 @@ bool has_accel_limex(const NFA *nfa) {
     return limex->accelCount;
 }
 
+template<typename T>
 static
-bool has_accel_generic(const NFA *) {
+bool has_repeats_limex(const NFA *nfa) {
+    const T *limex = (const T *)getImplNfa(nfa);
+    return limex->repeatCount;
+}
+
+
+template<typename T>
+static
+bool has_repeats_other_than_firsts_limex(const NFA *nfa) {
+    const T *limex = (const T *)getImplNfa(nfa);
+    const char *ptr = (const char *)limex;
+
+    const u32 *repeatOffset = (const u32 *)(ptr + limex->repeatOffset);
+
+    for (u32 i = 0; i < limex->repeatCount; i++) {
+        u32 offset = repeatOffset[i];
+        const NFARepeatInfo *info = (const NFARepeatInfo *)(ptr + offset);
+        const RepeatInfo *repeat =
+            (const RepeatInfo *)((const char *)info + sizeof(*info));
+        if (repeat->type != REPEAT_FIRST) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static
+bool dispatch_false(const NFA *) {
     return false;
 }
 
@@ -140,72 +170,53 @@ enum NFACategory {NFA_LIMEX, NFA_OTHER};
 #define DO_IF_DUMP_SUPPORT(a)
 #endif
 
-#define MAKE_LIMEX_TRAITS(mlt_size, mlt_shift)                          \
-    template<> struct NFATraits<LIMEX_NFA_##mlt_size##_##mlt_shift> {   \
+#define MAKE_LIMEX_TRAITS(mlt_size)                                     \
+    template<> struct NFATraits<LIMEX_NFA_##mlt_size> {                 \
         static UNUSED const char *name;                                 \
         static const NFACategory category = NFA_LIMEX;                  \
         typedef LimExNFA##mlt_size implNFA_t;                           \
         typedef u_##mlt_size tableRow_t;                                \
-        static const has_accel_fn has_accel;                            \
+        static const nfa_dispatch_fn has_accel;                         \
+        static const nfa_dispatch_fn has_repeats;                       \
+        static const nfa_dispatch_fn has_repeats_other_than_firsts;     \
         static const u32 stateAlign =                                   \
                 MAX(alignof(tableRow_t), alignof(RepeatControl));       \
         static const bool fast = mlt_size <= 64;                        \
     };                                                                  \
-    const has_accel_fn NFATraits<LIMEX_NFA_##mlt_size##_##mlt_shift>::has_accel \
+    const nfa_dispatch_fn NFATraits<LIMEX_NFA_##mlt_size>::has_accel    \
             = has_accel_limex<LimExNFA##mlt_size>;                      \
+    const nfa_dispatch_fn NFATraits<LIMEX_NFA_##mlt_size>::has_repeats  \
+            = has_repeats_limex<LimExNFA##mlt_size>;                    \
+    const nfa_dispatch_fn                                               \
+        NFATraits<LIMEX_NFA_##mlt_size>::has_repeats_other_than_firsts  \
+            = has_repeats_other_than_firsts_limex<LimExNFA##mlt_size>;  \
     DO_IF_DUMP_SUPPORT(                                                 \
-    const char *NFATraits<LIMEX_NFA_##mlt_size##_##mlt_shift>::name     \
-        = "LimEx (0-"#mlt_shift") "#mlt_size;                           \
-    template<> struct getDescription<LIMEX_NFA_##mlt_size##_##mlt_shift> { \
-        static string call(const void *ptr) {                            \
-            return getDescriptionLimEx<LIMEX_NFA_##mlt_size##_##mlt_shift>((const NFA *)ptr); \
+    const char *NFATraits<LIMEX_NFA_##mlt_size>::name                   \
+        = "LimEx "#mlt_size;                                            \
+    template<> struct getDescription<LIMEX_NFA_##mlt_size> {            \
+        static string call(const void *ptr) {                           \
+            return getDescriptionLimEx<LIMEX_NFA_##mlt_size>((const NFA *)ptr); \
         } \
     };)
 
-MAKE_LIMEX_TRAITS(32, 1)
-MAKE_LIMEX_TRAITS(32, 2)
-MAKE_LIMEX_TRAITS(32, 3)
-MAKE_LIMEX_TRAITS(32, 4)
-MAKE_LIMEX_TRAITS(32, 5)
-MAKE_LIMEX_TRAITS(32, 6)
-MAKE_LIMEX_TRAITS(32, 7)
-MAKE_LIMEX_TRAITS(128, 1)
-MAKE_LIMEX_TRAITS(128, 2)
-MAKE_LIMEX_TRAITS(128, 3)
-MAKE_LIMEX_TRAITS(128, 4)
-MAKE_LIMEX_TRAITS(128, 5)
-MAKE_LIMEX_TRAITS(128, 6)
-MAKE_LIMEX_TRAITS(128, 7)
-MAKE_LIMEX_TRAITS(256, 1)
-MAKE_LIMEX_TRAITS(256, 2)
-MAKE_LIMEX_TRAITS(256, 3)
-MAKE_LIMEX_TRAITS(256, 4)
-MAKE_LIMEX_TRAITS(256, 5)
-MAKE_LIMEX_TRAITS(256, 6)
-MAKE_LIMEX_TRAITS(256, 7)
-MAKE_LIMEX_TRAITS(384, 1)
-MAKE_LIMEX_TRAITS(384, 2)
-MAKE_LIMEX_TRAITS(384, 3)
-MAKE_LIMEX_TRAITS(384, 4)
-MAKE_LIMEX_TRAITS(384, 5)
-MAKE_LIMEX_TRAITS(384, 6)
-MAKE_LIMEX_TRAITS(384, 7)
-MAKE_LIMEX_TRAITS(512, 1)
-MAKE_LIMEX_TRAITS(512, 2)
-MAKE_LIMEX_TRAITS(512, 3)
-MAKE_LIMEX_TRAITS(512, 4)
-MAKE_LIMEX_TRAITS(512, 5)
-MAKE_LIMEX_TRAITS(512, 6)
-MAKE_LIMEX_TRAITS(512, 7)
+MAKE_LIMEX_TRAITS(32)
+MAKE_LIMEX_TRAITS(128)
+MAKE_LIMEX_TRAITS(256)
+MAKE_LIMEX_TRAITS(384)
+MAKE_LIMEX_TRAITS(512)
 
 template<> struct NFATraits<MCCLELLAN_NFA_8> {
     UNUSED static const char *name;
     static const NFACategory category = NFA_OTHER;
     static const u32 stateAlign = 1;
     static const bool fast = true;
-    static const has_accel_fn has_accel;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const has_accel_fn NFATraits<MCCLELLAN_NFA_8>::has_accel = has_accel_dfa;
+const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_8>::has_accel = has_accel_mcclellan;
+const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_8>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_8>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<MCCLELLAN_NFA_8>::name = "McClellan 8";
 #endif
@@ -215,9 +226,13 @@ template<> struct NFATraits<MCCLELLAN_NFA_16> {
     static const NFACategory category = NFA_OTHER;
     static const u32 stateAlign = 2;
     static const bool fast = true;
-    static const has_accel_fn has_accel;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const has_accel_fn NFATraits<MCCLELLAN_NFA_16>::has_accel = has_accel_dfa;
+const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_16>::has_accel = has_accel_mcclellan;
+const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_16>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<MCCLELLAN_NFA_16>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<MCCLELLAN_NFA_16>::name = "McClellan 16";
 #endif
@@ -227,9 +242,13 @@ template<> struct NFATraits<GOUGH_NFA_8> {
     static const NFACategory category = NFA_OTHER;
     static const u32 stateAlign = 8;
     static const bool fast = true;
-    static const has_accel_fn has_accel;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const has_accel_fn NFATraits<GOUGH_NFA_8>::has_accel = has_accel_dfa;
+const nfa_dispatch_fn NFATraits<GOUGH_NFA_8>::has_accel = has_accel_mcclellan;
+const nfa_dispatch_fn NFATraits<GOUGH_NFA_8>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<GOUGH_NFA_8>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<GOUGH_NFA_8>::name = "Goughfish 8";
 #endif
@@ -239,9 +258,13 @@ template<> struct NFATraits<GOUGH_NFA_16> {
     static const NFACategory category = NFA_OTHER;
     static const u32 stateAlign = 8;
     static const bool fast = true;
-    static const has_accel_fn has_accel;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const has_accel_fn NFATraits<GOUGH_NFA_16>::has_accel = has_accel_dfa;
+const nfa_dispatch_fn NFATraits<GOUGH_NFA_16>::has_accel = has_accel_mcclellan;
+const nfa_dispatch_fn NFATraits<GOUGH_NFA_16>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<GOUGH_NFA_16>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<GOUGH_NFA_16>::name = "Goughfish 16";
 #endif
@@ -251,9 +274,13 @@ template<> struct NFATraits<MPV_NFA_0> {
     static const NFACategory category = NFA_OTHER;
     static const u32 stateAlign = 8;
     static const bool fast = true;
-    static const has_accel_fn has_accel;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const has_accel_fn NFATraits<MPV_NFA_0>::has_accel = has_accel_generic;
+const nfa_dispatch_fn NFATraits<MPV_NFA_0>::has_accel = dispatch_false;
+const nfa_dispatch_fn NFATraits<MPV_NFA_0>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<MPV_NFA_0>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<MPV_NFA_0>::name = "Mega-Puff-Vac";
 #endif
@@ -263,9 +290,13 @@ template<> struct NFATraits<CASTLE_NFA_0> {
     static const NFACategory category = NFA_OTHER;
     static const u32 stateAlign = 8;
     static const bool fast = true;
-    static const has_accel_fn has_accel;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const has_accel_fn NFATraits<CASTLE_NFA_0>::has_accel = has_accel_generic;
+const nfa_dispatch_fn NFATraits<CASTLE_NFA_0>::has_accel = dispatch_false;
+const nfa_dispatch_fn NFATraits<CASTLE_NFA_0>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<CASTLE_NFA_0>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<CASTLE_NFA_0>::name = "Castle";
 #endif
@@ -275,9 +306,13 @@ template<> struct NFATraits<LBR_NFA_Dot> {
     static const NFACategory category = NFA_OTHER;
     static const u32 stateAlign = 8;
     static const bool fast = true;
-    static const has_accel_fn has_accel;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const has_accel_fn NFATraits<LBR_NFA_Dot>::has_accel = has_accel_generic;
+const nfa_dispatch_fn NFATraits<LBR_NFA_Dot>::has_accel = dispatch_false;
+const nfa_dispatch_fn NFATraits<LBR_NFA_Dot>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<LBR_NFA_Dot>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<LBR_NFA_Dot>::name = "Lim Bounded Repeat (D)";
 #endif
@@ -287,9 +322,13 @@ template<> struct NFATraits<LBR_NFA_Verm> {
     static const NFACategory category = NFA_OTHER;
     static const u32 stateAlign = 8;
     static const bool fast = true;
-    static const has_accel_fn has_accel;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const has_accel_fn NFATraits<LBR_NFA_Verm>::has_accel = has_accel_generic;
+const nfa_dispatch_fn NFATraits<LBR_NFA_Verm>::has_accel = dispatch_false;
+const nfa_dispatch_fn NFATraits<LBR_NFA_Verm>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<LBR_NFA_Verm>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<LBR_NFA_Verm>::name = "Lim Bounded Repeat (V)";
 #endif
@@ -299,9 +338,13 @@ template<> struct NFATraits<LBR_NFA_NVerm> {
     static const NFACategory category = NFA_OTHER;
     static const u32 stateAlign = 8;
     static const bool fast = true;
-    static const has_accel_fn has_accel;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const has_accel_fn NFATraits<LBR_NFA_NVerm>::has_accel = has_accel_generic;
+const nfa_dispatch_fn NFATraits<LBR_NFA_NVerm>::has_accel = dispatch_false;
+const nfa_dispatch_fn NFATraits<LBR_NFA_NVerm>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<LBR_NFA_NVerm>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<LBR_NFA_NVerm>::name = "Lim Bounded Repeat (NV)";
 #endif
@@ -311,9 +354,13 @@ template<> struct NFATraits<LBR_NFA_Shuf> {
     static const NFACategory category = NFA_OTHER;
     static const u32 stateAlign = 8;
     static const bool fast = true;
-    static const has_accel_fn has_accel;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const has_accel_fn NFATraits<LBR_NFA_Shuf>::has_accel = has_accel_generic;
+const nfa_dispatch_fn NFATraits<LBR_NFA_Shuf>::has_accel = dispatch_false;
+const nfa_dispatch_fn NFATraits<LBR_NFA_Shuf>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<LBR_NFA_Shuf>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<LBR_NFA_Shuf>::name = "Lim Bounded Repeat (S)";
 #endif
@@ -323,11 +370,47 @@ template<> struct NFATraits<LBR_NFA_Truf> {
     static const NFACategory category = NFA_OTHER;
     static const u32 stateAlign = 8;
     static const bool fast = true;
-    static const has_accel_fn has_accel;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
 };
-const has_accel_fn NFATraits<LBR_NFA_Truf>::has_accel = has_accel_generic;
+const nfa_dispatch_fn NFATraits<LBR_NFA_Truf>::has_accel = dispatch_false;
+const nfa_dispatch_fn NFATraits<LBR_NFA_Truf>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<LBR_NFA_Truf>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<LBR_NFA_Truf>::name = "Lim Bounded Repeat (M)";
+#endif
+
+template<> struct NFATraits<SHENG_NFA_0> {
+    UNUSED static const char *name;
+    static const NFACategory category = NFA_OTHER;
+    static const u32 stateAlign = 1;
+    static const bool fast = true;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
+};
+const nfa_dispatch_fn NFATraits<SHENG_NFA_0>::has_accel = has_accel_sheng;
+const nfa_dispatch_fn NFATraits<SHENG_NFA_0>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<SHENG_NFA_0>::has_repeats_other_than_firsts = dispatch_false;
+#if defined(DUMP_SUPPORT)
+const char *NFATraits<SHENG_NFA_0>::name = "Sheng";
+#endif
+
+template<> struct NFATraits<TAMARAMA_NFA_0> {
+    UNUSED static const char *name;
+    static const NFACategory category = NFA_OTHER;
+    static const u32 stateAlign = 32;
+    static const bool fast = true;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
+};
+const nfa_dispatch_fn NFATraits<TAMARAMA_NFA_0>::has_accel = dispatch_false;
+const nfa_dispatch_fn NFATraits<TAMARAMA_NFA_0>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<TAMARAMA_NFA_0>::has_repeats_other_than_firsts = dispatch_false;
+#if defined(DUMP_SUPPORT)
+const char *NFATraits<TAMARAMA_NFA_0>::name = "Tamarama";
 #endif
 
 } // namespace
@@ -380,42 +463,39 @@ struct is_limex {
 };
 }
 
+namespace {
+template<NFAEngineType t>
+struct has_repeats_other_than_firsts_dispatch {
+    static nfa_dispatch_fn call(const void *) {
+        return NFATraits<t>::has_repeats_other_than_firsts;
+    }
+};
+}
+
 bool has_bounded_repeats_other_than_firsts(const NFA &nfa) {
-    if (!DISPATCH_BY_NFA_TYPE((NFAEngineType)nfa.type, is_limex, &nfa)) {
-        return false;
+    return DISPATCH_BY_NFA_TYPE((NFAEngineType)nfa.type,
+                                has_repeats_other_than_firsts_dispatch,
+                                &nfa)(&nfa);
+}
+
+namespace {
+template<NFAEngineType t>
+struct has_repeats_dispatch {
+    static nfa_dispatch_fn call(const void *) {
+        return NFATraits<t>::has_repeats;
     }
-
-    const LimExNFABase *limex = (const LimExNFABase *)getImplNfa(&nfa);
-    const char *ptr = (const char *)limex;
-
-    const u32 *repeatOffset = (const u32 *)(ptr + limex->repeatOffset);
-
-    for (u32 i = 0; i < limex->repeatCount; i++) {
-        u32 offset = repeatOffset[i];
-        const NFARepeatInfo *info = (const NFARepeatInfo *)(ptr + offset);
-        const RepeatInfo *repeat =
-            (const RepeatInfo *)((const char *)info + sizeof(*info));
-        if (repeat->type != REPEAT_FIRST) {
-            return true;
-        }
-    }
-
-    return false;
+};
 }
 
 bool has_bounded_repeats(const NFA &nfa) {
-    if (!DISPATCH_BY_NFA_TYPE((NFAEngineType)nfa.type, is_limex, &nfa)) {
-        return false;
-    }
-
-    const LimExNFABase *limex = (const LimExNFABase *)getImplNfa(&nfa);
-    return limex->repeatCount;
+    return DISPATCH_BY_NFA_TYPE((NFAEngineType)nfa.type, has_repeats_dispatch,
+                                &nfa)(&nfa);
 }
 
 namespace {
 template<NFAEngineType t>
 struct has_accel_dispatch {
-    static has_accel_fn call(const void *) {
+    static nfa_dispatch_fn call(const void *) {
         return NFATraits<t>::has_accel;
     }
 };
@@ -423,8 +503,7 @@ struct has_accel_dispatch {
 
 bool has_accel(const NFA &nfa) {
     return DISPATCH_BY_NFA_TYPE((NFAEngineType)nfa.type, has_accel_dispatch,
-                                &nfa)
-        (&nfa);
+                                &nfa)(&nfa);
 }
 
 bool requires_decompress_key(const NFA &nfa) {

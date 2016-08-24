@@ -33,6 +33,10 @@
 #ifndef SIMD_UTILS
 #define SIMD_UTILS
 
+#if !defined(_WIN32) && !defined(__SSSE3__)
+#error SSSE3 instructions must be enabled
+#endif
+
 #include "config.h"
 #include <string.h> // for memcpy
 
@@ -68,10 +72,6 @@
 #include "ue2common.h"
 #include "simd_types.h"
 
-#if defined(__GNUC__)
-#define USE_GCC_COMPOUND_STATEMENTS
-#endif
-
 // Define a common assume_aligned using an appropriate compiler built-in, if
 // it's available. Note that we need to handle C or C++ compilation.
 #ifdef __cplusplus
@@ -84,23 +84,26 @@
 #  endif
 #endif
 
-#ifdef _WIN32
-#define NO_ASM
-#endif
-
 // Fallback to identity case.
 #ifndef assume_aligned
 #define assume_aligned(x, y) (x)
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern const char vbs_mask_data[];
+#ifdef __cplusplus
+}
+#endif
+
 static really_inline m128 ones128(void) {
-#if !defined(NO_ASM)
-    // trick from Intel's optimization guide to generate all-ones. We have to
-    // use inline asm, as there's no intrinsic for this yet.
-    m128 ret;
-    __asm__ ("pcmpeqb %0,%0" : "=x"(ret));
-    return ret;
+#if defined(__GNUC__) || defined(__INTEL_COMPILER)
+    /* gcc gets this right */
+    return _mm_set1_epi8(0xFF);
 #else
+    /* trick from Intel's optimization guide to generate all-ones.
+     * ICC converts this to the single cmpeq instruction */
     return _mm_cmpeq_epi8(_mm_setzero_si128(), _mm_setzero_si128());
 #endif
 }
@@ -146,34 +149,13 @@ static really_inline u32 diffrich64_128(m128 a, m128 b) {
 #endif
 }
 
-// forward decl
-static really_inline m128 xor128(m128 a, m128 b);
-
-/** \brief Return msb mask of packet 8 bit compare equal */
-static really_inline unsigned short cmpmsk8(m128 a, m128 b) {
-    m128 tmp = _mm_cmpeq_epi8(a, b);
-    return _mm_movemask_epi8(tmp);
-}
-
-#define shift2x64(a, b)  _mm_slli_epi64((a), (b))
-#define rshift2x64(a, b) _mm_srli_epi64((a), (b))
+#define lshift64_m128(a, b) _mm_slli_epi64((a), (b))
+#define rshift64_m128(a, b) _mm_srli_epi64((a), (b))
 #define eq128(a, b)      _mm_cmpeq_epi8((a), (b))
 #define movemask128(a)  ((u32)_mm_movemask_epi8((a)))
 
-
-// We found that this generated better code with gcc-4.1 and with the default
-// tuning settings on gcc-4.4 than just using the _mm_set1_epi8() instrinsic.
 static really_inline m128 set16x8(u8 c) {
-#if !defined(__AVX2__)
-    m128 a = _mm_cvtsi32_si128((int)c);
-    a = _mm_unpacklo_epi8(a, a);
-    a = _mm_unpacklo_epi8(a, a);
-    a = _mm_shuffle_epi32(a, 0);
-    return a;
-#else
-    // uses a broadcast for much win
     return _mm_set1_epi8(c);
-#endif
 }
 
 static really_inline u32 movd(const m128 in) {
@@ -190,16 +172,8 @@ static really_inline u64a movq(const m128 in) {
 #endif
 }
 
-static really_inline m128 shiftRight8Bits(m128 a) {
-    return _mm_srli_si128(a,1);
-}
-
-static really_inline m128 shiftLeft8Bits(m128 a) {
-    return _mm_slli_si128(a,1);
-}
-
-#define byteShiftRight128(a, count_immed) _mm_srli_si128(a, count_immed)
-#define byteShiftLeft128(a, count_immed) _mm_slli_si128(a, count_immed)
+#define rshiftbyte_m128(a, count_immed) _mm_srli_si128(a, count_immed)
+#define lshiftbyte_m128(a, count_immed) _mm_slli_si128(a, count_immed)
 
 #if !defined(__AVX2__)
 // TODO: this entire file needs restructuring - this carveout is awful
@@ -209,8 +183,8 @@ static really_inline m128 shiftLeft8Bits(m128 a) {
 #define extract32from256(a, imm) _mm_extract_epi32((imm >> 2) ? a.hi : a.lo, imm % 4)
 #define extract64from256(a, imm) _mm_extract_epi64((imm >> 2) ? a.hi : a.lo, imm % 2)
 #else
-#define extract32from256(a, imm) movd(byteShiftRight128((imm >> 2) ? a.hi : a.lo, (imm % 4) * 8))
-#define extract64from256(a, imm) movq(byteShiftRight128((imm >> 2) ? a.hi : a.lo, (imm % 2) * 8))
+#define extract32from256(a, imm) movd(_mm_srli_si128((imm >> 2) ? a.hi : a.lo, (imm % 4) * 8))
+#define extract64from256(a, imm) movq(_mm_srli_si128((imm >> 2) ? a.hi : a.lo, (imm % 2) * 8))
 #endif
 
 #endif // !AVX2
@@ -230,10 +204,6 @@ static really_inline m128 or128(m128 a, m128 b) {
 static really_inline m128 andnot128(m128 a, m128 b) {
     return _mm_andnot_si128(a, b);
 }
-
-// The shift amount is an immediate, so we define these operations as macros on
-// Intel SIMD.
-#define shift128(a, b)  _mm_slli_epi64((a), (b))
 
 // aligned load
 static really_inline m128 load128(const void *ptr) {
@@ -275,70 +245,85 @@ m128 loadbytes128(const void *ptr, unsigned int n) {
     return a;
 }
 
+extern const u8 simd_onebit_masks[];
+
+static really_inline
+m128 mask1bit128(unsigned int n) {
+    assert(n < sizeof(m128) * 8);
+    u32 mask_idx = ((n % 8) * 64) + 31;
+    mask_idx -= n / 8;
+    return loadu128(&simd_onebit_masks[mask_idx]);
+}
+
 // switches on bit N in the given vector.
 static really_inline
 void setbit128(m128 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    // We should be able to figure out a better way than this.
-    union {
-        m128 simd;
-        u8 bytes[sizeof(m128)];
-    } x;
-    x.simd = *ptr;
-
-    u8 *b = &x.bytes[n / 8];
-    *b |= 1U << (n % 8);
-
-    *ptr = x.simd;
+    *ptr = or128(mask1bit128(n), *ptr);
 }
 
 // switches off bit N in the given vector.
 static really_inline
 void clearbit128(m128 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    // We should be able to figure out a better way than this.
-    union {
-        m128 simd;
-        u8 bytes[sizeof(m128)];
-    } x;
-    x.simd = *ptr;
-
-    u8 *b = &x.bytes[n / 8];
-    *b &= ~(1U << (n % 8));
-
-    *ptr = x.simd;
+    *ptr = andnot128(mask1bit128(n), *ptr);
 }
 
 // tests bit N in the given vector.
 static really_inline
 char testbit128(const m128 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    // We should be able to figure out a better way than this.
-    const char *bytes = (const char *)ptr;
-    return !!(bytes[n / 8] & (1 << (n % 8)));
+    const m128 mask = mask1bit128(n);
+#if defined(__SSE4_1__)
+    return !_mm_testz_si128(mask, *ptr);
+#else
+    return isnonzero128(and128(mask, *ptr));
+#endif
 }
+
+// offset must be an immediate
+#define palignr(r, l, offset) _mm_alignr_epi8(r, l, offset)
+
+static really_inline
+m128 pshufb(m128 a, m128 b) {
+    m128 result;
+    result = _mm_shuffle_epi8(a, b);
+    return result;
+}
+
+static really_inline
+m256 vpshufb(m256 a, m256 b) {
+#if defined(__AVX2__)
+    return _mm256_shuffle_epi8(a, b);
+#else
+    m256 rv;
+    rv.lo = pshufb(a.lo, b.lo);
+    rv.hi = pshufb(a.hi, b.hi);
+    return rv;
+#endif
+}
+
+static really_inline
+m128 variable_byte_shift_m128(m128 in, s32 amount) {
+    assert(amount >= -16 && amount <= 16);
+    m128 shift_mask = loadu128(vbs_mask_data + 16 - amount);
+    return pshufb(in, shift_mask);
+}
+
 
 /****
  **** 256-bit Primitives
  ****/
 
 #if defined(__AVX2__)
-#define shift4x64(a, b)  _mm256_slli_epi64((a), (b))
-#define rshift4x64(a, b) _mm256_srli_epi64((a), (b))
+#define lshift64_m256(a, b) _mm256_slli_epi64((a), (b))
+#define rshift64_m256(a, b) _mm256_srli_epi64((a), (b))
 
 static really_inline
 m256 set32x8(u32 in) {
-    m128 a = _mm_cvtsi32_si128(in);
-    return _mm256_broadcastb_epi8(a);
+    return _mm256_set1_epi8(in);
 }
 
 #define eq256(a, b)     _mm256_cmpeq_epi8((a), (b))
 #define movemask256(a)  ((u32)_mm256_movemask_epi8((a)))
 
-static really_inline u32 cmpmsk16(m256 a, m256 b) {
-    m256 tmp = _mm256_cmpeq_epi8(a, b);
-    return _mm256_movemask_epi8(tmp);
-}
 static really_inline
 m256 set2x128(m128 a) {
     return _mm256_broadcastsi128_si256(a);
@@ -347,18 +332,18 @@ m256 set2x128(m128 a) {
 #else
 
 static really_inline
-m256 shift4x64(m256 a, int b) {
+m256 lshift64_m256(m256 a, int b) {
     m256 rv = a;
-    rv.lo = shift2x64(rv.lo, b);
-    rv.hi = shift2x64(rv.hi, b);
+    rv.lo = lshift64_m128(rv.lo, b);
+    rv.hi = lshift64_m128(rv.hi, b);
     return rv;
 }
 
 static really_inline
-m256 rshift4x64(m256 a, int b) {
+m256 rshift64_m256(m256 a, int b) {
     m256 rv = a;
-    rv.lo = rshift2x64(rv.lo, b);
-    rv.hi = rshift2x64(rv.hi, b);
+    rv.lo = rshift64_m128(rv.lo, b);
+    rv.hi = rshift64_m128(rv.hi, b);
     return rv;
 }
 static really_inline
@@ -382,12 +367,7 @@ static really_inline m256 zeroes256(void) {
 
 static really_inline m256 ones256(void) {
 #if defined(__AVX2__)
-    m256 rv;
-#if defined(NO_ASM)
-    rv = eq256(zeroes256(), zeroes256());
-#else
-    __asm__ ("vpcmpeqb %0,%0,%0" : "=x"(rv));
-#endif
+    m256 rv = _mm256_set1_epi8(0xFF);
 #else
     m256 rv = {ones128(), ones128()};
 #endif
@@ -398,13 +378,6 @@ static really_inline m256 ones256(void) {
 static really_inline m256 and256(m256 a, m256 b) {
     return _mm256_and_si256(a, b);
 }
-#elif defined(USE_GCC_COMPOUND_STATEMENTS)
-#define and256(a, b) ({                                                 \
-    m256 rv_and256;                                                     \
-    rv_and256.lo = and128((a).lo, (b).lo);                              \
-    rv_and256.hi = and128((a).hi, (b).hi);                              \
-    rv_and256;                                                          \
-})
 #else
 static really_inline m256 and256(m256 a, m256 b) {
     m256 rv;
@@ -418,13 +391,6 @@ static really_inline m256 and256(m256 a, m256 b) {
 static really_inline m256 or256(m256 a, m256 b) {
     return _mm256_or_si256(a, b);
 }
-#elif defined(USE_GCC_COMPOUND_STATEMENTS)
-#define or256(a, b) ({                                                  \
-    m256 rv_or256;                                                      \
-    rv_or256.lo = or128((a).lo, (b).lo);                                \
-    rv_or256.hi = or128((a).hi, (b).hi);                                \
-    rv_or256;                                                           \
-})
 #else
 static really_inline m256 or256(m256 a, m256 b) {
     m256 rv;
@@ -438,13 +404,6 @@ static really_inline m256 or256(m256 a, m256 b) {
 static really_inline m256 xor256(m256 a, m256 b) {
     return _mm256_xor_si256(a, b);
 }
-#elif defined(USE_GCC_COMPOUND_STATEMENTS)
-#define xor256(a, b) ({                                                 \
-    m256 rv_xor256;                                                     \
-    rv_xor256.lo = xor128((a).lo, (b).lo);                              \
-    rv_xor256.hi = xor128((a).hi, (b).hi);                              \
-    rv_xor256;                                                          \
-})
 #else
 static really_inline m256 xor256(m256 a, m256 b) {
     m256 rv;
@@ -458,13 +417,6 @@ static really_inline m256 xor256(m256 a, m256 b) {
 static really_inline m256 not256(m256 a) {
     return _mm256_xor_si256(a, ones256());
 }
-#elif defined(USE_GCC_COMPOUND_STATEMENTS)
-#define not256(a) ({                                                    \
-    m256 rv_not256;                                                     \
-    rv_not256.lo = not128((a).lo);                                      \
-    rv_not256.hi = not128((a).hi);                                      \
-    rv_not256;                                                          \
-})
 #else
 static really_inline m256 not256(m256 a) {
     m256 rv;
@@ -478,38 +430,11 @@ static really_inline m256 not256(m256 a) {
 static really_inline m256 andnot256(m256 a, m256 b) {
     return _mm256_andnot_si256(a, b);
 }
-#elif defined(USE_GCC_COMPOUND_STATEMENTS)
-#define andnot256(a, b) ({                                              \
-    m256 rv_andnot256;                                                  \
-    rv_andnot256.lo = andnot128((a).lo, (b).lo);                        \
-    rv_andnot256.hi = andnot128((a).hi, (b).hi);                        \
-    rv_andnot256;                                                       \
-})
 #else
 static really_inline m256 andnot256(m256 a, m256 b) {
     m256 rv;
     rv.lo = andnot128(a.lo, b.lo);
     rv.hi = andnot128(a.hi, b.hi);
-    return rv;
-}
-#endif
-
-// The shift amount is an immediate, so we define these operations as macros on
-// Intel SIMD (using a GNU C extension).
-#if defined(__AVX2__)
-#define shift256(a, b)  _mm256_slli_epi64((a), (b))
-#elif defined(__GNUC__)
-#define shift256(a, b)  ({                                              \
-    m256 rv_shift256;                                                   \
-    rv_shift256.lo = shift128(a.lo, b);                                 \
-    rv_shift256.hi = shift128(a.hi, b);                                 \
-    rv_shift256;                                                        \
-})
-#else
-static really_inline m256 shift256(m256 a, unsigned b) {
-    m256 rv;
-    rv.lo = shift128(a.lo, b);
-    rv.hi = shift128(a.hi, b);
     return rv;
 }
 #endif
@@ -558,11 +483,10 @@ static really_inline u32 diffrich64_256(m256 a, m256 b) {
 
 // aligned load
 static really_inline m256 load256(const void *ptr) {
-#if defined(__AVX2__)
     assert(ISALIGNED_N(ptr, alignof(m256)));
+#if defined(__AVX2__)
     return _mm256_load_si256((const m256 *)ptr);
 #else
-    assert(ISALIGNED_N(ptr, alignof(m128)));
     m256 rv = { load128(ptr), load128((const char *)ptr + 16) };
     return rv;
 #endif
@@ -582,11 +506,10 @@ static really_inline m256 load2x128(const void *ptr) {
 
 // aligned store
 static really_inline void store256(void *ptr, m256 a) {
-#if defined(__AVX2__)
     assert(ISALIGNED_N(ptr, alignof(m256)));
+#if defined(__AVX2__)
     _mm256_store_si256((m256 *)ptr, a);
 #else
-    assert(ISALIGNED_16(ptr));
     ptr = assume_aligned(ptr, 16);
     *(m256 *)ptr = a;
 #endif
@@ -616,6 +539,14 @@ m256 loadbytes256(const void *ptr, unsigned int n) {
     assert(n <= sizeof(a));
     memcpy(&a, ptr, n);
     return a;
+}
+
+static really_inline
+m256 mask1bit256(unsigned int n) {
+    assert(n < sizeof(m256) * 8);
+    u32 mask_idx = ((n % 8) * 64) + 31;
+    mask_idx -= n / 8;
+    return loadu256(&simd_onebit_masks[mask_idx]);
 }
 
 #if !defined(__AVX2__)
@@ -666,42 +597,19 @@ char testbit256(const m256 *ptr, unsigned int n) {
 // switches on bit N in the given vector.
 static really_inline
 void setbit256(m256 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    // We should be able to figure out a better way than this.
-    union {
-        m256 simd;
-        u8 bytes[sizeof(m256)];
-    } x;
-    x.simd = *ptr;
-
-    u8 *b = &x.bytes[n / 8];
-    *b |= 1U << (n % 8);
-
-    *ptr = x.simd;
+    *ptr = or256(mask1bit256(n), *ptr);
 }
 
-// TODO: can we do this better in avx-land?
 static really_inline
 void clearbit256(m256 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    union {
-        m256 simd;
-        u8 bytes[sizeof(m256)];
-    } x;
-    x.simd = *ptr;
-
-    u8 *b = &x.bytes[n / 8];
-    *b &= ~(1U << (n % 8));
-
-    *ptr = x.simd;
+    *ptr = andnot256(mask1bit256(n), *ptr);
 }
 
 // tests bit N in the given vector.
 static really_inline
 char testbit256(const m256 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    const char *bytes = (const char *)ptr;
-    return !!(bytes[n / 8] & (1 << (n % 8)));
+    const m256 mask = mask1bit256(n);
+    return !_mm256_testz_si256(mask, *ptr);
 }
 
 static really_really_inline
@@ -714,27 +622,19 @@ m128 movdq_lo(m256 x) {
     return _mm256_extracti128_si256(x, 0);
 }
 
-static really_inline
-m256 shift256Right8Bits(m256 a) {
-    return _mm256_srli_si256(a, 1);
-}
-
-static really_inline
-m256 shift256Left8Bits(m256 a) {
-    return _mm256_slli_si256(a, 1);
-}
 #define cast256to128(a) _mm256_castsi256_si128(a)
 #define cast128to256(a) _mm256_castsi128_si256(a)
 #define swap128in256(a) _mm256_permute4x64_epi64(a, 0x4E)
 #define insert128to256(a, b, imm) _mm256_inserti128_si256(a, b, imm)
-#define byteShiftRight256(a, count_immed) _mm256_srli_si256(a, count_immed)
-#define byteShiftLeft256(a, count_immed) _mm256_slli_si256(a, count_immed)
+#define rshift128_m256(a, count_immed) _mm256_srli_si256(a, count_immed)
+#define lshift128_m256(a, count_immed) _mm256_slli_si256(a, count_immed)
 #define extract64from256(a, imm) _mm_extract_epi64(_mm256_extracti128_si256(a, imm >> 1), imm % 2)
 #define extract32from256(a, imm) _mm_extract_epi32(_mm256_extracti128_si256(a, imm >> 2), imm % 4)
 #define extractlow64from256(a) _mm_cvtsi128_si64(cast256to128(a))
 #define extractlow32from256(a) movd(cast256to128(a))
 #define interleave256hi(a, b) _mm256_unpackhi_epi8(a, b);
 #define interleave256lo(a, b) _mm256_unpacklo_epi8(a, b);
+#define vpalignr(r, l, offset) _mm256_alignr_epi8(r, l, offset)
 
 #endif //AVX2
 
@@ -742,15 +642,6 @@ m256 shift256Left8Bits(m256 a) {
  **** 384-bit Primitives
  ****/
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define and384(a, b) ({                                                 \
-    m384 rv_and384;                                                     \
-    rv_and384.lo = and128((a).lo, (b).lo);                              \
-    rv_and384.mid = and128((a).mid, (b).mid);                           \
-    rv_and384.hi = and128((a).hi, (b).hi);                              \
-    rv_and384;                                                          \
-})
-#else
 static really_inline m384 and384(m384 a, m384 b) {
     m384 rv;
     rv.lo = and128(a.lo, b.lo);
@@ -758,17 +649,7 @@ static really_inline m384 and384(m384 a, m384 b) {
     rv.hi = and128(a.hi, b.hi);
     return rv;
 }
-#endif
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define or384(a, b) ({                                                  \
-    m384 rv_or384;                                                      \
-    rv_or384.lo = or128((a).lo, (b).lo);                                \
-    rv_or384.mid = or128((a).mid, (b).mid);                             \
-    rv_or384.hi = or128((a).hi, (b).hi);                                \
-    rv_or384;                                                           \
-})
-#else
 static really_inline m384 or384(m384 a, m384 b) {
     m384 rv;
     rv.lo = or128(a.lo, b.lo);
@@ -776,17 +657,7 @@ static really_inline m384 or384(m384 a, m384 b) {
     rv.hi = or128(a.hi, b.hi);
     return rv;
 }
-#endif
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define xor384(a, b) ({                                                 \
-    m384 rv_xor384;                                                     \
-    rv_xor384.lo = xor128((a).lo, (b).lo);                              \
-    rv_xor384.mid = xor128((a).mid, (b).mid);                           \
-    rv_xor384.hi = xor128((a).hi, (b).hi);                              \
-    rv_xor384;                                                          \
-})
-#else
 static really_inline m384 xor384(m384 a, m384 b) {
     m384 rv;
     rv.lo = xor128(a.lo, b.lo);
@@ -794,17 +665,6 @@ static really_inline m384 xor384(m384 a, m384 b) {
     rv.hi = xor128(a.hi, b.hi);
     return rv;
 }
-#endif
-
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define not384(a) ({                                                    \
-    m384 rv_not384;                                                     \
-    rv_not384.lo = not128((a).lo);                                      \
-    rv_not384.mid = not128((a).mid);                                    \
-    rv_not384.hi = not128((a).hi);                                      \
-    rv_not384;                                                          \
-})
-#else
 static really_inline m384 not384(m384 a) {
     m384 rv;
     rv.lo = not128(a.lo);
@@ -812,17 +672,6 @@ static really_inline m384 not384(m384 a) {
     rv.hi = not128(a.hi);
     return rv;
 }
-#endif
-
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define andnot384(a, b) ({                                              \
-    m384 rv_andnot384;                                                  \
-    rv_andnot384.lo = andnot128((a).lo, (b).lo);                        \
-    rv_andnot384.mid = andnot128((a).mid, (b).mid);                     \
-    rv_andnot384.hi = andnot128((a).hi, (b).hi);                        \
-    rv_andnot384;                                                       \
-})
-#else
 static really_inline m384 andnot384(m384 a, m384 b) {
     m384 rv;
     rv.lo = andnot128(a.lo, b.lo);
@@ -830,27 +679,16 @@ static really_inline m384 andnot384(m384 a, m384 b) {
     rv.hi = andnot128(a.hi, b.hi);
     return rv;
 }
-#endif
 
-// The shift amount is an immediate, so we define these operations as macros on
-// Intel SIMD (using a GNU C extension).
-#if defined(__GNUC__)
-#define shift384(a, b)  ({                                              \
-    m384 rv;                                                            \
-    rv.lo = shift128(a.lo, b);                                          \
-    rv.mid = shift128(a.mid, b);                                        \
-    rv.hi = shift128(a.hi, b);                                          \
-    rv;                                                                 \
-})
-#else
-static really_inline m384 shift384(m384 a, unsigned b) {
+// The shift amount is an immediate
+static really_really_inline
+m384 lshift64_m384(m384 a, unsigned b) {
     m384 rv;
-    rv.lo = shift128(a.lo, b);
-    rv.mid = shift128(a.mid, b);
-    rv.hi = shift128(a.hi, b);
+    rv.lo = lshift64_m128(a.lo, b);
+    rv.mid = lshift64_m128(a.mid, b);
+    rv.hi = lshift64_m128(a.hi, b);
     return rv;
 }
-#endif
 
 static really_inline m384 zeroes384(void) {
     m384 rv = {zeroes128(), zeroes128(), zeroes128()};
@@ -980,103 +818,49 @@ char testbit384(const m384 *ptr, unsigned int n) {
  **** 512-bit Primitives
  ****/
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define and512(a, b) ({                                                 \
-    m512 rv_and512;                                                     \
-    rv_and512.lo = and256((a).lo, (b).lo);                              \
-    rv_and512.hi = and256((a).hi, (b).hi);                              \
-    rv_and512;                                                          \
-})
-#else
 static really_inline m512 and512(m512 a, m512 b) {
     m512 rv;
     rv.lo = and256(a.lo, b.lo);
     rv.hi = and256(a.hi, b.hi);
     return rv;
 }
-#endif
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define or512(a, b) ({                                                  \
-    m512 rv_or512;                                                      \
-    rv_or512.lo = or256((a).lo, (b).lo);                                \
-    rv_or512.hi = or256((a).hi, (b).hi);                                \
-    rv_or512;                                                           \
-})
-#else
 static really_inline m512 or512(m512 a, m512 b) {
     m512 rv;
     rv.lo = or256(a.lo, b.lo);
     rv.hi = or256(a.hi, b.hi);
     return rv;
 }
-#endif
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define xor512(a, b) ({                                                 \
-    m512 rv_xor512;                                                     \
-    rv_xor512.lo = xor256((a).lo, (b).lo);                              \
-    rv_xor512.hi = xor256((a).hi, (b).hi);                              \
-    rv_xor512;                                                          \
-})
-#else
 static really_inline m512 xor512(m512 a, m512 b) {
     m512 rv;
     rv.lo = xor256(a.lo, b.lo);
     rv.hi = xor256(a.hi, b.hi);
     return rv;
 }
-#endif
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define not512(a) ({                                                    \
-    m512 rv_not512;                                                     \
-    rv_not512.lo = not256((a).lo);                                      \
-    rv_not512.hi = not256((a).hi);                                      \
-    rv_not512;                                                          \
-})
-#else
 static really_inline m512 not512(m512 a) {
     m512 rv;
     rv.lo = not256(a.lo);
     rv.hi = not256(a.hi);
     return rv;
 }
-#endif
 
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define andnot512(a, b) ({                                              \
-    m512 rv_andnot512;                                                  \
-    rv_andnot512.lo = andnot256((a).lo, (b).lo);                        \
-    rv_andnot512.hi = andnot256((a).hi, (b).hi);                        \
-    rv_andnot512;                                                       \
-})
-#else
 static really_inline m512 andnot512(m512 a, m512 b) {
     m512 rv;
     rv.lo = andnot256(a.lo, b.lo);
     rv.hi = andnot256(a.hi, b.hi);
     return rv;
 }
-#endif
 
-// The shift amount is an immediate, so we define these operations as macros on
-// Intel SIMD (using a GNU C extension).
-#if defined(USE_GCC_COMPOUND_STATEMENTS)
-#define shift512(a, b)  ({                                              \
-    m512 rv_shift512;                                                   \
-    rv_shift512.lo = shift256(a.lo, b);                                 \
-    rv_shift512.hi = shift256(a.hi, b);                                 \
-    rv_shift512;                                                        \
-})
-#else
-static really_inline m512 shift512(m512 a, unsigned b) {
+// The shift amount is an immediate
+static really_really_inline
+m512 lshift64_m512(m512 a, unsigned b) {
     m512 rv;
-    rv.lo = shift256(a.lo, b);
-    rv.hi = shift256(a.hi, b);
+    rv.lo = lshift64_m256(a.lo, b);
+    rv.hi = lshift64_m256(a.hi, b);
     return rv;
 }
-#endif
 
 static really_inline m512 zeroes512(void) {
     m512 rv = {zeroes256(), zeroes256()};
@@ -1132,19 +916,19 @@ static really_inline u32 diffrich64_512(m512 a, m512 b) {
 
 // aligned load
 static really_inline m512 load512(const void *ptr) {
-    assert(ISALIGNED_16(ptr));
+    assert(ISALIGNED_N(ptr, alignof(m256)));
     m512 rv = { load256(ptr), load256((const char *)ptr + 32) };
     return rv;
 }
 
 // aligned store
 static really_inline void store512(void *ptr, m512 a) {
+    assert(ISALIGNED_N(ptr, alignof(m256)));
 #if defined(__AVX2__)
     m512 *x = (m512 *)ptr;
     store256(&x->lo, a.lo);
     store256(&x->hi, a.hi);
 #else
-    assert(ISALIGNED_16(ptr));
     ptr = assume_aligned(ptr, 16);
     *(m512 *)ptr = a;
 #endif

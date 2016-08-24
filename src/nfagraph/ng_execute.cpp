@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -58,7 +58,7 @@ namespace ue2 {
 
 struct StateInfo {
     StateInfo(NFAVertex v, const CharReach &cr) : vertex(v), reach(cr) {}
-    StateInfo() : vertex(NFAGraph::null_vertex()) {}
+    StateInfo() : vertex(NGHolder::null_vertex()) {}
     NFAVertex vertex;
     CharReach reach;
 };
@@ -322,6 +322,51 @@ flat_set<NFAVertex> execute_graph(const NGHolder &running_g,
     auto input_start_states = {input_dag.start, input_dag.startDs};
     return execute_graph(running_g, input_dag, input_start_states,
                          initial_states);
+}
+
+static
+bool can_die_early(const NGHolder &g, const vector<StateInfo> &info,
+                   const dynamic_bitset<> &s,
+                   map<dynamic_bitset<>, u32> &visited, u32 age_limit) {
+    if (contains(visited, s) && visited[s] >= age_limit) {
+        /* we have already (or are in the process) of visiting here with a
+         * looser limit. */
+        return false;
+    }
+    visited[s] = age_limit;
+
+    if (s.none()) {
+        DEBUG_PRINTF("dead\n");
+        return true;
+    }
+
+    if (age_limit == 0) {
+        return false;
+    }
+
+    dynamic_bitset<> all_succ(s.size());
+    step(g, info, s, &all_succ);
+    all_succ.reset(NODE_START_DOTSTAR);
+
+    for (u32 i = 0; i < N_CHARS; i++) {
+        dynamic_bitset<> next = all_succ;
+        filter_by_reach(info, &next, CharReach(i));
+        if (can_die_early(g, info, next, visited, age_limit - 1)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool can_die_early(const NGHolder &g, u32 age_limit) {
+    if (proper_out_degree(g.startDs, g)) {
+        return false;
+    }
+    const vector<StateInfo> &info = makeInfoTable(g);
+    map<dynamic_bitset<>, u32> visited;
+    return can_die_early(g, info, makeStateBitset(g, {g.start}), visited,
+                         age_limit);
 }
 
 } // namespace ue2

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -171,7 +171,7 @@ bool is_special(const NFAVertex v, const GraphT &g) {
 }
 
 static really_inline
-std::pair<NFAGraph::adjacency_iterator, NFAGraph::adjacency_iterator>
+std::pair<NGHolder::adjacency_iterator, NGHolder::adjacency_iterator>
 adjacent_vertices(NFAVertex v, const NGHolder &h) {
     return adjacent_vertices(v, h.g);
 }
@@ -182,7 +182,7 @@ std::pair<NFAEdge, bool> edge(NFAVertex u, NFAVertex v, const NGHolder &h) {
 }
 
 static really_inline
-std::pair<NFAGraph::edge_iterator, NFAGraph::edge_iterator>
+std::pair<NGHolder::edge_iterator, NGHolder::edge_iterator>
 edges(const NGHolder &h) {
     return edges(h.g);
 }
@@ -193,13 +193,13 @@ size_t in_degree(NFAVertex v, const NGHolder &h) {
 }
 
 static really_inline
-std::pair<NFAGraph::in_edge_iterator, NFAGraph::in_edge_iterator>
+std::pair<NGHolder::in_edge_iterator, NGHolder::in_edge_iterator>
 in_edges(NFAVertex v, const NGHolder &h) {
     return in_edges(v, h.g);
 }
 
 static really_inline
-std::pair<NFAGraph::inv_adjacency_iterator, NFAGraph::inv_adjacency_iterator>
+std::pair<NGHolder::inv_adjacency_iterator, NGHolder::inv_adjacency_iterator>
 inv_adjacent_vertices(NFAVertex v, const NGHolder &h) {
     return inv_adjacent_vertices(v, h.g);
 }
@@ -210,7 +210,7 @@ size_t out_degree(NFAVertex v, const NGHolder &h) {
 }
 
 static really_inline
-std::pair<NFAGraph::out_edge_iterator, NFAGraph::out_edge_iterator>
+std::pair<NGHolder::out_edge_iterator, NGHolder::out_edge_iterator>
 out_edges(NFAVertex v, const NGHolder &h) {
     return out_edges(v, h.g);
 }
@@ -226,7 +226,7 @@ NFAVertex target(const NFAEdge &e, const NGHolder &h) {
 }
 
 static really_inline
-std::pair<NFAGraph::vertex_iterator, NFAGraph::vertex_iterator>
+std::pair<NGHolder::vertex_iterator, NGHolder::vertex_iterator>
 vertices(const NGHolder &h) {
     return vertices(h.g);
 }
@@ -238,6 +238,16 @@ vertices(const NGHolder &h) {
  * and edges.
  */
 void clear_graph(NGHolder &h);
+
+inline
+void renumber_edges(NGHolder &h) {
+    h.renumberEdges();
+}
+
+inline
+void renumber_vertices(NGHolder &h) {
+    h.renumberVertices();
+}
 
 /*
  * \brief Clear and remove all of the vertices pointed to by the given iterator
@@ -315,15 +325,26 @@ void remove_edges(const Container &c, NGHolder &h, bool renumber = true) {
     remove_edges(c.begin(), c.end(), h, renumber);
 }
 
-static UNUSED
+inline
 bool is_triggered(const NGHolder &g) {
     return is_triggered(g.kind);
 }
 
-static UNUSED
+inline
 bool generates_callbacks(const NGHolder &g) {
     return generates_callbacks(g.kind);
 }
+
+inline
+bool has_managed_reports(const NGHolder &g) {
+    return has_managed_reports(g.kind);
+}
+
+inline
+bool inspects_states_for_accepts(const NGHolder &g) {
+    return inspects_states_for_accepts(g.kind);
+}
+
 } // namespace ue2
 
 #endif

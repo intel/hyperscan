@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@
 
 #include "gtest/gtest.h"
 #include "nfagraph/ng_repeat.h"
+#include "nfagraph/ng_util.h"
 #include "util/depth.h"
 #include "hs_compile.h"
 
@@ -89,12 +90,15 @@ static const PureRepeatTest pureRepeatTests[] = {
     { "^..?..?..?..?..?", 5, 10 }
 };
 
-INSTANTIATE_TEST_CASE_P(PureRepeat, NFAPureRepeatTest, ValuesIn(pureRepeatTests));
+INSTANTIATE_TEST_CASE_P(PureRepeat, NFAPureRepeatTest,
+                        ValuesIn(pureRepeatTests));
 
 TEST_P(NFAPureRepeatTest, Check) {
     const PureRepeatTest &t = GetParam();
     SCOPED_TRACE(testing::Message() << "Pattern: " << t.pattern);
-    unique_ptr<NGWrapper> w(constructGraph(t.pattern, HS_FLAG_ALLOWEMPTY));
+    auto w = constructGraph(t.pattern, HS_FLAG_ALLOWEMPTY);
+    ASSERT_TRUE(w != nullptr);
+    clearReports(*w);
 
     PureRepeat repeat;
     bool result = isPureRepeat(*w, repeat);

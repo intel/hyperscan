@@ -79,13 +79,17 @@ bool sanityCheckGraph(const NGHolder &g,
             }
         }
 
-        // Vertices with edges to accept or acceptEod must have reports.
+        // Vertices with edges to accept or acceptEod must have reports and
+        // other vertices must not have them.
         if (is_match_vertex(v, g) && v != g.accept) {
             if (g[v].reports.empty()) {
-                DEBUG_PRINTF("vertex %u has no reports\n",
-                             g[v].index);
+                DEBUG_PRINTF("vertex %u has no reports\n", g[v].index);
                 return false;
             }
+        } else if (!g[v].reports.empty()) {
+            DEBUG_PRINTF("vertex %u has reports but no accept edge\n",
+                         g[v].index);
+            return false;
         }
 
         // Participant vertices should have distinct state indices.
@@ -164,7 +168,7 @@ void makeTopStates(NGHolder &g, map<u32, NFAVertex> &tops,
 
         assert(!contains(tops, t));
 
-        NFAVertex s = NFAGraph::null_vertex();
+        NFAVertex s = NGHolder::null_vertex();
         flat_set<NFAVertex> succs;
         insert(&succs, top.second);
 
@@ -373,7 +377,7 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
              const map<u32, vector<vector<CharReach>>> &triggers,
              bool compress_state, bool do_accel, bool impl_test_only, u32 hint,
              const CompileContext &cc) {
-    if (!generates_callbacks(h_in)) {
+    if (!has_managed_reports(h_in)) {
         rm = nullptr;
     } else {
         assert(rm);
@@ -413,7 +417,7 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
 
     set<NFAVertex> zombies = findZombies(*h, br_cyclic, state_ids, cc);
 
-    if (generates_callbacks(*h)) {
+    if (has_managed_reports(*h)) {
         assert(rm);
         remapReportsToPrograms(*h, *rm);
     }
@@ -501,6 +505,9 @@ aligned_unique_ptr<NFA> constructReversedNFA(const NGHolder &h_in, u32 hint,
 
 u32 isImplementableNFA(const NGHolder &g, const ReportManager *rm,
                        const CompileContext &cc) {
+    if (!cc.grey.allowLimExNFA) {
+        return false;
+    }
     // Quick check: we can always implement an NFA with less than NFA_MAX_STATES
     // states. Note that top masks can generate extra states, so we account for
     // those here too.
@@ -508,7 +515,7 @@ u32 isImplementableNFA(const NGHolder &g, const ReportManager *rm,
         return true;
     }
 
-    if (!generates_callbacks(g)) {
+    if (!has_managed_reports(g)) {
         rm = nullptr;
     } else {
         assert(rm);
@@ -547,7 +554,7 @@ void reduceImplementableGraph(NGHolder &g, som_type som, const ReportManager *rm
 
     removeRedundancy(g, som);
 
-    if (rm && generates_callbacks(g)) {
+    if (rm && has_managed_reports(g)) {
         pruneHighlanderDominated(g, *rm);
     }
 
@@ -560,7 +567,7 @@ void reduceImplementableGraph(NGHolder &g, som_type som, const ReportManager *rm
 
 u32 countAccelStates(const NGHolder &g, const ReportManager *rm,
                      const CompileContext &cc) {
-    if (!generates_callbacks(g)) {
+    if (!has_managed_reports(g)) {
         rm = nullptr;
     } else {
         assert(rm);

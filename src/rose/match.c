@@ -27,14 +27,9 @@
  */
 
 #include "catchup.h"
-#include "counting_miracle.h"
-#include "infix.h"
 #include "match.h"
-#include "miracle.h"
 #include "program_runtime.h"
-#include "rose_program.h"
 #include "rose.h"
-#include "som/som_runtime.h"
 #include "util/bitutils.h"
 #include "util/fatbit.h"
 
@@ -98,13 +93,9 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
     if (program) {
         const u64a som = 0;
         const size_t match_len = end - start + 1;
-        const char in_anchored = 0;
-        const char in_catchup = 0;
-        const char from_mpv = 0;
-        const char skip_mpv_catchup = 0;
-        UNUSED hwlmcb_rv_t rv =
-            roseRunProgram(t, scratch, program, som, real_end, match_len,
-                           in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+        const u8 flags = 0;
+        UNUSED hwlmcb_rv_t rv = roseRunProgram(t, scratch, program, som,
+                                               real_end, match_len, flags);
         assert(rv != HWLM_TERMINATE_MATCHING);
     }
 
@@ -119,28 +110,6 @@ hwlmcb_rv_t ensureMpvQueueFlushed(const struct RoseEngine *t,
                                   struct hs_scratch *scratch, u32 qi, s64a loc,
                                   char in_chained) {
     return ensureQueueFlushed_i(t, scratch, qi, loc, 1, in_chained);
-}
-
-static rose_inline
-void recordAnchoredLiteralMatch(const struct RoseEngine *t,
-                                struct hs_scratch *scratch, u32 literal_id,
-                                u64a end) {
-    assert(end);
-    struct fatbit **anchoredLiteralRows = getAnchoredLiteralLog(scratch);
-
-    DEBUG_PRINTF("record %u @ %llu\n", literal_id, end);
-
-    if (!bf64_set(&scratch->al_log_sum, end - 1)) {
-        // first time, clear row
-        DEBUG_PRINTF("clearing %llu/%u\n", end - 1, t->anchored_count);
-        fatbit_clear(anchoredLiteralRows[end - 1]);
-    }
-
-    u32 rel_idx = literal_id - t->anchored_base_id;
-    DEBUG_PRINTF("record %u @ %llu index %u/%u\n", literal_id, end, rel_idx,
-                 t->anchored_count);
-    assert(rel_idx < t->anchored_count);
-    fatbit_set(anchoredLiteralRows[end - 1], t->anchored_count, rel_idx);
 }
 
 hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
@@ -220,8 +189,9 @@ event_enqueued:
     return HWLM_CONTINUE_MATCHING;
 }
 
-int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
+int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx) {
     struct hs_scratch *scratch = ctx;
+    assert(scratch && scratch->magic == SCRATCH_MAGIC);
     struct RoseContext *tctxt = &scratch->tctxt;
     struct core_info *ci = &scratch->core_info;
     const struct RoseEngine *t = ci->rose;
@@ -250,16 +220,10 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
         tctxt->lastEndOffset = real_end;
     }
 
-    const u32 *programs = getByOffset(t, t->litProgramOffset);
-    assert(id < t->literalCount);
-    const u64a som = 0;
-    const char in_anchored = 1;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 0;
-    if (roseRunProgram(t, scratch, programs[id], som, real_end, match_len,
-                       in_anchored, in_catchup, from_mpv,
-                       skip_mpv_catchup) == HWLM_TERMINATE_MATCHING) {
+    // Note that the "id" we have been handed is the program offset.
+    const u8 flags = ROSE_PROG_FLAG_IN_ANCHORED;
+    if (roseRunProgram(t, scratch, id, start, real_end, match_len,
+                       flags) == HWLM_TERMINATE_MATCHING) {
         assert(can_stop_matching(scratch));
         DEBUG_PRINTF("caller requested termination\n");
         return MO_HALT_MATCHING;
@@ -267,15 +231,34 @@ int roseAnchoredCallback(u64a end, u32 id, void *ctx) {
 
     DEBUG_PRINTF("DONE groups=0x%016llx\n", tctxt->groups);
 
-    if (real_end > t->floatingMinLiteralMatchOffset) {
-        recordAnchoredLiteralMatch(t, scratch, id, real_end);
-    }
-
     return MO_CONTINUE_MATCHING;
 }
 
-// Rose match-processing workhorse
-/* assumes not in_anchored */
+/**
+ * \brief Run the program for the given literal ID, with the interpreter
+ * inlined into this call.
+ *
+ * Assumes not in_anchored.
+ */
+static really_inline
+hwlmcb_rv_t roseProcessMatchInline(const struct RoseEngine *t,
+                             struct hs_scratch *scratch, u64a end,
+                             size_t match_len, u32 id) {
+    DEBUG_PRINTF("id=%u\n", id);
+    const u32 *programs = getByOffset(t, t->litProgramOffset);
+    assert(id < t->literalCount);
+    const u64a som = 0;
+    const u8 flags = 0;
+    return roseRunProgram_i(t, scratch, programs[id], som, end, match_len,
+                            flags);
+}
+
+/**
+ * \brief Run the program for the given literal ID, with the interpreter
+ * out of line.
+ *
+ * Assumes not in_anchored.
+ */
 static really_inline
 hwlmcb_rv_t roseProcessMatch(const struct RoseEngine *t,
                              struct hs_scratch *scratch, u64a end,
@@ -284,12 +267,8 @@ hwlmcb_rv_t roseProcessMatch(const struct RoseEngine *t,
     const u32 *programs = getByOffset(t, t->litProgramOffset);
     assert(id < t->literalCount);
     const u64a som = 0;
-    const char in_anchored = 0;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 0;
-    return roseRunProgram(t, scratch, programs[id], som, end, match_len,
-                          in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+    const u8 flags = 0;
+    return roseRunProgram(t, scratch, programs[id], som, end, match_len, flags);
 }
 
 static rose_inline
@@ -516,7 +495,8 @@ anchored_leftovers:;
     return rv;
 }
 
-hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
+static really_inline
+hwlmcb_rv_t roseCallback_i(size_t start, size_t end, u32 id, void *ctxt) {
     struct hs_scratch *scratch = ctxt;
     struct RoseContext *tctx = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
@@ -551,7 +531,7 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
     }
 
     size_t match_len = end - start + 1;
-    rv = roseProcessMatch(t, scratch, real_end, match_len, id);
+    rv = roseProcessMatchInline(t, scratch, real_end, match_len, id);
 
     DEBUG_PRINTF("DONE groups=0x%016llx\n", tctx->groups);
 
@@ -564,30 +544,15 @@ hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
     return HWLM_TERMINATE_MATCHING;
 }
 
-/**
- * \brief Match callback adaptor used for matches from pure-literal cases.
- *
- * Literal match IDs in this path run limited Rose programs that do not use
- * Rose state (which is not initialised in the pure-literal path). They can
- * still, for example, check lookarounds or literal masks.
- */
-hwlmcb_rv_t rosePureLiteralCallback(size_t start, size_t end, u32 id,
-                                    void *context) {
-    DEBUG_PRINTF("start=%zu, end=%zu, id=%u\n", start, end, id);
-    struct hs_scratch *scratch = context;
-    struct core_info *ci = &scratch->core_info;
-    const u64a real_end = (u64a)end + ci->buf_offset + 1;
-    const u64a som = 0;
-    const size_t match_len = end - start + 1;
-    const struct RoseEngine *rose = ci->rose;
-    const u32 *programs = getByOffset(rose, rose->litProgramOffset);
-    assert(id < rose->literalCount);
-    const char in_anchored = 0;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 0;
-    return roseRunProgram(rose, scratch, programs[id], som, real_end, match_len,
-                          in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctxt) {
+    return roseCallback_i(start, end, id, ctxt);
+}
+
+hwlmcb_rv_t roseFloatingCallback(size_t start, size_t end, u32 id, void *ctxt) {
+    struct hs_scratch *scratch = ctxt;
+    const struct RoseEngine *t = scratch->core_info.rose;
+
+    return roseCallback_i(start, end, id, ctxt) & t->floating_group_mask;
 }
 
 /**
@@ -623,13 +588,9 @@ int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
 
     const u64a som = 0;
     const size_t match_len = 0;
-    const char in_anchored = 0;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 0;
-    hwlmcb_rv_t rv =
-        roseRunProgram(rose, scratch, program, som, stream_offset, match_len,
-                       in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+    const u8 flags = 0;
+    hwlmcb_rv_t rv = roseRunProgram(rose, scratch, program, som, stream_offset,
+                                    match_len, flags);
     if (rv == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;
     }
@@ -637,36 +598,23 @@ int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
     return MO_CONTINUE_MATCHING;
 }
 
-static really_inline
-int roseReportAdaptor_i(u64a som, u64a offset, ReportID id, void *context) {
+int roseReportAdaptor(u64a start, u64a end, ReportID id, void *context) {
     struct hs_scratch *scratch = context;
     assert(scratch && scratch->magic == SCRATCH_MAGIC);
+
+    DEBUG_PRINTF("id=%u matched at [%llu,%llu]\n", id, start, end);
 
     const struct RoseEngine *rose = scratch->core_info.rose;
 
     // Our match ID is the program offset.
     const u32 program = id;
     const size_t match_len = 0; // Unused in this path.
-    const char in_anchored = 0;
-    const char in_catchup = 0;
-    const char from_mpv = 0;
-    const char skip_mpv_catchup = 1;
+    const u8 flags = ROSE_PROG_FLAG_SKIP_MPV_CATCHUP;
     hwlmcb_rv_t rv =
-        roseRunProgram(rose, scratch, program, som, offset, match_len,
-                       in_anchored, in_catchup, from_mpv, skip_mpv_catchup);
+        roseRunProgram(rose, scratch, program, start, end, match_len, flags);
     if (rv == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;
     }
 
     return can_stop_matching(scratch) ? MO_HALT_MATCHING : MO_CONTINUE_MATCHING;
-}
-
-int roseReportAdaptor(u64a offset, ReportID id, void *context) {
-    DEBUG_PRINTF("offset=%llu, id=%u\n", offset, id);
-    return roseReportAdaptor_i(0, offset, id, context);
-}
-
-int roseReportSomAdaptor(u64a som, u64a offset, ReportID id, void *context) {
-    DEBUG_PRINTF("som=%llu, offset=%llu, id=%u\n", som, offset, id);
-    return roseReportAdaptor_i(som, offset, id, context);
 }

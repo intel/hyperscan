@@ -46,6 +46,11 @@ void calcVertexOffsets(RoseInGraph &ig);
 enum nfa_kind whatRoseIsThis(const RoseInGraph &in, const RoseInEdge &e);
 void pruneUseless(RoseInGraph &g);
 
+inline
+bool is_any_accept(RoseInVertex v, const RoseInGraph &g) {
+    return g[v].type == RIV_ACCEPT || g[v].type == RIV_ACCEPT_EOD;
+}
+
 }
 
 #endif

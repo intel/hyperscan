@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,6 +34,7 @@
 #include "rdfa.h"
 
 #include <cstdio>
+#include <string>
 
 struct mcclellan;
 struct mstate_aux;
@@ -42,8 +43,10 @@ union AccelAux;
 
 namespace ue2 {
 
-void nfaExecMcClellan8_dumpDot(const struct NFA *nfa, FILE *file);
-void nfaExecMcClellan16_dumpDot(const struct NFA *nfa, FILE *file);
+void nfaExecMcClellan8_dumpDot(const struct NFA *nfa, FILE *file,
+                               const std::string &base);
+void nfaExecMcClellan16_dumpDot(const struct NFA *nfa, FILE *file,
+                                const std::string &base);
 void nfaExecMcClellan8_dumpText(const struct NFA *nfa, FILE *file);
 void nfaExecMcClellan16_dumpText(const struct NFA *nfa, FILE *file);
 

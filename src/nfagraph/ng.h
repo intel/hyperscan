@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -87,7 +87,8 @@ class SmallWriteBuild;
 
 class NG : boost::noncopyable {
 public:
-    NG(const CompileContext &in_cc, unsigned in_somPrecision);
+    NG(const CompileContext &in_cc, size_t num_patterns,
+       unsigned in_somPrecision);
     ~NG();
 
     /** \brief Consumes a pattern, returns false or throws a CompileError
@@ -118,8 +119,8 @@ public:
     BoundaryReports boundary;
     const CompileContext cc;
 
-    const std::unique_ptr<RoseBuild> rose; //!< Rose builder.
     const std::unique_ptr<SmallWriteBuild> smwr; //!< SmallWrite builder.
+    const std::unique_ptr<RoseBuild> rose; //!< Rose builder.
 };
 
 /** \brief Run graph reduction passes.

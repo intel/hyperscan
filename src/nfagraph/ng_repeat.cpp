@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1202,7 +1202,7 @@ CharReach predReach(const NGHolder &g, NFAVertex v) {
 static
 void filterMap(const NGHolder &subg,
                ue2::unordered_map<NFAVertex, NFAVertex> &vmap) {
-    NFAGraph::vertex_iterator vi, ve;
+    NGHolder::vertex_iterator vi, ve;
     tie(vi, ve) = vertices(subg);
     const ue2::unordered_set<NFAVertex> remaining_verts(vi, ve);
 

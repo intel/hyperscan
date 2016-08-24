@@ -44,10 +44,17 @@ namespace ue2 {
 
 struct hwlmLiteral;
 
+/**
+ * \brief Build up a vector of literals for the given table.
+ *
+ * If max_offset is specified (and not ROSE_BOUND_INF), then literals that can
+ * only lead to a pattern match after max_offset may be excluded.
+ */
 std::vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
-                                                rose_literal_table table);
+                    rose_literal_table table, u32 max_offset = ROSE_BOUND_INF);
 
 aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
+                                              rose_group *fgroups,
                                               size_t *fsize,
                                               size_t *historyRequired,
                                               size_t *streamStateRequired);
@@ -57,6 +64,8 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
 
 aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
                                                  size_t *esize);
+
+void findMoreLiteralMasks(RoseBuildImpl &build);
 
 } // namespace ue2
 

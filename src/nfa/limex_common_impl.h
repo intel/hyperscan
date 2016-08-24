@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,7 @@
 #define TESTEOD_FN          JOIN(moNfaTestEod, SIZE)
 #define TESTEOD_REV_FN      JOIN(moNfaRevTestEod, SIZE)
 #define LIMEX_INACCEPT_FN   JOIN(limexInAccept, SIZE)
+#define LIMEX_INANYACCEPT_FN   JOIN(limexInAnyAccept, SIZE)
 #define EXPIRE_ESTATE_FN    JOIN(limexExpireExtendedState, SIZE)
 #define REPORTCURRENT_FN    JOIN(moNfaReportCurrent, SIZE)
 #define INITIAL_FN          JOIN(moNfaInitial, SIZE)
@@ -118,7 +119,7 @@ char PROCESS_ACCEPTS_FN(const IMPL_NFA_T *limex, STATE_T *s,
         if (TESTBIT_STATE(s, a->state)) {
             DEBUG_PRINTF("state %u is on, firing report id=%u, offset=%llu\n",
                          a->state, a->externalId, offset);
-            int rv = callback(offset, a->externalId, context);
+            int rv = callback(0, offset, a->externalId, context);
             if (unlikely(rv == MO_HALT_MATCHING)) {
                 return 1;
             }
@@ -149,7 +150,7 @@ char PROCESS_ACCEPTS_NOSQUASH_FN(const STATE_T *s,
         if (TESTBIT_STATE(s, a->state)) {
             DEBUG_PRINTF("state %u is on, firing report id=%u, offset=%llu\n",
                          a->state, a->externalId, offset);
-            int rv = callback(offset, a->externalId, context);
+            int rv = callback(0, offset, a->externalId, context);
             if (unlikely(rv == MO_HALT_MATCHING)) {
                 return 1;
             }
@@ -374,11 +375,32 @@ char LIMEX_INACCEPT_FN(const IMPL_NFA_T *limex, STATE_T state,
     return 0;
 }
 
+static really_inline
+char LIMEX_INANYACCEPT_FN(const IMPL_NFA_T *limex, STATE_T state,
+                          union RepeatControl *repeat_ctrl, char *repeat_state,
+                          u64a offset) {
+    assert(limex);
+
+    const STATE_T acceptMask = LOAD_STATE(&limex->accept);
+    STATE_T accstate = AND_STATE(state, acceptMask);
+
+    // Are we in an accept state?
+    if (ISZERO_STATE(accstate)) {
+        DEBUG_PRINTF("no accept states are on\n");
+        return 0;
+    }
+
+    SQUASH_UNTUG_BR_FN(limex, repeat_ctrl, repeat_state, offset, &accstate);
+
+    return ISNONZERO_STATE(accstate);
+}
+
 #undef TESTEOD_FN
 #undef TESTEOD_REV_FN
 #undef REPORTCURRENT_FN
 #undef EXPIRE_ESTATE_FN
 #undef LIMEX_INACCEPT_FN
+#undef LIMEX_INANYACCEPT_FN
 #undef INITIAL_FN
 #undef TOP_FN
 #undef TOPN_FN

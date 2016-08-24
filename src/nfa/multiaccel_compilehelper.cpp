@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -347,9 +347,9 @@ void match(accel_data &d, const CharReach &ref_cr, const CharReach &cur_cr) {
     }
 }
 
-MultiaccelCompileHelper::MultiaccelCompileHelper(const CharReach &ref_cr, u32 off,
-                                                 unsigned max_len) :
-        cr(ref_cr), offset(off), max_len(max_len) {
+MultiaccelCompileHelper::MultiaccelCompileHelper(const CharReach &ref_cr,
+                                                 u32 off, unsigned max_length)
+    : cr(ref_cr), offset(off), max_len(max_length) {
     int accel_num = (int) MultibyteAccelInfo::MAT_MAX;
     accels.resize(accel_num);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -85,24 +85,23 @@ TEST(NFAGraph, split1) {
     splitGraph(src, pivot, &lhs, &lhs_map, &rhs, &rhs_map);
 
     ASSERT_EQ(3U + N_SPECIALS, num_vertices(lhs));
-    NFAGraph::vertex_iterator vi, ve;
-    for (tie(vi, ve) = vertices(lhs); vi != ve; ++vi) {
-        if (is_special(*vi, lhs)) {
+    for (NFAVertex v : vertices_range(lhs)) {
+        if (is_special(v, lhs)) {
             continue;
         }
 
-        u32 cr = lhs[*vi].char_reach.find_first();
+        u32 cr = lhs[v].char_reach.find_first();
         SCOPED_TRACE(cr);
         ASSERT_TRUE((cr >= 'a' && cr <= 'c'));
     }
 
     ASSERT_EQ(8U + N_SPECIALS, num_vertices(rhs) );
-    for (tie(vi, ve) = vertices(rhs); vi != ve; ++vi) {
-        if (is_special(*vi, rhs)) {
+    for (NFAVertex v : vertices_range(rhs)) {
+        if (is_special(v, rhs)) {
             continue;
         }
 
-        u32 cr = rhs[*vi].char_reach.find_first();
+        u32 cr = rhs[v].char_reach.find_first();
         SCOPED_TRACE(cr);
         ASSERT_TRUE(cr >= 'b' && cr <= 'i');
     }
@@ -137,24 +136,23 @@ TEST(NFAGraph, split2) {
     splitGraph(src, pivot, &lhs, &lhs_map, &rhs, &rhs_map);
 
     ASSERT_EQ(3U + N_SPECIALS, num_vertices(lhs));
-    NFAGraph::vertex_iterator vi, ve;
-    for (tie(vi, ve) = vertices(lhs); vi != ve; ++vi) {
-        if (is_special(*vi, lhs)) {
+    for (NFAVertex v : vertices_range(lhs)) {
+        if (is_special(v, lhs)) {
             continue;
         }
 
-        u32 cr = lhs[*vi].char_reach.find_first();
+        u32 cr = lhs[v].char_reach.find_first();
         SCOPED_TRACE(cr);
         ASSERT_TRUE(cr >= 'a' && cr <= 'c');
     }
 
     ASSERT_EQ(3U + N_SPECIALS, num_vertices(rhs) );
-    for (tie(vi, ve) = vertices(rhs); vi != ve; ++vi) {
-        if (is_special(*vi, rhs)) {
+    for (NFAVertex v : vertices_range(rhs)) {
+        if (is_special(v, rhs)) {
             continue;
         }
 
-        u32 cr = rhs[*vi].char_reach.find_first();
+        u32 cr = rhs[v].char_reach.find_first();
         SCOPED_TRACE(cr);
         ASSERT_TRUE(cr >= 'b' && cr <= 'd');
     }
@@ -211,24 +209,23 @@ TEST(NFAGraph, split3) {
     splitGraph(src, pivots, &lhs, &lhs_map, &rhs, &rhs_map);
 
     ASSERT_EQ(7U + N_SPECIALS, num_vertices(lhs));
-    NFAGraph::vertex_iterator vi, ve;
-    for (tie(vi, ve) = vertices(lhs); vi != ve; ++vi) {
-        if (is_special(*vi, lhs)) {
+    for (NFAVertex v : vertices_range(lhs)) {
+        if (is_special(v, lhs)) {
             continue;
         }
 
-        u32 cr = lhs[*vi].char_reach.find_first();
+        u32 cr = lhs[v].char_reach.find_first();
         SCOPED_TRACE(cr);
         ASSERT_TRUE((cr >= 'a' && cr <= 'g'));
     }
 
     ASSERT_EQ(2U + N_SPECIALS, num_vertices(rhs) );
-    for (tie(vi, ve) = vertices(rhs); vi != ve; ++vi) {
-        if (is_special(*vi, rhs)) {
+    for (NFAVertex v : vertices_range(rhs)) {
+        if (is_special(v, rhs)) {
             continue;
         }
 
-        u32 cr = rhs[*vi].char_reach.find_first();
+        u32 cr = rhs[v].char_reach.find_first();
         SCOPED_TRACE(cr);
         ASSERT_TRUE(cr >= 'h' && cr <= 'i');
     }
@@ -289,13 +286,12 @@ TEST(NFAGraph, split4) {
     splitGraph(src, pivots, &lhs, &lhs_map, &rhs, &rhs_map);
 
     ASSERT_EQ(7U + N_SPECIALS, num_vertices(lhs));
-    NFAGraph::vertex_iterator vi, ve;
-    for (tie(vi, ve) = vertices(lhs); vi != ve; ++vi) {
-        if (is_special(*vi, lhs)) {
+    for (NFAVertex v : vertices_range(lhs)) {
+        if (is_special(v, lhs)) {
             continue;
         }
 
-        u32 cr = lhs[*vi].char_reach.find_first();
+        u32 cr = lhs[v].char_reach.find_first();
         SCOPED_TRACE(cr);
         ASSERT_TRUE((cr >= 'a' && cr <= 'g'));
     }
@@ -304,12 +300,12 @@ TEST(NFAGraph, split4) {
     ASSERT_TRUE(edge(lhs_map[d], lhs_map[d], lhs).second);
 
     ASSERT_EQ(2U + N_SPECIALS, num_vertices(rhs) );
-    for (tie(vi, ve) = vertices(rhs); vi != ve; ++vi) {
-        if (is_special(*vi, rhs)) {
+    for (NFAVertex v : vertices_range(rhs)) {
+        if (is_special(v, rhs)) {
             continue;
         }
 
-        u32 cr = rhs[*vi].char_reach.find_first();
+        u32 cr = rhs[v].char_reach.find_first();
         SCOPED_TRACE(cr);
         ASSERT_TRUE(cr >= 'h' && cr <= 'i');
     }

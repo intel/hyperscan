@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -68,6 +68,9 @@
     The value of NFA.stateSize gives the total state size in bytes (the sum of
     all the above).
 
+    Number of shifts should be always greater or equal to 1
+    Number of shifts 0 means that no appropriate NFA engine was found.
+
 */
 
 #ifndef LIMEX_INTERNAL_H
@@ -77,7 +80,8 @@
 #include "repeat_internal.h"
 
 // Constants
-#define MAX_MAX_SHIFT 8      /**< largest maxshift used by a LimEx NFA */
+#define MAX_SHIFT_COUNT 8   /**< largest number of shifts used by a LimEx NFA */
+#define MAX_SHIFT_AMOUNT 16 /**< largest shift amount used by a LimEx NFA */
 
 #define LIMEX_FLAG_COMPRESS_STATE  1 /**< pack state into stream state */
 #define LIMEX_FLAG_COMPRESS_MASKED 2 /**< use reach mask-based compression */
@@ -93,24 +97,6 @@ enum LimExSquash {
     LIMEX_SQUASH_CYCLIC = 1, //!< squash due to cyclic state
     LIMEX_SQUASH_TUG = 2,    //!< squash due to tug trigger with stale estate
     LIMEX_SQUASH_REPORT = 3  //!< squash when report is raised
-};
-
-struct LimExNFABase {
-    u8 reachMap[N_CHARS];
-    u32 reachSize;
-    u32 accelCount;
-    u32 accelTableOffset;
-    u32 accelAuxCount;
-    u32 accelAuxOffset;
-    u32 acceptCount;
-    u32 acceptOffset;
-    u32 acceptEodCount;
-    u32 acceptEodOffset;
-    u32 exceptionCount;
-    u32 exceptionOffset;
-    u32 exReportOffset;
-    u32 repeatCount;
-    u32 repeatOffset;
 };
 
 /* uniform looking types for the macros */
@@ -133,7 +119,7 @@ struct NFAException##size {                                                 \
     u8 trigger; /**< from enum LimExTrigger */                              \
 };                                                                          \
                                                                             \
-struct LimExNFA##size { /* MUST align with LimExNFABase */                  \
+struct LimExNFA##size {                                                     \
     u8 reachMap[N_CHARS]; /**< map of char -> entry in reach[] */           \
     u32 reachSize; /**< number of reach masks */                            \
     u32 accelCount; /**< number of entries in accel table */                \
@@ -149,7 +135,6 @@ struct LimExNFA##size { /* MUST align with LimExNFABase */                  \
     u32 exReportOffset; /* rel. to start of LimExNFA */                     \
     u32 repeatCount;                                                        \
     u32 repeatOffset;                                                       \
-    u32 exceptionMap[size];                                                 \
     u32 squashOffset; /* rel. to start of LimExNFA; for accept squashing */ \
     u32 squashCount;                                                        \
     u32 topCount;                                                           \
@@ -168,8 +153,10 @@ struct LimExNFA##size { /* MUST align with LimExNFABase */                  \
     u_##size compressMask; /**< switch off before compress */               \
     u_##size exceptionMask;                                                 \
     u_##size repeatCyclicMask;                                              \
-    u_##size shift[MAX_MAX_SHIFT];                                          \
     u_##size zombieMask; /**< zombie if in any of the set states */         \
+    u_##size shift[MAX_SHIFT_COUNT];                                        \
+    u32 shiftCount; /**< number of shift masks used */                      \
+    u8 shiftAmount[MAX_SHIFT_COUNT]; /**< shift amount for each mask */     \
 };
 
 CREATE_NFA_LIMEX(32)

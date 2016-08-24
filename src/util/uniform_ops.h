@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -125,12 +125,12 @@
 #define andnot_m384(a, b)   (andnot384(a, b))
 #define andnot_m512(a, b)   (andnot512(a, b))
 
-#define shift_u32(a, b)     ((a) << (b))
-#define shift_u64a(a, b)    ((a) << (b))
-#define shift_m128(a, b)    (shift128(a, b))
-#define shift_m256(a, b)    (shift256(a, b))
-#define shift_m384(a, b)    (shift384(a, b))
-#define shift_m512(a, b)    (shift512(a, b))
+#define lshift_u32(a, b)    ((a) << (b))
+#define lshift_u64a(a, b)   ((a) << (b))
+#define lshift_m128(a, b)   (lshift64_m128(a, b))
+#define lshift_m256(a, b)   (lshift64_m256(a, b))
+#define lshift_m384(a, b)   (lshift64_m384(a, b))
+#define lshift_m512(a, b)   (lshift64_m512(a, b))
 
 #define isZero_u8(a)        ((a) == 0)
 #define isZero_u32(a)       ((a) == 0)

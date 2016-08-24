@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,44 +26,45 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- * \brief LimEx NFA: 512-bit SIMD runtime implementations.
- */
+#ifndef SHENG_INTERNAL_H_
+#define SHENG_INTERNAL_H_
 
-//#define DEBUG_INPUT
-//#define DEBUG_EXCEPTIONS
-
-#include "limex.h"
-
-#include "accel.h"
-#include "limex_internal.h"
-#include "nfa_internal.h"
 #include "ue2common.h"
-#include "util/bitutils.h"
 #include "util/simd_utils.h"
 
-// Common code
-#include "limex_runtime.h"
+#define SHENG_STATE_ACCEPT 0x10
+#define SHENG_STATE_DEAD 0x20
+#define SHENG_STATE_ACCEL 0x40
+#define SHENG_STATE_MASK 0xF
+#define SHENG_STATE_FLAG_MASK 0x70
 
-#define SIZE 512
-#define STATE_T m512
-#include "limex_exceptional.h"
+#define SHENG_FLAG_SINGLE_REPORT 0x1
+#define SHENG_FLAG_CAN_DIE 0x2
+#define SHENG_FLAG_HAS_ACCEL 0x4
 
-#define SIZE 512
-#define STATE_T m512
-#include "limex_state_impl.h"
+struct report_list {
+    u32 count;
+    ReportID report[];
+};
 
-#define SIZE 512
-#define STATE_T m512
-#define INLINE_ATTR really_inline
-#include "limex_common_impl.h"
+struct sstate_aux {
+    u32 accept;
+    u32 accept_eod;
+    u32 accel;
+    u32 top;
+};
 
-#define SIZE                512
-#define STATE_T             m512
-#define SHIFT               6
-#include "limex_runtime_impl.h"
+struct sheng {
+    m128 shuffle_masks[256];
+    u32 length;
+    u32 aux_offset;
+    u32 report_offset;
+    u32 accel_offset;
+    u8 n_states;
+    u8 anchored;
+    u8 floating;
+    u8 flags;
+    ReportID report;
+};
 
-#define SIZE                512
-#define STATE_T             m512
-#define SHIFT               7
-#include "limex_runtime_impl.h"
+#endif /* SHENG_INTERNAL_H_ */

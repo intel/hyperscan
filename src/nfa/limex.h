@@ -30,6 +30,7 @@
 #define LIMEX_H
 
 #ifdef __cplusplus
+#include <string>
 extern "C"
 {
 #endif
@@ -40,7 +41,8 @@ extern "C"
 #define GENERATE_NFA_DUMP_DECL(gf_name)                                        \
     } /* extern "C" */                                                         \
     namespace ue2 {                                                            \
-    void gf_name##_dumpDot(const struct NFA *nfa, FILE *file);                 \
+    void gf_name##_dumpDot(const struct NFA *nfa, FILE *file,                  \
+                           const std::string &base);                           \
     void gf_name##_dumpText(const struct NFA *nfa, FILE *file);                \
     } /* namespace ue2 */                                                      \
     extern "C" {
@@ -52,14 +54,14 @@ extern "C"
 #define GENERATE_NFA_DECL(gf_name)                                             \
     char gf_name##_testEOD(const struct NFA *nfa, const char *state,           \
                            const char *streamState, u64a offset,               \
-                           NfaCallback callback, SomNfaCallback som_cb,        \
-                           void *context);                                     \
+                           NfaCallback callback, void *context);               \
     char gf_name##_Q(const struct NFA *n, struct mq *q, s64a end);             \
     char gf_name##_Q2(const struct NFA *n, struct mq *q, s64a end);            \
     char gf_name##_QR(const struct NFA *n, struct mq *q, ReportID report);     \
     char gf_name##_reportCurrent(const struct NFA *n, struct mq *q);           \
     char gf_name##_inAccept(const struct NFA *n, ReportID report,              \
                             struct mq *q);                                     \
+    char gf_name##_inAnyAccept(const struct NFA *n, struct mq *q);             \
     char gf_name##_queueInitState(const struct NFA *n, struct mq *q);          \
     char gf_name##_initCompressedState(const struct NFA *n, u64a offset,       \
                                        void *state, u8 key);                   \
@@ -74,41 +76,11 @@ extern "C"
                                                    struct mq *q, s64a loc);    \
     GENERATE_NFA_DUMP_DECL(gf_name)
 
-GENERATE_NFA_DECL(nfaExecLimEx32_1)
-GENERATE_NFA_DECL(nfaExecLimEx32_2)
-GENERATE_NFA_DECL(nfaExecLimEx32_3)
-GENERATE_NFA_DECL(nfaExecLimEx32_4)
-GENERATE_NFA_DECL(nfaExecLimEx32_5)
-GENERATE_NFA_DECL(nfaExecLimEx32_6)
-GENERATE_NFA_DECL(nfaExecLimEx32_7)
-GENERATE_NFA_DECL(nfaExecLimEx128_1)
-GENERATE_NFA_DECL(nfaExecLimEx128_2)
-GENERATE_NFA_DECL(nfaExecLimEx128_3)
-GENERATE_NFA_DECL(nfaExecLimEx128_4)
-GENERATE_NFA_DECL(nfaExecLimEx128_5)
-GENERATE_NFA_DECL(nfaExecLimEx128_6)
-GENERATE_NFA_DECL(nfaExecLimEx128_7)
-GENERATE_NFA_DECL(nfaExecLimEx256_1)
-GENERATE_NFA_DECL(nfaExecLimEx256_2)
-GENERATE_NFA_DECL(nfaExecLimEx256_3)
-GENERATE_NFA_DECL(nfaExecLimEx256_4)
-GENERATE_NFA_DECL(nfaExecLimEx256_5)
-GENERATE_NFA_DECL(nfaExecLimEx256_6)
-GENERATE_NFA_DECL(nfaExecLimEx256_7)
-GENERATE_NFA_DECL(nfaExecLimEx384_1)
-GENERATE_NFA_DECL(nfaExecLimEx384_2)
-GENERATE_NFA_DECL(nfaExecLimEx384_3)
-GENERATE_NFA_DECL(nfaExecLimEx384_4)
-GENERATE_NFA_DECL(nfaExecLimEx384_5)
-GENERATE_NFA_DECL(nfaExecLimEx384_6)
-GENERATE_NFA_DECL(nfaExecLimEx384_7)
-GENERATE_NFA_DECL(nfaExecLimEx512_1)
-GENERATE_NFA_DECL(nfaExecLimEx512_2)
-GENERATE_NFA_DECL(nfaExecLimEx512_3)
-GENERATE_NFA_DECL(nfaExecLimEx512_4)
-GENERATE_NFA_DECL(nfaExecLimEx512_5)
-GENERATE_NFA_DECL(nfaExecLimEx512_6)
-GENERATE_NFA_DECL(nfaExecLimEx512_7)
+GENERATE_NFA_DECL(nfaExecLimEx32)
+GENERATE_NFA_DECL(nfaExecLimEx128)
+GENERATE_NFA_DECL(nfaExecLimEx256)
+GENERATE_NFA_DECL(nfaExecLimEx384)
+GENERATE_NFA_DECL(nfaExecLimEx512)
 
 #undef GENERATE_NFA_DECL
 #undef GENERATE_NFA_DUMP_DECL

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -100,7 +100,12 @@ void splitLHS(const NGHolder &base, const vector<NFAVertex> &pivots,
         add_edge((*lhs_map)[pivot], lhs->accept, *lhs);
     }
 
-    pruneUseless(*lhs);
+    /* should do the renumbering unconditionally as we know edges are already
+     * misnumbered */
+    pruneUseless(*lhs, false);
+    renumber_edges(*lhs);
+    renumber_vertices(*lhs);
+
     filterSplitMap(*lhs, lhs_map);
 
     switch (base.kind) {
@@ -111,6 +116,12 @@ void splitLHS(const NGHolder &base, const vector<NFAVertex> &pivots,
     case NFA_INFIX:
     case NFA_SUFFIX:
         lhs->kind = NFA_INFIX;
+        break;
+    case NFA_EAGER_PREFIX:
+        /* Current code should not be assigning eager until well after all the
+         * splitting is done. */
+        assert(0);
+        lhs->kind = NFA_EAGER_PREFIX;
         break;
     case NFA_REV_PREFIX:
     case NFA_OUTFIX_RAW:
@@ -142,7 +153,12 @@ void splitRHS(const NGHolder &base, const vector<NFAVertex> &pivots,
         assert(contains(*rhs_map, pivot));
         add_edge(rhs->start, (*rhs_map)[pivot], *rhs);
     }
-    pruneUseless(*rhs);
+
+     /* should do the renumbering unconditionally as we know edges are already
+      * misnumbered */
+    pruneUseless(*rhs, false);
+    renumber_edges(*rhs);
+    renumber_vertices(*rhs);
     filterSplitMap(*rhs, rhs_map);
 
     switch (base.kind) {
@@ -153,6 +169,12 @@ void splitRHS(const NGHolder &base, const vector<NFAVertex> &pivots,
     case NFA_SUFFIX:
     case NFA_OUTFIX:
         rhs->kind = NFA_SUFFIX;
+        break;
+    case NFA_EAGER_PREFIX:
+        /* Current code should not be assigning eager until well after all the
+         * splitting is done. */
+        assert(0);
+        rhs->kind = NFA_INFIX;
         break;
     case NFA_REV_PREFIX:
     case NFA_OUTFIX_RAW:

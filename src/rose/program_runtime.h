@@ -26,6 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file
+ * \brief Rose runtime: program interpreter.
+ */
+
 #ifndef PROGRAM_RUNTIME_H
 #define PROGRAM_RUNTIME_H
 
@@ -39,12 +44,31 @@
 #include "rose_internal.h"
 #include "rose_program.h"
 #include "rose_types.h"
+#include "validate_mask.h"
 #include "runtime.h"
 #include "scratch.h"
 #include "ue2common.h"
+#include "hwlm/hwlm.h" // for hwlmcb_rv_t
 #include "util/compare.h"
 #include "util/fatbit.h"
 #include "util/multibit.h"
+
+/*
+ * Program context flags, which control the behaviour of some instructions at
+ * based on runtime contexts (whether the program is triggered by the anchored
+ * matcher, engine catchup, etc).
+ */
+
+#define ROSE_PROG_FLAG_IN_ANCHORED          1
+#define ROSE_PROG_FLAG_IN_CATCHUP           2
+#define ROSE_PROG_FLAG_FROM_MPV             4
+#define ROSE_PROG_FLAG_SKIP_MPV_CATCHUP     8
+
+hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
+                           struct hs_scratch *scratch, u32 programOffset,
+                           u64a som, u64a end, size_t match_len, u8 prog_flags);
+
+/* Inline implementation follows. */
 
 static rose_inline
 int roseCheckBenefits(const struct core_info *ci, u64a end, u32 mask_rewind,
@@ -142,6 +166,33 @@ void rosePushDelayedMatch(const struct RoseEngine *t,
 }
 
 static rose_inline
+void recordAnchoredLiteralMatch(const struct RoseEngine *t,
+                                struct hs_scratch *scratch, u32 literal_id,
+                                u64a end) {
+    assert(end);
+
+    if (end <= t->floatingMinLiteralMatchOffset) {
+        return;
+    }
+
+    struct fatbit **anchoredLiteralRows = getAnchoredLiteralLog(scratch);
+
+    DEBUG_PRINTF("record %u @ %llu\n", literal_id, end);
+
+    if (!bf64_set(&scratch->al_log_sum, end - 1)) {
+        // first time, clear row
+        DEBUG_PRINTF("clearing %llu/%u\n", end - 1, t->anchored_count);
+        fatbit_clear(anchoredLiteralRows[end - 1]);
+    }
+
+    u32 rel_idx = literal_id - t->anchored_base_id;
+    DEBUG_PRINTF("record %u @ %llu index %u/%u\n", literal_id, end, rel_idx,
+                 t->anchored_count);
+    assert(rel_idx < t->anchored_count);
+    fatbit_set(anchoredLiteralRows[end - 1], t->anchored_count, rel_idx);
+}
+
+static rose_inline
 char roseLeftfixCheckMiracles(const struct RoseEngine *t,
                               const struct LeftNfaInfo *left,
                               struct core_info *ci, struct mq *q, u64a end,
@@ -206,87 +257,6 @@ found_miracle:
     nfaQueueInitState(q->nfa, q);
 
     return 1;
-}
-
-static rose_inline
-hwlmcb_rv_t roseHaltIfExhausted(const struct RoseEngine *t,
-                                struct hs_scratch *scratch) {
-    struct core_info *ci = &scratch->core_info;
-    if (isAllExhausted(t, ci->exhaustionVector)) {
-        ci->status |= STATUS_EXHAUSTED;
-        scratch->tctxt.groups = 0;
-        DEBUG_PRINTF("all exhausted, termination requested\n");
-        return HWLM_TERMINATE_MATCHING;
-    }
-
-    return HWLM_CONTINUE_MATCHING;
-}
-
-static really_inline
-hwlmcb_rv_t ensureQueueFlushed_i(const struct RoseEngine *t,
-                                 struct hs_scratch *scratch, u32 qi, s64a loc,
-                                 char is_mpv, char in_catchup) {
-    struct RoseContext *tctxt = &scratch->tctxt;
-    u8 *aa = getActiveLeafArray(t, scratch->core_info.state);
-    struct fatbit *activeQueues = scratch->aqa;
-    u32 aaCount = t->activeArrayCount;
-    u32 qCount = t->queueCount;
-
-    struct mq *q = &scratch->queues[qi];
-    DEBUG_PRINTF("qcl %lld, loc: %lld, min (non mpv) match offset: %llu\n",
-                 q_cur_loc(q), loc, tctxt->minNonMpvMatchOffset);
-    if (q_cur_loc(q) == loc) {
-        /* too many tops enqueued at the one spot; need to flatten this queue.
-         * We can use the full catchups as it will short circuit as we are
-         * already at this location. It also saves waking everybody up */
-        pushQueueNoMerge(q, MQE_END, loc);
-        nfaQueueExec(q->nfa, q, loc);
-        q->cur = q->end = 0;
-        pushQueueAt(q, 0, MQE_START, loc);
-    } else if (!in_catchup) {
-        if (is_mpv) {
-            tctxt->next_mpv_offset = 0; /* force us to catch the mpv */
-            if (loc + scratch->core_info.buf_offset
-                <= tctxt->minNonMpvMatchOffset) {
-                DEBUG_PRINTF("flushing chained\n");
-                if (roseCatchUpMPV(t, loc, scratch) ==
-                    HWLM_TERMINATE_MATCHING) {
-                    return HWLM_TERMINATE_MATCHING;
-                }
-                goto done_queue_empty;
-            }
-        }
-
-        if (roseCatchUpTo(t, scratch, loc + scratch->core_info.buf_offset) ==
-            HWLM_TERMINATE_MATCHING) {
-            return HWLM_TERMINATE_MATCHING;
-        }
-    } else {
-        /* we must be a chained nfa */
-        assert(is_mpv);
-        DEBUG_PRINTF("flushing chained\n");
-        tctxt->next_mpv_offset = 0; /* force us to catch the mpv */
-        if (roseCatchUpMPV(t, loc, scratch) == HWLM_TERMINATE_MATCHING) {
-            return HWLM_TERMINATE_MATCHING;
-        }
-    }
-done_queue_empty:
-    if (!mmbit_set(aa, aaCount, qi)) {
-        initQueue(q, qi, t, scratch);
-        nfaQueueInitState(q->nfa, q);
-        pushQueueAt(q, 0, MQE_START, loc);
-        fatbit_set(activeQueues, qCount, qi);
-    }
-
-    assert(!isQueueFull(q));
-
-    return roseHaltIfExhausted(t, scratch);
-}
-
-static rose_inline
-hwlmcb_rv_t ensureQueueFlushed(const struct RoseEngine *t,
-                               struct hs_scratch *scratch, u32 qi, s64a loc) {
-    return ensureQueueFlushed_i(t, scratch, qi, loc, 0, 0);
 }
 
 static rose_inline
@@ -424,7 +394,7 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
     }
 
     s64a loc = (s64a)end - ci->buf_offset - leftfixLag;
-    assert(loc >= q_cur_loc(q));
+    assert(loc >= q_cur_loc(q) || left->eager);
     assert(leftfixReport != MO_INVALID_IDX);
 
     if (!is_infix && left->transient) {
@@ -471,7 +441,13 @@ char roseTestLeftfix(const struct RoseEngine *t, struct hs_scratch *scratch,
         DEBUG_PRINTF("checking for report %u\n", leftfixReport);
         DEBUG_PRINTF("leftfix done %hhd\n", (signed char)rv);
         return rv == MO_MATCHES_PENDING;
+    } else if (q_cur_loc(q) > loc) {
+        /* an eager leftfix may have already progressed past loc if there is no
+         * match at loc. */
+        assert(left->eager);
+        return 0;
     } else {
+        assert(q_cur_loc(q) == loc);
         DEBUG_PRINTF("checking for report %u\n", leftfixReport);
         char rv = nfaInAcceptState(q->nfa, leftfixReport, q);
         DEBUG_PRINTF("leftfix done %hhd\n", (signed char)rv);
@@ -660,6 +636,153 @@ int reachHasBit(const u8 *reach, u8 c) {
     return !!(reach[c / 8U] & (u8)1U << (c % 8U));
 }
 
+/*
+ * Generate a 8-byte valid_mask with #high bytes 0 from the highest side
+ * and #low bytes 0 from the lowest side
+ * and (8 - high - low) bytes '0xff' in the middle.
+ */
+static rose_inline
+u64a generateValidMask(const s32 high, const s32 low) {
+    assert(high + low < 8);
+    DEBUG_PRINTF("high %d low %d\n", high, low);
+    const u64a ones = ~0ull;
+    return (ones << ((high + low) * 8)) >> (high * 8);
+}
+
+/*
+ * Do the single-byte check if only one lookaround entry exists
+ * and it's a single mask.
+ * Return success if the byte is in the future or before history
+ * (offset is greater than (history) buffer length).
+ */
+static rose_inline
+int roseCheckByte(const struct core_info *ci, u8 and_mask, u8 cmp_mask,
+                  u8 negation, s32 checkOffset, u64a end) {
+    DEBUG_PRINTF("end=%llu, buf_offset=%llu, buf_end=%llu\n", end,
+                 ci->buf_offset, ci->buf_offset + ci->len);
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    const s64a base_offset = end - ci->buf_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("checkOffset=%d offset=%lld\n", checkOffset, offset);
+    u8 c;
+    if (offset >= 0) {
+        if (offset >= (s64a)ci->len) {
+            DEBUG_PRINTF("in the future\n");
+            return 1;
+        } else {
+            assert(offset < (s64a)ci->len);
+            DEBUG_PRINTF("check byte in buffer\n");
+            c = ci->buf[offset];
+        }
+    } else {
+        if (offset >= -(s64a) ci->hlen) {
+            DEBUG_PRINTF("check byte in history\n");
+            c = ci->hbuf[ci->hlen + offset];
+        } else {
+            DEBUG_PRINTF("before history and return\n");
+            return 1;
+        }
+    }
+
+    if (((and_mask & c) != cmp_mask) ^ negation) {
+        DEBUG_PRINTF("char 0x%02x at offset %lld failed byte check\n",
+                     c, offset);
+        return 0;
+    }
+
+    DEBUG_PRINTF("real offset=%lld char=%02x\n", offset, c);
+    DEBUG_PRINTF("OK :)\n");
+    return 1;
+}
+
+static rose_inline
+int roseCheckMask(const struct core_info *ci, u64a and_mask, u64a cmp_mask,
+                  u64a neg_mask, s32 checkOffset, u64a end) {
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("rel offset %lld\n",base_offset);
+    DEBUG_PRINTF("checkOffset %d offset %lld\n", checkOffset, offset);
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    u64a data = 0;
+    u64a valid_data_mask = ~0ULL; // mask for validate check.
+    //A 0xff byte means that this byte is in the buffer.
+    s32 shift_l = 0; // size of bytes in the future.
+    s32 shift_r = 0; // size of bytes before the history.
+    s32 h_len = 0; // size of bytes in the history buffer.
+    s32 c_len = 8; // size of bytes in the current buffer.
+    if (offset < 0) {
+        // in or before history buffer.
+        if (offset + 8 <= -(s64a)ci->hlen) {
+            DEBUG_PRINTF("before history and return\n");
+            return 1;
+        }
+        const u8 *h_start = ci->hbuf; // start pointer in history buffer.
+        if (offset < -(s64a)ci->hlen) {
+            // some bytes are before history.
+            shift_r = -(offset + (s64a)ci->hlen);
+            DEBUG_PRINTF("shift_r %d", shift_r);
+        } else {
+            h_start += ci->hlen + offset;
+        }
+        if (offset + 7 < 0) {
+            DEBUG_PRINTF("all in history buffer\n");
+            data = partial_load_u64a(h_start, 8 - shift_r);
+        } else {
+            // history part
+            c_len = offset + 8;
+            h_len = -offset - shift_r;
+            DEBUG_PRINTF("%d bytes in history\n", h_len);
+            s64a data_h = 0;
+            data_h = partial_load_u64a(h_start, h_len);
+            // current part
+            if (c_len > (s64a)ci->len) {
+                shift_l = c_len - ci->len;
+                c_len = ci->len;
+            }
+            data = partial_load_u64a(ci->buf, c_len);
+            data <<= h_len << 3;
+            data |= data_h;
+        }
+        if (shift_r) {
+            data <<= shift_r << 3;
+        }
+    } else {
+        // current buffer.
+        if (offset + c_len > (s64a)ci->len) {
+            if (offset >= (s64a)ci->len) {
+                DEBUG_PRINTF("all in the future\n");
+                return 1;
+            }
+            // some  bytes in the future.
+            shift_l = offset + c_len - ci->len;
+            c_len = ci->len - offset;
+            data = partial_load_u64a(ci->buf + offset, c_len);
+        } else {
+            data = unaligned_load_u64a(ci->buf + offset);
+        }
+    }
+
+    if (shift_l || shift_r) {
+        valid_data_mask = generateValidMask(shift_l, shift_r);
+    }
+    DEBUG_PRINTF("valid_data_mask %llx\n", valid_data_mask);
+
+    if (validateMask(data, valid_data_mask,
+                     and_mask, cmp_mask, neg_mask)) {
+        DEBUG_PRINTF("check mask successfully\n");
+        return 1;
+    } else {
+        return 0;
+    }
+}
 /**
  * \brief Scan around a literal, checking that that "lookaround" reach masks
  * are satisfied.
@@ -754,13 +877,7 @@ int roseCheckLookaround(const struct RoseEngine *t,
     return 1;
 }
 
-static
-int roseNfaEarliestSom(u64a from_offset, UNUSED u64a offset, UNUSED ReportID id,
-                       void *context) {
-    u64a *som = context;
-    *som = MIN(*som, from_offset);
-    return MO_CONTINUE_MATCHING;
-}
+int roseNfaEarliestSom(u64a start, u64a end, ReportID id, void *context);
 
 static rose_inline
 u64a roseGetHaigSom(const struct RoseEngine *t, struct hs_scratch *scratch,
@@ -780,13 +897,13 @@ u64a roseGetHaigSom(const struct RoseEngine *t, struct hs_scratch *scratch,
     u64a start = ~0ULL;
 
     /* switch the callback + context for a fun one */
-    q->som_cb = roseNfaEarliestSom;
+    q->cb = roseNfaEarliestSom;
     q->context = &start;
 
     nfaReportCurrentMatches(q->nfa, q);
 
     /* restore the old callback + context */
-    q->som_cb = roseNfaSomAdaptor;
+    q->cb = roseNfaAdaptor;
     q->context = NULL;
     DEBUG_PRINTF("earliest som is %llu\n", start);
     return start;
@@ -798,6 +915,144 @@ char roseCheckBounds(u64a end, u64a min_bound, u64a max_bound) {
                  min_bound, max_bound);
     assert(min_bound <= max_bound);
     return end >= min_bound && end <= max_bound;
+}
+
+static rose_inline
+hwlmcb_rv_t roseEnginesEod(const struct RoseEngine *rose,
+                           struct hs_scratch *scratch, u64a offset,
+                           u32 iter_offset) {
+    const char is_streaming = rose->mode != HS_MODE_BLOCK;
+
+    /* data, len is used for state decompress, should be full available data */
+    u8 key = 0;
+    if (is_streaming) {
+        const u8 *eod_data = scratch->core_info.hbuf;
+        size_t eod_len = scratch->core_info.hlen;
+        key = eod_len ? eod_data[eod_len - 1] : 0;
+    }
+
+    const u8 *aa = getActiveLeafArray(rose, scratch->core_info.state);
+    const u32 aaCount = rose->activeArrayCount;
+
+    const struct mmbit_sparse_iter *it = getByOffset(rose, iter_offset);
+    assert(ISALIGNED(it));
+
+    u32 idx = 0;
+    struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
+
+    for (u32 qi = mmbit_sparse_iter_begin(aa, aaCount, &idx, it, si_state);
+         qi != MMB_INVALID;
+         qi = mmbit_sparse_iter_next(aa, aaCount, qi, &idx, it, si_state)) {
+        DEBUG_PRINTF("checking nfa %u\n", qi);
+        struct mq *q = scratch->queues + qi;
+        assert(q->nfa == getNfaByQueue(rose, qi));
+        assert(nfaAcceptsEod(q->nfa));
+
+        if (is_streaming) {
+            // Decompress stream state.
+            nfaExpandState(q->nfa, q->state, q->streamState, offset, key);
+        }
+
+        if (nfaCheckFinalState(q->nfa, q->state, q->streamState, offset,
+                               roseReportAdaptor,
+                               scratch) == MO_HALT_MATCHING) {
+            DEBUG_PRINTF("user instructed us to stop\n");
+            return HWLM_TERMINATE_MATCHING;
+        }
+    }
+
+    return HWLM_CONTINUE_MATCHING;
+}
+
+static rose_inline
+hwlmcb_rv_t roseSuffixesEod(const struct RoseEngine *rose,
+                            struct hs_scratch *scratch, u64a offset) {
+    const u8 *aa = getActiveLeafArray(rose, scratch->core_info.state);
+    const u32 aaCount = rose->activeArrayCount;
+
+    for (u32 qi = mmbit_iterate(aa, aaCount, MMB_INVALID); qi != MMB_INVALID;
+         qi = mmbit_iterate(aa, aaCount, qi)) {
+        DEBUG_PRINTF("checking nfa %u\n", qi);
+        struct mq *q = scratch->queues + qi;
+        assert(q->nfa == getNfaByQueue(rose, qi));
+        assert(nfaAcceptsEod(q->nfa));
+
+        /* We have just been triggered. */
+        assert(fatbit_isset(scratch->aqa, rose->queueCount, qi));
+
+        pushQueueNoMerge(q, MQE_END, scratch->core_info.len);
+        q->context = NULL;
+
+        /* rose exec is used as we don't want to / can't raise matches in the
+         * history buffer. */
+        if (!nfaQueueExecRose(q->nfa, q, MO_INVALID_IDX)) {
+            DEBUG_PRINTF("nfa is dead\n");
+            continue;
+        }
+        if (nfaCheckFinalState(q->nfa, q->state, q->streamState, offset,
+                               roseReportAdaptor,
+                               scratch) == MO_HALT_MATCHING) {
+            DEBUG_PRINTF("user instructed us to stop\n");
+            return HWLM_TERMINATE_MATCHING;
+        }
+    }
+    return HWLM_CONTINUE_MATCHING;
+}
+
+static rose_inline
+hwlmcb_rv_t roseMatcherEod(const struct RoseEngine *rose,
+                           struct hs_scratch *scratch, u64a offset) {
+    assert(rose->ematcherOffset);
+    assert(rose->ematcherRegionSize);
+
+    // Clear role state and active engines, since we have already handled all
+    // outstanding work there.
+    DEBUG_PRINTF("clear role state and active leaf array\n");
+    char *state = scratch->core_info.state;
+    mmbit_clear(getRoleState(state), rose->rolesWithStateCount);
+    mmbit_clear(getActiveLeafArray(rose, state), rose->activeArrayCount);
+
+    const char is_streaming = rose->mode != HS_MODE_BLOCK;
+
+    size_t eod_len;
+    const u8 *eod_data;
+    if (!is_streaming) { /* Block */
+        eod_data = scratch->core_info.buf;
+        eod_len = scratch->core_info.len;
+    } else { /* Streaming */
+        eod_len = scratch->core_info.hlen;
+        eod_data = scratch->core_info.hbuf;
+    }
+
+    assert(eod_data);
+    assert(eod_len);
+
+    DEBUG_PRINTF("%zu bytes of eod data to scan at offset %llu\n", eod_len,
+                 offset);
+
+    // If we don't have enough bytes to produce a match from an EOD table scan,
+    // there's no point scanning.
+    if (eod_len < rose->eodmatcherMinWidth) {
+        DEBUG_PRINTF("too short for min width %u\n", rose->eodmatcherMinWidth);
+        return HWLM_CONTINUE_MATCHING;
+    }
+
+    // Ensure that we only need scan the last N bytes, where N is the length of
+    // the eod-anchored matcher region.
+    size_t adj = eod_len - MIN(eod_len, rose->ematcherRegionSize);
+
+    const struct HWLM *etable = getByOffset(rose, rose->ematcherOffset);
+    hwlmExec(etable, eod_data, eod_len, adj, roseCallback, scratch,
+             scratch->tctxt.groups);
+
+    // We may need to fire delayed matches.
+    if (cleanUpDelayed(rose, scratch, 0, offset) == HWLM_TERMINATE_MATCHING) {
+        DEBUG_PRINTF("user instructed us to stop\n");
+        return HWLM_TERMINATE_MATCHING;
+    }
+
+    roseFlushLastByteHistory(rose, scratch, offset);
+    return HWLM_CONTINUE_MATCHING;
 }
 
 static
@@ -823,15 +1078,20 @@ void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
     }
 
 static rose_inline
-hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
-                           struct hs_scratch *scratch, u32 programOffset,
-                           u64a som, u64a end, size_t match_len,
-                           char in_anchored, char in_catchup, char from_mpv,
-                           char skip_mpv_catchup) {
-    DEBUG_PRINTF("program=%u, offsets [%llu,%llu]\n", programOffset, som, end);
+hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
+                             struct hs_scratch *scratch, u32 programOffset,
+                             u64a som, u64a end, size_t match_len,
+                             u8 prog_flags) {
+    DEBUG_PRINTF("program=%u, offsets [%llu,%llu], flags=%u\n", programOffset,
+                 som, end, prog_flags);
 
     assert(programOffset >= sizeof(struct RoseEngine));
     assert(programOffset < t->size);
+
+    const char in_anchored = prog_flags & ROSE_PROG_FLAG_IN_ANCHORED;
+    const char in_catchup = prog_flags & ROSE_PROG_FLAG_IN_CATCHUP;
+    const char from_mpv = prog_flags & ROSE_PROG_FLAG_FROM_MPV;
+    const char skip_mpv_catchup = prog_flags & ROSE_PROG_FLAG_SKIP_MPV_CATCHUP;
 
     const char *pc_base = getByOffset(t, programOffset);
     const char *pc = pc_base;
@@ -880,9 +1140,9 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_LIT_EARLY) {
-                if (end < t->floatingMinLiteralMatchOffset) {
-                    DEBUG_PRINTF("halt: too soon, min offset=%u\n",
-                                 t->floatingMinLiteralMatchOffset);
+                if (end < ri->min_offset) {
+                    DEBUG_PRINTF("halt: before min_offset=%u\n",
+                                 ri->min_offset);
                     return HWLM_CONTINUE_MATCHING;
                 }
             }
@@ -941,6 +1201,30 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CHECK_MASK) {
+                struct core_info *ci = &scratch->core_info;
+                if (!roseCheckMask(ci, ri->and_mask, ri->cmp_mask,
+                                   ri->neg_mask, ri->offset, end)) {
+                    DEBUG_PRINTF("failed mask check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_BYTE) {
+                const struct core_info *ci = &scratch->core_info;
+                if (!roseCheckByte(ci, ri->and_mask, ri->cmp_mask,
+                                   ri->negation, ri->offset, end)) {
+                    DEBUG_PRINTF("failed byte check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CHECK_INFIX) {
                 if (!roseTestInfix(t, scratch, ri->queue, ri->lag, ri->report,
                                    end)) {
@@ -965,6 +1249,11 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
 
             PROGRAM_CASE(PUSH_DELAYED) {
                 rosePushDelayedMatch(t, scratch, ri->delay, ri->index, end);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(RECORD_ANCHORED) {
+                recordAnchoredLiteralMatch(t, scratch, ri->id, end);
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -1298,6 +1587,30 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                              jumps[idx]);
                 pc = pc_base + jumps[idx];
                 continue;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(ENGINES_EOD) {
+                if (roseEnginesEod(t, scratch, end, ri->iter_offset) ==
+                    HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(SUFFIXES_EOD) {
+                if (roseSuffixesEod(t, scratch, end) ==
+                    HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(MATCHER_EOD) {
+                if (roseMatcherEod(t, scratch, end) ==
+                    HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
             }
             PROGRAM_NEXT_INSTRUCTION
 

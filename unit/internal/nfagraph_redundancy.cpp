@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,7 +27,8 @@
  */
 
 /**
- * Unit tests for checking the removeRedundancy code in nfagraph/ng_redundancy.cpp.
+ * Unit tests for checking the removeRedundancy code in
+ * nfagraph/ng_redundancy.cpp.
  */
 
 #include "config.h"
@@ -62,15 +63,17 @@ TEST(NFAGraph, RemoveRedundancy1) {
     // Our graph should only have two non-special nodes
     ASSERT_EQ((size_t)N_SPECIALS + 2, num_vertices(*graph));
 
-    // Dot-star start state should be connected to itself and a single other vertex
+    // Dot-star start state should be connected to itself and a single other
+    // vertex
     ASSERT_EQ(2U, out_degree(graph->startDs, g));
 
     // That single vertex should have reachability [ab]
-    NFAVertex v = NFAGraph::null_vertex();
-    NFAGraph::adjacency_iterator ai, ae;
-    for (tie(ai, ae) = adjacent_vertices(graph->startDs, g); ai != ae; ++ai) {
-        v = *ai;
-        if (v != graph->startDs) break;
+    NFAVertex v = NGHolder::null_vertex();
+    for (NFAVertex t : adjacent_vertices_range(graph->startDs, g)) {
+        v = t;
+        if (v != graph->startDs) {
+            break;
+        }
     }
     const CharReach &cr = g[v].char_reach;
     ASSERT_EQ(2U, cr.count());
@@ -103,35 +106,39 @@ TEST(NFAGraph, RemoveRedundancy2) {
     // Our graph should now have only 3 non-special vertices
     ASSERT_EQ((size_t)N_SPECIALS + 3, num_vertices(*graph));
 
-    // Dot-star start state should be connected to itself and a single other vertex
+    // Dot-star start state should be connected to itself and a single other
+    // vertex
     ASSERT_EQ(2U, out_degree(graph->startDs, g));
 
     // That single vertex should have reachability [a]
-    NFAVertex v = NFAGraph::null_vertex();
-    NFAGraph::adjacency_iterator ai, ae;
-    for (tie(ai, ae) = adjacent_vertices(graph->startDs, g); ai != ae; ++ai) {
-        v = *ai;
-        if (v != graph->startDs) break;
+    NFAVertex v = NGHolder::null_vertex();
+    for (NFAVertex t : adjacent_vertices_range(graph->startDs, g)) {
+        v = t;
+        if (v != graph->startDs) {
+            break;
+        }
     }
     const CharReach &cr = g[v].char_reach;
     ASSERT_EQ(1U, cr.count());
     ASSERT_TRUE(cr.test('a'));
 
-    // 'a' should have two out edges: one to a dot with a cycle (.*) and one to 'c'
+    // 'a' should have two out edges: one to a dot with a cycle (.*) and one to
+    // 'c'
     ASSERT_EQ(2U, out_degree(v, g));
-    NFAVertex dotstar = NFAGraph::null_vertex(), vc = NFAGraph::null_vertex();
-    for (tie(ai, ae) = adjacent_vertices(v, g); ai != ae; ++ai) {
-        const CharReach &cr2 = g[*ai].char_reach;
+    NFAVertex dotstar = NGHolder::null_vertex();
+    NFAVertex vc = NGHolder::null_vertex();
+    for (NFAVertex t : adjacent_vertices_range(v, g)) {
+        const CharReach &cr2 = g[t].char_reach;
         if (cr2.count() == 1 && cr2.test('c')) {
-            vc = *ai;
+            vc = t;
         } else if (cr2.all()) {
-            dotstar = *ai;
+            dotstar = t;
         } else {
             FAIL();
         }
     }
-    ASSERT_TRUE(vc != NFAGraph::null_vertex());
-    ASSERT_TRUE(dotstar != NFAGraph::null_vertex());
+    ASSERT_TRUE(vc != NGHolder::null_vertex());
+    ASSERT_TRUE(dotstar != NGHolder::null_vertex());
 
     // Dot-star node should have a self-loop and an edge to vertex 'c'
     ASSERT_EQ(2U, out_degree(dotstar, g));

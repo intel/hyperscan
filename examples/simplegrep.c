@@ -77,7 +77,7 @@ static int eventHandler(unsigned int id, unsigned long long from,
  * length with its length. Returns NULL on failure.
  */
 static char *readInputData(const char *inputFN, unsigned int *length) {
-    FILE *f = fopen(inputFN, "r");
+    FILE *f = fopen(inputFN, "rb");
     if (!f) {
         fprintf(stderr, "ERROR: unable to open file \"%s\": %s\n", inputFN,
                 strerror(errno));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,44 +26,36 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- * \brief LimEx NFA: 512-bit SIMD runtime implementations.
- */
+#ifndef SHENG_H_
+#define SHENG_H_
 
-//#define DEBUG_INPUT
-//#define DEBUG_EXCEPTIONS
-
-#include "limex.h"
-
-#include "accel.h"
-#include "limex_internal.h"
-#include "nfa_internal.h"
+#include "callback.h"
 #include "ue2common.h"
-#include "util/bitutils.h"
-#include "util/simd_utils.h"
 
-// Common code
-#include "limex_runtime.h"
+struct mq;
+struct NFA;
 
-#define SIZE 512
-#define STATE_T m512
-#include "limex_exceptional.h"
+#define nfaExecSheng0_B_Reverse NFA_API_NO_IMPL
+#define nfaExecSheng0_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
-#define SIZE 512
-#define STATE_T m512
-#include "limex_state_impl.h"
+char nfaExecSheng0_Q(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecSheng0_Q2(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecSheng0_QR(const struct NFA *n, struct mq *q, ReportID report);
+char nfaExecSheng0_inAccept(const struct NFA *n, ReportID report, struct mq *q);
+char nfaExecSheng0_inAnyAccept(const struct NFA *n, struct mq *q);
+char nfaExecSheng0_queueInitState(const struct NFA *nfa, struct mq *q);
+char nfaExecSheng0_queueCompressState(const struct NFA *nfa, const struct mq *q,
+                                      s64a loc);
+char nfaExecSheng0_expandState(const struct NFA *nfa, void *dest,
+                               const void *src, u64a offset, u8 key);
+char nfaExecSheng0_initCompressedState(const struct NFA *nfa, u64a offset,
+                                       void *state, u8 key);
+char nfaExecSheng0_testEOD(const struct NFA *nfa, const char *state,
+                           const char *streamState, u64a offset,
+                           NfaCallback callback, void *context);
+char nfaExecSheng0_reportCurrent(const struct NFA *n, struct mq *q);
 
-#define SIZE 512
-#define STATE_T m512
-#define INLINE_ATTR really_inline
-#include "limex_common_impl.h"
+char nfaExecSheng0_B(const struct NFA *n, u64a offset, const u8 *buffer,
+                    size_t length, NfaCallback cb, void *context);
 
-#define SIZE                512
-#define STATE_T             m512
-#define SHIFT               4
-#include "limex_runtime_impl.h"
-
-#define SIZE                512
-#define STATE_T             m512
-#define SHIFT               5
-#include "limex_runtime_impl.h"
+#endif /* SHENG_H_ */

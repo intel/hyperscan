@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -65,7 +65,7 @@ typedef __m128i m128;
 #if defined(__AVX2__)
 typedef __m256i m256;
 #else
-typedef struct ALIGN_AVX_DIRECTIVE {m128 lo; m128 hi;} m256;
+typedef ALIGN_AVX_DIRECTIVE struct {m128 lo; m128 hi;} m256;
 #endif
 
 // these should align to 16 and 32 respectively

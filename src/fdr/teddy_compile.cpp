@@ -74,12 +74,11 @@ public:
                   const TeddyEngineDescription &eng_in, bool make_small_in)
         : eng(eng_in), lits(lits_in), make_small(make_small_in) {}
 
-    aligned_unique_ptr<FDR> build(pair<u8 *, size_t> link);
+    aligned_unique_ptr<FDR> build(pair<aligned_unique_ptr<u8>, size_t> &link);
     bool pack(map<BucketIndex, std::vector<LiteralIndex> > &bucketToLits);
 };
 
 class TeddySet {
-    const vector<hwlmLiteral> &lits;
     u32 len;
     // nibbleSets is a series of bitfields over 16 predicates
     // that represent the whether shufti nibble set
@@ -89,8 +88,7 @@ class TeddySet {
     vector<u16> nibbleSets;
     set<u32> litIds;
 public:
-    TeddySet(const vector<hwlmLiteral> &lits_in, u32 len_in)
-        : lits(lits_in), len(len_in), nibbleSets(len_in * 2, 0) {}
+    explicit TeddySet(u32 len_in) : len(len_in), nibbleSets(len_in * 2, 0) {}
     const set<u32> & getLits() const { return litIds; }
     size_t litCount() const { return litIds.size(); }
 
@@ -106,8 +104,8 @@ public:
         }
         printf("\nnlits: %zu\nLit ids: ", litCount());
         printf("Prob: %llu\n", probability());
-        for (set<u32>::iterator i = litIds.begin(), e = litIds.end(); i != e; ++i) {
-            printf("%u ", *i);
+        for (const auto &id : litIds) {
+            printf("%u ", id);
         }
         printf("\n");
         printf("Flood prone : %s\n", isRunProne()?"yes":"no");
@@ -118,15 +116,15 @@ public:
         return nibbleSets == ts.nibbleSets;
     }
 
-    void addLiteral(u32 lit_id) {
-        const string &s = lits[lit_id].s;
+    void addLiteral(u32 lit_id, const hwlmLiteral &lit) {
+        const string &s = lit.s;
         for (u32 i = 0; i < len; i++) {
             if (i < s.size()) {
                 u8 c = s[s.size() - i - 1];
                 u8 c_hi = (c >> 4) & 0xf;
                 u8 c_lo = c & 0xf;
                 nibbleSets[i*2] = 1 << c_lo;
-                if (lits[lit_id].nocase && ourisalpha(c)) {
+                if (lit.nocase && ourisalpha(c)) {
                     nibbleSets[i*2+1] =  (1 << (c_hi&0xd)) | (1 << (c_hi|0x2));
                 } else {
                     nibbleSets[i*2+1] =  1 << c_hi;
@@ -185,28 +183,26 @@ bool TeddyCompiler::pack(map<BucketIndex,
     set<TeddySet> sts;
 
     for (u32 i = 0; i < lits.size(); i++) {
-        TeddySet ts(lits, eng.numMasks);
-        ts.addLiteral(i);
+        TeddySet ts(eng.numMasks);
+        ts.addLiteral(i, lits[i]);
         sts.insert(ts);
     }
 
     while (1) {
 #ifdef TEDDY_DEBUG
         printf("Size %zu\n", sts.size());
-        for (set<TeddySet>::const_iterator i1 = sts.begin(), e1 = sts.end(); i1 != e1; ++i1) {
-            printf("\n"); i1->dump();
+        for (const TeddySet &ts : sts) {
+            printf("\n"); ts.dump();
         }
         printf("\n===============================================\n");
 #endif
 
-        set<TeddySet>::iterator m1 = sts.end(), m2 = sts.end();
+        auto m1 = sts.end(), m2 = sts.end();
         u64a best = 0xffffffffffffffffULL;
 
-        for (set<TeddySet>::iterator i1 = sts.begin(), e1 = sts.end(); i1 != e1; ++i1) {
-            set<TeddySet>::iterator i2 = i1;
-            ++i2;
+        for (auto i1 = sts.begin(), e1 = sts.end(); i1 != e1; ++i1) {
             const TeddySet &s1 = *i1;
-            for (set<TeddySet>::iterator e2 = sts.end(); i2 != e2; ++i2) {
+            for (auto i2 = next(i1), e2 = sts.end(); i2 != e2; ++i2) {
                 const TeddySet &s2 = *i2;
 
                 // be more conservative if we don't absolutely need to
@@ -216,7 +212,7 @@ bool TeddyCompiler::pack(map<BucketIndex,
                     continue;
                 }
 
-                TeddySet tmpSet(lits, eng.numMasks);
+                TeddySet tmpSet(eng.numMasks);
                 tmpSet.merge(s1);
                 tmpSet.merge(s2);
                 u64a newScore = tmpSet.heuristic();
@@ -246,7 +242,7 @@ bool TeddyCompiler::pack(map<BucketIndex,
         }
 
         // do the merge
-        TeddySet nts(lits, eng.numMasks);
+        TeddySet nts(eng.numMasks);
         nts.merge(*m1);
         nts.merge(*m2);
 #ifdef TEDDY_DEBUG
@@ -263,25 +259,23 @@ bool TeddyCompiler::pack(map<BucketIndex,
         sts.erase(m2);
         sts.insert(nts);
     }
-    u32 cnt = 0;
 
     if (sts.size() > eng.getNumBuckets()) {
         return false;
     }
 
-    for (set<TeddySet>::const_iterator i = sts.begin(), e = sts.end(); i != e;
-         ++i) {
-        for (set<u32>::const_iterator i2 = i->getLits().begin(),
-                                      e2 = i->getLits().end();
-             i2 != e2; ++i2) {
-            bucketToLits[cnt].push_back(*i2);
-        }
-        cnt++;
+    u32 bucket_id = 0;
+    for (const TeddySet &ts : sts) {
+        const auto &ts_lits = ts.getLits();
+        auto &bucket_lits = bucketToLits[bucket_id];
+        bucket_lits.insert(end(bucket_lits), begin(ts_lits), end(ts_lits));
+        bucket_id++;
     }
     return true;
 }
 
-aligned_unique_ptr<FDR> TeddyCompiler::build(pair<u8 *, size_t> link) {
+aligned_unique_ptr<FDR>
+TeddyCompiler::build(pair<aligned_unique_ptr<u8>, size_t> &link) {
     if (lits.size() > eng.getNumBuckets() * TEDDY_BUCKET_LOAD) {
         DEBUG_PRINTF("too many literals: %zu\n", lits.size());
         return nullptr;
@@ -314,9 +308,8 @@ aligned_unique_ptr<FDR> TeddyCompiler::build(pair<u8 *, size_t> link) {
 
     size_t maskLen = eng.numMasks * 16 * 2 * maskWidth;
 
-    pair<u8 *, size_t> floodControlTmp = setupFDRFloodControl(lits, eng);
-    pair<u8 *, size_t> confirmTmp
-        = setupFullMultiConfs(lits, eng, bucketToLits, make_small);
+    auto floodControlTmp = setupFDRFloodControl(lits, eng);
+    auto confirmTmp = setupFullMultiConfs(lits, eng, bucketToLits, make_small);
 
     size_t size = ROUNDUP_N(sizeof(Teddy) +
                              maskLen +
@@ -334,38 +327,29 @@ aligned_unique_ptr<FDR> TeddyCompiler::build(pair<u8 *, size_t> link) {
     teddy->maxStringLen = verify_u32(maxLen(lits));
 
     u8 *ptr = teddy_base + sizeof(Teddy) + maskLen;
-    memcpy(ptr, confirmTmp.first, confirmTmp.second);
+    memcpy(ptr, confirmTmp.first.get(), confirmTmp.second);
     ptr += confirmTmp.second;
-    aligned_free(confirmTmp.first);
 
     teddy->floodOffset = verify_u32(ptr - teddy_base);
-    memcpy(ptr, floodControlTmp.first, floodControlTmp.second);
+    memcpy(ptr, floodControlTmp.first.get(), floodControlTmp.second);
     ptr += floodControlTmp.second;
-    aligned_free(floodControlTmp.first);
 
     if (link.first) {
         teddy->link = verify_u32(ptr - teddy_base);
-        memcpy(ptr, link.first, link.second);
-        aligned_free(link.first);
+        memcpy(ptr, link.first.get(), link.second);
     } else {
         teddy->link = 0;
     }
 
     u8 *baseMsk = teddy_base + sizeof(Teddy);
 
-    for (map<BucketIndex, std::vector<LiteralIndex> >::const_iterator
-             i = bucketToLits.begin(),
-             e = bucketToLits.end();
-         i != e; ++i) {
-        const u32 bucket_id = i->first;
-        const vector<LiteralIndex> &ids = i->second;
+    for (const auto &b2l : bucketToLits) {
+        const u32 &bucket_id = b2l.first;
+        const vector<LiteralIndex> &ids = b2l.second;
         const u8 bmsk = 1U << (bucket_id % 8);
 
-        for (vector<LiteralIndex>::const_iterator i2 = ids.begin(),
-                                                  e2 = ids.end();
-             i2 != e2; ++i2) {
-            LiteralIndex lit_id = *i2;
-            const hwlmLiteral & l = lits[lit_id];
+        for (const LiteralIndex &lit_id : ids) {
+            const hwlmLiteral &l = lits[lit_id];
             DEBUG_PRINTF("putting lit %u into bucket %u\n", lit_id, bucket_id);
             const u32 sz = verify_u32(l.s.size());
 
@@ -439,10 +423,10 @@ aligned_unique_ptr<FDR> TeddyCompiler::build(pair<u8 *, size_t> link) {
 
 } // namespace
 
-aligned_unique_ptr<FDR> teddyBuildTableHinted(const vector<hwlmLiteral> &lits,
-                                              bool make_small, u32 hint,
-                                              const target_t &target,
-                                              pair<u8 *, size_t> link) {
+aligned_unique_ptr<FDR>
+teddyBuildTableHinted(const vector<hwlmLiteral> &lits, bool make_small,
+                      u32 hint, const target_t &target,
+                      pair<aligned_unique_ptr<u8>, size_t> &link) {
     unique_ptr<TeddyEngineDescription> des;
     if (hint == HINT_INVALID) {
         des = chooseTeddyEngine(target, lits);

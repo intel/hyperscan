@@ -55,7 +55,7 @@ size_t hash_dfa_no_reports(const raw_dfa &rdfa);
 /** \brief Compute a simple hash of this raw_dfa, including its reports. */
 size_t hash_dfa(const raw_dfa &rdfa);
 
-dstate_id_t get_sds_or_proxy(const raw_dfa &raw);
+bool can_die_early(const raw_dfa &raw, u32 age_limit);
 
 } // namespace ue2
 

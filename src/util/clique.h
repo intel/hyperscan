@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,54 +26,35 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SHUFFLE_SSSE3_H
-#define SHUFFLE_SSSE3_H
+/** \file
+ * \brief An algorithm to find cliques.
+ */
 
-#include "simd_utils_ssse3.h"
+#ifndef CLIQUE_H
+#define CLIQUE_H
 
-#ifdef DEBUG
-#include "compare.h"
-static really_inline void shufDumpMsk(m128 msk) {
-    u8 * mskAsU8 = (u8 *)&msk;
-    for (int i = 0; i < 16; i++) {
-        u8 c = mskAsU8[i];
-        for (int j = 0; j < 8; j++) {
-            if ((c >> (7-j)) & 0x1)
-                printf("1");
-            else
-                printf("0");
-        }
-        printf(" ");
-    }
-}
+#include "ue2common.h"
 
-static really_inline void shufDumpMskAsChars(m128 msk) {
-    u8 * mskAsU8 = (u8 *)&msk;
-    for (int i = 0; i < 16; i++) {
-        u8 c = mskAsU8[i];
-        if (ourisprint(c))
-            printf("%c",c);
-        else
-            printf(".");
-    }
-}
+#include <vector>
+
+#include <boost/graph/adjacency_list.hpp>
+
+namespace ue2 {
+
+struct CliqueVertexProps {
+    CliqueVertexProps() {}
+    explicit CliqueVertexProps(u32 state_in) : stateId(state_in) {}
+
+    u32 stateId = ~0U;
+};
+
+typedef boost::adjacency_list<boost::listS, boost::listS, boost::undirectedS,
+                              CliqueVertexProps> CliqueGraph;
+typedef CliqueGraph::vertex_descriptor CliqueVertex;
+
+/** \brief Returns a vector of cliques found in a graph. */
+std::vector<std::vector<u32>> removeClique(CliqueGraph &cg);
+
+} // namespace ue2
+
 #endif
-
-#if !defined(NO_SSSE3)
-static really_inline
-u32 shufflePshufb128(m128 s, const m128 permute, const m128 compare) {
-    m128 shuffled = pshufb(s, permute);
-    m128 compared = and128(shuffled, compare);
-#ifdef DEBUG
-    printf("State:   ");  shufDumpMsk(s);       printf("\n");
-    printf("Permute: ");  shufDumpMsk(permute); printf("\n");
-    printf("Compare: ");  shufDumpMsk(compare); printf("\n");
-    printf("Shuffled: "); shufDumpMsk(shuffled); printf("\n");
-    printf("Compared: "); shufDumpMsk(compared); printf("\n");
-#endif
-    u16 rv = ~cmpmsk8(compared, shuffled);
-    return (u32)rv;
-}
-#endif // NO_SSSE3
-
-#endif // SHUFFLE_SSSE3_H

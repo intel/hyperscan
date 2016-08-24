@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -219,8 +219,8 @@ vector<NFAEdge> findShellEdges(const NGHolder &g,
 
 static
 void removeVertices(const flat_set<NFAVertex> &verts, NFAUndirectedGraph &ug,
-                    ue2::unordered_map<NFAVertex, NFAUndirectedVertex> &old2new,
-                    ue2::unordered_map<NFAVertex, NFAUndirectedVertex> &new2old) {
+                   ue2::unordered_map<NFAVertex, NFAUndirectedVertex> &old2new,
+                   ue2::unordered_map<NFAUndirectedVertex, NFAVertex> &new2old) {
     for (auto v : verts) {
         assert(contains(old2new, v));
         auto uv = old2new.at(v);
@@ -280,7 +280,7 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
     createUnGraph(g.g, true, true, ug, old2new, newIdx2old);
 
     // Construct reverse mapping.
-    ue2::unordered_map<NFAVertex, NFAUndirectedVertex> new2old;
+    ue2::unordered_map<NFAUndirectedVertex, NFAVertex> new2old;
     for (const auto &m : old2new) {
         new2old.emplace(m.second, m.first);
     }
@@ -308,7 +308,7 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
 
     // Collect vertex lists per component.
     for (const auto &m : split_components) {
-        NFAVertex uv = m.first;
+        NFAUndirectedVertex uv = m.first;
         u32 c = m.second;
         assert(contains(new2old, uv));
         NFAVertex v = new2old.at(uv);
@@ -361,6 +361,12 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
                      comps.size(), num_vertices(*gc));
         comps.push_back(move(gc));
         *shell_comp = true;
+    }
+
+    // Ensure that only vertices with accept edges have reports.
+    for (auto &gc : comps) {
+        assert(gc);
+        clearReports(*gc);
     }
 
     // We should never produce empty component graphs.

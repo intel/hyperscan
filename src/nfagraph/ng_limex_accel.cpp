@@ -658,7 +658,7 @@ NFAVertex get_sds_or_proxy(const NGHolder &g) {
         return g.startDs;
     }
 
-    NFAVertex v = NFAGraph::null_vertex();
+    NFAVertex v = NGHolder::null_vertex();
     for (auto w : adjacent_vertices_range(g.start, g)) {
         if (w != g.startDs) {
             if (!v) {
@@ -693,8 +693,8 @@ NFAVertex get_sds_or_proxy(const NGHolder &g) {
 
 static
 NFAVertex find_next(const NFAVertex v, const NGHolder &g) {
-    NFAVertex res = NFAGraph::null_vertex();
-    for (NFAVertex u :  adjacent_vertices_range(v, g)) {
+    NFAVertex res = NGHolder::null_vertex();
+    for (NFAVertex u : adjacent_vertices_range(v, g)) {
         if (u != v) {
             res = u;
             break;
@@ -736,7 +736,7 @@ MultibyteAccelInfo nfaCheckMultiAccel(const NGHolder &g,
 
     // find our start vertex
     NFAVertex cur = find_next(v, g);
-    if (cur == NFAGraph::null_vertex()) {
+    if (cur == NGHolder::null_vertex()) {
         DEBUG_PRINTF("invalid start vertex\n");
         return MultibyteAccelInfo();
     }

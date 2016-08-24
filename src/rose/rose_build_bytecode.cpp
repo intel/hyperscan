@@ -33,6 +33,8 @@
 #include "hs_compile.h" // for HS_MODE_*
 #include "rose_build_add_internal.h"
 #include "rose_build_anchored.h"
+#include "rose_build_exclusive.h"
+#include "rose_build_groups.h"
 #include "rose_build_infix.h"
 #include "rose_build_lookaround.h"
 #include "rose_build_matchers.h"
@@ -48,7 +50,11 @@
 #include "nfa/nfa_api_queue.h"
 #include "nfa/nfa_build_util.h"
 #include "nfa/nfa_internal.h"
+#include "nfa/shengcompile.h"
 #include "nfa/shufticompile.h"
+#include "nfa/tamaramacompile.h"
+#include "nfa/tamarama_internal.h"
+#include "nfagraph/ng_execute.h"
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_lbr.h"
 #include "nfagraph/ng_limex.h"
@@ -59,6 +65,7 @@
 #include "nfagraph/ng_stop.h"
 #include "nfagraph/ng_util.h"
 #include "nfagraph/ng_width.h"
+#include "smallwrite/smallwrite_build.h"
 #include "som/slot_manager.h"
 #include "util/alloc.h"
 #include "util/bitutils.h"
@@ -69,8 +76,10 @@
 #include "util/compile_error.h"
 #include "util/container.h"
 #include "util/graph_range.h"
+#include "util/make_unique.h"
 #include "util/multibit_build.h"
 #include "util/order_check.h"
+#include "util/popcount.h"
 #include "util/queue_index_factory.h"
 #include "util/report_manager.h"
 #include "util/ue2string.h"
@@ -191,10 +200,13 @@ public:
         case ROSE_INSTR_CHECK_BOUNDS: return &u.checkBounds;
         case ROSE_INSTR_CHECK_NOT_HANDLED: return &u.checkNotHandled;
         case ROSE_INSTR_CHECK_LOOKAROUND: return &u.checkLookaround;
+        case ROSE_INSTR_CHECK_MASK: return &u.checkMask;
+        case ROSE_INSTR_CHECK_BYTE: return &u.checkByte;
         case ROSE_INSTR_CHECK_INFIX: return &u.checkInfix;
         case ROSE_INSTR_CHECK_PREFIX: return &u.checkPrefix;
         case ROSE_INSTR_ANCHORED_DELAY: return &u.anchoredDelay;
         case ROSE_INSTR_PUSH_DELAYED: return &u.pushDelayed;
+        case ROSE_INSTR_RECORD_ANCHORED: return &u.recordAnchored;
         case ROSE_INSTR_CATCH_UP: return &u.catchUp;
         case ROSE_INSTR_CATCH_UP_MPV: return &u.catchUpMpv;
         case ROSE_INSTR_SOM_ADJUST: return &u.somAdjust;
@@ -222,6 +234,9 @@ public:
         case ROSE_INSTR_CHECK_STATE: return &u.checkState;
         case ROSE_INSTR_SPARSE_ITER_BEGIN: return &u.sparseIterBegin;
         case ROSE_INSTR_SPARSE_ITER_NEXT: return &u.sparseIterNext;
+        case ROSE_INSTR_ENGINES_EOD: return &u.enginesEod;
+        case ROSE_INSTR_SUFFIXES_EOD: return &u.suffixesEod;
+        case ROSE_INSTR_MATCHER_EOD: return &u.matcherEod;
         case ROSE_INSTR_END: return &u.end;
         }
         assert(0);
@@ -237,10 +252,13 @@ public:
         case ROSE_INSTR_CHECK_BOUNDS: return sizeof(u.checkBounds);
         case ROSE_INSTR_CHECK_NOT_HANDLED: return sizeof(u.checkNotHandled);
         case ROSE_INSTR_CHECK_LOOKAROUND: return sizeof(u.checkLookaround);
+        case ROSE_INSTR_CHECK_MASK: return sizeof(u.checkMask);
+        case ROSE_INSTR_CHECK_BYTE: return sizeof(u.checkByte);
         case ROSE_INSTR_CHECK_INFIX: return sizeof(u.checkInfix);
         case ROSE_INSTR_CHECK_PREFIX: return sizeof(u.checkPrefix);
         case ROSE_INSTR_ANCHORED_DELAY: return sizeof(u.anchoredDelay);
         case ROSE_INSTR_PUSH_DELAYED: return sizeof(u.pushDelayed);
+        case ROSE_INSTR_RECORD_ANCHORED: return sizeof(u.recordAnchored);
         case ROSE_INSTR_CATCH_UP: return sizeof(u.catchUp);
         case ROSE_INSTR_CATCH_UP_MPV: return sizeof(u.catchUpMpv);
         case ROSE_INSTR_SOM_ADJUST: return sizeof(u.somAdjust);
@@ -268,6 +286,9 @@ public:
         case ROSE_INSTR_CHECK_STATE: return sizeof(u.checkState);
         case ROSE_INSTR_SPARSE_ITER_BEGIN: return sizeof(u.sparseIterBegin);
         case ROSE_INSTR_SPARSE_ITER_NEXT: return sizeof(u.sparseIterNext);
+        case ROSE_INSTR_ENGINES_EOD: return sizeof(u.enginesEod);
+        case ROSE_INSTR_SUFFIXES_EOD: return sizeof(u.suffixesEod);
+        case ROSE_INSTR_MATCHER_EOD: return sizeof(u.matcherEod);
         case ROSE_INSTR_END: return sizeof(u.end);
         }
         assert(0);
@@ -282,10 +303,13 @@ public:
         ROSE_STRUCT_CHECK_BOUNDS checkBounds;
         ROSE_STRUCT_CHECK_NOT_HANDLED checkNotHandled;
         ROSE_STRUCT_CHECK_LOOKAROUND checkLookaround;
+        ROSE_STRUCT_CHECK_MASK checkMask;
+        ROSE_STRUCT_CHECK_BYTE checkByte;
         ROSE_STRUCT_CHECK_INFIX checkInfix;
         ROSE_STRUCT_CHECK_PREFIX checkPrefix;
         ROSE_STRUCT_ANCHORED_DELAY anchoredDelay;
         ROSE_STRUCT_PUSH_DELAYED pushDelayed;
+        ROSE_STRUCT_RECORD_ANCHORED recordAnchored;
         ROSE_STRUCT_CATCH_UP catchUp;
         ROSE_STRUCT_CATCH_UP_MPV catchUpMpv;
         ROSE_STRUCT_SOM_ADJUST somAdjust;
@@ -313,6 +337,9 @@ public:
         ROSE_STRUCT_CHECK_STATE checkState;
         ROSE_STRUCT_SPARSE_ITER_BEGIN sparseIterBegin;
         ROSE_STRUCT_SPARSE_ITER_NEXT sparseIterNext;
+        ROSE_STRUCT_ENGINES_EOD enginesEod;
+        ROSE_STRUCT_SUFFIXES_EOD suffixesEod;
+        ROSE_STRUCT_MATCHER_EOD matcherEod;
         ROSE_STRUCT_END end;
     } u;
 
@@ -349,6 +376,7 @@ struct RoseResources {
     bool has_lit_delay = false;
     bool has_lit_mask = false;
     bool has_anchored = false;
+    bool has_eod = false;
 };
 
 struct build_context : boost::noncopyable {
@@ -391,6 +419,10 @@ struct build_context : boost::noncopyable {
      * that have already been pushed into the engine_blob. */
     ue2::unordered_map<u32, u32> engineOffsets;
 
+    /** \brief Literal programs, indexed by final_id, after they have been
+     * written to the engine_blob. */
+    vector<u32> litPrograms;
+
     /** \brief Minimum offset of a match from the floating table. */
     u32 floatingMinLiteralMatchOffset = 0;
 
@@ -407,6 +439,13 @@ struct build_context : boost::noncopyable {
 
     /** \brief Resources in use (tracked as programs are added). */
     RoseResources resources;
+
+    /** \brief Mapping from every vertex to the groups that must be on for that
+     * vertex to be reached. */
+    ue2::unordered_map<RoseVertex, rose_group> vertex_group_map;
+
+    /** \brief Global bitmap of groups that can be squashed. */
+    rose_group squashable_groups = 0;
 
     /** \brief Base offset of engine_blob in the Rose engine bytecode. */
     static constexpr u32 engine_blob_base = ROUNDUP_CL(sizeof(RoseEngine));
@@ -460,7 +499,7 @@ u32 add_to_engine_blob(build_context &bc, const T &a, const size_t len) {
 template<typename Iter>
 static
 u32 add_to_engine_blob(build_context &bc, Iter b, const Iter &e) {
-    using value_type = typename Iter::value_type;
+    using value_type = typename std::iterator_traits<Iter>::value_type;
     static_assert(is_pod<value_type>::value, "should be pod");
 
     if (b == e) {
@@ -567,6 +606,11 @@ bool isPureFloating(const RoseResources &resources) {
         return false;
     }
 
+    if (resources.has_eod) {
+        DEBUG_PRINTF("has eod work to do\n");
+        return false;
+    }
+
     if (resources.has_states) {
         DEBUG_PRINTF("has states\n");
         return false;
@@ -622,6 +666,7 @@ u8 pickRuntimeImpl(const RoseBuildImpl &build, const build_context &bc,
     DEBUG_PRINTF("has_lit_delay=%d\n", bc.resources.has_lit_delay);
     DEBUG_PRINTF("has_lit_mask=%d\n", bc.resources.has_lit_mask);
     DEBUG_PRINTF("has_anchored=%d\n", bc.resources.has_anchored);
+    DEBUG_PRINTF("has_eod=%d\n", bc.resources.has_eod);
 
     if (isPureFloating(bc.resources)) {
         return ROSE_RUNTIME_PURE_LITERAL;
@@ -819,11 +864,16 @@ aligned_unique_ptr<NFA> pickImpl(aligned_unique_ptr<NFA> dfa_impl,
                                  aligned_unique_ptr<NFA> nfa_impl) {
     assert(nfa_impl);
     assert(dfa_impl);
-    assert(isMcClellanType(dfa_impl->type));
+    assert(isDfaType(dfa_impl->type));
 
     // If our NFA is an LBR, it always wins.
     if (isLbrType(nfa_impl->type)) {
         return nfa_impl;
+    }
+
+    // if our DFA is an accelerated Sheng, it always wins.
+    if (isShengType(dfa_impl->type) && has_accel(*dfa_impl)) {
+        return dfa_impl;
     }
 
     bool d_accel = has_accel(*dfa_impl);
@@ -878,6 +928,18 @@ buildRepeatEngine(const CastleProto &proto,
     return castle_nfa;
 }
 
+static
+aligned_unique_ptr<NFA> getDfa(raw_dfa &rdfa, const CompileContext &cc,
+                               const ReportManager &rm) {
+    // Unleash the Sheng!!
+    auto dfa = shengCompile(rdfa, cc, rm);
+    if (!dfa) {
+        // Sheng wasn't successful, so unleash McClellan!
+        dfa = mcclellanCompile(rdfa, cc, rm);
+    }
+    return dfa;
+}
+
 /* builds suffix nfas */
 static
 aligned_unique_ptr<NFA>
@@ -898,7 +960,7 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
     }
 
     if (suff.dfa()) {
-        auto d = mcclellanCompile(*suff.dfa(), cc, rm);
+        auto d = getDfa(*suff.dfa(), cc, rm);
         assert(d);
         return d;
     }
@@ -927,7 +989,7 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
             auto rdfa = buildMcClellan(holder, &rm, false, triggers.at(0),
                                        cc.grey);
             if (rdfa) {
-                auto d = mcclellanCompile(*rdfa, cc, rm);
+                auto d = getDfa(*rdfa, cc, rm);
                 assert(d);
                 if (cc.grey.roseMcClellanSuffix != 2) {
                     n = pickImpl(move(d), move(n));
@@ -1022,8 +1084,9 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
     // streaming mode.
     const bool compress_state = !is_transient;
 
-    assert(!left.graph()
-           || left.graph()->kind == (is_prefix ? NFA_PREFIX : NFA_INFIX));
+    assert(is_prefix || !left.graph() || left.graph()->kind == NFA_INFIX);
+    assert(!is_prefix || !left.graph() || left.graph()->kind == NFA_PREFIX
+           || left.graph()->kind == NFA_EAGER_PREFIX);
 
     // Holder should be implementable as an NFA at the very least.
     if (!left.dfa() && left.graph()) {
@@ -1046,12 +1109,13 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
     }
 
     if (left.dfa()) {
-        n = mcclellanCompile(*left.dfa(), cc, rm);
+        n = getDfa(*left.dfa(), cc, rm);
     } else if (left.graph() && cc.grey.roseMcClellanPrefix == 2 && is_prefix &&
                !is_transient) {
         auto rdfa = buildMcClellan(*left.graph(), nullptr, cc.grey);
         if (rdfa) {
-            n = mcclellanCompile(*rdfa, cc, rm);
+            n = getDfa(*rdfa, cc, rm);
+            assert(n);
         }
     }
 
@@ -1065,7 +1129,9 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
 
     if (!n && left.graph()) {
         map<u32, vector<vector<CharReach>>> triggers;
-        findTriggerSequences(tbi, infixTriggers.at(left), &triggers);
+        if (left.graph()->kind == NFA_INFIX) {
+            findTriggerSequences(tbi, infixTriggers.at(left), &triggers);
+        }
         n = constructNFA(*left.graph(), nullptr, fixed_depth_tops, triggers,
                          compress_state, cc);
     }
@@ -1075,7 +1141,7 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
         && (!n || !has_bounded_repeats_other_than_firsts(*n) || !is_fast(*n))) {
         auto rdfa = buildMcClellan(*left.graph(), nullptr, cc.grey);
         if (rdfa) {
-            auto d = mcclellanCompile(*rdfa, cc, rm);
+            auto d = getDfa(*rdfa, cc, rm);
             assert(d);
             n = pickImpl(move(d), move(n));
         }
@@ -1102,23 +1168,612 @@ void setLeftNfaProperties(NFA &n, const left_id &left) {
 }
 
 static
-bool buildLeftfixes(const RoseBuildImpl &tbi, build_context &bc,
-                    QueueIndexFactory &qif, set<u32> *no_retrigger_queues,
-                    bool do_prefix) {
-    const RoseGraph &g = tbi.g;
-    const CompileContext &cc = tbi.cc;
-    const ReportManager &rm = tbi.rm;
+void appendTailToHolder(NGHolder &h, const flat_set<ReportID> &reports,
+                        const vector<NFAVertex> &starts,
+                        const vector<CharReach> &tail) {
+    assert(!tail.empty());
+    NFAVertex curr = add_vertex(h);
+    for (NFAVertex v : starts) {
+        assert(!edge(v, h.acceptEod, h).second);
+        assert(h[v].reports == reports);
+        h[v].reports.clear();
+        remove_edge(v, h.accept, h);
+        add_edge(v, curr, h);
+    }
+    auto it = tail.begin();
+    h[curr].char_reach = *it;
+    ++it;
+    while (it != tail.end()) {
+        NFAVertex old = curr;
+        curr = add_vertex(h);
+        add_edge(old, curr, h);
+        assert(!it->none());
+        h[curr].char_reach = *it;
+        ++it;
+    }
 
-    ue2::unordered_map<left_id, u32> seen; // already built queue indices
+    h[curr].reports = reports;
+    add_edge(curr, h.accept, h);
+}
 
-    map<left_id, set<PredTopPair> > infixTriggers;
-    findInfixTriggers(tbi, &infixTriggers);
+static
+void appendTailToHolder(NGHolder &h, const vector<CharReach> &tail) {
+    assert(in_degree(h.acceptEod, h) == 1);
+    assert(!tail.empty());
 
+    map<flat_set<ReportID>, vector<NFAVertex> > reporters;
+    for (auto v : inv_adjacent_vertices_range(h.accept, h)) {
+        reporters[h[v].reports].push_back(v);
+    }
+
+    for (const auto &e : reporters) {
+        appendTailToHolder(h, e.first, e.second, tail);
+    }
+
+    h.renumberEdges();
+}
+
+static
+u32 decreaseLag(const RoseBuildImpl &build, NGHolder &h,
+                const vector<RoseVertex> &succs) {
+    const RoseGraph &rg = build.g;
+    static const size_t MAX_RESTORE_LEN = 5;
+
+    vector<CharReach> restored(MAX_RESTORE_LEN);
+    for (RoseVertex v : succs) {
+        u32 lag = rg[v].left.lag;
+        for (u32 lit_id : rg[v].literals) {
+            u32 delay = build.literals.right.at(lit_id).delay;
+            const ue2_literal &literal = build.literals.right.at(lit_id).s;
+            assert(lag <= literal.length() + delay);
+            size_t base = literal.length() + delay - lag;
+            if (base >= literal.length()) {
+                return 0;
+            }
+            size_t len = literal.length() - base;
+            len = MIN(len, restored.size());
+            restored.resize(len);
+            auto lit_it = literal.begin() + base;
+            for (u32 i = 0; i < len; i++) {
+                assert(lit_it != literal.end());
+                restored[i] |= *lit_it;
+                ++lit_it;
+            }
+        }
+    }
+
+    assert(!restored.empty());
+
+    appendTailToHolder(h, restored);
+
+    return restored.size();
+}
+
+#define EAGER_DIE_BEFORE_LIMIT 10
+
+struct eager_info {
+    shared_ptr<NGHolder> new_graph;
+    u32 lag_adjust = 0;
+};
+
+static
+bool checkSuitableForEager(bool is_prefix, const left_id &left,
+                           const RoseBuildImpl &build,
+                           const vector<RoseVertex> &succs,
+                           rose_group squash_mask, rose_group initial_groups,
+                           eager_info &ei, const CompileContext &cc) {
+    DEBUG_PRINTF("checking prefix --> %016llx...\n", squash_mask);
+
+    const RoseGraph &rg = build.g;
+
+    if (!is_prefix) {
+        DEBUG_PRINTF("not prefix\n");
+        return false; /* only prefixes (for now...) */
+    }
+
+    if ((initial_groups & squash_mask) == initial_groups) {
+        DEBUG_PRINTF("no squash -- useless\n");
+        return false;
+    }
+
+    for (RoseVertex s : succs) {
+        if (build.isInETable(s)
+            || contains(rg[s].literals, build.eod_event_literal_id)) {
+            return false; /* Ignore EOD related prefixes */
+        }
+    }
+
+    if (left.dfa()) {
+        const raw_dfa &dfa = *left.dfa();
+        if (dfa.start_floating != DEAD_STATE) {
+            return false; /* not purely anchored */
+        }
+        if (!dfa.states[dfa.start_anchored].reports.empty()) {
+            return false; /* vacuous (todo: handle?) */
+        }
+
+        if (!can_die_early(dfa, EAGER_DIE_BEFORE_LIMIT)) {
+            return false;
+        }
+        ei.new_graph = rg[succs[0]].left.graph;
+    } else if (left.graph()) {
+        const NGHolder &g = *left.graph();
+        if (proper_out_degree(g.startDs, g)) {
+            return false; /* not purely anchored */
+        }
+
+        ei.new_graph = cloneHolder(*left.graph());
+        auto gg = ei.new_graph;
+        gg->kind = NFA_EAGER_PREFIX;
+
+        ei.lag_adjust = decreaseLag(build, *gg, succs);
+
+        if (is_match_vertex(gg->start, *gg)) {
+            return false; /* should not still be vacuous as lag decreased */
+        }
+
+        if (!can_die_early(*gg, EAGER_DIE_BEFORE_LIMIT)) {
+            DEBUG_PRINTF("not eager as stuck alive\n");
+            return false;
+        }
+
+        /* We need to ensure that adding in the literals does not cause us to no
+         * longer be able to build an nfa. */
+        bool ok = isImplementableNFA(*gg, nullptr, cc);
+        if (!ok) {
+            return false;
+        }
+    } else {
+        DEBUG_PRINTF("unable to determine if good for eager running\n");
+        return false;
+    }
+
+    DEBUG_PRINTF("eager prefix\n");
+    return true;
+}
+
+static
+left_id updateLeftfixWithEager(RoseGraph &g, const eager_info &ei,
+                               const vector<RoseVertex> &succs) {
+    u32 lag_adjust = ei.lag_adjust;
+    auto gg = ei.new_graph;
+    for (RoseVertex v : succs) {
+        g[v].left.graph = gg;
+        assert(g[v].left.lag >= lag_adjust);
+        g[v].left.lag -= lag_adjust;
+        DEBUG_PRINTF("added %u literal chars back, new lag %u\n", lag_adjust,
+                     g[v].left.lag);
+    }
+    left_id leftfix = g[succs[0]].left;
+
+    if (leftfix.graph()) {
+        assert(leftfix.graph()->kind == NFA_PREFIX
+               || leftfix.graph()->kind == NFA_EAGER_PREFIX);
+        leftfix.graph()->kind = NFA_EAGER_PREFIX;
+    }
+    if (leftfix.dfa()) {
+        assert(leftfix.dfa()->kind == NFA_PREFIX);
+        leftfix.dfa()->kind = NFA_EAGER_PREFIX;
+    }
+
+    return leftfix;
+}
+
+static
+bool buildLeftfix(RoseBuildImpl &build, build_context &bc, bool prefix, u32 qi,
+                  const map<left_id, set<PredTopPair> > &infixTriggers,
+                  set<u32> *no_retrigger_queues, set<u32> *eager_queues,
+                  const map<left_id, eager_info> &eager,
+                  const vector<RoseVertex> &succs, left_id leftfix) {
+    RoseGraph &g = build.g;
+    const CompileContext &cc = build.cc;
+    const ReportManager &rm = build.rm;
+
+    bool is_transient = contains(build.transient, leftfix);
+    rose_group squash_mask = build.rose_squash_masks.at(leftfix);
+
+    DEBUG_PRINTF("making %sleftfix\n", is_transient ? "transient " : "");
+
+    if (contains(eager, leftfix)) {
+        eager_queues->insert(qi);
+        leftfix = updateLeftfixWithEager(g, eager.at(leftfix), succs);
+    }
+
+    aligned_unique_ptr<NFA> nfa;
+    // Need to build NFA, which is either predestined to be a Haig (in SOM mode)
+    // or could be all manner of things.
+    if (leftfix.haig()) {
+        nfa = goughCompile(*leftfix.haig(), build.ssm.somPrecision(), cc, rm);
+    }  else {
+        nfa = makeLeftNfa(build, leftfix, prefix, is_transient, infixTriggers,
+                          cc);
+    }
+
+    if (!nfa) {
+        assert(!"failed to build leftfix");
+        return false;
+    }
+
+    setLeftNfaProperties(*nfa, leftfix);
+
+    build.leftfix_queue_map.emplace(leftfix, qi);
+    nfa->queueIndex = qi;
+
+    if (!prefix && !leftfix.haig() && leftfix.graph()
+        && nfaStuckOn(*leftfix.graph())) {
+        DEBUG_PRINTF("%u sticks on\n", qi);
+        no_retrigger_queues->insert(qi);
+    }
+
+    DEBUG_PRINTF("built leftfix, qi=%u\n", qi);
+    add_nfa_to_blob(bc, *nfa);
+
+    // Leftfixes can have stop alphabets.
+    vector<u8> stop(N_CHARS, 0);
+    /* haigs track som information - need more care */
+    som_type som = leftfix.haig() ? SOM_LEFT : SOM_NONE;
+    if (leftfix.graph()) {
+        stop = findLeftOffsetStopAlphabet(*leftfix.graph(), som);
+    } else if (leftfix.castle()) {
+        stop = findLeftOffsetStopAlphabet(*leftfix.castle(), som);
+    }
+
+    // Infix NFAs can have bounds on their queue lengths.
+    u32 max_queuelen = UINT32_MAX;
+    if (!prefix) {
+        set<ue2_literal> lits;
+        for (RoseVertex v : succs) {
+            for (auto u : inv_adjacent_vertices_range(v, g)) {
+                for (u32 lit_id : g[u].literals) {
+                    lits.insert(build.literals.right.at(lit_id).s);
+                }
+            }
+        }
+        DEBUG_PRINTF("%zu literals\n", lits.size());
+        max_queuelen = findMaxInfixMatches(leftfix, lits);
+        if (max_queuelen < UINT32_MAX) {
+            max_queuelen++;
+        }
+    }
+
+    u32 max_width;
+    if (is_transient) {
+        depth d = findMaxWidth(leftfix);
+        assert(d.is_finite());
+        max_width = d;
+    } else {
+        max_width = 0;
+    }
+
+    u8 cm_count = 0;
+    CharReach cm_cr;
+    if (cc.grey.allowCountingMiracles) {
+        findCountingMiracleInfo(leftfix, stop, &cm_count, &cm_cr);
+    }
+
+    for (RoseVertex v : succs) {
+        bc.leftfix_info.emplace(v, left_build_info(qi, g[v].left.lag, max_width,
+                                                   squash_mask, stop,
+                                                   max_queuelen, cm_count,
+                                                   cm_cr));
+    }
+
+    return true;
+}
+
+static
+unique_ptr<TamaInfo> constructTamaInfo(const RoseGraph &g,
+                     const vector<ExclusiveSubengine> &subengines,
+                     const bool is_suffix) {
+    unique_ptr<TamaInfo> tamaInfo = ue2::make_unique<TamaInfo>();
+    for (const auto &sub : subengines) {
+        const auto &rose_vertices = sub.vertices;
+        NFA *nfa = sub.nfa.get();
+        set<u32> tops;
+        for (const auto &v : rose_vertices) {
+            if (is_suffix) {
+                tops.insert(g[v].suffix.top);
+            } else {
+                for (const auto &e : in_edges_range(v, g)) {
+                    tops.insert(g[e].rose_top);
+                }
+            }
+        }
+        tamaInfo->add(nfa, tops);
+    }
+
+    return tamaInfo;
+}
+
+static
+void updateTops(const RoseGraph &g, const TamaInfo &tamaInfo,
+                TamaProto &tamaProto,
+                const vector<ExclusiveSubengine> &subengines,
+                const map<pair<const NFA *, u32>, u32> &out_top_remap,
+                const bool is_suffix) {
+    u32 i = 0;
+    for (const auto &n : tamaInfo.subengines) {
+        for (const auto &v : subengines[i].vertices) {
+            if (is_suffix) {
+                tamaProto.add(n, g[v].idx, g[v].suffix.top,
+                              out_top_remap);
+            } else {
+                for (const auto &e : in_edges_range(v, g)) {
+                    tamaProto.add(n, g[v].idx, g[e].rose_top,
+                                  out_top_remap);
+                }
+            }
+        }
+        i++;
+    }
+}
+
+static
+shared_ptr<TamaProto> constructContainerEngine(const RoseGraph &g,
+                                               build_context &bc,
+                                               const ExclusiveInfo &info,
+                                               const u32 queue,
+                                               const bool is_suffix) {
+    const auto &subengines = info.subengines;
+    auto tamaInfo =
+        constructTamaInfo(g, subengines, is_suffix);
+
+    map<pair<const NFA *, u32>, u32> out_top_remap;
+    auto n = buildTamarama(*tamaInfo, queue, out_top_remap);
+    add_nfa_to_blob(bc, *n);
+
+    DEBUG_PRINTF("queue id:%u\n", queue);
+    shared_ptr<TamaProto> tamaProto = make_shared<TamaProto>();
+    tamaProto->reports = info.reports;
+    updateTops(g, *tamaInfo, *tamaProto, subengines,
+               out_top_remap, is_suffix);
+    return tamaProto;
+}
+
+static
+void buildInfixContainer(RoseGraph &g, build_context &bc,
+                         const vector<ExclusiveInfo> &exclusive_info) {
+    // Build tamarama engine
+    for (const auto &info : exclusive_info) {
+        const u32 queue = info.queue;
+        const auto &subengines = info.subengines;
+        auto tamaProto =
+            constructContainerEngine(g, bc, info, queue, false);
+
+        for (const auto &sub : subengines) {
+            const auto &verts = sub.vertices;
+            for (const auto &v : verts) {
+                DEBUG_PRINTF("vert id:%lu\n", g[v].idx);
+                g[v].left.tamarama = tamaProto;
+            }
+        }
+    }
+}
+
+static
+void buildSuffixContainer(RoseGraph &g, build_context &bc,
+                          const vector<ExclusiveInfo> &exclusive_info) {
+    // Build tamarama engine
+    for (const auto &info : exclusive_info) {
+        const u32 queue = info.queue;
+        const auto &subengines = info.subengines;
+        auto tamaProto =
+            constructContainerEngine(g, bc, info, queue, true);
+        for (const auto &sub : subengines) {
+            const auto &verts = sub.vertices;
+            for (const auto &v : verts) {
+                DEBUG_PRINTF("vert id:%lu\n", g[v].idx);
+                g[v].suffix.tamarama = tamaProto;
+            }
+            const auto &v = verts[0];
+            suffix_id newSuffix(g[v].suffix);
+            bc.suffixes.emplace(newSuffix, queue);
+        }
+    }
+}
+
+static
+void updateExclusiveInfixProperties(const RoseBuildImpl &build,
+                                    build_context &bc,
+                                    const vector<ExclusiveInfo> &exclusive_info,
+                                    set<u32> *no_retrigger_queues) {
+    const RoseGraph &g = build.g;
+    for (const auto &info : exclusive_info) {
+        // Set leftfix optimisations, disabled for tamarama subengines
+        rose_group squash_mask = ~rose_group{0};
+        // Leftfixes can have stop alphabets.
+        vector<u8> stop(N_CHARS, 0);
+        // Infix NFAs can have bounds on their queue lengths.
+        u32 max_queuelen = 0;
+        u32 max_width = 0;
+        u8 cm_count = 0;
+        CharReach cm_cr;
+
+        const auto &qi = info.queue;
+        const auto &subengines = info.subengines;
+        bool no_retrigger = true;
+        for (const auto &sub : subengines) {
+            const auto &verts = sub.vertices;
+            const auto &v_first = verts[0];
+            left_id leftfix(g[v_first].left);
+            if (leftfix.haig() || !leftfix.graph() ||
+                !nfaStuckOn(*leftfix.graph())) {
+                no_retrigger = false;
+            }
+
+            for (const auto &v : verts) {
+                set<ue2_literal> lits;
+                for (auto u : inv_adjacent_vertices_range(v, build.g)) {
+                    for (u32 lit_id : build.g[u].literals) {
+                        lits.insert(build.literals.right.at(lit_id).s);
+                    }
+                }
+                DEBUG_PRINTF("%zu literals\n", lits.size());
+
+                u32 queuelen = findMaxInfixMatches(leftfix, lits);
+                if (queuelen < UINT32_MAX) {
+                    queuelen++;
+                }
+                max_queuelen = max(max_queuelen, queuelen);
+            }
+        }
+
+        if (no_retrigger) {
+            no_retrigger_queues->insert(qi);
+        }
+
+        for (const auto &sub : subengines) {
+            const auto &verts = sub.vertices;
+            for (const auto &v : verts) {
+                u32 lag = g[v].left.lag;
+                bc.leftfix_info.emplace(
+                    v, left_build_info(qi, lag, max_width, squash_mask, stop,
+                                       max_queuelen, cm_count, cm_cr));
+            }
+        }
+    }
+}
+
+static
+void updateExclusiveSuffixProperties(const RoseBuildImpl &build,
+                                const vector<ExclusiveInfo> &exclusive_info,
+                                set<u32> *no_retrigger_queues) {
+    const RoseGraph &g = build.g;
+    for (auto &info : exclusive_info) {
+        const auto &qi = info.queue;
+        const auto &subengines = info.subengines;
+        bool no_retrigger = true;
+        for (const auto &sub : subengines) {
+            const auto &v_first = sub.vertices[0];
+            suffix_id suffix(g[v_first].suffix);
+            if (!suffix.graph() || !nfaStuckOn(*suffix.graph())) {
+                no_retrigger = false;
+                break;
+            }
+        }
+
+        if (no_retrigger) {
+            no_retrigger_queues->insert(qi);
+        }
+    }
+}
+
+static
+void buildExclusiveInfixes(RoseBuildImpl &build, build_context &bc,
+                           QueueIndexFactory &qif,
+                           const map<left_id, set<PredTopPair>> &infixTriggers,
+                           const map<u32, vector<RoseVertex>> &vertex_map,
+                           const vector<vector<u32>> &groups,
+                           set<u32> *no_retrigger_queues) {
+    RoseGraph &g = build.g;
+    const CompileContext &cc = build.cc;
+
+    vector<ExclusiveInfo> exclusive_info;
+    for (const auto &gp : groups) {
+        ExclusiveInfo info;
+        for (const auto &id : gp) {
+            const auto &verts = vertex_map.at(id);
+            left_id leftfix(g[verts[0]].left);
+
+            bool is_transient = false;
+            auto n = makeLeftNfa(build, leftfix, false, is_transient,
+                                 infixTriggers, cc);
+            assert(n);
+
+            setLeftNfaProperties(*n, leftfix);
+
+            ExclusiveSubengine engine;
+            engine.nfa = move(n);
+            engine.vertices = verts;
+            info.subengines.push_back(move(engine));
+        }
+        info.queue = qif.get_queue();
+        exclusive_info.push_back(move(info));
+    }
+    updateExclusiveInfixProperties(build, bc, exclusive_info,
+                                   no_retrigger_queues);
+    buildInfixContainer(g, bc, exclusive_info);
+}
+
+static
+void findExclusiveInfixes(RoseBuildImpl &build, build_context &bc,
+                          QueueIndexFactory &qif,
+                          const map<left_id, set<PredTopPair>> &infixTriggers,
+                          set<u32> *no_retrigger_queues) {
+    const RoseGraph &g = build.g;
+
+    set<RoleInfo<left_id>> roleInfoSet;
+    map<u32, vector<RoseVertex>> vertex_map;
+
+    u32 role_id = 0;
+    map<left_id, u32> leftfixes;
     for (auto v : vertices_range(g)) {
-        if (!g[v].left) {
+        if (!g[v].left || build.isRootSuccessor(v)) {
             continue;
         }
 
+        left_id leftfix(g[v].left);
+
+        // Sanity check: our NFA should contain each of the tops mentioned on
+        // our in-edges.
+        assert(roseHasTops(g, v));
+
+        if (contains(leftfixes, leftfix)) {
+            // NFA already built.
+            u32 id = leftfixes[leftfix];
+            if (contains(vertex_map, id)) {
+                vertex_map[id].push_back(v);
+            }
+            DEBUG_PRINTF("sharing leftfix, id=%u\n", id);
+            continue;
+        }
+
+        if (leftfix.graph() || leftfix.castle()) {
+            leftfixes.emplace(leftfix, role_id);
+            vertex_map[role_id].push_back(v);
+
+            map<u32, vector<vector<CharReach>>> triggers;
+            findTriggerSequences(build, infixTriggers.at(leftfix), &triggers);
+            RoleInfo<left_id> info(leftfix, role_id);
+            if (setTriggerLiteralsInfix(info, triggers)) {
+                roleInfoSet.insert(info);
+            }
+            role_id++;
+        }
+    }
+
+    if (leftfixes.size() > 1) {
+        DEBUG_PRINTF("leftfix size:%lu\n", leftfixes.size());
+        vector<vector<u32>> groups;
+        exclusiveAnalysisInfix(build, vertex_map, roleInfoSet, groups);
+        buildExclusiveInfixes(build, bc, qif, infixTriggers, vertex_map,
+                              groups, no_retrigger_queues);
+    }
+}
+
+static
+bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
+                    QueueIndexFactory &qif, set<u32> *no_retrigger_queues,
+                    set<u32> *eager_queues, bool do_prefix) {
+    RoseGraph &g = tbi.g;
+    const CompileContext &cc = tbi.cc;
+
+    map<left_id, set<PredTopPair> > infixTriggers;
+    vector<left_id> order;
+    unordered_map<left_id, vector<RoseVertex> > succs;
+    findInfixTriggers(tbi, &infixTriggers);
+
+    if (cc.grey.allowTamarama && cc.streaming && !do_prefix) {
+        findExclusiveInfixes(tbi, bc, qif, infixTriggers,
+                             no_retrigger_queues);
+    }
+
+    for (auto v : vertices_range(g)) {
+        if (!g[v].left || g[v].left.tamarama) {
+            continue;
+        }
+
+        assert(tbi.isNonRootSuccessor(v) != tbi.isRootSuccessor(v));
         bool is_prefix = tbi.isRootSuccessor(v);
 
         if (do_prefix != is_prefix) {
@@ -1132,11 +1787,13 @@ bool buildLeftfixes(const RoseBuildImpl &tbi, build_context &bc,
         // our in-edges.
         assert(roseHasTops(g, v));
 
-        u32 qi; // queue index, set below.
-        u32 lag = g[v].left.lag;
         bool is_transient = contains(tbi.transient, leftfix);
 
-        if (is_transient && tbi.cc.grey.roseLookaroundMasks) {
+        // Transient leftfixes can sometimes be implemented solely with
+        // lookarounds, in which case we don't need to build an engine.
+        // TODO: Handle SOM-tracking cases as well.
+        if (cc.grey.roseLookaroundMasks && is_transient &&
+            !g[v].left.tracksSom()) {
             vector<LookEntry> lookaround;
             if (makeLeftfixLookaround(tbi, v, lookaround)) {
                 DEBUG_PRINTF("implementing as lookaround!\n");
@@ -1145,94 +1802,42 @@ bool buildLeftfixes(const RoseBuildImpl &tbi, build_context &bc,
             }
         }
 
-        if (contains(seen, leftfix)) {
-            // NFA already built.
-            qi = seen[leftfix];
-            assert(contains(bc.engineOffsets, qi));
-            DEBUG_PRINTF("sharing leftfix, qi=%u\n", qi);
-        } else {
-            DEBUG_PRINTF("making %sleftfix\n", is_transient ? "transient " : "");
-
-            aligned_unique_ptr<NFA> nfa;
-
-            // Need to build NFA, which is either predestined to be a Haig (in
-            // SOM mode) or could be all manner of things.
-            if (leftfix.haig()) {
-                nfa = goughCompile(*leftfix.haig(), tbi.ssm.somPrecision(), cc,
-                                   rm);
-            }  else {
-                assert(tbi.isNonRootSuccessor(v) != tbi.isRootSuccessor(v));
-                nfa = makeLeftNfa(tbi, leftfix, is_prefix, is_transient,
-                                  infixTriggers, cc);
-            }
-
-            if (!nfa) {
-                assert(!"failed to build leftfix");
-                return false;
-            }
-
-            setLeftNfaProperties(*nfa, leftfix);
-
-            qi = qif.get_queue();
-            nfa->queueIndex = qi;
-
-            if (!is_prefix && !leftfix.haig() && leftfix.graph() &&
-                nfaStuckOn(*leftfix.graph())) {
-                DEBUG_PRINTF("%u sticks on\n", qi);
-                no_retrigger_queues->insert(qi);
-            }
-
-            DEBUG_PRINTF("built leftfix, qi=%u\n", qi);
-            add_nfa_to_blob(bc, *nfa);
-            seen.emplace(leftfix, qi);
+        if (!contains(succs, leftfix)) {
+            order.push_back(leftfix);
         }
+
+        succs[leftfix].push_back(v);
+    }
+
+    rose_group initial_groups = tbi.getInitialGroups();
+    rose_group combined_eager_squashed_mask = ~0ULL;
+
+    map<left_id, eager_info> eager;
+
+    for (const left_id &leftfix : order) {
+        const auto &left_succs = succs[leftfix];
 
         rose_group squash_mask = tbi.rose_squash_masks.at(leftfix);
+        eager_info ei;
 
-        // Leftfixes can have stop alphabets.
-        vector<u8> stop(N_CHARS, 0);
-        /* haigs track som information - need more care */
-        som_type som = leftfix.haig() ? SOM_LEFT : SOM_NONE;
-        if (leftfix.graph()) {
-            stop = findLeftOffsetStopAlphabet(*leftfix.graph(), som);
-        } else if (leftfix.castle()) {
-            stop = findLeftOffsetStopAlphabet(*leftfix.castle(), som);
+        if (checkSuitableForEager(do_prefix, leftfix, tbi, left_succs,
+                                  squash_mask, initial_groups, ei, cc)) {
+            eager[leftfix] = ei;
+            combined_eager_squashed_mask &= squash_mask;
+            DEBUG_PRINTF("combo %016llx...\n", combined_eager_squashed_mask);
         }
+    }
 
-        // Infix NFAs can have bounds on their queue lengths.
-        u32 max_queuelen = UINT32_MAX;
-        if (!is_prefix) {
-            set<ue2_literal> lits;
-            for (auto u : inv_adjacent_vertices_range(v, tbi.g)) {
-                for (u32 lit_id : tbi.g[u].literals) {
-                    lits.insert(tbi.literals.right.at(lit_id).s);
-                }
-            }
-            DEBUG_PRINTF("%zu literals\n", lits.size());
-            max_queuelen = findMaxInfixMatches(leftfix, lits);
-            if (max_queuelen < UINT32_MAX) {
-                max_queuelen++;
-            }
-        }
+    if (do_prefix && combined_eager_squashed_mask & initial_groups) {
+        DEBUG_PRINTF("eager groups won't squash everyone - be lazy\n");
+        eager_queues->clear();
+        eager.clear();
+    }
 
-        u32 max_width;
-        if (is_transient) {
-            depth d = findMaxWidth(leftfix);
-            assert(d.is_finite());
-            max_width = d;
-        } else {
-            max_width = 0;
-        }
-
-        u8 cm_count = 0;
-        CharReach cm_cr;
-        if (cc.grey.allowCountingMiracles) {
-            findCountingMiracleInfo(leftfix, stop, &cm_count, &cm_cr);
-        }
-
-        bc.leftfix_info.emplace(
-            v, left_build_info(qi, lag, max_width, squash_mask, stop,
-                               max_queuelen, cm_count, cm_cr));
+    for (const left_id &leftfix : order) {
+        buildLeftfix(tbi, bc, do_prefix, qif.get_queue(), infixTriggers,
+                     no_retrigger_queues, eager_queues, eager, succs[leftfix],
+                     leftfix);
     }
 
     return true;
@@ -1271,8 +1876,8 @@ public:
     };
 
     aligned_unique_ptr<NFA> operator()(unique_ptr<raw_dfa> &rdfa) const {
-        // Unleash the McClellan!
-        return mcclellanCompile(*rdfa, build.cc, build.rm);
+        // Unleash the mighty DFA!
+        return getDfa(*rdfa, build.cc, build.rm);
     }
 
     aligned_unique_ptr<NFA> operator()(unique_ptr<raw_som_dfa> &haig) const {
@@ -1300,7 +1905,7 @@ public:
             !has_bounded_repeats_other_than_firsts(*n)) {
             auto rdfa = buildMcClellan(h, &rm, cc.grey);
             if (rdfa) {
-                auto d = mcclellanCompile(*rdfa, cc, rm);
+                auto d = getDfa(*rdfa, cc, rm);
                 if (d) {
                     n = pickImpl(move(d), move(n));
                 }
@@ -1458,6 +2063,7 @@ void assignSuffixQueues(RoseBuildImpl &build, build_context &bc) {
         u32 queue = build.qif.get_queue();
         DEBUG_PRINTF("assigning %p to queue %u\n", s.graph(), queue);
         bc.suffixes.emplace(s, queue);
+        build.suffix_queue_map.emplace(s, queue);
     }
 }
 
@@ -1481,11 +2087,111 @@ void setSuffixProperties(NFA &n, const suffix_id &suff,
 }
 
 static
-bool buildSuffixes(const RoseBuildImpl &tbi, build_context &bc,
-                   set<u32> *no_retrigger_queues) {
-    map<suffix_id, set<PredTopPair> > suffixTriggers;
-    findSuffixTriggers(tbi, &suffixTriggers);
+void buildExclusiveSuffixes(RoseBuildImpl &build, build_context &bc,
+                            QueueIndexFactory &qif,
+                            map<suffix_id, set<PredTopPair>> &suffixTriggers,
+                            const map<u32, vector<RoseVertex>> &vertex_map,
+                            const vector<vector<u32>> &groups,
+                            set<u32> *no_retrigger_queues) {
+    RoseGraph &g = build.g;
 
+    vector<ExclusiveInfo> exclusive_info;
+    for (const auto &gp : groups) {
+        ExclusiveInfo info;
+        for (const auto &id : gp) {
+            const auto &verts = vertex_map.at(id);
+            suffix_id s(g[verts[0]].suffix);
+
+            const set<PredTopPair> &s_triggers = suffixTriggers.at(s);
+
+            map<u32, u32> fixed_depth_tops;
+            findFixedDepthTops(g, s_triggers, &fixed_depth_tops);
+
+            map<u32, vector<vector<CharReach>>> triggers;
+            findTriggerSequences(build, s_triggers, &triggers);
+
+            auto n = buildSuffix(build.rm, build.ssm, fixed_depth_tops,
+                                 triggers, s, build.cc);
+            assert(n);
+
+            setSuffixProperties(*n, s, build.rm);
+
+            ExclusiveSubengine engine;
+            engine.nfa = move(n);
+            engine.vertices = verts;
+            info.subengines.push_back(move(engine));
+
+            const auto &reports = all_reports(s);
+            info.reports.insert(reports.begin(), reports.end());
+        }
+        info.queue = qif.get_queue();
+        exclusive_info.push_back(move(info));
+    }
+    updateExclusiveSuffixProperties(build, exclusive_info,
+                                    no_retrigger_queues);
+    buildSuffixContainer(g, bc, exclusive_info);
+}
+
+static
+void findExclusiveSuffixes(RoseBuildImpl &tbi, build_context &bc,
+                  QueueIndexFactory &qif,
+                  map<suffix_id, set<PredTopPair>> &suffixTriggers,
+                  set<u32> *no_retrigger_queues) {
+    const RoseGraph &g = tbi.g;
+
+    map<suffix_id, u32> suffixes;
+    set<RoleInfo<suffix_id>> roleInfoSet;
+    map<u32, vector<RoseVertex>> vertex_map;
+    u32 role_id = 0;
+    for (auto v : vertices_range(g)) {
+        if (!g[v].suffix) {
+            continue;
+        }
+
+        const suffix_id s(g[v].suffix);
+
+        DEBUG_PRINTF("vertex %zu triggers suffix %p\n", g[v].idx, s.graph());
+
+        // We may have already built this NFA.
+        if (contains(suffixes, s)) {
+            u32 id = suffixes[s];
+            if (!tbi.isInETable(v)) {
+                vertex_map[id].push_back(v);
+            }
+            continue;
+        }
+
+        // Currently disable eod suffixes for exclusive analysis
+        if (!tbi.isInETable(v) && (s.graph() || s.castle())) {
+            DEBUG_PRINTF("assigning %p to id %u\n", s.graph(), role_id);
+            suffixes.emplace(s, role_id);
+
+            vertex_map[role_id].push_back(v);
+            const set<PredTopPair> &s_triggers = suffixTriggers.at(s);
+            map<u32, vector<vector<CharReach>>> triggers;
+            findTriggerSequences(tbi, s_triggers, &triggers);
+
+            RoleInfo<suffix_id> info(s, role_id);
+            if (setTriggerLiteralsSuffix(info, triggers)) {
+                roleInfoSet.insert(info);
+            }
+            role_id++;
+        }
+    }
+
+    if (suffixes.size() > 1) {
+        DEBUG_PRINTF("suffix size:%lu\n", suffixes.size());
+        vector<vector<u32>> groups;
+        exclusiveAnalysisSuffix(tbi, vertex_map, roleInfoSet, groups);
+        buildExclusiveSuffixes(tbi, bc, qif, suffixTriggers, vertex_map,
+                               groups, no_retrigger_queues);
+    }
+}
+
+static
+bool buildSuffixes(const RoseBuildImpl &tbi, build_context &bc,
+                   set<u32> *no_retrigger_queues,
+                   const map<suffix_id, set<PredTopPair>> &suffixTriggers) {
     // To ensure compile determinism, build suffix engines in order of their
     // (unique) queue indices, so that we call add_nfa_to_blob in the same
     // order.
@@ -1498,6 +2204,11 @@ bool buildSuffixes(const RoseBuildImpl &tbi, build_context &bc,
     for (const auto &e : ordered) {
         const u32 queue = e.first;
         const suffix_id &s = e.second;
+
+        if (s.tamarama()) {
+            continue;
+        }
+
         const set<PredTopPair> &s_triggers = suffixTriggers.at(s);
 
         map<u32, u32> fixed_depth_tops;
@@ -1583,22 +2294,35 @@ void buildCountingMiracles(RoseBuildImpl &build, build_context &bc) {
     }
 }
 
+/* Note: buildNfas may reduce the lag for vertices that have prefixes */
 static
 bool buildNfas(RoseBuildImpl &tbi, build_context &bc, QueueIndexFactory &qif,
-               set<u32> *no_retrigger_queues, u32 *leftfixBeginQueue) {
+               set<u32> *no_retrigger_queues, set<u32> *eager_queues,
+               u32 *leftfixBeginQueue) {
+    map<suffix_id, set<PredTopPair>> suffixTriggers;
+    findSuffixTriggers(tbi, &suffixTriggers);
+
+    if (tbi.cc.grey.allowTamarama && tbi.cc.streaming) {
+        findExclusiveSuffixes(tbi, bc, qif, suffixTriggers,
+                              no_retrigger_queues);
+    }
+
     assignSuffixQueues(tbi, bc);
 
-    if (!buildSuffixes(tbi, bc, no_retrigger_queues)) {
+    if (!buildSuffixes(tbi, bc, no_retrigger_queues, suffixTriggers)) {
         return false;
     }
+    suffixTriggers.clear();
 
     *leftfixBeginQueue = qif.allocated_count();
 
-    if (!buildLeftfixes(tbi, bc, qif, no_retrigger_queues, true)) {
+    if (!buildLeftfixes(tbi, bc, qif, no_retrigger_queues, eager_queues,
+                        true)) {
         return false;
     }
 
-    if (!buildLeftfixes(tbi, bc, qif, no_retrigger_queues, false)) {
+    if (!buildLeftfixes(tbi, bc, qif, no_retrigger_queues, eager_queues,
+                        false)) {
         return false;
     }
 
@@ -1642,10 +2366,10 @@ static
 void findTransientQueues(const map<RoseVertex, left_build_info> &leftfix_info,
                          set<u32> *out) {
     DEBUG_PRINTF("curating transient queues\n");
-    for (const auto &rbi : leftfix_info | map_values) {
-        if (rbi.transient) {
-            DEBUG_PRINTF("q %u is transient\n", rbi.queue);
-            out->insert(rbi.queue);
+    for (const auto &build : leftfix_info | map_values) {
+        if (build.transient) {
+            DEBUG_PRINTF("q %u is transient\n", build.queue);
+            out->insert(build.queue);
         }
     }
 }
@@ -1751,23 +2475,17 @@ u32 addIteratorToTable(build_context &bc,
 }
 
 static
-bool hasLastByteHistoryOutEdge(const RoseGraph &g, RoseVertex v) {
-    for (const auto &e : out_edges_range(v, g)) {
-        if (g[e].history == ROSE_ROLE_HISTORY_LAST_BYTE) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static
 u32 buildLastByteIter(const RoseGraph &g, build_context &bc) {
     vector<u32> lb_roles;
 
     for (auto v : vertices_range(g)) {
-        if (hasLastByteHistoryOutEdge(g, v)) {
-            assert(contains(bc.roleStateIndices, v));
-            lb_roles.push_back(bc.roleStateIndices.at(v));
+        if (!hasLastByteHistorySucc(g, v)) {
+            continue;
+        }
+        // Eager EOD reporters won't have state indices.
+        auto it = bc.roleStateIndices.find(v);
+        if (it != end(bc.roleStateIndices)) {
+            lb_roles.push_back(it->second);
         }
     }
 
@@ -1934,16 +2652,6 @@ bool anyEndfixMpvTriggers(const RoseBuildImpl &tbi) {
 }
 
 static
-bool hasInternalReport(const set<ReportID> &reports, const ReportManager &rm) {
-    for (ReportID r : reports) {
-        if (!isExternalReport(rm.getReport(r))) {
-            return true;
-        }
-    }
-    return false;
-}
-
-static
 void populateNfaInfoBasics(const RoseBuildImpl &build, const build_context &bc,
                            const vector<OutfixInfo> &outfixes,
                            const vector<u32> &ekeyListOffsets,
@@ -1960,24 +2668,10 @@ void populateNfaInfoBasics(const RoseBuildImpl &build, const build_context &bc,
         info.no_retrigger = contains(no_retrigger_queues, qi) ? 1 : 0;
     }
 
-    // Mark outfixes that only trigger external reports.
+    // Mark outfixes that are in the small block matcher.
     for (const auto &out : outfixes) {
         const u32 qi = out.get_queue();
-
         infos[qi].in_sbmatcher = out.in_sbmatcher;
-        if (!hasInternalReport(all_reports(out), build.rm)) {
-            infos[qi].only_external = 1;
-        }
-    }
-
-    // Mark suffixes that only trigger external reports.
-    for (const auto &e : bc.suffixes) {
-        const suffix_id &s = e.first;
-        u32 qi = e.second;
-
-        if (!hasInternalReport(all_reports(s), build.rm)) {
-            infos[qi].only_external = 1;
-        }
     }
 
     // Mark suffixes triggered by EOD table literals.
@@ -2150,6 +2844,12 @@ flattenProgram(const vector<vector<RoseInstruction>> &programs) {
         case ROSE_INSTR_CHECK_LOOKAROUND:
             ri.u.checkLookaround.fail_jump = jump_val;
             break;
+        case ROSE_INSTR_CHECK_MASK:
+            ri.u.checkMask.fail_jump = jump_val;
+            break;
+        case ROSE_INSTR_CHECK_BYTE:
+            ri.u.checkByte.fail_jump = jump_val;
+            break;
         case ROSE_INSTR_CHECK_INFIX:
             ri.u.checkInfix.fail_jump = jump_val;
             break;
@@ -2263,6 +2963,18 @@ void recordResources(RoseResources &resources,
             break;
         }
     }
+
+    const auto &g = build.g;
+    for (const auto &v : vertices_range(g)) {
+        if (g[v].eod_accept) {
+            resources.has_eod = true;
+            break;
+        }
+        if (g[v].suffix && has_eod_accepts(g[v].suffix)) {
+            resources.has_eod = true;
+            break;
+        }
+    }
 }
 
 static
@@ -2328,7 +3040,37 @@ void buildActiveLeftIter(const vector<LeftNfaInfo> &leftTable,
 }
 
 static
-bool hasEodAnchors(const RoseBuildImpl &tbi, const build_context &bc,
+bool canEagerlyReportAtEod(const RoseBuildImpl &build, const RoseEdge &e) {
+    const auto &g = build.g;
+    const auto v = target(e, g);
+
+    if (!build.g[v].eod_accept) {
+        return false;
+    }
+
+    // If there's a graph between us and EOD, we shouldn't be eager.
+    if (build.g[v].left) {
+        return false;
+    }
+
+    // Must be exactly at EOD.
+    if (g[e].minBound != 0 || g[e].maxBound != 0) {
+        return false;
+    }
+
+    // In streaming mode, we can only eagerly report EOD for literals in the
+    // EOD-anchored table, as that's the only time we actually know where EOD
+    // is. In block mode, we always have this information.
+    const auto u = source(e, g);
+    if (build.cc.streaming && !build.isInETable(u)) {
+        return false;
+    }
+
+    return true;
+}
+
+static
+bool hasEodAnchors(const RoseBuildImpl &build, const build_context &bc,
                    u32 outfixEndQueue) {
     for (u32 i = 0; i < outfixEndQueue; i++) {
         if (nfaAcceptsEod(get_nfa_from_blob(bc, i))) {
@@ -2337,16 +3079,18 @@ bool hasEodAnchors(const RoseBuildImpl &tbi, const build_context &bc,
         }
     }
 
-    if (tbi.eod_event_literal_id != MO_INVALID_IDX) {
+    if (build.eod_event_literal_id != MO_INVALID_IDX) {
         DEBUG_PRINTF("eod is an event to be celebrated\n");
         return true;
     }
-    for (auto v : vertices_range(tbi.g)) {
-        if (tbi.g[v].eod_accept) {
+
+    const RoseGraph &g = build.g;
+    for (auto v : vertices_range(g)) {
+        if (g[v].eod_accept) {
             DEBUG_PRINTF("literally report eod\n");
             return true;
         }
-        if (tbi.g[v].suffix && has_eod_accepts(tbi.g[v].suffix)) {
+        if (g[v].suffix && has_eod_accepts(g[v].suffix)) {
             DEBUG_PRINTF("eod suffix\n");
             return true;
         }
@@ -2433,6 +3177,122 @@ bool onlyAtEod(const RoseBuildImpl &tbi, RoseVertex v) {
 }
 
 static
+u32 addLookaround(build_context &bc, const vector<LookEntry> &look) {
+    // Check the cache.
+    auto it = bc.lookaround_cache.find(look);
+    if (it != bc.lookaround_cache.end()) {
+        DEBUG_PRINTF("reusing look at idx %zu\n", it->second);
+        return verify_u32(it->second);
+    }
+
+    // Linear scan for sequence.
+    auto seq_it = search(begin(bc.lookaround), end(bc.lookaround), begin(look),
+                         end(look));
+    if (seq_it != end(bc.lookaround)) {
+        size_t idx = distance(begin(bc.lookaround), seq_it);
+        DEBUG_PRINTF("linear scan found look at idx %zu\n", idx);
+        bc.lookaround_cache.emplace(look, idx);
+        return verify_u32(idx);
+    }
+
+    // New sequence.
+    size_t idx = bc.lookaround.size();
+    bc.lookaround_cache.emplace(look, idx);
+    insert(&bc.lookaround, bc.lookaround.end(), look);
+    DEBUG_PRINTF("adding look at idx %zu\n", idx);
+    return verify_u32(idx);
+}
+
+static
+bool checkReachMask(const CharReach &cr, u8 &andmask, u8 &cmpmask) {
+    size_t reach_size = cr.count();
+    assert(reach_size > 0);
+    // check whether entry_size is some power of 2.
+    if ((reach_size - 1) & reach_size) {
+        return false;
+    }
+    make_and_cmp_mask(cr, &andmask, &cmpmask);
+    if ((1 << popcount32((u8)(~andmask))) ^ reach_size) {
+        return false;
+    }
+    return true;
+}
+
+static
+bool checkReachWithFlip(const CharReach &cr, u8 &andmask,
+                       u8 &cmpmask, u8 &flip) {
+    if (checkReachMask(cr, andmask, cmpmask)) {
+        flip = 0;
+        return true;
+    }
+    if (checkReachMask(~cr, andmask, cmpmask)) {
+        flip = 1;
+        return true;
+    }
+    return false;
+}
+
+static
+bool makeRoleByte(const vector<LookEntry> &look,
+                  vector<RoseInstruction> &program) {
+    if (look.size() == 1) {
+        const auto &entry = look[0];
+        u8 andmask_u8, cmpmask_u8;
+        u8 flip;
+        if (!checkReachWithFlip(entry.reach, andmask_u8, cmpmask_u8, flip)) {
+            return false;
+        }
+        s32 checkbyte_offset = verify_s32(entry.offset);
+        DEBUG_PRINTF("CHECK BYTE offset=%d\n", checkbyte_offset);
+        auto ri = RoseInstruction(ROSE_INSTR_CHECK_BYTE,
+                                  JumpTarget::NEXT_BLOCK);
+        ri.u.checkByte.and_mask = andmask_u8;
+        ri.u.checkByte.cmp_mask = cmpmask_u8;
+        ri.u.checkByte.negation = flip;
+        ri.u.checkByte.offset = checkbyte_offset;
+        program.push_back(ri);
+        return true;
+    }
+    return false;
+}
+
+static
+bool makeRoleMask(const vector<LookEntry> &look,
+                  vector<RoseInstruction> &program) {
+    if (look.back().offset < look.front().offset + 8) {
+        s32 base_offset = verify_s32(look.front().offset);
+        u64a and_mask = 0;
+        u64a cmp_mask = 0;
+        u64a neg_mask = 0;
+        for (const auto &entry : look) {
+            u8 andmask_u8, cmpmask_u8, flip;
+            if (!checkReachWithFlip(entry.reach, andmask_u8,
+                                    cmpmask_u8, flip)) {
+                return false;
+            }
+            DEBUG_PRINTF("entry offset %d\n", entry.offset);
+            u32 shift = (entry.offset - base_offset) << 3;
+            and_mask |= (u64a)andmask_u8 << shift;
+            cmp_mask |= (u64a)cmpmask_u8 << shift;
+            if (flip) {
+                neg_mask |= 0xffLLU << shift;
+            }
+        }
+        DEBUG_PRINTF("CHECK MASK and_mask=%llx cmp_mask=%llx\n",
+                     and_mask, cmp_mask);
+        auto ri = RoseInstruction(ROSE_INSTR_CHECK_MASK,
+                                  JumpTarget::NEXT_BLOCK);
+        ri.u.checkMask.and_mask = and_mask;
+        ri.u.checkMask.cmp_mask = cmp_mask;
+        ri.u.checkMask.neg_mask = neg_mask;
+        ri.u.checkMask.offset = base_offset;
+        program.push_back(ri);
+        return true;
+    }
+    return false;
+}
+
+static
 void makeRoleLookaround(RoseBuildImpl &build, build_context &bc, RoseVertex v,
                         vector<RoseInstruction> &program) {
     if (!build.cc.grey.roseLookaroundMasks) {
@@ -2457,19 +3317,16 @@ void makeRoleLookaround(RoseBuildImpl &build, build_context &bc, RoseVertex v,
         return;
     }
 
-    DEBUG_PRINTF("role has lookaround\n");
-    u32 look_idx;
-    auto it = bc.lookaround_cache.find(look);
-    if (it != bc.lookaround_cache.end()) {
-        DEBUG_PRINTF("reusing look at idx %zu\n", it->second);
-        look_idx = verify_u32(it->second);
-    } else {
-        size_t idx = bc.lookaround.size();
-        bc.lookaround_cache.emplace(look, idx);
-        insert(&bc.lookaround, bc.lookaround.end(), look);
-        DEBUG_PRINTF("adding look at idx %zu\n", idx);
-        look_idx = verify_u32(idx);
+    if (makeRoleByte(look, program)) {
+        return;
     }
+
+    if (makeRoleMask(look, program)) {
+        return;
+    }
+
+    DEBUG_PRINTF("role has lookaround\n");
+    u32 look_idx = addLookaround(bc, look);
     u32 look_count = verify_u32(look.size());
 
     auto ri = RoseInstruction(ROSE_INSTR_CHECK_LOOKAROUND,
@@ -2875,7 +3732,15 @@ void makeRoleSuffix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
     assert(contains(bc.engineOffsets, qi));
     const NFA *nfa = get_nfa_from_blob(bc, qi);
     u32 suffixEvent;
-    if (isMultiTopType(nfa->type)) {
+    if (isContainerType(nfa->type)) {
+        auto tamaProto = g[v].suffix.tamarama.get();
+        assert(tamaProto);
+        u32 top = (u32)MQE_TOP_FIRST +
+                  tamaProto->top_remap.at(make_pair(g[v].idx,
+                                                    g[v].suffix.top));
+        assert(top < MQE_INVALID);
+        suffixEvent = top;
+    } else if (isMultiTopType(nfa->type)) {
         assert(!g[v].suffix.haig);
         u32 top = (u32)MQE_TOP_FIRST + g[v].suffix.top;
         assert(top < MQE_INVALID);
@@ -2893,11 +3758,38 @@ void makeRoleSuffix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
 }
 
 static
-void makeRoleGroups(const rose_group &groups,
+void makeRoleGroups(RoseBuildImpl &build, build_context &bc, RoseVertex v,
                     vector<RoseInstruction> &program) {
+    const auto &g = build.g;
+    rose_group groups = g[v].groups;
     if (!groups) {
         return;
     }
+
+    // The set of "already on" groups as we process this vertex is the
+    // intersection of the groups set by our predecessors.
+    assert(in_degree(v, g) > 0);
+    rose_group already_on = ~rose_group{0};
+    for (const auto &u : inv_adjacent_vertices_range(v, g)) {
+        already_on &= bc.vertex_group_map.at(u);
+    }
+
+    DEBUG_PRINTF("already_on=0x%llx\n", already_on);
+    DEBUG_PRINTF("squashable=0x%llx\n", bc.squashable_groups);
+    DEBUG_PRINTF("groups=0x%llx\n", groups);
+
+    already_on &= ~bc.squashable_groups;
+    DEBUG_PRINTF("squashed already_on=0x%llx\n", already_on);
+
+    // We don't *have* to mask off the groups that we know are already on, but
+    // this will make bugs more apparent.
+    groups &= ~already_on;
+
+    if (!groups) {
+        DEBUG_PRINTF("no new groups to set, skipping\n");
+        return;
+    }
+
     auto ri = RoseInstruction(ROSE_INSTR_SET_GROUPS);
     ri.u.setGroups.groups = groups;
     program.push_back(ri);
@@ -2926,7 +3818,13 @@ void makeRoleInfixTriggers(RoseBuildImpl &build, build_context &bc,
 
         // DFAs have no TOP_N support, so they get a classic MQE_TOP event.
         u32 top;
-        if (!isMultiTopType(nfa->type)) {
+        if (isContainerType(nfa->type)) {
+            auto tamaProto = g[v].left.tamarama.get();
+            assert(tamaProto);
+            top = MQE_TOP_FIRST + tamaProto->top_remap.at(
+                                      make_pair(g[v].idx, g[e].rose_top));
+            assert(top < MQE_INVALID);
+        } else if (!isMultiTopType(nfa->type)) {
             assert(num_tops(g[v].left) == 1);
             top = MQE_TOP;
         } else {
@@ -2989,7 +3887,7 @@ void makeRoleCheckBounds(const RoseBuildImpl &build, RoseVertex v,
                          : g[e].maxBound + lit_length;
 
     if (g[e].history == ROSE_ROLE_HISTORY_ANCH) {
-        assert(g[u].max_offset != ROSE_BOUND_INF);
+        assert(g[u].fixedOffset());
         // Make offsets absolute.
         min_bound += g[u].max_offset;
         if (max_bound != ROSE_BOUND_INF) {
@@ -3005,6 +3903,10 @@ void makeRoleCheckBounds(const RoseBuildImpl &build, RoseVertex v,
     if (max_bound == ROSE_BOUND_INF) {
         max_bound = MAX_OFFSET;
     }
+
+    // This instruction should be doing _something_ -- bounds should be tighter
+    // than just {length, inf}.
+    assert(min_bound > lit_length || max_bound < MAX_OFFSET);
 
     auto ri = RoseInstruction(ROSE_INSTR_CHECK_BOUNDS, JumpTarget::NEXT_BLOCK);
     ri.u.checkBounds.min_bound = min_bound;
@@ -3030,6 +3932,30 @@ void makeRoleCheckNotHandled(build_context &bc, RoseVertex v,
     ri.u.checkNotHandled.key = handled_key;
 
     program.push_back(move(ri));
+}
+
+static
+void makeRoleEagerEodReports(RoseBuildImpl &build, build_context &bc,
+                             RoseVertex v, vector<RoseInstruction> &program) {
+    vector<RoseInstruction> eod_program;
+
+    for (const auto &e : out_edges_range(v, build.g)) {
+        if (canEagerlyReportAtEod(build, e)) {
+            makeRoleReports(build, bc, target(e, build.g), eod_program);
+        }
+    }
+
+    if (eod_program.empty()) {
+        return;
+    }
+
+    if (!onlyAtEod(build, v)) {
+        // The rest of our program wasn't EOD anchored, so we need to guard
+        // these reports with a check.
+        program.emplace_back(ROSE_INSTR_CHECK_ONLY_EOD, JumpTarget::NEXT_BLOCK);
+    }
+
+    program.insert(end(program), begin(eod_program), end(eod_program));
 }
 
 static
@@ -3068,14 +3994,20 @@ vector<RoseInstruction> makeProgram(RoseBuildImpl &build, build_context &bc,
     // Next, we can add program instructions that have effects.
 
     makeRoleReports(build, bc, v, program);
+
     makeRoleInfixTriggers(build, bc, v, program);
 
     // Note: SET_GROUPS instruction must be after infix triggers, as an infix
     // going dead may switch off groups.
-    makeRoleGroups(g[v].groups, program);
+    makeRoleGroups(build, bc, v, program);
 
     makeRoleSuffix(build, bc, v, program);
+
     makeRoleSetState(bc, v, program);
+
+    // Note: EOD eager reports may generate a CHECK_ONLY_EOD instruction (if
+    // the program doesn't have one already).
+    makeRoleEagerEodReports(build, bc, v, program);
 
     return program;
 }
@@ -3135,10 +4067,21 @@ void assignStateIndices(const RoseBuildImpl &build, build_context &bc) {
         if (build.isVirtualVertex(v)) {
             continue;
         }
-        // Leaf nodes don't need state indices, as they don't have successors.
-        if (isLeafNode(v, g)) {
+
+        // We only need a state index if we have successors that are not
+        // eagerly-reported EOD vertices.
+        bool needs_state_index = false;
+        for (const auto &e : out_edges_range(v, g)) {
+            if (!canEagerlyReportAtEod(build, e)) {
+                needs_state_index = true;
+                break;
+            }
+        }
+
+        if (!needs_state_index) {
             continue;
         }
+
         /* TODO: also don't need a state index if all edges are nfa based */
         bc.roleStateIndices.emplace(v, state++);
     }
@@ -3149,9 +4092,9 @@ void assignStateIndices(const RoseBuildImpl &build, build_context &bc) {
 }
 
 static
-bool hasUsefulStops(const left_build_info &rbi) {
+bool hasUsefulStops(const left_build_info &build) {
     for (u32 i = 0; i < N_CHARS; i++) {
-        if (rbi.stopAlphabet[i]) {
+        if (build.stopAlphabet[i]) {
             return true;
         }
     }
@@ -3160,6 +4103,7 @@ bool hasUsefulStops(const left_build_info &rbi) {
 
 static
 void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
+                        const set<u32> &eager_queues,
                         u32 leftfixBeginQueue, u32 leftfixCount,
                         vector<LeftNfaInfo> &leftTable, u32 *laggedRoseCount,
                         size_t *history) {
@@ -3219,6 +4163,7 @@ void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
             DEBUG_PRINTF("mw = %u\n", lbi.transient);
             left.transient = verify_u8(lbi.transient);
             left.infix = tbi.isNonRootSuccessor(v);
+            left.eager = contains(eager_queues, lbi.queue);
 
             // A rose has a lagIndex if it's non-transient and we are
             // streaming.
@@ -3249,7 +4194,7 @@ void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
 }
 
 static
-u32 addPredBlocksSingle(
+void addPredBlocksSingle(
     map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
     vector<RoseInstruction> &program) {
 
@@ -3257,6 +4202,7 @@ u32 addPredBlocksSingle(
 
     for (const auto &m : predProgramLists) {
         const u32 &pred_state = m.first;
+        assert(!m.second.empty());
         auto subprog = flattenProgram(m.second);
 
         // Check our pred state.
@@ -3271,7 +4217,6 @@ u32 addPredBlocksSingle(
 
     auto prog = flattenProgram(prog_blocks);
     program.insert(end(program), begin(prog), end(prog));
-    return 0; // No iterator.
 }
 
 static
@@ -3284,7 +4229,7 @@ u32 programLength(const vector<RoseInstruction> &program) {
 }
 
 static
-u32 addPredBlocksMulti(build_context &bc,
+void addPredBlocksMulti(build_context &bc,
                     map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
                     vector<RoseInstruction> &program) {
     assert(!predProgramLists.empty());
@@ -3314,6 +4259,7 @@ u32 addPredBlocksMulti(build_context &bc,
         DEBUG_PRINTF("subprogram %zu has offset %u\n", jump_table.size(),
                      curr_offset);
         jump_table.push_back(curr_offset);
+        assert(!e.second.empty());
         auto subprog = flattenProgram(e.second);
 
         if (e.first != keys.back()) {
@@ -3359,31 +4305,31 @@ u32 addPredBlocksMulti(build_context &bc,
     }
 
     program.insert(end(program), begin(sparse_program), end(sparse_program));
-
-    return iter_offset;
 }
 
 static
-u32 addPredBlocks(build_context &bc,
-                  map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
-                  vector<RoseInstruction> &program,
-                  bool force_sparse_iter) {
+void addPredBlocks(build_context &bc,
+                   map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
+                   vector<RoseInstruction> &program) {
     const size_t num_preds = predProgramLists.size();
     if (num_preds == 0) {
         program = flattenProgram({program});
-        return 0; // No iterator.
-    } else if (!force_sparse_iter && num_preds == 1) {
-        return addPredBlocksSingle(predProgramLists, program);
-    } else {
-        return addPredBlocksMulti(bc, predProgramLists, program);
+        return;
     }
+
+    if (num_preds == 1) {
+        addPredBlocksSingle(predProgramLists, program);
+        return;
+    }
+
+    addPredBlocksMulti(bc, predProgramLists, program);
 }
 
 /**
  * Returns the pair (program offset, sparse iter offset).
  */
 static
-pair<u32, u32> makeSparseIterProgram(build_context &bc,
+vector<RoseInstruction> makeSparseIterProgram(build_context &bc,
                     map<u32, vector<vector<RoseInstruction>>> &predProgramLists,
                     const vector<RoseInstruction> &root_program,
                     const vector<RoseInstruction> &pre_program) {
@@ -3399,7 +4345,7 @@ pair<u32, u32> makeSparseIterProgram(build_context &bc,
     // Add blocks to deal with non-root edges (triggered by sparse iterator or
     // mmbit_isset checks). This operation will flatten the program up to this
     // point.
-    u32 iter_offset = addPredBlocks(bc, predProgramLists, program, false);
+    addPredBlocks(bc, predProgramLists, program);
 
     // If we have a root program, replace the END instruction with it. Note
     // that the root program has already been flattened.
@@ -3410,8 +4356,7 @@ pair<u32, u32> makeSparseIterProgram(build_context &bc,
         program.insert(end(program), begin(root_program), end(root_program));
     }
 
-    applyFinalSpecialisation(program);
-    return {writeProgram(bc, program), iter_offset};
+    return program;
 }
 
 static
@@ -3439,8 +4384,7 @@ void makePushDelayedInstructions(const RoseBuildImpl &build, u32 final_id,
 }
 
 static
-void makeGroupCheckInstruction(const RoseBuildImpl &build, u32 final_id,
-                               vector<RoseInstruction> &program) {
+rose_group getFinalIdGroupsUnion(const RoseBuildImpl &build, u32 final_id) {
     assert(contains(build.final_id_to_literal, final_id));
     const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
 
@@ -3448,7 +4392,13 @@ void makeGroupCheckInstruction(const RoseBuildImpl &build, u32 final_id,
     for (const auto &li : lit_infos) {
         groups |= li->group_mask;
     }
+    return groups;
+}
 
+static
+void makeGroupCheckInstruction(const RoseBuildImpl &build, u32 final_id,
+                               vector<RoseInstruction> &program) {
+    rose_group groups = getFinalIdGroupsUnion(build, final_id);
     if (!groups) {
         return;
     }
@@ -3497,11 +4447,7 @@ void makeGroupSquashInstruction(const RoseBuildImpl &build, u32 final_id,
         return;
     }
 
-    rose_group groups = 0;
-    for (const auto &li : lit_infos) {
-        groups |= li->group_mask;
-    }
-
+    rose_group groups = getFinalIdGroupsUnion(build, final_id);
     if (!groups) {
         return;
     }
@@ -3511,6 +4457,62 @@ void makeGroupSquashInstruction(const RoseBuildImpl &build, u32 final_id,
     auto ri = RoseInstruction(ROSE_INSTR_SQUASH_GROUPS);
     ri.u.squashGroups.groups = ~groups; // Negated, so we can just AND it in.
     program.push_back(move(ri));
+}
+
+static
+u32 findMaxOffset(const RoseBuildImpl &build, u32 lit_id) {
+    const auto &lit_vertices = build.literal_info.at(lit_id).vertices;
+    assert(!lit_vertices.empty());
+
+    u32 max_offset = 0;
+    for (const auto &v : lit_vertices) {
+        max_offset = max(max_offset, build.g[v].max_offset);
+    }
+
+    return max_offset;
+}
+
+static
+void makeRecordAnchoredInstruction(const RoseBuildImpl &build,
+                                   build_context &bc, u32 final_id,
+                                   vector<RoseInstruction> &program) {
+    assert(contains(build.final_id_to_literal, final_id));
+    const auto &lit_ids = build.final_id_to_literal.at(final_id);
+
+    // Must be anchored.
+    assert(!lit_ids.empty());
+    if (build.literals.right.at(*begin(lit_ids)).table != ROSE_ANCHORED) {
+        return;
+    }
+
+    // If this anchored literal can never match past
+    // floatingMinLiteralMatchOffset, we will never have to record it.
+    u32 max_offset = 0;
+    for (u32 lit_id : lit_ids) {
+        assert(build.literals.right.at(lit_id).table == ROSE_ANCHORED);
+        max_offset = max(max_offset, findMaxOffset(build, lit_id));
+    }
+
+    if (max_offset <= bc.floatingMinLiteralMatchOffset) {
+        return;
+    }
+
+    auto ri = RoseInstruction(ROSE_INSTR_RECORD_ANCHORED);
+    ri.u.recordAnchored.id = final_id;
+    program.push_back(move(ri));
+}
+
+static
+u32 findMinOffset(const RoseBuildImpl &build, u32 lit_id) {
+    const auto &lit_vertices = build.literal_info.at(lit_id).vertices;
+    assert(!lit_vertices.empty());
+
+    u32 min_offset = UINT32_MAX;
+    for (const auto &v : lit_vertices) {
+        min_offset = min(min_offset, build.g[v].min_offset);
+    }
+
+    return min_offset;
 }
 
 static
@@ -3536,22 +4538,36 @@ void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, build_context &bc,
         return;
     }
 
-    size_t min_offset = SIZE_MAX;
+    size_t min_len = SIZE_MAX;
+    u32 min_offset = UINT32_MAX;
     for (u32 lit_id : lit_ids) {
         const auto &lit = build.literals.right.at(lit_id);
-        min_offset = min(min_offset, lit.elength());
+        size_t lit_min_len = lit.elength();
+        u32 lit_min_offset = findMinOffset(build, lit_id);
+        DEBUG_PRINTF("lit_id=%u has min_len=%zu, min_offset=%u\n", lit_id,
+                     lit_min_len, lit_min_offset);
+        min_len = min(min_len, lit_min_len);
+        min_offset = min(min_offset, lit_min_offset);
     }
 
-    DEBUG_PRINTF("%zu lits, min_offset=%zu\n", lit_ids.size(), min_offset);
+    DEBUG_PRINTF("final_id=%u has min_len=%zu, min_offset=%u, "
+                 "global min is %u\n", final_id, min_len, min_offset,
+                 bc.floatingMinLiteralMatchOffset);
 
     // If we can't match before the min offset, we don't need the check.
-    if (min_offset >= bc.floatingMinLiteralMatchOffset) {
+    if (min_len >= bc.floatingMinLiteralMatchOffset) {
         DEBUG_PRINTF("no need for check, min is %u\n",
-                      bc.floatingMinLiteralMatchOffset);
+                     bc.floatingMinLiteralMatchOffset);
         return;
     }
 
-    program.push_back(RoseInstruction(ROSE_INSTR_CHECK_LIT_EARLY));
+    assert(min_offset >= bc.floatingMinLiteralMatchOffset);
+    assert(min_offset < UINT32_MAX);
+
+    DEBUG_PRINTF("adding lit early check, min_offset=%u\n", min_offset);
+    auto ri = RoseInstruction(ROSE_INSTR_CHECK_LIT_EARLY);
+    ri.u.checkLitEarly.min_offset = min_offset;
+    program.push_back(move(ri));
 }
 
 static
@@ -3601,8 +4617,9 @@ vector<RoseInstruction> buildLitInitialProgram(RoseBuildImpl &build,
 }
 
 static
-u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc, u32 final_id,
-                        const vector<RoseEdge> &lit_edges) {
+vector<RoseInstruction> buildLiteralProgram(RoseBuildImpl &build,
+                                            build_context &bc, u32 final_id,
+                                            const vector<RoseEdge> &lit_edges) {
     const auto &g = build.g;
 
     DEBUG_PRINTF("final id %u, %zu lit edges\n", final_id, lit_edges.size());
@@ -3621,6 +4638,9 @@ u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc, u32 final_id,
         assert(contains(bc.roleStateIndices, u));
         u32 pred_state = bc.roleStateIndices.at(u);
         auto program = makeProgram(build, bc, e);
+        if (program.empty()) {
+            continue;
+        }
         predProgramLists[pred_state].push_back(program);
     }
 
@@ -3639,10 +4659,18 @@ u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc, u32 final_id,
         root_programs.push_back(role_prog);
     }
 
-    // Literal may squash groups.
     if (final_id != MO_INVALID_IDX) {
-        root_programs.push_back({});
-        makeGroupSquashInstruction(build, final_id, root_programs.back());
+        vector<RoseInstruction> prog;
+
+        // Literal may squash groups.
+        makeGroupSquashInstruction(build, final_id, prog);
+
+        // Literal may be anchored and need to be recorded.
+        makeRecordAnchoredInstruction(build, bc, final_id, prog);
+
+        if (!prog.empty()) {
+            root_programs.push_back(move(prog));
+        }
     }
 
     vector<RoseInstruction> root_program;
@@ -3654,7 +4682,19 @@ u32 buildLiteralProgram(RoseBuildImpl &build, build_context &bc, u32 final_id,
 
     // Put it all together.
     return makeSparseIterProgram(bc, predProgramLists, root_program,
-                                 pre_program).first;
+                                 pre_program);
+}
+
+static
+u32 writeLiteralProgram(RoseBuildImpl &build, build_context &bc, u32 final_id,
+                        const vector<RoseEdge> &lit_edges) {
+    auto program = buildLiteralProgram(build, bc, final_id, lit_edges);
+    if (program.empty()) {
+        return 0;
+    }
+    // Note: already flattened.
+    applyFinalSpecialisation(program);
+    return writeProgram(bc, program);
 }
 
 static
@@ -3720,53 +4760,84 @@ pair<u32, u32> buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
     const u32 num_literals = build.final_id_to_literal.size();
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    vector<u32> litPrograms(num_literals);
+    bc.litPrograms.resize(num_literals);
     vector<u32> delayRebuildPrograms(num_literals);
 
     for (u32 finalId = 0; finalId != num_literals; ++finalId) {
         const auto &lit_edges = lit_edge_map[finalId];
 
-        litPrograms[finalId] =
-            buildLiteralProgram(build, bc, finalId, lit_edges);
+        bc.litPrograms[finalId] =
+            writeLiteralProgram(build, bc, finalId, lit_edges);
         delayRebuildPrograms[finalId] =
             buildDelayRebuildProgram(build, bc, finalId);
     }
 
     u32 litProgramsOffset =
-        add_to_engine_blob(bc, begin(litPrograms), end(litPrograms));
+        add_to_engine_blob(bc, begin(bc.litPrograms), end(bc.litPrograms));
     u32 delayRebuildProgramsOffset = add_to_engine_blob(
         bc, begin(delayRebuildPrograms), end(delayRebuildPrograms));
 
     return {litProgramsOffset, delayRebuildProgramsOffset};
 }
 
+/**
+ * \brief Returns all reports used by output-exposed engines, for which we need
+ * to generate programs.
+ */
 static
-u32 buildReportPrograms(RoseBuildImpl &build, build_context &bc) {
-    const auto &rm = build.rm;
-    const u32 numReports = verify_u32(rm.numReports());
-    vector<u32> programs(numReports);
+set<ReportID> findEngineReports(const RoseBuildImpl &build) {
+    set<ReportID> reports;
+
+    // The small write engine uses these engine report programs.
+    insert(&reports, build.smwr.all_reports());
+
+    for (const auto &outfix : build.outfixes) {
+        insert(&reports, all_reports(outfix));
+    }
+
+    const auto &g = build.g;
+    for (auto v : vertices_range(g)) {
+        if (g[v].suffix) {
+            insert(&reports, all_reports(g[v].suffix));
+        }
+    }
+
+    DEBUG_PRINTF("%zu engine reports (of %zu)\n", reports.size(),
+                 build.rm.numReports());
+    return reports;
+}
+
+static
+pair<u32, u32> buildReportPrograms(RoseBuildImpl &build, build_context &bc) {
+    const auto reports = findEngineReports(build);
+    vector<u32> programs;
+    programs.reserve(reports.size());
 
     vector<RoseInstruction> program;
-    for (ReportID id = 0; id < numReports; id++) {
+    for (ReportID id : reports) {
         program.clear();
         const bool has_som = false;
         makeCatchupMpv(build, bc, id, program);
         makeReport(build, id, has_som, program);
         program = flattenProgram({program});
         applyFinalSpecialisation(program);
-        programs[id] = writeProgram(bc, program);
-        build.rm.setProgramOffset(id, programs[id]);
+        u32 offset = writeProgram(bc, program);
+        programs.push_back(offset);
+        build.rm.setProgramOffset(id, offset);
         DEBUG_PRINTF("program for report %u @ %u (%zu instructions)\n", id,
                      programs.back(), program.size());
     }
 
-    return add_to_engine_blob(bc, begin(programs), end(programs));
+    u32 offset = add_to_engine_blob(bc, begin(programs), end(programs));
+    u32 count = verify_u32(programs.size());
+    return {offset, count};
 }
 
 static
 vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
                                              build_context &bc,
-                                             const RoseEdge &e) {
+                                             const RoseEdge &e,
+                                             const bool multiple_preds) {
     const RoseGraph &g = build.g;
     const RoseVertex v = target(e, g);
 
@@ -3776,7 +4847,7 @@ vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
         makeRoleCheckBounds(build, v, e, program);
     }
 
-    if (hasGreaterInDegree(1, v, g)) {
+    if (multiple_preds) {
         // Only necessary when there is more than one pred.
         makeRoleCheckNotHandled(bc, v, program);
     }
@@ -3792,11 +4863,34 @@ vector<RoseInstruction> makeEodAnchorProgram(RoseBuildImpl &build,
     return program;
 }
 
-/**
- * Returns the pair (program offset, sparse iter offset).
- */
 static
-pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
+bool hasEodAnchoredSuffix(const RoseBuildImpl &build) {
+    const RoseGraph &g = build.g;
+    for (auto v : vertices_range(g)) {
+        if (g[v].suffix && build.isInETable(v)) {
+            DEBUG_PRINTF("vertex %zu is in eod table and has a suffix\n",
+                         g[v].idx);
+            return true;
+        }
+    }
+    return false;
+}
+
+static
+bool hasEodMatcher(const RoseBuildImpl &build) {
+    const RoseGraph &g = build.g;
+    for (auto v : vertices_range(g)) {
+        if (build.isInETable(v)) {
+            DEBUG_PRINTF("vertex %zu is in eod table\n", g[v].idx);
+            return true;
+        }
+    }
+    return false;
+}
+
+static
+void addEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
+                         bool in_etable, vector<RoseInstruction> &program) {
     const RoseGraph &g = build.g;
 
     // pred state id -> list of programs
@@ -3810,37 +4904,50 @@ pair<u32, u32> buildEodAnchorProgram(RoseBuildImpl &build, build_context &bc) {
         DEBUG_PRINTF("vertex %zu (with %zu preds) fires on EOD\n", g[v].idx,
                      in_degree(v, g));
 
+        vector<RoseEdge> edge_list;
         for (const auto &e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
+            if (build.isInETable(u) != in_etable) {
+                DEBUG_PRINTF("pred %zu %s in etable\n", g[u].idx,
+                             in_etable ? "is not" : "is");
+                continue;
+            }
+            if (canEagerlyReportAtEod(build, e)) {
+                DEBUG_PRINTF("already done report for vertex %zu\n", g[u].idx);
+                continue;
+            }
+            edge_list.push_back(e);
+        }
 
+        const bool multiple_preds = edge_list.size() > 1;
+        for (const auto &e : edge_list) {
+            RoseVertex u = source(e, g);
             assert(contains(bc.roleStateIndices, u));
             u32 predStateIdx = bc.roleStateIndices.at(u);
 
-            auto program = makeEodAnchorProgram(build, bc, e);
-            predProgramLists[predStateIdx].push_back(program);
+            auto prog = makeEodAnchorProgram(build, bc, e, multiple_preds);
+            if (prog.empty()) {
+                continue;
+            }
+            predProgramLists[predStateIdx].push_back(prog);
         }
     }
 
     if (predProgramLists.empty()) {
-        DEBUG_PRINTF("no eod anchored roles\n");
-        return {0, 0};
+        return;
     }
-
-    vector<RoseInstruction> program;
-
-    // Note: we force the use of a sparse iterator for the EOD program so we
-    // can easily guard EOD execution at runtime.
-    u32 iter_offset = addPredBlocks(bc, predProgramLists, program, true);
-
-    assert(program.size() > 1);
-    applyFinalSpecialisation(program);
-    return {writeProgram(bc, program), iter_offset};
+    if (!program.empty()) {
+        assert(program.back().code() == ROSE_INSTR_END);
+        program.pop_back();
+    }
+    addPredBlocks(bc, predProgramLists, program);
 }
 
 static
-u32 writeEodProgram(RoseBuildImpl &build, build_context &bc) {
+void addEodEventProgram(RoseBuildImpl &build, build_context &bc,
+                        vector<RoseInstruction> &program) {
     if (build.eod_event_literal_id == MO_INVALID_IDX) {
-        return 0;
+        return;
     }
 
     const RoseGraph &g = build.g;
@@ -3864,7 +4971,80 @@ u32 writeEodProgram(RoseBuildImpl &build, build_context &bc) {
                     tie(g[source(b, g)].idx, g[target(b, g)].idx);
          });
 
-    return buildLiteralProgram(build, bc, MO_INVALID_IDX, edge_list);
+    auto prog = buildLiteralProgram(build, bc, MO_INVALID_IDX, edge_list);
+    program.insert(end(program), begin(prog), end(prog));
+}
+
+static
+void addEnginesEodProgram(u32 eodNfaIterOffset,
+                          vector<RoseInstruction> &program) {
+    if (!eodNfaIterOffset) {
+        return;
+    }
+
+    auto ri = RoseInstruction(ROSE_INSTR_ENGINES_EOD);
+    ri.u.enginesEod.iter_offset = eodNfaIterOffset;
+    if (!program.empty()) {
+        assert(program.back().code() == ROSE_INSTR_END);
+        program.pop_back();
+    }
+    program.push_back(move(ri));
+    program.emplace_back(ROSE_INSTR_END);
+}
+
+static
+void addSuffixesEodProgram(const RoseBuildImpl &build,
+                           vector<RoseInstruction> &program) {
+    if (!hasEodAnchoredSuffix(build)) {
+        return;
+    }
+
+    if (!program.empty()) {
+        assert(program.back().code() == ROSE_INSTR_END);
+        program.pop_back();
+    }
+    program.emplace_back(ROSE_INSTR_SUFFIXES_EOD);
+    program.emplace_back(ROSE_INSTR_END);
+}
+
+static
+void addMatcherEodProgram(const RoseBuildImpl &build,
+                          vector<RoseInstruction> &program) {
+    if (!hasEodMatcher(build)) {
+        return;
+    }
+
+    if (!program.empty()) {
+        assert(program.back().code() == ROSE_INSTR_END);
+        program.pop_back();
+    }
+    program.emplace_back(ROSE_INSTR_MATCHER_EOD);
+    program.emplace_back(ROSE_INSTR_END);
+}
+
+static
+u32 writeEodProgram(RoseBuildImpl &build, build_context &bc,
+                    u32 eodNfaIterOffset) {
+    vector<RoseInstruction> program;
+
+    addEodEventProgram(build, bc, program);
+    addEnginesEodProgram(eodNfaIterOffset, program);
+    addEodAnchorProgram(build, bc, false, program);
+    addMatcherEodProgram(build, program);
+    addEodAnchorProgram(build, bc, true, program);
+    addSuffixesEodProgram(build, program);
+
+    if (program.size() == 1) {
+        assert(program.back().code() == ROSE_INSTR_END);
+        return 0;
+    }
+
+    if (program.empty()) {
+        return 0;
+    }
+
+    applyFinalSpecialisation(program);
+    return writeProgram(bc, program);
 }
 
 static
@@ -3900,6 +5080,9 @@ void fillMatcherDistances(const RoseBuildImpl &build, RoseEngine *engine) {
             u32 max_d = g[v].max_offset;
             u32 min_d = g[v].min_offset;
 
+            DEBUG_PRINTF("checking %u: elen %zu min/max %u/%u\n", lit_id,
+                         key.elength_including_mask(), min_d, max_d);
+
             if (build.literal_info[lit_id].undelayed_id != lit_id) {
                 /* this is a delayed match; need to update delay properties */
                 /* TODO: can delayed literals ever be in another table ? */
@@ -3919,9 +5102,9 @@ void fillMatcherDistances(const RoseBuildImpl &build, RoseEngine *engine) {
             switch (key.table) {
             case ROSE_FLOATING:
                 ENSURE_AT_LEAST(&engine->floatingDistance, max_d);
-                if (min_d >= key.elength()) {
+                if (min_d >= key.elength_including_mask()) {
                     LIMIT_TO_AT_MOST(&engine->floatingMinDistance,
-                                     min_d - (u32)key.elength());
+                                     min_d - (u32)key.elength_including_mask());
                 } else {
                     /* overlapped literals from rose + anchored table can
                      * cause us to underflow due to sloppiness in
@@ -3965,6 +5148,60 @@ void fillMatcherDistances(const RoseBuildImpl &build, RoseEngine *engine) {
     }
 }
 
+static
+u32 buildEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
+                        u32 queue_count,
+                        build_context &bc) {
+    if (eager.empty()) {
+        return 0;
+    }
+
+    vector<u32> vec;
+    for (u32 q : eager) {
+        assert(q >= leftfixBeginQueue);
+        vec.push_back(q - leftfixBeginQueue);
+    }
+
+    vector<mmbit_sparse_iter> iter;
+    mmbBuildSparseIterator(iter, vec, queue_count - leftfixBeginQueue);
+    return addIteratorToTable(bc, iter);
+}
+
+static
+aligned_unique_ptr<RoseEngine> addSmallWriteEngine(RoseBuildImpl &build,
+                                        aligned_unique_ptr<RoseEngine> rose) {
+    assert(rose);
+
+    if (roseIsPureLiteral(rose.get())) {
+        DEBUG_PRINTF("pure literal case, not adding smwr\n");
+        return rose;
+    }
+
+    u32 qual = roseQuality(rose.get());
+    auto smwr_engine = build.smwr.build(qual);
+    if (!smwr_engine) {
+        DEBUG_PRINTF("no smwr built\n");
+        return rose;
+    }
+
+    const size_t mainSize = roseSize(rose.get());
+    const size_t smallWriteSize = smwrSize(smwr_engine.get());
+    DEBUG_PRINTF("adding smwr engine, size=%zu\n", smallWriteSize);
+
+    const size_t smwrOffset = ROUNDUP_CL(mainSize);
+    const size_t newSize = smwrOffset + smallWriteSize;
+
+    auto rose2 = aligned_zmalloc_unique<RoseEngine>(newSize);
+    char *ptr = (char *)rose2.get();
+    memcpy(ptr, rose.get(), mainSize);
+    memcpy(ptr + smwrOffset, smwr_engine.get(), smallWriteSize);
+
+    rose2->smallWriteOffset = verify_u32(smwrOffset);
+    rose2->size = verify_u32(newSize);
+
+    return rose2;
+}
+
 aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     DerivedBoundaryReports dboundary(boundary);
 
@@ -3981,10 +5218,15 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         bc.resources.has_anchored = true;
     }
     bc.needs_mpv_catchup = needsMpvCatchup(*this);
+    bc.vertex_group_map = getVertexGroupMap(*this);
+    bc.squashable_groups = getSquashableGroups(*this);
 
     auto boundary_out = makeBoundaryPrograms(*this, bc, boundary, dboundary);
 
-    u32 reportProgramOffset = buildReportPrograms(*this, bc);
+    u32 reportProgramOffset;
+    u32 reportProgramCount;
+    tie(reportProgramOffset, reportProgramCount) =
+        buildReportPrograms(*this, bc);
 
     // Build NFAs
     set<u32> no_retrigger_queues;
@@ -3997,7 +5239,10 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     u32 outfixEndQueue = qif.allocated_count();
     u32 leftfixBeginQueue = outfixEndQueue;
 
-    if (!buildNfas(*this, bc, qif, &no_retrigger_queues,
+    set<u32> eager_queues;
+
+    /* Note: buildNfas may reduce the lag for vertices that have prefixes */
+    if (!buildNfas(*this, bc, qif, &no_retrigger_queues, &eager_queues,
                    &leftfixBeginQueue)) {
         return nullptr;
     }
@@ -4017,7 +5262,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     u32 laggedRoseCount = 0;
     vector<LeftNfaInfo> leftInfoTable;
-    buildLeftInfoTable(*this, bc, leftfixBeginQueue,
+    buildLeftInfoTable(*this, bc, eager_queues, leftfixBeginQueue,
                        queue_count - leftfixBeginQueue, leftInfoTable,
                        &laggedRoseCount, &historyRequired);
 
@@ -4026,15 +5271,14 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     tie(litProgramOffset, litDelayRebuildProgramOffset) =
         buildLiteralPrograms(*this, bc);
 
-    u32 eodProgramOffset = writeEodProgram(*this, bc);
-    u32 eodIterProgramOffset;
-    u32 eodIterOffset;
-    tie(eodIterProgramOffset, eodIterOffset) = buildEodAnchorProgram(*this, bc);
+    u32 eodProgramOffset = writeEodProgram(*this, bc, eodNfaIterOffset);
 
     vector<mmbit_sparse_iter> activeLeftIter;
     buildActiveLeftIter(leftInfoTable, activeLeftIter);
 
     u32 lastByteOffset = buildLastByteIter(g, bc);
+    u32 eagerIterOffset = buildEagerQueueIter(eager_queues, leftfixBeginQueue,
+                                              queue_count, bc);
 
     // Enforce role table resource limit.
     if (num_vertices(g) > cc.grey.limitRoseRoleCount) {
@@ -4057,7 +5301,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     // Build anchored matcher.
     size_t asize = 0;
     u32 amatcherOffset = 0;
-    auto atable = buildAnchoredMatcher(*this, anchored_dfas, &asize);
+    auto atable = buildAnchoredMatcher(*this, anchored_dfas, bc.litPrograms,
+                                       &asize);
     if (atable) {
         currOffset = ROUNDUP_CL(currOffset);
         amatcherOffset = currOffset;
@@ -4065,9 +5310,10 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     }
 
     // Build floating HWLM matcher.
+    rose_group fgroups = 0;
     size_t fsize = 0;
     size_t floatingStreamStateRequired = 0;
-    auto ftable = buildFloatingMatcher(*this, &fsize, &historyRequired,
+    auto ftable = buildFloatingMatcher(*this, &fgroups, &fsize, &historyRequired,
                                        &floatingStreamStateRequired);
     u32 fmatcherOffset = 0;
     if (ftable) {
@@ -4200,16 +5446,15 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->litProgramOffset = litProgramOffset;
     engine->litDelayRebuildProgramOffset = litDelayRebuildProgramOffset;
     engine->reportProgramOffset = reportProgramOffset;
-    engine->reportProgramCount = verify_u32(rm.reports().size());
+    engine->reportProgramCount = reportProgramCount;
     engine->runtimeImpl = pickRuntimeImpl(*this, bc, outfixEndQueue);
     engine->mpvTriggeredByLeaf = anyEndfixMpvTriggers(*this);
 
     engine->activeArrayCount = activeArrayCount;
     engine->activeLeftCount = activeLeftCount;
     engine->queueCount = queue_count;
+    engine->eagerIterOffset = eagerIterOffset;
     engine->handledKeyCount = bc.handledKeys.size();
-
-    engine->group_weak_end = group_weak_end;
 
     engine->rolesWithStateCount = bc.numStates;
 
@@ -4226,9 +5471,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->nfaInfoOffset = nfaInfoOffset;
 
     engine->eodProgramOffset = eodProgramOffset;
-    engine->eodIterProgramOffset = eodIterProgramOffset;
-    engine->eodIterOffset = eodIterOffset;
-    engine->eodNfaIterOffset = eodNfaIterOffset;
 
     engine->lastByteHistoryIterOffset = lastByteOffset;
 
@@ -4282,6 +5524,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     fillMatcherDistances(*this, engine.get());
 
     engine->initialGroups = getInitialGroups();
+    engine->floating_group_mask = fgroups;
     engine->totalNumLiterals = verify_u32(literal_info.size());
     engine->asize = verify_u32(asize);
     engine->ematcherRegionSize = ematcher_region_size;
@@ -4314,6 +5557,9 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     // Safety check: we shouldn't have written anything to the engine blob
     // after we copied it into the engine bytecode.
     assert(byte_length(bc.engine_blob) == engineBlobSize);
+
+    // Add a small write engine if appropriate.
+    engine = addSmallWriteEngine(*this, move(engine));
 
     DEBUG_PRINTF("rose done %p\n", engine.get());
     return engine;

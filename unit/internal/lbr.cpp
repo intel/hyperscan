@@ -36,6 +36,7 @@
 #include "nfa/nfa_internal.h"
 #include "nfa/nfa_api_util.h"
 #include "nfagraph/ng_lbr.h"
+#include "nfagraph/ng_util.h"
 #include "util/alloc.h"
 #include "util/compile_context.h"
 #include "grey.h"
@@ -71,7 +72,7 @@ struct LbrTestParams {
 };
 
 static
-int onMatch(u64a, ReportID, void *ctx) {
+int onMatch(u64a, u64a, ReportID, void *ctx) {
     unsigned *matches = (unsigned *)ctx;
     (*matches)++;
     return MO_CONTINUE_MATCHING;
@@ -97,6 +98,7 @@ protected:
         ParsedExpression parsed(0, pattern.c_str(), flags, 0);
         unique_ptr<NGWrapper> g = buildWrapper(rm, cc, parsed);
         ASSERT_TRUE(g != nullptr);
+        clearReports(*g);
 
         ASSERT_TRUE(isLBR(*g, grey));
 
@@ -122,9 +124,9 @@ protected:
         q.length = 0; // filled in by test
         q.history = nullptr;
         q.hlength = 0;
+        q.scratch = nullptr; // not needed by LBR
         q.report_current = 0;
         q.cb = onMatch;
-        q.som_cb = nullptr; // only used by Haig
         q.context = &matches;
     }
 

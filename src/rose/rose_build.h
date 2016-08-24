@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -65,6 +65,7 @@ struct raw_som_dfa;
 class  CharReach;
 class  NGHolder;
 class  ReportManager;
+class  SmallWriteBuild;
 class  SomSlotManager;
 
 class RoseDedupeAux {
@@ -128,6 +129,7 @@ public:
 // Construct a usable Rose builder.
 std::unique_ptr<RoseBuild> makeRoseBuilder(ReportManager &rm,
                                            SomSlotManager &ssm,
+                                           SmallWriteBuild &smwr,
                                            const CompileContext &cc,
                                            const BoundaryReports &boundary);
 
@@ -139,9 +141,6 @@ size_t roseSize(const RoseEngine *t);
 /* used by heuristics to determine the small write engine. High numbers are
  * intended to indicate a lightweight rose. */
 u32 roseQuality(const RoseEngine *t);
-
-ue2::aligned_unique_ptr<RoseEngine>
-roseAddSmallWrite(const RoseEngine *t, const SmallWriteEngine *smwr);
 
 bool roseIsPureLiteral(const RoseEngine *t);
 

@@ -36,6 +36,9 @@
 
 namespace ue2 {
 
+/** Max allowed width for transient graphs in block mode */
+#define ROSE_BLOCK_TRANSIENT_MAX_WIDTH 255U
+
 // Comparator for vertices using their index property.
 struct VertexIndexComp {
     VertexIndexComp(const RoseGraph &gg) : g(gg) {}

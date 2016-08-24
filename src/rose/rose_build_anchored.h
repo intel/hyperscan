@@ -39,13 +39,10 @@
 #include <set>
 
 struct anchored_matcher_info;
-struct RoseEngine;
 
 namespace ue2 {
 
-class NGHolder;
 class RoseBuildImpl;
-struct Grey;
 struct raw_dfa;
 
 /**
@@ -56,10 +53,13 @@ std::vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build);
 /**
  * \brief Construct an anchored_matcher_info runtime structure from the given
  * set of DFAs.
+ *
+ * Remap the literal final_ids used for raw_dfa reports to the program offsets
+ * given in litPrograms.
  */
 aligned_unique_ptr<anchored_matcher_info>
 buildAnchoredMatcher(RoseBuildImpl &build, std::vector<raw_dfa> &dfas,
-                     size_t *asize);
+                     const std::vector<u32> &litPrograms, size_t *asize);
 
 u32 anchoredStateSize(const anchored_matcher_info &atable);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -369,7 +369,7 @@ map<NFAVertex, NFAStateSet> findSquashers(const NGHolder &g, som_type som) {
     buildPDomTree(g, pdom_tree);
 
     // Build list of vertices by state ID and a set of init states.
-    vector<NFAVertex> vByIndex(numStates, NFAGraph::null_vertex());
+    vector<NFAVertex> vByIndex(numStates, NGHolder::null_vertex());
     NFAStateSet initStates(numStates);
     smgb_cache cache(g);
 
@@ -394,7 +394,7 @@ map<NFAVertex, NFAStateSet> findSquashers(const NGHolder &g, som_type som) {
 
     for (u32 i = 0; i < numStates; i++) {
         NFAVertex v = vByIndex[i];
-        assert(v != NFAGraph::null_vertex());
+        assert(v != NGHolder::null_vertex());
         const CharReach &cr = g[v].char_reach;
 
         /* only non-init cyclics can be squashers */

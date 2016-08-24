@@ -29,6 +29,7 @@
 #ifndef MCCLELLANCOMPILE_H
 #define MCCLELLANCOMPILE_H
 
+#include "accel_dfa_build_strat.h"
 #include "rdfa.h"
 #include "ue2common.h"
 #include "util/accel_scheme.h"
@@ -47,48 +48,20 @@ namespace ue2 {
 class ReportManager;
 struct CompileContext;
 
-struct raw_report_info {
-    raw_report_info();
-    virtual ~raw_report_info();
-    virtual u32 getReportListSize() const = 0; /* in bytes */
-    virtual size_t size() const = 0; /* number of lists */
-    virtual void fillReportLists(NFA *n, size_t base_offset,
-                                 std::vector<u32> &ro /* out */) const = 0;
-};
-
-class dfa_build_strat {
-public:
-    explicit dfa_build_strat(const ReportManager &rm_in) : rm(rm_in) {}
-    virtual ~dfa_build_strat();
-    virtual raw_dfa &get_raw() const = 0;
-    virtual std::unique_ptr<raw_report_info> gatherReports(
-                               std::vector<u32> &reports /* out */,
-                               std::vector<u32> &reports_eod /* out */,
-                               u8 *isSingleReport /* out */,
-                               ReportID *arbReport  /* out */) const = 0;
-    virtual AccelScheme find_escape_strings(dstate_id_t this_idx) const = 0;
-    virtual size_t accelSize(void) const = 0;
-    virtual void buildAccel(dstate_id_t this_idx, const AccelScheme &info,
-                            void *accel_out) = 0;
-protected:
-    const ReportManager &rm;
-};
-
-class mcclellan_build_strat : public dfa_build_strat {
+class mcclellan_build_strat : public accel_dfa_build_strat {
 public:
     mcclellan_build_strat(raw_dfa &rdfa_in, const ReportManager &rm_in)
-        : dfa_build_strat(rm_in), rdfa(rdfa_in) {}
+        : accel_dfa_build_strat(rm_in), rdfa(rdfa_in) {}
     raw_dfa &get_raw() const override { return rdfa; }
     std::unique_ptr<raw_report_info> gatherReports(
                                   std::vector<u32> &reports /* out */,
                                   std::vector<u32> &reports_eod /* out */,
                                   u8 *isSingleReport /* out */,
                                   ReportID *arbReport  /* out */) const override;
-    AccelScheme find_escape_strings(dstate_id_t this_idx) const override;
     size_t accelSize(void) const override;
-    void buildAccel(dstate_id_t this_idx,const AccelScheme &info,
-                    void *accel_out) override;
-    virtual u32 max_allowed_offset_accel() const;
+    u32 max_allowed_offset_accel() const override;
+    u32 max_stop_char() const override;
+    u32 max_floating_stop_char() const override;
 
 private:
     raw_dfa &rdfa;
@@ -103,7 +76,7 @@ mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
 
 /* used internally by mcclellan/haig/gough compile process */
 ue2::aligned_unique_ptr<NFA>
-mcclellanCompile_i(raw_dfa &raw, dfa_build_strat &strat,
+mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
                    const CompileContext &cc,
                    std::set<dstate_id_t> *accel_states = nullptr);
 
@@ -114,7 +87,7 @@ u32 mcclellanStartReachSize(const raw_dfa *raw);
 
 std::set<ReportID> all_reports(const raw_dfa &rdfa);
 
-bool has_accel_dfa(const NFA *nfa);
+bool has_accel_mcclellan(const NFA *nfa);
 
 } // namespace ue2
 

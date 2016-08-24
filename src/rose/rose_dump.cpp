@@ -40,6 +40,7 @@
 #include "nfa/nfa_build_util.h"
 #include "nfa/nfa_dump_api.h"
 #include "nfa/nfa_internal.h"
+#include "nfa/nfa_kind.h"
 #include "util/dump_charclass.h"
 #include "util/multibit_internal.h"
 #include "util/multibit.h"
@@ -253,7 +254,9 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(CHECK_LIT_EARLY) {}
+            PROGRAM_CASE(CHECK_LIT_EARLY) {
+                os << "    min_offset " << ri->min_offset << endl;
+            }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_GROUPS) {
@@ -288,6 +291,31 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CHECK_MASK) {
+                os << "    and_mask 0x" << std::hex << std::setw(16)
+                   << std::setfill('0') << ri->and_mask << std::dec << endl;
+                os << "    cmp_mask 0x" << std::hex << std::setw(16)
+                   << std::setfill('0') << ri->cmp_mask << std::dec << endl;
+                os << "    neg_mask 0x" << std::hex << std::setw(16)
+                   << std::setfill('0') << ri->neg_mask << std::dec << endl;
+                os << "    offset " << ri->offset << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_BYTE) {
+                os << "    and_mask 0x" << std::hex << std::setw(2)
+                   << std::setfill('0') << u32{ri->and_mask} << std::dec
+                   << endl;
+                os << "    cmp_mask 0x" << std::hex << std::setw(2)
+                   << std::setfill('0') << u32{ri->cmp_mask} << std::dec
+                   << endl;
+                os << "    negation " << u32{ri->negation} << endl;
+                os << "    offset " << ri->offset << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CHECK_INFIX) {
                 os << "    queue " << ri->queue << endl;
                 os << "    lag " << ri->lag << endl;
@@ -307,6 +335,11 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             PROGRAM_CASE(PUSH_DELAYED) {
                 os << "    delay " << u32{ri->delay} << endl;
                 os << "    index " << ri->index << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(RECORD_ANCHORED) {
+                os << "    id " << ri->id << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -474,6 +507,17 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(ENGINES_EOD) {
+                os << "    iter_offset " << ri->iter_offset << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(SUFFIXES_EOD) {}
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(MATCHER_EOD) {}
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(END) { return; }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -529,21 +573,13 @@ void dumpRoseEodPrograms(const RoseEngine *t, const string &filename) {
     ofstream os(filename);
     const char *base = (const char *)t;
 
-    os << "Unconditional EOD Program:" << endl;
+    os << "EOD Program:" << endl;
 
     if (t->eodProgramOffset) {
         dumpProgram(os, t, base + t->eodProgramOffset);
         os << endl;
     } else {
         os << "<No EOD Program>" << endl;
-    }
-
-    os << "Sparse Iter EOD Program:" << endl;
-
-    if (t->eodIterProgramOffset) {
-        dumpProgram(os, t, base + t->eodIterProgramOffset);
-    } else {
-        os << "<No EOD Iter Program>" << endl;
     }
 
     os.close();
@@ -600,6 +636,9 @@ void dumpNfaNotes(ofstream &fout, const RoseEngine *t, const NFA *n) {
     }
 
     const LeftNfaInfo *left = getLeftInfoByQueue(t, qindex);
+    if (left->eager) {
+        fout << "eager ";
+    }
     if (left->transient) {
         fout << "transient " << (u32)left->transient << " ";
     }
@@ -659,6 +698,76 @@ void dumpComponentInfo(const RoseEngine *t, const string &base) {
     }
 }
 
+
+static
+void dumpComponentInfoCsv(const RoseEngine *t, const string &base) {
+    FILE *f = fopen((base +"rose_components.csv").c_str(), "w");
+
+    fprintf(f, "Index, Offset,Engine Type,States,Stream State,Bytecode Size,"
+            "Kind,Notes\n");
+
+    for (u32 i = 0; i < t->queueCount; i++) {
+        const NfaInfo *nfa_info = getNfaInfoByQueue(t, i);
+        const NFA *n = getNfaByInfo(t, nfa_info);
+        nfa_kind kind;
+        stringstream notes;
+
+        if (i < t->outfixBeginQueue) {
+            notes << "chained;";
+        }
+
+        if (nfa_info->eod) {
+            notes << "eod;";
+        }
+
+        if (i < t->outfixEndQueue) {
+            kind = NFA_OUTFIX;
+        } else if (i < t->leftfixBeginQueue) {
+            kind = NFA_SUFFIX;
+        } else {
+            const LeftNfaInfo *left = getLeftInfoByQueue(t, i);
+            if (left->eager) {
+                notes << "eager;";
+            }
+            if (left->transient) {
+                notes << "transient " << (u32)left->transient << ";";
+            }
+            if (left->infix) {
+                kind = NFA_INFIX;
+                u32 maxQueueLen = left->maxQueueLen;
+                if (maxQueueLen != (u32)(-1)) {
+                    notes << "maxqlen=" << maxQueueLen << ";";
+                }
+            } else {
+                kind = NFA_PREFIX;
+            }
+            notes << "maxlag=" << left->maxLag << ";";
+            if (left->stopTable) {
+                notes << "miracles;";
+            }
+            if (left->countingMiracleOffset) {
+                auto cm = (const RoseCountingMiracle *)
+                    ((const char *)t + left->countingMiracleOffset);
+                notes << "counting_miracle:" << (int)cm->count
+                      << (cm->shufti ? "s" : "v") << ";";
+            }
+            if (nfaSupportsZombie(n)) {
+                notes << " zombie;";
+            }
+            if (left->eod_check) {
+            notes << "left_eod;";
+            }
+        }
+
+        fprintf(f, "%u,%zd,\"%s\",%u,%u,%u,%s,%s\n", i,
+                (const char *)n - (const char *)t, describe(*n).c_str(),
+                n->nPositions, n->streamStateSize, n->length,
+                to_string(kind).c_str(), notes.str().c_str());
+    }
+    fclose(f);
+}
+
+
 static
 void dumpExhaust(const RoseEngine *t, const string &base) {
     stringstream sstxt;
@@ -710,7 +819,7 @@ void dumpNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         FILE *f;
 
         f = fopen(ssdot.str().c_str(), "w");
-        nfaDumpDot(n, f);
+        nfaDumpDot(n, f, base);
         fclose(f);
 
         f = fopen(sstxt.str().c_str(), "w");
@@ -770,7 +879,7 @@ void dumpRevNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         FILE *f;
 
         f = fopen(ssdot.str().c_str(), "w");
-        nfaDumpDot(n, f);
+        nfaDumpDot(n, f, base);
         fclose(f);
 
         f = fopen(sstxt.str().c_str(), "w");
@@ -801,7 +910,7 @@ void dumpAnchored(const RoseEngine *t, const string &base) {
         FILE *f;
 
         f = fopen(ssdot.str().c_str(), "w");
-        nfaDumpDot(n, f);
+        nfaDumpDot(n, f, base);
         fclose(f);
 
         f = fopen(sstxt.str().c_str(), "w");
@@ -906,8 +1015,7 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
             t->lookaroundTableOffset - t->lookaroundReachOffset);
 
     fprintf(f, "state space required : %u bytes\n", t->stateOffsets.end);
-    fprintf(f, " - history buffer    : %u bytes (+1 for len)\n",
-            t->historyRequired);
+    fprintf(f, " - history buffer    : %u bytes\n", t->historyRequired);
     fprintf(f, " - exhaustion vector : %u bytes\n", (t->ekeyCount + 7) / 8);
     fprintf(f, " - role state mmbit  : %u bytes\n", t->stateSize);
     fprintf(f, " - floating matcher  : %u bytes\n", t->floatingStreamState);
@@ -925,6 +1033,7 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     fprintf(f, "\n");
 
     fprintf(f, "initial groups       : 0x%016llx\n", t->initialGroups);
+    fprintf(f, "floating groups      : 0x%016llx\n", t->floating_group_mask);
     fprintf(f, "handled key count    : %u\n", t->handledKeyCount);
     fprintf(f, "\n");
 
@@ -1012,15 +1121,13 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, activeArrayCount);
     DUMP_U32(t, activeLeftCount);
     DUMP_U32(t, queueCount);
+    DUMP_U32(t, eagerIterOffset);
     DUMP_U32(t, handledKeyCount);
     DUMP_U32(t, leftOffset);
     DUMP_U32(t, roseCount);
     DUMP_U32(t, lookaroundTableOffset);
     DUMP_U32(t, lookaroundReachOffset);
     DUMP_U32(t, eodProgramOffset);
-    DUMP_U32(t, eodIterProgramOffset);
-    DUMP_U32(t, eodIterOffset);
-    DUMP_U32(t, eodNfaIterOffset);
     DUMP_U32(t, lastByteHistoryIterOffset);
     DUMP_U32(t, minWidth);
     DUMP_U32(t, minWidthExcludingBoundaries);
@@ -1033,6 +1140,7 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, floatingMinLiteralMatchOffset);
     DUMP_U32(t, nfaInfoOffset);
     DUMP_U64(t, initialGroups);
+    DUMP_U64(t, floating_group_mask);
     DUMP_U32(t, size);
     DUMP_U32(t, delay_count);
     DUMP_U32(t, delay_base_id);
@@ -1068,7 +1176,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, ematcherRegionSize);
     DUMP_U32(t, somRevCount);
     DUMP_U32(t, somRevOffsetOffset);
-    DUMP_U32(t, group_weak_end);
     DUMP_U32(t, floatingStreamState);
     fprintf(f, "}\n");
     fprintf(f, "sizeof(RoseEngine) = %zu\n", sizeof(RoseEngine));
@@ -1077,6 +1184,7 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
 void roseDumpComponents(const RoseEngine *t, bool dump_raw,
                         const string &base) {
     dumpComponentInfo(t, base);
+    dumpComponentInfoCsv(t, base);
     dumpNfas(t, dump_raw, base);
     dumpAnchored(t, base);
     dumpRevComponentInfo(t, base);

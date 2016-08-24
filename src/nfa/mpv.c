@@ -131,7 +131,8 @@ char processReports(const struct mpv *m, u8 *reporters,
                     rl_count++;
                 }
 
-                if (cb(report_offset, curr->report, ctxt) == MO_HALT_MATCHING) {
+                if (cb(0, report_offset, curr->report, ctxt) ==
+                    MO_HALT_MATCHING) {
                     DEBUG_PRINTF("bailing\n");
                     return MO_HALT_MATCHING;
                 }
@@ -180,7 +181,7 @@ char processReportsForRange(const struct mpv *m, u8 *reporters,
 
     for (size_t i = 2; i <= length; i++) {
         for (u32 j = 0; j < rl_count; j++) {
-            if (cb(first_offset + i, rl[j], ctxt) == MO_HALT_MATCHING) {
+            if (cb(0, first_offset + i, rl[j], ctxt) == MO_HALT_MATCHING) {
                 DEBUG_PRINTF("bailing\n");
                 return MO_HALT_MATCHING;
             }

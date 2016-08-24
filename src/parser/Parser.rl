@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1226,9 +1226,8 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
               '\\Q' => {
                   fgoto readQuotedLiteral;
               };
-              '\\E' => {
-                  throw LocatedParseError("Unmatched \\E");
-              };
+              # An \E that is not preceded by a \Q is ignored
+              '\\E' => { /* noop */ };
               # Match any character
               '\.' => {
                   currentSeq->addComponent(generateComponent(CLASS_ANY, false, mode));
@@ -1447,12 +1446,12 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
                       // Otherwise, we interpret the first three digits as an
                       // octal escape, and the remaining characters stand for
                       // themselves as literals.
-                      const u8 *p = ts;
+                      const u8 *s = ts;
                       unsigned int accum = 0;
                       unsigned int oct_digits = 0;
-                      assert(*p == '\\'); // token starts at backslash
-                      for (++p; p < te && oct_digits < 3; ++oct_digits, ++p) {
-                          u8 digit = *p - '0';
+                      assert(*s == '\\'); // token starts at backslash
+                      for (++s; s < te && oct_digits < 3; ++oct_digits, ++s) {
+                          u8 digit = *s - '0';
                           if (digit < 8) {
                               accum = digit + accum * 8;
                           } else {
@@ -1465,8 +1464,8 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
                       }
 
                       // And then the rest of the digits, if any, are literal.
-                      for (; p < te; ++p) {
-                          addLiteral(currentSeq, *p, mode);
+                      for (; s < te; ++s) {
+                          addLiteral(currentSeq, *s, mode);
                       }
                   }
               };

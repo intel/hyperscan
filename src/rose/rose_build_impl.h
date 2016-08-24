@@ -60,17 +60,19 @@ struct BoundaryReports;
 struct CastleProto;
 struct CompileContext;
 class ReportManager;
+class SmallWriteBuild;
 class SomSlotManager;
 
 struct suffix_id {
     suffix_id(const RoseSuffixInfo &in)
         : g(in.graph.get()), c(in.castle.get()), d(in.rdfa.get()),
-          h(in.haig.get()), dfa_min_width(in.dfa_min_width),
+          h(in.haig.get()), t(in.tamarama.get()),
+          dfa_min_width(in.dfa_min_width),
           dfa_max_width(in.dfa_max_width) {
             assert(!g || g->kind == NFA_SUFFIX);
     }
     bool operator==(const suffix_id &b) const {
-        bool rv = g == b.g && c == b.c && h == b.h && d == b.d;
+        bool rv = g == b.g && c == b.c && h == b.h && d == b.d && t == b.t;
         assert(!rv || dfa_min_width == b.dfa_min_width);
         assert(!rv || dfa_max_width == b.dfa_max_width);
         return rv;
@@ -82,6 +84,7 @@ struct suffix_id {
         ORDER_CHECK(c);
         ORDER_CHECK(d);
         ORDER_CHECK(h);
+        ORDER_CHECK(t);
         return false;
     }
 
@@ -113,6 +116,22 @@ struct suffix_id {
         }
         return c;
     }
+    TamaProto *tamarama() {
+        if (!d && !h) {
+            assert(dfa_min_width == depth(0));
+            assert(dfa_max_width == depth::infinity());
+        }
+        return t;
+    }
+    const TamaProto *tamarama() const {
+        if (!d && !h) {
+            assert(dfa_min_width == depth(0));
+            assert(dfa_max_width == depth::infinity());
+        }
+        return t;
+    }
+
+
     raw_som_dfa *haig() { return h; }
     const raw_som_dfa *haig() const { return h; }
     raw_dfa *dfa() { return d; }
@@ -125,6 +144,7 @@ private:
     CastleProto *c;
     raw_dfa *d;
     raw_som_dfa *h;
+    TamaProto *t;
     depth dfa_min_width;
     depth dfa_max_width;
 
@@ -150,7 +170,7 @@ struct left_id {
         : g(in.graph.get()), c(in.castle.get()), d(in.dfa.get()),
           h(in.haig.get()), dfa_min_width(in.dfa_min_width),
           dfa_max_width(in.dfa_max_width) {
-        assert(!g || !generates_callbacks(*g));
+        assert(!g || !has_managed_reports(*g));
     }
     bool operator==(const left_id &b) const {
         bool rv = g == b.g && c == b.c && h == b.h && d == b.d;
@@ -257,6 +277,17 @@ struct rose_literal_id {
     u32 distinctiveness;
 
     size_t elength(void) const { return s.length() + delay; }
+    size_t elength_including_mask(void) const {
+        size_t mask_len = msk.size();
+        for (u8 c : msk) {
+            if (!c) {
+                mask_len--;
+            } else {
+                break;
+            }
+        }
+        return MAX(mask_len, s.length()) + delay;
+    }
 };
 
 static inline
@@ -307,7 +338,7 @@ struct OutfixInfo {
     template<class T>
     explicit OutfixInfo(std::unique_ptr<T> x) : proto(std::move(x)) {}
 
-    explicit OutfixInfo(MpvProto mpv) : proto(std::move(mpv)) {}
+    explicit OutfixInfo(MpvProto mpv_in) : proto(std::move(mpv_in)) {}
 
     u32 get_queue(QueueIndexFactory &qif);
 
@@ -317,14 +348,14 @@ struct OutfixInfo {
     }
 
     bool is_nonempty_mpv() const {
-        auto *mpv = boost::get<MpvProto>(&proto);
-        return mpv && !mpv->empty();
+        auto *m = boost::get<MpvProto>(&proto);
+        return m && !m->empty();
     }
 
     bool is_dead() const {
-        auto *mpv = boost::get<MpvProto>(&proto);
-        if (mpv) {
-            return mpv->empty();
+        auto *m = boost::get<MpvProto>(&proto);
+        if (m) {
+            return m->empty();
         }
         return boost::get<boost::blank>(&proto) != nullptr;
     }
@@ -396,7 +427,7 @@ std::set<ReportID> all_reports(const OutfixInfo &outfix);
 // Concrete impl class
 class RoseBuildImpl : public RoseBuild {
 public:
-    RoseBuildImpl(ReportManager &rm, SomSlotManager &ssm,
+    RoseBuildImpl(ReportManager &rm, SomSlotManager &ssm, SmallWriteBuild &smwr,
                   const CompileContext &cc, const BoundaryReports &boundary);
 
     ~RoseBuildImpl() override;
@@ -439,10 +470,6 @@ public:
     // Find the maximum bound on the edges to this vertex's successors.
     u32 calcSuccMaxBound(RoseVertex u) const;
 
-    // Assign roles to groups, writing the groups bitset into each role in the
-    // graph.
-    void assignGroupsToRoles();
-
     /* Returns the ID of the given literal in the literal map, adding it if
      * necessary. */
     u32 getLiteralId(const ue2_literal &s, u32 delay, rose_literal_table table);
@@ -473,8 +500,6 @@ public:
     bool hasDelayPred(RoseVertex v) const;
     bool hasLiteralInTable(RoseVertex v, enum rose_literal_table t) const;
     bool hasAnchoredTablePred(RoseVertex v) const;
-
-    void assignGroupsToLiterals(void);
 
     // Is the given vertex a successor of either root or anchored_root?
     bool isRootSuccessor(const RoseVertex &v) const;
@@ -534,12 +559,17 @@ public:
     std::map<size_t, std::vector<std::unique_ptr<raw_dfa>>> anchored_nfas;
     std::map<simple_anchored_info, std::set<u32>> anchored_simple;
     std::map<u32, std::set<u32> > group_to_literal;
-    u32 group_weak_end;
     u32 group_end;
 
     u32 anchored_base_id;
 
     u32 ematcher_region_size; /**< number of bytes the eod table runs over */
+
+    /** \brief Mapping from leftfix to queue ID (used in dump code). */
+    unordered_map<left_id, u32> leftfix_queue_map;
+
+    /** \brief Mapping from suffix to queue ID (used in dump code). */
+    unordered_map<suffix_id, u32> suffix_queue_map;
 
     /** \brief Mapping from anchored literal ID to the original literal suffix
      * present when the literal was added to the literal matcher. Used for
@@ -566,6 +596,7 @@ public:
     QueueIndexFactory qif;
     ReportManager &rm;
     SomSlotManager &ssm;
+    SmallWriteBuild &smwr;
     const BoundaryReports &boundary;
 
 private:

@@ -33,64 +33,85 @@
 #ifndef TEDDY_H_
 #define TEDDY_H_
 
+#include "hwlm/hwlm.h" // for hwlm_group_t
+
 struct FDR; // forward declaration from fdr_internal.h
 struct FDR_Runtime_Args;
 
 hwlm_error_t fdr_exec_teddy_msks1(const struct FDR *fdr,
-                                  const struct FDR_Runtime_Args *a);
+                                  const struct FDR_Runtime_Args *a,
+                                  hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_msks1_pck(const struct FDR *fdr,
-                                      const struct FDR_Runtime_Args *a);
+                                      const struct FDR_Runtime_Args *a,
+                                      hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_msks2(const struct FDR *fdr,
-                                  const struct FDR_Runtime_Args *a);
+                                  const struct FDR_Runtime_Args *a,
+                                  hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_msks2_pck(const struct FDR *fdr,
-                                      const struct FDR_Runtime_Args *a);
+                                      const struct FDR_Runtime_Args *a,
+                                      hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_msks3(const struct FDR *fdr,
-                                  const struct FDR_Runtime_Args *a);
+                                  const struct FDR_Runtime_Args *a,
+                                  hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_msks3_pck(const struct FDR *fdr,
-                                      const struct FDR_Runtime_Args *a);
+                                      const struct FDR_Runtime_Args *a,
+                                      hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_msks4(const struct FDR *fdr,
-                                  const struct FDR_Runtime_Args *a);
+                                  const struct FDR_Runtime_Args *a,
+                                  hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_msks4_pck(const struct FDR *fdr,
-                                      const struct FDR_Runtime_Args *a);
+                                      const struct FDR_Runtime_Args *a,
+                                      hwlm_group_t control);
 
 #if defined(__AVX2__)
 
 hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
-                                           const struct FDR_Runtime_Args *a);
+                                           const struct FDR_Runtime_Args *a,
+                                           hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fat(const struct FDR *fdr,
-                                               const struct FDR_Runtime_Args *a);
+                                               const struct FDR_Runtime_Args *a,
+                                               hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_avx2_msks2_fat(const struct FDR *fdr,
-                                           const struct FDR_Runtime_Args *a);
+                                           const struct FDR_Runtime_Args *a,
+                                           hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_avx2_msks2_pck_fat(const struct FDR *fdr,
-                                               const struct FDR_Runtime_Args *a);
+                                               const struct FDR_Runtime_Args *a,
+                                               hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_avx2_msks3_fat(const struct FDR *fdr,
-                                           const struct FDR_Runtime_Args *a);
+                                           const struct FDR_Runtime_Args *a,
+                                           hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_avx2_msks3_pck_fat(const struct FDR *fdr,
-                                               const struct FDR_Runtime_Args *a);
+                                               const struct FDR_Runtime_Args *a,
+                                               hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
-                                           const struct FDR_Runtime_Args *a);
+                                           const struct FDR_Runtime_Args *a,
+                                           hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
-                                               const struct FDR_Runtime_Args *a);
+                                               const struct FDR_Runtime_Args *a,
+                                               hwlm_group_t control);
 
 hwlm_error_t fdr_exec_teddy_avx2_msks1_fast(const struct FDR *fdr,
-                                            const struct FDR_Runtime_Args *a);
+                                            const struct FDR_Runtime_Args *a,
+                                            hwlm_group_t control);
 
-hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fast(const struct FDR *fdr,
-                                                const struct FDR_Runtime_Args *a);
+hwlm_error_t
+fdr_exec_teddy_avx2_msks1_pck_fast(const struct FDR *fdr,
+                                   const struct FDR_Runtime_Args *a,
+                                   hwlm_group_t control);
 
 #endif /* __AVX2__ */
 

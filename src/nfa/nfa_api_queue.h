@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -91,12 +91,12 @@ struct mq {
                         * history buffer; (logically) immediately before the
                         * main buffer */
     size_t hlength; /**< length of the history buffer */
+    struct hs_scratch *scratch; /**< global scratch space */
     char report_current; /**<
                           * report_current matches at starting offset through
                           * callback. If true, the queue must be located at a
                           * point where MO_MATCHES_PENDING was returned */
     NfaCallback cb; /**< callback to trigger on matches */
-    SomNfaCallback som_cb; /**< callback with som info;  used by haig */
     void *context; /**< context to pass along with a callback */
     struct mq_item items[MAX_MQE_LEN]; /**< queue items */
 };

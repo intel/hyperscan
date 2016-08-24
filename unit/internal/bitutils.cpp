@@ -412,3 +412,27 @@ TEST(BitUtils, bf_it_1) {
     ASSERT_EQ(~0U, bf64_iterate(1ULL << 63, 63));
 }
 
+TEST(BitUtils, rank_in_mask32) {
+    for (u32 i = 0; i < 32; i++) {
+        ASSERT_EQ(i, rank_in_mask32(0xffffffff, i));
+        ASSERT_EQ(0, rank_in_mask32(1U << i, i));
+    }
+    ASSERT_EQ(0, rank_in_mask32(0xf0f0f0f0, 4));
+    ASSERT_EQ(1, rank_in_mask32(0xf0f0f0f0, 5));
+    ASSERT_EQ(3, rank_in_mask32(0xf0f0f0f0, 7));
+    ASSERT_EQ(7, rank_in_mask32(0xf0f0f0f0, 15));
+    ASSERT_EQ(15, rank_in_mask32(0xf0f0f0f0, 31));
+}
+
+TEST(BitUtils, rank_in_mask64) {
+    for (u32 i = 0; i < 64; i++) {
+        ASSERT_EQ(i, rank_in_mask64(0xffffffffffffffffULL, i));
+        ASSERT_EQ(0, rank_in_mask64(1ULL << i, i));
+    }
+    ASSERT_EQ(0, rank_in_mask64(0xf0f0f0f0f0f0f0f0ULL, 4));
+    ASSERT_EQ(1, rank_in_mask64(0xf0f0f0f0f0f0f0f0ULL, 5));
+    ASSERT_EQ(3, rank_in_mask64(0xf0f0f0f0f0f0f0f0ULL, 7));
+    ASSERT_EQ(7, rank_in_mask64(0xf0f0f0f0f0f0f0f0ULL, 15));
+    ASSERT_EQ(15, rank_in_mask64(0xf0f0f0f0f0f0f0f0ULL, 31));
+    ASSERT_EQ(31, rank_in_mask64(0xf0f0f0f0f0f0f0f0ULL, 63));
+}

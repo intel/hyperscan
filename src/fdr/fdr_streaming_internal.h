@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,11 +41,11 @@
 // hash table (caseful) (FDRSHashEntry)
 // hash table (caseless) (FDRSHashEntry)
 
-typedef enum {
+enum Modes {
     CASEFUL = 0,
     CASELESS = 1,
     MAX_MODES = 2
-} MODES;
+};
 
 // We have one of these structures hanging off the 'link' of our secondary
 // FDR table that handles streaming strings
@@ -91,12 +91,12 @@ struct FDRSHashEntry {
 };
 
 static really_inline
-u32 get_start_lit_idx(const struct FDRSTableHeader * h, MODES m) {
+u32 get_start_lit_idx(const struct FDRSTableHeader * h, enum Modes m) {
     return m == CASEFUL ? 0 : h->boundary[m-1];
 }
 
 static really_inline
-u32 get_end_lit_idx(const struct FDRSTableHeader * h, MODES m) {
+u32 get_end_lit_idx(const struct FDRSTableHeader * h, enum Modes m) {
     return h->boundary[m];
 }
 
@@ -107,17 +107,17 @@ const struct FDRSLiteral * getLitTab(const struct FDRSTableHeader * h) {
 }
 
 static really_inline
-u32 getBaseOffsetOfLits(const struct FDRSTableHeader * h, MODES m) {
+u32 getBaseOffsetOfLits(const struct FDRSTableHeader * h, enum Modes m) {
     return getLitTab(h)[get_start_lit_idx(h, m)].offset;
 }
 
 static really_inline
-u32 packStateVal(const struct FDRSTableHeader * h, MODES m, u32 v) {
+u32 packStateVal(const struct FDRSTableHeader * h, enum Modes m, u32 v) {
     return v - getBaseOffsetOfLits(h, m) + 1;
 }
 
 static really_inline
-u32 unpackStateVal(const struct FDRSTableHeader * h, MODES m, u32 v) {
+u32 unpackStateVal(const struct FDRSTableHeader * h, enum Modes m, u32 v) {
     return v + getBaseOffsetOfLits(h, m) - 1;
 }
 
@@ -127,7 +127,7 @@ u32 has_bit(const struct FDRSHashEntry * ent, u32 bit) {
 }
 
 static really_inline
-u32 streaming_hash(const u8 *ptr, UNUSED size_t len, MODES mode) {
+u32 streaming_hash(const u8 *ptr, UNUSED size_t len, enum Modes mode) {
     const u64a CASEMASK = 0xdfdfdfdfdfdfdfdfULL;
     const u64a MULTIPLIER = 0x0b4e0ef37bc32127ULL;
     assert(len >= 32);

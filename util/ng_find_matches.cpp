@@ -76,7 +76,7 @@ struct fmstate {
     fmstate(const NGHolder &g, bool som_in, bool utf8_in, bool aSD_in,
             const ReportManager &rm_in)
         : num_states(num_vertices(g)), states(num_states), next(num_states),
-          vertices(num_vertices(g), NFAGraph::null_vertex()), som(som_in),
+          vertices(num_vertices(g), NGHolder::null_vertex()), som(som_in),
           utf8(utf8_in), allowStartDs(aSD_in), rm(rm_in), accept(num_states),
           accept_with_eod(num_states) {
         // init states

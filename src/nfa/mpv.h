@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,7 +36,6 @@ struct NFA;
 
 char nfaExecMpv0_Q(const struct NFA *n, struct mq *q, s64a end);
 char nfaExecMpv0_reportCurrent(const struct NFA *n, struct mq *q);
-char nfaExecMpv0_inAccept(const struct NFA *n, ReportID report, struct mq *q);
 char nfaExecMpv0_queueInitState(const struct NFA *n, struct mq *q);
 char nfaExecMpv0_initCompressedState(const struct NFA *n, u64a offset,
                                      void *state, u8 key);
@@ -47,6 +46,7 @@ char nfaExecMpv0_expandState(const struct NFA *nfa, void *dest, const void *src,
 
 #define nfaExecMpv0_testEOD NFA_API_NO_IMPL
 #define nfaExecMpv0_inAccept NFA_API_NO_IMPL
+#define nfaExecMpv0_inAnyAccept NFA_API_NO_IMPL
 #define nfaExecMpv0_QR NFA_API_NO_IMPL
 #define nfaExecMpv0_Q2 NFA_API_NO_IMPL /* for non-chained suffixes. */
 #define nfaExecMpv0_B_Reverse NFA_API_NO_IMPL

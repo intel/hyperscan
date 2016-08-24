@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -315,7 +315,7 @@ void createVertices(RoseBuildImpl *tbi,
             w = created[key];
         }
 
-        NFAVertex p = pv.first;
+        RoseVertex p = pv.first;
 
         RoseEdge e;
         bool added;
@@ -375,7 +375,7 @@ void createVertices(RoseBuildImpl *tbi,
 /* ensure the holder does not accept any paths which do not end with lit */
 static
 void removeFalsePaths(NGHolder &g, const ue2_literal &lit) {
-    DEBUG_PRINTF("strip '%s'\n", ((const string &)lit).c_str());
+    DEBUG_PRINTF("strip '%s'\n", dumpString(lit).c_str());
     set<NFAVertex> curr, next;
     curr.insert(g.accept);
     curr.insert(g.acceptEod);
@@ -418,6 +418,7 @@ void removeFalsePaths(NGHolder &g, const ue2_literal &lit) {
     }
 
     pruneUseless(g);
+    clearReports(g);
     assert(in_degree(g.accept, g) || in_degree(g.acceptEod, g) > 1);
     assert(allMatchStatesHaveReports(g));
 
@@ -651,26 +652,93 @@ floating:
 }
 
 static
-unique_ptr<NGHolder> makeRoseEodPrefix(const NGHolder &h,
-                                       ReportID prefix_report) {
+unique_ptr<NGHolder> makeRoseEodPrefix(const NGHolder &h, RoseBuildImpl &build,
+                                   map<flat_set<ReportID>, ReportID> &remap) {
     assert(generates_callbacks(h));
-    auto g = cloneHolder(h);
-    g->kind = is_triggered(h) ? NFA_INFIX : NFA_PREFIX;
-    setReportId(*g, prefix_report);
+    assert(!in_degree(h.accept, h));
+    auto gg = cloneHolder(h);
+    NGHolder &g = *gg;
+    g.kind = is_triggered(h) ? NFA_INFIX : NFA_PREFIX;
 
     // Move acceptEod edges over to accept.
     vector<NFAEdge> dead;
-    for (const auto &e : in_edges_range(g->acceptEod, *g)) {
-        NFAVertex u = source(e, *g);
-        if (u == g->accept) {
+    for (const auto &e : in_edges_range(g.acceptEod, g)) {
+        NFAVertex u = source(e, g);
+        if (u == g.accept) {
             continue;
         }
-        add_edge_if_not_present(u, g->accept, *g);
+        add_edge_if_not_present(u, g.accept, g);
         dead.push_back(e);
+
+        if (!contains(remap, g[u].reports)) {
+            remap[g[u].reports] = build.getNewNfaReport();
+        }
+
+        g[u].reports = { remap[g[u].reports] };
     }
 
-    remove_edges(dead, *g);
-    return g;
+    remove_edges(dead, g);
+    return gg;
+}
+
+static
+u32 getEodEventID(RoseBuildImpl &build) {
+    // Allocate the EOD event if it hasn't been already.
+    if (build.eod_event_literal_id == MO_INVALID_IDX) {
+        build.eod_event_literal_id = build.getLiteralId({}, 0, ROSE_EVENT);
+    }
+
+    return build.eod_event_literal_id;
+}
+
+static
+void makeEodEventLeftfix(RoseBuildImpl &build, RoseVertex u,
+                         const NGHolder &h) {
+    assert(!build.isInETable(u));
+
+    RoseGraph &g = build.g;
+    map<flat_set<ReportID>, ReportID> report_remap;
+    shared_ptr<NGHolder> eod_leftfix
+        = makeRoseEodPrefix(h, build, report_remap);
+
+    u32 eod_event = getEodEventID(build);
+
+    for (const auto &report_mapping : report_remap) {
+        RoseVertex v = add_vertex(g);
+        g[v].idx = build.vertexIndex++;
+        g[v].literals.insert(eod_event);
+        build.literal_info[eod_event].vertices.insert(v);
+
+        g[v].left.graph = eod_leftfix;
+        g[v].left.leftfix_report = report_mapping.second;
+        g[v].left.lag = 0;
+        RoseEdge e1 = add_edge(u, v, g).first;
+        g[e1].minBound = 0;
+        g[e1].maxBound = ROSE_BOUND_INF;
+        g[v].min_offset = add_rose_depth(g[u].min_offset,
+                                         findMinWidth(*g[v].left.graph));
+        g[v].max_offset = ROSE_BOUND_INF;
+
+        depth max_width = findMaxWidth(*g[v].left.graph);
+        if (u != build.root && max_width.is_finite()
+            && (!build.isAnyStart(u) || isPureAnchored(*g[v].left.graph))) {
+            g[e1].maxBound = max_width;
+            g[v].max_offset = add_rose_depth(g[u].max_offset, max_width);
+        }
+
+        g[e1].history = ROSE_ROLE_HISTORY_NONE; // handled by prefix
+        RoseVertex w = add_vertex(g);
+        g[w].idx = build.vertexIndex++;
+        g[w].eod_accept = true;
+        g[w].reports = report_mapping.first;
+        g[w].min_offset = g[v].min_offset;
+        g[w].max_offset = g[v].max_offset;
+        RoseEdge e = add_edge(v, w, g).first;
+        g[e].minBound = 0;
+        g[e].maxBound = 0;
+        g[e].history = ROSE_ROLE_HISTORY_LAST_BYTE;
+        DEBUG_PRINTF("accept eod vertex (idx=%zu)\n", g[w].idx);
+    }
 }
 
 static
@@ -686,8 +754,20 @@ void doRoseAcceptVertex(RoseBuildImpl *tbi,
         RoseVertex u = pv.first;
         const RoseInEdgeProps &edge_props = bd.ig[pv.second];
 
+        /* We need to duplicate the parent vertices if:
+         *
+         * 1) It already has a suffix, etc as we are going to add the specified
+         * suffix, etc to the parents and we do not want to overwrite the
+         * existing information.
+         *
+         * 2) We are making the an EOD accept and the vertex already has other
+         * out-edges - The LAST_BYTE history used for EOD accepts is
+         * incompatible with normal successors. As accepts are processed last we
+         * do not need to worry about other normal successors being added later.
+         */
         if (g[u].suffix || !g[u].reports.empty()
-             /* also poss accept eod edge: TODO check properly */
+            || (ig[iv].type == RIV_ACCEPT_EOD && out_degree(u, g)
+                && !edge_props.graph)
             || (!isLeafNode(u, g) && !tbi->isAnyStart(u))) {
             DEBUG_PRINTF("duplicating for parent %zu\n", g[u].idx);
             assert(!tbi->isAnyStart(u));
@@ -719,74 +799,37 @@ void doRoseAcceptVertex(RoseBuildImpl *tbi,
             }
         } else {
             assert(ig[iv].type == RIV_ACCEPT_EOD);
+            assert(!edge_props.haig);
 
-            if (edge_props.graph && tbi->isInETable(u)) {
+            if (!edge_props.graph) {
+                RoseVertex w = add_vertex(g);
+                g[w].idx = tbi->vertexIndex++;
+                g[w].eod_accept = true;
+                g[w].reports = ig[iv].reports;
+                g[w].min_offset = g[u].min_offset;
+                g[w].max_offset = g[u].max_offset;
+                RoseEdge e = add_edge(u, w, g).first;
+                g[e].minBound = 0;
+                g[e].maxBound = 0;
+                g[e].history = ROSE_ROLE_HISTORY_LAST_BYTE;
+                DEBUG_PRINTF("accept eod vertex (idx=%zu)\n", g[w].idx);
+                continue;
+            }
+
+            const NGHolder &h = *edge_props.graph;
+            assert(!in_degree(h.accept, h));
+            assert(generates_callbacks(h));
+
+            if (tbi->isInETable(u)) {
+                assert(h.kind == NFA_SUFFIX);
                 assert(!tbi->isAnyStart(u));
                 /* etable can't/shouldn't use eod event */
                 DEBUG_PRINTF("adding suffix to i%zu\n", g[u].idx);
                 g[u].suffix.graph = edge_props.graph;
-                assert(g[u].suffix.graph->kind == NFA_SUFFIX);
-                dumpHolder(*g[u].suffix.graph, 98, "eod_suffix", tbi->cc.grey);
-                assert(!in_degree(g[u].suffix.graph->accept,
-                                  *g[u].suffix.graph));
-                set<ReportID> reports = all_reports(*g[u].suffix.graph);
-                tbi->rm.getReport(*reports.begin());
-                assert(reports.size() == 1);
-                /* TODO: set dfa_(min|max)_width */
                 continue;
-            } else if (edge_props.graph) {
-                assert(!edge_props.haig);
-                assert(!tbi->isInETable(u));
-
-                // Allocate the EOD event if it hasn't been already.
-                if (tbi->eod_event_literal_id == MO_INVALID_IDX) {
-                    tbi->eod_event_literal_id =
-                        tbi->getLiteralId(ue2_literal(), 0, ROSE_EVENT);
-                }
-
-                RoseVertex v = add_vertex(g);
-                g[v].idx = tbi->vertexIndex++;
-                g[v].literals.insert(tbi->eod_event_literal_id);
-                tbi->literal_info[tbi->eod_event_literal_id].vertices.insert(v);
-
-                ReportID prefix_report = tbi->getNewNfaReport();
-                g[v].left.graph
-                    = makeRoseEodPrefix(*edge_props.graph, prefix_report);
-                g[v].left.leftfix_report = prefix_report;
-                g[v].left.lag = 0;
-                RoseEdge e1 = add_edge(u, v, g).first;
-                g[e1].minBound = 0;
-                g[e1].maxBound = ROSE_BOUND_INF;
-                g[v].min_offset = add_rose_depth(
-                        g[u].min_offset, findMinWidth(*g[v].left.graph));
-                g[v].max_offset = ROSE_BOUND_INF;
-
-                DEBUG_PRINTF("hi\n");
-                depth max_width = findMaxWidth(*g[v].left.graph);
-                if (u != tbi->root
-                    && max_width.is_finite()
-                    && (!tbi->isAnyStart(u)
-                        || isPureAnchored(*g[v].left.graph))) {
-                    g[e1].maxBound = max_width;
-                    g[v].max_offset = add_rose_depth(g[u].max_offset, max_width);
-                }
-
-                g[e1].history = ROSE_ROLE_HISTORY_NONE; // handled by prefix
-                u = v;
             }
-            assert(!edge_props.haig);
 
-            RoseVertex w = add_vertex(g);
-            g[w].idx = tbi->vertexIndex++;
-            g[w].eod_accept = true;
-            g[w].reports = ig[iv].reports;
-            g[w].min_offset = g[u].min_offset;
-            g[w].max_offset = g[u].max_offset;
-            RoseEdge e = add_edge(u, w, g).first;
-            g[e].minBound = 0;
-            g[e].maxBound = 0;
-            g[e].history = ROSE_ROLE_HISTORY_LAST_BYTE;
-            DEBUG_PRINTF("accept eod vertex (idx=%zu)\n", g[w].idx);
+            makeEodEventLeftfix(*tbi, u, h);
         }
     }
 }
@@ -887,7 +930,8 @@ bool suitableForEod(const RoseInGraph &ig, vector<RoseInVertex> topo,
             ENSURE_AT_LEAST(&v_depth, (u32)max_width);
         }
 
-        if (v_depth == ROSE_BOUND_INF || v_depth > cc.grey.maxHistoryAvailable) {
+        if (v_depth == ROSE_BOUND_INF
+            || v_depth > cc.grey.maxHistoryAvailable) {
             DEBUG_PRINTF("not suitable for eod table %u\n", v_depth);
             return false;
         }
@@ -898,6 +942,13 @@ bool suitableForEod(const RoseInGraph &ig, vector<RoseInVertex> topo,
 
     DEBUG_PRINTF("to the eod table and beyond\n");
     return true;
+}
+
+static
+void shift_accepts_to_end(const RoseInGraph &ig,
+                          vector<RoseInVertex> &topo_order) {
+    stable_partition(begin(topo_order), end(topo_order),
+                     [&](RoseInVertex v){ return !is_any_accept(v, ig); });
 }
 
 static
@@ -912,6 +963,7 @@ void populateRoseGraph(RoseBuildImpl *tbi, RoseBuildData &bd) {
     map<RoseInVertex, vector<RoseVertex> > vertex_map;
 
     vector<RoseInVertex> v_order = topo_order(ig);
+    shift_accepts_to_end(ig, v_order);
 
     u32 eod_space_required;
     bool use_eod_table = suitableForEod(ig, v_order, &eod_space_required,
@@ -943,7 +995,7 @@ void populateRoseGraph(RoseBuildImpl *tbi, RoseBuildData &bd) {
             const vector<RoseVertex> &images = vertex_map[u];
 
             // We should have no dupes.
-            assert(set<NFAVertex>(images.begin(), images.end()).size()
+            assert(set<RoseVertex>(images.begin(), images.end()).size()
                    == images.size());
 
             for (auto v_image : images) {
@@ -1038,6 +1090,7 @@ bool canImplementGraph(RoseBuildImpl *tbi, const RoseInGraph &in, NGHolder &h,
                 return false;
             }
             break;
+        case NFA_EAGER_PREFIX:
         case NFA_REV_PREFIX:
         case NFA_OUTFIX_RAW:
             DEBUG_PRINTF("kind %u\n", (u32)h.kind);
@@ -1133,7 +1186,7 @@ u32 maxAvailableDelay(const ue2_literal &pred_key, const ue2_literal &lit_key) {
 }
 
 static
-u32 findMaxSafeDelay(const RoseInGraph &ig, RoseInVertex u, RoseVertex v) {
+u32 findMaxSafeDelay(const RoseInGraph &ig, RoseInVertex u, RoseInVertex v) {
     // First, check the overlap constraints on (u,v).
     size_t max_delay;
     if (ig[v].type == RIV_LITERAL) {

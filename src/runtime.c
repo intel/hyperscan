@@ -43,6 +43,7 @@
 #include "nfa/nfa_api_util.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/nfa_rev_api.h"
+#include "nfa/sheng.h"
 #include "smallwrite/smallwrite_internal.h"
 #include "rose/rose.h"
 #include "rose/runtime.h"
@@ -198,7 +199,11 @@ void pureLiteralBlockExec(const struct RoseEngine *rose,
     size_t length = scratch->core_info.len;
     DEBUG_PRINTF("rose engine %d\n", rose->runtimeImpl);
 
-    hwlmExec(ftable, buffer, length, 0, rosePureLiteralCallback, scratch,
+    // RoseContext values that need to be set for use by roseCallback.
+    scratch->tctxt.groups = rose->initialGroups;
+    scratch->tctxt.lit_offset_adjust = 1;
+
+    hwlmExec(ftable, buffer, length, 0, roseCallback, scratch,
              rose->initialGroups);
 }
 
@@ -217,7 +222,6 @@ void initOutfixQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
     q->history = scratch->core_info.hbuf;
     q->hlength = scratch->core_info.hlen;
     q->cb = roseReportAdaptor;
-    q->som_cb = roseReportSomAdaptor;
     q->context = scratch;
     q->report_current = 0;
 
@@ -257,8 +261,8 @@ void soleOutfixBlockExec(const struct RoseEngine *t,
     char rv = nfaQueueExec(q->nfa, q, scratch->core_info.len);
 
     if (rv && nfaAcceptsEod(nfa) && len == scratch->core_info.len) {
-        nfaCheckFinalState(nfa, q->state, q->streamState, q->length,
-                        q->cb, q->som_cb, scratch);
+        nfaCheckFinalState(nfa, q->state, q->streamState, q->length, q->cb,
+                           scratch);
     }
 }
 
@@ -283,13 +287,16 @@ void runSmallWriteEngine(const struct SmallWriteEngine *smwr,
     size_t local_alen = length - smwr->start_offset;
     const u8 *local_buffer = buffer + smwr->start_offset;
 
-    assert(isMcClellanType(nfa->type));
+    assert(isDfaType(nfa->type));
     if (nfa->type == MCCLELLAN_NFA_8) {
         nfaExecMcClellan8_B(nfa, smwr->start_offset, local_buffer,
                             local_alen, roseReportAdaptor, scratch);
-    } else {
+    } else if (nfa->type == MCCLELLAN_NFA_16){
         nfaExecMcClellan16_B(nfa, smwr->start_offset, local_buffer,
                              local_alen, roseReportAdaptor, scratch);
+    } else {
+        nfaExecSheng0_B(nfa, smwr->start_offset, local_buffer,
+                        local_alen, roseReportAdaptor, scratch);
     }
 }
 
@@ -532,7 +539,7 @@ void rawEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
         return;
     }
 
-    roseEodExec(rose, id->offset, scratch);
+    roseStreamEodExec(rose, id->offset, scratch);
 }
 
 static never_inline
@@ -568,7 +575,7 @@ void soleOutfixEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
 
     assert(nfaAcceptsEod(nfa));
     nfaCheckFinalState(nfa, q->state, q->streamState, q->offset, q->cb,
-                       q->som_cb, scratch);
+                       scratch);
 }
 
 static really_inline
@@ -743,11 +750,15 @@ void pureLiteralStreamExec(struct hs_stream *stream_state,
     DEBUG_PRINTF("::: streaming rose ::: offset = %llu len = %zu\n",
                  stream_state->offset, scratch->core_info.len);
 
+    // RoseContext values that need to be set for use by roseCallback.
+    scratch->tctxt.groups = loadGroups(rose, scratch->core_info.state);
+    scratch->tctxt.lit_offset_adjust = scratch->core_info.buf_offset + 1;
+
     // Pure literal cases don't have floatingMinDistance set, so we always
     // start the match region at zero.
     const size_t start = 0;
 
-    hwlmExecStreaming(ftable, scratch, len2, start, rosePureLiteralCallback,
+    hwlmExecStreaming(ftable, scratch, len2, start, roseCallback,
                       scratch, rose->initialGroups, hwlm_stream_state);
 
     if (!told_to_stop_matching(scratch) &&

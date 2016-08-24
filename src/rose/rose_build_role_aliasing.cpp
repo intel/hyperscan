@@ -156,22 +156,31 @@ private:
     ue2::unordered_set<RoseVertex> hash_cont; /* member checks */
 };
 
-/**
- * \brief Mapping from a particular rose engine to a set of associated
- * vertices.
- */
-typedef ue2::unordered_map<left_id, set<RoseVertex> > revRoseMap;
+struct RoseAliasingInfo {
+    RoseAliasingInfo(const RoseBuildImpl &build) {
+        const auto &g = build.g;
 
-} // namespace
+        // Populate reverse leftfix map.
+        for (auto v : vertices_range(g)) {
+            if (g[v].left) {
+                rev_leftfix[g[v].left].insert(v);
+            }
+        }
 
-static
-void populateRevRoseMap(const RoseGraph &g, revRoseMap *out) {
-    for (auto v : vertices_range(g)) {
-        if (g[v].left) {
-            (*out)[g[v].left].insert(v);
+        // Populate reverse ghost vertex map.
+        for (const auto &m : build.ghost) {
+            rev_ghost[m.second].insert(m.first);
         }
     }
-}
+
+    /** \brief Mapping from leftfix to vertices. */
+    ue2::unordered_map<left_id, set<RoseVertex>> rev_leftfix;
+
+    /** \brief Mapping from undelayed ghost to delayed vertices. */
+    ue2::unordered_map<RoseVertex, set<RoseVertex>> rev_ghost;
+};
+
+} // namespace
 
 // Check successor set: must lead to the same vertices via edges with the
 // same properties.
@@ -262,7 +271,8 @@ bool samePredecessors(RoseVertex a, RoseVertex b, const RoseGraph &g) {
 }
 
 static
-bool hasCommonSuccWithBadBounds(RoseVertex a, RoseVertex b, const RoseGraph &g) {
+bool hasCommonSuccWithBadBounds(RoseVertex a, RoseVertex b,
+                                const RoseGraph &g) {
     for (const auto &e_a : out_edges_range(a, g)) {
         bool exists;
         RoseEdge e;
@@ -283,7 +293,8 @@ bool hasCommonSuccWithBadBounds(RoseVertex a, RoseVertex b, const RoseGraph &g) 
 }
 
 static
-bool hasCommonPredWithBadBounds(RoseVertex a, RoseVertex b, const RoseGraph &g) {
+bool hasCommonPredWithBadBounds(RoseVertex a, RoseVertex b,
+                                const RoseGraph &g) {
     for (const auto &e_a : in_edges_range(a, g)) {
         bool exists;
         RoseEdge e;
@@ -309,23 +320,24 @@ bool hasCommonPredWithBadBounds(RoseVertex a, RoseVertex b, const RoseGraph &g) 
 }
 
 static
-bool canMergeLiterals(RoseVertex a, RoseVertex b, const RoseBuildImpl &tbi) {
-    const auto &lits_a = tbi.g[a].literals;
-    const auto &lits_b = tbi.g[b].literals;
+bool canMergeLiterals(RoseVertex a, RoseVertex b, const RoseBuildImpl &build) {
+    const auto &lits_a = build.g[a].literals;
+    const auto &lits_b = build.g[b].literals;
     assert(!lits_a.empty() && !lits_b.empty());
 
     // If both vertices have only pseudo-dotstar in-edges, we can merge
     // literals of different lengths and can avoid the check below.
-    if (tbi.hasOnlyPseudoStarInEdges(a) && tbi.hasOnlyPseudoStarInEdges(b)) {
+    if (build.hasOnlyPseudoStarInEdges(a) &&
+        build.hasOnlyPseudoStarInEdges(b)) {
         DEBUG_PRINTF("both have pseudo-dotstar in-edges\n");
         return true;
     }
 
     // Otherwise, all the literals involved must have the same length.
     for (u32 a_id : lits_a) {
-        const rose_literal_id &la = tbi.literals.right.at(a_id);
+        const rose_literal_id &la = build.literals.right.at(a_id);
         for (u32 b_id : lits_b) {
-            const rose_literal_id &lb = tbi.literals.right.at(b_id);
+            const rose_literal_id &lb = build.literals.right.at(b_id);
 
             if (la.elength() != lb.elength()) {
                 DEBUG_PRINTF("bad merge %zu!=%zu '%s', '%s'\n", la.elength(),
@@ -339,8 +351,8 @@ bool canMergeLiterals(RoseVertex a, RoseVertex b, const RoseBuildImpl &tbi) {
 }
 
 static
-bool isAliasingCandidate(RoseVertex v, const RoseBuildImpl &tbi) {
-    const RoseVertexProps &props = tbi.g[v];
+bool isAliasingCandidate(RoseVertex v, const RoseBuildImpl &build) {
+    const RoseVertexProps &props = build.g[v];
 
     // Must have literals.
     if (props.literals.empty()) {
@@ -348,14 +360,43 @@ bool isAliasingCandidate(RoseVertex v, const RoseBuildImpl &tbi) {
     }
 
     assert(*props.literals.begin() != MO_INVALID_IDX);
+    return true;
+}
 
-    // Any vertex involved in a "ghost" relationship has already been disallowed
+static
+bool sameGhostProperties(const RoseBuildImpl &build,
+                         const RoseAliasingInfo &rai, RoseVertex a,
+                         RoseVertex b) {
+    // If these are ghost mapping keys, then they must map to the same vertex.
+    if (contains(build.ghost, a) || contains(build.ghost, b)) {
+        DEBUG_PRINTF("checking ghost key compat\n");
+        if (!contains(build.ghost, a) || !contains(build.ghost, b)) {
+            DEBUG_PRINTF("missing ghost mapping\n");
+            return false;
+        }
+        if (build.ghost.at(a) != build.ghost.at(b)) {
+            DEBUG_PRINTF("diff ghost mapping\n");
+            return false;
+        }
+        DEBUG_PRINTF("ghost mappings ok\n");
+        return true;
+    }
+
+    // If they are ghost vertices, then they must have the same literals.
+    if (contains(rai.rev_ghost, a) || contains(rai.rev_ghost, b)) {
+        if (!contains(rai.rev_ghost, a) || !contains(rai.rev_ghost, b)) {
+            DEBUG_PRINTF("missing ghost reverse mapping\n");
+            return false;
+        }
+        return build.g[a].literals == build.g[b].literals;
+    }
 
     return true;
 }
 
 static
-bool sameRoleProperties(const RoseBuildImpl &build, RoseVertex a, RoseVertex b) {
+bool sameRoleProperties(const RoseBuildImpl &build, const RoseAliasingInfo &rai,
+                        RoseVertex a, RoseVertex b) {
     const RoseGraph &g = build.g;
     const RoseVertexProps &aprops = g[a], &bprops = g[b];
 
@@ -380,13 +421,17 @@ bool sameRoleProperties(const RoseBuildImpl &build, RoseVertex a, RoseVertex b) 
         return false;
     }
 
+    if (!sameGhostProperties(build, rai, a, b)) {
+        return false;
+    }
+
     /* "roses are mergeable" check are handled elsewhere  */
 
     return true;
 }
 
-/* Checks compatibility of role properties if we require that two roles are right
- * equiv. */
+/* Checks compatibility of role properties if we require that two roles are
+ * right equiv. */
 static
 bool sameRightRoleProperties(const RoseBuildImpl &build, RoseVertex a,
                              RoseVertex b) {
@@ -449,15 +494,6 @@ size_t hashRightRoleProperties(RoseVertex v, const RoseGraph &g) {
 }
 
 static
-void removeVertexFromMaps(RoseVertex v, RoseBuildImpl &build, revRoseMap &rrm) {
-    if (build.g[v].left) {
-        const left_id left(build.g[v].left);
-        assert(contains(rrm[left], v));
-        rrm[left].erase(v);
-    }
-}
-
-static
 void mergeEdgeAdd(RoseVertex u, RoseVertex v, const RoseEdge &from_edge,
                   const RoseEdge *to_edge, RoseGraph &g) {
     const RoseEdgeProps &from_props = g[from_edge];
@@ -485,7 +521,7 @@ void mergeEdges(RoseVertex a, RoseVertex b, RoseGraph &g) {
     // Cache b's in-edges so we can look them up by source quickly.
     for (const auto &e : in_edges_range(b, g)) {
         RoseVertex u = source(e, g);
-        b_edges.insert(make_pair(u, e));
+        b_edges.emplace(u, e);
     }
 
     // Add a's in-edges to b, merging them in where b already has the new edge.
@@ -504,7 +540,7 @@ void mergeEdges(RoseVertex a, RoseVertex b, RoseGraph &g) {
     b_edges.clear();
     for (const auto &e : out_edges_range(b, g)) {
         RoseVertex v = target(e, g);
-        b_edges.insert(make_pair(v, e));
+        b_edges.emplace(v, e);
     }
 
     // Add a's out-edges to b, merging them in where b already has the new edge.
@@ -524,11 +560,11 @@ void mergeEdges(RoseVertex a, RoseVertex b, RoseGraph &g) {
 }
 
 static
-void mergeLiteralSets(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi) {
-    RoseGraph &g = tbi.g;
+void mergeLiteralSets(RoseVertex a, RoseVertex b, RoseBuildImpl &build) {
+    RoseGraph &g = build.g;
     const auto &a_literals = g[a].literals;
     for (u32 lit_id : a_literals) {
-        auto &lit_vertices = tbi.literal_info[lit_id].vertices;
+        auto &lit_vertices = build.literal_info[lit_id].vertices;
         lit_vertices.erase(a);
         lit_vertices.insert(b);
     }
@@ -536,37 +572,91 @@ void mergeLiteralSets(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi) {
     insert(&g[b].literals, a_literals);
 }
 
-// Merge role 'a' into 'b'.
 static
-void mergeVertices(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi,
-                   revRoseMap &rrm) {
-    RoseGraph &g = tbi.g;
-    DEBUG_PRINTF("merging vertex %zu into %zu\n", g[a].idx, g[b].idx);
+void updateAliasingInfo(RoseBuildImpl &build, RoseAliasingInfo &rai,
+                        RoseVertex a, RoseVertex b) {
+    if (build.g[a].left) {
+        const left_id left(build.g[a].left);
+        assert(contains(rai.rev_leftfix[left], a));
+        rai.rev_leftfix[left].erase(a);
+    }
+    if (contains(build.ghost, a)) {
+        auto ghost = build.ghost.at(a);
+        assert(contains(build.ghost, b) && ghost == build.ghost.at(b));
+        build.ghost.erase(a);
+        rai.rev_ghost[ghost].erase(a);
+    }
 
-    // Merge role properties.
+    if (contains(rai.rev_ghost, a)) {
+        for (const auto &v : rai.rev_ghost[a]) {
+            build.ghost[v] = b;
+            rai.rev_ghost[b].insert(v);
+        }
+        rai.rev_ghost.erase(a);
+    }
+}
+
+/** \brief Common role merge code used by variants below. */
+static
+void mergeCommon(RoseBuildImpl &build, RoseAliasingInfo &rai, RoseVertex a,
+                 RoseVertex b) {
+    RoseGraph &g = build.g;
+
     assert(g[a].eod_accept == g[b].eod_accept);
     assert(g[a].left == g[b].left);
-
-    insert(&g[b].reports, g[a].reports);
+    assert(!g[a].suffix || g[a].suffix == g[b].suffix);
 
     // In some situations (ghost roles etc), we can have different groups.
     assert(!g[a].groups && !g[b].groups); /* current structure means groups
                                            * haven't been assigned yet */
     g[b].groups |= g[a].groups;
 
-    g[b].min_offset = min(g[a].min_offset, g[b].min_offset);
-    g[b].max_offset = max(g[a].max_offset, g[b].max_offset);
+    mergeLiteralSets(a, b, build);
+    updateAliasingInfo(build, rai, a, b);
 
-    mergeLiteralSets(a, b, tbi);
+    // Our min and max_offsets should be sane.
+    assert(g[b].min_offset <= g[b].max_offset);
+
+    // Safety check: we should not have created through a merge a vertex that
+    // has an out-edge with ANCH history but is not fixed-offset.
+    assert(!hasAnchHistorySucc(g, b) || g[b].fixedOffset());
+}
+
+/** \brief Merge role 'a' into 'b', left merge path. */
+static
+void mergeVerticesLeft(RoseVertex a, RoseVertex b, RoseBuildImpl &build,
+                       RoseAliasingInfo &rai) {
+    RoseGraph &g = build.g;
+    DEBUG_PRINTF("merging vertex %zu into %zu\n", g[a].idx, g[b].idx);
+
+    insert(&g[b].reports, g[a].reports);
+
+    // Since it is a left merge (identical LHS) we should pick the tighter
+    // bound.
+    g[b].min_offset = max(g[a].min_offset, g[b].min_offset);
+    g[b].max_offset = min(g[a].max_offset, g[b].max_offset);
 
     if (!g[b].suffix) {
         g[b].suffix = g[a].suffix;
-    } else {
-        assert(!g[a].suffix || g[b].suffix == g[a].suffix);
     }
 
     mergeEdges(a, b, g);
-    removeVertexFromMaps(a, tbi, rrm);
+    mergeCommon(build, rai, a, b);
+}
+
+/** \brief Merge role 'a' into 'b', right merge path. */
+static
+void mergeVerticesRight(RoseVertex a, RoseVertex b, RoseBuildImpl &build,
+                        RoseAliasingInfo &rai) {
+    RoseGraph &g = build.g;
+    DEBUG_PRINTF("merging vertex %zu into %zu\n", g[a].idx, g[b].idx);
+
+    insert(&g[b].reports, g[a].reports);
+    g[b].min_offset = min(g[a].min_offset, g[b].min_offset);
+    g[b].max_offset = max(g[a].max_offset, g[b].max_offset);
+
+    mergeEdges(a, b, g);
+    mergeCommon(build, rai, a, b);
 }
 
 /**
@@ -574,57 +664,35 @@ void mergeVertices(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi,
  * that the in- and out-edge sets, reports and suffixes are identical.
  */
 static
-void mergeVerticesDiamond(RoseVertex a, RoseVertex b, RoseBuildImpl &tbi,
-                          revRoseMap &rrm) {
-    RoseGraph &g = tbi.g;
+void mergeVerticesDiamond(RoseVertex a, RoseVertex b, RoseBuildImpl &build,
+                          RoseAliasingInfo &rai) {
+    RoseGraph &g = build.g;
     DEBUG_PRINTF("merging vertex %zu into %zu\n", g[a].idx, g[b].idx);
 
-    // Merge role properties. For a diamond merge, most properties are already
-    // the same (with the notable exception of the literal set).
-    assert(g[a].eod_accept == g[b].eod_accept);
-    assert(g[a].left == g[b].left);
+    // For a diamond merge, most properties are already the same (with the
+    // notable exception of the literal set).
     assert(g[a].reports == g[b].reports);
     assert(g[a].suffix == g[b].suffix);
-
-    // In some situations (ghost roles etc), we can have different groups.
-    assert(!g[a].groups && !g[b].groups); /* current structure means groups
-                                           * haven't been assigned yet */
-    g[b].groups |= g[a].groups;
 
     g[b].min_offset = min(g[a].min_offset, g[b].min_offset);
     g[b].max_offset = max(g[a].max_offset, g[b].max_offset);
 
-    mergeLiteralSets(a, b, tbi);
-    removeVertexFromMaps(a, tbi, rrm);
+    mergeCommon(build, rai, a, b);
 }
 
 static never_inline
-void findCandidates(const RoseBuildImpl &tbi, CandidateSet *candidates) {
-    ue2::unordered_set<RoseVertex> disallowed;
-
-    // We currently deny candidature to any vertex involved in a "ghost"
-    // relationship.
-    for (const auto &m : tbi.ghost) {
-        disallowed.insert(m.first);
-        disallowed.insert(m.second);
-    }
-
-    for (auto v : vertices_range(tbi.g)) {
-        // Ignore ghost relationships.
-        if (contains(disallowed, v)) {
-            continue;
-        }
-
-        if (isAliasingCandidate(v, tbi)) {
-            DEBUG_PRINTF("candidate %zu\n", tbi.g[v].idx);
-            DEBUG_PRINTF("lits: %u\n", *tbi.g[v].literals.begin());
+void findCandidates(const RoseBuildImpl &build, CandidateSet *candidates) {
+    for (auto v : vertices_range(build.g)) {
+        if (isAliasingCandidate(v, build)) {
+            DEBUG_PRINTF("candidate %zu\n", build.g[v].idx);
+            DEBUG_PRINTF("lits: %u\n", *build.g[v].literals.begin());
             candidates->insert(v);
         }
     }
 
-    assert(candidates->size() <= num_vertices(tbi.g));
+    assert(candidates->size() <= num_vertices(build.g));
     DEBUG_PRINTF("found %zu/%zu candidates\n", candidates->size(),
-                 num_vertices(tbi.g));
+                 num_vertices(build.g));
 }
 
 static
@@ -639,7 +707,7 @@ RoseVertex pickSucc(const RoseVertex v, const RoseGraph &g) {
 
 static
 RoseVertex pickPred(const RoseVertex v, const RoseGraph &g,
-                    const RoseBuildImpl &tbi) {
+                    const RoseBuildImpl &build) {
     RoseGraph::in_edge_iterator ei, ee;
     tie(ei, ee) = in_edges(v, g);
     if (ei == ee) {
@@ -650,7 +718,7 @@ RoseVertex pickPred(const RoseVertex v, const RoseGraph &g,
     // Avoid roots if we have other options, since it doesn't matter to the
     // merge pass which predecessor we pick.
     RoseVertex u = source(*ei, g);
-    while (tbi.isAnyStart(u) && ++ei != ee) {
+    while (build.isAnyStart(u) && ++ei != ee) {
         u = source(*ei, g);
     }
     return u;
@@ -700,12 +768,13 @@ bool hasCommonPredWithDiffRoses(RoseVertex a, RoseVertex b,
 }
 
 static
-void pruneReportIfUnused(const RoseBuildImpl &tbi, shared_ptr<NGHolder> h,
+void pruneReportIfUnused(const RoseBuildImpl &build, shared_ptr<NGHolder> h,
                          const set<RoseVertex> &verts, ReportID report) {
     DEBUG_PRINTF("trying to prune %u from %p (v %zu)\n", report, h.get(),
                  verts.size());
     for (RoseVertex v : verts) {
-        if (tbi.g[v].left.graph == h && tbi.g[v].left.leftfix_report == report) {
+        if (build.g[v].left.graph == h &&
+            build.g[v].left.leftfix_report == report) {
             DEBUG_PRINTF("report %u still in use\n", report);
             return;
         }
@@ -717,12 +786,12 @@ void pruneReportIfUnused(const RoseBuildImpl &tbi, shared_ptr<NGHolder> h,
         // unimplementable.
 
         DEBUG_PRINTF("report %u has been merged away, pruning\n", report);
-        assert(h->kind == tbi.isRootSuccessor(*verts.begin()) ? NFA_PREFIX
-                                                              : NFA_INFIX);
+        assert(h->kind == build.isRootSuccessor(*verts.begin()) ? NFA_PREFIX
+                                                                : NFA_INFIX);
         unique_ptr<NGHolder> h_new = cloneHolder(*h);
         pruneReport(*h_new, report);
 
-        if (isImplementableNFA(*h_new, nullptr, tbi.cc)) {
+        if (isImplementableNFA(*h_new, nullptr, build.cc)) {
             clear_graph(*h);
             cloneHolder(*h, *h_new);
         } else {
@@ -828,9 +897,9 @@ void pruneUnusedTops(NGHolder &h, const RoseGraph &g,
 }
 
 static
-bool mergeSameCastle(RoseBuildImpl &tbi, RoseVertex a, RoseVertex b,
-                     revRoseMap &rrm) {
-    RoseGraph &g = tbi.g;
+bool mergeSameCastle(RoseBuildImpl &build, RoseVertex a, RoseVertex b,
+                     RoseAliasingInfo &rai) {
+    RoseGraph &g = build.g;
     LeftEngInfo &a_left = g[a].left;
     LeftEngInfo &b_left = g[b].left;
     CastleProto &castle = *a_left.castle;
@@ -853,7 +922,7 @@ bool mergeSameCastle(RoseBuildImpl &tbi, RoseVertex a, RoseVertex b,
         return false;
     }
 
-    const ReportID new_report = tbi.getNewNfaReport();
+    const ReportID new_report = build.getNewNfaReport();
     map<u32, u32> a_top_map, b_top_map;
 
     for (const auto &c : castle.repeats) {
@@ -875,9 +944,9 @@ bool mergeSameCastle(RoseBuildImpl &tbi, RoseVertex a, RoseVertex b,
         }
     }
 
-    assert(contains(rrm[b_left], b));
-    rrm[b_left].erase(b);
-    rrm[a_left].insert(b);
+    assert(contains(rai.rev_leftfix[b_left], b));
+    rai.rev_leftfix[b_left].erase(b);
+    rai.rev_leftfix[a_left].insert(b);
 
     a_left.leftfix_report = new_report;
     b_left.leftfix_report = new_report;
@@ -886,15 +955,15 @@ bool mergeSameCastle(RoseBuildImpl &tbi, RoseVertex a, RoseVertex b,
     updateEdgeTops(g, a, a_top_map);
     updateEdgeTops(g, b, b_top_map);
 
-    pruneUnusedTops(castle, g, rrm[a_left]);
+    pruneUnusedTops(castle, g, rai.rev_leftfix[a_left]);
     return true;
 }
 
 static
-bool attemptRoseCastleMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
+bool attemptRoseCastleMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
                             RoseVertex b, bool trivialCasesOnly,
-                            revRoseMap &rrm) {
-    RoseGraph &g = tbi.g;
+                            RoseAliasingInfo &rai) {
+    RoseGraph &g = build.g;
     LeftEngInfo &a_left = g[a].left;
     LeftEngInfo &b_left = g[b].left;
     left_id a_left_id(a_left);
@@ -912,28 +981,28 @@ bool attemptRoseCastleMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
 
     if (&a_castle == &b_castle) {
         DEBUG_PRINTF("castles are the same\n");
-        return mergeSameCastle(tbi, a, b, rrm);
+        return mergeSameCastle(build, a, b, rai);
     }
 
     if (is_equal(a_castle, a_left.leftfix_report, b_castle,
                  b_left.leftfix_report)) {
         DEBUG_PRINTF("castles are equiv with respect to reports\n");
-        if (rrm[a_left_id].size() == 1) {
+        if (rai.rev_leftfix[a_left_id].size() == 1) {
             /* nobody else is using a_castle */
-            rrm[b_left_id].erase(b);
-            rrm[a_left_id].insert(b);
-            pruneUnusedTops(b_castle, g, rrm[b_left_id]);
+            rai.rev_leftfix[b_left_id].erase(b);
+            rai.rev_leftfix[a_left_id].insert(b);
+            pruneUnusedTops(b_castle, g, rai.rev_leftfix[b_left_id]);
             b_left.castle = a_left.castle;
             b_left.leftfix_report = a_left.leftfix_report;
             DEBUG_PRINTF("OK -> only user of a_castle\n");
             return true;
         }
 
-        if (rrm[b_left_id].size() == 1) {
+        if (rai.rev_leftfix[b_left_id].size() == 1) {
             /* nobody else is using b_castle */
-            rrm[a_left_id].erase(a);
-            rrm[b_left_id].insert(a);
-            pruneUnusedTops(a_castle, g, rrm[a_left_id]);
+            rai.rev_leftfix[a_left_id].erase(a);
+            rai.rev_leftfix[b_left_id].insert(a);
+            pruneUnusedTops(a_castle, g, rai.rev_leftfix[a_left_id]);
             a_left.castle = b_left.castle;
             a_left.leftfix_report = b_left.leftfix_report;
             DEBUG_PRINTF("OK -> only user of b_castle\n");
@@ -942,32 +1011,32 @@ bool attemptRoseCastleMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
 
         if (preds_same) {
             /* preds are the same anyway in diamond/left merges just need to
-             * check that all the literals in rrm[b_h] can handle a_h */
-            for (auto v : rrm[b_left_id]) {
-                if (!mergeableRoseVertices(tbi, a, v)) {
+             * check that all the literals in rev_leftfix[b_h] can handle a_h */
+            for (auto v : rai.rev_leftfix[b_left_id]) {
+                if (!mergeableRoseVertices(build, a, v)) {
                     goto literal_mismatch_1;
                 }
             }
 
-            rrm[a_left_id].erase(a);
-            rrm[b_left_id].insert(a);
-            pruneUnusedTops(a_castle, g, rrm[a_left_id]);
+            rai.rev_leftfix[a_left_id].erase(a);
+            rai.rev_leftfix[b_left_id].insert(a);
+            pruneUnusedTops(a_castle, g, rai.rev_leftfix[a_left_id]);
             a_left.castle = b_left.castle;
             a_left.leftfix_report = b_left.leftfix_report;
             DEBUG_PRINTF("OK -> same preds ???\n");
             return true;
         literal_mismatch_1:
             /* preds are the same anyway in diamond/left merges just need to
-             * check that all the literals in rrm[a_h] can handle b_h */
-            for (auto v : rrm[a_left_id]) {
-                if (!mergeableRoseVertices(tbi, v, b)) {
+             * check that all the literals in rev_leftfix[a_h] can handle b_h */
+            for (auto v : rai.rev_leftfix[a_left_id]) {
+                if (!mergeableRoseVertices(build, v, b)) {
                     goto literal_mismatch_2;
                 }
             }
 
-            rrm[b_left_id].erase(b);
-            rrm[a_left_id].insert(b);
-            pruneUnusedTops(b_castle, g, rrm[b_left_id]);
+            rai.rev_leftfix[b_left_id].erase(b);
+            rai.rev_leftfix[a_left_id].insert(b);
+            pruneUnusedTops(b_castle, g, rai.rev_leftfix[b_left_id]);
             b_left.castle = a_left.castle;
             b_left.leftfix_report = a_left.leftfix_report;
             DEBUG_PRINTF("OK -> same preds ???\n");
@@ -978,15 +1047,15 @@ bool attemptRoseCastleMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
         /* we need to create a new graph as there may be other people
          * using b_left and it would be bad if a's preds started triggering it
          */
-        ReportID new_report = tbi.getNewNfaReport();
+        ReportID new_report = build.getNewNfaReport();
         shared_ptr<CastleProto> new_castle = make_shared<CastleProto>(a_castle);
         pruneCastle(*new_castle, a_left.leftfix_report);
         setReports(*new_castle, new_report);
 
-        rrm[a_left_id].erase(a);
-        rrm[b_left_id].erase(b);
-        pruneUnusedTops(*a_left.castle, g, rrm[a_left_id]);
-        pruneUnusedTops(*b_left.castle, g, rrm[b_left_id]);
+        rai.rev_leftfix[a_left_id].erase(a);
+        rai.rev_leftfix[b_left_id].erase(b);
+        pruneUnusedTops(*a_left.castle, g, rai.rev_leftfix[a_left_id]);
+        pruneUnusedTops(*b_left.castle, g, rai.rev_leftfix[b_left_id]);
 
         a_left.leftfix_report = new_report;
         b_left.leftfix_report = new_report;
@@ -994,9 +1063,9 @@ bool attemptRoseCastleMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
         b_left.castle = new_castle;
 
         assert(a_left == b_left);
-        rrm[a_left].insert(a);
-        rrm[a_left].insert(b);
-        pruneUnusedTops(*new_castle, g, rrm[a_left]);
+        rai.rev_leftfix[a_left].insert(a);
+        rai.rev_leftfix[a_left].insert(b);
+        pruneUnusedTops(*new_castle, g, rai.rev_leftfix[a_left]);
         return true;
     }
 
@@ -1008,27 +1077,27 @@ bool attemptRoseCastleMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
 
     // Only infixes. Prefixes require special care when doing non-trivial
     // merges.
-    if (!tbi.isNonRootSuccessor(a) || !tbi.isNonRootSuccessor(b)) {
+    if (!build.isNonRootSuccessor(a) || !build.isNonRootSuccessor(b)) {
         return false;
     }
 
-    set<RoseVertex> &b_verts = rrm[b_left_id];
+    set<RoseVertex> &b_verts = rai.rev_leftfix[b_left_id];
     set<RoseVertex> aa;
     aa.insert(a);
 
-    if (!mergeableRoseVertices(tbi, aa, b_verts)) {
+    if (!mergeableRoseVertices(build, aa, b_verts)) {
         DEBUG_PRINTF("vertices not mergeable\n");
         return false;
     }
 
-    if (!tbi.cc.grey.roseMultiTopRoses || !tbi.cc.grey.allowCastle) {
+    if (!build.cc.grey.roseMultiTopRoses || !build.cc.grey.allowCastle) {
         return false;
     }
 
     DEBUG_PRINTF("merging into new castle\n");
 
     // Clone new castle with a's repeats in it, set to a new report.
-    ReportID new_report = tbi.getNewNfaReport();
+    ReportID new_report = build.getNewNfaReport();
     shared_ptr<CastleProto> m_castle = make_shared<CastleProto>(a_castle);
     pruneCastle(*m_castle, a_left.leftfix_report);
     setReports(*m_castle, new_report);
@@ -1070,10 +1139,10 @@ bool attemptRoseCastleMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
     DEBUG_PRINTF("merged into castle containing %zu repeats\n",
                   m_castle->repeats.size());
 
-    rrm[a_left_id].erase(a);
-    rrm[b_left_id].erase(b);
-    pruneUnusedTops(*a_left.castle, g, rrm[a_left_id]);
-    pruneUnusedTops(*b_left.castle, g, rrm[b_left_id]);
+    rai.rev_leftfix[a_left_id].erase(a);
+    rai.rev_leftfix[b_left_id].erase(b);
+    pruneUnusedTops(*a_left.castle, g, rai.rev_leftfix[a_left_id]);
+    pruneUnusedTops(*b_left.castle, g, rai.rev_leftfix[b_left_id]);
 
     a_left.castle = m_castle;
     a_left.leftfix_report = new_report;
@@ -1081,17 +1150,17 @@ bool attemptRoseCastleMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
     b_left.leftfix_report = new_report;
 
     assert(a_left == b_left);
-    rrm[a_left].insert(a);
-    rrm[a_left].insert(b);
-    pruneUnusedTops(*m_castle, g, rrm[a_left]);
+    rai.rev_leftfix[a_left].insert(a);
+    rai.rev_leftfix[a_left].insert(b);
+    pruneUnusedTops(*m_castle, g, rai.rev_leftfix[a_left]);
     return true;
 }
 
 static
-bool attemptRoseGraphMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
+bool attemptRoseGraphMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
                            RoseVertex b, bool trivialCasesOnly,
-                           revRoseMap &rrm) {
-    RoseGraph &g = tbi.g;
+                           RoseAliasingInfo &rai) {
+    RoseGraph &g = build.g;
     LeftEngInfo &a_left = g[a].left;
     LeftEngInfo &b_left = g[b].left;
     left_id a_left_id(a_left);
@@ -1108,72 +1177,74 @@ bool attemptRoseGraphMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
         DEBUG_PRINTF("OK -> same actual holder\n");
         ReportID a_oldreport = a_left.leftfix_report;
         ReportID b_oldreport = b_left.leftfix_report;
-        ReportID new_report = tbi.getNewNfaReport();
+        ReportID new_report = build.getNewNfaReport();
         duplicateReport(*a_h, a_left.leftfix_report, new_report);
         duplicateReport(*b_h, b_left.leftfix_report, new_report);
         a_left.leftfix_report = new_report;
         b_left.leftfix_report = new_report;
-        pruneReportIfUnused(tbi, b_h, rrm[b_left_id], a_oldreport);
-        pruneReportIfUnused(tbi, b_h, rrm[b_left_id], b_oldreport);
-        pruneUnusedTops(*b_h, g, rrm[b_left_id]);
+        pruneReportIfUnused(build, b_h, rai.rev_leftfix[b_left_id],
+                            a_oldreport);
+        pruneReportIfUnused(build, b_h, rai.rev_leftfix[b_left_id],
+                            b_oldreport);
+        pruneUnusedTops(*b_h, g, rai.rev_leftfix[b_left_id]);
         assert(a_left == b_left);
         return true;
     }
 
     /* if it is the same graph, it is also fairly easy */
     if (is_equal(*a_h, a_left.leftfix_report, *b_h, b_left.leftfix_report)) {
-        if (rrm[a_left_id].size() == 1) {
+        if (rai.rev_leftfix[a_left_id].size() == 1) {
             /* nobody else is using a_h */
-            rrm[b_left_id].erase(b);
-            rrm[a_left_id].insert(b);
+            rai.rev_leftfix[b_left_id].erase(b);
+            rai.rev_leftfix[a_left_id].insert(b);
             b_left.graph = a_h;
             b_left.leftfix_report = a_left.leftfix_report;
-            pruneUnusedTops(*b_h, g, rrm[b_left_id]);
+            pruneUnusedTops(*b_h, g, rai.rev_leftfix[b_left_id]);
             DEBUG_PRINTF("OK -> only user of a_h\n");
             return true;
         }
 
-        if (rrm[b_left_id].size() == 1) {
+        if (rai.rev_leftfix[b_left_id].size() == 1) {
             /* nobody else is using b_h */
-            rrm[a_left_id].erase(a);
-            rrm[b_left_id].insert(a);
+            rai.rev_leftfix[a_left_id].erase(a);
+            rai.rev_leftfix[b_left_id].insert(a);
             a_left.graph = b_h;
             a_left.leftfix_report = b_left.leftfix_report;
-            pruneUnusedTops(*a_h, g, rrm[a_left_id]);
+            pruneUnusedTops(*a_h, g, rai.rev_leftfix[a_left_id]);
             DEBUG_PRINTF("OK -> only user of b_h\n");
             return true;
         }
 
         if (preds_same) {
             /* preds are the same anyway in diamond/left merges just need to
-             * check that all the literals in rrm[b_h] can handle a_h */
-            for (auto v : rrm[b_left_id]) {
-                if (!mergeableRoseVertices(tbi, a, v)) {
+             * check that all the literals in rev_leftfix[b_h] can handle a_h */
+            for (auto v : rai.rev_leftfix[b_left_id]) {
+                if (!mergeableRoseVertices(build, a, v)) {
                     goto literal_mismatch_1;
                 }
             }
 
-            rrm[a_left_id].erase(a);
-            rrm[b_left_id].insert(a);
+            rai.rev_leftfix[a_left_id].erase(a);
+            rai.rev_leftfix[b_left_id].insert(a);
             a_left.graph = b_h;
             a_left.leftfix_report = b_left.leftfix_report;
-            pruneUnusedTops(*a_h, g, rrm[a_left_id]);
+            pruneUnusedTops(*a_h, g, rai.rev_leftfix[a_left_id]);
             DEBUG_PRINTF("OK -> same preds ???\n");
             return true;
         literal_mismatch_1:
             /* preds are the same anyway in diamond/left merges just need to
-             * check that all the literals in rrm[a_h] can handle b_h */
-            for (auto v : rrm[a_left_id]) {
-                if (!mergeableRoseVertices(tbi, v, b)) {
+             * check that all the literals in rev_leftfix[a_h] can handle b_h */
+            for (auto v : rai.rev_leftfix[a_left_id]) {
+                if (!mergeableRoseVertices(build, v, b)) {
                     goto literal_mismatch_2;
                 }
             }
 
-            rrm[b_left_id].erase(b);
-            rrm[a_left_id].insert(b);
+            rai.rev_leftfix[b_left_id].erase(b);
+            rai.rev_leftfix[a_left_id].insert(b);
             b_left.graph = a_h;
             b_left.leftfix_report = a_left.leftfix_report;
-            pruneUnusedTops(*b_h, g, rrm[b_left_id]);
+            pruneUnusedTops(*b_h, g, rai.rev_leftfix[b_left_id]);
             DEBUG_PRINTF("OK -> same preds ???\n");
             return true;
         literal_mismatch_2:;
@@ -1182,25 +1253,24 @@ bool attemptRoseGraphMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
         /* we need to create a new graph as there may be other people
          * using b_left and it would be bad if a's preds started triggering it
          */
-        ReportID new_report = tbi.getNewNfaReport();
+        ReportID new_report = build.getNewNfaReport();
         shared_ptr<NGHolder> new_graph = cloneHolder(*b_h);
         duplicateReport(*new_graph, b_left.leftfix_report, new_report);
-        pruneReportIfUnused(tbi, new_graph, set<NFAVertex>(),
-                            b_left.leftfix_report);
+        pruneAllOtherReports(*new_graph, new_report);
 
-        rrm[a_left_id].erase(a);
-        rrm[b_left_id].erase(b);
-        pruneUnusedTops(*a_h, g, rrm[a_left_id]);
-        pruneUnusedTops(*b_h, g, rrm[b_left_id]);
+        rai.rev_leftfix[a_left_id].erase(a);
+        rai.rev_leftfix[b_left_id].erase(b);
+        pruneUnusedTops(*a_h, g, rai.rev_leftfix[a_left_id]);
+        pruneUnusedTops(*b_h, g, rai.rev_leftfix[b_left_id]);
 
         a_left.leftfix_report = new_report;
         b_left.leftfix_report = new_report;
         a_left.graph = new_graph;
         b_left.graph = new_graph;
 
-        rrm[a_left].insert(a);
-        rrm[a_left].insert(b);
-        pruneUnusedTops(*new_graph, g, rrm[a_left]);
+        rai.rev_leftfix[a_left].insert(a);
+        rai.rev_leftfix[a_left].insert(b);
+        pruneUnusedTops(*new_graph, g, rai.rev_leftfix[a_left]);
         return true;
     }
 
@@ -1212,23 +1282,23 @@ bool attemptRoseGraphMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
 
     // Only infixes. Prefixes require special care when doing non-trivial
     // merges.
-    if (!tbi.isNonRootSuccessor(a) || !tbi.isNonRootSuccessor(b)) {
+    if (!build.isNonRootSuccessor(a) || !build.isNonRootSuccessor(b)) {
         return false;
     }
 
     DEBUG_PRINTF("attempting merge of roses on vertices %zu and %zu\n",
                  g[a].idx, g[b].idx);
 
-    set<RoseVertex> &b_verts = rrm[b_left];
+    set<RoseVertex> &b_verts = rai.rev_leftfix[b_left];
     set<RoseVertex> aa;
     aa.insert(a);
 
-    if (!mergeableRoseVertices(tbi, aa, b_verts)) {
+    if (!mergeableRoseVertices(build, aa, b_verts)) {
         DEBUG_PRINTF("vertices not mergeable\n");
         return false;
     }
 
-    if (!tbi.cc.grey.roseMultiTopRoses) {
+    if (!build.cc.grey.roseMultiTopRoses) {
         return false;
     }
 
@@ -1238,10 +1308,10 @@ bool attemptRoseGraphMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
     /* We need to allocate a new report id because */
     ReportID a_oldreport = a_left.leftfix_report;
     ReportID b_oldreport = b_left.leftfix_report;
-    ReportID new_report = tbi.getNewNfaReport();
+    ReportID new_report = build.getNewNfaReport();
     duplicateReport(*b_h, b_left.leftfix_report, new_report);
     b_left.leftfix_report = new_report;
-    pruneReportIfUnused(tbi, b_h, rrm[b_left_id], b_oldreport);
+    pruneReportIfUnused(build, b_h, rai.rev_leftfix[b_left_id], b_oldreport);
 
     NGHolder victim;
     cloneHolder(victim, *a_h);
@@ -1265,7 +1335,7 @@ bool attemptRoseGraphMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
     assert(victim.kind == b_h->kind);
     assert(!generates_callbacks(*b_h));
 
-    if (!mergeNfaPair(victim, *b_h, nullptr, tbi.cc)) {
+    if (!mergeNfaPair(victim, *b_h, nullptr, build.cc)) {
         DEBUG_PRINTF("merge failed\n");
         // Restore in-edge properties.
         for (const auto &e : in_edges_range(a, g)) {
@@ -1282,22 +1352,22 @@ bool attemptRoseGraphMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
     a_left.graph = b_h;
     a_left.leftfix_report = new_report;
 
-    assert(contains(rrm[a_left_id], a));
-    assert(contains(rrm[b_left_id], b));
-    rrm[a_left_id].erase(a);
-    rrm[b_left_id].insert(a);
+    assert(contains(rai.rev_leftfix[a_left_id], a));
+    assert(contains(rai.rev_leftfix[b_left_id], b));
+    rai.rev_leftfix[a_left_id].erase(a);
+    rai.rev_leftfix[b_left_id].insert(a);
 
-    pruneUnusedTops(*a_h, g, rrm[a_left_id]);
-    pruneUnusedTops(*b_h, g, rrm[b_left_id]);
+    pruneUnusedTops(*a_h, g, rai.rev_leftfix[a_left_id]);
+    pruneUnusedTops(*b_h, g, rai.rev_leftfix[b_left_id]);
 
     // Prune A's report from its old prefix if it was only used by A.
-    pruneReportIfUnused(tbi, a_h, rrm[a_left_id], a_oldreport);
+    pruneReportIfUnused(build, a_h, rai.rev_leftfix[a_left_id], a_oldreport);
 
-    reduceImplementableGraph(*b_h, SOM_NONE, nullptr, tbi.cc);
+    reduceImplementableGraph(*b_h, SOM_NONE, nullptr, build.cc);
 
     assert(roseHasTops(g, a));
     assert(roseHasTops(g, b));
-    assert(isImplementableNFA(*b_h, nullptr, tbi.cc));
+    assert(isImplementableNFA(*b_h, nullptr, build.cc));
     return true;
 }
 
@@ -1305,13 +1375,14 @@ bool attemptRoseGraphMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
 // the two LeftEngInfo structures to be the same. Returns false if the merge
 // is not possible.
 static
-bool attemptRoseMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
-                      RoseVertex b, bool trivialCasesOnly, revRoseMap &rrm) {
+bool attemptRoseMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
+                      RoseVertex b, bool trivialCasesOnly,
+                      RoseAliasingInfo &rai) {
     DEBUG_PRINTF("attempting rose merge, vertices a=%zu, b=%zu\n",
-                  tbi.g[a].idx, tbi.g[b].idx);
+                  build.g[a].idx, build.g[b].idx);
     assert(a != b);
 
-    RoseGraph &g = tbi.g;
+    RoseGraph &g = build.g;
     LeftEngInfo &a_left = g[a].left;
     LeftEngInfo &b_left = g[b].left;
 
@@ -1335,8 +1406,8 @@ bool attemptRoseMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
     }
 
     // Only non-transients for the moment.
-    if (contains(tbi.transient, a_left_id) ||
-        contains(tbi.transient, b_left_id)) {
+    if (contains(build.transient, a_left_id) ||
+        contains(build.transient, b_left_id)) {
         return false;
     }
 
@@ -1350,13 +1421,13 @@ bool attemptRoseMerge(RoseBuildImpl &tbi, bool preds_same, RoseVertex a,
     assert(roseHasTops(g, b));
 
     if (a_left_id.graph() && b_left_id.graph()) {
-        return attemptRoseGraphMerge(tbi, preds_same, a, b, trivialCasesOnly,
-                                     rrm);
+        return attemptRoseGraphMerge(build, preds_same, a, b, trivialCasesOnly,
+                                     rai);
     }
 
     if (a_left_id.castle() && b_left_id.castle()) {
-        return attemptRoseCastleMerge(tbi, preds_same, a, b, trivialCasesOnly,
-                                      rrm);
+        return attemptRoseCastleMerge(build, preds_same, a, b, trivialCasesOnly,
+                                      rai);
     }
 
     return false;
@@ -1481,8 +1552,8 @@ void splitByNeighbour(const RoseGraph &g, vector<vector<RoseVertex>> &buckets,
 }
 
 static
-vector<vector<RoseVertex>> splitDiamondMergeBuckets(CandidateSet &candidates,
-                                                    const RoseBuildImpl &build) {
+vector<vector<RoseVertex>>
+splitDiamondMergeBuckets(CandidateSet &candidates, const RoseBuildImpl &build) {
     const RoseGraph &g = build.g;
 
     vector<vector<RoseVertex>> buckets(1);
@@ -1499,19 +1570,20 @@ vector<vector<RoseVertex>> splitDiamondMergeBuckets(CandidateSet &candidates,
 
     return buckets;
 }
+
 static never_inline
-void diamondMergePass(CandidateSet &candidates, RoseBuildImpl &tbi,
+void diamondMergePass(CandidateSet &candidates, RoseBuildImpl &build,
                       vector<RoseVertex> *dead, bool mergeRoses,
-                      revRoseMap &rrm) {
+                      RoseAliasingInfo &rai) {
     DEBUG_PRINTF("begin\n");
-    RoseGraph &g = tbi.g;
+    RoseGraph &g = build.g;
 
     if (candidates.empty()) {
         return;
     }
 
     /* Vertices may only be diamond merged with others in the same bucket */
-    auto cand_buckets = splitDiamondMergeBuckets(candidates, tbi);
+    auto cand_buckets = splitDiamondMergeBuckets(candidates, build);
 
     for (const vector<RoseVertex> &siblings : cand_buckets) {
         for (auto it = siblings.begin(); it != siblings.end();) {
@@ -1525,7 +1597,7 @@ void diamondMergePass(CandidateSet &candidates, RoseBuildImpl &tbi,
                 RoseVertex b = *jt;
                 assert(contains(candidates, b));
 
-                if (!sameRoleProperties(tbi, a, b)) {
+                if (!sameRoleProperties(build, rai, a, b)) {
                     DEBUG_PRINTF("diff role prop\n");
                     continue;
                 }
@@ -1536,23 +1608,23 @@ void diamondMergePass(CandidateSet &candidates, RoseBuildImpl &tbi,
                  * so we still have to checks successors and predecessors. */
 
                 if (!sameSuccessors(a, b, g)
-                    || !sameRightRoleProperties(tbi, a, b)
+                    || !sameRightRoleProperties(build, a, b)
                     || !samePredecessors(a, b, g)) {
                     DEBUG_PRINTF("not diamond\n");
                     continue;
                 }
 
-                if (!canMergeLiterals(a, b, tbi)) {
+                if (!canMergeLiterals(a, b, build)) {
                     DEBUG_PRINTF("incompatible lits\n");
                     continue;
                 }
 
-                if (!attemptRoseMerge(tbi, true, a, b, !mergeRoses, rrm)) {
+                if (!attemptRoseMerge(build, true, a, b, !mergeRoses, rai)) {
                     DEBUG_PRINTF("rose fail\n");
                     continue;
                 }
 
-                mergeVerticesDiamond(a, b, tbi, rrm);
+                mergeVerticesDiamond(a, b, build, rai);
                 dead->push_back(a);
                 candidates.erase(a);
                 break; // next a
@@ -1568,6 +1640,7 @@ vector<RoseVertex>::iterator findLeftMergeSibling(
                           vector<RoseVertex>::iterator it,
                           const vector<RoseVertex>::iterator &end,
                           const RoseVertex a, const RoseBuildImpl &build,
+                          const RoseAliasingInfo &rai,
                           const CandidateSet &candidates) {
     const RoseGraph &g = build.g;
 
@@ -1581,7 +1654,7 @@ vector<RoseVertex>::iterator findLeftMergeSibling(
             continue;
         }
 
-        if (!sameRoleProperties(build, a, b)) {
+        if (!sameRoleProperties(build, rai, a, b)) {
             continue;
         }
 
@@ -1611,10 +1684,10 @@ vector<RoseVertex>::iterator findLeftMergeSibling(
 }
 
 static never_inline
-void leftMergePass(CandidateSet &candidates, RoseBuildImpl &tbi,
-                   vector<RoseVertex> *dead, revRoseMap &rrm) {
+void leftMergePass(CandidateSet &candidates, RoseBuildImpl &build,
+                   vector<RoseVertex> *dead, RoseAliasingInfo &rai) {
     DEBUG_PRINTF("begin (%zu)\n", candidates.size());
-    RoseGraph &g = tbi.g;
+    RoseGraph &g = build.g;
     vector<RoseVertex> siblings;
 
     CandidateSet::iterator it = candidates.begin();
@@ -1629,11 +1702,11 @@ void leftMergePass(CandidateSet &candidates, RoseBuildImpl &tbi,
 
         assert(!g[a].literals.empty());
         u32 lit_id = *g[a].literals.begin();
-        const auto &verts = tbi.literal_info.at(lit_id).vertices;
-        RoseVertex pred = pickPred(a, g, tbi);
+        const auto &verts = build.literal_info.at(lit_id).vertices;
+        RoseVertex pred = pickPred(a, g, build);
 
         siblings.clear();
-        if (pred == RoseGraph::null_vertex() || tbi.isAnyStart(pred) ||
+        if (pred == RoseGraph::null_vertex() || build.isAnyStart(pred) ||
                     hasGreaterOutDegree(verts.size(), pred, g)) {
             // Select sibling from amongst the vertices that share a literal.
             siblings.insert(siblings.end(), verts.begin(), verts.end());
@@ -1645,20 +1718,20 @@ void leftMergePass(CandidateSet &candidates, RoseBuildImpl &tbi,
 
         sort(siblings.begin(), siblings.end(), VertexIndexComp(g));
 
-        auto jt = findLeftMergeSibling(siblings.begin(), siblings.end(), a, tbi,
-                                       candidates);
+        auto jt = findLeftMergeSibling(siblings.begin(), siblings.end(), a,
+                                       build, rai, candidates);
         if (jt == siblings.end()) {
             continue;
         }
 
         RoseVertex b = *jt;
 
-        if (!attemptRoseMerge(tbi, true, a, b, 0, rrm)) {
+        if (!attemptRoseMerge(build, true, a, b, 0, rai)) {
             DEBUG_PRINTF("rose fail\n");
             continue;
         }
 
-        mergeVertices(a, b, tbi, rrm);
+        mergeVerticesLeft(a, b, build, rai);
         dead->push_back(a);
         candidates.erase(ait);
     }
@@ -1693,6 +1766,7 @@ vector<RoseVertex>::const_iterator findRightMergeSibling(
                            vector<RoseVertex>::const_iterator it,
                            const vector<RoseVertex>::const_iterator &end,
                            const RoseVertex a, const RoseBuildImpl &build,
+                           const RoseAliasingInfo &rai,
                            const CandidateSet &candidates) {
     const RoseGraph &g = build.g;
 
@@ -1706,7 +1780,7 @@ vector<RoseVertex>::const_iterator findRightMergeSibling(
             continue;
         }
 
-        if (!sameRoleProperties(build, a, b)) {
+        if (!sameRoleProperties(build, rai, a, b)) {
             continue;
         }
 
@@ -1764,10 +1838,10 @@ void split(map<RoseVertex, size_t> &keys, size_t *next_key, Iter it,
 }
 
 static never_inline
-void buildCandidateRightSiblings(CandidateSet &candidates, RoseBuildImpl &tbi,
-                                 map<size_t, vector<RoseVertex> > &sibling_cache,
+void buildCandidateRightSiblings(CandidateSet &candidates, RoseBuildImpl &build,
+                                 map<size_t, vector<RoseVertex>> &sibling_cache,
                                  map<RoseVertex, size_t> &keys_ext) {
-    RoseGraph &g = tbi.g;
+    RoseGraph &g = build.g;
 
     size_t next_key = 1;
     map<RoseVertex, size_t> keys;
@@ -1783,7 +1857,7 @@ void buildCandidateRightSiblings(CandidateSet &candidates, RoseBuildImpl &tbi,
         assert(!g[a].literals.empty());
         u32 lit_id = *g[a].literals.begin();
         RoseVertex succ = pickSucc(a, g);
-        const auto &verts = tbi.literal_info.at(lit_id).vertices;
+        const auto &verts = build.literal_info.at(lit_id).vertices;
         if (succ != RoseGraph::null_vertex() &&
                 !hasGreaterInDegree(verts.size(), succ, g)) {
             if (!done_succ.insert(succ).second) {
@@ -1818,28 +1892,28 @@ void buildCandidateRightSiblings(CandidateSet &candidates, RoseBuildImpl &tbi,
     }
 
     for (auto &siblings : sibling_cache | map_values) {
-        sort(siblings.begin(), siblings.end(), VertexIndexComp(tbi.g));
+        sort(siblings.begin(), siblings.end(), VertexIndexComp(build.g));
     }
 }
 
 static
 const vector<RoseVertex> &getCandidateRightSiblings(
-                         const map<size_t, vector<RoseVertex> > &sibling_cache,
+                         const map<size_t, vector<RoseVertex>> &sibling_cache,
                          map<RoseVertex, size_t> &keys, RoseVertex a) {
     size_t key = keys.at(a);
     return sibling_cache.at(key);
 }
 
 static never_inline
-void rightMergePass(CandidateSet &candidates, RoseBuildImpl &tbi,
+void rightMergePass(CandidateSet &candidates, RoseBuildImpl &build,
                     vector<RoseVertex> *dead, bool mergeRoses,
-                    revRoseMap &rrm) {
+                    RoseAliasingInfo &rai) {
     DEBUG_PRINTF("begin\n");
 
-    map<size_t, vector<RoseVertex> > sibling_cache;
+    map<size_t, vector<RoseVertex>> sibling_cache;
     map<RoseVertex, size_t> keys;
 
-    buildCandidateRightSiblings(candidates, tbi, sibling_cache, keys);
+    buildCandidateRightSiblings(candidates, build, sibling_cache, keys);
 
     CandidateSet::iterator it = candidates.begin();
     while (it != candidates.end()) {
@@ -1856,11 +1930,12 @@ void rightMergePass(CandidateSet &candidates, RoseBuildImpl &tbi,
 
         auto jt = siblings.begin();
         while (jt != siblings.end()) {
-            jt = findRightMergeSibling(jt, siblings.end(), a, tbi, candidates);
+            jt = findRightMergeSibling(jt, siblings.end(), a, build, rai,
+                                       candidates);
             if (jt == siblings.end()) {
                 break;
             }
-            if (attemptRoseMerge(tbi, false, a, *jt, !mergeRoses, rrm)) {
+            if (attemptRoseMerge(build, false, a, *jt, !mergeRoses, rai)) {
                 break;
             }
             ++jt;
@@ -1871,7 +1946,7 @@ void rightMergePass(CandidateSet &candidates, RoseBuildImpl &tbi,
         }
 
         RoseVertex b = *jt;
-        mergeVertices(a, b, tbi, rrm);
+        mergeVerticesRight(a, b, build, rai);
         dead->push_back(a);
         candidates.erase(ait);
     }
@@ -1947,10 +2022,9 @@ void aliasRoles(RoseBuildImpl &build, bool mergeRoses) {
         return;
     }
 
-    revRoseMap rrm;
-
     DEBUG_PRINTF("doing role aliasing mr=%d\n", (int)mergeRoses);
-    populateRevRoseMap(g, &rrm);
+
+    RoseAliasingInfo rai(build);
 
     mergeRoses &= cc.grey.mergeRose & cc.grey.roseMergeRosesDuringAliasing;
 
@@ -1963,8 +2037,8 @@ void aliasRoles(RoseBuildImpl &build, bool mergeRoses) {
     size_t old_dead_size = 0;
     do {
         old_dead_size = dead.size();
-        leftMergePass(candidates, build, &dead, rrm);
-        rightMergePass(candidates, build, &dead, mergeRoses, rrm);
+        leftMergePass(candidates, build, &dead, rai);
+        rightMergePass(candidates, build, &dead, mergeRoses, rai);
     } while (old_dead_size != dead.size());
 
     /* Diamond merge passes cannot create extra merges as they require the same
@@ -1972,7 +2046,7 @@ void aliasRoles(RoseBuildImpl &build, bool mergeRoses) {
      * to a merge to different pred/succ before a diamond merge, it will still
      * be afterwards. */
     filterDiamondCandidates(g, candidates);
-    diamondMergePass(candidates, build, &dead, mergeRoses, rrm);
+    diamondMergePass(candidates, build, &dead, mergeRoses, rai);
 
     DEBUG_PRINTF("killed %zu vertices\n", dead.size());
     build.removeVertices(dead);

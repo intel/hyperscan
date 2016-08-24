@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -64,10 +64,6 @@ namespace {
 /* Small literal graph type used for the suffix tree used in
  * compressAndScore. */
 
-typedef boost::adjacency_list_traits<boost::vecS, boost::vecS,
-                                     boost::bidirectionalS> LitGraphTraits;
-typedef LitGraphTraits::vertex_descriptor LitVertex;
-typedef LitGraphTraits::edge_descriptor LitEdge;
 
 struct LitGraphVertexProps {
     LitGraphVertexProps() {}
@@ -79,11 +75,15 @@ struct LitGraphEdgeProps {
     LitGraphEdgeProps() {}
     explicit LitGraphEdgeProps(u64a score_in) : score(score_in) {}
     u64a score = NO_LITERAL_AT_EDGE_SCORE;
+    size_t index; /* only initialised when the reverse edges are added. */
 };
 
+/* keep edgeList = listS as you cannot remove edges if edgeList = vecS */
 typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS,
                               LitGraphVertexProps, LitGraphEdgeProps,
                               boost::no_property> LitGraph;
+typedef LitGraph::vertex_descriptor LitVertex;
+typedef LitGraph::edge_descriptor LitEdge;
 
 typedef pair<LitVertex, NFAVertex> VertexPair;
 typedef std::queue<VertexPair> LitVertexQ;
@@ -339,6 +339,12 @@ void processWorkQueue(const NGHolder &g, const NFAEdge &e,
                  g[source(e, g)].index, g[target(e, g)].index, s.size());
 }
 
+bool bad_mixed_sensitivity(const ue2_literal &s) {
+    /* TODO: if the mixed cases is entirely within MAX_MASK2_WIDTH of the end,
+     * we should be able to handle it */
+    return mixed_sensitivity(s) && s.length() > MAX_MASK2_WIDTH;
+}
+
 static
 u64a litUniqueness(const string &s) {
     CharReach seen(s);
@@ -474,43 +480,36 @@ const char *describeColor(boost::default_color_type c) {
 
 /**
  * The BGL's boykov_kolmogorov_max_flow requires that all edges have their
- * reverse edge in the graph. This function adds them, returning the new edges
- * and constructing a map of (edge, rev edge).
+ * reverse edge in the graph. This function adds them, returning a vector
+ * mapping edge index to reverse edge. Note: LitGraph should be a DAG so there
+ * should be no existing reverse_edges.
  */
 static
-vector<LitEdge> addReverseEdges(LitGraph &lg,
-                ue2::unordered_map<LitEdge, LitEdge> &reverse_edge_map) {
-    vector<LitEdge> reverseMe;
+vector<LitEdge> add_reverse_edges_and_index(LitGraph &lg) {
+    vector<LitEdge> fwd_edges;
 
-    reverse_edge_map.clear();
-    reverse_edge_map.reserve(num_edges(lg) * 2);
-
+    size_t next_index = 0;
     for (const auto &e : edges_range(lg)) {
-        LitVertex u = source(e, lg), v = target(e, lg);
-        assert(u != v);
-
-        bool exists;
-        LitEdge rev;
-        tie(rev, exists) = edge(v, u, lg);
-        if (exists) {
-            reverse_edge_map[e] = rev;
-        } else {
-            reverseMe.push_back(e);
-        }
+        lg[e].index = next_index++;
+        fwd_edges.push_back(e);
     }
 
-    vector<LitEdge> reverseEdges;
-    reverseEdges.reserve(reverseMe.size());
+    vector<LitEdge> rev_map(2 * num_edges(lg));
 
-    for (const auto &e : reverseMe) {
-        LitVertex u = source(e, lg), v = target(e, lg);
-        LitEdge rev = add_edge(v, u, lg[e], lg).first;
-        reverseEdges.push_back(rev);
-        reverse_edge_map[e] = rev;
-        reverse_edge_map[rev] = e;
+    for (const auto &e : fwd_edges) {
+        LitVertex u = source(e, lg);
+        LitVertex v = target(e, lg);
+
+        assert(!edge(v, u, lg).second);
+
+        LitEdge rev = add_edge(v, u, lg).first;
+        lg[rev].score = 0;
+        lg[rev].index = next_index++;
+        rev_map[lg[e].index] = rev;
+        rev_map[lg[rev].index] = e;
     }
 
-    return reverseEdges;
+    return rev_map;
 }
 
 static
@@ -522,33 +521,33 @@ void findMinCut(LitGraph &lg, const LitVertex &root, const LitVertex &sink,
 
     assert(!in_degree(root, lg));
     assert(!out_degree(sink, lg));
+    size_t num_real_edges = num_edges(lg);
 
     // Add reverse edges for the convenience of the BGL's max flow algorithm.
-    ue2::unordered_map<LitEdge, LitEdge> reverse_edge_map;
-    vector<LitEdge> tempEdges = addReverseEdges(lg, reverse_edge_map);
+    vector<LitEdge> rev_edges = add_reverse_edges_and_index(lg);
 
     const auto v_index_map = get(vertex_index, lg);
+    const auto e_index_map = get(&LitGraphEdgeProps::index, lg);
     const size_t num_verts = num_vertices(lg);
     vector<boost::default_color_type> colors(num_verts);
     vector<s32> distances(num_verts);
     vector<LitEdge> predecessors(num_verts);
-    ue2::unordered_map<LitEdge, u64a> residuals;
-    residuals.reserve(num_edges(lg));
+    vector<u64a> residuals(num_edges(lg));
 
     UNUSED u64a flow = boykov_kolmogorov_max_flow(lg,
             get(&LitGraphEdgeProps::score, lg),
-            make_assoc_property_map(residuals),
-            make_assoc_property_map(reverse_edge_map),
+            make_iterator_property_map(residuals.begin(), e_index_map),
+            make_iterator_property_map(rev_edges.begin(), e_index_map),
             make_iterator_property_map(predecessors.begin(), v_index_map),
             make_iterator_property_map(colors.begin(), v_index_map),
             make_iterator_property_map(distances.begin(), v_index_map),
-            get(vertex_index, lg), root, sink);
+            v_index_map, root, sink);
     DEBUG_PRINTF("done, flow = %llu\n", flow);
 
-    // Remove temporary reverse edges.
-    for (const auto &e : tempEdges) {
-        remove_edge(e, lg);
-    }
+    /* remove reverse edges */
+    remove_edge_if([&](const LitEdge &e) {
+                       return lg[e].index >= num_real_edges;
+                   }, lg);
 
     vector<LitEdge> white_cut, black_cut;
     u64a white_flow = 0, black_flow = 0;
@@ -631,6 +630,48 @@ u64a compressAndScore(set<ue2_literal> &s) {
     return score;
 }
 
+/* like compressAndScore, but replaces long mixed sensitivity literals with
+ * something weaker. */
+u64a sanitizeAndCompressAndScore(set<ue2_literal> &lits) {
+    const size_t maxExploded = 8; // only case-explode this far
+
+    /* TODO: the whole compression thing could be made better by systematically
+     * considering replacing literal sets not just by common suffixes but also
+     * by nocase literals. */
+
+    vector<ue2_literal> replacements;
+
+    for (auto it = lits.begin(); it != lits.end();) {
+        auto jt = it;
+        ++it;
+
+        if (!bad_mixed_sensitivity(*jt)) {
+            continue;
+        }
+
+        /* we have to replace *jt with something... */
+        ue2_literal s = *jt;
+        lits.erase(jt);
+
+        vector<ue2_literal> exploded;
+        for (auto cit = caseIterateBegin(s); cit != caseIterateEnd(); ++cit) {
+            exploded.emplace_back(*cit, false);
+            if (exploded.size() > maxExploded) {
+                goto dont_explode;
+            }
+        }
+        insert(&replacements, replacements.end(), exploded);
+
+        continue;
+    dont_explode:
+        make_nocase(&s);
+        replacements.push_back(s);
+    }
+
+    insert(&lits, replacements);
+    return compressAndScore(lits);
+}
+
 u64a scoreSet(const set<ue2_literal> &s) {
     if (s.empty()) {
         return NO_LITERAL_AT_EDGE_SCORE;
@@ -681,7 +722,7 @@ set<ue2_literal> getLiteralSet(const NGHolder &g, const NFAVertex &v,
     return s;
 }
 
-vector<u64a> scoreEdges(const NGHolder &g) {
+vector<u64a> scoreEdges(const NGHolder &g, const flat_set<NFAEdge> &known_bad) {
     assert(hasCorrectlyNumberedEdges(g));
 
     vector<u64a> scores(num_edges(g));
@@ -689,8 +730,12 @@ vector<u64a> scoreEdges(const NGHolder &g) {
     for (const auto &e : edges_range(g)) {
         u32 eidx = g[e].index;
         assert(eidx < scores.size());
-        set<ue2_literal> ls = getLiteralSet(g, e);
-        scores[eidx] = compressAndScore(ls);
+        if (contains(known_bad, e)) {
+            scores[eidx] = NO_LITERAL_AT_EDGE_SCORE;
+        } else {
+            set<ue2_literal> ls = getLiteralSet(g, e);
+            scores[eidx] = compressAndScore(ls);
+        }
     }
 
     return scores;
@@ -846,6 +891,51 @@ bool getTrailingLiteral(const NGHolder &g, ue2_literal *lit_out) {
     }
 
     *lit_out = lit;
+    return true;
+}
+
+bool literalIsWholeGraph(const NGHolder &g, const ue2_literal &lit) {
+    NFAVertex v = g.accept;
+
+    for (auto it = lit.rbegin(), ite = lit.rend(); it != ite; ++it) {
+        NGHolder::inv_adjacency_iterator ai, ae;
+        tie(ai, ae) = inv_adjacent_vertices(v, g);
+        if (ai == ae) {
+            assert(0); // no predecessors?
+            return false;
+        }
+        v = *ai++;
+        if (ai != ae) {
+            DEBUG_PRINTF("branch, fail\n");
+            return false;
+        }
+
+        if (is_special(v, g)) {
+            DEBUG_PRINTF("special found, fail\n");
+            return false;
+        }
+
+        const CharReach &cr_g = g[v].char_reach;
+        const CharReach &cr_l = *it;
+
+        if (!cr_l.isSubsetOf(cr_g)) {
+            /* running over the prefix is needed to prevent false postives */
+            DEBUG_PRINTF("reach fail\n");
+            return false;
+        }
+    }
+
+    // Our last value for v should have only start states for predecessors.
+    for (auto u : inv_adjacent_vertices_range(v, g)) {
+        if (!is_any_start(u, g)) {
+            DEBUG_PRINTF("pred is not start\n");
+            return false;
+        }
+    }
+
+    assert(num_vertices(g) == lit.length() + N_SPECIALS);
+
+    DEBUG_PRINTF("ok\n");
     return true;
 }
 

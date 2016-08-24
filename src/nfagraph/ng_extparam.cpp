@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -294,21 +294,21 @@ bool anchorPatternWithBoundedRepeat(NGWrapper &g, const depth &minWidth,
 
 static
 NFAVertex findSingleCyclic(const NGHolder &g) {
-    NFAVertex v = NFAGraph::null_vertex();
+    NFAVertex v = NGHolder::null_vertex();
     for (const auto &e : edges_range(g)) {
         if (source(e, g) == target(e, g)) {
             if (source(e, g) == g.startDs) {
                 continue;
             }
-            if (v != NFAGraph::null_vertex()) {
+            if (v != NGHolder::null_vertex()) {
                 // More than one cyclic vertex.
-                return NFAGraph::null_vertex();
+                return NGHolder::null_vertex();
             }
             v = source(e, g);
         }
     }
 
-    if (v != NFAGraph::null_vertex()) {
+    if (v != NGHolder::null_vertex()) {
         DEBUG_PRINTF("cyclic is %u\n", g[v].index);
         assert(!is_special(v, g));
     }
@@ -359,11 +359,11 @@ bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
     // The graph must contain a single cyclic vertex (other than startDs), and
     // that vertex can have one pred and one successor.
     NFAVertex cyclic = findSingleCyclic(g);
-    if (cyclic == NFAGraph::null_vertex()) {
+    if (cyclic == NGHolder::null_vertex()) {
         return false;
     }
 
-    NFAGraph::adjacency_iterator ai, ae;
+    NGHolder::adjacency_iterator ai, ae;
     tie(ai, ae) = adjacent_vertices(g.start, g);
     if (*ai == g.startDs) {
         ++ai;
@@ -411,7 +411,7 @@ bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
 
     // Check the cyclic state is A-OK.
     v = getSoleDestVertex(g, cyclic);
-    if (v == NFAGraph::null_vertex()) {
+    if (v == NGHolder::null_vertex()) {
         DEBUG_PRINTF("cyclic has more than one successor\n");
         return false;
     }

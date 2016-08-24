@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -73,7 +73,7 @@ void smwrDumpNFA(const SmallWriteEngine *smwr, bool dump_raw,
     FILE *f;
 
     f = fopen((base + "smallwrite_nfa.dot").c_str(), "w");
-    nfaDumpDot(n, f);
+    nfaDumpDot(n, f, base);
     fclose(f);
 
     f = fopen((base + "smallwrite_nfa.txt").c_str(), "w");

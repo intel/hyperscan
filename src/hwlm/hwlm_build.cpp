@@ -35,9 +35,11 @@
 #include "hwlm_internal.h"
 #include "noodle_engine.h"
 #include "noodle_build.h"
+#include "scratch.h"
 #include "ue2common.h"
 #include "fdr/fdr_compile.h"
 #include "nfa/shufticompile.h"
+#include "nfa/trufflecompile.h"
 #include "util/alloc.h"
 #include "util/bitutils.h"
 #include "util/charreach.h"
@@ -61,6 +63,28 @@ namespace ue2 {
 
 static const unsigned int MAX_ACCEL_OFFSET = 16;
 static const unsigned int MAX_SHUFTI_WIDTH = 240;
+
+static
+size_t mask_overhang(const hwlmLiteral &lit) {
+    size_t msk_true_size = lit.msk.size();
+    assert(msk_true_size <= HWLM_MASKLEN);
+    assert(HWLM_MASKLEN <= MAX_ACCEL_OFFSET);
+    for (u8 c : lit.msk) {
+        if (!c) {
+            msk_true_size--;
+        } else {
+            break;
+        }
+    }
+
+    if (lit.s.length() >= msk_true_size) {
+        return 0;
+    }
+
+    /* only short literals should be able to have a mask which overhangs */
+    assert(lit.s.length() < MAX_ACCEL_OFFSET);
+    return msk_true_size - lit.s.length();
+}
 
 static
 bool findDVerm(const vector<const hwlmLiteral *> &lits, AccelAux *aux) {
@@ -167,7 +191,8 @@ bool findDVerm(const vector<const hwlmLiteral *> &lits, AccelAux *aux) {
                 }
 
                 if (found) {
-                    curr.max_offset = MAX(curr.max_offset, j);
+                    assert(j + mask_overhang(lit) <= MAX_ACCEL_OFFSET);
+                    ENSURE_AT_LEAST(&curr.max_offset, j + mask_overhang(lit));
                     break;
                 }
             }
@@ -288,8 +313,8 @@ bool findSVerm(const vector<const hwlmLiteral *> &lits, AccelAux *aux) {
                 }
 
                 if (found) {
-                    curr.max_offset = MAX(curr.max_offset, j);
-                    break;
+                    assert(j + mask_overhang(lit) <= MAX_ACCEL_OFFSET);
+                    ENSURE_AT_LEAST(&curr.max_offset, j + mask_overhang(lit));
                 }
             }
         }
@@ -347,6 +372,25 @@ void filterLits(const vector<hwlmLiteral> &lits, hwlm_group_t expected_groups,
 }
 
 static
+bool litGuardedByCharReach(const CharReach &cr, const hwlmLiteral &lit,
+                           u32 max_offset) {
+    for (u32 i = 0; i <= max_offset && i < lit.s.length(); i++) {
+         unsigned char c = lit.s[i];
+         if (lit.nocase) {
+             if (cr.test(mytoupper(c)) && cr.test(mytolower(c))) {
+                 return true;
+             }
+         } else {
+             if (cr.test(c)) {
+                 return true;
+             }
+         }
+    }
+
+    return false;
+}
+
+static
 void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
                             hwlm_group_t expected_groups, AccelAux *aux) {
     DEBUG_PRINTF("building accel expected=%016llx\n", expected_groups);
@@ -363,29 +407,45 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
         return;
     }
 
+    /* look for shufti/truffle */
+
     vector<CharReach> reach(MAX_ACCEL_OFFSET, CharReach());
     for (const auto &lit : lits) {
         if (!(lit.groups & expected_groups)) {
             continue;
         }
 
-        for (u32 i = 0; i < MAX_ACCEL_OFFSET && i < lit.s.length(); i++) {
-            unsigned char c = lit.s[i];
+        u32 overhang = mask_overhang(lit);
+        for (u32 i = 0; i < overhang; i++) {
+            /* this offset overhangs the start of the real literal; look at the
+             * msk/cmp */
+            for (u32 j = 0; j < N_CHARS; j++) {
+                if ((j & lit.msk[i]) == lit.cmp[i]) {
+                    reach[i].set(j);
+                }
+            }
+        }
+        for (u32 i = overhang; i < MAX_ACCEL_OFFSET; i++) {
+            CharReach &reach_i = reach[i];
+            u32 i_effective = i - overhang;
+
+            if (litGuardedByCharReach(reach_i, lit, i_effective)) {
+                continue;
+            }
+            unsigned char c = i_effective < lit.s.length() ? lit.s[i_effective]
+                                                           : lit.s.back();
             if (lit.nocase) {
-                DEBUG_PRINTF("adding %02hhx to %u\n", mytoupper(c), i);
-                DEBUG_PRINTF("adding %02hhx to %u\n", mytolower(c), i);
-                reach[i].set(mytoupper(c));
-                reach[i].set(mytolower(c));
+                reach_i.set(mytoupper(c));
+                reach_i.set(mytolower(c));
             } else {
-                DEBUG_PRINTF("adding %02hhx to %u\n", c, i);
-                reach[i].set(c);
+                reach_i.set(c);
             }
         }
     }
 
     u32 min_count = ~0U;
     u32 min_offset = ~0U;
-    for (u32 i = 0; i < min_len; i++) {
+    for (u32 i = 0; i < MAX_ACCEL_OFFSET; i++) {
         size_t count = reach[i].count();
         DEBUG_PRINTF("offset %u is %s (reach %zu)\n", i,
                      describeClass(reach[i]).c_str(), count);
@@ -394,10 +454,9 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
             min_offset = i;
         }
     }
-    assert(min_offset <= min_len);
 
     if (min_count > MAX_SHUFTI_WIDTH) {
-        DEBUG_PRINTF("min shufti with %u chars is too wide\n", min_count);
+        DEBUG_PRINTF("FAIL: min shufti with %u chars is too wide\n", min_count);
         return;
     }
 
@@ -410,7 +469,11 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
         return;
     }
 
-    DEBUG_PRINTF("fail\n");
+    truffleBuildMasks(cr, &aux->truffle.mask1, &aux->truffle.mask2);
+    DEBUG_PRINTF("built truffle for %s (%zu chars, offset %u)\n",
+                 describeClass(cr).c_str(), cr.count(), min_offset);
+    aux->truffle.accel_type = ACCEL_TRUFFLE;
+    aux->truffle.offset = verify_u8(min_offset);
 }
 
 static
@@ -464,6 +527,10 @@ bool isNoodleable(const vector<hwlmLiteral> &lits,
             DEBUG_PRINTF("length of %zu too long for history max %zu\n",
                          lits.front().s.length(),
                          stream_control->history_max);
+            return false;
+        }
+        if (2 * lits.front().s.length() - 2 > FDR_TEMP_BUF_SIZE) {
+            assert(0);
             return false;
         }
     }

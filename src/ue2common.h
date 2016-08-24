@@ -52,6 +52,9 @@
 #define ALIGN_ATTR(x) __attribute__((aligned((x))))
 #endif
 
+#define ALIGN_DIRECTIVE ALIGN_ATTR(16)
+#define ALIGN_AVX_DIRECTIVE ALIGN_ATTR(32)
+#define ALIGN_CL_DIRECTIVE ALIGN_ATTR(64)
 
 typedef signed char s8;
 typedef unsigned char u8;
@@ -81,10 +84,6 @@ typedef u32 ReportID;
 // TODO: dllexport defines for windows
 #define HS_PUBLIC_API
 #endif
-
-#define ALIGN_DIRECTIVE ALIGN_ATTR(16)
-#define ALIGN_AVX_DIRECTIVE ALIGN_ATTR(32)
-#define ALIGN_CL_DIRECTIVE ALIGN_ATTR(64)
 
 #define ARRAY_LENGTH(a) (sizeof(a)/sizeof((a)[0]))
 

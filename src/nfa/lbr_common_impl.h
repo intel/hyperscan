@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -72,7 +72,7 @@ char JOIN(ENGINE_EXEC_NAME, _reportCurrent)(const struct NFA *nfa,
     const struct lbr_common *l = getImplNfa(nfa);
     u64a offset = q_cur_offset(q);
     DEBUG_PRINTF("firing match %u at %llu\n", l->report, offset);
-    q->cb(offset, l->report, q->context);
+    q->cb(0, offset, l->report, q->context);
     return 0;
 }
 
@@ -92,6 +92,15 @@ char JOIN(ENGINE_EXEC_NAME, _inAccept)(const struct NFA *nfa,
 
     u64a offset = q->offset + q_last_loc(q);
     return lbrInAccept(l, lstate, q->streamState, offset, report);
+}
+
+char JOIN(ENGINE_EXEC_NAME, _inAnyAccept)(const struct NFA *nfa, struct mq *q) {
+    assert(nfa && q);
+    assert(isLbrType(nfa->type));
+    DEBUG_PRINTF("entry\n");
+
+    const struct lbr_common *l = getImplNfa(nfa);
+    return JOIN(ENGINE_EXEC_NAME, _inAccept)(nfa, l->report, q);
 }
 
 char JOIN(ENGINE_EXEC_NAME, _queueInitState)(const struct NFA *nfa,
@@ -206,7 +215,7 @@ char JOIN(ENGINE_EXEC_NAME, _Q_i)(const struct NFA *nfa, struct mq *q,
 
     if (q->report_current) {
         DEBUG_PRINTF("report_current: fire match at %llu\n", q_cur_offset(q));
-        int rv = q->cb(q_cur_offset(q), l->report, q->context);
+        int rv = q->cb(0, q_cur_offset(q), l->report, q->context);
         q->report_current = 0;
         if (rv == MO_HALT_MATCHING) {
             return MO_HALT_MATCHING;

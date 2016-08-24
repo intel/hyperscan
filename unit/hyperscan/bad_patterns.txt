@@ -32,7 +32,6 @@
 31:/\B/W #\B unsupported in UCP mode at index 0.
 32:/foo(?{print "Hello world\n";})bar/ #Embedded code is not supported at index 3.
 33:/the (\S+)(?{ $color = $^N }) (\S+)(?{ $animal = $^N })/i #Embedded code is not supported at index 9.
-34:/foobar\E/s #Unmatched \E at index 6.
 35:/\X/8 #\X unsupported at index 0.
 36:/\B+/ #Invalid repeat at index 2.
 37:/\B?/ #Invalid repeat at index 2.

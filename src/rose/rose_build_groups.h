@@ -26,36 +26,31 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MCCLELLANCOMPILE_ACCEL_H
-#define MCCLELLANCOMPILE_ACCEL_H
+/**
+ * \file
+ * \brief Rose build: code for analysing literal groups.
+ */
 
-#include "mcclellancompile.h"
+#ifndef ROSE_BUILD_GROUPS_H
+#define ROSE_BUILD_GROUPS_H
 
-#include <map>
+#include "rose_build_impl.h"
+#include "util/ue2_containers.h"
 
 namespace ue2 {
 
-struct Grey;
+unordered_map<RoseVertex, rose_group>
+getVertexGroupMap(const RoseBuildImpl &build);
 
-#define ACCEL_DFA_MAX_OFFSET_DEPTH 4
+rose_group getSquashableGroups(const RoseBuildImpl &build);
 
-/** Maximum tolerated number of escape character from an accel state.
- * This is larger than nfa, as we don't have a budget and the nfa cheats on stop
- * characters for sets of states */
-#define ACCEL_DFA_MAX_STOP_CHAR 160
+void assignGroupsToLiterals(RoseBuildImpl &build);
 
-/** Maximum tolerated number of escape character from a sds accel state. Larger
- * than normal states as accelerating sds is important. Matches NFA value */
-#define ACCEL_DFA_MAX_FLOATING_STOP_CHAR 192
+void assignGroupsToRoles(RoseBuildImpl &build);
 
-std::map<dstate_id_t, AccelScheme> populateAccelerationInfo(const raw_dfa &rdfa,
-                                                   const dfa_build_strat &strat,
-                                                   const Grey &grey);
+void findGroupSquashers(RoseBuildImpl &build);
 
-AccelScheme find_mcclellan_escape_info(const raw_dfa &rdfa,
-                                       dstate_id_t this_idx,
-                                       u32 max_allowed_accel_offset);
+} // namespace ue2
 
-}
+#endif // ROSE_BUILD_GROUPS_H
 
-#endif

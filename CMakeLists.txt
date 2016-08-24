@@ -1,12 +1,18 @@
 cmake_minimum_required (VERSION 2.8.11)
+
+# don't use the built-in default configs
+set (CMAKE_NOT_USING_CONFIG_FLAGS TRUE)
+
 project (Hyperscan C CXX)
 
 set (HS_MAJOR_VERSION 4)
-set (HS_MINOR_VERSION 2)
+set (HS_MINOR_VERSION 3)
 set (HS_PATCH_VERSION 0)
 set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
 
-string (TIMESTAMP BUILD_DATE "%Y-%m-%d")
+# since we are doing this manually, we only have three types
+set (CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo"
+     CACHE STRING "" FORCE)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(CheckCCompilerFlag)
@@ -24,7 +30,7 @@ find_package(PkgConfig QUIET)
 
 if (NOT CMAKE_BUILD_TYPE)
     message(STATUS "Default build type 'Release with debug info'")
-    set(CMAKE_BUILD_TYPE "RELWITHDEBINFO")
+    set(CMAKE_BUILD_TYPE RELWITHDEBINFO CACHE STRING "" FORCE )
 else()
     string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
     message(STATUS "Build type ${CMAKE_BUILD_TYPE}")
@@ -90,6 +96,18 @@ else()
     message(FATAL_ERROR "No python interpreter found")
 endif()
 
+# allow for reproducible builds - python for portability
+if (DEFINED ENV{SOURCE_DATE_EPOCH})
+      execute_process(
+          COMMAND "${PYTHON}" "${CMAKE_MODULE_PATH}/formatdate.py" "$ENV{SOURCE_DATE_EPOCH}"
+          OUTPUT_VARIABLE BUILD_DATE
+          OUTPUT_STRIP_TRAILING_WHITESPACE)
+else ()
+    string (TIMESTAMP BUILD_DATE "%Y-%m-%d")
+endif ()
+message(STATUS "Build date: ${BUILD_DATE}")
+
+
 if(${RAGEL} STREQUAL "RAGEL-NOTFOUND")
     message(FATAL_ERROR "Ragel state machine compiler not found")
 endif()
@@ -121,13 +139,7 @@ endif()
 
 CMAKE_DEPENDENT_OPTION(DUMP_SUPPORT "Dump code support; normally on, except in release builds" ON "NOT RELEASE_BUILD" OFF)
 
-option(DISABLE_ASSERTS "Disable assert(); enabled in debug builds, disabled in release builds" FALSE)
-
-if (DISABLE_ASSERTS)
-    if (CMAKE_BUILD_TYPE STREQUAL "DEBUG")
-        add_definitions(-DNDEBUG)
-    endif()
-endif()
+CMAKE_DEPENDENT_OPTION(DISABLE_ASSERTS "Disable assert(); Asserts are enabled in debug builds, disabled in release builds" OFF "NOT RELEASE_BUILD" ON)
 
 option(WINDOWS_ICC "Use Intel C++ Compiler on Windows, default off, requires ICC to be set in project" OFF)
 
@@ -139,18 +151,26 @@ if(MSVC OR MSVC_IDE)
     if (MSVC_VERSION LESS 1700)
         message(FATAL_ERROR "The project requires C++11 features.")
     else()
+        # set base flags
+        set(CMAKE_C_FLAGS "/DWIN32 /D_WINDOWS /W3")
+        set(CMAKE_C_FLAGS_DEBUG "/D_DEBUG /MDd /Zi /Od")
+        set(CMAKE_C_FLAGS_RELEASE "/MD /O2 /Ob2 /Oi")
+        set(CMAKE_C_FLAGS_RELWITHDEBINFO "/Zi /MD /O2 /Ob2 /Oi")
+
+        set(CMAKE_CXX_FLAGS "/DWIN32 /D_WINDOWS /W3 /GR /EHsc")
+        set(CMAKE_CXX_FLAGS_DEBUG "/D_DEBUG /MDd /Zi /Od")
+        set(CMAKE_CXX_FLAGS_RELEASE "/MD /O2 /Ob2 /Oi")
+        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/Zi /MD /O2 /Ob2 /Oi")
+
         if (WINDOWS_ICC)
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Qstd=c99 /Qrestrict /QxHost /O3 /wd4267 /Qdiag-disable:remark")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Qstd=c++11 /Qrestrict /QxHost /O2 /wd4267 /wd4800 /Qdiag-disable:remark -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Qstd=c99 /Qrestrict /QxHost /wd4267 /Qdiag-disable:remark")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Qstd=c++11 /Qrestrict /QxHost /wd4267 /wd4800 /Qdiag-disable:remark -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
         else()
             #TODO: don't hardcode arch
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /arch:AVX /O2 /wd4267")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX /O2 /wd4244 /wd4267 /wd4800 /wd2586 /wd1170 -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /arch:AVX /wd4267")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX /wd4244 /wd4267 /wd4800 /wd2586 /wd1170 -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
         endif()
-        string(REGEX REPLACE "/RTC1" ""
-            CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}" )
-        string(REGEX REPLACE "/RTC1" ""
-            CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}" )
+
 
     endif()
 
@@ -172,15 +192,33 @@ else()
         unset(_GXX_OUTPUT)
     endif()
 
-    # set compiler flags - more are tested and added later
-    set(EXTRA_C_FLAGS "-std=c99 -Wall -Wextra -Wshadow -Wcast-qual")
-    set(EXTRA_CXX_FLAGS "-std=c++11 -Wall -Wextra -Wno-shadow -Wswitch -Wreturn-type -Wcast-qual -Wno-deprecated -Wnon-virtual-dtor")
-    if (NOT RELEASE_BUILD)
-        # -Werror is most useful during development, don't potentially break
-        # release builds
-        set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -Werror")
-        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Werror")
+    if(OPTIMISE)
+        set(OPT_C_FLAG "-O3")
+        set(OPT_CXX_FLAG "-O2")
+    else()
+        set(OPT_C_FLAG "-O0")
+        set(OPT_CXX_FLAG "-O0")
+    endif(OPTIMISE)
+
+    # set up base flags for build types
+    set(CMAKE_C_FLAGS_DEBUG "-g ${OPT_C_FLAG} -Werror")
+    set(CMAKE_C_FLAGS_RELWITHDEBINFO "-g ${OPT_C_FLAG}")
+    set(CMAKE_C_FLAGS_RELEASE "${OPT_C_FLAG}")
+
+    set(CMAKE_CXX_FLAGS_DEBUG "-g ${OPT_CXX_FLAG} -Werror")
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-g ${OPT_CXX_FLAG}")
+    set(CMAKE_CXX_FLAGS_RELEASE "${OPT_CXX_FLAG}")
+
+    if (DISABLE_ASSERTS)
+        # usually true for release builds, false for debug
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DNDEBUG")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
     endif()
+
+
+    # set compiler flags - more are tested and added later
+    set(EXTRA_C_FLAGS "-std=c99 -Wall -Wextra -Wshadow -Wcast-qual -fno-strict-aliasing")
+    set(EXTRA_CXX_FLAGS "-std=c++11 -Wall -Wextra -Wshadow -Wswitch -Wreturn-type -Wcast-qual -Wno-deprecated -Wnon-virtual-dtor -fno-strict-aliasing")
 
     if (NOT CMAKE_C_FLAGS MATCHES .*march.*)
         message(STATUS "Building for current host CPU")
@@ -199,15 +237,7 @@ else()
         set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fabi-version=0 -Wno-unused-local-typedefs -Wno-maybe-uninitialized")
     endif()
 
-    if(OPTIMISE)
-        set(EXTRA_C_FLAGS "-O3 ${EXTRA_C_FLAGS}")
-        set(EXTRA_CXX_FLAGS "-O2 ${EXTRA_CXX_FLAGS}")
-    else()
-        set(EXTRA_C_FLAGS "-O0 ${EXTRA_C_FLAGS}")
-        set(EXTRA_CXX_FLAGS "-O0 ${EXTRA_CXX_FLAGS}")
-    endif(OPTIMISE)
-
-    if(NOT RELEASE_BUILD)
+    if (NOT(ARCH_IA32 AND RELEASE_BUILD))
         set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -fno-omit-frame-pointer")
         set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fno-omit-frame-pointer")
     endif()
@@ -297,6 +327,11 @@ if (CXX_UNUSED_CONST_VAR)
     set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-unused-const-variable")
 endif()
 
+# gcc 6 complains about type attributes that get ignored, like alignment
+CHECK_CXX_COMPILER_FLAG("-Wignored-attributes" CXX_IGNORED_ATTR)
+if (CXX_IGNORED_ATTR)
+    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-ignored-attributes")
+endif()
 
 # note this for later
 # g++ doesn't have this flag but clang does
@@ -438,15 +473,14 @@ set (hs_exec_SRCS
     src/nfa/limex_simd128.c
     src/nfa/limex_simd256.c
     src/nfa/limex_simd384.c
-    src/nfa/limex_simd512a.c
-    src/nfa/limex_simd512b.c
-    src/nfa/limex_simd512c.c
+    src/nfa/limex_simd512.c
     src/nfa/limex.h
     src/nfa/limex_common_impl.h
     src/nfa/limex_context.h
     src/nfa/limex_internal.h
     src/nfa/limex_runtime.h
     src/nfa/limex_runtime_impl.h
+    src/nfa/limex_shuffle.h
     src/nfa/limex_state_impl.h
     src/nfa/mpv.h
     src/nfa/mpv.c
@@ -477,9 +511,18 @@ set (hs_exec_SRCS
     src/nfa/repeat.c
     src/nfa/repeat.h
     src/nfa/repeat_internal.h
+    src/nfa/sheng.c
+    src/nfa/sheng.h
+    src/nfa/sheng_defs.h
+    src/nfa/sheng_impl.h
+    src/nfa/sheng_impl4.h
+    src/nfa/sheng_internal.h
     src/nfa/shufti_common.h
     src/nfa/shufti.c
     src/nfa/shufti.h
+    src/nfa/tamarama.c
+    src/nfa/tamarama.h
+    src/nfa/tamarama_internal.h
     src/nfa/truffle_common.h
     src/nfa/truffle.c
     src/nfa/truffle.h
@@ -495,7 +538,6 @@ set (hs_exec_SRCS
     src/rose/block.c
     src/rose/catchup.h
     src/rose/catchup.c
-    src/rose/eod.c
     src/rose/infix.h
     src/rose/init.h
     src/rose/init.c
@@ -503,6 +545,7 @@ set (hs_exec_SRCS
     src/rose/match.h
     src/rose/match.c
     src/rose/miracle.h
+    src/rose/program_runtime.c
     src/rose/program_runtime.h
     src/rose/runtime.h
     src/rose/rose.h
@@ -510,6 +553,7 @@ set (hs_exec_SRCS
     src/rose/rose_program.h
     src/rose/rose_types.h
     src/rose/rose_common.h
+    src/rose/validate_mask.h
     src/util/bitutils.h
     src/util/exhaust.h
     src/util/fatbit.h
@@ -524,11 +568,8 @@ set (hs_exec_SRCS
     src/util/pqueue.h
     src/util/scatter.h
     src/util/scatter_runtime.h
-    src/util/shuffle.h
-    src/util/shuffle_ssse3.h
     src/util/simd_utils.h
-    src/util/simd_utils_ssse3.h
-    src/util/simd_utils_ssse3.c
+    src/util/simd_utils.c
     src/util/state_compress.h
     src/util/state_compress.c
     src/util/unaligned.h
@@ -597,11 +638,15 @@ SET (hs_SRCS
     src/hwlm/noodle_build.h
     src/hwlm/noodle_internal.h
     src/nfa/accel.h
+    src/nfa/accel_dfa_build_strat.cpp
+    src/nfa/accel_dfa_build_strat.h
     src/nfa/accelcompile.cpp
     src/nfa/accelcompile.h
     src/nfa/callback.h
     src/nfa/castlecompile.cpp
     src/nfa/castlecompile.h
+    src/nfa/dfa_build_strat.cpp
+    src/nfa/dfa_build_strat.h
     src/nfa/dfa_min.cpp
     src/nfa/dfa_min.h
     src/nfa/goughcompile.cpp
@@ -613,8 +658,6 @@ SET (hs_SRCS
     src/nfa/mcclellan_internal.h
     src/nfa/mcclellancompile.cpp
     src/nfa/mcclellancompile.h
-    src/nfa/mcclellancompile_accel.cpp
-    src/nfa/mcclellancompile_accel.h
     src/nfa/mcclellancompile_util.cpp
     src/nfa/mcclellancompile_util.h
     src/nfa/limex_compile.cpp
@@ -639,8 +682,13 @@ SET (hs_SRCS
     src/nfa/repeat_internal.h
     src/nfa/repeatcompile.cpp
     src/nfa/repeatcompile.h
+    src/nfa/sheng_internal.h
+    src/nfa/shengcompile.cpp
+    src/nfa/shengcompile.h
     src/nfa/shufticompile.cpp
     src/nfa/shufticompile.h
+    src/nfa/tamaramacompile.cpp
+    src/nfa/tamaramacompile.h
     src/nfa/trufflecompile.cpp
     src/nfa/trufflecompile.h
     src/nfagraph/ng.cpp
@@ -746,6 +794,8 @@ SET (hs_SRCS
     src/nfagraph/ng_util.h
     src/nfagraph/ng_vacuous.cpp
     src/nfagraph/ng_vacuous.h
+    src/nfagraph/ng_violet.cpp
+    src/nfagraph/ng_violet.h
     src/nfagraph/ng_width.cpp
     src/nfagraph/ng_width.h
     src/parser/AsciiComponentClass.cpp
@@ -825,6 +875,10 @@ SET (hs_SRCS
     src/rose/rose_build_compile.cpp
     src/rose/rose_build_convert.cpp
     src/rose/rose_build_convert.h
+    src/rose/rose_build_exclusive.cpp
+    src/rose/rose_build_exclusive.h
+    src/rose/rose_build_groups.cpp
+    src/rose/rose_build_groups.h
     src/rose/rose_build_impl.h
     src/rose/rose_build_infix.cpp
     src/rose/rose_build_infix.h
@@ -853,6 +907,8 @@ SET (hs_SRCS
     src/util/charreach.cpp
     src/util/charreach.h
     src/util/charreach_util.h
+    src/util/clique.cpp
+    src/util/clique.h
     src/util/compare.h
     src/util/compile_context.cpp
     src/util/compile_context.h
@@ -878,7 +934,6 @@ SET (hs_SRCS
     src/util/report_manager.cpp
     src/util/report_manager.h
     src/util/simd_utils.h
-    src/util/simd_utils_ssse3.h
     src/util/target_info.cpp
     src/util/target_info.h
     src/util/ue2_containers.h
@@ -916,6 +971,10 @@ set(hs_dump_SRCS
     src/nfa/nfa_dump_dispatch.cpp
     src/nfa/nfa_dump_internal.cpp
     src/nfa/nfa_dump_internal.h
+    src/nfa/shengdump.cpp
+    src/nfa/shengdump.h
+    src/nfa/tamarama_dump.cpp
+    src/nfa/tamarama_dump.h
     src/parser/dump.cpp
     src/parser/dump.h
     src/parser/position_dump.h
@@ -941,7 +1000,7 @@ endif()
 # choose which ones to build
 
 set (LIB_VERSION ${HS_VERSION})
-set (LIB_SOVERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION})
+set (LIB_SOVERSION ${HS_MAJOR_VERSION})
 
 add_library(hs_exec OBJECT ${hs_exec_SRCS})
 

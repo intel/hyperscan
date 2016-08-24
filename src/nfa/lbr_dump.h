@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,16 +32,22 @@
 #ifdef DUMP_SUPPORT
 
 #include <cstdio>
+#include <string>
 
 struct NFA;
 
 namespace ue2 {
 
-void nfaExecLbrDot_dumpDot(const struct NFA *nfa, FILE *file);
-void nfaExecLbrVerm_dumpDot(const struct NFA *nfa, FILE *file);
-void nfaExecLbrNVerm_dumpDot(const struct NFA *nfa, FILE *file);
-void nfaExecLbrShuf_dumpDot(const struct NFA *nfa, FILE *file);
-void nfaExecLbrTruf_dumpDot(const struct NFA *nfa, FILE *file);
+void nfaExecLbrDot_dumpDot(const struct NFA *nfa, FILE *file,
+                           const std::string &base);
+void nfaExecLbrVerm_dumpDot(const struct NFA *nfa, FILE *file,
+                            const std::string &base);
+void nfaExecLbrNVerm_dumpDot(const struct NFA *nfa, FILE *file,
+                            const std::string &base);
+void nfaExecLbrShuf_dumpDot(const struct NFA *nfa, FILE *file,
+                            const std::string &base);
+void nfaExecLbrTruf_dumpDot(const struct NFA *nfa, FILE *file,
+                            const std::string &base);
 void nfaExecLbrDot_dumpText(const struct NFA *nfa, FILE *file);
 void nfaExecLbrVerm_dumpText(const struct NFA *nfa, FILE *file);
 void nfaExecLbrNVerm_dumpText(const struct NFA *nfa, FILE *file);

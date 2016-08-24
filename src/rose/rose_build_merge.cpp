@@ -338,7 +338,7 @@ void findUncalcLeavesCandidates(RoseBuildImpl &tbi,
                            deque<UncalcLeafKey> &ordered) {
     const RoseGraph &g = tbi.g;
 
-    vector<NFAVertex> suffix_vertices; // vertices with suffix graphs
+    vector<RoseVertex> suffix_vertices; // vertices with suffix graphs
     ue2::unordered_map<const NGHolder *, u32> fcount; // ref count per graph
 
     for (auto v : vertices_range(g)) {

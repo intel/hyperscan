@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,7 +33,10 @@
 #ifndef NG_ROSE_H
 #define NG_ROSE_H
 
+#include "ng_holder.h"
 #include "ue2common.h"
+
+#include <vector>
 
 namespace ue2 {
 
@@ -64,6 +67,13 @@ bool checkRose(const ReportManager &rm, const NGHolder &h, bool prefilter,
  * the trailing literal. */
 u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
                                 u32 max_delay, bool overhang_ok = true);
+
+void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
+                                  u32 delay);
+
+void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
+                                  u32 delay,
+                                  const std::vector<NFAVertex> &preds);
 
 } // namespace ue2
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -219,7 +219,7 @@ hs_compile_multi_int(const char *const *expressions, const unsigned *flags,
                                     : get_current_target();
 
     CompileContext cc(isStreaming, isVectored, target_info, g);
-    NG ng(cc, somPrecision);
+    NG ng(cc, elements, somPrecision);
 
     try {
         for (unsigned int i = 0; i < elements; i++) {

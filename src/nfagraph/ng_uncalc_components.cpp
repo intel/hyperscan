@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -184,7 +184,7 @@ u32 commonPrefixLength(const NGHolder &ga,
             size_t a_count = 0;
             size_t b_count = 0;
 
-            NFAGraph::out_edge_iterator ei, ee;
+            NGHolder::out_edge_iterator ei, ee;
             for (tie(ei, ee) = out_edges(a[i], ga); ok && ei != ee; ++ei) {
                 u32 sid = a_state_ids.at(target(*ei, ga));
                 if (sid == NO_STATE || sid >= max) {
@@ -213,7 +213,7 @@ u32 commonPrefixLength(const NGHolder &ga,
                 }
             }
 
-            NFAGraph::adjacency_iterator ai, ae;
+            NGHolder::adjacency_iterator ai, ae;
             for (tie(ai, ae) = adjacent_vertices(b[i], gb); ok && ai != ae;
                  ++ai) {
                 u32 sid = b_state_ids.at(*ai);

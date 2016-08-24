@@ -98,7 +98,7 @@ char subCastleReportCurrent(const struct Castle *c, struct mq *q,
     if (match == REPEAT_MATCH) {
         DEBUG_PRINTF("firing match at %llu for sub %u, report %u\n", offset,
                      subIdx, sub->report);
-        if (q->cb(offset, sub->report, q->context) == MO_HALT_MATCHING) {
+        if (q->cb(0, offset, sub->report, q->context) == MO_HALT_MATCHING) {
             return MO_HALT_MATCHING;
         }
     }
@@ -457,7 +457,7 @@ char subCastleFireMatch(const struct Castle *c, const void *full_state,
          i = mmbit_iterate(matching, c->numRepeats, i)) {
         const struct SubCastle *sub = getSubCastle(c, i);
         DEBUG_PRINTF("firing match at %llu for sub %u\n", offset, i);
-        if (cb(offset, sub->report, ctx) == MO_HALT_MATCHING) {
+        if (cb(0, offset, sub->report, ctx) == MO_HALT_MATCHING) {
             DEBUG_PRINTF("caller told us to halt\n");
             return MO_HALT_MATCHING;
         }
@@ -978,6 +978,46 @@ char nfaExecCastle0_inAccept(const struct NFA *n, ReportID report,
     const struct Castle *c = getImplNfa(n);
     return castleInAccept(c, q, report, q_cur_offset(q));
 }
+
+char nfaExecCastle0_inAnyAccept(const struct NFA *n, struct mq *q) {
+    assert(n && q);
+    assert(n->type == CASTLE_NFA_0);
+    DEBUG_PRINTF("entry\n");
+
+    const struct Castle *c = getImplNfa(n);
+    const u64a offset = q_cur_offset(q);
+    DEBUG_PRINTF("offset=%llu\n", offset);
+
+    if (c->exclusive) {
+        u8 *active = (u8 *)q->streamState;
+        u8 *groups = active + c->groupIterOffset;
+        for (u32 i = mmbit_iterate(groups, c->numGroups, MMB_INVALID);
+             i != MMB_INVALID; i = mmbit_iterate(groups, c->numGroups, i)) {
+            u8 *cur = active + i * c->activeIdxSize;
+            const u32 activeIdx = partial_load_u32(cur, c->activeIdxSize);
+            DEBUG_PRINTF("subcastle %u\n", activeIdx);
+            const struct SubCastle *sub = getSubCastle(c, activeIdx);
+            if (subCastleInAccept(c, q, sub->report, offset, activeIdx)) {
+                return 1;
+            }
+        }
+    }
+
+    if (c->exclusive != PURE_EXCLUSIVE) {
+        const u8 *active = (const u8 *)q->streamState + c->activeOffset;
+        for (u32 i = mmbit_iterate(active, c->numRepeats, MMB_INVALID);
+             i != MMB_INVALID; i = mmbit_iterate(active, c->numRepeats, i)) {
+            DEBUG_PRINTF("subcastle %u\n", i);
+            const struct SubCastle *sub = getSubCastle(c, i);
+            if (subCastleInAccept(c, q, sub->report, offset, i)) {
+                return 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
 
 char nfaExecCastle0_queueInitState(UNUSED const struct NFA *n, struct mq *q) {
     assert(n && q);

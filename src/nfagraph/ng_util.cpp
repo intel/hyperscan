@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -78,26 +78,26 @@ depth maxDistFromStartOfData(const NFAVertexDepth &vd) {
 }
 
 NFAVertex getSoleDestVertex(const NGHolder &g, NFAVertex a) {
-    assert(a != NFAGraph::null_vertex());
+    assert(a != NGHolder::null_vertex());
 
-    NFAGraph::out_edge_iterator ii, iie;
+    NGHolder::out_edge_iterator ii, iie;
     tie(ii, iie) = out_edges(a, g);
     if (ii == iie) {
-        return NFAGraph::null_vertex();
+        return NGHolder::null_vertex();
     }
     NFAVertex b = target(*ii, g);
     if (a == b) {
         ++ii;
         if (ii == iie) {
-            return NFAGraph::null_vertex();
+            return NGHolder::null_vertex();
         }
 
         b = target(*ii, g);
         if (++ii != iie) {
-            return NFAGraph::null_vertex();
+            return NGHolder::null_vertex();
         }
     } else if (++ii != iie && (target(*ii, g) != a || ++ii != iie)) {
-        return NFAGraph::null_vertex();
+        return NGHolder::null_vertex();
     }
 
     assert(a != b);
@@ -105,23 +105,23 @@ NFAVertex getSoleDestVertex(const NGHolder &g, NFAVertex a) {
 }
 
 NFAVertex getSoleSourceVertex(const NGHolder &g, NFAVertex a) {
-    assert(a != NFAGraph::null_vertex());
+    assert(a != NGHolder::null_vertex());
 
     u32 idegree = in_degree(a, g);
     if (idegree != 1 && !(idegree == 2 && hasSelfLoop(a, g))) {
-        return NFAGraph::null_vertex();
+        return NGHolder::null_vertex();
     }
 
-    NFAGraph::in_edge_iterator ii, iie;
+    NGHolder::in_edge_iterator ii, iie;
     tie(ii, iie) = in_edges(a, g);
     if (ii == iie) {
-        return NFAGraph::null_vertex();
+        return NGHolder::null_vertex();
     }
     NFAVertex b = source(*ii, g);
     if (a == b) {
         ++ii;
         if (ii == iie) {
-            return NFAGraph::null_vertex();
+            return NGHolder::null_vertex();
         }
 
         b = source(*ii, g);
@@ -203,6 +203,15 @@ bool isVacuous(const NGHolder &h) {
 bool isAnchored(const NGHolder &g) {
     for (auto v : adjacent_vertices_range(g.startDs, g)) {
         if (v != g.startDs) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool isFloating(const NGHolder &g) {
+    for (auto v : adjacent_vertices_range(g.start, g)) {
+        if (v != g.startDs && !edge(g.startDs, v, g).second) {
             return false;
         }
     }
@@ -321,7 +330,7 @@ bool can_match_at_eod(const NGHolder &h) {
 }
 
 bool can_only_match_at_eod(const NGHolder &g) {
-    NFAGraph::in_edge_iterator ie, ee;
+    NGHolder::in_edge_iterator ie, ee;
     tie(ie, ee) = in_edges(g.accept, g);
 
     return ie == ee;
@@ -622,16 +631,18 @@ unique_ptr<NGHolder> cloneHolder(const NGHolder &in) {
 }
 
 #ifndef NDEBUG
-/** \brief Used in sanity-checking assertions: returns true if all vertices
- * leading to accept or acceptEod have at least one report ID. */
+
 bool allMatchStatesHaveReports(const NGHolder &g) {
+    unordered_set<NFAVertex> reporters;
     for (auto v : inv_adjacent_vertices_range(g.accept, g)) {
         if (g[v].reports.empty()) {
             DEBUG_PRINTF("vertex %u has no reports!\n",
                          g[v].index);
             return false;
         }
+        reporters.insert(v);
     }
+
     for (auto v : inv_adjacent_vertices_range(g.acceptEod, g)) {
         if (v == g.accept) {
             continue; // stylised edge
@@ -641,12 +652,20 @@ bool allMatchStatesHaveReports(const NGHolder &g) {
                          g[v].index);
             return false;
         }
+        reporters.insert(v);
     }
+
+    for (auto v : vertices_range(g)) {
+        if (!contains(reporters, v) && !g[v].reports.empty()) {
+            DEBUG_PRINTF("vertex %u is not a match state, but has reports!\n",
+                         g[v].index);
+            return false;
+        }
+    }
+
     return true;
 }
 
-/** Assertion: returns true if the vertices in this graph are contiguously (and
- * uniquely) numbered from zero. */
 bool hasCorrectlyNumberedVertices(const NGHolder &g) {
     size_t count = num_vertices(g);
     vector<bool> ids(count, false);
@@ -657,11 +676,10 @@ bool hasCorrectlyNumberedVertices(const NGHolder &g) {
         }
         ids[id] = true;
     }
-    return find(ids.begin(), ids.end(), false) == ids.end();
+    return find(ids.begin(), ids.end(), false) == ids.end()
+        && num_vertices(g) == num_vertices(g.g);
 }
 
-/** Assertion: returns true if the edges in this graph are contiguously (and
- * uniquely) numbered from zero. */
 bool hasCorrectlyNumberedEdges(const NGHolder &g) {
     size_t count = num_edges(g);
     vector<bool> ids(count, false);
@@ -672,8 +690,10 @@ bool hasCorrectlyNumberedEdges(const NGHolder &g) {
         }
         ids[id] = true;
     }
-    return find(ids.begin(), ids.end(), false) == ids.end();
+    return find(ids.begin(), ids.end(), false) == ids.end()
+        && num_edges(g) == num_edges(g.g);
 }
+
 #endif // NDEBUG
 
 } // namespace ue2

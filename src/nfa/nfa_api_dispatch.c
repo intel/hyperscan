@@ -42,6 +42,8 @@
 #include "limex.h"
 #include "mcclellan.h"
 #include "mpv.h"
+#include "sheng.h"
+#include "tamarama.h"
 
 #define DISPATCH_CASE(dc_ltype, dc_ftype, dc_subtype, dc_func_call) \
     case dc_ltype##_NFA_##dc_subtype:                               \
@@ -52,41 +54,11 @@
 
 #define DISPATCH_BY_NFA_TYPE(dbnt_func)                       \
     switch (nfa->type) {                                      \
-        DISPATCH_CASE(LIMEX,   LimEx,   32_1, dbnt_func);     \
-        DISPATCH_CASE(LIMEX,   LimEx,   32_2, dbnt_func);     \
-        DISPATCH_CASE(LIMEX,   LimEx,   32_3, dbnt_func);     \
-        DISPATCH_CASE(LIMEX,   LimEx,   32_4, dbnt_func);     \
-        DISPATCH_CASE(LIMEX,   LimEx,   32_5, dbnt_func);     \
-        DISPATCH_CASE(LIMEX,   LimEx,   32_6, dbnt_func);     \
-        DISPATCH_CASE(LIMEX,   LimEx,   32_7, dbnt_func);     \
-        DISPATCH_CASE(LIMEX,   LimEx,   128_1, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   128_2, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   128_3, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   128_4, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   128_5, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   128_6, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   128_7, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   256_1, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   256_2, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   256_3, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   256_4, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   256_5, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   256_6, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   256_7, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   384_1, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   384_2, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   384_3, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   384_4, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   384_5, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   384_6, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   384_7, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   512_1, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   512_2, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   512_3, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   512_4, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   512_5, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   512_6, dbnt_func);    \
-        DISPATCH_CASE(LIMEX,   LimEx,   512_7, dbnt_func);    \
+        DISPATCH_CASE(LIMEX, LimEx, 32, dbnt_func);           \
+        DISPATCH_CASE(LIMEX, LimEx, 128, dbnt_func);          \
+        DISPATCH_CASE(LIMEX, LimEx, 256, dbnt_func);          \
+        DISPATCH_CASE(LIMEX, LimEx, 384, dbnt_func);          \
+        DISPATCH_CASE(LIMEX, LimEx, 512, dbnt_func);          \
         DISPATCH_CASE(MCCLELLAN, McClellan, 8, dbnt_func);    \
         DISPATCH_CASE(MCCLELLAN, McClellan, 16, dbnt_func);   \
         DISPATCH_CASE(GOUGH, Gough, 8, dbnt_func);            \
@@ -98,21 +70,22 @@
         DISPATCH_CASE(LBR, Lbr, Shuf, dbnt_func);             \
         DISPATCH_CASE(LBR, Lbr, Truf, dbnt_func);             \
         DISPATCH_CASE(CASTLE, Castle, 0, dbnt_func);          \
+        DISPATCH_CASE(SHENG, Sheng, 0, dbnt_func);            \
+        DISPATCH_CASE(TAMARAMA, Tamarama, 0, dbnt_func);      \
     default:                                                  \
         assert(0);                                            \
     }
 
 char nfaCheckFinalState(const struct NFA *nfa, const char *state,
                         const char *streamState, u64a offset,
-                        NfaCallback callback, SomNfaCallback som_cb,
-                        void *context) {
+                        NfaCallback callback, void *context) {
     assert(ISALIGNED_CL(nfa) && ISALIGNED_CL(getImplNfa(nfa)));
 
     // Caller should avoid calling us if we can never produce matches.
     assert(nfaAcceptsEod(nfa));
 
     DISPATCH_BY_NFA_TYPE(_testEOD(nfa, state, streamState, offset, callback,
-                                  som_cb, context));
+                                  context));
     return 0;
 }
 
@@ -133,6 +106,14 @@ static really_inline
 char nfaQueueExec2_i(const struct NFA *nfa, struct mq *q, s64a end) {
     DISPATCH_BY_NFA_TYPE(_Q2(nfa, q, end));
     return 0;
+}
+
+char nfaQueueExec_raw(const struct NFA *nfa, struct mq *q, s64a end) {
+    return nfaQueueExec_i(nfa, q, end);
+}
+
+char nfaQueueExec2_raw(const struct NFA *nfa, struct mq *q, s64a end) {
+    return nfaQueueExec2_i(nfa, q, end);
 }
 
 static really_inline
@@ -258,7 +239,6 @@ char nfaQueueExecToMatch(const struct NFA *nfa, struct mq *q, s64a end) {
 
     assert(q);
     assert(end >= 0);
-    assert(q->context);
     assert(q->state);
     assert(q->cur < q->end);
     assert(q->end <= MAX_MQE_LEN);
@@ -312,6 +292,11 @@ char nfaReportCurrentMatches(const struct NFA *nfa, struct mq *q) {
 
 char nfaInAcceptState(const struct NFA *nfa, ReportID report, struct mq *q) {
     DISPATCH_BY_NFA_TYPE(_inAccept(nfa, report, q));
+    return 0;
+}
+
+char nfaInAnyAcceptState(const struct NFA *nfa, struct mq *q) {
+    DISPATCH_BY_NFA_TYPE(_inAnyAccept(nfa, q));
     return 0;
 }
 

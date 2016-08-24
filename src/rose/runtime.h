@@ -35,7 +35,6 @@
 
 #include "rose_internal.h"
 #include "scratch.h"
-#include "util/exhaust.h" // for isExhausted
 #include "util/partial_store.h"
 
 /*
@@ -55,6 +54,11 @@
  */
 
 #define rose_inline really_inline
+
+/* Maximum offset that we will eagerly run prefixes to. Beyond this point, eager
+ * prefixes are always run in exactly the same way as normal prefixes. */
+#define EAGER_STOP_OFFSET 64
+
 
 static really_inline
 const void *getByOffset(const struct RoseEngine *t, u32 offset) {
@@ -106,39 +110,6 @@ static really_inline
 const u8 *getLeftfixLagTableConst(const struct RoseEngine *t,
                                   const char *state) {
     return (const u8 *)(state + t->stateOffsets.leftfixLagTable);
-}
-
-static rose_inline
-char roseSuffixInfoIsExhausted(const struct RoseEngine *t,
-                               const struct NfaInfo *info,
-                               const char *exhausted) {
-    if (!info->ekeyListOffset) {
-        return 0;
-    }
-
-    DEBUG_PRINTF("check exhaustion -> start at %u\n", info->ekeyListOffset);
-
-    /* INVALID_EKEY terminated list */
-    const u32 *ekeys = (const u32 *)((const char *)t + info->ekeyListOffset);
-    while (*ekeys != INVALID_EKEY) {
-        DEBUG_PRINTF("check %u\n", *ekeys);
-        if (!isExhausted(t, exhausted, *ekeys)) {
-            DEBUG_PRINTF("not exhausted -> alive\n");
-            return 0;
-        }
-        ++ekeys;
-    }
-
-    DEBUG_PRINTF("all ekeys exhausted -> dead\n");
-    return 1;
-}
-
-static really_inline
-char roseSuffixIsExhausted(const struct RoseEngine *t, u32 qi,
-                           const char *exhausted) {
-    DEBUG_PRINTF("check queue %u\n", qi);
-    const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
-    return roseSuffixInfoIsExhausted(t, info, exhausted);
 }
 
 static really_inline

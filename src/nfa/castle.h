@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,6 +44,7 @@ char nfaExecCastle0_QR(const struct NFA *n, struct mq *q, ReportID report);
 char nfaExecCastle0_reportCurrent(const struct NFA *n, struct mq *q);
 char nfaExecCastle0_inAccept(const struct NFA *n, ReportID report,
                              struct mq *q);
+char nfaExecCastle0_inAnyAccept(const struct NFA *n, struct mq *q);
 char nfaExecCastle0_queueInitState(const struct NFA *n, struct mq *q);
 char nfaExecCastle0_initCompressedState(const struct NFA *n, u64a offset,
                                         void *state, u8 key);

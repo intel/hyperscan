@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,7 +52,6 @@
 #include "parser/shortcut_literal.h"
 #include "parser/unsupported.h"
 #include "parser/utf8_validate.h"
-#include "smallwrite/smallwrite_build.h"
 #include "rose/rose_build.h"
 #include "rose/rose_build_dump.h"
 #include "som/slot_manager_dump.h"
@@ -302,15 +301,6 @@ aligned_unique_ptr<RoseEngine> generateRoseEngine(NG &ng) {
         DEBUG_PRINTF("error building rose\n");
         assert(0);
         return nullptr;
-    }
-
-    /* avoid building a smwr if just a pure floating case. */
-    if (!roseIsPureLiteral(rose.get())) {
-        u32 qual = roseQuality(rose.get());
-        auto smwr = ng.smwr->build(qual);
-        if (smwr) {
-            rose = roseAddSmallWrite(rose.get(), smwr.get());
-        }
     }
 
     dumpRose(*ng.rose, rose.get(), ng.cc.grey);
