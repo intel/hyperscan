@@ -56,15 +56,6 @@ struct path {
 };
 };
 
-static UNUSED
-string describeClasses(const vector<CharReach> &v) {
-    std::ostringstream oss;
-    for (const auto &cr : v) {
-        describeClass(oss, cr);
-    }
-    return oss.str();
-}
-
 static
 void dump_paths(const vector<path> &paths) {
     for (UNUSED const auto &p : paths) {

@@ -75,7 +75,6 @@ RoseBuildImpl::RoseBuildImpl(ReportManager &rm_in,
     : cc(cc_in),
       root(add_vertex(g)),
       anchored_root(add_vertex(g)),
-      vertexIndex(0),
       delay_base_id(MO_INVALID_IDX),
       hasSom(false),
       group_end(0),
@@ -89,11 +88,9 @@ RoseBuildImpl::RoseBuildImpl(ReportManager &rm_in,
       boundary(boundary_in),
       next_nfa_report(0) {
     // add root vertices to graph
-    g[root].idx = vertexIndex++;
     g[root].min_offset = 0;
     g[root].max_offset = 0;
 
-    g[anchored_root].idx = vertexIndex++;
     g[anchored_root].min_offset = 0;
     g[anchored_root].max_offset = 0;
 }
@@ -193,7 +190,7 @@ bool RoseBuildImpl::hasLiteralInTable(RoseVertex v,
 bool RoseBuildImpl::hasNoFloatingRoots() const {
     for (auto v : adjacent_vertices_range(root, g)) {
         if (isFloating(v)) {
-            DEBUG_PRINTF("direct floating root %zu\n", g[v].idx);
+            DEBUG_PRINTF("direct floating root %zu\n", g[v].index);
             return false;
         }
     }
@@ -201,7 +198,7 @@ bool RoseBuildImpl::hasNoFloatingRoots() const {
     /* need to check if the anchored_root has any literals which are too deep */
     for (auto v : adjacent_vertices_range(anchored_root, g)) {
         if (isFloating(v)) {
-            DEBUG_PRINTF("indirect floating root %zu\n", g[v].idx);
+            DEBUG_PRINTF("indirect floating root %zu\n", g[v].index);
             return false;
         }
     }
@@ -337,14 +334,14 @@ size_t RoseBuildImpl::maxLiteralOverlap(RoseVertex u, RoseVertex v) const {
 void RoseBuildImpl::removeVertices(const vector<RoseVertex> &dead) {
     for (auto v : dead) {
         assert(!isAnyStart(v));
-        DEBUG_PRINTF("removing vertex %zu\n", g[v].idx);
+        DEBUG_PRINTF("removing vertex %zu\n", g[v].index);
         for (auto lit_id : g[v].literals) {
             literal_info[lit_id].vertices.erase(v);
         }
-        clear_vertex_faster(v, g);
+        clear_vertex(v, g);
         remove_vertex(v, g);
     }
-    renumberVertices();
+    renumber_vertices(g);
 }
 
 // Find the maximum bound on the edges to this vertex's successors ignoring
@@ -893,7 +890,6 @@ bool operator<(const RoseEdgeProps &a, const RoseEdgeProps &b) {
 // Note: only clones the vertex, you'll have to wire up your own edges.
 RoseVertex RoseBuildImpl::cloneVertex(RoseVertex v) {
     RoseVertex v2 = add_vertex(g[v], g);
-    g[v2].idx = vertexIndex++;
 
     for (const auto &lit_id : g[v2].literals) {
         literal_info[lit_id].vertices.insert(v2);
@@ -1277,7 +1273,7 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
     // First, check the Rose leftfixes.
 
     for (auto v : vertices_range(g)) {
-        DEBUG_PRINTF("leftfix: check vertex %zu\n", g[v].idx);
+        DEBUG_PRINTF("leftfix: check vertex %zu\n", g[v].index);
 
         if (g[v].left.castle) {
             DEBUG_PRINTF("castle ok\n");
@@ -1295,8 +1291,8 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
             assert(g[v].left.graph->kind
                    == (tbi.isRootSuccessor(v) ? NFA_PREFIX : NFA_INFIX));
             if (!isImplementableNFA(*g[v].left.graph, nullptr, tbi.cc)) {
-                DEBUG_PRINTF("nfa prefix %zu failed (%zu vertices)\n", g[v].idx,
-                             num_vertices(*g[v].left.graph));
+                DEBUG_PRINTF("nfa prefix %zu failed (%zu vertices)\n",
+                             g[v].index, num_vertices(*g[v].left.graph));
                 return false;
             }
         }
@@ -1305,7 +1301,7 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
     // Suffix graphs.
 
     for (auto v : vertices_range(g)) {
-        DEBUG_PRINTF("suffix: check vertex %zu\n", g[v].idx);
+        DEBUG_PRINTF("suffix: check vertex %zu\n", g[v].index);
 
         const RoseSuffixInfo &suffix = g[v].suffix;
         if (suffix.castle) {
@@ -1323,8 +1319,8 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
         if (suffix.graph) {
             assert(suffix.graph->kind == NFA_SUFFIX);
             if (!isImplementableNFA(*suffix.graph, &tbi.rm, tbi.cc)) {
-                DEBUG_PRINTF("nfa suffix %zu failed (%zu vertices)\n", g[v].idx,
-                             num_vertices(*suffix.graph));
+                DEBUG_PRINTF("nfa suffix %zu failed (%zu vertices)\n",
+                             g[v].index, num_vertices(*suffix.graph));
                 return false;
             }
         }

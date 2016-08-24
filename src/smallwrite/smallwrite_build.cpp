@@ -126,7 +126,7 @@ bool pruneOverlongReports(NFAVertex v, NGHolder &g, const depth &max_depth,
     }
 
     if (g[v].reports.empty()) {
-        DEBUG_PRINTF("none of vertex %u's reports can match, cut accepts\n",
+        DEBUG_PRINTF("none of vertex %zu's reports can match, cut accepts\n",
                      g[v].index);
         remove_edge(v, g.accept, g);
         remove_edge(v, g.acceptEod, g);

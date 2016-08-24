@@ -172,8 +172,7 @@ void updateReportBounds(ReportManager &rm, NGWrapper &g, NFAVertex accept,
             new_reports.insert(rm.getInternalId(ir));
         }
 
-        DEBUG_PRINTF("swapping reports on vertex %u\n",
-                     g[v].index);
+        DEBUG_PRINTF("swapping reports on vertex %zu\n", g[v].index);
         reports.swap(new_reports);
     }
 }
@@ -286,8 +285,8 @@ bool anchorPatternWithBoundedRepeat(NGWrapper &g, const depth &minWidth,
         add_edge(u, v, g);
     }
 
-    g.renumberVertices();
-    g.renumberEdges();
+    renumber_vertices(g);
+    renumber_edges(g);
 
     return true;
 }
@@ -309,7 +308,7 @@ NFAVertex findSingleCyclic(const NGHolder &g) {
     }
 
     if (v != NGHolder::null_vertex()) {
-        DEBUG_PRINTF("cyclic is %u\n", g[v].index);
+        DEBUG_PRINTF("cyclic is %zu\n", g[v].index);
         assert(!is_special(v, g));
     }
     return v;
@@ -380,7 +379,7 @@ bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
     // Walk from the start vertex to the cyclic state and ensure we have a
     // chain of vertices.
     while (v != cyclic) {
-        DEBUG_PRINTF("vertex %u\n", g[v].index);
+        DEBUG_PRINTF("vertex %zu\n", g[v].index);
         width++;
         auto succ = succs(v, g);
         if (contains(succ, cyclic)) {
@@ -418,7 +417,7 @@ bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
     // Walk from the cyclic state to an accept and ensure we have a chain of
     // vertices.
     while (!is_any_accept(v, g)) {
-        DEBUG_PRINTF("vertex %u\n", g[v].index);
+        DEBUG_PRINTF("vertex %zu\n", g[v].index);
         width++;
         auto succ = succs(v, g);
         if (succ.size() != 1) {
@@ -435,7 +434,7 @@ bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
     DEBUG_PRINTF("adjusting width by %d\n", offsetAdjust);
     width += offsetAdjust;
 
-    DEBUG_PRINTF("width=%u, vertex %u is cyclic\n", width,
+    DEBUG_PRINTF("width=%u, vertex %zu is cyclic\n", width,
                   g[cyclic].index);
 
     if (width >= g.min_length) {
@@ -448,7 +447,7 @@ bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
     vector<NFAVertex> preds;
     vector<NFAEdge> dead;
     for (auto u : inv_adjacent_vertices_range(cyclic, g)) {
-        DEBUG_PRINTF("pred %u\n", g[u].index);
+        DEBUG_PRINTF("pred %zu\n", g[u].index);
         if (u == cyclic) {
             continue;
         }
@@ -484,8 +483,8 @@ bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
         add_edge(u, cyclic, g);
     }
 
-    g.renumberVertices();
-    g.renumberEdges();
+    renumber_vertices(g);
+    renumber_edges(g);
     clearReports(g);
 
     g.min_length = 0;
@@ -542,8 +541,7 @@ bool isEdgePrunable(const NGWrapper &g,
     const NFAVertex u = source(e, g);
     const NFAVertex v = target(e, g);
 
-    DEBUG_PRINTF("edge (%u,%u)\n", g[u].index,
-                 g[v].index);
+    DEBUG_PRINTF("edge (%zu,%zu)\n", g[u].index, g[v].index);
 
     // Leave our special-to-special edges alone.
     if (is_special(u, g) && is_special(v, g)) {
@@ -716,8 +714,7 @@ static
 bool isUnanchored(const NGHolder &g) {
     for (auto v : adjacent_vertices_range(g.start, g)) {
         if (!edge(g.startDs, v, g).second) {
-            DEBUG_PRINTF("fail, %u is anchored vertex\n",
-                         g[v].index);
+            DEBUG_PRINTF("fail, %zu is anchored vertex\n", g[v].index);
             return false;
         }
     }
@@ -862,7 +859,7 @@ void handleExtendedParams(ReportManager &rm, NGWrapper &g,
             }
         }
     }
-    //dumpGraph("final.dot", g.g);
+    //dumpGraph("final.dot", g);
 
     if (!hasExtParams(g)) {
         return;

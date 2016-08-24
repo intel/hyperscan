@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -76,7 +76,7 @@ vector<DepthMinMax> getDistancesFromSOM(const NGHolder &g_orig) {
         clear_in_edges(v, g);
     }
 
-    //dumpGraph("som_depth.dot", g.g);
+    //dumpGraph("som_depth.dot", g);
 
     vector<DepthMinMax> temp_depths; // numbered by vertex index in g
     calcDepthsFrom(g, g.start, temp_depths);
@@ -143,7 +143,7 @@ bool firstMatchIsFirst(const NGHolder &p) {
     for (auto v : vertices_range(p)) {
         assert(!is_virtual_start(v, p));
         if (!is_special(v, p)) {
-            DEBUG_PRINTF("turning on %u\n", p[v].index);
+            DEBUG_PRINTF("turning on %zu\n", p[v].index);
             states.insert(v);
         }
     }
@@ -154,9 +154,9 @@ bool firstMatchIsFirst(const NGHolder &p) {
     for (auto v : states) {
         /* need to check if this vertex may represent an infix match - ie
          * it does not have an edge to accept. */
-        DEBUG_PRINTF("check %u\n", p[v].index);
+        DEBUG_PRINTF("check %zu\n", p[v].index);
         if (!edge(v, p.accept, p).second) {
-            DEBUG_PRINTF("fail %u\n", p[v].index);
+            DEBUG_PRINTF("fail %zu\n", p[v].index);
             return false;
         }
     }
@@ -186,14 +186,11 @@ bool somMayGoBackwards(NFAVertex u, const NGHolder &g,
         return cache.smgb[u];
     }
 
-    DEBUG_PRINTF("checking if som can go backwards on %u\n", g[u].index);
+    DEBUG_PRINTF("checking if som can go backwards on %zu\n", g[u].index);
 
     set<NFAEdge> be;
     BackEdges<set<NFAEdge>> backEdgeVisitor(be);
-    depth_first_search(
-        g.g, visitor(backEdgeVisitor)
-                 .root_vertex(g.start)
-                 .vertex_index_map(get(&NFAGraphVertexProps::index, g.g)));
+    boost::depth_first_search(g, visitor(backEdgeVisitor).root_vertex(g.start));
 
     bool rv;
     if (0) {
@@ -210,8 +207,7 @@ bool somMayGoBackwards(NFAVertex u, const NGHolder &g,
         NFAVertex s = source(e, g);
         NFAVertex t = target(e, g);
         /* only need to worry about big cycles including/before u */
-        DEBUG_PRINTF("back edge %u %u\n", g[s].index,
-                      g[t].index);
+        DEBUG_PRINTF("back edge %zu %zu\n", g[s].index, g[t].index);
         if (s != t && region_map.at(s) <= u_region) {
             DEBUG_PRINTF("eek big cycle\n");
             rv = true; /* big cycle -> eek */
@@ -268,13 +264,13 @@ bool somMayGoBackwards(NFAVertex u, const NGHolder &g,
     pruneUseless(c_g);
 
     be.clear();
-    depth_first_search(c_g.g, visitor(backEdgeVisitor).root_vertex(c_g.start).
-                       vertex_index_map(get(&NFAGraphVertexProps::index, c_g.g)));
+    boost::depth_first_search(c_g, visitor(backEdgeVisitor)
+                                   .root_vertex(c_g.start));
 
     for (const auto &e : be) {
         NFAVertex s = source(e, c_g);
         NFAVertex t = target(e, c_g);
-        DEBUG_PRINTF("back edge %u %u\n", c_g[s].index, c_g[t].index);
+        DEBUG_PRINTF("back edge %zu %zu\n", c_g[s].index, c_g[t].index);
         if (s != t) {
             assert(0);
             DEBUG_PRINTF("eek big cycle\n");
@@ -326,7 +322,7 @@ bool sentClearsTail(const NGHolder &g,
     }
 
     for (UNUSED auto v : states) {
-        DEBUG_PRINTF("start state: %u\n", g[v].index);
+        DEBUG_PRINTF("start state: %zu\n", g[v].index);
     }
 
     /* run the prefix the main graph */
@@ -338,7 +334,7 @@ bool sentClearsTail(const NGHolder &g,
             continue; /* not in tail */
         }
 
-        DEBUG_PRINTF("v %u is still on\n", g[v].index);
+        DEBUG_PRINTF("v %zu is still on\n", g[v].index);
         assert(v != g.accept && v != g.acceptEod); /* no cr */
 
         assert(contains(region_map, v));

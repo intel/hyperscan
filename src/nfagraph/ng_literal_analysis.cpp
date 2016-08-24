@@ -46,6 +46,7 @@
 #include <fstream>
 #include <queue>
 
+#include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/boykov_kolmogorov_max_flow.hpp>
 
 using namespace std;
@@ -335,7 +336,7 @@ void processWorkQueue(const NGHolder &g, const NFAEdge &e,
     // Our literal set should contain no literal that is a suffix of another.
     assert(!hasSuffixLiterals(s));
 
-    DEBUG_PRINTF("edge %u (%u->%u) produced %zu literals\n", g[e].index,
+    DEBUG_PRINTF("edge %zu (%zu->%zu) produced %zu literals\n", g[e].index,
                  g[source(e, g)].index, g[target(e, g)].index, s.size());
 }
 
@@ -791,7 +792,7 @@ bool splitOffLeadingLiteral_i(const NGHolder &g, bool anch,
     }
 
     while (true) {
-        DEBUG_PRINTF("validating vertex %u\n", g[v].index);
+        DEBUG_PRINTF("validating vertex %zu\n", g[v].index);
 
         assert(v != g.acceptEod && v != g.accept);
 

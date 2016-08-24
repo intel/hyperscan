@@ -46,12 +46,10 @@
 #include "ue2common.h"
 #include "rose/rose_common.h"
 #include "util/ue2_containers.h"
+#include "util/ue2_graph.h"
 #include "util/ue2string.h"
 
 #include <memory>
-
-#include <boost/graph/graph_traits.hpp>
-#include <boost/graph/adjacency_list.hpp>
 
 namespace ue2 {
 
@@ -128,6 +126,7 @@ public:
     flat_set<ReportID> reports; /**< for RIV_ACCEPT/RIV_ACCEPT_EOD */
     u32 min_offset; /**< Minimum offset at which this vertex can match. */
     u32 max_offset; /**< Maximum offset at which this vertex can match. */
+    size_t index = 0;
 };
 
 struct RoseInEdgeProps {
@@ -174,11 +173,12 @@ struct RoseInEdgeProps {
     std::shared_ptr<raw_som_dfa> haig;
 
     u32 graph_lag;
+    size_t index = 0;
 };
 
-typedef boost::adjacency_list<boost::listS, boost::listS, boost::bidirectionalS,
-                              RoseInVertexProps,
-                              RoseInEdgeProps> RoseInGraph;
+struct RoseInGraph
+    : public ue2_graph<RoseInGraph, RoseInVertexProps, RoseInEdgeProps> {
+};
 typedef RoseInGraph::vertex_descriptor RoseInVertex;
 typedef RoseInGraph::edge_descriptor RoseInEdge;
 

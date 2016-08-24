@@ -261,7 +261,7 @@ void findForwardReach(const RoseGraph &g, const RoseVertex v,
     for (const auto &e : out_edges_range(v, g)) {
         RoseVertex t = target(e, g);
         if (!g[t].left) {
-            DEBUG_PRINTF("successor %zu has no leftfix\n", g[t].idx);
+            DEBUG_PRINTF("successor %zu has no leftfix\n", g[t].index);
             return;
         }
         rose_look.push_back(map<s32, CharReach>());
@@ -585,7 +585,7 @@ bool getTransientPrefixReach(const NGHolder &g, u32 lag,
     NFAVertex v = *(inv_adjacent_vertices(g.accept, g).first);
     u32 i = lag + 1;
     while (v != g.startDs) {
-        DEBUG_PRINTF("i=%u, v=%u\n", i, g[v].index);
+        DEBUG_PRINTF("i=%u, v=%zu\n", i, g[v].index);
         if (is_special(v, g)) {
             DEBUG_PRINTF("special\n");
             return false;

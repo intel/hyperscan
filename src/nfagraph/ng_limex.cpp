@@ -78,8 +78,7 @@ bool sanityCheckGraph(const NGHolder &g,
         // Non-specials should have non-empty reachability.
         if (!is_special(v, g)) {
             if (g[v].char_reach.none()) {
-                DEBUG_PRINTF("vertex %u has empty reach\n",
-                             g[v].index);
+                DEBUG_PRINTF("vertex %zu has empty reach\n", g[v].index);
                 return false;
             }
         }
@@ -88,25 +87,23 @@ bool sanityCheckGraph(const NGHolder &g,
         // other vertices must not have them.
         if (is_match_vertex(v, g) && v != g.accept) {
             if (g[v].reports.empty()) {
-                DEBUG_PRINTF("vertex %u has no reports\n", g[v].index);
+                DEBUG_PRINTF("vertex %zu has no reports\n", g[v].index);
                 return false;
             }
         } else if (!g[v].reports.empty()) {
-            DEBUG_PRINTF("vertex %u has reports but no accept edge\n",
+            DEBUG_PRINTF("vertex %zu has reports but no accept edge\n",
                          g[v].index);
             return false;
         }
 
         // Participant vertices should have distinct state indices.
         if (!contains(state_ids, v)) {
-            DEBUG_PRINTF("vertex %u has no state index!\n",
-                         g[v].index);
+            DEBUG_PRINTF("vertex %zu has no state index!\n", g[v].index);
             return false;
         }
         u32 s = state_ids.at(v);
         if (s != NO_STATE && !seen_states.insert(s).second) {
-            DEBUG_PRINTF("vertex %u has dupe state %u\n",
-                         g[v].index, s);
+            DEBUG_PRINTF("vertex %zu has dupe state %u\n", g[v].index, s);
             return false;
         }
     }
@@ -178,11 +175,7 @@ NFAVertex makeTopStartVertex(NGHolder &g, const flat_set<u32> &tops,
     CharReach top_cr = calcTopVertexReach(tops, top_reach);
     g[u].char_reach = top_cr;
 
-    // Add edges in vertex index order, for determinism.
-    vector<NFAVertex> ordered_succs(begin(succs), end(succs));
-    sort(begin(ordered_succs), end(ordered_succs), make_index_ordering(g));
-
-    for (auto v : ordered_succs) {
+    for (auto v : succs) {
         if (v == g.accept || v == g.acceptEod) {
             reporter = true;
         }
@@ -374,7 +367,7 @@ void attemptToUseAsStart(const NGHolder &g,  NFAVertex u,
         return;
     }
 
-    DEBUG_PRINTF("reusing %u is a start vertex\n", g[u].index);
+    DEBUG_PRINTF("reusing %zu is a start vertex\n", g[u].index);
     markTopSuccAsHandled(u, top_inter, succs, tops_out, unhandled_top_succs,
                          unhandled_succ_tops);
 }
@@ -388,8 +381,7 @@ void reusePredsAsStarts(const NGHolder &g, const map<u32, CharReach> &top_reach,
                         map<u32, flat_set<NFAVertex>> &unhandled_top_succs,
                         map<NFAVertex, flat_set<u32>> &unhandled_succ_tops,
                         map<u32, set<NFAVertex>> &tops_out) {
-    /* create list of candidates first, to avoid issues of iter invalidation
-     * and determinism */
+    /* create list of candidates first, to avoid issues of iter invalidation */
     DEBUG_PRINTF("attempting to reuse vertices for top starts\n");
     vector<NFAVertex> cand_starts;
     for (NFAVertex u : unhandled_succ_tops | map_keys) {
@@ -397,7 +389,6 @@ void reusePredsAsStarts(const NGHolder &g, const map<u32, CharReach> &top_reach,
             cand_starts.push_back(u);
         }
     }
-    sort(cand_starts.begin(), cand_starts.end(), make_index_ordering(g));
 
     for (NFAVertex u : cand_starts) {
         if (!contains(unhandled_succ_tops, u)) {
@@ -625,7 +616,7 @@ void remapReportsToPrograms(NGHolder &h, const ReportManager &rm) {
             u32 program = rm.getProgramOffset(id);
             reports.insert(program);
         }
-        DEBUG_PRINTF("vertex %u: remapped reports {%s} to programs {%s}\n",
+        DEBUG_PRINTF("vertex %zu: remapped reports {%s} to programs {%s}\n",
                      h[v].index, as_string_list(old_reports).c_str(),
                      as_string_list(reports).c_str());
     }

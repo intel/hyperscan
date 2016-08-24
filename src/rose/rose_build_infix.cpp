@@ -110,7 +110,7 @@ void contractVertex(NGHolder &g, NFAVertex v,
 static
 u32 findMaxLiteralMatches(const NGHolder &h, const set<ue2_literal> &lits) {
     DEBUG_PRINTF("h=%p, %zu literals\n", &h, lits.size());
-    //dumpGraph("infix.dot", h.g);
+    //dumpGraph("infix.dot", h);
 
     // Indices of vertices that could terminate any of the literals in 'lits'.
     set<u32> terms;
@@ -163,7 +163,7 @@ u32 findMaxLiteralMatches(const NGHolder &h, const set<ue2_literal> &lits) {
     }
 
     remove_vertices(dead, g);
-    //dumpGraph("relaxed.dot", g.g);
+    //dumpGraph("relaxed.dot", g);
 
     depth maxWidth = findMaxWidth(g);
     DEBUG_PRINTF("maxWidth=%s\n", maxWidth.str().c_str());
@@ -286,7 +286,7 @@ void findCountingMiracleInfo(const left_id &left, const vector<u8> &stopTable,
 
     CharReach cyclic_cr;
     for (NFAVertex v : cyclics) {
-        DEBUG_PRINTF("considering %u ||=%zu\n", g[v].index,
+        DEBUG_PRINTF("considering %zu ||=%zu\n", g[v].index,
                       g[v].char_reach.count());
         cyclic_cr |= g[v].char_reach;
     }

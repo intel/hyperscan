@@ -52,11 +52,7 @@ namespace ue2 {
 static
 void wireStartToTops(NGHolder &g, const flat_set<NFAVertex> &tops,
                      vector<NFAEdge> &tempEdges) {
-    // Construct edges in vertex index order, for determinism.
-    vector<NFAVertex> ordered_tops(begin(tops), end(tops));
-    sort(begin(ordered_tops), end(ordered_tops), make_index_ordering(g));
-
-    for (NFAVertex v : ordered_tops) {
+    for (NFAVertex v : tops) {
         assert(!isLeafNode(v, g));
 
         const NFAEdge &e = add_edge(g.start, v, g).first;
@@ -102,7 +98,7 @@ void getStateOrdering(NGHolder &g, const flat_set<NFAVertex> &tops,
     vector<NFAEdge> tempEdges;
     wireStartToTops(g, tops, tempEdges);
 
-    renumberGraphVertices(g);
+    renumber_vertices(g);
 
     vector<NFAVertex> temp = getTopoOrdering(g);
 
@@ -144,7 +140,7 @@ getStateIndices(const NGHolder &h, const vector<NFAVertex> &ordering) {
 
     u32 stateNum = 0;
     for (auto v : ordering) {
-        DEBUG_PRINTF("assigning state num %u to vertex %u\n", stateNum,
+        DEBUG_PRINTF("assigning state num %u to vertex %zu\n", stateNum,
                      h[v].index);
         states[v] = stateNum++;
     }
@@ -187,7 +183,7 @@ void optimiseTightLoops(const NGHolder &g, vector<NFAVertex> &ordering) {
             continue;
         }
 
-        DEBUG_PRINTF("moving vertex %u next to %u\n", g[v].index, g[u].index);
+        DEBUG_PRINTF("moving vertex %zu next to %zu\n", g[v].index, g[u].index);
 
         ordering.erase(v_it);
         ordering.insert(++u_it, v);

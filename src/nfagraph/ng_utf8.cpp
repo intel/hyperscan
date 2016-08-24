@@ -176,7 +176,7 @@ void findSeeds(const NGHolder &h, const bool som, vector<NFAVertex> *seeds) {
             continue;
         }
 
-        DEBUG_PRINTF("%u is a seed\n", h[v].index);
+        DEBUG_PRINTF("%zu is a seed\n", h[v].index);
         seeds->push_back(v);
         already_seeds.insert(v);
     }
@@ -184,7 +184,7 @@ void findSeeds(const NGHolder &h, const bool som, vector<NFAVertex> *seeds) {
 
 static
 bool expandCyclic(NGHolder &h, NFAVertex v) {
-    DEBUG_PRINTF("inspecting %u\n", h[v].index);
+    DEBUG_PRINTF("inspecting %zu\n", h[v].index);
     bool changes = false;
 
     auto v_preds = preds(v, h);
@@ -201,7 +201,7 @@ bool expandCyclic(NGHolder &h, NFAVertex v) {
         auto a_preds = preds(a, h);
 
         if (a_preds == v_preds && isutf8start(h[a].char_reach)) {
-            DEBUG_PRINTF("%u is a start v\n", h[a].index);
+            DEBUG_PRINTF("%zu is a start v\n", h[a].index);
             start_siblings.insert(a);
         }
     }
@@ -212,7 +212,7 @@ bool expandCyclic(NGHolder &h, NFAVertex v) {
         auto a_succs = succs(a, h);
 
         if (a_succs == v_succs && h[a].char_reach == UTF_CONT_CR) {
-            DEBUG_PRINTF("%u is a full tail cont\n", h[a].index);
+            DEBUG_PRINTF("%zu is a full tail cont\n", h[a].index);
             end_siblings.insert(a);
         }
     }
@@ -226,7 +226,7 @@ bool expandCyclic(NGHolder &h, NFAVertex v) {
         if (cr.isSubsetOf(UTF_TWO_START_CR)) {
             if (end_siblings.find(*adjacent_vertices(s, h).first)
                 == end_siblings.end()) {
-                DEBUG_PRINTF("%u is odd\n", h[s].index);
+                DEBUG_PRINTF("%zu is odd\n", h[s].index);
                 continue;
             }
         } else if (cr.isSubsetOf(UTF_THREE_START_CR)) {
@@ -238,7 +238,7 @@ bool expandCyclic(NGHolder &h, NFAVertex v) {
             }
             if (end_siblings.find(*adjacent_vertices(m, h).first)
                 == end_siblings.end()) {
-                DEBUG_PRINTF("%u is odd\n", h[s].index);
+                DEBUG_PRINTF("%zu is odd\n", h[s].index);
                 continue;
             }
         } else if (cr.isSubsetOf(UTF_FOUR_START_CR)) {
@@ -258,11 +258,11 @@ bool expandCyclic(NGHolder &h, NFAVertex v) {
 
             if (end_siblings.find(*adjacent_vertices(m2, h).first)
                 == end_siblings.end()) {
-                DEBUG_PRINTF("%u is odd\n", h[s].index);
+                DEBUG_PRINTF("%zu is odd\n", h[s].index);
                 continue;
             }
         } else {
-            DEBUG_PRINTF("%u is bad\n", h[s].index);
+            DEBUG_PRINTF("%zu is bad\n", h[s].index);
           continue;
         }
 

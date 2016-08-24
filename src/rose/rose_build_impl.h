@@ -527,8 +527,6 @@ public:
     // max overlap considered for every pair (ulit, vlit).
     size_t maxLiteralOverlap(RoseVertex u, RoseVertex v) const;
 
-    void renumberVertices(void);
-
     bool isPseudoStar(const RoseEdge &e) const;
     bool isPseudoStarOrFirstOnly(const RoseEdge &e) const;
     bool hasOnlyPseudoStarInEdges(RoseVertex v) const;
@@ -551,7 +549,6 @@ public:
     const RoseVertex anchored_root;
     RoseLiteralMap literals;
     std::map<RoseVertex, RoseVertex> ghost;
-    size_t vertexIndex;
     ReportID getNewNfaReport() override {
         return next_nfa_report++;
     }

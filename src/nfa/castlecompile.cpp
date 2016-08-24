@@ -58,6 +58,7 @@
 #include <stack>
 #include <cassert>
 
+#include <boost/graph/adjacency_list.hpp>
 #include <boost/range/adaptor/map.hpp>
 
 using namespace std;
@@ -981,7 +982,7 @@ unique_ptr<NGHolder> makeHolder(const CastleProto &proto,
         addToHolder(*g, m.first, m.second);
     }
 
-    //dumpGraph("castle_holder.dot", g->g);
+    //dumpGraph("castle_holder.dot", *g);
 
     // Sanity checks.
     assert(allMatchStatesHaveReports(*g));

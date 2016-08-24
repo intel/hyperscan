@@ -64,7 +64,6 @@ RoseVertex addVertex(RoseBuildImpl &build, RoseVertex parent, u32 lit_id) {
     RoseGraph &g = build.g;
 
     RoseVertex v = add_vertex(g);
-    g[v].idx = build.vertexIndex++;
     g[v].min_offset = 0;
     g[v].max_offset = ROSE_BOUND_INF;
     g[v].literals.insert(lit_id);

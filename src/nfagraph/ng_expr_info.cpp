@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -118,7 +118,7 @@ void checkVertex(const ReportManager &rm, const NGWrapper &w, NFAVertex v,
             rd.max = min(rd.max, max_offset);
         }
 
-        DEBUG_PRINTF("vertex %u report %u: %s\n", w[v].index, report_id,
+        DEBUG_PRINTF("vertex %zu report %u: %s\n", w[v].index, report_id,
                       rd.str().c_str());
 
         info = unionDepthMinMax(info, rd);

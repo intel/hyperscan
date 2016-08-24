@@ -39,31 +39,6 @@ namespace ue2 {
 /** Max allowed width for transient graphs in block mode */
 #define ROSE_BLOCK_TRANSIENT_MAX_WIDTH 255U
 
-// Comparator for vertices using their index property.
-struct VertexIndexComp {
-    VertexIndexComp(const RoseGraph &gg) : g(gg) {}
-
-    bool operator()(const RoseVertex &a, const RoseVertex &b) const {
-        const RoseVertexProps &pa = g[a];
-        const RoseVertexProps &pb = g[b];
-
-        if (pa.idx < pb.idx) {
-            return true;
-        }
-        if (pa.idx > pb.idx) {
-            return false;
-        }
-
-        assert(a == b); // All vertex indices should be distinct.
-        return a < b;
-    }
-
-    const RoseGraph &g;
-};
-
-// Vertex set type, ordered by index. Construct with a graph reference.
-typedef std::set<RoseVertex, VertexIndexComp> RoseVertexSet;
-
 /**
  * \brief Add two Rose depths together, coping correctly with infinity at
  * ROSE_BOUND_INF.

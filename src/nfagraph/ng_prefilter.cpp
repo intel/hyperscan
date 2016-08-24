@@ -220,13 +220,7 @@ void copyInEdges(NGHolder &g, NFAVertex from, NFAVertex to,
             continue;
         }
 
-        // Check with edge_by_target to cope with predecessors with large
-        // fan-out.
-        if (edge_by_target(u, to, g).second) {
-            continue;
-        }
-
-        add_edge(u, to, g[e], g);
+        add_edge_if_not_present(u, to, g[e], g);
     }
 }
 
@@ -361,7 +355,7 @@ void reduceRegions(NGHolder &h) {
     // We may have vertices that have edges to both accept and acceptEod: in
     // this case, we can optimize for performance by removing the acceptEod
     // edges.
-    remove_in_edge_if(h.acceptEod, SourceHasEdgeToAccept(h), h.g);
+    remove_in_edge_if(h.acceptEod, SourceHasEdgeToAccept(h), h);
 }
 
 void prefilterReductions(NGHolder &h, const CompileContext &cc) {
@@ -378,13 +372,13 @@ void prefilterReductions(NGHolder &h, const CompileContext &cc) {
     DEBUG_PRINTF("before: graph with %zu vertices, %zu edges\n",
                  num_vertices(h), num_edges(h));
 
-    h.renumberVertices();
-    h.renumberEdges();
+    renumber_vertices(h);
+    renumber_edges(h);
 
     reduceRegions(h);
 
-    h.renumberVertices();
-    h.renumberEdges();
+    renumber_vertices(h);
+    renumber_edges(h);
 
     DEBUG_PRINTF("after: graph with %zu vertices, %zu edges\n",
                  num_vertices(h), num_edges(h));

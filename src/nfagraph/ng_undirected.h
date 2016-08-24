@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,6 +39,10 @@
 #include "util/graph_range.h"
 #include "util/ue2_containers.h"
 
+#include <vector>
+
+#include <boost/graph/adjacency_list.hpp>
+
 namespace ue2 {
 
 /**
@@ -51,7 +55,7 @@ namespace ue2 {
 typedef boost::adjacency_list<boost::setS,        // out edges
                               boost::listS,       // vertices
                               boost::undirectedS, // graph is undirected
-                              boost::property<boost::vertex_index_t, u32> >
+                              boost::property<boost::vertex_index_t, size_t> >
 NFAUndirectedGraph;
 
 typedef NFAUndirectedGraph::vertex_descriptor NFAUndirectedVertex;
@@ -60,16 +64,18 @@ typedef NFAUndirectedGraph::vertex_descriptor NFAUndirectedVertex;
  * Make a copy of an NFAGraph with undirected edges, optionally without start
  * vertices. Mappings from the original graph to the new one are provided.
  *
- * Note that new vertex indices are assigned contiguously in \a vertices(g) order.
+ * Note that new vertex indices are assigned contiguously in \a vertices(g)
+ * order.
  */
 template <typename GraphT>
 void createUnGraph(const GraphT &g,
-                   bool excludeStarts,
-                   bool excludeAccepts,
-                   NFAUndirectedGraph &ug,
-                   ue2::unordered_map<NFAVertex, NFAUndirectedVertex> &old2new,
-                   ue2::unordered_map<u32, NFAVertex> &newIdx2old) {
-    u32 idx = 0;
+           bool excludeStarts,
+           bool excludeAccepts,
+           NFAUndirectedGraph &ug,
+           ue2::unordered_map<typename GraphT::vertex_descriptor,
+                              NFAUndirectedVertex> &old2new) {
+    size_t idx = 0;
+    typedef typename GraphT::vertex_descriptor VertexT;
 
     for (auto v : ue2::vertices_range(g)) {
         // skip all accept nodes
@@ -84,13 +90,12 @@ void createUnGraph(const GraphT &g,
 
         NFAUndirectedVertex nuv = boost::add_vertex(ug);
         old2new[v] = nuv;
-        newIdx2old[idx] = v;
         boost::put(boost::vertex_index, ug, nuv, idx++);
     }
 
     for (const auto &e : ue2::edges_range(g)) {
-        NFAVertex src = source(e, g);
-        NFAVertex targ = target(e, g);
+        VertexT src = source(e, g);
+        VertexT targ = target(e, g);
 
         if ((excludeAccepts && is_any_accept(src, g))
             || (excludeStarts && is_any_start(src, g))) {

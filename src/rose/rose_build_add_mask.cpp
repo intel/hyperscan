@@ -532,7 +532,7 @@ void addTransientMask(RoseBuildImpl &build, const vector<CharReach> &mask,
             g[v].left.leftfix_report = mask_report;
         } else {
             // Make sure our edge bounds are correct.
-            auto e = edge_by_target(parent, v, g).first;
+            auto e = edge(parent, v, g).first;
             g[e].minBound = 0;
             g[e].maxBound = anchored ? 0 : ROSE_BOUND_INF;
             g[e].history = anchored ? ROSE_ROLE_HISTORY_ANCH

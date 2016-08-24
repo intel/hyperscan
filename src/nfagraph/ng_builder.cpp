@@ -132,7 +132,7 @@ NFAVertex NFABuilderImpl::getVertex(Position pos) const {
     assert(id2vertex.size() >= pos);
     const NFAVertex v = id2vertex[pos];
     assert(v != NGHolder::null_vertex());
-    assert(graph->g[v].index == pos);
+    assert((*graph)[v].index == pos);
     return v;
 }
 
@@ -147,7 +147,7 @@ void NFABuilderImpl::addVertex(Position pos) {
         id2vertex.resize(pos + 1);
     }
     id2vertex[pos] = v;
-    graph->g[v].index = pos;
+    (*graph)[v].index = pos;
 }
 
 unique_ptr<NGWrapper> NFABuilderImpl::getGraph() {
@@ -177,22 +177,22 @@ void NFABuilderImpl::setNodeReportID(Position pos, int offsetAdjust) {
 
 void NFABuilderImpl::addCharReach(Position pos, const CharReach &cr) {
     NFAVertex v = getVertex(pos);
-    graph->g[v].char_reach |= cr;
+    (*graph)[v].char_reach |= cr;
 }
 
 void NFABuilderImpl::setAssertFlag(Position pos, u32 flag) {
     NFAVertex v = getVertex(pos);
-    graph->g[v].assert_flags |= flag;
+    (*graph)[v].assert_flags |= flag;
 }
 
 u32 NFABuilderImpl::getAssertFlag(Position pos) {
     NFAVertex v = getVertex(pos);
-    return graph->g[v].assert_flags;
+    return (*graph)[v].assert_flags;
 }
 
 pair<NFAEdge, bool> NFABuilderImpl::addEdge(NFAVertex u, NFAVertex v) {
     // assert that the edge doesn't already exist
-    assert(edge(u, v, graph->g).second == false);
+    assert(edge(u, v, *graph).second == false);
 
     pair<NFAEdge, bool> e = add_edge(u, v, *graph);
     assert(e.second);
@@ -209,16 +209,16 @@ void NFABuilderImpl::addEdge(Position startPos, Position endPos) {
 
     if ((u == graph->start || u == graph->startDs) && v == graph->startDs) {
         /* standard special -> special edges already exist */
-        assert(edge(u, v, graph->g).second == true);
+        assert(edge(u, v, *graph).second == true);
         return;
     }
 
-    assert(edge(u, v, graph->g).second == false);
+    assert(edge(u, v, *graph).second == false);
     addEdge(u, v);
 }
 
 bool NFABuilderImpl::hasEdge(Position startPos, Position endPos) const {
-    return edge(getVertex(startPos), getVertex(endPos), graph->g).second;
+    return edge(getVertex(startPos), getVertex(endPos), *graph).second;
 }
 
 Position NFABuilderImpl::getStart() const {
@@ -252,7 +252,7 @@ Position NFABuilderImpl::makePositions(size_t nPositions) {
 }
 
 void NFABuilderImpl::cloneRegion(Position first, Position last, unsigned posOffset) {
-    NFAGraph &g = graph->g;
+    NGHolder &g = *graph;
     assert(posOffset > 0);
 
     // walk the nodes between first and last and copy their vertex properties

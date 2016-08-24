@@ -549,7 +549,7 @@ bool isSimple(const NGHolder &h, u32 *min_bound, u32 *max_bound,
 
     /* lit should only be connected to dot vertices */
     for (auto u : inv_adjacent_vertices_range(lit_head, h)) {
-        DEBUG_PRINTF("checking %u\n", h[u].index);
+        DEBUG_PRINTF("checking %zu\n", h[u].index);
         if (!h[u].char_reach.all()) {
             return false;
         }

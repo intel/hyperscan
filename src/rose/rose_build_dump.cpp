@@ -104,7 +104,7 @@ public:
         }
 
         os << "[label=\"";
-        os << "idx=" << g[v].idx <<"\\n";
+        os << "index=" << g[v].index <<"\\n";
 
         for (u32 lit_id : g[v].literals) {
             writeLiteral(os, lit_id);
@@ -267,14 +267,14 @@ void dumpRoseGraph(const RoseBuild &build_base, const RoseEngine *t,
     ofstream os(ss.str());
 
     RoseGraphWriter writer(build, t);
-    writeGraphviz(os, build.g, writer, get(&RoseVertexProps::idx, build.g));
+    writeGraphviz(os, build.g, writer, get(boost::vertex_index, build.g));
 }
 
 namespace {
 struct CompareVertexRole {
     explicit CompareVertexRole(const RoseGraph &g_in) : g(g_in) {}
     inline bool operator()(const RoseVertex &a, const RoseVertex &b) const {
-        return g[a].idx < g[b].idx;
+        return g[a].index < g[b].index;
     }
 private:
     const RoseGraph &g;
@@ -372,7 +372,7 @@ void dumpRoseLiterals(const RoseBuildImpl &build, const char *filename) {
 
         for (RoseVertex v : verts) {
             // role info
-            os << "  Index " << g[v].idx << ": groups=0x" << hex << setw(16)
+            os << "  Index " << g[v].index << ": groups=0x" << hex << setw(16)
                << setfill('0') << g[v].groups << dec;
 
             if (g[v].reports.empty()) {
@@ -386,13 +386,13 @@ void dumpRoseLiterals(const RoseBuildImpl &build, const char *filename) {
             // pred info
             for (const auto &ie : in_edges_range(v, g)) {
                 const auto &u = source(ie, g);
-                os << "    Predecessor idx=";
+                os << "    Predecessor index=";
                 if (u == build.root) {
                     os << "ROOT";
                 } else if (u == build.anchored_root) {
                     os << "ANCHORED_ROOT";
                 } else {
-                    os << g[u].idx;
+                    os << g[u].index;
                 }
                 os << ": bounds [" << g[ie].minBound << ", ";
                 if (g[ie].maxBound == ROSE_BOUND_INF) {

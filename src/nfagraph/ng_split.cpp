@@ -87,7 +87,7 @@ void splitLHS(const NGHolder &base, const vector<NFAVertex> &pivots,
     clearAccepts(*lhs);
 
     for (auto pivot : pivots) {
-        DEBUG_PRINTF("pivot is %u lv %zu lm %zu\n", base[pivot].index,
+        DEBUG_PRINTF("pivot is %zu lv %zu lm %zu\n", base[pivot].index,
                      num_vertices(*lhs), lhs_map->size());
         assert(contains(*lhs_map, pivot));
 
@@ -191,8 +191,8 @@ void findCommonSuccessors(const NGHolder &g, const vector<NFAVertex> &pivots,
                           vector<NFAVertex> &succ) {
     assert(!pivots.empty());
 
-    // Note: for determinism, we must sort our successor sets by vertex_index.
-    set<NFAVertex, VertexIndexOrdering<NGHolder> > adj(g), adj_temp(g);
+    set<NFAVertex> adj;
+    set<NFAVertex> adj_temp;
 
     insert(&adj, adjacent_vertices(pivots.at(0), g));
 

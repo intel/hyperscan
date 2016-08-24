@@ -36,14 +36,13 @@
 #include <map>
 #include <vector>
 
-#include "nfagraph/ng_graph.h"
+#include "nfagraph/ng_holder.h"
 #include "util/ue2_containers.h"
 
 namespace ue2 {
 
 struct CompileContext;
 struct Grey;
-class NGHolder;
 class ReportManager;
 
 /**

@@ -102,7 +102,7 @@ bool maskFromLeftGraph(const LeftEngInfo &left, vector<u8> &msk,
         CharReach cr;
         for (NFAVertex v : curr) {
             const auto &v_cr = h[v].char_reach;
-            DEBUG_PRINTF("vertex %u, reach %s\n", h[v].index,
+            DEBUG_PRINTF("vertex %zu, reach %s\n", h[v].index,
                          describeClass(v_cr).c_str());
             cr |= v_cr;
             insert(&next, inv_adjacent_vertices(v, h));
@@ -438,45 +438,45 @@ static
 bool isNoRunsVertex(const RoseBuildImpl &build, RoseVertex u) {
     const RoseGraph &g = build.g;
     if (!g[u].isBoring()) {
-        DEBUG_PRINTF("u=%zu is not boring\n", g[u].idx);
+        DEBUG_PRINTF("u=%zu is not boring\n", g[u].index);
         return false;
     }
 
     if (!g[u].reports.empty()) {
-        DEBUG_PRINTF("u=%zu has accept\n", g[u].idx);
+        DEBUG_PRINTF("u=%zu has accept\n", g[u].index);
         return false;
     }
 
     /* TODO: handle non-root roles as well. It can't be that difficult... */
 
-    if (!in_degree_equal_to(u, g, 1)) {
-        DEBUG_PRINTF("u=%zu is not a root role\n", g[u].idx);
+    if (in_degree(u, g) != 1) {
+        DEBUG_PRINTF("u=%zu is not a root role\n", g[u].index);
         return false;
     }
 
     RoseEdge e;
     bool exists;
-    tie(e, exists) = edge_by_target(build.root, u, g);
+    tie(e, exists) = edge(build.root, u, g);
 
     if (!exists) {
-        DEBUG_PRINTF("u=%zu is not a root role\n", g[u].idx);
+        DEBUG_PRINTF("u=%zu is not a root role\n", g[u].index);
         return false;
     }
 
     if (g[e].minBound != 0 || g[e].maxBound != ROSE_BOUND_INF) {
-        DEBUG_PRINTF("u=%zu has bounds from root\n", g[u].idx);
+        DEBUG_PRINTF("u=%zu has bounds from root\n", g[u].index);
         return false;
     }
 
     for (const auto &oe : out_edges_range(u, g)) {
         RoseVertex v = target(oe, g);
         if (g[oe].maxBound != ROSE_BOUND_INF) {
-            DEBUG_PRINTF("edge (%zu,%zu) has max bound\n", g[u].idx,
-                    g[target(oe, g)].idx);
+            DEBUG_PRINTF("edge (%zu,%zu) has max bound\n", g[u].index,
+                         g[v].index);
             return false;
         }
         if (g[v].left) {
-            DEBUG_PRINTF("v=%zu has rose prefix\n", g[v].idx);
+            DEBUG_PRINTF("v=%zu has rose prefix\n", g[v].index);
             return false;
         }
     }
@@ -563,7 +563,7 @@ u64a literalMinReportOffset(const RoseBuildImpl &build,
     u64a lit_min_offset = UINT64_MAX;
 
     for (const auto &v : info.vertices) {
-        DEBUG_PRINTF("vertex %zu min_offset=%u\n", g[v].idx, g[v].min_offset);
+        DEBUG_PRINTF("vertex %zu min_offset=%u\n", g[v].index, g[v].min_offset);
 
         u64a vert_offset = g[v].min_offset;
 

@@ -162,7 +162,7 @@ flat_set<NFAVertex> findHeadShell(const NGHolder &g,
     }
 
     for (UNUSED auto v : shell) {
-        DEBUG_PRINTF("shell: %u\n", g[v].index);
+        DEBUG_PRINTF("shell: %zu\n", g[v].index);
     }
 
     return shell;
@@ -184,7 +184,7 @@ flat_set<NFAVertex> findTailShell(const NGHolder &g,
     }
 
     for (UNUSED auto v : shell) {
-        DEBUG_PRINTF("shell: %u\n", g[v].index);
+        DEBUG_PRINTF("shell: %zu\n", g[v].index);
     }
 
     return shell;
@@ -209,7 +209,8 @@ vector<NFAEdge> findShellEdges(const NGHolder &g,
 
         if ((is_special(u, g) || contains(head_shell, u)) &&
             (is_special(v, g) || contains(tail_shell, v))) {
-            DEBUG_PRINTF("edge (%u,%u) is a shell edge\n", g[u].index, g[v].index);
+            DEBUG_PRINTF("edge (%zu,%zu) is a shell edge\n", g[u].index,
+                         g[v].index);
             shell_edges.push_back(e);
         }
     }
@@ -275,9 +276,8 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
 
     NFAUndirectedGraph ug;
     ue2::unordered_map<NFAVertex, NFAUndirectedVertex> old2new;
-    ue2::unordered_map<u32, NFAVertex> newIdx2old;
 
-    createUnGraph(g.g, true, true, ug, old2new, newIdx2old);
+    createUnGraph(g, true, true, ug, old2new);
 
     // Construct reverse mapping.
     ue2::unordered_map<NFAUndirectedVertex, NFAVertex> new2old;
@@ -313,7 +313,7 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
         assert(contains(new2old, uv));
         NFAVertex v = new2old.at(uv);
         verts[c].push_back(v);
-        DEBUG_PRINTF("vertex %u is in comp %u\n", g[v].index, c);
+        DEBUG_PRINTF("vertex %zu is in comp %u\n", g[v].index, c);
     }
 
     ue2::unordered_map<NFAVertex, NFAVertex> v_map; // temp map for fillHolder
@@ -322,8 +322,9 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
         vv.insert(vv.end(), begin(head_shell), end(head_shell));
         vv.insert(vv.end(), begin(tail_shell), end(tail_shell));
 
-        // Sort by vertex index for determinism.
-        sort(begin(vv), end(vv), VertexIndexOrdering<NGHolder>(g));
+        /* Sort for determinism. Still required as NFAUndirectedVertex have
+         * no deterministic ordering (split_components map). */
+        sort(begin(vv), end(vv));
 
         auto gc = ue2::make_unique<NGHolder>();
         v_map.clear();
@@ -348,9 +349,6 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
         deque<NFAVertex> vv;
         vv.insert(vv.end(), begin(head_shell), end(head_shell));
         vv.insert(vv.end(), begin(tail_shell), end(tail_shell));
-
-        // Sort by vertex index for determinism.
-        sort(begin(vv), end(vv), VertexIndexOrdering<NGHolder>(g));
 
         auto gc = ue2::make_unique<NGHolder>();
         v_map.clear();

@@ -538,7 +538,7 @@ void getRegionRoseLiterals(const NGHolder &g,
         DEBUG_PRINTF("inspecting region %u\n", region);
         set<ue2_literal> s;
         for (auto v : vv) {
-            DEBUG_PRINTF("   exit vertex: %u\n", g[v].index);
+            DEBUG_PRINTF("   exit vertex: %zu\n", g[v].index);
             /* Note: RHS can not be depended on to take all subsequent revisits
              * to this vertex */
             set<ue2_literal> ss = getLiteralSet(g, v, false);
@@ -573,8 +573,7 @@ void gatherBackEdges(const NGHolder &g,
                      ue2::unordered_map<NFAVertex, vector<NFAVertex>> *out) {
     set<NFAEdge> backEdges;
     BackEdges<set<NFAEdge>> be(backEdges);
-    depth_first_search(g.g, visitor(be).root_vertex(g.start).vertex_index_map(
-                                get(&NFAGraphVertexProps::index, g.g)));
+    depth_first_search(g, visitor(be).root_vertex(g.start));
 
     for (const auto &e : backEdges) {
         (*out)[source(e, g)].push_back(target(e, g));
@@ -757,7 +756,7 @@ unique_ptr<VertLitInfo> LitCollection::pickNext() {
         unique_ptr<VertLitInfo> rv = move(lits.back());
         lits.pop_back();
         poisonCandidates(*rv);
-        DEBUG_PRINTF("best is '%s' %u a%d t%d\n",
+        DEBUG_PRINTF("best is '%s' %zu a%d t%d\n",
                      dumpString(*(rv->lit.begin())).c_str(),
                      g[rv->vv.front()].index,
                      (int)createsAnchoredLHS(g, rv->vv, depths, grey),
@@ -863,8 +862,6 @@ u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     assert(delay <= lit.length());
     DEBUG_PRINTF("managed delay %u (of max %u)\n", delay, max_delay);
 
-    // For determinism, we make sure that we create these edges from vertices
-    // in index-sorted order.
     set<NFAVertex> pred;
     for (auto v : curr) {
         insert(&pred, inv_adjacent_vertices_range(v, g));
@@ -873,10 +870,7 @@ u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     clear_in_edges(g.accept, g);
     clearReports(g);
 
-    vector<NFAVertex> verts(pred.begin(), pred.end());
-    sort(verts.begin(), verts.end(), VertexIndexOrdering<NGHolder>(g));
-
-    for (auto v : verts) {
+    for (auto v : pred) {
         NFAEdge e = add_edge(v, g.accept, g).first;
         g[v].reports.insert(0);
         if (is_triggered(g) && v == g.start) {
@@ -921,8 +915,8 @@ void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
         g[u].reports.insert(0);
     }
 
-    g.renumberVertices();
-    g.renumberEdges();
+    renumber_vertices(g);
+    renumber_edges(g);
     assert(allMatchStatesHaveReports(g));
     assert(isCorrectlyTopped(g));
 }
@@ -1152,7 +1146,7 @@ void deanchorIfNeeded(NGHolder &g, bool *orig_anch) {
     succ_g.erase(g.startDs);
 
     for (auto v : adjacent_vertices_range(g.start, g)) {
-        DEBUG_PRINTF("inspecting cand %u || =%zu\n", g[v].index,
+        DEBUG_PRINTF("inspecting cand %zu || =%zu\n", g[v].index,
                      g[v].char_reach.size());
 
         if (v == g.startDs || !g[v].char_reach.all()) {
@@ -1170,7 +1164,7 @@ void deanchorIfNeeded(NGHolder &g, bool *orig_anch) {
             }
             clear_vertex(v, g);
             remove_vertex(v, g);
-            g.renumberVertices();
+            renumber_vertices(g);
             return;
         }
 
@@ -1701,7 +1695,7 @@ void splitEdgesByCut(RoseInGraph &ig, const vector<RoseInEdge> &to_cut,
             /* TODO need to update v_mapping (if we were doing more cuts) */
         }
 
-        DEBUG_PRINTF("splitting on pivot %u\n", h[pivot].index);
+        DEBUG_PRINTF("splitting on pivot %zu\n", h[pivot].index);
         ue2::unordered_map<NFAVertex, NFAVertex> temp_map;
         shared_ptr<NGHolder> new_lhs = make_shared<NGHolder>();
         splitLHS(h, pivot, new_lhs.get(), &temp_map);
@@ -1774,8 +1768,8 @@ bool doNetflowCut(RoseInGraph &ig, const vector<RoseInEdge> &to_cut,
         return false;
     }
 
-    h.renumberVertices();
-    h.renumberEdges();
+    renumber_vertices(h);
+    renumber_edges(h);
     /* Step 1: Get scores for all edges */
     vector<u64a> scores = scoreEdges(h); /* scores by edge_index */
     /* Step 2: poison scores for edges covered by successor literal */
@@ -2573,7 +2567,7 @@ bool followedByStar(const vector<NFAVertex> &vv, const NGHolder &g) {
 
 static
 bool isEodPrefixCandidate(const NGHolder &g) {
-    if (hasGreaterInDegree(0, g.accept, g)) {
+    if (in_degree(g.accept, g)) {
         DEBUG_PRINTF("graph isn't eod anchored\n");
         return false;
     }
@@ -2644,7 +2638,7 @@ void processEodPrefixes(RoseInGraph &g) {
         }
 
         // TODO: handle cases with multiple out-edges.
-        if (hasGreaterOutDegree(1, source(e, g), g)) {
+        if (out_degree(source(e, g), g) > 1) {
             continue;
         }
 
@@ -2671,7 +2665,7 @@ void processEodPrefixes(RoseInGraph &g) {
     }
 
     for (auto v : accepts) {
-        if (!hasGreaterInDegree(0, v, g)) {
+        if (!in_degree(v, g)) {
             remove_vertex(v, g);
         }
     }
@@ -2813,6 +2807,7 @@ unique_ptr<RoseInGraph> buildRose(const NGHolder &h, bool desperation,
 
     dumpPreRoseGraph(ig, cc.grey);
 
+    renumber_vertices(ig);
     calcVertexOffsets(ig);
     return igp;
 }
@@ -2829,6 +2824,7 @@ void desperationImprove(RoseInGraph &ig, const CompileContext &cc) {
     handleLongMixedSensitivityLiterals(ig);
     dedupe(ig);
     pruneUseless(ig);
+    renumber_vertices(ig);
     calcVertexOffsets(ig);
 }
 
@@ -2839,8 +2835,7 @@ bool splitOffRose(RoseBuild &rose, const NGHolder &h, bool prefilter,
     }
 
     // We should have at least one edge into accept or acceptEod!
-    assert(hasGreaterInDegree(0, h.accept, h) ||
-           hasGreaterInDegree(1, h.acceptEod, h));
+    assert(in_degree(h.accept, h) || in_degree(h.acceptEod, h) > 1);
 
     unique_ptr<RoseInGraph> igp = buildRose(h, false, cc);
     if (igp && rose.addRose(*igp, prefilter)) {
@@ -2932,6 +2927,7 @@ bool finalChanceRose(RoseBuild &rose, const NGHolder &h, bool prefilter,
         add_edge(v, a, RoseInEdgeProps(rhs, 0U), ig);
     }
 
+    renumber_vertices(ig);
     calcVertexOffsets(ig);
 
     return rose.addRose(ig, prefilter, true /* final chance */);
@@ -2944,8 +2940,7 @@ bool checkRose(const ReportManager &rm, const NGHolder &h, bool prefilter,
     }
 
     // We should have at least one edge into accept or acceptEod!
-    assert(hasGreaterInDegree(0, h.accept, h) ||
-           hasGreaterInDegree(1, h.acceptEod, h));
+    assert(in_degree(h.accept, h) || in_degree(h.acceptEod, h) > 1);
 
     unique_ptr<RoseInGraph> igp;
 

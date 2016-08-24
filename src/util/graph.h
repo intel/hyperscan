@@ -38,71 +38,18 @@
 #include "util/graph_range.h"
 #include "util/ue2_containers.h"
 
-#include <boost/graph/adjacency_iterator.hpp>
-#include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/depth_first_search.hpp>
-#include <boost/graph/graph_traits.hpp>
+
+#include <algorithm>
+#include <utility>
+#include <vector>
 
 namespace ue2 {
 
 /** \brief True if the given vertex has no out-edges. */
 template<class Graph>
 bool isLeafNode(const typename Graph::vertex_descriptor& v, const Graph& g) {
-    typename Graph::adjacency_iterator ai, ae;
-    std::tie(ai, ae) = adjacent_vertices(v, g);
-    return ai == ae; // no out edges
-}
-
-/** \brief True if the out-degree of vertex \a v is greater than the given
- * limit. */
-template<class Graph>
-bool hasGreaterOutDegree(size_t limit,
-                         const typename Graph::vertex_descriptor& v,
-                         const Graph& g) {
-    typename Graph::out_edge_iterator ei, ee;
-    for (std::tie(ei, ee) = out_edges(v, g); ei != ee; ++ei) {
-        if (limit-- == 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-/** \brief Returns true if the in-degree of vertex \a v is greater than the
- * given limit. */
-template<class Graph>
-bool hasGreaterInDegree(size_t limit,
-                        const typename Graph::vertex_descriptor& v,
-                        const Graph& g) {
-    typename Graph::in_edge_iterator ei, ee;
-    for (std::tie(ei, ee) = in_edges(v, g); ei != ee; ++ei) {
-        if (limit-- == 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-/**
- * \brief True if the degree of vertex \a v is greater than the given limit.
- */
-template <class Graph>
-bool has_greater_degree(size_t limit,
-                        const typename Graph::vertex_descriptor &v,
-                        const Graph &g) {
-    typename Graph::in_edge_iterator ei, ee;
-    for (std::tie(ei, ee) = in_edges(v, g); ei != ee; ++ei) {
-        if (limit-- == 0) {
-            return true;
-        }
-    }
-    typename Graph::out_edge_iterator oi, oe;
-    for (std::tie(oi, oe) = out_edges(v, g); oi != oe; ++oi) {
-        if (limit-- == 0) {
-            return true;
-        }
-    }
-    return false;
+    return out_degree(v, g) == 0;
 }
 
 /** \brief True if vertex \a v has an edge to itself. */
@@ -137,48 +84,10 @@ size_t proper_in_degree(const typename Graph::vertex_descriptor &v,
     return in_degree(v, g) - (edge(v, v, g).second ? 1 : 0);
 }
 
-/** \brief Returns true iff the in-degree of vertex \a v is \a expected */
-template<class Graph>
-bool in_degree_equal_to(const typename Graph::vertex_descriptor &v,
-                        const Graph &g, size_t expected) {
-    size_t seen = 0;
-    typename Graph::in_edge_iterator ei, ee;
-    for (std::tie(ei, ee) = in_edges(v, g);; ++ei, seen++) {
-        if (seen == expected) {
-            return ei == ee;
-        }
-        if (ei == ee) {
-            return false;
-        }
-    }
-}
-
-/** \brief same as edge(s, t, g) by finds edge by inspecting in-edges of target.
- * Should be used when it is known that t has a small in-degree and when s
- * may have a large out-degree.
- */
-template<class Graph>
-std::pair<typename Graph::edge_descriptor, bool>
-edge_by_target(const typename Graph::vertex_descriptor &s,
-               const typename Graph::vertex_descriptor &t, const Graph &g) {
-    typename Graph::in_edge_iterator ei, ee;
-    for (std::tie(ei, ee) = in_edges(t, g); ei != ee; ++ei) {
-        if (source(*ei, g) == s) {
-            return std::make_pair(*ei, true);
-        }
-    }
-
-    return std::make_pair(typename Graph::edge_descriptor(), false);
-}
-
-
 /** \brief True if vertex \a v has at least one successor. */
 template<class Graph>
 bool has_successor(const typename Graph::vertex_descriptor &v, const Graph &g) {
-    typename Graph::adjacency_iterator ai, ae;
-    std::tie(ai, ae) = adjacent_vertices(v, g);
-
-    return ai != ae;
+    return out_degree(v, g) > 0;
 }
 
 /** \brief True if vertex \a v has at least one successor other than itself. */
@@ -195,26 +104,6 @@ bool has_proper_successor(const typename Graph::vertex_descriptor &v,
     }
 
     return ai != ae;
-}
-
-/** \brief A version of clear_vertex that explicitly removes in- and out-edges
- * for vertex \a v. For many graphs, this is faster than the BGL clear_vertex
- * function, which walks the graph's full edge list. */
-template <class Graph>
-void clear_vertex_faster(typename Graph::vertex_descriptor v, Graph &g) {
-    typename Graph::in_edge_iterator ei, ee;
-    tie(ei, ee) = in_edges(v, g);
-    while (ei != ee) {
-        remove_edge(*ei++, g);
-    }
-
-    typename Graph::out_edge_iterator oi, oe;
-    tie(oi, oe) = out_edges(v, g);
-    while (oi != oe) {
-        // NOTE: version that takes out_edge_iterator is faster according to
-        // the BGL docs.
-        remove_edge(oi++, g);
-    }
 }
 
 /** \brief Find the set of vertices that are reachable from the vertices in \a
@@ -328,6 +217,40 @@ std::pair<typename Graph::edge_descriptor, bool> add_edge_if_not_present(
     }
     return e;
 }
+
+#ifndef NDEBUG
+
+template <class Graph>
+bool hasCorrectlyNumberedVertices(const Graph &g) {
+    auto count = num_vertices(g);
+    std::vector<bool> ids(count, false);
+    for (auto v : vertices_range(g)) {
+        auto id = g[v].index;
+        if (id >= count || ids[id]) {
+            return false; // duplicate
+        }
+        ids[id] = true;
+    }
+    return std::find(ids.begin(), ids.end(), false) == ids.end()
+        && count == vertex_index_upper_bound(g);
+}
+
+template <class Graph>
+bool hasCorrectlyNumberedEdges(const Graph &g) {
+    auto count = num_edges(g);
+    std::vector<bool> ids(count, false);
+    for (const auto &e : edges_range(g)) {
+        auto id = g[e].index;
+        if (id >= count || ids[id]) {
+            return false; // duplicate
+        }
+        ids[id] = true;
+    }
+    return std::find(ids.begin(), ids.end(), false) == ids.end()
+        && count == edge_index_upper_bound(g);
+}
+
+#endif
 
 } // namespace ue2
 

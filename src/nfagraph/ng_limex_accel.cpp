@@ -69,7 +69,7 @@ void findAccelFriendGeneration(const NGHolder &g, const CharReach &cr,
         }
 
         const CharReach &acr = g[v].char_reach;
-        DEBUG_PRINTF("checking %u\n", g[v].index);
+        DEBUG_PRINTF("checking %zu\n", g[v].index);
 
         if (acr.count() < WIDE_FRIEND_MIN || !acr.isSubsetOf(cr)) {
             DEBUG_PRINTF("bad reach %zu\n", acr.count());
@@ -86,7 +86,7 @@ void findAccelFriendGeneration(const NGHolder &g, const CharReach &cr,
         next_preds->insert(v);
         insert(next_cands, adjacent_vertices(v, g));
 
-        DEBUG_PRINTF("%u is a friend indeed\n", g[v].index);
+        DEBUG_PRINTF("%zu is a friend indeed\n", g[v].index);
         friends->insert(v);
     next_cand:;
     }
@@ -675,7 +675,7 @@ NFAVertex get_sds_or_proxy(const NGHolder &g) {
 
     while (true) {
         if (hasSelfLoop(v, g)) {
-            DEBUG_PRINTF("woot %u\n", g[v].index);
+            DEBUG_PRINTF("woot %zu\n", g[v].index);
             return v;
         }
         if (out_degree(v, g) != 1) {
@@ -837,7 +837,7 @@ bool nfaCheckAccel(const NGHolder &g, NFAVertex v,
     CharReach terminating = g[v].char_reach;
     terminating.flip();
 
-    DEBUG_PRINTF("vertex %u is cyclic and has %zu stop chars%s\n",
+    DEBUG_PRINTF("vertex %zu is cyclic and has %zu stop chars%s\n",
                  g[v].index, terminating.count(),
                  allow_wide ? " (w)" : "");
 

@@ -464,7 +464,7 @@ void getRegionRoseLiterals(const NGHolder &g, bool seeking_anchored,
         DEBUG_PRINTF("inspecting region %u\n", region);
         set<ue2_literal> s;
         for (auto v : vv) {
-            DEBUG_PRINTF("   exit vertex: %u\n", g[v].index);
+            DEBUG_PRINTF("   exit vertex: %zu\n", g[v].index);
             /* Note: RHS can not be depended on to take all subsequent revisits
              * to this vertex */
             set<ue2_literal> ss = getLiteralSet(g, v, false);
@@ -669,7 +669,7 @@ unique_ptr<VertLitInfo> findBestSplit(const NGHolder &g,
         lits.pop_back();
     }
 
-    DEBUG_PRINTF("best is '%s' %u a%d t%d\n",
+    DEBUG_PRINTF("best is '%s' %zu a%d t%d\n",
         dumpString(*best->lit.begin()).c_str(),
         g[best->vv.front()].index,
         depths ? (int)createsAnchoredLHS(g, best->vv, *depths, cc.grey) : 0,
@@ -777,7 +777,7 @@ set<NFAVertex> poisonVertices(const NGHolder &h, const RoseInGraph &vg,
     set<NFAVertex> bad_vertices;
     for (const NFAEdge &e : bad_edges) {
         bad_vertices.insert(target(e, h));
-        DEBUG_PRINTF("bad: %u->%u\n", h[source(e, h)].index,
+        DEBUG_PRINTF("bad: %zu->%zu\n", h[source(e, h)].index,
                      h[target(e, h)].index);
     }
 
@@ -1144,7 +1144,7 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
             NFAVertex prev_v = source(e, h);
             NFAVertex pivot = target(e, h);
 
-            DEBUG_PRINTF("splitting on pivot %u\n", h[pivot].index);
+            DEBUG_PRINTF("splitting on pivot %zu\n", h[pivot].index);
             ue2::unordered_map<NFAVertex, NFAVertex> temp_map;
             shared_ptr<NGHolder> new_lhs = make_shared<NGHolder>();
             splitLHS(h, pivot, new_lhs.get(), &temp_map);
@@ -1324,7 +1324,7 @@ bool deanchorIfNeeded(NGHolder &g) {
     succ_g.erase(g.startDs);
 
     for (auto v : adjacent_vertices_range(g.start, g)) {
-        DEBUG_PRINTF("inspecting cand %u || = %zu\n", g[v].index,
+        DEBUG_PRINTF("inspecting cand %zu || = %zu\n", g[v].index,
                      g[v].char_reach.count());
 
         if (v == g.startDs || !g[v].char_reach.all()) {
@@ -2339,7 +2339,7 @@ bool leadingDotStartLiteral(const NGHolder &h, VertLitInfo *out) {
         make_nocase(&lit);
     }
 
-    DEBUG_PRINTF("%u found %s\n", h[v].index, dumpString(lit).c_str());
+    DEBUG_PRINTF("%zu found %s\n", h[v].index, dumpString(lit).c_str());
     out->vv = {v};
     out->lit = {lit};
     return true;
@@ -2468,7 +2468,7 @@ bool trailingDotStarLiteral(const NGHolder &h, VertLitInfo *out) {
     }
 
     ue2_literal lit = reverse_literal(rv.second);
-    DEBUG_PRINTF("%u found %s\n", h[v].index, dumpString(lit).c_str());
+    DEBUG_PRINTF("%zu found %s\n", h[v].index, dumpString(lit).c_str());
 
     if (bad_mixed_sensitivity(lit)) {
         make_nocase(&lit);
@@ -2672,6 +2672,7 @@ bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
 
     pruneUseless(vg);
     dumpPreRoseGraph(vg, cc.grey);
+    renumber_vertices(vg);
     calcVertexOffsets(vg);
     bool rv = rose.addRose(vg, prefilter);
     DEBUG_PRINTF("violet: %s\n", rv ? "success" : "fail");

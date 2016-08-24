@@ -71,7 +71,7 @@ using namespace std;
 namespace ue2 {
 
 typedef ue2::unordered_set<NFAEdge> BackEdgeSet;
-typedef boost::filtered_graph<NFAGraph, bad_edge_filter<BackEdgeSet>>
+typedef boost::filtered_graph<NGHolder, bad_edge_filter<BackEdgeSet>>
     AcyclicGraph;
 
 namespace {
@@ -92,17 +92,17 @@ void checkAndAddExitCandidate(const AcyclicGraph &g,
 
     /* find the set of vertices reachable from v which are not in r */
     for (auto w : adjacent_vertices_range(v, g)) {
-        if (!contains(r, w)) {
+        if (!contains(r, NFAVertex(w))) {
             if (!open) {
-                exits->push_back(exit_info(v));
+                exits->push_back(exit_info(NFAVertex(v)));
                 open = &exits->back().open;
             }
-            open->insert(w);
+            open->insert(NFAVertex(w));
         }
     }
 
     if (open) {
-        DEBUG_PRINTF("exit %u\n", g[v].index);
+        DEBUG_PRINTF("exit %zu\n", g[v].index);
     }
 }
 
@@ -141,7 +141,7 @@ bool exitValid(UNUSED const AcyclicGraph &g, const vector<exit_info> &exits,
         return true;
     }
     if (exits.size() == 1 && open_jumps.size() == 1) {
-        DEBUG_PRINTF("oj %u, e %u\n", g[*open_jumps.begin()].index,
+        DEBUG_PRINTF("oj %zu, e %zu\n", g[*open_jumps.begin()].index,
                      g[exits[0].exit].index);
         if (*open_jumps.begin() == exits[0].exit) {
             return true;
@@ -190,7 +190,7 @@ void buildInitialCandidate(const AcyclicGraph &g,
     if (exits->empty()) {
         DEBUG_PRINTF("odd\n");
         candidate->clear();
-        DEBUG_PRINTF("adding %u to initial\n", g[*it].index);
+        DEBUG_PRINTF("adding %zu to initial\n", g[*it].index);
         candidate->insert(*it);
         open_jumps->erase(*it);
         checkAndAddExitCandidate(g, *candidate, *it, exits);
@@ -202,7 +202,7 @@ void buildInitialCandidate(const AcyclicGraph &g,
     candidate->clear();
 
     for (; it != ite; ++it) {
-        DEBUG_PRINTF("adding %u to initial\n", g[*it].index);
+        DEBUG_PRINTF("adding %zu to initial\n", g[*it].index);
         candidate->insert(*it);
         if (contains(enters, *it)) {
             break;
@@ -231,10 +231,10 @@ void findDagLeaders(const NGHolder &h, const AcyclicGraph &g,
     vector<exit_info> exits;
     ue2::unordered_set<NFAVertex> candidate;
     ue2::unordered_set<NFAVertex> open_jumps;
-    DEBUG_PRINTF("adding %u to current\n", g[*t_it].index);
+    DEBUG_PRINTF("adding %zu to current\n", g[*t_it].index);
     assert(t_it != topo.rend());
     candidate.insert(*t_it++);
-    DEBUG_PRINTF("adding %u to current\n", g[*t_it].index);
+    DEBUG_PRINTF("adding %zu to current\n", g[*t_it].index);
     assert(t_it != topo.rend());
     candidate.insert(*t_it++);
     findExits(g, candidate, &exits);
@@ -257,7 +257,7 @@ void findDagLeaders(const NGHolder &h, const AcyclicGraph &g,
                                   &open_jumps);
         } else {
             NFAVertex curr = *t_it;
-            DEBUG_PRINTF("adding %u to current\n", g[curr].index);
+            DEBUG_PRINTF("adding %zu to current\n", g[curr].index);
             candidate.insert(curr);
             open_jumps.erase(curr);
             refineExits(g, candidate, *t_it, &exits);
@@ -284,7 +284,7 @@ void mergeUnderBackEdges(const NGHolder &g, const vector<NFAVertex> &topo,
             continue;
         }
 
-        DEBUG_PRINTF("merging v = %u(%u), u = %u(%u)\n", g[v].index, rv,
+        DEBUG_PRINTF("merging v = %zu(%u), u = %zu(%u)\n", g[v].index, rv,
                      g[u].index, ru);
         assert(rv < ru);
 
@@ -350,8 +350,8 @@ void liftSinks(const AcyclicGraph &acyclic_g, vector<NFAVertex> &topoOrder) {
         }
 
         if (isLeafNode(v, acyclic_g)) {
-            DEBUG_PRINTF("sink found %u\n", acyclic_g[v].index);
-            sinks.insert(v);
+            DEBUG_PRINTF("sink found %zu\n", acyclic_g[v].index);
+            sinks.insert(NFAVertex(v));
         }
     }
 
@@ -365,18 +365,18 @@ void liftSinks(const AcyclicGraph &acyclic_g, vector<NFAVertex> &topoOrder) {
         DEBUG_PRINTF("look\n");
         changed = false;
         for (auto v : vertices_range(acyclic_g)) {
-            if (is_special(v, acyclic_g) || contains(sinks, v)) {
+            if (is_special(v, acyclic_g) || contains(sinks, NFAVertex(v))) {
                 continue;
             }
 
             for (auto w : adjacent_vertices_range(v, acyclic_g)) {
-                if (!contains(sinks, w)) {
+                if (!contains(sinks, NFAVertex(w))) {
                     goto next;
                 }
             }
 
-            DEBUG_PRINTF("sink found %u\n", acyclic_g[v].index);
-            sinks.insert(v);
+            DEBUG_PRINTF("sink found %zu\n", acyclic_g[v].index);
+            sinks.insert(NFAVertex(v));
             changed = true;
         next:;
         }
@@ -387,10 +387,10 @@ void liftSinks(const AcyclicGraph &acyclic_g, vector<NFAVertex> &topoOrder) {
             continue;
         }
         NFAVertex s = *ri;
-        DEBUG_PRINTF("handling sink %u\n", acyclic_g[s].index);
+        DEBUG_PRINTF("handling sink %zu\n", acyclic_g[s].index);
         ue2::unordered_set<NFAVertex> parents;
         for (const auto &e : in_edges_range(s, acyclic_g)) {
-            parents.insert(source(e, acyclic_g));
+            parents.insert(NFAVertex(source(e, acyclic_g)));
         }
 
         /* vertex has no children not reachable on a back edge, bubble the
@@ -417,10 +417,9 @@ vector<NFAVertex> buildTopoOrder(const NGHolder &w,
                                  vector<boost::default_color_type> &colours) {
     vector<NFAVertex> topoOrder;
 
-    topological_sort(
-        acyclic_g, back_inserter(topoOrder),
-        color_map(make_iterator_property_map(
-            colours.begin(), get(&NFAGraphVertexProps::index, acyclic_g))));
+    topological_sort(acyclic_g, back_inserter(topoOrder),
+                     color_map(make_iterator_property_map(colours.begin(),
+                                             get(vertex_index, acyclic_g))));
 
     reorderSpecials(w, acyclic_g, topoOrder);
 
@@ -432,7 +431,7 @@ vector<NFAVertex> buildTopoOrder(const NGHolder &w,
 
     DEBUG_PRINTF("TOPO ORDER\n");
     for (auto ri = topoOrder.rbegin(); ri != topoOrder.rend(); ++ri) {
-        DEBUG_PRINTF("[%u]\n", acyclic_g[*ri].index);
+        DEBUG_PRINTF("[%zu]\n", acyclic_g[*ri].index);
     }
     DEBUG_PRINTF("----------\n");
 
@@ -448,14 +447,14 @@ ue2::unordered_map<NFAVertex, u32> assignRegions(const NGHolder &g) {
 
     // Build an acyclic graph for this NGHolder.
     BackEdgeSet deadEdges;
-    depth_first_search(
-        g.g, visitor(BackEdges<BackEdgeSet>(deadEdges))
-                 .root_vertex(g.start)
-                 .color_map(make_iterator_property_map(
-                     colours.begin(), get(&NFAGraphVertexProps::index, g.g))));
+    depth_first_search(g,
+                       visitor(BackEdges<BackEdgeSet>(deadEdges))
+                       .root_vertex(g.start)
+                       .color_map(make_iterator_property_map(colours.begin(),
+                                          get(vertex_index, g))));
 
     auto af = make_bad_edge_filter(&deadEdges);
-    AcyclicGraph acyclic_g(g.g, af);
+    AcyclicGraph acyclic_g(g, af);
 
     // Build a (reverse) topological ordering.
     vector<NFAVertex> topoOrder = buildTopoOrder(g, acyclic_g, colours);

@@ -38,6 +38,7 @@
 #include <cstdio>
 #include <ostream>
 #include <string>
+#include <vector>
 
 namespace ue2 {
 
@@ -53,6 +54,10 @@ void describeClass(std::ostream &os, const CharReach &cr, size_t maxLength = 16,
 
 std::string describeClass(const CharReach &cr, size_t maxLength = 16,
                           enum cc_output_t out_type = CC_OUT_TEXT);
+
+std::string describeClasses(const std::vector<CharReach> &v,
+                            size_t maxClassLength = 16,
+                            enum cc_output_t out_type = CC_OUT_TEXT);
 
 void describeClass(FILE *f, const CharReach &cr, size_t maxLength,
                    enum cc_output_t out_type);

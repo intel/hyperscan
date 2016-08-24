@@ -328,7 +328,7 @@ void markToppableStarts(const NGHolder &g, const flat_set<NFAVertex> &unused,
         }
         for (const auto &trigger : triggers) {
             if (triggerAllowed(g, v, triggers, trigger)) {
-                DEBUG_PRINTF("idx %u is valid location for top\n", g[v].index);
+                DEBUG_PRINTF("idx %zu is valid location for top\n", g[v].index);
                 out->set(g[v].index);
                 break;
             }

@@ -84,7 +84,7 @@ TEST(NFAGraph, RemoveEquivalence1) {
         ASSERT_TRUE(tmpcr.test('a'));
     }
     // check if we found our vertex
-    ASSERT_TRUE(a != nullptr);
+    ASSERT_TRUE(a != NGHolder::null_vertex());
 
     // There should be two edges from v to nodes with reachability 'b' and 'c'
     NFAVertex b = NGHolder::null_vertex();
@@ -101,8 +101,8 @@ TEST(NFAGraph, RemoveEquivalence1) {
         }
     }
     // check if we found our vertices
-    ASSERT_TRUE(b != nullptr);
-    ASSERT_TRUE(c != nullptr);
+    ASSERT_TRUE(b != NGHolder::null_vertex());
+    ASSERT_TRUE(c != NGHolder::null_vertex());
 
     // both vertices should have an edge to accept
     ASSERT_TRUE(edge(b, g.accept, g).second);
@@ -145,7 +145,7 @@ TEST(NFAGraph, RemoveEquivalence2) {
         ASSERT_TRUE(tmpcr.test('a'));
     }
     // check if we found our vertex
-    ASSERT_TRUE(a != nullptr);
+    ASSERT_TRUE(a != NGHolder::null_vertex());
 
     // There should be two edges from v to nodes with reachability 'b' and 'c'
     NFAVertex b = NGHolder::null_vertex();
@@ -162,8 +162,8 @@ TEST(NFAGraph, RemoveEquivalence2) {
         }
     }
     // check if we found our vertices
-    ASSERT_TRUE(b != nullptr);
-    ASSERT_TRUE(c != nullptr);
+    ASSERT_TRUE(b != NGHolder::null_vertex());
+    ASSERT_TRUE(c != NGHolder::null_vertex());
 
     // both new vertices should have edges from startDs
     ASSERT_TRUE(edge(g.startDs, b, g).second);
@@ -207,7 +207,7 @@ TEST(NFAGraph, RemoveEquivalence3) {
         ASSERT_TRUE(tmpcr.test('a'));
     }
     // check if we found our 'a'
-    ASSERT_TRUE(a != nullptr);
+    ASSERT_TRUE(a != NGHolder::null_vertex());
 
     // There should be an edge from 'a' to '.'
     ASSERT_EQ(1U, out_degree(a, g));
@@ -234,7 +234,6 @@ TEST(NFAGraph, RemoveEquivalence3) {
     NFAVertex X = NGHolder::null_vertex();
     NFAVertex Y = NGHolder::null_vertex();
     for (NFAVertex tmp : adjacent_vertices_range(dot2, g)) {
-
         // we already know about dot1, so skip it
         if (tmp == dot1) {
             continue;
@@ -251,8 +250,8 @@ TEST(NFAGraph, RemoveEquivalence3) {
         }
     }
     // check if we found both vertices
-    ASSERT_TRUE(X != nullptr);
-    ASSERT_TRUE(Y != nullptr);
+    ASSERT_TRUE(X != NGHolder::null_vertex());
+    ASSERT_TRUE(Y != NGHolder::null_vertex());
 
     // finally, check if these two vertices only have edges to accept
     ASSERT_EQ(1U, out_degree(X, g));
@@ -306,8 +305,8 @@ TEST(NFAGraph, RemoveEquivalence4) {
         }
     }
     // check if we found both vertices
-    ASSERT_TRUE(X != nullptr);
-    ASSERT_TRUE(Y != nullptr);
+    ASSERT_TRUE(X != NGHolder::null_vertex());
+    ASSERT_TRUE(Y != NGHolder::null_vertex());
 
     // now, find first dot from X
     ASSERT_EQ(1U, out_degree(X, g));
@@ -351,7 +350,7 @@ TEST(NFAGraph, RemoveEquivalence4) {
         }
     }
     // make sure we found our 'a'
-    ASSERT_TRUE(a != nullptr);
+    ASSERT_TRUE(a != NGHolder::null_vertex());
 
     // now, check if 'a' has an edge to accept
     ASSERT_EQ(1U, out_degree(a, g));
@@ -396,7 +395,7 @@ TEST(NFAGraph, RemoveEquivalence5) {
         ASSERT_TRUE(edge(v, v, g).second);
     }
     // check if we found our vertex
-    ASSERT_TRUE(v != nullptr);
+    ASSERT_TRUE(v != NGHolder::null_vertex());
 
     // now, find the vertex leading to accept
     NFAVertex v2 = NGHolder::null_vertex();
@@ -414,7 +413,7 @@ TEST(NFAGraph, RemoveEquivalence5) {
         ASSERT_TRUE(edge(tmp, g.accept, g).second);
     }
     // check if we found our vertex
-    ASSERT_TRUE(v2 != nullptr);
+    ASSERT_TRUE(v2 != NGHolder::null_vertex());
 }
 
 // catching UE-2692
@@ -452,7 +451,7 @@ TEST(NFAGraph, RemoveEquivalence6) {
         ASSERT_TRUE(edge(v, g.accept, g).second);
     }
     // check if we found our vertex
-    ASSERT_TRUE(v != nullptr);
+    ASSERT_TRUE(v != NGHolder::null_vertex());
 }
 
 // catching UE-2692
@@ -492,7 +491,7 @@ TEST(NFAGraph, RemoveEquivalence7) {
         ASSERT_EQ(1U, proper_out_degree(v, g));
     }
     // check if we found our vertex
-    ASSERT_TRUE(v != nullptr);
+    ASSERT_TRUE(v != NGHolder::null_vertex());
 
     // find the next vertex and ensure it has an edge to accept
     NFAVertex v2 = NGHolder::null_vertex();
@@ -511,7 +510,7 @@ TEST(NFAGraph, RemoveEquivalence7) {
         ASSERT_TRUE(edge(v2, g.accept, g).second);
     }
     // check if we found our vertex
-    ASSERT_TRUE(v2 != nullptr);
+    ASSERT_TRUE(v2 != NGHolder::null_vertex());
 }
 
 TEST(NFAGraph, RemoveEquivalence_Reports1) {

@@ -494,7 +494,7 @@ void nfaFindAccelSchemes(const NGHolder &g,
         // We want to skip any vertices that don't lead to at least one other
         // (self-loops don't count) vertex.
         if (!has_proper_successor(v, g)) {
-            DEBUG_PRINTF("skipping vertex %u\n", g[v].index);
+            DEBUG_PRINTF("skipping vertex %zu\n", g[v].index);
             continue;
         }
 
@@ -502,7 +502,7 @@ void nfaFindAccelSchemes(const NGHolder &g,
 
         AccelScheme as;
         if (nfaCheckAccel(g, v, refined_cr, br_cyclic, &as, allow_wide)) {
-            DEBUG_PRINTF("graph vertex %u is accelerable with offset %u.\n",
+            DEBUG_PRINTF("graph vertex %zu is accelerable with offset %u.\n",
                           g[v].index, as.offset);
             (*out)[v] = as;
         }
@@ -514,7 +514,7 @@ struct fas_visitor : public boost::default_bfs_visitor {
                 ue2::unordered_map<NFAVertex, AccelScheme> *out_in)
         : accel_map(am_in), out(out_in) {}
 
-    void discover_vertex(NFAVertex v, const NFAGraph &) {
+    void discover_vertex(NFAVertex v, const NGHolder &) {
         if (accel_map.find(v) != accel_map.end()) {
             (*out)[v] = accel_map.find(v)->second;
         }
@@ -552,11 +552,10 @@ void filterAccelStates(NGHolder &g, const map<u32, set<NFAVertex>> &tops,
 
     try {
         vector<boost::default_color_type> colour(num_vertices(g));
-        breadth_first_search(
-            g.g, g.start,
+        boost::breadth_first_search(g, g.start,
             visitor(fas_visitor(*accel_map, &out))
-                .color_map(make_iterator_property_map(
-                    colour.begin(), get(&NFAGraphVertexProps::index, g.g))));
+                .color_map(make_iterator_property_map(colour.begin(),
+                                                      get(vertex_index, g))));
     } catch (fas_visitor *) {
         ; /* found max accel_states */
     }
@@ -628,7 +627,7 @@ void fillAccelInfo(build_info &bi) {
 
     /* for each subset of the accel keys need to find an accel scheme */
     assert(astates.size() < 32);
-    sort(astates.begin(), astates.end(), make_index_ordering(g));
+    sort(astates.begin(), astates.end());
 
     for (u32 i = 1, i_end = 1U << astates.size(); i < i_end; i++) {
         DEBUG_PRINTF("saving info for accel %u\n", i);
@@ -2335,8 +2334,7 @@ bool isSane(const NGHolder &h, const map<u32, set<NFAVertex>> &tops,
 
     for (auto v : vertices_range(h)) {
         if (!contains(state_ids, v)) {
-            DEBUG_PRINTF("no entry for vertex %u in state map\n",
-                         h[v].index);
+            DEBUG_PRINTF("no entry for vertex %zu in state map\n", h[v].index);
             return false;
         }
         const u32 i = state_ids.at(v);
@@ -2344,8 +2342,7 @@ bool isSane(const NGHolder &h, const map<u32, set<NFAVertex>> &tops,
             continue;
         }
 
-        DEBUG_PRINTF("checking vertex %u (state %u)\n", h[v].index,
-                     i);
+        DEBUG_PRINTF("checking vertex %zu (state %u)\n", h[v].index, i);
 
         if (i >= num_states || contains(seen, i)) {
             DEBUG_PRINTF("vertex %u/%u has invalid state\n", i, num_states);
@@ -2355,7 +2352,7 @@ bool isSane(const NGHolder &h, const map<u32, set<NFAVertex>> &tops,
 
         // All our states should be reachable and have a state assigned.
         if (h[v].char_reach.none()) {
-            DEBUG_PRINTF("vertex %u has empty reachability\n", h[v].index);
+            DEBUG_PRINTF("vertex %zu has empty reachability\n", h[v].index);
             return false;
         }
 
@@ -2363,7 +2360,7 @@ bool isSane(const NGHolder &h, const map<u32, set<NFAVertex>> &tops,
         // must have at least one predecessor that is not itself.
         if (v != h.start && v != h.startDs && !contains(top_starts, v)
             && !proper_in_degree(v, h)) {
-            DEBUG_PRINTF("vertex %u has no pred\n", h[v].index);
+            DEBUG_PRINTF("vertex %zu has no pred\n", h[v].index);
             return false;
         }
     }

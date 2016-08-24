@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -77,7 +77,7 @@ bool findMask(const NGHolder &g, vector<CharReach> *mask, bool *anchored,
     NFAVertex v = *succs.begin();
 
     while (true) {
-        DEBUG_PRINTF("validating vertex %u\n", g[v].index);
+        DEBUG_PRINTF("validating vertex %zu\n", g[v].index);
 
         assert(v != g.acceptEod);
 

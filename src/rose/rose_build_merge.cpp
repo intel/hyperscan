@@ -206,8 +206,9 @@ void mergeDupeLeaves(RoseBuildImpl &tbi) {
             continue;
         }
 
-        DEBUG_PRINTF("inspecting vertex idx=%zu in_degree %zu out_degree %zu\n",
-                     g[v].idx, in_degree(v, g), out_degree(v, g));
+        DEBUG_PRINTF("inspecting vertex index=%zu in_degree %zu "
+                     "out_degree %zu\n", g[v].index, in_degree(v, g),
+                     out_degree(v, g));
 
         // Vertex must be a reporting leaf node
         if (g[v].reports.empty() || !isLeafNode(v, g)) {
@@ -227,13 +228,13 @@ void mergeDupeLeaves(RoseBuildImpl &tbi) {
         }
 
         RoseVertex t = leaves.find(dupe)->second;
-        DEBUG_PRINTF("found two leaf dupe roles, idx=%zu,%zu\n", g[v].idx,
-                     g[t].idx);
+        DEBUG_PRINTF("found two leaf dupe roles, index=%zu,%zu\n", g[v].index,
+                     g[t].index);
 
         vector<RoseEdge> deadEdges;
         for (const auto &e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
-            DEBUG_PRINTF("u idx=%zu\n", g[u].idx);
+            DEBUG_PRINTF("u index=%zu\n", g[u].index);
             RoseEdge et;
             bool exists;
             tie (et, exists) = edge(u, t, g);
@@ -244,7 +245,8 @@ void mergeDupeLeaves(RoseBuildImpl &tbi) {
                     deadEdges.push_back(e);
                 }
             } else {
-                DEBUG_PRINTF("rehome edge: add %zu->%zu\n", g[u].idx, g[t].idx);
+                DEBUG_PRINTF("rehome edge: add %zu->%zu\n",
+                             g[u].index, g[t].index);
                 add_edge(u, t, g[e], g);
                 deadEdges.push_back(e);
             }
@@ -279,7 +281,7 @@ void mergeDupeLeaves(RoseBuildImpl &tbi) {
 
     // if we've removed anything, we need to renumber vertices
     if (countRemovals) {
-        tbi.renumberVertices();
+        renumber_vertices(g);
         DEBUG_PRINTF("removed %zu vertices.\n", countRemovals);
     }
 }
@@ -350,7 +352,7 @@ void findUncalcLeavesCandidates(RoseBuildImpl &tbi,
 
             // Ref count all suffixes, as we don't want to merge a suffix
             // that happens to be shared with a non-leaf vertex somewhere.
-            DEBUG_PRINTF("vertex %zu has suffix %p\n", g[v].idx,
+            DEBUG_PRINTF("vertex %zu has suffix %p\n", g[v].index,
                          g[v].suffix.graph.get());
             fcount[g[v].suffix.graph.get()]++;
 
@@ -459,7 +461,7 @@ struct RoseGroup {
         const RoseGraph &g = build.g;
         assert(in_degree(v, g) == 1);
         RoseVertex u = *inv_adjacent_vertices(v, g).first;
-        parent = g[u].idx;
+        parent = g[u].index;
     }
 
     bool operator<(const RoseGroup &b) const {
@@ -580,14 +582,14 @@ bool dedupeLeftfixes(RoseBuildImpl &tbi) {
             }
 
             // Scan the rest of the list for dupes.
-            for (auto kt = next(jt); kt != jte; ++kt) {
+            for (auto kt = std::next(jt); kt != jte; ++kt) {
                 if (g[v].left == g[*kt].left || !rosecmp(v, *kt)) {
                     continue;
                 }
 
                 // Dupe found.
                 DEBUG_PRINTF("rose at vertex %zu is a dupe of %zu\n",
-                             g[*kt].idx, g[v].idx);
+                             g[*kt].index, g[v].index);
                 assert(g[v].left.lag == g[*kt].left.lag);
                 g[*kt].left = g[v].left;
                 work_done = true;
@@ -1070,8 +1072,8 @@ bool mergeableRoseVertices(const RoseBuildImpl &tbi, RoseVertex u,
         return false;
     }
 
-    DEBUG_PRINTF("roses on %zu and %zu are mergeable\n", tbi.g[u].idx,
-                 tbi.g[v].idx);
+    DEBUG_PRINTF("roses on %zu and %zu are mergeable\n", tbi.g[u].index,
+                 tbi.g[v].index);
     return true;
 }
 
@@ -1387,7 +1389,7 @@ void processMergeQueue(RoseBuildImpl &tbi, RoseBouquet &roses,
 
 static
 bool nfaHasNarrowStart(const NGHolder &g) {
-    if (hasGreaterOutDegree(1, g.startDs, g)) {
+    if (out_degree(g.startDs, g) > 1) {
         return false; // unanchored
     }
 
@@ -1409,7 +1411,7 @@ bool nfaHasFiniteMaxWidth(const NGHolder &g) {
 
 namespace {
 struct RoseMergeKey {
-    RoseMergeKey(const RoseVertexSet &parents_in,
+    RoseMergeKey(const set<RoseVertex> &parents_in,
                  bool narrowStart_in, bool hasMaxWidth_in) :
                         narrowStart(narrowStart_in),
                         hasMaxWidth(hasMaxWidth_in),
@@ -1427,7 +1429,7 @@ struct RoseMergeKey {
     bool narrowStart;
     bool hasMaxWidth;
 
-    RoseVertexSet parents;
+    set<RoseVertex> parents;
 };
 }
 
@@ -1491,7 +1493,7 @@ void mergeLeftfixesVariableLag(RoseBuildImpl &tbi) {
 
     map<RoseMergeKey, RoseBouquet> rosesByParent;
     RoseGraph &g = tbi.g;
-    RoseVertexSet parents(g);
+    set<RoseVertex> parents;
 
     DEBUG_PRINTF("-----\n");
     DEBUG_PRINTF("entry\n");
@@ -1626,7 +1628,7 @@ struct DedupeLeftKey {
         : left_hash(hashLeftfix(build.g[v].left)) {
         const auto &g = build.g;
         for (const auto &e : in_edges_range(v, g)) {
-            preds.emplace(g[source(e, g)].idx, g[e].rose_top);
+            preds.emplace(g[source(e, g)].index, g[e].rose_top);
         }
     }
 
@@ -1726,7 +1728,7 @@ void dedupeLeftfixesVariableLag(RoseBuildImpl &tbi) {
                 for (auto v : verts1) {
                     DEBUG_PRINTF("replacing report %u with %u on %zu\n",
                                  g[v].left.leftfix_report,
-                                 v2_left.leftfix_report, g[v].idx);
+                                 v2_left.leftfix_report, g[v].index);
                     u32 orig_lag = g[v].left.lag;
                     g[v].left = v2_left;
                     g[v].left.lag = orig_lag;
@@ -1758,7 +1760,7 @@ void replaceTops(NGHolder &h, const map<u32, u32> &top_mapping) {
         }
         flat_set<u32> new_tops;
         for (u32 t : h[e].tops) {
-            DEBUG_PRINTF("vertex %u has top %u\n", h[v].index, t);
+            DEBUG_PRINTF("vertex %zu has top %u\n", h[v].index, t);
             new_tops.insert(top_mapping.at(t));
         }
         h[e].tops = move(new_tops);
@@ -1806,7 +1808,7 @@ bool setDistinctRoseTops(RoseGraph &g, NGHolder &h1, const NGHolder &h2,
     }
 
     for (auto v : verts1) {
-        DEBUG_PRINTF("vertex %zu\n", g[v].idx);
+        DEBUG_PRINTF("vertex %zu\n", g[v].index);
         assert(!g[v].left.haig);
         assert(!g[v].left.dfa);
         for (const auto &e : in_edges_range(v, g)) {
@@ -1815,7 +1817,7 @@ bool setDistinctRoseTops(RoseGraph &g, NGHolder &h1, const NGHolder &h2,
             assert(contains(top_mapping, t));
             g[e].rose_top = top_mapping[t];
             DEBUG_PRINTF("edge (%zu,%zu) went from top %u to %u\n",
-                         g[source(e, g)].idx, g[target(e, g)].idx, t,
+                         g[source(e, g)].index, g[target(e, g)].index, t,
                          top_mapping[t]);
         }
     }
@@ -1836,7 +1838,7 @@ bool setDistinctSuffixTops(RoseGraph &g, NGHolder &h1, const NGHolder &h2,
     }
 
     for (auto v : verts1) {
-        DEBUG_PRINTF("vertex %zu\n", g[v].idx);
+        DEBUG_PRINTF("vertex %zu\n", g[v].index);
         u32 t = g[v].suffix.top;
         assert(contains(top_mapping, t));
         g[v].suffix.top = top_mapping[t];

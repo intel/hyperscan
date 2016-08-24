@@ -77,7 +77,7 @@ public:
     flat_set<VertexInfo *, VertexInfoPtrCmp> pred; //!< predecessors of this vertex
     flat_set<VertexInfo *, VertexInfoPtrCmp> succ; //!< successors of this vertex
     NFAVertex v;
-    u32 vert_index;
+    size_t vert_index;
     CharReach cr;
     CharReach pred_cr;
     CharReach succ_cr;
@@ -122,7 +122,7 @@ public:
           vertex_flags(vi.vertex_flags), edge_tops(vi.edge_tops), cr(vi.cr),
           adjacent_cr(eq == LEFT_EQUIVALENCE ? vi.pred_cr : vi.succ_cr),
           /* treat non-special vertices the same */
-          node_type(min(g[vi.v].index, u32{N_SPECIALS})), depth(d_in) {}
+          node_type(min(g[vi.v].index, size_t{N_SPECIALS})), depth(d_in) {}
 
     bool operator==(const ClassInfo &b) const {
         return node_type == b.node_type && depth.d1 == b.depth.d1 &&
@@ -678,7 +678,7 @@ bool reduceGraphEquivalences(NGHolder &g, const CompileContext &cc) {
         DEBUG_PRINTF("equivalence processing disabled in grey box\n");
         return false;
     }
-    g.renumberVertices();
+    renumber_vertices(g);
 
     // Cheap check: if all the non-special vertices have in-degree one and
     // out-degree one, there's no redundancy in this here graph and we can

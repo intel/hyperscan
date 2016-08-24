@@ -37,10 +37,10 @@
 #include "ng_mcclellan_internal.h"
 #include "ng_som_util.h"
 #include "ng_squash.h"
-#include "ng_util.h"
 #include "util/bitfield.h"
 #include "util/container.h"
 #include "util/determinise.h"
+#include "util/graph.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
 #include "util/ue2_containers.h"
@@ -449,7 +449,7 @@ void haig_do_preds(const NGHolder &g, const stateset &nfa_states,
         NFAVertex v = state_mapping[i];
         s32 slot_id = g[v].index;
 
-        DEBUG_PRINTF("d vertex %u\n", g[v].index);
+        DEBUG_PRINTF("d vertex %zu\n", g[v].index);
         vector<u32> &out_map = preds[slot_id];
         for (auto u : inv_adjacent_vertices_range(v, g)) {
             out_map.push_back(g[u].index);
@@ -490,7 +490,7 @@ void haig_note_starts(const NGHolder &g, map<u32, u32> *out) {
 
     for (auto v : vertices_range(g)) {
         if (is_any_start_inc_virtual(v, g)) {
-            DEBUG_PRINTF("%u creates new som value\n", g[v].index);
+            DEBUG_PRINTF("%zu creates new som value\n", g[v].index);
             out->emplace(g[v].index, 0U);
             continue;
         }
@@ -501,7 +501,7 @@ void haig_note_starts(const NGHolder &g, map<u32, u32> *out) {
 
         const DepthMinMax &d = depths[g[v].index];
         if (d.min == d.max && d.min.is_finite()) {
-            DEBUG_PRINTF("%u is fixed at %u\n", g[v].index, (u32)d.min);
+            DEBUG_PRINTF("%zu is fixed at %u\n", g[v].index, (u32)d.min);
             out->emplace(g[v].index, d.min);
         }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,7 @@
 #define SLOT_MANAGER_H
 
 #include "ue2common.h"
-#include "nfagraph/ng_graph.h"
+#include "nfagraph/ng_holder.h"
 #include "util/alloc.h"
 #include "util/ue2_containers.h"
 

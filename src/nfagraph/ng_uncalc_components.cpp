@@ -259,7 +259,7 @@ void mergeNfaComponent(NGHolder &dest, const NGHolder &vic, size_t common_len) {
     vmap[vic.startDs]   = dest.startDs;
     vmap[vic.accept]    = dest.accept;
     vmap[vic.acceptEod] = dest.acceptEod;
-    vmap[nullptr] = nullptr;
+    vmap[NGHolder::null_vertex()] = NGHolder::null_vertex();
 
     // For vertices in the common len, add to vmap and merge in the reports, if
     // any.
@@ -312,7 +312,7 @@ void mergeNfaComponent(NGHolder &dest, const NGHolder &vic, size_t common_len) {
             in_common_region = true;
         }
 
-        DEBUG_PRINTF("adding idx=%u (state %u) -> idx=%u (state %u)%s\n",
+        DEBUG_PRINTF("adding idx=%zu (state %u) -> idx=%zu (state %u)%s\n",
                      dest[u].index, dest_info.get(u),
                      dest[v].index, dest_info.get(v),
                      in_common_region ? " [common]" : "");
@@ -338,8 +338,8 @@ void mergeNfaComponent(NGHolder &dest, const NGHolder &vic, size_t common_len) {
         add_edge(u, v, vic[e], dest);
     }
 
-    dest.renumberEdges();
-    dest.renumberVertices();
+    renumber_edges(dest);
+    renumber_vertices(dest);
 }
 
 namespace {

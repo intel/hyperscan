@@ -95,7 +95,7 @@ void addToString(string &s, const NGHolder &g, NFAVertex v) {
 static
 bool splitOffLiteral(NG &ng, NGWrapper &g, NFAVertex v, const bool anchored,
                      set<NFAVertex> &dead) {
-    DEBUG_PRINTF("examine vertex %u\n", g[v].index);
+    DEBUG_PRINTF("examine vertex %zu\n", g[v].index);
     bool nocase = false, casefixed = false;
 
     assert(!is_special(v, g));
@@ -109,7 +109,7 @@ bool splitOffLiteral(NG &ng, NGWrapper &g, NFAVertex v, const bool anchored,
         assert(edge(g.start, v, g).second);
         assert(edge(g.startDs, v, g).second);
     }
-    if (hasGreaterInDegree(reqInDegree, v, g)) {
+    if (in_degree(v, g) > reqInDegree) {
         DEBUG_PRINTF("extra in-edges\n");
         return false;
     }
@@ -134,7 +134,7 @@ bool splitOffLiteral(NG &ng, NGWrapper &g, NFAVertex v, const bool anchored,
         u = v; // previous vertex
         v = *(adjacent_vertices(v, g).first);
 
-        DEBUG_PRINTF("loop, v=%u\n", g[v].index);
+        DEBUG_PRINTF("loop, v=%zu\n", g[v].index);
 
         if (is_special(v, g)) {
             if (v == g.accept || v == g.acceptEod) {

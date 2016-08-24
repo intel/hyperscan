@@ -711,7 +711,6 @@ SET (hs_SRCS
     src/nfagraph/ng_extparam.h
     src/nfagraph/ng_fixed_width.cpp
     src/nfagraph/ng_fixed_width.h
-    src/nfagraph/ng_graph.h
     src/nfagraph/ng_haig.cpp
     src/nfagraph/ng_haig.h
     src/nfagraph/ng_holder.cpp
@@ -933,6 +932,7 @@ SET (hs_SRCS
     src/util/target_info.cpp
     src/util/target_info.h
     src/util/ue2_containers.h
+    src/util/ue2_graph.h
     src/util/ue2string.cpp
     src/util/ue2string.h
     src/util/unaligned.h

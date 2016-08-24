@@ -80,6 +80,7 @@
 #include <vector>
 
 using namespace std;
+using boost::make_filtered_graph;
 
 namespace ue2 {
 
@@ -108,7 +109,7 @@ void findCandidates(NGHolder &g, const vector<NFAVertex> &ordering,
                 goto next_cand;
             }
         }
-        DEBUG_PRINTF("vertex %u is a candidate\n", g[v].index);
+        DEBUG_PRINTF("vertex %zu is a candidate\n", g[v].index);
         cand->push_back(v);
     next_cand:;
     }
@@ -139,7 +140,7 @@ void findCandidates_rev(NGHolder &g, const vector<NFAVertex> &ordering,
                 goto next_cand;
             }
         }
-        DEBUG_PRINTF("vertex %u is a candidate\n", g[v].index);
+        DEBUG_PRINTF("vertex %zu is a candidate\n", g[v].index);
         cand->push_back(v);
     next_cand:;
     }
@@ -242,7 +243,7 @@ set<NFAVertex> findSustainSet_rev(const NGHolder &g, NFAVertex p,
 
 static
 bool enlargeCyclicVertex(NGHolder &g, som_type som, NFAVertex v) {
-    DEBUG_PRINTF("considering vertex %u\n", g[v].index);
+    DEBUG_PRINTF("considering vertex %zu\n", g[v].index);
     const CharReach &v_cr = g[v].char_reach;
 
     CharReach add;
@@ -261,7 +262,7 @@ bool enlargeCyclicVertex(NGHolder &g, som_type som, NFAVertex v) {
         if (p == v) {
             continue;
         }
-        DEBUG_PRINTF("looking at pred %u\n", g[p].index);
+        DEBUG_PRINTF("looking at pred %zu\n", g[p].index);
 
         bool ignore_sds = som; /* if we are tracking som, entries into a state
                                   from sds are significant. */
@@ -291,13 +292,13 @@ bool enlargeCyclicVertex(NGHolder &g, som_type som, NFAVertex v) {
 
     /* the cr can be increased */
     g[v].char_reach = add;
-    DEBUG_PRINTF("vertex %u was widened\n", g[v].index);
+    DEBUG_PRINTF("vertex %zu was widened\n", g[v].index);
     return true;
 }
 
 static
 bool enlargeCyclicVertex_rev(NGHolder &g, NFAVertex v) {
-    DEBUG_PRINTF("considering vertex %u\n", g[v].index);
+    DEBUG_PRINTF("considering vertex %zu\n", g[v].index);
     const CharReach &v_cr = g[v].char_reach;
 
     CharReach add;
@@ -316,7 +317,7 @@ bool enlargeCyclicVertex_rev(NGHolder &g, NFAVertex v) {
         if (p == v) {
             continue;
         }
-        DEBUG_PRINTF("looking at succ %u\n", g[p].index);
+        DEBUG_PRINTF("looking at succ %zu\n", g[p].index);
 
         set<NFAVertex> sustain = findSustainSet_rev(g, p, add);
         DEBUG_PRINTF("sustain set is %zu\n", sustain.size());
@@ -341,7 +342,7 @@ bool enlargeCyclicVertex_rev(NGHolder &g, NFAVertex v) {
 
     /* the cr can be increased */
     g[v].char_reach = add;
-    DEBUG_PRINTF("vertex %u was widened\n", g[v].index);
+    DEBUG_PRINTF("vertex %zu was widened\n", g[v].index);
     return true;
 }
 
@@ -390,7 +391,7 @@ bool improveGraph(NGHolder &g, som_type som) {
  * enlargeCyclicCR. */
 CharReach reduced_cr(NFAVertex v, const NGHolder &g,
                      const map<NFAVertex, BoundedRepeatSummary> &br_cyclic) {
-    DEBUG_PRINTF("find minimal cr for %u\n", g[v].index);
+    DEBUG_PRINTF("find minimal cr for %zu\n", g[v].index);
     CharReach v_cr = g[v].char_reach;
     if (proper_in_degree(v, g) != 1) {
         return v_cr;
@@ -579,12 +580,11 @@ flat_set<NFAVertex> findDependentVertices(const NGHolder &g, NFAVertex v) {
         }
     }
 
-    auto filtered_g = make_filtered_graph(g.g,
-                                          make_bad_edge_filter(&no_explore));
+    auto filtered_g = make_filtered_graph(g, make_bad_edge_filter(&no_explore));
 
     vector<boost::default_color_type> color_raw(num_vertices(g));
     auto color = make_iterator_property_map(color_raw.begin(),
-                                  get(&NFAGraphVertexProps::index, g.g));
+                                            get(vertex_index, g));
     flat_set<NFAVertex> bad;
     for (NFAVertex b : vertices_range(g)) {
         if (b != g.start && g[b].char_reach.isSubsetOf(g[v].char_reach)) {
@@ -597,7 +597,7 @@ flat_set<NFAVertex> findDependentVertices(const NGHolder &g, NFAVertex v) {
     flat_set<NFAVertex> rv;
     for (NFAVertex u : vertices_range(g)) {
         if (!contains(bad, u)) {
-            DEBUG_PRINTF("%u is good\n", g[u].index);
+            DEBUG_PRINTF("%zu is good\n", g[u].index);
             rv.insert(u);
         }
     }
@@ -623,7 +623,7 @@ bool pruneUsingSuccessors(NGHolder &g, NFAVertex u, som_type som) {
     }
 
     bool changed = false;
-    DEBUG_PRINTF("using cyclic %u as base\n", g[u].index);
+    DEBUG_PRINTF("using cyclic %zu as base\n", g[u].index);
     auto children = findDependentVertices(g, u);
     vector<NFAVertex> u_succs;
     for (NFAVertex v : adjacent_vertices_range(u, g)) {
@@ -639,23 +639,23 @@ bool pruneUsingSuccessors(NGHolder &g, NFAVertex u, som_type som) {
              return g[a].char_reach.count() > g[b].char_reach.count();
          });
     for (NFAVertex v : u_succs) {
-        DEBUG_PRINTF("    using %u as killer\n", g[v].index);
+        DEBUG_PRINTF("    using %zu as killer\n", g[v].index);
         /* Need to distinguish between vertices that are switched on after the
          * cyclic vs vertices that are switched on concurrently with the cyclic
          * if (subject to a suitable reach) */
         bool v_peer_of_cyclic = willBeEnabledConcurrently(u, v, g);
         set<NFAEdge> dead;
         for (NFAVertex s : adjacent_vertices_range(v, g)) {
-            DEBUG_PRINTF("        looking at preds of %u\n", g[s].index);
+            DEBUG_PRINTF("        looking at preds of %zu\n", g[s].index);
             for (NFAEdge e : in_edges_range(s, g)) {
                 NFAVertex p = source(e, g);
                 if (!contains(children, p) || p == v || p == u
                     || p == g.accept) {
-                    DEBUG_PRINTF("%u not a cand\n", g[p].index);
+                    DEBUG_PRINTF("%zu not a cand\n", g[p].index);
                     continue;
                 }
                 if (is_any_accept(s, g) && g[p].reports != g[v].reports) {
-                    DEBUG_PRINTF("%u bad reports\n", g[p].index);
+                    DEBUG_PRINTF("%zu bad reports\n", g[p].index);
                     continue;
                 }
                 /* the out-edges of a vertex that may be enabled on the same
@@ -664,7 +664,7 @@ bool pruneUsingSuccessors(NGHolder &g, NFAVertex u, som_type som) {
                  * may not be switched on until another byte is processed). */
                 if (!v_peer_of_cyclic
                     && sometimesEnabledConcurrently(u, p, g)) {
-                    DEBUG_PRINTF("%u can only be squashed by a proper peer\n",
+                    DEBUG_PRINTF("%zu can only be squashed by a proper peer\n",
                                  g[p].index);
                    continue;
                 }
@@ -672,14 +672,14 @@ bool pruneUsingSuccessors(NGHolder &g, NFAVertex u, som_type som) {
                 if (g[p].char_reach.isSubsetOf(g[v].char_reach)) {
                     dead.insert(e);
                     changed = true;
-                    DEBUG_PRINTF("removing edge %u->%u\n", g[p].index,
+                    DEBUG_PRINTF("removing edge %zu->%zu\n", g[p].index,
                                   g[s].index);
                 } else if (is_subset_of(succs(p, g), succs(u, g))) {
                     if (is_match_vertex(p, g)
                         && !is_subset_of(g[p].reports, g[v].reports)) {
                         continue;
                     }
-                    DEBUG_PRINTF("updating reach on %u\n", g[p].index);
+                    DEBUG_PRINTF("updating reach on %zu\n", g[p].index);
                     changed |= (g[p].char_reach & g[v].char_reach).any();
                     g[p].char_reach &= ~g[v].char_reach;
                 }

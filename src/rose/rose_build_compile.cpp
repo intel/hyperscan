@@ -205,14 +205,6 @@ bool RoseBuildImpl::hasOnlyPseudoStarInEdges(RoseVertex v) const {
     return true;
 }
 
-void RoseBuildImpl::renumberVertices() {
-    vertexIndex = 0;
-    DEBUG_PRINTF("renumbering vertices\n");
-    for (auto v : vertices_range(g)) {
-        g[v].idx = vertexIndex++;
-    }
-}
-
 static
 size_t trailerDueToSelf(const rose_literal_id &lit) {
     size_t trailer = lit.s.length() - maxPeriod(lit.s);
@@ -231,7 +223,7 @@ RoseRoleHistory findHistoryScheme(const RoseBuildImpl &tbi, const RoseEdge &e) {
     const RoseVertex u = source(e, g); /* pred role */
     const RoseVertex v = target(e, g); /* current role */
 
-    DEBUG_PRINTF("find history for [%zu,%zu]\n", g[u].idx, g[v].idx);
+    DEBUG_PRINTF("find history for [%zu,%zu]\n", g[u].index, g[v].index);
     DEBUG_PRINTF("u has min_offset=%u, max_offset=%u\n", g[u].min_offset,
                  g[u].max_offset);
 
@@ -285,7 +277,7 @@ RoseRoleHistory findHistoryScheme(const RoseBuildImpl &tbi, const RoseEdge &e) {
     // Non-EOD cases.
 
     DEBUG_PRINTF("examining edge [%zu,%zu] with bounds {%u,%u}\n",
-                 g[u].idx, g[v].idx, g[e].minBound, g[e].maxBound);
+                 g[u].index, g[v].index, g[e].minBound, g[e].maxBound);
 
     if (tbi.isAnchored(v)) {
         // Matches for literals in the anchored table will always arrive at the
@@ -875,8 +867,8 @@ bool reduceTopTriggerLoad(RoseBuildImpl &build, NGHolder &h, RoseVertex u) {
     if (tops.size() <= 1) {
         return false;
     }
-    DEBUG_PRINTF("%zu triggers %zu tops for %p\n", build.g[u].idx, tops.size(),
-                 &h);
+    DEBUG_PRINTF("%zu triggers %zu tops for %p\n", build.g[u].index,
+                 tops.size(), &h);
 
     auto h_top_info = getTopInfo(h);
     flat_set<NFAEdge> edges_to_trigger;
@@ -976,7 +968,7 @@ void packInfixTops(NGHolder &h, RoseGraph &g,
         }
         h[e].tops = move(updated_tops);
         if (h[e].tops.empty()) {
-            DEBUG_PRINTF("edge (start,%u) has only unused tops\n", h[v].index);
+            DEBUG_PRINTF("edge (start,%zu) has only unused tops\n", h[v].index);
             dead.push_back(e);
         }
     }
@@ -1311,15 +1303,9 @@ void addSmallBlockLiteral(RoseBuildImpl &tbi, const simple_anchored_info &sai,
         assert(old_id < tbi.literal_info.size());
         const rose_literal_info &li = tbi.literal_info[old_id];
 
-        // For compile determinism, operate over literal vertices in index
-        // order.
-        vector<RoseVertex> lit_verts(begin(li.vertices), end(li.vertices));
-        sort(begin(lit_verts), end(lit_verts), VertexIndexComp(g));
-
-        for (auto lit_v : lit_verts) {
+        for (auto lit_v : li.vertices) {
             // Clone vertex with the new literal ID.
             RoseVertex v = add_vertex(g[lit_v], g);
-            g[v].idx = tbi.vertexIndex++;
             g[v].literals.clear();
             g[v].literals.insert(lit_id);
             g[v].min_offset = sai.min_bound + sai.literal.length();
@@ -1347,7 +1333,6 @@ void addSmallBlockLiteral(RoseBuildImpl &tbi, const ue2_literal &lit,
     RoseGraph &g = tbi.g;
 
     RoseVertex v = add_vertex(g);
-    g[v].idx = tbi.vertexIndex++;
     g[v].literals.insert(lit_id);
     g[v].reports = reports;
 
@@ -1557,7 +1542,7 @@ bool historiesAreValid(const RoseGraph &g) {
     for (const auto &e : edges_range(g)) {
         if (g[e].history == ROSE_ROLE_HISTORY_INVALID) {
             DEBUG_PRINTF("edge [%zu,%zu] has invalid history\n",
-                         g[source(e, g)].idx, g[target(e, g)].idx);
+                         g[source(e, g)].index, g[target(e, g)].index);
             return false;
         }
     }
@@ -1576,18 +1561,20 @@ bool danglingVertexRef(RoseBuildImpl &tbi) {
     const ue2::unordered_set<RoseVertex> valid_vertices(vi, ve);
 
     if (!contains(valid_vertices, tbi.anchored_root)) {
-        DEBUG_PRINTF("anchored root vertex %p not in graph\n",
-                     tbi.anchored_root);
+        DEBUG_PRINTF("anchored root vertex %zu not in graph\n",
+                     tbi.g[tbi.anchored_root].index);
         return true;
     }
 
     for (const auto &e : tbi.ghost) {
         if (!contains(valid_vertices, e.first)) {
-            DEBUG_PRINTF("ghost key vertex %p not in graph\n", e.first);
+            DEBUG_PRINTF("ghost key vertex %zu not in graph\n",
+                         tbi.g[e.first].index);
             return true;
         }
         if (!contains(valid_vertices, e.second)) {
-            DEBUG_PRINTF("ghost value vertex %p not in graph\n", e.second);
+            DEBUG_PRINTF("ghost value vertex %zu not in graph\n",
+                         tbi.g[e.second].index);
             return true;
         }
     }
@@ -1599,11 +1586,11 @@ static
 bool roleOffsetsAreValid(const RoseGraph &g) {
     for (auto v : vertices_range(g)) {
         if (g[v].min_offset >= ROSE_BOUND_INF) {
-            DEBUG_PRINTF("invalid min_offset for role %zu\n", g[v].idx);
+            DEBUG_PRINTF("invalid min_offset for role %zu\n", g[v].index);
             return false;
         }
         if (g[v].min_offset > g[v].max_offset) {
-            DEBUG_PRINTF("min_offset > max_offset for %zu\n", g[v].idx);
+            DEBUG_PRINTF("min_offset > max_offset for %zu\n", g[v].index);
             return false;
         }
     }

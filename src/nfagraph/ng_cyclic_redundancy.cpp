@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -99,7 +99,7 @@ class SearchVisitor : public boost::default_dfs_visitor {
 
         template<class Vertex, class Graph>
         void discover_vertex(const Vertex &v, const Graph &g) const {
-            DEBUG_PRINTF("vertex %u\n", g[v].index);
+            DEBUG_PRINTF("vertex %zu\n", g[v].index);
             if (is_special(v, g)) {
                 DEBUG_PRINTF("start or accept\n");
                 throw SearchFailed();
@@ -141,23 +141,15 @@ bool searchForward(const Graph &g, const CharReach &reach,
 }
 
 static
-NFAEdge to_raw(const NFAEdge &e, const NFAGraph &, const NGHolder &) {
+NFAEdge to_raw(const NFAEdge &e, const NGHolder &) {
     return e;
 }
 
 static
-NFAEdge to_raw(const reverse_graph<NFAGraph, NFAGraph&>::edge_descriptor &e,
-               const reverse_graph<NFAGraph, NFAGraph&> &g,
-               const NGHolder &raw) {
-    /* clang doesn't seem to like edge_underlying */
-    NFAVertex t = source(e, g);
-    NFAVertex s = target(e, g);
-
-    assert(edge(s, t, raw).second);
-
-    return edge(s, t, raw).first;
+NFAEdge to_raw(const reverse_graph<NGHolder, NGHolder &>::edge_descriptor &e,
+               const reverse_graph<NGHolder, NGHolder &> &g) {
+    return get(boost::edge_underlying, g, e);
 }
-
 
 /* returns true if we did stuff */
 template<class Graph>
@@ -185,7 +177,7 @@ bool removeCyclicPathRedundancy(Graph &g, typename Graph::vertex_descriptor v,
             continue;
         }
 
-        DEBUG_PRINTF("- checking u %u\n", g[u].index);
+        DEBUG_PRINTF("- checking u %zu\n", g[u].index);
 
         // let s be intersection(succ(u), succ(v))
         s.clear();
@@ -206,17 +198,18 @@ bool removeCyclicPathRedundancy(Graph &g, typename Graph::vertex_descriptor v,
                 continue;
             }
 
-            DEBUG_PRINTF("  - checking w %u\n", g[w].index);
+            DEBUG_PRINTF("  - checking w %zu\n", g[w].index);
 
-            if (searchForward(g, reach, s, w)) {
-                DEBUG_PRINTF("removing edge (%u,%u)\n",
-                             g[u].index, g[w].index);
-                /* we are currently iterating over the in-edges of v, so it
-                   would be unwise to remove edges to v. However, */
-                assert(w != v); /* as v is in s */
-                remove_edge(to_raw(e_u, g, raw), raw);
-                did_stuff = true;
+            if (!searchForward(g, reach, s, w)) {
+                continue;
             }
+
+            DEBUG_PRINTF("removing edge (%zu,%zu)\n", g[u].index, g[w].index);
+            /* we are currently iterating over the in-edges of v, so it
+               would be unwise to remove edges to v. However, */
+            assert(w != v); /* as v is in s */
+            remove_edge(to_raw(e_u, g), raw);
+            did_stuff = true;
         }
     }
 
@@ -233,7 +226,7 @@ bool cyclicPathRedundancyPass(Graph &g, NGHolder &raw) {
             continue;
         }
 
-        DEBUG_PRINTF("examining cyclic vertex %u\n", g[v].index);
+        DEBUG_PRINTF("examining cyclic vertex %zu\n", g[v].index);
         did_stuff |= removeCyclicPathRedundancy(g, v, raw);
     }
 
@@ -242,7 +235,7 @@ bool cyclicPathRedundancyPass(Graph &g, NGHolder &raw) {
 
 bool removeCyclicPathRedundancy(NGHolder &g) {
     // Forward pass.
-    bool f_changed = cyclicPathRedundancyPass(g.g, g);
+    bool f_changed = cyclicPathRedundancyPass(g, g);
     if (f_changed) {
         DEBUG_PRINTF("edges removed by forward pass\n");
         pruneUseless(g);
@@ -250,8 +243,8 @@ bool removeCyclicPathRedundancy(NGHolder &g) {
 
     // Reverse pass.
     DEBUG_PRINTF("REVERSE PASS\n");
-    typedef reverse_graph<NFAGraph, NFAGraph&> RevGraph;
-    RevGraph revg(g.g);
+    typedef reverse_graph<NGHolder, NGHolder &> RevGraph;
+    RevGraph revg(g);
     bool r_changed = cyclicPathRedundancyPass(revg, g);
     if (r_changed) {
         DEBUG_PRINTF("edges removed by reverse pass\n");

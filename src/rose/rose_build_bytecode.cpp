@@ -314,7 +314,7 @@ bool needsCatchup(const RoseBuildImpl &build,
             continue;
         }
         if (g[v].suffix) {
-            DEBUG_PRINTF("vertex %zu has suffix\n", g[v].idx);
+            DEBUG_PRINTF("vertex %zu has suffix\n", g[v].index);
             return true;
         }
 
@@ -947,7 +947,7 @@ void appendTailToHolder(NGHolder &h, const vector<CharReach> &tail) {
         appendTailToHolder(h, e.first, e.second, tail);
     }
 
-    h.renumberEdges();
+    renumber_edges(h);
 }
 
 static
@@ -1232,11 +1232,11 @@ void updateTops(const RoseGraph &g, const TamaInfo &tamaInfo,
     for (const auto &n : tamaInfo.subengines) {
         for (const auto &v : subengines[i].vertices) {
             if (is_suffix) {
-                tamaProto.add(n, g[v].idx, g[v].suffix.top,
+                tamaProto.add(n, g[v].index, g[v].suffix.top,
                               out_top_remap);
             } else {
                 for (const auto &e : in_edges_range(v, g)) {
-                    tamaProto.add(n, g[v].idx, g[e].rose_top,
+                    tamaProto.add(n, g[v].index, g[e].rose_top,
                                   out_top_remap);
                 }
             }
@@ -1280,7 +1280,7 @@ void buildInfixContainer(RoseGraph &g, build_context &bc,
         for (const auto &sub : subengines) {
             const auto &verts = sub.vertices;
             for (const auto &v : verts) {
-                DEBUG_PRINTF("vert id:%zu\n", g[v].idx);
+                DEBUG_PRINTF("vert id:%zu\n", g[v].index);
                 g[v].left.tamarama = tamaProto;
             }
         }
@@ -1299,7 +1299,7 @@ void buildSuffixContainer(RoseGraph &g, build_context &bc,
         for (const auto &sub : subengines) {
             const auto &verts = sub.vertices;
             for (const auto &v : verts) {
-                DEBUG_PRINTF("vert id:%zu\n", g[v].idx);
+                DEBUG_PRINTF("vert id:%zu\n", g[v].index);
                 g[v].suffix.tamarama = tamaProto;
             }
             const auto &v = verts[0];
@@ -1790,7 +1790,7 @@ void assignSuffixQueues(RoseBuildImpl &build, build_context &bc) {
 
         const suffix_id s(g[v].suffix);
 
-        DEBUG_PRINTF("vertex %zu triggers suffix %p\n", g[v].idx, s.graph());
+        DEBUG_PRINTF("vertex %zu triggers suffix %p\n", g[v].index, s.graph());
 
         // We may have already built this NFA.
         if (contains(bc.suffixes, s)) {
@@ -1887,7 +1887,7 @@ void findExclusiveSuffixes(RoseBuildImpl &tbi, build_context &bc,
 
         const suffix_id s(g[v].suffix);
 
-        DEBUG_PRINTF("vertex %zu triggers suffix %p\n", g[v].idx, s.graph());
+        DEBUG_PRINTF("vertex %zu triggers suffix %p\n", g[v].index, s.graph());
 
         // We may have already built this NFA.
         if (contains(suffixes, s)) {
@@ -1977,24 +1977,13 @@ bool buildSuffixes(const RoseBuildImpl &tbi, build_context &bc,
 }
 
 static
-void buildCountingMiracles(RoseBuildImpl &build, build_context &bc) {
+void buildCountingMiracles(build_context &bc) {
     map<pair<CharReach, u8>, u32> pre_built;
 
-    // To ensure compile determinism, we need to iterate over our leftfixes in
-    // a stronger order than directly over bc.leftfix_info.
-    vector<RoseVertex> cm_vertices;
-    for (const auto &m : bc.leftfix_info) {
-        if (m.second.countingMiracleCount) {
-            cm_vertices.push_back(m.first);
+    for (left_build_info &lbi : bc.leftfix_info | map_values) {
+        if (!lbi.countingMiracleCount) {
+            continue;
         }
-    }
-    sort(begin(cm_vertices), end(cm_vertices), VertexIndexComp(build.g));
-
-    DEBUG_PRINTF("%zu vertices with counting miracles\n", cm_vertices.size());
-
-    for (const auto &v : cm_vertices) {
-        auto &lbi = bc.leftfix_info.at(v);
-        assert(lbi.countingMiracleCount);
 
         const CharReach &cr = lbi.countingMiracleReach;
         assert(!cr.all() && !cr.none());
@@ -2255,12 +2244,12 @@ u32 findMinFloatingLiteralMatch(const RoseBuildImpl &build,
     u32 minWidth = ROSE_BOUND_INF;
     for (auto v : vertices_range(g)) {
         if (build.isAnchored(v) || build.isVirtualVertex(v)) {
-            DEBUG_PRINTF("skipping %zu anchored or root\n", g[v].idx);
+            DEBUG_PRINTF("skipping %zu anchored or root\n", g[v].index);
             continue;
         }
 
         u32 w = g[v].min_offset;
-        DEBUG_PRINTF("%zu m_o = %u\n", g[v].idx, w);
+        DEBUG_PRINTF("%zu m_o = %u\n", g[v].index, w);
 
         if (w < minWidth) {
             minWidth = w;
@@ -3540,7 +3529,7 @@ void makeRoleSuffix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
         auto tamaProto = g[v].suffix.tamarama.get();
         assert(tamaProto);
         u32 top = (u32)MQE_TOP_FIRST +
-                  tamaProto->top_remap.at(make_pair(g[v].idx,
+                  tamaProto->top_remap.at(make_pair(g[v].index,
                                                     g[v].suffix.top));
         assert(top < MQE_INVALID);
         suffixEvent = top;
@@ -3622,7 +3611,7 @@ void makeRoleInfixTriggers(RoseBuildImpl &build, build_context &bc,
             auto tamaProto = g[v].left.tamarama.get();
             assert(tamaProto);
             top = MQE_TOP_FIRST + tamaProto->top_remap.at(
-                                      make_pair(g[v].idx, g[e].rose_top));
+                                      make_pair(g[v].index, g[e].rose_top));
             assert(top < MQE_INVALID);
         } else if (!isMultiTopType(nfa->type)) {
             assert(num_tops(g[v].left) == 1);
@@ -3782,7 +3771,7 @@ RoseProgram makeProgram(RoseBuildImpl &build, build_context &bc,
     // This program may be triggered by different predecessors, with different
     // offset bounds. We must ensure we put this check/set operation after the
     // bounds check to deal with this case.
-    if (hasGreaterInDegree(1, v, g)) {
+    if (in_degree(v, g) > 1) {
         makeRoleCheckNotHandled(bc, v, program);
     }
 
@@ -4438,8 +4427,8 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
         if (build.isAnyStart(u)) {
             continue; // Root roles are not handled with sparse iterator.
         }
-        DEBUG_PRINTF("sparse iter edge (%zu,%zu)\n", g[u].idx,
-                     g[target(e, g)].idx);
+        DEBUG_PRINTF("sparse iter edge (%zu,%zu)\n", g[u].index,
+                     g[target(e, g)].index);
         assert(contains(bc.roleStateIndices, u));
         u32 pred_state = bc.roleStateIndices.at(u);
         pred_blocks[pred_state].add_block(makeProgram(build, bc, e));
@@ -4455,7 +4444,8 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
         if (!build.isAnyStart(u)) {
             continue;
         }
-        DEBUG_PRINTF("root edge (%zu,%zu)\n", g[u].idx, g[target(e, g)].idx);
+        DEBUG_PRINTF("root edge (%zu,%zu)\n", g[u].index,
+                     g[target(e, g)].index);
         program.add_block(makeProgram(build, bc, e));
     }
 
@@ -4531,8 +4521,8 @@ map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
         auto edge_list = vector<RoseEdge>(begin(m.second), end(m.second));
         sort(begin(edge_list), end(edge_list),
              [&g](const RoseEdge &a, const RoseEdge &b) {
-                 return tie(g[source(a, g)].idx, g[target(a, g)].idx) <
-                        tie(g[source(b, g)].idx, g[target(b, g)].idx);
+                 return tie(g[source(a, g)].index, g[target(a, g)].index) <
+                        tie(g[source(b, g)].index, g[target(b, g)].index);
              });
         lit_edge_map.emplace(m.first, edge_list);
     }
@@ -4658,7 +4648,7 @@ bool hasEodAnchoredSuffix(const RoseBuildImpl &build) {
     for (auto v : vertices_range(g)) {
         if (g[v].suffix && build.isInETable(v)) {
             DEBUG_PRINTF("vertex %zu is in eod table and has a suffix\n",
-                         g[v].idx);
+                         g[v].index);
             return true;
         }
     }
@@ -4670,7 +4660,7 @@ bool hasEodMatcher(const RoseBuildImpl &build) {
     const RoseGraph &g = build.g;
     for (auto v : vertices_range(g)) {
         if (build.isInETable(v)) {
-            DEBUG_PRINTF("vertex %zu is in eod table\n", g[v].idx);
+            DEBUG_PRINTF("vertex %zu is in eod table\n", g[v].index);
             return true;
         }
     }
@@ -4690,19 +4680,19 @@ void addEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
             continue;
         }
 
-        DEBUG_PRINTF("vertex %zu (with %zu preds) fires on EOD\n", g[v].idx,
+        DEBUG_PRINTF("vertex %zu (with %zu preds) fires on EOD\n", g[v].index,
                      in_degree(v, g));
 
         vector<RoseEdge> edge_list;
         for (const auto &e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
             if (build.isInETable(u) != in_etable) {
-                DEBUG_PRINTF("pred %zu %s in etable\n", g[u].idx,
+                DEBUG_PRINTF("pred %zu %s in etable\n", g[u].index,
                              in_etable ? "is not" : "is");
                 continue;
             }
             if (canEagerlyReportAtEod(build, e)) {
-                DEBUG_PRINTF("already done report for vertex %zu\n", g[u].idx);
+                DEBUG_PRINTF("already done report for vertex %zu\n", g[u].index);
                 continue;
             }
             edge_list.push_back(e);
@@ -4745,8 +4735,8 @@ void addEodEventProgram(RoseBuildImpl &build, build_context &bc,
     // Sort edge list for determinism, prettiness.
     sort(begin(edge_list), end(edge_list),
          [&g](const RoseEdge &a, const RoseEdge &b) {
-             return tie(g[source(a, g)].idx, g[target(a, g)].idx) <
-                    tie(g[source(b, g)].idx, g[target(b, g)].idx);
+             return tie(g[source(a, g)].index, g[target(a, g)].index) <
+                    tie(g[source(b, g)].index, g[target(b, g)].index);
          });
 
     program.add_block(
@@ -5247,7 +5237,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         return nullptr;
     }
     u32 eodNfaIterOffset = buildEodNfaIterator(bc, leftfixBeginQueue);
-    buildCountingMiracles(*this, bc);
+    buildCountingMiracles(bc);
 
     u32 queue_count = qif.allocated_count(); /* excludes anchored matcher q;
                                               * som rev nfas */

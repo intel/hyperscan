@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -117,11 +117,11 @@ typedef map<pair<NFAVertex, NFAVertex>, NFAEdge> edge_cache_t;
 static
 void replaceAssertVertex(NGWrapper &g, NFAVertex t, edge_cache_t &edge_cache,
                          u32 &assert_edge_count) {
-    DEBUG_PRINTF("replacing assert vertex %u\n", g[t].index);
+    DEBUG_PRINTF("replacing assert vertex %zu\n", g[t].index);
 
     const u32 flags = g[t].assert_flags;
-    DEBUG_PRINTF("consider assert vertex %u with flags %u\n",
-                 g[t].index, flags);
+    DEBUG_PRINTF("consider assert vertex %zu with flags %u\n", g[t].index,
+                 flags);
 
     // Wire up all the predecessors to all the successors.
 
@@ -142,7 +142,7 @@ void replaceAssertVertex(NGWrapper &g, NFAVertex t, edge_cache_t &edge_cache,
         for (const auto &outEdge : out_edges_range(t, g)) {
             NFAVertex v = target(outEdge, g);
 
-            DEBUG_PRINTF("consider path [%u,%u,%u]\n", g[u].index,
+            DEBUG_PRINTF("consider path [%zu,%zu,%zu]\n", g[u].index,
                          g[t].index, g[v].index);
 
             if (v == t) {
@@ -173,8 +173,7 @@ void replaceAssertVertex(NGWrapper &g, NFAVertex t, edge_cache_t &edge_cache,
             auto cache_key = make_pair(u, v);
             auto ecit = edge_cache.find(cache_key);
             if (ecit == edge_cache.end()) {
-                DEBUG_PRINTF("adding edge %u %u\n", g[u].index,
-                              g[v].index);
+                DEBUG_PRINTF("adding edge %zu %zu\n", g[u].index, g[v].index);
                 NFAEdge e = add_edge(u, v, g).first;
                 edge_cache.emplace(cache_key, e);
                 g[e].assert_flags = flags;
@@ -184,7 +183,7 @@ void replaceAssertVertex(NGWrapper &g, NFAVertex t, edge_cache_t &edge_cache,
                 }
             } else {
                 NFAEdge e = ecit->second;
-                DEBUG_PRINTF("updating edge %u %u [a %u]\n", g[u].index,
+                DEBUG_PRINTF("updating edge %zu %zu [a %zu]\n", g[u].index,
                              g[v].index, g[t].index);
                 // Edge already exists.
                 u32 &e_flags = g[e].assert_flags;
@@ -211,8 +210,7 @@ void setReportId(ReportManager &rm, NGWrapper &g, NFAVertex v, s32 adj) {
     Report r = rm.getBasicInternalReport(g, adj);
 
     g[v].reports.insert(rm.getInternalId(r));
-    DEBUG_PRINTF("set report id for vertex %u, adj %d\n",
-                 g[v].index, adj);
+    DEBUG_PRINTF("set report id for vertex %zu, adj %d\n", g[v].index, adj);
 }
 
 static
@@ -222,8 +220,7 @@ void checkForMultilineStart(ReportManager &rm, NGWrapper &g) {
         if (!(g[v].assert_flags & POS_FLAG_MULTILINE_START)) {
             continue;
         }
-        DEBUG_PRINTF("mls %u %08x\n", g[v].index,
-                     g[v].assert_flags);
+        DEBUG_PRINTF("mls %zu %08x\n", g[v].index, g[v].assert_flags);
 
         /* we have found a multi-line start (maybe more than one) */
 
@@ -299,8 +296,8 @@ void removeAssertVertices(ReportManager &rm, NGWrapper &g) {
         DEBUG_PRINTF("resolved %zu assert vertices\n", num);
         pruneUseless(g);
         pruneEmptyVertices(g);
-        g.renumberVertices();
-        g.renumberEdges();
+        renumber_vertices(g);
+        renumber_edges(g);
     }
 
     DEBUG_PRINTF("after: graph has %zu vertices\n", num_vertices(g));
