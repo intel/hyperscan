@@ -2,6 +2,36 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [4.3.0] 2016-08-24
+- Introduce a new analysis pass ("Violet") used for decomposition of patterns
+  into literals and smaller engines.
+- Introduce a new container engine ("Tamarama") for infix and suffix engines
+  that can be proven to run exclusively of one another. This reduces stream
+  state for pattern sets with many such engines.
+- Introduce a new shuffle-based DFA engine ("Sheng"). This improves scanning
+  performance for pattern sets where small engines are generated.
+- Improve the analysis used to extract extra mask information from short
+  literals.
+- Reduced compile time spent in equivalence class analysis.
+- Build: frame pointers are now only omitted for 32-bit release builds.
+- Build: Workaround for C++ issues reported on FreeBSD/libc++ platforms.
+  (github issue #27)
+- Simplify the LimEx NFA with a unified "variable shift" model, which reduces
+  the number of different NFA code paths to one per model size.
+- Allow some anchored prefixes that may squash the literal to which they are
+  attached to run eagerly. This improves scanning performance for some
+  patterns.
+- Simplify and improve EOD ("end of data") matching, using the interpreter for
+  all operations.
+- Elide unnecessary instructions in the Rose interpreter at compile time.
+- Reduce the number of inlined instantiations of the Rose interpreter in order
+  to reduce instruction cache pressure.
+- Small improvements to literal matcher acceleration.
+- Parser: ignore `\E` metacharacters that are not preceded by `\Q`. This
+  conforms to PCRE's behaviour, rather than returning a compile error.
+- Check for misaligned memory when allocating an error structure in Hyperscan's
+  compile path and return an appropriate error if detected.
+
 ## [4.2.0] 2016-05-31
 - Introduce an interpreter for many complex actions to replace the use of
   internal reports within the core of Hyperscan (the "Rose" engine). This
