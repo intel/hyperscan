@@ -387,7 +387,7 @@ void RoseInstrSparseIterBegin::write(void *dest, RoseEngineBlob &blob,
     vector<mmbit_sparse_iter> iter;
     mmbBuildSparseIterator(iter, keys, num_keys);
     assert(!iter.empty());
-    inst->iter_offset = blob.add(iter.begin(), iter.end());
+    inst->iter_offset = blob.add_iterator(iter);
     inst->jump_table = blob.add(jump_offsets.begin(), jump_offsets.end());
 
     // Store offsets for corresponding SPARSE_ITER_NEXT operations.
@@ -422,7 +422,7 @@ void RoseInstrSparseIterAny::write(void *dest, RoseEngineBlob &blob,
     vector<mmbit_sparse_iter> iter;
     mmbBuildSparseIterator(iter, keys, num_keys);
     assert(!iter.empty());
-    inst->iter_offset = blob.add(iter.begin(), iter.end());
+    inst->iter_offset = blob.add_iterator(iter);
 }
 
 void RoseInstrEnginesEod::write(void *dest, RoseEngineBlob &blob,

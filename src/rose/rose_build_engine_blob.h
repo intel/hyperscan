@@ -34,6 +34,8 @@
 #include "ue2common.h"
 #include "util/alloc.h"
 #include "util/container.h"
+#include "util/multibit_build.h"
+#include "util/ue2_containers.h"
 #include "util/verify_types.h"
 
 #include <vector>
@@ -104,6 +106,19 @@ public:
         return offset;
     }
 
+    u32 add_iterator(const std::vector<mmbit_sparse_iter> &iter) {
+        auto cache_it = cached_iters.find(iter);
+        if (cache_it != cached_iters.end()) {
+            u32 offset = cache_it->second;
+            DEBUG_PRINTF("cache hit for iter at %u\n", offset);
+            return offset;
+        }
+
+        u32 offset = add(iter.begin(), iter.end());
+        cached_iters.emplace(iter, offset);
+        return offset;
+    }
+
     void write_bytes(RoseEngine *engine) {
         copy_bytes((char *)engine + base_offset, blob);
     }
@@ -119,6 +134,9 @@ private:
 
         blob.resize(s + align - s % align);
     }
+
+    /** \brief Cache of previously-written sparse iterators. */
+    unordered_map<std::vector<mmbit_sparse_iter>, u32> cached_iters;
 
     /**
      * \brief Contents of the Rose bytecode immediately following the

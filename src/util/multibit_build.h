@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,16 +34,18 @@
 #define MULTIBIT_BUILD_H
 
 #include "multibit_internal.h"
+#include "hash.h"
 
 #include <vector>
 
-/** \brief Comparator for \ref mmbit_sparse_iter structures. */
-static inline
-bool operator<(const mmbit_sparse_iter &a, const mmbit_sparse_iter &b) {
-    if (a.mask != b.mask) {
-        return a.mask < b.mask;
-    }
-    return a.val < b.val;
+inline
+bool operator==(const mmbit_sparse_iter &a, const mmbit_sparse_iter &b) {
+    return a.mask == b.mask && a.val == b.val;
+}
+
+inline
+size_t hash_value(const mmbit_sparse_iter &iter) {
+    return ue2::hash_all(iter.mask, iter.val);
 }
 
 namespace ue2 {

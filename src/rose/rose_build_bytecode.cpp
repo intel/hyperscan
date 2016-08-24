@@ -186,10 +186,6 @@ struct build_context : boost::noncopyable {
      */
     size_t numStates = 0;
 
-    /** \brief Very simple cache from sparse iter to offset, used when building
-     * up iterators in early misc. */
-    map<vector<mmbit_sparse_iter>, u32> iterCache;
-
     /** \brief Simple cache of programs written to engine blob, used for
      * deduplication. */
     ue2::unordered_map<RoseProgram, u32, RoseProgramHash,
@@ -2178,24 +2174,6 @@ u32 RoseBuildImpl::calcHistoryRequired() const {
     return m ? m - 1 : 0;
 }
 
-// Adds a sparse iterator to the end of the iterator table, returning its
-// offset.
-static
-u32 addIteratorToTable(build_context &bc,
-                       const vector<mmbit_sparse_iter> &iter) {
-    if (contains(bc.iterCache, iter)) {
-        DEBUG_PRINTF("cache hit\n");
-        u32 offset = bc.iterCache.at(iter);
-        return offset;
-    }
-
-    u32 offset = bc.engine_blob.add(iter.begin(), iter.end());
-
-    bc.iterCache.insert(make_pair(iter, offset));
-
-    return offset;
-}
-
 static
 u32 buildLastByteIter(const RoseGraph &g, build_context &bc) {
     vector<u32> lb_roles;
@@ -2217,7 +2195,7 @@ u32 buildLastByteIter(const RoseGraph &g, build_context &bc) {
 
     vector<mmbit_sparse_iter> iter;
     mmbBuildSparseIterator(iter, lb_roles, bc.numStates);
-    return addIteratorToTable(bc, iter);
+    return bc.engine_blob.add_iterator(iter);
 }
 
 static
@@ -2329,7 +2307,7 @@ u32 buildEodNfaIterator(build_context &bc, const u32 activeQueueCount) {
 
     vector<mmbit_sparse_iter> iter;
     mmbBuildSparseIterator(iter, keys, activeQueueCount);
-    return addIteratorToTable(bc, iter);
+    return bc.engine_blob.add_iterator(iter);
 }
 
 static
@@ -4669,7 +4647,7 @@ u32 buildEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
 
     vector<mmbit_sparse_iter> iter;
     mmbBuildSparseIterator(iter, vec, queue_count - leftfixBeginQueue);
-    return addIteratorToTable(bc, iter);
+    return bc.engine_blob.add_iterator(iter);
 }
 
 static
