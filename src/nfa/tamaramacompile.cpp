@@ -117,7 +117,7 @@ aligned_unique_ptr<NFA> buildTamarama(const TamaInfo &tamaInfo, const u32 queue,
     remapTops(tamaInfo, top_base, out_top_remap);
 
     size_t subSize = tamaInfo.subengines.size();
-    DEBUG_PRINTF("subSize:%lu\n", subSize);
+    DEBUG_PRINTF("subSize:%zu\n", subSize);
     size_t total_size =
         sizeof(NFA) +               // initial NFA structure
         sizeof(Tamarama) +          // Tamarama structure

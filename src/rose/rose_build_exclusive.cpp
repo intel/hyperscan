@@ -306,12 +306,12 @@ void findCliques(const map<u32, set<u32>> &exclusiveGroups,
     // Find clique groups
     const auto &clique = removeClique(*cg);
     for (const auto &i : clique) {
-        DEBUG_PRINTF("cliq:%lu\n", i.size());
+        DEBUG_PRINTF("cliq:%zu\n", i.size());
         if (i.size() > 1) {
             exclusive_roles.push_back(i);
         }
     }
-    DEBUG_PRINTF("Clique graph size:%lu\n", exclusive_roles.size());
+    DEBUG_PRINTF("Clique graph size:%zu\n", exclusive_roles.size());
 }
 
 static
@@ -326,7 +326,7 @@ map<u32, set<u32>> findExclusiveGroups(const RoseBuildImpl &build,
         set<u32> group;
         set<RoseVertex> q1(vertex_map.at(i).begin(),
                            vertex_map.at(i).end());
-        DEBUG_PRINTF("vertex set:%lu\n", q1.size());
+        DEBUG_PRINTF("vertex set:%zu\n", q1.size());
         for (const auto &val : s) {
             set<RoseVertex> q2(vertex_map.at(val).begin(),
                                vertex_map.at(val).end());

@@ -1541,7 +1541,7 @@ void buildInfixContainer(RoseGraph &g, build_context &bc,
         for (const auto &sub : subengines) {
             const auto &verts = sub.vertices;
             for (const auto &v : verts) {
-                DEBUG_PRINTF("vert id:%lu\n", g[v].idx);
+                DEBUG_PRINTF("vert id:%zu\n", g[v].idx);
                 g[v].left.tamarama = tamaProto;
             }
         }
@@ -1560,7 +1560,7 @@ void buildSuffixContainer(RoseGraph &g, build_context &bc,
         for (const auto &sub : subengines) {
             const auto &verts = sub.vertices;
             for (const auto &v : verts) {
-                DEBUG_PRINTF("vert id:%lu\n", g[v].idx);
+                DEBUG_PRINTF("vert id:%zu\n", g[v].idx);
                 g[v].suffix.tamarama = tamaProto;
             }
             const auto &v = verts[0];
@@ -1741,7 +1741,7 @@ void findExclusiveInfixes(RoseBuildImpl &build, build_context &bc,
     }
 
     if (leftfixes.size() > 1) {
-        DEBUG_PRINTF("leftfix size:%lu\n", leftfixes.size());
+        DEBUG_PRINTF("leftfix size:%zu\n", leftfixes.size());
         vector<vector<u32>> groups;
         exclusiveAnalysisInfix(build, vertex_map, roleInfoSet, groups);
         buildExclusiveInfixes(build, bc, qif, infixTriggers, vertex_map,
@@ -2178,7 +2178,7 @@ void findExclusiveSuffixes(RoseBuildImpl &tbi, build_context &bc,
     }
 
     if (suffixes.size() > 1) {
-        DEBUG_PRINTF("suffix size:%lu\n", suffixes.size());
+        DEBUG_PRINTF("suffix size:%zu\n", suffixes.size());
         vector<vector<u32>> groups;
         exclusiveAnalysisSuffix(tbi, vertex_map, roleInfoSet, groups);
         buildExclusiveSuffixes(tbi, bc, qif, suffixTriggers, vertex_map,
