@@ -554,33 +554,30 @@ u32 countRosePrefixes(const vector<LeftNfaInfo> &roses) {
  * \brief True if this Rose engine needs to run a catch up whenever a report is
  * generated.
  *
- * This is only the case if there are no anchored literals, suffixes, outfixes
- * etc.
+ * Catch up is necessary if there are output-exposed engines (suffixes,
+ * outfixes) or an anchored table (anchored literals, acyclic DFAs).
  */
 static
-bool needsCatchup(const RoseBuildImpl &build) {
+bool needsCatchup(const RoseBuildImpl &build,
+                  const vector<raw_dfa> &anchored_dfas) {
     if (!build.outfixes.empty()) {
         DEBUG_PRINTF("has outfixes\n");
+        return true;
+    }
+    if (!anchored_dfas.empty()) {
+        DEBUG_PRINTF("has anchored dfas\n");
         return true;
     }
 
     const RoseGraph &g = build.g;
 
-    if (!isLeafNode(build.anchored_root, g)) {
-        DEBUG_PRINTF("has anchored vertices\n");
-        return true;
-    }
-
     for (auto v : vertices_range(g)) {
         if (build.root == v) {
             continue;
         }
-
         if (build.anchored_root == v) {
-            assert(isLeafNode(v, g));
             continue;
         }
-
         if (g[v].suffix) {
             DEBUG_PRINTF("vertex %zu has suffix\n", g[v].idx);
             return true;
@@ -5286,7 +5283,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     build_context bc;
     bc.floatingMinLiteralMatchOffset =
         findMinFloatingLiteralMatch(*this, anchored_dfas);
-    bc.needs_catchup = needsCatchup(*this);
+    bc.needs_catchup = needsCatchup(*this, anchored_dfas);
     recordResources(bc.resources, *this);
     if (!anchored_dfas.empty()) {
         bc.resources.has_anchored = true;
