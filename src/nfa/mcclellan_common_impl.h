@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined(__INTEL_COMPILER) || defined(__clang__) || defined(_WIN32) || defined(__GNUC__) && (__GNUC__ < 4)
+#if defined(__INTEL_COMPILER) || defined(__clang__) || NATIVE_WIN32 || defined(__GNUC__) && (__GNUC__ < 4)
 #define really_flatten
 #else
 #define really_flatten __attribute__ ((flatten))

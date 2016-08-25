@@ -31,7 +31,7 @@
 #include "hs_compile.h" // for HS_MODE_ flags
 #include "hs_internal.h"
 
-#ifndef _WIN32
+#if !NATIVE_WIN32
 #include <cpuid.h>
 #endif
 
@@ -60,7 +60,7 @@
 static __inline
 void cpuid(unsigned int op, unsigned int leaf, unsigned int *eax,
            unsigned int *ebx, unsigned int *ecx, unsigned int *edx) {
-#ifndef _WIN32
+#if !NATIVE_WIN32
     __cpuid_count(op, leaf, *eax, *ebx, *ecx, *edx);
 #else
     unsigned int a[4];
@@ -74,7 +74,7 @@ void cpuid(unsigned int op, unsigned int leaf, unsigned int *eax,
 
 static inline
 u64a xgetbv(u32 op) {
-#if defined(_WIN32) || defined(__INTEL_COMPILER)
+#if NATIVE_WIN32 || defined(__INTEL_COMPILER)
     return _xgetbv(op);
 #else
     u32 a, d;

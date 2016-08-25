@@ -29,7 +29,7 @@
 #ifndef UTIL_MAKE_UNIQUE_H
 #define UTIL_MAKE_UNIQUE_H
 
-#if (defined(_WIN32) || defined(_WIN64)) && (_MSC_VER > 1700)
+#if NATIVE_WIN32 && (_MSC_VER > 1700)
 // VC++ 2013 onwards has make_unique in the STL
 #define USE_STD
 #include <memory>

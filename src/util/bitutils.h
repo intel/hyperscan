@@ -63,7 +63,7 @@
 #endif
 
 // MSVC has a different form of inline asm
-#ifdef _WIN32
+#if NATIVE_WIN32
 #define NO_ASM
 #endif
 
@@ -74,7 +74,7 @@
 static really_inline
 u32 clz32(u32 x) {
     assert(x); // behaviour not defined for x == 0
-#if defined(_WIN32)
+#if NATIVE_WIN32
     unsigned long r;
     _BitScanReverse(&r, x);
     return 31 - r;
@@ -86,11 +86,11 @@ u32 clz32(u32 x) {
 static really_inline
 u32 clz64(u64a x) {
     assert(x); // behaviour not defined for x == 0
-#if defined(_WIN64)
+#if NATIVE_WIN32 && defined(_WIN64)
     unsigned long r;
     _BitScanReverse64(&r, x);
     return 63 - r;
-#elif defined(_WIN32)
+#elif NATIVE_WIN32
     unsigned long x1 = (u32)x;
     unsigned long x2 = (u32)(x >> 32);
     unsigned long r;
@@ -109,7 +109,7 @@ u32 clz64(u64a x) {
 static really_inline
 u32 ctz32(u32 x) {
     assert(x); // behaviour not defined for x == 0
-#if defined(_WIN32)
+#if NATIVE_WIN32
     unsigned long r;
     _BitScanForward(&r, x);
     return r;
@@ -121,11 +121,11 @@ u32 ctz32(u32 x) {
 static really_inline
 u32 ctz64(u64a x) {
     assert(x); // behaviour not defined for x == 0
-#if defined(_WIN64)
+#if NATIVE_WIN32 && defined(_WIN64)
     unsigned long r;
     _BitScanForward64(&r, x);
     return r;
-#elif defined(_WIN32)
+#elif NATIVE_WIN32
     unsigned long r;
     if (_BitScanForward(&r, (u32)x)) {
         return (u32)r;

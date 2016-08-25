@@ -37,7 +37,7 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <sys/types.h>
 #include <sys/stat.h>
-#if !defined(_WIN32)
+#if !NATIVE_WIN32
 #include <dirent.h>
 #include <unistd.h>
 #else
@@ -96,7 +96,7 @@ void processLine(string &line, unsigned lineNum,
     }
 }
 
-#if defined(_WIN32)
+#if NATIVE_WIN32
 #define stat _stat
 #define S_ISDIR(st_m) (_S_IFDIR & (st_m))
 #define S_ISREG(st_m) (_S_IFREG & (st_m))
@@ -141,7 +141,7 @@ bool isIgnorable(const std::string &f) {
     return false;
 }
 
-#ifndef _WIN32
+#if !NATIVE_WIN32
 void loadExpressions(const string &inPath, ExpressionMap &exprMap) {
     // Is our input path a file or a directory?
     struct stat st;
