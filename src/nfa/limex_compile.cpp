@@ -37,6 +37,7 @@
 #include "limex_internal.h"
 #include "limex_limits.h"
 #include "nfa_build_util.h"
+#include "nfagraph/ng_dominators.h"
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_limex_accel.h"
 #include "nfagraph/ng_repeat.h"
@@ -64,9 +65,12 @@
 #include <map>
 #include <set>
 #include <vector>
+
 #include <boost/graph/breadth_first_search.hpp>
+#include <boost/range/adaptor/map.hpp>
 
 using namespace std;
+using boost::adaptors::map_values;
 
 namespace ue2 {
 
@@ -704,6 +708,155 @@ void fillAccelInfo(build_info &bi) {
 typedef vector<AccelAux, AlignedAllocator<AccelAux, alignof(AccelAux)> >
     AccelAuxVector;
 
+#define IMPOSSIBLE_ACCEL_MASK (~0U)
+
+static
+u32 getEffectiveAccelStates(const build_info &args,
+                            u32 active_accel_mask,
+                            const vector<AccelBuild> &accelStates) {
+    /* accelStates is indexed by the acceleration bit index and contains a
+     * reference to the original vertex & state_id */
+
+    /* Cases to consider:
+     *
+     * 1: Accel states a and b are on and b can squash a
+     *    --> we can ignore a. This will result in a no longer being accurately
+     *        modelled - we may miss escapes turning it off and we may also miss
+     *        its successors being activated.
+     *
+     * 2: Accel state b is on but accel state a is off and a is .* and must be
+     *    seen before b is reached (and would not be covered by (1))
+     *    --> if a is squashable (or may die unexpectedly) we should continue
+     *        as is
+     *    --> if a is not squashable we can treat this as a+b or as a no accel,
+     *        impossible case
+     *    --> this case could be extended to handle non dot reaches by
+     *        effectively creating something similar to squash masks for the
+     *        reverse graph
+     *
+     *
+     * Other cases:
+     *
+     * 3: Accel states a and b are on but have incompatible reaches
+     *    --> we should treat this as an impossible case. Actually, this case
+     *        is unlikely to arise as we pick states with wide reaches to
+     *        accelerate so an empty intersection is unlikely.
+     *
+     * Note: we need to be careful when dealing with accel states corresponding
+     * to bounded repeat cyclics - they may 'turn off' based on a max bound and
+     * so we may still require on earlier states to be accurately modelled.
+     */
+    const NGHolder &h = args.h;
+    auto dom_map = findDominators(h);
+
+    /* map from accel_id to mask of accel_ids that it is dominated by */
+    vector<u32> dominated_by(accelStates.size());
+
+    map<NFAVertex, u32> accel_id_map;
+    for (u32 accel_id = 0; accel_id < accelStates.size(); accel_id++) {
+        NFAVertex v = accelStates[accel_id].v;
+        accel_id_map[v] = accel_id;
+    }
+
+    /* Note: we want a slightly less strict defn of dominate as skip edges
+     * prevent .* 'truly' dominating */
+    for (u32 local_accel_mask = active_accel_mask; local_accel_mask; ) {
+        u32 accel_id = findAndClearLSB_32(&local_accel_mask);
+        NFAVertex v = accelStates[accel_id].v;
+        while (contains(dom_map, v)) {
+            v = dom_map[v];
+            if (contains(accel_id_map, v)) {
+                dominated_by[accel_id] |= 1U << accel_id_map[v];
+            }
+            /* TODO: could also look at inv_adj vertices to handle fan-in */
+            for (NFAVertex a : adjacent_vertices_range(v, h)) {
+                if (a == v || !contains(accel_id_map, a)
+                    || a == accelStates[accel_id].v /* not likely */) {
+                    continue;
+                }
+                if (!is_subset_of(h[v].reports, h[a].reports)) {
+                    continue;
+                }
+                flat_set<NFAVertex> v_succ;
+                flat_set<NFAVertex> a_succ;
+                succ(h, v, &v_succ);
+                succ(h, a, &a_succ);
+                if (is_subset_of(v_succ, a_succ)) {
+                    dominated_by[accel_id] |= 1U << accel_id_map[a];
+                }
+            }
+        }
+    }
+
+    u32 may_turn_off = 0; /* BR with max bound, non-dots, squashed, etc */
+    for (u32 local_accel_mask = active_accel_mask; local_accel_mask; ) {
+        u32 accel_id = findAndClearLSB_32(&local_accel_mask);
+        NFAVertex v = accelStates[accel_id].v;
+        u32 state_id = accelStates[accel_id].state;
+        assert(contains(args.accel.accelerable, v));
+        if (!h[v].char_reach.all()) {
+            may_turn_off |= 1U << accel_id;
+            continue;
+        }
+        if (contains(args.br_cyclic, v)
+            && args.br_cyclic.at(v).repeatMax != depth::infinity()) {
+            may_turn_off |= 1U << accel_id;
+            continue;
+        }
+        for (const auto &s_mask : args.squashMap | map_values) {
+            if (!s_mask.test(state_id)) {
+                may_turn_off |= 1U << accel_id;
+                break;
+            }
+        }
+        for (const auto &s_mask : args.reportSquashMap | map_values) {
+            if (!s_mask.test(state_id)) {
+                may_turn_off |= 1U << accel_id;
+                break;
+            }
+        }
+    }
+
+    /* Case 1: */
+    u32 ignored = 0;
+    for (u32 local_accel_mask = active_accel_mask; local_accel_mask; ) {
+        u32 accel_id_b = findAndClearLSB_32(&local_accel_mask);
+        NFAVertex v = accelStates[accel_id_b].v;
+        if (!contains(args.squashMap, v)) {
+            continue;
+        }
+        assert(!contains(args.br_cyclic, v)
+               || args.br_cyclic.at(v).repeatMax == depth::infinity());
+        NFAStateSet squashed = args.squashMap.at(v);
+        squashed.flip(); /* default sense for mask of survivors */
+
+        for (u32 local_accel_mask2 = active_accel_mask; local_accel_mask2; ) {
+            u32 accel_id_a = findAndClearLSB_32(&local_accel_mask2);
+            if (squashed.test(accelStates[accel_id_a].state)) {
+                ignored |= 1U << accel_id_a;
+            }
+        }
+    }
+
+    /* Case 2: */
+    for (u32 local_accel_mask = active_accel_mask; local_accel_mask; ) {
+        u32 accel_id = findAndClearLSB_32(&local_accel_mask);
+
+        u32 stuck_dominators = dominated_by[accel_id] & ~may_turn_off;
+        if ((stuck_dominators & active_accel_mask) != stuck_dominators) {
+            DEBUG_PRINTF("only %08x on, but we require %08x\n",
+                         active_accel_mask, stuck_dominators);
+            return IMPOSSIBLE_ACCEL_MASK;
+        }
+    }
+
+    if (ignored) {
+        DEBUG_PRINTF("in %08x, ignoring %08x\n", active_accel_mask, ignored);
+    }
+
+    return active_accel_mask & ~ignored;
+}
+
 static
 void buildAccel(const build_info &args, NFAStateSet &accelMask,
                 NFAStateSet &accelFriendsMask, AccelAuxVector &auxvec,
@@ -735,11 +888,22 @@ void buildAccel(const build_info &args, NFAStateSet &accelMask,
     // Set up a unioned AccelBuild for every possible combination of the set
     // bits in accelStates.
     vector<AccelBuild> accelOuts(accelCount);
+    vector<u32> effective_accel_set;
+    effective_accel_set.push_back(0); /* empty is effectively empty */
+
     for (u32 i = 1; i < accelCount; i++) {
-        for (u32 j = 0, j_end = accelStates.size(); j < j_end; j++) {
-            if (i & (1U << j)) {
-                combineAccel(accelStates[j], accelOuts[i]);
-            }
+        u32 effective_i = getEffectiveAccelStates(args, i, accelStates);
+        effective_accel_set.push_back(effective_i);
+
+        if (effective_i == IMPOSSIBLE_ACCEL_MASK) {
+            DEBUG_PRINTF("this combination of accel states is not possible\n");
+            accelOuts[i].stop1 = CharReach::dot();
+            continue;
+        }
+
+        while (effective_i) {
+            u32 base_accel_state = findAndClearLSB_32(&effective_i);
+            combineAccel(accelStates[base_accel_state], accelOuts[i]);
         }
         minimiseAccel(accelOuts[i]);
     }
@@ -759,29 +923,32 @@ void buildAccel(const build_info &args, NFAStateSet &accelMask,
     for (u32 i = 1; i < accelCount; i++) {
         memset(&aux, 0, sizeof(aux));
 
-        NFAStateSet states(args.num_states);
-        for (u32 j = 0; j < accelStates.size(); j++) {
-            if (i & (1U << j)) {
-                states.set(accelStates[j].state);
-            }
-        }
+        NFAStateSet effective_states(args.num_states);
+        u32 effective_i = effective_accel_set[i];
 
         AccelInfo ainfo;
         ainfo.double_offset = accelOuts[i].offset;
         ainfo.double_stop1 = accelOuts[i].stop1;
         ainfo.double_stop2 = accelOuts[i].stop2;
 
-        if (contains(accel.precalc, states)) {
-            const precalcAccel &precalc = accel.precalc.at(states);
-            if (precalc.ma_info.type != MultibyteAccelInfo::MAT_NONE) {
-                ainfo.ma_len1 = precalc.ma_info.len1;
-                ainfo.ma_len2 = precalc.ma_info.len2;
-                ainfo.multiaccel_offset = precalc.ma_info.offset;
-                ainfo.multiaccel_stops = precalc.ma_info.cr;
-                ainfo.ma_type = precalc.ma_info.type;
-            } else {
-                ainfo.single_offset = precalc.single_offset;
-                ainfo.single_stops = precalc.single_cr;
+        if (effective_i != IMPOSSIBLE_ACCEL_MASK) {
+            while (effective_i) {
+                u32 base_accel_id = findAndClearLSB_32(&effective_i);
+                effective_states.set(accelStates[base_accel_id].state);
+            }
+
+            if (contains(accel.precalc, effective_states)) {
+                const auto &precalc = accel.precalc.at(effective_states);
+                if (precalc.ma_info.type != MultibyteAccelInfo::MAT_NONE) {
+                    ainfo.ma_len1 = precalc.ma_info.len1;
+                    ainfo.ma_len2 = precalc.ma_info.len2;
+                    ainfo.multiaccel_offset = precalc.ma_info.offset;
+                    ainfo.multiaccel_stops = precalc.ma_info.cr;
+                    ainfo.ma_type = precalc.ma_info.type;
+                } else {
+                    ainfo.single_offset = precalc.single_offset;
+                    ainfo.single_stops = precalc.single_cr;
+                }
             }
         }
 

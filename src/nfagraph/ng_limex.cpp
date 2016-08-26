@@ -118,9 +118,11 @@ void findSquashStates(const NGHolder &g,
     filterSquashers(g, squashMap);
 
     /* We also filter out the cyclic states representing bounded repeats, as
-     * they are not really cyclic. */
+     * they are not really cyclic -- they may turn off unexpectedly. */
     for (const auto &br : repeats) {
-        squashMap.erase(br.cyclic);
+        if (br.repeatMax.is_finite()) {
+            squashMap.erase(br.cyclic);
+        }
     }
 }
 
