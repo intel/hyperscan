@@ -170,17 +170,16 @@ enum NFACategory {NFA_LIMEX, NFA_OTHER};
 #define DO_IF_DUMP_SUPPORT(a)
 #endif
 
-#define MAKE_LIMEX_TRAITS(mlt_size)                                     \
+#define MAKE_LIMEX_TRAITS(mlt_size, mlt_align)                          \
     template<> struct NFATraits<LIMEX_NFA_##mlt_size> {                 \
         static UNUSED const char *name;                                 \
         static const NFACategory category = NFA_LIMEX;                  \
         typedef LimExNFA##mlt_size implNFA_t;                           \
-        typedef u_##mlt_size tableRow_t;                                \
         static const nfa_dispatch_fn has_accel;                         \
         static const nfa_dispatch_fn has_repeats;                       \
         static const nfa_dispatch_fn has_repeats_other_than_firsts;     \
         static const u32 stateAlign =                                   \
-                MAX(alignof(tableRow_t), alignof(RepeatControl));       \
+                MAX(mlt_align, alignof(RepeatControl));                 \
         static const bool fast = mlt_size <= 64;                        \
     };                                                                  \
     const nfa_dispatch_fn NFATraits<LIMEX_NFA_##mlt_size>::has_accel    \
@@ -194,16 +193,17 @@ enum NFACategory {NFA_LIMEX, NFA_OTHER};
     const char *NFATraits<LIMEX_NFA_##mlt_size>::name                   \
         = "LimEx "#mlt_size;                                            \
     template<> struct getDescription<LIMEX_NFA_##mlt_size> {            \
-        static string call(const void *ptr) {                           \
-            return getDescriptionLimEx<LIMEX_NFA_##mlt_size>((const NFA *)ptr); \
-        } \
+        static string call(const void *p) {                             \
+            return getDescriptionLimEx<LIMEX_NFA_##mlt_size>((const NFA *)p); \
+        }                                                               \
     };)
 
-MAKE_LIMEX_TRAITS(32)
-MAKE_LIMEX_TRAITS(128)
-MAKE_LIMEX_TRAITS(256)
-MAKE_LIMEX_TRAITS(384)
-MAKE_LIMEX_TRAITS(512)
+MAKE_LIMEX_TRAITS(32,  alignof(u32))
+MAKE_LIMEX_TRAITS(64,  alignof(m128)) /* special, 32bit arch uses m128 */
+MAKE_LIMEX_TRAITS(128, alignof(m128))
+MAKE_LIMEX_TRAITS(256, alignof(m256))
+MAKE_LIMEX_TRAITS(384, alignof(m384))
+MAKE_LIMEX_TRAITS(512, alignof(m512))
 
 template<> struct NFATraits<MCCLELLAN_NFA_8> {
     UNUSED static const char *name;

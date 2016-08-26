@@ -27,7 +27,11 @@
  */
 
 /** \file
- * \brief LimEx NFA: 384-bit SIMD runtime implementations.
+ * \brief LimEx NFA: 128-bit SIMD runtime implementations.
+ */
+
+/* Limex64 is unusual on as on 32 bit platforms, at runtime it uses an m128 for
+ * state calculations.
  */
 
 //#define DEBUG_INPUT
@@ -43,12 +47,21 @@
 #include "util/simd_utils.h"
 
 // Common code
+#define STATE_ON_STACK
+#define ESTATE_ON_STACK
+
 #include "limex_runtime.h"
 
-#define SIZE          384
-#define STATE_T       m384
-#define ENG_STATE_T   m384
-#define LOAD_FROM_ENG load_m384
+#define SIZE          64
+#define ENG_STATE_T   u64a
+
+#ifdef ARCH_64_BIT
+#define STATE_T       u64a
+#define LOAD_FROM_ENG load_u64a
+#else
+#define STATE_T       m128
+#define LOAD_FROM_ENG load_m128_from_u64a
+#endif
 
 #include "limex_exceptional.h"
 

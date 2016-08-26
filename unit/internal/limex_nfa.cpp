@@ -31,7 +31,6 @@
 
 #include "grey.h"
 #include "compiler/compiler.h"
-#include "nfa/limex_context.h"
 #include "nfa/limex_internal.h"
 #include "nfa/nfa_api.h"
 #include "nfa/nfa_api_util.h"
@@ -167,11 +166,10 @@ TEST_P(LimExModelTest, QueueExec) {
 TEST_P(LimExModelTest, CompressExpand) {
     ASSERT_TRUE(nfa != nullptr);
 
-    // 64-bit NFAs assume during compression that they have >= 5 bytes of
-    // compressed NFA state, which isn't true for our 8-state test pattern. We
-    // skip this test for just these models.
-    if (nfa->scratchStateSize == 8) {
-        return;
+    u32 real_state_size = nfa->scratchStateSize;
+    /* Only look at 8 bytes for limex 64 (rather than the padding) */
+    if (nfa->type == LIMEX_NFA_64) {
+        real_state_size = sizeof(u64a);
     }
 
     initQueue();
@@ -195,8 +193,7 @@ TEST_P(LimExModelTest, CompressExpand) {
     memset(dest, 0xff, nfa->scratchStateSize);
     nfaExpandState(nfa.get(), dest, q.streamState, q.offset,
                    queue_prev_byte(&q, end));
-    ASSERT_TRUE(std::equal(dest, dest + nfa->scratchStateSize,
-                           full_state.get()));
+    ASSERT_TRUE(std::equal(dest, dest + real_state_size, full_state.get()));
 }
 
 TEST_P(LimExModelTest, InitCompressedState0) {

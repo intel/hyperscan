@@ -470,6 +470,7 @@ set (hs_exec_SRCS
     src/nfa/limex_exceptional.h
     src/nfa/limex_native.c
     src/nfa/limex_ring.h
+    src/nfa/limex_64.c
     src/nfa/limex_simd128.c
     src/nfa/limex_simd256.c
     src/nfa/limex_simd384.c

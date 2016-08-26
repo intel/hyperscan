@@ -110,10 +110,10 @@ void simd_setbit(m128 *a, unsigned int i) { return setbit128(a, i); }
 void simd_setbit(m256 *a, unsigned int i) { return setbit256(a, i); }
 void simd_setbit(m384 *a, unsigned int i) { return setbit384(a, i); }
 void simd_setbit(m512 *a, unsigned int i) { return setbit512(a, i); }
-bool simd_testbit(const m128 *a, unsigned int i) { return testbit128(a, i); }
-bool simd_testbit(const m256 *a, unsigned int i) { return testbit256(a, i); }
-bool simd_testbit(const m384 *a, unsigned int i) { return testbit384(a, i); }
-bool simd_testbit(const m512 *a, unsigned int i) { return testbit512(a, i); }
+bool simd_testbit(const m128 &a, unsigned int i) { return testbit128(a, i); }
+bool simd_testbit(const m256 &a, unsigned int i) { return testbit256(a, i); }
+bool simd_testbit(const m384 &a, unsigned int i) { return testbit384(a, i); }
+bool simd_testbit(const m512 &a, unsigned int i) { return testbit512(a, i); }
 u32 simd_diffrich(const m128 &a, const m128 &b) { return diffrich128(a, b); }
 u32 simd_diffrich(const m256 &a, const m256 &b) { return diffrich256(a, b); }
 u32 simd_diffrich(const m384 &a, const m384 &b) { return diffrich384(a, b); }
@@ -419,15 +419,15 @@ TYPED_TEST(SimdUtilsTest, testbit) {
 
     // First, all bits are on in 'ones'.
     for (unsigned int i = 0; i < total_bits; i++) {
-        ASSERT_EQ(1, simd_testbit(&ones, i)) << "bit " << i << " is on";
+        ASSERT_EQ(1, simd_testbit(ones, i)) << "bit " << i << " is on";
     }
 
     // Try individual bits; only 'i' should be on.
     for (unsigned int i = 0; i < total_bits; i++) {
         TypeParam a = setbit<TypeParam>(i);
         for (unsigned int j = 0; j < total_bits; j++) {
-            ASSERT_EQ(i == j ? 1 : 0, simd_testbit(&a, j)) << "bit " << i
-                                                           << " is wrong";
+            ASSERT_EQ(i == j ? 1 : 0, simd_testbit(a, j)) << "bit " << i
+                                                          << " is wrong";
         }
     }
 }
@@ -470,7 +470,7 @@ TYPED_TEST(SimdUtilsTest, diffrich) {
 
     // and nothing is on in zeroes
     for (unsigned int i = 0; i < total_bits; i++) {
-        ASSERT_EQ(0, simd_testbit(&zeroes, i)) << "bit " << i << " is off";
+        ASSERT_EQ(0, simd_testbit(zeroes, i)) << "bit " << i << " is off";
     }
 
     // All-zeroes and all-ones differ in all words

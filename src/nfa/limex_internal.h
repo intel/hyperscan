@@ -160,6 +160,7 @@ struct LimExNFA##size {                                                     \
 };
 
 CREATE_NFA_LIMEX(32)
+CREATE_NFA_LIMEX(64)
 CREATE_NFA_LIMEX(128)
 CREATE_NFA_LIMEX(256)
 CREATE_NFA_LIMEX(384)

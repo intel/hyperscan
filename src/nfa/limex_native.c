@@ -49,12 +49,13 @@
 #include "limex_runtime.h"
 
 // Other implementation code from X-Macro impl.
-#define SIZE 32
-#define STATE_T u32
+#define SIZE          32
+#define STATE_T       u32
+#define ENG_STATE_T   u32
+#define LOAD_FROM_ENG load_u32
+
 #include "limex_state_impl.h"
 
-#define SIZE 32
-#define STATE_T u32
 #define INLINE_ATTR really_inline
 #include "limex_common_impl.h"
 
@@ -64,8 +65,6 @@
 
 // Process exceptional states
 
-#define SIZE 32
-#define STATE_T u32
 #define STATE_ON_STACK
 #define ESTATE_ON_STACK
 #define RUN_EXCEPTION_FN_ONLY
@@ -128,7 +127,4 @@ int processExceptional32(u32 s, u32 estate, UNUSED u32 diffmask, u32 *succ,
 }
 
 // 32-bit models.
-
-#define SIZE                32
-#define STATE_T             u32
 #include "limex_runtime_impl.h"

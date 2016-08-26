@@ -173,6 +173,12 @@ static really_inline u64a movq(const m128 in) {
 #endif
 }
 
+/* another form of movq */
+static really_inline
+m128 load_m128_from_u64a(const u64a *p) {
+    return _mm_loadl_epi64((const m128 *)p);
+}
+
 #define rshiftbyte_m128(a, count_immed) _mm_srli_si128(a, count_immed)
 #define lshiftbyte_m128(a, count_immed) _mm_slli_si128(a, count_immed)
 
@@ -270,12 +276,12 @@ void clearbit128(m128 *ptr, unsigned int n) {
 
 // tests bit N in the given vector.
 static really_inline
-char testbit128(const m128 *ptr, unsigned int n) {
+char testbit128(m128 val, unsigned int n) {
     const m128 mask = mask1bit128(n);
 #if defined(__SSE4_1__)
-    return !_mm_testz_si128(mask, *ptr);
+    return !_mm_testz_si128(mask, val);
 #else
-    return isnonzero128(and128(mask, *ptr));
+    return isnonzero128(and128(mask, val));
 #endif
 }
 
@@ -606,13 +612,13 @@ void clearbit256(m256 *ptr, unsigned int n) {
 
 // tests bit N in the given vector.
 static really_inline
-char testbit256(const m256 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    const m128 *sub;
+char testbit256(m256 val, unsigned int n) {
+    assert(n < sizeof(val) * 8);
+    m128 sub;
     if (n < 128) {
-        sub = &ptr->lo;
+        sub = val.lo;
     } else {
-        sub = &ptr->hi;
+        sub = val.hi;
         n -= 128;
     }
     return testbit128(sub, n);
@@ -633,9 +639,9 @@ void clearbit256(m256 *ptr, unsigned int n) {
 
 // tests bit N in the given vector.
 static really_inline
-char testbit256(const m256 *ptr, unsigned int n) {
+char testbit256(m256 val, unsigned int n) {
     const m256 mask = mask1bit256(n);
-    return !_mm256_testz_si256(mask, *ptr);
+    return !_mm256_testz_si256(mask, val);
 }
 
 static really_really_inline
@@ -827,15 +833,15 @@ void clearbit384(m384 *ptr, unsigned int n) {
 
 // tests bit N in the given vector.
 static really_inline
-char testbit384(const m384 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    const m128 *sub;
+char testbit384(m384 val, unsigned int n) {
+    assert(n < sizeof(val) * 8);
+    m128 sub;
     if (n < 128) {
-        sub = &ptr->lo;
+        sub = val.lo;
     } else if (n < 256) {
-        sub = &ptr->mid;
+        sub = val.mid;
     } else {
-        sub = &ptr->hi;
+        sub = val.hi;
     }
     return testbit128(sub, n % 128);
 }
@@ -1040,26 +1046,26 @@ void clearbit512(m512 *ptr, unsigned int n) {
 
 // tests bit N in the given vector.
 static really_inline
-char testbit512(const m512 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
+char testbit512(m512 val, unsigned int n) {
+    assert(n < sizeof(val) * 8);
 #if !defined(__AVX2__)
-    const m128 *sub;
+    m128 sub;
     if (n < 128) {
-        sub = &ptr->lo.lo;
+        sub = val.lo.lo;
     } else if (n < 256) {
-        sub = &ptr->lo.hi;
+        sub = val.lo.hi;
     } else if (n < 384) {
-        sub = &ptr->hi.lo;
+        sub = val.hi.lo;
     } else {
-        sub = &ptr->hi.hi;
+        sub = val.hi.hi;
     }
     return testbit128(sub, n % 128);
 #else
-    const m256 *sub;
+    m256 sub;
     if (n < 256) {
-        sub = &ptr->lo;
+        sub = val.lo;
     } else {
-        sub = &ptr->hi;
+        sub = val.hi;
         n -= 256;
     }
     return testbit256(sub, n);

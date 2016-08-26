@@ -60,6 +60,7 @@ namespace ue2 {
     DEBUG_PRINTF("dispatch for NFA type %u\n", nfa->type);    \
     switch (nfa->type) {                                      \
         DISPATCH_CASE(LIMEX, LimEx, 32, dbnt_func);           \
+        DISPATCH_CASE(LIMEX, LimEx, 64, dbnt_func);           \
         DISPATCH_CASE(LIMEX, LimEx, 128, dbnt_func);          \
         DISPATCH_CASE(LIMEX, LimEx, 256, dbnt_func);          \
         DISPATCH_CASE(LIMEX, LimEx, 384, dbnt_func);          \

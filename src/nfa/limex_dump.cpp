@@ -70,6 +70,10 @@ template<> struct limex_traits<LimExNFA128> {
     static const u32 size = 128;
     typedef NFAException128 exception_type;
 };
+template<> struct limex_traits<LimExNFA64> {
+    static const u32 size = 64;
+    typedef NFAException64 exception_type;
+};
 template<> struct limex_traits<LimExNFA32> {
     static const u32 size = 32;
     typedef NFAException32 exception_type;
@@ -486,6 +490,7 @@ void dumpLimDotInfo(const limex_type *limex, u32 state, FILE *f) {
     DUMP_DOT_FN(size)
 
 LIMEX_DUMP_FNS(32)
+LIMEX_DUMP_FNS(64)
 LIMEX_DUMP_FNS(128)
 LIMEX_DUMP_FNS(256)
 LIMEX_DUMP_FNS(384)

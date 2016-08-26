@@ -1438,7 +1438,8 @@ struct Factory {
                      sizeof(limex->init), stateSize, repeatscratchStateSize,
                      repeatStreamState);
 
-        size_t scratchStateSize = sizeof(limex->init);
+        size_t scratchStateSize = NFATraits<dtype>::scratch_state_size;
+
         if (repeatscratchStateSize) {
             scratchStateSize
                 = ROUNDUP_N(scratchStateSize, alignof(RepeatControl));
@@ -2021,13 +2022,6 @@ struct Factory {
             sz = 32;
         }
 
-        // Special case: with SIMD available, we definitely prefer using
-        // 128-bit NFAs over 64-bit ones given the paucity of registers
-        // available.
-        if (sz == 64) {
-            sz = 128;
-        }
-
         if (args.cc.grey.nfaForceSize) {
             sz = args.cc.grey.nfaForceSize;
         }
@@ -2067,9 +2061,12 @@ struct scoreNfa {
         typedef u_##mlt_size tableRow_t;                                       \
         typedef NFAException##mlt_size exception_t;                            \
         static const size_t maxStates = mlt_size;                              \
+        static const size_t scratch_state_size = mlt_size == 64 ? sizeof(m128) \
+                                                 : sizeof(tableRow_t);         \
     };
 
 MAKE_LIMEX_TRAITS(32)
+MAKE_LIMEX_TRAITS(64)
 MAKE_LIMEX_TRAITS(128)
 MAKE_LIMEX_TRAITS(256)
 MAKE_LIMEX_TRAITS(384)

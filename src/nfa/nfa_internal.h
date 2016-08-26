@@ -52,6 +52,7 @@ extern "C"
 
 enum NFAEngineType {
     LIMEX_NFA_32,
+    LIMEX_NFA_64,
     LIMEX_NFA_128,
     LIMEX_NFA_256,
     LIMEX_NFA_384,
@@ -164,6 +165,7 @@ static really_inline int isDfaType(u8 t) {
 static really_inline int isNfaType(u8 t) {
     switch (t) {
     case LIMEX_NFA_32:
+    case LIMEX_NFA_64:
     case LIMEX_NFA_128:
     case LIMEX_NFA_256:
     case LIMEX_NFA_384:
