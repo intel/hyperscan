@@ -2,6 +2,11 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [4.3.1] 2016-08-29
+- Bugfix for issue #30. In recent versions of Clang, a write to a variable was
+  being elided, resulting in corrupted stream state after calling
+  hs_reset_stream().
+
 ## [4.3.0] 2016-08-24
 - Introduce a new analysis pass ("Violet") used for decomposition of patterns
   into literals and smaller engines.
