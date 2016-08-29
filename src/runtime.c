@@ -466,16 +466,19 @@ void maintainHistoryBuffer(const struct RoseEngine *rose, char *state,
 }
 
 static really_inline
-void init_stream(struct hs_stream *s, const struct RoseEngine *rose) {
+void init_stream(struct hs_stream *s, const struct RoseEngine *rose,
+                 char init_history) {
     char *state = getMultiState(s);
 
-    // Make absolutely sure that the 16 bytes leading up to the end of the
-    // history buffer are initialised, as we rely on this (regardless of the
-    // actual values used) in FDR.
-    char *hist_end = state + rose->stateOffsets.history + rose->historyRequired;
-    assert(hist_end - 16 >= (const char *)s);
-    unaligned_store_u64a(hist_end - 16, 0xDEADDEADDEADDEADull);
-    unaligned_store_u64a(hist_end - 8, 0xDEADDEADDEADDEADull);
+    if (init_history) {
+        // Make absolutely sure that the 16 bytes leading up to the end of the
+        // history buffer are initialised, as we rely on this (regardless of the
+        // actual values used) in FDR.
+        char *hist_end =
+            state + rose->stateOffsets.history + rose->historyRequired;
+        assert(hist_end - 16 >= (const char *)s);
+        memset(hist_end - 16, 0x5a, 16);
+    }
 
     s->rose = rose;
     s->offset = 0;
@@ -518,7 +521,7 @@ hs_error_t hs_open_stream(const hs_database_t *db, UNUSED unsigned flags,
         return HS_NOMEM;
     }
 
-    init_stream(s, rose);
+    init_stream(s, rose, 1);
 
     *stream = s;
     return HS_SUCCESS;
@@ -962,7 +965,8 @@ hs_error_t hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
         unmarkScratchInUse(scratch);
     }
 
-    init_stream(id, id->rose);
+    // history already initialised
+    init_stream(id, id->rose, 0);
 
     return HS_SUCCESS;
 }
@@ -1047,7 +1051,7 @@ hs_error_t hs_scan_vector(const hs_database_t *db, const char * const * data,
 
     hs_stream_t *id = (hs_stream_t *)(scratch->bstate);
 
-    init_stream(id, rose); /* open stream */
+    init_stream(id, rose, 1); /* open stream */
 
     for (u32 i = 0; i < count; i++) {
         DEBUG_PRINTF("block %u/%u offset=%llu len=%u\n", i, count, id->offset,
