@@ -2,6 +2,11 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [4.2.1] 2016-08-29
+- Bugfix for issue #30. In recent versions of Clang, a write to a variable was
+  being elided, resulting in corrupted stream state after calling
+  hs_reset_stream().
+
 ## [4.2.0] 2016-05-31
 - Introduce an interpreter for many complex actions to replace the use of
   internal reports within the core of Hyperscan (the "Rose" engine). This
@@ -63,7 +68,9 @@ This is a list of notable changes to Hyperscan, in reverse chronological order.
   supplied with a NULL scratch pointer if no matches are required. This is in
   line with the behaviour of `hs_close_stream()`.
 - Disallow bounded repeats with a very large minimum repeat but no maximum,
-  i.e. {N,} for very large N.
+  i.e. {
+    N,
+} for very large N.
 - Reduce compile memory usage in literal set explansion for some large cases.
 
 ## [4.0.0] 2015-10-20
