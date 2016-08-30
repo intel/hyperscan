@@ -197,12 +197,9 @@ u32 commonPrefixLength(const NGHolder &ga, const ranking_info &a_ranking,
 
                 a_count++;
 
-                NFAEdge b_edge;
-                bool has_b_edge;
-                tie(b_edge, has_b_edge) = edge(b_ranking.at(i),
-                                               b_ranking.at(sid), gb);
+                NFAEdge b_edge = edge(b_ranking.at(i), b_ranking.at(sid), gb);
 
-                if (!has_b_edge) {
+                if (!b_edge) {
                     max = i;
                     DEBUG_PRINTF("lowering max to %u due to edge %zu->%u\n",
                                  max, i, sid);
@@ -322,7 +319,7 @@ void mergeNfaComponent(NGHolder &dest, const NGHolder &vic, size_t common_len) {
                 DEBUG_PRINTF("skipping common edge\n");
                 assert(edge(u, v, dest).second);
                 // Should never merge edges with different top values.
-                assert(vic[e].tops == dest[edge(u, v, dest).first].tops);
+                assert(vic[e].tops == dest[edge(u, v, dest)].tops);
                 continue;
             } else {
                 assert(is_any_accept(v, dest));
@@ -508,25 +505,22 @@ bool mergeableStarts(const NGHolder &h1, const NGHolder &h2) {
     /* TODO: relax top checks if reports match */
 
     // If both graphs have edge (start, accept), the tops must match.
-    auto e1_accept = edge(h1.start, h1.accept, h1);
-    auto e2_accept = edge(h2.start, h2.accept, h2);
-    if (e1_accept.second && e2_accept.second &&
-        h1[e1_accept.first].tops != h2[e2_accept.first].tops) {
+    NFAEdge e1_accept = edge(h1.start, h1.accept, h1);
+    NFAEdge e2_accept = edge(h2.start, h2.accept, h2);
+    if (e1_accept && e2_accept && h1[e1_accept].tops != h2[e2_accept].tops) {
         return false;
     }
 
     // If both graphs have edge (start, acceptEod), the tops must match.
-    auto e1_eod = edge(h1.start, h1.acceptEod, h1);
-    auto e2_eod = edge(h2.start, h2.acceptEod, h2);
-    if (e1_eod.second && e2_eod.second &&
-        h1[e1_eod.first].tops != h2[e2_eod.first].tops) {
+    NFAEdge e1_eod = edge(h1.start, h1.acceptEod, h1);
+    NFAEdge e2_eod = edge(h2.start, h2.acceptEod, h2);
+    if (e1_eod && e2_eod && h1[e1_eod].tops != h2[e2_eod].tops) {
         return false;
     }
 
     // If one graph has an edge to accept and the other has an edge to
     // acceptEod, the reports must match for the merge to be safe.
-    if ((e1_accept.second && e2_eod.second) ||
-        (e2_accept.second && e1_eod.second)) {
+    if ((e1_accept && e2_eod) || (e2_accept && e1_eod)) {
         if (h1[h1.start].reports != h2[h2.start].reports) {
             return false;
         }

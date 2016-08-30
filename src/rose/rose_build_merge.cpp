@@ -235,18 +235,15 @@ void mergeDupeLeaves(RoseBuildImpl &tbi) {
         for (const auto &e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
             DEBUG_PRINTF("u index=%zu\n", g[u].index);
-            RoseEdge et;
-            bool exists;
-            tie (et, exists) = edge(u, t, g);
-            if (exists) {
+            if (RoseEdge et = edge(u, t, g)) {
                 if (g[et].minBound <= g[e].minBound
                     && g[et].maxBound >= g[e].maxBound) {
                     DEBUG_PRINTF("remove more constrained edge\n");
                     deadEdges.push_back(e);
                 }
             } else {
-                DEBUG_PRINTF("rehome edge: add %zu->%zu\n",
-                             g[u].index, g[t].index);
+                DEBUG_PRINTF("rehome edge: add %zu->%zu\n", g[u].index,
+                             g[t].index);
                 add_edge(u, t, g[e], g);
                 deadEdges.push_back(e);
             }

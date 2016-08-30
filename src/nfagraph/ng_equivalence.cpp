@@ -564,7 +564,7 @@ void mergeClass(vector<unique_ptr<VertexInfo>> &infos, NGHolder &g,
             pred_info->succ.erase(old_vertex_info);
 
             // if edge doesn't exist, create it
-            NFAEdge e = add_edge_if_not_present(pred_info->v, new_v, g).first;
+            NFAEdge e = add_edge_if_not_present(pred_info->v, new_v, g);
 
             // put edge tops, if applicable
             if (!edgetops.empty()) {
@@ -576,7 +576,7 @@ void mergeClass(vector<unique_ptr<VertexInfo>> &infos, NGHolder &g,
 
             if (new_v_eod) {
                 NFAEdge ee = add_edge_if_not_present(pred_info->v, new_v_eod,
-                                                     g).first;
+                                                     g);
 
                 // put edge tops, if applicable
                 if (!edgetops.empty()) {

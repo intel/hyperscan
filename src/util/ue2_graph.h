@@ -328,6 +328,15 @@ public:
         edge_descriptor() : p(nullptr), serial(0) { }
         explicit edge_descriptor(edge_node *pp) : p(pp), serial(pp->serial) { }
 
+        /* Convenice ctor to allow us to directly get an edge_descriptor from
+         * edge() and add_edge(). As we have null_edges and we always allow
+         * parallel edges, the bool component of the return from these functions
+         * is not required. */
+        edge_descriptor(const std::pair<edge_descriptor, bool> &tup)
+            : p(tup.first.p), serial(tup.first.serial) {
+            assert(tup.second == (bool)tup.first);
+        }
+
         operator bool() const { return p; }
         bool operator<(const edge_descriptor b) const {
             if (p && b.p) {

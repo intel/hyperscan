@@ -194,9 +194,7 @@ pair<NFAEdge, bool> NFABuilderImpl::addEdge(NFAVertex u, NFAVertex v) {
     // assert that the edge doesn't already exist
     assert(edge(u, v, *graph).second == false);
 
-    pair<NFAEdge, bool> e = add_edge(u, v, *graph);
-    assert(e.second);
-    return e;
+    return add_edge(u, v, *graph);
 }
 
 void NFABuilderImpl::addEdge(Position startPos, Position endPos) {

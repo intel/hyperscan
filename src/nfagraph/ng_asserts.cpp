@@ -377,17 +377,14 @@ void resolveEdges(ReportManager &rm, NGWrapper &g, set<NFAEdge> *dead) {
                 add_edge(vv, g.accept, g);
                 g[e].assert_flags = 0;
                 add_edge(u, vv, g[e], g);
-                if (!edge(u, g.acceptEod, g).second) {
-                    add_edge(u, g.acceptEod, g[e], g);
-                } else {
-                    /* there may already be a different edge from start to eod
-                     * if so we need to make it unconditional and alive
-                     */
-                    NFAEdge start_eod = edge(u, g.acceptEod, g).first;
-
+                /* there may already be a different edge from start to eod if so
+                 * we need to make it unconditional and alive
+                 */
+                if (NFAEdge start_eod = edge(u, g.acceptEod, g)) {
                     g[start_eod].assert_flags = 0;
                     dead->erase(start_eod);
-
+                } else {
+                    add_edge(u, g.acceptEod, g[e], g);
                 }
                 dead->insert(e);
             }
@@ -433,17 +430,14 @@ void resolveEdges(ReportManager &rm, NGWrapper &g, set<NFAEdge> *dead) {
                 add_edge(vv, g.accept, g);
                 g[e].assert_flags = 0;
                 add_edge(u, vv, g[e], g);
-                if (!edge(u, g.acceptEod, g).second) {
-                    add_edge(u, g.acceptEod, g[e], g);
-                } else {
-                    /* there may already be a different edge from start to eod
-                     * if so we need to make it unconditional and alive
-                     */
-                    NFAEdge start_eod = edge(u, g.acceptEod, g).first;
-
+                /* there may already be a different edge from start to eod if so
+                 * we need to make it unconditional and alive
+                 */
+                if (NFAEdge start_eod = edge(u, g.acceptEod, g)) {
                     g[start_eod].assert_flags = 0;
                     dead->erase(start_eod);
-
+                } else {
+                    add_edge(u, g.acceptEod, g[e], g);
                 }
                 dead->insert(e);
             }
@@ -496,10 +490,8 @@ void ensureCodePointStart(ReportManager &rm, NGWrapper &g) {
      * boundaries. Assert resolution handles the badness coming from asserts.
      * The only other source of trouble is startDs->accept connections.
      */
-    bool exists;
-    NFAEdge orig;
-    tie(orig, exists) = edge(g.startDs, g.accept, g);
-    if (g.utf8 && exists) {
+    NFAEdge orig = edge(g.startDs, g.accept, g);
+    if (g.utf8 && orig) {
         DEBUG_PRINTF("rectifying %u\n", g.reportId);
         Report ir = rm.getBasicInternalReport(g);
         ReportID rep = rm.getInternalId(ir);

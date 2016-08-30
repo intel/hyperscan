@@ -904,7 +904,7 @@ void addToHolder(NGHolder &g, u32 top, const PureRepeat &pr) {
     u32 min_bound = pr.bounds.min; // always finite
     if (min_bound == 0) { // Vacuous case, we can only do this once.
         assert(!edge(g.start, g.accept, g).second);
-        NFAEdge e = add_edge(g.start, g.accept, g).first;
+        NFAEdge e = add_edge(g.start, g.accept, g);
         g[e].tops.insert(top);
         g[u].reports.insert(pr.reports.begin(), pr.reports.end());
         min_bound = 1;
@@ -913,7 +913,7 @@ void addToHolder(NGHolder &g, u32 top, const PureRepeat &pr) {
     for (u32 i = 0; i < min_bound; i++) {
         NFAVertex v = add_vertex(g);
         g[v].char_reach = pr.reach;
-        NFAEdge e = add_edge(u, v, g).first;
+        NFAEdge e = add_edge(u, v, g);
         if (u == g.start) {
             g[e].tops.insert(top);
         }
@@ -932,7 +932,7 @@ void addToHolder(NGHolder &g, u32 top, const PureRepeat &pr) {
             if (head != u) {
                 add_edge(head, v, g);
             }
-            NFAEdge e = add_edge(u, v, g).first;
+            NFAEdge e = add_edge(u, v, g);
             if (u == g.start) {
                 g[e].tops.insert(top);
             }

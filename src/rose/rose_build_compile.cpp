@@ -1312,7 +1312,7 @@ void addSmallBlockLiteral(RoseBuildImpl &tbi, const simple_anchored_info &sai,
             g[v].max_offset = sai.max_bound + sai.literal.length();
             lit_info.vertices.insert(v);
 
-            RoseEdge e = add_edge(anchored_root, v, g).first;
+            RoseEdge e = add_edge(anchored_root, v, g);
             g[e].minBound = sai.min_bound;
             g[e].maxBound = sai.max_bound;
         }
@@ -1336,7 +1336,7 @@ void addSmallBlockLiteral(RoseBuildImpl &tbi, const ue2_literal &lit,
     g[v].literals.insert(lit_id);
     g[v].reports = reports;
 
-    RoseEdge e = add_edge(tbi.root, v, g).first;
+    RoseEdge e = add_edge(tbi.root, v, g);
     g[e].minBound = 0;
     g[e].maxBound = ROSE_BOUND_INF;
     g[v].min_offset = 1;

@@ -55,7 +55,7 @@ void wireStartToTops(NGHolder &g, const flat_set<NFAVertex> &tops,
     for (NFAVertex v : tops) {
         assert(!isLeafNode(v, g));
 
-        const NFAEdge &e = add_edge(g.start, v, g).first;
+        const NFAEdge &e = add_edge(g.start, v, g);
         tempEdges.push_back(e);
     }
 }

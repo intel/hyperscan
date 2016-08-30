@@ -871,7 +871,7 @@ u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     clearReports(g);
 
     for (auto v : pred) {
-        NFAEdge e = add_edge(v, g.accept, g).first;
+        NFAEdge e = add_edge(v, g.accept, g);
         g[v].reports.insert(0);
         if (is_triggered(g) && v == g.start) {
             g[e].tops.insert(DEFAULT_TOP);
@@ -904,7 +904,7 @@ void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     }
 
     for (auto v : preds) {
-        NFAEdge e = add_edge(v, prev, g).first;
+        NFAEdge e = add_edge(v, prev, g);
         if (v == g.start && is_triggered(g)) {
             g[e].tops.insert(DEFAULT_TOP);
         }
@@ -2408,14 +2408,14 @@ void explodeLiteral(RoseInGraph &g, RoseInVertex v,
         g[v_new].s = lit;
 
         for (const auto &e : in_edges_range(v, g)) {
-            RoseInEdge e2 = add_edge(source(e, g), v_new, g[e], g).first;
+            RoseInEdge e2 = add_edge(source(e, g), v_new, g[e], g);
             // FIXME: are we safe to share graphs here? For now, make our very
             // own copy.
             g[e2].graph = makeGraphCopy(g[e].graph.get());
         }
 
         for (const auto &e : out_edges_range(v, g)) {
-            RoseInEdge e2 = add_edge(v_new, target(e, g), g[e], g).first;
+            RoseInEdge e2 = add_edge(v_new, target(e, g), g[e], g);
             // FIXME: are we safe to share graphs here? For now, make our very
             // own copy.
             g[e2].graph = makeGraphCopy(g[e].graph.get());

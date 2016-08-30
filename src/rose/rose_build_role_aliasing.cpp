@@ -254,10 +254,8 @@ bool samePredecessors(RoseVertex a, RoseVertex b, const RoseGraph &g) {
         }
 
         for (const auto &e_a : in_edges_range(a, g)) {
-            bool exists;
-            RoseEdge e;
-            tie(e, exists) = edge(source(e_a, g), b, g);
-            if (!exists || g[e].rose_top != g[e_a].rose_top) {
+            RoseEdge e = edge(source(e_a, g), b, g);
+            if (!e || g[e].rose_top != g[e_a].rose_top) {
                 DEBUG_PRINTF("bad tops\n");
                 return false;
             }
@@ -271,10 +269,7 @@ static
 bool hasCommonSuccWithBadBounds(RoseVertex a, RoseVertex b,
                                 const RoseGraph &g) {
     for (const auto &e_a : out_edges_range(a, g)) {
-        bool exists;
-        RoseEdge e;
-        tie(e, exists) = edge(b, target(e_a, g), g);
-        if (exists) {
+        if (RoseEdge e = edge(b, target(e_a, g), g)) {
             if (g[e_a].maxBound < g[e].minBound
                 || g[e].maxBound < g[e_a].minBound) {
                 return true;
@@ -293,10 +288,7 @@ static
 bool hasCommonPredWithBadBounds(RoseVertex a, RoseVertex b,
                                 const RoseGraph &g) {
     for (const auto &e_a : in_edges_range(a, g)) {
-        bool exists;
-        RoseEdge e;
-        tie(e, exists) = edge(source(e_a, g), b, g);
-        if (exists) {
+        if (RoseEdge e = edge(source(e_a, g), b, g)) {
             if (g[e_a].maxBound < g[e].minBound
                 || g[e].maxBound < g[e_a].minBound) {
                 return true;
@@ -744,10 +736,7 @@ bool hasCommonPredWithDiffRoses(RoseVertex a, RoseVertex b,
     const bool equal_roses = hasEqualLeftfixes(a, b, g);
 
     for (const auto &e_a : in_edges_range(a, g)) {
-        bool exists;
-        RoseEdge e;
-        tie(e, exists) = edge(source(e_a, g), b, g);
-        if (exists) {
+        if (RoseEdge e = edge(source(e_a, g), b, g)) {
             DEBUG_PRINTF("common pred, e_r=%d r_t %u,%u\n",
                          (int)equal_roses, g[e].rose_top, g[e_a].rose_top);
             if (!equal_roses) {
@@ -1122,8 +1111,7 @@ bool attemptRoseCastleMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
         // We should be protected from merging common preds with tops leading
         // to completely different repeats by earlier checks, but just in
         // case...
-        if (edge(source(e, g), a, g).second) {
-            RoseEdge a_edge = edge(source(e, g), a, g).first;
+        if (RoseEdge a_edge = edge(source(e, g), a, g)) {
             u32 a_top = g[a_edge].rose_top;
             const PureRepeat &a_pr = m_castle->repeats[a_top]; // new report
             if (pr != a_pr) {

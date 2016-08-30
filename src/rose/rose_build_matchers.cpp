@@ -454,11 +454,9 @@ bool isNoRunsVertex(const RoseBuildImpl &build, RoseVertex u) {
         return false;
     }
 
-    RoseEdge e;
-    bool exists;
-    tie(e, exists) = edge(build.root, u, g);
+    RoseEdge e = edge(build.root, u, g);
 
-    if (!exists) {
+    if (!e) {
         DEBUG_PRINTF("u=%zu is not a root role\n", g[u].index);
         return false;
     }

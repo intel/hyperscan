@@ -1121,7 +1121,7 @@ NFAVertex buildTriggerStates(NGHolder &g, const vector<CharReach> &trigger,
         g[v].char_reach = cr;
         add_edge(u, v, g);
         if (u == g.start) {
-            g[edge(u, v, g).first].tops.insert(top);
+            g[edge(u, v, g)].tops.insert(top);
         }
         u = v;
     }

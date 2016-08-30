@@ -394,7 +394,7 @@ unique_ptr<NGHolder> makeFloodProneSuffix(const ue2_literal &s, size_t len,
     NFAVertex u = h->start;
     for (auto it = s.begin() + s.length() - len; it != s.end(); ++it) {
         NFAVertex v = addHolderVertex(*it, *h);
-        NFAEdge e = add_edge(u, v, *h).first;
+        NFAEdge e = add_edge(u, v, *h);
         if (u == h->start) {
             (*h)[e].tops.insert(DEFAULT_TOP);
         }
@@ -705,10 +705,7 @@ bool handleStartPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
         assert(g[e_old].maxBound >= bound_max);
         setEdgeBounds(g, e_old, bound_min, bound_max);
     } else {
-        RoseEdge e_new;
-        UNUSED bool added;
-        tie(e_new, added) = add_edge(ar, v, g);
-        assert(added);
+        RoseEdge e_new = add_edge(ar, v, g);
         setEdgeBounds(g, e_new, bound_min, bound_max);
         to_delete->push_back(e_old);
     }
@@ -900,10 +897,7 @@ bool handleMixedPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
         if (source(e_old, g) == ar) {
             setEdgeBounds(g, e_old, ri.repeatMin + width, ri.repeatMax + width);
         } else {
-            RoseEdge e_new;
-            UNUSED bool added;
-            tie(e_new, added) = add_edge(ar, v, g);
-            assert(added);
+            RoseEdge e_new = add_edge(ar, v, g);
             setEdgeBounds(g, e_new, ri.repeatMin + width, ri.repeatMax + width);
             to_delete->push_back(e_old);
         }

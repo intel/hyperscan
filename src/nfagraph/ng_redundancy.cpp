@@ -307,10 +307,8 @@ void markForRemoval(const NFAVertex v, VertexInfoMap &infoMap,
 
 static
 bool hasInEdgeTops(const NGHolder &g, NFAVertex v) {
-    bool exists;
-    NFAEdge e;
-    tie(e, exists) = edge(g.start, v, g);
-    return exists && !g[e].tops.empty();
+    NFAEdge e = edge(g.start, v, g);
+    return e && !g[e].tops.empty();
 }
 
 /** Transform (1), removal of redundant vertices. */
@@ -737,11 +735,10 @@ u32 findCyclic(const NGHolder &g, vector<bool> &cyclic) {
 
     for (auto v : vertices_range(g)) {
         assert(g[v].index < cyclic.size());
-        bool c = edge(v, v, g).second;
-        if (c) {
+        if (hasSelfLoop(v, g)) {
             count++;
+            cyclic[g[v].index] = true;
         }
-        cyclic[g[v].index] = c;
     }
 
     return count;

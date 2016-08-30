@@ -544,7 +544,7 @@ void filterAccelStates(NGHolder &g, const map<u32, set<NFAVertex>> &tops,
 
     // Similarly, connect (start, startDs) if necessary.
     if (!edge(g.start, g.startDs, g).second) {
-        auto e = add_edge(g.start, g.startDs, g).first;
+        NFAEdge e = add_edge(g.start, g.startDs, g);
         tempEdges.push_back(e); // Remove edge later.
     }
 

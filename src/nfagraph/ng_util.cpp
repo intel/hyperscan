@@ -146,7 +146,7 @@ void clone_out_edges(NGHolder &g, NFAVertex source, NFAVertex dest) {
         if (edge(dest, t, g).second) {
             continue;
         }
-        NFAEdge clone = add_edge(dest, t, g).first;
+        NFAEdge clone = add_edge(dest, t, g);
         u32 idx = g[clone].index;
         g[clone] = g[e];
         g[clone].index = idx;
@@ -157,7 +157,7 @@ void clone_in_edges(NGHolder &g, NFAVertex s, NFAVertex dest) {
     for (const auto &e : in_edges_range(s, g)) {
         NFAVertex ss = source(e, g);
         assert(!edge(ss, dest, g).second);
-        NFAEdge clone = add_edge(ss, dest, g).first;
+        NFAEdge clone = add_edge(ss, dest, g);
         u32 idx = g[clone].index;
         g[clone] = g[e];
         g[clone].index = idx;
@@ -324,11 +324,9 @@ bool can_only_match_at_eod(const NGHolder &g) {
 }
 
 bool matches_everywhere(const NGHolder &h) {
-    NFAEdge e;
-    bool exists;
-    tie(e, exists) = edge(h.startDs, h.accept, h);
+    NFAEdge e = edge(h.startDs, h.accept, h);
 
-    return exists && !h[e].assert_flags;
+    return e && !h[e].assert_flags;
 }
 
 bool is_virtual_start(NFAVertex v, const NGHolder &g) {
@@ -623,10 +621,7 @@ void cloneHolder(NGHolder &out, const NGHolder &in) {
 
         NFAVertex s = out_mapping[si];
         NFAVertex t = out_mapping[ti];
-        UNUSED bool added;
-        NFAEdge e2;
-        tie(e2, added) = add_edge(s, t, out);
-        assert(added);
+        NFAEdge e2 = add_edge(s, t, out);
         out[e2] = in[e];
     }
 
