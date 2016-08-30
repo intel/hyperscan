@@ -95,7 +95,6 @@ int RUN_EXCEPTION_FN(const EXCEPTION_T *e, STATE_ARG,
                      STATE_T *local_succ,
 #endif
                      const struct IMPL_NFA_T *limex,
-                     const ReportID *exReports,
                      u64a offset,
                      struct CONTEXT_T *ctx,
                      struct proto_cache *new_cache,
@@ -161,7 +160,8 @@ int RUN_EXCEPTION_FN(const EXCEPTION_T *e, STATE_ARG,
     // Some exceptions fire accepts.
     if (e->reports != MO_INVALID_IDX) {
         if (flags & CALLBACK_OUTPUT) {
-            const ReportID *reports = exReports + e->reports;
+            const ReportID *reports =
+                (const ReportID *)((const char *)limex + e->reports);
             if (unlikely(limexRunReports(reports, ctx->callback,
                             ctx->context, offset)
                         == MO_HALT_MATCHING)) {
@@ -210,8 +210,7 @@ int RUN_EXCEPTION_FN(const EXCEPTION_T *e, STATE_ARG,
 static really_inline
 int PE_FN(STATE_ARG, ESTATE_ARG, u32 diffmask, STATE_T *succ,
           const struct IMPL_NFA_T *limex, const EXCEPTION_T *exceptions,
-          const ReportID *exReports, u64a offset, struct CONTEXT_T *ctx,
-          char in_rev, char flags) {
+          u64a offset, struct CONTEXT_T *ctx, char in_rev, char flags) {
     assert(diffmask > 0); // guaranteed by caller macro
 
     if (EQ_STATE(estate, ctx->cached_estate)) {
@@ -271,8 +270,8 @@ int PE_FN(STATE_ARG, ESTATE_ARG, u32 diffmask, STATE_T *succ,
 #ifndef BIG_MODEL
                                   &local_succ,
 #endif
-                                  limex, exReports, offset, ctx, &new_cache,
-                                  &cacheable, in_rev, flags)) {
+                                  limex, offset, ctx, &new_cache, &cacheable,
+                                  in_rev, flags)) {
                 return PE_RV_HALT;
             }
         } while (word);
@@ -326,7 +325,9 @@ int PE_FN(STATE_ARG, ESTATE_ARG, u32 diffmask, STATE_T *succ,
 #undef STATE_ARG_NAME
 #undef STATE_ARG_P
 
+#undef IMPL_NFA_T
+
 #undef CHUNK_T
 #undef FIND_AND_CLEAR_FN
-#undef IMPL_NFA_T
-#undef GET_NFA_REPEAT_INFO_FN
+#undef POPCOUNT_FN
+#undef RANK_IN_MASK_FN

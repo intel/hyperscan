@@ -103,13 +103,41 @@ int limexRunReports(const ReportID *reports, NfaCallback callback,
     return MO_CONTINUE_MATCHING; // continue
 }
 
+static really_inline
+int limexRunAccept(const char *limex_base, const struct NFAAccept *accept,
+                   NfaCallback callback, void *context, u64a offset) {
+    if (accept->single_report) {
+        const ReportID report = accept->reports;
+        DEBUG_PRINTF("firing single report for id %u at offset %llu\n", report,
+                     offset);
+        return callback(0, offset, report, context);
+    }
+    const ReportID *reports = (const ReportID *)(limex_base + accept->reports);
+    return limexRunReports(reports, callback, context, offset);
+}
+
+static really_inline
+int limexAcceptHasReport(const char *limex_base, const struct NFAAccept *accept,
+                         ReportID report) {
+    if (accept->single_report) {
+        return accept->reports == report;
+    }
+
+    const ReportID *reports = (const ReportID *)(limex_base + accept->reports);
+    assert(*reports != MO_INVALID_IDX);
+    do {
+        if (*reports == report) {
+            return 1;
+        }
+        reports++;
+    } while (*reports != MO_INVALID_IDX);
+
+    return 0;
+}
+
 /** \brief Return a (correctly typed) pointer to the exception table. */
 #define getExceptionTable(exc_type, lim)                                       \
     ((const exc_type *)((const char *)(lim) + (lim)->exceptionOffset))
-
-/** \brief Return a pointer to the exceptional reports list. */
-#define getExReports(lim)                                                      \
-    ((const ReportID *)((const char *)(lim) + (lim)->exReportOffset))
 
 /** \brief Return a pointer to the ordinary accepts table. */
 #define getAcceptTable(lim)                                                    \

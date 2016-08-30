@@ -46,6 +46,7 @@
 #define INITIAL_FN          JOIN(moNfaInitial, SIZE)
 #define TOP_FN              JOIN(moNfaTop, SIZE)
 #define TOPN_FN             JOIN(moNfaTopN, SIZE)
+#define PROCESS_ACCEPTS_IMPL_FN  JOIN(moProcessAcceptsImpl, SIZE)
 #define PROCESS_ACCEPTS_FN  JOIN(moProcessAccepts, SIZE)
 #define PROCESS_ACCEPTS_NOSQUASH_FN  JOIN(moProcessAcceptsNoSquash, SIZE)
 #define CONTEXT_T           JOIN(NFAContext, SIZE)
@@ -59,6 +60,20 @@
 #define ISZERO_STATE        JOIN(isZero_, STATE_T)
 #define SQUASH_UNTUG_BR_FN  JOIN(lazyTug, SIZE)
 #define GET_NFA_REPEAT_INFO_FN JOIN(getNfaRepeatInfo, SIZE)
+
+#if defined(ARCH_64_BIT) && (SIZE >= 64)
+#define CHUNK_T u64a
+#define FIND_AND_CLEAR_FN findAndClearLSB_64
+#define POPCOUNT_FN popcount64
+#define RANK_IN_MASK_FN rank_in_mask64
+#else
+#define CHUNK_T u32
+#define FIND_AND_CLEAR_FN findAndClearLSB_32
+#define POPCOUNT_FN popcount32
+#define RANK_IN_MASK_FN rank_in_mask32
+#endif
+
+#define NUM_STATE_CHUNKS (sizeof(STATE_T) / sizeof(CHUNK_T))
 
 static really_inline
 void SQUASH_UNTUG_BR_FN(const IMPL_NFA_T *limex,
@@ -98,63 +113,84 @@ void SQUASH_UNTUG_BR_FN(const IMPL_NFA_T *limex,
     }
 }
 
-static never_inline
-char PROCESS_ACCEPTS_FN(const IMPL_NFA_T *limex, STATE_T *s,
-                        const struct NFAAccept *acceptTable, u32 acceptCount,
-                        u64a offset, NfaCallback callback, void *context) {
+static really_inline
+char PROCESS_ACCEPTS_IMPL_FN(const IMPL_NFA_T *limex, const STATE_T *s,
+                             STATE_T *squash, const ENG_STATE_T *squashMasks,
+                             const STATE_T *acceptMask,
+                             const struct NFAAccept *acceptTable, u64a offset,
+                             NfaCallback callback, void *context) {
     assert(s);
     assert(limex);
     assert(callback);
-    assert(acceptCount);
 
+    const STATE_T accept_mask = *acceptMask;
+    STATE_T accepts = AND_STATE(*s, accept_mask);
+
+    // Caller must ensure that we have at least one accept state on.
+    assert(ISNONZERO_STATE(accepts));
+
+    CHUNK_T chunks[NUM_STATE_CHUNKS];
+    memcpy(chunks, &accepts, sizeof(accepts));
+
+    CHUNK_T mask_chunks[NUM_STATE_CHUNKS];
+    memcpy(mask_chunks, &accept_mask, sizeof(accept_mask));
+
+    u32 base_index = 0; // Cumulative sum of mask popcount up to current chunk.
+    for (u32 i = 0; i < NUM_STATE_CHUNKS; i++) {
+        CHUNK_T chunk = chunks[i];
+        while (chunk != 0) {
+            u32 bit = FIND_AND_CLEAR_FN(&chunk);
+            u32 local_idx = RANK_IN_MASK_FN(mask_chunks[i], bit);
+            u32 idx = local_idx + base_index;
+            const struct NFAAccept *a = &acceptTable[idx];
+            DEBUG_PRINTF("state %u: firing report list=%u, offset=%llu\n",
+                         bit + i * (u32)sizeof(chunk) * 8, a->reports, offset);
+            int rv = limexRunAccept((const char *)limex, a, callback, context,
+                                    offset);
+            if (unlikely(rv == MO_HALT_MATCHING)) {
+                return 1;
+            }
+            if (squash != NULL && a->squash != MO_INVALID_IDX) {
+                assert(squashMasks);
+                assert(a->squash < limex->squashCount);
+                const ENG_STATE_T *sq = &squashMasks[a->squash];
+                DEBUG_PRINTF("squash mask %u @ %p\n", a->squash, sq);
+                *squash = AND_STATE(*squash, LOAD_FROM_ENG(sq));
+            }
+        }
+        base_index += POPCOUNT_FN(mask_chunks[i]);
+    }
+
+    return 0;
+}
+
+static never_inline
+char PROCESS_ACCEPTS_FN(const IMPL_NFA_T *limex, STATE_T *s,
+                        const STATE_T *acceptMask,
+                        const struct NFAAccept *acceptTable, u64a offset,
+                        NfaCallback callback, void *context) {
     // We have squash masks we might have to apply after firing reports.
     STATE_T squash = ONES_STATE;
     const ENG_STATE_T *squashMasks = (const ENG_STATE_T *)
         ((const char *)limex + limex->squashOffset);
 
-    for (u32 i = 0; i < acceptCount; i++) {
-        const struct NFAAccept *a = &acceptTable[i];
-        if (TESTBIT_STATE(*s, a->state)) {
-            DEBUG_PRINTF("state %u is on, firing report id=%u, offset=%llu\n",
-                         a->state, a->externalId, offset);
-            int rv = callback(0, offset, a->externalId, context);
-            if (unlikely(rv == MO_HALT_MATCHING)) {
-                return 1;
-            }
-            if (a->squash != MO_INVALID_IDX) {
-                assert(a->squash < limex->squashCount);
-                const ENG_STATE_T *sq = &squashMasks[a->squash];
-                DEBUG_PRINTF("squash mask %u @ %p\n", a->squash, sq);
-                squash = AND_STATE(squash, LOAD_FROM_ENG(sq));
-            }
-        }
-    }
+    return PROCESS_ACCEPTS_IMPL_FN(limex, s, &squash, squashMasks, acceptMask,
+                                   acceptTable, offset, callback, context);
 
     *s = AND_STATE(*s, squash);
-    return 0;
 }
 
 static never_inline
-char PROCESS_ACCEPTS_NOSQUASH_FN(const STATE_T *s,
+char PROCESS_ACCEPTS_NOSQUASH_FN(const IMPL_NFA_T *limex, const STATE_T *s,
+                                 const STATE_T *acceptMask,
                                  const struct NFAAccept *acceptTable,
-                                 u32 acceptCount, u64a offset,
-                                 NfaCallback callback, void *context) {
-    assert(s);
-    assert(callback);
-    assert(acceptCount);
+                                 u64a offset, NfaCallback callback,
+                                 void *context) {
+    STATE_T *squash = NULL;
+    const ENG_STATE_T *squashMasks = NULL;
 
-    for (u32 i = 0; i < acceptCount; i++) {
-        const struct NFAAccept *a = &acceptTable[i];
-        if (TESTBIT_STATE(*s, a->state)) {
-            DEBUG_PRINTF("state %u is on, firing report id=%u, offset=%llu\n",
-                         a->state, a->externalId, offset);
-            int rv = callback(0, offset, a->externalId, context);
-            if (unlikely(rv == MO_HALT_MATCHING)) {
-                return 1;
-            }
-        }
-    }
-    return 0;
+    return PROCESS_ACCEPTS_IMPL_FN(limex, s, squash, squashMasks, acceptMask,
+                                   acceptTable, offset, callback, context);
 }
 
 // Run EOD accepts. Note that repeat_ctrl and repeat_state may be NULL if this
@@ -179,8 +215,8 @@ char TESTEOD_FN(const IMPL_NFA_T *limex, const STATE_T *s,
 
     if (unlikely(ISNONZERO_STATE(foundAccepts))) {
         const struct NFAAccept *acceptEodTable = getAcceptEodTable(limex);
-        if (PROCESS_ACCEPTS_NOSQUASH_FN(&foundAccepts, acceptEodTable,
-                                        limex->acceptEodCount, offset, callback,
+        if (PROCESS_ACCEPTS_NOSQUASH_FN(limex, &foundAccepts, &acceptEodMask,
+                                        acceptEodTable, offset, callback,
                                         context)) {
             return MO_HALT_MATCHING;
         }
@@ -206,8 +242,8 @@ char REPORTCURRENT_FN(const IMPL_NFA_T *limex, const struct mq *q) {
         const struct NFAAccept *acceptTable = getAcceptTable(limex);
         u64a offset = q_cur_offset(q);
 
-        if (PROCESS_ACCEPTS_NOSQUASH_FN(&foundAccepts, acceptTable,
-                                        limex->acceptCount, offset, q->cb,
+        if (PROCESS_ACCEPTS_NOSQUASH_FN(limex, &foundAccepts, &acceptMask,
+                                        acceptTable, offset, q->cb,
                                         q->context)) {
             return MO_HALT_MATCHING;
         }
@@ -307,37 +343,45 @@ char LIMEX_INACCEPT_FN(const IMPL_NFA_T *limex, STATE_T state,
                        u64a offset, ReportID report) {
     assert(limex);
 
-    const STATE_T acceptMask = LOAD_FROM_ENG(&limex->accept);
-    STATE_T accstate = AND_STATE(state, acceptMask);
+    const STATE_T accept_mask = LOAD_FROM_ENG(&limex->accept);
+    STATE_T accepts = AND_STATE(state, accept_mask);
 
     // Are we in an accept state?
-    if (ISZERO_STATE(accstate)) {
+    if (ISZERO_STATE(accepts)) {
         DEBUG_PRINTF("no accept states are on\n");
         return 0;
     }
 
-    SQUASH_UNTUG_BR_FN(limex, repeat_ctrl, repeat_state, offset, &accstate);
+    SQUASH_UNTUG_BR_FN(limex, repeat_ctrl, repeat_state, offset, &accepts);
 
     DEBUG_PRINTF("looking for report %u\n", report);
 
-#ifdef DEBUG
-    DEBUG_PRINTF("accept states that are on: ");
-    for (u32 i = 0; i < sizeof(STATE_T) * 8; i++) {
-        if (TESTBIT_STATE(accstate, i)) printf("%u ", i);
-    }
-    printf("\n");
-#endif
-
-    // Does one of our states match the given report ID?
     const struct NFAAccept *acceptTable = getAcceptTable(limex);
-    for (u32 i = 0; i < limex->acceptCount; i++) {
-        const struct NFAAccept *a = &acceptTable[i];
-        DEBUG_PRINTF("checking idx=%u, externalId=%u\n", a->state,
-                     a->externalId);
-        if (a->externalId == report && TESTBIT_STATE(accstate, a->state)) {
-            DEBUG_PRINTF("report is on!\n");
-            return 1;
+
+    CHUNK_T chunks[NUM_STATE_CHUNKS];
+    memcpy(chunks, &accepts, sizeof(accepts));
+
+    CHUNK_T mask_chunks[NUM_STATE_CHUNKS];
+    memcpy(mask_chunks, &accept_mask, sizeof(accept_mask));
+
+    u32 base_index = 0; // Cumulative sum of mask popcount up to current chunk.
+    for (u32 i = 0; i < NUM_STATE_CHUNKS; i++) {
+        CHUNK_T chunk = chunks[i];
+        while (chunk != 0) {
+            u32 bit = FIND_AND_CLEAR_FN(&chunk);
+            u32 local_idx = RANK_IN_MASK_FN(mask_chunks[i], bit);
+            u32 idx = local_idx + base_index;
+            assert(idx < limex->acceptCount);
+            const struct NFAAccept *a = &acceptTable[idx];
+            DEBUG_PRINTF("state %u is on, report list at %u\n",
+                         bit + i * (u32)sizeof(chunk) * 8, a->reports);
+
+            if (limexAcceptHasReport((const char *)limex, a, report)) {
+                DEBUG_PRINTF("report %u is on\n", report);
+                return 1;
+            }
         }
+        base_index += POPCOUNT_FN(mask_chunks[i]);
     }
 
     return 0;
@@ -381,7 +425,14 @@ char LIMEX_INANYACCEPT_FN(const IMPL_NFA_T *limex, STATE_T state,
 #undef TESTBIT_STATE
 #undef ISNONZERO_STATE
 #undef ISZERO_STATE
+#undef PROCESS_ACCEPTS_IMPL_FN
 #undef PROCESS_ACCEPTS_FN
 #undef PROCESS_ACCEPTS_NOSQUASH_FN
 #undef SQUASH_UNTUG_BR_FN
 #undef GET_NFA_REPEAT_INFO_FN
+
+#undef CHUNK_T
+#undef FIND_AND_CLEAR_FN
+#undef POPCOUNT_FN
+#undef RANK_IN_MASK_FN
+#undef NUM_STATE_CHUNKS
