@@ -320,6 +320,71 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CHECK_SHUFTI_16x8) {
+                os << "    nib_mask "
+                   << dumpStrMask(ri->nib_mask, sizeof(ri->nib_mask))
+                   << endl;
+                os << "    bucket_select_mask "
+                   << dumpStrMask(ri->bucket_select_mask,
+                                  sizeof(ri->bucket_select_mask))
+                   << endl;
+                os << "    offset " << ri->offset << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_SHUFTI_32x8) {
+                os << "    hi_mask "
+                   << dumpStrMask(ri->hi_mask, sizeof(ri->hi_mask))
+                   << endl;
+                os << "    lo_mask "
+                   << dumpStrMask(ri->lo_mask, sizeof(ri->lo_mask))
+                   << endl;
+                os << "    bucket_select_mask "
+                   << dumpStrMask(ri->bucket_select_mask,
+                                  sizeof(ri->bucket_select_mask))
+                   << endl;
+                os << "    offset " << ri->offset << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_SHUFTI_16x16) {
+                os << "    hi_mask "
+                   << dumpStrMask(ri->hi_mask, sizeof(ri->hi_mask))
+                   << endl;
+                os << "    lo_mask "
+                   << dumpStrMask(ri->lo_mask, sizeof(ri->lo_mask))
+                   << endl;
+                os << "    bucket_select_mask "
+                   << dumpStrMask(ri->bucket_select_mask,
+                                  sizeof(ri->bucket_select_mask))
+                   << endl;
+                os << "    offset " << ri->offset << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_SHUFTI_32x16) {
+                os << "    hi_mask "
+                   << dumpStrMask(ri->hi_mask, sizeof(ri->hi_mask))
+                   << endl;
+                os << "    lo_mask "
+                   << dumpStrMask(ri->lo_mask, sizeof(ri->lo_mask))
+                   << endl;
+                os << "    bucket_select_mask_hi "
+                   << dumpStrMask(ri->bucket_select_mask_hi,
+                                  sizeof(ri->bucket_select_mask_hi))
+                   << endl;
+                os << "    bucket_select_mask_lo "
+                   << dumpStrMask(ri->bucket_select_mask_lo,
+                                  sizeof(ri->bucket_select_mask_lo))
+                   << endl;
+                os << "    offset " << ri->offset << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CHECK_INFIX) {
                 os << "    queue " << ri->queue << endl;
                 os << "    lag " << ri->lag << endl;

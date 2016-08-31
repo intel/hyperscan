@@ -154,6 +154,60 @@ void RoseInstrCheckByte::write(void *dest, RoseEngineBlob &blob,
     inst->fail_jump = calc_jump(offset_map, this, target);
 }
 
+void RoseInstrCheckShufti16x8::write(void *dest, RoseEngineBlob &blob,
+                                     const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    copy(begin(nib_mask), end(nib_mask), inst->nib_mask);
+    copy(begin(bucket_select_mask), end(bucket_select_mask),
+         inst->bucket_select_mask);
+    inst->neg_mask = neg_mask;
+    inst->offset = offset;
+    inst->fail_jump = calc_jump(offset_map, this, target);
+}
+
+void RoseInstrCheckShufti32x8::write(void *dest, RoseEngineBlob &blob,
+                                     const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    copy(begin(hi_mask), end(hi_mask), inst->hi_mask);
+    copy(begin(lo_mask), end(lo_mask), inst->lo_mask);
+    copy(begin(bucket_select_mask), end(bucket_select_mask),
+         inst->bucket_select_mask);
+
+    inst->neg_mask = neg_mask;
+    inst->offset = offset;
+    inst->fail_jump = calc_jump(offset_map, this, target);
+}
+
+void RoseInstrCheckShufti16x16::write(void *dest, RoseEngineBlob &blob,
+                                     const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    copy(begin(hi_mask), end(hi_mask), inst->hi_mask);
+    copy(begin(lo_mask), end(lo_mask), inst->lo_mask);
+    copy(begin(bucket_select_mask), end(bucket_select_mask),
+         inst->bucket_select_mask);
+    inst->neg_mask = neg_mask;
+    inst->offset = offset;
+    inst->fail_jump = calc_jump(offset_map, this, target);
+}
+
+void RoseInstrCheckShufti32x16::write(void *dest, RoseEngineBlob &blob,
+                                     const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    copy(begin(hi_mask), end(hi_mask), inst->hi_mask);
+    copy(begin(lo_mask), end(lo_mask), inst->lo_mask);
+    copy(begin(bucket_select_mask_hi), end(bucket_select_mask_hi),
+         inst->bucket_select_mask_hi);
+    copy(begin(bucket_select_mask_lo), end(bucket_select_mask_lo),
+         inst->bucket_select_mask_lo);
+    inst->neg_mask = neg_mask;
+    inst->offset = offset;
+    inst->fail_jump = calc_jump(offset_map, this, target);
+}
+
 void RoseInstrCheckInfix::write(void *dest, RoseEngineBlob &blob,
                                 const OffsetMap &offset_map) const {
     RoseInstrBase::write(dest, blob, offset_map);

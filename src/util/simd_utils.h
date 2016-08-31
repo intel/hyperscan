@@ -384,6 +384,11 @@ u32 movemask256(m256 a) {
     return lo_mask | (hi_mask << 16);
 }
 
+static really_inline
+m256 set2x128(m128 a) {
+    m256 rv = {a, a};
+    return rv;
+}
 #endif
 
 static really_inline m256 zeroes256(void) {
@@ -534,6 +539,10 @@ static really_inline m256 load2x128(const void *ptr) {
 #endif
 }
 
+static really_inline m256 loadu2x128(const void *ptr) {
+    return set2x128(loadu128(ptr));
+}
+
 // aligned store
 static really_inline void store256(void *ptr, m256 a) {
     assert(ISALIGNED_N(ptr, alignof(m256)));
@@ -632,6 +641,22 @@ char testbit256(m256 val, unsigned int n) {
     return testbit128(sub, n);
 }
 
+static really_really_inline
+m128 movdq_hi(m256 x) {
+    return x.hi;
+}
+
+static really_really_inline
+m128 movdq_lo(m256 x) {
+    return x.lo;
+}
+
+static really_inline
+m256 combine2x128(m128 a, m128 b) {
+    m256 rv = {a, b};
+    return rv;
+}
+
 #else // AVX2
 
 // switches on bit N in the given vector.
@@ -676,6 +701,14 @@ m128 movdq_lo(m256 x) {
 #define interleave256lo(a, b) _mm256_unpacklo_epi8(a, b);
 #define vpalignr(r, l, offset) _mm256_alignr_epi8(r, l, offset)
 
+static really_inline
+m256 combine2x128(m128 hi, m128 lo) {
+#if defined(_mm256_set_m128i)
+    return _mm256_set_m128i(hi, lo);
+#else
+    return insert128to256(cast128to256(hi), lo, 1);
+#endif
+}
 #endif //AVX2
 
 /****

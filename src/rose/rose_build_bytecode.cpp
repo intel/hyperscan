@@ -88,6 +88,7 @@
 #include "util/verify_types.h"
 
 #include <algorithm>
+#include <array>
 #include <map>
 #include <queue>
 #include <set>
@@ -2888,6 +2889,181 @@ bool makeRoleMask32(const vector<LookEntry> &look,
     return true;
 }
 
+// Sorting by the size of every bucket.
+// Used in map<u32, vector<s8>, cmpNibble>.
+struct cmpNibble {
+    bool operator()(const u32 data1, const u32 data2) const{
+        u32 size1 = popcount32(data1 >> 16) * popcount32(data1 << 16);
+        u32 size2 = popcount32(data2 >> 16) * popcount32(data2 << 16);
+        return std::tie(size1, data1) < std::tie(size2, data2);
+    }
+};
+
+// Insert all pairs of bucket and offset into buckets.
+static really_inline
+void getAllBuckets(const vector<LookEntry> &look,
+                 map<u32, vector<s8>, cmpNibble> &buckets, u32 &neg_mask) {
+    s32 base_offset = verify_s32(look.front().offset);
+    for (const auto &entry : look) {
+        CharReach cr = entry.reach;
+        // Flip heavy character classes to save buckets.
+        if (cr.count() > 128 ) {
+            cr.flip();
+        } else {
+            neg_mask ^= 1 << (entry.offset - base_offset);
+        }
+        map <u16, u16> lo2hi;
+        // We treat Ascii Table as a 16x16 grid.
+        // Push every row in cr into lo2hi and mark the row number.
+        for (size_t i = cr.find_first(); i != CharReach::npos;) {
+            u8 it_hi = i >> 4;
+            u16 low_encode = 0;
+            while (i != CharReach::npos && (i >> 4) == it_hi) {
+                low_encode |= 1 << (i & 0xf);
+                i = cr.find_next(i);
+            }
+            lo2hi[low_encode] |= 1 << it_hi;
+        }
+        for (const auto &it : lo2hi) {
+            u32 hi_lo = (it.second << 16) | it.first;
+            buckets[hi_lo].push_back(entry.offset);
+        }
+    }
+}
+
+// Once we have a new bucket, we'll try to combine it with all old buckets.
+static really_inline
+void nibUpdate(map<u32, u16> &nib, u32 hi_lo) {
+    u16 hi = hi_lo >> 16;
+    u16 lo = hi_lo & 0xffff;
+    for (const auto pairs : nib) {
+        u32 old = pairs.first;
+        if ((old >> 16) == hi || (old & 0xffff) == lo) {
+            if (!nib[old | hi_lo]) {
+                nib[old | hi_lo] = nib[old] | nib[hi_lo];
+            }
+        }
+    }
+}
+
+static really_inline
+void nibMaskUpdate(array<u8, 32> &mask, u32 data, u8 bit_index) {
+    for (u8 index = 0; data > 0; data >>= 1, index++) {
+        if (data & 1) {
+            // 0 ~ 7 bucket in first 16 bytes,
+            // 8 ~ 15 bucket in second 16 bytes.
+            if (bit_index >= 8) {
+                mask[index + 16] |= 1 << (bit_index - 8);
+            } else {
+                mask[index] |= 1 << bit_index;
+            }
+        }
+    }
+}
+
+static
+bool makeRoleShufti(const vector<LookEntry> &look,
+                    RoseProgram &program) {
+
+    s32 base_offset = verify_s32(look.front().offset);
+    if (look.back().offset >= base_offset + 32) {
+        return false;
+    }
+    array<u8, 32> hi_mask, lo_mask;
+    hi_mask.fill(0);
+    lo_mask.fill(0);
+    array<u8, 32> bucket_select_hi, bucket_select_lo;
+    bucket_select_hi.fill(0); // will not be used in 16x8 and 32x8.
+    bucket_select_lo.fill(0);
+    u8 bit_index = 0; // number of buckets
+    map<u32, u16> nib; // map every bucket to its bucket number.
+    map<u32, vector<s8>, cmpNibble> bucket2offsets;
+    u32 neg_mask = ~0u;
+
+    getAllBuckets(look, bucket2offsets, neg_mask);
+
+    for (const auto &it : bucket2offsets) {
+        u32 hi_lo = it.first;
+        // New bucket.
+        if (!nib[hi_lo]) {
+            if (bit_index >= 16) {
+                return false;
+            }
+            nib[hi_lo] = 1 << bit_index;
+
+            nibUpdate(nib, hi_lo);
+            nibMaskUpdate(hi_mask, hi_lo >> 16, bit_index);
+            nibMaskUpdate(lo_mask, hi_lo & 0xffff, bit_index);
+            bit_index++;
+        }
+
+        DEBUG_PRINTF("hi_lo %x bucket %x\n", hi_lo, nib[hi_lo]);
+
+        // Update bucket_select_mask.
+        u8 nib_hi = nib[hi_lo] >> 8;
+        u8 nib_lo = nib[hi_lo] & 0xff;
+        for (const auto offset : it.second) {
+            bucket_select_hi[offset - base_offset] |= nib_hi;
+            bucket_select_lo[offset - base_offset] |= nib_lo;
+        }
+    }
+
+    DEBUG_PRINTF("hi_mask %s\n",
+                 convertMaskstoString(hi_mask.data(), 32).c_str());
+    DEBUG_PRINTF("lo_mask %s\n",
+                 convertMaskstoString(lo_mask.data(), 32).c_str());
+    DEBUG_PRINTF("bucket_select_hi %s\n",
+                 convertMaskstoString(bucket_select_hi.data(), 32).c_str());
+    DEBUG_PRINTF("bucket_select_lo %s\n",
+                 convertMaskstoString(bucket_select_lo.data(), 32).c_str());
+
+    const auto *end_inst = program.end_instruction();
+    if (bit_index < 8) {
+        if (look.back().offset < base_offset + 16) {
+            neg_mask &= 0xffff;
+            array<u8, 32> nib_mask;
+            array<u8, 16> bucket_select_mask_16;
+            copy(hi_mask.begin(), hi_mask.begin() + 16, nib_mask.begin());
+            copy(lo_mask.begin(), lo_mask.begin() + 16, nib_mask.begin() + 16);
+            copy(bucket_select_lo.begin(), bucket_select_lo.begin() + 16,
+                 bucket_select_mask_16.begin());
+            auto ri = make_unique<RoseInstrCheckShufti16x8>
+                      (nib_mask, bucket_select_mask_16,
+                       neg_mask, base_offset, end_inst);
+            program.add_before_end(move(ri));
+        } else {
+            array<u8, 16> hi_mask_16;
+            array<u8, 16> lo_mask_16;
+            copy(hi_mask.begin(), hi_mask.begin() + 16, hi_mask_16.begin());
+            copy(lo_mask.begin(), lo_mask.begin() + 16, lo_mask_16.begin());
+            auto ri = make_unique<RoseInstrCheckShufti32x8>
+                      (hi_mask_16, lo_mask_16, bucket_select_lo,
+                       neg_mask, base_offset, end_inst);
+            program.add_before_end(move(ri));
+        }
+    } else {
+        if (look.back().offset < base_offset + 16) {
+            neg_mask &= 0xffff;
+            array<u8, 32> bucket_select_mask_32;
+            copy(bucket_select_lo.begin(), bucket_select_lo.begin() + 16,
+                 bucket_select_mask_32.begin());
+            copy(bucket_select_hi.begin(), bucket_select_hi.begin() + 16,
+                 bucket_select_mask_32.begin() + 16);
+            auto ri = make_unique<RoseInstrCheckShufti16x16>
+                      (hi_mask, lo_mask, bucket_select_mask_32,
+                       neg_mask, base_offset, end_inst);
+            program.add_before_end(move(ri));
+        } else {
+            return false;
+            auto ri = make_unique<RoseInstrCheckShufti32x16>
+                      (hi_mask, lo_mask, bucket_select_hi, bucket_select_lo,
+                       neg_mask, base_offset, end_inst);
+            program.add_before_end(move(ri));
+        }
+    }
+    return true;
+}
+
 /**
  * Builds a lookaround instruction, or an appropriate specialization if one is
  * available.
@@ -2906,6 +3082,10 @@ void makeLookaroundInstruction(build_context &bc, const vector<LookEntry> &look,
     }
 
     if (makeRoleMask32(look, program)) {
+        return;
+    }
+
+    if (makeRoleShufti(look, program)) {
         return;
     }
 

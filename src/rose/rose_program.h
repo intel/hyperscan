@@ -52,6 +52,10 @@ enum RoseInstructionCode {
     ROSE_INSTR_CHECK_MASK,        //!< 8-bytes mask check.
     ROSE_INSTR_CHECK_MASK_32,     //!< 32-bytes and/cmp/neg mask check.
     ROSE_INSTR_CHECK_BYTE,        //!< Single Byte check.
+    ROSE_INSTR_CHECK_SHUFTI_16x8, //!< Check 16-byte data by 8-bucket shufti.
+    ROSE_INSTR_CHECK_SHUFTI_32x8, //!< Check 32-byte data by 8-bucket shufti.
+    ROSE_INSTR_CHECK_SHUFTI_16x16, //!< Check 16-byte data by 16-bucket shufti.
+    ROSE_INSTR_CHECK_SHUFTI_32x16, //!< Check 32-byte data by 16-bucket shufti.
     ROSE_INSTR_CHECK_INFIX,       //!< Infix engine must be in accept state.
     ROSE_INSTR_CHECK_PREFIX,      //!< Prefix engine must be in accept state.
     ROSE_INSTR_PUSH_DELAYED,      //!< Push delayed literal matches.
@@ -181,6 +185,48 @@ struct ROSE_STRUCT_CHECK_BYTE {
     u8 cmp_mask; //!< 8-bits cmp mask.
     u8 negation; //!< Flag about negation.
     s32 offset; //!< The relative offset.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+// Since m128 and m256 could be missaligned in the bytecode,
+// we'll use u8[16] and u8[32] instead in all rose_check_shufti structures.
+struct ROSE_STRUCT_CHECK_SHUFTI_16x8 {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 nib_mask[32]; //!< High 16 and low 16 bits nibble mask in shufti.
+    u8 bucket_select_mask[16]; //!< Mask for bucket assigning.
+    u32 neg_mask; //!< Negation mask in low 16 bits.
+    s32 offset; //!< Relative offset of the first byte.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_SHUFTI_32x8 {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 hi_mask[16]; //!< High nibble mask in shufti.
+    u8 lo_mask[16]; //!< Low nibble mask in shufti.
+    u8 bucket_select_mask[32]; //!< Mask for bucket assigning.
+    u32 neg_mask; //!< 32 bits negation mask.
+    s32 offset; //!< Relative offset of the first byte.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_SHUFTI_16x16 {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 hi_mask[32]; //!< High nibble mask in shufti.
+    u8 lo_mask[32]; //!< Low nibble mask in shufti.
+    u8 bucket_select_mask[32]; //!< Mask for bucket assigning.
+    u32 neg_mask; //!< Negation mask in low 16 bits.
+    s32 offset; //!< Relative offset of the first byte.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_SHUFTI_32x16 {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 hi_mask[32]; //!< High nibble mask in shufti.
+    u8 lo_mask[32]; //!< Low nibble mask in shufti.
+    u8 bucket_select_mask_hi[32]; //!< Bucket mask for high 8 buckets.
+    u8 bucket_select_mask_lo[32]; //!< Bucket mask for low 8 buckets.
+    u32 neg_mask; //!< 32 bits negation mask.
+    s32 offset; //!< Relative offset of the first byte.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
