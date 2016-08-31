@@ -496,12 +496,6 @@ char nfaExecMcClellan16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
 
     const u8 *cur_buf = sp < 0 ? hend : buffer;
 
-    char report = 1;
-    if (mode == CALLBACK_OUTPUT) {
-        /* we are starting inside the history buffer: matches are suppressed */
-        report = !(sp < 0);
-    }
-
     assert(q->cur);
     if (mode != NO_MATCHES && q->items[q->cur - 1].location > end) {
         DEBUG_PRINTF("this is as far as we go\n");
@@ -530,9 +524,8 @@ char nfaExecMcClellan16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
         const u8 *final_look;
         if (mcclellanExec16_i_ni(m, &s, cur_buf + sp, local_ep - sp,
                                  offset + sp, cb, context, single, &final_look,
-                                 report ? mode : NO_MATCHES)
+                                 mode)
             == MO_HALT_MATCHING) {
-            assert(report);
             *(u16 *)q->state = 0;
             return 0;
         }
@@ -563,7 +556,6 @@ char nfaExecMcClellan16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
 
         if (sp == 0) {
             cur_buf = buffer;
-            report = 1;
         }
 
         if (sp != ep) {
@@ -653,12 +645,6 @@ char nfaExecMcClellan8_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
 
     const u8 *cur_buf = sp < 0 ? hend : buffer;
 
-    char report = 1;
-    if (mode == CALLBACK_OUTPUT) {
-        /* we are starting inside the history buffer: matches are suppressed */
-        report = !(sp < 0);
-    }
-
     if (mode != NO_MATCHES && q->items[q->cur - 1].location > end) {
         DEBUG_PRINTF("this is as far as we go\n");
         q->cur--;
@@ -687,8 +673,7 @@ char nfaExecMcClellan8_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
 
         const u8 *final_look;
         if (mcclellanExec8_i_ni(m, &s, cur_buf + sp, local_ep - sp, offset + sp,
-                                cb, context, single, &final_look,
-                                report ? mode : NO_MATCHES)
+                                cb, context, single, &final_look, mode)
             == MO_HALT_MATCHING) {
             *(u8 *)q->state = 0;
             return 0;
@@ -720,7 +705,6 @@ char nfaExecMcClellan8_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
 
         if (sp == 0) {
             cur_buf = buffer;
-            report = 1;
         }
 
         if (sp != ep) {

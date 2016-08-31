@@ -405,9 +405,7 @@ char runSheng(const struct sheng *sh, struct mq *q, s64a b_end,
             const u8 * scanned = cur_buf;
             char rv;
 
-            /* if we're in nomatch mode or if we're scanning history buffer */
-            if (mode == NO_MATCHES ||
-                (cur_start < 0 && mode == CALLBACK_OUTPUT)) {
+            if (mode == NO_MATCHES) {
                 runShengNm(sh, q->cb, q->context, q->offset,
                            &cached_accept_state, &cached_accept_id, cur_buf,
                            cur_buf + cur_start, cur_buf + cur_end, can_die,
