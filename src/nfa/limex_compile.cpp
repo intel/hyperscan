@@ -762,8 +762,9 @@ u32 getEffectiveAccelStates(const build_info &args,
      * prevent .* 'truly' dominating */
     for (u32 local_accel_mask = active_accel_mask; local_accel_mask; ) {
         u32 accel_id = findAndClearLSB_32(&local_accel_mask);
+        assert(accel_id < accelStates.size());
         NFAVertex v = accelStates[accel_id].v;
-        while (contains(dom_map, v)) {
+        while (dom_map[v]) {
             v = dom_map[v];
             if (contains(accel_id_map, v)) {
                 dominated_by[accel_id] |= 1U << accel_id_map[v];
