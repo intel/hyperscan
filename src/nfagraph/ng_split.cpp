@@ -151,7 +151,8 @@ void splitRHS(const NGHolder &base, const vector<NFAVertex> &pivots,
 
     for (auto pivot : pivots) {
         assert(contains(*rhs_map, pivot));
-        add_edge(rhs->start, (*rhs_map)[pivot], *rhs);
+        NFAEdge e = add_edge(rhs->start, (*rhs_map)[pivot], *rhs).first;
+        (*rhs)[e].tops.insert(DEFAULT_TOP);
     }
 
      /* should do the renumbering unconditionally as we know edges are already
@@ -215,6 +216,7 @@ void splitGraph(const NGHolder &base, const vector<NFAVertex> &pivots,
     DEBUG_PRINTF("splitting graph at %zu vertices\n", pivots.size());
 
     assert(!has_parallel_edge(base));
+    assert(isCorrectlyTopped(base));
 
     /* RHS pivots are built from the common set of successors of pivots. */
     vector<NFAVertex> rhs_pivots;
@@ -228,6 +230,8 @@ void splitGraph(const NGHolder &base, const vector<NFAVertex> &pivots,
 
     assert(!has_parallel_edge(*lhs));
     assert(!has_parallel_edge(*rhs));
+    assert(isCorrectlyTopped(*lhs));
+    assert(isCorrectlyTopped(*rhs));
 }
 
 void splitGraph(const NGHolder &base, NFAVertex pivot,

@@ -163,6 +163,8 @@ unique_ptr<NGHolder> convertLeafToHolder(const RoseGraph &g,
         }
     }
 
+    setTops(*out);
+
     // Literal vertices wired to accept.
     NFAVertex litfirst, litlast;
     tie(litfirst, litlast) = addLiteralVertices(g, literals, t_v, *out);
@@ -400,7 +402,10 @@ unique_ptr<NGHolder> makeFloodProneSuffix(const ue2_literal &s, size_t len,
     NFAVertex u = h->start;
     for (auto it = s.begin() + s.length() - len; it != s.end(); ++it) {
         NFAVertex v = addHolderVertex(*it, *h);
-        add_edge(u, v, *h);
+        NFAEdge e = add_edge(u, v, *h).first;
+        if (u == h->start) {
+            (*h)[e].tops.insert(DEFAULT_TOP);
+        }
         u = v;
     }
 

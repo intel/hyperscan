@@ -43,7 +43,6 @@
 #include "nfa/nfa_internal.h"
 #include "nfa/rdfa.h"
 #include "nfagraph/ng_holder.h"
-#include "nfagraph/ng_dump.h"
 #include "nfagraph/ng_execute.h"
 #include "nfagraph/ng_is_equal.h"
 #include "nfagraph/ng_limex.h"
@@ -1554,53 +1553,6 @@ bool roleOffsetsAreValid(const RoseGraph &g) {
     }
     return true;
 }
-
-static UNUSED
-bool hasOrphanedTops(const RoseBuildImpl &tbi) {
-    const RoseGraph &g = tbi.g;
-
-    ue2::unordered_map<left_id, set<u32> > roses;
-    ue2::unordered_map<suffix_id, set<u32> > suffixes;
-
-    for (auto v : vertices_range(g)) {
-        if (g[v].left) {
-            set<u32> &tops = roses[g[v].left];
-            if (tbi.isRootSuccessor(v)) {
-                // Prefix, has only one top.
-                tops.insert(0);
-            } else {
-                // Tops for infixes come from the in-edges.
-                for (const auto &e : in_edges_range(v, g)) {
-                    tops.insert(g[e].rose_top);
-                }
-            }
-        }
-        if (g[v].suffix) {
-            suffixes[g[v].suffix].insert(g[v].suffix.top);
-        }
-    }
-
-    for (const auto &e : roses) {
-        if (all_tops(e.first) != e.second) {
-            DEBUG_PRINTF("rose tops (%s) don't match rose graph (%s)\n",
-                         as_string_list(all_tops(e.first)).c_str(),
-                         as_string_list(e.second).c_str());
-            return true;
-        }
-    }
-
-    for (const auto &e : suffixes) {
-        if (all_tops(e.first) != e.second) {
-            DEBUG_PRINTF("suffix tops (%s) don't match rose graph (%s)\n",
-                         as_string_list(all_tops(e.first)).c_str(),
-                         as_string_list(e.second).c_str());
-            return true;
-        }
-    }
-
-    return false;
-}
-
 #endif // NDEBUG
 
 aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
@@ -1681,13 +1633,17 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
         mergeSmallLeftfixes(*this);
     }
 
+    assert(!hasOrphanedTops(*this));
+
     // Do a rose-merging aliasing pass.
     aliasRoles(*this, true);
+    assert(!hasOrphanedTops(*this));
 
     // Run a merge pass over the outfixes as well.
     mergeOutfixes(*this);
 
     assert(!danglingVertexRef(*this));
+    assert(!hasOrphanedTops(*this));
 
     findMoreLiteralMasks(*this);
 

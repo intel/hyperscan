@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -69,7 +69,7 @@ struct SpecialEdgeFilter {
             return false;
         }
         if (single_top) {
-            if (u == h->start && g[e].top != top) {
+            if (u == h->start && !contains(g[e].tops, top)) {
                 return false;
             }
             if (u == h->startDs) {

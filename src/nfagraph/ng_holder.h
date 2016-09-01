@@ -315,6 +315,8 @@ void remove_edges(Iter begin, Iter end, NGHolder &h, bool renumber = true) {
     }
 }
 
+#define DEFAULT_TOP 0U
+
 /** \brief Clear and remove all of the edges pointed to by the edge descriptors
  * in the given container.
  *

@@ -165,12 +165,7 @@ void clone_in_edges(NGHolder &g, NFAVertex s, NFAVertex dest) {
 }
 
 bool onlyOneTop(const NGHolder &g) {
-    set<u32> tops;
-    for (const auto &e : out_edges_range(g.start, g)) {
-        tops.insert(g[e].top);
-    }
-    assert(!tops.empty());
-    return tops.size() == 1;
+    return getTops(g).size() == 1;
 }
 
 namespace {
@@ -465,15 +460,19 @@ void appendLiteral(NGHolder &h, const ue2_literal &s) {
 ue2::flat_set<u32> getTops(const NGHolder &h) {
     ue2::flat_set<u32> tops;
     for (const auto &e : out_edges_range(h.start, h)) {
-        NFAVertex v = target(e, h);
-        if (v == h.startDs) {
-            continue;
-        }
-        u32 top = h[e].top;
-        assert(top < NFA_MAX_TOP_MASKS);
-        tops.insert(top);
+        insert(&tops, h[e].tops);
     }
     return tops;
+}
+
+void setTops(NGHolder &h, u32 top) {
+    for (const auto &e : out_edges_range(h.start, h)) {
+        assert(h[e].tops.empty());
+        if (target(e, h) == h.startDs) {
+            continue;
+        }
+        h[e].tops.insert(top);
+    }
 }
 
 void clearReports(NGHolder &g) {
@@ -693,6 +692,25 @@ bool hasCorrectlyNumberedEdges(const NGHolder &g) {
     return find(ids.begin(), ids.end(), false) == ids.end()
         && num_edges(g) == num_edges(g.g);
 }
+
+bool isCorrectlyTopped(const NGHolder &g) {
+    if (is_triggered(g)) {
+        for (const auto &e : out_edges_range(g.start, g)) {
+            if (g[e].tops.empty() != (target(e, g) == g.startDs)) {
+                return false;
+            }
+        }
+    } else {
+        for (const auto &e : out_edges_range(g.start, g)) {
+            if (!g[e].tops.empty()) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 
 #endif // NDEBUG
 

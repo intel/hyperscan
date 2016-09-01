@@ -310,7 +310,7 @@ bool hasInEdgeTops(const NGHolder &g, NFAVertex v) {
     bool exists;
     NFAEdge e;
     tie(e, exists) = edge_by_target(g.start, v, g);
-    if (exists && g[e].top != 0) {
+    if (exists && !g[e].tops.empty()) {
         return true;
     }
     return false;

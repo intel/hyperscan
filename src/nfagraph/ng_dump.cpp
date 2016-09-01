@@ -234,9 +234,9 @@ public:
     void operator()(ostream& os, const EdgeT& e) const {
         // Edge label. Print priority.
         os << "[fontsize=9,label=\"";
-        // If it's an edge from start, print top id.
-        if (is_any_start(source(e, g), g) && !is_any_start(target(e, g), g)) {
-            os << "TOP " << g[e].top << "\\n";
+        // print tops if any set.
+        if (!g[e].tops.empty()) {
+            os << "TOP " << as_string_list(g[e].tops) << "\\n";
         }
 
         // If it's an assert vertex, then display its info.

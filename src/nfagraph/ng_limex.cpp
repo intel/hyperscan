@@ -148,14 +148,16 @@ void dropRedundantStartEdges(NGHolder &g) {
 static
 void makeTopStates(NGHolder &g, map<u32, NFAVertex> &tops,
                    const map<u32, CharReach> &top_reach) {
+    /* TODO: more intelligent creation of top states */
     map<u32, vector<NFAVertex>> top_succs;
     for (const auto &e : out_edges_range(g.start, g)) {
         NFAVertex v = target(e, g);
         if (v == g.startDs) {
             continue;
         }
-        u32 t = g[e].top;
-        top_succs[t].push_back(v);
+        for (u32 t : g[e].tops) {
+            top_succs[t].push_back(v);
+        }
     }
 
     for (const auto &top : top_succs) {

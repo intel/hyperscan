@@ -215,8 +215,8 @@ bool rogueSuccessor(const NGHolder &g, NFAVertex v,
 
 static
 bool hasDifferentTops(const NGHolder &g, const vector<NFAVertex> &verts) {
-    bool found = false;
-    u32 top = 0;
+    /* TODO: check that we need this now that we allow multiple tops */
+    const flat_set<u32> *tops = nullptr;
 
     for (auto v : verts) {
         for (const auto &e : in_edges_range(v, g)) {
@@ -224,17 +224,12 @@ bool hasDifferentTops(const NGHolder &g, const vector<NFAVertex> &verts) {
             if (u != g.start && u != g.startDs) {
                 continue; // Only edges from starts have valid top properties.
             }
-            u32 t = g[e].top;
-            DEBUG_PRINTF("edge (%u,%u) with top %u\n", g[u].index,
-                         g[v].index, t);
-            assert(t < NFA_MAX_TOP_MASKS);
-            if (!found) {
-                found = true;
-                top = t;
-            } else {
-                if (t != top) {
-                    return true; // More than one top.
-                }
+            DEBUG_PRINTF("edge (%u,%u) with %zu tops\n", g[u].index, g[v].index,
+                         g[e].tops.size());
+            if (!tops) {
+                tops = &g[e].tops;
+            } else if (g[e].tops != *tops) {
+                return true; // More than one set of tops.
             }
         }
     }
@@ -1123,7 +1118,7 @@ NFAVertex buildTriggerStates(NGHolder &g, const vector<CharReach> &trigger,
         g[v].char_reach = cr;
         add_edge(u, v, g);
         if (u == g.start) {
-            g[edge(u, v, g).first].top = top;
+            g[edge(u, v, g).first].tops.insert(top);
         }
         u = v;
     }
@@ -1153,18 +1148,21 @@ void addTriggers(NGHolder &g,
             continue;
         }
 
-        const auto &top = g[e].top;
+        const auto &tops = g[e].tops;
 
         // The caller may not have given us complete trigger information. If we
         // don't have any triggers for a particular top, we should just leave
         // it alone.
-        if (!contains(triggers, top)) {
-            DEBUG_PRINTF("no triggers for top %u\n", top);
-            continue;
-        }
+        for (u32 top : tops) {
+            if (!contains(triggers, top)) {
+                DEBUG_PRINTF("no triggers for top %u\n", top);
+                goto next_edge;
+            }
 
-        starts_by_top[top].push_back(v);
+            starts_by_top[top].push_back(v);
+        }
         dead.push_back(e);
+    next_edge:;
     }
 
     remove_edges(dead, g);
@@ -2105,14 +2103,26 @@ void populateFixedTopInfo(const map<u32, u32> &fixed_depth_tops,
         if (v == g.startDs) {
             continue;
         }
-        u32 top = g[e].top;
+
         depth td = depth::infinity();
-        if (contains(fixed_depth_tops, top)) {
-            td = fixed_depth_tops.at(top);
+        for (u32 top : g[e].tops) {
+            if (!contains(fixed_depth_tops, top)) {
+                td = depth::infinity();
+                break;
+            }
+            depth td_t = fixed_depth_tops.at(top);
+            if (td == td_t) {
+                continue;
+            } else if (td == depth::infinity()) {
+                td = td_t;
+            } else {
+                td = depth::infinity();
+                break;
+            }
         }
 
-        DEBUG_PRINTF("scanning from %u top=%u depth=%s\n",
-                     g[v].index, top, td.str().c_str());
+        DEBUG_PRINTF("scanning from %u depth=%s\n", g[v].index,
+                     td.str().c_str());
         /* for each vertex reachable from v update its map to reflect that it is
          * reachable from a top of depth td. */
 
@@ -2428,7 +2438,7 @@ bool isPureRepeat(const NGHolder &g, PureRepeat &repeat) {
     }
 
     // Must have precisely one top.
-    if (!onlyOneTop(g)) {
+    if (is_triggered(g) && !onlyOneTop(g)) {
         DEBUG_PRINTF("Too many tops\n");
         return false;
     }

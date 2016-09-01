@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -153,14 +153,14 @@ bool is_equal_i(const NGHolder &a, const NGHolder &b,
     }
 
     /* check top for edges out of start */
-    vector<pair<u32, u32>> top_a;
-    vector<pair<u32, u32>> top_b;
+    vector<pair<u32, flat_set<u32>>> top_a;
+    vector<pair<u32, flat_set<u32>>> top_b;
 
     for (const auto &e : out_edges_range(a.start, a)) {
-        top_a.emplace_back(a[target(e, a)].index, a[e].top);
+        top_a.emplace_back(a[target(e, a)].index, a[e].tops);
     }
     for (const auto &e : out_edges_range(b.start, b)) {
-        top_b.emplace_back(b[target(e, b)].index, b[e].top);
+        top_b.emplace_back(b[target(e, b)].index, b[e].tops);
     }
 
     sort(top_a.begin(), top_a.end());

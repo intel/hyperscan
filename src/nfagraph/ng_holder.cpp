@@ -178,7 +178,6 @@ std::pair<NFAEdge, bool> add_edge(NFAVertex u, NFAVertex v, NGHolder &h) {
     pair<NFAEdge, bool> e = add_edge(u, v, h.g);
     h.g[e.first].index = h.numEdges++;
     assert(!h.isValidNumEdges || h.numEdges > 0); // no wrapping
-    h.g[e.first].top = 0;
     return e;
 }
 

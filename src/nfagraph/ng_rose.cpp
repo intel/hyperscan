@@ -811,6 +811,7 @@ bool can_match(const NGHolder &g, const ue2_literal &lit, bool overhang_ok) {
 
 u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
                                 u32 max_delay, bool overhang_ok) {
+    assert(isCorrectlyTopped(g));
     if (max_delay == MO_INVALID_IDX) {
         max_delay--;
     }
@@ -878,12 +879,16 @@ u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     sort(verts.begin(), verts.end(), VertexIndexOrdering<NGHolder>(g));
 
     for (auto v : verts) {
-        add_edge(v, g.accept, g);
+        NFAEdge e = add_edge(v, g.accept, g).first;
         g[v].reports.insert(0);
+        if (is_triggered(g) && v == g.start) {
+            g[e].tops.insert(DEFAULT_TOP);
+        }
     }
 
     pruneUseless(g);
     assert(allMatchStatesHaveReports(g));
+    assert(isCorrectlyTopped(g));
 
     DEBUG_PRINTF("graph has %zu vertices left\n", num_vertices(g));
     return delay;
@@ -892,6 +897,7 @@ u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
 void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
                                   u32 delay, const vector<NFAVertex> &preds) {
     assert(delay <= lit.length());
+    assert(isCorrectlyTopped(g));
     DEBUG_PRINTF("adding on '%s' %u\n", dumpString(lit).c_str(), delay);
 
     NFAVertex prev = g.accept;
@@ -906,7 +912,10 @@ void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     }
 
     for (auto v : preds) {
-        add_edge(v, prev, g);
+        NFAEdge e = add_edge(v, prev, g).first;
+        if (v == g.start && is_triggered(g)) {
+            g[e].tops.insert(DEFAULT_TOP);
+        }
     }
 
     // Every predecessor of accept must have a report.
@@ -917,6 +926,7 @@ void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     g.renumberVertices();
     g.renumberEdges();
     assert(allMatchStatesHaveReports(g));
+    assert(isCorrectlyTopped(g));
 }
 
 void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,

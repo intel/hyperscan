@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -69,8 +69,8 @@ struct NFAGraphEdgeProps {
     u32 index = 0;
 
     /** \brief For graphs that will be implemented as multi-top engines, this
-     * specifies the top event. Only used on edges from the start vertex. */
-    u32 top = 0;
+     * specifies the top events. Only used on edges from the start vertex. */
+    ue2::flat_set<u32> tops;
 
     /** \brief Flags associated with assertions. */
     u32 assert_flags = 0;

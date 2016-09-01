@@ -72,7 +72,7 @@ struct VertexInfoPtrCmp {
 class VertexInfo {
 public:
     VertexInfo(NFAVertex v_in, const NGHolder &g)
-        : v(v_in), vert_index(g[v].index), cr(g[v].char_reach), edge_top(~0),
+        : v(v_in), vert_index(g[v].index), cr(g[v].char_reach),
           equivalence_class(~0), vertex_flags(g[v].assert_flags) {}
 
     flat_set<VertexInfo *, VertexInfoPtrCmp> pred; //!< predecessors of this vertex
@@ -82,7 +82,7 @@ public:
     CharReach cr;
     CharReach pred_cr;
     CharReach succ_cr;
-    unsigned edge_top;
+    flat_set<u32> edge_tops; /**< tops on edge from start */
     unsigned equivalence_class;
     unsigned vertex_flags;
 };
@@ -120,7 +120,7 @@ public:
               EquivalenceType eq)
         : /* reports only matter for right-equiv */
           rs(eq == RIGHT_EQUIVALENCE ? g[vi.v].reports : flat_set<ReportID>()),
-          vertex_flags(vi.vertex_flags), edge_top(vi.edge_top), cr(vi.cr),
+          vertex_flags(vi.vertex_flags), edge_tops(vi.edge_tops), cr(vi.cr),
           adjacent_cr(eq == LEFT_EQUIVALENCE ? vi.pred_cr : vi.succ_cr),
           /* treat non-special vertices the same */
           node_type(min(g[vi.v].index, u32{N_SPECIALS})), depth(d_in) {}
@@ -128,7 +128,7 @@ public:
     bool operator==(const ClassInfo &b) const {
         return node_type == b.node_type && depth.d1 == b.depth.d1 &&
                depth.d2 == b.depth.d2 && cr == b.cr &&
-               adjacent_cr == b.adjacent_cr && edge_top == b.edge_top &&
+               adjacent_cr == b.adjacent_cr && edge_tops == b.edge_tops &&
                vertex_flags == b.vertex_flags && rs == b.rs;
     }
 
@@ -136,7 +136,6 @@ public:
         size_t val = 0;
         boost::hash_combine(val, boost::hash_range(begin(c.rs), end(c.rs)));
         boost::hash_combine(val, c.vertex_flags);
-        boost::hash_combine(val, c.edge_top);
         boost::hash_combine(val, c.cr);
         boost::hash_combine(val, c.adjacent_cr);
         boost::hash_combine(val, c.node_type);
@@ -148,7 +147,7 @@ public:
 private:
     flat_set<ReportID> rs; /* for right equiv only */
     unsigned vertex_flags;
-    u32 edge_top;
+    flat_set<u32> edge_tops;
     CharReach cr;
     CharReach adjacent_cr;
     unsigned node_type;
@@ -307,7 +306,7 @@ ptr_vector<VertexInfo> getVertexInfos(const NGHolder &g) {
 
             // also set up edge tops
             if (is_triggered(g) && u == g.start) {
-                cur_vi.edge_top = g[e].top;
+                cur_vi.edge_tops = g[e].tops;
             }
         }
 
@@ -544,7 +543,7 @@ void mergeClass(ptr_vector<VertexInfo> &infos, NGHolder &g, unsigned eq_class,
         infos.push_back(new_vertex_info_eod);
     }
 
-    const unsigned edgetop = (*cur_class_vertices.begin())->edge_top;
+    const auto &edgetops = (*cur_class_vertices.begin())->edge_tops;
     for (VertexInfo *old_vertex_info : cur_class_vertices) {
         assert(old_vertex_info->equivalence_class == eq_class);
 
@@ -565,9 +564,10 @@ void mergeClass(ptr_vector<VertexInfo> &infos, NGHolder &g, unsigned eq_class,
             // if edge doesn't exist, create it
             NFAEdge e = add_edge_if_not_present(pred_info->v, new_v, g).first;
 
-            // put edge top, if applicable
-            if (edgetop != (unsigned) -1) {
-                g[e].top = edgetop;
+            // put edge tops, if applicable
+            if (!edgetops.empty()) {
+                assert(g[e].tops.empty() || g[e].tops == edgetops);
+                g[e].tops = edgetops;
             }
 
             pred_info->succ.insert(new_vertex_info);
@@ -576,9 +576,10 @@ void mergeClass(ptr_vector<VertexInfo> &infos, NGHolder &g, unsigned eq_class,
                 NFAEdge ee = add_edge_if_not_present(pred_info->v, new_v_eod,
                                                      g).first;
 
-                // put edge top, if applicable
-                if (edgetop != (unsigned) -1) {
-                    g[ee].top = edgetop;
+                // put edge tops, if applicable
+                if (!edgetops.empty()) {
+                    assert(g[e].tops.empty() || g[e].tops == edgetops);
+                    g[ee].tops = edgetops;
                 }
 
                 pred_info->succ.insert(new_vertex_info_eod);

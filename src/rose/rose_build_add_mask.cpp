@@ -574,7 +574,8 @@ unique_ptr<NGHolder> buildMaskRhs(const ue2::flat_set<ReportID> &reports,
         succ = u;
     }
 
-    add_edge(h.start, succ, h);
+    NFAEdge e = add_edge(h.start, succ, h).first;
+    h[e].tops.insert(DEFAULT_TOP);
 
     return rhs;
 }
@@ -632,6 +633,7 @@ void doAddMask(RoseBuildImpl &tbi, bool anchored,
                     = buildMaskLhs(true, minBound - prefix2_len + overlap,
                                    mask3);
                 mhs->kind = NFA_INFIX;
+                setTops(*mhs);
                 add_edge(u, v, RoseInEdgeProps(mhs, delay), ig);
 
                 DEBUG_PRINTF("add anch literal too!\n");

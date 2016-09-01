@@ -1076,8 +1076,10 @@ bool splitRoseEdge(const NGHolder &base_graph, RoseInGraph &vg,
 
     assert(hasCorrectlyNumberedVertices(*rhs));
     assert(hasCorrectlyNumberedEdges(*rhs));
+    assert(isCorrectlyTopped(*rhs));
     assert(hasCorrectlyNumberedVertices(*lhs));
     assert(hasCorrectlyNumberedEdges(*lhs));
+    assert(isCorrectlyTopped(*lhs));
 
     return true;
 }
@@ -1152,7 +1154,11 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
             /* want to cut off paths to pivot from things other than the pivot -
              * makes a more svelte graphy */
             clear_in_edges(temp_map[pivot], *new_lhs);
-            add_edge(temp_map[prev_v], temp_map[pivot], *new_lhs);
+            NFAEdge pivot_edge = add_edge(temp_map[prev_v], temp_map[pivot],
+                                          *new_lhs).first;
+            if (is_triggered(h) && prev_v == h.start) {
+                (*new_lhs)[pivot_edge].tops.insert(DEFAULT_TOP);
+            }
 
             pruneUseless(*new_lhs, false);
             renumber_vertices(*new_lhs);
@@ -1162,6 +1168,7 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
 
             assert(hasCorrectlyNumberedVertices(*new_lhs));
             assert(hasCorrectlyNumberedEdges(*new_lhs));
+            assert(isCorrectlyTopped(*new_lhs));
 
             const set<ue2_literal> &lits = cut_lits.at(e);
             for (const auto &lit : lits) {
@@ -1228,6 +1235,7 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
                 DEBUG_PRINTF("    into rhs %s\n",
                               to_string(new_rhs->kind).c_str());
                 done_rhs.emplace(adj, new_rhs);
+                assert(isCorrectlyTopped(*new_rhs));
             }
 
             assert(done_rhs[adj].get());
@@ -1235,6 +1243,7 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
 
             assert(hasCorrectlyNumberedVertices(*new_rhs));
             assert(hasCorrectlyNumberedEdges(*new_rhs));
+            assert(isCorrectlyTopped(*new_rhs));
 
             if (vg[dest].type == RIV_LITERAL
                 && !can_match(*new_rhs, vg[dest].s, true)) {
@@ -1380,6 +1389,7 @@ void avoidOutfixes(RoseInGraph &vg, const CompileContext &cc) {
     RoseInEdge e = *edges(vg).first;
 
     NGHolder &h = *vg[e].graph;
+    assert(isCorrectlyTopped(h));
 
     renumber_vertices(h);
     renumber_edges(h);
@@ -1602,6 +1612,7 @@ void removeRedundantLiteralsFromInfix(const NGHolder &h, RoseInGraph &ig,
             continue;
         }
 
+        assert(isCorrectlyTopped(*h_new));
         graphs[right] = make_pair(h_new, delay);
     }
 
@@ -1720,6 +1731,8 @@ unique_ptr<NGHolder> make_chain(u32 count) {
     h[u].reports.insert(0);
     add_edge(u, h.accept, h);
 
+    setTops(h);
+
     return rv;
 }
 
@@ -1777,6 +1790,7 @@ bool makeTransientFromLongLiteral(NGHolder &h, RoseInGraph &vg,
         assert(willBeTransient(findMaxWidth(*h_new), cc)
                || willBeAnchoredTable(findMaxWidth(*h_new), cc.grey));
 
+        assert(isCorrectlyTopped(*h_new));
         graphs[v] = h_new;
     }
 
@@ -1811,6 +1825,7 @@ bool improvePrefix(NGHolder &h, RoseInGraph &vg, const vector<RoseInEdge> &ee,
                    const CompileContext &cc) {
     DEBUG_PRINTF("trying to improve prefix %p, %zu verts\n", &h,
                   num_vertices(h));
+    assert(isCorrectlyTopped(h));
 
     renumber_vertices(h);
     renumber_edges(h);
@@ -1860,6 +1875,7 @@ bool improvePrefix(NGHolder &h, RoseInGraph &vg, const vector<RoseInEdge> &ee,
         for (const auto &e : ee) {
             shared_ptr<NGHolder> hh = cloneHolder(h);
             auto succ_lit = vg[target(e, vg)].s;
+            assert(isCorrectlyTopped(*hh));
             u32 delay = removeTrailingLiteralStates(*hh, succ_lit,
                                                     succ_lit.length(),
                                               false /* can't overhang start */);
@@ -1868,6 +1884,7 @@ bool improvePrefix(NGHolder &h, RoseInGraph &vg, const vector<RoseInEdge> &ee,
                 continue;
             }
 
+            assert(isCorrectlyTopped(*hh));
             trimmed[hh].emplace_back(e, delay);
         }
 
@@ -2110,10 +2127,15 @@ void splitEdgesForSuffix(const NGHolder &base_graph, RoseInGraph &vg,
     add_edge(lhs->accept, lhs->acceptEod, *lhs);
     clearReports(*lhs);
     for (NFAVertex v : splitters) {
-        add_edge(v_map[v], lhs->accept, *lhs);
+        NFAEdge e = add_edge(v_map[v], lhs->accept, *lhs).first;
+        if (v == base_graph.start) {
+            (*lhs)[e].tops.insert(DEFAULT_TOP);
+        }
         (*lhs)[v_map[v]].reports.insert(0);
+
     }
     pruneUseless(*lhs);
+    assert(isCorrectlyTopped(*lhs));
 
     /* create literal vertices and connect preds */
     for (const auto &lit : split.lit) {

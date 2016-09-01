@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,6 +46,8 @@ class NGHolder;
  * allocated to rhs if they are reachable from the pivot. Conversely, a vertex
  * is in the lhs if it is reachable from start without going through the
  * pivot. The pivot ends up in the LHS and any adjacent vertices in the RHS.
+ *
+ * Note: The RHS is setup to be triggered by TOP 0
  *
  * When multiple split vertices are provided:
  * - RHS contains all vertices reachable from every pivot

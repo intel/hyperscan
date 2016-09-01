@@ -615,7 +615,8 @@ ue2_literal findNonOverlappingTail(const std::set<ue2_literal> &lits,
 void setReportId(NGHolder &g, ReportID id);
 
 #ifndef NDEBUG
-bool roseHasTops(const RoseGraph &g, RoseVertex v);
+bool roseHasTops(const RoseBuildImpl &build, RoseVertex v);
+bool hasOrphanedTops(const RoseBuildImpl &build);
 #endif
 
 u64a findMaxOffset(const std::set<ReportID> &reports, const ReportManager &rm);

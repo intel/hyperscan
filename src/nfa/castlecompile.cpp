@@ -904,7 +904,7 @@ void addToHolder(NGHolder &g, u32 top, const PureRepeat &pr) {
     if (min_bound == 0) { // Vacuous case, we can only do this once.
         assert(!edge(g.start, g.accept, g).second);
         NFAEdge e = add_edge(g.start, g.accept, g).first;
-        g[e].top = top;
+        g[e].tops.insert(top);
         g[u].reports.insert(pr.reports.begin(), pr.reports.end());
         min_bound = 1;
     }
@@ -914,7 +914,7 @@ void addToHolder(NGHolder &g, u32 top, const PureRepeat &pr) {
         g[v].char_reach = pr.reach;
         NFAEdge e = add_edge(u, v, g).first;
         if (u == g.start) {
-            g[e].top = top;
+            g[e].tops.insert(top);
         }
         u = v;
     }
@@ -933,7 +933,7 @@ void addToHolder(NGHolder &g, u32 top, const PureRepeat &pr) {
             }
             NFAEdge e = add_edge(u, v, g).first;
             if (u == g.start) {
-                g[e].top = top;
+                g[e].tops.insert(top);
             }
             u = v;
         }

@@ -512,7 +512,7 @@ bool nfaStuckOn(const NGHolder &g) {
     set<u32> done_tops;
 
     for (const auto &e : out_edges_range(g.start, g)) {
-        tops.insert(g[e].top);
+        insert(&tops, g[e].tops);
         if (!g[target(e, g)].char_reach.all()) {
             continue;
         }
@@ -521,7 +521,7 @@ bool nfaStuckOn(const NGHolder &g) {
         insert(&asucc, adjacent_vertices(target(e, g), g));
 
         if (asucc == succ) {
-            done_tops.insert(g[e].top);
+            insert(&done_tops, g[e].tops);
         }
     }
 
@@ -842,8 +842,8 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
     if (!n && !is_prefix && left.graph() && onlyOneTop(*left.graph())) {
         map<u32, vector<vector<CharReach> > > triggers;
         findTriggerSequences(tbi, infixTriggers.at(left), &triggers);
-        assert(contains(triggers, 0)); // single top
-        n = constructLBR(*left.graph(), triggers[0], cc, rm);
+        assert(triggers.size() == 1); // single top
+        n = constructLBR(*left.graph(), triggers.begin()->second, cc, rm);
     }
 
     if (!n && left.graph()) {
@@ -1435,7 +1435,7 @@ void findExclusiveInfixes(RoseBuildImpl &build, build_context &bc,
 
         // Sanity check: our NFA should contain each of the tops mentioned on
         // our in-edges.
-        assert(roseHasTops(g, v));
+        assert(roseHasTops(build, v));
 
         if (contains(leftfixes, leftfix)) {
             // NFA already built.
@@ -1504,7 +1504,7 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
 
         // Sanity check: our NFA should contain each of the tops mentioned on
         // our in-edges.
-        assert(roseHasTops(g, v));
+        assert(roseHasTops(tbi, v));
 
         bool is_transient = contains(tbi.transient, leftfix);
 

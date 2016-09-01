@@ -205,11 +205,10 @@ u32 commonPrefixLength(const NGHolder &ga,
                     break;
                 }
 
-                if (ga[*ei].top != gb[b_edge].top) {
+                if (ga[*ei].tops != gb[b_edge].tops) {
                     max = i;
                     ok = false;
-                    DEBUG_PRINTF("tops don't match on edge %zu->%u\n",
-                                 i, sid);
+                    DEBUG_PRINTF("tops don't match on edge %zu->%u\n", i, sid);
                 }
             }
 
@@ -318,7 +317,7 @@ void mergeNfa(NGHolder &dest, vector<NFAVertex> &destStateMap,
                 DEBUG_PRINTF("skipping common edge\n");
                 assert(edge(u, v, dest).second);
                 // Should never merge edges with different top values.
-                assert(vic[e].top == dest[edge(u, v, dest).first].top);
+                assert(vic[e].tops == dest[edge(u, v, dest).first].tops);
                 continue;
             } else {
                 assert(is_any_accept(v, dest));
@@ -506,11 +505,13 @@ bool mergeableStarts(const NGHolder &h1, const NGHolder &h2) {
         return false;
     }
 
+    /* TODO: relax top checks if reports match */
+
     // If both graphs have edge (start, accept), the tops must match.
     auto e1_accept = edge(h1.start, h1.accept, h1);
     auto e2_accept = edge(h2.start, h2.accept, h2);
     if (e1_accept.second && e2_accept.second &&
-        h1[e1_accept.first].top != h2[e2_accept.first].top) {
+        h1[e1_accept.first].tops != h2[e2_accept.first].tops) {
         return false;
     }
 
@@ -518,7 +519,7 @@ bool mergeableStarts(const NGHolder &h1, const NGHolder &h2) {
     auto e1_eod = edge(h1.start, h1.acceptEod, h1);
     auto e2_eod = edge(h2.start, h2.acceptEod, h2);
     if (e1_eod.second && e2_eod.second &&
-        h1[e1_eod.first].top != h2[e2_eod.first].top) {
+        h1[e1_eod.first].tops != h2[e2_eod.first].tops) {
         return false;
     }
 

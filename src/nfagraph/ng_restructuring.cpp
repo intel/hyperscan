@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -174,6 +174,7 @@ numberStates(NGHolder &h, const map<u32, NFAVertex> &tops) {
 u32 countStates(const NGHolder &g,
                 const ue2::unordered_map<NFAVertex, u32> &state_ids,
                 bool addTops) {
+    /* TODO: smarter top state allocation, move to limex? */
     if (state_ids.empty()) {
         return 0;
     }
@@ -188,11 +189,11 @@ u32 countStates(const NGHolder &g,
     u32 num_states = max_state + 1;
 
     assert(contains(state_ids, g.start));
-    if (addTops && state_ids.at(g.start) != NO_STATE) {
+    if (addTops && is_triggered(g) && state_ids.at(g.start) != NO_STATE) {
         num_states--;
         set<u32> tops;
         for (auto e : out_edges_range(g.start, g)) {
-            tops.insert(g[e].top);
+            insert(&tops, g[e].tops);
         }
         num_states += tops.size();
     }

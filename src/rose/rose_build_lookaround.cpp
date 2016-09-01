@@ -72,7 +72,7 @@ void getForwardReach(const NGHolder &g, u32 top, map<s32, CharReach> &look) {
         if (v == g.startDs) {
             continue;
         }
-        if (g[e].top == top) {
+        if (contains(g[e].tops, top)) {
             curr.insert(v);
         }
     }

@@ -198,8 +198,12 @@ VertexIndexOrdering<Graph> make_index_ordering(const Graph &g) {
 
 bool onlyOneTop(const NGHolder &g);
 
-/** Return a mask of the tops on the given graph. */
+/** Return the set of the tops on the given graph. */
 flat_set<u32> getTops(const NGHolder &h);
+
+/** Initialise the tops on h to the provide top. Assumes that h is triggered and
+ * no tops have been set on h. */
+void setTops(NGHolder &h, u32 top = DEFAULT_TOP);
 
 /** adds a vertex to g with all the same vertex properties as \p v (aside from
  * index) */
@@ -319,6 +323,12 @@ bool hasCorrectlyNumberedVertices(const NGHolder &g);
  */
 bool hasCorrectlyNumberedEdges(const NGHolder &g);
 
+/**
+ * Assertion: returns true if the graph is triggered and all edges out of start
+ * have tops OR if the graph is not-triggered and all edges out of start have no
+ * tops.
+ */
+bool isCorrectlyTopped(const NGHolder &g);
 #endif // NDEBUG
 
 } // namespace ue2

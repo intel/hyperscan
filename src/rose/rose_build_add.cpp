@@ -1619,6 +1619,8 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter,
         }
 
         NGHolder *h = in[e].graph.get();
+
+        assert(isCorrectlyTopped(*h));
         if (!contains(graphs, h)) {
             ordered_graphs.push_back(h);
         }

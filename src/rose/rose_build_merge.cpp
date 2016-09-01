@@ -1762,9 +1762,12 @@ void replaceTops(NGHolder &h, const map<u32, u32> &top_mapping) {
         if (v == h.startDs) {
             continue;
         }
-        DEBUG_PRINTF("vertex %u has top %u\n", h[v].index, h[e].top);
-        assert(contains(top_mapping, h[e].top));
-        h[e].top = top_mapping.at(h[e].top);
+        flat_set<u32> new_tops;
+        for (u32 t : h[e].tops) {
+            DEBUG_PRINTF("vertex %u has top %u\n", h[v].index, t);
+            new_tops.insert(top_mapping.at(t));
+        }
+        h[e].tops = move(new_tops);
     }
 }
 

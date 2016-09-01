@@ -863,7 +863,7 @@ void pruneUnusedTops(CastleProto &castle, const RoseGraph &g,
 static
 void pruneUnusedTops(NGHolder &h, const RoseGraph &g,
                      const set<RoseVertex> &verts) {
-    ue2::unordered_set<u32> used_tops;
+    ue2::flat_set<u32> used_tops;
     for (auto v : verts) {
         assert(g[v].left.graph.get() == &h);
 
@@ -879,10 +879,13 @@ void pruneUnusedTops(NGHolder &h, const RoseGraph &g,
         if (v == h.startDs) {
             continue; // stylised edge, leave it alone.
         }
-        u32 top = h[e].top;
-        if (!contains(used_tops, top)) {
-            DEBUG_PRINTF("edge (start,%u) has unused top %u\n",
-                          h[v].index, top);
+        flat_set<u32> pruned_tops;
+        auto pt_inserter = inserter(pruned_tops, pruned_tops.end());
+        set_intersection(h[e].tops.begin(), h[e].tops.end(),
+                         used_tops.begin(), used_tops.end(), pt_inserter);
+        h[e].tops = move(pruned_tops);
+        if (h[e].tops.empty()) {
+            DEBUG_PRINTF("edge (start,%u) has only unused tops\n", h[v].index);
             dead.push_back(e);
         }
     }
@@ -1327,8 +1330,8 @@ bool attemptRoseGraphMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
     DEBUG_PRINTF("winner %zu states\n", num_vertices(*b_h));
 
     if (!setDistinctRoseTops(g, victim, *b_h, deque<RoseVertex>(1, a))) {
-        assert(roseHasTops(g, a));
-        assert(roseHasTops(g, b));
+        assert(roseHasTops(build, a));
+        assert(roseHasTops(build, b));
         return false;
     }
 
@@ -1341,8 +1344,8 @@ bool attemptRoseGraphMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
         for (const auto &e : in_edges_range(a, g)) {
             g[e] = a_props[source(e, g)];
         }
-        assert(roseHasTops(g, a));
-        assert(roseHasTops(g, b));
+        assert(roseHasTops(build, a));
+        assert(roseHasTops(build, b));
         return false;
     }
 
@@ -1365,8 +1368,8 @@ bool attemptRoseGraphMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
 
     reduceImplementableGraph(*b_h, SOM_NONE, nullptr, build.cc);
 
-    assert(roseHasTops(g, a));
-    assert(roseHasTops(g, b));
+    assert(roseHasTops(build, a));
+    assert(roseHasTops(build, b));
     assert(isImplementableNFA(*b_h, nullptr, build.cc));
     return true;
 }
@@ -1417,8 +1420,8 @@ bool attemptRoseMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
         return false;
     }
 
-    assert(roseHasTops(g, a));
-    assert(roseHasTops(g, b));
+    assert(roseHasTops(build, a));
+    assert(roseHasTops(build, b));
 
     if (a_left_id.graph() && b_left_id.graph()) {
         return attemptRoseGraphMerge(build, preds_same, a, b, trivialCasesOnly,
@@ -1737,6 +1740,7 @@ void leftMergePass(CandidateSet &candidates, RoseBuildImpl &build,
     }
 
     DEBUG_PRINTF("%zu candidates remaining\n", candidates.size());
+    assert(!hasOrphanedTops(build));
 }
 
 // Can't merge vertices with different root predecessors.
@@ -1952,6 +1956,7 @@ void rightMergePass(CandidateSet &candidates, RoseBuildImpl &build,
     }
 
     DEBUG_PRINTF("%zu candidates remaining\n", candidates.size());
+    assert(!hasOrphanedTops(build));
 }
 
 /**
@@ -2017,6 +2022,7 @@ void filterDiamondCandidates(RoseGraph &g, CandidateSet &candidates) {
 void aliasRoles(RoseBuildImpl &build, bool mergeRoses) {
     const CompileContext &cc = build.cc;
     RoseGraph &g = build.g;
+    assert(!hasOrphanedTops(build));
 
     if (!cc.grey.roseRoleAliasing || !cc.grey.roseGraphReduction) {
         return;
@@ -2050,6 +2056,7 @@ void aliasRoles(RoseBuildImpl &build, bool mergeRoses) {
 
     DEBUG_PRINTF("killed %zu vertices\n", dead.size());
     build.removeVertices(dead);
+    assert(!hasOrphanedTops(build));
 }
 
 } // namespace ue2
