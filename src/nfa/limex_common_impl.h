@@ -39,7 +39,6 @@
 #define IMPL_NFA_T          JOIN(struct LimExNFA, SIZE)
 
 #define TESTEOD_FN          JOIN(moNfaTestEod, SIZE)
-#define TESTEOD_REV_FN      JOIN(moNfaRevTestEod, SIZE)
 #define LIMEX_INACCEPT_FN   JOIN(limexInAccept, SIZE)
 #define LIMEX_INANYACCEPT_FN   JOIN(limexInAnyAccept, SIZE)
 #define EXPIRE_ESTATE_FN    JOIN(limexExpireExtendedState, SIZE)
@@ -158,7 +157,8 @@ char PROCESS_ACCEPTS_NOSQUASH_FN(const STATE_T *s,
     return 0;
 }
 
-// Run EOD accepts.
+// Run EOD accepts. Note that repeat_ctrl and repeat_state may be NULL if this
+// LimEx contains no repeat structures.
 static really_inline
 char TESTEOD_FN(const IMPL_NFA_T *limex, const STATE_T *s,
                 const union RepeatControl *repeat_ctrl,
@@ -176,33 +176,6 @@ char TESTEOD_FN(const IMPL_NFA_T *limex, const STATE_T *s,
 
     SQUASH_UNTUG_BR_FN(limex, repeat_ctrl, repeat_state,
                        offset + 1 /* EOD 'symbol' */, &foundAccepts);
-
-    if (unlikely(ISNONZERO_STATE(foundAccepts))) {
-        const struct NFAAccept *acceptEodTable = getAcceptEodTable(limex);
-        if (PROCESS_ACCEPTS_NOSQUASH_FN(&foundAccepts, acceptEodTable,
-                                        limex->acceptEodCount, offset, callback,
-                                        context)) {
-            return MO_HALT_MATCHING;
-        }
-    }
-
-    return MO_CONTINUE_MATCHING;
-}
-
-static really_inline
-char TESTEOD_REV_FN(const IMPL_NFA_T *limex, const STATE_T *s, u64a offset,
-                    NfaCallback callback, void *context) {
-    assert(limex && s);
-
-    // There may not be any EOD accepts in this NFA.
-    if (!limex->acceptEodCount) {
-        return MO_CONTINUE_MATCHING;
-    }
-
-    STATE_T acceptEodMask = LOAD_FROM_ENG(&limex->acceptAtEOD);
-    STATE_T foundAccepts = AND_STATE(*s, acceptEodMask);
-
-    assert(!limex->repeatCount);
 
     if (unlikely(ISNONZERO_STATE(foundAccepts))) {
         const struct NFAAccept *acceptEodTable = getAcceptEodTable(limex);
@@ -391,7 +364,6 @@ char LIMEX_INANYACCEPT_FN(const IMPL_NFA_T *limex, STATE_T state,
 }
 
 #undef TESTEOD_FN
-#undef TESTEOD_REV_FN
 #undef REPORTCURRENT_FN
 #undef EXPIRE_ESTATE_FN
 #undef LIMEX_INACCEPT_FN

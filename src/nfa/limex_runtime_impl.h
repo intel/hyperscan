@@ -46,7 +46,6 @@
 #define IMPL_NFA_T          JOIN(struct LimExNFA, SIZE)
 
 #define TESTEOD_FN          JOIN(moNfaTestEod, SIZE)
-#define TESTEOD_REV_FN      JOIN(moNfaRevTestEod, SIZE)
 #define INITIAL_FN          JOIN(moNfaInitial, SIZE)
 #define TOP_FN              JOIN(moNfaTop, SIZE)
 #define TOPN_FN             JOIN(moNfaTopN, SIZE)
@@ -927,8 +926,11 @@ char JOIN(LIMEX_API_ROOT, _B_Reverse)(const struct NFA *n, u64a offset,
         REV_STREAM_FN(limex, hbuf, hlen, &ctx, offset);
     }
 
-    if (offset == 0 && ISNONZERO_STATE(ctx.s)) {
-        TESTEOD_REV_FN(limex, &ctx.s, offset, cb, context);
+    if (offset == 0 && limex->acceptEodCount && ISNONZERO_STATE(ctx.s)) {
+        const union RepeatControl *repeat_ctrl = NULL;
+        const char *repeat_state = NULL;
+        TESTEOD_FN(limex, &ctx.s, repeat_ctrl, repeat_state, offset, cb,
+                   context);
     }
 
     // NOTE: return value is unused.
@@ -991,7 +993,6 @@ enum nfa_zombie_status JOIN(LIMEX_API_ROOT, _zombie_status)(
 }
 
 #undef TESTEOD_FN
-#undef TESTEOD_REV_FN
 #undef INITIAL_FN
 #undef TOP_FN
 #undef TOPN_FN
