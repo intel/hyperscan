@@ -883,8 +883,8 @@ char JOIN(LIMEX_API_ROOT, _testEOD)(const struct NFA *n, const char *state,
     const union RepeatControl *repeat_ctrl =
         getRepeatControlBaseConst(state, sizeof(STATE_T));
     const char *repeat_state = streamState + limex->stateSize;
-    return TESTEOD_FN(limex, sptr, repeat_ctrl, repeat_state, offset, 1,
-                      callback, context);
+    return TESTEOD_FN(limex, sptr, repeat_ctrl, repeat_state, offset, callback,
+                      context);
 }
 
 char JOIN(LIMEX_API_ROOT, _reportCurrent)(const struct NFA *n, struct mq *q) {

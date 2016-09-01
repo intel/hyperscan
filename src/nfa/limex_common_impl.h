@@ -162,7 +162,7 @@ char PROCESS_ACCEPTS_NOSQUASH_FN(const STATE_T *s,
 static really_inline
 char TESTEOD_FN(const IMPL_NFA_T *limex, const STATE_T *s,
                 const union RepeatControl *repeat_ctrl,
-                const char *repeat_state, u64a offset, char do_br,
+                const char *repeat_state, u64a offset,
                 NfaCallback callback, void *context) {
     assert(limex && s);
 
@@ -174,12 +174,8 @@ char TESTEOD_FN(const IMPL_NFA_T *limex, const STATE_T *s,
     const STATE_T acceptEodMask = LOAD_FROM_ENG(&limex->acceptAtEOD);
     STATE_T foundAccepts = AND_STATE(*s, acceptEodMask);
 
-    if (do_br) {
-        SQUASH_UNTUG_BR_FN(limex, repeat_ctrl, repeat_state,
-                           offset + 1 /* EOD 'symbol' */, &foundAccepts);
-    } else {
-        assert(!limex->repeatCount);
-    }
+    SQUASH_UNTUG_BR_FN(limex, repeat_ctrl, repeat_state,
+                       offset + 1 /* EOD 'symbol' */, &foundAccepts);
 
     if (unlikely(ISNONZERO_STATE(foundAccepts))) {
         const struct NFAAccept *acceptEodTable = getAcceptEodTable(limex);
