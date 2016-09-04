@@ -192,7 +192,7 @@ struct NFAAccept {
      */
     u32 reports;
 
-    u32 squash;  //!< Offset into squash masks, or MO_INVALID_IDX.
+    u32 squash;  //!< Offset (from LimEx) into squash masks, or MO_INVALID_IDX.
 };
 
 #endif

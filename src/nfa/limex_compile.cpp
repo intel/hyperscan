@@ -2020,12 +2020,13 @@ struct Factory {
         maskSetBits(limex->accept, acceptMask);
         maskSetBits(limex->acceptAtEOD, acceptEodMask);
 
-        // Transforms the index into the report list into an offset relative to
-        // the base of the limex.
-        auto report_offset_fn = [&](NFAAccept a) {
+        // Transforms the indices (report list, squash mask) into offsets
+        // relative to the base of the limex.
+        auto transform_offset_fn = [&](NFAAccept a) {
             if (!a.single_report) {
                 a.reports = reportListOffset + a.reports * sizeof(ReportID);
             }
+            a.squash = squashOffset + a.squash * sizeof(tableRow_t);
             return a;
         };
 
@@ -2036,7 +2037,7 @@ struct Factory {
         NFAAccept *acceptsTable = (NFAAccept *)(limex_base + acceptsOffset);
         assert(ISALIGNED(acceptsTable));
         transform(accepts.begin(), accepts.end(), acceptsTable,
-                  report_offset_fn);
+                  transform_offset_fn);
 
         // Write eod accept table.
         limex->acceptEodOffset = acceptsEodOffset;
@@ -2045,7 +2046,7 @@ struct Factory {
         NFAAccept *acceptsEodTable = (NFAAccept *)(limex_base + acceptsEodOffset);
         assert(ISALIGNED(acceptsEodTable));
         transform(acceptsEod.begin(), acceptsEod.end(), acceptsEodTable,
-                  report_offset_fn);
+                  transform_offset_fn);
 
         // Write squash mask table.
         limex->squashCount = verify_u32(squash.size());

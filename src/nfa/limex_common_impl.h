@@ -115,8 +115,7 @@ void SQUASH_UNTUG_BR_FN(const IMPL_NFA_T *limex,
 
 static really_inline
 char PROCESS_ACCEPTS_IMPL_FN(const IMPL_NFA_T *limex, const STATE_T *s,
-                             STATE_T *squash, const ENG_STATE_T *squashMasks,
-                             const STATE_T *acceptMask,
+                             STATE_T *squash, const STATE_T *acceptMask,
                              const struct NFAAccept *acceptTable, u64a offset,
                              NfaCallback callback, void *context) {
     assert(s);
@@ -151,10 +150,9 @@ char PROCESS_ACCEPTS_IMPL_FN(const IMPL_NFA_T *limex, const STATE_T *s,
                 return 1;
             }
             if (squash != NULL && a->squash != MO_INVALID_IDX) {
-                assert(squashMasks);
-                assert(a->squash < limex->squashCount);
-                const ENG_STATE_T *sq = &squashMasks[a->squash];
-                DEBUG_PRINTF("squash mask %u @ %p\n", a->squash, sq);
+                DEBUG_PRINTF("applying squash mask at offset %u\n", a->squash);
+                const ENG_STATE_T *sq =
+                    (const ENG_STATE_T *)((const char *)limex + a->squash);
                 *squash = AND_STATE(*squash, LOAD_FROM_ENG(sq));
             }
         }
@@ -171,11 +169,8 @@ char PROCESS_ACCEPTS_FN(const IMPL_NFA_T *limex, STATE_T *s,
                         NfaCallback callback, void *context) {
     // We have squash masks we might have to apply after firing reports.
     STATE_T squash = ONES_STATE;
-    const ENG_STATE_T *squashMasks = (const ENG_STATE_T *)
-        ((const char *)limex + limex->squashOffset);
-
-    return PROCESS_ACCEPTS_IMPL_FN(limex, s, &squash, squashMasks, acceptMask,
-                                   acceptTable, offset, callback, context);
+    return PROCESS_ACCEPTS_IMPL_FN(limex, s, &squash, acceptMask, acceptTable,
+                                   offset, callback, context);
 
     *s = AND_STATE(*s, squash);
 }
@@ -187,10 +182,8 @@ char PROCESS_ACCEPTS_NOSQUASH_FN(const IMPL_NFA_T *limex, const STATE_T *s,
                                  u64a offset, NfaCallback callback,
                                  void *context) {
     STATE_T *squash = NULL;
-    const ENG_STATE_T *squashMasks = NULL;
-
-    return PROCESS_ACCEPTS_IMPL_FN(limex, s, squash, squashMasks, acceptMask,
-                                   acceptTable, offset, callback, context);
+    return PROCESS_ACCEPTS_IMPL_FN(limex, s, squash, acceptMask, acceptTable,
+                                   offset, callback, context);
 }
 
 // Run EOD accepts. Note that repeat_ctrl and repeat_state may be NULL if this
