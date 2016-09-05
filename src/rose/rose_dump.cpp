@@ -273,6 +273,20 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CHECK_SINGLE_LOOKAROUND) {
+                os << "    offset " << int{ri->offset} << endl;
+                os << "    reach_index " << ri->reach_index << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+                const u8 *base = (const u8 *)t;
+                const u8 *reach_base = base + t->lookaroundReachOffset;
+                const u8 *reach = reach_base +
+                                  ri->reach_index * REACH_BITVECTOR_LEN;
+                os << "    contents:" << endl;
+                describeClass(os, bitvectorToReach(reach), 1000, CC_OUT_TEXT);
+                os << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CHECK_LOOKAROUND) {
                 os << "    index " << ri->index << endl;
                 os << "    count " << ri->count << endl;

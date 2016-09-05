@@ -378,6 +378,39 @@ public:
     }
 };
 
+class RoseInstrCheckSingleLookaround
+    : public RoseInstrBaseOneTarget<ROSE_INSTR_CHECK_SINGLE_LOOKAROUND,
+                                    ROSE_STRUCT_CHECK_SINGLE_LOOKAROUND,
+                                    RoseInstrCheckSingleLookaround> {
+public:
+    s8 offset;
+    u32 reach_index;
+    const RoseInstruction *target;
+
+    RoseInstrCheckSingleLookaround(s8 offset_in, u32 reach_index_in,
+                                   const RoseInstruction *target_in)
+        : offset(offset_in), reach_index(reach_index_in), target(target_in) {}
+
+    bool operator==(const RoseInstrCheckSingleLookaround &ri) const {
+        return offset == ri.offset && reach_index == ri.reach_index &&
+               target == ri.target;
+    }
+
+    size_t hash() const override {
+        return hash_all(static_cast<int>(opcode), offset, reach_index);
+    }
+
+    void write(void *dest, RoseEngineBlob &blob,
+               const OffsetMap &offset_map) const override;
+
+    bool equiv_to(const RoseInstrCheckSingleLookaround &ri,
+                  const OffsetMap &offsets,
+                  const OffsetMap &other_offsets) const {
+        return offset == ri.offset && reach_index == ri.reach_index &&
+               offsets.at(target) == other_offsets.at(ri.target);
+    }
+};
+
 class RoseInstrCheckLookaround
     : public RoseInstrBaseOneTarget<ROSE_INSTR_CHECK_LOOKAROUND,
                                     ROSE_STRUCT_CHECK_LOOKAROUND,

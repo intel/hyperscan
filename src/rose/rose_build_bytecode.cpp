@@ -3076,6 +3076,15 @@ void makeLookaroundInstruction(build_context &bc, const vector<LookEntry> &look,
         return;
     }
 
+    if (look.size() == 1) {
+        s8 offset = look.begin()->offset;
+        u32 look_idx = addLookaround(bc, look);
+        auto ri = make_unique<RoseInstrCheckSingleLookaround>(offset, look_idx,
+                                                    program.end_instruction());
+        program.add_before_end(move(ri));
+        return;
+    }
+
     if (makeRoleMask(look, program)) {
         return;
     }

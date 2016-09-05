@@ -1019,6 +1019,46 @@ int roseCheckShufti32x16(const struct core_info *ci, const u8 *hi_mask,
     }
 }
 
+static rose_inline
+int roseCheckSingleLookaround(const struct RoseEngine *t,
+                              const struct hs_scratch *scratch,
+                              s8 checkOffset, u32 lookaroundIndex, u64a end) {
+    assert(lookaroundIndex != MO_INVALID_IDX);
+    const struct core_info *ci = &scratch->core_info;
+    DEBUG_PRINTF("end=%llu, buf_offset=%llu, buf_end=%llu\n", end,
+                 ci->buf_offset, ci->buf_offset + ci->len);
+
+    const s64a base_offset = end - ci->buf_offset;
+    const s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("base_offset=%lld\n", base_offset);
+    DEBUG_PRINTF("checkOffset=%d offset=%lld\n", checkOffset, offset);
+
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    const u8 *reach_base = (const u8 *)t + t->lookaroundReachOffset;
+    const u8 *reach = reach_base + lookaroundIndex * REACH_BITVECTOR_LEN;
+
+    u8 c;
+    if (offset >= 0 && offset < (s64a)ci->len) {
+        c = ci->buf[offset];
+    } else if (offset < 0 && offset >= -(s64a)ci->hlen) {
+        c = ci->hbuf[ci->hlen + offset];
+    } else {
+        return 1;
+    }
+
+    if (!reachHasBit(reach, c)) {
+        DEBUG_PRINTF("char 0x%02x failed reach check\n", c);
+        return 0;
+    }
+
+    DEBUG_PRINTF("OK :)\n");
+    return 1;
+}
+
 /**
  * \brief Scan around a literal, checking that that "lookaround" reach masks
  * are satisfied.
@@ -1408,6 +1448,17 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                 struct fatbit *handled = scratch->handled_roles;
                 if (fatbit_set(handled, t->handledKeyCount, ri->key)) {
                     DEBUG_PRINTF("key %u already set\n", ri->key);
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_SINGLE_LOOKAROUND) {
+                if (!roseCheckSingleLookaround(t, scratch, ri->offset,
+                                               ri->reach_index, end)) {
+                    DEBUG_PRINTF("failed lookaround check\n");
                     assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
                     continue;

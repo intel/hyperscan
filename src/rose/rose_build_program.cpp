@@ -112,6 +112,15 @@ void RoseInstrCheckNotHandled::write(void *dest, RoseEngineBlob &blob,
     inst->fail_jump = calc_jump(offset_map, this, target);
 }
 
+void RoseInstrCheckSingleLookaround::write(void *dest, RoseEngineBlob &blob,
+                                           const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    inst->offset = offset;
+    inst->reach_index = reach_index;
+    inst->fail_jump = calc_jump(offset_map, this, target);
+}
+
 void RoseInstrCheckLookaround::write(void *dest, RoseEngineBlob &blob,
                                      const OffsetMap &offset_map) const {
     RoseInstrBase::write(dest, blob, offset_map);

@@ -48,6 +48,7 @@ enum RoseInstructionCode {
     ROSE_INSTR_CHECK_ONLY_EOD,    //!< Role matches only at EOD.
     ROSE_INSTR_CHECK_BOUNDS,      //!< Bounds on distance from offset 0.
     ROSE_INSTR_CHECK_NOT_HANDLED, //!< Test & set role in "handled".
+    ROSE_INSTR_CHECK_SINGLE_LOOKAROUND, //!< Single lookaround check.
     ROSE_INSTR_CHECK_LOOKAROUND,  //!< Lookaround check.
     ROSE_INSTR_CHECK_MASK,        //!< 8-bytes mask check.
     ROSE_INSTR_CHECK_MASK_32,     //!< 32-bytes and/cmp/neg mask check.
@@ -152,6 +153,13 @@ struct ROSE_STRUCT_CHECK_NOT_HANDLED {
     u8 code; //!< From enum RoseInstructionCode.
     u32 key; //!< Key in the "handled_roles" fatbit in scratch.
     u32 fail_jump; //!< Jump forward this many bytes if we have seen key before.
+};
+
+struct ROSE_STRUCT_CHECK_SINGLE_LOOKAROUND {
+    u8 code; //!< From enum RoseInstructionCode.
+    s8 offset; //!< The offset of the byte to examine.
+    u32 reach_index; //!< The index of the reach table entry to use.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
 struct ROSE_STRUCT_CHECK_LOOKAROUND {
