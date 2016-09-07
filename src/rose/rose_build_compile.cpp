@@ -87,172 +87,6 @@ namespace ue2 {
 #define ANCHORED_REHOME_DEEP 25
 #define ANCHORED_REHOME_SHORT_LEN 3
 
-#ifdef DEBUG
-static UNUSED
-void printLitInfo(const rose_literal_info &li, u32 id) {
-    DEBUG_PRINTF("lit_info %u\n", id);
-    DEBUG_PRINTF("  parent %u%s", li.undelayed_id,
-                 li.delayed_ids.empty() ? "":", children:");
-    for (u32 d_id : li.delayed_ids) {
-        printf(" %u", d_id);
-    }
-    printf("\n");
-    DEBUG_PRINTF("  group %llu %s\n", li.group_mask, li.squash_group ? "s":"");
-}
-#endif
-
-static
-void allocateFinalIdToSet(const RoseGraph &g, const set<u32> &lits,
-                          deque<rose_literal_info> *literal_info,
-                          map<u32, set<u32> > *final_id_to_literal,
-                          u32 *next_final_id) {
-    /* We can allocate the same final id to multiple literals of the same type
-     * if they share the same vertex set and trigger the same delayed literal
-     * ids and squash the same roles and have the same group squashing
-     * behaviour. Benefits literals cannot be merged. */
-
-    for (u32 int_id : lits) {
-        rose_literal_info &curr_info = (*literal_info)[int_id];
-        const auto &verts = curr_info.vertices;
-
-        if (!verts.empty() && !curr_info.requires_benefits
-            && curr_info.delayed_ids.empty()) {
-            vector<u32> cand;
-            insert(&cand, cand.end(), g[*verts.begin()].literals);
-            for (auto v : verts) {
-                vector<u32> temp;
-                set_intersection(cand.begin(), cand.end(),
-                                 g[v].literals.begin(),
-                                 g[v].literals.end(),
-                                 inserter(temp, temp.end()));
-                cand.swap(temp);
-            }
-
-            for (u32 cand_id : cand) {
-                if (cand_id >= int_id) {
-                    break;
-                }
-
-                const rose_literal_info &cand_info = (*literal_info)[cand_id];
-
-                if (cand_info.requires_benefits) {
-                    continue;
-                }
-
-                if (!cand_info.delayed_ids.empty()) {
-                    /* TODO: allow cases where delayed ids are equivalent.
-                     * This is awkward currently as the have not had their
-                     * final ids allocated yet */
-                    continue;
-                }
-
-                if (lits.find(cand_id) == lits.end()
-                    || cand_info.vertices.size() != verts.size()
-                    || cand_info.squash_group != curr_info.squash_group) {
-                    continue;
-                }
-
-                /* if we are squashing groups we need to check if they are the
-                 * same group */
-                if (cand_info.squash_group
-                    && cand_info.group_mask != curr_info.group_mask) {
-                    continue;
-                }
-
-                u32 final_id = cand_info.final_id;
-                assert(final_id != MO_INVALID_IDX);
-                assert(curr_info.final_id == MO_INVALID_IDX);
-                curr_info.final_id = final_id;
-                (*final_id_to_literal)[final_id].insert(int_id);
-                goto next_lit;
-            }
-        }
-
-        /* oh well, have to give it a fresh one, hang the expense */
-        DEBUG_PRINTF("allocating final id %u to %u\n", *next_final_id, int_id);
-                assert(curr_info.final_id == MO_INVALID_IDX);
-        curr_info.final_id = *next_final_id;
-        (*final_id_to_literal)[*next_final_id].insert(int_id);
-        (*next_final_id)++;
-    next_lit:;
-    }
-}
-
-static
-bool isUsedLiteral(const RoseBuildImpl &build, u32 lit_id) {
-    assert(lit_id < build.literal_info.size());
-    const auto &info = build.literal_info[lit_id];
-    if (!info.vertices.empty()) {
-        return true;
-    }
-
-    for (const u32 &delayed_id : info.delayed_ids) {
-        assert(delayed_id < build.literal_info.size());
-        const rose_literal_info &delayed_info = build.literal_info[delayed_id];
-        if (!delayed_info.vertices.empty()) {
-            return true;
-        }
-    }
-
-    DEBUG_PRINTF("literal %u has no refs\n", lit_id);
-    return false;
-}
-
-/** \brief Allocate final literal IDs for all literals.
- *
- * These are the literal ids used in the bytecode.
- */
-static
-void allocateFinalLiteralId(RoseBuildImpl &tbi) {
-    RoseGraph &g = tbi.g;
-
-    set<u32> anch;
-    set<u32> norm;
-    set<u32> delay;
-
-    /* undelayed ids come first */
-    assert(tbi.final_id_to_literal.empty());
-    u32 next_final_id = 0;
-    for (u32 i = 0; i < tbi.literal_info.size(); i++) {
-        assert(!tbi.hasFinalId(i));
-
-        if (!isUsedLiteral(tbi, i)) {
-            /* what is this literal good for? absolutely nothing */
-            continue;
-        }
-
-        // The special EOD event literal has its own program and does not need
-        // a real literal ID.
-        if (i == tbi.eod_event_literal_id) {
-            assert(tbi.eod_event_literal_id != MO_INVALID_IDX);
-            continue;
-        }
-
-        if (tbi.isDelayed(i)) {
-            assert(!tbi.literal_info[i].requires_benefits);
-            delay.insert(i);
-        } else if (tbi.literals.right.at(i).table == ROSE_ANCHORED) {
-            anch.insert(i);
-        } else {
-            norm.insert(i);
-        }
-    }
-
-    /* normal lits */
-    allocateFinalIdToSet(g, norm, &tbi.literal_info, &tbi.final_id_to_literal,
-                         &next_final_id);
-
-    /* next anchored stuff */
-    tbi.anchored_base_id = next_final_id;
-    allocateFinalIdToSet(g, anch, &tbi.literal_info, &tbi.final_id_to_literal,
-                         &next_final_id);
-
-    /* delayed ids come last */
-    tbi.delay_base_id = next_final_id;
-    allocateFinalIdToSet(g, delay, &tbi.literal_info, &tbi.final_id_to_literal,
-                         &next_final_id);
-}
-
 #define MAX_EXPLOSION_NC 3
 static
 bool limited_explosion(const ue2_literal &s) {
@@ -284,7 +118,12 @@ void RoseBuildImpl::handleMixedSensitivity(void) {
             continue;
         }
 
-        if (limited_explosion(lit.s)) {
+        // We don't want to explode long literals, as they require confirmation
+        // with a CHECK_LITERAL instruction and need unique final_ids.
+        // TODO: we could allow explosion for literals where the prefixes
+        // covered by CHECK_LITERAL are identical.
+        if (lit.s.length() <= ROSE_LONG_LITERAL_THRESHOLD_MIN &&
+            limited_explosion(lit.s)) {
             DEBUG_PRINTF("need to explode existing string '%s'\n",
                          dumpString(lit.s).c_str());
             literal_info[id].requires_explode = true;
@@ -1653,7 +1492,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
 
     /* final prep work */
     remapCastleTops(*this);
-    allocateFinalLiteralId(*this);
     inspectRoseTops(*this);
     buildRoseSquashMasks(*this);
 

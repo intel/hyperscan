@@ -85,9 +85,4 @@ void roseInitState(const struct RoseEngine *t, char *state) {
 
     init_state(t, state);
     init_outfixes(t, state);
-
-    // Clear the floating matcher state, if any.
-    DEBUG_PRINTF("clearing %u bytes of floating matcher state\n",
-                 t->floatingStreamState);
-    memset(getFloatingMatcherState(t, state), 0, t->floatingStreamState);
 }

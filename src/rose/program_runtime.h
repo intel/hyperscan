@@ -1331,6 +1331,78 @@ hwlmcb_rv_t roseMatcherEod(const struct RoseEngine *rose,
     return HWLM_CONTINUE_MATCHING;
 }
 
+static rose_inline
+int roseCheckLongLiteral(const struct RoseEngine *t,
+                         const struct hs_scratch *scratch, u64a end,
+                         u32 lit_offset, u32 lit_length, char nocase) {
+    const struct core_info *ci = &scratch->core_info;
+    const u8 *lit = getByOffset(t, lit_offset);
+
+    DEBUG_PRINTF("check lit at %llu, length %u\n", end, lit_length);
+    DEBUG_PRINTF("base buf_offset=%llu\n", ci->buf_offset);
+
+    if (end < lit_length) {
+        DEBUG_PRINTF("too short!\n");
+        return 0;
+    }
+
+    // If any portion of the literal matched in the current buffer, check it.
+    if (end > ci->buf_offset) {
+        u32 scan_len = MIN(end - ci->buf_offset, lit_length);
+        u64a scan_start = end - ci->buf_offset - scan_len;
+        DEBUG_PRINTF("checking suffix (%u bytes) in buf[%llu:%llu]\n", scan_len,
+                     scan_start, end);
+        if (cmpForward(ci->buf + scan_start, lit + lit_length - scan_len,
+                       scan_len, nocase)) {
+            DEBUG_PRINTF("cmp of suffix failed\n");
+            return 0;
+        }
+    }
+
+    // If the entirety of the literal was in the current block, we are done.
+    if (end - lit_length >= ci->buf_offset) {
+        DEBUG_PRINTF("literal confirmed in current block\n");
+        return 1;
+    }
+
+    // We still have a prefix which we must test against the buffer prepared by
+    // the long literal table. This is only done in streaming mode.
+
+    assert(t->mode != HS_MODE_BLOCK);
+
+    const u8 *ll_buf;
+    size_t ll_len;
+    if (nocase) {
+        ll_buf = scratch->tctxt.ll_buf_nocase;
+        ll_len = scratch->tctxt.ll_len_nocase;
+    } else {
+        ll_buf = scratch->tctxt.ll_buf;
+        ll_len = scratch->tctxt.ll_len;
+    }
+
+    assert(ll_buf);
+
+    u64a lit_start_offset = end - lit_length;
+    u32 prefix_len = MIN(lit_length, ci->buf_offset - lit_start_offset);
+    u32 hist_rewind = ci->buf_offset - lit_start_offset;
+    DEBUG_PRINTF("ll_len=%zu, hist_rewind=%u\n", ll_len, hist_rewind);
+    if (hist_rewind > ll_len) {
+        DEBUG_PRINTF("not enough history\n");
+        return 0;
+    }
+
+    DEBUG_PRINTF("check prefix len=%u from hist (len %zu, rewind %u)\n",
+                 prefix_len, ll_len, hist_rewind);
+    assert(hist_rewind <= ll_len);
+    if (cmpForward(ll_buf + ll_len - hist_rewind, lit, prefix_len, nocase)) {
+        DEBUG_PRINTF("cmp of prefix failed\n");
+        return 0;
+    }
+
+    DEBUG_PRINTF("cmp succeeded\n");
+    return 1;
+}
+
 static
 void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
                     const char from_mpv) {
@@ -1974,6 +2046,26 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                 if (roseMatcherEod(t, scratch, end) ==
                     HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_LONG_LIT) {
+                const char nocase = 0;
+                if (!roseCheckLongLiteral(t, scratch, end, ri->lit_offset,
+                                          ri->lit_length, nocase)) {
+                    DEBUG_PRINTF("halt: failed long lit check\n");
+                    return HWLM_CONTINUE_MATCHING;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_LONG_LIT_NOCASE) {
+                const char nocase = 1;
+                if (!roseCheckLongLiteral(t, scratch, end, ri->lit_offset,
+                                          ri->lit_length, nocase)) {
+                    DEBUG_PRINTF("halt: failed nocase long lit check\n");
+                    return HWLM_CONTINUE_MATCHING;
                 }
             }
             PROGRAM_NEXT_INSTRUCTION

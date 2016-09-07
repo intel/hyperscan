@@ -425,7 +425,6 @@ set (hs_exec_SRCS
     src/fdr/fdr_internal.h
     src/fdr/fdr_confirm.h
     src/fdr/fdr_confirm_runtime.h
-    src/fdr/fdr_streaming_runtime.h
     src/fdr/flood_runtime.h
     src/fdr/fdr_loadval.h
     src/fdr/teddy.c
@@ -531,6 +530,8 @@ set (hs_exec_SRCS
     src/rose/init.h
     src/rose/init.c
     src/rose/stream.c
+    src/rose/stream_long_lit.h
+    src/rose/stream_long_lit_hash.h
     src/rose/match.h
     src/rose/match.c
     src/rose/miracle.h
@@ -612,8 +613,6 @@ SET (hs_SRCS
     src/fdr/fdr_engine_description.cpp
     src/fdr/fdr_engine_description.h
     src/fdr/fdr_internal.h
-    src/fdr/fdr_streaming_compile.cpp
-    src/fdr/fdr_streaming_internal.h
     src/fdr/flood_compile.cpp
     src/fdr/teddy_compile.cpp
     src/fdr/teddy_compile.h
@@ -874,6 +873,8 @@ SET (hs_SRCS
     src/rose/rose_build_impl.h
     src/rose/rose_build_infix.cpp
     src/rose/rose_build_infix.h
+    src/rose/rose_build_long_lit.cpp
+    src/rose/rose_build_long_lit.h
     src/rose/rose_build_lookaround.cpp
     src/rose/rose_build_lookaround.h
     src/rose/rose_build_matchers.cpp

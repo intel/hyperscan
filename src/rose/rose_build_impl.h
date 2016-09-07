@@ -56,6 +56,8 @@ namespace ue2 {
 
 #define ROSE_GROUPS_MAX 64
 
+#define ROSE_LONG_LITERAL_THRESHOLD_MIN 33
+
 struct BoundaryReports;
 struct CastleProto;
 struct CompileContext;
@@ -602,6 +604,9 @@ public:
 private:
     ReportID next_nfa_report;
 };
+
+size_t calcLongLitThreshold(const RoseBuildImpl &build,
+                            const size_t historyRequired);
 
 // Free functions, in rose_build_misc.cpp
 

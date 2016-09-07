@@ -122,6 +122,26 @@ struct RoseContext {
     u32 filledDelayedSlots;
     u32 curr_qi;    /**< currently executing main queue index during
                      * \ref nfaQueueExec */
+
+    /**
+     * \brief Buffer for caseful long literal support, used in streaming mode
+     * only.
+     *
+     * If a long literal prefix was at the end of the buffer at the end of a
+     * stream write, then the long lit table hashes it and stores the result in
+     * stream state. At the start of the next write, this value is used to set
+     * this buffer to the matching prefix string (stored in the bytecode.
+     */
+    const u8 *ll_buf;
+
+    /** \brief Length in bytes of the string pointed to by ll_buf. */
+    size_t ll_len;
+
+    /** \brief Caseless version of ll_buf. */
+    const u8 *ll_buf_nocase;
+
+    /** \brief Length in bytes of the string pointed to by ll_buf_nocase. */
+    size_t ll_len_nocase;
 };
 
 struct match_deduper {

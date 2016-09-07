@@ -552,6 +552,12 @@ aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
 
     if (stream_control) {
         assert(stream_control->history_min <= stream_control->history_max);
+
+        // We should not have been passed any literals that are too long to
+        // match with a maximally-sized history buffer.
+        assert(all_of(begin(lits), end(lits), [&](const hwlmLiteral &lit) {
+            return lit.s.length() <= stream_control->history_max + 1;
+        }));
     }
 
     // Check that we haven't exceeded the maximum number of literals.
@@ -602,7 +608,6 @@ aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
             stream_control->literal_history_required = lit.s.length() - 1;
             assert(stream_control->literal_history_required
                    <= stream_control->history_max);
-            stream_control->literal_stream_state_required = 0;
         }
         eng = move(noodle);
     } else {

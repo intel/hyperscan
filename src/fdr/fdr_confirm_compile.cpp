@@ -339,7 +339,7 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
 
             ptr = ROUNDUP_PTR(ptr, alignof(LitInfo));
             if (next(i) == e) {
-                finalLI.next = 0x0;
+                finalLI.next = 0;
             } else {
                 // our next field represents an adjustment on top of
                 // current address + the actual size of the literal

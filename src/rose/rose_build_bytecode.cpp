@@ -37,14 +37,17 @@
 #include "rose_build_exclusive.h"
 #include "rose_build_groups.h"
 #include "rose_build_infix.h"
+#include "rose_build_long_lit.h"
 #include "rose_build_lookaround.h"
 #include "rose_build_matchers.h"
 #include "rose_build_program.h"
 #include "rose_build_scatter.h"
 #include "rose_build_util.h"
 #include "rose_build_width.h"
+#include "rose_internal.h"
 #include "rose_program.h"
 #include "hwlm/hwlm.h" /* engine types */
+#include "hwlm/hwlm_literal.h"
 #include "nfa/castlecompile.h"
 #include "nfa/goughcompile.h"
 #include "nfa/mcclellancompile.h"
@@ -165,6 +168,7 @@ struct RoseResources {
     bool has_states = false;
     bool checks_groups = false;
     bool has_lit_delay = false;
+    bool has_lit_check = false; // long literal support
     bool has_anchored = false;
     bool has_eod = false;
 };
@@ -210,8 +214,15 @@ struct build_context : boost::noncopyable {
      * written to the engine_blob. */
     vector<u32> litPrograms;
 
+    /** \brief List of long literals (ones with CHECK_LITERAL instructions)
+     * that need hash table support. */
+    vector<ue2_case_string> longLiterals;
+
     /** \brief Minimum offset of a match from the floating table. */
     u32 floatingMinLiteralMatchOffset = 0;
+
+    /** \brief Long literal length threshold, used in streaming mode. */
+    size_t longLitLengthThreshold = 0;
 
     /** \brief Contents of the Rose bytecode immediately following the
      * RoseEngine. */
@@ -314,7 +325,7 @@ bool needsCatchup(const RoseBuildImpl &build,
 }
 
 static
-bool isPureFloating(const RoseResources &resources) {
+bool isPureFloating(const RoseResources &resources, const CompileContext &cc) {
     if (resources.has_outfixes || resources.has_suffixes ||
         resources.has_leftfixes) {
         DEBUG_PRINTF("has engines\n");
@@ -338,6 +349,12 @@ bool isPureFloating(const RoseResources &resources) {
 
     if (resources.has_lit_delay) {
         DEBUG_PRINTF("has delayed literals\n");
+        return false;
+    }
+
+    if (cc.streaming && resources.has_lit_check) {
+        DEBUG_PRINTF("has long literals in streaming mode, which needs "
+                     "long literal table support\n");
         return false;
     }
 
@@ -384,10 +401,11 @@ u8 pickRuntimeImpl(const RoseBuildImpl &build, const build_context &bc,
     DEBUG_PRINTF("has_states=%d\n", bc.resources.has_states);
     DEBUG_PRINTF("checks_groups=%d\n", bc.resources.checks_groups);
     DEBUG_PRINTF("has_lit_delay=%d\n", bc.resources.has_lit_delay);
+    DEBUG_PRINTF("has_lit_check=%d\n", bc.resources.has_lit_check);
     DEBUG_PRINTF("has_anchored=%d\n", bc.resources.has_anchored);
     DEBUG_PRINTF("has_eod=%d\n", bc.resources.has_eod);
 
-    if (isPureFloating(bc.resources)) {
+    if (isPureFloating(bc.resources, build.cc)) {
         return ROSE_RUNTIME_PURE_LITERAL;
     }
 
@@ -427,7 +445,7 @@ static
 void fillStateOffsets(const RoseBuildImpl &tbi, u32 rolesWithStateCount,
                       u32 anchorStateSize, u32 activeArrayCount,
                       u32 activeLeftCount, u32 laggedRoseCount,
-                      u32 floatingStreamStateRequired, u32 historyRequired,
+                      u32 longLitStreamStateRequired, u32 historyRequired,
                       RoseStateOffsets *so) {
     u32 curr_offset = 0;
 
@@ -445,8 +463,8 @@ void fillStateOffsets(const RoseBuildImpl &tbi, u32 rolesWithStateCount,
     so->activeLeftArray_size = mmbit_size(activeLeftCount);
     curr_offset += so->activeLeftArray_size;
 
-    so->floatingMatcherState = curr_offset;
-    curr_offset += floatingStreamStateRequired;
+    so->longLitState = curr_offset;
+    curr_offset += longLitStreamStateRequired;
 
     // ONE WHOLE BYTE for each active leftfix with lag.
     so->leftfixLagTable = curr_offset;
@@ -2514,6 +2532,10 @@ void recordResources(RoseResources &resources, const RoseProgram &program) {
         case ROSE_INSTR_PUSH_DELAYED:
             resources.has_lit_delay = true;
             break;
+        case ROSE_INSTR_CHECK_LONG_LIT:
+        case ROSE_INSTR_CHECK_LONG_LIT_NOCASE:
+            resources.has_lit_check = true;
+            break;
         default:
             break;
         }
@@ -2547,6 +2569,25 @@ void recordResources(RoseResources &resources,
 }
 
 static
+void recordLongLiterals(build_context &bc, const RoseProgram &program) {
+    for (const auto &ri : program) {
+        if (const auto *ri_check =
+                dynamic_cast<const RoseInstrCheckLongLit *>(ri.get())) {
+            DEBUG_PRINTF("found CHECK_LITERAL for string '%s'\n",
+                         escapeString(ri_check->literal).c_str());
+            bc.longLiterals.emplace_back(ri_check->literal, false);
+            continue;
+        }
+        if (const auto *ri_check =
+                dynamic_cast<const RoseInstrCheckLongLitNocase *>(ri.get())) {
+            DEBUG_PRINTF("found CHECK_LITERAL_NOCASE for string '%s'\n",
+                         escapeString(ri_check->literal).c_str());
+            bc.longLiterals.emplace_back(ri_check->literal, true);
+        }
+    }
+}
+
+static
 u32 writeProgram(build_context &bc, RoseProgram &&program) {
     if (program.empty()) {
         DEBUG_PRINTF("no program\n");
@@ -2560,6 +2601,7 @@ u32 writeProgram(build_context &bc, RoseProgram &&program) {
     }
 
     recordResources(bc.resources, program);
+    recordLongLiterals(bc, program);
 
     u32 len = 0;
     auto prog_bytecode = writeProgram(bc.engine_blob, program, &len);
@@ -4286,6 +4328,48 @@ void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, build_context &bc,
 }
 
 static
+void makeCheckLiteralInstruction(const RoseBuildImpl &build,
+                                 const build_context &bc, u32 final_id,
+                                 RoseProgram &program) {
+    const auto &lits = build.final_id_to_literal.at(final_id);
+    if (lits.size() != 1) {
+        // Long literals should not share a final_id.
+        assert(all_of(begin(lits), end(lits), [&](u32 lit_id) {
+            const rose_literal_id &lit = build.literals.right.at(lit_id);
+            return lit.table != ROSE_FLOATING ||
+                   lit.s.length() <= bc.longLitLengthThreshold;
+        }));
+        return;
+    }
+
+    u32 lit_id = *lits.begin();
+    if (build.isDelayed(lit_id)) {
+        return;
+    }
+
+    const rose_literal_id &lit = build.literals.right.at(lit_id);
+    if (lit.table != ROSE_FLOATING) {
+        return;
+    }
+    if (lit.s.length() <= bc.longLitLengthThreshold) {
+        return;
+    }
+
+    // Check resource limits as well.
+    if (lit.s.length() > build.cc.grey.limitLiteralLength) {
+        throw ResourceLimitError();
+    }
+
+    unique_ptr<RoseInstruction> ri;
+    if (lit.s.any_nocase()) {
+        ri = make_unique<RoseInstrCheckLongLitNocase>(lit.s.get_string());
+    } else {
+        ri = make_unique<RoseInstrCheckLongLit>(lit.s.get_string());
+    }
+    program.add_before_end(move(ri));
+}
+
+static
 bool hasDelayedLiteral(RoseBuildImpl &build,
                        const vector<RoseEdge> &lit_edges) {
     auto is_delayed = bind(&RoseBuildImpl::isDelayed, &build, _1);
@@ -4311,6 +4395,9 @@ RoseProgram buildLitInitialProgram(RoseBuildImpl &build, build_context &bc,
     }
 
     DEBUG_PRINTF("final_id %u\n", final_id);
+
+    // Check long literal info.
+    makeCheckLiteralInstruction(build, bc, final_id, program);
 
     // Check lit mask.
     makeCheckLitMaskInstruction(build, bc, final_id, program);
@@ -4839,6 +4926,172 @@ u32 buildEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
 }
 
 static
+void allocateFinalIdToSet(RoseBuildImpl &build, const set<u32> &lits,
+                          size_t longLitLengthThreshold, u32 *next_final_id) {
+    const auto &g = build.g;
+    auto &literal_info = build.literal_info;
+    auto &final_id_to_literal = build.final_id_to_literal;
+
+    /* We can allocate the same final id to multiple literals of the same type
+     * if they share the same vertex set and trigger the same delayed literal
+     * ids and squash the same roles and have the same group squashing
+     * behaviour. Benefits literals cannot be merged. */
+
+    for (u32 int_id : lits) {
+        rose_literal_info &curr_info = literal_info[int_id];
+        const rose_literal_id &lit = build.literals.right.at(int_id);
+        const auto &verts = curr_info.vertices;
+
+        // Literals with benefits cannot be merged.
+        if (curr_info.requires_benefits) {
+            DEBUG_PRINTF("id %u has benefits\n", int_id);
+            goto assign_new_id;
+        }
+
+        // Long literals (that require CHECK_LITERAL instructions) cannot be
+        // merged.
+        if (lit.s.length() > longLitLengthThreshold) {
+            DEBUG_PRINTF("id %u is a long literal\n", int_id);
+            goto assign_new_id;
+        }
+
+        if (!verts.empty() && curr_info.delayed_ids.empty()) {
+            vector<u32> cand;
+            insert(&cand, cand.end(), g[*verts.begin()].literals);
+            for (auto v : verts) {
+                vector<u32> temp;
+                set_intersection(cand.begin(), cand.end(),
+                                 g[v].literals.begin(),
+                                 g[v].literals.end(),
+                                 inserter(temp, temp.end()));
+                cand.swap(temp);
+            }
+
+            for (u32 cand_id : cand) {
+                if (cand_id >= int_id) {
+                    break;
+                }
+
+                const auto &cand_info = literal_info[cand_id];
+                const auto &cand_lit = build.literals.right.at(cand_id);
+
+                if (cand_lit.s.length() > longLitLengthThreshold) {
+                    continue;
+                }
+
+                if (cand_info.requires_benefits) {
+                    continue;
+                }
+
+                if (!cand_info.delayed_ids.empty()) {
+                    /* TODO: allow cases where delayed ids are equivalent.
+                     * This is awkward currently as the have not had their
+                     * final ids allocated yet */
+                    continue;
+                }
+
+                if (lits.find(cand_id) == lits.end()
+                    || cand_info.vertices.size() != verts.size()
+                    || cand_info.squash_group != curr_info.squash_group) {
+                    continue;
+                }
+
+                /* if we are squashing groups we need to check if they are the
+                 * same group */
+                if (cand_info.squash_group
+                    && cand_info.group_mask != curr_info.group_mask) {
+                    continue;
+                }
+
+                u32 final_id = cand_info.final_id;
+                assert(final_id != MO_INVALID_IDX);
+                assert(curr_info.final_id == MO_INVALID_IDX);
+                curr_info.final_id = final_id;
+                final_id_to_literal[final_id].insert(int_id);
+                goto next_lit;
+            }
+        }
+
+    assign_new_id:
+        /* oh well, have to give it a fresh one, hang the expense */
+        DEBUG_PRINTF("allocating final id %u to %u\n", *next_final_id, int_id);
+                assert(curr_info.final_id == MO_INVALID_IDX);
+        curr_info.final_id = *next_final_id;
+        final_id_to_literal[*next_final_id].insert(int_id);
+        (*next_final_id)++;
+    next_lit:;
+    }
+}
+
+static
+bool isUsedLiteral(const RoseBuildImpl &build, u32 lit_id) {
+    assert(lit_id < build.literal_info.size());
+    const auto &info = build.literal_info[lit_id];
+    if (!info.vertices.empty()) {
+        return true;
+    }
+
+    for (const u32 &delayed_id : info.delayed_ids) {
+        assert(delayed_id < build.literal_info.size());
+        const rose_literal_info &delayed_info = build.literal_info[delayed_id];
+        if (!delayed_info.vertices.empty()) {
+            return true;
+        }
+    }
+
+    DEBUG_PRINTF("literal %u has no refs\n", lit_id);
+    return false;
+}
+
+/** \brief Allocate final literal IDs for all literals.  */
+static
+void allocateFinalLiteralId(RoseBuildImpl &build,
+                            size_t longLitLengthThreshold) {
+    set<u32> anch;
+    set<u32> norm;
+    set<u32> delay;
+
+    /* undelayed ids come first */
+    assert(build.final_id_to_literal.empty());
+    u32 next_final_id = 0;
+    for (u32 i = 0; i < build.literal_info.size(); i++) {
+        assert(!build.hasFinalId(i));
+
+        if (!isUsedLiteral(build, i)) {
+            /* what is this literal good for? absolutely nothing */
+            continue;
+        }
+
+        // The special EOD event literal has its own program and does not need
+        // a real literal ID.
+        if (i == build.eod_event_literal_id) {
+            assert(build.eod_event_literal_id != MO_INVALID_IDX);
+            continue;
+        }
+
+        if (build.isDelayed(i)) {
+            assert(!build.literal_info[i].requires_benefits);
+            delay.insert(i);
+        } else if (build.literals.right.at(i).table == ROSE_ANCHORED) {
+            anch.insert(i);
+        } else {
+            norm.insert(i);
+        }
+    }
+
+    /* normal lits */
+    allocateFinalIdToSet(build, norm, longLitLengthThreshold, &next_final_id);
+
+    /* next anchored stuff */
+    build.anchored_base_id = next_final_id;
+    allocateFinalIdToSet(build, anch, longLitLengthThreshold, &next_final_id);
+
+    /* delayed ids come last */
+    build.delay_base_id = next_final_id;
+    allocateFinalIdToSet(build, delay, longLitLengthThreshold, &next_final_id);
+}
+
+static
 aligned_unique_ptr<RoseEngine> addSmallWriteEngine(RoseBuildImpl &build,
                                         aligned_unique_ptr<RoseEngine> rose) {
     assert(rose);
@@ -4873,16 +5126,89 @@ aligned_unique_ptr<RoseEngine> addSmallWriteEngine(RoseBuildImpl &build,
     return rose2;
 }
 
+/**
+ * \brief Returns the pair (number of literals, max length) for all real
+ * literals in the floating table that are in-use.
+ */
+static
+pair<size_t, size_t> floatingCountAndMaxLen(const RoseBuildImpl &build) {
+    size_t num = 0;
+    size_t max_len = 0;
+
+    for (const auto &e : build.literals.right) {
+        const u32 id = e.first;
+        const rose_literal_id &lit = e.second;
+
+        if (lit.table != ROSE_FLOATING) {
+            continue;
+        }
+        if (lit.delay) {
+            // Skip delayed literals, so that we only count the undelayed
+            // version that ends up in the HWLM table.
+            continue;
+        }
+        if (!isUsedLiteral(build, id)) {
+            continue;
+        }
+
+        num++;
+        max_len = max(max_len, lit.s.length());
+    }
+    DEBUG_PRINTF("%zu floating literals with max_len=%zu\n", num, max_len);
+    return {num, max_len};
+}
+
+size_t calcLongLitThreshold(const RoseBuildImpl &build,
+                            const size_t historyRequired) {
+    const auto &cc = build.cc;
+
+    // In block mode, we should only use the long literal support for literals
+    // that cannot be handled by HWLM.
+    if (!cc.streaming) {
+        return HWLM_LITERAL_MAX_LEN;
+    }
+
+    size_t longLitLengthThreshold = ROSE_LONG_LITERAL_THRESHOLD_MIN;
+
+    // Expand to size of history we've already allocated. Note that we need N-1
+    // bytes of history to match a literal of length N.
+    longLitLengthThreshold = max(longLitLengthThreshold, historyRequired + 1);
+
+    // If we only have one literal, allow for a larger value in order to avoid
+    // building a long literal table for a trivial Noodle case that we could
+    // fit in history.
+    const auto num_len = floatingCountAndMaxLen(build);
+    if (num_len.first == 1) {
+        if (num_len.second > longLitLengthThreshold) {
+            DEBUG_PRINTF("expanding for single literal of length %zu\n",
+                         num_len.second);
+            longLitLengthThreshold = num_len.second;
+        }
+    }
+
+    // Clamp to max history available.
+    longLitLengthThreshold =
+        min(longLitLengthThreshold, size_t{cc.grey.maxHistoryAvailable} + 1);
+
+    return longLitLengthThreshold;
+}
+
 aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     DerivedBoundaryReports dboundary(boundary);
 
     size_t historyRequired = calcHistoryRequired(); // Updated by HWLM.
+    size_t longLitLengthThreshold = calcLongLitThreshold(*this,
+                                                         historyRequired);
+    DEBUG_PRINTF("longLitLengthThreshold=%zu\n", longLitLengthThreshold);
+
+    allocateFinalLiteralId(*this, longLitLengthThreshold);
 
     auto anchored_dfas = buildAnchoredDfas(*this);
 
     build_context bc;
     bc.floatingMinLiteralMatchOffset =
         findMinFloatingLiteralMatch(*this, anchored_dfas);
+    bc.longLitLengthThreshold = longLitLengthThreshold;
     bc.needs_catchup = needsCatchup(*this, anchored_dfas);
     recordResources(bc.resources, *this);
     if (!anchored_dfas.empty()) {
@@ -4944,6 +5270,11 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     u32 eodProgramOffset = writeEodProgram(*this, bc, eodNfaIterOffset);
 
+    size_t longLitStreamStateRequired = 0;
+    u32 longLitTableOffset = buildLongLiteralTable(*this, bc.engine_blob,
+                bc.longLiterals, longLitLengthThreshold, &historyRequired,
+                &longLitStreamStateRequired);
+
     vector<mmbit_sparse_iter> activeLeftIter;
     buildActiveLeftIter(leftInfoTable, activeLeftIter);
 
@@ -4982,9 +5313,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     // Build floating HWLM matcher.
     rose_group fgroups = 0;
     size_t fsize = 0;
-    size_t floatingStreamStateRequired = 0;
-    auto ftable = buildFloatingMatcher(*this, &fgroups, &fsize, &historyRequired,
-                                       &floatingStreamStateRequired);
+    auto ftable = buildFloatingMatcher(*this, bc.longLitLengthThreshold,
+                                       &fgroups, &fsize, &historyRequired);
     u32 fmatcherOffset = 0;
     if (ftable) {
         currOffset = ROUNDUP_CL(currOffset);
@@ -5057,7 +5387,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     memset(&stateOffsets, 0, sizeof(stateOffsets));
     fillStateOffsets(*this, bc.numStates, anchorStateSize,
                      activeArrayCount, activeLeftCount, laggedRoseCount,
-                     floatingStreamStateRequired, historyRequired,
+                     longLitStreamStateRequired, historyRequired,
                      &stateOffsets);
 
     scatter_plan_raw state_scatter;
@@ -5173,6 +5503,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->ematcherOffset = ematcherOffset;
     engine->sbmatcherOffset = sbmatcherOffset;
     engine->fmatcherOffset = fmatcherOffset;
+    engine->longLitTableOffset = longLitTableOffset;
     engine->amatcherMinWidth = findMinWidth(*this, ROSE_ANCHORED);
     engine->fmatcherMinWidth = findMinWidth(*this, ROSE_FLOATING);
     engine->eodmatcherMinWidth = findMinWidth(*this, ROSE_EOD_ANCHORED);
@@ -5198,7 +5529,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->totalNumLiterals = verify_u32(literal_info.size());
     engine->asize = verify_u32(asize);
     engine->ematcherRegionSize = ematcher_region_size;
-    engine->floatingStreamState = verify_u32(floatingStreamStateRequired);
+    engine->longLitStreamState = verify_u32(longLitStreamStateRequired);
 
     engine->boundary.reportEodOffset = boundary_out.reportEodOffset;
     engine->boundary.reportZeroOffset = boundary_out.reportZeroOffset;

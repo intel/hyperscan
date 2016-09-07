@@ -33,6 +33,8 @@
 #include "miracle.h"
 #include "program_runtime.h"
 #include "rose.h"
+#include "rose_internal.h"
+#include "stream_long_lit.h"
 #include "hwlm/hwlm.h"
 #include "nfa/mcclellan.h"
 #include "nfa/nfa_api.h"
@@ -406,6 +408,7 @@ void ensureStreamNeatAndTidy(const struct RoseEngine *t, char *state,
     roseFlushLastByteHistory(t, scratch, offset + length);
     tctxt->lastEndOffset = offset + length;
     storeGroups(t, state, tctxt->groups);
+    storeLongLiteralState(t, state, scratch);
 }
 
 static really_inline
@@ -588,11 +591,17 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
         }
 
         size_t hlength = scratch->core_info.hlen;
+        char rebuild = 0;
 
-        char rebuild = hlength &&
-                       (scratch->core_info.status & STATUS_DELAY_DIRTY) &&
-                       (t->maxFloatingDelayedMatch == ROSE_BOUND_INF ||
-                        offset < t->maxFloatingDelayedMatch);
+        if (hlength) {
+            // Can only have long literal state or rebuild if this is not the
+            // first write to this stream.
+            loadLongLiteralState(t, state, scratch);
+            rebuild = (scratch->core_info.status & STATUS_DELAY_DIRTY) &&
+                      (t->maxFloatingDelayedMatch == ROSE_BOUND_INF ||
+                       offset < t->maxFloatingDelayedMatch);
+        }
+
         DEBUG_PRINTF("**rebuild %hhd status %hhu mfdm %u, offset %llu\n",
                      rebuild, scratch->core_info.status,
                      t->maxFloatingDelayedMatch, offset);
@@ -621,17 +630,9 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
         }
         DEBUG_PRINTF("start=%zu\n", start);
 
-        u8 *stream_state;
-        if (t->floatingStreamState) {
-            stream_state = getFloatingMatcherState(t, state);
-        } else {
-            stream_state = NULL;
-        }
-
         DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
         hwlmExecStreaming(ftable, scratch, flen, start, roseFloatingCallback,
-                          scratch, tctxt->groups & t->floating_group_mask,
-                          stream_state);
+                          scratch, tctxt->groups & t->floating_group_mask);
     }
 
 flush_delay_and_exit:

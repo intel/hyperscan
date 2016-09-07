@@ -217,8 +217,8 @@ struct RoseStateOffsets {
     /** Size of packed Rose groups value, in bytes. */
     u32 groups_size;
 
-    /** State for floating literal matcher (managed by HWLM). */
-    u32 floatingMatcherState;
+    /** State for long literal support. */
+    u32 longLitState;
 
     /** Packed SOM location slots. */
     u32 somLocation;
@@ -325,6 +325,7 @@ struct RoseEngine {
     u32 ematcherOffset; // offset of the eod-anchored literal matcher (bytes)
     u32 fmatcherOffset; // offset of the floating literal matcher (bytes)
     u32 sbmatcherOffset; // offset of the small-block literal matcher (bytes)
+    u32 longLitTableOffset; // offset of the long literal table
     u32 amatcherMinWidth; /**< minimum number of bytes required for a pattern
                            * involved with the anchored table to produce a full
                            * match. */
@@ -434,7 +435,7 @@ struct RoseEngine {
     u32 ematcherRegionSize; /* max region size to pass to ematcher */
     u32 somRevCount; /**< number of som reverse nfas */
     u32 somRevOffsetOffset; /**< offset to array of offsets to som rev nfas */
-    u32 floatingStreamState; // size in bytes
+    u32 longLitStreamState; // size in bytes
 
     struct scatter_full_plan state_init;
 };
@@ -443,6 +444,94 @@ struct ALIGN_CL_DIRECTIVE anchored_matcher_info {
     u32 next_offset; /* relative to this, 0 for end */
     u32 state_offset; /* relative to anchorState */
     u32 anchoredMinDistance; /* start of region to run anchored table over */
+};
+
+/**
+ * \brief Long literal table header.
+ */
+struct RoseLongLitTable {
+    /** \brief String ID one beyond the maximum entry for caseful literals. */
+    u32 boundaryCase;
+
+    /**
+     * \brief String ID one beyond the maximum entry for caseless literals.
+     * This is also the total size of the literal table.
+     */
+    u32 boundaryNocase;
+
+    /**
+     * \brief Offset of the caseful hash table (relative to RoseLongLitTable
+     * base).
+     *
+     * Offset is zero if no such table exists.
+     */
+    u32 hashOffsetCase;
+
+    /**
+     * \brief Offset of the caseless hash table (relative to RoseLongLitTable
+     * base).
+     *
+     * Offset is zero if no such table exists.
+     */
+    u32 hashOffsetNocase;
+
+    /** \brief lg2 of the size of the caseful hash table. */
+    u32 hashNBitsCase;
+
+    /** \brief lg2 of the size of the caseless hash table. */
+    u32 hashNBitsNocase;
+
+    /**
+     * \brief Number of bits of packed stream state for the caseful hash table.
+     */
+    u8 streamStateBitsCase;
+
+    /**
+     * \brief Number of bits of packed stream state for the caseless hash
+     * table.
+     */
+    u8 streamStateBitsNocase;
+
+    /** \brief Total size of packed stream state in bytes. */
+    u8 streamStateBytes;
+
+    /** \brief Max length of literal prefixes. */
+    u8 maxLen;
+};
+
+/**
+ * \brief One of these structures per literal entry in our long literal table.
+ */
+struct RoseLongLiteral {
+    /**
+     * \brief Offset of the literal string itself, relative to
+     * RoseLongLitTable base.
+     */
+    u32 offset;
+};
+
+/** \brief "No further links" value used for \ref RoseLongLitHashEntry::link. */
+#define LINK_INVALID 0xffffffff
+
+/**
+ * \brief One of these structures per hash table entry in our long literal
+ * table.
+ */
+struct RoseLongLitHashEntry {
+    /**
+     * \brief Bitfield used as a quick guard for hash buckets.
+     *
+     * For a given hash value N, the low six bits of N are taken and the
+     * corresponding bit is switched on in this bitfield if this bucket is used
+     * for that hash.
+     */
+    u64a bitfield;
+
+    /** \brief Offset in the literal table for this string. */
+    u32 state;
+
+    /** \brief Hash table index of next entry in the chain for this bucket. */
+    u32 link;
 };
 
 static really_inline

@@ -610,6 +610,24 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             PROGRAM_CASE(MATCHER_EOD) {}
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CHECK_LONG_LIT) {
+                os << "    lit_offset " << ri->lit_offset << endl;
+                os << "    lit_length " << ri->lit_length << endl;
+                const char *lit = (const char *)t + ri->lit_offset;
+                os << "    literal: \""
+                   << escapeString(string(lit, ri->lit_length)) << "\"" << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_LONG_LIT_NOCASE) {
+                os << "    lit_offset " << ri->lit_offset << endl;
+                os << "    lit_length " << ri->lit_length << endl;
+                const char *lit = (const char *)t + ri->lit_offset;
+                os << "    literal: \""
+                   << escapeString(string(lit, ri->lit_length)) << "\"" << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
         default:
             os << "  UNKNOWN (code " << int{code} << ")" << endl;
             os << "  <stopping>" << endl;
@@ -1031,6 +1049,32 @@ void dumpAnchoredStats(const void *atable, FILE *f) {
 
 }
 
+static
+void dumpLongLiteralTable(const RoseEngine *t, FILE *f) {
+    if (!t->longLitTableOffset) {
+        return;
+    }
+
+    fprintf(f, "\n");
+    fprintf(f, "Long literal table (streaming):\n");
+
+    const auto *ll_table =
+        (const struct RoseLongLitTable *)loadFromByteCodeOffset(
+            t, t->longLitTableOffset);
+
+    u32 num_caseful = ll_table->boundaryCase;
+    u32 num_caseless = ll_table->boundaryNocase - num_caseful;
+
+    fprintf(f, "    longest len:  %u\n", ll_table->maxLen);
+    fprintf(f, "    counts:       %u caseful, %u caseless\n", num_caseful,
+            num_caseless);
+    fprintf(f, "    hash bits:    %u caseful, %u caseless\n",
+            ll_table->hashNBitsCase, ll_table->hashNBitsNocase);
+    fprintf(f, "    state bits:   %u caseful, %u caseless\n",
+            ll_table->streamStateBitsCase, ll_table->streamStateBitsNocase);
+    fprintf(f, "    stream state: %u bytes\n", ll_table->streamStateBytes);
+}
+
 // Externally accessible functions
 
 void roseDumpText(const RoseEngine *t, FILE *f) {
@@ -1106,7 +1150,7 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     fprintf(f, " - history buffer    : %u bytes\n", t->historyRequired);
     fprintf(f, " - exhaustion vector : %u bytes\n", (t->ekeyCount + 7) / 8);
     fprintf(f, " - role state mmbit  : %u bytes\n", t->stateSize);
-    fprintf(f, " - floating matcher  : %u bytes\n", t->floatingStreamState);
+    fprintf(f, " - long lit matcher  : %u bytes\n", t->longLitStreamState);
     fprintf(f, " - active array      : %u bytes\n",
             mmbit_size(t->activeArrayCount));
     fprintf(f, " - active rose       : %u bytes\n",
@@ -1160,6 +1204,8 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
         fprintf(f, "\nSmall-block literal matcher stats:\n\n");
         hwlmPrintStats(sbtable, f);
     }
+
+    dumpLongLiteralTable(t, f);
 }
 
 #define DUMP_U8(o, member)                                              \
@@ -1196,6 +1242,7 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, ematcherOffset);
     DUMP_U32(t, fmatcherOffset);
     DUMP_U32(t, sbmatcherOffset);
+    DUMP_U32(t, longLitTableOffset);
     DUMP_U32(t, amatcherMinWidth);
     DUMP_U32(t, fmatcherMinWidth);
     DUMP_U32(t, eodmatcherMinWidth);
@@ -1245,7 +1292,7 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, stateOffsets.anchorState);
     DUMP_U32(t, stateOffsets.groups);
     DUMP_U32(t, stateOffsets.groups_size);
-    DUMP_U32(t, stateOffsets.floatingMatcherState);
+    DUMP_U32(t, stateOffsets.longLitState);
     DUMP_U32(t, stateOffsets.somLocation);
     DUMP_U32(t, stateOffsets.somValid);
     DUMP_U32(t, stateOffsets.somWritable);
@@ -1264,7 +1311,7 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, ematcherRegionSize);
     DUMP_U32(t, somRevCount);
     DUMP_U32(t, somRevOffsetOffset);
-    DUMP_U32(t, floatingStreamState);
+    DUMP_U32(t, longLitStreamState);
     fprintf(f, "}\n");
     fprintf(f, "sizeof(RoseEngine) = %zu\n", sizeof(RoseEngine));
 }

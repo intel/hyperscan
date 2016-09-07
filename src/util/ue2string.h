@@ -55,6 +55,29 @@ size_t maxStringSelfOverlap(const std::string &a, bool nocase);
 /// Compares two strings, returns non-zero if they're different.
 u32 cmp(const char *a, const char *b, size_t len, bool nocase);
 
+/**
+ * \brief String type that also records whether the whole string is caseful or
+ * caseless.
+ *
+ * You should use \ref ue2_literal if you need to represent a mixed-case
+ * literal.
+ */
+struct ue2_case_string {
+    ue2_case_string(std::string s_in, bool nocase_in)
+        : s(std::move(s_in)), nocase(nocase_in) {
+        if (nocase) {
+            upperString(s);
+        }
+    }
+
+    bool operator==(const ue2_case_string &other) const {
+        return s == other.s && nocase == other.nocase;
+    }
+
+    std::string s;
+    bool nocase;
+};
+
 struct ue2_literal {
 public:
     /// Single element proxy, pointed to by our const_iterator.

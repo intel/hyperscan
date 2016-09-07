@@ -495,6 +495,24 @@ void RoseInstrEnginesEod::write(void *dest, RoseEngineBlob &blob,
     inst->iter_offset = iter_offset;
 }
 
+void RoseInstrCheckLongLit::write(void *dest, RoseEngineBlob &blob,
+                                  const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    assert(!literal.empty());
+    inst->lit_offset = blob.add(literal.c_str(), literal.size(), 1);
+    inst->lit_length = verify_u32(literal.size());
+}
+
+void RoseInstrCheckLongLitNocase::write(void *dest, RoseEngineBlob &blob,
+                                        const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    assert(!literal.empty());
+    inst->lit_offset = blob.add(literal.c_str(), literal.size(), 1);
+    inst->lit_length = verify_u32(literal.size());
+}
+
 static
 OffsetMap makeOffsetMap(const RoseProgram &program, u32 *total_len) {
     OffsetMap offset_map;

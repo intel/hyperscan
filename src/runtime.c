@@ -736,19 +736,10 @@ void pureLiteralStreamExec(struct hs_stream *stream_state,
     assert(scratch);
     assert(!can_stop_matching(scratch));
 
-    char *state = getMultiState(stream_state);
-
     const struct RoseEngine *rose = stream_state->rose;
     const struct HWLM *ftable = getFLiteralMatcher(rose);
 
     size_t len2 = scratch->core_info.len;
-
-    u8 *hwlm_stream_state;
-    if (rose->floatingStreamState) {
-        hwlm_stream_state = getFloatingMatcherState(rose, state);
-    } else {
-        hwlm_stream_state = NULL;
-    }
 
     DEBUG_PRINTF("::: streaming rose ::: offset = %llu len = %zu\n",
                  stream_state->offset, scratch->core_info.len);
@@ -761,8 +752,8 @@ void pureLiteralStreamExec(struct hs_stream *stream_state,
     // start the match region at zero.
     const size_t start = 0;
 
-    hwlmExecStreaming(ftable, scratch, len2, start, roseCallback,
-                      scratch, rose->initialGroups, hwlm_stream_state);
+    hwlmExecStreaming(ftable, scratch, len2, start, roseCallback, scratch,
+                      rose->initialGroups);
 
     if (!told_to_stop_matching(scratch) &&
         isAllExhausted(rose, scratch->core_info.exhaustionVector)) {

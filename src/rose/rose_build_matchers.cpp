@@ -485,11 +485,16 @@ bool isNoRunsVertex(const RoseBuildImpl &build, RoseVertex u) {
 
 static
 bool isNoRunsLiteral(const RoseBuildImpl &build, const u32 id,
-                     const rose_literal_info &info) {
+                     const rose_literal_info &info, const size_t max_len) {
     DEBUG_PRINTF("lit id %u\n", id);
 
     if (info.requires_benefits) {
         DEBUG_PRINTF("requires benefits\n"); // which would need confirm
+        return false;
+    }
+
+    if (build.literals.right.at(id).s.length() > max_len) {
+        DEBUG_PRINTF("requires literal check\n");
         return false;
     }
 
@@ -625,7 +630,7 @@ u64a literalMinReportOffset(const RoseBuildImpl &build,
 
 vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
                                            rose_literal_table table,
-                                           u32 max_offset) {
+                                           size_t max_len, u32 max_offset) {
     vector<hwlmLiteral> lits;
 
     for (const auto &e : build.literals.right) {
@@ -663,10 +668,14 @@ vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
         const vector<u8> &msk = e.second.msk;
         const vector<u8> &cmp = e.second.cmp;
 
-        bool noruns = isNoRunsLiteral(build, id, info);
+        bool noruns = isNoRunsLiteral(build, id, info, max_len);
 
         if (info.requires_explode) {
             DEBUG_PRINTF("exploding lit\n");
+
+            // We do not require_explode for long literals.
+            assert(lit.length() <= max_len);
+
             case_iter cit = caseIterateBegin(lit);
             case_iter cite = caseIterateEnd();
             for (; cit != cite; ++cit) {
@@ -687,20 +696,28 @@ vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
                                   msk, cmp);
             }
         } else {
-            const std::string &s = lit.get_string();
-            const bool nocase = lit.any_nocase();
+            string s = lit.get_string();
+            bool nocase = lit.any_nocase();
 
             DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d, msk=%s, "
                          "cmp=%s\n",
                          final_id, escapeString(s).c_str(), (int)nocase, noruns,
                          dumpMask(msk).c_str(), dumpMask(cmp).c_str());
 
+            if (s.length() > max_len) {
+                DEBUG_PRINTF("truncating to tail of length %zu\n", max_len);
+                s.erase(0, s.length() - max_len);
+                // We shouldn't have set a threshold below 8 chars.
+                assert(msk.size() <= max_len);
+            }
+
             if (!maskIsConsistent(s, nocase, msk, cmp)) {
                 DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
                 continue;
             }
 
-            lits.emplace_back(s, nocase, noruns, final_id, groups, msk, cmp);
+            lits.emplace_back(move(s), nocase, noruns, final_id, groups, msk,
+                              cmp);
         }
     }
 
@@ -708,14 +725,15 @@ vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
 }
 
 aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
+                                              size_t longLitLengthThreshold,
                                               rose_group *fgroups,
                                               size_t *fsize,
-                                              size_t *historyRequired,
-                                              size_t *streamStateRequired) {
+                                              size_t *historyRequired) {
     *fsize = 0;
     *fgroups = 0;
 
-    auto fl = fillHamsterLiteralList(build, ROSE_FLOATING);
+    auto fl = fillHamsterLiteralList(build, ROSE_FLOATING,
+                                     longLitLengthThreshold);
     if (fl.empty()) {
         DEBUG_PRINTF("empty floating matcher\n");
         return nullptr;
@@ -747,13 +765,10 @@ aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
     if (build.cc.streaming) {
         DEBUG_PRINTF("literal_history_required=%zu\n",
                 ctl.literal_history_required);
-        DEBUG_PRINTF("literal_stream_state_required=%zu\n",
-                ctl.literal_stream_state_required);
         assert(ctl.literal_history_required <=
                build.cc.grey.maxHistoryAvailable);
         *historyRequired = max(*historyRequired,
                 ctl.literal_history_required);
-        *streamStateRequired = ctl.literal_stream_state_required;
     }
 
     *fsize = hwlmSize(ftable.get());
@@ -778,8 +793,8 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
         return nullptr;
     }
 
-    auto lits = fillHamsterLiteralList(build, ROSE_FLOATING,
-                                       ROSE_SMALL_BLOCK_LEN);
+    auto lits = fillHamsterLiteralList(
+        build, ROSE_FLOATING, ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
     if (lits.empty()) {
         DEBUG_PRINTF("no floating table\n");
         return nullptr;
@@ -788,8 +803,9 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
         return nullptr;
     }
 
-    auto anchored_lits = fillHamsterLiteralList(build,
-                            ROSE_ANCHORED_SMALL_BLOCK, ROSE_SMALL_BLOCK_LEN);
+    auto anchored_lits =
+        fillHamsterLiteralList(build, ROSE_ANCHORED_SMALL_BLOCK,
+                               ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
     if (anchored_lits.empty()) {
         DEBUG_PRINTF("no small-block anchored literals\n");
         return nullptr;
@@ -823,7 +839,8 @@ aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
                                                  size_t *esize) {
     *esize = 0;
 
-    auto el = fillHamsterLiteralList(build, ROSE_EOD_ANCHORED);
+    auto el = fillHamsterLiteralList(build, ROSE_EOD_ANCHORED,
+                                     build.ematcher_region_size);
 
     if (el.empty()) {
         DEBUG_PRINTF("no eod anchored literals\n");

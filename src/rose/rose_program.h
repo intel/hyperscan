@@ -117,7 +117,19 @@ enum RoseInstructionCode {
     /** \brief Run the EOD-anchored HWLM literal matcher. */
     ROSE_INSTR_MATCHER_EOD,
 
-    LAST_ROSE_INSTRUCTION = ROSE_INSTR_MATCHER_EOD //!< Sentinel.
+    /**
+     * \brief Confirm a case-sensitive literal at the current offset. In
+     * streaming mode, this makes use of the long literal table.
+     */
+    ROSE_INSTR_CHECK_LONG_LIT,
+
+    /**
+     * \brief Confirm a case-insensitive literal at the current offset. In
+     * streaming mode, this makes use of the long literal table.
+     */
+    ROSE_INSTR_CHECK_LONG_LIT_NOCASE,
+
+    LAST_ROSE_INSTRUCTION = ROSE_INSTR_CHECK_LONG_LIT_NOCASE //!< Sentinel.
 };
 
 struct ROSE_STRUCT_END {
@@ -463,6 +475,20 @@ struct ROSE_STRUCT_SUFFIXES_EOD {
 
 struct ROSE_STRUCT_MATCHER_EOD {
     u8 code; //!< From enum RoseInstructionCode.
+};
+
+/** Note: check failure will halt program. */
+struct ROSE_STRUCT_CHECK_LONG_LIT {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 lit_offset; //!< Offset of literal string.
+    u32 lit_length; //!< Length of literal string.
+};
+
+/** Note: check failure will halt program. */
+struct ROSE_STRUCT_CHECK_LONG_LIT_NOCASE {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 lit_offset; //!< Offset of literal string.
+    u32 lit_length; //!< Length of literal string.
 };
 
 #endif // ROSE_ROSE_PROGRAM_H

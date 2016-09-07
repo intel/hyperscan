@@ -26,48 +26,40 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/**
- * \file
- * \brief Rose build: code for constructing literal tables.
- */
+#ifndef STREAM_LONG_LIT_HASH_H
+#define STREAM_LONG_LIT_HASH_H
 
-#ifndef ROSE_BUILD_MATCHERS_H
-#define ROSE_BUILD_MATCHERS_H
+#include "ue2common.h"
+#include "util/unaligned.h"
 
-#include "rose_build_impl.h"
+/** \brief Length of the buffer operated on by \ref hashLongLiteral(). */
+#define LONG_LIT_HASH_LEN 24
 
-#include <vector>
+/** \brief Hash function used for long literal table in streaming mode. */
+static really_inline
+u32 hashLongLiteral(const u8 *ptr, UNUSED size_t len, char nocase) {
+    const u64a CASEMASK = 0xdfdfdfdfdfdfdfdfULL;
+    const u64a MULTIPLIER = 0x0b4e0ef37bc32127ULL;
 
-struct HWLM;
+    // We unconditionally hash LONG_LIT_HASH_LEN bytes; all use cases of this
+    // hash are for strings longer than this.
+    assert(len >= 24);
 
-namespace ue2 {
+    u64a v1 = unaligned_load_u64a(ptr);
+    u64a v2 = unaligned_load_u64a(ptr + 8);
+    u64a v3 = unaligned_load_u64a(ptr + 16);
+    if (nocase) {
+        v1 &= CASEMASK;
+        v2 &= CASEMASK;
+        v3 &= CASEMASK;
+    }
+    v1 *= MULTIPLIER;
+    v2 *= MULTIPLIER * MULTIPLIER;
+    v3 *= MULTIPLIER * MULTIPLIER * MULTIPLIER;
+    v1 >>= 32;
+    v2 >>= 32;
+    v3 >>= 32;
+    return v1 ^ v2 ^ v3;
+}
 
-struct hwlmLiteral;
-
-/**
- * \brief Build up a vector of literals for the given table.
- *
- * If max_offset is specified (and not ROSE_BOUND_INF), then literals that can
- * only lead to a pattern match after max_offset may be excluded.
- */
-std::vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
-                    rose_literal_table table, size_t max_len,
-                    u32 max_offset = ROSE_BOUND_INF);
-
-aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
-                                              size_t longLitLengthThreshold,
-                                              rose_group *fgroups,
-                                              size_t *fsize,
-                                              size_t *historyRequired);
-
-aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
-                                                size_t *sbsize);
-
-aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
-                                                 size_t *esize);
-
-void findMoreLiteralMasks(RoseBuildImpl &build);
-
-} // namespace ue2
-
-#endif // ROSE_BUILD_MATCHERS_H
+#endif // STREAM_LONG_LIT_HASH_H

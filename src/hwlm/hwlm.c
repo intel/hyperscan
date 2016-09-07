@@ -200,8 +200,7 @@ hwlm_error_t hwlmExec(const struct HWLM *t, const u8 *buf, size_t len,
 
 hwlm_error_t hwlmExecStreaming(const struct HWLM *t, struct hs_scratch *scratch,
                                size_t len, size_t start, HWLMCallback cb,
-                               void *ctxt, hwlm_group_t groups,
-                               u8 *stream_state) {
+                               void *ctxt, hwlm_group_t groups) {
     const u8 *hbuf = scratch->core_info.hbuf;
     const size_t hlen = scratch->core_info.hlen;
     const u8 *buf = scratch->core_info.buf;
@@ -234,13 +233,10 @@ hwlm_error_t hwlmExecStreaming(const struct HWLM *t, struct hs_scratch *scratch,
             DEBUG_PRINTF("using hq accel %hhu\n", t->accel1.accel_type);
             aa = &t->accel1;
         }
-        // if no active stream state, use acceleration
-        if (!fdrStreamStateActive(HWLM_C_DATA(t), stream_state)) {
-            do_accel_streaming(aa, hbuf, hlen, buf, len, &start);
-        }
+        do_accel_streaming(aa, hbuf, hlen, buf, len, &start);
         DEBUG_PRINTF("calling frankie (groups=%08llx, start=%zu)\n", groups,
                      start);
         return fdrExecStreaming(HWLM_C_DATA(t), hbuf, hlen, buf, len,
-                                start, cb, ctxt, groups, stream_state);
+                                start, cb, ctxt, groups);
     }
 }

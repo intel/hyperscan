@@ -26,48 +26,26 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/**
- * \file
- * \brief Rose build: code for constructing literal tables.
- */
+#ifndef ROSE_BUILD_LONG_LIT_H
+#define ROSE_BUILD_LONG_LIT_H
 
-#ifndef ROSE_BUILD_MATCHERS_H
-#define ROSE_BUILD_MATCHERS_H
-
-#include "rose_build_impl.h"
+#include "ue2common.h"
 
 #include <vector>
 
-struct HWLM;
-
 namespace ue2 {
 
-struct hwlmLiteral;
+class RoseBuildImpl;
+class RoseEngineBlob;
+struct ue2_case_string;
 
-/**
- * \brief Build up a vector of literals for the given table.
- *
- * If max_offset is specified (and not ROSE_BOUND_INF), then literals that can
- * only lead to a pattern match after max_offset may be excluded.
- */
-std::vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
-                    rose_literal_table table, size_t max_len,
-                    u32 max_offset = ROSE_BOUND_INF);
-
-aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
-                                              size_t longLitLengthThreshold,
-                                              rose_group *fgroups,
-                                              size_t *fsize,
-                                              size_t *historyRequired);
-
-aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
-                                                size_t *sbsize);
-
-aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
-                                                 size_t *esize);
-
-void findMoreLiteralMasks(RoseBuildImpl &build);
+u32 buildLongLiteralTable(const RoseBuildImpl &build, RoseEngineBlob &blob,
+                          std::vector<ue2_case_string> &lits,
+                          size_t longLitLengthThreshold,
+                          size_t *historyRequired,
+                          size_t *longLitStreamStateRequired);
 
 } // namespace ue2
 
-#endif // ROSE_BUILD_MATCHERS_H
+
+#endif // ROSE_BUILD_LONG_LIT_H

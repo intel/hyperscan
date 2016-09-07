@@ -37,6 +37,7 @@
 #include "util/hash.h"
 #include "util/make_unique.h"
 #include "util/ue2_containers.h"
+#include "util/ue2string.h"
 
 #include <algorithm>
 #include <array>
@@ -1719,6 +1720,62 @@ class RoseInstrMatcherEod : public RoseInstrBaseTrivial<ROSE_INSTR_MATCHER_EOD,
                                                         RoseInstrMatcherEod> {
 public:
     ~RoseInstrMatcherEod() override;
+};
+
+class RoseInstrCheckLongLit
+    : public RoseInstrBaseNoTargets<ROSE_INSTR_CHECK_LONG_LIT,
+                                    ROSE_STRUCT_CHECK_LONG_LIT,
+                                    RoseInstrCheckLongLit> {
+public:
+    std::string literal;
+
+    RoseInstrCheckLongLit(std::string literal_in)
+        : literal(std::move(literal_in)) {}
+
+    bool operator==(const RoseInstrCheckLongLit &ri) const {
+        return literal == ri.literal;
+    }
+
+    size_t hash() const override {
+        return hash_all(static_cast<int>(opcode), literal);
+    }
+
+    void write(void *dest, RoseEngineBlob &blob,
+               const OffsetMap &offset_map) const override;
+
+    bool equiv_to(const RoseInstrCheckLongLit &ri, const OffsetMap &,
+                  const OffsetMap &) const {
+        return literal == ri.literal;
+    }
+};
+
+class RoseInstrCheckLongLitNocase
+    : public RoseInstrBaseNoTargets<ROSE_INSTR_CHECK_LONG_LIT_NOCASE,
+                                    ROSE_STRUCT_CHECK_LONG_LIT_NOCASE,
+                                    RoseInstrCheckLongLitNocase> {
+public:
+    std::string literal;
+
+    RoseInstrCheckLongLitNocase(std::string literal_in)
+        : literal(std::move(literal_in)) {
+        upperString(literal);
+    }
+
+    bool operator==(const RoseInstrCheckLongLitNocase &ri) const {
+        return literal == ri.literal;
+    }
+
+    size_t hash() const override {
+        return hash_all(static_cast<int>(opcode), literal);
+    }
+
+    void write(void *dest, RoseEngineBlob &blob,
+               const OffsetMap &offset_map) const override;
+
+    bool equiv_to(const RoseInstrCheckLongLitNocase &ri, const OffsetMap &,
+                  const OffsetMap &) const {
+        return literal == ri.literal;
+    }
 };
 
 class RoseInstrEnd

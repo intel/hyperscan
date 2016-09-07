@@ -74,10 +74,8 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
         if (loc < buf) {
             u32 full_overhang = buf - loc;
 
-            const u8 *history = caseless ? a->buf_history_nocase
-                                         : a->buf_history;
-            size_t len_history = caseless ? a->len_history_nocase
-                                          : a->len_history;
+            const u8 *history = a->buf_history;
+            size_t len_history = a->len_history;
 
             // can't do a vectored confirm either if we don't have
             // the bytes
@@ -123,8 +121,7 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
             const u8 *loc2 = buf + i - li->extended_size + 1 - pullBackAmount;
             if (loc2 < buf) {
                 u32 full_overhang = buf - loc2;
-                size_t len_history = caseless ? a->len_history_nocase
-                                              : a->len_history;
+                size_t len_history = a->len_history;
                 if (full_overhang > len_history) {
                     goto out;
                 }

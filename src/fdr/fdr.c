@@ -31,7 +31,6 @@
 #include "fdr_confirm_runtime.h"
 #include "fdr_internal.h"
 #include "fdr_loadval.h"
-#include "fdr_streaming_runtime.h"
 #include "flood_runtime.h"
 #include "teddy.h"
 #include "teddy_internal.h"
@@ -809,8 +808,6 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
         len,
         hbuf,
         0,
-        hbuf, // nocase
-        0,
         start,
         cb,
         ctxt,
@@ -828,14 +825,12 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
 hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
                               size_t hlen, const u8 *buf, size_t len,
                               size_t start, HWLMCallback cb, void *ctxt,
-                              hwlm_group_t groups, u8 *stream_state) {
+                              hwlm_group_t groups) {
     struct FDR_Runtime_Args a = {
         buf,
         len,
         hbuf,
         hlen,
-        hbuf, // nocase - start same as caseful, override later if needed
-        hlen, // nocase
         start,
         cb,
         ctxt,
@@ -844,7 +839,6 @@ hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
          * the history buffer (they may be garbage). */
         hbuf ? unaligned_load_u64a(hbuf + hlen - sizeof(u64a)) : (u64a)0
     };
-    fdrUnpackState(fdr, &a, stream_state);
 
     hwlm_error_t ret;
     if (unlikely(a.start_offset >= a.len)) {
@@ -854,6 +848,5 @@ hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
         ret = funcs[fdr->engineID](fdr, &a, groups);
     }
 
-    fdrPackState(fdr, &a, stream_state);
     return ret;
 }
