@@ -1,18 +1,10 @@
 cmake_minimum_required (VERSION 2.8.11)
-
-# don't use the built-in default configs
-set (CMAKE_NOT_USING_CONFIG_FLAGS TRUE)
-
 project (Hyperscan C CXX)
 
 set (HS_MAJOR_VERSION 4)
 set (HS_MINOR_VERSION 3)
 set (HS_PATCH_VERSION 1)
 set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
-
-# since we are doing this manually, we only have three types
-set (CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo"
-     CACHE STRING "" FORCE)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(CheckCCompilerFlag)
@@ -141,6 +133,12 @@ CMAKE_DEPENDENT_OPTION(DUMP_SUPPORT "Dump code support; normally on, except in r
 
 CMAKE_DEPENDENT_OPTION(DISABLE_ASSERTS "Disable assert(); Asserts are enabled in debug builds, disabled in release builds" OFF "NOT RELEASE_BUILD" ON)
 
+if (DISABLE_ASSERTS)
+    if (CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+        add_definitions(-DNDEBUG)
+    endif()
+endif()
+
 option(WINDOWS_ICC "Use Intel C++ Compiler on Windows, default off, requires ICC to be set in project" OFF)
 
 # TODO: per platform config files?
@@ -151,27 +149,16 @@ if(MSVC OR MSVC_IDE)
     if (MSVC_VERSION LESS 1700)
         message(FATAL_ERROR "The project requires C++11 features.")
     else()
-        # set base flags
-        set(CMAKE_C_FLAGS "/DWIN32 /D_WINDOWS /W3")
-        set(CMAKE_C_FLAGS_DEBUG "/D_DEBUG /MDd /Zi /Od")
-        set(CMAKE_C_FLAGS_RELEASE "/MD /O2 /Ob2 /Oi")
-        set(CMAKE_C_FLAGS_RELWITHDEBINFO "/Zi /MD /O2 /Ob2 /Oi")
-
-        set(CMAKE_CXX_FLAGS "/DWIN32 /D_WINDOWS /W3 /GR /EHsc")
-        set(CMAKE_CXX_FLAGS_DEBUG "/D_DEBUG /MDd /Zi /Od")
-        set(CMAKE_CXX_FLAGS_RELEASE "/MD /O2 /Ob2 /Oi")
-        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/Zi /MD /O2 /Ob2 /Oi")
-
         if (WINDOWS_ICC)
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Qstd=c99 /Qrestrict /QxHost /wd4267 /Qdiag-disable:remark")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Qstd=c++11 /Qrestrict /QxHost /wd4267 /wd4800 /Qdiag-disable:remark -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /O3 /Qstd=c99 /Qrestrict /QxHost /wd4267 /Qdiag-disable:remark")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /Qstd=c++11 /Qrestrict /QxHost /wd4267 /wd4800 /Qdiag-disable:remark -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
         else()
             #TODO: don't hardcode arch
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /arch:AVX /wd4267")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /arch:AVX /wd4244 /wd4267 /wd4800 /wd2586 /wd1170 -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  /O2 /arch:AVX /wd4267")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /arch:AVX /wd4244 /wd4267 /wd4800 -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
         endif()
-
-
+        string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+        string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
     endif()
 
 else()
@@ -192,6 +179,12 @@ else()
         unset(_GXX_OUTPUT)
     endif()
 
+    # remove CMake's idea of optimisation
+    foreach (CONFIG ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
+        string(REGEX REPLACE "-O[^ ]*" "" CMAKE_C_FLAGS_${CONFIG} "${CMAKE_C_FLAGS_${CONFIG}}")
+        string(REGEX REPLACE "-O[^ ]*" "" CMAKE_CXX_FLAGS_${CONFIG} "${CMAKE_CXX_FLAGS_${CONFIG}}")
+    endforeach ()
+
     if(OPTIMISE)
         set(OPT_C_FLAG "-O3")
         set(OPT_CXX_FLAG "-O2")
@@ -200,25 +193,16 @@ else()
         set(OPT_CXX_FLAG "-O0")
     endif(OPTIMISE)
 
-    # set up base flags for build types
-    set(CMAKE_C_FLAGS_DEBUG "-g ${OPT_C_FLAG} -Werror")
-    set(CMAKE_C_FLAGS_RELWITHDEBINFO "-g ${OPT_C_FLAG}")
-    set(CMAKE_C_FLAGS_RELEASE "${OPT_C_FLAG}")
-
-    set(CMAKE_CXX_FLAGS_DEBUG "-g ${OPT_CXX_FLAG} -Werror")
-    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-g ${OPT_CXX_FLAG}")
-    set(CMAKE_CXX_FLAGS_RELEASE "${OPT_CXX_FLAG}")
-
-    if (DISABLE_ASSERTS)
-        # usually true for release builds, false for debug
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DNDEBUG")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
-    endif()
-
-
     # set compiler flags - more are tested and added later
-    set(EXTRA_C_FLAGS "-std=c99 -Wall -Wextra -Wshadow -Wcast-qual -fno-strict-aliasing")
-    set(EXTRA_CXX_FLAGS "-std=c++11 -Wall -Wextra -Wshadow -Wswitch -Wreturn-type -Wcast-qual -Wno-deprecated -Wnon-virtual-dtor -fno-strict-aliasing")
+    set(EXTRA_C_FLAGS "${OPT_C_FLAG} -std=c99 -Wall -Wextra -Wshadow -Wcast-qual -fno-strict-aliasing")
+    set(EXTRA_CXX_FLAGS "${OPT_CXX_FLAG} -std=c++11 -Wall -Wextra -Wshadow -Wswitch -Wreturn-type -Wcast-qual -Wno-deprecated -Wnon-virtual-dtor -fno-strict-aliasing")
+
+    if (NOT RELEASE_BUILD)
+        # -Werror is most useful during development, don't potentially break
+        # release builds
+        set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -Werror")
+        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Werror")
+    endif()
 
     if (NOT CMAKE_C_FLAGS MATCHES .*march.*)
         message(STATUS "Building for current host CPU")
