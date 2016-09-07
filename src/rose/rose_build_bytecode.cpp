@@ -3054,7 +3054,6 @@ bool makeRoleShufti(const vector<LookEntry> &look,
                        neg_mask, base_offset, end_inst);
             program.add_before_end(move(ri));
         } else {
-            return false;
             auto ri = make_unique<RoseInstrCheckShufti32x16>
                       (hi_mask, lo_mask, bucket_select_hi, bucket_select_lo,
                        neg_mask, base_offset, end_inst);
