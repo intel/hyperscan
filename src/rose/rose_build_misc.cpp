@@ -1309,7 +1309,7 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
         }
         if (g[v].left.graph) {
             assert(g[v].left.graph->kind
-                   == tbi.isRootSuccessor(v) ? NFA_PREFIX : NFA_INFIX);
+                   == (tbi.isRootSuccessor(v) ? NFA_PREFIX : NFA_INFIX));
             if (!isImplementableNFA(*g[v].left.graph, nullptr, tbi.cc)) {
                 DEBUG_PRINTF("nfa prefix %zu failed (%zu vertices)\n", g[v].idx,
                              num_vertices(*g[v].left.graph));
