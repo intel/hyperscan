@@ -658,8 +658,8 @@ m128 movdq_lo(m256 x) {
 }
 
 static really_inline
-m256 combine2x128(m128 a, m128 b) {
-    m256 rv = {a, b};
+m256 combine2x128(m128 hi, m128 lo) {
+    m256 rv = {lo, hi};
     return rv;
 }
 
@@ -712,7 +712,7 @@ m256 combine2x128(m128 hi, m128 lo) {
 #if defined(_mm256_set_m128i)
     return _mm256_set_m128i(hi, lo);
 #else
-    return insert128to256(cast128to256(hi), lo, 1);
+    return insert128to256(cast128to256(lo), hi, 1);
 #endif
 }
 #endif //AVX2

@@ -308,7 +308,7 @@ const u8 *fwdBlockShort(m256 mask, m128 chars, const u8 *buf,
                         const m256 low4bits) {
     // do the hi and lo shuffles in the one avx register
     m256 c = set2x128(chars);
-    c = _mm256_srlv_epi64(c, _mm256_set_epi64x(0, 0, 4, 4));
+    c = _mm256_srlv_epi64(c, _mm256_set_epi64x(4, 4, 0, 0));
     c = and256(c, low4bits);
     m256 c_shuf = vpshufb(mask, c);
     m128 t = and128(movdq_hi(c_shuf), cast256to128(c_shuf));
@@ -440,7 +440,7 @@ const u8 *revBlockShort(m256 mask, m128 chars, const u8 *buf,
                         const m256 low4bits) {
     // do the hi and lo shuffles in the one avx register
     m256 c = set2x128(chars);
-    c = _mm256_srlv_epi64(c, _mm256_set_epi64x(0, 0, 4, 4));
+    c = _mm256_srlv_epi64(c, _mm256_set_epi64x(4, 4, 0, 0));
     c = and256(c, low4bits);
     m256 c_shuf = vpshufb(mask, c);
     m128 t = and128(movdq_hi(c_shuf), cast256to128(c_shuf));
@@ -565,7 +565,7 @@ const u8 *fwdBlockShort2(m256 mask1, m256 mask2, m128 chars, const u8 *buf,
                          const m256 low4bits) {
     // do the hi and lo shuffles in the one avx register
     m256 c = set2x128(chars);
-    c = _mm256_srlv_epi64(c, _mm256_set_epi64x(0, 0, 4, 4));
+    c = _mm256_srlv_epi64(c, _mm256_set_epi64x(4, 4, 0, 0));
     c = and256(c, low4bits);
     m256 c_shuf1 = vpshufb(mask1, c);
     m256 c_shuf2 = rshift128_m256(vpshufb(mask2, c), 1);

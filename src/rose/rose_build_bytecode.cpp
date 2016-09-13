@@ -3054,8 +3054,8 @@ bool makeRoleShufti(const vector<LookEntry> &look,
             neg_mask &= 0xffff;
             array<u8, 32> nib_mask;
             array<u8, 16> bucket_select_mask_16;
-            copy(hi_mask.begin(), hi_mask.begin() + 16, nib_mask.begin());
-            copy(lo_mask.begin(), lo_mask.begin() + 16, nib_mask.begin() + 16);
+            copy(lo_mask.begin(), lo_mask.begin() + 16, nib_mask.begin());
+            copy(hi_mask.begin(), hi_mask.begin() + 16, nib_mask.begin() + 16);
             copy(bucket_select_lo.begin(), bucket_select_lo.begin() + 16,
                  bucket_select_mask_16.begin());
             auto ri = make_unique<RoseInstrCheckShufti16x8>
