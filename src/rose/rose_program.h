@@ -42,6 +42,7 @@
 
 /** \brief Role program instruction opcodes. */
 enum RoseInstructionCode {
+    ROSE_INSTR_END,               //!< End of program.
     ROSE_INSTR_ANCHORED_DELAY,    //!< Delay until after anchored matcher.
     ROSE_INSTR_CHECK_LIT_EARLY,   //!< Skip matches before floating min offset.
     ROSE_INSTR_CHECK_GROUPS,      //!< Check that literal groups are on.
@@ -116,7 +117,11 @@ enum RoseInstructionCode {
     /** \brief Run the EOD-anchored HWLM literal matcher. */
     ROSE_INSTR_MATCHER_EOD,
 
-    ROSE_INSTR_END                //!< End of program.
+    LAST_ROSE_INSTRUCTION = ROSE_INSTR_MATCHER_EOD //!< Sentinel.
+};
+
+struct ROSE_STRUCT_END {
+    u8 code; //!< From enum RoseInstructionCode.
 };
 
 struct ROSE_STRUCT_ANCHORED_DELAY {
@@ -457,10 +462,6 @@ struct ROSE_STRUCT_SUFFIXES_EOD {
 };
 
 struct ROSE_STRUCT_MATCHER_EOD {
-    u8 code; //!< From enum RoseInstructionCode.
-};
-
-struct ROSE_STRUCT_END {
     u8 code; //!< From enum RoseInstructionCode.
 };
 

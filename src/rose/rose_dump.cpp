@@ -234,9 +234,12 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
     const char *pc_base = pc;
     for (;;) {
         u8 code = *(const u8 *)pc;
-        assert(code <= ROSE_INSTR_END);
+        assert(code <= LAST_ROSE_INSTRUCTION);
         const size_t offset = pc - pc_base;
         switch (code) {
+            PROGRAM_CASE(END) { return; }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(ANCHORED_DELAY) {
                 os << "    groups 0x" << std::hex << ri->groups << std::dec
                    << endl;
@@ -605,9 +608,6 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(MATCHER_EOD) {}
-            PROGRAM_NEXT_INSTRUCTION
-
-            PROGRAM_CASE(END) { return; }
             PROGRAM_NEXT_INSTRUCTION
 
         default:

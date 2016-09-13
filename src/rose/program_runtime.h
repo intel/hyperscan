@@ -1389,9 +1389,15 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
         assert(pc >= pc_base);
         assert((size_t)(pc - pc_base) < t->size);
         const u8 code = *(const u8 *)pc;
-        assert(code <= ROSE_INSTR_END);
+        assert(code <= LAST_ROSE_INSTRUCTION);
 
         switch ((enum RoseInstructionCode)code) {
+            PROGRAM_CASE(END) {
+                DEBUG_PRINTF("finished\n");
+                return HWLM_CONTINUE_MATCHING;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(ANCHORED_DELAY) {
                 if (in_anchored && end > t->floatingMinLiteralMatchOffset) {
                     DEBUG_PRINTF("delay until playback\n");
@@ -1969,12 +1975,6 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                     HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
-            }
-            PROGRAM_NEXT_INSTRUCTION
-
-            PROGRAM_CASE(END) {
-                DEBUG_PRINTF("finished\n");
-                return HWLM_CONTINUE_MATCHING;
             }
             PROGRAM_NEXT_INSTRUCTION
         }
