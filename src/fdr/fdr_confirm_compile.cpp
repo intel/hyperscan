@@ -107,7 +107,7 @@ void fillLitInfo(const vector<hwlmLiteral> &lits, vector<LitInfo> &tmpLitInfo,
             info.extended_size = verify_u8(lit.msk.size());
         }
         info.flags = flags;
-        info.size = verify_u32(lit.s.size());
+        info.size = verify_u8(lit.s.size());
         info.groups = lit.groups;
 
         // these are built up assuming a LE machine
@@ -333,8 +333,8 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
             const string &t = lits[litIdx].s;
             if (t.size() > sizeof(CONF_TYPE)) {
                 size_t prefix_len = t.size() - sizeof(CONF_TYPE);
-                memcpy(&finalLI.s[0], t.c_str(), prefix_len);
-                ptr = &finalLI.s[0] + prefix_len;
+                memcpy(ptr, t.c_str(), prefix_len);
+                ptr += prefix_len;
             }
 
             ptr = ROUNDUP_PTR(ptr, alignof(LitInfo));

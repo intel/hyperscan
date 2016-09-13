@@ -86,7 +86,7 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
             // as for the regular case, no need to do a full confirm if
             // we're a short literal
             if (unlikely(li->size > sizeof(CONF_TYPE))) {
-                const u8 *s1 = li->s;
+                const u8 *s1 = (const u8 *)li + sizeof(*li);
                 const u8 *s2 = s1 + full_overhang;
                 const u8 *loc1 = history + len_history - full_overhang;
                 const u8 *loc2 = buf;
@@ -106,7 +106,8 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
 
             // if string < conf_type we don't need regular string cmp
             if (unlikely(li->size > sizeof(CONF_TYPE))) {
-                if (cmpForward(loc, li->s, li->size - sizeof(CONF_TYPE),
+                const u8 *s = (const u8 *)li + sizeof(*li);
+                if (cmpForward(loc, s, li->size - sizeof(CONF_TYPE),
                                caseless)) {
                     goto out;
                 }
