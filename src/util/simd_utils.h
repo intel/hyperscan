@@ -260,7 +260,13 @@ m128 loadbytes128(const void *ptr, unsigned int n) {
     return a;
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 extern const u8 simd_onebit_masks[];
+#ifdef __cplusplus
+}
+#endif
 
 static really_inline
 m128 mask1bit128(unsigned int n) {
