@@ -318,6 +318,7 @@ public:
         }
 
     private:
+        vertex_node *raw(void) { return p; }
         vertex_node *p;
         u64a serial;
         friend ue2_graph;
@@ -357,18 +358,13 @@ public:
         }
 
     private:
+        edge_node *raw(void) { return p; }
         edge_node *p;
         u64a serial;
         friend ue2_graph;
     };
 
 private:
-    static
-    vertex_node *raw(vertex_descriptor v) { return v.p; }
-
-    static
-    edge_node *raw(edge_descriptor e) { return e.p; }
-
     /* Note: apparently, nested class templates cannot be fully specialised but
      * they can be partially specialised. Sigh, ... */
     template<typename BundleType, typename dummy = void>
@@ -489,13 +485,13 @@ public:
             if (main == main_end) {
                 return;
             }
-            std::tie(aux, aux_end) = out_edges_i(*main);
+            std::tie(aux, aux_end) = out_edges_impl(*main);
             while (aux == aux_end) {
                 ++main;
                 if (main == main_end) {
                     break;
                 }
-                std::tie(aux, aux_end) = out_edges_i(*main);
+                std::tie(aux, aux_end) = out_edges_impl(*main);
             }
         }
         edge_iterator() { }
@@ -508,7 +504,7 @@ public:
                 if (main == main_end) {
                     break;
                 }
-                std::tie(aux, aux_end) = out_edges_i(*main);
+                std::tie(aux, aux_end) = out_edges_impl(*main);
             }
         }
         bool equal(const edge_iterator &other) const {
@@ -524,104 +520,87 @@ public:
         aux_base_iter_type aux_end;
     };
 
-private:
-    static
-    std::pair<out_edge_iterator, out_edge_iterator>
-    out_edges_i(vertex_descriptor v) {
-        return {out_edge_iterator(raw(v)->out_edge_list.begin()),
-                out_edge_iterator(raw(v)->out_edge_list.end())};
-    }
-
 public:
     static
     vertex_descriptor null_vertex() { return vertex_descriptor(); }
 
-    friend
-    vertex_descriptor add_vertex(Graph &g) {
-        vertex_node *v = new vertex_node(g.new_serial());
-        v->props.index = g.next_vertex_index++;
-        g.vertices_list.push_back(*v);
+    vertex_descriptor add_vertex_impl() {
+        vertex_node *v = new vertex_node(new_serial());
+        v->props.index = next_vertex_index++;
+        vertices_list.push_back(*v);
         return vertex_descriptor(v);
     }
 
-    friend
-    void remove_vertex(vertex_descriptor v, Graph &g) {
-        vertex_node *vv = Graph::raw(v);
+    void remove_vertex_impl(vertex_descriptor v) {
+        vertex_node *vv = v.raw();
         assert(vv->in_edge_list.empty());
         assert(vv->out_edge_list.empty());
-        g.vertices_list.erase_and_dispose(g.vertices_list.iterator_to(*vv),
-                                          delete_disposer());
+        vertices_list.erase_and_dispose(vertices_list.iterator_to(*vv),
+                                        delete_disposer());
     }
 
-    friend
-    void clear_in_edges(vertex_descriptor v, Graph &g) {
-        g.graph_edge_count -= Graph::raw(v)->in_edge_list.size();
-        Graph::raw(v)->in_edge_list.clear_and_dispose(in_edge_disposer());
+    void clear_in_edges_impl(vertex_descriptor v) {
+        graph_edge_count -= v.raw()->in_edge_list.size();
+        v.raw()->in_edge_list.clear_and_dispose(in_edge_disposer());
     }
 
-    friend
-    void clear_out_edges(vertex_descriptor v, Graph &g) {
-        g.graph_edge_count -= Graph::raw(v)->out_edge_list.size();
-        Graph::raw(v)->out_edge_list.clear_and_dispose(out_edge_disposer());
-    }
-
-    friend
-    void clear_vertex(vertex_descriptor v, Graph &g) {
-        clear_in_edges(v, g);
-        clear_out_edges(v, g);
+    void clear_out_edges_impl(vertex_descriptor v) {
+        graph_edge_count -= v.raw()->out_edge_list.size();
+        v.raw()->out_edge_list.clear_and_dispose(out_edge_disposer());
     }
 
     /* IncidenceGraph concept functions */
 
-    friend
-    vertex_descriptor source(edge_descriptor e, const Graph &) {
-        return vertex_descriptor(Graph::raw(e)->source);
+    static
+    vertex_descriptor source_impl(edge_descriptor e) {
+        return vertex_descriptor(e.raw()->source);
     }
 
-    friend
-    vertex_descriptor target(edge_descriptor e, const Graph &) {
-        return vertex_descriptor(Graph::raw(e)->target);
+    static
+    vertex_descriptor target_impl(edge_descriptor e) {
+        return vertex_descriptor(e.raw()->target);
     }
 
-    friend
-    degree_size_type out_degree(vertex_descriptor v, const Graph &) {
-        return Graph::raw(v)->out_edge_list.size();
+    static
+    degree_size_type out_degree_impl(vertex_descriptor v) {
+        return v.raw()->out_edge_list.size();
     }
 
-    friend
+    static
     std::pair<out_edge_iterator, out_edge_iterator>
-    out_edges(vertex_descriptor v, const Graph &) {
-        return Graph::out_edges_i(v);
+    out_edges_impl(vertex_descriptor v) {
+        return {out_edge_iterator(v.raw()->out_edge_list.begin()),
+                out_edge_iterator(v.raw()->out_edge_list.end())};
     }
 
     /* BidirectionalGraph concept functions */
 
-    friend
-    degree_size_type in_degree(vertex_descriptor v, const Graph &) {
-        return Graph::raw(v)->in_edge_list.size();
+    static
+    degree_size_type in_degree_impl(vertex_descriptor v) {
+        return v.raw()->in_edge_list.size();
     }
 
-    friend
+    static
     std::pair<in_edge_iterator, in_edge_iterator>
-    in_edges(vertex_descriptor v, const Graph &) {
-        return {in_edge_iterator(Graph::raw(v)->in_edge_list.begin()),
-                in_edge_iterator(Graph::raw(v)->in_edge_list.end())};
+    in_edges_impl(vertex_descriptor v) {
+        return {in_edge_iterator(v.raw()->in_edge_list.begin()),
+                in_edge_iterator(v.raw()->in_edge_list.end())};
     }
 
     /* Note: this is defined so that self loops are counted twice - which may or
      * may not be what you want. Actually, you probably don't want this at
      * all. */
-    friend
-    degree_size_type degree(vertex_descriptor v, const Graph &g) {
-        return in_degree(v, g) + out_degree(v, g);
+    static
+    degree_size_type degree_impl(vertex_descriptor v) {
+        return in_degree_impl(v) + out_degree_impl(v);
     }
 
     /* AdjacencyList concept functions */
 
-    friend
+    static
     std::pair<adjacency_iterator, adjacency_iterator>
-    adjacent_vertices(vertex_descriptor v, const Graph &g) {
-        auto out_edge_its = out_edges(v, g);
+    adjacent_vertices_impl(vertex_descriptor v) {
+        auto out_edge_its = out_edges_impl(v);
         return {adjacency_iterator(out_edge_its.first),
                 adjacency_iterator(out_edge_its.second)};
     }
@@ -629,18 +608,17 @@ public:
     /* AdjacencyMatrix concept functions
      * (Note: complexity guarantee is not met) */
 
-    friend
-    std::pair<edge_descriptor, bool> edge(vertex_descriptor u,
-                                          vertex_descriptor v, const Graph &g) {
-        if (in_degree(v, g) < out_degree(u, g)) {
-            for (const edge_descriptor &e : in_edges_range(v, g)) {
-                if (source(e, g) == u) {
+    std::pair<edge_descriptor, bool> edge_impl(vertex_descriptor u,
+                                               vertex_descriptor v) const {
+        if (in_degree_impl(v) < out_degree_impl(u)) {
+            for (const edge_descriptor &e : in_edges_range(v, *this)) {
+                if (source_impl(e) == u) {
                     return {e, true};
                 }
             }
         } else {
-            for (const edge_descriptor &e : out_edges_range(u, g)) {
-                if (target(e, g) == v) {
+            for (const edge_descriptor &e : out_edges_range(u, *this)) {
+                if (target_impl(e) == v) {
                     return {e, true};
                 }
             }
@@ -654,89 +632,78 @@ public:
     static
     edge_descriptor null_edge() { return edge_descriptor(); }
 
-    friend
+    static
     std::pair<inv_adjacency_iterator, inv_adjacency_iterator>
-    inv_adjacent_vertices(vertex_descriptor v, const Graph &g) {
-        auto in_edge_its = in_edges(v, g);
+    inv_adjacent_vertices_impl(vertex_descriptor v) {
+        auto in_edge_its = in_edges_impl(v);
         return {inv_adjacency_iterator(in_edge_its.first),
                 inv_adjacency_iterator(in_edge_its.second)};
     }
 
     /* MutableGraph concept functions */
 
-    friend
     std::pair<edge_descriptor, bool>
-    add_edge(vertex_descriptor u, vertex_descriptor v, Graph &g) {
+    add_edge_impl(vertex_descriptor u, vertex_descriptor v) {
         bool added = true; /* we always allow parallel edges */
-        edge_node *e = new edge_node(g.new_serial());
-        e->source = Graph::raw(u);
-        e->target = Graph::raw(v);
-        e->props.index = g.next_edge_index++;
+        edge_node *e = new edge_node(new_serial());
+        e->source = u.raw();
+        e->target = v.raw();
+        e->props.index = next_edge_index++;
 
-        Graph::raw(u)->out_edge_list.push_back(*e);
-        Graph::raw(v)->in_edge_list.push_back(*e);
+        u.raw()->out_edge_list.push_back(*e);
+        v.raw()->in_edge_list.push_back(*e);
 
-        g.graph_edge_count++;
+        graph_edge_count++;
         return {edge_descriptor(e), added};
     }
 
-    friend
-    void remove_edge(edge_descriptor e, Graph &g) {
-        g.graph_edge_count--;
+    void remove_edge_impl(edge_descriptor e) {
+        graph_edge_count--;
 
-        vertex_node *u = Graph::raw(source(e, g));
-        vertex_node *v = Graph::raw(target(e, g));
+        vertex_node *u = e.raw()->source;
+        vertex_node *v = e.raw()->target;
 
-        v->in_edge_list.erase(v->in_edge_list.iterator_to(*Graph::raw(e)));
-        u->out_edge_list.erase(u->out_edge_list.iterator_to(*Graph::raw(e)));
+        v->in_edge_list.erase(v->in_edge_list.iterator_to(*e.raw()));
+        u->out_edge_list.erase(u->out_edge_list.iterator_to(*e.raw()));
 
-        delete Graph::raw(e);
-    }
-
-    template<class Iter>
-    friend
-    void remove_edge(Iter it, Graph &g) {
-        remove_edge(*it, g);
+        delete e.raw();
     }
 
     template<class Predicate>
-    friend
-    void remove_out_edge_if(vertex_descriptor v, Predicate pred, Graph &g) {
+    void remove_out_edge_if_impl(vertex_descriptor v, Predicate pred) {
         out_edge_iterator it, ite;
-        std::tie(it, ite) = out_edges(v, g);
+        std::tie(it, ite) = out_edges_impl(v);
         while (it != ite) {
             auto jt = it;
             ++it;
             if (pred(*jt)) {
-                remove_edge(*jt, g);
+                this->remove_edge_impl(*jt);
             }
         }
     }
 
     template<class Predicate>
-    friend
-    void remove_in_edge_if(vertex_descriptor v, Predicate pred, Graph &g) {
+    void remove_in_edge_if_impl(vertex_descriptor v, Predicate pred) {
         in_edge_iterator it, ite;
-        std::tie(it, ite) = in_edges(v, g);
+        std::tie(it, ite) = in_edges_impl(v);
         while (it != ite) {
             auto jt = it;
             ++it;
             if (pred(*jt)) {
-                remove_edge(*jt, g);
+                remove_edge_impl(*jt);
             }
         }
     }
 
     template<class Predicate>
-    friend
-    void remove_edge_if(Predicate pred, Graph &g) {
+    void remove_edge_if_impl(Predicate pred) {
         edge_iterator it, ite;
-        std::tie(it, ite) = edges(g);
+        std::tie(it, ite) = edges_impl();
         while (it != ite) {
             auto jt = it;
             ++it;
             if (pred(*jt)) {
-                remove_edge(*jt, g);
+                remove_edge_impl(*jt);
             }
         }
     }
@@ -744,62 +711,50 @@ public:
 private:
     /* GCC 4.8 has bugs with lambdas in templated friend functions, so: */
     struct source_match {
-        source_match(const vertex_descriptor &uu, const Graph &gg)
-            : u(uu), g(gg) { }
-        bool operator()(edge_descriptor e) const { return source(e, g) == u; }
+        explicit source_match(const vertex_descriptor &uu) : u(uu) { }
+        bool operator()(edge_descriptor e) const { return source_impl(e) == u; }
         const vertex_descriptor &u;
-        const Graph &g;
     };
 
     struct target_match {
-        target_match(const vertex_descriptor &vv, const Graph &gg)
-            : v(vv), g(gg) { }
-        bool operator()(edge_descriptor e) const { return target(e, g) == v; }
+        explicit target_match(const vertex_descriptor &vv) : v(vv) { }
+        bool operator()(edge_descriptor e) const { return target_impl(e) == v; }
         const vertex_descriptor &v;
-        const Graph &g;
     };
 public:
-
     /* Note: (u,v) variant needs to remove all (parallel) edges between (u,v).
      *
      * The edge_descriptor version should be strongly preferred if the
      * edge_descriptor is available.
      */
-    friend
-    void remove_edge(const vertex_descriptor &u,
-                     const vertex_descriptor &v,
-                     Graph &g) {
-        if (in_degree(v, g) < out_degree(u, g)) {
-            remove_in_edge_if(v, source_match(u, g), g);
+    void remove_edge_impl(const vertex_descriptor &u,
+                          const vertex_descriptor &v) {
+        if (in_degree_impl(v) < out_degree_impl(u)) {
+            remove_in_edge_if_impl(v, source_match(u));
         } else {
-            remove_out_edge_if(u, target_match(v, g), g);
+            remove_out_edge_if_impl(u, target_match(v));
         }
     }
 
     /* VertexListGraph concept functions */
-
-    friend
-    vertices_size_type num_vertices(const Graph &g) {
-        return g.vertices_list.size();
+    vertices_size_type num_vertices_impl() const {
+        return vertices_list.size();
     }
 
-    friend
-    std::pair<vertex_iterator, vertex_iterator> vertices(const Graph &g) {
-        return {vertex_iterator(g.vertices_list.begin()),
-                vertex_iterator(g.vertices_list.end())};
+    std::pair<vertex_iterator, vertex_iterator> vertices_impl() const {
+        return {vertex_iterator(vertices_list.begin()),
+                vertex_iterator(vertices_list.end())};
     }
 
     /* EdgeListGraph concept functions (aside from those in IncidenceGraph) */
 
-    friend
-    edges_size_type num_edges(const Graph &g) {
-        return g.graph_edge_count;
+    edges_size_type num_edges_impl() const {
+        return graph_edge_count;
     }
 
-    friend
-    std::pair<edge_iterator, edge_iterator> edges(const Graph &g) {
+    std::pair<edge_iterator, edge_iterator> edges_impl() const {
         vertex_iterator vi, ve;
-        std::tie(vi, ve) = vertices(g);
+        std::tie(vi, ve) = vertices_impl();
 
         return {edge_iterator(vi, ve), edge_iterator(ve, ve)};
     }
@@ -807,19 +762,19 @@ public:
     /* bundled properties functions */
 
     vertex_property_type &operator[](vertex_descriptor v) {
-        return raw(v)->props;
+        return v.raw()->props;
     }
 
     const vertex_property_type &operator[](vertex_descriptor v) const {
-        return raw(v)->props;
+        return v.raw()->props;
     }
 
     edge_property_type &operator[](edge_descriptor e) {
-        return raw(e)->props;
+        return e.raw()->props;
     }
 
     const edge_property_type &operator[](edge_descriptor e) const {
-        return raw(e)->props;
+        return e.raw()->props;
     }
 
     /* PropertyGraph concept functions & helpers */
@@ -835,7 +790,7 @@ public:
         prop_map(value_type P_of::*m_in) : member(m_in) { }
 
         reference operator[](key_type k) const {
-            return Graph::raw(k)->props.*member;
+            return k.raw()->props.*member;
         }
         reference operator()(key_type k) const { return (*this)[k]; }
 
@@ -852,7 +807,7 @@ public:
         typedef typename boost::lvalue_property_map_tag category;
 
         reference operator[](key_type k) const {
-            return Graph::raw(k)->props;
+            return k.raw()->props;
         }
         reference operator()(key_type k) const { return (*this)[k]; }
     };
@@ -965,12 +920,11 @@ public:
      * rather than using the index in vp. i.e., except for in rare coincidences:
      *     g[add_vertex(g, vp)].index != vp.index
      */
-    friend
-    vertex_descriptor add_vertex(const VertexPropertyType &vp, Graph &g) {
-        vertex_descriptor v = add_vertex(g);
-        auto i = g[v].index;
-        g[v] = vp;
-        g[v].index = i;
+    vertex_descriptor add_vertex_impl(const VertexPropertyType &vp) {
+        vertex_descriptor v = add_vertex_impl();
+        auto i = (*this)[v].index;
+        (*this)[v] = vp;
+        (*this)[v].index = i;
 
         return v;
     }
@@ -979,14 +933,13 @@ public:
      * rather than using the index in ep. i.e., except for in rare coincidences:
      *     g[add_edge(u, v, g, ep)].index != ep.index
      */
-    friend
     std::pair<edge_descriptor, bool>
-    add_edge(vertex_descriptor u, vertex_descriptor v,
-             const EdgePropertyType &ep, Graph &g) {
-        auto e = add_edge(u, v, g);
-        auto i = g[e.first].index;
-        g[e.first] = ep;
-        g[e.first].index = i;
+    add_edge_impl(vertex_descriptor u, vertex_descriptor v,
+                  const EdgePropertyType &ep) {
+        auto e = add_edge_impl(u, v);
+        auto i = (*this)[e.first].index;
+        (*this)[e.first] = ep;
+        (*this)[e.first].index = i;
 
         return e;
     }
@@ -994,44 +947,44 @@ public:
     /* End MutablePropertyGraph */
 
     /** Pack the edge index into a contiguous range [ 0, num_edges(g) ). */
-    friend
-    void renumber_edges(Graph &g) {
-        g.next_edge_index = 0;
-        for (const auto &e : edges_range(g)) {
-            g[e].index = g.next_edge_index++;
+    void renumber_edges_impl() {
+        next_edge_index = 0;
+        edge_iterator it;
+        edge_iterator ite;
+        for (std::tie(it, ite) = edges_impl(); it != ite; ++it) {
+            (*this)[*it].index = next_edge_index++;
         }
     }
 
     /** Pack the vertex index into a contiguous range [ 0, num_vertices(g) ).
      *  Vertices with indices less than N_SPECIAL_VERTICES are not renumbered.
      */
-    friend
-    void renumber_vertices(Graph &g) {
+    void renumber_vertices_impl() {
         DEBUG_PRINTF("renumbering above %zu\n", Graph::N_SPECIAL_VERTICES);
-        g.next_vertex_index = Graph::N_SPECIAL_VERTICES;
-        for (const auto &v : vertices_range(g)) {
-            if (g[v].index < Graph::N_SPECIAL_VERTICES) {
+        next_vertex_index = Graph::N_SPECIAL_VERTICES;
+        vertex_iterator it;
+        vertex_iterator ite;
+        for (std::tie(it, ite) = vertices_impl(); it != ite; ++it) {
+            if ((*this)[*it].index < Graph::N_SPECIAL_VERTICES) {
                 continue;
             }
 
-            g[v].index = g.next_vertex_index++;
+            (*this)[*it].index = next_vertex_index++;
         }
     }
 
     /** Returns what the next allocated vertex index will be. This is an upper
      *  on the values of index for vertices (vertex removal means that there may
      *  be gaps). */
-    friend
-    vertices_size_type vertex_index_upper_bound(const Graph &g) {
-        return g.next_vertex_index;
+    vertices_size_type vertex_index_upper_bound_impl() const {
+        return next_vertex_index;
     }
 
     /** Returns what the next allocated edge index will be. This is an upper on
      *  the values of index for edges (edge removal means that there may be
      *  gaps). */
-    friend
-    vertices_size_type edge_index_upper_bound(const Graph &g) {
-        return g.next_edge_index;
+    vertices_size_type edge_index_upper_bound_impl() const {
+        return next_edge_index;
     }
 
     using directed_category = boost::directed_tag;
@@ -1067,6 +1020,265 @@ public:
         vertices_list.clear_and_dispose(delete_disposer());
     }
 };
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    typename Graph::vertex_descriptor>::type
+add_vertex(Graph &g) {
+    return g.add_vertex_impl();
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+remove_vertex(typename Graph::vertex_descriptor v, Graph &g) {
+    g.remove_vertex_impl(v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+clear_in_edges(typename Graph::vertex_descriptor v, Graph &g) {
+    g.clear_in_edges_impl(v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+clear_out_edges(typename Graph::vertex_descriptor v, Graph &g) {
+    g.clear_out_edges_impl(v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+clear_vertex(typename Graph::vertex_descriptor v, Graph &g) {
+    g.clear_in_edges_impl(v);
+    g.clear_out_edges_impl(v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    typename Graph::vertex_descriptor>::type
+source(typename Graph::edge_descriptor e, const Graph &) {
+    return Graph::source_impl(e);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    typename Graph::vertex_descriptor>::type
+target(typename Graph::edge_descriptor e, const Graph &) {
+    return Graph::target_impl(e);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    typename Graph::degree_size_type>::type
+out_degree(typename Graph::vertex_descriptor v, const Graph &) {
+    return Graph::out_degree_impl(v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    std::pair<typename Graph::out_edge_iterator,
+              typename Graph::out_edge_iterator>>::type
+out_edges(typename Graph::vertex_descriptor v, const Graph &) {
+    return Graph::out_edges_impl(v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    typename Graph::degree_size_type>::type
+in_degree(typename Graph::vertex_descriptor v, const Graph &) {
+    return Graph::in_degree_impl(v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    std::pair<typename Graph::in_edge_iterator,
+              typename Graph::in_edge_iterator>>::type
+in_edges(typename Graph::vertex_descriptor v, const Graph &) {
+    return Graph::in_edges_impl(v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    typename Graph::degree_size_type>::type
+degree(typename Graph::vertex_descriptor v, const Graph &) {
+    return Graph::degree_impl(v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    std::pair<typename Graph::adjacency_iterator,
+              typename Graph::adjacency_iterator>>::type
+adjacent_vertices(typename Graph::vertex_descriptor v, const Graph &) {
+    return Graph::adjacent_vertices_impl(v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    std::pair<typename Graph::edge_descriptor, bool>>::type
+edge(typename Graph::vertex_descriptor u, typename Graph::vertex_descriptor v,
+     const Graph &g) {
+    return g.edge_impl(u, v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    std::pair<typename Graph::inv_adjacency_iterator,
+              typename Graph::inv_adjacency_iterator>>::type
+inv_adjacent_vertices(typename Graph::vertex_descriptor v, const Graph &) {
+    return Graph::inv_adjacent_vertices_impl(v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    std::pair<typename Graph::edge_descriptor, bool>>::type
+add_edge(typename Graph::vertex_descriptor u,
+         typename Graph::vertex_descriptor v, Graph &g) {
+    return g.add_edge_impl(u, v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+remove_edge(typename Graph::edge_descriptor e, Graph &g) {
+    g.remove_edge_impl(e);
+}
+
+template<typename Graph, typename Iter>
+typename std::enable_if<
+    !std::is_convertible<Iter, typename Graph::edge_descriptor>::value
+    && std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+remove_edge(Iter it, Graph &g) {
+    g.remove_edge_impl(*it);
+}
+
+template<typename Graph, typename Predicate>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+remove_out_edge_if(typename Graph::vertex_descriptor v, Predicate pred,
+                   Graph &g) {
+    g.remove_out_edge_if_impl(v, pred);
+}
+
+template<typename Graph, typename Predicate>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+remove_in_edge_if(typename Graph::vertex_descriptor v, Predicate pred,
+                  Graph &g) {
+    g.remove_in_edge_if_impl(v, pred);
+}
+
+template<typename Graph, typename Predicate>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+remove_edge_if(Predicate pred, Graph &g) {
+    g.remove_edge_if_impl(pred);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+remove_edge(const typename Graph::vertex_descriptor &u,
+            const typename Graph::vertex_descriptor &v, Graph &g) {
+    g.remove_edge_impl(u, v);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    typename Graph::vertices_size_type>::type
+num_vertices(const Graph &g) {
+    return g.num_vertices_impl();
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    std::pair<typename Graph::vertex_iterator,
+              typename Graph::vertex_iterator>>::type
+vertices(const Graph &g) {
+    return g.vertices_impl();
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    typename Graph::edges_size_type>::type
+num_edges(const Graph &g) {
+    return g.num_edges_impl();
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    std::pair<typename Graph::edge_iterator,
+              typename Graph::edge_iterator>>::type
+edges(const Graph &g) {
+    return g.edges_impl();
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    typename Graph::vertex_descriptor>::type
+add_vertex(const typename Graph::vertex_property_type &vp, Graph &g) {
+    return g.add_vertex_impl(vp);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    std::pair<typename Graph::edge_descriptor, bool>>::type
+add_edge(typename Graph::vertex_descriptor u,
+         typename Graph::vertex_descriptor v,
+         const typename Graph::edge_property_type &ep, Graph &g) {
+    return g.add_edge_impl(u, v, ep);
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+renumber_edges(Graph &g) {
+    g.renumber_edges_impl();
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+renumber_vertices(Graph &g) {
+    g.renumber_vertices_impl();
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    typename Graph::vertices_size_type>::type
+vertex_index_upper_bound(const Graph &g) {
+    return g.vertex_index_upper_bound_impl();
+}
+
+template<typename Graph>
+typename std::enable_if<
+    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
+    typename Graph::edges_size_type>::type
+edge_index_upper_bound(const Graph &g) {
+    return g.edge_index_upper_bound_impl();
+}
 
 using boost::vertex_index;
 using boost::edge_index;
