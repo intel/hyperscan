@@ -133,12 +133,6 @@ CMAKE_DEPENDENT_OPTION(DUMP_SUPPORT "Dump code support; normally on, except in r
 
 CMAKE_DEPENDENT_OPTION(DISABLE_ASSERTS "Disable assert(); Asserts are enabled in debug builds, disabled in release builds" OFF "NOT RELEASE_BUILD" ON)
 
-if (DISABLE_ASSERTS)
-    if (CMAKE_BUILD_TYPE STREQUAL "DEBUG")
-        add_definitions(-DNDEBUG)
-    endif()
-endif()
-
 option(WINDOWS_ICC "Use Intel C++ Compiler on Windows, default off, requires ICC to be set in project" OFF)
 
 # TODO: per platform config files?
@@ -159,6 +153,11 @@ if(MSVC OR MSVC_IDE)
         endif()
         string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
         string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+
+        if (DISABLE_ASSERTS)
+            set(CMAKE_C_FLAGS_DEBUG "/DNDEBUG ${CMAKE_C_FLAGS_DEBUG}")
+            set(CMAKE_CXX_FLAGS_DEBUG "/DNDEBUG ${CMAKE_CXX_FLAGS_DEBUG}")
+        endif ()
     endif()
 
 else()
@@ -202,6 +201,11 @@ else()
         # release builds
         set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -Werror")
         set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Werror")
+    endif()
+
+    if (DISABLE_ASSERTS)
+        set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -DNDEBUG")
+        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -DNDEBUG")
     endif()
 
     if (NOT CMAKE_C_FLAGS MATCHES .*march.*)
