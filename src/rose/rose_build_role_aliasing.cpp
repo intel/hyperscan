@@ -863,6 +863,12 @@ void pruneUnusedTops(CastleProto &castle, const RoseGraph &g,
 static
 void pruneUnusedTops(NGHolder &h, const RoseGraph &g,
                      const set<RoseVertex> &verts) {
+    if (!is_triggered(h)) {
+        DEBUG_PRINTF("not triggered, no tops\n");
+        return;
+    }
+    assert(isCorrectlyTopped(h));
+    DEBUG_PRINTF("prunning unused tops\n");
     ue2::flat_set<u32> used_tops;
     for (auto v : verts) {
         assert(g[v].left.graph.get() == &h);
@@ -2023,6 +2029,7 @@ void aliasRoles(RoseBuildImpl &build, bool mergeRoses) {
     const CompileContext &cc = build.cc;
     RoseGraph &g = build.g;
     assert(!hasOrphanedTops(build));
+    assert(canImplementGraphs(build));
 
     if (!cc.grey.roseRoleAliasing || !cc.grey.roseGraphReduction) {
         return;
@@ -2057,6 +2064,7 @@ void aliasRoles(RoseBuildImpl &build, bool mergeRoses) {
     DEBUG_PRINTF("killed %zu vertices\n", dead.size());
     build.removeVertices(dead);
     assert(!hasOrphanedTops(build));
+    assert(canImplementGraphs(build));
 }
 
 } // namespace ue2

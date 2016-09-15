@@ -512,6 +512,9 @@ u32 isImplementableNFA(const NGHolder &g, const ReportManager *rm,
     if (!cc.grey.allowLimExNFA) {
         return false;
     }
+
+    assert(!can_never_match(g));
+
     // Quick check: we can always implement an NFA with less than NFA_MAX_STATES
     // states. Note that top masks can generate extra states, so we account for
     // those here too.
