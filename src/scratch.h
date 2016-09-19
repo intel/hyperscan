@@ -45,7 +45,7 @@ extern "C"
 #endif
 
 UNUSED static const u32 SCRATCH_MAGIC = 0x544F4259;
-#define FDR_TEMP_BUF_SIZE 220
+#define FDR_TEMP_BUF_SIZE 222
 
 struct fatbit;
 struct hs_scratch;

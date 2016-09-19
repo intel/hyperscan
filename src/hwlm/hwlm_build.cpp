@@ -523,7 +523,7 @@ bool isNoodleable(const vector<hwlmLiteral> &lits,
     }
 
     if (stream_control) { // nullptr if in block mode
-        if (lits.front().s.length() + 1 > stream_control->history_max) {
+        if (lits.front().s.length() > stream_control->history_max + 1) {
             DEBUG_PRINTF("length of %zu too long for history max %zu\n",
                          lits.front().s.length(),
                          stream_control->history_max);
