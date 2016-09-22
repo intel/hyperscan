@@ -49,9 +49,10 @@
 #include <fstream>
 #include <iomanip>
 #include <map>
+#include <numeric>
 #include <ostream>
-#include <string>
 #include <sstream>
+#include <string>
 #include <utility>
 
 #ifndef DUMP_SUPPORT
@@ -1050,6 +1051,39 @@ void dumpAnchoredStats(const void *atable, FILE *f) {
 }
 
 static
+void dumpLongLiteralSubtable(const RoseLongLitTable *ll_table,
+                             const RoseLongLitSubtable *ll_sub, FILE *f) {
+    if (!ll_sub->hashBits) {
+        fprintf(f, "      <no table>\n");
+        return;
+    }
+
+    const char *base = (const char *)ll_table;
+
+    u32 nbits = ll_sub->hashBits;
+    u32 num_entries = 1U << nbits;
+    const auto *tab = (const RoseLongLitHashEntry *)(base + ll_sub->hashOffset);
+    u32 hash_occ =
+        count_if(tab, tab + num_entries, [](const RoseLongLitHashEntry &ent) {
+            return ent.str_offset != 0;
+        });
+    float hash_occ_percent = ((float)hash_occ / (float)num_entries) * 100;
+
+    fprintf(f, "      hash table   : %u bits, occupancy %u/%u (%0.1f%%)\n",
+            nbits, hash_occ, num_entries, hash_occ_percent);
+
+    u32 bloom_bits = ll_sub->bloomBits;
+    u32 bloom_size = 1U << bloom_bits;
+    const u8 *bloom = (const u8 *)base + ll_sub->bloomOffset;
+    u32 bloom_occ = accumulate(bloom, bloom + bloom_size / 8, 0,
+        [](const u32 &sum, const u8 &elem) { return sum + popcount32(elem); });
+    float bloom_occ_percent = ((float)bloom_occ / (float)(bloom_size)) * 100;
+
+    fprintf(f, "      bloom filter : %u bits, occupancy %u/%u (%0.1f%%)\n",
+            bloom_bits, bloom_occ, bloom_size, bloom_occ_percent);
+}
+
+static
 void dumpLongLiteralTable(const RoseEngine *t, FILE *f) {
     if (!t->longLitTableOffset) {
         return;
@@ -1062,17 +1096,15 @@ void dumpLongLiteralTable(const RoseEngine *t, FILE *f) {
         (const struct RoseLongLitTable *)loadFromByteCodeOffset(
             t, t->longLitTableOffset);
 
-    u32 num_caseful = ll_table->boundaryCase;
-    u32 num_caseless = ll_table->boundaryNocase - num_caseful;
+    fprintf(f, "    total size     : %u bytes\n", ll_table->size);
+    fprintf(f, "    longest len    : %u\n", ll_table->maxLen);
+    fprintf(f, "    stream state   : %u bytes\n", ll_table->streamStateBytes);
 
-    fprintf(f, "    longest len:  %u\n", ll_table->maxLen);
-    fprintf(f, "    counts:       %u caseful, %u caseless\n", num_caseful,
-            num_caseless);
-    fprintf(f, "    hash bits:    %u caseful, %u caseless\n",
-            ll_table->hashNBitsCase, ll_table->hashNBitsNocase);
-    fprintf(f, "    state bits:   %u caseful, %u caseless\n",
-            ll_table->streamStateBitsCase, ll_table->streamStateBitsNocase);
-    fprintf(f, "    stream state: %u bytes\n", ll_table->streamStateBytes);
+    fprintf(f, "    caseful:\n");
+    dumpLongLiteralSubtable(ll_table, &ll_table->caseful, f);
+
+    fprintf(f, "    nocase:\n");
+    dumpLongLiteralSubtable(ll_table, &ll_table->nocase, f);
 }
 
 // Externally accessible functions

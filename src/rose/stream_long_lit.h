@@ -36,52 +36,12 @@
 #include "util/copybytes.h"
 
 static really_inline
-const struct RoseLongLiteral *
-getLitTab(const struct RoseLongLitTable *ll_table) {
-    return (const struct RoseLongLiteral *)((const char *)ll_table +
-            ROUNDUP_16(sizeof(struct RoseLongLitTable)));
-}
-
-static really_inline
-u32 get_start_lit_idx(const struct RoseLongLitTable *ll_table,
-                      const char nocase) {
-    return nocase ? ll_table->boundaryCase : 0;
-}
-
-static really_inline
-u32 get_end_lit_idx(const struct RoseLongLitTable *ll_table,
-                    const char nocase) {
-    return nocase ? ll_table->boundaryNocase : ll_table->boundaryCase;
-}
-
-// search for the literal index that contains the current state
-static rose_inline
-u32 findLitTabEntry(const struct RoseLongLitTable *ll_table,
-                    u32 stateValue, const char nocase) {
-    const struct RoseLongLiteral *litTab = getLitTab(ll_table);
-    u32 lo = get_start_lit_idx(ll_table, nocase);
-    u32 hi = get_end_lit_idx(ll_table, nocase);
-
-    // Now move stateValue back by one so that we're looking for the
-    // litTab entry that includes it the string, not the one 'one past' it
-    stateValue -= 1;
-    assert(lo != hi);
-    assert(litTab[lo].offset <= stateValue);
-    assert(litTab[hi].offset > stateValue);
-
-    // binary search to find the entry e such that:
-    // litTab[e].offsetToLiteral <= stateValue < litTab[e+1].offsetToLiteral
-    while (lo + 1 < hi) {
-        u32 mid = (lo + hi) / 2;
-        if (litTab[mid].offset <= stateValue) {
-            lo = mid;
-        } else { // (litTab[mid].offset > stateValue) {
-            hi = mid;
-        }
-    }
-    assert(litTab[lo].offset <= stateValue);
-    assert(litTab[hi].offset > stateValue);
-    return lo;
+const struct RoseLongLitHashEntry *
+getHashTableBase(const struct RoseLongLitTable *ll_table,
+                 const struct RoseLongLitSubtable *ll_sub) {
+    assert(ll_sub->hashOffset);
+    return (const struct RoseLongLitHashEntry *)((const char *)ll_table +
+                                                 ll_sub->hashOffset);
 }
 
 // Reads from stream state and unpacks values into stream state table.
@@ -94,8 +54,8 @@ void loadLongLitStreamState(const struct RoseLongLitTable *ll_table,
     assert(state_case && state_nocase);
 
     u8 ss_bytes = ll_table->streamStateBytes;
-    u8 ssb = ll_table->streamStateBitsCase;
-    UNUSED u8 ssb_nc = ll_table->streamStateBitsNocase;
+    u8 ssb = ll_table->caseful.streamStateBits;
+    UNUSED u8 ssb_nc = ll_table->nocase.streamStateBits;
     assert(ss_bytes == (ssb + ssb_nc + 7) / 8);
 
 #if defined(ARCH_32_BIT)
@@ -116,40 +76,22 @@ void loadLongLitStreamState(const struct RoseLongLitTable *ll_table,
     *state_nocase = (u32)(streamVal >> ssb);
 }
 
-static really_inline
-u32 getBaseOffsetOfLits(const struct RoseLongLitTable *ll_table,
-                        const char nocase) {
-    u32 lit_idx = get_start_lit_idx(ll_table, nocase);
-    return getLitTab(ll_table)[lit_idx].offset;
-}
-
-static really_inline
-u32 unpackStateVal(const struct RoseLongLitTable *ll_table, const char nocase,
-                   u32 v) {
-    return v + getBaseOffsetOfLits(ll_table, nocase) - 1;
-}
-
-static really_inline
-u32 packStateVal(const struct RoseLongLitTable *ll_table, const char nocase,
-                 u32 v) {
-    return v - getBaseOffsetOfLits(ll_table, nocase) + 1;
-}
-
 static rose_inline
 void loadLongLiteralStateMode(struct hs_scratch *scratch,
                               const struct RoseLongLitTable *ll_table,
-                              const struct RoseLongLiteral *litTab,
+                              const struct RoseLongLitSubtable *ll_sub,
                               const u32 state, const char nocase) {
     if (!state) {
         DEBUG_PRINTF("no state for %s\n", nocase ? "caseless" : "caseful");
         return;
     }
 
-    u32 stateValue = unpackStateVal(ll_table, nocase, state);
-    u32 idx = findLitTabEntry(ll_table, stateValue, nocase);
-    size_t found_offset = litTab[idx].offset;
-    const u8 *found_buf = found_offset + (const u8 *)ll_table;
-    size_t found_sz = stateValue - found_offset;
+    const struct RoseLongLitHashEntry *tab = getHashTableBase(ll_table, ll_sub);
+    const struct RoseLongLitHashEntry *ent = tab + state - 1;
+
+    assert(ent->str_offset + ent->str_len <= ll_table->size);
+    const u8 *found_buf = (const u8 *)ll_table + ent->str_offset;
+    size_t found_sz = ent->str_len;
 
     struct RoseContext *tctxt = &scratch->tctxt;
     if (nocase) {
@@ -168,34 +110,42 @@ void loadLongLiteralState(const struct RoseEngine *t, char *state,
         return;
     }
 
+    // If we don't have any long literals in play, these values must point to
+    // the real history buffer so that CHECK_LITERAL instructions examine the
+    // history buffer.
     scratch->tctxt.ll_buf = scratch->core_info.hbuf;
     scratch->tctxt.ll_len = scratch->core_info.hlen;
     scratch->tctxt.ll_buf_nocase = scratch->core_info.hbuf;
     scratch->tctxt.ll_len_nocase = scratch->core_info.hlen;
 
+    if (!scratch->core_info.hlen) {
+        return;
+    }
+
     const struct RoseLongLitTable *ll_table =
         getByOffset(t, t->longLitTableOffset);
-    const struct RoseLongLiteral *litTab = getLitTab(ll_table);
     const u8 *ll_state = getLongLitState(t, state);
 
     u32 state_case;
     u32 state_nocase;
     loadLongLitStreamState(ll_table, ll_state, &state_case, &state_nocase);
 
-    loadLongLiteralStateMode(scratch, ll_table, litTab, state_case, 0);
-    loadLongLiteralStateMode(scratch, ll_table, litTab, state_nocase, 1);
+    DEBUG_PRINTF("loaded {%u, %u}\n", state_case, state_nocase);
+
+    loadLongLiteralStateMode(scratch, ll_table, &ll_table->caseful,
+                             state_case, 0);
+    loadLongLiteralStateMode(scratch, ll_table, &ll_table->nocase,
+                             state_nocase, 1);
 }
 
 static rose_inline
 char confirmLongLiteral(const struct RoseLongLitTable *ll_table,
-                        const hs_scratch_t *scratch, u32 hashState,
+                        const struct hs_scratch *scratch,
+                        const struct RoseLongLitHashEntry *ent,
                         const char nocase) {
-    const struct RoseLongLiteral *litTab = getLitTab(ll_table);
-    u32 idx = findLitTabEntry(ll_table, hashState, nocase);
-    size_t found_offset = litTab[idx].offset;
-    const u8 *s = found_offset + (const u8 *)ll_table;
-    assert(hashState > found_offset);
-    size_t len = hashState - found_offset;
+    assert(ent->str_offset + ent->str_len <= ll_table->size);
+    const u8 *s = (const u8 *)ll_table + ent->str_offset;
+    size_t len = ent->str_len;
     const u8 *buf = scratch->core_info.buf;
     const size_t buf_len = scratch->core_info.len;
 
@@ -225,14 +175,13 @@ char confirmLongLiteral(const struct RoseLongLitTable *ll_table,
         return 0;
     }
 
-    DEBUG_PRINTF("confirmed hashState=%u\n", hashState);
     return 1;
 }
 
 static rose_inline
-void calcStreamingHash(const struct core_info *ci,
-                       const struct RoseLongLitTable *ll_table, u8 hash_len,
-                       u32 *hash_case, u32 *hash_nocase) {
+const u8 *prepScanBuffer(const struct core_info *ci,
+                         const struct RoseLongLitTable *ll_table, u8 *tempbuf) {
+    const u8 hash_len = ll_table->maxLen;
     assert(hash_len >= LONG_LIT_HASH_LEN);
 
     // Our hash function operates over LONG_LIT_HASH_LEN bytes, starting from
@@ -240,7 +189,6 @@ void calcStreamingHash(const struct core_info *ci,
     // entirely from either the current buffer or the history buffer, we pass
     // in the pointer directly; otherwise we must make a copy.
 
-    u8 tempbuf[LONG_LIT_HASH_LEN];
     const u8 *base;
 
     if (hash_len > ci->len) {
@@ -266,71 +214,7 @@ void calcStreamingHash(const struct core_info *ci,
         base = ci->buf + ci->len - hash_len;
     }
 
-    if (ll_table->hashNBitsCase) {
-        *hash_case = hashLongLiteral(base, LONG_LIT_HASH_LEN, 0);
-        DEBUG_PRINTF("caseful hash %u\n", *hash_case);
-    }
-    if (ll_table->hashNBitsNocase) {
-        *hash_nocase = hashLongLiteral(base, LONG_LIT_HASH_LEN, 1);
-        DEBUG_PRINTF("caseless hash %u\n", *hash_nocase);
-    }
-}
-
-static really_inline
-const struct RoseLongLitHashEntry *
-getHashTableBase(const struct RoseLongLitTable *ll_table, const char nocase) {
-    const u32 hashOffset = nocase ? ll_table->hashOffsetNocase
-                                  : ll_table->hashOffsetCase;
-    return (const struct RoseLongLitHashEntry *)((const char *)ll_table +
-                                                 hashOffset);
-}
-
-static rose_inline
-const struct RoseLongLitHashEntry *
-getLongLitHashEnt(const struct RoseLongLitTable *ll_table, u32 h,
-                  const char nocase) {
-    u32 nbits = nocase ? ll_table->hashNBitsNocase : ll_table->hashNBitsCase;
-    if (!nbits) {
-        return NULL;
-    }
-
-    u32 h_ent = h & ((1 << nbits) - 1);
-    u32 h_low = (h >> nbits) & 63;
-
-    const struct RoseLongLitHashEntry *tab = getHashTableBase(ll_table, nocase);
-    const struct RoseLongLitHashEntry *ent = tab + h_ent;
-
-    if (!((ent->bitfield >> h_low) & 0x1)) {
-        return NULL;
-    }
-
-    return ent;
-}
-
-static rose_inline
-u32 storeLongLiteralStateMode(const struct hs_scratch *scratch,
-                              const struct RoseLongLitTable *ll_table,
-                              const struct RoseLongLitHashEntry *ent,
-                              const char nocase) {
-    assert(ent);
-    assert(nocase ? ll_table->hashNBitsNocase : ll_table->hashNBitsCase);
-
-    const struct RoseLongLitHashEntry *tab = getHashTableBase(ll_table, nocase);
-
-    u32 packed_state = 0;
-    while (1) {
-        if (confirmLongLiteral(ll_table, scratch, ent->state, nocase)) {
-            packed_state = packStateVal(ll_table, nocase, ent->state);
-            DEBUG_PRINTF("set %s state to %u\n", nocase ? "nocase" : "case",
-                         packed_state);
-            break;
-        }
-        if (ent->link == LINK_INVALID) {
-            break;
-        }
-        ent = tab + ent->link;
-    }
-    return packed_state;
+    return base;
 }
 
 #ifndef NDEBUG
@@ -359,8 +243,8 @@ void storeLongLitStreamState(const struct RoseLongLitTable *ll_table,
     assert(ll_state);
 
     u8 ss_bytes = ll_table->streamStateBytes;
-    u8 ssb = ll_table->streamStateBitsCase;
-    UNUSED u8 ssb_nc = ll_table->streamStateBitsNocase;
+    u8 ssb = ll_table->caseful.streamStateBits;
+    UNUSED u8 ssb_nc = ll_table->nocase.streamStateBits;
     assert(ss_bytes == ROUNDUP_N(ssb + ssb_nc, 8) / 8);
     assert(!streamingTableOverflow(state_case, state_nocase, ssb, ssb_nc));
 
@@ -378,6 +262,65 @@ void storeLongLitStreamState(const struct RoseLongLitTable *ll_table,
     u64a stagingStreamState = (u64a)state_case;
     stagingStreamState |= (u64a)state_nocase << ssb;
     partial_store_u64a(ll_state, stagingStreamState, ss_bytes);
+}
+
+static really_inline
+char has_bit(const u8 *data, u32 bit) {
+    return (data[bit / 8] >> (bit % 8)) & 1;
+}
+
+static rose_inline
+char bloomHasKey(const u8 *bloom, u32 bloom_mask, u32 hash) {
+    return has_bit(bloom, hash & bloom_mask);
+}
+
+static rose_inline
+char checkBloomFilter(const struct RoseLongLitTable *ll_table,
+                      const struct RoseLongLitSubtable *ll_sub,
+                      const u8 *scan_buf, char nocase) {
+    assert(ll_sub->bloomBits);
+
+    const u8 *bloom = (const u8 *)ll_table + ll_sub->bloomOffset;
+    const u32 bloom_mask = (1U << ll_sub->bloomBits) - 1;
+
+    char v = 1;
+    v &= bloomHasKey(bloom, bloom_mask, bloomHash_1(scan_buf, nocase));
+    v &= bloomHasKey(bloom, bloom_mask, bloomHash_2(scan_buf, nocase));
+    v &= bloomHasKey(bloom, bloom_mask, bloomHash_3(scan_buf, nocase));
+    return v;
+}
+
+/**
+ * \brief Look for a hit in the hash table.
+ *
+ * Returns zero if not found, otherwise returns (bucket + 1).
+ */
+static rose_inline
+u32 checkHashTable(const struct RoseLongLitTable *ll_table,
+                   const struct RoseLongLitSubtable *ll_sub, const u8 *scan_buf,
+                   const struct hs_scratch *scratch, char nocase) {
+    const u32 nbits = ll_sub->hashBits;
+    assert(nbits && nbits < 32);
+    const u32 num_entries = 1U << nbits;
+
+    const struct RoseLongLitHashEntry *tab = getHashTableBase(ll_table, ll_sub);
+
+    u32 hash = hashLongLiteral(scan_buf, LONG_LIT_HASH_LEN, nocase);
+    u32 bucket = hash & ((1U << nbits) - 1);
+
+    while (tab[bucket].str_offset != 0) {
+        DEBUG_PRINTF("checking bucket %u\n", bucket);
+        if (confirmLongLiteral(ll_table, scratch, &tab[bucket], nocase)) {
+            DEBUG_PRINTF("found hit for bucket %u\n", bucket);
+            return bucket + 1;
+        }
+
+        if (++bucket == num_entries) {
+            bucket = 0;
+        }
+    }
+
+    return 0;
 }
 
 static rose_inline
@@ -401,28 +344,22 @@ void storeLongLiteralState(const struct RoseEngine *t, char *state,
 
     // If we don't have enough history, we don't need to do anything.
     if (ll_table->maxLen <= ci->len + ci->hlen) {
-        u32 hash_case = 0;
-        u32 hash_nocase = 0;
+        u8 tempbuf[LONG_LIT_HASH_LEN];
+        const u8 *scan_buf = prepScanBuffer(ci, ll_table, tempbuf);
 
-        calcStreamingHash(ci, ll_table, ll_table->maxLen, &hash_case,
-                          &hash_nocase);
-
-        const struct RoseLongLitHashEntry *ent_case =
-            getLongLitHashEnt(ll_table, hash_case, 0);
-        const struct RoseLongLitHashEntry *ent_nocase =
-            getLongLitHashEnt(ll_table, hash_nocase, 1);
-
-        DEBUG_PRINTF("ent_caseful=%p, ent_caseless=%p\n", ent_case, ent_nocase);
-
-        if (ent_case) {
-            state_case = storeLongLiteralStateMode(scratch, ll_table,
-                                                   ent_case, 0);
+        if (ll_table->caseful.hashBits &&
+            checkBloomFilter(ll_table, &ll_table->caseful, scan_buf, 0)) {
+            state_case = checkHashTable(ll_table, &ll_table->caseful, scan_buf,
+                                        scratch, 0);
         }
 
-        if (ent_nocase) {
-            state_nocase = storeLongLiteralStateMode(scratch, ll_table,
-                                                     ent_nocase, 1);
+        if (ll_table->nocase.hashBits &&
+            checkBloomFilter(ll_table, &ll_table->nocase, scan_buf, 1)) {
+            state_nocase = checkHashTable(ll_table, &ll_table->nocase, scan_buf,
+                                          scratch, 1);
         }
+    } else {
+        DEBUG_PRINTF("not enough history (%zu bytes)\n", ci->len + ci->hlen);
     }
 
     DEBUG_PRINTF("store {%u, %u}\n", state_case, state_nocase);

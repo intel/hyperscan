@@ -70,6 +70,7 @@
 #define CASE_BIT          0x20
 #define CASE_CLEAR        0xdf
 #define DOUBLE_CASE_CLEAR 0xdfdf
+#define OCTO_CASE_CLEAR   0xdfdfdfdfdfdfdfdfULL
 
 static really_inline
 u32 clz32(u32 x) {

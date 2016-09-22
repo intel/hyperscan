@@ -447,50 +447,48 @@ struct ALIGN_CL_DIRECTIVE anchored_matcher_info {
 };
 
 /**
+ * \brief Long literal subtable for a particular mode (caseful or nocase).
+ */
+struct RoseLongLitSubtable {
+    /**
+     * \brief Offset of the hash table (relative to RoseLongLitTable base).
+     *
+     * Offset is zero if no such table exists.
+     */
+    u32 hashOffset;
+
+    /**
+     * \brief Offset of the bloom filter (relative to RoseLongLitTable base).
+     *
+     * Offset is zero if no such table exists.
+     */
+    u32 bloomOffset;
+
+    /** \brief lg2 of the size of the hash table. */
+    u8 hashBits;
+
+    /** \brief Size of the bloom filter in bits. */
+    u8 bloomBits;
+
+    /** \brief Number of bits of packed stream state used.  */
+    u8 streamStateBits;
+};
+
+/**
  * \brief Long literal table header.
  */
 struct RoseLongLitTable {
-    /** \brief String ID one beyond the maximum entry for caseful literals. */
-    u32 boundaryCase;
-
     /**
-     * \brief String ID one beyond the maximum entry for caseless literals.
-     * This is also the total size of the literal table.
+     * \brief Total size of the whole table (including strings, bloom filters,
+     * hash tables).
      */
-    u32 boundaryNocase;
+    u32 size;
 
-    /**
-     * \brief Offset of the caseful hash table (relative to RoseLongLitTable
-     * base).
-     *
-     * Offset is zero if no such table exists.
-     */
-    u32 hashOffsetCase;
+    /** \brief Caseful sub-table (hash table and bloom filter). */
+    struct RoseLongLitSubtable caseful;
 
-    /**
-     * \brief Offset of the caseless hash table (relative to RoseLongLitTable
-     * base).
-     *
-     * Offset is zero if no such table exists.
-     */
-    u32 hashOffsetNocase;
-
-    /** \brief lg2 of the size of the caseful hash table. */
-    u32 hashNBitsCase;
-
-    /** \brief lg2 of the size of the caseless hash table. */
-    u32 hashNBitsNocase;
-
-    /**
-     * \brief Number of bits of packed stream state for the caseful hash table.
-     */
-    u8 streamStateBitsCase;
-
-    /**
-     * \brief Number of bits of packed stream state for the caseless hash
-     * table.
-     */
-    u8 streamStateBitsNocase;
+    /** \brief Caseless sub-table (hash table and bloom filter). */
+    struct RoseLongLitSubtable nocase;
 
     /** \brief Total size of packed stream state in bytes. */
     u8 streamStateBytes;
@@ -500,38 +498,18 @@ struct RoseLongLitTable {
 };
 
 /**
- * \brief One of these structures per literal entry in our long literal table.
- */
-struct RoseLongLiteral {
-    /**
-     * \brief Offset of the literal string itself, relative to
-     * RoseLongLitTable base.
-     */
-    u32 offset;
-};
-
-/** \brief "No further links" value used for \ref RoseLongLitHashEntry::link. */
-#define LINK_INVALID 0xffffffff
-
-/**
  * \brief One of these structures per hash table entry in our long literal
  * table.
  */
 struct RoseLongLitHashEntry {
     /**
-     * \brief Bitfield used as a quick guard for hash buckets.
-     *
-     * For a given hash value N, the low six bits of N are taken and the
-     * corresponding bit is switched on in this bitfield if this bucket is used
-     * for that hash.
+     * \brief Offset of the literal string itself, relative to
+     * RoseLongLitTable base. Zero if this bucket is empty.
      */
-    u64a bitfield;
+    u32 str_offset;
 
-    /** \brief Offset in the literal table for this string. */
-    u32 state;
-
-    /** \brief Hash table index of next entry in the chain for this bucket. */
-    u32 link;
+    /** \brief Length of the literal string. */
+    u32 str_len;
 };
 
 static really_inline

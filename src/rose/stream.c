@@ -551,6 +551,11 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;
     tctxt->next_mpv_offset = 0;
+    tctxt->ll_buf = scratch->core_info.hbuf;
+    tctxt->ll_len = scratch->core_info.hlen;
+    tctxt->ll_buf_nocase = scratch->core_info.hbuf;
+    tctxt->ll_len_nocase = scratch->core_info.hlen;
+
     DEBUG_PRINTF("BEGIN: history len=%zu, buffer len=%zu groups=%016llx\n",
                  scratch->core_info.hlen, scratch->core_info.len, tctxt->groups);
 
@@ -590,18 +595,14 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
                 MIN(t->floatingDistance, length + offset) - offset : 0;
         }
 
+        loadLongLiteralState(t, state, scratch);
+
         size_t hlength = scratch->core_info.hlen;
-        char rebuild = 0;
 
-        if (hlength) {
-            // Can only have long literal state or rebuild if this is not the
-            // first write to this stream.
-            loadLongLiteralState(t, state, scratch);
-            rebuild = (scratch->core_info.status & STATUS_DELAY_DIRTY) &&
-                      (t->maxFloatingDelayedMatch == ROSE_BOUND_INF ||
-                       offset < t->maxFloatingDelayedMatch);
-        }
-
+        char rebuild = hlength &&
+                       (scratch->core_info.status & STATUS_DELAY_DIRTY) &&
+                       (t->maxFloatingDelayedMatch == ROSE_BOUND_INF ||
+                        offset < t->maxFloatingDelayedMatch);
         DEBUG_PRINTF("**rebuild %hhd status %hhu mfdm %u, offset %llu\n",
                      rebuild, scratch->core_info.status,
                      t->maxFloatingDelayedMatch, offset);

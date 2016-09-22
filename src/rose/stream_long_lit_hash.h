@@ -30,17 +30,18 @@
 #define STREAM_LONG_LIT_HASH_H
 
 #include "ue2common.h"
+#include "util/bitutils.h"
 #include "util/unaligned.h"
 
 /** \brief Length of the buffer operated on by \ref hashLongLiteral(). */
 #define LONG_LIT_HASH_LEN 24
 
+/** \brief Multiplier used by al the hash functions below. */
+#define HASH_MULTIPLIER 0x0b4e0ef37bc32127ULL
+
 /** \brief Hash function used for long literal table in streaming mode. */
 static really_inline
 u32 hashLongLiteral(const u8 *ptr, UNUSED size_t len, char nocase) {
-    const u64a CASEMASK = 0xdfdfdfdfdfdfdfdfULL;
-    const u64a MULTIPLIER = 0x0b4e0ef37bc32127ULL;
-
     // We unconditionally hash LONG_LIT_HASH_LEN bytes; all use cases of this
     // hash are for strings longer than this.
     assert(len >= 24);
@@ -49,17 +50,56 @@ u32 hashLongLiteral(const u8 *ptr, UNUSED size_t len, char nocase) {
     u64a v2 = unaligned_load_u64a(ptr + 8);
     u64a v3 = unaligned_load_u64a(ptr + 16);
     if (nocase) {
-        v1 &= CASEMASK;
-        v2 &= CASEMASK;
-        v3 &= CASEMASK;
+        v1 &= OCTO_CASE_CLEAR;
+        v2 &= OCTO_CASE_CLEAR;
+        v3 &= OCTO_CASE_CLEAR;
     }
-    v1 *= MULTIPLIER;
-    v2 *= MULTIPLIER * MULTIPLIER;
-    v3 *= MULTIPLIER * MULTIPLIER * MULTIPLIER;
+    v1 *= HASH_MULTIPLIER;
+    v2 *= HASH_MULTIPLIER * HASH_MULTIPLIER;
+    v3 *= HASH_MULTIPLIER * HASH_MULTIPLIER * HASH_MULTIPLIER;
     v1 >>= 32;
     v2 >>= 32;
     v3 >>= 32;
     return v1 ^ v2 ^ v3;
+}
+
+/**
+ * \brief Internal, used by the bloom filter hash functions below. Hashes 16
+ * bytes beginning at (ptr + offset).
+ */
+static really_inline
+u32 bloomHash_i(const u8 *ptr, u32 offset, u64a multiplier, char nocase) {
+    assert(offset + 16 <= LONG_LIT_HASH_LEN);
+
+    u64a v = unaligned_load_u64a(ptr + offset);
+    if (nocase) {
+        v &= OCTO_CASE_CLEAR;
+    }
+    v *= multiplier;
+    return v >> 32;
+}
+
+/*
+ * We ensure that we see every byte the first LONG_LIT_HASH_LEN bytes of input
+ * data (using at least one of the following functions).
+ */
+
+static really_inline
+u32 bloomHash_1(const u8 *ptr, char nocase) {
+    const u64a multiplier = HASH_MULTIPLIER;
+    return bloomHash_i(ptr, 0, multiplier, nocase);
+}
+
+static really_inline
+u32 bloomHash_2(const u8 *ptr, char nocase) {
+    const u64a multiplier = HASH_MULTIPLIER * HASH_MULTIPLIER;
+    return bloomHash_i(ptr, 4, multiplier, nocase);
+}
+
+static really_inline
+u32 bloomHash_3(const u8 *ptr, char nocase) {
+    const u64a multiplier = HASH_MULTIPLIER * HASH_MULTIPLIER * HASH_MULTIPLIER;
+    return bloomHash_i(ptr, 8, multiplier, nocase);
 }
 
 #endif // STREAM_LONG_LIT_HASH_H

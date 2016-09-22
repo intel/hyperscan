@@ -4351,6 +4351,7 @@ void makeCheckLiteralInstruction(const RoseBuildImpl &build,
     if (lit.table != ROSE_FLOATING) {
         return;
     }
+    assert(bc.longLitLengthThreshold > 0);
     if (lit.s.length() <= bc.longLitLengthThreshold) {
         return;
     }
@@ -4936,6 +4937,8 @@ void allocateFinalIdToSet(RoseBuildImpl &build, const set<u32> &lits,
      * if they share the same vertex set and trigger the same delayed literal
      * ids and squash the same roles and have the same group squashing
      * behaviour. Benefits literals cannot be merged. */
+
+    assert(longLitLengthThreshold > 0);
 
     for (u32 int_id : lits) {
         rose_literal_info &curr_info = literal_info[int_id];
