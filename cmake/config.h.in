@@ -1,5 +1,8 @@
 /* used by cmake */
 
+#ifndef CONFIG_H_
+#define CONFIG_H_
+
 /* "Define if the build is 32 bit" */
 #cmakedefine ARCH_32_BIT
 
@@ -91,3 +94,5 @@
 
 /* define if reverse_graph requires patch for boost 1.62.0 */
 #cmakedefine BOOST_REVGRAPH_PATCH
+
+#endif /* CONFIG_H_ */
