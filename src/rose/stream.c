@@ -551,10 +551,6 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;
     tctxt->next_mpv_offset = 0;
-    tctxt->ll_buf = scratch->core_info.hbuf;
-    tctxt->ll_len = scratch->core_info.hlen;
-    tctxt->ll_buf_nocase = scratch->core_info.hbuf;
-    tctxt->ll_len_nocase = scratch->core_info.hlen;
 
     DEBUG_PRINTF("BEGIN: history len=%zu, buffer len=%zu groups=%016llx\n",
                  scratch->core_info.hlen, scratch->core_info.len, tctxt->groups);
