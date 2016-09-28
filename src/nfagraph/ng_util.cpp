@@ -343,6 +343,47 @@ bool is_virtual_start(NFAVertex v, const NGHolder &g) {
     return g[v].assert_flags & POS_FLAG_VIRTUAL_START;
 }
 
+static
+void reorderSpecials(const NGHolder &g, vector<NFAVertex> &topoOrder) {
+    // Start is last element of reverse topo ordering.
+    auto it = find(topoOrder.begin(), topoOrder.end(), g.start);
+    if (it != topoOrder.end() - 1) {
+        DEBUG_PRINTF("repositioning start\n");
+        assert(it != topoOrder.end());
+        topoOrder.erase(it);
+        topoOrder.insert(topoOrder.end(), g.start);
+    }
+
+    // StartDs is second-to-last element of reverse topo ordering.
+    it = find(topoOrder.begin(), topoOrder.end(), g.startDs);
+    if (it != topoOrder.end() - 2) {
+        DEBUG_PRINTF("repositioning start ds\n");
+        assert(it != topoOrder.end());
+        topoOrder.erase(it);
+        topoOrder.insert(topoOrder.end() - 1, g.startDs);
+    }
+
+    // AcceptEOD is first element of reverse topo ordering.
+    it = find(topoOrder.begin(), topoOrder.end(), g.acceptEod);
+    if (it != topoOrder.begin()) {
+        DEBUG_PRINTF("repositioning accept\n");
+        assert(it != topoOrder.end());
+        topoOrder.erase(it);
+        topoOrder.insert(topoOrder.begin(), g.acceptEod);
+    }
+
+    // Accept is second element of reverse topo ordering, if it's connected.
+    it = find(topoOrder.begin(), topoOrder.end(), g.accept);
+    if (it != topoOrder.begin() + 1) {
+        DEBUG_PRINTF("repositioning accept\n");
+        assert(it != topoOrder.end());
+        topoOrder.erase(it);
+        if (in_degree(g.accept, g) != 0) {
+            topoOrder.insert(topoOrder.begin() + 1, g.accept);
+        }
+    }
+}
+
 vector<NFAVertex> getTopoOrdering(const NGHolder &g) {
     assert(hasCorrectlyNumberedVertices(g));
 
@@ -371,6 +412,8 @@ vector<NFAVertex> getTopoOrdering(const NGHolder &g) {
         acyclic_g, back_inserter(ordering),
         color_map(make_iterator_property_map(colour.begin(), index_map))
             .vertex_index_map(index_map));
+
+    reorderSpecials(g, ordering);
 
     return ordering;
 }
@@ -627,6 +670,60 @@ unique_ptr<NGHolder> cloneHolder(const NGHolder &in) {
     unique_ptr<NGHolder> h = ue2::make_unique<NGHolder>();
     cloneHolder(*h, in);
     return h;
+}
+
+void reverseHolder(const NGHolder &g_in, NGHolder &g) {
+    // Make the BGL do the grunt work.
+    ue2::unordered_map<NFAVertex, NFAVertex> vertexMap;
+    boost::transpose_graph(g_in.g, g.g,
+                orig_to_copy(boost::make_assoc_property_map(vertexMap)).
+                vertex_index_map(get(&NFAGraphVertexProps::index, g_in.g)));
+
+    // The transpose_graph operation will have created extra copies of our
+    // specials. We have to rewire their neighbours to the 'real' specials and
+    // delete them.
+    NFAVertex start = vertexMap[g_in.acceptEod];
+    NFAVertex startDs = vertexMap[g_in.accept];
+    NFAVertex accept = vertexMap[g_in.startDs];
+    NFAVertex acceptEod = vertexMap[g_in.start];
+
+    // Successors of starts.
+    for (const auto &e : out_edges_range(start, g)) {
+        NFAVertex v = target(e, g);
+        add_edge(g.start, v, g[e], g);
+    }
+    for (const auto &e : out_edges_range(startDs, g)) {
+        NFAVertex v = target(e, g);
+        add_edge(g.startDs, v, g[e], g);
+    }
+
+    // Predecessors of accepts.
+    for (const auto &e : in_edges_range(accept, g)) {
+        NFAVertex u = source(e, g);
+        add_edge(u, g.accept, g[e], g);
+    }
+    for (const auto &e : in_edges_range(acceptEod, g)) {
+        NFAVertex u = source(e, g);
+        add_edge(u, g.acceptEod, g[e], g);
+    }
+
+    // Remove our impostors.
+    clear_vertex(start, g);
+    remove_vertex(start, g);
+    clear_vertex(startDs, g);
+    remove_vertex(startDs, g);
+    clear_vertex(accept, g);
+    remove_vertex(accept, g);
+    clear_vertex(acceptEod, g);
+    remove_vertex(acceptEod, g);
+
+    // Renumber so that g's properties (number of vertices, edges) are
+    // accurate.
+    g.renumberVertices();
+    g.renumberEdges();
+
+    assert(num_vertices(g) == num_vertices(g_in));
+    assert(num_edges(g) == num_edges(g_in));
 }
 
 #ifndef NDEBUG

@@ -978,11 +978,6 @@ unique_ptr<NGHolder> makeHolder(const CastleProto &proto,
     auto g = ue2::make_unique<NGHolder>(proto.kind);
 
     for (const auto &m : proto.repeats) {
-        if (m.first >= NFA_MAX_TOP_MASKS) {
-            DEBUG_PRINTF("top %u too big for an NFA\n", m.first);
-            return nullptr;
-        }
-
         addToHolder(*g, m.first, m.second);
     }
 

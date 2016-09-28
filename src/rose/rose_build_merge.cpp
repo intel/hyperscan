@@ -53,7 +53,6 @@
 #include "nfagraph/ng_redundancy.h"
 #include "nfagraph/ng_repeat.h"
 #include "nfagraph/ng_reports.h"
-#include "nfagraph/ng_restructuring.h"
 #include "nfagraph/ng_stop.h"
 #include "nfagraph/ng_uncalc_components.h"
 #include "nfagraph/ng_util.h"
@@ -1457,11 +1456,7 @@ bool hasReformedStartDotStar(const NGHolder &h, const Grey &grey) {
 static
 u32 commonPrefixLength(left_id &r1, left_id &r2) {
     if (r1.graph() && r2.graph()) {
-        auto &g1 = *r1.graph();
-        auto &g2 = *r2.graph();
-        auto state_ids_1 = numberStates(g1);
-        auto state_ids_2 = numberStates(g2);
-        return commonPrefixLength(g1, state_ids_1, g2, state_ids_2);
+        return commonPrefixLength(*r1.graph(), *r2.graph());
     } else if (r1.castle() && r2.castle()) {
         return min(findMinWidth(*r1.castle()), findMinWidth(*r2.castle()));
     }
@@ -1750,7 +1745,6 @@ u32 findUnusedTop(const ue2::flat_set<u32> &tops) {
     while (contains(tops, i)) {
         i++;
     }
-    assert(i < NFA_MAX_TOP_MASKS);
     return i;
 }
 
@@ -1778,11 +1772,6 @@ bool setDistinctTops(NGHolder &h1, const NGHolder &h2,
 
     DEBUG_PRINTF("before: h1 has %zu tops, h2 has %zu tops\n", tops1.size(),
                  tops2.size());
-
-    if (tops1.size() + tops2.size() > NFA_MAX_TOP_MASKS) {
-        DEBUG_PRINTF("too many tops!\n");
-        return false;
-    }
 
     // If our tops don't intersect, we're OK to merge with no changes.
     if (!has_intersection(tops1, tops2)) {
@@ -1856,11 +1845,6 @@ bool setDistinctSuffixTops(RoseGraph &g, NGHolder &h1, const NGHolder &h2,
     return true;
 }
 
-static
-bool hasMaxTops(const NGHolder &h) {
-    return getTops(h).size() == NFA_MAX_TOP_MASKS;
-}
-
 /** \brief Estimate the number of accel states in the given graph when built as
  * an NFA.
  *
@@ -1898,11 +1882,6 @@ void mergeNfaLeftfixes(RoseBuildImpl &tbi, RoseBouquet &roses) {
             DEBUG_PRINTF("consider merging rose %p (%zu verts) "
                          "with %p (%zu verts)\n",
                          r1.graph(), verts1.size(), r2.graph(), verts2.size());
-
-            if (hasMaxTops(*r1.graph())) {
-                DEBUG_PRINTF("h1 has hit max tops\n");
-                break; // next h1
-            }
 
             u32 accel1 = accel_count[r1];
             if (accel1 >= NFA_MAX_ACCEL_STATES) {
@@ -2202,11 +2181,6 @@ void mergeSuffixes(RoseBuildImpl &tbi, SuffixBouquet &suffixes,
             suffix_id s2 = *jt;
             const deque<RoseVertex> &verts2 = suffixes.vertices(s2);
             assert(s2.graph() && s2.graph()->kind == NFA_SUFFIX);
-
-            if (hasMaxTops(*s1.graph())) {
-                DEBUG_PRINTF("h1 has hit max tops\n");
-                break; // next h1
-            }
 
             if (!acyclic) {
                 u32 accel1 = accel_count[s1];

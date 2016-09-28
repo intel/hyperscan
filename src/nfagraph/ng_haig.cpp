@@ -35,7 +35,6 @@
 #include "nfa/goughcompile.h"
 #include "ng_holder.h"
 #include "ng_mcclellan_internal.h"
-#include "ng_restructuring.h"
 #include "ng_som_util.h"
 #include "ng_squash.h"
 #include "ng_util.h"
@@ -118,11 +117,11 @@ public:
     using StateMap = typename Automaton_Traits::StateMap;
 
 protected:
-    Automaton_Base(const NGHolder &graph_in,
-                   const flat_set<NFAVertex> &unused_in, som_type som,
+    Automaton_Base(const NGHolder &graph_in, som_type som,
                    const vector<vector<CharReach>> &triggers,
                    bool unordered_som)
-        : graph(graph_in), numStates(num_vertices(graph)), unused(unused_in),
+        : graph(graph_in), numStates(num_vertices(graph)),
+          unused(getRedundantStarts(graph_in)),
           init(Automaton_Traits::init_states(numStates)),
           initDS(Automaton_Traits::init_states(numStates)),
           squash(Automaton_Traits::init_states(numStates)),
@@ -210,7 +209,7 @@ public:
 
     const NGHolder &graph;
     const u32 numStates;
-    const flat_set<NFAVertex> &unused;
+    const flat_set<NFAVertex> unused;
 
     array<u16, ALPHABET_SIZE> alpha;
     array<u16, ALPHABET_SIZE> unalpha;
@@ -251,10 +250,9 @@ struct Big_Traits {
 
 class Automaton_Big : public Automaton_Base<Big_Traits> {
 public:
-    Automaton_Big(const NGHolder &graph_in,
-                  const flat_set<NFAVertex> &unused_in, som_type som,
+    Automaton_Big(const NGHolder &graph_in, som_type som,
                   const vector<vector<CharReach>> &triggers, bool unordered_som)
-        : Automaton_Base(graph_in, unused_in, som, triggers, unordered_som) {}
+        : Automaton_Base(graph_in, som, triggers, unordered_som) {}
 };
 
 struct Graph_Traits {
@@ -278,11 +276,10 @@ struct Graph_Traits {
 
 class Automaton_Graph : public Automaton_Base<Graph_Traits> {
 public:
-    Automaton_Graph(const NGHolder &graph_in,
-                    const flat_set<NFAVertex> &unused_in, som_type som,
+    Automaton_Graph(const NGHolder &graph_in, som_type som,
                     const vector<vector<CharReach>> &triggers,
                     bool unordered_som)
-        : Automaton_Base(graph_in, unused_in, som, triggers, unordered_som) {}
+        : Automaton_Base(graph_in, som, triggers, unordered_som) {}
 };
 
 class Automaton_Haig_Merge {
@@ -512,15 +509,14 @@ void haig_note_starts(const NGHolder &g, map<u32, u32> *out) {
 
 template<class Auto>
 static
-bool doHaig(const NGHolder &g,
-            const flat_set<NFAVertex> &unused,
-            som_type som, const vector<vector<CharReach>> &triggers,
-            bool unordered_som, raw_som_dfa *rdfa) {
+bool doHaig(const NGHolder &g, som_type som,
+            const vector<vector<CharReach>> &triggers, bool unordered_som,
+            raw_som_dfa *rdfa) {
     u32 state_limit = HAIG_FINAL_DFA_STATE_LIMIT; /* haig never backs down from
                                                      a fight */
     typedef typename Auto::StateSet StateSet;
     vector<StateSet> nfa_state_map;
-    Auto n(g, unused, som, triggers, unordered_som);
+    Auto n(g, som, triggers, unordered_som);
     try {
         if (determinise(n, rdfa->states, state_limit, &nfa_state_map)) {
             DEBUG_PRINTF("state limit exceeded\n");
@@ -550,9 +546,9 @@ bool doHaig(const NGHolder &g,
         haig_do_preds(g, source_states, n.v_by_index,
                       rdfa->state_som.back().preds);
 
-        haig_do_report(g, unused, g.accept, source_states, n.v_by_index,
+        haig_do_report(g, n.unused, g.accept, source_states, n.v_by_index,
                        rdfa->state_som.back().reports);
-        haig_do_report(g, unused, g.acceptEod, source_states, n.v_by_index,
+        haig_do_report(g, n.unused, g.acceptEod, source_states, n.v_by_index,
                        rdfa->state_som.back().reports_eod);
     }
 
@@ -577,8 +573,6 @@ attemptToBuildHaig(const NGHolder &g, som_type som, u32 somPrecision,
     assert(allMatchStatesHaveReports(g));
     assert(hasCorrectlyNumberedVertices(g));
 
-    auto unused = findUnusedStates(g);
-
     u32 numStates = num_vertices(g);
     if (numStates > HAIG_MAX_NFA_STATE) {
         DEBUG_PRINTF("giving up... looks too big\n");
@@ -592,12 +586,11 @@ attemptToBuildHaig(const NGHolder &g, som_type som, u32 somPrecision,
     bool rv;
     if (numStates <= NFA_STATE_LIMIT) {
         /* fast path */
-        rv = doHaig<Automaton_Graph>(g, unused, som, triggers, unordered_som,
+        rv = doHaig<Automaton_Graph>(g, som, triggers, unordered_som,
                                      rdfa.get());
     } else {
         /* not the fast path */
-        rv = doHaig<Automaton_Big>(g, unused, som, triggers, unordered_som,
-                                   rdfa.get());
+        rv = doHaig<Automaton_Big>(g, som, triggers, unordered_som, rdfa.get());
     }
 
     if (!rv) {

@@ -36,7 +36,6 @@
 #include "nfa/rdfa.h"
 #include "ng_holder.h"
 #include "ng_mcclellan_internal.h"
-#include "ng_restructuring.h"
 #include "ng_squash.h"
 #include "ng_util.h"
 #include "ue2common.h"
@@ -348,10 +347,11 @@ public:
     using StateMap = typename Automaton_Traits::StateMap;
 
     Automaton_Base(const ReportManager *rm_in, const NGHolder &graph_in,
-                   const flat_set<NFAVertex> &unused_in, bool single_trigger,
+                   bool single_trigger,
                    const vector<vector<CharReach>> &triggers, bool prunable_in)
         : rm(rm_in), graph(graph_in), numStates(num_vertices(graph)),
-          unused(unused_in), init(Automaton_Traits::init_states(numStates)),
+          unused(getRedundantStarts(graph_in)),
+          init(Automaton_Traits::init_states(numStates)),
           initDS(Automaton_Traits::init_states(numStates)),
           squash(Automaton_Traits::init_states(numStates)),
           accept(Automaton_Traits::init_states(numStates)),
@@ -444,7 +444,7 @@ private:
 public:
     const NGHolder &graph;
     u32 numStates;
-    const flat_set<NFAVertex> &unused;
+    const flat_set<NFAVertex> unused;
     vector<NFAVertex> v_by_index;
     vector<CharReach> cr_by_index; /* pre alpha'ed */
     StateSet init;
@@ -482,9 +482,9 @@ struct Big_Traits {
 class Automaton_Big : public Automaton_Base<Big_Traits> {
 public:
     Automaton_Big(const ReportManager *rm_in, const NGHolder &graph_in,
-                  const flat_set<NFAVertex> &unused_in, bool single_trigger,
+                  bool single_trigger,
                   const vector<vector<CharReach>> &triggers, bool prunable_in)
-        : Automaton_Base(rm_in, graph_in, unused_in, single_trigger, triggers,
+        : Automaton_Base(rm_in, graph_in, single_trigger, triggers,
                          prunable_in) {}
 };
 
@@ -510,13 +510,35 @@ struct Graph_Traits {
 class Automaton_Graph : public Automaton_Base<Graph_Traits> {
 public:
     Automaton_Graph(const ReportManager *rm_in, const NGHolder &graph_in,
-                  const flat_set<NFAVertex> &unused_in, bool single_trigger,
-                  const vector<vector<CharReach>> &triggers, bool prunable_in)
-        : Automaton_Base(rm_in, graph_in, unused_in, single_trigger, triggers,
+                    bool single_trigger,
+                    const vector<vector<CharReach>> &triggers, bool prunable_in)
+        : Automaton_Base(rm_in, graph_in, single_trigger, triggers,
                          prunable_in) {}
 };
 
 } // namespace
+
+static
+bool startIsRedundant(const NGHolder &g) {
+    set<NFAVertex> start;
+    set<NFAVertex> startDs;
+
+    insert(&start, adjacent_vertices(g.start, g));
+    insert(&startDs, adjacent_vertices(g.startDs, g));
+
+    return start == startDs;
+}
+
+flat_set<NFAVertex> getRedundantStarts(const NGHolder &g) {
+    flat_set<NFAVertex> dead;
+    if (startIsRedundant(g)) {
+        dead.insert(g.start);
+    }
+    if (proper_out_degree(g.startDs, g) == 0) {
+        dead.insert(g.startDs);
+    }
+    return dead;
+}
 
 unique_ptr<raw_dfa> buildMcClellan(const NGHolder &graph,
                                    const ReportManager *rm, bool single_trigger,
@@ -525,8 +547,6 @@ unique_ptr<raw_dfa> buildMcClellan(const NGHolder &graph,
     if (!grey.allowMcClellan) {
         return nullptr;
     }
-
-    auto unused = findUnusedStates(graph);
 
     DEBUG_PRINTF("attempting to build ?%d? mcclellan\n", (int)graph.kind);
     assert(allMatchStatesHaveReports(graph));
@@ -553,8 +573,7 @@ unique_ptr<raw_dfa> buildMcClellan(const NGHolder &graph,
     if (numStates <= NFA_STATE_LIMIT) {
         /* Fast path. Automaton_Graph uses a bitfield internally to represent
          * states and is quicker than Automaton_Big. */
-        Automaton_Graph n(rm, graph, unused, single_trigger, triggers,
-                          prunable);
+        Automaton_Graph n(rm, graph, single_trigger, triggers, prunable);
         if (determinise(n, rdfa->states, state_limit)) {
             DEBUG_PRINTF("state limit exceeded\n");
             return nullptr; /* over state limit */
@@ -566,7 +585,7 @@ unique_ptr<raw_dfa> buildMcClellan(const NGHolder &graph,
         rdfa->alpha_remap = n.alpha;
     } else {
         /* Slow path. Too many states to use Automaton_Graph. */
-        Automaton_Big n(rm, graph, unused, single_trigger, triggers, prunable);
+        Automaton_Big n(rm, graph, single_trigger, triggers, prunable);
         if (determinise(n, rdfa->states, state_limit)) {
             DEBUG_PRINTF("state limit exceeded\n");
             return nullptr; /* over state limit */

@@ -47,6 +47,7 @@
 #include "nfagraph/ng_is_equal.h"
 #include "nfagraph/ng_limex.h"
 #include "nfagraph/ng_mcclellan.h"
+#include "nfagraph/ng_prune.h"
 #include "nfagraph/ng_repeat.h"
 #include "nfagraph/ng_reports.h"
 #include "nfagraph/ng_stop.h"
@@ -788,19 +789,230 @@ void RoseBuildImpl::findTransientLeftfixes(void) {
 
 /** Find all the different roses and their associated literals. */
 static
-map<left_id, vector<RoseVertex>> findLeftSucc(RoseBuildImpl &tbi) {
+map<left_id, vector<RoseVertex>> findLeftSucc(const RoseBuildImpl &build) {
     map<left_id, vector<RoseVertex>> leftfixes;
-    for (auto v : vertices_range(tbi.g)) {
-        if (tbi.g[v].left) {
-            const LeftEngInfo &lei = tbi.g[v].left;
+    for (auto v : vertices_range(build.g)) {
+        if (build.g[v].left) {
+            const LeftEngInfo &lei = build.g[v].left;
             leftfixes[lei].push_back(v);
         }
     }
     return leftfixes;
 }
 
+namespace {
+struct infix_info {
+    set<RoseVertex> preds;
+    set<RoseVertex> succs;
+};
+}
+
 static
-bool triggerKillsRoseGraph(const RoseBuildImpl &tbi, const left_id &left,
+map<NGHolder *, infix_info> findInfixGraphInfo(const RoseBuildImpl &build) {
+    map<NGHolder *, infix_info> rv;
+
+    for (auto v : vertices_range(build.g)) {
+        if (!build.g[v].left) {
+            continue;
+        }
+
+        if (build.isRootSuccessor(v)) {
+            DEBUG_PRINTF("a prefix is never an infix\n");
+            continue;
+        }
+
+        /* ensure only proper nfas */
+        const LeftEngInfo &lei = build.g[v].left;
+        if (!lei.graph) {
+            continue;
+        }
+        if (lei.haig || lei.dfa) {
+            continue;
+        }
+        assert(!lei.castle);
+        infix_info &info = rv[lei.graph.get()];
+        insert(&info.preds, inv_adjacent_vertices_range(v, build.g));
+        info.succs.insert(v);
+    }
+
+    return rv;
+}
+
+static
+map<u32, flat_set<NFAEdge>> getTopInfo(const NGHolder &h) {
+    map<u32, flat_set<NFAEdge>> rv;
+    for (NFAEdge e : out_edges_range(h.start, h)) {
+        for (u32 t : h[e].tops) {
+            rv[t].insert(e);
+        }
+    }
+    return rv;
+}
+
+static
+u32 findUnusedTop(const map<u32, flat_set<NFAEdge>> &tops) {
+    u32 i = 0;
+    while (contains(tops, i)) {
+        i++;
+    }
+    return i;
+}
+
+static
+bool reduceTopTriggerLoad(RoseBuildImpl &build, NGHolder &h, RoseVertex u) {
+    RoseGraph &g = build.g;
+
+    set<u32> tops; /* tops triggered by u */
+    for (RoseEdge e : out_edges_range(u, g)) {
+        RoseVertex v = target(e, g);
+        if (g[v].left.graph.get() != &h) {
+            continue;
+        }
+        tops.insert(g[e].rose_top);
+    }
+
+    assert(!tops.empty());
+    if (tops.size() <= 1) {
+        return false;
+    }
+    DEBUG_PRINTF("%zu triggers %zu tops for %p\n", build.g[u].idx, tops.size(),
+                 &h);
+
+    auto h_top_info = getTopInfo(h);
+    flat_set<NFAEdge> edges_to_trigger;
+    for (u32 t : tops) {
+        insert(&edges_to_trigger, h_top_info[t]);
+    }
+
+    u32 new_top = ~0U;
+    /* check if there is already a top with the right the successor set */
+    for (const auto &elem : h_top_info) {
+        if (elem.second == edges_to_trigger) {
+            new_top = elem.first;
+            break;
+        }
+    }
+
+    /* if no existing suitable top, add a new top for us */
+    if (new_top == ~0U) {
+        new_top = findUnusedTop(h_top_info);
+
+        /* add top to edges out of start */
+        for (NFAEdge e : out_edges_range(h.start, h)) {
+            if (has_intersection(tops, h[e].tops)) {
+                h[e].tops.insert(new_top);
+            }
+        }
+
+        /* check still implementable if we add a new top */
+        if (!isImplementableNFA(h, nullptr, build.cc)) {
+            DEBUG_PRINTF("unable to add new top\n");
+            for (NFAEdge e : out_edges_range(h.start, h)) {
+                h[e].tops.erase(new_top);
+            }
+            /* we should be back to the original graph */
+            assert(isImplementableNFA(h, nullptr, build.cc));
+            return false;
+        }
+    }
+
+    DEBUG_PRINTF("using new merged top %u\n", new_top);
+    assert(new_top != ~0U);
+    for (RoseEdge e: out_edges_range(u, g)) {
+        RoseVertex v = target(e, g);
+        if (g[v].left.graph.get() != &h) {
+            continue;
+        }
+        g[e].rose_top = new_top;
+    }
+
+    return true;
+}
+
+static
+void packInfixTops(NGHolder &h, RoseGraph &g,
+                   const set<RoseVertex> &verts) {
+    if (!is_triggered(h)) {
+        DEBUG_PRINTF("not triggered, no tops\n");
+        return;
+    }
+    assert(isCorrectlyTopped(h));
+    DEBUG_PRINTF("pruning unused tops\n");
+    flat_set<u32> used_tops;
+    for (auto v : verts) {
+        assert(g[v].left.graph.get() == &h);
+
+        for (const auto &e : in_edges_range(v, g)) {
+            u32 top = g[e].rose_top;
+            used_tops.insert(top);
+        }
+    }
+
+    map<u32, u32> top_mapping;
+    for (u32 t : used_tops) {
+        u32 new_top = top_mapping.size();
+        top_mapping[t] = new_top;
+    }
+
+    for (auto v : verts) {
+        assert(g[v].left.graph.get() == &h);
+
+        for (const auto &e : in_edges_range(v, g)) {
+            g[e].rose_top = top_mapping.at(g[e].rose_top);
+        }
+    }
+
+    vector<NFAEdge> dead;
+    for (const auto &e : out_edges_range(h.start, h)) {
+        NFAVertex v = target(e, h);
+        if (v == h.startDs) {
+            continue; // stylised edge, leave it alone.
+        }
+        flat_set<u32> updated_tops;
+        for (u32 t : h[e].tops) {
+            if (contains(top_mapping, t)) {
+                updated_tops.insert(top_mapping.at(t));
+            }
+        }
+        h[e].tops = move(updated_tops);
+        if (h[e].tops.empty()) {
+            DEBUG_PRINTF("edge (start,%u) has only unused tops\n", h[v].index);
+            dead.push_back(e);
+        }
+    }
+
+    if (dead.empty()) {
+        return;
+    }
+
+    remove_edges(dead, h);
+    pruneUseless(h);
+    clearReports(h); // As we may have removed vacuous edges.
+}
+
+static
+void reduceTopTriggerLoad(RoseBuildImpl &build) {
+    auto infixes = findInfixGraphInfo(build);
+
+    for (auto &p : infixes) {
+        if (onlyOneTop(*p.first)) {
+            continue;
+        }
+
+        bool changed = false;
+        for (RoseVertex v : p.second.preds) {
+            changed |= reduceTopTriggerLoad(build, *p.first, v);
+        }
+
+        if (changed) {
+            packInfixTops(*p.first, build.g, p.second.succs);
+            reduceImplementableGraph(*p.first, SOM_NONE, nullptr, build.cc);
+        }
+    }
+}
+
+static
+bool triggerKillsRoseGraph(const RoseBuildImpl &build, const left_id &left,
                            const set<ue2_literal> &all_lits,
                            const RoseEdge &e) {
     assert(left.graph());
@@ -816,8 +1028,8 @@ bool triggerKillsRoseGraph(const RoseBuildImpl &tbi, const left_id &left,
 
     /* check each pred literal to see if they all kill previous graph
      * state */
-    for (u32 lit_id : tbi.g[source(e, tbi.g)].literals) {
-        const rose_literal_id &pred_lit = tbi.literals.right.at(lit_id);
+    for (u32 lit_id : build.g[source(e, build.g)].literals) {
+        const rose_literal_id &pred_lit = build.literals.right.at(lit_id);
         const ue2_literal s = findNonOverlappingTail(all_lits, pred_lit.s);
 
         DEBUG_PRINTF("running graph %zu\n", states.size());
@@ -833,7 +1045,7 @@ bool triggerKillsRoseGraph(const RoseBuildImpl &tbi, const left_id &left,
 }
 
 static
-bool triggerKillsRose(const RoseBuildImpl &tbi, const left_id &left,
+bool triggerKillsRose(const RoseBuildImpl &build, const left_id &left,
                       const set<ue2_literal> &all_lits, const RoseEdge &e) {
     if (left.haig()) {
         /* TODO: To allow this for som-based engines we would also need to
@@ -843,32 +1055,30 @@ bool triggerKillsRose(const RoseBuildImpl &tbi, const left_id &left,
     }
 
     if (left.graph()) {
-        return triggerKillsRoseGraph(tbi, left, all_lits, e);
+        return triggerKillsRoseGraph(build, left, all_lits, e);
     }
 
     if (left.castle()) {
-        return triggerKillsRoseCastle(tbi, left, all_lits, e);
+        return triggerKillsRoseCastle(build, left, all_lits, e);
     }
 
     return false;
 }
 
+/* Sometimes the arrival of a top for a rose infix can ensure that the nfa would
+ * be dead at that time. In the case of multiple trigger literals, we can only
+ * base our decision on that portion of literal after any overlapping literals.
+ */
 static
-void inspectRoseTops(RoseBuildImpl &tbi) {
-    /* Sometimes the arrival of a top for a rose infix can ensure that the nfa
-     * would be dead at that time. In the case of multiple trigger literals we
-     * can only base our decision on that portion of literal after any
-     * overlapping literals */
+void findTopTriggerCancels(RoseBuildImpl &build) {
+    auto left_succ = findLeftSucc(build); /* leftfixes -> succ verts */
 
-    map<left_id, vector<RoseVertex>> roses =
-        findLeftSucc(tbi); /* rose -> succ verts */
-
-    for (const auto &r : roses) {
+    for (const auto &r : left_succ) {
         const left_id &left = r.first;
         const vector<RoseVertex> &succs = r.second;
 
         assert(!succs.empty());
-        if (tbi.isRootSuccessor(*succs.begin())) {
+        if (build.isRootSuccessor(*succs.begin())) {
             /* a prefix is never an infix */
             continue;
         }
@@ -878,10 +1088,10 @@ void inspectRoseTops(RoseBuildImpl &tbi) {
         set<u32> pred_lit_ids;
 
         for (auto v : succs) {
-            for (const auto &e : in_edges_range(v, tbi.g)) {
-                RoseVertex u = source(e, tbi.g);
-                tops_seen.insert(tbi.g[e].rose_top);
-                insert(&pred_lit_ids, tbi.g[u].literals);
+            for (const auto &e : in_edges_range(v, build.g)) {
+                RoseVertex u = source(e, build.g);
+                tops_seen.insert(build.g[e].rose_top);
+                insert(&pred_lit_ids, build.g[u].literals);
                 rose_edges.insert(e);
             }
         }
@@ -893,7 +1103,7 @@ void inspectRoseTops(RoseBuildImpl &tbi) {
         }
 
         for (u32 lit_id : pred_lit_ids) {
-            const rose_literal_id &p_lit = tbi.literals.right.at(lit_id);
+            const rose_literal_id &p_lit = build.literals.right.at(lit_id);
             if (p_lit.delay || p_lit.table == ROSE_ANCHORED) {
                 goto next_rose;
             }
@@ -905,13 +1115,20 @@ void inspectRoseTops(RoseBuildImpl &tbi) {
                      all_lits.size(), rose_edges.size());
 
         for (const auto &e : rose_edges) {
-            if (triggerKillsRose(tbi, left, all_lits, e)) {
+            if (triggerKillsRose(build, left, all_lits, e)) {
                 DEBUG_PRINTF("top will override previous rose state\n");
-                tbi.g[e].rose_cancel_prev_top = true;
+                build.g[e].rose_cancel_prev_top = true;
             }
         }
     next_rose:;
     }
+}
+
+static
+void optimiseRoseTops(RoseBuildImpl &build) {
+    reduceTopTriggerLoad(build);
+    /* prune unused tops ? */
+    findTopTriggerCancels(build);
 }
 
 static
@@ -1492,7 +1709,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
 
     /* final prep work */
     remapCastleTops(*this);
-    inspectRoseTops(*this);
+    optimiseRoseTops(*this);
     buildRoseSquashMasks(*this);
 
     rm.assignDkeys(this);

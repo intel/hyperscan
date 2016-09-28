@@ -174,7 +174,11 @@ bool is_match_vertex(NFAVertex v, const GraphT &g) {
 }
 
 /** Generate a reverse topological ordering for a back-edge filtered version of
- * our graph (as it must be a DAG and correctly numbered) */
+ * our graph (as it must be a DAG and correctly numbered).
+ *
+ * Note: we ensure that we produce a topo ordering that begins with acceptEod
+ * and accept (if present) and ends with startDs followed by start.
+ */
 std::vector<NFAVertex> getTopoOrdering(const NGHolder &g);
 
 /** Comparison functor used to sort by vertex_index. */
@@ -299,6 +303,10 @@ void clearReports(NGHolder &g);
 /** \brief Add report \a r_new to every vertex that already has report \a
  * r_old. */
 void duplicateReport(NGHolder &g, ReportID r_old, ReportID r_new);
+
+/** Construct a reversed copy of an arbitrary NGHolder, mapping starts to
+ * accepts. */
+void reverseHolder(const NGHolder &g, NGHolder &out);
 
 #ifndef NDEBUG
 

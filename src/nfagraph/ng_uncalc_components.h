@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,10 +52,7 @@ class ReportManager;
  * The CPL is calculated based the topological ordering given by the state
  * indices for each graph.
  */
-u32 commonPrefixLength(const NGHolder &ga,
-                       const ue2::unordered_map<NFAVertex, u32> &a_state_ids,
-                       const NGHolder &gb,
-                       const ue2::unordered_map<NFAVertex, u32> &b_state_ids);
+u32 commonPrefixLength(const NGHolder &ga, const NGHolder &gb);
 
 /**
  * \brief Merge the group of graphs in \p cluster where possible.
@@ -73,7 +70,7 @@ void mergeNfaCluster(const std::vector<NGHolder *> &cluster,
  * Returns false on failure. On success, \p gb is reduced via \ref
  * reduceImplementableGraph and renumbered.
  */
-bool mergeNfaPair(NGHolder &ga, NGHolder &gb, const ReportManager *rm,
+bool mergeNfaPair(const NGHolder &ga, NGHolder &gb, const ReportManager *rm,
                   const CompileContext &cc);
 
 } // namespace ue2

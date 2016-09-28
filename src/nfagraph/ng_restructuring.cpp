@@ -49,37 +49,71 @@ namespace ue2 {
 /** Connect the start vertex to each of the vertices in \p tops. This is useful
  * temporarily for when we need to run a graph algorithm that expects a single
  * source vertex. */
-void wireStartToTops(NGHolder &g, const map<u32, NFAVertex> &tops,
-                     vector<NFAEdge> &topEdges) {
-    for (const auto &top : tops) {
-        NFAVertex v = top.second;
+static
+void wireStartToTops(NGHolder &g, const flat_set<NFAVertex> &tops,
+                     vector<NFAEdge> &tempEdges) {
+    for (NFAVertex v : tops) {
         assert(!isLeafNode(v, g));
 
         const NFAEdge &e = add_edge(g.start, v, g).first;
-        topEdges.push_back(e);
+        tempEdges.push_back(e);
     }
 }
 
+/**
+ * Returns true if start's successors (aside from startDs) are subset of
+ * startDs's proper successors or if start has no successors other than startDs.
+ */
 static
-void getStateOrdering(NGHolder &g, const map<u32, NFAVertex> &tops,
+bool startIsRedundant(const NGHolder &g) {
+    /* We ignore startDs as the self-loop may have been stripped as an
+     * optimisation for repeats (improveLeadingRepeats()). */
+    set<NFAVertex> start;
+    insert(&start,  adjacent_vertices_range(g.start, g));
+    start.erase(g.startDs);
+
+    // Trivial case: start has no successors other than startDs.
+    if (start.empty()) {
+        DEBUG_PRINTF("start has no out-edges other than to startDs\n");
+        return true;
+    }
+
+    set<NFAVertex> startDs;
+    insert(&startDs,  adjacent_vertices_range(g.startDs, g));
+    startDs.erase(g.startDs);
+
+    if (!is_subset_of(start, startDs)) {
+        DEBUG_PRINTF("out-edges of start and startDs aren't equivalent\n");
+        return false;
+    }
+
+    return true;
+}
+
+static
+void getStateOrdering(NGHolder &g, const flat_set<NFAVertex> &tops,
                       vector<NFAVertex> &ordering) {
     // First, wire up our "tops" to start so that we have a single source,
     // which will give a nicer topo order.
-    vector<NFAEdge> topEdges;
-    wireStartToTops(g, tops, topEdges);
+    vector<NFAEdge> tempEdges;
+    wireStartToTops(g, tops, tempEdges);
 
     renumberGraphVertices(g);
 
     vector<NFAVertex> temp = getTopoOrdering(g);
 
-    remove_edges(topEdges, g);
+    remove_edges(tempEdges, g);
 
     // Move {start, startDs} to the end, so they'll be first when we reverse
-    // the ordering.
+    // the ordering (if they are required).
     temp.erase(remove(temp.begin(), temp.end(), g.startDs));
     temp.erase(remove(temp.begin(), temp.end(), g.start));
-    temp.push_back(g.startDs);
-    temp.push_back(g.start);
+    if (proper_out_degree(g.startDs, g)) {
+        temp.push_back(g.startDs);
+    }
+    if (!startIsRedundant(g)) {
+        temp.push_back(g.start);
+    }
 
     // Walk ordering, remove vertices that shouldn't be participating in state
     // numbering, such as accepts.
@@ -149,16 +183,15 @@ void optimiseTightLoops(const NGHolder &g, vector<NFAVertex> &ordering) {
             continue;
         }
 
-        DEBUG_PRINTF("moving vertex %u next to %u\n",
-                     g[v].index, g[u].index);
+        DEBUG_PRINTF("moving vertex %u next to %u\n", g[v].index, g[u].index);
 
         ordering.erase(v_it);
         ordering.insert(++u_it, v);
     }
 }
 
-ue2::unordered_map<NFAVertex, u32>
-numberStates(NGHolder &h, const map<u32, NFAVertex> &tops) {
+unordered_map<NFAVertex, u32>
+numberStates(NGHolder &h, const flat_set<NFAVertex> &tops) {
     DEBUG_PRINTF("numbering states for holder %p\n", &h);
 
     vector<NFAVertex> ordering;
@@ -166,15 +199,10 @@ numberStates(NGHolder &h, const map<u32, NFAVertex> &tops) {
 
     optimiseTightLoops(h, ordering);
 
-    ue2::unordered_map<NFAVertex, u32> states = getStateIndices(h, ordering);
-
-    return states;
+    return getStateIndices(h, ordering);
 }
 
-u32 countStates(const NGHolder &g,
-                const ue2::unordered_map<NFAVertex, u32> &state_ids,
-                bool addTops) {
-    /* TODO: smarter top state allocation, move to limex? */
+u32 countStates(const unordered_map<NFAVertex, u32> &state_ids) {
     if (state_ids.empty()) {
         return 0;
     }
@@ -185,168 +213,9 @@ u32 countStates(const NGHolder &g,
             max_state = max(m.second, max_state);
         }
     }
-
     u32 num_states = max_state + 1;
 
-    assert(contains(state_ids, g.start));
-    if (addTops && is_triggered(g) && state_ids.at(g.start) != NO_STATE) {
-        num_states--;
-        set<u32> tops;
-        for (auto e : out_edges_range(g.start, g)) {
-            insert(&tops, g[e].tops);
-        }
-        num_states += tops.size();
-    }
-
     return num_states;
-}
-
-/**
- * Returns true if start leads to all of startDs's proper successors or if
- * start has no successors other than startDs.
- */
-static
-bool startIsRedundant(const NGHolder &g) {
-    set<NFAVertex> start, startDs;
-
-    for (const auto &e : out_edges_range(g.start, g)) {
-        NFAVertex v = target(e, g);
-        if (v == g.startDs) {
-            continue;
-        }
-        start.insert(v);
-    }
-
-    for (const auto &e : out_edges_range(g.startDs, g)) {
-        NFAVertex v = target(e, g);
-        if (v == g.startDs) {
-            continue;
-        }
-        startDs.insert(v);
-    }
-
-    // Trivial case: start has no successors other than startDs.
-    if (start.empty()) {
-        DEBUG_PRINTF("start has no out-edges other than to startDs\n");
-        return true;
-    }
-
-    if (start != startDs) {
-        DEBUG_PRINTF("out-edges of start and startDs aren't equivalent\n");
-        return false;
-    }
-
-    return true;
-}
-
-/** One final, FINAL optimisation. Drop either start or startDs if it's unused
- * in this graph. We leave this until this late because having both vertices in
- * the graph, with fixed state indices, is useful for merging and other
- * analyses. */
-void dropUnusedStarts(NGHolder &g, ue2::unordered_map<NFAVertex, u32> &states) {
-    u32 adj = 0;
-
-    if (startIsRedundant(g)) {
-        DEBUG_PRINTF("dropping unused start\n");
-        states[g.start] = NO_STATE;
-        adj++;
-    }
-
-    if (proper_out_degree(g.startDs, g) == 0) {
-        DEBUG_PRINTF("dropping unused startDs\n");
-        states[g.startDs] = NO_STATE;
-        adj++;
-    }
-
-    if (!adj) {
-        DEBUG_PRINTF("both start and startDs must remain\n");
-        return;
-    }
-
-    // We have removed one or both of the starts. Walk the non-special vertices
-    // in the graph with state indices assigned to them and subtract
-    // adj from all of them.
-    for (auto v : vertices_range(g)) {
-        u32 &state = states[v]; // note ref
-        if (state == NO_STATE) {
-            continue;
-        }
-        if (is_any_start(v, g)) {
-            assert(state <= 1);
-            state = 0; // one start remains
-        } else {
-            assert(!is_special(v, g));
-            assert(state >= adj);
-            state -= adj;
-        }
-    }
-}
-
-flat_set<NFAVertex> findUnusedStates(const NGHolder &g) {
-    flat_set<NFAVertex> dead;
-    if (startIsRedundant(g)) {
-        dead.insert(g.start);
-    }
-    if (proper_out_degree(g.startDs, g) == 0) {
-        dead.insert(g.startDs);
-    }
-    return dead;
-}
-
-/** Construct a reversed copy of an arbitrary NGHolder, mapping starts to
- * accepts. */
-void reverseHolder(const NGHolder &g_in, NGHolder &g) {
-    // Make the BGL do the grunt work.
-    ue2::unordered_map<NFAVertex, NFAVertex> vertexMap;
-    boost::transpose_graph(g_in.g, g.g,
-                orig_to_copy(boost::make_assoc_property_map(vertexMap)).
-                vertex_index_map(get(&NFAGraphVertexProps::index, g_in.g)));
-
-    // The transpose_graph operation will have created extra copies of our
-    // specials. We have to rewire their neighbours to the 'real' specials and
-    // delete them.
-    NFAVertex start = vertexMap[g_in.acceptEod];
-    NFAVertex startDs = vertexMap[g_in.accept];
-    NFAVertex accept = vertexMap[g_in.startDs];
-    NFAVertex acceptEod = vertexMap[g_in.start];
-
-    // Successors of starts.
-    for (const auto &e : out_edges_range(start, g)) {
-        NFAVertex v = target(e, g);
-        add_edge(g.start, v, g[e], g);
-    }
-    for (const auto &e : out_edges_range(startDs, g)) {
-        NFAVertex v = target(e, g);
-        add_edge(g.startDs, v, g[e], g);
-    }
-
-    // Predecessors of accepts.
-    for (const auto &e : in_edges_range(accept, g)) {
-        NFAVertex u = source(e, g);
-        add_edge(u, g.accept, g[e], g);
-    }
-    for (const auto &e : in_edges_range(acceptEod, g)) {
-        NFAVertex u = source(e, g);
-        add_edge(u, g.acceptEod, g[e], g);
-    }
-
-    // Remove our impostors.
-    clear_vertex(start, g);
-    remove_vertex(start, g);
-    clear_vertex(startDs, g);
-    remove_vertex(startDs, g);
-    clear_vertex(accept, g);
-    remove_vertex(accept, g);
-    clear_vertex(acceptEod, g);
-    remove_vertex(acceptEod, g);
-
-    // Renumber so that g's properties (number of vertices, edges) are
-    // accurate.
-    g.renumberVertices();
-    g.renumberEdges();
-
-    assert(num_vertices(g) == num_vertices(g_in));
-    assert(num_edges(g) == num_edges(g_in));
 }
 
 } // namespace ue2
