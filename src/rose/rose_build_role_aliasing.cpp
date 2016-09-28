@@ -40,7 +40,6 @@
 #include "nfagraph/ng_is_equal.h"
 #include "nfagraph/ng_limex.h"
 #include "nfagraph/ng_prune.h"
-#include "nfagraph/ng_restructuring.h"
 #include "nfagraph/ng_uncalc_components.h"
 #include "nfagraph/ng_util.h"
 #include "util/bitutils.h"

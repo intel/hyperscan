@@ -68,8 +68,6 @@
 #include <utility>
 #include <vector>
 #include <boost/core/noncopyable.hpp>
-#include <boost/graph/reverse_graph.hpp>
-#include <boost/graph/topological_sort.hpp>
 
 #define NDEBUG_PRINTF(x, ...) \
     do { if (0) { DEBUG_PRINTF(x,  ## __VA_ARGS__); } } while (0)

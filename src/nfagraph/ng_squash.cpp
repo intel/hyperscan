@@ -102,7 +102,6 @@
 #include "ng_holder.h"
 #include "ng_prune.h"
 #include "ng_region.h"
-#include "ng_restructuring.h"
 #include "ng_som_util.h"
 #include "ng_util.h"
 #include "ng_util.h"

@@ -37,7 +37,6 @@
 #include "nfa/nfa_internal.h"
 #include "nfagraph/ng.h"
 #include "nfagraph/ng_limex.h"
-#include "nfagraph/ng_restructuring.h"
 #include "nfagraph/ng_util.h"
 #include "util/alloc.h"
 #include "util/target_info.h"

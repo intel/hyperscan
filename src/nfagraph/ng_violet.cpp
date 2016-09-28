@@ -67,8 +67,6 @@
 #include <utility>
 #include <vector>
 #include <boost/core/noncopyable.hpp>
-#include <boost/graph/reverse_graph.hpp>
-#include <boost/graph/topological_sort.hpp>
 #include <boost/range/adaptor/map.hpp>
 
 #define STAGE_DEBUG_PRINTF DEBUG_PRINTF

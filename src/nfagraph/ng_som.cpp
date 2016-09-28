@@ -40,7 +40,6 @@
 #include "ng_redundancy.h"
 #include "ng_region.h"
 #include "ng_reports.h"
-#include "ng_restructuring.h"
 #include "ng_rose.h"
 #include "ng_som.h"
 #include "ng_som_add_redundancy.h"
