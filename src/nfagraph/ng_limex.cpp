@@ -344,6 +344,13 @@ void attemptToUseAsStart(const NGHolder &g,  NFAVertex u,
         if (!contains(unhandled_succ_tops, v)) {
             return;
         }
+        /* if it has vacuous reports we need to make sure that the report sets
+         * are the same */
+        if ((v == g.accept || v == g.acceptEod)
+            && g[g.start].reports != g[u].reports) {
+            DEBUG_PRINTF("different report behaviour\n");
+            return;
+        }
         const flat_set<u32> &v_tops = unhandled_succ_tops.at(v);
         flat_set<u32> new_inter;
         auto ni_inserter = inserter(new_inter, new_inter.end());
@@ -362,6 +369,7 @@ void attemptToUseAsStart(const NGHolder &g,  NFAVertex u,
         return;
     }
 
+    DEBUG_PRINTF("reusing %u is a start vertex\n", g[u].index);
     markTopSuccAsHandled(u, top_inter, succs, tops_out, unhandled_top_succs,
                          unhandled_succ_tops);
 }
@@ -377,6 +385,7 @@ void reusePredsAsStarts(const NGHolder &g, const map<u32, CharReach> &top_reach,
                         map<u32, set<NFAVertex>> &tops_out) {
     /* create list of candidates first, to avoid issues of iter invalidation
      * and determinism */
+    DEBUG_PRINTF("attempting to reuse vertices for top starts\n");
     vector<NFAVertex> cand_starts;
     for (NFAVertex u : unhandled_succ_tops | map_keys) {
         if (hasSelfLoop(u, g)) {
@@ -434,6 +443,7 @@ void makeTopStates(NGHolder &g, map<u32, set<NFAVertex>> &tops_out,
 
     while (!unhandled_succ_tops.empty()) {
         assert(!unhandled_top_succs.empty());
+        DEBUG_PRINTF("creating top start vertex\n");
         flat_set<u32> u_tops;
         flat_set<NFAVertex> u_succs;
         pickNextTopStateToHandle(unhandled_top_succs, unhandled_succ_tops,
@@ -473,7 +483,7 @@ set<NFAVertex> findZombies(const NGHolder &h,
     }
 
     if (in_degree(h.acceptEod, h) != 1 || all_reports(h).size() != 1) {
-        DEBUG_PRINTF("can be made undead - bad reports\n");
+        DEBUG_PRINTF("cannot be made undead - bad reports\n");
         return zombies;
     }
 
