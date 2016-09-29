@@ -580,6 +580,12 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
 
     const struct HWLM *ftable = getFLiteralMatcher(t);
     if (ftable) {
+        // Load in long literal table state and set up "fake history" buffers
+        // (ll_buf, etc, used by the CHECK_LONG_LIT instruction). Note that this
+        // must be done here in order to ensure that it happens before any path
+        // that leads to storeLongLiteralState(), which relies on these buffers.
+        loadLongLiteralState(t, state, scratch);
+
         if (t->noFloatingRoots && !roseHasInFlightMatches(t, state, scratch)) {
             DEBUG_PRINTF("skip FLOATING: no inflight matches\n");
             goto flush_delay_and_exit;
@@ -590,8 +596,6 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
             flen = t->floatingDistance > offset ?
                 MIN(t->floatingDistance, length + offset) - offset : 0;
         }
-
-        loadLongLiteralState(t, state, scratch);
 
         size_t hlength = scratch->core_info.hlen;
 
