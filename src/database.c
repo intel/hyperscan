@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -114,7 +114,8 @@ hs_error_t hs_serialize_database(const hs_database_t *db, char **bytes,
 static
 hs_error_t db_check_platform(const u64a p) {
     if (p != hs_current_platform
-        && p != hs_current_platform_no_avx2) {
+        && p != hs_current_platform_no_avx2
+        && p != hs_current_platform_no_avx512) {
         return HS_DB_PLATFORM_ERROR;
     }
     // passed all checks
@@ -366,7 +367,9 @@ hs_error_t print_database_string(char **s, u32 version, const platform_t plat,
     u8 minor = (version >> 16) & 0xff;
     u8 major = (version >> 24) & 0xff;
 
-    const char *avx2 = (plat & HS_PLATFORM_NOAVX2)  ? "NOAVX2" : " AVX2";
+    const char *features = (plat & HS_PLATFORM_NOAVX512)
+                               ? (plat & HS_PLATFORM_NOAVX2) ? "" : "AVX2"
+                               : "AVX512";
 
     const char *mode = NULL;
 
@@ -395,7 +398,7 @@ hs_error_t print_database_string(char **s, u32 version, const platform_t plat,
         // that don't have snprintf but have a workalike.
         int p_len = SNPRINTF_COMPAT(
             buf, len, "Version: %u.%u.%u Features: %s Mode: %s",
-            major, minor, release, avx2, mode);
+            major, minor, release, features, mode);
         if (p_len < 0) {
             DEBUG_PRINTF("snprintf output error, returned %d\n", p_len);
             hs_misc_free(buf);

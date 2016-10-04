@@ -52,6 +52,10 @@ TEST(DB, flagsToPlatform) {
     p.cpu_features |= HS_CPU_FEATURES_AVX2;
 #endif
 
+#if defined(HAVE_AVX512)
+    p.cpu_features |= HS_CPU_FEATURES_AVX512;
+#endif
+
     platform_t pp = target_to_platform(target_t(p));
     ASSERT_EQ(pp, hs_current_platform);
 }

@@ -53,6 +53,10 @@
 #define HAVE_AVX2
 #endif
 
+#if defined(__AVX512BW__)
+#define HAVE_AVX512
+#endif
+
 /*
  * ICC and MSVC don't break out POPCNT or BMI/2 as separate pre-def macros
  */

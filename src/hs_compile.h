@@ -780,6 +780,14 @@ hs_error_t hs_populate_platform(hs_platform_info_t *platform);
  */
 #define HS_CPU_FEATURES_AVX2             (1ULL << 2)
 
+/**
+ * CPU features flag - Intel(R) Advanced Vector Extensions 512 (Intel(R) AVX512)
+ *
+ * Setting this flag indicates that the target platform supports AVX512
+ * instructions, specifically AVX-512BW. Using AVX512 implies the use of AVX2.
+ */
+#define HS_CPU_FEATURES_AVX512           (1ULL << 3)
+
 /** @} */
 
 /**
@@ -835,6 +843,30 @@ hs_error_t hs_populate_platform(hs_platform_info_t *platform);
  * Broadwell microarchitecture.
  */
 #define HS_TUNE_FAMILY_BDW 5
+
+/**
+ * Tuning Parameter - Intel(R) microarchitecture code name Skylake
+ *
+ * This indicates that the compiled database should be tuned for the
+ * Skylake microarchitecture.
+ */
+#define HS_TUNE_FAMILY_SKL 6
+
+/**
+ * Tuning Parameter - Intel(R) microarchitecture code name Skylake Server
+ *
+ * This indicates that the compiled database should be tuned for the
+ * Skylake Server microarchitecture.
+ */
+#define HS_TUNE_FAMILY_SKX 7
+
+/**
+ * Tuning Parameter - Intel(R) microarchitecture code name Goldmont
+ *
+ * This indicates that the compiled database should be tuned for the
+ * Goldmont microarchitecture.
+ */
+#define HS_TUNE_FAMILY_GLM 8
 
 /** @} */
 

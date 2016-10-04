@@ -54,6 +54,7 @@ extern "C"
 #define HS_PLATFORM_CPU_MASK        0x3F
 
 #define HS_PLATFORM_NOAVX2          (4<<13)
+#define HS_PLATFORM_NOAVX512        (8<<13)
 
 /** \brief Platform features bitmask. */
 typedef u64a platform_t;
@@ -63,12 +64,22 @@ const platform_t hs_current_platform = {
 #if !defined(HAVE_AVX2)
     HS_PLATFORM_NOAVX2 |
 #endif
+#if !defined(HAVE_AVX512)
+    HS_PLATFORM_NOAVX512 |
+#endif
     0,
 };
 
 static UNUSED
 const platform_t hs_current_platform_no_avx2 = {
     HS_PLATFORM_NOAVX2 |
+    HS_PLATFORM_NOAVX512 |
+    0,
+};
+
+static UNUSED
+const platform_t hs_current_platform_no_avx512 = {
+    HS_PLATFORM_NOAVX512 |
     0,
 };
 

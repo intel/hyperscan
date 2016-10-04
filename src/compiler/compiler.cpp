@@ -313,6 +313,9 @@ platform_t target_to_platform(const target_t &target_info) {
     if (!target_info.has_avx2()) {
         p |= HS_PLATFORM_NOAVX2;
     }
+    if (!target_info.has_avx512()) {
+        p |= HS_PLATFORM_NOAVX512;
+    }
     return p;
 }
 

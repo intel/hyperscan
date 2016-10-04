@@ -56,9 +56,18 @@
 #define AVX2 (1 << 5)
 #define BMI2 (1 << 8)
 
+// Structured Extended Feature Flags Enumeration Leaf EBX values
+#define AVX512F (1 << 16)
+#define AVX512BW (1 << 30)
+
 // Extended Control Register 0 (XCR0) values
 #define XCR0_SSE (1 << 1)
 #define XCR0_AVX (1 << 2)
+#define XCR0_OPMASK (1 << 5) // k-regs
+#define XCR0_ZMM_Hi256 (1 << 6) // upper 256 bits of ZMM0-ZMM15
+#define XCR0_Hi16_ZMM (1 << 7) // ZMM16-ZMM31
+
+#define XCR0_AVX512 (XCR0_OPMASK | XCR0_ZMM_Hi256 | XCR0_Hi16_ZMM)
 
 static __inline
 void cpuid(unsigned int op, unsigned int leaf, unsigned int *eax,
@@ -124,6 +133,49 @@ int check_avx2(void) {
 #endif
 }
 
+static
+int check_avx512(void) {
+    /*
+     * For our purposes, having avx512 really means "can we use AVX512BW?"
+     */
+#if defined(__INTEL_COMPILER)
+    return _may_i_use_cpu_feature(_FEATURE_AVX512BW);
+#else
+    unsigned int eax, ebx, ecx, edx;
+
+    cpuid(1, 0, &eax, &ebx, &ecx, &edx);
+
+    /* check XSAVE is enabled by OS */
+    if (!(ecx & XSAVE)) {
+        DEBUG_PRINTF("AVX and XSAVE not supported\n");
+        return 0;
+    }
+
+    /* check that AVX 512 registers are enabled by OS */
+    u64a xcr0 = xgetbv(0);
+    if ((xcr0 & XCR0_AVX512) != XCR0_AVX512) {
+        DEBUG_PRINTF("AVX512 registers not enabled\n");
+        return 0;
+    }
+
+    /* ECX and EDX contain capability flags */
+    ecx = 0;
+    cpuid(7, 0, &eax, &ebx, &ecx, &edx);
+
+    if (!(ebx & AVX512F)) {
+        DEBUG_PRINTF("AVX512F (AVX512 Foundation) instructions not enabled\n");
+        return 0;
+    }
+
+    if (ebx & AVX512BW) {
+        DEBUG_PRINTF("AVX512BW instructions enabled\n");
+        return 1;
+    }
+
+    return 0;
+#endif
+}
+
 u64a cpuid_flags(void) {
     u64a cap = 0;
 
@@ -132,8 +184,17 @@ u64a cpuid_flags(void) {
         cap |= HS_CPU_FEATURES_AVX2;
     }
 
+    if (check_avx512()) {
+        DEBUG_PRINTF("AVX512 enabled\n");
+        cap |= HS_CPU_FEATURES_AVX512;
+    }
+
 #if !defined(FAT_RUNTIME) && !defined(HAVE_AVX2)
     cap &= ~HS_CPU_FEATURES_AVX2;
+#endif
+
+#if !defined(FAT_RUNTIME) && !defined(HAVE_AVX512)
+    cap &= ~HS_CPU_FEATURES_AVX512;
 #endif
 
     return cap;
@@ -168,33 +229,37 @@ struct family_id {
  * Family Numbers" */
 static const struct family_id known_microarch[] = {
     { 0x6, 0x37, HS_TUNE_FAMILY_SLM }, /* baytrail */
+    { 0x6, 0x4A, HS_TUNE_FAMILY_SLM }, /* silvermont */
+    { 0x6, 0x4C, HS_TUNE_FAMILY_SLM }, /* silvermont */
     { 0x6, 0x4D, HS_TUNE_FAMILY_SLM }, /* avoton, rangley */
+    { 0x6, 0x5A, HS_TUNE_FAMILY_SLM }, /* silvermont */
+    { 0x6, 0x5D, HS_TUNE_FAMILY_SLM }, /* silvermont */
+
+    { 0x6, 0x5C, HS_TUNE_FAMILY_GLM }, /* goldmont */
+    { 0x6, 0x5F, HS_TUNE_FAMILY_GLM }, /* denverton */
 
     { 0x6, 0x3C, HS_TUNE_FAMILY_HSW }, /* haswell */
     { 0x6, 0x45, HS_TUNE_FAMILY_HSW }, /* haswell */
     { 0x6, 0x46, HS_TUNE_FAMILY_HSW }, /* haswell */
-    { 0x6, 0x3F, HS_TUNE_FAMILY_HSW }, /* haswell */
+    { 0x6, 0x3F, HS_TUNE_FAMILY_HSW }, /* haswell Xeon */
 
-    { 0x6, 0x3E, HS_TUNE_FAMILY_IVB }, /* ivybridge */
+    { 0x6, 0x3E, HS_TUNE_FAMILY_IVB }, /* ivybridge Xeon */
     { 0x6, 0x3A, HS_TUNE_FAMILY_IVB }, /* ivybridge */
 
     { 0x6, 0x2A, HS_TUNE_FAMILY_SNB }, /* sandybridge */
-    { 0x6, 0x2D, HS_TUNE_FAMILY_SNB }, /* sandybridge */
+    { 0x6, 0x2D, HS_TUNE_FAMILY_SNB }, /* sandybridge Xeon */
 
     { 0x6, 0x3D, HS_TUNE_FAMILY_BDW }, /* broadwell Core-M */
+    { 0x6, 0x47, HS_TUNE_FAMILY_BDW }, /* broadwell */
     { 0x6, 0x4F, HS_TUNE_FAMILY_BDW }, /* broadwell xeon */
     { 0x6, 0x56, HS_TUNE_FAMILY_BDW }, /* broadwell xeon-d */
 
-//    { 0x6, 0x25, HS_TUNE_FAMILY_GENERIC }, /* westmere */
-//    { 0x6, 0x2C, HS_TUNE_FAMILY_GENERIC }, /* westmere */
-//    { 0x6, 0x2F, HS_TUNE_FAMILY_GENERIC }, /* westmere */
+    { 0x6, 0x4E, HS_TUNE_FAMILY_SKL }, /* Skylake Mobile */
+    { 0x6, 0x5E, HS_TUNE_FAMILY_SKL }, /* Skylake Core/E3 Xeon */
+    { 0x6, 0x55, HS_TUNE_FAMILY_SKX }, /* Skylake Xeon */
 
-//    { 0x6, 0x1E, HS_TUNE_FAMILY_GENERIC }, /* nehalem */
-//    { 0x6, 0x1A, HS_TUNE_FAMILY_GENERIC }, /* nehalem */
-//    { 0x6, 0x2E, HS_TUNE_FAMILY_GENERIC }, /* nehalem */
-
-//    { 0x6, 0x17, HS_TUNE_FAMILY_GENERIC }, /* penryn */
-//    { 0x6, 0x1D, HS_TUNE_FAMILY_GENERIC }, /* penryn */
+    { 0x6, 0x8E, HS_TUNE_FAMILY_SKL }, /* Kabylake Mobile */
+    { 0x6, 0x9E, HS_TUNE_FAMILY_SKL }, /* Kabylake desktop */
 
 };
 
@@ -204,10 +269,13 @@ const char *dumpTune(u32 tune) {
 #define T_CASE(x) case x: return #x;
     switch (tune) {
         T_CASE(HS_TUNE_FAMILY_SLM);
+        T_CASE(HS_TUNE_FAMILY_GLM);
         T_CASE(HS_TUNE_FAMILY_HSW);
         T_CASE(HS_TUNE_FAMILY_SNB);
         T_CASE(HS_TUNE_FAMILY_IVB);
         T_CASE(HS_TUNE_FAMILY_BDW);
+        T_CASE(HS_TUNE_FAMILY_SKL);
+        T_CASE(HS_TUNE_FAMILY_SKX);
     }
 #undef T_CASE
     return "unknown";

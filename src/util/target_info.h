@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,6 +39,8 @@ struct target_t {
     explicit target_t(const hs_platform_info &pi);
 
     bool has_avx2(void) const;
+
+    bool has_avx512(void) const;
 
     bool is_atom_class(void) const;
 

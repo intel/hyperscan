@@ -120,8 +120,9 @@ bool checkMode(unsigned int mode, hs_compile_error **comp_error) {
 
 static
 bool checkPlatform(const hs_platform_info *p, hs_compile_error **comp_error) {
-#define HS_TUNE_LAST HS_TUNE_FAMILY_BDW
-#define HS_CPU_FEATURES_ALL (HS_CPU_FEATURES_AVX2)
+    static constexpr u32 HS_TUNE_LAST = HS_TUNE_FAMILY_GLM;
+    static constexpr u32 HS_CPU_FEATURES_ALL =
+        HS_CPU_FEATURES_AVX2 | HS_CPU_FEATURES_AVX512;
 
     if (!p) {
         return true;
