@@ -162,7 +162,7 @@ u32 mmb_popcount(MMB_TYPE val) {
 }
 
 #ifndef MMMB_DEBUG
-#define MDEBUG_PRINTF(x, ...) do { } while(0);
+#define MDEBUG_PRINTF(x, ...) do { } while(0)
 #else
 #define MDEBUG_PRINTF DEBUG_PRINTF
 #endif
