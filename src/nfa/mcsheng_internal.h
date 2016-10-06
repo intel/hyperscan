@@ -31,7 +31,7 @@
 
 #include "nfa_internal.h"
 #include "ue2common.h"
-#include "util/simd_utils.h"
+#include "util/simd_types.h"
 
 #define ACCEPT_FLAG 0x8000
 #define ACCEL_FLAG  0x4000

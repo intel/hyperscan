@@ -224,7 +224,7 @@ aligned_unique_ptr<NFA> buildLbrShuf(const CharReach &cr,
     fillNfa<lbr_shuf>(nfa.get(), &ls->common, report, repeatMin, repeatMax,
                       minPeriod, rtype);
 
-    if (shuftiBuildMasks(~cr, &ls->mask_lo, &ls->mask_hi) == -1) {
+    if (shuftiBuildMasks(~cr, (u8 *)&ls->mask_lo, (u8 *)&ls->mask_hi) == -1) {
         return nullptr;
     }
 
@@ -245,7 +245,7 @@ aligned_unique_ptr<NFA> buildLbrTruf(const CharReach &cr,
     fillNfa<lbr_truf>(nfa.get(), &lc->common, report, repeatMin, repeatMax,
                       minPeriod, rtype);
 
-    truffleBuildMasks(~cr, &lc->mask1, &lc->mask2);
+    truffleBuildMasks(~cr, (u8 *)&lc->mask1, (u8 *)&lc->mask2);
 
     DEBUG_PRINTF("built truffle lbr\n");
     return nfa;

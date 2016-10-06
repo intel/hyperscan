@@ -2010,7 +2010,7 @@ void buildCountingMiracles(build_context &bc) {
             rcm.c = cr.find_first();
         } else {
             rcm.shufti = 1;
-            int rv = shuftiBuildMasks(cr, &rcm.lo, &rcm.hi);
+            int rv = shuftiBuildMasks(cr, (u8 *)&rcm.lo, (u8 *)&rcm.hi);
             if (rv == -1) {
                 DEBUG_PRINTF("failed to build shufti\n");
                 lbi.countingMiracleCount = 0; /* remove counting miracle */

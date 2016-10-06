@@ -210,10 +210,12 @@ else()
 
     if (NOT CMAKE_C_FLAGS MATCHES .*march.*)
         message(STATUS "Building for current host CPU")
-        set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -march=native -mtune=native")
+        set(ARCH_C_FLAGS "${ARCH_C_FLAGS} -march=native -mtune=native")
     endif()
+
+    # we don't use these for the lib, but other tools/unit tests
     if (NOT CMAKE_CXX_FLAGS MATCHES .*march.*)
-        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -march=native -mtune=native")
+        set(ARCH_CXX_FLAGS "${ARCH_CXX_FLAGS} -march=native -mtune=native")
     endif()
 
     if(CMAKE_COMPILER_IS_GNUCC)
@@ -389,7 +391,7 @@ if (NOT WIN32)
 endif()
 
 # only set these after all tests are done
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 
 

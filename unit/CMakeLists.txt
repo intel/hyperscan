@@ -1,5 +1,5 @@
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 
 set(gtest_SOURCES gtest/gtest-all.cc gtest/gtest.h)
 if(NOT XCODE)

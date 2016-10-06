@@ -48,7 +48,7 @@
 #include "util/compile_context.h"
 #include "util/make_unique.h"
 #include "util/verify_types.h"
-#include "util/simd_utils.h"
+#include "util/simd_types.h"
 
 #include <map>
 #include <vector>
@@ -442,8 +442,7 @@ void createShuffleMasks(sheng *s, dfa_info &info,
 #ifdef DEBUG
         dumpShuffleMask(chr, buf, sizeof(buf));
 #endif
-        m128 mask = loadu128(buf);
-        s->shuffle_masks[chr] = mask;
+        memcpy(&s->shuffle_masks[chr], buf, sizeof(m128));
     }
 }
 

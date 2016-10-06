@@ -175,12 +175,13 @@ void writeKiloPuff(const map<ClusterKey, vector<raw_puff>>::const_iterator &it,
         size_t set = reach.find_first();
         assert(set != CharReach::npos);
         kp->u.verm.c = (char)set;
-    } else if (shuftiBuildMasks(~reach, &kp->u.shuf.mask_lo,
-                                &kp->u.shuf.mask_hi) != -1) {
+    } else if (shuftiBuildMasks(~reach, (u8 *)&kp->u.shuf.mask_lo,
+                                (u8 *)&kp->u.shuf.mask_hi) != -1) {
         kp->type = MPV_SHUFTI;
     } else {
         kp->type = MPV_TRUFFLE;
-        truffleBuildMasks(~reach, &kp->u.truffle.mask1, &kp->u.truffle.mask2);
+        truffleBuildMasks(~reach, (u8 *)&kp->u.truffle.mask1,
+                          (u8 *)&kp->u.truffle.mask2);
     }
 
     kp->count = verify_u32(puffs.size());

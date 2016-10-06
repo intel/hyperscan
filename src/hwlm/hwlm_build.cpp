@@ -461,7 +461,8 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
     }
 
     const CharReach &cr = reach[min_offset];
-    if (shuftiBuildMasks(cr, &aux->shufti.lo, &aux->shufti.hi) != -1) {
+    if (-1 !=
+        shuftiBuildMasks(cr, (u8 *)&aux->shufti.lo, (u8 *)&aux->shufti.hi)) {
         DEBUG_PRINTF("built shufti for %s (%zu chars, offset %u)\n",
                      describeClass(cr).c_str(), cr.count(), min_offset);
         aux->shufti.accel_type = ACCEL_SHUFTI;
@@ -469,7 +470,7 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
         return;
     }
 
-    truffleBuildMasks(cr, &aux->truffle.mask1, &aux->truffle.mask2);
+    truffleBuildMasks(cr, (u8 *)&aux->truffle.mask1, (u8 *)&aux->truffle.mask2);
     DEBUG_PRINTF("built truffle for %s (%zu chars, offset %u)\n",
                  describeClass(cr).c_str(), cr.count(), min_offset);
     aux->truffle.accel_type = ACCEL_TRUFFLE;

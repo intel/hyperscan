@@ -30,7 +30,7 @@
 #define SHENG_INTERNAL_H_
 
 #include "ue2common.h"
-#include "util/simd_utils.h"
+#include "util/simd_types.h"
 
 #define SHENG_STATE_ACCEPT 0x10
 #define SHENG_STATE_DEAD 0x20

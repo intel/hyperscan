@@ -39,7 +39,7 @@
 #include "util/charreach.h"
 #include "util/dump_charclass.h"
 #include "util/dump_util.h"
-#include "util/simd_utils.h"
+#include "util/simd_types.h"
 
 
 #ifndef DUMP_SUPPORT
@@ -101,7 +101,7 @@ void dumpMasks(FILE *f, const sheng *s) {
     for (u32 chr = 0; chr < 256; chr++) {
         u8 buf[16];
         m128 shuffle_mask = s->shuffle_masks[chr];
-        store128(buf, shuffle_mask);
+        memcpy(buf, &shuffle_mask, sizeof(m128));
 
         fprintf(f, "%3u: ", chr);
         for (u32 pos = 0; pos < 16; pos++) {
@@ -237,7 +237,7 @@ void shengGetTransitions(const NFA *n, u16 state, u16 *t) {
         u8 buf[16];
         m128 shuffle_mask = s->shuffle_masks[i];
 
-        store128(buf, shuffle_mask);
+        memcpy(buf, &shuffle_mask, sizeof(m128));
 
         t[i] = buf[state] & SHENG_STATE_MASK;
     }

@@ -62,6 +62,10 @@
 #endif
 
 typedef __m128i m128;
+#else
+typedef struct ALIGN_DIRECTIVE {u64a hi; u64a lo;} m128;
+#endif
+
 #if defined(__AVX2__)
 typedef __m256i m256;
 #else

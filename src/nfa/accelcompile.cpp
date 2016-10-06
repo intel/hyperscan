@@ -72,8 +72,8 @@ void buildAccelSingle(const AccelInfo &info, AccelAux *aux) {
     }
 
     DEBUG_PRINTF("attempting shufti for %zu chars\n", outs);
-    if (-1 != shuftiBuildMasks(info.single_stops, &aux->shufti.lo,
-                               &aux->shufti.hi)) {
+    if (-1 != shuftiBuildMasks(info.single_stops, (u8 *)&aux->shufti.lo,
+                               (u8 *)&aux->shufti.hi)) {
         aux->accel_type = ACCEL_SHUFTI;
         aux->shufti.offset = offset;
         DEBUG_PRINTF("shufti built OK\n");
@@ -86,8 +86,8 @@ void buildAccelSingle(const AccelInfo &info, AccelAux *aux) {
         DEBUG_PRINTF("building Truffle for %zu chars\n", outs);
         aux->accel_type = ACCEL_TRUFFLE;
         aux->truffle.offset = offset;
-        truffleBuildMasks(info.single_stops, &aux->truffle.mask1,
-                          &aux->truffle.mask2);
+        truffleBuildMasks(info.single_stops, (u8 *)&aux->truffle.mask1,
+                          (u8 *)&aux->truffle.mask2);
         return;
     }
 
@@ -212,9 +212,10 @@ void buildAccelDouble(const AccelInfo &info, AccelAux *aux) {
                      " two-byte literals\n", outs1, outs2);
         aux->accel_type = ACCEL_DSHUFTI;
         aux->dshufti.offset = offset;
-        if (shuftiBuildDoubleMasks(info.double_stop1, info.double_stop2,
-                                   &aux->dshufti.lo1, &aux->dshufti.hi1,
-                                   &aux->dshufti.lo2, &aux->dshufti.hi2)) {
+        if (shuftiBuildDoubleMasks(
+                info.double_stop1, info.double_stop2, (u8 *)&aux->dshufti.lo1,
+                (u8 *)&aux->dshufti.hi1, (u8 *)&aux->dshufti.lo2,
+                (u8 *)&aux->dshufti.hi2)) {
             return;
         }
     }
@@ -372,8 +373,8 @@ void buildAccelMulti(const AccelInfo &info, AccelAux *aux) {
 
     switch (info.ma_type) {
     case MultibyteAccelInfo::MAT_LONG:
-        if (shuftiBuildMasks(stops, &aux->mshufti.lo,
-                &aux->mshufti.hi) == -1) {
+        if (shuftiBuildMasks(stops, (u8 *)&aux->mshufti.lo,
+                (u8 *)&aux->mshufti.hi) == -1) {
             break;
         }
         aux->accel_type = ACCEL_MLSHUFTI;
@@ -381,8 +382,8 @@ void buildAccelMulti(const AccelInfo &info, AccelAux *aux) {
         aux->mshufti.len = info.ma_len1;
         return;
     case MultibyteAccelInfo::MAT_LONGGRAB:
-        if (shuftiBuildMasks(stops, &aux->mshufti.lo,
-                &aux->mshufti.hi) == -1) {
+        if (shuftiBuildMasks(stops, (u8 *)&aux->mshufti.lo,
+                (u8 *)&aux->mshufti.hi) == -1) {
             break;
         }
         aux->accel_type = ACCEL_MLGSHUFTI;
@@ -390,8 +391,8 @@ void buildAccelMulti(const AccelInfo &info, AccelAux *aux) {
         aux->mshufti.len = info.ma_len1;
         return;
     case MultibyteAccelInfo::MAT_SHIFT:
-        if (shuftiBuildMasks(stops, &aux->mshufti.lo,
-                &aux->mshufti.hi) == -1) {
+        if (shuftiBuildMasks(stops, (u8 *)&aux->mshufti.lo,
+                (u8 *)&aux->mshufti.hi) == -1) {
             break;
         }
         aux->accel_type = ACCEL_MSSHUFTI;
@@ -399,8 +400,8 @@ void buildAccelMulti(const AccelInfo &info, AccelAux *aux) {
         aux->mshufti.len = info.ma_len1;
         return;
     case MultibyteAccelInfo::MAT_SHIFTGRAB:
-        if (shuftiBuildMasks(stops, &aux->mshufti.lo,
-                &aux->mshufti.hi) == -1) {
+        if (shuftiBuildMasks(stops, (u8 *)&aux->mshufti.lo,
+                (u8 *)&aux->mshufti.hi) == -1) {
             break;
         }
         aux->accel_type = ACCEL_MSGSHUFTI;
@@ -408,8 +409,8 @@ void buildAccelMulti(const AccelInfo &info, AccelAux *aux) {
         aux->mshufti.len = info.ma_len1;
         return;
     case MultibyteAccelInfo::MAT_DSHIFT:
-        if (shuftiBuildMasks(stops, &aux->mdshufti.lo,
-                &aux->mdshufti.hi) == -1) {
+        if (shuftiBuildMasks(stops, (u8 *)&aux->mdshufti.lo,
+                (u8 *)&aux->mdshufti.hi) == -1) {
             break;
         }
         aux->accel_type = ACCEL_MDSSHUFTI;
@@ -418,8 +419,8 @@ void buildAccelMulti(const AccelInfo &info, AccelAux *aux) {
         aux->mdshufti.len2 = info.ma_len2;
         return;
     case MultibyteAccelInfo::MAT_DSHIFTGRAB:
-        if (shuftiBuildMasks(stops, &aux->mdshufti.lo,
-                &aux->mdshufti.hi) == -1) {
+        if (shuftiBuildMasks(stops, (u8 *)&aux->mdshufti.lo,
+                (u8 *)&aux->mdshufti.hi) == -1) {
             break;
         }
         aux->accel_type = ACCEL_MDSGSHUFTI;
@@ -441,45 +442,45 @@ void buildAccelMulti(const AccelInfo &info, AccelAux *aux) {
             aux->accel_type = ACCEL_MLTRUFFLE;
             aux->mtruffle.offset = offset;
             aux->mtruffle.len = info.ma_len1;
-            truffleBuildMasks(stops, &aux->mtruffle.mask1,
-                              &aux->mtruffle.mask2);
+            truffleBuildMasks(stops, (u8 *)&aux->mtruffle.mask1,
+                              (u8 *)&aux->mtruffle.mask2);
             break;
         case MultibyteAccelInfo::MAT_LONGGRAB:
             aux->accel_type = ACCEL_MLGTRUFFLE;
             aux->mtruffle.offset = offset;
             aux->mtruffle.len = info.ma_len1;
-            truffleBuildMasks(stops, &aux->mtruffle.mask1,
-                              &aux->mtruffle.mask2);
+            truffleBuildMasks(stops, (u8 *)&aux->mtruffle.mask1,
+                              (u8 *)&aux->mtruffle.mask2);
             break;
         case MultibyteAccelInfo::MAT_SHIFT:
             aux->accel_type = ACCEL_MSTRUFFLE;
             aux->mtruffle.offset = offset;
             aux->mtruffle.len = info.ma_len1;
-            truffleBuildMasks(stops, &aux->mtruffle.mask1,
-                              &aux->mtruffle.mask2);
+            truffleBuildMasks(stops, (u8 *)&aux->mtruffle.mask1,
+                              (u8 *)&aux->mtruffle.mask2);
             break;
         case MultibyteAccelInfo::MAT_SHIFTGRAB:
             aux->accel_type = ACCEL_MSGTRUFFLE;
             aux->mtruffle.offset = offset;
             aux->mtruffle.len = info.ma_len1;
-            truffleBuildMasks(stops, &aux->mtruffle.mask1,
-                              &aux->mtruffle.mask2);
+            truffleBuildMasks(stops, (u8 *)&aux->mtruffle.mask1,
+                              (u8 *)&aux->mtruffle.mask2);
             break;
         case MultibyteAccelInfo::MAT_DSHIFT:
             aux->accel_type = ACCEL_MDSTRUFFLE;
             aux->mdtruffle.offset = offset;
             aux->mdtruffle.len1 = info.ma_len1;
             aux->mdtruffle.len2 = info.ma_len2;
-            truffleBuildMasks(stops, &aux->mtruffle.mask1,
-                              &aux->mdtruffle.mask2);
+            truffleBuildMasks(stops, (u8 *)&aux->mtruffle.mask1,
+                              (u8 *)&aux->mdtruffle.mask2);
             break;
         case MultibyteAccelInfo::MAT_DSHIFTGRAB:
             aux->accel_type = ACCEL_MDSGTRUFFLE;
             aux->mdtruffle.offset = offset;
             aux->mdtruffle.len1 = info.ma_len1;
             aux->mdtruffle.len2 = info.ma_len2;
-            truffleBuildMasks(stops, &aux->mtruffle.mask1,
-                              &aux->mdtruffle.mask2);
+            truffleBuildMasks(stops, (u8 *)&aux->mtruffle.mask1,
+                              (u8 *)&aux->mdtruffle.mask2);
             break;
         default:
             // shouldn't happen

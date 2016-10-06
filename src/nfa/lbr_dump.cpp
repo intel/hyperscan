@@ -116,7 +116,8 @@ void nfaExecLbrShuf_dump(const NFA *nfa, const string &base) {
     const lbr_shuf *ls = (const lbr_shuf *)getImplNfa(nfa);
     lbrDumpCommon(&ls->common, f);
 
-    CharReach cr = shufti2cr(ls->mask_lo, ls->mask_hi);
+    CharReach cr = shufti2cr((const u8 *)&ls->mask_lo,
+                             (const u8 *)&ls->mask_hi);
     fprintf(f, "SHUF model, scanning for: %s (%zu chars)\n",
             describeClass(cr, 20, CC_OUT_TEXT).c_str(), cr.count());
     fprintf(f, "\n");
@@ -133,7 +134,8 @@ void nfaExecLbrTruf_dump(const NFA *nfa, const string &base) {
     const lbr_truf *lt = (const lbr_truf *)getImplNfa(nfa);
     lbrDumpCommon(&lt->common, f);
 
-    CharReach cr = truffle2cr(lt->mask1, lt->mask2);
+    CharReach cr = truffle2cr((const u8 *)&lt->mask1,
+                              (const u8 *)&lt->mask2);
     fprintf(f, "TRUFFLE model, scanning for: %s (%zu chars)\n",
             describeClass(cr, 20, CC_OUT_TEXT).c_str(), cr.count());
     fprintf(f, "\n");

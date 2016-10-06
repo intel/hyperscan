@@ -100,13 +100,15 @@ void writeCastleScanEngine(const CharReach &cr, Castle *c) {
         return;
     }
 
-    if (shuftiBuildMasks(negated, &c->u.shuf.mask_lo, &c->u.shuf.mask_hi) != -1) {
+    if (shuftiBuildMasks(negated, (u8 *)&c->u.shuf.mask_lo,
+                         (u8 *)&c->u.shuf.mask_hi) != -1) {
         c->type = CASTLE_SHUFTI;
         return;
     }
 
     c->type = CASTLE_TRUFFLE;
-    truffleBuildMasks(negated, &c->u.truffle.mask1, &c->u.truffle.mask2);
+    truffleBuildMasks(negated, (u8 *)(u8 *)&c->u.truffle.mask1,
+                      (u8 *)&c->u.truffle.mask2);
 }
 
 static

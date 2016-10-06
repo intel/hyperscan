@@ -88,13 +88,15 @@ void nfaExecCastle_dump(const struct NFA *nfa, const string &base) {
         fprintf(f, "negated verm, scanning for 0x%02x\n", c->u.verm.c);
         break;
     case CASTLE_SHUFTI: {
-        const CharReach cr = shufti2cr(c->u.shuf.mask_lo, c->u.shuf.mask_hi);
+        const CharReach cr = shufti2cr((const u8 *)&c->u.shuf.mask_lo,
+                                       (const u8 *)&c->u.shuf.mask_hi);
         fprintf(f, "shufti, scanning for %s (%zu chars)\n",
                 describeClass(cr).c_str(), cr.count());
         break;
     }
     case CASTLE_TRUFFLE: {
-        const CharReach cr = truffle2cr(c->u.truffle.mask1, c->u.truffle.mask2);
+        const CharReach cr = truffle2cr((const u8 *)&c->u.truffle.mask1,
+                                        (const u8 *)&c->u.truffle.mask2);
         fprintf(f, "truffle, scanning for %s (%zu chars)\n",
                 describeClass(cr).c_str(), cr.count());
         break;
