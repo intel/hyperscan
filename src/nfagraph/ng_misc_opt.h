@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -71,6 +71,13 @@ std::vector<CharReach> reduced_cr(const NGHolder &g,
 
 /** Remove cyclic stars connected to start */
 bool mergeCyclicDotStars(NGHolder &g);
+
+/**
+ * Given a cyclic state 'c' with a broad reach and a later state 'v' that is
+ * only reachable if c is still on, then any edges to a successor of a direct
+ * successor of c with reach a superset of v are redundant.
+ */
+bool prunePathsRedundantWithSuccessorOfCyclics(NGHolder &h, som_type som);
 
 } // namespace ue2
 

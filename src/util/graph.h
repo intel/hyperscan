@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -289,6 +289,22 @@ bool is_dag(const Graph &g, bool ignore_self_loops = false) {
     }
 
     return true;
+}
+
+template<typename Cont>
+class vertex_recorder : public boost::default_dfs_visitor {
+public:
+    explicit vertex_recorder(Cont &o) : out(o) {}
+    template<class G>
+    void discover_vertex(typename Cont::value_type v, const G &) {
+        out.insert(v);
+    }
+    Cont &out;
+};
+
+template<typename Cont>
+vertex_recorder<Cont> make_vertex_recorder(Cont &o) {
+    return vertex_recorder<Cont>(o);
 }
 
 template <class Graph>

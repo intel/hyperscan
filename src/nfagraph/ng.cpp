@@ -421,6 +421,7 @@ bool NG::addGraph(NGWrapper &w) {
     // Perform a reduction pass to merge sibling character classes together.
     if (cc.grey.performGraphSimplification) {
         removeRedundancy(w, som);
+        prunePathsRedundantWithSuccessorOfCyclics(w, som);
     }
 
     dumpDotWrapper(w, "04_reduced", cc.grey);

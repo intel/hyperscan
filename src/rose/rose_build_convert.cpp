@@ -733,10 +733,8 @@ bool handleStartDsPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
     u32 repeatCount = 0;
     NFAVertex hu = h.startDs;
 
-    set<NFAVertex> start_succ;
-    set<NFAVertex> startds_succ;
-    succ(h, h.start, &start_succ);
-    succ(h, h.startDs, &startds_succ);
+    auto start_succ = succs<set<NFAVertex>>(h.start, h);
+    auto startds_succ = succs<set<NFAVertex>>(h.startDs, h);
 
     if (!is_subset_of(start_succ, startds_succ)) {
         DEBUG_PRINTF("not a simple chain\n");
@@ -790,10 +788,8 @@ bool handleMixedPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
     NFAVertex base = anchored ? h.start : h.startDs;
 
     if (!anchored) {
-        set<NFAVertex> start_succ;
-        set<NFAVertex> startds_succ;
-        succ(h, h.start, &start_succ);
-        succ(h, h.startDs, &startds_succ);
+        auto start_succ = succs<set<NFAVertex>>(h.start, h);
+        auto startds_succ = succs<set<NFAVertex>>(h.startDs, h);
 
         if (!is_subset_of(start_succ, startds_succ)) {
             DEBUG_PRINTF("not a simple chain\n");
@@ -852,8 +848,7 @@ bool handleMixedPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
     exits = exits_and_repeat_verts;
     erase_all(&exits, rep_verts);
 
-    set<NFAVertex> base_succ;
-    succ(h, base, &base_succ);
+    auto base_succ = succs<set<NFAVertex>>(base, h);
     base_succ.erase(h.startDs);
 
     if (is_subset_of(base_succ, rep_verts)) {

@@ -382,8 +382,7 @@ bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
     while (v != cyclic) {
         DEBUG_PRINTF("vertex %u\n", g[v].index);
         width++;
-        tie(ai, ae) = adjacent_vertices(v, g);
-        set<NFAVertex> succ(ai, ae);
+        auto succ = succs(v, g);
         if (contains(succ, cyclic)) {
             if (succ.size() == 1) {
                 v = cyclic;
@@ -421,8 +420,7 @@ bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
     while (!is_any_accept(v, g)) {
         DEBUG_PRINTF("vertex %u\n", g[v].index);
         width++;
-        tie(ai, ae) = adjacent_vertices(v, g);
-        set<NFAVertex> succ(ai, ae);
+        auto succ = succs(v, g);
         if (succ.size() != 1) {
             DEBUG_PRINTF("bad form\n");
             return false;

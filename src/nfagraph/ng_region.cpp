@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -71,7 +71,7 @@ using namespace std;
 namespace ue2 {
 
 typedef ue2::unordered_set<NFAEdge> BackEdgeSet;
-typedef boost::filtered_graph<NFAGraph, AcyclicFilter<BackEdgeSet>>
+typedef boost::filtered_graph<NFAGraph, bad_edge_filter<BackEdgeSet>>
     AcyclicGraph;
 
 namespace {
@@ -454,7 +454,7 @@ ue2::unordered_map<NFAVertex, u32> assignRegions(const NGHolder &g) {
                  .color_map(make_iterator_property_map(
                      colours.begin(), get(&NFAGraphVertexProps::index, g.g))));
 
-    AcyclicFilter<BackEdgeSet> af(&deadEdges);
+    auto af = make_bad_edge_filter(&deadEdges);
     AcyclicGraph acyclic_g(g.g, af);
 
     // Build a (reverse) topological ordering.

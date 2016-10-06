@@ -70,6 +70,13 @@ void succ(const NGHolder &g, NFAVertex v, U *s) {
     s->insert(ai, ae);
 }
 
+template<class ContTemp = flat_set<NFAVertex>>
+ContTemp succs(NFAVertex u, const NGHolder &g) {
+    ContTemp rv;
+    succ(g, u, &rv);
+    return rv;
+}
+
 /** adds predecessors of v to s */
 template<class U>
 static really_inline
@@ -77,6 +84,13 @@ void pred(const NGHolder &g, NFAVertex v, U *p) {
     NGHolder::inv_adjacency_iterator it, ite;
     tie(it, ite) = inv_adjacent_vertices(v, g);
     p->insert(it, ite);
+}
+
+template<class ContTemp = flat_set<NFAVertex>>
+ContTemp preds(NFAVertex u, const NGHolder &g) {
+    ContTemp rv;
+    pred(g, u, &rv);
+    return rv;
 }
 
 /** returns a vertex with an out edge from v and is not v.
@@ -88,6 +102,30 @@ NFAVertex getSoleDestVertex(const NGHolder &g, NFAVertex v);
 /** Like getSoleDestVertex but for in-edges */
 NFAVertex getSoleSourceVertex(const NGHolder &g, NFAVertex v);
 
+/** \brief edge filtered graph.
+ *
+ * This will give you a view over the graph that has none of the edges from
+ * the provided set included.
+ *
+ * If this is provided with the back edges of the graph, this will result in an
+ * acyclic subgraph view. This is useful for topological_sort and other
+ * algorithms that require a DAG.
+ */
+template<typename EdgeSet>
+struct bad_edge_filter {
+    bad_edge_filter() {}
+    explicit bad_edge_filter(const EdgeSet *bad_e) : bad_edges(bad_e) {}
+    bool operator()(const typename EdgeSet::value_type &e) const {
+        return !contains(*bad_edges, e); /* keep edges not in the bad set */
+    }
+    const EdgeSet *bad_edges = nullptr;
+};
+
+template<typename EdgeSet>
+bad_edge_filter<EdgeSet> make_bad_edge_filter(const EdgeSet *e) {
+    return bad_edge_filter<EdgeSet>(e);
+}
+
 /** Visitor that records back edges */
 template <typename BackEdgeSet>
 class BackEdges : public boost::default_dfs_visitor {
@@ -98,23 +136,6 @@ public:
         backEdges.insert(e); // Remove this back edge only
     }
     BackEdgeSet &backEdges;
-};
-
-/** \brief Acyclic filtered graph.
- *
- * This will give you a view over the graph that is directed and acyclic:
- * useful for topological_sort and other algorithms that require a DAG.
- */
-template <typename BackEdgeSet>
-struct AcyclicFilter {
-    AcyclicFilter() {}
-    explicit AcyclicFilter(const BackEdgeSet *edges) : backEdges(edges) {}
-    template <typename EdgeT>
-    bool operator()(const EdgeT &e) const {
-        // Only keep edges that aren't in the back edge set.
-        return (backEdges->find(e) == backEdges->end());
-    }
-    const BackEdgeSet *backEdges = nullptr;
 };
 
 /**

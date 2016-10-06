@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -187,10 +187,9 @@ bool expandCyclic(NGHolder &h, NFAVertex v) {
     DEBUG_PRINTF("inspecting %u\n", h[v].index);
     bool changes = false;
 
-    set<NFAVertex> v_preds;
-    set<NFAVertex> v_succs;
-    pred(h, v, &v_preds);
-    succ(h, v, &v_succs);
+    auto v_preds = preds(v, h);
+    auto v_succs = succs(v, h);
+
     set<NFAVertex> start_siblings;
     set<NFAVertex> end_siblings;
 
@@ -199,8 +198,7 @@ bool expandCyclic(NGHolder &h, NFAVertex v) {
     /* We need to find start vertices which have all of our preds.
      * As we have a self loop, it must be one of our succs. */
     for (auto a : adjacent_vertices_range(v, h)) {
-        set<NFAVertex> a_preds;
-        pred(h, a, &a_preds);
+        auto a_preds = preds(a, h);
 
         if (a_preds == v_preds && isutf8start(h[a].char_reach)) {
             DEBUG_PRINTF("%u is a start v\n", h[a].index);
@@ -211,8 +209,7 @@ bool expandCyclic(NGHolder &h, NFAVertex v) {
     /* We also need to find full cont vertices which have all our own succs;
      * As we have a self loop, it must be one of our preds. */
     for (auto a : inv_adjacent_vertices_range(v, h)) {
-        set<NFAVertex> a_succs;
-        succ(h, a, &a_succs);
+        auto a_succs = succs(a, h);
 
         if (a_succs == v_succs && h[a].char_reach == UTF_CONT_CR) {
             DEBUG_PRINTF("%u is a full tail cont\n", h[a].index);

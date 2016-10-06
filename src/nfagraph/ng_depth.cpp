@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -134,8 +134,8 @@ void findLoopReachable(const GraphT &g, const NFAVertex srcVertex,
 
     depth_first_search(g, visitor(be).root_vertex(srcVertex).vertex_index_map(
                               index_map));
-    AcyclicFilter<EdgeSet> af(&deadEdges);
-    filtered_graph<GraphT, AcyclicFilter<EdgeSet> > acyclic_g(g, af);
+    auto af = make_bad_edge_filter(&deadEdges);
+    auto acyclic_g = make_filtered_graph(g, af);
 
     vector<NFAVertex> topoOrder; /* actually reverse topological order */
     topoOrder.reserve(deadNodes.size());

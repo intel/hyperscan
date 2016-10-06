@@ -403,8 +403,7 @@ vector<NFAVertex> getTopoOrdering(const NGHolder &g) {
                                     colour.begin(), index_map))
                                 .vertex_index_map(index_map));
 
-    AcyclicFilter<EdgeSet> af(&be.backEdges);
-    filtered_graph<NFAGraph, AcyclicFilter<EdgeSet>> acyclic_g(g.g, af);
+    auto acyclic_g = make_filtered_graph(g.g, make_bad_edge_filter(&backEdges));
 
     vector<NFAVertex> ordering;
     ordering.reserve(num_verts);
@@ -435,9 +434,7 @@ void mustBeSetBefore_int(NFAVertex u, const NGHolder &g,
         }
     }
 
-    // The AcyclicFilter is badly named, it's really just an edge-set filter.
-    filtered_graph<NFAGraph, AcyclicFilter<set<NFAEdge>>> prefix(g.g,
-                                    AcyclicFilter<set<NFAEdge>>(&dead));
+    auto prefix = make_filtered_graph(g.g, make_bad_edge_filter(&dead));
 
     depth_first_visit(
         prefix, g.start, make_dfs_visitor(boost::null_visitor()),

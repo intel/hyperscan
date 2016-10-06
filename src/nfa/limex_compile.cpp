@@ -788,10 +788,8 @@ u32 getEffectiveAccelStates(const build_info &args,
                 if (!is_subset_of(h[v].reports, h[a].reports)) {
                     continue;
                 }
-                flat_set<NFAVertex> v_succ;
-                flat_set<NFAVertex> a_succ;
-                succ(h, v, &v_succ);
-                succ(h, a, &a_succ);
+                auto v_succ = succs(v, h);
+                auto a_succ = succs(a, h);
                 if (is_subset_of(v_succ, a_succ)) {
                     dominated_by[accel_id] |= 1U << accel_id_map[a];
                 }

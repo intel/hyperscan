@@ -138,8 +138,7 @@ void buildTopoOrder(const Graph &g, vector<NFAVertex> &topoOrder) {
 
     depth_first_search(g, visitor(BackEdges<EdgeSet>(deadEdges)).
                           color_map(make_assoc_property_map(colours)));
-    AcyclicFilter<EdgeSet> af(&deadEdges);
-    boost::filtered_graph<Graph, AcyclicFilter<EdgeSet> > acyclic_g(g, af);
+    auto acyclic_g = make_filtered_graph(g, make_bad_edge_filter(&deadEdges));
 
     topological_sort(acyclic_g, back_inserter(topoOrder),
                      color_map(make_assoc_property_map(colours)));
