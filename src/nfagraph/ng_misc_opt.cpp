@@ -605,6 +605,18 @@ flat_set<NFAVertex> findDependentVertices(const NGHolder &g, NFAVertex v) {
 }
 
 static
+bool willBeEnabledConcurrently(NFAVertex main_cyclic, NFAVertex v,
+                               const NGHolder &g) {
+    return is_subset_of(preds(main_cyclic, g), preds(v, g));
+}
+
+static
+bool sometimesEnabledConcurrently(NFAVertex main_cyclic, NFAVertex v,
+                                  const NGHolder &g) {
+    return has_intersection(preds(main_cyclic, g), preds(v, g));
+}
+
+static
 bool pruneUsingSuccessors(NGHolder &g, NFAVertex u, som_type som) {
     if (som && (is_virtual_start(u, g) || u == g.startDs)) {
         return false;
@@ -628,6 +640,10 @@ bool pruneUsingSuccessors(NGHolder &g, NFAVertex u, som_type som) {
          });
     for (NFAVertex v : u_succs) {
         DEBUG_PRINTF("    using %u as killer\n", g[v].index);
+        /* Need to distinguish between vertices that are switched on after the
+         * cyclic vs vertices that are switched on concurrently with the cyclic
+         * if (subject to a suitable reach) */
+        bool v_peer_of_cyclic = willBeEnabledConcurrently(u, v, g);
         set<NFAEdge> dead;
         for (NFAVertex s : adjacent_vertices_range(v, g)) {
             DEBUG_PRINTF("        looking at preds of %u\n", g[s].index);
@@ -642,6 +658,17 @@ bool pruneUsingSuccessors(NGHolder &g, NFAVertex u, som_type som) {
                     DEBUG_PRINTF("%u bad reports\n", g[p].index);
                     continue;
                 }
+                /* the out-edges of a vertex that may be enabled on the same
+                 * byte as the cyclic can only be killed by the out-edges of a
+                 * peer vertex which will be enabled with the cyclic (a non-peer
+                 * may not be switched on until another byte is processed). */
+                if (!v_peer_of_cyclic
+                    && sometimesEnabledConcurrently(u, p, g)) {
+                    DEBUG_PRINTF("%u can only be squashed by a proper peer\n",
+                                 g[p].index);
+                   continue;
+                }
+
                 if (g[p].char_reach.isSubsetOf(g[v].char_reach)) {
                     dead.insert(e);
                     changed = true;
