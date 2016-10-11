@@ -30,6 +30,7 @@
 
 #include "grey.h"
 #include "ue2common.h"
+#include "nfa/dfa_min.h"
 #include "nfa/mcclellancompile.h"
 #include "nfa/mcclellancompile_util.h"
 #include "nfa/nfa_internal.h"
@@ -208,7 +209,9 @@ void SmallWriteBuildImpl::add(const NGWrapper &w) {
         return;
     }
 
-    prune_overlong(*r, cc.grey.smallWriteLargestBuffer);
+    if (prune_overlong(*r, cc.grey.smallWriteLargestBuffer)) {
+        minimize_hopcroft(*r, cc.grey);
+    }
 
     if (rdfa) {
         // do a merge of the new dfa with the existing dfa
@@ -418,6 +421,7 @@ aligned_unique_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
             return nullptr;
         }
         if (prune_overlong(rdfa, *small_region - *start_offset)) {
+            minimize_hopcroft(rdfa, cc.grey);
             if (rdfa.start_anchored == DEAD_STATE) {
                 DEBUG_PRINTF("all patterns pruned out\n");
                 return nullptr;
