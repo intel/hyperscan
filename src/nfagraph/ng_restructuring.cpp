@@ -52,7 +52,11 @@ namespace ue2 {
 static
 void wireStartToTops(NGHolder &g, const flat_set<NFAVertex> &tops,
                      vector<NFAEdge> &tempEdges) {
-    for (NFAVertex v : tops) {
+    // Construct edges in vertex index order, for determinism.
+    vector<NFAVertex> ordered_tops(begin(tops), end(tops));
+    sort(begin(ordered_tops), end(ordered_tops), make_index_ordering(g));
+
+    for (NFAVertex v : ordered_tops) {
         assert(!isLeafNode(v, g));
 
         const NFAEdge &e = add_edge(g.start, v, g).first;
