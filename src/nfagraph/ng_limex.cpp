@@ -177,7 +177,12 @@ NFAVertex makeTopStartVertex(NGHolder &g, const flat_set<u32> &tops,
     NFAVertex u = add_vertex(g[g.start], g);
     CharReach top_cr = calcTopVertexReach(tops, top_reach);
     g[u].char_reach = top_cr;
-    for (auto v : succs) {
+
+    // Add edges in vertex index order, for determinism.
+    vector<NFAVertex> ordered_succs(begin(succs), end(succs));
+    sort(begin(ordered_succs), end(ordered_succs), make_index_ordering(g));
+
+    for (auto v : ordered_succs) {
         if (v == g.accept || v == g.acceptEod) {
             reporter = true;
         }
