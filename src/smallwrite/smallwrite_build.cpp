@@ -36,10 +36,11 @@
 #include "nfa/rdfa_merge.h"
 #include "nfa/shengcompile.h"
 #include "nfagraph/ng.h"
+#include "nfagraph/ng_depth.h"
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_mcclellan.h"
+#include "nfagraph/ng_prune.h"
 #include "nfagraph/ng_util.h"
-#include "nfagraph/ng_width.h"
 #include "smallwrite/smallwrite_internal.h"
 #include "util/alloc.h"
 #include "util/charreach.h"
@@ -101,6 +102,74 @@ SmallWriteBuildImpl::SmallWriteBuildImpl(size_t num_patterns,
                || num_patterns > cc.grey.smallWriteMaxPatterns) {
 }
 
+/**
+ * \brief Remove any reports from the given vertex that cannot match within
+ * max_depth due to their constraints.
+ */
+static
+bool pruneOverlongReports(NFAVertex v, NGHolder &g, const depth &max_depth,
+                          const ReportManager &rm) {
+    assert(!g[v].reports.empty());
+
+    vector<ReportID> bad_reports;
+
+    for (ReportID id : g[v].reports) {
+        const auto &report = rm.getReport(id);
+        if (report.minOffset > max_depth) {
+            bad_reports.push_back(id);
+        }
+    }
+
+    for (ReportID id : bad_reports) {
+        g[v].reports.erase(id);
+    }
+
+    if (g[v].reports.empty()) {
+        DEBUG_PRINTF("none of vertex %u's reports can match, cut accepts\n",
+                     g[v].index);
+        remove_edge(v, g.accept, g);
+        remove_edge(v, g.acceptEod, g);
+    }
+
+    return !bad_reports.empty();
+}
+
+/**
+ * \brief Prune vertices and reports from the graph that cannot match within
+ * max_depth.
+ */
+static
+bool pruneOverlong(NGHolder &g, const depth &max_depth,
+                   const ReportManager &rm) {
+    bool modified = false;
+    std::vector<NFAVertexDepth> depths;
+    calcDepths(g, depths);
+
+    for (auto v : vertices_range(g)) {
+        if (is_special(v, g)) {
+            continue;
+        }
+        const auto &d = depths.at(g[v].index);
+        depth min_depth = min(d.fromStart.min, d.fromStartDotStar.min);
+        if (min_depth > max_depth) {
+            clear_vertex(v, g);
+            modified = true;
+            continue;
+        }
+
+        if (is_match_vertex(v, g)) {
+            modified |= pruneOverlongReports(v, g, max_depth, rm);
+        }
+    }
+
+    if (modified) {
+        pruneUseless(g);
+        DEBUG_PRINTF("pruned graph down to %zu vertices\n", num_vertices(g));
+    }
+
+    return modified;
+}
+
 void SmallWriteBuildImpl::add(const NGWrapper &w) {
     // If the graph is poisoned (i.e. we can't build a SmallWrite version),
     // we don't even try.
@@ -118,13 +187,12 @@ void SmallWriteBuildImpl::add(const NGWrapper &w) {
     // make a copy of the graph so that we can modify it for our purposes
     unique_ptr<NGHolder> h = cloneHolder(w);
 
+    pruneOverlong(*h, depth(cc.grey.smallWriteLargestBuffer), rm);
+
     reduceGraph(*h, SOM_NONE, w.utf8, cc);
 
-    // If the earliest match location is outside the small write region,
-    // then we don't need to build a SmallWrite version.
-    // However, we don't poison this case either, since it is simply a case,
-    // where we know the resulting graph won't match.
-    if (findMinWidth(*h) > depth(cc.grey.smallWriteLargestBuffer)) {
+    if (can_never_match(*h)) {
+        DEBUG_PRINTF("graph can never match in small block\n");
         return;
     }
 
