@@ -875,7 +875,7 @@ m256 getData256(const struct core_info *ci, s64a offset, u32 *valid_data_mask) {
         *valid_data_mask = ~0u;
         return loadu256(ci->buf + offset);
     }
-    ALIGN_DIRECTIVE u8 data[sizeof(m256)];
+    ALIGN_AVX_DIRECTIVE u8 data[sizeof(m256)];
     *valid_data_mask = getBufferDataComplex(ci, offset, data, 32);
     return *(m256 *)data;
 }
