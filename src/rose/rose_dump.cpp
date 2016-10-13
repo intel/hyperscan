@@ -285,7 +285,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
                 const u8 *reach_base = base + t->lookaroundReachOffset;
                 const u8 *reach = reach_base +
                                   ri->reach_index * REACH_BITVECTOR_LEN;
-                os << "    contents:" << endl;
+                os << "    contents ";
                 describeClass(os, bitvectorToReach(reach), 1000, CC_OUT_TEXT);
                 os << endl;
             }
