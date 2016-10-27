@@ -583,7 +583,7 @@ char nfaExecMcClellan16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
     }
 }
 
-static really_inline really_flatten
+static really_inline
 char nfaExecMcClellan16_Bi(const struct NFA *n, u64a offset,
                            const u8 *buffer, size_t length,
                            NfaCallback cb, void *context, char single) {
@@ -732,7 +732,7 @@ char nfaExecMcClellan8_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
     }
 }
 
-static really_inline really_flatten
+static really_inline
 char nfaExecMcClellan8_Bi(const struct NFA *n, u64a offset, const u8 *buffer,
                           size_t length, NfaCallback cb, void *context,
                           char single) {

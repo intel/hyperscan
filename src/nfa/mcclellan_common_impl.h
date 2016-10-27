@@ -26,14 +26,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined(__INTEL_COMPILER) || defined(__clang__) || defined(_WIN32) || defined(__GNUC__) && (__GNUC__ < 4)
-#define really_flatten
-#else
-#define really_flatten __attribute__ ((flatten))
-#endif
-
-#define CASE_MASK 0xdf
-
 enum MatchMode {
     CALLBACK_OUTPUT,
     STOP_AT_MATCH,
