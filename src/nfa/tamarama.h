@@ -41,28 +41,27 @@ struct mq;
 struct NFA;
 struct hs_scratch;
 
-char nfaExecTamarama0_testEOD(const struct NFA *n, const char *state,
-                              const char *streamState, u64a offset,
-                              NfaCallback callback, void *context);
-char nfaExecTamarama0_QR(const struct NFA *n, struct mq *q, ReportID report);
-char nfaExecTamarama0_reportCurrent(const struct NFA *n, struct mq *q);
-char nfaExecTamarama0_inAccept(const struct NFA *n, ReportID report,
-                               struct mq *q);
-char nfaExecTamarama0_inAnyAccept(const struct NFA *n, struct mq *q);
-char nfaExecTamarama0_queueInitState(const struct NFA *n, struct mq *q);
-char nfaExecTamarama0_queueCompressState(const struct NFA *n,
-                                         const struct mq *q,
-                                         s64a loc);
-char nfaExecTamarama0_expandState(const struct NFA *n, void *dest,
-                                  const void *src, u64a offset, u8 key);
-enum nfa_zombie_status nfaExecTamarama0_zombie_status(const struct NFA *n,
-                                                      struct mq *q, s64a loc);
-char nfaExecTamarama0_Q(const struct NFA *nfa, struct mq *q, s64a end);
-char nfaExecTamarama0_Q2(const struct NFA *nfa, struct mq *q, s64a end);
+char nfaExecTamarama_testEOD(const struct NFA *n, const char *state,
+                             const char *streamState, u64a offset,
+                             NfaCallback callback, void *context);
+char nfaExecTamarama_QR(const struct NFA *n, struct mq *q, ReportID report);
+char nfaExecTamarama_reportCurrent(const struct NFA *n, struct mq *q);
+char nfaExecTamarama_inAccept(const struct NFA *n, ReportID report,
+                              struct mq *q);
+char nfaExecTamarama_inAnyAccept(const struct NFA *n, struct mq *q);
+char nfaExecTamarama_queueInitState(const struct NFA *n, struct mq *q);
+char nfaExecTamarama_queueCompressState(const struct NFA *n, const struct mq *q,
+                                        s64a loc);
+char nfaExecTamarama_expandState(const struct NFA *n, void *dest,
+                                 const void *src, u64a offset, u8 key);
+enum nfa_zombie_status nfaExecTamarama_zombie_status(const struct NFA *n,
+                                                     struct mq *q, s64a loc);
+char nfaExecTamarama_Q(const struct NFA *nfa, struct mq *q, s64a end);
+char nfaExecTamarama_Q2(const struct NFA *nfa, struct mq *q, s64a end);
 
 // only used by outfix and miracles, no implementation for tamarama
-#define nfaExecTamarama0_initCompressedState NFA_API_NO_IMPL
-#define nfaExecTamarama0_B_Reverse NFA_API_NO_IMPL
+#define nfaExecTamarama_initCompressedState NFA_API_NO_IMPL
+#define nfaExecTamarama_B_Reverse NFA_API_NO_IMPL
 
 #ifdef __cplusplus
 }

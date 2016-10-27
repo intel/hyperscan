@@ -49,37 +49,37 @@
 
 namespace ue2 {
 
-#define DISPATCH_CASE(dc_ltype, dc_ftype, dc_subtype, dc_func_call) \
-    case dc_ltype##_NFA_##dc_subtype:                               \
-    nfaExec##dc_ftype##dc_subtype##dc_func_call;                    \
+#define DISPATCH_CASE(dc_ltype, dc_ftype, dc_func_call)                        \
+    case dc_ltype:                                                             \
+        nfaExec##dc_ftype##dc_func_call;                                       \
     break
 
 // general framework calls
 
-#define DISPATCH_BY_NFA_TYPE(dbnt_func)                       \
-    DEBUG_PRINTF("dispatch for NFA type %u\n", nfa->type);    \
-    switch (nfa->type) {                                      \
-        DISPATCH_CASE(LIMEX, LimEx, 32, dbnt_func);           \
-        DISPATCH_CASE(LIMEX, LimEx, 64, dbnt_func);           \
-        DISPATCH_CASE(LIMEX, LimEx, 128, dbnt_func);          \
-        DISPATCH_CASE(LIMEX, LimEx, 256, dbnt_func);          \
-        DISPATCH_CASE(LIMEX, LimEx, 384, dbnt_func);          \
-        DISPATCH_CASE(LIMEX, LimEx, 512, dbnt_func);          \
-        DISPATCH_CASE(MCCLELLAN, McClellan, 8, dbnt_func);    \
-        DISPATCH_CASE(MCCLELLAN, McClellan, 16, dbnt_func);   \
-        DISPATCH_CASE(GOUGH, Gough, 8, dbnt_func);            \
-        DISPATCH_CASE(GOUGH, Gough, 16, dbnt_func);           \
-        DISPATCH_CASE(MPV, Mpv, 0, dbnt_func);                \
-        DISPATCH_CASE(LBR, Lbr, Dot, dbnt_func);              \
-        DISPATCH_CASE(LBR, Lbr, Verm, dbnt_func);             \
-        DISPATCH_CASE(LBR, Lbr, NVerm, dbnt_func);            \
-        DISPATCH_CASE(LBR, Lbr, Shuf, dbnt_func);             \
-        DISPATCH_CASE(LBR, Lbr, Truf, dbnt_func);             \
-        DISPATCH_CASE(CASTLE, Castle, 0, dbnt_func);          \
-        DISPATCH_CASE(SHENG, Sheng, 0, dbnt_func);            \
-        DISPATCH_CASE(TAMARAMA, Tamarama, 0, dbnt_func);      \
-    default:                                                  \
-        assert(0);                                            \
+#define DISPATCH_BY_NFA_TYPE(dbnt_func)                                        \
+    DEBUG_PRINTF("dispatch for NFA type %u\n", nfa->type);                     \
+    switch (nfa->type) {                                                       \
+        DISPATCH_CASE(LIMEX_NFA_32, LimEx32, dbnt_func);                       \
+        DISPATCH_CASE(LIMEX_NFA_64, LimEx64, dbnt_func);                       \
+        DISPATCH_CASE(LIMEX_NFA_128, LimEx128, dbnt_func);                     \
+        DISPATCH_CASE(LIMEX_NFA_256, LimEx256, dbnt_func);                     \
+        DISPATCH_CASE(LIMEX_NFA_384, LimEx384, dbnt_func);                     \
+        DISPATCH_CASE(LIMEX_NFA_512, LimEx512, dbnt_func);                     \
+        DISPATCH_CASE(MCCLELLAN_NFA_8, McClellan8, dbnt_func);                 \
+        DISPATCH_CASE(MCCLELLAN_NFA_16, McClellan16, dbnt_func);               \
+        DISPATCH_CASE(GOUGH_NFA_8, Gough8, dbnt_func);                         \
+        DISPATCH_CASE(GOUGH_NFA_16, Gough16, dbnt_func);                       \
+        DISPATCH_CASE(MPV_NFA, Mpv, dbnt_func);                                \
+        DISPATCH_CASE(LBR_NFA_DOT, LbrDot, dbnt_func);                         \
+        DISPATCH_CASE(LBR_NFA_VERM, LbrVerm, dbnt_func);                       \
+        DISPATCH_CASE(LBR_NFA_NVERM, LbrNVerm, dbnt_func);                     \
+        DISPATCH_CASE(LBR_NFA_SHUF, LbrShuf, dbnt_func);                       \
+        DISPATCH_CASE(LBR_NFA_TRUF, LbrTruf, dbnt_func);                       \
+        DISPATCH_CASE(CASTLE_NFA, Castle, dbnt_func);                          \
+        DISPATCH_CASE(SHENG_NFA, Sheng, dbnt_func);                            \
+        DISPATCH_CASE(TAMARAMA_NFA, Tamarama, dbnt_func);                      \
+    default:                                                                   \
+        assert(0);                                                             \
     }
 
 void nfaDumpDot(const struct NFA *nfa, FILE *dotFile,

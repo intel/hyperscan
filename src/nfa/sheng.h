@@ -35,27 +35,27 @@
 struct mq;
 struct NFA;
 
-#define nfaExecSheng0_B_Reverse NFA_API_NO_IMPL
-#define nfaExecSheng0_zombie_status NFA_API_ZOMBIE_NO_IMPL
+#define nfaExecSheng_B_Reverse NFA_API_NO_IMPL
+#define nfaExecSheng_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
-char nfaExecSheng0_Q(const struct NFA *n, struct mq *q, s64a end);
-char nfaExecSheng0_Q2(const struct NFA *n, struct mq *q, s64a end);
-char nfaExecSheng0_QR(const struct NFA *n, struct mq *q, ReportID report);
-char nfaExecSheng0_inAccept(const struct NFA *n, ReportID report, struct mq *q);
-char nfaExecSheng0_inAnyAccept(const struct NFA *n, struct mq *q);
-char nfaExecSheng0_queueInitState(const struct NFA *nfa, struct mq *q);
-char nfaExecSheng0_queueCompressState(const struct NFA *nfa, const struct mq *q,
-                                      s64a loc);
-char nfaExecSheng0_expandState(const struct NFA *nfa, void *dest,
-                               const void *src, u64a offset, u8 key);
-char nfaExecSheng0_initCompressedState(const struct NFA *nfa, u64a offset,
-                                       void *state, u8 key);
-char nfaExecSheng0_testEOD(const struct NFA *nfa, const char *state,
-                           const char *streamState, u64a offset,
-                           NfaCallback callback, void *context);
-char nfaExecSheng0_reportCurrent(const struct NFA *n, struct mq *q);
+char nfaExecSheng_Q(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecSheng_Q2(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecSheng_QR(const struct NFA *n, struct mq *q, ReportID report);
+char nfaExecSheng_inAccept(const struct NFA *n, ReportID report, struct mq *q);
+char nfaExecSheng_inAnyAccept(const struct NFA *n, struct mq *q);
+char nfaExecSheng_queueInitState(const struct NFA *nfa, struct mq *q);
+char nfaExecSheng_queueCompressState(const struct NFA *nfa, const struct mq *q,
+                                     s64a loc);
+char nfaExecSheng_expandState(const struct NFA *nfa, void *dest,
+                              const void *src, u64a offset, u8 key);
+char nfaExecSheng_initCompressedState(const struct NFA *nfa, u64a offset,
+                                      void *state, u8 key);
+char nfaExecSheng_testEOD(const struct NFA *nfa, const char *state,
+                          const char *streamState, u64a offset,
+                          NfaCallback callback, void *context);
+char nfaExecSheng_reportCurrent(const struct NFA *n, struct mq *q);
 
-char nfaExecSheng0_B(const struct NFA *n, u64a offset, const u8 *buffer,
+char nfaExecSheng_B(const struct NFA *n, u64a offset, const u8 *buffer,
                     size_t length, NfaCallback cb, void *context);
 
 #endif /* SHENG_H_ */

@@ -38,9 +38,9 @@ struct NFA;
 
 namespace ue2 {
 
-void nfaExecSheng0_dumpDot(const struct NFA *nfa, FILE *file,
-                           const std::string &base);
-void nfaExecSheng0_dumpText(const struct NFA *nfa, FILE *file);
+void nfaExecSheng_dumpDot(const struct NFA *nfa, FILE *file,
+                          const std::string &base);
+void nfaExecSheng_dumpText(const struct NFA *nfa, FILE *file);
 
 } // namespace ue2
 

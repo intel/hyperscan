@@ -90,7 +90,7 @@ void lbrDumpCommon(const lbr_common *lc, FILE *f) {
 
 void nfaExecLbrDot_dumpText(const NFA *nfa, FILE *f) {
     assert(nfa);
-    assert(nfa->type == LBR_NFA_Dot);
+    assert(nfa->type == LBR_NFA_DOT);
     const lbr_dot *ld = (const lbr_dot *)getImplNfa(nfa);
     lbrDumpCommon(&ld->common, f);
     fprintf(f, "DOT model\n");
@@ -100,7 +100,7 @@ void nfaExecLbrDot_dumpText(const NFA *nfa, FILE *f) {
 
 void nfaExecLbrVerm_dumpText(const NFA *nfa, FILE *f) {
     assert(nfa);
-    assert(nfa->type == LBR_NFA_Verm);
+    assert(nfa->type == LBR_NFA_VERM);
     const lbr_verm *lv = (const lbr_verm *)getImplNfa(nfa);
     lbrDumpCommon(&lv->common, f);
     fprintf(f, "VERM model, scanning for 0x%02x\n", lv->c);
@@ -110,7 +110,7 @@ void nfaExecLbrVerm_dumpText(const NFA *nfa, FILE *f) {
 
 void nfaExecLbrNVerm_dumpText(const NFA *nfa, FILE *f) {
     assert(nfa);
-    assert(nfa->type == LBR_NFA_NVerm);
+    assert(nfa->type == LBR_NFA_NVERM);
     const lbr_verm *lv = (const lbr_verm *)getImplNfa(nfa);
     lbrDumpCommon(&lv->common, f);
     fprintf(f, "NEGATED VERM model, scanning for 0x%02x\n", lv->c);
@@ -120,7 +120,7 @@ void nfaExecLbrNVerm_dumpText(const NFA *nfa, FILE *f) {
 
 void nfaExecLbrShuf_dumpText(const NFA *nfa, FILE *f) {
     assert(nfa);
-    assert(nfa->type == LBR_NFA_Shuf);
+    assert(nfa->type == LBR_NFA_SHUF);
     const lbr_shuf *ls = (const lbr_shuf *)getImplNfa(nfa);
     lbrDumpCommon(&ls->common, f);
 
@@ -133,7 +133,7 @@ void nfaExecLbrShuf_dumpText(const NFA *nfa, FILE *f) {
 
 void nfaExecLbrTruf_dumpText(const NFA *nfa, FILE *f) {
     assert(nfa);
-    assert(nfa->type == LBR_NFA_Truf);
+    assert(nfa->type == LBR_NFA_TRUF);
     const lbr_truf *lt = (const lbr_truf *)getImplNfa(nfa);
     lbrDumpCommon(&lt->common, f);
 

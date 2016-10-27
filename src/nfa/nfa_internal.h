@@ -61,15 +61,15 @@ enum NFAEngineType {
     MCCLELLAN_NFA_16,   /**< magic pseudo nfa */
     GOUGH_NFA_8,        /**< magic pseudo nfa */
     GOUGH_NFA_16,       /**< magic pseudo nfa */
-    MPV_NFA_0,          /**< magic pseudo nfa */
-    LBR_NFA_Dot,        /**< magic pseudo nfa */
-    LBR_NFA_Verm,       /**< magic pseudo nfa */
-    LBR_NFA_NVerm,      /**< magic pseudo nfa */
-    LBR_NFA_Shuf,       /**< magic pseudo nfa */
-    LBR_NFA_Truf,       /**< magic pseudo nfa */
-    CASTLE_NFA_0,       /**< magic pseudo nfa */
-    SHENG_NFA_0,        /**< magic pseudo nfa */
-    TAMARAMA_NFA_0,     /**< magic nfa container */
+    MPV_NFA,            /**< magic pseudo nfa */
+    LBR_NFA_DOT,        /**< magic pseudo nfa */
+    LBR_NFA_VERM,       /**< magic pseudo nfa */
+    LBR_NFA_NVERM,      /**< magic pseudo nfa */
+    LBR_NFA_SHUF,       /**< magic pseudo nfa */
+    LBR_NFA_TRUF,       /**< magic pseudo nfa */
+    CASTLE_NFA,         /**< magic pseudo nfa */
+    SHENG_NFA,          /**< magic pseudo nfa */
+    TAMARAMA_NFA,       /**< magic nfa container */
     /** \brief bogus NFA - not used */
     INVALID_NFA
 };
@@ -150,7 +150,7 @@ static really_inline int isGoughType(u8 t) {
 
 /** \brief True if the given type (from NFA::type) is a Sheng DFA. */
 static really_inline int isShengType(u8 t) {
-    return t == SHENG_NFA_0;
+    return t == SHENG_NFA;
 }
 
 /**
@@ -180,14 +180,14 @@ static really_inline int isNfaType(u8 t) {
 /** \brief True if the given type (from NFA::type) is an LBR. */
 static really_inline
 int isLbrType(u8 t) {
-    return t == LBR_NFA_Dot || t == LBR_NFA_Verm || t == LBR_NFA_NVerm ||
-           t == LBR_NFA_Shuf || t == LBR_NFA_Truf;
+    return t == LBR_NFA_DOT || t == LBR_NFA_VERM || t == LBR_NFA_NVERM ||
+           t == LBR_NFA_SHUF || t == LBR_NFA_TRUF;
 }
 
 /** \brief True if the given type (from NFA::type) is a container engine. */
 static really_inline
 int isContainerType(u8 t) {
-    return t == TAMARAMA_NFA_0;
+    return t == TAMARAMA_NFA;
 }
 
 static really_inline
@@ -202,14 +202,14 @@ int isMultiTopType(u8 t) {
 /* Use for functions that return an integer. */
 #define NFA_API_NO_IMPL(...)                                                   \
     ({                                                                         \
-        assert(!"not implemented for this engine!");                            \
+        assert(!"not implemented for this engine!");                           \
         0; /* return value, for places that need it */                         \
     })
 
 /* Use for _zombie_status functions. */
 #define NFA_API_ZOMBIE_NO_IMPL(...)                                            \
     ({                                                                         \
-        assert(!"not implemented for this engine!");                            \
+        assert(!"not implemented for this engine!");                           \
         NFA_ZOMBIE_NO;                                                         \
     })
 

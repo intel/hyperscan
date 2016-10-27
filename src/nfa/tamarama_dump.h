@@ -38,9 +38,9 @@ struct NFA;
 
 namespace ue2 {
 
-void nfaExecTamarama0_dumpDot(const NFA *nfa, FILE *file,
-                              const std::string &base);
-void nfaExecTamarama0_dumpText(const NFA *nfa, FILE *file);
+void nfaExecTamarama_dumpDot(const NFA *nfa, FILE *file,
+                             const std::string &base);
+void nfaExecTamarama_dumpText(const NFA *nfa, FILE *file);
 
 } // namespace ue2
 

@@ -38,24 +38,24 @@ extern "C" {
 struct mq;
 struct NFA;
 
-char nfaExecCastle0_Q(const struct NFA *n, struct mq *q, s64a end);
-char nfaExecCastle0_Q2(const struct NFA *n, struct mq *q, s64a end);
-char nfaExecCastle0_QR(const struct NFA *n, struct mq *q, ReportID report);
-char nfaExecCastle0_reportCurrent(const struct NFA *n, struct mq *q);
-char nfaExecCastle0_inAccept(const struct NFA *n, ReportID report,
-                             struct mq *q);
-char nfaExecCastle0_inAnyAccept(const struct NFA *n, struct mq *q);
-char nfaExecCastle0_queueInitState(const struct NFA *n, struct mq *q);
-char nfaExecCastle0_initCompressedState(const struct NFA *n, u64a offset,
-                                        void *state, u8 key);
-char nfaExecCastle0_queueCompressState(const struct NFA *nfa,
-                                       const struct mq *q, s64a loc);
-char nfaExecCastle0_expandState(const struct NFA *nfa, void *dest,
-                                const void *src, u64a offset, u8 key);
+char nfaExecCastle_Q(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecCastle_Q2(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecCastle_QR(const struct NFA *n, struct mq *q, ReportID report);
+char nfaExecCastle_reportCurrent(const struct NFA *n, struct mq *q);
+char nfaExecCastle_inAccept(const struct NFA *n, ReportID report,
+                            struct mq *q);
+char nfaExecCastle_inAnyAccept(const struct NFA *n, struct mq *q);
+char nfaExecCastle_queueInitState(const struct NFA *n, struct mq *q);
+char nfaExecCastle_initCompressedState(const struct NFA *n, u64a offset,
+                                       void *state, u8 key);
+char nfaExecCastle_queueCompressState(const struct NFA *nfa, const struct mq *q,
+                                      s64a loc);
+char nfaExecCastle_expandState(const struct NFA *nfa, void *dest,
+                               const void *src, u64a offset, u8 key);
 
-#define nfaExecCastle0_testEOD NFA_API_NO_IMPL
-#define nfaExecCastle0_B_Reverse NFA_API_NO_IMPL
-#define nfaExecCastle0_zombie_status NFA_API_ZOMBIE_NO_IMPL
+#define nfaExecCastle_testEOD NFA_API_NO_IMPL
+#define nfaExecCastle_B_Reverse NFA_API_NO_IMPL
+#define nfaExecCastle_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 #ifdef __cplusplus
 }

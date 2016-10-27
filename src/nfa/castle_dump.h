@@ -38,9 +38,8 @@ struct NFA;
 
 namespace ue2 {
 
-void nfaExecCastle0_dumpDot(const NFA *nfa, FILE *file,
-                            const std::string &base);
-void nfaExecCastle0_dumpText(const NFA *nfa, FILE *file);
+void nfaExecCastle_dumpDot(const NFA *nfa, FILE *file, const std::string &base);
+void nfaExecCastle_dumpText(const NFA *nfa, FILE *file);
 
 } // namespace ue2
 

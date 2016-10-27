@@ -401,7 +401,7 @@ hwlmcb_rv_t roseCatchUpMPV_i(const struct RoseEngine *t, s64a loc,
     scratch->tctxt.mpv_inactive = 0;
 
     /* we know it is going to be an mpv, skip the indirection */
-    next_pos_match_loc = nfaExecMpv0_QueueExecRaw(q->nfa, q, loc);
+    next_pos_match_loc = nfaExecMpv_QueueExecRaw(q->nfa, q, loc);
     assert(!q->report_current);
 
     if (!next_pos_match_loc) { /* 0 means dead */
@@ -441,7 +441,7 @@ char in_mpv(const struct RoseEngine *rose, const struct hs_scratch *scratch) {
     const struct RoseContext *tctxt = &scratch->tctxt;
     assert(tctxt->curr_qi < rose->queueCount);
     if (tctxt->curr_qi < rose->outfixBeginQueue) {
-        assert(getNfaByQueue(rose, tctxt->curr_qi)->type == MPV_NFA_0);
+        assert(getNfaByQueue(rose, tctxt->curr_qi)->type == MPV_NFA);
         return 1;
     }
     return 0;

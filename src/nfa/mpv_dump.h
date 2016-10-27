@@ -38,9 +38,9 @@ struct NFA;
 
 namespace ue2 {
 
-void nfaExecMpv0_dumpDot(const struct NFA *nfa, FILE *file,
-                         const std::string &base);
-void nfaExecMpv0_dumpText(const struct NFA *nfa, FILE *file);
+void nfaExecMpv_dumpDot(const struct NFA *nfa, FILE *file,
+                        const std::string &base);
+void nfaExecMpv_dumpText(const struct NFA *nfa, FILE *file);
 
 } // namespace ue2
 

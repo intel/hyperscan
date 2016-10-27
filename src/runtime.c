@@ -291,12 +291,12 @@ void runSmallWriteEngine(const struct SmallWriteEngine *smwr,
     if (nfa->type == MCCLELLAN_NFA_8) {
         nfaExecMcClellan8_B(nfa, smwr->start_offset, local_buffer,
                             local_alen, roseReportAdaptor, scratch);
-    } else if (nfa->type == MCCLELLAN_NFA_16){
+    } else if (nfa->type == MCCLELLAN_NFA_16) {
         nfaExecMcClellan16_B(nfa, smwr->start_offset, local_buffer,
                              local_alen, roseReportAdaptor, scratch);
     } else {
-        nfaExecSheng0_B(nfa, smwr->start_offset, local_buffer,
-                        local_alen, roseReportAdaptor, scratch);
+        nfaExecSheng_B(nfa, smwr->start_offset, local_buffer,
+                       local_alen, roseReportAdaptor, scratch);
     }
 }
 

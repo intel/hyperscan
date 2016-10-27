@@ -48,8 +48,8 @@
 
 namespace ue2 {
 
-void nfaExecCastle0_dumpDot(const struct NFA *, FILE *,
-                            UNUSED const std::string &base) {
+void nfaExecCastle_dumpDot(const struct NFA *, FILE *,
+                           UNUSED const std::string &base) {
     // No GraphViz output for Castles.
 }
 
@@ -68,7 +68,7 @@ void dumpTextSubCastle(const SubCastle &sub, FILE *f) {
     fprintf(f, "\n");
 }
 
-void nfaExecCastle0_dumpText(const struct NFA *nfa, FILE *f) {
+void nfaExecCastle_dumpText(const struct NFA *nfa, FILE *f) {
     const Castle *c = (const Castle *)getImplNfa(nfa);
 
     fprintf(f, "Castle multi-tenant repeat engine\n");

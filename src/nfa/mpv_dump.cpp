@@ -48,8 +48,8 @@
 
 namespace ue2 {
 
-void nfaExecMpv0_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *file,
-                         UNUSED const std::string &base) {
+void nfaExecMpv_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *file,
+                        UNUSED const std::string &base) {
 }
 
 static really_inline
@@ -128,7 +128,7 @@ void dumpCounter(FILE *f, const mpv_counter_info *c) {
     fprintf(f, "\n");
 }
 
-void nfaExecMpv0_dumpText(const NFA *nfa, FILE *f) {
+void nfaExecMpv_dumpText(const NFA *nfa, FILE *f) {
     const mpv *m = (const mpv *)getImplNfa(nfa);
 
     fprintf(f, "Puff the Magic Engines\n");

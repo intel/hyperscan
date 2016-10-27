@@ -358,7 +358,7 @@ void populateBasicInfo(struct NFA *n, dfa_info &info,
     n->scratchStateSize = 1;
     n->streamStateSize = 1;
     n->nPositions = info.size();
-    n->type = SHENG_NFA_0;
+    n->type = SHENG_NFA;
     n->flags |= info.raw.hasEodReports() ? NFA_ACCEPTS_EOD : 0;
 
     sheng *s = (sheng *)getMutableImplNfa(n);

@@ -48,8 +48,8 @@
 
 namespace ue2 {
 
-void nfaExecTamarama0_dumpDot(const struct NFA *nfa, UNUSED FILE *f,
-                              const std::string &base) {
+void nfaExecTamarama_dumpDot(const struct NFA *nfa, UNUSED FILE *f,
+                             const std::string &base) {
     const Tamarama *t = (const Tamarama *)getImplNfa(nfa);
     const u32 *subOffset =
         (const u32 *)((const char *)t + sizeof(struct Tamarama) +
@@ -65,7 +65,7 @@ void nfaExecTamarama0_dumpDot(const struct NFA *nfa, UNUSED FILE *f,
     }
 }
 
-void nfaExecTamarama0_dumpText(const struct NFA *nfa, FILE *f) {
+void nfaExecTamarama_dumpText(const struct NFA *nfa, FILE *f) {
     const Tamarama *t = (const Tamarama *)getImplNfa(nfa);
 
     fprintf(f, "Tamarama container engine\n");

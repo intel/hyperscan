@@ -115,8 +115,8 @@ void dumpMasks(FILE *f, const sheng *s) {
     }
 }
 
-void nfaExecSheng0_dumpText(const NFA *nfa, FILE *f) {
-    assert(nfa->type == SHENG_NFA_0);
+void nfaExecSheng_dumpText(const NFA *nfa, FILE *f) {
+    assert(nfa->type == SHENG_NFA);
     const sheng *s = (const sheng *)getImplNfa(nfa);
 
     fprintf(f, "sheng DFA\n");
@@ -243,8 +243,8 @@ void shengGetTransitions(const NFA *n, u16 state, u16 *t) {
     t[TOP] = aux->top & SHENG_STATE_MASK;
 }
 
-void nfaExecSheng0_dumpDot(const NFA *nfa, FILE *f, const string &) {
-    assert(nfa->type == SHENG_NFA_0);
+void nfaExecSheng_dumpDot(const NFA *nfa, FILE *f, const string &) {
+    assert(nfa->type == SHENG_NFA);
     const sheng *s = (const sheng *)getImplNfa(nfa);
 
     dumpDotPreambleDfa(f);

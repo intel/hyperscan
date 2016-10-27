@@ -577,7 +577,7 @@ buildCastle(const CastleProto &proto,
     total_size += byte_length(stale_iter); // stale sparse iter
 
     aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
-    nfa->type = verify_u8(CASTLE_NFA_0);
+    nfa->type = verify_u8(CASTLE_NFA);
     nfa->length = verify_u32(total_size);
     nfa->nPositions = verify_u32(subs.size());
     nfa->streamStateSize = streamStateSize;

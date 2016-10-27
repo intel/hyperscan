@@ -207,7 +207,7 @@ void writeCoreNfa(NFA *nfa, u32 len, u32 min_width, u32 max_counter,
 
     nfa->length = len;
     nfa->nPositions = max_counter - 1;
-    nfa->type = MPV_NFA_0;
+    nfa->type = MPV_NFA;
     nfa->streamStateSize = streamStateSize;
     assert(16 >= sizeof(mpv_decomp_kilo));
     nfa->scratchStateSize = scratchStateSize;

@@ -504,10 +504,10 @@ char runSheng(const struct sheng *sh, struct mq *q, s64a b_end,
     }
 }
 
-char nfaExecSheng0_B(const struct NFA *n, u64a offset, const u8 *buffer,
-                     size_t length, NfaCallback cb, void *context) {
+char nfaExecSheng_B(const struct NFA *n, u64a offset, const u8 *buffer,
+                    size_t length, NfaCallback cb, void *context) {
     DEBUG_PRINTF("smallwrite Sheng\n");
-    assert(n->type == SHENG_NFA_0);
+    assert(n->type == SHENG_NFA);
     const struct sheng *sh = getImplNfa(n);
     u8 state = sh->anchored;
     u8 can_die = sh->flags & SHENG_FLAG_CAN_DIE;
@@ -543,32 +543,31 @@ char nfaExecSheng0_B(const struct NFA *n, u64a offset, const u8 *buffer,
     return state & SHENG_STATE_DEAD ? MO_DEAD : MO_ALIVE;
 }
 
-char nfaExecSheng0_Q(const struct NFA *n, struct mq *q, s64a end) {
+char nfaExecSheng_Q(const struct NFA *n, struct mq *q, s64a end) {
     const struct sheng *sh = get_sheng(n);
     char rv = runSheng(sh, q, end, CALLBACK_OUTPUT);
     return rv;
 }
 
-char nfaExecSheng0_Q2(const struct NFA *n, struct mq *q, s64a end) {
+char nfaExecSheng_Q2(const struct NFA *n, struct mq *q, s64a end) {
     const struct sheng *sh = get_sheng(n);
     char rv = runSheng(sh, q, end, STOP_AT_MATCH);
     return rv;
 }
 
-char nfaExecSheng0_QR(const struct NFA *n, struct mq *q, ReportID report) {
+char nfaExecSheng_QR(const struct NFA *n, struct mq *q, ReportID report) {
     assert(q_cur_type(q) == MQE_START);
 
     const struct sheng *sh = get_sheng(n);
     char rv = runSheng(sh, q, 0 /* end */, NO_MATCHES);
 
-    if (rv && nfaExecSheng0_inAccept(n, report, q)) {
+    if (rv && nfaExecSheng_inAccept(n, report, q)) {
         return MO_MATCHES_PENDING;
     }
     return rv;
 }
 
-char nfaExecSheng0_inAccept(const struct NFA *n, ReportID report,
-                            struct mq *q) {
+char nfaExecSheng_inAccept(const struct NFA *n, ReportID report, struct mq *q) {
     assert(n && q);
 
     const struct sheng *sh = get_sheng(n);
@@ -584,7 +583,7 @@ char nfaExecSheng0_inAccept(const struct NFA *n, ReportID report,
     return shengHasAccept(sh, aux, report);
 }
 
-char nfaExecSheng0_inAnyAccept(const struct NFA *n, struct mq *q) {
+char nfaExecSheng_inAnyAccept(const struct NFA *n, struct mq *q) {
     assert(n && q);
 
     const struct sheng *sh = get_sheng(n);
@@ -595,9 +594,9 @@ char nfaExecSheng0_inAnyAccept(const struct NFA *n, struct mq *q) {
     return !!aux->accept;
 }
 
-char nfaExecSheng0_testEOD(const struct NFA *nfa, const char *state,
-                           UNUSED const char *streamState, u64a offset,
-                           NfaCallback cb, void *ctxt) {
+char nfaExecSheng_testEOD(const struct NFA *nfa, const char *state,
+                          UNUSED const char *streamState, u64a offset,
+                          NfaCallback cb, void *ctxt) {
     assert(nfa);
 
     const struct sheng *sh = get_sheng(nfa);
@@ -613,7 +612,7 @@ char nfaExecSheng0_testEOD(const struct NFA *nfa, const char *state,
     return fireReports(sh, cb, ctxt, s, offset, NULL, NULL, 1);
 }
 
-char nfaExecSheng0_reportCurrent(const struct NFA *n, struct mq *q) {
+char nfaExecSheng_reportCurrent(const struct NFA *n, struct mq *q) {
     const struct sheng *sh = (const struct sheng *)getImplNfa(n);
     NfaCallback cb = q->cb;
     void *ctxt = q->context;
@@ -636,15 +635,15 @@ char nfaExecSheng0_reportCurrent(const struct NFA *n, struct mq *q) {
     return 0;
 }
 
-char nfaExecSheng0_initCompressedState(const struct NFA *nfa, u64a offset,
-                                       void *state, UNUSED u8 key) {
+char nfaExecSheng_initCompressedState(const struct NFA *nfa, u64a offset,
+                                      void *state, UNUSED u8 key) {
     const struct sheng *sh = get_sheng(nfa);
     u8 *s = (u8 *)state;
     *s = offset ? sh->floating: sh->anchored;
     return !(*s & SHENG_STATE_DEAD);
 }
 
-char nfaExecSheng0_queueInitState(const struct NFA *nfa, struct mq *q) {
+char nfaExecSheng_queueInitState(const struct NFA *nfa, struct mq *q) {
     assert(nfa->scratchStateSize == 1);
 
     /* starting in floating state */
@@ -654,8 +653,8 @@ char nfaExecSheng0_queueInitState(const struct NFA *nfa, struct mq *q) {
     return 0;
 }
 
-char nfaExecSheng0_queueCompressState(UNUSED const struct NFA *nfa,
-                                      const struct mq *q, UNUSED s64a loc) {
+char nfaExecSheng_queueCompressState(UNUSED const struct NFA *nfa,
+                                     const struct mq *q, UNUSED s64a loc) {
     void *dest = q->streamState;
     const void *src = q->state;
     assert(nfa->scratchStateSize == 1);
@@ -664,9 +663,9 @@ char nfaExecSheng0_queueCompressState(UNUSED const struct NFA *nfa,
     return 0;
 }
 
-char nfaExecSheng0_expandState(UNUSED const struct NFA *nfa, void *dest,
-                               const void *src, UNUSED u64a offset,
-                               UNUSED u8 key) {
+char nfaExecSheng_expandState(UNUSED const struct NFA *nfa, void *dest,
+                              const void *src, UNUSED u64a offset,
+                              UNUSED u8 key) {
     assert(nfa->scratchStateSize == 1);
     assert(nfa->streamStateSize == 1);
     *(u8 *)dest = *(const u8 *)src;

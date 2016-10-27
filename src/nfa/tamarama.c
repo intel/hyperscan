@@ -265,9 +265,9 @@ void copyBack(const struct  Tamarama *t, struct mq *q, struct mq *q1) {
 #endif
 }
 
-char nfaExecTamarama0_testEOD(const struct NFA *n, const char *state,
-                              const char *streamState, u64a offset,
-                              NfaCallback callback, void *context) {
+char nfaExecTamarama_testEOD(const struct NFA *n, const char *state,
+                             const char *streamState, u64a offset,
+                             NfaCallback callback, void *context) {
     const struct Tamarama *t = getImplNfa(n);
     u32 activeIdx = loadActiveIdx(streamState, t->activeIdxSize);
     if (activeIdx == t->numSubEngines) {
@@ -285,8 +285,7 @@ char nfaExecTamarama0_testEOD(const struct NFA *n, const char *state,
     return MO_CONTINUE_MATCHING;
 }
 
-char nfaExecTamarama0_QR(const struct NFA *n, struct mq *q,
-                         ReportID report) {
+char nfaExecTamarama_QR(const struct NFA *n, struct mq *q, ReportID report) {
     DEBUG_PRINTF("exec rose\n");
     struct mq q1;
     q1.cur = q1.end = 0;
@@ -304,7 +303,7 @@ char nfaExecTamarama0_QR(const struct NFA *n, struct mq *q,
     return rv;
 }
 
-char nfaExecTamarama0_reportCurrent(const struct NFA *n, struct mq *q) {
+char nfaExecTamarama_reportCurrent(const struct NFA *n, struct mq *q) {
     const struct Tamarama *t = getImplNfa(n);
     u32 activeIdx = loadActiveIdx(q->streamState, t->activeIdxSize);
     if (activeIdx == t->numSubEngines) {
@@ -317,8 +316,8 @@ char nfaExecTamarama0_reportCurrent(const struct NFA *n, struct mq *q) {
     return nfaReportCurrentMatches(sub, &q1);
 }
 
-char nfaExecTamarama0_inAccept(const struct NFA *n, ReportID report,
-                               struct mq *q) {
+char nfaExecTamarama_inAccept(const struct NFA *n, ReportID report,
+                              struct mq *q) {
     const struct Tamarama *t = getImplNfa(n);
     u32 activeIdx = loadActiveIdx(q->streamState, t->activeIdxSize);
     if (activeIdx == t->numSubEngines) {
@@ -331,7 +330,7 @@ char nfaExecTamarama0_inAccept(const struct NFA *n, ReportID report,
     return nfaInAcceptState(sub, report, &q1);
 }
 
-char nfaExecTamarama0_inAnyAccept(const struct NFA *n, struct mq *q) {
+char nfaExecTamarama_inAnyAccept(const struct NFA *n, struct mq *q) {
     const struct Tamarama *t = getImplNfa(n);
     u32 activeIdx = loadActiveIdx(q->streamState, t->activeIdxSize);
     if (activeIdx == t->numSubEngines) {
@@ -344,7 +343,7 @@ char nfaExecTamarama0_inAnyAccept(const struct NFA *n, struct mq *q) {
     return nfaInAnyAcceptState(sub, &q1);
 }
 
-char nfaExecTamarama0_queueInitState(const struct NFA *n, struct mq *q) {
+char nfaExecTamarama_queueInitState(const struct NFA *n, struct mq *q) {
     DEBUG_PRINTF("init state\n");
     const struct Tamarama *t = getImplNfa(n);
     char *ptr = q->streamState;
@@ -354,8 +353,8 @@ char nfaExecTamarama0_queueInitState(const struct NFA *n, struct mq *q) {
     return 0;
 }
 
-char nfaExecTamarama0_queueCompressState(const struct NFA *n,
-                                         const struct mq *q, s64a loc) {
+char nfaExecTamarama_queueCompressState(const struct NFA *n, const struct mq *q,
+                                        s64a loc) {
     const struct Tamarama *t = getImplNfa(n);
     u32 activeIdx = loadActiveIdx(q->streamState, t->activeIdxSize);
     if (activeIdx == t->numSubEngines) {
@@ -369,8 +368,8 @@ char nfaExecTamarama0_queueCompressState(const struct NFA *n,
     return nfaQueueCompressState(sub, &q1, loc);
 }
 
-char nfaExecTamarama0_expandState(const struct NFA *n, void *dest,
-                                  const void *src, u64a offset, u8 key) {
+char nfaExecTamarama_expandState(const struct NFA *n, void *dest,
+                                 const void *src, u64a offset, u8 key) {
     const struct Tamarama *t = getImplNfa(n);
     u32 activeIdx = loadActiveIdx(src, t->activeIdxSize);
     if (activeIdx == t->numSubEngines) {
@@ -383,8 +382,8 @@ char nfaExecTamarama0_expandState(const struct NFA *n, void *dest,
     return nfaExpandState(sub, dest, subStreamState, offset, key);
 }
 
-enum nfa_zombie_status nfaExecTamarama0_zombie_status(const struct NFA *n,
-                                                      struct mq *q, s64a loc) {
+enum nfa_zombie_status nfaExecTamarama_zombie_status(const struct NFA *n,
+                                                     struct mq *q, s64a loc) {
     const struct Tamarama *t = getImplNfa(n);
     u32 activeIdx = loadActiveIdx(q->streamState, t->activeIdxSize);
     if (activeIdx == t->numSubEngines) {
@@ -397,7 +396,7 @@ enum nfa_zombie_status nfaExecTamarama0_zombie_status(const struct NFA *n,
     return nfaGetZombieStatus(sub, &q1, loc);
 }
 
-char nfaExecTamarama0_Q(const struct NFA *n, struct mq *q, s64a end) {
+char nfaExecTamarama_Q(const struct NFA *n, struct mq *q, s64a end) {
     DEBUG_PRINTF("exec\n");
     struct mq q1;
     char rv = MO_ALIVE;
@@ -418,8 +417,7 @@ char nfaExecTamarama0_Q(const struct NFA *n, struct mq *q, s64a end) {
     return rv;
 }
 
-char nfaExecTamarama0_Q2(const struct NFA *n,
-                         struct mq *q, s64a end) {
+char nfaExecTamarama_Q2(const struct NFA *n, struct mq *q, s64a end) {
     DEBUG_PRINTF("exec to match\n");
     struct mq q1;
     char rv = 0;
