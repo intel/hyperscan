@@ -634,7 +634,7 @@ bool pruneUsingSuccessors(NGHolder &g, NFAVertex u, som_type som) {
         }
         u_succs.push_back(v);
     }
-    sort(u_succs.begin(), u_succs.end(),
+    stable_sort(u_succs.begin(), u_succs.end(),
          [&](NFAVertex a, NFAVertex b) {
              return g[a].char_reach.count() > g[b].char_reach.count();
          });
