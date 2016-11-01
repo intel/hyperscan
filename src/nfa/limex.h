@@ -41,9 +41,7 @@ extern "C"
 #define GENERATE_NFA_DUMP_DECL(gf_name)                                        \
     } /* extern "C" */                                                         \
     namespace ue2 {                                                            \
-    void gf_name##_dumpDot(const struct NFA *nfa, FILE *file,                  \
-                           const std::string &base);                           \
-    void gf_name##_dumpText(const struct NFA *nfa, FILE *file);                \
+        void gf_name##_dump(const struct NFA *nfa, const std::string &base);   \
     } /* namespace ue2 */                                                      \
     extern "C" {
 

@@ -39,12 +39,8 @@ struct NFA;
 
 namespace ue2 {
 
-void nfaExecGough8_dumpDot(const NFA *nfa, FILE *file,
-                           const std::string &base);
-void nfaExecGough16_dumpDot(const NFA *nfa, FILE *file,
-                            const std::string &base);
-void nfaExecGough8_dumpText(const NFA *nfa, FILE *file);
-void nfaExecGough16_dumpText(const NFA *nfa, FILE *file);
+void nfaExecGough8_dump(const NFA *nfa, const std::string &base);
+void nfaExecGough16_dump(const NFA *nfa, const std::string &base);
 
 } // namespace ue2
 

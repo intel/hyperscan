@@ -36,6 +36,7 @@
 #include "ue2common.h"
 #include "util/compare.h"
 #include "util/dump_mask.h"
+#include "util/dump_util.h"
 
 #include <cstdlib>
 #include <cstdio>
@@ -46,11 +47,11 @@
 #error No dump support!
 #endif
 
-namespace ue2 {
+/* Note: No dot files for MPV */
 
-void nfaExecMpv_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *file,
-                        UNUSED const std::string &base) {
-}
+using namespace std;
+
+namespace ue2 {
 
 static really_inline
 u32 largest_puff_repeat(const mpv *m, const mpv_kilopuff *kp) {
@@ -128,8 +129,10 @@ void dumpCounter(FILE *f, const mpv_counter_info *c) {
     fprintf(f, "\n");
 }
 
-void nfaExecMpv_dumpText(const NFA *nfa, FILE *f) {
+void nfaExecMpv_dump(const NFA *nfa, const string &base) {
     const mpv *m = (const mpv *)getImplNfa(nfa);
+
+    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
 
     fprintf(f, "Puff the Magic Engines\n");
     fprintf(f, "\n");
@@ -151,6 +154,7 @@ void nfaExecMpv_dumpText(const NFA *nfa, FILE *f) {
     }
 
     dumpTextReverse(nfa, f);
+    fclose(f);
 }
 
 } // namespace ue2

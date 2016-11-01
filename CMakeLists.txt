@@ -986,6 +986,8 @@ set(hs_dump_SRCS
     src/rose/rose_dump.h
     src/util/dump_charclass.cpp
     src/util/dump_charclass.h
+    src/util/dump_util.cpp
+    src/util/dump_util.h
 )
 
 if (DUMP_SUPPORT)

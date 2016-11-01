@@ -82,13 +82,8 @@ namespace ue2 {
         assert(0);                                                             \
     }
 
-void nfaDumpDot(const struct NFA *nfa, FILE *dotFile,
-                const std::string &base) {
-    DISPATCH_BY_NFA_TYPE(_dumpDot(nfa, dotFile, base));
-}
-
-void nfaDumpText(const struct NFA *nfa, FILE *txtFile) {
-    DISPATCH_BY_NFA_TYPE(_dumpText(nfa, txtFile));
+void nfaGenerateDumpFiles(const struct NFA *nfa, const std::string &base) {
+    DISPATCH_BY_NFA_TYPE(_dump(nfa, base));
 }
 
 } // namespace ue2

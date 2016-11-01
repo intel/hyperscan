@@ -35,9 +35,10 @@
 #include "limex_internal.h"
 #include "nfa_dump_internal.h"
 #include "ue2common.h"
+#include "util/charreach.h"
 #include "util/dump_charclass.h"
 #include "util/dump_mask.h"
-#include "util/charreach.h"
+#include "util/dump_util.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -472,37 +473,32 @@ void dumpLimDotInfo(const limex_type *limex, u32 state, FILE *f) {
     }
 }
 
-#define DUMP_TEXT_FN(ddf_n)                                                    \
-    void nfaExecLimEx##ddf_n##_dumpText(const NFA *nfa, FILE *f) {             \
-        dumpLimexText((const LimExNFA##ddf_n *)getImplNfa(nfa), f);            \
-    }
-
-#define DUMP_DOT_FN(ddf_n)                                                     \
-    void nfaExecLimEx##ddf_n##_dumpDot(const NFA *nfa, FILE *f,                \
-                                       UNUSED const string &base) {            \
-        const LimExNFA##ddf_n *limex =                                         \
-            (const LimExNFA##ddf_n *)getImplNfa(nfa);                          \
+#define LIMEX_DUMP_FN(size)                                                    \
+    void nfaExecLimEx##size##_dump(const NFA *nfa, const string &base) {       \
+        auto limex = (const LimExNFA##size *)getImplNfa(nfa);                  \
                                                                                \
+        FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");                \
+        dumpLimexText(limex, f);                                               \
+        fclose(f);                                                             \
+                                                                               \
+        f = fopen_or_throw((base + ".dot").c_str(), "w");                      \
         dumpDotPreamble(f);                                                    \
         u32 state_count = nfa->nPositions;                                     \
         dumpVertexDotInfo(limex, state_count, f,                               \
-                          limex_labeller<LimExNFA##ddf_n>(limex));             \
+                          limex_labeller<LimExNFA##size>(limex));              \
         for (u32 i = 0; i < state_count; i++) {                                \
             dumpLimDotInfo(limex, i, f);                                       \
             dumpExDotInfo(limex, i, f);                                        \
         }                                                                      \
         dumpDotTrailer(f);                                                     \
+        fclose(f);                                                             \
     }
 
-#define LIMEX_DUMP_FNS(size)                                                   \
-    DUMP_TEXT_FN(size)                                                         \
-    DUMP_DOT_FN(size)
-
-LIMEX_DUMP_FNS(32)
-LIMEX_DUMP_FNS(64)
-LIMEX_DUMP_FNS(128)
-LIMEX_DUMP_FNS(256)
-LIMEX_DUMP_FNS(384)
-LIMEX_DUMP_FNS(512)
+LIMEX_DUMP_FN(32)
+LIMEX_DUMP_FN(64)
+LIMEX_DUMP_FN(128)
+LIMEX_DUMP_FN(256)
+LIMEX_DUMP_FN(384)
+LIMEX_DUMP_FN(512)
 
 } // namespace ue2

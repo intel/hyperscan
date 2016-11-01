@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,21 +26,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CASTLE_DUMP_H
-#define CASTLE_DUMP_H
+#include "dump_util.h"
 
-#if defined(DUMP_SUPPORT)
-
+#include <stdexcept>
 #include <string>
 
-struct NFA;
+using namespace std;
 
-namespace ue2 {
-
-void nfaExecCastle_dump(const NFA *nfa, const std::string &base);
-
-} // namespace ue2
-
-#endif // DUMP_SUPPORT
-
-#endif
+FILE *fopen_or_throw(const char *path, const char *mode) {
+    FILE *f = fopen(path, mode);
+    if (!f) {
+        throw runtime_error(string("Unable to open file: ") + path);
+    }
+    return f;
+}

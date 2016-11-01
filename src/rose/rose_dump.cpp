@@ -917,24 +917,14 @@ void dumpNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         const NfaInfo *nfa_info = getNfaInfoByQueue(t, i);
         const NFA *n = getNfaByInfo(t, nfa_info);
 
-        stringstream sstxt, ssdot, ssraw;
-
-        sstxt << base << "rose_nfa_" << i << ".txt";
-        ssdot << base << "rose_nfa_" << i << ".dot";
-        ssraw << base << "rose_nfa_" << i << ".raw";
-
-        FILE *f;
-
-        f = fopen(ssdot.str().c_str(), "w");
-        nfaDumpDot(n, f, base);
-        fclose(f);
-
-        f = fopen(sstxt.str().c_str(), "w");
-        nfaDumpText(n, f);
-        fclose(f);
+        stringstream ssbase;
+        ssbase << base << "rose_nfa_" << i;
+        nfaGenerateDumpFiles(n, ssbase.str());
 
         if (dump_raw) {
-            f = fopen(ssraw.str().c_str(), "w");
+            stringstream ssraw;
+            ssraw << base << "rose_nfa_" << i << ".raw";
+            FILE *f = fopen(ssraw.str().c_str(), "w");
             fwrite(n, 1, n->length, f);
             fclose(f);
         }
@@ -977,24 +967,14 @@ void dumpRevNfas(const RoseEngine *t, bool dump_raw, const string &base) {
     for (u32 i = 0; i < t->somRevCount; i++) {
         const NFA *n = (const NFA *)(tp + rev_offsets[i]);
 
-        stringstream sstxt, ssdot, ssraw;
-
-        sstxt << base << "som_rev_nfa_" << i << ".txt";
-        ssdot << base << "som_rev_nfa_" << i << ".dot";
-        ssraw << base << "som_nfa_nfa_" << i << ".raw";
-
-        FILE *f;
-
-        f = fopen(ssdot.str().c_str(), "w");
-        nfaDumpDot(n, f, base);
-        fclose(f);
-
-        f = fopen(sstxt.str().c_str(), "w");
-        nfaDumpText(n, f);
-        fclose(f);
+        stringstream ssbase;
+        ssbase << base << "rose_nfa_" << i;
+        nfaGenerateDumpFiles(n, ssbase.str());
 
         if (dump_raw) {
-            f = fopen(ssraw.str().c_str(), "w");
+            stringstream ssraw;
+            ssraw << base << "som_rev_nfa_" << i << ".raw";
+            FILE *f = fopen(ssraw.str().c_str(), "w");
             fwrite(n, 1, n->length, f);
             fclose(f);
         }
@@ -1009,20 +989,10 @@ void dumpAnchored(const RoseEngine *t, const string &base) {
 
     while (curr) {
         const NFA *n = (const NFA *)((const char *)curr + sizeof(*curr));
-        stringstream sstxt, ssdot;
 
-        sstxt << base << "anchored_" << i << ".txt";
-        ssdot << base << "anchored_" << i << ".dot";
-
-        FILE *f;
-
-        f = fopen(ssdot.str().c_str(), "w");
-        nfaDumpDot(n, f, base);
-        fclose(f);
-
-        f = fopen(sstxt.str().c_str(), "w");
-        nfaDumpText(n, f);
-        fclose(f);
+        stringstream ssbase;
+        ssbase << base << "anchored_" << i;
+        nfaGenerateDumpFiles(n, ssbase.str());
 
         curr = curr->next_offset ? (const anchored_matcher_info *)
             ((const char *)curr + curr->next_offset) : nullptr;

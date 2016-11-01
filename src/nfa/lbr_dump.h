@@ -31,28 +31,17 @@
 
 #ifdef DUMP_SUPPORT
 
-#include <cstdio>
 #include <string>
 
 struct NFA;
 
 namespace ue2 {
 
-void nfaExecLbrDot_dumpDot(const struct NFA *nfa, FILE *file,
-                           const std::string &base);
-void nfaExecLbrVerm_dumpDot(const struct NFA *nfa, FILE *file,
-                            const std::string &base);
-void nfaExecLbrNVerm_dumpDot(const struct NFA *nfa, FILE *file,
-                            const std::string &base);
-void nfaExecLbrShuf_dumpDot(const struct NFA *nfa, FILE *file,
-                            const std::string &base);
-void nfaExecLbrTruf_dumpDot(const struct NFA *nfa, FILE *file,
-                            const std::string &base);
-void nfaExecLbrDot_dumpText(const struct NFA *nfa, FILE *file);
-void nfaExecLbrVerm_dumpText(const struct NFA *nfa, FILE *file);
-void nfaExecLbrNVerm_dumpText(const struct NFA *nfa, FILE *file);
-void nfaExecLbrTruf_dumpText(const struct NFA *nfa, FILE *file);
-void nfaExecLbrShuf_dumpText(const struct NFA *nfa, FILE *file);
+void nfaExecLbrDot_dump(const struct NFA *nfa, const std::string &base);
+void nfaExecLbrVerm_dump(const struct NFA *nfa, const std::string &base);
+void nfaExecLbrNVerm_dump(const struct NFA *nfa, const std::string &base);
+void nfaExecLbrShuf_dump(const struct NFA *nfa, const std::string &base);
+void nfaExecLbrTruf_dump(const struct NFA *nfa, const std::string &base);
 
 } // namespace ue2
 

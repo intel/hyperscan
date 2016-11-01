@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,21 +26,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CASTLE_DUMP_H
-#define CASTLE_DUMP_H
+#ifndef DUMP_UTIL
+#define DUMP_UTIL
 
-#if defined(DUMP_SUPPORT)
+#include <cstdio>
 
-#include <string>
-
-struct NFA;
-
-namespace ue2 {
-
-void nfaExecCastle_dump(const NFA *nfa, const std::string &base);
-
-} // namespace ue2
-
-#endif // DUMP_SUPPORT
+/**
+ * Same as fopen(), but on error throws an exception rather than returning NULL.
+ */
+FILE *fopen_or_throw(const char *path, const char *mode);
 
 #endif

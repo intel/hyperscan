@@ -40,18 +40,18 @@
 #include "shufticompile.h"
 #include "trufflecompile.h"
 #include "util/charreach.h"
+#include "util/dump_util.h"
 #include "util/dump_charclass.h"
 
 #ifndef DUMP_SUPPORT
 #error No dump support!
 #endif
 
-namespace ue2 {
+/* Note: No dot files for castle */
 
-void nfaExecCastle_dumpDot(const struct NFA *, FILE *,
-                           UNUSED const std::string &base) {
-    // No GraphViz output for Castles.
-}
+using namespace std;
+
+namespace ue2 {
 
 static
 void dumpTextSubCastle(const SubCastle &sub, FILE *f) {
@@ -68,8 +68,10 @@ void dumpTextSubCastle(const SubCastle &sub, FILE *f) {
     fprintf(f, "\n");
 }
 
-void nfaExecCastle_dumpText(const struct NFA *nfa, FILE *f) {
+void nfaExecCastle_dump(const struct NFA *nfa, const string &base) {
     const Castle *c = (const Castle *)getImplNfa(nfa);
+
+    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
 
     fprintf(f, "Castle multi-tenant repeat engine\n");
     fprintf(f, "\n");
@@ -113,6 +115,7 @@ void nfaExecCastle_dumpText(const struct NFA *nfa, FILE *f) {
         fprintf(f, "Sub %u:\n", i);
         dumpTextSubCastle(sub[i], f);
     }
+    fclose(f);
 }
 
 } // namespace ue2

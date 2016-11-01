@@ -38,6 +38,7 @@
 #include "ue2common.h"
 #include "util/charreach.h"
 #include "util/dump_charclass.h"
+#include "util/dump_util.h"
 #include "util/simd_utils.h"
 
 
@@ -115,6 +116,7 @@ void dumpMasks(FILE *f, const sheng *s) {
     }
 }
 
+static
 void nfaExecSheng_dumpText(const NFA *nfa, FILE *f) {
     assert(nfa->type == SHENG_NFA);
     const sheng *s = (const sheng *)getImplNfa(nfa);
@@ -243,7 +245,8 @@ void shengGetTransitions(const NFA *n, u16 state, u16 *t) {
     t[TOP] = aux->top & SHENG_STATE_MASK;
 }
 
-void nfaExecSheng_dumpDot(const NFA *nfa, FILE *f, const string &) {
+static
+void nfaExecSheng_dumpDot(const NFA *nfa, FILE *f) {
     assert(nfa->type == SHENG_NFA);
     const sheng *s = (const sheng *)getImplNfa(nfa);
 
@@ -260,6 +263,16 @@ void nfaExecSheng_dumpDot(const NFA *nfa, FILE *f, const string &) {
     }
 
     fprintf(f, "}\n");
+}
+
+void nfaExecSheng_dump(const NFA *nfa, const string &base) {
+    assert(nfa->type == SHENG_NFA);
+    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+    nfaExecSheng_dumpText(nfa, f);
+    fclose(f);
+    f = fopen_or_throw((base + ".dot").c_str(), "w");
+    nfaExecSheng_dumpDot(nfa, f);
+    fclose(f);
 }
 
 } // namespace ue2
