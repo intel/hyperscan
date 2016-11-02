@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -346,43 +346,6 @@ hs_error_t dbIsValid(const hs_database_t *db) {
     }
 
     return HS_SUCCESS;
-}
-
-/** \brief Encapsulate the given bytecode (RoseEngine) in a newly-allocated
- * \ref hs_database, ensuring that it is padded correctly to give cacheline
- * alignment.  */
-hs_database_t *dbCreate(const char *in_bytecode, size_t len, u64a platform) {
-    size_t db_len = sizeof(struct hs_database) + len;
-    DEBUG_PRINTF("db size %zu\n", db_len);
-    DEBUG_PRINTF("db platform %llx\n", platform);
-
-    struct hs_database *db = (struct hs_database *)hs_database_alloc(db_len);
-    if (hs_check_alloc(db) != HS_SUCCESS) {
-        hs_database_free(db);
-        return NULL;
-    }
-
-    // So that none of our database is uninitialized
-    memset(db, 0, db_len);
-
-    // we need to align things manually
-    size_t shift = (uintptr_t)db->bytes & 0x3f;
-    DEBUG_PRINTF("shift is %zu\n", shift);
-
-    db->bytecode = offsetof(struct hs_database, bytes) - shift;
-    char *bytecode = (char *)db + db->bytecode;
-    assert(ISALIGNED_CL(bytecode));
-
-    db->magic = HS_DB_MAGIC;
-    db->version = HS_DB_VERSION;
-    db->length = len;
-    db->platform = platform;
-
-    // Copy bytecode
-    memcpy(bytecode, in_bytecode, len);
-
-    db->crc32 = Crc32c_ComputeBuf(0, bytecode, db->length);
-    return db;
 }
 
 #if defined(_WIN32)

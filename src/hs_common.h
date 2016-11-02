@@ -519,6 +519,17 @@ const char *hs_version(void);
  */
 #define HS_SCRATCH_IN_USE       (-10)
 
+/**
+ * Unsupported CPU architecture.
+ *
+ * This error is returned when Hyperscan is able to detect that the current
+ * system does not support the required instruction set.
+ *
+ * At a minimum, Hyperscan requires Supplemental Streaming SIMD Extensions 3
+ * (SSSE3).
+ */
+#define HS_ARCH_ERROR		    (-11)
+
 /** @} */
 
 #ifdef __cplusplus

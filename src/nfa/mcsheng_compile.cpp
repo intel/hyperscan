@@ -193,7 +193,8 @@ void createShuffleMasks(mcsheng *m, const dfa_info &info,
     }
     for (u32 i = 0; i < N_CHARS; i++) {
         assert(info.alpha_remap[i] != info.alpha_remap[TOP]);
-        memcpy((u8*)&m->sheng_masks[i], (u8*)masks[info.alpha_remap[i]].data(), sizeof(m128));
+        memcpy((u8 *)&m->sheng_masks[i],
+               (u8 *)masks[info.alpha_remap[i]].data(), sizeof(m128));
     }
     m->sheng_end = sheng_end;
     m->sheng_accel_limit = sheng_end - 1;

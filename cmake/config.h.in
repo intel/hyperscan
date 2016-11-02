@@ -15,6 +15,9 @@
 /* internal build, switch on dump support. */
 #cmakedefine DUMP_SUPPORT
 
+/* Define if building "fat" runtime. */
+#cmakedefine FAT_RUNTIME
+
 /* Define to 1 if `backtrace' works. */
 #cmakedefine HAVE_BACKTRACE
 

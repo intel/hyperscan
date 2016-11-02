@@ -192,6 +192,14 @@ hs_compile_multi_int(const char *const *expressions, const unsigned *flags,
         return HS_COMPILER_ERROR;
     }
 
+#if defined(FAT_RUNTIME)
+    if (!check_ssse3()) {
+        *db = nullptr;
+        *comp_error = generateCompileError("Unsupported architecture", -1);
+        return HS_ARCH_ERROR;
+    }
+#endif
+
     if (!checkMode(mode, comp_error)) {
         *db = nullptr;
         assert(*comp_error); // set by checkMode.
@@ -319,6 +327,13 @@ hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
         return HS_COMPILER_ERROR;
     }
 
+#if defined(FAT_RUNTIME)
+    if (!check_ssse3()) {
+        *error = generateCompileError("Unsupported architecture", -1);
+        return HS_ARCH_ERROR;
+    }
+#endif
+
     if (!info) {
         *error = generateCompileError("Invalid parameter: info is NULL", -1);
         return HS_COMPILER_ERROR;
@@ -426,6 +441,11 @@ hs_error_t hs_populate_platform(hs_platform_info_t *platform) {
 
 extern "C" HS_PUBLIC_API
 hs_error_t hs_free_compile_error(hs_compile_error_t *error) {
+#if defined(FAT_RUNTIME)
+    if (!check_ssse3()) {
+        return HS_ARCH_ERROR;
+    }
+#endif
     freeCompileError(error);
     return HS_SUCCESS;
 }

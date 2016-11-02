@@ -1,0 +1,11 @@
+# names to exclude
+hs_misc_alloc
+hs_misc_free
+hs_free_scratch
+hs_stream_alloc
+hs_stream_free
+hs_scratch_alloc
+hs_scratch_free
+hs_database_alloc
+hs_database_free
+^_

@@ -213,7 +213,6 @@ else()
         set(ARCH_C_FLAGS "${ARCH_C_FLAGS} -march=native -mtune=native")
     endif()
 
-    # we don't use these for the lib, but other tools/unit tests
     if (NOT CMAKE_CXX_FLAGS MATCHES .*march.*)
         set(ARCH_CXX_FLAGS "${ARCH_CXX_FLAGS} -march=native -mtune=native")
     endif()
@@ -257,8 +256,23 @@ if (RELEASE_BUILD)
     endif()
 endif()
 
-# ensure we are building for the right target arch
+if (CMAKE_SYSTEM_NAME MATCHES "Linux")
+    # This is a Linux-only feature for now - requires platform support
+    # elsewhere
+    option(FAT_RUNTIME "Build a library that supports multiple microarchitecures" RELEASE_BUILD)
+    if (FAT_RUNTIME)
+        include (${CMAKE_MODULE_PATH}/attrib.cmake)
+        if (NOT HAS_C_ATTR_IFUNC)
+            message(FATAL_ERROR "Compiler does not support ifunc attribute, cannot build fat runtime")
+        endif()
+    endif()
+endif ()
+
 include (${CMAKE_MODULE_PATH}/arch.cmake)
+
+if (NOT FAT_RUNTIME AND NOT HAVE_SSSE3)
+        message(FATAL_ERROR "A minimum of SSSE3 compiler support is required")
+endif ()
 
 # testing a builtin takes a little more work
 CHECK_C_SOURCE_COMPILES("void *aa_test(void *x) { return __builtin_assume_aligned(x, 16);}\nint main(void) { return 0; }" HAVE_CC_BUILTIN_ASSUME_ALIGNED)
@@ -365,6 +379,14 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
 endif()
 endif()
 
+if (NOT FAT_RUNTIME)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_CXX_FLAGS}")
+else()
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+endif()
+
 add_subdirectory(util)
 add_subdirectory(unit)
 add_subdirectory(doc/dev-reference)
@@ -391,8 +413,13 @@ if (NOT WIN32)
 endif()
 
 # only set these after all tests are done
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_C_FLAGS} ${EXTRA_C_FLAGS}")
+if (NOT FAT_RUNTIME)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
+else()
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
+endif()
 
 
 if(NOT WIN32)
@@ -414,12 +441,19 @@ SET(hs_HEADERS
 )
 install(FILES ${hs_HEADERS} DESTINATION include/hs)
 
+set (hs_exec_common_SRCS
+        src/alloc.c
+        src/scratch.c
+        src/util/multibit.c
+        )
+
 set (hs_exec_SRCS
     ${hs_HEADERS}
     src/hs_version.h
     src/ue2common.h
-    src/alloc.c
     src/allocator.h
+    src/crc32.c
+    src/crc32.h
     src/report.h
     src/runtime.c
     src/fdr/fdr.c
@@ -558,8 +592,8 @@ set (hs_exec_SRCS
     src/util/join.h
     src/util/masked_move.h
     src/util/multibit.h
-    src/util/multibit_internal.h
     src/util/multibit.c
+    src/util/multibit_internal.h
     src/util/pack_bits.h
     src/util/popcount.h
     src/util/pqueue.h
@@ -571,21 +605,14 @@ set (hs_exec_SRCS
     src/util/state_compress.c
     src/util/unaligned.h
     src/util/uniform_ops.h
-    src/scratch.h
-    src/scratch.c
-    src/crc32.c
-    src/crc32.h
     src/database.c
     src/database.h
 )
 
-if (HAVE_AVX2)
-    set (hs_exec_SRCS
-        ${hs_exec_SRCS}
-        src/fdr/teddy_avx2.c
-        src/util/masked_move.c
-        )
-endif ()
+set (hs_exec_avx2_SRCS
+    src/fdr/teddy_avx2.c
+    src/util/masked_move.c
+)
 
 
 SET (hs_SRCS
@@ -1013,27 +1040,101 @@ endif()
 set (LIB_VERSION ${HS_VERSION})
 set (LIB_SOVERSION ${HS_MAJOR_VERSION})
 
-add_library(hs_exec OBJECT ${hs_exec_SRCS})
+if (NOT FAT_RUNTIME)
 
-if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
-add_library(hs_exec_shared OBJECT ${hs_exec_SRCS})
-set_target_properties(hs_exec_shared PROPERTIES
-    POSITION_INDEPENDENT_CODE TRUE)
-endif()
+    if (HAVE_AVX2)
+        add_library(hs_exec OBJECT ${hs_exec_common_SRCS} ${hs_exec_SRCS}
+            ${hs_exec_avx2_SRCS})
+    else()
+        add_library(hs_exec OBJECT ${hs_exec_common_SRCS} ${hs_exec_SRCS})
+    endif()
+
+    add_library(hs_runtime STATIC src/hs_version.c $<TARGET_OBJECTS:hs_exec>)
+    set_target_properties(hs_runtime PROPERTIES LINKER_LANGUAGE C)
+
+    if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
+        add_library(hs_exec_shared OBJECT ${hs_exec_SRCS})
+        set_target_properties(hs_exec_shared PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+    endif()
+
+else (FAT_RUNTIME)
+    set(BUILD_WRAPPER "${PROJECT_SOURCE_DIR}/cmake/build_wrapper.sh")
+    add_library(hs_exec_core2 OBJECT ${hs_exec_SRCS})
+    set_target_properties(hs_exec_core2 PROPERTIES
+        COMPILE_FLAGS "-march=core2"
+        RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} core2 ${CMAKE_MODULE_PATH}/keep.syms.in"
+        )
+
+    add_library(hs_exec_corei7 OBJECT ${hs_exec_SRCS})
+    set_target_properties(hs_exec_corei7 PROPERTIES
+        COMPILE_FLAGS "-march=corei7"
+        RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} corei7 ${CMAKE_MODULE_PATH}/keep.syms.in"
+        )
+
+    add_library(hs_exec_avx2 OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
+    set_target_properties(hs_exec_avx2 PROPERTIES
+        COMPILE_FLAGS "-march=core-avx2"
+        RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx2 ${CMAKE_MODULE_PATH}/keep.syms.in"
+        )
+
+    add_library(hs_exec_common OBJECT
+        ${hs_exec_common_SRCS}
+        src/dispatcher.c
+        )
+    set_source_files_properties(src/dispatcher.c PROPERTIES
+        COMPILE_FLAGS "-Wno-unused-parameter -Wno-unused-function")
+    set_source_files_properties(${hs_exec_common_SRCS} PROPERTIES
+        COMPILE_FLAGS "-march=core-avx2")
+
+    if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
+        add_library(hs_exec_shared_core2 OBJECT ${hs_exec_SRCS})
+        set_target_properties(hs_exec_shared_core2 PROPERTIES
+            COMPILE_FLAGS "-march=core2"
+            POSITION_INDEPENDENT_CODE TRUE
+            RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} core2 ${CMAKE_MODULE_PATH}/keep.syms.in"
+            )
+        add_library(hs_exec_shared_corei7 OBJECT ${hs_exec_SRCS})
+        set_target_properties(hs_exec_shared_corei7 PROPERTIES
+            COMPILE_FLAGS "-march=corei7"
+            POSITION_INDEPENDENT_CODE TRUE
+            RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} corei7 ${CMAKE_MODULE_PATH}/keep.syms.in"
+            )
+        add_library(hs_exec_shared_avx2 OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
+        set_target_properties(hs_exec_shared_avx2 PROPERTIES
+            COMPILE_FLAGS "-march=core-avx2"
+            POSITION_INDEPENDENT_CODE TRUE
+            RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx2 ${CMAKE_MODULE_PATH}/keep.syms.in"
+            )
+        add_library(hs_exec_common_shared OBJECT
+        ${hs_exec_common_SRCS}
+        src/dispatcher.c
+        )
+        set_target_properties(hs_exec_common_shared PROPERTIES
+            OUTPUT_NAME hs_exec_common
+            POSITION_INDEPENDENT_CODE TRUE)
+    endif() # SHARED
+
 
 # hs_version.c is added explicitly to avoid some build systems that refuse to
 # create a lib without any src (I'm looking at you Xcode)
 
-add_library(hs_runtime STATIC src/hs_version.c $<TARGET_OBJECTS:hs_exec>)
+    add_library(hs_runtime STATIC src/hs_version.c
+        $<TARGET_OBJECTS:hs_exec_common> $<TARGET_OBJECTS:hs_exec_core2>
+        $<TARGET_OBJECTS:hs_exec_corei7> $<TARGET_OBJECTS:hs_exec_avx2>)
+endif (NOT FAT_RUNTIME)
 
-set_target_properties(hs_runtime PROPERTIES
-    LINKER_LANGUAGE C)
+
+set_target_properties(hs_runtime PROPERTIES LINKER_LANGUAGE C)
 if (NOT BUILD_SHARED_LIBS)
     install(TARGETS hs_runtime DESTINATION lib)
 endif()
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
-    add_library(hs_runtime_shared SHARED src/hs_version.c $<TARGET_OBJECTS:hs_exec_shared>)
+    if (NOT FAT_RUNTIME)
+        add_library(hs_runtime_shared SHARED src/hs_version.c $<TARGET_OBJECTS:hs_exec_shared>)
+    else()
+        add_library(hs_runtime_shared SHARED src/hs_version.c $<TARGET_OBJECTS:hs_exec_common_shared> $<TARGET_OBJECTS:hs_exec_shared_core2> $<TARGET_OBJECTS:hs_exec_shared_corei7> $<TARGET_OBJECTS:hs_exec_shared_avx2>)
+    endif()
     set_target_properties(hs_runtime_shared PROPERTIES
         VERSION ${LIB_VERSION}
         SOVERSION ${LIB_SOVERSION}
@@ -1046,8 +1147,12 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
         LIBRARY DESTINATION lib)
 endif()
 
+if (NOT FAT_RUNTIME)
+    add_library(hs STATIC ${hs_SRCS} $<TARGET_OBJECTS:hs_exec>)
+else()
 # we want the static lib for testing
-add_library(hs STATIC ${hs_SRCS} $<TARGET_OBJECTS:hs_exec>)
+add_library(hs STATIC src/hs_version.c ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_common>  $<TARGET_OBJECTS:hs_exec_core2> $<TARGET_OBJECTS:hs_exec_corei7> $<TARGET_OBJECTS:hs_exec_avx2>)
+endif()
 
 add_dependencies(hs ragel_Parser)
 
@@ -1056,7 +1161,11 @@ install(TARGETS hs DESTINATION lib)
 endif()
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
-    add_library(hs_shared SHARED ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_shared>)
+    if (NOT FAT_RUNTIME)
+        add_library(hs_shared SHARED src/hs_version.c ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_shared>)
+    else()
+        add_library(hs_shared SHARED src/hs_version.c ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_common_shared> $<TARGET_OBJECTS:hs_exec_shared_core2> $<TARGET_OBJECTS:hs_exec_shared_corei7> $<TARGET_OBJECTS:hs_exec_shared_avx2>)
+    endif()
     add_dependencies(hs_shared ragel_Parser)
     set_target_properties(hs_shared PROPERTIES
         OUTPUT_NAME hs

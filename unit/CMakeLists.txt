@@ -1,5 +1,5 @@
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 
 set(gtest_SOURCES gtest/gtest-all.cc gtest/gtest.h)
 if(NOT XCODE)
@@ -34,7 +34,7 @@ add_library(gtest STATIC ${gtest_SOURCES})
 
 add_definitions(-DGTEST_HAS_PTHREAD=0 -DSRCDIR=${PROJECT_SOURCE_DIR})
 
-if (NOT RELEASE_BUILD)
+if (NOT (RELEASE_BUILD OR FAT_RUNTIME))
 set(unit_internal_SOURCES
     internal/bitfield.cpp
     internal/bitutils.cpp
@@ -89,7 +89,7 @@ set(unit_internal_SOURCES
 
 add_executable(unit-internal ${unit_internal_SOURCES})
 target_link_libraries(unit-internal hs gtest corpusomatic)
-endif(NOT RELEASE_BUILD)
+endif(NOT (RELEASE_BUILD OR FAT_RUNTIME))
 
 set(unit_hyperscan_SOURCES
     hyperscan/allocators.cpp

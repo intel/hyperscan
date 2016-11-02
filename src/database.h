@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -110,7 +110,6 @@ hs_error_t validDatabase(const hs_database_t *db) {
 }
 
 hs_error_t dbIsValid(const struct hs_database *db);
-struct hs_database *dbCreate(const char *bytecode, size_t len, u64a platform);
 
 #ifdef __cplusplus
 } /* extern "C" */
