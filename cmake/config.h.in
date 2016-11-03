@@ -89,3 +89,4 @@
 /* define if this is a release build. */
 #cmakedefine RELEASE_BUILD
 
+#define NATIVE_WIN32 ((defined(_WIN32) || defined(_WIN64)) && !defined(__MINGW__) && !defined(__MINGW32__))

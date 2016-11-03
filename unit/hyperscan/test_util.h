@@ -37,7 +37,7 @@
 #include "hs.h"
 
 #ifndef UNUSED
-#if defined(_WIN32) || defined(_WIN64)
+#if NATIVE_WIN32
 #define UNUSED
 #else
 #define UNUSED __attribute__ ((unused))

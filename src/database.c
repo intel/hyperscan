@@ -385,7 +385,7 @@ hs_database_t *dbCreate(const char *in_bytecode, size_t len, u64a platform) {
     return db;
 }
 
-#if defined(_WIN32)
+#if NATIVE_WIN32
 #define SNPRINTF_COMPAT _snprintf
 #else
 #define SNPRINTF_COMPAT snprintf

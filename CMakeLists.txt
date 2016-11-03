@@ -117,7 +117,7 @@ option(BUILD_SHARED_LIBS "Build shared libs instead of static" OFF)
 option(BUILD_STATIC_AND_SHARED "Build shared libs as well as static" OFF)
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
-    if (WIN32)
+    if (WIN32 AND NOT MINGW)
         message(FATAL_ERROR "Windows DLLs currently not supported")
     else()
         message(STATUS "Building shared libraries")
@@ -232,6 +232,11 @@ else()
 
 endif()
 
+if (MINGW)
+    set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -posix")
+    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -posix")
+endif()
+
 CHECK_INCLUDE_FILES(unistd.h HAVE_UNISTD_H)
 CHECK_INCLUDE_FILES(intrin.h HAVE_C_INTRIN_H)
 CHECK_INCLUDE_FILE_CXX(intrin.h HAVE_CXX_INTRIN_H)
@@ -262,7 +267,7 @@ include (${CMAKE_MODULE_PATH}/arch.cmake)
 CHECK_C_SOURCE_COMPILES("void *aa_test(void *x) { return __builtin_assume_aligned(x, 16);}\nint main(void) { return 0; }" HAVE_CC_BUILTIN_ASSUME_ALIGNED)
 CHECK_CXX_SOURCE_COMPILES("void *aa_test(void *x) { return __builtin_assume_aligned(x, 16);}\nint main(void) { return 0; }" HAVE_CXX_BUILTIN_ASSUME_ALIGNED)
 
-if (NOT WIN32)
+if (MINGW OR NOT WIN32)
 set(C_FLAGS_TO_CHECK
 # Variable length arrays are way bad, most especially at run time
 "-Wvla"
@@ -354,7 +359,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
     set(FREEBSD true)
 endif(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
 
-if(NOT WIN32)
+if(MINGW OR NOT WIN32)
 if(CMAKE_C_COMPILER_ID MATCHES "Intel")
     SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -diag-error 10006 -diag-disable 177 -diag-disable 2304 -diag-disable 2305 -diag-disable 2338 -diag-disable 1418 -diag-disable=remark")
 endif()
@@ -374,7 +379,7 @@ endif()
 configure_file(${CMAKE_MODULE_PATH}/config.h.in ${PROJECT_BINARY_DIR}/config.h)
 configure_file(src/hs_version.h.in ${PROJECT_BINARY_DIR}/hs_version.h)
 
-if (NOT WIN32)
+if (MINGW OR NOT WIN32)
     # expand out library names for pkgconfig static link info
     foreach (LIB ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES})
         # this is fragile, but protects us from toolchain specific files
@@ -393,7 +398,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 
 
-if(NOT WIN32)
+if(MINGW OR NOT WIN32)
 set(RAGEL_C_FLAGS "-Wno-unused")
 endif()
 
@@ -1054,6 +1059,6 @@ install(TARGETS hs_shared
     LIBRARY DESTINATION lib)
 endif()
 
-if(NOT WIN32)
+if(MINGW OR NOT WIN32)
     add_subdirectory(examples)
 endif()

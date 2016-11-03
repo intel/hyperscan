@@ -197,7 +197,7 @@ int isMultiTopType(u8 t) {
 
 /** Macros used in place of unimplemented NFA API functions for a given
  * engine. */
-#if !defined(_WIN32)
+#if !NATIVE_WIN32
 
 /* Use for functions that return an integer. */
 #define NFA_API_NO_IMPL(...)                                                   \
