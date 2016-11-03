@@ -968,7 +968,7 @@ void dumpRevNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         const NFA *n = (const NFA *)(tp + rev_offsets[i]);
 
         stringstream ssbase;
-        ssbase << base << "rose_nfa_" << i;
+        ssbase << base << "som_rev_nfa_" << i;
         nfaGenerateDumpFiles(n, ssbase.str());
 
         if (dump_raw) {
