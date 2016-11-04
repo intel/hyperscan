@@ -97,3 +97,10 @@ pcre/pcre_stringpiece.h
 pcre/pcrecpparg.h
 pcre/stamp-h1
 pcre/test-driver
+
+# Additional files
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+config.h
+hs_version.h
