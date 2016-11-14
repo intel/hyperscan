@@ -2,6 +2,12 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [4.3.2] 2016-11-15
+
+- Bugfix for issue #39. This small change is a workaround for an issue in
+  Boost 1.62. The fix has been submitted to Boost for inclusion in a future
+  release.
+
 ## [4.3.1] 2016-08-29
 - Bugfix for issue #30. In recent versions of Clang, a write to a variable was
   being elided, resulting in corrupted stream state after calling
