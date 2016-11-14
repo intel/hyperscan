@@ -7,7 +7,7 @@ project (Hyperscan C CXX)
 
 set (HS_MAJOR_VERSION 4)
 set (HS_MINOR_VERSION 3)
-set (HS_PATCH_VERSION 1)
+set (HS_PATCH_VERSION 2)
 set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
 
 # since we are doing this manually, we only have three types
