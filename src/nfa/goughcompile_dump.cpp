@@ -275,7 +275,7 @@ void dump_vars(const GoughGraph &g, const string &base, const Grey &grey) {
 }
 
 void dump(const GoughGraph &g, const string &base, const Grey &grey) {
-    if (!grey.dumpFlags) {
+    if (!(grey.dumpFlags & Grey::DUMP_INT_GRAPH)) {
         return;
     }
 
@@ -311,9 +311,9 @@ void dump_block(FILE *f, const gough_edge_id &e,
     }
 }
 
-void dump_blocks(const map<gough_edge_id, vector<gough_ins> > &blocks,
+void dump_blocks(const map<gough_edge_id, vector<gough_ins>> &blocks,
                  const string &base, const Grey &grey) {
-    if (!grey.dumpFlags) {
+    if (!(grey.dumpFlags & Grey::DUMP_INT_GRAPH)) {
         return;
     }
 
