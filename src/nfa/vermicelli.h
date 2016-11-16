@@ -74,9 +74,7 @@ const u8 *vermicelliExec(char c, char nocase, const u8 *buf,
         }
 
         buf += VERM_BOUNDARY - min;
-        if (buf >= buf_end) {
-            return buf_end;
-        }
+        assert(buf < buf_end);
     }
 
     // Aligned loops from here on in
@@ -129,9 +127,7 @@ const u8 *nvermicelliExec(char c, char nocase, const u8 *buf,
         }
 
         buf += VERM_BOUNDARY - min;
-        if (buf >= buf_end) {
-            return buf_end;
-        }
+        assert(buf < buf_end);
     }
 
     // Aligned loops from here on in
@@ -172,9 +168,7 @@ const u8 *vermicelliDoubleExec(char c1, char c2, char nocase, const u8 *buf,
         }
 
         buf += VERM_BOUNDARY - min;
-        if (buf >= buf_end) {
-            return buf_end - 1;
-        }
+        assert(buf < buf_end);
     }
 
     // Aligned loops from here on in
@@ -190,9 +184,18 @@ const u8 *vermicelliDoubleExec(char c1, char c2, char nocase, const u8 *buf,
     ptr = nocase ? dvermPreconditionNocase(chars1, chars2,
                                            buf_end - VERM_BOUNDARY)
                  : dvermPrecondition(chars1, chars2, buf_end - VERM_BOUNDARY);
-    /* buf_end - 1 to be conservative in case last byte is a partial match */
-    return ptr ? ptr :  buf_end - 1;
 
+    if (ptr) {
+        return ptr;
+    }
+
+    /* check for partial match at end */
+    u8 mask = nocase ? CASE_CLEAR : 0xff;
+    if ((buf_end[-1] & mask) == c1) {
+        return buf_end - 1;
+    }
+
+    return buf_end;
 }
 
 static really_inline
@@ -220,9 +223,7 @@ const u8 *vermicelliDoubleMaskedExec(char c1, char c2, char m1, char m2,
         }
 
         buf += VERM_BOUNDARY - min;
-        if (buf >= buf_end) {
-            return buf_end - 1;
-        }
+        assert(buf < buf_end);
     }
 
     // Aligned loops from here on in
@@ -235,9 +236,17 @@ const u8 *vermicelliDoubleMaskedExec(char c1, char c2, char m1, char m2,
     // Tidy up the mess at the end
     ptr = dvermPreconditionMasked(chars1, chars2, mask1, mask2,
                                   buf_end - VERM_BOUNDARY);
-    /* buf_end - 1 to be conservative in case last byte is a partial match */
-    return ptr ? ptr : buf_end - 1;
 
+    if (ptr) {
+        return ptr;
+    }
+
+    /* check for partial match at end */
+    if ((buf_end[-1] & m1) == c1) {
+        return buf_end - 1;
+    }
+
+    return buf_end;
 }
 
 // Reverse vermicelli scan. Provides exact semantics and returns (buf - 1) if
