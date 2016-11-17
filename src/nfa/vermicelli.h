@@ -191,7 +191,8 @@ const u8 *vermicelliDoubleExec(char c1, char c2, char nocase, const u8 *buf,
 
     /* check for partial match at end */
     u8 mask = nocase ? CASE_CLEAR : 0xff;
-    if ((buf_end[-1] & mask) == c1) {
+    if ((buf_end[-1] & mask) == (u8)c1) {
+        DEBUG_PRINTF("partial!!!\n");
         return buf_end - 1;
     }
 
@@ -242,7 +243,7 @@ const u8 *vermicelliDoubleMaskedExec(char c1, char c2, char m1, char m2,
     }
 
     /* check for partial match at end */
-    if ((buf_end[-1] & m1) == c1) {
+    if ((buf_end[-1] & m1) == (u8)c1) {
         return buf_end - 1;
     }
 
