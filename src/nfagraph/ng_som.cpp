@@ -685,27 +685,22 @@ void fillHolderForLockCheck(NGHolder *out, const NGHolder &g,
                             map<u32, region_info>::const_iterator picked) {
     /* NOTE: This is appropriate for firstMatchIsFirst */
     DEBUG_PRINTF("prepping for lock check\n");
+
     NGHolder &midfix = *out;
-    add_edge(midfix.startDs, midfix.accept, midfix);
 
     map<NFAVertex, NFAVertex> v_map;
     v_map[g.start] = midfix.start;
     v_map[g.startDs] = midfix.startDs;
 
-    map<u32, region_info>::const_iterator jt = picked;
-
     /* include the lock region */
-    assert(jt != info.end());
-    ++jt;
-    assert(!jt->second.dag);
-    assert(jt->second.full.size() == 1);
+    assert(picked != info.end());
+    auto graph_last = next(picked);
 
-    for (; ; --jt) {
+    assert(!graph_last->second.dag);
+    assert(graph_last->second.full.size() == 1);
+
+    for (auto jt = graph_last; ; --jt) {
         DEBUG_PRINTF("adding r %u to midfix\n", jt->first);
-        if (!jt->second.optional) {
-            clear_out_edges(midfix.startDs, midfix);
-            add_edge(midfix.startDs, midfix.startDs, midfix);
-        }
 
         /* add all vertices in region, create mapping */
         for (auto v : jt->second.full) {
@@ -741,14 +736,27 @@ void fillHolderForLockCheck(NGHolder *out, const NGHolder &g,
             }
         }
 
-        /* add edges from startds to enters */
+        if (jt == info.begin()) {
+            break;
+        }
+    }
+
+    /* add edges from startds to the enters of all the initial optional
+     * regions and the first mandatory region. */
+    for (auto jt = info.begin(); ; ++jt) {
         for (auto enter : jt->second.enters) {
             assert(contains(v_map, enter));
             NFAVertex v = v_map[enter];
             add_edge_if_not_present(midfix.startDs, v, midfix);
         }
 
-        if (jt == info.begin()) {
+        if (!jt->second.optional) {
+            break;
+        }
+
+        if (jt == graph_last) {
+            /* all regions are optional - add a direct edge to accept */
+            add_edge_if_not_present(midfix.startDs, midfix.accept, midfix);
             break;
         }
     }
