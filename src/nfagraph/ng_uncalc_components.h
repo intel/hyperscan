@@ -36,13 +36,11 @@
 #include <map>
 #include <vector>
 
-#include "nfagraph/ng_holder.h"
-#include "util/ue2_containers.h"
-
 namespace ue2 {
 
 struct CompileContext;
 struct Grey;
+class NGHolder;
 class ReportManager;
 
 /**
@@ -56,12 +54,11 @@ u32 commonPrefixLength(const NGHolder &ga, const NGHolder &gb);
 /**
  * \brief Merge the group of graphs in \p cluster where possible.
  *
- * The (from, to) mapping of merged graphs is returned in \p merged.
+ * The (from, to) mapping of merged graphs is returned.
  */
-void mergeNfaCluster(const std::vector<NGHolder *> &cluster,
-                     const ReportManager *rm,
-                     std::map<NGHolder *, NGHolder *> &merged,
-                     const CompileContext &cc);
+std::map<NGHolder *, NGHolder *>
+mergeNfaCluster(const std::vector<NGHolder *> &cluster, const ReportManager *rm,
+                const CompileContext &cc);
 
 /**
  * \brief Merge graph \p ga into graph \p gb.

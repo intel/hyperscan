@@ -311,8 +311,7 @@ void mergeCluster(RoseGraph &g, const ReportManager &rm,
         it = it2;
 
         DEBUG_PRINTF("merging cluster %zu\n", cluster.size());
-        map<NGHolder *, NGHolder *> merged;
-        mergeNfaCluster(cluster, &rm, merged, cc);
+        auto merged = mergeNfaCluster(cluster, &rm, cc);
         DEBUG_PRINTF("done\n");
 
         for (const auto &m : merged) {
@@ -2414,7 +2413,8 @@ map<NGHolder *, NGHolder *> chunkedNfaMerge(RoseBuildImpl &build,
         batch.push_back(*it);
         assert((*it)->kind == NFA_OUTFIX);
         if (batch.size() == MERGE_GROUP_SIZE_MAX || next(it) == ite) {
-            mergeNfaCluster(batch, &build.rm, merged, build.cc);
+            auto batch_merged = mergeNfaCluster(batch, &build.rm, build.cc);
+            insert(&merged, batch_merged);
             batch.clear();
         }
     }

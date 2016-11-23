@@ -551,18 +551,16 @@ bool mergeNfaPair(const NGHolder &ga, NGHolder &gb, const ReportManager *rm,
     return true;
 }
 
-/** Merge the group of graphs in \p cluster where possible. The (from, to)
- * mapping of merged graphs is returned in \p merged. */
-void mergeNfaCluster(const vector<NGHolder *> &cluster,
-                     const ReportManager *rm,
-                     map<NGHolder *, NGHolder *> &merged,
-                     const CompileContext &cc) {
+map<NGHolder *, NGHolder *> mergeNfaCluster(const vector<NGHolder *> &cluster,
+                                            const ReportManager *rm,
+                                            const CompileContext &cc) {
+    map<NGHolder *, NGHolder *> merged;
+
     if (cluster.size() < 2) {
-        return;
+        return merged;
     }
 
     DEBUG_PRINTF("new cluster, size %zu\n", cluster.size());
-    merged.clear();
 
     priority_queue<NfaMergeCandidateH> pq;
     buildNfaMergeQueue(cluster, &pq);
@@ -591,6 +589,8 @@ void mergeNfaCluster(const vector<NGHolder *> &cluster,
             }
         }
     }
+
+    return merged;
 }
 
 } // namespace ue2
