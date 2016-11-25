@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -90,8 +90,8 @@ struct mcclellan {
 
 static really_inline
 const char *findShermanState(UNUSED const struct mcclellan *m,
-                             const char *sherman_base_offset, u16 sherman_base,
-                             u16 s) {
+                             const char *sherman_base_offset, u32 sherman_base,
+                             u32 s) {
     const char *rv
         = sherman_base_offset + SHERMAN_FIXED_SIZE * (s - sherman_base);
     assert(rv < (const char *)m + m->length - sizeof(struct NFA));
@@ -102,7 +102,7 @@ const char *findShermanState(UNUSED const struct mcclellan *m,
 
 static really_inline
 char *findMutableShermanState(char *sherman_base_offset, u16 sherman_base,
-                              u16 s) {
+                              u32 s) {
     return sherman_base_offset + SHERMAN_FIXED_SIZE * (s - sherman_base);
 }
 
