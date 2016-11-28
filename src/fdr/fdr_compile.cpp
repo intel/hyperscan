@@ -545,34 +545,11 @@ FDRCompiler::build(pair<aligned_unique_ptr<u8>, size_t> &link) {
 } // namespace
 
 static
-size_t maxMaskLen(const vector<hwlmLiteral> &lits) {
-    size_t rv = 0;
-    for (const auto &lit : lits) {
-        rv = max(rv, lit.msk.size());
-    }
-    return rv;
-}
-
-static
-void setHistoryRequired(hwlmStreamingControl &stream_ctl,
-                        const vector<hwlmLiteral> &lits) {
-    size_t max_mask_len = maxMaskLen(lits);
-
-    // we want enough history to manage the longest literal and the longest
-    // mask.
-    stream_ctl.literal_history_required = max(maxLen(lits), max_mask_len) - 1;
-}
-
-static
-aligned_unique_ptr<FDR>
-fdrBuildTableInternal(const vector<hwlmLiteral> &lits, bool make_small,
-                      const target_t &target, const Grey &grey, u32 hint,
-                      hwlmStreamingControl *stream_control) {
+aligned_unique_ptr<FDR> fdrBuildTableInternal(const vector<hwlmLiteral> &lits,
+                                              bool make_small,
+                                              const target_t &target,
+                                              const Grey &grey, u32 hint) {
     pair<aligned_unique_ptr<u8>, size_t> link(nullptr, 0);
-
-    if (stream_control) {
-        setHistoryRequired(*stream_control, lits);
-    }
 
     DEBUG_PRINTF("cpu has %s\n", target.has_avx2() ? "avx2" : "no-avx2");
 
@@ -606,21 +583,18 @@ fdrBuildTableInternal(const vector<hwlmLiteral> &lits, bool make_small,
 
 aligned_unique_ptr<FDR> fdrBuildTable(const vector<hwlmLiteral> &lits,
                                       bool make_small, const target_t &target,
-                                      const Grey &grey,
-                                      hwlmStreamingControl *stream_control) {
-    return fdrBuildTableInternal(lits, make_small, target, grey, HINT_INVALID,
-                                 stream_control);
+                                      const Grey &grey) {
+    return fdrBuildTableInternal(lits, make_small, target, grey, HINT_INVALID);
 }
 
 #if !defined(RELEASE_BUILD)
 
-aligned_unique_ptr<FDR>
-fdrBuildTableHinted(const vector<hwlmLiteral> &lits, bool make_small, u32 hint,
-                    const target_t &target, const Grey &grey,
-                    hwlmStreamingControl *stream_control) {
+aligned_unique_ptr<FDR> fdrBuildTableHinted(const vector<hwlmLiteral> &lits,
+                                            bool make_small, u32 hint,
+                                            const target_t &target,
+                                            const Grey &grey) {
     pair<u8 *, size_t> link(nullptr, 0);
-    return fdrBuildTableInternal(lits, make_small, target, grey, hint,
-                                 stream_control);
+    return fdrBuildTableInternal(lits, make_small, target, grey, hint);
 }
 
 #endif

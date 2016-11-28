@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -502,6 +502,7 @@ void RoseInstrCheckLongLit::write(void *dest, RoseEngineBlob &blob,
     assert(!literal.empty());
     inst->lit_offset = blob.add(literal.c_str(), literal.size(), 1);
     inst->lit_length = verify_u32(literal.size());
+    inst->fail_jump = calc_jump(offset_map, this, target);
 }
 
 void RoseInstrCheckLongLitNocase::write(void *dest, RoseEngineBlob &blob,
@@ -511,6 +512,27 @@ void RoseInstrCheckLongLitNocase::write(void *dest, RoseEngineBlob &blob,
     assert(!literal.empty());
     inst->lit_offset = blob.add(literal.c_str(), literal.size(), 1);
     inst->lit_length = verify_u32(literal.size());
+    inst->fail_jump = calc_jump(offset_map, this, target);
+}
+
+void RoseInstrCheckMedLit::write(void *dest, RoseEngineBlob &blob,
+                                 const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    assert(!literal.empty());
+    inst->lit_offset = blob.add(literal.c_str(), literal.size(), 1);
+    inst->lit_length = verify_u32(literal.size());
+    inst->fail_jump = calc_jump(offset_map, this, target);
+}
+
+void RoseInstrCheckMedLitNocase::write(void *dest, RoseEngineBlob &blob,
+                                       const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    assert(!literal.empty());
+    inst->lit_offset = blob.add(literal.c_str(), literal.size(), 1);
+    inst->lit_length = verify_u32(literal.size());
+    inst->fail_jump = calc_jump(offset_map, this, target);
 }
 
 static

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,15 +44,21 @@ namespace ue2 {
 
 struct hwlmLiteral;
 
+struct MatcherProto {
+    std::vector<hwlmLiteral> lits;
+    size_t history_required = 0;
+};
+
 /**
- * \brief Build up a vector of literals for the given table.
+ * \brief Build up a vector of literals (and associated other data) for the
+ * given table.
  *
  * If max_offset is specified (and not ROSE_BOUND_INF), then literals that can
  * only lead to a pattern match after max_offset may be excluded.
  */
-std::vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
-                    rose_literal_table table, size_t max_len,
-                    u32 max_offset = ROSE_BOUND_INF);
+MatcherProto makeMatcherProto(const RoseBuildImpl &build,
+                              rose_literal_table table, size_t max_len,
+                              u32 max_offset = ROSE_BOUND_INF);
 
 aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
                                               size_t longLitLengthThreshold,

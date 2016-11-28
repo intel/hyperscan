@@ -1723,17 +1723,19 @@ public:
 };
 
 class RoseInstrCheckLongLit
-    : public RoseInstrBaseNoTargets<ROSE_INSTR_CHECK_LONG_LIT,
+    : public RoseInstrBaseOneTarget<ROSE_INSTR_CHECK_LONG_LIT,
                                     ROSE_STRUCT_CHECK_LONG_LIT,
                                     RoseInstrCheckLongLit> {
 public:
     std::string literal;
+    const RoseInstruction *target;
 
-    explicit RoseInstrCheckLongLit(std::string literal_in)
-        : literal(std::move(literal_in)) {}
+    RoseInstrCheckLongLit(std::string literal_in,
+                          const RoseInstruction *target_in)
+        : literal(std::move(literal_in)), target(target_in) {}
 
     bool operator==(const RoseInstrCheckLongLit &ri) const {
-        return literal == ri.literal;
+        return literal == ri.literal && target == ri.target;
     }
 
     size_t hash() const override {
@@ -1743,26 +1745,29 @@ public:
     void write(void *dest, RoseEngineBlob &blob,
                const OffsetMap &offset_map) const override;
 
-    bool equiv_to(const RoseInstrCheckLongLit &ri, const OffsetMap &,
-                  const OffsetMap &) const {
-        return literal == ri.literal;
+    bool equiv_to(const RoseInstrCheckLongLit &ri, const OffsetMap &offsets,
+                  const OffsetMap &other_offsets) const {
+        return literal == ri.literal &&
+               offsets.at(target) == other_offsets.at(ri.target);
     }
 };
 
 class RoseInstrCheckLongLitNocase
-    : public RoseInstrBaseNoTargets<ROSE_INSTR_CHECK_LONG_LIT_NOCASE,
+    : public RoseInstrBaseOneTarget<ROSE_INSTR_CHECK_LONG_LIT_NOCASE,
                                     ROSE_STRUCT_CHECK_LONG_LIT_NOCASE,
                                     RoseInstrCheckLongLitNocase> {
 public:
     std::string literal;
+    const RoseInstruction *target;
 
-    explicit RoseInstrCheckLongLitNocase(std::string literal_in)
-        : literal(std::move(literal_in)) {
+    RoseInstrCheckLongLitNocase(std::string literal_in,
+                                const RoseInstruction *target_in)
+        : literal(std::move(literal_in)), target(target_in) {
         upperString(literal);
     }
 
     bool operator==(const RoseInstrCheckLongLitNocase &ri) const {
-        return literal == ri.literal;
+        return literal == ri.literal && target == ri.target;
     }
 
     size_t hash() const override {
@@ -1772,9 +1777,74 @@ public:
     void write(void *dest, RoseEngineBlob &blob,
                const OffsetMap &offset_map) const override;
 
-    bool equiv_to(const RoseInstrCheckLongLitNocase &ri, const OffsetMap &,
-                  const OffsetMap &) const {
-        return literal == ri.literal;
+    bool equiv_to(const RoseInstrCheckLongLitNocase &ri,
+                  const OffsetMap &offsets,
+                  const OffsetMap &other_offsets) const {
+        return literal == ri.literal &&
+               offsets.at(target) == other_offsets.at(ri.target);
+    }
+};
+
+class RoseInstrCheckMedLit
+    : public RoseInstrBaseNoTargets<ROSE_INSTR_CHECK_MED_LIT,
+                                    ROSE_STRUCT_CHECK_MED_LIT,
+                                    RoseInstrCheckMedLit> {
+public:
+    std::string literal;
+    const RoseInstruction *target;
+
+    explicit RoseInstrCheckMedLit(std::string literal_in,
+                                  const RoseInstruction *target_in)
+        : literal(std::move(literal_in)), target(target_in) {}
+
+    bool operator==(const RoseInstrCheckMedLit &ri) const {
+        return literal == ri.literal && target == ri.target;
+    }
+
+    size_t hash() const override {
+        return hash_all(static_cast<int>(opcode), literal);
+    }
+
+    void write(void *dest, RoseEngineBlob &blob,
+               const OffsetMap &offset_map) const override;
+
+    bool equiv_to(const RoseInstrCheckMedLit &ri, const OffsetMap &offsets,
+                  const OffsetMap &other_offsets) const {
+        return literal == ri.literal &&
+               offsets.at(target) == other_offsets.at(ri.target);
+    }
+};
+
+class RoseInstrCheckMedLitNocase
+    : public RoseInstrBaseNoTargets<ROSE_INSTR_CHECK_MED_LIT_NOCASE,
+                                    ROSE_STRUCT_CHECK_MED_LIT_NOCASE,
+                                    RoseInstrCheckMedLitNocase> {
+public:
+    std::string literal;
+    const RoseInstruction *target;
+
+    explicit RoseInstrCheckMedLitNocase(std::string literal_in,
+                                        const RoseInstruction *target_in)
+        : literal(std::move(literal_in)), target(target_in) {
+        upperString(literal);
+    }
+
+    bool operator==(const RoseInstrCheckMedLitNocase &ri) const {
+        return literal == ri.literal && target == ri.target;
+    }
+
+    size_t hash() const override {
+        return hash_all(static_cast<int>(opcode), literal);
+    }
+
+    void write(void *dest, RoseEngineBlob &blob,
+               const OffsetMap &offset_map) const override;
+
+    bool equiv_to(const RoseInstrCheckMedLitNocase &ri,
+                  const OffsetMap &offsets,
+                  const OffsetMap &other_offsets) const {
+        return literal == ri.literal &&
+               offsets.at(target) == other_offsets.at(ri.target);
     }
 };
 

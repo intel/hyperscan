@@ -4353,13 +4353,18 @@ static
 void makeCheckLiteralInstruction(const RoseBuildImpl &build,
                                  const build_context &bc, u32 final_id,
                                  RoseProgram &program) {
+    assert(bc.longLitLengthThreshold > 0);
+
+    DEBUG_PRINTF("final_id %u, long lit threshold %zu\n", final_id,
+                 bc.longLitLengthThreshold);
+
     const auto &lits = build.final_id_to_literal.at(final_id);
     if (lits.size() != 1) {
-        // Long literals should not share a final_id.
+        // final_id sharing is only allowed for literals that are short enough
+        // to not require any additional confirm work.
         assert(all_of(begin(lits), end(lits), [&](u32 lit_id) {
             const rose_literal_id &lit = build.literals.right.at(lit_id);
-            return lit.table != ROSE_FLOATING ||
-                   lit.s.length() <= bc.longLitLengthThreshold;
+            return lit.s.length() <= ROSE_SHORT_LITERAL_LEN_MAX;
         }));
         return;
     }
@@ -4370,11 +4375,9 @@ void makeCheckLiteralInstruction(const RoseBuildImpl &build,
     }
 
     const rose_literal_id &lit = build.literals.right.at(lit_id);
-    if (lit.table != ROSE_FLOATING) {
-        return;
-    }
-    assert(bc.longLitLengthThreshold > 0);
-    if (lit.s.length() <= bc.longLitLengthThreshold) {
+
+    if (lit.s.length() <= ROSE_SHORT_LITERAL_LEN_MAX) {
+        DEBUG_PRINTF("lit short enough to not need confirm\n");
         return;
     }
 
@@ -4383,11 +4386,34 @@ void makeCheckLiteralInstruction(const RoseBuildImpl &build,
         throw ResourceLimitError();
     }
 
+    if (lit.s.length() <= bc.longLitLengthThreshold) {
+        DEBUG_PRINTF("is a medium-length literal\n");
+        const auto *end_inst = program.end_instruction();
+        unique_ptr<RoseInstruction> ri;
+        if (lit.s.any_nocase()) {
+            ri = make_unique<RoseInstrCheckMedLitNocase>(lit.s.get_string(),
+                                                         end_inst);
+        } else {
+            ri = make_unique<RoseInstrCheckMedLit>(lit.s.get_string(),
+                                                   end_inst);
+        }
+        program.add_before_end(move(ri));
+        return;
+    }
+
+    // Long literal support should only really be used for the floating table
+    // in streaming mode.
+    assert(lit.table == ROSE_FLOATING && build.cc.streaming);
+
+    DEBUG_PRINTF("is a long literal\n");
+
+    const auto *end_inst = program.end_instruction();
     unique_ptr<RoseInstruction> ri;
     if (lit.s.any_nocase()) {
-        ri = make_unique<RoseInstrCheckLongLitNocase>(lit.s.get_string());
+        ri = make_unique<RoseInstrCheckLongLitNocase>(lit.s.get_string(),
+                                                      end_inst);
     } else {
-        ri = make_unique<RoseInstrCheckLongLit>(lit.s.get_string());
+        ri = make_unique<RoseInstrCheckLongLit>(lit.s.get_string(), end_inst);
     }
     program.add_before_end(move(ri));
 }
@@ -4522,6 +4548,7 @@ u32 buildDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
     }
 
     RoseProgram program;
+    makeCheckLiteralInstruction(build, bc, final_id, program);
     makeCheckLitMaskInstruction(build, bc, final_id, program);
     makePushDelayedInstructions(build, final_id, program);
     assert(!program.empty());
@@ -4951,7 +4978,7 @@ u32 buildEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
 
 static
 void allocateFinalIdToSet(RoseBuildImpl &build, const set<u32> &lits,
-                          size_t longLitLengthThreshold, u32 *next_final_id) {
+                          u32 *next_final_id) {
     const auto &g = build.g;
     auto &literal_info = build.literal_info;
     auto &final_id_to_literal = build.final_id_to_literal;
@@ -4960,8 +4987,6 @@ void allocateFinalIdToSet(RoseBuildImpl &build, const set<u32> &lits,
      * if they share the same vertex set and trigger the same delayed literal
      * ids and squash the same roles and have the same group squashing
      * behaviour. Benefits literals cannot be merged. */
-
-    assert(longLitLengthThreshold > 0);
 
     for (u32 int_id : lits) {
         rose_literal_info &curr_info = literal_info[int_id];
@@ -4974,10 +4999,10 @@ void allocateFinalIdToSet(RoseBuildImpl &build, const set<u32> &lits,
             goto assign_new_id;
         }
 
-        // Long literals (that require CHECK_LONG_LIT instructions) cannot be
-        // merged.
-        if (lit.s.length() > longLitLengthThreshold) {
-            DEBUG_PRINTF("id %u is a long literal\n", int_id);
+        // Literals that need confirmation with CHECK_LONG_LIT or CHECK_MED_LIT
+        // cannot be merged.
+        if (lit.s.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
+            DEBUG_PRINTF("id %u needs lit confirm\n", int_id);
             goto assign_new_id;
         }
 
@@ -5001,7 +5026,7 @@ void allocateFinalIdToSet(RoseBuildImpl &build, const set<u32> &lits,
                 const auto &cand_info = literal_info[cand_id];
                 const auto &cand_lit = build.literals.right.at(cand_id);
 
-                if (cand_lit.s.length() > longLitLengthThreshold) {
+                if (cand_lit.s.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
                     continue;
                 }
 
@@ -5071,8 +5096,7 @@ bool isUsedLiteral(const RoseBuildImpl &build, u32 lit_id) {
 
 /** \brief Allocate final literal IDs for all literals.  */
 static
-void allocateFinalLiteralId(RoseBuildImpl &build,
-                            size_t longLitLengthThreshold) {
+void allocateFinalLiteralId(RoseBuildImpl &build) {
     set<u32> anch;
     set<u32> norm;
     set<u32> delay;
@@ -5106,15 +5130,15 @@ void allocateFinalLiteralId(RoseBuildImpl &build,
     }
 
     /* normal lits */
-    allocateFinalIdToSet(build, norm, longLitLengthThreshold, &next_final_id);
+    allocateFinalIdToSet(build, norm, &next_final_id);
 
     /* next anchored stuff */
     build.anchored_base_id = next_final_id;
-    allocateFinalIdToSet(build, anch, longLitLengthThreshold, &next_final_id);
+    allocateFinalIdToSet(build, anch, &next_final_id);
 
     /* delayed ids come last */
     build.delay_base_id = next_final_id;
-    allocateFinalIdToSet(build, delay, longLitLengthThreshold, &next_final_id);
+    allocateFinalIdToSet(build, delay, &next_final_id);
 }
 
 static
@@ -5188,10 +5212,11 @@ size_t calcLongLitThreshold(const RoseBuildImpl &build,
                             const size_t historyRequired) {
     const auto &cc = build.cc;
 
-    // In block mode, we should only use the long literal support for literals
-    // that cannot be handled by HWLM.
+    // In block mode, we don't have history, so we don't need long literal
+    // support and can just use "medium-length" literal confirm. TODO: we could
+    // specialize further and have a block mode literal confirm instruction.
     if (!cc.streaming) {
-        return HWLM_LITERAL_MAX_LEN;
+        return SIZE_MAX;
     }
 
     size_t longLitLengthThreshold = ROSE_LONG_LITERAL_THRESHOLD_MIN;
@@ -5227,7 +5252,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                                                          historyRequired);
     DEBUG_PRINTF("longLitLengthThreshold=%zu\n", longLitLengthThreshold);
 
-    allocateFinalLiteralId(*this, longLitLengthThreshold);
+    allocateFinalLiteralId(*this);
 
     auto anchored_dfas = buildAnchoredDfas(*this);
 

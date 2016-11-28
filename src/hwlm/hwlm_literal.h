@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,7 +42,7 @@
 namespace ue2 {
 
 /** \brief Max length of the literal passed to HWLM. */
-#define HWLM_LITERAL_MAX_LEN 255
+#define HWLM_LITERAL_MAX_LEN 8
 
 /** \brief Max length of the hwlmLiteral::msk and hwlmLiteral::cmp vectors. */
 #define HWLM_MASKLEN 8

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1409,6 +1409,68 @@ int roseCheckLongLiteral(const struct RoseEngine *t,
     return 1;
 }
 
+static rose_inline
+int roseCheckMediumLiteral(const struct RoseEngine *t,
+                           const struct hs_scratch *scratch, u64a end,
+                           u32 lit_offset, u32 lit_length, char nocase) {
+    const struct core_info *ci = &scratch->core_info;
+    const u8 *lit = getByOffset(t, lit_offset);
+
+    DEBUG_PRINTF("check lit at %llu, length %u\n", end, lit_length);
+    DEBUG_PRINTF("base buf_offset=%llu\n", ci->buf_offset);
+
+    if (end < lit_length) {
+        DEBUG_PRINTF("too short!\n");
+        return 0;
+    }
+
+    // If any portion of the literal matched in the current buffer, check it.
+    if (end > ci->buf_offset) {
+        u32 scan_len = MIN(end - ci->buf_offset, lit_length);
+        u64a scan_start = end - ci->buf_offset - scan_len;
+        DEBUG_PRINTF("checking suffix (%u bytes) in buf[%llu:%llu]\n", scan_len,
+                     scan_start, end);
+        if (cmpForward(ci->buf + scan_start, lit + lit_length - scan_len,
+                       scan_len, nocase)) {
+            DEBUG_PRINTF("cmp of suffix failed\n");
+            return 0;
+        }
+    }
+
+    // If the entirety of the literal was in the current block, we are done.
+    if (end - lit_length >= ci->buf_offset) {
+        DEBUG_PRINTF("literal confirmed in current block\n");
+        return 1;
+    }
+
+    // We still have a prefix which we must test against the history buffer.
+    assert(t->mode != HS_MODE_BLOCK);
+
+    u64a lit_start_offset = end - lit_length;
+    u32 prefix_len = MIN(lit_length, ci->buf_offset - lit_start_offset);
+    u32 hist_rewind = ci->buf_offset - lit_start_offset;
+    DEBUG_PRINTF("hlen=%zu, hist_rewind=%u\n", ci->hlen, hist_rewind);
+
+    // History length check required for confirm in the EOD and delayed
+    // rebuild paths.
+    if (hist_rewind > ci->hlen) {
+        DEBUG_PRINTF("not enough history\n");
+        return 0;
+    }
+
+    DEBUG_PRINTF("check prefix len=%u from hist (len %zu, rewind %u)\n",
+                 prefix_len, ci->hlen, hist_rewind);
+    assert(hist_rewind <= ci->hlen);
+    if (cmpForward(ci->hbuf + ci->hlen - hist_rewind, lit, prefix_len,
+                   nocase)) {
+        DEBUG_PRINTF("cmp of prefix failed\n");
+        return 0;
+    }
+
+    DEBUG_PRINTF("cmp succeeded\n");
+    return 1;
+}
+
 static
 void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
                     const char from_mpv) {
@@ -2060,8 +2122,10 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                 const char nocase = 0;
                 if (!roseCheckLongLiteral(t, scratch, end, ri->lit_offset,
                                           ri->lit_length, nocase)) {
-                    DEBUG_PRINTF("halt: failed long lit check\n");
-                    return HWLM_CONTINUE_MATCHING;
+                    DEBUG_PRINTF("failed long lit check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
                 }
             }
             PROGRAM_NEXT_INSTRUCTION
@@ -2070,8 +2134,34 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                 const char nocase = 1;
                 if (!roseCheckLongLiteral(t, scratch, end, ri->lit_offset,
                                           ri->lit_length, nocase)) {
-                    DEBUG_PRINTF("halt: failed nocase long lit check\n");
-                    return HWLM_CONTINUE_MATCHING;
+                    DEBUG_PRINTF("failed nocase long lit check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_MED_LIT) {
+                const char nocase = 0;
+                if (!roseCheckMediumLiteral(t, scratch, end, ri->lit_offset,
+                                            ri->lit_length, nocase)) {
+                    DEBUG_PRINTF("failed lit check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_MED_LIT_NOCASE) {
+                const char nocase = 1;
+                if (!roseCheckMediumLiteral(t, scratch, end, ri->lit_offset,
+                                            ri->lit_length, nocase)) {
+                    DEBUG_PRINTF("failed long lit check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
                 }
             }
             PROGRAM_NEXT_INSTRUCTION

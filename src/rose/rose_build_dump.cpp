@@ -35,7 +35,7 @@
 #include "rose/rose_dump.h"
 #include "rose_internal.h"
 #include "ue2common.h"
-#include "hwlm/hwlm_build.h"
+#include "hwlm/hwlm_literal.h"
 #include "nfa/castlecompile.h"
 #include "nfa/nfa_internal.h"
 #include "nfagraph/ng_dump.h"
@@ -505,24 +505,22 @@ void dumpRoseTestLiterals(const RoseBuildImpl &build, const string &base) {
     size_t longLitLengthThreshold =
         calcLongLitThreshold(build, historyRequired);
 
-    auto lits = fillHamsterLiteralList(build, ROSE_ANCHORED,
-                                       longLitLengthThreshold);
-    dumpTestLiterals(base + "rose_anchored_test_literals.txt", lits);
+    auto mp = makeMatcherProto(build, ROSE_ANCHORED, longLitLengthThreshold);
+    dumpTestLiterals(base + "rose_anchored_test_literals.txt", mp.lits);
 
-    lits = fillHamsterLiteralList(build, ROSE_FLOATING, longLitLengthThreshold);
-    dumpTestLiterals(base + "rose_float_test_literals.txt", lits);
+    mp = makeMatcherProto(build, ROSE_FLOATING, longLitLengthThreshold);
+    dumpTestLiterals(base + "rose_float_test_literals.txt", mp.lits);
 
-    lits = fillHamsterLiteralList(build, ROSE_EOD_ANCHORED,
-                                  build.ematcher_region_size);
-    dumpTestLiterals(base + "rose_eod_test_literals.txt", lits);
+    mp = makeMatcherProto(build, ROSE_EOD_ANCHORED, build.ematcher_region_size);
+    dumpTestLiterals(base + "rose_eod_test_literals.txt", mp.lits);
 
     if (!build.cc.streaming) {
-        lits = fillHamsterLiteralList(build, ROSE_FLOATING,
+        mp = makeMatcherProto(build, ROSE_FLOATING, ROSE_SMALL_BLOCK_LEN,
+                              ROSE_SMALL_BLOCK_LEN);
+        auto mp2 = makeMatcherProto(build, ROSE_ANCHORED_SMALL_BLOCK,
                                     ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
-        auto lits2 = fillHamsterLiteralList(build, ROSE_ANCHORED_SMALL_BLOCK,
-                                    ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
-        lits.insert(end(lits), begin(lits2), end(lits2));
-        dumpTestLiterals(base + "rose_smallblock_test_literals.txt", lits);
+        mp.lits.insert(end(mp.lits), begin(mp2.lits), end(mp2.lits));
+        dumpTestLiterals(base + "rose_smallblock_test_literals.txt", mp.lits);
     }
 }
 

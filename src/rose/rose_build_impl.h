@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -57,6 +57,17 @@ namespace ue2 {
 #define ROSE_GROUPS_MAX 64
 
 #define ROSE_LONG_LITERAL_THRESHOLD_MIN 33
+
+/**
+ * \brief The largest allowable "short" literal fragment which can be given to
+ * a literal matcher directly.
+ *
+ * Literals longer than this will be truncated to their suffix and confirmed in
+ * the Rose interpreter, either as "medium length" literals which can be
+ * confirmed from history, or "long literals" which make use of the streaming
+ * table support.
+ */
+#define ROSE_SHORT_LITERAL_LEN_MAX 8
 
 struct BoundaryReports;
 struct CastleProto;

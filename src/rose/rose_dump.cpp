@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -617,6 +617,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
                 const char *lit = (const char *)t + ri->lit_offset;
                 os << "    literal: \""
                    << escapeString(string(lit, ri->lit_length)) << "\"" << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 
@@ -626,6 +627,27 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
                 const char *lit = (const char *)t + ri->lit_offset;
                 os << "    literal: \""
                    << escapeString(string(lit, ri->lit_length)) << "\"" << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_MED_LIT) {
+                os << "    lit_offset " << ri->lit_offset << endl;
+                os << "    lit_length " << ri->lit_length << endl;
+                const char *lit = (const char *)t + ri->lit_offset;
+                os << "    literal: \""
+                   << escapeString(string(lit, ri->lit_length)) << "\"" << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_MED_LIT_NOCASE) {
+                os << "    lit_offset " << ri->lit_offset << endl;
+                os << "    lit_length " << ri->lit_length << endl;
+                const char *lit = (const char *)t + ri->lit_offset;
+                os << "    literal: \""
+                   << escapeString(string(lit, ri->lit_length)) << "\"" << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 

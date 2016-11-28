@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,7 @@
 #include "hwlm.h"
 #include "hwlm_build.h"
 #include "hwlm_internal.h"
+#include "hwlm_literal.h"
 #include "noodle_engine.h"
 #include "noodle_build.h"
 #include "scratch.h"
@@ -512,7 +513,6 @@ bool everyoneHasGroups(const vector<hwlmLiteral> &lits) {
 
 static
 bool isNoodleable(const vector<hwlmLiteral> &lits,
-                  const hwlmStreamingControl *stream_control,
                   const CompileContext &cc) {
     if (!cc.grey.allowNoodle) {
         return false;
@@ -521,19 +521,6 @@ bool isNoodleable(const vector<hwlmLiteral> &lits,
     if (lits.size() != 1) {
         DEBUG_PRINTF("too many literals for noodle\n");
         return false;
-    }
-
-    if (stream_control) { // nullptr if in block mode
-        if (lits.front().s.length() > stream_control->history_max + 1) {
-            DEBUG_PRINTF("length of %zu too long for history max %zu\n",
-                         lits.front().s.length(),
-                         stream_control->history_max);
-            return false;
-        }
-        if (2 * lits.front().s.length() - 2 > FDR_TEMP_BUF_SIZE) {
-            assert(0);
-            return false;
-        }
     }
 
     if (!lits.front().msk.empty()) {
@@ -545,21 +532,10 @@ bool isNoodleable(const vector<hwlmLiteral> &lits,
 }
 
 aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
-                                   hwlmStreamingControl *stream_control,
                                    bool make_small, const CompileContext &cc,
                                    hwlm_group_t expected_groups) {
     assert(!lits.empty());
     dumpLits(lits);
-
-    if (stream_control) {
-        assert(stream_control->history_min <= stream_control->history_max);
-
-        // We should not have been passed any literals that are too long to
-        // match with a maximally-sized history buffer.
-        assert(all_of(begin(lits), end(lits), [&](const hwlmLiteral &lit) {
-            return lit.s.length() <= stream_control->history_max + 1;
-        }));
-    }
 
     // Check that we haven't exceeded the maximum number of literals.
     if (lits.size() > cc.grey.limitLiteralCount) {
@@ -595,7 +571,7 @@ aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
 
     assert(everyoneHasGroups(lits));
 
-    if (isNoodleable(lits, stream_control, cc)) {
+    if (isNoodleable(lits, cc)) {
         DEBUG_PRINTF("build noodle table\n");
         engType = HWLM_ENGINE_NOOD;
         const hwlmLiteral &lit = lits.front();
@@ -603,19 +579,11 @@ aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
         if (noodle) {
             engSize = noodSize(noodle.get());
         }
-        if (stream_control) {
-            // For now, a single literal still goes to noodle and asks
-            // for a great big history
-            stream_control->literal_history_required = lit.s.length() - 1;
-            assert(stream_control->literal_history_required
-                   <= stream_control->history_max);
-        }
         eng = move(noodle);
     } else {
         DEBUG_PRINTF("building a new deal\n");
         engType = HWLM_ENGINE_FDR;
-        auto fdr = fdrBuildTable(lits, make_small, cc.target_info, cc.grey,
-                            stream_control);
+        auto fdr = fdrBuildTable(lits, make_small, cc.target_info, cc.grey);
         if (fdr) {
             engSize = fdrSize(fdr.get());
         }
@@ -638,14 +606,6 @@ aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
 
     if (engType == HWLM_ENGINE_FDR && cc.grey.hamsterAccelForward) {
         buildForwardAccel(h.get(), lits, expected_groups);
-    }
-
-    if (stream_control) {
-        DEBUG_PRINTF("requires %zu (of max %zu) bytes of history\n",
-                     stream_control->literal_history_required,
-                     stream_control->history_max);
-        assert(stream_control->literal_history_required
-                    <= stream_control->history_max);
     }
 
     return h;

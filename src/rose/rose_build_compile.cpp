@@ -123,7 +123,7 @@ void RoseBuildImpl::handleMixedSensitivity(void) {
         // with a CHECK_LONG_LIT instruction and need unique final_ids.
         // TODO: we could allow explosion for literals where the prefixes
         // covered by CHECK_LONG_LIT are identical.
-        if (lit.s.length() <= ROSE_LONG_LITERAL_THRESHOLD_MIN &&
+        if (lit.s.length() <= ROSE_SHORT_LITERAL_LEN_MAX &&
             limited_explosion(lit.s)) {
             DEBUG_PRINTF("need to explode existing string '%s'\n",
                          dumpString(lit.s).c_str());

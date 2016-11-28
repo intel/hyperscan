@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -129,7 +129,19 @@ enum RoseInstructionCode {
      */
     ROSE_INSTR_CHECK_LONG_LIT_NOCASE,
 
-    LAST_ROSE_INSTRUCTION = ROSE_INSTR_CHECK_LONG_LIT_NOCASE //!< Sentinel.
+    /**
+     * \brief Confirm a case-sensitive "medium length" literal at the current
+     * offset. In streaming mode, this will check history if needed.
+     */
+    ROSE_INSTR_CHECK_MED_LIT,
+
+    /**
+     * \brief Confirm a case-insensitive "medium length" literal at the current
+     * offset. In streaming mode, this will check history if needed.
+     */
+    ROSE_INSTR_CHECK_MED_LIT_NOCASE,
+
+    LAST_ROSE_INSTRUCTION = ROSE_INSTR_CHECK_MED_LIT_NOCASE //!< Sentinel.
 };
 
 struct ROSE_STRUCT_END {
@@ -477,18 +489,32 @@ struct ROSE_STRUCT_MATCHER_EOD {
     u8 code; //!< From enum RoseInstructionCode.
 };
 
-/** Note: check failure will halt program. */
 struct ROSE_STRUCT_CHECK_LONG_LIT {
     u8 code; //!< From enum RoseInstructionCode.
     u32 lit_offset; //!< Offset of literal string.
     u32 lit_length; //!< Length of literal string.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
-/** Note: check failure will halt program. */
 struct ROSE_STRUCT_CHECK_LONG_LIT_NOCASE {
     u8 code; //!< From enum RoseInstructionCode.
     u32 lit_offset; //!< Offset of literal string.
     u32 lit_length; //!< Length of literal string.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_MED_LIT {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 lit_offset; //!< Offset of literal string.
+    u32 lit_length; //!< Length of literal string.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_MED_LIT_NOCASE {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 lit_offset; //!< Offset of literal string.
+    u32 lit_length; //!< Length of literal string.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
 #endif // ROSE_ROSE_PROGRAM_H

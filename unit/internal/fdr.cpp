@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -96,15 +96,6 @@ struct match {
 };
 
 extern "C" {
-static
-hwlmcb_rv_t countCallback(UNUSED size_t start, UNUSED size_t end, u32,
-                          void *ctxt) {
-    if (ctxt) {
-        ++*(u32 *)ctxt;
-    }
-
-    return HWLM_CONTINUE_MATCHING;
-}
 
 static
 hwlmcb_rv_t decentCallback(size_t start, size_t end, u32 id, void *ctxt) {
@@ -228,42 +219,6 @@ TEST_P(FDRp, MultiLocation) {
         ASSERT_EQ(1U, matches.size());
         EXPECT_EQ(match(i, i+2, 1), matches[0]);
         memset(data.data() + i, 0, 3);
-    }
-}
-
-TEST_P(FDRp, Flood) {
-    const u32 hint = GetParam();
-    SCOPED_TRACE(hint);
-
-    vector<hwlmLiteral> lits;
-    lits.push_back(hwlmLiteral("aaaa", 0, 1));
-    lits.push_back(hwlmLiteral("aaaaaaaa", 0, 2));
-    lits.push_back(hwlmLiteral("baaaaaaaa", 0, 3));
-    lits.push_back(hwlmLiteral("aaaaaaaab", 0, 4));
-
-    auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
-    CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
-
-    const u32 testSize = 1024;
-    vector<u8> data(testSize, 'a');
-
-    vector<match> matches;
-    fdrExec(fdr.get(), data.data(), testSize, 0, decentCallback, &matches,
-            HWLM_ALL_GROUPS);
-    ASSERT_EQ(testSize - 3 + testSize - 7, matches.size());
-    EXPECT_EQ(match(0, 3, 1), matches[0]);
-    EXPECT_EQ(match(1, 4, 1), matches[1]);
-    EXPECT_EQ(match(2, 5, 1), matches[2]);
-    EXPECT_EQ(match(3, 6, 1), matches[3]);
-
-    u32 currentMatch = 4;
-    for (u32 i = 7; i < testSize; i++, currentMatch += 2) {
-        EXPECT_TRUE(
-          (match(i - 3, i, 1) == matches[currentMatch] &&
-           match(i - 7, i, 2) == matches[currentMatch+1]) ||
-          (match(i - 7, i, 2) == matches[currentMatch+1] &&
-           match(i - 3, i, 1) == matches[currentMatch])
-        );
     }
 }
 
@@ -414,36 +369,6 @@ TEST_P(FDRp, SmallStreaming2) {
     ASSERT_EQ(expected.size(), matches.size());
 }
 
-TEST_P(FDRp, LongLiteral) {
-    const u32 hint = GetParam();
-    SCOPED_TRACE(hint);
-    size_t sz;
-    const u8 *data;
-    vector<hwlmLiteral> lits;
-
-    string alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    string alpha4 = alpha+alpha+alpha+alpha;
-    lits.push_back(hwlmLiteral(alpha4.c_str(), 0,10));
-
-    auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
-    CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
-
-    u32 count = 0;
-
-    data = (const u8 *)alpha4.c_str();
-    sz = alpha4.size();
-
-    fdrExec(fdr.get(), data, sz, 0, countCallback, &count, HWLM_ALL_GROUPS);
-    EXPECT_EQ(1U, count);
-    count = 0;
-    fdrExec(fdr.get(), data, sz - 1, 0, countCallback, &count, HWLM_ALL_GROUPS);
-    EXPECT_EQ(0U, count);
-    count = 0;
-    fdrExec(fdr.get(), data + 1, sz - 1, 0, countCallback, &count,
-            HWLM_ALL_GROUPS);
-    EXPECT_EQ(0U, count);
-}
-
 TEST_P(FDRp, moveByteStream) {
     const u32 hint = GetParam();
     SCOPED_TRACE(hint);
@@ -491,7 +416,7 @@ TEST_P(FDRp, Stream1) {
 
     vector<hwlmLiteral> lits;
     lits.push_back(hwlmLiteral("f", 0, 0));
-    lits.push_back(hwlmLiteral("longsigislong", 0, 1));
+    lits.push_back(hwlmLiteral("literal", 0, 1));
 
     auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
@@ -514,7 +439,7 @@ INSTANTIATE_TEST_CASE_P(FDR, FDRp, ValuesIn(getValidFdrEngines()));
 
 typedef struct {
     string pattern;
-    unsigned char alien;
+    unsigned char alien; // character not present in pattern
 } pattern_alien_t;
 
 // gtest helper
@@ -529,7 +454,6 @@ class FDRpp : public TestWithParam<tuple<u32, pattern_alien_t>> {};
 // not happen if literal is partially (from 1 character up to full literal
 // length) is out of searched buffer - "too early" and "too late" conditions
 TEST_P(FDRpp, AlignAndTooEarly) {
-
     const size_t buf_alignment = 32;
     // Buffer should be big enough to hold two instances of matching literals
     // (up to 64 bytes each) and room for offset (up to 32 bytes)
@@ -538,7 +462,7 @@ TEST_P(FDRpp, AlignAndTooEarly) {
     const u32 hint = get<0>(GetParam());
     SCOPED_TRACE(hint);
 
-    // pattern which is used to generate literals of variable size - from 1 to 64
+    // pattern which is used to generate literals of variable size - from 1 to 8
     const string &pattern = get<1>(GetParam()).pattern;
     const size_t patLen = pattern.size();
     const unsigned char alien = get<1>(GetParam()).alien;
@@ -551,7 +475,7 @@ TEST_P(FDRpp, AlignAndTooEarly) {
     vector<hwlmLiteral> lits;
     for (size_t litLen = 1; litLen <= patLen; litLen++) {
 
-        // building literal from pattern substring of variable length 1-64
+        // building literal from pattern substring of variable length 1-patLen
         lits.push_back(hwlmLiteral(string(pattern, 0, litLen), 0, 0));
         auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(),
                                        Grey());
@@ -596,9 +520,9 @@ TEST_P(FDRpp, AlignAndTooEarly) {
 }
 
 static const pattern_alien_t test_pattern[] = {
-        {"abaabaaabaaabbaaaaabaaaaabbaaaaaaabaabbaaaabaaaaaaaabbbbaaaaaaab", 'x'},
-        {"zzzyyzyzyyyyzyyyyyzzzzyyyyyyyyzyyyyyyyzzzzzyzzzzzzzzzyzzyzzzzzzz", (unsigned char)'\x99'},
-        {"abcdef lafjk askldfjklf alfqwei9rui 'gldgkjnooiuswfs138746453583", '\0'}
+        {"abaabaaa", 'x'},
+        {"zzzyyzyz", (unsigned char)'\x99'},
+        {"abcdef l", '\0'}
 };
 
 INSTANTIATE_TEST_CASE_P(FDR, FDRpp, Combine(ValuesIn(getValidFdrEngines()),
