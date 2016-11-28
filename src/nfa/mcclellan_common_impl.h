@@ -46,7 +46,7 @@ static really_inline
 u32 mcclellanEnableStarts(const struct mcclellan *m, u32 s) {
     const struct mstate_aux *aux = get_aux(m, s);
 
-    DEBUG_PRINTF("enabling starts %hu->%hu\n", s, aux->top);
+    DEBUG_PRINTF("enabling starts %u->%hu\n", s, aux->top);
     return aux->top;
 }
 

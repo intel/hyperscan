@@ -145,7 +145,7 @@ u32 doNormal16(const struct mcclellan *m, const u8 **c_inout, const u8 *end,
         } else {
             const char *sherman_state
                 = findShermanState(m, sherman_base_offset, sherman_base, s);
-            DEBUG_PRINTF("doing sherman (%hu)\n", s);
+            DEBUG_PRINTF("doing sherman (%u)\n", s);
             s = doSherman16(sherman_state, cprime, succ_table, as);
         }
 
@@ -190,7 +190,7 @@ char mcclellanExec16_i(const struct mcclellan *m, u32 *state, const u8 *buf,
     u32 cached_accept_id = 0;
     u32 cached_accept_state = 0;
 
-    DEBUG_PRINTF("s: %hu, len %zu\n", s, len);
+    DEBUG_PRINTF("s: %u, len %zu\n", s, len);
 
     const u8 *min_accel_offset = c;
     if (!m->has_accel || len < ACCEL_MIN_LEN) {
@@ -354,7 +354,7 @@ u32 doNormal8(const struct mcclellan *m, const u8 **c_inout, const u8 *end,
                      ourisprint(*c) ? *c : '?', cprime);
         s = succ_table[(s << as) + cprime];
 
-        DEBUG_PRINTF("s: %hhu\n", s);
+        DEBUG_PRINTF("s: %u\n", s);
         c++;
         if (do_accel) {
             if (s >= accel_limit) {
@@ -621,7 +621,7 @@ char nfaExecMcClellan16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
         if (mode == STOP_AT_MATCH && final_look != cur_buf + local_ep) {
             DEBUG_PRINTF("this is as far as we go\n");
             assert(q->cur);
-            DEBUG_PRINTF("state %hu final_look %zd\n", s, final_look - cur_buf);
+            DEBUG_PRINTF("state %u final_look %zd\n", s, final_look - cur_buf);
             q->cur--;
             q->items[q->cur].type = MQE_START;
             q->items[q->cur].location = final_look - cur_buf + 1; /* due to
@@ -930,7 +930,7 @@ char nfaExecMcClellan16_reportCurrent(const struct NFA *n, struct mq *q) {
     u8 single = m->flags & MCCLELLAN_FLAG_SINGLE;
     u64a offset = q_cur_offset(q);
     assert(q_cur_type(q) == MQE_START);
-    DEBUG_PRINTF("state %hu\n", s);
+    DEBUG_PRINTF("state %u\n", s);
     assert(s);
 
     if (aux->accept) {
