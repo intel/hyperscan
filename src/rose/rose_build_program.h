@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1729,7 +1729,7 @@ class RoseInstrCheckLongLit
 public:
     std::string literal;
 
-    RoseInstrCheckLongLit(std::string literal_in)
+    explicit RoseInstrCheckLongLit(std::string literal_in)
         : literal(std::move(literal_in)) {}
 
     bool operator==(const RoseInstrCheckLongLit &ri) const {
@@ -1756,7 +1756,7 @@ class RoseInstrCheckLongLitNocase
 public:
     std::string literal;
 
-    RoseInstrCheckLongLitNocase(std::string literal_in)
+    explicit RoseInstrCheckLongLitNocase(std::string literal_in)
         : literal(std::move(literal_in)) {
         upperString(literal);
     }
