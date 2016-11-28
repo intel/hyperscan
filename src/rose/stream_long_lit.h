@@ -111,7 +111,7 @@ void loadLongLiteralState(const struct RoseEngine *t, char *state,
     }
 
     // If we don't have any long literals in play, these values must point to
-    // the real history buffer so that CHECK_LITERAL instructions examine the
+    // the real history buffer so that CHECK_LONG_LIT instructions examine the
     // history buffer.
     scratch->tctxt.ll_buf = scratch->core_info.hbuf;
     scratch->tctxt.ll_len = scratch->core_info.hlen;

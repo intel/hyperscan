@@ -216,7 +216,7 @@ struct build_context : boost::noncopyable {
      * written to the engine_blob. */
     vector<u32> litPrograms;
 
-    /** \brief List of long literals (ones with CHECK_LITERAL instructions)
+    /** \brief List of long literals (ones with CHECK_LONG_LIT instructions)
      * that need hash table support. */
     vector<ue2_case_string> longLiterals;
 
@@ -2595,14 +2595,14 @@ void recordLongLiterals(build_context &bc, const RoseProgram &program) {
     for (const auto &ri : program) {
         if (const auto *ri_check =
                 dynamic_cast<const RoseInstrCheckLongLit *>(ri.get())) {
-            DEBUG_PRINTF("found CHECK_LITERAL for string '%s'\n",
+            DEBUG_PRINTF("found CHECK_LONG_LIT for string '%s'\n",
                          escapeString(ri_check->literal).c_str());
             bc.longLiterals.emplace_back(ri_check->literal, false);
             continue;
         }
         if (const auto *ri_check =
                 dynamic_cast<const RoseInstrCheckLongLitNocase *>(ri.get())) {
-            DEBUG_PRINTF("found CHECK_LITERAL_NOCASE for string '%s'\n",
+            DEBUG_PRINTF("found CHECK_LONG_LIT_NOCASE for string '%s'\n",
                          escapeString(ri_check->literal).c_str());
             bc.longLiterals.emplace_back(ri_check->literal, true);
         }
@@ -4974,7 +4974,7 @@ void allocateFinalIdToSet(RoseBuildImpl &build, const set<u32> &lits,
             goto assign_new_id;
         }
 
-        // Long literals (that require CHECK_LITERAL instructions) cannot be
+        // Long literals (that require CHECK_LONG_LIT instructions) cannot be
         // merged.
         if (lit.s.length() > longLitLengthThreshold) {
             DEBUG_PRINTF("id %u is a long literal\n", int_id);
