@@ -70,9 +70,6 @@
 /* Define if the sqlite3_open_v2 call is available */
 #cmakedefine HAVE_SQLITE3_OPEN_V2
 
-/* Define to 1 if you have the <tmmintrin.h> header file. */
-#cmakedefine HAVE_TMMINTRIN_H
-
 /* Define to 1 if you have the <unistd.h> header file. */
 #cmakedefine HAVE_UNISTD_H
 
