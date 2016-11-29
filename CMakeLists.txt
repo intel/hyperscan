@@ -1049,7 +1049,7 @@ if (NOT FAT_RUNTIME)
         add_library(hs_exec OBJECT ${hs_exec_common_SRCS} ${hs_exec_SRCS})
     endif()
 
-    add_library(hs_runtime STATIC src/hs_version.c $<TARGET_OBJECTS:hs_exec>)
+    add_library(hs_runtime STATIC src/hs_version.c src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec>)
     set_target_properties(hs_runtime PROPERTIES LINKER_LANGUAGE C)
 
     if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
@@ -1131,9 +1131,15 @@ endif()
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
     if (NOT FAT_RUNTIME)
-        add_library(hs_runtime_shared SHARED src/hs_version.c $<TARGET_OBJECTS:hs_exec_shared>)
-    else()
-        add_library(hs_runtime_shared SHARED src/hs_version.c $<TARGET_OBJECTS:hs_exec_common_shared> $<TARGET_OBJECTS:hs_exec_shared_core2> $<TARGET_OBJECTS:hs_exec_shared_corei7> $<TARGET_OBJECTS:hs_exec_shared_avx2>)
+        add_library(hs_runtime_shared SHARED src/hs_version.c src/hs_valid_platform.c
+$<TARGET_OBJECTS:hs_exec_shared>)
+            else()
+        add_library(hs_runtime_shared SHARED src/hs_version.c
+            src/hs_valid_platform.c
+            $<TARGET_OBJECTS:hs_exec_common_shared>
+            $<TARGET_OBJECTS:hs_exec_shared_core2>
+            $<TARGET_OBJECTS:hs_exec_shared_corei7>
+            $<TARGET_OBJECTS:hs_exec_shared_avx2>)
     endif()
     set_target_properties(hs_runtime_shared PROPERTIES
         VERSION ${LIB_VERSION}
@@ -1148,10 +1154,12 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
 endif()
 
 if (NOT FAT_RUNTIME)
-    add_library(hs STATIC ${hs_SRCS} $<TARGET_OBJECTS:hs_exec>)
+    add_library(hs STATIC ${hs_SRCS} src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec>)
 else()
-# we want the static lib for testing
-add_library(hs STATIC src/hs_version.c ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_common>  $<TARGET_OBJECTS:hs_exec_core2> $<TARGET_OBJECTS:hs_exec_corei7> $<TARGET_OBJECTS:hs_exec_avx2>)
+    # we want the static lib for testing
+    add_library(hs STATIC src/hs_version.c src/hs_valid_platform.c
+        ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_common> $<TARGET_OBJECTS:hs_exec_core2>
+        $<TARGET_OBJECTS:hs_exec_corei7> $<TARGET_OBJECTS:hs_exec_avx2>)
 endif()
 
 add_dependencies(hs ragel_Parser)
@@ -1162,9 +1170,14 @@ endif()
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
     if (NOT FAT_RUNTIME)
-        add_library(hs_shared SHARED src/hs_version.c ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_shared>)
+        add_library(hs_shared SHARED src/hs_version.c src/hs_valid_platform.c
+            ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_shared>)
     else()
-        add_library(hs_shared SHARED src/hs_version.c ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_common_shared> $<TARGET_OBJECTS:hs_exec_shared_core2> $<TARGET_OBJECTS:hs_exec_shared_corei7> $<TARGET_OBJECTS:hs_exec_shared_avx2>)
+        add_library(hs_shared SHARED src/hs_version.c src/hs_valid_platform.c
+            ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_common_shared>
+            $<TARGET_OBJECTS:hs_exec_shared_core2>
+            $<TARGET_OBJECTS:hs_exec_shared_corei7>
+            $<TARGET_OBJECTS:hs_exec_shared_avx2>)
     endif()
     add_dependencies(hs_shared ragel_Parser)
     set_target_properties(hs_shared PROPERTIES

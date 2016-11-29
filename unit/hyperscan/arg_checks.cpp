@@ -84,6 +84,12 @@ void breakDatabaseBytecode(hs_database *db) {
     *bytecode += 3;
 }
 
+// Check that hs_valid_platform says we can run here
+TEST(HyperscanArgChecks, ValidPlatform) {
+    hs_error_t error = hs_valid_platform();
+    ASSERT_EQ(HS_SUCCESS, error) << "hs_valid_platform should return zero";
+}
+
 // Check that hs_version gives us a reasonable string back
 TEST(HyperscanArgChecks, Version) {
     const char *version = hs_version();
