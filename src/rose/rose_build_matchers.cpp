@@ -34,6 +34,7 @@
 #include "rose_build_matchers.h"
 
 #include "rose_build_impl.h"
+#include "rose_build_lit_accel.h"
 #include "rose_build_width.h"
 #include "hwlm/hwlm_build.h"
 #include "hwlm/hwlm_literal.h"
@@ -801,6 +802,8 @@ buildFloatingMatcher(const RoseBuildImpl &build, size_t longLitLengthThreshold,
         throw CompileError("Unable to generate bytecode.");
     }
 
+    buildForwardAccel(hwlm.get(), mp.lits, build.getInitialGroups());
+
     if (build.cc.streaming) {
         DEBUG_PRINTF("history_required=%zu\n", mp.history_required);
         assert(mp.history_required <= build.cc.grey.maxHistoryAvailable);
@@ -866,6 +869,8 @@ buildSmallBlockMatcher(const RoseBuildImpl &build,
         throw CompileError("Unable to generate bytecode.");
     }
 
+    buildForwardAccel(hwlm.get(), mp.lits, build.getInitialGroups());
+
     *sbsize = hwlmSize(hwlm.get());
     assert(*sbsize);
     DEBUG_PRINTF("built small block literal table size %zu bytes\n", *sbsize);
@@ -892,6 +897,8 @@ buildEodAnchoredMatcher(const RoseBuildImpl &build,
     if (!hwlm) {
         throw CompileError("Unable to generate bytecode.");
     }
+
+    buildForwardAccel(hwlm.get(), mp.lits, build.getInitialGroups());
 
     *esize = hwlmSize(hwlm.get());
     assert(*esize);
