@@ -70,6 +70,8 @@ enum NFAEngineType {
     CASTLE_NFA,         /**< magic pseudo nfa */
     SHENG_NFA,          /**< magic pseudo nfa */
     TAMARAMA_NFA,       /**< magic nfa container */
+    MCSHENG_NFA_8,      /**< magic pseudo nfa */
+    MCSHENG_NFA_16,     /**< magic pseudo nfa */
     /** \brief bogus NFA - not used */
     INVALID_NFA
 };
@@ -143,6 +145,12 @@ static really_inline int isMcClellanType(u8 t) {
     return t == MCCLELLAN_NFA_8 || t == MCCLELLAN_NFA_16;
 }
 
+/** \brief True if the given type (from NFA::type) is a Sheng-McClellan hybrid
+ * DFA. */
+static really_inline int isShengMcClellanType(u8 t) {
+    return t == MCSHENG_NFA_8 || t == MCSHENG_NFA_16;
+}
+
 /** \brief True if the given type (from NFA::type) is a Gough DFA. */
 static really_inline int isGoughType(u8 t) {
     return t == GOUGH_NFA_8 || t == GOUGH_NFA_16;
@@ -158,7 +166,16 @@ static really_inline int isShengType(u8 t) {
  * Sheng DFA.
  */
 static really_inline int isDfaType(u8 t) {
-    return isMcClellanType(t) || isGoughType(t) || isShengType(t);
+    return isMcClellanType(t) || isGoughType(t) || isShengType(t)
+        || isShengMcClellanType(t);
+}
+
+static really_inline int isBigDfaType(u8 t) {
+    return t == MCCLELLAN_NFA_16 || t == MCSHENG_NFA_16 || t == GOUGH_NFA_16;
+}
+
+static really_inline int isSmallDfaType(u8 t) {
+    return isDfaType(t) && !isBigDfaType(t);
 }
 
 /** \brief True if the given type (from NFA::type) is an NFA. */

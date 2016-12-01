@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,39 +26,34 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- * \brief Naive dynamic shuffles.
- *
- * These are written with the assumption that the provided masks are sparsely
- * populated and never contain more than 32 on bits. Other implementations will
- * be faster and actually correct if these assumptions don't hold true.
- */
+#ifndef MCSHENGCOMPILE_H
+#define MCSHENGCOMPILE_H
 
-#ifndef LIMEX_SHUFFLE_H
-#define LIMEX_SHUFFLE_H
-
+#include "accel_dfa_build_strat.h"
+#include "rdfa.h"
 #include "ue2common.h"
-#include "util/bitutils.h"
-#include "util/simd_utils.h"
+#include "util/alloc.h"
+#include "util/ue2_containers.h"
 
-static really_inline
-u32 packedExtract128(m128 s, const m128 permute, const m128 compare) {
-    m128 shuffled = pshufb(s, permute);
-    m128 compared = and128(shuffled, compare);
-    u16 rv = ~movemask128(eq128(compared, shuffled));
-    return (u32)rv;
-}
+#include <memory>
+#include <set>
 
-#if defined(__AVX2__)
-static really_inline
-u32 packedExtract256(m256 s, const m256 permute, const m256 compare) {
-    // vpshufb doesn't cross lanes, so this is a bit of a cheat
-    m256 shuffled = vpshufb(s, permute);
-    m256 compared = and256(shuffled, compare);
-    u32 rv = ~movemask256(eq256(compared, shuffled));
-    // stitch the lane-wise results back together
-    return (u32)((rv >> 16) | (rv & 0xffffU));
-}
-#endif // AVX2
+struct NFA;
 
-#endif // LIMEX_SHUFFLE_H
+namespace ue2 {
+
+class ReportManager;
+struct CompileContext;
+
+/* accel_states: (optional) on success, is filled with the set of accelerable
+ * states */
+ue2::aligned_unique_ptr<NFA>
+mcshengCompile(raw_dfa &raw, const CompileContext &cc,
+               const ReportManager &rm,
+               std::set<dstate_id_t> *accel_states = nullptr);
+
+bool has_accel_mcsheng(const NFA *nfa);
+
+} // namespace ue2
+
+#endif

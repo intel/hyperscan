@@ -159,6 +159,10 @@ static really_inline m128 set16x8(u8 c) {
     return _mm_set1_epi8(c);
 }
 
+static really_inline m128 set4x32(u32 c) {
+    return _mm_set1_epi32(c);
+}
+
 static really_inline u32 movd(const m128 in) {
     return _mm_cvtsi128_si32(in);
 }
@@ -328,6 +332,25 @@ m128 variable_byte_shift_m128(m128 in, s32 amount) {
     return pshufb(in, shift_mask);
 }
 
+static really_inline
+m128 max_u8_m128(m128 a, m128 b) {
+    return _mm_max_epu8(a, b);
+}
+
+static really_inline
+m128 min_u8_m128(m128 a, m128 b) {
+    return _mm_min_epu8(a, b);
+}
+
+static really_inline
+m128 sadd_u8_m128(m128 a, m128 b) {
+    return _mm_adds_epu8(a, b);
+}
+
+static really_inline
+m128 sub_u8_m128(m128 a, m128 b) {
+    return _mm_sub_epi8(a, b);
+}
 
 /****
  **** 256-bit Primitives

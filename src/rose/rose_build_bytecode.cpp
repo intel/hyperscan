@@ -52,6 +52,7 @@
 #include "nfa/goughcompile.h"
 #include "nfa/mcclellancompile.h"
 #include "nfa/mcclellancompile_util.h"
+#include "nfa/mcsheng_compile.h"
 #include "nfa/nfa_api_queue.h"
 #include "nfa/nfa_build_util.h"
 #include "nfa/nfa_internal.h"
@@ -615,7 +616,7 @@ aligned_unique_ptr<NFA> pickImpl(aligned_unique_ptr<NFA> dfa_impl,
 
     bool d_accel = has_accel(*dfa_impl);
     bool n_accel = has_accel(*nfa_impl);
-    bool d_big = dfa_impl->type == MCCLELLAN_NFA_16;
+    bool d_big = isBigDfaType(dfa_impl->type);
     bool n_vsmall = nfa_impl->nPositions <= 32;
     bool n_br = has_bounded_repeats(*nfa_impl);
     DEBUG_PRINTF("da %d na %d db %d nvs %d nbr %d\n", (int)d_accel,
@@ -666,10 +667,17 @@ buildRepeatEngine(const CastleProto &proto,
 }
 
 static
-aligned_unique_ptr<NFA> getDfa(raw_dfa &rdfa, const CompileContext &cc,
+aligned_unique_ptr<NFA> getDfa(raw_dfa &rdfa, bool is_transient,
+                               const CompileContext &cc,
                                const ReportManager &rm) {
     // Unleash the Sheng!!
     auto dfa = shengCompile(rdfa, cc, rm);
+    if (!dfa && !is_transient) {
+        // Sheng wasn't successful, so unleash McClellan!
+        /* We don't try the hybrid for transient prefixes due to the extra
+         * bytecode and that they are usually run on small blocks */
+        dfa = mcshengCompile(rdfa, cc, rm);
+    }
     if (!dfa) {
         // Sheng wasn't successful, so unleash McClellan!
         dfa = mcclellanCompile(rdfa, cc, rm);
@@ -697,7 +705,7 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
     }
 
     if (suff.dfa()) {
-        auto d = getDfa(*suff.dfa(), cc, rm);
+        auto d = getDfa(*suff.dfa(), false, cc, rm);
         assert(d);
         return d;
     }
@@ -726,7 +734,7 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
             auto rdfa = buildMcClellan(holder, &rm, false, triggers.at(0),
                                        cc.grey);
             if (rdfa) {
-                auto d = getDfa(*rdfa, cc, rm);
+                auto d = getDfa(*rdfa, false, cc, rm);
                 assert(d);
                 if (cc.grey.roseMcClellanSuffix != 2) {
                     n = pickImpl(move(d), move(n));
@@ -846,12 +854,12 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
     }
 
     if (left.dfa()) {
-        n = getDfa(*left.dfa(), cc, rm);
+        n = getDfa(*left.dfa(), is_transient, cc, rm);
     } else if (left.graph() && cc.grey.roseMcClellanPrefix == 2 && is_prefix &&
                !is_transient) {
         auto rdfa = buildMcClellan(*left.graph(), nullptr, cc.grey);
         if (rdfa) {
-            n = getDfa(*rdfa, cc, rm);
+            n = getDfa(*rdfa, is_transient, cc, rm);
             assert(n);
         }
     }
@@ -878,7 +886,7 @@ makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
         && (!n || !has_bounded_repeats_other_than_firsts(*n) || !is_fast(*n))) {
         auto rdfa = buildMcClellan(*left.graph(), nullptr, cc.grey);
         if (rdfa) {
-            auto d = getDfa(*rdfa, cc, rm);
+            auto d = getDfa(*rdfa, is_transient, cc, rm);
             assert(d);
             n = pickImpl(move(d), move(n));
         }
@@ -1614,7 +1622,7 @@ public:
 
     aligned_unique_ptr<NFA> operator()(unique_ptr<raw_dfa> &rdfa) const {
         // Unleash the mighty DFA!
-        return getDfa(*rdfa, build.cc, build.rm);
+        return getDfa(*rdfa, false, build.cc, build.rm);
     }
 
     aligned_unique_ptr<NFA> operator()(unique_ptr<raw_som_dfa> &haig) const {
@@ -1642,7 +1650,7 @@ public:
             !has_bounded_repeats_other_than_firsts(*n)) {
             auto rdfa = buildMcClellan(h, &rm, cc.grey);
             if (rdfa) {
-                auto d = getDfa(*rdfa, cc, rm);
+                auto d = getDfa(*rdfa, false, cc, rm);
                 if (d) {
                     n = pickImpl(move(d), move(n));
                 }

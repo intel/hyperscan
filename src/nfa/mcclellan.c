@@ -175,7 +175,7 @@ char mcclellanExec16_i(const struct mcclellan *m, u32 *state, const u8 *buf,
         if (mode == STOP_AT_MATCH) {
             *c_final = buf;
         }
-        return MO_CONTINUE_MATCHING;
+        return MO_ALIVE;
     }
 
     u32 s = *state;
@@ -213,7 +213,7 @@ without_accel:
             if (mode == STOP_AT_MATCH) {
                 *state = s & STATE_MASK;
                 *c_final = c - 1;
-                return MO_CONTINUE_MATCHING;
+                return MO_MATCHES_PENDING;
             }
 
             u64a loc = (c - 1) - buf + offAdj + 1;
@@ -221,12 +221,12 @@ without_accel:
             if (single) {
                 DEBUG_PRINTF("reporting %u\n", m->arb_report);
                 if (cb(0, loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {
-                    return MO_HALT_MATCHING; /* termination requested */
+                    return MO_DEAD; /* termination requested */
                 }
             } else if (doComplexReport(cb, ctxt, m, s & STATE_MASK, loc, 0,
                                        &cached_accept_state, &cached_accept_id)
                        == MO_HALT_MATCHING) {
-                return MO_HALT_MATCHING;
+                return MO_DEAD;
             }
         }
 
@@ -265,7 +265,7 @@ with_accel:
             if (mode == STOP_AT_MATCH) {
                 *state = s & STATE_MASK;
                 *c_final = c - 1;
-                return MO_CONTINUE_MATCHING;
+                return MO_MATCHES_PENDING;
             }
 
             u64a loc = (c - 1) - buf + offAdj + 1;
@@ -273,12 +273,12 @@ with_accel:
             if (single) {
                 DEBUG_PRINTF("reporting %u\n", m->arb_report);
                 if (cb(0, loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {
-                    return MO_HALT_MATCHING; /* termination requested */
+                    return MO_DEAD; /* termination requested */
                 }
             } else if (doComplexReport(cb, ctxt, m, s & STATE_MASK, loc, 0,
                                        &cached_accept_state, &cached_accept_id)
                        == MO_HALT_MATCHING) {
-                return MO_HALT_MATCHING;
+                return MO_DEAD;
             }
         }
 
@@ -293,7 +293,7 @@ exit:
     }
     *state = s;
 
-    return MO_CONTINUE_MATCHING;
+    return MO_ALIVE;
 }
 
 static never_inline
@@ -376,7 +376,7 @@ char mcclellanExec8_i(const struct mcclellan *m, u32 *state, const u8 *buf,
                       char single, const u8 **c_final, enum MatchMode mode) {
     if (!len) {
         *c_final = buf;
-        return MO_CONTINUE_MATCHING;
+        return MO_ALIVE;
     }
     u32 s = *state;
     const u8 *c = buf;
@@ -390,8 +390,7 @@ char mcclellanExec8_i(const struct mcclellan *m, u32 *state, const u8 *buf,
     u32 cached_accept_id = 0;
     u32 cached_accept_state = 0;
 
-    DEBUG_PRINTF("accel %hu, accept %hu\n",
-                 m->accel_limit_8, m->accept_limit_8);
+    DEBUG_PRINTF("accel %hu, accept %u\n", m->accel_limit_8, accept_limit);
 
     DEBUG_PRINTF("s: %u, len %zu\n", s, len);
 
@@ -417,19 +416,19 @@ without_accel:
                 DEBUG_PRINTF("match - pausing\n");
                 *state = s;
                 *c_final = c - 1;
-                return MO_CONTINUE_MATCHING;
+                return MO_MATCHES_PENDING;
             }
 
             u64a loc = (c - 1) - buf + offAdj + 1;
             if (single) {
                 DEBUG_PRINTF("reporting %u\n", m->arb_report);
                 if (cb(0, loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {
-                    return MO_HALT_MATCHING;
+                    return MO_DEAD;
                 }
             } else if (doComplexReport(cb, ctxt, m, s, loc, 0,
                                        &cached_accept_state, &cached_accept_id)
                        == MO_HALT_MATCHING) {
-                return MO_HALT_MATCHING;
+                return MO_DEAD;
             }
         }
 
@@ -464,19 +463,19 @@ with_accel:
                 DEBUG_PRINTF("match - pausing\n");
                 *state = s;
                 *c_final = c - 1;
-                return MO_CONTINUE_MATCHING;
+                return MO_MATCHES_PENDING;
             }
 
             u64a loc = (c - 1) - buf + offAdj + 1;
             if (single) {
                 DEBUG_PRINTF("reporting %u\n", m->arb_report);
                 if (cb(0, loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {
-                    return MO_HALT_MATCHING;
+                    return MO_DEAD;
                 }
             } else if (doComplexReport(cb, ctxt, m, s, loc, 0,
                                        &cached_accept_state, &cached_accept_id)
                        == MO_HALT_MATCHING) {
-                return MO_HALT_MATCHING;
+                return MO_DEAD;
             }
         }
 
@@ -488,7 +487,7 @@ exit:
     if (mode == STOP_AT_MATCH) {
         *c_final = c_end;
     }
-    return MO_CONTINUE_MATCHING;
+    return MO_ALIVE;
 }
 
 static never_inline
@@ -576,7 +575,7 @@ char nfaExecMcClellan16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
         q->report_current = 0;
 
         if (rv == MO_HALT_MATCHING) {
-            return MO_HALT_MATCHING;
+            return MO_DEAD;
         }
     }
 
@@ -611,17 +610,20 @@ char nfaExecMcClellan16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
 
         /* do main buffer region */
         const u8 *final_look;
-        if (mcclellanExec16_i_ni(m, &s, cur_buf + sp, local_ep - sp,
-                                 offset + sp, cb, context, single, &final_look,
-                                 mode)
-            == MO_HALT_MATCHING) {
+        char rv = mcclellanExec16_i_ni(m, &s, cur_buf + sp, local_ep - sp,
+                                      offset + sp, cb, context, single,
+                                      &final_look, mode);
+        if (rv == MO_DEAD) {
             *(u16 *)q->state = 0;
-            return 0;
+            return MO_DEAD;
         }
-        if (mode == STOP_AT_MATCH && final_look != cur_buf + local_ep) {
+        if (mode == STOP_AT_MATCH && rv == MO_MATCHES_PENDING) {
             DEBUG_PRINTF("this is as far as we go\n");
-            assert(q->cur);
             DEBUG_PRINTF("state %u final_look %zd\n", s, final_look - cur_buf);
+
+            assert(q->cur);
+            assert(final_look != cur_buf + local_ep);
+
             q->cur--;
             q->items[q->cur].type = MQE_START;
             q->items[q->cur].location = final_look - cur_buf + 1; /* due to
@@ -630,6 +632,7 @@ char nfaExecMcClellan16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
             return MO_MATCHES_PENDING;
         }
 
+        assert(rv == MO_ALIVE);
         assert(q->cur);
         if (mode != NO_MATCHES && q->items[q->cur].location > end) {
             DEBUG_PRINTF("this is as far as we go\n");
@@ -662,7 +665,7 @@ char nfaExecMcClellan16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
         case MQE_END:
             *(u16 *)q->state = s;
             q->cur++;
-            return s ? MO_ALIVE : 0;
+            return s ? MO_ALIVE : MO_DEAD;
         default:
             assert(!"invalid queue event");
         }
@@ -681,8 +684,8 @@ char nfaExecMcClellan16_Bi(const struct NFA *n, u64a offset, const u8 *buffer,
 
     if (mcclellanExec16_i(m, &s, buffer, length, offset, cb, context, single,
                           NULL, CALLBACK_OUTPUT)
-        == MO_HALT_MATCHING) {
-        return 0;
+        == MO_DEAD) {
+        return s ? MO_ALIVE : MO_DEAD;
     }
 
     const struct mstate_aux *aux = get_aux(m, s);
@@ -691,7 +694,7 @@ char nfaExecMcClellan16_Bi(const struct NFA *n, u64a offset, const u8 *buffer,
         doComplexReport(cb, context, m, s, offset + length, 1, NULL, NULL);
     }
 
-    return !!s;
+    return MO_ALIVE;
 }
 
 static really_inline
@@ -724,7 +727,7 @@ char nfaExecMcClellan8_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
         q->report_current = 0;
 
         if (rv == MO_HALT_MATCHING) {
-            return MO_HALT_MATCHING;
+            return MO_DEAD;
         }
     }
 
@@ -760,16 +763,20 @@ char nfaExecMcClellan8_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
         }
 
         const u8 *final_look;
-        if (mcclellanExec8_i_ni(m, &s, cur_buf + sp, local_ep - sp, offset + sp,
-                                cb, context, single, &final_look, mode)
-            == MO_HALT_MATCHING) {
+        char rv = mcclellanExec8_i_ni(m, &s, cur_buf + sp, local_ep - sp,
+                                     offset + sp, cb, context, single,
+                                     &final_look, mode);
+        if (rv == MO_HALT_MATCHING) {
             *(u8 *)q->state = 0;
-            return 0;
+            return MO_DEAD;
         }
-        if (mode == STOP_AT_MATCH && final_look != cur_buf + local_ep) {
-            /* found a match */
-            DEBUG_PRINTF("found a match\n");
+        if (mode == STOP_AT_MATCH && rv == MO_MATCHES_PENDING) {
+            DEBUG_PRINTF("this is as far as we go\n");
+            DEBUG_PRINTF("state %u final_look %zd\n", s, final_look - cur_buf);
+
             assert(q->cur);
+            assert(final_look != cur_buf + local_ep);
+
             q->cur--;
             q->items[q->cur].type = MQE_START;
             q->items[q->cur].location = final_look - cur_buf + 1; /* due to
@@ -778,6 +785,7 @@ char nfaExecMcClellan8_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
             return MO_MATCHES_PENDING;
         }
 
+        assert(rv == MO_ALIVE);
         assert(q->cur);
         if (mode != NO_MATCHES && q->items[q->cur].location > end) {
             DEBUG_PRINTF("this is as far as we go\n");
@@ -811,7 +819,7 @@ char nfaExecMcClellan8_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
         case MQE_END:
             *(u8 *)q->state = s;
             q->cur++;
-            return s ? MO_ALIVE : 0;
+            return s ? MO_ALIVE : MO_DEAD;
         default:
             assert(!"invalid queue event");
         }
@@ -830,8 +838,8 @@ char nfaExecMcClellan8_Bi(const struct NFA *n, u64a offset, const u8 *buffer,
 
     if (mcclellanExec8_i(m, &s, buffer, length, offset, cb, context, single,
                          NULL, CALLBACK_OUTPUT)
-        == MO_HALT_MATCHING) {
-        return 0;
+        == MO_DEAD) {
+        return MO_DEAD;
     }
 
     const struct mstate_aux *aux = get_aux(m, s);
@@ -840,7 +848,7 @@ char nfaExecMcClellan8_Bi(const struct NFA *n, u64a offset, const u8 *buffer,
         doComplexReport(cb, context, m, s, offset + length, 1, NULL, NULL);
     }
 
-    return s;
+    return s ? MO_ALIVE : MO_DEAD;
 }
 
 char nfaExecMcClellan8_B(const struct NFA *n, u64a offset, const u8 *buffer,

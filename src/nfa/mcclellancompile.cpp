@@ -415,9 +415,9 @@ void fillInAux(mstate_aux *aux, dstate_id_t i, const dfa_info &info,
                              : info.raw.start_floating);
 }
 
-/* returns non-zero on error */
+/* returns false on error */
 static
-int allocateFSN16(dfa_info &info, dstate_id_t *sherman_base) {
+bool allocateFSN16(dfa_info &info, dstate_id_t *sherman_base) {
     info.states[0].impl_id = 0; /* dead is always 0 */
 
     vector<dstate_id_t> norm;
@@ -426,7 +426,7 @@ int allocateFSN16(dfa_info &info, dstate_id_t *sherman_base) {
     if (info.size() > (1 << 16)) {
         DEBUG_PRINTF("too many states\n");
         *sherman_base = 0;
-        return 1;
+        return false;
     }
 
     for (u32 i = 1; i < info.size(); i++) {
@@ -452,7 +452,7 @@ int allocateFSN16(dfa_info &info, dstate_id_t *sherman_base) {
     /* Check to see if we haven't over allocated our states */
     DEBUG_PRINTF("next sherman %u masked %u\n", next_sherman,
                  (dstate_id_t)(next_sherman & STATE_MASK));
-    return (next_sherman - 1) != ((next_sherman - 1) & STATE_MASK);
+    return (next_sherman - 1) == ((next_sherman - 1) & STATE_MASK);
 }
 
 static
@@ -470,7 +470,7 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
     assert(alphaShift <= 8);
 
     u16 count_real_states;
-    if (allocateFSN16(info, &count_real_states)) {
+    if (!allocateFSN16(info, &count_real_states)) {
         DEBUG_PRINTF("failed to allocate state numbers, %zu states total\n",
                      info.size());
         return nullptr;

@@ -614,6 +614,12 @@ TEST(SimdUtilsTest, set16x8) {
     }
 }
 
+TEST(SimdUtilsTest, set4x32) {
+    u32 cmp[4] = { 0x12345678, 0x12345678, 0x12345678, 0x12345678 };
+    m128 simd = set4x32(cmp[0]);
+    ASSERT_EQ(0, memcmp(cmp, &simd, sizeof(simd)));
+}
+
 #if defined(__AVX2__)
 TEST(SimdUtilsTest, set32x8) {
     char cmp[sizeof(m256)];
@@ -691,6 +697,52 @@ TEST(SimdUtilsTest, variableByteShift128) {
 
     EXPECT_TRUE(!diff128(zeroes128(), variable_byte_shift_m128(in, 16)));
     EXPECT_TRUE(!diff128(zeroes128(), variable_byte_shift_m128(in, -16)));
+}
+
+TEST(SimdUtilsTest, max_u8_m128) {
+    char base1[] = "0123456789ABCDE\xfe";
+    char base2[] = "!!23455889aBCd\xff\xff";
+    char expec[] = "0123456889aBCd\xff\xff";
+    m128 in1 = loadu128(base1);
+    m128 in2 = loadu128(base2);
+    m128 result = max_u8_m128(in1, in2);
+    EXPECT_TRUE(!diff128(result, loadu128(expec)));
+}
+
+TEST(SimdUtilsTest, min_u8_m128) {
+    char base1[] = "0123456789ABCDE\xfe";
+    char base2[] = "!!23455889aBCd\xff\xff";
+    char expec[] = "!!23455789ABCDE\xfe";
+    m128 in1 = loadu128(base1);
+    m128 in2 = loadu128(base2);
+    m128 result = min_u8_m128(in1, in2);
+    EXPECT_TRUE(!diff128(result, loadu128(expec)));
+}
+
+TEST(SimdUtilsTest, sadd_u8_m128) {
+    unsigned char base1[] = {0, 0x80, 0xff, 'A', '1', '2', '3', '4',
+                             '1', '2', '3', '4', '1', '2', '3', '4'};
+    unsigned char base2[] = {'a', 0x80, 'b', 'A', 0x10, 0x10, 0x10, 0x10,
+                             0x30, 0x30, 0x30, 0x30, 0, 0, 0, 0};
+    unsigned char expec[] = {'a', 0xff, 0xff, 0x82, 'A', 'B', 'C', 'D',
+                             'a', 'b', 'c', 'd', '1', '2', '3', '4'};
+    m128 in1 = loadu128(base1);
+    m128 in2 = loadu128(base2);
+    m128 result = sadd_u8_m128(in1, in2);
+    EXPECT_TRUE(!diff128(result, loadu128(expec)));
+}
+
+TEST(SimdUtilsTest, sub_u8_m128) {
+    unsigned char base1[] = {'a', 0xff, 0xff, 0x82, 'A', 'B', 'C', 'D',
+                             'a', 'b', 'c', 'd', '1', '2', '3', '4'};
+    unsigned char base2[] = {0, 0x80, 0xff, 'A', '1', '2', '3', '4',
+                             '1', '2', '3', '4', '1', '2', '3', '4'};
+    unsigned char expec[] = {'a', 0x7f, 0, 'A', 0x10, 0x10, 0x10, 0x10,
+                             0x30, 0x30, 0x30, 0x30, 0, 0, 0, 0};
+    m128 in1 = loadu128(base1);
+    m128 in2 = loadu128(base2);
+    m128 result = sub_u8_m128(in1, in2);
+    EXPECT_TRUE(!diff128(result, loadu128(expec)));
 }
 
 } // namespace

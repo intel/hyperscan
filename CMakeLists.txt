@@ -448,10 +448,6 @@ set (hs_exec_SRCS
     src/nfa/lbr.h
     src/nfa/lbr_common_impl.h
     src/nfa/lbr_internal.h
-    src/nfa/mcclellan.c
-    src/nfa/mcclellan.h
-    src/nfa/mcclellan_common_impl.h
-    src/nfa/mcclellan_internal.h
     src/nfa/limex_accel.c
     src/nfa/limex_accel.h
     src/nfa/limex_exceptional.h
@@ -470,6 +466,14 @@ set (hs_exec_SRCS
     src/nfa/limex_runtime_impl.h
     src/nfa/limex_shuffle.h
     src/nfa/limex_state_impl.h
+    src/nfa/mcclellan.c
+    src/nfa/mcclellan.h
+    src/nfa/mcclellan_common_impl.h
+    src/nfa/mcclellan_internal.h
+    src/nfa/mcsheng.c
+    src/nfa/mcsheng_data.c
+    src/nfa/mcsheng.h
+    src/nfa/mcsheng_internal.h
     src/nfa/mpv.h
     src/nfa/mpv.c
     src/nfa/mpv_internal.h
@@ -650,6 +654,8 @@ SET (hs_SRCS
     src/nfa/mcclellancompile.h
     src/nfa/mcclellancompile_util.cpp
     src/nfa/mcclellancompile_util.h
+    src/nfa/mcsheng_compile.cpp
+    src/nfa/mcsheng_compile.h
     src/nfa/limex_compile.cpp
     src/nfa/limex_compile.h
     src/nfa/limex_accel.h
@@ -667,6 +673,8 @@ SET (hs_SRCS
     src/nfa/nfa_internal.h
     src/nfa/nfa_kind.h
     src/nfa/rdfa.h
+    src/nfa/rdfa_graph.cpp
+    src/nfa/rdfa_graph.h
     src/nfa/rdfa_merge.cpp
     src/nfa/rdfa_merge.h
     src/nfa/repeat_internal.h
@@ -962,6 +970,8 @@ set(hs_dump_SRCS
     src/nfa/limex_dump.cpp
     src/nfa/mcclellandump.cpp
     src/nfa/mcclellandump.h
+    src/nfa/mcsheng_dump.cpp
+    src/nfa/mcsheng_dump.h
     src/nfa/mpv_dump.cpp
     src/nfa/nfa_dump_api.h
     src/nfa/nfa_dump_dispatch.cpp

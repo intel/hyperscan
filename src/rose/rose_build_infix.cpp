@@ -278,7 +278,7 @@ void findCountingMiracleInfo(const left_id &left, const vector<u8> &stopTable,
 
     const NGHolder &g = *left.graph();
 
-    auto cyclics = findVerticesInCycles(g);
+    auto cyclics = find_vertices_in_cycles(g);
 
     if (!proper_out_degree(g.startDs, g)) {
         cyclics.erase(g.startDs);

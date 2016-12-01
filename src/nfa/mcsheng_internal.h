@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,15 +26,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MCCLELLAN_INTERNAL_H
-#define MCCLELLAN_INTERNAL_H
+#ifndef MCSHENG_INTERNAL_H
+#define MCSHENG_INTERNAL_H
 
 #include "nfa_internal.h"
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+#include "ue2common.h"
+#include "util/simd_utils.h"
 
 #define ACCEPT_FLAG 0x8000
 #define ACCEL_FLAG  0x4000
@@ -59,12 +56,12 @@ struct mstate_aux {
     u32 accept;
     u32 accept_eod;
     u16 top;
-    u32 accel_offset; /* relative to start of struct mcclellan; 0 if no accel */
+    u32 accel_offset; /* relative to start of struct mcsheng; 0 if no accel */
 };
 
-#define MCCLELLAN_FLAG_SINGLE 1  /**< we raise only single accept id */
+#define MCSHENG_FLAG_SINGLE 1  /**< we raise only single accept id */
 
-struct mcclellan {
+struct mcsheng {
     u16 state_count; /**< total number of states */
     u32 length; /**< length of dfa in bytes */
     u16 start_anchored; /**< anchored start state */
@@ -75,7 +72,10 @@ struct mcclellan {
                          * state_info structures relative to the start of the
                          * nfa structure */
     u32 sherman_end; /**< offset of the end of the state_info structures
-                      *  relative to the start of the nfa structure */
+                      * relative to the start of the nfa structure */
+    u16 sheng_end; /**< first non-sheng state */
+    u16 sheng_accel_limit; /**< first sheng accel state. state given in terms of
+                            * internal sheng ids */
     u16 accel_limit_8; /**< 8 bit, lowest accelerable state */
     u16 accept_limit_8; /**< 8 bit, lowest accept state */
     u16 sherman_limit; /**< lowest sherman state */
@@ -85,29 +85,11 @@ struct mcclellan {
     u8  remap[256]; /**< remaps characters to a smaller alphabet */
     ReportID arb_report; /**< one of the accepts that this dfa may raise */
     u32 accel_offset; /**< offset of the accel structures from start of NFA */
-    u32 haig_offset; /**< reserved for use by Haig, relative to start of NFA */
+    m128 sheng_masks[N_CHARS];
 };
 
-static really_inline
-const char *findShermanState(UNUSED const struct mcclellan *m,
-                             const char *sherman_base_offset, u32 sherman_base,
-                             u32 s) {
-    const char *rv
-        = sherman_base_offset + SHERMAN_FIXED_SIZE * (s - sherman_base);
-    assert(rv < (const char *)m + m->length - sizeof(struct NFA));
-    UNUSED u8 type = *(const u8 *)(rv + SHERMAN_TYPE_OFFSET);
-    assert(type == SHERMAN_STATE);
-    return rv;
-}
-
-static really_inline
-char *findMutableShermanState(char *sherman_base_offset, u16 sherman_base,
-                              u32 s) {
-    return sherman_base_offset + SHERMAN_FIXED_SIZE * (s - sherman_base);
-}
-
-#ifdef __cplusplus
-}
-#endif
+/* pext masks for the runtime to access appropriately copies of bytes 1..7
+ * representing the data from a u64a. */
+extern const u64a mcsheng_pext_mask[8];
 
 #endif

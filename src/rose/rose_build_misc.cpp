@@ -1206,7 +1206,7 @@ u32 roseQuality(const RoseEngine *t) {
         }
         const NFA *nfa = (const NFA *)((const char *)atable + sizeof(*atable));
 
-        if (nfa->type != MCCLELLAN_NFA_8) {
+        if (!isSmallDfaType(nfa->type)) {
             DEBUG_PRINTF("m16 atable engine\n");
             return 0;
         }

@@ -447,9 +447,8 @@ void createShuffleMasks(sheng *s, dfa_info &info,
     }
 }
 
-bool has_accel_sheng(const NFA *nfa) {
-    const sheng *s = (const sheng *)getImplNfa(nfa);
-    return s->flags & SHENG_FLAG_HAS_ACCEL;
+bool has_accel_sheng(const NFA *) {
+    return true; /* consider the sheng region as accelerated */
 }
 
 aligned_unique_ptr<NFA> shengCompile(raw_dfa &raw,

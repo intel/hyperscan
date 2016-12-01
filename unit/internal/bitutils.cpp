@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -436,3 +436,16 @@ TEST(BitUtils, rank_in_mask64) {
     ASSERT_EQ(15, rank_in_mask64(0xf0f0f0f0f0f0f0f0ULL, 31));
     ASSERT_EQ(31, rank_in_mask64(0xf0f0f0f0f0f0f0f0ULL, 63));
 }
+
+#if defined(HAVE_PEXT) && defined(ARCH_64_BIT)
+TEST(BitUtils, pdep64) {
+    u64a data = 0xF123456789ABCDEF;
+    ASSERT_EQ(0xfULL, pdep64(data, 0xf));
+    ASSERT_EQ(0xefULL, pdep64(data, 0xff));
+    ASSERT_EQ(0xf0ULL, pdep64(data, 0xf0));
+    ASSERT_EQ(0xfULL, pdep64(data, 0xf));
+    ASSERT_EQ(0xef0ULL, pdep64(data, 0xff0));
+    ASSERT_EQ(0xef00ULL, pdep64(data, 0xff00));
+    ASSERT_EQ(0xd0e0f00ULL, pdep64(data, 0xf0f0f00));
+}
+#endif

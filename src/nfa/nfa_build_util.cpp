@@ -30,6 +30,7 @@
 
 #include "limex_internal.h"
 #include "mcclellancompile.h"
+#include "mcsheng_compile.h"
 #include "shengcompile.h"
 #include "nfa_internal.h"
 #include "repeat_internal.h"
@@ -411,6 +412,38 @@ const nfa_dispatch_fn NFATraits<TAMARAMA_NFA>::has_repeats = dispatch_false;
 const nfa_dispatch_fn NFATraits<TAMARAMA_NFA>::has_repeats_other_than_firsts = dispatch_false;
 #if defined(DUMP_SUPPORT)
 const char *NFATraits<TAMARAMA_NFA>::name = "Tamarama";
+#endif
+
+template<> struct NFATraits<MCSHENG_NFA_8> {
+    UNUSED static const char *name;
+    static const NFACategory category = NFA_OTHER;
+    static const u32 stateAlign = 1;
+    static const bool fast = true;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
+};
+const nfa_dispatch_fn NFATraits<MCSHENG_NFA_8>::has_accel = has_accel_mcsheng;
+const nfa_dispatch_fn NFATraits<MCSHENG_NFA_8>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<MCSHENG_NFA_8>::has_repeats_other_than_firsts = dispatch_false;
+#if defined(DUMP_SUPPORT)
+const char *NFATraits<MCSHENG_NFA_8>::name = "Shengy McShengFace 8";
+#endif
+
+template<> struct NFATraits<MCSHENG_NFA_16> {
+    UNUSED static const char *name;
+    static const NFACategory category = NFA_OTHER;
+    static const u32 stateAlign = 2;
+    static const bool fast = true;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
+};
+const nfa_dispatch_fn NFATraits<MCSHENG_NFA_16>::has_accel = has_accel_mcsheng;
+const nfa_dispatch_fn NFATraits<MCSHENG_NFA_16>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<MCSHENG_NFA_16>::has_repeats_other_than_firsts = dispatch_false;
+#if defined(DUMP_SUPPORT)
+const char *NFATraits<MCSHENG_NFA_16>::name = "Shengy McShengFace 16";
 #endif
 
 } // namespace

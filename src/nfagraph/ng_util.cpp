@@ -46,7 +46,6 @@
 #include <map>
 #include <set>
 #include <boost/graph/filtered_graph.hpp>
-#include <boost/graph/strong_components.hpp>
 #include <boost/graph/topological_sort.hpp>
 #include <boost/range/adaptor/map.hpp>
 
@@ -54,7 +53,6 @@ using namespace std;
 using boost::default_color_type;
 using boost::make_filtered_graph;
 using boost::make_assoc_property_map;
-using boost::adaptors::map_values;
 
 namespace ue2 {
 
@@ -255,38 +253,6 @@ bool hasBigCycles(const NGHolder &g) {
     }
 
     return false;
-}
-
-set<NFAVertex> findVerticesInCycles(const NGHolder &g) {
-    map<NFAVertex, size_t> comp_map;
-
-    strong_components(g, make_assoc_property_map(comp_map));
-
-    map<size_t, set<NFAVertex> > comps;
-
-    for (const auto &e : comp_map) {
-        comps[e.second].insert(e.first);
-    }
-
-
-    set<NFAVertex> rv;
-
-    for (const auto &comp : comps | map_values) {
-        /* every vertex in a strongly connected component is reachable from
-         * every other vertex in the component. A vertex is involved in a cycle
-         * therefore if it is in a strongly connected component with more than
-         * one vertex or if it is the only vertex and it has a self loop. */
-        assert(!comp.empty());
-        if (comp.size() > 1) {
-            insert(&rv, comp);
-        }
-        NFAVertex v = *comp.begin();
-        if (hasSelfLoop(v, g)) {
-            rv.insert(v);
-        }
-    }
-
-    return rv;
 }
 
 bool can_never_match(const NGHolder &g) {

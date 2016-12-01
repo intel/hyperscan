@@ -39,8 +39,12 @@
 #include "util/ue2_containers.h"
 
 #include <boost/graph/depth_first_search.hpp>
+#include <boost/graph/strong_components.hpp>
+#include <boost/range/adaptor/map.hpp>
 
 #include <algorithm>
+#include <map>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -138,6 +142,41 @@ void find_unreachable(const Graph &g, const SourceCont &sources, OutCont *out) {
             out->insert(v);
         }
     }
+}
+
+template <class Graph>
+ue2::flat_set<typename Graph::vertex_descriptor>
+find_vertices_in_cycles(const Graph &g) {
+    using vertex_descriptor = typename Graph::vertex_descriptor;
+
+    std::map<vertex_descriptor, size_t> comp_map;
+
+    boost::strong_components(g, boost::make_assoc_property_map(comp_map));
+
+    std::map<size_t, std::vector<vertex_descriptor>> comps;
+
+    for (const auto &e : comp_map) {
+        comps[e.second].push_back(e.first);
+    }
+
+    ue2::flat_set<vertex_descriptor> rv;
+
+    for (const auto &comp : comps | boost::adaptors::map_values) {
+        /* every vertex in a strongly connected component is reachable from
+         * every other vertex in the component. A vertex is involved in a cycle
+         * therefore if it is in a strongly connected component with more than
+         * one vertex or if it is the only vertex and it has a self loop. */
+        assert(!comp.empty());
+        if (comp.size() > 1) {
+            insert(&rv, comp);
+        }
+        vertex_descriptor v = *comp.begin();
+        if (hasSelfLoop(v, g)) {
+            rv.insert(v);
+        }
+    }
+
+    return rv;
 }
 
 template <class Graph>

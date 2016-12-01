@@ -54,14 +54,14 @@ TEST(Shuffle, PackedExtract32_1) {
     for (unsigned int i = 0; i < 32; i++) {
         // shuffle a single 1 bit to the front
         u32 mask = 1U << i;
-        EXPECT_EQ(1U, packedExtract32(mask, mask));
-        EXPECT_EQ(1U, packedExtract32(~0U, mask));
+        EXPECT_EQ(1U, pext32(mask, mask));
+        EXPECT_EQ(1U, pext32(~0U, mask));
         // we should get zero out of these cases
-        EXPECT_EQ(0U, packedExtract32(0, mask));
-        EXPECT_EQ(0U, packedExtract32(~mask, mask));
+        EXPECT_EQ(0U, pext32(0, mask));
+        EXPECT_EQ(0U, pext32(~mask, mask));
         // we should get zero out of all the other bit positions
         for (unsigned int j = 0; (j != i && j < 32); j++) {
-            EXPECT_EQ(0U, packedExtract32((1U << j), mask));
+            EXPECT_EQ(0U, pext32((1U << j), mask));
         }
     }
 }
@@ -69,10 +69,10 @@ TEST(Shuffle, PackedExtract32_1) {
 TEST(Shuffle, PackedExtract32_2) {
     // All 32 bits in mask are on
     u32 mask = ~0U;
-    EXPECT_EQ(0U, packedExtract32(0, mask));
-    EXPECT_EQ(mask, packedExtract32(mask, mask));
+    EXPECT_EQ(0U, pext32(0, mask));
+    EXPECT_EQ(mask, pext32(mask, mask));
     for (unsigned int i = 0; i < 32; i++) {
-        EXPECT_EQ(1U << i, packedExtract32(1U << i, mask));
+        EXPECT_EQ(1U << i, pext32(1U << i, mask));
     }
 }
 
@@ -84,16 +84,16 @@ TEST(Shuffle, PackedExtract32_3) {
     }
 
     // Test both cases (all even bits, all odd bits)
-    EXPECT_EQ((1U << 16) - 1, packedExtract32(mask, mask));
-    EXPECT_EQ((1U << 16) - 1, packedExtract32(~mask, ~mask));
-    EXPECT_EQ(0U, packedExtract32(~mask, mask));
-    EXPECT_EQ(0U, packedExtract32(mask, ~mask));
+    EXPECT_EQ((1U << 16) - 1, pext32(mask, mask));
+    EXPECT_EQ((1U << 16) - 1, pext32(~mask, ~mask));
+    EXPECT_EQ(0U, pext32(~mask, mask));
+    EXPECT_EQ(0U, pext32(mask, ~mask));
 
     for (unsigned int i = 0; i < 32; i += 2) {
-        EXPECT_EQ(1U << (i/2), packedExtract32(1U << i, mask));
-        EXPECT_EQ(0U, packedExtract32(1U << i, ~mask));
-        EXPECT_EQ(1U << (i/2), packedExtract32(1U << (i+1), ~mask));
-        EXPECT_EQ(0U, packedExtract32(1U << (i+1), mask));
+        EXPECT_EQ(1U << (i/2), pext32(1U << i, mask));
+        EXPECT_EQ(0U, pext32(1U << i, ~mask));
+        EXPECT_EQ(1U << (i/2), pext32(1U << (i+1), ~mask));
+        EXPECT_EQ(0U, pext32(1U << (i+1), mask));
     }
 }
 
@@ -102,14 +102,14 @@ TEST(Shuffle, PackedExtract64_1) {
     for (unsigned int i = 0; i < 64; i++) {
         // shuffle a single 1 bit to the front
         u64a mask = 1ULL << i;
-        EXPECT_EQ(1U, packedExtract64(mask, mask));
-        EXPECT_EQ(1U, packedExtract64(~0ULL, mask));
+        EXPECT_EQ(1U, pext64(mask, mask));
+        EXPECT_EQ(1U, pext64(~0ULL, mask));
         // we should get zero out of these cases
-        EXPECT_EQ(0U, packedExtract64(0, mask));
-        EXPECT_EQ(0U, packedExtract64(~mask, mask));
+        EXPECT_EQ(0U, pext64(0, mask));
+        EXPECT_EQ(0U, pext64(~mask, mask));
         // we should get zero out of all the other bit positions
         for (unsigned int j = 0; (j != i && j < 64); j++) {
-            EXPECT_EQ(0U, packedExtract64((1ULL << j), mask));
+            EXPECT_EQ(0U, pext64((1ULL << j), mask));
         }
     }
 }
@@ -117,26 +117,26 @@ TEST(Shuffle, PackedExtract64_1) {
 TEST(Shuffle, PackedExtract64_2) {
     // Fill first half of mask
     u64a mask = 0x00000000ffffffffULL;
-    EXPECT_EQ(0U, packedExtract64(0, mask));
-    EXPECT_EQ(0xffffffffU, packedExtract64(mask, mask));
+    EXPECT_EQ(0U, pext64(0, mask));
+    EXPECT_EQ(0xffffffffU, pext64(mask, mask));
     for (unsigned int i = 0; i < 32; i++) {
-        EXPECT_EQ(1U << i, packedExtract64(1ULL << i, mask));
+        EXPECT_EQ(1U << i, pext64(1ULL << i, mask));
     }
 
     // Fill second half of mask
     mask = 0xffffffff00000000ULL;
-    EXPECT_EQ(0U, packedExtract64(0, mask));
-    EXPECT_EQ(0xffffffffU, packedExtract64(mask, mask));
+    EXPECT_EQ(0U, pext64(0, mask));
+    EXPECT_EQ(0xffffffffU, pext64(mask, mask));
     for (unsigned int i = 32; i < 64; i++) {
-        EXPECT_EQ(1U << (i - 32), packedExtract64(1ULL << i, mask));
+        EXPECT_EQ(1U << (i - 32), pext64(1ULL << i, mask));
     }
 
     // Try one in the middle
     mask = 0x0000ffffffff0000ULL;
-    EXPECT_EQ(0U, packedExtract64(0, mask));
-    EXPECT_EQ(0xffffffffU, packedExtract64(mask, mask));
+    EXPECT_EQ(0U, pext64(0, mask));
+    EXPECT_EQ(0xffffffffU, pext64(mask, mask));
     for (unsigned int i = 16; i < 48; i++) {
-        EXPECT_EQ(1U << (i - 16), packedExtract64(1ULL << i, mask));
+        EXPECT_EQ(1U << (i - 16), pext64(1ULL << i, mask));
     }
 }
 
@@ -148,16 +148,16 @@ TEST(Shuffle, PackedExtract64_3) {
     }
 
     // Test both cases (all even bits, all odd bits)
-    EXPECT_EQ(0xffffffffU, packedExtract64(mask, mask));
-    EXPECT_EQ(0xffffffffU, packedExtract64(~mask, ~mask));
-    EXPECT_EQ(0U, packedExtract64(~mask, mask));
-    EXPECT_EQ(0U, packedExtract64(mask, ~mask));
+    EXPECT_EQ(0xffffffffU, pext64(mask, mask));
+    EXPECT_EQ(0xffffffffU, pext64(~mask, ~mask));
+    EXPECT_EQ(0U, pext64(~mask, mask));
+    EXPECT_EQ(0U, pext64(mask, ~mask));
 
     for (unsigned int i = 0; i < 64; i += 2) {
-        EXPECT_EQ(1U << (i/2), packedExtract64(1ULL << i, mask));
-        EXPECT_EQ(0U, packedExtract64(1ULL << i, ~mask));
-        EXPECT_EQ(1U << (i/2), packedExtract64(1ULL << (i+1), ~mask));
-        EXPECT_EQ(0U, packedExtract64(1ULL << (i+1), mask));
+        EXPECT_EQ(1U << (i/2), pext64(1ULL << i, mask));
+        EXPECT_EQ(0U, pext64(1ULL << i, ~mask));
+        EXPECT_EQ(1U << (i/2), pext64(1ULL << (i+1), ~mask));
+        EXPECT_EQ(0U, pext64(1ULL << (i+1), mask));
     }
 }
 

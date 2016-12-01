@@ -51,6 +51,7 @@ Grey::Grey(void) :
                    allowLbr(true),
                    allowMcClellan(true),
                    allowSheng(true),
+                   allowMcSheng(true),
                    allowPuff(true),
                    allowLiteral(true),
                    allowRose(true),
@@ -217,6 +218,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(allowLbr);
         G_UPDATE(allowMcClellan);
         G_UPDATE(allowSheng);
+        G_UPDATE(allowMcSheng);
         G_UPDATE(allowPuff);
         G_UPDATE(allowLiteral);
         G_UPDATE(allowRose);

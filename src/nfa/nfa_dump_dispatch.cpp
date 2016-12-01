@@ -39,6 +39,7 @@
 #include "lbr_dump.h"
 #include "limex.h"
 #include "mcclellandump.h"
+#include "mcsheng_dump.h"
 #include "mpv_dump.h"
 #include "shengdump.h"
 #include "tamarama_dump.h"
@@ -78,6 +79,8 @@ namespace ue2 {
         DISPATCH_CASE(CASTLE_NFA, Castle, dbnt_func);                          \
         DISPATCH_CASE(SHENG_NFA, Sheng, dbnt_func);                            \
         DISPATCH_CASE(TAMARAMA_NFA, Tamarama, dbnt_func);                      \
+        DISPATCH_CASE(MCSHENG_NFA_8, McSheng8, dbnt_func);                     \
+        DISPATCH_CASE(MCSHENG_NFA_16, McSheng16, dbnt_func);                   \
     default:                                                                   \
         assert(0);                                                             \
     }
