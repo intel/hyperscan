@@ -36,7 +36,6 @@
 #include "util/ue2_containers.h"
 
 #include <memory>
-#include <set>
 
 struct NFA;
 
@@ -45,12 +44,9 @@ namespace ue2 {
 class ReportManager;
 struct CompileContext;
 
-/* accel_states: (optional) on success, is filled with the set of accelerable
- * states */
 ue2::aligned_unique_ptr<NFA>
 mcshengCompile(raw_dfa &raw, const CompileContext &cc,
-               const ReportManager &rm,
-               std::set<dstate_id_t> *accel_states = nullptr);
+               const ReportManager &rm);
 
 bool has_accel_mcsheng(const NFA *nfa);
 

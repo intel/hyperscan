@@ -242,77 +242,6 @@ void populateBasicInfo(size_t state_size, const dfa_info &info,
     }
 }
 
-namespace {
-
-struct raw_report_list {
-    flat_set<ReportID> reports;
-
-    raw_report_list(const flat_set<ReportID> &reports_in,
-                    const ReportManager &rm, bool do_remap) {
-        if (do_remap) {
-            for (auto &id : reports_in) {
-                reports.insert(rm.getProgramOffset(id));
-            }
-        } else {
-            reports = reports_in;
-        }
-    }
-
-    bool operator<(const raw_report_list &b) const {
-        return reports < b.reports;
-    }
-};
-
-struct raw_report_info_impl : public raw_report_info {
-    vector<raw_report_list> rl;
-    u32 getReportListSize() const override;
-    size_t size() const override;
-    void fillReportLists(NFA *n, size_t base_offset,
-                         std::vector<u32> &ro /* out */) const override;
-};
-}
-
-u32 raw_report_info_impl::getReportListSize() const {
-    u32 rv = 0;
-
-    for (const auto &reps : rl) {
-        rv += sizeof(report_list);
-        rv += sizeof(ReportID) * reps.reports.size();
-    }
-
-    return rv;
-}
-
-size_t raw_report_info_impl::size() const {
-    return rl.size();
-}
-
-void raw_report_info_impl::fillReportLists(NFA *n, size_t base_offset,
-                                           vector<u32> &ro) const {
-    for (const auto &reps : rl) {
-        ro.push_back(base_offset);
-
-        report_list *p = (report_list *)((char *)n + base_offset);
-
-        u32 i = 0;
-        for (const ReportID report : reps.reports) {
-            p->report[i++] = report;
-        }
-        p->count = verify_u32(reps.reports.size());
-
-        base_offset += sizeof(report_list);
-        base_offset += sizeof(ReportID) * reps.reports.size();
-    }
-}
-
-static
-void fillAccelOut(const map<dstate_id_t, AccelScheme> &accel_escape_info,
-                  set<dstate_id_t> *accel_states) {
-    for (dstate_id_t i : accel_escape_info | map_keys) {
-        accel_states->insert(i);
-    }
-}
-
 static
 size_t calcShermanRegionSize(const dfa_info &info) {
     size_t rv = 0;
@@ -1089,8 +1018,7 @@ aligned_unique_ptr<NFA> mcshengCompile8(dfa_info &info, dstate_id_t sheng_end,
 }
 
 aligned_unique_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
-                                       const ReportManager &rm,
-                                       set<dstate_id_t> *accel_states) {
+                                       const ReportManager &rm) {
     if (!cc.grey.allowMcSheng) {
         return nullptr;
     }
@@ -1127,10 +1055,6 @@ aligned_unique_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
 
     if (has_eod_reports) {
         nfa->flags |= NFA_ACCEPTS_EOD;
-    }
-
-    if (accel_states) {
-        fillAccelOut(accel_escape_info, accel_states);
     }
 
     DEBUG_PRINTF("compile done\n");
