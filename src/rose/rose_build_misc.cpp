@@ -859,27 +859,6 @@ bool RoseDedupeAuxImpl::requiresDedupeSupport(
     return false;
 }
 
-// Sets the report ID for all vertices connected to an accept to `id`.
-void setReportId(NGHolder &g, ReportID id) {
-    // First, wipe the report IDs on all vertices.
-    for (auto v : vertices_range(g)) {
-        g[v].reports.clear();
-    }
-
-    // Any predecessors of accept get our id.
-    for (auto v : inv_adjacent_vertices_range(g.accept, g)) {
-        g[v].reports.insert(id);
-    }
-
-    // Same for preds of acceptEod, except accept itself.
-    for (auto v : inv_adjacent_vertices_range(g.acceptEod, g)) {
-        if (v == g.accept) {
-            continue;
-        }
-        g[v].reports.insert(id);
-    }
-}
-
 bool operator<(const RoseEdgeProps &a, const RoseEdgeProps &b) {
     ORDER_CHECK(minBound);
     ORDER_CHECK(maxBound);

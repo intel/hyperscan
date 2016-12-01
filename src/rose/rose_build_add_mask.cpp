@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -480,7 +480,7 @@ void addTransientMask(RoseBuildImpl &build, const vector<CharReach> &mask,
 
     // Everyone gets the same report ID.
     ReportID mask_report = build.getNewNfaReport();
-    setReportId(*mask_graph, mask_report);
+    set_report(*mask_graph, mask_report);
 
     // Build the HWLM literal mask.
     vector<u8> msk, cmp;

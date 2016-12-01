@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -63,6 +63,26 @@ bool can_exhaust(const NGHolder &g, const ReportManager &rm) {
     }
 
     return true;
+}
+
+void set_report(NGHolder &g, ReportID internal_report) {
+    // First, wipe the report IDs on all vertices.
+    for (auto v : vertices_range(g)) {
+        g[v].reports.clear();
+    }
+
+    // Any predecessors of accept get our id.
+    for (auto v : inv_adjacent_vertices_range(g.accept, g)) {
+        g[v].reports.insert(internal_report);
+    }
+
+    // Same for preds of acceptEod, except accept itself.
+    for (auto v : inv_adjacent_vertices_range(g.acceptEod, g)) {
+        if (v == g.accept) {
+            continue;
+        }
+        g[v].reports.insert(internal_report);
+    }
 }
 
 /** Derive a maximum offset for the graph from the max_offset values of its

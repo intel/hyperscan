@@ -166,7 +166,7 @@ bool delayLiteralWithPrefix(RoseBuildImpl &tbi, RoseVertex v, u32 lit_id,
 
     shared_ptr<NGHolder> h = makeRosePrefix(lit.s);
     ReportID prefix_report = 0;
-    setReportId(*h, prefix_report);
+    set_report(*h, prefix_report);
 
     if (!isImplementableNFA(*h, &tbi.rm, tbi.cc)) {
         DEBUG_PRINTF("prefix not implementable\n");

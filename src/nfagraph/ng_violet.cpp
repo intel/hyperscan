@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,6 +38,8 @@
 #include "ng_holder.h"
 #include "ng_is_equal.h"
 #include "ng_literal_analysis.h"
+#include "ng_limex.h"
+#include "ng_mcclellan.h"
 #include "ng_netflow.h"
 #include "ng_prune.h"
 #include "ng_redundancy.h"
@@ -47,6 +49,7 @@
 #include "ng_split.h"
 #include "ng_util.h"
 #include "ng_width.h"
+#include "nfa/rdfa.h"
 #include "rose/rose_build.h"
 #include "rose/rose_build_util.h"
 #include "rose/rose_in_dump.h"
@@ -2616,7 +2619,110 @@ void rehomeEodSuffixes(RoseInGraph &vg) {
     /* old accept vertices will be tidied up by final pruneUseless() call */
 }
 
+static
+bool tryForEarlyDfa(const NGHolder &h, const CompileContext &cc) {
+    switch (h.kind) {
+    case NFA_OUTFIX: /* 'prefix' of eod */
+    case NFA_PREFIX:
+        return cc.grey.earlyMcClellanPrefix;
+    case NFA_INFIX:
+        return cc.grey.earlyMcClellanInfix;
+    case NFA_SUFFIX:
+        return cc.grey.earlyMcClellanSuffix;
+    default:
+        DEBUG_PRINTF("kind %u\n", (u32)h.kind);
+        assert(0);
+        return false;
+    }
+}
+
+static
+vector<vector<CharReach>> getDfaTriggers(RoseInGraph &vg,
+                                         const vector<RoseInEdge> &edges,
+                                         bool *single_trigger) {
+    vector<vector<CharReach>> triggers;
+    u32 min_offset = ~0U;
+    u32 max_offset = 0;
+    for (const auto &e : edges) {
+        RoseInVertex s = source(e, vg);
+        if (vg[s].type == RIV_LITERAL) {
+            triggers.push_back(as_cr_seq(vg[s].s));
+        }
+        ENSURE_AT_LEAST(&max_offset, vg[s].max_offset);
+        LIMIT_TO_AT_MOST(&min_offset, vg[s].min_offset);
+    }
+
+    *single_trigger = min_offset == max_offset;
+    DEBUG_PRINTF("trigger offset (%u, %u)\n", min_offset, max_offset);
+
+    return triggers;
+}
+
+static
+bool doEarlyDfa(RoseBuild &rose, RoseInGraph &vg, NGHolder &h,
+                const vector<RoseInEdge> &edges, const ReportManager &rm,
+                const CompileContext &cc) {
+    DEBUG_PRINTF("trying for dfa\n");
+
+    bool single_trigger;
+    for (const auto &e : edges) {
+        if (vg[target(e, vg)].type == RIV_ACCEPT_EOD) {
+            /* TODO: support eod prefixes */
+            return false;
+        }
+    }
+
+    auto triggers = getDfaTriggers(vg, edges, &single_trigger);
+
+    /* TODO: literal delay things */
+    if (!generates_callbacks(h)) {
+        set_report(h, rose.getNewNfaReport());
+    }
+
+    shared_ptr<raw_dfa> dfa = buildMcClellan(h, &rm, single_trigger, triggers,
+                                             cc.grey);
+
+    if (!dfa) {
+        return false;
+    }
+
+    DEBUG_PRINTF("dfa ok\n");
+    for (const auto &e : edges) {
+        vg[e].dfa = dfa;
+    }
+
+    return true;
+}
+
+static
+void ensureImplementable(RoseBuild &rose, RoseInGraph &vg,
+                         const ReportManager &rm, const CompileContext &cc) {
+    map<const NGHolder *, vector<RoseInEdge> > edges_by_graph;
+    vector<NGHolder *> graphs;
+    for (const RoseInEdge &ve : edges_range(vg)) {
+        if (vg[ve].graph) {
+            NGHolder *h = vg[ve].graph.get();
+            if (!contains(edges_by_graph, h)) {
+                graphs.push_back(h);
+            }
+            edges_by_graph[h].push_back(ve);
+        }
+    }
+    for (NGHolder *h : graphs) {
+        if (isImplementableNFA(*h, &rm, cc)) {
+            continue;
+        }
+
+        if (tryForEarlyDfa(*h, cc)
+            && doEarlyDfa(rose, vg, *h, edges_by_graph[h], rm, cc)) {
+            continue;
+        }
+        DEBUG_PRINTF("eek\n");
+    }
+}
+
 bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
+              bool last_chance, const ReportManager &rm,
               const CompileContext &cc) {
     assert(!can_never_match(h));
 
@@ -2663,10 +2769,6 @@ bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
         decomposeLiteralChains(vg, cc);
     }
 
-    /* Step 5: avoid unimplementable, or overly large engines if possible */
-    /* TODO: later - ng_rose is currently acting as a backstop */
-
-    /* Step 6: send to rose */
     rehomeEodSuffixes(vg);
     removeRedundantLiterals(vg, cc);
 
@@ -2674,6 +2776,14 @@ bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
     dumpPreRoseGraph(vg, cc.grey);
     renumber_vertices(vg);
     calcVertexOffsets(vg);
+
+
+    /* Step 5: avoid unimplementable, or overly large engines if possible */
+    if (last_chance) {
+        ensureImplementable(rose, vg, rm, cc);
+    }
+
+    /* Step 6: send to rose */
     bool rv = rose.addRose(vg, prefilter);
     DEBUG_PRINTF("violet: %s\n", rv ? "success" : "fail");
     return rv;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,10 +41,12 @@ class NGHolder;
 class RoseBuild;
 
 struct CompileContext;
+class ReportManager;
 
 /** \brief Attempt to consume the entire pattern in graph \a h with Rose.
  * Returns true if successful. */
 bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
+              bool last_chance, const ReportManager &rm,
               const CompileContext &cc);
 
 } // namespace ue2

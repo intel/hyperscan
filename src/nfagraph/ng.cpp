@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -251,7 +251,7 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
         return true;
     }
 
-    if (doViolet(*ng.rose, g, w.prefilter, cc)) {
+    if (doViolet(*ng.rose, g, w.prefilter, false, ng.rm, cc)) {
         return true;
     }
 
@@ -272,7 +272,7 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
         return true;
     }
 
-    if (doViolet(*ng.rose, g, w.prefilter, cc)) {
+    if (doViolet(*ng.rose, g, w.prefilter, true, ng.rm, cc)) {
         return true;
     }
 

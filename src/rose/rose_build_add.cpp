@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1033,8 +1033,8 @@ bool empty(const GraphT &g) {
     return vi == ve;
 }
 
-/* We only try to implement as a dfa if a non-nullptr as_dfa is provided to return
- * the raw dfa to. */
+/* We only try to implement as a dfa if a non-nullptr as_dfa is provided to
+ * return the raw dfa to. */
 static
 bool canImplementGraph(RoseBuildImpl *tbi, const RoseInGraph &in, NGHolder &h,
                        const vector<RoseInEdge> &edges, bool prefilter,
@@ -1105,7 +1105,7 @@ bool canImplementGraph(RoseBuildImpl *tbi, const RoseInGraph &in, NGHolder &h,
         }
 
         if (!generates_callbacks(h)) {
-            setReportId(h, tbi->getNewNfaReport());
+            set_report(h, tbi->getNewNfaReport());
         }
 
         bool single_trigger = min_offset == max_offset;
@@ -1601,6 +1601,8 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter,
 
     for (const auto &e : edges_range(in)) {
         if (!in[e].graph) {
+            assert(!in[e].dfa);
+            assert(!in[e].haig);
             continue; // no graph
         }
 
@@ -1616,6 +1618,11 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter,
             ordered_graphs.push_back(h);
         }
         graphs[h].push_back(e);
+        if (in[e].dfa) {
+            assert(!contains(bd.early_dfas, h)
+                   || bd.early_dfas[h] == in[e].dfa);
+            bd.early_dfas[h] = in[e].dfa;
+        }
     }
 
     assert(ordered_graphs.size() == graphs.size());
@@ -1626,8 +1633,9 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter,
         const vector<RoseInEdge> &h_edges = graphs.at(h);
         unique_ptr<raw_dfa> as_dfa;
         /* allow finalChance as fallback is basically an outfix at this point */
-        if (!canImplementGraph(this, in, *h, h_edges, prefilter, rm, cc,
-                               finalChance, &as_dfa)) {
+        if (!contains(bd.early_dfas, h)
+            && !canImplementGraph(this, in, *h, h_edges, prefilter, rm, cc,
+                                  finalChance, &as_dfa)) {
             return false;
         }
         if (as_dfa) {
@@ -1649,7 +1657,7 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter,
         if (!generates_callbacks(whatRoseIsThis(in, e))
             && !contains(bd.early_dfas, &h)
             && in[target(e, in)].type != RIV_ACCEPT_EOD) {
-            setReportId(h, getNewNfaReport());
+            set_report(h, getNewNfaReport());
         }
     }
 
