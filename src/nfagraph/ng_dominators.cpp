@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-16, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,7 +39,7 @@
 #include "util/ue2_containers.h"
 
 #include <boost-patched/graph/dominator_tree.hpp> // locally patched version
-#include <boost/graph/reverse_graph.hpp>
+#include <boost-patched/graph/reverse_graph.hpp>
 
 using namespace std;
 using boost::make_assoc_property_map;
