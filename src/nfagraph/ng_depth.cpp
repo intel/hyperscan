@@ -162,13 +162,13 @@ void findLoopReachable(const GraphT &g,
 
 template <class GraphT>
 static
-void calcDepthFromSource(const NGHolder &graph, const GraphT &g,
+void calcDepthFromSource(const GraphT &g,
                          typename GraphT::vertex_descriptor srcVertex,
-                         const vector<bool> &deadNodes,
-                         vector<int> &dMin, vector<int> &dMax) {
+                         const vector<bool> &deadNodes, vector<int> &dMin,
+                         vector<int> &dMax) {
     typedef typename GraphT::edge_descriptor EdgeT;
 
-    const size_t numVerts = num_vertices(graph);
+    const size_t numVerts = num_vertices(g);
 
     NodeFilter<GraphT> nf(&deadNodes, &g);
     StartFilter<GraphT> sf(&g);
@@ -252,14 +252,14 @@ DepthMinMax getDepths(u32 idx, const vector<int> &dMin,
 
 template<class Graph, class Output>
 static
-void calcAndStoreDepth(const NGHolder &h, const Graph &g,
+void calcAndStoreDepth(const Graph &g,
                        const typename Graph::vertex_descriptor src,
                        const vector<bool> &deadNodes,
                        vector<int> &dMin /* util */,
                        vector<int> &dMax /* util */,
                        vector<Output> &depths,
                        DepthMinMax Output::*store) {
-    calcDepthFromSource(h, g, src, deadNodes, dMin, dMax);
+    calcDepthFromSource(g, src, deadNodes, dMin, dMax);
 
     for (auto v : vertices_range(g)) {
         u32 idx = g[v].index;
@@ -286,10 +286,10 @@ void calcDepths(const NGHolder &g, std::vector<NFAVertexDepth> &depths) {
     findLoopReachable(g, g.start, deadNodes);
 
     DEBUG_PRINTF("doing start\n");
-    calcAndStoreDepth(g, g, g.start, deadNodes, dMin, dMax, depths,
+    calcAndStoreDepth(g, g.start, deadNodes, dMin, dMax, depths,
                       &NFAVertexDepth::fromStart);
     DEBUG_PRINTF("doing startds\n");
-    calcAndStoreDepth(g, g, g.startDs, deadNodes, dMin, dMax, depths,
+    calcAndStoreDepth(g, g.startDs, deadNodes, dMin, dMax, depths,
                       &NFAVertexDepth::fromStartDotStar);
 }
 
@@ -306,6 +306,8 @@ void calcDepths(const NGHolder &g, std::vector<NFAVertexRevDepth> &depths) {
     typedef reverse_graph<NGHolder, const NGHolder &> RevNFAGraph;
     const RevNFAGraph rg(g);
 
+    assert(num_vertices(g) == num_vertices(rg));
+
     /*
      * create a filtered graph for max depth calculations: all nodes/edges
      * reachable from a loop need to be removed
@@ -315,12 +317,12 @@ void calcDepths(const NGHolder &g, std::vector<NFAVertexRevDepth> &depths) {
 
     DEBUG_PRINTF("doing accept\n");
     calcAndStoreDepth<RevNFAGraph, NFAVertexRevDepth>(
-        g, rg, g.accept, deadNodes, dMin, dMax, depths,
+        rg, g.accept, deadNodes, dMin, dMax, depths,
         &NFAVertexRevDepth::toAccept);
     DEBUG_PRINTF("doing accepteod\n");
     deadNodes[NODE_ACCEPT] = true; // Hide accept->acceptEod edge.
     calcAndStoreDepth<RevNFAGraph, NFAVertexRevDepth>(
-        g, rg, g.acceptEod, deadNodes, dMin, dMax, depths,
+        rg, g.acceptEod, deadNodes, dMin, dMax, depths,
         &NFAVertexRevDepth::toAcceptEod);
 }
 
@@ -342,11 +344,11 @@ void calcDepths(const NGHolder &g, vector<NFAVertexBidiDepth> &depths) {
 
     DEBUG_PRINTF("doing start\n");
     calcAndStoreDepth<NGHolder, NFAVertexBidiDepth>(
-        g, g, g.start, deadNodes, dMin, dMax, depths,
+        g, g.start, deadNodes, dMin, dMax, depths,
         &NFAVertexBidiDepth::fromStart);
     DEBUG_PRINTF("doing startds\n");
     calcAndStoreDepth<NGHolder, NFAVertexBidiDepth>(
-        g, g, g.startDs, deadNodes, dMin, dMax, depths,
+        g, g.startDs, deadNodes, dMin, dMax, depths,
         &NFAVertexBidiDepth::fromStartDotStar);
 
     /* Now go backwards */
@@ -357,12 +359,12 @@ void calcDepths(const NGHolder &g, vector<NFAVertexBidiDepth> &depths) {
 
     DEBUG_PRINTF("doing accept\n");
     calcAndStoreDepth<RevNFAGraph, NFAVertexBidiDepth>(
-        g, rg, g.accept, deadNodes, dMin, dMax, depths,
+        rg, g.accept, deadNodes, dMin, dMax, depths,
         &NFAVertexBidiDepth::toAccept);
     DEBUG_PRINTF("doing accepteod\n");
     deadNodes[NODE_ACCEPT] = true; // Hide accept->acceptEod edge.
     calcAndStoreDepth<RevNFAGraph, NFAVertexBidiDepth>(
-        g, rg, g.acceptEod, deadNodes, dMin, dMax, depths,
+        rg, g.acceptEod, deadNodes, dMin, dMax, depths,
         &NFAVertexBidiDepth::toAcceptEod);
 }
 
@@ -375,7 +377,7 @@ void calcDepthsFrom(const NGHolder &g, const NFAVertex src,
     findLoopReachable(g, g.start, deadNodes);
 
     vector<int> dMin, dMax;
-    calcDepthFromSource(g, g, src, deadNodes, dMin, dMax);
+    calcDepthFromSource(g, src, deadNodes, dMin, dMax);
 
     depths.clear();
     depths.resize(numVertices);
