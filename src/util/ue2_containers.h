@@ -91,6 +91,21 @@ private:
     Value &dereference() const { return *it; }
 };
 
+template <class T, class Compare, class Allocator>
+class flat_base {
+protected:
+    // Underlying storage is a sorted std::vector.
+    using storage_type = std::vector<T, Allocator>;
+
+    // Putting our storage and comparator in a tuple allows us to make use of
+    // the empty base class optimization (if this STL implements it for
+    // std::tuple).
+    std::tuple<storage_type, Compare> storage;
+
+    flat_base(const Compare &compare, const Allocator &alloc)
+        : storage(storage_type(alloc), compare) {}
+};
+
 } // namespace flat_detail
 
 /**
@@ -103,33 +118,37 @@ private:
  */
 template <class T, class Compare = std::less<T>,
           class Allocator = std::allocator<T>>
-class flat_set {
-    // Underlying storage is a sorted std::vector.
-    using StorageT = std::vector<T, Allocator>;
+class flat_set : flat_detail::flat_base<T, Compare, Allocator> {
+    using base_type = flat_detail::flat_base<T, Compare, Allocator>;
+    using storage_type = typename base_type::storage_type;
 
-    Compare comp;
-    StorageT data;
+    storage_type &data() { return std::get<0>(this->storage); }
+    const storage_type &data() const { return std::get<0>(this->storage); }
+
+    Compare &comp() { return std::get<1>(this->storage); }
+    const Compare &comp() const { return std::get<1>(this->storage); }
 
 public:
     // Member types.
     using key_type = T;
     using value_type = T;
-    using size_type = typename StorageT::size_type;
-    using difference_type = typename StorageT::difference_type;
+    using size_type = typename storage_type::size_type;
+    using difference_type = typename storage_type::difference_type;
     using key_compare = Compare;
     using value_compare = Compare;
     using allocator_type = Allocator;
     using reference = value_type &;
     using const_reference = const value_type &;
-    using pointer = typename std::allocator_traits<Allocator>::pointer;
-    using const_pointer = typename std::allocator_traits<Allocator>::const_pointer;
+    using allocator_traits_type = typename std::allocator_traits<Allocator>;
+    using pointer = typename allocator_traits_type::pointer;
+    using const_pointer = typename allocator_traits_type::const_pointer;
 
     // Iterator types.
 
-    using iterator = flat_detail::iter_wrapper<typename StorageT::iterator,
+    using iterator = flat_detail::iter_wrapper<typename storage_type::iterator,
                                                const value_type>;
     using const_iterator =
-        flat_detail::iter_wrapper<typename StorageT::const_iterator,
+        flat_detail::iter_wrapper<typename storage_type::const_iterator,
                                   const value_type>;
 
     using reverse_iterator = std::reverse_iterator<iterator>;
@@ -139,19 +158,19 @@ public:
 
     flat_set(const Compare &compare = Compare(),
              const Allocator &alloc = Allocator())
-        : comp(compare), data(alloc) {}
+        : base_type(compare, alloc) {}
 
     template <class InputIt>
     flat_set(InputIt first, InputIt last, const Compare &compare = Compare(),
              const Allocator &alloc = Allocator())
-        : comp(compare), data(alloc) {
+        : flat_set(compare, alloc) {
         insert(first, last);
     }
 
     flat_set(std::initializer_list<value_type> init,
              const Compare &compare = Compare(),
              const Allocator &alloc = Allocator())
-        : comp(compare), data(alloc) {
+        : flat_set(compare, alloc) {
         insert(init.begin(), init.end());
     }
 
@@ -163,17 +182,17 @@ public:
     // Other members.
 
     allocator_type get_allocator() const {
-        return data.get_allocator();
+        return data().get_allocator();
     }
 
     // Iterators.
 
-    iterator begin() { return iterator(data.begin()); }
-    const_iterator cbegin() const { return const_iterator(data.cbegin()); }
+    iterator begin() { return iterator(data().begin()); }
+    const_iterator cbegin() const { return const_iterator(data().cbegin()); }
     const_iterator begin() const { return cbegin(); }
 
-    iterator end() { return iterator(data.end()); }
-    const_iterator cend() const { return const_iterator(data.cend()); }
+    iterator end() { return iterator(data().end()); }
+    const_iterator cend() const { return const_iterator(data().cend()); }
     const_iterator end() const { return cend(); }
 
     reverse_iterator rbegin() { return reverse_iterator(end()); }
@@ -190,20 +209,20 @@ public:
 
     // Capacity.
 
-    bool empty() const { return data.empty(); }
-    size_t size() const { return data.size(); }
-    size_t max_size() const { return data.max_size(); }
+    bool empty() const { return data().empty(); }
+    size_t size() const { return data().size(); }
+    size_t max_size() const { return data().max_size(); }
 
     // Modifiers.
 
     void clear() {
-        data.clear();
+        data().clear();
     }
 
     std::pair<iterator, bool> insert(const value_type &value) {
-        auto it = std::lower_bound(data.begin(), data.end(), value, comp);
-        if (it == data.end() || comp(value, *it)) {
-            return std::make_pair(iterator(data.insert(it, value)), true);
+        auto it = std::lower_bound(data().begin(), data().end(), value, comp());
+        if (it == data().end() || comp()(value, *it)) {
+            return std::make_pair(iterator(data().insert(it, value)), true);
         }
         return std::make_pair(iterator(it), false);
     }
@@ -213,9 +232,9 @@ public:
     }
 
     std::pair<iterator, bool> insert(value_type &&value) {
-        auto it = std::lower_bound(data.begin(), data.end(), value, comp);
-        if (it == data.end() || comp(value, *it)) {
-            return std::make_pair(iterator(data.insert(it, std::move(value))),
+        auto it = std::lower_bound(data().begin(), data().end(), value, comp());
+        if (it == data().end() || comp()(value, *it)) {
+            return std::make_pair(iterator(data().insert(it, std::move(value))),
                                   true);
         }
         return std::make_pair(iterator(it), false);
@@ -242,11 +261,11 @@ public:
     }
 
     void erase(iterator pos) {
-        data.erase(pos.get());
+        data().erase(pos.get());
     }
 
     void erase(iterator first, iterator last) {
-        data.erase(first.get(), last.get());
+        data().erase(first.get(), last.get());
     }
 
     void erase(const key_type &key) {
@@ -258,8 +277,8 @@ public:
 
     void swap(flat_set &a) {
         using std::swap;
-        swap(comp, a.comp);
-        swap(data, a.data);
+        swap(comp(), a.comp());
+        swap(data(), a.data());
     }
 
     // Lookup.
@@ -269,17 +288,17 @@ public:
     }
 
     iterator find(const value_type &value) {
-        auto it = std::lower_bound(data.begin(), data.end(), value, comp);
-        if (it != data.end() && comp(value, *it)) {
-            it = data.end();
+        auto it = std::lower_bound(data().begin(), data().end(), value, comp());
+        if (it != data().end() && comp()(value, *it)) {
+            it = data().end();
         }
         return iterator(it);
     }
 
     const_iterator find(const value_type &value) const {
-        auto it = std::lower_bound(data.begin(), data.end(), value, comp);
-        if (it != data.end() && comp(value, *it)) {
-            it = data.end();
+        auto it = std::lower_bound(data().begin(), data().end(), value, comp());
+        if (it != data().end() && comp()(value, *it)) {
+            it = data().end();
         }
         return const_iterator(it);
     }
@@ -287,32 +306,32 @@ public:
     // Observers.
 
     key_compare key_comp() const {
-        return comp;
+        return comp();
     }
 
     value_compare value_comp() const {
-        return comp;
+        return comp();
     }
 
     // Operators.
 
     bool operator==(const flat_set &a) const {
-        return data == a.data;
+        return data() == a.data();
     }
     bool operator!=(const flat_set &a) const {
-        return data != a.data;
+        return data() != a.data();
     }
     bool operator<(const flat_set &a) const {
-        return data < a.data;
+        return data() < a.data();
     }
     bool operator<=(const flat_set &a) const {
-        return data <= a.data;
+        return data() <= a.data();
     }
     bool operator>(const flat_set &a) const {
-        return data > a.data;
+        return data() > a.data();
     }
     bool operator>=(const flat_set &a) const {
-        return data >= a.data;
+        return data() >= a.data();
     }
 
     // Free swap function for ADL.
@@ -343,7 +362,7 @@ public:
  */
 template <class Key, class T, class Compare = std::less<Key>,
           class Allocator = std::allocator<std::pair<Key, T>>>
-class flat_map {
+class flat_map : flat_detail::flat_base<std::pair<Key, T>, Compare, Allocator> {
 public:
     // Member types.
     using key_type = Key;
@@ -351,28 +370,33 @@ public:
     using value_type = std::pair<const Key, T>;
 
 private:
-    // Underlying storage is a sorted std::vector.
-    using storage_type = std::pair<key_type, mapped_type>;
-    using StorageT = std::vector<storage_type, Allocator>;
+    using base_type =
+        flat_detail::flat_base<std::pair<Key, T>, Compare, Allocator>;
+    using keyval_storage_type = std::pair<key_type, mapped_type>;
+    using storage_type = typename base_type::storage_type;
 
-    Compare comp;
-    StorageT data;
+    storage_type &data() { return std::get<0>(this->storage); }
+    const storage_type &data() const { return std::get<0>(this->storage); }
+
+    Compare &comp() { return std::get<1>(this->storage); }
+    const Compare &comp() const { return std::get<1>(this->storage); }
 
 public:
     // More Member types.
-    using size_type = typename StorageT::size_type;
-    using difference_type = typename StorageT::difference_type;
+    using size_type = typename storage_type::size_type;
+    using difference_type = typename storage_type::difference_type;
     using key_compare = Compare;
     using allocator_type = Allocator;
     using reference = value_type &;
     using const_reference = const value_type &;
-    using pointer = typename std::allocator_traits<Allocator>::pointer;
-    using const_pointer = typename std::allocator_traits<Allocator>::const_pointer;
+    using allocator_traits_type = typename std::allocator_traits<Allocator>;
+    using pointer = typename allocator_traits_type::pointer;
+    using const_pointer = typename allocator_traits_type::const_pointer;
 
 public:
     using const_iterator =
-        flat_detail::iter_wrapper<typename StorageT::const_iterator,
-                                  const storage_type>;
+        flat_detail::iter_wrapper<typename storage_type::const_iterator,
+                                  const keyval_storage_type>;
 
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -384,19 +408,19 @@ public:
 
     flat_map(const Compare &compare = Compare(),
              const Allocator &alloc = Allocator())
-        : comp(compare), data(alloc) {}
+        : base_type(compare, alloc) {}
 
     template <class InputIt>
     flat_map(InputIt first, InputIt last, const Compare &compare = Compare(),
              const Allocator &alloc = Allocator())
-        : comp(compare), data(alloc) {
+        : flat_map(compare, alloc) {
         insert(first, last);
     }
 
     flat_map(std::initializer_list<value_type> init,
              const Compare &compare = Compare(),
              const Allocator &alloc = Allocator())
-        : comp(compare), data(alloc) {
+        : flat_map(compare, alloc) {
         insert(init.begin(), init.end());
     }
 
@@ -408,15 +432,15 @@ public:
     // Other members.
 
     allocator_type get_allocator() const {
-        return data.get_allocator();
+        return data().get_allocator();
     }
 
     // Iterators.
 
-    const_iterator cbegin() const { return const_iterator(data.cbegin()); }
+    const_iterator cbegin() const { return const_iterator(data().cbegin()); }
     const_iterator begin() const { return cbegin(); }
 
-    const_iterator cend() const { return const_iterator(data.cend()); }
+    const_iterator cend() const { return const_iterator(data().cend()); }
     const_iterator end() const { return cend(); }
 
     const_reverse_iterator crbegin() const {
@@ -431,59 +455,59 @@ public:
 
     // Capacity.
 
-    bool empty() const { return data.empty(); }
-    size_t size() const { return data.size(); }
-    size_t max_size() const { return data.max_size(); }
+    bool empty() const { return data().empty(); }
+    size_t size() const { return data().size(); }
+    size_t max_size() const { return data().max_size(); }
 
 private:
-    using storage_iterator = typename StorageT::iterator;
-    using storage_const_iterator = typename StorageT::const_iterator;
+    using storage_iterator = typename storage_type::iterator;
+    using storage_const_iterator = typename storage_type::const_iterator;
 
     storage_iterator data_lower_bound(const key_type &key) {
         return std::lower_bound(
-            data.begin(), data.end(), key,
-            [&](const storage_type &elem, const key_type &k) {
-                return comp(elem.first, k);
+            data().begin(), data().end(), key,
+            [&](const keyval_storage_type &elem, const key_type &k) {
+                return comp()(elem.first, k);
             });
     }
 
     storage_const_iterator
     data_lower_bound(const key_type &key) const {
         return std::lower_bound(
-            data.begin(), data.end(), key,
-            [&](const storage_type &elem, const key_type &k) {
-                return comp(elem.first, k);
+            data().begin(), data().end(), key,
+            [&](const keyval_storage_type &elem, const key_type &k) {
+                return comp()(elem.first, k);
             });
     }
 
     std::pair<storage_iterator, bool> data_insert(const value_type &value) {
         auto it = data_lower_bound(value.first);
-        if (it == data.end() || comp(value.first, it->first)) {
-            return std::make_pair(data.insert(it, value), true);
+        if (it == data().end() || comp()(value.first, it->first)) {
+            return std::make_pair(data().insert(it, value), true);
         }
         return std::make_pair(it, false);
     }
 
     std::pair<storage_iterator, bool> data_insert(value_type &&value) {
         auto it = data_lower_bound(value.first);
-        if (it == data.end() || comp(value.first, it->first)) {
-            return std::make_pair(data.insert(it, std::move(value)), true);
+        if (it == data().end() || comp()(value.first, it->first)) {
+            return std::make_pair(data().insert(it, std::move(value)), true);
         }
         return std::make_pair(it, false);
     }
 
     storage_iterator data_find(const key_type &key) {
         auto it = data_lower_bound(key);
-        if (it != data.end() && comp(key, it->first)) {
-            it = data.end();
+        if (it != data().end() && comp()(key, it->first)) {
+            it = data().end();
         }
         return it;
     }
 
     storage_const_iterator data_find(const key_type &key) const {
         auto it = data_lower_bound(key);
-        if (it != data.end() && comp(key, it->first)) {
-            it = data.end();
+        if (it != data().end() && comp()(key, it->first)) {
+            it = data().end();
         }
         return it;
     }
@@ -492,7 +516,7 @@ public:
     // Modifiers.
 
     void clear() {
-        data.clear();
+        data().clear();
     }
 
     std::pair<iterator, bool> insert(const value_type &value) {
@@ -523,15 +547,15 @@ public:
 
     void erase(iterator pos) {
         // Convert to a non-const storage iterator via pointer arithmetic.
-        storage_iterator it = data.begin() + distance(begin(), pos);
-        data.erase(it);
+        storage_iterator it = data().begin() + distance(begin(), pos);
+        data().erase(it);
     }
 
     void erase(iterator first, iterator last) {
         // Convert to a non-const storage iterator via pointer arithmetic.
-        storage_iterator data_first = data.begin() + distance(begin(), first);
-        storage_iterator data_last = data.begin() + distance(begin(), last);
-        data.erase(data_first, data_last);
+        storage_iterator data_first = data().begin() + distance(begin(), first);
+        storage_iterator data_last = data().begin() + distance(begin(), last);
+        data().erase(data_first, data_last);
     }
 
     void erase(const key_type &key) {
@@ -543,8 +567,8 @@ public:
 
     void swap(flat_map &a) {
         using std::swap;
-        swap(comp, a.comp);
-        swap(data, a.data);
+        swap(comp(), a.comp());
+        swap(data(), a.data());
     }
 
     // Lookup.
@@ -561,7 +585,7 @@ public:
 
     mapped_type &at(const key_type &key) {
         auto it = data_find(key);
-        if (it == data.end()) {
+        if (it == data().end()) {
             throw std::out_of_range("element not found");
         }
         return it->second;
@@ -569,7 +593,7 @@ public:
 
     const mapped_type &at(const key_type &key) const {
         auto it = data_find(key);
-        if (it == data.end()) {
+        if (it == data().end()) {
             throw std::out_of_range("element not found");
         }
         return it->second;
@@ -583,28 +607,28 @@ public:
     // Observers.
 
     key_compare key_comp() const {
-        return comp;
+        return comp();
     }
 
     // Operators.
 
     bool operator==(const flat_map &a) const {
-        return data == a.data;
+        return data() == a.data();
     }
     bool operator!=(const flat_map &a) const {
-        return data != a.data;
+        return data() != a.data();
     }
     bool operator<(const flat_map &a) const {
-        return data < a.data;
+        return data() < a.data();
     }
     bool operator<=(const flat_map &a) const {
-        return data <= a.data;
+        return data() <= a.data();
     }
     bool operator>(const flat_map &a) const {
-        return data > a.data;
+        return data() > a.data();
     }
     bool operator>=(const flat_map &a) const {
-        return data >= a.data;
+        return data() >= a.data();
     }
 
     // Free swap function for ADL.
