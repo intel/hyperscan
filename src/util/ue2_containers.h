@@ -58,8 +58,8 @@ class iter_wrapper
     : public boost::iterator_facade<iter_wrapper<WrappedIter, Value>, Value,
                                     boost::random_access_traversal_tag> {
 public:
-    iter_wrapper() {}
-    explicit iter_wrapper(const WrappedIter &it_in) : it(it_in) {}
+    iter_wrapper() = default;
+    explicit iter_wrapper(WrappedIter it_in) : it(std::move(it_in)) {}
 
     // Templated copy-constructor to allow for interoperable iterator and
     // const_iterator.
@@ -68,10 +68,10 @@ private:
 
 public:
     template <class OtherIter, class OtherValue>
-    iter_wrapper(const iter_wrapper<OtherIter, OtherValue> &other,
+    iter_wrapper(iter_wrapper<OtherIter, OtherValue> other,
                  typename std::enable_if<std::is_convertible<
                      OtherIter, WrappedIter>::value>::type * = nullptr)
-        : it(other.it) {}
+        : it(std::move(other.it)) {}
 
     WrappedIter get() const { return it; }
 
