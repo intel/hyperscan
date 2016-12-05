@@ -49,7 +49,6 @@
 #include "util/graph.h"
 #include "util/make_unique.h"
 #include "util/multibit_build.h"
-#include "util/multibit_internal.h"
 #include "util/report_manager.h"
 #include "util/ue2_containers.h"
 #include "util/verify_types.h"

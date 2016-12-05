@@ -50,6 +50,15 @@ size_t hash_value(const mmbit_sparse_iter &iter) {
 
 namespace ue2 {
 
+/**
+ * \brief Return the size in bytes of a multibit that can store the given
+ * number of bits.
+ *
+ * This will throw a resource limit assertion if the requested mmbit is too
+ * large.
+ */
+u32 mmbit_size(u32 total_bits);
+
 /** \brief Construct a sparse iterator over the values in \a bits for a
  * multibit of size \a total_bits. */
 void mmbBuildSparseIterator(std::vector<mmbit_sparse_iter> &out,

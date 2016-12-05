@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,55 +27,22 @@
  */
 
 /** \file
- * \brief Multibit: data structures.
- *
- * If all you need is the sizes of multibit's few structures, then including
- * this file is a much better idea than including all of multibit.h.
+ * \brief Fatbit: build code
  */
-#ifndef MULTIBIT_INTERNAL_H
-#define MULTIBIT_INTERNAL_H
+
+#ifndef FATBIT_BUILD_H
+#define FATBIT_BUILD_H
 
 #include "ue2common.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace ue2 {
 
-/** \brief Sentinel value meaning "no key found". */
-#define MMB_INVALID 0xffffffffu
-
-typedef u64a MMB_TYPE; /**< Basic block type for mmbit operations. */
-#define MMB_MAX_LEVEL 6 /**< Maximum level in the mmbit pyramid. */
-
-/** \brief Maximum number of keys (bits) in a multibit. */
-#define MMB_MAX_BITS (1U << 31)
-
-/** \brief Sparse iterator record type.
- *
- * A sparse iterator is a tree of these records, where val identifies the
- * offset of the result for leaf nodes and points to the next record for
- * intermediate nodes. Built by the code in multibit_build.cpp.
+/**
+ * \brief Return the size in bytes of a fatbit that can store the given
+ * number of bits.
  */
-struct mmbit_sparse_iter {
-    MMB_TYPE mask;
-    u32 val;
-};
+u32 fatbit_size(u32 total_bits);
 
-/** \brief Sparse iterator runtime state type.
- *
- * An array of these records (one per "level" in the multibit pyramid) is used
- * to store the current iteration state.
- */
-struct mmbit_sparse_state {
-    MMB_TYPE mask; //!< \brief masked last block read at this level.
-    u32 itkey;     //!< \brief iterator offset for this level.
-};
+} // namespace ue2
 
-/** \brief Maximum number of \ref mmbit_sparse_state that could be needed. */
-#define MAX_SPARSE_ITER_STATES (6 + 1)
-
-#ifdef __cplusplus
-} // extern "C"
-#endif
-
-#endif // MULTIBIT_INTERNAL_H
+#endif // FATBIT_BUILD_H

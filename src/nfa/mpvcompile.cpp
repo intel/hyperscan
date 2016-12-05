@@ -34,7 +34,7 @@
 #include "shufticompile.h"
 #include "trufflecompile.h"
 #include "util/alloc.h"
-#include "util/multibit_internal.h"
+#include "util/multibit_build.h"
 #include "util/order_check.h"
 #include "util/report_manager.h"
 #include "util/verify_types.h"

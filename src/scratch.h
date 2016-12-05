@@ -148,6 +148,7 @@ struct match_deduper {
     struct fatbit *log[2]; /**< even, odd logs */
     struct fatbit *som_log[2]; /**< even, odd fatbit logs for som */
     u64a *som_start_log[2]; /**< even, odd start offset logs for som */
+    u32 dkey_count;
     u32 log_size;
     u64a current_report_offset;
     u8 som_log_dirty;
@@ -162,6 +163,7 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     u32 magic;
     u8 in_use; /**< non-zero when being used by an API call. */
     u32 queueCount;
+    u32 activeQueueArraySize; /**< size of active queue array fatbit in bytes */
     u32 bStateSize; /**< sizeof block mode states */
     u32 tStateSize; /**< sizeof transient rose states */
     u32 fullStateSize; /**< size of uncompressed nfa state */
@@ -179,7 +181,7 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     struct core_info core_info;
     struct match_deduper deduper;
     u32 anchored_literal_region_len;
-    u32 anchored_literal_count;
+    u32 anchored_literal_fatbit_size; /**< size of each anch fatbit in bytes */
     struct fatbit *handled_roles; /**< fatbit of ROLES (not states) already
                                    * handled by this literal */
     u64a *som_store; /**< array of som locations */
@@ -191,8 +193,9 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
                             * location had been writable */
     u64a som_set_now_offset; /**< offset at which som_set_now represents */
     u32 som_store_count;
-    u32 handledKeyCount;
-    u32 delay_count;
+    u32 som_fatbit_size; /**< size of som location fatbit structures in bytes */
+    u32 handledKeyFatbitSize; /**< size of handled_keys fatbit in bytes */
+    u32 delay_fatbit_size; /**< size of each delay fatbit in bytes */
     u32 scratchSize;
     char *scratch_alloc; /* user allocated scratch object */
     u8 ALIGN_DIRECTIVE fdr_temp_buf[FDR_TEMP_BUF_SIZE];

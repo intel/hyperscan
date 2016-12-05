@@ -553,7 +553,6 @@ set (hs_exec_SRCS
     src/util/copybytes.h
     src/util/exhaust.h
     src/util/fatbit.h
-    src/util/fatbit.c
     src/util/join.h
     src/util/masked_move.h
     src/util/multibit.h
@@ -924,6 +923,8 @@ SET (hs_SRCS
     src/util/determinise.h
     src/util/dump_mask.cpp
     src/util/dump_mask.h
+    src/util/fatbit_build.cpp
+    src/util/fatbit_build.h
     src/util/graph.h
     src/util/hash.h
     src/util/multibit_build.cpp

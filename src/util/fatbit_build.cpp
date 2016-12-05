@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,9 +26,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "fatbit_build.h"
+
 #include "fatbit.h"
-#include "multibit.h"
+#include "multibit_build.h"
+
+#include <algorithm>
+
+using namespace std;
+
+namespace ue2 {
 
 u32 fatbit_size(u32 total_bits) {
-    return MAX(sizeof(struct fatbit), mmbit_size(total_bits));
+    return max(u32{sizeof(struct fatbit)}, mmbit_size(total_bits));
 }
+
+} // namespace ue2

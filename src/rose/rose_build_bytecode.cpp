@@ -81,6 +81,7 @@
 #include "util/compile_context.h"
 #include "util/compile_error.h"
 #include "util/container.h"
+#include "util/fatbit_build.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
 #include "util/multibit_build.h"
@@ -5435,11 +5436,13 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     engine->ekeyCount = rm.numEkeys();
     engine->dkeyCount = rm.numDkeys();
+    engine->dkeyLogSize = fatbit_size(engine->dkeyCount);
     engine->invDkeyOffset = dkeyOffset;
     copy_bytes(ptr + dkeyOffset, rm.getDkeyToReportTable());
 
     engine->somHorizon = ssm.somPrecision();
     engine->somLocationCount = ssm.numSomSlots();
+    engine->somLocationFatbitSize = fatbit_size(engine->somLocationCount);
 
     engine->needsCatchup = bc.needs_catchup ? 1 : 0;
 
@@ -5454,8 +5457,10 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->activeArrayCount = activeArrayCount;
     engine->activeLeftCount = activeLeftCount;
     engine->queueCount = queue_count;
+    engine->activeQueueArraySize = fatbit_size(queue_count);
     engine->eagerIterOffset = eagerIterOffset;
     engine->handledKeyCount = bc.handledKeys.size();
+    engine->handledKeyFatbitSize = fatbit_size(engine->handledKeyCount);
 
     engine->rolesWithStateCount = bc.numStates;
 
@@ -5475,11 +5480,13 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     engine->lastByteHistoryIterOffset = lastByteOffset;
 
-    u32 delay_count = verify_u32(final_id_to_literal.size() - delay_base_id);
-    engine->delay_count = delay_count;
+    engine->delay_count =
+        verify_u32(final_id_to_literal.size() - delay_base_id);
+    engine->delay_fatbit_size = fatbit_size(engine->delay_count);
     engine->delay_base_id = delay_base_id;
     engine->anchored_base_id = anchored_base_id;
     engine->anchored_count = delay_base_id - anchored_base_id;
+    engine->anchored_fatbit_size = fatbit_size(engine->anchored_count);
 
     engine->rosePrefixCount = rosePrefixCount;
 

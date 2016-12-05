@@ -42,7 +42,7 @@
 #include "nfa/nfa_internal.h"
 #include "nfa/nfa_kind.h"
 #include "util/dump_charclass.h"
-#include "util/multibit_internal.h"
+#include "util/multibit_build.h"
 #include "util/multibit.h"
 
 #include <algorithm>
@@ -1232,8 +1232,10 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, historyRequired);
     DUMP_U32(t, ekeyCount);
     DUMP_U32(t, dkeyCount);
+    DUMP_U32(t, dkeyLogSize);
     DUMP_U32(t, invDkeyOffset);
     DUMP_U32(t, somLocationCount);
+    DUMP_U32(t, somLocationFatbitSize);
     DUMP_U32(t, rolesWithStateCount);
     DUMP_U32(t, stateSize);
     DUMP_U32(t, anchorStateSize);
@@ -1258,8 +1260,10 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, activeArrayCount);
     DUMP_U32(t, activeLeftCount);
     DUMP_U32(t, queueCount);
+    DUMP_U32(t, activeQueueArraySize);
     DUMP_U32(t, eagerIterOffset);
     DUMP_U32(t, handledKeyCount);
+    DUMP_U32(t, handledKeyFatbitSize);
     DUMP_U32(t, leftOffset);
     DUMP_U32(t, roseCount);
     DUMP_U32(t, lookaroundTableOffset);
@@ -1280,8 +1284,10 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U64(t, floating_group_mask);
     DUMP_U32(t, size);
     DUMP_U32(t, delay_count);
+    DUMP_U32(t, delay_fatbit_size);
     DUMP_U32(t, delay_base_id);
     DUMP_U32(t, anchored_count);
+    DUMP_U32(t, anchored_fatbit_size);
     DUMP_U32(t, anchored_base_id);
     DUMP_U32(t, maxFloatingDelayedMatch);
     DUMP_U32(t, delayRebuildLength);

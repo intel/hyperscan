@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,7 @@
 #include "scratch_dump.h"
 #include "hs_internal.h"
 #include "ue2common.h"
-#include "util/multibit_internal.h"
+#include "util/multibit_build.h"
 #include "nfa/nfa_api_queue.h"
 #include "rose/rose_internal.h"
 
@@ -54,12 +54,11 @@ void dumpScratch(const struct hs_scratch *s, FILE *f) {
     fprintf(f, "  queues               : %zu bytes\n",
             s->queueCount * sizeof(struct mq));
     fprintf(f, "  bStateSize           : %u bytes\n", s->bStateSize);
-    fprintf(f, "  active queue array   : %u bytes\n",
-            mmbit_size(s->queueCount));
+    fprintf(f, "  active queue array   : %u bytes\n", s->activeQueueArraySize);
     fprintf(f, "  qmpq                 : %zu bytes\n",
             s->queueCount * sizeof(struct queue_match));
     fprintf(f, "  delay info           : %u bytes\n",
-            mmbit_size(s->delay_count) * DELAY_SLOT_COUNT);
+            s->delay_fatbit_size * DELAY_SLOT_COUNT);
 }
 
 } // namespace ue2

@@ -55,7 +55,6 @@
 #include "state.h"
 #include "ue2common.h"
 #include "util/exhaust.h"
-#include "util/fatbit.h"
 #include "util/multibit.h"
 
 static really_inline
