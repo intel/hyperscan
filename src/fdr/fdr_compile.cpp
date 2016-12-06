@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,13 +53,16 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <set>
 #include <string>
 #include <vector>
 
 #include <boost/core/noncopyable.hpp>
+#include <boost/multi_array.hpp>
 
 using namespace std;
 
@@ -71,12 +74,11 @@ class FDRCompiler : boost::noncopyable {
 private:
     const FDREngineDescription &eng;
     vector<u8> tab;
-    const vector<hwlmLiteral> &lits;
+    vector<hwlmLiteral> lits;
     map<BucketIndex, std::vector<LiteralIndex> > bucketToLits;
     bool make_small;
 
     u8 *tabIndexToMask(u32 indexInTable);
-    void assignStringToBucket(LiteralIndex l, BucketIndex b);
     void assignStringsToBuckets();
 #ifdef DEBUG
     void dumpMasks(const u8 *defaultMask);
@@ -86,9 +88,9 @@ private:
     void createInitialState(FDR *fdr);
 
 public:
-    FDRCompiler(const vector<hwlmLiteral> &lits_in,
-                const FDREngineDescription &eng_in, bool make_small_in)
-        : eng(eng_in), tab(eng_in.getTabSizeBytes()), lits(lits_in),
+    FDRCompiler(vector<hwlmLiteral> lits_in, const FDREngineDescription &eng_in,
+                bool make_small_in)
+        : eng(eng_in), tab(eng_in.getTabSizeBytes()), lits(move(lits_in)),
           make_small(make_small_in) {}
 
     aligned_unique_ptr<FDR> build(pair<aligned_unique_ptr<u8>, size_t> &link);
@@ -197,66 +199,121 @@ FDRCompiler::setupFDR(pair<aligned_unique_ptr<u8>, size_t> &link) {
     return fdr;
 }
 
-void FDRCompiler::assignStringToBucket(LiteralIndex l, BucketIndex b) {
-    bucketToLits[b].push_back(l);
+//#define DEBUG_ASSIGNMENT
+
+static
+double getScoreUtil(u32 len, u32 count) {
+    return len == 0 ? numeric_limits<double>::max()
+                    : pow(count, 1.05) * pow(len, -3.0);
 }
 
-struct LitOrder {
-    explicit LitOrder(const vector<hwlmLiteral> &vl_) : vl(vl_) {}
-    bool operator()(const u32 &i1, const u32 &i2) const {
-        const string &i1s = vl[i1].s;
-        const string &i2s = vl[i2].s;
+/**
+ * Returns true if the two given literals should be placed in the same chunk as
+ * they are identical except for a difference in caselessness.
+ */
+static
+bool isEquivLit(const hwlmLiteral &a, const hwlmLiteral &b,
+                const hwlmLiteral *last_nocase_lit) {
+    const size_t a_len = a.s.size();
+    const size_t b_len = b.s.size();
 
-        size_t len1 = i1s.size(), len2 = i2s.size();
+    if (a_len != b_len) {
+        return false;
+    }
 
-        if (len1 != len2) {
-            return len1 < len2;
-        } else {
-            auto p = std::mismatch(i1s.rbegin(), i1s.rend(), i2s.rbegin());
-            if (p.first == i1s.rend()) {
-                return false;
+    bool nocase = last_nocase_lit && a_len == last_nocase_lit->s.size() &&
+                  !cmp(a.s.c_str(), last_nocase_lit->s.c_str(), a_len, true);
+    return !cmp(a.s.c_str(), b.s.c_str(), a.s.size(), nocase);
+}
+
+struct Chunk {
+    Chunk(u32 first_id_in, u32 count_in, u32 length_in)
+        : first_id(first_id_in), count(count_in), length(length_in) {}
+    u32 first_id; //!< first id in this chunk
+    u32 count;    //!< how many are in this chunk
+    u32 length;   //!< how long things in the chunk are
+};
+
+static
+vector<Chunk> assignChunks(const vector<hwlmLiteral> &lits,
+                           const map<u32, u32> &lenCounts) {
+    const u32 CHUNK_MAX = 512;
+    const u32 MAX_CONSIDERED_LENGTH = 16;
+
+    // TODO: detailed early stage literal analysis for v. small cases (actually
+    // look at lits) yes - after we factor this out and merge in the Teddy
+    // style of building we can look at this, although the teddy merge
+    // modelling is quite different. It's still probably adaptable to some
+    // extent for this class of problem.
+
+    vector<Chunk> chunks;
+    chunks.reserve(CHUNK_MAX);
+
+    const u32 maxPerChunk = lits.size() /
+            (CHUNK_MAX - MIN(MAX_CONSIDERED_LENGTH, lenCounts.size())) + 1;
+
+    u32 currentSize = 0;
+    u32 chunkStartID = 0;
+    const hwlmLiteral *last_nocase_lit = nullptr;
+
+    for (u32 i = 0; i < lits.size() && chunks.size() < CHUNK_MAX - 1; i++) {
+        const auto &lit = lits[i];
+
+        DEBUG_PRINTF("i=%u, lit=%s%s\n", i, escapeString(lit.s).c_str(),
+                      lit.nocase ? " (nocase)" : "");
+
+        // If this literal is identical to the last one (aside from differences
+        // in caselessness), keep going even if we will "overfill" a chunk; we
+        // don't want to split identical literals into different buckets.
+        if (i != 0 && isEquivLit(lit, lits[i - 1], last_nocase_lit)) {
+            DEBUG_PRINTF("identical lit\n");
+            goto next_literal;
+        }
+
+        if ((currentSize < MAX_CONSIDERED_LENGTH &&
+             (lit.s.size() != currentSize)) ||
+            (currentSize != 1 && ((i - chunkStartID) >= maxPerChunk))) {
+            currentSize = lit.s.size();
+            if (!chunks.empty()) {
+                chunks.back().count = i - chunkStartID;
             }
-            return *p.first < *p.second;
+            chunkStartID = i;
+            chunks.emplace_back(i, 0, currentSize);
+        }
+next_literal:
+        if (lit.nocase) {
+            last_nocase_lit = &lit;
         }
     }
 
-private:
-    const vector<hwlmLiteral> &vl;
-};
+    assert(!chunks.empty());
+    chunks.back().count = lits.size() - chunkStartID;
+    // close off chunks with an empty row
+    chunks.emplace_back(lits.size(), 0, 0);
 
-static u64a getScoreUtil(u32 len, u32 count) {
-    if (len == 0) {
-        return (u64a)-1;
+#ifdef DEBUG_ASSIGNMENT
+    for (size_t j = 0; j < chunks.size(); j++) {
+        const auto &chunk = chunks[j];
+        printf("chunk %zu first_id=%u count=%u length=%u\n", j, chunk.first_id,
+               chunk.count, chunk.length);
     }
-    const u32 LEN_THRESH = 128;
-    const u32 elen = (len > LEN_THRESH) ? LEN_THRESH : len;
-    const u64a lenScore =
-        (LEN_THRESH * LEN_THRESH * LEN_THRESH) / (elen * elen * elen);
-    return count * lenScore; // deemphasize count - possibly more than needed
-                             // this might be overkill in the other direction
+#endif
+
+    DEBUG_PRINTF("built %zu chunks (%zu lits)\n", chunks.size(), lits.size());
+    assert(chunks.size() <= CHUNK_MAX);
+    return chunks;
 }
 
-//#define DEBUG_ASSIGNMENT
 void FDRCompiler::assignStringsToBuckets() {
-    typedef u64a SCORE; // 'Score' type
-    const SCORE MAX_SCORE = (SCORE)-1;
-    const u32 CHUNK_MAX = 512;
-    const u32 BUCKET_MAX = 16;
-    typedef pair<SCORE, u32> SCORE_INDEX_PAIR;
+    const double MAX_SCORE = numeric_limits<double>::max();
 
-    u32 ls = verify_u32(lits.size());
-    assert(ls); // Shouldn't be called with no literals.
+    assert(!lits.empty()); // Shouldn't be called with no literals.
 
-    // make a vector that contains our literals as pointers or u32 LiteralIndex values
-    vector<LiteralIndex> vli;
-    vli.resize(ls);
+    // Count the number of literals for each length.
     map<u32, u32> lenCounts;
-    for (LiteralIndex l = 0; l < ls; l++) {
-        vli[l] = l;
-        lenCounts[lits[l].s.size()]++;
+    for (const auto &lit : lits) {
+        lenCounts[lit.s.size()]++;
     }
-    // sort vector by literal length + if tied on length, 'magic' criteria of some kind (tbd)
-    stable_sort(vli.begin(), vli.end(), LitOrder(lits));
 
 #ifdef DEBUG_ASSIGNMENT
     for (const auto &m : lenCounts) {
@@ -265,103 +322,94 @@ void FDRCompiler::assignStringsToBuckets() {
     printf("\n");
 #endif
 
-    // TODO: detailed early stage literal analysis for v. small cases (actually look at lits)
-    // yes - after we factor this out and merge in the Teddy style of building we can look
-    // at this, although the teddy merge modelling is quite different. It's still probably
-    // adaptable to some extent for this class of problem
+    // Sort literals by literal length. If tied on length, use lexicographic
+    // ordering (of the reversed literals).
+    stable_sort(lits.begin(), lits.end(),
+                [](const hwlmLiteral &a, const hwlmLiteral &b) {
+                    if (a.s.size() != b.s.size()) {
+                        return a.s.size() < b.s.size();
+                    }
+                    auto p = mismatch(a.s.rbegin(), a.s.rend(), b.s.rbegin());
+                    if (p.first != a.s.rend()) {
+                        return *p.first < *p.second;
+                    }
+                    // Sort caseless variants first.
+                    return a.nocase > b.nocase;
+                });
 
-    u32 firstIds[CHUNK_MAX]; // how many are in this chunk (CHUNK_MAX - 1 contains 'last' bound)
-    u32 count[CHUNK_MAX]; // how many are in this chunk
-    u32 length[CHUNK_MAX]; // how long things in the chunk are
+    vector<Chunk> chunks = assignChunks(lits, lenCounts);
 
-    const u32 MAX_CONSIDERED_LENGTH = 16;
-    u32 currentChunk = 0;
-    u32 currentSize = 0;
-    u32 chunkStartID = 0;
-    u32 maxPerChunk  = ls/(CHUNK_MAX - MIN(MAX_CONSIDERED_LENGTH, lenCounts.size())) + 1;
+    const u32 numChunks = chunks.size();
+    const u32 numBuckets = eng.getNumBuckets();
 
-    for (u32 i = 0; i < ls && currentChunk < CHUNK_MAX - 1; i++) {
-        LiteralIndex l = vli[i];
-        if ((currentSize < MAX_CONSIDERED_LENGTH && (lits[l].s.size() != currentSize)) ||
-            (currentSize != 1 && ((i - chunkStartID) >= maxPerChunk))) {
-            currentSize = lits[l].s.size();
-            if (currentChunk) {
-                count[currentChunk - 1 ] = i - chunkStartID;
-            }
-            chunkStartID = firstIds[currentChunk] = i;
-            length[currentChunk] = currentSize;
-            currentChunk++;
-        }
-    }
+    // 2D array of (score, chunk index) pairs, indexed by
+    // [chunk_index][bucket_index].
+    boost::multi_array<pair<double, u32>, 2> t(
+        boost::extents[numChunks][numBuckets]);
 
-    assert(currentChunk > 0);
-    count[currentChunk - 1] = ls - chunkStartID;
-    // close off chunks with an empty row
-    firstIds[currentChunk] = ls;
-    length[currentChunk] = 0;
-    count[currentChunk] = 0;
-    u32 nChunks = currentChunk + 1;
-
-#ifdef DEBUG_ASSIGNMENT
-    for (u32 j = 0; j < nChunks; j++) {
-        printf("%d %d %d %d\n", j, firstIds[j], count[j], length[j]);
-    }
-#endif
-
-    SCORE_INDEX_PAIR t[CHUNK_MAX][BUCKET_MAX]; // pair of score, index
-    u32 nb = eng.getNumBuckets();
-
-    for (u32 j = 0; j < nChunks; j++) {
+    for (u32 j = 0; j < numChunks; j++) {
         u32 cnt = 0;
-        for (u32 k = j; k < nChunks; ++k) {
-            cnt += count[k];
+        for (u32 k = j; k < numChunks; ++k) {
+            cnt += chunks[k].count;
         }
-        t[j][0] = {getScoreUtil(length[j], cnt), 0};
+        t[j][0] = {getScoreUtil(chunks[j].length, cnt), 0};
     }
 
-    for (u32 i = 1; i < nb; i++) {
-        for (u32 j = 0; j < nChunks - 1; j++) { // don't process last, empty row
-            SCORE_INDEX_PAIR best = {MAX_SCORE, 0};
-            u32 cnt = count[j];
-            for (u32 k = j + 1; k < nChunks - 1; k++, cnt += count[k]) {
-                SCORE score = getScoreUtil(length[j], cnt);
+    for (u32 i = 1; i < numBuckets; i++) {
+        for (u32 j = 0; j < numChunks - 1; j++) { // don't do last, empty row
+            pair<double, u32> best = {MAX_SCORE, 0};
+            u32 cnt = chunks[j].count;
+            for (u32 k = j + 1; k < numChunks - 1; k++) {
+                auto score = getScoreUtil(chunks[j].length, cnt);
                 if (score > best.first) {
-                    break; // if we're now worse locally than our best score, give up
+                    break; // now worse locally than our best score, give up
                 }
                 score += t[k][i-1].first;
                 if (score < best.first) {
                     best = {score, k};
                 }
+                cnt += chunks[k].count;
             }
             t[j][i] = best;
         }
-        t[nChunks - 1][i] = {0,0}; // fill in empty final row for next iteration
+        t[numChunks - 1][i] = {0,0}; // fill in empty final row for next iter
     }
 
 #ifdef DEBUG_ASSIGNMENT
-    for (u32 j = 0; j < nChunks; j++) {
-        for (u32 i = 0; i < nb; i++) {
-            SCORE_INDEX_PAIR v = t[j][i];
-            printf("<%7lld,%3d>", v.first, v.second);
+    for (u32 j = 0; j < numChunks; j++) {
+        printf("%03u: ", j);
+        for (u32 i = 0; i < numBuckets; i++) {
+            const auto &v = t[j][i];
+            printf("<%0.3f,%3d> ", v.first, v.second);
         }
         printf("\n");
     }
 #endif
 
-    // our best score is in best[0][N_BUCKETS-1] and we can follow the links
+    // our best score is in t[0][N_BUCKETS-1] and we can follow the links
     // to find where our buckets should start and what goes into them
-    for (u32 i = 0, n = nb; n && (i != nChunks - 1); n--) {
+    for (u32 i = 0, n = numBuckets; n && (i != numChunks - 1); n--) {
         u32 j = t[i][n - 1].second;
         if (j == 0) {
-            j = nChunks - 1;
+            j = numChunks - 1;
         }
-        // put chunks between i - j into bucket (NBUCKETS-1) - n
-#ifdef DEBUG_ASSIGNMENT
-        printf("placing from %d to %d in bucket %d\n", firstIds[i], firstIds[j],
-               nb - n);
-#endif
-        for (u32 k = firstIds[i]; k < firstIds[j]; k++) {
-            assignStringToBucket((LiteralIndex)vli[k], nb - n);
+
+        // put chunks between i - j into bucket (numBuckets - n).
+        u32 first_id = chunks[i].first_id;
+        u32 last_id = chunks[j].first_id;
+        assert(first_id < last_id);
+        u32 bucket = numBuckets - n;
+        UNUSED const auto &first_lit = lits[first_id];
+        UNUSED const auto &last_lit = lits[last_id - 1];
+        DEBUG_PRINTF("placing [%u-%u) in bucket %u (%u lits, len %zu-%zu, "
+                      "score %0.4f)\n",
+                      first_id, last_id, bucket, last_id - first_id,
+                      first_lit.s.length(), last_lit.s.length(),
+                      getScoreUtil(first_lit.s.length(), last_id - first_id));
+
+        auto &bucket_lits = bucketToLits[bucket];
+        for (u32 k = first_id; k < last_id; k++) {
+            bucket_lits.push_back(k);
         }
         i = j;
     }
