@@ -255,7 +255,7 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
         return true;
     }
 
-    if (splitOffRose(*ng.rose, g, w.prefilter, cc)) {
+    if (splitOffRose(*ng.rose, g, w.prefilter, ng.rm, cc)) {
         return true;
     }
 
@@ -276,7 +276,7 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
         return true;
     }
 
-    if (splitOffRose(*ng.rose, g, w.prefilter, cc)) {
+    if (splitOffRose(*ng.rose, g, w.prefilter, ng.rm, cc)) {
         return true;
     }
 
@@ -291,7 +291,7 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
         }
     }
 
-    if (finalChanceRose(*ng.rose, g, w.prefilter, cc)) {
+    if (finalChanceRose(*ng.rose, g, w.prefilter, ng.rm, cc)) {
         return true;
     }
 
@@ -533,16 +533,16 @@ bool NG::addHolder(NGHolder &w) {
         return true;
     }
 
-    if (splitOffRose(*rose, w, prefilter, cc)) {
+    if (splitOffRose(*rose, w, prefilter, rm, cc)) {
         return true;
     }
     if (splitOffPuffs(*rose, rm, w, prefilter, cc)) {
         return true;
     }
-    if (splitOffRose(*rose, w, prefilter, cc)) {
+    if (splitOffRose(*rose, w, prefilter, rm, cc)) {
         return true;
     }
-    if (finalChanceRose(*rose, w, prefilter, cc)) {
+    if (finalChanceRose(*rose, w, prefilter, rm, cc)) {
         return true;
     }
 

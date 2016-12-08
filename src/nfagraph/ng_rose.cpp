@@ -48,6 +48,7 @@
 #include "ng_reports.h"
 #include "ng_split.h"
 #include "ng_util.h"
+#include "ng_violet.h"
 #include "ng_width.h"
 #include "rose/rose_build.h"
 #include "rose/rose_build_util.h"
@@ -2833,8 +2834,19 @@ void desperationImprove(RoseInGraph &ig, const CompileContext &cc) {
     calcVertexOffsets(ig);
 }
 
+static
+bool addRose(RoseBuild &rose, RoseInGraph &ig, bool prefilter,
+             bool final_chance, const ReportManager &rm,
+             const CompileContext &cc) {
+    if (!ensureImplementable(rose, ig, false, final_chance, rm, cc)
+        && !prefilter) {
+        return false;
+    }
+    return rose.addRose(ig, prefilter);
+}
+
 bool splitOffRose(RoseBuild &rose, const NGHolder &h, bool prefilter,
-                  const CompileContext &cc) {
+                  const ReportManager &rm, const CompileContext &cc) {
     if (!cc.grey.allowRose) {
         return false;
     }
@@ -2843,20 +2855,20 @@ bool splitOffRose(RoseBuild &rose, const NGHolder &h, bool prefilter,
     assert(in_degree(h.accept, h) || in_degree(h.acceptEod, h) > 1);
 
     unique_ptr<RoseInGraph> igp = buildRose(h, false, cc);
-    if (igp && rose.addRose(*igp, prefilter)) {
+    if (igp && addRose(rose, *igp, prefilter, false, rm, cc)) {
         goto ok;
     }
 
     igp = buildRose(h, true, cc);
 
     if (igp) {
-        if (rose.addRose(*igp, prefilter)) {
+        if (addRose(rose, *igp, prefilter, false, rm, cc)) {
             goto ok;
         }
 
         desperationImprove(*igp, cc);
 
-        if (rose.addRose(*igp, prefilter)) {
+        if (addRose(rose, *igp, prefilter, false, rm, cc)) {
             goto ok;
         }
     }
@@ -2870,7 +2882,7 @@ ok:
 }
 
 bool finalChanceRose(RoseBuild &rose, const NGHolder &h, bool prefilter,
-                     const CompileContext &cc) {
+                     const ReportManager &rm, const CompileContext &cc) {
     DEBUG_PRINTF("final chance rose\n");
     if (!cc.grey.allowRose) {
         return false;
@@ -2935,7 +2947,7 @@ bool finalChanceRose(RoseBuild &rose, const NGHolder &h, bool prefilter,
     renumber_vertices(ig);
     calcVertexOffsets(ig);
 
-    return rose.addRose(ig, prefilter, true /* final chance */);
+    return addRose(rose, ig, prefilter, true /* final chance */, rm, cc);
 }
 
 bool checkRose(const ReportManager &rm, const NGHolder &h, bool prefilter,

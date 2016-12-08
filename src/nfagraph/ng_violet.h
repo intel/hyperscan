@@ -42,6 +42,7 @@ class RoseBuild;
 
 struct CompileContext;
 class ReportManager;
+struct RoseInGraph;
 
 /** \brief Attempt to consume the entire pattern in graph \a h with Rose.
  * Returns true if successful. */
@@ -49,6 +50,9 @@ bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
               bool last_chance, const ReportManager &rm,
               const CompileContext &cc);
 
+bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
+                         bool final_chance, const ReportManager &rm,
+                         const CompileContext &cc);
 } // namespace ue2
 
 #endif

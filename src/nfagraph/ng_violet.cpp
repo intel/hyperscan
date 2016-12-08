@@ -2660,8 +2660,8 @@ vector<vector<CharReach>> getDfaTriggers(RoseInGraph &vg,
 
 static
 bool doEarlyDfa(RoseBuild &rose, RoseInGraph &vg, NGHolder &h,
-                const vector<RoseInEdge> &edges, const ReportManager &rm,
-                const CompileContext &cc) {
+                const vector<RoseInEdge> &edges, bool final_chance,
+                const ReportManager &rm, const CompileContext &cc) {
     DEBUG_PRINTF("trying for dfa\n");
 
     bool single_trigger;
@@ -2680,7 +2680,7 @@ bool doEarlyDfa(RoseBuild &rose, RoseInGraph &vg, NGHolder &h,
     }
 
     shared_ptr<raw_dfa> dfa = buildMcClellan(h, &rm, single_trigger, triggers,
-                                             cc.grey);
+                                             cc.grey, final_chance);
 
     if (!dfa) {
         return false;
@@ -2695,30 +2695,72 @@ bool doEarlyDfa(RoseBuild &rose, RoseInGraph &vg, NGHolder &h,
 }
 
 static
-void ensureImplementable(RoseBuild &rose, RoseInGraph &vg,
-                         const ReportManager &rm, const CompileContext &cc) {
-    map<const NGHolder *, vector<RoseInEdge> > edges_by_graph;
-    vector<NGHolder *> graphs;
-    for (const RoseInEdge &ve : edges_range(vg)) {
-        if (vg[ve].graph) {
-            NGHolder *h = vg[ve].graph.get();
-            if (!contains(edges_by_graph, h)) {
-                graphs.push_back(h);
+bool splitForImplemtabilty(UNUSED RoseInGraph &vg, UNUSED NGHolder &h,
+                           UNUSED const vector<RoseInEdge> &edges,
+                           UNUSED const CompileContext &cc) {
+    /* TODO: need to add literals back to the graph? */
+    return false;
+}
+
+#define MAX_IMPLEMENTABLE_SPLITS 200
+
+bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
+                         bool final_chance, const ReportManager &rm,
+                         const CompileContext &cc) {
+    DEBUG_PRINTF("checking for impl\n");
+    bool changed = false;
+    u32 added_count = 0;
+    do {
+        map<const NGHolder *, vector<RoseInEdge> > edges_by_graph;
+        vector<NGHolder *> graphs;
+        for (const RoseInEdge &ve : edges_range(vg)) {
+            if (vg[ve].graph) {
+                NGHolder *h = vg[ve].graph.get();
+                if (!contains(edges_by_graph, h)) {
+                    graphs.push_back(h);
+                }
+                edges_by_graph[h].push_back(ve);
             }
-            edges_by_graph[h].push_back(ve);
         }
-    }
-    for (NGHolder *h : graphs) {
-        if (isImplementableNFA(*h, &rm, cc)) {
-            continue;
+        for (NGHolder *h : graphs) {
+            if (isImplementableNFA(*h, &rm, cc)) {
+                continue;
+            }
+
+            if (tryForEarlyDfa(*h, cc)
+                && doEarlyDfa(rose, vg, *h, edges_by_graph[h], final_chance, rm,
+                              cc)) {
+                continue;
+            }
+
+            DEBUG_PRINTF("eek\n");
+            if (!allow_changes) {
+                return false;
+            }
+
+            if (splitForImplemtabilty(vg, *h, edges_by_graph[h], cc)) {
+                added_count++;
+                changed = true;
+                continue;
+            }
+
+            return false;
         }
 
-        if (tryForEarlyDfa(*h, cc)
-            && doEarlyDfa(rose, vg, *h, edges_by_graph[h], rm, cc)) {
-            continue;
+        if (added_count > MAX_IMPLEMENTABLE_SPLITS) {
+            return false;
         }
-        DEBUG_PRINTF("eek\n");
-    }
+
+        if (changed) {
+            removeRedundantLiterals(vg, cc);
+            pruneUseless(vg);
+            renumber_vertices(vg);
+            calcVertexOffsets(vg);
+        }
+    } while (changed);
+
+    DEBUG_PRINTF("ok!\n");
+    return true;
 }
 
 bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
@@ -2779,9 +2821,10 @@ bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
 
 
     /* Step 5: avoid unimplementable, or overly large engines if possible */
-    if (last_chance) {
-        ensureImplementable(rose, vg, rm, cc);
+    if (!ensureImplementable(rose, vg, last_chance, last_chance, rm, cc)) {
+        return false;
     }
+    dumpPreRoseGraph(vg, cc.grey, "post_ensure_rose.dot");
 
     /* Step 6: send to rose */
     bool rv = rose.addRose(vg, prefilter);

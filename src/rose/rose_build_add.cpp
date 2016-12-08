@@ -85,9 +85,6 @@ struct RoseBuildData : boost::noncopyable {
     /** Input rose graph. */
     const RoseInGraph &ig;
 
-    /** Mapping from engine graph to constructed DFA for pre-build DFAs. */
-    ue2::unordered_map<const NGHolder *, shared_ptr<raw_dfa> > early_dfas;
-
     /** Edges we've transformed (in \ref transformAnchoredLiteralOverlap) which
      * require ANCH history to prevent overlap. */
     ue2::unordered_set<RoseInEdge> anch_history_edges;
@@ -281,8 +278,8 @@ void createVertices(RoseBuildImpl *tbi,
 
             if (prefix_graph) {
                 g[w].left.graph = prefix_graph;
-                if (contains(bd.early_dfas, prefix_graph.get())) {
-                    g[w].left.dfa = bd.early_dfas.at(prefix_graph.get());
+                if (edge_props.dfa) {
+                    g[w].left.dfa = edge_props.dfa;
                 }
                 g[w].left.haig = edge_props.haig;
                 g[w].left.lag = prefix_lag;
@@ -769,9 +766,9 @@ void doRoseAcceptVertex(RoseBuildImpl *tbi,
         assert(!g[u].suffix);
         if (ig[iv].type == RIV_ACCEPT) {
             assert(!tbi->isAnyStart(u));
-            if (contains(bd.early_dfas, edge_props.graph.get())) {
+            if (edge_props.dfa) {
                 DEBUG_PRINTF("adding early dfa suffix to i%zu\n", g[u].index);
-                g[u].suffix.rdfa = bd.early_dfas.at(edge_props.graph.get());
+                g[u].suffix.rdfa = edge_props.dfa;
                 g[u].suffix.dfa_min_width = findMinWidth(*edge_props.graph);
                 g[u].suffix.dfa_max_width = findMaxWidth(*edge_props.graph);
             } else if (edge_props.graph) {
@@ -1033,13 +1030,10 @@ bool empty(const GraphT &g) {
     return vi == ve;
 }
 
-/* We only try to implement as a dfa if a non-nullptr as_dfa is provided to
- * return the raw dfa to. */
 static
-bool canImplementGraph(RoseBuildImpl *tbi, const RoseInGraph &in, NGHolder &h,
+bool canImplementGraph(const RoseInGraph &in, NGHolder &h,
                        const vector<RoseInEdge> &edges, bool prefilter,
-                       const ReportManager &rm, const CompileContext &cc,
-                       bool finalChance, unique_ptr<raw_dfa> *as_dfa) {
+                       const ReportManager &rm, const CompileContext &cc) {
     assert(!edges.empty());
     assert(&*in[edges[0]].graph == &h);
 
@@ -1057,64 +1051,6 @@ bool canImplementGraph(RoseBuildImpl *tbi, const RoseInGraph &in, NGHolder &h,
         DEBUG_PRINTF("reduced from %zu to %zu vertices\n", numBefore, numAfter);
 
         if (isImplementableNFA(h, &rm, cc)) {
-            return true;
-        }
-    }
-
-    if (as_dfa) {
-        switch (h.kind) {
-        case NFA_OUTFIX: /* 'prefix' of eod */
-        case NFA_PREFIX:
-            if (!cc.grey.earlyMcClellanPrefix) {
-                return false;
-            }
-            break;
-        case NFA_INFIX:
-            if (!cc.grey.earlyMcClellanInfix) {
-                return false;
-            }
-            break;
-        case NFA_SUFFIX:
-            if (!cc.grey.earlyMcClellanSuffix) {
-                return false;
-            }
-            break;
-        case NFA_EAGER_PREFIX:
-        case NFA_REV_PREFIX:
-        case NFA_OUTFIX_RAW:
-            DEBUG_PRINTF("kind %u\n", (u32)h.kind);
-            assert(0);
-        }
-        assert(!*as_dfa);
-        assert(tbi);
-        vector<vector<CharReach> > triggers;
-        u32 min_offset = ~0U;
-        u32 max_offset = 0;
-        for (const auto &e : edges) {
-            RoseInVertex s = source(e, in);
-            RoseInVertex t = target(e, in);
-            if (in[s].type == RIV_LITERAL) {
-                triggers.push_back(as_cr_seq(in[s].s));
-            }
-            if (in[t].type == RIV_ACCEPT_EOD) {
-                /* TODO: support eod prefixes */
-                return false;
-            }
-            ENSURE_AT_LEAST(&max_offset, in[s].max_offset);
-            LIMIT_TO_AT_MOST(&min_offset, in[s].min_offset);
-        }
-
-        if (!generates_callbacks(h)) {
-            set_report(h, tbi->getNewNfaReport());
-        }
-
-        bool single_trigger = min_offset == max_offset;
-
-        DEBUG_PRINTF("trying for mcclellan (%u, %u)\n", min_offset, max_offset);
-        *as_dfa = buildMcClellan(h, &rm, single_trigger, triggers, cc.grey,
-                                 finalChance);
-
-        if (*as_dfa) {
             return true;
         }
     }
@@ -1573,8 +1509,7 @@ bool validateKinds(const RoseInGraph &g) {
 }
 #endif
 
-bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter,
-                            bool finalChance) {
+bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter) {
     DEBUG_PRINTF("trying to rose\n");
     assert(validateKinds(ig));
     assert(hasCorrectlyNumberedVertices(ig));
@@ -1606,8 +1541,9 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter,
             continue; // no graph
         }
 
-        if (in[e].haig) {
-            // Haigs are always implementable (we've already built the raw DFA).
+        if (in[e].haig || in[e].dfa) {
+            /* Early DFAs/Haigs are always implementable (we've already built
+             * the raw DFA). */
             continue;
         }
 
@@ -1618,11 +1554,6 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter,
             ordered_graphs.push_back(h);
         }
         graphs[h].push_back(e);
-        if (in[e].dfa) {
-            assert(!contains(bd.early_dfas, h)
-                   || bd.early_dfas[h] == in[e].dfa);
-            bd.early_dfas[h] = in[e].dfa;
-        }
     }
 
     assert(ordered_graphs.size() == graphs.size());
@@ -1631,15 +1562,8 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter,
 
     for (auto h : ordered_graphs) {
         const vector<RoseInEdge> &h_edges = graphs.at(h);
-        unique_ptr<raw_dfa> as_dfa;
-        /* allow finalChance as fallback is basically an outfix at this point */
-        if (!contains(bd.early_dfas, h)
-            && !canImplementGraph(this, in, *h, h_edges, prefilter, rm, cc,
-                                  finalChance, &as_dfa)) {
+        if (!canImplementGraph(in, *h, h_edges, prefilter, rm, cc)) {
             return false;
-        }
-        if (as_dfa) {
-            bd.early_dfas[h] = move(as_dfa);
         }
         insert(&graph_edges, graph_edges.end(), h_edges);
     }
@@ -1655,7 +1579,6 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter,
         assert(allMatchStatesHaveReports(h));
 
         if (!generates_callbacks(whatRoseIsThis(in, e))
-            && !contains(bd.early_dfas, &h)
             && in[target(e, in)].type != RIV_ACCEPT_EOD) {
             set_report(h, getNewNfaReport());
         }
@@ -1716,8 +1639,7 @@ bool roseCheckRose(const RoseInGraph &ig, bool prefilter,
     }
 
     for (const auto &m : graphs) {
-        if (!canImplementGraph(nullptr, ig, *m.first, m.second, prefilter, rm,
-                               cc, false, nullptr)) {
+        if (!canImplementGraph(ig, *m.first, m.second, prefilter, rm, cc)) {
             return false;
         }
     }

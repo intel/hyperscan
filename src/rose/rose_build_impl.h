@@ -448,8 +448,7 @@ public:
     void add(bool anchored, bool eod, const ue2_literal &lit,
              const ue2::flat_set<ReportID> &ids) override;
 
-    bool addRose(const RoseInGraph &ig, bool prefilter,
-                 bool finalChance = false) override;
+    bool addRose(const RoseInGraph &ig, bool prefilter) override;
     bool addSombeRose(const RoseInGraph &ig) override;
 
     bool addOutfix(const NGHolder &h) override;

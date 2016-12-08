@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -88,8 +88,7 @@ public:
     virtual void add(bool anchored, bool eod, const ue2_literal &lit,
                      const ue2::flat_set<ReportID> &ids) = 0;
 
-    virtual bool addRose(const RoseInGraph &ig, bool prefilter,
-                         bool finalChance = false) = 0;
+    virtual bool addRose(const RoseInGraph &ig, bool prefilter) = 0;
     virtual bool addSombeRose(const RoseInGraph &ig) = 0;
 
     virtual bool addOutfix(const NGHolder &h) = 0;

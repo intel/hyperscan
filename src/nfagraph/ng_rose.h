@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -50,13 +50,13 @@ struct ue2_literal;
 /** \brief Attempt to consume the entire pattern in graph \a h with Rose.
  * Returns true if successful. */
 bool splitOffRose(RoseBuild &rose, const NGHolder &h, bool prefilter,
-                  const CompileContext &cc);
+                   const ReportManager &rm, const CompileContext &cc);
 
 /** \brief Attempt to consume the entire pattern in graph \a h with Rose.
  * This is the last attempt to handle a pattern before we resort to an outfix.
  * Returns true if successful. */
 bool finalChanceRose(RoseBuild &rose, const NGHolder &h, bool prefilter,
-                     const CompileContext &cc);
+                     const ReportManager &rm, const CompileContext &cc);
 
 /** \brief True if the pattern in \a h is consumable by Rose. This function
  * may be conservative (return false even if supported) for efficiency. */
