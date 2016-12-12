@@ -1082,8 +1082,6 @@ else (FAT_RUNTIME)
         )
     set_source_files_properties(src/dispatcher.c PROPERTIES
         COMPILE_FLAGS "-Wno-unused-parameter -Wno-unused-function")
-    set_source_files_properties(${hs_exec_common_SRCS} PROPERTIES
-        COMPILE_FLAGS "-march=core-avx2")
 
     if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
         add_library(hs_exec_shared_core2 OBJECT ${hs_exec_SRCS})
