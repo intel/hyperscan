@@ -60,6 +60,7 @@
     }                                                                          \
                                                                                \
     /* function */                                                             \
+    HS_PUBLIC_API                                                              \
     RTYPE NAME(__VA_ARGS__) __attribute__((ifunc("resolve_" #NAME)))
 
 CREATE_DISPATCH(hs_error_t, hs_scan, const hs_database_t *db, const char *data,
