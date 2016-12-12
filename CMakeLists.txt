@@ -441,10 +441,12 @@ SET(hs_HEADERS
 install(FILES ${hs_HEADERS} DESTINATION include/hs)
 
 set (hs_exec_common_SRCS
-        src/alloc.c
-        src/scratch.c
-        src/util/multibit.c
-        )
+    src/alloc.c
+    src/scratch.c
+    src/util/cpuid_flags.c
+    src/util/cpuid_flags.h
+    src/util/multibit.c
+    )
 
 set (hs_exec_SRCS
     ${hs_HEADERS}
@@ -944,8 +946,6 @@ SET (hs_SRCS
     src/util/compile_error.cpp
     src/util/compile_error.h
     src/util/container.h
-    src/util/cpuid_flags.c
-    src/util/cpuid_flags.h
     src/util/depth.cpp
     src/util/depth.h
     src/util/determinise.h
@@ -1041,12 +1041,13 @@ set (LIB_SOVERSION ${HS_MAJOR_VERSION})
 
 if (NOT FAT_RUNTIME)
 
+    set(hs_exec_SRCS ${hs_exec_SRCS} ${hs_exec_common_SRCS})
+
     if (HAVE_AVX2)
-        add_library(hs_exec OBJECT ${hs_exec_common_SRCS} ${hs_exec_SRCS}
-            ${hs_exec_avx2_SRCS})
-    else()
-        add_library(hs_exec OBJECT ${hs_exec_common_SRCS} ${hs_exec_SRCS})
+        set(hs_exec_SRCS ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
     endif()
+
+    add_library(hs_exec OBJECT ${hs_exec_SRCS})
 
     add_library(hs_runtime STATIC src/hs_version.c src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec>)
     set_target_properties(hs_runtime PROPERTIES LINKER_LANGUAGE C)
@@ -1175,6 +1176,7 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
             $<TARGET_OBJECTS:hs_exec_shared_core2>
             $<TARGET_OBJECTS:hs_exec_shared_corei7>
             $<TARGET_OBJECTS:hs_exec_shared_avx2>)
+
     endif()
     add_dependencies(hs_shared ragel_Parser)
     set_target_properties(hs_shared PROPERTIES
