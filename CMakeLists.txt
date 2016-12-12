@@ -258,13 +258,20 @@ endif()
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     # This is a Linux-only feature for now - requires platform support
     # elsewhere
-    option(FAT_RUNTIME "Build a library that supports multiple microarchitecures" ${RELEASE_BUILD})
-    if (FAT_RUNTIME)
+    if (CMAKE_C_COMPILER_ID MATCHES "Clang" AND
+        CMAKE_C_COMPILER_VERSION VERSION_LESS "3.9")
+        message (STATUS "Clang v3.9 or higher required for fat runtime, cannot build fat runtime")
+        set (FAT_RUNTIME_REQUISITES FALSE)
+    else ()
         include (${CMAKE_MODULE_PATH}/attrib.cmake)
         if (NOT HAS_C_ATTR_IFUNC)
-            message(FATAL_ERROR "Compiler does not support ifunc attribute, cannot build fat runtime")
+            message(STATUS "Compiler does not support ifunc attribute, cannot build fat runtime")
+            set (FAT_RUNTIME_REQUISITES FALSE)
+        else ()
+            set (FAT_RUNTIME_REQUISITES TRUE)
         endif()
     endif()
+    CMAKE_DEPENDENT_OPTION(FAT_RUNTIME "Build a library that supports multiple microarchitecures" ${RELEASE_BUILD} "FAT_RUNTIME_REQUISITES" OFF)
 endif ()
 
 include (${CMAKE_MODULE_PATH}/arch.cmake)
