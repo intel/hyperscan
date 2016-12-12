@@ -61,7 +61,7 @@
 #error no intrinsics!
 #endif
 
-#if defined(__SSE2__)
+#if defined(__SSE2__) || defined(_M_X64) || (_M_IX86_FP >= 2)
 typedef __m128i m128;
 #else
 typedef struct ALIGN_DIRECTIVE {u64a hi; u64a lo;} m128;
