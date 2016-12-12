@@ -258,7 +258,7 @@ endif()
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     # This is a Linux-only feature for now - requires platform support
     # elsewhere
-    option(FAT_RUNTIME "Build a library that supports multiple microarchitecures" RELEASE_BUILD)
+    option(FAT_RUNTIME "Build a library that supports multiple microarchitecures" ${RELEASE_BUILD})
     if (FAT_RUNTIME)
         include (${CMAKE_MODULE_PATH}/attrib.cmake)
         if (NOT HAS_C_ATTR_IFUNC)
