@@ -250,6 +250,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
 
             PROGRAM_CASE(CHECK_LIT_EARLY) {
                 os << "    min_offset " << ri->min_offset << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 

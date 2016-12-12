@@ -79,6 +79,7 @@ void RoseInstrCheckLitEarly::write(void *dest, RoseEngineBlob &blob,
     RoseInstrBase::write(dest, blob, offset_map);
     auto *inst = static_cast<impl_type *>(dest);
     inst->min_offset = min_offset;
+    inst->fail_jump = calc_jump(offset_map, this, target);
 }
 
 void RoseInstrCheckGroups::write(void *dest, RoseEngineBlob &blob,

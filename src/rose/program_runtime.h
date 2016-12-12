@@ -1554,7 +1554,9 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                 if (end < ri->min_offset) {
                     DEBUG_PRINTF("halt: before min_offset=%u\n",
                                  ri->min_offset);
-                    return HWLM_CONTINUE_MATCHING;
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
                 }
             }
             PROGRAM_NEXT_INSTRUCTION

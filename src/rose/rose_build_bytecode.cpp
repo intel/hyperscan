@@ -4346,7 +4346,9 @@ void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, build_context &bc,
     assert(min_offset < UINT32_MAX);
 
     DEBUG_PRINTF("adding lit early check, min_offset=%u\n", min_offset);
-    program.add_before_end(make_unique<RoseInstrCheckLitEarly>(min_offset));
+    const auto *end_inst = program.end_instruction();
+    program.add_before_end(
+        make_unique<RoseInstrCheckLitEarly>(min_offset, end_inst));
 }
 
 static
@@ -4528,9 +4530,33 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
 }
 
 static
-u32 writeLiteralProgram(RoseBuildImpl &build, build_context &bc, u32 final_id,
-                        const vector<RoseEdge> &lit_edges) {
-    RoseProgram program = buildLiteralProgram(build, bc, final_id, lit_edges);
+RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
+                                const flat_set<u32> &final_ids,
+                                const map<u32, vector<RoseEdge>> &lit_edges) {
+    assert(!final_ids.empty());
+
+    DEBUG_PRINTF("entry, %zu final ids\n", final_ids.size());
+    const vector<RoseEdge> no_edges;
+
+    RoseProgram program;
+    for (const auto &final_id : final_ids) {
+        const auto *edges_ptr = &no_edges;
+        if (contains(lit_edges, final_id)) {
+            edges_ptr = &(lit_edges.at(final_id));
+        }
+        auto prog = buildLiteralProgram(build, bc, final_id, *edges_ptr);
+        DEBUG_PRINTF("final_id=%u, prog has %zu entries\n", final_id,
+                     prog.size());
+        program.add_block(move(prog));
+    }
+    return program;
+}
+
+static
+u32 writeLiteralProgram(RoseBuildImpl &build, build_context &bc,
+                        const flat_set<u32> &final_ids,
+                        const map<u32, vector<RoseEdge>> &lit_edges) {
+    RoseProgram program = buildLiteralProgram(build, bc, final_ids, lit_edges);
     if (program.empty()) {
         return 0;
     }
@@ -4540,18 +4566,26 @@ u32 writeLiteralProgram(RoseBuildImpl &build, build_context &bc, u32 final_id,
 
 static
 u32 buildDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
-                             u32 final_id) {
-    const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
-    const auto &arb_lit_info = **lit_infos.begin();
-    if (arb_lit_info.delayed_ids.empty()) {
-        return 0; // No delayed IDs, no work to do.
+                             const flat_set<u32> &final_ids) {
+    RoseProgram program;
+
+    for (const auto &final_id : final_ids) {
+        const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
+        const auto &arb_lit_info = **lit_infos.begin();
+        if (arb_lit_info.delayed_ids.empty()) {
+            continue; // No delayed IDs, no work to do.
+        }
+
+        RoseProgram prog;
+        makeCheckLiteralInstruction(build, bc, final_id, prog);
+        makeCheckLitMaskInstruction(build, bc, final_id, prog);
+        makePushDelayedInstructions(build, final_id, prog);
+        program.add_block(move(prog));
     }
 
-    RoseProgram program;
-    makeCheckLiteralInstruction(build, bc, final_id, program);
-    makeCheckLitMaskInstruction(build, bc, final_id, program);
-    makePushDelayedInstructions(build, final_id, program);
-    assert(!program.empty());
+    if (program.empty()) {
+        return 0;
+    }
     applyFinalSpecialisation(program);
     return writeProgram(bc, move(program));
 }
@@ -4590,27 +4624,104 @@ map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
     return lit_edge_map;
 }
 
+static
+rose_literal_id getFragment(const rose_literal_id &lit) {
+    if (lit.s.length() <= ROSE_SHORT_LITERAL_LEN_MAX) {
+        DEBUG_PRINTF("whole lit is frag\n");
+        return lit;
+    }
+
+    rose_literal_id frag = lit;
+    frag.s = frag.s.substr(frag.s.length() - ROSE_SHORT_LITERAL_LEN_MAX);
+
+    DEBUG_PRINTF("fragment: %s\n", dumpString(frag.s).c_str());
+    return frag;
+}
+
+map<u32, u32> groupByFragment(const RoseBuildImpl &build) {
+    u32 frag_id = 0;
+    map<u32, u32> final_to_frag;
+
+    map<rose_literal_id, vector<u32>> frag_lits;
+    for (const auto &m : build.final_id_to_literal) {
+        u32 final_id = m.first;
+        const auto &lit_ids = m.second;
+        assert(!lit_ids.empty());
+
+        if (lit_ids.size() > 1) {
+            final_to_frag.emplace(final_id, frag_id++);
+            continue;
+        }
+
+        const auto lit_id = *lit_ids.begin();
+        const auto &lit = build.literals.right.at(lit_id);
+        if (lit.s.length() < ROSE_SHORT_LITERAL_LEN_MAX) {
+            final_to_frag.emplace(final_id, frag_id++);
+            continue;
+        }
+
+        // Combining exploded fragments with others is unsafe.
+        const auto &info = build.literal_info[lit_id];
+        if (info.requires_explode) {
+            final_to_frag.emplace(final_id, frag_id++);
+            continue;
+        }
+
+        DEBUG_PRINTF("fragment candidate: final_id=%u %s\n", final_id,
+                     dumpString(lit.s).c_str());
+        auto frag = getFragment(lit);
+        frag_lits[frag].push_back(final_id);
+    }
+
+    for (const auto &m : frag_lits) {
+        DEBUG_PRINTF("frag %s -> ids: %s\n", dumpString(m.first.s).c_str(),
+                     as_string_list(m.second).c_str());
+        for (const auto final_id : m.second) {
+            assert(!contains(final_to_frag, final_id));
+            final_to_frag.emplace(final_id, frag_id);
+        }
+        frag_id++;
+    }
+
+    return final_to_frag;
+}
+
 /**
  * \brief Build the interpreter programs for each literal.
  *
- * Returns the base of the literal program list and the base of the delay
- * rebuild program list.
+ * Returns the following as a tuple:
+ *
+ * - base of the literal program list
+ * - base of the delay rebuild program list
+ * - total number of literal fragments
  */
 static
-pair<u32, u32> buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
-    const u32 num_literals = build.final_id_to_literal.size();
+tuple<u32, u32, u32>
+buildLiteralPrograms(RoseBuildImpl &build, build_context &bc,
+                     const map<u32, u32> &final_to_frag_map) {
+    // Build a reverse mapping from fragment -> final_id.
+    map<u32, flat_set<u32>> frag_to_final_map;
+    for (const auto &m : final_to_frag_map) {
+        frag_to_final_map[m.second].insert(m.first);
+    }
+
+    const u32 num_fragments = verify_u32(frag_to_final_map.size());
+    DEBUG_PRINTF("%u fragments\n", num_fragments);
+
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    bc.litPrograms.resize(num_literals);
-    vector<u32> delayRebuildPrograms(num_literals);
+    bc.litPrograms.resize(num_fragments);
+    vector<u32> delayRebuildPrograms(num_fragments);
 
-    for (u32 finalId = 0; finalId != num_literals; ++finalId) {
-        const auto &lit_edges = lit_edge_map[finalId];
+    for (u32 frag_id = 0; frag_id != num_fragments; ++frag_id) {
+        const auto &final_ids = frag_to_final_map[frag_id];
+        DEBUG_PRINTF("frag_id=%u, final_ids=[%s]\n", frag_id,
+                     as_string_list(final_ids).c_str());
 
-        bc.litPrograms[finalId] =
-            writeLiteralProgram(build, bc, finalId, lit_edges);
-        delayRebuildPrograms[finalId] =
-            buildDelayRebuildProgram(build, bc, finalId);
+        bc.litPrograms[frag_id] =
+            writeLiteralProgram(build, bc, final_ids, lit_edge_map);
+        delayRebuildPrograms[frag_id] =
+            buildDelayRebuildProgram(build, bc, final_ids);
     }
 
     u32 litProgramsOffset =
@@ -4618,7 +4729,40 @@ pair<u32, u32> buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
     u32 delayRebuildProgramsOffset = bc.engine_blob.add(
         begin(delayRebuildPrograms), end(delayRebuildPrograms));
 
-    return {litProgramsOffset, delayRebuildProgramsOffset};
+    return tuple<u32, u32, u32>{litProgramsOffset, delayRebuildProgramsOffset,
+                                num_fragments};
+}
+
+static
+u32 buildDelayPrograms(RoseBuildImpl &build, build_context &bc) {
+    auto lit_edge_map = findEdgesByLiteral(build);
+
+    vector<u32> programs;
+
+    for (u32 final_id = build.delay_base_id;
+         final_id < build.final_id_to_literal.size(); final_id++) {
+        u32 offset = writeLiteralProgram(build, bc, {final_id}, lit_edge_map);
+        programs.push_back(offset);
+    }
+
+    DEBUG_PRINTF("%zu delay programs\n", programs.size());
+    return bc.engine_blob.add(begin(programs), end(programs));
+}
+
+static
+u32 buildAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
+    auto lit_edge_map = findEdgesByLiteral(build);
+
+    vector<u32> programs;
+
+    for (u32 final_id = build.anchored_base_id;
+         final_id < build.delay_base_id; final_id++) {
+        u32 offset = writeLiteralProgram(build, bc, {final_id}, lit_edge_map);
+        programs.push_back(offset);
+    }
+
+    DEBUG_PRINTF("%zu anchored programs\n", programs.size());
+    return bc.engine_blob.add(begin(programs), end(programs));
 }
 
 /**
@@ -5253,6 +5397,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     DEBUG_PRINTF("longLitLengthThreshold=%zu\n", longLitLengthThreshold);
 
     allocateFinalLiteralId(*this);
+    auto final_to_frag_map = groupByFragment(*this);
 
     auto anchored_dfas = buildAnchoredDfas(*this);
 
@@ -5316,8 +5461,12 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     u32 litProgramOffset;
     u32 litDelayRebuildProgramOffset;
-    tie(litProgramOffset, litDelayRebuildProgramOffset) =
-        buildLiteralPrograms(*this, bc);
+    u32 litProgramCount;
+    tie(litProgramOffset, litDelayRebuildProgramOffset, litProgramCount) =
+        buildLiteralPrograms(*this, bc, final_to_frag_map);
+
+    u32 delayProgramOffset = buildDelayPrograms(*this, bc);
+    u32 anchoredProgramOffset = buildAnchoredPrograms(*this, bc);
 
     u32 eodProgramOffset = writeEodProgram(*this, bc, eodNfaIterOffset);
 
@@ -5354,7 +5503,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     size_t asize = 0;
     u32 amatcherOffset = 0;
     auto atable = buildAnchoredMatcher(*this, anchored_dfas, bc.litPrograms,
-                                       &asize);
+                                       final_to_frag_map, &asize);
     if (atable) {
         currOffset = ROUNDUP_CL(currOffset);
         amatcherOffset = currOffset;
@@ -5365,7 +5514,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     rose_group fgroups = 0;
     size_t fsize = 0;
     auto ftable = buildFloatingMatcher(*this, bc.longLitLengthThreshold,
-                                       &fgroups, &fsize, &historyRequired);
+                                       final_to_frag_map, &fgroups, &fsize,
+                                       &historyRequired);
     u32 fmatcherOffset = 0;
     if (ftable) {
         currOffset = ROUNDUP_CL(currOffset);
@@ -5375,7 +5525,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     // Build EOD-anchored HWLM matcher.
     size_t esize = 0;
-    auto etable = buildEodAnchoredMatcher(*this, &esize);
+    auto etable = buildEodAnchoredMatcher(*this, final_to_frag_map, &esize);
     u32 ematcherOffset = 0;
     if (etable) {
         currOffset = ROUNDUP_CL(currOffset);
@@ -5385,7 +5535,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     // Build small-block HWLM matcher.
     size_t sbsize = 0;
-    auto sbtable = buildSmallBlockMatcher(*this, &sbsize);
+    auto sbtable = buildSmallBlockMatcher(*this, final_to_frag_map, &sbsize);
     u32 sbmatcherOffset = 0;
     if (sbtable) {
         currOffset = ROUNDUP_CL(currOffset);
@@ -5495,11 +5645,13 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     engine->needsCatchup = bc.needs_catchup ? 1 : 0;
 
-    engine->literalCount = verify_u32(final_id_to_literal.size());
+    engine->literalCount = litProgramCount;
     engine->litProgramOffset = litProgramOffset;
     engine->litDelayRebuildProgramOffset = litDelayRebuildProgramOffset;
     engine->reportProgramOffset = reportProgramOffset;
     engine->reportProgramCount = reportProgramCount;
+    engine->delayProgramOffset = delayProgramOffset;
+    engine->anchoredProgramOffset = anchoredProgramOffset;
     engine->runtimeImpl = pickRuntimeImpl(*this, bc, outfixEndQueue);
     engine->mpvTriggeredByLeaf = anyEndfixMpvTriggers(*this);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -360,6 +360,17 @@ struct RoseEngine {
      * \brief Number of programs for reports used by output-exposed engines.
      */
     u32 reportProgramCount;
+
+    /**
+     * \brief Offset of u32 array of program offsets for delayed replay of
+     * literals.
+     */
+    u32 delayProgramOffset;
+
+    /**
+     * \brief Offset of u32 array of program offsets for anchored literals.
+     */
+    u32 anchoredProgramOffset;
 
     /**
      * \brief Number of entries in the arrays pointed to by litProgramOffset,

@@ -154,10 +154,10 @@ struct ROSE_STRUCT_ANCHORED_DELAY {
     u32 done_jump; //!< Jump forward this many bytes if successful.
 };
 
-/** Note: check failure will halt program. */
 struct ROSE_STRUCT_CHECK_LIT_EARLY {
     u8 code; //!< From enum RoseInstructionCode.
     u32 min_offset; //!< Minimum offset for this literal.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
 /** Note: check failure will halt program. */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -208,7 +208,8 @@ void remapAnchoredReports(RoseBuildImpl &build) {
  * raw_dfa with program offsets.
  */
 static
-void remapIdsToPrograms(raw_dfa &rdfa, const vector<u32> &litPrograms) {
+void remapIdsToPrograms(raw_dfa &rdfa, const vector<u32> &litPrograms,
+                        const map<u32, u32> &final_to_frag_map) {
     for (dstate &ds : rdfa.states) {
         assert(ds.reports_eod.empty()); // Not used in anchored matcher.
         if (ds.reports.empty()) {
@@ -216,9 +217,11 @@ void remapIdsToPrograms(raw_dfa &rdfa, const vector<u32> &litPrograms) {
         }
 
         flat_set<ReportID> new_reports;
-        for (auto id : ds.reports) {
-            assert(id < litPrograms.size());
-            new_reports.insert(litPrograms.at(id));
+        for (auto final_id : ds.reports) {
+            assert(contains(final_to_frag_map, final_id));
+            auto frag_id = final_to_frag_map.at(final_id);
+            assert(frag_id < litPrograms.size());
+            new_reports.insert(litPrograms.at(frag_id));
         }
         ds.reports = move(new_reports);
     }
@@ -846,7 +849,8 @@ vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build) {
 
 aligned_unique_ptr<anchored_matcher_info>
 buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
-                     const vector<u32> &litPrograms, size_t *asize) {
+                     const vector<u32> &litPrograms,
+                     const map<u32, u32> &final_to_frag_map, size_t *asize) {
     const CompileContext &cc = build.cc;
 
     if (dfas.empty()) {
@@ -856,7 +860,7 @@ buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
     }
 
     for (auto &rdfa : dfas) {
-        remapIdsToPrograms(rdfa, litPrograms);
+        remapIdsToPrograms(rdfa, litPrograms, final_to_frag_map);
     }
 
     vector<aligned_unique_ptr<NFA>> nfas;

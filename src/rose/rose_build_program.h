@@ -241,16 +241,18 @@ public:
 };
 
 class RoseInstrCheckLitEarly
-    : public RoseInstrBaseNoTargets<ROSE_INSTR_CHECK_LIT_EARLY,
+    : public RoseInstrBaseOneTarget<ROSE_INSTR_CHECK_LIT_EARLY,
                                     ROSE_STRUCT_CHECK_LIT_EARLY,
                                     RoseInstrCheckLitEarly> {
 public:
     u32 min_offset;
+    const RoseInstruction *target;
 
-    explicit RoseInstrCheckLitEarly(u32 min) : min_offset(min) {}
+    RoseInstrCheckLitEarly(u32 min_offset_in, const RoseInstruction *target_in)
+        : min_offset(min_offset_in), target(target_in) {}
 
     bool operator==(const RoseInstrCheckLitEarly &ri) const {
-        return min_offset == ri.min_offset;
+        return min_offset == ri.min_offset && target == ri.target;
     }
 
     size_t hash() const override {
@@ -260,9 +262,10 @@ public:
     void write(void *dest, RoseEngineBlob &blob,
                const OffsetMap &offset_map) const override;
 
-    bool equiv_to(const RoseInstrCheckLitEarly &ri, const OffsetMap &,
-                  const OffsetMap &) const {
-        return min_offset == ri.min_offset;
+    bool equiv_to(const RoseInstrCheckLitEarly &ri, const OffsetMap &offsets,
+                  const OffsetMap &other_offsets) const {
+        return min_offset == ri.min_offset &&
+               offsets.at(target) == other_offsets.at(ri.target);
     }
 };
 
@@ -1786,7 +1789,7 @@ public:
 };
 
 class RoseInstrCheckMedLit
-    : public RoseInstrBaseNoTargets<ROSE_INSTR_CHECK_MED_LIT,
+    : public RoseInstrBaseOneTarget<ROSE_INSTR_CHECK_MED_LIT,
                                     ROSE_STRUCT_CHECK_MED_LIT,
                                     RoseInstrCheckMedLit> {
 public:
@@ -1816,7 +1819,7 @@ public:
 };
 
 class RoseInstrCheckMedLitNocase
-    : public RoseInstrBaseNoTargets<ROSE_INSTR_CHECK_MED_LIT_NOCASE,
+    : public RoseInstrBaseOneTarget<ROSE_INSTR_CHECK_MED_LIT_NOCASE,
                                     ROSE_STRUCT_CHECK_MED_LIT_NOCASE,
                                     RoseInstrCheckMedLitNocase> {
 public:

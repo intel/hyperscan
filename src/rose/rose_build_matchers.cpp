@@ -632,7 +632,27 @@ u64a literalMinReportOffset(const RoseBuildImpl &build,
     return lit_min_offset;
 }
 
+static
+map<u32, hwlm_group_t> makeFragGroupMap(const RoseBuildImpl &build,
+                 const map<u32, u32> &final_to_frag_map) {
+    map<u32, hwlm_group_t> frag_to_group;
+
+    for (const auto &m : final_to_frag_map) {
+        u32 final_id = m.first;
+        u32 frag_id = m.second;
+        hwlm_group_t groups = 0;
+        const auto &lits = build.final_id_to_literal.at(final_id);
+        for (auto lit_id : lits) {
+            groups |= build.literal_info[lit_id].group_mask;
+        }
+        frag_to_group[frag_id] |= groups;
+    }
+
+    return frag_to_group;
+}
+
 MatcherProto makeMatcherProto(const RoseBuildImpl &build,
+                              const map<u32, u32> &final_to_frag_map,
                               rose_literal_table table, size_t max_len,
                               u32 max_offset) {
     MatcherProto mp;
@@ -710,22 +730,25 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
                                      msk, cmp);
             }
         } else {
-            string s = lit.get_string();
-            bool nocase = lit.any_nocase();
+            auto lit_final = lit; // copy
+
+            if (lit_final.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
+                DEBUG_PRINTF("truncating to tail of length %zu\n",
+                             size_t{ROSE_SHORT_LITERAL_LEN_MAX});
+                lit_final.erase(0, lit_final.length() -
+                                       ROSE_SHORT_LITERAL_LEN_MAX);
+                // We shouldn't have set a threshold below 8 chars.
+                assert(msk.size() <= ROSE_SHORT_LITERAL_LEN_MAX);
+                assert(!noruns);
+            }
+
+            const auto &s = lit_final.get_string();
+            bool nocase = lit_final.any_nocase();
 
             DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d, msk=%s, "
                          "cmp=%s\n",
                          final_id, escapeString(s).c_str(), (int)nocase, noruns,
                          dumpMask(msk).c_str(), dumpMask(cmp).c_str());
-
-            if (s.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
-                DEBUG_PRINTF("truncating to tail of length %zu\n",
-                             size_t{ROSE_SHORT_LITERAL_LEN_MAX});
-                s.erase(0, s.length() - ROSE_SHORT_LITERAL_LEN_MAX);
-                // We shouldn't have set a threshold below 8 chars.
-                assert(msk.size() <= ROSE_SHORT_LITERAL_LEN_MAX);
-                assert(!noruns);
-            }
 
             if (!maskIsConsistent(s, nocase, msk, cmp)) {
                 DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
@@ -738,18 +761,32 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
         }
     }
 
+    auto frag_group_map = makeFragGroupMap(build, final_to_frag_map);
+
+    for (auto &lit : mp.lits) {
+        u32 final_id = lit.id;
+        assert(contains(final_to_frag_map, final_id));
+        lit.id = final_to_frag_map.at(final_id);
+        assert(contains(frag_group_map, lit.id));
+        lit.groups = frag_group_map.at(lit.id);
+    }
+
+    sort(begin(mp.lits), end(mp.lits));
+    mp.lits.erase(unique(begin(mp.lits), end(mp.lits)), end(mp.lits));
+
     return mp;
 }
 
-aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
-                                              size_t longLitLengthThreshold,
-                                              rose_group *fgroups,
-                                              size_t *fsize,
-                                              size_t *historyRequired) {
+aligned_unique_ptr<HWLM>
+buildFloatingMatcher(const RoseBuildImpl &build, size_t longLitLengthThreshold,
+                     const map<u32, u32> &final_to_frag_map,
+                     rose_group *fgroups, size_t *fsize,
+                     size_t *historyRequired) {
     *fsize = 0;
     *fgroups = 0;
 
-    auto mp = makeMatcherProto(build, ROSE_FLOATING, longLitLengthThreshold);
+    auto mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING,
+                               longLitLengthThreshold);
     if (mp.lits.empty()) {
         DEBUG_PRINTF("empty floating matcher\n");
         return nullptr;
@@ -776,8 +813,9 @@ aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
     return hwlm;
 }
 
-aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
-                                                size_t *sbsize) {
+aligned_unique_ptr<HWLM>
+buildSmallBlockMatcher(const RoseBuildImpl &build,
+                       const map<u32, u32> &final_to_frag_map, size_t *sbsize) {
     *sbsize = 0;
 
     if (build.cc.streaming) {
@@ -792,8 +830,8 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
         return nullptr;
     }
 
-    auto mp = makeMatcherProto(build, ROSE_FLOATING, ROSE_SMALL_BLOCK_LEN,
-                               ROSE_SMALL_BLOCK_LEN);
+    auto mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING,
+                               ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
     if (mp.lits.empty()) {
         DEBUG_PRINTF("no floating table\n");
         return nullptr;
@@ -803,8 +841,8 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
     }
 
     auto mp_anchored =
-        makeMatcherProto(build, ROSE_ANCHORED_SMALL_BLOCK, ROSE_SMALL_BLOCK_LEN,
-                         ROSE_SMALL_BLOCK_LEN);
+        makeMatcherProto(build, final_to_frag_map, ROSE_ANCHORED_SMALL_BLOCK,
+                         ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
     if (mp_anchored.lits.empty()) {
         DEBUG_PRINTF("no small-block anchored literals\n");
         return nullptr;
@@ -834,12 +872,13 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
     return hwlm;
 }
 
-aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
-                                                 size_t *esize) {
+aligned_unique_ptr<HWLM>
+buildEodAnchoredMatcher(const RoseBuildImpl &build,
+                        const map<u32, u32> &final_to_frag_map, size_t *esize) {
     *esize = 0;
 
-    auto mp =
-        makeMatcherProto(build, ROSE_EOD_ANCHORED, build.ematcher_region_size);
+    auto mp = makeMatcherProto(build, final_to_frag_map, ROSE_EOD_ANCHORED,
+                               build.ematcher_region_size);
 
     if (mp.lits.empty()) {
         DEBUG_PRINTF("no eod anchored literals\n");

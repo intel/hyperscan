@@ -37,6 +37,7 @@
 #include "ue2common.h"
 
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace ue2 {
@@ -110,6 +111,19 @@ struct hwlmLiteral {
     hwlmLiteral(const std::string &s_in, bool nocase_in, u32 id_in)
         : hwlmLiteral(s_in, nocase_in, false, id_in, HWLM_ALL_GROUPS, {}, {}) {}
 };
+
+inline
+bool operator<(const hwlmLiteral &a, const hwlmLiteral &b) {
+    return std::tie(a.id, a.s, a.nocase, a.noruns, a.groups, a.msk, a.cmp) <
+           std::tie(b.id, b.s, b.nocase, b.noruns, b.groups, b.msk, b.cmp);
+}
+
+inline
+bool operator==(const hwlmLiteral &a, const hwlmLiteral &b) {
+    return a.id == b.id && a.s == b.s && a.nocase == b.nocase &&
+           a.noruns == b.noruns && a.groups == b.groups && a.msk == b.msk &&
+           a.cmp == b.cmp;
+}
 
 /**
  * Consistency test; returns false if the given msk/cmp test can never match
