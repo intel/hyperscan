@@ -209,7 +209,6 @@ else()
     endif()
 
     if (NOT CMAKE_C_FLAGS MATCHES .*march.*)
-        message(STATUS "Building for current host CPU")
         set(ARCH_C_FLAGS "${ARCH_C_FLAGS} -march=native -mtune=native")
     endif()
 
@@ -258,11 +257,16 @@ endif()
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     # This is a Linux-only feature for now - requires platform support
     # elsewhere
+    message(STATUS "generator is ${CMAKE_GENERATOR}")
     if (CMAKE_C_COMPILER_ID MATCHES "Clang" AND
         CMAKE_C_COMPILER_VERSION VERSION_LESS "3.9")
         message (STATUS "Clang v3.9 or higher required for fat runtime, cannot build fat runtime")
         set (FAT_RUNTIME_REQUISITES FALSE)
-    else ()
+    elseif (NOT (CMAKE_GENERATOR MATCHES "Unix Makefiles" OR
+            (CMAKE_VERSION VERSION_GREATER "3.0" AND CMAKE_GENERATOR MATCHES "Ninja")))
+        message (STATUS "Building the fat runtime requires the Unix Makefiles generator, or Ninja with CMake v3.0 or higher")
+        set (FAT_RUNTIME_REQUISITES FALSE)
+    else()
         include (${CMAKE_MODULE_PATH}/attrib.cmake)
         if (NOT HAS_C_ATTR_IFUNC)
             message(STATUS "Compiler does not support ifunc attribute, cannot build fat runtime")
@@ -386,9 +390,11 @@ endif()
 endif()
 
 if (NOT FAT_RUNTIME)
+message(STATUS "Building for current host CPU")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_CXX_FLAGS}")
 else()
+message(STATUS "Building runtime for multiple microarchitectures")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
