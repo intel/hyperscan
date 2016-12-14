@@ -40,6 +40,7 @@
 #include "rose_build_role_aliasing.h"
 #include "rose_build_util.h"
 #include "ue2common.h"
+#include "hwlm/hwlm_literal.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/rdfa.h"
 #include "nfagraph/ng_holder.h"
@@ -102,7 +103,73 @@ bool limited_explosion(const ue2_literal &s) {
     return nc_count <= MAX_EXPLOSION_NC;
 }
 
+static
+void removeLiteralFromGraph(RoseBuildImpl &build, u32 id) {
+    assert(id < build.literal_info.size());
+    auto &info = build.literal_info.at(id);
+    for (const auto &v : info.vertices) {
+        build.g[v].literals.erase(id);
+    }
+    info.vertices.clear();
+}
+
+/**
+ * \brief Replace the given mixed-case literal with the set of its caseless
+ * variants.
+ */
+static
+void explodeLiteral(RoseBuildImpl &build, u32 id) {
+    const auto &lit = build.literals.right.at(id);
+    auto &info = build.literal_info[id];
+
+    assert(!info.group_mask); // not set yet
+    assert(info.undelayed_id == id); // we do not explode delayed literals
+
+    for (auto it = caseIterateBegin(lit.s); it != caseIterateEnd(); ++it) {
+        ue2_literal new_str(*it, false);
+
+        if (!maskIsConsistent(new_str.get_string(), false, lit.msk, lit.cmp)) {
+            DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
+            continue;
+        }
+
+        u32 new_id =
+            build.getLiteralId(new_str, lit.msk, lit.cmp, lit.delay, lit.table);
+
+        DEBUG_PRINTF("adding exploded lit %u: '%s'\n", new_id,
+                     dumpString(new_str).c_str());
+
+        const auto &new_lit = build.literals.right.at(new_id);
+        auto &new_info = build.literal_info.at(new_id);
+        insert(&new_info.vertices, info.vertices);
+        for (const auto &v : info.vertices) {
+            build.g[v].literals.insert(new_id);
+        }
+
+        build.literal_info[new_id].undelayed_id = new_id;
+        if (!info.delayed_ids.empty()) {
+            flat_set<u32> &del_ids = new_info.delayed_ids;
+            for (u32 delay_id : info.delayed_ids) {
+                const auto &dlit = build.literals.right.at(delay_id);
+                u32 new_delay_id =
+                    build.getLiteralId(new_lit.s, new_lit.msk, new_lit.cmp,
+                                       dlit.delay, dlit.table);
+                del_ids.insert(new_delay_id);
+                build.literal_info[new_delay_id].undelayed_id = new_id;
+            }
+        }
+    }
+
+    // Remove the old literal and any old delay variants.
+    removeLiteralFromGraph(build, id);
+    for (u32 delay_id : info.delayed_ids) {
+        removeLiteralFromGraph(build, delay_id);
+    }
+    info.delayed_ids.clear();
+}
+
 void RoseBuildImpl::handleMixedSensitivity(void) {
+    vector<u32> explode;
     for (const auto &e : literals.right) {
         u32 id = e.first;
         const rose_literal_id &lit = e.second;
@@ -123,14 +190,19 @@ void RoseBuildImpl::handleMixedSensitivity(void) {
         // with a CHECK_LONG_LIT instruction and need unique final_ids.
         // TODO: we could allow explosion for literals where the prefixes
         // covered by CHECK_LONG_LIT are identical.
-        if (lit.s.length() <= ROSE_SHORT_LITERAL_LEN_MAX &&
-            limited_explosion(lit.s)) {
+
+        if (lit.s.length() <= ROSE_LONG_LITERAL_THRESHOLD_MIN &&
+            limited_explosion(lit.s) && literal_info[id].delayed_ids.empty()) {
             DEBUG_PRINTF("need to explode existing string '%s'\n",
                          dumpString(lit.s).c_str());
-            literal_info[id].requires_explode = true;
+            explode.push_back(id);
         } else {
             literal_info[id].requires_benefits = true;
         }
+    }
+
+    for (u32 id : explode) {
+        explodeLiteral(*this, id);
     }
 }
 
