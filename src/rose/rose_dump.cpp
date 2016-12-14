@@ -740,6 +740,54 @@ void dumpRoseReportPrograms(const RoseEngine *t, const string &filename) {
 }
 
 static
+void dumpRoseDelayPrograms(const RoseEngine *t, const string &filename) {
+    ofstream os(filename);
+
+    const u32 *programs =
+        (const u32 *)loadFromByteCodeOffset(t, t->delayProgramOffset);
+
+    for (u32 i = 0; i < t->delay_count; i++) {
+        os << "Delay entry " << i << endl;
+        os << "---------------" << endl;
+
+        if (programs[i]) {
+            os << "Program @ " << programs[i] << ":" << endl;
+            const char *prog =
+                (const char *)loadFromByteCodeOffset(t, programs[i]);
+            dumpProgram(os, t, prog);
+        } else {
+            os << "<No Program>" << endl;
+        }
+    }
+
+    os.close();
+}
+
+static
+void dumpRoseAnchoredPrograms(const RoseEngine *t, const string &filename) {
+    ofstream os(filename);
+
+    const u32 *programs =
+        (const u32 *)loadFromByteCodeOffset(t, t->anchoredProgramOffset);
+
+    for (u32 i = 0; i < t->anchored_count; i++) {
+        os << "Anchored entry " << i << endl;
+        os << "---------------" << endl;
+
+        if (programs[i]) {
+            os << "Program @ " << programs[i] << ":" << endl;
+            const char *prog =
+                (const char *)loadFromByteCodeOffset(t, programs[i]);
+            dumpProgram(os, t, prog);
+        } else {
+            os << "<No Program>" << endl;
+        }
+    }
+
+    os.close();
+}
+
+static
 void dumpNfaNotes(ofstream &fout, const RoseEngine *t, const NFA *n) {
     const u32 qindex = n->queueIndex;
 
@@ -1279,6 +1327,8 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, litDelayRebuildProgramOffset);
     DUMP_U32(t, reportProgramOffset);
     DUMP_U32(t, reportProgramCount);
+    DUMP_U32(t, delayProgramOffset);
+    DUMP_U32(t, anchoredProgramOffset);
     DUMP_U32(t, literalCount);
     DUMP_U32(t, activeArrayCount);
     DUMP_U32(t, activeLeftCount);
@@ -1358,6 +1408,8 @@ void roseDumpComponents(const RoseEngine *t, bool dump_raw,
     dumpRoseLitPrograms(t, base + "/rose_lit_programs.txt");
     dumpRoseEodPrograms(t, base + "/rose_eod_programs.txt");
     dumpRoseReportPrograms(t, base + "/rose_report_programs.txt");
+    dumpRoseDelayPrograms(t, base + "/rose_delay_programs.txt");
+    dumpRoseAnchoredPrograms(t, base + "/rose_anchored_programs.txt");
 }
 
 void roseDumpInternals(const RoseEngine *t, const string &base) {
