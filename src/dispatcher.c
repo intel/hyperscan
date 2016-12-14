@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,8 +33,14 @@
 #include "util/cpuid_flags.h"
 #include "util/join.h"
 
+#if defined(DISABLE_AVX512_DISPATCH)
+#define avx512_ disabled_
+#define check_avx512() (0)
+#endif
+
 #define CREATE_DISPATCH(RTYPE, NAME, ...)                                      \
     /* create defns */                                                         \
+    RTYPE JOIN(avx512_, NAME)(__VA_ARGS__);                                    \
     RTYPE JOIN(avx2_, NAME)(__VA_ARGS__);                                      \
     RTYPE JOIN(corei7_, NAME)(__VA_ARGS__);                                    \
     RTYPE JOIN(core2_, NAME)(__VA_ARGS__);                                     \
@@ -46,6 +52,9 @@
                                                                                \
     /* resolver */                                                             \
     static void(*JOIN(resolve_, NAME)(void)) {                                 \
+        if (check_avx512()) {                                                  \
+            return JOIN(avx512_, NAME);                                        \
+        }                                                                      \
         if (check_avx2()) {                                                    \
             return JOIN(avx2_, NAME);                                          \
         }                                                                      \

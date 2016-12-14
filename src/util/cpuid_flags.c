@@ -133,13 +133,12 @@ int check_avx2(void) {
 #endif
 }
 
-static
 int check_avx512(void) {
     /*
      * For our purposes, having avx512 really means "can we use AVX512BW?"
      */
 #if defined(__INTEL_COMPILER)
-    return _may_i_use_cpu_feature(_FEATURE_AVX512BW);
+    return _may_i_use_cpu_feature(_FEATURE_AVX512BW | _FEATURE_AVX512VL);
 #else
     unsigned int eax, ebx, ecx, edx;
 

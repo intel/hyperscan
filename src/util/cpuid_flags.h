@@ -41,6 +41,7 @@ u64a cpuid_flags(void);
 
 u32 cpuid_tune(void);
 
+int check_avx512(void);
 int check_avx2(void);
 int check_ssse3(void);
 int check_sse42(void);
