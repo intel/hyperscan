@@ -265,7 +265,6 @@ struct rose_literal_info {
     u32 undelayed_id = MO_INVALID_IDX;
     u32 final_id = MO_INVALID_IDX; /* id reported by fdr */
     bool squash_group = false;
-    bool requires_explode = false;
     bool requires_benefits = false;
 };
 

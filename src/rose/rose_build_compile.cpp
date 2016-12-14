@@ -568,8 +568,6 @@ void promoteEodToFloating(RoseBuildImpl &tbi, const vector<u32> &eodLiterals) {
             tbi.g[v].literals.insert(floating_id);
         }
 
-        tbi.literal_info[floating_id].requires_explode
-            = tbi.literal_info[eod_id].requires_explode;
         tbi.literal_info[floating_id].requires_benefits
             = tbi.literal_info[eod_id].requires_benefits;
     }

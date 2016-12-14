@@ -4660,14 +4660,8 @@ map<u32, u32> groupByFragment(const RoseBuildImpl &build) {
             continue;
         }
 
-        // Combining exploded fragments with others is unsafe.
-        const auto &info = build.literal_info[lit_id];
-        if (info.requires_explode) {
-            final_to_frag.emplace(final_id, frag_id++);
-            continue;
-        }
-
         // Combining fragments that squash their groups is unsafe.
+        const auto &info = build.literal_info[lit_id];
         if (info.squash_group) {
             final_to_frag.emplace(final_id, frag_id++);
             continue;

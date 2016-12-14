@@ -408,7 +408,6 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
         lit_info.vertices.clear();
 
         // Preserve other properties.
-        new_info.requires_explode = lit_info.requires_explode;
         new_info.requires_benefits = lit_info.requires_benefits;
     }
 }
@@ -716,66 +715,35 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
         DEBUG_PRINTF("lit requires %zu bytes of history\n", lit_hist_len);
         assert(lit_hist_len <= build.cc.grey.maxHistoryAvailable);
 
-        if (info.requires_explode) {
-            DEBUG_PRINTF("exploding lit\n");
+        auto lit_final = lit; // copy
 
-            // We do not require_explode for literals that need confirm
-            // (long/medium length literals).
-            assert(lit.length() <= ROSE_SHORT_LITERAL_LEN_MAX);
-
-            case_iter cit = caseIterateBegin(lit);
-            case_iter cite = caseIterateEnd();
-            for (; cit != cite; ++cit) {
-                string s = *cit;
-                bool nocase = false;
-
-                DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d msk=%s, "
-                             "cmp=%s (exploded)\n",
-                             final_id, escapeString(s).c_str(), nocase, noruns,
-                             dumpMask(msk).c_str(), dumpMask(cmp).c_str());
-
-                if (!maskIsConsistent(s, nocase, msk, cmp)) {
-                    DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
-                    continue;
-                }
-
-                mp.accel_lits.emplace_back(s, nocase, msk, cmp, groups);
-                mp.history_required = max(mp.history_required, lit_hist_len);
-                mp.lits.emplace_back(move(s), nocase, noruns, final_id, groups,
-                                     msk, cmp);
-            }
-        } else {
-            auto lit_final = lit; // copy
-
-            if (lit_final.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
-                DEBUG_PRINTF("truncating to tail of length %zu\n",
-                             size_t{ROSE_SHORT_LITERAL_LEN_MAX});
-                lit_final.erase(0, lit_final.length() -
-                                       ROSE_SHORT_LITERAL_LEN_MAX);
-                // We shouldn't have set a threshold below 8 chars.
-                assert(msk.size() <= ROSE_SHORT_LITERAL_LEN_MAX);
-                assert(!noruns);
-            }
-
-            const auto &s = lit_final.get_string();
-            bool nocase = lit_final.any_nocase();
-
-            DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d, msk=%s, "
-                         "cmp=%s\n",
-                         final_id, escapeString(s).c_str(), (int)nocase, noruns,
-                         dumpMask(msk).c_str(), dumpMask(cmp).c_str());
-
-            if (!maskIsConsistent(s, nocase, msk, cmp)) {
-                DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
-                continue;
-            }
-
-            mp.accel_lits.emplace_back(lit.get_string(), lit.any_nocase(), msk,
-                                       cmp, groups);
-            mp.history_required = max(mp.history_required, lit_hist_len);
-            mp.lits.emplace_back(move(s), nocase, noruns, final_id, groups, msk,
-                                 cmp);
+        if (lit_final.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
+            DEBUG_PRINTF("truncating to tail of length %zu\n",
+                         size_t{ROSE_SHORT_LITERAL_LEN_MAX});
+            lit_final.erase(0, lit_final.length() - ROSE_SHORT_LITERAL_LEN_MAX);
+            // We shouldn't have set a threshold below 8 chars.
+            assert(msk.size() <= ROSE_SHORT_LITERAL_LEN_MAX);
+            assert(!noruns);
         }
+
+        const auto &s = lit_final.get_string();
+        bool nocase = lit_final.any_nocase();
+
+        DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d, msk=%s, "
+                     "cmp=%s\n",
+                     final_id, escapeString(s).c_str(), (int)nocase, noruns,
+                     dumpMask(msk).c_str(), dumpMask(cmp).c_str());
+
+        if (!maskIsConsistent(s, nocase, msk, cmp)) {
+            DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
+            continue;
+        }
+
+        mp.accel_lits.emplace_back(lit.get_string(), lit.any_nocase(), msk, cmp,
+                                   groups);
+        mp.history_required = max(mp.history_required, lit_hist_len);
+        mp.lits.emplace_back(move(s), nocase, noruns, final_id, groups, msk,
+                             cmp);
     }
 
     auto frag_group_map = makeFragGroupMap(build, final_to_frag_map);
