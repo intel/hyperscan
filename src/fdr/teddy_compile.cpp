@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -309,7 +309,7 @@ TeddyCompiler::build(pair<aligned_unique_ptr<u8>, size_t> &link) {
     size_t maskLen = eng.numMasks * 16 * 2 * maskWidth;
 
     auto floodControlTmp = setupFDRFloodControl(lits, eng);
-    auto confirmTmp = setupFullMultiConfs(lits, eng, bucketToLits, make_small);
+    auto confirmTmp = setupFullConfs(lits, eng, bucketToLits, make_small);
 
     size_t size = ROUNDUP_N(sizeof(Teddy) +
                              maskLen +

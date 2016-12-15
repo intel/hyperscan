@@ -147,7 +147,7 @@ FDRCompiler::setupFDR(pair<aligned_unique_ptr<u8>, size_t> &link) {
     size_t tabSize = eng.getTabSizeBytes();
 
     auto floodControlTmp = setupFDRFloodControl(lits, eng);
-    auto confirmTmp = setupFullMultiConfs(lits, eng, bucketToLits, make_small);
+    auto confirmTmp = setupFullConfs(lits, eng, bucketToLits, make_small);
 
     assert(ISALIGNED_16(tabSize));
     assert(ISALIGNED_16(confirmTmp.second));

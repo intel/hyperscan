@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -56,7 +56,7 @@ class EngineDescription;
 class FDREngineDescription;
 struct hwlmStreamingControl;
 
-std::pair<aligned_unique_ptr<u8>, size_t> setupFullMultiConfs(
+std::pair<aligned_unique_ptr<u8>, size_t> setupFullConfs(
     const std::vector<hwlmLiteral> &lits, const EngineDescription &eng,
     std::map<BucketIndex, std::vector<LiteralIndex>> &bucketToLits,
     bool make_small);

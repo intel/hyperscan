@@ -40,8 +40,8 @@
 // the whole confirmation procedure
 static really_inline
 void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a,
-                 size_t i, u32 pullBackAmount, hwlmcb_rv_t *control,
-                 u32 *last_match, u64a conf_key) {
+                 size_t i, hwlmcb_rv_t *control, u32 *last_match,
+                 u64a conf_key) {
     assert(i < a->len);
     assert(ISALIGNED(fdrc));
 
@@ -68,7 +68,7 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
             goto out;
         }
 
-        const u8 *loc = buf + i - li->size + 1 - pullBackAmount;
+        const u8 *loc = buf + i - li->size + 1;
 
         if (loc < buf) {
             u32 full_overhang = buf - loc;
@@ -87,7 +87,7 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
         }
 
         if (unlikely(li->flags & ComplexConfirm)) {
-            const u8 *loc2 = buf + i - li->extended_size + 1 - pullBackAmount;
+            const u8 *loc2 = buf + i - li->extended_size + 1;
             if (loc2 < buf) {
                 u32 full_overhang = buf - loc2;
                 size_t len_history = a->len_history;
@@ -116,7 +116,7 @@ void confWithBit1(const struct FDRConfirm *fdrc,
     assert(ISALIGNED(fdrc));
 
     if (unlikely(fdrc->mult)) {
-        confWithBit(fdrc, a, i, 0, control, last_match, conf_key);
+        confWithBit(fdrc, a, i, control, last_match, conf_key);
         return;
     } else {
         u32 id = fdrc->nBitsOrSoleID;
@@ -144,7 +144,7 @@ void confWithBitMany(const struct FDRConfirm *fdrc,
     }
 
     if (unlikely(fdrc->mult)) {
-        confWithBit(fdrc, a, i, 0, control, last_match, conf_key);
+        confWithBit(fdrc, a, i, control, last_match, conf_key);
         return;
     } else {
         const u32 id = fdrc->nBitsOrSoleID;

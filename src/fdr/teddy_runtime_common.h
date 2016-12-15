@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -180,9 +180,7 @@ void do_confWithBit_teddy(TEDDY_CONF_TYPE *conf, u8 bucket, u8 offset,
     do  {
         u32 bit = TEDDY_FIND_AND_CLEAR_LSB(conf);
         u32 byte = bit / bucket + offset;
-        u32 bitRem  = bit % bucket;
-        u32 confSplit = *(ptr+byte) & 0x1f;
-        u32 idx = confSplit * bucket + bitRem;
+        u32 idx  = bit % bucket;
         u32 cf = confBase[idx];
         if (!cf) {
             continue;
@@ -193,7 +191,7 @@ void do_confWithBit_teddy(TEDDY_CONF_TYPE *conf, u8 bucket, u8 offset,
             continue;
         }
         u64a confVal = getConfVal(a, ptr, byte, reason);
-        confWithBit(fdrc, a, ptr - a->buf + byte, 0, control,
+        confWithBit(fdrc, a, ptr - a->buf + byte, control,
                     last_match, confVal);
     } while (unlikely(*conf));
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -345,10 +345,7 @@ void do_confWithBit_fast_teddy(u16 bits, const u32 *confBase,
                                const struct FDR_Runtime_Args *a, const u8 *ptr,
                                hwlmcb_rv_t *control, u32 *last_match) {
     u32 byte = bits / 8;
-    u32 bitRem = bits % 8;
-    u32 confSplit = *(ptr+byte) & 0x1f;
-    u32 idx = confSplit * 8 + bitRem;
-    u32 cf = confBase[idx];
+    u32 cf = confBase[bits % 8];
     if (!cf) {
         return;
     }
@@ -358,7 +355,7 @@ void do_confWithBit_fast_teddy(u16 bits, const u32 *confBase,
         return;
     }
     u64a confVal = getConfVal(a, ptr, byte, reason);
-    confWithBit(fdrc, a, ptr - a->buf + byte, 0, control, last_match, confVal);
+    confWithBit(fdrc, a, ptr - a->buf + byte, control, last_match, confVal);
 }
 
 static really_inline

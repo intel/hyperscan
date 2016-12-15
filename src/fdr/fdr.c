@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -315,7 +315,6 @@ void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *control,
                     const u32 *confBase, const struct FDR_Runtime_Args *a,
                     const u8 *ptr, u32 *last_match_id, struct zone *z) {
     const u8 bucket = 8;
-    const u8 pullback = 1;
 
     if (likely(!*conf)) {
         return;
@@ -332,8 +331,7 @@ void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *control,
         u32 bit = findAndClearLSB_64(conf);
         u32 byte = bit / bucket + offset;
         u32 bitRem = bit % bucket;
-        u32 confSplit = *(ptr + byte);
-        u32 idx = confSplit * bucket + bitRem;
+        u32 idx = bitRem;
         u32 cf = confBase[idx];
         if (!cf) {
             continue;
@@ -353,8 +351,8 @@ void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *control,
                             id, a->ctxt);
            continue;
         }
-        u64a confVal = unaligned_load_u64a(confLoc + byte - sizeof(u64a));
-        confWithBit(fdrc, a, ptr_main - a->buf + byte, pullback, control,
+        u64a confVal = unaligned_load_u64a(confLoc + byte - sizeof(u64a) + 1);
+        confWithBit(fdrc, a, ptr_main - a->buf + byte, control,
                     last_match_id, confVal);
     } while (unlikely(!!*conf));
 }
