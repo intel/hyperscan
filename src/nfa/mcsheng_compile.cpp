@@ -606,7 +606,7 @@ void fill_in_succ_table_16(NFA *nfa, const dfa_info &info,
 
         for (size_t s = 0; s < info.impl_alpha_size; s++) {
             dstate_id_t raw_succ = info.states[i].next[s];
-            u16 &entry = succ_table[(normal_id << alphaShift) + s];
+            u16 &entry = succ_table[((size_t)normal_id << alphaShift) + s];
 
             entry = info.implId(raw_succ);
             entry |= get_edge_flags(nfa, entry);
@@ -916,7 +916,8 @@ void fill_in_succ_table_8(NFA *nfa, const dfa_info &info,
 
         for (size_t s = 0; s < info.impl_alpha_size; s++) {
             dstate_id_t raw_succ = info.states[i].next[s];
-            succ_table[(normal_id << alphaShift) + s] = info.implId(raw_succ);
+            succ_table[((size_t)normal_id << alphaShift) + s]
+                = info.implId(raw_succ);
         }
     }
 }
