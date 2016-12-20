@@ -322,32 +322,15 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
             LiteralIndex litIdx = *i;
 
             // Write LitInfo header.
-            u8 *oldPtr = ptr;
             LitInfo &finalLI = *(LitInfo *)ptr;
             finalLI = tmpLitInfo[litIdx];
 
             ptr += sizeof(LitInfo); // String starts directly after LitInfo.
-
-            // Write literal prefix (everything before the last N characters,
-            // as the last N are already confirmed).
-            const string &t = lits[litIdx].s;
-            if (t.size() > sizeof(CONF_TYPE)) {
-                size_t prefix_len = t.size() - sizeof(CONF_TYPE);
-                memcpy(ptr, t.c_str(), prefix_len);
-                ptr += prefix_len;
-            }
-
-            ptr = ROUNDUP_PTR(ptr, alignof(LitInfo));
+            assert(lits[litIdx].s.size() <= sizeof(CONF_TYPE));
             if (next(i) == e) {
                 finalLI.next = 0;
             } else {
-                // our next field represents an adjustment on top of
-                // current address + the actual size of the literal
-                // so we track any rounding up done for alignment and
-                // add this in - that way we don't have to use bigger
-                // than a u8 (for now)
-                assert((size_t)(ptr - oldPtr) > t.size());
-                finalLI.next = verify_u8(ptr - oldPtr - t.size());
+                finalLI.next = 1;
             }
         }
         assert((size_t)(ptr - fdrc_base) <= size);
