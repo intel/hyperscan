@@ -46,7 +46,7 @@
 #include <stdint.h>
 
 /* ick */
-#if defined(_WIN32)
+#if NATIVE_WIN32
 #define ALIGN_ATTR(x) __declspec(align(x))
 #else
 #define ALIGN_ATTR(x) __attribute__((aligned((x))))
@@ -78,7 +78,7 @@ typedef u32 ReportID;
 
 /* Shorthand for attribute to mark a function as part of our public API.
  * Functions without this attribute will be hidden. */
-#if !defined(_WIN32)
+#if !NATIVE_WIN32
 #define HS_PUBLIC_API     __attribute__((visibility("default")))
 #else
 // TODO: dllexport defines for windows
@@ -88,14 +88,14 @@ typedef u32 ReportID;
 #define ARRAY_LENGTH(a) (sizeof(a)/sizeof((a)[0]))
 
 /** \brief Shorthand for the attribute to shut gcc about unused parameters */
-#if !defined(_WIN32)
+#if !NATIVE_WIN32
 #define UNUSED __attribute__ ((unused))
 #else
 #define UNUSED
 #endif
 
 /* really_inline forces inlining always */
-#if !defined(_WIN32)
+#if !NATIVE_WIN32
 #if defined(HS_OPTIMIZE)
 #define really_inline inline __attribute__ ((always_inline, unused))
 #else
@@ -125,7 +125,7 @@ typedef u32 ReportID;
 
 
 // We use C99-style "restrict".
-#ifdef _WIN32
+#if NATIVE_WIN32
 #ifdef __cplusplus
 #define restrict
 #else
@@ -181,7 +181,7 @@ typedef u32 ReportID;
 #define LIMIT_TO_AT_MOST(a, b) (*(a) = MIN(*(a),(b)))
 #define ENSURE_AT_LEAST(a, b) (*(a) = MAX(*(a),(b)))
 
-#ifndef _WIN32
+#if !NATIVE_WIN32
 #ifndef likely
   #define likely(x)     __builtin_expect(!!(x), 1)
 #endif

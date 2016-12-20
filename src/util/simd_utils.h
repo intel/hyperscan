@@ -33,7 +33,7 @@
 #ifndef SIMD_UTILS
 #define SIMD_UTILS
 
-#if !defined(_WIN32) && !defined(__SSSE3__)
+#if !NATIVE_WIN32 && !defined(__SSSE3__)
 #error SSSE3 instructions must be enabled
 #endif
 

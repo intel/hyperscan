@@ -38,7 +38,7 @@
 // We have a native popcount where the compiler has defined __POPCNT__.
 #if defined(__POPCNT__)
 #define HAVE_POPCOUNT_INSTR
-#elif defined(_WIN32) && defined(__AVX__) // TODO: fix win preproc
+#elif NATIVE_WIN32 && defined(__AVX__) // TODO: fix win preproc
 #define HAVE_POPCOUNT_INSTR
 #endif
 

@@ -35,7 +35,7 @@
 
 #include "ue2common.h"
 
-#if !defined(_WIN32)
+#if !NATIVE_WIN32
 #define PACKED__MAY_ALIAS __attribute__((packed, may_alias))
 #else
 #define PACKED__MAY_ALIAS
@@ -89,7 +89,7 @@ void unaligned_store_u64a(void *ptr, u64a val) {
     struct unaligned *uptr = (struct unaligned *)ptr;
     uptr->u = val;
 }
-#if defined(_WIN32)
+#if NATIVE_WIN32
 #pragma pack(pop)
 #endif // win32
 

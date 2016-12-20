@@ -41,7 +41,7 @@
 #include "util/bitutils.h"
 #include "util/simd_utils.h"
 
-#if defined(__BMI2__) || (defined(_WIN32) && defined(__AVX2__))
+#if defined(__BMI2__) || (NATIVE_WIN32 && defined(__AVX2__))
 #define HAVE_PEXT
 #endif
 
