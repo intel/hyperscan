@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -70,11 +70,8 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
 
         const u8 *loc = buf + i - li->size + 1 - pullBackAmount;
 
-        u8 caseless = li->flags & Caseless;
         if (loc < buf) {
             u32 full_overhang = buf - loc;
-
-            const u8 *history = a->buf_history;
             size_t len_history = a->len_history;
 
             // can't do a vectored confirm either if we don't have
@@ -82,37 +79,8 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
             if (full_overhang > len_history) {
                 goto out;
             }
-
-            // as for the regular case, no need to do a full confirm if
-            // we're a short literal
-            if (unlikely(li->size > sizeof(CONF_TYPE))) {
-                const u8 *s1 = (const u8 *)li + sizeof(*li);
-                const u8 *s2 = s1 + full_overhang;
-                const u8 *loc1 = history + len_history - full_overhang;
-                const u8 *loc2 = buf;
-                size_t size1 = MIN(full_overhang, li->size - sizeof(CONF_TYPE));
-                size_t wind_size2_back = sizeof(CONF_TYPE) + full_overhang;
-                size_t size2 = wind_size2_back > li->size ?
-                    0 : li->size - wind_size2_back;
-
-                if (cmpForward(loc1, s1, size1, caseless)) {
-                    goto out;
-                }
-                if (cmpForward(loc2, s2, size2, caseless)) {
-                    goto out;
-                }
-            }
-        } else { // NON-VECTORING PATH
-
-            // if string < conf_type we don't need regular string cmp
-            if (unlikely(li->size > sizeof(CONF_TYPE))) {
-                const u8 *s = (const u8 *)li + sizeof(*li);
-                if (cmpForward(loc, s, li->size - sizeof(CONF_TYPE),
-                               caseless)) {
-                    goto out;
-                }
-            }
         }
+        assert(li->size <= sizeof(CONF_TYPE));
 
         if (unlikely(!(li->groups & *control))) {
             goto out;
