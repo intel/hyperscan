@@ -36,7 +36,8 @@
 #include <type_traits>
 #include <utility>
 
-#include <boost/functional/hash.hpp>
+#include <boost/container/small_vector.hpp>
+#include <boost/functional/hash/hash_fwd.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/unordered/unordered_map.hpp>
 #include <boost/unordered/unordered_set.hpp>
@@ -94,8 +95,9 @@ private:
 template <class T, class Compare, class Allocator>
 class flat_base {
 protected:
-    // Underlying storage is a sorted std::vector.
-    using storage_type = std::vector<T, Allocator>;
+    // Underlying storage is a small vector with local space for one element.
+    using storage_type = boost::container::small_vector<T, 1, Allocator>;
+    using storage_alloc_type = typename storage_type::allocator_type;
 
     // Putting our storage and comparator in a tuple allows us to make use of
     // the empty base class optimization (if this STL implements it for
@@ -103,7 +105,7 @@ protected:
     std::tuple<storage_type, Compare> storage;
 
     flat_base(const Compare &compare, const Allocator &alloc)
-        : storage(storage_type(alloc), compare) {}
+        : storage(storage_type(storage_alloc_type(alloc)), compare) {}
 };
 
 } // namespace flat_detail
@@ -341,8 +343,7 @@ public:
 
     // Free hash function.
     friend size_t hash_value(const flat_set &a) {
-        using boost::hash_value;
-        return hash_value(a.data);
+        return boost::hash_range(a.begin(), a.end());
     }
 };
 
@@ -638,8 +639,7 @@ public:
 
     // Free hash function.
     friend size_t hash_value(const flat_map &a) {
-        using boost::hash_value;
-        return hash_value(a.data);
+        return boost::hash_range(a.begin(), a.end());
     }
 };
 
