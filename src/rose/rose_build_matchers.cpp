@@ -59,6 +59,8 @@ using boost::adaptors::map_values;
 
 namespace ue2 {
 
+static const size_t MAX_ACCEL_STRING_LEN = 16;
+
 #ifdef DEBUG
 static UNUSED
 string dumpMask(const vector<u8> &v) {
@@ -652,6 +654,16 @@ map<u32, hwlm_group_t> makeFragGroupMap(const RoseBuildImpl &build,
     return frag_to_group;
 }
 
+template<class Container>
+void trim_to_suffix(Container &c, size_t len) {
+    if (c.size() <= len) {
+        return;
+    }
+
+    size_t suffix_len = c.size() - len;
+    c.erase(c.begin(), c.begin() + suffix_len);
+}
+
 MatcherProto makeMatcherProto(const RoseBuildImpl &build,
                               const map<u32, u32> &final_to_frag_map,
                               rose_literal_table table, size_t max_len,
@@ -726,6 +738,7 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
                     continue;
                 }
 
+                mp.accel_lits.emplace_back(s, nocase, msk, cmp, groups);
                 mp.history_required = max(mp.history_required, lit_hist_len);
                 mp.lits.emplace_back(move(s), nocase, noruns, final_id, groups,
                                      msk, cmp);
@@ -756,6 +769,8 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
                 continue;
             }
 
+            mp.accel_lits.emplace_back(lit.get_string(), lit.any_nocase(), msk,
+                                       cmp, groups);
             mp.history_required = max(mp.history_required, lit_hist_len);
             mp.lits.emplace_back(move(s), nocase, noruns, final_id, groups, msk,
                                  cmp);
@@ -772,10 +787,28 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
         lit.groups = frag_group_map.at(lit.id);
     }
 
-    sort(begin(mp.lits), end(mp.lits));
-    mp.lits.erase(unique(begin(mp.lits), end(mp.lits)), end(mp.lits));
+    sort_and_unique(mp.lits);
+
+    // Literals used for acceleration must be limited to max_len, as that's all
+    // we can see in history.
+    for_each(begin(mp.accel_lits), end(mp.accel_lits),
+             [&max_len](AccelString &a) {
+                 trim_to_suffix(a.s, max_len);
+                 trim_to_suffix(a.msk, max_len);
+                 trim_to_suffix(a.cmp, max_len);
+             });
+
+    sort_and_unique(mp.accel_lits);
 
     return mp;
+}
+
+void MatcherProto::insert(const MatcherProto &a) {
+    ::ue2::insert(&lits, lits.end(), a.lits);
+    ::ue2::insert(&accel_lits, accel_lits.end(), a.accel_lits);
+    sort_and_unique(lits);
+    sort_and_unique(accel_lits);
+    history_required = max(history_required, a.history_required);
 }
 
 aligned_unique_ptr<HWLM>
@@ -802,7 +835,9 @@ buildFloatingMatcher(const RoseBuildImpl &build, size_t longLitLengthThreshold,
         throw CompileError("Unable to generate bytecode.");
     }
 
-    buildForwardAccel(hwlm.get(), mp.lits, build.getInitialGroups());
+    if (build.cc.grey.hamsterAccelForward) {
+        buildForwardAccel(hwlm.get(), mp.accel_lits, build.getInitialGroups());
+    }
 
     if (build.cc.streaming) {
         DEBUG_PRINTF("history_required=%zu\n", mp.history_required);
@@ -851,8 +886,7 @@ buildSmallBlockMatcher(const RoseBuildImpl &build,
         return nullptr;
     }
 
-    mp.lits.insert(mp.lits.end(), mp_anchored.lits.begin(),
-                   mp_anchored.lits.end());
+    mp.insert(mp_anchored);
 
     // None of our literals should be longer than the small block limit.
     assert(all_of(begin(mp.lits), end(mp.lits), [](const hwlmLiteral &lit) {
@@ -869,7 +903,9 @@ buildSmallBlockMatcher(const RoseBuildImpl &build,
         throw CompileError("Unable to generate bytecode.");
     }
 
-    buildForwardAccel(hwlm.get(), mp.lits, build.getInitialGroups());
+    if (build.cc.grey.hamsterAccelForward) {
+        buildForwardAccel(hwlm.get(), mp.accel_lits, build.getInitialGroups());
+    }
 
     *sbsize = hwlmSize(hwlm.get());
     assert(*sbsize);
@@ -898,7 +934,9 @@ buildEodAnchoredMatcher(const RoseBuildImpl &build,
         throw CompileError("Unable to generate bytecode.");
     }
 
-    buildForwardAccel(hwlm.get(), mp.lits, build.getInitialGroups());
+    if (build.cc.grey.hamsterAccelForward) {
+        buildForwardAccel(hwlm.get(), mp.accel_lits, build.getInitialGroups());
+    }
 
     *esize = hwlmSize(hwlm.get());
     assert(*esize);

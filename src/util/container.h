@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -87,6 +87,14 @@ auto make_vector_from(const std::pair<It, It> &range)
     -> std::vector<decltype(*range.first)> {
     using T = decltype(*range.first);
     return std::vector<T>(range.first, range.second);
+}
+
+/** \brief Sort a sequence container and remove duplicates. */
+template <typename C>
+void sort_and_unique(C &container) {
+    std::sort(std::begin(container), std::end(container));
+    container.erase(std::unique(std::begin(container), std::end(container)),
+                    std::end(container));
 }
 
 /** \brief Returns a set containing the keys in the given associative

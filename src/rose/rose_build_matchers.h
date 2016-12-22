@@ -35,6 +35,8 @@
 #define ROSE_BUILD_MATCHERS_H
 
 #include "rose_build_impl.h"
+#include "rose_build_lit_accel.h"
+#include "hwlm/hwlm_literal.h"
 
 #include <map>
 #include <vector>
@@ -43,11 +45,19 @@ struct HWLM;
 
 namespace ue2 {
 
-struct hwlmLiteral;
-
+/** \brief Prototype for literal matcher construction. */
 struct MatcherProto {
+    /** \brief Literal fragments used to construct the literal matcher. */
     std::vector<hwlmLiteral> lits;
+
+    /** \brief Longer literals used for acceleration analysis. */
+    std::vector<AccelString> accel_lits;
+
+    /** \brief The history required by the literal matcher. */
     size_t history_required = 0;
+
+    /** \brief Insert the contents of another MatcherProto. */
+    void insert(const MatcherProto &a);
 };
 
 /**
