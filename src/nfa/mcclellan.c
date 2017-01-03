@@ -375,7 +375,9 @@ char mcclellanExec8_i(const struct mcclellan *m, u32 *state, const u8 *buf,
                       size_t len, u64a offAdj, NfaCallback cb, void *ctxt,
                       char single, const u8 **c_final, enum MatchMode mode) {
     if (!len) {
-        *c_final = buf;
+        if (mode == STOP_AT_MATCH) {
+            *c_final = buf;
+        }
         return MO_ALIVE;
     }
     u32 s = *state;
