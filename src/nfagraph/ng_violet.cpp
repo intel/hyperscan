@@ -736,6 +736,11 @@ void poisonForGoodPrefix(const NGHolder &h,
     }
 }
 
+static UNUSED
+bool is_any_accept_type(RoseInVertexType t) {
+    return t == RIV_ACCEPT || t == RIV_ACCEPT_EOD;
+}
+
 static
 flat_set<NFAEdge> poisonEdges(const NGHolder &h,
                          const vector<NFAVertexDepth> *depths,
@@ -749,7 +754,8 @@ flat_set<NFAEdge> poisonEdges(const NGHolder &h,
     for (const RoseInEdge &ve : ee) {
         if (vg[target(ve, vg)].type != RIV_LITERAL) {
             /* nothing to poison in suffixes/outfixes */
-            assert(vg[target(ve, vg)].type == RIV_ACCEPT);
+            assert(generates_callbacks(h));
+            assert(is_any_accept_type(vg[target(ve, vg)].type));
             continue;
         }
         succs.insert({vg[target(ve, vg)].s,
@@ -964,7 +970,7 @@ bool splitRoseEdge(const NGHolder &base_graph, RoseInGraph &vg,
                  to_string(lhs->kind).c_str(), num_vertices(*lhs),
                  to_string(rhs->kind).c_str(), num_vertices(*rhs));
 
-    bool suffix = vg[target(ee.front(), vg)].type == RIV_ACCEPT;
+    bool suffix = generates_callbacks(base_graph);
 
     if (is_triggered(base_graph)) {
         /* if we are already guarded, check if the split reduces the size of
@@ -1466,6 +1472,11 @@ void removeRedundantLiteralsFromPrefixes(RoseInGraph &g,
             continue;
         }
 
+        if (g[e].graph_lag) {
+            /* already removed redundant parts of literals */
+            continue;
+        }
+
         assert(!g[t].delay);
         const ue2_literal &lit = g[t].s;
 
@@ -1567,20 +1578,22 @@ void removeRedundantLiteralsFromInfix(const NGHolder &h, RoseInGraph &ig,
      * taking into account overlap of successor literals. */
 
     set<ue2_literal> preds;
+    set<ue2_literal> succs;
     for (const RoseInEdge &e : ee) {
         RoseInVertex u = source(e, ig);
         assert(ig[u].type == RIV_LITERAL);
-        assert(!ig[e].graph_lag);
         assert(!ig[u].delay);
         preds.insert(ig[u].s);
-    }
 
-    set<ue2_literal> succs;
-    for (const RoseInEdge &e : ee) {
         RoseInVertex v = target(e, ig);
         assert(ig[v].type == RIV_LITERAL);
         assert(!ig[v].delay);
         succs.insert(ig[v].s);
+
+        if (ig[e].graph_lag) {
+            /* already removed redundant parts of literals */
+            return;
+        }
     }
 
     map<ue2_literal, pair<shared_ptr<NGHolder>, u32> > graphs; /* + delay */
@@ -1840,7 +1853,7 @@ void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     }
 
     for (auto v : preds) {
-        NFAEdge e = add_edge(v, prev, g);
+        NFAEdge e = add_edge_if_not_present(v, prev, g);
         if (v == g.start && is_triggered(g)) {
             g[e].tops.insert(DEFAULT_TOP);
         }
@@ -2738,23 +2751,66 @@ bool doEarlyDfa(RoseBuild &rose, RoseInGraph &vg, NGHolder &h,
     return true;
 }
 
+#define MAX_EDGES_FOR_IMPLEMENTABILITY 50
+
 static
-bool splitForImplemtabilty(UNUSED RoseInGraph &vg, UNUSED NGHolder &h,
-                           UNUSED const vector<RoseInEdge> &edges,
-                           UNUSED const CompileContext &cc) {
-    /* TODO: need to add literals back to the graph? */
-    return false;
+bool splitForImplementabilty(RoseInGraph &vg, NGHolder &h,
+                             const vector<RoseInEdge> &edges,
+                             const CompileContext &cc) {
+    vector<pair<ue2_literal, u32>> succ_lits;
+    DEBUG_PRINTF("trying to split %s with %zu vertices on %zu edges\n",
+                  to_string(h.kind).c_str(), num_vertices(h), edges.size());
+
+    if (edges.size() > MAX_EDGES_FOR_IMPLEMENTABILITY) {
+        return false;
+    }
+
+    if (!generates_callbacks(h)) {
+        for (const auto &e : edges) {
+            const auto &lit = vg[target(e, vg)].s;
+            u32 delay = vg[e].graph_lag;
+            vg[e].graph_lag = 0;
+
+            assert(delay <= lit.length());
+            succ_lits.emplace_back(lit, delay);
+        }
+        restoreTrailingLiteralStates(h, succ_lits);
+    }
+
+    unique_ptr<VertLitInfo> split;
+    if (h.kind == NFA_PREFIX) {
+        vector<NFAVertexDepth> depths;
+        calcDepths(h, depths);
+
+        split = findBestPrefixSplit(h, depths, vg, edges, cc);
+    } else {
+        split = findBestNormalSplit(h, vg, edges, cc);
+    }
+
+    if (split && splitRoseEdge(h, vg, edges, *split)) {
+        DEBUG_PRINTF("split on simple literal\n");
+        return true;
+    }
+
+    DEBUG_PRINTF("trying to netflow\n");
+    bool rv =  doNetflowCut(h, nullptr, vg, edges, false, cc.grey);
+    DEBUG_PRINTF("done\n");
+
+    return rv;
 }
 
-#define MAX_IMPLEMENTABLE_SPLITS 200
+#define MAX_IMPLEMENTABLE_SPLITS 50
 
 bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
                          bool final_chance, const ReportManager &rm,
                          const CompileContext &cc) {
     DEBUG_PRINTF("checking for impl\n");
     bool changed = false;
+    bool need_to_recalc = false;
     u32 added_count = 0;
     do {
+        changed = false;
+        DEBUG_PRINTF("added %u\n", added_count);
         map<const NGHolder *, vector<RoseInEdge> > edges_by_graph;
         vector<NGHolder *> graphs;
         for (const RoseInEdge &ve : edges_range(vg)) {
@@ -2782,7 +2838,7 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
                 return false;
             }
 
-            if (splitForImplemtabilty(vg, *h, edges_by_graph[h], cc)) {
+            if (splitForImplementabilty(vg, *h, edges_by_graph[h], cc)) {
                 added_count++;
                 changed = true;
                 continue;
@@ -2798,10 +2854,14 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
         if (changed) {
             removeRedundantLiterals(vg, cc);
             pruneUseless(vg);
-            renumber_vertices(vg);
-            calcVertexOffsets(vg);
+            need_to_recalc = true;
         }
     } while (changed);
+
+    if (need_to_recalc) {
+        renumber_vertices(vg);
+        calcVertexOffsets(vg);
+    }
 
     DEBUG_PRINTF("ok!\n");
     return true;
