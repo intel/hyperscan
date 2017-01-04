@@ -63,18 +63,6 @@ bool finalChanceRose(RoseBuild &rose, const NGHolder &h, bool prefilter,
 bool checkRose(const ReportManager &rm, const NGHolder &h, bool prefilter,
                const CompileContext &cc);
 
-/** \brief Returns the delay or MO_INVALID_IDX if the graph cannot match with
- * the trailing literal. */
-u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
-                                u32 max_delay, bool overhang_ok = true);
-
-void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
-                                  u32 delay);
-
-void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
-                                  u32 delay,
-                                  const std::vector<NFAVertex> &preds);
-
 } // namespace ue2
 
 #endif // NG_ROSE_H

@@ -1822,6 +1822,40 @@ bool makeTransientFromLongLiteral(NGHolder &h, RoseInGraph &vg,
 }
 
 static
+void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
+                                  u32 delay, const vector<NFAVertex> &preds) {
+    assert(delay <= lit.length());
+    assert(isCorrectlyTopped(g));
+    DEBUG_PRINTF("adding on '%s' %u\n", dumpString(lit).c_str(), delay);
+
+    NFAVertex prev = g.accept;
+    auto it = lit.rbegin();
+    while (delay--) {
+        NFAVertex curr = add_vertex(g);
+        assert(it != lit.rend());
+        g[curr].char_reach = *it;
+        add_edge(curr, prev, g);
+        ++it;
+        prev = curr;
+    }
+
+    for (auto v : preds) {
+        NFAEdge e = add_edge(v, prev, g);
+        if (v == g.start && is_triggered(g)) {
+            g[e].tops.insert(DEFAULT_TOP);
+        }
+    }
+
+    // Every predecessor of accept must have a report.
+    set_report(g, 0);
+
+    renumber_vertices(g);
+    renumber_edges(g);
+    assert(allMatchStatesHaveReports(g));
+    assert(isCorrectlyTopped(g));
+}
+
+static
 void restoreTrailingLiteralStates(NGHolder &g,
                                   const vector<pair<ue2_literal, u32>> &lits) {
     vector<NFAVertex> preds;

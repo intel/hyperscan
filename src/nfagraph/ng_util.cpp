@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,6 +34,7 @@
 #include "grey.h"
 #include "ng_depth.h" // for NFAVertexDepth
 #include "ng_dump.h"
+#include "ng_prune.h"
 #include "ue2common.h"
 #include "nfa/limex_limits.h" // for NFA_MAX_TOP_MASKS.
 #include "parser/position.h"
@@ -43,6 +44,7 @@
 #include "util/ue2string.h"
 #include "util/report_manager.h"
 
+#include <limits>
 #include <map>
 #include <set>
 #include <boost/graph/filtered_graph.hpp>
@@ -670,6 +672,86 @@ void reverseHolder(const NGHolder &g_in, NGHolder &g) {
 
     assert(num_vertices(g) == num_vertices(g_in));
     assert(num_edges(g) == num_edges(g_in));
+}
+
+u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
+                                u32 max_delay, bool overhang_ok) {
+    assert(isCorrectlyTopped(g));
+    if (max_delay == numeric_limits<u32>::max()) {
+        max_delay--;
+    }
+
+    DEBUG_PRINTF("killing off '%s'\n", dumpString(lit).c_str());
+    set<NFAVertex> curr, next;
+    curr.insert(g.accept);
+
+    auto it = lit.rbegin();
+    for (u32 delay = max_delay; delay > 0 && it != lit.rend(); delay--, ++it) {
+        next.clear();
+        for (auto v : curr) {
+            for (auto u : inv_adjacent_vertices_range(v, g)) {
+                if (u == g.start) {
+                    if (overhang_ok) {
+                        DEBUG_PRINTF("bail\n");
+                        goto bail; /* things got complicated */
+                    } else {
+                        continue; /* it is not possible for a lhs literal to
+                                   * overhang the start */
+                    }
+                }
+
+                const CharReach &cr = g[u].char_reach;
+                if (!overlaps(*it, cr)) {
+                    DEBUG_PRINTF("skip\n");
+                    continue;
+                }
+                if (isSubsetOf(*it, cr)) {
+                    next.insert(u);
+                } else {
+                    DEBUG_PRINTF("bail\n");
+                    goto bail; /* things got complicated */
+                }
+            }
+        }
+
+        curr.swap(next);
+    }
+ bail:
+    if (curr.empty()) {
+        /* This can happen when we have an edge representing a cross from two
+         * sides of an alternation. This whole edge needs to be marked as
+         * dead */
+        assert(0); /* should have been picked up by can match */
+        return numeric_limits<u32>::max();
+    }
+
+    u32 delay = distance(lit.rbegin(), it);
+    assert(delay <= max_delay);
+    assert(delay <= lit.length());
+    DEBUG_PRINTF("managed delay %u (of max %u)\n", delay, max_delay);
+
+    set<NFAVertex> pred;
+    for (auto v : curr) {
+        insert(&pred, inv_adjacent_vertices_range(v, g));
+    }
+
+    clear_in_edges(g.accept, g);
+    clearReports(g);
+
+    for (auto v : pred) {
+        NFAEdge e = add_edge(v, g.accept, g);
+        g[v].reports.insert(0);
+        if (is_triggered(g) && v == g.start) {
+            g[e].tops.insert(DEFAULT_TOP);
+        }
+    }
+
+    pruneUseless(g);
+    assert(allMatchStatesHaveReports(g));
+    assert(isCorrectlyTopped(g));
+
+    DEBUG_PRINTF("graph has %zu vertices left\n", num_vertices(g));
+    return delay;
 }
 
 #ifndef NDEBUG

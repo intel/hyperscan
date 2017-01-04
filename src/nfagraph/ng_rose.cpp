@@ -807,86 +807,7 @@ bool can_match(const NGHolder &g, const ue2_literal &lit, bool overhang_ok) {
     return !curr.empty();
 }
 
-u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
-                                u32 max_delay, bool overhang_ok) {
-    assert(isCorrectlyTopped(g));
-    if (max_delay == MO_INVALID_IDX) {
-        max_delay--;
-    }
-
-    DEBUG_PRINTF("killing off '%s'\n", dumpString(lit).c_str());
-    set<NFAVertex> curr, next;
-    curr.insert(g.accept);
-
-    auto it = lit.rbegin();
-    for (u32 delay = max_delay; delay > 0 && it != lit.rend(); delay--, ++it) {
-        next.clear();
-        for (auto v : curr) {
-            for (auto u : inv_adjacent_vertices_range(v, g)) {
-                if (u == g.start) {
-                    if (overhang_ok) {
-                        DEBUG_PRINTF("bail\n");
-                        goto bail; /* things got complicated */
-                    } else {
-                        continue; /* it is not possible for a lhs literal to
-                                   * overhang the start */
-                    }
-                }
-
-                const CharReach &cr = g[u].char_reach;
-                if (!overlaps(*it, cr)) {
-                    DEBUG_PRINTF("skip\n");
-                    continue;
-                }
-                if (isSubsetOf(*it, cr)) {
-                    next.insert(u);
-                } else {
-                    DEBUG_PRINTF("bail\n");
-                    goto bail; /* things got complicated */
-                }
-            }
-        }
-
-        curr.swap(next);
-    }
- bail:
-    if (curr.empty()) {
-        /* This can happen when we have an edge representing a cross from two
-         * sides of an alternation. This whole edge needs to be marked as
-         * dead */
-        assert(0); /* should have been picked up by can match */
-        return MO_INVALID_IDX;
-    }
-
-    u32 delay = distance(lit.rbegin(), it);
-    assert(delay <= max_delay);
-    assert(delay <= lit.length());
-    DEBUG_PRINTF("managed delay %u (of max %u)\n", delay, max_delay);
-
-    set<NFAVertex> pred;
-    for (auto v : curr) {
-        insert(&pred, inv_adjacent_vertices_range(v, g));
-    }
-
-    clear_in_edges(g.accept, g);
-    clearReports(g);
-
-    for (auto v : pred) {
-        NFAEdge e = add_edge(v, g.accept, g);
-        g[v].reports.insert(0);
-        if (is_triggered(g) && v == g.start) {
-            g[e].tops.insert(DEFAULT_TOP);
-        }
-    }
-
-    pruneUseless(g);
-    assert(allMatchStatesHaveReports(g));
-    assert(isCorrectlyTopped(g));
-
-    DEBUG_PRINTF("graph has %zu vertices left\n", num_vertices(g));
-    return delay;
-}
-
+static
 void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
                                   u32 delay, const vector<NFAVertex> &preds) {
     assert(delay <= lit.length());
@@ -922,6 +843,7 @@ void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
     assert(isCorrectlyTopped(g));
 }
 
+static
 void restoreTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
                                   u32 delay) {
     vector<NFAVertex> preds;
