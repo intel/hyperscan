@@ -1822,6 +1822,25 @@ bool makeTransientFromLongLiteral(NGHolder &h, RoseInGraph &vg,
 }
 
 static
+void restoreTrailingLiteralStates(NGHolder &g,
+                                  const vector<pair<ue2_literal, u32>> &lits) {
+    vector<NFAVertex> preds;
+    insert(&preds, preds.end(), inv_adjacent_vertices(g.accept, g));
+    clear_in_edges(g.accept, g);
+
+    for (auto v : preds) {
+        g[v].reports.clear(); /* clear report from old accepts */
+    }
+
+    for (const auto &p : lits) {
+        const ue2_literal &lit = p.first;
+        u32 delay = p.second;
+
+        restoreTrailingLiteralStates(g, lit, delay, preds);
+    }
+}
+
+static
 bool improvePrefix(NGHolder &h, RoseInGraph &vg, const vector<RoseInEdge> &ee,
                    const CompileContext &cc) {
     DEBUG_PRINTF("trying to improve prefix %p, %zu verts\n", &h,
@@ -1900,27 +1919,18 @@ bool improvePrefix(NGHolder &h, RoseInGraph &vg, const vector<RoseInEdge> &ee,
         trimmed.clear();
         for (auto &elem : trimmed_vec) {
             shared_ptr<NGHolder> &hp = elem.first;
-            NGHolder &eh = *hp;
-
-            vector<NFAVertex> base_states;
-            insert(&base_states, base_states.end(),
-                   inv_adjacent_vertices(eh.accept, eh));
-            clear_in_edges(eh.accept, eh);
-
-            for (auto v : base_states) {
-                eh[v].reports.clear(); /* clear report from old accepts */
-            }
+            vector<pair<ue2_literal, u32>> succ_lits;
 
             for (const auto &edge_delay : elem.second) {
                 const RoseInEdge &e = edge_delay.first;
                 u32 delay = edge_delay.second;
-                auto succ_lit = vg[target(e, vg)].s;
+                auto lit = vg[target(e, vg)].s;
 
                 vg[e].graph = hp;
-                assert(delay <= succ_lit.length());
-                restoreTrailingLiteralStates(*vg[e].graph, succ_lit, delay,
-                                             base_states);
+                assert(delay <= lit.length());
+                succ_lits.emplace_back(lit, delay);
             }
+            restoreTrailingLiteralStates(*hp, succ_lits);
         }
         return true;
     }
@@ -2818,7 +2828,6 @@ bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
     dumpPreRoseGraph(vg, cc.grey);
     renumber_vertices(vg);
     calcVertexOffsets(vg);
-
 
     /* Step 5: avoid unimplementable, or overly large engines if possible */
     if (!ensureImplementable(rose, vg, last_chance, last_chance, rm, cc)) {
