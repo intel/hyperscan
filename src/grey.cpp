@@ -54,7 +54,6 @@ Grey::Grey(void) :
                    allowMcSheng(true),
                    allowPuff(true),
                    allowLiteral(true),
-                   allowRose(true),
                    allowViolet(true),
                    allowExtendedNFA(true), /* bounded repeats of course */
                    allowLimExNFA(true),
@@ -114,7 +113,6 @@ Grey::Grey(void) :
                    roseMcClellanSuffix(1),
                    roseMcClellanOutfix(2),
                    roseTransformDelay(true),
-                   roseDesiredSplit(4),
                    earlyMcClellanPrefix(true),
                    earlyMcClellanInfix(true),
                    earlyMcClellanSuffix(true),
@@ -219,7 +217,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(allowMcSheng);
         G_UPDATE(allowPuff);
         G_UPDATE(allowLiteral);
-        G_UPDATE(allowRose);
         G_UPDATE(allowViolet);
         G_UPDATE(allowExtendedNFA);
         G_UPDATE(allowLimExNFA);
@@ -279,7 +276,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(roseMcClellanSuffix);
         G_UPDATE(roseMcClellanOutfix);
         G_UPDATE(roseTransformDelay);
-        G_UPDATE(roseDesiredSplit);
         G_UPDATE(earlyMcClellanPrefix);
         G_UPDATE(earlyMcClellanInfix);
         G_UPDATE(earlyMcClellanSuffix);
@@ -336,7 +332,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
             g->allowMcClellan = false;
             g->allowPuff = false;
             g->allowLiteral = false;
-            g->allowRose = false;
             g->allowViolet = false;
             g->allowSmallLiteralSet = false;
             g->roseMasks = false;
@@ -354,7 +349,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
             g->allowMcClellan = true;
             g->allowPuff = false;
             g->allowLiteral = false;
-            g->allowRose = false;
             g->allowViolet = false;
             g->allowSmallLiteralSet = false;
             g->roseMasks = false;
@@ -372,7 +366,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
             g->allowMcClellan = true;
             g->allowPuff = false;
             g->allowLiteral = false;
-            g->allowRose = false;
             g->allowViolet = false;
             g->allowSmallLiteralSet = false;
             g->roseMasks = false;

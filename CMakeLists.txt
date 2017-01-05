@@ -820,8 +820,6 @@ SET (hs_SRCS
     src/nfagraph/ng_restructuring.h
     src/nfagraph/ng_revacc.cpp
     src/nfagraph/ng_revacc.h
-    src/nfagraph/ng_rose.cpp
-    src/nfagraph/ng_rose.h
     src/nfagraph/ng_sep.cpp
     src/nfagraph/ng_sep.h
     src/nfagraph/ng_small_literal_set.cpp

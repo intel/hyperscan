@@ -46,7 +46,6 @@
 #include "nfagraph/ng_region.h"
 #include "nfagraph/ng_repeat.h"
 #include "nfagraph/ng_reports.h"
-#include "nfagraph/ng_rose.h"
 #include "nfagraph/ng_util.h"
 #include "nfagraph/ng_width.h"
 #include "util/charreach.h"

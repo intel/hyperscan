@@ -52,7 +52,6 @@
 #include "ng_region.h"
 #include "ng_region_redundancy.h"
 #include "ng_reports.h"
-#include "ng_rose.h"
 #include "ng_sep.h"
 #include "ng_small_literal_set.h"
 #include "ng_som.h"
@@ -255,10 +254,6 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
         return true;
     }
 
-    if (splitOffRose(*ng.rose, g, w.prefilter, ng.rm, cc)) {
-        return true;
-    }
-
     if (splitOffPuffs(*ng.rose, ng.rm, g, w.prefilter, cc)) {
         return true;
     }
@@ -273,25 +268,6 @@ bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
     }
 
     if (doViolet(*ng.rose, g, w.prefilter, true, ng.rm, cc)) {
-        return true;
-    }
-
-    if (splitOffRose(*ng.rose, g, w.prefilter, ng.rm, cc)) {
-        return true;
-    }
-
-    // A final pass at cyclic redundancy and Rose
-    // TODO: investigate - coverage results suggest that this never succeeds?
-    if (cc.grey.performGraphSimplification) {
-        if (removeCyclicPathRedundancy(g) ||
-            removeCyclicDominated(g, som)) {
-            if (handleFixedWidth(*ng.rose, g, cc.grey)) {
-                return true;
-            }
-        }
-    }
-
-    if (finalChanceRose(*ng.rose, g, w.prefilter, ng.rm, cc)) {
         return true;
     }
 

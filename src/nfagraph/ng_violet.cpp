@@ -45,7 +45,6 @@
 #include "ng_redundancy.h"
 #include "ng_region.h"
 #include "ng_reports.h"
-#include "ng_rose.h"
 #include "ng_split.h"
 #include "ng_util.h"
 #include "ng_width.h"

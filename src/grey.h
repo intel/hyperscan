@@ -54,7 +54,6 @@ struct Grey {
     bool allowMcSheng;
     bool allowPuff;
     bool allowLiteral;
-    bool allowRose;
     bool allowViolet;
     bool allowExtendedNFA;
     bool allowLimExNFA;
@@ -128,7 +127,6 @@ struct Grey {
                               * always */
     u32 roseMcClellanOutfix; /* 0 = off, 1 = sometimes, 2 = almost always */
     bool roseTransformDelay;
-    u32 roseDesiredSplit;
 
     bool earlyMcClellanPrefix;
     bool earlyMcClellanInfix;
