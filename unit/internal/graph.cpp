@@ -1779,6 +1779,9 @@ TEST(ue2_graph, default_param) {
     auto e = add_edge(v, v, g).first;
 
     ASSERT_EQ(0U, get(vertex_index, g, v));
-    ASSERT_EQ(0U, get(&ue2::graph_detail::default_edge_property::index, g, e));
     ASSERT_EQ(0U, get(edge_index, g, e));
+#if !defined(_MSC_VER)
+    /* This makes MSVC up to VS2015 sad in ways that shouldn't happen. */
+    ASSERT_EQ(0U, get(&ue2::graph_detail::default_edge_property::index, g, e));
+#endif
 }
