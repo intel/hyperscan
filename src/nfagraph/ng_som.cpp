@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,12 +40,12 @@
 #include "ng_redundancy.h"
 #include "ng_region.h"
 #include "ng_reports.h"
-#include "ng_rose.h"
 #include "ng_som.h"
 #include "ng_som_add_redundancy.h"
 #include "ng_som_util.h"
 #include "ng_split.h"
 #include "ng_util.h"
+#include "ng_violet.h"
 #include "ng_width.h"
 #include "grey.h"
 #include "ue2common.h"
@@ -2073,7 +2073,7 @@ sombe_rv doHaigLitSom(NG &ng, NGHolder &g, const NGWrapper &w, u32 comp_id,
     const u32 numSomLocsBefore = ssm.numSomSlots(); /* for rollback */
     u32 som_loc = ssm.getPrivateSomSlot();
 
-    if (!checkRose(rm, g, false, cc) && !isImplementableNFA(g, &rm, cc)) {
+    if (!checkViolet(rm, g, false, cc) && !isImplementableNFA(g, &rm, cc)) {
         // This is an optimisation: if we can't build a Haig from a portion of
         // the graph, then we won't be able to manage it as an outfix either
         // when we fall back.

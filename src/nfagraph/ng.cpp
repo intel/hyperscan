@@ -533,16 +533,13 @@ bool NG::addHolder(NGHolder &w) {
         return true;
     }
 
-    if (splitOffRose(*rose, w, prefilter, rm, cc)) {
+    if (doViolet(*rose, w, prefilter, false, rm, cc)) {
         return true;
     }
     if (splitOffPuffs(*rose, rm, w, prefilter, cc)) {
         return true;
     }
-    if (splitOffRose(*rose, w, prefilter, rm, cc)) {
-        return true;
-    }
-    if (finalChanceRose(*rose, w, prefilter, rm, cc)) {
+    if (doViolet(*rose, w, prefilter, true, rm, cc)) {
         return true;
     }
 

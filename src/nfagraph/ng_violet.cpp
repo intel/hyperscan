@@ -2867,25 +2867,24 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
     return true;
 }
 
-bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
-              bool last_chance, const ReportManager &rm,
-              const CompileContext &cc) {
+static
+RoseInGraph doInitialVioletTransform(const NGHolder &h,
+                                     const CompileContext &cc) {
     assert(!can_never_match(h));
 
+    RoseInGraph vg = populateTrivialGraph(h);
+
     if (!cc.grey.allowViolet) {
-        return false;
+        return vg;
     }
 
     DEBUG_PRINTF("hello world\n");
-
-    RoseInGraph vg = populateTrivialGraph(h);
 
     /* Step 1: avoid outfixes as we always have to run them. */
     avoidOutfixes(vg, cc);
 
     if (num_vertices(vg) <= 2) {
-        /* only have an outfix; leave for ng_rose for now */
-        return false;
+        return vg; /* unable to transform pattern */
     }
 
     removeRedundantPrefixes(vg);
@@ -2923,6 +2922,17 @@ bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
     renumber_vertices(vg);
     calcVertexOffsets(vg);
 
+    return vg;
+}
+
+bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
+              bool last_chance, const ReportManager &rm,
+              const CompileContext &cc) {
+    auto vg = doInitialVioletTransform(h, cc);
+    if (num_vertices(vg) <= 2) {
+        return false;
+    }
+
     /* Step 5: avoid unimplementable, or overly large engines if possible */
     if (!ensureImplementable(rose, vg, last_chance, last_chance, rm, cc)) {
         return false;
@@ -2931,6 +2941,18 @@ bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
 
     /* Step 6: send to rose */
     bool rv = rose.addRose(vg, prefilter);
+    DEBUG_PRINTF("violet: %s\n", rv ? "success" : "fail");
+    return rv;
+}
+
+bool checkViolet(const ReportManager &rm, const NGHolder &h, bool prefilter,
+                 const CompileContext &cc) {
+    auto vg = doInitialVioletTransform(h, cc);
+    if (num_vertices(vg) <= 2) {
+        return false;
+    }
+
+    bool rv = roseCheckRose(vg, prefilter, rm, cc);
     DEBUG_PRINTF("violet: %s\n", rv ? "success" : "fail");
     return rv;
 }

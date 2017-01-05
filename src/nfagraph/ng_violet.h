@@ -53,6 +53,13 @@ bool doViolet(RoseBuild &rose, const NGHolder &h, bool prefilter,
 bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
                          bool final_chance, const ReportManager &rm,
                          const CompileContext &cc);
+
+/** \brief True if the pattern in \a h is consumable by Rose/Violet. This
+ * function may be conservative (return false even if supported) for
+ * efficiency. */
+bool checkViolet(const ReportManager &rm, const NGHolder &h, bool prefilter,
+                 const CompileContext &cc);
+
 } // namespace ue2
 
 #endif
