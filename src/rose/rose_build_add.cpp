@@ -1031,14 +1031,8 @@ bool empty(const GraphT &g) {
 }
 
 static
-bool canImplementGraph(const RoseInGraph &in, NGHolder &h,
-                       const vector<RoseInEdge> &edges, bool prefilter,
-                       const ReportManager &rm, const CompileContext &cc) {
-    assert(!edges.empty());
-    assert(&*in[edges[0]].graph == &h);
-
-    assert(h.kind == whatRoseIsThis(in, edges[0]));
-
+bool canImplementGraph(NGHolder &h, bool prefilter, const ReportManager &rm,
+                       const CompileContext &cc) {
     if (isImplementableNFA(h, &rm, cc)) {
         return true;
     }
@@ -1561,11 +1555,10 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter) {
     vector<RoseInEdge> graph_edges;
 
     for (auto h : ordered_graphs) {
-        const vector<RoseInEdge> &h_edges = graphs.at(h);
-        if (!canImplementGraph(in, *h, h_edges, prefilter, rm, cc)) {
+        if (!canImplementGraph(*h, prefilter, rm, cc)) {
             return false;
         }
-        insert(&graph_edges, graph_edges.end(), h_edges);
+        insert(&graph_edges, graph_edges.end(), graphs[h]);
     }
 
     /* we are now past the point of no return. We can start making irreversible
@@ -1623,7 +1616,7 @@ bool roseCheckRose(const RoseInGraph &ig, bool prefilter,
         return false;
     }
 
-    map<NGHolder *, vector<RoseInEdge>> graphs;
+    vector<NGHolder *> graphs;
 
     for (const auto &e : edges_range(ig)) {
         if (!ig[e].graph) {
@@ -1635,11 +1628,11 @@ bool roseCheckRose(const RoseInGraph &ig, bool prefilter,
             continue;
         }
 
-        graphs[ig[e].graph.get()].push_back(e);
+        graphs.push_back(ig[e].graph.get());
     }
 
-    for (const auto &m : graphs) {
-        if (!canImplementGraph(ig, *m.first, m.second, prefilter, rm, cc)) {
+    for (const auto &g : graphs) {
+        if (!canImplementGraph(*g, prefilter, rm, cc)) {
             return false;
         }
     }
