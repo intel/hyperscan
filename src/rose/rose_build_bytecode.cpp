@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -246,6 +246,30 @@ struct build_context : boost::noncopyable {
 
     /** \brief Global bitmap of groups that can be squashed. */
     rose_group squashable_groups = 0;
+};
+
+/** \brief subengine info including built engine and
+* corresponding triggering rose vertices */
+struct ExclusiveSubengine {
+    aligned_unique_ptr<NFA> nfa;
+    vector<RoseVertex> vertices;
+};
+
+/** \brief exclusive info to build tamarama */
+struct ExclusiveInfo {
+    // subengine info
+    vector<ExclusiveSubengine> subengines;
+    // all the report in tamarama
+    set<ReportID> reports;
+    // assigned queue id
+    u32 queue;
+
+    // workaround a deficiency in the standard (as explained by STL @ MS) we
+    // need to tell the compiler that ExclusiveInfo is moveable-only by
+    // deleting the copy cons so that vector doesn't get confused
+    ExclusiveInfo() = default;
+    ExclusiveInfo(const ExclusiveInfo &) = delete;
+    ExclusiveInfo(ExclusiveInfo &&) = default;
 };
 
 }
