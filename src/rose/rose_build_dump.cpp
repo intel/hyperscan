@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -420,21 +420,80 @@ string toHex(Iter i, const Iter &end) {
 }
 
 static
+bool isMetaChar(char c) {
+    switch (c) {
+    case '#':
+    case '$':
+    case '(':
+    case ')':
+    case '*':
+    case '+':
+    case '.':
+    case '/':
+    case '?':
+    case '[':
+    case '\\':
+    case ']':
+    case '^':
+    case '{':
+    case '|':
+    case '}':
+        return true;
+    default:
+        return false;
+    }
+}
+
+static
+string toRegex(const string &lit) {
+    ostringstream os;
+    for (char c : lit) {
+        if (0x20 <= c && c <= 0x7e) {
+            if (isMetaChar(c)) {
+                os << "\\" << c;
+            } else {
+                os << c;
+            }
+        } else if (c == '\n') {
+            os << "\\n";
+        } else if (c == '\r') {
+            os << "\\r";
+        } else if (c == '\t') {
+            os << "\\t";
+        } else {
+            os << "\\x" << hex << setw(2) << setfill('0')
+               << (unsigned)(c & 0xff) << dec;
+        }
+    }
+    return os.str();
+}
+
+static
 void dumpTestLiterals(const string &filename, const vector<hwlmLiteral> &lits) {
     ofstream of(filename.c_str());
 
+    // Unique regex index, as literals may share an ID.
+    u32 i = 0;
+
     for (const hwlmLiteral &lit : lits) {
-        of << lit.id << "=";
-        if (lit.nocase) {
-            of << "!";
-        }
-        of << toHex(lit.s.begin(), lit.s.end());
+        // First, detail in a comment.
+        of << "# id=" << lit.id;
         if (!lit.msk.empty()) {
-            of << " " << toHex(lit.msk.begin(), lit.msk.end());
-            of << " " << toHex(lit.cmp.begin(), lit.cmp.end());
+            of << " msk=0x" << toHex(lit.msk.begin(), lit.msk.end());
+            of << " cmp=0x" << toHex(lit.cmp.begin(), lit.cmp.end());
         }
+        of << " groups=0x" << hex << setfill('0') << lit.groups << dec;
+        if (lit.noruns) {
+            of << " noruns";
+        }
+        of << endl;
+
+        // Second, literal rendered as a regex.
+        of << i << ":/" << toRegex(lit.s) << (lit.nocase ? "/i" : "/");
 
         of << endl;
+
+        i++;
     }
 
     of.close();
