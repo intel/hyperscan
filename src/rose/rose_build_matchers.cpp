@@ -37,6 +37,7 @@
 #include "rose_build_lit_accel.h"
 #include "rose_build_width.h"
 #include "hwlm/hwlm_build.h"
+#include "hwlm/hwlm_internal.h"
 #include "hwlm/hwlm_literal.h"
 #include "nfa/castlecompile.h"
 #include "nfa/nfa_api_queue.h"
@@ -811,6 +812,20 @@ void MatcherProto::insert(const MatcherProto &a) {
     history_required = max(history_required, a.history_required);
 }
 
+static
+void buildAccel(const RoseBuildImpl &build, const MatcherProto &mp,
+                HWLM &hwlm) {
+    if (!build.cc.grey.hamsterAccelForward) {
+        return;
+    }
+
+    if (hwlm.type == HWLM_ENGINE_NOOD) {
+        return;
+    }
+
+    buildForwardAccel(&hwlm, mp.accel_lits, build.getInitialGroups());
+}
+
 aligned_unique_ptr<HWLM>
 buildFloatingMatcher(const RoseBuildImpl &build, size_t longLitLengthThreshold,
                      const map<u32, u32> &final_to_frag_map,
@@ -835,9 +850,7 @@ buildFloatingMatcher(const RoseBuildImpl &build, size_t longLitLengthThreshold,
         throw CompileError("Unable to generate bytecode.");
     }
 
-    if (build.cc.grey.hamsterAccelForward) {
-        buildForwardAccel(hwlm.get(), mp.accel_lits, build.getInitialGroups());
-    }
+    buildAccel(build, mp, *hwlm);
 
     if (build.cc.streaming) {
         DEBUG_PRINTF("history_required=%zu\n", mp.history_required);
@@ -903,9 +916,7 @@ buildSmallBlockMatcher(const RoseBuildImpl &build,
         throw CompileError("Unable to generate bytecode.");
     }
 
-    if (build.cc.grey.hamsterAccelForward) {
-        buildForwardAccel(hwlm.get(), mp.accel_lits, build.getInitialGroups());
-    }
+    buildAccel(build, mp, *hwlm);
 
     *sbsize = hwlmSize(hwlm.get());
     assert(*sbsize);
@@ -934,9 +945,7 @@ buildEodAnchoredMatcher(const RoseBuildImpl &build,
         throw CompileError("Unable to generate bytecode.");
     }
 
-    if (build.cc.grey.hamsterAccelForward) {
-        buildForwardAccel(hwlm.get(), mp.accel_lits, build.getInitialGroups());
-    }
+    buildAccel(build, mp, *hwlm);
 
     *esize = hwlmSize(hwlm.get());
     assert(*esize);
