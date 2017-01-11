@@ -1783,8 +1783,69 @@ void populateOutfixInfo(OutfixInfo &outfix, const NGHolder &h,
     populateReverseAccelerationInfo(outfix.rev_info, h);
 }
 
+static
+bool addEodOutfix(RoseBuildImpl &build, const NGHolder &h) {
+    map<flat_set<ReportID>, ReportID> report_remap;
+    shared_ptr<NGHolder> eod_leftfix
+        = makeRoseEodPrefix(h, build, report_remap);
+
+    bool nfa_ok = isImplementableNFA(h, &build.rm, build.cc);
+
+    /* TODO: check if early dfa is possible */
+
+    if (!nfa_ok) {
+        DEBUG_PRINTF("could not build as  NFA\n");
+        return false;
+    }
+
+    u32 eod_event = getEodEventID(build);
+
+    auto &g = build.g;
+    for (const auto &report_mapping : report_remap) {
+        RoseVertex v = add_vertex(g);
+        g[v].literals.insert(eod_event);
+        build.literal_info[eod_event].vertices.insert(v);
+
+        g[v].left.graph = eod_leftfix;
+        g[v].left.leftfix_report = report_mapping.second;
+        g[v].left.lag = 0;
+        RoseEdge e1 = add_edge(build.anchored_root, v, g);
+        g[e1].minBound = 0;
+        g[e1].maxBound = ROSE_BOUND_INF;
+        g[v].min_offset = findMinWidth(*eod_leftfix);
+        g[v].max_offset = ROSE_BOUND_INF;
+
+        depth max_width = findMaxWidth(*g[v].left.graph);
+        if (max_width.is_finite() && isPureAnchored(*eod_leftfix)) {
+            g[e1].maxBound = max_width;
+            g[v].max_offset = max_width;
+        }
+
+        g[e1].history = ROSE_ROLE_HISTORY_NONE; // handled by prefix
+        RoseVertex w = add_vertex(g);
+        g[w].eod_accept = true;
+        g[w].reports = report_mapping.first;
+        g[w].min_offset = g[v].min_offset;
+        g[w].max_offset = g[v].max_offset;
+        RoseEdge e = add_edge(v, w, g);
+        g[e].minBound = 0;
+        g[e].maxBound = 0;
+        g[e].history = ROSE_ROLE_HISTORY_NONE;
+        DEBUG_PRINTF("accept eod vertex (index=%zu)\n", g[w].index);
+    }
+
+    return true;
+}
+
 bool RoseBuildImpl::addOutfix(const NGHolder &h) {
     DEBUG_PRINTF("%zu vertices, %zu edges\n", num_vertices(h), num_edges(h));
+
+    /* TODO: handle more than one report */
+    if (!in_degree(h.accept, h)
+        && all_reports(h).size() == 1
+        && addEodOutfix(*this, h)) {
+        return true;
+    }
 
     const u32 nfa_states = isImplementableNFA(h, &rm, cc);
     if (nfa_states) {
