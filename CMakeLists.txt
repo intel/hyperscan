@@ -230,6 +230,12 @@ else()
         set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fno-omit-frame-pointer")
     endif()
 
+    if (RELEASE_BUILD)
+        # we don't need the noise of ABI warnings in a release build
+        set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -Wno-abi")
+        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-abi")
+    endif ()
+
 endif()
 
 CHECK_INCLUDE_FILES(unistd.h HAVE_UNISTD_H)
