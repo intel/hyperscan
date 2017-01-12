@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,51 +26,21 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- * \brief Interface to Parser.
+/**
+ * \file
+ * \brief Parser for control verbs that can occur at the beginning of a pattern.
  */
 
-#ifndef _RE_PARSER_H_
-#define _RE_PARSER_H_
-
-#include "ue2common.h"
-
-#include <memory>
+#ifndef CONTROL_VERBS_H
+#define CONTROL_VERBS_H
 
 namespace ue2 {
 
-class Component;
+struct ParseMode;
 
-/** \brief Represents the current "mode flags" at any point in the parsing
- * process.
- *
- * This is necessary as some modes can be changed part-way through an
- * expression, such as in:
- *
- *     /foo(?i)bar/
- */
-struct ParseMode {
-    ParseMode() {}
-    explicit ParseMode(u32 hs_flags);
-
-    bool caseless = false;
-    bool dotall = false;
-    bool ignore_space = false;
-    bool multiline = false;
-    bool ucp = false;
-    bool utf8 = false;
-};
-
-/** \brief Parse the given regular expression into a \ref Component tree.
- *
- * The \a mode parameter should contain the initial mode flags, and will be
- * updated by the parser if additional global flags are introduced in the
- * expression (for example, via "(*UTF8)".)
- *
- * This call will throw a ParseError on failure.
- */
-std::unique_ptr<Component> parse(const char *ptr, ParseMode &mode);
+const char *read_control_verbs(const char *ptr, const char *end,
+                               ParseMode &mode);
 
 } // namespace ue2
 
-#endif // _RE_PARSER_H_
+#endif // CONTROL_VERBS_H

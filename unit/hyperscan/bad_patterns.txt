@@ -90,8 +90,8 @@
 91:/a\owibble/ #Value in \o{...} sequence is non-octal or missing braces at index 1.
 92:/a\o{wibble/ #Value in \o{...} sequence is non-octal or missing braces at index 1.
 93:/a\o{777}/ #Value in \o{...} sequence is too large at index 1.
-94:/(*UTF16)foo/ #(*UTF16) not supported at index 2.
-95:/(*BSR_UNICODE)abc/ #Unknown control verb at index 2.
+94:/(*UTF16)foo/ #Unsupported control verb (*UTF16) at index 0.
+95:/(*BSR_UNICODE)abc/ #Unsupported control verb (*BSR_UNICODE) at index 0.
 96:/a+(*SKIP)b/ #Unknown control verb at index 4.
 97:/foo(*/ #Invalid repeat at index 4.
 98:/[:\]:]/ #POSIX named classes are only supported inside a class at index 0.
@@ -130,3 +130,8 @@
 133:/[a[.\].]]/ #Unsupported POSIX collating element at index 2.
 134:/[a[=\]=]]/ #Unsupported POSIX collating element at index 2.
 135:/[^\D\d]/8W #Pattern can never match.
+136:/(*LIMIT_MATCH=1000)foobar/ #Unsupported control verb (*LIMIT_MATCH=1000) at index 0.
+137:/(*UTF32)foobar/ #Unsupported control verb (*UTF32) at index 0.
+138:/(*UNKNOWNVERB)foobar/ #Unknown control verb (*UNKNOWNVERB) at index 0.
+139:/foo(*UTF8)bar/ #(*UTF8) must be at start of expression, encountered at index 5.
+140:/(?i)(*UTF8)foobar/ #(*UTF8) must be at start of expression, encountered at index 6.

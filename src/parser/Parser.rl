@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,6 +34,7 @@
 
 /* Parser.cpp is a built source, may not be in same dir as parser files */
 #include "parser/check_refs.h"
+#include "parser/control_verbs.h"
 #include "parser/ComponentAlternation.h"
 #include "parser/ComponentAssertion.h"
 #include "parser/ComponentAtomicGroup.h"
@@ -549,26 +550,22 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
     #############################################################
     readVerb := |*
         'UTF8)' => {
-            if (ts != ptr + 2) {
-                throw LocatedParseError("(*UTF8) must be at start of "
-                                        "expression, encountered");
-            }
-            mode.utf8 = true;
-            globalMode.utf8 = true; /* once you unicode, you can't stop */
-            ucp_start_p = te; /* (*UCP) can appear after us */
-            fret;
+            throw LocatedParseError("(*UTF8) must be at start of "
+                                    "expression, encountered");
+        };
+        'UTF)' => {
+            throw LocatedParseError("(*UTF) must be at start of "
+                                    "expression, encountered");
         };
         'UCP)' => {
-            if (ts != ucp_start_p + 2) {
-                throw LocatedParseError("(*UCP) must be at start of "
-                                        "expression, encountered");
-            }
-            mode.ucp = true;
-            globalMode.ucp = true; /* once you unicode, you can't stop */
-            fret;
+            throw LocatedParseError("(*UCP) must be at start of "
+                                    "expression, encountered");
         };
         'UTF16)' => {
             throw LocatedParseError("(*UTF16) not supported");
+        };
+        'UTF32)' => {
+            throw LocatedParseError("(*UTF32) not supported");
         };
         any => {
             throw LocatedParseError("Unknown control verb");
@@ -1834,10 +1831,18 @@ unichar readUtf8CodePoint4c(const u8 *ts) {
 %% write data nofinal;
 
 /** \brief Main parser call, returns root Component or nullptr. */
-unique_ptr<Component> parse(const char *const c_ptr, ParseMode &globalMode) {
-    const u8 * const ptr = (const u8 * const)c_ptr;
+unique_ptr<Component> parse(const char *c_ptr, ParseMode &globalMode) {
+    assert(c_ptr);
+
+    const u8 *ptr = (const u8 *const)c_ptr;
     const u8 *p = ptr;
     const u8 *pe = ptr + strlen(c_ptr);
+
+    // First, read the control verbs, set any global mode flags and move the
+    // ptr forward.
+    p = (const u8 *)read_control_verbs((const char *)p, (const char *)pe,
+                                       globalMode);
+
     const u8 *eof = pe;
     int cs;
     UNUSED int act;
@@ -1890,8 +1895,6 @@ unique_ptr<Component> parse(const char *const c_ptr, ParseMode &globalMode) {
 
     // Location at which the current character class began.
     const u8 *currentClsBegin = p;
-
-    const u8 *ucp_start_p = p; /* for (*UCP) verb */
 
     // We throw exceptions on various parsing failures beyond this point: we
     // use a try/catch block here to clean up our allocated memory before we

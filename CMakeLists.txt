@@ -459,6 +459,13 @@ set_source_files_properties(
 
 ragelmaker(src/parser/Parser.rl)
 
+set_source_files_properties(
+    ${CMAKE_BINARY_DIR}/src/parser/control_verbs.cpp
+    PROPERTIES
+        COMPILE_FLAGS "${RAGEL_C_FLAGS}")
+
+ragelmaker(src/parser/control_verbs.rl)
+
 SET(hs_HEADERS
     src/hs.h
     src/hs_common.h
@@ -891,6 +898,8 @@ SET (hs_SRCS
     src/parser/buildstate.h
     src/parser/check_refs.cpp
     src/parser/check_refs.h
+    src/parser/control_verbs.cpp
+    src/parser/control_verbs.h
     src/parser/parse_error.cpp
     src/parser/parse_error.h
     src/parser/parser_util.cpp
