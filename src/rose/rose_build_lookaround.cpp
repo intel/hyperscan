@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -461,16 +461,40 @@ void findFloodReach(const RoseBuildImpl &tbi, const RoseVertex v,
 }
 
 static
+map<s32, CharReach> findLiteralReach(const rose_literal_id &lit) {
+    map<s32, CharReach> look;
+
+    u32 i = lit.delay + 1;
+    for (auto it = lit.s.rbegin(), ite = lit.s.rend(); it != ite; ++it) {
+        look[0 - i] |= *it;
+        i++;
+    }
+
+    return look;
+}
+
+static
 map<s32, CharReach> findLiteralReach(const RoseBuildImpl &build,
                                      const RoseVertex v) {
+    bool first = true;
     map<s32, CharReach> look;
     for (u32 lit_id : build.g[v].literals) {
         const rose_literal_id &lit = build.literals.right.at(lit_id);
+        auto lit_look = findLiteralReach(lit);
 
-        u32 i = lit.delay + 1;
-        for (auto it = lit.s.rbegin(), ite = lit.s.rend(); it != ite; ++it) {
-            look[0 - i] |= *it;
-            i++;
+        if (first) {
+            look = move(lit_look);
+            first = false;
+        } else {
+            for (auto it = look.begin(); it != look.end();) {
+                auto l_it = lit_look.find(it->first);
+                if (l_it == lit_look.end()) {
+                    it = look.erase(it);
+                } else {
+                    it->second |= l_it->second;
+                    ++it;
+                }
+            }
         }
     }
 
