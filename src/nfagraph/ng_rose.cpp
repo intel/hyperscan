@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -2368,12 +2368,17 @@ void makeNocaseWithPrefixMask(RoseInGraph &g, RoseInVertex v) {
 
                 h[ds].char_reach = CharReach::dot();
 
-                add_edge(h.start, ds, h);
+                NFAEdge e_start_to_ds = add_edge(h.start, ds, h);
                 add_edge(ds, ds, h);
                 add_edge(ds, h.accept, h);
                 h[h.start].reports.insert(0);
                 h[ds].reports.insert(0);
+
+                if (g[u].type == RIV_LITERAL) {
+                    h[e_start_to_ds].tops.insert(DEFAULT_TOP);
+                }
             } else {
+                assert(g[u].type == RIV_ANCHORED_START);
                 add_edge(h.start, h.accept, h);
                 h[h.start].reports.insert(0);
             }
