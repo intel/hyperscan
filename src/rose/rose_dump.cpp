@@ -1184,6 +1184,12 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     if (t->hasSom) {
         fprintf(f, " hasSom");
     }
+    if (t->runtimeImpl == ROSE_RUNTIME_PURE_LITERAL) {
+        fprintf(f, " pureLiteral");
+    }
+    if (t->runtimeImpl == ROSE_RUNTIME_SINGLE_OUTFIX) {
+        fprintf(f, " soleOutfix");
+    }
     fprintf(f, "\n");
 
     fprintf(f, "dkey count           : %u\n", t->dkeyCount);
