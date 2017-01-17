@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,6 +47,7 @@
 #include "util/container.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
+#include "util/hash.h"
 #include "util/order_check.h"
 #include "util/ue2_containers.h"
 
@@ -111,11 +112,14 @@ struct AliasInEdge : EdgeAndVertex {
 
 class CandidateSet {
 public:
-    typedef set<RoseVertex>::iterator iterator;
-    typedef RoseVertex key_type;
+    using key_type = RoseVertex;
+    using iterator = set<RoseVertex>::iterator;
+    using const_iterator = set<RoseVertex>::const_iterator;
 
     iterator begin() { return main_cont.begin(); }
     iterator end() { return main_cont.end(); }
+    const_iterator begin() const { return main_cont.begin(); }
+    const_iterator end() const { return main_cont.end(); }
 
     bool contains(RoseVertex a) const {
         return hash_cont.find(a) != hash_cont.end();
@@ -451,37 +455,6 @@ bool sameRightRoleProperties(const RoseBuildImpl &build, RoseVertex a,
     return true;
 }
 
-/**
- * Hash on some deterministic props checked in sameRoleProperties + properties
- * required for right equivalence.
- */
-static
-size_t hashRightRoleProperties(RoseVertex v, const RoseGraph &g) {
-    using boost::hash_combine;
-    using boost::hash_range;
-
-    const RoseVertexProps &props = g[v];
-
-    size_t val = 0;
-    hash_combine(val, hash_range(begin(props.reports), end(props.reports)));
-
-    if (props.suffix) {
-        const auto &suffix = props.suffix;
-        if (suffix.castle) {
-            hash_combine(val, suffix.castle->reach());
-            hash_combine(val, suffix.castle->repeats.size());
-        }
-        if (suffix.graph) {
-            hash_combine(val, num_vertices(*suffix.graph));
-        }
-        if (suffix.haig) {
-            hash_combine(val, hash_dfa(*suffix.haig));
-        }
-    }
-
-    return val;
-}
-
 static
 void mergeEdgeAdd(RoseVertex u, RoseVertex v, const RoseEdge &from_edge,
                   const RoseEdge *to_edge, RoseGraph &g) {
@@ -685,16 +658,6 @@ void findCandidates(const RoseBuildImpl &build, CandidateSet *candidates) {
 }
 
 static
-RoseVertex pickSucc(const RoseVertex v, const RoseGraph &g) {
-    RoseGraph::adjacency_iterator ai, ae;
-    tie(ai, ae) = adjacent_vertices(v, g);
-    if (ai == ae) {
-        return RoseGraph::null_vertex();
-    }
-    return *ai;
-}
-
-static
 RoseVertex pickPred(const RoseVertex v, const RoseGraph &g,
                     const RoseBuildImpl &build) {
     RoseGraph::in_edge_iterator ei, ee;
@@ -854,7 +817,7 @@ void pruneUnusedTops(NGHolder &h, const RoseGraph &g,
         return;
     }
     assert(isCorrectlyTopped(h));
-    DEBUG_PRINTF("prunning unused tops\n");
+    DEBUG_PRINTF("pruning unused tops\n");
     ue2::flat_set<u32> used_tops;
     for (auto v : verts) {
         assert(g[v].left.graph.get() == &h);
@@ -1427,62 +1390,95 @@ bool attemptRoseMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
     return false;
 }
 
+/**
+ * \brief Buckets that only contain one vertex are never going to lead to a
+ * merge.
+ */
 static
-void splitByReportSuffixBehaviour(const RoseGraph &g,
-                                  vector<vector<RoseVertex>> &buckets,
-                                  ue2::unordered_map<RoseVertex, size_t> &inv) {
-    /* vertices with different report/suffixes can never be considered for right
-     * merge. */
-    vector<vector<RoseVertex>> out;
-    for (const vector<RoseVertex> &b : buckets) {
-        assert(!b.empty());
-        map<pair<flat_set<ReportID>, RoseSuffixInfo>, size_t> dest_map;
-        for (RoseVertex v : b) {
-            auto key = decltype(dest_map)::key_type(g[v].reports, g[v].suffix);
-            size_t out_bucket;
-            if (contains(dest_map, key)) {
-                out_bucket = dest_map[key];
-            } else {
-                out_bucket = out.size();
-                out.push_back(vector<RoseVertex>());
-                dest_map[key] = out_bucket;
-            }
-            out[out_bucket].push_back(v);
-            inv[v] = out_bucket;
-        }
+void removeSingletonBuckets(vector<vector<RoseVertex>> &buckets) {
+    auto it = remove_if(
+        begin(buckets), end(buckets),
+        [](const vector<RoseVertex> &bucket) { return bucket.size() < 2; });
+    if (it != end(buckets)) {
+        DEBUG_PRINTF("deleting %zu singleton buckets\n",
+                     distance(it, end(buckets)));
+        buckets.erase(it, end(buckets));
+    }
+}
 
+static
+void buildInvBucketMap(const vector<vector<RoseVertex>> &buckets,
+                       ue2::unordered_map<RoseVertex, size_t> &inv) {
+    inv.clear();
+    for (size_t i = 0; i < buckets.size(); i++) {
+        for (auto v : buckets[i]) {
+            assert(!contains(inv, v));
+            inv.emplace(v, i);
+        }
+    }
+}
+
+/**
+ * \brief Generic splitter that will use the given split function to partition
+ * the vector of buckets, then remove buckets with <= 1 entry.
+ */
+template <class SplitFunction>
+void splitAndFilterBuckets(vector<vector<RoseVertex>> &buckets,
+                           const SplitFunction &make_split_key) {
+    if (buckets.empty()) {
+        return;
     }
 
-    buckets.swap(out);
+    vector<vector<RoseVertex>> out;
+
+    // Mapping from split key value to new bucket index.
+    using key_type = decltype(make_split_key(RoseGraph::null_vertex()));
+    unordered_map<key_type, size_t> dest_map;
+    dest_map.reserve(buckets.front().size());
+
+    for (const auto &bucket : buckets) {
+        assert(!bucket.empty());
+        dest_map.clear();
+        for (RoseVertex v : bucket) {
+            auto p = dest_map.emplace(make_split_key(v), out.size());
+            if (p.second) { // New key, add a bucket.
+                out.emplace_back();
+            }
+            auto out_bucket = p.first->second;
+            out[out_bucket].push_back(v);
+        }
+    }
+
+    if (out.size() == buckets.size()) {
+        return; // No new buckets created.
+    }
+
+    buckets = move(out);
+    removeSingletonBuckets(buckets);
+}
+
+static
+void splitByReportSuffixBehaviour(const RoseGraph &g,
+                                  vector<vector<RoseVertex>> &buckets) {
+    // Split by report set and suffix info.
+    auto make_split_key = [&g](RoseVertex v) {
+        return hash_all(g[v].reports, g[v].suffix);
+    };
+    splitAndFilterBuckets(buckets, make_split_key);
 }
 
 static
 void splitByLiteralTable(const RoseBuildImpl &build,
-                         vector<vector<RoseVertex>> &buckets,
-                         ue2::unordered_map<RoseVertex, size_t> &inv) {
+                         vector<vector<RoseVertex>> &buckets) {
     const RoseGraph &g = build.g;
 
-    vector<vector<RoseVertex>> out;
-
-    for (const auto &bucket : buckets) {
-        assert(!bucket.empty());
-        map<rose_literal_table, size_t> dest_map;
-        for (RoseVertex v : bucket) {
-            auto table = build.literals.right.at(*g[v].literals.begin()).table;
-            size_t out_bucket;
-            if (contains(dest_map, table)) {
-                out_bucket = dest_map[table];
-            } else {
-                out_bucket = out.size();
-                out.push_back(vector<RoseVertex>());
-                dest_map[table] = out_bucket;
-            }
-            out[out_bucket].push_back(v);
-            inv[v] = out_bucket;
-        }
-    }
-
-    buckets.swap(out);
+    // Split by literal table.
+    auto make_split_key = [&](RoseVertex v) {
+        const auto &lits = g[v].literals;
+        assert(!lits.empty());
+        return build.literals.right.at(*lits.begin()).table;
+    };
+    splitAndFilterBuckets(buckets, make_split_key);
 }
 
 static
@@ -1543,6 +1539,9 @@ void splitByNeighbour(const RoseGraph &g, vector<vector<RoseVertex>> &buckets,
         }
         insert(&buckets, buckets.end(), extras);
     }
+
+    removeSingletonBuckets(buckets);
+    buildInvBucketMap(buckets, inv);
 }
 
 static
@@ -1551,16 +1550,35 @@ splitDiamondMergeBuckets(CandidateSet &candidates, const RoseBuildImpl &build) {
     const RoseGraph &g = build.g;
 
     vector<vector<RoseVertex>> buckets(1);
-    ue2::unordered_map<RoseVertex, size_t> inv;
-    for (RoseVertex v : candidates) {
-        buckets[0].push_back(v);
-        inv[v] = 0;
+    buckets[0].reserve(candidates.size());
+    insert(&buckets[0], buckets[0].end(), candidates);
+
+    DEBUG_PRINTF("at start, %zu candidates in 1 bucket\n", candidates.size());
+
+    splitByReportSuffixBehaviour(g, buckets);
+    DEBUG_PRINTF("split by report/suffix, %zu buckets\n", buckets.size());
+    if (buckets.empty()) {
+        return buckets;
     }
 
-    splitByReportSuffixBehaviour(g, buckets, inv);
-    splitByLiteralTable(build, buckets, inv);
+    splitByLiteralTable(build, buckets);
+    DEBUG_PRINTF("split by lit table, %zu buckets\n", buckets.size());
+    if (buckets.empty()) {
+        return buckets;
+    }
+
+    // Neighbour splits require inverse map.
+    ue2::unordered_map<RoseVertex, size_t> inv;
+    buildInvBucketMap(buckets, inv);
+
     splitByNeighbour(g, buckets, inv, true);
+    DEBUG_PRINTF("split by successor, %zu buckets\n", buckets.size());
+    if (buckets.empty()) {
+        return buckets;
+    }
+
     splitByNeighbour(g, buckets, inv, false);
+    DEBUG_PRINTF("split by predecessor, %zu buckets\n", buckets.size());
 
     return buckets;
 }
@@ -1677,55 +1695,62 @@ vector<RoseVertex>::iterator findLeftMergeSibling(
     return end;
 }
 
+static
+void getLeftMergeSiblings(const RoseBuildImpl &build, RoseVertex a,
+                          vector<RoseVertex> &siblings) {
+    // We have to find a sibling to merge `a' with, and we select between
+    // two approaches to minimize the number of vertices we have to
+    // examine; which we use depends on the shape of the graph.
+
+    const RoseGraph &g = build.g;
+    assert(!g[a].literals.empty());
+    u32 lit_id = *g[a].literals.begin();
+    const auto &verts = build.literal_info.at(lit_id).vertices;
+    RoseVertex pred = pickPred(a, g, build);
+
+    siblings.clear();
+
+    if (pred == RoseGraph::null_vertex() || build.isAnyStart(pred) ||
+        out_degree(pred, g) > verts.size()) {
+        // Select sibling from amongst the vertices that share a literal.
+        insert(&siblings, siblings.end(), verts);
+    } else {
+        // Select sibling from amongst the vertices that share a
+        // predecessor.
+        insert(&siblings, siblings.end(), adjacent_vertices(pred, g));
+    }
+}
+
 static never_inline
 void leftMergePass(CandidateSet &candidates, RoseBuildImpl &build,
                    vector<RoseVertex> *dead, RoseAliasingInfo &rai) {
     DEBUG_PRINTF("begin (%zu)\n", candidates.size());
-    RoseGraph &g = build.g;
     vector<RoseVertex> siblings;
 
-    CandidateSet::iterator it = candidates.begin();
+    auto it = candidates.begin();
     while (it != candidates.end()) {
         RoseVertex a = *it;
         CandidateSet::iterator ait = it;
         ++it;
 
-        // We have to find a sibling to merge `a' with, and we select between
-        // two approaches to minimize the number of vertices we have to
-        // examine; which we use depends on the shape of the graph.
+        getLeftMergeSiblings(build, a, siblings);
 
-        assert(!g[a].literals.empty());
-        u32 lit_id = *g[a].literals.begin();
-        const auto &verts = build.literal_info.at(lit_id).vertices;
-        RoseVertex pred = pickPred(a, g, build);
-
-        siblings.clear();
-        if (pred == RoseGraph::null_vertex() || build.isAnyStart(pred)
-            || out_degree(pred, g) > verts.size()) {
-            // Select sibling from amongst the vertices that share a literal.
-            siblings.insert(siblings.end(), verts.begin(), verts.end());
-        } else {
-            // Select sibling from amongst the vertices that share a
-            // predecessor.
-            insert(&siblings, siblings.end(), adjacent_vertices(pred, g));
+        auto jt = siblings.begin();
+        while (jt != siblings.end()) {
+            jt = findLeftMergeSibling(jt, siblings.end(), a, build, rai,
+                                      candidates);
+            if (jt == siblings.end()) {
+                break;
+            }
+            RoseVertex b = *jt;
+            if (attemptRoseMerge(build, true, a, b, false, rai)) {
+                mergeVerticesLeft(a, b, build, rai);
+                dead->push_back(a);
+                candidates.erase(ait);
+                break; // consider next a
+            }
+            ++jt;
         }
-
-        auto jt = findLeftMergeSibling(siblings.begin(), siblings.end(), a,
-                                       build, rai, candidates);
-        if (jt == siblings.end()) {
-            continue;
-        }
-
-        RoseVertex b = *jt;
-
-        if (!attemptRoseMerge(build, true, a, b, 0, rai)) {
-            DEBUG_PRINTF("rose fail\n");
-            continue;
-        }
-
-        mergeVerticesLeft(a, b, build, rai);
-        dead->push_back(a);
-        candidates.erase(ait);
     }
 
     DEBUG_PRINTF("%zu candidates remaining\n", candidates.size());
@@ -1810,91 +1835,49 @@ vector<RoseVertex>::const_iterator findRightMergeSibling(
     return end;
 }
 
-template<class Iter>
 static
-void split(map<RoseVertex, size_t> &keys, size_t *next_key, Iter it,
-           const Iter end) {
-    map<size_t, size_t> new_keys;
+void splitByRightProps(const RoseGraph &g,
+                      vector<vector<RoseVertex>> &buckets) {
+    // Successor vector used in make_split_key. We declare it here so we can
+    // reuse storage.
+    vector<RoseVertex> succ;
 
-    for (; it != end; ++it) {
-        RoseVertex v = *it;
-        size_t ok = keys[v];
-        size_t nk;
-        if (contains(new_keys, ok)) {
-            nk = new_keys[ok];
-        } else {
-            nk = (*next_key)++;
-            new_keys[ok] = nk;
-        }
-        keys[v] = nk;
-    }
+    // Split by {successors, literals, reports}.
+    auto make_split_key = [&](RoseVertex v) {
+        succ.clear();
+        insert(&succ, succ.end(), adjacent_vertices(v, g));
+        sort(succ.begin(), succ.end());
+        return hash_all(g[v].literals, g[v].reports, succ);
+    };
+    splitAndFilterBuckets(buckets, make_split_key);
 }
 
 static never_inline
-void buildCandidateRightSiblings(CandidateSet &candidates, RoseBuildImpl &build,
-                                 map<size_t, vector<RoseVertex>> &sibling_cache,
-                                 map<RoseVertex, size_t> &keys_ext) {
-    RoseGraph &g = build.g;
+vector<vector<RoseVertex>>
+splitRightMergeBuckets(const CandidateSet &candidates,
+                       const RoseBuildImpl &build) {
+    const RoseGraph &g = build.g;
 
-    size_t next_key = 1;
-    map<RoseVertex, size_t> keys;
+    vector<vector<RoseVertex>> buckets(1);
+    buckets[0].reserve(candidates.size());
+    insert(&buckets[0], buckets[0].end(), candidates);
 
-    for (const auto &c : candidates) {
-        keys[c] = 0;
+    DEBUG_PRINTF("at start, %zu candidates in 1 bucket\n", candidates.size());
+
+    splitByReportSuffixBehaviour(g, buckets);
+    DEBUG_PRINTF("split by report/suffix, %zu buckets\n", buckets.size());
+    if (buckets.empty()) {
+        return buckets;
     }
 
-    set<RoseVertex> done_succ;
-    set<u32> done_lit;
-
-    for (auto a : candidates) {
-        assert(!g[a].literals.empty());
-        u32 lit_id = *g[a].literals.begin();
-        RoseVertex succ = pickSucc(a, g);
-        const auto &verts = build.literal_info.at(lit_id).vertices;
-        if (succ != RoseGraph::null_vertex()
-            && in_degree(succ, g) < verts.size()) {
-            if (!done_succ.insert(succ).second) {
-                continue; // succ already in done_succ.
-            }
-            RoseGraph::inv_adjacency_iterator ai, ae;
-            tie (ai, ae) = inv_adjacent_vertices(succ, g);
-            split(keys, &next_key, ai, ae);
-        } else {
-            if (!done_lit.insert(lit_id).second) {
-                continue; // lit_id already in done_lit.
-            }
-            split(keys, &next_key, verts.begin(), verts.end());
-        }
+    splitByRightProps(g, buckets);
+    DEBUG_PRINTF("split by right-merge properties, %zu buckets\n",
+                 buckets.size());
+    if (buckets.empty()) {
+        return buckets;
     }
 
-    map<size_t, map<size_t, size_t>> int_to_ext;
-
-    for (const auto &key : keys) {
-        RoseVertex v = key.first;
-        u32 ext;
-        size_t rph = hashRightRoleProperties(v, g);
-        if (contains(int_to_ext[key.second], rph)) {
-            ext = int_to_ext[key.second][rph];
-        } else {
-            ext = keys_ext.size();
-            int_to_ext[key.second][rph] = ext;
-        }
-
-        keys_ext[v] = ext;
-        sibling_cache[ext].push_back(v);
-    }
-
-    for (auto &siblings : sibling_cache | map_values) {
-        sort(siblings.begin(), siblings.end());
-    }
-}
-
-static
-const vector<RoseVertex> &getCandidateRightSiblings(
-                         const map<size_t, vector<RoseVertex>> &sibling_cache,
-                         map<RoseVertex, size_t> &keys, RoseVertex a) {
-    size_t key = keys.at(a);
-    return sibling_cache.at(key);
+    return buckets;
 }
 
 static never_inline
@@ -1903,45 +1886,31 @@ void rightMergePass(CandidateSet &candidates, RoseBuildImpl &build,
                     RoseAliasingInfo &rai) {
     DEBUG_PRINTF("begin\n");
 
-    map<size_t, vector<RoseVertex>> sibling_cache;
-    map<RoseVertex, size_t> keys;
+    if (candidates.empty()) {
+        return;
+    }
 
-    buildCandidateRightSiblings(candidates, build, sibling_cache, keys);
+    auto buckets = splitRightMergeBuckets(candidates, build);
 
-    CandidateSet::iterator it = candidates.begin();
-    while (it != candidates.end()) {
-        RoseVertex a = *it;
-        CandidateSet::iterator ait = it;
-        ++it;
-
-        // We have to find a sibling to merge `a' with, and we select between
-        // two approaches to minimize the number of vertices we have to
-        // examine; which we use depends on the shape of the graph.
-
-        const vector<RoseVertex> &siblings
-            = getCandidateRightSiblings(sibling_cache, keys, a);
-
-        auto jt = siblings.begin();
-        while (jt != siblings.end()) {
-            jt = findRightMergeSibling(jt, siblings.end(), a, build, rai,
-                                       candidates);
-            if (jt == siblings.end()) {
-                break;
+    for (const auto &bucket : buckets) {
+        assert(!bucket.empty());
+        for (auto it = bucket.begin(); it != bucket.end(); it++) {
+            RoseVertex a = *it;
+            for (auto jt = bucket.begin(); jt != bucket.end(); jt++) {
+                jt = findRightMergeSibling(jt, bucket.end(), a, build, rai,
+                                           candidates);
+                if (jt == bucket.end()) {
+                    break;
+                }
+                RoseVertex b = *jt;
+                if (attemptRoseMerge(build, false, a, b, !mergeRoses, rai)) {
+                    mergeVerticesRight(a, b, build, rai);
+                    dead->push_back(a);
+                    candidates.erase(a);
+                    break; // consider next a
+                }
             }
-            if (attemptRoseMerge(build, false, a, *jt, !mergeRoses, rai)) {
-                break;
-            }
-            ++jt;
         }
-
-        if (jt == siblings.end()) {
-            continue;
-        }
-
-        RoseVertex b = *jt;
-        mergeVerticesRight(a, b, build, rai);
-        dead->push_back(a);
-        candidates.erase(ait);
     }
 
     DEBUG_PRINTF("%zu candidates remaining\n", candidates.size());

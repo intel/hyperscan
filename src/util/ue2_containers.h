@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,6 +36,7 @@
 #include <type_traits>
 #include <utility>
 
+#include <boost/functional/hash.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/unordered/unordered_map.hpp>
 #include <boost/unordered/unordered_set.hpp>
@@ -317,6 +318,12 @@ public:
     // Free swap function for ADL.
     friend void swap(flat_set &a, flat_set &b) {
         a.swap(b);
+    }
+
+    // Free hash function.
+    friend size_t hash_value(const flat_set &a) {
+        using boost::hash_value;
+        return hash_value(a.data);
     }
 };
 
@@ -603,6 +610,12 @@ public:
     // Free swap function for ADL.
     friend void swap(flat_map &a, flat_map &b) {
         a.swap(b);
+    }
+
+    // Free hash function.
+    friend size_t hash_value(const flat_map &a) {
+        using boost::hash_value;
+        return hash_value(a.data);
     }
 };
 
