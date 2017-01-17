@@ -349,7 +349,7 @@ public:
 
 /**
  * \brief Map container implemented internally as a sorted vector. Use this
- * rather than std::map for small sets as it's faster, uses less memory and
+ * rather than std::map for small maps as it's faster, uses less memory and
  * incurs less malloc time.
  *
  * Note: we used to use boost::flat_map, but have run into problems with all
