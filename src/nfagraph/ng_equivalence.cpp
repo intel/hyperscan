@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -133,7 +133,7 @@ public:
 
     friend size_t hash_value(const ClassInfo &c) {
         size_t val = 0;
-        boost::hash_combine(val, boost::hash_range(begin(c.rs), end(c.rs)));
+        boost::hash_combine(val, c.rs);
         boost::hash_combine(val, c.vertex_flags);
         boost::hash_combine(val, c.cr);
         boost::hash_combine(val, c.adjacent_cr);
