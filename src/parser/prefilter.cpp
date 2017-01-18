@@ -295,6 +295,16 @@ public:
 
     Component *visit(ComponentWordBoundary *c) override {
         assert(c);
+
+        // TODO: Right now, we do not have correct code for resolving these
+        // when prefiltering is on, UCP is on, and UTF-8 is *off*. For now, we
+        // just replace with an empty sequence (as that will return a superset
+        // of matches).
+        if (mode.ucp && !mode.utf8) {
+            return new ComponentSequence();
+        }
+
+        // All other cases can be prefiltered.
         c->setPrefilter(true);
         return c;
     }
