@@ -84,6 +84,7 @@ if(NOT Boost_FOUND)
     endif()
 endif()
 
+include (${CMAKE_MODULE_PATH}/boost.cmake)
 
 # -- make this work? set(python_ADDITIONAL_VERSIONS 2.7 2.6)
 find_package(PythonInterp)
