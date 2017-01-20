@@ -125,6 +125,18 @@ public:
     key_compare key_comp() const {
         return comp();
     }
+
+    // Capacity.
+
+    bool empty() const { return data().empty(); }
+    size_t size() const { return data().size(); }
+    size_t max_size() const { return data().max_size(); }
+
+    // Modifiers.
+
+    void clear() {
+        data().clear();
+    }
 };
 
 } // namespace flat_detail
@@ -221,17 +233,7 @@ public:
     }
     const_reverse_iterator rend() const { return crend(); }
 
-    // Capacity.
-
-    bool empty() const { return data().empty(); }
-    size_t size() const { return data().size(); }
-    size_t max_size() const { return data().max_size(); }
-
     // Modifiers.
-
-    void clear() {
-        data().clear();
-    }
 
     std::pair<iterator, bool> insert(const value_type &value) {
         auto it = std::lower_bound(data().begin(), data().end(), value, comp());
@@ -442,12 +444,6 @@ public:
     }
     const_reverse_iterator rend() const { return crend(); }
 
-    // Capacity.
-
-    bool empty() const { return data().empty(); }
-    size_t size() const { return data().size(); }
-    size_t max_size() const { return data().max_size(); }
-
 private:
     using storage_iterator = typename storage_type::iterator;
     using storage_const_iterator = typename storage_type::const_iterator;
@@ -503,10 +499,6 @@ private:
 
 public:
     // Modifiers.
-
-    void clear() {
-        data().clear();
-    }
 
     std::pair<iterator, bool> insert(const value_type &value) {
         auto rv = data_insert(value);
