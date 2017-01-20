@@ -211,6 +211,7 @@ TEST(flat_map, custom_compare) {
     ASSERT_EQ(10, f.rbegin()->second);
 
     ASSERT_TRUE(flat_map_is_sorted(f));
+    ASSERT_TRUE(std::is_sorted(f.begin(), f.end(), f.value_comp()));
     ASSERT_TRUE(flat_map_is_sorted_cmp(f, std::greater<u32>()));
 }
 

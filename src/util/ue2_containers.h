@@ -611,6 +611,21 @@ public:
         return comp();
     }
 
+    class value_compare {
+        friend class flat_map;
+    protected:
+        Compare c;
+        value_compare(Compare c_in) : c(c_in) {}
+    public:
+        bool operator()(const value_type &lhs, const value_type &rhs) {
+            return c(lhs.first, rhs.first);
+        }
+    };
+
+    value_compare value_comp() const {
+        return value_compare(comp());
+    }
+
     // Operators.
 
     bool operator==(const flat_map &a) const {
