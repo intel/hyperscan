@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,6 +41,7 @@
 #include <set>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace ue2 {
 
@@ -78,7 +79,9 @@ void insert(C *container, typename C::iterator pos, const D &donor) {
 }
 
 /**
- * \brief Constructs a vector from a range bounded by the given pair of iterators. */
+ * \brief Constructs a vector from a range bounded by the given pair of
+ * iterators.
+ */
 template <typename It>
 auto make_vector_from(const std::pair<It, It> &range)
     -> std::vector<decltype(*range.first)> {

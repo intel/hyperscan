@@ -31,16 +31,13 @@
 
 #ifdef DUMP_SUPPORT
 
-#include <cstdio>
 #include <string>
 
 struct NFA;
 
 namespace ue2 {
 
-void nfaExecSheng0_dumpDot(const struct NFA *nfa, FILE *file,
-                           const std::string &base);
-void nfaExecSheng0_dumpText(const struct NFA *nfa, FILE *file);
+void nfaExecSheng_dump(const struct NFA *nfa, const std::string &base);
 
 } // namespace ue2
 

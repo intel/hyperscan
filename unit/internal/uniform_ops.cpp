@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -156,26 +156,26 @@ TEST(Uniform, loadstore_m512) {
 TEST(Uniform, testbit_u32) {
     for (u32 i = 0; i < 32; i++) {
         u32 v = 0;
-        EXPECT_EQ((char)0, testbit_u32(&v, i));
+        EXPECT_EQ((char)0, testbit_u32(v, i));
         v |= 1ULL << i;
-        EXPECT_EQ((char)1, testbit_u32(&v, i));
+        EXPECT_EQ((char)1, testbit_u32(v, i));
         v = ~v;
-        EXPECT_EQ((char)0, testbit_u32(&v, i));
+        EXPECT_EQ((char)0, testbit_u32(v, i));
         v |= 1ULL << i;
-        EXPECT_EQ((char)1, testbit_u32(&v, i));
+        EXPECT_EQ((char)1, testbit_u32(v, i));
     }
 }
 
 TEST(Uniform, testbit_u64a) {
     for (u32 i = 0; i < 64; i++) {
         u64a v = 0;
-        EXPECT_EQ((char)0, testbit_u64a(&v, i));
+        EXPECT_EQ((char)0, testbit_u64a(v, i));
         v |= 1ULL << i;
-        EXPECT_EQ((char)1, testbit_u64a(&v, i));
+        EXPECT_EQ((char)1, testbit_u64a(v, i));
         v = ~v;
-        EXPECT_EQ((char)0, testbit_u64a(&v, i));
+        EXPECT_EQ((char)0, testbit_u64a(v, i));
         v |= 1ULL << i;
-        EXPECT_EQ((char)1, testbit_u64a(&v, i));
+        EXPECT_EQ((char)1, testbit_u64a(v, i));
     }
 }
 
@@ -183,7 +183,7 @@ TEST(Uniform, clearbit_u32) {
     for (u32 i = 0; i < 32; i++) {
         u32 v = ~0U;
         clearbit_u32(&v, i);
-        EXPECT_EQ((char)0, testbit_u32(&v, i));
+        EXPECT_EQ((char)0, testbit_u32(v, i));
         v = ~v;
         clearbit_u32(&v, i);
         EXPECT_EQ(0U, v);
@@ -194,7 +194,7 @@ TEST(Uniform, clearbit_u64a) {
     for (u32 i = 0; i < 64; i++) {
         u64a v = ~0ULL;
         clearbit_u64a(&v, i);
-        EXPECT_EQ((char)0, testbit_u64a(&v, i));
+        EXPECT_EQ((char)0, testbit_u64a(v, i));
         v = ~v;
         clearbit_u64a(&v, i);
         EXPECT_EQ(0ULL, v);

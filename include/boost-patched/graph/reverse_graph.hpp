@@ -5,7 +5,7 @@
 
 #include <boost/graph/reverse_graph.hpp>
 
-#if (BOOST_VERSION == 106200)
+#if defined(BOOST_REVGRAPH_PATCH)
 
 // Boost 1.62.0 does not implement degree() in reverse_graph which is required
 // by BidirectionalGraph, so add it.

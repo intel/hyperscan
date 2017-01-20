@@ -15,6 +15,9 @@
 /* internal build, switch on dump support. */
 #cmakedefine DUMP_SUPPORT
 
+/* Define if building "fat" runtime. */
+#cmakedefine FAT_RUNTIME
+
 /* Define to 1 if `backtrace' works. */
 #cmakedefine HAVE_BACKTRACE
 
@@ -67,9 +70,6 @@
 /* Define if the sqlite3_open_v2 call is available */
 #cmakedefine HAVE_SQLITE3_OPEN_V2
 
-/* Define to 1 if you have the <tmmintrin.h> header file. */
-#cmakedefine HAVE_TMMINTRIN_H
-
 /* Define to 1 if you have the <unistd.h> header file. */
 #cmakedefine HAVE_UNISTD_H
 
@@ -89,3 +89,5 @@
 /* define if this is a release build. */
 #cmakedefine RELEASE_BUILD
 
+/* define if reverse_graph requires patch for boost 1.62.0 */
+#cmakedefine BOOST_REVGRAPH_PATCH

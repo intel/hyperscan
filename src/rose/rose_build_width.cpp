@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -77,19 +77,20 @@ u32 findMinWidth(const RoseBuildImpl &tbi, enum rose_literal_table table) {
     u32 minWidth = ROSE_BOUND_INF;
     for (auto v : reachable) {
         if (g[v].eod_accept) {
-            DEBUG_PRINTF("skipping %zu - not a real vertex\n", g[v].idx);
+            DEBUG_PRINTF("skipping %zu - not a real vertex\n", g[v].index);
             continue;
         }
 
         const u32 w = g[v].min_offset;
 
         if (!g[v].reports.empty()) {
-            DEBUG_PRINTF("%zu can fire report at offset %u\n", g[v].idx, w);
+            DEBUG_PRINTF("%zu can fire report at offset %u\n", g[v].index, w);
             minWidth = min(minWidth, w);
         }
 
         if (is_end_anchored(g, v)) {
-            DEBUG_PRINTF("%zu can fire eod report at offset %u\n", g[v].idx, w);
+            DEBUG_PRINTF("%zu can fire eod report at offset %u\n", g[v].index,
+                         w);
             minWidth = min(minWidth, w);
         }
 
@@ -98,7 +99,7 @@ u32 findMinWidth(const RoseBuildImpl &tbi, enum rose_literal_table table) {
             assert(suffix_width.is_reachable());
             DEBUG_PRINTF("%zu has suffix with top %u (width %s), can fire "
                          "report at %u\n",
-                         g[v].idx, g[v].suffix.top, suffix_width.str().c_str(),
+                         g[v].index, g[v].suffix.top, suffix_width.str().c_str(),
                          w + suffix_width);
             minWidth = min(minWidth, w + suffix_width);
         }
@@ -203,10 +204,10 @@ u32 findMaxBAWidth(const RoseBuildImpl &tbi, enum rose_literal_table table) {
     // Everyone's anchored, so the max width can be taken from the max
     // max_offset on our vertices (so long as all accepts are ACCEPT_EOD).
     for (auto v : reachable) {
-        DEBUG_PRINTF("inspecting vert %zu\n", g[v].idx);
+        DEBUG_PRINTF("inspecting vert %zu\n", g[v].index);
 
         if (g[v].eod_accept) {
-            DEBUG_PRINTF("skipping %zu - not a real vertex\n", g[v].idx);
+            DEBUG_PRINTF("skipping %zu - not a real vertex\n", g[v].index);
             continue;
         }
 

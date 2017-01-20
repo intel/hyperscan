@@ -71,6 +71,7 @@
 
 #include "ue2common.h"
 #include "simd_types.h"
+#include "unaligned.h"
 
 // Define a common assume_aligned using an appropriate compiler built-in, if
 // it's available. Note that we need to handle C or C++ compilation.
@@ -158,6 +159,10 @@ static really_inline m128 set16x8(u8 c) {
     return _mm_set1_epi8(c);
 }
 
+static really_inline m128 set4x32(u32 c) {
+    return _mm_set1_epi32(c);
+}
+
 static really_inline u32 movd(const m128 in) {
     return _mm_cvtsi128_si32(in);
 }
@@ -169,6 +174,20 @@ static really_inline u64a movq(const m128 in) {
     u32 lo = movd(in);
     u32 hi = movd(_mm_srli_epi64(in, 32));
     return (u64a)hi << 32 | lo;
+#endif
+}
+
+/* another form of movq */
+static really_inline
+m128 load_m128_from_u64a(const u64a *p) {
+#if defined(__GNUC__) && !defined(__INTEL_COMPILER)
+    /* unfortunately _mm_loadl_epi64() is best avoided as it seems to cause
+     * trouble on some older compilers, possibly because it is misdefined to
+     * take an m128 as its parameter */
+    return _mm_set_epi64((__m64)0ULL, (__m64)*p);
+#else
+    /* ICC doesn't like casting to __m64 */
+    return _mm_loadl_epi64((const m128 *)p);
 #endif
 }
 
@@ -245,7 +264,13 @@ m128 loadbytes128(const void *ptr, unsigned int n) {
     return a;
 }
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 extern const u8 simd_onebit_masks[];
+#ifdef __cplusplus
+}
+#endif
 
 static really_inline
 m128 mask1bit128(unsigned int n) {
@@ -269,12 +294,12 @@ void clearbit128(m128 *ptr, unsigned int n) {
 
 // tests bit N in the given vector.
 static really_inline
-char testbit128(const m128 *ptr, unsigned int n) {
+char testbit128(m128 val, unsigned int n) {
     const m128 mask = mask1bit128(n);
 #if defined(__SSE4_1__)
-    return !_mm_testz_si128(mask, *ptr);
+    return !_mm_testz_si128(mask, val);
 #else
-    return isnonzero128(and128(mask, *ptr));
+    return isnonzero128(and128(mask, val));
 #endif
 }
 
@@ -307,6 +332,25 @@ m128 variable_byte_shift_m128(m128 in, s32 amount) {
     return pshufb(in, shift_mask);
 }
 
+static really_inline
+m128 max_u8_m128(m128 a, m128 b) {
+    return _mm_max_epu8(a, b);
+}
+
+static really_inline
+m128 min_u8_m128(m128 a, m128 b) {
+    return _mm_min_epu8(a, b);
+}
+
+static really_inline
+m128 sadd_u8_m128(m128 a, m128 b) {
+    return _mm_adds_epu8(a, b);
+}
+
+static really_inline
+m128 sub_u8_m128(m128 a, m128 b) {
+    return _mm_sub_epi8(a, b);
+}
 
 /****
  **** 256-bit Primitives
@@ -354,6 +398,26 @@ m256 set32x8(u32 in) {
     return rv;
 }
 
+static really_inline
+m256 eq256(m256 a, m256 b) {
+    m256 rv;
+    rv.lo = eq128(a.lo, b.lo);
+    rv.hi = eq128(a.hi, b.hi);
+    return rv;
+}
+
+static really_inline
+u32 movemask256(m256 a) {
+    u32 lo_mask = movemask128(a.lo);
+    u32 hi_mask = movemask128(a.hi);
+    return lo_mask | (hi_mask << 16);
+}
+
+static really_inline
+m256 set2x128(m128 a) {
+    m256 rv = {a, a};
+    return rv;
+}
 #endif
 
 static really_inline m256 zeroes256(void) {
@@ -504,6 +568,10 @@ static really_inline m256 load2x128(const void *ptr) {
 #endif
 }
 
+static really_inline m256 loadu2x128(const void *ptr) {
+    return set2x128(loadu128(ptr));
+}
+
 // aligned store
 static really_inline void store256(void *ptr, m256 a) {
     assert(ISALIGNED_N(ptr, alignof(m256)));
@@ -522,6 +590,16 @@ static really_inline m256 loadu256(const void *ptr) {
 #else
     m256 rv = { loadu128(ptr), loadu128((const char *)ptr + 16) };
     return rv;
+#endif
+}
+
+// unaligned store
+static really_inline void storeu256(void *ptr, m256 a) {
+#if defined(__AVX2__)
+    _mm256_storeu_si256((m256 *)ptr, a);
+#else
+    storeu128(ptr, a.lo);
+    storeu128((char *)ptr + 16, a.hi);
 #endif
 }
 
@@ -580,16 +658,32 @@ void clearbit256(m256 *ptr, unsigned int n) {
 
 // tests bit N in the given vector.
 static really_inline
-char testbit256(const m256 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    const m128 *sub;
+char testbit256(m256 val, unsigned int n) {
+    assert(n < sizeof(val) * 8);
+    m128 sub;
     if (n < 128) {
-        sub = &ptr->lo;
+        sub = val.lo;
     } else {
-        sub = &ptr->hi;
+        sub = val.hi;
         n -= 128;
     }
     return testbit128(sub, n);
+}
+
+static really_really_inline
+m128 movdq_hi(m256 x) {
+    return x.hi;
+}
+
+static really_really_inline
+m128 movdq_lo(m256 x) {
+    return x.lo;
+}
+
+static really_inline
+m256 combine2x128(m128 hi, m128 lo) {
+    m256 rv = {lo, hi};
+    return rv;
 }
 
 #else // AVX2
@@ -607,9 +701,9 @@ void clearbit256(m256 *ptr, unsigned int n) {
 
 // tests bit N in the given vector.
 static really_inline
-char testbit256(const m256 *ptr, unsigned int n) {
+char testbit256(m256 val, unsigned int n) {
     const m256 mask = mask1bit256(n);
-    return !_mm256_testz_si256(mask, *ptr);
+    return !_mm256_testz_si256(mask, val);
 }
 
 static really_really_inline
@@ -636,6 +730,14 @@ m128 movdq_lo(m256 x) {
 #define interleave256lo(a, b) _mm256_unpacklo_epi8(a, b);
 #define vpalignr(r, l, offset) _mm256_alignr_epi8(r, l, offset)
 
+static really_inline
+m256 combine2x128(m128 hi, m128 lo) {
+#if defined(_mm256_set_m128i)
+    return _mm256_set_m128i(hi, lo);
+#else
+    return insert128to256(cast128to256(lo), hi, 1);
+#endif
+}
 #endif //AVX2
 
 /****
@@ -801,15 +903,15 @@ void clearbit384(m384 *ptr, unsigned int n) {
 
 // tests bit N in the given vector.
 static really_inline
-char testbit384(const m384 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
-    const m128 *sub;
+char testbit384(m384 val, unsigned int n) {
+    assert(n < sizeof(val) * 8);
+    m128 sub;
     if (n < 128) {
-        sub = &ptr->lo;
+        sub = val.lo;
     } else if (n < 256) {
-        sub = &ptr->mid;
+        sub = val.mid;
     } else {
-        sub = &ptr->hi;
+        sub = val.hi;
     }
     return testbit128(sub, n % 128);
 }
@@ -1014,26 +1116,26 @@ void clearbit512(m512 *ptr, unsigned int n) {
 
 // tests bit N in the given vector.
 static really_inline
-char testbit512(const m512 *ptr, unsigned int n) {
-    assert(n < sizeof(*ptr) * 8);
+char testbit512(m512 val, unsigned int n) {
+    assert(n < sizeof(val) * 8);
 #if !defined(__AVX2__)
-    const m128 *sub;
+    m128 sub;
     if (n < 128) {
-        sub = &ptr->lo.lo;
+        sub = val.lo.lo;
     } else if (n < 256) {
-        sub = &ptr->lo.hi;
+        sub = val.lo.hi;
     } else if (n < 384) {
-        sub = &ptr->hi.lo;
+        sub = val.hi.lo;
     } else {
-        sub = &ptr->hi.hi;
+        sub = val.hi.hi;
     }
     return testbit128(sub, n % 128);
 #else
-    const m256 *sub;
+    m256 sub;
     if (n < 256) {
-        sub = &ptr->lo;
+        sub = val.lo;
     } else {
-        sub = &ptr->hi;
+        sub = val.hi;
         n -= 256;
     }
     return testbit256(sub, n);

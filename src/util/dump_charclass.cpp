@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -246,6 +246,15 @@ string describeClass(const CharReach &cr, size_t maxLength,
                      enum cc_output_t out_type) {
     std::ostringstream oss;
     describeClass(oss, cr, maxLength, out_type);
+    return oss.str();
+}
+
+string describeClasses(const std::vector<CharReach> &v, size_t maxClassLength,
+                       enum cc_output_t out_type) {
+    std::ostringstream oss;
+    for (const auto &cr : v) {
+        describeClass(oss, cr, maxClassLength, out_type);
+    }
     return oss.str();
 }
 

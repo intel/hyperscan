@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -77,7 +77,7 @@ bool findPaths(const NGHolder &g, vector<Path> &paths) {
 
         read_count[g[v].index] = out_degree(v, g);
 
-        DEBUG_PRINTF("setting read_count to %zu for %u\n",
+        DEBUG_PRINTF("setting read_count to %zu for %zu\n",
                       read_count[g[v].index], g[v].index);
 
         if (v == g.start || v == g.startDs) {
@@ -117,7 +117,7 @@ bool findPaths(const NGHolder &g, vector<Path> &paths) {
 
             read_count[g[u].index]--;
             if (!read_count[g[u].index]) {
-                DEBUG_PRINTF("clearing %u as finished reading\n", g[u].index);
+                DEBUG_PRINTF("clearing %zu as finished reading\n", g[u].index);
                 built[g[u].index].clear();
                 built[g[u].index].shrink_to_fit();
             }
@@ -138,9 +138,9 @@ bool hasLargeDegreeVertex(const NGHolder &g) {
         if (is_special(v, g)) { // specials can have large degree
             continue;
         }
-        if (has_greater_degree(MAX_VERTEX_DEGREE, v, g)) {
-            DEBUG_PRINTF("vertex %u has degree %zu\n", g[v].index,
-                          boost::degree(v, g.g));
+        if (degree(v, g) > MAX_VERTEX_DEGREE) {
+            DEBUG_PRINTF("vertex %zu has degree %zu\n", g[v].index,
+                         degree(v, g));
             return true;
         }
     }
@@ -188,7 +188,8 @@ struct PathMask {
         }
 
         // Reports are attached to the second-to-last vertex.
-        reports = g[*next(path.rbegin())].reports;
+        NFAVertex u = *std::next(path.rbegin());
+        reports = g[u].reports;
         assert(!reports.empty());
     }
 

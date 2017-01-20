@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -58,18 +58,18 @@ namespace {
 struct SpecialEdgeFilter {
     SpecialEdgeFilter() {}
     explicit SpecialEdgeFilter(const NGHolder &h_in) : h(&h_in) {}
-    explicit SpecialEdgeFilter(const NGHolder &h_in, u32 top_in)
+    SpecialEdgeFilter(const NGHolder &h_in, u32 top_in)
         : h(&h_in), single_top(true), top(top_in) {}
 
     bool operator()(const NFAEdge &e) const {
-        const NFAGraph &g = h->g;
-        NFAVertex u = source(e, g), v = target(e, g);
-        if ((is_any_start(u, g) && is_any_start(v, g)) ||
-            (is_any_accept(u, g) && is_any_accept(v, g))) {
+        NFAVertex u = source(e, *h);
+        NFAVertex v = target(e, *h);
+        if ((is_any_start(u, *h) && is_any_start(v, *h)) ||
+            (is_any_accept(u, *h) && is_any_accept(v, *h))) {
             return false;
         }
         if (single_top) {
-            if (u == h->start && g[e].top != top) {
+            if (u == h->start && !contains((*h)[e].tops, top)) {
                 return false;
             }
             if (u == h->startDs) {
@@ -94,7 +94,7 @@ depth findMinWidth(const NGHolder &h, const SpecialEdgeFilter &filter,
         return depth::unreachable();
     }
 
-    boost::filtered_graph<NFAGraph, SpecialEdgeFilter> g(h.g, filter);
+    boost::filtered_graph<NGHolder, SpecialEdgeFilter> g(h, filter);
 
     assert(hasCorrectlyNumberedVertices(h));
     const size_t num = num_vertices(h);
@@ -106,11 +106,10 @@ depth findMinWidth(const NGHolder &h, const SpecialEdgeFilter &filter,
     // Since we are interested in the single-source shortest paths on a graph
     // with the same weight on every edge, using BFS will be faster than
     // Dijkstra here.
-    breadth_first_search(
-        g, src,
+    breadth_first_search(g, src,
         visitor(make_bfs_visitor(record_distances(
                     make_iterator_property_map(distance.begin(), index_map),
-                    boost::on_tree_edge()))).vertex_index_map(index_map));
+                    boost::on_tree_edge()))));
 
     DEBUG_PRINTF("d[accept]=%s, d[acceptEod]=%s\n",
                  distance.at(NODE_ACCEPT).str().c_str(),
@@ -130,7 +129,7 @@ depth findMinWidth(const NGHolder &h, const SpecialEdgeFilter &filter,
 static
 depth findMaxWidth(const NGHolder &h, const SpecialEdgeFilter &filter,
                    NFAVertex src) {
-    if (isLeafNode(src, h.g)) {
+    if (isLeafNode(src, h)) {
         return depth::unreachable();
     }
 
@@ -139,7 +138,7 @@ depth findMaxWidth(const NGHolder &h, const SpecialEdgeFilter &filter,
         return depth::infinity();
     }
 
-    boost::filtered_graph<NFAGraph, SpecialEdgeFilter> g(h.g, filter);
+    boost::filtered_graph<NGHolder, SpecialEdgeFilter> g(h, filter);
 
     assert(hasCorrectlyNumberedVertices(h));
     const size_t num = num_vertices(h);
@@ -149,11 +148,9 @@ depth findMaxWidth(const NGHolder &h, const SpecialEdgeFilter &filter,
     auto index_map = get(&NFAGraphVertexProps::index, g);
 
     // DAG shortest paths with negative edge weights.
-    dag_shortest_paths(
-        g, src,
+    dag_shortest_paths(g, src,
         distance_map(make_iterator_property_map(distance.begin(), index_map))
             .weight_map(boost::make_constant_property<NFAEdge>(-1))
-            .vertex_index_map(index_map)
             .color_map(make_iterator_property_map(colors.begin(), index_map)));
 
     depth acceptDepth, acceptEodDepth;

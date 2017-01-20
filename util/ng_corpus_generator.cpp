@@ -144,7 +144,7 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
 
     ue2::unordered_set<NFAVertex> one_way_in;
     for (const auto &v : vertices_range(g)) {
-        if (!hasGreaterInDegree(1, v, g)) {
+        if (in_degree(v, g) <= 1) {
             one_way_in.insert(v);
         }
     }
@@ -155,7 +155,7 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
         ptr_vector<VertexPath>::auto_type p = open.pop_back();
         NFAVertex u = p->back();
 
-        DEBUG_PRINTF("dequeuing path %s, back %u\n",
+        DEBUG_PRINTF("dequeuing path %s, back %zu\n",
                      pathToString(g, *p).c_str(), g[u].index);
 
         NGHolder::adjacency_iterator ai, ae;
@@ -187,7 +187,7 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
                 // Note that vertices that only have one predecessor don't need
                 // their cycle limit checked, as their predecessors will have
                 // the same count.
-                DEBUG_PRINTF("exceeded cycle limit for v=%u, pruning path\n",
+                DEBUG_PRINTF("exceeded cycle limit for v=%zu, pruning path\n",
                              g[v].index);
                 continue;
             }
@@ -301,7 +301,7 @@ void CorpusGeneratorImpl::addRandom(const min_max &mm, string *out) {
 }
 
 unsigned char CorpusGeneratorImpl::getChar(NFAVertex v) {
-    const CharReach &cr = graph.g[v].char_reach;
+    const CharReach &cr = graph[v].char_reach;
 
     switch (cProps.throwDice()) {
     case CorpusProperties::ROLLED_MATCH:
@@ -521,7 +521,7 @@ CorpusGeneratorUtf8::pathToCorpus(const vector<CodePointSet> &path) {
 }
 
 static
-u32 classify_vertex(const NFAGraph &g, NFAVertex v) {
+u32 classify_vertex(const NGHolder &g, NFAVertex v) {
     const CharReach &cr = g[v].char_reach;
     if (cr.isSubsetOf(UTF_ASCII_CR)) {
         return 1;
@@ -560,7 +560,7 @@ void expandCodePointSet(const CharReach &cr, CodePointSet *out, u32 mask,
 }
 
 static
-void decodePath(const NFAGraph &g, const VertexPath &in,
+void decodePath(const NGHolder &g, const VertexPath &in,
                 vector<CodePointSet> &out) {
     VertexPath::const_iterator it = in.begin();
     while (it != in.end()) {
@@ -618,7 +618,7 @@ void translatePaths(const NGHolder &graph,
     assert(out);
     for (const auto &path : allPathsTemp) {
         out->push_back(vector<CodePointSet>());
-        decodePath(graph.g, path, out->back());
+        decodePath(graph, path, out->back());
     }
 }
 

@@ -49,7 +49,6 @@
 #include "util/graph.h"
 #include "util/make_unique.h"
 #include "util/multibit_build.h"
-#include "util/multibit_internal.h"
 #include "util/report_manager.h"
 #include "util/ue2_containers.h"
 #include "util/verify_types.h"
@@ -58,6 +57,7 @@
 #include <stack>
 #include <cassert>
 
+#include <boost/graph/adjacency_list.hpp>
 #include <boost/range/adaptor/map.hpp>
 
 using namespace std;
@@ -100,13 +100,15 @@ void writeCastleScanEngine(const CharReach &cr, Castle *c) {
         return;
     }
 
-    if (shuftiBuildMasks(negated, &c->u.shuf.mask_lo, &c->u.shuf.mask_hi) != -1) {
+    if (shuftiBuildMasks(negated, (u8 *)&c->u.shuf.mask_lo,
+                         (u8 *)&c->u.shuf.mask_hi) != -1) {
         c->type = CASTLE_SHUFTI;
         return;
     }
 
     c->type = CASTLE_TRUFFLE;
-    truffleBuildMasks(negated, &c->u.truffle.mask1, &c->u.truffle.mask2);
+    truffleBuildMasks(negated, (u8 *)(u8 *)&c->u.truffle.mask1,
+                      (u8 *)&c->u.truffle.mask2);
 }
 
 static
@@ -576,7 +578,7 @@ buildCastle(const CastleProto &proto,
     total_size += byte_length(stale_iter); // stale sparse iter
 
     aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
-    nfa->type = verify_u8(CASTLE_NFA_0);
+    nfa->type = verify_u8(CASTLE_NFA);
     nfa->length = verify_u32(total_size);
     nfa->nPositions = verify_u32(subs.size());
     nfa->streamStateSize = streamStateSize;
@@ -903,8 +905,8 @@ void addToHolder(NGHolder &g, u32 top, const PureRepeat &pr) {
     u32 min_bound = pr.bounds.min; // always finite
     if (min_bound == 0) { // Vacuous case, we can only do this once.
         assert(!edge(g.start, g.accept, g).second);
-        NFAEdge e = add_edge(g.start, g.accept, g).first;
-        g[e].top = top;
+        NFAEdge e = add_edge(g.start, g.accept, g);
+        g[e].tops.insert(top);
         g[u].reports.insert(pr.reports.begin(), pr.reports.end());
         min_bound = 1;
     }
@@ -912,9 +914,9 @@ void addToHolder(NGHolder &g, u32 top, const PureRepeat &pr) {
     for (u32 i = 0; i < min_bound; i++) {
         NFAVertex v = add_vertex(g);
         g[v].char_reach = pr.reach;
-        NFAEdge e = add_edge(u, v, g).first;
+        NFAEdge e = add_edge(u, v, g);
         if (u == g.start) {
-            g[e].top = top;
+            g[e].tops.insert(top);
         }
         u = v;
     }
@@ -931,9 +933,9 @@ void addToHolder(NGHolder &g, u32 top, const PureRepeat &pr) {
             if (head != u) {
                 add_edge(head, v, g);
             }
-            NFAEdge e = add_edge(u, v, g).first;
+            NFAEdge e = add_edge(u, v, g);
             if (u == g.start) {
-                g[e].top = top;
+                g[e].tops.insert(top);
             }
             u = v;
         }
@@ -978,15 +980,10 @@ unique_ptr<NGHolder> makeHolder(const CastleProto &proto,
     auto g = ue2::make_unique<NGHolder>(proto.kind);
 
     for (const auto &m : proto.repeats) {
-        if (m.first >= NFA_MAX_TOP_MASKS) {
-            DEBUG_PRINTF("top %u too big for an NFA\n", m.first);
-            return nullptr;
-        }
-
         addToHolder(*g, m.first, m.second);
     }
 
-    //dumpGraph("castle_holder.dot", g->g);
+    //dumpGraph("castle_holder.dot", *g);
 
     // Sanity checks.
     assert(allMatchStatesHaveReports(*g));

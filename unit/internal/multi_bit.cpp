@@ -30,10 +30,10 @@
 
 #include "gtest/gtest.h"
 #include "ue2common.h"
+#include "util/compile_error.h"
 #include "util/make_unique.h"
 #include "util/multibit.h"
 #include "util/multibit_build.h"
-#include "util/target_info.h"
 
 #include <algorithm>
 #include <memory>
@@ -1303,9 +1303,11 @@ static const MultiBitTestParam multibitTests[] = {
     { 1U << 29, 24413 },
     { 1U << 30, 50377 },
     { 1U << 31, 104729 },
-
-    // { UINT32_MAX, 104729 }, // Very slow
 };
 
 INSTANTIATE_TEST_CASE_P(MultiBit, MultiBitTest, ValuesIn(multibitTests));
 
+TEST(MultiBit, SizeTooBig) {
+    ASSERT_NO_THROW(mmbit_size(MMB_MAX_BITS));
+    ASSERT_THROW(mmbit_size(MMB_MAX_BITS + 1), ResourceLimitError);
+}

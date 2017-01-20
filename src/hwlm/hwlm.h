@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -132,8 +132,7 @@ hwlm_error_t hwlmExec(const struct HWLM *tab, const u8 *buf, size_t len,
 hwlm_error_t hwlmExecStreaming(const struct HWLM *tab,
                                struct hs_scratch *scratch, size_t len,
                                size_t start, HWLMCallback callback,
-                               void *context, hwlm_group_t groups,
-                               u8 *stream_state);
+                               void *context, hwlm_group_t groups);
 
 #ifdef __cplusplus
 }       /* extern "C" */

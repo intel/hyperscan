@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -163,7 +163,7 @@ void renovateCastle(RoseBuildImpl &tbi, CastleProto *castle,
 
     for (RoseVertex v : verts) {
         assert(g[v].left.castle.get() == castle);
-        DEBUG_PRINTF("%zu checks at lag %u\n", g[v].idx, g[v].left.lag);
+        DEBUG_PRINTF("%zu checks at lag %u\n", g[v].index, g[v].left.lag);
         vector<rose_literal_id> lits = literals_for_vertex(tbi, v);
         for (const auto &e : lits) {
             DEBUG_PRINTF("%s +%u\n", dumpString(e.s).c_str(), e.delay);

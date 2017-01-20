@@ -49,12 +49,13 @@
 #include "limex_runtime.h"
 
 // Other implementation code from X-Macro impl.
-#define SIZE 32
-#define STATE_T u32
+#define SIZE          32
+#define STATE_T       u32
+#define ENG_STATE_T   u32
+#define LOAD_FROM_ENG load_u32
+
 #include "limex_state_impl.h"
 
-#define SIZE 32
-#define STATE_T u32
 #define INLINE_ATTR really_inline
 #include "limex_common_impl.h"
 
@@ -64,8 +65,6 @@
 
 // Process exceptional states
 
-#define SIZE 32
-#define STATE_T u32
 #define STATE_ON_STACK
 #define ESTATE_ON_STACK
 #define RUN_EXCEPTION_FN_ONLY
@@ -74,8 +73,7 @@
 static really_inline
 int processExceptional32(u32 s, u32 estate, UNUSED u32 diffmask, u32 *succ,
                          const struct LimExNFA32 *limex,
-                         const struct NFAException32 *exceptions,
-                         const ReportID *exReports, u64a offset,
+                         const struct NFAException32 *exceptions, u64a offset,
                          struct NFAContext32 *ctx, char in_rev, char flags) {
     assert(estate != 0); // guaranteed by calling macro
 
@@ -105,8 +103,8 @@ int processExceptional32(u32 s, u32 estate, UNUSED u32 diffmask, u32 *succ,
         u32 bit = findAndClearLSB_32(&estate);
         u32 idx = rank_in_mask32(limex->exceptionMask, bit);
         const struct NFAException32 *e = &exceptions[idx];
-        if (!runException32(e, s, succ, &local_succ, limex, exReports, offset,
-                            ctx, &new_cache, &cacheable, in_rev, flags)) {
+        if (!runException32(e, s, succ, &local_succ, limex, offset, ctx,
+                            &new_cache, &cacheable, in_rev, flags)) {
             return PE_RV_HALT;
         }
     } while (estate != 0);
@@ -128,7 +126,4 @@ int processExceptional32(u32 s, u32 estate, UNUSED u32 diffmask, u32 *succ,
 }
 
 // 32-bit models.
-
-#define SIZE                32
-#define STATE_T             u32
 #include "limex_runtime_impl.h"

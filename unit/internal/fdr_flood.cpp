@@ -495,7 +495,7 @@ TEST_P(FDRFloodp, StreamingMask) {
             const u8 *fhist = fake_history.data() + fake_history_size;
             fdrStatus = fdrExecStreaming(fdr.get(), fhist, 0, d, streamChunk, 0,
                                          countCallback, &matchesCounts,
-                                         HWLM_ALL_GROUPS, nullptr);
+                                         HWLM_ALL_GROUPS);
             ASSERT_EQ(0, fdrStatus);
             for (u32 j = streamChunk; j < dataSize; j += streamChunk) {
                 if (j < 16) {
@@ -506,12 +506,12 @@ TEST_P(FDRFloodp, StreamingMask) {
                     fdrStatus = fdrExecStreaming(fdr.get(), tmp_d, j, tmp_d + j,
                                                  streamChunk, 0, countCallback,
                                                  &matchesCounts,
-                                                 HWLM_ALL_GROUPS, nullptr);
+                                                 HWLM_ALL_GROUPS);
                 } else {
                     fdrStatus = fdrExecStreaming(fdr.get(), d + j - 8, 8, d + j,
                                                  streamChunk, 0, countCallback,
                                                  &matchesCounts,
-                                                 HWLM_ALL_GROUPS, nullptr);
+                                                 HWLM_ALL_GROUPS);
                 }
                 ASSERT_EQ(0, fdrStatus);
             }

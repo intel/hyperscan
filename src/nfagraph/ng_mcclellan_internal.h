@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,7 +36,6 @@
 #include "ue2common.h"
 #include "nfa/mcclellancompile.h"
 #include "nfagraph/ng_holder.h"
-#include "nfagraph/ng_restructuring.h" // for NO_STATE
 #include "util/charreach.h"
 #include "util/graph_range.h"
 #include "util/ue2_containers.h"
@@ -68,6 +67,13 @@ void markToppableStarts(const NGHolder &g, const flat_set<NFAVertex> &unused,
                         bool single_trigger,
                         const std::vector<std::vector<CharReach>> &triggers,
                         boost::dynamic_bitset<> *out);
+
+/**
+ * \brief Returns a set of start vertices that will not participate in an
+ * implementation of this graph. These are either starts with no successors or
+ * starts which are redundant with startDs.
+ */
+flat_set<NFAVertex> getRedundantStarts(const NGHolder &g);
 
 template<typename autom>
 void transition_graph(autom &nfa, const std::vector<NFAVertex> &vByStateId,

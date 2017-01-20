@@ -122,7 +122,7 @@ void dumpPreRoseGraph(const RoseInGraph &ig, const Grey &grey,
 
         ostringstream name;
         name << grey.dumpPath << "pre_rose_" << id << ".dot";
-        dumpGraph(name.str().c_str(), h->g);
+        dumpGraph(name.str().c_str(), *h);
         assert(allMatchStatesHaveReports(*h));
     }
 

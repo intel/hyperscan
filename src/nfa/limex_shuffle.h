@@ -41,52 +41,6 @@
 #include "util/bitutils.h"
 #include "util/simd_utils.h"
 
-#if defined(__BMI2__) || (defined(_WIN32) && defined(__AVX2__))
-#define HAVE_PEXT
-#endif
-
-static really_inline
-u32 packedExtract32(u32 x, u32 mask) {
-#if defined(HAVE_PEXT)
-    // Intel BMI2 can do this operation in one instruction.
-    return _pext_u32(x, mask);
-#else
-
-    u32 result = 0, num = 1;
-    while (mask != 0) {
-        u32 bit = findAndClearLSB_32(&mask);
-        if (x & (1U << bit)) {
-            assert(num != 0); // more than 32 bits!
-            result |= num;
-        }
-        num <<= 1;
-    }
-    return result;
-#endif
-}
-
-static really_inline
-u32 packedExtract64(u64a x, u64a mask) {
-#if defined(HAVE_PEXT) && defined(ARCH_64_BIT)
-    // Intel BMI2 can do this operation in one instruction.
-    return _pext_u64(x, mask);
-#else
-
-    u32 result = 0, num = 1;
-    while (mask != 0) {
-        u32 bit = findAndClearLSB_64(&mask);
-        if (x & (1ULL << bit)) {
-            assert(num != 0); // more than 32 bits!
-            result |= num;
-        }
-        num <<= 1;
-    }
-    return result;
-#endif
-}
-
-#undef HAVE_PEXT
-
 static really_inline
 u32 packedExtract128(m128 s, const m128 permute, const m128 compare) {
     m128 shuffled = pshufb(s, permute);

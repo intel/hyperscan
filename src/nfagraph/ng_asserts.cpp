@@ -101,7 +101,7 @@ vector<NFAEdge> getAsserts(const NGHolder &g) {
 
 static
 void addToSplit(const NGHolder &g, NFAVertex v, map<u32, NFAVertex> *to_split) {
-    DEBUG_PRINTF("%u needs splitting\n", g[v].index);
+    DEBUG_PRINTF("%zu needs splitting\n", g[v].index);
     to_split->emplace(g[v].index, v);
 }
 
@@ -194,7 +194,7 @@ void setReportId(ReportManager &rm, NGWrapper &g, NFAVertex v, s32 adj) {
     Report ir = rm.getBasicInternalReport(g, adj);
 
     g[v].reports.insert(rm.getInternalId(ir));
-    DEBUG_PRINTF("set report id for vertex %u, adj %d\n", g[v].index, adj);
+    DEBUG_PRINTF("set report id for vertex %zu, adj %d\n", g[v].index, adj);
 }
 
 static
@@ -224,7 +224,7 @@ void splitVertex(ReportManager &rm, NGWrapper &g, NFAVertex v, bool ucp) {
     assert(v != g.start);
     assert(v != g.accept);
     assert(v != g.acceptEod);
-    DEBUG_PRINTF("partitioning vertex %u ucp:%d\n", g[v].index, (int)ucp);
+    DEBUG_PRINTF("partitioning vertex %zu ucp:%d\n", g[v].index, (int)ucp);
 
     CharReach cr_word = ucp ? CHARREACH_WORD_UCP_PRE : CHARREACH_WORD;
     CharReach cr_nonword = ucp ? CHARREACH_NONWORD_UCP_PRE : CHARREACH_NONWORD;
@@ -267,8 +267,8 @@ void resolveEdges(ReportManager &rm, NGWrapper &g, set<NFAEdge> *dead) {
 
         bool impassable = true;
         bool ucp = flags & UCP_ASSERT_FLAGS;
-        DEBUG_PRINTF("resolving edge %u->%u (flags=0x%x, ucp=%d)\n", g[u].index,
-                     g[v].index, flags, (int)ucp);
+        DEBUG_PRINTF("resolving edge %zu->%zu (flags=0x%x, ucp=%d)\n",
+                     g[u].index, g[v].index, flags, (int)ucp);
         while (flags && impassable) {
             u32 flag = 1U << findAndClearLSB_32(&flags);
             switch (flag) {
@@ -377,17 +377,14 @@ void resolveEdges(ReportManager &rm, NGWrapper &g, set<NFAEdge> *dead) {
                 add_edge(vv, g.accept, g);
                 g[e].assert_flags = 0;
                 add_edge(u, vv, g[e], g);
-                if (!edge(u, g.acceptEod, g).second) {
-                    add_edge(u, g.acceptEod, g[e], g);
-                } else {
-                    /* there may already be a different edge from start to eod
-                     * if so we need to make it unconditional and alive
-                     */
-                    NFAEdge start_eod = edge(u, g.acceptEod, g).first;
-
+                /* there may already be a different edge from start to eod if so
+                 * we need to make it unconditional and alive
+                 */
+                if (NFAEdge start_eod = edge(u, g.acceptEod, g)) {
                     g[start_eod].assert_flags = 0;
                     dead->erase(start_eod);
-
+                } else {
+                    add_edge(u, g.acceptEod, g[e], g);
                 }
                 dead->insert(e);
             }
@@ -433,17 +430,14 @@ void resolveEdges(ReportManager &rm, NGWrapper &g, set<NFAEdge> *dead) {
                 add_edge(vv, g.accept, g);
                 g[e].assert_flags = 0;
                 add_edge(u, vv, g[e], g);
-                if (!edge(u, g.acceptEod, g).second) {
-                    add_edge(u, g.acceptEod, g[e], g);
-                } else {
-                    /* there may already be a different edge from start to eod
-                     * if so we need to make it unconditional and alive
-                     */
-                    NFAEdge start_eod = edge(u, g.acceptEod, g).first;
-
+                /* there may already be a different edge from start to eod if so
+                 * we need to make it unconditional and alive
+                 */
+                if (NFAEdge start_eod = edge(u, g.acceptEod, g)) {
                     g[start_eod].assert_flags = 0;
                     dead->erase(start_eod);
-
+                } else {
+                    add_edge(u, g.acceptEod, g[e], g);
                 }
                 dead->insert(e);
             }
@@ -482,12 +476,12 @@ void resolveAsserts(ReportManager &rm, NGWrapper &g) {
     resolveEdges(rm, g, &dead);
 
     remove_edges(dead, g);
-    g.renumberVertices();
+    renumber_vertices(g);
     pruneUseless(g);
     pruneEmptyVertices(g);
 
-    g.renumberVertices();
-    g.renumberEdges();
+    renumber_vertices(g);
+    renumber_edges(g);
     clearReports(g);
 }
 
@@ -496,10 +490,8 @@ void ensureCodePointStart(ReportManager &rm, NGWrapper &g) {
      * boundaries. Assert resolution handles the badness coming from asserts.
      * The only other source of trouble is startDs->accept connections.
      */
-    bool exists;
-    NFAEdge orig;
-    tie(orig, exists) = edge(g.startDs, g.accept, g);
-    if (g.utf8 && exists) {
+    NFAEdge orig = edge(g.startDs, g.accept, g);
+    if (g.utf8 && orig) {
         DEBUG_PRINTF("rectifying %u\n", g.reportId);
         Report ir = rm.getBasicInternalReport(g);
         ReportID rep = rm.getInternalId(ir);
@@ -552,7 +544,7 @@ void ensureCodePointStart(ReportManager &rm, NGWrapper &g) {
         add_edge(g.start, v_4, g);
         add_edge(g.startDs, v_4, g);
         remove_edge(orig, g);
-        g.renumberEdges();
+        renumber_edges(g);
         clearReports(g);
     }
 }

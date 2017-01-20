@@ -132,7 +132,6 @@ struct LimExNFA##size {                                                     \
     u32 acceptEodOffset; /* rel. to start of LimExNFA */                    \
     u32 exceptionCount;                                                     \
     u32 exceptionOffset; /* rel. to start of LimExNFA */                    \
-    u32 exReportOffset; /* rel. to start of LimExNFA */                     \
     u32 repeatCount;                                                        \
     u32 repeatOffset;                                                       \
     u32 squashOffset; /* rel. to start of LimExNFA; for accept squashing */ \
@@ -160,6 +159,7 @@ struct LimExNFA##size {                                                     \
 };
 
 CREATE_NFA_LIMEX(32)
+CREATE_NFA_LIMEX(64)
 CREATE_NFA_LIMEX(128)
 CREATE_NFA_LIMEX(256)
 CREATE_NFA_LIMEX(384)
@@ -183,9 +183,16 @@ struct NFARepeatInfo {
 };
 
 struct NFAAccept {
-    u32 state;           //!< state ID of triggering state
-    ReportID externalId; //!< report ID to raise
-    u32 squash;          //!< offset into masks, or MO_INVALID_IDX
+    u8 single_report; //!< If true, 'reports' is report id.
+
+    /**
+     * \brief If single report is true, this is the report id to fire.
+     * Otherwise, it is the offset (relative to the start of the LimExNFA
+     * structure) of a list of reports, terminated with MO_INVALID_IDX.
+     */
+    u32 reports;
+
+    u32 squash;  //!< Offset (from LimEx) into squash masks, or MO_INVALID_IDX.
 };
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -621,6 +621,8 @@ static unsigned parseFlags(const string &flagsStr) {
             flags |= HS_FLAG_UTF8; break;
         case 'W':
             flags |= HS_FLAG_UCP; break;
+        case '\r': // stray carriage-return
+            break;
         default:
             cerr << "Unsupported flag \'" << c << "\'" << endl;
             exit(-1);

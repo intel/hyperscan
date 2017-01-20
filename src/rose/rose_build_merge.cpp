@@ -53,7 +53,6 @@
 #include "nfagraph/ng_redundancy.h"
 #include "nfagraph/ng_repeat.h"
 #include "nfagraph/ng_reports.h"
-#include "nfagraph/ng_restructuring.h"
 #include "nfagraph/ng_stop.h"
 #include "nfagraph/ng_uncalc_components.h"
 #include "nfagraph/ng_util.h"
@@ -207,8 +206,9 @@ void mergeDupeLeaves(RoseBuildImpl &tbi) {
             continue;
         }
 
-        DEBUG_PRINTF("inspecting vertex idx=%zu in_degree %zu out_degree %zu\n",
-                     g[v].idx, in_degree(v, g), out_degree(v, g));
+        DEBUG_PRINTF("inspecting vertex index=%zu in_degree %zu "
+                     "out_degree %zu\n", g[v].index, in_degree(v, g),
+                     out_degree(v, g));
 
         // Vertex must be a reporting leaf node
         if (g[v].reports.empty() || !isLeafNode(v, g)) {
@@ -228,24 +228,22 @@ void mergeDupeLeaves(RoseBuildImpl &tbi) {
         }
 
         RoseVertex t = leaves.find(dupe)->second;
-        DEBUG_PRINTF("found two leaf dupe roles, idx=%zu,%zu\n", g[v].idx,
-                     g[t].idx);
+        DEBUG_PRINTF("found two leaf dupe roles, index=%zu,%zu\n", g[v].index,
+                     g[t].index);
 
         vector<RoseEdge> deadEdges;
         for (const auto &e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
-            DEBUG_PRINTF("u idx=%zu\n", g[u].idx);
-            RoseEdge et;
-            bool exists;
-            tie (et, exists) = edge(u, t, g);
-            if (exists) {
+            DEBUG_PRINTF("u index=%zu\n", g[u].index);
+            if (RoseEdge et = edge(u, t, g)) {
                 if (g[et].minBound <= g[e].minBound
                     && g[et].maxBound >= g[e].maxBound) {
                     DEBUG_PRINTF("remove more constrained edge\n");
                     deadEdges.push_back(e);
                 }
             } else {
-                DEBUG_PRINTF("rehome edge: add %zu->%zu\n", g[u].idx, g[t].idx);
+                DEBUG_PRINTF("rehome edge: add %zu->%zu\n", g[u].index,
+                             g[t].index);
                 add_edge(u, t, g[e], g);
                 deadEdges.push_back(e);
             }
@@ -280,7 +278,7 @@ void mergeDupeLeaves(RoseBuildImpl &tbi) {
 
     // if we've removed anything, we need to renumber vertices
     if (countRemovals) {
-        tbi.renumberVertices();
+        renumber_vertices(g);
         DEBUG_PRINTF("removed %zu vertices.\n", countRemovals);
     }
 }
@@ -313,8 +311,7 @@ void mergeCluster(RoseGraph &g, const ReportManager &rm,
         it = it2;
 
         DEBUG_PRINTF("merging cluster %zu\n", cluster.size());
-        map<NGHolder *, NGHolder *> merged;
-        mergeNfaCluster(cluster, &rm, merged, cc);
+        auto merged = mergeNfaCluster(cluster, &rm, cc);
         DEBUG_PRINTF("done\n");
 
         for (const auto &m : merged) {
@@ -351,7 +348,7 @@ void findUncalcLeavesCandidates(RoseBuildImpl &tbi,
 
             // Ref count all suffixes, as we don't want to merge a suffix
             // that happens to be shared with a non-leaf vertex somewhere.
-            DEBUG_PRINTF("vertex %zu has suffix %p\n", g[v].idx,
+            DEBUG_PRINTF("vertex %zu has suffix %p\n", g[v].index,
                          g[v].suffix.graph.get());
             fcount[g[v].suffix.graph.get()]++;
 
@@ -460,7 +457,7 @@ struct RoseGroup {
         const RoseGraph &g = build.g;
         assert(in_degree(v, g) == 1);
         RoseVertex u = *inv_adjacent_vertices(v, g).first;
-        parent = g[u].idx;
+        parent = g[u].index;
     }
 
     bool operator<(const RoseGroup &b) const {
@@ -581,14 +578,14 @@ bool dedupeLeftfixes(RoseBuildImpl &tbi) {
             }
 
             // Scan the rest of the list for dupes.
-            for (auto kt = next(jt); kt != jte; ++kt) {
+            for (auto kt = std::next(jt); kt != jte; ++kt) {
                 if (g[v].left == g[*kt].left || !rosecmp(v, *kt)) {
                     continue;
                 }
 
                 // Dupe found.
                 DEBUG_PRINTF("rose at vertex %zu is a dupe of %zu\n",
-                             g[*kt].idx, g[v].idx);
+                             g[*kt].index, g[v].index);
                 assert(g[v].left.lag == g[*kt].left.lag);
                 g[*kt].left = g[v].left;
                 work_done = true;
@@ -1071,8 +1068,8 @@ bool mergeableRoseVertices(const RoseBuildImpl &tbi, RoseVertex u,
         return false;
     }
 
-    DEBUG_PRINTF("roses on %zu and %zu are mergeable\n", tbi.g[u].idx,
-                 tbi.g[v].idx);
+    DEBUG_PRINTF("roses on %zu and %zu are mergeable\n", tbi.g[u].index,
+                 tbi.g[v].index);
     return true;
 }
 
@@ -1388,7 +1385,7 @@ void processMergeQueue(RoseBuildImpl &tbi, RoseBouquet &roses,
 
 static
 bool nfaHasNarrowStart(const NGHolder &g) {
-    if (hasGreaterOutDegree(1, g.startDs, g)) {
+    if (out_degree(g.startDs, g) > 1) {
         return false; // unanchored
     }
 
@@ -1410,7 +1407,7 @@ bool nfaHasFiniteMaxWidth(const NGHolder &g) {
 
 namespace {
 struct RoseMergeKey {
-    RoseMergeKey(const RoseVertexSet &parents_in,
+    RoseMergeKey(const set<RoseVertex> &parents_in,
                  bool narrowStart_in, bool hasMaxWidth_in) :
                         narrowStart(narrowStart_in),
                         hasMaxWidth(hasMaxWidth_in),
@@ -1428,7 +1425,7 @@ struct RoseMergeKey {
     bool narrowStart;
     bool hasMaxWidth;
 
-    RoseVertexSet parents;
+    set<RoseVertex> parents;
 };
 }
 
@@ -1457,11 +1454,7 @@ bool hasReformedStartDotStar(const NGHolder &h, const Grey &grey) {
 static
 u32 commonPrefixLength(left_id &r1, left_id &r2) {
     if (r1.graph() && r2.graph()) {
-        auto &g1 = *r1.graph();
-        auto &g2 = *r2.graph();
-        auto state_ids_1 = numberStates(g1);
-        auto state_ids_2 = numberStates(g2);
-        return commonPrefixLength(g1, state_ids_1, g2, state_ids_2);
+        return commonPrefixLength(*r1.graph(), *r2.graph());
     } else if (r1.castle() && r2.castle()) {
         return min(findMinWidth(*r1.castle()), findMinWidth(*r2.castle()));
     }
@@ -1496,7 +1489,7 @@ void mergeLeftfixesVariableLag(RoseBuildImpl &tbi) {
 
     map<RoseMergeKey, RoseBouquet> rosesByParent;
     RoseGraph &g = tbi.g;
-    RoseVertexSet parents(g);
+    set<RoseVertex> parents;
 
     DEBUG_PRINTF("-----\n");
     DEBUG_PRINTF("entry\n");
@@ -1631,7 +1624,7 @@ struct DedupeLeftKey {
         : left_hash(hashLeftfix(build.g[v].left)) {
         const auto &g = build.g;
         for (const auto &e : in_edges_range(v, g)) {
-            preds.emplace(g[source(e, g)].idx, g[e].rose_top);
+            preds.emplace(g[source(e, g)].index, g[e].rose_top);
         }
     }
 
@@ -1731,7 +1724,7 @@ void dedupeLeftfixesVariableLag(RoseBuildImpl &tbi) {
                 for (auto v : verts1) {
                     DEBUG_PRINTF("replacing report %u with %u on %zu\n",
                                  g[v].left.leftfix_report,
-                                 v2_left.leftfix_report, g[v].idx);
+                                 v2_left.leftfix_report, g[v].index);
                     u32 orig_lag = g[v].left.lag;
                     g[v].left = v2_left;
                     g[v].left.lag = orig_lag;
@@ -1750,7 +1743,6 @@ u32 findUnusedTop(const ue2::flat_set<u32> &tops) {
     while (contains(tops, i)) {
         i++;
     }
-    assert(i < NFA_MAX_TOP_MASKS);
     return i;
 }
 
@@ -1762,9 +1754,12 @@ void replaceTops(NGHolder &h, const map<u32, u32> &top_mapping) {
         if (v == h.startDs) {
             continue;
         }
-        DEBUG_PRINTF("vertex %u has top %u\n", h[v].index, h[e].top);
-        assert(contains(top_mapping, h[e].top));
-        h[e].top = top_mapping.at(h[e].top);
+        flat_set<u32> new_tops;
+        for (u32 t : h[e].tops) {
+            DEBUG_PRINTF("vertex %zu has top %u\n", h[v].index, t);
+            new_tops.insert(top_mapping.at(t));
+        }
+        h[e].tops = move(new_tops);
     }
 }
 
@@ -1775,11 +1770,6 @@ bool setDistinctTops(NGHolder &h1, const NGHolder &h2,
 
     DEBUG_PRINTF("before: h1 has %zu tops, h2 has %zu tops\n", tops1.size(),
                  tops2.size());
-
-    if (tops1.size() + tops2.size() > NFA_MAX_TOP_MASKS) {
-        DEBUG_PRINTF("too many tops!\n");
-        return false;
-    }
 
     // If our tops don't intersect, we're OK to merge with no changes.
     if (!has_intersection(tops1, tops2)) {
@@ -1814,7 +1804,7 @@ bool setDistinctRoseTops(RoseGraph &g, NGHolder &h1, const NGHolder &h2,
     }
 
     for (auto v : verts1) {
-        DEBUG_PRINTF("vertex %zu\n", g[v].idx);
+        DEBUG_PRINTF("vertex %zu\n", g[v].index);
         assert(!g[v].left.haig);
         assert(!g[v].left.dfa);
         for (const auto &e : in_edges_range(v, g)) {
@@ -1823,7 +1813,7 @@ bool setDistinctRoseTops(RoseGraph &g, NGHolder &h1, const NGHolder &h2,
             assert(contains(top_mapping, t));
             g[e].rose_top = top_mapping[t];
             DEBUG_PRINTF("edge (%zu,%zu) went from top %u to %u\n",
-                         g[source(e, g)].idx, g[target(e, g)].idx, t,
+                         g[source(e, g)].index, g[target(e, g)].index, t,
                          top_mapping[t]);
         }
     }
@@ -1844,18 +1834,13 @@ bool setDistinctSuffixTops(RoseGraph &g, NGHolder &h1, const NGHolder &h2,
     }
 
     for (auto v : verts1) {
-        DEBUG_PRINTF("vertex %zu\n", g[v].idx);
+        DEBUG_PRINTF("vertex %zu\n", g[v].index);
         u32 t = g[v].suffix.top;
         assert(contains(top_mapping, t));
         g[v].suffix.top = top_mapping[t];
     }
 
     return true;
-}
-
-static
-bool hasMaxTops(const NGHolder &h) {
-    return getTops(h).size() == NFA_MAX_TOP_MASKS;
 }
 
 /** \brief Estimate the number of accel states in the given graph when built as
@@ -1895,11 +1880,6 @@ void mergeNfaLeftfixes(RoseBuildImpl &tbi, RoseBouquet &roses) {
             DEBUG_PRINTF("consider merging rose %p (%zu verts) "
                          "with %p (%zu verts)\n",
                          r1.graph(), verts1.size(), r2.graph(), verts2.size());
-
-            if (hasMaxTops(*r1.graph())) {
-                DEBUG_PRINTF("h1 has hit max tops\n");
-                break; // next h1
-            }
 
             u32 accel1 = accel_count[r1];
             if (accel1 >= NFA_MAX_ACCEL_STATES) {
@@ -2189,16 +2169,16 @@ void mergeSuffixes(RoseBuildImpl &tbi, SuffixBouquet &suffixes,
         suffix_id s1 = *it;
         const deque<RoseVertex> &verts1 = suffixes.vertices(s1);
         assert(s1.graph() && s1.graph()->kind == NFA_SUFFIX);
+
+        // Caller should ensure that we don't propose merges of graphs that are
+        // already too big.
+        assert(num_vertices(*s1.graph()) < small_merge_max_vertices(tbi.cc));
+
         deque<suffix_id> merged;
         for (auto jt = next(it); jt != suffixes.end(); ++jt) {
             suffix_id s2 = *jt;
             const deque<RoseVertex> &verts2 = suffixes.vertices(s2);
             assert(s2.graph() && s2.graph()->kind == NFA_SUFFIX);
-
-            if (hasMaxTops(*s1.graph())) {
-                DEBUG_PRINTF("h1 has hit max tops\n");
-                break; // next h1
-            }
 
             if (!acyclic) {
                 u32 accel1 = accel_count[s1];
@@ -2305,6 +2285,10 @@ void mergeAcyclicSuffixes(RoseBuildImpl &tbi) {
         }
 
         assert(!g[v].suffix.haig);
+
+        if (num_vertices(*h) >= small_merge_max_vertices(tbi.cc)) {
+            continue;
+        }
 
         if (!isAcyclic(*h)) {
             continue;
@@ -2429,7 +2413,8 @@ map<NGHolder *, NGHolder *> chunkedNfaMerge(RoseBuildImpl &build,
         batch.push_back(*it);
         assert((*it)->kind == NFA_OUTFIX);
         if (batch.size() == MERGE_GROUP_SIZE_MAX || next(it) == ite) {
-            mergeNfaCluster(batch, &build.rm, merged, build.cc);
+            auto batch_merged = mergeNfaCluster(batch, &build.rm, build.cc);
+            insert(&merged, batch_merged);
             batch.clear();
         }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,22 +37,7 @@
 #include "ue2common.h"
 #include "util/ue2_containers.h"
 
-#include <map>
-#include <vector>
-
 namespace ue2 {
-
-class NGHolder;
-
-/** Construct a reversed copy of an arbitrary NGHolder, mapping starts to
- * accepts. */
-void reverseHolder(const NGHolder &g, NGHolder &out);
-
-/** Connect the start vertex to each of the vertices in \p tops. This is useful
- * temporarily for when we need to run a graph algorithm that expects a single
- * source vertex. */
-void wireStartToTops(NGHolder &g, const std::map<u32, NFAVertex> &tops,
-                     std::vector<NFAEdge> &topEdges);
 
 /**
  * \brief Special state index value meaning that the vertex will not
@@ -63,30 +48,14 @@ static constexpr u32 NO_STATE = ~0;
 /**
  * \brief Gives each participating vertex in the graph a unique state index.
  */
-ue2::unordered_map<NFAVertex, u32>
-numberStates(NGHolder &h,
-             const std::map<u32, NFAVertex> &tops = std::map<u32, NFAVertex>{});
+unordered_map<NFAVertex, u32>
+numberStates(NGHolder &h, const flat_set<NFAVertex> &tops);
 
 /**
  * \brief Counts the number of states (vertices with state indices) in the
  * graph.
- *
- * If addTops is true, also accounts for states that will be constructed for
- * each unique top.
  */
-u32 countStates(const NGHolder &g,
-                const ue2::unordered_map<NFAVertex, u32> &state_ids,
-                bool addTops = true);
-
-/** Optimisation: drop unnecessary start states. */
-void dropUnusedStarts(NGHolder &g, ue2::unordered_map<NFAVertex, u32> &states);
-
-/**
- * \brief Returns a set of vertices that will not participate in an
- * implementation (NFA, DFA etc) of this graph. For example, starts with no
- * successors.
- */
-flat_set<NFAVertex> findUnusedStates(const NGHolder &g);
+u32 countStates(const unordered_map<NFAVertex, u32> &state_ids);
 
 } // namespace ue2
 

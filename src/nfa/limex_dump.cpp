@@ -35,9 +35,10 @@
 #include "limex_internal.h"
 #include "nfa_dump_internal.h"
 #include "ue2common.h"
+#include "util/charreach.h"
 #include "util/dump_charclass.h"
 #include "util/dump_mask.h"
-#include "util/charreach.h"
+#include "util/dump_util.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -70,6 +71,10 @@ template<> struct limex_traits<LimExNFA128> {
     static const u32 size = 128;
     typedef NFAException128 exception_type;
 };
+template<> struct limex_traits<LimExNFA64> {
+    static const u32 size = 64;
+    typedef NFAException64 exception_type;
+};
 template<> struct limex_traits<LimExNFA32> {
     static const u32 size = 32;
     typedef NFAException32 exception_type;
@@ -82,7 +87,7 @@ void dumpMask(FILE *f, const char *name, const u8 *mask, u32 mask_bits) {
 
 template<typename mask_t>
 static
-u32 rank_in_mask(mask_t mask, u32 bit) {
+u32 rank_in_mask(const mask_t &mask, u32 bit) {
     assert(bit < 8 * sizeof(mask));
 
     u32 chunks[sizeof(mask)/sizeof(u32)];
@@ -176,26 +181,40 @@ void dumpAccel(const limex_type *limex, FILE *f) {
     }
 }
 
+static
+void dumpAcceptList(const char *limex_base, const struct NFAAccept *accepts,
+                    u32 acceptCount, FILE *f) {
+    for (u32 i = 0; i < acceptCount; i++) {
+        const NFAAccept &a = accepts[i];
+        if (a.single_report) {
+            fprintf(f, "  idx %u fires single report %u\n", i, a.reports);
+            continue;
+        }
+        fprintf(f, "  idx %u fires report list %u:", i, a.reports);
+        const ReportID *report = (const ReportID *)(limex_base + a.reports);
+        for (; *report != MO_INVALID_IDX; report++) {
+            fprintf(f, " %u", *report);
+        }
+        fprintf(f, "\n");
+    }
+}
+
 template<typename limex_type>
 static
 void dumpAccepts(const limex_type *limex, FILE *f) {
-    u32 acceptCount = limex->acceptCount;
-    u32 acceptEodCount = limex->acceptEodCount;
+    const char *limex_base = (const char *)limex;
+
+    const u32 acceptCount = limex->acceptCount;
+    const u32 acceptEodCount = limex->acceptEodCount;
 
     fprintf(f, "\n%u accepts.\n", acceptCount);
-    const struct NFAAccept *accepts
-        = (const struct NFAAccept *)((const char *)limex + limex->acceptOffset);
-    for (u32 i = 0; i < acceptCount; i++) {
-        fprintf(f, "  state %u fires report %u\n", accepts[i].state,
-                accepts[i].externalId);
-    }
+    const auto *accepts =
+        (const struct NFAAccept *)(limex_base + limex->acceptOffset);
+    dumpAcceptList(limex_base, accepts, acceptCount, f);
     fprintf(f, "\n%u accepts at EOD.\n", acceptEodCount);
-    accepts = (const struct NFAAccept *)((const char *)limex
-                                         + limex->acceptEodOffset);
-    for (u32 i = 0; i < acceptEodCount; i++) {
-        fprintf(f, "  state %u fires report %u\n", accepts[i].state,
-                accepts[i].externalId);
-    }
+    const auto *accepts_eod =
+        (const struct NFAAccept *)(limex_base + limex->acceptEodOffset);
+    dumpAcceptList(limex_base, accepts_eod, acceptEodCount, f);
     fprintf(f, "\n");
 }
 
@@ -224,17 +243,12 @@ getExceptionTable(const limex_type *limex) {
 
 template<typename limex_type>
 static
-const ReportID *getReportList(const limex_type *limex) {
-    return (const ReportID *)((const char *)limex + limex->exReportOffset);
-}
-
-template<typename limex_type>
-static
 void dumpLimexExceptions(const limex_type *limex, FILE *f) {
     const typename limex_traits<limex_type>::exception_type *e =
                 getExceptionTable(limex);
-    const ReportID *reports = getReportList(limex);
     const u32 size = limex_traits<limex_type>::size;
+
+    const char *limex_base = (const char *)limex;
 
     fprintf(f, "\n");
     for (u32 i = 0; i < limex->exceptionCount; i++) {
@@ -251,7 +265,7 @@ void dumpLimexExceptions(const limex_type *limex, FILE *f) {
         if (e[i].reports == MO_INVALID_IDX) {
             fprintf(f, " <none>\n");
         } else {
-            const ReportID *r = reports + e[i].reports;
+            const ReportID *r = (const ReportID *)(limex_base + e[i].reports);
             while (*r != MO_INVALID_IDX) {
                 fprintf(f, " %u", *r++);
             }
@@ -459,36 +473,32 @@ void dumpLimDotInfo(const limex_type *limex, u32 state, FILE *f) {
     }
 }
 
-#define DUMP_TEXT_FN(ddf_n)                                                    \
-    void nfaExecLimEx##ddf_n##_dumpText(const NFA *nfa, FILE *f) {             \
-        dumpLimexText((const LimExNFA##ddf_n *)getImplNfa(nfa), f);            \
-    }
-
-#define DUMP_DOT_FN(ddf_n)                                                     \
-    void nfaExecLimEx##ddf_n##_dumpDot(const NFA *nfa, FILE *f,                \
-                                       UNUSED const string &base) {            \
-        const LimExNFA##ddf_n *limex =                                         \
-            (const LimExNFA##ddf_n *)getImplNfa(nfa);                          \
+#define LIMEX_DUMP_FN(size)                                                    \
+    void nfaExecLimEx##size##_dump(const NFA *nfa, const string &base) {       \
+        auto limex = (const LimExNFA##size *)getImplNfa(nfa);                  \
                                                                                \
+        FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");                \
+        dumpLimexText(limex, f);                                               \
+        fclose(f);                                                             \
+                                                                               \
+        f = fopen_or_throw((base + ".dot").c_str(), "w");                      \
         dumpDotPreamble(f);                                                    \
         u32 state_count = nfa->nPositions;                                     \
         dumpVertexDotInfo(limex, state_count, f,                               \
-                          limex_labeller<LimExNFA##ddf_n>(limex));             \
+                          limex_labeller<LimExNFA##size>(limex));              \
         for (u32 i = 0; i < state_count; i++) {                                \
             dumpLimDotInfo(limex, i, f);                                       \
             dumpExDotInfo(limex, i, f);                                        \
         }                                                                      \
         dumpDotTrailer(f);                                                     \
+        fclose(f);                                                             \
     }
 
-#define LIMEX_DUMP_FNS(size)                                                   \
-    DUMP_TEXT_FN(size)                                                         \
-    DUMP_DOT_FN(size)
-
-LIMEX_DUMP_FNS(32)
-LIMEX_DUMP_FNS(128)
-LIMEX_DUMP_FNS(256)
-LIMEX_DUMP_FNS(384)
-LIMEX_DUMP_FNS(512)
+LIMEX_DUMP_FN(32)
+LIMEX_DUMP_FN(64)
+LIMEX_DUMP_FN(128)
+LIMEX_DUMP_FN(256)
+LIMEX_DUMP_FN(384)
+LIMEX_DUMP_FN(512)
 
 } // namespace ue2

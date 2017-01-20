@@ -78,9 +78,25 @@ size_t accelScanWrapper(const u8 *accelTable, const union AccelAux *aux,
 size_t doAccel32(u32 s, u32 accel, const u8 *accelTable,
                  const union AccelAux *aux, const u8 *input, size_t i,
                  size_t end) {
-    u32 idx = packedExtract32(s, accel);
+    u32 idx = pext32(s, accel);
     return accelScanWrapper(accelTable, aux, input, idx, i, end);
 }
+
+#ifdef ARCH_64_BIT
+size_t doAccel64(u64a s, u64a accel, const u8 *accelTable,
+                 const union AccelAux *aux, const u8 *input, size_t i,
+                 size_t end) {
+    u32 idx = pext64(s, accel);
+    return accelScanWrapper(accelTable, aux, input, idx, i, end);
+}
+#else
+size_t doAccel64(m128 s, m128 accel, const u8 *accelTable,
+                 const union AccelAux *aux, const u8 *input, size_t i,
+                 size_t end) {
+    u32 idx = pext64(movq(s), movq(accel));
+    return accelScanWrapper(accelTable, aux, input, idx, i, end);
+}
+#endif
 
 size_t doAccel128(const m128 *state, const struct LimExNFA128 *limex,
                   const u8 *accelTable, const union AccelAux *aux,

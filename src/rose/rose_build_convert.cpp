@@ -163,6 +163,8 @@ unique_ptr<NGHolder> convertLeafToHolder(const RoseGraph &g,
         }
     }
 
+    setTops(*out);
+
     // Literal vertices wired to accept.
     NFAVertex litfirst, litlast;
     tie(litfirst, litlast) = addLiteralVertices(g, literals, t_v, *out);
@@ -288,7 +290,7 @@ bool isUnconvertibleLeaf(const RoseBuildImpl &tbi, const RoseVertex v) {
 
 // Find all of the leaves with literals whose length is <= len.
 static
-void findBadLeaves(RoseBuildImpl &tbi, RoseVertexSet &bad) {
+void findBadLeaves(RoseBuildImpl &tbi, set<RoseVertex> &bad) {
     RoseGraph &g = tbi.g;
     u32 len = tbi.cc.grey.roseMaxBadLeafLength;
 
@@ -307,15 +309,7 @@ void findBadLeaves(RoseBuildImpl &tbi, RoseVertexSet &bad) {
 
         const rose_literal_info &info = tbi.literal_info[lid];
 
-        // Because we do the "clone pred and re-home" trick below, we need to
-        // iterate over our vertices in a defined ordering, otherwise we'll get
-        // non-determinism in our bytecode. So, copy and sort this literal's
-        // vertices.
-
-        vector<RoseVertex> verts(info.vertices.begin(), info.vertices.end());
-        sort(verts.begin(), verts.end(), VertexIndexComp(g));
-
-        for (auto v : verts) {
+        for (auto v : info.vertices) {
             if (!isLeafNode(v, g)) {
                 continue;
             }
@@ -329,7 +323,7 @@ void findBadLeaves(RoseBuildImpl &tbi, RoseVertexSet &bad) {
             const RoseEdge &e = *in_edges(v, g).first;
             RoseVertex u = source(e, g);
             if (out_degree(u, g) != 1) {
-                DEBUG_PRINTF("re-homing %zu to cloned pred\n", g[v].idx);
+                DEBUG_PRINTF("re-homing %zu to cloned pred\n", g[v].index);
                 RoseVertex u2 = tbi.cloneVertex(u);
                 for (const auto &e_in : in_edges_range(u, g)) {
                     add_edge(source(e_in, g), u2, g[e_in], g);
@@ -338,7 +332,7 @@ void findBadLeaves(RoseBuildImpl &tbi, RoseVertexSet &bad) {
                 remove_edge(e, g);
             }
 
-            DEBUG_PRINTF("%zu is a bad leaf vertex\n", g[v].idx);
+            DEBUG_PRINTF("%zu is a bad leaf vertex\n", g[v].index);
             bad.insert(v);
         }
     }
@@ -346,7 +340,7 @@ void findBadLeaves(RoseBuildImpl &tbi, RoseVertexSet &bad) {
 
 void convertBadLeaves(RoseBuildImpl &tbi) {
     RoseGraph &g = tbi.g;
-    RoseVertexSet bad(g);
+    set<RoseVertex> bad;
     findBadLeaves(tbi, bad);
     DEBUG_PRINTF("found %zu bad leaves\n", bad.size());
 
@@ -369,7 +363,7 @@ void convertBadLeaves(RoseBuildImpl &tbi) {
         RoseVertex u = source(e, g);
         assert(!g[u].suffix);
         g[u].suffix.graph = h;
-        DEBUG_PRINTF("%zu's nfa holder %p\n", g[u].idx, h.get());
+        DEBUG_PRINTF("%zu's nfa holder %p\n", g[u].index, h.get());
 
         dead.push_back(v);
     }
@@ -400,7 +394,10 @@ unique_ptr<NGHolder> makeFloodProneSuffix(const ue2_literal &s, size_t len,
     NFAVertex u = h->start;
     for (auto it = s.begin() + s.length() - len; it != s.end(); ++it) {
         NFAVertex v = addHolderVertex(*it, *h);
-        add_edge(u, v, *h);
+        NFAEdge e = add_edge(u, v, *h);
+        if (u == h->start) {
+            (*h)[e].tops.insert(DEFAULT_TOP);
+        }
         u = v;
     }
 
@@ -708,10 +705,7 @@ bool handleStartPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
         assert(g[e_old].maxBound >= bound_max);
         setEdgeBounds(g, e_old, bound_min, bound_max);
     } else {
-        RoseEdge e_new;
-        UNUSED bool added;
-        tie(e_new, added) = add_edge(ar, v, g);
-        assert(added);
+        RoseEdge e_new = add_edge(ar, v, g);
         setEdgeBounds(g, e_new, bound_min, bound_max);
         to_delete->push_back(e_old);
     }
@@ -728,10 +722,8 @@ bool handleStartDsPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
     u32 repeatCount = 0;
     NFAVertex hu = h.startDs;
 
-    set<NFAVertex> start_succ;
-    set<NFAVertex> startds_succ;
-    succ(h, h.start, &start_succ);
-    succ(h, h.startDs, &startds_succ);
+    auto start_succ = succs<set<NFAVertex>>(h.start, h);
+    auto startds_succ = succs<set<NFAVertex>>(h.startDs, h);
 
     if (!is_subset_of(start_succ, startds_succ)) {
         DEBUG_PRINTF("not a simple chain\n");
@@ -781,14 +773,12 @@ bool handleMixedPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
     assert(in_degree(h.acceptEod, h) == 1);
 
     bool anchored = !proper_out_degree(h.startDs, h);
-    NFAVertex key = nullptr;
+    NFAVertex key = NGHolder::null_vertex();
     NFAVertex base = anchored ? h.start : h.startDs;
 
     if (!anchored) {
-        set<NFAVertex> start_succ;
-        set<NFAVertex> startds_succ;
-        succ(h, h.start, &start_succ);
-        succ(h, h.startDs, &startds_succ);
+        auto start_succ = succs<set<NFAVertex>>(h.start, h);
+        auto startds_succ = succs<set<NFAVertex>>(h.startDs, h);
 
         if (!is_subset_of(start_succ, startds_succ)) {
             DEBUG_PRINTF("not a simple chain\n");
@@ -797,7 +787,7 @@ bool handleMixedPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
     }
 
     for (auto w : adjacent_vertices_range(base, h)) {
-        DEBUG_PRINTF("checking %u\n", h[w].index);
+        DEBUG_PRINTF("checking %zu\n", h[w].index);
         if (!h[w].char_reach.all()) {
             continue;
         }
@@ -832,7 +822,7 @@ bool handleMixedPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
 
     set<NFAVertex> exits_and_repeat_verts;
     for (auto repeat_v : ri.vertices) {
-        DEBUG_PRINTF("repeat vertex %u\n", h[repeat_v].index);
+        DEBUG_PRINTF("repeat vertex %zu\n", h[repeat_v].index);
         succ(h, repeat_v, &exits_and_repeat_verts);
         exits_and_repeat_verts.insert(repeat_v);
     }
@@ -847,8 +837,7 @@ bool handleMixedPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
     exits = exits_and_repeat_verts;
     erase_all(&exits, rep_verts);
 
-    set<NFAVertex> base_succ;
-    succ(h, base, &base_succ);
+    auto base_succ = succs<set<NFAVertex>>(base, h);
     base_succ.erase(h.startDs);
 
     if (is_subset_of(base_succ, rep_verts)) {
@@ -908,10 +897,7 @@ bool handleMixedPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
         if (source(e_old, g) == ar) {
             setEdgeBounds(g, e_old, ri.repeatMin + width, ri.repeatMax + width);
         } else {
-            RoseEdge e_new;
-            UNUSED bool added;
-            tie(e_new, added) = add_edge(ar, v, g);
-            assert(added);
+            RoseEdge e_new = add_edge(ar, v, g);
             setEdgeBounds(g, e_new, ri.repeatMin + width, ri.repeatMax + width);
             to_delete->push_back(e_old);
         }
@@ -963,7 +949,7 @@ void convertPrefixToBounds(RoseBuildImpl &tbi) {
             continue;
         }
 
-        DEBUG_PRINTF("inspecting prefix of %zu\n", g[v].idx);
+        DEBUG_PRINTF("inspecting prefix of %zu\n", g[v].index);
 
         if (!proper_out_degree(h.startDs, h)) {
             if (handleStartPrefixCliche(h, g, v, e, ar, &to_delete)) {
@@ -1009,7 +995,7 @@ void convertPrefixToBounds(RoseBuildImpl &tbi) {
             continue;
         }
 
-        DEBUG_PRINTF("inspecting prefix of %zu\n", g[v].idx);
+        DEBUG_PRINTF("inspecting prefix of %zu\n", g[v].index);
 
         if (!proper_out_degree(h.startDs, h)) {
             if (handleStartPrefixCliche(h, g, v, e, ar, &to_delete)) {
@@ -1044,7 +1030,7 @@ void convertAnchPrefixToBounds(RoseBuildImpl &tbi) {
             continue;
         }
 
-        DEBUG_PRINTF("vertex %zu\n", g[v].idx);
+        DEBUG_PRINTF("vertex %zu\n", g[v].index);
 
         // This pass runs after makeCastles, so we use the fact that bounded
         // repeat detection has already been done for us.

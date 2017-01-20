@@ -65,18 +65,30 @@ bool is_dot(NFAVertex v, const GraphT &g) {
 template<class U>
 static really_inline
 void succ(const NGHolder &g, NFAVertex v, U *s) {
-    NGHolder::adjacency_iterator ai, ae;
-    tie(ai, ae) = adjacent_vertices(v, g);
-    s->insert(ai, ae);
+    auto rv = adjacent_vertices(v, g);
+    s->insert(rv.first, rv.second);
+}
+
+template<class ContTemp = flat_set<NFAVertex>>
+ContTemp succs(NFAVertex u, const NGHolder &g) {
+    ContTemp rv;
+    succ(g, u, &rv);
+    return rv;
 }
 
 /** adds predecessors of v to s */
 template<class U>
 static really_inline
 void pred(const NGHolder &g, NFAVertex v, U *p) {
-    NGHolder::inv_adjacency_iterator it, ite;
-    tie(it, ite) = inv_adjacent_vertices(v, g);
-    p->insert(it, ite);
+    auto rv = inv_adjacent_vertices(v, g);
+    p->insert(rv.first, rv.second);
+}
+
+template<class ContTemp = flat_set<NFAVertex>>
+ContTemp preds(NFAVertex u, const NGHolder &g) {
+    ContTemp rv;
+    pred(g, u, &rv);
+    return rv;
 }
 
 /** returns a vertex with an out edge from v and is not v.
@@ -87,6 +99,30 @@ NFAVertex getSoleDestVertex(const NGHolder &g, NFAVertex v);
 
 /** Like getSoleDestVertex but for in-edges */
 NFAVertex getSoleSourceVertex(const NGHolder &g, NFAVertex v);
+
+/** \brief edge filtered graph.
+ *
+ * This will give you a view over the graph that has none of the edges from
+ * the provided set included.
+ *
+ * If this is provided with the back edges of the graph, this will result in an
+ * acyclic subgraph view. This is useful for topological_sort and other
+ * algorithms that require a DAG.
+ */
+template<typename EdgeSet>
+struct bad_edge_filter {
+    bad_edge_filter() {}
+    explicit bad_edge_filter(const EdgeSet *bad_e) : bad_edges(bad_e) {}
+    bool operator()(const typename EdgeSet::value_type &e) const {
+        return !contains(*bad_edges, e); /* keep edges not in the bad set */
+    }
+    const EdgeSet *bad_edges = nullptr;
+};
+
+template<typename EdgeSet>
+bad_edge_filter<EdgeSet> make_bad_edge_filter(const EdgeSet *e) {
+    return bad_edge_filter<EdgeSet>(e);
+}
 
 /** Visitor that records back edges */
 template <typename BackEdgeSet>
@@ -100,59 +136,11 @@ public:
     BackEdgeSet &backEdges;
 };
 
-/** \brief Acyclic filtered graph.
- *
- * This will give you a view over the graph that is directed and acyclic:
- * useful for topological_sort and other algorithms that require a DAG.
- */
-template <typename BackEdgeSet>
-struct AcyclicFilter {
-    AcyclicFilter() {}
-    explicit AcyclicFilter(const BackEdgeSet *edges) : backEdges(edges) {}
-    template <typename EdgeT>
-    bool operator()(const EdgeT &e) const {
-        // Only keep edges that aren't in the back edge set.
-        return (backEdges->find(e) == backEdges->end());
-    }
-    const BackEdgeSet *backEdges = nullptr;
-};
-
-/**
- * Generic code to renumber all the vertices in a graph. Assumes that we're
- * using a vertex_index property of type u32, and that we always have
- * N_SPECIALS special vertices already present (which we don't want to
- * renumber).
- */
-template<typename GraphT>
-static really_inline
-size_t renumberGraphVertices(GraphT &g) {
-    size_t num = N_SPECIALS;
-    for (const auto &v : vertices_range(g)) {
-        if (!is_special(v, g)) {
-            g[v].index = num++;
-            assert(num > 0); // no wrapping
-        }
-    }
-    return num;
-}
-
-/** Renumber all the edges in a graph. */
-template<typename GraphT>
-static really_inline
-size_t renumberGraphEdges(GraphT &g) {
-    size_t num = 0;
-    for (const auto &e : edges_range(g)) {
-        g[e].index = num++;
-        assert(num > 0); // no wrapping
-    }
-    return num;
-}
-
 /** Returns true if the vertex is either of the real starts (NODE_START,
  *  NODE_START_DOTSTAR). */
 template <typename GraphT>
 static really_inline
-bool is_any_start(const NFAVertex v, const GraphT &g) {
+bool is_any_start(typename GraphT::vertex_descriptor v, const GraphT &g) {
     u32 i = g[v].index;
     return i == NODE_START || i == NODE_START_DOTSTAR;
 }
@@ -160,46 +148,33 @@ bool is_any_start(const NFAVertex v, const GraphT &g) {
 bool is_virtual_start(NFAVertex v, const NGHolder &g);
 
 template <typename GraphT>
-static really_inline
-bool is_any_accept(const NFAVertex v, const GraphT &g) {
+bool is_any_accept(typename GraphT::vertex_descriptor v, const GraphT &g) {
     u32 i = g[v].index;
     return i == NODE_ACCEPT || i == NODE_ACCEPT_EOD;
 }
 
 /** returns true iff v has an edge to accept or acceptEod */
 template <typename GraphT>
-static really_inline
-bool is_match_vertex(NFAVertex v, const GraphT &g) {
+bool is_match_vertex(typename GraphT::vertex_descriptor v, const GraphT &g) {
     return edge(v, g.accept, g).second || edge(v, g.acceptEod, g).second;
 }
 
 /** Generate a reverse topological ordering for a back-edge filtered version of
- * our graph (as it must be a DAG and correctly numbered) */
+ * our graph (as it must be a DAG and correctly numbered).
+ *
+ * Note: we ensure that we produce a topo ordering that begins with acceptEod
+ * and accept (if present) and ends with startDs followed by start.
+ */
 std::vector<NFAVertex> getTopoOrdering(const NGHolder &g);
-
-/** Comparison functor used to sort by vertex_index. */
-template<typename Graph>
-struct VertexIndexOrdering {
-    VertexIndexOrdering(const Graph &g_in) : g(&g_in) {}
-    bool operator()(typename Graph::vertex_descriptor a,
-                    typename Graph::vertex_descriptor b) const {
-        assert(a == b || (*g)[a].index != (*g)[b].index);
-        return (*g)[a].index < (*g)[b].index;
-    }
-private:
-    const Graph *g;
-};
-
-template<typename Graph>
-static
-VertexIndexOrdering<Graph> make_index_ordering(const Graph &g) {
-    return VertexIndexOrdering<Graph>(g);
-}
 
 bool onlyOneTop(const NGHolder &g);
 
-/** Return a mask of the tops on the given graph. */
+/** Return the set of the tops on the given graph. */
 flat_set<u32> getTops(const NGHolder &h);
+
+/** Initialise the tops on h to the provide top. Assumes that h is triggered and
+ * no tops have been set on h. */
+void setTops(NGHolder &h, u32 top = DEFAULT_TOP);
 
 /** adds a vertex to g with all the same vertex properties as \p v (aside from
  * index) */
@@ -296,6 +271,10 @@ void clearReports(NGHolder &g);
  * r_old. */
 void duplicateReport(NGHolder &g, ReportID r_old, ReportID r_new);
 
+/** Construct a reversed copy of an arbitrary NGHolder, mapping starts to
+ * accepts. */
+void reverseHolder(const NGHolder &g, NGHolder &out);
+
 #ifndef NDEBUG
 
 // Assertions: only available in internal builds.
@@ -308,17 +287,11 @@ void duplicateReport(NGHolder &g, ReportID r_old, ReportID r_new);
 bool allMatchStatesHaveReports(const NGHolder &g);
 
 /**
- * Assertion: returns true if the vertices in this graph are contiguously (and
- * uniquely) numbered from zero.
+ * Assertion: returns true if the graph is triggered and all edges out of start
+ * have tops OR if the graph is not-triggered and all edges out of start have no
+ * tops.
  */
-bool hasCorrectlyNumberedVertices(const NGHolder &g);
-
-/**
- * Assertion: returns true if the edges in this graph are contiguously (and
- * uniquely) numbered from zero.
- */
-bool hasCorrectlyNumberedEdges(const NGHolder &g);
-
+bool isCorrectlyTopped(const NGHolder &g);
 #endif // NDEBUG
 
 } // namespace ue2

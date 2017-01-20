@@ -48,19 +48,16 @@
 
 #include "limex_runtime.h"
 
-#define SIZE 128
-#define STATE_T m128
+#define SIZE          128
+#define STATE_T       m128
+#define ENG_STATE_T   m128
+#define LOAD_FROM_ENG load_m128
+
 #include "limex_exceptional.h"
 
-#define SIZE 128
-#define STATE_T m128
 #include "limex_state_impl.h"
 
-#define SIZE 128
-#define STATE_T m128
 #define INLINE_ATTR really_inline
 #include "limex_common_impl.h"
 
-#define SIZE 128
-#define STATE_T m128
 #include "limex_runtime_impl.h"

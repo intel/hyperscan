@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,9 +45,9 @@ TEST(Truffle, CompileDot) {
 
     chars.setall();
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
-    CharReach out = truffle2cr(mask1, mask2);
+    CharReach out = truffle2cr((u8 *)&mask1, (u8 *)&mask2);
 
     ASSERT_EQ(out, chars);
 
@@ -64,8 +64,8 @@ TEST(Truffle, CompileChars) {
         mask2 = zeroes128();
         chars.clear();
         chars.set((u8)c);
-        truffleBuildMasks(chars, &mask1, &mask2);
-        CharReach out = truffle2cr(mask1, mask2);
+        truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
+        CharReach out = truffle2cr((u8 *)&mask1, (u8 *)&mask2);
         ASSERT_EQ(out, chars);
     }
 
@@ -74,8 +74,8 @@ TEST(Truffle, CompileChars) {
         mask1 = zeroes128();
         mask2 = zeroes128();
         chars.set((u8)c);
-        truffleBuildMasks(chars, &mask1, &mask2);
-        CharReach out = truffle2cr(mask1, mask2);
+        truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
+        CharReach out = truffle2cr((u8 *)&mask1, (u8 *)&mask2);
         ASSERT_EQ(out, chars);
     }
 
@@ -84,8 +84,8 @@ TEST(Truffle, CompileChars) {
         mask1 = zeroes128();
         mask2 = zeroes128();
         chars.clear((u8)c);
-        truffleBuildMasks(chars, &mask1, &mask2);
-        CharReach out = truffle2cr(mask1, mask2);
+        truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
+        CharReach out = truffle2cr((u8 *)&mask1, (u8 *)&mask2);
         ASSERT_EQ(out, chars);
     }
 
@@ -100,7 +100,7 @@ TEST(Truffle, ExecNoMatch1) {
 
     chars.set('a');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     char t1[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\xff";
 
@@ -119,7 +119,7 @@ TEST(Truffle, ExecNoMatch2) {
     chars.set('a');
     chars.set('B');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     char t1[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
@@ -137,7 +137,7 @@ TEST(Truffle, ExecNoMatch3) {
 
     chars.set('V'); /* V = 0x56, e = 0x65 */
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     char t1[] = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 
@@ -154,7 +154,7 @@ TEST(Truffle, ExecMiniMatch0) {
     CharReach chars;
     chars.set('a');
 
-    truffleBuildMasks(chars, &lo, &hi);
+    truffleBuildMasks(chars, (u8 *)&lo, (u8 *)&hi);
 
     char t1[] = "a";
 
@@ -169,7 +169,7 @@ TEST(Truffle, ExecMiniMatch1) {
     CharReach chars;
     chars.set('a');
 
-    truffleBuildMasks(chars, &lo, &hi);
+    truffleBuildMasks(chars, (u8 *)&lo, (u8 *)&hi);
 
     char t1[] = "bbbbbbbabbb";
 
@@ -184,7 +184,7 @@ TEST(Truffle, ExecMiniMatch2) {
     CharReach chars;
     chars.set(0);
 
-    truffleBuildMasks(chars, &lo, &hi);
+    truffleBuildMasks(chars, (u8 *)&lo, (u8 *)&hi);
 
     char t1[] = "bbbbbbb\0bbb";
 
@@ -199,7 +199,7 @@ TEST(Truffle, ExecMiniMatch3) {
     CharReach chars;
     chars.set('a');
 
-    truffleBuildMasks(chars, &lo, &hi);
+    truffleBuildMasks(chars, (u8 *)&lo, (u8 *)&hi);
 
     char t1[] = "\0\0\0\0\0\0\0a\0\0\0";
 
@@ -214,7 +214,7 @@ TEST(Truffle, ExecMatchBig) {
     CharReach chars;
     chars.set('a');
 
-    truffleBuildMasks(chars, &lo, &hi);
+    truffleBuildMasks(chars, (u8 *)&lo, (u8 *)&hi);
 
     std::array<u8, 400> t1;
     t1.fill('b');
@@ -234,7 +234,7 @@ TEST(Truffle, ExecMatch1) {
 
     chars.set('a');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     /*          0123456789012345678901234567890 */
     char t1[] = "bbbbbbbbbbbbbbbbbabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbabbbbbbbbbbbb";
@@ -253,7 +253,7 @@ TEST(Truffle, ExecMatch2) {
 
     chars.set('a');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     /*          0123456789012345678901234567890 */
     char t1[] = "bbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbabbbbbbbbbbbb";
@@ -273,7 +273,7 @@ TEST(Truffle, ExecMatch3) {
     chars.set('a');
     chars.set('B');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     /*          0123456789012345678901234567890 */
     char t1[] = "bbbbbbbbbbbbbbbbbBaaaaaaaaaaaaaaabbbbbbbbbbbbbbbabbbbbbbbbbbb";
@@ -295,7 +295,7 @@ TEST(Truffle, ExecMatch4) {
     chars.set('A');
     chars.set('c');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     /*          0123456789012345678901234567890 */
     char t1[] = "bbbbbbbbbbbbbbbbbAaaaaaaaaaaaaaaabbbbbbbbbbbbbbbabbbbbbbbbbbb";
@@ -329,7 +329,7 @@ TEST(Truffle, ExecMatch5) {
 
     chars.set('a');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     char t1[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
@@ -349,7 +349,7 @@ TEST(Truffle, ExecMatch6) {
     // [0-Z] - includes some graph chars
     chars.setRange('0', 'Z');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     std::array<u8, 128> t1;
     t1.fill('*'); // it's full of stars!
@@ -370,7 +370,7 @@ TEST(Truffle, ExecMatch7) {
     // hi bits
     chars.setRange(127, 255);
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     std::array<u8, 128> t1;
     t1.fill('*'); // it's full of stars!
@@ -389,7 +389,7 @@ TEST(ReverseTruffle, ExecNoMatch1) {
     CharReach chars;
     chars.set('a');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     char t1[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     size_t len = strlen(t1);
@@ -408,7 +408,7 @@ TEST(ReverseTruffle, ExecNoMatch2) {
     chars.set('a');
     chars.set('B');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     char t1[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     size_t len = strlen(t1);
@@ -425,7 +425,7 @@ TEST(ReverseTruffle, ExecNoMatch3) {
     CharReach chars;
     chars.set('V'); /* V = 0x56, e = 0x65 */
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     char t1[] = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
     size_t len = strlen(t1);
@@ -442,7 +442,7 @@ TEST(ReverseTruffle, ExecMiniMatch0) {
     CharReach chars;
     chars.set('a');
 
-    truffleBuildMasks(chars, &lo, &hi);
+    truffleBuildMasks(chars, (u8 *)&lo, (u8 *)&hi);
 
     char t1[] = "a";
 
@@ -457,7 +457,7 @@ TEST(ReverseTruffle, ExecMiniMatch1) {
     CharReach chars;
     chars.set('a');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     /*          0123456789012345678901234567890 */
     char t1[] = "bbbbbbbabbbb";
@@ -475,7 +475,7 @@ TEST(ReverseTruffle, ExecMiniMatch2) {
     CharReach chars;
     chars.set('a');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     /*          0123456789012345678901234567890 */
     char t1[] = "babbbbbabbbb";
@@ -494,7 +494,7 @@ TEST(ReverseTruffle, ExecMatch1) {
     CharReach chars;
     chars.set('a');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     /*          0123456789012345678901234567890 */
     char t1[] = "bbbbbbabbbbbbbbbbabbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -514,7 +514,7 @@ TEST(ReverseTruffle, ExecMatch2) {
     CharReach chars;
     chars.set('a');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     /*          0123456789012345678901234567890 */
     char t1[] = "bbbbabbbbbbbbbbbbaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -535,7 +535,7 @@ TEST(ReverseTruffle, ExecMatch3) {
     chars.set('a');
     chars.set('B');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     /*          0123456789012345678901234567890 */
     char t1[] = "bbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaBbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -568,7 +568,7 @@ TEST(ReverseTruffle, ExecMatch4) {
     chars.set('A');
     chars.set('c');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     /*          0123456789012345678901234567890 */
     char t1[] = "bbbbbbbbbbbbbbbbbaaaaaaaaaaaaaaaAbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -602,7 +602,7 @@ TEST(ReverseTruffle, ExecMatch5) {
     CharReach chars;
     chars.set('a');
 
-    truffleBuildMasks(chars, &mask1, &mask2);
+    truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
     char t1[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     size_t len = strlen(t1);

@@ -59,7 +59,7 @@ static
 size_t countChain(const NGHolder &g, NFAVertex v) {
     size_t count = 0;
     while (v) {
-        DEBUG_PRINTF("counting vertex %u\n", g[v].index);
+        DEBUG_PRINTF("counting vertex %zu\n", g[v].index);
         if (is_special(v, g)) {
             break;
         }
@@ -79,7 +79,7 @@ void wireNewAccepts(NGHolder &g, NFAVertex head,
             continue;
         }
 
-        DEBUG_PRINTF("adding edge: %u -> accept\n", g[u].index);
+        DEBUG_PRINTF("adding edge: %zu -> accept\n", g[u].index);
         assert(!edge(u, g.accept, g).second);
         assert(!edge(u, g.acceptEod, g).second);
         add_edge(u, g.accept, g);
@@ -136,13 +136,13 @@ bool singleStart(const NGHolder &g) {
 
     for (auto v : adjacent_vertices_range(g.start, g)) {
         if (!is_special(v, g)) {
-            DEBUG_PRINTF("saw %u\n", g[v].index);
+            DEBUG_PRINTF("saw %zu\n", g[v].index);
             seen.insert(v);
         }
     }
     for (auto v : adjacent_vertices_range(g.startDs, g)) {
         if (!is_special(v, g)) {
-            DEBUG_PRINTF("saw %u\n", g[v].index);
+            DEBUG_PRINTF("saw %zu\n", g[v].index);
             seen.insert(v);
         }
     }
@@ -158,7 +158,7 @@ bool triggerResetsPuff(const NGHolder &g, NFAVertex head) {
 
     for (auto u : inv_adjacent_vertices_range(head, g)) {
         if (!g[u].char_reach.isSubsetOf(puff_escapes)) {
-            DEBUG_PRINTF("no reset on trigger %u %u\n", g[u].index,
+            DEBUG_PRINTF("no reset on trigger %zu %zu\n", g[u].index,
                          g[head].index);
             return false;
         }
@@ -172,7 +172,7 @@ bool triggerResetsPuff(const NGHolder &g, NFAVertex head) {
  * */
 static
 bool triggerFloodsPuff(const NGHolder &g, NFAVertex head) {
-    DEBUG_PRINTF("head = %u\n", g[head].index);
+    DEBUG_PRINTF("head = %zu\n", g[head].index);
 
     const CharReach &puff_cr = g[head].char_reach;
 
@@ -186,14 +186,14 @@ bool triggerFloodsPuff(const NGHolder &g, NFAVertex head) {
     if (proper_in_degree(head, g) == 1
         && puff_cr == g[getSoleSourceVertex(g, head)].char_reach) {
         head = getSoleSourceVertex(g, head);
-        DEBUG_PRINTF("temp new head = %u\n", g[head].index);
+        DEBUG_PRINTF("temp new head = %zu\n", g[head].index);
     }
 
     for (auto s : inv_adjacent_vertices_range(head, g)) {
-        DEBUG_PRINTF("s = %u\n", g[s].index);
+        DEBUG_PRINTF("s = %zu\n", g[s].index);
         if (!puff_cr.isSubsetOf(g[s].char_reach)) {
-            DEBUG_PRINTF("no flood on trigger %u %u\n",
-                         g[s].index, g[head].index);
+            DEBUG_PRINTF("no flood on trigger %zu %zu\n", g[s].index,
+                         g[head].index);
             return false;
         }
 
@@ -268,7 +268,7 @@ void constructPuff(NGHolder &g, const NFAVertex a, const NFAVertex puffv,
                    RoseBuild &rose, ReportManager &rm,
                    flat_set<ReportID> &chain_reports, bool prefilter) {
     DEBUG_PRINTF("constructing Puff for report %u\n", report);
-    DEBUG_PRINTF("a = %u\n", g[a].index);
+    DEBUG_PRINTF("a = %zu\n", g[a].index);
 
     const Report &puff_report = rm.getReport(report);
     const bool simple_exhaust = isSimpleExhaustible(puff_report);
@@ -349,7 +349,7 @@ bool doComponent(RoseBuild &rose, ReportManager &rm, NGHolder &g, NFAVertex a,
         }
 
         nodes.push_back(a);
-        DEBUG_PRINTF("vertex %u has in_degree %zu\n", g[a].index,
+        DEBUG_PRINTF("vertex %zu has in_degree %zu\n", g[a].index,
                      in_degree(a, g));
 
         a = getSoleSourceVertex(g, a);
@@ -387,10 +387,10 @@ bool doComponent(RoseBuild &rose, ReportManager &rm, NGHolder &g, NFAVertex a,
 
     bool auto_restart = false;
 
-    DEBUG_PRINTF("a = %u\n", g[a].index);
+    DEBUG_PRINTF("a = %zu\n", g[a].index);
 
     if (nodes.size() < MIN_PUFF_LENGTH || a == g.startDs) {
-        DEBUG_PRINTF("bad %zu %u\n", nodes.size(), g[a].index);
+        DEBUG_PRINTF("bad %zu %zu\n", nodes.size(), g[a].index);
         if (nodes.size() < MIN_PUFF_LENGTH) {
             return false;
         } else {

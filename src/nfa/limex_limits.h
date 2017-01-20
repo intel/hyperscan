@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,5 @@
 
 #define NFA_MAX_STATES       512 /**< max states in an NFA */
 #define NFA_MAX_ACCEL_STATES   8 /**< max accel states in a NFA */
-#define NFA_MAX_TOP_MASKS     32 /**< max number of MQE_TOP_N event types */
 
 #endif

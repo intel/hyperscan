@@ -45,11 +45,13 @@
 #include "rose_program.h"
 #include "rose_types.h"
 #include "validate_mask.h"
+#include "validate_shufti.h"
 #include "runtime.h"
 #include "scratch.h"
 #include "ue2common.h"
 #include "hwlm/hwlm.h" // for hwlmcb_rv_t
 #include "util/compare.h"
+#include "util/copybytes.h"
 #include "util/fatbit.h"
 #include "util/multibit.h"
 
@@ -69,73 +71,6 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                            u64a som, u64a end, size_t match_len, u8 prog_flags);
 
 /* Inline implementation follows. */
-
-static rose_inline
-int roseCheckBenefits(const struct core_info *ci, u64a end, u32 mask_rewind,
-                      const u8 *and_mask, const u8 *exp_mask) {
-    const u8 *data;
-
-    // If the check works over part of the history and part of the buffer, we
-    // create a temporary copy of the data in here so it's contiguous.
-    u8 temp[MAX_MASK2_WIDTH];
-
-    s64a buffer_offset = (s64a)end - ci->buf_offset;
-    DEBUG_PRINTF("rel offset %lld\n", buffer_offset);
-    if (buffer_offset >= mask_rewind) {
-        data = ci->buf + buffer_offset - mask_rewind;
-        DEBUG_PRINTF("all in one case data=%p buf=%p rewind=%u\n", data,
-                     ci->buf, mask_rewind);
-    } else if (buffer_offset <= 0) {
-        data = ci->hbuf + ci->hlen + buffer_offset - mask_rewind;
-        DEBUG_PRINTF("all in one case data=%p buf=%p rewind=%u\n", data,
-                     ci->buf, mask_rewind);
-    } else {
-        u32 shortfall = mask_rewind - buffer_offset;
-        DEBUG_PRINTF("shortfall of %u, rewind %u hlen %zu\n", shortfall,
-                     mask_rewind, ci->hlen);
-        data = temp;
-        memcpy(temp, ci->hbuf + ci->hlen - shortfall, shortfall);
-        memcpy(temp + shortfall, ci->buf, mask_rewind - shortfall);
-    }
-
-#ifdef DEBUG
-    DEBUG_PRINTF("DATA: ");
-    for (u32 i = 0; i < mask_rewind; i++) {
-        printf("%c", ourisprint(data[i]) ? data[i] : '?');
-    }
-    printf(" (len=%u)\n", mask_rewind);
-#endif
-
-    u32 len = mask_rewind;
-    while (len >= sizeof(u64a)) {
-        u64a a = unaligned_load_u64a(data);
-        a &= *(const u64a *)and_mask;
-        if (a != *(const u64a *)exp_mask) {
-            DEBUG_PRINTF("argh %016llx %016llx\n", a, *(const u64a *)exp_mask);
-            return 0;
-        }
-        data += sizeof(u64a);
-        and_mask += sizeof(u64a);
-        exp_mask += sizeof(u64a);
-        len -= sizeof(u64a);
-    }
-
-    while (len) {
-        u8 a = *data;
-        a &= *and_mask;
-        if (a != *exp_mask) {
-            DEBUG_PRINTF("argh d%02hhx =%02hhx am%02hhx  em%02hhx\n", a,
-                          *data, *and_mask, *exp_mask);
-            return 0;
-        }
-        data++;
-        and_mask++;
-        exp_mask++;
-        len--;
-    }
-
-    return 1;
-}
 
 static rose_inline
 void rosePushDelayedMatch(const struct RoseEngine *t,
@@ -783,6 +718,347 @@ int roseCheckMask(const struct core_info *ci, u64a and_mask, u64a cmp_mask,
         return 0;
     }
 }
+
+static rose_inline
+int roseCheckMask32(const struct core_info *ci, const u8 *and_mask,
+                    const u8 *cmp_mask, const u32 neg_mask,
+                    s32 checkOffset, u64a end) {
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("end %lld base_offset %lld\n", end, base_offset);
+    DEBUG_PRINTF("checkOffset %d offset %lld\n", checkOffset, offset);
+
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    m256 data = zeroes256(); // consists of the following four parts.
+    s32 c_shift = 0; // blank bytes after current.
+    s32 h_shift = 0; // blank bytes before history.
+    s32 h_len = 32; // number of bytes from history buffer.
+    s32 c_len = 0; // number of bytes from current buffer.
+    /* h_shift + h_len + c_len + c_shift = 32 need to be hold.*/
+
+    if (offset < 0) {
+        s32 h_offset = 0; // the start offset in history buffer.
+        if (offset < -(s64a)ci->hlen) {
+            if (offset + 32 <= -(s64a)ci->hlen) {
+                DEBUG_PRINTF("all before history\n");
+                return 1;
+            }
+            h_shift = -(offset + (s64a)ci->hlen);
+            h_len = 32 - h_shift;
+        } else {
+            h_offset = ci->hlen + offset;
+        }
+        if (offset + 32 > 0) {
+            // part in current buffer.
+            c_len = offset + 32;
+            h_len = -(offset + h_shift);
+            if (c_len > (s64a)ci->len) {
+                // out of current buffer.
+                c_shift = c_len - ci->len;
+                c_len = ci->len;
+            }
+            copy_upto_32_bytes((u8 *)&data - offset, ci->buf, c_len);
+        }
+        assert(h_shift + h_len + c_len + c_shift == 32);
+        copy_upto_32_bytes((u8 *)&data + h_shift, ci->hbuf + h_offset, h_len);
+    } else {
+        if (offset + 32 > (s64a)ci->len) {
+            if (offset >= (s64a)ci->len) {
+                DEBUG_PRINTF("all in the future.\n");
+                return 1;
+            }
+            c_len = ci->len - offset;
+            c_shift = 32 - c_len;
+            copy_upto_32_bytes((u8 *)&data, ci->buf + offset, c_len);
+        } else {
+            data = loadu256(ci->buf + offset);
+        }
+    }
+    DEBUG_PRINTF("h_shift %d c_shift %d\n", h_shift, c_shift);
+    DEBUG_PRINTF("h_len %d c_len %d\n", h_len, c_len);
+    // we use valid_data_mask to blind bytes before history/in the future.
+    u32 valid_data_mask;
+    valid_data_mask = (~0u) << (h_shift + c_shift) >> (c_shift);
+
+    m256 and_mask_m256 = loadu256(and_mask);
+    m256 cmp_mask_m256 = loadu256(cmp_mask);
+    if (validateMask32(data, valid_data_mask, and_mask_m256,
+                       cmp_mask_m256, neg_mask)) {
+        DEBUG_PRINTF("Mask32 passed\n");
+        return 1;
+    }
+    return 0;
+}
+
+// get 128/256 bits data from history and current buffer.
+// return data and valid_data_mask.
+static rose_inline
+u32 getBufferDataComplex(const struct core_info *ci, const s64a loc,
+                         u8 *data, const u32 data_len) {
+    assert(data_len == 16 || data_len == 32);
+    s32 c_shift = 0; // blank bytes after current.
+    s32 h_shift = 0; // blank bytes before history.
+    s32 h_len = data_len; // number of bytes from history buffer.
+    s32 c_len = 0; // number of bytes from current buffer.
+    if (loc < 0) {
+        s32 h_offset = 0; // the start offset in history buffer.
+        if (loc < -(s64a)ci->hlen) {
+            if (loc + data_len <= -(s64a)ci->hlen) {
+                DEBUG_PRINTF("all before history\n");
+                return 0;
+            }
+            h_shift = -(loc + (s64a)ci->hlen);
+            h_len = data_len - h_shift;
+        } else {
+            h_offset = ci->hlen + loc;
+        }
+        if (loc + data_len > 0) {
+            // part in current buffer.
+            c_len = loc + data_len;
+            h_len = -(loc + h_shift);
+            if (c_len > (s64a)ci->len) {
+                // out of current buffer.
+                c_shift = c_len - ci->len;
+                c_len = ci->len;
+            }
+            copy_upto_32_bytes(data - loc, ci->buf, c_len);
+        }
+        assert(h_shift + h_len + c_len + c_shift == (s32)data_len);
+        copy_upto_32_bytes(data + h_shift, ci->hbuf + h_offset, h_len);
+    } else {
+        if (loc + data_len > (s64a)ci->len) {
+            if (loc >= (s64a)ci->len) {
+                DEBUG_PRINTF("all in the future.\n");
+                return 0;
+            }
+            c_len = ci->len - loc;
+            c_shift = data_len - c_len;
+            copy_upto_32_bytes(data, ci->buf + loc, c_len);
+        } else {
+            if (data_len == 16) {
+                storeu128(data, loadu128(ci->buf + loc));
+                return 0xffff;
+            } else {
+                storeu256(data, loadu256(ci->buf + loc));
+                return 0xffffffff;
+            }
+        }
+    }
+    DEBUG_PRINTF("h_shift %d c_shift %d\n", h_shift, c_shift);
+    DEBUG_PRINTF("h_len %d c_len %d\n", h_len, c_len);
+
+    if (data_len == 16) {
+        return (u16)(0xffff << (h_shift + c_shift)) >> c_shift;
+    } else {
+        return (~0u) << (h_shift + c_shift) >> c_shift;
+    }
+}
+
+static rose_inline
+m128 getData128(const struct core_info *ci, s64a offset, u16 *valid_data_mask) {
+    if (offset > 0 && offset + sizeof(m128) <= ci->len) {
+        *valid_data_mask = 0xffff;
+        return loadu128(ci->buf + offset);
+    }
+    ALIGN_DIRECTIVE u8 data[sizeof(m128)];
+    *valid_data_mask = (u16)getBufferDataComplex(ci, offset, data, 16);
+    return *(m128 *)data;
+}
+
+static rose_inline
+m256 getData256(const struct core_info *ci, s64a offset, u32 *valid_data_mask) {
+    if (offset > 0 && offset + sizeof(m256) <= ci->len) {
+        *valid_data_mask = ~0u;
+        return loadu256(ci->buf + offset);
+    }
+    ALIGN_AVX_DIRECTIVE u8 data[sizeof(m256)];
+    *valid_data_mask = getBufferDataComplex(ci, offset, data, 32);
+    return *(m256 *)data;
+}
+
+static rose_inline
+int roseCheckShufti16x8(const struct core_info *ci, const u8 *nib_mask,
+                        const u8 *bucket_select_mask, u32 neg_mask,
+                        s32 checkOffset, u64a end) {
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("end %lld base_offset %lld\n", end, base_offset);
+    DEBUG_PRINTF("checkOffset %d offset %lld\n", checkOffset, offset);
+
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    u16 valid_data_mask = 0;
+    m128 data = getData128(ci, offset, &valid_data_mask);
+    if (unlikely(!valid_data_mask)) {
+        return 1;
+    }
+
+    m256 nib_mask_m256 = loadu256(nib_mask);
+    m128 bucket_select_mask_m128 = loadu128(bucket_select_mask);
+    if (validateShuftiMask16x8(data, nib_mask_m256,
+                               bucket_select_mask_m128,
+                               neg_mask, valid_data_mask)) {
+        DEBUG_PRINTF("check shufti 16x8 successfully\n");
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static rose_inline
+int roseCheckShufti16x16(const struct core_info *ci, const u8 *hi_mask,
+                         const u8 *lo_mask, const u8 *bucket_select_mask,
+                         u32 neg_mask, s32 checkOffset, u64a end) {
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("end %lld base_offset %lld\n", end, base_offset);
+    DEBUG_PRINTF("checkOffset %d offset %lld\n", checkOffset, offset);
+
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    u16 valid_data_mask = 0;
+    m128 data = getData128(ci, offset, &valid_data_mask);
+    if (unlikely(!valid_data_mask)) {
+        return 1;
+    }
+
+    m256 data_m256 = set2x128(data);
+    m256 hi_mask_m256 = loadu256(hi_mask);
+    m256 lo_mask_m256 = loadu256(lo_mask);
+    m256 bucket_select_mask_m256 = loadu256(bucket_select_mask);
+    if (validateShuftiMask16x16(data_m256, hi_mask_m256, lo_mask_m256,
+                                bucket_select_mask_m256,
+                                neg_mask, valid_data_mask)) {
+        DEBUG_PRINTF("check shufti 16x16 successfully\n");
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static rose_inline
+int roseCheckShufti32x8(const struct core_info *ci, const u8 *hi_mask,
+                        const u8 *lo_mask, const u8 *bucket_select_mask,
+                        u32 neg_mask, s32 checkOffset, u64a end) {
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("end %lld base_offset %lld\n", end, base_offset);
+    DEBUG_PRINTF("checkOffset %d offset %lld\n", checkOffset, offset);
+
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    u32 valid_data_mask = 0;
+    m256 data = getData256(ci, offset, &valid_data_mask);
+    if (unlikely(!valid_data_mask)) {
+        return 1;
+    }
+
+    m128 hi_mask_m128 = loadu128(hi_mask);
+    m128 lo_mask_m128 = loadu128(lo_mask);
+    m256 hi_mask_m256 = set2x128(hi_mask_m128);
+    m256 lo_mask_m256 = set2x128(lo_mask_m128);
+    m256 bucket_select_mask_m256 = loadu256(bucket_select_mask);
+    if (validateShuftiMask32x8(data, hi_mask_m256, lo_mask_m256,
+                               bucket_select_mask_m256,
+                               neg_mask, valid_data_mask)) {
+        DEBUG_PRINTF("check shufti 32x8 successfully\n");
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static rose_inline
+int roseCheckShufti32x16(const struct core_info *ci, const u8 *hi_mask,
+                         const u8 *lo_mask, const u8 *bucket_select_mask_hi,
+                         const u8 *bucket_select_mask_lo, u32 neg_mask,
+                         s32 checkOffset, u64a end) {
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("end %lld base_offset %lld\n", end, base_offset);
+    DEBUG_PRINTF("checkOffset %d offset %lld\n", checkOffset, offset);
+
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    u32 valid_data_mask = 0;
+    m256 data = getData256(ci, offset, &valid_data_mask);
+    if (unlikely(!valid_data_mask)) {
+        return 1;
+    }
+
+    m256 hi_mask_1 = loadu2x128(hi_mask);
+    m256 hi_mask_2 = loadu2x128(hi_mask + 16);
+    m256 lo_mask_1 = loadu2x128(lo_mask);
+    m256 lo_mask_2 = loadu2x128(lo_mask + 16);
+
+    m256 bucket_mask_hi = loadu256(bucket_select_mask_hi);
+    m256 bucket_mask_lo = loadu256(bucket_select_mask_lo);
+    if (validateShuftiMask32x16(data, hi_mask_1, hi_mask_2,
+                                lo_mask_1, lo_mask_2, bucket_mask_hi,
+                                bucket_mask_lo, neg_mask, valid_data_mask)) {
+        DEBUG_PRINTF("check shufti 32x16 successfully\n");
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static rose_inline
+int roseCheckSingleLookaround(const struct RoseEngine *t,
+                              const struct hs_scratch *scratch,
+                              s8 checkOffset, u32 lookaroundIndex, u64a end) {
+    assert(lookaroundIndex != MO_INVALID_IDX);
+    const struct core_info *ci = &scratch->core_info;
+    DEBUG_PRINTF("end=%llu, buf_offset=%llu, buf_end=%llu\n", end,
+                 ci->buf_offset, ci->buf_offset + ci->len);
+
+    const s64a base_offset = end - ci->buf_offset;
+    const s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("base_offset=%lld\n", base_offset);
+    DEBUG_PRINTF("checkOffset=%d offset=%lld\n", checkOffset, offset);
+
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    const u8 *reach_base = (const u8 *)t + t->lookaroundReachOffset;
+    const u8 *reach = reach_base + lookaroundIndex * REACH_BITVECTOR_LEN;
+
+    u8 c;
+    if (offset >= 0 && offset < (s64a)ci->len) {
+        c = ci->buf[offset];
+    } else if (offset < 0 && offset >= -(s64a)ci->hlen) {
+        c = ci->hbuf[ci->hlen + offset];
+    } else {
+        return 1;
+    }
+
+    if (!reachHasBit(reach, c)) {
+        DEBUG_PRINTF("char 0x%02x failed reach check\n", c);
+        return 0;
+    }
+
+    DEBUG_PRINTF("OK :)\n");
+    return 1;
+}
+
 /**
  * \brief Scan around a literal, checking that that "lookaround" reach masks
  * are satisfied.
@@ -1055,6 +1331,78 @@ hwlmcb_rv_t roseMatcherEod(const struct RoseEngine *rose,
     return HWLM_CONTINUE_MATCHING;
 }
 
+static rose_inline
+int roseCheckLongLiteral(const struct RoseEngine *t,
+                         const struct hs_scratch *scratch, u64a end,
+                         u32 lit_offset, u32 lit_length, char nocase) {
+    const struct core_info *ci = &scratch->core_info;
+    const u8 *lit = getByOffset(t, lit_offset);
+
+    DEBUG_PRINTF("check lit at %llu, length %u\n", end, lit_length);
+    DEBUG_PRINTF("base buf_offset=%llu\n", ci->buf_offset);
+
+    if (end < lit_length) {
+        DEBUG_PRINTF("too short!\n");
+        return 0;
+    }
+
+    // If any portion of the literal matched in the current buffer, check it.
+    if (end > ci->buf_offset) {
+        u32 scan_len = MIN(end - ci->buf_offset, lit_length);
+        u64a scan_start = end - ci->buf_offset - scan_len;
+        DEBUG_PRINTF("checking suffix (%u bytes) in buf[%llu:%llu]\n", scan_len,
+                     scan_start, end);
+        if (cmpForward(ci->buf + scan_start, lit + lit_length - scan_len,
+                       scan_len, nocase)) {
+            DEBUG_PRINTF("cmp of suffix failed\n");
+            return 0;
+        }
+    }
+
+    // If the entirety of the literal was in the current block, we are done.
+    if (end - lit_length >= ci->buf_offset) {
+        DEBUG_PRINTF("literal confirmed in current block\n");
+        return 1;
+    }
+
+    // We still have a prefix which we must test against the buffer prepared by
+    // the long literal table. This is only done in streaming mode.
+
+    assert(t->mode != HS_MODE_BLOCK);
+
+    const u8 *ll_buf;
+    size_t ll_len;
+    if (nocase) {
+        ll_buf = scratch->tctxt.ll_buf_nocase;
+        ll_len = scratch->tctxt.ll_len_nocase;
+    } else {
+        ll_buf = scratch->tctxt.ll_buf;
+        ll_len = scratch->tctxt.ll_len;
+    }
+
+    assert(ll_buf);
+
+    u64a lit_start_offset = end - lit_length;
+    u32 prefix_len = MIN(lit_length, ci->buf_offset - lit_start_offset);
+    u32 hist_rewind = ci->buf_offset - lit_start_offset;
+    DEBUG_PRINTF("ll_len=%zu, hist_rewind=%u\n", ll_len, hist_rewind);
+    if (hist_rewind > ll_len) {
+        DEBUG_PRINTF("not enough history\n");
+        return 0;
+    }
+
+    DEBUG_PRINTF("check prefix len=%u from hist (len %zu, rewind %u)\n",
+                 prefix_len, ll_len, hist_rewind);
+    assert(hist_rewind <= ll_len);
+    if (cmpForward(ll_buf + ll_len - hist_rewind, lit, prefix_len, nocase)) {
+        DEBUG_PRINTF("cmp of prefix failed\n");
+        return 0;
+    }
+
+    DEBUG_PRINTF("cmp succeeded\n");
+    return 1;
+}
+
 static
 void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
                     const char from_mpv) {
@@ -1080,7 +1428,7 @@ void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
 static rose_inline
 hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                              struct hs_scratch *scratch, u32 programOffset,
-                             u64a som, u64a end, size_t match_len,
+                             u64a som, u64a end, UNUSED size_t match_len,
                              u8 prog_flags) {
     DEBUG_PRINTF("program=%u, offsets [%llu,%llu], flags=%u\n", programOffset,
                  som, end, prog_flags);
@@ -1113,9 +1461,15 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
         assert(pc >= pc_base);
         assert((size_t)(pc - pc_base) < t->size);
         const u8 code = *(const u8 *)pc;
-        assert(code <= ROSE_INSTR_END);
+        assert(code <= LAST_ROSE_INSTRUCTION);
 
         switch ((enum RoseInstructionCode)code) {
+            PROGRAM_CASE(END) {
+                DEBUG_PRINTF("finished\n");
+                return HWLM_CONTINUE_MATCHING;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(ANCHORED_DELAY) {
                 if (in_anchored && end > t->floatingMinLiteralMatchOffset) {
                     DEBUG_PRINTF("delay until playback\n");
@@ -1124,17 +1478,6 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                     assert(ri->done_jump); // must progress
                     pc += ri->done_jump;
                     continue;
-                }
-            }
-            PROGRAM_NEXT_INSTRUCTION
-
-            PROGRAM_CASE(CHECK_LIT_MASK) {
-                assert(match_len);
-                struct core_info *ci = &scratch->core_info;
-                if (!roseCheckBenefits(ci, end, match_len, ri->and_mask.a8,
-                                       ri->cmp_mask.a8)) {
-                    DEBUG_PRINTF("halt: failed mask check\n");
-                    return HWLM_CONTINUE_MATCHING;
                 }
             }
             PROGRAM_NEXT_INSTRUCTION
@@ -1190,6 +1533,17 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CHECK_SINGLE_LOOKAROUND) {
+                if (!roseCheckSingleLookaround(t, scratch, ri->offset,
+                                               ri->reach_index, end)) {
+                    DEBUG_PRINTF("failed lookaround check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CHECK_LOOKAROUND) {
                 if (!roseCheckLookaround(t, scratch, ri->index, ri->count,
                                          end)) {
@@ -1213,6 +1567,17 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CHECK_MASK_32) {
+                struct core_info *ci = &scratch->core_info;
+                if (!roseCheckMask32(ci, ri->and_mask, ri->cmp_mask,
+                                     ri->neg_mask, ri->offset, end)) {
+                    assert(ri->fail_jump);
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CHECK_BYTE) {
                 const struct core_info *ci = &scratch->core_info;
                 if (!roseCheckByte(ci, ri->and_mask, ri->cmp_mask,
@@ -1220,6 +1585,55 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                     DEBUG_PRINTF("failed byte check\n");
                     assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_SHUFTI_16x8) {
+                const struct core_info *ci = &scratch->core_info;
+                if (!roseCheckShufti16x8(ci, ri->nib_mask,
+                                         ri->bucket_select_mask,
+                                         ri->neg_mask, ri->offset, end)) {
+                    assert(ri->fail_jump);
+                    pc += ri-> fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_SHUFTI_32x8) {
+                const struct core_info *ci = &scratch->core_info;
+                if (!roseCheckShufti32x8(ci, ri->hi_mask, ri->lo_mask,
+                                         ri->bucket_select_mask,
+                                         ri->neg_mask, ri->offset, end)) {
+                    assert(ri->fail_jump);
+                    pc += ri-> fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_SHUFTI_16x16) {
+                const struct core_info *ci = &scratch->core_info;
+                if (!roseCheckShufti16x16(ci, ri->hi_mask, ri->lo_mask,
+                                          ri->bucket_select_mask,
+                                          ri->neg_mask, ri->offset, end)) {
+                    assert(ri->fail_jump);
+                    pc += ri-> fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_SHUFTI_32x16) {
+                const struct core_info *ci = &scratch->core_info;
+                if (!roseCheckShufti32x16(ci, ri->hi_mask, ri->lo_mask,
+                                          ri->bucket_select_mask_hi,
+                                          ri->bucket_select_mask_lo,
+                                          ri->neg_mask, ri->offset, end)) {
+                    assert(ri->fail_jump);
+                    pc += ri-> fail_jump;
                     continue;
                 }
             }
@@ -1590,6 +2004,28 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(SPARSE_ITER_ANY) {
+                DEBUG_PRINTF("iter_offset=%u\n", ri->iter_offset);
+                const struct mmbit_sparse_iter *it =
+                    getByOffset(t, ri->iter_offset);
+                assert(ISALIGNED(it));
+
+                const u8 *roles = getRoleState(scratch->core_info.state);
+
+                u32 idx = 0;
+                u32 i = mmbit_sparse_iter_begin(roles, t->rolesWithStateCount,
+                                                &idx, it, si_state);
+                if (i == MMB_INVALID) {
+                    DEBUG_PRINTF("no states in sparse iter are on\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+                DEBUG_PRINTF("state %u (idx=%u) is on\n", i, idx);
+                fatbit_clear(scratch->handled_roles);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(ENGINES_EOD) {
                 if (roseEnginesEod(t, scratch, end, ri->iter_offset) ==
                     HWLM_TERMINATE_MATCHING) {
@@ -1614,9 +2050,23 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(END) {
-                DEBUG_PRINTF("finished\n");
-                return HWLM_CONTINUE_MATCHING;
+            PROGRAM_CASE(CHECK_LONG_LIT) {
+                const char nocase = 0;
+                if (!roseCheckLongLiteral(t, scratch, end, ri->lit_offset,
+                                          ri->lit_length, nocase)) {
+                    DEBUG_PRINTF("halt: failed long lit check\n");
+                    return HWLM_CONTINUE_MATCHING;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_LONG_LIT_NOCASE) {
+                const char nocase = 1;
+                if (!roseCheckLongLiteral(t, scratch, end, ri->lit_offset,
+                                          ri->lit_length, nocase)) {
+                    DEBUG_PRINTF("halt: failed nocase long lit check\n");
+                    return HWLM_CONTINUE_MATCHING;
+                }
             }
             PROGRAM_NEXT_INSTRUCTION
         }

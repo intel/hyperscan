@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -71,17 +71,17 @@ struct mcclellan {
     u16 start_floating; /**< floating start state */
     u32 aux_offset; /**< offset of the aux structures relative to the start of
                      *  the nfa structure */
-    u32 sherman_offset; /**< offset of to array of sherman state offsets
-                      * the state_info structures relative to the start of the
-                      * nfa structure */
-    u32 sherman_end; /**< offset of the end of the state_info structures relative
-                   *  to the start of the nfa structure */
+    u32 sherman_offset; /**< offset of array of sherman state offsets the
+                         * state_info structures relative to the start of the
+                         * nfa structure */
+    u32 sherman_end; /**< offset of the end of the state_info structures
+                      *  relative to the start of the nfa structure */
     u16 accel_limit_8; /**< 8 bit, lowest accelerable state */
     u16 accept_limit_8; /**< 8 bit, lowest accept state */
     u16 sherman_limit; /**< lowest sherman state */
     u8  alphaShift;
     u8  flags;
-    u8  has_accel; /**< 1 iff there are any accel planes */
+    u8  has_accel; /**< 1 iff there are any accel plans */
     u8  remap[256]; /**< remaps characters to a smaller alphabet */
     ReportID arb_report; /**< one of the accepts that this dfa may raise */
     u32 accel_offset; /**< offset of the accel structures from start of NFA */
@@ -90,8 +90,8 @@ struct mcclellan {
 
 static really_inline
 const char *findShermanState(UNUSED const struct mcclellan *m,
-                             const char *sherman_base_offset, u16 sherman_base,
-                             u16 s) {
+                             const char *sherman_base_offset, u32 sherman_base,
+                             u32 s) {
     const char *rv
         = sherman_base_offset + SHERMAN_FIXED_SIZE * (s - sherman_base);
     assert(rv < (const char *)m + m->length - sizeof(struct NFA));
@@ -102,7 +102,7 @@ const char *findShermanState(UNUSED const struct mcclellan *m,
 
 static really_inline
 char *findMutableShermanState(char *sherman_base_offset, u16 sherman_base,
-                              u16 s) {
+                              u32 s) {
     return sherman_base_offset + SHERMAN_FIXED_SIZE * (s - sherman_base);
 }
 

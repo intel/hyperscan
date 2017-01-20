@@ -56,6 +56,8 @@ namespace ue2 {
 
 #define ROSE_GROUPS_MAX 64
 
+#define ROSE_LONG_LITERAL_THRESHOLD_MIN 33
+
 struct BoundaryReports;
 struct CastleProto;
 struct CompileContext;
@@ -525,8 +527,6 @@ public:
     // max overlap considered for every pair (ulit, vlit).
     size_t maxLiteralOverlap(RoseVertex u, RoseVertex v) const;
 
-    void renumberVertices(void);
-
     bool isPseudoStar(const RoseEdge &e) const;
     bool isPseudoStarOrFirstOnly(const RoseEdge &e) const;
     bool hasOnlyPseudoStarInEdges(RoseVertex v) const;
@@ -549,7 +549,6 @@ public:
     const RoseVertex anchored_root;
     RoseLiteralMap literals;
     std::map<RoseVertex, RoseVertex> ghost;
-    size_t vertexIndex;
     ReportID getNewNfaReport() override {
         return next_nfa_report++;
     }
@@ -603,6 +602,9 @@ private:
     ReportID next_nfa_report;
 };
 
+size_t calcLongLitThreshold(const RoseBuildImpl &build,
+                            const size_t historyRequired);
+
 // Free functions, in rose_build_misc.cpp
 
 bool hasAnchHistorySucc(const RoseGraph &g, RoseVertex v);
@@ -615,7 +617,8 @@ ue2_literal findNonOverlappingTail(const std::set<ue2_literal> &lits,
 void setReportId(NGHolder &g, ReportID id);
 
 #ifndef NDEBUG
-bool roseHasTops(const RoseGraph &g, RoseVertex v);
+bool roseHasTops(const RoseBuildImpl &build, RoseVertex v);
+bool hasOrphanedTops(const RoseBuildImpl &build);
 #endif
 
 u64a findMaxOffset(const std::set<ReportID> &reports, const ReportManager &rm);

@@ -51,13 +51,14 @@ struct hwlmLiteral;
  * only lead to a pattern match after max_offset may be excluded.
  */
 std::vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
-                    rose_literal_table table, u32 max_offset = ROSE_BOUND_INF);
+                    rose_literal_table table, size_t max_len,
+                    u32 max_offset = ROSE_BOUND_INF);
 
 aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
+                                              size_t longLitLengthThreshold,
                                               rose_group *fgroups,
                                               size_t *fsize,
-                                              size_t *historyRequired,
-                                              size_t *streamStateRequired);
+                                              size_t *historyRequired);
 
 aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
                                                 size_t *sbsize);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-16, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,37 +48,45 @@ using boost::make_iterator_property_map;
 namespace ue2 {
 
 template <class Graph>
-ue2::unordered_map<NFAVertex, NFAVertex> calcDominators(const Graph &g,
-                                                        NFAVertex source) {
+unordered_map<NFAVertex, NFAVertex> calcDominators(const Graph &g,
+                                typename Graph::vertex_descriptor source) {
+    using Vertex = typename Graph::vertex_descriptor;
     const size_t num_verts = num_vertices(g);
     auto index_map = get(&NFAGraphVertexProps::index, g);
 
     vector<size_t> dfnum(num_verts, 0);
-    vector<NFAVertex> parents(num_verts, Graph::null_vertex());
+    vector<Vertex> parents(num_verts, Graph::null_vertex());
 
     auto dfnum_map = make_iterator_property_map(dfnum.begin(), index_map);
     auto parent_map = make_iterator_property_map(parents.begin(), index_map);
-    vector<NFAVertex> vertices_by_dfnum(num_verts, Graph::null_vertex());
+    vector<Vertex> vertices_by_dfnum(num_verts, Graph::null_vertex());
 
     // Output map.
-    unordered_map<NFAVertex, NFAVertex> doms;
+    unordered_map<Vertex, Vertex> doms;
     auto dom_map = make_assoc_property_map(doms);
 
     boost_ue2::lengauer_tarjan_dominator_tree(g, source, index_map, dfnum_map,
                                               parent_map, vertices_by_dfnum,
                                               dom_map);
 
-    return doms;
+    /* Translate back to an NFAVertex map */
+    unordered_map<NFAVertex, NFAVertex> doms2;
+    for (const auto &e : doms) {
+        NFAVertex f(e.first);
+        NFAVertex s(e.second);
+        doms2[f] = s;
+    }
+    return doms2;
 }
 
-ue2::unordered_map<NFAVertex, NFAVertex> findDominators(const NGHolder &g) {
+unordered_map<NFAVertex, NFAVertex> findDominators(const NGHolder &g) {
     assert(hasCorrectlyNumberedVertices(g));
-    return calcDominators(g.g, g.start);
+    return calcDominators(g, g.start);
 }
 
-ue2::unordered_map<NFAVertex, NFAVertex> findPostDominators(const NGHolder &g) {
+unordered_map<NFAVertex, NFAVertex> findPostDominators(const NGHolder &g) {
     assert(hasCorrectlyNumberedVertices(g));
-    return calcDominators(boost::reverse_graph<NFAGraph, const NFAGraph &>(g.g),
+    return calcDominators(boost::reverse_graph<NGHolder, const NGHolder &>(g),
                           g.acceptEod);
 }
 

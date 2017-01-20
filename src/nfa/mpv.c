@@ -825,21 +825,21 @@ void mpvStoreState(const struct NFA *n, char *state,
     }
 }
 
-char nfaExecMpv0_queueCompressState(const struct NFA *nfa, const struct mq *q,
-                                    UNUSED s64a loc) {
+char nfaExecMpv_queueCompressState(const struct NFA *nfa, const struct mq *q,
+                                   UNUSED s64a loc) {
     void *dest = q->streamState;
     const void *src = q->state;
     mpvStoreState(nfa, dest, src);
     return 0;
 }
 
-char nfaExecMpv0_expandState(const struct NFA *nfa, void *dest, const void *src,
-                             UNUSED u64a offset, UNUSED u8 key) {
+char nfaExecMpv_expandState(const struct NFA *nfa, void *dest, const void *src,
+                            UNUSED u64a offset, UNUSED u8 key) {
     mpvLoadState(dest, nfa, src);
     return 0;
 }
 
-char nfaExecMpv0_reportCurrent(const struct NFA *n, struct mq *q) {
+char nfaExecMpv_reportCurrent(const struct NFA *n, struct mq *q) {
     const struct mpv *m = getImplNfa(n);
     u64a offset = q_cur_offset(q);
     struct mpv_decomp_state *s = (struct mpv_decomp_state *)q->state;
@@ -855,7 +855,7 @@ char nfaExecMpv0_reportCurrent(const struct NFA *n, struct mq *q) {
     return 0;
 }
 
-char nfaExecMpv0_queueInitState(const struct NFA *n, struct mq *q) {
+char nfaExecMpv_queueInitState(const struct NFA *n, struct mq *q) {
     struct mpv_decomp_state *out = (void *)q->state;
     const struct mpv *m = getImplNfa(n);
     assert(sizeof(*out) <= n->scratchStateSize);
@@ -880,8 +880,8 @@ char nfaExecMpv0_queueInitState(const struct NFA *n, struct mq *q) {
     return 0;
 }
 
-char nfaExecMpv0_initCompressedState(const struct NFA *n, u64a offset,
-                                     void *state, UNUSED u8 key) {
+char nfaExecMpv_initCompressedState(const struct NFA *n, u64a offset,
+                                    void *state, UNUSED u8 key) {
     const struct mpv *m = getImplNfa(n);
     memset(state, 0, m->active_offset); /* active_offset marks end of comp
                                          * counters */
@@ -896,7 +896,7 @@ char nfaExecMpv0_initCompressedState(const struct NFA *n, u64a offset,
 }
 
 static really_inline
-char nfaExecMpv0_Q_i(const struct NFA *n, struct mq *q, s64a end) {
+char nfaExecMpv_Q_i(const struct NFA *n, struct mq *q, s64a end) {
     u64a offset = q->offset;
     const u8 *buffer = q->buffer;
     size_t length = q->length;
@@ -1021,18 +1021,18 @@ char nfaExecMpv0_Q_i(const struct NFA *n, struct mq *q, s64a end) {
     return alive;
 }
 
-char nfaExecMpv0_Q(const struct NFA *n, struct mq *q, s64a end) {
+char nfaExecMpv_Q(const struct NFA *n, struct mq *q, s64a end) {
     DEBUG_PRINTF("_Q %lld\n", end);
-    return nfaExecMpv0_Q_i(n, q, end);
+    return nfaExecMpv_Q_i(n, q, end);
 }
 
-s64a nfaExecMpv0_QueueExecRaw(const struct NFA *nfa, struct mq *q, s64a end) {
+s64a nfaExecMpv_QueueExecRaw(const struct NFA *nfa, struct mq *q, s64a end) {
     DEBUG_PRINTF("nfa=%p end=%lld\n", nfa, end);
 #ifdef DEBUG
     debugQueue(q);
 #endif
 
-    assert(nfa->type == MPV_NFA_0);
+    assert(nfa->type == MPV_NFA);
     assert(q && q->context && q->state);
     assert(end >= 0);
     assert(q->cur < q->end);
@@ -1058,7 +1058,7 @@ s64a nfaExecMpv0_QueueExecRaw(const struct NFA *nfa, struct mq *q, s64a end) {
     /* TODO: restore max offset stuff, if/when _interesting_ max offset stuff
      * is filled in */
 
-    char rv = nfaExecMpv0_Q_i(nfa, q, end);
+    char rv = nfaExecMpv_Q_i(nfa, q, end);
 
     assert(!q->report_current);
     DEBUG_PRINTF("returned rv=%d, q_trimmed=%d\n", rv, q_trimmed);

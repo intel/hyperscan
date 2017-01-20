@@ -203,6 +203,7 @@ static
 bool addComponent(NG &ng, NGHolder &g, const NGWrapper &w, const som_type som,
                   const u32 comp_id) {
     const CompileContext &cc = ng.cc;
+    assert(hasCorrectlyNumberedVertices(g));
 
     DEBUG_PRINTF("expr=%u, comp=%u: %zu vertices, %zu edges\n",
                  w.expressionIndex, comp_id, num_vertices(g), num_edges(g));
@@ -421,6 +422,7 @@ bool NG::addGraph(NGWrapper &w) {
     // Perform a reduction pass to merge sibling character classes together.
     if (cc.grey.performGraphSimplification) {
         removeRedundancy(w, som);
+        prunePathsRedundantWithSuccessorOfCyclics(w, som);
     }
 
     dumpDotWrapper(w, "04_reduced", cc.grey);

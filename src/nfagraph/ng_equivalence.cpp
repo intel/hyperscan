@@ -38,17 +38,16 @@
 #include "ng_util.h"
 #include "util/compile_context.h"
 #include "util/graph_range.h"
+#include "util/make_unique.h"
 #include "util/ue2_containers.h"
 
 #include <algorithm>
+#include <memory>
 #include <set>
 #include <stack>
 #include <vector>
 
-#include <boost/ptr_container/ptr_vector.hpp>
-
 using namespace std;
-using boost::ptr_vector;
 
 namespace ue2 {
 
@@ -72,17 +71,17 @@ struct VertexInfoPtrCmp {
 class VertexInfo {
 public:
     VertexInfo(NFAVertex v_in, const NGHolder &g)
-        : v(v_in), vert_index(g[v].index), cr(g[v].char_reach), edge_top(~0),
+        : v(v_in), vert_index(g[v].index), cr(g[v].char_reach),
           equivalence_class(~0), vertex_flags(g[v].assert_flags) {}
 
     flat_set<VertexInfo *, VertexInfoPtrCmp> pred; //!< predecessors of this vertex
     flat_set<VertexInfo *, VertexInfoPtrCmp> succ; //!< successors of this vertex
     NFAVertex v;
-    u32 vert_index;
+    size_t vert_index;
     CharReach cr;
     CharReach pred_cr;
     CharReach succ_cr;
-    unsigned edge_top;
+    flat_set<u32> edge_tops; /**< tops on edge from start */
     unsigned equivalence_class;
     unsigned vertex_flags;
 };
@@ -120,15 +119,15 @@ public:
               EquivalenceType eq)
         : /* reports only matter for right-equiv */
           rs(eq == RIGHT_EQUIVALENCE ? g[vi.v].reports : flat_set<ReportID>()),
-          vertex_flags(vi.vertex_flags), edge_top(vi.edge_top), cr(vi.cr),
+          vertex_flags(vi.vertex_flags), edge_tops(vi.edge_tops), cr(vi.cr),
           adjacent_cr(eq == LEFT_EQUIVALENCE ? vi.pred_cr : vi.succ_cr),
           /* treat non-special vertices the same */
-          node_type(min(g[vi.v].index, u32{N_SPECIALS})), depth(d_in) {}
+          node_type(min(g[vi.v].index, size_t{N_SPECIALS})), depth(d_in) {}
 
     bool operator==(const ClassInfo &b) const {
         return node_type == b.node_type && depth.d1 == b.depth.d1 &&
                depth.d2 == b.depth.d2 && cr == b.cr &&
-               adjacent_cr == b.adjacent_cr && edge_top == b.edge_top &&
+               adjacent_cr == b.adjacent_cr && edge_tops == b.edge_tops &&
                vertex_flags == b.vertex_flags && rs == b.rs;
     }
 
@@ -136,7 +135,6 @@ public:
         size_t val = 0;
         boost::hash_combine(val, boost::hash_range(begin(c.rs), end(c.rs)));
         boost::hash_combine(val, c.vertex_flags);
-        boost::hash_combine(val, c.edge_top);
         boost::hash_combine(val, c.cr);
         boost::hash_combine(val, c.adjacent_cr);
         boost::hash_combine(val, c.node_type);
@@ -148,7 +146,7 @@ public:
 private:
     flat_set<ReportID> rs; /* for right equiv only */
     unsigned vertex_flags;
-    u32 edge_top;
+    flat_set<u32> edge_tops;
     CharReach cr;
     CharReach adjacent_cr;
     unsigned node_type;
@@ -277,47 +275,47 @@ bool hasEdgeAsserts(NFAVertex v, const NGHolder &g) {
 
 // populate VertexInfo table
 static
-ptr_vector<VertexInfo> getVertexInfos(const NGHolder &g) {
+vector<unique_ptr<VertexInfo>> getVertexInfos(const NGHolder &g) {
     const size_t num_verts = num_vertices(g);
 
-    ptr_vector<VertexInfo> infos;
+    vector<unique_ptr<VertexInfo>> infos;
     infos.reserve(num_verts * 2);
 
     vector<VertexInfo *> vertex_map; // indexed by vertex_index property
     vertex_map.resize(num_verts);
 
     for (auto v : vertices_range(g)) {
-        VertexInfo *vi = new VertexInfo(v, g);
-
-        // insert our new shiny VertexInfo into the info map
-        infos.push_back(vi);
-
-        vertex_map[g[v].index] = vi;
+        infos.push_back(make_unique<VertexInfo>(v, g));
+        vertex_map[g[v].index] = infos.back().get();
     }
 
-    // now, go through each vertex and populate its predecessor and successor lists
-    for (VertexInfo &cur_vi : infos) {
-        // find predecessors
-        for (const auto &e : in_edges_range(cur_vi.v, g)) {
-            NFAVertex u = source(e, g);
-            VertexInfo *vmi = vertex_map[g[u].index];
+    // now, go through each vertex and populate its predecessor and successor
+    // lists
+    for (auto &vi : infos) {
+        assert(vi);
+        NFAVertex v = vi->v;
 
-            cur_vi.pred_cr |= vmi->cr;
-            cur_vi.pred.insert(vmi);
+        // find predecessors
+        for (const auto &e : in_edges_range(v, g)) {
+            NFAVertex u = source(e, g);
+            VertexInfo *u_vi = vertex_map[g[u].index];
+
+            vi->pred_cr |= u_vi->cr;
+            vi->pred.insert(u_vi);
 
             // also set up edge tops
             if (is_triggered(g) && u == g.start) {
-                cur_vi.edge_top = g[e].top;
+                vi->edge_tops = g[e].tops;
             }
         }
 
         // find successors
-        for (auto w : adjacent_vertices_range(cur_vi.v, g)) {
-            VertexInfo *vmi = vertex_map[g[w].index];
-            cur_vi.succ_cr |= vmi->cr;
-            cur_vi.succ.insert(vmi);
+        for (auto w : adjacent_vertices_range(v, g)) {
+            VertexInfo *w_vi = vertex_map[g[w].index];
+            vi->succ_cr |= w_vi->cr;
+            vi->succ.insert(w_vi);
         }
-        assert(!hasEdgeAsserts(cur_vi.v, g));
+        assert(!hasEdgeAsserts(vi->v, g));
     }
 
     return infos;
@@ -325,7 +323,7 @@ ptr_vector<VertexInfo> getVertexInfos(const NGHolder &g) {
 
 // store equivalence class in VertexInfo for each vertex
 static
-vector<VertexInfoSet> partitionGraph(ptr_vector<VertexInfo> &infos,
+vector<VertexInfoSet> partitionGraph(vector<unique_ptr<VertexInfo>> &infos,
                                      WorkQueue &work_queue, const NGHolder &g,
                                      EquivalenceType eq) {
     const size_t num_verts = infos.size();
@@ -350,28 +348,30 @@ vector<VertexInfoSet> partitionGraph(ptr_vector<VertexInfo> &infos,
     }
 
     // partition the graph based on CharReach
-    for (VertexInfo &vi : infos) {
+    for (auto &vi : infos) {
+        assert(vi);
+
         ClassInfo::ClassDepth depth;
 
         if (eq == LEFT_EQUIVALENCE) {
-            depth = depths[vi.vert_index];
+            depth = depths[vi->vert_index];
         } else {
-            depth = rdepths[vi.vert_index];
+            depth = rdepths[vi->vert_index];
         }
-        ClassInfo ci(g, vi, depth, eq);
+        ClassInfo ci(g, *vi, depth, eq);
 
         auto ii = classinfomap.find(ci);
         if (ii == classinfomap.end()) {
             // vertex is in a new equivalence class by itself.
             unsigned eq_class = classes.size();
-            vi.equivalence_class = eq_class;
-            classes.push_back({&vi});
+            vi->equivalence_class = eq_class;
+            classes.push_back({vi.get()});
             classinfomap.emplace(move(ci), eq_class);
         } else {
             // vertex is added to an existing class.
             unsigned eq_class = ii->second;
-            vi.equivalence_class = eq_class;
-            classes.at(eq_class).insert(&vi);
+            vi->equivalence_class = eq_class;
+            classes.at(eq_class).insert(vi.get());
 
             // we now know that this particular class has more than one
             // vertex, so we add it to the work queue
@@ -501,8 +501,9 @@ bool require_separate_eod_vertex(const VertexInfoSet &vert_infos,
 }
 
 static
-void mergeClass(ptr_vector<VertexInfo> &infos, NGHolder &g, unsigned eq_class,
-                VertexInfoSet &cur_class_vertices, set<NFAVertex> *toRemove) {
+void mergeClass(vector<unique_ptr<VertexInfo>> &infos, NGHolder &g,
+                unsigned eq_class, VertexInfoSet &cur_class_vertices,
+                set<NFAVertex> *toRemove) {
     DEBUG_PRINTF("Replacing %zd vertices from equivalence class %u with a "
                  "single vertex.\n", cur_class_vertices.size(), eq_class);
 
@@ -530,9 +531,9 @@ void mergeClass(ptr_vector<VertexInfo> &infos, NGHolder &g, unsigned eq_class,
                                                * props */
     g[new_v].reports.clear(); /* populated as we pull in succs */
 
-    VertexInfo *new_vertex_info = new VertexInfo(new_v, g);
     // store this vertex in our global vertex list
-    infos.push_back(new_vertex_info);
+    infos.push_back(make_unique<VertexInfo>(new_v, g));
+    VertexInfo *new_vertex_info = infos.back().get();
 
     NFAVertex new_v_eod = NGHolder::null_vertex();
     VertexInfo *new_vertex_info_eod = nullptr;
@@ -540,11 +541,11 @@ void mergeClass(ptr_vector<VertexInfo> &infos, NGHolder &g, unsigned eq_class,
     if (require_separate_eod_vertex(cur_class_vertices, g)) {
         new_v_eod = clone_vertex(g, old_v);
         g[new_v_eod].reports.clear();
-        new_vertex_info_eod = new VertexInfo(new_v_eod, g);
-        infos.push_back(new_vertex_info_eod);
+        infos.push_back(make_unique<VertexInfo>(new_v_eod, g));
+        new_vertex_info_eod = infos.back().get();
     }
 
-    const unsigned edgetop = (*cur_class_vertices.begin())->edge_top;
+    const auto &edgetops = (*cur_class_vertices.begin())->edge_tops;
     for (VertexInfo *old_vertex_info : cur_class_vertices) {
         assert(old_vertex_info->equivalence_class == eq_class);
 
@@ -563,22 +564,24 @@ void mergeClass(ptr_vector<VertexInfo> &infos, NGHolder &g, unsigned eq_class,
             pred_info->succ.erase(old_vertex_info);
 
             // if edge doesn't exist, create it
-            NFAEdge e = add_edge_if_not_present(pred_info->v, new_v, g).first;
+            NFAEdge e = add_edge_if_not_present(pred_info->v, new_v, g);
 
-            // put edge top, if applicable
-            if (edgetop != (unsigned) -1) {
-                g[e].top = edgetop;
+            // put edge tops, if applicable
+            if (!edgetops.empty()) {
+                assert(g[e].tops.empty() || g[e].tops == edgetops);
+                g[e].tops = edgetops;
             }
 
             pred_info->succ.insert(new_vertex_info);
 
             if (new_v_eod) {
                 NFAEdge ee = add_edge_if_not_present(pred_info->v, new_v_eod,
-                                                     g).first;
+                                                     g);
 
-                // put edge top, if applicable
-                if (edgetop != (unsigned) -1) {
-                    g[ee].top = edgetop;
+                // put edge tops, if applicable
+                if (!edgetops.empty()) {
+                    assert(g[e].tops.empty() || g[e].tops == edgetops);
+                    g[ee].tops = edgetops;
                 }
 
                 pred_info->succ.insert(new_vertex_info_eod);
@@ -626,7 +629,8 @@ void mergeClass(ptr_vector<VertexInfo> &infos, NGHolder &g, unsigned eq_class,
 // report behaviour with a single vertex).
 static
 bool mergeEquivalentClasses(vector<VertexInfoSet> &classes,
-                            ptr_vector<VertexInfo> &infos, NGHolder &g) {
+                            vector<unique_ptr<VertexInfo>> &infos,
+                            NGHolder &g) {
     bool merged = false;
     set<NFAVertex> toRemove;
 
@@ -656,7 +660,7 @@ bool reduceGraphEquivalences(NGHolder &g, EquivalenceType eq_type) {
 
     // get information on every vertex in the graph
     // new vertices are allocated here, and stored in infos
-    ptr_vector<VertexInfo> infos = getVertexInfos(g);
+    auto infos = getVertexInfos(g);
 
     // partition the graph
     auto classes = partitionGraph(infos, work_queue, g, eq_type);
@@ -674,7 +678,7 @@ bool reduceGraphEquivalences(NGHolder &g, const CompileContext &cc) {
         DEBUG_PRINTF("equivalence processing disabled in grey box\n");
         return false;
     }
-    g.renumberVertices();
+    renumber_vertices(g);
 
     // Cheap check: if all the non-special vertices have in-degree one and
     // out-degree one, there's no redundancy in this here graph and we can

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -125,7 +125,7 @@ bool findLiterals(const NGHolder &g,
         set<sls_literal> &out = built[g[v].index];
         read_count[g[v].index] = out_degree(v, g);
 
-        DEBUG_PRINTF("setting read_count to %zu for %u\n",
+        DEBUG_PRINTF("setting read_count to %zu for %zu\n",
                       read_count[g[v].index], g[v].index);
 
         assert(out.empty());
@@ -154,7 +154,7 @@ bool findLiterals(const NGHolder &g,
             }
 
             set<sls_literal> &in = built[g[u].index];
-            DEBUG_PRINTF("getting from %u (%zu reads to go)\n",
+            DEBUG_PRINTF("getting from %zu (%zu reads to go)\n",
                           g[u].index, read_count[g[u].index]);
             assert(!in.empty());
             assert(read_count[g[u].index]);
@@ -188,7 +188,7 @@ bool findLiterals(const NGHolder &g,
 
             read_count[g[u].index]--;
             if (!read_count[g[u].index]) {
-                DEBUG_PRINTF("clearing %u as finished reading\n", g[u].index);
+                DEBUG_PRINTF("clearing %zu as finished reading\n", g[u].index);
                 in.clear();
             }
         }

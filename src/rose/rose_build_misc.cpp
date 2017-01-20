@@ -75,7 +75,6 @@ RoseBuildImpl::RoseBuildImpl(ReportManager &rm_in,
     : cc(cc_in),
       root(add_vertex(g)),
       anchored_root(add_vertex(g)),
-      vertexIndex(0),
       delay_base_id(MO_INVALID_IDX),
       hasSom(false),
       group_end(0),
@@ -89,11 +88,9 @@ RoseBuildImpl::RoseBuildImpl(ReportManager &rm_in,
       boundary(boundary_in),
       next_nfa_report(0) {
     // add root vertices to graph
-    g[root].idx = vertexIndex++;
     g[root].min_offset = 0;
     g[root].max_offset = 0;
 
-    g[anchored_root].idx = vertexIndex++;
     g[anchored_root].min_offset = 0;
     g[anchored_root].max_offset = 0;
 }
@@ -193,7 +190,7 @@ bool RoseBuildImpl::hasLiteralInTable(RoseVertex v,
 bool RoseBuildImpl::hasNoFloatingRoots() const {
     for (auto v : adjacent_vertices_range(root, g)) {
         if (isFloating(v)) {
-            DEBUG_PRINTF("direct floating root %zu\n", g[v].idx);
+            DEBUG_PRINTF("direct floating root %zu\n", g[v].index);
             return false;
         }
     }
@@ -201,7 +198,7 @@ bool RoseBuildImpl::hasNoFloatingRoots() const {
     /* need to check if the anchored_root has any literals which are too deep */
     for (auto v : adjacent_vertices_range(anchored_root, g)) {
         if (isFloating(v)) {
-            DEBUG_PRINTF("indirect floating root %zu\n", g[v].idx);
+            DEBUG_PRINTF("indirect floating root %zu\n", g[v].index);
             return false;
         }
     }
@@ -337,14 +334,14 @@ size_t RoseBuildImpl::maxLiteralOverlap(RoseVertex u, RoseVertex v) const {
 void RoseBuildImpl::removeVertices(const vector<RoseVertex> &dead) {
     for (auto v : dead) {
         assert(!isAnyStart(v));
-        DEBUG_PRINTF("removing vertex %zu\n", g[v].idx);
+        DEBUG_PRINTF("removing vertex %zu\n", g[v].index);
         for (auto lit_id : g[v].literals) {
             literal_info[lit_id].vertices.erase(v);
         }
-        clear_vertex_faster(v, g);
+        clear_vertex(v, g);
         remove_vertex(v, g);
     }
-    renumberVertices();
+    renumber_vertices(g);
 }
 
 // Find the maximum bound on the edges to this vertex's successors ignoring
@@ -893,7 +890,6 @@ bool operator<(const RoseEdgeProps &a, const RoseEdgeProps &b) {
 // Note: only clones the vertex, you'll have to wire up your own edges.
 RoseVertex RoseBuildImpl::cloneVertex(RoseVertex v) {
     RoseVertex v2 = add_vertex(g[v], g);
-    g[v2].idx = vertexIndex++;
 
     for (const auto &lit_id : g[v2].literals) {
         literal_info[lit_id].vertices.insert(v2);
@@ -903,12 +899,15 @@ RoseVertex RoseBuildImpl::cloneVertex(RoseVertex v) {
 }
 
 #ifndef NDEBUG
-bool roseHasTops(const RoseGraph &g, RoseVertex v) {
+bool roseHasTops(const RoseBuildImpl &build, RoseVertex v) {
+    const RoseGraph &g = build.g;
     assert(g[v].left);
 
     set<u32> graph_tops;
-    for (const auto &e : in_edges_range(v, g)) {
-        graph_tops.insert(g[e].rose_top);
+    if (!build.isRootSuccessor(v)) {
+        for (const auto &e : in_edges_range(v, g)) {
+            graph_tops.insert(g[e].rose_top);
+        }
     }
 
     return is_subset_of(graph_tops, all_tops(g[v].left));
@@ -1073,18 +1072,9 @@ bool has_non_eod_accepts(const suffix_id &s) {
 set<u32> all_tops(const suffix_id &s) {
     assert(s.graph() || s.castle() || s.haig() || s.dfa());
     if (s.graph()) {
-        set<u32> tops;
-        const NGHolder &h = *s.graph();
-        for (const auto &e : out_edges_range(h.start, h)) {
-            if (target(e, h) == h.startDs) {
-                continue;
-            }
-            tops.insert(h[e].top);
-        }
-        if (tops.empty()) {
-            tops.insert(0); // Vacuous graph, triggered on zero top.
-        }
-        return tops;
+        flat_set<u32> tops = getTops(*s.graph());
+        assert(!tops.empty());
+        return {tops.begin(), tops.end()};
     }
 
     if (s.castle()) {
@@ -1142,18 +1132,8 @@ depth findMaxWidth(const left_id &r) {
 set<u32> all_tops(const left_id &r) {
     assert(r.graph() || r.castle() || r.haig() || r.dfa());
     if (r.graph()) {
-        set<u32> tops;
-        const NGHolder &h = *r.graph();
-        for (const auto &e : out_edges_range(h.start, h)) {
-            if (target(e, h) == h.startDs) {
-                continue;
-            }
-            tops.insert(h[e].top);
-        }
-        if (tops.empty()) {
-            tops.insert(0); // Vacuous graph, triggered on zero top.
-        }
-        return tops;
+        flat_set<u32> tops = getTops(*r.graph());
+        return {tops.begin(), tops.end()};
     }
 
     if (r.castle()) {
@@ -1226,7 +1206,7 @@ u32 roseQuality(const RoseEngine *t) {
         }
         const NFA *nfa = (const NFA *)((const char *)atable + sizeof(*atable));
 
-        if (nfa->type != MCCLELLAN_NFA_8) {
+        if (!isSmallDfaType(nfa->type)) {
             DEBUG_PRINTF("m16 atable engine\n");
             return 0;
         }
@@ -1293,7 +1273,7 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
     // First, check the Rose leftfixes.
 
     for (auto v : vertices_range(g)) {
-        DEBUG_PRINTF("leftfix: check vertex %zu\n", g[v].idx);
+        DEBUG_PRINTF("leftfix: check vertex %zu\n", g[v].index);
 
         if (g[v].left.castle) {
             DEBUG_PRINTF("castle ok\n");
@@ -1309,10 +1289,10 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
         }
         if (g[v].left.graph) {
             assert(g[v].left.graph->kind
-                   == tbi.isRootSuccessor(v) ? NFA_PREFIX : NFA_INFIX);
+                   == (tbi.isRootSuccessor(v) ? NFA_PREFIX : NFA_INFIX));
             if (!isImplementableNFA(*g[v].left.graph, nullptr, tbi.cc)) {
-                DEBUG_PRINTF("nfa prefix %zu failed (%zu vertices)\n", g[v].idx,
-                             num_vertices(*g[v].left.graph));
+                DEBUG_PRINTF("nfa prefix %zu failed (%zu vertices)\n",
+                             g[v].index, num_vertices(*g[v].left.graph));
                 return false;
             }
         }
@@ -1321,7 +1301,7 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
     // Suffix graphs.
 
     for (auto v : vertices_range(g)) {
-        DEBUG_PRINTF("suffix: check vertex %zu\n", g[v].idx);
+        DEBUG_PRINTF("suffix: check vertex %zu\n", g[v].index);
 
         const RoseSuffixInfo &suffix = g[v].suffix;
         if (suffix.castle) {
@@ -1339,8 +1319,8 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
         if (suffix.graph) {
             assert(suffix.graph->kind == NFA_SUFFIX);
             if (!isImplementableNFA(*suffix.graph, &tbi.rm, tbi.cc)) {
-                DEBUG_PRINTF("nfa suffix %zu failed (%zu vertices)\n", g[v].idx,
-                             num_vertices(*suffix.graph));
+                DEBUG_PRINTF("nfa suffix %zu failed (%zu vertices)\n",
+                             g[v].index, num_vertices(*suffix.graph));
                 return false;
             }
         }
@@ -1348,6 +1328,49 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
 
     return true;
 }
+
+bool hasOrphanedTops(const RoseBuildImpl &build) {
+    const RoseGraph &g = build.g;
+
+    ue2::unordered_map<left_id, set<u32> > roses;
+    ue2::unordered_map<suffix_id, set<u32> > suffixes;
+
+    for (auto v : vertices_range(g)) {
+        if (g[v].left) {
+            set<u32> &tops = roses[g[v].left];
+            if (!build.isRootSuccessor(v)) {
+                // Tops for infixes come from the in-edges.
+                for (const auto &e : in_edges_range(v, g)) {
+                    tops.insert(g[e].rose_top);
+                }
+            }
+        }
+        if (g[v].suffix) {
+            suffixes[g[v].suffix].insert(g[v].suffix.top);
+        }
+    }
+
+    for (const auto &e : roses) {
+        if (all_tops(e.first) != e.second) {
+            DEBUG_PRINTF("rose tops (%s) don't match rose graph (%s)\n",
+                         as_string_list(all_tops(e.first)).c_str(),
+                         as_string_list(e.second).c_str());
+            return true;
+        }
+    }
+
+    for (const auto &e : suffixes) {
+        if (all_tops(e.first) != e.second) {
+            DEBUG_PRINTF("suffix tops (%s) don't match rose graph (%s)\n",
+                         as_string_list(all_tops(e.first)).c_str(),
+                         as_string_list(e.second).c_str());
+            return true;
+        }
+    }
+
+    return false;
+}
+
 #endif // NDEBUG
 
 } // namespace ue2

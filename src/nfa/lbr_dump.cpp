@@ -42,37 +42,16 @@
 #include "trufflecompile.h"
 #include "util/charreach.h"
 #include "util/dump_charclass.h"
+#include "util/dump_util.h"
 
 #ifndef DUMP_SUPPORT
 #error No dump support!
 #endif
 
+/* Note: No dot files for LBR */
+using namespace std;
+
 namespace ue2 {
-
-void nfaExecLbrDot_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f,
-                           UNUSED const std::string &base) {
-    // No impl
-}
-
-void nfaExecLbrVerm_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f,
-                            UNUSED const std::string &base) {
-    // No impl
-}
-
-void nfaExecLbrNVerm_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f,
-                             UNUSED const std::string &base) {
-    // No impl
-}
-
-void nfaExecLbrShuf_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f,
-                            UNUSED const std::string &base) {
-    // No impl
-}
-
-void nfaExecLbrTruf_dumpDot(UNUSED const NFA *nfa, UNUSED FILE *f,
-                            UNUSED const std::string &base) {
-    // No impl
-}
 
 static
 void lbrDumpCommon(const lbr_common *lc, FILE *f) {
@@ -88,60 +67,80 @@ void lbrDumpCommon(const lbr_common *lc, FILE *f) {
     fprintf(f, "min period: %u\n", info->minPeriod);
 }
 
-void nfaExecLbrDot_dumpText(const NFA *nfa, FILE *f) {
+void nfaExecLbrDot_dump(const NFA *nfa, const string &base) {
     assert(nfa);
-    assert(nfa->type == LBR_NFA_Dot);
+    assert(nfa->type == LBR_NFA_DOT);
     const lbr_dot *ld = (const lbr_dot *)getImplNfa(nfa);
+    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
     lbrDumpCommon(&ld->common, f);
     fprintf(f, "DOT model\n");
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
+    fclose(f);
 }
 
-void nfaExecLbrVerm_dumpText(const NFA *nfa, FILE *f) {
+void nfaExecLbrVerm_dump(const NFA *nfa, const string &base) {
     assert(nfa);
-    assert(nfa->type == LBR_NFA_Verm);
+    assert(nfa->type == LBR_NFA_VERM);
     const lbr_verm *lv = (const lbr_verm *)getImplNfa(nfa);
+
+    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+
     lbrDumpCommon(&lv->common, f);
     fprintf(f, "VERM model, scanning for 0x%02x\n", lv->c);
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
+    fclose(f);
 }
 
-void nfaExecLbrNVerm_dumpText(const NFA *nfa, FILE *f) {
+void nfaExecLbrNVerm_dump(const NFA *nfa, const string &base) {
     assert(nfa);
-    assert(nfa->type == LBR_NFA_NVerm);
+    assert(nfa->type == LBR_NFA_NVERM);
     const lbr_verm *lv = (const lbr_verm *)getImplNfa(nfa);
+
+    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+
     lbrDumpCommon(&lv->common, f);
     fprintf(f, "NEGATED VERM model, scanning for 0x%02x\n", lv->c);
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
+    fclose(f);
 }
 
-void nfaExecLbrShuf_dumpText(const NFA *nfa, FILE *f) {
+void nfaExecLbrShuf_dump(const NFA *nfa, const string &base) {
     assert(nfa);
-    assert(nfa->type == LBR_NFA_Shuf);
+    assert(nfa->type == LBR_NFA_SHUF);
+
+    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+
     const lbr_shuf *ls = (const lbr_shuf *)getImplNfa(nfa);
     lbrDumpCommon(&ls->common, f);
 
-    CharReach cr = shufti2cr(ls->mask_lo, ls->mask_hi);
+    CharReach cr = shufti2cr((const u8 *)&ls->mask_lo,
+                             (const u8 *)&ls->mask_hi);
     fprintf(f, "SHUF model, scanning for: %s (%zu chars)\n",
             describeClass(cr, 20, CC_OUT_TEXT).c_str(), cr.count());
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
+    fclose(f);
 }
 
-void nfaExecLbrTruf_dumpText(const NFA *nfa, FILE *f) {
+void nfaExecLbrTruf_dump(const NFA *nfa, const string &base) {
     assert(nfa);
-    assert(nfa->type == LBR_NFA_Truf);
+    assert(nfa->type == LBR_NFA_TRUF);
+
+    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+
     const lbr_truf *lt = (const lbr_truf *)getImplNfa(nfa);
     lbrDumpCommon(&lt->common, f);
 
-    CharReach cr = truffle2cr(lt->mask1, lt->mask2);
+    CharReach cr = truffle2cr((const u8 *)&lt->mask1,
+                              (const u8 *)&lt->mask2);
     fprintf(f, "TRUFFLE model, scanning for: %s (%zu chars)\n",
             describeClass(cr, 20, CC_OUT_TEXT).c_str(), cr.count());
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
+    fclose(f);
 }
 
 } // namespace ue2

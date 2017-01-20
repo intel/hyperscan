@@ -26,18 +26,74 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/** \file
+ * \brief Definition of the NGHolder type used for to represent general nfa
+ * graphs as well as all associated types (vertex and edge properties, etc).
+ *
+ * The NGHolder also contains the special vertices used to represents starts and
+ * accepts.
+ */
+
 #ifndef NG_HOLDER_H
 #define NG_HOLDER_H
 
-#include "ng_graph.h"
 #include "ue2common.h"
 #include "nfa/nfa_kind.h"
-
-#include <boost/graph/adjacency_iterator.hpp>
-#include <boost/graph/adjacency_list.hpp>
-#include <boost/graph/graph_traits.hpp>
+#include "util/charreach.h"
+#include "util/ue2_containers.h"
+#include "util/ue2_graph.h"
 
 namespace ue2 {
+
+/** \brief Properties associated with each vertex in an NFAGraph. */
+struct NFAGraphVertexProps {
+    /** \brief Set of characters on which this vertex is reachable. */
+    CharReach char_reach;
+
+    /** \brief Set of reports raised by this vertex. */
+    flat_set<ReportID> reports;
+
+    /** \brief Unique index for this vertex, used for BGL algorithms. */
+    size_t index = 0;
+
+    /** \brief Flags associated with assertions. */
+    u32 assert_flags = 0;
+};
+
+/** \brief Properties associated with each edge in an NFAGraph. */
+struct NFAGraphEdgeProps {
+    /** \brief Unique index for this edge, used for BGL algorithms. */
+    size_t index = 0;
+
+    /** \brief For graphs that will be implemented as multi-top engines, this
+     * specifies the top events. Only used on edges from the start vertex. */
+    ue2::flat_set<u32> tops;
+
+    /** \brief Flags associated with assertions. */
+    u32 assert_flags = 0;
+};
+
+/** \brief vertex_index values for special nodes in the NFAGraph. */
+enum SpecialNodes {
+    /** \brief Anchored start vertex. WARNING: this may be triggered at various
+     * locations (not just zero) for triggered graphs. */
+    NODE_START,
+
+    /** \brief Unanchored start-dotstar vertex. WARNING: this may not have a
+     * proper self-loop. */
+    NODE_START_DOTSTAR,
+
+    /** \brief Accept vertex. All vertices that can match at arbitrary offsets
+     * must have an edge to this vertex. */
+    NODE_ACCEPT,
+
+    /** \brief Accept-EOD vertex. Vertices that must raise a match at EOD only
+     * must have an edge to this vertex. */
+    NODE_ACCEPT_EOD,
+
+    /** \brief Sentinel, number of special vertices. */
+    N_SPECIALS
+};
 
 /** \brief Encapsulates an NFAGraph, stores special vertices and other
  * metadata.
@@ -49,186 +105,32 @@ namespace ue2 {
  * - (startDs, startDs) (self-loop)
  * - (accept, acceptEod)
  */
-class NGHolder : boost::noncopyable {
+class NGHolder : public ue2_graph<NGHolder, NFAGraphVertexProps,
+                                  NFAGraphEdgeProps> {
 public:
-    NGHolder(void);
     explicit NGHolder(nfa_kind kind);
+    NGHolder(void) : NGHolder(NFA_OUTFIX) {};
     virtual ~NGHolder(void);
 
-    // Pack edge and vertex indices.
-    // Note: maintaining edge index order can be expensive due to the frequency
-    // of edge removal/addition, so only renumberEdges() when required by
-    // operations on edge lists.
-    void renumberEdges();
-    void renumberVertices();
+    nfa_kind kind; /* Role that this plays in Rose */
 
-    NFAVertex getSpecialVertex(u32 id) const;
+    static const size_t N_SPECIAL_VERTICES = N_SPECIALS;
+public:
+    const vertex_descriptor start;     //!< Anchored start vertex.
+    const vertex_descriptor startDs;   //!< Unanchored start-dotstar vertex.
+    const vertex_descriptor accept;    //!< Accept vertex.
+    const vertex_descriptor acceptEod; //!< Accept at EOD vertex.
 
-    nfa_kind kind = NFA_OUTFIX; /* Role that this plays in Rose */
-
-    /** \brief Underlying graph object */
-    NFAGraph g;
-
-    const NFAVertex start;     //!< Anchored start vertex.
-    const NFAVertex startDs;   //!< Unanchored start-dotstar vertex.
-    const NFAVertex accept;    //!< Accept vertex.
-    const NFAVertex acceptEod; //!< Accept at EOD vertex.
-
-    using directed_category = NFAGraph::directed_category;
-    using edge_parallel_category = NFAGraph::edge_parallel_category;
-    using traversal_category = NFAGraph::traversal_category;
-
-    using vertex_descriptor = NFAGraph::vertex_descriptor;
-    using edge_descriptor = NFAGraph::edge_descriptor;
-    using adjacency_iterator = NFAGraph::adjacency_iterator;
-    using edge_iterator = NFAGraph::edge_iterator;
-    using in_edge_iterator = NFAGraph::in_edge_iterator;
-    using inv_adjacency_iterator = NFAGraph::inv_adjacency_iterator;
-    using out_edge_iterator = NFAGraph::out_edge_iterator;
-    using vertex_iterator = NFAGraph::vertex_iterator;
-    using edge_property_type = NFAGraph::edge_property_type;
-    using vertex_property_type = NFAGraph::vertex_property_type;
-
-    // These free functions, which follow the BGL model, are the interface to
-    // the graph held by this class.
-    friend size_t num_vertices(NGHolder &h);
-    friend size_t num_vertices(const NGHolder &h);
-    friend size_t num_edges(NGHolder &h);
-    friend size_t num_edges(const NGHolder &h);
-    friend void remove_vertex(NFAVertex v, NGHolder &h);
-    friend void clear_vertex(NFAVertex v, NGHolder &h);
-    friend void clear_in_edges(NFAVertex v, NGHolder &h);
-    friend void clear_out_edges(NFAVertex v, NGHolder &h);
-    friend void remove_edge(const NFAEdge &e, NGHolder &h);
-    friend void remove_edge(NFAVertex u, NFAVertex v, NGHolder &h);
-
-    template<class Predicate>
-    friend void remove_out_edge_if(NFAVertex v, Predicate pred, NGHolder &h) {
-        boost::remove_out_edge_if(v, pred, h.g);
-        h.isValidNumEdges = false;
-    }
-
-    template<class Predicate>
-    friend void remove_in_edge_if(NFAVertex v, Predicate pred, NGHolder &h) {
-        boost::remove_in_edge_if(v, pred, h.g);
-        h.isValidNumEdges = false;
-    }
-
-    template<class Predicate>
-    friend void remove_edge_if(Predicate pred, NGHolder &h) {
-        boost::remove_edge_if(pred, h.g);
-        h.isValidNumEdges = false;
-    }
-
-    friend std::pair<NFAEdge, bool> add_edge(NFAVertex u, NFAVertex v,
-                                             NGHolder &h);
-    friend std::pair<NFAEdge, bool> add_edge(NFAVertex u, NFAVertex v,
-                                             const edge_property_type &ep,
-                                             NGHolder &h);
-    friend NFAVertex add_vertex(NGHolder &h);
-    friend NFAVertex add_vertex(const vertex_property_type &vp, NGHolder &h);
-
-    static NFAVertex null_vertex(void) { return NFAGraph::null_vertex(); }
-
-    // Subscript operators for BGL bundled properties.
-    using graph_bundled = NFAGraph::graph_bundled;
-    using vertex_bundled = NFAGraph::vertex_bundled;
-    using edge_bundled = NFAGraph::edge_bundled;
-
-    vertex_bundled &operator[](NFAVertex v) {
-        return get(boost::vertex_bundle, g)[v];
-    }
-    const vertex_bundled &operator[](NFAVertex v) const {
-        return get(boost::vertex_bundle, g)[v];
-    }
-    edge_bundled &operator[](const NFAEdge &e) {
-        return get(boost::edge_bundle, g)[e];
-    }
-    const edge_bundled &operator[](const NFAEdge &e) const {
-        return get(boost::edge_bundle, g)[e];
-    }
-
-protected:
-
-    /* Since the NFAGraph vertex/edge list selectors are std::lists, computing
-     * num_vertices and num_edges is O(N). We use these members to store a
-     * cached copy of the size.
-     *
-     * In the future, with C++11's constant-time std::list::size, these may
-     * become obsolete. */
-
-    u32 numVertices;
-    u32 numEdges;
-    bool isValidNumEdges;
-    bool isValidNumVertices;
+    vertex_descriptor getSpecialVertex(u32 id) const;
 };
+
+typedef NGHolder::vertex_descriptor NFAVertex;
+typedef NGHolder::edge_descriptor NFAEdge;
 
 /** \brief True if the vertex \p v is one of our special vertices. */
 template <typename GraphT>
-static really_inline
-bool is_special(const NFAVertex v, const GraphT &g) {
+bool is_special(const typename GraphT::vertex_descriptor v, const GraphT &g) {
     return g[v].index < N_SPECIALS;
-}
-
-static really_inline
-std::pair<NGHolder::adjacency_iterator, NGHolder::adjacency_iterator>
-adjacent_vertices(NFAVertex v, const NGHolder &h) {
-    return adjacent_vertices(v, h.g);
-}
-
-static really_inline
-std::pair<NFAEdge, bool> edge(NFAVertex u, NFAVertex v, const NGHolder &h) {
-    return boost::edge(u, v, h.g);
-}
-
-static really_inline
-std::pair<NGHolder::edge_iterator, NGHolder::edge_iterator>
-edges(const NGHolder &h) {
-    return edges(h.g);
-}
-
-static really_inline
-size_t in_degree(NFAVertex v, const NGHolder &h) {
-    return in_degree(v, h.g);
-}
-
-static really_inline
-std::pair<NGHolder::in_edge_iterator, NGHolder::in_edge_iterator>
-in_edges(NFAVertex v, const NGHolder &h) {
-    return in_edges(v, h.g);
-}
-
-static really_inline
-std::pair<NGHolder::inv_adjacency_iterator, NGHolder::inv_adjacency_iterator>
-inv_adjacent_vertices(NFAVertex v, const NGHolder &h) {
-    return inv_adjacent_vertices(v, h.g);
-}
-
-static really_inline
-size_t out_degree(NFAVertex v, const NGHolder &h) {
-    return out_degree(v, h.g);
-}
-
-static really_inline
-std::pair<NGHolder::out_edge_iterator, NGHolder::out_edge_iterator>
-out_edges(NFAVertex v, const NGHolder &h) {
-    return out_edges(v, h.g);
-}
-
-static really_inline
-NFAVertex source(const NFAEdge &e, const NGHolder &h) {
-    return source(e, h.g);
-}
-
-static really_inline
-NFAVertex target(const NFAEdge &e, const NGHolder &h) {
-    return target(e, h.g);
-}
-
-static really_inline
-std::pair<NGHolder::vertex_iterator, NGHolder::vertex_iterator>
-vertices(const NGHolder &h) {
-    return vertices(h.g);
 }
 
 /**
@@ -238,16 +140,6 @@ vertices(const NGHolder &h) {
  * and edges.
  */
 void clear_graph(NGHolder &h);
-
-inline
-void renumber_edges(NGHolder &h) {
-    h.renumberEdges();
-}
-
-inline
-void renumber_vertices(NGHolder &h) {
-    h.renumberVertices();
-}
 
 /*
  * \brief Clear and remove all of the vertices pointed to by the given iterator
@@ -275,8 +167,8 @@ void remove_vertices(Iter begin, Iter end, NGHolder &h, bool renumber = true) {
     }
 
     if (renumber) {
-        h.renumberEdges();
-        h.renumberVertices();
+        renumber_edges(h);
+        renumber_vertices(h);
     }
 }
 
@@ -311,9 +203,11 @@ void remove_edges(Iter begin, Iter end, NGHolder &h, bool renumber = true) {
     }
 
     if (renumber) {
-        h.renumberEdges();
+        renumber_edges(h);
     }
 }
+
+#define DEFAULT_TOP 0U
 
 /** \brief Clear and remove all of the edges pointed to by the edge descriptors
  * in the given container.

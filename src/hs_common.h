@@ -436,6 +436,23 @@ hs_error_t hs_set_stream_allocator(hs_alloc_t alloc_func, hs_free_t free_func);
 const char *hs_version(void);
 
 /**
+ * Utility function to test the current system architecture.
+ *
+ * Hyperscan requires the Supplemental Streaming SIMD Extensions 3 instruction
+ * set. This function can be called on any x86 platform to determine if the
+ * system provides the required instruction set.
+ *
+ * This function does not test for more advanced features if Hyperscan has
+ * been built for a more specific architecture, for example the AVX2
+ * instruction set.
+ *
+ * @return
+ *      @ref HS_SUCCESS on success, @ref HS_ARCH_ERROR if system does not
+ *      support Hyperscan.
+ */
+hs_error_t hs_valid_platform(void);
+
+/**
  * @defgroup HS_ERROR hs_error_t values
  *
  * @{
@@ -518,6 +535,17 @@ const char *hs_version(void);
  * is intended as a best-effort debugging tool, not a guarantee.
  */
 #define HS_SCRATCH_IN_USE       (-10)
+
+/**
+ * Unsupported CPU architecture.
+ *
+ * This error is returned when Hyperscan is able to detect that the current
+ * system does not support the required instruction set.
+ *
+ * At a minimum, Hyperscan requires Supplemental Streaming SIMD Extensions 3
+ * (SSSE3).
+ */
+#define HS_ARCH_ERROR		    (-11)
 
 /** @} */
 

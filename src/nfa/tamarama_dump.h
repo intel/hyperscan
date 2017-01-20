@@ -31,16 +31,13 @@
 
 #if defined(DUMP_SUPPORT)
 
-#include <cstdio>
 #include <string>
 
 struct NFA;
 
 namespace ue2 {
 
-void nfaExecTamarama0_dumpDot(const NFA *nfa, FILE *file,
-                              const std::string &base);
-void nfaExecTamarama0_dumpText(const NFA *nfa, FILE *file);
+void nfaExecTamarama_dump(const NFA *nfa, const std::string &base);
 
 } // namespace ue2
 

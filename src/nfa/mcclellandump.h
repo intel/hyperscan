@@ -43,14 +43,10 @@ union AccelAux;
 
 namespace ue2 {
 
-void nfaExecMcClellan8_dumpDot(const struct NFA *nfa, FILE *file,
-                               const std::string &base);
-void nfaExecMcClellan16_dumpDot(const struct NFA *nfa, FILE *file,
-                                const std::string &base);
-void nfaExecMcClellan8_dumpText(const struct NFA *nfa, FILE *file);
-void nfaExecMcClellan16_dumpText(const struct NFA *nfa, FILE *file);
+void nfaExecMcClellan8_dump(const struct NFA *nfa, const std::string &base);
+void nfaExecMcClellan16_dump(const struct NFA *nfa, const std::string &base);
 
-/* These functions are shared with the Haig dump code. */
+/* These functions are shared with the Gough dump code. */
 
 const mstate_aux *getAux(const NFA *n, dstate_id_t i);
 void describeEdge(FILE *f, const u16 *t, u16 i);

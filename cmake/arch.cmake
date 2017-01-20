@@ -11,17 +11,14 @@ else ()
 endif ()
 
 
-set (CMAKE_REQUIRED_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
+set (CMAKE_REQUIRED_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS} ${ARCH_C_FLAGS}")
+
 # ensure we have the minimum of SSSE3 - call a SSSE3 intrinsic
 CHECK_C_SOURCE_COMPILES("#include <${INTRIN_INC_H}>
 int main() {
     __m128i a = _mm_set1_epi8(1);
     (void)_mm_shuffle_epi8(a, a);
 }" HAVE_SSSE3)
-
-if (NOT HAVE_SSSE3)
-    message(FATAL_ERROR "A minimum of SSSE3 compiler support is required")
-endif ()
 
 # now look for AVX2
 CHECK_C_SOURCE_COMPILES("#include <${INTRIN_INC_H}>
@@ -33,10 +30,6 @@ int main(){
     __m256i z = _mm256_setzero_si256();
     (void)_mm256_xor_si256(z, z);
 }" HAVE_AVX2)
-
-if (NOT HAVE_AVX2)
-    message(STATUS "Building without AVX2 support")
-endif ()
 
 unset (CMAKE_REQUIRED_FLAGS)
 unset (INTRIN_INC_H)

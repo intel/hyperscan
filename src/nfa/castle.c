@@ -745,10 +745,10 @@ void clear_repeats(const struct Castle *c, const struct mq *q, u8 *active) {
 }
 
 static really_inline
-char nfaExecCastle0_Q_i(const struct NFA *n, struct mq *q, s64a end,
-                        enum MatchMode mode) {
+char nfaExecCastle_Q_i(const struct NFA *n, struct mq *q, s64a end,
+                       enum MatchMode mode) {
     assert(n && q);
-    assert(n->type == CASTLE_NFA_0);
+    assert(n->type == CASTLE_NFA);
 
     DEBUG_PRINTF("state=%p, streamState=%p\n", q->state, q->streamState);
 
@@ -856,14 +856,14 @@ char nfaExecCastle0_Q_i(const struct NFA *n, struct mq *q, s64a end,
     return mmbit_any_precise(active, c->numRepeats);
 }
 
-char nfaExecCastle0_Q(const struct NFA *n, struct mq *q, s64a end) {
+char nfaExecCastle_Q(const struct NFA *n, struct mq *q, s64a end) {
     DEBUG_PRINTF("entry\n");
-    return nfaExecCastle0_Q_i(n, q, end, CALLBACK_OUTPUT);
+    return nfaExecCastle_Q_i(n, q, end, CALLBACK_OUTPUT);
 }
 
-char nfaExecCastle0_Q2(const struct NFA *n, struct mq *q, s64a end) {
+char nfaExecCastle_Q2(const struct NFA *n, struct mq *q, s64a end) {
     DEBUG_PRINTF("entry\n");
-    return nfaExecCastle0_Q_i(n, q, end, STOP_AT_MATCH);
+    return nfaExecCastle_Q_i(n, q, end, STOP_AT_MATCH);
 }
 
 static
@@ -896,9 +896,9 @@ s64a castleLastKillLoc(const struct Castle *c, struct mq *q) {
     return sp - 1; /* the repeats are never killed */
 }
 
-char nfaExecCastle0_QR(const struct NFA *n, struct mq *q, ReportID report) {
+char nfaExecCastle_QR(const struct NFA *n, struct mq *q, ReportID report) {
     assert(n && q);
-    assert(n->type == CASTLE_NFA_0);
+    assert(n->type == CASTLE_NFA);
     DEBUG_PRINTF("entry\n");
 
     if (q->cur == q->end) {
@@ -959,9 +959,9 @@ char nfaExecCastle0_QR(const struct NFA *n, struct mq *q, ReportID report) {
     return 1;
 }
 
-char nfaExecCastle0_reportCurrent(const struct NFA *n, struct mq *q) {
+char nfaExecCastle_reportCurrent(const struct NFA *n, struct mq *q) {
     assert(n && q);
-    assert(n->type == CASTLE_NFA_0);
+    assert(n->type == CASTLE_NFA);
     DEBUG_PRINTF("entry\n");
 
     const struct Castle *c = getImplNfa(n);
@@ -969,19 +969,19 @@ char nfaExecCastle0_reportCurrent(const struct NFA *n, struct mq *q) {
     return 0;
 }
 
-char nfaExecCastle0_inAccept(const struct NFA *n, ReportID report,
-                             struct mq *q) {
+char nfaExecCastle_inAccept(const struct NFA *n, ReportID report,
+                            struct mq *q) {
     assert(n && q);
-    assert(n->type == CASTLE_NFA_0);
+    assert(n->type == CASTLE_NFA);
     DEBUG_PRINTF("entry\n");
 
     const struct Castle *c = getImplNfa(n);
     return castleInAccept(c, q, report, q_cur_offset(q));
 }
 
-char nfaExecCastle0_inAnyAccept(const struct NFA *n, struct mq *q) {
+char nfaExecCastle_inAnyAccept(const struct NFA *n, struct mq *q) {
     assert(n && q);
-    assert(n->type == CASTLE_NFA_0);
+    assert(n->type == CASTLE_NFA);
     DEBUG_PRINTF("entry\n");
 
     const struct Castle *c = getImplNfa(n);
@@ -1019,9 +1019,9 @@ char nfaExecCastle0_inAnyAccept(const struct NFA *n, struct mq *q) {
 }
 
 
-char nfaExecCastle0_queueInitState(UNUSED const struct NFA *n, struct mq *q) {
+char nfaExecCastle_queueInitState(UNUSED const struct NFA *n, struct mq *q) {
     assert(n && q);
-    assert(n->type == CASTLE_NFA_0);
+    assert(n->type == CASTLE_NFA);
     DEBUG_PRINTF("entry\n");
 
     const struct Castle *c = getImplNfa(n);
@@ -1038,10 +1038,10 @@ char nfaExecCastle0_queueInitState(UNUSED const struct NFA *n, struct mq *q) {
     return 0;
 }
 
-char nfaExecCastle0_initCompressedState(const struct NFA *n, UNUSED u64a offset,
-                                        void *state, UNUSED u8 key) {
+char nfaExecCastle_initCompressedState(const struct NFA *n, UNUSED u64a offset,
+                                       void *state, UNUSED u8 key) {
     assert(n && state);
-    assert(n->type == CASTLE_NFA_0);
+    assert(n->type == CASTLE_NFA);
     DEBUG_PRINTF("entry\n");
 
     const struct Castle *c = getImplNfa(n);
@@ -1070,10 +1070,10 @@ void subCastleQueueCompressState(const struct Castle *c, const u32 subIdx,
     repeatPack(packed, info, rctrl, offset);
 }
 
-char nfaExecCastle0_queueCompressState(const struct NFA *n, const struct mq *q,
-                                       s64a loc) {
+char nfaExecCastle_queueCompressState(const struct NFA *n, const struct mq *q,
+                                      s64a loc) {
     assert(n && q);
-    assert(n->type == CASTLE_NFA_0);
+    assert(n->type == CASTLE_NFA);
     DEBUG_PRINTF("entry, loc=%lld\n", loc);
 
     const struct Castle *c = getImplNfa(n);
@@ -1118,11 +1118,10 @@ void subCastleExpandState(const struct Castle *c, const u32 subIdx,
                                  packed + info->packedCtrlSize, offset));
 }
 
-char nfaExecCastle0_expandState(const struct NFA *n, void *dest,
-                                const void *src, u64a offset,
-                                UNUSED u8 key) {
+char nfaExecCastle_expandState(const struct NFA *n, void *dest, const void *src,
+                               u64a offset, UNUSED u8 key) {
     assert(n && dest && src);
-    assert(n->type == CASTLE_NFA_0);
+    assert(n->type == CASTLE_NFA);
     DEBUG_PRINTF("entry, src=%p, dest=%p, offset=%llu\n", src, dest, offset);
 
     const struct Castle *c = getImplNfa(n);

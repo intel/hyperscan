@@ -45,19 +45,16 @@
 // Common code
 #include "limex_runtime.h"
 
-#define SIZE 384
-#define STATE_T m384
+#define SIZE          384
+#define STATE_T       m384
+#define ENG_STATE_T   m384
+#define LOAD_FROM_ENG load_m384
+
 #include "limex_exceptional.h"
 
-#define SIZE 384
-#define STATE_T m384
 #include "limex_state_impl.h"
 
-#define SIZE 384
-#define STATE_T m384
 #define INLINE_ATTR really_inline
 #include "limex_common_impl.h"
 
-#define SIZE 384
-#define STATE_T m384
 #include "limex_runtime_impl.h"

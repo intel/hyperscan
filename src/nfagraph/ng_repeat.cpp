@@ -61,6 +61,8 @@
 #include <boost/icl/interval_set.hpp>
 
 using namespace std;
+using boost::depth_first_search;
+using boost::depth_first_visit;
 
 namespace ue2 {
 
@@ -99,7 +101,7 @@ struct ReachFilter {
     const Graph *g = nullptr;
 };
 
-typedef boost::filtered_graph<NFAGraph, ReachFilter<NFAGraph> > RepeatGraph;
+typedef boost::filtered_graph<NGHolder, ReachFilter<NGHolder>> RepeatGraph;
 
 struct ReachSubgraph {
     vector<NFAVertex> vertices;
@@ -126,9 +128,11 @@ void findInitDepths(const NGHolder &g,
     }
 }
 
-template<class Graph>
 static
-void buildTopoOrder(const Graph &g, vector<NFAVertex> &topoOrder) {
+vector<NFAVertex> buildTopoOrder(const RepeatGraph &g) {
+    /* Note: RepeatGraph is a filtered version of NGHolder and still has
+     * NFAVertex as its vertex descriptor */
+
     typedef ue2::unordered_set<NFAEdge> EdgeSet;
     EdgeSet deadEdges;
 
@@ -138,13 +142,15 @@ void buildTopoOrder(const Graph &g, vector<NFAVertex> &topoOrder) {
 
     depth_first_search(g, visitor(BackEdges<EdgeSet>(deadEdges)).
                           color_map(make_assoc_property_map(colours)));
-    AcyclicFilter<EdgeSet> af(&deadEdges);
-    boost::filtered_graph<Graph, AcyclicFilter<EdgeSet> > acyclic_g(g, af);
+    auto acyclic_g = make_filtered_graph(g, make_bad_edge_filter(&deadEdges));
 
+    vector<NFAVertex> topoOrder;
     topological_sort(acyclic_g, back_inserter(topoOrder),
                      color_map(make_assoc_property_map(colours)));
 
     reverse(topoOrder.begin(), topoOrder.end());
+
+    return topoOrder;
 }
 
 static
@@ -172,7 +178,7 @@ bool roguePredecessor(const NGHolder &g, NFAVertex v,
             continue;
         }
         if (!contains(pred, u)) {
-            DEBUG_PRINTF("%u is a rogue pred\n", g[u].index);
+            DEBUG_PRINTF("%zu is a rogue pred\n", g[u].index);
             return true;
         }
 
@@ -198,7 +204,7 @@ bool rogueSuccessor(const NGHolder &g, NFAVertex v,
         }
 
         if (!contains(succ, w)) {
-            DEBUG_PRINTF("%u is a rogue succ\n", g[w].index);
+            DEBUG_PRINTF("%zu is a rogue succ\n", g[w].index);
             return true;
         }
 
@@ -215,8 +221,8 @@ bool rogueSuccessor(const NGHolder &g, NFAVertex v,
 
 static
 bool hasDifferentTops(const NGHolder &g, const vector<NFAVertex> &verts) {
-    bool found = false;
-    u32 top = 0;
+    /* TODO: check that we need this now that we allow multiple tops */
+    const flat_set<u32> *tops = nullptr;
 
     for (auto v : verts) {
         for (const auto &e : in_edges_range(v, g)) {
@@ -224,17 +230,12 @@ bool hasDifferentTops(const NGHolder &g, const vector<NFAVertex> &verts) {
             if (u != g.start && u != g.startDs) {
                 continue; // Only edges from starts have valid top properties.
             }
-            u32 t = g[e].top;
-            DEBUG_PRINTF("edge (%u,%u) with top %u\n", g[u].index,
-                         g[v].index, t);
-            assert(t < NFA_MAX_TOP_MASKS);
-            if (!found) {
-                found = true;
-                top = t;
-            } else {
-                if (t != top) {
-                    return true; // More than one top.
-                }
+            DEBUG_PRINTF("edge (%zu,%zu) with %zu tops\n", g[u].index,
+                         g[v].index, g[e].tops.size());
+            if (!tops) {
+                tops = &g[e].tops;
+            } else if (g[e].tops != *tops) {
+                return true; // More than one set of tops.
             }
         }
     }
@@ -249,14 +250,14 @@ bool vertexIsBad(const NGHolder &g, NFAVertex v,
                  const ue2::unordered_set<NFAVertex> &pred,
                  const ue2::unordered_set<NFAVertex> &succ,
                  const flat_set<ReportID> &reports) {
-    DEBUG_PRINTF("check vertex %u\n", g[v].index);
+    DEBUG_PRINTF("check vertex %zu\n", g[v].index);
 
     // We must drop any vertex that is the target of a back-edge within
     // our subgraph. The tail set contains all vertices that are after v in a
     // topo ordering.
     for (auto u : inv_adjacent_vertices_range(v, g)) {
         if (contains(tail, u)) {
-            DEBUG_PRINTF("back-edge (%u,%u) in subgraph found\n",
+            DEBUG_PRINTF("back-edge (%zu,%zu) in subgraph found\n",
                          g[u].index, g[v].index);
             return true;
         }
@@ -266,18 +267,18 @@ bool vertexIsBad(const NGHolder &g, NFAVertex v,
     // edges from *all* the vertices in pred and no other external entries.
     // Similarly for exits.
     if (roguePredecessor(g, v, involved, pred)) {
-        DEBUG_PRINTF("preds for %u not well-formed\n", g[v].index);
+        DEBUG_PRINTF("preds for %zu not well-formed\n", g[v].index);
         return true;
     }
 
     if (rogueSuccessor(g, v, involved, succ)) {
-        DEBUG_PRINTF("succs for %u not well-formed\n", g[v].index);
+        DEBUG_PRINTF("succs for %zu not well-formed\n", g[v].index);
         return true;
     }
 
     // All reporting vertices should have the same reports.
     if (is_match_vertex(v, g) && reports != g[v].reports) {
-        DEBUG_PRINTF("report mismatch to %u\n", g[v].index);
+        DEBUG_PRINTF("report mismatch to %zu\n", g[v].index);
         return true;
     }
 
@@ -297,8 +298,7 @@ void splitSubgraph(const NGHolder &g, const deque<NFAVertex> &verts,
 
     NFAUndirectedGraph ug;
     ue2::unordered_map<NFAVertex, NFAUndirectedVertex> old2new;
-    ue2::unordered_map<u32, NFAVertex> newIdx2old;
-    createUnGraph(verts_g.g, true, true, ug, old2new, newIdx2old);
+    createUnGraph(verts_g, true, true, ug, old2new);
 
     ue2::unordered_map<NFAUndirectedVertex, u32> repeatMap;
 
@@ -523,7 +523,7 @@ bool processSubgraph(const NGHolder &g, ReachSubgraph &rsi,
         if (u == first) {
             continue; // no self-loops
         }
-        DEBUG_PRINTF("pred vertex %u\n", g[u].index);
+        DEBUG_PRINTF("pred vertex %zu\n", g[u].index);
         dist[u].insert(0);
     }
 
@@ -625,7 +625,7 @@ void buildTugTrigger(NGHolder &g, NFAVertex cyclic, NFAVertex v,
                      vector<NFAVertex> &tugs) {
     if (allPredsInSubgraph(v, g, involved)) {
         // We can transform this vertex into a tug trigger in-place.
-        DEBUG_PRINTF("all preds in subgraph, vertex %u becomes tug\n",
+        DEBUG_PRINTF("all preds in subgraph, vertex %zu becomes tug\n",
                      g[v].index);
         add_edge(cyclic, v, g);
         tugs.push_back(v);
@@ -637,7 +637,7 @@ void buildTugTrigger(NGHolder &g, NFAVertex cyclic, NFAVertex v,
     NFAVertex t = clone_vertex(g, v);
     depths[t] = depths[v];
 
-    DEBUG_PRINTF("there are other paths, cloned tug %u from vertex %u\n",
+    DEBUG_PRINTF("there are other paths, cloned tug %zu from vertex %zu\n",
                   g[t].index, g[v].index);
 
     tugs.push_back(t);
@@ -654,7 +654,7 @@ NFAVertex createCyclic(NGHolder &g, ReachSubgraph &rsi) {
     NFAVertex cyclic = clone_vertex(g, last);
     add_edge(cyclic, cyclic, g);
 
-    DEBUG_PRINTF("created cyclic vertex %u\n", g[cyclic].index);
+    DEBUG_PRINTF("created cyclic vertex %zu\n", g[cyclic].index);
     return cyclic;
 }
 
@@ -665,7 +665,7 @@ NFAVertex createPos(NGHolder &g, ReachSubgraph &rsi) {
 
     g[pos].char_reach = g[first].char_reach;
 
-    DEBUG_PRINTF("created pos vertex %u\n", g[pos].index);
+    DEBUG_PRINTF("created pos vertex %zu\n", g[pos].index);
     return pos;
 }
 
@@ -711,7 +711,7 @@ void unpeelNearEnd(NGHolder &g, ReachSubgraph &rsi,
 
         NFAVertex d = clone_vertex(g, last);
         depths[d] = depths[last];
-        DEBUG_PRINTF("created vertex %u\n", g[d].index);
+        DEBUG_PRINTF("created vertex %zu\n", g[d].index);
 
         for (auto v : *succs) {
             add_edge(d, v, g);
@@ -952,7 +952,7 @@ bool peelSubgraph(const NGHolder &g, const Grey &grey, ReachSubgraph &rsi,
             zap = it;
             break;
         } else {
-            DEBUG_PRINTF("%u is involved in another repeat\n", g[*it].index);
+            DEBUG_PRINTF("%zu is involved in another repeat\n", g[*it].index);
         }
     }
     DEBUG_PRINTF("peeling %zu vertices from front\n",
@@ -969,7 +969,7 @@ bool peelSubgraph(const NGHolder &g, const Grey &grey, ReachSubgraph &rsi,
             zap = it.base(); // Note: erases everything after it.
             break;
         } else {
-            DEBUG_PRINTF("%u is involved in another repeat\n", g[*it].index);
+            DEBUG_PRINTF("%zu is involved in another repeat\n", g[*it].index);
         }
     }
     DEBUG_PRINTF("peeling %zu vertices from back\n",
@@ -980,7 +980,7 @@ bool peelSubgraph(const NGHolder &g, const Grey &grey, ReachSubgraph &rsi,
     // no-no.
     for (auto v : rsi.vertices) {
         if (contains(created, v)) {
-            DEBUG_PRINTF("vertex %u is in another repeat\n", g[v].index);
+            DEBUG_PRINTF("vertex %zu is in another repeat\n", g[v].index);
             return false;
         }
     }
@@ -1003,7 +1003,7 @@ void peelStartDotStar(const NGHolder &g,
 
     NFAVertex first = rsi.vertices.front();
     if (depths.at(first).fromStartDotStar.min == depth(1)) {
-        DEBUG_PRINTF("peeling start front vertex %u\n", g[first].index);
+        DEBUG_PRINTF("peeling start front vertex %zu\n", g[first].index);
         rsi.vertices.erase(rsi.vertices.begin());
         reprocessSubgraph(g, grey, rsi);
     }
@@ -1012,8 +1012,8 @@ void peelStartDotStar(const NGHolder &g,
 static
 void buildReachSubgraphs(const NGHolder &g, vector<ReachSubgraph> &rs,
                          const u32 minNumVertices) {
-    const ReachFilter<NFAGraph> fil(&g.g);
-    const RepeatGraph rg(g.g, fil);
+    const ReachFilter<NGHolder> fil(&g);
+    const RepeatGraph rg(g, fil);
 
     if (!isCompBigEnough(rg, minNumVertices)) {
         DEBUG_PRINTF("component not big enough, bailing\n");
@@ -1021,19 +1021,17 @@ void buildReachSubgraphs(const NGHolder &g, vector<ReachSubgraph> &rs,
     }
 
     NFAUndirectedGraph ug;
-    ue2::unordered_map<NFAVertex, NFAUndirectedVertex> old2new;
-    ue2::unordered_map<u32, NFAVertex> newIdx2old;
-    createUnGraph(rg, true, true, ug, old2new, newIdx2old);
+    unordered_map<RepeatGraph::vertex_descriptor, NFAUndirectedVertex> old2new;
+    createUnGraph(rg, true, true, ug, old2new);
 
-    ue2::unordered_map<NFAUndirectedVertex, u32> repeatMap;
+    unordered_map<NFAUndirectedVertex, u32> repeatMap;
 
     unsigned int num;
     num = connected_components(ug, make_assoc_property_map(repeatMap));
     DEBUG_PRINTF("found %u connected repeat components\n", num);
 
     // Now, we build a set of topo-ordered ReachSubgraphs.
-    vector<NFAVertex> topoOrder;
-    buildTopoOrder(rg, topoOrder);
+    vector<NFAVertex> topoOrder = buildTopoOrder(rg);
 
     rs.resize(num);
 
@@ -1084,7 +1082,7 @@ bool entered_at_fixed_offset(NFAVertex v, const NGHolder &g,
     if (is_triggered(g) && !contains(reached_by_fixed_tops, v)) {
         /* can't do this for infix/suffixes unless we know trigger literals
          * can only occur at one offset */
-        DEBUG_PRINTF("bad top(s) for %u\n", g[v].index);
+        DEBUG_PRINTF("bad top(s) for %zu\n", g[v].index);
         return false;
     }
 
@@ -1104,8 +1102,8 @@ bool entered_at_fixed_offset(NFAVertex v, const NGHolder &g,
 
     for (auto u : inv_adjacent_vertices_range(v, g)) {
         const depth &u_max_depth = depths.at(u).fromStart.max;
-        DEBUG_PRINTF("pred %u max depth %s from start\n",
-                     g[u].index, u_max_depth.str().c_str());
+        DEBUG_PRINTF("pred %zu max depth %s from start\n", g[u].index,
+                     u_max_depth.str().c_str());
         if (u_max_depth != first - depth(1)) {
             return false;
         }
@@ -1123,12 +1121,12 @@ NFAVertex buildTriggerStates(NGHolder &g, const vector<CharReach> &trigger,
         g[v].char_reach = cr;
         add_edge(u, v, g);
         if (u == g.start) {
-            g[edge(u, v, g).first].top = top;
+            g[edge(u, v, g)].tops.insert(top);
         }
         u = v;
     }
 
-    DEBUG_PRINTF("trigger len=%zu has sink %u\n", trigger.size(), g[u].index);
+    DEBUG_PRINTF("trigger len=%zu has sink %zu\n", trigger.size(), g[u].index);
     return u;
 }
 
@@ -1153,18 +1151,21 @@ void addTriggers(NGHolder &g,
             continue;
         }
 
-        const auto &top = g[e].top;
+        const auto &tops = g[e].tops;
 
         // The caller may not have given us complete trigger information. If we
         // don't have any triggers for a particular top, we should just leave
         // it alone.
-        if (!contains(triggers, top)) {
-            DEBUG_PRINTF("no triggers for top %u\n", top);
-            continue;
-        }
+        for (u32 top : tops) {
+            if (!contains(triggers, top)) {
+                DEBUG_PRINTF("no triggers for top %u\n", top);
+                goto next_edge;
+            }
 
-        starts_by_top[top].push_back(v);
+            starts_by_top[top].push_back(v);
+        }
         dead.push_back(e);
+    next_edge:;
     }
 
     remove_edges(dead, g);
@@ -1255,7 +1256,7 @@ void buildRepeatGraph(NGHolder &rg,
     if (is_triggered(rg)) {
         // Add vertices for all our triggers
         addTriggers(rg, triggers);
-        rg.renumberVertices();
+        renumber_vertices(rg);
 
         // We don't know anything about how often this graph is triggered, so we
         // make the start vertex cyclic for the purposes of this analysis ONLY.
@@ -1277,30 +1278,26 @@ void buildInputGraph(NGHolder &lhs,
                      ue2::unordered_map<NFAVertex, NFAVertex> &lhs_map,
                      const NGHolder &g, const NFAVertex first,
                      const map<u32, vector<vector<CharReach>>> &triggers) {
-    DEBUG_PRINTF("building lhs with first=%u\n", g[first].index);
+    DEBUG_PRINTF("building lhs with first=%zu\n", g[first].index);
     cloneHolder(lhs, g, &lhs_map);
     assert(g.kind == lhs.kind);
     addTriggers(lhs, triggers);
-    lhs.renumberVertices();
+    renumber_vertices(lhs);
 
     // Replace each back-edge (u,v) with an edge (startDs,v), which will
     // generate entries at at least the rate of the loop created by that
     // back-edge.
     set<NFAEdge> dead;
     BackEdges<set<NFAEdge> > backEdgeVisitor(dead);
-    depth_first_search(
-        lhs.g, visitor(backEdgeVisitor)
-                   .root_vertex(lhs.start)
-                   .vertex_index_map(get(&NFAGraphVertexProps::index, lhs.g)));
+    depth_first_search(lhs, visitor(backEdgeVisitor).root_vertex(lhs.start));
     for (const auto &e : dead) {
         const NFAVertex u = source(e, lhs), v = target(e, lhs);
         if (u == v) {
             continue; // Self-loops are OK.
         }
 
-        DEBUG_PRINTF("replacing back-edge (%u,%u) with edge (startDs,%u)\n",
-                     lhs[u].index, lhs[v].index,
-                     lhs[v].index);
+        DEBUG_PRINTF("replacing back-edge (%zu,%zu) with edge (startDs,%zu)\n",
+                     lhs[u].index, lhs[v].index, lhs[v].index);
 
         add_edge_if_not_present(lhs.startDs, v, lhs);
         remove_edge(e, lhs);
@@ -1387,13 +1384,13 @@ bool hasSoleEntry(const NGHolder &g, const ReachSubgraph &rsi,
     for (const auto &v : rsi.vertices) {
         assert(!is_special(v, g)); // no specials in repeats
         assert(contains(rg_map, v));
-        DEBUG_PRINTF("rg vertex %u in repeat\n", rg[rg_map.at(v)].index);
+        DEBUG_PRINTF("rg vertex %zu in repeat\n", rg[rg_map.at(v)].index);
         region_map.emplace(rg_map.at(v), repeat_region);
     }
 
     for (const auto &v : vertices_range(rg)) {
         if (!contains(region_map, v)) {
-            DEBUG_PRINTF("rg vertex %u in lhs (trigger)\n", rg[v].index);
+            DEBUG_PRINTF("rg vertex %zu in lhs (trigger)\n", rg[v].index);
             region_map.emplace(v, lhs_region);
         }
     }
@@ -1435,7 +1432,7 @@ struct StrawWalker {
         if (next == v) { // Ignore self loop.
             ++ai;
             if (ai == ae) {
-                return NFAGraph::null_vertex();
+                return NGHolder::null_vertex();
             }
             next = *ai;
         }
@@ -1450,7 +1447,7 @@ struct StrawWalker {
             succs.erase(v);
             for (tie(ai, ae) = adjacent_vertices(v, g); ai != ae; ++ai) {
                 next = *ai;
-                DEBUG_PRINTF("checking %u\n", g[next].index);
+                DEBUG_PRINTF("checking %zu\n", g[next].index);
                 if (next == v) {
                     continue;
                 }
@@ -1471,32 +1468,31 @@ struct StrawWalker {
                 return next;
             }
             DEBUG_PRINTF("bailing\n");
-            return NFAGraph::null_vertex();
+            return NGHolder::null_vertex();
         }
         return next;
     }
 
     NFAVertex walk(NFAVertex v, vector<NFAVertex> &straw) const {
-        DEBUG_PRINTF("walk from %u\n", g[v].index);
+        DEBUG_PRINTF("walk from %zu\n", g[v].index);
         ue2::unordered_set<NFAVertex> visited;
         straw.clear();
 
         while (!is_special(v, g)) {
-            DEBUG_PRINTF("checking %u\n", g[v].index);
+            DEBUG_PRINTF("checking %zu\n", g[v].index);
             NFAVertex next = step(v);
-            if (next == NFAGraph::null_vertex()) {
+            if (next == NGHolder::null_vertex()) {
                 break;
             }
             if (!visited.insert(next).second) {
-                DEBUG_PRINTF("already visited %u, bailing\n",
-                             g[next].index);
+                DEBUG_PRINTF("already visited %zu, bailing\n", g[next].index);
                 break; /* don't want to get stuck in any complicated loops */
             }
 
             const CharReach &reach_v = g[v].char_reach;
             const CharReach &reach_next = g[next].char_reach;
             if (!reach_v.isSubsetOf(reach_next)) {
-                DEBUG_PRINTF("%u's reach is not a superset of %u's\n",
+                DEBUG_PRINTF("%zu's reach is not a superset of %zu's\n",
                              g[next].index, g[v].index);
                 break;
             }
@@ -1504,7 +1500,7 @@ struct StrawWalker {
             // If this is cyclic with the right reach, we're done. Note that
             // startDs fulfils this requirement.
             if (hasSelfLoop(next, g) && !isBoundedRepeatCyclic(next)) {
-                DEBUG_PRINTF("found cyclic %u\n", g[next].index);
+                DEBUG_PRINTF("found cyclic %zu\n", g[next].index);
                 return next;
             }
 
@@ -1513,7 +1509,7 @@ struct StrawWalker {
         }
 
         straw.clear();
-        return NFAGraph::null_vertex();
+        return NGHolder::null_vertex();
     }
 
 private:
@@ -1528,8 +1524,8 @@ static
 NFAVertex walkStrawToCyclicRev(const NGHolder &g, NFAVertex v,
                                const vector<BoundedRepeatData> &all_repeats,
                                vector<NFAVertex> &straw) {
-    typedef boost::reverse_graph<NFAGraph, const NFAGraph&> RevGraph;
-    const RevGraph revg(g.g);
+    typedef boost::reverse_graph<NGHolder, const NGHolder &> RevGraph;
+    const RevGraph revg(g);
 
     auto cyclic = StrawWalker<RevGraph>(g, revg, all_repeats).walk(v, straw);
     reverse(begin(straw), end(straw)); // path comes from cyclic
@@ -1540,7 +1536,7 @@ static
 NFAVertex walkStrawToCyclicFwd(const NGHolder &g, NFAVertex v,
                                const vector<BoundedRepeatData> &all_repeats,
                                vector<NFAVertex> &straw) {
-    return StrawWalker<NFAGraph>(g, g.g, all_repeats).walk(v, straw);
+    return StrawWalker<NGHolder>(g, g, all_repeats).walk(v, straw);
 }
 
 /** True if entries to this subgraph must pass through a cyclic state with
@@ -1556,7 +1552,7 @@ bool hasCyclicSupersetEntryPath(const NGHolder &g, const ReachSubgraph &rsi,
     // until we encounter our cyclic, all of which must have superset reach.
     vector<NFAVertex> straw;
     return walkStrawToCyclicRev(g, rsi.vertices.front(), all_repeats, straw) !=
-           NFAGraph::null_vertex();
+           NGHolder::null_vertex();
 }
 
 static
@@ -1564,7 +1560,7 @@ bool hasCyclicSupersetExitPath(const NGHolder &g, const ReachSubgraph &rsi,
                                const vector<BoundedRepeatData> &all_repeats) {
     vector<NFAVertex> straw;
     return walkStrawToCyclicFwd(g, rsi.vertices.back(), all_repeats, straw) !=
-           NFAGraph::null_vertex();
+           NGHolder::null_vertex();
 }
 
 static
@@ -1847,7 +1843,7 @@ void buildFeeder(NGHolder &g, const BoundedRepeatData &rd,
             add_edge(u, feeder, g);
         }
 
-        DEBUG_PRINTF("added feeder %u\n", g[feeder].index);
+        DEBUG_PRINTF("added feeder %zu\n", g[feeder].index);
     } else {
         // No neg trigger means feeder is empty, and unnecessary.
         assert(g[rd.pos_trigger].char_reach.all());
@@ -1895,13 +1891,13 @@ bool improveLeadingRepeat(NGHolder &g, BoundedRepeatData &rd,
     // This transformation is only safe if the straw path from startDs that
     // we've discovered can *only* lead to this repeat, since we're going to
     // remove the self-loop on startDs.
-    if (hasGreaterOutDegree(2, g.startDs, g)) {
+    if (proper_out_degree(g.startDs, g) > 1) {
         DEBUG_PRINTF("startDs has other successors\n");
         return false;
     }
     for (const auto &v : straw) {
         if (proper_out_degree(v, g) != 1) {
-            DEBUG_PRINTF("branch between startDs and repeat, from vertex %u\n",
+            DEBUG_PRINTF("branch between startDs and repeat, from vertex %zu\n",
                          g[v].index);
             return false;
         }
@@ -2071,8 +2067,8 @@ public:
                  const depth &our_depth_in)
         : top_depths(top_depths_in), our_depth(our_depth_in) {}
 
-    void discover_vertex(NFAVertex v, UNUSED const NFAGraph &g) {
-        DEBUG_PRINTF("discovered %u (depth %s)\n", g[v].index,
+    void discover_vertex(NFAVertex v, UNUSED const NGHolder &g) {
+        DEBUG_PRINTF("discovered %zu (depth %s)\n", g[v].index,
                      our_depth.str().c_str());
 
         auto it = top_depths.find(v);
@@ -2105,28 +2101,39 @@ void populateFixedTopInfo(const map<u32, u32> &fixed_depth_tops,
         if (v == g.startDs) {
             continue;
         }
-        u32 top = g[e].top;
+
         depth td = depth::infinity();
-        if (contains(fixed_depth_tops, top)) {
-            td = fixed_depth_tops.at(top);
+        for (u32 top : g[e].tops) {
+            if (!contains(fixed_depth_tops, top)) {
+                td = depth::infinity();
+                break;
+            }
+            depth td_t = fixed_depth_tops.at(top);
+            if (td == td_t) {
+                continue;
+            } else if (td == depth::infinity()) {
+                td = td_t;
+            } else {
+                td = depth::infinity();
+                break;
+            }
         }
 
-        DEBUG_PRINTF("scanning from %u top=%u depth=%s\n",
-                     g[v].index, top, td.str().c_str());
+        DEBUG_PRINTF("scanning from %zu depth=%s\n", g[v].index,
+                     td.str().c_str());
         /* for each vertex reachable from v update its map to reflect that it is
          * reachable from a top of depth td. */
 
-        depth_first_visit(
-            g.g, v, pfti_visitor(top_depths, td),
-            make_iterator_property_map(colours.begin(),
-                                       get(&NFAGraphVertexProps::index, g.g)));
+        depth_first_visit(g, v, pfti_visitor(top_depths, td),
+                          make_iterator_property_map(colours.begin(),
+                                                     get(vertex_index, g)));
     }
 
     for (const auto &v_depth : top_depths) {
         const NFAVertex v = v_depth.first;
         const depth &d = v_depth.second;
         if (d.is_finite()) {
-            DEBUG_PRINTF("%u reached by fixed tops at depth %s\n",
+            DEBUG_PRINTF("%zu reached by fixed tops at depth %s\n",
                          g[v].index, d.str().c_str());
             reached_by_fixed_tops->insert(v);
         }
@@ -2143,19 +2150,16 @@ bool hasOverlappingRepeats(UNUSED const NGHolder &g,
 
     for (const auto &br : repeats) {
         if (contains(involved, br.cyclic)) {
-            DEBUG_PRINTF("already seen cyclic %u\n",
-                         g[br.cyclic].index);
+            DEBUG_PRINTF("already seen cyclic %zu\n", g[br.cyclic].index);
             return true;
         }
         if (contains(involved, br.pos_trigger)) {
-            DEBUG_PRINTF("already seen pos %u\n",
-                         g[br.pos_trigger].index);
+            DEBUG_PRINTF("already seen pos %zu\n", g[br.pos_trigger].index);
             return true;
         }
         for (auto v : br.tug_triggers) {
             if (contains(involved, v)) {
-                DEBUG_PRINTF("already seen tug %u\n",
-                             g[v].index);
+                DEBUG_PRINTF("already seen tug %zu\n", g[v].index);
                 return true;
             }
         }
@@ -2301,7 +2305,7 @@ void analyseRepeats(NGHolder &g, const ReportManager *rm,
     // Go to town on the remaining acceptable subgraphs.
     ue2::unordered_set<NFAVertex> created;
     for (auto &rsi : rs) {
-        DEBUG_PRINTF("subgraph (beginning vertex %u) is a {%s,%s} repeat\n",
+        DEBUG_PRINTF("subgraph (beginning vertex %zu) is a {%s,%s} repeat\n",
                      g[rsi.vertices.front()].index,
                      rsi.repeatMin.str().c_str(), rsi.repeatMax.str().c_str());
 
@@ -2334,7 +2338,7 @@ void analyseRepeats(NGHolder &g, const ReportManager *rm,
 
         // Some of our analyses require correctly numbered vertices, so we
         // renumber after changes.
-        g.renumberVertices();
+        renumber_vertices(g);
     }
 
     bool modified_start_ds = false;
@@ -2375,8 +2379,8 @@ void analyseRepeats(NGHolder &g, const ReportManager *rm,
 
         // We have modified the graph, so we need to ensure that our edges
         // and vertices are correctly numbered.
-        g.renumberVertices();
-        g.renumberEdges();
+        renumber_vertices(g);
+        renumber_edges(g);
         // Remove stray report IDs.
         clearReports(g);
     }
@@ -2415,20 +2419,20 @@ bool isPureRepeat(const NGHolder &g, PureRepeat &repeat) {
 
     // Must be start anchored.
     assert(edge(g.startDs, g.startDs, g).second);
-    if (hasGreaterOutDegree(1, g.startDs, g)) {
+    if (out_degree(g.startDs, g) > 1) {
         DEBUG_PRINTF("Unanchored\n");
         return false;
     }
 
     // Must not be EOD-anchored.
     assert(edge(g.accept, g.acceptEod, g).second);
-    if (hasGreaterInDegree(1, g.acceptEod, g)) {
+    if (in_degree(g.acceptEod, g) > 1) {
         DEBUG_PRINTF("EOD anchored\n");
         return false;
     }
 
     // Must have precisely one top.
-    if (!onlyOneTop(g)) {
+    if (is_triggered(g) && !onlyOneTop(g)) {
         DEBUG_PRINTF("Too many tops\n");
         return false;
     }

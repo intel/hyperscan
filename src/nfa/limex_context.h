@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,6 +39,16 @@
 
 // Runtime context structures.
 
+/* Note: The size of the context structures may vary from platform to platform
+ * (notably, for the Limex64 structure). As a result, information based on the
+ * size and other detail of these structures should not be written into the
+ * bytecode -- really, the details of the structure should not be accessed by
+ * the ue2 compile side at all.
+ */
+#ifdef __cplusplus
+#error ue2 runtime only file
+#endif
+
 /* cached_estate/esucc etc...
  *
  * If the exception state matches the cached_estate we will apply
@@ -66,6 +76,11 @@ struct ALIGN_CL_DIRECTIVE NFAContext##nsize {                               \
 };
 
 GEN_CONTEXT_STRUCT(32,  u32)
+#ifdef ARCH_64_BIT
+GEN_CONTEXT_STRUCT(64,  u64a)
+#else
+GEN_CONTEXT_STRUCT(64,  m128)
+#endif
 GEN_CONTEXT_STRUCT(128, m128)
 GEN_CONTEXT_STRUCT(256, m256)
 GEN_CONTEXT_STRUCT(384, m384)

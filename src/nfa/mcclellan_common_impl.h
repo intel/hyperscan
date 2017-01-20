@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,14 +26,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if defined(__INTEL_COMPILER) || defined(__clang__) || defined(_WIN32) || defined(__GNUC__) && (__GNUC__ < 4)
-#define really_flatten
-#else
-#define really_flatten __attribute__ ((flatten))
-#endif
-
-#define CASE_MASK 0xdf
-
 enum MatchMode {
     CALLBACK_OUTPUT,
     STOP_AT_MATCH,
@@ -41,7 +33,7 @@ enum MatchMode {
 };
 
 static really_inline
-const struct mstate_aux *get_aux(const struct mcclellan *m, u16 s) {
+const struct mstate_aux *get_aux(const struct mcclellan *m, u32 s) {
     const char *nfa = (const char *)m - sizeof(struct NFA);
     const struct mstate_aux *aux
         = s + (const struct mstate_aux *)(nfa + m->aux_offset);
@@ -51,15 +43,15 @@ const struct mstate_aux *get_aux(const struct mcclellan *m, u16 s) {
 }
 
 static really_inline
-u16 mcclellanEnableStarts(const struct mcclellan *m, u16 s) {
+u32 mcclellanEnableStarts(const struct mcclellan *m, u32 s) {
     const struct mstate_aux *aux = get_aux(m, s);
 
-    DEBUG_PRINTF("enabling starts %hu->%hu\n", s, aux->top);
+    DEBUG_PRINTF("enabling starts %u->%hu\n", s, aux->top);
     return aux->top;
 }
 
 static really_inline
-u16 doSherman16(const char *sherman_state, u8 cprime, const u16 *succ_table,
+u32 doSherman16(const char *sherman_state, u8 cprime, const u16 *succ_table,
                 u32 as) {
     assert(ISALIGNED_N(sherman_state, 16));
 
@@ -78,15 +70,15 @@ u16 doSherman16(const char *sherman_state, u8 cprime, const u16 *succ_table,
         if (z) {
             u32 i = ctz32(z & ~0xf) - 4;
 
-            u16 s_out = unaligned_load_u16((const u8 *)sherman_state
+            u32 s_out = unaligned_load_u16((const u8 *)sherman_state
                                            + SHERMAN_STATES_OFFSET(len)
                                            + sizeof(u16) * i);
-            DEBUG_PRINTF("found sherman match at %u/%u for c'=%hhu "
-                         "s=%hu\n", i, len, cprime, s_out);
+            DEBUG_PRINTF("found sherman match at %u/%u for c'=%hhu s=%u\n", i,
+                         len, cprime, s_out);
             return s_out;
         }
     }
 
-    u16 daddy = *(const u16 *)(sherman_state + SHERMAN_DADDY_OFFSET);
-    return succ_table[((u32)daddy << as) + cprime];
+    u32 daddy = *(const u16 *)(sherman_state + SHERMAN_DADDY_OFFSET);
+    return succ_table[(daddy << as) + cprime];
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -153,8 +153,7 @@ aligned_unique_ptr<NFA> buildLbrDot(const CharReach &cr, const depth &repeatMin,
 
     enum RepeatType rtype = chooseRepeatType(repeatMin, repeatMax, minPeriod,
                                              is_reset);
-    aligned_unique_ptr<NFA> nfa
-        = makeLbrNfa<lbr_dot>(LBR_NFA_Dot, rtype, repeatMax);
+    auto nfa = makeLbrNfa<lbr_dot>(LBR_NFA_DOT, rtype, repeatMax);
     struct lbr_dot *ld = (struct lbr_dot *)getMutableImplNfa(nfa.get());
 
     fillNfa<lbr_dot>(nfa.get(), &ld->common, report, repeatMin, repeatMax,
@@ -177,8 +176,7 @@ aligned_unique_ptr<NFA> buildLbrVerm(const CharReach &cr,
 
     enum RepeatType rtype = chooseRepeatType(repeatMin, repeatMax, minPeriod,
                                              is_reset);
-    aligned_unique_ptr<NFA> nfa
-        = makeLbrNfa<lbr_verm>(LBR_NFA_Verm, rtype, repeatMax);
+    auto nfa = makeLbrNfa<lbr_verm>(LBR_NFA_VERM, rtype, repeatMax);
     struct lbr_verm *lv = (struct lbr_verm *)getMutableImplNfa(nfa.get());
     lv->c = escapes.find_first();
 
@@ -202,8 +200,7 @@ aligned_unique_ptr<NFA> buildLbrNVerm(const CharReach &cr,
 
     enum RepeatType rtype = chooseRepeatType(repeatMin, repeatMax, minPeriod,
                                              is_reset);
-    aligned_unique_ptr<NFA> nfa
-        = makeLbrNfa<lbr_verm>(LBR_NFA_NVerm, rtype, repeatMax);
+    auto nfa = makeLbrNfa<lbr_verm>(LBR_NFA_NVERM, rtype, repeatMax);
     struct lbr_verm *lv = (struct lbr_verm *)getMutableImplNfa(nfa.get());
     lv->c = escapes.find_first();
 
@@ -221,14 +218,13 @@ aligned_unique_ptr<NFA> buildLbrShuf(const CharReach &cr,
                                      bool is_reset, ReportID report) {
     enum RepeatType rtype = chooseRepeatType(repeatMin, repeatMax, minPeriod,
                                              is_reset);
-    aligned_unique_ptr<NFA> nfa
-        = makeLbrNfa<lbr_shuf>(LBR_NFA_Shuf, rtype, repeatMax);
+    auto nfa = makeLbrNfa<lbr_shuf>(LBR_NFA_SHUF, rtype, repeatMax);
     struct lbr_shuf *ls = (struct lbr_shuf *)getMutableImplNfa(nfa.get());
 
     fillNfa<lbr_shuf>(nfa.get(), &ls->common, report, repeatMin, repeatMax,
                       minPeriod, rtype);
 
-    if (shuftiBuildMasks(~cr, &ls->mask_lo, &ls->mask_hi) == -1) {
+    if (shuftiBuildMasks(~cr, (u8 *)&ls->mask_lo, (u8 *)&ls->mask_hi) == -1) {
         return nullptr;
     }
 
@@ -243,14 +239,13 @@ aligned_unique_ptr<NFA> buildLbrTruf(const CharReach &cr,
                                      bool is_reset, ReportID report) {
     enum RepeatType rtype = chooseRepeatType(repeatMin, repeatMax, minPeriod,
                                              is_reset);
-    aligned_unique_ptr<NFA> nfa
-        = makeLbrNfa<lbr_truf>(LBR_NFA_Truf, rtype, repeatMax);
+    auto nfa = makeLbrNfa<lbr_truf>(LBR_NFA_TRUF, rtype, repeatMax);
     struct lbr_truf *lc = (struct lbr_truf *)getMutableImplNfa(nfa.get());
 
     fillNfa<lbr_truf>(nfa.get(), &lc->common, report, repeatMin, repeatMax,
                       minPeriod, rtype);
 
-    truffleBuildMasks(~cr, &lc->mask1, &lc->mask2);
+    truffleBuildMasks(~cr, (u8 *)&lc->mask1, (u8 *)&lc->mask2);
 
     DEBUG_PRINTF("built truffle lbr\n");
     return nfa;

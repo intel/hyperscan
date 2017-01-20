@@ -34,27 +34,27 @@
 struct mq;
 struct NFA;
 
-char nfaExecMpv0_Q(const struct NFA *n, struct mq *q, s64a end);
-char nfaExecMpv0_reportCurrent(const struct NFA *n, struct mq *q);
-char nfaExecMpv0_queueInitState(const struct NFA *n, struct mq *q);
-char nfaExecMpv0_initCompressedState(const struct NFA *n, u64a offset,
-                                     void *state, u8 key);
-char nfaExecMpv0_queueCompressState(const struct NFA *nfa, const struct mq *q,
-                                    s64a loc);
-char nfaExecMpv0_expandState(const struct NFA *nfa, void *dest, const void *src,
-                             u64a offset, u8 key);
+char nfaExecMpv_Q(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecMpv_reportCurrent(const struct NFA *n, struct mq *q);
+char nfaExecMpv_queueInitState(const struct NFA *n, struct mq *q);
+char nfaExecMpv_initCompressedState(const struct NFA *n, u64a offset,
+                                    void *state, u8 key);
+char nfaExecMpv_queueCompressState(const struct NFA *nfa, const struct mq *q,
+                                   s64a loc);
+char nfaExecMpv_expandState(const struct NFA *nfa, void *dest, const void *src,
+                            u64a offset, u8 key);
 
-#define nfaExecMpv0_testEOD NFA_API_NO_IMPL
-#define nfaExecMpv0_inAccept NFA_API_NO_IMPL
-#define nfaExecMpv0_inAnyAccept NFA_API_NO_IMPL
-#define nfaExecMpv0_QR NFA_API_NO_IMPL
-#define nfaExecMpv0_Q2 NFA_API_NO_IMPL /* for non-chained suffixes. */
-#define nfaExecMpv0_B_Reverse NFA_API_NO_IMPL
-#define nfaExecMpv0_zombie_status NFA_API_ZOMBIE_NO_IMPL
+#define nfaExecMpv_testEOD NFA_API_NO_IMPL
+#define nfaExecMpv_inAccept NFA_API_NO_IMPL
+#define nfaExecMpv_inAnyAccept NFA_API_NO_IMPL
+#define nfaExecMpv_QR NFA_API_NO_IMPL
+#define nfaExecMpv_Q2 NFA_API_NO_IMPL /* for non-chained suffixes. */
+#define nfaExecMpv_B_Reverse NFA_API_NO_IMPL
+#define nfaExecMpv_zombie_status NFA_API_ZOMBIE_NO_IMPL
 
 /**
  * return 0 if the mpv dies, otherwise returns the location of the next possible
  * match (given the currently known events). */
-s64a nfaExecMpv0_QueueExecRaw(const struct NFA *nfa, struct mq *q, s64a end);
+s64a nfaExecMpv_QueueExecRaw(const struct NFA *nfa, struct mq *q, s64a end);
 
 #endif

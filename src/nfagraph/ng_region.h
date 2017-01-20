@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -181,7 +181,7 @@ bool isOptionalRegion(const Graph &g, NFAVertex v,
                       const ue2::unordered_map<NFAVertex, u32> &region_map) {
     assert(isRegionEntry(g, v, region_map));
 
-    DEBUG_PRINTF("check if r%u is optional (inspecting v%u)\n",
+    DEBUG_PRINTF("check if r%u is optional (inspecting v%zu)\n",
                   region_map.at(v), g[v].index);
 
     // Region zero is never optional.
@@ -198,12 +198,12 @@ bool isOptionalRegion(const Graph &g, NFAVertex v,
         if (inSameRegion(g, v, u, region_map)) {
             continue;
         }
-        DEBUG_PRINTF("  searching from u=%u\n", g[u].index);
+        DEBUG_PRINTF("  searching from u=%zu\n", g[u].index);
 
         assert(inEarlierRegion(g, v, u, region_map));
 
         for (auto w : adjacent_vertices_range(u, g)) {
-            DEBUG_PRINTF("    searching to w=%u\n", g[w].index);
+            DEBUG_PRINTF("    searching to w=%zu\n", g[w].index);
             if (inLaterRegion(g, v, w, region_map)) {
                 return true;
             }

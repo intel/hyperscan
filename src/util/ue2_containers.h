@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -207,6 +207,10 @@ public:
         return std::make_pair(iterator(it), false);
     }
 
+    iterator insert(UNUSED const_iterator hint, const value_type &value) {
+        return insert(value).first;
+    }
+
     std::pair<iterator, bool> insert(value_type &&value) {
         auto it = std::lower_bound(data.begin(), data.end(), value, comp);
         if (it == data.end() || comp(value, *it)) {
@@ -214,6 +218,10 @@ public:
                                   true);
         }
         return std::make_pair(iterator(it), false);
+    }
+
+    iterator insert(UNUSED const_iterator hint, value_type &&value) {
+        return insert(value).first;
     }
 
     template <class InputIt>

@@ -74,10 +74,8 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
         if (loc < buf) {
             u32 full_overhang = buf - loc;
 
-            const u8 *history = caseless ? a->buf_history_nocase
-                                         : a->buf_history;
-            size_t len_history = caseless ? a->len_history_nocase
-                                          : a->len_history;
+            const u8 *history = a->buf_history;
+            size_t len_history = a->len_history;
 
             // can't do a vectored confirm either if we don't have
             // the bytes
@@ -88,7 +86,7 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
             // as for the regular case, no need to do a full confirm if
             // we're a short literal
             if (unlikely(li->size > sizeof(CONF_TYPE))) {
-                const u8 *s1 = li->s;
+                const u8 *s1 = (const u8 *)li + sizeof(*li);
                 const u8 *s2 = s1 + full_overhang;
                 const u8 *loc1 = history + len_history - full_overhang;
                 const u8 *loc2 = buf;
@@ -108,7 +106,8 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
 
             // if string < conf_type we don't need regular string cmp
             if (unlikely(li->size > sizeof(CONF_TYPE))) {
-                if (cmpForward(loc, li->s, li->size - sizeof(CONF_TYPE),
+                const u8 *s = (const u8 *)li + sizeof(*li);
+                if (cmpForward(loc, s, li->size - sizeof(CONF_TYPE),
                                caseless)) {
                     goto out;
                 }
@@ -123,8 +122,7 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
             const u8 *loc2 = buf + i - li->extended_size + 1 - pullBackAmount;
             if (loc2 < buf) {
                 u32 full_overhang = buf - loc2;
-                size_t len_history = caseless ? a->len_history_nocase
-                                              : a->len_history;
+                size_t len_history = a->len_history;
                 if (full_overhang > len_history) {
                     goto out;
                 }

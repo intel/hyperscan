@@ -117,7 +117,7 @@ aligned_unique_ptr<NFA> buildTamarama(const TamaInfo &tamaInfo, const u32 queue,
     remapTops(tamaInfo, top_base, out_top_remap);
 
     size_t subSize = tamaInfo.subengines.size();
-    DEBUG_PRINTF("subSize:%lu\n", subSize);
+    DEBUG_PRINTF("subSize:%zu\n", subSize);
     size_t total_size =
         sizeof(NFA) +               // initial NFA structure
         sizeof(Tamarama) +          // Tamarama structure
@@ -134,7 +134,7 @@ aligned_unique_ptr<NFA> buildTamarama(const TamaInfo &tamaInfo, const u32 queue,
     // so add one to subSize here
     u32 activeIdxSize = calcPackedBytes(subSize + 1);
     aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
-    nfa->type = verify_u8(TAMARAMA_NFA_0);
+    nfa->type = verify_u8(TAMARAMA_NFA);
     nfa->length = verify_u32(total_size);
     nfa->queueIndex = queue;
 

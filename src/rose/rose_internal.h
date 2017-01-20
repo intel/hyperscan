@@ -217,8 +217,8 @@ struct RoseStateOffsets {
     /** Size of packed Rose groups value, in bytes. */
     u32 groups_size;
 
-    /** State for floating literal matcher (managed by HWLM). */
-    u32 floatingMatcherState;
+    /** State for long literal support. */
+    u32 longLitState;
 
     /** Packed SOM location slots. */
     u32 somLocation;
@@ -309,9 +309,11 @@ struct RoseEngine {
     u32 historyRequired; /**< max amount of history required for streaming */
     u32 ekeyCount; /**< number of exhaustion keys */
     u32 dkeyCount; /**< number of dedupe keys */
+    u32 dkeyLogSize; /**< size of fatbit for storing dkey log (bytes) */
     u32 invDkeyOffset; /**< offset to table mapping from dkeys to the external
                          *  report ids */
     u32 somLocationCount; /**< number of som locations required */
+    u32 somLocationFatbitSize; /**< size of SOM location fatbit (bytes) */
     u32 rolesWithStateCount; // number of roles with entries in state bitset
     u32 stateSize; /* size of the state bitset
                     * WARNING: not the size of the rose state */
@@ -325,6 +327,7 @@ struct RoseEngine {
     u32 ematcherOffset; // offset of the eod-anchored literal matcher (bytes)
     u32 fmatcherOffset; // offset of the floating literal matcher (bytes)
     u32 sbmatcherOffset; // offset of the small-block literal matcher (bytes)
+    u32 longLitTableOffset; // offset of the long literal table
     u32 amatcherMinWidth; /**< minimum number of bytes required for a pattern
                            * involved with the anchored table to produce a full
                            * match. */
@@ -369,13 +372,17 @@ struct RoseEngine {
     u32 activeArrayCount; //number of nfas tracked in the active array
     u32 activeLeftCount; //number of nfas tracked in the active rose array
     u32 queueCount;      /**< number of nfa queues */
+    u32 activeQueueArraySize; //!< size of fatbit for active queues (bytes)
 
     u32 eagerIterOffset; /**< offset to sparse iter for eager prefixes or 0 if
                           * none */
 
     /** \brief Number of keys used by CHECK_SET_HANDLED instructions in role
-     * programs. Used to size the handled_roles fatbit in scratch. */
+     * programs. */
     u32 handledKeyCount;
+
+    /** \brief Size of the handled keys fatbit in scratch (bytes). */
+    u32 handledKeyFatbitSize;
 
     u32 leftOffset;
     u32 roseCount;
@@ -411,9 +418,11 @@ struct RoseEngine {
     rose_group floating_group_mask; /* groups that are used by the ftable */
     u32 size; // (bytes)
     u32 delay_count; /* number of delayed literal ids. */
+    u32 delay_fatbit_size; //!< size of each delay fatbit in scratch (bytes)
     u32 delay_base_id; /* literal id of the first delayed literal.
                         * delayed literal ids are contiguous */
     u32 anchored_count; /* number of anchored literal ids */
+    u32 anchored_fatbit_size; //!< size of each anch fatbit in scratch (bytes)
     u32 anchored_base_id; /* literal id of the first literal in the A table.
                            * anchored literal ids are contiguous */
     u32 maxFloatingDelayedMatch; /* max offset that a delayed literal can
@@ -434,7 +443,7 @@ struct RoseEngine {
     u32 ematcherRegionSize; /* max region size to pass to ematcher */
     u32 somRevCount; /**< number of som reverse nfas */
     u32 somRevOffsetOffset; /**< offset to array of offsets to som rev nfas */
-    u32 floatingStreamState; // size in bytes
+    u32 longLitStreamState; // size in bytes
 
     struct scatter_full_plan state_init;
 };
@@ -443,6 +452,72 @@ struct ALIGN_CL_DIRECTIVE anchored_matcher_info {
     u32 next_offset; /* relative to this, 0 for end */
     u32 state_offset; /* relative to anchorState */
     u32 anchoredMinDistance; /* start of region to run anchored table over */
+};
+
+/**
+ * \brief Long literal subtable for a particular mode (caseful or nocase).
+ */
+struct RoseLongLitSubtable {
+    /**
+     * \brief Offset of the hash table (relative to RoseLongLitTable base).
+     *
+     * Offset is zero if no such table exists.
+     */
+    u32 hashOffset;
+
+    /**
+     * \brief Offset of the bloom filter (relative to RoseLongLitTable base).
+     *
+     * Offset is zero if no such table exists.
+     */
+    u32 bloomOffset;
+
+    /** \brief lg2 of the size of the hash table. */
+    u8 hashBits;
+
+    /** \brief Size of the bloom filter in bits. */
+    u8 bloomBits;
+
+    /** \brief Number of bits of packed stream state used.  */
+    u8 streamStateBits;
+};
+
+/**
+ * \brief Long literal table header.
+ */
+struct RoseLongLitTable {
+    /**
+     * \brief Total size of the whole table (including strings, bloom filters,
+     * hash tables).
+     */
+    u32 size;
+
+    /** \brief Caseful sub-table (hash table and bloom filter). */
+    struct RoseLongLitSubtable caseful;
+
+    /** \brief Caseless sub-table (hash table and bloom filter). */
+    struct RoseLongLitSubtable nocase;
+
+    /** \brief Total size of packed stream state in bytes. */
+    u8 streamStateBytes;
+
+    /** \brief Max length of literal prefixes. */
+    u8 maxLen;
+};
+
+/**
+ * \brief One of these structures per hash table entry in our long literal
+ * table.
+ */
+struct RoseLongLitHashEntry {
+    /**
+     * \brief Offset of the literal string itself, relative to
+     * RoseLongLitTable base. Zero if this bucket is empty.
+     */
+    u32 str_offset;
+
+    /** \brief Length of the literal string. */
+    u32 str_len;
 };
 
 static really_inline

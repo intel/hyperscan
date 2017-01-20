@@ -234,9 +234,9 @@ public:
     void operator()(ostream& os, const EdgeT& e) const {
         // Edge label. Print priority.
         os << "[fontsize=9,label=\"";
-        // If it's an edge from start, print top id.
-        if (is_any_start(source(e, g), g) && !is_any_start(target(e, g), g)) {
-            os << "TOP " << g[e].top << "\\n";
+        // print tops if any set.
+        if (!g[e].tops.empty()) {
+            os << "TOP " << as_string_list(g[e].tops) << "\\n";
         }
 
         // If it's an assert vertex, then display its info.
@@ -285,7 +285,7 @@ void dumpGraphImpl(const char *name, const GraphT &g,
 }
 
 // manual instantiation of templated dumpGraph above.
-template void dumpGraphImpl(const char *, const NFAGraph &);
+template void dumpGraphImpl(const char *, const NGHolder &);
 
 void dumpDotWrapperImpl(const NGWrapper &nw, const char *name,
                         const Grey &grey) {
@@ -293,7 +293,7 @@ void dumpDotWrapperImpl(const NGWrapper &nw, const char *name,
         stringstream ss;
         ss << grey.dumpPath << "Expr_" << nw.expressionIndex << "_" << name << ".dot";
         DEBUG_PRINTF("dumping dot graph to '%s'\n", ss.str().c_str());
-        dumpGraphImpl(ss.str().c_str(), nw.g);
+        dumpGraphImpl(ss.str().c_str(), nw);
     }
 }
 
@@ -304,7 +304,7 @@ void dumpComponentImpl(const NGHolder &g, const char *name, u32 expr,
         ss << grey.dumpPath << "Comp_" << expr << "-" << comp << "_"
            << name << ".dot";
         DEBUG_PRINTF("dumping dot graph to '%s'\n", ss.str().c_str());
-        dumpGraphImpl(ss.str().c_str(), g.g);
+        dumpGraphImpl(ss.str().c_str(), g);
     }
 }
 
@@ -315,7 +315,7 @@ void dumpSomSubComponentImpl(const NGHolder &g, const char *name, u32 expr,
         ss << grey.dumpPath << "Comp_" << expr << "-" << comp << "_"
            <<  name << "_" << plan << ".dot";
         DEBUG_PRINTF("dumping dot graph to '%s'\n", ss.str().c_str());
-        dumpGraphImpl(ss.str().c_str(), g.g);
+        dumpGraphImpl(ss.str().c_str(), g);
     }
 }
 
@@ -325,7 +325,7 @@ void dumpHolderImpl(const NGHolder &h, unsigned int stageNumber,
         stringstream ss;
         ss << grey.dumpPath << "Holder_X_" << stageNumber
            << "-" << stageName << ".dot";
-        dumpGraphImpl(ss.str().c_str(), h.g);
+        dumpGraphImpl(ss.str().c_str(), h);
     }
 }
 
@@ -337,7 +337,7 @@ void dumpHolderImpl(const NGHolder &h,
         stringstream ss;
         ss << grey.dumpPath << "Holder_X_" << stageNumber
            << "-" << stageName << ".dot";
-        dumpGraphImpl(ss.str().c_str(), h.g, region_map);
+        dumpGraphImpl(ss.str().c_str(), h, region_map);
     }
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -155,13 +155,13 @@ bool addSomRedundancy(NGHolder &g, vector<DepthMinMax> &depths) {
         if (is_special(v, g)) {
             continue;
         }
-        if (!hasGreaterInDegree(0, v, g)) {
+        if (!in_degree(v, g)) {
             continue; // unreachable, probably killed
         }
 
         const DepthMinMax &d = getDepth(v, g, depths);
 
-        DEBUG_PRINTF("vertex %u has depths %s\n", g[v].index,
+        DEBUG_PRINTF("vertex %zu has depths %s\n", g[v].index,
                      d.str().c_str());
 
         if (d.min == d.max) {

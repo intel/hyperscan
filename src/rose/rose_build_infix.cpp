@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -108,14 +108,9 @@ void contractVertex(NGHolder &g, NFAVertex v,
 }
 
 static
-u32 findMaxInfixMatches(const NGHolder &h, const set<ue2_literal> &lits) {
+u32 findMaxLiteralMatches(const NGHolder &h, const set<ue2_literal> &lits) {
     DEBUG_PRINTF("h=%p, %zu literals\n", &h, lits.size());
-    //dumpGraph("infix.dot", h.g);
-
-    if (!onlyOneTop(h)) {
-        DEBUG_PRINTF("more than one top!n");
-        return NO_MATCH_LIMIT;
-    }
+    //dumpGraph("infix.dot", h);
 
     // Indices of vertices that could terminate any of the literals in 'lits'.
     set<u32> terms;
@@ -168,7 +163,7 @@ u32 findMaxInfixMatches(const NGHolder &h, const set<ue2_literal> &lits) {
     }
 
     remove_vertices(dead, g);
-    //dumpGraph("relaxed.dot", g.g);
+    //dumpGraph("relaxed.dot", g);
 
     depth maxWidth = findMaxWidth(g);
     DEBUG_PRINTF("maxWidth=%s\n", maxWidth.str().c_str());
@@ -262,7 +257,11 @@ u32 findMaxInfixMatches(const left_id &left, const set<ue2_literal> &lits) {
         return findMaxInfixMatches(*left.castle(), lits);
     }
     if (left.graph()) {
-        return findMaxInfixMatches(*left.graph(), lits);
+        if (!onlyOneTop(*left.graph())) {
+            DEBUG_PRINTF("more than one top!n");
+            return NO_MATCH_LIMIT;
+        }
+        return findMaxLiteralMatches(*left.graph(), lits);
     }
 
     return NO_MATCH_LIMIT;
@@ -279,7 +278,7 @@ void findCountingMiracleInfo(const left_id &left, const vector<u8> &stopTable,
 
     const NGHolder &g = *left.graph();
 
-    auto cyclics = findVerticesInCycles(g);
+    auto cyclics = find_vertices_in_cycles(g);
 
     if (!proper_out_degree(g.startDs, g)) {
         cyclics.erase(g.startDs);
@@ -287,7 +286,7 @@ void findCountingMiracleInfo(const left_id &left, const vector<u8> &stopTable,
 
     CharReach cyclic_cr;
     for (NFAVertex v : cyclics) {
-        DEBUG_PRINTF("considering %u ||=%zu\n", g[v].index,
+        DEBUG_PRINTF("considering %zu ||=%zu\n", g[v].index,
                       g[v].char_reach.count());
         cyclic_cr |= g[v].char_reach;
     }
@@ -315,7 +314,7 @@ void findCountingMiracleInfo(const left_id &left, const vector<u8> &stopTable,
         lits.insert(ue2_literal(c, false));
     }
 
-    u32 count = findMaxInfixMatches(*left.graph(), lits);
+    u32 count = findMaxLiteralMatches(*left.graph(), lits);
     DEBUG_PRINTF("counting miracle %u\n", count + 1);
     if (count && count < 50) {
         *cm_count = count + 1;

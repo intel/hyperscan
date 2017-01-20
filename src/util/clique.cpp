@@ -103,7 +103,7 @@ bool graph_empty(const Graph &g) {
 }
 
 vector<vector<u32>> removeClique(CliqueGraph &cg) {
-    DEBUG_PRINTF("graph size:%lu\n", num_vertices(cg));
+    DEBUG_PRINTF("graph size:%zu\n", num_vertices(cg));
     vector<vector<u32>> cliquesVec = {findCliqueGroup(cg)};
     while (!graph_empty(cg)) {
         const vector<u32> &c = cliquesVec.back();

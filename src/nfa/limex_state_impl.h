@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,8 +35,8 @@
 #include "util/state_compress.h"
 #include <string.h>
 
-#if !defined(SIZE) || !defined(STATE_T)
-#  error Must define SIZE and STATE_T in includer.
+#if !defined(SIZE) || !defined(STATE_T) || !defined(LOAD_FROM_ENG)
+#  error Must define SIZE, STATE_T, LOAD_FROM_ENG in includer.
 #endif
 
 #define IMPL_NFA_T          JOIN(struct LimExNFA, SIZE)
@@ -44,29 +44,33 @@
 #define REACHMASK_FN        JOIN(moNfaReachMask, SIZE)
 #define COMPRESS_FN         JOIN(moNfaCompressState, SIZE)
 #define EXPAND_FN           JOIN(moNfaExpandState, SIZE)
-#define COMPRESSED_STORE_FN JOIN(storecompressed, SIZE)
-#define COMPRESSED_LOAD_FN  JOIN(loadcompressed, SIZE)
+#define COMPRESSED_STORE_FN JOIN(store_compressed_, STATE_T)
+#define COMPRESSED_LOAD_FN  JOIN(load_compressed_, STATE_T)
 #define PARTIAL_STORE_FN    JOIN(partial_store_, STATE_T)
 #define PARTIAL_LOAD_FN     JOIN(partial_load_, STATE_T)
-#define LOAD_STATE          JOIN(load_, STATE_T)
-#define STORE_STATE         JOIN(store_, STATE_T)
 #define OR_STATE            JOIN(or_, STATE_T)
 #define AND_STATE           JOIN(and_, STATE_T)
 #define ISZERO_STATE        JOIN(isZero_, STATE_T)
 
 static really_inline
-const STATE_T *REACHMASK_FN(const IMPL_NFA_T *limex, const u8 key) {
-    const STATE_T *reach
-        = (const STATE_T *)((const char *)limex + sizeof(*limex));
-    assert(ISALIGNED_N(reach, alignof(STATE_T)));
-    return &reach[limex->reachMap[key]];
+const ENG_STATE_T *get_reach_table(const IMPL_NFA_T *limex) {
+    const ENG_STATE_T *reach
+        = (const ENG_STATE_T *)((const char *)limex + sizeof(*limex));
+    assert(ISALIGNED_N(reach, alignof(ENG_STATE_T)));
+    return reach;
+}
+
+static really_inline
+STATE_T REACHMASK_FN(const IMPL_NFA_T *limex, const u8 key) {
+    const ENG_STATE_T *reach = get_reach_table(limex);
+    return LOAD_FROM_ENG(&reach[limex->reachMap[key]]);
 }
 
 static really_inline
 void COMPRESS_FN(const IMPL_NFA_T *limex, u8 *dest, const STATE_T *src,
                  u8 key) {
     assert(ISALIGNED_N(src, alignof(STATE_T)));
-    STATE_T a_src = LOAD_STATE(src);
+    STATE_T a_src = *src;
 
     DEBUG_PRINTF("compress state: %p -> %p\n", src, dest);
 
@@ -77,31 +81,30 @@ void COMPRESS_FN(const IMPL_NFA_T *limex, u8 *dest, const STATE_T *src,
     } else {
         DEBUG_PRINTF("compress state, key=%hhx\n", key);
 
-        const STATE_T *reachmask = REACHMASK_FN(limex, key);
+        STATE_T reachmask = REACHMASK_FN(limex, key);
 
         // Masked compression means that we mask off the initDs states and
         // provide a shortcut for the all-zeroes case. Note that these must be
         // switched on in the EXPAND call below.
         if (limex->flags & LIMEX_FLAG_COMPRESS_MASKED) {
-            STATE_T s = AND_STATE(LOAD_STATE(&limex->compressMask), a_src);
+            STATE_T s = AND_STATE(LOAD_FROM_ENG(&limex->compressMask), a_src);
             if (ISZERO_STATE(s)) {
                 DEBUG_PRINTF("after compression mask, all states are zero\n");
                 memset(dest, 0, limex->stateSize);
                 return;
             }
 
-            STATE_T mask = AND_STATE(LOAD_STATE(&limex->compressMask),
-                                     LOAD_STATE(reachmask));
+            STATE_T mask = AND_STATE(LOAD_FROM_ENG(&limex->compressMask),
+                                     reachmask);
             COMPRESSED_STORE_FN(dest, &s, &mask, limex->stateSize);
         } else {
-            COMPRESSED_STORE_FN(dest, src, reachmask, limex->stateSize);
+            COMPRESSED_STORE_FN(dest, src, &reachmask, limex->stateSize);
         }
     }
 }
 
 static really_inline
-void EXPAND_FN(const IMPL_NFA_T *limex, STATE_T *dest, const u8 *src,
-               u8 key) {
+void EXPAND_FN(const IMPL_NFA_T *limex, STATE_T *dest, const u8 *src, u8 key) {
     assert(ISALIGNED_N(dest, alignof(STATE_T)));
     DEBUG_PRINTF("expand state: %p -> %p\n", src, dest);
 
@@ -111,16 +114,15 @@ void EXPAND_FN(const IMPL_NFA_T *limex, STATE_T *dest, const u8 *src,
         *dest = PARTIAL_LOAD_FN(src, limex->stateSize);
     } else {
         DEBUG_PRINTF("expand state, key=%hhx\n", key);
-        const STATE_T *reachmask = REACHMASK_FN(limex, key);
+        STATE_T reachmask = REACHMASK_FN(limex, key);
 
         if (limex->flags & LIMEX_FLAG_COMPRESS_MASKED) {
-            STATE_T mask = AND_STATE(LOAD_STATE(&limex->compressMask),
-                                     LOAD_STATE(reachmask));
+            STATE_T mask = AND_STATE(LOAD_FROM_ENG(&limex->compressMask),
+                                     reachmask);
             COMPRESSED_LOAD_FN(dest, src, &mask, limex->stateSize);
-            STORE_STATE(dest, OR_STATE(LOAD_STATE(&limex->initDS),
-                        LOAD_STATE(dest)));
+            *dest = OR_STATE(LOAD_FROM_ENG(&limex->initDS), *dest);
         } else {
-            COMPRESSED_LOAD_FN(dest, src, reachmask, limex->stateSize);
+            COMPRESSED_LOAD_FN(dest, src, &reachmask, limex->stateSize);
         }
     }
 }
@@ -134,11 +136,6 @@ void EXPAND_FN(const IMPL_NFA_T *limex, STATE_T *dest, const u8 *src,
 #undef COMPRESSED_LOAD_FN
 #undef PARTIAL_STORE_FN
 #undef PARTIAL_LOAD_FN
-#undef LOAD_STATE
-#undef STORE_STATE
 #undef OR_STATE
 #undef AND_STATE
 #undef ISZERO_STATE
-
-#undef SIZE
-#undef STATE_T

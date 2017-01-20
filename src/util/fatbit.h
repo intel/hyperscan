@@ -40,6 +40,10 @@
 #include "multibit.h"
 #include "ue2common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MIN_FAT_SIZE 32
 
 struct fatbit {
@@ -82,11 +86,8 @@ u32 fatbit_iterate(const struct fatbit *bits, u32 total_bits, u32 it_in) {
     return mmbit_iterate(bits->fb_int.raw, total_bits, it_in);
 }
 
-/** \brief Return the size in bytes of a fatbit that can store the given
- * number of bits.
- *
- * Not for use in performance-critical code, implementation is in fatbit.c.
- */
-u32 fatbit_size(u32 total_bits);
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif

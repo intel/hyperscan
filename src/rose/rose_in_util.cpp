@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,27 +48,15 @@ using namespace std;
 
 namespace ue2 {
 
-static
-void populateIndexMap(const RoseInGraph &in,
-                      map<RoseInVertex, size_t> *index_map) {
-    size_t i = 0;
-    for (auto v : vertices_range(in)) {
-        (*index_map)[v] = i++;
-    }
-}
-
 /* Returns a topological ordering of the vertices in g. That is the starts are
  * at the front and all the predecessors of a vertex occur earlier in the list
  * than the vertex. */
 vector<RoseInVertex> topo_order(const RoseInGraph &g) {
-    map<RoseInVertex, size_t> index_map;
-    populateIndexMap(g, &index_map);
-
+    assert(hasCorrectlyNumberedVertices(g));
     vector<RoseInVertex> v_order;
-    v_order.reserve(index_map.size());
+    v_order.reserve(num_vertices(g));
 
-    topological_sort(g, back_inserter(v_order),
-        vertex_index_map(boost::make_assoc_property_map(index_map)));
+    boost::topological_sort(g, back_inserter(v_order));
 
     reverse(v_order.begin(), v_order.end()); /* put starts at the front */
 
@@ -105,6 +93,7 @@ private:
 }
 
 unique_ptr<RoseInGraph> cloneRoseGraph(const RoseInGraph &ig) {
+    assert(hasCorrectlyNumberedVertices(ig));
     unique_ptr<RoseInGraph> out = make_unique<RoseInGraph>();
 
     unordered_map<const NGHolder *, shared_ptr<NGHolder>> graph_map;
@@ -120,12 +109,8 @@ unique_ptr<RoseInGraph> cloneRoseGraph(const RoseInGraph &ig) {
         }
     }
 
-    map<RoseInVertex, size_t> index_map;
-    populateIndexMap(ig, &index_map);
-
     copy_graph(ig, *out,
-               boost::edge_copy(RoseEdgeCopier(ig, *out, graph_map, haig_map))
-                   .vertex_index_map(boost::make_assoc_property_map(index_map)));
+               boost::edge_copy(RoseEdgeCopier(ig, *out, graph_map, haig_map)));
     return out;
 }
 

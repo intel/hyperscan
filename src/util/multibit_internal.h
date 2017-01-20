@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,6 +47,9 @@ extern "C" {
 typedef u64a MMB_TYPE; /**< Basic block type for mmbit operations. */
 #define MMB_MAX_LEVEL 6 /**< Maximum level in the mmbit pyramid. */
 
+/** \brief Maximum number of keys (bits) in a multibit. */
+#define MMB_MAX_BITS (1U << 31)
+
 /** \brief Sparse iterator record type.
  *
  * A sparse iterator is a tree of these records, where val identifies the
@@ -70,13 +73,6 @@ struct mmbit_sparse_state {
 
 /** \brief Maximum number of \ref mmbit_sparse_state that could be needed. */
 #define MAX_SPARSE_ITER_STATES (6 + 1)
-
-/** \brief Return the size in bytes of a multibit that can store the given
- * number of bits.
- *
- * Not for use in performance-critical code, implementation is in multibit.c.
- */
-u32 mmbit_size(u32 total_bits);
 
 #ifdef __cplusplus
 } // extern "C"

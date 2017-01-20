@@ -2,8 +2,40 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
-## [4.3.2] 2016-11-15
+## [4.4.0] 2017-01-20
+- Introduce the "fat runtime" build. This will build several variants of the
+  Hyperscan scanning engine specialised for different processor feature sets,
+  and use the appropriate one for the host at runtime. This uses the "ifunc"
+  indirect function attribute provided by GCC and is currently available on
+  Linux only, where it is the default for release builds.
+- New API function: add the `hs_valid_platform()` function. This function tests
+  whether the host provides the SSSE3 instruction set required by Hyperscan.
+- Introduce a new standard benchmarking tool, "hsbench". This provides an easy
+  way to measure Hyperscan's performance for a particular set of patterns and
+  corpus of data to be scanned.
+- Introduce a 64-bit GPR LimEx NFA model, which uses 64-bit GPRs on 64-bit
+  hosts and SSE registers on 32-bit hosts.
+- Introduce a new DFA model ("McSheng") which is a hybrid of the existing
+  McClellan and Sheng models. This improves scanning performance for some
+  cases.
+- Introduce lookaround specialisations to improve scanning performance.
+- Improve the handling of long literals by moving confirmation to the Rose
+  interpreter and simplifying the hash table used to track them in streaming
+  mode.
+- Improve compile time optimisation for removing redundant paths from
+  expression graphs.
+- Build: improve support for building with MSVC toolchain.
+- Reduce the size of small write DFAs used for small scans in block mode.
+- Introduce a custom graph type (`ue2_graph`) used in place of the Boost Graph
+  Library's `adjacency_list` type. Improves compile time performance and type
+  safety.
+- Improve scanning performance of the McClellan DFA.
+- Bugfix for a very unusual SOM case where the incorrect start offset was
+  reported for a match.
+- Bugfix for issue #37, removing execute permissions from some source files.
+- Bugfix for issue #41, handle Windows line endings in pattern files.
 
+## [4.3.2] 2016-11-15
 - Bugfix for issue #39. This small change is a workaround for an issue in
   Boost 1.62. The fix has been submitted to Boost for inclusion in a future
   release.
@@ -11,7 +43,7 @@ This is a list of notable changes to Hyperscan, in reverse chronological order.
 ## [4.3.1] 2016-08-29
 - Bugfix for issue #30. In recent versions of Clang, a write to a variable was
   being elided, resulting in corrupted stream state after calling
-  hs_reset_stream().
+  `hs_reset_stream()`.
 
 ## [4.3.0] 2016-08-24
 - Introduce a new analysis pass ("Violet") used for decomposition of patterns

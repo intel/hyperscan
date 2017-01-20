@@ -202,7 +202,7 @@ void reformAnchoredRepeatsComponent(NGHolder &g,
     }
 
     if (!isStartNode(dotV, g.start, g, true)) {
-        DEBUG_PRINTF("fleeing: vertex %u has other preds\n", g[dotV].index);
+        DEBUG_PRINTF("fleeing: vertex %zu has other preds\n", g[dotV].index);
         return;
     }
 
@@ -249,7 +249,7 @@ void reformAnchoredRepeatsComponent(NGHolder &g,
         remove_edge(g.start, v, g);
     }
 
-    DEBUG_PRINTF("removing vertex %u\n", g[dotV].index);
+    DEBUG_PRINTF("removing vertex %zu\n", g[dotV].index);
     clear_vertex(dotV, g);
     dead.insert(dotV);
     compAnchoredStarts.erase(dotV);
@@ -313,14 +313,15 @@ void reformUnanchoredRepeatsComponent(NGHolder &g,
             }
 
             // A self-loop indicates that this is a '.+' or '.*'
-            DEBUG_PRINTF("self-loop detected on %u\n", g[dotV].index);
+            DEBUG_PRINTF("self-loop detected on %zu\n", g[dotV].index);
             *startEnd = depth::infinity();
             remove_edge(dotV, dotV, g);
             return;
         }
 
         if (!isStartNode(dotV, g.startDs, g, true)) {
-            DEBUG_PRINTF("fleeing: vertex %u has other preds\n", g[dotV].index);
+            DEBUG_PRINTF("fleeing: vertex %zu has other preds\n",
+                         g[dotV].index);
             return;
         }
 
@@ -362,14 +363,14 @@ void reformUnanchoredRepeatsComponent(NGHolder &g,
         compUnanchoredStarts.clear();
         for (auto t : adjacent_vertices_range(dotV, g)) {
             if (t != dotV) {
-                DEBUG_PRINTF("connecting sds -> %u\n", g[t].index);
+                DEBUG_PRINTF("connecting sds -> %zu\n", g[t].index);
                 add_edge(g.startDs, t, g);
                 add_edge(g.start, t, g);
                 compUnanchoredStarts.insert(t);
             }
         }
 
-        DEBUG_PRINTF("removing vertex %u\n", g[dotV].index);
+        DEBUG_PRINTF("removing vertex %zu\n", g[dotV].index);
         dead.insert(dotV);
         clear_vertex(dotV, g);
         compUnanchoredStarts.erase(dotV);
@@ -416,7 +417,7 @@ bool gatherParticipants(const NGHolder &g,
         if (isOptionalDot(t, v, g)) {
             // another dot; bail if we've seen it once already
             if (dots.find(t) != dots.end()) {
-                DEBUG_PRINTF("cycle detected at vertex %u\n", g[t].index);
+                DEBUG_PRINTF("cycle detected at vertex %zu\n", g[t].index);
                 return false;
             }
             dots.insert(t);
@@ -432,7 +433,7 @@ bool gatherParticipants(const NGHolder &g,
     for (auto w : adjacent_vertices_range(v, g)) {
         succ.insert(w);
         if (!edge(start, w, g).second) {
-            DEBUG_PRINTF("failing, vertex %u does not have edge from start\n",
+            DEBUG_PRINTF("failing, vertex %zu does not have edge from start\n",
                          g[w].index);
             return false;
         }
@@ -474,7 +475,7 @@ void collapseVariableDotRepeat(NGHolder &g, NFAVertex start,
                 return;
             }
             initialDot = v;
-            DEBUG_PRINTF("initial dot vertex is %u\n", g[v].index);
+            DEBUG_PRINTF("initial dot vertex is %zu\n", g[v].index);
         }
     }
 
@@ -507,12 +508,8 @@ void collapseVariableDotRepeat(NGHolder &g, NFAVertex start,
     }
     assert(startEnd->is_reachable());
 
-    // For determinism, copy and sort our successor vertices.
-    deque<NFAVertex> s(succ.begin(), succ.end());
-    sort(s.begin(), s.end(), make_index_ordering(g));
-
     // Connect our successor vertices to both start and startDs.
-    for (auto v : s) {
+    for (auto v : succ) {
         add_edge_if_not_present(g.start, v, g);
         add_edge_if_not_present(g.startDs, v, g);
     }
@@ -637,8 +634,8 @@ void restoreLeadingDots(NGHolder &g, const depth &startBegin,
     }
 
     addDotsBetween(g, root, rhs, startBegin, startEnd);
-    g.renumberVertices();
-    g.renumberEdges();
+    renumber_vertices(g);
+    renumber_edges(g);
 }
 
 // Entry point.

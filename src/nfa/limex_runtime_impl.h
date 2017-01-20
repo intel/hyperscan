@@ -29,7 +29,6 @@
 #include "util/join.h"
 #include <string.h>
 
-
 /** \file
   * \brief Limex Execution Engine Or:
   * How I Learned To Stop Worrying And Love The Preprocessor
@@ -37,8 +36,9 @@
   * Version 2.0: now with X-Macros, so you get line numbers in your debugger.
   */
 
-#if !defined(SIZE) || !defined(STATE_T)
-#  error Must define SIZE and STATE_T in includer.
+
+#if !defined(SIZE) || !defined(STATE_T) || !defined(LOAD_FROM_ENG)
+#  error Must define SIZE, STATE_T, LOAD_FROM_ENG in includer.
 #endif
 
 #define LIMEX_API_ROOT   JOIN(nfaExecLimEx, SIZE)
@@ -46,7 +46,6 @@
 #define IMPL_NFA_T          JOIN(struct LimExNFA, SIZE)
 
 #define TESTEOD_FN          JOIN(moNfaTestEod, SIZE)
-#define TESTEOD_REV_FN      JOIN(moNfaRevTestEod, SIZE)
 #define INITIAL_FN          JOIN(moNfaInitial, SIZE)
 #define TOP_FN              JOIN(moNfaTop, SIZE)
 #define TOPN_FN             JOIN(moNfaTopN, SIZE)
@@ -67,11 +66,10 @@
 #define STREAMSILENT_FN     JOIN(LIMEX_API_ROOT, _Stream_Silent)
 #define CONTEXT_T           JOIN(NFAContext, SIZE)
 #define EXCEPTION_T         JOIN(struct NFAException, SIZE)
-#define LOAD_STATE          JOIN(load_, STATE_T)
-#define STORE_STATE         JOIN(store_, STATE_T)
 #define AND_STATE           JOIN(and_, STATE_T)
 #define ANDNOT_STATE        JOIN(andnot_, STATE_T)
 #define OR_STATE            JOIN(or_, STATE_T)
+#define LSHIFT_STATE        JOIN(lshift_, STATE_T)
 #define TESTBIT_STATE       JOIN(testbit_, STATE_T)
 #define CLEARBIT_STATE      JOIN(clearbit_, STATE_T)
 #define ZERO_STATE          JOIN(zero_, STATE_T)
@@ -96,17 +94,16 @@
 #define ACCEL_AND_FRIENDS_MASK  accel_and_friendsMask
 #define EXCEPTION_MASK          exceptionMask
 #else
-#define ACCEL_MASK              LOAD_STATE(&limex->accel)
-#define ACCEL_AND_FRIENDS_MASK  LOAD_STATE(&limex->accel_and_friends)
-#define EXCEPTION_MASK          LOAD_STATE(&limex->exceptionMask)
+#define ACCEL_MASK              LOAD_FROM_ENG(&limex->accel)
+#define ACCEL_AND_FRIENDS_MASK  LOAD_FROM_ENG(&limex->accel_and_friends)
+#define EXCEPTION_MASK          LOAD_FROM_ENG(&limex->exceptionMask)
 #endif
 
 // Run exception processing, if necessary. Returns 0 if scanning should
 // continue, 1 if an accept was fired and the user instructed us to halt.
 static really_inline
 char RUN_EXCEPTIONS_FN(const IMPL_NFA_T *limex, const EXCEPTION_T *exceptions,
-                       const ReportID *exReports, STATE_T s,
-                       const STATE_T emask, size_t i, u64a offset,
+                       STATE_T s, const STATE_T emask, size_t i, u64a offset,
                        STATE_T *succ, u64a *final_loc, struct CONTEXT_T *ctx,
                        const char flags, const char in_rev,
                        const char first_match) {
@@ -117,13 +114,13 @@ char RUN_EXCEPTIONS_FN(const IMPL_NFA_T *limex, const EXCEPTION_T *exceptions,
     }
 
     if (first_match && i) {
-        STATE_T acceptMask = LOAD_STATE(&limex->accept);
+        STATE_T acceptMask = LOAD_FROM_ENG(&limex->accept);
         STATE_T foundAccepts = AND_STATE(s, acceptMask);
         if (unlikely(ISNONZERO_STATE(foundAccepts))) {
             DEBUG_PRINTF("first match at %zu\n", i);
             DEBUG_PRINTF("for nfa %p\n", limex);
             assert(final_loc);
-            STORE_STATE(&ctx->s, s);
+            ctx->s = s;
             *final_loc = i;
             return 1; // Halt matching.
         }
@@ -133,7 +130,7 @@ char RUN_EXCEPTIONS_FN(const IMPL_NFA_T *limex, const EXCEPTION_T *exceptions,
     char localflags = (!i && !in_rev) ? NO_OUTPUT | FIRST_BYTE : flags;
 
     int rv = JOIN(processExceptional, SIZE)(
-        pass_state, pass_estate, diffmask, succ, limex, exceptions, exReports,
+        pass_state, pass_estate, diffmask, succ, limex, exceptions,
         callback_offset, ctx, in_rev, localflags);
     if (rv == PE_RV_HALT) {
         return 1; // Halt matching.
@@ -161,22 +158,55 @@ size_t RUN_ACCEL_FN(const STATE_T s, UNUSED const STATE_T accelMask,
     return j;
 }
 
+// Shift macros for Limited NFAs. Defined in terms of uniform ops.
+// LimExNFAxxx ptr in 'limex' and the current state in 's'
+#define NFA_EXEC_LIM_SHIFT(limex_m, curr_m, shift_idx)                         \
+    LSHIFT_STATE(AND_STATE(curr_m, LOAD_FROM_ENG(&limex_m->shift[shift_idx])), \
+                 limex_m->shiftAmount[shift_idx])
+
+// Calculate the (limited model) successors for a number of variable shifts.
+// Assumes current state in 'curr_m' and places the successors in 'succ_m'.
+#define NFA_EXEC_GET_LIM_SUCC(limex_m, curr_m, succ_m)                         \
+    do {                                                                       \
+        succ_m = NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 0);                       \
+        switch (limex_m->shiftCount) {                                         \
+        case 8:                                                                \
+            succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 7)); \
+        case 7:                                                                \
+            succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 6)); \
+        case 6:                                                                \
+            succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 5)); \
+        case 5:                                                                \
+            succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 4)); \
+        case 4:                                                                \
+            succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 3)); \
+        case 3:                                                                \
+            succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 2)); \
+        case 2:                                                                \
+            succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 1)); \
+        case 1:                                                                \
+        case 0:                                                                \
+            ;                                                                  \
+        }                                                                      \
+    } while (0)
+
+
 static really_inline
 char STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
                struct CONTEXT_T *ctx, u64a offset, const char flags,
                u64a *final_loc, const char first_match) {
-    const STATE_T *reach = (const STATE_T *)((const char *)limex + sizeof(*limex));
+    const ENG_STATE_T *reach = get_reach_table(limex);
 #if SIZE < 256
-    const STATE_T accelMask = LOAD_STATE(&limex->accel);
-    const STATE_T accel_and_friendsMask = LOAD_STATE(&limex->accel_and_friends);
-    const STATE_T exceptionMask = LOAD_STATE(&limex->exceptionMask);
+    const STATE_T accelMask = LOAD_FROM_ENG(&limex->accel);
+    const STATE_T accel_and_friendsMask
+        = LOAD_FROM_ENG(&limex->accel_and_friends);
+    const STATE_T exceptionMask = LOAD_FROM_ENG(&limex->exceptionMask);
 #endif
     const u8 *accelTable = (const u8 *)((const char *)limex + limex->accelTableOffset);
     const union AccelAux *accelAux =
         (const union AccelAux *)((const char *)limex + limex->accelAuxOffset);
     const EXCEPTION_T *exceptions = getExceptionTable(EXCEPTION_T, limex);
-    const ReportID *exReports = getExReports(limex);
-    STATE_T s = LOAD_STATE(&ctx->s);
+    STATE_T s = ctx->s;
 
     /* assert(ISALIGNED_16(exceptions)); */
     /* assert(ISALIGNED_16(reach)); */
@@ -195,21 +225,20 @@ without_accel:
         DUMP_INPUT(i);
         if (ISZERO_STATE(s)) {
             DEBUG_PRINTF("no states are switched on, early exit\n");
-            STORE_STATE(&ctx->s, s);
+            ctx->s = s;
             return MO_CONTINUE_MATCHING;
         }
 
         u8 c = input[i];
         STATE_T succ;
-        NFA_EXEC_GET_LIM_SUCC(STATE_T);
+        NFA_EXEC_GET_LIM_SUCC(limex, s, succ);
 
-        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, s, EXCEPTION_MASK,
-                              i, offset, &succ, final_loc, ctx, flags, 0,
-                              first_match)) {
+        if (RUN_EXCEPTIONS_FN(limex, exceptions, s, EXCEPTION_MASK, i, offset,
+                              &succ, final_loc, ctx, flags, 0, first_match)) {
             return MO_HALT_MATCHING;
         }
 
-        s = AND_STATE(succ, LOAD_STATE(&reach[limex->reachMap[c]]));
+        s = AND_STATE(succ, LOAD_FROM_ENG(&reach[limex->reachMap[c]]));
     }
 
 with_accel:
@@ -252,33 +281,30 @@ with_accel:
 
         u8 c = input[i];
         STATE_T succ;
-        NFA_EXEC_GET_LIM_SUCC(STATE_T);
+        NFA_EXEC_GET_LIM_SUCC(limex, s, succ);
 
-        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, s,  EXCEPTION_MASK,
-                              i, offset, &succ, final_loc, ctx, flags, 0,
-                              first_match)) {
+        if (RUN_EXCEPTIONS_FN(limex, exceptions, s, EXCEPTION_MASK, i, offset,
+                              &succ, final_loc, ctx, flags, 0, first_match)) {
             return MO_HALT_MATCHING;
         }
 
-        s = AND_STATE(succ, LOAD_STATE(&reach[limex->reachMap[c]]));
+        s = AND_STATE(succ, LOAD_FROM_ENG(&reach[limex->reachMap[c]]));
     }
 
-    STORE_STATE(&ctx->s, s);
+    ctx->s = s;
 
     if ((first_match || (flags & CALLBACK_OUTPUT)) && limex->acceptCount) {
-        STATE_T acceptMask = LOAD_STATE(&limex->accept);
+        STATE_T acceptMask = LOAD_FROM_ENG(&limex->accept);
         const struct NFAAccept *acceptTable = getAcceptTable(limex);
-        const u32 acceptCount = limex->acceptCount;
-
         STATE_T foundAccepts = AND_STATE(s, acceptMask);
         if (unlikely(ISNONZERO_STATE(foundAccepts))) {
             if (first_match) {
-                STORE_STATE(&ctx->s, s);
+                ctx->s = s;
                 assert(final_loc);
                 *final_loc = length;
                 return MO_HALT_MATCHING;
-            } else if (PROCESS_ACCEPTS_FN(limex, &ctx->s, acceptTable,
-                                          acceptCount, offset + length,
+            } else if (PROCESS_ACCEPTS_FN(limex, &ctx->s, &acceptMask,
+                                          acceptTable, offset + length,
                                           ctx->callback, ctx->context)) {
                 return MO_HALT_MATCHING;
             }
@@ -294,13 +320,12 @@ with_accel:
 static never_inline
 char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
                    struct CONTEXT_T *ctx, u64a offset) {
-    const STATE_T *reach = (const STATE_T *)((const char *)limex + sizeof(*limex));
+    const ENG_STATE_T *reach = get_reach_table(limex);
 #if SIZE < 256
-    const STATE_T exceptionMask = LOAD_STATE(&limex->exceptionMask);
+    const STATE_T exceptionMask = LOAD_FROM_ENG(&limex->exceptionMask);
 #endif
     const EXCEPTION_T *exceptions = getExceptionTable(EXCEPTION_T, limex);
-    const ReportID *exReports = getExReports(limex);
-    STATE_T s = LOAD_STATE(&ctx->s);
+    STATE_T s = ctx->s;
 
     /* assert(ISALIGNED_16(exceptions)); */
     /* assert(ISALIGNED_16(reach)); */
@@ -311,34 +336,33 @@ char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
         DUMP_INPUT(i-1);
         if (ISZERO_STATE(s)) {
             DEBUG_PRINTF("no states are switched on, early exit\n");
-            STORE_STATE(&ctx->s, s);
+            ctx->s = s;
             return MO_CONTINUE_MATCHING;
         }
 
         u8 c = input[i-1];
         STATE_T succ;
-        NFA_EXEC_GET_LIM_SUCC(STATE_T);
+        NFA_EXEC_GET_LIM_SUCC(limex, s, succ);
 
-        if (RUN_EXCEPTIONS_FN(limex, exceptions, exReports, s,
-                              EXCEPTION_MASK, i, offset, &succ, final_loc, ctx,
-                              flags, 1, 0)) {
+        if (RUN_EXCEPTIONS_FN(limex, exceptions, s, EXCEPTION_MASK, i, offset,
+                              &succ, final_loc, ctx, flags, 1, 0)) {
             return MO_HALT_MATCHING;
         }
 
-        s = AND_STATE(succ, reach[limex->reachMap[c]]);
+        s = AND_STATE(succ, LOAD_FROM_ENG(&reach[limex->reachMap[c]]));
     }
 
-    STORE_STATE(&ctx->s, s);
+    ctx->s = s;
 
-    STATE_T acceptMask = LOAD_STATE(&limex->accept);
+    STATE_T acceptMask = LOAD_FROM_ENG(&limex->accept);
     const struct NFAAccept *acceptTable = getAcceptTable(limex);
     const u32 acceptCount = limex->acceptCount;
     assert(flags & CALLBACK_OUTPUT);
     if (acceptCount) {
         STATE_T foundAccepts = AND_STATE(s, acceptMask);
         if (unlikely(ISNONZERO_STATE(foundAccepts))) {
-            if (PROCESS_ACCEPTS_NOSQUASH_FN(&ctx->s, acceptTable, acceptCount,
-                                            offset, ctx->callback,
+            if (PROCESS_ACCEPTS_NOSQUASH_FN(limex, &ctx->s, &acceptMask,
+                                            acceptTable, offset, ctx->callback,
                                             ctx->context)) {
                 return MO_HALT_MATCHING;
             }
@@ -354,9 +378,9 @@ void COMPRESS_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, void *src,
         return;
     }
 
-    STATE_T s = LOAD_STATE(src);
+    STATE_T s = *(STATE_T *)src;
 
-    if (ISZERO_STATE(AND_STATE(s, LOAD_STATE(&limex->repeatCyclicMask)))) {
+    if (ISZERO_STATE(AND_STATE(LOAD_FROM_ENG(&limex->repeatCyclicMask), s))) {
         DEBUG_PRINTF("no cyclics are on\n");
         return;
     }
@@ -369,7 +393,7 @@ void COMPRESS_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, void *src,
         DEBUG_PRINTF("repeat %u\n", i);
         const struct NFARepeatInfo *info = GET_NFA_REPEAT_INFO_FN(limex, i);
 
-        if (!TESTBIT_STATE(&s, info->cyclicState)) {
+        if (!TESTBIT_STATE(s, info->cyclicState)) {
             DEBUG_PRINTF("is dead\n");
             continue;
         }
@@ -388,7 +412,7 @@ void COMPRESS_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, void *src,
                    offset);
     }
 
-    STORE_STATE(src, s);
+    *(STATE_T *)src = s;
 }
 
 char JOIN(LIMEX_API_ROOT, _queueCompressState)(const struct NFA *n,
@@ -411,7 +435,7 @@ void EXPAND_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, const void *src,
 
     // Note: state has already been expanded into 'dest'.
     const STATE_T cyclics =
-        AND_STATE(LOAD_STATE(dest), LOAD_STATE(&limex->repeatCyclicMask));
+        AND_STATE(*(STATE_T *)dest, LOAD_FROM_ENG(&limex->repeatCyclicMask));
     if (ISZERO_STATE(cyclics)) {
         DEBUG_PRINTF("no cyclics are on\n");
         return;
@@ -425,7 +449,7 @@ void EXPAND_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, const void *src,
         DEBUG_PRINTF("repeat %u\n", i);
         const struct NFARepeatInfo *info = GET_NFA_REPEAT_INFO_FN(limex, i);
 
-        if (!TESTBIT_STATE(&cyclics, info->cyclicState)) {
+        if (!TESTBIT_STATE(cyclics, info->cyclicState)) {
             DEBUG_PRINTF("is dead\n");
             continue;
         }
@@ -447,9 +471,8 @@ char JOIN(LIMEX_API_ROOT, _expandState)(const struct NFA *n, void *dest,
     return 0;
 }
 
-char JOIN(LIMEX_API_ROOT, _queueInitState)(const struct NFA *n,
-                                              struct mq *q) {
-    STORE_STATE(q->state, ZERO_STATE);
+char JOIN(LIMEX_API_ROOT, _queueInitState)(const struct NFA *n, struct mq *q) {
+    *(STATE_T *)q->state = ZERO_STATE;
 
     // Zero every bounded repeat control block in state.
     const IMPL_NFA_T *limex = getImplNfa(n);
@@ -529,7 +552,7 @@ void JOIN(LIMEX_API_ROOT, _HandleEvent)(const IMPL_NFA_T *limex,
     u32 e = q->items[q->cur].type;
     switch (e) {
         DEFINE_CASE(MQE_TOP)
-            STORE_STATE(&ctx->s, TOP_FN(limex, !!sp, LOAD_STATE(&ctx->s)));
+            ctx->s = TOP_FN(limex, !!sp, ctx->s);
             break;
         DEFINE_CASE(MQE_START)
             break;
@@ -539,8 +562,7 @@ void JOIN(LIMEX_API_ROOT, _HandleEvent)(const IMPL_NFA_T *limex,
             assert(e >= MQE_TOP_FIRST);
             assert(e < MQE_INVALID);
             DEBUG_PRINTF("MQE_TOP + %d\n", ((int)e - MQE_TOP_FIRST));
-            STORE_STATE(&ctx->s,
-                        TOPN_FN(limex, LOAD_STATE(&ctx->s), e - MQE_TOP_FIRST));
+            ctx->s = TOPN_FN(limex, ctx->s, e - MQE_TOP_FIRST);
     }
 #undef DEFINE_CASE
 }
@@ -570,12 +592,12 @@ char JOIN(LIMEX_API_ROOT, _Q)(const struct NFA *n, struct mq *q, s64a end) {
     ctx.repeat_state = q->streamState + limex->stateSize;
     ctx.callback = q->cb;
     ctx.context = q->context;
-    STORE_STATE(&ctx.cached_estate, ZERO_STATE);
+    ctx.cached_estate = ZERO_STATE;
     ctx.cached_br = 0;
 
     assert(q->items[q->cur].location >= 0);
     DEBUG_PRINTF("LOAD STATE\n");
-    STORE_STATE(&ctx.s, LOAD_STATE(q->state));
+    ctx.s = *(STATE_T *)q->state;
     assert(q->items[q->cur].type == MQE_START);
 
     u64a offset = q->offset;
@@ -599,7 +621,7 @@ char JOIN(LIMEX_API_ROOT, _Q)(const struct NFA *n, struct mq *q, s64a end) {
         assert(ep - offset <= q->length);
         if (STREAMCB_FN(limex, q->buffer + sp - offset, ep - sp, &ctx, sp)
                 == MO_HALT_MATCHING) {
-            STORE_STATE(q->state, ZERO_STATE);
+            *(STATE_T *)q->state = ZERO_STATE;
             return 0;
         }
 
@@ -616,7 +638,7 @@ char JOIN(LIMEX_API_ROOT, _Q)(const struct NFA *n, struct mq *q, s64a end) {
            q->items[q->cur].type = MQE_START;
            q->items[q->cur].location = sp - offset;
            DEBUG_PRINTF("bailing q->cur %u q->end %u\n", q->cur, q->end);
-           STORE_STATE(q->state, LOAD_STATE(&ctx.s));
+           *(STATE_T *)q->state = ctx.s;
            return MO_ALIVE;
        }
 
@@ -628,7 +650,7 @@ char JOIN(LIMEX_API_ROOT, _Q)(const struct NFA *n, struct mq *q, s64a end) {
     EXPIRE_ESTATE_FN(limex, &ctx, sp);
 
     DEBUG_PRINTF("END\n");
-    STORE_STATE(q->state, LOAD_STATE(&ctx.s));
+    *(STATE_T *)q->state = ctx.s;
 
     if (q->cur != q->end) {
         q->cur--;
@@ -637,7 +659,7 @@ char JOIN(LIMEX_API_ROOT, _Q)(const struct NFA *n, struct mq *q, s64a end) {
         return MO_ALIVE;
     }
 
-    return ISNONZERO_STATE(LOAD_STATE(&ctx.s));
+    return ISNONZERO_STATE(ctx.s);
 }
 
 /* used by suffix execution in Rose */
@@ -665,11 +687,11 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
     ctx.repeat_state = q->streamState + limex->stateSize;
     ctx.callback = q->cb;
     ctx.context = q->context;
-    STORE_STATE(&ctx.cached_estate, ZERO_STATE);
+    ctx.cached_estate = ZERO_STATE;
     ctx.cached_br = 0;
 
     DEBUG_PRINTF("LOAD STATE\n");
-    STORE_STATE(&ctx.s, LOAD_STATE(q->state));
+    ctx.s = *(STATE_T *)q->state;
     assert(q->items[q->cur].type == MQE_START);
 
     u64a offset = q->offset;
@@ -699,7 +721,7 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
                 q->cur--;
                 q->items[q->cur].type = MQE_START;
                 q->items[q->cur].location = sp + final_look - offset;
-                STORE_STATE(q->state, LOAD_STATE(&ctx.s));
+                *(STATE_T *)q->state = ctx.s;
                 return MO_MATCHES_PENDING;
             }
 
@@ -721,7 +743,7 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
             q->cur--;
             q->items[q->cur].type = MQE_START;
             q->items[q->cur].location = sp + final_look - offset;
-            STORE_STATE(q->state, LOAD_STATE(&ctx.s));
+            *(STATE_T *)q->state = ctx.s;
             return MO_MATCHES_PENDING;
         }
 
@@ -737,7 +759,7 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
             q->items[q->cur].type = MQE_START;
             q->items[q->cur].location = sp - offset;
             DEBUG_PRINTF("bailing q->cur %u q->end %u\n", q->cur, q->end);
-            STORE_STATE(q->state, LOAD_STATE(&ctx.s));
+            *(STATE_T *)q->state = ctx.s;
             return MO_ALIVE;
         }
 
@@ -749,7 +771,7 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
     EXPIRE_ESTATE_FN(limex, &ctx, sp);
 
     DEBUG_PRINTF("END\n");
-    STORE_STATE(q->state, LOAD_STATE(&ctx.s));
+    *(STATE_T *)q->state = ctx.s;
 
     if (q->cur != q->end) {
         q->cur--;
@@ -758,7 +780,7 @@ char JOIN(LIMEX_API_ROOT, _Q2)(const struct NFA *n, struct mq *q, s64a end) {
         return MO_ALIVE;
     }
 
-    return ISNONZERO_STATE(LOAD_STATE(&ctx.s));
+    return ISNONZERO_STATE(ctx.s);
 }
 
 // Used for execution Rose prefix/infixes.
@@ -777,11 +799,11 @@ char JOIN(LIMEX_API_ROOT, _QR)(const struct NFA *n, struct mq *q,
     ctx.repeat_state = q->streamState + limex->stateSize;
     ctx.callback = NULL;
     ctx.context = NULL;
-    STORE_STATE(&ctx.cached_estate, ZERO_STATE);
+    ctx.cached_estate = ZERO_STATE;
     ctx.cached_br = 0;
 
     DEBUG_PRINTF("LOAD STATE\n");
-    STORE_STATE(&ctx.s, LOAD_STATE(q->state));
+    ctx.s = *(STATE_T *)q->state;
     assert(q->items[q->cur].type == MQE_START);
 
     u64a offset = q->offset;
@@ -793,7 +815,7 @@ char JOIN(LIMEX_API_ROOT, _QR)(const struct NFA *n, struct mq *q,
         if (n->maxWidth) {
             if (ep - sp > n->maxWidth) {
                 sp = ep - n->maxWidth;
-                STORE_STATE(&ctx.s, INITIAL_FN(limex, !!sp));
+                ctx.s = INITIAL_FN(limex, !!sp);
             }
         }
         assert(ep >= sp);
@@ -832,14 +854,14 @@ char JOIN(LIMEX_API_ROOT, _QR)(const struct NFA *n, struct mq *q,
     DEBUG_PRINTF("END, nfa is %s\n",
                  ISNONZERO_STATE(ctx.s) ? "still alive" : "dead");
 
-    STORE_STATE(q->state, LOAD_STATE(&ctx.s));
+    *(STATE_T *)q->state = ctx.s;
 
-    if (JOIN(limexInAccept, SIZE)(limex, LOAD_STATE(&ctx.s), ctx.repeat_ctrl,
+    if (JOIN(limexInAccept, SIZE)(limex, ctx.s, ctx.repeat_ctrl,
                                   ctx.repeat_state, sp + 1, report)) {
         return MO_MATCHES_PENDING;
     }
 
-    return ISNONZERO_STATE(LOAD_STATE(&ctx.s));
+    return ISNONZERO_STATE(ctx.s);
 }
 
 char JOIN(LIMEX_API_ROOT, _testEOD)(const struct NFA *n, const char *state,
@@ -852,8 +874,8 @@ char JOIN(LIMEX_API_ROOT, _testEOD)(const struct NFA *n, const char *state,
     const union RepeatControl *repeat_ctrl =
         getRepeatControlBaseConst(state, sizeof(STATE_T));
     const char *repeat_state = streamState + limex->stateSize;
-    return TESTEOD_FN(limex, sptr, repeat_ctrl, repeat_state, offset, 1,
-                      callback, context);
+    return TESTEOD_FN(limex, sptr, repeat_ctrl, repeat_state, offset, callback,
+                      context);
 }
 
 char JOIN(LIMEX_API_ROOT, _reportCurrent)(const struct NFA *n, struct mq *q) {
@@ -875,11 +897,11 @@ char JOIN(LIMEX_API_ROOT, _B_Reverse)(const struct NFA *n, u64a offset,
     ctx.repeat_state = NULL;
     ctx.callback = cb;
     ctx.context = context;
-    STORE_STATE(&ctx.cached_estate, ZERO_STATE);
+    ctx.cached_estate = ZERO_STATE;
     ctx.cached_br = 0;
 
     const IMPL_NFA_T *limex = getImplNfa(n);
-    STORE_STATE(&ctx.s, INITIAL_FN(limex, 0)); // always anchored
+    ctx.s = INITIAL_FN(limex, 0); // always anchored
 
     // 'buf' may be null, for example when we're scanning at EOD time.
     if (buflen) {
@@ -896,8 +918,11 @@ char JOIN(LIMEX_API_ROOT, _B_Reverse)(const struct NFA *n, u64a offset,
         REV_STREAM_FN(limex, hbuf, hlen, &ctx, offset);
     }
 
-    if (offset == 0 && ISNONZERO_STATE(LOAD_STATE(&ctx.s))) {
-        TESTEOD_REV_FN(limex, &ctx.s, offset, cb, context);
+    if (offset == 0 && limex->acceptEodCount && ISNONZERO_STATE(ctx.s)) {
+        const union RepeatControl *repeat_ctrl = NULL;
+        const char *repeat_state = NULL;
+        TESTEOD_FN(limex, &ctx.s, repeat_ctrl, repeat_state, offset, cb,
+                   context);
     }
 
     // NOTE: return value is unused.
@@ -913,7 +938,7 @@ char JOIN(LIMEX_API_ROOT, _inAccept)(const struct NFA *nfa,
     union RepeatControl *repeat_ctrl =
         getRepeatControlBase(q->state, sizeof(STATE_T));
     char *repeat_state = q->streamState + limex->stateSize;
-    STATE_T state = LOAD_STATE(q->state);
+    STATE_T state = *(STATE_T *)q->state;
     u64a offset = q->offset + q_last_loc(q) + 1;
 
     return JOIN(limexInAccept, SIZE)(limex, state, repeat_ctrl, repeat_state,
@@ -928,7 +953,7 @@ char JOIN(LIMEX_API_ROOT, _inAnyAccept)(const struct NFA *nfa, struct mq *q) {
     union RepeatControl *repeat_ctrl =
         getRepeatControlBase(q->state, sizeof(STATE_T));
     char *repeat_state = q->streamState + limex->stateSize;
-    STATE_T state = LOAD_STATE(q->state);
+    STATE_T state = *(STATE_T *)q->state;
     u64a offset = q->offset + q_last_loc(q) + 1;
 
     return JOIN(limexInAnyAccept, SIZE)(limex, state, repeat_ctrl, repeat_state,
@@ -941,8 +966,8 @@ enum nfa_zombie_status JOIN(LIMEX_API_ROOT, _zombie_status)(
                                                          s64a loc) {
     assert(nfa->flags & NFA_ZOMBIE);
     const IMPL_NFA_T *limex = getImplNfa(nfa);
-    STATE_T state = LOAD_STATE(q->state);
-    STATE_T zmask = LOAD_STATE(&limex->zombieMask);
+    STATE_T state = *(STATE_T *)q->state;
+    STATE_T zmask = LOAD_FROM_ENG(&limex->zombieMask);
 
     if (limex->repeatCount) {
         u64a offset = q->offset + loc + 1;
@@ -960,7 +985,6 @@ enum nfa_zombie_status JOIN(LIMEX_API_ROOT, _zombie_status)(
 }
 
 #undef TESTEOD_FN
-#undef TESTEOD_REV_FN
 #undef INITIAL_FN
 #undef TOP_FN
 #undef TOPN_FN
@@ -981,11 +1005,10 @@ enum nfa_zombie_status JOIN(LIMEX_API_ROOT, _zombie_status)(
 #undef STREAMSILENT_FN
 #undef CONTEXT_T
 #undef EXCEPTION_T
-#undef LOAD_STATE
-#undef STORE_STATE
 #undef AND_STATE
 #undef ANDNOT_STATE
 #undef OR_STATE
+#undef LSHIFT_STATE
 #undef TESTBIT_STATE
 #undef CLEARBIT_STATE
 #undef ZERO_STATE
@@ -999,8 +1022,4 @@ enum nfa_zombie_status JOIN(LIMEX_API_ROOT, _zombie_status)(
 #undef ACCEL_MASK
 #undef ACCEL_AND_FRIENDS_MASK
 #undef EXCEPTION_MASK
-
-// Parameters.
-#undef SIZE
-#undef STATE_T
 #undef LIMEX_API_ROOT

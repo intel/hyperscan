@@ -51,7 +51,7 @@ namespace ue2 {
  *
  * Note: always able to construct masks for 8 or fewer characters.
  */
-int shuftiBuildMasks(const CharReach &c, m128 *lo, m128 *hi) {
+int shuftiBuildMasks(const CharReach &c, u8 *lo, u8 *hi) {
     /* Things could be packed much more optimally, but this should be able to
      * handle any set of characters entirely in the lower half.  */
 
@@ -134,7 +134,7 @@ void set_buckets_from_mask(u16 nibble_mask, u32 bucket,
 
 bool shuftiBuildDoubleMasks(const CharReach &onechar,
                             const flat_set<pair<u8, u8>> &twochar,
-                            m128 *lo1, m128 *hi1, m128 *lo2, m128 *hi2) {
+                            u8 *lo1, u8 *hi1, u8 *lo2, u8 *hi2) {
     DEBUG_PRINTF("unibytes %zu dibytes %zu\n", onechar.size(),
                  twochar.size());
     array<u8, 16> lo1_a;
@@ -210,9 +210,7 @@ bool shuftiBuildDoubleMasks(const CharReach &onechar,
 
 #ifdef DUMP_SUPPORT
 
-CharReach shufti2cr(const m128 lo_in, const m128 hi_in) {
-    const u8 *lo = (const u8 *)&lo_in;
-    const u8 *hi = (const u8 *)&hi_in;
+CharReach shufti2cr(const u8 *lo, const u8 *hi) {
     CharReach cr;
     for (u32 i = 0; i < 256; i++) {
         if (lo[(u8)i & 0xf] & hi[(u8)i >> 4]) {

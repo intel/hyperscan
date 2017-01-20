@@ -136,7 +136,7 @@ rose_group calcLocalGroup(const RoseVertex v, const RoseGraph &g,
                 }
             } else {
                 DEBUG_PRINTF("not sibling different mother %zu %zu\n",
-                             g[v].idx, g[w].idx);
+                             g[v].index, g[w].index);
             }
         }
     }
@@ -382,7 +382,7 @@ void assignGroupsToRoles(RoseBuildImpl &build) {
             g[ghost_it->second].groups |= succ_groups;
         }
 
-        DEBUG_PRINTF("vertex %zu: groups=%llx\n", g[v].idx, g[v].groups);
+        DEBUG_PRINTF("vertex %zu: groups=%llx\n", g[v].index, g[v].groups);
     }
 }
 
@@ -397,8 +397,7 @@ getVertexGroupMap(const RoseBuildImpl &build) {
     vector<RoseVertex> v_order;
     v_order.reserve(num_vertices(g));
 
-    boost::topological_sort(g, back_inserter(v_order),
-                            vertex_index_map(get(&RoseVertexProps::idx, g)));
+    boost::topological_sort(g, back_inserter(v_order));
 
     unordered_map<RoseVertex, rose_group> vertex_group_map;
     vertex_group_map.reserve(num_vertices(g));
@@ -406,7 +405,7 @@ getVertexGroupMap(const RoseBuildImpl &build) {
     const rose_group initial_groups = build.getInitialGroups();
 
     for (const auto &v : boost::adaptors::reverse(v_order)) {
-        DEBUG_PRINTF("vertex %zu\n", g[v].idx);
+        DEBUG_PRINTF("vertex %zu\n", g[v].index);
 
         if (build.isAnyStart(v)) {
             DEBUG_PRINTF("start vertex, groups=0x%llx\n", initial_groups);
@@ -419,7 +418,7 @@ getVertexGroupMap(const RoseBuildImpl &build) {
         assert(in_degree(v, g) > 0);
         rose_group pred_groups = ~rose_group{0};
         for (auto u : inv_adjacent_vertices_range(v, g)) {
-            DEBUG_PRINTF("pred %zu\n", g[u].idx);
+            DEBUG_PRINTF("pred %zu\n", g[u].index);
             assert(contains(vertex_group_map, u));
             pred_groups &= vertex_group_map.at(u);
         }

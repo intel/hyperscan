@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -63,10 +63,6 @@ struct hwlmStreamingControl {
     /** \brief OUT parameter: History required by the literal matcher to
      * correctly match all literals. */
     size_t literal_history_required;
-
-    /** OUT parameter: Stream state required by literal matcher in bytes. Can
-     * be zero, and generally will be small (0-8 bytes). */
-    size_t literal_stream_state_required;
 };
 
 /** \brief Build an \ref HWLM literal matcher runtime structure for a group of

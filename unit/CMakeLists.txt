@@ -34,7 +34,7 @@ add_library(gtest STATIC ${gtest_SOURCES})
 
 add_definitions(-DGTEST_HAS_PTHREAD=0 -DSRCDIR=${PROJECT_SOURCE_DIR})
 
-if (NOT RELEASE_BUILD)
+if (NOT (RELEASE_BUILD OR FAT_RUNTIME))
 set(unit_internal_SOURCES
     internal/bitfield.cpp
     internal/bitutils.cpp
@@ -71,6 +71,7 @@ set(unit_internal_SOURCES
     internal/repeat.cpp
     internal/rose_build_merge.cpp
     internal/rose_mask.cpp
+    internal/rose_mask_32.cpp
     internal/rvermicelli.cpp
     internal/simd_utils.cpp
     internal/shuffle.cpp
@@ -88,7 +89,7 @@ set(unit_internal_SOURCES
 
 add_executable(unit-internal ${unit_internal_SOURCES})
 target_link_libraries(unit-internal hs gtest corpusomatic)
-endif(NOT RELEASE_BUILD)
+endif(NOT (RELEASE_BUILD OR FAT_RUNTIME))
 
 set(unit_hyperscan_SOURCES
     hyperscan/allocators.cpp

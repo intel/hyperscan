@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,9 +26,49 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "fatbit.h"
-#include "multibit.h"
+/**
+ * \file
+ * \brief Hashing utility functions.
+ */
 
-u32 fatbit_size(u32 total_bits) {
-    return MAX(sizeof(struct fatbit), mmbit_size(total_bits));
+#ifndef UTIL_HASH_H
+#define UTIL_HASH_H
+
+#include <boost/functional/hash/hash_fwd.hpp>
+
+namespace ue2 {
+
+namespace hash_detail {
+
+template<typename T>
+void hash_build(size_t &v, const T &obj) {
+    boost::hash_combine(v, obj);
 }
+
+template<typename T, typename... Args>
+void hash_build(size_t &v, const T &obj, Args&&... args) {
+    hash_build(v, obj);
+    hash_build(v, args...); // recursive
+}
+
+} // namespace hash_detail
+
+/**
+ * \brief Computes the combined hash of all its arguments.
+ *
+ * Simply use:
+ *
+ *     size_t hash = hash_all(a, b, c, d);
+ *
+ * Where a, b, c and d are hashable.
+ */
+template<typename... Args>
+size_t hash_all(Args&&... args) {
+    size_t v = 0;
+    hash_detail::hash_build(v, args...);
+    return v;
+}
+
+} // namespace ue2
+
+#endif // UTIL_HASH_H

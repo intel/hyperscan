@@ -40,12 +40,14 @@
 #define SSSE3 (1 << 9)
 #define SSE4_1 (1 << 19)
 #define SSE4_2 (1 << 20)
+#define POPCNT (1 << 23)
 #define XSAVE (1 << 27)
 #define AVX (1 << 28)
 
 // EDX
+#define FXSAVE (1 << 24)
 #define SSE (1 << 25)
-#define SSE2 (1 << 25)
+#define SSE2 (1 << 26)
 #define HTT (1 << 28)
 
 // Structured Extended Feature Flags Enumeration Leaf ECX values
@@ -87,7 +89,6 @@ u64a xgetbv(u32 op) {
 #endif
 }
 
-static
 int check_avx2(void) {
 #if defined(__INTEL_COMPILER)
     return _may_i_use_cpu_feature(_FEATURE_AVX2);
@@ -135,6 +136,24 @@ u64a cpuid_flags(void) {
 #endif
 
     return cap;
+}
+
+int check_ssse3(void) {
+    unsigned int eax, ebx, ecx, edx;
+    cpuid(1, 0, &eax, &ebx, &ecx, &edx);
+    return !!(ecx & SSSE3);
+}
+
+int check_sse42(void) {
+    unsigned int eax, ebx, ecx, edx;
+    cpuid(1, 0, &eax, &ebx, &ecx, &edx);
+    return !!(ecx & SSE4_2);
+}
+
+int check_popcnt(void) {
+    unsigned int eax, ebx, ecx, edx;
+    cpuid(1, 0, &eax, &ebx, &ecx, &edx);
+    return !!(ecx & POPCNT);
 }
 
 struct family_id {

@@ -33,6 +33,8 @@
 #include "miracle.h"
 #include "program_runtime.h"
 #include "rose.h"
+#include "rose_internal.h"
+#include "stream_long_lit.h"
 #include "hwlm/hwlm.h"
 #include "nfa/mcclellan.h"
 #include "nfa/nfa_api.h"
@@ -406,6 +408,7 @@ void ensureStreamNeatAndTidy(const struct RoseEngine *t, char *state,
     roseFlushLastByteHistory(t, scratch, offset + length);
     tctxt->lastEndOffset = offset + length;
     storeGroups(t, state, tctxt->groups);
+    storeLongLiteralState(t, state, scratch);
 }
 
 static really_inline
@@ -548,6 +551,7 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;
     tctxt->next_mpv_offset = 0;
+
     DEBUG_PRINTF("BEGIN: history len=%zu, buffer len=%zu groups=%016llx\n",
                  scratch->core_info.hlen, scratch->core_info.len, tctxt->groups);
 
@@ -576,6 +580,12 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
 
     const struct HWLM *ftable = getFLiteralMatcher(t);
     if (ftable) {
+        // Load in long literal table state and set up "fake history" buffers
+        // (ll_buf, etc, used by the CHECK_LONG_LIT instruction). Note that this
+        // must be done here in order to ensure that it happens before any path
+        // that leads to storeLongLiteralState(), which relies on these buffers.
+        loadLongLiteralState(t, state, scratch);
+
         if (t->noFloatingRoots && !roseHasInFlightMatches(t, state, scratch)) {
             DEBUG_PRINTF("skip FLOATING: no inflight matches\n");
             goto flush_delay_and_exit;
@@ -621,17 +631,9 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
         }
         DEBUG_PRINTF("start=%zu\n", start);
 
-        u8 *stream_state;
-        if (t->floatingStreamState) {
-            stream_state = getFloatingMatcherState(t, state);
-        } else {
-            stream_state = NULL;
-        }
-
         DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
         hwlmExecStreaming(ftable, scratch, flen, start, roseFloatingCallback,
-                          scratch, tctxt->groups & t->floating_group_mask,
-                          stream_state);
+                          scratch, tctxt->groups & t->floating_group_mask);
     }
 
 flush_delay_and_exit:

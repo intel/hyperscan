@@ -46,15 +46,13 @@
 #include <map>
 #include <set>
 #include <boost/graph/filtered_graph.hpp>
-#include <boost/graph/strong_components.hpp>
 #include <boost/graph/topological_sort.hpp>
 #include <boost/range/adaptor/map.hpp>
 
 using namespace std;
 using boost::default_color_type;
-using boost::filtered_graph;
+using boost::make_filtered_graph;
 using boost::make_assoc_property_map;
-using boost::adaptors::map_values;
 
 namespace ue2 {
 
@@ -146,7 +144,7 @@ void clone_out_edges(NGHolder &g, NFAVertex source, NFAVertex dest) {
         if (edge(dest, t, g).second) {
             continue;
         }
-        NFAEdge clone = add_edge(dest, t, g).first;
+        NFAEdge clone = add_edge(dest, t, g);
         u32 idx = g[clone].index;
         g[clone] = g[e];
         g[clone].index = idx;
@@ -157,7 +155,7 @@ void clone_in_edges(NGHolder &g, NFAVertex s, NFAVertex dest) {
     for (const auto &e : in_edges_range(s, g)) {
         NFAVertex ss = source(e, g);
         assert(!edge(ss, dest, g).second);
-        NFAEdge clone = add_edge(ss, dest, g).first;
+        NFAEdge clone = add_edge(ss, dest, g);
         u32 idx = g[clone].index;
         g[clone] = g[e];
         g[clone].index = idx;
@@ -165,27 +163,21 @@ void clone_in_edges(NGHolder &g, NFAVertex s, NFAVertex dest) {
 }
 
 bool onlyOneTop(const NGHolder &g) {
-    set<u32> tops;
-    for (const auto &e : out_edges_range(g.start, g)) {
-        tops.insert(g[e].top);
-    }
-    assert(!tops.empty());
-    return tops.size() == 1;
+    return getTops(g).size() == 1;
 }
 
 namespace {
 struct CycleFound {};
 struct DetectCycles : public boost::default_dfs_visitor {
     explicit DetectCycles(const NGHolder &g) : startDs(g.startDs) {}
-    void back_edge(const NFAEdge &e, const NFAGraph &g) const {
+    void back_edge(const NFAEdge &e, const NGHolder &g) const {
         NFAVertex u = source(e, g), v = target(e, g);
         // We ignore the startDs self-loop.
         if (u == startDs && v == startDs) {
             return;
         }
         // Any other back-edge indicates a cycle.
-        DEBUG_PRINTF("back edge %u->%u found\n", g[u].index,
-                     g[v].index);
+        DEBUG_PRINTF("back edge %zu->%zu found\n", g[u].index, g[v].index);
         throw CycleFound();
     }
 private:
@@ -220,10 +212,8 @@ bool isFloating(const NGHolder &g) {
 
 bool isAcyclic(const NGHolder &g) {
     try {
-        depth_first_search(
-            g.g, visitor(DetectCycles(g))
-                     .root_vertex(g.start)
-                     .vertex_index_map(get(&NFAGraphVertexProps::index, g.g)));
+        boost::depth_first_search(g, visitor(DetectCycles(g))
+                                     .root_vertex(g.start));
     } catch (const CycleFound &) {
         return false;
     }
@@ -239,11 +229,11 @@ bool hasReachableCycle(const NGHolder &g, NFAVertex src) {
     try {
         // Use depth_first_visit, rather than depth_first_search, so that we
         // only search from src.
-        auto index_map = get(&NFAGraphVertexProps::index, g.g);
-        depth_first_visit(
-            g.g, src, DetectCycles(g),
-            make_iterator_property_map(colors.begin(), index_map));
-    } catch (const CycleFound&) {
+        auto index_map = get(vertex_index, g);
+        boost::depth_first_visit(g, src, DetectCycles(g),
+                                 make_iterator_property_map(colors.begin(),
+                                                            index_map));
+    } catch (const CycleFound &) {
         return true;
     }
 
@@ -254,10 +244,7 @@ bool hasBigCycles(const NGHolder &g) {
     assert(hasCorrectlyNumberedVertices(g));
     set<NFAEdge> dead;
     BackEdges<set<NFAEdge>> backEdgeVisitor(dead);
-    depth_first_search(
-        g.g, visitor(backEdgeVisitor)
-                 .root_vertex(g.start)
-                 .vertex_index_map(get(&NFAGraphVertexProps::index, g.g)));
+    boost::depth_first_search(g, visitor(backEdgeVisitor).root_vertex(g.start));
 
     for (const auto &e : dead) {
         if (source(e, g) != target(e, g)) {
@@ -268,43 +255,9 @@ bool hasBigCycles(const NGHolder &g) {
     return false;
 }
 
-set<NFAVertex> findVerticesInCycles(const NGHolder &g) {
-    map<NFAVertex, size_t> comp_map;
-
-    strong_components(g.g, make_assoc_property_map(comp_map),
-                      vertex_index_map(get(&NFAGraphVertexProps::index, g.g)));
-
-    map<size_t, set<NFAVertex> > comps;
-
-    for (const auto &e : comp_map) {
-        comps[e.second].insert(e.first);
-    }
-
-
-    set<NFAVertex> rv;
-
-    for (const auto &comp : comps | map_values) {
-        /* every vertex in a strongly connected component is reachable from
-         * every other vertex in the component. A vertex is involved in a cycle
-         * therefore if it is in a strongly connected component with more than
-         * one vertex or if it is the only vertex and it has a self loop. */
-        assert(!comp.empty());
-        if (comp.size() > 1) {
-            insert(&rv, comp);
-        }
-        NFAVertex v = *comp.begin();
-        if (hasSelfLoop(v, g)) {
-            rv.insert(v);
-        }
-    }
-
-    return rv;
-}
-
 bool can_never_match(const NGHolder &g) {
     assert(edge(g.accept, g.acceptEod, g).second);
-    if (!hasGreaterInDegree(0, g.accept, g)
-        && !hasGreaterInDegree(1, g.acceptEod, g)) {
+    if (in_degree(g.accept, g) == 0 && in_degree(g.acceptEod, g) == 1) {
         DEBUG_PRINTF("no paths into accept\n");
         return true;
     }
@@ -313,7 +266,7 @@ bool can_never_match(const NGHolder &g) {
 }
 
 bool can_match_at_eod(const NGHolder &h) {
-    if (hasGreaterInDegree(1, h.acceptEod, h)) {
+    if (in_degree(h.acceptEod, h) > 1) {
         DEBUG_PRINTF("more than one edge to acceptEod\n");
         return true;
     }
@@ -337,15 +290,54 @@ bool can_only_match_at_eod(const NGHolder &g) {
 }
 
 bool matches_everywhere(const NGHolder &h) {
-    NFAEdge e;
-    bool exists;
-    tie(e, exists) = edge(h.startDs, h.accept, h);
+    NFAEdge e = edge(h.startDs, h.accept, h);
 
-    return exists && !h[e].assert_flags;
+    return e && !h[e].assert_flags;
 }
 
 bool is_virtual_start(NFAVertex v, const NGHolder &g) {
     return g[v].assert_flags & POS_FLAG_VIRTUAL_START;
+}
+
+static
+void reorderSpecials(const NGHolder &g, vector<NFAVertex> &topoOrder) {
+    // Start is last element of reverse topo ordering.
+    auto it = find(topoOrder.begin(), topoOrder.end(), g.start);
+    if (it != topoOrder.end() - 1) {
+        DEBUG_PRINTF("repositioning start\n");
+        assert(it != topoOrder.end());
+        topoOrder.erase(it);
+        topoOrder.insert(topoOrder.end(), g.start);
+    }
+
+    // StartDs is second-to-last element of reverse topo ordering.
+    it = find(topoOrder.begin(), topoOrder.end(), g.startDs);
+    if (it != topoOrder.end() - 2) {
+        DEBUG_PRINTF("repositioning start ds\n");
+        assert(it != topoOrder.end());
+        topoOrder.erase(it);
+        topoOrder.insert(topoOrder.end() - 1, g.startDs);
+    }
+
+    // AcceptEOD is first element of reverse topo ordering.
+    it = find(topoOrder.begin(), topoOrder.end(), g.acceptEod);
+    if (it != topoOrder.begin()) {
+        DEBUG_PRINTF("repositioning accept\n");
+        assert(it != topoOrder.end());
+        topoOrder.erase(it);
+        topoOrder.insert(topoOrder.begin(), g.acceptEod);
+    }
+
+    // Accept is second element of reverse topo ordering, if it's connected.
+    it = find(topoOrder.begin(), topoOrder.end(), g.accept);
+    if (it != topoOrder.begin() + 1) {
+        DEBUG_PRINTF("repositioning accept\n");
+        assert(it != topoOrder.end());
+        topoOrder.erase(it);
+        if (in_degree(g.accept, g) != 0) {
+            topoOrder.insert(topoOrder.begin() + 1, g.accept);
+        }
+    }
 }
 
 vector<NFAVertex> getTopoOrdering(const NGHolder &g) {
@@ -360,22 +352,19 @@ vector<NFAVertex> getTopoOrdering(const NGHolder &g) {
     EdgeSet backEdges;
     BackEdges<EdgeSet> be(backEdges);
 
-    auto index_map = get(&NFAGraphVertexProps::index, g.g);
-    depth_first_search(g.g, visitor(be)
-                                .root_vertex(g.start)
-                                .color_map(make_iterator_property_map(
-                                    colour.begin(), index_map))
-                                .vertex_index_map(index_map));
+    auto index_map = get(vertex_index, g);
+    depth_first_search(g, visitor(be).root_vertex(g.start)
+                                     .color_map(make_iterator_property_map(
+                                                colour.begin(), index_map)));
 
-    AcyclicFilter<EdgeSet> af(&be.backEdges);
-    filtered_graph<NFAGraph, AcyclicFilter<EdgeSet>> acyclic_g(g.g, af);
+    auto acyclic_g = make_filtered_graph(g, make_bad_edge_filter(&backEdges));
 
     vector<NFAVertex> ordering;
     ordering.reserve(num_verts);
-    topological_sort(
-        acyclic_g, back_inserter(ordering),
-        color_map(make_iterator_property_map(colour.begin(), index_map))
-            .vertex_index_map(index_map));
+    topological_sort(acyclic_g, back_inserter(ordering),
+        color_map(make_iterator_property_map(colour.begin(), index_map)));
+
+    reorderSpecials(g, ordering);
 
     return ordering;
 }
@@ -397,14 +386,12 @@ void mustBeSetBefore_int(NFAVertex u, const NGHolder &g,
         }
     }
 
-    // The AcyclicFilter is badly named, it's really just an edge-set filter.
-    filtered_graph<NFAGraph, AcyclicFilter<set<NFAEdge>>> prefix(g.g,
-                                    AcyclicFilter<set<NFAEdge>>(&dead));
+    auto prefix = make_filtered_graph(g, make_bad_edge_filter(&dead));
 
     depth_first_visit(
         prefix, g.start, make_dfs_visitor(boost::null_visitor()),
         make_iterator_property_map(vertexColor.begin(),
-                                   get(&NFAGraphVertexProps::index, g.g)));
+                                   get(vertex_index, g)));
 }
 
 bool mustBeSetBefore(NFAVertex u, NFAVertex v, const NGHolder &g,
@@ -421,15 +408,14 @@ bool mustBeSetBefore(NFAVertex u, NFAVertex v, const NGHolder &g,
     mustBeSetBefore_int(u, g, vertexColor);
 
     for (auto vi : vertices_range(g)) {
-        auto key2 = make_pair(g[u].index,
-                              g[vi].index);
-        DEBUG_PRINTF("adding %u %u\n", key2.first, key2.second);
+        auto key2 = make_pair(g[u].index, g[vi].index);
+        DEBUG_PRINTF("adding %zu %zu\n", key2.first, key2.second);
         assert(!contains(cache.cache, key2));
         bool value = vertexColor[g[vi].index] == boost::white_color;
         cache.cache[key2] = value;
         assert(contains(cache.cache, key2));
     }
-    DEBUG_PRINTF("cache miss %u %u (%zu)\n", key.first, key.second,
+    DEBUG_PRINTF("cache miss %zu %zu (%zu)\n", key.first, key.second,
                  cache.cache.size());
     return cache.cache[key];
 }
@@ -465,15 +451,19 @@ void appendLiteral(NGHolder &h, const ue2_literal &s) {
 ue2::flat_set<u32> getTops(const NGHolder &h) {
     ue2::flat_set<u32> tops;
     for (const auto &e : out_edges_range(h.start, h)) {
-        NFAVertex v = target(e, h);
-        if (v == h.startDs) {
-            continue;
-        }
-        u32 top = h[e].top;
-        assert(top < NFA_MAX_TOP_MASKS);
-        tops.insert(top);
+        insert(&tops, h[e].tops);
     }
     return tops;
+}
+
+void setTops(NGHolder &h, u32 top) {
+    for (const auto &e : out_edges_range(h.start, h)) {
+        assert(h[e].tops.empty());
+        if (target(e, h) == h.startDs) {
+            continue;
+        }
+        h[e].tops.insert(top);
+    }
 }
 
 void clearReports(NGHolder &g) {
@@ -553,12 +543,13 @@ void fillHolder(NGHolder *outp, const NGHolder &in, const deque<NFAVertex> &vv,
         fillHolderOutEdges(out, in, v_map, u);
     }
 
-    out.renumberEdges();
-    out.renumberVertices();
+    renumber_edges(out);
+    renumber_vertices(out);
 }
 
 void cloneHolder(NGHolder &out, const NGHolder &in) {
     assert(hasCorrectlyNumberedVertices(in));
+    assert(hasCorrectlyNumberedVertices(out));
     out.kind = in.kind;
 
     // Note: depending on the state of the input graph, some stylized edges
@@ -568,6 +559,7 @@ void cloneHolder(NGHolder &out, const NGHolder &in) {
     /* remove the existing special edges */
     clear_vertex(out.startDs, out);
     clear_vertex(out.accept, out);
+    renumber_edges(out);
 
     vector<NFAVertex> out_mapping(num_vertices(in));
     out_mapping[NODE_START] = out.start;
@@ -595,16 +587,13 @@ void cloneHolder(NGHolder &out, const NGHolder &in) {
 
         NFAVertex s = out_mapping[si];
         NFAVertex t = out_mapping[ti];
-        UNUSED bool added;
-        NFAEdge e2;
-        tie(e2, added) = add_edge(s, t, out);
-        assert(added);
+        NFAEdge e2 = add_edge(s, t, out);
         out[e2] = in[e];
     }
 
     // Safety checks.
-    assert(num_vertices(in.g) == num_vertices(out.g));
-    assert(num_edges(in.g) == num_edges(out.g));
+    assert(num_vertices(in) == num_vertices(out));
+    assert(num_edges(in) == num_edges(out));
     assert(hasCorrectlyNumberedVertices(out));
 }
 
@@ -630,14 +619,66 @@ unique_ptr<NGHolder> cloneHolder(const NGHolder &in) {
     return h;
 }
 
+void reverseHolder(const NGHolder &g_in, NGHolder &g) {
+    // Make the BGL do the grunt work.
+    ue2::unordered_map<NFAVertex, NFAVertex> vertexMap;
+    boost::transpose_graph(g_in, g,
+                orig_to_copy(boost::make_assoc_property_map(vertexMap)));
+
+    // The transpose_graph operation will have created extra copies of our
+    // specials. We have to rewire their neighbours to the 'real' specials and
+    // delete them.
+    NFAVertex start = vertexMap[g_in.acceptEod];
+    NFAVertex startDs = vertexMap[g_in.accept];
+    NFAVertex accept = vertexMap[g_in.startDs];
+    NFAVertex acceptEod = vertexMap[g_in.start];
+
+    // Successors of starts.
+    for (const auto &e : out_edges_range(start, g)) {
+        NFAVertex v = target(e, g);
+        add_edge(g.start, v, g[e], g);
+    }
+    for (const auto &e : out_edges_range(startDs, g)) {
+        NFAVertex v = target(e, g);
+        add_edge(g.startDs, v, g[e], g);
+    }
+
+    // Predecessors of accepts.
+    for (const auto &e : in_edges_range(accept, g)) {
+        NFAVertex u = source(e, g);
+        add_edge(u, g.accept, g[e], g);
+    }
+    for (const auto &e : in_edges_range(acceptEod, g)) {
+        NFAVertex u = source(e, g);
+        add_edge(u, g.acceptEod, g[e], g);
+    }
+
+    // Remove our impostors.
+    clear_vertex(start, g);
+    remove_vertex(start, g);
+    clear_vertex(startDs, g);
+    remove_vertex(startDs, g);
+    clear_vertex(accept, g);
+    remove_vertex(accept, g);
+    clear_vertex(acceptEod, g);
+    remove_vertex(acceptEod, g);
+
+    // Renumber so that g's properties (number of vertices, edges) are
+    // accurate.
+    renumber_vertices(g);
+    renumber_edges(g);
+
+    assert(num_vertices(g) == num_vertices(g_in));
+    assert(num_edges(g) == num_edges(g_in));
+}
+
 #ifndef NDEBUG
 
 bool allMatchStatesHaveReports(const NGHolder &g) {
     unordered_set<NFAVertex> reporters;
     for (auto v : inv_adjacent_vertices_range(g.accept, g)) {
         if (g[v].reports.empty()) {
-            DEBUG_PRINTF("vertex %u has no reports!\n",
-                         g[v].index);
+            DEBUG_PRINTF("vertex %zu has no reports!\n", g[v].index);
             return false;
         }
         reporters.insert(v);
@@ -648,8 +689,7 @@ bool allMatchStatesHaveReports(const NGHolder &g) {
             continue; // stylised edge
         }
         if (g[v].reports.empty()) {
-            DEBUG_PRINTF("vertex %u has no reports!\n",
-                         g[v].index);
+            DEBUG_PRINTF("vertex %zu has no reports!\n", g[v].index);
             return false;
         }
         reporters.insert(v);
@@ -657,7 +697,7 @@ bool allMatchStatesHaveReports(const NGHolder &g) {
 
     for (auto v : vertices_range(g)) {
         if (!contains(reporters, v) && !g[v].reports.empty()) {
-            DEBUG_PRINTF("vertex %u is not a match state, but has reports!\n",
+            DEBUG_PRINTF("vertex %zu is not a match state, but has reports!\n",
                          g[v].index);
             return false;
         }
@@ -666,32 +706,22 @@ bool allMatchStatesHaveReports(const NGHolder &g) {
     return true;
 }
 
-bool hasCorrectlyNumberedVertices(const NGHolder &g) {
-    size_t count = num_vertices(g);
-    vector<bool> ids(count, false);
-    for (auto v : vertices_range(g)) {
-        u32 id = g[v].index;
-        if (id >= count || ids[id]) {
-            return false; // duplicate
+bool isCorrectlyTopped(const NGHolder &g) {
+    if (is_triggered(g)) {
+        for (const auto &e : out_edges_range(g.start, g)) {
+            if (g[e].tops.empty() != (target(e, g) == g.startDs)) {
+                return false;
+            }
         }
-        ids[id] = true;
+    } else {
+        for (const auto &e : out_edges_range(g.start, g)) {
+            if (!g[e].tops.empty()) {
+                return false;
+            }
+        }
     }
-    return find(ids.begin(), ids.end(), false) == ids.end()
-        && num_vertices(g) == num_vertices(g.g);
-}
 
-bool hasCorrectlyNumberedEdges(const NGHolder &g) {
-    size_t count = num_edges(g);
-    vector<bool> ids(count, false);
-    for (const auto &e : edges_range(g)) {
-        u32 id = g[e].index;
-        if (id >= count || ids[id]) {
-            return false; // duplicate
-        }
-        ids[id] = true;
-    }
-    return find(ids.begin(), ids.end(), false) == ids.end()
-        && num_edges(g) == num_edges(g.g);
+    return true;
 }
 
 #endif // NDEBUG

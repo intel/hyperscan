@@ -32,9 +32,7 @@
 #include "accel_dfa_build_strat.h"
 #include "rdfa.h"
 #include "ue2common.h"
-#include "util/accel_scheme.h"
 #include "util/alloc.h"
-#include "util/charreach.h"
 #include "util/ue2_containers.h"
 
 #include <memory>

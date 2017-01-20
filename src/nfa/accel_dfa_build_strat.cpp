@@ -56,15 +56,6 @@ struct path {
 };
 };
 
-static UNUSED
-string describeClasses(const vector<CharReach> &v) {
-    std::ostringstream oss;
-    for (const auto &cr : v) {
-        describeClass(oss, cr);
-    }
-    return oss.str();
-}
-
 static
 void dump_paths(const vector<path> &paths) {
     for (UNUSED const auto &p : paths) {
@@ -482,9 +473,10 @@ accel_dfa_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
     }
 
     if (double_byte_ok(info) &&
-        shuftiBuildDoubleMasks(info.double_cr, info.double_byte,
-                               &accel->dshufti.lo1, &accel->dshufti.hi1,
-                               &accel->dshufti.lo2, &accel->dshufti.hi2)) {
+        shuftiBuildDoubleMasks(
+            info.double_cr, info.double_byte, (u8 *)&accel->dshufti.lo1,
+            (u8 *)&accel->dshufti.hi1, (u8 *)&accel->dshufti.lo2,
+            (u8 *)&accel->dshufti.hi2)) {
         accel->accel_type = ACCEL_DSHUFTI;
         accel->dshufti.offset = verify_u8(info.double_offset);
         DEBUG_PRINTF("state %hu is double shufti\n", this_idx);
@@ -520,14 +512,16 @@ accel_dfa_build_strat::buildAccel(UNUSED dstate_id_t this_idx,
     }
 
     accel->accel_type = ACCEL_SHUFTI;
-    if (-1 != shuftiBuildMasks(info.cr, &accel->shufti.lo, &accel->shufti.hi)) {
+    if (-1 != shuftiBuildMasks(info.cr, (u8 *)&accel->shufti.lo,
+                               (u8 *)&accel->shufti.hi)) {
         DEBUG_PRINTF("state %hu is shufti\n", this_idx);
         return;
     }
 
     assert(!info.cr.none());
     accel->accel_type = ACCEL_TRUFFLE;
-    truffleBuildMasks(info.cr, &accel->truffle.mask1, &accel->truffle.mask2);
+    truffleBuildMasks(info.cr, (u8 *)&accel->truffle.mask1,
+                      (u8 *)&accel->truffle.mask2);
     DEBUG_PRINTF("state %hu is truffle\n", this_idx);
 }
 

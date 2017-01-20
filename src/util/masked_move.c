@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,7 @@
 /* masks for masked moves */
 
 /* magic mask for maskload (vmmaskmovq) - described in UE-2424 */
-const u32 mm_mask_mask[16] ALIGN_CL_DIRECTIVE = {
+const ALIGN_CL_DIRECTIVE u32 mm_mask_mask[16] = {
     0x00000000U,
     0x00000000U,
     0x00000000U,

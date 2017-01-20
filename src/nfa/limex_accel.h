@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,7 @@
 #include "util/simd_utils.h" // for m128 etc
 
 union AccelAux;
+struct LimExNFA64;
 struct LimExNFA128;
 struct LimExNFA256;
 struct LimExNFA384;
@@ -48,6 +49,16 @@ struct LimExNFA512;
 size_t doAccel32(u32 s, u32 accel, const u8 *accelTable,
                  const union AccelAux *aux, const u8 *input, size_t i,
                  size_t end);
+
+#ifdef ARCH_64_BIT
+size_t doAccel64(u64a s, u64a accel, const u8 *accelTable,
+                 const union AccelAux *aux, const u8 *input, size_t i,
+                 size_t end);
+#else
+size_t doAccel64(m128 s, m128 accel, const u8 *accelTable,
+                 const union AccelAux *aux, const u8 *input, size_t i,
+                 size_t end);
+#endif
 
 size_t doAccel128(const m128 *s, const struct LimExNFA128 *limex,
                   const u8 *accelTable, const union AccelAux *aux,

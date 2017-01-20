@@ -70,18 +70,11 @@ void smwrDumpNFA(const SmallWriteEngine *smwr, bool dump_raw,
     }
 
     const struct NFA *n = getSmwrNfa(smwr);
-    FILE *f;
 
-    f = fopen((base + "smallwrite_nfa.dot").c_str(), "w");
-    nfaDumpDot(n, f, base);
-    fclose(f);
-
-    f = fopen((base + "smallwrite_nfa.txt").c_str(), "w");
-    nfaDumpText(n, f);
-    fclose(f);
+    nfaGenerateDumpFiles(n, base + "smallwrite_nfa");
 
     if (dump_raw) {
-        f = fopen((base + "smallwrite_nfa.raw").c_str(), "w");
+        FILE *f = fopen((base + "smallwrite_nfa.raw").c_str(), "w");
         fwrite(n, 1, n->length, f);
         fclose(f);
     }

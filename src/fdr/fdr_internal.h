@@ -100,8 +100,6 @@ struct FDR_Runtime_Args {
     size_t len;
     const u8 *buf_history;
     size_t len_history;
-    const u8 *buf_history_nocase;
-    size_t len_history_nocase;
     size_t start_offset;
     HWLMCallback cb;
     void *ctxt;

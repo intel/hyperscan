@@ -102,7 +102,7 @@ bool maskFromLeftGraph(const LeftEngInfo &left, vector<u8> &msk,
         CharReach cr;
         for (NFAVertex v : curr) {
             const auto &v_cr = h[v].char_reach;
-            DEBUG_PRINTF("vertex %u, reach %s\n", h[v].index,
+            DEBUG_PRINTF("vertex %zu, reach %s\n", h[v].index,
                          describeClass(v_cr).c_str());
             cr |= v_cr;
             insert(&next, inv_adjacent_vertices(v, h));
@@ -438,45 +438,43 @@ static
 bool isNoRunsVertex(const RoseBuildImpl &build, RoseVertex u) {
     const RoseGraph &g = build.g;
     if (!g[u].isBoring()) {
-        DEBUG_PRINTF("u=%zu is not boring\n", g[u].idx);
+        DEBUG_PRINTF("u=%zu is not boring\n", g[u].index);
         return false;
     }
 
     if (!g[u].reports.empty()) {
-        DEBUG_PRINTF("u=%zu has accept\n", g[u].idx);
+        DEBUG_PRINTF("u=%zu has accept\n", g[u].index);
         return false;
     }
 
     /* TODO: handle non-root roles as well. It can't be that difficult... */
 
-    if (!in_degree_equal_to(u, g, 1)) {
-        DEBUG_PRINTF("u=%zu is not a root role\n", g[u].idx);
+    if (in_degree(u, g) != 1) {
+        DEBUG_PRINTF("u=%zu is not a root role\n", g[u].index);
         return false;
     }
 
-    RoseEdge e;
-    bool exists;
-    tie(e, exists) = edge_by_target(build.root, u, g);
+    RoseEdge e = edge(build.root, u, g);
 
-    if (!exists) {
-        DEBUG_PRINTF("u=%zu is not a root role\n", g[u].idx);
+    if (!e) {
+        DEBUG_PRINTF("u=%zu is not a root role\n", g[u].index);
         return false;
     }
 
     if (g[e].minBound != 0 || g[e].maxBound != ROSE_BOUND_INF) {
-        DEBUG_PRINTF("u=%zu has bounds from root\n", g[u].idx);
+        DEBUG_PRINTF("u=%zu has bounds from root\n", g[u].index);
         return false;
     }
 
     for (const auto &oe : out_edges_range(u, g)) {
         RoseVertex v = target(oe, g);
         if (g[oe].maxBound != ROSE_BOUND_INF) {
-            DEBUG_PRINTF("edge (%zu,%zu) has max bound\n", g[u].idx,
-                    g[target(oe, g)].idx);
+            DEBUG_PRINTF("edge (%zu,%zu) has max bound\n", g[u].index,
+                         g[v].index);
             return false;
         }
         if (g[v].left) {
-            DEBUG_PRINTF("v=%zu has rose prefix\n", g[v].idx);
+            DEBUG_PRINTF("v=%zu has rose prefix\n", g[v].index);
             return false;
         }
     }
@@ -485,11 +483,16 @@ bool isNoRunsVertex(const RoseBuildImpl &build, RoseVertex u) {
 
 static
 bool isNoRunsLiteral(const RoseBuildImpl &build, const u32 id,
-                     const rose_literal_info &info) {
+                     const rose_literal_info &info, const size_t max_len) {
     DEBUG_PRINTF("lit id %u\n", id);
 
     if (info.requires_benefits) {
         DEBUG_PRINTF("requires benefits\n"); // which would need confirm
+        return false;
+    }
+
+    if (build.literals.right.at(id).s.length() > max_len) {
+        DEBUG_PRINTF("requires literal check\n");
         return false;
     }
 
@@ -558,7 +561,7 @@ u64a literalMinReportOffset(const RoseBuildImpl &build,
     u64a lit_min_offset = UINT64_MAX;
 
     for (const auto &v : info.vertices) {
-        DEBUG_PRINTF("vertex %zu min_offset=%u\n", g[v].idx, g[v].min_offset);
+        DEBUG_PRINTF("vertex %zu min_offset=%u\n", g[v].index, g[v].min_offset);
 
         u64a vert_offset = g[v].min_offset;
 
@@ -625,7 +628,7 @@ u64a literalMinReportOffset(const RoseBuildImpl &build,
 
 vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
                                            rose_literal_table table,
-                                           u32 max_offset) {
+                                           size_t max_len, u32 max_offset) {
     vector<hwlmLiteral> lits;
 
     for (const auto &e : build.literals.right) {
@@ -663,10 +666,14 @@ vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
         const vector<u8> &msk = e.second.msk;
         const vector<u8> &cmp = e.second.cmp;
 
-        bool noruns = isNoRunsLiteral(build, id, info);
+        bool noruns = isNoRunsLiteral(build, id, info, max_len);
 
         if (info.requires_explode) {
             DEBUG_PRINTF("exploding lit\n");
+
+            // We do not require_explode for long literals.
+            assert(lit.length() <= max_len);
+
             case_iter cit = caseIterateBegin(lit);
             case_iter cite = caseIterateEnd();
             for (; cit != cite; ++cit) {
@@ -687,20 +694,28 @@ vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
                                   msk, cmp);
             }
         } else {
-            const std::string &s = lit.get_string();
-            const bool nocase = lit.any_nocase();
+            string s = lit.get_string();
+            bool nocase = lit.any_nocase();
 
             DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d, msk=%s, "
                          "cmp=%s\n",
                          final_id, escapeString(s).c_str(), (int)nocase, noruns,
                          dumpMask(msk).c_str(), dumpMask(cmp).c_str());
 
+            if (s.length() > max_len) {
+                DEBUG_PRINTF("truncating to tail of length %zu\n", max_len);
+                s.erase(0, s.length() - max_len);
+                // We shouldn't have set a threshold below 8 chars.
+                assert(msk.size() <= max_len);
+            }
+
             if (!maskIsConsistent(s, nocase, msk, cmp)) {
                 DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
                 continue;
             }
 
-            lits.emplace_back(s, nocase, noruns, final_id, groups, msk, cmp);
+            lits.emplace_back(move(s), nocase, noruns, final_id, groups, msk,
+                              cmp);
         }
     }
 
@@ -708,14 +723,15 @@ vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
 }
 
 aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
+                                              size_t longLitLengthThreshold,
                                               rose_group *fgroups,
                                               size_t *fsize,
-                                              size_t *historyRequired,
-                                              size_t *streamStateRequired) {
+                                              size_t *historyRequired) {
     *fsize = 0;
     *fgroups = 0;
 
-    auto fl = fillHamsterLiteralList(build, ROSE_FLOATING);
+    auto fl = fillHamsterLiteralList(build, ROSE_FLOATING,
+                                     longLitLengthThreshold);
     if (fl.empty()) {
         DEBUG_PRINTF("empty floating matcher\n");
         return nullptr;
@@ -747,13 +763,10 @@ aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
     if (build.cc.streaming) {
         DEBUG_PRINTF("literal_history_required=%zu\n",
                 ctl.literal_history_required);
-        DEBUG_PRINTF("literal_stream_state_required=%zu\n",
-                ctl.literal_stream_state_required);
         assert(ctl.literal_history_required <=
                build.cc.grey.maxHistoryAvailable);
         *historyRequired = max(*historyRequired,
                 ctl.literal_history_required);
-        *streamStateRequired = ctl.literal_stream_state_required;
     }
 
     *fsize = hwlmSize(ftable.get());
@@ -778,8 +791,8 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
         return nullptr;
     }
 
-    auto lits = fillHamsterLiteralList(build, ROSE_FLOATING,
-                                       ROSE_SMALL_BLOCK_LEN);
+    auto lits = fillHamsterLiteralList(
+        build, ROSE_FLOATING, ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
     if (lits.empty()) {
         DEBUG_PRINTF("no floating table\n");
         return nullptr;
@@ -788,8 +801,9 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
         return nullptr;
     }
 
-    auto anchored_lits = fillHamsterLiteralList(build,
-                            ROSE_ANCHORED_SMALL_BLOCK, ROSE_SMALL_BLOCK_LEN);
+    auto anchored_lits =
+        fillHamsterLiteralList(build, ROSE_ANCHORED_SMALL_BLOCK,
+                               ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
     if (anchored_lits.empty()) {
         DEBUG_PRINTF("no small-block anchored literals\n");
         return nullptr;
@@ -823,7 +837,8 @@ aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
                                                  size_t *esize) {
     *esize = 0;
 
-    auto el = fillHamsterLiteralList(build, ROSE_EOD_ANCHORED);
+    auto el = fillHamsterLiteralList(build, ROSE_EOD_ANCHORED,
+                                     build.ematcher_region_size);
 
     if (el.empty()) {
         DEBUG_PRINTF("no eod anchored literals\n");

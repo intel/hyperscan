@@ -34,7 +34,7 @@
 #include "shufticompile.h"
 #include "trufflecompile.h"
 #include "util/alloc.h"
-#include "util/multibit_internal.h"
+#include "util/multibit_build.h"
 #include "util/order_check.h"
 #include "util/report_manager.h"
 #include "util/verify_types.h"
@@ -175,12 +175,13 @@ void writeKiloPuff(const map<ClusterKey, vector<raw_puff>>::const_iterator &it,
         size_t set = reach.find_first();
         assert(set != CharReach::npos);
         kp->u.verm.c = (char)set;
-    } else if (shuftiBuildMasks(~reach, &kp->u.shuf.mask_lo,
-                                &kp->u.shuf.mask_hi) != -1) {
+    } else if (shuftiBuildMasks(~reach, (u8 *)&kp->u.shuf.mask_lo,
+                                (u8 *)&kp->u.shuf.mask_hi) != -1) {
         kp->type = MPV_SHUFTI;
     } else {
         kp->type = MPV_TRUFFLE;
-        truffleBuildMasks(~reach, &kp->u.truffle.mask1, &kp->u.truffle.mask2);
+        truffleBuildMasks(~reach, (u8 *)&kp->u.truffle.mask1,
+                          (u8 *)&kp->u.truffle.mask2);
     }
 
     kp->count = verify_u32(puffs.size());
@@ -207,7 +208,7 @@ void writeCoreNfa(NFA *nfa, u32 len, u32 min_width, u32 max_counter,
 
     nfa->length = len;
     nfa->nPositions = max_counter - 1;
-    nfa->type = MPV_NFA_0;
+    nfa->type = MPV_NFA;
     nfa->streamStateSize = streamStateSize;
     assert(16 >= sizeof(mpv_decomp_kilo));
     nfa->scratchStateSize = scratchStateSize;

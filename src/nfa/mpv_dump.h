@@ -31,16 +31,13 @@
 
 #if defined(DUMP_SUPPORT)
 
-#include <cstdio>
 #include <string>
 
 struct NFA;
 
 namespace ue2 {
 
-void nfaExecMpv0_dumpDot(const struct NFA *nfa, FILE *file,
-                         const std::string &base);
-void nfaExecMpv0_dumpText(const struct NFA *nfa, FILE *file);
+void nfaExecMpv_dump(const struct NFA *nfa, const std::string &base);
 
 } // namespace ue2
 

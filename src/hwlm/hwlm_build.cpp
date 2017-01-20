@@ -461,7 +461,8 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
     }
 
     const CharReach &cr = reach[min_offset];
-    if (shuftiBuildMasks(cr, &aux->shufti.lo, &aux->shufti.hi) != -1) {
+    if (-1 !=
+        shuftiBuildMasks(cr, (u8 *)&aux->shufti.lo, (u8 *)&aux->shufti.hi)) {
         DEBUG_PRINTF("built shufti for %s (%zu chars, offset %u)\n",
                      describeClass(cr).c_str(), cr.count(), min_offset);
         aux->shufti.accel_type = ACCEL_SHUFTI;
@@ -469,7 +470,7 @@ void findForwardAccelScheme(const vector<hwlmLiteral> &lits,
         return;
     }
 
-    truffleBuildMasks(cr, &aux->truffle.mask1, &aux->truffle.mask2);
+    truffleBuildMasks(cr, (u8 *)&aux->truffle.mask1, (u8 *)&aux->truffle.mask2);
     DEBUG_PRINTF("built truffle for %s (%zu chars, offset %u)\n",
                  describeClass(cr).c_str(), cr.count(), min_offset);
     aux->truffle.accel_type = ACCEL_TRUFFLE;
@@ -523,7 +524,7 @@ bool isNoodleable(const vector<hwlmLiteral> &lits,
     }
 
     if (stream_control) { // nullptr if in block mode
-        if (lits.front().s.length() + 1 > stream_control->history_max) {
+        if (lits.front().s.length() > stream_control->history_max + 1) {
             DEBUG_PRINTF("length of %zu too long for history max %zu\n",
                          lits.front().s.length(),
                          stream_control->history_max);
@@ -552,6 +553,12 @@ aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
 
     if (stream_control) {
         assert(stream_control->history_min <= stream_control->history_max);
+
+        // We should not have been passed any literals that are too long to
+        // match with a maximally-sized history buffer.
+        assert(all_of(begin(lits), end(lits), [&](const hwlmLiteral &lit) {
+            return lit.s.length() <= stream_control->history_max + 1;
+        }));
     }
 
     // Check that we haven't exceeded the maximum number of literals.
@@ -602,7 +609,6 @@ aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
             stream_control->literal_history_required = lit.s.length() - 1;
             assert(stream_control->literal_history_required
                    <= stream_control->history_max);
-            stream_control->literal_stream_state_required = 0;
         }
         eng = move(noodle);
     } else {

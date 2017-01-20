@@ -39,6 +39,7 @@
 #include "ue2common.h"
 #include "util/charreach.h"
 #include "util/dump_charclass.h"
+#include "util/dump_util.h"
 #include "util/unaligned.h"
 
 #include <cctype>
@@ -267,8 +268,8 @@ void dumpDotPreambleDfa(FILE *f) {
     fprintf(f, "0 [style=invis];\n");
 }
 
-void nfaExecMcClellan16_dumpDot(const NFA *nfa, FILE *f,
-                                UNUSED const string &base) {
+static
+void nfaExecMcClellan16_dumpDot(const NFA *nfa, FILE *f) {
     assert(nfa->type == MCCLELLAN_NFA_16);
     const mcclellan *m = (const mcclellan *)getImplNfa(nfa);
 
@@ -287,8 +288,8 @@ void nfaExecMcClellan16_dumpDot(const NFA *nfa, FILE *f,
     fprintf(f, "}\n");
 }
 
-void nfaExecMcClellan8_dumpDot(const NFA *nfa, FILE *f,
-                               UNUSED const string &base) {
+static
+void nfaExecMcClellan8_dumpDot(const NFA *nfa, FILE *f) {
     assert(nfa->type == MCCLELLAN_NFA_8);
     const mcclellan *m = (const mcclellan *)getImplNfa(nfa);
 
@@ -397,6 +398,7 @@ void dumpTransitions(FILE *f, const NFA *nfa, const mcclellan *m,
     }
 }
 
+static
 void nfaExecMcClellan16_dumpText(const NFA *nfa, FILE *f) {
     assert(nfa->type == MCCLELLAN_NFA_16);
     const mcclellan *m = (const mcclellan *)getImplNfa(nfa);
@@ -417,6 +419,7 @@ void nfaExecMcClellan16_dumpText(const NFA *nfa, FILE *f) {
     dumpTextReverse(nfa, f);
 }
 
+static
 void nfaExecMcClellan8_dumpText(const NFA *nfa, FILE *f) {
     assert(nfa->type == MCCLELLAN_NFA_8);
     const mcclellan *m = (const mcclellan *)getImplNfa(nfa);
@@ -435,6 +438,26 @@ void nfaExecMcClellan8_dumpText(const NFA *nfa, FILE *f) {
 
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
+}
+
+void nfaExecMcClellan16_dump(const NFA *nfa, const string &base) {
+    assert(nfa->type == MCCLELLAN_NFA_16);
+    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+    nfaExecMcClellan16_dumpText(nfa, f);
+    fclose(f);
+    f = fopen_or_throw((base + ".dot").c_str(), "w");
+    nfaExecMcClellan16_dumpDot(nfa, f);
+    fclose(f);
+}
+
+void nfaExecMcClellan8_dump(const NFA *nfa, const string &base) {
+    assert(nfa->type == MCCLELLAN_NFA_8);
+    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+    nfaExecMcClellan8_dumpText(nfa, f);
+    fclose(f);
+    f = fopen_or_throw((base + ".dot").c_str(), "w");
+    nfaExecMcClellan8_dumpDot(nfa, f);
+    fclose(f);
 }
 
 } // namespace ue2

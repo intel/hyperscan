@@ -183,8 +183,6 @@ flat_set<NFAVertex> execute_graph(const NGHolder &g,
     return getVertices(work_states, info);
 }
 
-typedef boost::reverse_graph<const NFAGraph, const NFAGraph &> RevNFAGraph;
-
 namespace {
 class eg_visitor : public boost::default_dfs_visitor {
 public:
@@ -195,13 +193,14 @@ public:
           info(info_in), input_g(input_g_in), states(states_in),
           succs(vertex_count) {}
 
-    void finish_vertex(NFAVertex input_v, const RevNFAGraph &) {
+    void finish_vertex(NFAVertex input_v,
+                   const boost::reverse_graph<NGHolder, const NGHolder &> &) {
         if (input_v == input_g.accept) {
             return;
         }
         assert(input_v != input_g.acceptEod);
 
-        DEBUG_PRINTF("finished p%u\n", input_g[input_v].index);
+        DEBUG_PRINTF("finished p%zu\n", input_g[input_v].index);
 
         /* finish vertex is called on vertex --> implies that all its parents
          * (in the forward graph) are also finished. Our parents will have
@@ -236,7 +235,7 @@ public:
         /* we need to push into all our (forward) children their successors
          * from us. */
         for (auto v : adjacent_vertices_range(input_v, input_g)) {
-            DEBUG_PRINTF("pushing our states to pstate %u\n",
+            DEBUG_PRINTF("pushing our states to pstate %zu\n",
                          input_g[v].index);
             if (v == input_g.startDs) {
                 /* no need for intra start edges */
@@ -289,7 +288,7 @@ flat_set<NFAVertex> execute_graph(const NGHolder &running_g,
     map<NFAVertex, boost::default_color_type> colours;
     /* could just a topo order, but really it is time to pull a slightly bigger
      * gun: DFS */
-    RevNFAGraph revg(input_dag.g);
+    boost::reverse_graph<NGHolder, const NGHolder &> revg(input_dag);
     map<NFAVertex, dynamic_bitset<> > dfs_states;
 
     auto info = makeInfoTable(running_g);
@@ -308,7 +307,7 @@ flat_set<NFAVertex> execute_graph(const NGHolder &running_g,
 #ifdef DEBUG
     DEBUG_PRINTF("  output rstates:");
     for (const auto &v : states) {
-        printf(" %u", running_g[v].index);
+        printf(" %zu", running_g[v].index);
     }
     printf("\n");
 #endif

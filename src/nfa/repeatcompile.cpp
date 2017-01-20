@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,7 @@
 #include "util/charreach.h"
 #include "util/depth.h"
 #include "util/dump_charclass.h"
-#include "util/multibit_internal.h"
+#include "util/multibit_build.h"
 #include "util/verify_types.h"
 
 #include <algorithm>

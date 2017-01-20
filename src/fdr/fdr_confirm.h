@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,19 +52,18 @@ typedef enum LitInfoFlags {
 /**
  * \brief Structure describing a literal, linked to by FDRConfirm.
  *
- * This structure is followed in memory by a variable-sized string prefix at
- * LitInfo::s, for strings that are longer than CONF_TYPE.
+ * This structure is followed in memory by a variable-sized string prefix, for
+ * strings that are longer than CONF_TYPE.
  */
 struct LitInfo {
     CONF_TYPE v;
     CONF_TYPE msk;
     hwlm_group_t groups;
-    u32 size;
     u32 id; // literal ID as passed in
+    u8 size;
     u8 flags; /* LitInfoFlags */
     u8 next;
     u8 extended_size;
-    u8 s[1]; // literal prefix, which continues "beyond" this struct.
 };
 
 #define FDRC_FLAG_NO_CONFIRM 1

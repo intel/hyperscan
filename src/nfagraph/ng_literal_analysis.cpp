@@ -40,6 +40,7 @@
 #include "util/depth.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
+#include "util/ue2_graph.h"
 #include "util/ue2string.h"
 
 #include <algorithm>
@@ -49,7 +50,6 @@
 #include <boost/graph/boykov_kolmogorov_max_flow.hpp>
 
 using namespace std;
-using boost::vertex_index;
 
 namespace ue2 {
 
@@ -64,24 +64,29 @@ namespace {
 /* Small literal graph type used for the suffix tree used in
  * compressAndScore. */
 
-
 struct LitGraphVertexProps {
-    LitGraphVertexProps() {}
-    explicit LitGraphVertexProps(const ue2_literal::elem &c_in) : c(c_in) {}
+    LitGraphVertexProps() = default;
+    explicit LitGraphVertexProps(ue2_literal::elem c_in) : c(move(c_in)) {}
     ue2_literal::elem c; // string element (char + bool)
+    size_t index; // managed by ue2_graph
 };
 
 struct LitGraphEdgeProps {
-    LitGraphEdgeProps() {}
+    LitGraphEdgeProps() = default;
     explicit LitGraphEdgeProps(u64a score_in) : score(score_in) {}
     u64a score = NO_LITERAL_AT_EDGE_SCORE;
-    size_t index; /* only initialised when the reverse edges are added. */
+    size_t index; // managed by ue2_graph
 };
 
-/* keep edgeList = listS as you cannot remove edges if edgeList = vecS */
-typedef boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS,
-                              LitGraphVertexProps, LitGraphEdgeProps,
-                              boost::no_property> LitGraph;
+struct LitGraph
+    : public ue2_graph<LitGraph, LitGraphVertexProps, LitGraphEdgeProps> {
+
+    LitGraph() : root(add_vertex(*this)), sink(add_vertex(*this)) {}
+
+    const vertex_descriptor root;
+    const vertex_descriptor sink;
+};
+
 typedef LitGraph::vertex_descriptor LitVertex;
 typedef LitGraph::edge_descriptor LitEdge;
 
@@ -94,17 +99,16 @@ typedef std::queue<VertexPair> LitVertexQ;
 
 /** \brief Dump the literal graph in Graphviz format. */
 static UNUSED
-void dumpGraph(const char *filename, const LitGraph &lg, const LitVertex &root,
-               const LitVertex &sink) {
+void dumpGraph(const char *filename, const LitGraph &lg) {
     ofstream fout(filename);
 
     fout << "digraph G {" << endl;
 
     for (auto v : vertices_range(lg)) {
-        fout << boost::get(vertex_index, lg, v);
-        if (v == root) {
+        fout << lg[v].index;
+        if (v == lg.root) {
             fout << "[label=\"ROOT\"];";
-        } else if (v == sink) {
+        } else if (v == lg.sink) {
             fout << "[label=\"SINK\"];";
         } else {
             ue2_literal s;
@@ -116,10 +120,9 @@ void dumpGraph(const char *filename, const LitGraph &lg, const LitVertex &root,
 
     for (const auto &e : edges_range(lg)) {
         LitVertex u = source(e, lg), v = target(e, lg);
-        fout << boost::get(vertex_index, lg, u) << " -> " <<
-                boost::get(vertex_index, lg, v) <<
-                "[label=\"" << lg[e].score << "\"]" <<
-                ";" << endl;
+        fout << lg[u].index << " -> " << lg[v].index << "[label=\""
+             << lg[e].score << "\"]"
+             << ";" << endl;
     }
 
     fout << "}" << endl;
@@ -141,11 +144,11 @@ bool allowExpand(size_t numItems, size_t totalPathsSoFar) {
 }
 
 static
-LitVertex addToLitGraph(LitGraph &lg, LitVertex sink,
-                        LitVertex pred, const ue2_literal::elem &c) {
+LitVertex addToLitGraph(LitGraph &lg, LitVertex pred,
+                        const ue2_literal::elem &c) {
     // Check if we already have this in the graph.
     for (auto v : adjacent_vertices_range(pred, lg)) {
-        if (v == sink) {
+        if (v == lg.sink) {
             continue;
         }
         if (lg[v].c == c) {
@@ -159,9 +162,10 @@ LitVertex addToLitGraph(LitGraph &lg, LitVertex sink,
 }
 
 static
-void addToQueue(LitVertexQ &workQ, LitGraph &lg, LitVertex sink,
-                LitVertex pred, const CharReach &cr, NFAVertex v) {
-    for (size_t i = cr.find_first(); i != CharReach::npos; i = cr.find_next(i)) {
+void addToQueue(LitVertexQ &workQ, LitGraph &lg, LitVertex pred,
+                const CharReach &cr, NFAVertex v) {
+    for (size_t i = cr.find_first(); i != CharReach::npos;
+         i = cr.find_next(i)) {
         if (myisupper(i) && cr.test(mytolower(i))) {
             // ignore upper half of a nocase pair
             continue;
@@ -169,14 +173,14 @@ void addToQueue(LitVertexQ &workQ, LitGraph &lg, LitVertex sink,
 
         bool nocase = myislower(i) && cr.test(mytoupper(i));
         ue2_literal::elem c((char)i, nocase);
-        LitVertex lv = addToLitGraph(lg, sink, pred, c);
+        LitVertex lv = addToLitGraph(lg, pred, c);
         workQ.push(VertexPair(lv, v));
     }
 }
 
 static
-void initWorkQueue(LitVertexQ &workQ, LitGraph &lg, LitVertex root,
-                   LitVertex sink, const NGHolder &g, const NFAEdge &e) {
+void initWorkQueue(LitVertexQ &workQ, LitGraph &lg, const NGHolder &g,
+                   const NFAEdge &e) {
     NFAVertex u = source(e, g);
     NFAVertex v = target(e, g);
     const CharReach &cr = g[v].char_reach;
@@ -185,7 +189,7 @@ void initWorkQueue(LitVertexQ &workQ, LitGraph &lg, LitVertex root,
         return;
     }
 
-    addToQueue(workQ, lg, sink, root, cr, u);
+    addToQueue(workQ, lg, lg.root, cr, u);
 }
 
 static
@@ -197,7 +201,8 @@ u32 crCardinality(const CharReach &cr) {
     }
 
     u32 rv = 0;
-    for (size_t i = cr.find_first(); i != CharReach::npos; i = cr.find_next(i)) {
+    for (size_t i = cr.find_first(); i != CharReach::npos;
+         i = cr.find_next(i)) {
         if (myisupper(i) && cr.test(mytolower(i))) {
             // ignore upper half of a nocase pair
             continue;
@@ -212,10 +217,10 @@ u32 crCardinality(const CharReach &cr) {
  * identifying vertices connected to the sink and removing their other
  * out-edges. */
 static
-void filterLitGraph(LitGraph &lg, const LitVertex sink) {
-    for (auto v : inv_adjacent_vertices_range(sink, lg)) {
-        remove_out_edge_if(v, [&lg, &sink](const LitEdge &e) {
-            return target(e, lg) != sink;
+void filterLitGraph(LitGraph &lg) {
+    for (auto v : inv_adjacent_vertices_range(lg.sink, lg)) {
+        remove_out_edge_if(v, [&lg](const LitEdge &e) {
+            return target(e, lg) != lg.sink;
         }, lg);
     }
 
@@ -228,13 +233,12 @@ void filterLitGraph(LitGraph &lg, const LitVertex sink) {
  * from each predecessor of the sink (note: it's a suffix tree except for this
  * convenience) towards the source, storing each string as we go. */
 static
-void extractLiterals(const LitGraph &lg, const LitVertex root,
-                     const LitVertex sink, set<ue2_literal> &s) {
+void extractLiterals(const LitGraph &lg, set<ue2_literal> &s) {
     ue2_literal lit;
 
-    for (auto u : inv_adjacent_vertices_range(sink, lg)) {
+    for (auto u : inv_adjacent_vertices_range(lg.sink, lg)) {
         lit.clear();
-        while (u != root) {
+        while (u != lg.root) {
             lit.push_back(lg[u].c);
             assert(in_degree(u, lg) <= 1);
             LitGraph::inv_adjacency_iterator ai2, ae2;
@@ -276,11 +280,9 @@ void processWorkQueue(const NGHolder &g, const NFAEdge &e,
     }
 
     LitGraph lg;
-    LitVertex root = add_vertex(lg);
-    LitVertex sink = add_vertex(lg);
 
     LitVertexQ workQ;
-    initWorkQueue(workQ, lg, root, sink, g, e);
+    initWorkQueue(workQ, lg, g, e);
 
     while (!workQ.empty()) {
         const LitVertex lv = workQ.front().first;
@@ -289,18 +291,18 @@ void processWorkQueue(const NGHolder &g, const NFAEdge &e,
 
         u32 cr_card = crCardinality(cr);
         size_t numItems = cr_card * in_degree(t, g);
-        size_t committed_count = workQ.size() + in_degree(sink, lg) - 1;
+        size_t committed_count = workQ.size() + in_degree(lg.sink, lg) - 1;
 
         if (g[t].index == NODE_START) {
             // reached start, add to literal set
-            add_edge_if_not_present(lv, sink, lg);
+            add_edge_if_not_present(lv, lg.sink, lg);
             goto next_work_elem;
         }
 
         // Expand next vertex
         if (allowExpand(numItems, committed_count)) {
             for (auto u : inv_adjacent_vertices_range(t, g)) {
-                addToQueue(workQ, lg, sink, lv, cr, u);
+                addToQueue(workQ, lg, lv, cr, u);
             }
             goto next_work_elem;
         }
@@ -316,26 +318,26 @@ void processWorkQueue(const NGHolder &g, const NFAEdge &e,
 
                 bool nocase = myislower(i) && cr.test(mytoupper(i));
                 ue2_literal::elem c((char)i, nocase);
-                LitVertex lt = addToLitGraph(lg, sink, lv, c);
-                add_edge_if_not_present(lt, sink, lg);
+                LitVertex lt = addToLitGraph(lg, lv, c);
+                add_edge_if_not_present(lt, lg.sink, lg);
             }
             goto next_work_elem;
         }
 
         // add to literal set
-        add_edge_if_not_present(lv, sink, lg);
+        add_edge_if_not_present(lv, lg.sink, lg);
     next_work_elem:
         workQ.pop();
     }
 
-    filterLitGraph(lg, sink);
-    //dumpGraph("litgraph.dot", lg, root, sink);
-    extractLiterals(lg, root, sink, s);
+    filterLitGraph(lg);
+    //dumpGraph("litgraph.dot", lg);
+    extractLiterals(lg, s);
 
     // Our literal set should contain no literal that is a suffix of another.
     assert(!hasSuffixLiterals(s));
 
-    DEBUG_PRINTF("edge %u (%u->%u) produced %zu literals\n", g[e].index,
+    DEBUG_PRINTF("edge %zu (%zu->%zu) produced %zu literals\n", g[e].index,
                  g[source(e, g)].index, g[target(e, g)].index, s.size());
 }
 
@@ -409,16 +411,15 @@ u64a calculateScore(const ue2_literal &s) {
 
 /** Adds a literal in reverse order, building up a suffix tree. */
 static
-void addReversedLiteral(const ue2_literal &lit, LitGraph &lg,
-                        const LitVertex &root, const LitVertex &sink) {
+void addReversedLiteral(const ue2_literal &lit, LitGraph &lg) {
     DEBUG_PRINTF("literal: '%s'\n", escapeString(lit).c_str());
     ue2_literal suffix;
-    LitVertex v = root;
+    LitVertex v = lg.root;
     for (auto it = lit.rbegin(), ite = lit.rend(); it != ite; ++it) {
         suffix.push_back(*it);
         LitVertex w;
         for (auto v2 : adjacent_vertices_range(v, lg)) {
-            if (v2 != sink && lg[v2].c == *it) {
+            if (v2 != lg.sink && lg[v2].c == *it) {
                 w = v2;
                 goto next_char;
             }
@@ -430,17 +431,18 @@ next_char:
     }
 
     // Wire the last vertex to the sink.
-    add_edge(v, sink, lg);
+    add_edge(v, lg.sink, lg);
 }
 
 static
 void extractLiterals(const vector<LitEdge> &cutset, const LitGraph &lg,
-                     const LitVertex &root, set<ue2_literal> &s) {
+                     set<ue2_literal> &s) {
     for (const auto &e : cutset) {
-        LitVertex u = source(e, lg), v = target(e, lg);
+        LitVertex u = source(e, lg);
+        LitVertex v = target(e, lg);
         ue2_literal lit;
         lit.push_back(lg[v].c);
-        while (u != root) {
+        while (u != lg.root) {
             lit.push_back(lg[u].c);
             assert(in_degree(u, lg) == 1);
             LitGraph::inv_adjacency_iterator ai, ae;
@@ -487,10 +489,7 @@ const char *describeColor(boost::default_color_type c) {
 static
 vector<LitEdge> add_reverse_edges_and_index(LitGraph &lg) {
     vector<LitEdge> fwd_edges;
-
-    size_t next_index = 0;
     for (const auto &e : edges_range(lg)) {
-        lg[e].index = next_index++;
         fwd_edges.push_back(e);
     }
 
@@ -502,9 +501,7 @@ vector<LitEdge> add_reverse_edges_and_index(LitGraph &lg) {
 
         assert(!edge(v, u, lg).second);
 
-        LitEdge rev = add_edge(v, u, lg).first;
-        lg[rev].score = 0;
-        lg[rev].index = next_index++;
+        LitEdge rev = add_edge(v, u, LitGraphEdgeProps(0), lg).first;
         rev_map[lg[e].index] = rev;
         rev_map[lg[rev].index] = e;
     }
@@ -513,20 +510,19 @@ vector<LitEdge> add_reverse_edges_and_index(LitGraph &lg) {
 }
 
 static
-void findMinCut(LitGraph &lg, const LitVertex &root, const LitVertex &sink,
-                vector<LitEdge> &cutset) {
+void findMinCut(LitGraph &lg, vector<LitEdge> &cutset) {
     cutset.clear();
 
-    //dumpGraph("litgraph.dot", lg, root, sink);
+    //dumpGraph("litgraph.dot", lg);
 
-    assert(!in_degree(root, lg));
-    assert(!out_degree(sink, lg));
+    assert(!in_degree(lg.root, lg));
+    assert(!out_degree(lg.sink, lg));
     size_t num_real_edges = num_edges(lg);
 
     // Add reverse edges for the convenience of the BGL's max flow algorithm.
     vector<LitEdge> rev_edges = add_reverse_edges_and_index(lg);
 
-    const auto v_index_map = get(vertex_index, lg);
+    const auto v_index_map = get(&LitGraphVertexProps::index, lg);
     const auto e_index_map = get(&LitGraphEdgeProps::index, lg);
     const size_t num_verts = num_vertices(lg);
     vector<boost::default_color_type> colors(num_verts);
@@ -541,7 +537,7 @@ void findMinCut(LitGraph &lg, const LitVertex &root, const LitVertex &sink,
             make_iterator_property_map(predecessors.begin(), v_index_map),
             make_iterator_property_map(colors.begin(), v_index_map),
             make_iterator_property_map(distances.begin(), v_index_map),
-            v_index_map, root, sink);
+            v_index_map, lg.root, lg.sink);
     DEBUG_PRINTF("done, flow = %llu\n", flow);
 
     /* remove reverse edges */
@@ -554,21 +550,20 @@ void findMinCut(LitGraph &lg, const LitVertex &root, const LitVertex &sink,
 
     for (const auto &e : edges_range(lg)) {
         const LitVertex u = source(e, lg), v = target(e, lg);
-        const auto ucolor = colors[boost::get(vertex_index, lg, u)];
-        const auto vcolor = colors[boost::get(vertex_index, lg, v)];
+        const auto ucolor = colors[lg[u].index];
+        const auto vcolor = colors[lg[v].index];
 
-        DEBUG_PRINTF("edge %zu:%s -> %zu:%s score %llu\n",
-                     boost::get(vertex_index, lg, u), describeColor(ucolor),
-                     boost::get(vertex_index, lg, v), describeColor(vcolor),
+        DEBUG_PRINTF("edge %zu:%s -> %zu:%s score %llu\n", lg[u].index,
+                     describeColor(ucolor), lg[v].index, describeColor(vcolor),
                      lg[e].score);
 
         if (ucolor != boost::white_color && vcolor == boost::white_color) {
-            assert(target(e, lg) != sink);
+            assert(v != lg.sink);
             white_cut.push_back(e);
             white_flow += lg[e].score;
         }
         if (ucolor == boost::black_color && vcolor != boost::black_color) {
-            assert(target(e, lg) != sink);
+            assert(v != lg.sink);
             black_cut.push_back(e);
             black_flow += lg[e].score;
         }
@@ -608,21 +603,19 @@ u64a compressAndScore(set<ue2_literal> &s) {
                   initialScore);
 
     LitGraph lg;
-    const LitVertex root = add_vertex(lg);
-    const LitVertex sink = add_vertex(lg);
 
     for (const auto &lit : s) {
-        addReversedLiteral(lit, lg, root, sink);
+        addReversedLiteral(lit, lg);
     }
 
     DEBUG_PRINTF("suffix tree has %zu vertices and %zu edges\n",
                   num_vertices(lg), num_edges(lg));
 
     vector<LitEdge> cutset;
-    findMinCut(lg, root, sink, cutset);
+    findMinCut(lg, cutset);
 
     s.clear();
-    extractLiterals(cutset, lg, root, s);
+    extractLiterals(cutset, lg, s);
 
     u64a score = scoreSet(s);
     DEBUG_PRINTF("compressed score is %llu\n", score);
@@ -791,7 +784,7 @@ bool splitOffLeadingLiteral_i(const NGHolder &g, bool anch,
     }
 
     while (true) {
-        DEBUG_PRINTF("validating vertex %u\n", g[v].index);
+        DEBUG_PRINTF("validating vertex %zu\n", g[v].index);
 
         assert(v != g.acceptEod && v != g.accept);
 

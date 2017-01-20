@@ -30,8 +30,8 @@
     \brief Limex Execution Engine Or:
     How I Learned To Stop Worrying And Love The Preprocessor
 
-    This file includes utility functions which do not depend on the state size or
-    shift masks directly.
+    This file includes utility functions which do not depend on the size of the
+    state or shift masks directly.
 */
 
 #ifndef LIMEX_RUNTIME_H
@@ -72,41 +72,6 @@ struct proto_cache {
     const ReportID *reports;
 };
 
-// Shift macros for Limited NFAs. Defined in terms of uniform ops.
-// LimExNFAxxx ptr in 'limex' and the current state in 's'
-#define NFA_EXEC_LIM_SHIFT(nels_type, nels_i)                                  \
-    (JOIN(lshift_, nels_type)(                                                 \
-        JOIN(and_, nels_type)(s,                                               \
-                              JOIN(load_, nels_type)(&limex->shift[nels_i])),  \
-        limex->shiftAmount[nels_i]))
-
-// Calculate the (limited model) successors for a number of variable shifts.
-// Assumes current state in 's' and successors in 'succ'.
-
-#define NFA_EXEC_GET_LIM_SUCC(gls_type)                                        \
-    do {                                                                       \
-        succ = NFA_EXEC_LIM_SHIFT(gls_type, 0);                                \
-        switch (limex->shiftCount) {                                           \
-        case 8:                                                                \
-            succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 7)); \
-        case 7:                                                                \
-            succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 6)); \
-        case 6:                                                                \
-            succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 5)); \
-        case 5:                                                                \
-            succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 4)); \
-        case 4:                                                                \
-            succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 3)); \
-        case 3:                                                                \
-            succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 2)); \
-        case 2:                                                                \
-            succ = JOIN(or_, gls_type)(succ, NFA_EXEC_LIM_SHIFT(gls_type, 1)); \
-        case 1:                                                                \
-        case 0:                                                                \
-            ;                                                                  \
-        }                                                                      \
-    } while (0)
-
 #define PE_RV_HALT 1
 
 #ifdef STATE_ON_STACK
@@ -138,13 +103,41 @@ int limexRunReports(const ReportID *reports, NfaCallback callback,
     return MO_CONTINUE_MATCHING; // continue
 }
 
+static really_inline
+int limexRunAccept(const char *limex_base, const struct NFAAccept *accept,
+                   NfaCallback callback, void *context, u64a offset) {
+    if (accept->single_report) {
+        const ReportID report = accept->reports;
+        DEBUG_PRINTF("firing single report for id %u at offset %llu\n", report,
+                     offset);
+        return callback(0, offset, report, context);
+    }
+    const ReportID *reports = (const ReportID *)(limex_base + accept->reports);
+    return limexRunReports(reports, callback, context, offset);
+}
+
+static really_inline
+int limexAcceptHasReport(const char *limex_base, const struct NFAAccept *accept,
+                         ReportID report) {
+    if (accept->single_report) {
+        return accept->reports == report;
+    }
+
+    const ReportID *reports = (const ReportID *)(limex_base + accept->reports);
+    assert(*reports != MO_INVALID_IDX);
+    do {
+        if (*reports == report) {
+            return 1;
+        }
+        reports++;
+    } while (*reports != MO_INVALID_IDX);
+
+    return 0;
+}
+
 /** \brief Return a (correctly typed) pointer to the exception table. */
 #define getExceptionTable(exc_type, lim)                                       \
     ((const exc_type *)((const char *)(lim) + (lim)->exceptionOffset))
-
-/** \brief Return a pointer to the exceptional reports list. */
-#define getExReports(lim)                                                      \
-    ((const ReportID *)((const char *)(lim) + (lim)->exReportOffset))
 
 /** \brief Return a pointer to the ordinary accepts table. */
 #define getAcceptTable(lim)                                                    \
@@ -170,6 +163,7 @@ int limexRunReports(const ReportID *reports, NfaCallback callback,
     }
 
 MAKE_GET_NFA_REPEAT_INFO(32)
+MAKE_GET_NFA_REPEAT_INFO(64)
 MAKE_GET_NFA_REPEAT_INFO(128)
 MAKE_GET_NFA_REPEAT_INFO(256)
 MAKE_GET_NFA_REPEAT_INFO(384)

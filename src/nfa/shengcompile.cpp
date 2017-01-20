@@ -48,7 +48,7 @@
 #include "util/compile_context.h"
 #include "util/make_unique.h"
 #include "util/verify_types.h"
-#include "util/simd_utils.h"
+#include "util/simd_types.h"
 
 #include <map>
 #include <vector>
@@ -358,7 +358,7 @@ void populateBasicInfo(struct NFA *n, dfa_info &info,
     n->scratchStateSize = 1;
     n->streamStateSize = 1;
     n->nPositions = info.size();
-    n->type = SHENG_NFA_0;
+    n->type = SHENG_NFA;
     n->flags |= info.raw.hasEodReports() ? NFA_ACCEPTS_EOD : 0;
 
     sheng *s = (sheng *)getMutableImplNfa(n);
@@ -442,14 +442,12 @@ void createShuffleMasks(sheng *s, dfa_info &info,
 #ifdef DEBUG
         dumpShuffleMask(chr, buf, sizeof(buf));
 #endif
-        m128 mask = loadu128(buf);
-        s->shuffle_masks[chr] = mask;
+        memcpy(&s->shuffle_masks[chr], buf, sizeof(m128));
     }
 }
 
-bool has_accel_sheng(const NFA *nfa) {
-    const sheng *s = (const sheng *)getImplNfa(nfa);
-    return s->flags & SHENG_FLAG_HAS_ACCEL;
+bool has_accel_sheng(const NFA *) {
+    return true; /* consider the sheng region as accelerated */
 }
 
 aligned_unique_ptr<NFA> shengCompile(raw_dfa &raw,

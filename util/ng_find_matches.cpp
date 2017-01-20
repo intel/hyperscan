@@ -34,7 +34,7 @@
 
 #include "ng_find_matches.h"
 
-#include "nfagraph/ng_graph.h"
+#include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_util.h"
 #include "parser/position.h"
 #include "util/container.h"

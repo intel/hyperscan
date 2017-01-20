@@ -26,7 +26,22 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef VALIDATE_MASK_H
+#define VALIDATE_MASK_H
+
 #include "ue2common.h"
+#include "util/simd_utils.h"
+
+#if defined(DEBUG)
+static
+void validateMask32Print(const u8 *mask) {
+    int i;
+    for (i = 0; i < 32; i++) {
+        printf("%02x", mask[i]);
+    }
+    printf("\n");
+}
+#endif
 
 // check positive bytes in cmp_result.
 // return one if the check passed, zero otherwise.
@@ -75,3 +90,29 @@ int validateMask(u64a data, u64a valid_data_mask, u64a and_mask,
         return 0;
     }
 }
+
+static really_inline
+int validateMask32(const m256 data, const u32 valid_data_mask,
+                   const m256 and_mask, const m256 cmp_mask,
+                   const u32 neg_mask) {
+    m256 cmp_result_256 = eq256(and256(data, and_mask), cmp_mask);
+    u32 cmp_result = ~movemask256(cmp_result_256);
+#ifdef DEBUG
+    DEBUG_PRINTF("data\n");
+    validateMask32Print((const u8 *)&data);
+    DEBUG_PRINTF("cmp_result\n");
+    validateMask32Print((const u8 *)&cmp_result_256);
+#endif
+    DEBUG_PRINTF("cmp_result %08x neg_mask %08x\n", cmp_result, neg_mask);
+    DEBUG_PRINTF("valid_data_mask %08x\n", valid_data_mask);
+
+    if ((cmp_result & valid_data_mask) == (neg_mask & valid_data_mask)) {
+        DEBUG_PRINTF("checkCompareResult32 passed\n");
+        return 1;
+    } else {
+        DEBUG_PRINTF("checkCompareResult32 failed\n");
+        return 0;
+    }
+}
+
+#endif

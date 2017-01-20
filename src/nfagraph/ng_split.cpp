@@ -87,7 +87,7 @@ void splitLHS(const NGHolder &base, const vector<NFAVertex> &pivots,
     clearAccepts(*lhs);
 
     for (auto pivot : pivots) {
-        DEBUG_PRINTF("pivot is %u lv %zu lm %zu\n", base[pivot].index,
+        DEBUG_PRINTF("pivot is %zu lv %zu lm %zu\n", base[pivot].index,
                      num_vertices(*lhs), lhs_map->size());
         assert(contains(*lhs_map, pivot));
 
@@ -151,7 +151,8 @@ void splitRHS(const NGHolder &base, const vector<NFAVertex> &pivots,
 
     for (auto pivot : pivots) {
         assert(contains(*rhs_map, pivot));
-        add_edge(rhs->start, (*rhs_map)[pivot], *rhs);
+        NFAEdge e = add_edge(rhs->start, (*rhs_map)[pivot], *rhs);
+        (*rhs)[e].tops.insert(DEFAULT_TOP);
     }
 
      /* should do the renumbering unconditionally as we know edges are already
@@ -190,8 +191,8 @@ void findCommonSuccessors(const NGHolder &g, const vector<NFAVertex> &pivots,
                           vector<NFAVertex> &succ) {
     assert(!pivots.empty());
 
-    // Note: for determinism, we must sort our successor sets by vertex_index.
-    set<NFAVertex, VertexIndexOrdering<NGHolder> > adj(g), adj_temp(g);
+    set<NFAVertex> adj;
+    set<NFAVertex> adj_temp;
 
     insert(&adj, adjacent_vertices(pivots.at(0), g));
 
@@ -215,6 +216,7 @@ void splitGraph(const NGHolder &base, const vector<NFAVertex> &pivots,
     DEBUG_PRINTF("splitting graph at %zu vertices\n", pivots.size());
 
     assert(!has_parallel_edge(base));
+    assert(isCorrectlyTopped(base));
 
     /* RHS pivots are built from the common set of successors of pivots. */
     vector<NFAVertex> rhs_pivots;
@@ -228,6 +230,8 @@ void splitGraph(const NGHolder &base, const vector<NFAVertex> &pivots,
 
     assert(!has_parallel_edge(*lhs));
     assert(!has_parallel_edge(*rhs));
+    assert(isCorrectlyTopped(*lhs));
+    assert(isCorrectlyTopped(*rhs));
 }
 
 void splitGraph(const NGHolder &base, NFAVertex pivot,

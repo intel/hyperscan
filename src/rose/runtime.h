@@ -97,8 +97,8 @@ void storeGroups(const struct RoseEngine *t, char *state, rose_group groups) {
 }
 
 static really_inline
-u8 *getFloatingMatcherState(const struct RoseEngine *t, char *state) {
-    return (u8 *)(state + t->stateOffsets.floatingMatcherState);
+u8 *getLongLitState(const struct RoseEngine *t, char *state) {
+    return (u8 *)(state + t->stateOffsets.longLitState);
 }
 
 static really_inline
