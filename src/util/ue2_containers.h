@@ -107,6 +107,12 @@ protected:
 
     flat_base(const Compare &compare, const Allocator &alloc)
         : storage(storage_type(storage_alloc_type(alloc)), compare) {}
+
+    storage_type &data() { return std::get<0>(this->storage); }
+    const storage_type &data() const { return std::get<0>(this->storage); }
+
+    Compare &comp() { return std::get<1>(this->storage); }
+    const Compare &comp() const { return std::get<1>(this->storage); }
 };
 
 } // namespace flat_detail
@@ -125,12 +131,8 @@ class flat_set : flat_detail::flat_base<T, Compare, Allocator>,
                  boost::totally_ordered<flat_set<T, Compare, Allocator>> {
     using base_type = flat_detail::flat_base<T, Compare, Allocator>;
     using storage_type = typename base_type::storage_type;
-
-    storage_type &data() { return std::get<0>(this->storage); }
-    const storage_type &data() const { return std::get<0>(this->storage); }
-
-    Compare &comp() { return std::get<1>(this->storage); }
-    const Compare &comp() const { return std::get<1>(this->storage); }
+    using base_type::data;
+    using base_type::comp;
 
 public:
     // Member types.
@@ -366,12 +368,8 @@ private:
         flat_detail::flat_base<std::pair<Key, T>, Compare, Allocator>;
     using keyval_storage_type = std::pair<key_type, mapped_type>;
     using storage_type = typename base_type::storage_type;
-
-    storage_type &data() { return std::get<0>(this->storage); }
-    const storage_type &data() const { return std::get<0>(this->storage); }
-
-    Compare &comp() { return std::get<1>(this->storage); }
-    const Compare &comp() const { return std::get<1>(this->storage); }
+    using base_type::data;
+    using base_type::comp;
 
 public:
     // More Member types.
