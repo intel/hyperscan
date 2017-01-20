@@ -39,6 +39,7 @@
 #include <boost/container/small_vector.hpp>
 #include <boost/functional/hash/hash_fwd.hpp>
 #include <boost/iterator/iterator_facade.hpp>
+#include <boost/operators.hpp>
 #include <boost/unordered/unordered_map.hpp>
 #include <boost/unordered/unordered_set.hpp>
 
@@ -120,7 +121,8 @@ protected:
  */
 template <class T, class Compare = std::less<T>,
           class Allocator = std::allocator<T>>
-class flat_set : flat_detail::flat_base<T, Compare, Allocator> {
+class flat_set : flat_detail::flat_base<T, Compare, Allocator>,
+                 boost::totally_ordered<flat_set<T, Compare, Allocator>> {
     using base_type = flat_detail::flat_base<T, Compare, Allocator>;
     using storage_type = typename base_type::storage_type;
 
@@ -315,25 +317,13 @@ public:
         return comp();
     }
 
-    // Operators.
+    // Operators. All others provided by boost::totally_ordered.
 
     bool operator==(const flat_set &a) const {
         return data() == a.data();
     }
-    bool operator!=(const flat_set &a) const {
-        return data() != a.data();
-    }
     bool operator<(const flat_set &a) const {
         return data() < a.data();
-    }
-    bool operator<=(const flat_set &a) const {
-        return data() <= a.data();
-    }
-    bool operator>(const flat_set &a) const {
-        return data() > a.data();
-    }
-    bool operator>=(const flat_set &a) const {
-        return data() >= a.data();
     }
 
     // Free swap function for ADL.
@@ -363,7 +353,8 @@ public:
  */
 template <class Key, class T, class Compare = std::less<Key>,
           class Allocator = std::allocator<std::pair<Key, T>>>
-class flat_map : flat_detail::flat_base<std::pair<Key, T>, Compare, Allocator> {
+class flat_map : flat_detail::flat_base<std::pair<Key, T>, Compare, Allocator>,
+                 boost::totally_ordered<flat_map<Key, T, Compare, Allocator>> {
 public:
     // Member types.
     using key_type = Key;
@@ -626,25 +617,13 @@ public:
         return value_compare(comp());
     }
 
-    // Operators.
+    // Operators. All others provided by boost::totally_ordered.
 
     bool operator==(const flat_map &a) const {
         return data() == a.data();
     }
-    bool operator!=(const flat_map &a) const {
-        return data() != a.data();
-    }
     bool operator<(const flat_map &a) const {
         return data() < a.data();
-    }
-    bool operator<=(const flat_map &a) const {
-        return data() <= a.data();
-    }
-    bool operator>(const flat_map &a) const {
-        return data() > a.data();
-    }
-    bool operator>=(const flat_map &a) const {
-        return data() >= a.data();
     }
 
     // Free swap function for ADL.
