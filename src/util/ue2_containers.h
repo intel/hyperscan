@@ -113,6 +113,18 @@ protected:
 
     Compare &comp() { return std::get<1>(this->storage); }
     const Compare &comp() const { return std::get<1>(this->storage); }
+
+public:
+    // Common member types.
+    using key_compare = Compare;
+
+    Allocator get_allocator() const {
+        return data().get_allocator();
+    }
+
+    key_compare key_comp() const {
+        return comp();
+    }
 };
 
 } // namespace flat_detail
@@ -127,8 +139,9 @@ protected:
  */
 template <class T, class Compare = std::less<T>,
           class Allocator = std::allocator<T>>
-class flat_set : flat_detail::flat_base<T, Compare, Allocator>,
-                 boost::totally_ordered<flat_set<T, Compare, Allocator>> {
+class flat_set
+    : public flat_detail::flat_base<T, Compare, Allocator>,
+      public boost::totally_ordered<flat_set<T, Compare, Allocator>> {
     using base_type = flat_detail::flat_base<T, Compare, Allocator>;
     using storage_type = typename base_type::storage_type;
     using base_type::data;
@@ -140,7 +153,7 @@ public:
     using value_type = T;
     using size_type = typename storage_type::size_type;
     using difference_type = typename storage_type::difference_type;
-    using key_compare = Compare;
+    using key_compare = typename base_type::key_compare;
     using value_compare = Compare;
     using allocator_type = Allocator;
     using reference = value_type &;
@@ -185,11 +198,6 @@ public:
     flat_set &operator=(const flat_set &) = default;
     flat_set &operator=(flat_set &&) = default;
 
-    // Other members.
-
-    allocator_type get_allocator() const {
-        return data().get_allocator();
-    }
 
     // Iterators.
 
@@ -311,10 +319,6 @@ public:
 
     // Observers.
 
-    key_compare key_comp() const {
-        return comp();
-    }
-
     value_compare value_comp() const {
         return comp();
     }
@@ -355,8 +359,9 @@ public:
  */
 template <class Key, class T, class Compare = std::less<Key>,
           class Allocator = std::allocator<std::pair<Key, T>>>
-class flat_map : flat_detail::flat_base<std::pair<Key, T>, Compare, Allocator>,
-                 boost::totally_ordered<flat_map<Key, T, Compare, Allocator>> {
+class flat_map
+    : public flat_detail::flat_base<std::pair<Key, T>, Compare, Allocator>,
+      public boost::totally_ordered<flat_map<Key, T, Compare, Allocator>> {
 public:
     // Member types.
     using key_type = Key;
@@ -375,7 +380,7 @@ public:
     // More Member types.
     using size_type = typename storage_type::size_type;
     using difference_type = typename storage_type::difference_type;
-    using key_compare = Compare;
+    using key_compare = typename base_type::key_compare;
     using allocator_type = Allocator;
     using reference = value_type &;
     using const_reference = const value_type &;
@@ -418,12 +423,6 @@ public:
     flat_map(flat_map &&) = default;
     flat_map &operator=(const flat_map &) = default;
     flat_map &operator=(flat_map &&) = default;
-
-    // Other members.
-
-    allocator_type get_allocator() const {
-        return data().get_allocator();
-    }
 
     // Iterators.
 
@@ -595,10 +594,6 @@ public:
     }
 
     // Observers.
-
-    key_compare key_comp() const {
-        return comp();
-    }
 
     class value_compare {
         friend class flat_map;
