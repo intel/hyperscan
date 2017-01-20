@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -118,8 +118,6 @@ struct Grey {
     bool roseGraphReduction;
     bool roseRoleAliasing;
     bool roseMasks;
-    u32 roseMaxBadLeafLength;
-    bool roseConvertInfBadLeaves;
     bool roseConvertFloodProneSuffixes;
     bool roseMergeRosesDuringAliasing;
     bool roseMultiTopRoses;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -105,8 +105,6 @@ Grey::Grey(void) :
                    roseGraphReduction(true),
                    roseRoleAliasing(true),
                    roseMasks(true),
-                   roseMaxBadLeafLength(5),
-                   roseConvertInfBadLeaves(true),
                    roseConvertFloodProneSuffixes(true),
                    roseMergeRosesDuringAliasing(true),
                    roseMultiTopRoses(true),
@@ -272,8 +270,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(roseGraphReduction);
         G_UPDATE(roseRoleAliasing);
         G_UPDATE(roseMasks);
-        G_UPDATE(roseMaxBadLeafLength);
-        G_UPDATE(roseConvertInfBadLeaves);
         G_UPDATE(roseConvertFloodProneSuffixes);
         G_UPDATE(roseMergeRosesDuringAliasing);
         G_UPDATE(roseMultiTopRoses);
