@@ -169,6 +169,9 @@ Common options for CMake include:
 +------------------------+----------------------------------------------------+
 | DEBUG_OUTPUT           | Enable very verbose debug output. Default off.     |
 +------------------------+----------------------------------------------------+
+| FAT_RUNTIME            | Build the :ref:`fat runtime<fat_runtime>`. Default |
+|                        | true on Linux, not available elsewhere.            |
++------------------------+----------------------------------------------------+
 
 For example, to generate a ``Debug`` build: ::
 
@@ -199,11 +202,11 @@ The other types of builds are:
 Target Architecture
 -------------------
 
-By default, Hyperscan will be compiled to target the instruction set of the
-processor of the machine that being used for compilation. This is done via
-the use of ``-march=native``. The result of this means that a library built on
-one machine may not work on a different machine if they differ in supported
-instruction subsets.
+Unless using the :ref:`fat runtime<fat_runtime>`, by default Hyperscan will be
+compiled to target the instruction set of the processor of the machine that
+being used for compilation. This is done via the use of ``-march=native``. The
+result of this means that a library built on one machine may not work on a
+different machine if they differ in supported instruction subsets.
 
 To override the use of ``-march=native``, set appropriate flags for the
 compiler in ``CFLAGS`` and ``CXXFLAGS`` environment variables before invoking
@@ -215,3 +218,57 @@ example, to set the instruction subsets up to ``SSE4.2`` using GCC 4.8: ::
 
 For more information, refer to :ref:`instr_specialization`.
 
+.. _fat_runtime:
+
+Fat Runtime
+-----------
+
+A feature introduced in Hyperscan v4.4 is the ability for the Hyperscan
+library to dispatch the most appropriate runtime code for the host processor.
+This feature is called the "fat runtime", as a single Hyperscan library
+contains multiple copies of the runtime code for different instruction sets.
+
+.. note::
+
+    The fat runtime feature is only available on Linux. Release builds of
+    Hyperscan will default to having the fat runtime enabled where supported.
+
+When building the library with the fat runtime, the Hyperscan runtime code
+will be compiled multiple times for these different instruction sets, and
+these compiled objects are combined into one library. There are no changes to
+how user applications are built against this library.
+
+When applications are executed, the correct version of the runtime is selected
+for the machine that it is running on. This is done using a ``CPUID`` check
+for the presence of the instruction set, and then an indirect function is
+resolved so that the right version of each API function is used. There is no
+impact on function call performance, as this check and resolution is performed
+by the ELF loader once when the binary is loaded.
+
+If the Hyperscan library is used on x86 systems without ``SSSE3``, the runtime
+API functions will resolve to functions that return :c:member:`HS_ARCH_ERROR`
+instead of potentially executing illegal instructions. The API function
+:c:func:`hs_valid_platform` can be used by application writers to determine if
+the current platform is supported by Hyperscan.
+
+At of this release, the variants of the runtime that are built, and the CPU
+capability that is required, are the following:
+
++----------+-------------------------------+---------------------+
+| Variant  | CPU Feature Flag(s) Required  | gcc arch flag       |
++==========+===============================+=====================+
+| Core 2   | ``SSSE3``                     | ``-march=core2``    |
++----------+-------------------------------+---------------------+
+| Core i7  | ``SSE4_2`` and ``POPCNT``     | ``-march=corei7``   |
++----------+-------------------------------+---------------------+
+| AVX 2    | ``AVX2``                      | ``-march=avx2``     |
++----------+-------------------------------+---------------------+
+
+As this requires compiler, libc, and binutils support, at this time the fat
+runtime will only be enabled for Linux builds where the compiler supports the
+`indirect function "ifunc" function attribute
+<https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-indirect-functions-3321>`_.
+
+This attribute should be available on all supported versions of GCC, and
+recent versions of Clang and ICC. There is currently no operating system
+support for this feature on non-Linux systems.

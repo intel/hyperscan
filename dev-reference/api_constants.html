@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>API Reference: Constants &mdash; Hyperscan 4.3.2 documentation</title>
+    <title>API Reference: Constants &mdash; Hyperscan 4.4.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.3.2',
+        VERSION:     '4.4.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,9 +25,9 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 4.3.2 documentation" href="index.html" />
+    <link rel="top" title="Hyperscan 4.4.0 documentation" href="index.html" />
     <link rel="next" title="API Reference: Files" href="api_files.html" />
-    <link rel="prev" title="Performance Considerations" href="performance.html" />
+    <link rel="prev" title="Tools" href="tools.html" />
    
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
@@ -113,6 +113,14 @@
 <p>A separate scratch region, allocated with <a class="reference internal" href="api_files.html#project0hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span>hs_alloc_scratch()</span></a> or <a class="reference internal" href="api_files.html#project0hs__runtime_8h_1a5ccab293a24ee56fcb82c715a7dca861"><span>hs_clone_scratch()</span></a>, is required for every concurrent caller of the Hyperscan API.</p>
 <p>For example, this error might be returned when <a class="reference internal" href="api_files.html#project0hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span>hs_scan()</span></a> has been called inside a callback delivered by a currently-executing <a class="reference internal" href="api_files.html#project0hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span>hs_scan()</span></a> call using the same scratch region.</p>
 <p>Note: Not all concurrent uses of scratch regions may be detected. This error is intended as a best-effort debugging tool, not a guarantee. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">HS_ARCH_ERROR</code></dt>
+<dd><p>Unsupported CPU architecture.</p>
+<p>This error is returned when Hyperscan is able to detect that the current system does not support the required instruction set.</p>
+<p>At a minimum, Hyperscan requires Supplemental Streaming SIMD Extensions 3 (SSSE3). </p>
 </dd></dl>
 
 </div>
@@ -335,6 +343,7 @@
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tools.html">Tools</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="">API Reference: Constants</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#error-codes">Error Codes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hs-expr-ext-flags">hs_expr_ext flags</a></li>
@@ -365,7 +374,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2015-2016, Intel Corporation.
+      &copy;2015-2017, Intel Corporation.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>

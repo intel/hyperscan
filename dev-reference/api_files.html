@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>API Reference: Files &mdash; Hyperscan 4.3.2 documentation</title>
+    <title>API Reference: Files &mdash; Hyperscan 4.4.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.3.2',
+        VERSION:     '4.4.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 4.3.2 documentation" href="index.html" />
+    <link rel="top" title="Hyperscan 4.4.0 documentation" href="index.html" />
     <link rel="prev" title="API Reference: Constants" href="api_constants.html" />
    
   
@@ -123,6 +123,14 @@
 <p>A separate scratch region, allocated with <a class="reference internal" href="#project0hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span>hs_alloc_scratch()</span></a> or <a class="reference internal" href="#project0hs__runtime_8h_1a5ccab293a24ee56fcb82c715a7dca861"><span>hs_clone_scratch()</span></a>, is required for every concurrent caller of the Hyperscan API.</p>
 <p>For example, this error might be returned when <a class="reference internal" href="#project0hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span>hs_scan()</span></a> has been called inside a callback delivered by a currently-executing <a class="reference internal" href="#project0hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span>hs_scan()</span></a> call using the same scratch region.</p>
 <p>Note: Not all concurrent uses of scratch regions may be detected. This error is intended as a best-effort debugging tool, not a guarantee. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.HS_ARCH_ERROR">
+<span class="target" id="project0group__HS__ERROR_1ga6a5a096e8d045791fc7eaa131ab8f1d2"></span><code class="descname">HS_ARCH_ERROR</code><a class="headerlink" href="#c.HS_ARCH_ERROR" title="Permalink to this definition">¶</a></dt>
+<dd><p>Unsupported CPU architecture.</p>
+<p>This error is returned when Hyperscan is able to detect that the current system does not support the required instruction set.</p>
+<p>At a minimum, Hyperscan requires Supplemental Streaming SIMD Extensions 3 (SSSE3). </p>
 </dd></dl>
 
 </div>
@@ -484,6 +492,19 @@
 <p><dl class="docutils">
 <dt><strong>Return</strong></dt>
 <dd>A string containing the version number of this release build and the date of the build. It is allocated statically, so it does not need to be freed by the caller. </dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.hs_valid_platform">
+<span class="target" id="project0hs__common_8h_1a52ea558e163ea0508fb74b8711089391"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="descname">hs_valid_platform</code><span class="sig-paren">(</span>void<span class="sig-paren">)</span><a class="headerlink" href="#c.hs_valid_platform" title="Permalink to this definition">¶</a></dt>
+<dd><p>Utility function to test the current system architecture.</p>
+<p>Hyperscan requires the Supplemental Streaming SIMD Extensions 3 instruction set. This function can be called on any x86 platform to determine if the system provides the required instruction set.</p>
+<p>This function does not test for more advanced features if Hyperscan has been built for a more specific architecture, for example the AVX2 instruction set.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span>HS_SUCCESS</span></a> on success, <a class="reference internal" href="#project0group__HS__ERROR_1ga6a5a096e8d045791fc7eaa131ab8f1d2"><span>HS_ARCH_ERROR</span></a> if system does not support Hyperscan. </dd>
 </dl>
 </p>
 </dd></dl>
@@ -1520,6 +1541,7 @@
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tools.html">Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_constants.html">API Reference: Constants</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="">API Reference: Files</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#file-hs-h">File: hs.h</a></li>
@@ -1548,7 +1570,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2015-2016, Intel Corporation.
+      &copy;2015-2017, Intel Corporation.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>

@@ -1,0 +1,240 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Tools &mdash; Hyperscan 4.4.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '4.4.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="top" title="Hyperscan 4.4.0 documentation" href="index.html" />
+    <link rel="next" title="API Reference: Constants" href="api_constants.html" />
+    <link rel="prev" title="Performance Considerations" href="performance.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="tools">
+<span id="id1"></span><h1>Tools<a class="headerlink" href="#tools" title="Permalink to this headline">¶</a></h1>
+<p>This section describes the set of utilities included with the Hyperscan library.</p>
+<div class="section" id="benchmarker-hsbench">
+<h2>Benchmarker: hsbench<a class="headerlink" href="#benchmarker-hsbench" title="Permalink to this headline">¶</a></h2>
+<p>The <code class="docutils literal"><span class="pre">hsbench</span></code> tool provides an easy way to measure Hyperscan&#8217;s performance
+for a particular set of patterns and corpus of data to be scanned.</p>
+<p>Patterns are supplied in the format described below in
+<a class="reference internal" href="#tools-pattern-format"><span>Pattern Format</span></a>, while the corpus must be provided in the form of a
+<cite>corpus database</cite>: this is a simple SQLite database format intended to allow for
+easy control of how a corpus is broken into blocks and streams.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">A group of Python scripts for constructing corpora databases from
+various input types, such as PCAP network traffic captures or text files, can
+be found in the Hyperscan source tree in <code class="docutils literal"><span class="pre">tools/hsbench/scripts</span></code>.</p>
+</div>
+<div class="section" id="running-hsbench">
+<h3>Running hsbench<a class="headerlink" href="#running-hsbench" title="Permalink to this headline">¶</a></h3>
+<p>Given a file full of patterns specified with <code class="docutils literal"><span class="pre">-e</span></code> and a corpus database
+specified with <code class="docutils literal"><span class="pre">-c</span></code>, <code class="docutils literal"><span class="pre">hsbench</span></code> will perform a single-threaded benchmark and
+produce output like this:</p>
+<div class="highlight-python"><div class="highlight"><pre>$ hsbench -e /tmp/patterns -c /tmp/corpus.db
+
+Signatures:        /tmp/patterns
+Hyperscan info:    Version: 4.3.1 Features:  AVX2 Mode: STREAM
+Expression count:  200
+Bytecode size:     342,540 bytes
+Database CRC:      0x6cd6b67c
+Stream state size: 252 bytes
+Scratch size:      18,406 bytes
+Compile time:      0.153 seconds
+Peak heap usage:   78,073,856 bytes
+
+Time spent scanning:     0.600 seconds
+Corpus size:             72,138,183 bytes (63,946 blocks in 8,891 streams)
+Scan matches:            81 (0.001 matches/kilobyte)
+Overall block rate:      2,132,004.45 blocks/sec
+Overall throughput:      19,241.10 Mbit/sec
+</pre></div>
+</div>
+<p>By default, the corpus is scanned twenty times, and the overall performance
+reported is computed based the total number of bytes scanned in the time it
+takes to perform all twenty scans. The number of repeats can be changed with the
+<code class="docutils literal"><span class="pre">-n</span></code> argument, and the results of each scan will be displayed if the
+<code class="docutils literal"><span class="pre">--per-scan</span></code> argument is specified.</p>
+<p>To benchmark Hyperscan on more than one core, you can supply a list of cores
+with the <code class="docutils literal"><span class="pre">-T</span></code> argument, which will instruct <code class="docutils literal"><span class="pre">hsbench</span></code> to start one
+benchmark thread per core given and compute the throughput from the time taken
+to complete all of them.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">For single-threaded benchmarks on multi-processor systems, we recommend
+using a utility like <code class="docutils literal"><span class="pre">taskset</span></code> to lock the hsbench process to one core and
+minimize jitter due to the operating system&#8217;s scheduler.</p>
+</div>
+</div>
+</div>
+<div class="section" id="pattern-format">
+<span id="tools-pattern-format"></span><h2>Pattern Format<a class="headerlink" href="#pattern-format" title="Permalink to this headline">¶</a></h2>
+<p>All of the Hyperscan tools accept patterns in the same format, read from plain
+text files with one pattern per line. Each line looks like this:</p>
+<ul class="simple">
+<li><code class="docutils literal"><span class="pre">&lt;integer</span> <span class="pre">id&gt;:/&lt;regex&gt;/&lt;flags&gt;</span></code></li>
+</ul>
+<p>For example:</p>
+<div class="highlight-python"><div class="highlight"><pre>1:/hatstand.*teakettle/s
+2:/(hatstand|teakettle)/iH
+3:/^.{10,20}hatstand/m
+</pre></div>
+</div>
+<p>The integer ID is the value that will be reported when a match is found by
+Hyperscan and must be unique.</p>
+<p>The pattern itself is a regular expression in PCRE syntax; see
+<a class="reference internal" href="compilation.html#compilation"><span>Compiling Patterns</span></a> for more information on supported features.</p>
+<p>The flags are single characters that map to Hyperscan flags as follows:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="10%" />
+<col width="35%" />
+<col width="55%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Character</th>
+<th class="head">API Flag</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">i</span></code></td>
+<td><a class="reference internal" href="api_files.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_CASELESS</span></code></a></td>
+<td>Case-insensitive matching</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">s</span></code></td>
+<td><a class="reference internal" href="api_files.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_DOTALL</span></code></a></td>
+<td>Dot (<code class="docutils literal"><span class="pre">.</span></code>) will match newlines</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">m</span></code></td>
+<td><a class="reference internal" href="api_files.html#c.HS_FLAG_MULTILINE" title="HS_FLAG_MULTILINE"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_MULTILINE</span></code></a></td>
+<td>Multi-line anchoring</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">H</span></code></td>
+<td><a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a></td>
+<td>Report match ID at most once</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">V</span></code></td>
+<td><a class="reference internal" href="api_files.html#c.HS_FLAG_ALLOWEMPTY" title="HS_FLAG_ALLOWEMPTY"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_ALLOWEMPTY</span></code></a></td>
+<td>Allow patterns that can match against empty buffers</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">8</span></code></td>
+<td><a class="reference internal" href="api_files.html#c.HS_FLAG_UTF8" title="HS_FLAG_UTF8"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_UTF8</span></code></a></td>
+<td>UTF-8 mode</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">W</span></code></td>
+<td><a class="reference internal" href="api_files.html#c.HS_FLAG_UCP" title="HS_FLAG_UCP"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_UCP</span></code></a></td>
+<td>Unicode property support</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">P</span></code></td>
+<td><a class="reference internal" href="api_files.html#c.HS_FLAG_PREFILTER" title="HS_FLAG_PREFILTER"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_PREFILTER</span></code></a></td>
+<td>Prefiltering mode</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">L</span></code></td>
+<td><a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a></td>
+<td>Leftmost start of match reporting</td>
+</tr>
+</tbody>
+</table>
+<p>In addition to the set of flags above, <a class="reference internal" href="compilation.html#extparam"><span>Extended Parameters</span></a> can be supplied
+for each pattern. These are supplied after the flags as <code class="docutils literal"><span class="pre">key=value</span></code> pairs
+between braces, separated by commas. For example:</p>
+<div class="highlight-python"><div class="highlight"><pre>1:/hatstand.*teakettle/s{min_offset=50,max_offset=100}
+</pre></div>
+</div>
+<p>All Hyperscan tools will accept a pattern file (or a directory containing
+pattern files) with the <code class="docutils literal"><span class="pre">-e</span></code> argument. If no further arguments constraining
+the pattern set are given, all patterns in those files are used.</p>
+<p>To select a subset of the patterns, a single ID can be supplied with the <code class="docutils literal"><span class="pre">-z</span></code>
+argument, or a file containing a set of IDs can be supplied with the <code class="docutils literal"><span class="pre">-s</span></code>
+argument.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="index.html">Table Of Contents</a></h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="preface.html">Preface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compilation.html">Compiling Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Tools</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#benchmarker-hsbench">Benchmarker: hsbench</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pattern-format">Pattern Format</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api_constants.html">API Reference: Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_files.html">API Reference: Files</a></li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2015-2017, Intel Corporation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

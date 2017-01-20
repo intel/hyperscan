@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Hyperscan 4.3 Developer’s Reference Guide &mdash; Hyperscan 4.3.2 documentation</title>
+    <title>Hyperscan 4.4 Developer’s Reference Guide &mdash; Hyperscan 4.4.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.3.2',
+        VERSION:     '4.4.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -25,7 +25,7 @@
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 4.3.2 documentation" href="#" />
+    <link rel="top" title="Hyperscan 4.4.0 documentation" href="#" />
     <link rel="next" title="Copyright" href="copyright.html" />
    
   
@@ -40,9 +40,9 @@
           <div class="body" role="main">
             
   <div class="section" id="hyperscan-version-developer-s-reference-guide">
-<h1>Hyperscan 4.3 Developer&#8217;s Reference Guide<a class="headerlink" href="#hyperscan-version-developer-s-reference-guide" title="Permalink to this headline">¶</a></h1>
+<h1>Hyperscan 4.4 Developer&#8217;s Reference Guide<a class="headerlink" href="#hyperscan-version-developer-s-reference-guide" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="today">
-<h2>November 15, 2016<a class="headerlink" href="#today" title="Permalink to this headline">¶</a></h2>
+<h2>January 20, 2017<a class="headerlink" href="#today" title="Permalink to this headline">¶</a></h2>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
@@ -55,6 +55,7 @@
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="intro.html#compilation">Compilation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="intro.html#scanning">Scanning</a></li>
+<li class="toctree-l2"><a class="reference internal" href="intro.html#tools">Tools</a></li>
 <li class="toctree-l2"><a class="reference internal" href="intro.html#example-code">Example Code</a></li>
 </ul>
 </li>
@@ -99,6 +100,11 @@
 <li class="toctree-l2"><a class="reference internal" href="performance.html#start-of-match-flag">Start of Match flag</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="tools.html">Tools</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tools.html#benchmarker-hsbench">Benchmarker: hsbench</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tools.html#pattern-format">Pattern Format</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="api_constants.html">API Reference: Constants</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="api_constants.html#error-codes">Error Codes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api_constants.html#hs-expr-ext-flags">hs_expr_ext flags</a></li>
@@ -136,6 +142,7 @@
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tools.html">Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_constants.html">API Reference: Constants</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_files.html">API Reference: Files</a></li>
 </ul>
@@ -158,7 +165,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2015-2016, Intel Corporation.
+      &copy;2015-2017, Intel Corporation.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
