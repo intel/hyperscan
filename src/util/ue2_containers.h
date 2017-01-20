@@ -137,6 +137,12 @@ public:
     void clear() {
         data().clear();
     }
+
+    void swap(flat_base &a) {
+        using std::swap;
+        swap(comp(), a.comp());
+        swap(data(), a.data());
+    }
 };
 
 } // namespace flat_detail
@@ -209,7 +215,6 @@ public:
     flat_set(flat_set &&) = default;
     flat_set &operator=(const flat_set &) = default;
     flat_set &operator=(flat_set &&) = default;
-
 
     // Iterators.
 
@@ -289,12 +294,6 @@ public:
         if (it != end()) {
             erase(it);
         }
-    }
-
-    void swap(flat_set &a) {
-        using std::swap;
-        swap(comp(), a.comp());
-        swap(data(), a.data());
     }
 
     // Lookup.
@@ -544,12 +543,6 @@ public:
         if (it != end()) {
             erase(it);
         }
-    }
-
-    void swap(flat_map &a) {
-        using std::swap;
-        swap(comp(), a.comp());
-        swap(data(), a.data());
     }
 
     // Lookup.
