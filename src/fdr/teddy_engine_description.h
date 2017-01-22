@@ -55,7 +55,6 @@ public:
     explicit TeddyEngineDescription(const TeddyEngineDef &def);
 
     u32 getDefaultFloodSuffixLength() const override;
-    bool needConfirm(const std::vector<hwlmLiteral> &lits) const;
 };
 
 std::unique_ptr<TeddyEngineDescription>

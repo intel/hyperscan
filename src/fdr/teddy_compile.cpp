@@ -309,74 +309,65 @@ bool TeddyCompiler::pack(map<BucketIndex,
     return true;
 }
 
-bytecode_ptr<FDR> TeddyCompiler::build() {
-    assert(eng.numMasks <= MAX_NUM_MASKS);
+// this entry has all-zero mask to skip reinforcement
+#define NO_REINFORCEMENT N_CHARS
 
-    if (lits.size() > eng.getNumBuckets() * TEDDY_BUCKET_LOAD) {
-        DEBUG_PRINTF("too many literals: %zu\n", lits.size());
-        return nullptr;
+// this means every entry in reinforcement table
+#define ALL_CHAR_SET N_CHARS
+
+// each item's reinforcement mask has REINFORCED_MSK_LEN bytes
+#define REINFORCED_MSK_LEN 8
+
+static
+void initReinforcedTable(u8 *reinforcedMsk) {
+    u64a *mask = (u64a *)reinforcedMsk;
+    fill_n(mask, N_CHARS, 0x00ffffffffffffffULL);
+}
+
+static
+void fillReinforcedMskZero(u8 *reinforcedMsk) {
+    u8 *mc = reinforcedMsk + NO_REINFORCEMENT * REINFORCED_MSK_LEN;
+    fill_n(mc, REINFORCED_MSK_LEN, 0x00);
+}
+
+static
+void fillReinforcedMsk(u8 *reinforcedMsk, u16 c, u32 j, u8 bmsk) {
+    assert(j > 0);
+    if (c == ALL_CHAR_SET) {
+        for (size_t i = 0; i < N_CHARS; i++) {
+            u8 *mc = reinforcedMsk + i * REINFORCED_MSK_LEN;
+            mc[j - 1] &= ~bmsk;
+        }
+    } else {
+        u8 *mc = reinforcedMsk + c * REINFORCED_MSK_LEN;
+        mc[j - 1] &= ~bmsk;
     }
+}
 
 #ifdef TEDDY_DEBUG
-    for (size_t i = 0; i < lits.size(); i++) {
-        printf("lit %zu (len = %zu, %s) is ", i, lits[i].s.size(),
-               lits[i].nocase ? "caseless" : "caseful");
-        for (size_t j = 0; j < lits[i].s.size(); j++) {
-            printf("%02x", ((u32)lits[i].s[j]) & 0xff);
+static
+void dumpReinforcedMaskTable(const u8 *msks) {
+    for (u32 i = 0; i <= N_CHARS; i++) {
+        printf("0x%02x: ", i);
+        for (u32 j = 0; j < REINFORCED_MSK_LEN; j++) {
+            u8 val = msks[i * REINFORCED_MSK_LEN + j];
+            for (u32 k = 0; k < 8; k++) {
+                printf("%s", ((val >> k) & 0x1) ? "1" : "0");
+            }
+            printf(" ");
         }
         printf("\n");
     }
+}
 #endif
 
-    map<BucketIndex, std::vector<LiteralIndex>> bucketToLits;
-    if (eng.needConfirm(lits)) {
-        if (!pack(bucketToLits)) {
-            DEBUG_PRINTF("more lits (%zu) than buckets (%u), can't pack.\n",
-                         lits.size(), eng.getNumBuckets());
-            return nullptr;
-        }
-    } else {
-        for (u32 i = 0; i < lits.size(); i++) {
-            bucketToLits[i].push_back(i);
-        }
-    }
-    u32 maskWidth = eng.getNumBuckets() / 8;
-
-    size_t headerSize = sizeof(Teddy);
-    size_t maskLen = eng.numMasks * 16 * 2 * maskWidth;
-
-    auto floodTable = setupFDRFloodControl(lits, eng, grey);
-    auto confirmTable = setupFullConfs(lits, eng, bucketToLits, make_small);
-
-    // Note: we place each major structure here on a cacheline boundary.
-    size_t size = ROUNDUP_CL(headerSize) + ROUNDUP_CL(maskLen) +
-                  ROUNDUP_CL(confirmTable.size()) + floodTable.size();
-
-    auto fdr = make_zeroed_bytecode_ptr<FDR>(size, 64);
-    assert(fdr); // otherwise would have thrown std::bad_alloc
-    Teddy *teddy = (Teddy *)fdr.get(); // ugly
-    u8 *teddy_base = (u8 *)teddy;
-
-    // Write header.
-    teddy->size = size;
-    teddy->engineID = eng.getID();
-    teddy->maxStringLen = verify_u32(maxLen(lits));
-
-    // Write confirm structures.
-    u8 *ptr = teddy_base + ROUNDUP_CL(headerSize) + ROUNDUP_CL(maskLen);
-    assert(ISALIGNED_CL(ptr));
-    teddy->confOffset = verify_u32(ptr - teddy_base);
-    memcpy(ptr, confirmTable.get(), confirmTable.size());
-    ptr += ROUNDUP_CL(confirmTable.size());
-
-    // Write flood control structures.
-    assert(ISALIGNED_CL(ptr));
-    teddy->floodOffset = verify_u32(ptr - teddy_base);
-    memcpy(ptr, floodTable.get(), floodTable.size());
-    ptr += floodTable.size();
-
-    // Write teddy masks.
-    u8 *baseMsk = teddy_base + ROUNDUP_CL(headerSize);
+static
+void fillNibbleMasks(const map<BucketIndex,
+                               vector<LiteralIndex>> &bucketToLits,
+                     const vector<hwlmLiteral> &lits,
+                     u32 numMasks, u32 maskWidth, size_t maskLen,
+                     u8 *baseMsk) {
+    memset(baseMsk, 0xff, maskLen);
 
     for (const auto &b2l : bucketToLits) {
         const u32 &bucket_id = b2l.first;
@@ -389,7 +380,7 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
             const u32 sz = verify_u32(l.s.size());
 
             // fill in masks
-            for (u32 j = 0; j < eng.numMasks; j++) {
+            for (u32 j = 0; j < numMasks; j++) {
                 const u32 msk_id_lo = j * 2 * maskWidth + (bucket_id / 8);
                 const u32 msk_id_hi = (j * 2 + 1) * maskWidth + (bucket_id / 8);
                 const u32 lo_base = msk_id_lo * 16;
@@ -399,8 +390,8 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
                 // locations in these masks with '1'
                 if (j >= sz) {
                     for (u32 n = 0; n < 16; n++) {
-                        baseMsk[lo_base + n] |= bmsk;
-                        baseMsk[hi_base + n] |= bmsk;
+                        baseMsk[lo_base + n] &= ~bmsk;
+                        baseMsk[hi_base + n] &= ~bmsk;
                     }
                 } else {
                     u8 c = l.s[sz - 1 - j];
@@ -419,27 +410,139 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
 
                         for (u8 cm = 0; cm < 0x10; cm++) {
                             if ((cm & m_lo) == (cmp_lo & m_lo)) {
-                                baseMsk[lo_base + cm] |= bmsk;
+                                baseMsk[lo_base + cm] &= ~bmsk;
                             }
                             if ((cm & m_hi) == (cmp_hi & m_hi)) {
-                                baseMsk[hi_base + cm] |= bmsk;
+                                baseMsk[hi_base + cm] &= ~bmsk;
                             }
                         }
                     } else {
                         if (l.nocase && ourisalpha(c)) {
                             u32 cmHalfClear = (0xdf >> hiShift) & 0xf;
                             u32 cmHalfSet = (0x20 >> hiShift) & 0xf;
-                            baseMsk[hi_base + (n_hi & cmHalfClear)] |= bmsk;
-                            baseMsk[hi_base + (n_hi | cmHalfSet)] |= bmsk;
+                            baseMsk[hi_base + (n_hi & cmHalfClear)] &= ~bmsk;
+                            baseMsk[hi_base + (n_hi | cmHalfSet)] &= ~bmsk;
                         } else {
-                            baseMsk[hi_base + n_hi] |= bmsk;
+                            baseMsk[hi_base + n_hi] &= ~bmsk;
                         }
-                        baseMsk[lo_base + n_lo] |= bmsk;
+                        baseMsk[lo_base + n_lo] &= ~bmsk;
                     }
                 }
             }
         }
     }
+}
+
+static
+void fillReinforcedTable(const map<BucketIndex,
+                                   vector<LiteralIndex>> &bucketToLits,
+                         const vector<hwlmLiteral> &lits,
+                         u8 *reinforcedMsk) {
+    initReinforcedTable(reinforcedMsk);
+
+    for (const auto &b2l : bucketToLits) {
+        const u32 &bucket_id = b2l.first;
+        const vector<LiteralIndex> &ids = b2l.second;
+        const u8 bmsk = 1U << (bucket_id % 8);
+
+        for (const LiteralIndex &lit_id : ids) {
+            const hwlmLiteral &l = lits[lit_id];
+            DEBUG_PRINTF("putting lit %u into bucket %u\n", lit_id, bucket_id);
+            const u32 sz = verify_u32(l.s.size());
+
+            // fill in reinforced masks
+            for (u32 j = 1; j < REINFORCED_MSK_LEN; j++) {
+                if (sz - 1 < j) {
+                    fillReinforcedMsk(reinforcedMsk, ALL_CHAR_SET, j, bmsk);
+                } else {
+                    u8 c = l.s[sz - 1 - j];
+                    if (l.nocase && ourisalpha(c)) {
+                        u8 c_up = c & 0xdf;
+                        fillReinforcedMsk(reinforcedMsk, c_up, j, bmsk);
+                        u8 c_lo = c | 0x20;
+                        fillReinforcedMsk(reinforcedMsk, c_lo, j, bmsk);
+                    } else {
+                        fillReinforcedMsk(reinforcedMsk, c, j, bmsk);
+                    }
+                }
+            }
+        }
+    }
+
+    fillReinforcedMskZero(reinforcedMsk);
+}
+
+bytecode_ptr<FDR> TeddyCompiler::build() {
+    assert(eng.numMasks <= MAX_NUM_MASKS);
+
+    if (lits.size() > eng.getNumBuckets() * TEDDY_BUCKET_LOAD) {
+        DEBUG_PRINTF("too many literals: %zu\n", lits.size());
+        return nullptr;
+    }
+
+#ifdef TEDDY_DEBUG
+    for (size_t i = 0; i < lits.size(); i++) {
+        printf("lit %zu (len = %zu, %s) is ", i, lits[i].s.size(),
+               lits[i].nocase ? "caseless" : "caseful");
+        for (size_t j = 0; j < lits[i].s.size(); j++) {
+            printf("%02x", ((u32)lits[i].s[j])&0xff);
+        }
+        printf("\n");
+    }
+#endif
+
+    map<BucketIndex, std::vector<LiteralIndex>> bucketToLits;
+    if (!pack(bucketToLits)) {
+        DEBUG_PRINTF("more lits (%zu) than buckets (%u), can't pack.\n",
+                     lits.size(), eng.getNumBuckets());
+        return nullptr;
+    }
+    u32 maskWidth = eng.getNumBuckets() / 8;
+
+    size_t headerSize = sizeof(Teddy);
+    size_t maskLen = eng.numMasks * 16 * 2 * maskWidth;
+    size_t reinforcedMaskLen = (N_CHARS + 1) * REINFORCED_MSK_LEN;
+
+    auto floodTable = setupFDRFloodControl(lits, eng, grey);
+    auto confirmTable = setupFullConfs(lits, eng, bucketToLits, make_small);
+
+    // Note: we place each major structure here on a cacheline boundary.
+    size_t size = ROUNDUP_CL(headerSize) + ROUNDUP_CL(maskLen) +
+                  ROUNDUP_CL(reinforcedMaskLen) +
+                  ROUNDUP_CL(confirmTable.size()) + floodTable.size();
+
+    auto fdr = make_zeroed_bytecode_ptr<FDR>(size, 64);
+    assert(fdr); // otherwise would have thrown std::bad_alloc
+    Teddy *teddy = (Teddy *)fdr.get(); // ugly
+    u8 *teddy_base = (u8 *)teddy;
+
+    // Write header.
+    teddy->size = size;
+    teddy->engineID = eng.getID();
+    teddy->maxStringLen = verify_u32(maxLen(lits));
+
+    // Write confirm structures.
+    u8 *ptr = teddy_base + ROUNDUP_CL(headerSize) + ROUNDUP_CL(maskLen) +
+              ROUNDUP_CL(reinforcedMaskLen);
+    assert(ISALIGNED_CL(ptr));
+    teddy->confOffset = verify_u32(ptr - teddy_base);
+    memcpy(ptr, confirmTable.get(), confirmTable.size());
+    ptr += ROUNDUP_CL(confirmTable.size());
+
+    // Write flood control structures.
+    assert(ISALIGNED_CL(ptr));
+    teddy->floodOffset = verify_u32(ptr - teddy_base);
+    memcpy(ptr, floodTable.get(), floodTable.size());
+    ptr += floodTable.size();
+
+    // Write teddy masks.
+    u8 *baseMsk = teddy_base + ROUNDUP_CL(headerSize);
+    fillNibbleMasks(bucketToLits, lits, eng.numMasks, maskWidth, maskLen,
+                    baseMsk);
+
+    // Write reinforcement masks.
+    u8 *reinforcedMsk = baseMsk + ROUNDUP_CL(maskLen);
+    fillReinforcedTable(bucketToLits, lits, reinforcedMsk);
 
 #ifdef TEDDY_DEBUG
     for (u32 i = 0; i < eng.numMasks * 2; i++) {
@@ -452,6 +555,10 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
         }
         printf("\n");
     }
+
+    printf("\n===============================================\n"
+           "reinforced mask table for low boundary (original)\n\n");
+    dumpReinforcedMaskTable(reinforcedMsk);
 #endif
 
     return fdr;

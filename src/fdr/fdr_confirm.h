@@ -78,12 +78,8 @@ struct LitInfo {
 struct FDRConfirm {
     CONF_TYPE andmsk;
     CONF_TYPE mult;
-    u32 nBitsOrSoleID; // if flags is NO_CONFIRM then this is soleID
-    u32 flags;  // sole meaning is 'non-zero means no-confirm' (that is all)
+    u32 nBits;
     hwlm_group_t groups;
-    u32 soleLitSize;
-    u32 soleLitCmp;
-    u32 soleLitMsk;
 };
 
 static really_inline

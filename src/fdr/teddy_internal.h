@@ -26,6 +26,25 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* Teddy bytecode layout:
+ * * |-----|
+ * * |     | struct Teddy
+ * * |-----|
+ * * |     | teddy masks
+ * * |     |
+ * * |-----|
+ * * |     | reinforcement mask table
+ * * |     |
+ * * |-----|
+ * * |     | confirm
+ * * |     |
+ * * |     |
+ * * |-----|
+ * * |     | flood control
+ * * |     |
+ * * |-----|
+ */
+
 #ifndef TEDDY_INTERNAL_H
 #define TEDDY_INTERNAL_H
 

@@ -40,10 +40,79 @@
 
 #if defined(HAVE_AVX2)
 
+const u8 ALIGN_AVX_DIRECTIVE p_mask_arr256[33][64] = {
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff},
+    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+};
+
 #ifdef ARCH_64_BIT
 #define CONFIRM_FAT_TEDDY(var, bucket, offset, reason, conf_fn)             \
 do {                                                                        \
-    if (unlikely(isnonzero256(var))) {                                      \
+    if (unlikely(diff256(var, ones256()))) {                                \
         m256 swap = swap128in256(var);                                      \
         m256 r = interleave256lo(var, swap);                                \
         u64a part1 = extractlow64from256(r);                                \
@@ -51,32 +120,36 @@ do {                                                                        \
         r = interleave256hi(var, swap);                                     \
         u64a part3 = extractlow64from256(r);                                \
         u64a part4 = extract64from256(r, 1);                                \
-        if (unlikely(part1)) {                                              \
+        if (unlikely(part1 != ones_u64a)) {                                 \
+            part1 = ~part1;                                                 \
             conf_fn(&part1, bucket, offset, confBase, reason, a, ptr,       \
                     &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
-        if (unlikely(part2)) {                                              \
+        if (unlikely(part2 != ones_u64a)) {                                 \
+            part2 = ~part2;                                                 \
             conf_fn(&part2, bucket, offset + 4, confBase, reason, a, ptr,   \
                     &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
-        if (unlikely(part3)) {                                              \
+        if (unlikely(part3 != ones_u64a)) {                                 \
+            part3 = ~part3;                                                 \
             conf_fn(&part3, bucket, offset + 8, confBase, reason, a, ptr,   \
                     &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
-        if (unlikely(part4)) {                                              \
+        if (unlikely(part4 != ones_u64a)) {                                 \
+            part4 = ~part4;                                                 \
             conf_fn(&part4, bucket, offset + 12, confBase, reason, a, ptr,  \
                     &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
     }                                                                       \
-} while (0);
+} while(0)
 #else
 #define CONFIRM_FAT_TEDDY(var, bucket, offset, reason, conf_fn)             \
 do {                                                                        \
-    if (unlikely(isnonzero256(var))) {                                      \
+    if (unlikely(diff256(var, ones256()))) {                                \
         m256 swap = swap128in256(var);                                      \
         m256 r = interleave256lo(var, swap);                                \
         u32 part1 = extractlow32from256(r);                                 \
@@ -88,56 +161,65 @@ do {                                                                        \
         u32 part6 = extract32from256(r, 1);                                 \
         u32 part7 = extract32from256(r, 2);                                 \
         u32 part8 = extract32from256(r, 3);                                 \
-        if (unlikely(part1)) {                                              \
+        if (unlikely(part1 != ones_u32)) {                                  \
+            part1 = ~part1;                                                 \
             conf_fn(&part1, bucket, offset, confBase, reason, a, ptr,       \
                     &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
-        if (unlikely(part2)) {                                              \
+        if (unlikely(part2 != ones_u32)) {                                  \
+            part2 = ~part2;                                                 \
             conf_fn(&part2, bucket, offset + 2, confBase, reason, a, ptr,   \
                     &control, &last_match);                                 \
         }                                                                   \
-        if (unlikely(part3)) {                                              \
+        if (unlikely(part3 != ones_u32)) {                                  \
+            part3 = ~part3;                                                 \
             conf_fn(&part3, bucket, offset + 4, confBase, reason, a, ptr,   \
                     &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
-        if (unlikely(part4)) {                                              \
+        if (unlikely(part4 != ones_u32)) {                                  \
+            part4 = ~part4;                                                 \
             conf_fn(&part4, bucket, offset + 6, confBase, reason, a, ptr,   \
                     &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
-        if (unlikely(part5)) {                                              \
+        if (unlikely(part5 != ones_u32)) {                                  \
+            part5 = ~part5;                                                 \
             conf_fn(&part5, bucket, offset + 8, confBase, reason, a, ptr,   \
                     &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
-        if (unlikely(part6)) {                                              \
+        if (unlikely(part6 != ones_u32)) {                                  \
+            part6 = ~part6;                                                 \
             conf_fn(&part6, bucket, offset + 10, confBase, reason, a, ptr,  \
                     &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
-        if (unlikely(part7)) {                                              \
+        if (unlikely(part7 != ones_u32)) {                                  \
+            part7 = ~part7;                                                 \
             conf_fn(&part7, bucket, offset + 12, confBase, reason, a, ptr,  \
                     &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
-        if (unlikely(part8)) {                                              \
+        if (unlikely(part8 != ones_u32)) {                                  \
+            part8 = ~part8;                                                 \
             conf_fn(&part8, bucket, offset + 14, confBase, reason, a, ptr,  \
                     &control, &last_match);                                 \
             CHECK_HWLM_TERMINATE_MATCHING;                                  \
         }                                                                   \
     }                                                                       \
-} while (0);
+} while(0)
 #endif
 
 static really_inline
-m256 vectoredLoad2x128(m256 *p_mask, const u8 *ptr, const u8 *lo, const u8 *hi,
+m256 vectoredLoad2x128(m256 *p_mask, const u8 *ptr, const size_t start_offset,
+                       const u8 *lo, const u8 *hi,
                        const u8 *buf_history, size_t len_history,
                        const u32 nMasks) {
     m128 p_mask128;
-    m256 ret = set2x128(vectoredLoad128(&p_mask128, ptr, lo, hi, buf_history,
-                                        len_history, nMasks));
+    m256 ret = set2x128(vectoredLoad128(&p_mask128, ptr, start_offset, lo, hi,
+                                        buf_history, len_history, nMasks));
     *p_mask = set2x128(p_mask128);
     return ret;
 }
@@ -147,8 +229,8 @@ m256 prep_conf_fat_teddy_m1(const m256 *maskBase, m256 val) {
     m256 mask = set32x8(0xf);
     m256 lo = and256(val, mask);
     m256 hi = and256(rshift64_m256(val, 4), mask);
-    return and256(pshufb_m256(maskBase[0*2], lo),
-                  pshufb_m256(maskBase[0*2+1], hi));
+    return or256(pshufb_m256(maskBase[0 * 2], lo),
+                 pshufb_m256(maskBase[0 * 2 + 1], hi));
 }
 
 static really_inline
@@ -158,11 +240,11 @@ m256 prep_conf_fat_teddy_m2(const m256 *maskBase, m256 *old_1, m256 val) {
     m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 r = prep_conf_fat_teddy_m1(maskBase, val);
 
-    m256 res_1 = and256(pshufb_m256(maskBase[1*2], lo),
-                        pshufb_m256(maskBase[1*2+1], hi));
-    m256 res_shifted_1 = vpalignr(res_1, *old_1, 16-1);
+    m256 res_1 = or256(pshufb_m256(maskBase[1 * 2], lo),
+                       pshufb_m256(maskBase[1 * 2 + 1], hi));
+    m256 res_shifted_1 = vpalignr(res_1, *old_1, 16 - 1);
     *old_1 = res_1;
-    return and256(r, res_shifted_1);
+    return or256(r, res_shifted_1);
 }
 
 static really_inline
@@ -173,11 +255,11 @@ m256 prep_conf_fat_teddy_m3(const m256 *maskBase, m256 *old_1, m256 *old_2,
     m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 r = prep_conf_fat_teddy_m2(maskBase, old_1, val);
 
-    m256 res_2 = and256(pshufb_m256(maskBase[2*2], lo),
-                        pshufb_m256(maskBase[2*2+1], hi));
-    m256 res_shifted_2 = vpalignr(res_2, *old_2, 16-2);
+    m256 res_2 = or256(pshufb_m256(maskBase[2 * 2], lo),
+                       pshufb_m256(maskBase[2 * 2 + 1], hi));
+    m256 res_shifted_2 = vpalignr(res_2, *old_2, 16 - 2);
     *old_2 = res_2;
-    return and256(r, res_shifted_2);
+    return or256(r, res_shifted_2);
 }
 
 static really_inline
@@ -188,11 +270,11 @@ m256 prep_conf_fat_teddy_m4(const m256 *maskBase, m256 *old_1, m256 *old_2,
     m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 r = prep_conf_fat_teddy_m3(maskBase, old_1, old_2, val);
 
-    m256 res_3 = and256(pshufb_m256(maskBase[3*2], lo),
-                        pshufb_m256(maskBase[3*2+1], hi));
-    m256 res_shifted_3 = vpalignr(res_3, *old_3, 16-3);
+    m256 res_3 = or256(pshufb_m256(maskBase[3 * 2], lo),
+                       pshufb_m256(maskBase[3 * 2 + 1], hi));
+    m256 res_shifted_3 = vpalignr(res_3, *old_3, 16 - 3);
     *old_3 = res_3;
-    return and256(r, res_shifted_3);
+    return or256(r, res_shifted_3);
 }
 
 static really_inline
@@ -200,486 +282,151 @@ const m256 *getMaskBase_avx2(const struct Teddy *teddy) {
     return (const m256 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)));
 }
 
+#define FDR_EXEC_FAT_TEDDY_RES_OLD_1                                        \
+do {                                                                        \
+} while(0)
+
+#define FDR_EXEC_FAT_TEDDY_RES_OLD_2                                        \
+    m256 res_old_1 = zeroes256();
+
+#define FDR_EXEC_FAT_TEDDY_RES_OLD_3                                        \
+    m256 res_old_1 = zeroes256();                                           \
+    m256 res_old_2 = zeroes256();
+
+#define FDR_EXEC_FAT_TEDDY_RES_OLD_4                                        \
+    m256 res_old_1 = zeroes256();                                           \
+    m256 res_old_2 = zeroes256();                                           \
+    m256 res_old_3 = zeroes256();
+
+#define FDR_EXEC_FAT_TEDDY_RES_OLD(n) FDR_EXEC_FAT_TEDDY_RES_OLD_##n
+
+#define PREP_CONF_FAT_FN_1(mask_base, val)                                  \
+    prep_conf_fat_teddy_m1(mask_base, val)
+
+#define PREP_CONF_FAT_FN_2(mask_base, val)                                  \
+    prep_conf_fat_teddy_m2(mask_base, &res_old_1, val)
+
+#define PREP_CONF_FAT_FN_3(mask_base, val)                                  \
+    prep_conf_fat_teddy_m3(mask_base, &res_old_1, &res_old_2, val)
+
+#define PREP_CONF_FAT_FN_4(mask_base, val)                                  \
+    prep_conf_fat_teddy_m4(mask_base, &res_old_1, &res_old_2, &res_old_3, val)
+
+#define PREP_CONF_FAT_FN(mask_base, val, n)                                 \
+    PREP_CONF_FAT_FN_##n(mask_base, val)
+
+#define FDR_EXEC_FAT_TEDDY(fdr, a, control, n_msk, conf_fn)                 \
+do {                                                                        \
+    const u8 *buf_end = a->buf + a->len;                                    \
+    const u8 *ptr = a->buf + a->start_offset;                               \
+    u32 floodBackoff = FLOOD_BACKOFF_START;                                 \
+    const u8 *tryFloodDetect = a->firstFloodDetect;                         \
+    u32 last_match = (u32)-1;                                               \
+    const struct Teddy *teddy = (const struct Teddy *)fdr;                  \
+    const size_t iterBytes = 32;                                            \
+    DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",               \
+                 a->buf, a->len, a->start_offset);                          \
+                                                                            \
+    const m256 *maskBase = getMaskBase_avx2(teddy);                         \
+    const u32 *confBase = getConfBase(teddy);                               \
+                                                                            \
+    FDR_EXEC_FAT_TEDDY_RES_OLD(n_msk);                                      \
+    const u8 *mainStart = ROUNDUP_PTR(ptr, 16);                             \
+    DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);         \
+    if (ptr < mainStart) {                                                  \
+        ptr = mainStart - 16;                                               \
+        m256 p_mask;                                                        \
+        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->start_offset,       \
+                                       a->buf, buf_end,                     \
+                                       a->buf_history, a->len_history,      \
+                                       n_msk);                              \
+        m256 r_0 = PREP_CONF_FAT_FN(maskBase, val_0, n_msk);                \
+        r_0 = or256(r_0, p_mask);                                           \
+        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, conf_fn);                  \
+        ptr += 16;                                                          \
+    }                                                                       \
+                                                                            \
+    if (ptr + 16 <= buf_end) {                                              \
+        m256 r_0 = PREP_CONF_FAT_FN(maskBase, load2x128(ptr), n_msk);       \
+        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, conf_fn);                  \
+        ptr += 16;                                                          \
+    }                                                                       \
+                                                                            \
+    for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {                 \
+        __builtin_prefetch(ptr + (iterBytes * 4));                          \
+        CHECK_FLOOD;                                                        \
+        m256 r_0 = PREP_CONF_FAT_FN(maskBase, load2x128(ptr), n_msk);       \
+        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, conf_fn);               \
+        m256 r_1 = PREP_CONF_FAT_FN(maskBase, load2x128(ptr + 16), n_msk);  \
+        CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, conf_fn);              \
+    }                                                                       \
+                                                                            \
+    if (ptr + 16 <= buf_end) {                                              \
+        m256 r_0 = PREP_CONF_FAT_FN(maskBase, load2x128(ptr), n_msk);       \
+        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, conf_fn);               \
+        ptr += 16;                                                          \
+    }                                                                       \
+                                                                            \
+    assert(ptr + 16 > buf_end);                                             \
+    if (ptr < buf_end) {                                                    \
+        m256 p_mask;                                                        \
+        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, 0, ptr, buf_end,       \
+                                       a->buf_history, a->len_history,      \
+                                       n_msk);                              \
+        m256 r_0 = PREP_CONF_FAT_FN(maskBase, val_0, n_msk);                \
+        r_0 = or256(r_0, p_mask);                                           \
+        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, conf_fn);                  \
+    }                                                                       \
+                                                                            \
+    return HWLM_SUCCESS;                                                    \
+} while(0)
+
 hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
                                            const struct FDR_Runtime_Args *a,
                                            hwlm_group_t control) {
-    const u8 *buf_end = a->buf + a->len;
-    const u8 *ptr = a->buf + a->start_offset;
-    u32 floodBackoff = FLOOD_BACKOFF_START;
-    const u8 *tryFloodDetect = a->firstFloodDetect;
-    u32 last_match = (u32)-1;
-    const struct Teddy *teddy = (const struct Teddy *)fdr;
-    const size_t iterBytes = 32;
-    DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",
-                 a->buf, a->len, a->start_offset);
-
-    const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase(teddy);
-
-    const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
-    DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);
-    if (ptr < mainStart) {
-        ptr = mainStart - 16;
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 1);
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit1_teddy);
-        ptr += 16;
-    }
-
-    if (ptr + 16 < buf_end) {
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit1_teddy);
-        ptr += 16;
-    }
-
-    for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {
-        __builtin_prefetch(ptr + (iterBytes*4));
-        CHECK_FLOOD;
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBit1_teddy);
-        m256 r_1 = prep_conf_fat_teddy_m1(maskBase, load2x128(ptr + 16));
-        CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBit1_teddy);
-    }
-
-    for (; ptr < buf_end; ptr += 16) {
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 1);
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit1_teddy);
-    }
-
-    return HWLM_SUCCESS;
+    FDR_EXEC_FAT_TEDDY(fdr, a, control, 1, do_confWithBit_teddy);
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fat(const struct FDR *fdr,
                                                const struct FDR_Runtime_Args *a,
                                                hwlm_group_t control) {
-    const u8 *buf_end = a->buf + a->len;
-    const u8 *ptr = a->buf + a->start_offset;
-    u32 floodBackoff = FLOOD_BACKOFF_START;
-    const u8 *tryFloodDetect = a->firstFloodDetect;
-    u32 last_match = (u32)-1;
-    const struct Teddy *teddy = (const struct Teddy *)fdr;
-    const size_t iterBytes = 32;
-    DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",
-                 a->buf, a->len, a->start_offset);
-
-    const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase(teddy);
-
-    const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
-    DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);
-    if (ptr < mainStart) {
-        ptr = mainStart - 16;
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 1);
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-        ptr += 16;
-    }
-
-    if (ptr + 16 < buf_end) {
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-        ptr += 16;
-    }
-
-    for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {
-        __builtin_prefetch(ptr + (iterBytes*4));
-        CHECK_FLOOD;
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBit_teddy);
-        m256 r_1 = prep_conf_fat_teddy_m1(maskBase, load2x128(ptr + 16));
-        CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBit_teddy);
-    }
-
-    for (; ptr < buf_end; ptr += 16) {
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 1);
-        m256 r_0 = prep_conf_fat_teddy_m1(maskBase, val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-    }
-
-    return HWLM_SUCCESS;
+    FDR_EXEC_FAT_TEDDY(fdr, a, control, 1, do_confWithBit_teddy);
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks2_fat(const struct FDR *fdr,
                                            const struct FDR_Runtime_Args *a,
                                            hwlm_group_t control) {
-    const u8 *buf_end = a->buf + a->len;
-    const u8 *ptr = a->buf + a->start_offset;
-    u32 floodBackoff = FLOOD_BACKOFF_START;
-    const u8 *tryFloodDetect = a->firstFloodDetect;
-    u32 last_match = (u32)-1;
-    const struct Teddy *teddy = (const struct Teddy *)fdr;
-    const size_t iterBytes = 32;
-    DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",
-                 a->buf, a->len, a->start_offset);
-
-    const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase(teddy);
-
-    m256 res_old_1 = ones256();
-    const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
-    DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);
-    if (ptr < mainStart) {
-        ptr = mainStart - 16;
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 2);
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
-        ptr += 16;
-    }
-
-    if (ptr + 16 < buf_end) {
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
-        ptr += 16;
-    }
-
-    for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {
-        __builtin_prefetch(ptr + (iterBytes*4));
-        CHECK_FLOOD;
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBitMany_teddy);
-        m256 r_1 = prep_conf_fat_teddy_m2(maskBase, &res_old_1,
-                                          load2x128(ptr + 16));
-        CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBitMany_teddy);
-    }
-
-    for (; ptr < buf_end; ptr += 16) {
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 2);
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
-    }
-
-    return HWLM_SUCCESS;
+    FDR_EXEC_FAT_TEDDY(fdr, a, control, 2, do_confWithBit_teddy);
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks2_pck_fat(const struct FDR *fdr,
                                                const struct FDR_Runtime_Args *a,
                                                hwlm_group_t control) {
-    const u8 *buf_end = a->buf + a->len;
-    const u8 *ptr = a->buf + a->start_offset;
-    u32 floodBackoff = FLOOD_BACKOFF_START;
-    const u8 *tryFloodDetect = a->firstFloodDetect;
-    u32 last_match = (u32)-1;
-    const struct Teddy *teddy = (const struct Teddy *)fdr;
-    const size_t iterBytes = 32;
-    DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",
-                 a->buf, a->len, a->start_offset);
-
-    const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase(teddy);
-
-    m256 res_old_1 = ones256();
-    const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
-    DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);
-    if (ptr < mainStart) {
-        ptr = mainStart - 16;
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 2);
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-        ptr += 16;
-    }
-
-    if (ptr + 16 < buf_end) {
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-        ptr += 16;
-    }
-
-    for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {
-        __builtin_prefetch(ptr + (iterBytes*4));
-        CHECK_FLOOD;
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBit_teddy);
-        m256 r_1 = prep_conf_fat_teddy_m2(maskBase, &res_old_1,
-                                          load2x128(ptr + 16));
-        CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBit_teddy);
-    }
-
-    for (; ptr < buf_end; ptr += 16) {
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 2);
-        m256 r_0 = prep_conf_fat_teddy_m2(maskBase, &res_old_1, val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-    }
-
-    return HWLM_SUCCESS;
+    FDR_EXEC_FAT_TEDDY(fdr, a, control, 2, do_confWithBit_teddy);
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks3_fat(const struct FDR *fdr,
                                            const struct FDR_Runtime_Args *a,
                                            hwlm_group_t control) {
-    const u8 *buf_end = a->buf + a->len;
-    const u8 *ptr = a->buf + a->start_offset;
-    u32 floodBackoff = FLOOD_BACKOFF_START;
-    const u8 *tryFloodDetect = a->firstFloodDetect;
-    u32 last_match = (u32)-1;
-    const struct Teddy *teddy = (const struct Teddy *)fdr;
-    const size_t iterBytes = 32;
-    DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",
-                 a->buf, a->len, a->start_offset);
-
-    const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase(teddy);
-
-    m256 res_old_1 = ones256();
-    m256 res_old_2 = ones256();
-    const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
-    DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);
-    if (ptr < mainStart) {
-        ptr = mainStart - 16;
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 3);
-        m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
-        ptr += 16;
-    }
-
-    if (ptr + 16 < buf_end) {
-        m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
-        ptr += 16;
-    }
-
-    for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {
-        __builtin_prefetch(ptr + (iterBytes*4));
-        CHECK_FLOOD;
-        m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBitMany_teddy);
-        m256 r_1 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          load2x128(ptr + 16));
-        CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBitMany_teddy);
-    }
-
-    for (; ptr < buf_end; ptr += 16) {
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 3);
-        m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
-    }
-
-    return HWLM_SUCCESS;
+    FDR_EXEC_FAT_TEDDY(fdr, a, control, 3, do_confWithBit_teddy);
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks3_pck_fat(const struct FDR *fdr,
                                                const struct FDR_Runtime_Args *a,
                                                hwlm_group_t control) {
-    const u8 *buf_end = a->buf + a->len;
-    const u8 *ptr = a->buf + a->start_offset;
-    u32 floodBackoff = FLOOD_BACKOFF_START;
-    const u8 *tryFloodDetect = a->firstFloodDetect;
-    u32 last_match = (u32)-1;
-    const struct Teddy *teddy = (const struct Teddy *)fdr;
-    const size_t iterBytes = 32;
-    DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",
-                 a->buf, a->len, a->start_offset);
-
-    const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase(teddy);
-
-    m256 res_old_1 = ones256();
-    m256 res_old_2 = ones256();
-    const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
-    DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);
-    if (ptr < mainStart) {
-        ptr = mainStart - 16;
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 3);
-        m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-        ptr += 16;
-    }
-
-    if (ptr + 16 < buf_end) {
-        m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-        ptr += 16;
-    }
-
-    for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {
-        __builtin_prefetch(ptr + (iterBytes*4));
-        CHECK_FLOOD;
-        m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBit_teddy);
-        m256 r_1 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          load2x128(ptr + 16));
-        CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBit_teddy);
-    }
-
-    for (; ptr < buf_end; ptr += 16) {
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 3);
-        m256 r_0 = prep_conf_fat_teddy_m3(maskBase, &res_old_1, &res_old_2,
-                                          val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-    }
-
-    return HWLM_SUCCESS;
+    FDR_EXEC_FAT_TEDDY(fdr, a, control, 3, do_confWithBit_teddy);
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
                                            const struct FDR_Runtime_Args *a,
                                            hwlm_group_t control) {
-    const u8 *buf_end = a->buf + a->len;
-    const u8 *ptr = a->buf + a->start_offset;
-    u32 floodBackoff = FLOOD_BACKOFF_START;
-    const u8 *tryFloodDetect = a->firstFloodDetect;
-    u32 last_match = (u32)-1;
-    const struct Teddy *teddy = (const struct Teddy *)fdr;
-    const size_t iterBytes = 32;
-    DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",
-                 a->buf, a->len, a->start_offset);
-
-    const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase(teddy);
-
-    m256 res_old_1 = ones256();
-    m256 res_old_2 = ones256();
-    m256 res_old_3 = ones256();
-    const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
-    DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);
-    if (ptr < mainStart) {
-        ptr = mainStart - 16;
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 4);
-        m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
-        ptr += 16;
-    }
-
-    if (ptr + 16 < buf_end) {
-        m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
-        ptr += 16;
-    }
-
-    for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {
-        __builtin_prefetch(ptr + (iterBytes*4));
-        CHECK_FLOOD;
-        m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBitMany_teddy);
-        m256 r_1 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, load2x128(ptr + 16));
-        CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBitMany_teddy);
-    }
-
-    for (; ptr < buf_end; ptr += 16) {
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 4);
-        m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBitMany_teddy);
-    }
-
-    return HWLM_SUCCESS;
+    FDR_EXEC_FAT_TEDDY(fdr, a, control, 4, do_confWithBit_teddy);
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
                                                const struct FDR_Runtime_Args *a,
                                                hwlm_group_t control) {
-    const u8 *buf_end = a->buf + a->len;
-    const u8 *ptr = a->buf + a->start_offset;
-    u32 floodBackoff = FLOOD_BACKOFF_START;
-    const u8 *tryFloodDetect = a->firstFloodDetect;
-    u32 last_match = (u32)-1;
-    const struct Teddy *teddy = (const struct Teddy *)fdr;
-    const size_t iterBytes = 32;
-    DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",
-                 a->buf, a->len, a->start_offset);
-
-    const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase(teddy);
-
-    m256 res_old_1 = ones256();
-    m256 res_old_2 = ones256();
-    m256 res_old_3 = ones256();
-    const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
-    DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);
-    if (ptr < mainStart) {
-        ptr = mainStart - 16;
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 4);
-        m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-        ptr += 16;
-    }
-
-    if (ptr + 16 < buf_end) {
-        m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-        ptr += 16;
-    }
-
-    for ( ; ptr + iterBytes <= buf_end; ptr += iterBytes) {
-        __builtin_prefetch(ptr + (iterBytes*4));
-        CHECK_FLOOD;
-        m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, load2x128(ptr));
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, do_confWithBit_teddy);
-        m256 r_1 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, load2x128(ptr + 16));
-        CONFIRM_FAT_TEDDY(r_1, 16, 16, NOT_CAUTIOUS, do_confWithBit_teddy);
-    }
-
-    for (; ptr < buf_end; ptr += 16) {
-        m256 p_mask;
-        m256 val_0 = vectoredLoad2x128(&p_mask, ptr, a->buf, buf_end,
-                                       a->buf_history, a->len_history, 4);
-        m256 r_0 = prep_conf_fat_teddy_m4(maskBase, &res_old_1, &res_old_2,
-                                          &res_old_3, val_0);
-        r_0 = and256(r_0, p_mask);
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, do_confWithBit_teddy);
-    }
-
-    return HWLM_SUCCESS;
+    FDR_EXEC_FAT_TEDDY(fdr, a, control, 4, do_confWithBit_teddy);
 }
 
 #endif // HAVE_AVX2

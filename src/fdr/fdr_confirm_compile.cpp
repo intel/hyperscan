@@ -130,7 +130,7 @@ void fillLitInfo(const vector<hwlmLiteral> &lits, vector<LitInfo> &tmpLitInfo,
 
 static
 bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
-                                       bool make_small, bool make_confirm) {
+                                       bool make_small) {
     // Every literal must fit within CONF_TYPE.
     assert(all_of_in(lits, [](const hwlmLiteral &lit) {
         return lit.s.size() <= sizeof(CONF_TYPE);
@@ -153,42 +153,6 @@ bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
     }
 
     CONF_TYPE mult = (CONF_TYPE)0x0b4e0ef37bc32127ULL;
-    u32 flags = 0;
-    // we use next three variables for 'confirmless' case to speed-up
-    // confirmation process
-    u32 soleLitSize = 0;
-    u32 soleLitCmp = 0;
-    u32 soleLitMsk = 0;
-
-    if (!make_confirm) {
-        flags = FDRC_FLAG_NO_CONFIRM;
-        if (lits[0].noruns) {
-            // messy - need to clean this up later as flags is sorta kinda
-            // obsoleted
-            flags |= FDRC_FLAG_NOREPEAT;
-        }
-        mult = 0;
-        soleLitSize = lits[0].s.size() - 1;
-        // we can get to this point only in confirmless case;
-        // it means that we have only one literal per FDRConfirm (no packing),
-        // with no literal mask and size of literal is less or equal
-        // to the number of masks of Teddy engine;
-        // maximum number of masks for Teddy is 4, so the size of
-        // literal is definitely less or equal to size of u32
-        assert(lits[0].s.size() <= sizeof(u32));
-        for (u32 i = 0; i < lits[0].s.size(); i++) {
-            u32 shiftLoc = (sizeof(u32) - i - 1) * 8;
-            u8 c = lits[0].s[lits[0].s.size() - i - 1];
-            if (lits[0].nocase && ourisalpha(c)) {
-                soleLitCmp |= (u32)(c & CASE_CLEAR) << shiftLoc;
-                soleLitMsk |= (u32)CASE_CLEAR << shiftLoc;
-            }
-            else {
-                soleLitCmp |= (u32)c << shiftLoc;
-                soleLitMsk |= (u32)0xff << shiftLoc;
-            }
-        }
-    }
 
     // we can walk the vector and assign elements from the vectors to a
     // map by hash value
@@ -276,11 +240,7 @@ bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
 
     fdrc->andmsk = andmsk;
     fdrc->mult = mult;
-    fdrc->nBitsOrSoleID = (flags & FDRC_FLAG_NO_CONFIRM) ? lits[0].id : nBits;
-    fdrc->flags = flags;
-    fdrc->soleLitSize = soleLitSize;
-    fdrc->soleLitCmp = soleLitCmp;
-    fdrc->soleLitMsk = soleLitMsk;
+    fdrc->nBits = nBits;
 
     fdrc->groups = gm;
 
@@ -334,12 +294,8 @@ setupFullConfs(const vector<hwlmLiteral> &lits,
                const EngineDescription &eng,
                map<BucketIndex, vector<LiteralIndex>> &bucketToLits,
                bool make_small) {
-    bool makeConfirm = true;
     unique_ptr<TeddyEngineDescription> teddyDescr =
         getTeddyDescription(eng.getID());
-    if (teddyDescr) {
-        makeConfirm = teddyDescr->needConfirm(lits);
-    }
 
     BC2CONF bc2Conf;
     u32 totalConfirmSize = 0;
@@ -351,7 +307,7 @@ setupFullConfs(const vector<hwlmLiteral> &lits,
             }
 
             DEBUG_PRINTF("b %d sz %zu\n", b, vl.size());
-            auto fc = getFDRConfirm(vl, make_small, makeConfirm);
+            auto fc = getFDRConfirm(vl, make_small);
             totalConfirmSize += fc.size();
             bc2Conf.emplace(b, move(fc));
         }

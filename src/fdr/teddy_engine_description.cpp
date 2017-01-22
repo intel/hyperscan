@@ -51,18 +51,6 @@ u32 TeddyEngineDescription::getDefaultFloodSuffixLength() const {
     return numMasks;
 }
 
-bool TeddyEngineDescription::needConfirm(const vector<hwlmLiteral> &lits) const {
-    if (packed || lits.size() > getNumBuckets()) {
-        return true;
-    }
-    for (const auto &lit : lits) {
-        if (lit.s.size() > numMasks || !lit.msk.empty()) {
-            return true;
-        }
-    }
-    return false;
-}
-
 void getTeddyDescriptions(vector<TeddyEngineDescription> *out) {
     static const TeddyEngineDef defns[] = {
         { 3, 0 | HS_CPU_FEATURES_AVX2, 1, 16, false },
