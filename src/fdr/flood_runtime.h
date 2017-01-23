@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -100,7 +100,7 @@ const u8 * floodDetect(const struct FDR * fdr,
     // tryFloodDetect is never put in places where unconditional
     // reads a short distance forward or backward here
     // TODO: rationale for this line needs to be rediscovered!!
-    size_t mainLoopLen = len > iterBytes ? len - iterBytes : 0;
+    size_t mainLoopLen = len > 2 * iterBytes ? len - 2 * iterBytes : 0;
     const u32 i = ptr - buf;
     u32 j = i;
 

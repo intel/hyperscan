@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -180,15 +180,9 @@ static really_inline u64a movq(const m128 in) {
 /* another form of movq */
 static really_inline
 m128 load_m128_from_u64a(const u64a *p) {
-#if defined(__GNUC__) && !defined(__INTEL_COMPILER)
-    /* unfortunately _mm_loadl_epi64() is best avoided as it seems to cause
-     * trouble on some older compilers, possibly because it is misdefined to
-     * take an m128 as its parameter */
-    return _mm_set_epi64((__m64)0ULL, (__m64)*p);
-#else
-    /* ICC doesn't like casting to __m64 */
-    return _mm_loadl_epi64((const m128 *)p);
-#endif
+    m128 out;
+    __asm__ ("vmovq\t%1,%0" : "=x"(out) :"m"(*p));
+    return out;
 }
 
 #define rshiftbyte_m128(a, count_immed) _mm_srli_si128(a, count_immed)

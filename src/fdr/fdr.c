@@ -35,6 +35,7 @@
 #include "teddy.h"
 #include "teddy_internal.h"
 #include "util/simd_utils.h"
+#include "util/uniform_ops.h"
 
 /** \brief number of bytes processed in each iteration */
 #define ITER_BYTES          16
@@ -51,7 +52,7 @@
  *
  * The incoming buffer is to split in multiple zones to ensure two properties:
  * 1: that we can read 8? bytes behind to generate a hash safely
- * 2: that we can read the byte after the current byte (domain > 8)
+ * 2: that we can read the 3 byte after the current byte (domain > 8)
  */
 struct zone {
     /** \brief copied buffer, used only when it is a boundary zone. */
@@ -116,20 +117,34 @@ const ALIGN_CL_DIRECTIVE u8 zone_or_mask[ITER_BYTES+1][ITER_BYTES] = {
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
 };
 
+/* compilers don't reliably synthesize the ANDN instruction here,
+ * so we force its generation.
+ */
+static really_inline
+u64a andn(const u32 a, const u32 *b) {
+    u64a r;
+#if defined(__BMI__)
+    __asm__ ("andn\t%2,%1,%k0" : "=r"(r) : "r"(a), "m"(*b));
+#else
+    r = *b & ~a;
+#endif
+    return r;
+}
+
 /* generates an initial state mask based on the last byte-ish of history rather
  * than being all accepting. If there is no history to consider, the state is
  * generated based on the minimum length of each bucket in order to prevent
  * confirms.
  */
 static really_inline
-m128 getInitState(const struct FDR *fdr, u8 len_history, const u8 *ft,
+m128 getInitState(const struct FDR *fdr, u8 len_history, const u64a *ft,
                   const struct zone *z) {
     m128 s;
     if (len_history) {
         /* +1: the zones ensure that we can read the byte at z->end */
         u32 tmp = lv_u16(z->start + z->shift - 1, z->buf, z->end + 1);
         tmp &= fdr->domainMask;
-        s = *((const m128 *)ft + tmp);
+        s = load_m128_from_u64a(ft + tmp);
         s = rshiftbyte_m128(s, 1);
     } else {
         s = fdr->start;
@@ -138,51 +153,30 @@ m128 getInitState(const struct FDR *fdr, u8 len_history, const u8 *ft,
 }
 
 static really_inline
-void get_conf_stride_1(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
-                       u64a domain_mask_adjusted, const u8 *ft, u64a *conf0,
-                       u64a *conf8, m128 *s) {
+void get_conf_stride_1(const u8 *itPtr, UNUSED const u8 *start_ptr,
+                       UNUSED const u8 *end_ptr, u32 domain_mask_flipped,
+                       const u64a *ft, u64a *conf0, u64a *conf8, m128 *s) {
     /* +1: the zones ensure that we can read the byte at z->end */
+    assert(itPtr >= start_ptr && itPtr + ITER_BYTES <= end_ptr);
+    u64a reach0 = andn(domain_mask_flipped, (const u32 *)(itPtr));
+    u64a reach1 = andn(domain_mask_flipped, (const u32 *)(itPtr + 1));
+    u64a reach2 = andn(domain_mask_flipped, (const u32 *)(itPtr + 2));
+    u64a reach3 = andn(domain_mask_flipped, (const u32 *)(itPtr + 3));
 
-    u64a current_data_0;
-    u64a current_data_8;
+    m128 st0 = load_m128_from_u64a(ft + reach0);
+    m128 st1 = load_m128_from_u64a(ft + reach1);
+    m128 st2 = load_m128_from_u64a(ft + reach2);
+    m128 st3 = load_m128_from_u64a(ft + reach3);
 
-    current_data_0 = lv_u64a(itPtr + 0, start_ptr, end_ptr);
-    u64a v7 = (lv_u16(itPtr + 7, start_ptr, end_ptr + 1) << 1) &
-               domain_mask_adjusted;
-    u64a v0 = (current_data_0 << 1) & domain_mask_adjusted;
-    u64a v1 = (current_data_0 >> 7) & domain_mask_adjusted;
-    u64a v2 = (current_data_0 >> 15) & domain_mask_adjusted;
-    u64a v3 = (current_data_0 >> 23) & domain_mask_adjusted;
-    u64a v4 = (current_data_0 >> 31) & domain_mask_adjusted;
-    u64a v5 = (current_data_0 >> 39) & domain_mask_adjusted;
-    u64a v6 = (current_data_0 >> 47) & domain_mask_adjusted;
-    current_data_8 = lv_u64a(itPtr + 8, start_ptr, end_ptr);
-    u64a v15 = (lv_u16(itPtr + 15, start_ptr, end_ptr + 1) << 1) &
-               domain_mask_adjusted;
-    u64a v8 = (current_data_8 << 1) & domain_mask_adjusted;
-    u64a v9 = (current_data_8 >> 7) & domain_mask_adjusted;
-    u64a v10 = (current_data_8 >> 15) & domain_mask_adjusted;
-    u64a v11 = (current_data_8 >> 23) & domain_mask_adjusted;
-    u64a v12 = (current_data_8 >> 31) & domain_mask_adjusted;
-    u64a v13 = (current_data_8 >> 39) & domain_mask_adjusted;
-    u64a v14 = (current_data_8 >> 47) & domain_mask_adjusted;
+    u64a reach4 = andn(domain_mask_flipped, (const u32 *)(itPtr + 4));
+    u64a reach5 = andn(domain_mask_flipped, (const u32 *)(itPtr + 5));
+    u64a reach6 = andn(domain_mask_flipped, (const u32 *)(itPtr + 6));
+    u64a reach7 = andn(domain_mask_flipped, (const u32 *)(itPtr + 7));
 
-    m128 st0 = *(const m128 *)(ft + v0*8);
-    m128 st1 = *(const m128 *)(ft + v1*8);
-    m128 st2 = *(const m128 *)(ft + v2*8);
-    m128 st3 = *(const m128 *)(ft + v3*8);
-    m128 st4 = *(const m128 *)(ft + v4*8);
-    m128 st5 = *(const m128 *)(ft + v5*8);
-    m128 st6 = *(const m128 *)(ft + v6*8);
-    m128 st7 = *(const m128 *)(ft + v7*8);
-    m128 st8 = *(const m128 *)(ft + v8*8);
-    m128 st9 = *(const m128 *)(ft + v9*8);
-    m128 st10 = *(const m128 *)(ft + v10*8);
-    m128 st11 = *(const m128 *)(ft + v11*8);
-    m128 st12 = *(const m128 *)(ft + v12*8);
-    m128 st13 = *(const m128 *)(ft + v13*8);
-    m128 st14 = *(const m128 *)(ft + v14*8);
-    m128 st15 = *(const m128 *)(ft + v15*8);
+    m128 st4 = load_m128_from_u64a(ft + reach4);
+    m128 st5 = load_m128_from_u64a(ft + reach5);
+    m128 st6 = load_m128_from_u64a(ft + reach6);
+    m128 st7 = load_m128_from_u64a(ft + reach7);
 
     st1 = lshiftbyte_m128(st1, 1);
     st2 = lshiftbyte_m128(st2, 2);
@@ -191,6 +185,40 @@ void get_conf_stride_1(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     st5 = lshiftbyte_m128(st5, 5);
     st6 = lshiftbyte_m128(st6, 6);
     st7 = lshiftbyte_m128(st7, 7);
+
+    st0 = or128(st0, st1);
+    st2 = or128(st2, st3);
+    st4 = or128(st4, st5);
+    st6 = or128(st6, st7);
+    st0 = or128(st0, st2);
+    st4 = or128(st4, st6);
+    st0 = or128(st0, st4);
+    *s = or128(*s, st0);
+
+    *conf0 = movq(*s);
+    *s = rshiftbyte_m128(*s, 8);
+    *conf0 ^= ~0ULL;
+
+    u64a reach8 = andn(domain_mask_flipped, (const u32 *)(itPtr + 8));
+    u64a reach9 = andn(domain_mask_flipped, (const u32 *)(itPtr + 9));
+    u64a reach10 = andn(domain_mask_flipped, (const u32 *)(itPtr + 10));
+    u64a reach11 = andn(domain_mask_flipped, (const u32 *)(itPtr + 11));
+
+    m128 st8 = load_m128_from_u64a(ft + reach8);
+    m128 st9 = load_m128_from_u64a(ft + reach9);
+    m128 st10 = load_m128_from_u64a(ft + reach10);
+    m128 st11 = load_m128_from_u64a(ft + reach11);
+
+    u64a reach12 = andn(domain_mask_flipped, (const u32 *)(itPtr + 12));
+    u64a reach13 = andn(domain_mask_flipped, (const u32 *)(itPtr + 13));
+    u64a reach14 = andn(domain_mask_flipped, (const u32 *)(itPtr + 14));
+    u64a reach15 = andn(domain_mask_flipped, (const u32 *)(itPtr + 15));
+
+    m128 st12 = load_m128_from_u64a(ft + reach12);
+    m128 st13 = load_m128_from_u64a(ft + reach13);
+    m128 st14 = load_m128_from_u64a(ft + reach14);
+    m128 st15 = load_m128_from_u64a(ft + reach15);
+
     st9 = lshiftbyte_m128(st9, 1);
     st10 = lshiftbyte_m128(st10, 2);
     st11 = lshiftbyte_m128(st11, 3);
@@ -199,100 +227,86 @@ void get_conf_stride_1(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
     st14 = lshiftbyte_m128(st14, 6);
     st15 = lshiftbyte_m128(st15, 7);
 
-    *s = or128(*s, st0);
-    *s = or128(*s, st1);
-    *s = or128(*s, st2);
-    *s = or128(*s, st3);
-    *s = or128(*s, st4);
-    *s = or128(*s, st5);
-    *s = or128(*s, st6);
-    *s = or128(*s, st7);
-    *conf0 = movq(*s);
-    *s = rshiftbyte_m128(*s, 8);
-    *conf0 ^= ~0ULL;
-
+    st8 = or128(st8, st9);
+    st10 = or128(st10, st11);
+    st12 = or128(st12, st13);
+    st14 = or128(st14, st15);
+    st8 = or128(st8, st10);
+    st12 = or128(st12, st14);
+    st8 = or128(st8, st12);
     *s = or128(*s, st8);
-    *s = or128(*s, st9);
-    *s = or128(*s, st10);
-    *s = or128(*s, st11);
-    *s = or128(*s, st12);
-    *s = or128(*s, st13);
-    *s = or128(*s, st14);
-    *s = or128(*s, st15);
+
     *conf8 = movq(*s);
     *s = rshiftbyte_m128(*s, 8);
     *conf8 ^= ~0ULL;
 }
 
 static really_inline
-void get_conf_stride_2(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
-                       u64a domain_mask_adjusted, const u8 *ft, u64a *conf0,
-                       u64a *conf8, m128 *s) {
-    u64a current_data_0;
-    u64a current_data_8;
+void get_conf_stride_2(const u8 *itPtr, UNUSED const u8 *start_ptr,
+                       UNUSED const u8 *end_ptr, u32 domain_mask_flipped,
+                       const u64a *ft, u64a *conf0, u64a *conf8, m128 *s) {
+    assert(itPtr >= start_ptr && itPtr + ITER_BYTES <= end_ptr);
+    u64a reach0 = andn(domain_mask_flipped, (const u32 *)itPtr);
+    u64a reach2 = andn(domain_mask_flipped, (const u32 *)(itPtr + 2));
+    u64a reach4 = andn(domain_mask_flipped, (const u32 *)(itPtr + 4));
+    u64a reach6 = andn(domain_mask_flipped, (const u32 *)(itPtr + 6));
 
-    current_data_0 = lv_u64a(itPtr + 0, start_ptr, end_ptr);
-    u64a v0 = (current_data_0 << 1) & domain_mask_adjusted;
-    u64a v2 = (current_data_0 >> 15) & domain_mask_adjusted;
-    u64a v4 = (current_data_0 >> 31) & domain_mask_adjusted;
-    u64a v6 = (current_data_0 >> 47) & domain_mask_adjusted;
-    current_data_8 = lv_u64a(itPtr + 8, start_ptr, end_ptr);
-    u64a v8 = (current_data_8 << 1) & domain_mask_adjusted;
-    u64a v10 = (current_data_8 >> 15) & domain_mask_adjusted;
-    u64a v12 = (current_data_8 >> 31) & domain_mask_adjusted;
-    u64a v14 = (current_data_8 >> 47) & domain_mask_adjusted;
+    m128 st0 = load_m128_from_u64a(ft + reach0);
+    m128 st2 = load_m128_from_u64a(ft + reach2);
+    m128 st4 = load_m128_from_u64a(ft + reach4);
+    m128 st6 = load_m128_from_u64a(ft + reach6);
 
-    m128 st0 = *(const m128 *)(ft + v0*8);
-    m128 st2 = *(const m128 *)(ft + v2*8);
-    m128 st4 = *(const m128 *)(ft + v4*8);
-    m128 st6 = *(const m128 *)(ft + v6*8);
-    m128 st8 = *(const m128 *)(ft + v8*8);
-    m128 st10 = *(const m128 *)(ft + v10*8);
-    m128 st12 = *(const m128 *)(ft + v12*8);
-    m128 st14 = *(const m128 *)(ft + v14*8);
+    u64a reach8 = andn(domain_mask_flipped, (const u32 *)(itPtr + 8));
+    u64a reach10 = andn(domain_mask_flipped, (const u32 *)(itPtr + 10));
+    u64a reach12 = andn(domain_mask_flipped, (const u32 *)(itPtr + 12));
+    u64a reach14 = andn(domain_mask_flipped, (const u32 *)(itPtr + 14));
+
+    m128 st8 = load_m128_from_u64a(ft + reach8);
+    m128 st10 = load_m128_from_u64a(ft + reach10);
+    m128 st12 = load_m128_from_u64a(ft + reach12);
+    m128 st14 = load_m128_from_u64a(ft + reach14);
 
     st2  = lshiftbyte_m128(st2, 2);
     st4  = lshiftbyte_m128(st4, 4);
     st6  = lshiftbyte_m128(st6, 6);
-    st10 = lshiftbyte_m128(st10, 2);
-    st12 = lshiftbyte_m128(st12, 4);
-    st14 = lshiftbyte_m128(st14, 6);
 
     *s = or128(*s, st0);
     *s = or128(*s, st2);
     *s = or128(*s, st4);
     *s = or128(*s, st6);
+
     *conf0 = movq(*s);
     *s = rshiftbyte_m128(*s, 8);
     *conf0 ^= ~0ULL;
+
+    st10 = lshiftbyte_m128(st10, 2);
+    st12 = lshiftbyte_m128(st12, 4);
+    st14 = lshiftbyte_m128(st14, 6);
 
     *s = or128(*s, st8);
     *s = or128(*s, st10);
     *s = or128(*s, st12);
     *s = or128(*s, st14);
+
     *conf8 = movq(*s);
     *s = rshiftbyte_m128(*s, 8);
     *conf8 ^= ~0ULL;
 }
 
 static really_inline
-void get_conf_stride_4(const u8 *itPtr, const u8 *start_ptr, const u8 *end_ptr,
-                       u64a domain_mask_adjusted, const u8 *ft, u64a *conf0,
-                       u64a *conf8, m128 *s) {
-    u64a current_data_0;
-    u64a current_data_8;
+void get_conf_stride_4(const u8 *itPtr, UNUSED const u8 *start_ptr,
+                       UNUSED const u8 *end_ptr, u32 domain_mask_flipped,
+                       const u64a *ft, u64a *conf0, u64a *conf8, m128 *s) {
+    assert(itPtr >= start_ptr && itPtr + ITER_BYTES <= end_ptr);
+    u64a reach0 = andn(domain_mask_flipped, (const u32 *)itPtr);
+    u64a reach4 = andn(domain_mask_flipped, (const u32 *)(itPtr + 4));
+    u64a reach8 = andn(domain_mask_flipped, (const u32 *)(itPtr + 8));
+    u64a reach12 = andn(domain_mask_flipped, (const u32 *)(itPtr + 12));
 
-    current_data_0 = lv_u64a(itPtr + 0, start_ptr, end_ptr);
-    u64a v0 = (current_data_0 << 1) & domain_mask_adjusted;
-    u64a v4 = (current_data_0 >> 31) & domain_mask_adjusted;
-    current_data_8 = lv_u64a(itPtr + 8, start_ptr, end_ptr);
-    u64a v8 = (current_data_8 << 1) & domain_mask_adjusted;
-    u64a v12 = (current_data_8 >> 31) & domain_mask_adjusted;
-
-    m128 st0 = *(const m128 *)(ft + v0*8);
-    m128 st4 = *(const m128 *)(ft + v4*8);
-    m128 st8 = *(const m128 *)(ft + v8*8);
-    m128 st12 = *(const m128 *)(ft + v12*8);
+    m128 st0 = load_m128_from_u64a(ft + reach0);
+    m128 st4 = load_m128_from_u64a(ft + reach4);
+    m128 st8 = load_m128_from_u64a(ft + reach8);
+    m128 st12 = load_m128_from_u64a(ft + reach12);
 
     st4 = lshiftbyte_m128(st4, 4);
     st12 = lshiftbyte_m128(st12, 4);
@@ -494,6 +508,7 @@ void createShortZone(const u8 *buf, const u8 *hend, const u8 *begin,
 
     /* copy the post-padding byte; this is required for domain > 8 due to
      * overhang */
+    assert(ZONE_SHORT_DATA_OFFSET + copy_len + 3 < 64);
     *z_end = 0;
 
     z->end = z_end;
@@ -564,15 +579,19 @@ void createStartZone(const u8 *buf, const u8 *hend, const u8 *begin,
     storeu128(z_end - sizeof(m128), loadu128(end - sizeof(m128)));
 
     z->zone_pointer_adjust = (ptrdiff_t)((uintptr_t)end - (uintptr_t)z_end);
+
+    assert(ZONE_START_BEGIN + copy_len + 3 < 64);
 }
 
 /**
  * \brief Create a zone for the end region.
  *
  * This function requires that there is > ITER_BYTES of data in the buffer to
- * scan. The end zone, however, is only responsible for a scanning the <=
- * ITER_BYTES rump of data. The end zone is required to handle a full ITER_BYTES
- * iteration as the main loop cannot handle the last byte of the buffer.
+ * scan. The end zone is responsible for a scanning the <= ITER_BYTES rump of
+ * data and optional ITER_BYTES. The main zone cannot handle the last 3 bytes
+ * of the buffer. The end zone is required to handle an optional full
+ * ITER_BYTES from main zone when there are less than 3 bytes to scan. The
+ * main zone size is reduced by ITER_BYTES in this case.
  *
  * This zone ensures that the byte at z->end can be read by filling it with a
  * padding character.
@@ -590,31 +609,45 @@ void createEndZone(const u8 *buf, const u8 *begin, const u8 *end,
 
     ptrdiff_t z_len = end - begin;
     assert(z_len > 0);
-    assert(z_len <= ITER_BYTES);
+    size_t iter_bytes_second = 0;
+    size_t z_len_first = z_len;
+    if (z_len > ITER_BYTES) {
+        z_len_first = z_len - ITER_BYTES;
+        iter_bytes_second = ITER_BYTES;
+    }
+    z->shift = ITER_BYTES - z_len_first;
 
-    z->shift = ITER_BYTES - z_len;
+    const u8 *end_first = end - iter_bytes_second;
+    /* The amount of data we have to copy from main buffer for the
+     * first iteration. */
+    size_t copy_len_first = MIN((size_t)(end_first - buf),
+                                ITER_BYTES + sizeof(CONF_TYPE));
+    assert(copy_len_first >= 16);
 
-    /* The amount of data we have to copy from main buffer. */
-    size_t copy_len = MIN((size_t)(end - buf),
-                          ITER_BYTES + sizeof(CONF_TYPE));
-    assert(copy_len >= 16);
+    size_t total_copy_len = copy_len_first + iter_bytes_second;
+    assert(total_copy_len + 3 < 64);
 
     /* copy the post-padding byte; this is required for domain > 8 due to
      * overhang */
-    z->buf[copy_len] = 0;
+    z->buf[total_copy_len] = 0;
 
     /* set the start and end location of the zone buf
      * to be scanned */
-    u8 *z_end = z->buf + copy_len;
+    u8 *z_end = z->buf + total_copy_len;
     z->end = z_end;
-    z->start = z_end - ITER_BYTES;
+    z->start = z_end - ITER_BYTES - iter_bytes_second;
     assert(z->start + z->shift == z_end - z_len);
 
+    u8 *z_end_first = z_end - iter_bytes_second;
     /* copy the first 8 bytes of the valid region */
-    unaligned_store_u64a(z->buf, unaligned_load_u64a(end - copy_len));
+    unaligned_store_u64a(z->buf,
+                         unaligned_load_u64a(end_first - copy_len_first));
 
     /* copy the last 16 bytes, may overlap with the previous 8 byte write */
-    storeu128(z_end - sizeof(m128), loadu128(end - sizeof(m128)));
+    storeu128(z_end_first - sizeof(m128), loadu128(end_first - sizeof(m128)));
+    if (iter_bytes_second) {
+        storeu128(z_end - sizeof(m128), loadu128(end - sizeof(m128)));
+    }
 
     z->zone_pointer_adjust = (ptrdiff_t)((uintptr_t)end - (uintptr_t)z_end);
 }
@@ -649,13 +682,13 @@ size_t prepareZones(const u8 *buf, size_t len, const u8 *hend,
 
     /* find maximum buffer location that the main zone can scan
      * - must be a multiple of ITER_BYTES, and
-     * - cannot contain the last byte (due to overhang)
+     * - cannot contain the last 3 bytes (due to 3 bytes read behind the
+         end of buffer in FDR main loop)
      */
-    const u8 *main_end = buf + start + ROUNDDOWN_N(len - start - 1, ITER_BYTES);
-    assert(main_end >= ptr);
+    const u8 *main_end = buf + start + ROUNDDOWN_N(len - start - 3, ITER_BYTES);
 
     /* create a zone if multiple of ITER_BYTES are found */
-    if (main_end != ptr) {
+    if (main_end > ptr) {
         createMainZone(flood, ptr, main_end, &zoneArr[numZone++]);
         ptr = main_end;
     }
@@ -682,10 +715,10 @@ size_t prepareZones(const u8 *buf, size_t len, const u8 *hend,
                     return HWLM_TERMINATED;                                 \
                 }                                                           \
             }                                                               \
-            __builtin_prefetch(itPtr + (ITER_BYTES*4));                     \
+            __builtin_prefetch(itPtr + ITER_BYTES);                         \
             u64a conf0;                                                     \
             u64a conf8;                                                     \
-            get_conf_fn(itPtr, start_ptr, end_ptr, domain_mask_adjusted,    \
+            get_conf_fn(itPtr, start_ptr, end_ptr, domain_mask_flipped,     \
                         ft, &conf0, &conf8, &s);                            \
             do_confirm_fdr(&conf0, 0, &control, confBase, a, itPtr,         \
                            &last_match_id, zz);                             \
@@ -703,10 +736,11 @@ hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
                              hwlm_group_t control) {
     u32 floodBackoff = FLOOD_BACKOFF_START;
     u32 last_match_id = INVALID_MATCH_ID;
-    u64a domain_mask_adjusted = fdr->domainMask << 1;
+    u32 domain_mask_flipped = ~fdr->domainMask;
     u8 stride = fdr->stride;
-    const u8 *ft = (const u8 *)fdr + ROUNDUP_16(sizeof(struct FDR));
-    const u32 *confBase = (const u32 *)(ft + fdr->tabSize);
+    const u64a *ft =
+        (const u64a *)((const u8 *)fdr + ROUNDUP_16(sizeof(struct FDR)));
+    const u32 *confBase = (const u32 *)((const u8 *)ft + fdr->tabSize);
     struct zone zones[ZONE_MAX];
     assert(fdr->domain > 8 && fdr->domain < 16);
 
