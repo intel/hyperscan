@@ -4667,6 +4667,12 @@ map<u32, u32> groupByFragment(const RoseBuildImpl &build) {
             continue;
         }
 
+        // Combining fragments that squash their groups is unsafe.
+        if (info.squash_group) {
+            final_to_frag.emplace(final_id, frag_id++);
+            continue;
+        }
+
         DEBUG_PRINTF("fragment candidate: final_id=%u %s\n", final_id,
                      dumpString(lit.s).c_str());
         auto frag = getFragment(lit);
