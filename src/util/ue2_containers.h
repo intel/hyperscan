@@ -281,11 +281,11 @@ public:
         return insert(value_type(std::forward<Args>(args)...));
     }
 
-    void erase(iterator pos) {
+    void erase(const_iterator pos) {
         data().erase(pos.get());
     }
 
-    void erase(iterator first, iterator last) {
+    void erase(const_iterator first, const_iterator last) {
         data().erase(first.get(), last.get());
     }
 
@@ -525,17 +525,12 @@ public:
         return insert(value_type(std::forward<Args>(args)...));
     }
 
-    void erase(iterator pos) {
-        // Convert to a non-const storage iterator via pointer arithmetic.
-        storage_iterator it = data().begin() + distance(begin(), pos);
-        data().erase(it);
+    void erase(const_iterator pos) {
+        data().erase(pos.get());
     }
 
-    void erase(iterator first, iterator last) {
-        // Convert to a non-const storage iterator via pointer arithmetic.
-        storage_iterator data_first = data().begin() + distance(begin(), first);
-        storage_iterator data_last = data().begin() + distance(begin(), last);
-        data().erase(data_first, data_last);
+    void erase(const_iterator first, const_iterator last) {
+        data().erase(first.get(), last.get());
     }
 
     void erase(const key_type &key) {
