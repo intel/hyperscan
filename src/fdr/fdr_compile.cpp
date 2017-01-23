@@ -593,7 +593,6 @@ aligned_unique_ptr<FDR> fdrBuildTableHinted(const vector<hwlmLiteral> &lits,
                                             bool make_small, u32 hint,
                                             const target_t &target,
                                             const Grey &grey) {
-    pair<u8 *, size_t> link(nullptr, 0);
     return fdrBuildTableInternal(lits, make_small, target, grey, hint);
 }
 
