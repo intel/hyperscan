@@ -166,7 +166,7 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
     if (make_small) {
         nBits = min(10U, lg2(lits.size()) + 1);
     } else {
-        nBits = min(13U, lg2(lits.size()) + 4);
+        nBits = lg2(lits.size() + 4);
     }
 
     CONF_TYPE mult = (CONF_TYPE)0x0b4e0ef37bc32127ULL;
