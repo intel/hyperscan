@@ -38,6 +38,7 @@
 #include "nfa/trufflecompile.h"
 #include "util/compare.h"
 #include "util/dump_charclass.h"
+#include "util/ue2string.h"
 #include "util/verify_types.h"
 
 using namespace std;
@@ -342,15 +343,10 @@ void filterLits(const vector<AccelString> &lits, hwlm_group_t expected_groups,
             *min_len = verify_u32(lit_len);
         }
 
+        DEBUG_PRINTF("lit: '%s', nocase=%d, groups=0x%llx\n",
+                     escapeString(lit.s).c_str(), lit.nocase ? 1 : 0,
+                     lit.groups);
         filtered_lits->push_back(&lit);
-
-#ifdef DEBUG
-        DEBUG_PRINTF("lit:");
-        for (u32 i = 0; i < lit.s.length(); i++) {
-            printf("%02hhx", lit.s[i]);
-        }
-        printf("\n");
-#endif
     }
 }
 
