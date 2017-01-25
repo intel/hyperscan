@@ -110,7 +110,7 @@ vector<DataBlock> readCorpus(const string &filename) {
     if (status != SQLITE_DONE) {
         ostringstream oss;
         oss << "Error retrieving blocks from corpus: "
-            << sqlite3_errstr(status);
+            << sqlite3_errmsg(db);
 
         status = sqlite3_finalize(statement);
         assert(status == SQLITE_OK);
