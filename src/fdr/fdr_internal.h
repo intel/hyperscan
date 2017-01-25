@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -71,11 +71,6 @@ struct FDR {
     u32 maxStringLen;
     u32 floodOffset;
 
-    /** link is the relative offset of a secondary included FDR table for
-     * stream handling if we're a primary FDR table or the subsidiary tertiary
-     * structures (spillover strings and hash table) if we're a secondary
-     * structure. */
-    u32 link;
     u8 stride; /* stride - how frequeuntly the data is consulted by the first
                 * stage matcher */
     u8 domain; /* number of bits used to index into main FDR table. This value

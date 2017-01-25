@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,7 +37,6 @@
 #include "util/alloc.h"
 
 #include <vector>
-#include <utility> // std::pair
 
 struct FDR;
 struct target_t;
@@ -48,8 +47,7 @@ struct hwlmLiteral;
 
 ue2::aligned_unique_ptr<FDR>
 teddyBuildTableHinted(const std::vector<hwlmLiteral> &lits, bool make_small,
-                      u32 hint, const target_t &target,
-                      std::pair<aligned_unique_ptr<u8>, size_t> &link);
+                      u32 hint, const target_t &target);
 
 } // namespace ue2
 

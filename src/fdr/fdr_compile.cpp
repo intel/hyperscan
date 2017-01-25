@@ -84,7 +84,7 @@ private:
     void dumpMasks(const u8 *defaultMask);
 #endif
     void setupTab();
-    aligned_unique_ptr<FDR> setupFDR(pair<aligned_unique_ptr<u8>, size_t> &link);
+    aligned_unique_ptr<FDR> setupFDR();
     void createInitialState(FDR *fdr);
 
 public:
@@ -93,7 +93,7 @@ public:
         : eng(eng_in), tab(eng_in.getTabSizeBytes()), lits(move(lits_in)),
           make_small(make_small_in) {}
 
-    aligned_unique_ptr<FDR> build(pair<aligned_unique_ptr<u8>, size_t> &link);
+    aligned_unique_ptr<FDR> build();
 };
 
 u8 *FDRCompiler::tabIndexToMask(u32 indexInTable) {
@@ -142,8 +142,7 @@ void FDRCompiler::createInitialState(FDR *fdr) {
     }
 }
 
-aligned_unique_ptr<FDR>
-FDRCompiler::setupFDR(pair<aligned_unique_ptr<u8>, size_t> &link) {
+aligned_unique_ptr<FDR> FDRCompiler::setupFDR() {
     size_t tabSize = eng.getTabSizeBytes();
 
     auto floodControlTmp = setupFDRFloodControl(lits, eng);
@@ -152,10 +151,9 @@ FDRCompiler::setupFDR(pair<aligned_unique_ptr<u8>, size_t> &link) {
     assert(ISALIGNED_16(tabSize));
     assert(ISALIGNED_16(confirmTmp.second));
     assert(ISALIGNED_16(floodControlTmp.second));
-    assert(ISALIGNED_16(link.second));
     size_t headerSize = ROUNDUP_16(sizeof(FDR));
     size_t size = ROUNDUP_16(headerSize + tabSize + confirmTmp.second +
-                             floodControlTmp.second + link.second);
+                             floodControlTmp.second);
 
     DEBUG_PRINTF("sizes base=%zu tabSize=%zu confirm=%zu floodControl=%zu "
                  "total=%zu\n",
@@ -188,13 +186,6 @@ FDRCompiler::setupFDR(pair<aligned_unique_ptr<u8>, size_t> &link) {
     fdr->domainMask = (1 << eng.bits) - 1;
     fdr->tabSize = (1 << eng.bits) * (eng.schemeWidth / 8);
     fdr->stride = eng.stride;
-
-    if (link.first) {
-        fdr->link = verify_u32(ptr - fdr_base);
-        memcpy(ptr, link.first.get(), link.second);
-    } else {
-        fdr->link = 0;
-    }
 
     return fdr;
 }
@@ -535,11 +526,10 @@ void FDRCompiler::setupTab() {
 #endif
 }
 
-aligned_unique_ptr<FDR>
-FDRCompiler::build(pair<aligned_unique_ptr<u8>, size_t> &link) {
+aligned_unique_ptr<FDR> FDRCompiler::build() {
     assignStringsToBuckets();
     setupTab();
-    return setupFDR(link);
+    return setupFDR();
 }
 
 } // namespace
@@ -549,12 +539,10 @@ aligned_unique_ptr<FDR> fdrBuildTableInternal(const vector<hwlmLiteral> &lits,
                                               bool make_small,
                                               const target_t &target,
                                               const Grey &grey, u32 hint) {
-    pair<aligned_unique_ptr<u8>, size_t> link(nullptr, 0);
-
     DEBUG_PRINTF("cpu has %s\n", target.has_avx2() ? "avx2" : "no-avx2");
 
     if (grey.fdrAllowTeddy) {
-        auto fdr = teddyBuildTableHinted(lits, make_small, hint, target, link);
+        auto fdr = teddyBuildTableHinted(lits, make_small, hint, target);
         if (fdr) {
             DEBUG_PRINTF("build with teddy succeeded\n");
             return fdr;
@@ -578,7 +566,7 @@ aligned_unique_ptr<FDR> fdrBuildTableInternal(const vector<hwlmLiteral> &lits,
     }
 
     FDRCompiler fc(lits, *des, make_small);
-    return fc.build(link);
+    return fc.build();
 }
 
 aligned_unique_ptr<FDR> fdrBuildTable(const vector<hwlmLiteral> &lits,
