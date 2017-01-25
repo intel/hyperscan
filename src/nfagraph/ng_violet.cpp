@@ -69,6 +69,7 @@
 #include <utility>
 #include <vector>
 #include <boost/core/noncopyable.hpp>
+#include <boost/dynamic_bitset.hpp>
 #include <boost/range/adaptor/map.hpp>
 
 #define STAGE_DEBUG_PRINTF DEBUG_PRINTF
@@ -718,27 +719,39 @@ void poisonFromSuccessor(const NGHolder &h, const ue2_literal &succ,
     DEBUG_PRINTF("poisoning holder of size %zu, succ len %zu\n",
                  num_vertices(h), succ.length());
 
-    map<NFAVertex, flat_set<NFAEdge> > curr;
+    using EdgeSet = boost::dynamic_bitset<>;
+
+    const size_t edge_count = num_edges(h);
+    EdgeSet bad_edges(edge_count);
+
+    unordered_map<NFAVertex, EdgeSet> curr;
     for (const auto &e : in_edges_range(h.accept, h)) {
-        curr[source(e, h)].insert(e);
+        auto &path_set = curr[source(e, h)];
+        if (path_set.empty()) {
+            path_set.resize(edge_count);
+        }
+        path_set.set(h[e].index);
     }
 
-    map<NFAVertex, flat_set<NFAEdge> > next;
+    unordered_map<NFAVertex, EdgeSet> next;
     for (auto it = succ.rbegin(); it != succ.rend(); ++it) {
         for (const auto &path : curr) {
             NFAVertex u = path.first;
             const auto &path_set = path.second;
             if (u == h.start && overhang_ok) {
                 DEBUG_PRINTF("poisoning early %zu [overhang]\n",
-                             path_set.size());
-                insert(&bad, path_set);
+                             path_set.count());
+                bad_edges |= path_set;
                 continue;
             }
             if (overlaps(h[u].char_reach, *it)) {
                 for (const auto &e : in_edges_range(u, h)) {
                     auto &new_path_set = next[source(e, h)];
-                    insert(&new_path_set, path_set);
-                    new_path_set.insert(e);
+                    if (new_path_set.empty()) {
+                        new_path_set.resize(edge_count);
+                    }
+                    new_path_set |= path_set;
+                    new_path_set.set(h[e].index);
                 }
             }
         }
@@ -750,8 +763,14 @@ void poisonFromSuccessor(const NGHolder &h, const ue2_literal &succ,
 
     assert(overhang_ok || !curr.empty());
     for (const auto &path : curr) {
-        insert(&bad, path.second);
-        DEBUG_PRINTF("poisoning %zu vertices\n", path.second.size());
+        bad_edges |= path.second;
+        DEBUG_PRINTF("poisoning %zu vertices\n", path.second.count());
+    }
+
+    for (const auto &e : edges_range(h)) {
+        if (bad_edges.test(h[e].index)) {
+            bad.insert(e);
+        }
     }
 }
 
