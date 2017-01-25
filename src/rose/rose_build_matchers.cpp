@@ -666,8 +666,8 @@ void trim_to_suffix(Container &c, size_t len) {
 
 MatcherProto makeMatcherProto(const RoseBuildImpl &build,
                               const map<u32, u32> &final_to_frag_map,
-                              rose_literal_table table, size_t max_len,
-                              u32 max_offset) {
+                              rose_literal_table table, bool delay_rebuild,
+                              size_t max_len, u32 max_offset) {
     MatcherProto mp;
 
     for (const auto &e : build.literals.right) {
@@ -693,6 +693,13 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
 
         DEBUG_PRINTF("lit='%s' (len %zu)\n", escapeString(lit).c_str(),
                      lit.length());
+
+        // When building the delay rebuild table, we only want to include
+        // literals that have delayed variants.
+        if (delay_rebuild && info.delayed_ids.empty()) {
+            DEBUG_PRINTF("not needed for delay rebuild\n");
+            continue;
+        }
 
         if (max_offset != ROSE_BOUND_INF) {
             u64a min_report = literalMinReportOffset(build, e.second, info);
@@ -802,7 +809,7 @@ buildFloatingMatcher(const RoseBuildImpl &build, size_t longLitLengthThreshold,
     *fsize = 0;
     *fgroups = 0;
 
-    auto mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING,
+    auto mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING, false,
                                longLitLengthThreshold);
     if (mp.lits.empty()) {
         DEBUG_PRINTF("empty floating matcher\n");
@@ -832,6 +839,36 @@ buildFloatingMatcher(const RoseBuildImpl &build, size_t longLitLengthThreshold,
     return hwlm;
 }
 
+aligned_unique_ptr<HWLM> buildDelayRebuildMatcher(
+    const RoseBuildImpl &build, size_t longLitLengthThreshold,
+    const map<u32, u32> &final_to_frag_map, size_t *drsize) {
+    *drsize = 0;
+
+    if (!build.cc.streaming) {
+        DEBUG_PRINTF("not streaming\n");
+        return nullptr;
+    }
+
+    auto mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING, true,
+                               longLitLengthThreshold);
+    if (mp.lits.empty()) {
+        DEBUG_PRINTF("empty delay rebuild matcher\n");
+        return nullptr;
+    }
+
+    auto hwlm = hwlmBuild(mp.lits, false, build.cc, build.getInitialGroups());
+    if (!hwlm) {
+        throw CompileError("Unable to generate bytecode.");
+    }
+
+    buildAccel(build, mp, *hwlm);
+
+    *drsize = hwlmSize(hwlm.get());
+    assert(*drsize);
+    DEBUG_PRINTF("built delay rebuild table size %zu bytes\n", *drsize);
+    return hwlm;
+}
+
 aligned_unique_ptr<HWLM>
 buildSmallBlockMatcher(const RoseBuildImpl &build,
                        const map<u32, u32> &final_to_frag_map, size_t *sbsize) {
@@ -849,7 +886,7 @@ buildSmallBlockMatcher(const RoseBuildImpl &build,
         return nullptr;
     }
 
-    auto mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING,
+    auto mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING, false,
                                ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
     if (mp.lits.empty()) {
         DEBUG_PRINTF("no floating table\n");
@@ -861,7 +898,7 @@ buildSmallBlockMatcher(const RoseBuildImpl &build,
 
     auto mp_anchored =
         makeMatcherProto(build, final_to_frag_map, ROSE_ANCHORED_SMALL_BLOCK,
-                         ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
+                         false, ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
     if (mp_anchored.lits.empty()) {
         DEBUG_PRINTF("no small-block anchored literals\n");
         return nullptr;
@@ -898,7 +935,7 @@ buildEodAnchoredMatcher(const RoseBuildImpl &build,
     *esize = 0;
 
     auto mp = makeMatcherProto(build, final_to_frag_map, ROSE_EOD_ANCHORED,
-                               build.ematcher_region_size);
+                               false, build.ematcher_region_size);
 
     if (mp.lits.empty()) {
         DEBUG_PRINTF("no eod anchored literals\n");

@@ -109,6 +109,11 @@ const HWLM *getFloatingMatcher(const RoseEngine *t) {
 }
 
 static
+const HWLM *getDelayRebuildMatcher(const RoseEngine *t) {
+    return (const HWLM *)loadFromByteCodeOffset(t, t->drmatcherOffset);
+}
+
+static
 const HWLM *getEodMatcher(const RoseEngine *t) {
     return (const HWLM *)loadFromByteCodeOffset(t, t->ematcherOffset);
 }
@@ -1158,6 +1163,7 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
 
     const void *atable = getAnchoredMatcher(t);
     const HWLM *ftable = getFloatingMatcher(t);
+    const HWLM *drtable = getDelayRebuildMatcher(t);
     const HWLM *etable = getEodMatcher(t);
     const HWLM *sbtable = getSmallBlockMatcher(t);
 
@@ -1212,6 +1218,8 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     } else {
         fprintf(f, "\n");
     }
+    fprintf(f, " - delay-rb matcher  : %zu bytes\n",
+            drtable ? hwlmSize(drtable) : 0);
     fprintf(f, " - eod-anch matcher  : %zu bytes over last %u bytes\n",
             etable ? hwlmSize(etable) : 0, t->ematcherRegionSize);
     fprintf(f, " - small-blk matcher : %zu bytes over %u bytes\n",
@@ -1274,6 +1282,11 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
         hwlmPrintStats(ftable, f);
     }
 
+    if (drtable) {
+        fprintf(f, "\nDelay Rebuild literal matcher stats:\n\n");
+        hwlmPrintStats(drtable, f);
+    }
+
     if (etable) {
         fprintf(f, "\nEOD-anchored literal matcher stats:\n\n");
         hwlmPrintStats(etable, f);
@@ -1322,6 +1335,7 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, amatcherOffset);
     DUMP_U32(t, ematcherOffset);
     DUMP_U32(t, fmatcherOffset);
+    DUMP_U32(t, drmatcherOffset);
     DUMP_U32(t, sbmatcherOffset);
     DUMP_U32(t, longLitTableOffset);
     DUMP_U32(t, amatcherMinWidth);

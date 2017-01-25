@@ -5535,6 +5535,17 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         bc.resources.has_floating = true;
     }
 
+    // Build delay rebuild HWLM matcher.
+    size_t drsize = 0;
+    auto drtable = buildDelayRebuildMatcher(*this, bc.longLitLengthThreshold,
+                                            final_to_frag_map, &drsize);
+    u32 drmatcherOffset = 0;
+    if (drtable) {
+        currOffset = ROUNDUP_CL(currOffset);
+        drmatcherOffset = currOffset;
+        currOffset += verify_u32(drsize);
+    }
+
     // Build EOD-anchored HWLM matcher.
     size_t esize = 0;
     auto etable = buildEodAnchoredMatcher(*this, final_to_frag_map, &esize);
@@ -5632,6 +5643,10 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         assert(fmatcherOffset);
         memcpy(ptr + fmatcherOffset, ftable.get(), fsize);
     }
+    if (drtable) {
+        assert(drmatcherOffset);
+        memcpy(ptr + drmatcherOffset, drtable.get(), drsize);
+    }
     if (etable) {
         assert(ematcherOffset);
         memcpy(ptr + ematcherOffset, etable.get(), esize);
@@ -5724,6 +5739,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->ematcherOffset = ematcherOffset;
     engine->sbmatcherOffset = sbmatcherOffset;
     engine->fmatcherOffset = fmatcherOffset;
+    engine->drmatcherOffset = drmatcherOffset;
     engine->longLitTableOffset = longLitTableOffset;
     engine->amatcherMinWidth = findMinWidth(*this, ROSE_ANCHORED);
     engine->fmatcherMinWidth = findMinWidth(*this, ROSE_FLOATING);

@@ -412,16 +412,22 @@ void ensureStreamNeatAndTidy(const struct RoseEngine *t, char *state,
 }
 
 static really_inline
-void do_rebuild(const struct RoseEngine *t, const struct HWLM *ftable,
-                struct hs_scratch *scratch) {
+void do_rebuild(const struct RoseEngine *t, struct hs_scratch *scratch) {
     assert(!can_stop_matching(scratch));
+
+    if (!t->drmatcherOffset) {
+        DEBUG_PRINTF("no delayed rebuild table\n");
+        return;
+    }
+
+    const struct HWLM *hwlm = getByOffset(t, t->drmatcherOffset);
     size_t len = MIN(scratch->core_info.hlen, t->delayRebuildLength);
     const u8 *buf = scratch->core_info.hbuf + scratch->core_info.hlen - len;
     DEBUG_PRINTF("BEGIN FLOATING REBUILD over %zu bytes\n", len);
 
     scratch->core_info.status &= ~STATUS_DELAY_DIRTY;
 
-    hwlmExec(ftable, buf, len, 0, roseDelayRebuildCallback, scratch,
+    hwlmExec(hwlm, buf, len, 0, roseDelayRebuildCallback, scratch,
              scratch->tctxt.groups);
     assert(!can_stop_matching(scratch));
 }
@@ -637,13 +643,13 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
 
         if (!flen) {
             if (rebuild) { /* rebuild floating delayed match stuff */
-                do_rebuild(t, ftable, scratch);
+                do_rebuild(t, scratch);
             }
             goto flush_delay_and_exit;
         }
 
         if (rebuild) { /* rebuild floating delayed match stuff */
-            do_rebuild(t, ftable, scratch);
+            do_rebuild(t, scratch);
         }
 
         if (flen + offset <= t->floatingMinDistance) {

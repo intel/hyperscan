@@ -507,23 +507,27 @@ void dumpRoseTestLiterals(const RoseBuildImpl &build, const string &base) {
 
     const auto final_to_frag_map = groupByFragment(build);
 
-    auto mp = makeMatcherProto(build, final_to_frag_map, ROSE_ANCHORED,
+    auto mp = makeMatcherProto(build, final_to_frag_map, ROSE_ANCHORED, false,
                                longLitLengthThreshold);
     dumpTestLiterals(base + "rose_anchored_test_literals.txt", mp.lits);
 
-    mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING,
+    mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING, false,
                           longLitLengthThreshold);
     dumpTestLiterals(base + "rose_float_test_literals.txt", mp.lits);
 
-    mp = makeMatcherProto(build, final_to_frag_map, ROSE_EOD_ANCHORED,
+    mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING, true,
+                          longLitLengthThreshold);
+    dumpTestLiterals(base + "rose_delay_rebuild_test_literals.txt", mp.lits);
+
+    mp = makeMatcherProto(build, final_to_frag_map, ROSE_EOD_ANCHORED, false,
                           build.ematcher_region_size);
     dumpTestLiterals(base + "rose_eod_test_literals.txt", mp.lits);
 
     if (!build.cc.streaming) {
-        mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING,
+        mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING, false,
                               ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
         auto mp2 = makeMatcherProto(build, final_to_frag_map,
-                                    ROSE_ANCHORED_SMALL_BLOCK,
+                                    ROSE_ANCHORED_SMALL_BLOCK, false,
                                     ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
         mp.lits.insert(end(mp.lits), begin(mp2.lits), end(mp2.lits));
         dumpTestLiterals(base + "rose_smallblock_test_literals.txt", mp.lits);
