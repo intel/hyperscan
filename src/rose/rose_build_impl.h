@@ -642,7 +642,14 @@ void normaliseLiteralMask(const ue2_literal &s, std::vector<u8> &msk,
 bool canImplementGraphs(const RoseBuildImpl &tbi);
 #endif
 
-std::map<u32, u32> groupByFragment(const RoseBuildImpl &build);
+struct LitFragment {
+    explicit LitFragment(u32 fragment_id_in) : fragment_id(fragment_id_in) {}
+    u32 fragment_id;
+    u32 lit_program_offset = 0;
+    u32 delay_program_offset = 0;
+};
+
+std::map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build);
 
 } // namespace ue2
 

@@ -213,10 +213,6 @@ struct build_context : boost::noncopyable {
      * that have already been pushed into the engine_blob. */
     ue2::unordered_map<u32, u32> engineOffsets;
 
-    /** \brief Literal programs, indexed by final_id, after they have been
-     * written to the engine_blob. */
-    vector<u32> litPrograms;
-
     /** \brief List of long literals (ones with CHECK_LONG_LIT instructions)
      * that need hash table support. */
     vector<ue2_case_string> longLiterals;
@@ -4578,6 +4574,10 @@ u32 writeLiteralProgram(RoseBuildImpl &build, build_context &bc,
 static
 u32 buildDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
                              const flat_set<u32> &final_ids) {
+    if (!build.cc.streaming) {
+        return 0; // We only do delayed rebuild in streaming mode.
+    }
+
     RoseProgram program;
 
     for (const auto &final_id : final_ids) {
@@ -4649,9 +4649,9 @@ rose_literal_id getFragment(const rose_literal_id &lit) {
     return frag;
 }
 
-map<u32, u32> groupByFragment(const RoseBuildImpl &build) {
+map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build) {
     u32 frag_id = 0;
-    map<u32, u32> final_to_frag;
+    map<u32, LitFragment> final_to_frag;
 
     map<rose_literal_id, vector<u32>> frag_lits;
     for (const auto &m : build.final_id_to_literal) {
@@ -4660,21 +4660,21 @@ map<u32, u32> groupByFragment(const RoseBuildImpl &build) {
         assert(!lit_ids.empty());
 
         if (lit_ids.size() > 1) {
-            final_to_frag.emplace(final_id, frag_id++);
+            final_to_frag.emplace(final_id, LitFragment(frag_id++));
             continue;
         }
 
         const auto lit_id = *lit_ids.begin();
         const auto &lit = build.literals.right.at(lit_id);
         if (lit.s.length() < ROSE_SHORT_LITERAL_LEN_MAX) {
-            final_to_frag.emplace(final_id, frag_id++);
+            final_to_frag.emplace(final_id, LitFragment(frag_id++));
             continue;
         }
 
         // Combining fragments that squash their groups is unsafe.
         const auto &info = build.literal_info[lit_id];
         if (info.squash_group) {
-            final_to_frag.emplace(final_id, frag_id++);
+            final_to_frag.emplace(final_id, LitFragment(frag_id++));
             continue;
         }
 
@@ -4689,7 +4689,7 @@ map<u32, u32> groupByFragment(const RoseBuildImpl &build) {
                      as_string_list(m.second).c_str());
         for (const auto final_id : m.second) {
             assert(!contains(final_to_frag, final_id));
-            final_to_frag.emplace(final_id, frag_id);
+            final_to_frag.emplace(final_id, LitFragment(frag_id));
         }
         frag_id++;
     }
@@ -4709,11 +4709,11 @@ map<u32, u32> groupByFragment(const RoseBuildImpl &build) {
 static
 tuple<u32, u32, u32>
 buildLiteralPrograms(RoseBuildImpl &build, build_context &bc,
-                     const map<u32, u32> &final_to_frag_map) {
+                     map<u32, LitFragment> &final_to_frag_map) {
     // Build a reverse mapping from fragment -> final_id.
     map<u32, flat_set<u32>> frag_to_final_map;
     for (const auto &m : final_to_frag_map) {
-        frag_to_final_map[m.second].insert(m.first);
+        frag_to_final_map[m.second.fragment_id].insert(m.first);
     }
 
     const u32 num_fragments = verify_u32(frag_to_final_map.size());
@@ -4721,7 +4721,7 @@ buildLiteralPrograms(RoseBuildImpl &build, build_context &bc,
 
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    bc.litPrograms.resize(num_fragments);
+    vector<u32> litPrograms(num_fragments);
     vector<u32> delayRebuildPrograms(num_fragments);
 
     for (u32 frag_id = 0; frag_id != num_fragments; ++frag_id) {
@@ -4729,14 +4729,20 @@ buildLiteralPrograms(RoseBuildImpl &build, build_context &bc,
         DEBUG_PRINTF("frag_id=%u, final_ids=[%s]\n", frag_id,
                      as_string_list(final_ids).c_str());
 
-        bc.litPrograms[frag_id] =
+        litPrograms[frag_id] =
             writeLiteralProgram(build, bc, final_ids, lit_edge_map);
         delayRebuildPrograms[frag_id] =
             buildDelayRebuildProgram(build, bc, final_ids);
     }
 
+    // Update LitFragment entries.
+    for (auto &frag : final_to_frag_map | map_values) {
+        frag.lit_program_offset = litPrograms[frag.fragment_id];
+        frag.delay_program_offset = delayRebuildPrograms[frag.fragment_id];
+    }
+
     u32 litProgramsOffset =
-        bc.engine_blob.add(begin(bc.litPrograms), end(bc.litPrograms));
+        bc.engine_blob.add(begin(litPrograms), end(litPrograms));
     u32 delayRebuildProgramsOffset = bc.engine_blob.add(
         begin(delayRebuildPrograms), end(delayRebuildPrograms));
 
@@ -5513,8 +5519,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     // Build anchored matcher.
     size_t asize = 0;
     u32 amatcherOffset = 0;
-    auto atable = buildAnchoredMatcher(*this, anchored_dfas, bc.litPrograms,
-                                       final_to_frag_map, &asize);
+    auto atable =
+        buildAnchoredMatcher(*this, anchored_dfas, final_to_frag_map, &asize);
     if (atable) {
         currOffset = ROUNDUP_CL(currOffset);
         amatcherOffset = currOffset;

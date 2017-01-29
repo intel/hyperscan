@@ -85,19 +85,13 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
 
     DEBUG_PRINTF("STATE groups=0x%016llx\n", tctx->groups);
 
-    const u32 *delayRebuildPrograms =
-        getByOffset(t, t->litDelayRebuildProgramOffset);
-    assert(id < t->literalCount);
-    const u32 program = delayRebuildPrograms[id];
-
-    if (program) {
-        const u64a som = 0;
-        const size_t match_len = end - start + 1;
-        const u8 flags = 0;
-        UNUSED hwlmcb_rv_t rv = roseRunProgram(t, scratch, program, som,
-                                               real_end, match_len, flags);
-        assert(rv != HWLM_TERMINATE_MATCHING);
-    }
+    assert(id < t->size); // id is a program offset
+    const u64a som = 0;
+    const size_t match_len = end - start + 1;
+    const u8 flags = 0;
+    UNUSED hwlmcb_rv_t rv =
+        roseRunProgram(t, scratch, id, som, real_end, match_len, flags);
+    assert(rv != HWLM_TERMINATE_MATCHING);
 
     /* we are just repopulating the delay queue, groups should be
      * already set from the original scan. */
@@ -245,12 +239,10 @@ hwlmcb_rv_t roseProcessMatchInline(const struct RoseEngine *t,
                              struct hs_scratch *scratch, u64a end,
                              size_t match_len, u32 id) {
     DEBUG_PRINTF("id=%u\n", id);
-    const u32 *programs = getByOffset(t, t->litProgramOffset);
-    assert(id < t->literalCount);
+    assert(id < t->size); // id is an offset into bytecode
     const u64a som = 0;
     const u8 flags = 0;
-    return roseRunProgram_i(t, scratch, programs[id], som, end, match_len,
-                            flags);
+    return roseRunProgram_i(t, scratch, id, som, end, match_len, flags);
 }
 
 static rose_inline

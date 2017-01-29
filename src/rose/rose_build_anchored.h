@@ -30,7 +30,7 @@
 #define ROSE_BUILD_ANCHORED
 
 #include "ue2common.h"
-#include "rose_build.h"
+#include "rose_build_impl.h"
 #include "nfagraph/ng_holder.h"
 #include "util/alloc.h"
 
@@ -59,8 +59,7 @@ std::vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build);
  */
 aligned_unique_ptr<anchored_matcher_info>
 buildAnchoredMatcher(RoseBuildImpl &build, std::vector<raw_dfa> &dfas,
-                     const std::vector<u32> &litPrograms,
-                     const std::map<u32, u32> &final_to_frag_map,
+                     const std::map<u32, LitFragment> &final_to_frag_map,
                      size_t *asize);
 
 u32 anchoredStateSize(const anchored_matcher_info &atable);
