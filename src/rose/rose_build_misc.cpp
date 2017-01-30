@@ -1082,6 +1082,13 @@ bool isAnchored(const left_id &r) {
     if (r.graph()) {
         return isAnchored(*r.graph());
     }
+    if (r.dfa()) {
+        return r.dfa()->start_anchored == DEAD_STATE;
+    }
+    if (r.haig()) {
+        return r.haig()->start_anchored == DEAD_STATE;
+    }
+
     // All other types are explicitly anchored.
     return true;
 }

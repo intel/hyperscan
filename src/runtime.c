@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -214,7 +214,7 @@ void pureLiteralBlockExec(const struct RoseEngine *rose,
     scratch->tctxt.groups = rose->initialGroups;
 
     hwlmExec(ftable, buffer, length, 0, roseCallback, scratch,
-             rose->initialGroups);
+             rose->initialGroups & rose->floating_group_mask);
 }
 
 static really_inline
@@ -762,7 +762,7 @@ void pureLiteralStreamExec(struct hs_stream *stream_state,
     const size_t start = 0;
 
     hwlmExecStreaming(ftable, scratch, len2, start, roseCallback, scratch,
-                      rose->initialGroups);
+                      rose->initialGroups & rose->floating_group_mask);
 
     if (!told_to_stop_matching(scratch) &&
         isAllExhausted(rose, scratch->core_info.exhaustionVector)) {

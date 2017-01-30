@@ -1236,11 +1236,15 @@ void buildRoseSquashMasks(RoseBuildImpl &tbi) {
             }
         }
 
-        rose_group unsquashable = 0;
+        rose_group unsquashable = tbi.boundary_group_mask;
 
         for (u32 lit_id : lit_ids) {
             const rose_literal_info &info = tbi.literal_info[lit_id];
-            if (info.vertices.size() > 1 || !info.delayed_ids.empty()) {
+            if (!info.delayed_ids.empty()
+                || !all_of_in(info.vertices,
+                              [&](RoseVertex v) {
+                                  return left == tbi.g[v].left; })) {
+                DEBUG_PRINTF("group %llu is unsquashable\n", info.group_mask);
                 unsquashable |= info.group_mask;
             }
         }

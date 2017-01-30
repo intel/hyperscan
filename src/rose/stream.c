@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -512,6 +512,34 @@ void runEagerPrefixesStream(const struct RoseEngine *t,
     }
 }
 
+static really_inline
+int can_never_match(const struct RoseEngine *t, char *state,
+                    struct hs_scratch *scratch, size_t length, u64a offset) {
+    struct RoseContext *tctxt = &scratch->tctxt;
+
+    if (tctxt->groups) {
+        DEBUG_PRINTF("still has active groups\n");
+        return 0;
+    }
+
+    if (offset + length <= t->anchoredDistance) { /* not < as may have eod */
+        DEBUG_PRINTF("still in anchored region\n");
+        return 0;
+    }
+
+    if (t->lastByteHistoryIterOffset) { /* last byte history is hard */
+        DEBUG_PRINTF("last byte history\n");
+        return 0;
+    }
+
+    if (mmbit_any(getActiveLeafArray(t, state), t->activeArrayCount)) {
+        DEBUG_PRINTF("active leaf\n");
+        return 0;
+    }
+
+    return 1;
+}
+
 void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     DEBUG_PRINTF("OH HAI [%llu, %llu)\n", scratch->core_info.buf_offset,
                  scratch->core_info.buf_offset + (u64a)scratch->core_info.len);
@@ -647,6 +675,14 @@ exit:
     if (!can_stop_matching(scratch)) {
         ensureStreamNeatAndTidy(t, state, scratch, length, offset);
     }
+
+    if (!told_to_stop_matching(scratch)
+        && can_never_match(t, state, scratch, length, offset)) {
+        DEBUG_PRINTF("PATTERN SET IS EXHAUSTED\n");
+        scratch->core_info.status = STATUS_EXHAUSTED;
+        return;
+    }
+
     DEBUG_PRINTF("DONE STREAMING SCAN, status = %u\n",
                  scratch->core_info.status);
     return;

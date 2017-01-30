@@ -722,7 +722,9 @@ void makeEodEventLeftfix(RoseBuildImpl &build, RoseVertex u,
         RoseEdge e = add_edge(v, w, g);
         g[e].minBound = 0;
         g[e].maxBound = 0;
-        g[e].history = ROSE_ROLE_HISTORY_LAST_BYTE;
+        /* No need to set history as the event is only delivered at the last
+         * byte anyway - no need to invalidate stale entries. */
+        g[e].history = ROSE_ROLE_HISTORY_NONE;
         DEBUG_PRINTF("accept eod vertex (index=%zu)\n", g[w].index);
     }
 }

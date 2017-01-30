@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -172,6 +172,8 @@ void do_accel_streaming(const union AccelAux *aux, const u8 *hbuf, size_t hlen,
 hwlm_error_t hwlmExec(const struct HWLM *t, const u8 *buf, size_t len,
                       size_t start, HWLMCallback cb, void *ctxt,
                       hwlm_group_t groups) {
+    assert(t);
+
     DEBUG_PRINTF("buf len=%zu, start=%zu, groups=%llx\n", len, start, groups);
     if (!groups) {
         DEBUG_PRINTF("groups all off\n");
@@ -201,6 +203,9 @@ hwlm_error_t hwlmExec(const struct HWLM *t, const u8 *buf, size_t len,
 hwlm_error_t hwlmExecStreaming(const struct HWLM *t, struct hs_scratch *scratch,
                                size_t len, size_t start, HWLMCallback cb,
                                void *ctxt, hwlm_group_t groups) {
+    assert(t);
+    assert(scratch);
+
     const u8 *hbuf = scratch->core_info.hbuf;
     const size_t hlen = scratch->core_info.hlen;
     const u8 *buf = scratch->core_info.buf;

@@ -172,6 +172,7 @@ struct RoseResources {
     bool has_lit_delay = false;
     bool has_lit_check = false; // long literal support
     bool has_anchored = false;
+    bool has_floating = false;
     bool has_eod = false;
 };
 
@@ -352,6 +353,11 @@ bool needsCatchup(const RoseBuildImpl &build,
 
 static
 bool isPureFloating(const RoseResources &resources, const CompileContext &cc) {
+    if (!resources.has_floating) {
+        DEBUG_PRINTF("no floating table\n");
+        return false;
+    }
+
     if (resources.has_outfixes || resources.has_suffixes ||
         resources.has_leftfixes) {
         DEBUG_PRINTF("has engines\n");
@@ -429,6 +435,7 @@ u8 pickRuntimeImpl(const RoseBuildImpl &build, const build_context &bc,
     DEBUG_PRINTF("has_lit_delay=%d\n", bc.resources.has_lit_delay);
     DEBUG_PRINTF("has_lit_check=%d\n", bc.resources.has_lit_check);
     DEBUG_PRINTF("has_anchored=%d\n", bc.resources.has_anchored);
+    DEBUG_PRINTF("has_floating=%d\n", bc.resources.has_floating);
     DEBUG_PRINTF("has_eod=%d\n", bc.resources.has_eod);
 
     if (isPureFloating(bc.resources, build.cc)) {
@@ -539,7 +546,10 @@ void fillStateOffsets(const RoseBuildImpl &tbi, u32 rolesWithStateCount,
 
 // Get the mask of initial vertices due to root and anchored_root.
 rose_group RoseBuildImpl::getInitialGroups() const {
-    rose_group groups = getSuccGroups(root) | getSuccGroups(anchored_root);
+    rose_group groups = getSuccGroups(root)
+                      | getSuccGroups(anchored_root)
+                      | boundary_group_mask;
+
     DEBUG_PRINTF("initial groups = %016llx\n", groups);
     return groups;
 }
@@ -2227,6 +2237,7 @@ u32 buildLastByteIter(const RoseGraph &g, build_context &bc) {
         auto it = bc.roleStateIndices.find(v);
         if (it != end(bc.roleStateIndices)) {
             lb_roles.push_back(it->second);
+            DEBUG_PRINTF("last byte %u\n", it->second);
         }
     }
 
@@ -5521,6 +5532,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         currOffset = ROUNDUP_CL(currOffset);
         fmatcherOffset = currOffset;
         currOffset += verify_u32(fsize);
+        bc.resources.has_floating = true;
     }
 
     // Build EOD-anchored HWLM matcher.

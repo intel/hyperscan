@@ -202,6 +202,17 @@ void erase_all(C *container, const D &donor) {
     }
 }
 
+
+template<typename C, typename Pred>
+bool any_of_in(const C &c, Pred p) {
+    return std::any_of(c.begin(), c.end(), std::move(p));
+}
+
+template<typename C, typename Pred>
+bool all_of_in(const C &c, Pred p) {
+    return std::all_of(c.begin(), c.end(), std::move(p));
+}
+
 } // namespace ue2
 
 #ifdef DUMP_SUPPORT

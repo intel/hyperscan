@@ -601,6 +601,8 @@ public:
 
     u32 max_rose_anchored_floating_overlap;
 
+    rose_group boundary_group_mask = 0;
+
     QueueIndexFactory qif;
     ReportManager &rm;
     SomSlotManager &ssm;
