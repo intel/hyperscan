@@ -5414,7 +5414,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     DEBUG_PRINTF("longLitLengthThreshold=%zu\n", longLitLengthThreshold);
 
     allocateFinalLiteralId(*this);
-    auto final_to_frag_map = groupByFragment(*this);
+    final_to_frag_map = groupByFragment(*this);
 
     auto anchored_dfas = buildAnchoredDfas(*this);
 

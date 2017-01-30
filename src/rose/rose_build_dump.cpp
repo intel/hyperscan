@@ -505,28 +505,27 @@ void dumpRoseTestLiterals(const RoseBuildImpl &build, const string &base) {
     size_t longLitLengthThreshold =
         calcLongLitThreshold(build, historyRequired);
 
-    const auto final_to_frag_map = groupByFragment(build);
-
-    auto mp = makeMatcherProto(build, final_to_frag_map, ROSE_ANCHORED, false,
-                               longLitLengthThreshold);
+    auto mp = makeMatcherProto(build, build.final_to_frag_map, ROSE_ANCHORED,
+                               false, longLitLengthThreshold);
     dumpTestLiterals(base + "rose_anchored_test_literals.txt", mp.lits);
 
-    mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING, false,
+    mp = makeMatcherProto(build, build.final_to_frag_map, ROSE_FLOATING, false,
                           longLitLengthThreshold);
     dumpTestLiterals(base + "rose_float_test_literals.txt", mp.lits);
 
-    mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING, true,
+    mp = makeMatcherProto(build, build.final_to_frag_map, ROSE_FLOATING, true,
                           longLitLengthThreshold);
     dumpTestLiterals(base + "rose_delay_rebuild_test_literals.txt", mp.lits);
 
-    mp = makeMatcherProto(build, final_to_frag_map, ROSE_EOD_ANCHORED, false,
-                          build.ematcher_region_size);
+    mp = makeMatcherProto(build, build.final_to_frag_map, ROSE_EOD_ANCHORED,
+                          false, build.ematcher_region_size);
     dumpTestLiterals(base + "rose_eod_test_literals.txt", mp.lits);
 
     if (!build.cc.streaming) {
-        mp = makeMatcherProto(build, final_to_frag_map, ROSE_FLOATING, false,
-                              ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
-        auto mp2 = makeMatcherProto(build, final_to_frag_map,
+        mp =
+            makeMatcherProto(build, build.final_to_frag_map, ROSE_FLOATING,
+                             false, ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
+        auto mp2 = makeMatcherProto(build, build.final_to_frag_map,
                                     ROSE_ANCHORED_SMALL_BLOCK, false,
                                     ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
         mp.lits.insert(end(mp.lits), begin(mp2.lits), end(mp2.lits));

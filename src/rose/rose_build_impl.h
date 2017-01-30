@@ -436,6 +436,13 @@ private:
 
 std::set<ReportID> all_reports(const OutfixInfo &outfix);
 
+struct LitFragment {
+    explicit LitFragment(u32 fragment_id_in) : fragment_id(fragment_id_in) {}
+    u32 fragment_id;
+    u32 lit_program_offset = 0;
+    u32 delay_program_offset = 0;
+};
+
 // Concrete impl class
 class RoseBuildImpl : public RoseBuild {
 public:
@@ -587,6 +594,8 @@ public:
     std::map<u32, std::set<u32> > final_id_to_literal; /* final literal id to
                                                         * literal id */
 
+    std::map<u32, LitFragment> final_to_frag_map;
+
     unordered_set<left_id> transient;
     unordered_map<left_id, rose_group> rose_squash_masks;
 
@@ -641,13 +650,6 @@ void normaliseLiteralMask(const ue2_literal &s, std::vector<u8> &msk,
 #ifndef NDEBUG
 bool canImplementGraphs(const RoseBuildImpl &tbi);
 #endif
-
-struct LitFragment {
-    explicit LitFragment(u32 fragment_id_in) : fragment_id(fragment_id_in) {}
-    u32 fragment_id;
-    u32 lit_program_offset = 0;
-    u32 delay_program_offset = 0;
-};
 
 std::map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build);
 
