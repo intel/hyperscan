@@ -70,8 +70,8 @@
 70:/foo[^\x00-\xff]/ #Pattern can never match.
 71:/foo[^\x00-\xff]$/ #Pattern can never match.
 72:/\Bd\B/i{min_length=2,min_offset=4,max_offset=54} #Expression has min_length=2 but can only produce matches of length 1 bytes at most.
-73:/(((.|aaa)aaaaaa.aaa){14,19}a((a|a{5,6}|aa){3,11}|aa.|a){2}){4}\Z/sm #Pattern is too large.
-74:/(((.|aaa)aaaaaa.aaa){14,19}a((a|a{5,6}|aa){3,11}|aa.|a){2}){4}\Z/smL #Pattern is too large.
+73:/(((.|aaa)aaaaaa.aaa){14,19}a((a|a{5,6}|aa){3,11}|aa.|a){2}){40}\Z/sm #Pattern is too large.
+74:/(((.|aaa)aaaaaa.aaa){14,19}a((a|a{5,6}|aa){3,11}|aa.|a){2}){40}\Z/smL #Pattern is too large.
 75:/\B/s8{min_length=1} #Expression has min_length=1 but can only produce matches of length 0 bytes at most.
 76:/(f|d|(\b)|i|a\Z)/mHV8{min_length=2,min_offset=9,max_offset=14} #Expression has min_length=2 but can only produce matches of length 1 bytes at most.
 77:/(f|e|d{19,}|h\Z|^j|\Aa)/smi{min_length=7,min_offset=8,max_offset=18} #Extended parameter constraints can not be satisfied for any match from this expression.
