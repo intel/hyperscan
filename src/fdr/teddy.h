@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -103,15 +103,6 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
 hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
                                                const struct FDR_Runtime_Args *a,
                                                hwlm_group_t control);
-
-hwlm_error_t fdr_exec_teddy_avx2_msks1_fast(const struct FDR *fdr,
-                                            const struct FDR_Runtime_Args *a,
-                                            hwlm_group_t control);
-
-hwlm_error_t
-fdr_exec_teddy_avx2_msks1_pck_fast(const struct FDR *fdr,
-                                   const struct FDR_Runtime_Args *a,
-                                   hwlm_group_t control);
 
 #endif /* __AVX2__ */
 

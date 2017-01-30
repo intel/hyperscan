@@ -65,8 +65,6 @@ bool TeddyEngineDescription::needConfirm(const vector<hwlmLiteral> &lits) const 
 
 void getTeddyDescriptions(vector<TeddyEngineDescription> *out) {
     static const TeddyEngineDef defns[] = {
-        { 1, 0 | HS_CPU_FEATURES_AVX2, 1, 8, false },
-        { 2, 0 | HS_CPU_FEATURES_AVX2, 1, 8, true },
         { 3, 0 | HS_CPU_FEATURES_AVX2, 1, 16, false },
         { 4, 0 | HS_CPU_FEATURES_AVX2, 1, 16, true },
         { 5, 0 | HS_CPU_FEATURES_AVX2, 2, 16, false },

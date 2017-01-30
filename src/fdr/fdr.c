@@ -771,8 +771,8 @@ typedef hwlm_error_t (*FDRFUNCTYPE)(const struct FDR *fdr,
 
 static const FDRFUNCTYPE funcs[] = {
     fdr_engine_exec,
-    ONLY_AVX2(fdr_exec_teddy_avx2_msks1_fast),
-    ONLY_AVX2(fdr_exec_teddy_avx2_msks1_pck_fast),
+    NULL, /* old: fast teddy */
+    NULL, /* old: fast teddy */
     ONLY_AVX2(fdr_exec_teddy_avx2_msks1_fat),
     ONLY_AVX2(fdr_exec_teddy_avx2_msks1_pck_fat),
     ONLY_AVX2(fdr_exec_teddy_avx2_msks2_fat),
