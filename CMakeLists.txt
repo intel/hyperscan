@@ -1048,8 +1048,6 @@ set(hs_dump_SRCS
     src/rose/rose_build_dump.h
     src/rose/rose_in_dump.cpp
     src/rose/rose_in_dump.h
-    src/rose/rose_dump.cpp
-    src/rose/rose_dump.h
     src/util/dump_charclass.cpp
     src/util/dump_charclass.h
     src/util/dump_util.cpp
