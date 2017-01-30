@@ -4707,12 +4707,11 @@ map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build) {
  * - total number of literal fragments
  */
 static
-tuple<u32, u32, u32>
-buildLiteralPrograms(RoseBuildImpl &build, build_context &bc,
-                     map<u32, LitFragment> &final_to_frag_map) {
+tuple<u32, u32, u32> buildLiteralPrograms(RoseBuildImpl &build,
+                                          build_context &bc) {
     // Build a reverse mapping from fragment -> final_id.
     map<u32, flat_set<u32>> frag_to_final_map;
-    for (const auto &m : final_to_frag_map) {
+    for (const auto &m : build.final_to_frag_map) {
         frag_to_final_map[m.second.fragment_id].insert(m.first);
     }
 
@@ -4736,7 +4735,7 @@ buildLiteralPrograms(RoseBuildImpl &build, build_context &bc,
     }
 
     // Update LitFragment entries.
-    for (auto &frag : final_to_frag_map | map_values) {
+    for (auto &frag : build.final_to_frag_map | map_values) {
         frag.lit_program_offset = litPrograms[frag.fragment_id];
         frag.delay_program_offset = delayRebuildPrograms[frag.fragment_id];
     }
@@ -5480,7 +5479,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     u32 litDelayRebuildProgramOffset;
     u32 litProgramCount;
     tie(litProgramOffset, litDelayRebuildProgramOffset, litProgramCount) =
-        buildLiteralPrograms(*this, bc, final_to_frag_map);
+        buildLiteralPrograms(*this, bc);
 
     u32 delayProgramOffset = buildDelayPrograms(*this, bc);
     u32 anchoredProgramOffset = buildAnchoredPrograms(*this, bc);
@@ -5519,8 +5518,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     // Build anchored matcher.
     size_t asize = 0;
     u32 amatcherOffset = 0;
-    auto atable =
-        buildAnchoredMatcher(*this, anchored_dfas, final_to_frag_map, &asize);
+    auto atable = buildAnchoredMatcher(*this, anchored_dfas, &asize);
     if (atable) {
         currOffset = ROUNDUP_CL(currOffset);
         amatcherOffset = currOffset;
@@ -5531,8 +5529,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     rose_group fgroups = 0;
     size_t fsize = 0;
     auto ftable = buildFloatingMatcher(*this, bc.longLitLengthThreshold,
-                                       final_to_frag_map, &fgroups, &fsize,
-                                       &historyRequired);
+                                       &fgroups, &fsize, &historyRequired);
     u32 fmatcherOffset = 0;
     if (ftable) {
         currOffset = ROUNDUP_CL(currOffset);
@@ -5543,8 +5540,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     // Build delay rebuild HWLM matcher.
     size_t drsize = 0;
-    auto drtable = buildDelayRebuildMatcher(*this, bc.longLitLengthThreshold,
-                                            final_to_frag_map, &drsize);
+    auto drtable =
+        buildDelayRebuildMatcher(*this, bc.longLitLengthThreshold, &drsize);
     u32 drmatcherOffset = 0;
     if (drtable) {
         currOffset = ROUNDUP_CL(currOffset);
@@ -5554,7 +5551,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     // Build EOD-anchored HWLM matcher.
     size_t esize = 0;
-    auto etable = buildEodAnchoredMatcher(*this, final_to_frag_map, &esize);
+    auto etable = buildEodAnchoredMatcher(*this, &esize);
     u32 ematcherOffset = 0;
     if (etable) {
         currOffset = ROUNDUP_CL(currOffset);
@@ -5564,7 +5561,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     // Build small-block HWLM matcher.
     size_t sbsize = 0;
-    auto sbtable = buildSmallBlockMatcher(*this, final_to_frag_map, &sbsize);
+    auto sbtable = buildSmallBlockMatcher(*this, &sbsize);
     u32 sbmatcherOffset = 0;
     if (sbtable) {
         currOffset = ROUNDUP_CL(currOffset);

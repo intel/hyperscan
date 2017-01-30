@@ -67,31 +67,25 @@ struct MatcherProto {
  * If max_offset is specified (and not ROSE_BOUND_INF), then literals that can
  * only lead to a pattern match after max_offset may be excluded.
  */
-MatcherProto
-makeMatcherProto(const RoseBuildImpl &build,
-                 const std::map<u32, LitFragment> &final_to_frag_map,
-                 rose_literal_table table, bool delay_rebuild, size_t max_len,
-                 u32 max_offset = ROSE_BOUND_INF);
+MatcherProto makeMatcherProto(const RoseBuildImpl &build,
+                              rose_literal_table table, bool delay_rebuild,
+                              size_t max_len, u32 max_offset = ROSE_BOUND_INF);
 
-aligned_unique_ptr<HWLM>
-buildFloatingMatcher(const RoseBuildImpl &build, size_t longLitLengthThreshold,
-                     const std::map<u32, LitFragment> &final_to_frag_map,
-                     rose_group *fgroups, size_t *fsize,
-                     size_t *historyRequired);
+aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
+                                              size_t longLitLengthThreshold,
+                                              rose_group *fgroups,
+                                              size_t *fsize,
+                                              size_t *historyRequired);
 
-aligned_unique_ptr<HWLM> buildDelayRebuildMatcher(
-    const RoseBuildImpl &build, size_t longLitLengthThreshold,
-    const std::map<u32, LitFragment> &final_to_frag_map, size_t *drsize);
+aligned_unique_ptr<HWLM> buildDelayRebuildMatcher(const RoseBuildImpl &build,
+                                                  size_t longLitLengthThreshold,
+                                                  size_t *drsize);
 
-aligned_unique_ptr<HWLM>
-buildSmallBlockMatcher(const RoseBuildImpl &build,
-                       const std::map<u32, LitFragment> &final_to_frag_map,
-                       size_t *sbsize);
+aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
+                                                size_t *sbsize);
 
-aligned_unique_ptr<HWLM>
-buildEodAnchoredMatcher(const RoseBuildImpl &build,
-                        const std::map<u32, LitFragment> &final_to_frag_map,
-                        size_t *esize);
+aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
+                                                 size_t *esize);
 
 void findMoreLiteralMasks(RoseBuildImpl &build);
 

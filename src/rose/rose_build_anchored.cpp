@@ -848,7 +848,6 @@ vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build) {
 
 aligned_unique_ptr<anchored_matcher_info>
 buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
-                     const map<u32, LitFragment> &final_to_frag_map,
                      size_t *asize) {
     const CompileContext &cc = build.cc;
 
@@ -859,7 +858,7 @@ buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
     }
 
     for (auto &rdfa : dfas) {
-        remapIdsToPrograms(rdfa, final_to_frag_map);
+        remapIdsToPrograms(rdfa, build.final_to_frag_map);
     }
 
     vector<aligned_unique_ptr<NFA>> nfas;
