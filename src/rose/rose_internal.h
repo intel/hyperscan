@@ -344,12 +344,6 @@ struct RoseEngine {
     u32 fmatcherMaxBiAnchoredWidth; /**< maximum number of bytes that can still
                                      * produce a match for a pattern involved
                                      * with the anchored table. */
-    /** \brief Offset of u32 array of program offsets for literals. */
-    u32 litProgramOffset;
-
-    /** \brief Offset of u32 array of delay rebuild program offsets for
-     * literals. */
-    u32 litDelayRebuildProgramOffset;
 
     /**
      * \brief Offset of u32 array of program offsets for reports used by

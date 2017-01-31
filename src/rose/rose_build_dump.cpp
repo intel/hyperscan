@@ -1783,8 +1783,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, eodmatcherMinWidth);
     DUMP_U32(t, amatcherMaxBiAnchoredWidth);
     DUMP_U32(t, fmatcherMaxBiAnchoredWidth);
-    DUMP_U32(t, litProgramOffset);
-    DUMP_U32(t, litDelayRebuildProgramOffset);
     DUMP_U32(t, reportProgramOffset);
     DUMP_U32(t, reportProgramCount);
     DUMP_U32(t, delayProgramOffset);

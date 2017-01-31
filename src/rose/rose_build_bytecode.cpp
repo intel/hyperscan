@@ -4700,15 +4700,10 @@ map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build) {
 /**
  * \brief Build the interpreter programs for each literal.
  *
- * Returns the following as a tuple:
- *
- * - base of the literal program list
- * - base of the delay rebuild program list
- * - total number of literal fragments
+ * Returns the total number of literal fragments.
  */
 static
-tuple<u32, u32, u32> buildLiteralPrograms(RoseBuildImpl &build,
-                                          build_context &bc) {
+u32 buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
     // Build a reverse mapping from fragment -> final_id.
     map<u32, flat_set<u32>> frag_to_final_map;
     for (const auto &m : build.final_to_frag_map) {
@@ -4740,13 +4735,7 @@ tuple<u32, u32, u32> buildLiteralPrograms(RoseBuildImpl &build,
         frag.delay_program_offset = delayRebuildPrograms[frag.fragment_id];
     }
 
-    u32 litProgramsOffset =
-        bc.engine_blob.add(begin(litPrograms), end(litPrograms));
-    u32 delayRebuildProgramsOffset = bc.engine_blob.add(
-        begin(delayRebuildPrograms), end(delayRebuildPrograms));
-
-    return tuple<u32, u32, u32>{litProgramsOffset, delayRebuildProgramsOffset,
-                                num_fragments};
+    return num_fragments;
 }
 
 static
@@ -5475,12 +5464,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                        queue_count - leftfixBeginQueue, leftInfoTable,
                        &laggedRoseCount, &historyRequired);
 
-    u32 litProgramOffset;
-    u32 litDelayRebuildProgramOffset;
-    u32 litProgramCount;
-    tie(litProgramOffset, litDelayRebuildProgramOffset, litProgramCount) =
-        buildLiteralPrograms(*this, bc);
-
+    u32 litProgramCount = buildLiteralPrograms(*this, bc);
     u32 delayProgramOffset = buildDelayPrograms(*this, bc);
     u32 anchoredProgramOffset = buildAnchoredPrograms(*this, bc);
 
@@ -5676,8 +5660,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->needsCatchup = bc.needs_catchup ? 1 : 0;
 
     engine->literalCount = litProgramCount;
-    engine->litProgramOffset = litProgramOffset;
-    engine->litDelayRebuildProgramOffset = litDelayRebuildProgramOffset;
     engine->reportProgramOffset = reportProgramOffset;
     engine->reportProgramCount = reportProgramCount;
     engine->delayProgramOffset = delayProgramOffset;
