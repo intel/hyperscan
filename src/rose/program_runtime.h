@@ -41,6 +41,7 @@
 #include "miracle.h"
 #include "report.h"
 #include "rose.h"
+#include "rose_common.h"
 #include "rose_internal.h"
 #include "rose_program.h"
 #include "rose_types.h"
@@ -1501,6 +1502,7 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
     DEBUG_PRINTF("program=%u, offsets [%llu,%llu], flags=%u\n", programOffset,
                  som, end, prog_flags);
 
+    assert(programOffset != ROSE_INVALID_PROG_OFFSET);
     assert(programOffset >= sizeof(struct RoseEngine));
     assert(programOffset < t->size);
 

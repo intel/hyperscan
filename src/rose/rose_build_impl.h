@@ -31,6 +31,7 @@
 
 #include "rose_build.h"
 #include "rose_build_util.h"
+#include "rose_common.h"
 #include "rose_graph.h"
 #include "nfa/mpvcompile.h"
 #include "nfa/goughcompile.h"
@@ -441,8 +442,8 @@ struct LitFragment {
         : fragment_id(fragment_id_in), groups(groups_in) {}
     u32 fragment_id;
     rose_group groups;
-    u32 lit_program_offset = 0;
-    u32 delay_program_offset = 0;
+    u32 lit_program_offset = ROSE_INVALID_PROG_OFFSET;
+    u32 delay_program_offset = ROSE_INVALID_PROG_OFFSET;
 };
 
 // Concrete impl class

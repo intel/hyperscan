@@ -41,4 +41,7 @@
 /** \brief Length in bytes of a reach bitvector, used by the lookaround code. */
 #define REACH_BITVECTOR_LEN 32
 
+/** \brief Value used to represent an invalid Rose program offset. */
+#define ROSE_INVALID_PROG_OFFSET 0
+
 #endif // ROSE_COMMON_H
