@@ -437,8 +437,10 @@ private:
 std::set<ReportID> all_reports(const OutfixInfo &outfix);
 
 struct LitFragment {
-    explicit LitFragment(u32 fragment_id_in) : fragment_id(fragment_id_in) {}
+    LitFragment(u32 fragment_id_in, rose_group groups_in)
+        : fragment_id(fragment_id_in), groups(groups_in) {}
     u32 fragment_id;
+    rose_group groups;
     u32 lit_program_offset = 0;
     u32 delay_program_offset = 0;
 };

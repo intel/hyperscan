@@ -4650,47 +4650,67 @@ rose_literal_id getFragment(const rose_literal_id &lit) {
 }
 
 static
+rose_group getGroups(const RoseBuildImpl &build, const set<u32> &lit_ids) {
+    rose_group groups = 0;
+    for (auto lit_id : lit_ids) {
+        auto &info = build.literal_info.at(lit_id);
+        groups |= info.group_mask;
+    }
+    return groups;
+}
+
+static
 map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build) {
     u32 frag_id = 0;
     map<u32, LitFragment> final_to_frag;
 
-    map<rose_literal_id, vector<u32>> frag_lits;
+    struct FragmentInfo {
+        vector<u32> final_ids;
+        rose_group groups = 0;
+    };
+
+    map<rose_literal_id, FragmentInfo> frag_info;
+
     for (const auto &m : build.final_id_to_literal) {
         u32 final_id = m.first;
         const auto &lit_ids = m.second;
         assert(!lit_ids.empty());
 
+        auto groups = getGroups(build, lit_ids);
+
         if (lit_ids.size() > 1) {
-            final_to_frag.emplace(final_id, LitFragment(frag_id++));
+            final_to_frag.emplace(final_id, LitFragment(frag_id++, groups));
             continue;
         }
 
         const auto lit_id = *lit_ids.begin();
         const auto &lit = build.literals.right.at(lit_id);
         if (lit.s.length() < ROSE_SHORT_LITERAL_LEN_MAX) {
-            final_to_frag.emplace(final_id, LitFragment(frag_id++));
+            final_to_frag.emplace(final_id, LitFragment(frag_id++, groups));
             continue;
         }
 
         // Combining fragments that squash their groups is unsafe.
         const auto &info = build.literal_info[lit_id];
         if (info.squash_group) {
-            final_to_frag.emplace(final_id, LitFragment(frag_id++));
+            final_to_frag.emplace(final_id, LitFragment(frag_id++, groups));
             continue;
         }
 
         DEBUG_PRINTF("fragment candidate: final_id=%u %s\n", final_id,
                      dumpString(lit.s).c_str());
-        auto frag = getFragment(lit);
-        frag_lits[frag].push_back(final_id);
+        auto &fi = frag_info[getFragment(lit)];
+        fi.final_ids.push_back(final_id);
+        fi.groups |= groups;
     }
 
-    for (const auto &m : frag_lits) {
+    for (const auto &m : frag_info) {
+        const auto &fi = m.second;
         DEBUG_PRINTF("frag %s -> ids: %s\n", dumpString(m.first.s).c_str(),
-                     as_string_list(m.second).c_str());
-        for (const auto final_id : m.second) {
+                     as_string_list(fi.final_ids).c_str());
+        for (const auto final_id : fi.final_ids) {
             assert(!contains(final_to_frag, final_id));
-            final_to_frag.emplace(final_id, LitFragment(frag_id));
+            final_to_frag.emplace(final_id, LitFragment(frag_id, fi.groups));
         }
         frag_id++;
     }

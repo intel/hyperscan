@@ -635,24 +635,6 @@ u64a literalMinReportOffset(const RoseBuildImpl &build,
     return lit_min_offset;
 }
 
-static
-map<u32, hwlm_group_t> makeFragGroupMap(const RoseBuildImpl &build) {
-    map<u32, hwlm_group_t> frag_to_group;
-
-    for (const auto &m : build.final_to_frag_map) {
-        u32 final_id = m.first;
-        u32 frag_id = m.second.fragment_id;
-        hwlm_group_t groups = 0;
-        const auto &lits = build.final_id_to_literal.at(final_id);
-        for (auto lit_id : lits) {
-            groups |= build.literal_info[lit_id].group_mask;
-        }
-        frag_to_group[frag_id] |= groups;
-    }
-
-    return frag_to_group;
-}
-
 template<class Container>
 void trim_to_suffix(Container &c, size_t len) {
     if (c.size() <= len) {
@@ -751,16 +733,13 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
                              cmp);
     }
 
-    auto frag_group_map = makeFragGroupMap(build);
-
     for (auto &lit : mp.lits) {
         u32 final_id = lit.id;
         assert(contains(build.final_to_frag_map, final_id));
         const auto &frag = build.final_to_frag_map.at(final_id);
         lit.id = delay_rebuild ? frag.delay_program_offset
                                : frag.lit_program_offset;
-        assert(contains(frag_group_map, frag.fragment_id));
-        lit.groups = frag_group_map.at(frag.fragment_id);
+        lit.groups = frag.groups;
     }
 
     sort_and_unique(mp.lits);
