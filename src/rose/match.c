@@ -85,7 +85,7 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
 
     DEBUG_PRINTF("STATE groups=0x%016llx\n", tctx->groups);
 
-    assert(id < t->size); // id is a program offset
+    assert(id && id < t->size); // id is a program offset
     const u64a som = 0;
     const size_t match_len = end - start + 1;
     const u8 flags = 0;
@@ -236,10 +236,10 @@ int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx) {
  */
 static really_inline
 hwlmcb_rv_t roseProcessMatchInline(const struct RoseEngine *t,
-                             struct hs_scratch *scratch, u64a end,
-                             size_t match_len, u32 id) {
+                                   struct hs_scratch *scratch, u64a end,
+                                   size_t match_len, u32 id) {
     DEBUG_PRINTF("id=%u\n", id);
-    assert(id < t->size); // id is an offset into bytecode
+    assert(id && id < t->size); // id is an offset into bytecode
     const u64a som = 0;
     const u8 flags = 0;
     return roseRunProgram_i(t, scratch, id, som, end, match_len, flags);
