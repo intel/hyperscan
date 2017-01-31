@@ -2502,27 +2502,6 @@ void fillInSomRevNfas(RoseEngine *engine, const SomSlotManager &ssm,
 }
 
 static
-vector<const rose_literal_info *>
-getLiteralInfoByFinalId(const RoseBuildImpl &build, const build_context &bc,
-                        u32 final_id) {
-    vector<const rose_literal_info *> out;
-
-    const auto &final_id_to_literal = bc.final_id_to_literal;
-    assert(contains(final_id_to_literal, final_id));
-
-    const auto &lits = final_id_to_literal.find(final_id)->second;
-    assert(!lits.empty());
-
-    for (const auto &lit_id : lits) {
-        const rose_literal_info &li = build.literal_info[lit_id];
-        assert(li.final_id == final_id);
-        out.push_back(&li);
-    }
-
-    return out;
-}
-
-static
 void applyFinalSpecialisation(RoseProgram &program) {
     assert(!program.empty());
     assert(program.back().code() == ROSE_INSTR_END);
@@ -4159,10 +4138,10 @@ void addPredBlocks(build_context &bc, map<u32, RoseProgram> &pred_blocks,
 
 static
 void makePushDelayedInstructions(const RoseBuildImpl &build,
-                                 const build_context &bc, u32 final_id,
+                                 const flat_set<u32> &lit_ids,
                                  RoseProgram &program) {
-    const auto &lit_infos = getLiteralInfoByFinalId(build, bc, final_id);
-    const auto &arb_lit_info = **lit_infos.begin();
+    assert(!lit_ids.empty());
+    const auto &arb_lit_info = build.literal_info.at(*lit_ids.begin());
     if (arb_lit_info.delayed_ids.empty()) {
         return;
     }
@@ -4172,8 +4151,7 @@ void makePushDelayedInstructions(const RoseBuildImpl &build,
         u32 child_id = build.literal_info[int_id].final_id;
         u32 delay_index = child_id - build.delay_base_id;
 
-        DEBUG_PRINTF("final_id=%u delay=%u child_id=%u\n", final_id,
-                     child_literal.delay, child_id);
+        DEBUG_PRINTF("delay=%u child_id=%u\n", child_literal.delay, child_id);
 
         auto ri = make_unique<RoseInstrPushDelayed>(
             verify_u8(child_literal.delay), delay_index);
@@ -4182,23 +4160,21 @@ void makePushDelayedInstructions(const RoseBuildImpl &build,
 }
 
 static
-rose_group getFinalIdGroupsUnion(const RoseBuildImpl &build,
-                                 const build_context &bc, u32 final_id) {
-    assert(contains(bc.final_id_to_literal, final_id));
-    const auto &lit_infos = getLiteralInfoByFinalId(build, bc, final_id);
-
+rose_group getLitGroupsUnion(const RoseBuildImpl &build,
+                             const flat_set<u32> &lit_ids) {
     rose_group groups = 0;
-    for (const auto &li : lit_infos) {
-        groups |= li->group_mask;
+    for (auto lit_id : lit_ids) {
+        const auto &info = build.literal_info.at(lit_id);
+        groups |= info.group_mask;
     }
     return groups;
 }
 
 static
 void makeGroupCheckInstruction(const RoseBuildImpl &build,
-                               const build_context &bc, u32 final_id,
+                               const flat_set<u32> &lit_ids,
                                RoseProgram &program) {
-    rose_group groups = getFinalIdGroupsUnion(build, bc, final_id);
+    rose_group groups = getLitGroupsUnion(build, lit_ids);
     if (!groups) {
         return;
     }
@@ -4207,21 +4183,20 @@ void makeGroupCheckInstruction(const RoseBuildImpl &build,
 
 static
 void makeCheckLitMaskInstruction(const RoseBuildImpl &build, build_context &bc,
-                                 u32 final_id, RoseProgram &program) {
-    const auto &lit_infos = getLiteralInfoByFinalId(build, bc, final_id);
-    assert(!lit_infos.empty());
-
-    if (!lit_infos.front()->requires_benefits) {
+                                 const flat_set<u32> &lit_ids,
+                                 RoseProgram &program) {
+    const auto &lit_info = build.literal_info.at(*lit_ids.begin());
+    if (!lit_info.requires_benefits) {
         return;
     }
 
     vector<LookEntry> look;
 
-    assert(bc.final_id_to_literal.at(final_id).size() == 1);
-    u32 lit_id = *bc.final_id_to_literal.at(final_id).begin();
+    assert(lit_ids.size() == 1);
+    u32 lit_id = *lit_ids.begin();
     const ue2_literal &s = build.literals.right.at(lit_id).s;
-    DEBUG_PRINTF("building mask for lit %u (final id %u) %s\n", lit_id,
-                 final_id, dumpString(s).c_str());
+    DEBUG_PRINTF("building mask for lit %u: %s\n", lit_id,
+                 dumpString(s).c_str());
     assert(s.length() <= MAX_MASK2_WIDTH);
     s32 i = 0 - s.length();
     for (const auto &e : s) {
@@ -4237,21 +4212,21 @@ void makeCheckLitMaskInstruction(const RoseBuildImpl &build, build_context &bc,
 
 static
 void makeGroupSquashInstruction(const RoseBuildImpl &build,
-                                const build_context &bc, u32 final_id,
+                                const flat_set<u32> &lit_ids,
                                 RoseProgram &program) {
-    assert(contains(bc.final_id_to_literal, final_id));
-    const auto &lit_infos = getLiteralInfoByFinalId(build, bc, final_id);
-
-    if (!lit_infos.front()->squash_group) {
+    assert(!lit_ids.empty());
+    const u32 lit_id = *lit_ids.begin();
+    const auto &info = build.literal_info[lit_id];
+    if (!info.squash_group) {
         return;
     }
 
-    rose_group groups = getFinalIdGroupsUnion(build, bc, final_id);
+    rose_group groups = getLitGroupsUnion(build, lit_ids);
     if (!groups) {
         return;
     }
 
-    DEBUG_PRINTF("final_id %u squashes 0x%llx\n", final_id, groups);
+    DEBUG_PRINTF("squashes 0x%llx\n", groups);
     program.add_before_end(
         make_unique<RoseInstrSquashGroups>(~groups)); // Note negated.
 }
@@ -4312,7 +4287,7 @@ u32 findMinOffset(const RoseBuildImpl &build, u32 lit_id) {
 
 static
 void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, build_context &bc,
-                                  u32 final_id,
+                                  const flat_set<u32> &lit_ids,
                                   const vector<RoseEdge> &lit_edges,
                                   RoseProgram &program) {
     if (lit_edges.empty()) {
@@ -4328,7 +4303,6 @@ void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, build_context &bc,
         return;
     }
 
-    const auto &lit_ids = bc.final_id_to_literal.at(final_id);
     if (lit_ids.empty()) {
         return;
     }
@@ -4345,8 +4319,8 @@ void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, build_context &bc,
         min_offset = min(min_offset, lit_min_offset);
     }
 
-    DEBUG_PRINTF("final_id=%u has min_len=%zu, min_offset=%u, "
-                 "global min is %u\n", final_id, min_len, min_offset,
+    DEBUG_PRINTF("has min_len=%zu, min_offset=%u, "
+                 "global min is %u\n", min_len, min_offset,
                  bc.floatingMinLiteralMatchOffset);
 
     // If we can't match before the min offset, we don't need the check.
@@ -4367,14 +4341,14 @@ void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, build_context &bc,
 
 static
 void makeCheckLiteralInstruction(const RoseBuildImpl &build,
-                                 const build_context &bc, u32 final_id,
+                                 const build_context &bc,
+                                 const flat_set<u32> &lits,
                                  RoseProgram &program) {
     assert(bc.longLitLengthThreshold > 0);
 
-    DEBUG_PRINTF("final_id %u, long lit threshold %zu\n", final_id,
-                 bc.longLitLengthThreshold);
+    DEBUG_PRINTF("lits [%s], long lit threshold %zu\n",
+                 as_string_list(lits).c_str(), bc.longLitLengthThreshold);
 
-    const auto &lits = bc.final_id_to_literal.at(final_id);
     if (lits.size() != 1) {
         // final_id sharing is only allowed for literals that are short enough
         // to not require any additional confirm work.
@@ -4461,24 +4435,26 @@ RoseProgram buildLitInitialProgram(RoseBuildImpl &build, build_context &bc,
 
     DEBUG_PRINTF("final_id %u\n", final_id);
 
+    const auto &lit_ids = bc.final_id_to_literal.at(final_id);
+
     // Check long literal info.
-    makeCheckLiteralInstruction(build, bc, final_id, program);
+    makeCheckLiteralInstruction(build, bc, lit_ids, program);
 
     // Check lit mask.
-    makeCheckLitMaskInstruction(build, bc, final_id, program);
+    makeCheckLitMaskInstruction(build, bc, lit_ids, program);
 
     // Check literal groups. This is an optimisation that we only perform for
     // delayed literals, as their groups may be switched off; ordinarily, we
     // can trust the HWLM matcher.
     if (hasDelayedLiteral(build, lit_edges)) {
-        makeGroupCheckInstruction(build, bc, final_id, program);
+        makeGroupCheckInstruction(build, lit_ids, program);
     }
 
     // Add instructions for pushing delayed matches, if there are any.
-    makePushDelayedInstructions(build, bc, final_id, program);
+    makePushDelayedInstructions(build, lit_ids, program);
 
     // Add pre-check for early literals in the floating table.
-    makeCheckLitEarlyInstruction(build, bc, final_id, lit_edges, program);
+    makeCheckLitEarlyInstruction(build, bc, lit_ids, lit_edges, program);
 
     return program;
 }
@@ -4525,10 +4501,11 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
     }
 
     if (final_id != MO_INVALID_IDX) {
+        const auto &lit_ids = bc.final_id_to_literal.at(final_id);
         RoseProgram root_block;
 
         // Literal may squash groups.
-        makeGroupSquashInstruction(build, bc, final_id, root_block);
+        makeGroupSquashInstruction(build, lit_ids, root_block);
 
         // Literal may be anchored and need to be recorded.
         makeRecordAnchoredInstruction(build, bc, final_id, root_block);
@@ -4588,16 +4565,18 @@ u32 buildDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
     RoseProgram program;
 
     for (const auto &final_id : final_ids) {
-        const auto &lit_infos = getLiteralInfoByFinalId(build, bc, final_id);
-        const auto &arb_lit_info = **lit_infos.begin();
+        const auto &lit_ids = bc.final_id_to_literal.at(final_id);
+        assert(!lit_ids.empty());
+
+        const auto &arb_lit_info = build.literal_info.at(*lit_ids.begin());
         if (arb_lit_info.delayed_ids.empty()) {
             continue; // No delayed IDs, no work to do.
         }
 
         RoseProgram prog;
-        makeCheckLiteralInstruction(build, bc, final_id, prog);
-        makeCheckLitMaskInstruction(build, bc, final_id, prog);
-        makePushDelayedInstructions(build, bc, final_id, prog);
+        makeCheckLiteralInstruction(build, bc, lit_ids, prog);
+        makeCheckLitMaskInstruction(build, bc, lit_ids, prog);
+        makePushDelayedInstructions(build, lit_ids, prog);
         program.add_block(move(prog));
     }
 
