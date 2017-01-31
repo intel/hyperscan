@@ -650,6 +650,11 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
                               size_t max_len, u32 max_offset) {
     MatcherProto mp;
 
+    if (delay_rebuild) {
+        assert(table == ROSE_FLOATING);
+        assert(build.cc.streaming);
+    }
+
     for (const auto &e : build.literals.right) {
         const u32 id = e.first;
         if (!build.hasFinalId(id)) {
