@@ -4699,11 +4699,9 @@ map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build) {
 
 /**
  * \brief Build the interpreter programs for each literal.
- *
- * Returns the total number of literal fragments.
  */
 static
-u32 buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
+void buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
     // Build a reverse mapping from fragment -> final_id.
     map<u32, flat_set<u32>> frag_to_final_map;
     for (const auto &m : build.final_to_frag_map) {
@@ -4734,8 +4732,6 @@ u32 buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
         frag.lit_program_offset = litPrograms[frag.fragment_id];
         frag.delay_program_offset = delayRebuildPrograms[frag.fragment_id];
     }
-
-    return num_fragments;
 }
 
 static
@@ -5464,7 +5460,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                        queue_count - leftfixBeginQueue, leftInfoTable,
                        &laggedRoseCount, &historyRequired);
 
-    u32 litProgramCount = buildLiteralPrograms(*this, bc);
+    buildLiteralPrograms(*this, bc);
     u32 delayProgramOffset = buildDelayPrograms(*this, bc);
     u32 anchoredProgramOffset = buildAnchoredPrograms(*this, bc);
 
@@ -5659,7 +5655,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     engine->needsCatchup = bc.needs_catchup ? 1 : 0;
 
-    engine->literalCount = litProgramCount;
     engine->reportProgramOffset = reportProgramOffset;
     engine->reportProgramCount = reportProgramCount;
     engine->delayProgramOffset = delayProgramOffset;

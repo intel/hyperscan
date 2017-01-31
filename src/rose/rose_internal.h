@@ -367,14 +367,6 @@ struct RoseEngine {
      */
     u32 anchoredProgramOffset;
 
-    /**
-     * \brief Number of entries in the arrays pointed to by litProgramOffset,
-     * litDelayRebuildProgramOffset.
-     *
-     * Note: NOT the total number of literals.
-     */
-    u32 literalCount;
-
     u32 activeArrayCount; //number of nfas tracked in the active array
     u32 activeLeftCount; //number of nfas tracked in the active rose array
     u32 queueCount;      /**< number of nfa queues */

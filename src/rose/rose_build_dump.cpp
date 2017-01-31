@@ -1696,7 +1696,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     fprintf(f, "\n");
 
     fprintf(f, "total literal count  : %u\n", t->totalNumLiterals);
-    fprintf(f, "  prog table size    : %u\n", t->literalCount);
     fprintf(f, "  delayed literals   : %u\n", t->delay_count);
 
     fprintf(f, "\n");
@@ -1787,7 +1786,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, reportProgramCount);
     DUMP_U32(t, delayProgramOffset);
     DUMP_U32(t, anchoredProgramOffset);
-    DUMP_U32(t, literalCount);
     DUMP_U32(t, activeArrayCount);
     DUMP_U32(t, activeLeftCount);
     DUMP_U32(t, queueCount);
