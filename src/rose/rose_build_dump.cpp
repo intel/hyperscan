@@ -1140,35 +1140,29 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
 #undef PROGRAM_NEXT_INSTRUCTION
 
 static
-void dumpRoseLitPrograms(const RoseEngine *t, const string &filename) {
+void dumpRoseLitPrograms(const RoseBuildImpl &build, const RoseEngine *t,
+                         const string &filename) {
     ofstream os(filename);
 
-    const u32 *litPrograms =
-        (const u32 *)loadFromByteCodeOffset(t, t->litProgramOffset);
-    const u32 *delayRebuildPrograms =
-        (const u32 *)loadFromByteCodeOffset(t, t->litDelayRebuildProgramOffset);
+    // Collect all programs referenced by a literal fragment.
+    vector<u32> programs;
+    programs.reserve(build.final_to_frag_map.size());
 
-    for (u32 i = 0; i < t->literalCount; i++) {
-        os << "Literal " << i << endl;
-        os << "---------------" << endl;
-
-        if (litPrograms[i]) {
-            os << "Program @ " << litPrograms[i] << ":" << endl;
-            const char *prog =
-                (const char *)loadFromByteCodeOffset(t, litPrograms[i]);
-            dumpProgram(os, t, prog);
-        } else {
-            os << "<No Program>" << endl;
+    for (const auto &m : build.final_to_frag_map) {
+        const auto &frag = m.second;
+        if (frag.lit_program_offset) {
+            programs.push_back(frag.lit_program_offset);
         }
-
-        if (delayRebuildPrograms[i]) {
-            os << "Delay Rebuild Program @ " << delayRebuildPrograms[i] << ":"
-               << endl;
-            const char *prog = (const char *)loadFromByteCodeOffset(
-                t, delayRebuildPrograms[i]);
-            dumpProgram(os, t, prog);
+        if (frag.delay_program_offset) {
+            programs.push_back(frag.delay_program_offset);
         }
+    }
+    sort_and_unique(programs);
 
+    for (u32 prog_offset : programs) {
+        os << "Program @ " << prog_offset << ":" << endl;
+        const char *prog = (const char *)loadFromByteCodeOffset(t, prog_offset);
+        dumpProgram(os, t, prog);
         os << endl;
     }
 
@@ -1200,30 +1194,6 @@ void dumpRoseReportPrograms(const RoseEngine *t, const string &filename) {
 
     for (u32 i = 0; i < t->reportProgramCount; i++) {
         os << "Report " << i << endl;
-        os << "---------------" << endl;
-
-        if (programs[i]) {
-            os << "Program @ " << programs[i] << ":" << endl;
-            const char *prog =
-                (const char *)loadFromByteCodeOffset(t, programs[i]);
-            dumpProgram(os, t, prog);
-        } else {
-            os << "<No Program>" << endl;
-        }
-    }
-
-    os.close();
-}
-
-static
-void dumpRoseDelayPrograms(const RoseEngine *t, const string &filename) {
-    ofstream os(filename);
-
-    const u32 *programs =
-        (const u32 *)loadFromByteCodeOffset(t, t->delayProgramOffset);
-
-    for (u32 i = 0; i < t->delay_count; i++) {
-        os << "Delay entry " << i << endl;
         os << "---------------" << endl;
 
         if (programs[i]) {
@@ -1896,10 +1866,14 @@ void roseDumpComponents(const RoseEngine *t, bool dump_raw,
     dumpAnchored(t, base);
     dumpRevComponentInfo(t, base);
     dumpRevNfas(t, dump_raw, base);
-    dumpRoseLitPrograms(t, base + "/rose_lit_programs.txt");
+}
+
+static
+void roseDumpPrograms(const RoseBuildImpl &build, const RoseEngine *t,
+                      const string &base) {
+    dumpRoseLitPrograms(build, t, base + "/rose_lit_programs.txt");
     dumpRoseEodPrograms(t, base + "/rose_eod_programs.txt");
     dumpRoseReportPrograms(t, base + "/rose_report_programs.txt");
-    dumpRoseDelayPrograms(t, base + "/rose_delay_programs.txt");
     dumpRoseAnchoredPrograms(t, base + "/rose_anchored_programs.txt");
 }
 
@@ -1928,6 +1902,7 @@ void dumpRose(const RoseBuild &build_base, const RoseEngine *t,
     fclose(f);
 
     roseDumpComponents(t, false, grey.dumpPath);
+    roseDumpPrograms(build, t, grey.dumpPath);
 
     // Graph.
     dumpRoseGraph(build, t, "rose.dot");
