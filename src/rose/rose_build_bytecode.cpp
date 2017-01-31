@@ -4649,6 +4649,7 @@ rose_literal_id getFragment(const rose_literal_id &lit) {
     return frag;
 }
 
+static
 map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build) {
     u32 frag_id = 0;
     map<u32, LitFragment> final_to_frag;

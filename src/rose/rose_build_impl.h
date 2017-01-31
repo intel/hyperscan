@@ -651,8 +651,6 @@ void normaliseLiteralMask(const ue2_literal &s, std::vector<u8> &msk,
 bool canImplementGraphs(const RoseBuildImpl &tbi);
 #endif
 
-std::map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build);
-
 } // namespace ue2
 
 #endif /* ROSE_BUILD_IMPL_H_17E20A3C6935D6 */
