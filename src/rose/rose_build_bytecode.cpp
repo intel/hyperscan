@@ -243,6 +243,9 @@ struct build_context : boost::noncopyable {
 
     /** \brief Global bitmap of groups that can be squashed. */
     rose_group squashable_groups = 0;
+
+    /** \brief Mapping from final ID to the set of literals it is used for. */
+    map<u32, flat_set<u32>> final_id_to_literal;
 };
 
 /** \brief subengine info including built engine and
@@ -2500,10 +2503,11 @@ void fillInSomRevNfas(RoseEngine *engine, const SomSlotManager &ssm,
 
 static
 vector<const rose_literal_info *>
-getLiteralInfoByFinalId(const RoseBuildImpl &build, u32 final_id) {
+getLiteralInfoByFinalId(const RoseBuildImpl &build, const build_context &bc,
+                        u32 final_id) {
     vector<const rose_literal_info *> out;
 
-    const auto &final_id_to_literal = build.final_id_to_literal;
+    const auto &final_id_to_literal = bc.final_id_to_literal;
     assert(contains(final_id_to_literal, final_id));
 
     const auto &lits = final_id_to_literal.find(final_id)->second;
@@ -4154,9 +4158,10 @@ void addPredBlocks(build_context &bc, map<u32, RoseProgram> &pred_blocks,
 }
 
 static
-void makePushDelayedInstructions(const RoseBuildImpl &build, u32 final_id,
+void makePushDelayedInstructions(const RoseBuildImpl &build,
+                                 const build_context &bc, u32 final_id,
                                  RoseProgram &program) {
-    const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
+    const auto &lit_infos = getLiteralInfoByFinalId(build, bc, final_id);
     const auto &arb_lit_info = **lit_infos.begin();
     if (arb_lit_info.delayed_ids.empty()) {
         return;
@@ -4177,9 +4182,10 @@ void makePushDelayedInstructions(const RoseBuildImpl &build, u32 final_id,
 }
 
 static
-rose_group getFinalIdGroupsUnion(const RoseBuildImpl &build, u32 final_id) {
-    assert(contains(build.final_id_to_literal, final_id));
-    const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
+rose_group getFinalIdGroupsUnion(const RoseBuildImpl &build,
+                                 const build_context &bc, u32 final_id) {
+    assert(contains(bc.final_id_to_literal, final_id));
+    const auto &lit_infos = getLiteralInfoByFinalId(build, bc, final_id);
 
     rose_group groups = 0;
     for (const auto &li : lit_infos) {
@@ -4189,9 +4195,10 @@ rose_group getFinalIdGroupsUnion(const RoseBuildImpl &build, u32 final_id) {
 }
 
 static
-void makeGroupCheckInstruction(const RoseBuildImpl &build, u32 final_id,
+void makeGroupCheckInstruction(const RoseBuildImpl &build,
+                               const build_context &bc, u32 final_id,
                                RoseProgram &program) {
-    rose_group groups = getFinalIdGroupsUnion(build, final_id);
+    rose_group groups = getFinalIdGroupsUnion(build, bc, final_id);
     if (!groups) {
         return;
     }
@@ -4201,8 +4208,7 @@ void makeGroupCheckInstruction(const RoseBuildImpl &build, u32 final_id,
 static
 void makeCheckLitMaskInstruction(const RoseBuildImpl &build, build_context &bc,
                                  u32 final_id, RoseProgram &program) {
-    assert(contains(build.final_id_to_literal, final_id));
-    const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
+    const auto &lit_infos = getLiteralInfoByFinalId(build, bc, final_id);
     assert(!lit_infos.empty());
 
     if (!lit_infos.front()->requires_benefits) {
@@ -4211,8 +4217,8 @@ void makeCheckLitMaskInstruction(const RoseBuildImpl &build, build_context &bc,
 
     vector<LookEntry> look;
 
-    assert(build.final_id_to_literal.at(final_id).size() == 1);
-    u32 lit_id = *build.final_id_to_literal.at(final_id).begin();
+    assert(bc.final_id_to_literal.at(final_id).size() == 1);
+    u32 lit_id = *bc.final_id_to_literal.at(final_id).begin();
     const ue2_literal &s = build.literals.right.at(lit_id).s;
     DEBUG_PRINTF("building mask for lit %u (final id %u) %s\n", lit_id,
                  final_id, dumpString(s).c_str());
@@ -4230,16 +4236,17 @@ void makeCheckLitMaskInstruction(const RoseBuildImpl &build, build_context &bc,
 }
 
 static
-void makeGroupSquashInstruction(const RoseBuildImpl &build, u32 final_id,
+void makeGroupSquashInstruction(const RoseBuildImpl &build,
+                                const build_context &bc, u32 final_id,
                                 RoseProgram &program) {
-    assert(contains(build.final_id_to_literal, final_id));
-    const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
+    assert(contains(bc.final_id_to_literal, final_id));
+    const auto &lit_infos = getLiteralInfoByFinalId(build, bc, final_id);
 
     if (!lit_infos.front()->squash_group) {
         return;
     }
 
-    rose_group groups = getFinalIdGroupsUnion(build, final_id);
+    rose_group groups = getFinalIdGroupsUnion(build, bc, final_id);
     if (!groups) {
         return;
     }
@@ -4266,8 +4273,8 @@ static
 void makeRecordAnchoredInstruction(const RoseBuildImpl &build,
                                    build_context &bc, u32 final_id,
                                    RoseProgram &program) {
-    assert(contains(build.final_id_to_literal, final_id));
-    const auto &lit_ids = build.final_id_to_literal.at(final_id);
+    assert(contains(bc.final_id_to_literal, final_id));
+    const auto &lit_ids = bc.final_id_to_literal.at(final_id);
 
     // Must be anchored.
     assert(!lit_ids.empty());
@@ -4321,7 +4328,7 @@ void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, build_context &bc,
         return;
     }
 
-    const auto &lit_ids = build.final_id_to_literal.at(final_id);
+    const auto &lit_ids = bc.final_id_to_literal.at(final_id);
     if (lit_ids.empty()) {
         return;
     }
@@ -4367,7 +4374,7 @@ void makeCheckLiteralInstruction(const RoseBuildImpl &build,
     DEBUG_PRINTF("final_id %u, long lit threshold %zu\n", final_id,
                  bc.longLitLengthThreshold);
 
-    const auto &lits = build.final_id_to_literal.at(final_id);
+    const auto &lits = bc.final_id_to_literal.at(final_id);
     if (lits.size() != 1) {
         // final_id sharing is only allowed for literals that are short enough
         // to not require any additional confirm work.
@@ -4464,11 +4471,11 @@ RoseProgram buildLitInitialProgram(RoseBuildImpl &build, build_context &bc,
     // delayed literals, as their groups may be switched off; ordinarily, we
     // can trust the HWLM matcher.
     if (hasDelayedLiteral(build, lit_edges)) {
-        makeGroupCheckInstruction(build, final_id, program);
+        makeGroupCheckInstruction(build, bc, final_id, program);
     }
 
     // Add instructions for pushing delayed matches, if there are any.
-    makePushDelayedInstructions(build, final_id, program);
+    makePushDelayedInstructions(build, bc, final_id, program);
 
     // Add pre-check for early literals in the floating table.
     makeCheckLitEarlyInstruction(build, bc, final_id, lit_edges, program);
@@ -4521,7 +4528,7 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
         RoseProgram root_block;
 
         // Literal may squash groups.
-        makeGroupSquashInstruction(build, final_id, root_block);
+        makeGroupSquashInstruction(build, bc, final_id, root_block);
 
         // Literal may be anchored and need to be recorded.
         makeRecordAnchoredInstruction(build, bc, final_id, root_block);
@@ -4581,7 +4588,7 @@ u32 buildDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
     RoseProgram program;
 
     for (const auto &final_id : final_ids) {
-        const auto &lit_infos = getLiteralInfoByFinalId(build, final_id);
+        const auto &lit_infos = getLiteralInfoByFinalId(build, bc, final_id);
         const auto &arb_lit_info = **lit_infos.begin();
         if (arb_lit_info.delayed_ids.empty()) {
             continue; // No delayed IDs, no work to do.
@@ -4590,7 +4597,7 @@ u32 buildDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
         RoseProgram prog;
         makeCheckLiteralInstruction(build, bc, final_id, prog);
         makeCheckLitMaskInstruction(build, bc, final_id, prog);
-        makePushDelayedInstructions(build, final_id, prog);
+        makePushDelayedInstructions(build, bc, final_id, prog);
         program.add_block(move(prog));
     }
 
@@ -4650,7 +4657,7 @@ rose_literal_id getFragment(const rose_literal_id &lit) {
 }
 
 static
-rose_group getGroups(const RoseBuildImpl &build, const set<u32> &lit_ids) {
+rose_group getGroups(const RoseBuildImpl &build, const flat_set<u32> &lit_ids) {
     rose_group groups = 0;
     for (auto lit_id : lit_ids) {
         auto &info = build.literal_info.at(lit_id);
@@ -4660,7 +4667,8 @@ rose_group getGroups(const RoseBuildImpl &build, const set<u32> &lit_ids) {
 }
 
 static
-map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build) {
+map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build,
+                                      const build_context &bc) {
     u32 frag_id = 0;
     map<u32, LitFragment> final_to_frag;
 
@@ -4671,7 +4679,7 @@ map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build) {
 
     map<rose_literal_id, FragmentInfo> frag_info;
 
-    for (const auto &m : build.final_id_to_literal) {
+    for (const auto &m : bc.final_id_to_literal) {
         u32 final_id = m.first;
         const auto &lit_ids = m.second;
         assert(!lit_ids.empty());
@@ -4762,7 +4770,7 @@ u32 buildDelayPrograms(RoseBuildImpl &build, build_context &bc) {
     vector<u32> programs;
 
     for (u32 final_id = build.delay_base_id;
-         final_id < build.final_id_to_literal.size(); final_id++) {
+         final_id < bc.final_id_to_literal.size(); final_id++) {
         u32 offset = writeLiteralProgram(build, bc, {final_id}, lit_edge_map);
         programs.push_back(offset);
     }
@@ -5143,11 +5151,11 @@ u32 buildEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
 }
 
 static
-void allocateFinalIdToSet(RoseBuildImpl &build, const set<u32> &lits,
-                          u32 *next_final_id) {
+void allocateFinalIdToSet(RoseBuildImpl &build, build_context &bc,
+                          const set<u32> &lits, u32 *next_final_id) {
     const auto &g = build.g;
     auto &literal_info = build.literal_info;
-    auto &final_id_to_literal = build.final_id_to_literal;
+    auto &final_id_to_literal = bc.final_id_to_literal;
 
     /* We can allocate the same final id to multiple literals of the same type
      * if they share the same vertex set and trigger the same delayed literal
@@ -5262,13 +5270,13 @@ bool isUsedLiteral(const RoseBuildImpl &build, u32 lit_id) {
 
 /** \brief Allocate final literal IDs for all literals.  */
 static
-void allocateFinalLiteralId(RoseBuildImpl &build) {
+void allocateFinalLiteralId(RoseBuildImpl &build, build_context &bc) {
     set<u32> anch;
     set<u32> norm;
     set<u32> delay;
 
     /* undelayed ids come first */
-    assert(build.final_id_to_literal.empty());
+    assert(bc.final_id_to_literal.empty());
     u32 next_final_id = 0;
     for (u32 i = 0; i < build.literal_info.size(); i++) {
         assert(!build.hasFinalId(i));
@@ -5296,15 +5304,15 @@ void allocateFinalLiteralId(RoseBuildImpl &build) {
     }
 
     /* normal lits */
-    allocateFinalIdToSet(build, norm, &next_final_id);
+    allocateFinalIdToSet(build, bc, norm, &next_final_id);
 
     /* next anchored stuff */
     build.anchored_base_id = next_final_id;
-    allocateFinalIdToSet(build, anch, &next_final_id);
+    allocateFinalIdToSet(build, bc, anch, &next_final_id);
 
     /* delayed ids come last */
     build.delay_base_id = next_final_id;
-    allocateFinalIdToSet(build, delay, &next_final_id);
+    allocateFinalIdToSet(build, bc, delay, &next_final_id);
 }
 
 static
@@ -5418,12 +5426,12 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                                                          historyRequired);
     DEBUG_PRINTF("longLitLengthThreshold=%zu\n", longLitLengthThreshold);
 
-    allocateFinalLiteralId(*this);
-    final_to_frag_map = groupByFragment(*this);
+    build_context bc;
+    allocateFinalLiteralId(*this, bc);
+    final_to_frag_map = groupByFragment(*this, bc);
 
     auto anchored_dfas = buildAnchoredDfas(*this);
 
-    build_context bc;
     bc.floatingMinLiteralMatchOffset =
         findMinFloatingLiteralMatch(*this, anchored_dfas);
     bc.longLitLengthThreshold = longLitLengthThreshold;
@@ -5710,7 +5718,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->lastByteHistoryIterOffset = lastByteOffset;
 
     engine->delay_count =
-        verify_u32(final_id_to_literal.size() - delay_base_id);
+        verify_u32(bc.final_id_to_literal.size() - delay_base_id);
     engine->delay_fatbit_size = fatbit_size(engine->delay_count);
     engine->delay_base_id = delay_base_id;
     engine->anchored_base_id = anchored_base_id;
