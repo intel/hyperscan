@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -852,12 +852,6 @@ bool splitOffLeadingLiteral(const NGHolder &g, ue2_literal *lit_out,
                             NGHolder *rhs) {
     return splitOffLeadingLiteral_i(g, false, lit_out, rhs);
 }
-
-bool splitOffAnchoredLeadingLiteral(const NGHolder &g, ue2_literal *lit_out,
-                                    NGHolder *rhs) {
-    return splitOffLeadingLiteral_i(g, true, lit_out, rhs);
-}
-
 
 bool getTrailingLiteral(const NGHolder &g, ue2_literal *lit_out) {
     if (in_degree(g.acceptEod, g) != 1) {
