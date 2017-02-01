@@ -460,13 +460,24 @@ void findFloodReach(const RoseBuildImpl &tbi, const RoseVertex v,
     }
 }
 
-static
-map<s32, CharReach> findLiteralReach(const rose_literal_id &lit) {
-    map<s32, CharReach> look;
 
-    u32 i = lit.delay + 1;
-    for (auto it = lit.s.rbegin(), ite = lit.s.rend(); it != ite; ++it) {
-        look[0 - i] |= *it;
+namespace {
+struct LookProto {
+    LookProto(s32 offset_in, CharReach reach_in)
+        : offset(offset_in), reach(move(reach_in)) {}
+    s32 offset;
+    CharReach reach;
+};
+}
+
+static
+vector<LookProto> findLiteralReach(const rose_literal_id &lit) {
+    vector<LookProto> look;
+    look.reserve(lit.s.length());
+
+    s32 i = 0 - lit.s.length() - lit.delay;
+    for (const auto &c : lit.s) {
+        look.emplace_back(i, c);
         i++;
     }
 
@@ -478,22 +489,40 @@ map<s32, CharReach> findLiteralReach(const RoseBuildImpl &build,
                                      const RoseVertex v) {
     bool first = true;
     map<s32, CharReach> look;
+
     for (u32 lit_id : build.g[v].literals) {
         const rose_literal_id &lit = build.literals.right.at(lit_id);
         auto lit_look = findLiteralReach(lit);
 
         if (first) {
-            look = move(lit_look);
+            for (auto &p : lit_look) {
+                look.emplace(p.offset, p.reach);
+            }
             first = false;
-        } else {
-            for (auto it = look.begin(); it != look.end();) {
-                auto l_it = lit_look.find(it->first);
-                if (l_it == lit_look.end()) {
-                    it = look.erase(it);
-                } else {
-                    it->second |= l_it->second;
-                    ++it;
-                }
+            continue;
+        }
+
+        // Erase elements from look with keys not in lit_look. Where a key is
+        // in both maps, union its reach with the lookaround.
+        auto jt = begin(lit_look);
+        for (auto it = begin(look); it != end(look);) {
+            if (jt == end(lit_look)) {
+                // No further lit_look entries, erase remaining elements from
+                // look.
+                look.erase(it, end(look));
+                break;
+            }
+            if (it->first < jt->offset) {
+                // Offset is present in look but not in lit_look, erase.
+                it = look.erase(it);
+            } else if (it->first > jt->offset) {
+                // Offset is preset in lit_look but not in look, ignore.
+                ++jt;
+            } else {
+                // Offset is present in both, union its reach with look.
+                it->second |= jt->reach;
+                ++it;
+                ++jt;
             }
         }
     }
