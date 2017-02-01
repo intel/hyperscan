@@ -1125,6 +1125,8 @@ bool attemptRoseGraphMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
     shared_ptr<NGHolder> a_h = a_left.graph;
     shared_ptr<NGHolder> b_h = b_left.graph;
     assert(a_h && b_h);
+    assert(isImplementableNFA(*a_h, nullptr, build.cc));
+    assert(isImplementableNFA(*b_h, nullptr, build.cc));
 
     // If we only differ in reports, this is a very easy merge. Just use b's
     // report for both.
@@ -1214,6 +1216,11 @@ bool attemptRoseGraphMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
         shared_ptr<NGHolder> new_graph = cloneHolder(*b_h);
         duplicateReport(*new_graph, b_left.leftfix_report, new_report);
         pruneAllOtherReports(*new_graph, new_report);
+
+        if (!isImplementableNFA(*new_graph, nullptr, build.cc)) {
+            DEBUG_PRINTF("new graph not implementable\n");
+            return false;
+        }
 
         rai.rev_leftfix[a_left_id].erase(a);
         rai.rev_leftfix[b_left_id].erase(b);
