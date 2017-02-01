@@ -734,54 +734,29 @@ vector<u64a> scoreEdges(const NGHolder &g, const flat_set<NFAEdge> &known_bad) {
     return scores;
 }
 
-static
-bool splitOffLeadingLiteral_i(const NGHolder &g, bool anch,
-                              ue2_literal *lit_out,
-                              NGHolder *rhs) {
-    NFAVertex u;
-    NFAVertex v;
+bool splitOffLeadingLiteral(const NGHolder &g, ue2_literal *lit_out,
+                            NGHolder *rhs) {
+    DEBUG_PRINTF("looking for leading floating literal\n");
+    set<NFAVertex> s_succ;
+    insert(&s_succ, adjacent_vertices(g.start, g));
 
-    if (!anch) {
-        DEBUG_PRINTF("looking for leading floating literal\n");
-        set<NFAVertex> s_succ;
-        insert(&s_succ, adjacent_vertices(g.start, g));
+    set<NFAVertex> sds_succ;
+    insert(&sds_succ, adjacent_vertices(g.startDs, g));
 
-        set<NFAVertex> sds_succ;
-        insert(&sds_succ, adjacent_vertices(g.startDs, g));
-
-        bool floating = is_subset_of(s_succ, sds_succ);
-        if (!floating) {
-            DEBUG_PRINTF("not floating\n");
-            return false;
-        }
-
-        sds_succ.erase(g.startDs);
-        if (sds_succ.size() != 1) {
-            DEBUG_PRINTF("branchy root\n");
-            return false;
-        }
-
-        u = g.startDs;
-        v = *sds_succ.begin();
-    } else {
-        DEBUG_PRINTF("looking for leading anchored literal\n");
-
-        if (proper_out_degree(g.startDs, g)) {
-            DEBUG_PRINTF("not anchored\n");
-            return false;
-        }
-
-        set<NFAVertex> s_succ;
-        insert(&s_succ, adjacent_vertices(g.start, g));
-        s_succ.erase(g.startDs);
-        if (s_succ.size() != 1) {
-            DEBUG_PRINTF("branchy root\n");
-            return false;
-        }
-
-        u = g.start;
-        v = *s_succ.begin();
+    bool floating = is_subset_of(s_succ, sds_succ);
+    if (!floating) {
+        DEBUG_PRINTF("not floating\n");
+        return false;
     }
+
+    sds_succ.erase(g.startDs);
+    if (sds_succ.size() != 1) {
+        DEBUG_PRINTF("branchy root\n");
+        return false;
+    }
+
+    NFAVertex u = g.startDs;
+    NFAVertex v = *sds_succ.begin();
 
     while (true) {
         DEBUG_PRINTF("validating vertex %zu\n", g[v].index);
@@ -838,19 +813,13 @@ bool splitOffLeadingLiteral_i(const NGHolder &g, bool anch,
     assert(u != g.startDs);
 
     ue2::unordered_map<NFAVertex, NFAVertex> rhs_map;
-    vector<NFAVertex> pivots;
-    insert(&pivots, pivots.end(), adjacent_vertices(u, g));
+    vector<NFAVertex> pivots = make_vector_from(adjacent_vertices(u, g));
     splitRHS(g, pivots, rhs, &rhs_map);
 
     DEBUG_PRINTF("literal is '%s' (len %zu)\n", dumpString(*lit_out).c_str(),
                  lit_out->length());
     assert(is_triggered(*rhs));
     return true;
-}
-
-bool splitOffLeadingLiteral(const NGHolder &g, ue2_literal *lit_out,
-                            NGHolder *rhs) {
-    return splitOffLeadingLiteral_i(g, false, lit_out, rhs);
 }
 
 bool getTrailingLiteral(const NGHolder &g, ue2_literal *lit_out) {
