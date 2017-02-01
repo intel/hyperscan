@@ -509,8 +509,6 @@ public:
     // Is the Rose anchored?
     bool hasNoFloatingRoots() const;
 
-    RoseVertex cloneVertex(RoseVertex v);
-
     u32 calcHistoryRequired() const;
 
     rose_group getInitialGroups() const;

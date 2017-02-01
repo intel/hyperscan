@@ -866,17 +866,6 @@ bool operator<(const RoseEdgeProps &a, const RoseEdgeProps &b) {
     return false;
 }
 
-// Note: only clones the vertex, you'll have to wire up your own edges.
-RoseVertex RoseBuildImpl::cloneVertex(RoseVertex v) {
-    RoseVertex v2 = add_vertex(g[v], g);
-
-    for (const auto &lit_id : g[v2].literals) {
-        literal_info[lit_id].vertices.insert(v2);
-    }
-
-    return v2;
-}
-
 #ifndef NDEBUG
 bool roseHasTops(const RoseBuildImpl &build, RoseVertex v) {
     const RoseGraph &g = build.g;
