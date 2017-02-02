@@ -560,13 +560,13 @@ unichar readUtf8CodePoint4c(const char *s) {
             throw LocatedParseError("(*UCP) must be at start of "
                                     "expression, encountered");
         };
-        'UTF16)' => {
-            throw LocatedParseError("(*UTF16) not supported");
-        };
-        'UTF32)' => {
-            throw LocatedParseError("(*UTF32) not supported");
-        };
-        any => {
+        # Use the control verb mini-parser to report an error for this
+        # unsupported/unknown verb.
+        [^)]+ ')' => {
+            ParseMode temp_mode;
+            assert(ts - 2 >= ptr); // parser needs the '(*' at the start too.
+            read_control_verbs(ts - 2, te, (ts - 2 - ptr), temp_mode);
+            assert(0); // Should have thrown a parse error.
             throw LocatedParseError("Unknown control verb");
         };
     *|;
@@ -1838,7 +1838,7 @@ unique_ptr<Component> parse(const char *ptr, ParseMode &globalMode) {
 
     // First, read the control verbs, set any global mode flags and move the
     // ptr forward.
-    p = read_control_verbs(p, pe, globalMode);
+    p = read_control_verbs(p, pe, 0, globalMode);
 
     const char *eof = pe;
     int cs;

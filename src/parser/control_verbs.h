@@ -34,11 +34,13 @@
 #ifndef CONTROL_VERBS_H
 #define CONTROL_VERBS_H
 
+#include "ue2common.h"
+
 namespace ue2 {
 
 struct ParseMode;
 
-const char *read_control_verbs(const char *ptr, const char *end,
+const char *read_control_verbs(const char *ptr, const char *end, size_t start,
                                ParseMode &mode);
 
 } // namespace ue2

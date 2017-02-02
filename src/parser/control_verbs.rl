@@ -43,7 +43,7 @@ using namespace std;
 
 namespace ue2 {
 
-const char *read_control_verbs(const char *ptr, const char *end,
+const char *read_control_verbs(const char *ptr, const char *end, size_t start,
                                ParseMode &mode) {
     const char *p = ptr;
     const char *pe = end;
@@ -108,7 +108,7 @@ const char *read_control_verbs(const char *ptr, const char *end,
         %% write exec;
     } catch (LocatedParseError &error) {
         if (ts >= ptr && ts <= pe) {
-            error.locate(ts - ptr);
+            error.locate(ts - ptr + start);
         } else {
             error.locate(0);
         }

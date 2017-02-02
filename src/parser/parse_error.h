@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,8 +30,8 @@
  * \brief Parse/Compile exceptions.
  */
 
-#ifndef PARSE_ERROR_H_A02047D1AA16C9
-#define PARSE_ERROR_H_A02047D1AA16C9
+#ifndef PARSE_ERROR_H
+#define PARSE_ERROR_H
 
 #include "util/compile_error.h"
 
@@ -44,22 +44,24 @@ class ParseError : public CompileError {
 public:
     // Note: 'why' should describe why the error occurred and end with a
     // full stop, but no line break.
-    explicit ParseError(const std::string &why) : CompileError(why) {}
+    explicit ParseError(std::string why) : CompileError(std::move(why)) {}
 
     ~ParseError() override;
 };
 
 class LocatedParseError : public ParseError {
 public:
-    explicit LocatedParseError(const std::string &why) : ParseError(".") {
-        reason = why; // don't use ParseError ctor
+    explicit LocatedParseError(std::string why) : ParseError(".") {
+        reason = std::move(why); // don't use ParseError ctor
     }
 
     ~LocatedParseError() override;
 
     void locate(size_t offset);
+private:
+    bool finalized = false; //!< true when locate() has been called.
 };
 
 } // namespace ue2
 
-#endif /* PARSE_ERROR_H_A02047D1AA16C9 */
+#endif /* PARSE_ERROR_H */

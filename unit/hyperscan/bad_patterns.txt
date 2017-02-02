@@ -92,7 +92,7 @@
 93:/a\o{777}/ #Value in \o{...} sequence is too large at index 1.
 94:/(*UTF16)foo/ #Unsupported control verb (*UTF16) at index 0.
 95:/(*BSR_UNICODE)abc/ #Unsupported control verb (*BSR_UNICODE) at index 0.
-96:/a+(*SKIP)b/ #Unknown control verb at index 4.
+96:/a+(*SKIP)b/ #Unknown control verb (*SKIP) at index 2.
 97:/foo(*/ #Invalid repeat at index 4.
 98:/[:\]:]/ #POSIX named classes are only supported inside a class at index 0.
 99:/[[:[:]/ #Invalid POSIX named class at index 1.
