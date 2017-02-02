@@ -974,7 +974,7 @@ unichar readUtf8CodePoint4c(const char *s) {
 
               '\\o{' [0-7]+ '}' => {
                   string oct(ts + 3, te - ts - 4);
-                  long int val = strtol(oct.c_str(), nullptr, 8);
+                  unsigned long val = stoul(oct, nullptr, 8);
                   if ((!mode.utf8 && val > 255) || val > MAX_UNICODE) {
                       throw LocatedParseError("Value in \\o{...} sequence is too large");
                   }
@@ -999,7 +999,7 @@ unichar readUtf8CodePoint4c(const char *s) {
               # Unicode Hex
               '\\x{' xdigit+ '}' => {
                   string hex(ts + 3, te - ts - 4);
-                  long int val = strtol(hex.c_str(), nullptr, 16);
+                  unsigned long val = stoul(hex, nullptr, 16);
                   if (val > MAX_UNICODE) {
                       throw LocatedParseError("Value in \\x{...} sequence is too large");
                   }
@@ -1488,7 +1488,7 @@ unichar readUtf8CodePoint4c(const char *s) {
               };
               '\\o{' [0-7]+ '}' => {
                   string oct(ts + 3, te - ts - 4);
-                  long int val = strtol(oct.c_str(), nullptr, 8);
+                  unsigned long val = stoul(oct, nullptr, 8);
                   if ((!mode.utf8 && val > 255) || val > MAX_UNICODE) {
                       throw LocatedParseError("Value in \\o{...} sequence is too large");
                   }
@@ -1505,7 +1505,7 @@ unichar readUtf8CodePoint4c(const char *s) {
               # Unicode Hex
               '\\x{' xdigit+ '}' => {
                   string hex(ts + 3, te - ts - 4);
-                  long int val = strtol(hex.c_str(), nullptr, 16);
+                  unsigned long val = stoul(hex, nullptr, 16);
                   if (val > MAX_UNICODE) {
                       throw LocatedParseError("Value in \\x{...} sequence is too large");
                   }
