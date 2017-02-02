@@ -541,8 +541,12 @@ void dumpRoseTestLiterals(const RoseBuildImpl &build, const string &base) {
     mp = makeMatcherProto(build, ROSE_FLOATING, false, longLitLengthThreshold);
     dumpTestLiterals(base + "rose_float_test_literals.txt", mp.lits);
 
-    mp = makeMatcherProto(build, ROSE_FLOATING, true, longLitLengthThreshold);
-    dumpTestLiterals(base + "rose_delay_rebuild_test_literals.txt", mp.lits);
+    if (build.cc.streaming) {
+        mp = makeMatcherProto(build, ROSE_FLOATING, true,
+                              longLitLengthThreshold);
+        dumpTestLiterals(base + "rose_delay_rebuild_test_literals.txt",
+                         mp.lits);
+    }
 
     mp = makeMatcherProto(build, ROSE_EOD_ANCHORED, false,
                           build.ematcher_region_size);
