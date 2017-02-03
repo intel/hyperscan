@@ -569,6 +569,9 @@ unichar readUtf8CodePoint4c(const char *s) {
             assert(0); // Should have thrown a parse error.
             throw LocatedParseError("Unknown control verb");
         };
+        any => {
+            throw LocatedParseError("Unknown control verb");
+        };
     *|;
 
     #############################################################

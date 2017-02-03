@@ -135,3 +135,4 @@
 138:/(*UNKNOWNVERB)foobar/ #Unknown control verb (*UNKNOWNVERB) at index 0.
 139:/foo(*UTF8)bar/ #(*UTF8) must be at start of expression, encountered at index 5.
 140:/(?i)(*UTF8)foobar/ #(*UTF8) must be at start of expression, encountered at index 6.
+141:/(*@&/ #Unknown control verb at index 2.
