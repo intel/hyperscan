@@ -43,11 +43,12 @@ struct target_t;
 
 namespace ue2 {
 
+struct Grey;
 struct hwlmLiteral;
 
 ue2::aligned_unique_ptr<FDR>
 teddyBuildTableHinted(const std::vector<hwlmLiteral> &lits, bool make_small,
-                      u32 hint, const target_t &target);
+                      u32 hint, const target_t &target, const Grey &grey);
 
 } // namespace ue2
 

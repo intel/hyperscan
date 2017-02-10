@@ -64,6 +64,7 @@ struct Grey {
 
     bool allowNoodle;
     bool fdrAllowTeddy;
+    bool fdrAllowFlood;
 
     u32  violetAvoidSuffixes; /* 0=never, 1=sometimes, 2=always */
     bool violetAvoidWeakInfixes;

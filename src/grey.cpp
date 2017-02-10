@@ -63,6 +63,7 @@ Grey::Grey(void) :
                    allowDecoratedLiteral(true),
                    allowNoodle(true),
                    fdrAllowTeddy(true),
+                   fdrAllowFlood(true),
                    violetAvoidSuffixes(true),
                    violetAvoidWeakInfixes(true),
                    violetDoubleCut(true),
@@ -226,6 +227,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(allowDecoratedLiteral);
         G_UPDATE(allowNoodle);
         G_UPDATE(fdrAllowTeddy);
+        G_UPDATE(fdrAllowFlood);
         G_UPDATE(violetAvoidSuffixes);
         G_UPDATE(violetAvoidWeakInfixes);
         G_UPDATE(violetDoubleCut);

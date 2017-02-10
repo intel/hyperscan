@@ -55,6 +55,7 @@ typedef u32 PositionInBucket;  // zero is 'we are matching right now!",
 class EngineDescription;
 class FDREngineDescription;
 struct hwlmStreamingControl;
+struct Grey;
 
 std::pair<aligned_unique_ptr<u8>, size_t> setupFullConfs(
     const std::vector<hwlmLiteral> &lits, const EngineDescription &eng,
@@ -67,7 +68,7 @@ std::pair<aligned_unique_ptr<u8>, size_t> setupFullConfs(
 // right state yet to allow blindly advancing
 std::pair<aligned_unique_ptr<u8>, size_t>
 setupFDRFloodControl(const std::vector<hwlmLiteral> &lits,
-                     const EngineDescription &eng);
+                     const EngineDescription &eng, const Grey &grey);
 
 std::pair<aligned_unique_ptr<u8>, size_t>
 fdrBuildTableStreaming(const std::vector<hwlmLiteral> &lits,

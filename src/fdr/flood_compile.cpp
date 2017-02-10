@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 #include "fdr_confirm.h"
 #include "fdr_compile_internal.h"
 #include "fdr_engine_description.h"
+#include "grey.h"
 #include "ue2common.h"
 #include "util/alloc.h"
 #include "util/bitutils.h"
@@ -92,7 +93,7 @@ void addFlood(vector<FDRFlood> &tmpFlood, u8 c, const hwlmLiteral &lit,
 
 pair<aligned_unique_ptr<u8>, size_t>
 setupFDRFloodControl(const vector<hwlmLiteral> &lits,
-                     const EngineDescription &eng) {
+                     const EngineDescription &eng, const Grey &grey) {
     vector<FDRFlood> tmpFlood(N_CHARS);
     u32 default_suffix = eng.getDefaultFloodSuffixLength();
 
@@ -186,6 +187,14 @@ setupFDRFloodControl(const vector<hwlmLiteral> &lits,
         }
     }
 #endif
+
+    // If flood detection has been switched off in the grey box, we comply by
+    // setting idCount too high for all floods.
+    if (!grey.fdrAllowFlood) {
+        for (auto &fl : tmpFlood) {
+            fl.idCount = FDR_FLOOD_MAX_IDS;
+        }
+    }
 
     map<FDRFlood, CharReach, FloodComparator> flood2chars;
     for (u32 i = 0; i < N_CHARS; i++) {

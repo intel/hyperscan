@@ -31,6 +31,7 @@
 #include "fdr_compile_internal.h"
 #include "fdr_confirm.h"
 #include "fdr_engine_description.h"
+#include "grey.h"
 #include "ue2common.h"
 #include "util/alloc.h"
 #include "util/compare.h"
@@ -66,13 +67,16 @@ namespace {
 
 class TeddyCompiler : boost::noncopyable {
     const TeddyEngineDescription &eng;
+    const Grey &grey;
     const vector<hwlmLiteral> &lits;
     bool make_small;
 
 public:
     TeddyCompiler(const vector<hwlmLiteral> &lits_in,
-                  const TeddyEngineDescription &eng_in, bool make_small_in)
-        : eng(eng_in), lits(lits_in), make_small(make_small_in) {}
+                  const TeddyEngineDescription &eng_in, bool make_small_in,
+                  const Grey &grey_in)
+        : eng(eng_in), grey(grey_in), lits(lits_in), make_small(make_small_in) {
+    }
 
     aligned_unique_ptr<FDR> build();
     bool pack(map<BucketIndex, std::vector<LiteralIndex> > &bucketToLits);
@@ -307,7 +311,7 @@ aligned_unique_ptr<FDR> TeddyCompiler::build() {
 
     size_t maskLen = eng.numMasks * 16 * 2 * maskWidth;
 
-    auto floodControlTmp = setupFDRFloodControl(lits, eng);
+    auto floodControlTmp = setupFDRFloodControl(lits, eng, grey);
     auto confirmTmp = setupFullConfs(lits, eng, bucketToLits, make_small);
 
     size_t size = ROUNDUP_N(sizeof(Teddy) +
@@ -417,7 +421,8 @@ aligned_unique_ptr<FDR> TeddyCompiler::build() {
 
 aligned_unique_ptr<FDR> teddyBuildTableHinted(const vector<hwlmLiteral> &lits,
                                               bool make_small, u32 hint,
-                                              const target_t &target) {
+                                              const target_t &target,
+                                              const Grey &grey) {
     unique_ptr<TeddyEngineDescription> des;
     if (hint == HINT_INVALID) {
         des = chooseTeddyEngine(target, lits);
@@ -427,7 +432,7 @@ aligned_unique_ptr<FDR> teddyBuildTableHinted(const vector<hwlmLiteral> &lits,
     if (!des) {
         return nullptr;
     }
-    TeddyCompiler tc(lits, *des, make_small);
+    TeddyCompiler tc(lits, *des, make_small, grey);
     return tc.build();
 }
 

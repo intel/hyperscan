@@ -74,6 +74,7 @@ namespace {
 class FDRCompiler : boost::noncopyable {
 private:
     const FDREngineDescription &eng;
+    const Grey &grey;
     vector<u8> tab;
     vector<hwlmLiteral> lits;
     map<BucketIndex, std::vector<LiteralIndex> > bucketToLits;
@@ -90,9 +91,9 @@ private:
 
 public:
     FDRCompiler(vector<hwlmLiteral> lits_in, const FDREngineDescription &eng_in,
-                bool make_small_in)
-        : eng(eng_in), tab(eng_in.getTabSizeBytes()), lits(move(lits_in)),
-          make_small(make_small_in) {}
+                bool make_small_in, const Grey &grey_in)
+        : eng(eng_in), grey(grey_in), tab(eng_in.getTabSizeBytes()),
+          lits(move(lits_in)), make_small(make_small_in) {}
 
     aligned_unique_ptr<FDR> build();
 };
@@ -146,7 +147,7 @@ void FDRCompiler::createInitialState(FDR *fdr) {
 aligned_unique_ptr<FDR> FDRCompiler::setupFDR() {
     size_t tabSize = eng.getTabSizeBytes();
 
-    auto floodControlTmp = setupFDRFloodControl(lits, eng);
+    auto floodControlTmp = setupFDRFloodControl(lits, eng, grey);
     auto confirmTmp = setupFullConfs(lits, eng, bucketToLits, make_small);
 
     assert(ISALIGNED_16(tabSize));
@@ -543,7 +544,7 @@ aligned_unique_ptr<FDR> fdrBuildTableInternal(const vector<hwlmLiteral> &lits,
     DEBUG_PRINTF("cpu has %s\n", target.has_avx2() ? "avx2" : "no-avx2");
 
     if (grey.fdrAllowTeddy) {
-        auto fdr = teddyBuildTableHinted(lits, make_small, hint, target);
+        auto fdr = teddyBuildTableHinted(lits, make_small, hint, target, grey);
         if (fdr) {
             DEBUG_PRINTF("build with teddy succeeded\n");
             return fdr;
@@ -566,7 +567,7 @@ aligned_unique_ptr<FDR> fdrBuildTableInternal(const vector<hwlmLiteral> &lits,
         des->stride = 1;
     }
 
-    FDRCompiler fc(lits, *des, make_small);
+    FDRCompiler fc(lits, *des, make_small, grey);
     return fc.build();
 }
 
