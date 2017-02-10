@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -218,7 +218,7 @@ namespace {
 /** \brief Concrete implementation */
 class CorpusGeneratorImpl : public CorpusGenerator {
 public:
-    CorpusGeneratorImpl(const NGHolder &graph_in, CorpusProperties &props);
+    CorpusGeneratorImpl(const NGWrapper &graph_in, CorpusProperties &props);
     ~CorpusGeneratorImpl() {}
 
     void generateCorpus(vector<string> &data);
@@ -244,10 +244,13 @@ private:
     CorpusProperties &cProps;
 };
 
-CorpusGeneratorImpl::CorpusGeneratorImpl(const NGHolder &graph_in,
+CorpusGeneratorImpl::CorpusGeneratorImpl(const NGWrapper &graph_in,
                                          CorpusProperties &props)
     : graph(graph_in), cProps(props) {
-    // empty
+    // if this pattern is to be matched approximately
+    if (graph_in.edit_distance && !props.editDistance) {
+        props.editDistance = props.rand(0, graph_in.edit_distance + 1);
+    }
 }
 
 void CorpusGeneratorImpl::generateCorpus(vector<string> &data) {
@@ -388,7 +391,7 @@ hit_limit:
 /** \brief Concrete implementation for UTF-8 */
 class CorpusGeneratorUtf8 : public CorpusGenerator {
 public:
-    CorpusGeneratorUtf8(const NGHolder &graph_in, CorpusProperties &props);
+    CorpusGeneratorUtf8(const NGWrapper &graph_in, CorpusProperties &props);
     ~CorpusGeneratorUtf8() {}
 
     void generateCorpus(vector<string> &data);
@@ -407,17 +410,21 @@ private:
     void addRandom(const min_max &mm, vector<unichar> *out);
 
     /** \brief The NFA graph we operate over. */
-    const NGHolder &graph;
+    const NGWrapper &graph;
 
     /** \brief Reference to our corpus generator properties object (stores some
      * state) */
     CorpusProperties &cProps;
 };
 
-CorpusGeneratorUtf8::CorpusGeneratorUtf8(const NGHolder &graph_in,
+CorpusGeneratorUtf8::CorpusGeneratorUtf8(const NGWrapper &graph_in,
                                          CorpusProperties &props)
     : graph(graph_in), cProps(props) {
-    // empty
+    // we do not support Utf8 for approximate matching
+    if (graph.edit_distance) {
+        throw CorpusGenerationFailure("UTF-8 for edited patterns is not "
+                                      "supported.");
+    }
 }
 
 void CorpusGeneratorUtf8::generateCorpus(vector<string> &data) {

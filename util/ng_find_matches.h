@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,6 +51,7 @@ struct BoundaryReports;
 void findMatches(const ue2::NGHolder &g, const ue2::ReportManager &rm,
                  const std::string &input,
                  std::set<std::pair<size_t, size_t>> &matches,
-                 const bool notEod, const bool som, const bool utf8);
+                 const unsigned int max_edit_distance, const bool notEod,
+                 const bool utf8);
 
 #endif // NG_FIND_MATCHES_H
