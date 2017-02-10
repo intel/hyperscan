@@ -136,3 +136,8 @@
 139:/foo(*UTF8)bar/ #(*UTF8) must be at start of expression, encountered at index 5.
 140:/(?i)(*UTF8)foobar/ #(*UTF8) must be at start of expression, encountered at index 6.
 141:/(*@&/ #Unknown control verb at index 2.
+142:/abcd/si{edit_distance=4} #Approximate matching patterns that reduce to vacuous patterns are disallowed.
+143:/foobar|hatstand/sL{edit_distance=6} #Approximate matching patterns that reduce to vacuous patterns are disallowed.
+144:/abc\b/{edit_distance=1} #Zero-width assertions are disallowed for approximate matching.
+145:/abc/8{edit_distance=1} #UTF-8 is disallowed for approximate matching.
+146:/(*UTF8)abc/{edit_distance=1} #UTF-8 is disallowed for approximate matching.

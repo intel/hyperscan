@@ -168,10 +168,37 @@ static const expected_info ei_test[] = {
 
     // Some cases with extended parameters.
     {"^abc.*def", {HS_EXT_FLAG_MAX_OFFSET, 0, 10, 0, 0}, 6, 10, 0, 0, 0},
+    {"^abc.*def", {HS_EXT_FLAG_MIN_LENGTH, 0, 0, 100, 0}, 6, UINT_MAX, 0, 0, 0},
     {"abc.*def", {HS_EXT_FLAG_MAX_OFFSET, 0, 10, 0, 0}, 6, 10, 0, 0, 0},
     {"abc.*def", {HS_EXT_FLAG_MIN_LENGTH, 0, 0, 100, 0}, 100, UINT_MAX, 0, 0, 0},
     {"abc.*def", {HS_EXT_FLAG_MIN_LENGTH, 0, 0, 5, 0}, 6, UINT_MAX, 0, 0, 0},
-    {"abc.*def", {HS_EXT_FLAG_EDIT_DISTANCE, 0, 0, 0, 2}, 0, UINT_MAX, 0, 0, 0},
+
+    {"abc.*def", {HS_EXT_FLAG_EDIT_DISTANCE, 0, 0, 0, 1}, 5, UINT_MAX, 0, 0, 0},
+    {"abc.*def", {HS_EXT_FLAG_EDIT_DISTANCE, 0, 0, 0, 2}, 4, UINT_MAX, 0, 0, 0},
+    {"abc.*def", {HS_EXT_FLAG_EDIT_DISTANCE | HS_EXT_FLAG_MIN_LENGTH, 0, 0, 10, 2},
+                10, UINT_MAX, 0, 0, 0},
+    {"abc.*def", {HS_EXT_FLAG_EDIT_DISTANCE | HS_EXT_FLAG_MIN_OFFSET, 6, 0, 0, 2},
+                4, UINT_MAX, 0, 0, 0},
+    {"abc.*def", {HS_EXT_FLAG_EDIT_DISTANCE | HS_EXT_FLAG_MAX_OFFSET, 0, 6, 0, 2},
+                4, 6, 0, 0, 0},
+
+    {"^abc.*def", {HS_EXT_FLAG_EDIT_DISTANCE, 0, 0, 0, 1}, 5, UINT_MAX, 0, 0, 0},
+    {"^abc.*def", {HS_EXT_FLAG_EDIT_DISTANCE, 0, 0, 0, 2}, 4, UINT_MAX, 0, 0, 0},
+    {"^abc.*def", {HS_EXT_FLAG_EDIT_DISTANCE | HS_EXT_FLAG_MIN_LENGTH, 0, 0, 10, 2},
+                4, UINT_MAX, 0, 0, 0},
+    {"^abc.*def", {HS_EXT_FLAG_EDIT_DISTANCE | HS_EXT_FLAG_MIN_OFFSET, 6, 0, 0, 2},
+                4, UINT_MAX, 0, 0, 0},
+    {"^abc.*def", {HS_EXT_FLAG_EDIT_DISTANCE | HS_EXT_FLAG_MAX_OFFSET, 0, 6, 0, 2},
+                4, 6, 0, 0, 0},
+
+    {"^abcdef", {HS_EXT_FLAG_EDIT_DISTANCE, 0, 0, 0, 1}, 5, 7, 0, 0, 0},
+    {"^abcdef", {HS_EXT_FLAG_EDIT_DISTANCE, 0, 0, 0, 2}, 4, 8, 0, 0, 0},
+    {"^abcdef", {HS_EXT_FLAG_EDIT_DISTANCE | HS_EXT_FLAG_MIN_LENGTH, 0, 0, 8, 2},
+                4, 8, 0, 0, 0},
+    {"^abcdef", {HS_EXT_FLAG_EDIT_DISTANCE | HS_EXT_FLAG_MIN_OFFSET, 6, 0, 0, 2},
+                4, 8, 0, 0, 0},
+    {"^abcdef", {HS_EXT_FLAG_EDIT_DISTANCE | HS_EXT_FLAG_MAX_OFFSET, 0, 6, 0, 2},
+                4, 6, 0, 0, 0},
 };
 
 INSTANTIATE_TEST_CASE_P(ExprInfo, ExprInfop, ValuesIn(ei_test));
