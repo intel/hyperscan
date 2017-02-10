@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -62,7 +62,7 @@ class NGWrapper : public NGHolder {
 public:
     NGWrapper(unsigned int expressionIndex, bool highlander, bool utf8,
               bool prefilter, const som_type som, ReportID rid, u64a min_offset,
-              u64a max_offset, u64a min_length);
+              u64a max_offset, u64a min_length, u32 edit_distance);
 
     ~NGWrapper() override;
 
@@ -80,6 +80,7 @@ public:
     u64a min_offset; /**< extparam min_offset value */
     u64a max_offset; /**< extparam max_offset value */
     u64a min_length; /**< extparam min_length value */
+    u32 edit_distance; /**< extparam edit_distance value */
 };
 
 class RoseBuild;

@@ -41,6 +41,7 @@
 #include "ng_equivalence.h"
 #include "ng_extparam.h"
 #include "ng_fixed_width.h"
+#include "ng_fuzzy.h"
 #include "ng_haig.h"
 #include "ng_literal_component.h"
 #include "ng_literal_decorated.h"
@@ -328,10 +329,16 @@ bool NG::addGraph(NGWrapper &w) {
 
     /* ensure utf8 starts at cp boundary */
     ensureCodePointStart(rm, w);
-    resolveAsserts(rm, w);
 
+    // validate graph's suitability for fuzzing before resolving asserts
+    validate_fuzzy_compile(w, w.edit_distance, w.utf8, cc.grey);
+
+    resolveAsserts(rm, w);
     dumpDotWrapper(w, "02_post_assert_resolve", cc.grey);
     assert(allMatchStatesHaveReports(w));
+
+    make_fuzzy(w, w.edit_distance, cc.grey);
+    dumpDotWrapper(w, "02a_post_fuzz", cc.grey);
 
     pruneUseless(w);
     pruneEmptyVertices(w);
@@ -577,20 +584,22 @@ bool NG::addLiteral(const ue2_literal &literal, u32 expr_index,
 
 NGWrapper::NGWrapper(unsigned int ei, bool highlander_in, bool utf8_in,
                      bool prefilter_in, som_type som_in, ReportID r,
-                     u64a min_offset_in, u64a max_offset_in, u64a min_length_in)
+                     u64a min_offset_in, u64a max_offset_in, u64a min_length_in,
+                     u32 edit_distance_in)
     : expressionIndex(ei), reportId(r), highlander(highlander_in),
       utf8(utf8_in), prefilter(prefilter_in), som(som_in),
       min_offset(min_offset_in), max_offset(max_offset_in),
-      min_length(min_length_in) {
+      min_length(min_length_in), edit_distance(edit_distance_in) {
     // All special nodes/edges are added in NGHolder's constructor.
     DEBUG_PRINTF("built %p: expr=%u report=%u%s%s%s%s "
-                 "min_offset=%llu max_offset=%llu min_length=%llu\n",
+                 "min_offset=%llu max_offset=%llu min_length=%llu "
+                 "edit_distance=%u\n",
                  this, expressionIndex, reportId,
                  highlander ? " highlander" : "",
                  utf8 ? " utf8" : "",
                  prefilter ? " prefilter" : "",
                  (som != SOM_NONE) ? " som" : "",
-                 min_offset, max_offset, min_length);
+                 min_offset, max_offset, min_length, edit_distance);
 }
 
 NGWrapper::~NGWrapper() {}

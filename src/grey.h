@@ -61,6 +61,7 @@ struct Grey {
     bool allowSmallLiteralSet;
     bool allowCastle;
     bool allowDecoratedLiteral;
+    bool allowApproximateMatching;
 
     bool allowNoodle;
     bool fdrAllowTeddy;
@@ -107,6 +108,7 @@ struct Grey {
     u32 minRoseLiteralLength;
     u32 minRoseNetflowLiteralLength;
     u32 maxRoseNetflowEdges;
+    u32 maxEditDistance;
 
     u32 minExtBoundedRepeatSize; /* to be considered for ng_repeat */
 

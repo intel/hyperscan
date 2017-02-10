@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -124,7 +124,7 @@ TEST_P(ExprInfop, check_ext_null) {
     free(info);
 }
 
-static const hs_expr_ext NO_EXT_PARAM = { 0, 0, 0, 0 };
+static const hs_expr_ext NO_EXT_PARAM = { 0, 0, 0, 0, 0 };
 
 static const expected_info ei_test[] = {
     {"abc", NO_EXT_PARAM, 3, 3, 0, 0, 0},
@@ -167,10 +167,11 @@ static const expected_info ei_test[] = {
     {"(foo|bar)\\z", NO_EXT_PARAM, 3, 3, 0, 1, 1},
 
     // Some cases with extended parameters.
-    {"^abc.*def", {HS_EXT_FLAG_MAX_OFFSET, 0, 10, 0}, 6, 10, 0, 0, 0},
-    {"abc.*def", {HS_EXT_FLAG_MAX_OFFSET, 0, 10, 0}, 6, 10, 0, 0, 0},
-    {"abc.*def", {HS_EXT_FLAG_MIN_LENGTH, 0, 0, 100}, 100, UINT_MAX, 0, 0, 0},
-    {"abc.*def", {HS_EXT_FLAG_MIN_LENGTH, 0, 0, 5}, 6, UINT_MAX, 0, 0, 0},
+    {"^abc.*def", {HS_EXT_FLAG_MAX_OFFSET, 0, 10, 0, 0}, 6, 10, 0, 0, 0},
+    {"abc.*def", {HS_EXT_FLAG_MAX_OFFSET, 0, 10, 0, 0}, 6, 10, 0, 0, 0},
+    {"abc.*def", {HS_EXT_FLAG_MIN_LENGTH, 0, 0, 100, 0}, 100, UINT_MAX, 0, 0, 0},
+    {"abc.*def", {HS_EXT_FLAG_MIN_LENGTH, 0, 0, 5, 0}, 6, UINT_MAX, 0, 0, 0},
+    {"abc.*def", {HS_EXT_FLAG_EDIT_DISTANCE, 0, 0, 0, 2}, 0, UINT_MAX, 0, 0, 0},
 };
 
 INSTANTIATE_TEST_CASE_P(ExprInfo, ExprInfop, ValuesIn(ei_test));

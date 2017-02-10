@@ -782,6 +782,8 @@ SET (hs_SRCS
     src/nfagraph/ng_extparam.h
     src/nfagraph/ng_fixed_width.cpp
     src/nfagraph/ng_fixed_width.h
+    src/nfagraph/ng_fuzzy.cpp
+    src/nfagraph/ng_fuzzy.h
     src/nfagraph/ng_haig.cpp
     src/nfagraph/ng_haig.h
     src/nfagraph/ng_holder.cpp

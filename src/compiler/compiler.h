@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -78,6 +78,7 @@ public:
     u64a min_offset;   //!< 0 if not used
     u64a max_offset;   //!< MAX_OFFSET if not used
     u64a min_length;   //!< 0 if not used
+    u32 edit_distance; //!< 0 if not used
 };
 
 /**

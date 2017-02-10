@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -241,6 +241,13 @@ typedef struct hs_expr_ext {
      * @ref HS_EXT_FLAG_MIN_LENGTH flag in the hs_expr_ext::flags field.
      */
     unsigned long long min_length;
+
+    /**
+     * Allow patterns to approximately match within this edit distance. To use
+     * this parameter, set the @ref HS_EXT_FLAG_EDIT_DISTANCE flag in the
+     * hs_expr_ext::flags field.
+     */
+    unsigned edit_distance;
 } hs_expr_ext_t;
 
 /**
@@ -260,6 +267,9 @@ typedef struct hs_expr_ext {
 
 /** Flag indicating that the hs_expr_ext::min_length field is used. */
 #define HS_EXT_FLAG_MIN_LENGTH      4ULL
+
+/** Flag indicating that the hs_expr_ext::edit_distance field is used. */
+#define HS_EXT_FLAG_EDIT_DISTANCE   8ULL
 
 /** @} */
 

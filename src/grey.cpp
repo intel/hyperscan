@@ -61,6 +61,7 @@ Grey::Grey(void) :
                    allowSmallLiteralSet(true),
                    allowCastle(true),
                    allowDecoratedLiteral(true),
+                   allowApproximateMatching(true),
                    allowNoodle(true),
                    fdrAllowTeddy(true),
                    fdrAllowFlood(true),
@@ -98,6 +99,7 @@ Grey::Grey(void) :
                    minRoseLiteralLength(3),
                    minRoseNetflowLiteralLength(2),
                    maxRoseNetflowEdges(50000), /* otherwise no netflow pass. */
+                   maxEditDistance(16),
                    minExtBoundedRepeatSize(32),
                    goughCopyPropagate(true),
                    goughRegisterAllocate(true),
@@ -226,6 +228,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(allowCastle);
         G_UPDATE(allowDecoratedLiteral);
         G_UPDATE(allowNoodle);
+        G_UPDATE(allowApproximateMatching);
         G_UPDATE(fdrAllowTeddy);
         G_UPDATE(fdrAllowFlood);
         G_UPDATE(violetAvoidSuffixes);
@@ -262,6 +265,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(minRoseLiteralLength);
         G_UPDATE(minRoseNetflowLiteralLength);
         G_UPDATE(maxRoseNetflowEdges);
+        G_UPDATE(maxEditDistance);
         G_UPDATE(minExtBoundedRepeatSize);
         G_UPDATE(goughCopyPropagate);
         G_UPDATE(goughRegisterAllocate);

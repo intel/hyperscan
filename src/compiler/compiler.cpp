@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -79,7 +79,8 @@ static
 void validateExt(const hs_expr_ext &ext) {
     static const unsigned long long ALL_EXT_FLAGS = HS_EXT_FLAG_MIN_OFFSET |
                                                     HS_EXT_FLAG_MAX_OFFSET |
-                                                    HS_EXT_FLAG_MIN_LENGTH;
+                                                    HS_EXT_FLAG_MIN_LENGTH |
+                                                    HS_EXT_FLAG_EDIT_DISTANCE;
     if (ext.flags & ~ALL_EXT_FLAGS) {
         throw CompileError("Invalid hs_expr_ext flag set.");
     }
@@ -111,7 +112,8 @@ ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
       id(actionId),
       min_offset(0),
       max_offset(MAX_OFFSET),
-      min_length(0) {
+      min_length(0),
+      edit_distance(0) {
     ParseMode mode(flags);
 
     component = parse(expression, mode);
@@ -162,6 +164,9 @@ ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
         }
         if (ext->flags & HS_EXT_FLAG_MIN_LENGTH) {
             min_length = ext->min_length;
+        }
+        if (ext->flags & HS_EXT_FLAG_EDIT_DISTANCE) {
+            edit_distance = ext->edit_distance;
         }
     }
 

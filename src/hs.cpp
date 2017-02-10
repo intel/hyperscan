@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,7 @@
 #include "nfagraph/ng.h"
 #include "nfagraph/ng_expr_info.h"
 #include "nfagraph/ng_extparam.h"
+#include "nfagraph/ng_fuzzy.h"
 #include "parser/parse_error.h"
 #include "parser/Parser.h"
 #include "parser/prefilter.h"
@@ -378,6 +379,12 @@ hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
             DEBUG_PRINTF("NFA build failed, but no exception was thrown.\n");
             throw ParseError("Internal error.");
         }
+
+        // validate graph's suitability for fuzzing
+        validate_fuzzy_compile(*g, g->edit_distance, g->utf8, cc.grey);
+
+        // fuzz graph - this must happen before any transformations are made
+        make_fuzzy(*g, g->edit_distance, cc.grey);
 
         handleExtendedParams(rm, *g, cc);
         fillExpressionInfo(rm, *g, &local_info);

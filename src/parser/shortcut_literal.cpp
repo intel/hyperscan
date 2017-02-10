@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -167,7 +167,8 @@ bool shortcutLiteral(NG &ng, const ParsedExpression &expr) {
     }
 
     // XXX: don't shortcut literals with extended params (yet)
-    if (expr.min_offset || expr.max_offset != MAX_OFFSET || expr.min_length) {
+    if (expr.min_offset || expr.max_offset != MAX_OFFSET || expr.min_length ||
+        expr.edit_distance) {
         DEBUG_PRINTF("extended params not allowed\n");
         return false;
     }

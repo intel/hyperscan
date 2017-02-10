@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -112,7 +112,8 @@ NFABuilderImpl::NFABuilderImpl(ReportManager &rm_in, const Grey &grey_in,
     : rm(rm_in), grey(grey_in),
       graph(ue2::make_unique<NGWrapper>(
           expr.index, expr.highlander, expr.utf8, expr.prefilter, expr.som,
-          expr.id, expr.min_offset, expr.max_offset, expr.min_length)),
+          expr.id, expr.min_offset, expr.max_offset, expr.min_length,
+          expr.edit_distance)),
       vertIdx(N_SPECIALS) {
 
     // Reserve space for a reasonably-sized NFA
