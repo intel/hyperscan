@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -72,6 +72,8 @@ bool saveDatabases = false;
 bool loadDatabases = false;
 string serializePath("");
 unsigned int somPrecisionMode = HS_MODE_SOM_HORIZON_LARGE;
+bool forceEditDistance = false;
+unsigned editDistance = 0;
 
 namespace /* anonymous */ {
 
@@ -169,6 +171,8 @@ void usage(const char *error) {
            " instead.\n");
     printf("  -w DIR          After compiling, save to files in DIR.\n");
     printf("  -d NUMBER       Set SOM precision mode (default: 8 (large)).\n");
+    printf("  -E DISTANCE     Match all patterns within edit distance"
+           " DISTANCE.\n");
     printf("\n");
     printf("  --per-scan      Display per-scan Mbit/sec results.\n");
     printf("  --echo-matches  Display all matches that occur during scan.\n");
@@ -191,7 +195,7 @@ struct BenchmarkSigs {
 static
 void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
                  UNUSED Grey &grey) {
-    const char options[] = "-b:c:Cd:e:G:hi:n:No:p:sT:Vw:z:";
+    const char options[] = "-b:c:Cd:e:E:G:hi:n:No:p:sT:Vw:z:";
     int in_sigfile = 0;
     int do_per_scan = 0;
     int do_echo_matches = 0;
@@ -236,6 +240,14 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
         }
         case 'e':
             exprPath.assign(optarg);
+            break;
+        case 'E':
+            if (!fromString(optarg, editDistance)) {
+                usage("Couldn't parse argument to -E flag, should be"
+                      " a non-negative integer.");
+                exit(1);
+            }
+            forceEditDistance = true;
             break;
 #ifndef RELEASE_BUILD
         case 'G':
