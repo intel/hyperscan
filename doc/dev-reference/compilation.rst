@@ -171,6 +171,8 @@ The following regex constructs are not supported by Hyperscan:
 * Callouts and embedded code.
 * Atomic grouping and possessive quantifiers.
 
+.. _semantics:
+
 *********
 Semantics
 *********
@@ -284,15 +286,23 @@ which provides the following fields:
   expression should match successfully.
 * ``min_length``: The minimum match length (from start to end) required to
   successfully match this expression.
+* ``edit_distance``: Match this expression within a given Levenshtein distance.
 
-These parameters allow the set of matches produced by a pattern to be
-constrained at compile time, rather than relying on the application to process
-unwanted matches at runtime.
+These parameters either allow the set of matches produced by a pattern to be
+constrained at compile time (rather than relying on the application to process
+unwanted matches at runtime), or allow matching a pattern approximately (within
+a given edit distance) to produce more matches.
 
 For example, the pattern :regexp:`/foo.*bar/` when given a ``min_offset`` of 10
 and a ``max_offset`` of 15 will not produce matches when scanned against
 ``foobar`` or ``foo0123456789bar`` but will produce a match against the data
 streams ``foo0123bar`` or ``foo0123456bar``.
+
+Similarly, the pattern :regexp:`/foobar/` when given an ``edit_distance`` of 2
+will produce matches when scanned against ``foobar``, ``fooba``, ``fobr``,
+``fo_baz``, ``foooobar``, and anything else that lies within edit distance of 2
+(as defined by Levenshtein distance). For more details, see the
+:ref:`approximate_matching` section.
 
 =================
 Prefiltering Mode
@@ -375,3 +385,74 @@ An :c:type:`hs_platform_info_t` structure targeted at the current host can be
 built with the :c:func:`hs_populate_platform` function.
 
 See :ref:`api_constants` for the full list of CPU tuning and feature flags.
+
+.. _approximate_matching:
+
+********************
+Approximate matching
+********************
+
+Hyperscan provides an experimental approximate matching mode, which will match
+patterns within a given edit distance. The exact matching behavior is defined as
+follows:
+
+#. **Edit distance** is defined as Levenshtein distance. That is, there are
+   three possible edit types considered: insertion, removal and substitution.
+   More formal description can be found on
+   `Wikipedia <https://en.wikipedia.org/wiki/Levenshtein_distance>`_.
+
+#. **Approximate matching** will match all *corpora* within a given edit
+   distance. That is, given a pattern, approximate matching will match anything
+   that can be edited to arrive at a corpus that exactly matches the original
+   pattern.
+
+#. **Matching semantics** are exactly the same as described in :ref:`semantics`.
+
+Here are a few examples of approximate matching:
+
+* Pattern :regexp:`/foo/` can match ``foo`` when using regular Hyperscan
+  matching behavior. With approximate matching within edit distance 2, the
+  pattern will produce matches when scanned against ``foo``, ``foooo``, ``f00``,
+  ``f``, and anything else that lies within edit distance 2 of matching corpora
+  for the original pattern (``foo`` in this case).
+
+* Pattern :regexp:`/foo(bar)+/` with edit distance 1 will match ``foobarbar``,
+  ``foobarb0r``, ``fooarbar``, ``foobarba``, ``f0obarbar``, ``fobarbar`` and
+  anything else that lies within edit distance 1 of matching corpora for the
+  original pattern (``foobarbar`` in this case).
+
+* Pattern :regexp:`/foob?ar/` with edit distance 2 will match ``fooar``,
+  ``foo``, ``fabar``, ``oar`` and anything else that lies within edit distance 2
+  of matching corpora for the original pattern (``fooar`` in this case).
+
+Currently, there are trade-offs and limitations that come with approximate
+matching support. Here they are, in a nutshell:
+
+* Reduced pattern support:
+
+  * For many patterns, approximate matching is complex and can result in
+    Hyperscan failing to compile a pattern with a "Pattern too large" error,
+    even if the pattern is supported in normal operation.
+  * Additionally, some patterns cannot be approximately matched because they
+    reduce to so-called "vacuous" patterns (patterns that match everything). For
+    example, pattern :regexp:`/foo/` with edit distance 3, if implemented,
+    would reduce to matching zero-length buffers. Such patterns will result in a
+    "Pattern cannot be approximately matched" compile error.
+  * Finally, due to the inherent complexities of defining matching behavior,
+    approximate matching implements a reduced subset of regular expression
+    syntax. Approximate matching does not support UTF-8 (and other
+    multibyte character encodings), and word boundaries (that is, ``\b``, ``\B``
+    and other equivalent constructs). Patterns containing unsupported constructs
+    will result in "Pattern cannot be approximately matched" compile error.
+  * When using approximate matching in conjunction with SOM, all of the
+    restrictions of SOM also apply. See :ref:`som` for more
+    details.
+* Increased stream state/byte code size requirements: due to approximate
+  matching byte code being inherently larger and more complex than exact
+  matching, the corresponding requirements also increase.
+* Performance overhead: similarly, there is generally a performance cost
+  associated with approximate matching, both due to increased matching
+  complexity, and due to the fact that it will produce more matches.
+
+Approximate matching is always disabled by default, and can be enabled on a
+per-pattern basis by using an extended parameter described in :ref:`extparam`.

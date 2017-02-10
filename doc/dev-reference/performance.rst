@@ -333,3 +333,13 @@ Similarly, the :c:member:`hs_expr_ext::min_length` extended parameter can be
 used to specify a lower bound on the length of the matches for a pattern. Using
 this facility may be more lightweight in some circumstances than using the SOM
 flag and post-confirming match length in the calling application.
+
+********************
+Approximate matching
+********************
+
+.. tip:: Approximate matching is an experimental feature.
+
+There is generally a performance impact associated with approximate matching due
+to the reduced specificity of the matches. This impact may vary significantly
+depending on the pattern and edit distance.
