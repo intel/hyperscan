@@ -43,6 +43,7 @@
 #include "util/alloc.h"
 #include "util/compare.h"
 #include "util/dump_mask.h"
+#include "util/math.h"
 #include "util/target_info.h"
 #include "util/ue2string.h"
 #include "util/verify_types.h"
@@ -195,7 +196,7 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR() {
 static
 double getScoreUtil(u32 len, u32 count) {
     return len == 0 ? numeric_limits<double>::max()
-                    : pow(count, 1.05) * pow(len, -3.0);
+                    : our_pow(count, 1.05) * our_pow(len, -3.0);
 }
 
 /**
