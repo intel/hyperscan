@@ -67,10 +67,10 @@ u32 anchoredStateSize(const anchored_matcher_info &atable);
 #define ANCHORED_SUCCESS 1
 #define ANCHORED_REMAP   2
 
-int addAnchoredNFA(RoseBuildImpl &tbi, const NGHolder &wrapper,
+int addAnchoredNFA(RoseBuildImpl &build, const NGHolder &wrapper,
                    const std::map<NFAVertex, std::set<u32>> &reportMap);
 
-int addToAnchoredMatcher(RoseBuildImpl &tbi, const NGHolder &anchored,
+int addToAnchoredMatcher(RoseBuildImpl &build, const NGHolder &anchored,
                          u32 exit_id, ReportID *remap);
 
 } // namespace ue2

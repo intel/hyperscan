@@ -469,7 +469,7 @@ bool check_dupe(const raw_dfa &rdfa,
 }
 
 static
-bool check_dupe_simple(const RoseBuildImpl &tbi, u32 min_bound, u32 max_bound,
+bool check_dupe_simple(const RoseBuildImpl &build, u32 min_bound, u32 max_bound,
                        const ue2_literal &lit, ReportID *remap) {
     if (!remap) {
         DEBUG_PRINTF("no remap\n");
@@ -477,8 +477,8 @@ bool check_dupe_simple(const RoseBuildImpl &tbi, u32 min_bound, u32 max_bound,
     }
 
     simple_anchored_info sai(min_bound, max_bound, lit);
-    if (contains(tbi.anchored_simple, sai)) {
-        *remap = *tbi.anchored_simple.at(sai).begin();
+    if (contains(build.anchored_simple, sai)) {
+        *remap = *build.anchored_simple.at(sai).begin();
         return true;
     }
 
@@ -642,7 +642,7 @@ bool isSimple(const NGHolder &h, u32 *min_bound, u32 *max_bound,
 }
 
 static
-int finalise_out(RoseBuildImpl &tbi, const NGHolder &h,
+int finalise_out(RoseBuildImpl &build, const NGHolder &h,
                  const Automaton_Holder &autom, unique_ptr<raw_dfa> out_dfa,
                  ReportID *remap) {
     u32 min_bound = ~0U;
@@ -651,12 +651,12 @@ int finalise_out(RoseBuildImpl &tbi, const NGHolder &h,
     u32 simple_report = MO_INVALID_IDX;
     if (isSimple(h, &min_bound, &max_bound, &lit, &simple_report)) {
         assert(simple_report != MO_INVALID_IDX);
-        if (check_dupe_simple(tbi, min_bound, max_bound, lit, remap)) {
+        if (check_dupe_simple(build, min_bound, max_bound, lit, remap)) {
             DEBUG_PRINTF("found duplicate remapping to %u\n", *remap);
             return ANCHORED_REMAP;
         }
         DEBUG_PRINTF("add with report %u\n", simple_report);
-        tbi.anchored_simple[simple_anchored_info(min_bound, max_bound, lit)]
+        build.anchored_simple[simple_anchored_info(min_bound, max_bound, lit)]
             .insert(simple_report);
         return ANCHORED_SUCCESS;
     }
@@ -666,15 +666,15 @@ int finalise_out(RoseBuildImpl &tbi, const NGHolder &h,
     out_dfa->alpha_size = autom.alphasize;
     out_dfa->alpha_remap = autom.alpha;
     auto hash = hash_dfa_no_reports(*out_dfa);
-    if (check_dupe(*out_dfa, tbi.anchored_nfas[hash], remap)) {
+    if (check_dupe(*out_dfa, build.anchored_nfas[hash], remap)) {
         return ANCHORED_REMAP;
     }
-    tbi.anchored_nfas[hash].push_back(move(out_dfa));
+    build.anchored_nfas[hash].push_back(move(out_dfa));
     return ANCHORED_SUCCESS;
 }
 
 static
-int addAutomaton(RoseBuildImpl &tbi, const NGHolder &h, ReportID *remap) {
+int addAutomaton(RoseBuildImpl &build, const NGHolder &h, ReportID *remap) {
     if (num_vertices(h) > ANCHORED_NFA_STATE_LIMIT) {
         DEBUG_PRINTF("autom bad!\n");
         return ANCHORED_FAIL;
@@ -684,7 +684,7 @@ int addAutomaton(RoseBuildImpl &tbi, const NGHolder &h, ReportID *remap) {
 
     unique_ptr<raw_dfa> out_dfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
     if (!determinise(autom, out_dfa->states, MAX_DFA_STATES)) {
-        return finalise_out(tbi, h, autom, move(out_dfa), remap);
+        return finalise_out(build, h, autom, move(out_dfa), remap);
     }
 
     DEBUG_PRINTF("determinise failed\n");
@@ -702,7 +702,7 @@ void setReports(NGHolder &h, const map<NFAVertex, set<u32>> &reportMap,
     }
 }
 
-int addAnchoredNFA(RoseBuildImpl &tbi, const NGHolder &wrapper,
+int addAnchoredNFA(RoseBuildImpl &build, const NGHolder &wrapper,
                    const map<NFAVertex, set<u32>> &reportMap) {
     NGHolder h;
     ue2::unordered_map<NFAVertex, NFAVertex> orig_to_copy;
@@ -713,10 +713,10 @@ int addAnchoredNFA(RoseBuildImpl &tbi, const NGHolder &wrapper,
     clearReports(h);
     setReports(h, reportMap, orig_to_copy);
 
-    return addAutomaton(tbi, h, nullptr);
+    return addAutomaton(build, h, nullptr);
 }
 
-int addToAnchoredMatcher(RoseBuildImpl &tbi, const NGHolder &anchored,
+int addToAnchoredMatcher(RoseBuildImpl &build, const NGHolder &anchored,
                          u32 exit_id, ReportID *remap) {
     NGHolder h;
     cloneHolder(h, anchored);
@@ -727,18 +727,18 @@ int addToAnchoredMatcher(RoseBuildImpl &tbi, const NGHolder &anchored,
         h[v].reports.insert(exit_id);
     }
 
-    return addAutomaton(tbi, h, remap);
+    return addAutomaton(build, h, remap);
 }
 
 static
-void buildSimpleDfas(const RoseBuildImpl &tbi,
+void buildSimpleDfas(const RoseBuildImpl &build,
                      vector<unique_ptr<raw_dfa>> *anchored_dfas) {
     /* we should have determinised all of these before so there should be no
      * chance of failure. */
-     for (const auto &simple : tbi.anchored_simple) {
+     for (const auto &simple : build.anchored_simple) {
         set<u32> exit_ids;
         for (auto lit_id : simple.second) {
-            exit_ids.insert(tbi.literal_info[lit_id].final_id);
+            exit_ids.insert(build.literal_info[lit_id].final_id);
         }
         NGHolder h;
         populate_holder(simple.first, exit_ids, &h);
