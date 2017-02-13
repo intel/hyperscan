@@ -183,7 +183,7 @@ void remapAnchoredReports(raw_dfa &rdfa, const RoseBuildImpl &build) {
         flat_set<ReportID> new_reports;
         for (auto id : ds.reports) {
             assert(id < build.literal_info.size());
-            new_reports.insert(build.literal_info.at(id).final_id);
+            new_reports.insert(build.literal_info.at(id).fragment_id);
         }
         ds.reports = move(new_reports);
     }
@@ -191,7 +191,7 @@ void remapAnchoredReports(raw_dfa &rdfa, const RoseBuildImpl &build) {
 
 /**
  * \brief Replaces the report ids currently in the dfas (rose graph literal
- * ids) with the final id for each literal.
+ * ids) with the fragment id for each literal.
  */
 static
 void remapAnchoredReports(RoseBuildImpl &build) {
@@ -208,8 +208,7 @@ void remapAnchoredReports(RoseBuildImpl &build) {
  * raw_dfa with program offsets.
  */
 static
-void remapIdsToPrograms(raw_dfa &rdfa,
-                        const map<u32, LitFragment> &final_to_frag_map) {
+void remapIdsToPrograms(const RoseBuildImpl &build, raw_dfa &rdfa) {
     for (dstate &ds : rdfa.states) {
         assert(ds.reports_eod.empty()); // Not used in anchored matcher.
         if (ds.reports.empty()) {
@@ -217,9 +216,8 @@ void remapIdsToPrograms(raw_dfa &rdfa,
         }
 
         flat_set<ReportID> new_reports;
-        for (auto final_id : ds.reports) {
-            assert(contains(final_to_frag_map, final_id));
-            auto &frag = final_to_frag_map.at(final_id);
+        for (auto fragment_id : ds.reports) {
+            auto &frag = build.fragments.at(fragment_id);
             new_reports.insert(frag.lit_program_offset);
         }
         ds.reports = move(new_reports);
@@ -227,16 +225,18 @@ void remapIdsToPrograms(raw_dfa &rdfa,
 }
 
 static
-void populate_holder(const simple_anchored_info &sai, const set<u32> &exit_ids,
-                     NGHolder *h_in) {
+unique_ptr<NGHolder> populate_holder(const simple_anchored_info &sai,
+                                     const flat_set<u32> &exit_ids) {
     DEBUG_PRINTF("populating holder for ^.{%u,%u}%s\n", sai.min_bound,
                  sai.max_bound, dumpString(sai.literal).c_str());
-    NGHolder &h = *h_in;
-    set<NFAVertex> ends = addDotsToGraph(h, h.start, sai.min_bound,
-                                         sai.max_bound, CharReach::dot());
+    auto h_ptr = make_unique<NGHolder>();
+    NGHolder &h = *h_ptr;
+    auto ends = addDotsToGraph(h, h.start, sai.min_bound, sai.max_bound,
+                               CharReach::dot());
     NFAVertex v = addToGraph(h, ends, sai.literal);
     add_edge(v, h.accept, h);
     h[v].reports.insert(exit_ids.begin(), exit_ids.end());
+    return h_ptr;
 }
 
 u32 anchoredStateSize(const anchored_matcher_info &atable) {
@@ -735,15 +735,15 @@ void buildSimpleDfas(const RoseBuildImpl &build,
                      vector<unique_ptr<raw_dfa>> *anchored_dfas) {
     /* we should have determinised all of these before so there should be no
      * chance of failure. */
-     for (const auto &simple : build.anchored_simple) {
-        set<u32> exit_ids;
+    flat_set<u32> exit_ids;
+    for (const auto &simple : build.anchored_simple) {
+        exit_ids.clear();
         for (auto lit_id : simple.second) {
-            exit_ids.insert(build.literal_info[lit_id].final_id);
+            exit_ids.insert(build.literal_info[lit_id].fragment_id);
         }
-        NGHolder h;
-        populate_holder(simple.first, exit_ids, &h);
-        Automaton_Holder autom(h);
-        unique_ptr<raw_dfa> rdfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
+        auto h = populate_holder(simple.first, exit_ids);
+        Automaton_Holder autom(*h);
+        auto rdfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
         UNUSED int rv = determinise(autom, rdfa->states, MAX_DFA_STATES);
         assert(!rv);
         rdfa->start_anchored = INIT_STATE;
@@ -858,7 +858,7 @@ buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
     }
 
     for (auto &rdfa : dfas) {
-        remapIdsToPrograms(rdfa, build.final_to_frag_map);
+        remapIdsToPrograms(build, rdfa);
     }
 
     vector<aligned_unique_ptr<NFA>> nfas;

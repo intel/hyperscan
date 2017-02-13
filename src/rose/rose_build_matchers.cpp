@@ -741,7 +741,8 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
     for (auto &lit : mp.lits) {
         u32 final_id = lit.id;
         assert(contains(build.final_to_frag_map, final_id));
-        const auto &frag = build.final_to_frag_map.at(final_id);
+        const auto &frag =
+            build.fragments.at(build.final_to_frag_map.at(final_id));
         lit.id = delay_rebuild ? frag.delay_program_offset
                                : frag.lit_program_offset;
         lit.groups = frag.groups;

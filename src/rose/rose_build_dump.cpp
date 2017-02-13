@@ -1153,7 +1153,7 @@ void dumpRoseLitPrograms(const RoseBuildImpl &build, const RoseEngine *t,
     programs.reserve(build.final_to_frag_map.size());
 
     for (const auto &m : build.final_to_frag_map) {
-        const auto &frag = m.second;
+        const auto &frag = build.fragments.at(m.second);
         if (frag.lit_program_offset) {
             programs.push_back(frag.lit_program_offset);
         }

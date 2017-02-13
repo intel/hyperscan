@@ -4646,10 +4646,8 @@ rose_group getGroups(const RoseBuildImpl &build, const flat_set<u32> &lit_ids) {
 }
 
 static
-map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build,
-                                      const build_context &bc) {
+void groupByFragment(RoseBuildImpl &build, const build_context &bc) {
     u32 frag_id = 0;
-    map<u32, LitFragment> final_to_frag;
 
     struct FragmentInfo {
         vector<u32> final_ids;
@@ -4657,6 +4655,9 @@ map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build,
     };
 
     map<rose_literal_id, FragmentInfo> frag_info;
+
+    auto &final_to_frag = build.final_to_frag_map;
+    auto &fragments = build.fragments;
 
     for (const auto &m : bc.final_id_to_literal) {
         u32 final_id = m.first;
@@ -4666,21 +4667,27 @@ map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build,
         auto groups = getGroups(build, lit_ids);
 
         if (lit_ids.size() > 1) {
-            final_to_frag.emplace(final_id, LitFragment(frag_id++, groups));
+            final_to_frag.emplace(final_id, frag_id);
+            fragments.emplace_back(frag_id, groups);
+            frag_id++;
             continue;
         }
 
         const auto lit_id = *lit_ids.begin();
         const auto &lit = build.literals.right.at(lit_id);
         if (lit.s.length() < ROSE_SHORT_LITERAL_LEN_MAX) {
-            final_to_frag.emplace(final_id, LitFragment(frag_id++, groups));
+            final_to_frag.emplace(final_id, frag_id);
+            fragments.emplace_back(frag_id, groups);
+            frag_id++;
             continue;
         }
 
         // Combining fragments that squash their groups is unsafe.
         const auto &info = build.literal_info[lit_id];
         if (info.squash_group) {
-            final_to_frag.emplace(final_id, LitFragment(frag_id++, groups));
+            final_to_frag.emplace(final_id, frag_id);
+            fragments.emplace_back(frag_id, groups);
+            frag_id++;
             continue;
         }
 
@@ -4695,14 +4702,13 @@ map<u32, LitFragment> groupByFragment(const RoseBuildImpl &build,
         const auto &fi = m.second;
         DEBUG_PRINTF("frag %s -> ids: %s\n", dumpString(m.first.s).c_str(),
                      as_string_list(fi.final_ids).c_str());
+        fragments.emplace_back(frag_id, fi.groups);
         for (const auto final_id : fi.final_ids) {
             assert(!contains(final_to_frag, final_id));
-            final_to_frag.emplace(final_id, LitFragment(frag_id, fi.groups));
+            final_to_frag.emplace(final_id, frag_id);
         }
         frag_id++;
     }
-
-    return final_to_frag;
 }
 
 /**
@@ -4713,7 +4719,7 @@ void buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
     // Build a reverse mapping from fragment -> final_id.
     map<u32, flat_set<u32>> frag_to_final_map;
     for (const auto &m : build.final_to_frag_map) {
-        frag_to_final_map[m.second.fragment_id].insert(m.first);
+        frag_to_final_map[m.second].insert(m.first);
     }
 
     const u32 num_fragments = verify_u32(frag_to_final_map.size());
@@ -4736,7 +4742,8 @@ void buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
     }
 
     // Update LitFragment entries.
-    for (auto &frag : build.final_to_frag_map | map_values) {
+    for (const auto &fragment_id : build.final_to_frag_map | map_values) {
+        auto &frag = build.fragments.at(fragment_id);
         frag.lit_program_offset = litPrograms[frag.fragment_id];
         frag.delay_program_offset = delayRebuildPrograms[frag.fragment_id];
     }
@@ -5407,7 +5414,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     build_context bc;
     allocateFinalLiteralId(*this, bc);
-    final_to_frag_map = groupByFragment(*this, bc);
+    groupByFragment(*this, bc);
 
     // Write the fragment IDs into the literal_info structures.
     for (auto &info : literal_info) {
@@ -5415,7 +5422,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
             continue;
         }
         assert(contains(final_to_frag_map, info.final_id));
-        info.fragment_id = final_to_frag_map.at(info.final_id).fragment_id;
+        info.fragment_id = final_to_frag_map.at(info.final_id);
     }
 
     auto anchored_dfas = buildAnchoredDfas(*this);
