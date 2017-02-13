@@ -991,6 +991,7 @@ SET (hs_SRCS
     src/util/fatbit_build.h
     src/util/graph.h
     src/util/hash.h
+    src/util/hash_dynamic_bitset.h
     src/util/math.h
     src/util/multibit_build.cpp
     src/util/multibit_build.h

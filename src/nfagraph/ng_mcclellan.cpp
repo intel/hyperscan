@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,6 +42,8 @@
 #include "util/bitfield.h"
 #include "util/determinise.h"
 #include "util/graph_range.h"
+#include "util/hash.h"
+#include "util/hash_dynamic_bitset.h"
 #include "util/make_unique.h"
 #include "util/report_manager.h"
 #include "util/ue2_containers.h"
@@ -467,7 +469,7 @@ public:
 
 struct Big_Traits {
     using StateSet = dynamic_bitset<>;
-    using StateMap = map<StateSet, dstate_id_t>;
+    using StateMap = unordered_map<StateSet, dstate_id_t, hash_dynamic_bitset>;
 
     static StateSet init_states(u32 num) {
         return StateSet(num);
