@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ROSE_BUILD_IMPL_H_17E20A3C6935D6
-#define ROSE_BUILD_IMPL_H_17E20A3C6935D6
+#ifndef ROSE_BUILD_IMPL_H
+#define ROSE_BUILD_IMPL_H
 
 #include "rose_build.h"
 #include "rose_build_util.h"
@@ -651,4 +651,4 @@ bool canImplementGraphs(const RoseBuildImpl &tbi);
 
 } // namespace ue2
 
-#endif /* ROSE_BUILD_IMPL_H_17E20A3C6935D6 */
+#endif /* ROSE_BUILD_IMPL_H */
