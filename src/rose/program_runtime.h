@@ -103,7 +103,7 @@ void rosePushDelayedMatch(const struct RoseEngine *t,
 
 static rose_inline
 void recordAnchoredLiteralMatch(const struct RoseEngine *t,
-                                struct hs_scratch *scratch, u32 literal_id,
+                                struct hs_scratch *scratch, u32 anch_id,
                                 u64a end) {
     assert(end);
 
@@ -113,7 +113,7 @@ void recordAnchoredLiteralMatch(const struct RoseEngine *t,
 
     struct fatbit **anchoredLiteralRows = getAnchoredLiteralLog(scratch);
 
-    DEBUG_PRINTF("record %u @ %llu\n", literal_id, end);
+    DEBUG_PRINTF("record %u (of %u) @ %llu\n", anch_id, t->anchored_count, end);
 
     if (!bf64_set(&scratch->al_log_sum, end - 1)) {
         // first time, clear row
@@ -121,11 +121,8 @@ void recordAnchoredLiteralMatch(const struct RoseEngine *t,
         fatbit_clear(anchoredLiteralRows[end - 1]);
     }
 
-    u32 rel_idx = literal_id - t->anchored_base_id;
-    DEBUG_PRINTF("record %u @ %llu index %u/%u\n", literal_id, end, rel_idx,
-                 t->anchored_count);
-    assert(rel_idx < t->anchored_count);
-    fatbit_set(anchoredLiteralRows[end - 1], t->anchored_count, rel_idx);
+    assert(anch_id < t->anchored_count);
+    fatbit_set(anchoredLiteralRows[end - 1], t->anchored_count, anch_id);
 }
 
 static rose_inline

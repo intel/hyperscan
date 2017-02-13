@@ -246,6 +246,9 @@ struct build_context : boost::noncopyable {
 
     /** \brief Mapping from final ID to the set of literals it is used for. */
     map<u32, flat_set<u32>> final_id_to_literal;
+
+    /** \brief Mapping from final ID to anchored program index. */
+    map<u32, u32> anchored_programs;
 };
 
 /** \brief subengine info including built engine and
@@ -4269,7 +4272,14 @@ void makeRecordAnchoredInstruction(const RoseBuildImpl &build,
         return;
     }
 
-    program.add_before_end(make_unique<RoseInstrRecordAnchored>(final_id));
+    auto it = bc.anchored_programs.find(final_id);
+    if (it == bc.anchored_programs.end()) {
+        u32 anch_id = verify_u32(bc.anchored_programs.size());
+        it = bc.anchored_programs.emplace(final_id, anch_id).first;
+        DEBUG_PRINTF("added anch_id=%u for final_id %u\n", anch_id, final_id);
+    }
+    u32 anch_id = it->second;
+    program.add_before_end(make_unique<RoseInstrRecordAnchored>(anch_id));
 }
 
 static
@@ -4757,11 +4767,14 @@ u32 buildAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
     auto lit_edge_map = findEdgesByLiteral(build);
 
     vector<u32> programs;
+    programs.resize(bc.anchored_programs.size(), ROSE_INVALID_PROG_OFFSET);
 
-    for (u32 final_id = build.anchored_base_id;
-         final_id < build.delay_base_id; final_id++) {
+    for (const auto &m : bc.anchored_programs) {
+        u32 final_id = m.first;
+        u32 anch_id = m.second;
         u32 offset = writeLiteralProgram(build, bc, {final_id}, lit_edge_map);
-        programs.push_back(offset);
+        DEBUG_PRINTF("final_id %u -> anch prog at %u\n", final_id, offset);
+        programs[anch_id] = offset;
     }
 
     DEBUG_PRINTF("%zu anchored programs\n", programs.size());
@@ -5704,7 +5717,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine->delay_fatbit_size = fatbit_size(engine->delay_count);
     engine->delay_base_id = delay_base_id;
     engine->anchored_base_id = anchored_base_id;
-    engine->anchored_count = delay_base_id - anchored_base_id;
+    engine->anchored_count = bc.anchored_programs.size();
     engine->anchored_fatbit_size = fatbit_size(engine->anchored_count);
 
     engine->rosePrefixCount = rosePrefixCount;
