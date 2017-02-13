@@ -4722,30 +4722,17 @@ void buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
         frag_to_final_map[m.second].insert(m.first);
     }
 
-    const u32 num_fragments = verify_u32(frag_to_final_map.size());
-    DEBUG_PRINTF("%u fragments\n", num_fragments);
-
+    DEBUG_PRINTF("%zu fragments\n", build.fragments.size());
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    vector<u32> litPrograms(num_fragments);
-    vector<u32> delayRebuildPrograms(num_fragments);
-
-    for (u32 frag_id = 0; frag_id != num_fragments; ++frag_id) {
-        const auto &final_ids = frag_to_final_map[frag_id];
-        DEBUG_PRINTF("frag_id=%u, final_ids=[%s]\n", frag_id,
+    for (auto &frag : build.fragments) {
+        const auto &final_ids = frag_to_final_map[frag.fragment_id];
+        DEBUG_PRINTF("frag_id=%u, final_ids=[%s]\n", frag.fragment_id,
                      as_string_list(final_ids).c_str());
-
-        litPrograms[frag_id] =
+        frag.lit_program_offset =
             writeLiteralProgram(build, bc, final_ids, lit_edge_map);
-        delayRebuildPrograms[frag_id] =
+        frag.delay_program_offset =
             buildDelayRebuildProgram(build, bc, final_ids);
-    }
-
-    // Update LitFragment entries.
-    for (const auto &fragment_id : build.final_to_frag_map | map_values) {
-        auto &frag = build.fragments.at(fragment_id);
-        frag.lit_program_offset = litPrograms[frag.fragment_id];
-        frag.delay_program_offset = delayRebuildPrograms[frag.fragment_id];
     }
 }
 
