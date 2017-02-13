@@ -5409,6 +5409,15 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     allocateFinalLiteralId(*this, bc);
     final_to_frag_map = groupByFragment(*this, bc);
 
+    // Write the fragment IDs into the literal_info structures.
+    for (auto &info : literal_info) {
+        if (info.final_id == MO_INVALID_IDX) {
+            continue;
+        }
+        assert(contains(final_to_frag_map, info.final_id));
+        info.fragment_id = final_to_frag_map.at(info.final_id).fragment_id;
+    }
+
     auto anchored_dfas = buildAnchoredDfas(*this);
 
     bc.floatingMinLiteralMatchOffset =

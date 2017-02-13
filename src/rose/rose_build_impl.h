@@ -264,7 +264,8 @@ struct rose_literal_info {
     ue2::flat_set<RoseVertex> vertices;
     rose_group group_mask = 0;
     u32 undelayed_id = MO_INVALID_IDX;
-    u32 final_id = MO_INVALID_IDX; /* id reported by fdr */
+    u32 final_id = MO_INVALID_IDX; // TODO: remove
+    u32 fragment_id = MO_INVALID_IDX; //!< ID corresponding to literal prog.
     bool squash_group = false;
     bool requires_benefits = false;
 };
