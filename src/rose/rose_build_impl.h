@@ -578,8 +578,6 @@ public:
     std::map<u32, std::set<u32> > group_to_literal;
     u32 group_end;
 
-    u32 anchored_base_id;
-
     u32 ematcher_region_size; /**< number of bytes the eod table runs over */
 
     /** \brief Mapping from leftfix to queue ID (used in dump code). */

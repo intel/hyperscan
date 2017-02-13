@@ -5293,7 +5293,6 @@ void allocateFinalLiteralId(RoseBuildImpl &build, build_context &bc) {
     allocateFinalIdToSet(build, bc, norm, &next_final_id);
 
     /* next anchored stuff */
-    build.anchored_base_id = next_final_id;
     allocateFinalIdToSet(build, bc, anch, &next_final_id);
 
     /* delayed ids come last */
@@ -5716,7 +5715,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         verify_u32(bc.final_id_to_literal.size() - delay_base_id);
     engine->delay_fatbit_size = fatbit_size(engine->delay_count);
     engine->delay_base_id = delay_base_id;
-    engine->anchored_base_id = anchored_base_id;
     engine->anchored_count = bc.anchored_programs.size();
     engine->anchored_fatbit_size = fatbit_size(engine->anchored_count);
 

@@ -1821,7 +1821,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, delay_base_id);
     DUMP_U32(t, anchored_count);
     DUMP_U32(t, anchored_fatbit_size);
-    DUMP_U32(t, anchored_base_id);
     DUMP_U32(t, maxFloatingDelayedMatch);
     DUMP_U32(t, delayRebuildLength);
     DUMP_U32(t, stateOffsets.history);

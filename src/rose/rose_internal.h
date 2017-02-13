@@ -421,8 +421,6 @@ struct RoseEngine {
                         * delayed literal ids are contiguous */
     u32 anchored_count; /* number of anchored literal ids */
     u32 anchored_fatbit_size; //!< size of each anch fatbit in scratch (bytes)
-    u32 anchored_base_id; /* literal id of the first literal in the A table.
-                           * anchored literal ids are contiguous */
     u32 maxFloatingDelayedMatch; /* max offset that a delayed literal can
                                   * usefully be reported */
     u32 delayRebuildLength; /* length of the history region which needs to be
