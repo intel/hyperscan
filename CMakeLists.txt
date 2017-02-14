@@ -662,6 +662,8 @@ SET (hs_compile_SRCS
     src/hs_version.h
     src/scratch.h
     src/state.h
+    src/stream_compress.c
+    src/stream_compress.h
     src/ue2common.h
     src/compiler/asserts.cpp
     src/compiler/asserts.h

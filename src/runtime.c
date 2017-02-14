@@ -53,6 +53,7 @@
 #include "som/som_runtime.h"
 #include "som/som_stream.h"
 #include "state.h"
+#include "stream_compress.h"
 #include "ue2common.h"
 #include "util/exhaust.h"
 #include "util/multibit.h"
@@ -153,7 +154,7 @@ void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
 /** \brief Retrieve status bitmask from stream state. */
 static really_inline
 u8 getStreamStatus(const char *state) {
-    u8 status = *(const u8 *)state;
+    u8 status = *(const u8 *)(state + ROSE_STATE_OFFSET_STATUS_FLAGS);
     assert((status & ~STATUS_VALID_BITS) == 0);
     return status;
 }
@@ -162,7 +163,7 @@ u8 getStreamStatus(const char *state) {
 static really_inline
 void setStreamStatus(char *state, u8 status) {
     assert((status & ~STATUS_VALID_BITS) == 0);
-    *(u8 *)state = status;
+    *(u8 *)(state + ROSE_STATE_OFFSET_STATUS_FLAGS) = status;
 }
 
 /** \brief Initialise SOM state. Used in both block and streaming mode. */
@@ -1091,4 +1092,98 @@ hs_error_t HS_CDECL hs_scan_vector(const hs_database_t *db,
     unmarkScratchInUse(scratch);
 
     return HS_SUCCESS;
+}
+
+HS_PUBLIC_API
+hs_error_t hs_compress_stream(const hs_stream_t *stream, char *buf,
+                              size_t buf_space, size_t *used_space) {
+    if (unlikely(!stream || !used_space)) {
+        return HS_INVALID;
+    }
+
+    if (unlikely(buf_space && !buf)) {
+        return HS_INVALID;
+    }
+
+    const struct RoseEngine *rose = stream->rose;
+
+    size_t stream_size = size_compress_stream(rose, stream);
+
+    DEBUG_PRINTF("require %zu [orig %zu]\n", stream_size,
+                 rose->stateOffsets.end + sizeof(struct hs_stream));
+    *used_space = stream_size;
+
+    if (buf_space < stream_size) {
+        return HS_INSUFFICIENT_SPACE;
+    }
+    compress_stream(buf, stream_size, rose, stream);
+
+    return HS_SUCCESS;
+}
+
+hs_error_t hs_expand_stream(const hs_database_t *db, hs_stream_t **stream,
+                            const char *buf, size_t buf_size) {
+    if (unlikely(!stream || !buf)) {
+        return HS_INVALID;
+    }
+
+    *stream = NULL;
+
+    hs_error_t err = validDatabase(db);
+    if (unlikely(err != HS_SUCCESS)) {
+        return err;
+    }
+
+    const struct RoseEngine *rose = hs_get_bytecode(db);
+    if (unlikely(!ISALIGNED_16(rose))) {
+        return HS_INVALID;
+    }
+
+    if (unlikely(rose->mode != HS_MODE_STREAM)) {
+        return HS_DB_MODE_ERROR;
+    }
+
+    size_t stream_size = rose->stateOffsets.end + sizeof(struct hs_stream);
+
+    struct hs_stream *s = hs_stream_alloc(stream_size);
+    if (unlikely(!s)) {
+        return HS_NOMEM;
+    }
+
+    if (!expand_stream(s, rose, buf, buf_size)) {
+        hs_stream_free(s);
+        return HS_INVALID;
+    }
+
+    *stream = s;
+    return HS_SUCCESS;
+}
+
+hs_error_t hs_reset_and_expand_stream(hs_stream_t *to_stream,
+                                      const char *buf, size_t buf_size,
+                                      hs_scratch_t *scratch,
+                                      match_event_handler onEvent,
+                                      void *context) {
+    if (unlikely(!to_stream || !buf)) {
+        return HS_INVALID;
+    }
+
+    const struct RoseEngine *rose = to_stream->rose;
+
+    if (onEvent) {
+        if (!scratch || !validScratch(to_stream->rose, scratch)) {
+            return HS_INVALID;
+        }
+        if (unlikely(markScratchInUse(scratch))) {
+            return HS_SCRATCH_IN_USE;
+        }
+        report_eod_matches(to_stream, scratch, onEvent, context);
+        unmarkScratchInUse(scratch);
+    }
+
+    if (expand_stream(to_stream, rose, buf, buf_size)) {
+        return HS_SUCCESS;
+    } else {
+        return HS_INVALID;
+    }
 }

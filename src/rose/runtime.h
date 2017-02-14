@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -68,7 +68,7 @@ const void *getByOffset(const struct RoseEngine *t, u32 offset) {
 
 static really_inline
 void *getRoleState(char *state) {
-    return state + sizeof(u8); // status flags
+    return state + ROSE_STATE_OFFSET_ROLE_MMBIT;
 }
 
 /** \brief Fetch the active array for suffix nfas. */

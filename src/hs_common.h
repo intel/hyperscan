@@ -561,6 +561,18 @@ hs_error_t HS_CDECL hs_valid_platform(void);
  */
 #define HS_ARCH_ERROR           (-11)
 
+/**
+ * Provided buffer was too small.
+ *
+ * This error indicates that there was insufficient space in the buffer. The
+ * call should be repeated with a larger provided buffer.
+ *
+ * Note: in this situation, it is normal for the amount of space required to be
+ * returned in the same manner as the used space would have been returned if the
+ * call was successful.
+ */
+#define HS_INSUFFICIENT_SPACE   (-12)
+
 /** @} */
 
 #ifdef __cplusplus

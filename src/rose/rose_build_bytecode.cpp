@@ -393,13 +393,15 @@ void fillStateOffsets(const RoseBuildImpl &build, u32 rolesWithStateCount,
 
     so->activeLeafArray = curr_offset; /* TODO: limit size of array */
     curr_offset += mmbit_size(activeArrayCount);
+    so->activeLeafArray_size = mmbit_size(activeArrayCount);
 
     so->activeLeftArray = curr_offset; /* TODO: limit size of array */
+    curr_offset += mmbit_size(activeLeftCount);
     so->activeLeftArray_size = mmbit_size(activeLeftCount);
-    curr_offset += so->activeLeftArray_size;
 
     so->longLitState = curr_offset;
     curr_offset += longLitStreamStateRequired;
+    so->longLitState_size = longLitStreamStateRequired;
 
     // ONE WHOLE BYTE for each active leftfix with lag.
     so->leftfixLagTable = curr_offset;
@@ -420,6 +422,7 @@ void fillStateOffsets(const RoseBuildImpl &build, u32 rolesWithStateCount,
     // Exhaustion multibit.
     so->exhausted = curr_offset;
     curr_offset += mmbit_size(build.rm.numEkeys());
+    so->exhausted_size = mmbit_size(build.rm.numEkeys());
 
     // SOM locations and valid/writeable multibit structures.
     if (build.ssm.numSomSlots()) {
@@ -435,6 +438,7 @@ void fillStateOffsets(const RoseBuildImpl &build, u32 rolesWithStateCount,
         curr_offset += mmbit_size(build.ssm.numSomSlots());
         so->somWritable = curr_offset;
         curr_offset += mmbit_size(build.ssm.numSomSlots());
+        so->somMultibit_size = mmbit_size(build.ssm.numSomSlots());
     } else {
         // No SOM handling, avoid growing the stream state any further.
         so->somLocation = 0;
@@ -443,6 +447,7 @@ void fillStateOffsets(const RoseBuildImpl &build, u32 rolesWithStateCount,
     }
 
     // note: state space for mask nfas is allocated later
+    so->nfaStateBegin = curr_offset;
     so->end = curr_offset;
 }
 
@@ -2039,7 +2044,7 @@ bool buildNfas(RoseBuildImpl &tbi, build_context &bc, QueueIndexFactory &qif,
 static
 void allocateStateSpace(const engine_info &eng_info, NfaInfo &nfa_info,
                         RoseStateOffsets *so, u32 *scratchStateSize,
-                        u32 *streamStateSize, u32 *transientStateSize) {
+                        u32 *transientStateSize) {
     u32 state_offset;
     if (eng_info.transient) {
         // Transient engines do not use stream state, but must have room in
@@ -2050,7 +2055,6 @@ void allocateStateSpace(const engine_info &eng_info, NfaInfo &nfa_info,
         // Pack NFA stream state on to the end of the Rose stream state.
         state_offset = so->end;
         so->end += eng_info.stream_size;
-        *streamStateSize += eng_info.stream_size;
     }
 
     nfa_info.stateOffset = state_offset;
@@ -2064,12 +2068,11 @@ void allocateStateSpace(const engine_info &eng_info, NfaInfo &nfa_info,
 static
 void updateNfaState(const build_context &bc, vector<NfaInfo> &nfa_infos,
                     RoseStateOffsets *so, u32 *scratchStateSize,
-                    u32 *streamStateSize, u32 *transientStateSize) {
+                    u32 *transientStateSize) {
     if (nfa_infos.empty()) {
         return;
     }
 
-    *streamStateSize = 0;
     *transientStateSize = 0;
     *scratchStateSize = 0;
 
@@ -2077,7 +2080,7 @@ void updateNfaState(const build_context &bc, vector<NfaInfo> &nfa_infos,
         NfaInfo &nfa_info = nfa_infos[qi];
         const auto &eng_info = bc.engine_info_by_queue.at(qi);
         allocateStateSpace(eng_info, nfa_info, so, scratchStateSize,
-                           streamStateSize, transientStateSize);
+                           transientStateSize);
     }
 }
 
@@ -2491,7 +2494,7 @@ void writeNfaInfo(const RoseBuildImpl &build, build_context &bc,
     // Update state offsets to do with NFAs in proto and in the NfaInfo
     // structures.
     updateNfaState(bc, infos, &proto.stateOffsets, &proto.scratchStateSize,
-                   &proto.nfaStateSize, &proto.tStateSize);
+                   &proto.tStateSize);
 
     proto.nfaInfoOffset = bc.engine_blob.add_range(infos);
 }
@@ -3782,7 +3785,6 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     proto.totalNumLiterals = verify_u32(literal_info.size());
     proto.asize = verify_u32(atable.size());
     proto.ematcherRegionSize = ematcher_region_size;
-    proto.longLitStreamState = verify_u32(longLitStreamStateRequired);
 
     proto.size = currOffset;
 

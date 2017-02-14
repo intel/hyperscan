@@ -2026,15 +2026,17 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
 
     fprintf(f, "state space required : %u bytes\n", t->stateOffsets.end);
     fprintf(f, " - history buffer    : %u bytes\n", t->historyRequired);
-    fprintf(f, " - exhaustion vector : %u bytes\n", (t->ekeyCount + 7) / 8);
+    fprintf(f, " - exhaustion vector : %u bytes\n",
+            t->stateOffsets.exhausted_size);
     fprintf(f, " - role state mmbit  : %u bytes\n", t->stateSize);
     fprintf(f, " - long lit matcher  : %u bytes\n", t->longLitStreamState);
     fprintf(f, " - active array      : %u bytes\n",
-            mmbit_size(t->activeArrayCount));
+            t->stateOffsets.activeLeafArray_size);
     fprintf(f, " - active rose       : %u bytes\n",
-            mmbit_size(t->activeLeftCount));
+            t->stateOffsets.activeLeftArray_size);
     fprintf(f, " - anchored state    : %u bytes\n", t->anchorStateSize);
-    fprintf(f, " - nfa state         : %u bytes\n", t->nfaStateSize);
+    fprintf(f, " - nfa state         : %u bytes\n",
+            t->stateOffsets.end - t->stateOffsets.nfaStateBegin);
     fprintf(f, " - (trans. nfa state): %u bytes\n", t->tStateSize);
     fprintf(f, " - one whole bytes   : %u bytes\n",
             t->stateOffsets.anchorState - t->stateOffsets.leftfixLagTable);
@@ -2098,7 +2100,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, rolesWithStateCount);
     DUMP_U32(t, stateSize);
     DUMP_U32(t, anchorStateSize);
-    DUMP_U32(t, nfaStateSize);
     DUMP_U32(t, tStateSize);
     DUMP_U32(t, smallWriteOffset);
     DUMP_U32(t, amatcherOffset);
@@ -2148,7 +2149,9 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, delayRebuildLength);
     DUMP_U32(t, stateOffsets.history);
     DUMP_U32(t, stateOffsets.exhausted);
+    DUMP_U32(t, stateOffsets.exhausted_size);
     DUMP_U32(t, stateOffsets.activeLeafArray);
+    DUMP_U32(t, stateOffsets.activeLeafArray_size);
     DUMP_U32(t, stateOffsets.activeLeftArray);
     DUMP_U32(t, stateOffsets.activeLeftArray_size);
     DUMP_U32(t, stateOffsets.leftfixLagTable);
@@ -2156,9 +2159,12 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, stateOffsets.groups);
     DUMP_U32(t, stateOffsets.groups_size);
     DUMP_U32(t, stateOffsets.longLitState);
+    DUMP_U32(t, stateOffsets.longLitState_size);
     DUMP_U32(t, stateOffsets.somLocation);
     DUMP_U32(t, stateOffsets.somValid);
     DUMP_U32(t, stateOffsets.somWritable);
+    DUMP_U32(t, stateOffsets.somMultibit_size);
+    DUMP_U32(t, stateOffsets.nfaStateBegin);
     DUMP_U32(t, stateOffsets.end);
     DUMP_U32(t, boundary.reportEodOffset);
     DUMP_U32(t, boundary.reportZeroOffset);
@@ -2174,7 +2180,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, ematcherRegionSize);
     DUMP_U32(t, somRevCount);
     DUMP_U32(t, somRevOffsetOffset);
-    DUMP_U32(t, longLitStreamState);
     fprintf(f, "}\n");
     fprintf(f, "sizeof(RoseEngine) = %zu\n", sizeof(RoseEngine));
 }
