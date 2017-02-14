@@ -1710,7 +1710,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
             rose_off(t->maxBiAnchoredWidth).str().c_str());
     fprintf(f, "  minFloatLitMatchOffset      : %s\n",
             rose_off(t->floatingMinLiteralMatchOffset).str().c_str());
-    fprintf(f, "  delay_base_id               : %u\n", t->delay_base_id);
     fprintf(f, "  maxFloatingDelayedMatch     : %s\n",
             rose_off(t->maxFloatingDelayedMatch).str().c_str());
 
@@ -1818,7 +1817,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, size);
     DUMP_U32(t, delay_count);
     DUMP_U32(t, delay_fatbit_size);
-    DUMP_U32(t, delay_base_id);
     DUMP_U32(t, anchored_count);
     DUMP_U32(t, anchored_fatbit_size);
     DUMP_U32(t, maxFloatingDelayedMatch);

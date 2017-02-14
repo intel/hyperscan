@@ -417,8 +417,6 @@ struct RoseEngine {
     u32 size; // (bytes)
     u32 delay_count; /* number of delayed literal ids. */
     u32 delay_fatbit_size; //!< size of each delay fatbit in scratch (bytes)
-    u32 delay_base_id; /* literal id of the first delayed literal.
-                        * delayed literal ids are contiguous */
     u32 anchored_count; /* number of anchored literal ids */
     u32 anchored_fatbit_size; //!< size of each anch fatbit in scratch (bytes)
     u32 maxFloatingDelayedMatch; /* max offset that a delayed literal can

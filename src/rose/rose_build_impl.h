@@ -571,7 +571,6 @@ public:
         return next_nfa_report++;
     }
     std::deque<rose_literal_info> literal_info;
-    u32 delay_base_id;
     bool hasSom; //!< at least one pattern requires SOM.
     std::map<size_t, std::vector<std::unique_ptr<raw_dfa>>> anchored_nfas;
     std::map<simple_anchored_info, std::set<u32>> anchored_simple;

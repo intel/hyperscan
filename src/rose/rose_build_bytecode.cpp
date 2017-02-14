@@ -249,6 +249,9 @@ struct build_context : boost::noncopyable {
 
     /** \brief Mapping from final ID to anchored program index. */
     map<u32, u32> anchored_programs;
+
+    /** \brief Mapping from final ID to delayed program index. */
+    map<u32, u32> delay_programs;
 };
 
 /** \brief subengine info including built engine and
@@ -4141,6 +4144,7 @@ void addPredBlocks(build_context &bc, map<u32, RoseProgram> &pred_blocks,
 
 static
 void makePushDelayedInstructions(const RoseBuildImpl &build,
+                                 build_context &bc,
                                  const flat_set<u32> &lit_ids,
                                  RoseProgram &program) {
     assert(!lit_ids.empty());
@@ -4152,9 +4156,16 @@ void makePushDelayedInstructions(const RoseBuildImpl &build,
     for (const auto &int_id : arb_lit_info.delayed_ids) {
         const auto &child_literal = build.literals.right.at(int_id);
         u32 child_id = build.literal_info[int_id].final_id;
-        u32 delay_index = child_id - build.delay_base_id;
 
-        DEBUG_PRINTF("delay=%u child_id=%u\n", child_literal.delay, child_id);
+        auto it = bc.delay_programs.find(child_id);
+        if (it == bc.delay_programs.end()) {
+            u32 delay_index = verify_u32(bc.delay_programs.size());
+            it = bc.delay_programs.emplace(child_id, delay_index).first;
+        }
+        u32 delay_index = it->second;
+
+        DEBUG_PRINTF("delay=%u, child_id=%u, delay_index=%u\n",
+                     child_literal.delay, child_id, delay_index);
 
         auto ri = make_unique<RoseInstrPushDelayed>(
             verify_u8(child_literal.delay), delay_index);
@@ -4461,7 +4472,7 @@ RoseProgram buildLitInitialProgram(RoseBuildImpl &build, build_context &bc,
     }
 
     // Add instructions for pushing delayed matches, if there are any.
-    makePushDelayedInstructions(build, lit_ids, program);
+    makePushDelayedInstructions(build, bc, lit_ids, program);
 
     // Add pre-check for early literals in the floating table.
     makeCheckLitEarlyInstruction(build, bc, lit_ids, lit_edges, program);
@@ -4586,7 +4597,7 @@ u32 buildDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
         RoseProgram prog;
         makeCheckLiteralInstruction(build, bc, lit_ids, prog);
         makeCheckLitMaskInstruction(build, bc, lit_ids, prog);
-        makePushDelayedInstructions(build, lit_ids, prog);
+        makePushDelayedInstructions(build, bc, lit_ids, prog);
         program.add_block(move(prog));
     }
 
@@ -4750,15 +4761,17 @@ static
 u32 buildDelayPrograms(RoseBuildImpl &build, build_context &bc) {
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    vector<u32> programs;
+    vector<u32> programs(bc.delay_programs.size(), ROSE_INVALID_PROG_OFFSET);
+    DEBUG_PRINTF("%zu delay programs\n", programs.size());
 
-    for (u32 final_id = build.delay_base_id;
-         final_id < bc.final_id_to_literal.size(); final_id++) {
+    for (const auto &m : bc.delay_programs) {
+        u32 final_id = m.first;
+        u32 delay_id = m.second;
         u32 offset = writeLiteralProgram(build, bc, {final_id}, lit_edge_map);
-        programs.push_back(offset);
+        DEBUG_PRINTF("delay_id=%u, offset=%u\n", delay_id, offset);
+        programs[delay_id] = offset;
     }
 
-    DEBUG_PRINTF("%zu delay programs\n", programs.size());
     return bc.engine_blob.add(begin(programs), end(programs));
 }
 
@@ -4766,8 +4779,8 @@ static
 u32 buildAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    vector<u32> programs;
-    programs.resize(bc.anchored_programs.size(), ROSE_INVALID_PROG_OFFSET);
+    vector<u32> programs(bc.anchored_programs.size(), ROSE_INVALID_PROG_OFFSET);
+    DEBUG_PRINTF("%zu anchored programs\n", programs.size());
 
     for (const auto &m : bc.anchored_programs) {
         u32 final_id = m.first;
@@ -4777,7 +4790,6 @@ u32 buildAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
         programs[anch_id] = offset;
     }
 
-    DEBUG_PRINTF("%zu anchored programs\n", programs.size());
     return bc.engine_blob.add(begin(programs), end(programs));
 }
 
@@ -5296,7 +5308,6 @@ void allocateFinalLiteralId(RoseBuildImpl &build, build_context &bc) {
     allocateFinalIdToSet(build, bc, anch, &next_final_id);
 
     /* delayed ids come last */
-    build.delay_base_id = next_final_id;
     allocateFinalIdToSet(build, bc, delay, &next_final_id);
 }
 
@@ -5711,11 +5722,9 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     engine->lastByteHistoryIterOffset = lastByteOffset;
 
-    engine->delay_count =
-        verify_u32(bc.final_id_to_literal.size() - delay_base_id);
+    engine->delay_count = verify_u32(bc.delay_programs.size());
     engine->delay_fatbit_size = fatbit_size(engine->delay_count);
-    engine->delay_base_id = delay_base_id;
-    engine->anchored_count = bc.anchored_programs.size();
+    engine->anchored_count = verify_u32(bc.anchored_programs.size());
     engine->anchored_fatbit_size = fatbit_size(engine->anchored_count);
 
     engine->rosePrefixCount = rosePrefixCount;
