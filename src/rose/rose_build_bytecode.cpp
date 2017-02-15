@@ -250,7 +250,7 @@ struct build_context : boost::noncopyable {
     /** \brief Mapping from Rose literal ID to anchored program index. */
     map<u32, u32> anchored_programs;
 
-    /** \brief Mapping from final ID to delayed program index. */
+    /** \brief Mapping from Rose literal ID to delayed program index. */
     map<u32, u32> delay_programs;
 };
 
@@ -4148,28 +4148,31 @@ void makePushDelayedInstructions(const RoseBuildImpl &build,
                                  const flat_set<u32> &lit_ids,
                                  RoseProgram &program) {
     assert(!lit_ids.empty());
-    const auto &arb_lit_info = build.literal_info.at(*lit_ids.begin());
-    if (arb_lit_info.delayed_ids.empty()) {
-        return;
+
+    vector<RoseInstrPushDelayed> delay_instructions;
+
+    for (const auto &lit_id : lit_ids) {
+        const auto &info = build.literal_info.at(lit_id);
+        for (const auto &delayed_lit_id : info.delayed_ids) {
+            DEBUG_PRINTF("delayed lit id %u\n", delayed_lit_id);
+            assert(contains(bc.delay_programs, delayed_lit_id));
+            u32 delay_id = bc.delay_programs.at(delayed_lit_id);
+            const auto &delay_lit = build.literals.right.at(delayed_lit_id);
+            delay_instructions.emplace_back(verify_u8(delay_lit.delay),
+                                            delay_id);
+        }
     }
 
-    for (const auto &int_id : arb_lit_info.delayed_ids) {
-        const auto &child_literal = build.literals.right.at(int_id);
-        u32 child_id = build.literal_info[int_id].final_id;
+    sort(begin(delay_instructions), end(delay_instructions),
+         [](const RoseInstrPushDelayed &a, const RoseInstrPushDelayed &b) {
+             return tie(a.delay, a.index) < tie(b.delay, b.index);
+         });
+    delay_instructions.erase(
+        unique(begin(delay_instructions), end(delay_instructions)),
+        end(delay_instructions));
 
-        auto it = bc.delay_programs.find(child_id);
-        if (it == bc.delay_programs.end()) {
-            u32 delay_index = verify_u32(bc.delay_programs.size());
-            it = bc.delay_programs.emplace(child_id, delay_index).first;
-        }
-        u32 delay_index = it->second;
-
-        DEBUG_PRINTF("delay=%u, child_id=%u, delay_index=%u\n",
-                     child_literal.delay, child_id, delay_index);
-
-        auto ri = make_unique<RoseInstrPushDelayed>(
-            verify_u8(child_literal.delay), delay_index);
-        program.add_before_end(move(ri));
+    for (const auto &ri : delay_instructions) {
+        program.add_before_end(make_unique<RoseInstrPushDelayed>(ri));
     }
 }
 
@@ -4758,23 +4761,47 @@ void buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
     }
 }
 
+/**
+ * \brief Write delay replay programs to the bytecode.
+ *
+ * Returns the offset of the beginning of the program array, and the number of
+ * programs.
+ */
 static
-u32 buildDelayPrograms(RoseBuildImpl &build, build_context &bc) {
+pair<u32, u32> writeDelayPrograms(RoseBuildImpl &build, build_context &bc) {
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    vector<u32> programs(bc.delay_programs.size(), ROSE_INVALID_PROG_OFFSET);
-    DEBUG_PRINTF("%zu delay programs\n", programs.size());
+    vector<u32> programs; // program offsets indexed by (delayed) lit id
+    unordered_map<u32, u32> cache; // program offsets we have already seen
 
-    for (const auto &m : bc.delay_programs) {
-        u32 final_id = m.first;
-        u32 delay_id = m.second;
-        u32 offset =
-            writeLiteralProgram(build, bc, {final_id}, lit_edge_map, false);
-        DEBUG_PRINTF("delay_id=%u, offset=%u\n", delay_id, offset);
-        programs[delay_id] = offset;
+    for (const auto &lit_id : build.literals.right | map_keys) {
+        const auto &info = build.literal_info.at(lit_id);
+        for (const auto &delayed_lit_id : info.delayed_ids) {
+            DEBUG_PRINTF("lit id %u delay id %u\n", lit_id, delayed_lit_id);
+            u32 final_id = build.literal_info.at(delayed_lit_id).final_id;
+            u32 offset =
+                writeLiteralProgram(build, bc, {final_id}, lit_edge_map, false);
+
+            u32 delay_id;
+            auto it = cache.find(offset);
+            if (it != end(cache)) {
+                delay_id = it->second;
+                DEBUG_PRINTF("reusing delay_id %u for offset %u\n", delay_id,
+                             offset);
+            } else {
+                delay_id = verify_u32(programs.size());
+                programs.push_back(offset);
+                cache.emplace(offset, delay_id);
+                DEBUG_PRINTF("assigned new delay_id %u for offset %u\n",
+                             delay_id, offset);
+            }
+            bc.delay_programs.emplace(delayed_lit_id, delay_id);
+        }
     }
 
-    return bc.engine_blob.add(begin(programs), end(programs));
+    DEBUG_PRINTF("%zu delay programs\n", programs.size());
+    return {bc.engine_blob.add(begin(programs), end(programs)),
+            verify_u32(programs.size())};
 }
 
 /**
@@ -5543,8 +5570,11 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     tie(anchoredProgramOffset, anchoredProgramCount) =
         writeAnchoredPrograms(*this, bc);
 
+    u32 delayProgramOffset;
+    u32 delayProgramCount;
+    tie(delayProgramOffset, delayProgramCount) = writeDelayPrograms(*this, bc);
+
     buildLiteralPrograms(*this, bc);
-    u32 delayProgramOffset = buildDelayPrograms(*this, bc);
 
     u32 eodProgramOffset = writeEodProgram(*this, bc, eodNfaIterOffset);
 
@@ -5770,7 +5800,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     engine->lastByteHistoryIterOffset = lastByteOffset;
 
-    engine->delay_count = verify_u32(bc.delay_programs.size());
+    engine->delay_count = delayProgramCount;
     engine->delay_fatbit_size = fatbit_size(engine->delay_count);
     engine->anchored_count = anchoredProgramCount;
     engine->anchored_fatbit_size = fatbit_size(engine->anchored_count);
