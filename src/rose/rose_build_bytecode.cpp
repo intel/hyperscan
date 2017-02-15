@@ -247,7 +247,7 @@ struct build_context : boost::noncopyable {
     /** \brief Mapping from final ID to the set of literals it is used for. */
     map<u32, flat_set<u32>> final_id_to_literal;
 
-    /** \brief Mapping from final ID to anchored program index. */
+    /** \brief Mapping from Rose literal ID to anchored program index. */
     map<u32, u32> anchored_programs;
 
     /** \brief Mapping from final ID to delayed program index. */
@@ -4260,37 +4260,26 @@ u32 findMaxOffset(const RoseBuildImpl &build, u32 lit_id) {
 
 static
 void makeRecordAnchoredInstruction(const RoseBuildImpl &build,
-                                   build_context &bc, u32 final_id,
+                                   build_context &bc,
+                                   const flat_set<u32> &lit_ids,
                                    RoseProgram &program) {
-    assert(contains(bc.final_id_to_literal, final_id));
-    const auto &lit_ids = bc.final_id_to_literal.at(final_id);
+    assert(!lit_ids.empty());
+    u32 first_lit_id = *begin(lit_ids);
 
     // Must be anchored.
-    assert(!lit_ids.empty());
-    if (build.literals.right.at(*begin(lit_ids)).table != ROSE_ANCHORED) {
+    if (build.literals.right.at(first_lit_id).table != ROSE_ANCHORED) {
         return;
     }
 
-    // If this anchored literal can never match past
-    // floatingMinLiteralMatchOffset, we will never have to record it.
-    u32 max_offset = 0;
-    for (u32 lit_id : lit_ids) {
+    for (const auto &lit_id : lit_ids) {
         assert(build.literals.right.at(lit_id).table == ROSE_ANCHORED);
-        max_offset = max(max_offset, findMaxOffset(build, lit_id));
+        if (!contains(bc.anchored_programs, lit_id)) {
+            continue;
+        }
+        u32 anch_id = bc.anchored_programs.at(lit_id);
+        DEBUG_PRINTF("adding RECORD_ANCHORED for anch_id=%u\n", anch_id);
+        program.add_before_end(make_unique<RoseInstrRecordAnchored>(anch_id));
     }
-
-    if (max_offset <= bc.floatingMinLiteralMatchOffset) {
-        return;
-    }
-
-    auto it = bc.anchored_programs.find(final_id);
-    if (it == bc.anchored_programs.end()) {
-        u32 anch_id = verify_u32(bc.anchored_programs.size());
-        it = bc.anchored_programs.emplace(final_id, anch_id).first;
-        DEBUG_PRINTF("added anch_id=%u for final_id %u\n", anch_id, final_id);
-    }
-    u32 anch_id = it->second;
-    program.add_before_end(make_unique<RoseInstrRecordAnchored>(anch_id));
 }
 
 static
@@ -4529,7 +4518,7 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
         makeGroupSquashInstruction(build, lit_ids, root_block);
 
         // Literal may be anchored and need to be recorded.
-        makeRecordAnchoredInstruction(build, bc, final_id, root_block);
+        makeRecordAnchoredInstruction(build, bc, lit_ids, root_block);
 
         program.add_block(move(root_block));
     }
@@ -4776,20 +4765,42 @@ u32 buildDelayPrograms(RoseBuildImpl &build, build_context &bc) {
 }
 
 static
-u32 buildAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
+u32 writeAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    vector<u32> programs(bc.anchored_programs.size(), ROSE_INVALID_PROG_OFFSET);
-    DEBUG_PRINTF("%zu anchored programs\n", programs.size());
+    vector<u32> programs;
 
-    for (const auto &m : bc.anchored_programs) {
-        u32 final_id = m.first;
-        u32 anch_id = m.second;
+    for (const auto &m : build.literals.right) {
+        u32 lit_id = m.first;
+        const auto &lit = m.second;
+
+        if (lit.table != ROSE_ANCHORED) {
+            continue;
+        }
+
+        u32 final_id = build.literal_info.at(lit_id).final_id;
+        if (final_id == MO_INVALID_IDX) {
+            continue;
+        }
+
+        // If this anchored literal can never match past
+        // floatingMinLiteralMatchOffset, we will never have to record it.
+        if (findMaxOffset(build, lit_id) <= bc.floatingMinLiteralMatchOffset) {
+            DEBUG_PRINTF("can never match after "
+                         "floatingMinLiteralMatchOffset=%u\n",
+                         bc.floatingMinLiteralMatchOffset);
+            continue;
+        }
+
         u32 offset = writeLiteralProgram(build, bc, {final_id}, lit_edge_map);
-        DEBUG_PRINTF("final_id %u -> anch prog at %u\n", final_id, offset);
-        programs[anch_id] = offset;
+        DEBUG_PRINTF("lit_id=%u, final_id %u -> anch prog at %u\n", lit_id,
+                     final_id, offset);
+        u32 anch_id = verify_u32(programs.size());
+        programs.push_back(offset);
+        bc.anchored_programs.emplace(lit_id, anch_id);
     }
 
+    DEBUG_PRINTF("%zu anchored programs\n", programs.size());
     return bc.engine_blob.add(begin(programs), end(programs));
 }
 
@@ -5494,9 +5505,10 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                        queue_count - leftfixBeginQueue, leftInfoTable,
                        &laggedRoseCount, &historyRequired);
 
+    u32 anchoredProgramOffset = writeAnchoredPrograms(*this, bc);
+
     buildLiteralPrograms(*this, bc);
     u32 delayProgramOffset = buildDelayPrograms(*this, bc);
-    u32 anchoredProgramOffset = buildAnchoredPrograms(*this, bc);
 
     u32 eodProgramOffset = writeEodProgram(*this, bc, eodNfaIterOffset);
 
