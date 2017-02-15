@@ -4471,8 +4471,8 @@ RoseProgram buildLitInitialProgram(RoseBuildImpl &build, build_context &bc,
 
 static
 RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
-                                u32 final_id,
-                                const vector<RoseEdge> &lit_edges) {
+                                u32 final_id, const vector<RoseEdge> &lit_edges,
+                                bool is_anchored_program) {
     const auto &g = build.g;
 
     DEBUG_PRINTF("final id %u, %zu lit edges\n", final_id, lit_edges.size());
@@ -4518,7 +4518,9 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
         makeGroupSquashInstruction(build, lit_ids, root_block);
 
         // Literal may be anchored and need to be recorded.
-        makeRecordAnchoredInstruction(build, bc, lit_ids, root_block);
+        if (!is_anchored_program) {
+            makeRecordAnchoredInstruction(build, bc, lit_ids, root_block);
+        }
 
         program.add_block(move(root_block));
     }
@@ -4533,7 +4535,8 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
 static
 RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
                                 const flat_set<u32> &final_ids,
-                                const map<u32, vector<RoseEdge>> &lit_edges) {
+                                const map<u32, vector<RoseEdge>> &lit_edges,
+                                bool is_anchored_program) {
     assert(!final_ids.empty());
 
     DEBUG_PRINTF("entry, %zu final ids\n", final_ids.size());
@@ -4545,7 +4548,8 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
         if (contains(lit_edges, final_id)) {
             edges_ptr = &(lit_edges.at(final_id));
         }
-        auto prog = buildLiteralProgram(build, bc, final_id, *edges_ptr);
+        auto prog = buildLiteralProgram(build, bc, final_id, *edges_ptr,
+                                        is_anchored_program);
         DEBUG_PRINTF("final_id=%u, prog has %zu entries\n", final_id,
                      prog.size());
         program.add_block(move(prog));
@@ -4556,8 +4560,10 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
 static
 u32 writeLiteralProgram(RoseBuildImpl &build, build_context &bc,
                         const flat_set<u32> &final_ids,
-                        const map<u32, vector<RoseEdge>> &lit_edges) {
-    RoseProgram program = buildLiteralProgram(build, bc, final_ids, lit_edges);
+                        const map<u32, vector<RoseEdge>> &lit_edges,
+                        bool is_anchored_program) {
+    RoseProgram program = buildLiteralProgram(build, bc, final_ids, lit_edges,
+                                              is_anchored_program);
     if (program.empty()) {
         return 0;
     }
@@ -4740,7 +4746,7 @@ void buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
         DEBUG_PRINTF("frag_id=%u, final_ids=[%s]\n", frag.fragment_id,
                      as_string_list(final_ids).c_str());
         frag.lit_program_offset =
-            writeLiteralProgram(build, bc, final_ids, lit_edge_map);
+            writeLiteralProgram(build, bc, final_ids, lit_edge_map, false);
         frag.delay_program_offset =
             buildDelayRebuildProgram(build, bc, final_ids);
     }
@@ -4756,7 +4762,8 @@ u32 buildDelayPrograms(RoseBuildImpl &build, build_context &bc) {
     for (const auto &m : bc.delay_programs) {
         u32 final_id = m.first;
         u32 delay_id = m.second;
-        u32 offset = writeLiteralProgram(build, bc, {final_id}, lit_edge_map);
+        u32 offset =
+            writeLiteralProgram(build, bc, {final_id}, lit_edge_map, false);
         DEBUG_PRINTF("delay_id=%u, offset=%u\n", delay_id, offset);
         programs[delay_id] = offset;
     }
@@ -4792,7 +4799,8 @@ u32 writeAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
             continue;
         }
 
-        u32 offset = writeLiteralProgram(build, bc, {final_id}, lit_edge_map);
+        u32 offset =
+            writeLiteralProgram(build, bc, {final_id}, lit_edge_map, true);
         DEBUG_PRINTF("lit_id=%u, final_id %u -> anch prog at %u\n", lit_id,
                      final_id, offset);
         u32 anch_id = verify_u32(programs.size());
@@ -4983,7 +4991,7 @@ void addEodEventProgram(RoseBuildImpl &build, build_context &bc,
          });
 
     program.add_block(
-        buildLiteralProgram(build, bc, MO_INVALID_IDX, edge_list));
+        buildLiteralProgram(build, bc, MO_INVALID_IDX, edge_list, false));
 }
 
 static
