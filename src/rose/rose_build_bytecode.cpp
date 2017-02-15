@@ -4271,12 +4271,18 @@ void makeRecordAnchoredInstruction(const RoseBuildImpl &build,
         return;
     }
 
+    // Dedupe anch_ids to fire.
+    flat_set<u32> anch_ids;
+
     for (const auto &lit_id : lit_ids) {
         assert(build.literals.right.at(lit_id).table == ROSE_ANCHORED);
         if (!contains(bc.anchored_programs, lit_id)) {
             continue;
         }
-        u32 anch_id = bc.anchored_programs.at(lit_id);
+        anch_ids.insert(bc.anchored_programs.at(lit_id));
+    }
+
+    for (const auto &anch_id : anch_ids) {
         DEBUG_PRINTF("adding RECORD_ANCHORED for anch_id=%u\n", anch_id);
         program.add_before_end(make_unique<RoseInstrRecordAnchored>(anch_id));
     }
@@ -4771,11 +4777,18 @@ u32 buildDelayPrograms(RoseBuildImpl &build, build_context &bc) {
     return bc.engine_blob.add(begin(programs), end(programs));
 }
 
+/**
+ * \brief Write anchored replay programs to the bytecode.
+ *
+ * Returns the offset of the beginning of the program array, and the number of
+ * programs.
+ */
 static
-u32 writeAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
+pair<u32, u32> writeAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    vector<u32> programs;
+    vector<u32> programs; // program offsets indexed by anchored id
+    unordered_map<u32, u32> cache; // program offsets we have already seen
 
     for (const auto &m : build.literals.right) {
         u32 lit_id = m.first;
@@ -4803,13 +4816,25 @@ u32 writeAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
             writeLiteralProgram(build, bc, {final_id}, lit_edge_map, true);
         DEBUG_PRINTF("lit_id=%u, final_id %u -> anch prog at %u\n", lit_id,
                      final_id, offset);
-        u32 anch_id = verify_u32(programs.size());
-        programs.push_back(offset);
+
+        u32 anch_id;
+        auto it = cache.find(offset);
+        if (it != end(cache)) {
+            anch_id = it->second;
+            DEBUG_PRINTF("reusing anch_id %u for offset %u\n", anch_id, offset);
+        } else {
+            anch_id = verify_u32(programs.size());
+            programs.push_back(offset);
+            cache.emplace(offset, anch_id);
+            DEBUG_PRINTF("assigned new anch_id %u for offset %u\n", anch_id,
+                         offset);
+        }
         bc.anchored_programs.emplace(lit_id, anch_id);
     }
 
     DEBUG_PRINTF("%zu anchored programs\n", programs.size());
-    return bc.engine_blob.add(begin(programs), end(programs));
+    return {bc.engine_blob.add(begin(programs), end(programs)),
+            verify_u32(programs.size())};
 }
 
 /**
@@ -5513,7 +5538,10 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                        queue_count - leftfixBeginQueue, leftInfoTable,
                        &laggedRoseCount, &historyRequired);
 
-    u32 anchoredProgramOffset = writeAnchoredPrograms(*this, bc);
+    u32 anchoredProgramOffset;
+    u32 anchoredProgramCount;
+    tie(anchoredProgramOffset, anchoredProgramCount) =
+        writeAnchoredPrograms(*this, bc);
 
     buildLiteralPrograms(*this, bc);
     u32 delayProgramOffset = buildDelayPrograms(*this, bc);
@@ -5744,7 +5772,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     engine->delay_count = verify_u32(bc.delay_programs.size());
     engine->delay_fatbit_size = fatbit_size(engine->delay_count);
-    engine->anchored_count = verify_u32(bc.anchored_programs.size());
+    engine->anchored_count = anchoredProgramCount;
     engine->anchored_fatbit_size = fatbit_size(engine->anchored_count);
 
     engine->rosePrefixCount = rosePrefixCount;
