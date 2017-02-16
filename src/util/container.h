@@ -90,9 +90,9 @@ auto make_vector_from(const std::pair<It, It> &range)
 }
 
 /** \brief Sort a sequence container and remove duplicates. */
-template <typename C>
-void sort_and_unique(C &container) {
-    std::sort(std::begin(container), std::end(container));
+template <typename C, typename Compare = std::less<typename C::value_type>>
+void sort_and_unique(C &container, Compare comp = Compare()) {
+    std::sort(std::begin(container), std::end(container), comp);
     container.erase(std::unique(std::begin(container), std::end(container)),
                     std::end(container));
 }

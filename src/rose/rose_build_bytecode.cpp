@@ -3658,13 +3658,11 @@ void makeRoleInfixTriggers(RoseBuildImpl &build, build_context &bc,
     }
 
     // Order, de-dupe and add instructions to the end of program.
-    sort(begin(infix_program), end(infix_program),
-         [](const RoseInstrTriggerInfix &a, const RoseInstrTriggerInfix &b) {
-             return tie(a.cancel, a.queue, a.event) <
-                    tie(b.cancel, b.queue, b.event);
-         });
-    infix_program.erase(unique(begin(infix_program), end(infix_program)),
-                        end(infix_program));
+    sort_and_unique(infix_program, [](const RoseInstrTriggerInfix &a,
+                                      const RoseInstrTriggerInfix &b) {
+        return tie(a.cancel, a.queue, a.event) <
+               tie(b.cancel, b.queue, b.event);
+    });
     for (const auto &ri : infix_program) {
         program.add_before_end(make_unique<RoseInstrTriggerInfix>(ri));
     }
@@ -4163,13 +4161,10 @@ void makePushDelayedInstructions(const RoseBuildImpl &build,
         }
     }
 
-    sort(begin(delay_instructions), end(delay_instructions),
-         [](const RoseInstrPushDelayed &a, const RoseInstrPushDelayed &b) {
-             return tie(a.delay, a.index) < tie(b.delay, b.index);
-         });
-    delay_instructions.erase(
-        unique(begin(delay_instructions), end(delay_instructions)),
-        end(delay_instructions));
+    sort_and_unique(delay_instructions, [](const RoseInstrPushDelayed &a,
+                                           const RoseInstrPushDelayed &b) {
+        return tie(a.delay, a.index) < tie(b.delay, b.index);
+    });
 
     for (const auto &ri : delay_instructions) {
         program.add_before_end(make_unique<RoseInstrPushDelayed>(ri));
