@@ -1232,6 +1232,32 @@ void dumpRoseAnchoredPrograms(const RoseEngine *t, const string &filename) {
         } else {
             os << "<No Program>" << endl;
         }
+        os << endl;
+    }
+
+    os.close();
+}
+
+static
+void dumpRoseDelayPrograms(const RoseEngine *t, const string &filename) {
+    ofstream os(filename);
+
+    const u32 *programs =
+        (const u32 *)loadFromByteCodeOffset(t, t->delayProgramOffset);
+
+    for (u32 i = 0; i < t->delay_count; i++) {
+        os << "Delay entry " << i << endl;
+        os << "---------------" << endl;
+
+        if (programs[i]) {
+            os << "Program @ " << programs[i] << ":" << endl;
+            const char *prog =
+                (const char *)loadFromByteCodeOffset(t, programs[i]);
+            dumpProgram(os, t, prog);
+        } else {
+            os << "<No Program>" << endl;
+        }
+        os << endl;
     }
 
     os.close();
@@ -1872,6 +1898,7 @@ void roseDumpPrograms(const RoseBuildImpl &build, const RoseEngine *t,
     dumpRoseEodPrograms(t, base + "/rose_eod_programs.txt");
     dumpRoseReportPrograms(t, base + "/rose_report_programs.txt");
     dumpRoseAnchoredPrograms(t, base + "/rose_anchored_programs.txt");
+    dumpRoseDelayPrograms(t, base + "/rose_delay_programs.txt");
 }
 
 void dumpRose(const RoseBuild &build_base, const RoseEngine *t,
