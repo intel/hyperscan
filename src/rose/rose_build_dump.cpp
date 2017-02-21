@@ -1150,10 +1150,7 @@ void dumpRoseLitPrograms(const RoseBuildImpl &build, const RoseEngine *t,
 
     // Collect all programs referenced by a literal fragment.
     vector<u32> programs;
-    programs.reserve(build.final_to_frag_map.size());
-
-    for (const auto &m : build.final_to_frag_map) {
-        const auto &frag = build.fragments.at(m.second);
+    for (const auto &frag : build.fragments) {
         if (frag.lit_program_offset) {
             programs.push_back(frag.lit_program_offset);
         }
