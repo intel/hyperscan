@@ -4729,6 +4729,15 @@ void groupByFragment(RoseBuildImpl &build, const build_context &bc) {
         }
         frag_id++;
     }
+
+    // Write the fragment IDs into the literal_info structures.
+    for (auto &info : build.literal_info) {
+        if (info.final_id == MO_INVALID_IDX) {
+            continue;
+        }
+        assert(contains(final_to_frag, info.final_id));
+        info.fragment_id = final_to_frag.at(info.final_id);
+    }
 }
 
 /**
@@ -5491,15 +5500,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     build_context bc;
     allocateFinalLiteralId(*this, bc);
     groupByFragment(*this, bc);
-
-    // Write the fragment IDs into the literal_info structures.
-    for (auto &info : literal_info) {
-        if (info.final_id == MO_INVALID_IDX) {
-            continue;
-        }
-        assert(contains(final_to_frag_map, info.final_id));
-        info.fragment_id = final_to_frag_map.at(info.final_id);
-    }
 
     auto anchored_dfas = buildAnchoredDfas(*this);
 
