@@ -671,8 +671,6 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
 
         assert(id < build.literal_info.size());
         const rose_literal_info &info = build.literal_info[id];
-        u32 final_id = info.final_id;
-        rose_group groups = info.group_mask;
         /* Note: requires_benefits are handled in the literal entries */
         const ue2_literal &lit = e.second.s;
 
@@ -723,8 +721,8 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
 
         DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d, msk=%s, "
                      "cmp=%s\n",
-                     final_id, escapeString(s).c_str(), (int)nocase, noruns,
-                     dumpMask(msk).c_str(), dumpMask(cmp).c_str());
+                     info.fragment_id, escapeString(s).c_str(), (int)nocase,
+                     noruns, dumpMask(msk).c_str(), dumpMask(cmp).c_str());
 
         if (!maskIsConsistent(s, nocase, msk, cmp)) {
             DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
@@ -732,20 +730,17 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
         }
 
         mp.accel_lits.emplace_back(lit.get_string(), lit.any_nocase(), msk, cmp,
-                                   groups);
+                                   info.group_mask);
         mp.history_required = max(mp.history_required, lit_hist_len);
-        mp.lits.emplace_back(move(s), nocase, noruns, final_id, groups, msk,
-                             cmp);
-    }
 
-    for (auto &lit : mp.lits) {
-        u32 final_id = lit.id;
-        assert(contains(build.final_to_frag_map, final_id));
-        const auto &frag =
-            build.fragments.at(build.final_to_frag_map.at(final_id));
-        lit.id = delay_rebuild ? frag.delay_program_offset
-                               : frag.lit_program_offset;
-        lit.groups = frag.groups;
+        assert(info.fragment_id < build.fragments.size());
+        const auto &frag = build.fragments.at(info.fragment_id);
+        u32 prog_offset =
+            delay_rebuild ? frag.delay_program_offset : frag.lit_program_offset;
+        const auto &groups = frag.groups;
+
+        mp.lits.emplace_back(move(s), nocase, noruns, prog_offset, groups, msk,
+                             cmp);
     }
 
     sort_and_unique(mp.lits);
