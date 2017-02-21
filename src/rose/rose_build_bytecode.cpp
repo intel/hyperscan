@@ -4675,8 +4675,8 @@ void groupByFragment(RoseBuildImpl &build, const build_context &bc) {
     };
 
     map<rose_literal_id, FragmentInfo> frag_info;
+    map<u32, u32> final_to_frag;
 
-    auto &final_to_frag = build.final_to_frag_map;
     auto &fragments = build.fragments;
 
     for (const auto &m : bc.final_id_to_literal) {
@@ -4747,8 +4747,11 @@ static
 void buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
     // Build a reverse mapping from fragment -> final_id.
     map<u32, flat_set<u32>> frag_to_final_map;
-    for (const auto &m : build.final_to_frag_map) {
-        frag_to_final_map[m.second].insert(m.first);
+    for (const auto &info : build.literal_info) {
+        if (info.fragment_id == MO_INVALID_IDX) {
+            continue;
+        }
+        frag_to_final_map[info.fragment_id].insert(info.final_id);
     }
 
     DEBUG_PRINTF("%zu fragments\n", build.fragments.size());

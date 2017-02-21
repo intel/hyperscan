@@ -590,7 +590,6 @@ public:
      * overlap calculation in history assignment. */
     std::map<u32, rose_literal_id> anchoredLitSuffix;
 
-    std::map<u32, u32> final_to_frag_map;
     std::vector<LitFragment> fragments;
 
     unordered_set<left_id> transient;
