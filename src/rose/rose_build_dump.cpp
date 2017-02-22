@@ -249,9 +249,9 @@ private:
     void writeLiteral(ostream &os, u32 id) const {
         os << "lit=" << id;
         if (id < build.literal_info.size()) {
-            os << "/" << build.literal_info[id].final_id << " ";
+            os << "/" << build.literal_info[id].fragment_id << " ";
         } else {
-            os << "/nofinal ";
+            os << "/nofrag ";
         }
 
         if (contains(build.literals.right, id)) {
@@ -355,7 +355,7 @@ void dumpRoseLiterals(const RoseBuildImpl &build, const char *filename) {
             break;
         }
 
-        os << " ID " << id << "/" << lit_info.final_id << ": \""
+        os << " ID " << id << "/" << lit_info.fragment_id << ": \""
            << escapeString(s.get_string()) << "\""
            << " (len " << s.length() << ",";
         if (s.any_nocase()) {

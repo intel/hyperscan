@@ -759,10 +759,6 @@ bool RoseBuildImpl::isDelayed(u32 id) const {
     return literal_info.at(id).undelayed_id != id;
 }
 
-bool RoseBuildImpl::hasFinalId(u32 id) const {
-    return literal_info.at(id).final_id != MO_INVALID_IDX;
-}
-
 bool RoseBuildImpl::hasDelayedLiteral(RoseVertex v) const {
     for (u32 lit_id : g[v].literals) {
         if (literals.right.at(lit_id).delay) {

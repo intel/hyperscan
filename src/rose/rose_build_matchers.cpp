@@ -349,8 +349,8 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
         const u32 id = e.first;
         const auto &lit = e.second;
 
-        // This pass takes place before final IDs are assigned to literals.
-        assert(!build.hasFinalId(id));
+        // This pass takes place before fragment IDs are assigned to literals.
+        assert(build.literal_info.at(id).fragment_id == MO_INVALID_IDX);
 
         if (lit.delay || build.isDelayed(id)) {
             continue;
@@ -657,7 +657,7 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
 
     for (const auto &e : build.literals.right) {
         const u32 id = e.first;
-        if (!build.hasFinalId(id)) {
+        if (build.literal_info.at(id).fragment_id == MO_INVALID_IDX) {
             continue;
         }
 

@@ -244,9 +244,6 @@ struct build_context : boost::noncopyable {
     /** \brief Global bitmap of groups that can be squashed. */
     rose_group squashable_groups = 0;
 
-    /** \brief Mapping from final ID to the set of literals it is used for. */
-    map<u32, flat_set<u32>> final_id_to_literal;
-
     /** \brief Mapping from Rose literal ID to anchored program index. */
     map<u32, u32> anchored_programs;
 
@@ -2566,12 +2563,12 @@ void recordResources(RoseResources &resources,
     if (!build.outfixes.empty()) {
         resources.has_outfixes = true;
     }
-    for (u32 i = 0; i < build.literal_info.size(); i++) {
-        if (build.hasFinalId(i)) {
-            resources.has_literals = true;
-            break;
-        }
-    }
+
+    resources.has_literals =
+        any_of(begin(build.literal_info), end(build.literal_info),
+               [](const rose_literal_info &info) {
+                   return info.fragment_id != MO_INVALID_IDX;
+               });
 
     const auto &g = build.g;
     for (const auto &v : vertices_range(g)) {
@@ -4659,6 +4656,26 @@ map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
 }
 
 static
+bool isUsedLiteral(const RoseBuildImpl &build, u32 lit_id) {
+    assert(lit_id < build.literal_info.size());
+    const auto &info = build.literal_info[lit_id];
+    if (!info.vertices.empty()) {
+        return true;
+    }
+
+    for (const u32 &delayed_id : info.delayed_ids) {
+        assert(delayed_id < build.literal_info.size());
+        const rose_literal_info &delayed_info = build.literal_info[delayed_id];
+        if (!delayed_info.vertices.empty()) {
+            return true;
+        }
+    }
+
+    DEBUG_PRINTF("literal %u has no refs\n", lit_id);
+    return false;
+}
+
+static
 rose_literal_id getFragment(const rose_literal_id &lit) {
     if (lit.s.length() <= ROSE_SHORT_LITERAL_LEN_MAX) {
         DEBUG_PRINTF("whole lit is frag\n");
@@ -4673,87 +4690,68 @@ rose_literal_id getFragment(const rose_literal_id &lit) {
 }
 
 static
-rose_group getGroups(const RoseBuildImpl &build, const flat_set<u32> &lit_ids) {
-    rose_group groups = 0;
-    for (auto lit_id : lit_ids) {
-        auto &info = build.literal_info.at(lit_id);
-        groups |= info.group_mask;
-    }
-    return groups;
-}
-
-static
-void groupByFragment(RoseBuildImpl &build, const build_context &bc) {
+void groupByFragment(RoseBuildImpl &build) {
     u32 frag_id = 0;
 
     struct FragmentInfo {
-        vector<u32> final_ids;
+        vector<u32> lit_ids;
         rose_group groups = 0;
     };
 
     map<rose_literal_id, FragmentInfo> frag_info;
-    map<u32, u32> final_to_frag;
+    map<u32, u32> lit_to_frag;
 
     auto &fragments = build.fragments;
 
-    for (const auto &m : bc.final_id_to_literal) {
-        u32 final_id = m.first;
-        const auto &lit_ids = m.second;
-        assert(!lit_ids.empty());
+    for (const auto &m : build.literals.right) {
+        u32 lit_id = m.first;
 
-        auto groups = getGroups(build, lit_ids);
-
-        if (lit_ids.size() > 1) {
-            final_to_frag.emplace(final_id, frag_id);
-            fragments.emplace_back(frag_id, groups);
-            frag_id++;
+        if (!isUsedLiteral(build, lit_id)) {
             continue;
         }
 
-        const auto lit_id = *lit_ids.begin();
-        const auto &lit = build.literals.right.at(lit_id);
+        const auto &lit = m.second;
+        const auto &info = build.literal_info.at(lit_id);
+
+        auto groups = info.group_mask;
+
         if (lit.s.length() < ROSE_SHORT_LITERAL_LEN_MAX) {
-            final_to_frag.emplace(final_id, frag_id);
+            lit_to_frag.emplace(lit_id, frag_id);
             fragments.emplace_back(frag_id, groups);
             frag_id++;
             continue;
         }
 
         // Combining fragments that squash their groups is unsafe.
-        const auto &info = build.literal_info[lit_id];
         if (info.squash_group) {
-            final_to_frag.emplace(final_id, frag_id);
+            lit_to_frag.emplace(lit_id, frag_id);
             fragments.emplace_back(frag_id, groups);
             frag_id++;
             continue;
         }
 
-        DEBUG_PRINTF("fragment candidate: final_id=%u %s\n", final_id,
+        DEBUG_PRINTF("fragment candidate: lit_id=%u %s\n", lit_id,
                      dumpString(lit.s).c_str());
         auto &fi = frag_info[getFragment(lit)];
-        fi.final_ids.push_back(final_id);
+        fi.lit_ids.push_back(lit_id);
         fi.groups |= groups;
     }
 
     for (const auto &m : frag_info) {
         const auto &fi = m.second;
         DEBUG_PRINTF("frag %s -> ids: %s\n", dumpString(m.first.s).c_str(),
-                     as_string_list(fi.final_ids).c_str());
+                     as_string_list(fi.lit_ids).c_str());
         fragments.emplace_back(frag_id, fi.groups);
-        for (const auto final_id : fi.final_ids) {
-            assert(!contains(final_to_frag, final_id));
-            final_to_frag.emplace(final_id, frag_id);
+        for (const auto lit_id : fi.lit_ids) {
+            assert(!contains(lit_to_frag, lit_id));
+            lit_to_frag.emplace(lit_id, frag_id);
         }
         frag_id++;
     }
 
     // Write the fragment IDs into the literal_info structures.
-    for (auto &info : build.literal_info) {
-        if (info.final_id == MO_INVALID_IDX) {
-            continue;
-        }
-        assert(contains(final_to_frag, info.final_id));
-        info.fragment_id = final_to_frag.at(info.final_id);
+    for (const auto &m : lit_to_frag) {
+        build.literal_info[m.first].fragment_id = m.second;
     }
 }
 
@@ -4871,8 +4869,7 @@ pair<u32, u32> writeAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
 
         u32 offset =
             writeLiteralProgram(build, bc, {lit_id}, lit_edge_map, true);
-        DEBUG_PRINTF("lit_id=%u, final_id %u -> anch prog at %u\n", lit_id,
-                     final_id, offset);
+        DEBUG_PRINTF("lit_id=%u -> anch prog at %u\n", lit_id, offset);
 
         u32 anch_id;
         auto it = cache.find(offset);
@@ -5249,169 +5246,6 @@ u32 buildEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
 }
 
 static
-void allocateFinalIdToSet(RoseBuildImpl &build, build_context &bc,
-                          const set<u32> &lits, u32 *next_final_id) {
-    const auto &g = build.g;
-    auto &literal_info = build.literal_info;
-    auto &final_id_to_literal = bc.final_id_to_literal;
-
-    /* We can allocate the same final id to multiple literals of the same type
-     * if they share the same vertex set and trigger the same delayed literal
-     * ids and squash the same roles and have the same group squashing
-     * behaviour. Benefits literals cannot be merged. */
-
-    for (u32 int_id : lits) {
-        rose_literal_info &curr_info = literal_info[int_id];
-        const rose_literal_id &lit = build.literals.right.at(int_id);
-        const auto &verts = curr_info.vertices;
-
-        // Literals with benefits cannot be merged.
-        if (curr_info.requires_benefits) {
-            DEBUG_PRINTF("id %u has benefits\n", int_id);
-            goto assign_new_id;
-        }
-
-        // Literals that need confirmation with CHECK_LONG_LIT or CHECK_MED_LIT
-        // cannot be merged.
-        if (lit.s.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
-            DEBUG_PRINTF("id %u needs lit confirm\n", int_id);
-            goto assign_new_id;
-        }
-
-        if (!verts.empty() && curr_info.delayed_ids.empty()) {
-            vector<u32> cand;
-            insert(&cand, cand.end(), g[*verts.begin()].literals);
-            for (auto v : verts) {
-                vector<u32> temp;
-                set_intersection(cand.begin(), cand.end(),
-                                 g[v].literals.begin(),
-                                 g[v].literals.end(),
-                                 inserter(temp, temp.end()));
-                cand.swap(temp);
-            }
-
-            for (u32 cand_id : cand) {
-                if (cand_id >= int_id) {
-                    break;
-                }
-
-                const auto &cand_info = literal_info[cand_id];
-                const auto &cand_lit = build.literals.right.at(cand_id);
-
-                if (cand_lit.s.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
-                    continue;
-                }
-
-                if (cand_info.requires_benefits) {
-                    continue;
-                }
-
-                if (!cand_info.delayed_ids.empty()) {
-                    /* TODO: allow cases where delayed ids are equivalent.
-                     * This is awkward currently as the have not had their
-                     * final ids allocated yet */
-                    continue;
-                }
-
-                if (lits.find(cand_id) == lits.end()
-                    || cand_info.vertices.size() != verts.size()
-                    || cand_info.squash_group != curr_info.squash_group) {
-                    continue;
-                }
-
-                /* if we are squashing groups we need to check if they are the
-                 * same group */
-                if (cand_info.squash_group
-                    && cand_info.group_mask != curr_info.group_mask) {
-                    continue;
-                }
-
-                u32 final_id = cand_info.final_id;
-                assert(final_id != MO_INVALID_IDX);
-                assert(curr_info.final_id == MO_INVALID_IDX);
-                curr_info.final_id = final_id;
-                final_id_to_literal[final_id].insert(int_id);
-                goto next_lit;
-            }
-        }
-
-    assign_new_id:
-        /* oh well, have to give it a fresh one, hang the expense */
-        DEBUG_PRINTF("allocating final id %u to %u\n", *next_final_id, int_id);
-                assert(curr_info.final_id == MO_INVALID_IDX);
-        curr_info.final_id = *next_final_id;
-        final_id_to_literal[*next_final_id].insert(int_id);
-        (*next_final_id)++;
-    next_lit:;
-    }
-}
-
-static
-bool isUsedLiteral(const RoseBuildImpl &build, u32 lit_id) {
-    assert(lit_id < build.literal_info.size());
-    const auto &info = build.literal_info[lit_id];
-    if (!info.vertices.empty()) {
-        return true;
-    }
-
-    for (const u32 &delayed_id : info.delayed_ids) {
-        assert(delayed_id < build.literal_info.size());
-        const rose_literal_info &delayed_info = build.literal_info[delayed_id];
-        if (!delayed_info.vertices.empty()) {
-            return true;
-        }
-    }
-
-    DEBUG_PRINTF("literal %u has no refs\n", lit_id);
-    return false;
-}
-
-/** \brief Allocate final literal IDs for all literals.  */
-static
-void allocateFinalLiteralId(RoseBuildImpl &build, build_context &bc) {
-    set<u32> anch;
-    set<u32> norm;
-    set<u32> delay;
-
-    /* undelayed ids come first */
-    assert(bc.final_id_to_literal.empty());
-    u32 next_final_id = 0;
-    for (u32 i = 0; i < build.literal_info.size(); i++) {
-        assert(!build.hasFinalId(i));
-
-        if (!isUsedLiteral(build, i)) {
-            /* what is this literal good for? absolutely nothing */
-            continue;
-        }
-
-        // The special EOD event literal has its own program and does not need
-        // a real literal ID.
-        if (i == build.eod_event_literal_id) {
-            assert(build.eod_event_literal_id != MO_INVALID_IDX);
-            continue;
-        }
-
-        if (build.isDelayed(i)) {
-            assert(!build.literal_info[i].requires_benefits);
-            delay.insert(i);
-        } else if (build.literals.right.at(i).table == ROSE_ANCHORED) {
-            anch.insert(i);
-        } else {
-            norm.insert(i);
-        }
-    }
-
-    /* normal lits */
-    allocateFinalIdToSet(build, bc, norm, &next_final_id);
-
-    /* next anchored stuff */
-    allocateFinalIdToSet(build, bc, anch, &next_final_id);
-
-    /* delayed ids come last */
-    allocateFinalIdToSet(build, bc, delay, &next_final_id);
-}
-
-static
 aligned_unique_ptr<RoseEngine> addSmallWriteEngine(RoseBuildImpl &build,
                                         aligned_unique_ptr<RoseEngine> rose) {
     assert(rose);
@@ -5523,8 +5357,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     DEBUG_PRINTF("longLitLengthThreshold=%zu\n", longLitLengthThreshold);
 
     build_context bc;
-    allocateFinalLiteralId(*this, bc);
-    groupByFragment(*this, bc);
+    groupByFragment(*this);
 
     auto anchored_dfas = buildAnchoredDfas(*this);
 
