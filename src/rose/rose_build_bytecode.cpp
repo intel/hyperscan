@@ -4704,14 +4704,19 @@ void groupByFragment(RoseBuildImpl &build) {
     auto &fragments = build.fragments;
 
     for (const auto &m : build.literals.right) {
-        u32 lit_id = m.first;
+        const u32 lit_id = m.first;
+        const auto &lit = m.second;
+        const auto &info = build.literal_info.at(lit_id);
 
         if (!isUsedLiteral(build, lit_id)) {
+            DEBUG_PRINTF("lit %u is unused\n", lit_id);
             continue;
         }
 
-        const auto &lit = m.second;
-        const auto &info = build.literal_info.at(lit_id);
+        if (lit.table == ROSE_EVENT) {
+            DEBUG_PRINTF("lit %u is an event\n", lit_id);
+            continue;
+        }
 
         auto groups = info.group_mask;
 
