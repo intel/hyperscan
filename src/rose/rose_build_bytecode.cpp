@@ -4534,23 +4534,33 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
 static
 RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
                                 const flat_set<u32> &final_ids,
-                                const map<u32, vector<RoseEdge>> &lit_edges,
+                                const map<u32, vector<RoseEdge>> &lit_edge_map,
                                 bool is_anchored_program) {
     assert(!final_ids.empty());
 
     DEBUG_PRINTF("entry, %zu final ids: {%s}\n", final_ids.size(),
                  as_string_list(final_ids).c_str());
-    const vector<RoseEdge> no_edges;
+
+    const auto &g = build.g;
+    vector<RoseEdge> lit_edges;
 
     RoseProgram program;
     for (const auto &final_id : final_ids) {
-        const auto *edges_ptr = &no_edges;
-        if (contains(lit_edges, final_id)) {
-            edges_ptr = &(lit_edges.at(final_id));
-        }
         assert(contains(bc.final_id_to_literal, final_id));
         const auto &lit_ids = bc.final_id_to_literal.at(final_id);
-        auto prog = buildLiteralProgram(build, bc, lit_ids, *edges_ptr,
+
+        lit_edges.clear();
+        for (const auto &lit_id : lit_ids) {
+            if (contains(lit_edge_map, lit_id)) {
+                insert(&lit_edges, lit_edges.end(), lit_edge_map.at(lit_id));
+            }
+        }
+        sort_and_unique(lit_edges, [&g](const RoseEdge &a, const RoseEdge &b) {
+            return tie(g[source(a, g)].index, g[target(a, g)].index) <
+                   tie(g[source(b, g)].index, g[target(b, g)].index);
+        });
+
+        auto prog = buildLiteralProgram(build, bc, lit_ids, lit_edges,
                                         is_anchored_program);
         DEBUG_PRINTF("final_id=%u, prog has %zu entries\n", final_id,
                      prog.size());
@@ -4562,10 +4572,10 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
 static
 u32 writeLiteralProgram(RoseBuildImpl &build, build_context &bc,
                         const flat_set<u32> &final_ids,
-                        const map<u32, vector<RoseEdge>> &lit_edges,
+                        const map<u32, vector<RoseEdge>> &lit_edge_map,
                         bool is_anchored_program) {
-    RoseProgram program = buildLiteralProgram(build, bc, final_ids, lit_edges,
-                                              is_anchored_program);
+    auto program = buildLiteralProgram(build, bc, final_ids, lit_edge_map,
+                                       is_anchored_program);
     if (program.empty()) {
         return 0;
     }
@@ -4605,6 +4615,10 @@ u32 buildDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
     return writeProgram(bc, move(program));
 }
 
+/**
+ * \brief Returns a map from literal ID to a list of edges leading into
+ * vertices with that literal ID.
+ */
 static
 map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
     // Use a set of edges while building the map to cull duplicates.
@@ -4614,13 +4628,7 @@ map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
     for (const auto &e : edges_range(g)) {
         const auto &v = target(e, g);
         for (const auto &lit_id : g[v].literals) {
-            assert(lit_id < build.literal_info.size());
-            u32 final_id = build.literal_info.at(lit_id).final_id;
-            if (final_id == MO_INVALID_IDX) {
-                // Unused, special report IDs are handled elsewhere.
-                continue;
-            }
-            unique_lit_edge_map[final_id].insert(e);
+            unique_lit_edge_map[lit_id].insert(e);
         }
     }
 
@@ -4633,7 +4641,7 @@ map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
                  return tie(g[source(a, g)].index, g[target(a, g)].index) <
                         tie(g[source(b, g)].index, g[target(b, g)].index);
              });
-        lit_edge_map.emplace(m.first, edge_list);
+        lit_edge_map.emplace(m.first, move(edge_list));
     }
 
     return lit_edge_map;
