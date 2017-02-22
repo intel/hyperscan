@@ -4531,51 +4531,60 @@ RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
     return lit_program;
 }
 
+/**
+ * \brief Consumes list of program blocks, checks them for duplicates and then
+ * concatenates them into one program.
+ */
 static
-RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
-                                const flat_set<u32> &final_ids,
-                                const map<u32, vector<RoseEdge>> &lit_edge_map,
-                                bool is_anchored_program) {
-    assert(!final_ids.empty());
-
-    DEBUG_PRINTF("entry, %zu final ids: {%s}\n", final_ids.size(),
-                 as_string_list(final_ids).c_str());
-
-    const auto &g = build.g;
-    vector<RoseEdge> lit_edges;
-
+RoseProgram assembleProgramBlocks(vector<RoseProgram> &&blocks) {
     RoseProgram program;
-    for (const auto &final_id : final_ids) {
-        assert(contains(bc.final_id_to_literal, final_id));
-        const auto &lit_ids = bc.final_id_to_literal.at(final_id);
 
-        lit_edges.clear();
-        for (const auto &lit_id : lit_ids) {
-            if (contains(lit_edge_map, lit_id)) {
-                insert(&lit_edges, lit_edges.end(), lit_edge_map.at(lit_id));
-            }
-        }
-        sort_and_unique(lit_edges, [&g](const RoseEdge &a, const RoseEdge &b) {
-            return tie(g[source(a, g)].index, g[target(a, g)].index) <
-                   tie(g[source(b, g)].index, g[target(b, g)].index);
-        });
+    DEBUG_PRINTF("%zu blocks before dedupe\n", blocks.size());
 
-        auto prog = buildLiteralProgram(build, bc, lit_ids, lit_edges,
-                                        is_anchored_program);
-        DEBUG_PRINTF("final_id=%u, prog has %zu entries\n", final_id,
-                     prog.size());
+    sort(blocks.begin(), blocks.end(),
+         [](const RoseProgram &a, const RoseProgram &b) {
+             RoseProgramHash hasher;
+             return hasher(a) < hasher(b);
+         });
+
+    blocks.erase(unique(blocks.begin(), blocks.end(), RoseProgramEquivalence()),
+                 blocks.end());
+
+    DEBUG_PRINTF("%zu blocks after dedupe\n", blocks.size());
+
+    for (auto &prog : blocks) {
         program.add_block(move(prog));
     }
+
     return program;
 }
 
 static
 u32 writeLiteralProgram(RoseBuildImpl &build, build_context &bc,
-                        const flat_set<u32> &final_ids,
+                        const flat_set<u32> &lit_ids,
                         const map<u32, vector<RoseEdge>> &lit_edge_map,
                         bool is_anchored_program) {
-    auto program = buildLiteralProgram(build, bc, final_ids, lit_edge_map,
-                                       is_anchored_program);
+    assert(!lit_ids.empty());
+
+    vector<RoseProgram> blocks;
+
+    const vector<RoseEdge> no_edges;
+
+    for (const auto &lit_id : lit_ids) {
+        DEBUG_PRINTF("lit_id=%u\n", lit_id);
+        const vector<RoseEdge> *edges_ptr;
+        if (contains(lit_edge_map, lit_id)) {
+            edges_ptr = &lit_edge_map.at(lit_id);
+        } else {
+            edges_ptr = &no_edges;
+        }
+        auto prog = buildLiteralProgram(build, bc, {lit_id}, *edges_ptr,
+                                        is_anchored_program);
+        blocks.push_back(move(prog));
+    }
+
+    auto program = assembleProgramBlocks(move(blocks));
+
     if (program.empty()) {
         return 0;
     }
@@ -4584,29 +4593,31 @@ u32 writeLiteralProgram(RoseBuildImpl &build, build_context &bc,
 }
 
 static
-u32 buildDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
-                             const flat_set<u32> &final_ids) {
+u32 writeDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
+                             const flat_set<u32> &lit_ids) {
+    assert(!lit_ids.empty());
+
     if (!build.cc.streaming) {
         return 0; // We only do delayed rebuild in streaming mode.
     }
 
-    RoseProgram program;
+    vector<RoseProgram> blocks;
 
-    for (const auto &final_id : final_ids) {
-        const auto &lit_ids = bc.final_id_to_literal.at(final_id);
-        assert(!lit_ids.empty());
-
-        const auto &arb_lit_info = build.literal_info.at(*lit_ids.begin());
-        if (arb_lit_info.delayed_ids.empty()) {
+    for (const auto &lit_id : lit_ids) {
+        DEBUG_PRINTF("lit_id=%u\n", lit_id);
+        const auto &info = build.literal_info.at(lit_id);
+        if (info.delayed_ids.empty()) {
             continue; // No delayed IDs, no work to do.
         }
 
         RoseProgram prog;
-        makeCheckLiteralInstruction(build, bc, lit_ids, prog);
-        makeCheckLitMaskInstruction(build, bc, lit_ids, prog);
-        makePushDelayedInstructions(build, bc, lit_ids, prog);
-        program.add_block(move(prog));
+        makeCheckLiteralInstruction(build, bc, {lit_id}, prog);
+        makeCheckLitMaskInstruction(build, bc, {lit_id}, prog);
+        makePushDelayedInstructions(build, bc, {lit_id}, prog);
+        blocks.push_back(move(prog));
     }
+
+    auto program = assembleProgramBlocks(move(blocks));
 
     if (program.empty()) {
         return 0;
@@ -4751,26 +4762,29 @@ void groupByFragment(RoseBuildImpl &build, const build_context &bc) {
  */
 static
 void buildLiteralPrograms(RoseBuildImpl &build, build_context &bc) {
-    // Build a reverse mapping from fragment -> final_id.
-    map<u32, flat_set<u32>> frag_to_final_map;
-    for (const auto &info : build.literal_info) {
+    // Build a reverse mapping from fragment -> {lit_id, lit_id,...}
+    map<u32, flat_set<u32>> frag_to_lit_map;
+    for (u32 lit_id = 0; lit_id < verify_u32(build.literal_info.size());
+         lit_id++) {
+        const auto &info = build.literal_info[lit_id];
         if (info.fragment_id == MO_INVALID_IDX) {
             continue;
         }
-        frag_to_final_map[info.fragment_id].insert(info.final_id);
+        frag_to_lit_map[info.fragment_id].insert(lit_id);
     }
 
     DEBUG_PRINTF("%zu fragments\n", build.fragments.size());
     auto lit_edge_map = findEdgesByLiteral(build);
 
     for (auto &frag : build.fragments) {
-        const auto &final_ids = frag_to_final_map[frag.fragment_id];
-        DEBUG_PRINTF("frag_id=%u, final_ids=[%s]\n", frag.fragment_id,
-                     as_string_list(final_ids).c_str());
+        const auto &lit_ids = frag_to_lit_map[frag.fragment_id];
+        DEBUG_PRINTF("frag_id=%u, lit_ids=[%s]\n", frag.fragment_id,
+                     as_string_list(lit_ids).c_str());
+
         frag.lit_program_offset =
-            writeLiteralProgram(build, bc, final_ids, lit_edge_map, false);
+            writeLiteralProgram(build, bc, lit_ids, lit_edge_map, false);
         frag.delay_program_offset =
-            buildDelayRebuildProgram(build, bc, final_ids);
+            writeDelayRebuildProgram(build, bc, lit_ids);
     }
 }
 
@@ -4789,14 +4803,15 @@ pair<u32, u32> writeDelayPrograms(RoseBuildImpl &build, build_context &bc) {
 
     for (const auto &lit_id : build.literals.right | map_keys) {
         const auto &info = build.literal_info.at(lit_id);
+
+        if (info.fragment_id == MO_INVALID_IDX) {
+            continue; // Unused literal.
+        }
+
         for (const auto &delayed_lit_id : info.delayed_ids) {
             DEBUG_PRINTF("lit id %u delay id %u\n", lit_id, delayed_lit_id);
-            u32 final_id = build.literal_info.at(delayed_lit_id).final_id;
-            if (final_id == MO_INVALID_IDX) {
-                continue;
-            }
-            u32 offset =
-                writeLiteralProgram(build, bc, {final_id}, lit_edge_map, false);
+            u32 offset = writeLiteralProgram(build, bc, {delayed_lit_id},
+                                             lit_edge_map, false);
 
             u32 delay_id;
             auto it = cache.find(offset);
@@ -4841,9 +4856,8 @@ pair<u32, u32> writeAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
             continue;
         }
 
-        u32 final_id = build.literal_info.at(lit_id).final_id;
-        if (final_id == MO_INVALID_IDX) {
-            continue;
+        if (build.literal_info.at(lit_id).fragment_id == MO_INVALID_IDX) {
+            continue; // Unused literal.
         }
 
         // If this anchored literal can never match past
@@ -4856,7 +4870,7 @@ pair<u32, u32> writeAnchoredPrograms(RoseBuildImpl &build, build_context &bc) {
         }
 
         u32 offset =
-            writeLiteralProgram(build, bc, {final_id}, lit_edge_map, true);
+            writeLiteralProgram(build, bc, {lit_id}, lit_edge_map, true);
         DEBUG_PRINTF("lit_id=%u, final_id %u -> anch prog at %u\n", lit_id,
                      final_id, offset);
 
