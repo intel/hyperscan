@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,12 +45,10 @@ struct scatter_plan_raw {
     std::vector<scatter_unit_u8>   p_u8;
 };
 
-void buildStateScatterPlan(u32 role_state_offset, u32 role_state_count,
-                           u32 left_array_count, u32 left_prefix_count,
-                           const RoseStateOffsets &stateOffsets,
-                           bool streaming, u32 leaf_array_count,
-                           u32 outfix_begin, u32 outfix_end,
-                           scatter_plan_raw *out);
+scatter_plan_raw buildStateScatterPlan(u32 role_state_offset,
+            u32 role_state_count, u32 left_array_count, u32 left_prefix_count,
+            const RoseStateOffsets &stateOffsets, bool streaming,
+            u32 leaf_array_count, u32 outfix_begin, u32 outfix_end);
 
 u32 aux_size(const scatter_plan_raw &raw);
 

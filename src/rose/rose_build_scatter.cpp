@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -63,24 +63,24 @@ void merge_in(scatter_plan_raw *out, const scatter_plan_raw &in) {
     insert(&out->p_u8,   out->p_u8.end(),   in.p_u8);
 }
 
-void buildStateScatterPlan(u32 role_state_offset, u32 role_state_count,
-                           u32 left_array_count, u32 left_prefix_count,
-                           const RoseStateOffsets &stateOffsets,
-                           bool streaming, u32 leaf_array_count,
-                           u32 outfix_begin, u32 outfix_end,
-                           scatter_plan_raw *out) {
+scatter_plan_raw buildStateScatterPlan(u32 role_state_offset,
+            u32 role_state_count, u32 left_array_count, u32 left_prefix_count,
+            const RoseStateOffsets &stateOffsets, bool streaming,
+            u32 leaf_array_count, u32 outfix_begin, u32 outfix_end) {
+    scatter_plan_raw out;
+
     /* init role array */
     scatter_plan_raw spr_role;
     mmbBuildClearPlan(role_state_count, &spr_role);
     rebase(&spr_role, role_state_offset);
-    merge_in(out, spr_role);
+    merge_in(&out, spr_role);
 
     /* init rose array: turn on prefixes */
     u32 rose_array_offset = stateOffsets.activeLeftArray;
     scatter_plan_raw spr_rose;
     mmbBuildInitRangePlan(left_array_count, 0, left_prefix_count, &spr_rose);
     rebase(&spr_rose, rose_array_offset);
-    merge_in(out, spr_rose);
+    merge_in(&out, spr_rose);
 
     /* suffix/outfix array */
     scatter_plan_raw spr_leaf;
@@ -91,7 +91,9 @@ void buildStateScatterPlan(u32 role_state_offset, u32 role_state_count,
         mmbBuildClearPlan(leaf_array_count, &spr_leaf);
     }
     rebase(&spr_leaf, stateOffsets.activeLeafArray);
-    merge_in(out, spr_leaf);
+    merge_in(&out, spr_leaf);
+
+    return out;
 }
 
 u32 aux_size(const scatter_plan_raw &raw) {

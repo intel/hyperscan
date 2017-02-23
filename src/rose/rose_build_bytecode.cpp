@@ -481,7 +481,7 @@ bool needsMpvCatchup(const RoseBuildImpl &build) {
 }
 
 static
-void fillStateOffsets(const RoseBuildImpl &tbi, u32 rolesWithStateCount,
+void fillStateOffsets(const RoseBuildImpl &build, u32 rolesWithStateCount,
                       u32 anchorStateSize, u32 activeArrayCount,
                       u32 activeLeftCount, u32 laggedRoseCount,
                       u32 longLitStreamStateRequired, u32 historyRequired,
@@ -513,7 +513,7 @@ void fillStateOffsets(const RoseBuildImpl &tbi, u32 rolesWithStateCount,
     curr_offset += anchorStateSize;
 
     so->groups = curr_offset;
-    so->groups_size = (tbi.group_end + 7) / 8;
+    so->groups_size = (build.group_end + 7) / 8;
     assert(so->groups_size <= sizeof(u64a));
     curr_offset += so->groups_size;
 
@@ -523,22 +523,22 @@ void fillStateOffsets(const RoseBuildImpl &tbi, u32 rolesWithStateCount,
 
     // Exhaustion multibit.
     so->exhausted = curr_offset;
-    curr_offset += mmbit_size(tbi.rm.numEkeys());
+    curr_offset += mmbit_size(build.rm.numEkeys());
 
     // SOM locations and valid/writeable multibit structures.
-    if (tbi.ssm.numSomSlots()) {
-        const u32 somWidth = tbi.ssm.somPrecision();
+    if (build.ssm.numSomSlots()) {
+        const u32 somWidth = build.ssm.somPrecision();
         if (somWidth) { // somWidth is zero in block mode.
             curr_offset = ROUNDUP_N(curr_offset, somWidth);
             so->somLocation = curr_offset;
-            curr_offset += tbi.ssm.numSomSlots() * somWidth;
+            curr_offset += build.ssm.numSomSlots() * somWidth;
         } else {
             so->somLocation = 0;
         }
         so->somValid = curr_offset;
-        curr_offset += mmbit_size(tbi.ssm.numSomSlots());
+        curr_offset += mmbit_size(build.ssm.numSomSlots());
         so->somWritable = curr_offset;
-        curr_offset += mmbit_size(tbi.ssm.numSomSlots());
+        curr_offset += mmbit_size(build.ssm.numSomSlots());
     } else {
         // No SOM handling, avoid growing the stream state any further.
         so->somLocation = 0;
@@ -2310,17 +2310,16 @@ u32 findMinFloatingLiteralMatch(const RoseBuildImpl &build,
 }
 
 static
-void buildSuffixEkeyLists(const RoseBuildImpl &tbi, build_context &bc,
-                          const QueueIndexFactory &qif,
-                          vector<u32> *out) {
-    out->resize(qif.allocated_count());
+vector<u32> buildSuffixEkeyLists(const RoseBuildImpl &build, build_context &bc,
+                                 const QueueIndexFactory &qif) {
+    vector<u32> out(qif.allocated_count());
 
-    map<u32, vector<u32> > qi_to_ekeys; /* for determinism */
+    map<u32, vector<u32>> qi_to_ekeys; /* for determinism */
 
     for (const auto &e : bc.suffixes) {
         const suffix_id &s = e.first;
         u32 qi = e.second;
-        set<u32> ekeys = reportsToEkeys(all_reports(s), tbi.rm);
+        set<u32> ekeys = reportsToEkeys(all_reports(s), build.rm);
 
         if (!ekeys.empty()) {
             qi_to_ekeys[qi] = {ekeys.begin(), ekeys.end()};
@@ -2328,9 +2327,9 @@ void buildSuffixEkeyLists(const RoseBuildImpl &tbi, build_context &bc,
     }
 
     /* for each outfix also build elists */
-    for (const auto &outfix : tbi.outfixes) {
+    for (const auto &outfix : build.outfixes) {
         u32 qi = outfix.get_queue();
-        set<u32> ekeys = reportsToEkeys(all_reports(outfix), tbi.rm);
+        set<u32> ekeys = reportsToEkeys(all_reports(outfix), build.rm);
 
         if (!ekeys.empty()) {
             qi_to_ekeys[qi] = {ekeys.begin(), ekeys.end()};
@@ -2338,11 +2337,14 @@ void buildSuffixEkeyLists(const RoseBuildImpl &tbi, build_context &bc,
     }
 
     for (auto &e : qi_to_ekeys) {
-        assert(!e.second.empty());
-        e.second.push_back(INVALID_EKEY); /* terminator */
-        (*out)[e.first] = bc.engine_blob.add(e.second.begin(),
-                                             e.second.end());
+        u32 qi = e.first;
+        auto &ekeys = e.second;
+        assert(!ekeys.empty());
+        ekeys.push_back(INVALID_EKEY); /* terminator */
+        out[qi] = bc.engine_blob.add(ekeys.begin(), ekeys.end());
     }
+
+    return out;
 }
 
 /** Returns sparse iter offset in engine blob. */
@@ -2632,8 +2634,10 @@ u32 writeProgram(build_context &bc, RoseProgram &&program) {
 }
 
 static
-void buildActiveLeftIter(const vector<LeftNfaInfo> &leftTable,
-                         vector<mmbit_sparse_iter> &out) {
+vector<mmbit_sparse_iter>
+buildActiveLeftIter(const vector<LeftNfaInfo> &leftTable) {
+    vector<mmbit_sparse_iter> out;
+
     vector<u32> keys;
     for (size_t i = 0; i < leftTable.size(); i++) {
         if (!leftTable[i].transient) {
@@ -2645,11 +2649,11 @@ void buildActiveLeftIter(const vector<LeftNfaInfo> &leftTable,
     DEBUG_PRINTF("%zu active roses\n", keys.size());
 
     if (keys.empty()) {
-        out.clear();
-        return;
+        return out;
     }
 
     mmbBuildSparseIterator(out, keys, leftTable.size());
+    return out;
 }
 
 static
@@ -3376,7 +3380,7 @@ void writeSomOperation(const Report &report, som_operation *op) {
 }
 
 static
-void makeReport(RoseBuildImpl &build, const ReportID id,
+void makeReport(const RoseBuildImpl &build, const ReportID id,
                 const bool has_som, RoseProgram &program) {
     assert(id < build.rm.numReports());
     const Report &report = build.rm.getReport(id);
@@ -3845,7 +3849,7 @@ RoseProgram makeProgram(RoseBuildImpl &build, build_context &bc,
 }
 
 static
-u32 writeBoundaryProgram(RoseBuildImpl &build, build_context &bc,
+u32 writeBoundaryProgram(const RoseBuildImpl &build, build_context &bc,
                          const set<ReportID> &reports) {
     if (reports.empty()) {
         return 0;
@@ -3865,13 +3869,10 @@ u32 writeBoundaryProgram(RoseBuildImpl &build, build_context &bc,
 }
 
 static
-RoseBoundaryReports
-makeBoundaryPrograms(RoseBuildImpl &build, build_context &bc,
-                     const BoundaryReports &boundary,
-                     const DerivedBoundaryReports &dboundary) {
-    RoseBoundaryReports out;
-    memset(&out, 0, sizeof(out));
-
+void makeBoundaryPrograms(const RoseBuildImpl &build, build_context &bc,
+                          const BoundaryReports &boundary,
+                          const DerivedBoundaryReports &dboundary,
+                          RoseBoundaryReports &out) {
     DEBUG_PRINTF("report ^:  %zu\n", boundary.report_at_0.size());
     DEBUG_PRINTF("report $:  %zu\n", boundary.report_at_eod.size());
     DEBUG_PRINTF("report ^$: %zu\n", dboundary.report_at_0_eod_full.size());
@@ -3882,8 +3883,6 @@ makeBoundaryPrograms(RoseBuildImpl &build, build_context &bc,
         writeBoundaryProgram(build, bc, boundary.report_at_0);
     out.reportZeroEodOffset =
         writeBoundaryProgram(build, bc, dboundary.report_at_0_eod_full);
-
-    return out;
 }
 
 static
@@ -5305,6 +5304,21 @@ size_t calcLongLitThreshold(const RoseBuildImpl &build,
 }
 
 aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
+    // We keep all our offsets, counts etc. in a prototype RoseEngine which we
+    // will copy into the real one once it is allocated: we can't do this
+    // until we know how big it will be.
+    RoseEngine proto;
+    memset(&proto, 0, sizeof(proto));
+
+    // Set scanning mode.
+    if (!cc.streaming) {
+        proto.mode = HS_MODE_BLOCK;
+    } else if (cc.vectored) {
+        proto.mode = HS_MODE_VECTORED;
+    } else {
+        proto.mode = HS_MODE_STREAM;
+    }
+
     DerivedBoundaryReports dboundary(boundary);
 
     size_t historyRequired = calcHistoryRequired(); // Updated by HWLM.
@@ -5312,11 +5326,11 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                                                          historyRequired);
     DEBUG_PRINTF("longLitLengthThreshold=%zu\n", longLitLengthThreshold);
 
-    build_context bc;
     groupByFragment(*this);
 
     auto anchored_dfas = buildAnchoredDfas(*this);
 
+    build_context bc;
     bc.floatingMinLiteralMatchOffset =
         findMinFloatingLiteralMatch(*this, anchored_dfas);
     bc.longLitLengthThreshold = longLitLengthThreshold;
@@ -5327,32 +5341,30 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     }
     bc.needs_mpv_catchup = needsMpvCatchup(*this);
 
-    auto boundary_out = makeBoundaryPrograms(*this, bc, boundary, dboundary);
+    makeBoundaryPrograms(*this, bc, boundary, dboundary, proto.boundary);
 
-    u32 reportProgramOffset;
-    u32 reportProgramCount;
-    tie(reportProgramOffset, reportProgramCount) =
+    tie(proto.reportProgramOffset, proto.reportProgramCount) =
         buildReportPrograms(*this, bc);
 
     // Build NFAs
-    set<u32> no_retrigger_queues;
     bool mpv_as_outfix;
     prepMpv(*this, bc, &historyRequired, &mpv_as_outfix);
-    u32 outfixBeginQueue = qif.allocated_count();
+    proto.outfixBeginQueue = qif.allocated_count();
     if (!prepOutfixes(*this, bc, &historyRequired)) {
         return nullptr;
     }
-    u32 outfixEndQueue = qif.allocated_count();
-    u32 leftfixBeginQueue = outfixEndQueue;
+    proto.outfixEndQueue = qif.allocated_count();
+    proto.leftfixBeginQueue = proto.outfixEndQueue;
 
+    set<u32> no_retrigger_queues;
     set<u32> eager_queues;
 
     /* Note: buildNfas may reduce the lag for vertices that have prefixes */
     if (!buildNfas(*this, bc, qif, &no_retrigger_queues, &eager_queues,
-                   &leftfixBeginQueue)) {
+                   &proto.leftfixBeginQueue)) {
         return nullptr;
     }
-    u32 eodNfaIterOffset = buildEodNfaIterator(bc, leftfixBeginQueue);
+    u32 eodNfaIterOffset = buildEodNfaIterator(bc, proto.leftfixBeginQueue);
     buildCountingMiracles(bc);
 
     u32 queue_count = qif.allocated_count(); /* excludes anchored matcher q;
@@ -5361,15 +5373,14 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         throw ResourceLimitError();
     }
 
-    vector<u32> suffixEkeyLists;
-    buildSuffixEkeyLists(*this, bc, qif, &suffixEkeyLists);
+    auto suffixEkeyLists = buildSuffixEkeyLists(*this, bc, qif);
 
     assignStateIndices(*this, bc);
 
     u32 laggedRoseCount = 0;
     vector<LeftNfaInfo> leftInfoTable;
-    buildLeftInfoTable(*this, bc, eager_queues, leftfixBeginQueue,
-                       queue_count - leftfixBeginQueue, leftInfoTable,
+    buildLeftInfoTable(*this, bc, eager_queues, proto.leftfixBeginQueue,
+                       queue_count - proto.leftfixBeginQueue, leftInfoTable,
                        &laggedRoseCount, &historyRequired);
 
     // Information only needed for program construction.
@@ -5377,32 +5388,25 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     prog_build.vertex_group_map = getVertexGroupMap(*this);
     prog_build.squashable_groups = getSquashableGroups(*this);
 
-    u32 anchoredProgramOffset;
-    u32 anchoredProgramCount;
-    tie(anchoredProgramOffset, anchoredProgramCount) =
+    tie(proto.anchoredProgramOffset, proto.anchored_count) =
         writeAnchoredPrograms(*this, bc, prog_build);
 
-    u32 delayProgramOffset;
-    u32 delayProgramCount;
-    tie(delayProgramOffset, delayProgramCount) =
+    tie(proto.delayProgramOffset, proto.delay_count) =
         writeDelayPrograms(*this, bc, prog_build);
 
     buildLiteralPrograms(*this, bc, prog_build);
 
-    u32 eodProgramOffset =
+    proto.eodProgramOffset =
         writeEodProgram(*this, bc, prog_build, eodNfaIterOffset);
 
     size_t longLitStreamStateRequired = 0;
-    u32 longLitTableOffset = buildLongLiteralTable(*this, bc.engine_blob,
+    proto.longLitTableOffset = buildLongLiteralTable(*this, bc.engine_blob,
                 bc.longLiterals, longLitLengthThreshold, &historyRequired,
                 &longLitStreamStateRequired);
 
-    vector<mmbit_sparse_iter> activeLeftIter;
-    buildActiveLeftIter(leftInfoTable, activeLeftIter);
-
-    u32 lastByteOffset = buildLastByteIter(g, bc);
-    u32 eagerIterOffset = buildEagerQueueIter(eager_queues, leftfixBeginQueue,
-                                              queue_count, bc);
+    proto.lastByteHistoryIterOffset = buildLastByteIter(g, bc);
+    proto.eagerIterOffset = buildEagerQueueIter(
+        eager_queues, proto.leftfixBeginQueue, queue_count, bc);
 
     // Enforce role table resource limit.
     if (num_vertices(g) > cc.grey.limitRoseRoleCount) {
@@ -5423,11 +5427,10 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     // Build anchored matcher.
     size_t asize = 0;
-    u32 amatcherOffset = 0;
     auto atable = buildAnchoredMatcher(*this, anchored_dfas, &asize);
     if (atable) {
         currOffset = ROUNDUP_CL(currOffset);
-        amatcherOffset = currOffset;
+        proto.amatcherOffset = currOffset;
         currOffset += verify_u32(asize);
     }
 
@@ -5436,10 +5439,9 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     size_t fsize = 0;
     auto ftable = buildFloatingMatcher(*this, bc.longLitLengthThreshold,
                                        &fgroups, &fsize, &historyRequired);
-    u32 fmatcherOffset = 0;
     if (ftable) {
         currOffset = ROUNDUP_CL(currOffset);
-        fmatcherOffset = currOffset;
+        proto.fmatcherOffset = currOffset;
         currOffset += verify_u32(fsize);
         bc.resources.has_floating = true;
     }
@@ -5448,64 +5450,60 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     size_t drsize = 0;
     auto drtable =
         buildDelayRebuildMatcher(*this, bc.longLitLengthThreshold, &drsize);
-    u32 drmatcherOffset = 0;
     if (drtable) {
         currOffset = ROUNDUP_CL(currOffset);
-        drmatcherOffset = currOffset;
+        proto.drmatcherOffset = currOffset;
         currOffset += verify_u32(drsize);
     }
 
     // Build EOD-anchored HWLM matcher.
     size_t esize = 0;
     auto etable = buildEodAnchoredMatcher(*this, &esize);
-    u32 ematcherOffset = 0;
     if (etable) {
         currOffset = ROUNDUP_CL(currOffset);
-        ematcherOffset = currOffset;
+        proto.ematcherOffset = currOffset;
         currOffset += verify_u32(esize);
     }
 
     // Build small-block HWLM matcher.
     size_t sbsize = 0;
     auto sbtable = buildSmallBlockMatcher(*this, &sbsize);
-    u32 sbmatcherOffset = 0;
     if (sbtable) {
         currOffset = ROUNDUP_CL(currOffset);
-        sbmatcherOffset = currOffset;
+        proto.sbmatcherOffset = currOffset;
         currOffset += verify_u32(sbsize);
     }
 
-    u32 leftOffset = ROUNDUP_N(currOffset, alignof(LeftNfaInfo));
-    u32 roseLen = sizeof(LeftNfaInfo) * leftInfoTable.size();
-    currOffset = leftOffset + roseLen;
+    currOffset = ROUNDUP_N(currOffset, alignof(LeftNfaInfo));
+    proto.leftOffset = currOffset;
+    currOffset += sizeof(LeftNfaInfo) * leftInfoTable.size();
 
-    u32 lookaroundReachOffset = currOffset;
-    u32 lookaroundReachLen = REACH_BITVECTOR_LEN * bc.lookaround.size();
-    currOffset = lookaroundReachOffset + lookaroundReachLen;
+    proto.lookaroundReachOffset = currOffset;
+    currOffset += REACH_BITVECTOR_LEN * bc.lookaround.size();
 
-    u32 lookaroundTableOffset = currOffset;
-    u32 lookaroundTableLen = sizeof(s8) * bc.lookaround.size();
-    currOffset = lookaroundTableOffset + lookaroundTableLen;
+    proto.lookaroundTableOffset = currOffset;
+    currOffset += sizeof(s8) * bc.lookaround.size();
 
-    u32 nfaInfoOffset = ROUNDUP_N(currOffset, sizeof(u32));
-    u32 nfaInfoLen = sizeof(NfaInfo) * queue_count;
-    currOffset = nfaInfoOffset + nfaInfoLen;
+    currOffset = ROUNDUP_N(currOffset, sizeof(u32));
+    proto.nfaInfoOffset = currOffset;
+    currOffset += sizeof(NfaInfo) * queue_count;
 
-    currOffset = ROUNDUP_N(currOffset, alignof(mmbit_sparse_iter));
-    u32 activeLeftIterOffset = currOffset;
-    currOffset += activeLeftIter.size() * sizeof(mmbit_sparse_iter);
+    auto activeLeftIter = buildActiveLeftIter(leftInfoTable);
+    if (!activeLeftIter.empty()) {
+        currOffset = ROUNDUP_N(currOffset, alignof(mmbit_sparse_iter));
+        proto.activeLeftIterOffset = currOffset;
+        currOffset += activeLeftIter.size() * sizeof(mmbit_sparse_iter);
+    }
 
-    u32 activeArrayCount = leftfixBeginQueue;
-    u32 activeLeftCount = leftInfoTable.size();
-    u32 rosePrefixCount = countRosePrefixes(leftInfoTable);
+    proto.activeArrayCount = proto.leftfixBeginQueue;
+    proto.activeLeftCount = verify_u32(leftInfoTable.size());
+    proto.rosePrefixCount = countRosePrefixes(leftInfoTable);
 
     u32 rev_nfa_table_offset;
     vector<u32> rev_nfa_offsets;
     prepSomRevNfas(ssm, &rev_nfa_table_offset, &rev_nfa_offsets, &currOffset);
 
-    // Build engine header and copy tables into place.
-
-    u32 anchorStateSize = atable ? anchoredStateSize(*atable) : 0;
+    proto.anchorStateSize = atable ? anchoredStateSize(*atable) : 0;
 
     DEBUG_PRINTF("rose history required %zu\n", historyRequired);
     assert(!cc.streaming || historyRequired <= cc.grey.maxHistoryAvailable);
@@ -5516,169 +5514,122 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     assert(!cc.streaming || historyRequired <=
            max(cc.grey.maxHistoryAvailable, cc.grey.somMaxRevNfaLength));
 
-    RoseStateOffsets stateOffsets;
-    memset(&stateOffsets, 0, sizeof(stateOffsets));
-    fillStateOffsets(*this, bc.numStates, anchorStateSize,
-                     activeArrayCount, activeLeftCount, laggedRoseCount,
-                     longLitStreamStateRequired, historyRequired,
-                     &stateOffsets);
+    fillStateOffsets(*this, bc.numStates, proto.anchorStateSize,
+                     proto.activeArrayCount, proto.activeLeftCount,
+                     laggedRoseCount, longLitStreamStateRequired,
+                     historyRequired, &proto.stateOffsets);
 
-    scatter_plan_raw state_scatter;
-    buildStateScatterPlan(sizeof(u8), bc.numStates,
-                          activeLeftCount, rosePrefixCount, stateOffsets,
-                          cc.streaming, activeArrayCount, outfixBeginQueue,
-                          outfixEndQueue, &state_scatter);
+    scatter_plan_raw state_scatter = buildStateScatterPlan(
+        sizeof(u8), bc.numStates, proto.activeLeftCount, proto.rosePrefixCount,
+        proto.stateOffsets, cc.streaming, proto.activeArrayCount,
+        proto.outfixBeginQueue, proto.outfixEndQueue);
 
     currOffset = ROUNDUP_N(currOffset, alignof(scatter_unit_u64a));
-
     u32 state_scatter_aux_offset = currOffset;
     currOffset += aux_size(state_scatter);
 
     currOffset = ROUNDUP_N(currOffset, alignof(ReportID));
-    u32 dkeyOffset = currOffset;
+    proto.invDkeyOffset = currOffset;
     currOffset += rm.numDkeys() * sizeof(ReportID);
 
-    aligned_unique_ptr<RoseEngine> engine
-        = aligned_zmalloc_unique<RoseEngine>(currOffset);
-    assert(engine); // will have thrown bad_alloc otherwise.
-    char *ptr = (char *)engine.get();
-    assert(ISALIGNED_CL(ptr));
+    proto.historyRequired = verify_u32(historyRequired);
+    proto.ekeyCount = rm.numEkeys();
+    proto.dkeyCount = rm.numDkeys();
+    proto.dkeyLogSize = fatbit_size(proto.dkeyCount);
 
-    if (atable) {
-        assert(amatcherOffset);
-        memcpy(ptr + amatcherOffset, atable.get(), asize);
-    }
-    if (ftable) {
-        assert(fmatcherOffset);
-        memcpy(ptr + fmatcherOffset, ftable.get(), fsize);
-    }
-    if (drtable) {
-        assert(drmatcherOffset);
-        memcpy(ptr + drmatcherOffset, drtable.get(), drsize);
-    }
-    if (etable) {
-        assert(ematcherOffset);
-        memcpy(ptr + ematcherOffset, etable.get(), esize);
-    }
-    if (sbtable) {
-        assert(sbmatcherOffset);
-        memcpy(ptr + sbmatcherOffset, sbtable.get(), sbsize);
-    }
+    proto.somHorizon = ssm.somPrecision();
+    proto.somLocationCount = ssm.numSomSlots();
+    proto.somLocationFatbitSize = fatbit_size(proto.somLocationCount);
 
-    memcpy(&engine->stateOffsets, &stateOffsets, sizeof(stateOffsets));
+    proto.needsCatchup = bc.needs_catchup ? 1 : 0;
 
-    engine->historyRequired = verify_u32(historyRequired);
+    proto.runtimeImpl = pickRuntimeImpl(*this, bc, proto.outfixEndQueue);
+    proto.mpvTriggeredByLeaf = anyEndfixMpvTriggers(*this);
 
-    engine->ekeyCount = rm.numEkeys();
-    engine->dkeyCount = rm.numDkeys();
-    engine->dkeyLogSize = fatbit_size(engine->dkeyCount);
-    engine->invDkeyOffset = dkeyOffset;
-    copy_bytes(ptr + dkeyOffset, rm.getDkeyToReportTable());
+    proto.queueCount = queue_count;
+    proto.activeQueueArraySize = fatbit_size(queue_count);
+    proto.handledKeyCount = prog_build.handledKeys.size();
+    proto.handledKeyFatbitSize = fatbit_size(proto.handledKeyCount);
 
-    engine->somHorizon = ssm.somPrecision();
-    engine->somLocationCount = ssm.numSomSlots();
-    engine->somLocationFatbitSize = fatbit_size(engine->somLocationCount);
+    proto.rolesWithStateCount = bc.numStates;
 
-    engine->needsCatchup = bc.needs_catchup ? 1 : 0;
+    proto.roseCount = verify_u32(leftInfoTable.size());
+    proto.initMpvNfa = mpv_as_outfix ? 0 : MO_INVALID_IDX;
+    proto.stateSize = mmbit_size(bc.numStates);
 
-    engine->reportProgramOffset = reportProgramOffset;
-    engine->reportProgramCount = reportProgramCount;
-    engine->delayProgramOffset = delayProgramOffset;
-    engine->anchoredProgramOffset = anchoredProgramOffset;
-    engine->runtimeImpl = pickRuntimeImpl(*this, bc, outfixEndQueue);
-    engine->mpvTriggeredByLeaf = anyEndfixMpvTriggers(*this);
-
-    engine->activeArrayCount = activeArrayCount;
-    engine->activeLeftCount = activeLeftCount;
-    engine->queueCount = queue_count;
-    engine->activeQueueArraySize = fatbit_size(queue_count);
-    engine->eagerIterOffset = eagerIterOffset;
-    engine->handledKeyCount = prog_build.handledKeys.size();
-    engine->handledKeyFatbitSize = fatbit_size(engine->handledKeyCount);
-
-    engine->rolesWithStateCount = bc.numStates;
-
-    engine->leftOffset = leftOffset;
-    engine->roseCount = verify_u32(leftInfoTable.size());
-    engine->lookaroundTableOffset = lookaroundTableOffset;
-    engine->lookaroundReachOffset = lookaroundReachOffset;
-    engine->outfixBeginQueue = outfixBeginQueue;
-    engine->outfixEndQueue = outfixEndQueue;
-    engine->leftfixBeginQueue = leftfixBeginQueue;
-    engine->initMpvNfa = mpv_as_outfix ? 0 : MO_INVALID_IDX;
-    engine->stateSize = mmbit_size(bc.numStates);
-    engine->anchorStateSize = anchorStateSize;
-    engine->nfaInfoOffset = nfaInfoOffset;
-
-    engine->eodProgramOffset = eodProgramOffset;
-
-    engine->lastByteHistoryIterOffset = lastByteOffset;
-
-    engine->delay_count = delayProgramCount;
-    engine->delay_fatbit_size = fatbit_size(engine->delay_count);
-    engine->anchored_count = anchoredProgramCount;
-    engine->anchored_fatbit_size = fatbit_size(engine->anchored_count);
-
-    engine->rosePrefixCount = rosePrefixCount;
-
-    engine->activeLeftIterOffset
-        = activeLeftIter.empty() ? 0 : activeLeftIterOffset;
-
-    // Set scanning mode.
-    if (!cc.streaming) {
-        engine->mode = HS_MODE_BLOCK;
-    } else if (cc.vectored) {
-        engine->mode = HS_MODE_VECTORED;
-    } else {
-        engine->mode = HS_MODE_STREAM;
-    }
+    proto.delay_fatbit_size = fatbit_size(proto.delay_count);
+    proto.anchored_fatbit_size = fatbit_size(proto.anchored_count);
 
     // The Small Write matcher is (conditionally) added to the RoseEngine in
     // another pass by the caller. Set to zero (meaning no SMWR engine) for
     // now.
-    engine->smallWriteOffset = 0;
+    proto.smallWriteOffset = 0;
 
-    engine->amatcherOffset = amatcherOffset;
-    engine->ematcherOffset = ematcherOffset;
-    engine->sbmatcherOffset = sbmatcherOffset;
-    engine->fmatcherOffset = fmatcherOffset;
-    engine->drmatcherOffset = drmatcherOffset;
-    engine->longLitTableOffset = longLitTableOffset;
-    engine->amatcherMinWidth = findMinWidth(*this, ROSE_ANCHORED);
-    engine->fmatcherMinWidth = findMinWidth(*this, ROSE_FLOATING);
-    engine->eodmatcherMinWidth = findMinWidth(*this, ROSE_EOD_ANCHORED);
-    engine->amatcherMaxBiAnchoredWidth = findMaxBAWidth(*this, ROSE_ANCHORED);
-    engine->fmatcherMaxBiAnchoredWidth = findMaxBAWidth(*this, ROSE_FLOATING);
-    engine->size = currOffset;
-    engine->minWidth = hasBoundaryReports(boundary) ? 0 : minWidth;
-    engine->minWidthExcludingBoundaries = minWidth;
-    engine->floatingMinLiteralMatchOffset = bc.floatingMinLiteralMatchOffset;
+    proto.amatcherMinWidth = findMinWidth(*this, ROSE_ANCHORED);
+    proto.fmatcherMinWidth = findMinWidth(*this, ROSE_FLOATING);
+    proto.eodmatcherMinWidth = findMinWidth(*this, ROSE_EOD_ANCHORED);
+    proto.amatcherMaxBiAnchoredWidth = findMaxBAWidth(*this, ROSE_ANCHORED);
+    proto.fmatcherMaxBiAnchoredWidth = findMaxBAWidth(*this, ROSE_FLOATING);
+    proto.minWidth = hasBoundaryReports(boundary) ? 0 : minWidth;
+    proto.minWidthExcludingBoundaries = minWidth;
+    proto.floatingMinLiteralMatchOffset = bc.floatingMinLiteralMatchOffset;
 
-    engine->maxBiAnchoredWidth = findMaxBAWidth(*this);
-    engine->noFloatingRoots = hasNoFloatingRoots();
-    engine->requiresEodCheck = hasEodAnchors(*this, bc, outfixEndQueue);
-    engine->hasOutfixesInSmallBlock = hasNonSmallBlockOutfix(outfixes);
-    engine->canExhaust = rm.patternSetCanExhaust();
-    engine->hasSom = hasSom;
+    proto.maxBiAnchoredWidth = findMaxBAWidth(*this);
+    proto.noFloatingRoots = hasNoFloatingRoots();
+    proto.requiresEodCheck = hasEodAnchors(*this, bc, proto.outfixEndQueue);
+    proto.hasOutfixesInSmallBlock = hasNonSmallBlockOutfix(outfixes);
+    proto.canExhaust = rm.patternSetCanExhaust();
+    proto.hasSom = hasSom;
 
     /* populate anchoredDistance, floatingDistance, floatingMinDistance, etc */
-    fillMatcherDistances(*this, engine.get());
+    fillMatcherDistances(*this, &proto);
 
-    engine->initialGroups = getInitialGroups();
-    engine->floating_group_mask = fgroups;
-    engine->totalNumLiterals = verify_u32(literal_info.size());
-    engine->asize = verify_u32(asize);
-    engine->ematcherRegionSize = ematcher_region_size;
-    engine->longLitStreamState = verify_u32(longLitStreamStateRequired);
+    proto.initialGroups = getInitialGroups();
+    proto.floating_group_mask = fgroups;
+    proto.totalNumLiterals = verify_u32(literal_info.size());
+    proto.asize = verify_u32(asize);
+    proto.ematcherRegionSize = ematcher_region_size;
+    proto.longLitStreamState = verify_u32(longLitStreamStateRequired);
 
-    engine->boundary.reportEodOffset = boundary_out.reportEodOffset;
-    engine->boundary.reportZeroOffset = boundary_out.reportZeroOffset;
-    engine->boundary.reportZeroEodOffset = boundary_out.reportZeroEodOffset;
+    proto.size = currOffset;
+
+    // Time to allocate the real RoseEngine structure.
+    auto engine = aligned_zmalloc_unique<RoseEngine>(currOffset);
+    assert(engine); // will have thrown bad_alloc otherwise.
+
+    // Copy in our prototype engine data.
+    memcpy(engine.get(), &proto, sizeof(proto));
+
+    char *ptr = (char *)engine.get();
+    assert(ISALIGNED_CL(ptr));
+
+    if (atable) {
+        assert(proto.amatcherOffset);
+        memcpy(ptr + proto.amatcherOffset, atable.get(), asize);
+    }
+    if (ftable) {
+        assert(proto.fmatcherOffset);
+        memcpy(ptr + proto.fmatcherOffset, ftable.get(), fsize);
+    }
+    if (drtable) {
+        assert(proto.drmatcherOffset);
+        memcpy(ptr + proto.drmatcherOffset, drtable.get(), drsize);
+    }
+    if (etable) {
+        assert(proto.ematcherOffset);
+        memcpy(ptr + proto.ematcherOffset, etable.get(), esize);
+    }
+    if (sbtable) {
+        assert(proto.sbmatcherOffset);
+        memcpy(ptr + proto.sbmatcherOffset, sbtable.get(), sbsize);
+    }
+
+    copy_bytes(ptr + proto.invDkeyOffset, rm.getDkeyToReportTable());
 
     write_out(&engine->state_init, (char *)engine.get(), state_scatter,
               state_scatter_aux_offset);
 
-    NfaInfo *nfa_infos = (NfaInfo *)(ptr + nfaInfoOffset);
+    NfaInfo *nfa_infos = (NfaInfo *)(ptr + proto.nfaInfoOffset);
     populateNfaInfoBasics(*this, bc, outfixes, suffixEkeyLists,
                           no_retrigger_queues, nfa_infos);
     updateNfaState(bc, &engine->stateOffsets, nfa_infos,
@@ -5689,8 +5640,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     bc.engine_blob.write_bytes(engine.get());
     copy_bytes(ptr + engine->leftOffset, leftInfoTable);
 
-    fillLookaroundTables(ptr + lookaroundTableOffset,
-                         ptr + lookaroundReachOffset, bc.lookaround);
+    fillLookaroundTables(ptr + proto.lookaroundTableOffset,
+                         ptr + proto.lookaroundReachOffset, bc.lookaround);
 
     fillInSomRevNfas(engine.get(), ssm, rev_nfa_table_offset, rev_nfa_offsets);
     copy_bytes(ptr + engine->activeLeftIterOffset, activeLeftIter);
