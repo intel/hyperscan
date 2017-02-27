@@ -2457,57 +2457,24 @@ struct DerivedBoundaryReports {
 };
 
 static
-void prepSomRevNfas(const SomSlotManager &ssm, u32 *rev_nfa_table_offset,
-                    vector<u32> *nfa_offsets, u32 *currOffset) {
-    const deque<aligned_unique_ptr<NFA>> &nfas = ssm.getRevNfas();
-
-    *currOffset = ROUNDUP_N(*currOffset, alignof(u32));
-    *rev_nfa_table_offset = *currOffset;
-    *currOffset += sizeof(u32) * nfas.size();
-
-    *currOffset = ROUNDUP_CL(*currOffset);
-    for (const auto &n : nfas) {
-        u32 bs_offset;
-        bs_offset = *currOffset;
-        nfa_offsets->push_back(bs_offset);
-        *currOffset += ROUNDUP_CL(n->length);
+void addSomRevNfas(build_context &bc, RoseEngine &proto,
+                   const SomSlotManager &ssm) {
+    const auto &nfas = ssm.getRevNfas();
+    vector<u32> nfa_offsets;
+    nfa_offsets.reserve(nfas.size());
+    for (const auto &nfa : nfas) {
+        assert(nfa);
+        u32 offset = bc.engine_blob.add(*nfa, nfa->length);
+        DEBUG_PRINTF("wrote SOM rev NFA %zu (len %u) to offset %u\n",
+                     nfa_offsets.size(), nfa->length, offset);
+        nfa_offsets.push_back(offset);
         /* note: som rev nfas don't need a queue assigned as only run in block
          * mode reverse */
     }
 
-    assert(nfa_offsets->size() == nfas.size());
-}
-
-static
-void fillInSomRevNfas(RoseEngine *engine, const SomSlotManager &ssm,
-                      u32 rev_nfa_table_offset,
-                      const vector<u32> &nfa_offsets) {
-    const deque<aligned_unique_ptr<NFA>> &nfas = ssm.getRevNfas();
-    assert(nfa_offsets.size() == nfas.size());
-
-    engine->somRevCount = (u32)nfas.size();
-    engine->somRevOffsetOffset = rev_nfa_table_offset;
-
-    if (nfas.empty()) {
-        return;
-    }
-
-    char *out = (char *)engine + rev_nfa_table_offset;
-    size_t table_size = sizeof(u32) * nfa_offsets.size();
-    memcpy(out, nfa_offsets.data(), table_size);
-    out = (char *)engine + ROUNDUP_CL(rev_nfa_table_offset + table_size);
-
-    // Write the SOM reverse NFAs into place.
-    UNUSED size_t i = 0;
-    for (const auto &n : nfas) {
-        assert(n != nullptr);
-        assert(out == (char *)engine + nfa_offsets[i]);
-
-        memcpy(out, n.get(), n->length);
-        out += ROUNDUP_CL(n->length);
-        DEBUG_PRINTF("wrote som rev nfa with len %u\n", n->length);
-        ++i;
-    }
+    proto.somRevCount = verify_u32(nfas.size());
+    proto.somRevOffsetOffset =
+        bc.engine_blob.add(begin(nfa_offsets), end(nfa_offsets));
 }
 
 static
@@ -5408,6 +5375,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     proto.eagerIterOffset = buildEagerQueueIter(
         eager_queues, proto.leftfixBeginQueue, queue_count, bc);
 
+    addSomRevNfas(bc, proto, ssm);
+
     // Enforce role table resource limit.
     if (num_vertices(g) > cc.grey.limitRoseRoleCount) {
         throw ResourceLimitError();
@@ -5498,10 +5467,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     proto.activeArrayCount = proto.leftfixBeginQueue;
     proto.activeLeftCount = verify_u32(leftInfoTable.size());
     proto.rosePrefixCount = countRosePrefixes(leftInfoTable);
-
-    u32 rev_nfa_table_offset;
-    vector<u32> rev_nfa_offsets;
-    prepSomRevNfas(ssm, &rev_nfa_table_offset, &rev_nfa_offsets, &currOffset);
 
     proto.anchorStateSize = atable ? anchoredStateSize(*atable) : 0;
 
@@ -5643,7 +5608,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     fillLookaroundTables(ptr + proto.lookaroundTableOffset,
                          ptr + proto.lookaroundReachOffset, bc.lookaround);
 
-    fillInSomRevNfas(engine.get(), ssm, rev_nfa_table_offset, rev_nfa_offsets);
     copy_bytes(ptr + engine->activeLeftIterOffset, activeLeftIter);
 
     // Safety check: we shouldn't have written anything to the engine blob
