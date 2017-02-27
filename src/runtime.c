@@ -187,6 +187,18 @@ void rawBlockExec(const struct RoseEngine *rose, struct hs_scratch *scratch) {
 }
 
 static really_inline
+void pureLiteralInitScratch(struct hs_scratch *scratch, u64a offset) {
+    // Some init has already been done.
+    assert(offset == scratch->core_info.buf_offset);
+
+    scratch->tctxt.lit_offset_adjust = offset + 1;
+    scratch->tctxt.lastEndOffset = offset;
+    scratch->tctxt.delayLastEndOffset = offset;
+    scratch->tctxt.filledDelayedSlots = 0;
+    scratch->al_log_sum = 0;
+}
+
+static really_inline
 void pureLiteralBlockExec(const struct RoseEngine *rose,
                           struct hs_scratch *scratch) {
     assert(rose);
@@ -198,9 +210,8 @@ void pureLiteralBlockExec(const struct RoseEngine *rose,
     size_t length = scratch->core_info.len;
     DEBUG_PRINTF("rose engine %d\n", rose->runtimeImpl);
 
-    // RoseContext values that need to be set for use by roseCallback.
+    pureLiteralInitScratch(scratch, 0);
     scratch->tctxt.groups = rose->initialGroups;
-    scratch->tctxt.lit_offset_adjust = 1;
 
     hwlmExec(ftable, buffer, length, 0, roseCallback, scratch,
              rose->initialGroups);
@@ -743,9 +754,8 @@ void pureLiteralStreamExec(struct hs_stream *stream_state,
     DEBUG_PRINTF("::: streaming rose ::: offset = %llu len = %zu\n",
                  stream_state->offset, scratch->core_info.len);
 
-    // RoseContext values that need to be set for use by roseCallback.
+    pureLiteralInitScratch(scratch, stream_state->offset);
     scratch->tctxt.groups = loadGroups(rose, scratch->core_info.state);
-    scratch->tctxt.lit_offset_adjust = scratch->core_info.buf_offset + 1;
 
     // Pure literal cases don't have floatingMinDistance set, so we always
     // start the match region at zero.
