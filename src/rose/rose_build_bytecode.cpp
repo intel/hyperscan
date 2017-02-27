@@ -2601,26 +2601,25 @@ u32 writeProgram(build_context &bc, RoseProgram &&program) {
 }
 
 static
-vector<mmbit_sparse_iter>
-buildActiveLeftIter(const vector<LeftNfaInfo> &leftTable) {
-    vector<mmbit_sparse_iter> out;
-
+u32 writeActiveLeftIter(build_context &bc,
+                        const vector<LeftNfaInfo> &leftInfoTable) {
     vector<u32> keys;
-    for (size_t i = 0; i < leftTable.size(); i++) {
-        if (!leftTable[i].transient) {
-            DEBUG_PRINTF("rose %zu is active\n", i);
+    for (size_t i = 0; i < leftInfoTable.size(); i++) {
+        if (!leftInfoTable[i].transient) {
+            DEBUG_PRINTF("leftfix %zu is active\n", i);
             keys.push_back(verify_u32(i));
         }
     }
 
-    DEBUG_PRINTF("%zu active roses\n", keys.size());
+    DEBUG_PRINTF("%zu active leftfixes\n", keys.size());
 
     if (keys.empty()) {
-        return out;
+        return 0;
     }
 
-    mmbBuildSparseIterator(out, keys, leftTable.size());
-    return out;
+    vector<mmbit_sparse_iter> iter;
+    mmbBuildSparseIterator(iter, keys, verify_u32(leftInfoTable.size()));
+    return bc.engine_blob.add_iterator(iter);
 }
 
 static
@@ -5149,9 +5148,8 @@ void fillMatcherDistances(const RoseBuildImpl &build, RoseEngine *engine) {
 }
 
 static
-u32 buildEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
-                        u32 queue_count,
-                        build_context &bc) {
+u32 writeEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
+                        u32 queue_count, build_context &bc) {
     if (eager.empty()) {
         return 0;
     }
@@ -5372,8 +5370,9 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                 &longLitStreamStateRequired);
 
     proto.lastByteHistoryIterOffset = buildLastByteIter(g, bc);
-    proto.eagerIterOffset = buildEagerQueueIter(
+    proto.eagerIterOffset = writeEagerQueueIter(
         eager_queues, proto.leftfixBeginQueue, queue_count, bc);
+    proto.activeLeftIterOffset = writeActiveLeftIter(bc, leftInfoTable);
 
     addSomRevNfas(bc, proto, ssm);
 
@@ -5456,13 +5455,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     currOffset = ROUNDUP_N(currOffset, sizeof(u32));
     proto.nfaInfoOffset = currOffset;
     currOffset += sizeof(NfaInfo) * queue_count;
-
-    auto activeLeftIter = buildActiveLeftIter(leftInfoTable);
-    if (!activeLeftIter.empty()) {
-        currOffset = ROUNDUP_N(currOffset, alignof(mmbit_sparse_iter));
-        proto.activeLeftIterOffset = currOffset;
-        currOffset += activeLeftIter.size() * sizeof(mmbit_sparse_iter);
-    }
 
     proto.activeArrayCount = proto.leftfixBeginQueue;
     proto.activeLeftCount = verify_u32(leftInfoTable.size());
@@ -5607,8 +5599,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     fillLookaroundTables(ptr + proto.lookaroundTableOffset,
                          ptr + proto.lookaroundReachOffset, bc.lookaround);
-
-    copy_bytes(ptr + engine->activeLeftIterOffset, activeLeftIter);
 
     // Safety check: we shouldn't have written anything to the engine blob
     // after we copied it into the engine bytecode.
