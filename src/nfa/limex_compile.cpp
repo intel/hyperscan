@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1802,6 +1802,12 @@ struct Factory {
             u32 cyclic = args.state_ids.at(br.cyclic);
             assert(cyclic != NO_STATE);
             maskSetBit(limex->repeatCyclicMask, cyclic);
+        }
+        /* also include tugs in repeat cyclic mask */
+        for (NFAVertex v : args.tugs) {
+            u32 v_state = args.state_ids.at(v);
+            assert(v_state != NO_STATE);
+            maskSetBit(limex->repeatCyclicMask, v_state);
         }
     }
 

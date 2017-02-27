@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -393,19 +393,16 @@ void COMPRESS_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, void *src,
         DEBUG_PRINTF("repeat %u\n", i);
         const struct NFARepeatInfo *info = GET_NFA_REPEAT_INFO_FN(limex, i);
 
-        if (!TESTBIT_STATE(s, info->cyclicState)) {
+        const ENG_STATE_T *tug_mask =
+            (const ENG_STATE_T *)((const char *)info + info->tugMaskOffset);
+        /* repeat may still be inspected if its tug state is on */
+        if (!TESTBIT_STATE(s, info->cyclicState)
+            && ISZERO_STATE(AND_STATE(s, LOAD_FROM_ENG(tug_mask)))) {
             DEBUG_PRINTF("is dead\n");
             continue;
         }
 
         const struct RepeatInfo *repeat = getRepeatInfo(info);
-        if (repeatHasMatch(repeat, &ctrl[i], state_base + info->stateOffset,
-                           offset) == REPEAT_STALE) {
-            DEBUG_PRINTF("is stale, clearing state\n");
-            CLEARBIT_STATE(&s, info->cyclicState);
-            continue;
-        }
-
         DEBUG_PRINTF("packing state (packedCtrlOffset=%u)\n",
                      info->packedCtrlOffset);
         repeatPack(state_base + info->packedCtrlOffset, repeat, &ctrl[i],
@@ -448,8 +445,11 @@ void EXPAND_REPEATS_FN(const IMPL_NFA_T *limex, void *dest, const void *src,
     for (u32 i = 0; i < limex->repeatCount; i++) {
         DEBUG_PRINTF("repeat %u\n", i);
         const struct NFARepeatInfo *info = GET_NFA_REPEAT_INFO_FN(limex, i);
+        const ENG_STATE_T *tug_mask =
+            (const ENG_STATE_T *)((const char *)info + info->tugMaskOffset);
 
-        if (!TESTBIT_STATE(cyclics, info->cyclicState)) {
+        if (!TESTBIT_STATE(cyclics, info->cyclicState)
+            && ISZERO_STATE(AND_STATE(cyclics, LOAD_FROM_ENG(tug_mask)))) {
             DEBUG_PRINTF("is dead\n");
             continue;
         }
