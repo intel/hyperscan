@@ -2150,9 +2150,19 @@ void findTransientQueues(const map<RoseVertex, left_build_info> &leftfix_info,
 }
 
 static
-void updateNfaState(const build_context &bc, RoseStateOffsets *so,
-                    NfaInfo *nfa_infos, u32 *fullStateSize, u32 *nfaStateSize,
+void updateNfaState(const build_context &bc, RoseEngine &proto,
+                    RoseStateOffsets *so, u32 *fullStateSize, u32 *nfaStateSize,
                     u32 *tStateSize) {
+    if (!proto.nfaInfoOffset) {
+        assert(bc.engineOffsets.empty());
+        return;
+    }
+
+    // Our array of NfaInfo structures is in the engine blob.
+    NfaInfo *nfa_infos = (NfaInfo *)(bc.engine_blob.data() +
+                                     proto.nfaInfoOffset -
+                                     bc.engine_blob.base_offset);
+
     *nfaStateSize = 0;
     *tStateSize = 0;
     *fullStateSize = 0;
@@ -5496,6 +5506,12 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                      laggedRoseCount, longLitStreamStateRequired,
                      historyRequired, &proto.stateOffsets);
 
+    // Update state offsets to do with NFAs in proto and in the NfaInfo
+    // structures.
+    updateNfaState(bc, proto, &proto.stateOffsets,
+                   &proto.scratchStateSize, &proto.nfaStateSize,
+                   &proto.tStateSize);
+
     scatter_plan_raw state_scatter = buildStateScatterPlan(
         sizeof(u8), bc.numStates, proto.activeLeftCount, proto.rosePrefixCount,
         proto.stateOffsets, cc.streaming, proto.activeArrayCount,
@@ -5599,11 +5615,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     // Copy in the engine blob.
     bc.engine_blob.write_bytes(engine.get());
-
-    NfaInfo *nfa_infos = (NfaInfo *)(ptr + proto.nfaInfoOffset);
-    updateNfaState(bc, &engine->stateOffsets, nfa_infos,
-                   &engine->scratchStateSize, &engine->nfaStateSize,
-                   &engine->tStateSize);
 
     // Safety check: we shouldn't have written anything to the engine blob
     // after we copied it into the engine bytecode.
