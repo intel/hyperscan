@@ -2710,6 +2710,15 @@ void writeLookaroundTables(build_context &bc, RoseEngine &proto) {
 }
 
 static
+void writeDkeyInfo(const ReportManager &rm, build_context &bc,
+                   RoseEngine &proto) {
+    const auto inv_dkeys = rm.getDkeyToReportTable();
+    proto.invDkeyOffset = bc.engine_blob.add(begin(inv_dkeys), end(inv_dkeys));
+    proto.dkeyCount = rm.numDkeys();
+    proto.dkeyLogSize = fatbit_size(proto.dkeyCount);
+}
+
+static
 bool hasBoundaryReports(const BoundaryReports &boundary) {
     if (!boundary.report_at_0.empty()) {
         DEBUG_PRINTF("has boundary reports at 0\n");
@@ -5384,6 +5393,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     addSomRevNfas(bc, proto, ssm);
 
     writeLookaroundTables(bc, proto);
+    writeDkeyInfo(rm, bc, proto);
 
     // Enforce role table resource limit.
     if (num_vertices(g) > cc.grey.limitRoseRoleCount) {
@@ -5488,14 +5498,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     u32 state_scatter_aux_offset = currOffset;
     currOffset += aux_size(state_scatter);
 
-    currOffset = ROUNDUP_N(currOffset, alignof(ReportID));
-    proto.invDkeyOffset = currOffset;
-    currOffset += rm.numDkeys() * sizeof(ReportID);
-
     proto.historyRequired = verify_u32(historyRequired);
     proto.ekeyCount = rm.numEkeys();
-    proto.dkeyCount = rm.numDkeys();
-    proto.dkeyLogSize = fatbit_size(proto.dkeyCount);
 
     proto.somHorizon = ssm.somPrecision();
     proto.somLocationCount = ssm.numSomSlots();
@@ -5583,8 +5587,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         assert(proto.sbmatcherOffset);
         memcpy(ptr + proto.sbmatcherOffset, sbtable.get(), sbsize);
     }
-
-    copy_bytes(ptr + proto.invDkeyOffset, rm.getDkeyToReportTable());
 
     write_out(&engine->state_init, (char *)engine.get(), state_scatter,
               state_scatter_aux_offset);
