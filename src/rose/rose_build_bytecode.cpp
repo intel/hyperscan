@@ -2105,16 +2105,14 @@ bool buildNfas(RoseBuildImpl &tbi, build_context &bc, QueueIndexFactory &qif,
 }
 
 static
-void allocateStateSpace(const NFA *nfa, const set<u32> &transient_queues,
-                        RoseStateOffsets *so, NfaInfo *nfa_infos,
-                        u32 *currFullStateSize, u32 *maskStateSize,
-                        u32 *tStateSize) {
-    u32 qi = nfa->queueIndex;
-    bool transient = transient_queues.find(qi) != transient_queues.end();
-    u32 stateSize = verify_u32(nfa->streamStateSize);
+void allocateStateSpace(const NFA *nfa, NfaInfo *nfa_info, bool is_transient,
+                        RoseStateOffsets *so, u32 *currFullStateSize,
+                        u32 *maskStateSize, u32 *tStateSize) {
+    const u32 stateSize = nfa->streamStateSize;
+    const u32 scratchStateSize = nfa->scratchStateSize;
 
     u32 state_offset;
-    if (transient) {
+    if (is_transient) {
         state_offset = *tStateSize;
         *tStateSize += stateSize;
     } else {
@@ -2124,29 +2122,30 @@ void allocateStateSpace(const NFA *nfa, const set<u32> &transient_queues,
         *maskStateSize += stateSize;
     }
 
-    nfa_infos[qi].stateOffset = state_offset;
+    nfa_info->stateOffset = state_offset;
 
     // Uncompressed state must be aligned.
-    u32 scratchStateSize = verify_u32(nfa->scratchStateSize);
     u32 alignReq = state_alignment(*nfa);
     assert(alignReq);
     while (*currFullStateSize % alignReq) {
         (*currFullStateSize)++;
     }
-    nfa_infos[qi].fullStateOffset = *currFullStateSize;
+    nfa_info->fullStateOffset = *currFullStateSize;
     *currFullStateSize += scratchStateSize;
 }
 
 static
-void findTransientQueues(const map<RoseVertex, left_build_info> &leftfix_info,
-                         set<u32> *out) {
+set<u32>
+findTransientQueues(const map<RoseVertex, left_build_info> &leftfix_info) {
     DEBUG_PRINTF("curating transient queues\n");
-    for (const auto &build : leftfix_info | map_values) {
-        if (build.transient) {
-            DEBUG_PRINTF("q %u is transient\n", build.queue);
-            out->insert(build.queue);
+    set<u32> out;
+    for (const auto &left : leftfix_info | map_values) {
+        if (left.transient) {
+            DEBUG_PRINTF("q %u is transient\n", left.queue);
+            out.insert(left.queue);
         }
     }
+    return out;
 }
 
 static
@@ -2167,12 +2166,14 @@ void updateNfaState(const build_context &bc, RoseEngine &proto,
     *tStateSize = 0;
     *fullStateSize = 0;
 
-    set<u32> transient_queues;
-    findTransientQueues(bc.leftfix_info, &transient_queues);
+    auto transient_queues = findTransientQueues(bc.leftfix_info);
 
     for (const auto &m : bc.engineOffsets) {
-        const NFA *n = get_nfa_from_blob(bc, m.first);
-        allocateStateSpace(n, transient_queues, so, nfa_infos, fullStateSize,
+        const NFA *nfa = get_nfa_from_blob(bc, m.first);
+        u32 qi = nfa->queueIndex;
+        bool is_transient = contains(transient_queues, qi);
+        NfaInfo *nfa_info = &nfa_infos[qi];
+        allocateStateSpace(nfa, nfa_info, is_transient, so, fullStateSize,
                            nfaStateSize, tStateSize);
     }
 }
