@@ -2,6 +2,12 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [4.4.1] 2017-02-28
+- Bugfixes to fix issues where stale data was being referenced in scratch
+  memory. In particular this may have resulted in hs_close_stream()
+  referencing data from other previously scanned streams. This may result in
+  incorrect matches being been reported.
+
 ## [4.4.0] 2017-01-20
 - Introduce the "fat runtime" build. This will build several variants of the
   Hyperscan scanning engine specialised for different processor feature sets,
@@ -136,7 +142,9 @@ This is a list of notable changes to Hyperscan, in reverse chronological order.
   supplied with a NULL scratch pointer if no matches are required. This is in
   line with the behaviour of `hs_close_stream()`.
 - Disallow bounded repeats with a very large minimum repeat but no maximum,
-  i.e. {N,} for very large N.
+  i.e. {
+    N,
+} for very large N.
 - Reduce compile memory usage in literal set explansion for some large cases.
 
 ## [4.0.0] 2015-10-20
