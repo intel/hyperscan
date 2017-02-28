@@ -2719,6 +2719,18 @@ void writeDkeyInfo(const ReportManager &rm, build_context &bc,
 }
 
 static
+void writeLeftInfo(build_context &bc, RoseEngine &proto,
+                   const vector<LeftNfaInfo> &leftInfoTable) {
+    proto.leftOffset =
+        bc.engine_blob.add(begin(leftInfoTable), end(leftInfoTable));
+    proto.activeLeftIterOffset = writeActiveLeftIter(bc, leftInfoTable);
+    proto.roseCount = verify_u32(leftInfoTable.size());
+    proto.activeLeftCount = verify_u32(leftInfoTable.size());
+    proto.rosePrefixCount = countRosePrefixes(leftInfoTable);
+
+}
+
+static
 bool hasBoundaryReports(const BoundaryReports &boundary) {
     if (!boundary.report_at_0.empty()) {
         DEBUG_PRINTF("has boundary reports at 0\n");
@@ -5388,12 +5400,12 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     proto.lastByteHistoryIterOffset = buildLastByteIter(g, bc);
     proto.eagerIterOffset = writeEagerQueueIter(
         eager_queues, proto.leftfixBeginQueue, queue_count, bc);
-    proto.activeLeftIterOffset = writeActiveLeftIter(bc, leftInfoTable);
 
     addSomRevNfas(bc, proto, ssm);
 
     writeLookaroundTables(bc, proto);
     writeDkeyInfo(rm, bc, proto);
+    writeLeftInfo(bc, proto, leftInfoTable);
 
     // Enforce role table resource limit.
     if (num_vertices(g) > cc.grey.limitRoseRoleCount) {
@@ -5461,17 +5473,11 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         currOffset += verify_u32(sbsize);
     }
 
-    currOffset = ROUNDUP_N(currOffset, alignof(LeftNfaInfo));
-    proto.leftOffset = currOffset;
-    currOffset += sizeof(LeftNfaInfo) * leftInfoTable.size();
-
     currOffset = ROUNDUP_N(currOffset, sizeof(u32));
     proto.nfaInfoOffset = currOffset;
     currOffset += sizeof(NfaInfo) * queue_count;
 
     proto.activeArrayCount = proto.leftfixBeginQueue;
-    proto.activeLeftCount = verify_u32(leftInfoTable.size());
-    proto.rosePrefixCount = countRosePrefixes(leftInfoTable);
 
     proto.anchorStateSize = atable ? anchoredStateSize(*atable) : 0;
 
@@ -5517,7 +5523,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     proto.rolesWithStateCount = bc.numStates;
 
-    proto.roseCount = verify_u32(leftInfoTable.size());
     proto.initMpvNfa = mpv_as_outfix ? 0 : MO_INVALID_IDX;
     proto.stateSize = mmbit_size(bc.numStates);
 
@@ -5600,7 +5605,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     // Copy in other tables
     bc.engine_blob.write_bytes(engine.get());
-    copy_bytes(ptr + engine->leftOffset, leftInfoTable);
 
     // Safety check: we shouldn't have written anything to the engine blob
     // after we copied it into the engine bytecode.
