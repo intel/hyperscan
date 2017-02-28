@@ -2411,42 +2411,6 @@ bool anyEndfixMpvTriggers(const RoseBuildImpl &tbi) {
     return false;
 }
 
-static
-void populateNfaInfoBasics(const RoseBuildImpl &build, const build_context &bc,
-                           const vector<OutfixInfo> &outfixes,
-                           const vector<u32> &ekeyListOffsets,
-                           const set<u32> &no_retrigger_queues,
-                           NfaInfo *infos) {
-    const u32 num_queues = build.qif.allocated_count();
-    for (u32 qi = 0; qi < num_queues; qi++) {
-        const NFA *n = get_nfa_from_blob(bc, qi);
-        enforceEngineSizeLimit(n, n->length, build.cc.grey);
-
-        NfaInfo &info = infos[qi];
-        info.nfaOffset = bc.engineOffsets.at(qi);
-        info.ekeyListOffset = ekeyListOffsets[qi];
-        info.no_retrigger = contains(no_retrigger_queues, qi) ? 1 : 0;
-    }
-
-    // Mark outfixes that are in the small block matcher.
-    for (const auto &out : outfixes) {
-        const u32 qi = out.get_queue();
-        infos[qi].in_sbmatcher = out.in_sbmatcher;
-    }
-
-    // Mark suffixes triggered by EOD table literals.
-    const RoseGraph &g = build.g;
-    for (auto v : vertices_range(g)) {
-        if (!g[v].suffix) {
-            continue;
-        }
-        u32 qi = bc.suffixes.at(g[v].suffix);
-        if (build.isInETable(v)) {
-            infos[qi].eod = 1;
-        }
-    }
-}
-
 struct DerivedBoundaryReports {
     explicit DerivedBoundaryReports(const BoundaryReports &boundary) {
         insert(&report_at_0_eod_full, boundary.report_at_0_eod);
@@ -2727,7 +2691,49 @@ void writeLeftInfo(build_context &bc, RoseEngine &proto,
     proto.roseCount = verify_u32(leftInfoTable.size());
     proto.activeLeftCount = verify_u32(leftInfoTable.size());
     proto.rosePrefixCount = countRosePrefixes(leftInfoTable);
+}
 
+static
+void writeNfaInfo(const RoseBuildImpl &build, build_context &bc,
+                  RoseEngine &proto, const set<u32> &no_retrigger_queues) {
+    auto ekey_lists = buildSuffixEkeyLists(build, bc, build.qif);
+
+    const u32 queue_count = build.qif.allocated_count();
+    vector<NfaInfo> infos(queue_count);
+    memset(infos.data(), 0, sizeof(NfaInfo) * queue_count);
+
+    for (u32 qi = 0; qi < queue_count; qi++) {
+        const NFA *n = get_nfa_from_blob(bc, qi);
+        enforceEngineSizeLimit(n, n->length, build.cc.grey);
+
+        NfaInfo &info = infos[qi];
+        info.nfaOffset = bc.engineOffsets.at(qi);
+        assert(qi < ekey_lists.size());
+        info.ekeyListOffset = ekey_lists.at(qi);
+        info.no_retrigger = contains(no_retrigger_queues, qi) ? 1 : 0;
+    }
+
+    // Mark outfixes that are in the small block matcher.
+    for (const auto &out : build.outfixes) {
+        const u32 qi = out.get_queue();
+        assert(qi < infos.size());
+        infos.at(qi).in_sbmatcher = out.in_sbmatcher;
+    }
+
+    // Mark suffixes triggered by EOD table literals.
+    const RoseGraph &g = build.g;
+    for (auto v : vertices_range(g)) {
+        if (!g[v].suffix) {
+            continue;
+        }
+        u32 qi = bc.suffixes.at(g[v].suffix);
+        assert(qi < infos.size());
+        if (build.isInETable(v)) {
+            infos.at(qi).eod = 1;
+        }
+    }
+
+    proto.nfaInfoOffset = bc.engine_blob.add(begin(infos), end(infos));
 }
 
 static
@@ -5366,8 +5372,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         throw ResourceLimitError();
     }
 
-    auto suffixEkeyLists = buildSuffixEkeyLists(*this, bc, qif);
-
     assignStateIndices(*this, bc);
 
     u32 laggedRoseCount = 0;
@@ -5405,6 +5409,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     writeLookaroundTables(bc, proto);
     writeDkeyInfo(rm, bc, proto);
+    writeNfaInfo(*this, bc, proto, no_retrigger_queues);
     writeLeftInfo(bc, proto, leftInfoTable);
 
     // Enforce role table resource limit.
@@ -5472,10 +5477,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         proto.sbmatcherOffset = currOffset;
         currOffset += verify_u32(sbsize);
     }
-
-    currOffset = ROUNDUP_N(currOffset, sizeof(u32));
-    proto.nfaInfoOffset = currOffset;
-    currOffset += sizeof(NfaInfo) * queue_count;
 
     proto.activeArrayCount = proto.leftfixBeginQueue;
 
@@ -5596,15 +5597,13 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     write_out(&engine->state_init, (char *)engine.get(), state_scatter,
               state_scatter_aux_offset);
 
+    // Copy in the engine blob.
+    bc.engine_blob.write_bytes(engine.get());
+
     NfaInfo *nfa_infos = (NfaInfo *)(ptr + proto.nfaInfoOffset);
-    populateNfaInfoBasics(*this, bc, outfixes, suffixEkeyLists,
-                          no_retrigger_queues, nfa_infos);
     updateNfaState(bc, &engine->stateOffsets, nfa_infos,
                    &engine->scratchStateSize, &engine->nfaStateSize,
                    &engine->tStateSize);
-
-    // Copy in other tables
-    bc.engine_blob.write_bytes(engine.get());
 
     // Safety check: we shouldn't have written anything to the engine blob
     // after we copied it into the engine bytecode.
