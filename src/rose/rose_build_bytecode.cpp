@@ -2683,13 +2683,15 @@ bool hasEodAnchors(const RoseBuildImpl &build, const build_context &bc,
 }
 
 static
-void fillLookaroundTables(char *look_base, char *reach_base,
-                          const vector<LookEntry> &look_vec) {
+void writeLookaroundTables(build_context &bc, RoseEngine &proto) {
+    const auto &look_vec = bc.lookaround;
     DEBUG_PRINTF("%zu lookaround table entries\n", look_vec.size());
 
-    s8 *look = (s8 *)look_base;
-    u8 *reach = (u8 *)reach_base; // base for 256-bit bitvectors
+    vector<s8> look_table(look_vec.size(), 0);
+    vector<u8> reach_table(REACH_BITVECTOR_LEN * look_vec.size(), 0);
 
+    s8 *look = look_table.data();
+    u8 *reach = reach_table.data();
     for (const auto &le : look_vec) {
         *look = verify_s8(le.offset);
         const CharReach &cr = le.reach;
@@ -2700,6 +2702,11 @@ void fillLookaroundTables(char *look_base, char *reach_base,
         ++look;
         reach += REACH_BITVECTOR_LEN;
     }
+
+    proto.lookaroundTableOffset =
+        bc.engine_blob.add(begin(look_table), end(look_table));
+    proto.lookaroundReachOffset =
+        bc.engine_blob.add(begin(reach_table), end(reach_table));
 }
 
 static
@@ -5376,6 +5383,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     addSomRevNfas(bc, proto, ssm);
 
+    writeLookaroundTables(bc, proto);
+
     // Enforce role table resource limit.
     if (num_vertices(g) > cc.grey.limitRoseRoleCount) {
         throw ResourceLimitError();
@@ -5445,12 +5454,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     currOffset = ROUNDUP_N(currOffset, alignof(LeftNfaInfo));
     proto.leftOffset = currOffset;
     currOffset += sizeof(LeftNfaInfo) * leftInfoTable.size();
-
-    proto.lookaroundReachOffset = currOffset;
-    currOffset += REACH_BITVECTOR_LEN * bc.lookaround.size();
-
-    proto.lookaroundTableOffset = currOffset;
-    currOffset += sizeof(s8) * bc.lookaround.size();
 
     currOffset = ROUNDUP_N(currOffset, sizeof(u32));
     proto.nfaInfoOffset = currOffset;
@@ -5596,9 +5599,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     // Copy in other tables
     bc.engine_blob.write_bytes(engine.get());
     copy_bytes(ptr + engine->leftOffset, leftInfoTable);
-
-    fillLookaroundTables(ptr + proto.lookaroundTableOffset,
-                         ptr + proto.lookaroundReachOffset, bc.lookaround);
 
     // Safety check: we shouldn't have written anything to the engine blob
     // after we copied it into the engine bytecode.

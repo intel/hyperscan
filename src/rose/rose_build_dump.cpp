@@ -1694,10 +1694,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
             t->rolesWithStateCount * sizeof(u32));
     fprintf(f, " - nfa info table    : %zu bytes\n",
             t->queueCount * sizeof(NfaInfo));
-    fprintf(f, " - lookaround table  : %u bytes\n",
-            t->nfaInfoOffset - t->lookaroundTableOffset);
-    fprintf(f, " - lookaround reach  : %u bytes\n",
-            t->lookaroundTableOffset - t->lookaroundReachOffset);
 
     fprintf(f, "state space required : %u bytes\n", t->stateOffsets.end);
     fprintf(f, " - history buffer    : %u bytes\n", t->historyRequired);
