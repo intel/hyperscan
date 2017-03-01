@@ -2106,32 +2106,31 @@ bool buildNfas(RoseBuildImpl &tbi, build_context &bc, QueueIndexFactory &qif,
 
 static
 void allocateStateSpace(const NFA *nfa, NfaInfo *nfa_info, bool is_transient,
-                        RoseStateOffsets *so, u32 *currFullStateSize,
-                        u32 *maskStateSize, u32 *tStateSize) {
-    const u32 stateSize = nfa->streamStateSize;
-    const u32 scratchStateSize = nfa->scratchStateSize;
-
+                        RoseStateOffsets *so, u32 *scratchStateSize,
+                        u32 *streamStateSize, u32 *transientStateSize) {
     u32 state_offset;
     if (is_transient) {
-        state_offset = *tStateSize;
-        *tStateSize += stateSize;
+        // Transient engines do not use stream state, but must have room in
+        // transient state (stored in scratch).
+        state_offset = *transientStateSize;
+        *transientStateSize += nfa->streamStateSize;
     } else {
-        // Pack NFA state on to the end of the Rose state.
+        // Pack NFA stream state on to the end of the Rose stream state.
         state_offset = so->end;
-        so->end += stateSize;
-        *maskStateSize += stateSize;
+        so->end += nfa->streamStateSize;
+        *streamStateSize += nfa->streamStateSize;
     }
 
     nfa_info->stateOffset = state_offset;
 
-    // Uncompressed state must be aligned.
+    // Uncompressed state in scratch must be aligned.
     u32 alignReq = state_alignment(*nfa);
     assert(alignReq);
-    while (*currFullStateSize % alignReq) {
-        (*currFullStateSize)++;
+    while (*scratchStateSize % alignReq) {
+        (*scratchStateSize)++;
     }
-    nfa_info->fullStateOffset = *currFullStateSize;
-    *currFullStateSize += scratchStateSize;
+    nfa_info->fullStateOffset = *scratchStateSize;
+    *scratchStateSize += nfa->scratchStateSize;
 }
 
 static
@@ -2150,8 +2149,8 @@ findTransientQueues(const map<RoseVertex, left_build_info> &leftfix_info) {
 
 static
 void updateNfaState(const build_context &bc, RoseEngine &proto,
-                    RoseStateOffsets *so, u32 *fullStateSize, u32 *nfaStateSize,
-                    u32 *tStateSize) {
+                    RoseStateOffsets *so, u32 *scratchStateSize,
+                    u32 *streamStateSize, u32 *transientStateSize) {
     if (!proto.nfaInfoOffset) {
         assert(bc.engineOffsets.empty());
         return;
@@ -2162,9 +2161,9 @@ void updateNfaState(const build_context &bc, RoseEngine &proto,
                                      proto.nfaInfoOffset -
                                      bc.engine_blob.base_offset);
 
-    *nfaStateSize = 0;
-    *tStateSize = 0;
-    *fullStateSize = 0;
+    *streamStateSize = 0;
+    *transientStateSize = 0;
+    *scratchStateSize = 0;
 
     auto transient_queues = findTransientQueues(bc.leftfix_info);
 
@@ -2173,8 +2172,8 @@ void updateNfaState(const build_context &bc, RoseEngine &proto,
         u32 qi = nfa->queueIndex;
         bool is_transient = contains(transient_queues, qi);
         NfaInfo *nfa_info = &nfa_infos[qi];
-        allocateStateSpace(nfa, nfa_info, is_transient, so, fullStateSize,
-                           nfaStateSize, tStateSize);
+        allocateStateSpace(nfa, nfa_info, is_transient, so, scratchStateSize,
+                           streamStateSize, transientStateSize);
     }
 }
 
