@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -177,6 +177,10 @@ u64a repeatLastTopRange(const union RepeatControl *ctrl, const void *state) {
 
 u64a repeatLastTopBitmap(const union RepeatControl *ctrl) {
     const struct RepeatBitmapControl *xs = &ctrl->bitmap;
+    if (!xs->bitmap) {
+        /* last top was too long ago */
+        return 0;
+    }
     return xs->offset + 63 - clz64(xs->bitmap);
 }
 

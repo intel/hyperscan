@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -77,6 +77,7 @@ void lbrExpandState(const struct lbr_common *l, u64a offset,
 
     const struct RepeatInfo *info = getRepeatInfo(l);
     repeatUnpack(stream_state, info, offset, &lstate->ctrl);
+    lstate->lastEscape = 0;
 }
 
 static really_inline
