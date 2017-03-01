@@ -2352,7 +2352,7 @@ vector<u32> buildSuffixEkeyLists(const RoseBuildImpl &build, build_context &bc,
         auto &ekeys = e.second;
         assert(!ekeys.empty());
         ekeys.push_back(INVALID_EKEY); /* terminator */
-        out[qi] = bc.engine_blob.add(ekeys.begin(), ekeys.end());
+        out[qi] = bc.engine_blob.add_range(ekeys);
     }
 
     return out;
@@ -2448,8 +2448,7 @@ void addSomRevNfas(build_context &bc, RoseEngine &proto,
     }
 
     proto.somRevCount = verify_u32(nfas.size());
-    proto.somRevOffsetOffset =
-        bc.engine_blob.add(begin(nfa_offsets), end(nfa_offsets));
+    proto.somRevOffsetOffset = bc.engine_blob.add_range(nfa_offsets);
 }
 
 static
@@ -2678,17 +2677,15 @@ void writeLookaroundTables(build_context &bc, RoseEngine &proto) {
         reach += REACH_BITVECTOR_LEN;
     }
 
-    proto.lookaroundTableOffset =
-        bc.engine_blob.add(begin(look_table), end(look_table));
-    proto.lookaroundReachOffset =
-        bc.engine_blob.add(begin(reach_table), end(reach_table));
+    proto.lookaroundTableOffset = bc.engine_blob.add_range(look_table);
+    proto.lookaroundReachOffset = bc.engine_blob.add_range(reach_table);
 }
 
 static
 void writeDkeyInfo(const ReportManager &rm, build_context &bc,
                    RoseEngine &proto) {
     const auto inv_dkeys = rm.getDkeyToReportTable();
-    proto.invDkeyOffset = bc.engine_blob.add(begin(inv_dkeys), end(inv_dkeys));
+    proto.invDkeyOffset = bc.engine_blob.add_range(inv_dkeys);
     proto.dkeyCount = rm.numDkeys();
     proto.dkeyLogSize = fatbit_size(proto.dkeyCount);
 }
@@ -2696,8 +2693,7 @@ void writeDkeyInfo(const ReportManager &rm, build_context &bc,
 static
 void writeLeftInfo(build_context &bc, RoseEngine &proto,
                    const vector<LeftNfaInfo> &leftInfoTable) {
-    proto.leftOffset =
-        bc.engine_blob.add(begin(leftInfoTable), end(leftInfoTable));
+    proto.leftOffset = bc.engine_blob.add_range(leftInfoTable);
     proto.activeLeftIterOffset = writeActiveLeftIter(bc, leftInfoTable);
     proto.roseCount = verify_u32(leftInfoTable.size());
     proto.activeLeftCount = verify_u32(leftInfoTable.size());
@@ -2744,7 +2740,7 @@ void writeNfaInfo(const RoseBuildImpl &build, build_context &bc,
         }
     }
 
-    proto.nfaInfoOffset = bc.engine_blob.add(begin(infos), end(infos));
+    proto.nfaInfoOffset = bc.engine_blob.add_range(infos);
 }
 
 static
@@ -3994,8 +3990,7 @@ void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
 
             if (hasUsefulStops(lbi)) {
                 assert(lbi.stopAlphabet.size() == N_CHARS);
-                left.stopTable = bc.engine_blob.add(lbi.stopAlphabet.begin(),
-                                                    lbi.stopAlphabet.end());
+                left.stopTable = bc.engine_blob.add_range(lbi.stopAlphabet);
             }
 
             assert(lbi.countingMiracleOffset || !lbi.countingMiracleCount);
@@ -4791,8 +4786,7 @@ pair<u32, u32> writeDelayPrograms(RoseBuildImpl &build, build_context &bc,
     }
 
     DEBUG_PRINTF("%zu delay programs\n", programs.size());
-    return {bc.engine_blob.add(begin(programs), end(programs)),
-            verify_u32(programs.size())};
+    return {bc.engine_blob.add_range(programs), verify_u32(programs.size())};
 }
 
 /**
@@ -4850,8 +4844,7 @@ pair<u32, u32> writeAnchoredPrograms(RoseBuildImpl &build, build_context &bc,
     }
 
     DEBUG_PRINTF("%zu anchored programs\n", programs.size());
-    return {bc.engine_blob.add(begin(programs), end(programs)),
-            verify_u32(programs.size())};
+    return {bc.engine_blob.add_range(programs), verify_u32(programs.size())};
 }
 
 /**
@@ -4900,7 +4893,7 @@ pair<u32, u32> buildReportPrograms(RoseBuildImpl &build, build_context &bc) {
                      programs.back(), program.size());
     }
 
-    u32 offset = bc.engine_blob.add(begin(programs), end(programs));
+    u32 offset = bc.engine_blob.add_range(programs);
     u32 count = verify_u32(programs.size());
     return {offset, count};
 }

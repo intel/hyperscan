@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -104,6 +104,11 @@ public:
         }
 
         return offset;
+    }
+
+    template<typename Range>
+    u32 add_range(const Range &range) {
+        return add(begin(range), end(range));
     }
 
     u32 add_iterator(const std::vector<mmbit_sparse_iter> &iter) {
