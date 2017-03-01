@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,12 +29,12 @@
 #ifndef TEST_UTIL_H
 #define TEST_UTIL_H
 
+#include "hs.h"
+
 #include <cstring>
 #include <iosfwd>
 #include <string>
 #include <vector>
-
-#include "hs.h"
 
 #ifndef UNUSED
 #if defined(_WIN32) || defined(_WIN64)
@@ -56,8 +56,7 @@ struct MatchRecord {
 std::ostream &operator<<(std::ostream &o, const MatchRecord &m);
 
 struct CallBackContext {
-    CallBackContext() : halt(false) {}
-    bool halt;
+    bool halt = false;
     std::vector<MatchRecord> matches;
 
     void clear() {
