@@ -5420,25 +5420,11 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         throw ResourceLimitError();
     }
 
-    u32 currOffset;  /* relative to base of RoseEngine */
-    if (!bc.engine_blob.empty()) {
-        currOffset = bc.engine_blob.base_offset + bc.engine_blob.size();
-    } else {
-        currOffset = sizeof(RoseEngine);
-    }
-
-    UNUSED const size_t engineBlobSize = bc.engine_blob.size(); // test later
-
-    currOffset = ROUNDUP_CL(currOffset);
-    DEBUG_PRINTF("currOffset %u\n", currOffset);
-
     // Build anchored matcher.
     size_t asize = 0;
     auto atable = buildAnchoredMatcher(*this, anchored_dfas, &asize);
     if (atable) {
-        currOffset = ROUNDUP_CL(currOffset);
-        proto.amatcherOffset = currOffset;
-        currOffset += verify_u32(asize);
+        proto.amatcherOffset = bc.engine_blob.add(atable.get(), asize, 64);
     }
 
     // Build floating HWLM matcher.
@@ -5447,9 +5433,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     auto ftable = buildFloatingMatcher(*this, bc.longLitLengthThreshold,
                                        &fgroups, &fsize, &historyRequired);
     if (ftable) {
-        currOffset = ROUNDUP_CL(currOffset);
-        proto.fmatcherOffset = currOffset;
-        currOffset += verify_u32(fsize);
+        proto.fmatcherOffset = bc.engine_blob.add(ftable.get(), fsize, 64);
         bc.resources.has_floating = true;
     }
 
@@ -5458,27 +5442,21 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     auto drtable =
         buildDelayRebuildMatcher(*this, bc.longLitLengthThreshold, &drsize);
     if (drtable) {
-        currOffset = ROUNDUP_CL(currOffset);
-        proto.drmatcherOffset = currOffset;
-        currOffset += verify_u32(drsize);
+        proto.drmatcherOffset = bc.engine_blob.add(drtable.get(), drsize, 64);
     }
 
     // Build EOD-anchored HWLM matcher.
     size_t esize = 0;
     auto etable = buildEodAnchoredMatcher(*this, &esize);
     if (etable) {
-        currOffset = ROUNDUP_CL(currOffset);
-        proto.ematcherOffset = currOffset;
-        currOffset += verify_u32(esize);
+        proto.ematcherOffset = bc.engine_blob.add(etable.get(), esize, 64);
     }
 
     // Build small-block HWLM matcher.
     size_t sbsize = 0;
     auto sbtable = buildSmallBlockMatcher(*this, &sbsize);
     if (sbtable) {
-        currOffset = ROUNDUP_CL(currOffset);
-        proto.sbmatcherOffset = currOffset;
-        currOffset += verify_u32(sbsize);
+        proto.sbmatcherOffset = bc.engine_blob.add(sbtable.get(), sbsize, 64);
     }
 
     proto.activeArrayCount = proto.leftfixBeginQueue;
@@ -5509,6 +5487,18 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         sizeof(u8), bc.numStates, proto.activeLeftCount, proto.rosePrefixCount,
         proto.stateOffsets, cc.streaming, proto.activeArrayCount,
         proto.outfixBeginQueue, proto.outfixEndQueue);
+
+    u32 currOffset;  /* relative to base of RoseEngine */
+    if (!bc.engine_blob.empty()) {
+        currOffset = bc.engine_blob.base_offset + bc.engine_blob.size();
+    } else {
+        currOffset = sizeof(RoseEngine);
+    }
+
+    UNUSED const size_t engineBlobSize = bc.engine_blob.size(); // test later
+
+    currOffset = ROUNDUP_CL(currOffset);
+    DEBUG_PRINTF("currOffset %u\n", currOffset);
 
     currOffset = ROUNDUP_N(currOffset, alignof(scatter_unit_u64a));
     u32 state_scatter_aux_offset = currOffset;
@@ -5578,30 +5568,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     // Copy in our prototype engine data.
     memcpy(engine.get(), &proto, sizeof(proto));
-
-    char *ptr = (char *)engine.get();
-    assert(ISALIGNED_CL(ptr));
-
-    if (atable) {
-        assert(proto.amatcherOffset);
-        memcpy(ptr + proto.amatcherOffset, atable.get(), asize);
-    }
-    if (ftable) {
-        assert(proto.fmatcherOffset);
-        memcpy(ptr + proto.fmatcherOffset, ftable.get(), fsize);
-    }
-    if (drtable) {
-        assert(proto.drmatcherOffset);
-        memcpy(ptr + proto.drmatcherOffset, drtable.get(), drsize);
-    }
-    if (etable) {
-        assert(proto.ematcherOffset);
-        memcpy(ptr + proto.ematcherOffset, etable.get(), esize);
-    }
-    if (sbtable) {
-        assert(proto.sbmatcherOffset);
-        memcpy(ptr + proto.sbmatcherOffset, sbtable.get(), sbsize);
-    }
 
     write_out(&engine->state_init, (char *)engine.get(), state_scatter,
               state_scatter_aux_offset);
