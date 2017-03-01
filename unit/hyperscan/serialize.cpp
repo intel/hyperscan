@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,9 +45,10 @@ namespace {
 using namespace std;
 using namespace testing;
 
-static const unsigned validModes[] = {
+static constexpr unsigned validModes[] = {
     HS_MODE_STREAM,
-    HS_MODE_NOSTREAM
+    HS_MODE_NOSTREAM,
+    HS_MODE_VECTORED
 };
 
 class Serializep : public TestWithParam<unsigned> {
@@ -75,6 +76,10 @@ TEST_P(Serializep, DeserializeFromAnyAlignment) {
         break;
     case HS_MODE_NOSTREAM:
         mode_string = "BLOCK";
+        break;
+    case HS_MODE_VECTORED:
+        mode_string = "VECTORED";
+        break;
     }
 
     ASSERT_NE(nullptr, original_info) << "hs_serialized_database_info returned null.";
@@ -153,6 +158,10 @@ TEST_P(Serializep, DeserializeAtFromAnyAlignment) {
         break;
     case HS_MODE_NOSTREAM:
         mode_string = "BLOCK";
+        break;
+    case HS_MODE_VECTORED:
+        mode_string = "VECTORED";
+        break;
     }
 
     ASSERT_NE(nullptr, original_info) << "hs_serialized_database_info returned null.";
