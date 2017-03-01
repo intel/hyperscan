@@ -45,46 +45,64 @@ namespace {
 using namespace std;
 using namespace testing;
 
-static constexpr unsigned validModes[] = {
-    HS_MODE_STREAM,
+static const unsigned validModes[] = {
     HS_MODE_NOSTREAM,
+    HS_MODE_STREAM | HS_MODE_SOM_HORIZON_LARGE,
     HS_MODE_VECTORED
 };
 
-class Serializep : public TestWithParam<unsigned> {
+static const pattern testPatterns[] = {
+    pattern("hatstand.*teakettle.*badgerbrush", HS_FLAG_CASELESS, 1000),
+    pattern("hatstand.*teakettle.*badgerbrush", HS_FLAG_DOTALL, 1001),
+    pattern("hatstand|teakettle|badgerbrush", 0, 1002),
+    pattern("^hatstand|teakettle|badgerbrush$", 0, 1003),
+    pattern("foobar.{10,1000}xyzzy", HS_FLAG_DOTALL, 1004),
+    pattern("foobar.{2,501}roobar", 0, 1005),
+    pattern("abc.*def.*ghi", HS_FLAG_SOM_LEFTMOST, 1006),
+    pattern("(\\p{L}){4}", HS_FLAG_UTF8|HS_FLAG_UCP, 1007),
+    pattern("\\.(exe|pdf|gif|jpg|png|wav|riff|mp4)\\z", 0, 1008)
 };
+
+class SerializeP : public TestWithParam<tuple<unsigned, pattern>> {};
+
+static
+const char *getModeString(unsigned mode) {
+    if (mode & HS_MODE_STREAM) {
+        return "STREAM";
+    }
+    if (mode & HS_MODE_BLOCK) {
+        return "BLOCK";
+    }
+    if (mode & HS_MODE_VECTORED) {
+        return "VECTORED";
+    }
+    return "UNKNOWN";
+}
 
 // Check that we can deserialize from a char array at any alignment and the info
 // is consistent
-TEST_P(Serializep, DeserializeFromAnyAlignment) {
-    const unsigned mode = GetParam();
+TEST_P(SerializeP, DeserializeFromAnyAlignment) {
+    const unsigned mode = get<0>(GetParam());
+    const pattern &pat = get<1>(GetParam());
     SCOPED_TRACE(mode);
+    SCOPED_TRACE(pat);
 
     hs_error_t err;
-    hs_database_t *db = buildDB("hatstand.*teakettle.*badgerbrush",
-                                HS_FLAG_CASELESS, 1000, mode);
+    hs_database_t *db = buildDB(pat, mode);
     ASSERT_TRUE(db != nullptr) << "database build failed.";
 
     char *original_info = nullptr;
     err = hs_database_info(db, &original_info);
     ASSERT_EQ(HS_SUCCESS, err);
 
-    const char *mode_string = nullptr;
-    switch (mode) {
-    case HS_MODE_STREAM:
-        mode_string = "STREAM";
-        break;
-    case HS_MODE_NOSTREAM:
-        mode_string = "BLOCK";
-        break;
-    case HS_MODE_VECTORED:
-        mode_string = "VECTORED";
-        break;
-    }
+    const char *mode_string = getModeString(mode);
 
-    ASSERT_NE(nullptr, original_info) << "hs_serialized_database_info returned null.";
+    ASSERT_NE(nullptr, original_info)
+        << "hs_serialized_database_info returned null.";
     ASSERT_STREQ("Version:", string(original_info).substr(0, 8).c_str());
-    ASSERT_TRUE(strstr(original_info, mode_string) != nullptr);
+    ASSERT_TRUE(strstr(original_info, mode_string) != nullptr)
+        << "Original info \"" << original_info
+        << "\" does not contain " << mode_string;
 
     char *bytes = nullptr;
     size_t length = 0;
@@ -138,35 +156,28 @@ TEST_P(Serializep, DeserializeFromAnyAlignment) {
 
 // Check that we can deserialize_at from a char array at any alignment and the
 // info is consistent
-TEST_P(Serializep, DeserializeAtFromAnyAlignment) {
-    const unsigned mode = GetParam();
+TEST_P(SerializeP, DeserializeAtFromAnyAlignment) {
+    const unsigned mode = get<0>(GetParam());
+    const pattern &pat = get<1>(GetParam());
     SCOPED_TRACE(mode);
+    SCOPED_TRACE(pat);
 
     hs_error_t err;
-    hs_database_t *db = buildDB("hatstand.*teakettle.*badgerbrush",
-                                HS_FLAG_CASELESS, 1000, mode);
+    hs_database_t *db = buildDB(pat, mode);
     ASSERT_TRUE(db != nullptr) << "database build failed.";
 
     char *original_info;
     err = hs_database_info(db, &original_info);
     ASSERT_EQ(HS_SUCCESS, err);
 
-    const char *mode_string = nullptr;
-    switch (mode) {
-    case HS_MODE_STREAM:
-        mode_string = "STREAM";
-        break;
-    case HS_MODE_NOSTREAM:
-        mode_string = "BLOCK";
-        break;
-    case HS_MODE_VECTORED:
-        mode_string = "VECTORED";
-        break;
-    }
+    const char *mode_string = getModeString(mode);
 
-    ASSERT_NE(nullptr, original_info) << "hs_serialized_database_info returned null.";
+    ASSERT_NE(nullptr, original_info)
+        << "hs_serialized_database_info returned null.";
     ASSERT_STREQ("Version:", string(original_info).substr(0, 8).c_str());
-    ASSERT_TRUE(strstr(original_info, mode_string) != nullptr);
+    ASSERT_TRUE(strstr(original_info, mode_string) != nullptr)
+        << "Original info \"" << original_info
+        << "\" does not contain " << mode_string;
 
     char *bytes = nullptr;
     size_t length = 0;
@@ -226,8 +237,8 @@ TEST_P(Serializep, DeserializeAtFromAnyAlignment) {
     delete[] mem;
 }
 
-INSTANTIATE_TEST_CASE_P(Serialize, Serializep,
-                        ValuesIn(validModes));
+INSTANTIATE_TEST_CASE_P(Serialize, SerializeP,
+                        Combine(ValuesIn(validModes), ValuesIn(testPatterns)));
 
 // Attempt to reproduce the scenario in UE-1946.
 TEST(Serialize, CrossCompileSom) {

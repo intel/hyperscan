@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,8 +48,13 @@ int record_cb(unsigned id, unsigned long long, unsigned long long to,
     return (int)c->halt;
 }
 
-std::ostream &operator<< (std::ostream &o, const MatchRecord &m) {
+std::ostream &operator<<(std::ostream &o, const MatchRecord &m) {
     return o << "[" << m.to << ", " << m.id << "]";
+}
+
+std::ostream &operator<<(std::ostream &o, const pattern &p) {
+    return o << "[" << "expr=\"" << p.expression << "\", flags=" << p.flags
+             << ", id=" << p.id << "]";
 }
 
 hs_database_t *buildDB(const vector<pattern> &patterns, unsigned int mode,

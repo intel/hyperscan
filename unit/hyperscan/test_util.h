@@ -53,7 +53,7 @@ struct MatchRecord {
     int id;
 };
 
-std::ostream &operator<< (std::ostream &o, const MatchRecord &m);
+std::ostream &operator<<(std::ostream &o, const MatchRecord &m);
 
 struct CallBackContext {
     CallBackContext() : halt(false) {}
@@ -79,21 +79,28 @@ int dummy_cb(unsigned, unsigned long long, unsigned long long, unsigned,
 
 struct pattern {
     std::string expression;
-    unsigned int flags;
-    unsigned int id;
+    unsigned int flags = 0;
+    unsigned int id = 0;
     hs_expr_ext ext;
 
-    pattern(const std::string &expression_in, unsigned int flags_in = 0,
-            unsigned int id_in = 0) : expression(expression_in),
-                                      flags(flags_in), id(id_in) {
+    // We need a default constructor for combining in parameterised tests.
+    pattern() {
         memset(&ext, 0, sizeof(ext));
     }
 
-    pattern(const std::string &expression_in, unsigned int flags_in,
-            unsigned int id_in, const hs_expr_ext &ext_in) :
-                expression(expression_in), flags(flags_in), id(id_in),
-                ext(ext_in) { }
+    explicit pattern(std::string expression_in,
+                     unsigned int flags_in = 0, unsigned int id_in = 0)
+        : expression(std::move(expression_in)), flags(flags_in), id(id_in) {
+        memset(&ext, 0, sizeof(ext));
+    }
+
+    pattern(std::string expression_in, unsigned int flags_in,
+            unsigned int id_in, hs_expr_ext ext_in)
+        : expression(std::move(expression_in)), flags(flags_in), id(id_in),
+          ext(std::move(ext_in)) {}
 };
+
+std::ostream &operator<<(std::ostream &o, const pattern &p);
 
 hs_database_t *buildDB(const std::vector<pattern> &patterns, unsigned int mode,
                        hs_platform_info *plat = nullptr);
