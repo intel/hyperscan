@@ -2126,9 +2126,7 @@ void allocateStateSpace(const NFA *nfa, NfaInfo &nfa_info, bool is_transient,
     // Uncompressed state in scratch must be aligned.
     u32 alignReq = state_alignment(*nfa);
     assert(alignReq);
-    while (*scratchStateSize % alignReq) {
-        (*scratchStateSize)++;
-    }
+    *scratchStateSize = ROUNDUP_N(*scratchStateSize, alignReq);
     nfa_info.fullStateOffset = *scratchStateSize;
     *scratchStateSize += nfa->scratchStateSize;
 }
