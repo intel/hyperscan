@@ -31,14 +31,14 @@
  */
 #include "config.h"
 
-#include <cstring>
-#include <string>
-#include <vector>
-
 #include "gtest/gtest.h"
 #include "hs.h"
 #include "hs_internal.h"
 #include "test_util.h"
+
+#include <cstring>
+#include <string>
+#include <vector>
 
 namespace {
 
@@ -246,11 +246,10 @@ TEST(Serialize, CrossCompileSom) {
     plat.cpu_features = 0;
     plat.tune = HS_TUNE_FAMILY_GENERIC;
 
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
     const unsigned mode = HS_MODE_STREAM
                           | HS_MODE_SOM_HORIZON_LARGE;
-    hs_database_t *db = buildDB(pattern, HS_FLAG_SOM_LEFTMOST, 1000, mode,
-                                &plat);
+    hs_database_t *db = buildDB(pat, HS_FLAG_SOM_LEFTMOST, 1000, mode, &plat);
     ASSERT_TRUE(db != nullptr) << "database build failed.";
 
     size_t db_len;
@@ -295,15 +294,16 @@ static void misaligned_free(void *p) {
     free(c - 1);
 }
 
-// make sure that serializing/deserializing to null or an unaligned address fails
+// make sure that serializing/deserializing to null or an unaligned address
+// fails
 TEST(Serialize, CompileNullMalloc) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
 
     // mallocing null should fail compile
     hs_set_allocator(null_malloc, nullptr);
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_NE(HS_SUCCESS, err);
     ASSERT_TRUE(db == nullptr);
     ASSERT_TRUE(c_err != nullptr);
@@ -314,14 +314,14 @@ TEST(Serialize, CompileNullMalloc) {
 TEST(Serialize, CompileErrorAllocator) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatsta^nd.*(badgerbrush|teakettle)";
+    static const char *pat = "hatsta^nd.*(badgerbrush|teakettle)";
 
     // failing to compile should use the misc allocator
     allocated_count = 0;
     allocated_count_b = 0;
     hs_set_allocator(count_malloc_b, count_free_b);
     hs_set_misc_allocator(count_malloc, count_free);
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_NE(HS_SUCCESS, err);
     ASSERT_TRUE(db == nullptr);
     ASSERT_TRUE(c_err != nullptr);
@@ -335,13 +335,13 @@ TEST(Serialize, CompileErrorAllocator) {
 TEST(Serialize, AllocatorsUsed) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
 
     allocated_count = 0;
     allocated_count_b = 0;
     hs_set_allocator(count_malloc_b, count_free_b);
     hs_set_database_allocator(count_malloc, count_free);
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
     ASSERT_TRUE(c_err == nullptr);
@@ -364,15 +364,14 @@ TEST(Serialize, AllocatorsUsed) {
     ASSERT_EQ(0, allocated_count_b);
 }
 
-
 TEST(Serialize, CompileUnalignedMalloc) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
 
     // unaligned malloc should fail compile
     hs_set_allocator(misaligned_malloc, misaligned_free);
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_NE(HS_SUCCESS, err);
     ASSERT_TRUE(db == nullptr);
     ASSERT_TRUE(c_err != nullptr);
@@ -383,8 +382,8 @@ TEST(Serialize, CompileUnalignedMalloc) {
 TEST(Serialize, SerializeNullMalloc) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
 
@@ -404,13 +403,14 @@ TEST(Serialize, SerializeNullMalloc) {
     hs_free_database(db);
 }
 
-// make sure that serializing/deserializing to null or an unaligned address fails
+// make sure that serializing/deserializing to null or an unaligned address
+// fails
 TEST(Serialize, SerializeUnalignedMalloc) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat= "hatstand.*(badgerbrush|teakettle)";
 
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
 
@@ -434,9 +434,9 @@ TEST(Serialize, SerializeUnalignedMalloc) {
 TEST(Serialize, DeserializeNullMalloc) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
 
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
 
@@ -467,9 +467,9 @@ TEST(Serialize, DeserializeNullMalloc) {
 TEST(Serialize, DeserializeUnalignedMalloc) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
 
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
 
@@ -506,9 +506,9 @@ TEST(Serialize, DeserializeUnalignedMalloc) {
 TEST(Serialize, DeserializeGarbage) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
 
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
 
