@@ -5492,8 +5492,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
         currOffset = sizeof(RoseEngine);
     }
 
-    UNUSED const size_t engineBlobSize = bc.engine_blob.size(); // test later
-
     currOffset = ROUNDUP_CL(currOffset);
     DEBUG_PRINTF("currOffset %u\n", currOffset);
 
@@ -5571,10 +5569,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     // Copy in the engine blob.
     bc.engine_blob.write_bytes(engine.get());
-
-    // Safety check: we shouldn't have written anything to the engine blob
-    // after we copied it into the engine bytecode.
-    assert(bc.engine_blob.size() == engineBlobSize);
 
     // Add a small write engine if appropriate.
     engine = addSmallWriteEngine(*this, move(engine));
