@@ -2105,7 +2105,7 @@ bool buildNfas(RoseBuildImpl &tbi, build_context &bc, QueueIndexFactory &qif,
 }
 
 static
-void allocateStateSpace(const NFA *nfa, NfaInfo *nfa_info, bool is_transient,
+void allocateStateSpace(const NFA *nfa, NfaInfo &nfa_info, bool is_transient,
                         RoseStateOffsets *so, u32 *scratchStateSize,
                         u32 *streamStateSize, u32 *transientStateSize) {
     u32 state_offset;
@@ -2121,7 +2121,7 @@ void allocateStateSpace(const NFA *nfa, NfaInfo *nfa_info, bool is_transient,
         *streamStateSize += nfa->streamStateSize;
     }
 
-    nfa_info->stateOffset = state_offset;
+    nfa_info.stateOffset = state_offset;
 
     // Uncompressed state in scratch must be aligned.
     u32 alignReq = state_alignment(*nfa);
@@ -2129,7 +2129,7 @@ void allocateStateSpace(const NFA *nfa, NfaInfo *nfa_info, bool is_transient,
     while (*scratchStateSize % alignReq) {
         (*scratchStateSize)++;
     }
-    nfa_info->fullStateOffset = *scratchStateSize;
+    nfa_info.fullStateOffset = *scratchStateSize;
     *scratchStateSize += nfa->scratchStateSize;
 }
 
@@ -2148,18 +2148,13 @@ findTransientQueues(const map<RoseVertex, left_build_info> &leftfix_info) {
 }
 
 static
-void updateNfaState(const build_context &bc, RoseEngine &proto,
+void updateNfaState(const build_context &bc, vector<NfaInfo> &nfa_infos,
                     RoseStateOffsets *so, u32 *scratchStateSize,
                     u32 *streamStateSize, u32 *transientStateSize) {
-    if (!proto.nfaInfoOffset) {
+    if (nfa_infos.empty()) {
         assert(bc.engineOffsets.empty());
         return;
     }
-
-    // Our array of NfaInfo structures is in the engine blob.
-    NfaInfo *nfa_infos = (NfaInfo *)(bc.engine_blob.data() +
-                                     proto.nfaInfoOffset -
-                                     bc.engine_blob.base_offset);
 
     *streamStateSize = 0;
     *transientStateSize = 0;
@@ -2171,7 +2166,7 @@ void updateNfaState(const build_context &bc, RoseEngine &proto,
         const NFA *nfa = get_nfa_from_blob(bc, m.first);
         u32 qi = nfa->queueIndex;
         bool is_transient = contains(transient_queues, qi);
-        NfaInfo *nfa_info = &nfa_infos[qi];
+        NfaInfo &nfa_info = nfa_infos[qi];
         allocateStateSpace(nfa, nfa_info, is_transient, so, scratchStateSize,
                            streamStateSize, transientStateSize);
     }
@@ -2738,6 +2733,11 @@ void writeNfaInfo(const RoseBuildImpl &build, build_context &bc,
             infos.at(qi).eod = 1;
         }
     }
+
+    // Update state offsets to do with NFAs in proto and in the NfaInfo
+    // structures.
+    updateNfaState(bc, infos, &proto.stateOffsets, &proto.scratchStateSize,
+                   &proto.nfaStateSize, &proto.tStateSize);
 
     proto.nfaInfoOffset = bc.engine_blob.add_range(infos);
 }
@@ -5412,7 +5412,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     writeLookaroundTables(bc, proto);
     writeDkeyInfo(rm, bc, proto);
-    writeNfaInfo(*this, bc, proto, no_retrigger_queues);
     writeLeftInfo(bc, proto, leftInfoTable);
 
     // Enforce role table resource limit.
@@ -5477,11 +5476,9 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
                      laggedRoseCount, longLitStreamStateRequired,
                      historyRequired, &proto.stateOffsets);
 
-    // Update state offsets to do with NFAs in proto and in the NfaInfo
-    // structures.
-    updateNfaState(bc, proto, &proto.stateOffsets,
-                   &proto.scratchStateSize, &proto.nfaStateSize,
-                   &proto.tStateSize);
+    // Write in NfaInfo structures. This will also update state size
+    // information in proto.
+    writeNfaInfo(*this, bc, proto, no_retrigger_queues);
 
     scatter_plan_raw state_scatter = buildStateScatterPlan(
         sizeof(u8), bc.numStates, proto.activeLeftCount, proto.rosePrefixCount,
