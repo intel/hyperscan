@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.8.11)
-project (Hyperscan C CXX)
+project (hyperscan C CXX)
 
 set (HS_MAJOR_VERSION 4)
 set (HS_MINOR_VERSION 4)
@@ -15,6 +15,7 @@ INCLUDE (CheckIncludeFileCXX)
 INCLUDE (CheckLibraryExists)
 INCLUDE (CheckSymbolExists)
 include (CMakeDependentOption)
+include (GNUInstallDirs)
 include (${CMAKE_MODULE_PATH}/platform.cmake)
 include (${CMAKE_MODULE_PATH}/ragel.cmake)
 
@@ -36,6 +37,7 @@ endif()
 
 set(BINDIR "${PROJECT_BINARY_DIR}/bin")
 set(LIBDIR "${PROJECT_BINARY_DIR}/lib")
+set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR})
 
 # First for the generic no-config case
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${BINDIR}")
@@ -438,7 +440,7 @@ if (NOT WIN32)
 
     configure_file(libhs.pc.in libhs.pc @ONLY) # only replace @ quoted vars
     install(FILES ${CMAKE_BINARY_DIR}/libhs.pc
-            DESTINATION "${CMAKE_INSTALL_PREFIX}/lib/pkgconfig")
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
 endif()
 
 # only set these after all tests are done
@@ -475,7 +477,7 @@ SET(hs_HEADERS
     src/hs_compile.h
     src/hs_runtime.h
 )
-install(FILES ${hs_HEADERS} DESTINATION include/hs)
+install(FILES ${hs_HEADERS} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/hs")
 
 set (hs_exec_common_SRCS
     src/alloc.c
@@ -1180,7 +1182,7 @@ else (FAT_RUNTIME)
 endif (NOT FAT_RUNTIME)
 
 if (NOT BUILD_SHARED_LIBS)
-    install(TARGETS hs_runtime DESTINATION lib)
+    install(TARGETS hs_runtime DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
@@ -1202,9 +1204,9 @@ $<TARGET_OBJECTS:hs_exec_shared>)
         MACOSX_RPATH ON
         LINKER_LANGUAGE C)
     install(TARGETS hs_runtime_shared
-        RUNTIME DESTINATION bin
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib)
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 if (BUILD_STATIC_LIBS)
@@ -1212,7 +1214,7 @@ if (BUILD_STATIC_LIBS)
 endif ()
 
 if (NOT BUILD_SHARED_LIBS)
-install(TARGETS hs DESTINATION lib)
+    install(TARGETS hs DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
@@ -1234,9 +1236,9 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
         SOVERSION ${LIB_SOVERSION}
         MACOSX_RPATH ON)
 install(TARGETS hs_shared
-    RUNTIME DESTINATION bin
-    ARCHIVE DESTINATION lib
-    LIBRARY DESTINATION lib)
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 # used by tools and other targets
