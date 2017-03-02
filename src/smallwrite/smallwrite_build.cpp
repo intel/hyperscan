@@ -51,6 +51,7 @@
 #include "util/compile_context.h"
 #include "util/container.h"
 #include "util/make_unique.h"
+#include "util/ue2_graph.h"
 #include "util/ue2string.h"
 #include "util/verify_types.h"
 
@@ -65,8 +66,29 @@ namespace ue2 {
 
 #define LITERAL_MERGE_CHUNK_SIZE 25
 #define DFA_MERGE_MAX_STATES 8000
+#define MAX_TRIE_VERTICES 8000
 
 namespace { // unnamed
+
+struct LitTrieVertexProps {
+    LitTrieVertexProps() = default;
+    explicit LitTrieVertexProps(char c_in) : c(c_in) {}
+    char c = 0;
+    size_t index; // managed by ue2_graph
+};
+
+struct LitTrieEdgeProps {
+    LitTrieEdgeProps() = default;
+    size_t index; // managed by ue2_graph
+};
+
+struct LitTrie
+    : public ue2_graph<LitTrie, LitTrieVertexProps, LitTrieEdgeProps> {
+
+    LitTrie() : root(add_vertex(*this)) {}
+
+    const vertex_descriptor root;
+};
 
 // Concrete impl class
 class SmallWriteBuildImpl : public SmallWriteBuild {
@@ -89,6 +111,8 @@ public:
 
     unique_ptr<raw_dfa> rdfa;
     vector<pair<ue2_literal, ReportID> > cand_literals;
+    LitTrie lit_trie;
+    LitTrie lit_trie_nocase;
     bool poisoned;
 };
 
@@ -247,6 +271,29 @@ void SmallWriteBuildImpl::add(const NGHolder &g, const ExpressionInfo &expr) {
     }
 }
 
+static
+bool add_to_trie(const ue2_literal &literal, LitTrie &trie) {
+    auto u = trie.root;
+    for (auto &c : literal) {
+        auto next = LitTrie::null_vertex();
+        for (auto v : adjacent_vertices_range(u, trie)) {
+            if (trie[v].c == c.c) {
+                next = v;
+                break;
+            }
+        }
+        if (next == LitTrie::null_vertex()) {
+            next = add_vertex(LitTrieVertexProps(c.c), trie);
+            add_edge(u, next, trie);
+        }
+        u = next;
+    }
+
+    DEBUG_PRINTF("added '%s' to trie, now %zu vertices\n",
+                  escapeString(literal).c_str(), num_vertices(trie));
+    return num_vertices(trie) <= MAX_TRIE_VERTICES;
+}
+
 void SmallWriteBuildImpl::add(const ue2_literal &literal, ReportID r) {
     // If the graph is poisoned (i.e. we can't build a SmallWrite version),
     // we don't even try.
@@ -259,6 +306,12 @@ void SmallWriteBuildImpl::add(const ue2_literal &literal, ReportID r) {
     }
 
     cand_literals.push_back(make_pair(literal, r));
+
+    if (!add_to_trie(literal,
+                     literal.any_nocase() ? lit_trie_nocase : lit_trie)) {
+        poisoned = true;
+        return;
+    }
 
     if (cand_literals.size() > cc.grey.smallWriteMaxLiterals) {
         poisoned = true;
