@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1759,7 +1759,7 @@ void replaceTops(NGHolder &h, const map<u32, u32> &top_mapping) {
             DEBUG_PRINTF("vertex %zu has top %u\n", h[v].index, t);
             new_tops.insert(top_mapping.at(t));
         }
-        h[e].tops = move(new_tops);
+        h[e].tops = std::move(new_tops);
     }
 }
 

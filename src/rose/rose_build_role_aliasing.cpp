@@ -838,7 +838,7 @@ void pruneUnusedTops(NGHolder &h, const RoseGraph &g,
         auto pt_inserter = inserter(pruned_tops, pruned_tops.end());
         set_intersection(h[e].tops.begin(), h[e].tops.end(),
                          used_tops.begin(), used_tops.end(), pt_inserter);
-        h[e].tops = move(pruned_tops);
+        h[e].tops = std::move(pruned_tops);
         if (h[e].tops.empty()) {
             DEBUG_PRINTF("edge (start,%zu) has only unused tops\n", h[v].index);
             dead.push_back(e);
@@ -1460,7 +1460,7 @@ void splitAndFilterBuckets(vector<vector<RoseVertex>> &buckets,
         return; // No new buckets created.
     }
 
-    buckets = move(out);
+    buckets = std::move(out);
     removeSingletonBuckets(buckets);
 }
 

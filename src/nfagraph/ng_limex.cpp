@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -354,7 +354,7 @@ void attemptToUseAsStart(const NGHolder &g,  NFAVertex u,
         auto ni_inserter = inserter(new_inter, new_inter.end());
         set_intersection(top_inter.begin(), top_inter.end(),
                          v_tops.begin(), v_tops.end(), ni_inserter);
-        top_inter = move(new_inter);
+        top_inter = std::move(new_inter);
         succs.insert(v);
     }
 

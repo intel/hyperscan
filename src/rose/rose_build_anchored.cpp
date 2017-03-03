@@ -185,7 +185,7 @@ void remapAnchoredReports(raw_dfa &rdfa, const RoseBuildImpl &build) {
             assert(id < build.literal_info.size());
             new_reports.insert(build.literal_info.at(id).fragment_id);
         }
-        ds.reports = move(new_reports);
+        ds.reports = std::move(new_reports);
     }
 }
 
@@ -220,7 +220,7 @@ void remapIdsToPrograms(const RoseBuildImpl &build, raw_dfa &rdfa) {
             auto &frag = build.fragments.at(fragment_id);
             new_reports.insert(frag.lit_program_offset);
         }
-        ds.reports = move(new_reports);
+        ds.reports = std::move(new_reports);
     }
 }
 

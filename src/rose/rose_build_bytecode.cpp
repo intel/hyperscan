@@ -4596,7 +4596,7 @@ map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
                  return tie(g[source(a, g)].index, g[target(a, g)].index) <
                         tie(g[source(b, g)].index, g[target(b, g)].index);
              });
-        lit_edge_map.emplace(m.first, move(edge_list));
+        lit_edge_map.emplace(m.first, std::move(edge_list));
     }
 
     return lit_edge_map;

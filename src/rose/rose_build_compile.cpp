@@ -1032,7 +1032,7 @@ void packInfixTops(NGHolder &h, RoseGraph &g,
                 updated_tops.insert(top_mapping.at(t));
             }
         }
-        h[e].tops = move(updated_tops);
+        h[e].tops = std::move(updated_tops);
         if (h[e].tops.empty()) {
             DEBUG_PRINTF("edge (start,%zu) has only unused tops\n", h[v].index);
             dead.push_back(e);

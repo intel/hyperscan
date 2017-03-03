@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -552,7 +552,7 @@ AccelScheme findBestAccelScheme(vector<vector<CharReach> > paths,
     if (look_for_double_byte) {
         DAccelScheme da = findBestDoubleAccelScheme(paths, terminating);
         if (da.double_byte.size() <= DOUBLE_SHUFTI_LIMIT) {
-            rv.double_byte = move(da.double_byte);
+            rv.double_byte = std::move(da.double_byte);
             rv.double_cr = move(da.double_cr);
             rv.double_offset = da.double_offset;
         }
