@@ -2695,9 +2695,13 @@ void writeLeftInfo(build_context &bc, RoseEngine &proto,
 static
 void writeNfaInfo(const RoseBuildImpl &build, build_context &bc,
                   RoseEngine &proto, const set<u32> &no_retrigger_queues) {
+    const u32 queue_count = build.qif.allocated_count();
+    if (!queue_count) {
+        return;
+    }
+
     auto ekey_lists = buildSuffixEkeyLists(build, bc, build.qif);
 
-    const u32 queue_count = build.qif.allocated_count();
     vector<NfaInfo> infos(queue_count);
     memset(infos.data(), 0, sizeof(NfaInfo) * queue_count);
 
