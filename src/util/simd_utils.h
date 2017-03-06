@@ -180,9 +180,7 @@ static really_inline u64a movq(const m128 in) {
 /* another form of movq */
 static really_inline
 m128 load_m128_from_u64a(const u64a *p) {
-    m128 out;
-    __asm__ ("vmovq\t%1,%0" : "=x"(out) :"m"(*p));
-    return out;
+    return _mm_set_epi64x(0LL, *p);
 }
 
 #define rshiftbyte_m128(a, count_immed) _mm_srli_si128(a, count_immed)
