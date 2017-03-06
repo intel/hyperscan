@@ -330,6 +330,10 @@ bool NG::addGraph(NGWrapper &w) {
     /* ensure utf8 starts at cp boundary */
     ensureCodePointStart(rm, w);
 
+    if (can_never_match(w)) {
+        throw CompileError(w.expressionIndex, "Pattern can never match.");
+    }
+
     // validate graph's suitability for fuzzing before resolving asserts
     validate_fuzzy_compile(w, w.edit_distance, w.utf8, cc.grey);
 

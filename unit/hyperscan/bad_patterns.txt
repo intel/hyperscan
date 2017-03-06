@@ -141,3 +141,4 @@
 144:/abc\b/{edit_distance=1} #Zero-width assertions are disallowed for approximate matching.
 145:/abc/8{edit_distance=1} #UTF-8 is disallowed for approximate matching.
 146:/(*UTF8)abc/{edit_distance=1} #UTF-8 is disallowed for approximate matching.
+147:/\b\BMYBt/s{edit_distance=1} #Pattern can never match.
