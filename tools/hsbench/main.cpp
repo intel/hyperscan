@@ -77,10 +77,13 @@ string serializePath("");
 unsigned int somPrecisionMode = HS_MODE_SOM_HORIZON_LARGE;
 bool forceEditDistance = false;
 unsigned editDistance = 0;
+bool printCompressSize = false;
+
+// Globals local to this file.
+static bool compressStream = false;
 
 namespace /* anonymous */ {
 
-// Globals local to this file.
 bool display_per_scan = false;
 ScanMode scan_mode = ScanMode::STREAMING;
 unsigned repeats = 20;
@@ -212,11 +215,15 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
     int in_sigfile = 0;
     int do_per_scan = 0;
     int do_echo_matches = 0;
+    int do_compress = 0;
+    int do_compress_size = 0;
     vector<string> sigFiles;
 
     static struct option longopts[] = {
         {"per-scan", 0, &do_per_scan, 1},
         {"echo-matches", 0, &do_echo_matches, 1},
+        {"compress-stream", 0, &do_compress, 1},
+        {"print-compress-size", 0, &do_compress_size, 1},
         {nullptr, 0, nullptr, 0}
     };
 
@@ -337,6 +344,12 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
     }
     if (do_per_scan) {
         display_per_scan = true;
+    }
+    if (do_compress) {
+        compressStream = true;
+    }
+    if (do_compress_size) {
+        printCompressSize = true;
     }
 
     if (exprPath.empty() && !sigFiles.empty()) {
@@ -470,10 +483,12 @@ vector<StreamInfo> prepStreamingData(const ThreadContext *ctx) {
 }
 
 static
-void benchStreamingInternal(ThreadContext *ctx, vector<StreamInfo> &streams) {
+void benchStreamingInternal(ThreadContext *ctx, vector<StreamInfo> &streams,
+                            bool do_compress) {
     assert(ctx);
     const EngineHyperscan &e = ctx->engine;
     const vector<DataBlock> &blocks = ctx->corpus_data;
+    vector<char> compress_buf(do_compress ? 1000 : 0);
 
     for (ResultEntry &r : ctx->results) {
         ctx->timer.start();
@@ -491,6 +506,8 @@ void benchStreamingInternal(ThreadContext *ctx, vector<StreamInfo> &streams) {
                     printf("Fatal error: stream open failed!\n");
                     exit(1);
                 }
+            } else if (do_compress) {
+                e.streamCompressExpand(*stream.eng_handle, compress_buf);
             }
 
             assert(stream.eng_handle);
@@ -521,7 +538,7 @@ void benchStreaming(void *context) {
 
     startTotalTimer(ctx);
 
-    benchStreamingInternal(ctx, streams);
+    benchStreamingInternal(ctx, streams, false);
 
     // Synchronization point
     ctx->barrier();
@@ -529,6 +546,26 @@ void benchStreaming(void *context) {
     // Now that all threads are finished, we can stop the clock.
     stopTotalTimer(ctx);
 }
+
+static
+void benchStreamingCompress(void *context) {
+    ThreadContext *ctx = (ThreadContext *)context;
+    vector<StreamInfo> streams = prepStreamingData(ctx);
+
+    // Synchronization point
+    ctx->barrier();
+
+    startTotalTimer(ctx);
+
+    benchStreamingInternal(ctx, streams, true);
+
+    // Synchronization point
+    ctx->barrier();
+
+    // Now that all threads are finished, we can stop the clock.
+    stopTotalTimer(ctx);
+}
+
 
 /** In-memory structure for a data block to be scanned in vectored mode. */
 struct VectoredInfo {
@@ -704,7 +741,11 @@ unique_ptr<ThreadContext> makeThreadContext(const EngineHyperscan &db,
     thread_func_t fn = nullptr;
     switch (scan_mode) {
     case ScanMode::STREAMING:
-        fn = benchStreaming;
+        if (compressStream) {
+            fn = benchStreamingCompress;
+        } else {
+            fn = benchStreaming;
+        }
         break;
     case ScanMode::VECTORED:
         fn = benchVectored;

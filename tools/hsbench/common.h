@@ -40,5 +40,6 @@ extern std::string serializePath;
 extern unsigned int somPrecisionMode;
 extern bool forceEditDistance;
 extern unsigned editDistance;
+extern bool printCompressSize;
 
 #endif // COMMON_H
