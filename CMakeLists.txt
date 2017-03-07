@@ -132,6 +132,12 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
     endif()
 endif()
 
+if (NOT BUILD_SHARED_LIBS)
+    # build static libs
+    set(BUILD_STATIC_LIBS ON)
+    mark_as_advanced(BUILD_STATIC_LIBS)
+endif ()
+
 #for config
 if (OPTIMISE)
     set(HS_OPTIMIZE ON)
@@ -1084,11 +1090,14 @@ if (NOT FAT_RUNTIME)
     if (HAVE_AVX2)
         set(hs_exec_SRCS ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
     endif()
+    if (BUILD_STATIC_LIBS)
+        add_library(hs_exec OBJECT ${hs_exec_SRCS})
 
-    add_library(hs_exec OBJECT ${hs_exec_SRCS})
+        add_library(hs_runtime STATIC src/hs_version.c src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec>)
+        set_target_properties(hs_runtime PROPERTIES LINKER_LANGUAGE C)
 
-    add_library(hs_runtime STATIC src/hs_version.c src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec>)
-    set_target_properties(hs_runtime PROPERTIES LINKER_LANGUAGE C)
+        add_library(hs STATIC ${hs_SRCS} src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec>)
+    endif (BUILD_STATIC_LIBS)
 
     if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
         add_library(hs_exec_shared OBJECT ${hs_exec_SRCS})
@@ -1096,33 +1105,52 @@ if (NOT FAT_RUNTIME)
     endif()
 
 else (FAT_RUNTIME)
+
     set(BUILD_WRAPPER "${PROJECT_SOURCE_DIR}/cmake/build_wrapper.sh")
-    add_library(hs_exec_core2 OBJECT ${hs_exec_SRCS})
-    set_target_properties(hs_exec_core2 PROPERTIES
-        COMPILE_FLAGS "-march=core2"
-        RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} core2 ${CMAKE_MODULE_PATH}/keep.syms.in"
-        )
-
-    add_library(hs_exec_corei7 OBJECT ${hs_exec_SRCS})
-    set_target_properties(hs_exec_corei7 PROPERTIES
-        COMPILE_FLAGS "-march=corei7"
-        RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} corei7 ${CMAKE_MODULE_PATH}/keep.syms.in"
-        )
-
-    add_library(hs_exec_avx2 OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
-    set_target_properties(hs_exec_avx2 PROPERTIES
-        COMPILE_FLAGS "-march=core-avx2"
-        RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx2 ${CMAKE_MODULE_PATH}/keep.syms.in"
-        )
-
-    add_library(hs_exec_common OBJECT
-        ${hs_exec_common_SRCS}
-        src/dispatcher.c
-        )
     set_source_files_properties(src/dispatcher.c PROPERTIES
         COMPILE_FLAGS "-Wno-unused-parameter -Wno-unused-function")
 
+    if (BUILD_STATIC_LIBS)
+       add_library(hs_exec_core2 OBJECT ${hs_exec_SRCS})
+       set_target_properties(hs_exec_core2 PROPERTIES
+           COMPILE_FLAGS "-march=core2"
+           RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} core2 ${CMAKE_MODULE_PATH}/keep.syms.in"
+           )
+
+       add_library(hs_exec_corei7 OBJECT ${hs_exec_SRCS})
+       set_target_properties(hs_exec_corei7 PROPERTIES
+           COMPILE_FLAGS "-march=corei7"
+           RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} corei7 ${CMAKE_MODULE_PATH}/keep.syms.in"
+           )
+
+       add_library(hs_exec_avx2 OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
+       set_target_properties(hs_exec_avx2 PROPERTIES
+           COMPILE_FLAGS "-march=core-avx2"
+           RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx2 ${CMAKE_MODULE_PATH}/keep.syms.in"
+           )
+
+       add_library(hs_exec_common OBJECT
+           ${hs_exec_common_SRCS}
+           src/dispatcher.c
+           )
+
+       # hs_version.c is added explicitly to avoid some build systems that refuse to
+       # create a lib without any src (I'm looking at you Xcode)
+
+       add_library(hs_runtime STATIC src/hs_version.c
+           $<TARGET_OBJECTS:hs_exec_common> $<TARGET_OBJECTS:hs_exec_core2>
+           $<TARGET_OBJECTS:hs_exec_corei7> $<TARGET_OBJECTS:hs_exec_avx2>)
+       set_target_properties(hs_runtime PROPERTIES LINKER_LANGUAGE C)
+
+       # we want the static lib for testing
+       add_library(hs STATIC src/hs_version.c src/hs_valid_platform.c
+           ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_common> $<TARGET_OBJECTS:hs_exec_core2>
+           $<TARGET_OBJECTS:hs_exec_corei7> $<TARGET_OBJECTS:hs_exec_avx2>)
+
+    endif (BUILD_STATIC_LIBS)
+
     if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
+        # build shared libs
         add_library(hs_exec_shared_core2 OBJECT ${hs_exec_SRCS})
         set_target_properties(hs_exec_shared_core2 PROPERTIES
             COMPILE_FLAGS "-march=core2"
@@ -1151,16 +1179,8 @@ else (FAT_RUNTIME)
     endif() # SHARED
 
 
-# hs_version.c is added explicitly to avoid some build systems that refuse to
-# create a lib without any src (I'm looking at you Xcode)
-
-    add_library(hs_runtime STATIC src/hs_version.c
-        $<TARGET_OBJECTS:hs_exec_common> $<TARGET_OBJECTS:hs_exec_core2>
-        $<TARGET_OBJECTS:hs_exec_corei7> $<TARGET_OBJECTS:hs_exec_avx2>)
 endif (NOT FAT_RUNTIME)
 
-
-set_target_properties(hs_runtime PROPERTIES LINKER_LANGUAGE C)
 if (NOT BUILD_SHARED_LIBS)
     install(TARGETS hs_runtime DESTINATION lib)
 endif()
@@ -1189,16 +1209,9 @@ $<TARGET_OBJECTS:hs_exec_shared>)
         LIBRARY DESTINATION lib)
 endif()
 
-if (NOT FAT_RUNTIME)
-    add_library(hs STATIC ${hs_SRCS} src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec>)
-else()
-    # we want the static lib for testing
-    add_library(hs STATIC src/hs_version.c src/hs_valid_platform.c
-        ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_common> $<TARGET_OBJECTS:hs_exec_core2>
-        $<TARGET_OBJECTS:hs_exec_corei7> $<TARGET_OBJECTS:hs_exec_avx2>)
-endif()
-
-add_dependencies(hs ragel_Parser)
+if (BUILD_STATIC_LIBS)
+    add_dependencies(hs ragel_Parser)
+endif ()
 
 if (NOT BUILD_SHARED_LIBS)
 install(TARGETS hs DESTINATION lib)
@@ -1227,6 +1240,13 @@ install(TARGETS hs_shared
     ARCHIVE DESTINATION lib
     LIBRARY DESTINATION lib)
 endif()
+
+# used by tools and other targets
+if (NOT BUILD_STATIC_LIBS)
+    # use shared lib without having to change all the targets
+    add_library(hs ALIAS hs_shared)
+endif ()
+
 
 if(NOT WIN32)
     add_subdirectory(examples)
