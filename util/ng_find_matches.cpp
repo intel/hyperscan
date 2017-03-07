@@ -52,6 +52,9 @@ using StateBitSet = boost::dynamic_bitset<>;
 
 namespace {
 
+/** \brief Max number of states (taking edit distance into account). */
+static constexpr size_t STATE_COUNT_MAX = 15000;
+
 // returns all successors up to a given depth in a vector of sets, indexed by
 // zero-based depth from source vertex
 static
@@ -1034,7 +1037,7 @@ void filterMatches(MatchSet &matches) {
  *
  *  Fills \a matches with offsets into the data stream where a match is found.
  */
-void findMatches(const NGHolder &g, const ReportManager &rm,
+bool findMatches(const NGHolder &g, const ReportManager &rm,
                  const string &input, MatchSet &matches,
                  const u32 edit_distance, const bool notEod, const bool utf8) {
     assert(hasCorrectlyNumberedVertices(g));
@@ -1042,7 +1045,12 @@ void findMatches(const NGHolder &g, const ReportManager &rm,
     // compile time, so make it an assert
     assert(!edit_distance || !utf8);
 
-    DEBUG_PRINTF("Finding matches\n");
+    const size_t total_states = num_vertices(g) * (3 * edit_distance + 1);
+    DEBUG_PRINTF("Finding matches (%zu total states)\n", total_states);
+    if (total_states > STATE_COUNT_MAX) {
+        DEBUG_PRINTF("too big\n");
+        return false;
+    }
 
     GraphCache gc(edit_distance, g);
 #ifdef DEBUG
@@ -1068,7 +1076,7 @@ void findMatches(const NGHolder &g, const ReportManager &rm,
                      state.next.count());
         if (state.next.empty()) {
             filterMatches(matches);
-            return;
+            return true;
         }
         state.states = state.next;
         state.prev = state.cur;
@@ -1086,4 +1094,5 @@ void findMatches(const NGHolder &g, const ReportManager &rm,
     getMatches(g, matches, state, !notEod);
 
     filterMatches(matches);
+    return true;
 }
