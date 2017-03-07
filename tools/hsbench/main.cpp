@@ -194,7 +194,7 @@ struct BenchmarkSigs {
 /** Process command-line arguments. Prints usage and exits on error. */
 static
 void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
-                 UNUSED Grey &grey) {
+                 UNUSED unique_ptr<Grey> &grey) {
     const char options[] = "-b:c:Cd:e:E:G:hi:n:No:p:sT:Vw:z:";
     int in_sigfile = 0;
     int do_per_scan = 0;
@@ -251,7 +251,7 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
             break;
 #ifndef RELEASE_BUILD
         case 'G':
-            applyGreyOverrides(&grey, string(optarg));
+            applyGreyOverrides(grey.get(), string(optarg));
             break;
 #endif
         case 'h':
@@ -735,8 +735,10 @@ void runBenchmark(const EngineHyperscan &db,
 
 /** Main driver. */
 int main(int argc, char *argv[]) {
-    Grey grey;
-
+    unique_ptr<Grey> grey;
+#if !defined(RELEASE_BUILD)
+    grey = make_unique<Grey>();
+#endif
     setlocale(LC_ALL, ""); // use the user's locale
 
 #ifndef NDEBUG
@@ -777,7 +779,7 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        auto engine = buildEngineHyperscan(exprMap, scan_mode, s.name, grey);
+        auto engine = buildEngineHyperscan(exprMap, scan_mode, s.name, *grey);
         if (!engine) {
             printf("Error: expressions failed to compile.\n");
             exit(1);
