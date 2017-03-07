@@ -48,15 +48,13 @@
 
 #include <algorithm>
 #include <deque>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <vector>
 
-#include <boost/ptr_container/ptr_vector.hpp>
-
 using namespace std;
 using namespace ue2;
-using boost::ptr_vector;
 
 typedef vector<NFAVertex> VertexPath;
 
@@ -139,8 +137,8 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
     // limit will evict a random existing one.
     const size_t MAX_OPEN = min((size_t)1000, corpusLimit * 10);
 
-    ptr_vector<VertexPath> open;
-    open.push_back(new VertexPath(1, g.start));
+    vector<unique_ptr<VertexPath>> open;
+    open.push_back(ue2::make_unique<VertexPath>({g.start}));
 
     ue2::unordered_set<NFAVertex> one_way_in;
     for (const auto &v : vertices_range(g)) {
@@ -152,7 +150,8 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
     while (!open.empty()) {
         u32 slot = cProps.rand(0, open.size() - 1);
         swap(open.at(slot), open.back());
-        ptr_vector<VertexPath>::auto_type p = open.pop_back();
+        auto p = std::move(open.back());
+        open.pop_back();
         NFAVertex u = p->back();
 
         DEBUG_PRINTF("dequeuing path %s, back %zu\n",
@@ -194,19 +193,19 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
 
             // If we've got no further adjacent vertices, re-use p rather than
             // copying it for the next path.
-            VertexPath *new_path;
+            unique_ptr<VertexPath> new_path;
             if (boost::next(ai) == ae) {
-                new_path = p.release();
+                new_path = std::move(p);
             } else {
-                new_path = new VertexPath(*p);
+                new_path = make_unique<VertexPath>(*p);
             }
 
             new_path->push_back(v);
             if (open.size() < MAX_OPEN) {
-                open.push_back(new_path);
+                open.push_back(std::move(new_path));
             } else {
                 u32 victim = cProps.rand(0, open.size() - 1);
-                open.replace(victim, new_path);
+                open[victim] = std::move(new_path);
             }
         }
     }
