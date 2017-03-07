@@ -194,7 +194,7 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
             // If we've got no further adjacent vertices, re-use p rather than
             // copying it for the next path.
             unique_ptr<VertexPath> new_path;
-            if (boost::next(ai) == ae) {
+            if (std::next(ai) == ae) {
                 new_path = std::move(p);
             } else {
                 new_path = make_unique<VertexPath>(*p);
