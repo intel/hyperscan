@@ -201,6 +201,9 @@ struct Grey {
     u32 limitDFASize;    //!< max size of a DFA (in bytes)
     u32 limitNFASize;    //!< max size of an NFA (in bytes)
     u32 limitLBRSize;    //!< max size of an LBR engine (in bytes)
+
+    // Approximate matching limits.
+    u32 limitApproxMatchingVertices; //!< max number of vertices per graph
 };
 
 #ifndef RELEASE_BUILD

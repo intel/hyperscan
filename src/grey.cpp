@@ -156,7 +156,8 @@ Grey::Grey(void) :
                    limitEngineSize(1073741824), // 1 GB
                    limitDFASize(1073741824), // 1 GB
                    limitNFASize(1048576), // 1 MB
-                   limitLBRSize(1048576) // 1 MB
+                   limitLBRSize(1048576), // 1 MB
+                   limitApproxMatchingVertices(5000)
 {
     assert(maxAnchoredRegion < 64); /* a[lm]_log_sum have limited capacity */
 }
@@ -317,6 +318,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(limitDFASize);
         G_UPDATE(limitNFASize);
         G_UPDATE(limitLBRSize);
+        G_UPDATE(limitApproxMatchingVertices);
 
 #undef G_UPDATE
         if (key == "simple_som") {

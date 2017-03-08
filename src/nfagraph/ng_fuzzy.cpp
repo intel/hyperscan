@@ -665,13 +665,23 @@ void validate_fuzzy_compile(const NGHolder &g, u32 edit_distance, bool utf8,
     }
 }
 
-void make_fuzzy(NGHolder &g, u32 edit_distance, UNUSED const Grey &grey) {
+void make_fuzzy(NGHolder &g, u32 edit_distance, const Grey &grey) {
     if (edit_distance == 0) {
         return;
     }
+
     assert(grey.allowApproximateMatching);
     assert(grey.maxEditDistance >= edit_distance);
+
     ShadowGraph sg(g, edit_distance);
     sg.fuzz_graph();
+
+    // For safety, enforce limit on actual vertex count.
+    if (num_vertices(g) > grey.limitApproxMatchingVertices) {
+        DEBUG_PRINTF("built %zu vertices > limit of %u\n", num_vertices(g),
+                     grey.limitApproxMatchingVertices);
+        throw ResourceLimitError();
+    }
 }
-}
+
+} // namespace ue2
