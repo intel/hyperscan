@@ -605,8 +605,8 @@ struct StateSet {
     }
 #endif
 
-    flat_set<State> getActiveStates() const {
-        flat_set<State> result;
+    vector<State> getActiveStates() const {
+        vector<State> result;
 
         for (u32 dist = 0; dist <= edit_distance; dist++) {
             // get all shadow vertices (including original graph)
@@ -614,8 +614,8 @@ struct StateSet {
             for (size_t id = cur_shadow_vertices.find_first();
                  id != cur_shadow_vertices.npos;
                  id = cur_shadow_vertices.find_next(id)) {
-                result.emplace(id, dist, shadows_som[dist][id],
-                               State::NODE_SHADOW);
+                result.emplace_back(id, dist, shadows_som[dist][id],
+                                    State::NODE_SHADOW);
             }
 
             // the rest is only valid for edited graphs
@@ -628,11 +628,12 @@ struct StateSet {
             for (size_t id = cur_helper_vertices.find_first();
                  id != cur_helper_vertices.npos;
                  id = cur_helper_vertices.find_next(id)) {
-                result.emplace(id, dist, helpers_som[dist][id],
-                               State::NODE_HELPER);
+                result.emplace_back(id, dist, helpers_som[dist][id],
+                                    State::NODE_HELPER);
             }
         }
 
+        sort_and_unique(result);
         return result;
     }
 
@@ -741,6 +742,11 @@ bool operator<(const StateSet::State &a, const StateSet::State &b) {
     ORDER_CHECK(type);
     ORDER_CHECK(som);
     return false;
+}
+
+bool operator==(const StateSet::State &a, const StateSet::State &b) {
+    return a.idx == b.idx && a.level == b.level && a.type == b.type &&
+           a.som == b.som;
 }
 
 struct fmstate {
