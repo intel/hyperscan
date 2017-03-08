@@ -512,6 +512,13 @@ struct StateSet {
         node_type type;
     };
 
+    // Temporary working data used for step() which we want to keep around
+    // (rather than reallocating vectors all the time).
+    struct WorkingData {
+        vector<State> active;
+        vector<State> succ_list;
+    };
+
     StateSet(size_t sz, u32 dist_in) :
             shadows(dist_in + 1), helpers(dist_in + 1),
             shadows_som(dist_in + 1), helpers_som(dist_in + 1),
@@ -593,7 +600,8 @@ struct StateSet {
 
 #ifdef DEBUG
     void dumpActiveStates() const {
-        const auto states = getActiveStates();
+        vector<State> states;
+        getActiveStates(states);
 
         DEBUG_PRINTF("Dumping active states\n");
 
@@ -605,8 +613,8 @@ struct StateSet {
     }
 #endif
 
-    vector<State> getActiveStates() const {
-        vector<State> result;
+    void getActiveStates(vector<State> &result) const {
+        result.clear();
 
         for (u32 dist = 0; dist <= edit_distance; dist++) {
             // get all shadow vertices (including original graph)
@@ -634,7 +642,6 @@ struct StateSet {
         }
 
         sort_and_unique(result);
-        return result;
     }
 
     // does not return SOM
@@ -915,18 +922,16 @@ void getMatches(const NGHolder &g, MatchSet &matches, struct fmstate &state,
 }
 
 static
-void step(const NGHolder &g, struct fmstate &state) {
+void step(const NGHolder &g, fmstate &state, StateSet::WorkingData &wd) {
     state.next.reset();
 
-    const auto active = state.states.getActiveStates();
+    state.states.getActiveStates(wd.active);
 
-    vector<StateSet::State> succ_list;
-
-    for (const auto &cur : active) {
+    for (const auto &cur : wd.active) {
         auto u = state.vertices[cur.idx];
-        state.states.getSuccessors(cur, state.gc, succ_list);
+        state.states.getSuccessors(cur, state.gc, wd.succ_list);
 
-        for (auto succ : succ_list) {
+        for (auto succ : wd.succ_list) {
             auto v = state.vertices[succ.idx];
 
             if (is_any_accept(v, g)) {
@@ -1070,6 +1075,8 @@ bool findMatches(const NGHolder &g, const ReportManager &rm,
 
     struct fmstate state(g, gc, utf8, allowStartDs, edit_distance, rm);
 
+    StateSet::WorkingData wd;
+
     for (auto it = input.begin(), ite = input.end(); it != ite; ++it) {
 #ifdef DEBUG
         state.states.dumpActiveStates();
@@ -1077,7 +1084,7 @@ bool findMatches(const NGHolder &g, const ReportManager &rm,
         state.offset = distance(input.begin(), it);
         state.cur = *it;
 
-        step(g, state);
+        step(g, state, wd);
 
         getMatches(g, matches, state, false);
 
