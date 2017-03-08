@@ -355,16 +355,6 @@ void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *control,
         if (!(fdrc->groups & *control)) {
             continue;
         }
-        if (!fdrc->mult) {
-            u32 id = fdrc->nBitsOrSoleID;
-            if ((*last_match_id == id) && (fdrc->flags & NoRepeat)) {
-                continue;
-            }
-           *last_match_id = id;
-           *control = a->cb(ptr_main + byte - a->buf, ptr_main + byte - a->buf,
-                            id, a->ctxt);
-           continue;
-        }
         u64a confVal = unaligned_load_u64a(confLoc + byte - sizeof(u64a) + 1);
         confWithBit(fdrc, a, ptr_main - a->buf + byte, control,
                     last_match_id, confVal);
