@@ -638,8 +638,9 @@ struct StateSet {
     }
 
     // does not return SOM
-    flat_set<State> getSuccessors(const State &state, const GraphCache &gc) const {
-        flat_set<State> result;
+    void getSuccessors(const State &state, const GraphCache &gc,
+                       vector<State> &result) const {
+        result.clear();
 
         // maximum shadow depth that we can go from current level
         u32 max_depth = edit_distance - state.level + 1;
@@ -650,7 +651,7 @@ struct StateSet {
                  id != shadow_succ.npos;
                  id = shadow_succ.find_next(id)) {
                 auto new_level = state.level + d;
-                result.emplace(id, new_level, 0, State::NODE_SHADOW);
+                result.emplace_back(id, new_level, 0, State::NODE_SHADOW);
             }
 
             const auto &helper_succ = gc.getHelperTransitions(state.idx, d);
@@ -658,11 +659,11 @@ struct StateSet {
                  id != helper_succ.npos;
                  id = helper_succ.find_next(id)) {
                 auto new_level = state.level + d;
-                result.emplace(id, new_level, 0, State::NODE_HELPER);
+                result.emplace_back(id, new_level, 0, State::NODE_HELPER);
             }
         }
 
-        return result;
+        sort_and_unique(result);
     }
 
     flat_set<State> getAcceptStates(const GraphCache &gc) const {
@@ -919,9 +920,11 @@ void step(const NGHolder &g, struct fmstate &state) {
 
     const auto active = state.states.getActiveStates();
 
+    vector<StateSet::State> succ_list;
+
     for (const auto &cur : active) {
         auto u = state.vertices[cur.idx];
-        auto succ_list = state.states.getSuccessors(cur, state.gc);
+        state.states.getSuccessors(cur, state.gc, succ_list);
 
         for (auto succ : succ_list) {
             auto v = state.vertices[succ.idx];
