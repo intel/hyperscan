@@ -60,8 +60,9 @@ static constexpr size_t STATE_COUNT_MAX = 15000;
 static
 vector<flat_set<NFAVertex>>
 gatherSuccessorsByDepth(const NGHolder &g, const NFAVertex &src, u32 depth) {
+    assert(depth > 0);
+
     vector<flat_set<NFAVertex>> result(depth);
-    flat_set<NFAVertex> cur, next;
 
     // populate current set of successors
     for (auto v : adjacent_vertices_range(src, g)) {
@@ -70,31 +71,28 @@ gatherSuccessorsByDepth(const NGHolder &g, const NFAVertex &src, u32 depth) {
             continue;
         }
         DEBUG_PRINTF("Node %zu depth 1\n", g[v].index);
-
-        cur.insert(v);
+        result[0].insert(v);
     }
-    result[0] = cur;
 
     for (u32 d = 1; d < depth; d++) {
         // collect all successors for all current level vertices
-        for (auto v : cur) {
+        const auto &cur = result[d - 1];
+        auto &next = result[d];
+        for (auto u : cur) {
             // don't go past special nodes
-            if (is_special(v, g)) {
+            if (is_special(u, g)) {
                 continue;
             }
 
-            for (auto succ : adjacent_vertices_range(v, g)) {
+            for (auto v : adjacent_vertices_range(u, g)) {
                 // ignore self-loops
-                if (v == succ) {
+                if (u == v) {
                     continue;
                 }
-                DEBUG_PRINTF("Node %zu depth %u\n", g[succ].index, d + 1);
-                next.insert(succ);
+                DEBUG_PRINTF("Node %zu depth %u\n", g[v].index, d + 1);
+                next.insert(v);
             }
         }
-        result[d] = next;
-        next.swap(cur);
-        next.clear();
     }
 
     return result;
@@ -103,12 +101,11 @@ gatherSuccessorsByDepth(const NGHolder &g, const NFAVertex &src, u32 depth) {
 // returns all predecessors up to a given depth in a vector of sets, indexed by
 // zero-based depth from source vertex
 static
-vector<flat_set<NFAVertex>> gatherPredecessorsByDepth(const NGHolder &g,
-                                                      NFAVertex src, u32 depth) {
-    vector<flat_set<NFAVertex>> result(depth);
-    flat_set<NFAVertex> cur, next;
-
+vector<flat_set<NFAVertex>>
+gatherPredecessorsByDepth(const NGHolder &g, NFAVertex src, u32 depth) {
     assert(depth > 0);
+
+    vector<flat_set<NFAVertex>> result(depth);
 
     // populate current set of successors
     for (auto v : inv_adjacent_vertices_range(src, g)) {
@@ -117,25 +114,23 @@ vector<flat_set<NFAVertex>> gatherPredecessorsByDepth(const NGHolder &g,
             continue;
         }
         DEBUG_PRINTF("Node %zu depth 1\n", g[v].index);
-        cur.insert(v);
+        result[0].insert(v);
     }
-    result[0] = cur;
 
     for (u32 d = 1; d < depth; d++) {
         // collect all successors for all current level vertices
+        const auto &cur = result[d - 1];
+        auto &next = result[d];
         for (auto v : cur) {
-            for (auto pred : inv_adjacent_vertices_range(v, g)) {
+            for (auto u : inv_adjacent_vertices_range(v, g)) {
                 // ignore self-loops
-                if (v == pred) {
+                if (v == u) {
                     continue;
                 }
-                DEBUG_PRINTF("Node %zu depth %u\n", g[pred].index, d + 1);
-                next.insert(pred);
+                DEBUG_PRINTF("Node %zu depth %u\n", g[u].index, d + 1);
+                next.insert(u);
             }
         }
-        result[d] = next;
-        next.swap(cur);
-        next.clear();
     }
 
     return result;
