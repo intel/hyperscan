@@ -868,56 +868,58 @@ bool canReach(const NGHolder &g, const NFAEdge &e, struct fmstate &state) {
 }
 
 static
-void getMatches(const NGHolder &g, MatchSet &matches, struct fmstate &state,
-                bool allowEodMatches) {
-    flat_set<NFAVertex> accepts {g.accept, g.acceptEod};
+void getAcceptMatches(const NGHolder &g, MatchSet &matches,
+                      struct fmstate &state, NFAVertex accept_vertex) {
+    assert(accept_vertex == g.accept || accept_vertex == g.acceptEod);
 
-    for (auto v : accepts) {
-        bool eod = v == g.acceptEod;
-        if (eod && !allowEodMatches) {
+    const bool eod = accept_vertex == g.acceptEod;
+    auto active_states = eod ? state.states.getAcceptEodStates(state.gc)
+                             : state.states.getAcceptStates(state.gc);
+
+    DEBUG_PRINTF("Number of active states: %zu\n", active_states.size());
+
+    for (const auto &cur : active_states) {
+        auto u = state.vertices[cur.idx];
+
+        // we can't accept anything from startDs in between UTF-8 codepoints
+        if (state.utf8 && u == g.startDs && !isUtf8CodePoint(state.cur)) {
             continue;
         }
 
-        auto active_states = eod ? state.states.getAcceptEodStates(state.gc) :
-                                   state.states.getAcceptStates(state.gc);
+        const auto &reports =
+            eod ? state.gc.vertex_eod_reports_by_level[cur.level][u]
+                : state.gc.vertex_reports_by_level[cur.level][u];
 
-        DEBUG_PRINTF("Number of active states: %zu\n", active_states.size());
+        NFAEdge e = edge(u, accept_vertex, g);
 
-        for (const auto &cur : active_states) {
-            auto u = state.vertices[cur.idx];
-
-            // we can't accept anything from startDs in between UTF-8 codepoints
-            if (state.utf8 && u == g.startDs && !isUtf8CodePoint(state.cur)) {
-                continue;
-            }
-
-            const auto &reports =
-                    eod ?
-                        state.gc.vertex_eod_reports_by_level[cur.level][u] :
-                    state.gc.vertex_reports_by_level[cur.level][u];
-
-            NFAEdge e = edge(u, v, g);
-
-            // we assume edge assertions only exist at level 0
-            if (e && !canReach(g, e, state)) {
-                continue;
-            }
-
-            DEBUG_PRINTF("%smatch found at %zu\n",
-                         eod ? "eod " : "", state.offset);
-
-            assert(!reports.empty());
-            for (const auto &report_id : reports) {
-                const Report &ri = state.rm.getReport(report_id);
-
-                DEBUG_PRINTF("report %u has offset adjustment %d\n",
-                             report_id, ri.offsetAdjust);
-                DEBUG_PRINTF("match from (i:%zu,l:%u,t:%u): (%zu,%zu)\n",
-                             cur.idx, cur.level, cur.type, cur.som,
-                             state.offset + ri.offsetAdjust);
-                matches.emplace(cur.som, state.offset + ri.offsetAdjust);
-            }
+        // we assume edge assertions only exist at level 0
+        if (e && !canReach(g, e, state)) {
+            continue;
         }
+
+        DEBUG_PRINTF("%smatch found at %zu\n", eod ? "eod " : "", state.offset);
+
+        assert(!reports.empty());
+        for (const auto &report_id : reports) {
+            const Report &ri = state.rm.getReport(report_id);
+
+            DEBUG_PRINTF("report %u has offset adjustment %d\n", report_id,
+                         ri.offsetAdjust);
+            DEBUG_PRINTF("match from (i:%zu,l:%u,t:%u): (%zu,%zu)\n", cur.idx,
+                         cur.level, cur.type, cur.som,
+                         state.offset + ri.offsetAdjust);
+            matches.emplace(cur.som, state.offset + ri.offsetAdjust);
+        }
+    }
+}
+
+
+static
+void getMatches(const NGHolder &g, MatchSet &matches, struct fmstate &state,
+                bool allowEodMatches) {
+    getAcceptMatches(g, matches, state, g.accept);
+    if (allowEodMatches) {
+        getAcceptMatches(g, matches, state, g.acceptEod);
     }
 }
 
