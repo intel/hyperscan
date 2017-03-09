@@ -668,8 +668,8 @@ struct StateSet {
         sort_and_unique(result);
     }
 
-    flat_set<State> getAcceptStates(const GraphCache &gc) const {
-        flat_set<State> result;
+    void getAcceptStates(const GraphCache &gc, vector<State> &result) const {
+        result.clear();
 
         for (u32 dist = 0; dist <= edit_distance; dist++) {
             // get all shadow vertices (including original graph)
@@ -678,24 +678,24 @@ struct StateSet {
             for (size_t id = cur_shadow_vertices.find_first();
                  id != cur_shadow_vertices.npos;
                  id = cur_shadow_vertices.find_next(id)) {
-                result.emplace(id, dist, shadows_som[dist][id],
-                               State::NODE_SHADOW);
+                result.emplace_back(id, dist, shadows_som[dist][id],
+                                    State::NODE_SHADOW);
             }
             auto cur_helper_vertices = helpers[dist];
             cur_helper_vertices &= gc.getAcceptTransitions(dist);
             for (size_t id = cur_helper_vertices.find_first();
                  id != cur_helper_vertices.npos;
                  id = cur_helper_vertices.find_next(id)) {
-                result.emplace(id, dist, helpers_som[dist][id],
-                               State::NODE_HELPER);
+                result.emplace_back(id, dist, helpers_som[dist][id],
+                                    State::NODE_HELPER);
             }
         }
 
-        return result;
+        sort_and_unique(result);
     }
 
-    flat_set<State> getAcceptEodStates(const GraphCache &gc) const {
-        flat_set<State> result;
+    void getAcceptEodStates(const GraphCache &gc, vector<State> &result) const {
+        result.clear();
 
         for (u32 dist = 0; dist <= edit_distance; dist++) {
             // get all shadow vertices (including original graph)
@@ -704,20 +704,20 @@ struct StateSet {
             for (size_t id = cur_shadow_vertices.find_first();
                  id != cur_shadow_vertices.npos;
                  id = cur_shadow_vertices.find_next(id)) {
-                result.emplace(id, dist, shadows_som[dist][id],
-                               State::NODE_SHADOW);
+                result.emplace_back(id, dist, shadows_som[dist][id],
+                                    State::NODE_SHADOW);
             }
             auto cur_helper_vertices = helpers[dist];
             cur_helper_vertices &= gc.getAcceptEodTransitions(dist);
             for (size_t id = cur_helper_vertices.find_first();
                  id != cur_helper_vertices.npos;
                  id = cur_helper_vertices.find_next(id)) {
-                result.emplace(id, dist, helpers_som[dist][id],
-                               State::NODE_HELPER);
+                result.emplace_back(id, dist, helpers_som[dist][id],
+                                    State::NODE_HELPER);
             }
         }
 
-        return result;
+        sort_and_unique(result);
     }
 
     // the caller must specify SOM at current offset, and must not attempt to
@@ -864,12 +864,16 @@ bool canReach(const NGHolder &g, const NFAEdge &e, struct fmstate &state) {
 
 static
 void getAcceptMatches(const NGHolder &g, MatchSet &matches,
-                      struct fmstate &state, NFAVertex accept_vertex) {
+                      struct fmstate &state, NFAVertex accept_vertex,
+                      vector<StateSet::State> &active_states) {
     assert(accept_vertex == g.accept || accept_vertex == g.acceptEod);
 
     const bool eod = accept_vertex == g.acceptEod;
-    auto active_states = eod ? state.states.getAcceptEodStates(state.gc)
-                             : state.states.getAcceptStates(state.gc);
+    if (eod) {
+        state.states.getAcceptEodStates(state.gc, active_states);
+    } else {
+        state.states.getAcceptStates(state.gc, active_states);
+    }
 
     DEBUG_PRINTF("Number of active states: %zu\n", active_states.size());
 
@@ -908,13 +912,12 @@ void getAcceptMatches(const NGHolder &g, MatchSet &matches,
     }
 }
 
-
 static
 void getMatches(const NGHolder &g, MatchSet &matches, struct fmstate &state,
-                bool allowEodMatches) {
-    getAcceptMatches(g, matches, state, g.accept);
+                StateSet::WorkingData &wd, bool allowEodMatches) {
+    getAcceptMatches(g, matches, state, g.accept, wd.active);
     if (allowEodMatches) {
-        getAcceptMatches(g, matches, state, g.acceptEod);
+        getAcceptMatches(g, matches, state, g.acceptEod, wd.active);
     }
 }
 
@@ -1083,7 +1086,7 @@ bool findMatches(const NGHolder &g, const ReportManager &rm,
 
         step(g, state, wd);
 
-        getMatches(g, matches, state, false);
+        getMatches(g, matches, state, wd, false);
 
         DEBUG_PRINTF("offset %zu, %zu states on\n", state.offset,
                      state.next.count());
@@ -1104,7 +1107,7 @@ bool findMatches(const NGHolder &g, const ReportManager &rm,
     // matches also (or not, if we're in notEod mode)
 
     DEBUG_PRINTF("Looking for EOD matches\n");
-    getMatches(g, matches, state, !notEod);
+    getMatches(g, matches, state, wd, !notEod);
 
     filterMatches(matches);
     return true;
