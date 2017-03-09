@@ -117,16 +117,16 @@ const ALIGN_CL_DIRECTIVE u8 zone_or_mask[ITER_BYTES+1][ITER_BYTES] = {
       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
 };
 
-/* compilers don't reliably synthesize the ANDN instruction here,
+/* compilers don't reliably synthesize the 32-bit ANDN instruction here,
  * so we force its generation.
  */
 static really_inline
-u64a andn(const u32 a, const u32 *b) {
+u64a andn(const u32 a, const u8 *b) {
     u64a r;
 #if defined(__BMI__)
-    __asm__ ("andn\t%2,%1,%k0" : "=r"(r) : "r"(a), "m"(*b));
+    __asm__ ("andn\t%2,%1,%k0" : "=r"(r) : "r"(a), "m"(*(const u32 *)b));
 #else
-    r = *b & ~a;
+    r = unaligned_load_u32(b) & ~a;
 #endif
     return r;
 }
@@ -158,20 +158,20 @@ void get_conf_stride_1(const u8 *itPtr, UNUSED const u8 *start_ptr,
                        const u64a *ft, u64a *conf0, u64a *conf8, m128 *s) {
     /* +1: the zones ensure that we can read the byte at z->end */
     assert(itPtr >= start_ptr && itPtr + ITER_BYTES <= end_ptr);
-    u64a reach0 = andn(domain_mask_flipped, (const u32 *)(itPtr));
-    u64a reach1 = andn(domain_mask_flipped, (const u32 *)(itPtr + 1));
-    u64a reach2 = andn(domain_mask_flipped, (const u32 *)(itPtr + 2));
-    u64a reach3 = andn(domain_mask_flipped, (const u32 *)(itPtr + 3));
+    u64a reach0 = andn(domain_mask_flipped, itPtr);
+    u64a reach1 = andn(domain_mask_flipped, itPtr + 1);
+    u64a reach2 = andn(domain_mask_flipped, itPtr + 2);
+    u64a reach3 = andn(domain_mask_flipped, itPtr + 3);
 
     m128 st0 = load_m128_from_u64a(ft + reach0);
     m128 st1 = load_m128_from_u64a(ft + reach1);
     m128 st2 = load_m128_from_u64a(ft + reach2);
     m128 st3 = load_m128_from_u64a(ft + reach3);
 
-    u64a reach4 = andn(domain_mask_flipped, (const u32 *)(itPtr + 4));
-    u64a reach5 = andn(domain_mask_flipped, (const u32 *)(itPtr + 5));
-    u64a reach6 = andn(domain_mask_flipped, (const u32 *)(itPtr + 6));
-    u64a reach7 = andn(domain_mask_flipped, (const u32 *)(itPtr + 7));
+    u64a reach4 = andn(domain_mask_flipped, itPtr + 4);
+    u64a reach5 = andn(domain_mask_flipped, itPtr + 5);
+    u64a reach6 = andn(domain_mask_flipped, itPtr + 6);
+    u64a reach7 = andn(domain_mask_flipped, itPtr + 7);
 
     m128 st4 = load_m128_from_u64a(ft + reach4);
     m128 st5 = load_m128_from_u64a(ft + reach5);
@@ -199,20 +199,20 @@ void get_conf_stride_1(const u8 *itPtr, UNUSED const u8 *start_ptr,
     *s = rshiftbyte_m128(*s, 8);
     *conf0 ^= ~0ULL;
 
-    u64a reach8 = andn(domain_mask_flipped, (const u32 *)(itPtr + 8));
-    u64a reach9 = andn(domain_mask_flipped, (const u32 *)(itPtr + 9));
-    u64a reach10 = andn(domain_mask_flipped, (const u32 *)(itPtr + 10));
-    u64a reach11 = andn(domain_mask_flipped, (const u32 *)(itPtr + 11));
+    u64a reach8 = andn(domain_mask_flipped, itPtr + 8);
+    u64a reach9 = andn(domain_mask_flipped, itPtr + 9);
+    u64a reach10 = andn(domain_mask_flipped, itPtr + 10);
+    u64a reach11 = andn(domain_mask_flipped, itPtr + 11);
 
     m128 st8 = load_m128_from_u64a(ft + reach8);
     m128 st9 = load_m128_from_u64a(ft + reach9);
     m128 st10 = load_m128_from_u64a(ft + reach10);
     m128 st11 = load_m128_from_u64a(ft + reach11);
 
-    u64a reach12 = andn(domain_mask_flipped, (const u32 *)(itPtr + 12));
-    u64a reach13 = andn(domain_mask_flipped, (const u32 *)(itPtr + 13));
-    u64a reach14 = andn(domain_mask_flipped, (const u32 *)(itPtr + 14));
-    u64a reach15 = andn(domain_mask_flipped, (const u32 *)(itPtr + 15));
+    u64a reach12 = andn(domain_mask_flipped, itPtr + 12);
+    u64a reach13 = andn(domain_mask_flipped, itPtr + 13);
+    u64a reach14 = andn(domain_mask_flipped, itPtr + 14);
+    u64a reach15 = andn(domain_mask_flipped, itPtr + 15);
 
     m128 st12 = load_m128_from_u64a(ft + reach12);
     m128 st13 = load_m128_from_u64a(ft + reach13);
@@ -246,20 +246,20 @@ void get_conf_stride_2(const u8 *itPtr, UNUSED const u8 *start_ptr,
                        UNUSED const u8 *end_ptr, u32 domain_mask_flipped,
                        const u64a *ft, u64a *conf0, u64a *conf8, m128 *s) {
     assert(itPtr >= start_ptr && itPtr + ITER_BYTES <= end_ptr);
-    u64a reach0 = andn(domain_mask_flipped, (const u32 *)itPtr);
-    u64a reach2 = andn(domain_mask_flipped, (const u32 *)(itPtr + 2));
-    u64a reach4 = andn(domain_mask_flipped, (const u32 *)(itPtr + 4));
-    u64a reach6 = andn(domain_mask_flipped, (const u32 *)(itPtr + 6));
+    u64a reach0 = andn(domain_mask_flipped, itPtr);
+    u64a reach2 = andn(domain_mask_flipped, itPtr + 2);
+    u64a reach4 = andn(domain_mask_flipped, itPtr + 4);
+    u64a reach6 = andn(domain_mask_flipped, itPtr + 6);
 
     m128 st0 = load_m128_from_u64a(ft + reach0);
     m128 st2 = load_m128_from_u64a(ft + reach2);
     m128 st4 = load_m128_from_u64a(ft + reach4);
     m128 st6 = load_m128_from_u64a(ft + reach6);
 
-    u64a reach8 = andn(domain_mask_flipped, (const u32 *)(itPtr + 8));
-    u64a reach10 = andn(domain_mask_flipped, (const u32 *)(itPtr + 10));
-    u64a reach12 = andn(domain_mask_flipped, (const u32 *)(itPtr + 12));
-    u64a reach14 = andn(domain_mask_flipped, (const u32 *)(itPtr + 14));
+    u64a reach8 = andn(domain_mask_flipped, itPtr + 8);
+    u64a reach10 = andn(domain_mask_flipped, itPtr + 10);
+    u64a reach12 = andn(domain_mask_flipped, itPtr + 12);
+    u64a reach14 = andn(domain_mask_flipped, itPtr + 14);
 
     m128 st8 = load_m128_from_u64a(ft + reach8);
     m128 st10 = load_m128_from_u64a(ft + reach10);
@@ -298,10 +298,10 @@ void get_conf_stride_4(const u8 *itPtr, UNUSED const u8 *start_ptr,
                        UNUSED const u8 *end_ptr, u32 domain_mask_flipped,
                        const u64a *ft, u64a *conf0, u64a *conf8, m128 *s) {
     assert(itPtr >= start_ptr && itPtr + ITER_BYTES <= end_ptr);
-    u64a reach0 = andn(domain_mask_flipped, (const u32 *)itPtr);
-    u64a reach4 = andn(domain_mask_flipped, (const u32 *)(itPtr + 4));
-    u64a reach8 = andn(domain_mask_flipped, (const u32 *)(itPtr + 8));
-    u64a reach12 = andn(domain_mask_flipped, (const u32 *)(itPtr + 12));
+    u64a reach0 = andn(domain_mask_flipped, itPtr);
+    u64a reach4 = andn(domain_mask_flipped, itPtr + 4);
+    u64a reach8 = andn(domain_mask_flipped, itPtr + 8);
+    u64a reach12 = andn(domain_mask_flipped, itPtr + 12);
 
     m128 st0 = load_m128_from_u64a(ft + reach0);
     m128 st4 = load_m128_from_u64a(ft + reach4);
