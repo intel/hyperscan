@@ -53,6 +53,8 @@
 #include <sstream>
 #include <vector>
 
+#include <boost/utility.hpp>
+
 using namespace std;
 using namespace ue2;
 
@@ -194,7 +196,7 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
             // If we've got no further adjacent vertices, re-use p rather than
             // copying it for the next path.
             unique_ptr<VertexPath> new_path;
-            if (std::next(ai) == ae) {
+            if (boost::next(ai) == ae) {
                 new_path = std::move(p);
             } else {
                 new_path = make_unique<VertexPath>(*p);
