@@ -1012,6 +1012,7 @@ SET (hs_SRCS
     src/util/report_manager.cpp
     src/util/report_manager.h
     src/util/simd_utils.h
+    src/util/small_vector.h
     src/util/target_info.cpp
     src/util/target_info.h
     src/util/ue2_containers.h

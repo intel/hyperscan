@@ -30,13 +30,13 @@
 #define UTIL_UE2_CONTAINERS_H_
 
 #include "ue2common.h"
+#include "util/small_vector.h"
 
 #include <algorithm>
 #include <iterator>
 #include <type_traits>
 #include <utility>
 
-#include <boost/container/small_vector.hpp>
 #include <boost/functional/hash/hash_fwd.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/operators.hpp>
@@ -97,7 +97,7 @@ template <class T, class Compare, class Allocator>
 class flat_base {
 protected:
     // Underlying storage is a small vector with local space for one element.
-    using storage_type = boost::container::small_vector<T, 1, Allocator>;
+    using storage_type = small_vector<T, 1, Allocator>;
     using storage_alloc_type = typename storage_type::allocator_type;
 
     // Putting our storage and comparator in a tuple allows us to make use of
