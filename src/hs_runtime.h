@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -145,8 +145,8 @@ typedef int (*match_event_handler)(unsigned int id,
  * @return
  *      @ref HS_SUCCESS on success, other values on failure.
  */
-hs_error_t hs_open_stream(const hs_database_t *db, unsigned int flags,
-                          hs_stream_t **stream);
+hs_error_t HS_CDECL hs_open_stream(const hs_database_t *db, unsigned int flags,
+                                   hs_stream_t **stream);
 
 /**
  * Write data to be scanned to the opened stream.
@@ -185,10 +185,10 @@ hs_error_t hs_open_stream(const hs_database_t *db, unsigned int flags,
  *      match callback indicated that scanning should stop; other values on
  *      error.
  */
-hs_error_t hs_scan_stream(hs_stream_t *id, const char *data,
-                          unsigned int length, unsigned int flags,
-                          hs_scratch_t *scratch, match_event_handler onEvent,
-                          void *ctxt);
+hs_error_t HS_CDECL hs_scan_stream(hs_stream_t *id, const char *data,
+                                   unsigned int length, unsigned int flags,
+                                   hs_scratch_t *scratch,
+                                   match_event_handler onEvent, void *ctxt);
 
 /**
  * Close a stream.
@@ -223,8 +223,8 @@ hs_error_t hs_scan_stream(hs_stream_t *id, const char *data,
  * @return
  *      Returns @ref HS_SUCCESS on success, other values on failure.
  */
-hs_error_t hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
-                           match_event_handler onEvent, void *ctxt);
+hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
+                                    match_event_handler onEvent, void *ctxt);
 
 /**
  * Reset a stream to an initial state.
@@ -264,9 +264,9 @@ hs_error_t hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
  * @return
  *      @ref HS_SUCCESS on success, other values on failure.
  */
-hs_error_t hs_reset_stream(hs_stream_t *id, unsigned int flags,
-                           hs_scratch_t *scratch, match_event_handler onEvent,
-                           void *context);
+hs_error_t HS_CDECL hs_reset_stream(hs_stream_t *id, unsigned int flags,
+                                    hs_scratch_t *scratch,
+                                    match_event_handler onEvent, void *context);
 
 /**
  * Duplicate the given stream. The new stream will have the same state as the
@@ -282,7 +282,8 @@ hs_error_t hs_reset_stream(hs_stream_t *id, unsigned int flags,
  * @return
  *      @ref HS_SUCCESS on success, other values on failure.
  */
-hs_error_t hs_copy_stream(hs_stream_t **to_id, const hs_stream_t *from_id);
+hs_error_t HS_CDECL hs_copy_stream(hs_stream_t **to_id,
+                                   const hs_stream_t *from_id);
 
 /**
  * Duplicate the given 'from' stream state onto the 'to' stream. The 'to' stream
@@ -314,11 +315,11 @@ hs_error_t hs_copy_stream(hs_stream_t **to_id, const hs_stream_t *from_id);
  * @return
  *      @ref HS_SUCCESS on success, other values on failure.
  */
-hs_error_t hs_reset_and_copy_stream(hs_stream_t *to_id,
-                                    const hs_stream_t *from_id,
-                                    hs_scratch_t *scratch,
-                                    match_event_handler onEvent,
-                                    void *context);
+hs_error_t HS_CDECL hs_reset_and_copy_stream(hs_stream_t *to_id,
+                                             const hs_stream_t *from_id,
+                                             hs_scratch_t *scratch,
+                                             match_event_handler onEvent,
+                                             void *context);
 
 /**
  * The block (non-streaming) regular expression scanner.
@@ -355,10 +356,10 @@ hs_error_t hs_reset_and_copy_stream(hs_stream_t *to_id,
  *      match callback indicated that scanning should stop; other values on
  *      error.
  */
-hs_error_t hs_scan(const hs_database_t *db, const char *data,
-                   unsigned int length, unsigned int flags,
-                   hs_scratch_t *scratch, match_event_handler onEvent,
-                   void *context);
+hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
+                            unsigned int length, unsigned int flags,
+                            hs_scratch_t *scratch, match_event_handler onEvent,
+                            void *context);
 
 /**
  * The vectored regular expression scanner.
@@ -398,10 +399,12 @@ hs_error_t hs_scan(const hs_database_t *db, const char *data,
  *      Returns @ref HS_SUCCESS on success; @ref HS_SCAN_TERMINATED if the match
  *      callback indicated that scanning should stop; other values on error.
  */
-hs_error_t hs_scan_vector(const hs_database_t *db, const char *const *data,
-                          const unsigned int *length, unsigned int count,
-                          unsigned int flags, hs_scratch_t *scratch,
-                          match_event_handler onEvent, void *context);
+hs_error_t HS_CDECL hs_scan_vector(const hs_database_t *db,
+                                   const char *const *data,
+                                   const unsigned int *length,
+                                   unsigned int count, unsigned int flags,
+                                   hs_scratch_t *scratch,
+                                   match_event_handler onEvent, void *context);
 
 /**
  * Allocate a "scratch" space for use by Hyperscan.
@@ -429,7 +432,8 @@ hs_error_t hs_scan_vector(const hs_database_t *db, const char *const *data,
  *      allocation fails.  Other errors may be returned if invalid parameters
  *      are specified.
  */
-hs_error_t hs_alloc_scratch(const hs_database_t *db, hs_scratch_t **scratch);
+hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
+                                     hs_scratch_t **scratch);
 
 /**
  * Allocate a scratch space that is a clone of an existing scratch space.
@@ -449,7 +453,8 @@ hs_error_t hs_alloc_scratch(const hs_database_t *db, hs_scratch_t **scratch);
  *      @ref HS_SUCCESS on success; @ref HS_NOMEM if the allocation fails.
  *      Other errors may be returned if invalid parameters are specified.
  */
-hs_error_t hs_clone_scratch(const hs_scratch_t *src, hs_scratch_t **dest);
+hs_error_t HS_CDECL hs_clone_scratch(const hs_scratch_t *src,
+                                     hs_scratch_t **dest);
 
 /**
  * Provides the size of the given scratch space.
@@ -465,7 +470,8 @@ hs_error_t hs_clone_scratch(const hs_scratch_t *src, hs_scratch_t **dest);
  * @return
  *      @ref HS_SUCCESS on success, other values on failure.
  */
-hs_error_t hs_scratch_size(const hs_scratch_t *scratch, size_t *scratch_size);
+hs_error_t HS_CDECL hs_scratch_size(const hs_scratch_t *scratch,
+                                    size_t *scratch_size);
 
 /**
  * Free a scratch block previously allocated by @ref hs_alloc_scratch() or @ref
@@ -480,7 +486,7 @@ hs_error_t hs_scratch_size(const hs_scratch_t *scratch, size_t *scratch_size);
  * @return
  *      @ref HS_SUCCESS on success, other values on failure.
  */
-hs_error_t hs_free_scratch(hs_scratch_t *scratch);
+hs_error_t HS_CDECL hs_free_scratch(hs_scratch_t *scratch);
 
 /**
  * Callback 'from' return value, indicating that the start of this match was

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -240,7 +240,8 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_alloc_scratch(const hs_database_t *db, hs_scratch_t **scratch) {
+hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
+                                     hs_scratch_t **scratch) {
     if (!db || !scratch) {
         return HS_INVALID;
     }
@@ -385,7 +386,8 @@ hs_error_t hs_alloc_scratch(const hs_database_t *db, hs_scratch_t **scratch) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_clone_scratch(const hs_scratch_t *src, hs_scratch_t **dest) {
+hs_error_t HS_CDECL hs_clone_scratch(const hs_scratch_t *src,
+                                     hs_scratch_t **dest) {
     if (!dest || !src || !ISALIGNED_CL(src) || src->magic != SCRATCH_MAGIC) {
         return HS_INVALID;
     }
@@ -402,7 +404,7 @@ hs_error_t hs_clone_scratch(const hs_scratch_t *src, hs_scratch_t **dest) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_free_scratch(hs_scratch_t *scratch) {
+hs_error_t HS_CDECL hs_free_scratch(hs_scratch_t *scratch) {
     if (scratch) {
         /* has to be aligned before we can do anything with it */
         if (!ISALIGNED_CL(scratch)) {
@@ -426,7 +428,7 @@ hs_error_t hs_free_scratch(hs_scratch_t *scratch) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_scratch_size(const hs_scratch_t *scratch, size_t *size) {
+hs_error_t HS_CDECL hs_scratch_size(const hs_scratch_t *scratch, size_t *size) {
     if (!size || !scratch || !ISALIGNED_CL(scratch) ||
         scratch->magic != SCRATCH_MAGIC) {
         return HS_INVALID;

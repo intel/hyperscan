@@ -49,7 +49,7 @@ int db_correctly_aligned(const void *db) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_free_database(hs_database_t *db) {
+hs_error_t HS_CDECL hs_free_database(hs_database_t *db) {
     if (db && db->magic != HS_DB_MAGIC) {
         return HS_INVALID;
     }
@@ -59,8 +59,8 @@ hs_error_t hs_free_database(hs_database_t *db) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_serialize_database(const hs_database_t *db, char **bytes,
-                                 size_t *serialized_length) {
+hs_error_t HS_CDECL hs_serialize_database(const hs_database_t *db, char **bytes,
+                                          size_t *serialized_length) {
     if (!db || !bytes || !serialized_length) {
         return HS_INVALID;
     }
@@ -196,8 +196,9 @@ void db_copy_bytecode(const char *serialized, hs_database_t *db) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_deserialize_database_at(const char *bytes, const size_t length,
-                                      hs_database_t *db) {
+hs_error_t HS_CDECL hs_deserialize_database_at(const char *bytes,
+                                               const size_t length,
+                                               hs_database_t *db) {
     if (!bytes || !db) {
         return HS_INVALID;
     }
@@ -238,8 +239,9 @@ hs_error_t hs_deserialize_database_at(const char *bytes, const size_t length,
 }
 
 HS_PUBLIC_API
-hs_error_t hs_deserialize_database(const char *bytes, const size_t length,
-                                   hs_database_t **db) {
+hs_error_t HS_CDECL hs_deserialize_database(const char *bytes,
+                                            const size_t length,
+                                            hs_database_t **db) {
     if (!bytes || !db) {
         return HS_INVALID;
     }
@@ -287,7 +289,7 @@ hs_error_t hs_deserialize_database(const char *bytes, const size_t length,
 }
 
 HS_PUBLIC_API
-hs_error_t hs_database_size(const hs_database_t *db, size_t *size) {
+hs_error_t HS_CDECL hs_database_size(const hs_database_t *db, size_t *size) {
     if (!size) {
         return HS_INVALID;
     }
@@ -302,8 +304,9 @@ hs_error_t hs_database_size(const hs_database_t *db, size_t *size) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_serialized_database_size(const char *bytes, const size_t length,
-                                       size_t *size) {
+hs_error_t HS_CDECL hs_serialized_database_size(const char *bytes,
+                                                const size_t length,
+                                                size_t *size) {
     // Decode and check the header
     hs_database_t header;
     hs_error_t ret = db_decode_header(&bytes, length, &header);
@@ -417,8 +420,8 @@ hs_error_t print_database_string(char **s, u32 version, const platform_t plat,
 }
 
 HS_PUBLIC_API
-hs_error_t hs_serialized_database_info(const char *bytes, size_t length,
-                                       char **info) {
+hs_error_t HS_CDECL hs_serialized_database_info(const char *bytes,
+                                                size_t length, char **info) {
     if (!info) {
         return HS_INVALID;
     }
@@ -437,7 +440,7 @@ hs_error_t hs_serialized_database_info(const char *bytes, size_t length,
 }
 
 HS_PUBLIC_API
-hs_error_t hs_database_info(const hs_database_t *db, char **info) {
+hs_error_t HS_CDECL hs_database_info(const hs_database_t *db, char **info) {
     if (!info) {
         return HS_INVALID;
     }

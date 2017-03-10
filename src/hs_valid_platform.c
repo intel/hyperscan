@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,7 +30,7 @@
 #include "util/cpuid_flags.h"
 
 HS_PUBLIC_API
-hs_error_t hs_valid_platform(void) {
+hs_error_t HS_CDECL hs_valid_platform(void) {
     /* Hyperscan requires SSSE3, anything else is a bonus */
     if (check_ssse3()) {
         return HS_SUCCESS;

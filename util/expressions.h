@@ -29,6 +29,8 @@
 #ifndef EXPRESSIONS_H
 #define EXPRESSIONS_H
 
+#include "hs_common.h"
+
 #include <map>
 #include <string>
 #include <vector>
@@ -38,12 +40,12 @@ using SignatureSet = std::vector<unsigned>;
 
 // load all of the expressions from the given directory into the given
 // expression map. Exits on failure.
-void loadExpressions(const std::string &inDir, ExpressionMap &exprMap);
+void HS_CDECL loadExpressions(const std::string &inDir, ExpressionMap &exprMap);
 
-void loadExpressionsFromFile(const std::string &fname, ExpressionMap &exprMap);
+void HS_CDECL loadExpressionsFromFile(const std::string &fname, ExpressionMap &exprMap);
 
 // load a list of signature IDs
-void loadSignatureList(const std::string &inFile, SignatureSet &signatures);
+void HS_CDECL loadSignatureList(const std::string &inFile, SignatureSet &signatures);
 
 // trim expression map to only the given signatures, returning result
 ExpressionMap limitToSignatures(const ExpressionMap &exprMap,

@@ -135,16 +135,21 @@ option(WINDOWS_ICC "Use Intel C++ Compiler on Windows, default off, requires ICC
 # TODO: windows generator on cmake always uses msvc, even if we plan to build with icc
 if(MSVC OR MSVC_IDE)
     message(STATUS "Building for Windows")
+
     if (MSVC_VERSION LESS 1700)
         message(FATAL_ERROR "The project requires C++11 features.")
     else()
         if (WINDOWS_ICC)
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /O3 /Qstd=c99 /Qrestrict /QxHost /wd4267 /Qdiag-disable:remark")
+            set(ARCH_C_FLAGS "/QxHost")
+            set(ARCH_CXX_FLAGS "/QxHost")
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /O3 /Qstd=c99 /Qrestrict /wd4267 /Qdiag-disable:remark")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /Qstd=c++11 /Qrestrict /QxHost /wd4267 /wd4800 /Qdiag-disable:remark -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
         else()
-            #TODO: don't hardcode arch
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  /O2 /arch:AVX /wd4267")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /arch:AVX /wd4244 /wd4267 /wd4800 -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
+            # todo: change these as required
+            set(ARCH_C_FLAGS "/arch:AVX2")
+            set(ARCH_CXX_FLAGS "/arch:AVX2")
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  /O2 /wd4244 /wd4267")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /wd4244 /wd4267 /wd4800 -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
         endif()
         string(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
         string(REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
@@ -153,6 +158,10 @@ if(MSVC OR MSVC_IDE)
             set(CMAKE_C_FLAGS_DEBUG "/DNDEBUG ${CMAKE_C_FLAGS_DEBUG}")
             set(CMAKE_CXX_FLAGS_DEBUG "/DNDEBUG ${CMAKE_CXX_FLAGS_DEBUG}")
         endif ()
+
+        # flags only used to build hs libs
+        set(HS_C_FLAGS "/Gv")
+        set(HS_CXX_FLAGS "/Gv")
     endif()
 
 else()
@@ -454,8 +463,8 @@ endif()
 
 # only set these after all tests are done
 if (NOT FAT_RUNTIME)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS} ${HS_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS} ${HS_CXX_FLAGS}")
 else()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")

@@ -115,9 +115,9 @@ void initExt(hs_expr_ext *ext) {
     ext->max_offset = MAX_OFFSET;
 }
 
-bool readExpression(const std::string &input, std::string &expr,
-                    unsigned int *flags, hs_expr_ext *ext,
-                    bool *must_be_ordered) {
+bool HS_CDECL readExpression(const std::string &input, std::string &expr,
+                             unsigned int *flags, hs_expr_ext *ext,
+                             bool *must_be_ordered) {
     assert(flags);
     assert(ext);
 

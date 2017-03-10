@@ -279,9 +279,10 @@ hs_compile_multi_int(const char *const *expressions, const unsigned *flags,
 } // namespace ue2
 
 extern "C" HS_PUBLIC_API
-hs_error_t hs_compile(const char *expression, unsigned flags, unsigned mode,
-                      const hs_platform_info_t *platform, hs_database_t **db,
-                      hs_compile_error_t **error) {
+hs_error_t HS_CDECL hs_compile(const char *expression, unsigned flags,
+                               unsigned mode,
+                               const hs_platform_info_t *platform,
+                               hs_database_t **db, hs_compile_error_t **error) {
     if (expression == nullptr) {
         *db = nullptr;
         *error = generateCompileError("Invalid parameter: expression is NULL",
@@ -297,24 +298,25 @@ hs_error_t hs_compile(const char *expression, unsigned flags, unsigned mode,
 }
 
 extern "C" HS_PUBLIC_API
-hs_error_t hs_compile_multi(const char * const *expressions,
-                            const unsigned *flags, const unsigned *ids,
-                            unsigned elements, unsigned mode,
-                            const hs_platform_info_t *platform,
-                            hs_database_t **db, hs_compile_error_t **error) {
+hs_error_t HS_CDECL hs_compile_multi(const char *const *expressions,
+                                     const unsigned *flags, const unsigned *ids,
+                                     unsigned elements, unsigned mode,
+                                     const hs_platform_info_t *platform,
+                                     hs_database_t **db,
+                                     hs_compile_error_t **error) {
     const hs_expr_ext * const *ext = nullptr; // unused for this call.
     return hs_compile_multi_int(expressions, flags, ids, ext, elements, mode,
                                 platform, db, error, Grey());
 }
 
 extern "C" HS_PUBLIC_API
-hs_error_t hs_compile_ext_multi(const char * const *expressions,
-                                const unsigned *flags, const unsigned *ids,
-                                const hs_expr_ext * const *ext,
-                                unsigned elements, unsigned mode,
-                                const hs_platform_info_t *platform,
-                                hs_database_t **db,
-                                hs_compile_error_t **error) {
+hs_error_t HS_CDECL hs_compile_ext_multi(const char * const *expressions,
+                                     const unsigned *flags, const unsigned *ids,
+                                     const hs_expr_ext * const *ext,
+                                     unsigned elements, unsigned mode,
+                                     const hs_platform_info_t *platform,
+                                     hs_database_t **db,
+                                     hs_compile_error_t **error) {
     return hs_compile_multi_int(expressions, flags, ids, ext, elements, mode,
                                 platform, db, error, Grey());
 }
@@ -419,24 +421,26 @@ hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
 }
 
 extern "C" HS_PUBLIC_API
-hs_error_t hs_expression_info(const char *expression, unsigned int flags,
-                              hs_expr_info_t **info,
-                              hs_compile_error_t **error) {
+hs_error_t HS_CDECL hs_expression_info(const char *expression,
+                                       unsigned int flags,
+                                       hs_expr_info_t **info,
+                                       hs_compile_error_t **error) {
     return hs_expression_info_int(expression, flags, nullptr, HS_MODE_BLOCK,
                                   info, error);
 }
 
 extern "C" HS_PUBLIC_API
-hs_error_t hs_expression_ext_info(const char *expression, unsigned int flags,
-                                  const hs_expr_ext_t *ext,
-                                  hs_expr_info_t **info,
-                                  hs_compile_error_t **error) {
+hs_error_t HS_CDECL hs_expression_ext_info(const char *expression,
+                                           unsigned int flags,
+                                           const hs_expr_ext_t *ext,
+                                           hs_expr_info_t **info,
+                                           hs_compile_error_t **error) {
     return hs_expression_info_int(expression, flags, ext, HS_MODE_BLOCK, info,
                                   error);
 }
 
 extern "C" HS_PUBLIC_API
-hs_error_t hs_populate_platform(hs_platform_info_t *platform) {
+hs_error_t HS_CDECL hs_populate_platform(hs_platform_info_t *platform) {
     if (!platform) {
         return HS_INVALID;
     }
@@ -450,7 +454,7 @@ hs_error_t hs_populate_platform(hs_platform_info_t *platform) {
 }
 
 extern "C" HS_PUBLIC_API
-hs_error_t hs_free_compile_error(hs_compile_error_t *error) {
+hs_error_t HS_CDECL hs_free_compile_error(hs_compile_error_t *error) {
 #if defined(FAT_RUNTIME)
     if (!check_ssse3()) {
         return HS_ARCH_ERROR;

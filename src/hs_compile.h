@@ -333,9 +333,10 @@ typedef struct hs_expr_ext {
  *      HS_COMPILER_ERROR on failure, with details provided in the error
  *      parameter.
  */
-hs_error_t hs_compile(const char *expression, unsigned int flags,
-                      unsigned int mode, const hs_platform_info_t *platform,
-                      hs_database_t **db, hs_compile_error_t **error);
+hs_error_t HS_CDECL hs_compile(const char *expression, unsigned int flags,
+                               unsigned int mode,
+                               const hs_platform_info_t *platform,
+                               hs_database_t **db, hs_compile_error_t **error);
 
 /**
  * The multiple regular expression compiler.
@@ -411,11 +412,13 @@ hs_error_t hs_compile(const char *expression, unsigned int flags,
  *      parameter.
  *
  */
-hs_error_t hs_compile_multi(const char *const *expressions,
-                            const unsigned int *flags, const unsigned int *ids,
-                            unsigned int elements, unsigned int mode,
-                            const hs_platform_info_t *platform,
-                            hs_database_t **db, hs_compile_error_t **error);
+hs_error_t HS_CDECL hs_compile_multi(const char *const *expressions,
+                                     const unsigned int *flags,
+                                     const unsigned int *ids,
+                                     unsigned int elements, unsigned int mode,
+                                     const hs_platform_info_t *platform,
+                                     hs_database_t **db,
+                                     hs_compile_error_t **error);
 
 /**
  * The multiple regular expression compiler with extended parameter support.
@@ -496,7 +499,7 @@ hs_error_t hs_compile_multi(const char *const *expressions,
  *      parameter.
  *
  */
-hs_error_t hs_compile_ext_multi(const char *const *expressions,
+hs_error_t HS_CDECL hs_compile_ext_multi(const char *const *expressions,
                                 const unsigned int *flags,
                                 const unsigned int *ids,
                                 const hs_expr_ext_t *const *ext,
@@ -515,7 +518,7 @@ hs_error_t hs_compile_ext_multi(const char *const *expressions,
  * @return
  *      @ref HS_SUCCESS on success, other values on failure.
  */
-hs_error_t hs_free_compile_error(hs_compile_error_t *error);
+hs_error_t HS_CDECL hs_free_compile_error(hs_compile_error_t *error);
 
 /**
  * Utility function providing information about a regular expression. The
@@ -563,9 +566,10 @@ hs_error_t hs_free_compile_error(hs_compile_error_t *error);
  *      HS_COMPILER_ERROR on failure, with details provided in the error
  *      parameter.
  */
-hs_error_t hs_expression_info(const char *expression, unsigned int flags,
-                              hs_expr_info_t **info,
-                              hs_compile_error_t **error);
+hs_error_t HS_CDECL hs_expression_info(const char *expression,
+                                       unsigned int flags,
+                                       hs_expr_info_t **info,
+                                       hs_compile_error_t **error);
 
 /**
  * Utility function providing information about a regular expression, with
@@ -618,10 +622,11 @@ hs_error_t hs_expression_info(const char *expression, unsigned int flags,
  *      HS_COMPILER_ERROR on failure, with details provided in the error
  *      parameter.
  */
-hs_error_t hs_expression_ext_info(const char *expression, unsigned int flags,
-                                  const hs_expr_ext_t *ext,
-                                  hs_expr_info_t **info,
-                                  hs_compile_error_t **error);
+hs_error_t HS_CDECL hs_expression_ext_info(const char *expression,
+                                           unsigned int flags,
+                                           const hs_expr_ext_t *ext,
+                                           hs_expr_info_t **info,
+                                           hs_compile_error_t **error);
 
 /**
  * Populates the platform information based on the current host.
@@ -633,7 +638,7 @@ hs_error_t hs_expression_ext_info(const char *expression, unsigned int flags,
  * @return
  *      @ref HS_SUCCESS on success, other values on failure.
  */
-hs_error_t hs_populate_platform(hs_platform_info_t *platform);
+hs_error_t HS_CDECL hs_populate_platform(hs_platform_info_t *platform);
 
 /**
  * @defgroup HS_PATTERN_FLAG Pattern flags

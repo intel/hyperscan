@@ -102,7 +102,7 @@ void processLine(string &line, unsigned lineNum,
 #define S_ISDIR(st_m) (_S_IFDIR & (st_m))
 #define S_ISREG(st_m) (_S_IFREG & (st_m))
 #endif
-void loadExpressionsFromFile(const string &fname, ExpressionMap &exprMap) {
+void HS_CDECL loadExpressionsFromFile(const string &fname, ExpressionMap &exprMap) {
     struct stat st;
     if (stat(fname.c_str(), &st) != 0) {
         return;
@@ -195,7 +195,7 @@ void loadExpressions(const string &inPath, ExpressionMap &exprMap) {
     }
 }
 #else // windows TODO: improve
-void loadExpressions(const string &inPath, ExpressionMap &exprMap) {
+void HS_CDECL loadExpressions(const string &inPath, ExpressionMap &exprMap) {
     // Is our input path a file or a directory?
     struct stat st;
     if (stat(inPath.c_str(), &st) != 0) {
@@ -251,8 +251,8 @@ void loadExpressions(const string &inPath, ExpressionMap &exprMap) {
 }
 #endif
 
-void loadSignatureList(const string &inFile,
-                       SignatureSet &signatures) {
+void HS_CDECL loadSignatureList(const string &inFile,
+                                SignatureSet &signatures) {
     ifstream f(inFile.c_str());
     if (!f.good()) {
         cerr << "Can't open file: '" << inFile << "'" << endl;
