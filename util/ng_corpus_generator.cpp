@@ -140,7 +140,7 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
     const size_t MAX_OPEN = min((size_t)1000, corpusLimit * 10);
 
     vector<unique_ptr<VertexPath>> open;
-    open.push_back(ue2::make_unique<VertexPath>({g.start}));
+    open.push_back(ue2::make_unique<VertexPath>(1, g.start));
 
     ue2::unordered_set<NFAVertex> one_way_in;
     for (const auto &v : vertices_range(g)) {
