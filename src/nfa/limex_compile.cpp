@@ -721,6 +721,7 @@ typedef vector<AccelAux, AlignedAllocator<AccelAux, alignof(AccelAux)>>
 
 static
 u32 getEffectiveAccelStates(const build_info &args,
+                            const unordered_map<NFAVertex, NFAVertex> &dom_map,
                             u32 active_accel_mask,
                             const vector<AccelBuild> &accelStates) {
     /* accelStates is indexed by the acceleration bit index and contains a
@@ -756,7 +757,6 @@ u32 getEffectiveAccelStates(const build_info &args,
      * so we may still require on earlier states to be accurately modelled.
      */
     const NGHolder &h = args.h;
-    auto dom_map = findDominators(h);
 
     /* map from accel_id to mask of accel_ids that it is dominated by */
     vector<u32> dominated_by(accelStates.size());
@@ -773,8 +773,8 @@ u32 getEffectiveAccelStates(const build_info &args,
         u32 accel_id = findAndClearLSB_32(&local_accel_mask);
         assert(accel_id < accelStates.size());
         NFAVertex v = accelStates[accel_id].v;
-        while (dom_map[v]) {
-            v = dom_map[v];
+        while (contains(dom_map, v) && dom_map.at(v)) {
+            v = dom_map.at(v);
             if (contains(accel_id_map, v)) {
                 dominated_by[accel_id] |= 1U << accel_id_map[v];
             }
@@ -887,6 +887,8 @@ void buildAccel(const build_info &args, NFAStateSet &accelMask,
         return;
     }
 
+    const auto dom_map = findDominators(args.h);
+
     // We have 2^n different accel entries, one for each possible
     // combination of accelerable states.
     assert(accelStates.size() < 32);
@@ -900,7 +902,8 @@ void buildAccel(const build_info &args, NFAStateSet &accelMask,
     effective_accel_set.push_back(0); /* empty is effectively empty */
 
     for (u32 i = 1; i < accelCount; i++) {
-        u32 effective_i = getEffectiveAccelStates(args, i, accelStates);
+        u32 effective_i = getEffectiveAccelStates(args, dom_map, i,
+                                                  accelStates);
         effective_accel_set.push_back(effective_i);
 
         if (effective_i == IMPOSSIBLE_ACCEL_MASK) {
