@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -62,8 +62,8 @@ unordered_map<NFAVertex, NFAVertex> calcDominators(const Graph &g,
     vector<Vertex> vertices_by_dfnum(num_verts, Graph::null_vertex());
 
     // Output map.
-    unordered_map<Vertex, Vertex> doms;
-    auto dom_map = make_assoc_property_map(doms);
+    vector<Vertex> doms(num_verts, Graph::null_vertex());
+    auto dom_map = make_iterator_property_map(doms.begin(), index_map);
 
     boost_ue2::lengauer_tarjan_dominator_tree(g, source, index_map, dfnum_map,
                                               parent_map, vertices_by_dfnum,
@@ -71,10 +71,12 @@ unordered_map<NFAVertex, NFAVertex> calcDominators(const Graph &g,
 
     /* Translate back to an NFAVertex map */
     unordered_map<NFAVertex, NFAVertex> doms2;
-    for (const auto &e : doms) {
-        NFAVertex f(e.first);
-        NFAVertex s(e.second);
-        doms2[f] = s;
+    doms2.reserve(num_verts);
+    for (auto v : vertices_range(g)) {
+        auto dom_of_v = doms[g[v].index];
+        if (dom_of_v) {
+            doms2.emplace(v, dom_of_v);
+        }
     }
     return doms2;
 }
