@@ -87,22 +87,19 @@ static
 void checkAndAddExitCandidate(const AcyclicGraph &g,
                               const ue2::unordered_set<NFAVertex> &r,
                               NFAVertex v, vector<exit_info> &exits) {
-    // set when we find our first candidate.
-    decltype(exit_info::open) *open = nullptr;
+    exit_info v_exit(v);
+    auto &open = v_exit.open;
 
     /* find the set of vertices reachable from v which are not in r */
     for (auto w : adjacent_vertices_range(v, g)) {
-        if (!contains(r, NFAVertex(w))) {
-            if (!open) {
-                exits.emplace_back(NFAVertex(v));
-                open = &exits.back().open;
-            }
-            open->insert(NFAVertex(w));
+        if (!contains(r, w)) {
+            open.insert(w);
         }
     }
 
-    if (open) {
+    if (!open.empty()) {
         DEBUG_PRINTF("exit %zu\n", g[v].index);
+        exits.push_back(move(v_exit));
     }
 }
 
