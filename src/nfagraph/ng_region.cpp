@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -79,7 +79,7 @@ struct exit_info {
     explicit exit_info(NFAVertex v) : exit(v) {}
 
     NFAVertex exit;
-    ue2::unordered_set<NFAVertex> open;
+    flat_set<NFAVertex> open;
 };
 }
 
@@ -88,7 +88,7 @@ void checkAndAddExitCandidate(const AcyclicGraph &g,
                               const ue2::unordered_set<NFAVertex> &r,
                               NFAVertex v, vector<exit_info> *exits) {
     // set when we find our first candidate.
-    ue2::unordered_set<NFAVertex> *open = nullptr;
+    decltype(exit_info::open) *open = nullptr;
 
     /* find the set of vertices reachable from v which are not in r */
     for (auto w : adjacent_vertices_range(v, g)) {
@@ -136,7 +136,7 @@ void refineExits(const AcyclicGraph &g, const ue2::unordered_set<NFAVertex> &r,
  */
 static
 bool exitValid(UNUSED const AcyclicGraph &g, const vector<exit_info> &exits,
-               const ue2::unordered_set<NFAVertex> &open_jumps) {
+               const flat_set<NFAVertex> &open_jumps) {
     if (exits.empty() || (exits.size() < 2 && open_jumps.empty())) {
         return true;
     }
@@ -180,7 +180,7 @@ void buildInitialCandidate(const AcyclicGraph &g,
                            /* in exits of prev region;
                             * out exits from candidate */
                            vector<exit_info> *exits,
-                           ue2::unordered_set<NFAVertex> *open_jumps) {
+                           flat_set<NFAVertex> *open_jumps) {
     if (it == ite) {
         candidate->clear();
         exits->clear();
@@ -198,7 +198,7 @@ void buildInitialCandidate(const AcyclicGraph &g,
         return;
     }
 
-    ue2::unordered_set<NFAVertex> enters = (*exits)[0].open;
+    auto enters = (*exits)[0].open; // copy
     candidate->clear();
 
     for (; it != ite; ++it) {
@@ -211,7 +211,7 @@ void buildInitialCandidate(const AcyclicGraph &g,
 
     if (it != ite) {
         enters.erase(*it);
-        open_jumps->swap(enters);
+        *open_jumps = move(enters);
         DEBUG_PRINTF("oj size = %zu\n", open_jumps->size());
         ++it;
     } else {
@@ -230,7 +230,7 @@ void findDagLeaders(const NGHolder &h, const AcyclicGraph &g,
     vector<NFAVertex>::const_reverse_iterator t_it = topo.rbegin();
     vector<exit_info> exits;
     ue2::unordered_set<NFAVertex> candidate;
-    ue2::unordered_set<NFAVertex> open_jumps;
+    flat_set<NFAVertex> open_jumps;
     DEBUG_PRINTF("adding %zu to current\n", g[*t_it].index);
     assert(t_it != topo.rend());
     candidate.insert(*t_it++);
