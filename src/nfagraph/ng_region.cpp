@@ -86,7 +86,7 @@ struct exit_info {
 static
 void checkAndAddExitCandidate(const AcyclicGraph &g,
                               const ue2::unordered_set<NFAVertex> &r,
-                              NFAVertex v, vector<exit_info> *exits) {
+                              NFAVertex v, vector<exit_info> &exits) {
     // set when we find our first candidate.
     decltype(exit_info::open) *open = nullptr;
 
@@ -94,8 +94,8 @@ void checkAndAddExitCandidate(const AcyclicGraph &g,
     for (auto w : adjacent_vertices_range(v, g)) {
         if (!contains(r, NFAVertex(w))) {
             if (!open) {
-                exits->push_back(exit_info(NFAVertex(v)));
-                open = &exits->back().open;
+                exits.emplace_back(NFAVertex(v));
+                open = &exits.back().open;
             }
             open->insert(NFAVertex(w));
         }
@@ -107,27 +107,30 @@ void checkAndAddExitCandidate(const AcyclicGraph &g,
 }
 
 static
-void findExits(const AcyclicGraph &g, const ue2::unordered_set<NFAVertex> &r,
-               vector<exit_info> *exits) {
-    exits->clear();
+vector<exit_info> findExits(const AcyclicGraph &g,
+                            const ue2::unordered_set<NFAVertex> &r) {
+    vector<exit_info> exits;
 
     for (auto v : r) {
         checkAndAddExitCandidate(g, r, v, exits);
     }
+
+    return exits;
 }
 
 static
 void refineExits(const AcyclicGraph &g, const ue2::unordered_set<NFAVertex> &r,
-                 NFAVertex new_v, vector<exit_info> *exits) {
-    for (u32 i = 0; i < exits->size(); i++) {
-        (*exits)[i].open.erase(new_v); /* new_v is no long an open edge */
-        if ((*exits)[i].open.empty()) { /* no open edges: no longer an exit */
-            /* shuffle to back and kill */
-            (*exits)[i] = exits->back();
-            exits->pop_back();
-            i--;
-        }
+                 NFAVertex new_v, vector<exit_info> &exits) {
+    /* new_v is no long an open edge */
+    for (auto &exit : exits) {
+        exit.open.erase(new_v);
     }
+
+    /* no open edges: no longer an exit */
+    exits.erase(
+        remove_if(exits.begin(), exits.end(),
+                  [&](const exit_info &exit) { return exit.open.empty(); }),
+        exits.end());
 
     checkAndAddExitCandidate(g, r, new_v, exits);
 }
@@ -193,7 +196,7 @@ void buildInitialCandidate(const AcyclicGraph &g,
         DEBUG_PRINTF("adding %zu to initial\n", g[*it].index);
         candidate->insert(*it);
         open_jumps->erase(*it);
-        checkAndAddExitCandidate(g, *candidate, *it, exits);
+        checkAndAddExitCandidate(g, *candidate, *it, *exits);
         ++it;
         return;
     }
@@ -218,7 +221,7 @@ void buildInitialCandidate(const AcyclicGraph &g,
         open_jumps->clear();
     }
 
-    findExits(g, *candidate, exits);
+    *exits = findExits(g, *candidate);
 }
 
 static
@@ -228,7 +231,6 @@ void findDagLeaders(const NGHolder &h, const AcyclicGraph &g,
     assert(!topo.empty());
     u32 curr_id = 0;
     vector<NFAVertex>::const_reverse_iterator t_it = topo.rbegin();
-    vector<exit_info> exits;
     ue2::unordered_set<NFAVertex> candidate;
     flat_set<NFAVertex> open_jumps;
     DEBUG_PRINTF("adding %zu to current\n", g[*t_it].index);
@@ -237,7 +239,8 @@ void findDagLeaders(const NGHolder &h, const AcyclicGraph &g,
     DEBUG_PRINTF("adding %zu to current\n", g[*t_it].index);
     assert(t_it != topo.rend());
     candidate.insert(*t_it++);
-    findExits(g, candidate, &exits);
+
+    auto exits = findExits(g, candidate);
 
     while (t_it != topo.rend()) {
         assert(!candidate.empty());
@@ -260,7 +263,7 @@ void findDagLeaders(const NGHolder &h, const AcyclicGraph &g,
             DEBUG_PRINTF("adding %zu to current\n", g[curr].index);
             candidate.insert(curr);
             open_jumps.erase(curr);
-            refineExits(g, candidate, *t_it, &exits);
+            refineExits(g, candidate, *t_it, exits);
             DEBUG_PRINTF("    open jumps %zu exits %zu\n", open_jumps.size(),
                          exits.size());
             ++t_it;
@@ -416,6 +419,7 @@ vector<NFAVertex> buildTopoOrder(const NGHolder &w,
                                  const AcyclicGraph &acyclic_g,
                                  vector<boost::default_color_type> &colours) {
     vector<NFAVertex> topoOrder;
+    topoOrder.reserve(num_vertices(w));
 
     topological_sort(acyclic_g, back_inserter(topoOrder),
                      color_map(make_iterator_property_map(colours.begin(),
