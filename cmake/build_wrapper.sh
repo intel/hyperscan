@@ -1,13 +1,18 @@
 #!/bin/sh -e
 # This is used for renaming symbols for the fat runtime, don't call directly
 # TODO: make this a lot less fragile!
+cleanup () {
+    rm -f ${SYMSFILE} ${KEEPSYMS}
+}
+
 PREFIX=$1
 KEEPSYMS_IN=$2
 shift 2
 BUILD=$@
 OUT=$(echo $BUILD | sed 's/.* -o \(.*\.o\).*/\1/')
-SYMSFILE=/tmp/${PREFIX}_rename.syms.$$
-KEEPSYMS=/tmp/keep.syms.$$
+trap cleanup INT QUIT EXIT
+SYMSFILE=$(mktemp --tmpdir ${PREFIX}_rename.syms.XXXXX)
+KEEPSYMS=$(mktemp --tmpdir keep.syms.XXXXX)
 # grab the command without the target obj or src file flags
 # we don't just call gcc directly as there may be flags modifying the arch
 CC_CMD=$(echo $BUILD | sed 's/ -o .*\.o//;s/ -c //;s/ .[^ ]*\.c//;')
@@ -24,4 +29,3 @@ if test -s ${SYMSFILE}
 then
     objcopy --redefine-syms=${SYMSFILE} ${OUT}
 fi
-rm -f ${SYMSFILE} ${KEEPSYMS}
