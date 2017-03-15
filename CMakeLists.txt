@@ -173,6 +173,35 @@ else()
         string(REGEX REPLACE "-O[^ ]*" "" CMAKE_CXX_FLAGS_${CONFIG} "${CMAKE_CXX_FLAGS_${CONFIG}}")
     endforeach ()
 
+    if (CMAKE_COMPILER_IS_GNUCC)
+        # If gcc doesn't recognise the host cpu, then mtune=native becomes
+        # generic, which isn't very good in some cases. march=native looks at
+        # cpuid info and then chooses the best microarch it can (and replaces
+        # the flag), so use that for tune.
+
+        # arg1 might exist if using ccache
+        string (STRIP "${CMAKE_C_COMPILER_ARG1}" CC_ARG1)
+        set (EXEC_ARGS ${CC_ARG1} -c -Q --help=target -march=native -mtune=native)
+        execute_process(COMMAND ${CMAKE_C_COMPILER} ${EXEC_ARGS}
+            OUTPUT_VARIABLE _GCC_OUTPUT)
+        string(REGEX REPLACE ".*march=[ \t]*([^ \n]*)[ \n].*" "\\1"
+            GNUCC_ARCH "${_GCC_OUTPUT}")
+
+        # test the parsed flag
+        set (EXEC_ARGS ${CC_ARG1} -E - -mtune=${GNUCC_ARCH})
+        execute_process(COMMAND ${CMAKE_C_COMPILER} ${EXEC_ARGS}
+            OUTPUT_QUIET ERROR_QUIET
+            INPUT_FILE /dev/null
+            RESULT_VARIABLE GNUCC_TUNE_TEST)
+        if (NOT GNUCC_TUNE_TEST EQUAL 0)
+            message(SEND_ERROR "Something went wrong determining gcc tune: -mtune=${GNUCC_ARCH} not valid")
+        endif()
+        set(TUNE_FLAG ${GNUCC_ARCH})
+    else ()
+        set(TUNE_FLAG native)
+    endif()
+
+
     if(OPTIMISE)
         set(OPT_C_FLAG "-O3")
         set(OPT_CXX_FLAG "-O2")
@@ -197,12 +226,12 @@ else()
         set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -DNDEBUG")
     endif()
 
-    if (NOT CMAKE_C_FLAGS MATCHES .*march.*)
-        set(ARCH_C_FLAGS "${ARCH_C_FLAGS} -march=native -mtune=native")
+    if (NOT CMAKE_C_FLAGS MATCHES .*march.* AND NOT CMAKE_C_FLAGS MATCHES .*mtune.*)
+        set(ARCH_C_FLAGS "-march=native -mtune=${TUNE_FLAG}")
     endif()
 
-    if (NOT CMAKE_CXX_FLAGS MATCHES .*march.*)
-        set(ARCH_CXX_FLAGS "${ARCH_CXX_FLAGS} -march=native -mtune=native")
+    if (NOT CMAKE_CXX_FLAGS MATCHES .*march.* AND NOT CMAKE_CXX_FLAGS MATCHES .*mtune.*)
+        set(ARCH_CXX_FLAGS "-march=native -mtune=${TUNE_FLAG}")
     endif()
 
     if(CMAKE_COMPILER_IS_GNUCC)
@@ -385,13 +414,13 @@ endif()
 endif()
 
 if (NOT FAT_RUNTIME)
-message(STATUS "Building for current host CPU")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_CXX_FLAGS}")
+    message(STATUS "Building for current host CPU: ${ARCH_C_FLAGS}")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_CXX_FLAGS}")
 else()
-message(STATUS "Building runtime for multiple microarchitectures")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    message(STATUS "Building runtime for multiple microarchitectures")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
 add_subdirectory(util)
