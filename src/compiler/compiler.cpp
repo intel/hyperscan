@@ -55,7 +55,6 @@
 #include "parser/unsupported.h"
 #include "parser/utf8_validate.h"
 #include "rose/rose_build.h"
-#include "rose/rose_build_dump.h"
 #include "som/slot_manager_dump.h"
 #include "util/alloc.h"
 #include "util/compile_error.h"
@@ -310,7 +309,6 @@ aligned_unique_ptr<RoseEngine> generateRoseEngine(NG &ng) {
         return nullptr;
     }
 
-    dumpRose(*ng.rose, rose.get(), ng.cc.grey);
     dumpReportManager(ng.rm, ng.cc.grey);
     dumpSomSlotManager(ng.ssm, ng.cc.grey);
     dumpSmallWrite(rose.get(), ng.cc.grey);

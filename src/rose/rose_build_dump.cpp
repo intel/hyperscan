@@ -275,10 +275,8 @@ private:
 
 } // namespace
 
-void dumpRoseGraph(const RoseBuild &build_base, const RoseEngine *t,
+void dumpRoseGraph(const RoseBuildImpl &build, const RoseEngine *t,
                    const char *filename) {
-    const RoseBuildImpl &build = dynamic_cast<const RoseBuildImpl &>(build_base);
-
     const Grey &grey = build.cc.grey;
 
     /* "early" rose graphs should only be dumped if we are dumping intermediate
@@ -497,9 +495,13 @@ string toRegex(const string &lit) {
     return os.str();
 }
 
-static
-void dumpTestLiterals(const string &filename, const vector<hwlmLiteral> &lits) {
-    ofstream of(filename.c_str());
+void dumpMatcherLiterals(const vector<hwlmLiteral> &lits, const string &name,
+                         const Grey &grey) {
+    if (!grey.dumpFlags) {
+        return;
+    }
+
+    ofstream of(grey.dumpPath + "rose_" + name + "_test_literals.txt");
 
     // Unique regex index, as literals may share an ID.
     u32 i = 0;
@@ -526,40 +528,6 @@ void dumpTestLiterals(const string &filename, const vector<hwlmLiteral> &lits) {
     }
 
     of.close();
-}
-
-static
-void dumpRoseTestLiterals(const RoseBuildImpl &build, const string &base) {
-    size_t historyRequired = build.calcHistoryRequired();
-    size_t longLitLengthThreshold =
-        calcLongLitThreshold(build, historyRequired);
-
-    auto mp =
-        makeMatcherProto(build, ROSE_ANCHORED, false, longLitLengthThreshold);
-    dumpTestLiterals(base + "rose_anchored_test_literals.txt", mp.lits);
-
-    mp = makeMatcherProto(build, ROSE_FLOATING, false, longLitLengthThreshold);
-    dumpTestLiterals(base + "rose_float_test_literals.txt", mp.lits);
-
-    if (build.cc.streaming) {
-        mp = makeMatcherProto(build, ROSE_FLOATING, true,
-                              longLitLengthThreshold);
-        dumpTestLiterals(base + "rose_delay_rebuild_test_literals.txt",
-                         mp.lits);
-    }
-
-    mp = makeMatcherProto(build, ROSE_EOD_ANCHORED, false,
-                          build.ematcher_region_size);
-    dumpTestLiterals(base + "rose_eod_test_literals.txt", mp.lits);
-
-    if (!build.cc.streaming) {
-        mp = makeMatcherProto(build, ROSE_FLOATING, false, ROSE_SMALL_BLOCK_LEN,
-                              ROSE_SMALL_BLOCK_LEN);
-        auto mp2 = makeMatcherProto(build, ROSE_ANCHORED_SMALL_BLOCK, false,
-                                    ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
-        mp.lits.insert(end(mp.lits), begin(mp2.lits), end(mp2.lits));
-        dumpTestLiterals(base + "rose_smallblock_test_literals.txt", mp.lits);
-    }
 }
 
 static
@@ -1894,13 +1862,12 @@ void roseDumpPrograms(const RoseBuildImpl &build, const RoseEngine *t,
     dumpRoseDelayPrograms(t, base + "/rose_delay_programs.txt");
 }
 
-void dumpRose(const RoseBuild &build_base, const RoseEngine *t,
-              const Grey &grey) {
+void dumpRose(const RoseBuildImpl &build, const RoseEngine *t) {
+    const Grey &grey = build.cc.grey;
+    
     if (!grey.dumpFlags) {
         return;
     }
-
-    const RoseBuildImpl &build = dynamic_cast<const RoseBuildImpl&>(build_base);
 
     stringstream ss;
     ss << grey.dumpPath << "rose.txt";
@@ -1929,7 +1896,6 @@ void dumpRose(const RoseBuild &build_base, const RoseEngine *t,
     ss.clear();
     ss << grey.dumpPath << "rose_literals.txt";
     dumpRoseLiterals(build, ss.str().c_str());
-    dumpRoseTestLiterals(build, grey.dumpPath);
 
     f = fopen((grey.dumpPath + "/rose_struct.txt").c_str(), "w");
     roseDumpStructRaw(t, f);

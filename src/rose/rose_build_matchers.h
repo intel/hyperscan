@@ -35,41 +35,11 @@
 #define ROSE_BUILD_MATCHERS_H
 
 #include "rose_build_impl.h"
-#include "rose_build_lit_accel.h"
-#include "hwlm/hwlm_literal.h"
 
-#include <map>
-#include <vector>
-
+struct Grey;
 struct HWLM;
 
 namespace ue2 {
-
-/** \brief Prototype for literal matcher construction. */
-struct MatcherProto {
-    /** \brief Literal fragments used to construct the literal matcher. */
-    std::vector<hwlmLiteral> lits;
-
-    /** \brief Longer literals used for acceleration analysis. */
-    std::vector<AccelString> accel_lits;
-
-    /** \brief The history required by the literal matcher. */
-    size_t history_required = 0;
-
-    /** \brief Insert the contents of another MatcherProto. */
-    void insert(const MatcherProto &a);
-};
-
-/**
- * \brief Build up a vector of literals (and associated other data) for the
- * given table.
- *
- * If max_offset is specified (and not ROSE_BOUND_INF), then literals that can
- * only lead to a pattern match after max_offset may be excluded.
- */
-MatcherProto makeMatcherProto(const RoseBuildImpl &build,
-                              rose_literal_table table, bool delay_rebuild,
-                              size_t max_len, u32 max_offset = ROSE_BOUND_INF);
 
 aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
                                               size_t longLitLengthThreshold,

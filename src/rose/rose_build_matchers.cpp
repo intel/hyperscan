@@ -33,6 +33,7 @@
 
 #include "rose_build_matchers.h"
 
+#include "rose_build_dump.h"
 #include "rose_build_impl.h"
 #include "rose_build_lit_accel.h"
 #include "rose_build_width.h"
@@ -645,9 +646,35 @@ void trim_to_suffix(Container &c, size_t len) {
     c.erase(c.begin(), c.begin() + suffix_len);
 }
 
+namespace {
+
+/** \brief Prototype for literal matcher construction. */
+struct MatcherProto {
+    /** \brief Literal fragments used to construct the literal matcher. */
+    vector<hwlmLiteral> lits;
+
+    /** \brief Longer literals used for acceleration analysis. */
+    vector<AccelString> accel_lits;
+
+    /** \brief The history required by the literal matcher. */
+    size_t history_required = 0;
+
+    /** \brief Insert the contents of another MatcherProto. */
+    void insert(const MatcherProto &a);
+};
+}
+
+/**
+ * \brief Build up a vector of literals (and associated other data) for the
+ * given table.
+ *
+ * If max_offset is specified (and not ROSE_BOUND_INF), then literals that can
+ * only lead to a pattern match after max_offset may be excluded.
+ */
+static
 MatcherProto makeMatcherProto(const RoseBuildImpl &build,
                               rose_literal_table table, bool delay_rebuild,
-                              size_t max_len, u32 max_offset) {
+                              size_t max_len, u32 max_offset = ROSE_BOUND_INF) {
     MatcherProto mp;
 
     if (delay_rebuild) {
@@ -794,6 +821,7 @@ buildFloatingMatcher(const RoseBuildImpl &build, size_t longLitLengthThreshold,
         DEBUG_PRINTF("empty floating matcher\n");
         return nullptr;
     }
+    dumpMatcherLiterals(mp.lits, "floating", build.cc.grey);
 
     for (const hwlmLiteral &lit : mp.lits) {
         *fgroups |= lit.groups;
@@ -834,6 +862,7 @@ aligned_unique_ptr<HWLM> buildDelayRebuildMatcher(const RoseBuildImpl &build,
         DEBUG_PRINTF("empty delay rebuild matcher\n");
         return nullptr;
     }
+    dumpMatcherLiterals(mp.lits, "delay_rebuild", build.cc.grey);
 
     auto hwlm = hwlmBuild(mp.lits, false, build.cc, build.getInitialGroups());
     if (!hwlm) {
@@ -883,6 +912,7 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
     }
 
     mp.insert(mp_anchored);
+    dumpMatcherLiterals(mp.lits, "smallblock", build.cc.grey);
 
     // None of our literals should be longer than the small block limit.
     assert(all_of(begin(mp.lits), end(mp.lits), [](const hwlmLiteral &lit) {
@@ -919,6 +949,7 @@ aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
         assert(!build.ematcher_region_size);
         return nullptr;
     }
+    dumpMatcherLiterals(mp.lits, "eod", build.cc.grey);
 
     assert(build.ematcher_region_size);
 

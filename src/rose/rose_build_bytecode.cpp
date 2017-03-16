@@ -33,6 +33,7 @@
 #include "hs_compile.h" // for HS_MODE_*
 #include "rose_build_add_internal.h"
 #include "rose_build_anchored.h"
+#include "rose_build_dump.h"
 #include "rose_build_engine_blob.h"
 #include "rose_build_exclusive.h"
 #include "rose_build_groups.h"
@@ -5582,6 +5583,9 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     engine = addSmallWriteEngine(*this, move(engine));
 
     DEBUG_PRINTF("rose done %p\n", engine.get());
+
+    dumpRose(*this, engine.get());
+
     return engine;
 }
 
