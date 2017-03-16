@@ -151,22 +151,6 @@ if(MSVC OR MSVC_IDE)
 
 else()
 
-    # compiler version checks TODO: test more compilers
-    if (CMAKE_COMPILER_IS_GNUCXX)
-        set (GNUCXX_MINVER "4.8.1")
-        exec_program(${CMAKE_CXX_COMPILER}
-                     ARGS ${CMAKE_CXX_COMPILER_ARG1} --version
-                     OUTPUT_VARIABLE _GXX_OUTPUT)
-        # is the following too fragile?
-        string(REGEX REPLACE ".* ([0-9]\\.[0-9](\\.[0-9])?)( |\n).*" "\\1"
-               GNUCXX_VERSION "${_GXX_OUTPUT}")
-        message(STATUS "g++ version ${GNUCXX_VERSION}")
-        if (GNUCXX_VERSION VERSION_LESS ${GNUCXX_MINVER})
-            message(FATAL_ERROR "A minimum of g++ ${GNUCXX_MINVER} is required for C++11 support")
-        endif()
-        unset(_GXX_OUTPUT)
-    endif()
-
     # remove CMake's idea of optimisation
     foreach (CONFIG ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
         string(REGEX REPLACE "-O[^ ]*" "" CMAKE_C_FLAGS_${CONFIG} "${CMAKE_C_FLAGS_${CONFIG}}")
@@ -174,6 +158,7 @@ else()
     endforeach ()
 
     if (CMAKE_COMPILER_IS_GNUCC)
+        message(STATUS "gcc version ${CMAKE_C_COMPILER_VERSION}")
         # If gcc doesn't recognise the host cpu, then mtune=native becomes
         # generic, which isn't very good in some cases. march=native looks at
         # cpuid info and then chooses the best microarch it can (and replaces
@@ -201,6 +186,14 @@ else()
         set(TUNE_FLAG native)
     endif()
 
+    # compiler version checks TODO: test more compilers
+    if (CMAKE_COMPILER_IS_GNUCXX)
+        set(GNUCXX_MINVER "4.8.1")
+        message(STATUS "g++ version ${CMAKE_CXX_COMPILER_VERSION}")
+        if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS GNUCXX_MINVER)
+            message(FATAL_ERROR "A minimum of g++ ${GNUCXX_MINVER} is required for C++11 support")
+        endif()
+    endif()
 
     if(OPTIMISE)
         set(OPT_C_FLAG "-O3")
