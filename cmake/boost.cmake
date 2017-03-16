@@ -38,4 +38,7 @@ ${BOOST_REV_TEST}" BOOST_REVGRAPH_PATCH)
     endif()
 
     unset (CMAKE_REQUIRED_INCLUDES)
+else ()
+    unset(BOOST_REVGRAPH_OK CACHE)
+    unset(BOOST_REVGRAPH_PATCH CACHE)
 endif () # Boost 1.62.0

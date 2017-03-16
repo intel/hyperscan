@@ -72,17 +72,20 @@ else ()
 endif ()
 set(BOOST_NO_BOOST_CMAKE ON)
 
-# first check for Boost installed on the system
-find_package(Boost ${BOOST_MINVERSION})
+unset(Boost_INCLUDE_DIR CACHE)
+# we might have boost in tree, so provide a hint and try again
+set(BOOST_INCLUDEDIR "${PROJECT_SOURCE_DIR}/include")
+find_package(Boost ${BOOST_MINVERSION} QUIET)
 if(NOT Boost_FOUND)
-    # we might have boost in tree, so provide a hint and try again
-    message(STATUS "trying include dir for boost")
-    set(BOOST_INCLUDEDIR "${PROJECT_SOURCE_DIR}/include")
-    find_package(Boost ${BOOST_MINVERSION})
+    # otherwise check for Boost installed on the system
+    unset(BOOST_INCLUDEDIR)
+    find_package(Boost ${BOOST_MINVERSION} QUIET)
     if(NOT Boost_FOUND)
         message(FATAL_ERROR "Boost ${BOOST_MINVERSION} or later not found. Either install system packages if available, extract Boost headers to ${CMAKE_SOURCE_DIR}/include, or set the CMake BOOST_ROOT variable.")
     endif()
 endif()
+
+message(STATUS "Boost version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
 
 include (${CMAKE_MODULE_PATH}/boost.cmake)
 
