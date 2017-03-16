@@ -1713,7 +1713,7 @@ private:
 }
 
 static
-aligned_unique_ptr<NFA> buildOutfix(RoseBuildImpl &build, OutfixInfo &outfix) {
+aligned_unique_ptr<NFA> buildOutfix(const RoseBuildImpl &build, OutfixInfo &outfix) {
     assert(!outfix.is_dead()); // should not be marked dead.
 
     auto n = boost::apply_visitor(OutfixBuilder(build), outfix.proto);
@@ -3179,8 +3179,8 @@ void makeLookaroundInstruction(build_context &bc, const vector<LookEntry> &look,
 }
 
 static
-void makeRoleLookaround(RoseBuildImpl &build, build_context &bc, RoseVertex v,
-                        RoseProgram &program) {
+void makeRoleLookaround(const RoseBuildImpl &build, build_context &bc,
+                        RoseVertex v, RoseProgram &program) {
     if (!build.cc.grey.roseLookaroundMasks) {
         return;
     }
@@ -3207,8 +3207,8 @@ void makeRoleLookaround(RoseBuildImpl &build, build_context &bc, RoseVertex v,
 }
 
 static
-void makeRoleCheckLeftfix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
-                          RoseProgram &program) {
+void makeRoleCheckLeftfix(const RoseBuildImpl &build, build_context &bc,
+                          RoseVertex v, RoseProgram &program) {
     auto it = bc.leftfix_info.find(v);
     if (it == end(bc.leftfix_info)) {
         return;
@@ -3238,7 +3238,7 @@ void makeRoleCheckLeftfix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
 }
 
 static
-void makeRoleAnchoredDelay(RoseBuildImpl &build, build_context &bc,
+void makeRoleAnchoredDelay(const RoseBuildImpl &build, build_context &bc,
                            RoseVertex v, RoseProgram &program) {
     // Only relevant for roles that can be triggered by the anchored table.
     if (!build.isAnchored(v)) {
@@ -3277,7 +3277,7 @@ void makeDedupeSom(const RoseBuildImpl &build, const Report &report,
 }
 
 static
-void makeCatchup(RoseBuildImpl &build, build_context &bc,
+void makeCatchup(const RoseBuildImpl &build, const build_context &bc,
                  const flat_set<ReportID> &reports, RoseProgram &program) {
     if (!bc.needs_catchup) {
         return;
@@ -3300,8 +3300,8 @@ void makeCatchup(RoseBuildImpl &build, build_context &bc,
 }
 
 static
-void makeCatchupMpv(RoseBuildImpl &build, build_context &bc, ReportID id,
-                    RoseProgram &program) {
+void makeCatchupMpv(const RoseBuildImpl &build, const build_context &bc,
+                    ReportID id, RoseProgram &program) {
     if (!bc.needs_mpv_catchup) {
         return;
     }
@@ -3526,8 +3526,8 @@ void makeReport(const RoseBuildImpl &build, const ReportID id,
 }
 
 static
-void makeRoleReports(RoseBuildImpl &build, build_context &bc, RoseVertex v,
-                     RoseProgram &program) {
+void makeRoleReports(const RoseBuildImpl &build, const build_context &bc,
+                     RoseVertex v, RoseProgram &program) {
     const auto &g = build.g;
 
     /* we are a suffaig - need to update role to provide som to the
@@ -3556,8 +3556,8 @@ void makeRoleReports(RoseBuildImpl &build, build_context &bc, RoseVertex v,
 }
 
 static
-void makeRoleSuffix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
-                    RoseProgram &program) {
+void makeRoleSuffix(const RoseBuildImpl &build, const build_context &bc,
+                    RoseVertex v, RoseProgram &program) {
     const auto &g = build.g;
     if (!g[v].suffix) {
         return;
@@ -3591,7 +3591,7 @@ void makeRoleSuffix(RoseBuildImpl &build, build_context &bc, RoseVertex v,
 }
 
 static
-void makeRoleGroups(RoseBuildImpl &build, ProgramBuild &prog_build,
+void makeRoleGroups(const RoseBuildImpl &build, ProgramBuild &prog_build,
                     RoseVertex v, RoseProgram &program) {
     const auto &g = build.g;
     rose_group groups = g[v].groups;
@@ -3627,7 +3627,7 @@ void makeRoleGroups(RoseBuildImpl &build, ProgramBuild &prog_build,
 }
 
 static
-void makeRoleInfixTriggers(RoseBuildImpl &build, build_context &bc,
+void makeRoleInfixTriggers(const RoseBuildImpl &build, const build_context &bc,
                            RoseVertex u, RoseProgram &program) {
     const auto &g = build.g;
 
@@ -3758,7 +3758,7 @@ void makeRoleCheckNotHandled(ProgramBuild &prog_build, RoseVertex v,
 }
 
 static
-void makeRoleEagerEodReports(RoseBuildImpl &build, build_context &bc,
+void makeRoleEagerEodReports(const RoseBuildImpl &build, build_context &bc,
                              RoseVertex v, RoseProgram &program) {
     RoseProgram eod_program;
 
@@ -3786,7 +3786,7 @@ void makeRoleEagerEodReports(RoseBuildImpl &build, build_context &bc,
 }
 
 static
-RoseProgram makeProgram(RoseBuildImpl &build, build_context &bc,
+RoseProgram makeProgram(const RoseBuildImpl &build, build_context &bc,
                         ProgramBuild &prog_build, const RoseEdge &e) {
     const RoseGraph &g = build.g;
     auto v = target(e, g);
@@ -4041,7 +4041,8 @@ void addPredBlockSingle(u32 pred_state, RoseProgram &pred_block,
 }
 
 static
-void addPredBlocksAny(build_context &bc, map<u32, RoseProgram> &pred_blocks,
+void addPredBlocksAny(const build_context &bc,
+                      map<u32, RoseProgram> &pred_blocks,
                       RoseProgram &program) {
     RoseProgram sparse_program;
 
@@ -4060,7 +4061,8 @@ void addPredBlocksAny(build_context &bc, map<u32, RoseProgram> &pred_blocks,
 }
 
 static
-void addPredBlocksMulti(build_context &bc, map<u32, RoseProgram> &pred_blocks,
+void addPredBlocksMulti(const build_context &bc,
+                        map<u32, RoseProgram> &pred_blocks,
                         RoseProgram &program) {
     assert(!pred_blocks.empty());
 
@@ -4111,7 +4113,7 @@ void addPredBlocksMulti(build_context &bc, map<u32, RoseProgram> &pred_blocks,
 }
 
 static
-void addPredBlocks(build_context &bc, map<u32, RoseProgram> &pred_blocks,
+void addPredBlocks(const build_context &bc, map<u32, RoseProgram> &pred_blocks,
                    RoseProgram &program) {
     // Trim empty blocks, if any exist.
     for (auto it = pred_blocks.begin(); it != pred_blocks.end();) {
@@ -4368,7 +4370,7 @@ void makeCheckLiteralInstruction(const RoseBuildImpl &build,
 }
 
 static
-bool hasDelayedLiteral(RoseBuildImpl &build,
+bool hasDelayedLiteral(const RoseBuildImpl &build,
                        const vector<RoseEdge> &lit_edges) {
     auto is_delayed = bind(&RoseBuildImpl::isDelayed, &build, _1);
     for (const auto &e : lit_edges) {
@@ -4382,8 +4384,9 @@ bool hasDelayedLiteral(RoseBuildImpl &build,
 }
 
 static
-RoseProgram buildLitInitialProgram(RoseBuildImpl &build, build_context &bc,
-                                   ProgramBuild &prog_build, u32 lit_id,
+RoseProgram buildLitInitialProgram(const RoseBuildImpl &build,
+                                   build_context &bc, ProgramBuild &prog_build,
+                                   u32 lit_id,
                                    const vector<RoseEdge> &lit_edges) {
     RoseProgram program;
 
@@ -4410,7 +4413,7 @@ RoseProgram buildLitInitialProgram(RoseBuildImpl &build, build_context &bc,
 }
 
 static
-RoseProgram buildLiteralProgram(RoseBuildImpl &build, build_context &bc,
+RoseProgram buildLiteralProgram(const RoseBuildImpl &build, build_context &bc,
                                 ProgramBuild &prog_build, u32 lit_id,
                                 const vector<RoseEdge> &lit_edges,
                                 bool is_anchored_program) {
@@ -4507,7 +4510,7 @@ RoseProgram assembleProgramBlocks(vector<RoseProgram> &&blocks) {
 }
 
 static
-u32 writeLiteralProgram(RoseBuildImpl &build, build_context &bc,
+u32 writeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
                         ProgramBuild &prog_build, const flat_set<u32> &lit_ids,
                         const map<u32, vector<RoseEdge>> &lit_edge_map,
                         bool is_anchored_program) {
@@ -4540,7 +4543,7 @@ u32 writeLiteralProgram(RoseBuildImpl &build, build_context &bc,
 }
 
 static
-u32 writeDelayRebuildProgram(RoseBuildImpl &build, build_context &bc,
+u32 writeDelayRebuildProgram(const RoseBuildImpl &build, build_context &bc,
                              ProgramBuild &prog_build,
                              const flat_set<u32> &lit_ids) {
     assert(!lit_ids.empty());
@@ -4750,7 +4753,7 @@ void buildLiteralPrograms(RoseBuildImpl &build, build_context &bc,
  * programs.
  */
 static
-pair<u32, u32> writeDelayPrograms(RoseBuildImpl &build, build_context &bc,
+pair<u32, u32> writeDelayPrograms(const RoseBuildImpl &build, build_context &bc,
                                   ProgramBuild &prog_build) {
     auto lit_edge_map = findEdgesByLiteral(build);
 
@@ -4797,7 +4800,8 @@ pair<u32, u32> writeDelayPrograms(RoseBuildImpl &build, build_context &bc,
  * programs.
  */
 static
-pair<u32, u32> writeAnchoredPrograms(RoseBuildImpl &build, build_context &bc,
+pair<u32, u32> writeAnchoredPrograms(const RoseBuildImpl &build,
+                                     build_context &bc,
                                      ProgramBuild &prog_build) {
     auto lit_edge_map = findEdgesByLiteral(build);
 
@@ -4876,7 +4880,8 @@ set<ReportID> findEngineReports(const RoseBuildImpl &build) {
 }
 
 static
-pair<u32, u32> buildReportPrograms(RoseBuildImpl &build, build_context &bc) {
+pair<u32, u32> buildReportPrograms(const RoseBuildImpl &build,
+                                   build_context &bc) {
     const auto reports = findEngineReports(build);
     vector<u32> programs;
     programs.reserve(reports.size());
@@ -4900,7 +4905,8 @@ pair<u32, u32> buildReportPrograms(RoseBuildImpl &build, build_context &bc) {
 }
 
 static
-RoseProgram makeEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
+RoseProgram makeEodAnchorProgram(const RoseBuildImpl &build,
+                                 const build_context &bc,
                                  ProgramBuild &prog_build, const RoseEdge &e,
                                  const bool multiple_preds) {
     const RoseGraph &g = build.g;
@@ -4956,7 +4962,7 @@ bool hasEodMatcher(const RoseBuildImpl &build) {
 }
 
 static
-void addEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
+void addEodAnchorProgram(const RoseBuildImpl &build, const build_context &bc,
                          ProgramBuild &prog_build, bool in_etable,
                          RoseProgram &program) {
     const RoseGraph &g = build.g;
@@ -5001,7 +5007,7 @@ void addEodAnchorProgram(RoseBuildImpl &build, build_context &bc,
 }
 
 static
-void addEodEventProgram(RoseBuildImpl &build, build_context &bc,
+void addEodEventProgram(const RoseBuildImpl &build, build_context &bc,
                         ProgramBuild &prog_build, RoseProgram &program) {
     if (build.eod_event_literal_id == MO_INVALID_IDX) {
         return;
@@ -5066,7 +5072,7 @@ void addMatcherEodProgram(const RoseBuildImpl &build, RoseProgram &program) {
 }
 
 static
-u32 writeEodProgram(RoseBuildImpl &build, build_context &bc,
+u32 writeEodProgram(const RoseBuildImpl &build, build_context &bc,
                     ProgramBuild &prog_build, u32 eodNfaIterOffset) {
     RoseProgram program;
 
@@ -5205,7 +5211,7 @@ u32 writeEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
 }
 
 static
-aligned_unique_ptr<RoseEngine> addSmallWriteEngine(RoseBuildImpl &build,
+aligned_unique_ptr<RoseEngine> addSmallWriteEngine(const RoseBuildImpl &build,
                                         aligned_unique_ptr<RoseEngine> rose) {
     assert(rose);
 
