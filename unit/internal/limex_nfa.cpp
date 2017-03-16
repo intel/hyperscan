@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -73,7 +73,8 @@ protected:
         CompileContext cc(false, false, target, Grey());
         ReportManager rm(cc.grey);
         ParsedExpression parsed(0, expr.c_str(), flags, 0);
-        unique_ptr<NGWrapper> g = buildWrapper(rm, cc, parsed);
+        auto built_expr = buildGraph(rm, cc, parsed);
+        const auto &g = built_expr.g;
         ASSERT_TRUE(g != nullptr);
         clearReports(*g);
 
@@ -306,7 +307,8 @@ protected:
         CompileContext cc(false, false, get_current_target(), Grey());
         ReportManager rm(cc.grey);
         ParsedExpression parsed(0, expr.c_str(), flags, 0);
-        unique_ptr<NGWrapper> g = buildWrapper(rm, cc, parsed);
+        auto built_expr = buildGraph(rm, cc, parsed);
+        const auto &g = built_expr.g;
         ASSERT_TRUE(g != nullptr);
         clearReports(*g);
 
@@ -365,7 +367,8 @@ protected:
         CompileContext cc(true, false, get_current_target(), Grey());
         ParsedExpression parsed(0, expr.c_str(), flags, 0);
         ReportManager rm(cc.grey);
-        unique_ptr<NGWrapper> g = buildWrapper(rm, cc, parsed);
+        auto built_expr = buildGraph(rm, cc, parsed);
+        const auto &g = built_expr.g;
         ASSERT_TRUE(g != nullptr);
         clearReports(*g);
 

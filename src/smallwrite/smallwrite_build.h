@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,8 +48,9 @@ namespace ue2 {
 
 struct CompileContext;
 struct ue2_literal;
-class  NGWrapper;
-class  ReportManager;
+class ExpressionInfo;
+class NGHolder;
+class ReportManager;
 
 // Abstract interface intended for callers from elsewhere in the tree, real
 // underlying implementation is SmallWriteBuildImpl in smwr_build_impl.h.
@@ -61,16 +62,16 @@ public:
     // Construct a runtime implementation.
     virtual ue2::aligned_unique_ptr<SmallWriteEngine> build(u32 roseQuality) = 0;
 
-    virtual void add(const NGWrapper &w) = 0;
+    virtual void add(const NGHolder &g, const ExpressionInfo &expr) = 0;
     virtual void add(const ue2_literal &literal, ReportID r) = 0;
 
     virtual std::set<ReportID> all_reports() const = 0;
 };
 
 // Construct a usable SmallWrite builder.
-std::unique_ptr<SmallWriteBuild> makeSmallWriteBuilder(size_t num_patterns,
-                                                       const ReportManager &rm,
-                                                       const CompileContext &cc);
+std::unique_ptr<SmallWriteBuild>
+makeSmallWriteBuilder(size_t num_patterns, const ReportManager &rm,
+                      const CompileContext &cc);
 
 size_t smwrSize(const SmallWriteEngine *t);
 

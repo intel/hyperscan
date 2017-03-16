@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,7 +35,7 @@
 
 namespace ue2 {
 
-class NGWrapper;
+class ExpressionInfo;
 class NGHolder;
 
 /** \brief Relax forbidden UTF-8 sequences.
@@ -44,7 +44,7 @@ class NGHolder;
  * above \\x{10ffff} or they represent overlong encodings. As we require valid
  * UTF-8 input, we have no defined behaviour in these cases, as a result we can
  * accept them if it simplifies the graph. */
-void relaxForbiddenUtf8(NGWrapper &w);
+void relaxForbiddenUtf8(NGHolder &g, const ExpressionInfo &expr);
 
 /** \brief Contract cycles of UTF-8 code points down to a single cyclic vertex
  * where possible, based on the assumption that we will always be matching

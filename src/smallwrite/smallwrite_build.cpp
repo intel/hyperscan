@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 
 #include "grey.h"
 #include "ue2common.h"
+#include "compiler/compiler.h"
 #include "nfa/dfa_min.h"
 #include "nfa/mcclellancompile.h"
 #include "nfa/mcclellancompile_util.h"
@@ -74,7 +75,7 @@ public:
     // Construct a runtime implementation.
     aligned_unique_ptr<SmallWriteEngine> build(u32 roseQuality) override;
 
-    void add(const NGWrapper &w) override;
+    void add(const NGHolder &g, const ExpressionInfo &expr) override;
     void add(const ue2_literal &literal, ReportID r) override;
 
     set<ReportID> all_reports() const override;
@@ -171,26 +172,26 @@ bool pruneOverlong(NGHolder &g, const depth &max_depth,
     return modified;
 }
 
-void SmallWriteBuildImpl::add(const NGWrapper &w) {
+void SmallWriteBuildImpl::add(const NGHolder &g, const ExpressionInfo &expr) {
     // If the graph is poisoned (i.e. we can't build a SmallWrite version),
     // we don't even try.
     if (poisoned) {
         return;
     }
 
-    if (w.som || w.min_length || isVacuous(w)) { /* cannot support in smwr */
-        poisoned = true;
+    if (expr.som || expr.min_length || isVacuous(g)) {
+        poisoned = true; /* cannot support in smwr */
         return;
     }
 
-    DEBUG_PRINTF("w=%p\n", &w);
+    DEBUG_PRINTF("g=%p\n", &g);
 
     // make a copy of the graph so that we can modify it for our purposes
-    unique_ptr<NGHolder> h = cloneHolder(w);
+    unique_ptr<NGHolder> h = cloneHolder(g);
 
     pruneOverlong(*h, depth(cc.grey.smallWriteLargestBuffer), rm);
 
-    reduceGraph(*h, SOM_NONE, w.utf8, cc);
+    reduceGraph(*h, SOM_NONE, expr.utf8, cc);
 
     if (can_never_match(*h)) {
         DEBUG_PRINTF("graph can never match in small block\n");

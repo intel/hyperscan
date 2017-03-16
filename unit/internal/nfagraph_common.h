@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,18 +40,19 @@ namespace ue2 {
 
 // Helper function: construct a graph from an expression, flags and context.
 inline
-std::unique_ptr<NGWrapper> constructGraphWithCC(const std::string &expr,
-                                                CompileContext &cc,
-                                                unsigned flags) {
+std::unique_ptr<NGHolder> constructGraphWithCC(const std::string &expr,
+                                               CompileContext &cc,
+                                               unsigned flags) {
     ReportManager rm(cc.grey);
     ParsedExpression parsed(0, expr.c_str(), flags, 0);
-    return buildWrapper(rm, cc, parsed);
+    auto built_expr = buildGraph(rm, cc, parsed);
+    return std::move(built_expr.g);
 }
 
 // Helper function: construct a graph from an expression and its flags.
 inline
-std::unique_ptr<NGWrapper> constructGraph(const std::string &expr,
-                                          unsigned flags) {
+std::unique_ptr<NGHolder> constructGraph(const std::string &expr,
+                                         unsigned flags) {
     CompileContext cc(false, false, get_current_target(), Grey());
     return constructGraphWithCC(expr, cc, flags);
 }

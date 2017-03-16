@@ -27,7 +27,7 @@
  */
 
 /** \file
- * \brief NG, NGHolder, NGWrapper declarations.
+ * \brief NG declaration.
  */
 
 #ifndef NG_H
@@ -58,31 +58,7 @@ namespace ue2 {
 struct CompileContext;
 struct ue2_literal;
 
-class NGWrapper : public NGHolder {
-public:
-    NGWrapper(unsigned int expressionIndex, bool highlander, bool utf8,
-              bool prefilter, const som_type som, ReportID rid, u64a min_offset,
-              u64a max_offset, u64a min_length, u32 edit_distance);
-
-    ~NGWrapper() override;
-
-    /** index of the expression represented by this graph, used
-     * - down the track in error handling
-     * - identifying parts of an expression in highlander mode
-     */
-    const unsigned int expressionIndex;
-
-    const ReportID reportId; /**< user-visible report id */
-    const bool highlander; /**< user-specified single match only */
-    const bool utf8; /**< UTF-8 mode */
-    const bool prefilter; /**< prefiltering mode */
-    const som_type som; /**< SOM type requested */
-    u64a min_offset; /**< extparam min_offset value */
-    u64a max_offset; /**< extparam max_offset value */
-    u64a min_length; /**< extparam min_length value */
-    u32 edit_distance; /**< extparam edit_distance value */
-};
-
+class ExpressionInfo;
 class RoseBuild;
 class SmallWriteBuild;
 
@@ -94,14 +70,14 @@ public:
 
     /** \brief Consumes a pattern, returns false or throws a CompileError
      * exception if the graph cannot be consumed. */
-    bool addGraph(NGWrapper &w);
+    bool addGraph(ExpressionInfo &expr, NGHolder &h);
 
     /** \brief Consumes a graph, cut-down version of addGraph for use by SOM
      * processing. */
     bool addHolder(NGHolder &h);
 
-    /** \brief Adds a literal to Rose, used by literal shortcut passes (instead of
-     * using \ref addGraph) */
+    /** \brief Adds a literal to Rose, used by literal shortcut passes (instead
+     * of using \ref addGraph) */
     bool addLiteral(const ue2_literal &lit, u32 expr_index, u32 external_report,
                     bool highlander, som_type som);
 
@@ -128,7 +104,8 @@ public:
  *
  * Shared with the small write compiler.
  */
-void reduceGraph(NGHolder &g, som_type som, bool utf8, const CompileContext &cc);
+void reduceGraph(NGHolder &g, som_type som, bool utf8,
+                 const CompileContext &cc);
 
 } // namespace ue2
 

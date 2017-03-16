@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,12 +30,15 @@
  * \brief Literal Component Splitting. Identifies literals that span the
  * graph and moves them into Rose.
  */
+
+#include "ng_literal_component.h"
+
 #include "grey.h"
 #include "ng.h"
-#include "ng_literal_component.h"
 #include "ng_prune.h"
 #include "ng_util.h"
 #include "ue2common.h"
+#include "compiler/compiler.h"
 #include "rose/rose_build.h"
 #include "util/container.h"
 #include "util/graph.h"
@@ -47,8 +50,8 @@ using namespace std;
 namespace ue2 {
 
 static
-bool isLiteralChar(const NGWrapper &g, NFAVertex v,
-                   bool &nocase, bool &casefixed) {
+bool isLiteralChar(const NGHolder &g, NFAVertex v, bool &nocase,
+                   bool &casefixed) {
     const CharReach &cr = g[v].char_reach;
     const size_t num = cr.count();
     if (num > 2) {
@@ -93,7 +96,7 @@ void addToString(string &s, const NGHolder &g, NFAVertex v) {
 }
 
 static
-bool splitOffLiteral(NG &ng, NGWrapper &g, NFAVertex v, const bool anchored,
+bool splitOffLiteral(NG &ng, NGHolder &g, NFAVertex v, const bool anchored,
                      set<NFAVertex> &dead) {
     DEBUG_PRINTF("examine vertex %zu\n", g[v].index);
     bool nocase = false, casefixed = false;
@@ -185,7 +188,7 @@ bool splitOffLiteral(NG &ng, NGWrapper &g, NFAVertex v, const bool anchored,
 }
 
 /** \brief Split off literals. True if any changes were made to the graph. */
-bool splitOffLiterals(NG &ng, NGWrapper &g) {
+bool splitOffLiterals(NG &ng, NGHolder &g) {
     if (!ng.cc.grey.allowLiteral) {
         return false;
     }

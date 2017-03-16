@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -96,7 +96,8 @@ protected:
         const CompileContext cc(true, false, target, grey);
         ReportManager rm(cc.grey);
         ParsedExpression parsed(0, pattern.c_str(), flags, 0);
-        unique_ptr<NGWrapper> g = buildWrapper(rm, cc, parsed);
+        auto built_expr = buildGraph(rm, cc, parsed);
+        const auto &g = built_expr.g;
         ASSERT_TRUE(g != nullptr);
         clearReports(*g);
 

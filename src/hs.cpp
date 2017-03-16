@@ -369,11 +369,13 @@ hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
         assert(pe.component);
 
         // Apply prefiltering transformations if desired.
-        if (pe.prefilter) {
+        if (pe.expr.prefilter) {
             prefilterTree(pe.component, ParseMode(flags));
         }
 
-        unique_ptr<NGWrapper> g = buildWrapper(rm, cc, pe);
+        auto built_expr = buildGraph(rm, cc, pe);
+        unique_ptr<NGHolder> &g = built_expr.g;
+        ExpressionInfo &expr = built_expr.expr;
 
         if (!g) {
             DEBUG_PRINTF("NFA build failed, but no exception was thrown.\n");
@@ -381,13 +383,13 @@ hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
         }
 
         // validate graph's suitability for fuzzing
-        validate_fuzzy_compile(*g, g->edit_distance, g->utf8, cc.grey);
+        validate_fuzzy_compile(*g, expr.edit_distance, expr.utf8, cc.grey);
 
         // fuzz graph - this must happen before any transformations are made
-        make_fuzzy(*g, g->edit_distance, cc.grey);
+        make_fuzzy(*g, expr.edit_distance, cc.grey);
 
-        handleExtendedParams(rm, *g, cc);
-        fillExpressionInfo(rm, *g, &local_info);
+        handleExtendedParams(rm, *g, expr, cc);
+        fillExpressionInfo(rm, *g, expr, &local_info);
     }
     catch (const CompileError &e) {
         // Compiler error occurred

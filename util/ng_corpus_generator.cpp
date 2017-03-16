@@ -35,6 +35,7 @@
 #include "ng_corpus_generator.h"
 
 #include "ng_corpus_editor.h"
+#include "compiler/compiler.h"
 #include "nfagraph/ng.h"
 #include "nfagraph/ng_util.h"
 #include "ue2common.h"
@@ -219,8 +220,9 @@ namespace {
 /** \brief Concrete implementation */
 class CorpusGeneratorImpl : public CorpusGenerator {
 public:
-    CorpusGeneratorImpl(const NGWrapper &graph_in, CorpusProperties &props);
-    ~CorpusGeneratorImpl() {}
+    CorpusGeneratorImpl(const NGHolder &graph_in, const ExpressionInfo &expr_in,
+                        CorpusProperties &props);
+    ~CorpusGeneratorImpl() = default;
 
     void generateCorpus(vector<string> &data);
 
@@ -237,6 +239,9 @@ private:
      * bytes in length. */
     void addRandom(const min_max &mm, string *out);
 
+    /** \brief Info about this expression. */
+    const ExpressionInfo &expr;
+
     /** \brief The NFA graph we operate over. */
     const NGHolder &graph;
 
@@ -245,12 +250,13 @@ private:
     CorpusProperties &cProps;
 };
 
-CorpusGeneratorImpl::CorpusGeneratorImpl(const NGWrapper &graph_in,
+CorpusGeneratorImpl::CorpusGeneratorImpl(const NGHolder &graph_in,
+                                         const ExpressionInfo &expr_in,
                                          CorpusProperties &props)
-    : graph(graph_in), cProps(props) {
+    : expr(expr_in), graph(graph_in), cProps(props) {
     // if this pattern is to be matched approximately
-    if (graph_in.edit_distance && !props.editDistance) {
-        props.editDistance = props.rand(0, graph_in.edit_distance + 1);
+    if (expr.edit_distance && !props.editDistance) {
+        props.editDistance = props.rand(0, expr.edit_distance + 1);
     }
 }
 
@@ -392,8 +398,9 @@ hit_limit:
 /** \brief Concrete implementation for UTF-8 */
 class CorpusGeneratorUtf8 : public CorpusGenerator {
 public:
-    CorpusGeneratorUtf8(const NGWrapper &graph_in, CorpusProperties &props);
-    ~CorpusGeneratorUtf8() {}
+    CorpusGeneratorUtf8(const NGHolder &graph_in, const ExpressionInfo &expr_in,
+                        CorpusProperties &props);
+    ~CorpusGeneratorUtf8() = default;
 
     void generateCorpus(vector<string> &data);
 
@@ -410,19 +417,23 @@ private:
      * length. */
     void addRandom(const min_max &mm, vector<unichar> *out);
 
+    /** \brief Info about this expression. */
+    const ExpressionInfo &expr;
+
     /** \brief The NFA graph we operate over. */
-    const NGWrapper &graph;
+    const NGHolder &graph;
 
     /** \brief Reference to our corpus generator properties object (stores some
      * state) */
     CorpusProperties &cProps;
 };
 
-CorpusGeneratorUtf8::CorpusGeneratorUtf8(const NGWrapper &graph_in,
+CorpusGeneratorUtf8::CorpusGeneratorUtf8(const NGHolder &graph_in,
+                                         const ExpressionInfo &expr_in,
                                          CorpusProperties &props)
-    : graph(graph_in), cProps(props) {
+    : expr(expr_in), graph(graph_in), cProps(props) {
     // we do not support Utf8 for approximate matching
-    if (graph.edit_distance) {
+    if (expr.edit_distance) {
         throw CorpusGenerationFailure("UTF-8 for edited patterns is not "
                                       "supported.");
     }
@@ -681,11 +692,12 @@ CorpusGenerator::~CorpusGenerator() { }
 
 // External entry point
 
-unique_ptr<CorpusGenerator> makeCorpusGenerator(const NGWrapper &graph,
+unique_ptr<CorpusGenerator> makeCorpusGenerator(const NGHolder &graph,
+                                                const ExpressionInfo &expr,
                                                 CorpusProperties &props) {
-    if (graph.utf8) {
-        return ue2::make_unique<CorpusGeneratorUtf8>(graph, props);
+    if (expr.utf8) {
+        return ue2::make_unique<CorpusGeneratorUtf8>(graph, expr, props);
     } else {
-        return ue2::make_unique<CorpusGeneratorImpl>(graph, props);
+        return ue2::make_unique<CorpusGeneratorImpl>(graph, expr, props);
     }
 }

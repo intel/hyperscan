@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,9 +29,12 @@
 /** \file
  * \brief ReportManager: tracks Report structures, exhaustion and dedupe keys.
  */
-#include "grey.h"
+
 #include "report_manager.h"
+
+#include "grey.h"
 #include "ue2common.h"
+#include "compiler/compiler.h"
 #include "nfagraph/ng.h"
 #include "rose/rose_build.h"
 #include "util/compile_error.h"
@@ -201,20 +204,21 @@ void ReportManager::registerExtReport(ReportID id,
     }
 }
 
-Report ReportManager::getBasicInternalReport(const NGWrapper &g, s32 adj) {
+Report ReportManager::getBasicInternalReport(const ExpressionInfo &expr,
+                                             s32 adj) {
     /* validate that we are not violating highlander constraints, this will
      * throw a CompileError if so. */
-    registerExtReport(g.reportId,
-                      external_report_info(g.highlander, g.expressionIndex));
+    registerExtReport(expr.report,
+                      external_report_info(expr.highlander, expr.index));
 
     /* create the internal report */
     u32 ekey = INVALID_EKEY;
-    if (g.highlander) {
+    if (expr.highlander) {
         /* all patterns with the same report id share an ekey */
-        ekey = getExhaustibleKey(g.reportId);
+        ekey = getExhaustibleKey(expr.report);
     }
 
-    return makeECallback(g.reportId, adj, ekey);
+    return makeECallback(expr.report, adj, ekey);
 }
 
 void ReportManager::setProgramOffset(ReportID id, u32 programOffset) {

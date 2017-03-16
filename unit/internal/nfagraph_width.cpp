@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -79,10 +79,10 @@ INSTANTIATE_TEST_CASE_P(NFAWidth, NFAWidthTest, ValuesIn(widthTests));
 TEST_P(NFAWidthTest, Check) {
     const WidthTest &t = GetParam();
     SCOPED_TRACE(testing::Message() << "Pattern: " << t.pattern);
-    unique_ptr<NGWrapper> w(constructGraph(t.pattern, 0));
+    auto g = constructGraph(t.pattern, 0);
 
-    ASSERT_EQ(t.minWidth, findMinWidth(*w));
-    ASSERT_EQ(t.maxWidth, findMaxWidth(*w));
+    ASSERT_EQ(t.minWidth, findMinWidth(*g));
+    ASSERT_EQ(t.maxWidth, findMaxWidth(*g));
 }
 
 // for google test

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,12 +34,14 @@
 #define NG_SOM_H
 
 #include "som/som.h"
+#include "ue2common.h"
 
 namespace ue2 {
 
+class ExpressionInfo;
 class NG;
 class NGHolder;
-class NGWrapper;
+class ReportManager;
 struct Grey;
 
 enum sombe_rv {
@@ -63,14 +65,14 @@ enum sombe_rv {
  *  May throw a "Pattern too large" exception if prefixes of the
  * pattern are too large to compile.
  */
-sombe_rv doSom(NG &ng, NGHolder &h, const NGWrapper &w, u32 comp_id,
+sombe_rv doSom(NG &ng, NGHolder &h, const ExpressionInfo &expr, u32 comp_id,
                som_type som);
 
 /** Returns SOMBE_FAIL (and the original graph) if SOM cannot be established.
  * May also throw pattern too large if prefixes of the pattern are too large to
  * compile. */
-sombe_rv doSomWithHaig(NG &ng, NGHolder &h, const NGWrapper &w, u32 comp_id,
-                       som_type som);
+sombe_rv doSomWithHaig(NG &ng, NGHolder &h, const ExpressionInfo &expr,
+                       u32 comp_id, som_type som);
 
 void makeReportsSomPass(ReportManager &rm, NGHolder &g);
 

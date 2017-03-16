@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,7 +47,7 @@ namespace ue2 {
 
 struct Grey;
 class RoseBuild;
-class NGWrapper;
+class ExpressionInfo;
 
 struct external_report_info {
     external_report_info(bool h, u32 fpi)
@@ -92,13 +92,13 @@ public:
     const std::vector<Report> &reports() const { return reportIds; }
 
     /**
-     * Get a simple internal report corresponding to the wrapper. An ekey will
-     * be setup as required.
+     * Get a simple internal report corresponding to the expression. An ekey
+     * will be setup if required.
      *
      * Note: this function may throw a CompileError if constraints on external
      * match id are violated (mixed highlander status for example).
      */
-    Report getBasicInternalReport(const NGWrapper &g, s32 adj = 0);
+    Report getBasicInternalReport(const ExpressionInfo &expr, s32 adj = 0);
 
     /** \brief Register an external report and validate that we are not
      * violating highlander constraints (which will cause an exception to be

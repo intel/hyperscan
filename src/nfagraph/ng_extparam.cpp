@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,16 +38,19 @@
  * match given these constraints, or transform the graph in order to make a
  * constraint implicit.
  */
+
+#include "ng_extparam.h"
+
 #include "ng.h"
 #include "ng_depth.h"
 #include "ng_dump.h"
-#include "ng_extparam.h"
 #include "ng_prune.h"
 #include "ng_reports.h"
 #include "ng_som_util.h"
 #include "ng_width.h"
 #include "ng_util.h"
 #include "ue2common.h"
+#include "compiler/compiler.h"
 #include "parser/position.h"
 #include "util/compile_context.h"
 #include "util/compile_error.h"
@@ -129,7 +132,8 @@ DepthMinMax findMatchLengths(const ReportManager &rm, const NGHolder &g) {
 
 /** \brief Replace the graph's reports with new reports that specify bounds. */
 static
-void updateReportBounds(ReportManager &rm, NGWrapper &g, NFAVertex accept,
+void updateReportBounds(ReportManager &rm, NGHolder &g,
+                        const ExpressionInfo &expr, NFAVertex accept,
                         set<NFAVertex> &done) {
     for (auto v : inv_adjacent_vertices_range(accept, g)) {
         // Don't operate on g.accept itself.
@@ -153,16 +157,16 @@ void updateReportBounds(ReportManager &rm, NGWrapper &g, NFAVertex accept,
 
             // Note that we need to cope with offset adjustment here.
 
-            ir.minOffset = g.min_offset - ir.offsetAdjust;
-            if (g.max_offset == MAX_OFFSET) {
+            ir.minOffset = expr.min_offset - ir.offsetAdjust;
+            if (expr.max_offset == MAX_OFFSET) {
                 ir.maxOffset = MAX_OFFSET;
             } else {
-                ir.maxOffset = g.max_offset - ir.offsetAdjust;
+                ir.maxOffset = expr.max_offset - ir.offsetAdjust;
             }
             assert(ir.maxOffset >= ir.minOffset);
 
-            ir.minLength = g.min_length;
-            if (g.min_length && !g.som) {
+            ir.minLength = expr.min_length;
+            if (expr.min_length && !expr.som) {
                 ir.quashSom = true;
             }
 
@@ -196,22 +200,23 @@ bool hasVirtualStarts(const NGHolder &g) {
  * anchored and unanchored paths, but it's too tricky for the moment.
  */
 static
-bool anchorPatternWithBoundedRepeat(NGWrapper &g, const depth &minWidth,
+bool anchorPatternWithBoundedRepeat(NGHolder &g, const ExpressionInfo &expr,
+                                    const depth &minWidth,
                                     const depth &maxWidth) {
-    assert(!g.som);
-    assert(g.max_offset != MAX_OFFSET);
+    assert(!expr.som);
+    assert(expr.max_offset != MAX_OFFSET);
     assert(minWidth <= maxWidth);
     assert(maxWidth.is_reachable());
 
     DEBUG_PRINTF("widths=[%s,%s], min/max offsets=[%llu,%llu]\n",
-                 minWidth.str().c_str(), maxWidth.str().c_str(), g.min_offset,
-                 g.max_offset);
+                 minWidth.str().c_str(), maxWidth.str().c_str(),
+                 expr.min_offset, expr.max_offset);
 
-    if (g.max_offset > MAX_MAXOFFSET_TO_ANCHOR) {
+    if (expr.max_offset > MAX_MAXOFFSET_TO_ANCHOR) {
         return false;
     }
 
-    if (g.max_offset < minWidth) {
+    if (expr.max_offset < minWidth) {
         assert(0);
         return false;
     }
@@ -232,10 +237,10 @@ bool anchorPatternWithBoundedRepeat(NGWrapper &g, const depth &minWidth,
     u32 min_bound, max_bound;
     if (maxWidth.is_infinite()) {
         min_bound = 0;
-        max_bound = g.max_offset - minWidth;
+        max_bound = expr.max_offset - minWidth;
     } else {
-        min_bound = g.min_offset > maxWidth ? g.min_offset - maxWidth : 0;
-        max_bound = g.max_offset - minWidth;
+        min_bound = expr.min_offset > maxWidth ? expr.min_offset - maxWidth : 0;
+        max_bound = expr.max_offset - minWidth;
     }
 
     DEBUG_PRINTF("prepending ^.{%u,%u}\n", min_bound, max_bound);
@@ -315,7 +320,7 @@ NFAVertex findSingleCyclic(const NGHolder &g) {
 }
 
 static
-bool hasOffsetAdjust(const ReportManager &rm, NGWrapper &g,
+bool hasOffsetAdjust(const ReportManager &rm, NGHolder &g,
                      int *adjust) {
     const auto &reports = all_reports(g);
     if (reports.empty()) {
@@ -342,10 +347,11 @@ bool hasOffsetAdjust(const ReportManager &rm, NGWrapper &g,
  *     /foo.*bar/{min_length=100} --> /foo.{94,}bar/
  */
 static
-bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
-    assert(g.min_length);
+bool transformMinLengthToRepeat(const ReportManager &rm, NGHolder &g,
+                                ExpressionInfo &expr) {
+    assert(expr.min_length);
 
-    if (g.min_length > MAX_MINLENGTH_TO_CONVERT) {
+    if (expr.min_length > MAX_MINLENGTH_TO_CONVERT) {
         return false;
     }
 
@@ -437,10 +443,10 @@ bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
     DEBUG_PRINTF("width=%u, vertex %zu is cyclic\n", width,
                   g[cyclic].index);
 
-    if (width >= g.min_length) {
+    if (width >= expr.min_length) {
         DEBUG_PRINTF("min_length=%llu is guaranteed, as width=%u\n",
-                      g.min_length, width);
-        g.min_length = 0;
+                      expr.min_length, width);
+        expr.min_length = 0;
         return true;
     }
 
@@ -468,7 +474,7 @@ bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
 
     const CharReach &cr = g[cyclic].char_reach;
 
-    for (u32 i = 0; i < g.min_length - width - 1; ++i) {
+    for (u32 i = 0; i < expr.min_length - width - 1; ++i) {
         v = add_vertex(g);
         g[v].char_reach = cr;
 
@@ -487,19 +493,19 @@ bool transformMinLengthToRepeat(const ReportManager &rm, NGWrapper &g) {
     renumber_edges(g);
     clearReports(g);
 
-    g.min_length = 0;
+    expr.min_length = 0;
     return true;
 }
 
 static
-bool hasExtParams(const NGWrapper &g) {
-    if (g.min_length != 0) {
+bool hasExtParams(const ExpressionInfo &expr) {
+    if (expr.min_length != 0) {
         return true;
     }
-    if (g.min_offset != 0) {
+    if (expr.min_offset != 0) {
         return true;
     }
-    if (g.max_offset != MAX_OFFSET) {
+    if (expr.max_offset != MAX_OFFSET) {
         return true;
     }
     return false;
@@ -535,7 +541,7 @@ const depth& minDistToAccept(const NFAVertexBidiDepth &d) {
 }
 
 static
-bool isEdgePrunable(const NGWrapper &g,
+bool isEdgePrunable(const NGHolder &g, const ExpressionInfo &expr,
                     const vector<NFAVertexBidiDepth> &depths,
                     const NFAEdge &e) {
     const NFAVertex u = source(e, g);
@@ -564,29 +570,29 @@ bool isEdgePrunable(const NGWrapper &g,
     const NFAVertexBidiDepth &du = depths.at(u_idx);
     const NFAVertexBidiDepth &dv = depths.at(v_idx);
 
-    if (g.min_offset) {
+    if (expr.min_offset) {
         depth max_offset = maxDistFromStart(du) + maxDistToAccept(dv);
-        if (max_offset.is_finite() && max_offset < g.min_offset) {
+        if (max_offset.is_finite() && max_offset < expr.min_offset) {
             DEBUG_PRINTF("max_offset=%s too small\n", max_offset.str().c_str());
             return true;
         }
     }
 
-    if (g.max_offset != MAX_OFFSET) {
+    if (expr.max_offset != MAX_OFFSET) {
         depth min_offset = minDistFromStart(du) + minDistToAccept(dv);
         assert(min_offset.is_finite());
 
-        if (min_offset > g.max_offset) {
+        if (min_offset > expr.max_offset) {
             DEBUG_PRINTF("min_offset=%s too large\n", min_offset.str().c_str());
             return true;
         }
     }
 
-    if (g.min_length && is_any_accept(v, g)) {
+    if (expr.min_length && is_any_accept(v, g)) {
         // Simple take on min_length. If we're an edge to accept and our max
         // dist from start is too small, we can be pruned.
         const depth &width = du.fromStart.max;
-        if (width.is_finite() && width < g.min_length) {
+        if (width.is_finite() && width < expr.min_length) {
             DEBUG_PRINTF("max width %s from start too small for min_length\n",
                          width.str().c_str());
             return true;
@@ -597,14 +603,14 @@ bool isEdgePrunable(const NGWrapper &g,
 }
 
 static
-void pruneExtUnreachable(NGWrapper &g) {
+void pruneExtUnreachable(NGHolder &g, const ExpressionInfo &expr) {
     vector<NFAVertexBidiDepth> depths;
     calcDepths(g, depths);
 
     vector<NFAEdge> dead;
 
     for (const auto &e : edges_range(g)) {
-        if (isEdgePrunable(g, depths, e)) {
+        if (isEdgePrunable(g, expr, depths, e)) {
             DEBUG_PRINTF("pruning\n");
             dead.push_back(e);
         }
@@ -621,8 +627,8 @@ void pruneExtUnreachable(NGWrapper &g) {
 /** Remove vacuous edges in graphs where the min_offset or min_length
  * constraints dictate that they can never produce a match. */
 static
-void pruneVacuousEdges(NGWrapper &g) {
-    if (!g.min_length && !g.min_offset) {
+void pruneVacuousEdges(NGHolder &g, const ExpressionInfo &expr) {
+    if (!expr.min_length && !expr.min_offset) {
         return;
     }
 
@@ -634,14 +640,14 @@ void pruneVacuousEdges(NGWrapper &g) {
 
         // Special case: Crudely remove vacuous edges from start in graphs with a
         // min_offset.
-        if (g.min_offset && u == g.start && is_any_accept(v, g)) {
+        if (expr.min_offset && u == g.start && is_any_accept(v, g)) {
             DEBUG_PRINTF("vacuous edge in graph with min_offset!\n");
             dead.push_back(e);
             continue;
         }
 
         // If a min_length is set, vacuous edges can be removed.
-        if (g.min_length && is_any_start(u, g) && is_any_accept(v, g)) {
+        if (expr.min_length && is_any_start(u, g) && is_any_accept(v, g)) {
             DEBUG_PRINTF("vacuous edge in graph with min_length!\n");
             dead.push_back(e);
             continue;
@@ -657,7 +663,8 @@ void pruneVacuousEdges(NGWrapper &g) {
 }
 
 static
-void pruneUnmatchable(NGWrapper &g, const vector<DepthMinMax> &depths,
+void pruneUnmatchable(NGHolder &g, const ExpressionInfo &expr,
+                      const vector<DepthMinMax> &depths,
                       const ReportManager &rm, NFAVertex accept) {
     vector<NFAEdge> dead;
 
@@ -676,16 +683,16 @@ void pruneUnmatchable(NGWrapper &g, const vector<DepthMinMax> &depths,
         d.min += adj.first;
         d.max += adj.second;
 
-        if (d.max.is_finite() && d.max < g.min_length) {
+        if (d.max.is_finite() && d.max < expr.min_length) {
             DEBUG_PRINTF("prune, max match length %s < min_length=%llu\n",
-                         d.max.str().c_str(), g.min_length);
+                         d.max.str().c_str(), expr.min_length);
             dead.push_back(e);
             continue;
         }
 
-        if (g.max_offset != MAX_OFFSET && d.min > g.max_offset) {
+        if (expr.max_offset != MAX_OFFSET && d.min > expr.max_offset) {
             DEBUG_PRINTF("prune, min match length %s > max_offset=%llu\n",
-                         d.min.str().c_str(), g.max_offset);
+                         d.min.str().c_str(), expr.max_offset);
             dead.push_back(e);
             continue;
         }
@@ -697,15 +704,16 @@ void pruneUnmatchable(NGWrapper &g, const vector<DepthMinMax> &depths,
 /** Remove edges to accepts that can never produce a match long enough to
  * satisfy our min_length and max_offset constraints. */
 static
-void pruneUnmatchable(NGWrapper &g, const ReportManager &rm) {
-    if (!g.min_length) {
+void pruneUnmatchable(NGHolder &g, const ExpressionInfo &expr,
+                      const ReportManager &rm) {
+    if (!expr.min_length) {
         return;
     }
 
     vector<DepthMinMax> depths = getDistancesFromSOM(g);
 
-    pruneUnmatchable(g, depths, rm, g.accept);
-    pruneUnmatchable(g, depths, rm, g.acceptEod);
+    pruneUnmatchable(g, expr, depths, rm, g.accept);
+    pruneUnmatchable(g, expr, depths, rm, g.acceptEod);
 
     pruneUseless(g);
 }
@@ -732,9 +740,9 @@ bool hasOffsetAdjustments(const ReportManager &rm, const NGHolder &g) {
     return false;
 }
 
-void handleExtendedParams(ReportManager &rm, NGWrapper &g,
+void handleExtendedParams(ReportManager &rm, NGHolder &g, ExpressionInfo &expr,
                           UNUSED const CompileContext &cc) {
-    if (!hasExtParams(g)) {
+    if (!hasExtParams(expr)) {
         return;
     }
 
@@ -751,50 +759,50 @@ void handleExtendedParams(ReportManager &rm, NGWrapper &g,
     DepthMinMax match_depths = findMatchLengths(rm, g);
     DEBUG_PRINTF("match depths %s\n", match_depths.str().c_str());
 
-    if (is_anchored && maxWidth.is_finite() && g.min_offset > maxWidth) {
+    if (is_anchored && maxWidth.is_finite() && expr.min_offset > maxWidth) {
         ostringstream oss;
         oss << "Expression is anchored and cannot satisfy min_offset="
-            << g.min_offset << " as it can only produce matches of length "
+            << expr.min_offset << " as it can only produce matches of length "
             << maxWidth << " bytes at most.";
-        throw CompileError(g.expressionIndex, oss.str());
+        throw CompileError(expr.index, oss.str());
     }
 
-    if (minWidth > g.max_offset) {
+    if (minWidth > expr.max_offset) {
         ostringstream oss;
-        oss << "Expression has max_offset=" << g.max_offset << " but requires "
-             << minWidth << " bytes to match.";
-        throw CompileError(g.expressionIndex, oss.str());
+        oss << "Expression has max_offset=" << expr.max_offset
+            << " but requires " << minWidth << " bytes to match.";
+        throw CompileError(expr.index, oss.str());
     }
 
-    if (maxWidth.is_finite() && match_depths.max < g.min_length) {
+    if (maxWidth.is_finite() && match_depths.max < expr.min_length) {
         ostringstream oss;
-        oss << "Expression has min_length=" << g.min_length << " but can "
+        oss << "Expression has min_length=" << expr.min_length << " but can "
             "only produce matches of length " << match_depths.max <<
             " bytes at most.";
-        throw CompileError(g.expressionIndex, oss.str());
+        throw CompileError(expr.index, oss.str());
     }
 
-    if (g.min_length && g.min_length <= match_depths.min) {
+    if (expr.min_length && expr.min_length <= match_depths.min) {
         DEBUG_PRINTF("min_length=%llu constraint is unnecessary\n",
-                     g.min_length);
-        g.min_length = 0;
+                     expr.min_length);
+        expr.min_length = 0;
     }
 
-    if (!hasExtParams(g)) {
+    if (!hasExtParams(expr)) {
         return;
     }
 
-    pruneVacuousEdges(g);
-    pruneUnmatchable(g, rm);
+    pruneVacuousEdges(g, expr);
+    pruneUnmatchable(g, expr, rm);
 
     if (!has_offset_adj) {
-        pruneExtUnreachable(g);
+        pruneExtUnreachable(g, expr);
     }
 
     // We may have removed all the edges to accept, in which case this
     // expression cannot match.
     if (in_degree(g.accept, g) == 0 && in_degree(g.acceptEod, g) == 1) {
-        throw CompileError(g.expressionIndex, "Extended parameter "
+        throw CompileError(expr.index, "Extended parameter "
                 "constraints can not be satisfied for any match from "
                 "this expression.");
     }
@@ -812,27 +820,28 @@ void handleExtendedParams(ReportManager &rm, NGWrapper &g,
 
     // If the pattern is completely anchored and has a min_length set, this can
     // be converted to a min_offset.
-    if (g.min_length && (g.min_offset <= g.min_length) && is_anchored) {
-        DEBUG_PRINTF("converting min_length to min_offset=%llu for "
-                     "anchored case\n", g.min_length);
-        g.min_offset = g.min_length;
-        g.min_length = 0;
+    if (expr.min_length && (expr.min_offset <= expr.min_length) &&
+        is_anchored) {
+        DEBUG_PRINTF("convertinexpr.min_length to min_offset=%llu for "
+                     "anchored case\n", expr.min_length);
+        expr.min_offset = expr.min_length;
+        expr.min_length = 0;
     }
 
-    if (g.min_offset && g.min_offset <= minWidth && !has_offset_adj) {
+    if (expr.min_offset && expr.min_offset <= minWidth && !has_offset_adj) {
         DEBUG_PRINTF("min_offset=%llu constraint is unnecessary\n",
-                     g.min_offset);
-        g.min_offset = 0;
+                     expr.min_offset);
+        expr.min_offset = 0;
     }
 
-    if (!hasExtParams(g)) {
+    if (!hasExtParams(expr)) {
         return;
     }
 
     // If the pattern has a min_length and is of "ratchet" form with one
     // unbounded repeat, that repeat can become a bounded repeat.
     // e.g. /foo.*bar/{min_length=100} --> /foo.{94,}bar/
-    if (g.min_length && transformMinLengthToRepeat(rm, g)) {
+    if (expr.min_length && transformMinLengthToRepeat(rm, g, expr)) {
         DEBUG_PRINTF("converted min_length to bounded repeat\n");
         // recalc
         minWidth = findMinWidth(g);
@@ -846,28 +855,28 @@ void handleExtendedParams(ReportManager &rm, NGWrapper &g,
     // Note that it is possible to handle graphs that have a combination of
     // anchored and unanchored paths, but it's too tricky for the moment.
 
-    if (g.max_offset != MAX_OFFSET && !g.som && !g.min_length &&
-                !has_offset_adj && isUnanchored(g)) {
-        if (anchorPatternWithBoundedRepeat(g, minWidth, maxWidth)) {
+    if (expr.max_offset != MAX_OFFSET && !expr.som && !expr.min_length &&
+        !has_offset_adj && isUnanchored(g)) {
+        if (anchorPatternWithBoundedRepeat(g, expr, minWidth, maxWidth)) {
             DEBUG_PRINTF("minWidth=%s, maxWidth=%s\n", minWidth.str().c_str(),
                          maxWidth.str().c_str());
             if (minWidth == maxWidth) {
                 // For a fixed width pattern, we can retire the offsets as they
                 // are implicit in the graph now.
-                g.min_offset = 0;
-                g.max_offset = MAX_OFFSET;
+                expr.min_offset = 0;
+                expr.max_offset = MAX_OFFSET;
             }
         }
     }
     //dumpGraph("final.dot", g);
 
-    if (!hasExtParams(g)) {
+    if (!hasExtParams(expr)) {
         return;
     }
 
     set<NFAVertex> done;
-    updateReportBounds(rm, g, g.accept, done);
-    updateReportBounds(rm, g, g.acceptEod, done);
+    updateReportBounds(rm, g, expr, g.accept, done);
+    updateReportBounds(rm, g, expr, g.acceptEod, done);
 }
 
 } // namespace ue2

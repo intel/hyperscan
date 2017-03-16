@@ -159,12 +159,14 @@ public:
 ConstructLiteralVisitor::~ConstructLiteralVisitor() {}
 
 /** \brief True if the literal expression \a expr could be added to Rose. */
-bool shortcutLiteral(NG &ng, const ParsedExpression &expr) {
-    assert(expr.component);
+bool shortcutLiteral(NG &ng, const ParsedExpression &pe) {
+    assert(pe.component);
 
     if (!ng.cc.grey.allowLiteral) {
         return false;
     }
+
+    const auto &expr = pe.expr;
 
     // XXX: don't shortcut literals with extended params (yet)
     if (expr.min_offset || expr.max_offset != MAX_OFFSET || expr.min_length ||
@@ -175,8 +177,8 @@ bool shortcutLiteral(NG &ng, const ParsedExpression &expr) {
 
     ConstructLiteralVisitor vis;
     try {
-        assert(expr.component);
-        expr.component->accept(vis);
+        assert(pe.component);
+        pe.component->accept(vis);
         assert(vis.repeat_stack.empty());
     } catch (const ConstructLiteralVisitor::NotLiteral&) {
         DEBUG_PRINTF("not a literal\n");
@@ -196,7 +198,8 @@ bool shortcutLiteral(NG &ng, const ParsedExpression &expr) {
     }
 
     DEBUG_PRINTF("constructed literal %s\n", dumpString(lit).c_str());
-    return ng.addLiteral(lit, expr.index, expr.id, expr.highlander, expr.som);
+    return ng.addLiteral(lit, expr.index, expr.report, expr.highlander,
+                         expr.som);
 }
 
 } // namespace ue2

@@ -674,6 +674,7 @@ SET (hs_SRCS
     src/compiler/compiler.h
     src/compiler/error.cpp
     src/compiler/error.h
+    src/compiler/expression_info.h
     src/fdr/engine_description.cpp
     src/fdr/engine_description.h
     src/fdr/fdr_compile.cpp

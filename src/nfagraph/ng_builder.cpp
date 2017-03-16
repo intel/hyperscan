@@ -28,11 +28,13 @@
 
 /** \file
  * \brief: NFA Graph Builder: used by Glushkov construction to construct an
- * NGWrapper from a parsed expression.
+ * NGHolder from a parsed expression.
  */
+
+#include "ng_builder.h"
+
 #include "grey.h"
 #include "ng.h"
-#include "ng_builder.h"
 #include "ng_util.h"
 #include "ue2common.h"
 #include "compiler/compiler.h" // for ParsedExpression
@@ -79,7 +81,7 @@ public:
     void cloneRegion(Position first, Position last,
                      unsigned posOffset) override;
 
-    unique_ptr<NGWrapper> getGraph() override;
+    BuiltExpression getGraph() override;
 
 private:
     /** fetch a vertex given its Position ID. */
@@ -94,8 +96,11 @@ private:
     /** \brief Greybox: used for resource limits. */
     const Grey &grey;
 
-    /** \brief Underlying NGWrapper graph. */
-    unique_ptr<NGWrapper> graph;
+    /** \brief Underlying graph. */
+    unique_ptr<NGHolder> graph;
+
+    /** \brief Underlying expression info. */
+    ExpressionInfo expr;
 
     /** \brief mapping from position to vertex. Use \ref getVertex for access.
      * */
@@ -108,13 +113,9 @@ private:
 } // namespace
 
 NFABuilderImpl::NFABuilderImpl(ReportManager &rm_in, const Grey &grey_in,
-                               const ParsedExpression &expr)
-    : rm(rm_in), grey(grey_in),
-      graph(ue2::make_unique<NGWrapper>(
-          expr.index, expr.highlander, expr.utf8, expr.prefilter, expr.som,
-          expr.id, expr.min_offset, expr.max_offset, expr.min_length,
-          expr.edit_distance)),
-      vertIdx(N_SPECIALS) {
+                               const ParsedExpression &parsed)
+    : rm(rm_in), grey(grey_in), graph(ue2::make_unique<NGHolder>()),
+      expr(parsed.expr), vertIdx(N_SPECIALS) {
 
     // Reserve space for a reasonably-sized NFA
     id2vertex.reserve(64);
@@ -151,7 +152,7 @@ void NFABuilderImpl::addVertex(Position pos) {
     (*graph)[v].index = pos;
 }
 
-unique_ptr<NGWrapper> NFABuilderImpl::getGraph() {
+BuiltExpression NFABuilderImpl::getGraph() {
     DEBUG_PRINTF("built graph has %zu vertices and %zu edges\n",
                  num_vertices(*graph), num_edges(*graph));
 
@@ -162,13 +163,13 @@ unique_ptr<NGWrapper> NFABuilderImpl::getGraph() {
         throw CompileError("Pattern too large.");
     }
 
-    return move(graph);
+    return { expr, move(graph) };
 }
 
 void NFABuilderImpl::setNodeReportID(Position pos, int offsetAdjust) {
-    Report ir = rm.getBasicInternalReport(*graph, offsetAdjust);
+    Report ir = rm.getBasicInternalReport(expr, offsetAdjust);
     DEBUG_PRINTF("setting report id on %u = (%u, %d, %u)\n",
-                 pos, graph->reportId, offsetAdjust, ir.ekey);
+                 pos, expr.report, offsetAdjust, ir.ekey);
 
     NFAVertex v = getVertex(pos);
     auto &reports = (*graph)[v].reports;

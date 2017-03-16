@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,10 +37,11 @@
 namespace ue2 {
 
 struct CompileContext;
-class NGWrapper;
+class ExpressionInfo;
+class NGHolder;
 class ReportManager;
 
-void handleExtendedParams(ReportManager &rm, NGWrapper &g,
+void handleExtendedParams(ReportManager &rm, NGHolder &g, ExpressionInfo &expr,
                           const CompileContext &cc);
 
 } // namespace ue2

@@ -73,7 +73,6 @@ using namespace std;
 
 namespace ue2 {
 
-
 static
 void validateExt(const hs_expr_ext &ext) {
     static const unsigned long long ALL_EXT_FLAGS = HS_EXT_FLAG_MIN_OFFSET |
@@ -100,26 +99,18 @@ void validateExt(const hs_expr_ext &ext) {
 }
 
 ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
-                                   unsigned flags, ReportID actionId,
+                                   unsigned flags, ReportID report,
                                    const hs_expr_ext *ext)
-    : utf8(false),
-      allow_vacuous(flags & HS_FLAG_ALLOWEMPTY),
-      highlander(flags & HS_FLAG_SINGLEMATCH),
-      prefilter(flags & HS_FLAG_PREFILTER),
-      som(SOM_NONE),
-      index(index_in),
-      id(actionId),
-      min_offset(0),
-      max_offset(MAX_OFFSET),
-      min_length(0),
-      edit_distance(0) {
+    : expr(index_in, flags & HS_FLAG_ALLOWEMPTY, flags & HS_FLAG_SINGLEMATCH,
+           false, flags & HS_FLAG_PREFILTER, SOM_NONE, report, 0, MAX_OFFSET,
+           0, 0) {
     ParseMode mode(flags);
 
     component = parse(expression, mode);
 
-    utf8 = mode.utf8; /* utf8 may be set by parse() */
+    expr.utf8 = mode.utf8; /* utf8 may be set by parse() */
 
-    if (utf8 && !isValidUtf8(expression)) {
+    if (expr.utf8 && !isValidUtf8(expression)) {
         throw ParseError("Expression is not valid UTF-8.");
     }
 
@@ -147,7 +138,7 @@ ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
 
     // Set SOM type.
     if (flags & HS_FLAG_SOM_LEFTMOST) {
-        som = SOM_LEFT;
+        expr.som = SOM_LEFT;
     }
 
     // Set extended parameters, if we have them.
@@ -156,29 +147,29 @@ ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
         validateExt(*ext);
 
         if (ext->flags & HS_EXT_FLAG_MIN_OFFSET) {
-            min_offset = ext->min_offset;
+            expr.min_offset = ext->min_offset;
         }
         if (ext->flags & HS_EXT_FLAG_MAX_OFFSET) {
-            max_offset = ext->max_offset;
+            expr.max_offset = ext->max_offset;
         }
         if (ext->flags & HS_EXT_FLAG_MIN_LENGTH) {
-            min_length = ext->min_length;
+            expr.min_length = ext->min_length;
         }
         if (ext->flags & HS_EXT_FLAG_EDIT_DISTANCE) {
-            edit_distance = ext->edit_distance;
+            expr.edit_distance = ext->edit_distance;
         }
     }
 
     // These are validated in validateExt, so an error will already have been
     // thrown if these conditions don't hold.
-    assert(max_offset >= min_offset);
-    assert(max_offset >= min_length);
+    assert(expr.max_offset >= expr.min_offset);
+    assert(expr.max_offset >= expr.min_length);
 
     // Since prefiltering and SOM aren't supported together, we must squash any
     // min_length constraint as well.
-    if (flags & HS_FLAG_PREFILTER && min_length) {
+    if (flags & HS_FLAG_PREFILTER && expr.min_length) {
         DEBUG_PRINTF("prefiltering mode: squashing min_length constraint\n");
-        min_length = 0;
+        expr.min_length = 0;
     }
 }
 
@@ -187,25 +178,25 @@ ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
  * \brief Dumps the parse tree to screen in debug mode and to disk in dump
  * mode.
  */
-void dumpExpression(UNUSED const ParsedExpression &expr,
+void dumpExpression(UNUSED const ParsedExpression &pe,
                     UNUSED const char *stage, UNUSED const Grey &grey) {
 #if defined(DEBUG)
-    DEBUG_PRINTF("===== Rule ID: %u (internalID:  %u) =====\n", expr.id,
-                 expr.index);
+    DEBUG_PRINTF("===== Rule ID: %u (expression index: %u) =====\n",
+                 pe.expr.report, pe.expr.index);
     ostringstream debug_tree;
-    dumpTree(debug_tree, expr.component.get());
+    dumpTree(debug_tree, pe.component.get());
     printf("%s\n", debug_tree.str().c_str());
 #endif // DEBUG
 
 #if defined(DUMP_SUPPORT)
     if (grey.dumpFlags & Grey::DUMP_PARSE) {
         stringstream ss;
-        ss << grey.dumpPath << "Expr_" << expr.index << "_componenttree_"
+        ss << grey.dumpPath << "Expr_" << pe.expr.index << "_componenttree_"
            << stage << ".txt";
         ofstream out(ss.str().c_str());
-        out << "Component Tree for " << expr.id << endl;
-        dumpTree(out, expr.component.get());
-        if (expr.utf8) {
+        out << "Component Tree for " << pe.expr.report << endl;
+        dumpTree(out, pe.component.get());
+        if (pe.expr.utf8) {
             out << "UTF8 mode" << endl;
         }
     }
@@ -215,13 +206,13 @@ void dumpExpression(UNUSED const ParsedExpression &expr,
 
 /** \brief Run Component tree optimisations on \a expr. */
 static
-void optimise(ParsedExpression &expr) {
-    if (expr.min_length || expr.som) {
+void optimise(ParsedExpression &pe) {
+    if (pe.expr.min_length || pe.expr.som) {
         return;
     }
 
     DEBUG_PRINTF("optimising\n");
-    expr.component->optimise(true /* root is connected to sds */);
+    pe.component->optimise(true /* root is connected to sds */);
 }
 
 void addExpression(NG &ng, unsigned index, const char *expression,
@@ -238,34 +229,34 @@ void addExpression(NG &ng, unsigned index, const char *expression,
 
     // Do per-expression processing: errors here will result in an exception
     // being thrown up to our caller
-    ParsedExpression expr(index, expression, flags, id, ext);
-    dumpExpression(expr, "orig", cc.grey);
+    ParsedExpression pe(index, expression, flags, id, ext);
+    dumpExpression(pe, "orig", cc.grey);
 
     // Apply prefiltering transformations if desired.
-    if (expr.prefilter) {
-        prefilterTree(expr.component, ParseMode(flags));
-        dumpExpression(expr, "prefiltered", cc.grey);
+    if (pe.expr.prefilter) {
+        prefilterTree(pe.component, ParseMode(flags));
+        dumpExpression(pe, "prefiltered", cc.grey);
     }
 
     // Expressions containing zero-width assertions and other extended pcre
     // types aren't supported yet. This call will throw a ParseError exception
     // if the component tree contains such a construct.
-    checkUnsupported(*expr.component);
+    checkUnsupported(*pe.component);
 
-    expr.component->checkEmbeddedStartAnchor(true);
-    expr.component->checkEmbeddedEndAnchor(true);
+    pe.component->checkEmbeddedStartAnchor(true);
+    pe.component->checkEmbeddedEndAnchor(true);
 
     if (cc.grey.optimiseComponentTree) {
-        optimise(expr);
-        dumpExpression(expr, "opt", cc.grey);
+        optimise(pe);
+        dumpExpression(pe, "opt", cc.grey);
     }
 
     DEBUG_PRINTF("component=%p, nfaId=%u, reportId=%u\n",
-                 expr.component.get(), expr.index, expr.id);
+                 pe.component.get(), pe.expr.index, pe.expr.report);
 
     // You can only use the SOM flags if you've also specified an SOM
     // precision mode.
-    if (expr.som != SOM_NONE && cc.streaming && !ng.ssm.somPrecision()) {
+    if (pe.expr.som != SOM_NONE && cc.streaming && !ng.ssm.somPrecision()) {
         throw CompileError("To use a SOM expression flag in streaming mode, "
                            "an SOM precision mode (e.g. "
                            "HS_MODE_SOM_HORIZON_LARGE) must be specified.");
@@ -273,26 +264,26 @@ void addExpression(NG &ng, unsigned index, const char *expression,
 
     // If this expression is a literal, we can feed it directly to Rose rather
     // than building the NFA graph.
-    if (shortcutLiteral(ng, expr)) {
+    if (shortcutLiteral(ng, pe)) {
         DEBUG_PRINTF("took literal short cut\n");
         return;
     }
 
-    unique_ptr<NGWrapper> g = buildWrapper(ng.rm, cc, expr);
-
-    if (!g) {
+    auto built_expr = buildGraph(ng.rm, cc, pe);
+    if (!built_expr.g) {
         DEBUG_PRINTF("NFA build failed on ID %u, but no exception was "
-                     "thrown.\n", expr.id);
+                     "thrown.\n", pe.expr.report);
         throw CompileError("Internal error.");
     }
 
-    if (!expr.allow_vacuous && matches_everywhere(*g)) {
+    auto &g = *built_expr.g;
+    if (!pe.expr.allow_vacuous && matches_everywhere(g)) {
         throw CompileError("Pattern matches empty buffer; use "
                            "HS_FLAG_ALLOWEMPTY to enable support.");
     }
 
-    if (!ng.addGraph(*g)) {
-        DEBUG_PRINTF("NFA addGraph failed on ID %u.\n", expr.id);
+    if (!ng.addGraph(built_expr.expr, g)) {
+        DEBUG_PRINTF("NFA addGraph failed on ID %u.\n", pe.expr.report);
         throw CompileError("Error compiling expression.");
     }
 }
@@ -453,41 +444,42 @@ bool isSupported(const Component &c) {
 }
 #endif
 
-unique_ptr<NGWrapper> buildWrapper(ReportManager &rm, const CompileContext &cc,
-                                   const ParsedExpression &expr) {
-    assert(isSupported(*expr.component));
+BuiltExpression buildGraph(ReportManager &rm, const CompileContext &cc,
+                           const ParsedExpression &pe) {
+    assert(isSupported(*pe.component));
 
-    const unique_ptr<NFABuilder> builder = makeNFABuilder(rm, cc, expr);
+    const auto builder = makeNFABuilder(rm, cc, pe);
     assert(builder);
 
     // Set up START and ACCEPT states; retrieve the special states
-    const auto bs = makeGlushkovBuildState(*builder, expr.prefilter);
+    const auto bs = makeGlushkovBuildState(*builder, pe.expr.prefilter);
 
     // Map position IDs to characters/components
-    expr.component->notePositions(*bs);
+    pe.component->notePositions(*bs);
 
     // Wire the start dotstar state to the firsts
-    connectInitialStates(*bs, expr);
+    connectInitialStates(*bs, pe);
 
     DEBUG_PRINTF("wire up body of expr\n");
     // Build the rest of the FOLLOW set
     vector<PositionInfo> initials = {builder->getStartDotStar(),
                                      builder->getStart()};
-    expr.component->buildFollowSet(*bs, initials);
+    pe.component->buildFollowSet(*bs, initials);
 
     // Wire the lasts to the accept state
-    connectFinalStates(*bs, expr);
+    connectFinalStates(*bs, pe);
 
     // Create our edges
     bs->buildEdges();
 
-    auto g = builder->getGraph();
-    assert(g);
+    BuiltExpression built_expr = builder->getGraph();
+    assert(built_expr.g);
 
-    dumpDotWrapper(*g, "00_before_asserts", cc.grey);
-    removeAssertVertices(rm, *g);
+    dumpDotWrapper(*built_expr.g, built_expr.expr, "00_before_asserts",
+                   cc.grey);
+    removeAssertVertices(rm, *built_expr.g, built_expr.expr);
 
-    return g;
+    return built_expr;
 }
 
 } // namespace ue2

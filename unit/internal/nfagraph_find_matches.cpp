@@ -208,7 +208,8 @@ TEST_P(MatchesTest, Check) {
     CompileContext cc(false, false, get_current_target(), Grey());
     ReportManager rm(cc.grey);
     ParsedExpression parsed(0, t.pattern.c_str(), t.flags, 0);
-    auto g = buildWrapper(rm, cc, parsed);
+    auto built_expr = buildGraph(rm, cc, parsed);
+    const auto &g = built_expr.g;
     bool utf8 = (t.flags & HS_FLAG_UTF8) > 0;
 
     set<pair<size_t, size_t>> matches;

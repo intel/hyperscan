@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,6 +42,8 @@
  * word-to-word and word-to-nonword) are dropped.
  */
 #include "asserts.h"
+
+#include "compiler/compiler.h"
 #include "nfagraph/ng.h"
 #include "nfagraph/ng_prune.h"
 #include "nfagraph/ng_redundancy.h"
@@ -115,8 +117,8 @@ u32 conjunct(u32 flags1, u32 flags2) {
 typedef map<pair<NFAVertex, NFAVertex>, NFAEdge> edge_cache_t;
 
 static
-void replaceAssertVertex(NGWrapper &g, NFAVertex t, edge_cache_t &edge_cache,
-                         u32 &assert_edge_count) {
+void replaceAssertVertex(NGHolder &g, NFAVertex t, const ExpressionInfo &expr,
+                         edge_cache_t &edge_cache, u32 &assert_edge_count) {
     DEBUG_PRINTF("replacing assert vertex %zu\n", g[t].index);
 
     const u32 flags = g[t].assert_flags;
@@ -178,8 +180,7 @@ void replaceAssertVertex(NGWrapper &g, NFAVertex t, edge_cache_t &edge_cache,
                 edge_cache.emplace(cache_key, e);
                 g[e].assert_flags = flags;
                 if (++assert_edge_count > MAX_ASSERT_EDGES) {
-                    throw CompileError(g.expressionIndex,
-                                       "Pattern is too large.");
+                    throw CompileError(expr.index, "Pattern is too large.");
                 }
             } else {
                 NFAEdge e = ecit->second;
@@ -200,21 +201,23 @@ void replaceAssertVertex(NGWrapper &g, NFAVertex t, edge_cache_t &edge_cache,
 }
 
 static
-void setReportId(ReportManager &rm, NGWrapper &g, NFAVertex v, s32 adj) {
+void setReportId(ReportManager &rm, NGHolder &g, const ExpressionInfo &expr,
+                 NFAVertex v, s32 adj) {
     // Don't try and set the report ID of a special vertex.
     assert(!is_special(v, g));
 
     // There should be no reports set already.
     assert(g[v].reports.empty());
 
-    Report r = rm.getBasicInternalReport(g, adj);
+    Report r = rm.getBasicInternalReport(expr, adj);
 
     g[v].reports.insert(rm.getInternalId(r));
     DEBUG_PRINTF("set report id for vertex %zu, adj %d\n", g[v].index, adj);
 }
 
 static
-void checkForMultilineStart(ReportManager &rm, NGWrapper &g) {
+void checkForMultilineStart(ReportManager &rm, NGHolder &g,
+                            const ExpressionInfo &expr) {
     vector<NFAEdge> dead;
     for (auto v : adjacent_vertices_range(g.start, g)) {
         if (!(g[v].assert_flags & POS_FLAG_MULTILINE_START)) {
@@ -238,7 +241,7 @@ void checkForMultilineStart(ReportManager &rm, NGWrapper &g) {
     for (const auto &e : dead) {
         NFAVertex dummy = add_vertex(g);
         g[dummy].char_reach.setall();
-        setReportId(rm, g, dummy, -1);
+        setReportId(rm, g, expr, dummy, -1);
         add_edge(source(e, g), dummy, g[e], g);
         add_edge(dummy, g.accept, g);
     }
@@ -263,7 +266,8 @@ bool hasAssertVertices(const NGHolder &g) {
  * Remove the horrors that are the temporary assert vertices which arise from
  * our construction method. Allows the rest of our code base to live in
  * blissful ignorance of their existence. */
-void removeAssertVertices(ReportManager &rm, NGWrapper &g) {
+void removeAssertVertices(ReportManager &rm, NGHolder &g,
+                          const ExpressionInfo &expr) {
     size_t num = 0;
 
     DEBUG_PRINTF("before: graph has %zu vertices\n", num_vertices(g));
@@ -285,12 +289,12 @@ void removeAssertVertices(ReportManager &rm, NGWrapper &g) {
 
     for (auto v : vertices_range(g)) {
         if (g[v].assert_flags & WORDBOUNDARY_FLAGS) {
-            replaceAssertVertex(g, v, edge_cache, assert_edge_count);
+            replaceAssertVertex(g, v, expr, edge_cache, assert_edge_count);
             num++;
         }
     }
 
-    checkForMultilineStart(rm, g);
+    checkForMultilineStart(rm, g, expr);
 
     if (num) {
         DEBUG_PRINTF("resolved %zu assert vertices\n", num);

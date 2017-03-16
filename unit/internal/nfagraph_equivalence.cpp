@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,7 +54,7 @@ TEST(NFAGraph, RemoveEquivalence1) {
     // The graph should be merged into: a(b|c)
     CompileContext cc(false, false, get_current_target(), Grey());
 
-    unique_ptr<NGWrapper> graph(constructGraphWithCC("(ab|ac)", cc, 0));
+    auto graph(constructGraphWithCC("(ab|ac)", cc, 0));
     ASSERT_TRUE(graph != nullptr);
     NGHolder &g = *graph;
     g.kind = NFA_SUFFIX;
@@ -115,7 +115,7 @@ TEST(NFAGraph, RemoveEquivalence2) {
     // The graph should be merged into: (b|c)a
     CompileContext cc(false, false, get_current_target(), Grey());
 
-    unique_ptr<NGWrapper> graph(constructGraphWithCC("(ba|ca)", cc, 0));
+    auto graph(constructGraphWithCC("(ba|ca)", cc, 0));
     ASSERT_TRUE(graph != nullptr);
     NGHolder &g = *graph;
     g.kind = NFA_SUFFIX;
@@ -176,8 +176,7 @@ TEST(NFAGraph, RemoveEquivalence3) {
     // The graph should be merged into: a(..)+(X|Y)
     CompileContext cc(false, false, get_current_target(), Grey());
 
-    unique_ptr<NGWrapper> graph(constructGraphWithCC("a(..)+X|a(..)+Y", cc,
-            HS_FLAG_DOTALL));
+    auto graph(constructGraphWithCC("a(..)+X|a(..)+Y", cc, HS_FLAG_DOTALL));
     ASSERT_TRUE(graph != nullptr);
     NGHolder &g = *graph;
     g.kind = NFA_SUFFIX;
@@ -266,8 +265,7 @@ TEST(NFAGraph, RemoveEquivalence4) {
     // The graph should be merged into: (X|Y)(..)+a
     CompileContext cc(false, false, get_current_target(), Grey());
 
-    unique_ptr<NGWrapper> graph(constructGraphWithCC("X(..)+a|Y(..)+a", cc,
-            HS_FLAG_DOTALL));
+    auto graph(constructGraphWithCC("X(..)+a|Y(..)+a", cc, HS_FLAG_DOTALL));
     ASSERT_TRUE(graph != nullptr);
     NGHolder &g = *graph;
     g.kind = NFA_SUFFIX;
@@ -363,8 +361,7 @@ TEST(NFAGraph, RemoveEquivalence5) {
     // The graph should be merged into: [^\x00]*[\x00]
     CompileContext cc(false, false, get_current_target(), Grey());
 
-    unique_ptr<NGWrapper> graph(constructGraphWithCC("[^\\x00][^\\x00]*[\\x00]",
-            cc, 0));
+    auto graph(constructGraphWithCC("[^\\x00][^\\x00]*[\\x00]", cc, 0));
     ASSERT_TRUE(graph != nullptr);
     NGHolder &g = *graph;
     g.kind = NFA_PREFIX;
@@ -420,7 +417,7 @@ TEST(NFAGraph, RemoveEquivalence5) {
 TEST(NFAGraph, RemoveEquivalence6) {
     // Build a small graph with two redundant vertices: ^(.*|.*)a
     // The graph should be merged into: a
-    unique_ptr<NGWrapper> graph(constructGraph("^(.*|.*)a", HS_FLAG_DOTALL));
+    auto graph(constructGraph("^(.*|.*)a", HS_FLAG_DOTALL));
     ASSERT_TRUE(graph != nullptr);
     NGHolder &g = *graph;
 
@@ -458,7 +455,7 @@ TEST(NFAGraph, RemoveEquivalence6) {
 TEST(NFAGraph, RemoveEquivalence7) {
     // Build a small graph with no redundant vertices: ^.+a
     // Make sure we don't merge anything
-    unique_ptr<NGWrapper> graph(constructGraph("^.+a", HS_FLAG_DOTALL));
+    auto graph(constructGraph("^.+a", HS_FLAG_DOTALL));
     ASSERT_TRUE(graph != nullptr);
     NGHolder &g = *graph;
 

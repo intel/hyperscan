@@ -41,7 +41,8 @@
 
 namespace ue2 {
 
-class NGWrapper;
+class ExpressionInfo;
+class NGHolder;
 
 } // namespace ue2
 
@@ -68,6 +69,7 @@ public:
 /** \brief Build a concrete impl conforming to the \ref CorpusGenerator
  * interface. */
 std::unique_ptr<CorpusGenerator>
-makeCorpusGenerator(const ue2::NGWrapper &graph, CorpusProperties &props);
+makeCorpusGenerator(const ue2::NGHolder &g, const ue2::ExpressionInfo &expr,
+                    CorpusProperties &props);
 
 #endif
