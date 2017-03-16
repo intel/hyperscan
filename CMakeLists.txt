@@ -59,34 +59,6 @@ include_directories(${PROJECT_SOURCE_DIR}/src)
 include_directories(${PROJECT_BINARY_DIR})
 include_directories(SYSTEM include)
 
-set(BOOST_USE_STATIC_LIBS OFF)
-set(BOOST_USE_MULTITHREADED OFF)
-set(BOOST_USE_STATIC_RUNTIME OFF)
-if (CMAKE_SYSTEM_NAME MATCHES "Darwin"
-    OR (CMAKE_SYSTEM_NAME MATCHES "FreeBSD"
-        AND CMAKE_C_COMPILER_ID MATCHES "Clang"))
-    # we need a more recent boost for libc++ used by clang on OSX and FreeBSD
-    set(BOOST_MINVERSION 1.61.0)
-else ()
-    set(BOOST_MINVERSION 1.57.0)
-endif ()
-set(BOOST_NO_BOOST_CMAKE ON)
-
-unset(Boost_INCLUDE_DIR CACHE)
-# we might have boost in tree, so provide a hint and try again
-set(BOOST_INCLUDEDIR "${PROJECT_SOURCE_DIR}/include")
-find_package(Boost ${BOOST_MINVERSION} QUIET)
-if(NOT Boost_FOUND)
-    # otherwise check for Boost installed on the system
-    unset(BOOST_INCLUDEDIR)
-    find_package(Boost ${BOOST_MINVERSION} QUIET)
-    if(NOT Boost_FOUND)
-        message(FATAL_ERROR "Boost ${BOOST_MINVERSION} or later not found. Either install system packages if available, extract Boost headers to ${CMAKE_SOURCE_DIR}/include, or set the CMake BOOST_ROOT variable.")
-    endif()
-endif()
-
-message(STATUS "Boost version: ${Boost_MAJOR_VERSION}.${Boost_MINOR_VERSION}.${Boost_SUBMINOR_VERSION}")
-
 include (${CMAKE_MODULE_PATH}/boost.cmake)
 
 # -- make this work? set(python_ADDITIONAL_VERSIONS 2.7 2.6)
