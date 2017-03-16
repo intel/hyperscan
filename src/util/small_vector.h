@@ -52,8 +52,7 @@ using small_vector = boost::container::small_vector<T, N, Allocator>;
 #else
 
 // Boost version isn't new enough, fall back to just using std::vector.
-template <class T, std::size_t N,
-          typename Allocator = boost::container::new_allocator<T>>
+template <class T, std::size_t N, typename Allocator = std::allocator<T>>
 using small_vector = std::vector<T, Allocator>;
 
 #endif // HAVE_BOOST_CONTAINER_SMALL_VECTOR
