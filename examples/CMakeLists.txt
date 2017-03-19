@@ -22,3 +22,6 @@ set_source_files_properties(patbench.cc PROPERTIES COMPILE_FLAGS
     "-Wall -Wno-unused-parameter")
 target_link_libraries(patbench hs pcap)
 endif()
+
+install(FILES simplegrep.c pcapscan.cc patbench.cc README.md
+        DESTINATION ${CMAKE_INSTALL_DOCDIR}/examples)
