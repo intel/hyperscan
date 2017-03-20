@@ -437,7 +437,7 @@ bool NG::addGraph(ExpressionInfo &expr, unique_ptr<NGHolder> g_ptr) {
     // Split the graph into a set of connected components and process those.
     // Note: this invalidates g_ptr.
 
-    auto g_comp = calcComponents(std::move(g_ptr));
+    auto g_comp = calcComponents(std::move(g_ptr), cc.grey);
     assert(!g_comp.empty());
 
     if (!som) {
@@ -446,7 +446,7 @@ bool NG::addGraph(ExpressionInfo &expr, unique_ptr<NGHolder> g_ptr) {
             reformLeadingDots(*gc);
         }
 
-        recalcComponents(g_comp);
+        recalcComponents(g_comp, cc.grey);
     }
 
     if (processComponents(*this, expr, g_comp, som)) {

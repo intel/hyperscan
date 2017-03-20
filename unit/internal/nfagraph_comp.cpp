@@ -43,7 +43,9 @@ TEST(NFAGraph, CalcComp1) {
     auto graph = constructGraph("abc|def|ghi", 0);
     ASSERT_TRUE(graph != nullptr);
 
-    auto comps = calcComponents(std::move(graph));
+    Grey grey;
+    grey.calcComponents = true;
+    auto comps = calcComponents(std::move(graph), grey);
     ASSERT_EQ(3, comps.size());
 }
 
@@ -51,7 +53,9 @@ TEST(NFAGraph, CalcComp2) {
     auto graph = constructGraph("a|b|c|d|e|f|g|h|i", 0);
     ASSERT_TRUE(graph != nullptr);
 
-    auto comps = calcComponents(std::move(graph));
+    Grey grey;
+    grey.calcComponents = true;
+    auto comps = calcComponents(std::move(graph), grey);
 
     // We should be identifying this as a trivial case and not splitting it.
     ASSERT_EQ(1, comps.size());
@@ -62,7 +66,9 @@ TEST(NFAGraph, RecalcComp1) {
     comps.push_back(constructGraph("abc|def|ghi", 0));
     ASSERT_TRUE(comps.back() != nullptr);
 
-    recalcComponents(comps);
+    Grey grey;
+    grey.calcComponents = true;
+    recalcComponents(comps, grey);
 
     ASSERT_EQ(3, comps.size());
 }

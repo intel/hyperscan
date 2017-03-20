@@ -39,13 +39,15 @@
 namespace ue2 {
 
 class NGHolder;
+struct Grey;
 
 bool isAlternationOfClasses(const NGHolder &g);
 
 std::deque<std::unique_ptr<NGHolder>>
-calcComponents(std::unique_ptr<NGHolder> g);
+calcComponents(std::unique_ptr<NGHolder> g, const Grey &grey);
 
-void recalcComponents(std::deque<std::unique_ptr<NGHolder>> &comps);
+void recalcComponents(std::deque<std::unique_ptr<NGHolder>> &comps,
+                      const Grey &grey);
 
 } // namespace ue2
 

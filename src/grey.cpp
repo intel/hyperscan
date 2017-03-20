@@ -42,6 +42,7 @@ namespace ue2 {
 
 Grey::Grey(void) :
                    optimiseComponentTree(true),
+                   calcComponents(true),
                    performGraphSimplification(true),
                    prefilterReductions(true),
                    removeEdgeRedundancy(true),
@@ -209,6 +210,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         } while (0)
 
         G_UPDATE(optimiseComponentTree);
+        G_UPDATE(calcComponents);
         G_UPDATE(performGraphSimplification);
         G_UPDATE(prefilterReductions);
         G_UPDATE(removeEdgeRedundancy);

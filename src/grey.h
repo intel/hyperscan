@@ -41,6 +41,7 @@ struct Grey {
 
     bool optimiseComponentTree;
 
+    bool calcComponents;
     bool performGraphSimplification;
     bool prefilterReductions;
     bool removeEdgeRedundancy;

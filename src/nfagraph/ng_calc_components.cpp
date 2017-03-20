@@ -55,6 +55,7 @@
 #include "ng_prune.h"
 #include "ng_undirected.h"
 #include "ng_util.h"
+#include "grey.h"
 #include "ue2common.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
@@ -376,12 +377,13 @@ void splitIntoComponents(unique_ptr<NGHolder> g,
                   }));
 }
 
-deque<unique_ptr<NGHolder>> calcComponents(unique_ptr<NGHolder> g) {
+deque<unique_ptr<NGHolder>> calcComponents(unique_ptr<NGHolder> g,
+                                           const Grey &grey) {
     deque<unique_ptr<NGHolder>> comps;
 
     // For trivial cases, we needn't bother running the full
     // connected_components algorithm.
-    if (isAlternationOfClasses(*g)) {
+    if (!grey.calcComponents || isAlternationOfClasses(*g)) {
         comps.push_back(std::move(g));
         return comps;
     }
@@ -402,7 +404,11 @@ deque<unique_ptr<NGHolder>> calcComponents(unique_ptr<NGHolder> g) {
     return comps;
 }
 
-void recalcComponents(deque<unique_ptr<NGHolder>> &comps) {
+void recalcComponents(deque<unique_ptr<NGHolder>> &comps, const Grey &grey) {
+    if (!grey.calcComponents) {
+        return;
+    }
+
     deque<unique_ptr<NGHolder>> out;
 
     for (auto &gc : comps) {
@@ -415,7 +421,7 @@ void recalcComponents(deque<unique_ptr<NGHolder>> &comps) {
             continue;
         }
 
-        auto gc_comps = calcComponents(std::move(gc));
+        auto gc_comps = calcComponents(std::move(gc), grey);
         out.insert(end(out), std::make_move_iterator(begin(gc_comps)),
                    std::make_move_iterator(end(gc_comps)));
     }
