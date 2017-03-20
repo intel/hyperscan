@@ -315,7 +315,10 @@ bool processComponents(NG &ng, ExpressionInfo &expr,
     return false;
 }
 
-bool NG::addGraph(ExpressionInfo &expr, NGHolder &g) {
+bool NG::addGraph(ExpressionInfo &expr, unique_ptr<NGHolder> g_ptr) {
+    assert(g_ptr);
+    NGHolder &g = *g_ptr;
+
     // remove reports that aren't on vertices connected to accept.
     clearReports(g);
 
@@ -431,15 +434,16 @@ bool NG::addGraph(ExpressionInfo &expr, NGHolder &g) {
         return true;
     }
 
-    // Split the graph into a set of connected components.
+    // Split the graph into a set of connected components and process those.
+    // Note: this invalidates g_ptr.
 
-    deque<unique_ptr<NGHolder>> g_comp = calcComponents(g);
+    auto g_comp = calcComponents(std::move(g_ptr));
     assert(!g_comp.empty());
 
     if (!som) {
-        for (u32 i = 0; i < g_comp.size(); i++) {
-            assert(g_comp[i]);
-            reformLeadingDots(*g_comp[i]);
+        for (auto &gc : g_comp) {
+            assert(gc);
+            reformLeadingDots(*gc);
         }
 
         recalcComponents(g_comp);
@@ -453,12 +457,11 @@ bool NG::addGraph(ExpressionInfo &expr, NGHolder &g) {
     // have another shot at accepting the graph.
 
     if (cc.grey.prefilterReductions && expr.prefilter) {
-        for (u32 i = 0; i < g_comp.size(); i++) {
-            if (!g_comp[i]) {
+        for (auto &gc : g_comp) {
+            if (!gc) {
                 continue;
             }
-
-            prefilterReductions(*g_comp[i], cc);
+            prefilterReductions(*gc, cc);
         }
 
         if (processComponents(*this, expr, g_comp, som)) {

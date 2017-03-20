@@ -70,7 +70,7 @@ public:
 
     /** \brief Consumes a pattern, returns false or throws a CompileError
      * exception if the graph cannot be consumed. */
-    bool addGraph(ExpressionInfo &expr, NGHolder &h);
+    bool addGraph(ExpressionInfo &expr, std::unique_ptr<NGHolder> g_ptr);
 
     /** \brief Consumes a graph, cut-down version of addGraph for use by SOM
      * processing. */

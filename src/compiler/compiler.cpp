@@ -276,13 +276,12 @@ void addExpression(NG &ng, unsigned index, const char *expression,
         throw CompileError("Internal error.");
     }
 
-    auto &g = *built_expr.g;
-    if (!pe.expr.allow_vacuous && matches_everywhere(g)) {
+    if (!pe.expr.allow_vacuous && matches_everywhere(*built_expr.g)) {
         throw CompileError("Pattern matches empty buffer; use "
                            "HS_FLAG_ALLOWEMPTY to enable support.");
     }
 
-    if (!ng.addGraph(built_expr.expr, g)) {
+    if (!ng.addGraph(built_expr.expr, std::move(built_expr.g))) {
         DEBUG_PRINTF("NFA addGraph failed on ID %u.\n", pe.expr.report);
         throw CompileError("Error compiling expression.");
     }
