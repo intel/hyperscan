@@ -143,7 +143,7 @@ aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
         const hwlmLiteral &lit = lits.front();
         auto noodle = noodBuildTable(lit);
         if (noodle) {
-            engSize = noodSize(noodle.get());
+            engSize = noodle.size();
         }
         eng = move(noodle);
     } else {
