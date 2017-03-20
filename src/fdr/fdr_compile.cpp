@@ -30,8 +30,9 @@
  * \brief FDR literal matcher: build API.
  */
 
-#include "fdr_internal.h"
 #include "fdr_compile.h"
+
+#include "fdr_internal.h"
 #include "fdr_confirm.h"
 #include "fdr_compile_internal.h"
 #include "fdr_engine_description.h"
@@ -40,7 +41,6 @@
 #include "grey.h"
 #include "ue2common.h"
 #include "hwlm/hwlm_build.h"
-#include "util/alloc.h"
 #include "util/compare.h"
 #include "util/dump_mask.h"
 #include "util/math.h"
@@ -86,7 +86,7 @@ private:
     void dumpMasks(const u8 *defaultMask);
 #endif
     void setupTab();
-    aligned_unique_ptr<FDR> setupFDR();
+    bytecode_ptr<FDR> setupFDR();
     void createInitialState(FDR *fdr);
 
 public:
@@ -95,7 +95,7 @@ public:
         : eng(eng_in), grey(grey_in), tab(eng_in.getTabSizeBytes()),
           lits(move(lits_in)), make_small(make_small_in) {}
 
-    aligned_unique_ptr<FDR> build();
+    bytecode_ptr<FDR> build();
 };
 
 u8 *FDRCompiler::tabIndexToMask(u32 indexInTable) {
@@ -144,7 +144,7 @@ void FDRCompiler::createInitialState(FDR *fdr) {
     }
 }
 
-aligned_unique_ptr<FDR> FDRCompiler::setupFDR() {
+bytecode_ptr<FDR> FDRCompiler::setupFDR() {
     size_t tabSize = eng.getTabSizeBytes();
 
     auto floodControlTmp = setupFDRFloodControl(lits, eng, grey);
@@ -162,7 +162,7 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR() {
                  headerSize, tabSize, confirmTmp.size(), floodControlTmp.size(),
                  size);
 
-    auto fdr = aligned_zmalloc_unique<FDR>(size);
+    auto fdr = make_bytecode_ptr<FDR>(size, 64);
     assert(fdr); // otherwise would have thrown std::bad_alloc
 
     fdr->size = size;
@@ -528,7 +528,7 @@ void FDRCompiler::setupTab() {
 #endif
 }
 
-aligned_unique_ptr<FDR> FDRCompiler::build() {
+bytecode_ptr<FDR> FDRCompiler::build() {
     assignStringsToBuckets();
     setupTab();
     return setupFDR();
@@ -537,10 +537,9 @@ aligned_unique_ptr<FDR> FDRCompiler::build() {
 } // namespace
 
 static
-aligned_unique_ptr<FDR> fdrBuildTableInternal(const vector<hwlmLiteral> &lits,
-                                              bool make_small,
-                                              const target_t &target,
-                                              const Grey &grey, u32 hint) {
+bytecode_ptr<FDR> fdrBuildTableInternal(const vector<hwlmLiteral> &lits,
+                                        bool make_small, const target_t &target,
+                                        const Grey &grey, u32 hint) {
     DEBUG_PRINTF("cpu has %s\n", target.has_avx2() ? "avx2" : "no-avx2");
 
     if (grey.fdrAllowTeddy) {
@@ -553,10 +552,8 @@ aligned_unique_ptr<FDR> fdrBuildTableInternal(const vector<hwlmLiteral> &lits,
         }
     }
 
-    const unique_ptr<FDREngineDescription> des =
-        (hint == HINT_INVALID) ? chooseEngine(target, lits, make_small)
-                               : getFdrDescription(hint);
-
+    auto des = (hint == HINT_INVALID) ? chooseEngine(target, lits, make_small)
+                                      : getFdrDescription(hint);
     if (!des) {
         return nullptr;
     }
@@ -571,18 +568,18 @@ aligned_unique_ptr<FDR> fdrBuildTableInternal(const vector<hwlmLiteral> &lits,
     return fc.build();
 }
 
-aligned_unique_ptr<FDR> fdrBuildTable(const vector<hwlmLiteral> &lits,
-                                      bool make_small, const target_t &target,
-                                      const Grey &grey) {
+bytecode_ptr<FDR> fdrBuildTable(const vector<hwlmLiteral> &lits,
+                                bool make_small, const target_t &target,
+                                const Grey &grey) {
     return fdrBuildTableInternal(lits, make_small, target, grey, HINT_INVALID);
 }
 
 #if !defined(RELEASE_BUILD)
 
-aligned_unique_ptr<FDR> fdrBuildTableHinted(const vector<hwlmLiteral> &lits,
-                                            bool make_small, u32 hint,
-                                            const target_t &target,
-                                            const Grey &grey) {
+bytecode_ptr<FDR> fdrBuildTableHinted(const vector<hwlmLiteral> &lits,
+                                      bool make_small, u32 hint,
+                                      const target_t &target,
+                                      const Grey &grey) {
     return fdrBuildTableInternal(lits, make_small, target, grey, hint);
 }
 

@@ -26,11 +26,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "teddy_compile.h"
+
 #include "fdr.h"
 #include "fdr_internal.h"
 #include "fdr_compile_internal.h"
 #include "fdr_confirm.h"
 #include "fdr_engine_description.h"
+#include "teddy_internal.h"
+#include "teddy_engine_description.h"
 #include "grey.h"
 #include "ue2common.h"
 #include "util/alloc.h"
@@ -40,9 +44,6 @@
 #include "util/target_info.h"
 #include "util/verify_types.h"
 
-#include "teddy_compile.h"
-#include "teddy_internal.h"
-#include "teddy_engine_description.h"
 
 #include <algorithm>
 #include <cassert>
@@ -77,7 +78,7 @@ public:
         : eng(eng_in), grey(grey_in), lits(lits_in), make_small(make_small_in) {
     }
 
-    aligned_unique_ptr<FDR> build();
+    bytecode_ptr<FDR> build();
     bool pack(map<BucketIndex, std::vector<LiteralIndex> > &bucketToLits);
 };
 
@@ -277,7 +278,7 @@ bool TeddyCompiler::pack(map<BucketIndex,
     return true;
 }
 
-aligned_unique_ptr<FDR> TeddyCompiler::build() {
+bytecode_ptr<FDR> TeddyCompiler::build() {
     if (lits.size() > eng.getNumBuckets() * TEDDY_BUCKET_LOAD) {
         DEBUG_PRINTF("too many literals: %zu\n", lits.size());
         return nullptr;
@@ -319,7 +320,7 @@ aligned_unique_ptr<FDR> TeddyCompiler::build() {
                             floodControlTmp.size(),
                             16 * maskWidth);
 
-    auto fdr = aligned_zmalloc_unique<FDR>(size);
+    auto fdr = make_bytecode_ptr<FDR>(size, 64);
     assert(fdr); // otherwise would have thrown std::bad_alloc
     Teddy *teddy = (Teddy *)fdr.get(); // ugly
     u8 *teddy_base = (u8 *)teddy;
@@ -418,10 +419,10 @@ aligned_unique_ptr<FDR> TeddyCompiler::build() {
 
 } // namespace
 
-aligned_unique_ptr<FDR> teddyBuildTableHinted(const vector<hwlmLiteral> &lits,
-                                              bool make_small, u32 hint,
-                                              const target_t &target,
-                                              const Grey &grey) {
+bytecode_ptr<FDR> teddyBuildTableHinted(const vector<hwlmLiteral> &lits,
+                                        bool make_small, u32 hint,
+                                        const target_t &target,
+                                        const Grey &grey) {
     unique_ptr<TeddyEngineDescription> des;
     if (hint == HINT_INVALID) {
         des = chooseTeddyEngine(target, lits);

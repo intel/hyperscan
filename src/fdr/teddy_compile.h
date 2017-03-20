@@ -34,7 +34,7 @@
 #define TEDDY_COMPILE_H
 
 #include "ue2common.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 
 #include <vector>
 
@@ -46,9 +46,10 @@ namespace ue2 {
 struct Grey;
 struct hwlmLiteral;
 
-ue2::aligned_unique_ptr<FDR>
-teddyBuildTableHinted(const std::vector<hwlmLiteral> &lits, bool make_small,
-                      u32 hint, const target_t &target, const Grey &grey);
+bytecode_ptr<FDR> teddyBuildTableHinted(const std::vector<hwlmLiteral> &lits,
+                                        bool make_small, u32 hint,
+                                        const target_t &target,
+                                        const Grey &grey);
 
 } // namespace ue2
 

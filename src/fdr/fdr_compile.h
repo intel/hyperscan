@@ -34,7 +34,7 @@
 #define FDR_COMPILE_H
 
 #include "ue2common.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 
 #include <vector>
 
@@ -46,15 +46,15 @@ struct hwlmLiteral;
 struct Grey;
 struct target_t;
 
-ue2::aligned_unique_ptr<FDR>
-fdrBuildTable(const std::vector<hwlmLiteral> &lits, bool make_small,
-              const target_t &target, const Grey &grey);
+bytecode_ptr<FDR> fdrBuildTable(const std::vector<hwlmLiteral> &lits,
+                                bool make_small, const target_t &target,
+                                const Grey &grey);
 
 #if !defined(RELEASE_BUILD)
 
-ue2::aligned_unique_ptr<FDR>
-fdrBuildTableHinted(const std::vector<hwlmLiteral> &lits, bool make_small,
-                    u32 hint, const target_t &target, const Grey &grey);
+bytecode_ptr<FDR> fdrBuildTableHinted(const std::vector<hwlmLiteral> &lits,
+                                      bool make_small, u32 hint,
+                                      const target_t &target, const Grey &grey);
 
 #endif
 
