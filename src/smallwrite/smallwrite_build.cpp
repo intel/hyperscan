@@ -533,9 +533,4 @@ set<ReportID> SmallWriteBuildImpl::all_reports() const {
     return reports;
 }
 
-size_t smwrSize(const SmallWriteEngine *smwr) {
-    assert(smwr);
-    return smwr->size;
-}
-
 } // namespace ue2

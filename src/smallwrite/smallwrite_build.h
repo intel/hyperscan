@@ -74,8 +74,6 @@ std::unique_ptr<SmallWriteBuild>
 makeSmallWriteBuilder(size_t num_patterns, const ReportManager &rm,
                       const CompileContext &cc);
 
-size_t smwrSize(const SmallWriteEngine *t);
-
 } // namespace ue2
 
 #endif // SMWR_BUILD_H
