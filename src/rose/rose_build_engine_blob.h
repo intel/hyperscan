@@ -33,6 +33,7 @@
 
 #include "ue2common.h"
 #include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/container.h"
 #include "util/multibit_build.h"
 #include "util/noncopyable.h"
@@ -74,6 +75,11 @@ public:
         memcpy(&blob.back() - len + 1, a, len);
 
         return verify_u32(rv);
+    }
+
+    template<typename T>
+    u32 add(const bytecode_ptr<T> &a) {
+        return add(a.get(), a.size(), a.align());
     }
 
     template<typename T>
