@@ -37,8 +37,10 @@
 
 #include "ue2common.h"
 #include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/noncopyable.h"
 
+#include <memory>
 #include <set>
 
 struct SmallWriteEngine;
@@ -59,7 +61,7 @@ public:
     virtual ~SmallWriteBuild();
 
     // Construct a runtime implementation.
-    virtual ue2::aligned_unique_ptr<SmallWriteEngine> build(u32 roseQuality) = 0;
+    virtual bytecode_ptr<SmallWriteEngine> build(u32 roseQuality) = 0;
 
     virtual void add(const NGHolder &g, const ExpressionInfo &expr) = 0;
     virtual void add(const ue2_literal &literal, ReportID r) = 0;

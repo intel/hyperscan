@@ -46,6 +46,7 @@
 #include "nfagraph/ng_util.h"
 #include "smallwrite/smallwrite_internal.h"
 #include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/charreach.h"
 #include "util/compile_context.h"
 #include "util/container.h"
@@ -74,7 +75,7 @@ public:
                         const CompileContext &cc);
 
     // Construct a runtime implementation.
-    aligned_unique_ptr<SmallWriteEngine> build(u32 roseQuality) override;
+    bytecode_ptr<SmallWriteEngine> build(u32 roseQuality) override;
 
     void add(const NGHolder &g, const ExpressionInfo &expr) override;
     void add(const ue2_literal &literal, ReportID r) override;
@@ -473,8 +474,7 @@ unique_ptr<SmallWriteBuild> makeSmallWriteBuilder(size_t num_patterns,
     return ue2::make_unique<SmallWriteBuildImpl>(num_patterns, rm, cc);
 }
 
-aligned_unique_ptr<SmallWriteEngine>
-SmallWriteBuildImpl::build(u32 roseQuality) {
+bytecode_ptr<SmallWriteEngine> SmallWriteBuildImpl::build(u32 roseQuality) {
     if (!rdfa && cand_literals.empty()) {
         DEBUG_PRINTF("no smallwrite engine\n");
         poisoned = true;
@@ -505,7 +505,7 @@ SmallWriteBuildImpl::build(u32 roseQuality) {
     }
 
     u32 size = sizeof(SmallWriteEngine) + nfa->length;
-    auto smwr = aligned_zmalloc_unique<SmallWriteEngine>(size);
+    auto smwr = make_bytecode_ptr<SmallWriteEngine>(size);
 
     smwr->size = size;
     smwr->start_offset = start_offset;

@@ -5606,7 +5606,7 @@ aligned_unique_ptr<RoseEngine> addSmallWriteEngine(const RoseBuildImpl &build,
     }
 
     const size_t mainSize = roseSize(rose.get());
-    const size_t smallWriteSize = smwrSize(smwr_engine.get());
+    const size_t smallWriteSize = smwr_engine.size();
     DEBUG_PRINTF("adding smwr engine, size=%zu\n", smallWriteSize);
 
     const size_t smwrOffset = ROUNDUP_CL(mainSize);
