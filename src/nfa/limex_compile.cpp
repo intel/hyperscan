@@ -47,6 +47,7 @@
 #include "repeatcompile.h"
 #include "util/alloc.h"
 #include "util/bitutils.h"
+#include "util/bytecode_ptr.h"
 #include "util/charreach.h"
 #include "util/compile_context.h"
 #include "util/container.h"
@@ -1782,8 +1783,8 @@ struct Factory {
 
     static
     void buildRepeats(const build_info &args,
-                vector<pair<aligned_unique_ptr<NFARepeatInfo>, size_t>> &out,
-                u32 *scratchStateSize, u32 *streamState) {
+                      vector<bytecode_ptr<NFARepeatInfo>> &out,
+                      u32 *scratchStateSize, u32 *streamState) {
         out.reserve(args.repeats.size());
 
         u32 repeat_idx = 0;
@@ -1794,7 +1795,7 @@ struct Factory {
 
             u32 tableOffset, tugMaskOffset;
             size_t len = repeatAllocSize(br, &tableOffset, &tugMaskOffset);
-            auto info = aligned_zmalloc_unique<NFARepeatInfo>(len);
+            auto info = make_bytecode_ptr<NFARepeatInfo>(len);
             char *info_ptr = (char *)info.get();
 
             // Collect state space info.
@@ -1848,7 +1849,7 @@ struct Factory {
             *streamState += streamStateLen;
             *scratchStateSize += sizeof(RepeatControl);
 
-            out.emplace_back(move(info), len);
+            out.emplace_back(move(info));
         }
     }
 
@@ -2156,8 +2157,7 @@ struct Factory {
     }
 
     static
-    void writeRepeats(const vector<pair<aligned_unique_ptr<NFARepeatInfo>,
-                                        size_t>> &repeats,
+    void writeRepeats(const vector<bytecode_ptr<NFARepeatInfo>> &repeats,
                       vector<u32> &repeatOffsets, implNFA_t *limex,
                       const u32 repeatOffsetsOffset, const u32 repeatOffset) {
         const u32 num_repeats = verify_u32(repeats.size());
@@ -2170,10 +2170,9 @@ struct Factory {
 
         for (u32 i = 0; i < num_repeats; i++) {
             repeatOffsets[i] = offset;
-            assert(repeats[i].first);
-            memcpy((char *)limex + offset, repeats[i].first.get(),
-                   repeats[i].second);
-            offset += repeats[i].second;
+            assert(repeats[i]);
+            memcpy((char *)limex + offset, repeats[i].get(), repeats[i].size());
+            offset += repeats[i].size();
         }
 
         // Write repeat offset lookup table.
@@ -2200,13 +2199,13 @@ struct Factory {
         }
 
         // Build bounded repeat structures.
-        vector<pair<aligned_unique_ptr<NFARepeatInfo>, size_t>> repeats;
+        vector<bytecode_ptr<NFARepeatInfo>> repeats;
         u32 repeats_full_state = 0;
         u32 repeats_stream_state = 0;
         buildRepeats(args, repeats, &repeats_full_state, &repeats_stream_state);
         size_t repeatSize = 0;
         for (size_t i = 0; i < repeats.size(); i++) {
-            repeatSize += repeats[i].second;
+            repeatSize += repeats[i].size();
         }
 
         // We track report lists that have already been written into the global
