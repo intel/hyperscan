@@ -315,11 +315,11 @@ aligned_unique_ptr<FDR> TeddyCompiler::build() {
 
     size_t size = ROUNDUP_N(sizeof(Teddy) +
                             maskLen +
-                            confirmTmp.second +
-                            floodControlTmp.second,
+                            confirmTmp.size() +
+                            floodControlTmp.size(),
                             16 * maskWidth);
 
-    aligned_unique_ptr<FDR> fdr = aligned_zmalloc_unique<FDR>(size);
+    auto fdr = aligned_zmalloc_unique<FDR>(size);
     assert(fdr); // otherwise would have thrown std::bad_alloc
     Teddy *teddy = (Teddy *)fdr.get(); // ugly
     u8 *teddy_base = (u8 *)teddy;
@@ -329,12 +329,12 @@ aligned_unique_ptr<FDR> TeddyCompiler::build() {
     teddy->maxStringLen = verify_u32(maxLen(lits));
 
     u8 *ptr = teddy_base + sizeof(Teddy) + maskLen;
-    memcpy(ptr, confirmTmp.first.get(), confirmTmp.second);
-    ptr += confirmTmp.second;
+    memcpy(ptr, confirmTmp.get(), confirmTmp.size());
+    ptr += confirmTmp.size();
 
     teddy->floodOffset = verify_u32(ptr - teddy_base);
-    memcpy(ptr, floodControlTmp.first.get(), floodControlTmp.second);
-    ptr += floodControlTmp.second;
+    memcpy(ptr, floodControlTmp.get(), floodControlTmp.size());
+    ptr += floodControlTmp.size();
 
     u8 *baseMsk = teddy_base + sizeof(Teddy);
 

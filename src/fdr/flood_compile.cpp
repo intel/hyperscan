@@ -91,9 +91,9 @@ void addFlood(vector<FDRFlood> &tmpFlood, u8 c, const hwlmLiteral &lit,
    }
 }
 
-pair<aligned_unique_ptr<u8>, size_t>
-setupFDRFloodControl(const vector<hwlmLiteral> &lits,
-                     const EngineDescription &eng, const Grey &grey) {
+bytecode_ptr<u8> setupFDRFloodControl(const vector<hwlmLiteral> &lits,
+                                      const EngineDescription &eng,
+                                      const Grey &grey) {
     vector<FDRFlood> tmpFlood(N_CHARS);
     u32 default_suffix = eng.getDefaultFloodSuffixLength();
 
@@ -207,7 +207,7 @@ setupFDRFloodControl(const vector<hwlmLiteral> &lits,
     size_t floodStructSize = sizeof(FDRFlood) * nDistinctFloods;
     size_t totalSize = ROUNDUP_16(floodHeaderSize + floodStructSize);
 
-    auto buf = aligned_zmalloc_unique<u8>(totalSize);
+    auto buf = make_bytecode_ptr<u8>(totalSize, 16);
     assert(buf); // otherwise would have thrown std::bad_alloc
 
     u32 *floodHeader = (u32 *)buf.get();
@@ -227,7 +227,7 @@ setupFDRFloodControl(const vector<hwlmLiteral> &lits,
     DEBUG_PRINTF("made a flood structure with %zu + %zu = %zu\n",
                  floodHeaderSize, floodStructSize, totalSize);
 
-    return {move(buf), totalSize};
+    return buf;
 }
 
 } // namespace ue2

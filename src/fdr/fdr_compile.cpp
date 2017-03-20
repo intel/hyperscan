@@ -151,18 +151,18 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR() {
     auto confirmTmp = setupFullConfs(lits, eng, bucketToLits, make_small);
 
     assert(ISALIGNED_16(tabSize));
-    assert(ISALIGNED_16(confirmTmp.second));
-    assert(ISALIGNED_16(floodControlTmp.second));
+    assert(ISALIGNED_16(confirmTmp.size()));
+    assert(ISALIGNED_16(floodControlTmp.size()));
     size_t headerSize = ROUNDUP_16(sizeof(FDR));
-    size_t size = ROUNDUP_16(headerSize + tabSize + confirmTmp.second +
-                             floodControlTmp.second);
+    size_t size = ROUNDUP_16(headerSize + tabSize + confirmTmp.size() +
+                             floodControlTmp.size());
 
     DEBUG_PRINTF("sizes base=%zu tabSize=%zu confirm=%zu floodControl=%zu "
                  "total=%zu\n",
-                 headerSize, tabSize, confirmTmp.second, floodControlTmp.second,
+                 headerSize, tabSize, confirmTmp.size(), floodControlTmp.size(),
                  size);
 
-    aligned_unique_ptr<FDR> fdr = aligned_zmalloc_unique<FDR>(size);
+    auto fdr = aligned_zmalloc_unique<FDR>(size);
     assert(fdr); // otherwise would have thrown std::bad_alloc
 
     fdr->size = size;
@@ -171,16 +171,16 @@ aligned_unique_ptr<FDR> FDRCompiler::setupFDR() {
     createInitialState(fdr.get());
 
     u8 *fdr_base = (u8 *)fdr.get();
-    u8 * ptr = fdr_base + ROUNDUP_16(sizeof(FDR));
+    u8 *ptr = fdr_base + ROUNDUP_16(sizeof(FDR));
     copy(tab.begin(), tab.end(), ptr);
     ptr += tabSize;
 
-    memcpy(ptr, confirmTmp.first.get(), confirmTmp.second);
-    ptr += confirmTmp.second;
+    memcpy(ptr, confirmTmp.get(), confirmTmp.size());
+    ptr += confirmTmp.size();
 
     fdr->floodOffset = verify_u32(ptr - fdr_base);
-    memcpy(ptr, floodControlTmp.first.get(), floodControlTmp.second);
-    ptr += floodControlTmp.second;
+    memcpy(ptr, floodControlTmp.get(), floodControlTmp.size());
+    ptr += floodControlTmp.size();
 
     /*  we are allowing domains 9 to 15 only */
     assert(eng.bits > 8 && eng.bits < 16);

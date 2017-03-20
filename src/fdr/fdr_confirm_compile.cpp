@@ -342,7 +342,7 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool make_small,
     return {move(fdrc), actual_size};
 }
 
-pair<aligned_unique_ptr<u8>, size_t>
+bytecode_ptr<u8>
 setupFullConfs(const vector<hwlmLiteral> &lits,
                const EngineDescription &eng,
                map<BucketIndex, vector<LiteralIndex>> &bucketToLits,
@@ -374,7 +374,7 @@ setupFullConfs(const vector<hwlmLiteral> &lits,
     u32 totalConfSwitchSize = nBuckets * sizeof(u32);
     u32 totalSize = ROUNDUP_16(totalConfSwitchSize + totalConfirmSize);
 
-    auto buf = aligned_zmalloc_unique<u8>(totalSize);
+    auto buf = make_bytecode_ptr<u8>(totalSize, 16);
     assert(buf); // otherwise would have thrown std::bad_alloc
 
     u32 *confBase = (u32 *)buf.get();
@@ -389,7 +389,8 @@ setupFullConfs(const vector<hwlmLiteral> &lits,
         ptr += p.second;
         confBase[idx] = confirm_offset;
     }
-    return {move(buf), totalSize};
+
+    return buf;
 }
 
 } // namespace ue2
