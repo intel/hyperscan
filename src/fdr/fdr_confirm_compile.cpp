@@ -45,8 +45,7 @@ using namespace std;
 
 namespace ue2 {
 
-using BC2CONF = map<BucketIndex,
-                    pair<aligned_unique_ptr<FDRConfirm>, size_t>>;
+using BC2CONF = map<BucketIndex, bytecode_ptr<FDRConfirm>>;
 
 // return the number of bytes beyond a length threshold in all strings in lits
 static
@@ -148,9 +147,9 @@ void fillLitInfo(const vector<hwlmLiteral> &lits, vector<LitInfo> &tmpLitInfo,
 
 //#define FDR_CONFIRM_DUMP 1
 
-static pair<aligned_unique_ptr<FDRConfirm>, size_t>
-getFDRConfirm(const vector<hwlmLiteral> &lits, bool make_small,
-              bool make_confirm) {
+static
+bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
+                                       bool make_small, bool make_confirm) {
     vector<LitInfo> tmpLitInfo(lits.size());
     CONF_TYPE andmsk;
     fillLitInfo(lits, tmpLitInfo, andmsk);
@@ -285,7 +284,7 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool make_small,
                   sizeof(LitInfo) * lits.size() + totalLitSize;
     size = ROUNDUP_N(size, alignof(FDRConfirm));
 
-    auto fdrc = aligned_zmalloc_unique<FDRConfirm>(size);
+    auto fdrc = make_bytecode_ptr<FDRConfirm>(size);
     assert(fdrc); // otherwise would have thrown std::bad_alloc
 
     fdrc->andmsk = andmsk;
@@ -339,7 +338,7 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool make_small,
                                    alignof(FDRConfirm));
     assert(actual_size <= size);
 
-    return {move(fdrc), actual_size};
+    return fdrc;
 }
 
 bytecode_ptr<u8>
@@ -365,7 +364,7 @@ setupFullConfs(const vector<hwlmLiteral> &lits,
 
             DEBUG_PRINTF("b %d sz %zu\n", b, vl.size());
             auto fc = getFDRConfirm(vl, make_small, makeConfirm);
-            totalConfirmSize += fc.second;
+            totalConfirmSize += fc.size();
             bc2Conf.emplace(b, move(fc));
         }
     }
@@ -382,11 +381,11 @@ setupFullConfs(const vector<hwlmLiteral> &lits,
 
     for (const auto &m : bc2Conf) {
         const BucketIndex &idx = m.first;
-        const pair<aligned_unique_ptr<FDRConfirm>, size_t> &p = m.second;
+        const bytecode_ptr<FDRConfirm> &p = m.second;
         // confirm offset is relative to the base of this structure, now
         u32 confirm_offset = verify_u32(ptr - buf.get());
-        memcpy(ptr, p.first.get(), p.second);
-        ptr += p.second;
+        memcpy(ptr, p.get(), p.size());
+        ptr += p.size();
         confBase[idx] = confirm_offset;
     }
 
