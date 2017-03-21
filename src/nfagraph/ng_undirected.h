@@ -52,11 +52,11 @@ namespace ue2 {
  * of parallel edges. The only vertex property constructed is \a
  * vertex_index_t.
  */
-using NFAUndirectedGraph =
-    boost::adjacency_list<boost::setS,        // out edges
-                          boost::listS,       // vertices
-                          boost::undirectedS, // graph is undirected
-                          boost::property<boost::vertex_index_t, size_t>>;
+using NFAUndirectedGraph = boost::adjacency_list<
+    boost::listS,                                    // out edges
+    boost::listS,                                    // vertices
+    boost::undirectedS,                              // graph is undirected
+    boost::property<boost::vertex_index_t, size_t>>; // vertex properties
 
 using NFAUndirectedVertex = NFAUndirectedGraph::vertex_descriptor;
 
@@ -95,6 +95,14 @@ NFAUndirectedGraph createUnGraph(const Graph &g,
         boost::put(boost::vertex_index, ug, nuv, idx++);
     }
 
+    // Track seen edges so that we don't insert parallel edges.
+    using Vertex = typename Graph::vertex_descriptor;
+    unordered_set<std::pair<Vertex, Vertex>> seen;
+    seen.reserve(num_edges(g));
+    auto make_ordered_edge = [](Vertex a, Vertex b) {
+        return std::make_pair(std::min(a, b), std::max(a, b));
+    };
+
     for (const auto &e : ue2::edges_range(g)) {
         auto u = source(e, g);
         auto v = target(e, g);
@@ -107,6 +115,10 @@ NFAUndirectedGraph createUnGraph(const Graph &g,
         if ((excludeAccepts && is_any_accept(v, g))
             || (excludeStarts && is_any_start(v, g))) {
             continue;
+        }
+
+        if (!seen.emplace(make_ordered_edge(u, v)).second) {
+            continue; // skip parallel edge.
         }
 
         NFAUndirectedVertex new_u = old2new.at(u);
