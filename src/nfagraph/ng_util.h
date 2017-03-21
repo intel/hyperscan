@@ -124,6 +124,22 @@ bad_edge_filter<EdgeSet> make_bad_edge_filter(const EdgeSet *e) {
     return bad_edge_filter<EdgeSet>(e);
 }
 
+/** \brief vertex graph filter. */
+template<typename VertexSet>
+struct bad_vertex_filter {
+    bad_vertex_filter() = default;
+    explicit bad_vertex_filter(const VertexSet *bad_v) : bad_vertices(bad_v) {}
+    bool operator()(const typename VertexSet::value_type &v) const {
+        return !contains(*bad_vertices, v); /* keep vertices not in bad set */
+    }
+    const VertexSet *bad_vertices = nullptr;
+};
+
+template<typename VertexSet>
+bad_vertex_filter<VertexSet> make_bad_vertex_filter(const VertexSet *v) {
+    return bad_vertex_filter<VertexSet>(v);
+}
+
 /** Visitor that records back edges */
 template <typename BackEdgeSet>
 class BackEdges : public boost::default_dfs_visitor {

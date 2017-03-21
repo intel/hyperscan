@@ -64,6 +64,7 @@
 #include <vector>
 
 #include <boost/graph/connected_components.hpp>
+#include <boost/graph/filtered_graph.hpp>
 
 using namespace std;
 
@@ -219,28 +220,6 @@ vector<NFAEdge> findShellEdges(const NGHolder &g,
     return shell_edges;
 }
 
-static
-void removeVertices(const flat_set<NFAVertex> &verts, NFAUndirectedGraph &ug,
-                   ue2::unordered_map<NFAVertex, NFAUndirectedVertex> &old2new,
-                   ue2::unordered_map<NFAUndirectedVertex, NFAVertex> &new2old) {
-    for (auto v : verts) {
-        assert(contains(old2new, v));
-        auto uv = old2new.at(v);
-        clear_vertex(uv, ug);
-        remove_vertex(uv, ug);
-        old2new.erase(v);
-        new2old.erase(uv);
-    }
-}
-
-static
-void renumberVertices(NFAUndirectedGraph &ug) {
-    u32 vertexIndex = 0;
-    for (auto uv : vertices_range(ug)) {
-        put(boost::vertex_index, ug, uv, vertexIndex++);
-    }
-}
-
 /**
  * Common code called by calc- and recalc- below. Splits the given holder into
  * one or more connected components, adding them to the comps deque.
@@ -286,15 +265,21 @@ void splitIntoComponents(unique_ptr<NGHolder> g,
         new2old.emplace(m.second, m.first);
     }
 
-    // Remove shells from undirected graph and renumber so we have dense
-    // vertex indices.
-    removeVertices(head_shell, ug, old2new, new2old);
-    removeVertices(tail_shell, ug, old2new, new2old);
-    renumberVertices(ug);
+    // Filter shell vertices from undirected graph.
+    unordered_set<NFAUndirectedVertex> shell_undir_vertices;
+    for (auto v : head_shell) {
+        shell_undir_vertices.insert(old2new.at(v));
+    }
+    for (auto v : tail_shell) {
+        shell_undir_vertices.insert(old2new.at(v));
+    }
+    auto filtered_ug = boost::make_filtered_graph(
+        ug, boost::keep_all(), make_bad_vertex_filter(&shell_undir_vertices));
 
+    // Actually run the connected components algorithm.
     map<NFAUndirectedVertex, u32> split_components;
     const u32 num = connected_components(
-        ug, boost::make_assoc_property_map(split_components));
+        filtered_ug, boost::make_assoc_property_map(split_components));
 
     assert(num > 0);
     if (num == 1 && shell_edges.empty()) {
