@@ -104,15 +104,12 @@ void checkAndAddExitCandidate(const AcyclicGraph &g,
 }
 
 static
-vector<exit_info> findExits(const AcyclicGraph &g,
-                            const ue2::unordered_set<NFAVertex> &r) {
-    vector<exit_info> exits;
-
+void findExits(const AcyclicGraph &g, const ue2::unordered_set<NFAVertex> &r,
+               vector<exit_info> &exits) {
+    exits.clear();
     for (auto v : r) {
         checkAndAddExitCandidate(g, r, v, exits);
     }
-
-    return exits;
 }
 
 static
@@ -179,26 +176,26 @@ void buildInitialCandidate(const AcyclicGraph &g,
                            ue2::unordered_set<NFAVertex> *candidate,
                            /* in exits of prev region;
                             * out exits from candidate */
-                           vector<exit_info> *exits,
+                           vector<exit_info> &exits,
                            flat_set<NFAVertex> *open_jumps) {
     if (it == ite) {
         candidate->clear();
-        exits->clear();
+        exits.clear();
         return;
     }
 
-    if (exits->empty()) {
+    if (exits.empty()) {
         DEBUG_PRINTF("odd\n");
         candidate->clear();
         DEBUG_PRINTF("adding %zu to initial\n", g[*it].index);
         candidate->insert(*it);
         open_jumps->erase(*it);
-        checkAndAddExitCandidate(g, *candidate, *it, *exits);
+        checkAndAddExitCandidate(g, *candidate, *it, exits);
         ++it;
         return;
     }
 
-    auto enters = (*exits)[0].open; // copy
+    auto enters = exits.front().open; // copy
     candidate->clear();
 
     for (; it != ite; ++it) {
@@ -218,7 +215,7 @@ void buildInitialCandidate(const AcyclicGraph &g,
         open_jumps->clear();
     }
 
-    *exits = findExits(g, *candidate);
+    findExits(g, *candidate, exits);
 }
 
 static
@@ -237,7 +234,8 @@ void findDagLeaders(const NGHolder &h, const AcyclicGraph &g,
     assert(t_it != topo.rend());
     candidate.insert(*t_it++);
 
-    auto exits = findExits(g, candidate);
+    vector<exit_info> exits;
+    findExits(g, candidate, exits);
 
     while (t_it != topo.rend()) {
         assert(!candidate.empty());
@@ -253,7 +251,7 @@ void findDagLeaders(const NGHolder &h, const AcyclicGraph &g,
                 DEBUG_PRINTF("setting region %u\n", curr_id);
             }
             setRegion(candidate, curr_id++, regions);
-            buildInitialCandidate(g, t_it, topo.rend(), &candidate, &exits,
+            buildInitialCandidate(g, t_it, topo.rend(), &candidate, exits,
                                   &open_jumps);
         } else {
             NFAVertex curr = *t_it;
