@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -296,9 +296,8 @@ void splitSubgraph(const NGHolder &g, const deque<NFAVertex> &verts,
     ue2::unordered_map<NFAVertex, NFAVertex> verts_map; // in g -> in verts_g
     fillHolder(&verts_g, g, verts, &verts_map);
 
-    NFAUndirectedGraph ug;
     ue2::unordered_map<NFAVertex, NFAUndirectedVertex> old2new;
-    createUnGraph(verts_g, true, true, ug, old2new);
+    auto ug = createUnGraph(verts_g, true, true, old2new);
 
     ue2::unordered_map<NFAUndirectedVertex, u32> repeatMap;
 
@@ -1020,9 +1019,8 @@ void buildReachSubgraphs(const NGHolder &g, vector<ReachSubgraph> &rs,
         return;
     }
 
-    NFAUndirectedGraph ug;
     unordered_map<RepeatGraph::vertex_descriptor, NFAUndirectedVertex> old2new;
-    createUnGraph(rg, true, true, ug, old2new);
+    auto ug = createUnGraph(rg, true, true, old2new);
 
     unordered_map<NFAUndirectedVertex, u32> repeatMap;
 

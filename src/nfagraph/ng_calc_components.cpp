@@ -277,10 +277,8 @@ void splitIntoComponents(unique_ptr<NGHolder> g,
     DEBUG_PRINTF("%zu vertices in head, %zu in tail, %zu shell edges\n",
                  head_shell.size(), tail_shell.size(), shell_edges.size());
 
-    NFAUndirectedGraph ug;
     ue2::unordered_map<NFAVertex, NFAUndirectedVertex> old2new;
-
-    createUnGraph(*g, true, true, ug, old2new);
+    auto ug = createUnGraph(*g, true, true, old2new);
 
     // Construct reverse mapping.
     ue2::unordered_map<NFAUndirectedVertex, NFAVertex> new2old;

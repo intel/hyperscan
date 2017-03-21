@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,8 +30,8 @@
  * \brief Create an undirected graph from an NFAGraph.
  */
 
-#ifndef NG_UNDIRECTED_H_CB42C71CF38E3D
-#define NG_UNDIRECTED_H_CB42C71CF38E3D
+#ifndef NG_UNDIRECTED_H
+#define NG_UNDIRECTED_H
 
 #include "ng_holder.h"
 #include "ng_util.h"
@@ -52,13 +52,13 @@ namespace ue2 {
  * of parallel edges. The only vertex property constructed is \a
  * vertex_index_t.
  */
-typedef boost::adjacency_list<boost::setS,        // out edges
-                              boost::listS,       // vertices
-                              boost::undirectedS, // graph is undirected
-                              boost::property<boost::vertex_index_t, size_t> >
-NFAUndirectedGraph;
+using NFAUndirectedGraph =
+    boost::adjacency_list<boost::setS,        // out edges
+                          boost::listS,       // vertices
+                          boost::undirectedS, // graph is undirected
+                          boost::property<boost::vertex_index_t, size_t>>;
 
-typedef NFAUndirectedGraph::vertex_descriptor NFAUndirectedVertex;
+using NFAUndirectedVertex = NFAUndirectedGraph::vertex_descriptor;
 
 /**
  * Make a copy of an NFAGraph with undirected edges, optionally without start
@@ -67,15 +67,17 @@ typedef NFAUndirectedGraph::vertex_descriptor NFAUndirectedVertex;
  * Note that new vertex indices are assigned contiguously in \a vertices(g)
  * order.
  */
-template <typename GraphT>
-void createUnGraph(const GraphT &g,
+template <typename Graph>
+NFAUndirectedGraph createUnGraph(const Graph &g,
            bool excludeStarts,
            bool excludeAccepts,
-           NFAUndirectedGraph &ug,
-           ue2::unordered_map<typename GraphT::vertex_descriptor,
-                              NFAUndirectedVertex> &old2new) {
+           unordered_map<typename Graph::vertex_descriptor,
+                         NFAUndirectedVertex> &old2new) {
+    NFAUndirectedGraph ug;
     size_t idx = 0;
-    typedef typename GraphT::vertex_descriptor VertexT;
+
+    assert(old2new.empty());
+    old2new.reserve(num_vertices(g));
 
     for (auto v : ue2::vertices_range(g)) {
         // skip all accept nodes
@@ -88,32 +90,35 @@ void createUnGraph(const GraphT &g,
             continue;
         }
 
-        NFAUndirectedVertex nuv = boost::add_vertex(ug);
-        old2new[v] = nuv;
+        auto nuv = boost::add_vertex(ug);
+        old2new.emplace(v, nuv);
         boost::put(boost::vertex_index, ug, nuv, idx++);
     }
 
     for (const auto &e : ue2::edges_range(g)) {
-        VertexT src = source(e, g);
-        VertexT targ = target(e, g);
+        auto u = source(e, g);
+        auto v = target(e, g);
 
-        if ((excludeAccepts && is_any_accept(src, g))
-            || (excludeStarts && is_any_start(src, g))) {
+        if ((excludeAccepts && is_any_accept(u, g))
+            || (excludeStarts && is_any_start(u, g))) {
             continue;
         }
 
-        if ((excludeAccepts && is_any_accept(targ, g))
-            || (excludeStarts && is_any_start(targ, g))) {
+        if ((excludeAccepts && is_any_accept(v, g))
+            || (excludeStarts && is_any_start(v, g))) {
             continue;
         }
 
-        NFAUndirectedVertex new_src = old2new[src];
-        NFAUndirectedVertex new_targ = old2new[targ];
+        NFAUndirectedVertex new_u = old2new.at(u);
+        NFAUndirectedVertex new_v = old2new.at(v);
 
-        boost::add_edge(new_src, new_targ, ug);
+        boost::add_edge(new_u, new_v, ug);
     }
+
+    assert(!has_parallel_edge(ug));
+    return ug;
 }
 
 } // namespace ue2
 
-#endif /* NG_UNDIRECTED_H_CB42C71CF38E3D */
+#endif /* NG_UNDIRECTED_H */
