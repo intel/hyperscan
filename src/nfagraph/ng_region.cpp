@@ -194,7 +194,9 @@ void buildInitialCandidate(const AcyclicGraph &g,
         return;
     }
 
-    auto enters = exits.front().open; // copy
+    // Note: findExits() will clear exits, so it's safe to mutate/move its
+    // elements here.
+    auto &enters = exits.front().open;
     candidate.clear();
 
     for (; it != ite; ++it) {
