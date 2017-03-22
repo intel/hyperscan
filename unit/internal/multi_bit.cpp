@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 
 #include "gtest/gtest.h"
 #include "ue2common.h"
+#include "rose/rose_build_scatter.h"
 #include "util/compile_error.h"
 #include "util/make_unique.h"
 #include "util/multibit.h"
@@ -698,13 +699,69 @@ TEST_P(MultiBitTest, InitRangeChunked) {
 
     for (u32 n = 2; n <= 10; n++) {
         u32 chunk_size = test_size / n;
-        if (chunk_size == 0) break;
+        if (chunk_size == 0) {
+            break;
+        }
 
         for (u32 k = 0; k < n; k++) {
             u32 chunk_begin = k * chunk_size;
             u32 chunk_end = min(test_size, (k + 1) * chunk_size);
 
             mmbit_init_range(ba, test_size, chunk_begin, chunk_end);
+
+            // First bit set should be chunk_begin.
+            ASSERT_EQ(chunk_begin, mmbit_iterate(ba, test_size, MMB_INVALID));
+
+            // All bits in the chunk should be on.
+            for (u64a i = chunk_begin; i < chunk_end; i += stride) {
+                SCOPED_TRACE(i);
+                ASSERT_TRUE(mmbit_isset(ba, test_size, i));
+            }
+
+            // Last bit on is chunk_end - 1.
+            if (chunk_end) {
+                ASSERT_EQ(MMB_INVALID, mmbit_iterate(ba, test_size, chunk_end - 1));
+            }
+        }
+    }
+}
+
+static
+void apply(const scatter_plan_raw &sp, u8 *out) {
+    for (const auto &e : sp.p_u64a) {
+        memcpy(out + e.offset, &e.val, sizeof(e.val));
+    }
+    for (const auto &e : sp.p_u32) {
+        memcpy(out + e.offset, &e.val, sizeof(e.val));
+    }
+    for (const auto &e : sp.p_u16) {
+        memcpy(out + e.offset, &e.val, sizeof(e.val));
+    }
+    for (const auto &e : sp.p_u8) {
+        memcpy(out + e.offset, &e.val, sizeof(e.val));
+    }
+}
+
+TEST_P(MultiBitTest, InitRangePlanChunked) {
+    SCOPED_TRACE(test_size);
+    ASSERT_TRUE(ba != nullptr);
+
+    // Init ranges chunk by chunk.
+
+    for (u32 n = 2; n <= 10; n++) {
+        u32 chunk_size = test_size / n;
+        if (chunk_size == 0) {
+            break;
+        }
+
+        for (u32 k = 0; k < n; k++) {
+            u32 chunk_begin = k * chunk_size;
+            u32 chunk_end = min(test_size, (k + 1) * chunk_size);
+
+            scatter_plan_raw sp;
+            mmbBuildInitRangePlan(test_size, chunk_begin, chunk_end, &sp);
+            memset(ba, 0xaa, mmbit_size(test_size));
+            apply(sp, ba);
 
             // First bit set should be chunk_begin.
             ASSERT_EQ(chunk_begin, mmbit_iterate(ba, test_size, MMB_INVALID));

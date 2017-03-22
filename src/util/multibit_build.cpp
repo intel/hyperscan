@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -272,7 +272,7 @@ void mmbBuildInitRangePlan(u32 total_bits, u32 begin, u32 end,
         }
 
         // Partial block to deal with beginning.
-        block_offset += k1 / MMB_KEY_BITS;
+        block_offset += (k1 / MMB_KEY_BITS) * sizeof(MMB_TYPE);
         if (k1 % MMB_KEY_BITS) {
             u32 idx = k1 / MMB_KEY_BITS;
             u32 block_end = (idx + 1) * MMB_KEY_BITS;
