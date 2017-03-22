@@ -35,6 +35,7 @@
 
 #include "util/boundary_reports.h"
 #include "util/compile_context.h"
+#include "util/report_manager.h"
 
 #include <queue>
 #include <vector>
@@ -597,8 +598,12 @@ bool isGroupSquasher(const RoseBuildImpl &build, const u32 id /* literal id */,
 
         /* Case 1 */
 
-        // Can't squash cases with accepts
-        if (!g[v].reports.empty()) {
+        // Can't squash cases with accepts unless they are all
+        // simple-exhaustible.
+        if (any_of_in(g[v].reports, [&](ReportID report) {
+                return !isSimpleExhaustible(build.rm.getReport(report));
+            })) {
+            DEBUG_PRINTF("can't squash reporter\n");
             return false;
         }
 
