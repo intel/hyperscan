@@ -214,6 +214,7 @@ bool addComponent(NG &ng, NGHolder &g, const ExpressionInfo &expr,
 
     assert(allMatchStatesHaveReports(g));
 
+    reduceExtendedParams(g, ng.rm, som);
     reduceGraph(g, som, expr.utf8, cc);
 
     dumpComponent(g, "02_reduced", expr.index, comp_id, ng.cc.grey);
@@ -221,6 +222,13 @@ bool addComponent(NG &ng, NGHolder &g, const ExpressionInfo &expr,
     // There may be redundant regions that we can remove
     if (cc.grey.performGraphSimplification) {
         removeRegionRedundancy(g, som);
+    }
+
+    // We might be done at this point: if we've run out of vertices, we can
+    // stop processing.
+    if (num_vertices(g) == N_SPECIALS) {
+        DEBUG_PRINTF("all vertices claimed\n");
+        return true;
     }
 
     // "Short Exhaustible Passthrough" patterns always become outfixes.
@@ -358,10 +366,22 @@ bool NG::addGraph(ExpressionInfo &expr, unique_ptr<NGHolder> g_ptr) {
 
     optimiseVirtualStarts(g); /* good for som */
 
-    handleExtendedParams(rm, g, expr, cc);
-    if (expr.min_length) {
-        // We have a minimum length constraint, which we currently use SOM to
-        // satisfy.
+    propagateExtendedParams(g, expr, rm);
+    reduceExtendedParams(g, rm, som);
+
+    // We may have removed all the edges to accept, in which case this
+    // expression cannot match.
+    if (can_never_match(g)) {
+        throw CompileError(expr.index, "Extended parameter constraints can not "
+                                       "be satisfied for any match from this "
+                                       "expression.");
+    }
+
+    if (any_of_in(all_reports(g), [&](ReportID id) {
+            return rm.getReport(id).minLength;
+        })) {
+        // We have at least one report with a minimum length constraint, which
+        // we currently use SOM to satisfy.
         som = SOM_LEFT;
         ssm.somPrecision(8);
     }
@@ -377,10 +397,16 @@ bool NG::addGraph(ExpressionInfo &expr, unique_ptr<NGHolder> g_ptr) {
         relaxForbiddenUtf8(g, expr);
     }
 
-    if (expr.highlander && !expr.min_length && !expr.min_offset) {
+    if (all_of_in(all_reports(g), [&](ReportID id) {
+            const auto &report = rm.getReport(id);
+            return report.ekey != INVALID_EKEY && !report.minLength &&
+                   !report.minOffset;
+        })) {
         // In highlander mode: if we don't have constraints on our reports that
         // may prevent us accepting our first match (i.e. extended params) we
         // can prune the other out-edges of all vertices connected to accept.
+        // TODO: shift the report checking down into pruneHighlanderAccepts()
+        // to allow us to handle the parts we can in mixed cases.
         pruneHighlanderAccepts(g, rm);
     }
 

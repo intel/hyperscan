@@ -41,6 +41,7 @@
 #include "nfagraph/ng_depth.h"
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_mcclellan.h"
+#include "nfagraph/ng_reports.h"
 #include "nfagraph/ng_prune.h"
 #include "nfagraph/ng_util.h"
 #include "smallwrite/smallwrite_internal.h"
@@ -179,8 +180,23 @@ void SmallWriteBuildImpl::add(const NGHolder &g, const ExpressionInfo &expr) {
         return;
     }
 
-    if (expr.som || expr.min_length || isVacuous(g)) {
-        poisoned = true; /* cannot support in smwr */
+    if (expr.som) {
+        DEBUG_PRINTF("no SOM support in small-write engine\n");
+        poisoned = true;
+        return;
+    }
+
+    if (isVacuous(g)) {
+        DEBUG_PRINTF("no vacuous graph support in small-write engine\n");
+        poisoned = true;
+        return;
+    }
+
+    if (any_of_in(::ue2::all_reports(g), [&](ReportID id) {
+            return rm.getReport(id).minLength > 0;
+        })) {
+        DEBUG_PRINTF("no min_length extparam support in small-write engine\n");
+        poisoned = true;
         return;
     }
 

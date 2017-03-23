@@ -388,7 +388,7 @@ hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
         // fuzz graph - this must happen before any transformations are made
         make_fuzzy(*g, expr.edit_distance, cc.grey);
 
-        handleExtendedParams(rm, *g, expr, cc);
+        propagateExtendedParams(*g, expr, rm);
         fillExpressionInfo(rm, *g, expr, &local_info);
     }
     catch (const CompileError &e) {
