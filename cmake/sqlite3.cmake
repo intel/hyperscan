@@ -22,7 +22,7 @@ if (NOT SQLITE3_FOUND)
         set(SQLITE3_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/sqlite3")
         set(SQLITE3_LDFLAGS sqlite3_static)
     else()
-        message(FATAL_ERROR "  no sqlite3 in source tree")
+        message(STATUS "  no sqlite3 in source tree")
     endif()
 endif()
 

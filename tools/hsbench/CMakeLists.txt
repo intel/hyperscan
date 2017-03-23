@@ -1,4 +1,8 @@
 include (${CMAKE_MODULE_PATH}/sqlite3.cmake)
+if (NOT SQLITE3_FOUND)
+    message(STATUS "sqlite3 not found, not building hsbench")
+    return()
+endif()
 
 if (NOT XCODE)
     include_directories(SYSTEM ${SQLITE3_INCLUDE_DIRS})
