@@ -51,6 +51,53 @@ struct expected_info {
     char matches_only_at_eod;
 };
 
+ostream& operator<<(ostream &os, const hs_expr_ext &ext) {
+    if (!ext.flags) {
+        return os;
+    }
+    bool first = true;
+    if (ext.flags & HS_EXT_FLAG_MIN_OFFSET) {
+        if (!first) {
+            os << ", ";
+        }
+        os << "min_offset=" << ext.min_offset;
+        first = false;
+    }
+    if (ext.flags & HS_EXT_FLAG_MAX_OFFSET) {
+        if (!first) {
+            os << ", ";
+        }
+        os << "max_offset=" << ext.max_offset;
+        first = false;
+    }
+    if (ext.flags & HS_EXT_FLAG_MIN_LENGTH) {
+        if (!first) {
+            os << ", ";
+        }
+        os << "min_length=" << ext.min_length;
+        first = false;
+    }
+    if (ext.flags & HS_EXT_FLAG_EDIT_DISTANCE) {
+        if (!first) {
+            os << ", ";
+        }
+        os << "edit_distance=" << ext.edit_distance;
+        first = false;
+    }
+    return os;
+}
+
+// For Google Test.
+void PrintTo(const expected_info &ei, ostream *os) {
+    *os << "expected_info: "
+        << "pattern=\"" << ei.pattern << "\""
+        << ", ext={" << ei.ext << "}"
+        << ", min=" << ei.min << ", max=" << ei.max
+        << ", unordered_matches=" << (ei.unordered_matches ? 1 : 0)
+        << ", matches_at_eod=" << (ei.matches_at_eod ? 1 : 0)
+        << ", matches_only_at_eod=" << (ei.matches_only_at_eod ? 1 : 0);
+}
+
 class ExprInfop : public TestWithParam<expected_info> {
 };
 
