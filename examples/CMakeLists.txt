@@ -22,3 +22,10 @@ set_source_files_properties(patbench.cc PROPERTIES COMPILE_FLAGS
     "-Wall -Wno-unused-parameter")
 target_link_libraries(patbench hs pcap)
 endif()
+
+if (PCAP_LIBRARY)
+add_executable(livescan livescan.cc)
+set_source_files_properties(livescan.cc PROPERTIES COMPILE_FLAGS
+    "-Wall -Wno-unused-parameter")
+target_link_libraries(livescan hs pcap)
+endif()
