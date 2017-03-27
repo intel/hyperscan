@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -471,7 +471,8 @@ u32 rank_in_mask64(u64a mask, u32 bit) {
     return popcount64(mask);
 }
 
-#if defined(__BMI2__) || (defined(_WIN32) && defined(__AVX2__))
+#if defined(__BMI2__) || (defined(_WIN32) && defined(__AVX2__)) ||             \
+    (defined(__INTEL_COMPILER) && defined(__AVX2__))
 #define HAVE_PEXT
 #endif
 
