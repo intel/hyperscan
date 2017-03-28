@@ -177,15 +177,15 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
                  m->sheng_accel_limit, sheng_stop_limit);
 #endif
 
-#define SHENG_SINGLE_ITER do {                                          \
-        m128 shuffle_mask = masks[*(c++)];                              \
-        s = pshufb(shuffle_mask, s);                                    \
-        u32 s_gpr_x4 = movd(s); /* convert to u8 */                     \
-        DEBUG_PRINTF("c %hhu (%c) --> s %hhu\n", c[-1], c[-1], s_gpr);  \
-        if (s_gpr_x4 >= sheng_stop_limit_x4) {                          \
-            s_gpr = s_gpr_x4;                                           \
-            goto exit;                                                  \
-        }                                                               \
+#define SHENG_SINGLE_ITER do {                                             \
+        m128 shuffle_mask = masks[*(c++)];                                 \
+        s = pshufb(shuffle_mask, s);                                       \
+        u32 s_gpr_x4 = movd(s); /* convert to u8 */                        \
+        DEBUG_PRINTF("c %hhu (%c) --> s %hhu\n", c[-1], c[-1], s_gpr_x4);  \
+        if (s_gpr_x4 >= sheng_stop_limit_x4) {                             \
+            s_gpr = s_gpr_x4;                                              \
+            goto exit;                                                     \
+        }                                                                  \
     } while (0)
 
     u8 s_gpr;
