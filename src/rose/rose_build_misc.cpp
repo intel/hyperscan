@@ -590,6 +590,8 @@ private:
     map<ReportID, set<suffix_id>> suffix_map;
     map<ReportID, set<const OutfixInfo *>> outfix_map;
     map<ReportID, set<const raw_puff *>> puff_map;
+
+    unordered_set<ReportID> live_reports; //!< all live internal reports.
 };
 
 unique_ptr<RoseDedupeAux> RoseBuildImpl::generateDedupeAux() const {
@@ -606,6 +608,8 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
     set<suffix_id> suffixes;
 
     for (auto v : vertices_range(g)) {
+        insert(&live_reports, g[v].reports);
+
         // Literals in the small block table are "shadow" copies of literals in
         // the other tables that do not run in the same runtime invocation.
         // Dedupe key assignment will be taken care of by the real literals.
@@ -629,12 +633,14 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
     for (const auto &suffix : suffixes) {
         for (const auto &report_id : all_reports(suffix)) {
             suffix_map[report_id].insert(suffix);
+            live_reports.insert(report_id);
         }
     }
 
     for (const auto &outfix : tbi.outfixes) {
         for (const auto &report_id : all_reports(outfix)) {
             outfix_map[report_id].insert(&outfix);
+            live_reports.insert(report_id);
         }
     }
 
@@ -642,11 +648,21 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &tbi_in)
         auto *mpv = tbi.mpv_outfix->mpv();
         for (const auto &puff : mpv->puffettes) {
             puff_map[puff.report].insert(&puff);
+            live_reports.insert(puff.report);
         }
         for (const auto &puff : mpv->triggered_puffettes) {
             puff_map[puff.report].insert(&puff);
+            live_reports.insert(puff.report);
         }
     }
+
+    // Collect live reports from boundary reports.
+    insert(&live_reports, tbi.boundary.report_at_0);
+    insert(&live_reports, tbi.boundary.report_at_0_eod);
+    insert(&live_reports, tbi.boundary.report_at_eod);
+
+    DEBUG_PRINTF("%zu of %zu reports are live\n", live_reports.size(),
+                 tbi.rm.numReports());
 }
 
 static
@@ -716,11 +732,20 @@ bool RoseDedupeAuxImpl::hasSafeMultiReports(
 }
 
 bool RoseDedupeAuxImpl::requiresDedupeSupport(
-    const ue2::flat_set<ReportID> &reports) const {
+    const flat_set<ReportID> &reports_in) const {
     /* TODO: this could be expanded to check for offset or character
        constraints */
 
-    DEBUG_PRINTF("reports: %s\n", as_string_list(reports).c_str());
+    // We don't want to consider dead reports (tracked by ReportManager but no
+    // longer used) for the purposes of assigning dupe keys.
+    flat_set<ReportID> reports;
+    for (auto id : reports_in) {
+        if (contains(live_reports, id)) {
+            reports.insert(id);
+        }
+    }
+
+    DEBUG_PRINTF("live reports: %s\n", as_string_list(reports).c_str());
 
     const RoseGraph &g = tbi.g;
 
