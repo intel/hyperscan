@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,17 +26,22 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief Common SOM definitions.
  */
 
 #ifndef UE2_SOM_H
 #define UE2_SOM_H
 
+namespace ue2 {
+
 /** \brief Enumeration specifying a start of match behaviour. */
 enum som_type {
     SOM_NONE,       //!< No SOM required
     SOM_LEFT       //!< Exact leftmost SOM
 };
+
+} // namespace ue2
 
 #endif // UE2_SOM_H
