@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,8 +30,8 @@
  * \brief Platform specific popcount functions
  */
 
-#ifndef POPCOUNT_H_075D843B4545B6
-#define POPCOUNT_H_075D843B4545B6
+#ifndef UTIL_POPCOUNT_H_
+#define UTIL_POPCOUNT_H_
 
 #include "ue2common.h"
 
@@ -39,6 +39,8 @@
 #if defined(__POPCNT__)
 #define HAVE_POPCOUNT_INSTR
 #elif defined(_WIN32) && defined(__AVX__) // TODO: fix win preproc
+#define HAVE_POPCOUNT_INSTR
+#elif defined(__INTEL_COMPILER) && defined(__SSE4_2__)
 #define HAVE_POPCOUNT_INSTR
 #endif
 
@@ -76,5 +78,5 @@ u32 popcount64(u64a x) {
 #endif
 }
 
-#endif /* POPCOUNT_H_075D843B4545B6 */
+#endif /* UTIL_POPCOUNT_H_ */
 
