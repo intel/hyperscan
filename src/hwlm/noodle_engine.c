@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,7 @@
 #include "noodle_engine.h"
 #include "noodle_internal.h"
 #include "ue2common.h"
+#include "util/arch.h"
 #include "util/bitutils.h"
 #include "util/compare.h"
 #include "util/masked_move.h"
@@ -109,7 +110,7 @@ hwlm_error_t final(const u8 *buf, size_t len, const u8 *key, size_t keyLen,
     return HWLM_SUCCESS;
 }
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 #define CHUNKSIZE 32
 #define MASK_TYPE m256
 #include "noodle_engine_avx2.c"

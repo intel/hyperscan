@@ -34,6 +34,7 @@
 #define TEDDY_H_
 
 #include "hwlm/hwlm.h" // for hwlm_group_t
+#include "util/arch.h"
 
 struct FDR; // forward declaration from fdr_internal.h
 struct FDR_Runtime_Args;
@@ -70,7 +71,7 @@ hwlm_error_t fdr_exec_teddy_msks4_pck(const struct FDR *fdr,
                                       const struct FDR_Runtime_Args *a,
                                       hwlm_group_t control);
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 
 hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
                                            const struct FDR_Runtime_Args *a,
@@ -104,6 +105,6 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
                                                const struct FDR_Runtime_Args *a,
                                                hwlm_group_t control);
 
-#endif /* __AVX2__ */
+#endif /* HAVE_AVX2 */
 
 #endif /* TEDDY_H_ */

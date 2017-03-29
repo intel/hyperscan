@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,7 @@
 #include "nfa_api.h"
 #include "nfa_api_queue.h"
 #include "nfa_internal.h"
+#include "util/arch.h"
 #include "util/bitutils.h"
 #include "util/compare.h"
 #include "util/simd_utils.h"
@@ -168,7 +169,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
      * extract a single copy of the state from the u32 for checking. */
     u32 sheng_stop_limit_x4 = sheng_stop_limit * 0x01010101;
 
-#if defined(HAVE_PEXT) && defined(ARCH_64_BIT)
+#if defined(HAVE_BMI2) && defined(ARCH_64_BIT)
     u32 sheng_limit_x4 = sheng_limit * 0x01010101;
     m128 simd_stop_limit = set4x32(sheng_stop_limit_x4);
     m128 accel_delta = set16x8(sheng_limit - sheng_stop_limit);
@@ -189,7 +190,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
 
     u8 s_gpr;
     while (c < c_end) {
-#if defined(HAVE_PEXT) && defined(ARCH_64_BIT)
+#if defined(HAVE_BMI2) && defined(ARCH_64_BIT)
         /* This version uses pext for efficently bitbashing out scaled
          * versions of the bytes to process from a u64a */
 

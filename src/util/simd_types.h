@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 #define SIMD_TYPES_H
 
 #include "config.h"
+#include "util/arch.h"
 #include "ue2common.h"
 
 // more recent headers are bestest, but only if we can use them
@@ -61,13 +62,13 @@
 #error no intrinsics!
 #endif
 
-#if defined(__SSE2__) || defined(_M_X64) || (_M_IX86_FP >= 2)
+#if defined(HAVE_SSE2)
 typedef __m128i m128;
 #else
 typedef struct ALIGN_DIRECTIVE {u64a hi; u64a lo;} m128;
 #endif
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 typedef __m256i m256;
 #else
 typedef ALIGN_AVX_DIRECTIVE struct {m128 lo; m128 hi;} m256;

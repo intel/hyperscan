@@ -26,50 +26,50 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTIL_MATH_H_
-#define UTIL_MATH_H_
+/** \file
+ * \brief Per-platform architecture definitions
+ */
 
-#include "arch.h"
+#ifndef UTIL_ARCH_H_
+#define UTIL_ARCH_H_
 
-#include <math.h>
-
-#ifdef __cplusplus
-# if defined(HAVE_CXX_X86INTRIN_H)
-#  define USE_X86INTRIN_H
-# endif
-#else // C
-# if defined(HAVE_C_X86INTRIN_H)
-#  define USE_X86INTRIN_H
-# endif
+#if defined(__SSE2__) || defined(_M_X64) || (_M_IX86_FP >= 2)
+#define HAVE_SSE2
 #endif
 
-#ifdef __cplusplus
-# if defined(HAVE_CXX_INTRIN_H)
-#  define USE_INTRIN_H
-# endif
-#else // C
-# if defined(HAVE_C_INTRIN_H)
-#  define USE_INTRIN_H
-# endif
+#if defined(__SSE4_1__) || (defined(_WIN32) && defined(__AVX__))
+#define HAVE_SSE41
 #endif
 
-#if defined(USE_X86INTRIN_H)
-#include <x86intrin.h>
-#elif defined(USE_INTRIN_H)
-#include <intrin.h>
+#if defined(__SSE4_2__) || (defined(_WIN32) && defined(__AVX__))
+#define HAVE_SSE42
 #endif
 
-static really_inline
-double our_pow(double x, double y) {
-#if defined(HAVE_AVX)
-    /*
-     * Clear the upper half of AVX registers before calling into the math lib.
-     * On some versions of glibc this can save thousands of AVX-to-SSE
-     * transitions.
-     */
-    _mm256_zeroupper();
+#if defined(__AVX__)
+#define HAVE_AVX
 #endif
-    return pow(x, y);
-}
 
-#endif // UTIL_MATH_H_
+#if defined(__AVX2__)
+#define HAVE_AVX2
+#endif
+
+/*
+ * ICC and MSVC don't break out POPCNT or BMI/2 as separate pre-def macros
+ */
+#if defined(__POPCNT__) ||                                                     \
+    (defined(__INTEL_COMPILER) && defined(__SSE4_2__)) ||                      \
+    (defined(_WIN32) && defined(__AVX__))
+#define HAVE_POPCOUNT_INSTR
+#endif
+
+#if defined(__BMI__) || (defined(_WIN32) && defined(__AVX2__)) ||              \
+    (defined(__INTEL_COMPILER) && defined(__AVX2__))
+#define HAVE_BMI
+#endif
+
+#if defined(__BMI2__) || (defined(_WIN32) && defined(__AVX2__)) ||             \
+    (defined(__INTEL_COMPILER) && defined(__AVX2__))
+#define HAVE_BMI2
+#endif
+
+#endif // UTIL_ARCH_H_

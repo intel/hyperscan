@@ -35,9 +35,10 @@
 #include "teddy.h"
 #include "teddy_internal.h"
 #include "teddy_runtime_common.h"
+#include "util/arch.h"
 #include "util/simd_utils.h"
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 
 #ifdef ARCH_64_BIT
 #define CONFIRM_FAT_TEDDY(var, bucket, offset, reason, conf_fn)             \
@@ -687,4 +688,4 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
     return HWLM_SUCCESS;
 }
 
-#endif // __AVX2__
+#endif // HAVE_AVX2

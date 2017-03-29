@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 
 #include "gtest/gtest.h"
 #include "util/alloc.h"
+#include "util/arch.h"
 #include "util/make_unique.h"
 #include "util/simd_utils.h"
 
@@ -620,7 +621,7 @@ TEST(SimdUtilsTest, set4x32) {
     ASSERT_EQ(0, memcmp(cmp, &simd, sizeof(simd)));
 }
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 TEST(SimdUtilsTest, set32x8) {
     char cmp[sizeof(m256)];
 

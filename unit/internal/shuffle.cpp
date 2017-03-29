@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 
 #include "gtest/gtest.h"
 
+#include "util/arch.h"
 #include "util/simd_utils.h"
 #include "nfa/limex_shuffle.h"
 
@@ -194,7 +195,7 @@ TEST(Shuffle, PackedExtract128_1) {
     }
 }
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 TEST(Shuffle, PackedExtract256_1) {
     // Try all possible one-bit masks
     for (unsigned int i = 0; i < 256; i++) {

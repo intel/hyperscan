@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,12 +34,13 @@
 
 #include "config.h"
 #include "ue2common.h"
+#include "util/arch.h"
 
 #include "multishufti.h"
 
 #include "multiaccel_common.h"
 
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
 
 #define MATCH_ALGO long_
 #include "multiaccel_long.h"

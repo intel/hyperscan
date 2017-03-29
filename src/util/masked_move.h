@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,9 @@
 #ifndef MASKED_MOVE_H
 #define MASKED_MOVE_H
 
-#if defined(__AVX2__)
+#include "arch.h"
+
+#if defined(HAVE_AVX2)
 
 #include "unaligned.h"
 #include "simd_utils.h"

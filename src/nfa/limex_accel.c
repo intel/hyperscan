@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,6 +44,7 @@
 #include "multivermicelli.h"
 #include "ue2common.h"
 #include "vermicelli.h"
+#include "util/arch.h"
 #include "util/bitutils.h"
 #include "util/simd_utils.h"
 
@@ -118,7 +119,7 @@ size_t doAccel256(const m256 *state, const struct LimExNFA256 *limex,
     DEBUG_PRINTF("using PSHUFB for 256-bit shuffle\n");
     m256 accelPerm = limex->accelPermute;
     m256 accelComp = limex->accelCompare;
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
     u32 idx1 = packedExtract128(s.lo, accelPerm.lo, accelComp.lo);
     u32 idx2 = packedExtract128(s.hi, accelPerm.hi, accelComp.hi);
     assert((idx1 & idx2) == 0); // should be no shared bits
@@ -153,7 +154,7 @@ size_t doAccel512(const m512 *state, const struct LimExNFA512 *limex,
     DEBUG_PRINTF("using PSHUFB for 512-bit shuffle\n");
     m512 accelPerm = limex->accelPermute;
     m512 accelComp = limex->accelCompare;
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
     u32 idx1 = packedExtract128(s.lo.lo, accelPerm.lo.lo, accelComp.lo.lo);
     u32 idx2 = packedExtract128(s.lo.hi, accelPerm.lo.hi, accelComp.lo.hi);
     u32 idx3 = packedExtract128(s.hi.lo, accelPerm.hi.lo, accelComp.hi.lo);

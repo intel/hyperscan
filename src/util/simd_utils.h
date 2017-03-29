@@ -38,6 +38,8 @@
 #endif
 
 #include "config.h"
+#include "util/arch.h"
+
 #include <string.h> // for memcpy
 
 // more recent headers are bestest, but only if we can use them
@@ -141,7 +143,7 @@ static really_inline u32 diffrich128(m128 a, m128 b) {
  * returns a 4-bit mask indicating which 64-bit words contain differences.
  */
 static really_inline u32 diffrich64_128(m128 a, m128 b) {
-#if defined(__SSE_41__)
+#if defined(HAVE_SSE41)
     a = _mm_cmpeq_epi64(a, b);
     return ~(_mm_movemask_ps(_mm_castsi128_ps(a))) & 0x5;
 #else
@@ -186,11 +188,11 @@ m128 load_m128_from_u64a(const u64a *p) {
 #define rshiftbyte_m128(a, count_immed) _mm_srli_si128(a, count_immed)
 #define lshiftbyte_m128(a, count_immed) _mm_slli_si128(a, count_immed)
 
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
 // TODO: this entire file needs restructuring - this carveout is awful
 #define extractlow64from256(a) movq(a.lo)
 #define extractlow32from256(a) movd(a.lo)
-#if defined(__SSE4_1__)
+#if defined(HAVE_SSE41)
 #define extract32from256(a, imm) _mm_extract_epi32((imm >> 2) ? a.hi : a.lo, imm % 4)
 #define extract64from256(a, imm) _mm_extract_epi64((imm >> 2) ? a.hi : a.lo, imm % 2)
 #else
@@ -288,7 +290,7 @@ void clearbit128(m128 *ptr, unsigned int n) {
 static really_inline
 char testbit128(m128 val, unsigned int n) {
     const m128 mask = mask1bit128(n);
-#if defined(__SSE4_1__)
+#if defined(HAVE_SSE41)
     return !_mm_testz_si128(mask, val);
 #else
     return isnonzero128(and128(mask, val));
@@ -307,7 +309,7 @@ m128 pshufb(m128 a, m128 b) {
 
 static really_inline
 m256 vpshufb(m256 a, m256 b) {
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     return _mm256_shuffle_epi8(a, b);
 #else
     m256 rv;
@@ -348,7 +350,7 @@ m128 sub_u8_m128(m128 a, m128 b) {
  **** 256-bit Primitives
  ****/
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 #define lshift64_m256(a, b) _mm256_slli_epi64((a), (b))
 #define rshift64_m256(a, b) _mm256_srli_epi64((a), (b))
 
@@ -413,7 +415,7 @@ m256 set2x128(m128 a) {
 #endif
 
 static really_inline m256 zeroes256(void) {
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     return _mm256_setzero_si256();
 #else
     m256 rv = {zeroes128(), zeroes128()};
@@ -422,7 +424,7 @@ static really_inline m256 zeroes256(void) {
 }
 
 static really_inline m256 ones256(void) {
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     m256 rv = _mm256_set1_epi8(0xFF);
 #else
     m256 rv = {ones128(), ones128()};
@@ -430,7 +432,7 @@ static really_inline m256 ones256(void) {
     return rv;
 }
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 static really_inline m256 and256(m256 a, m256 b) {
     return _mm256_and_si256(a, b);
 }
@@ -443,7 +445,7 @@ static really_inline m256 and256(m256 a, m256 b) {
 }
 #endif
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 static really_inline m256 or256(m256 a, m256 b) {
     return _mm256_or_si256(a, b);
 }
@@ -456,7 +458,7 @@ static really_inline m256 or256(m256 a, m256 b) {
 }
 #endif
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 static really_inline m256 xor256(m256 a, m256 b) {
     return _mm256_xor_si256(a, b);
 }
@@ -469,7 +471,7 @@ static really_inline m256 xor256(m256 a, m256 b) {
 }
 #endif
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 static really_inline m256 not256(m256 a) {
     return _mm256_xor_si256(a, ones256());
 }
@@ -482,7 +484,7 @@ static really_inline m256 not256(m256 a) {
 }
 #endif
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 static really_inline m256 andnot256(m256 a, m256 b) {
     return _mm256_andnot_si256(a, b);
 }
@@ -496,7 +498,7 @@ static really_inline m256 andnot256(m256 a, m256 b) {
 #endif
 
 static really_inline int diff256(m256 a, m256 b) {
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     return !!(_mm256_movemask_epi8(_mm256_cmpeq_epi8(a, b)) ^ (int)-1);
 #else
     return diff128(a.lo, b.lo) || diff128(a.hi, b.hi);
@@ -504,7 +506,7 @@ static really_inline int diff256(m256 a, m256 b) {
 }
 
 static really_inline int isnonzero256(m256 a) {
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     return !!diff256(a, zeroes256());
 #else
     return isnonzero128(or128(a.lo, a.hi));
@@ -516,7 +518,7 @@ static really_inline int isnonzero256(m256 a) {
  * mask indicating which 32-bit words contain differences.
  */
 static really_inline u32 diffrich256(m256 a, m256 b) {
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     a = _mm256_cmpeq_epi32(a, b);
     return ~(_mm256_movemask_ps(_mm256_castsi256_ps(a))) & 0xFF;
 #else
@@ -540,7 +542,7 @@ static really_inline u32 diffrich64_256(m256 a, m256 b) {
 // aligned load
 static really_inline m256 load256(const void *ptr) {
     assert(ISALIGNED_N(ptr, alignof(m256)));
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     return _mm256_load_si256((const m256 *)ptr);
 #else
     m256 rv = { load128(ptr), load128((const char *)ptr + 16) };
@@ -550,7 +552,7 @@ static really_inline m256 load256(const void *ptr) {
 
 // aligned load  of 128-bit value to low and high part of 256-bit value
 static really_inline m256 load2x128(const void *ptr) {
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     return set2x128(load128(ptr));
 #else
     assert(ISALIGNED_N(ptr, alignof(m128)));
@@ -567,7 +569,7 @@ static really_inline m256 loadu2x128(const void *ptr) {
 // aligned store
 static really_inline void store256(void *ptr, m256 a) {
     assert(ISALIGNED_N(ptr, alignof(m256)));
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     _mm256_store_si256((m256 *)ptr, a);
 #else
     ptr = assume_aligned(ptr, 16);
@@ -577,7 +579,7 @@ static really_inline void store256(void *ptr, m256 a) {
 
 // unaligned load
 static really_inline m256 loadu256(const void *ptr) {
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     return _mm256_loadu_si256((const m256 *)ptr);
 #else
     m256 rv = { loadu128(ptr), loadu128((const char *)ptr + 16) };
@@ -587,7 +589,7 @@ static really_inline m256 loadu256(const void *ptr) {
 
 // unaligned store
 static really_inline void storeu256(void *ptr, m256 a) {
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     _mm256_storeu_si256((m256 *)ptr, a);
 #else
     storeu128(ptr, a.lo);
@@ -619,7 +621,7 @@ m256 mask1bit256(unsigned int n) {
     return loadu256(&simd_onebit_masks[mask_idx]);
 }
 
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
 // switches on bit N in the given vector.
 static really_inline
 void setbit256(m256 *ptr, unsigned int n) {
@@ -971,7 +973,7 @@ static really_inline int diff512(m512 a, m512 b) {
 }
 
 static really_inline int isnonzero512(m512 a) {
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
     m128 x = or128(a.lo.lo, a.lo.hi);
     m128 y = or128(a.hi.lo, a.hi.hi);
     return isnonzero128(or128(x, y));
@@ -986,7 +988,7 @@ static really_inline int isnonzero512(m512 a) {
  * mask indicating which 32-bit words contain differences.
  */
 static really_inline u32 diffrich512(m512 a, m512 b) {
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     return diffrich256(a.lo, b.lo) | (diffrich256(a.hi, b.hi) << 8);
 #else
     a.lo.lo = _mm_cmpeq_epi32(a.lo.lo, b.lo.lo);
@@ -1018,7 +1020,7 @@ static really_inline m512 load512(const void *ptr) {
 // aligned store
 static really_inline void store512(void *ptr, m512 a) {
     assert(ISALIGNED_N(ptr, alignof(m256)));
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     m512 *x = (m512 *)ptr;
     store256(&x->lo, a.lo);
     store256(&x->hi, a.hi);
@@ -1054,7 +1056,7 @@ m512 loadbytes512(const void *ptr, unsigned int n) {
 static really_inline
 void setbit512(m512 *ptr, unsigned int n) {
     assert(n < sizeof(*ptr) * 8);
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
     m128 *sub;
     if (n < 128) {
         sub = &ptr->lo.lo;
@@ -1082,7 +1084,7 @@ void setbit512(m512 *ptr, unsigned int n) {
 static really_inline
 void clearbit512(m512 *ptr, unsigned int n) {
     assert(n < sizeof(*ptr) * 8);
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
     m128 *sub;
     if (n < 128) {
         sub = &ptr->lo.lo;
@@ -1110,7 +1112,7 @@ void clearbit512(m512 *ptr, unsigned int n) {
 static really_inline
 char testbit512(m512 val, unsigned int n) {
     assert(n < sizeof(val) * 8);
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
     m128 sub;
     if (n < 128) {
         sub = val.lo.lo;

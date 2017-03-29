@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,6 +29,7 @@
 #include "config.h"
 
 #include "gtest/gtest.h"
+#include "util/arch.h"
 #include "util/bitutils.h"
 #include "util/popcount.h"
 
@@ -437,7 +438,7 @@ TEST(BitUtils, rank_in_mask64) {
     ASSERT_EQ(31, rank_in_mask64(0xf0f0f0f0f0f0f0f0ULL, 63));
 }
 
-#if defined(HAVE_PEXT) && defined(ARCH_64_BIT)
+#if defined(HAVE_BMI2) && defined(ARCH_64_BIT)
 TEST(BitUtils, pdep64) {
     u64a data = 0xF123456789ABCDEF;
     ASSERT_EQ(0xfULL, pdep64(data, 0xf));

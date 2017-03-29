@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,7 @@
 
 #include "ue2common.h"
 
+#include "util/arch.h"
 #include "util/bitutils.h"
 #include "util/simd_utils.h"
 #include "util/unaligned.h"
@@ -86,7 +87,7 @@ void dumpMsk##_t##AsChars(m##_t msk) {              \
 
 #endif
 
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
 
 #ifdef DEBUG
 DUMP_MSK(128)

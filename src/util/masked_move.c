@@ -29,8 +29,9 @@
 
 #include "ue2common.h"
 #include "masked_move.h"
+#include "util/arch.h"
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 /* masks for masked moves */
 
 /* magic mask for maskload (vmmaskmovq) - described in UE-2424 */

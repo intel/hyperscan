@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,6 +41,7 @@ extern "C"
 #include "hs_compile.h" // for HS_MODE_ flags
 #include "hs_version.h"
 #include "ue2common.h"
+#include "util/arch.h"
 
 #define HS_DB_VERSION HS_VERSION_32BIT
 #define HS_DB_MAGIC   (0xdbdbdbdbU)
@@ -59,7 +60,7 @@ typedef u64a platform_t;
 
 static UNUSED
 const platform_t hs_current_platform = {
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
     HS_PLATFORM_NOAVX2 |
 #endif
     0,

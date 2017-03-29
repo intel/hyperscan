@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,6 +34,7 @@
 
 #include "shufti.h"
 #include "ue2common.h"
+#include "util/arch.h"
 #include "util/bitutils.h"
 #include "util/simd_utils.h"
 #include "util/unaligned.h"
@@ -55,7 +56,7 @@ const u8 *shuftiRevSlow(const u8 *lo, const u8 *hi, const u8 *buf,
     return buf_end;
 }
 
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
 /* Normal SSSE3 shufti */
 
 static really_inline

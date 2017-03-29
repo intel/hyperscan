@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 #include "ue2common.h"
 #include "hs_compile.h" // for HS_MODE_ flags
 #include "hs_internal.h"
+#include "util/arch.h"
 
 #ifndef _WIN32
 #include <cpuid.h>
@@ -131,7 +132,7 @@ u64a cpuid_flags(void) {
         cap |= HS_CPU_FEATURES_AVX2;
     }
 
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
     cap &= ~HS_CPU_FEATURES_AVX2;
 #endif
 

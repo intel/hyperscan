@@ -34,6 +34,7 @@
 #include "flood_runtime.h"
 #include "teddy.h"
 #include "teddy_internal.h"
+#include "util/arch.h"
 #include "util/simd_utils.h"
 #include "util/uniform_ops.h"
 
@@ -123,7 +124,7 @@ const ALIGN_CL_DIRECTIVE u8 zone_or_mask[ITER_BYTES+1][ITER_BYTES] = {
 static really_inline
 u64a andn(const u32 a, const u8 *b) {
     u64a r;
-#if defined(__BMI__)
+#if defined(HAVE_BMI)
     __asm__ ("andn\t%2,%1,%k0" : "=r"(r) : "r"(a), "m"(*(const u32 *)b));
 #else
     r = unaligned_load_u32(b) & ~a;
@@ -783,7 +784,7 @@ hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
     return HWLM_SUCCESS;
 }
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 #define ONLY_AVX2(func) func
 #else
 #define ONLY_AVX2(func) NULL

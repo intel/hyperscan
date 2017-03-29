@@ -34,15 +34,7 @@
 #define UTIL_POPCOUNT_H_
 
 #include "ue2common.h"
-
-// We have a native popcount where the compiler has defined __POPCNT__.
-#if defined(__POPCNT__)
-#define HAVE_POPCOUNT_INSTR
-#elif defined(_WIN32) && defined(__AVX__) // TODO: fix win preproc
-#define HAVE_POPCOUNT_INSTR
-#elif defined(__INTEL_COMPILER) && defined(__SSE4_2__)
-#define HAVE_POPCOUNT_INSTR
-#endif
+#include "util/arch.h"
 
 static really_inline
 u32 popcount32(u32 x) {

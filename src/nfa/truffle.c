@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,12 +33,13 @@
 
 #include "ue2common.h"
 #include "truffle.h"
+#include "util/arch.h"
 #include "util/bitutils.h"
 #include "util/simd_utils.h"
 
 #include "truffle_common.h"
 
-#if !defined(__AVX2__)
+#if !defined(HAVE_AVX2)
 
 static really_inline
 const u8 *lastMatch(const u8 *buf, u32 z) {
