@@ -4699,14 +4699,6 @@ void groupByFragment(RoseBuildImpl &build) {
             continue;
         }
 
-        // Combining fragments that squash their groups is unsafe.
-        if (info.squash_group) {
-            lit_to_frag.emplace(lit_id, frag_id);
-            fragments.emplace_back(frag_id, groups);
-            frag_id++;
-            continue;
-        }
-
         DEBUG_PRINTF("fragment candidate: lit_id=%u %s\n", lit_id,
                      dumpString(lit.s).c_str());
         auto &fi = frag_info[getFragment(lit)];
