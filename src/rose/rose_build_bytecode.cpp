@@ -4517,6 +4517,18 @@ u32 writeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
                         bool is_anchored_program) {
     assert(!lit_ids.empty());
 
+    // If we have multiple literals and any of them squash groups, we will have
+    // to add a CLEAR_WORK_DONE instruction to each literal program block to
+    // clear the work_done flags so that it's only set if a state has been
+    // switched on for that literal.
+
+    // Note that we add it to every lit program, as they may be
+    // reordered/uniquified by assembleProgramBlocks() above.
+    const bool needs_clear_work = lit_ids.size() > 1 &&
+        any_of_in(lit_ids, [&](u32 lit_id) {
+            return build.literal_info.at(lit_id).squash_group;
+        });
+
     vector<RoseProgram> blocks;
 
     const vector<RoseEdge> no_edges;
@@ -4531,6 +4543,11 @@ u32 writeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
         }
         auto prog = buildLiteralProgram(build, bc, prog_build, lit_id,
                                         *edges_ptr, is_anchored_program);
+        if (needs_clear_work) {
+            RoseProgram clear_block;
+            clear_block.add_before_end(make_unique<RoseInstrClearWorkDone>());
+            prog.add_block(move(clear_block));
+        }
         blocks.push_back(move(prog));
     }
 

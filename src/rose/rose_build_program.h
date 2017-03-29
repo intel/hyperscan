@@ -1851,6 +1851,14 @@ public:
     }
 };
 
+class RoseInstrClearWorkDone
+    : public RoseInstrBaseTrivial<ROSE_INSTR_CLEAR_WORK_DONE,
+                                  ROSE_STRUCT_CLEAR_WORK_DONE,
+                                  RoseInstrClearWorkDone> {
+public:
+    ~RoseInstrClearWorkDone() override;
+};
+
 class RoseInstrEnd
     : public RoseInstrBaseTrivial<ROSE_INSTR_END, ROSE_STRUCT_END,
                                   RoseInstrEnd> {

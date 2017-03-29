@@ -1100,6 +1100,9 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CLEAR_WORK_DONE) {}
+            PROGRAM_NEXT_INSTRUCTION
+
         default:
             os << "  UNKNOWN (code " << int{code} << ")" << endl;
             os << "  <stopping>" << endl;

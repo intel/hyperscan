@@ -48,6 +48,7 @@ RoseInstrSomZero::~RoseInstrSomZero() = default;
 RoseInstrSuffixesEod::~RoseInstrSuffixesEod() = default;
 RoseInstrMatcherEod::~RoseInstrMatcherEod() = default;
 RoseInstrEnd::~RoseInstrEnd() = default;
+RoseInstrClearWorkDone::~RoseInstrClearWorkDone() = default;
 
 using OffsetMap = RoseInstruction::OffsetMap;
 

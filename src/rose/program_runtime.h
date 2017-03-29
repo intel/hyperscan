@@ -2166,6 +2166,12 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                 }
             }
             PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CLEAR_WORK_DONE) {
+                DEBUG_PRINTF("clear work_done flag\n");
+                work_done = 0;
+            }
+            PROGRAM_NEXT_INSTRUCTION
         }
     }
 

@@ -141,7 +141,12 @@ enum RoseInstructionCode {
      */
     ROSE_INSTR_CHECK_MED_LIT_NOCASE,
 
-    LAST_ROSE_INSTRUCTION = ROSE_INSTR_CHECK_MED_LIT_NOCASE //!< Sentinel.
+    /**
+     * \brief Clear the "work done" flag used by the SQUASH_GROUPS instruction.
+     */
+    ROSE_INSTR_CLEAR_WORK_DONE,
+
+    LAST_ROSE_INSTRUCTION = ROSE_INSTR_CLEAR_WORK_DONE //!< Sentinel.
 };
 
 struct ROSE_STRUCT_END {
@@ -515,6 +520,10 @@ struct ROSE_STRUCT_CHECK_MED_LIT_NOCASE {
     u32 lit_offset; //!< Offset of literal string.
     u32 lit_length; //!< Length of literal string.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CLEAR_WORK_DONE {
+    u8 code; //!< From enum RoseInstructionCode.
 };
 
 #endif // ROSE_ROSE_PROGRAM_H
