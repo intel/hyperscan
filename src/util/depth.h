@@ -34,6 +34,7 @@
 #define DEPTH_H
 
 #include "ue2common.h"
+#include "util/operators.h"
 
 #ifdef DUMP_SUPPORT
 #include <string>
@@ -52,7 +53,7 @@ struct DepthOverflowError {};
  * \brief Type used to represent depth information; value is either a count,
  * or the special values "infinity" and "unreachable".
  */
-class depth {
+class depth : totally_ordered<depth> {
 public:
     /** \brief The default depth is special value "unreachable". */
     depth() = default;
@@ -93,11 +94,7 @@ public:
     }
 
     bool operator<(const depth &d) const { return val < d.val; }
-    bool operator>(const depth &d) const { return val > d.val; }
-    bool operator<=(const depth &d) const { return val <= d.val; }
-    bool operator>=(const depth &d) const { return val >= d.val; }
     bool operator==(const depth &d) const { return val == d.val; }
-    bool operator!=(const depth &d) const { return val != d.val; }
 
     // The following comparison operators exist for use against integer types
     // that are bigger than what we can safely convert to depth (such as those
@@ -239,11 +236,11 @@ private:
 /**
  * \brief Encapsulates a min/max pair.
  */
-struct DepthMinMax {
-    depth min;
-    depth max;
+struct DepthMinMax : totally_ordered<DepthMinMax> {
+    depth min{depth::infinity()};
+    depth max{0};
 
-    DepthMinMax() : min(depth::infinity()), max(depth(0)) {}
+    DepthMinMax() = default;
     DepthMinMax(const depth &mn, const depth &mx) : min(mn), max(mx) {}
 
     bool operator<(const DepthMinMax &b) const {
@@ -255,10 +252,6 @@ struct DepthMinMax {
 
     bool operator==(const DepthMinMax &b) const {
         return min == b.min && max == b.max;
-    }
-
-    bool operator!=(const DepthMinMax &b) const {
-        return !(*this == b);
     }
 
 #ifdef DUMP_SUPPORT
