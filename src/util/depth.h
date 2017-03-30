@@ -34,13 +34,12 @@
 #define DEPTH_H
 
 #include "ue2common.h"
+#include "util/hash.h"
 #include "util/operators.h"
 
 #ifdef DUMP_SUPPORT
 #include <string>
 #endif
-
-#include <boost/functional/hash/hash_fwd.hpp>
 
 namespace ue2 {
 
@@ -258,13 +257,11 @@ struct DepthMinMax : totally_ordered<DepthMinMax> {
     /** \brief Render as a string, useful for debugging. */
     std::string str() const;
 #endif
+
 };
 
 inline size_t hash_value(const DepthMinMax &d) {
-    size_t val = 0;
-    boost::hash_combine(val, d.min);
-    boost::hash_combine(val, d.max);
-    return val;
+    return hash_all(d.min, d.max);
 }
 
 /**
