@@ -27,56 +27,40 @@
  */
 
 /** \file
- * \brief Per-platform architecture definitions
+ * \brief Wrapper around the compiler supplied intrinsic header
  */
 
-#ifndef UTIL_ARCH_H_
-#define UTIL_ARCH_H_
+#ifndef INTRINSICS_H
+#define INTRINSICS_H
 
-#if defined(__SSE2__) || defined(_M_X64) || (_M_IX86_FP >= 2)
-#define HAVE_SSE2
+#include "config.h"
+
+#ifdef __cplusplus
+# if defined(HAVE_CXX_X86INTRIN_H)
+#  define USE_X86INTRIN_H
+# endif
+#else // C
+# if defined(HAVE_C_X86INTRIN_H)
+#  define USE_X86INTRIN_H
+# endif
 #endif
 
-#if defined(__SSE4_1__) || (defined(_WIN32) && defined(__AVX__))
-#define HAVE_SSE41
+#ifdef __cplusplus
+# if defined(HAVE_CXX_INTRIN_H)
+#  define USE_INTRIN_H
+# endif
+#else // C
+# if defined(HAVE_C_INTRIN_H)
+#  define USE_INTRIN_H
+# endif
 #endif
 
-#if defined(__SSE4_2__) || (defined(_WIN32) && defined(__AVX__))
-#define HAVE_SSE42
+#if defined(USE_X86INTRIN_H)
+#include <x86intrin.h>
+#elif defined(USE_INTRIN_H)
+#include <intrin.h>
+#else
+#error no intrinsics file
 #endif
 
-#if defined(__AVX__)
-#define HAVE_AVX
-#endif
-
-#if defined(__AVX2__)
-#define HAVE_AVX2
-#endif
-
-/*
- * ICC and MSVC don't break out POPCNT or BMI/2 as separate pre-def macros
- */
-#if defined(__POPCNT__) ||                                                     \
-    (defined(__INTEL_COMPILER) && defined(__SSE4_2__)) ||                      \
-    (defined(_WIN32) && defined(__AVX__))
-#define HAVE_POPCOUNT_INSTR
-#endif
-
-#if defined(__BMI__) || (defined(_WIN32) && defined(__AVX2__)) ||              \
-    (defined(__INTEL_COMPILER) && defined(__AVX2__))
-#define HAVE_BMI
-#endif
-
-#if defined(__BMI2__) || (defined(_WIN32) && defined(__AVX2__)) ||             \
-    (defined(__INTEL_COMPILER) && defined(__AVX2__))
-#define HAVE_BMI2
-#endif
-
-/*
- * MSVC uses a different form of inline asm
- */
-#if defined(_WIN32) && defined(_MSC_VER)
-#define NO_ASM
-#endif
-
-#endif // UTIL_ARCH_H_
+#endif // INTRINSICS_H

@@ -38,42 +38,13 @@
 #endif
 
 #include "config.h"
-#include "util/arch.h"
-
-#include <string.h> // for memcpy
-
-// more recent headers are bestest, but only if we can use them
-#ifdef __cplusplus
-# if defined(HAVE_CXX_X86INTRIN_H)
-#  define USE_X86INTRIN_H
-# endif
-#else // C
-# if defined(HAVE_C_X86INTRIN_H)
-#  define USE_X86INTRIN_H
-# endif
-#endif
-
-#ifdef __cplusplus
-# if defined(HAVE_CXX_INTRIN_H)
-#  define USE_INTRIN_H
-# endif
-#else // C
-# if defined(HAVE_C_INTRIN_H)
-#  define USE_INTRIN_H
-# endif
-#endif
-
-#if defined(USE_X86INTRIN_H)
-#include <x86intrin.h>
-#elif defined(USE_INTRIN_H)
-#include <intrin.h>
-#else
-#error no intrins!
-#endif
-
 #include "ue2common.h"
 #include "simd_types.h"
 #include "unaligned.h"
+#include "util/arch.h"
+#include "util/intrinsics.h"
+
+#include <string.h> // for memcpy
 
 // Define a common assume_aligned using an appropriate compiler built-in, if
 // it's available. Note that we need to handle C or C++ compilation.

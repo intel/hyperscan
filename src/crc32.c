@@ -30,12 +30,7 @@
 #include "config.h"
 #include "ue2common.h"
 #include "util/arch.h"
-
-#if defined(HAVE_C_X86INTRIN_H)
-#include <x86intrin.h>
-#elif defined(HAVE_C_INTRIN_H)
-#include <intrin.h>
-#endif
+#include "util/intrinsics.h"
 
 #if !defined(HAVE_SSE42)
 

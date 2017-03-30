@@ -36,37 +36,7 @@
 #include "ue2common.h"
 #include "popcount.h"
 #include "util/arch.h"
-
-#ifdef __cplusplus
-# if defined(HAVE_CXX_X86INTRIN_H)
-#  define USE_X86INTRIN_H
-# endif
-#else // C, baby
-# if defined(HAVE_C_X86INTRIN_H)
-#  define USE_X86INTRIN_H
-# endif
-#endif
-
-#ifdef __cplusplus
-# if defined(HAVE_CXX_INTRIN_H)
-#  define USE_INTRIN_H
-# endif
-#else // C, baby
-# if defined(HAVE_C_INTRIN_H)
-#  define USE_INTRIN_H
-# endif
-#endif
-
-#if defined(USE_X86INTRIN_H)
-#include <x86intrin.h>
-#elif defined(USE_INTRIN_H)
-#include <intrin.h>
-#endif
-
-// MSVC has a different form of inline asm
-#ifdef _WIN32
-#define NO_ASM
-#endif
+#include "util/intrinsics.h"
 
 #define CASE_BIT          0x20
 #define CASE_CLEAR        0xdf

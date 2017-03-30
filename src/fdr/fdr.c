@@ -124,7 +124,7 @@ const ALIGN_CL_DIRECTIVE u8 zone_or_mask[ITER_BYTES+1][ITER_BYTES] = {
 static really_inline
 u64a andn(const u32 a, const u8 *b) {
     u64a r;
-#if defined(HAVE_BMI)
+#if defined(HAVE_BMI) && !defined(NO_ASM)
     __asm__ ("andn\t%2,%1,%k0" : "=r"(r) : "r"(a), "m"(*(const u32 *)b));
 #else
     r = unaligned_load_u32(b) & ~a;
