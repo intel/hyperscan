@@ -35,17 +35,16 @@
 #include "util/alloc.h"
 #include "util/container.h"
 #include "util/multibit_build.h"
+#include "util/noncopyable.h"
 #include "util/ue2_containers.h"
 #include "util/verify_types.h"
 
 #include <vector>
 #include <type_traits>
 
-#include <boost/core/noncopyable.hpp>
-
 namespace ue2 {
 
-class RoseEngineBlob : boost::noncopyable {
+class RoseEngineBlob : noncopyable {
 public:
     /** \brief Base offset of engine_blob in the Rose engine bytecode. */
     static constexpr u32 base_offset = ROUNDUP_CL(sizeof(RoseEngine));

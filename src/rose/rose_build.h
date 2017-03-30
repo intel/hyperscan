@@ -42,6 +42,7 @@
 #include "rose_in_graph.h"
 #include "util/alloc.h"
 #include "util/charreach.h"
+#include "util/noncopyable.h"
 #include "util/ue2_containers.h"
 #include "util/ue2string.h"
 
@@ -49,8 +50,6 @@
 #include <set>
 #include <utility>
 #include <vector>
-
-#include <boost/core/noncopyable.hpp>
 
 struct NFA;
 struct SmallWriteEngine;
@@ -80,7 +79,7 @@ public:
 
 /** \brief Abstract interface intended for callers from elsewhere in the tree,
  * real underlying implementation is RoseBuildImpl in rose_build_impl.h. */
-class RoseBuild : boost::noncopyable {
+class RoseBuild : noncopyable {
 public:
     virtual ~RoseBuild();
 

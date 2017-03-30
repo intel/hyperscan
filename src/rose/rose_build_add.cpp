@@ -56,6 +56,7 @@
 #include "util/dump_charclass.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
+#include "util/noncopyable.h"
 #include "util/order_check.h"
 #include "util/report_manager.h"
 #include "util/ue2string.h"
@@ -68,8 +69,6 @@
 #include <vector>
 #include <utility>
 
-#include <boost/core/noncopyable.hpp>
-
 using namespace std;
 
 namespace ue2 {
@@ -77,7 +76,7 @@ namespace ue2 {
 /**
  * \brief Data used by most of the construction code in this file.
  */
-struct RoseBuildData : boost::noncopyable {
+struct RoseBuildData : noncopyable {
     RoseBuildData(const RoseInGraph &ig_in, bool som_in)
         : ig(ig_in), som(som_in) {}
 

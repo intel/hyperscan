@@ -37,10 +37,9 @@
 
 #include "ue2common.h"
 #include "util/alloc.h"
+#include "util/noncopyable.h"
 
 #include <set>
-
-#include <boost/core/noncopyable.hpp>
 
 struct SmallWriteEngine;
 
@@ -54,7 +53,7 @@ class ReportManager;
 
 // Abstract interface intended for callers from elsewhere in the tree, real
 // underlying implementation is SmallWriteBuildImpl in smwr_build_impl.h.
-class SmallWriteBuild : boost::noncopyable {
+class SmallWriteBuild : noncopyable {
 public:
     // Destructor
     virtual ~SmallWriteBuild();

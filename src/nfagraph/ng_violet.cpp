@@ -68,7 +68,6 @@
 #include <set>
 #include <utility>
 #include <vector>
-#include <boost/core/noncopyable.hpp>
 #include <boost/dynamic_bitset.hpp>
 #include <boost/range/adaptor/map.hpp>
 

@@ -31,6 +31,7 @@
 
 #include "ue2common.h"
 #include "util/graph_range.h"
+#include "util/noncopyable.h"
 #include "util/operators.h"
 
 #include <boost/functional/hash.hpp>
@@ -156,7 +157,7 @@ namespace ue2 {
 
 namespace graph_detail {
 
-class graph_base : boost::noncopyable {
+class graph_base : noncopyable {
 };
 
 struct default_edge_property {

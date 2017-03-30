@@ -36,11 +36,11 @@
 #include "ue2common.h"
 #include "nfagraph/ng_holder.h"
 #include "util/alloc.h"
+#include "util/noncopyable.h"
 #include "util/ue2_containers.h"
 
 #include <deque>
 #include <memory>
-#include <boost/core/noncopyable.hpp>
 
 struct NFA;
 
@@ -54,7 +54,7 @@ struct SlotCache;
 /** \brief SOM slot manager. Used to hand out SOM slots and track their
  * relationships during SOM construction. Also stores reverse NFAs used for
  * SOM. */
-class SomSlotManager : boost::noncopyable {
+class SomSlotManager : noncopyable {
 public:
     explicit SomSlotManager(u8 precision);
     ~SomSlotManager();

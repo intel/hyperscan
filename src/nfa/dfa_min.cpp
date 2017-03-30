@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -60,8 +60,9 @@
 #include "nfa/rdfa.h"
 #include "nfagraph/ng_mcclellan.h"
 #include "ue2common.h"
-#include "util/partitioned_set.h"
 #include "util/container.h"
+#include "util/noncopyable.h"
+#include "util/partitioned_set.h"
 #include "util/ue2_containers.h"
 
 #include <algorithm>
@@ -71,7 +72,6 @@
 #include <vector>
 #include <iterator>
 
-#include <boost/core/noncopyable.hpp>
 #include <boost/dynamic_bitset.hpp>
 
 using namespace std;
@@ -84,7 +84,7 @@ struct hopcroft_state_info {
     vector<vector<dstate_id_t> > prev;
 };
 
-struct DFA_components : boost::noncopyable {
+struct DFA_components : noncopyable {
     dstate_id_t nstates;
     size_t inp_size;
     set<size_t> work_queue;

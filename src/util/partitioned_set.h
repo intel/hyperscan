@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,13 +30,13 @@
 #define PARTITIONED_SET_H
 
 #include "container.h"
+#include "noncopyable.h"
 #include "ue2_containers.h"
 #include "ue2common.h"
 
 #include <algorithm>
 #include <vector>
 
-#include <boost/core/noncopyable.hpp>
 #include <boost/dynamic_bitset.hpp>
 
 namespace ue2 {
@@ -53,7 +53,7 @@ static constexpr size_t INVALID_SUBSET = ~(size_t)0;
  */
 
 template<typename T>
-class partitioned_set : boost::noncopyable {
+class partitioned_set : noncopyable {
 public:
     class subset {
     public:

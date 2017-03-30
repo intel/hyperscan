@@ -37,9 +37,9 @@
 #include "database.h"
 #include "compiler/expression_info.h"
 #include "parser/Component.h"
+#include "util/noncopyable.h"
 
 #include <memory>
-#include <boost/core/noncopyable.hpp>
 
 struct hs_database;
 struct hs_expr_ext;
@@ -54,7 +54,7 @@ class NGHolder;
 class ReportManager;
 
 /** \brief Class gathering together the pieces of a parsed expression. */
-class ParsedExpression : boost::noncopyable {
+class ParsedExpression : noncopyable {
 public:
     ParsedExpression(unsigned index, const char *expression, unsigned flags,
                      ReportID report, const hs_expr_ext *ext = nullptr);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,7 @@
 #include "mcclellancompile.h"
 #include "ue2common.h"
 #include "util/charreach.h"
+#include "util/noncopyable.h"
 #include "util/order_check.h"
 #include "util/ue2_containers.h"
 
@@ -41,7 +42,6 @@
 #include <set>
 #include <vector>
 
-#include <boost/core/noncopyable.hpp>
 #include <boost/graph/adjacency_list.hpp>
 
 namespace ue2 {
@@ -103,7 +103,7 @@ struct GoughSSAVarWithInputs;
 struct GoughSSAVarMin;
 struct GoughSSAVarJoin;
 
-struct GoughSSAVar : boost::noncopyable {
+struct GoughSSAVar : noncopyable {
     GoughSSAVar(void) : seen(false), slot(INVALID_SLOT) {}
     virtual ~GoughSSAVar();
     const ue2::flat_set<GoughSSAVar *> &get_inputs() const {

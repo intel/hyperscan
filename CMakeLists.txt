@@ -1003,6 +1003,7 @@ SET (hs_SRCS
     src/util/math.h
     src/util/multibit_build.cpp
     src/util/multibit_build.h
+    src/util/noncopyable.h
     src/util/operators.h
     src/util/order_check.h
     src/util/partial_store.h

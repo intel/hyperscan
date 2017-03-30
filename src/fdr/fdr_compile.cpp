@@ -44,6 +44,7 @@
 #include "util/compare.h"
 #include "util/dump_mask.h"
 #include "util/math.h"
+#include "util/noncopyable.h"
 #include "util/target_info.h"
 #include "util/ue2string.h"
 #include "util/verify_types.h"
@@ -62,7 +63,6 @@
 #include <string>
 #include <vector>
 
-#include <boost/core/noncopyable.hpp>
 #include <boost/multi_array.hpp>
 
 using namespace std;
@@ -71,7 +71,7 @@ namespace ue2 {
 
 namespace {
 
-class FDRCompiler : boost::noncopyable {
+class FDRCompiler : noncopyable {
 private:
     const FDREngineDescription &eng;
     const Grey &grey;

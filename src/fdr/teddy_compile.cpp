@@ -35,6 +35,7 @@
 #include "ue2common.h"
 #include "util/alloc.h"
 #include "util/compare.h"
+#include "util/noncopyable.h"
 #include "util/popcount.h"
 #include "util/target_info.h"
 #include "util/verify_types.h"
@@ -55,8 +56,6 @@
 #include <string>
 #include <vector>
 
-#include <boost/core/noncopyable.hpp>
-
 using namespace std;
 
 namespace ue2 {
@@ -65,7 +64,7 @@ namespace {
 
 //#define TEDDY_DEBUG
 
-class TeddyCompiler : boost::noncopyable {
+class TeddyCompiler : noncopyable {
     const TeddyEngineDescription &eng;
     const Grey &grey;
     const vector<hwlmLiteral> &lits;

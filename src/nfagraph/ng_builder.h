@@ -37,9 +37,9 @@
 #include "ue2common.h"
 
 #include "parser/position.h"
+#include "util/noncopyable.h"
 
 #include <memory>
-#include <boost/core/noncopyable.hpp>
 
 namespace ue2 {
 
@@ -52,7 +52,7 @@ class ParsedExpression;
 
 /** \brief Abstract builder interface. Use \ref makeNFABuilder to construct
  * one. Used by GlushkovBuildState. */
-class NFABuilder : boost::noncopyable {
+class NFABuilder : noncopyable {
 public:
     virtual ~NFABuilder();
 

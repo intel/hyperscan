@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,10 +35,10 @@
 
 #include "ue2common.h"
 #include "position.h"
+#include "util/noncopyable.h"
 
 #include <memory>
 #include <vector>
-#include <boost/core/noncopyable.hpp>
 
 namespace ue2 {
 
@@ -49,7 +49,7 @@ class PositionInfo;
  *
  * Abstract base class; use \ref makeGlushkovBuildState to get one of these you
  * can use. */
-class GlushkovBuildState : boost::noncopyable {
+class GlushkovBuildState : noncopyable {
 public:
     /** \brief Represents an uninitialized state. */
     static const Position POS_UNINITIALIZED;

@@ -42,6 +42,7 @@
 #include "util/compile_context.h"
 #include "util/depth.h"
 #include "util/graph.h"
+#include "util/noncopyable.h"
 #include "util/report_manager.h"
 #include "util/ue2_containers.h"
 
@@ -50,8 +51,6 @@
 #include <memory>
 #include <utility>
 #include <vector>
-
-#include <boost/core/noncopyable.hpp>
 
 namespace ue2 {
 
@@ -62,7 +61,7 @@ class ExpressionInfo;
 class RoseBuild;
 class SmallWriteBuild;
 
-class NG : boost::noncopyable {
+class NG : noncopyable {
 public:
     NG(const CompileContext &in_cc, size_t num_patterns,
        unsigned in_somPrecision);

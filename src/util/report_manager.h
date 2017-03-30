@@ -36,12 +36,12 @@
 
 #include "ue2common.h"
 #include "util/compile_error.h"
+#include "util/noncopyable.h"
 #include "util/report.h"
 
 #include <map>
 #include <set>
 #include <vector>
-#include <boost/core/noncopyable.hpp>
 
 namespace ue2 {
 
@@ -57,7 +57,7 @@ struct external_report_info {
 };
 
 /** \brief Tracks Report structures, exhaustion and dedupe keys. */
-class ReportManager : boost::noncopyable {
+class ReportManager : noncopyable {
 public:
     explicit ReportManager(const Grey &g);
 

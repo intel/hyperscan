@@ -86,6 +86,7 @@
 #include "util/graph_range.h"
 #include "util/make_unique.h"
 #include "util/multibit_build.h"
+#include "util/noncopyable.h"
 #include "util/order_check.h"
 #include "util/popcount.h"
 #include "util/queue_index_factory.h"
@@ -177,7 +178,7 @@ struct RoseResources {
     bool has_eod = false;
 };
 
-struct build_context : boost::noncopyable {
+struct build_context : noncopyable {
     /** \brief information about engines to the left of a vertex */
     map<RoseVertex, left_build_info> leftfix_info;
 
@@ -237,7 +238,7 @@ struct build_context : boost::noncopyable {
 
 /** \brief Data only used during construction of various programs (literal,
  * anchored, delay, etc). */
-struct ProgramBuild : boost::noncopyable {
+struct ProgramBuild : noncopyable {
     /** \brief Mapping from vertex to key, for vertices with a
      * CHECK_NOT_HANDLED instruction. */
     ue2::unordered_map<RoseVertex, u32> handledKeys;
