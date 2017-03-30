@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -61,36 +61,7 @@ enum AccelType {
     ACCEL_DSHUFTI,
     ACCEL_TRUFFLE,
     ACCEL_RED_TAPE,
-    /* multibyte vermicellis */
-    ACCEL_MLVERM,
-    ACCEL_MLVERM_NOCASE,
-    ACCEL_MLGVERM,
-    ACCEL_MLGVERM_NOCASE,
-    ACCEL_MSVERM,
-    ACCEL_MSVERM_NOCASE,
-    ACCEL_MSGVERM,
-    ACCEL_MSGVERM_NOCASE,
-    ACCEL_MDSVERM,
-    ACCEL_MDSVERM_NOCASE,
-    ACCEL_MDSGVERM,
-    ACCEL_MDSGVERM_NOCASE,
-    /* multibyte shuftis */
-    ACCEL_MLSHUFTI,
-    ACCEL_MLGSHUFTI,
-    ACCEL_MSSHUFTI,
-    ACCEL_MSGSHUFTI,
-    ACCEL_MDSSHUFTI,
-    ACCEL_MDSGSHUFTI,
-    /* multibyte truffles */
-    ACCEL_MLTRUFFLE,
-    ACCEL_MLGTRUFFLE,
-    ACCEL_MSTRUFFLE,
-    ACCEL_MSGTRUFFLE,
-    ACCEL_MDSTRUFFLE,
-    ACCEL_MDSGTRUFFLE,
-    /* masked dverm */
     ACCEL_DVERM_MASKED,
-
 };
 
 /** \brief Structure for accel framework. */
@@ -143,39 +114,9 @@ union AccelAux {
     struct {
         u8 accel_type;
         u8 offset;
-        m128 lo;
-        m128 hi;
-        u8 len;
-    } mshufti;
-    struct {
-        u8 accel_type;
-        u8 offset;
-        m128 lo;
-        m128 hi;
-        u8 len1;
-        u8 len2;
-    } mdshufti;
-    struct {
-        u8 accel_type;
-        u8 offset;
         m128 mask1;
         m128 mask2;
     } truffle;
-    struct {
-        u8 accel_type;
-        u8 offset;
-        m128 mask1;
-        m128 mask2;
-        u8 len;
-    } mtruffle;
-    struct {
-        u8 accel_type;
-        u8 offset;
-        m128 mask1;
-        m128 mask2;
-        u8 len1;
-        u8 len2;
-    } mdtruffle;
 };
 
 /**

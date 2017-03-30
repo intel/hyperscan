@@ -557,25 +557,6 @@ set (hs_exec_SRCS
     src/nfa/mpv.h
     src/nfa/mpv.c
     src/nfa/mpv_internal.h
-    src/nfa/multiaccel_common.h
-    src/nfa/multiaccel_doubleshift.h
-    src/nfa/multiaccel_doubleshiftgrab.h
-    src/nfa/multiaccel_long.h
-    src/nfa/multiaccel_longgrab.h
-    src/nfa/multiaccel_shift.h
-    src/nfa/multiaccel_shiftgrab.h
-    src/nfa/multishufti.c
-    src/nfa/multishufti_avx2.h
-    src/nfa/multishufti_sse.h
-    src/nfa/multishufti.h
-    src/nfa/multitruffle.c
-    src/nfa/multitruffle_avx2.h
-    src/nfa/multitruffle_sse.h
-    src/nfa/multitruffle.h
-    src/nfa/multivermicelli.c
-    src/nfa/multivermicelli.h
-    src/nfa/multivermicelli_sse.h
-    src/nfa/multivermicelli_avx2.h
     src/nfa/nfa_api.h
     src/nfa/nfa_api_dispatch.c
     src/nfa/nfa_internal.h
@@ -589,13 +570,11 @@ set (hs_exec_SRCS
     src/nfa/sheng_impl.h
     src/nfa/sheng_impl4.h
     src/nfa/sheng_internal.h
-    src/nfa/shufti_common.h
     src/nfa/shufti.c
     src/nfa/shufti.h
     src/nfa/tamarama.c
     src/nfa/tamarama.h
     src/nfa/tamarama_internal.h
-    src/nfa/truffle_common.h
     src/nfa/truffle.c
     src/nfa/truffle.h
     src/nfa/vermicelli.h
@@ -736,8 +715,6 @@ SET (hs_SRCS
     src/nfa/mpv_internal.h
     src/nfa/mpvcompile.cpp
     src/nfa/mpvcompile.h
-    src/nfa/multiaccel_compilehelper.cpp
-    src/nfa/multiaccel_compilehelper.h
     src/nfa/nfa_api.h
     src/nfa/nfa_api_queue.h
     src/nfa/nfa_api_util.h

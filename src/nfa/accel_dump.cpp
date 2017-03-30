@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -93,54 +93,6 @@ const char *accelName(u8 accel_type) {
         return "truffle";
     case ACCEL_RED_TAPE:
         return "red tape";
-    case ACCEL_MLVERM:
-        return "multibyte long vermicelli";
-    case ACCEL_MLVERM_NOCASE:
-        return "multibyte long vermicelli nocase";
-    case ACCEL_MLGVERM:
-        return "multibyte long-grab vermicelli";
-    case ACCEL_MLGVERM_NOCASE:
-        return "multibyte long-grab vermicelli nocase";
-    case ACCEL_MSVERM:
-        return "multibyte shift vermicelli";
-    case ACCEL_MSVERM_NOCASE:
-        return "multibyte shift vermicelli nocase";
-    case ACCEL_MSGVERM:
-        return "multibyte shift-grab vermicelli";
-    case ACCEL_MSGVERM_NOCASE:
-        return "multibyte shift-grab vermicelli nocase";
-    case ACCEL_MDSVERM:
-        return "multibyte doubleshift vermicelli";
-    case ACCEL_MDSVERM_NOCASE:
-        return "multibyte doubleshift vermicelli nocase";
-    case ACCEL_MDSGVERM:
-        return "multibyte doubleshift-grab vermicelli";
-    case ACCEL_MDSGVERM_NOCASE:
-        return "multibyte doubleshift-grab vermicelli nocase";
-    case ACCEL_MLSHUFTI:
-        return "multibyte long shufti";
-    case ACCEL_MLGSHUFTI:
-        return "multibyte long-grab shufti";
-    case ACCEL_MSSHUFTI:
-        return "multibyte shift shufti";
-    case ACCEL_MSGSHUFTI:
-        return "multibyte shift-grab shufti";
-    case ACCEL_MDSSHUFTI:
-        return "multibyte doubleshift shufti";
-    case ACCEL_MDSGSHUFTI:
-        return "multibyte doubleshift-grab shufti";
-    case ACCEL_MLTRUFFLE:
-        return "multibyte long truffle";
-    case ACCEL_MLGTRUFFLE:
-        return "multibyte long-grab truffle";
-    case ACCEL_MSTRUFFLE:
-        return "multibyte shift truffle";
-    case ACCEL_MSGTRUFFLE:
-        return "multibyte shift-grab truffle";
-    case ACCEL_MDSTRUFFLE:
-        return "multibyte doubleshift truffle";
-    case ACCEL_MDSGTRUFFLE:
-        return "multibyte doubleshift-grab truffle";
     default:
         return "unknown!";
     }
@@ -283,59 +235,6 @@ void dumpAccelInfo(FILE *f, const AccelAux &accel) {
                              (const u8 *)&accel.truffle.mask2);
         break;
     }
-    case ACCEL_MLVERM:
-    case ACCEL_MLVERM_NOCASE:
-    case ACCEL_MLGVERM:
-    case ACCEL_MLGVERM_NOCASE:
-    case ACCEL_MSVERM:
-    case ACCEL_MSVERM_NOCASE:
-    case ACCEL_MSGVERM:
-    case ACCEL_MSGVERM_NOCASE:
-        fprintf(f, " [\\x%02hhx] len:%u\n", accel.mverm.c, accel.mverm.len);
-        break;
-    case ACCEL_MDSVERM:
-    case ACCEL_MDSVERM_NOCASE:
-    case ACCEL_MDSGVERM:
-    case ACCEL_MDSGVERM_NOCASE:
-        fprintf(f, " [\\x%02hhx] len1:%u len2:%u\n", accel.mdverm.c, accel.mdverm.len1,
-                accel.mdverm.len2);
-        break;
-    case ACCEL_MLSHUFTI:
-    case ACCEL_MLGSHUFTI:
-    case ACCEL_MSSHUFTI:
-    case ACCEL_MSGSHUFTI:
-        fprintf(f, " len:%u\n", accel.mshufti.len);
-        dumpShuftiMasks(f, (const u8 *)&accel.mshufti.lo,
-                        (const u8 *)&accel.mshufti.hi);
-        dumpShuftiCharReach(f, (const u8 *)&accel.mshufti.lo,
-                            (const u8 *)&accel.mshufti.hi);
-        break;
-    case ACCEL_MDSSHUFTI:
-    case ACCEL_MDSGSHUFTI:
-        fprintf(f, " len1:%u len2:%u\n", accel.mdshufti.len1, accel.mdshufti.len2);
-        dumpShuftiMasks(f, (const u8 *)&accel.mdshufti.lo,
-                        (const u8 *)&accel.mdshufti.hi);
-        dumpShuftiCharReach(f, (const u8 *)&accel.mdshufti.lo,
-                            (const u8 *)&accel.mdshufti.hi);
-        break;
-    case ACCEL_MLTRUFFLE:
-    case ACCEL_MLGTRUFFLE:
-    case ACCEL_MSTRUFFLE:
-    case ACCEL_MSGTRUFFLE:
-        fprintf(f, " len:%u\n", accel.mtruffle.len);
-        dumpTruffleMasks(f, (const u8 *)&accel.mtruffle.mask1,
-                         (const u8 *)&accel.mtruffle.mask2);
-        dumpTruffleCharReach(f, (const u8 *)&accel.mtruffle.mask1,
-                             (const u8 *)&accel.mtruffle.mask2);
-        break;
-    case ACCEL_MDSTRUFFLE:
-    case ACCEL_MDSGTRUFFLE:
-        fprintf(f, " len1:%u len2:%u\n", accel.mdtruffle.len1, accel.mdtruffle.len2);
-        dumpTruffleMasks(f, (const u8 *)&accel.mdtruffle.mask1,
-                         (const u8 *)&accel.mdtruffle.mask2);
-        dumpTruffleCharReach(f, (const u8 *)&accel.mdtruffle.mask1,
-                             (const u8 *)&accel.mdtruffle.mask2);
-        break;
     default:
         fprintf(f, "\n");
         break;

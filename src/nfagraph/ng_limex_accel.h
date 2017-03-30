@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,9 +51,6 @@ namespace ue2 {
 #define MAX_MERGED_ACCEL_STOPS 200
 #define ACCEL_MAX_STOP_CHAR 24
 #define ACCEL_MAX_FLOATING_STOP_CHAR 192 /* accelerating sds is important */
-#define MULTIACCEL_MIN_LEN 3
-#define MULTIACCEL_MAX_LEN_SSE 15
-#define MULTIACCEL_MAX_LEN_AVX2 31
 
 // forward-declaration of CompileContext
 struct CompileContext;
@@ -84,11 +81,6 @@ bool nfaCheckAccel(const NGHolder &g, NFAVertex v,
                    const std::map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
                    AccelScheme *as, bool allow_wide);
 
-/** \brief Check if vertex \a v is a multi accelerable state (for a limex NFA).
- */
-MultibyteAccelInfo nfaCheckMultiAccel(const NGHolder &g,
-                                      const std::vector<NFAVertex> &verts,
-                                      const CompileContext &cc);
 
 } // namespace ue2
 

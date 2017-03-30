@@ -93,8 +93,6 @@ struct precalcAccel {
     CharReach double_cr;
     flat_set<pair<u8, u8>> double_lits; /* double-byte accel stop literals */
     u32 double_offset;
-
-    MultibyteAccelInfo ma_info;
 };
 
 struct limex_accel_info {
@@ -358,16 +356,12 @@ void buildReachMapping(const build_info &args, vector<NFAStateSet> &reach,
 }
 
 struct AccelBuild {
-    AccelBuild() : v(NGHolder::null_vertex()), state(0), offset(0), ma_len1(0),
-            ma_len2(0), ma_type(MultibyteAccelInfo::MAT_NONE) {}
+    AccelBuild() : v(NGHolder::null_vertex()), state(0), offset(0) {}
     NFAVertex v;
     u32 state;
     u32 offset; // offset correction to apply
     CharReach stop1; // single-byte accel stop literals
     flat_set<pair<u8, u8>> stop2; // double-byte accel stop literals
-    u32 ma_len1; // multiaccel len1
-    u32 ma_len2; // multiaccel len2
-    MultibyteAccelInfo::multiaccel_type ma_type; // multiaccel type
 };
 
 static
@@ -382,12 +376,7 @@ void findStopLiterals(const build_info &bi, NFAVertex v, AccelBuild &build) {
         build.stop1 = CharReach::dot();
     } else {
         const precalcAccel &precalc = bi.accel.precalc.at(ss);
-        unsigned ma_len = precalc.ma_info.len1 + precalc.ma_info.len2;
-        if (ma_len >= MULTIACCEL_MIN_LEN) {
-            build.ma_len1 = precalc.ma_info.len1;
-            build.stop1 = precalc.ma_info.cr;
-            build.offset = precalc.ma_info.offset;
-        } else if (precalc.double_lits.empty()) {
+        if (precalc.double_lits.empty()) {
             build.stop1 = precalc.single_cr;
             build.offset = precalc.single_offset;
         } else {
@@ -606,7 +595,6 @@ void fillAccelInfo(build_info &bi) {
     limex_accel_info &accel = bi.accel;
     unordered_map<NFAVertex, AccelScheme> &accel_map = accel.accel_map;
     const map<NFAVertex, BoundedRepeatSummary> &br_cyclic = bi.br_cyclic;
-    const CompileContext &cc = bi.cc;
     const unordered_map<NFAVertex, u32> &state_ids = bi.state_ids;
     const u32 num_states = bi.num_states;
 
@@ -663,27 +651,17 @@ void fillAccelInfo(build_info &bi) {
         DEBUG_PRINTF("accel %u ok with offset s%u, d%u\n", i, as.offset,
                      as.double_offset);
 
-        // try multibyte acceleration first
-        MultibyteAccelInfo mai = nfaCheckMultiAccel(g, states, cc);
-
         precalcAccel &pa = accel.precalc[state_set];
-        useful |= state_set;
-
-        // if we successfully built a multibyte accel scheme, use that
-        if (mai.type != MultibyteAccelInfo::MAT_NONE) {
-            pa.ma_info = mai;
-
-            DEBUG_PRINTF("multibyte acceleration!\n");
-            continue;
-        }
-
         pa.single_offset = as.offset;
         pa.single_cr = as.cr;
+
         if (as.double_byte.size() != 0) {
             pa.double_offset = as.double_offset;
             pa.double_lits = as.double_byte;
             pa.double_cr = as.double_cr;
-        };
+        }
+
+        useful |= state_set;
     }
 
     for (const auto &m : accel_map) {
@@ -700,19 +678,8 @@ void fillAccelInfo(build_info &bi) {
         state_set.reset();
         state_set.set(state_id);
 
-        bool is_multi = false;
-        auto p_it = accel.precalc.find(state_set);
-        if (p_it != accel.precalc.end()) {
-            const precalcAccel &pa = p_it->second;
-            offset = max(pa.double_offset, pa.single_offset);
-            is_multi = pa.ma_info.type != MultibyteAccelInfo::MAT_NONE;
-            assert(offset <= MAX_ACCEL_DEPTH);
-        }
-
         accel.accelerable.insert(v);
-        if (!is_multi) {
-            findAccelFriends(g, v, br_cyclic, offset, &accel.friends[v]);
-        }
+        findAccelFriends(g, v, br_cyclic, offset, &accel.friends[v]);
     }
 }
 
@@ -954,16 +921,8 @@ void buildAccel(const build_info &args, NFAStateSet &accelMask,
 
             if (contains(accel.precalc, effective_states)) {
                 const auto &precalc = accel.precalc.at(effective_states);
-                if (precalc.ma_info.type != MultibyteAccelInfo::MAT_NONE) {
-                    ainfo.ma_len1 = precalc.ma_info.len1;
-                    ainfo.ma_len2 = precalc.ma_info.len2;
-                    ainfo.multiaccel_offset = precalc.ma_info.offset;
-                    ainfo.multiaccel_stops = precalc.ma_info.cr;
-                    ainfo.ma_type = precalc.ma_info.type;
-                } else {
-                    ainfo.single_offset = precalc.single_offset;
-                    ainfo.single_stops = precalc.single_cr;
-                }
+                ainfo.single_offset = precalc.single_offset;
+                ainfo.single_stops = precalc.single_cr;
             }
         }
 

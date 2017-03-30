@@ -52,8 +52,6 @@ set(unit_internal_SOURCES
     internal/limex_nfa.cpp
     internal/masked_move.cpp
     internal/multi_bit.cpp
-    internal/multiaccel_matcher.cpp
-    internal/multiaccel_shift.cpp
     internal/nfagraph_common.h
     internal/nfagraph_comp.cpp
     internal/nfagraph_equivalence.cpp
