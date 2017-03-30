@@ -84,7 +84,7 @@ void checkVertex(const ReportManager &rm, const NGHolder &g, NFAVertex v,
         return;
     }
     if (is_any_start(v, g)) {
-        info.min = 0;
+        info.min = depth(0);
         info.max = max(info.max, depth(0));
         return;
     }

@@ -372,15 +372,16 @@ deque<unique_ptr<NGHolder>> calcComponents(unique_ptr<NGHolder> g,
     }
 
     bool shell_comp = false;
-    splitIntoComponents(std::move(g), comps, MAX_HEAD_SHELL_DEPTH,
-                        MAX_TAIL_SHELL_DEPTH, &shell_comp);
+    splitIntoComponents(std::move(g), comps, depth(MAX_HEAD_SHELL_DEPTH),
+                        depth(MAX_TAIL_SHELL_DEPTH), &shell_comp);
 
     if (shell_comp) {
         DEBUG_PRINTF("re-running on shell comp\n");
         assert(!comps.empty());
         auto sc = std::move(comps.back());
         comps.pop_back();
-        splitIntoComponents(std::move(sc), comps, 0, 0, &shell_comp);
+        splitIntoComponents(std::move(sc), comps, depth(0), depth(0),
+                            &shell_comp);
     }
 
     DEBUG_PRINTF("finished; split into %zu components\n", comps.size());

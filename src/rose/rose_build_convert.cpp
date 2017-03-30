@@ -551,7 +551,7 @@ bool handleMixedPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
                && is_subset_of(exits, base_succ)
                && is_subset_of(base_succ, exits_and_repeat_verts)) {
         /* we have a jump edge */
-        ri.repeatMin = 0;
+        ri.repeatMin = depth(0);
     } else {
         return false;
     }
@@ -802,7 +802,7 @@ void convertAnchPrefixToBounds(RoseBuildImpl &tbi) {
 
         DepthMinMax bounds(pr.bounds); // copy
         if (delay_adj > bounds.min) {
-            bounds.min = 0;
+            bounds.min = depth(0);
         } else {
             bounds.min -= delay_adj;
         }

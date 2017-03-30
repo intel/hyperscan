@@ -425,8 +425,8 @@ struct OutfixInfo {
 
     RevAccInfo rev_info;
     u32 maxBAWidth = 0; //!< max bi-anchored width
-    depth minWidth = depth::infinity();
-    depth maxWidth = 0;
+    depth minWidth{depth::infinity()};
+    depth maxWidth{0};
     u64a maxOffset = 0;
     bool in_sbmatcher = false; //!< handled by small-block matcher.
 

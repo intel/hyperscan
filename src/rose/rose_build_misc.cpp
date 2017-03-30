@@ -970,7 +970,7 @@ void RoseSuffixInfo::reset(void) {
     rdfa.reset();
     haig.reset();
     tamarama.reset();
-    dfa_min_width = 0;
+    dfa_min_width = depth(0);
     dfa_max_width = depth::infinity();
 }
 
@@ -1181,7 +1181,7 @@ void LeftEngInfo::reset(void) {
     tamarama.reset();
     lag = 0;
     leftfix_report = MO_INVALID_IDX;
-    dfa_min_width = 0;
+    dfa_min_width = depth(0);
     dfa_max_width = depth::infinity();
 }
 

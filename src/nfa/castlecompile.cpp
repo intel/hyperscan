@@ -501,7 +501,7 @@ buildCastle(const CastleProto &proto,
         // possibly means that we've got a repeat that we can't trigger. We do
         // need to cope with it though.
         if (contains(triggers, top)) {
-            min_period = minPeriod(triggers.at(top), cr, &is_reset);
+            min_period = depth(minPeriod(triggers.at(top), cr, &is_reset));
         }
 
         if (min_period > pr.bounds.max) {

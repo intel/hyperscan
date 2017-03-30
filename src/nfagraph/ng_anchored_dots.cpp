@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -208,7 +208,7 @@ void reformAnchoredRepeatsComponent(NGHolder &g,
 
     /* get bounds */
     depth min;
-    depth max = 1;
+    depth max(1);
 
     if (selfLoop) {
         // A self-loop indicates that this is a '.+' or '.*'
@@ -229,9 +229,9 @@ void reformAnchoredRepeatsComponent(NGHolder &g,
             }
         }
 
-        min = 0;
+        min = depth(0);
     } else {
-        min = 1;
+        min = depth(1);
     }
 
     *startBegin = min;
@@ -326,8 +326,8 @@ void reformUnanchoredRepeatsComponent(NGHolder &g,
         }
 
         /* get bounds */
-        depth min = 1;
-        depth max = 1;
+        depth min(1);
+        depth max(1);
 
         if (selfLoop) {
             // A self-loop indicates that this is a '.+' or '.*'
@@ -349,7 +349,7 @@ void reformUnanchoredRepeatsComponent(NGHolder &g,
                 DEBUG_PRINTF("min greater than one, skipping\n");
                 return;
             }
-            min = 0;
+            min = depth(0);
         }
 
         *startBegin += min;
@@ -502,7 +502,7 @@ void collapseVariableDotRepeat(NGHolder &g, NFAVertex start,
                  startEnd->str().c_str());
 
     if (start == g.start && startEnd->is_infinite()) {
-        *startEnd = dots.size();
+        *startEnd = depth(dots.size());
     } else if (startEnd->is_finite()) {
         *startEnd += dots.size();
     }

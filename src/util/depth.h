@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,9 +54,10 @@ struct DepthOverflowError {};
  */
 class depth {
 public:
-    depth() : val(val_unreachable) {}
+    /** \brief The default depth is special value "unreachable". */
+    depth() = default;
 
-    depth(u32 v) : val(v) {
+    explicit depth(u32 v) : val(v) {
         if (v > max_value()) {
             DEBUG_PRINTF("depth %u too large to represent!\n", v);
             throw DepthOverflowError();
@@ -196,6 +197,29 @@ public:
         return *this;
     }
 
+    depth operator-(s32 d) const {
+        if (is_unreachable()) {
+            return unreachable();
+        }
+        if (is_infinite()) {
+            return infinity();
+        }
+
+        s64a rv = val - d;
+        if (rv < 0 || (u64a)rv >= val_infinity) {
+            DEBUG_PRINTF("depth %lld too large to represent!\n", rv);
+            throw DepthOverflowError();
+        }
+
+        return depth((u32)rv);
+    }
+
+    depth operator-=(s32 d) {
+        depth rv = *this - d;
+        *this = rv;
+        return *this;
+    }
+
 #ifdef DUMP_SUPPORT
     /** \brief Render as a string, useful for debugging. */
     std::string str() const;
@@ -209,7 +233,7 @@ private:
     static constexpr u32 val_infinity = (1u << 31) - 1;
     static constexpr u32 val_unreachable = 1u << 31;
 
-    u32 val;
+    u32 val = val_unreachable;
 };
 
 /**

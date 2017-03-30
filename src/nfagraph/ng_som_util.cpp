@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -94,7 +94,7 @@ vector<DepthMinMax> getDistancesFromSOM(const NGHolder &g_orig) {
 
         if (v_orig == g_orig.startDs || is_virtual_start(v_orig, g_orig)) {
             // StartDs and virtual starts always have zero depth.
-            d = DepthMinMax(0, 0);
+            d = DepthMinMax(depth(0), depth(0));
         } else {
             u32 new_idx = g[v_new].index;
             d = temp_depths.at(new_idx);
