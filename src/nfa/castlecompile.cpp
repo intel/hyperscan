@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -560,7 +560,7 @@ buildCastle(const CastleProto &proto,
     DEBUG_PRINTF("%zu subcastles may go stale\n", may_stale.size());
     vector<mmbit_sparse_iter> stale_iter;
     if (!may_stale.empty()) {
-        mmbBuildSparseIterator(stale_iter, may_stale, numRepeats);
+        stale_iter = mmbBuildSparseIterator(may_stale, numRepeats);
     }
 
 

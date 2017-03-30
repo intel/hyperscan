@@ -264,7 +264,6 @@ struct rose_literal_info {
     ue2::flat_set<RoseVertex> vertices;
     rose_group group_mask = 0;
     u32 undelayed_id = MO_INVALID_IDX;
-    u32 fragment_id = MO_INVALID_IDX; //!< ID corresponding to literal prog.
     bool squash_group = false;
     bool requires_benefits = false;
 };
@@ -437,15 +436,6 @@ private:
 
 std::set<ReportID> all_reports(const OutfixInfo &outfix);
 
-struct LitFragment {
-    LitFragment(u32 fragment_id_in, rose_group groups_in)
-        : fragment_id(fragment_id_in), groups(groups_in) {}
-    u32 fragment_id;
-    rose_group groups;
-    u32 lit_program_offset = ROSE_INVALID_PROG_OFFSET;
-    u32 delay_program_offset = ROSE_INVALID_PROG_OFFSET;
-};
-
 // Concrete impl class
 class RoseBuildImpl : public RoseBuild {
 public:
@@ -576,18 +566,10 @@ public:
 
     u32 ematcher_region_size; /**< number of bytes the eod table runs over */
 
-    /** \brief Mapping from leftfix to queue ID (used in dump code). */
-    unordered_map<left_id, u32> leftfix_queue_map;
-
-    /** \brief Mapping from suffix to queue ID (used in dump code). */
-    unordered_map<suffix_id, u32> suffix_queue_map;
-
     /** \brief Mapping from anchored literal ID to the original literal suffix
      * present when the literal was added to the literal matcher. Used for
      * overlap calculation in history assignment. */
     std::map<u32, rose_literal_id> anchoredLitSuffix;
-
-    std::vector<LitFragment> fragments;
 
     unordered_set<left_id> transient;
     unordered_map<left_id, rose_group> rose_squash_masks;

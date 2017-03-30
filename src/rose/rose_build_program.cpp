@@ -450,8 +450,7 @@ void RoseInstrSparseIterBegin::write(void *dest, RoseEngineBlob &blob,
         jump_offsets.push_back(offset_map.at(jump.second));
     }
 
-    vector<mmbit_sparse_iter> iter;
-    mmbBuildSparseIterator(iter, keys, num_keys);
+    auto iter = mmbBuildSparseIterator(keys, num_keys);
     assert(!iter.empty());
     inst->iter_offset = blob.add_iterator(iter);
     inst->jump_table = blob.add(jump_offsets.begin(), jump_offsets.end());
@@ -485,8 +484,7 @@ void RoseInstrSparseIterAny::write(void *dest, RoseEngineBlob &blob,
     inst->fail_jump = calc_jump(offset_map, this, target);
 
     // Write the multibit sparse iterator.
-    vector<mmbit_sparse_iter> iter;
-    mmbBuildSparseIterator(iter, keys, num_keys);
+    auto iter = mmbBuildSparseIterator(keys, num_keys);
     assert(!iter.empty());
     inst->iter_offset = blob.add_iterator(iter);
 }

@@ -112,8 +112,11 @@ string rose_off::str(void) const {
 
 class RoseGraphWriter {
 public:
-    RoseGraphWriter(const RoseBuildImpl &b_in, const RoseEngine *t_in) :
-        build(b_in), t(t_in) {
+    RoseGraphWriter(const RoseBuildImpl &b_in, const map<u32, u32> &frag_map_in,
+                    const map<left_id, u32> &lqm_in,
+                    const map<suffix_id, u32> &sqm_in, const RoseEngine *t_in)
+        : frag_map(frag_map_in), leftfix_queue_map(lqm_in),
+          suffix_queue_map(sqm_in), build(b_in), t(t_in) {
         for (const auto &m : build.ghost) {
             ghost.insert(m.second);
         }
@@ -160,8 +163,8 @@ public:
         if (g[v].suffix) {
             suffix_id suff(g[v].suffix);
             os << "\\n" << render_kind(suff) << " (top " << g[v].suffix.top;
-            auto it = build.suffix_queue_map.find(suff);
-            if (it != end(build.suffix_queue_map)) {
+            auto it = suffix_queue_map.find(suff);
+            if (it != end(suffix_queue_map)) {
                 os << ", queue " << it->second;
             }
             os << ")";
@@ -174,8 +177,8 @@ public:
         if (g[v].left) {
             left_id left(g[v].left);
             os << "\\n" << render_kind(left) << " (queue ";
-            auto it = build.leftfix_queue_map.find(left);
-            if (it != end(build.leftfix_queue_map)) {
+            auto it = leftfix_queue_map.find(left);
+            if (it != end(leftfix_queue_map)) {
                 os << it->second;
             } else {
                 os << "??";
@@ -248,8 +251,8 @@ private:
     // Render the literal associated with a vertex.
     void writeLiteral(ostream &os, u32 id) const {
         os << "lit=" << id;
-        if (id < build.literal_info.size()) {
-            os << "/" << build.literal_info[id].fragment_id << " ";
+        if (contains(frag_map, id)) {
+            os << "/" << frag_map.at(id) << " ";
         } else {
             os << "/nofrag ";
         }
@@ -269,13 +272,32 @@ private:
     }
 
     set<RoseVertex> ghost;
+    const map<u32, u32> &frag_map;
+    const map<left_id, u32> &leftfix_queue_map;
+    const map<suffix_id, u32> &suffix_queue_map;
     const RoseBuildImpl &build;
     const RoseEngine *t;
 };
 
 } // namespace
 
+static
+map<u32, u32> makeFragMap(const vector<LitFragment> &fragments) {
+    map<u32, u32> fm;
+    for (const auto &f : fragments) {
+        for (u32 id : f.lit_ids) {
+            fm[id] = f.fragment_id;
+        }
+    }
+
+    return fm;
+}
+
+static
 void dumpRoseGraph(const RoseBuildImpl &build, const RoseEngine *t,
+                   const vector<LitFragment> &fragments,
+                   const map<left_id, u32> &leftfix_queue_map,
+                   const map<suffix_id, u32> &suffix_queue_map,
                    const char *filename) {
     const Grey &grey = build.cc.grey;
 
@@ -293,8 +315,14 @@ void dumpRoseGraph(const RoseBuildImpl &build, const RoseEngine *t,
     DEBUG_PRINTF("dumping graph to %s\n", ss.str().c_str());
     ofstream os(ss.str());
 
-    RoseGraphWriter writer(build, t);
+    auto frag_map = makeFragMap(fragments);
+    RoseGraphWriter writer(build, frag_map, leftfix_queue_map, suffix_queue_map,
+                           t);
     writeGraphviz(os, build.g, writer, get(boost::vertex_index, build.g));
+}
+
+void dumpRoseGraph(const RoseBuildImpl &build, const char *filename) {
+    dumpRoseGraph(build, nullptr, {}, {}, {}, filename);
 }
 
 namespace {
@@ -321,11 +349,14 @@ void lit_graph_info(const RoseBuildImpl &build, const rose_literal_info &li,
 }
 
 static
-void dumpRoseLiterals(const RoseBuildImpl &build, const char *filename) {
+void dumpRoseLiterals(const RoseBuildImpl &build,
+                      const vector<LitFragment> &fragments,
+                      const Grey &grey) {
     const RoseGraph &g = build.g;
+    map<u32, u32> frag_map = makeFragMap(fragments);
 
     DEBUG_PRINTF("dumping literals\n");
-    ofstream os(filename);
+    ofstream os(grey.dumpPath + "rose_literals.txt");
 
     os << "ROSE LITERALS: a total of " << build.literals.right.size()
        << " literals and " << num_vertices(g) << " roles." << endl << endl;
@@ -353,8 +384,11 @@ void dumpRoseLiterals(const RoseBuildImpl &build, const char *filename) {
             break;
         }
 
-        os << " ID " << id << "/" << lit_info.fragment_id << ": \""
-           << escapeString(s.get_string()) << "\""
+        os << " ID " << id;
+        if (contains(frag_map, id)) {
+            os << "/" << frag_map.at(id);
+        }
+        os << ": \"" << escapeString(s.get_string()) << "\""
            << " (len " << s.length() << ",";
         if (s.any_nocase()) {
             os << " nocase,";
@@ -833,7 +867,7 @@ void dumpMultipathShufti(ofstream &os, u32 len, const u8 *lo, const u8 *hi,
            #define PROGRAM_CASE(name)                                                     \
     case ROSE_INSTR_##name: {                                                  \
         os << "  " << std::setw(4) << std::setfill('0') << (pc - pc_base)      \
-           << ": " #name " (" << (int)ROSE_INSTR_##name << ")" << endl;        \
+           << ": " #name "\n";                                                 \
         const auto *ri = (const struct ROSE_STRUCT_##name *)pc;
 
 #define PROGRAM_NEXT_INSTRUCTION                                               \
@@ -1444,13 +1478,13 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
 #undef PROGRAM_NEXT_INSTRUCTION
 
 static
-void dumpRoseLitPrograms(const RoseBuildImpl &build, const RoseEngine *t,
-                         const string &filename) {
+void dumpRoseLitPrograms(const vector<LitFragment> &fragments,
+                         const RoseEngine *t, const string &filename) {
     ofstream os(filename);
 
     // Collect all programs referenced by a literal fragment.
     vector<u32> programs;
-    for (const auto &frag : build.fragments) {
+    for (const auto &frag : fragments) {
         if (frag.lit_program_offset) {
             programs.push_back(frag.lit_program_offset);
         }
@@ -2185,18 +2219,21 @@ void roseDumpComponents(const RoseEngine *t, bool dump_raw,
 }
 
 static
-void roseDumpPrograms(const RoseBuildImpl &build, const RoseEngine *t,
+void roseDumpPrograms(const vector<LitFragment> &fragments, const RoseEngine *t,
                       const string &base) {
-    dumpRoseLitPrograms(build, t, base + "/rose_lit_programs.txt");
+    dumpRoseLitPrograms(fragments, t, base + "/rose_lit_programs.txt");
     dumpRoseEodPrograms(t, base + "/rose_eod_programs.txt");
     dumpRoseReportPrograms(t, base + "/rose_report_programs.txt");
     dumpRoseAnchoredPrograms(t, base + "/rose_anchored_programs.txt");
     dumpRoseDelayPrograms(t, base + "/rose_delay_programs.txt");
 }
 
-void dumpRose(const RoseBuildImpl &build, const RoseEngine *t) {
+void dumpRose(const RoseBuildImpl &build, const vector<LitFragment> &fragments,
+              const map<left_id, u32> &leftfix_queue_map,
+              const map<suffix_id, u32> &suffix_queue_map,
+              const RoseEngine *t) {
     const Grey &grey = build.cc.grey;
-    
+
     if (!grey.dumpFlags) {
         return;
     }
@@ -2218,16 +2255,14 @@ void dumpRose(const RoseBuildImpl &build, const RoseEngine *t) {
     fclose(f);
 
     roseDumpComponents(t, false, grey.dumpPath);
-    roseDumpPrograms(build, t, grey.dumpPath);
+    roseDumpPrograms(fragments, t, grey.dumpPath);
 
     // Graph.
-    dumpRoseGraph(build, t, "rose.dot");
+    dumpRoseGraph(build, t, fragments, leftfix_queue_map, suffix_queue_map,
+                  "rose.dot");
 
-    // Literals.
-    ss.str("");
-    ss.clear();
-    ss << grey.dumpPath << "rose_literals.txt";
-    dumpRoseLiterals(build, ss.str().c_str());
+    // Literals
+    dumpRoseLiterals(build, fragments, grey);
 
     f = fopen((grey.dumpPath + "/rose_struct.txt").c_str(), "w");
     roseDumpStructRaw(t, f);

@@ -36,25 +36,45 @@
 
 #include "rose_build_impl.h"
 
+#include <vector>
+
 struct Grey;
 struct HWLM;
 
 namespace ue2 {
 
+struct LitFragment {
+    LitFragment(u32 fragment_id_in, rose_group groups_in, u32 lit_id)
+    : fragment_id(fragment_id_in), groups(groups_in), lit_ids({lit_id}) {}
+    LitFragment(u32 fragment_id_in, rose_group groups_in,
+                std::vector<u32> lit_ids_in)
+    : fragment_id(fragment_id_in), groups(groups_in),
+        lit_ids(std::move(lit_ids_in)) {}
+    u32 fragment_id;
+    rose_group groups;
+    std::vector<u32> lit_ids;
+    u32 lit_program_offset = ROSE_INVALID_PROG_OFFSET;
+    u32 delay_program_offset = ROSE_INVALID_PROG_OFFSET;
+};
+
 aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
+                                  const std::vector<LitFragment> &fragments,
                                               size_t longLitLengthThreshold,
                                               rose_group *fgroups,
                                               size_t *fsize,
                                               size_t *historyRequired);
 
 aligned_unique_ptr<HWLM> buildDelayRebuildMatcher(const RoseBuildImpl &build,
+                                  const std::vector<LitFragment> &fragments,
                                                   size_t longLitLengthThreshold,
                                                   size_t *drsize);
 
 aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
+                                  const std::vector<LitFragment> &fragments,
                                                 size_t *sbsize);
 
 aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
+                                  const std::vector<LitFragment> &fragments,
                                                  size_t *esize);
 
 void findMoreLiteralMasks(RoseBuildImpl &build);

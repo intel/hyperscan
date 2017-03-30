@@ -1669,7 +1669,7 @@ bool roleOffsetsAreValid(const RoseGraph &g) {
 #endif // NDEBUG
 
 aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
-    dumpRoseGraph(*this, nullptr, "rose_early.dot");
+    dumpRoseGraph(*this, "rose_early.dot");
 
     // Early check for Rose implementability.
     assert(canImplementGraphs(*this));
@@ -1780,7 +1780,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
     assert(roleOffsetsAreValid(g));
     assert(historiesAreValid(g));
 
-    dumpRoseGraph(*this, nullptr, "rose_pre_norm.dot");
+    dumpRoseGraph(*this, "rose_pre_norm.dot");
 
     return buildFinalEngine(minWidth);
 }

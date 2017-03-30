@@ -30,6 +30,7 @@
 
 #include "grey.h"
 #include "rose_build_impl.h"
+#include "rose_build_matchers.h"
 #include "rose_internal.h"
 #include "ue2common.h"
 #include "nfa/dfa_min.h"
@@ -70,6 +71,8 @@ namespace ue2 {
 #define MAX_SMALL_START_REACH    4
 
 #define INIT_STATE (DEAD_STATE + 1)
+
+#define NO_FRAG_ID (~0U)
 
 // Adds a vertex with the given reach.
 static
@@ -173,7 +176,7 @@ void mergeAnchoredDfas(vector<unique_ptr<raw_dfa>> &dfas,
 }
 
 static
-void remapAnchoredReports(raw_dfa &rdfa, const RoseBuildImpl &build) {
+void remapAnchoredReports(raw_dfa &rdfa, const vector<u32> &frag_map) {
     for (dstate &ds : rdfa.states) {
         assert(ds.reports_eod.empty()); // Not used in anchored matcher.
         if (ds.reports.empty()) {
@@ -182,8 +185,8 @@ void remapAnchoredReports(raw_dfa &rdfa, const RoseBuildImpl &build) {
 
         flat_set<ReportID> new_reports;
         for (auto id : ds.reports) {
-            assert(id < build.literal_info.size());
-            new_reports.insert(build.literal_info.at(id).fragment_id);
+            assert(id < frag_map.size());
+            new_reports.insert(frag_map[id]);
         }
         ds.reports = std::move(new_reports);
     }
@@ -194,13 +197,29 @@ void remapAnchoredReports(raw_dfa &rdfa, const RoseBuildImpl &build) {
  * ids) with the fragment id for each literal.
  */
 static
-void remapAnchoredReports(RoseBuildImpl &build) {
+void remapAnchoredReports(RoseBuildImpl &build, const vector<u32> &frag_map) {
     for (auto &m : build.anchored_nfas) {
         for (auto &rdfa : m.second) {
             assert(rdfa);
-            remapAnchoredReports(*rdfa, build);
+            remapAnchoredReports(*rdfa, frag_map);
         }
     }
+}
+
+/**
+ * Returns mapping from literal ids to fragment ids.
+ */
+static
+vector<u32> reverseFragMap(const RoseBuildImpl &build,
+                           const vector<LitFragment> &fragments) {
+    vector<u32> rev(build.literal_info.size(), NO_FRAG_ID);
+    for (const auto &f : fragments) {
+        for (u32 lit_id : f.lit_ids) {
+            assert(lit_id < rev.size());
+            rev[lit_id] = f.fragment_id;
+        }
+    }
+    return rev;
 }
 
 /**
@@ -208,7 +227,7 @@ void remapAnchoredReports(RoseBuildImpl &build) {
  * raw_dfa with program offsets.
  */
 static
-void remapIdsToPrograms(const RoseBuildImpl &build, raw_dfa &rdfa) {
+void remapIdsToPrograms(const vector<LitFragment> &fragments, raw_dfa &rdfa) {
     for (dstate &ds : rdfa.states) {
         assert(ds.reports_eod.empty()); // Not used in anchored matcher.
         if (ds.reports.empty()) {
@@ -217,7 +236,7 @@ void remapIdsToPrograms(const RoseBuildImpl &build, raw_dfa &rdfa) {
 
         flat_set<ReportID> new_reports;
         for (auto fragment_id : ds.reports) {
-            auto &frag = build.fragments.at(fragment_id);
+            const auto &frag = fragments.at(fragment_id);
             new_reports.insert(frag.lit_program_offset);
         }
         ds.reports = std::move(new_reports);
@@ -731,7 +750,7 @@ int addToAnchoredMatcher(RoseBuildImpl &build, const NGHolder &anchored,
 }
 
 static
-void buildSimpleDfas(const RoseBuildImpl &build,
+void buildSimpleDfas(const RoseBuildImpl &build, const vector<u32> &frag_map,
                      vector<unique_ptr<raw_dfa>> *anchored_dfas) {
     /* we should have determinised all of these before so there should be no
      * chance of failure. */
@@ -739,7 +758,8 @@ void buildSimpleDfas(const RoseBuildImpl &build,
     for (const auto &simple : build.anchored_simple) {
         exit_ids.clear();
         for (auto lit_id : simple.second) {
-            exit_ids.insert(build.literal_info[lit_id].fragment_id);
+            assert(lit_id < frag_map.size());
+            exit_ids.insert(frag_map[lit_id]);
         }
         auto h = populate_holder(simple.first, exit_ids);
         Automaton_Holder autom(*h);
@@ -760,7 +780,8 @@ void buildSimpleDfas(const RoseBuildImpl &build,
  * from RoseBuildImpl.
  */
 static
-vector<unique_ptr<raw_dfa>> getAnchoredDfas(RoseBuildImpl &build) {
+vector<unique_ptr<raw_dfa>> getAnchoredDfas(RoseBuildImpl &build,
+                                            const vector<u32> &frag_map) {
     vector<unique_ptr<raw_dfa>> dfas;
 
     // DFAs that already exist as raw_dfas.
@@ -773,7 +794,7 @@ vector<unique_ptr<raw_dfa>> getAnchoredDfas(RoseBuildImpl &build) {
 
     // DFAs we currently have as simple literals.
     if (!build.anchored_simple.empty()) {
-        buildSimpleDfas(build, &dfas);
+        buildSimpleDfas(build, frag_map, &dfas);
         build.anchored_simple.clear();
     }
 
@@ -825,7 +846,8 @@ size_t buildNfas(vector<raw_dfa> &anchored_dfas,
     return total_size;
 }
 
-vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build) {
+vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build,
+                                  const vector<LitFragment> &fragments) {
     vector<raw_dfa> dfas;
 
     if (build.anchored_nfas.empty() && build.anchored_simple.empty()) {
@@ -833,9 +855,10 @@ vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build) {
         return dfas;
     }
 
-    remapAnchoredReports(build);
+    const auto frag_map = reverseFragMap(build, fragments);
+    remapAnchoredReports(build, frag_map);
 
-    auto anch_dfas = getAnchoredDfas(build);
+    auto anch_dfas = getAnchoredDfas(build, frag_map);
     mergeAnchoredDfas(anch_dfas, build);
 
     dfas.reserve(anch_dfas.size());
@@ -847,8 +870,8 @@ vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build) {
 }
 
 aligned_unique_ptr<anchored_matcher_info>
-buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
-                     size_t *asize) {
+buildAnchoredMatcher(RoseBuildImpl &build, const vector<LitFragment> &fragments,
+                     vector<raw_dfa> &dfas, size_t *asize) {
     const CompileContext &cc = build.cc;
 
     if (dfas.empty()) {
@@ -858,7 +881,7 @@ buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
     }
 
     for (auto &rdfa : dfas) {
-        remapIdsToPrograms(build, rdfa);
+        remapIdsToPrograms(fragments, rdfa);
     }
 
     vector<aligned_unique_ptr<NFA>> nfas;

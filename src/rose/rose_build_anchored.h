@@ -44,11 +44,13 @@ namespace ue2 {
 
 class RoseBuildImpl;
 struct raw_dfa;
+struct LitFragment;
 
 /**
  * \brief Construct a set of anchored DFAs from our anchored literals/engines.
  */
-std::vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build);
+std::vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build,
+                                    const std::vector<LitFragment> &fragments);
 
 /**
  * \brief Construct an anchored_matcher_info runtime structure from the given
@@ -58,8 +60,9 @@ std::vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build);
  * given in litPrograms.
  */
 aligned_unique_ptr<anchored_matcher_info>
-buildAnchoredMatcher(RoseBuildImpl &build, std::vector<raw_dfa> &dfas,
-                     size_t *asize);
+buildAnchoredMatcher(RoseBuildImpl &build,
+                     const std::vector<LitFragment> &fragments,
+                     std::vector<raw_dfa> &dfas, size_t *asize);
 
 u32 anchoredStateSize(const anchored_matcher_info &atable);
 

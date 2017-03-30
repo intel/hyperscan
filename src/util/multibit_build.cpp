@@ -155,9 +155,9 @@ void bfs(vector<mmbit_sparse_iter> &out, const TreeNode &tree) {
 
 /** \brief Construct a sparse iterator over the values in \a bits for a
  * multibit of size \a total_bits. */
-void mmbBuildSparseIterator(vector<mmbit_sparse_iter> &out,
-                            const vector<u32> &bits, u32 total_bits) {
-    assert(out.empty());
+vector<mmbit_sparse_iter> mmbBuildSparseIterator(const vector<u32> &bits,
+                                                 u32 total_bits) {
+    vector<mmbit_sparse_iter> out;
     assert(!bits.empty());
     assert(total_bits > 0);
     assert(total_bits <= MMB_MAX_BITS);
@@ -186,6 +186,7 @@ void mmbBuildSparseIterator(vector<mmbit_sparse_iter> &out,
 #endif
 
     DEBUG_PRINTF("iter has %zu records\n", out.size());
+    return out;
 }
 
 template<typename T>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -61,8 +61,8 @@ u32 mmbit_size(u32 total_bits);
 
 /** \brief Construct a sparse iterator over the values in \a bits for a
  * multibit of size \a total_bits. */
-void mmbBuildSparseIterator(std::vector<mmbit_sparse_iter> &out,
-                            const std::vector<u32> &bits, u32 total_bits);
+std::vector<mmbit_sparse_iter>
+mmbBuildSparseIterator(const std::vector<u32> &bits, u32 total_bits);
 
 struct scatter_plan_raw;
 
