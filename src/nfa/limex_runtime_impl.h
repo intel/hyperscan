@@ -202,7 +202,8 @@ char STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
         = LOAD_FROM_ENG(&limex->accel_and_friends);
     const STATE_T exceptionMask = LOAD_FROM_ENG(&limex->exceptionMask);
 #endif
-    const u8 *accelTable = (const u8 *)((const char *)limex + limex->accelTableOffset);
+    const u8 *accelTable =
+        (const u8 *)((const char *)limex + limex->accelTableOffset);
     const union AccelAux *accelAux =
         (const union AccelAux *)((const char *)limex + limex->accelAuxOffset);
     const EXCEPTION_T *exceptions = getExceptionTable(EXCEPTION_T, limex);
@@ -229,7 +230,6 @@ without_accel:
             return MO_CONTINUE_MATCHING;
         }
 
-        u8 c = input[i];
         STATE_T succ;
         NFA_EXEC_GET_LIM_SUCC(limex, s, succ);
 
@@ -238,6 +238,7 @@ without_accel:
             return MO_HALT_MATCHING;
         }
 
+        u8 c = input[i];
         s = AND_STATE(succ, LOAD_FROM_ENG(&reach[limex->reachMap[c]]));
     }
 
@@ -279,7 +280,6 @@ with_accel:
             goto without_accel;
         }
 
-        u8 c = input[i];
         STATE_T succ;
         NFA_EXEC_GET_LIM_SUCC(limex, s, succ);
 
@@ -288,6 +288,7 @@ with_accel:
             return MO_HALT_MATCHING;
         }
 
+        u8 c = input[i];
         s = AND_STATE(succ, LOAD_FROM_ENG(&reach[limex->reachMap[c]]));
     }
 
@@ -333,14 +334,13 @@ char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
     u64a *final_loc = NULL;
 
     for (size_t i = length; i != 0; i--) {
-        DUMP_INPUT(i-1);
+        DUMP_INPUT(i - 1);
         if (ISZERO_STATE(s)) {
             DEBUG_PRINTF("no states are switched on, early exit\n");
             ctx->s = s;
             return MO_CONTINUE_MATCHING;
         }
 
-        u8 c = input[i-1];
         STATE_T succ;
         NFA_EXEC_GET_LIM_SUCC(limex, s, succ);
 
@@ -349,6 +349,7 @@ char REV_STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
             return MO_HALT_MATCHING;
         }
 
+        u8 c = input[i - 1];
         s = AND_STATE(succ, LOAD_FROM_ENG(&reach[limex->reachMap[c]]));
     }
 
