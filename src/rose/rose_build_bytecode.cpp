@@ -82,6 +82,7 @@
 #include "util/compile_context.h"
 #include "util/compile_error.h"
 #include "util/container.h"
+#include "util/dump_charclass.h"
 #include "util/fatbit_build.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
@@ -99,6 +100,7 @@
 #include <map>
 #include <queue>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <utility>
@@ -141,8 +143,8 @@ struct left_build_info {
           countingMiracleReach(cm_cr) {}
 
     // Constructor for a lookaround implementation.
-    explicit left_build_info(const vector<LookEntry> &look)
-        : has_lookaround(true), lookaround(look) {}
+    explicit left_build_info(const vector<vector<LookEntry>> &looks)
+        : has_lookaround(true), lookaround(looks) {}
 
     u32 queue = 0; /* uniquely idents the left_build_info */
     u32 lag = 0;
@@ -154,7 +156,7 @@ struct left_build_info {
     CharReach countingMiracleReach;
     u32 countingMiracleOffset = 0; /* populated later when laying out bytecode */
     bool has_lookaround = false;
-    vector<LookEntry> lookaround; // alternative implementation to the NFA
+    vector<vector<LookEntry>> lookaround; // alternative implementation to the NFA
 };
 
 /**
@@ -197,12 +199,22 @@ struct build_context : noncopyable {
     ue2::unordered_map<RoseProgram, u32, RoseProgramHash,
                        RoseProgramEquivalence> program_cache;
 
-    /** \brief LookEntry list cache, so that we don't have to go scanning
-     * through the full list to find cases we've used already. */
-    ue2::unordered_map<vector<LookEntry>, size_t> lookaround_cache;
+    /** \brief LookEntry list cache, so that we can reuse the look index and
+     * reach index for the same lookaround. */
+    ue2::unordered_map<vector<vector<LookEntry>>,
+                       pair<size_t, size_t>> lookaround_cache;
 
     /** \brief Lookaround table for Rose roles. */
-    vector<LookEntry> lookaround;
+    vector<vector<vector<LookEntry>>> lookaround;
+
+    /** \brief Lookaround look table size. */
+    size_t lookTableSize = 0;
+
+    /** \brief Lookaround reach table size.
+     * since single path lookaround and multi-path lookaround have different
+     * bitvectors range (32 and 256), we need to maintain both look table size
+     * and reach table size. */
+    size_t reachTableSize = 0;
 
     /** \brief State indices, for those roles that have them. */
     ue2::unordered_map<RoseVertex, u32> roleStateIndices;
@@ -1582,7 +1594,7 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
         // TODO: Handle SOM-tracking cases as well.
         if (cc.grey.roseLookaroundMasks && is_transient &&
             !g[v].left.tracksSom()) {
-            vector<LookEntry> lookaround;
+            vector<vector<LookEntry>> lookaround;
             if (makeLeftfixLookaround(tbi, v, lookaround)) {
                 DEBUG_PRINTF("implementing as lookaround!\n");
                 bc.leftfix_info.emplace(v, left_build_info(lookaround));
@@ -2651,15 +2663,7 @@ bool hasEodAnchors(const RoseBuildImpl &build, const build_context &bc,
 }
 
 static
-void writeLookaroundTables(build_context &bc, RoseEngine &proto) {
-    const auto &look_vec = bc.lookaround;
-    DEBUG_PRINTF("%zu lookaround table entries\n", look_vec.size());
-
-    vector<s8> look_table(look_vec.size(), 0);
-    vector<u8> reach_table(REACH_BITVECTOR_LEN * look_vec.size(), 0);
-
-    s8 *look = look_table.data();
-    u8 *reach = reach_table.data();
+void writeLookaround(const vector<LookEntry> &look_vec, s8 *&look, u8 *&reach) {
     for (const auto &le : look_vec) {
         *look = verify_s8(le.offset);
         const CharReach &cr = le.reach;
@@ -2669,6 +2673,52 @@ void writeLookaroundTables(build_context &bc, RoseEngine &proto) {
 
         ++look;
         reach += REACH_BITVECTOR_LEN;
+    }
+}
+
+static
+void writeMultipathLookaround(const vector<vector<LookEntry>> &multi_look,
+                              s8 *&look, u8 *&reach) {
+    for (const auto &m : multi_look) {
+        u8 u = 0;
+        assert(m.size() == MAX_LOOKAROUND_PATHS);
+        for (size_t i = 0; i < m.size(); i++) {
+            if (m[i].reach.none()) {
+                u |= (u8)1U << i;
+            }
+        }
+        std::fill_n(reach, MULTI_REACH_BITVECTOR_LEN, u);
+
+        for (size_t i = 0; i < m.size(); i++) {
+            const CharReach &cr = m[i].reach;
+            if (cr.none()) {
+                continue;
+            }
+            *look = m[i].offset;
+
+            for (size_t c = cr.find_first(); c != cr.npos;
+                 c = cr.find_next(c)) {
+                reach[c] |= (u8)1U << i;
+            }
+        }
+
+        ++look;
+        reach += MULTI_REACH_BITVECTOR_LEN;
+    }
+}
+
+static
+void writeLookaroundTables(build_context &bc, RoseEngine &proto) {
+    vector<s8> look_table(bc.lookTableSize, 0);
+    vector<u8> reach_table(bc.reachTableSize, 0);
+    s8 *look = look_table.data();
+    u8 *reach = reach_table.data();
+    for (const auto &l : bc.lookaround) {
+        if (l.size() == 1) {
+            writeLookaround(l.front(), look, reach);
+        } else {
+            writeMultipathLookaround(l, look, reach);
+        }
     }
 
     proto.lookaroundTableOffset = bc.engine_blob.add_range(look_table);
@@ -2804,30 +2854,37 @@ bool onlyAtEod(const RoseBuildImpl &tbi, RoseVertex v) {
 }
 
 static
-u32 addLookaround(build_context &bc, const vector<LookEntry> &look) {
+void addLookaround(build_context &bc,
+                   const vector<vector<LookEntry>> &look,
+                   u32 &look_index, u32 &reach_index) {
     // Check the cache.
     auto it = bc.lookaround_cache.find(look);
     if (it != bc.lookaround_cache.end()) {
-        DEBUG_PRINTF("reusing look at idx %zu\n", it->second);
-        return verify_u32(it->second);
+        look_index = verify_u32(it->second.first);
+        reach_index = verify_u32(it->second.second);
+        DEBUG_PRINTF("reusing look at idx %u\n", look_index);
+        DEBUG_PRINTF("reusing reach at idx %u\n", reach_index);
+        return;
     }
 
-    // Linear scan for sequence.
-    auto seq_it = search(begin(bc.lookaround), end(bc.lookaround), begin(look),
-                         end(look));
-    if (seq_it != end(bc.lookaround)) {
-        size_t idx = distance(begin(bc.lookaround), seq_it);
-        DEBUG_PRINTF("linear scan found look at idx %zu\n", idx);
-        bc.lookaround_cache.emplace(look, idx);
-        return verify_u32(idx);
+    size_t look_idx = bc.lookTableSize;
+    size_t reach_idx = bc.reachTableSize;
+
+    if (look.size() == 1) {
+        bc.lookTableSize += look.front().size();
+        bc.reachTableSize += look.front().size() * REACH_BITVECTOR_LEN;
+    } else {
+        bc.lookTableSize += look.size();
+        bc.reachTableSize += look.size() * MULTI_REACH_BITVECTOR_LEN;
     }
 
-    // New sequence.
-    size_t idx = bc.lookaround.size();
-    bc.lookaround_cache.emplace(look, idx);
-    insert(&bc.lookaround, bc.lookaround.end(), look);
-    DEBUG_PRINTF("adding look at idx %zu\n", idx);
-    return verify_u32(idx);
+    bc.lookaround_cache.emplace(look, make_pair(look_idx, reach_idx));
+    bc.lookaround.emplace_back(look);
+
+    DEBUG_PRINTF("adding look at idx %zu\n", look_idx);
+    DEBUG_PRINTF("adding reach at idx %zu\n", reach_idx);
+    look_index =  verify_u32(look_idx);
+    reach_index = verify_u32(reach_idx);
 }
 
 static
@@ -2977,7 +3034,7 @@ struct cmpNibble {
 // Insert all pairs of bucket and offset into buckets.
 static really_inline
 void getAllBuckets(const vector<LookEntry> &look,
-                 map<u32, vector<s8>, cmpNibble> &buckets, u32 &neg_mask) {
+                   map<u32, vector<s8>, cmpNibble> &buckets, u64a &neg_mask) {
     s32 base_offset = verify_s32(look.front().offset);
     for (const auto &entry : look) {
         CharReach cr = entry.reach;
@@ -2985,7 +3042,7 @@ void getAllBuckets(const vector<LookEntry> &look,
         if (cr.count() > 128 ) {
             cr.flip();
         } else {
-            neg_mask ^= 1 << (entry.offset - base_offset);
+            neg_mask ^= 1ULL << (entry.offset - base_offset);
         }
         map <u16, u16> lo2hi;
         // We treat Ascii Table as a 16x16 grid.
@@ -3037,23 +3094,16 @@ void nibMaskUpdate(array<u8, 32> &mask, u32 data, u8 bit_index) {
 }
 
 static
-bool makeRoleShufti(const vector<LookEntry> &look,
-                    RoseProgram &program) {
-
-    s32 base_offset = verify_s32(look.front().offset);
-    if (look.back().offset >= base_offset + 32) {
-        return false;
-    }
-    array<u8, 32> hi_mask, lo_mask;
-    hi_mask.fill(0);
-    lo_mask.fill(0);
-    array<u8, 32> bucket_select_hi, bucket_select_lo;
-    bucket_select_hi.fill(0); // will not be used in 16x8 and 32x8.
-    bucket_select_lo.fill(0);
-    u8 bit_index = 0; // number of buckets
+bool getShuftiMasks(const vector<LookEntry> &look, array<u8, 32> &hi_mask,
+                    array<u8, 32> &lo_mask, u8 *bucket_select_hi,
+                    u8 *bucket_select_lo, u64a &neg_mask,
+                    u8 &bit_idx, size_t len) {
     map<u32, u16> nib; // map every bucket to its bucket number.
     map<u32, vector<s8>, cmpNibble> bucket2offsets;
-    u32 neg_mask = ~0u;
+    s32 base_offset = look.front().offset;
+
+    bit_idx = 0;
+    neg_mask = ~0ULL;
 
     getAllBuckets(look, bucket2offsets, neg_mask);
 
@@ -3061,15 +3111,15 @@ bool makeRoleShufti(const vector<LookEntry> &look,
         u32 hi_lo = it.first;
         // New bucket.
         if (!nib[hi_lo]) {
-            if (bit_index >= 16) {
+            if ((bit_idx >= 8 && len == 64) || bit_idx >= 16) {
                 return false;
             }
-            nib[hi_lo] = 1 << bit_index;
+            nib[hi_lo] = 1 << bit_idx;
 
             nibUpdate(nib, hi_lo);
-            nibMaskUpdate(hi_mask, hi_lo >> 16, bit_index);
-            nibMaskUpdate(lo_mask, hi_lo & 0xffff, bit_index);
-            bit_index++;
+            nibMaskUpdate(hi_mask, hi_lo >> 16, bit_idx);
+            nibMaskUpdate(lo_mask, hi_lo & 0xffff, bit_idx);
+            bit_idx++;
         }
 
         DEBUG_PRINTF("hi_lo %x bucket %x\n", hi_lo, nib[hi_lo]);
@@ -3082,6 +3132,113 @@ bool makeRoleShufti(const vector<LookEntry> &look,
             bucket_select_lo[offset - base_offset] |= nib_lo;
         }
     }
+    return true;
+}
+
+static
+unique_ptr<RoseInstruction>
+makeCheckShufti16x8(u32 offset_range, u8 bucket_idx,
+                    const array<u8, 32> &hi_mask, const array<u8, 32> &lo_mask,
+                    const array<u8, 32> &bucket_select_mask,
+                    u32 neg_mask, s32 base_offset,
+                    const RoseInstruction *end_inst) {
+    if (offset_range > 16 || bucket_idx > 8) {
+        return nullptr;
+    }
+    array<u8, 32> nib_mask;
+    array<u8, 16> bucket_select_mask_16;
+    copy(lo_mask.begin(), lo_mask.begin() + 16, nib_mask.begin());
+    copy(hi_mask.begin(), hi_mask.begin() + 16, nib_mask.begin() + 16);
+    copy(bucket_select_mask.begin(), bucket_select_mask.begin() + 16,
+         bucket_select_mask_16.begin());
+    return make_unique<RoseInstrCheckShufti16x8>
+           (nib_mask, bucket_select_mask_16,
+            neg_mask & 0xffff, base_offset, end_inst);
+}
+
+static
+unique_ptr<RoseInstruction>
+makeCheckShufti32x8(u32 offset_range, u8 bucket_idx,
+                    const array<u8, 32> &hi_mask, const array<u8, 32> &lo_mask,
+                    const array<u8, 32> &bucket_select_mask,
+                    u32 neg_mask, s32 base_offset,
+                    const RoseInstruction *end_inst) {
+    if (offset_range > 32 || bucket_idx > 8) {
+        return nullptr;
+    }
+
+    array<u8, 16> hi_mask_16;
+    array<u8, 16> lo_mask_16;
+    copy(hi_mask.begin(), hi_mask.begin() + 16, hi_mask_16.begin());
+    copy(lo_mask.begin(), lo_mask.begin() + 16, lo_mask_16.begin());
+    return make_unique<RoseInstrCheckShufti32x8>
+           (hi_mask_16, lo_mask_16, bucket_select_mask,
+            neg_mask, base_offset, end_inst);
+}
+
+static
+unique_ptr<RoseInstruction>
+makeCheckShufti16x16(u32 offset_range, u8 bucket_idx,
+                     const array<u8, 32> &hi_mask, const array<u8, 32> &lo_mask,
+                     const array<u8, 32> &bucket_select_mask_lo,
+                     const array<u8, 32> &bucket_select_mask_hi,
+                     u32 neg_mask, s32 base_offset,
+                     const RoseInstruction *end_inst) {
+    if (offset_range > 16 || bucket_idx > 16) {
+        return nullptr;
+    }
+
+    array<u8, 32> bucket_select_mask_32;
+    copy(bucket_select_mask_lo.begin(), bucket_select_mask_lo.begin() + 16,
+         bucket_select_mask_32.begin());
+    copy(bucket_select_mask_hi.begin(), bucket_select_mask_hi.begin() + 16,
+         bucket_select_mask_32.begin() + 16);
+    return make_unique<RoseInstrCheckShufti16x16>
+           (hi_mask, lo_mask, bucket_select_mask_32,
+            neg_mask & 0xffff, base_offset, end_inst);
+}
+static
+unique_ptr<RoseInstruction>
+makeCheckShufti32x16(u32 offset_range, u8 bucket_idx,
+                     const array<u8, 32> &hi_mask, const array<u8, 32> &lo_mask,
+                     const array<u8, 32> &bucket_select_mask_lo,
+                     const array<u8, 32> &bucket_select_mask_hi,
+                     u32 neg_mask, s32 base_offset,
+                     const RoseInstruction *end_inst) {
+    if (offset_range > 32 || bucket_idx > 16) {
+        return nullptr;
+    }
+
+    return make_unique<RoseInstrCheckShufti32x16>
+           (hi_mask, lo_mask, bucket_select_mask_hi,
+            bucket_select_mask_lo, neg_mask, base_offset, end_inst);
+}
+
+static
+bool makeRoleShufti(const vector<LookEntry> &look,
+                    RoseProgram &program) {
+
+    s32 base_offset = verify_s32(look.front().offset);
+    if (look.back().offset >= base_offset + 32) {
+        return false;
+    }
+
+    u8 bucket_idx = 0; // number of buckets
+    u64a neg_mask_64;
+    array<u8, 32> hi_mask;
+    array<u8, 32> lo_mask;
+    array<u8, 32> bucket_select_hi;
+    array<u8, 32> bucket_select_lo;
+    hi_mask.fill(0);
+    lo_mask.fill(0);
+    bucket_select_hi.fill(0); // will not be used in 16x8 and 32x8.
+    bucket_select_lo.fill(0);
+
+    if (!getShuftiMasks(look, hi_mask, lo_mask, bucket_select_hi.data(),
+                        bucket_select_lo.data(), neg_mask_64, bucket_idx, 32)) {
+        return false;
+    }
+    u32 neg_mask = (u32)neg_mask_64;
 
     DEBUG_PRINTF("hi_mask %s\n",
                  convertMaskstoString(hi_mask.data(), 32).c_str());
@@ -3093,48 +3250,29 @@ bool makeRoleShufti(const vector<LookEntry> &look,
                  convertMaskstoString(bucket_select_lo.data(), 32).c_str());
 
     const auto *end_inst = program.end_instruction();
-    if (bit_index < 8) {
-        if (look.back().offset < base_offset + 16) {
-            neg_mask &= 0xffff;
-            array<u8, 32> nib_mask;
-            array<u8, 16> bucket_select_mask_16;
-            copy(lo_mask.begin(), lo_mask.begin() + 16, nib_mask.begin());
-            copy(hi_mask.begin(), hi_mask.begin() + 16, nib_mask.begin() + 16);
-            copy(bucket_select_lo.begin(), bucket_select_lo.begin() + 16,
-                 bucket_select_mask_16.begin());
-            auto ri = make_unique<RoseInstrCheckShufti16x8>
-                      (nib_mask, bucket_select_mask_16,
-                       neg_mask, base_offset, end_inst);
-            program.add_before_end(move(ri));
-        } else {
-            array<u8, 16> hi_mask_16;
-            array<u8, 16> lo_mask_16;
-            copy(hi_mask.begin(), hi_mask.begin() + 16, hi_mask_16.begin());
-            copy(lo_mask.begin(), lo_mask.begin() + 16, lo_mask_16.begin());
-            auto ri = make_unique<RoseInstrCheckShufti32x8>
-                      (hi_mask_16, lo_mask_16, bucket_select_lo,
-                       neg_mask, base_offset, end_inst);
-            program.add_before_end(move(ri));
-        }
-    } else {
-        if (look.back().offset < base_offset + 16) {
-            neg_mask &= 0xffff;
-            array<u8, 32> bucket_select_mask_32;
-            copy(bucket_select_lo.begin(), bucket_select_lo.begin() + 16,
-                 bucket_select_mask_32.begin());
-            copy(bucket_select_hi.begin(), bucket_select_hi.begin() + 16,
-                 bucket_select_mask_32.begin() + 16);
-            auto ri = make_unique<RoseInstrCheckShufti16x16>
-                      (hi_mask, lo_mask, bucket_select_mask_32,
-                       neg_mask, base_offset, end_inst);
-            program.add_before_end(move(ri));
-        } else {
-            auto ri = make_unique<RoseInstrCheckShufti32x16>
-                      (hi_mask, lo_mask, bucket_select_hi, bucket_select_lo,
-                       neg_mask, base_offset, end_inst);
-            program.add_before_end(move(ri));
-        }
+    s32 offset_range = look.back().offset - base_offset + 1;
+
+    auto ri = makeCheckShufti16x8(offset_range, bucket_idx, hi_mask, lo_mask,
+                                  bucket_select_lo, neg_mask, base_offset,
+                                  end_inst);
+    if (!ri) {
+        ri = makeCheckShufti32x8(offset_range, bucket_idx, hi_mask, lo_mask,
+                                 bucket_select_lo, neg_mask, base_offset,
+                                 end_inst);
     }
+    if (!ri) {
+        ri = makeCheckShufti16x16(offset_range, bucket_idx, hi_mask, lo_mask,
+                                  bucket_select_lo, bucket_select_hi,
+                                  neg_mask, base_offset, end_inst);
+    }
+    if (!ri) {
+        ri = makeCheckShufti32x16(offset_range, bucket_idx, hi_mask, lo_mask,
+                                  bucket_select_lo, bucket_select_hi,
+                                  neg_mask, base_offset, end_inst);
+    }
+    assert(ri);
+    program.add_before_end(move(ri));
+
     return true;
 }
 
@@ -3153,9 +3291,13 @@ void makeLookaroundInstruction(build_context &bc, const vector<LookEntry> &look,
 
     if (look.size() == 1) {
         s8 offset = look.begin()->offset;
-        u32 look_idx = addLookaround(bc, look);
-        auto ri = make_unique<RoseInstrCheckSingleLookaround>(offset, look_idx,
-                                                    program.end_instruction());
+        u32 look_idx, reach_idx;
+        vector<vector<LookEntry>> lookaround;
+        lookaround.emplace_back(look);
+        addLookaround(bc, lookaround, look_idx, reach_idx);
+        // We don't need look_idx here.
+        auto ri = make_unique<RoseInstrCheckSingleLookaround>(offset, reach_idx,
+                                                     program.end_instruction());
         program.add_before_end(move(ri));
         return;
     }
@@ -3172,10 +3314,242 @@ void makeLookaroundInstruction(build_context &bc, const vector<LookEntry> &look,
         return;
     }
 
-    u32 look_idx = addLookaround(bc, look);
+    u32 look_idx, reach_idx;
+    vector<vector<LookEntry>> lookaround;
+    lookaround.emplace_back(look);
+    addLookaround(bc, lookaround, look_idx, reach_idx);
     u32 look_count = verify_u32(look.size());
 
-    auto ri = make_unique<RoseInstrCheckLookaround>(look_idx, look_count,
+    auto ri = make_unique<RoseInstrCheckLookaround>(look_idx, reach_idx,
+                                                    look_count,
+                                                    program.end_instruction());
+    program.add_before_end(move(ri));
+}
+
+#if defined(DEBUG) || defined(DUMP_SUPPORT)
+static UNUSED
+string dumpMultiLook(const vector<LookEntry> &looks) {
+    ostringstream oss;
+    for (auto it = looks.begin(); it != looks.end(); ++it) {
+        if (it != looks.begin()) {
+            oss << ", ";
+        }
+        oss << "{" << int(it->offset) << ": " << describeClass(it->reach) << "}";
+    }
+    return oss.str();
+}
+#endif
+
+static
+bool makeRoleMultipathShufti(const vector<vector<LookEntry>> &multi_look,
+                             RoseProgram &program) {
+    if (multi_look.empty()) {
+        return false;
+    }
+
+    // find the base offset
+    assert(!multi_look[0].empty());
+    s32 base_offset = multi_look[0].front().offset;
+    s32 last_start = base_offset;
+    s32 end_offset = multi_look[0].back().offset;
+    size_t multi_len = 0;
+
+    for (const auto &look : multi_look) {
+        assert(look.size() > 0);
+        multi_len += look.size();
+
+        LIMIT_TO_AT_MOST(&base_offset, look.front().offset);
+        ENSURE_AT_LEAST(&last_start, look.front().offset);
+        ENSURE_AT_LEAST(&end_offset, look.back().offset);
+    }
+
+    assert(last_start < 0);
+
+    if (end_offset - base_offset >= MULTIPATH_MAX_LEN) {
+        return false;
+    }
+
+    if (multi_len <= 16) {
+        multi_len = 16;
+    } else if (multi_len <= 32) {
+        multi_len = 32;
+    } else if (multi_len <= 64) {
+        multi_len = 64;
+    } else {
+        DEBUG_PRINTF("too long for multi-path\n");
+        return false;
+    }
+
+    vector<LookEntry> linear_look;
+    array<u8, 64> data_select_mask;
+    data_select_mask.fill(0);
+    u64a hi_bits_mask = 0;
+    u64a lo_bits_mask = 0;
+
+    for (const auto &look : multi_look) {
+        assert(linear_look.size() < 64);
+        lo_bits_mask |= 1LLU << linear_look.size();
+        for (const auto &entry : look) {
+            assert(entry.offset - base_offset < MULTIPATH_MAX_LEN);
+            data_select_mask[linear_look.size()] =
+                                          verify_u8(entry.offset - base_offset);
+            linear_look.emplace_back(verify_s8(linear_look.size()), entry.reach);
+        }
+        hi_bits_mask |= 1LLU << (linear_look.size() - 1);
+    }
+
+    u8 bit_index = 0; // number of buckets
+    u64a neg_mask;
+    array<u8, 32> hi_mask;
+    array<u8, 32> lo_mask;
+    array<u8, 64> bucket_select_hi;
+    array<u8, 64> bucket_select_lo;
+    hi_mask.fill(0);
+    lo_mask.fill(0);
+    bucket_select_hi.fill(0);
+    bucket_select_lo.fill(0);
+
+    if (!getShuftiMasks(linear_look, hi_mask, lo_mask, bucket_select_hi.data(),
+                        bucket_select_lo.data(), neg_mask, bit_index,
+                        multi_len)) {
+        return false;
+    }
+
+    DEBUG_PRINTF("hi_mask %s\n",
+                 convertMaskstoString(hi_mask.data(), 16).c_str());
+    DEBUG_PRINTF("lo_mask %s\n",
+                 convertMaskstoString(lo_mask.data(), 16).c_str());
+    DEBUG_PRINTF("bucket_select_hi %s\n",
+                 convertMaskstoString(bucket_select_hi.data(), 64).c_str());
+    DEBUG_PRINTF("bucket_select_lo %s\n",
+                 convertMaskstoString(bucket_select_lo.data(), 64).c_str());
+    DEBUG_PRINTF("data_select_mask %s\n",
+                 convertMaskstoString(data_select_mask.data(), 64).c_str());
+    DEBUG_PRINTF("hi_bits_mask %llx\n", hi_bits_mask);
+    DEBUG_PRINTF("lo_bits_mask %llx\n", lo_bits_mask);
+    DEBUG_PRINTF("neg_mask %llx\n", neg_mask);
+    DEBUG_PRINTF("base_offset %d\n", base_offset);
+    DEBUG_PRINTF("last_start %d\n", last_start);
+
+    // Since we don't have 16x16 now, just call 32x16 instead.
+    if (bit_index > 8) {
+        assert(multi_len <= 32);
+        multi_len = 32;
+    }
+
+    const auto *end_inst = program.end_instruction();
+    assert(multi_len == 16 || multi_len == 32 || multi_len == 64);
+    if (multi_len == 16) {
+        neg_mask &= 0xffff;
+        assert(!(hi_bits_mask & ~0xffffULL));
+        assert(!(lo_bits_mask & ~0xffffULL));
+        assert(bit_index <=8);
+        array<u8, 32> nib_mask;
+        copy(begin(lo_mask), begin(lo_mask) + 16, nib_mask.begin());
+        copy(begin(hi_mask), begin(hi_mask) + 16, nib_mask.begin() + 16);
+
+        auto ri = make_unique<RoseInstrCheckMultipathShufti16x8>
+                  (nib_mask, bucket_select_lo, data_select_mask, hi_bits_mask,
+                   lo_bits_mask, neg_mask, base_offset, last_start, end_inst);
+        program.add_before_end(move(ri));
+    } else if (multi_len == 32) {
+        neg_mask &= 0xffffffff;
+        assert(!(hi_bits_mask & ~0xffffffffULL));
+        assert(!(lo_bits_mask & ~0xffffffffULL));
+        if (bit_index <= 8) {
+            auto ri = make_unique<RoseInstrCheckMultipathShufti32x8>
+                      (hi_mask, lo_mask, bucket_select_lo, data_select_mask,
+                       hi_bits_mask, lo_bits_mask, neg_mask, base_offset,
+                       last_start, end_inst);
+            program.add_before_end(move(ri));
+        } else {
+            auto ri = make_unique<RoseInstrCheckMultipathShufti32x16>
+                      (hi_mask, lo_mask, bucket_select_hi, bucket_select_lo,
+                       data_select_mask, hi_bits_mask, lo_bits_mask, neg_mask,
+                       base_offset, last_start, end_inst);
+            program.add_before_end(move(ri));
+        }
+    } else {
+        auto ri = make_unique<RoseInstrCheckMultipathShufti64>
+                  (hi_mask, lo_mask, bucket_select_lo, data_select_mask,
+                   hi_bits_mask, lo_bits_mask, neg_mask, base_offset,
+                   last_start, end_inst);
+        program.add_before_end(move(ri));
+    }
+    return true;
+}
+
+static
+void makeRoleMultipathLookaround(build_context &bc,
+                                 const vector<vector<LookEntry>> &multi_look,
+                                 RoseProgram &program) {
+    assert(!multi_look.empty());
+    assert(multi_look.size() <= MAX_LOOKAROUND_PATHS);
+    vector<vector<LookEntry>> ordered_look;
+    set<s32> look_offset;
+
+    assert(!multi_look[0].empty());
+    s32 last_start = multi_look[0][0].offset;
+
+    // build offset table.
+    for (const auto &look : multi_look) {
+        assert(look.size() > 0);
+        last_start = max(last_start, (s32)look.begin()->offset);
+
+        for (const auto &t : look) {
+            look_offset.insert(t.offset);
+        }
+    }
+
+    array<u8, MULTIPATH_MAX_LEN> start_mask;
+    if (multi_look.size() < MAX_LOOKAROUND_PATHS) {
+        start_mask.fill((1 << multi_look.size()) - 1);
+    } else {
+        start_mask.fill(0xff);
+    }
+
+    u32 path_idx = 0;
+    for (const auto &look : multi_look) {
+        for (const auto &t : look) {
+            assert(t.offset >= (int)*look_offset.begin());
+            size_t update_offset = t.offset - *look_offset.begin() + 1;
+            if (update_offset < start_mask.size()) {
+                start_mask[update_offset] &= ~(1 << path_idx);
+            }
+        }
+        path_idx++;
+    }
+
+    for (u32 i = 1; i < MULTIPATH_MAX_LEN; i++) {
+        start_mask[i] &= start_mask[i - 1];
+        DEBUG_PRINTF("start_mask[%u] = %x\n", i, start_mask[i]);
+    }
+
+    assert(look_offset.size() <= MULTIPATH_MAX_LEN);
+
+    assert(last_start < 0);
+
+    for (const auto &offset : look_offset) {
+        vector<LookEntry> multi_entry;
+        multi_entry.resize(MAX_LOOKAROUND_PATHS);
+
+        for (size_t i = 0; i < multi_look.size(); i++) {
+            for (const auto &t : multi_look[i]) {
+                if (t.offset == offset) {
+                    multi_entry[i] = t;
+                }
+            }
+        }
+        ordered_look.emplace_back(multi_entry);
+    }
+
+    u32 look_idx, reach_idx;
+    addLookaround(bc, ordered_look, look_idx, reach_idx);
+    u32 look_count = verify_u32(ordered_look.size());
+
+    auto ri = make_unique<RoseInstrMultipathLookaround>(look_idx, reach_idx,
+                                                        look_count, last_start,
+                                                        start_mask,
                                                     program.end_instruction());
     program.add_before_end(move(ri));
 }
@@ -3187,25 +3561,34 @@ void makeRoleLookaround(const RoseBuildImpl &build, build_context &bc,
         return;
     }
 
-    vector<LookEntry> look;
+    vector<vector<LookEntry>> looks;
 
     // Lookaround from leftfix (mandatory).
     if (contains(bc.leftfix_info, v) && bc.leftfix_info.at(v).has_lookaround) {
         DEBUG_PRINTF("using leftfix lookaround\n");
-        look = bc.leftfix_info.at(v).lookaround;
+        looks = bc.leftfix_info.at(v).lookaround;
     }
 
     // We may be able to find more lookaround info (advisory) and merge it
     // in.
-    vector<LookEntry> look_more;
-    findLookaroundMasks(build, v, look_more);
-    mergeLookaround(look, look_more);
-
-    if (look.empty()) {
+    if (looks.size() <= 1) {
+        vector<LookEntry> look;
+        vector<LookEntry> look_more;
+        if (!looks.empty()) {
+            look = move(looks.front());
+        }
+        findLookaroundMasks(build, v, look_more);
+        mergeLookaround(look, look_more);
+        if (!look.empty()) {
+            makeLookaroundInstruction(bc, look, program);
+        }
         return;
     }
 
-    makeLookaroundInstruction(bc, look, program);
+    if (!makeRoleMultipathShufti(looks, program)) {
+        assert(looks.size() <= 8);
+        makeRoleMultipathLookaround(bc, looks, program);
+    }
 }
 
 static

@@ -317,6 +317,11 @@ m128 sub_u8_m128(m128 a, m128 b) {
     return _mm_sub_epi8(a, b);
 }
 
+static really_inline
+m128 set64x2(u64a hi, u64a lo) {
+    return _mm_set_epi64x(hi, lo);
+}
+
 /****
  **** 256-bit Primitives
  ****/
@@ -590,6 +595,18 @@ m256 mask1bit256(unsigned int n) {
     u32 mask_idx = ((n % 8) * 64) + 31;
     mask_idx -= n / 8;
     return loadu256(&simd_onebit_masks[mask_idx]);
+}
+
+static really_inline
+m256 set64x4(u64a hi_1, u64a hi_0, u64a lo_1, u64a lo_0) {
+#if defined(HAVE_AVX2)
+    return _mm256_set_epi64x(hi_1, hi_0, lo_1, lo_0);
+#else
+    m256 rv;
+    rv.hi = set64x2(hi_1, hi_0);
+    rv.lo = set64x2(lo_1, lo_0);
+    return rv;
+#endif
 }
 
 #if !defined(HAVE_AVX2)

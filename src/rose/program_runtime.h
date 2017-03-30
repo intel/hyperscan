@@ -857,13 +857,13 @@ u32 getBufferDataComplex(const struct core_info *ci, const s64a loc,
 }
 
 static rose_inline
-m128 getData128(const struct core_info *ci, s64a offset, u16 *valid_data_mask) {
+m128 getData128(const struct core_info *ci, s64a offset, u32 *valid_data_mask) {
     if (offset > 0 && offset + sizeof(m128) <= ci->len) {
         *valid_data_mask = 0xffff;
         return loadu128(ci->buf + offset);
     }
     ALIGN_DIRECTIVE u8 data[sizeof(m128)];
-    *valid_data_mask = (u16)getBufferDataComplex(ci, offset, data, 16);
+    *valid_data_mask = getBufferDataComplex(ci, offset, data, 16);
     return *(m128 *)data;
 }
 
@@ -892,7 +892,7 @@ int roseCheckShufti16x8(const struct core_info *ci, const u8 *nib_mask,
         return 0;
     }
 
-    u16 valid_data_mask = 0;
+    u32 valid_data_mask = 0;
     m128 data = getData128(ci, offset, &valid_data_mask);
     if (unlikely(!valid_data_mask)) {
         return 1;
@@ -924,7 +924,7 @@ int roseCheckShufti16x16(const struct core_info *ci, const u8 *hi_mask,
         return 0;
     }
 
-    u16 valid_data_mask = 0;
+    u32 valid_data_mask = 0;
     m128 data = getData128(ci, offset, &valid_data_mask);
     if (unlikely(!valid_data_mask)) {
         return 1;
@@ -1020,8 +1020,9 @@ int roseCheckShufti32x16(const struct core_info *ci, const u8 *hi_mask,
 static rose_inline
 int roseCheckSingleLookaround(const struct RoseEngine *t,
                               const struct hs_scratch *scratch,
-                              s8 checkOffset, u32 lookaroundIndex, u64a end) {
-    assert(lookaroundIndex != MO_INVALID_IDX);
+                              s8 checkOffset, u32 lookaroundReachIndex,
+                              u64a end) {
+    assert(lookaroundReachIndex != MO_INVALID_IDX);
     const struct core_info *ci = &scratch->core_info;
     DEBUG_PRINTF("end=%llu, buf_offset=%llu, buf_end=%llu\n", end,
                  ci->buf_offset, ci->buf_offset + ci->len);
@@ -1037,7 +1038,7 @@ int roseCheckSingleLookaround(const struct RoseEngine *t,
     }
 
     const u8 *reach_base = (const u8 *)t + t->lookaroundReachOffset;
-    const u8 *reach = reach_base + lookaroundIndex * REACH_BITVECTOR_LEN;
+    const u8 *reach = reach_base + lookaroundReachIndex;
 
     u8 c;
     if (offset >= 0 && offset < (s64a)ci->len) {
@@ -1063,9 +1064,11 @@ int roseCheckSingleLookaround(const struct RoseEngine *t,
  */
 static rose_inline
 int roseCheckLookaround(const struct RoseEngine *t,
-                        const struct hs_scratch *scratch, u32 lookaroundIndex,
+                        const struct hs_scratch *scratch,
+                        u32 lookaroundLookIndex, u32 lookaroundReachIndex,
                         u32 lookaroundCount, u64a end) {
-    assert(lookaroundIndex != MO_INVALID_IDX);
+    assert(lookaroundLookIndex != MO_INVALID_IDX);
+    assert(lookaroundReachIndex != MO_INVALID_IDX);
     assert(lookaroundCount > 0);
 
     const struct core_info *ci = &scratch->core_info;
@@ -1074,12 +1077,12 @@ int roseCheckLookaround(const struct RoseEngine *t,
 
     const u8 *base = (const u8 *)t;
     const s8 *look_base = (const s8 *)(base + t->lookaroundTableOffset);
-    const s8 *look = look_base + lookaroundIndex;
+    const s8 *look = look_base + lookaroundLookIndex;
     const s8 *look_end = look + lookaroundCount;
     assert(look < look_end);
 
     const u8 *reach_base = base + t->lookaroundReachOffset;
-    const u8 *reach = reach_base + lookaroundIndex * REACH_BITVECTOR_LEN;
+    const u8 *reach = reach_base + lookaroundReachIndex;
 
     // The following code assumes that the lookaround structures are ordered by
     // increasing offset.
@@ -1149,6 +1152,359 @@ int roseCheckLookaround(const struct RoseEngine *t,
 
     DEBUG_PRINTF("OK :)\n");
     return 1;
+}
+
+/**
+ * \brief Trying to find a matching path by the corresponding path mask of
+ * every lookaround location.
+ */
+static rose_inline
+int roseMultipathLookaround(const struct RoseEngine *t,
+                            const struct hs_scratch *scratch,
+                            u32 multipathLookaroundLookIndex,
+                            u32 multipathLookaroundReachIndex,
+                            u32 multipathLookaroundCount,
+                            s32 last_start, const u8 *start_mask,
+                            u64a end) {
+    assert(multipathLookaroundCount > 0);
+
+    const struct core_info *ci = &scratch->core_info;
+    DEBUG_PRINTF("end=%llu, buf_offset=%llu, buf_end=%llu\n", end,
+                 ci->buf_offset, ci->buf_offset + ci->len);
+
+    const s8 *look_base = getByOffset(t, t->lookaroundTableOffset);
+    const s8 *look = look_base + multipathLookaroundLookIndex;
+    const s8 *look_end = look + multipathLookaroundCount;
+    assert(look < look_end);
+
+    const u8 *reach_base = getByOffset(t, t->lookaroundReachOffset);
+    const u8 *reach = reach_base + multipathLookaroundReachIndex;
+
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    DEBUG_PRINTF("base_offset=%lld\n", base_offset);
+
+    u8 path = 0xff;
+
+    assert(last_start < 0);
+
+    if (unlikely((u64a)(0 - last_start) > end)) {
+        DEBUG_PRINTF("too early, fail\n");
+        return 0;
+    }
+
+    u32 start_offset = 0;
+    do {
+        s64a offset = base_offset + *look;
+        DEBUG_PRINTF("start_mask[%u] = %x\n", start_offset,
+                     start_mask[start_offset]);
+        path = start_mask[start_offset];
+        if (offset >= -(s64a)ci->hlen) {
+            break;
+        }
+        DEBUG_PRINTF("look=%d before history\n", *look);
+        start_offset++;
+        look++;
+        reach += MULTI_REACH_BITVECTOR_LEN;
+    } while (look < look_end);
+
+    DEBUG_PRINTF("scan history (%zu looks left)\n", look_end - look);
+    for (; look < look_end; ++look, reach += MULTI_REACH_BITVECTOR_LEN) {
+        s64a offset = base_offset + *look;
+        DEBUG_PRINTF("reach=%p, rel offset=%lld\n", reach, offset);
+
+        if (offset >= 0) {
+            DEBUG_PRINTF("in buffer\n");
+            break;
+        }
+
+        assert(offset >= -(s64a)ci->hlen && offset < 0);
+        u8 c = ci->hbuf[ci->hlen + offset];
+        path &= reach[c];
+        DEBUG_PRINTF("reach[%x] = %02x path = %0xx\n", c, reach[c],  path);
+        if (!path) {
+            DEBUG_PRINTF("char 0x%02x failed reach check\n", c);
+            return 0;
+        }
+    }
+
+    DEBUG_PRINTF("scan buffer (%zu looks left)\n", look_end - look);
+    for(; look < look_end; ++look, reach += MULTI_REACH_BITVECTOR_LEN) {
+        s64a offset = base_offset + *look;
+        DEBUG_PRINTF("reach=%p, rel offset=%lld\n", reach, offset);
+
+        if (offset >= (s64a)ci->len) {
+            DEBUG_PRINTF("in the future\n");
+            break;
+        }
+
+        assert(offset >= 0 && offset < (s64a)ci->len);
+        u8 c = ci->buf[offset];
+        path &= reach[c];
+        DEBUG_PRINTF("reach[%x] = %02x path = %0xx\n", c, reach[c],  path);
+        if (!path) {
+            DEBUG_PRINTF("char 0x%02x failed reach check\n", c);
+            return 0;
+        }
+    }
+
+    DEBUG_PRINTF("OK :)\n");
+    return 1;
+}
+
+static never_inline
+int roseCheckMultipathShufti16x8(const struct hs_scratch *scratch,
+                       const struct ROSE_STRUCT_CHECK_MULTIPATH_SHUFTI_16x8 *ri,
+                                 u64a end) {
+    const struct core_info *ci = &scratch->core_info;
+    s32 checkOffset = ri->base_offset;
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("end %lld base_offset %lld\n", end, base_offset);
+    DEBUG_PRINTF("checkOffset %d offset %lld\n", checkOffset, offset);
+
+    assert(ri->last_start <= 0);
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        if ((u64a)(0 - ri->last_start) > end) {
+            DEBUG_PRINTF("too early, fail\n");
+            return 0;
+        }
+    }
+
+    u32 valid_data_mask;
+    m128 data_init = getData128(ci, offset, &valid_data_mask);
+    m128 data_select_mask = loadu128(ri->data_select_mask);
+
+    u32 valid_path_mask = 0;
+    if (unlikely(!(valid_data_mask & 1))) {
+        DEBUG_PRINTF("lose part of backward data\n");
+        DEBUG_PRINTF("valid_data_mask %x\n", valid_data_mask);
+
+        m128 expand_valid;
+        u64a expand_mask = 0x8080808080808080ULL;
+        u64a valid_lo = expand64(valid_data_mask & 0xff, expand_mask);
+        u64a valid_hi = expand64(valid_data_mask >> 8, expand_mask);
+        DEBUG_PRINTF("expand_hi %llx\n", valid_hi);
+        DEBUG_PRINTF("expand_lo %llx\n", valid_lo);
+        expand_valid = set64x2(valid_hi, valid_lo);
+        valid_path_mask = ~movemask128(pshufb(expand_valid,
+                                               data_select_mask));
+    }
+
+    m128 data = pshufb(data_init, data_select_mask);
+    m256 nib_mask = loadu256(ri->nib_mask);
+    m128 bucket_select_mask = loadu128(ri->bucket_select_mask);
+
+    u32 hi_bits_mask = ri->hi_bits_mask;
+    u32 lo_bits_mask = ri->lo_bits_mask;
+    u32 neg_mask = ri->neg_mask;
+
+    if (validateMultipathShuftiMask16x8(data, nib_mask,
+                                        bucket_select_mask,
+                                        hi_bits_mask, lo_bits_mask,
+                                        neg_mask, valid_path_mask)) {
+        DEBUG_PRINTF("check multi-path shufti-16x8 successfully\n");
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static never_inline
+int roseCheckMultipathShufti32x8(const struct hs_scratch *scratch,
+                       const struct ROSE_STRUCT_CHECK_MULTIPATH_SHUFTI_32x8 *ri,
+                                 u64a end) {
+    const struct core_info *ci = &scratch->core_info;
+    s32 checkOffset = ri->base_offset;
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("end %lld base_offset %lld\n", end, base_offset);
+    DEBUG_PRINTF("checkOffset %d offset %lld\n", checkOffset, offset);
+
+    assert(ri->last_start <= 0);
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        if ((u64a)(0 - ri->last_start) > end) {
+            DEBUG_PRINTF("too early, fail\n");
+            return 0;
+        }
+    }
+
+    u32 valid_data_mask;
+    m128 data_m128 = getData128(ci, offset, &valid_data_mask);
+    m256 data_double = set2x128(data_m128);
+    m256 data_select_mask = loadu256(ri->data_select_mask);
+
+    u32 valid_path_mask = 0;
+    m256 expand_valid;
+    if (unlikely(!(valid_data_mask & 1))) {
+        DEBUG_PRINTF("lose part of backward data\n");
+        DEBUG_PRINTF("valid_data_mask %x\n", valid_data_mask);
+
+        u64a expand_mask = 0x8080808080808080ULL;
+        u64a valid_lo = expand64(valid_data_mask & 0xff, expand_mask);
+        u64a valid_hi = expand64(valid_data_mask >> 8, expand_mask);
+        DEBUG_PRINTF("expand_hi %llx\n", valid_hi);
+        DEBUG_PRINTF("expand_lo %llx\n", valid_lo);
+        expand_valid = set64x4(valid_hi, valid_lo, valid_hi,
+                                         valid_lo);
+        valid_path_mask = ~movemask256(vpshufb(expand_valid,
+                                               data_select_mask));
+    }
+
+    m256 data = vpshufb(data_double, data_select_mask);
+    m256 hi_mask = loadu2x128(ri->hi_mask);
+    m256 lo_mask = loadu2x128(ri->lo_mask);
+    m256 bucket_select_mask = loadu256(ri->bucket_select_mask);
+
+    u32 hi_bits_mask = ri->hi_bits_mask;
+    u32 lo_bits_mask = ri->lo_bits_mask;
+    u32 neg_mask = ri->neg_mask;
+
+    if (validateMultipathShuftiMask32x8(data, hi_mask, lo_mask,
+                                        bucket_select_mask,
+                                        hi_bits_mask, lo_bits_mask,
+                                        neg_mask, valid_path_mask)) {
+        DEBUG_PRINTF("check multi-path shufti-32x8 successfully\n");
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static never_inline
+int roseCheckMultipathShufti32x16(const struct hs_scratch *scratch,
+                      const struct ROSE_STRUCT_CHECK_MULTIPATH_SHUFTI_32x16 *ri,
+                                  u64a end) {
+    const struct core_info *ci = &scratch->core_info;
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    s32 checkOffset = ri->base_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("end %lld base_offset %lld\n", end, base_offset);
+    DEBUG_PRINTF("checkOffset %d offset %lld\n", checkOffset, offset);
+
+    assert(ri->last_start <= 0);
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        if ((u64a)(0 - ri->last_start) > end) {
+            DEBUG_PRINTF("too early, fail\n");
+            return 0;
+        }
+    }
+
+    u32 valid_data_mask;
+    m128 data_m128 = getData128(ci, offset, &valid_data_mask);
+    m256 data_double = set2x128(data_m128);
+    m256 data_select_mask = loadu256(ri->data_select_mask);
+
+    u32 valid_path_mask = 0;
+    m256 expand_valid;
+    if (unlikely(!(valid_data_mask & 1))) {
+        DEBUG_PRINTF("lose part of backward data\n");
+        DEBUG_PRINTF("valid_data_mask %x\n", valid_data_mask);
+
+        u64a expand_mask = 0x8080808080808080ULL;
+        u64a valid_lo = expand64(valid_data_mask & 0xff, expand_mask);
+        u64a valid_hi = expand64(valid_data_mask >> 8, expand_mask);
+        DEBUG_PRINTF("expand_hi %llx\n", valid_hi);
+        DEBUG_PRINTF("expand_lo %llx\n", valid_lo);
+        expand_valid = set64x4(valid_hi, valid_lo, valid_hi,
+                                         valid_lo);
+        valid_path_mask = ~movemask256(vpshufb(expand_valid,
+                                               data_select_mask));
+    }
+
+    m256 data = vpshufb(data_double, data_select_mask);
+
+    m256 hi_mask_1 = loadu2x128(ri->hi_mask);
+    m256 hi_mask_2 = loadu2x128(ri->hi_mask + 16);
+    m256 lo_mask_1 = loadu2x128(ri->lo_mask);
+    m256 lo_mask_2 = loadu2x128(ri->lo_mask + 16);
+
+    m256 bucket_select_mask_hi = loadu256(ri->bucket_select_mask_hi);
+    m256 bucket_select_mask_lo = loadu256(ri->bucket_select_mask_lo);
+
+    u32 hi_bits_mask = ri->hi_bits_mask;
+    u32 lo_bits_mask = ri->lo_bits_mask;
+    u32 neg_mask = ri->neg_mask;
+
+    if (validateMultipathShuftiMask32x16(data, hi_mask_1, hi_mask_2,
+                                         lo_mask_1, lo_mask_2,
+                                         bucket_select_mask_hi,
+                                         bucket_select_mask_lo,
+                                         hi_bits_mask, lo_bits_mask,
+                                         neg_mask, valid_path_mask)) {
+        DEBUG_PRINTF("check multi-path shufti-32x16 successfully\n");
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static never_inline
+int roseCheckMultipathShufti64(const struct hs_scratch *scratch,
+                         const struct ROSE_STRUCT_CHECK_MULTIPATH_SHUFTI_64 *ri,
+                               u64a end) {
+    const struct core_info *ci = &scratch->core_info;
+    const s64a base_offset = (s64a)end - ci->buf_offset;
+    s32 checkOffset = ri->base_offset;
+    s64a offset = base_offset + checkOffset;
+    DEBUG_PRINTF("end %lld base_offset %lld\n", end, base_offset);
+    DEBUG_PRINTF("checkOffset %d offset %lld\n", checkOffset, offset);
+
+    if (unlikely(checkOffset < 0 && (u64a)(0 - checkOffset) > end)) {
+        if ((u64a)(0 - ri->last_start) > end) {
+            DEBUG_PRINTF("too early, fail\n");
+            return 0;
+        }
+    }
+
+    u32 valid_data_mask;
+    m128 data_m128 = getData128(ci, offset, &valid_data_mask);
+    m256 data_m256 = set2x128(data_m128);
+    m256 data_select_mask_1 = loadu256(ri->data_select_mask);
+    m256 data_select_mask_2 = loadu256(ri->data_select_mask + 32);
+
+    u64a valid_path_mask = 0;
+    m256 expand_valid;
+    if (unlikely(!(valid_data_mask & 1))) {
+        DEBUG_PRINTF("lose part of backward data\n");
+        DEBUG_PRINTF("valid_data_mask %x\n", valid_data_mask);
+
+        u64a expand_mask = 0x8080808080808080ULL;
+        u64a valid_lo = expand64(valid_data_mask & 0xff, expand_mask);
+        u64a valid_hi = expand64(valid_data_mask >> 8, expand_mask);
+        DEBUG_PRINTF("expand_hi %llx\n", valid_hi);
+        DEBUG_PRINTF("expand_lo %llx\n", valid_lo);
+        expand_valid = set64x4(valid_hi, valid_lo, valid_hi,
+                                         valid_lo);
+        u32 valid_path_1 = movemask256(vpshufb(expand_valid,
+                                               data_select_mask_1));
+        u32 valid_path_2 = movemask256(vpshufb(expand_valid,
+                                               data_select_mask_2));
+        valid_path_mask = ~((u64a)valid_path_1 | (u64a)valid_path_2 << 32);
+    }
+
+    m256 data_1 = vpshufb(data_m256, data_select_mask_1);
+    m256 data_2 = vpshufb(data_m256, data_select_mask_2);
+
+    m256 hi_mask = loadu2x128(ri->hi_mask);
+    m256 lo_mask = loadu2x128(ri->lo_mask);
+
+    m256 bucket_select_mask_1 = loadu256(ri->bucket_select_mask);
+    m256 bucket_select_mask_2 = loadu256(ri->bucket_select_mask + 32);
+
+    u64a hi_bits_mask = ri->hi_bits_mask;
+    u64a lo_bits_mask = ri->lo_bits_mask;
+    u64a neg_mask = ri->neg_mask;
+
+    if (validateMultipathShuftiMask64(data_1, data_2, hi_mask, lo_mask,
+                                      bucket_select_mask_1,
+                                      bucket_select_mask_2, hi_bits_mask,
+                                      lo_bits_mask, neg_mask,
+                                      valid_path_mask)) {
+        DEBUG_PRINTF("check multi-path shufti-64 successfully\n");
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 int roseNfaEarliestSom(u64a start, u64a end, ReportID id, void *context);
@@ -1614,8 +1970,8 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CHECK_LOOKAROUND) {
-                if (!roseCheckLookaround(t, scratch, ri->index, ri->count,
-                                         end)) {
+                if (!roseCheckLookaround(t, scratch, ri->look_index,
+                                         ri->reach_index, ri->count, end)) {
                     DEBUG_PRINTF("failed lookaround check\n");
                     assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
@@ -2170,6 +2526,59 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
             PROGRAM_CASE(CLEAR_WORK_DONE) {
                 DEBUG_PRINTF("clear work_done flag\n");
                 work_done = 0;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(MULTIPATH_LOOKAROUND) {
+                if (!roseMultipathLookaround(t, scratch, ri->look_index,
+                                             ri->reach_index, ri->count,
+                                             ri->last_start, ri->start_mask,
+                                             end)) {
+                    DEBUG_PRINTF("failed multi-path lookaround check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_MULTIPATH_SHUFTI_16x8) {
+                if (!roseCheckMultipathShufti16x8(scratch, ri, end)) {
+                    DEBUG_PRINTF("failed multi-path shufti 16x8 check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_MULTIPATH_SHUFTI_32x8) {
+                if (!roseCheckMultipathShufti32x8(scratch, ri, end)) {
+                    DEBUG_PRINTF("failed multi-path shufti 32x8 check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_MULTIPATH_SHUFTI_32x16) {
+                if (!roseCheckMultipathShufti32x16(scratch, ri, end)) {
+                    DEBUG_PRINTF("failed multi-path shufti 32x16 check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_MULTIPATH_SHUFTI_64) {
+                if (!roseCheckMultipathShufti64(scratch, ri, end)) {
+                    DEBUG_PRINTF("failed multi-path shufti 64 check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    continue;
+                }
             }
             PROGRAM_NEXT_INSTRUCTION
         }

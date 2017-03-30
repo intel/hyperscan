@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,7 +46,7 @@ void dumpMask(const void *mask, int len) {
 static really_inline
 int validateShuftiMask16x16(const m256 data, const m256 hi_mask,
                             const m256 lo_mask, const m256 and_mask,
-                            const u32 neg_mask, const u16 valid_data_mask) {
+                            const u32 neg_mask, const u32 valid_data_mask) {
     m256 low4bits = set32x8(0xf);
     m256 c_lo = vpshufb(lo_mask, and256(data, low4bits));
     m256 c_hi = vpshufb(hi_mask, rshift64_m256(andnot256(low4bits, data), 4));
@@ -75,7 +75,7 @@ int validateShuftiMask16x16(const m256 data, const m256 hi_mask,
 static really_inline
 int validateShuftiMask16x8(const m128 data, const m256 nib_mask,
                            const m128 and_mask, const u32 neg_mask,
-                           const u16 valid_data_mask) {
+                           const u32 valid_data_mask) {
     m256 data_m256 = combine2x128(rshift64_m128(data, 4), data);
     m256 low4bits = set32x8(0xf);
     m256 c_nib = vpshufb(nib_mask, and256(data_m256, low4bits));
@@ -172,4 +172,121 @@ int validateShuftiMask32x16(const m256 data,
     u32 cmp_result = (nresult ^ neg_mask) & valid_data_mask;
     return !cmp_result;
 }
+
+static really_inline
+int checkMultipath32(u32 data, u32 hi_bits, u32 lo_bits) {
+    u32 t = ~(data | hi_bits);
+    t += lo_bits;
+    t &= (~data) & hi_bits;
+    DEBUG_PRINTF("t %x\n", t);
+    return !!t;
+}
+
+static really_inline
+int checkMultipath64(u64a data, u64a hi_bits, u64a lo_bits) {
+    u64a t = ~(data | hi_bits);
+    t += lo_bits;
+    t &= (~data) & hi_bits;
+    DEBUG_PRINTF("t %llx\n", t);
+    return !!t;
+}
+
+static really_inline
+int validateMultipathShuftiMask16x8(const m128 data,
+                                    const m256 nib_mask,
+                                    const m128 bucket_select_mask,
+                                    const u32 hi_bits, const u32 lo_bits,
+                                    const u32 neg_mask,
+                                    const u32 valid_path_mask) {
+    m256 data_256 = combine2x128(rshift64_m128(data, 4), data);
+    m256 low4bits = set32x8(0xf);
+    m256 c_nib = vpshufb(nib_mask, and256(data_256, low4bits));
+    m128 t = and128(movdq_hi(c_nib), movdq_lo(c_nib));
+    m128 result = and128(t, bucket_select_mask);
+    u32 nresult = movemask128(eq128(result, zeroes128()));
+    u32 cmp_result = (nresult ^ neg_mask) | valid_path_mask;
+
+    DEBUG_PRINTF("cmp_result %x\n", cmp_result);
+
+    return checkMultipath32(cmp_result, hi_bits, lo_bits);
+}
+
+static really_inline
+int validateMultipathShuftiMask32x8(const m256 data,
+                                    const m256 hi_mask, const m256 lo_mask,
+                                    const m256 bucket_select_mask,
+                                    const u32 hi_bits, const u32 lo_bits,
+                                    const u32 neg_mask,
+                                    const u32 valid_path_mask) {
+    m256 low4bits = set32x8(0xf);
+    m256 data_lo = and256(data, low4bits);
+    m256 data_hi = and256(rshift64_m256(data, 4), low4bits);
+    m256 c_lo = vpshufb(lo_mask, data_lo);
+    m256 c_hi = vpshufb(hi_mask, data_hi);
+    m256 c = and256(c_lo, c_hi);
+    m256 result = and256(c, bucket_select_mask);
+    u32 nresult = movemask256(eq256(result, zeroes256()));
+    u32 cmp_result = (nresult ^ neg_mask) | valid_path_mask;
+
+    DEBUG_PRINTF("cmp_result %x\n", cmp_result);
+
+    return checkMultipath32(cmp_result, hi_bits, lo_bits);
+}
+
+static really_inline
+int validateMultipathShuftiMask32x16(const m256 data,
+                                     const m256 hi_mask_1, const m256 hi_mask_2,
+                                     const m256 lo_mask_1, const m256 lo_mask_2,
+                                     const m256 bucket_select_mask_hi,
+                                     const m256 bucket_select_mask_lo,
+                                     const u32 hi_bits, const u32 lo_bits,
+                                     const u32 neg_mask,
+                                     const u32 valid_path_mask) {
+    m256 low4bits = set32x8(0xf);
+    m256 data_lo = and256(data, low4bits);
+    m256 data_hi = and256(rshift64_m256(data, 4), low4bits);
+    m256 c_lo_1 = vpshufb(lo_mask_1, data_lo);
+    m256 c_lo_2 = vpshufb(lo_mask_2, data_lo);
+    m256 c_hi_1 = vpshufb(hi_mask_1, data_hi);
+    m256 c_hi_2 = vpshufb(hi_mask_2, data_hi);
+    m256 t1 = and256(c_lo_1, c_hi_1);
+    m256 t2 = and256(c_lo_2, c_hi_2);
+    m256 result = or256(and256(t1, bucket_select_mask_lo),
+                        and256(t2, bucket_select_mask_hi));
+    u32 nresult = movemask256(eq256(result, zeroes256()));
+    u32 cmp_result = (nresult ^ neg_mask) | valid_path_mask;
+
+    DEBUG_PRINTF("cmp_result %x\n", cmp_result);
+
+    return checkMultipath32(cmp_result, hi_bits, lo_bits);
+}
+
+static really_inline
+int validateMultipathShuftiMask64(const m256 data_1, const m256 data_2,
+                                  const m256 hi_mask, const m256 lo_mask,
+                                  const m256 bucket_select_mask_1,
+                                  const m256 bucket_select_mask_2,
+                                  const u64a hi_bits, const u64a lo_bits,
+                                  const u64a neg_mask,
+                                  const u64a valid_path_mask) {
+    m256 low4bits = set32x8(0xf);
+    m256 c_lo_1 = vpshufb(lo_mask, and256(data_1, low4bits));
+    m256 c_lo_2 = vpshufb(lo_mask, and256(data_2, low4bits));
+    m256 c_hi_1 = vpshufb(hi_mask,
+                          rshift64_m256(andnot256(low4bits, data_1), 4));
+    m256 c_hi_2 = vpshufb(hi_mask,
+                          rshift64_m256(andnot256(low4bits, data_2), 4));
+    m256 t1 = and256(c_lo_1, c_hi_1);
+    m256 t2 = and256(c_lo_2, c_hi_2);
+    m256 nresult_1 = eq256(and256(t1, bucket_select_mask_1), zeroes256());
+    m256 nresult_2 = eq256(and256(t2, bucket_select_mask_2), zeroes256());
+    u64a nresult = (u64a)movemask256(nresult_1) |
+                   (u64a)movemask256(nresult_2) << 32;
+    u64a cmp_result = (nresult ^ neg_mask) | valid_path_mask;
+
+    DEBUG_PRINTF("cmp_result %llx\n", cmp_result);
+
+    return checkMultipath64(cmp_result, hi_bits, lo_bits);
+}
+
 #endif

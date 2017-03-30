@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,6 +36,9 @@
 
 #include <vector>
 
+/** \brief Max path number for multi-path lookaround. */
+#define MAX_LOOKAROUND_PATHS 8
+
 namespace ue2 {
 
 class CharReach;
@@ -44,6 +47,7 @@ class RoseBuildImpl;
 /** \brief Lookaround entry prototype, describing the reachability at a given
  * distance from the end of a role match. */
 struct LookEntry {
+    LookEntry() : offset(0) {}
     LookEntry(s8 offset_in, const CharReach &reach_in)
         : offset(offset_in), reach(reach_in) {}
     s8 offset; //!< offset from role match location.
@@ -63,7 +67,7 @@ size_t hash_value(const LookEntry &l) {
 }
 
 void findLookaroundMasks(const RoseBuildImpl &tbi, const RoseVertex v,
-                         std::vector<LookEntry> &lookaround);
+                         std::vector<LookEntry> &look_more);
 
 /**
  * \brief If possible, render the prefix of the given vertex as a lookaround.
@@ -72,7 +76,7 @@ void findLookaroundMasks(const RoseBuildImpl &tbi, const RoseVertex v,
  * it can be satisfied with a lookaround alone.
  */
 bool makeLeftfixLookaround(const RoseBuildImpl &build, const RoseVertex v,
-                           std::vector<LookEntry> &lookaround);
+                           std::vector<std::vector<LookEntry>> &lookaround);
 
 void mergeLookaround(std::vector<LookEntry> &lookaround,
                      const std::vector<LookEntry> &more_lookaround);
