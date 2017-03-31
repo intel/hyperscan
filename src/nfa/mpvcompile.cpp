@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -309,9 +309,9 @@ const mpv_counter_info &findCounter(const vector<mpv_counter_info> &counters,
     return counters.front();
 }
 
-aligned_unique_ptr<NFA> mpvCompile(const vector<raw_puff> &puffs_in,
-                                   const vector<raw_puff> &triggered_puffs,
-                                   const ReportManager &rm) {
+bytecode_ptr<NFA> mpvCompile(const vector<raw_puff> &puffs_in,
+                             const vector<raw_puff> &triggered_puffs,
+                             const ReportManager &rm) {
     assert(!puffs_in.empty() || !triggered_puffs.empty());
     u32 puffette_count = puffs_in.size() + triggered_puffs.size();
 
@@ -343,7 +343,7 @@ aligned_unique_ptr<NFA> mpvCompile(const vector<raw_puff> &puffs_in,
 
     DEBUG_PRINTF("%u puffs, len = %u\n", puffette_count, len);
 
-    aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(len);
+    auto nfa = make_bytecode_ptr<NFA>(len);
 
     mpv_puffette *pa_base = (mpv_puffette *)
         ((char *)nfa.get() + sizeof(NFA) + sizeof(mpv)
