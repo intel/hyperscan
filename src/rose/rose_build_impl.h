@@ -38,7 +38,7 @@
 #include "nfa/nfa_internal.h"
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_revacc.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/order_check.h"
 #include "util/queue_index_factory.h"
 #include "util/ue2_containers.h"
@@ -471,8 +471,8 @@ public:
                  bool eod) override;
 
     // Construct a runtime implementation.
-    aligned_unique_ptr<RoseEngine> buildRose(u32 minWidth) override;
-    aligned_unique_ptr<RoseEngine> buildFinalEngine(u32 minWidth);
+    bytecode_ptr<RoseEngine> buildRose(u32 minWidth) override;
+    bytecode_ptr<RoseEngine> buildFinalEngine(u32 minWidth);
 
     void setSom() override { hasSom = true; }
 

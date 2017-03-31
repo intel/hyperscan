@@ -56,7 +56,7 @@
 #include "parser/utf8_validate.h"
 #include "rose/rose_build.h"
 #include "som/slot_manager_dump.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/compile_error.h"
 #include "util/target_info.h"
 #include "util/verify_types.h"
@@ -288,7 +288,7 @@ void addExpression(NG &ng, unsigned index, const char *expression,
 }
 
 static
-aligned_unique_ptr<RoseEngine> generateRoseEngine(NG &ng) {
+bytecode_ptr<RoseEngine> generateRoseEngine(NG &ng) {
     const u32 minWidth =
         ng.minWidth.is_finite() ? verify_u32(ng.minWidth) : ROSE_BOUND_INF;
     auto rose = ng.rose->buildRose(minWidth);

@@ -5589,8 +5589,8 @@ u32 writeEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
 }
 
 static
-aligned_unique_ptr<RoseEngine> addSmallWriteEngine(const RoseBuildImpl &build,
-                                        aligned_unique_ptr<RoseEngine> rose) {
+bytecode_ptr<RoseEngine> addSmallWriteEngine(const RoseBuildImpl &build,
+                                             bytecode_ptr<RoseEngine> rose) {
     assert(rose);
 
     if (roseIsPureLiteral(rose.get())) {
@@ -5612,7 +5612,7 @@ aligned_unique_ptr<RoseEngine> addSmallWriteEngine(const RoseBuildImpl &build,
     const size_t smwrOffset = ROUNDUP_CL(mainSize);
     const size_t newSize = smwrOffset + smallWriteSize;
 
-    auto rose2 = aligned_zmalloc_unique<RoseEngine>(newSize);
+    auto rose2 = make_bytecode_ptr<RoseEngine>(newSize, 64);
     char *ptr = (char *)rose2.get();
     memcpy(ptr, rose.get(), mainSize);
     memcpy(ptr + smwrOffset, smwr_engine.get(), smallWriteSize);
@@ -5709,7 +5709,7 @@ map<left_id, u32> makeLeftQueueMap(const RoseGraph &g,
     return lqm;
 }
 
-aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
+bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     // We keep all our offsets, counts etc. in a prototype RoseEngine which we
     // will copy into the real one once it is allocated: we can't do this
     // until we know how big it will be.
@@ -5963,8 +5963,8 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     proto.size = currOffset;
 
-    // Time to allocate the real RoseEngine structure.
-    auto engine = aligned_zmalloc_unique<RoseEngine>(currOffset);
+    // Time to allocate the real RoseEngine structure, at cacheline alignment.
+    auto engine = make_bytecode_ptr<RoseEngine>(currOffset, 64);
     assert(engine); // will have thrown bad_alloc otherwise.
 
     // Copy in our prototype engine data.

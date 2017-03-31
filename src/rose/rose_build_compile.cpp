@@ -1668,7 +1668,7 @@ bool roleOffsetsAreValid(const RoseGraph &g) {
 }
 #endif // NDEBUG
 
-aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
+bytecode_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
     dumpRoseGraph(*this, "rose_early.dot");
 
     // Early check for Rose implementability.

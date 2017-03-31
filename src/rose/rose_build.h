@@ -40,7 +40,7 @@
 #include "ue2common.h"
 #include "rose_common.h"
 #include "rose_in_graph.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/charreach.h"
 #include "util/noncopyable.h"
 #include "util/ue2_containers.h"
@@ -113,7 +113,7 @@ public:
                          bool eod) = 0;
 
     /** \brief Construct a runtime implementation. */
-    virtual ue2::aligned_unique_ptr<RoseEngine> buildRose(u32 minWidth) = 0;
+    virtual bytecode_ptr<RoseEngine> buildRose(u32 minWidth) = 0;
 
     virtual std::unique_ptr<RoseDedupeAux> generateDedupeAux() const = 0;
 
