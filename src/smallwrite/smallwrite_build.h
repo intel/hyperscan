@@ -30,13 +30,14 @@
 #define SMWR_BUILD_H
 
 /**
- * SmallWrite Build interface. Everything you ever needed to feed literals in
- * and get a SmallWriteEngine out. This header should be everything needed by
- * the rest of UE2.
+ * \file
+ * \brief Small-write engine build interface.
+ *
+ * Everything you ever needed to feed literals in and get a SmallWriteEngine
+ * out. This header should be everything needed by the rest of UE2.
  */
 
 #include "ue2common.h"
-#include "util/alloc.h"
 #include "util/bytecode_ptr.h"
 #include "util/noncopyable.h"
 
@@ -53,14 +54,14 @@ class ExpressionInfo;
 class NGHolder;
 class ReportManager;
 
-// Abstract interface intended for callers from elsewhere in the tree, real
-// underlying implementation is SmallWriteBuildImpl in smwr_build_impl.h.
+/**
+ * Abstract interface intended for callers from elsewhere in the tree, real
+ * underlying implementation is SmallWriteBuildImpl in smwr_build_impl.h.
+ */
 class SmallWriteBuild : noncopyable {
 public:
-    // Destructor
     virtual ~SmallWriteBuild();
 
-    // Construct a runtime implementation.
     virtual bytecode_ptr<SmallWriteEngine> build(u32 roseQuality) = 0;
 
     virtual void add(const NGHolder &g, const ExpressionInfo &expr) = 0;
@@ -69,7 +70,7 @@ public:
     virtual std::set<ReportID> all_reports() const = 0;
 };
 
-// Construct a usable SmallWrite builder.
+/** \brief Construct a usable SmallWrite builder. */
 std::unique_ptr<SmallWriteBuild>
 makeSmallWriteBuilder(size_t num_patterns, const ReportManager &rm,
                       const CompileContext &cc);
