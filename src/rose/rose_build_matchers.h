@@ -35,6 +35,7 @@
 #define ROSE_BUILD_MATCHERS_H
 
 #include "rose_build_impl.h"
+#include "util/bytecode_ptr.h"
 
 #include <vector>
 
@@ -57,25 +58,24 @@ struct LitFragment {
     u32 delay_program_offset = ROSE_INVALID_PROG_OFFSET;
 };
 
-aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
-                                  const std::vector<LitFragment> &fragments,
-                                              size_t longLitLengthThreshold,
-                                              rose_group *fgroups,
-                                              size_t *fsize,
-                                              size_t *historyRequired);
+bytecode_ptr<HWLM>
+buildFloatingMatcher(const RoseBuildImpl &build,
+                     const std::vector<LitFragment> &fragments,
+                     size_t longLitLengthThreshold, rose_group *fgroups,
+                     size_t *historyRequired);
 
-aligned_unique_ptr<HWLM> buildDelayRebuildMatcher(const RoseBuildImpl &build,
-                                  const std::vector<LitFragment> &fragments,
-                                                  size_t longLitLengthThreshold,
-                                                  size_t *drsize);
+bytecode_ptr<HWLM>
+buildDelayRebuildMatcher(const RoseBuildImpl &build,
+                         const std::vector<LitFragment> &fragments,
+                         size_t longLitLengthThreshold);
 
-aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
-                                  const std::vector<LitFragment> &fragments,
-                                                size_t *sbsize);
+bytecode_ptr<HWLM>
+buildSmallBlockMatcher(const RoseBuildImpl &build,
+                       const std::vector<LitFragment> &fragments);
 
-aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
-                                  const std::vector<LitFragment> &fragments,
-                                                 size_t *esize);
+bytecode_ptr<HWLM>
+buildEodAnchoredMatcher(const RoseBuildImpl &build,
+                        const std::vector<LitFragment> &fragments);
 
 void findMoreLiteralMasks(RoseBuildImpl &build);
 

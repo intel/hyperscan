@@ -97,9 +97,9 @@ bool isNoodleable(const vector<hwlmLiteral> &lits,
     return true;
 }
 
-aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
-                                   bool make_small, const CompileContext &cc,
-                                   UNUSED hwlm_group_t expected_groups) {
+bytecode_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits, bool make_small,
+                             const CompileContext &cc,
+                             UNUSED hwlm_group_t expected_groups) {
     assert(!lits.empty());
     dumpLits(lits);
 
@@ -151,7 +151,7 @@ aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
         engType = HWLM_ENGINE_FDR;
         auto fdr = fdrBuildTable(lits, make_small, cc.target_info, cc.grey);
         if (fdr) {
-            engSize = fdrSize(fdr.get());
+            engSize = fdr.size();
         }
         eng = move(fdr);
     }
@@ -165,7 +165,7 @@ aligned_unique_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits,
         throw ResourceLimitError();
     }
 
-    auto h = aligned_zmalloc_unique<HWLM>(ROUNDUP_CL(sizeof(HWLM)) + engSize);
+    auto h = make_bytecode_ptr<HWLM>(ROUNDUP_CL(sizeof(HWLM)) + engSize, 64);
 
     h->type = engType;
     memcpy(HWLM_DATA(h.get()), eng.get(), engSize);

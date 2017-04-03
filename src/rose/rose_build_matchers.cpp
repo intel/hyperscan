@@ -805,12 +805,11 @@ void buildAccel(const RoseBuildImpl &build, const MatcherProto &mp,
     buildForwardAccel(&hwlm, mp.accel_lits, build.getInitialGroups());
 }
 
-aligned_unique_ptr<HWLM>
-buildFloatingMatcher(const RoseBuildImpl &build,
-                     const vector<LitFragment> &fragments,
-                     size_t longLitLengthThreshold, rose_group *fgroups,
-                     size_t *fsize, size_t *historyRequired) {
-    *fsize = 0;
+bytecode_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
+                                        const vector<LitFragment> &fragments,
+                                        size_t longLitLengthThreshold,
+                                        rose_group *fgroups,
+                                        size_t *historyRequired) {
     *fgroups = 0;
 
     auto mp = makeMatcherProto(build, fragments, ROSE_FLOATING, false,
@@ -838,18 +837,14 @@ buildFloatingMatcher(const RoseBuildImpl &build,
         *historyRequired = max(*historyRequired, mp.history_required);
     }
 
-    *fsize = hwlmSize(hwlm.get());
-    assert(*fsize);
-    DEBUG_PRINTF("built floating literal table size %zu bytes\n", *fsize);
+    DEBUG_PRINTF("built floating literal table size %zu bytes\n", hwlm.size());
     return hwlm;
 }
 
-aligned_unique_ptr<HWLM> buildDelayRebuildMatcher(const RoseBuildImpl &build,
-                                       const vector<LitFragment> &fragments,
-                                                  size_t longLitLengthThreshold,
-                                                  size_t *drsize) {
-    *drsize = 0;
-
+bytecode_ptr<HWLM>
+buildDelayRebuildMatcher(const RoseBuildImpl &build,
+                         const vector<LitFragment> &fragments,
+                         size_t longLitLengthThreshold) {
     if (!build.cc.streaming) {
         DEBUG_PRINTF("not streaming\n");
         return nullptr;
@@ -870,17 +865,13 @@ aligned_unique_ptr<HWLM> buildDelayRebuildMatcher(const RoseBuildImpl &build,
 
     buildAccel(build, mp, *hwlm);
 
-    *drsize = hwlmSize(hwlm.get());
-    assert(*drsize);
-    DEBUG_PRINTF("built delay rebuild table size %zu bytes\n", *drsize);
+    DEBUG_PRINTF("built delay rebuild table size %zu bytes\n", hwlm.size());
     return hwlm;
 }
 
-aligned_unique_ptr<HWLM>
+bytecode_ptr<HWLM>
 buildSmallBlockMatcher(const RoseBuildImpl &build,
-                       const vector<LitFragment> &fragments, size_t *sbsize) {
-    *sbsize = 0;
-
+                       const vector<LitFragment> &fragments) {
     if (build.cc.streaming) {
         DEBUG_PRINTF("streaming mode\n");
         return nullptr;
@@ -932,17 +923,14 @@ buildSmallBlockMatcher(const RoseBuildImpl &build,
 
     buildAccel(build, mp, *hwlm);
 
-    *sbsize = hwlmSize(hwlm.get());
-    assert(*sbsize);
-    DEBUG_PRINTF("built small block literal table size %zu bytes\n", *sbsize);
+    DEBUG_PRINTF("built small block literal table size %zu bytes\n",
+                 hwlm.size());
     return hwlm;
 }
 
-aligned_unique_ptr<HWLM>
+bytecode_ptr<HWLM>
 buildEodAnchoredMatcher(const RoseBuildImpl &build,
-                        const vector<LitFragment> &fragments, size_t *esize) {
-    *esize = 0;
-
+                        const vector<LitFragment> &fragments) {
     auto mp = makeMatcherProto(build, fragments, ROSE_EOD_ANCHORED, false,
                                build.ematcher_region_size);
 
@@ -962,9 +950,8 @@ buildEodAnchoredMatcher(const RoseBuildImpl &build,
 
     buildAccel(build, mp, *hwlm);
 
-    *esize = hwlmSize(hwlm.get());
-    assert(*esize);
-    DEBUG_PRINTF("built eod-anchored literal table size %zu bytes\n", *esize);
+    DEBUG_PRINTF("built eod-anchored literal table size %zu bytes\n",
+                 hwlm.size());
     return hwlm;
 }
 

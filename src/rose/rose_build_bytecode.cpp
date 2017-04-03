@@ -5832,35 +5832,30 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     // Build floating HWLM matcher.
     rose_group fgroups = 0;
-    size_t fsize = 0;
     auto ftable = buildFloatingMatcher(*this, fragments,
-                                       bc.longLitLengthThreshold,
-                                       &fgroups, &fsize, &historyRequired);
+                        bc.longLitLengthThreshold, &fgroups, &historyRequired);
     if (ftable) {
-        proto.fmatcherOffset = bc.engine_blob.add(ftable.get(), fsize, 64);
+        proto.fmatcherOffset = bc.engine_blob.add(ftable);
         bc.resources.has_floating = true;
     }
 
     // Build delay rebuild HWLM matcher.
-    size_t drsize = 0;
     auto drtable = buildDelayRebuildMatcher(*this, fragments,
-                                            bc.longLitLengthThreshold, &drsize);
+                                            bc.longLitLengthThreshold);
     if (drtable) {
-        proto.drmatcherOffset = bc.engine_blob.add(drtable.get(), drsize, 64);
+        proto.drmatcherOffset = bc.engine_blob.add(drtable);
     }
 
     // Build EOD-anchored HWLM matcher.
-    size_t esize = 0;
-    auto etable = buildEodAnchoredMatcher(*this, fragments, &esize);
+    auto etable = buildEodAnchoredMatcher(*this, fragments);
     if (etable) {
-        proto.ematcherOffset = bc.engine_blob.add(etable.get(), esize, 64);
+        proto.ematcherOffset = bc.engine_blob.add(etable);
     }
 
     // Build small-block HWLM matcher.
-    size_t sbsize = 0;
-    auto sbtable = buildSmallBlockMatcher(*this, fragments, &sbsize);
+    auto sbtable = buildSmallBlockMatcher(*this, fragments);
     if (sbtable) {
-        proto.sbmatcherOffset = bc.engine_blob.add(sbtable.get(), sbsize, 64);
+        proto.sbmatcherOffset = bc.engine_blob.add(sbtable);
     }
 
     proto.activeArrayCount = proto.leftfixBeginQueue;

@@ -35,7 +35,7 @@
 
 #include "hwlm.h"
 #include "ue2common.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 
 #include <memory>
 #include <vector>
@@ -60,10 +60,9 @@ struct hwlmLiteral;
  * may result in a nullptr return value, or a std::bad_alloc exception being
  * thrown.
  */
-aligned_unique_ptr<HWLM>
-hwlmBuild(const std::vector<hwlmLiteral> &lits, bool make_small,
-          const CompileContext &cc,
-          hwlm_group_t expected_groups = HWLM_ALL_GROUPS);
+bytecode_ptr<HWLM> hwlmBuild(const std::vector<hwlmLiteral> &lits,
+                             bool make_small, const CompileContext &cc,
+                             hwlm_group_t expected_groups = HWLM_ALL_GROUPS);
 
 /**
  * Returns an estimate of the number of repeated characters on the end of a
