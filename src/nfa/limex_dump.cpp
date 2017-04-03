@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -289,6 +289,20 @@ template<typename limex_type>
 static
 void dumpLimexText(const limex_type *limex, FILE *f) {
     u32 size = limex_traits<limex_type>::size;
+
+    fprintf(f, "%u-bit LimEx NFA (%u shifts, %u exceptions)\n", size,
+            limex->shiftCount, limex->exceptionCount);
+    fprintf(f, "flags: ");
+    if (limex->flags & LIMEX_FLAG_COMPRESS_STATE) {
+        fprintf(f, "COMPRESS_STATE ");
+    }
+    if (limex->flags & LIMEX_FLAG_COMPRESS_MASKED) {
+        fprintf(f, "COMPRESS_MASKED ");
+    }
+    if (limex->flags & LIMEX_FLAG_CANNOT_DIE) {
+        fprintf(f, "CANNOT_DIE ");
+    }
+    fprintf(f, "\n\n");
 
     dumpMask(f, "init", (const u8 *)&limex->init, size);
     dumpMask(f, "init_dot_star", (const u8 *)&limex->initDS, size);
