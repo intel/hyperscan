@@ -60,6 +60,7 @@
 #define RUN_ACCEL_FN        JOIN(LIMEX_API_ROOT, _Run_Accel)
 #define RUN_EXCEPTIONS_FN   JOIN(LIMEX_API_ROOT, _Run_Exceptions)
 #define REV_STREAM_FN       JOIN(LIMEX_API_ROOT, _Rev_Stream)
+#define LOOP_NOACCEL_FN     JOIN(LIMEX_API_ROOT, _Loop_No_Accel)
 #define STREAM_FN           JOIN(LIMEX_API_ROOT, _Stream)
 #define STREAMCB_FN         JOIN(LIMEX_API_ROOT, _Stream_CB)
 #define STREAMFIRST_FN      JOIN(LIMEX_API_ROOT, _Stream_First)
@@ -191,6 +192,50 @@ size_t RUN_ACCEL_FN(const STATE_T s, UNUSED const STATE_T accelMask,
     } while (0)
 
 
+/**
+ * \brief LimEx NFAS inner loop without accel.
+ *
+ * Note that the "all zeroes" early death check is only performed if can_die is
+ * true.
+ *
+ */
+static really_inline
+char LOOP_NOACCEL_FN(const IMPL_NFA_T *limex, const u8 *input, size_t *loc,
+                     size_t length, STATE_T *s_ptr, struct CONTEXT_T *ctx,
+                     u64a offset, const char flags, u64a *final_loc,
+                     const char first_match, const char can_die) {
+    const ENG_STATE_T *reach = get_reach_table(limex);
+#if SIZE < 256
+    const STATE_T exceptionMask = LOAD_FROM_ENG(&limex->exceptionMask);
+#endif
+    const EXCEPTION_T *exceptions = getExceptionTable(EXCEPTION_T, limex);
+    STATE_T s = *s_ptr;
+
+    size_t i = *loc;
+    for (; i != length; i++) {
+        DUMP_INPUT(i);
+        if (can_die && ISZERO_STATE(s)) {
+            DEBUG_PRINTF("no states are switched on, early exit\n");
+            break;
+        }
+
+        STATE_T succ;
+        NFA_EXEC_GET_LIM_SUCC(limex, s, succ);
+
+        if (RUN_EXCEPTIONS_FN(limex, exceptions, s, EXCEPTION_MASK, i, offset,
+                              &succ, final_loc, ctx, flags, 0, first_match)) {
+            return MO_HALT_MATCHING;
+        }
+
+        u8 c = input[i];
+        s = AND_STATE(succ, LOAD_FROM_ENG(&reach[limex->reachMap[c]]));
+    }
+
+    *loc = i;
+    *s_ptr = s;
+    return MO_CONTINUE_MATCHING;
+}
+
 static really_inline
 char STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
                struct CONTEXT_T *ctx, u64a offset, const char flags,
@@ -216,51 +261,26 @@ char STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
     size_t min_accel_offset = 0;
     if (!limex->accelCount || length < ACCEL_MIN_LEN) {
         min_accel_offset = length;
-        if (limex->flags & LIMEX_FLAG_CANNOT_DIE) {
-            goto cannot_die;
-        } else {
-            goto without_accel;
-        }
+        goto without_accel;
     } else {
         goto with_accel;
     }
 
-cannot_die:
-    for (; i != min_accel_offset; i++) {
-        DUMP_INPUT(i);
-
-        STATE_T succ;
-        NFA_EXEC_GET_LIM_SUCC(limex, s, succ);
-
-        if (RUN_EXCEPTIONS_FN(limex, exceptions, s, EXCEPTION_MASK, i, offset,
-                              &succ, final_loc, ctx, flags, 0, first_match)) {
-            return MO_HALT_MATCHING;
-        }
-
-        u8 c = input[i];
-        s = AND_STATE(succ, LOAD_FROM_ENG(&reach[limex->reachMap[c]]));
-    }
-    goto finished;
-
 without_accel:
-    for (; i != min_accel_offset; i++) {
-        DUMP_INPUT(i);
-        if (ISZERO_STATE(s)) {
-            DEBUG_PRINTF("no states are switched on, early exit\n");
-            ctx->s = s;
-            return MO_CONTINUE_MATCHING;
-        }
-
-        STATE_T succ;
-        NFA_EXEC_GET_LIM_SUCC(limex, s, succ);
-
-        if (RUN_EXCEPTIONS_FN(limex, exceptions, s, EXCEPTION_MASK, i, offset,
-                              &succ, final_loc, ctx, flags, 0, first_match)) {
+    if (limex->flags & LIMEX_FLAG_CANNOT_DIE) {
+        const char can_die = 0;
+        if (LOOP_NOACCEL_FN(limex, input, &i, min_accel_offset, &s, ctx, offset,
+                            flags, final_loc, first_match,
+                            can_die) == MO_HALT_MATCHING) {
             return MO_HALT_MATCHING;
         }
-
-        u8 c = input[i];
-        s = AND_STATE(succ, LOAD_FROM_ENG(&reach[limex->reachMap[c]]));
+    } else {
+        const char can_die = 1;
+        if (LOOP_NOACCEL_FN(limex, input, &i, min_accel_offset, &s, ctx, offset,
+                            flags, final_loc, first_match,
+                            can_die) == MO_HALT_MATCHING) {
+            return MO_HALT_MATCHING;
+        }
     }
 
 with_accel:
@@ -313,7 +333,6 @@ with_accel:
         s = AND_STATE(succ, LOAD_FROM_ENG(&reach[limex->reachMap[c]]));
     }
 
-finished:
     ctx->s = s;
 
     if ((first_match || (flags & CALLBACK_OUTPUT)) && limex->acceptCount) {
@@ -1022,6 +1041,7 @@ enum nfa_zombie_status JOIN(LIMEX_API_ROOT, _zombie_status)(
 #undef RUN_ACCEL_FN
 #undef RUN_EXCEPTIONS_FN
 #undef REV_STREAM_FN
+#undef LOOP_NOACCEL_FN
 #undef STREAM_FN
 #undef STREAMCB_FN
 #undef STREAMFIRST_FN
