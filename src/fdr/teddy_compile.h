@@ -26,7 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief FDR literal matcher: Teddy build API.
  */
 
@@ -39,12 +40,12 @@
 #include <vector>
 
 struct FDR;
-struct target_t;
 
 namespace ue2 {
 
 struct Grey;
 struct hwlmLiteral;
+struct target_t;
 
 bytecode_ptr<FDR> teddyBuildTableHinted(const std::vector<hwlmLiteral> &lits,
                                         bool make_small, u32 hint,

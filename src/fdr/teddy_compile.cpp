@@ -26,6 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * \file
+ * \brief FDR literal matcher: Teddy build code.
+ */
+
 #include "teddy_compile.h"
 
 #include "fdr.h"
@@ -43,7 +48,6 @@
 #include "util/popcount.h"
 #include "util/target_info.h"
 #include "util/verify_types.h"
-
 
 #include <algorithm>
 #include <cassert>
