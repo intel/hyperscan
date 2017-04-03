@@ -35,7 +35,9 @@
 #define UTIL_BYTECODE_PTR_H
 
 #include "util/alloc.h"
+#include "util/operators.h"
 
+#include <algorithm> // std::max
 #include <cstring>
 #include <memory>
 
@@ -47,7 +49,7 @@ namespace ue2 {
  * This is intended to be used for flat aligned memory regions that will
  * eventually end up copied into the Hyperscan bytecode.
  */
-template<typename T> class bytecode_ptr {
+template<typename T> class bytecode_ptr : totally_ordered<bytecode_ptr<T>> {
 public:
     bytecode_ptr() = default;
     explicit bytecode_ptr(size_t size, size_t align = alignof(T))
@@ -81,7 +83,14 @@ public:
         return std::shared_ptr<ST>(ptr.release(), d);
     }
 
-    void reset(T* p = nullptr) { ptr.reset(p); }
+    void reset(T *p = nullptr) { ptr.reset(p); }
+
+    T *release() {
+        auto *p = ptr.release();
+        bytes = 0;
+        alignment = 0;
+        return p;
+    }
 
     void swap(bytecode_ptr &other) {
         using std::swap;
@@ -97,11 +106,7 @@ public:
     size_t align() const { return alignment; }
 
     bool operator==(const bytecode_ptr &a) const { return ptr == a.ptr; }
-    bool operator!=(const bytecode_ptr &a) const { return ptr != a.ptr; }
     bool operator<(const bytecode_ptr &a) const { return ptr < a.ptr; }
-    bool operator<=(const bytecode_ptr &a) const { return ptr <= a.ptr; }
-    bool operator>(const bytecode_ptr &a) const { return ptr > a.ptr; }
-    bool operator>=(const bytecode_ptr &a) const { return ptr >= a.ptr; }
 
 private:
     /** \brief Deleter function for std::unique_ptr. */
