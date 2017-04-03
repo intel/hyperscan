@@ -63,8 +63,7 @@ public:
 
     bytecode_ptr(std::nullptr_t) {}
 
-    T *get() { return ptr.get(); };
-    const T *get() const { return ptr.get(); };
+    T *get() const { return ptr.get(); };
 
     T &operator*() { return *ptr; }
     const T &operator*() const { return *ptr; }

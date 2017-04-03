@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,7 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief Castle: multi-tenant repeat engine, compiler code.
  */
 
@@ -36,7 +37,7 @@
 #include "nfa_kind.h"
 #include "ue2common.h"
 #include "nfagraph/ng_repeat.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/depth.h"
 #include "util/ue2_containers.h"
 
@@ -120,7 +121,7 @@ void remapCastleTops(CastleProto &proto, std::map<u32, u32> &top_map);
  * NOTE: Tops must be contiguous, i.e. \ref remapCastleTops must have been run
  * first.
  */
-ue2::aligned_unique_ptr<NFA>
+bytecode_ptr<NFA>
 buildCastle(const CastleProto &proto,
             const std::map<u32, std::vector<std::vector<CharReach>>> &triggers,
             const CompileContext &cc, const ReportManager &rm);

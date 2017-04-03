@@ -813,7 +813,7 @@ vector<unique_ptr<raw_dfa>> getAnchoredDfas(RoseBuildImpl &build,
  */
 static
 size_t buildNfas(vector<raw_dfa> &anchored_dfas,
-                 vector<aligned_unique_ptr<NFA>> *nfas,
+                 vector<bytecode_ptr<NFA>> *nfas,
                  vector<u32> *start_offset, const CompileContext &cc,
                  const ReportManager &rm) {
     const size_t num_dfas = anchored_dfas.size();
@@ -883,7 +883,7 @@ buildAnchoredMatcher(RoseBuildImpl &build, const vector<LitFragment> &fragments,
         remapIdsToPrograms(fragments, rdfa);
     }
 
-    vector<aligned_unique_ptr<NFA>> nfas;
+    vector<bytecode_ptr<NFA>> nfas;
     vector<u32> start_offset; // start offset for each dfa (dots removed)
     size_t total_size = buildNfas(dfas, &nfas, &start_offset, cc, build.rm);
 

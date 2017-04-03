@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,13 +29,8 @@
 #ifndef MCSHENGCOMPILE_H
 #define MCSHENGCOMPILE_H
 
-#include "accel_dfa_build_strat.h"
-#include "rdfa.h"
 #include "ue2common.h"
-#include "util/alloc.h"
-#include "util/ue2_containers.h"
-
-#include <memory>
+#include "util/bytecode_ptr.h"
 
 struct NFA;
 
@@ -43,10 +38,10 @@ namespace ue2 {
 
 class ReportManager;
 struct CompileContext;
+struct raw_dfa;
 
-ue2::aligned_unique_ptr<NFA>
-mcshengCompile(raw_dfa &raw, const CompileContext &cc,
-               const ReportManager &rm);
+bytecode_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
+                                 const ReportManager &rm);
 
 bool has_accel_mcsheng(const NFA *nfa);
 

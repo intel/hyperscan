@@ -116,7 +116,7 @@ protected:
     unsigned matches;
 
     // Compiled NFA structure.
-    aligned_unique_ptr<NFA> nfa;
+    bytecode_ptr<NFA> nfa;
 
     // Space for full state.
     aligned_unique_ptr<char> full_state;
@@ -187,8 +187,7 @@ TEST_P(LimExModelTest, CompressExpand) {
 
     // Expand state into a new copy and check that it matches the original
     // uncompressed state.
-    aligned_unique_ptr<char> state_copy =
-        aligned_zmalloc_unique<char>(nfa->scratchStateSize);
+    auto state_copy = aligned_zmalloc_unique<char>(nfa->scratchStateSize);
     char *dest = state_copy.get();
     memset(dest, 0xff, nfa->scratchStateSize);
     nfaExpandState(nfa.get(), dest, q.streamState, q.offset,
@@ -331,7 +330,7 @@ protected:
     unsigned matches;
 
     // Compiled NFA structure.
-    aligned_unique_ptr<NFA> nfa;
+    bytecode_ptr<NFA> nfa;
 };
 
 INSTANTIATE_TEST_CASE_P(LimExReverse, LimExReverseTest,
@@ -410,7 +409,7 @@ protected:
     unsigned matches;
 
     // Compiled NFA structure.
-    aligned_unique_ptr<NFA> nfa;
+    bytecode_ptr<NFA> nfa;
 
     // Space for full state.
     aligned_unique_ptr<char> full_state;

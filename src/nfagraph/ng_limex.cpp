@@ -26,9 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief Limex NFA construction code.
  */
+
 #include "ng_limex.h"
 
 #include "grey.h"
@@ -623,7 +625,7 @@ void remapReportsToPrograms(NGHolder &h, const ReportManager &rm) {
 }
 
 static
-aligned_unique_ptr<NFA>
+bytecode_ptr<NFA>
 constructNFA(const NGHolder &h_in, const ReportManager *rm,
              const map<u32, u32> &fixed_depth_tops,
              const map<u32, vector<vector<CharReach>>> &triggers,
@@ -682,7 +684,7 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
                     zombies, do_accel, compress_state, hint, cc);
 }
 
-aligned_unique_ptr<NFA>
+bytecode_ptr<NFA>
 constructNFA(const NGHolder &h_in, const ReportManager *rm,
              const map<u32, u32> &fixed_depth_tops,
              const map<u32, vector<vector<CharReach>>> &triggers,
@@ -696,7 +698,7 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
 
 #ifndef RELEASE_BUILD
 // Variant that allows a hint to be specified.
-aligned_unique_ptr<NFA>
+bytecode_ptr<NFA>
 constructNFA(const NGHolder &h_in, const ReportManager *rm,
              const map<u32, u32> &fixed_depth_tops,
              const map<u32, vector<vector<CharReach>>> &triggers,
@@ -709,8 +711,8 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
 #endif // RELEASE_BUILD
 
 static
-aligned_unique_ptr<NFA> constructReversedNFA_i(const NGHolder &h_in, u32 hint,
-                                               const CompileContext &cc) {
+bytecode_ptr<NFA> constructReversedNFA_i(const NGHolder &h_in, u32 hint,
+                                         const CompileContext &cc) {
     // Make a mutable copy of the graph that we can renumber etc.
     NGHolder h;
     cloneHolder(h, h_in);
@@ -739,16 +741,16 @@ aligned_unique_ptr<NFA> constructReversedNFA_i(const NGHolder &h_in, u32 hint,
                     zombies, false, false, hint, cc);
 }
 
-aligned_unique_ptr<NFA> constructReversedNFA(const NGHolder &h_in,
-                                             const CompileContext &cc) {
+bytecode_ptr<NFA> constructReversedNFA(const NGHolder &h_in,
+                                       const CompileContext &cc) {
     u32 hint = INVALID_NFA; // no hint
     return constructReversedNFA_i(h_in, hint, cc);
 }
 
 #ifndef RELEASE_BUILD
 // Variant that allows a hint to be specified.
-aligned_unique_ptr<NFA> constructReversedNFA(const NGHolder &h_in, u32 hint,
-                                             const CompileContext &cc) {
+bytecode_ptr<NFA> constructReversedNFA(const NGHolder &h_in, u32 hint,
+                                       const CompileContext &cc) {
     return constructReversedNFA_i(h_in, hint, cc);
 }
 #endif // RELEASE_BUILD

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -456,9 +456,8 @@ bool allocateFSN16(dfa_info &info, dstate_id_t *sherman_base) {
 }
 
 static
-aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
-                                           const CompileContext &cc,
-                                           set<dstate_id_t> *accel_states) {
+bytecode_ptr<NFA> mcclellanCompile16(dfa_info &info, const CompileContext &cc,
+                                     set<dstate_id_t> *accel_states) {
     DEBUG_PRINTF("building mcclellan 16\n");
 
     vector<u32> reports; /* index in ri for the appropriate report list */
@@ -497,7 +496,7 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
     accel_offset -= sizeof(NFA); /* adj accel offset to be relative to m */
     assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
 
-    aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
+    auto nfa = make_bytecode_ptr<NFA>(total_size);
     char *nfa_base = (char *)nfa.get();
 
     populateBasicInfo(sizeof(u16), info, total_size, aux_offset, accel_offset,
@@ -685,9 +684,8 @@ void allocateFSN8(dfa_info &info,
 }
 
 static
-aligned_unique_ptr<NFA> mcclellanCompile8(dfa_info &info,
-                                          const CompileContext &cc,
-                                          set<dstate_id_t> *accel_states) {
+bytecode_ptr<NFA> mcclellanCompile8(dfa_info &info, const CompileContext &cc,
+                                    set<dstate_id_t> *accel_states) {
     DEBUG_PRINTF("building mcclellan 8\n");
 
     vector<u32> reports;
@@ -717,12 +715,13 @@ aligned_unique_ptr<NFA> mcclellanCompile8(dfa_info &info,
     accel_offset -= sizeof(NFA); /* adj accel offset to be relative to m */
     assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
 
-    aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
+    auto nfa = bytecode_ptr<NFA>(total_size);
     char *nfa_base = (char *)nfa.get();
 
     mcclellan *m = (mcclellan *)getMutableImplNfa(nfa.get());
 
-    allocateFSN8(info, accel_escape_info, &m->accel_limit_8, &m->accept_limit_8);
+    allocateFSN8(info, accel_escape_info, &m->accel_limit_8,
+                 &m->accept_limit_8);
     populateBasicInfo(sizeof(u8), info, total_size, aux_offset, accel_offset,
                       accel_escape_info.size(), arb, single, nfa.get());
 
@@ -939,9 +938,9 @@ bool is_cyclic_near(const raw_dfa &raw, dstate_id_t root) {
     return false;
 }
 
-aligned_unique_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
-                                           const CompileContext &cc,
-                                           set<dstate_id_t> *accel_states) {
+bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
+                                     const CompileContext &cc,
+                                     set<dstate_id_t> *accel_states) {
     u16 total_daddy = 0;
     dfa_info info(strat);
     bool using8bit = cc.grey.allowMcClellan8 && info.size() <= 256;
@@ -965,7 +964,7 @@ aligned_unique_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &
                  info.size() * info.impl_alpha_size, info.size(),
                  info.impl_alpha_size);
 
-    aligned_unique_ptr<NFA> nfa;
+    bytecode_ptr<NFA> nfa;
     if (!using8bit) {
         nfa = mcclellanCompile16(info, cc, accel_states);
     } else {
@@ -980,9 +979,9 @@ aligned_unique_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &
     return nfa;
 }
 
-aligned_unique_ptr<NFA> mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
-                                         const ReportManager &rm,
-                                         set<dstate_id_t> *accel_states) {
+bytecode_ptr<NFA> mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
+                                   const ReportManager &rm,
+                                   set<dstate_id_t> *accel_states) {
     mcclellan_build_strat mbs(raw, rm);
     return mcclellanCompile_i(raw, mbs, cc, accel_states);
 }

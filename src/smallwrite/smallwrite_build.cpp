@@ -403,10 +403,10 @@ bool is_slow(const raw_dfa &rdfa, const set<dstate_id_t> &accel,
 }
 
 static
-aligned_unique_ptr<NFA> getDfa(raw_dfa &rdfa, const CompileContext &cc,
-                               const ReportManager &rm,
-                               set<dstate_id_t> &accel_states) {
-    aligned_unique_ptr<NFA> dfa = nullptr;
+bytecode_ptr<NFA> getDfa(raw_dfa &rdfa, const CompileContext &cc,
+                         const ReportManager &rm,
+                         set<dstate_id_t> &accel_states) {
+    bytecode_ptr<NFA> dfa = nullptr;
     if (cc.grey.allowSmallWriteSheng) {
         dfa = shengCompile(rdfa, cc, rm, &accel_states);
     }
@@ -417,10 +417,9 @@ aligned_unique_ptr<NFA> getDfa(raw_dfa &rdfa, const CompileContext &cc,
 }
 
 static
-aligned_unique_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
-                                   const CompileContext &cc,
-                                   const ReportManager &rm, u32 *start_offset,
-                                   u32 *small_region) {
+bytecode_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
+                             const CompileContext &cc, const ReportManager &rm,
+                             u32 *start_offset, u32 *small_region) {
     *start_offset = remove_leading_dots(rdfa);
 
     // Unleash the McClellan!

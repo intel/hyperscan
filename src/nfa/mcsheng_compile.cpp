@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -821,7 +821,7 @@ void fill_in_sherman(NFA *nfa, dfa_info &info, UNUSED u16 sherman_limit) {
 }
 
 static
-aligned_unique_ptr<NFA> mcshengCompile16(dfa_info &info, dstate_id_t sheng_end,
+bytecode_ptr<NFA> mcshengCompile16(dfa_info &info, dstate_id_t sheng_end,
                         const map<dstate_id_t, AccelScheme> &accel_escape_info,
                         const Grey &grey) {
     DEBUG_PRINTF("building mcsheng 16\n");
@@ -872,7 +872,7 @@ aligned_unique_ptr<NFA> mcshengCompile16(dfa_info &info, dstate_id_t sheng_end,
     accel_offset -= sizeof(NFA); /* adj accel offset to be relative to m */
     assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
 
-    aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
+    auto nfa = make_bytecode_ptr<NFA>(total_size);
     mcsheng *m = (mcsheng *)getMutableImplNfa(nfa.get());
 
     populateBasicInfo(sizeof(u16), info, total_size, aux_offset, accel_offset,
@@ -967,7 +967,7 @@ void allocateImplId8(dfa_info &info, dstate_id_t sheng_end,
 }
 
 static
-aligned_unique_ptr<NFA> mcshengCompile8(dfa_info &info, dstate_id_t sheng_end,
+bytecode_ptr<NFA> mcshengCompile8(dfa_info &info, dstate_id_t sheng_end,
                        const map<dstate_id_t, AccelScheme> &accel_escape_info) {
     DEBUG_PRINTF("building mcsheng 8\n");
 
@@ -998,7 +998,7 @@ aligned_unique_ptr<NFA> mcshengCompile8(dfa_info &info, dstate_id_t sheng_end,
     accel_offset -= sizeof(NFA); /* adj accel offset to be relative to m */
     assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
 
-    aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
+    auto nfa = make_bytecode_ptr<NFA>(total_size);
     mcsheng *m = (mcsheng *)getMutableImplNfa(nfa.get());
 
     allocateImplId8(info, sheng_end, accel_escape_info, &m->accel_limit_8,
@@ -1019,8 +1019,8 @@ aligned_unique_ptr<NFA> mcshengCompile8(dfa_info &info, dstate_id_t sheng_end,
     return nfa;
 }
 
-aligned_unique_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
-                                       const ReportManager &rm) {
+bytecode_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
+                                 const ReportManager &rm) {
     if (!cc.grey.allowMcSheng) {
         return nullptr;
     }
@@ -1044,7 +1044,7 @@ aligned_unique_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
         return nullptr;
     }
 
-    aligned_unique_ptr<NFA> nfa;
+    bytecode_ptr<NFA> nfa;
     if (!using8bit) {
         nfa = mcshengCompile16(info, sheng_end, accel_escape_info, cc.grey);
     } else {

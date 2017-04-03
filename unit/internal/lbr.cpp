@@ -152,7 +152,7 @@ protected:
     unsigned matches;
 
     // Compiled NFA structure.
-    aligned_unique_ptr<NFA> nfa;
+    bytecode_ptr<NFA> nfa;
 
     // Space for full state.
     aligned_unique_ptr<char> full_state;

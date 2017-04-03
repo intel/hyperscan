@@ -26,9 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief Main NFA build code.
  */
+
 #include "limex_compile.h"
 
 #include "accel.h"
@@ -2193,7 +2195,7 @@ struct Factory {
     }
 
     static
-    aligned_unique_ptr<NFA> generateNfa(const build_info &args) {
+    bytecode_ptr<NFA> generateNfa(const build_info &args) {
         if (args.num_states > NFATraits<dtype>::maxStates) {
             return nullptr;
         }
@@ -2295,7 +2297,7 @@ struct Factory {
 
         size_t nfaSize = sizeof(NFA) + offset;
         DEBUG_PRINTF("nfa size %zu\n", nfaSize);
-        auto nfa = aligned_zmalloc_unique<NFA>(nfaSize);
+        auto nfa = make_bytecode_ptr<NFA>(nfaSize);
         assert(nfa); // otherwise we would have thrown std::bad_alloc
 
         implNFA_t *limex = (implNFA_t *)getMutableImplNfa(nfa.get());
@@ -2381,7 +2383,7 @@ struct Factory {
 
 template<NFAEngineType dtype>
 struct generateNfa {
-    static aligned_unique_ptr<NFA> call(const build_info &args) {
+    static bytecode_ptr<NFA> call(const build_info &args) {
         return Factory<dtype>::generateNfa(args);
     }
 };
@@ -2478,17 +2480,15 @@ u32 max_state(const ue2::unordered_map<NFAVertex, u32> &state_ids) {
     return rv;
 }
 
-aligned_unique_ptr<NFA> generate(NGHolder &h,
-                         const ue2::unordered_map<NFAVertex, u32> &states,
-                         const vector<BoundedRepeatData> &repeats,
-                         const map<NFAVertex, NFAStateSet> &reportSquashMap,
-                         const map<NFAVertex, NFAStateSet> &squashMap,
-                         const map<u32, set<NFAVertex>> &tops,
-                         const set<NFAVertex> &zombies,
-                         bool do_accel,
-                         bool stateCompression,
-                         u32 hint,
-                         const CompileContext &cc) {
+bytecode_ptr<NFA> generate(NGHolder &h,
+                           const ue2::unordered_map<NFAVertex, u32> &states,
+                           const vector<BoundedRepeatData> &repeats,
+                           const map<NFAVertex, NFAStateSet> &reportSquashMap,
+                           const map<NFAVertex, NFAStateSet> &squashMap,
+                           const map<u32, set<NFAVertex>> &tops,
+                           const set<NFAVertex> &zombies, bool do_accel,
+                           bool stateCompression, u32 hint,
+                           const CompileContext &cc) {
     const u32 num_states = max_state(states) + 1;
     DEBUG_PRINTF("total states: %u\n", num_states);
 

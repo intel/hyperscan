@@ -74,7 +74,6 @@
 #include "nfagraph/ng_width.h"
 #include "smallwrite/smallwrite_build.h"
 #include "som/slot_manager.h"
-#include "util/alloc.h"
 #include "util/bitutils.h"
 #include "util/boundary_reports.h"
 #include "util/charreach.h"
@@ -274,7 +273,7 @@ struct ProgramBuild : noncopyable {
 /** \brief subengine info including built engine and
 * corresponding triggering rose vertices */
 struct ExclusiveSubengine {
-    aligned_unique_ptr<NFA> nfa;
+    bytecode_ptr<NFA> nfa;
     vector<RoseVertex> vertices;
 };
 
@@ -655,8 +654,8 @@ void findFixedDepthTops(const RoseGraph &g, const set<PredTopPair> &triggers,
  * engine.
  */
 static
-aligned_unique_ptr<NFA> pickImpl(aligned_unique_ptr<NFA> dfa_impl,
-                                 aligned_unique_ptr<NFA> nfa_impl) {
+bytecode_ptr<NFA> pickImpl(bytecode_ptr<NFA> dfa_impl,
+                           bytecode_ptr<NFA> nfa_impl) {
     assert(nfa_impl);
     assert(dfa_impl);
     assert(isDfaType(dfa_impl->type));
@@ -708,7 +707,7 @@ aligned_unique_ptr<NFA> pickImpl(aligned_unique_ptr<NFA> dfa_impl,
  * otherwise a Castle.
  */
 static
-aligned_unique_ptr<NFA>
+bytecode_ptr<NFA>
 buildRepeatEngine(const CastleProto &proto,
                   const map<u32, vector<vector<CharReach>>> &triggers,
                   const CompileContext &cc, const ReportManager &rm) {
@@ -724,7 +723,7 @@ buildRepeatEngine(const CastleProto &proto,
 }
 
 static
-aligned_unique_ptr<NFA> getDfa(raw_dfa &rdfa, bool is_transient,
+bytecode_ptr<NFA> getDfa(raw_dfa &rdfa, bool is_transient,
                                const CompileContext &cc,
                                const ReportManager &rm) {
     // Unleash the Sheng!!
@@ -744,7 +743,7 @@ aligned_unique_ptr<NFA> getDfa(raw_dfa &rdfa, bool is_transient,
 
 /* builds suffix nfas */
 static
-aligned_unique_ptr<NFA>
+bytecode_ptr<NFA>
 buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
             const map<u32, u32> &fixed_depth_tops,
             const map<u32, vector<vector<CharReach>>> &triggers,
@@ -873,14 +872,15 @@ void findTriggerSequences(const RoseBuildImpl &tbi,
     }
 }
 
-static aligned_unique_ptr<NFA>
-makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
-            const bool is_prefix, const bool is_transient,
-            const map<left_id, set<PredTopPair> > &infixTriggers,
+static
+bytecode_ptr<NFA>
+makeLeftNfa(const RoseBuildImpl &tbi, left_id &left, const bool is_prefix,
+            const bool is_transient,
+            const map<left_id, set<PredTopPair>> &infixTriggers,
             const CompileContext &cc) {
     const ReportManager &rm = tbi.rm;
 
-    aligned_unique_ptr<NFA> n;
+    bytecode_ptr<NFA> n;
 
     // Should compress state if this rose is non-transient and we're in
     // streaming mode.
@@ -1181,7 +1181,7 @@ bool buildLeftfix(RoseBuildImpl &build, build_context &bc, bool prefix, u32 qi,
         leftfix = updateLeftfixWithEager(g, eager.at(leftfix), succs);
     }
 
-    aligned_unique_ptr<NFA> nfa;
+    bytecode_ptr<NFA> nfa;
     // Need to build NFA, which is either predestined to be a Haig (in SOM mode)
     // or could be all manner of things.
     if (leftfix.haig()) {
@@ -1669,26 +1669,26 @@ bool hasNonSmallBlockOutfix(const vector<OutfixInfo> &outfixes) {
 }
 
 namespace {
-class OutfixBuilder : public boost::static_visitor<aligned_unique_ptr<NFA>> {
+class OutfixBuilder : public boost::static_visitor<bytecode_ptr<NFA>> {
 public:
     explicit OutfixBuilder(const RoseBuildImpl &build_in) : build(build_in) {}
 
-    aligned_unique_ptr<NFA> operator()(boost::blank&) const {
+    bytecode_ptr<NFA> operator()(boost::blank&) const {
         return nullptr;
     };
 
-    aligned_unique_ptr<NFA> operator()(unique_ptr<raw_dfa> &rdfa) const {
+    bytecode_ptr<NFA> operator()(unique_ptr<raw_dfa> &rdfa) const {
         // Unleash the mighty DFA!
         return getDfa(*rdfa, false, build.cc, build.rm);
     }
 
-    aligned_unique_ptr<NFA> operator()(unique_ptr<raw_som_dfa> &haig) const {
+    bytecode_ptr<NFA> operator()(unique_ptr<raw_som_dfa> &haig) const {
         // Unleash the Goughfish!
         return goughCompile(*haig, build.ssm.somPrecision(), build.cc,
                             build.rm);
     }
 
-    aligned_unique_ptr<NFA> operator()(unique_ptr<NGHolder> &holder) const {
+    bytecode_ptr<NFA> operator()(unique_ptr<NGHolder> &holder) const {
         const CompileContext &cc = build.cc;
         const ReportManager &rm = build.rm;
 
@@ -1717,7 +1717,7 @@ public:
         return n;
     }
 
-    aligned_unique_ptr<NFA> operator()(UNUSED MpvProto &mpv) const {
+    bytecode_ptr<NFA> operator()(UNUSED MpvProto &mpv) const {
         // MPV construction handled separately.
         assert(mpv.puffettes.empty());
         return nullptr;
@@ -1729,7 +1729,7 @@ private:
 }
 
 static
-aligned_unique_ptr<NFA> buildOutfix(const RoseBuildImpl &build, OutfixInfo &outfix) {
+bytecode_ptr<NFA> buildOutfix(const RoseBuildImpl &build, OutfixInfo &outfix) {
     assert(!outfix.is_dead()); // should not be marked dead.
 
     auto n = boost::apply_visitor(OutfixBuilder(build), outfix.proto);

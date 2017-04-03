@@ -26,7 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief SOM ("Start of Match") analysis.
  */
 
@@ -1731,19 +1732,19 @@ void clearProperInEdges(NGHolder &g, const NFAVertex sink) {
 
 namespace {
 struct SomRevNfa {
-    SomRevNfa(NFAVertex s, ReportID r, aligned_unique_ptr<NFA> n)
+    SomRevNfa(NFAVertex s, ReportID r, bytecode_ptr<NFA> n)
         : sink(s), report(r), nfa(move(n)) {}
 	SomRevNfa(SomRevNfa&& s) // MSVC2013 needs this for emplace
 		: sink(s.sink), report(s.report), nfa(move(s.nfa)) {}
     NFAVertex sink;
     ReportID report;
-    aligned_unique_ptr<NFA> nfa;
+    bytecode_ptr<NFA> nfa;
 };
 }
 
 static
-aligned_unique_ptr<NFA> makeBareSomRevNfa(const NGHolder &g,
-                                          const CompileContext &cc) {
+bytecode_ptr<NFA> makeBareSomRevNfa(const NGHolder &g,
+                                    const CompileContext &cc) {
     // Create a reversed anchored version of this NFA which fires a zero report
     // ID on accept.
     NGHolder g_rev;
@@ -1759,7 +1760,7 @@ aligned_unique_ptr<NFA> makeBareSomRevNfa(const NGHolder &g,
 
     DEBUG_PRINTF("building a rev NFA with %zu vertices\n", num_vertices(g_rev));
 
-    aligned_unique_ptr<NFA> nfa = constructReversedNFA(g_rev, cc);
+    auto nfa = constructReversedNFA(g_rev, cc);
     if (!nfa) {
         return nfa;
     }
@@ -1794,7 +1795,7 @@ bool makeSomRevNfa(vector<SomRevNfa> &som_nfas, const NGHolder &g,
 
     renumber_vertices(g2); // for findMinWidth, findMaxWidth.
 
-    aligned_unique_ptr<NFA> nfa = makeBareSomRevNfa(g2, cc);
+    auto nfa = makeBareSomRevNfa(g2, cc);
     if (!nfa) {
         DEBUG_PRINTF("couldn't build rev nfa\n");
         return false;

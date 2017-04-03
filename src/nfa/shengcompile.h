@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,12 +26,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SHENGCOMPILE_H_
-#define SHENGCOMPILE_H_
+#ifndef SHENGCOMPILE_H
+#define SHENGCOMPILE_H
 
 #include "accel_dfa_build_strat.h"
 #include "rdfa.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/charreach.h"
 #include "util/ue2_containers.h"
 
@@ -62,9 +62,9 @@ private:
     raw_dfa &rdfa;
 };
 
-aligned_unique_ptr<NFA>
-shengCompile(raw_dfa &raw, const CompileContext &cc, const ReportManager &rm,
-             std::set<dstate_id_t> *accel_states = nullptr);
+bytecode_ptr<NFA> shengCompile(raw_dfa &raw, const CompileContext &cc,
+                               const ReportManager &rm,
+                               std::set<dstate_id_t> *accel_states = nullptr);
 
 struct sheng_escape_info {
     CharReach outs;
@@ -77,4 +77,4 @@ bool has_accel_sheng(const NFA *nfa);
 
 } // namespace ue2
 
-#endif /* SHENGCOMPILE_H_ */
+#endif /* SHENGCOMPILE_H */

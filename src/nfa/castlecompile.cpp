@@ -26,9 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief Castle: multi-tenant repeat engine, compiler code.
  */
+
 #include "castlecompile.h"
 
 #include "castle_internal.h"
@@ -439,7 +441,7 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
     }
 }
 
-aligned_unique_ptr<NFA>
+bytecode_ptr<NFA>
 buildCastle(const CastleProto &proto,
             const map<u32, vector<vector<CharReach>>> &triggers,
             const CompileContext &cc, const ReportManager &rm) {
@@ -577,7 +579,7 @@ buildCastle(const CastleProto &proto,
     total_size = ROUNDUP_N(total_size, alignof(mmbit_sparse_iter));
     total_size += byte_length(stale_iter); // stale sparse iter
 
-    aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
+    auto nfa = make_bytecode_ptr<NFA>(total_size);
     nfa->type = verify_u8(CASTLE_NFA);
     nfa->length = verify_u32(total_size);
     nfa->nPositions = verify_u32(subs.size());

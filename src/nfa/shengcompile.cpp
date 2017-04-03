@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -450,10 +450,9 @@ bool has_accel_sheng(const NFA *) {
     return true; /* consider the sheng region as accelerated */
 }
 
-aligned_unique_ptr<NFA> shengCompile(raw_dfa &raw,
-                                     const CompileContext &cc,
-                                     const ReportManager &rm,
-                                     set<dstate_id_t> *accel_states) {
+bytecode_ptr<NFA> shengCompile(raw_dfa &raw, const CompileContext &cc,
+                               const ReportManager &rm,
+                               set<dstate_id_t> *accel_states) {
     if (!cc.grey.allowSheng) {
         DEBUG_PRINTF("Sheng is not allowed!\n");
         return nullptr;
@@ -508,7 +507,7 @@ aligned_unique_ptr<NFA> shengCompile(raw_dfa &raw,
     DEBUG_PRINTF("NFA: %u, aux: %u, reports: %u, accel: %u, total: %u\n",
                  nfa_size, total_aux, total_reports, total_accel, total_size);
 
-    aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
+    auto nfa = make_bytecode_ptr<NFA>(total_size);
 
     populateBasicInfo(nfa.get(), info, accelInfo, nfa_size, reports_offset,
                       accel_offset, total_size, total_size - sizeof(NFA));
