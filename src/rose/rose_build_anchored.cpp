@@ -869,14 +869,13 @@ vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build,
     return dfas;
 }
 
-aligned_unique_ptr<anchored_matcher_info>
+bytecode_ptr<anchored_matcher_info>
 buildAnchoredMatcher(RoseBuildImpl &build, const vector<LitFragment> &fragments,
-                     vector<raw_dfa> &dfas, size_t *asize) {
+                     vector<raw_dfa> &dfas) {
     const CompileContext &cc = build.cc;
 
     if (dfas.empty()) {
         DEBUG_PRINTF("empty\n");
-        *asize = 0;
         return nullptr;
     }
 
@@ -892,8 +891,7 @@ buildAnchoredMatcher(RoseBuildImpl &build, const vector<LitFragment> &fragments,
         throw ResourceLimitError();
     }
 
-    *asize = total_size;
-    auto atable = aligned_zmalloc_unique<anchored_matcher_info>(total_size);
+    auto atable = make_bytecode_ptr<anchored_matcher_info>(total_size, 64);
     char *curr = (char *)atable.get();
 
     u32 state_offset = 0;
@@ -919,7 +917,7 @@ buildAnchoredMatcher(RoseBuildImpl &build, const vector<LitFragment> &fragments,
         ami->anchoredMinDistance = start_offset[i];
     }
 
-    DEBUG_PRINTF("success %zu\n", *asize);
+    DEBUG_PRINTF("success %zu\n", atable.size());
     return atable;
 }
 

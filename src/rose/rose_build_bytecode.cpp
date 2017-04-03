@@ -5824,10 +5824,9 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     writeLeftInfo(bc.engine_blob, proto, leftInfoTable);
 
     // Build anchored matcher.
-    size_t asize = 0;
-    auto atable = buildAnchoredMatcher(*this, fragments, anchored_dfas, &asize);
+    auto atable = buildAnchoredMatcher(*this, fragments, anchored_dfas);
     if (atable) {
-        proto.amatcherOffset = bc.engine_blob.add(atable.get(), asize, 64);
+        proto.amatcherOffset = bc.engine_blob.add(atable);
     }
 
     // Build floating HWLM matcher.
@@ -5952,7 +5951,7 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     proto.initialGroups = getInitialGroups();
     proto.floating_group_mask = fgroups;
     proto.totalNumLiterals = verify_u32(literal_info.size());
-    proto.asize = verify_u32(asize);
+    proto.asize = verify_u32(atable.size());
     proto.ematcherRegionSize = ematcher_region_size;
     proto.longLitStreamState = verify_u32(longLitStreamStateRequired);
 

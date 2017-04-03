@@ -32,7 +32,7 @@
 #include "ue2common.h"
 #include "rose_build_impl.h"
 #include "nfagraph/ng_holder.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 
 #include <map>
 #include <vector>
@@ -59,10 +59,10 @@ std::vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build,
  * Remap the literal final_ids used for raw_dfa reports to the program offsets
  * given in litPrograms.
  */
-aligned_unique_ptr<anchored_matcher_info>
+bytecode_ptr<anchored_matcher_info>
 buildAnchoredMatcher(RoseBuildImpl &build,
                      const std::vector<LitFragment> &fragments,
-                     std::vector<raw_dfa> &dfas, size_t *asize);
+                     std::vector<raw_dfa> &dfas);
 
 u32 anchoredStateSize(const anchored_matcher_info &atable);
 
