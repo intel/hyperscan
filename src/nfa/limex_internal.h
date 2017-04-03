@@ -85,6 +85,7 @@
 
 #define LIMEX_FLAG_COMPRESS_STATE  1 /**< pack state into stream state */
 #define LIMEX_FLAG_COMPRESS_MASKED 2 /**< use reach mask-based compression */
+#define LIMEX_FLAG_CANNOT_DIE      4 /**< limex cannot have no states on */
 
 enum LimExTrigger {
     LIMEX_TRIGGER_NONE = 0,

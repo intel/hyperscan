@@ -216,10 +216,31 @@ char STREAM_FN(const IMPL_NFA_T *limex, const u8 *input, size_t length,
     size_t min_accel_offset = 0;
     if (!limex->accelCount || length < ACCEL_MIN_LEN) {
         min_accel_offset = length;
-        goto without_accel;
+        if (limex->flags & LIMEX_FLAG_CANNOT_DIE) {
+            goto cannot_die;
+        } else {
+            goto without_accel;
+        }
     } else {
         goto with_accel;
     }
+
+cannot_die:
+    for (; i != min_accel_offset; i++) {
+        DUMP_INPUT(i);
+
+        STATE_T succ;
+        NFA_EXEC_GET_LIM_SUCC(limex, s, succ);
+
+        if (RUN_EXCEPTIONS_FN(limex, exceptions, s, EXCEPTION_MASK, i, offset,
+                              &succ, final_loc, ctx, flags, 0, first_match)) {
+            return MO_HALT_MATCHING;
+        }
+
+        u8 c = input[i];
+        s = AND_STATE(succ, LOAD_FROM_ENG(&reach[limex->reachMap[c]]));
+    }
+    goto finished;
 
 without_accel:
     for (; i != min_accel_offset; i++) {
@@ -292,6 +313,7 @@ with_accel:
         s = AND_STATE(succ, LOAD_FROM_ENG(&reach[limex->reachMap[c]]));
     }
 
+finished:
     ctx->s = s;
 
     if ((first_match || (flags & CALLBACK_OUTPUT)) && limex->acceptCount) {

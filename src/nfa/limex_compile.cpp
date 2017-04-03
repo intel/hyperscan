@@ -2237,6 +2237,10 @@ struct Factory {
         limex->shiftCount = shiftCount;
         writeShiftMasks(args, limex);
 
+        if (hasInitDsStates(args.h, args.state_ids)) {
+            setLimexFlag(limex, LIMEX_FLAG_CANNOT_DIE);
+        }
+
         // Determine the state required for our state vector.
         findStateSize(args, limex);
 
