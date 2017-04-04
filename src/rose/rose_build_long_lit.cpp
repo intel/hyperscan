@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,7 +31,7 @@
 #include "rose_build_engine_blob.h"
 #include "rose_build_impl.h"
 #include "stream_long_lit_hash.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/bitutils.h"
 #include "util/verify_types.h"
 #include "util/compile_context.h"
@@ -401,7 +401,7 @@ u32 buildLongLiteralTable(const RoseBuildImpl &build, RoseEngineBlob &blob,
     u8 streamBitsNocase = lg2(roundUpToPowerOfTwo(tab_nocase.size() + 2));
     u32 tot_state_bytes = ROUNDUP_N(streamBitsCase + streamBitsNocase, 8) / 8;
 
-    auto table = aligned_zmalloc_unique<char>(tabSize);
+    auto table = make_zeroed_bytecode_ptr<char>(tabSize, 16);
     assert(table); // otherwise would have thrown std::bad_alloc
 
     // Fill in the RoseLongLitTable header structure.
@@ -435,7 +435,7 @@ u32 buildLongLiteralTable(const RoseBuildImpl &build, RoseEngineBlob &blob,
     *historyRequired = max(*historyRequired, max_len);
     *longLitStreamStateRequired = tot_state_bytes;
 
-    return blob.add(table.get(), tabSize, 16);
+    return blob.add(table);
 }
 
 } // namespace ue2
