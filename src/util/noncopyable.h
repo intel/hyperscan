@@ -39,10 +39,10 @@ namespace ue2 {
 /** \brief Class that makes derived classes non-copyable.  */
 struct noncopyable {
     noncopyable() = default;
-    // Copy constructor.
     noncopyable(const noncopyable &) = delete;
-    // Copy-assignment operator.
+    noncopyable(noncopyable &&) = default;
     noncopyable &operator=(const noncopyable &) = delete;
+    noncopyable &operator=(noncopyable &&) = default;
 };
 
 } // namespace ue2
