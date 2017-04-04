@@ -2567,11 +2567,10 @@ u32 writeProgram(build_context &bc, RoseProgram &&program) {
     recordResources(bc.resources, program);
     recordLongLiterals(bc.longLiterals, program);
 
-    u32 len = 0;
-    auto prog_bytecode = writeProgram(bc.engine_blob, program, &len);
-    u32 offset = bc.engine_blob.add(prog_bytecode.get(), len,
-                                    ROSE_INSTR_MIN_ALIGN);
-    DEBUG_PRINTF("prog len %u written at offset %u\n", len, offset);
+    auto prog_bytecode = writeProgram(bc.engine_blob, program);
+    u32 offset = bc.engine_blob.add(prog_bytecode);
+    DEBUG_PRINTF("prog len %zu written at offset %u\n", prog_bytecode.size(),
+                 offset);
     bc.program_cache.emplace(move(program), offset);
     return offset;
 }

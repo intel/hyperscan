@@ -32,7 +32,7 @@
 #include "rose_build_impl.h"
 #include "rose_program.h"
 #include "som/som_operation.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/container.h"
 #include "util/hash.h"
 #include "util/make_unique.h"
@@ -2328,8 +2328,8 @@ public:
     }
 };
 
-aligned_unique_ptr<char>
-writeProgram(RoseEngineBlob &blob, const RoseProgram &program, u32 *total_len);
+bytecode_ptr<char> writeProgram(RoseEngineBlob &blob,
+                                const RoseProgram &program);
 
 class RoseProgramHash {
 public:

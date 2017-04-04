@@ -639,12 +639,14 @@ OffsetMap makeOffsetMap(const RoseProgram &program, u32 *total_len) {
     return offset_map;
 }
 
-aligned_unique_ptr<char>
-writeProgram(RoseEngineBlob &blob, const RoseProgram &program, u32 *total_len) {
-    const auto offset_map = makeOffsetMap(program, total_len);
-    DEBUG_PRINTF("%zu instructions, len %u\n", program.size(), *total_len);
+bytecode_ptr<char> writeProgram(RoseEngineBlob &blob,
+                                const RoseProgram &program) {
+    u32 total_len = 0;
+    const auto offset_map = makeOffsetMap(program, &total_len);
+    DEBUG_PRINTF("%zu instructions, len %u\n", program.size(), total_len);
 
-    auto bytecode = aligned_zmalloc_unique<char>(*total_len);
+    auto bytecode = make_zeroed_bytecode_ptr<char>(total_len,
+                                                   ROSE_INSTR_MIN_ALIGN);
     char *ptr = bytecode.get();
 
     for (const auto &ri : program) {
