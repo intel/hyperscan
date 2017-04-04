@@ -133,6 +133,8 @@ namespace ue2 {
 
 namespace /* anon */ {
 
+static constexpr u32 INVALID_QUEUE = ~0U;
+
 struct left_build_info {
     // Constructor for an engine implementation.
     left_build_info(u32 q, u32 l, u32 t, rose_group sm,
@@ -146,7 +148,7 @@ struct left_build_info {
     explicit left_build_info(const vector<vector<LookEntry>> &looks)
         : has_lookaround(true), lookaround(looks) {}
 
-    u32 queue = 0; /* uniquely idents the left_build_info */
+    u32 queue = INVALID_QUEUE; /* uniquely idents the left_build_info */
     u32 lag = 0;
     u32 transient = 0;
     rose_group squash_mask = ~rose_group{0};
@@ -155,6 +157,7 @@ struct left_build_info {
     u8 countingMiracleCount = 0;
     CharReach countingMiracleReach;
     u32 countingMiracleOffset = 0; /* populated later when laying out bytecode */
+    /* leftfix can be completely implemented with lookaround */
     bool has_lookaround = false;
     vector<vector<LookEntry>> lookaround; // alternative implementation to the NFA
 };
@@ -5693,6 +5696,11 @@ map<left_id, u32> makeLeftQueueMap(const RoseGraph &g,
                          const map<RoseVertex, left_build_info> &leftfix_info) {
     map<left_id, u32> lqm;
     for (const auto &e : leftfix_info) {
+        if (e.second.has_lookaround) {
+            continue;
+        }
+        DEBUG_PRINTF("%zu: using queue %u\n", g[e.first].index, e.second.queue);
+        assert(e.second.queue != INVALID_QUEUE);
         left_id left(g[e.first].left);
         assert(!contains(lqm, left) || lqm[left] == e.second.queue);
         lqm[left] = e.second.queue;
