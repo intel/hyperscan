@@ -1116,7 +1116,7 @@ bytecode_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
     gi.stream_som_loc_width = somPrecision;
 
     u32 gough_size = ROUNDUP_N(curr_offset, 16);
-    auto gough_dfa = make_bytecode_ptr<NFA>(gough_size);
+    auto gough_dfa = make_zeroed_bytecode_ptr<NFA>(gough_size);
 
     memcpy(gough_dfa.get(), basic_dfa.get(), basic_dfa->length);
     memcpy((char *)gough_dfa.get() + haig_offset, &gi, sizeof(gi));

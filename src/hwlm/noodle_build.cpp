@@ -74,7 +74,7 @@ bytecode_ptr<noodTable> noodBuildTable(const hwlmLiteral &lit) {
 
     const auto &s = lit.s;
     size_t noodle_len = sizeof(noodTable) + s.length();
-    auto n = make_bytecode_ptr<noodTable>(noodle_len);
+    auto n = make_zeroed_bytecode_ptr<noodTable>(noodle_len);
     assert(n);
 
     size_t key_offset = findNoodFragOffset(lit);

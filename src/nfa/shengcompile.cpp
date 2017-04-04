@@ -507,7 +507,7 @@ bytecode_ptr<NFA> shengCompile(raw_dfa &raw, const CompileContext &cc,
     DEBUG_PRINTF("NFA: %u, aux: %u, reports: %u, accel: %u, total: %u\n",
                  nfa_size, total_aux, total_reports, total_accel, total_size);
 
-    auto nfa = make_bytecode_ptr<NFA>(total_size);
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(total_size);
 
     populateBasicInfo(nfa.get(), info, accelInfo, nfa_size, reports_offset,
                       accel_offset, total_size, total_size - sizeof(NFA));

@@ -63,7 +63,6 @@ public:
         if (!ptr) {
             throw std::bad_alloc();
         }
-        std::memset(ptr.get(), 0, bytes);
     }
 
     bytecode_ptr(std::nullptr_t) {}
@@ -122,10 +121,25 @@ private:
     size_t alignment = 0; //!< Alignment of memory region in bytes.
 };
 
+/**
+ * \brief Constructs a bytecode_ptr<T> with the given size and alignment.
+ */
 template<typename T>
 inline bytecode_ptr<T> make_bytecode_ptr(size_t size,
                                          size_t align = alignof(T)) {
     return bytecode_ptr<T>(size, align);
+}
+
+/**
+ * \brief Constructs a bytecode_ptr<T> with the given size and alignment and
+ * fills the memory region with zeroes.
+ */
+template<typename T>
+inline bytecode_ptr<T> make_zeroed_bytecode_ptr(size_t size,
+                                                size_t align = alignof(T)) {
+    auto ptr = make_bytecode_ptr<T>(size, align);
+    std::memset(ptr.get(), 0, size);
+    return ptr;
 }
 
 } // namespace ue2

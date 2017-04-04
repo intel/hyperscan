@@ -162,7 +162,7 @@ bytecode_ptr<FDR> FDRCompiler::setupFDR() {
                  headerSize, tabSize, confirmTmp.size(), floodControlTmp.size(),
                  size);
 
-    auto fdr = make_bytecode_ptr<FDR>(size, 64);
+    auto fdr = make_zeroed_bytecode_ptr<FDR>(size, 64);
     assert(fdr); // otherwise would have thrown std::bad_alloc
 
     fdr->size = size;

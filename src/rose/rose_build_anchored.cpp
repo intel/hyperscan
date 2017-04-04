@@ -891,7 +891,8 @@ buildAnchoredMatcher(RoseBuildImpl &build, const vector<LitFragment> &fragments,
         throw ResourceLimitError();
     }
 
-    auto atable = make_bytecode_ptr<anchored_matcher_info>(total_size, 64);
+    auto atable =
+        make_zeroed_bytecode_ptr<anchored_matcher_info>(total_size, 64);
     char *curr = (char *)atable.get();
 
     u32 state_offset = 0;

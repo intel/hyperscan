@@ -137,7 +137,7 @@ bytecode_ptr<NFA> makeLbrNfa(NFAEngineType nfa_type, enum RepeatType rtype,
     }
     size_t len = sizeof(NFA) + sizeof(LbrStruct) + sizeof(RepeatInfo) +
                  tableLen + sizeof(u64a);
-    auto nfa = make_bytecode_ptr<NFA>(len);
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(len);
     nfa->type = verify_u8(nfa_type);
     nfa->length = verify_u32(len);
     return nfa;

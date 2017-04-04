@@ -165,7 +165,8 @@ bytecode_ptr<HWLM> hwlmBuild(const vector<hwlmLiteral> &lits, bool make_small,
         throw ResourceLimitError();
     }
 
-    auto h = make_bytecode_ptr<HWLM>(ROUNDUP_CL(sizeof(HWLM)) + engSize, 64);
+    const size_t hwlm_len = ROUNDUP_CL(sizeof(HWLM)) + engSize;
+    auto h = make_zeroed_bytecode_ptr<HWLM>(hwlm_len, 64);
 
     h->type = engType;
     memcpy(HWLM_DATA(h.get()), eng.get(), engSize);

@@ -1797,7 +1797,7 @@ struct Factory {
 
             u32 tableOffset, tugMaskOffset;
             size_t len = repeatAllocSize(br, &tableOffset, &tugMaskOffset);
-            auto info = make_bytecode_ptr<NFARepeatInfo>(len);
+            auto info = make_zeroed_bytecode_ptr<NFARepeatInfo>(len);
             char *info_ptr = (char *)info.get();
 
             // Collect state space info.
@@ -2297,7 +2297,7 @@ struct Factory {
 
         size_t nfaSize = sizeof(NFA) + offset;
         DEBUG_PRINTF("nfa size %zu\n", nfaSize);
-        auto nfa = make_bytecode_ptr<NFA>(nfaSize);
+        auto nfa = make_zeroed_bytecode_ptr<NFA>(nfaSize);
         assert(nfa); // otherwise we would have thrown std::bad_alloc
 
         implNFA_t *limex = (implNFA_t *)getMutableImplNfa(nfa.get());

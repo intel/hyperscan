@@ -134,7 +134,7 @@ buildTamarama(const TamaInfo &tamaInfo, const u32 queue,
     // use subSize as a sentinel value for no active subengines,
     // so add one to subSize here
     u32 activeIdxSize = calcPackedBytes(subSize + 1);
-    auto nfa = make_bytecode_ptr<NFA>(total_size);
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(total_size);
     nfa->type = verify_u8(TAMARAMA_NFA);
     nfa->length = verify_u32(total_size);
     nfa->queueIndex = queue;

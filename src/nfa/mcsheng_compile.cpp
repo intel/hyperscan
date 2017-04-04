@@ -872,7 +872,7 @@ bytecode_ptr<NFA> mcshengCompile16(dfa_info &info, dstate_id_t sheng_end,
     accel_offset -= sizeof(NFA); /* adj accel offset to be relative to m */
     assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
 
-    auto nfa = make_bytecode_ptr<NFA>(total_size);
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(total_size);
     mcsheng *m = (mcsheng *)getMutableImplNfa(nfa.get());
 
     populateBasicInfo(sizeof(u16), info, total_size, aux_offset, accel_offset,
@@ -998,7 +998,7 @@ bytecode_ptr<NFA> mcshengCompile8(dfa_info &info, dstate_id_t sheng_end,
     accel_offset -= sizeof(NFA); /* adj accel offset to be relative to m */
     assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
 
-    auto nfa = make_bytecode_ptr<NFA>(total_size);
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(total_size);
     mcsheng *m = (mcsheng *)getMutableImplNfa(nfa.get());
 
     allocateImplId8(info, sheng_end, accel_escape_info, &m->accel_limit_8,

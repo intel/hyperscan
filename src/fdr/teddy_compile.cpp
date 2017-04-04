@@ -324,7 +324,7 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
                             floodControlTmp.size(),
                             16 * maskWidth);
 
-    auto fdr = make_bytecode_ptr<FDR>(size, 64);
+    auto fdr = make_zeroed_bytecode_ptr<FDR>(size, 64);
     assert(fdr); // otherwise would have thrown std::bad_alloc
     Teddy *teddy = (Teddy *)fdr.get(); // ugly
     u8 *teddy_base = (u8 *)teddy;

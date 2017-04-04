@@ -504,7 +504,7 @@ bytecode_ptr<SmallWriteEngine> SmallWriteBuildImpl::build(u32 roseQuality) {
     }
 
     u32 size = sizeof(SmallWriteEngine) + nfa->length;
-    auto smwr = make_bytecode_ptr<SmallWriteEngine>(size);
+    auto smwr = make_zeroed_bytecode_ptr<SmallWriteEngine>(size);
 
     smwr->size = size;
     smwr->start_offset = start_offset;

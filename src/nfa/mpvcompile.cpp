@@ -343,7 +343,7 @@ bytecode_ptr<NFA> mpvCompile(const vector<raw_puff> &puffs_in,
 
     DEBUG_PRINTF("%u puffs, len = %u\n", puffette_count, len);
 
-    auto nfa = make_bytecode_ptr<NFA>(len);
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(len);
 
     mpv_puffette *pa_base = (mpv_puffette *)
         ((char *)nfa.get() + sizeof(NFA) + sizeof(mpv)

@@ -284,7 +284,7 @@ bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
                   sizeof(LitInfo) * lits.size() + totalLitSize;
     size = ROUNDUP_N(size, alignof(FDRConfirm));
 
-    auto fdrc = make_bytecode_ptr<FDRConfirm>(size);
+    auto fdrc = make_zeroed_bytecode_ptr<FDRConfirm>(size);
     assert(fdrc); // otherwise would have thrown std::bad_alloc
 
     fdrc->andmsk = andmsk;
@@ -373,7 +373,7 @@ setupFullConfs(const vector<hwlmLiteral> &lits,
     u32 totalConfSwitchSize = nBuckets * sizeof(u32);
     u32 totalSize = ROUNDUP_16(totalConfSwitchSize + totalConfirmSize);
 
-    auto buf = make_bytecode_ptr<u8>(totalSize, 16);
+    auto buf = make_zeroed_bytecode_ptr<u8>(totalSize, 16);
     assert(buf); // otherwise would have thrown std::bad_alloc
 
     u32 *confBase = (u32 *)buf.get();

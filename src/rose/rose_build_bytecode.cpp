@@ -5612,7 +5612,7 @@ bytecode_ptr<RoseEngine> addSmallWriteEngine(const RoseBuildImpl &build,
     const size_t smwrOffset = ROUNDUP_CL(mainSize);
     const size_t newSize = smwrOffset + smallWriteSize;
 
-    auto rose2 = make_bytecode_ptr<RoseEngine>(newSize, 64);
+    auto rose2 = make_zeroed_bytecode_ptr<RoseEngine>(newSize, 64);
     char *ptr = (char *)rose2.get();
     memcpy(ptr, rose.get(), mainSize);
     memcpy(ptr + smwrOffset, smwr_engine.get(), smallWriteSize);
@@ -5958,7 +5958,7 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     proto.size = currOffset;
 
     // Time to allocate the real RoseEngine structure, at cacheline alignment.
-    auto engine = make_bytecode_ptr<RoseEngine>(currOffset, 64);
+    auto engine = make_zeroed_bytecode_ptr<RoseEngine>(currOffset, 64);
     assert(engine); // will have thrown bad_alloc otherwise.
 
     // Copy in our prototype engine data.

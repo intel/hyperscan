@@ -579,7 +579,7 @@ buildCastle(const CastleProto &proto,
     total_size = ROUNDUP_N(total_size, alignof(mmbit_sparse_iter));
     total_size += byte_length(stale_iter); // stale sparse iter
 
-    auto nfa = make_bytecode_ptr<NFA>(total_size);
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(total_size);
     nfa->type = verify_u8(CASTLE_NFA);
     nfa->length = verify_u32(total_size);
     nfa->nPositions = verify_u32(subs.size());

@@ -207,7 +207,7 @@ bytecode_ptr<u8> setupFDRFloodControl(const vector<hwlmLiteral> &lits,
     size_t floodStructSize = sizeof(FDRFlood) * nDistinctFloods;
     size_t totalSize = ROUNDUP_16(floodHeaderSize + floodStructSize);
 
-    auto buf = make_bytecode_ptr<u8>(totalSize, 16);
+    auto buf = make_zeroed_bytecode_ptr<u8>(totalSize, 16);
     assert(buf); // otherwise would have thrown std::bad_alloc
 
     u32 *floodHeader = (u32 *)buf.get();
