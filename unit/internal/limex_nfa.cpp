@@ -38,7 +38,7 @@
 #include "nfagraph/ng.h"
 #include "nfagraph/ng_limex.h"
 #include "nfagraph/ng_util.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/target_info.h"
 
 using namespace std;
@@ -88,8 +88,8 @@ protected:
                            type, cc);
         ASSERT_TRUE(nfa != nullptr);
 
-        full_state = aligned_zmalloc_unique<char>(nfa->scratchStateSize);
-        stream_state = aligned_zmalloc_unique<char>(nfa->streamStateSize);
+        full_state = make_bytecode_ptr<char>(nfa->scratchStateSize, 64);
+        stream_state = make_bytecode_ptr<char>(nfa->streamStateSize);
     }
 
     virtual void initQueue() {
@@ -119,10 +119,10 @@ protected:
     bytecode_ptr<NFA> nfa;
 
     // Space for full state.
-    aligned_unique_ptr<char> full_state;
+    bytecode_ptr<char> full_state;
 
     // Space for stream state.
-    aligned_unique_ptr<char> stream_state;
+    bytecode_ptr<char> stream_state;
 
     // Queue structure.
     struct mq q;
@@ -187,7 +187,7 @@ TEST_P(LimExModelTest, CompressExpand) {
 
     // Expand state into a new copy and check that it matches the original
     // uncompressed state.
-    auto state_copy = aligned_zmalloc_unique<char>(nfa->scratchStateSize);
+    auto state_copy = make_bytecode_ptr<char>(nfa->scratchStateSize, 64);
     char *dest = state_copy.get();
     memset(dest, 0xff, nfa->scratchStateSize);
     nfaExpandState(nfa.get(), dest, q.streamState, q.offset,
@@ -381,8 +381,8 @@ protected:
                            type, cc);
         ASSERT_TRUE(nfa != nullptr);
 
-        full_state = aligned_zmalloc_unique<char>(nfa->scratchStateSize);
-        stream_state = aligned_zmalloc_unique<char>(nfa->streamStateSize);
+        full_state = make_bytecode_ptr<char>(nfa->scratchStateSize, 64);
+        stream_state = make_bytecode_ptr<char>(nfa->streamStateSize);
     }
 
     virtual void initQueue() {
@@ -412,10 +412,10 @@ protected:
     bytecode_ptr<NFA> nfa;
 
     // Space for full state.
-    aligned_unique_ptr<char> full_state;
+    bytecode_ptr<char> full_state;
 
     // Space for stream state.
-    aligned_unique_ptr<char> stream_state;
+    bytecode_ptr<char> stream_state;
 
     // Queue structure.
     struct mq q;

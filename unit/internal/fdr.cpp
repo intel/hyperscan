@@ -383,7 +383,7 @@ TEST_P(FDRp, moveByteStream) {
 
     size_t size = fdrSize(fdrTable0.get());
 
-    auto fdrTable = aligned_zmalloc_unique<FDR>(size);
+    auto fdrTable = make_bytecode_ptr<FDR>(size, 64);
     EXPECT_NE(nullptr, fdrTable);
 
     memcpy(fdrTable.get(), fdrTable0.get(), size);

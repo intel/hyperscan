@@ -29,8 +29,8 @@
 #include "config.h"
 
 #include "gtest/gtest.h"
-#include "util/alloc.h"
 #include "util/arch.h"
+#include "util/bytecode_ptr.h"
 #include "util/make_unique.h"
 #include "util/simd_utils.h"
 
@@ -540,7 +540,7 @@ TYPED_TEST(SimdUtilsTest, load_store) {
         a.bytes[i] = (char)(i % 256);
     }
 
-    aligned_unique_ptr<char> mem_ptr = aligned_zmalloc_unique<char>(sizeof(a));
+    auto mem_ptr = make_bytecode_ptr<char>(sizeof(a), alignof(TypeParam));
     char *mem = mem_ptr.get();
     ASSERT_EQ(0, (size_t)mem % 16U);
 
