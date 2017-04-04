@@ -873,11 +873,10 @@ void findTriggerSequences(const RoseBuildImpl &tbi,
 }
 
 static
-bytecode_ptr<NFA>
-makeLeftNfa(const RoseBuildImpl &tbi, left_id &left, const bool is_prefix,
-            const bool is_transient,
-            const map<left_id, set<PredTopPair>> &infixTriggers,
-            const CompileContext &cc) {
+bytecode_ptr<NFA> makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
+                        const bool is_prefix, const bool is_transient,
+                        const map<left_id, set<PredTopPair>> &infixTriggers,
+                        const CompileContext &cc) {
     const ReportManager &rm = tbi.rm;
 
     bytecode_ptr<NFA> n;
