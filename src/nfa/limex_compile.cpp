@@ -66,6 +66,7 @@
 #include <vector>
 
 #include <boost/graph/breadth_first_search.hpp>
+#include <boost/graph/depth_first_search.hpp>
 #include <boost/range/adaptor/map.hpp>
 
 using namespace std;
@@ -1640,6 +1641,84 @@ u32 findBestNumOfVarShifts(const build_info &args,
     return bestNumOfVarShifts;
 }
 
+static
+bool cannotDie(const build_info &args, const set<NFAVertex> &tops) {
+    const auto &h = args.h;
+
+    // When this top is activated, all of the vertices in 'tops' are switched
+    // on. If any of those lead to a graph that cannot die, then this top
+    // cannot die.
+
+    // For each top, we use a depth-first search to traverse the graph from the
+    // top, looking for a cyclic path consisting of vertices of dot reach. If
+    // one exists, than the NFA cannot die after this top is triggered.
+
+    vector<boost::default_color_type> colours(num_vertices(h));
+    auto colour_map = boost::make_iterator_property_map(colours.begin(),
+                                                        get(vertex_index, h));
+
+    struct CycleFound {};
+    struct CannotDieVisitor : public boost::default_dfs_visitor {
+        void back_edge(const NFAEdge &e, const NGHolder &g) const {
+            DEBUG_PRINTF("back-edge %zu,%zu\n", g[source(e, g)].index,
+                         g[target(e, g)].index);
+            if (g[target(e, g)].char_reach.all()) {
+                assert(g[source(e, g)].char_reach.all());
+                throw CycleFound();
+            }
+        }
+    };
+
+    try {
+        for (const auto &top : tops) {
+            DEBUG_PRINTF("checking top vertex %zu\n", h[top].index);
+
+            // Constrain the search to the top vertices and any dot vertices it
+            // can reach.
+            auto term_func = [&](NFAVertex v, const NGHolder &g) {
+                if (v == top) {
+                    return false;
+                }
+                if (!g[v].char_reach.all()) {
+                    return true;
+                }
+                if (contains(args.br_cyclic, v) &&
+                    args.br_cyclic.at(v).repeatMax != depth::infinity()) {
+                    // Bounded repeat vertices without inf max can be turned
+                    // off.
+                    return true;
+                }
+                return false;
+            };
+
+            boost::depth_first_visit(h, top, CannotDieVisitor(), colour_map,
+                                     term_func);
+        }
+    } catch (const CycleFound &) {
+        DEBUG_PRINTF("cycle found\n");
+        return true;
+    }
+
+    return false;
+}
+
+/** \brief True if this NFA cannot ever be in no states at all. */
+static
+bool cannotDie(const build_info &args) {
+    const auto &h = args.h;
+    const auto &state_ids = args.state_ids;
+
+    // If we have a startDs we're actually using, we can't die.
+    if (state_ids.at(h.startDs) != NO_STATE) {
+        DEBUG_PRINTF("is using startDs\n");
+        return true;
+    }
+
+    return all_of_in(args.tops | map_values, [&](const set<NFAVertex> &verts) {
+        return cannotDie(args, verts);
+    });
+}
+
 template<NFAEngineType dtype>
 struct Factory {
     // typedefs for readability, for types derived from traits
@@ -2237,7 +2316,8 @@ struct Factory {
         limex->shiftCount = shiftCount;
         writeShiftMasks(args, limex);
 
-        if (hasInitDsStates(args.h, args.state_ids)) {
+        if (cannotDie(args)) {
+            DEBUG_PRINTF("nfa cannot die\n");
             setLimexFlag(limex, LIMEX_FLAG_CANNOT_DIE);
         }
 
