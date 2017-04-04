@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,7 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief Aligned memory alloc/free.
  */
 
@@ -50,25 +51,6 @@ void *aligned_zmalloc(size_t size);
 
 /** \brief Free a pointer allocated with \ref aligned_zmalloc. */
 void aligned_free(void *ptr);
-
-template <typename T> struct AlignedDeleter {
-    void operator()(T *ptr) const { aligned_free(ptr); }
-};
-template <typename T>
-using aligned_unique_ptr = std::unique_ptr<T, AlignedDeleter<T>>;
-
-/** \brief 64-byte aligned, zeroed malloc that returns an appropriately-typed
- * aligned_unique_ptr.
- *
- * If the requested size cannot be allocated, throws std::bad_alloc.
- */
-template <typename T>
-inline
-aligned_unique_ptr<T> aligned_zmalloc_unique(size_t size) {
-    T* ptr = static_cast<T *>(aligned_zmalloc(size));
-    assert(ptr); // Guaranteed by aligned_zmalloc.
-    return aligned_unique_ptr<T>(ptr);
-}
 
 /** \brief Internal use only, used by AlignedAllocator. */
 void *aligned_malloc_internal(size_t size, size_t align);
