@@ -62,9 +62,9 @@ include_directories(SYSTEM include)
 set(BOOST_USE_STATIC_LIBS OFF)
 set(BOOST_USE_MULTITHREADED OFF)
 set(BOOST_USE_STATIC_RUNTIME OFF)
-if (CMAKE_SYSTEM_NAME MATCHES "Darwin"
-    OR (CMAKE_SYSTEM_NAME MATCHES "FreeBSD"
-        AND CMAKE_C_COMPILER_ID MATCHES "Clang"))
+if ((CMAKE_SYSTEM_NAME MATCHES "Darwin" OR
+     CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
+   AND CMAKE_C_COMPILER_ID MATCHES "Clang")
     # we need a more recent boost for libc++ used by clang on OSX and FreeBSD
     set(BOOST_MINVERSION 1.61.0)
 else ()
@@ -144,6 +144,15 @@ CMAKE_DEPENDENT_OPTION(DISABLE_ASSERTS "Disable assert(); Asserts are enabled in
 option(WINDOWS_ICC "Use Intel C++ Compiler on Windows, default off, requires ICC to be set in project" OFF)
 
 # TODO: per platform config files?
+
+if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
+  if (CMAKE_COMPILER_IS_GNUCXX)
+    # use the integrated assembler, not an old external assembler
+    # to enable -march=native AVX extensions
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wa,-q")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-q")
+  endif()
+endif()
 
 # TODO: windows generator on cmake always uses msvc, even if we plan to build with icc
 if(MSVC OR MSVC_IDE)
