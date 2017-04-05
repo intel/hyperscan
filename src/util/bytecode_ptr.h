@@ -55,11 +55,11 @@ template<typename T>
 class bytecode_ptr : totally_ordered<bytecode_ptr<T>> {
 public:
     bytecode_ptr() = default;
-    explicit bytecode_ptr(size_t size, size_t align = alignof(T))
-        : bytes(size), alignment(align) {
+    explicit bytecode_ptr(size_t bytes_in, size_t alignment_in = alignof(T))
+        : bytes(bytes_in), alignment(alignment_in) {
         // posix_memalign doesn't like us asking for smaller alignment.
-        size_t mem_align = std::max(align, sizeof(void *));
-        ptr.reset(static_cast<T *>(aligned_malloc_internal(size, mem_align)));
+        size_t mem_align = std::max(alignment, sizeof(void *));
+        ptr.reset(static_cast<T *>(aligned_malloc_internal(bytes, mem_align)));
         if (!ptr) {
             throw std::bad_alloc();
         }
@@ -116,7 +116,7 @@ private:
         void operator()(DT *p) const { aligned_free_internal(p); }
     };
 
-    std::unique_ptr<T, deleter<T>> ptr = nullptr; //!< Underlying pointer.
+    std::unique_ptr<T, deleter<T>> ptr; //!< Underlying pointer.
     size_t bytes = 0; //!< Size of memory region in bytes.
     size_t alignment = 0; //!< Alignment of memory region in bytes.
 };
