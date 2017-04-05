@@ -106,12 +106,12 @@ public:
      * does not reallocate and copy, it just changes the value returned by
      * size().
      */
-    void shrink(size_t size) {
-        if (size > bytes) {
+    void shrink(size_t new_size) {
+        if (new_size > bytes) {
             assert(0);
             throw std::logic_error("Must shrink to a smaller value");
         }
-        bytes = size;
+        bytes = new_size;
     }
 
     /** \brief Returns size of the memory region in bytes. */
