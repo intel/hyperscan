@@ -101,6 +101,19 @@ public:
         swap(alignment, other.alignment);
     }
 
+    /**
+     * \brief Reduces the apparent size of the memory region. Note that this
+     * does not reallocate and copy, it just changes the value returned by
+     * size().
+     */
+    void shrink(size_t size) {
+        if (size > bytes) {
+            assert(0);
+            throw std::logic_error("Must shrink to a smaller value");
+        }
+        bytes = size;
+    }
+
     /** \brief Returns size of the memory region in bytes. */
     size_t size() const { return bytes; }
 

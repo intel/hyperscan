@@ -337,6 +337,7 @@ bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
     size_t actual_size = ROUNDUP_N((size_t)(ptr - fdrc_base),
                                    alignof(FDRConfirm));
     assert(actual_size <= size);
+    fdrc.shrink(actual_size);
 
     return fdrc;
 }
