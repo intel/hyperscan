@@ -5603,7 +5603,7 @@ bytecode_ptr<RoseEngine> addSmallWriteEngine(const RoseBuildImpl &build,
         return rose;
     }
 
-    const size_t mainSize = roseSize(rose.get());
+    const size_t mainSize = rose.size();
     const size_t smallWriteSize = smwr_engine.size();
     DEBUG_PRINTF("adding smwr engine, size=%zu\n", smallWriteSize);
 

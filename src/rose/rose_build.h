@@ -134,8 +134,6 @@ std::unique_ptr<RoseBuild> makeRoseBuilder(ReportManager &rm,
 bool roseCheckRose(const RoseInGraph &ig, bool prefilter,
                    const ReportManager &rm, const CompileContext &cc);
 
-size_t roseSize(const RoseEngine *t);
-
 /* used by heuristics to determine the small write engine. High numbers are
  * intended to indicate a lightweight rose. */
 u32 roseQuality(const RoseEngine *t);

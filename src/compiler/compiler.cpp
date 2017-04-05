@@ -362,7 +362,7 @@ struct hs_database *build(NG &ng, unsigned int *length) {
     if (!rose) {
         throw CompileError("Unable to generate bytecode.");
     }
-    *length = roseSize(rose.get());
+    *length = rose.size();
     if (!*length) {
         DEBUG_PRINTF("RoseEngine has zero length\n");
         assert(0);

@@ -239,11 +239,6 @@ unique_ptr<RoseBuild> makeRoseBuilder(ReportManager &rm,
     return ue2::make_unique<RoseBuildImpl>(rm, ssm, smwr, cc, boundary);
 }
 
-size_t roseSize(const RoseEngine *t) {
-    assert(t);
-    return t->size;
-}
-
 bool roseIsPureLiteral(const RoseEngine *t) {
     return t->runtimeImpl == ROSE_RUNTIME_PURE_LITERAL;
 }
