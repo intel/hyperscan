@@ -1192,9 +1192,10 @@ int roseMultipathLookaround(const struct RoseEngine *t,
         return 0;
     }
 
-    u32 start_offset = 0;
+    s8 base_look_offset = *look;
     do {
         s64a offset = base_offset + *look;
+        u32 start_offset = (u32)(*look - base_look_offset);
         DEBUG_PRINTF("start_mask[%u] = %x\n", start_offset,
                      start_mask[start_offset]);
         path = start_mask[start_offset];
@@ -1202,7 +1203,6 @@ int roseMultipathLookaround(const struct RoseEngine *t,
             break;
         }
         DEBUG_PRINTF("look=%d before history\n", *look);
-        start_offset++;
         look++;
         reach += MULTI_REACH_BITVECTOR_LEN;
     } while (look < look_end);
