@@ -41,6 +41,7 @@
 #include <algorithm> // std::max
 #include <cstring>
 #include <memory>
+#include <stdexcept> // std::logic_error
 
 namespace ue2 {
 
