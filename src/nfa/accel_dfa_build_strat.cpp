@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -379,16 +379,18 @@ accel_dfa_build_strat::find_escape_strings(dstate_id_t this_idx) const {
                     for (auto jj = cr_all_j.find_first(); jj != CharReach::npos;
                          jj = cr_all_j.find_next(jj)) {
                         rv.double_byte.emplace((u8)ii, (u8)jj);
+                        if (rv.double_byte.size() > 8) {
+                            DEBUG_PRINTF("outs2 too big\n");
+                            outs2_broken = true;
+                            goto done;
+                        }
                     }
                 }
             }
         }
 
-        if (rv.double_byte.size() > 8) {
-            DEBUG_PRINTF("outs2 too big\n");
-            outs2_broken = true;
-        }
-
+    done:
+        assert(outs2_broken || rv.double_byte.size() <= 8);
         if (outs2_broken) {
             rv.double_byte.clear();
         }
