@@ -762,7 +762,7 @@ bytecode_ptr<NFA> mcclellanCompile8(dfa_info &info, const CompileContext &cc,
 #define MAX_SHERMAN_LIST_LEN 8
 
 static
-void addIfEarlier(set<dstate_id_t> &dest, dstate_id_t candidate,
+void addIfEarlier(flat_set<dstate_id_t> &dest, dstate_id_t candidate,
                   dstate_id_t max) {
     if (candidate < max) {
         dest.insert(candidate);
@@ -770,7 +770,7 @@ void addIfEarlier(set<dstate_id_t> &dest, dstate_id_t candidate,
 }
 
 static
-void addSuccessors(set<dstate_id_t> &dest, const dstate &source,
+void addSuccessors(flat_set<dstate_id_t> &dest, const dstate &source,
                    u16 alphasize, dstate_id_t curr_id) {
     for (symbol_t s = 0; s < alphasize; s++) {
         addIfEarlier(dest, source.next[s], curr_id);
@@ -817,7 +817,7 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id,
     dstate_id_t best_daddy = 0;
     dstate &currState = info.states[curr_id];
 
-    set<dstate_id_t> hinted; /* set of states to search for a better daddy */
+    flat_set<dstate_id_t> hinted; /* states to search for a better daddy */
     addIfEarlier(hinted, 0, curr_id);
     addIfEarlier(hinted, info.raw.start_anchored, curr_id);
     addIfEarlier(hinted, info.raw.start_floating, curr_id);
