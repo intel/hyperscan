@@ -9,6 +9,7 @@ set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
+include(CheckCXXSymbolExists)
 INCLUDE (CheckFunctionExists)
 INCLUDE (CheckIncludeFiles)
 INCLUDE (CheckIncludeFileCXX)
@@ -263,6 +264,9 @@ CHECK_FUNCTION_EXISTS(_aligned_malloc HAVE__ALIGNED_MALLOC)
 # these end up in the config file
 CHECK_C_COMPILER_FLAG(-fvisibility=hidden HAS_C_HIDDEN)
 CHECK_CXX_COMPILER_FLAG(-fvisibility=hidden HAS_CXX_HIDDEN)
+
+# are we using libc++
+CHECK_CXX_SYMBOL_EXISTS(_LIBCPP_VERSION ciso646 HAVE_LIBCPP)
 
 if (RELEASE_BUILD)
     if (HAS_C_HIDDEN)
