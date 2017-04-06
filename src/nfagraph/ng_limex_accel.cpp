@@ -45,12 +45,16 @@
 #include "util/container.h"
 #include "util/dump_charclass.h"
 #include "util/graph_range.h"
+#include "util/small_vector.h"
 #include "util/target_info.h"
 
 #include <algorithm>
 #include <map>
 
+#include <boost/range/adaptor/map.hpp>
+
 using namespace std;
+using boost::adaptors::map_keys;
 
 namespace ue2 {
 
@@ -135,15 +139,15 @@ void findAccelFriends(const NGHolder &g, NFAVertex v,
 static
 void findPaths(const NGHolder &g, NFAVertex v,
                const vector<CharReach> &refined_cr,
-               vector<vector<CharReach> > *paths,
+               vector<vector<CharReach>> *paths,
                const flat_set<NFAVertex> &forbidden, u32 depth) {
     static const u32 MAGIC_TOO_WIDE_NUMBER = 16;
     if (!depth) {
-        paths->push_back(vector<CharReach>());
+        paths->push_back({});
         return;
     }
     if (v == g.accept || v == g.acceptEod) {
-        paths->push_back(vector<CharReach>());
+        paths->push_back({});
         if (!generates_callbacks(g) || v == g.acceptEod) {
             paths->back().push_back(CharReach()); /* red tape options */
         }
@@ -157,42 +161,37 @@ void findPaths(const NGHolder &g, NFAVertex v,
     if (out_degree(v, g) >= MAGIC_TOO_WIDE_NUMBER
         || hasSelfLoop(v, g)) {
         /* give up on pushing past this point */
-        paths->push_back(vector<CharReach>());
-        vector<CharReach> &p = paths->back();
-        p.push_back(cr);
+        paths->push_back({cr});
         return;
     }
 
+    vector<vector<CharReach>> curr;
     for (auto w : adjacent_vertices_range(v, g)) {
         if (contains(forbidden, w)) {
             /* path has looped back to one of the active+boring acceleration
              * states.  We can ignore this path if we have sufficient back-
              * off. */
-            paths->push_back(vector<CharReach>());
-            paths->back().push_back(CharReach());
+            paths->push_back({CharReach()});
             continue;
         }
 
         u32 new_depth = depth - 1;
-        vector<vector<CharReach> > curr;
         do {
             curr.clear();
             findPaths(g, w, refined_cr, &curr, forbidden, new_depth);
         } while (new_depth-- && curr.size() >= MAGIC_TOO_WIDE_NUMBER);
 
-        for (vector<vector<CharReach> >::iterator it = curr.begin();
-             it != curr.end(); ++it) {
-            paths->push_back(vector<CharReach>());
-            vector<CharReach> &p = paths->back();
-            p.swap(*it);
-            p.push_back(cr);
+        for (auto &c : curr) {
+            c.push_back(cr);
+            paths->push_back(std::move(c));
         }
     }
 }
 
+namespace {
 struct SAccelScheme {
-    SAccelScheme(const CharReach &cr_in, u32 offset_in)
-        : cr(cr_in), offset(offset_in) {
+    SAccelScheme(CharReach cr_in, u32 offset_in)
+        : cr(std::move(cr_in)), offset(offset_in) {
         assert(offset <= MAX_ACCEL_DEPTH);
     }
 
@@ -215,6 +214,7 @@ struct SAccelScheme {
     CharReach cr = CharReach::dot();
     u32 offset = MAX_ACCEL_DEPTH + 1;
 };
+}
 
 static
 void findBest(vector<vector<CharReach> >::const_iterator pb,
@@ -233,12 +233,11 @@ void findBest(vector<vector<CharReach> >::const_iterator pb,
 
     DEBUG_PRINTF("p len %zu\n", pb->end() - pb->begin());
 
-    vector<SAccelScheme> priority_path;
+    small_vector<SAccelScheme, 10> priority_path;
     priority_path.reserve(pb->size());
     u32 i = 0;
-    for (vector<CharReach>::const_iterator p = pb->begin(); p != pb->end();
-         ++p, i++) {
-        SAccelScheme as(*p | curr.cr, MAX(i, curr.offset));
+    for (auto p = pb->begin(); p != pb->end(); ++p, i++) {
+        SAccelScheme as(*p | curr.cr, max(i, curr.offset));
         if (*best < as) {
             DEBUG_PRINTF("worse\n");
             continue;
@@ -259,13 +258,8 @@ void findBest(vector<vector<CharReach> >::const_iterator pb,
     }
     DEBUG_PRINTF("---\n");
 
-    for (vector<SAccelScheme>::const_iterator it = priority_path.begin();
-         it != priority_path.end(); ++it) {
-        DEBUG_PRINTF("%u:|| = %zu; p remaining len %zu\n", i, it->cr.count(),
-                     priority_path.end() - it);
-
-        SAccelScheme in = move(*it);
-
+    for (const SAccelScheme &in : priority_path) {
+        DEBUG_PRINTF("in: count %zu\n", in.cr.count());
         if (*best < in) {
             DEBUG_PRINTF("worse\n");
             continue;
@@ -278,9 +272,10 @@ void findBest(vector<vector<CharReach> >::const_iterator pb,
     }
 }
 
+namespace {
 struct DAccelScheme {
-    DAccelScheme(const CharReach &cr_in, u32 offset_in)
-        : double_cr(cr_in), double_offset(offset_in) {
+    DAccelScheme(CharReach cr_in, u32 offset_in)
+        : double_cr(std::move(cr_in)), double_offset(offset_in) {
         assert(double_offset <= MAX_ACCEL_DEPTH);
     }
 
@@ -319,6 +314,7 @@ struct DAccelScheme {
     CharReach double_cr;
     u32 double_offset = 0;
 };
+}
 
 static
 DAccelScheme make_double_accel(DAccelScheme as, CharReach cr_1,
@@ -391,11 +387,10 @@ void findDoubleBest(vector<vector<CharReach> >::const_iterator pb,
 
     DEBUG_PRINTF("p len %zu\n", pb->end() - pb->begin());
 
-    vector<DAccelScheme> priority_path;
+    small_vector<DAccelScheme, 10> priority_path;
     priority_path.reserve(pb->size());
     u32 i = 0;
-    for (vector<CharReach>::const_iterator p = pb->begin();
-         p != pb->end() && next(p) != pb->end();
+    for (auto p = pb->begin(); p != pb->end() && next(p) != pb->end();
          ++p, i++) {
         DAccelScheme as = make_double_accel(curr, *p, *next(p), i);
         if (*best < as) {
@@ -411,9 +406,7 @@ void findDoubleBest(vector<vector<CharReach> >::const_iterator pb,
                  best->double_byte.size(), best->double_cr.count(),
                  best->double_offset);
 
-    for (vector<DAccelScheme>::const_iterator it = priority_path.begin();
-         it != priority_path.end(); ++it) {
-        DAccelScheme in = move(*it);
+    for (const DAccelScheme &in : priority_path) {
         DEBUG_PRINTF("in: %zu pairs, %zu singles, offset %u\n",
                      in.double_byte.size(), in.double_cr.count(),
                      in.double_offset);
@@ -427,14 +420,12 @@ void findDoubleBest(vector<vector<CharReach> >::const_iterator pb,
 
 #ifdef DEBUG
 static
-void dumpPaths(const vector<vector<CharReach> > &paths) {
-    for (vector<vector<CharReach> >::const_iterator p = paths.begin();
-         p != paths.end(); ++p) {
+void dumpPaths(const vector<vector<CharReach>> &paths) {
+    for (const auto &path : paths) {
         DEBUG_PRINTF("path: [");
-        for (vector<CharReach>::const_iterator it = p->begin(); it != p->end();
-             ++it) {
+        for (const auto &cr : path) {
             printf(" [");
-            describeClass(stdout, *it, 20, CC_OUT_TEXT);
+            describeClass(stdout, cr, 20, CC_OUT_TEXT);
             printf("]");
         }
         printf(" ]\n");
@@ -545,7 +536,7 @@ DAccelScheme findBestDoubleAccelScheme(vector<vector<CharReach> > paths,
 
 #define MAX_EXPLORE_PATHS 40
 
-AccelScheme findBestAccelScheme(vector<vector<CharReach> > paths,
+AccelScheme findBestAccelScheme(vector<vector<CharReach>> paths,
                                 const CharReach &terminating,
                                 bool look_for_double_byte) {
     AccelScheme rv;
@@ -575,14 +566,13 @@ AccelScheme findBestAccelScheme(vector<vector<CharReach> > paths,
     /* find best is a bit lazy in terms of minimising the offset, see if we can
      * make it better. need to find the min max offset that we need.*/
     u32 offset = 0;
-    for (vector<vector<CharReach> >::iterator p = paths.begin();
-         p != paths.end(); ++p) {
+    for (const auto &path : paths) {
         u32 i = 0;
-        for (vector<CharReach>::iterator it = p->begin(); it != p->end();
-             ++it, i++) {
-            if (it->isSubsetOf(best.cr)) {
+        for (const auto &cr : path) {
+            if (cr.isSubsetOf(best.cr)) {
                 break;
             }
+            i++;
         }
         offset = MAX(offset, i);
     }
@@ -620,17 +610,15 @@ AccelScheme nfaFindAccel(const NGHolder &g, const vector<NFAVertex> &verts,
         return AccelScheme(); /* invalid scheme */
     }
 
-    vector<vector<CharReach> > paths;
+    vector<vector<CharReach>> paths;
     flat_set<NFAVertex> ignore_vert_set(verts.begin(), verts.end());
 
     /* Note: we can not in general (TODO: ignore when possible) ignore entries
      * into the bounded repeat cyclic states as that is when the magic happens
      */
-    for (map<NFAVertex, BoundedRepeatSummary>::const_iterator it
-             = br_cyclic.begin();
-         it != br_cyclic.end(); ++it) {
+    for (auto v : br_cyclic | map_keys) {
         /* TODO: can allow if repeatMin <= 1 ? */
-        ignore_vert_set.erase(it->first);
+        ignore_vert_set.erase(v);
     }
 
     for (auto v : verts) {
@@ -643,9 +631,8 @@ AccelScheme nfaFindAccel(const NGHolder &g, const vector<NFAVertex> &verts,
     }
 
     /* paths built wrong: reverse them */
-    for (vector<vector<CharReach> >::iterator it = paths.begin();
-         it != paths.end(); ++it) {
-        reverse(it->begin(), it->end());
+    for (auto &path : paths) {
+        reverse(path.begin(), path.end());
     }
 
     return findBestAccelScheme(std::move(paths), terminating,
