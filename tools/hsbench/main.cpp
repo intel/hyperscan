@@ -756,6 +756,7 @@ int main(int argc, char *argv[]) {
     // known expressions together.
     if (sigSets.empty()) {
         SignatureSet sigs;
+        sigs.reserve(exprMapTemplate.size());
         for (auto i : exprMapTemplate | map_keys) {
             sigs.push_back(i);
         }
@@ -772,9 +773,7 @@ int main(int argc, char *argv[]) {
     }
 
     for (const auto &s : sigSets) {
-        ExpressionMap exprMap = exprMapTemplate; // copy
-
-        limitBySignature(exprMap, s.sigs);
+        auto exprMap = limitToSignatures(exprMapTemplate, s.sigs);
         if (exprMap.empty()) {
             continue;
         }
