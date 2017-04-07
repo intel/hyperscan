@@ -278,20 +278,13 @@ struct ExclusiveSubengine {
 };
 
 /** \brief exclusive info to build tamarama */
-struct ExclusiveInfo {
+struct ExclusiveInfo : noncopyable {
     // subengine info
     vector<ExclusiveSubengine> subengines;
     // all the report in tamarama
     set<ReportID> reports;
     // assigned queue id
     u32 queue;
-
-    // workaround a deficiency in the standard (as explained by STL @ MS) we
-    // need to tell the compiler that ExclusiveInfo is moveable-only by
-    // deleting the copy cons so that vector doesn't get confused
-    ExclusiveInfo() = default;
-    ExclusiveInfo(const ExclusiveInfo &) = delete;
-    ExclusiveInfo(ExclusiveInfo &&) = default;
 };
 
 }
