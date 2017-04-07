@@ -43,7 +43,7 @@ typedef struct ALIGN_DIRECTIVE {u64a hi; u64a lo;} m128;
 #if defined(HAVE_AVX2)
 typedef __m256i m256;
 #else
-typedef ALIGN_AVX_DIRECTIVE struct {m128 lo; m128 hi;} m256;
+typedef struct ALIGN_AVX_DIRECTIVE {m128 lo; m128 hi;} m256;
 #endif
 
 // these should align to 16 and 32 respectively

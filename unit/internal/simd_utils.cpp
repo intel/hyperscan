@@ -542,6 +542,7 @@ TYPED_TEST(SimdUtilsTest, load_store) {
 
     auto mem_ptr = make_bytecode_ptr<char>(sizeof(a), alignof(TypeParam));
     char *mem = mem_ptr.get();
+
     ASSERT_EQ(0, (size_t)mem % 16U);
 
     memset(mem, 0, sizeof(a));
@@ -583,6 +584,13 @@ TYPED_TEST(SimdUtilsTest, loadbytes_storebytes) {
             ASSERT_EQ(j < i ? a.bytes[idx] : 0, b.bytes[idx]);
         }
     }
+}
+
+TEST(SimdUtilsTest, alignment) {
+    ASSERT_EQ(16, alignof(m128));
+    ASSERT_EQ(32, alignof(m256));
+    ASSERT_EQ(16, alignof(m384));
+    ASSERT_EQ(32, alignof(m512));
 }
 
 TEST(SimdUtilsTest, movq) {
