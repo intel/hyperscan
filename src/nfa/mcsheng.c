@@ -288,19 +288,19 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
         assert(soft_c_end - c < SHENG_CHUNK);
         switch (soft_c_end - c) {
         case 7:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         case 6:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         case 5:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         case 4:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         case 3:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         case 2:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         case 1:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         }
     }
 

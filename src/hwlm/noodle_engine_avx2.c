@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -117,9 +117,9 @@ hwlm_error_t scanSingleShort(const u8 *buf, size_t len, const u8 *key,
     if (l < 4) {
         u8 *vp = (u8*)&v;
         switch (l) {
-            case 3: vp[2] = d[2];
-            case 2: vp[1] = d[1];
-            case 1: vp[0] = d[0];
+            case 3: vp[2] = d[2]; // fallthrough
+            case 2: vp[1] = d[1]; // fallthrough
+            case 1: vp[0] = d[0]; // fallthrough
         }
     } else {
         v = masked_move256_len(d, l);
@@ -157,9 +157,9 @@ hwlm_error_t scanDoubleShort(const u8 *buf, size_t len, const u8 *key,
     if (l < 4) {
         u8 *vp = (u8*)&v;
         switch (l) {
-            case 3: vp[2] = d[2];
-            case 2: vp[1] = d[1];
-            case 1: vp[0] = d[0];
+            case 3: vp[2] = d[2]; // fallthrough
+            case 2: vp[1] = d[1]; // fallthrough
+            case 1: vp[0] = d[0]; // fallthrough
         }
     } else {
         v = masked_move256_len(d, l);

@@ -173,24 +173,31 @@ size_t RUN_ACCEL_FN(const STATE_T s, UNUSED const STATE_T accelMask,
         switch (limex_m->shiftCount) {                                         \
         case 8:                                                                \
             succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 7)); \
+            /* fallthrough */                                                  \
         case 7:                                                                \
             succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 6)); \
+            /* fallthrough */                                                  \
         case 6:                                                                \
             succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 5)); \
+            /* fallthrough */                                                  \
         case 5:                                                                \
             succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 4)); \
+            /* fallthrough */                                                  \
         case 4:                                                                \
             succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 3)); \
+            /* fallthrough */                                                  \
         case 3:                                                                \
             succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 2)); \
+            /* fallthrough */                                                  \
         case 2:                                                                \
             succ_m = OR_STATE(succ_m, NFA_EXEC_LIM_SHIFT(limex_m, curr_m, 1)); \
+            /* fallthrough */                                                  \
         case 1:                                                                \
+            /* fallthrough */                                                  \
         case 0:                                                                \
             ;                                                                  \
         }                                                                      \
     } while (0)
-
 
 /**
  * \brief LimEx NFAS inner loop without accel.
