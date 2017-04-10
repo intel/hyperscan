@@ -227,7 +227,6 @@ void findBest(vector<vector<CharReach> >::const_iterator pb,
             DEBUG_PRINTF("new best\n");
             *best = curr;
         }
-        *best = curr;
         return;
     }
 
