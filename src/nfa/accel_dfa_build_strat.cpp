@@ -33,9 +33,11 @@
 #include "nfagraph/ng_limex_accel.h"
 #include "shufticompile.h"
 #include "trufflecompile.h"
+#include "util/accel_scheme.h"
 #include "util/charreach.h"
 #include "util/container.h"
 #include "util/dump_charclass.h"
+#include "util/small_vector.h"
 #include "util/verify_types.h"
 
 #include <sstream>
@@ -49,16 +51,15 @@ namespace ue2 {
 
 namespace {
 struct path {
-    vector<CharReach> reach;
+    small_vector<CharReach, MAX_ACCEL_DEPTH + 1> reach;
     dstate_id_t dest = DEAD_STATE;
-    explicit path(dstate_id_t base) : dest(base) {
-    }
+    explicit path(dstate_id_t base) : dest(base) {}
 };
 };
 
-static
-void dump_paths(const vector<path> &paths) {
-    for (UNUSED const auto &p : paths) {
+template<typename Container>
+void dump_paths(const Container &paths) {
+    for (UNUSED const path &p : paths) {
         DEBUG_PRINTF("[%s] -> %u\n", describeClasses(p.reach).c_str(), p.dest);
     }
     DEBUG_PRINTF("%zu paths\n", paths.size());
@@ -113,14 +114,14 @@ void extend(const raw_dfa &rdfa, const path &p,
         } else {
             path pp = append(p, CharReach(), p.dest);
             all[p.dest].push_back(pp);
-            out.push_back(pp);
+            out.push_back(move(pp));
         }
     }
 
     if (!s.reports_eod.empty()) {
         path pp = append(p, CharReach(), p.dest);
         all[p.dest].push_back(pp);
-        out.push_back(pp);
+        out.push_back(move(pp));
     }
 
     map<u32, CharReach> dest;
@@ -140,7 +141,7 @@ void extend(const raw_dfa &rdfa, const path &p,
         DEBUG_PRINTF("----good: [%s] -> %u\n",
                      describeClasses(pp.reach).c_str(), pp.dest);
         all[e.first].push_back(pp);
-        out.push_back(pp);
+        out.push_back(move(pp));
     }
 }
 
@@ -162,8 +163,10 @@ vector<vector<CharReach>> generate_paths(const raw_dfa &rdfa,
     dump_paths(paths);
 
     vector<vector<CharReach>> rv;
+    rv.reserve(paths.size());
     for (auto &p : paths) {
-        rv.push_back(move(p.reach));
+        rv.push_back(vector<CharReach>(std::make_move_iterator(p.reach.begin()),
+                                       std::make_move_iterator(p.reach.end())));
     }
     return rv;
 }
