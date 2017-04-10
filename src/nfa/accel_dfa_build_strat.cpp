@@ -124,7 +124,7 @@ void extend(const raw_dfa &rdfa, const path &p,
         out.push_back(move(pp));
     }
 
-    map<u32, CharReach> dest;
+    flat_map<u32, CharReach> dest;
     for (unsigned i = 0; i < N_CHARS; i++) {
         u32 succ = s.next[rdfa.alpha_remap[i]];
         dest[succ].set(i);
@@ -330,7 +330,7 @@ accel_dfa_build_strat::find_escape_strings(dstate_id_t this_idx) const {
     const dstate &raw = rdfa.states[this_idx];
     const vector<CharReach> rev_map = reverse_alpha_remapping(rdfa);
     bool outs2_broken = false;
-    map<dstate_id_t, CharReach> succs;
+    flat_map<dstate_id_t, CharReach> succs;
 
     for (u32 i = 0; i < rev_map.size(); i++) {
         if (raw.next[i] == this_idx) {
