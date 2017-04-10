@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,6 +44,12 @@ namespace ue2 {
 #define INIT_STATE 1
 
 static
+bool state_has_reports(const raw_dfa &raw, dstate_id_t s) {
+    const auto &ds = raw.states[s];
+    return !ds.reports.empty() || !ds.reports_eod.empty();
+}
+
+static
 u32 count_dots(const raw_dfa &raw) {
     assert(raw.start_anchored == INIT_STATE);
 
@@ -60,8 +66,7 @@ u32 count_dots(const raw_dfa &raw) {
             }
         }
 
-        if (!raw.states[raw.states[i].next[0]].reports.empty()
-            || !raw.states[raw.states[i].next[0]].reports_eod.empty()) {
+        if (state_has_reports(raw, raw.states[i].next[0])) {
             goto validate;
         }
 
@@ -163,37 +168,33 @@ u32 calc_min_dist_from_bob(raw_dfa &raw, vector<u32> *dist_in) {
 }
 
 static
-void find_in_edges(const raw_dfa &raw, vector<vector<dstate_id_t> > *in_edges) {
-    in_edges->clear();
-    in_edges->resize(raw.states.size());
-    ue2::unordered_set<dstate_id_t> seen;
+vector<vector<dstate_id_t>> find_in_edges(const raw_dfa &raw) {
+    vector<vector<dstate_id_t>> in_edges(raw.states.size());
+    flat_set<dstate_id_t> seen;
 
     for (u32 s = 1; s < raw.states.size(); s++) {
         seen.clear();
         for (u32 j = 0; j < raw.alpha_size; j++) {
             dstate_id_t t = raw.states[s].next[j];
-            if (contains(seen, t)) {
+            if (!seen.insert(t).second) {
                 continue;
             }
-            seen.insert(t);
-            (*in_edges)[t].push_back(s);
+            in_edges[t].push_back(s);
         }
     }
+
+    return in_edges;
 }
 
 static
-void calc_min_dist_to_accept(const raw_dfa &raw,
-                             const vector<vector<dstate_id_t> > &in_edges,
-                             vector<u32> *accept_dist) {
-    vector<u32> &dist = *accept_dist;
-    dist.clear();
-    dist.resize(raw.states.size(), ~0U);
+vector<u32> calc_min_dist_to_accept(const raw_dfa &raw,
+                                const vector<vector<dstate_id_t>> &in_edges) {
+    vector<u32> dist(raw.states.size(), ~0U);
 
     /* for reporting states to start from */
     deque<dstate_id_t> to_visit;
     for (u32 s = 0; s < raw.states.size(); s++) {
-        if (!raw.states[s].reports.empty()
-            || !raw.states[s].reports_eod.empty()) {
+        if (state_has_reports(raw, s)) {
             to_visit.push_back(s);
             dist[s] = 0;
         }
@@ -210,9 +211,7 @@ void calc_min_dist_to_accept(const raw_dfa &raw,
         assert(d >= last_d);
         assert(d != ~0U);
 
-        for (vector<dstate_id_t>::const_iterator it = in_edges[s].begin();
-             it != in_edges[s].end(); ++it) {
-            dstate_id_t t = *it;
+        for (auto t : in_edges[s]) {
             if (t == DEAD_STATE) {
                 continue;
             }
@@ -226,6 +225,8 @@ void calc_min_dist_to_accept(const raw_dfa &raw,
 
         last_d = d;
     }
+
+    return dist;
 }
 
 bool prune_overlong(raw_dfa &raw, u32 max_offset) {
@@ -237,13 +238,7 @@ bool prune_overlong(raw_dfa &raw, u32 max_offset) {
         return false;
     }
 
-    vector<vector<dstate_id_t> > in_edges;
-    find_in_edges(raw, &in_edges);
-
-    vector<u32> accept_dist;
-    calc_min_dist_to_accept(raw, in_edges, &accept_dist);
-
-    in_edges.clear();
+    vector<u32> accept_dist = calc_min_dist_to_accept(raw, find_in_edges(raw));
 
     /* look over the states and filter out any which cannot reach a report
      * states before max_offset */
@@ -267,7 +262,7 @@ bool prune_overlong(raw_dfa &raw, u32 max_offset) {
 
     /* swap states */
     DEBUG_PRINTF("pruned %zu -> %u\n", raw.states.size(), count);
-    raw.states.swap(new_states);
+    raw.states = std::move(new_states);
     new_states.clear();
 
     /* update edges and daddys to refer to the new ids */
