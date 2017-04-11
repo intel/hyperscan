@@ -802,9 +802,9 @@ flat_set<dstate_id_t> find_daddy_candidates(const dfa_info &info,
 #define MAX_SHERMAN_SELF_LOOP 20
 
 static
-void find_better_daddy(dfa_info &info, dstate_id_t curr_id,
-                       bool using8bit, bool any_cyclic_near_anchored_state,
-                       const Grey &grey) {
+void find_better_daddy(dfa_info &info, dstate_id_t curr_id, bool using8bit,
+                       bool any_cyclic_near_anchored_state,
+                       bool trust_daddy_states, const Grey &grey) {
     if (!grey.allowShermanStates) {
         return;
     }
@@ -839,7 +839,12 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id,
     dstate_id_t best_daddy = 0;
     dstate &currState = info.states[curr_id];
 
-    const auto hinted = find_daddy_candidates(info, curr_id);
+    flat_set<dstate_id_t> hinted;
+    if (trust_daddy_states) {
+        hinted.insert(currState.daddy);
+    } else {
+        hinted = find_daddy_candidates(info, curr_id);
+    }
 
     for (const dstate_id_t &donor : hinted) {
         assert(donor < curr_id);
@@ -947,6 +952,7 @@ bool is_cyclic_near(const raw_dfa &raw, dstate_id_t root) {
 
 bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
                                      const CompileContext &cc,
+                                     bool trust_daddy_states,
                                      set<dstate_id_t> *accel_states) {
     u16 total_daddy = 0;
     dfa_info info(strat);
@@ -963,7 +969,7 @@ bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
 
     for (u32 i = 0; i < info.size(); i++) {
         find_better_daddy(info, i, using8bit, any_cyclic_near_anchored_state,
-                          cc.grey);
+                          trust_daddy_states, cc.grey);
         total_daddy += info.extra[i].daddytaken;
     }
 
@@ -989,9 +995,10 @@ bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
 bytecode_ptr<NFA> mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
                                    const ReportManager &rm,
                                    bool only_accel_init,
+                                   bool trust_daddy_states,
                                    set<dstate_id_t> *accel_states) {
     mcclellan_build_strat mbs(raw, rm, only_accel_init);
-    return mcclellanCompile_i(raw, mbs, cc, accel_states);
+    return mcclellanCompile_i(raw, mbs, cc, trust_daddy_states, accel_states);
 }
 
 size_t mcclellan_build_strat::accelSize(void) const {

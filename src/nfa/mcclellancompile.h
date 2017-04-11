@@ -71,12 +71,13 @@ private:
 bytecode_ptr<NFA>
 mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
                  const ReportManager &rm, bool only_accel_init,
+                 bool trust_daddy_states = false,
                  std::set<dstate_id_t> *accel_states = nullptr);
 
 /* used internally by mcclellan/haig/gough compile process */
 bytecode_ptr<NFA>
 mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
-                   const CompileContext &cc,
+                   const CompileContext &cc, bool trust_daddy_states = false,
                    std::set<dstate_id_t> *accel_states = nullptr);
 
 /**
