@@ -44,6 +44,7 @@
 #include "ue2common.h"
 #include "util/alloc.h"
 #include "util/compare.h"
+#include "util/container.h"
 #include "util/noncopyable.h"
 #include "util/popcount.h"
 #include "util/target_info.h"
@@ -87,20 +88,39 @@ public:
 };
 
 class TeddySet {
+    /** \brief Max number of Teddy masks we use. */
+    static constexpr size_t MAX_NUM_MASKS = 4;
+
+    /**
+     * \brief Estimate of the max number of literals in a set, used to
+     * minimise allocations.
+     */
+    static constexpr size_t LITS_PER_SET = 20;
+
+    /** \brief Number of masks. */
     u32 len;
-    // nibbleSets is a series of bitfields over 16 predicates
-    // that represent the whether shufti nibble set
-    // so for num_masks = 4 we will represent our strings by
-    // 8 u16s in the vector that indicate what a shufti bucket
-    // would have to look like
-    vector<u16> nibbleSets;
-    set<u32> litIds;
+
+    /**
+     * \brief A series of bitfields over 16 predicates that represent the
+     * shufti nibble set.
+     *
+     * So for num_masks = 4 we will represent our strings by 8 u16s in the
+     * vector that indicate what a shufti bucket would have to look like.
+     */
+    small_vector<u16, MAX_NUM_MASKS * 2> nibbleSets;
+
+    /**
+     * \brief Sorted, unique set of literals. We maintain our own set in a
+     * sorted vector to minimise allocations.
+     */
+    small_vector<u32, LITS_PER_SET> litIds;
+
 public:
     explicit TeddySet(u32 len_in) : len(len_in), nibbleSets(len_in * 2, 0) {}
-    const set<u32> & getLits() const { return litIds; }
     size_t litCount() const { return litIds.size(); }
+    const small_vector<u32, LITS_PER_SET> &getLits() const { return litIds; }
 
-    bool operator<(const TeddySet & s) const {
+    bool operator<(const TeddySet &s) const {
         return litIds < s.litIds;
     }
 
@@ -120,7 +140,7 @@ public:
     }
 #endif
 
-    bool identicalTail(const TeddySet & ts) const {
+    bool identicalTail(const TeddySet &ts) const {
         return nibbleSets == ts.nibbleSets;
     }
 
@@ -141,14 +161,16 @@ public:
                 nibbleSets[i*2] = nibbleSets[i*2+1] = 0xffff;
             }
         }
-        litIds.insert(lit_id);
+        litIds.push_back(lit_id);
+        sort_and_unique(litIds);
     }
 
     void merge(const TeddySet &ts) {
         for (u32 i = 0; i < nibbleSets.size(); i++) {
             nibbleSets[i] |= ts.nibbleSets[i];
         }
-        litIds.insert(ts.litIds.begin(), ts.litIds.end());
+        litIds.insert(litIds.end(), ts.litIds.begin(), ts.litIds.end());
+        sort_and_unique(litIds);
     }
 
     // return a value p from 0 .. MAXINT64 that gives p/MAXINT64
