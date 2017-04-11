@@ -2348,6 +2348,9 @@ public:
     bool operator()(const RoseProgram &prog1, const RoseProgram &prog2) const;
 };
 
+/** Returns true if the program may read the the interpreter's work_done flag */
+bool reads_work_done_flag(const RoseProgram &prog);
+
 } // namespace ue2
 
 #endif // ROSE_BUILD_PROGRAM_H

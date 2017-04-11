@@ -681,4 +681,13 @@ bool RoseProgramEquivalence::operator()(const RoseProgram &prog1,
     return std::equal(prog1.begin(), prog1.end(), prog2.begin(), is_equiv);
 }
 
+bool reads_work_done_flag(const RoseProgram &prog) {
+    for (const auto &ri : prog) {
+        if (dynamic_cast<const RoseInstrSquashGroups *>(ri.get())) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace ue2

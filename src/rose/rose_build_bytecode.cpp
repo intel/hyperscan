@@ -4879,8 +4879,11 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
 }
 
 /**
- * \brief Consumes list of program blocks, checks them for duplicates and then
- * concatenates them into one program.
+ * \brief Consumes list of program blocks corresponding to different literals,
+ * checks them for duplicates and then concatenates them into one program.
+ *
+ * Note: if a block will squash groups, a CLEAR_WORK_DONE instruction is
+ * inserted to prevent the work_done flag being contaminated by early blocks.
  */
 static
 RoseProgram assembleProgramBlocks(vector<RoseProgram> &&blocks) {
@@ -4899,8 +4902,18 @@ RoseProgram assembleProgramBlocks(vector<RoseProgram> &&blocks) {
 
     DEBUG_PRINTF("%zu blocks after dedupe\n", blocks.size());
 
-    for (auto &prog : blocks) {
-        program.add_block(move(prog));
+    for (auto &block : blocks) {
+        /* If we have multiple blocks from different literals and any of them
+         * squash groups, we will have to add a CLEAR_WORK_DONE instruction to
+         * each literal program block to clear the work_done flags so that it's
+         * only set if a state has been. */
+        if (!program.empty() && reads_work_done_flag(block)) {
+            RoseProgram clear_block;
+            clear_block.add_before_end(make_unique<RoseInstrClearWorkDone>());
+            program.add_block(move(clear_block));
+        }
+
+        program.add_block(move(block));
     }
 
     return program;
@@ -4913,28 +4926,10 @@ RoseProgram makeFragmentProgram(const RoseBuildImpl &build, build_context &bc,
                                const map<u32, vector<RoseEdge>> &lit_edge_map) {
     assert(!lit_ids.empty());
 
-    // If we have multiple literals and any of them squash groups, we will have
-    // to add a CLEAR_WORK_DONE instruction to each literal program block to
-    // clear the work_done flags so that it's only set if a state has been
-    // switched on for that literal.
-
-    // Note that we add it to every lit program, as they may be
-    // reordered/uniquified by assembleProgramBlocks() above.
-    const bool needs_clear_work = lit_ids.size() > 1 &&
-        any_of_in(lit_ids, [&](u32 lit_id) {
-            return build.literal_info.at(lit_id).squash_group;
-        });
-
     vector<RoseProgram> blocks;
-
     for (const auto &lit_id : lit_ids) {
         auto prog = makeLiteralProgram(build, bc, prog_build, lit_id,
                                        lit_edge_map, false);
-        if (needs_clear_work) {
-            RoseProgram clear_block;
-            clear_block.add_before_end(make_unique<RoseInstrClearWorkDone>());
-            prog.add_block(move(clear_block));
-        }
         blocks.push_back(move(prog));
     }
 
