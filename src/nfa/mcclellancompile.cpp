@@ -777,6 +777,28 @@ void addSuccessors(flat_set<dstate_id_t> &dest, const dstate &source,
     }
 }
 
+/* \brief Returns a set of states to search for a better daddy. */
+static
+flat_set<dstate_id_t> find_daddy_candidates(const dfa_info &info,
+                                            dstate_id_t curr_id) {
+    flat_set<dstate_id_t> hinted;
+
+    addIfEarlier(hinted, 0, curr_id);
+    addIfEarlier(hinted, info.raw.start_anchored, curr_id);
+    addIfEarlier(hinted, info.raw.start_floating, curr_id);
+
+    // Add existing daddy and his successors, then search back one generation.
+    const u16 alphasize = info.impl_alpha_size;
+    dstate_id_t daddy = info.states[curr_id].daddy;
+    for (u32 level = 0; daddy && level < 2; level++) {
+        addIfEarlier(hinted, daddy, curr_id);
+        addSuccessors(hinted, info.states[daddy], alphasize, curr_id);
+        daddy = info.states[daddy].daddy;
+    }
+
+    return hinted;
+}
+
 #define MAX_SHERMAN_SELF_LOOP 20
 
 static
@@ -817,22 +839,7 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id,
     dstate_id_t best_daddy = 0;
     dstate &currState = info.states[curr_id];
 
-    flat_set<dstate_id_t> hinted; /* states to search for a better daddy */
-    addIfEarlier(hinted, 0, curr_id);
-    addIfEarlier(hinted, info.raw.start_anchored, curr_id);
-    addIfEarlier(hinted, info.raw.start_floating, curr_id);
-
-    dstate_id_t mydaddy = currState.daddy;
-    if (mydaddy) {
-        addIfEarlier(hinted, mydaddy, curr_id);
-        addSuccessors(hinted, info.states[mydaddy], alphasize, curr_id);
-        dstate_id_t mygranddaddy = info.states[mydaddy].daddy;
-        if (mygranddaddy) {
-            addIfEarlier(hinted, mygranddaddy, curr_id);
-            addSuccessors(hinted, info.states[mygranddaddy], alphasize,
-                          curr_id);
-        }
-    }
+    const auto hinted = find_daddy_candidates(info, curr_id);
 
     for (const dstate_id_t &donor : hinted) {
         assert(donor < curr_id);
