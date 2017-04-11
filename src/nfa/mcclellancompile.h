@@ -48,8 +48,9 @@ struct CompileContext;
 
 class mcclellan_build_strat : public accel_dfa_build_strat {
 public:
-    mcclellan_build_strat(raw_dfa &rdfa_in, const ReportManager &rm_in)
-        : accel_dfa_build_strat(rm_in), rdfa(rdfa_in) {}
+    mcclellan_build_strat(raw_dfa &rdfa_in, const ReportManager &rm_in,
+                          bool only_accel_init_in)
+        : accel_dfa_build_strat(rm_in, only_accel_init_in), rdfa(rdfa_in) {}
     raw_dfa &get_raw() const override { return rdfa; }
     std::unique_ptr<raw_report_info> gatherReports(
                                   std::vector<u32> &reports /* out */,
@@ -69,7 +70,7 @@ private:
  * states */
 bytecode_ptr<NFA>
 mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
-                 const ReportManager &rm,
+                 const ReportManager &rm, bool only_accel_init,
                  std::set<dstate_id_t> *accel_states = nullptr);
 
 /* used internally by mcclellan/haig/gough compile process */

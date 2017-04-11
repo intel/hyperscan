@@ -981,8 +981,9 @@ bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
 
 bytecode_ptr<NFA> mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
                                    const ReportManager &rm,
+                                   bool only_accel_init,
                                    set<dstate_id_t> *accel_states) {
-    mcclellan_build_strat mbs(raw, rm);
+    mcclellan_build_strat mbs(raw, rm, only_accel_init);
     return mcclellanCompile_i(raw, mbs, cc, accel_states);
 }
 

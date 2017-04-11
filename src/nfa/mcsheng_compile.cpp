@@ -1025,7 +1025,7 @@ bytecode_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
         return nullptr;
     }
 
-    mcclellan_build_strat mbs(raw, rm);
+    mcclellan_build_strat mbs(raw, rm, false);
     dfa_info info(mbs);
     bool using8bit = cc.grey.allowMcClellan8 && info.size() <= 256;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,8 +43,8 @@ struct Grey;
 
 class accel_dfa_build_strat : public dfa_build_strat {
 public:
-    explicit accel_dfa_build_strat(const ReportManager &rm_in)
-        : dfa_build_strat(rm_in) {}
+    accel_dfa_build_strat(const ReportManager &rm_in, bool only_accel_init_in)
+        : dfa_build_strat(rm_in), only_accel_init(only_accel_init_in) {}
     virtual AccelScheme find_escape_strings(dstate_id_t this_idx) const;
     virtual size_t accelSize(void) const = 0;
     virtual u32 max_allowed_offset_accel() const = 0;
@@ -53,6 +53,8 @@ public:
     virtual void buildAccel(dstate_id_t this_idx, const AccelScheme &info,
                             void *accel_out);
     virtual std::map<dstate_id_t, AccelScheme> getAccelInfo(const Grey &grey);
+private:
+    bool only_accel_init;
 };
 
 } // namespace ue2

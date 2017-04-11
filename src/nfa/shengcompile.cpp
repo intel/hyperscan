@@ -451,14 +451,14 @@ bool has_accel_sheng(const NFA *) {
 }
 
 bytecode_ptr<NFA> shengCompile(raw_dfa &raw, const CompileContext &cc,
-                               const ReportManager &rm,
+                               const ReportManager &rm, bool only_accel_init,
                                set<dstate_id_t> *accel_states) {
     if (!cc.grey.allowSheng) {
         DEBUG_PRINTF("Sheng is not allowed!\n");
         return nullptr;
     }
 
-    sheng_build_strat strat(raw, rm);
+    sheng_build_strat strat(raw, rm, only_accel_init);
     dfa_info info(strat);
 
     DEBUG_PRINTF("Trying to compile a %zu state Sheng\n", raw.states.size());

@@ -541,17 +541,17 @@ accel_dfa_build_strat::getAccelInfo(const Grey &grey) {
     dstate_id_t sds_proxy = get_sds_or_proxy(rdfa);
     DEBUG_PRINTF("sds %hu\n", sds_proxy);
 
-    for (size_t i = 0; i < rdfa.states.size(); i++) {
+    /* Find accel info for a single state. */
+    auto do_state = [&](size_t i) {
         if (i == DEAD_STATE) {
-            continue;
+            return;
         }
 
         /* Note on report acceleration states: While we can't accelerate while
-         * we
-         * are spamming out callbacks, the QR code paths don't raise reports
+         * we are spamming out callbacks, the QR code paths don't raise reports
          * during scanning so they can accelerate report states. */
         if (generates_callbacks(rdfa.kind) && !rdfa.states[i].reports.empty()) {
-            continue;
+            return;
         }
 
         size_t single_limit =
@@ -562,15 +562,28 @@ accel_dfa_build_strat::getAccelInfo(const Grey &grey) {
         if (ei.cr.count() > single_limit) {
             DEBUG_PRINTF("state %zu is not accelerable has %zu\n", i,
                          ei.cr.count());
-            continue;
+            return;
         }
 
         DEBUG_PRINTF("state %zu should be accelerable %zu\n", i, ei.cr.count());
 
         rv[i] = ei;
+    };
+
+    if (only_accel_init) {
+        DEBUG_PRINTF("only computing accel for init states\n");
+        do_state(rdfa.start_anchored);
+        if (rdfa.start_floating != rdfa.start_anchored) {
+            do_state(rdfa.start_floating);
+        }
+    } else {
+        DEBUG_PRINTF("computing accel for all states\n");
+        for (size_t i = 0; i < rdfa.states.size(); i++) {
+            do_state(i);
+        }
     }
 
-    /* provide accleration states to states in the region of sds */
+    /* provide acceleration states to states in the region of sds */
     if (contains(rv, sds_proxy)) {
         AccelScheme sds_ei = rv[sds_proxy];
         sds_ei.double_byte.clear(); /* region based on single byte scheme

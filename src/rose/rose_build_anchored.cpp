@@ -829,7 +829,7 @@ size_t buildNfas(vector<raw_dfa> &anchored_dfas,
 
         minimize_hopcroft(rdfa, cc.grey);
 
-        auto nfa = mcclellanCompile(rdfa, cc, rm);
+        auto nfa = mcclellanCompile(rdfa, cc, rm, false);
         if (!nfa) {
             assert(0);
             throw std::bad_alloc();

@@ -692,14 +692,18 @@ bool is_slow(const raw_dfa &rdfa, const set<dstate_id_t> &accel,
 
 static
 bytecode_ptr<NFA> getDfa(raw_dfa &rdfa, const CompileContext &cc,
-                         const ReportManager &rm,
+                         const ReportManager &rm, bool has_literals,
                          set<dstate_id_t> &accel_states) {
+    // If we determinised literals, then we only need to consider the init
+    // states for acceleration.
+    bool only_accel_init = has_literals;
+
     bytecode_ptr<NFA> dfa = nullptr;
     if (cc.grey.allowSmallWriteSheng) {
-        dfa = shengCompile(rdfa, cc, rm, &accel_states);
+        dfa = shengCompile(rdfa, cc, rm, only_accel_init, &accel_states);
     }
     if (!dfa) {
-        dfa = mcclellanCompile(rdfa, cc, rm, &accel_states);
+        dfa = mcclellanCompile(rdfa, cc, rm, only_accel_init, &accel_states);
     }
     return dfa;
 }
@@ -707,13 +711,14 @@ bytecode_ptr<NFA> getDfa(raw_dfa &rdfa, const CompileContext &cc,
 static
 bytecode_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
                              const CompileContext &cc, const ReportManager &rm,
-                             u32 *start_offset, u32 *small_region) {
+                             bool has_literals, u32 *start_offset,
+                             u32 *small_region) {
     *start_offset = remove_leading_dots(rdfa);
 
     // Unleash the McClellan!
     set<dstate_id_t> accel_states;
 
-    auto nfa = getDfa(rdfa, cc, rm, accel_states);
+    auto nfa = getDfa(rdfa, cc, rm, has_literals, accel_states);
     if (!nfa) {
         DEBUG_PRINTF("DFA compile failed for smallwrite NFA\n");
         return nullptr;
@@ -732,7 +737,7 @@ bytecode_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
                 return nullptr;
             }
 
-            nfa = getDfa(rdfa, cc, rm, accel_states);
+            nfa = getDfa(rdfa, cc, rm, has_literals, accel_states);
             if (!nfa) {
                 DEBUG_PRINTF("DFA compile failed for smallwrite NFA\n");
                 assert(0); /* able to build orig dfa but not the trimmed? */
@@ -762,7 +767,8 @@ unique_ptr<SmallWriteBuild> makeSmallWriteBuilder(size_t num_patterns,
 }
 
 bytecode_ptr<SmallWriteEngine> SmallWriteBuildImpl::build(u32 roseQuality) {
-    if (!rdfa && is_empty(lit_trie) && is_empty(lit_trie_nocase)) {
+    const bool has_literals = !is_empty(lit_trie) || !is_empty(lit_trie_nocase);
+    if (!rdfa && !has_literals) {
         DEBUG_PRINTF("no smallwrite engine\n");
         poisoned = true;
         return nullptr;
@@ -782,8 +788,8 @@ bytecode_ptr<SmallWriteEngine> SmallWriteBuildImpl::build(u32 roseQuality) {
 
     u32 start_offset;
     u32 small_region;
-    auto nfa =
-        prepEngine(*rdfa, roseQuality, cc, rm, &start_offset, &small_region);
+    auto nfa = prepEngine(*rdfa, roseQuality, cc, rm, has_literals,
+                          &start_offset, &small_region);
     if (!nfa) {
         DEBUG_PRINTF("some smallwrite outfix could not be prepped\n");
         /* just skip the smallwrite optimization */

@@ -80,7 +80,7 @@ public:
     gough_build_strat(
         raw_som_dfa &r, const GoughGraph &g, const ReportManager &rm_in,
         const map<dstate_id_t, gough_accel_state_info> &accel_info)
-        : mcclellan_build_strat(r, rm_in), rdfa(r), gg(g),
+        : mcclellan_build_strat(r, rm_in, false), rdfa(r), gg(g),
           accel_gough_info(accel_info) {}
     unique_ptr<raw_report_info> gatherReports(vector<u32> &reports /* out */,
                             vector<u32> &reports_eod /* out */,

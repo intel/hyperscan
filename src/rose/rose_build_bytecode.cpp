@@ -720,7 +720,7 @@ bytecode_ptr<NFA> getDfa(raw_dfa &rdfa, bool is_transient,
                                const CompileContext &cc,
                                const ReportManager &rm) {
     // Unleash the Sheng!!
-    auto dfa = shengCompile(rdfa, cc, rm);
+    auto dfa = shengCompile(rdfa, cc, rm, false);
     if (!dfa && !is_transient) {
         // Sheng wasn't successful, so unleash McClellan!
         /* We don't try the hybrid for transient prefixes due to the extra
@@ -729,7 +729,7 @@ bytecode_ptr<NFA> getDfa(raw_dfa &rdfa, bool is_transient,
     }
     if (!dfa) {
         // Sheng wasn't successful, so unleash McClellan!
-        dfa = mcclellanCompile(rdfa, cc, rm);
+        dfa = mcclellanCompile(rdfa, cc, rm, false);
     }
     return dfa;
 }
