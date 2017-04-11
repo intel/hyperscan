@@ -444,20 +444,13 @@ bool isSaneTrie(const LitTrie &trie) {
  */
 static
 void buildAutomaton(LitTrie &trie,
-                    map<LitTrieVertex, LitTrieVertex> &failure_map) {
+                    map<LitTrieVertex, LitTrieVertex> &failure_map,
+                    vector<LitTrieVertex> &ordering) {
     assert(isSaneTrie(trie));
 
     // Find our failure transitions and reports.
-    vector<LitTrieVertex> ordering;
     ACVisitor ac_vis(trie, failure_map, ordering);
     boost::breadth_first_search(trie, trie.root, visitor(ac_vis));
-
-    // Renumber with BFS ordering, which is assumed by other DFA construction
-    // code (i.e. Sherman state computation).
-    size_t idx = 0;
-    for (auto v : ordering) {
-        trie[v].index = idx++;
-    }
 
     // Compute missing edges from failure map.
     for (auto v : ordering) {
@@ -537,13 +530,35 @@ u16 buildAlphabet(const LitTrie &trie, bool nocase,
     return i;
 }
 
+/**
+ * \brief Calculate state mapping, from vertex in trie to state index in BFS
+ * ordering.
+ */
+static
+unordered_map<LitTrieVertex, u32>
+makeStateMap(const LitTrie &trie, const vector<LitTrieVertex> &ordering) {
+    unordered_map<LitTrieVertex, u32> state_ids;
+    state_ids.reserve(num_vertices(trie));
+    u32 idx = DEAD_STATE + 1;
+    state_ids.emplace(trie.root, idx++);
+    for (auto v : ordering) {
+        state_ids.emplace(v, idx++);
+    }
+    assert(state_ids.size() == num_vertices(trie));
+    return state_ids;
+}
+
 /** \brief Construct a raw_dfa from a literal trie. */
 static
 unique_ptr<raw_dfa> buildDfa(LitTrie &trie, bool nocase) {
     DEBUG_PRINTF("trie has %zu states\n", num_vertices(trie));
 
+    vector<LitTrieVertex> ordering;
     map<LitTrieVertex, LitTrieVertex> failure_map;
-    buildAutomaton(trie, failure_map);
+    buildAutomaton(trie, failure_map, ordering);
+
+    // Construct DFA states in BFS order.
+    const auto state_ids = makeStateMap(trie, ordering);
 
     auto rdfa = make_unique<raw_dfa>(NFA_OUTFIX);
 
@@ -553,7 +568,8 @@ unique_ptr<raw_dfa> buildDfa(LitTrie &trie, bool nocase) {
     rdfa->alpha_size = buildAlphabet(trie, nocase, alpha, unalpha);
 
     // Construct states and transitions.
-    const u16 root_state = DEAD_STATE + 1;
+    const u16 root_state = state_ids.at(trie.root);
+    assert(root_state == DEAD_STATE + 1);
     rdfa->start_anchored = root_state;
     rdfa->start_floating = root_state;
     rdfa->states.resize(num_vertices(trie) + 1, dstate(rdfa->alpha_size));
@@ -563,8 +579,8 @@ unique_ptr<raw_dfa> buildDfa(LitTrie &trie, bool nocase) {
          rdfa->states[DEAD_STATE].next.end(), DEAD_STATE);
 
     for (auto u : vertices_range(trie)) {
-        auto u_state = trie[u].index + 1;
-        DEBUG_PRINTF("state %zu\n", u_state);
+        auto u_state = state_ids.at(u);
+        DEBUG_PRINTF("state %u\n", u_state);
         assert(u_state < rdfa->states.size());
         auto &ds = rdfa->states[u_state];
         ds.reports = trie[u].reports;
@@ -577,7 +593,7 @@ unique_ptr<raw_dfa> buildDfa(LitTrie &trie, bool nocase) {
             ds.daddy = DEAD_STATE;
         } else {
             assert(contains(failure_map, u));
-            ds.daddy = trie[failure_map.at(u)].index + 1;
+            ds.daddy = state_ids.at(failure_map.at(u));
         }
 
         // By default, transition back to the root.
@@ -590,10 +606,10 @@ unique_ptr<raw_dfa> buildDfa(LitTrie &trie, bool nocase) {
             if (v == trie.root) {
                 continue;
             }
-            auto v_state = trie[v].index + 1;
+            auto v_state = state_ids.at(v);
             assert((u16)trie[v].c < alpha.size());
             u16 sym = alpha[trie[v].c];
-            DEBUG_PRINTF("edge to %zu on 0x%02x (sym %u)\n", v_state,
+            DEBUG_PRINTF("edge to %u on 0x%02x (sym %u)\n", v_state,
                          trie[v].c, sym);
             assert(sym < ds.next.size());
             assert(ds.next[sym] == root_state);
