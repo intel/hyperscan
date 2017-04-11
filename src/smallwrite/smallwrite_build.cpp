@@ -472,6 +472,97 @@ void buildAutomaton(LitTrie &trie,
 }
 
 static
+vector<u32> findDistFromRoot(const LitTrie &trie) {
+    vector<u32> dist(num_vertices(trie), UINT32_MAX);
+    dist[trie[trie.root].index] = 0;
+
+    // BFS to find dist from root.
+    breadth_first_search(
+        trie, trie.root,
+        visitor(make_bfs_visitor(record_distances(
+            make_iterator_property_map(dist.begin(),
+                                       get(&LitTrieVertexProps::index, trie)),
+            boost::on_tree_edge()))));
+
+    return dist;
+}
+
+static
+vector<u32> findDistToAccept(const LitTrie &trie) {
+    vector<u32> dist(num_vertices(trie), UINT32_MAX);
+
+    // Start with all reporting vertices.
+    deque<LitTrieVertex> q;
+    for (auto v : vertices_range(trie)) {
+        if (!trie[v].reports.empty()) {
+            q.push_back(v);
+            dist[trie[v].index] = 0;
+        }
+    }
+
+    // Custom BFS, since we have a pile of sources.
+    while (!q.empty()) {
+        auto v = q.front();
+        q.pop_front();
+        u32 d = dist[trie[v].index];
+
+        for (auto u : inv_adjacent_vertices_range(v, trie)) {
+            auto &u_dist = dist[trie[u].index];
+            if (u_dist == UINT32_MAX) {
+                q.push_back(u);
+                u_dist = d + 1;
+            }
+        }
+    }
+
+    return dist;
+}
+
+/**
+ * \brief Prune all vertices from the trie that do not lie on a path from root
+ * to accept of length <= max_depth.
+ */
+static
+void pruneTrie(LitTrie &trie, u32 max_depth) {
+    DEBUG_PRINTF("pruning trie to %u\n", max_depth);
+
+    auto dist_from_root = findDistFromRoot(trie);
+    auto dist_to_accept = findDistToAccept(trie);
+
+    vector<LitTrieVertex> dead;
+    for (auto v : vertices_range(trie)) {
+        if (v == trie.root) {
+            continue;
+        }
+        auto v_index = trie[v].index;
+        DEBUG_PRINTF("vertex %zu: from_start=%u, to_accept=%u\n", trie[v].index,
+                     dist_from_root[v_index], dist_to_accept[v_index]);
+        assert(dist_from_root[v_index] != UINT32_MAX);
+        assert(dist_to_accept[v_index] != UINT32_MAX);
+        u32 min_path_len = dist_from_root[v_index] + dist_to_accept[v_index];
+        if (min_path_len > max_depth) {
+            DEBUG_PRINTF("pruning vertex %zu (min path len %u)\n",
+                         trie[v].index, min_path_len);
+            clear_vertex(v, trie);
+            dead.push_back(v);
+        }
+    }
+
+    if (dead.empty()) {
+        return;
+    }
+
+    for (auto v : dead) {
+        remove_vertex(v, trie);
+    }
+
+    DEBUG_PRINTF("%zu vertices remain\n", num_vertices(trie));
+
+    renumber_edges(trie);
+    renumber_vertices(trie);
+}
+
+static
 vector<CharReach> getAlphabet(const LitTrie &trie, bool nocase) {
     vector<CharReach> esets = {CharReach::dot()};
     for (auto v : vertices_range(trie)) {
@@ -810,6 +901,18 @@ bytecode_ptr<SmallWriteEngine> SmallWriteBuildImpl::build(u32 roseQuality) {
     if (poisoned) {
         DEBUG_PRINTF("some pattern could not be made into a smallwrite dfa\n");
         return nullptr;
+    }
+
+    // We happen to know that if the rose is high quality, we're going to limit
+    // depth further.
+    if (roseQuality) {
+        u32 max_depth = cc.grey.smallWriteLargestBufferBad;
+        if (!is_empty(lit_trie)) {
+            pruneTrie(lit_trie, max_depth);
+        }
+        if (!is_empty(lit_trie_nocase)) {
+            pruneTrie(lit_trie_nocase, max_depth);
+        }
     }
 
     if (!determiniseLiterals()) {
