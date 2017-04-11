@@ -841,9 +841,17 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id, bool using8bit,
 
     flat_set<dstate_id_t> hinted;
     if (trust_daddy_states) {
-        hinted.insert(currState.daddy);
-        addIfEarlier(hinted, info.raw.start_floating, curr_id);
-        addIfEarlier(hinted, info.raw.start_anchored, curr_id);
+        // Use the daddy already set for this state so long as it isn't already
+        // a Sherman state.
+        if (!info.is_sherman(currState.daddy)) {
+            hinted.insert(currState.daddy);
+        } else {
+            // Fall back to granddaddy, which has already been processed (due
+            // to BFS ordering) and cannot be a Sherman state.
+            dstate_id_t granddaddy = info.states[currState.daddy].daddy;
+            assert(!info.is_sherman(granddaddy));
+            hinted.insert(granddaddy);
+        }
     } else {
         hinted = find_daddy_candidates(info, curr_id);
     }

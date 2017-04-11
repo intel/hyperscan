@@ -452,6 +452,13 @@ void buildAutomaton(LitTrie &trie,
     ACVisitor ac_vis(trie, failure_map, ordering);
     boost::breadth_first_search(trie, trie.root, visitor(ac_vis));
 
+    // Renumber with BFS ordering, which is assumed by other DFA construction
+    // code (i.e. Sherman state computation).
+    size_t idx = 0;
+    for (auto v : ordering) {
+        trie[v].index = idx++;
+    }
+
     // Compute missing edges from failure map.
     for (auto v : ordering) {
         DEBUG_PRINTF("vertex %zu\n", trie[v].index);
