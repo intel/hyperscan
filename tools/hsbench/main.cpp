@@ -598,6 +598,17 @@ void displayPerScanResults(const vector<unique_ptr<ThreadContext>> &threads,
 }
 
 static
+double fastestResult(const vector<unique_ptr<ThreadContext>> &threads) {
+    double best = threads[0]->results[0].seconds;
+    for (const auto &t : threads) {
+        for (const auto &r : t->results) {
+            best = min(best, r.seconds);
+        }
+    }
+    return best;
+}
+
+static
 u64a byte_size(const vector<DataBlock> &corpus_blocks) {
     u64a total = 0;
     for (const DataBlock &block : corpus_blocks) {
@@ -650,8 +661,12 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
 
     double blockRate = (double)totalBlocks / (double)totalSecs;
     printf("Overall block rate:      %'0.2f blocks/sec\n", blockRate);
-    printf("Overall throughput:      %'0.2Lf Mbit/sec\n",
+    printf("Mean throughput:         %'0.2Lf Mbit/sec\n",
            calc_mbps(totalSecs, totalBytes));
+
+    double lowestScanTime = fastestResult(threads);
+    printf("Maximum throughput:      %'0.2Lf Mbit/sec\n",
+           calc_mbps(lowestScanTime, bytesPerRun));
     printf("\n");
 
     if (display_per_scan) {
