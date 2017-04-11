@@ -443,11 +443,11 @@ bool isSaneTrie(const LitTrie &trie) {
  * edges and reports.
  */
 static
-void buildAutomaton(LitTrie &trie) {
+void buildAutomaton(LitTrie &trie,
+                    map<LitTrieVertex, LitTrieVertex> &failure_map) {
     assert(isSaneTrie(trie));
 
     // Find our failure transitions and reports.
-    map<LitTrieVertex, LitTrieVertex> failure_map;
     vector<LitTrieVertex> ordering;
     ACVisitor ac_vis(trie, failure_map, ordering);
     boost::breadth_first_search(trie, trie.root, visitor(ac_vis));
@@ -535,7 +535,8 @@ static
 unique_ptr<raw_dfa> buildDfa(LitTrie &trie, bool nocase) {
     DEBUG_PRINTF("trie has %zu states\n", num_vertices(trie));
 
-    buildAutomaton(trie);
+    map<LitTrieVertex, LitTrieVertex> failure_map;
+    buildAutomaton(trie, failure_map);
 
     auto rdfa = make_unique<raw_dfa>(NFA_OUTFIX);
 
@@ -559,11 +560,17 @@ unique_ptr<raw_dfa> buildDfa(LitTrie &trie, bool nocase) {
         DEBUG_PRINTF("state %zu\n", u_state);
         assert(u_state < rdfa->states.size());
         auto &ds = rdfa->states[u_state];
-        ds.daddy = root_state;
         ds.reports = trie[u].reports;
-
         if (!ds.reports.empty()) {
             DEBUG_PRINTF("reports: %s\n", as_string_list(ds.reports).c_str());
+        }
+
+        // Set daddy state from failure map.
+        if (u == trie.root) {
+            ds.daddy = DEAD_STATE;
+        } else {
+            assert(contains(failure_map, u));
+            ds.daddy = trie[failure_map.at(u)].index + 1;
         }
 
         // By default, transition back to the root.

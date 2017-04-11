@@ -842,6 +842,8 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id, bool using8bit,
     flat_set<dstate_id_t> hinted;
     if (trust_daddy_states) {
         hinted.insert(currState.daddy);
+        addIfEarlier(hinted, info.raw.start_floating, curr_id);
+        addIfEarlier(hinted, info.raw.start_anchored, curr_id);
     } else {
         hinted = find_daddy_candidates(info, curr_id);
     }
@@ -896,7 +898,7 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id, bool using8bit,
 
     if (self_loop_width > MAX_SHERMAN_SELF_LOOP) {
         DEBUG_PRINTF("%hu is banned wide self loop (%u)\n", curr_id,
-                      self_loop_width);
+                     self_loop_width);
         return;
     }
 
