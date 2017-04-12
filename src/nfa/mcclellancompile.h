@@ -66,8 +66,20 @@ private:
     raw_dfa &rdfa;
 };
 
-/* accel_states: (optional) on success, is filled with the set of accelerable
- * states */
+/**
+ * \brief Construct an implementation DFA.
+ *
+ * \param raw the raw dfa to construct from
+ * \param cc compile context
+ * \param rm report manger
+ * \param only_accel_init if true, only the init states will be examined for
+ *        acceleration opportunities
+ * \param trust_daddy_states if true, trust the daddy state set in the raw dfa
+ *        rather than conducting a search for a better daddy (for Sherman
+ *        states)
+ * \param accel_states (optional) success, is filled with the set of
+ *        accelerable states
+ */
 bytecode_ptr<NFA>
 mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
                  const ReportManager &rm, bool only_accel_init,
