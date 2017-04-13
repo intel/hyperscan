@@ -279,7 +279,7 @@ void SmallWriteBuildImpl::add(const NGHolder &g, const ExpressionInfo &expr) {
         return;
     }
 
-    if (prune_overlong(*r, cc.grey.smallWriteLargestBuffer)) {
+    if (clear_deeper_reports(*r, cc.grey.smallWriteLargestBuffer)) {
         minimize_hopcroft(*r, cc.grey);
     }
 
@@ -725,7 +725,7 @@ bytecode_ptr<NFA> prepEngine(raw_dfa &rdfa, u32 roseQuality,
         if (*small_region <= *start_offset) {
             return nullptr;
         }
-        if (prune_overlong(rdfa, *small_region - *start_offset)) {
+        if (clear_deeper_reports(rdfa, *small_region - *start_offset)) {
             minimize_hopcroft(rdfa, cc.grey);
             if (rdfa.start_anchored == DEAD_STATE) {
                 DEBUG_PRINTF("all patterns pruned out\n");
