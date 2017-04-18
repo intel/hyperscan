@@ -8,21 +8,18 @@ cleanup () {
 PREFIX=$1
 KEEPSYMS_IN=$2
 shift 2
-BUILD=$@
-OUT=$(echo $BUILD | sed 's/.* -o \(.*\.o\).*/\1/')
+# $@ contains the actual build command
+OUT=$(echo "$@" | sed 's/.* -o \(.*\.o\).*/\1/')
 trap cleanup INT QUIT EXIT
 SYMSFILE=$(mktemp --tmpdir ${PREFIX}_rename.syms.XXXXX)
 KEEPSYMS=$(mktemp --tmpdir keep.syms.XXXXX)
-# grab the command without the target obj or src file flags
-# we don't just call gcc directly as there may be flags modifying the arch
-CC_CMD=$(echo $BUILD | sed 's/ -o .*\.o//;s/ -c //;s/ .[^ ]*\.c//;')
-# find me a libc
-LIBC_SO=$(${CC_CMD} --print-file-name=libc.so.6)
+# find the libc used by gcc
+LIBC_SO=$("$@" --print-file-name=libc.so.6)
 cp ${KEEPSYMS_IN} ${KEEPSYMS}
 # get all symbols from libc and turn them into patterns
 nm -f p -g -D ${LIBC_SO} | sed -s 's/\([^ ]*\).*/^\1$/' >> ${KEEPSYMS}
 # build the object
-${BUILD}
+"$@"
 # rename the symbols in the object
 nm -f p -g ${OUT} | cut -f1 -d' ' | grep -v -f ${KEEPSYMS} | sed -e "s/\(.*\)/\1\ ${PREFIX}_\1/" >> ${SYMSFILE}
 if test -s ${SYMSFILE}
