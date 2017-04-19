@@ -920,6 +920,11 @@ bytecode_ptr<SmallWriteEngine> SmallWriteBuildImpl::build(u32 roseQuality) {
         return nullptr;
     }
 
+    if (!rdfa) {
+        DEBUG_PRINTF("no dfa, pruned everything away\n");
+        return nullptr;
+    }
+
     DEBUG_PRINTF("building rdfa %p\n", rdfa.get());
 
     u32 start_offset;
