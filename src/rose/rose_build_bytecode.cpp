@@ -1484,7 +1484,7 @@ void buildExclusiveInfixes(RoseBuildImpl &build, build_context &bc,
         info.queue = qif.get_queue();
         exclusive_info.push_back(move(info));
     }
-    updateExclusiveInfixProperties(build, exclusive_info, bc.leftfix_info, 
+    updateExclusiveInfixProperties(build, exclusive_info, bc.leftfix_info,
                                    no_retrigger_queues);
     buildInfixContainer(g, bc, exclusive_info);
 }
@@ -2550,6 +2550,8 @@ u32 writeProgram(build_context &bc, RoseProgram &&program) {
         DEBUG_PRINTF("no program\n");
         return 0;
     }
+
+    applyFinalSpecialisation(program);
 
     auto it = bc.program_cache.find(program);
     if (it != end(bc.program_cache)) {
@@ -4248,7 +4250,6 @@ u32 writeBoundaryProgram(const RoseBuildImpl &build, build_context &bc,
     for (const auto &id : reports) {
         makeReport(build, id, has_som, program);
     }
-    applyFinalSpecialisation(program);
     return writeProgram(bc, move(program));
 }
 
@@ -4758,10 +4759,10 @@ bool hasDelayedLiteral(const RoseBuildImpl &build,
 }
 
 static
-RoseProgram buildLitInitialProgram(const RoseBuildImpl &build,
-                                   build_context &bc, ProgramBuild &prog_build,
-                                   u32 lit_id,
-                                   const vector<RoseEdge> &lit_edges) {
+RoseProgram makeLitInitialProgram(const RoseBuildImpl &build,
+                                  build_context &bc, ProgramBuild &prog_build,
+                                  u32 lit_id,
+                                  const vector<RoseEdge> &lit_edges) {
     RoseProgram program;
 
     // Check long literal info.
@@ -4790,10 +4791,10 @@ RoseProgram buildLitInitialProgram(const RoseBuildImpl &build,
 }
 
 static
-RoseProgram buildLiteralProgram(const RoseBuildImpl &build, build_context &bc,
-                                ProgramBuild &prog_build, u32 lit_id,
-                                const vector<RoseEdge> &lit_edges,
-                                bool is_anchored_program) {
+RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
+                               ProgramBuild &prog_build, u32 lit_id,
+                               const vector<RoseEdge> &lit_edges,
+                               bool is_anchored_program) {
     const auto &g = build.g;
 
     DEBUG_PRINTF("lit id=%u, %zu lit edges\n", lit_id, lit_edges.size());
@@ -4851,11 +4852,30 @@ RoseProgram buildLiteralProgram(const RoseBuildImpl &build, build_context &bc,
 
     // Construct initial program up front, as its early checks must be able
     // to jump to end and terminate processing for this literal.
-    auto lit_program =
-        buildLitInitialProgram(build, bc, prog_build, lit_id, lit_edges);
+    auto lit_program = makeLitInitialProgram(build, bc, prog_build, lit_id,
+                                             lit_edges);
     lit_program.add_before_end(move(program));
 
     return lit_program;
+}
+
+static
+RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
+                               ProgramBuild &prog_build, u32 lit_id,
+                               const map<u32, vector<RoseEdge>> &lit_edge_map,
+                               bool is_anchored_program) {
+    const vector<RoseEdge> no_edges;
+
+    DEBUG_PRINTF("lit_id=%u\n", lit_id);
+    const vector<RoseEdge> *edges_ptr;
+    if (contains(lit_edge_map, lit_id)) {
+        edges_ptr = &lit_edge_map.at(lit_id);
+    } else {
+        edges_ptr = &no_edges;
+    }
+
+    return makeLiteralProgram(build, bc, prog_build, lit_id, *edges_ptr,
+                              is_anchored_program);
 }
 
 /**
@@ -4887,10 +4907,10 @@ RoseProgram assembleProgramBlocks(vector<RoseProgram> &&blocks) {
 }
 
 static
-u32 writeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
-                        ProgramBuild &prog_build, const vector<u32> &lit_ids,
-                        const map<u32, vector<RoseEdge>> &lit_edge_map,
-                        bool is_anchored_program) {
+RoseProgram makeFragmentProgram(const RoseBuildImpl &build, build_context &bc,
+                               ProgramBuild &prog_build,
+                               const vector<u32> &lit_ids,
+                               const map<u32, vector<RoseEdge>> &lit_edge_map) {
     assert(!lit_ids.empty());
 
     // If we have multiple literals and any of them squash groups, we will have
@@ -4907,18 +4927,9 @@ u32 writeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
 
     vector<RoseProgram> blocks;
 
-    const vector<RoseEdge> no_edges;
-
     for (const auto &lit_id : lit_ids) {
-        DEBUG_PRINTF("lit_id=%u\n", lit_id);
-        const vector<RoseEdge> *edges_ptr;
-        if (contains(lit_edge_map, lit_id)) {
-            edges_ptr = &lit_edge_map.at(lit_id);
-        } else {
-            edges_ptr = &no_edges;
-        }
-        auto prog = buildLiteralProgram(build, bc, prog_build, lit_id,
-                                        *edges_ptr, is_anchored_program);
+        auto prog = makeLiteralProgram(build, bc, prog_build, lit_id,
+                                       lit_edge_map, false);
         if (needs_clear_work) {
             RoseProgram clear_block;
             clear_block.add_before_end(make_unique<RoseInstrClearWorkDone>());
@@ -4927,13 +4938,7 @@ u32 writeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
         blocks.push_back(move(prog));
     }
 
-    auto program = assembleProgramBlocks(move(blocks));
-
-    if (program.empty()) {
-        return 0;
-    }
-    applyFinalSpecialisation(program);
-    return writeProgram(bc, move(program));
+    return assembleProgramBlocks(move(blocks));
 }
 
 static
@@ -4965,10 +4970,6 @@ u32 writeDelayRebuildProgram(const RoseBuildImpl &build, build_context &bc,
 
     auto program = assembleProgramBlocks(move(blocks));
 
-    if (program.empty()) {
-        return 0;
-    }
-    applyFinalSpecialisation(program);
     return writeProgram(bc, move(program));
 }
 
@@ -5107,9 +5108,10 @@ void buildLiteralPrograms(const RoseBuildImpl &build,
         DEBUG_PRINTF("frag_id=%u, lit_ids=[%s]\n", frag.fragment_id,
                      as_string_list(frag.lit_ids).c_str());
 
-        frag.lit_program_offset
-            = writeLiteralProgram(build, bc, prog_build, frag.lit_ids,
-                                  lit_edge_map, false);
+        auto lit_prog = makeFragmentProgram(build, bc, prog_build, frag.lit_ids,
+                                            lit_edge_map);
+        frag.lit_program_offset = writeProgram(bc, move(lit_prog));
+
         frag.delay_program_offset
             = writeDelayRebuildProgram(build, bc, prog_build, frag.lit_ids);
     }
@@ -5137,9 +5139,10 @@ pair<u32, u32> writeDelayPrograms(const RoseBuildImpl &build,
 
             for (const auto &delayed_lit_id : info.delayed_ids) {
                 DEBUG_PRINTF("lit id %u delay id %u\n", lit_id, delayed_lit_id);
-                u32 offset = writeLiteralProgram(build, bc, prog_build,
-                                                 {delayed_lit_id}, lit_edge_map,
-                                                 false);
+                auto prog = makeLiteralProgram(build, bc, prog_build,
+                                               delayed_lit_id, lit_edge_map,
+                                               false);
+                u32 offset = writeProgram(bc, move(prog));
 
                 u32 delay_id;
                 auto it = cache.find(offset);
@@ -5197,8 +5200,9 @@ pair<u32, u32> writeAnchoredPrograms(const RoseBuildImpl &build,
                 continue;
             }
 
-            u32 offset = writeLiteralProgram(build, bc, prog_build, {lit_id},
-                                             lit_edge_map, true);
+            auto prog = makeLiteralProgram(build, bc, prog_build, lit_id,
+                                           lit_edge_map, true);
+            u32 offset = writeProgram(bc, move(prog));
             DEBUG_PRINTF("lit_id=%u -> anch prog at %u\n", lit_id, offset);
 
             u32 anch_id;
@@ -5260,7 +5264,6 @@ pair<u32, u32> buildReportPrograms(const RoseBuildImpl &build,
         const bool has_som = false;
         makeCatchupMpv(build, bc.needs_mpv_catchup, id, program);
         makeReport(build, id, has_som, program);
-        applyFinalSpecialisation(program);
         u32 offset = writeProgram(bc, move(program));
         programs.push_back(offset);
         build.rm.setProgramOffset(id, offset);
@@ -5404,8 +5407,10 @@ void addEodEventProgram(const RoseBuildImpl &build, build_context &bc,
                     tie(g[source(b, g)].index, g[target(b, g)].index);
          });
 
-    program.add_block(buildLiteralProgram(
-        build, bc, prog_build, build.eod_event_literal_id, edge_list, false));
+    auto block = makeLiteralProgram(build, bc, prog_build,
+                                    build.eod_event_literal_id, edge_list,
+                                    false);
+    program.add_block(move(block));
 }
 
 static
@@ -5453,11 +5458,6 @@ u32 writeEodProgram(const RoseBuildImpl &build, build_context &bc,
     addEodAnchorProgram(build, bc, prog_build, true, program);
     addSuffixesEodProgram(build, program);
 
-    if (program.empty()) {
-        return 0;
-    }
-
-    applyFinalSpecialisation(program);
     return writeProgram(bc, move(program));
 }
 
