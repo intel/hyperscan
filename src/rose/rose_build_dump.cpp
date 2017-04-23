@@ -2112,7 +2112,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U8(t, canExhaust);
     DUMP_U8(t, hasSom);
     DUMP_U8(t, somHorizon);
-    DUMP_U8(t, needsCatchup);
     DUMP_U32(t, mode);
     DUMP_U32(t, historyRequired);
     DUMP_U32(t, ekeyCount);

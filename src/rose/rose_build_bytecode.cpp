@@ -231,9 +231,9 @@ struct build_context : noncopyable {
      * RoseEngine. */
     RoseEngineBlob engine_blob;
 
-    /** \brief True if reports need CATCH_UP instructions, to catch up anchored
-     * matches, suffixes, outfixes etc. */
-    bool needs_catchup = false;
+    /** \brief True if reports need CATCH_UP instructions to catch up suffixes,
+     * outfixes etc. */
+    bool needs_catchup;
 
     /** \brief True if this Rose engine has an MPV engine. */
     bool needs_mpv_catchup = false;
@@ -327,38 +327,39 @@ u32 countRosePrefixes(const vector<LeftNfaInfo> &roses) {
 }
 
 /**
- * \brief True if this Rose engine needs to run a catch up whenever a report is
- * generated.
+ * \brief True if this Rose engine needs to run a catch up whenever a literal
+ * report is generated.
  *
  * Catch up is necessary if there are output-exposed engines (suffixes,
- * outfixes) or an anchored table (anchored literals, acyclic DFAs).
+ * outfixes).
  */
 static
-bool needsCatchup(const RoseBuildImpl &build,
-                  const vector<raw_dfa> &anchored_dfas) {
+bool needsCatchup(const RoseBuildImpl &build) {
+    /* Note: we could be more selective about when we need to generate catch up
+     * instructions rather than just a boolean yes/no - for instance, if we know
+     * that a role can only match before the point that an outfix/suffix could
+     * match, we do not strictly need a catchup instruction.
+     *
+     * However, this would add a certain amount of complexity to the
+     * catchup logic and would likely have limited applicability - how many
+     * reporting roles have a fixed max offset and how much time is spent on
+     * catchup for these cases?
+     */
+
     if (!build.outfixes.empty()) {
+        /* TODO: check that they have non-eod reports */
         DEBUG_PRINTF("has outfixes\n");
-        return true;
-    }
-    if (!anchored_dfas.empty()) {
-        DEBUG_PRINTF("has anchored dfas\n");
         return true;
     }
 
     const RoseGraph &g = build.g;
 
     for (auto v : vertices_range(g)) {
-        if (build.root == v) {
-            continue;
-        }
-        if (build.anchored_root == v) {
-            continue;
-        }
         if (g[v].suffix) {
+            /* TODO: check that they have non-eod reports */
             DEBUG_PRINTF("vertex %zu has suffix\n", g[v].index);
             return true;
         }
-
     }
 
     DEBUG_PRINTF("no need for catch-up on report\n");
@@ -4794,7 +4795,7 @@ static
 RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
                                ProgramBuild &prog_build, u32 lit_id,
                                const vector<RoseEdge> &lit_edges,
-                               bool is_anchored_program) {
+                               bool is_anchored_replay_program) {
     const auto &g = build.g;
 
     DEBUG_PRINTF("lit id=%u, %zu lit edges\n", lit_id, lit_edges.size());
@@ -4844,7 +4845,7 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
     makeGroupSquashInstruction(build, lit_id, root_block);
 
     // Literal may be anchored and need to be recorded.
-    if (!is_anchored_program) {
+    if (!is_anchored_replay_program) {
         makeRecordAnchoredInstruction(build, prog_build, lit_id, root_block);
     }
 
@@ -4863,7 +4864,7 @@ static
 RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
                                ProgramBuild &prog_build, u32 lit_id,
                                const map<u32, vector<RoseEdge>> &lit_edge_map,
-                               bool is_anchored_program) {
+                               bool is_anchored_replay_program) {
     const vector<RoseEdge> no_edges;
 
     DEBUG_PRINTF("lit_id=%u\n", lit_id);
@@ -4875,7 +4876,7 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
     }
 
     return makeLiteralProgram(build, bc, prog_build, lit_id, *edges_ptr,
-                              is_anchored_program);
+                              is_anchored_replay_program);
 }
 
 /**
@@ -5726,7 +5727,7 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     u32 floatingMinLiteralMatchOffset
         = findMinFloatingLiteralMatch(*this, anchored_dfas);
     bc.longLitLengthThreshold = longLitLengthThreshold;
-    bc.needs_catchup = needsCatchup(*this, anchored_dfas);
+    bc.needs_catchup = needsCatchup(*this);
     recordResources(bc.resources, *this, fragments);
     if (!anchored_dfas.empty()) {
         bc.resources.has_anchored = true;
@@ -5890,8 +5891,6 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     proto.somHorizon = ssm.somPrecision();
     proto.somLocationCount = ssm.numSomSlots();
     proto.somLocationFatbitSize = fatbit_size(proto.somLocationCount);
-
-    proto.needsCatchup = bc.needs_catchup ? 1 : 0;
 
     proto.runtimeImpl = pickRuntimeImpl(*this, bc.resources,
                                         proto.outfixEndQueue);

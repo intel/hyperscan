@@ -484,7 +484,6 @@ static rose_inline
 hwlmcb_rv_t roseReport(const struct RoseEngine *t, struct hs_scratch *scratch,
                        u64a end, ReportID onmatch, s32 offset_adjust,
                        u32 ekey) {
-    assert(!t->needsCatchup || end == scratch->tctxt.minMatchOffset);
     DEBUG_PRINTF("firing callback onmatch=%u, end=%llu\n", onmatch, end);
     updateLastMatchOffset(&scratch->tctxt, end);
 
@@ -518,13 +517,11 @@ hwlmcb_rv_t roseCatchUpAndHandleChainMatch(const struct RoseEngine *t,
 }
 
 static rose_inline
-void roseHandleSom(UNUSED const struct RoseEngine *t,
-                   struct hs_scratch *scratch, const struct som_operation *sr,
+void roseHandleSom(struct hs_scratch *scratch, const struct som_operation *sr,
                    u64a end) {
     DEBUG_PRINTF("end=%llu, minMatchOffset=%llu\n", end,
                  scratch->tctxt.minMatchOffset);
 
-    assert(!t->needsCatchup || end == scratch->tctxt.minMatchOffset);
     updateLastMatchOffset(&scratch->tctxt, end);
     handleSomInternal(scratch, sr, end);
 }
@@ -533,7 +530,6 @@ static rose_inline
 hwlmcb_rv_t roseReportSom(const struct RoseEngine *t,
                           struct hs_scratch *scratch, u64a start, u64a end,
                           ReportID onmatch, s32 offset_adjust, u32 ekey) {
-    assert(!t->needsCatchup || end == scratch->tctxt.minMatchOffset);
     DEBUG_PRINTF("firing som callback onmatch=%u, start=%llu, end=%llu\n",
                  onmatch, start, end);
     updateLastMatchOffset(&scratch->tctxt, end);
@@ -553,13 +549,11 @@ hwlmcb_rv_t roseReportSom(const struct RoseEngine *t,
 }
 
 static rose_inline
-void roseHandleSomSom(UNUSED const struct RoseEngine *t,
-                      struct hs_scratch *scratch,
+void roseHandleSomSom(struct hs_scratch *scratch,
                       const struct som_operation *sr, u64a start, u64a end) {
     DEBUG_PRINTF("start=%llu, end=%llu, minMatchOffset=%llu\n", start, end,
                  scratch->tctxt.minMatchOffset);
 
-    assert(!t->needsCatchup || end == scratch->tctxt.minMatchOffset);
     updateLastMatchOffset(&scratch->tctxt, end);
     setSomFromSomAware(scratch, sr, start, end);
 }
@@ -2211,14 +2205,14 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
 
             PROGRAM_CASE(REPORT_SOM_INT) {
                 updateSeqPoint(tctxt, end, from_mpv);
-                roseHandleSom(t, scratch, &ri->som, end);
+                roseHandleSom(scratch, &ri->som, end);
                 work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(REPORT_SOM_AWARE) {
                 updateSeqPoint(tctxt, end, from_mpv);
-                roseHandleSomSom(t, scratch, &ri->som, som, end);
+                roseHandleSomSom(scratch, &ri->som, som, end);
                 work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION

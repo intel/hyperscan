@@ -304,7 +304,6 @@ struct RoseEngine {
     u8  hasSom; /**< has at least one pattern which tracks SOM. */
     u8  somHorizon; /**< width in bytes of SOM offset storage (governed by
                         SOM precision) */
-    u8 needsCatchup; /** catch up needs to be run on every report. */
     u32 mode; /**< scanning mode, one of HS_MODE_{BLOCK,STREAM,VECTORED} */
     u32 historyRequired; /**< max amount of history required for streaming */
     u32 ekeyCount; /**< number of exhaustion keys */
