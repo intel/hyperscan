@@ -490,8 +490,6 @@ public:
                      const std::vector<u8> &cmp, u32 delay,
                      rose_literal_table table);
 
-    bool hasLiteral(const ue2_literal &s, rose_literal_table table) const;
-
     u32 getNewLiteralId(void);
 
     void removeVertices(const std::vector<RoseVertex> &dead);

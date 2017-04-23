@@ -486,28 +486,6 @@ u32 RoseBuildImpl::getLiteralId(const ue2_literal &s, const vector<u8> &msk,
     return id;
 }
 
-bool RoseBuildImpl::hasLiteral(const ue2_literal &s,
-                               rose_literal_table table) const {
-    DEBUG_PRINTF("looking if %s exists\n", dumpString(s).c_str());
-    assert(table != ROSE_ANCHORED);
-
-    for (RoseLiteralMap::left_map::const_iterator it
-        = literals.left.lower_bound(rose_literal_id(s, table, 0));
-         it != literals.left.end(); ++it) {
-        if (it->first.table != table || it->first.s != s) {
-            break;
-        }
-        const rose_literal_info &info = literal_info[it->second];
-        if (!info.vertices.empty()) {
-            return true;
-        }
-    }
-
-    DEBUG_PRINTF("(used) literal not found\n");
-
-    return false;
-}
-
 u32 RoseBuildImpl::getNewLiteralId() {
     rose_literal_id key(ue2_literal(), ROSE_ANCHORED, 0);
     u32 numLiterals = verify_u32(literals.left.size());

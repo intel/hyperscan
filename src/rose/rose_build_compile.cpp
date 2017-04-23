@@ -484,7 +484,7 @@ bool checkFloatingKillableByPrefixes(const RoseBuildImpl &tbi) {
 }
 
 static
-bool checkEodStealFloating(const RoseBuildImpl &tbi,
+bool checkEodStealFloating(const RoseBuildImpl &build,
                            const vector<u32> &eodLiteralsForFloating,
                            u32 numFloatingLiterals,
                            size_t shortestFloatingLen) {
@@ -498,15 +498,24 @@ bool checkEodStealFloating(const RoseBuildImpl &tbi,
         return false;
     }
 
-    if (tbi.hasNoFloatingRoots()) {
+    if (build.hasNoFloatingRoots()) {
         DEBUG_PRINTF("skipping as floating table is conditional\n");
         /* TODO: investigate putting stuff in atable */
         return false;
     }
 
-    if (checkFloatingKillableByPrefixes(tbi)) {
+    if (checkFloatingKillableByPrefixes(build)) {
          DEBUG_PRINTF("skipping as prefixes may make ftable conditional\n");
          return false;
+    }
+
+    // Collect a set of all floating literals.
+    unordered_set<ue2_literal> floating_lits;
+    for (auto &m : build.literals) {
+        const auto &lit = m.left;
+        if (lit.table == ROSE_FLOATING) {
+            floating_lits.insert(lit.s);
+        }
     }
 
     DEBUG_PRINTF("%zu are eod literals, %u floating; floating len=%zu\n",
@@ -515,10 +524,10 @@ bool checkEodStealFloating(const RoseBuildImpl &tbi,
     u32 new_floating_lits = 0;
 
     for (u32 eod_id : eodLiteralsForFloating) {
-        const rose_literal_id &lit = tbi.literals.right.at(eod_id);
+        const rose_literal_id &lit = build.literals.right.at(eod_id);
         DEBUG_PRINTF("checking '%s'\n", dumpString(lit.s).c_str());
 
-        if (tbi.hasLiteral(lit.s, ROSE_FLOATING)) {
+        if (contains(floating_lits, lit.s)) {
             DEBUG_PRINTF("skip; there is already a floating version\n");
             continue;
         }
