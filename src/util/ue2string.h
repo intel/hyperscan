@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,6 +35,7 @@
 
 #include "ue2common.h"
 #include "util/charreach.h"
+#include "util/hash.h"
 
 #include <iterator>
 #include <string>
@@ -206,6 +207,13 @@ private:
     std::vector<bool> nocase; /* for trolling value */
 };
 
+inline
+size_t hash_value(const ue2_literal::elem &elem) {
+    return hash_all(elem.c, elem.nocase);
+}
+
+inline
+size_t hash_value(const ue2_literal &lit) { return hash_range(lit); }
 
 /// Return a reversed copy of this literal.
 ue2_literal reverse_literal(const ue2_literal &in);
