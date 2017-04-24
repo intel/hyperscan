@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,9 +34,10 @@
 #ifndef UTIL_REPORT_H
 #define UTIL_REPORT_H
 
-#include "util/exhaust.h" // for INVALID_EKEY
-#include "order_check.h"
 #include "ue2common.h"
+#include "util/exhaust.h" // for INVALID_EKEY
+#include "util/hash.h"
+#include "util/order_check.h"
 
 #include <cassert>
 
@@ -193,6 +194,23 @@ bool operator<(const Report &a, const Report &b) {
     ORDER_CHECK(revNfaIndex);
     ORDER_CHECK(topSquashDistance);
     return false;
+}
+
+inline
+bool operator==(const Report &a, const Report &b) {
+    return a.type == b.type && a.quashSom == b.quashSom &&
+           a.minOffset == b.minOffset && a.maxOffset == b.maxOffset &&
+           a.minLength == b.minLength && a.ekey == b.ekey &&
+           a.offsetAdjust == b.offsetAdjust && a.onmatch == b.onmatch &&
+           a.revNfaIndex == b.revNfaIndex && a.somDistance == b.somDistance &&
+           a.topSquashDistance == b.topSquashDistance;
+}
+
+inline
+size_t hash_value(const Report &r) {
+    return hash_all(r.type, r.quashSom, r.minOffset, r.maxOffset, r.minLength,
+                    r.ekey, r.offsetAdjust, r.onmatch, r.revNfaIndex,
+                    r.somDistance, r.topSquashDistance);
 }
 
 static inline

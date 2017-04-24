@@ -67,7 +67,7 @@ u32 ReportManager::getInternalId(const Report &ir) {
 
     u32 size = reportIds.size();
     reportIds.push_back(ir);
-    reportIdToInternalMap[ir] = size;
+    reportIdToInternalMap.emplace(ir, size);
     DEBUG_PRINTF("new report %u\n", size);
     return size;
 }
