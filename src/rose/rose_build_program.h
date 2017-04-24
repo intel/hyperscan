@@ -2219,7 +2219,6 @@ public:
         return prog.back().get();
     }
 
-private:
     static void update_targets(iterator it, iterator it_end,
                                const RoseInstruction *old_target,
                                const RoseInstruction *new_target) {
@@ -2231,7 +2230,6 @@ private:
         }
     }
 
-public:
     iterator insert(iterator it, std::unique_ptr<RoseInstruction> ri) {
         assert(!prog.empty());
         assert(it != end());
@@ -2266,6 +2264,10 @@ public:
         std::advance(it, dist);
         return it;
     }
+
+    /* Note: takes iterator rather than const_iterator to support toolchains
+     * with pre-C++11 standard libraries (i.e., gcc-4.8). */
+    iterator erase(iterator first, iterator last);
 
     /**
      * \brief Adds this instruction to the program just before the terminating
@@ -2347,6 +2349,9 @@ class RoseProgramEquivalence {
 public:
     bool operator()(const RoseProgram &prog1, const RoseProgram &prog2) const;
 };
+
+/* Removes any CHECK_HANDLED instructions from the given program */
+void stripCheckHandledInstruction(RoseProgram &prog);
 
 /** Returns true if the program may read the the interpreter's work_done flag */
 bool reads_work_done_flag(const RoseProgram &prog);

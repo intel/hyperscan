@@ -639,6 +639,11 @@ OffsetMap makeOffsetMap(const RoseProgram &program, u32 *total_len) {
     return offset_map;
 }
 
+RoseProgram::iterator RoseProgram::erase(RoseProgram::iterator first,
+                                         RoseProgram::iterator last) {
+    return prog.erase(first, last);
+}
+
 bytecode_ptr<char> writeProgram(RoseEngineBlob &blob,
                                 const RoseProgram &program) {
     u32 total_len = 0;
@@ -679,6 +684,28 @@ bool RoseProgramEquivalence::operator()(const RoseProgram &prog1,
     };
 
     return std::equal(prog1.begin(), prog1.end(), prog2.begin(), is_equiv);
+}
+
+void stripCheckHandledInstruction(RoseProgram &prog) {
+    for (auto it = prog.begin(); it != prog.end();) {
+        auto ins = dynamic_cast<const RoseInstrCheckNotHandled *>(it->get());
+        if (!ins) {
+            ++it;
+            continue;
+        }
+
+        auto next_it = next(it);
+        assert(next_it != prog.end()); /* there should always be an end ins */
+        auto next_ins = next_it->get();
+
+        /* update all earlier instructions which point to ins to instead point
+         * to the next instruction. Only need to look at earlier as we only ever
+         * jump forward. */
+        RoseProgram::update_targets(prog.begin(), it, ins, next_ins);
+
+        /* remove check handled instruction */
+        it = prog.erase(it, next_it);
+    }
 }
 
 bool reads_work_done_flag(const RoseProgram &prog) {

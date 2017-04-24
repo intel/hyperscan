@@ -4163,9 +4163,10 @@ void makeRoleEagerEodReports(const RoseBuildImpl &build, build_context &bc,
     program.add_before_end(move(eod_program));
 }
 
+/* Makes a program for a role/vertex given a specfic pred/in_edge. */
 static
-RoseProgram makeProgram(const RoseBuildImpl &build, build_context &bc,
-                        ProgramBuild &prog_build, const RoseEdge &e) {
+RoseProgram makeRoleProgram(const RoseBuildImpl &build, build_context &bc,
+                            ProgramBuild &prog_build, const RoseEdge &e) {
     const RoseGraph &g = build.g;
     auto v = target(e, g);
 
@@ -4187,10 +4188,11 @@ RoseProgram makeProgram(const RoseBuildImpl &build, build_context &bc,
         makeRoleCheckBounds(build, v, e, program);
     }
 
-    // This program may be triggered by different predecessors, with different
-    // offset bounds. We must ensure we put this check/set operation after the
-    // bounds check to deal with this case.
+    // This role program may be triggered by different predecessors, with
+    // different offset bounds. We must ensure we put this check/set operation
+    // after the bounds check to deal with this case.
     if (in_degree(v, g) > 1) {
+        assert(!build.isRootSuccessor(v));
         makeRoleCheckNotHandled(prog_build, v, program);
     }
 
@@ -4230,6 +4232,12 @@ RoseProgram makeProgram(const RoseBuildImpl &build, build_context &bc,
     RoseProgram eod_block;
     makeRoleEagerEodReports(build, bc, v, eod_block);
     effects_block.add_block(move(eod_block));
+
+    /* a 'ghost role' may do nothing if we know that its groups are already set
+     * - in this case we can avoid producing a program at all. */
+    if (effects_block.empty()) {
+        return {};
+    }
 
     program.add_before_end(move(effects_block));
     return program;
@@ -4414,6 +4422,7 @@ void addPredBlockSingle(u32 pred_state, RoseProgram &pred_block,
                         RoseProgram &program) {
     // Prepend an instruction to check the pred state is on.
     const auto *end_inst = pred_block.end_instruction();
+    assert(!pred_block.empty());
     pred_block.insert(begin(pred_block),
                       make_unique<RoseInstrCheckState>(pred_state, end_inst));
     program.add_block(move(pred_block));
@@ -4434,6 +4443,12 @@ void addPredBlocksAny(map<u32, RoseProgram> &pred_blocks, u32 num_states,
     sparse_program.add_before_end(move(ri));
 
     RoseProgram &block = pred_blocks.begin()->second;
+    assert(!block.empty());
+
+    /* we no longer need the check handled instruction as all the pred-role
+     * blocks are being collapsed together */
+    stripCheckHandledInstruction(block);
+
     sparse_program.add_before_end(move(block));
     program.add_block(move(sparse_program));
 }
@@ -4491,15 +4506,6 @@ void addPredBlocksMulti(map<u32, RoseProgram> &pred_blocks,
 static
 void addPredBlocks(map<u32, RoseProgram> &pred_blocks, u32 num_states,
                    RoseProgram &program) {
-    // Trim empty blocks, if any exist.
-    for (auto it = pred_blocks.begin(); it != pred_blocks.end();) {
-        if (it->second.empty()) {
-            it = pred_blocks.erase(it);
-        } else {
-            ++it;
-        }
-    }
-
     const size_t num_preds = pred_blocks.size();
     if (num_preds == 0) {
         return;
@@ -4815,8 +4821,10 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
                      g[target(e, g)].index);
         assert(contains(bc.roleStateIndices, u));
         u32 pred_state = bc.roleStateIndices.at(u);
-        pred_blocks[pred_state].add_block(
-            makeProgram(build, bc, prog_build, e));
+        auto role_prog = makeRoleProgram(build, bc, prog_build, e);
+        if (!role_prog.empty()) {
+            pred_blocks[pred_state].add_block(move(role_prog));
+        }
     }
 
     // Add blocks to deal with non-root edges (triggered by sparse iterator or
@@ -4831,7 +4839,7 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
         }
         DEBUG_PRINTF("root edge (%zu,%zu)\n", g[u].index,
                      g[target(e, g)].index);
-        program.add_block(makeProgram(build, bc, prog_build, e));
+        program.add_block(makeRoleProgram(build, bc, prog_build, e));
     }
 
     if (lit_id == build.eod_event_literal_id) {
@@ -4872,6 +4880,7 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
     if (contains(lit_edge_map, lit_id)) {
         edges_ptr = &lit_edge_map.at(lit_id);
     } else {
+        /* literal may happen only in a delay context */
         edges_ptr = &no_edges;
     }
 
@@ -5205,7 +5214,8 @@ pair<u32, u32> writeAnchoredPrograms(const RoseBuildImpl &build,
             auto it = cache.find(offset);
             if (it != end(cache)) {
                 anch_id = it->second;
-                DEBUG_PRINTF("reusing anch_id %u for offset %u\n", anch_id, offset);
+                DEBUG_PRINTF("reusing anch_id %u for offset %u\n", anch_id,
+                             offset);
             } else {
                 anch_id = verify_u32(programs.size());
                 programs.push_back(offset);
