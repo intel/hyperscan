@@ -174,8 +174,9 @@ u32 ReportManager::getDkey(const Report &r) const {
 
 void ReportManager::registerExtReport(ReportID id,
                                       const external_report_info &ext) {
-    if (contains(externalIdMap, id)) {
-        const external_report_info &eri = externalIdMap.at(id);
+    auto it = externalIdMap.find(id);
+    if (it != externalIdMap.end()) {
+        const external_report_info &eri = it->second;
         if (eri.highlander != ext.highlander) {
             /* we have a problem */
             ostringstream out;

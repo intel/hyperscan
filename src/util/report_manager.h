@@ -38,6 +38,7 @@
 #include "util/compile_error.h"
 #include "util/noncopyable.h"
 #include "util/report.h"
+#include "util/ue2_containers.h"
 
 #include <map>
 #include <set>
@@ -140,7 +141,7 @@ private:
 
     /** \brief Mapping from external match ids to information about that
      * id. */
-    std::map<ReportID, external_report_info> externalIdMap;
+    unordered_map<ReportID, external_report_info> externalIdMap;
 
     /** \brief Mapping from expression index to exhaustion key. */
     std::map<s64a, u32> toExhaustibleKeyMap;
