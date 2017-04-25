@@ -3615,22 +3615,37 @@ void makeRoleCheckLeftfix(const RoseBuildImpl &build,
 }
 
 static
-void makeRoleAnchoredDelay(const RoseBuildImpl &build,
-                           u32 floatingMinLiteralMatchOffset,
-                           RoseVertex v, RoseProgram &program) {
-    // Only relevant for roles that can be triggered by the anchored table.
-    if (!build.isAnchored(v)) {
+void makeAnchoredLiteralDelay(const RoseBuildImpl &build,
+                              const ProgramBuild &prog_build, u32 lit_id,
+                              RoseProgram &program) {
+    // Only relevant for literals in the anchored table.
+    const rose_literal_id &lit = build.literals.right.at(lit_id);
+    if (lit.table != ROSE_ANCHORED) {
         return;
     }
 
-    // If this match cannot occur after floatingMinLiteralMatchOffset, we do
-    // not need this check.
-    if (build.g[v].max_offset <= floatingMinLiteralMatchOffset) {
+    // If this literal match cannot occur after floatingMinLiteralMatchOffset,
+    // we do not need this check.
+    bool all_too_early = true;
+    rose_group groups = 0;
+
+    const auto &lit_vertices = build.literal_info.at(lit_id).vertices;
+    for (RoseVertex v : lit_vertices) {
+         if (build.g[v].max_offset > prog_build.floatingMinLiteralMatchOffset) {
+             all_too_early = false;
+         }
+         groups |= build.g[v].groups;
+    }
+
+    if (all_too_early) {
         return;
     }
+
+    assert(contains(prog_build.anchored_programs, lit_id));
+    u32 anch_id = prog_build.anchored_programs.at(lit_id);
 
     const auto *end_inst = program.end_instruction();
-    auto ri = make_unique<RoseInstrAnchoredDelay>(build.g[v].groups, end_inst);
+    auto ri = make_unique<RoseInstrAnchoredDelay>(groups, anch_id, end_inst);
     program.add_before_end(move(ri));
 }
 
@@ -4175,9 +4190,6 @@ RoseProgram makeRoleProgram(const RoseBuildImpl &build, build_context &bc,
     // First, add program instructions that enforce preconditions without
     // effects.
 
-    makeRoleAnchoredDelay(build, prog_build.floatingMinLiteralMatchOffset, v,
-                          program);
-
     if (onlyAtEod(build, v)) {
         DEBUG_PRINTF("only at eod\n");
         const auto *end_inst = program.end_instruction();
@@ -4627,21 +4639,6 @@ u32 findMaxOffset(const RoseBuildImpl &build, u32 lit_id) {
 }
 
 static
-void makeRecordAnchoredInstruction(const RoseBuildImpl &build,
-                                   ProgramBuild &prog_build, u32 lit_id,
-                                   RoseProgram &program) {
-    if (build.literals.right.at(lit_id).table != ROSE_ANCHORED) {
-        return;
-    }
-    if (!contains(prog_build.anchored_programs, lit_id)) {
-        return;
-    }
-    auto anch_id = prog_build.anchored_programs.at(lit_id);
-    DEBUG_PRINTF("adding RECORD_ANCHORED for anch_id=%u\n", anch_id);
-    program.add_before_end(make_unique<RoseInstrRecordAnchored>(anch_id));
-}
-
-static
 u32 findMinOffset(const RoseBuildImpl &build, u32 lit_id) {
     const auto &lit_vertices = build.literal_info.at(lit_id).vertices;
     assert(!lit_vertices.empty());
@@ -4768,8 +4765,8 @@ bool hasDelayedLiteral(const RoseBuildImpl &build,
 static
 RoseProgram makeLitInitialProgram(const RoseBuildImpl &build,
                                   build_context &bc, ProgramBuild &prog_build,
-                                  u32 lit_id,
-                                  const vector<RoseEdge> &lit_edges) {
+                                  u32 lit_id, const vector<RoseEdge> &lit_edges,
+                                  bool is_anchored_replay_program) {
     RoseProgram program;
 
     // Check long literal info.
@@ -4794,6 +4791,11 @@ RoseProgram makeLitInitialProgram(const RoseBuildImpl &build,
                                  prog_build.floatingMinLiteralMatchOffset,
                                  program);
 
+    /* Check if we are able to deliever matches from the anchored table now */
+    if (!is_anchored_replay_program) {
+        makeAnchoredLiteralDelay(build, prog_build, lit_id, program);
+    }
+
     return program;
 }
 
@@ -4806,7 +4808,13 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
 
     DEBUG_PRINTF("lit id=%u, %zu lit edges\n", lit_id, lit_edges.size());
 
-    RoseProgram program;
+    // Construct initial program up front, as its early checks must be able
+    // to jump to end and terminate processing for this literal.
+    auto lit_program = makeLitInitialProgram(build, bc, prog_build, lit_id,
+                                             lit_edges,
+                                             is_anchored_replay_program);
+
+    RoseProgram role_programs;
 
     // Predecessor state id -> program block.
     map<u32, RoseProgram> pred_blocks;
@@ -4829,7 +4837,7 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
 
     // Add blocks to deal with non-root edges (triggered by sparse iterator or
     // mmbit_isset checks).
-    addPredBlocks(pred_blocks, bc.roleStateIndices.size(), program);
+    addPredBlocks(pred_blocks, bc.roleStateIndices.size(), role_programs);
 
     // Add blocks to handle root roles.
     for (const auto &e : lit_edges) {
@@ -4839,31 +4847,23 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
         }
         DEBUG_PRINTF("root edge (%zu,%zu)\n", g[u].index,
                      g[target(e, g)].index);
-        program.add_block(makeRoleProgram(build, bc, prog_build, e));
+        role_programs.add_block(makeRoleProgram(build, bc, prog_build, e));
     }
 
     if (lit_id == build.eod_event_literal_id) {
+        /* Note: does not require the lit intial program */
         assert(build.eod_event_literal_id != MO_INVALID_IDX);
-        return program;
+        return role_programs;
     }
 
-    RoseProgram root_block;
+    /* Instructions to run even if a role program bails out */
+    RoseProgram unconditional_block;
 
     // Literal may squash groups.
-    makeGroupSquashInstruction(build, lit_id, root_block);
+    makeGroupSquashInstruction(build, lit_id, unconditional_block);
 
-    // Literal may be anchored and need to be recorded.
-    if (!is_anchored_replay_program) {
-        makeRecordAnchoredInstruction(build, prog_build, lit_id, root_block);
-    }
-
-    program.add_block(move(root_block));
-
-    // Construct initial program up front, as its early checks must be able
-    // to jump to end and terminate processing for this literal.
-    auto lit_program = makeLitInitialProgram(build, bc, prog_build, lit_id,
-                                             lit_edges);
-    lit_program.add_before_end(move(program));
+    role_programs.add_block(move(unconditional_block));
+    lit_program.add_before_end(move(role_programs));
 
     return lit_program;
 }

@@ -1892,6 +1892,8 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                     DEBUG_PRINTF("delay until playback\n");
                     tctxt->groups |= ri->groups;
                     work_done = 1;
+                    recordAnchoredLiteralMatch(t, scratch, ri->anch_id, end);
+
                     assert(ri->done_jump); // must progress
                     pc += ri->done_jump;
                     continue;
@@ -2085,8 +2087,8 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(RECORD_ANCHORED) {
-                recordAnchoredLiteralMatch(t, scratch, ri->id, end);
+            PROGRAM_CASE(DUMMY_NOP) {
+                assert(0);
             }
             PROGRAM_NEXT_INSTRUCTION
 

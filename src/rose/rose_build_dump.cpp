@@ -890,6 +890,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             PROGRAM_CASE(ANCHORED_DELAY) {
                 os << "    groups 0x" << std::hex << ri->groups << std::dec
                    << endl;
+                os << "    anch_id " << ri->anch_id << "\n";
                 os << "    done_jump " << offset + ri->done_jump << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
@@ -1097,9 +1098,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
-            PROGRAM_CASE(RECORD_ANCHORED) {
-                os << "    id " << ri->id << endl;
-            }
+            PROGRAM_CASE(DUMMY_NOP) {}
             PROGRAM_NEXT_INSTRUCTION
 
             PROGRAM_CASE(CATCH_UP) {}

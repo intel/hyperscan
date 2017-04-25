@@ -72,6 +72,7 @@ void RoseInstrAnchoredDelay::write(void *dest, RoseEngineBlob &blob,
     RoseInstrBase::write(dest, blob, offset_map);
     auto *inst = static_cast<impl_type *>(dest);
     inst->groups = groups;
+    inst->anch_id = anch_id;
     inst->done_jump = calc_jump(offset_map, this, target);
 }
 
@@ -246,13 +247,6 @@ void RoseInstrPushDelayed::write(void *dest, RoseEngineBlob &blob,
     auto *inst = static_cast<impl_type *>(dest);
     inst->delay = delay;
     inst->index = index;
-}
-
-void RoseInstrRecordAnchored::write(void *dest, RoseEngineBlob &blob,
-                                    const OffsetMap &offset_map) const {
-    RoseInstrBase::write(dest, blob, offset_map);
-    auto *inst = static_cast<impl_type *>(dest);
-    inst->id = id;
 }
 
 void RoseInstrSomAdjust::write(void *dest, RoseEngineBlob &blob,

@@ -216,18 +216,20 @@ class RoseInstrAnchoredDelay
                                     RoseInstrAnchoredDelay> {
 public:
     rose_group groups;
+    u32 anch_id;
     const RoseInstruction *target;
 
-    RoseInstrAnchoredDelay(rose_group groups_in,
+    RoseInstrAnchoredDelay(rose_group groups_in, u32 anch_id_in,
                            const RoseInstruction *target_in)
-        : groups(groups_in), target(target_in) {}
+        : groups(groups_in), anch_id(anch_id_in), target(target_in) {}
 
     bool operator==(const RoseInstrAnchoredDelay &ri) const {
-        return groups == ri.groups && target == ri.target;
+        return groups == ri.groups && anch_id == ri.anch_id
+        && target == ri.target;
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), groups);
+        return hash_all(static_cast<int>(opcode), groups, anch_id);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -235,8 +237,8 @@ public:
 
     bool equiv_to(const RoseInstrAnchoredDelay &ri, const OffsetMap &offsets,
                   const OffsetMap &other_offsets) const {
-        return groups == ri.groups &&
-               offsets.at(target) == other_offsets.at(ri.target);
+        return groups == ri.groups && anch_id == ri.anch_id
+               && offsets.at(target) == other_offsets.at(ri.target);
     }
 };
 
@@ -841,32 +843,6 @@ public:
     bool equiv_to(const RoseInstrPushDelayed &ri, const OffsetMap &,
                   const OffsetMap &) const {
         return delay == ri.delay && index == ri.index;
-    }
-};
-
-class RoseInstrRecordAnchored
-    : public RoseInstrBaseNoTargets<ROSE_INSTR_RECORD_ANCHORED,
-                                    ROSE_STRUCT_RECORD_ANCHORED,
-                                    RoseInstrRecordAnchored> {
-public:
-    u32 id;
-
-    explicit RoseInstrRecordAnchored(u32 id_in) : id(id_in) {}
-
-    bool operator==(const RoseInstrRecordAnchored &ri) const {
-        return id == ri.id;
-    }
-
-    size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), id);
-    }
-
-    void write(void *dest, RoseEngineBlob &blob,
-               const OffsetMap &offset_map) const override;
-
-    bool equiv_to(const RoseInstrRecordAnchored &ri, const OffsetMap &,
-                  const OffsetMap &) const {
-        return id == ri.id;
     }
 };
 
@@ -2281,6 +2257,8 @@ public:
     /**
      * \brief Adds this block to the program just before the terminating
      * ROSE_INSTR_END.
+     *
+     * Any existing instruction that was jumping to end continues to do so.
      */
     void add_before_end(RoseProgram &&block) {
         assert(!prog.empty());
@@ -2295,6 +2273,9 @@ public:
 
     /**
      * \brief Append this program block, replacing our current ROSE_INSTR_END.
+     *
+     * Any existing instruction that was jumping to end, now leads to the newly
+     * added block.
      */
     void add_block(RoseProgram &&block) {
         assert(!prog.empty());
