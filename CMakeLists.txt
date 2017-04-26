@@ -947,6 +947,7 @@ SET (hs_SRCS
     src/rose/rose_build_compile.cpp
     src/rose/rose_build_convert.cpp
     src/rose/rose_build_convert.h
+    src/rose/rose_build_dedupe.cpp
     src/rose/rose_build_engine_blob.h
     src/rose/rose_build_exclusive.cpp
     src/rose/rose_build_exclusive.h
