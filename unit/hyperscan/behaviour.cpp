@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1163,6 +1163,106 @@ TEST(HyperscanTestBehaviour, Vectored7) {
     matchCount = 0;
     err = hs_scan_vector(db, data, len, 0, 0, scratch, countHandler, nullptr);
 
+    ASSERT_EQ(HS_SUCCESS, err);
+    EXPECT_EQ(1U, matchCount);
+
+    // teardown
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+    hs_free_database(db);
+}
+
+TEST(HyperscanTestBehaviour, MultiStream1) {
+    hs_error_t err;
+
+    // build a database
+    hs_database_t *db = buildDB("foo.*bar.*\\b", 0, 0, HS_MODE_STREAM);
+    ASSERT_TRUE(db != nullptr);
+
+    // alloc some scratch
+    hs_scratch_t *scratch = nullptr;
+    err = hs_alloc_scratch(db, &scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+    EXPECT_TRUE(scratch != nullptr);
+
+    hs_stream_t *stream = nullptr;
+    err = hs_open_stream(db, 0, &stream);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(stream != nullptr);
+
+    hs_stream_t *stream2 = nullptr;
+    err = hs_open_stream(db, 0, &stream2);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(stream2 != nullptr);
+
+    matchCount = 0;
+    const string data("foo        bara");
+    err = hs_scan_stream(stream, data.c_str(), data.size(), 0, scratch,
+                         countHandler, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    EXPECT_EQ(0U, matchCount); // hasn't matched until stream end
+
+    const string data2("foo        bar ");
+    err = hs_scan_stream(stream2, data2.c_str(), data2.size(), 0, scratch,
+                         nullptr, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    EXPECT_EQ(0U, matchCount);
+
+    err = hs_close_stream(stream, scratch, countHandler, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    EXPECT_EQ(1U, matchCount);
+
+    err = hs_close_stream(stream2, scratch, countHandler, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    EXPECT_EQ(1U, matchCount);
+
+    // teardown
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+    hs_free_database(db);
+}
+
+TEST(HyperscanTestBehaviour, MultiStream2) {
+    hs_error_t err;
+
+    // build a database
+    hs_database_t *db = buildDB("foo.*bar.*\\b", 0, 0, HS_MODE_STREAM);
+    ASSERT_TRUE(db != nullptr);
+
+    // alloc some scratch
+    hs_scratch_t *scratch = nullptr;
+    err = hs_alloc_scratch(db, &scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+    EXPECT_TRUE(scratch != nullptr);
+
+    hs_stream_t *stream = nullptr;
+    err = hs_open_stream(db, 0, &stream);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(stream != nullptr);
+
+    hs_stream_t *stream2 = nullptr;
+    err = hs_open_stream(db, 0, &stream2);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(stream2 != nullptr);
+
+    matchCount = 0;
+    const string data2("foo        bar ");
+    err = hs_scan_stream(stream2, data2.c_str(), data2.size(), 0, scratch,
+                         nullptr, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    EXPECT_EQ(0U, matchCount);
+
+    const string data("foo        bara");
+    err = hs_scan_stream(stream, data.c_str(), data.size(), 0, scratch,
+                         countHandler, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    EXPECT_EQ(0U, matchCount); // hasn't matched until stream end
+
+    err = hs_close_stream(stream2, scratch, countHandler, nullptr);
+    ASSERT_EQ(HS_SUCCESS, err);
+    EXPECT_EQ(0U, matchCount);
+
+    err = hs_close_stream(stream, scratch, countHandler, nullptr);
     ASSERT_EQ(HS_SUCCESS, err);
     EXPECT_EQ(1U, matchCount);
 

@@ -1209,6 +1209,8 @@ hwlmcb_rv_t roseEnginesEod(const struct RoseEngine *rose,
 
     const u8 *aa = getActiveLeafArray(rose, scratch->core_info.state);
     const u32 aaCount = rose->activeArrayCount;
+    const u32 qCount = rose->queueCount;
+    struct fatbit *aqa = scratch->aqa;
 
     const struct mmbit_sparse_iter *it = getByOffset(rose, iter_offset);
     assert(ISALIGNED(it));
@@ -1221,6 +1223,10 @@ hwlmcb_rv_t roseEnginesEod(const struct RoseEngine *rose,
          qi = mmbit_sparse_iter_next(aa, aaCount, qi, &idx, it, si_state)) {
         DEBUG_PRINTF("checking nfa %u\n", qi);
         struct mq *q = scratch->queues + qi;
+        if (!fatbit_set(aqa, qCount, qi)) {
+            initQueue(q, qi, rose, scratch);
+        }
+
         assert(q->nfa == getNfaByQueue(rose, qi));
         assert(nfaAcceptsEod(q->nfa));
 
