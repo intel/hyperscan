@@ -311,9 +311,9 @@ bool RoseDedupeAuxImpl::requiresDedupeSupport(
     }
 
     for (auto it = begin(lits); it != end(lits); ++it) {
-        const auto &lit1 = build.literals.right.at(it->first);
+        const auto &lit1 = build.literals.at(it->first);
         for (auto jt = next(it); jt != end(lits); ++jt) {
-            const auto &lit2 = build.literals.right.at(jt->first);
+            const auto &lit2 = build.literals.at(jt->first);
             if (literalsCouldRace(lit1, lit2)) {
                 DEBUG_PRINTF("literals could race\n");
                 return true;

@@ -211,7 +211,7 @@ bool maskFromPreds(const RoseBuildImpl &build, const rose_literal_id &id,
     }
 
     u32 u_lit_id = *(g[u].literals.begin());
-    const rose_literal_id &u_id = build.literals.right.at(u_lit_id);
+    const rose_literal_id &u_id = build.literals.at(u_lit_id);
     DEBUG_PRINTF("u has lit: %s\n", escapeString(u_id.s).c_str());
 
     // Number of characters to take from the back of u's literal.
@@ -346,9 +346,8 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
     }
 
     vector<u32> candidates;
-    for (const auto &e : build.literals.right) {
-        const u32 id = e.first;
-        const auto &lit = e.second;
+    for (u32 id = 0; id < build.literals.size(); id++) {
+        const auto &lit = build.literals.at(id);
 
         if (lit.delay || build.isDelayed(id)) {
             continue;
@@ -377,7 +376,7 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
     }
 
     for (const u32 &id : candidates) {
-        const auto &lit = build.literals.right.at(id);
+        const auto &lit = build.literals.at(id);
         auto &lit_info = build.literal_info.at(id);
 
         vector<u8> msk, cmp;
@@ -492,7 +491,7 @@ bool isNoRunsLiteral(const RoseBuildImpl &build, const u32 id,
         return false;
     }
 
-    size_t len = build.literals.right.at(id).s.length();
+    size_t len = build.literals.at(id).s.length();
     if (len > max_len) {
         DEBUG_PRINTF("long literal, requires confirm\n");
         return false;
@@ -617,7 +616,7 @@ u64a literalMinReportOffset(const RoseBuildImpl &build,
     // If this literal in the undelayed literal corresponding to some delayed
     // literals, we must take their minimum offsets into account.
     for (const u32 &delayed_id : info.delayed_ids) {
-        const auto &delayed_lit = build.literals.right.at(delayed_id);
+        const auto &delayed_lit = build.literals.at(delayed_id);
         const auto &delayed_info = build.literal_info.at(delayed_id);
         u64a delayed_min_offset = literalMinReportOffset(build, delayed_lit,
                                                          delayed_info);
@@ -682,7 +681,7 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
 
     for (const auto &f : fragments) {
         for (u32 id : f.lit_ids) {
-            const rose_literal_id &lit = build.literals.right.at(id);
+            const rose_literal_id &lit = build.literals.at(id);
 
             if (lit.table != table) {
                 continue; /* wrong table */

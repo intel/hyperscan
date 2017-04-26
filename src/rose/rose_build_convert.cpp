@@ -235,7 +235,7 @@ void convertFloodProneSuffix(RoseBuildImpl &tbi, RoseVertex v, u32 lit_id,
 static
 size_t findFloodProneSuffixLen(const RoseBuildImpl &tbi) {
     size_t numLiterals = 0;
-    for (const rose_literal_id &lit : tbi.literals.right | map_values) {
+    for (const rose_literal_id &lit : tbi.literals) {
         if (lit.delay) {
             continue; // delay ids are virtual-ish
         }
@@ -293,7 +293,7 @@ void convertFloodProneSuffixes(RoseBuildImpl &tbi) {
         }
 
         u32 lit_id = *g[v].literals.begin();
-        const rose_literal_id &lit = tbi.literals.right.at(lit_id);
+        const rose_literal_id &lit = tbi.literals.at(lit_id);
 
         // anchored or delayed literals need thought.
         if (lit.table != ROSE_FLOATING || lit.delay) {

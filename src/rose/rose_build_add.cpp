@@ -295,7 +295,7 @@ void createVertices(RoseBuildImpl *tbi,
             if (bd.som && !g[w].left.haig) {
                 /* no prefix - som based on literal start */
                 assert(!prefix_graph);
-                g[w].som_adjust = tbi->literals.right.at(literalId).elength();
+                g[w].som_adjust = tbi->literals.at(literalId).elength();
                 DEBUG_PRINTF("set som_adjust to %u\n", g[w].som_adjust);
             }
 
@@ -333,7 +333,7 @@ void createVertices(RoseBuildImpl *tbi,
         u32 ghostId = tbi->literal_info[literalId].undelayed_id;
         DEBUG_PRINTF("creating delay ghost vertex, id=%u\n", ghostId);
         assert(ghostId != literalId);
-        assert(tbi->literals.right.at(ghostId).delay == 0);
+        assert(tbi->literals.at(ghostId).delay == 0);
 
         // Adjust offsets, removing delay.
         u32 ghost_min = min_offset, ghost_max = max_offset;
@@ -1907,16 +1907,20 @@ void removeAddedLiterals(RoseBuildImpl &tbi, const flat_set<u32> &lit_ids) {
         return;
     }
 
+    DEBUG_PRINTF("remove last %zu literals\n", lit_ids.size());
+
     // lit_ids should be a contiguous range.
     assert(lit_ids.size() == *lit_ids.rbegin() - *lit_ids.begin() + 1);
+    assert(*lit_ids.rbegin() == tbi.literals.size() - 1);
 
-    for (const u32 &lit_id : lit_ids) {
-        assert(lit_id < tbi.literal_info.size());
-        assert(tbi.literals.right.at(lit_id).table == ROSE_ANCHORED);
-        assert(tbi.literal_info[lit_id].vertices.empty());
+    assert(all_of_in(lit_ids, [&](u32 lit_id) {
+        return lit_id < tbi.literal_info.size() &&
+               tbi.literals.at(lit_id).table == ROSE_ANCHORED &&
+               tbi.literal_info[lit_id].vertices.empty();
+    }));
 
-        tbi.literals.right.erase(lit_id);
-    }
+    tbi.literals.erase_back(lit_ids.size());
+    assert(tbi.literals.size() == *lit_ids.begin());
 
     // lit_ids should be at the end of tbi.literal_info.
     assert(tbi.literal_info.size() == *lit_ids.rbegin() + 1);

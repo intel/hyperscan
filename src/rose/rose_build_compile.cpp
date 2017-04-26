@@ -119,7 +119,7 @@ void removeLiteralFromGraph(RoseBuildImpl &build, u32 id) {
  */
 static
 void explodeLiteral(RoseBuildImpl &build, u32 id) {
-    const auto &lit = build.literals.right.at(id);
+    const auto &lit = build.literals.at(id);
     auto &info = build.literal_info[id];
 
     assert(!info.group_mask); // not set yet
@@ -139,7 +139,7 @@ void explodeLiteral(RoseBuildImpl &build, u32 id) {
         DEBUG_PRINTF("adding exploded lit %u: '%s'\n", new_id,
                      dumpString(new_str).c_str());
 
-        const auto &new_lit = build.literals.right.at(new_id);
+        const auto &new_lit = build.literals.at(new_id);
         auto &new_info = build.literal_info.at(new_id);
         insert(&new_info.vertices, info.vertices);
         for (const auto &v : info.vertices) {
@@ -150,7 +150,7 @@ void explodeLiteral(RoseBuildImpl &build, u32 id) {
         if (!info.delayed_ids.empty()) {
             flat_set<u32> &del_ids = new_info.delayed_ids;
             for (u32 delay_id : info.delayed_ids) {
-                const auto &dlit = build.literals.right.at(delay_id);
+                const auto &dlit = build.literals.at(delay_id);
                 u32 new_delay_id =
                     build.getLiteralId(new_lit.s, new_lit.msk, new_lit.cmp,
                                        dlit.delay, dlit.table);
@@ -170,9 +170,8 @@ void explodeLiteral(RoseBuildImpl &build, u32 id) {
 
 void RoseBuildImpl::handleMixedSensitivity(void) {
     vector<u32> explode;
-    for (const auto &e : literals.right) {
-        u32 id = e.first;
-        const rose_literal_id &lit = e.second;
+    for (u32 id = 0; id < literals.size(); id++) {
+        const rose_literal_id &lit = literals.at(id);
 
         if (lit.delay) {
             continue; /* delay id's are virtual-ish */
@@ -420,7 +419,7 @@ bool RoseBuildImpl::isDirectReport(u32 id) const {
             }
         }
 
-        if (literals.right.at(id).table == ROSE_ANCHORED) {
+        if (literals.at(id).table == ROSE_ANCHORED) {
             /* in-edges are irrelevant for anchored region. */
             continue;
         }
@@ -439,7 +438,7 @@ bool RoseBuildImpl::isDirectReport(u32 id) const {
     }
 
     DEBUG_PRINTF("literal %u ('%s') is a %s report\n", id,
-                 dumpString(literals.right.at(id).s).c_str(),
+                 dumpString(literals.at(id).s).c_str(),
                  info.vertices.size() > 1 ? "multi-direct" : "direct");
     return true;
 }
@@ -511,8 +510,7 @@ bool checkEodStealFloating(const RoseBuildImpl &build,
 
     // Collect a set of all floating literals.
     unordered_set<ue2_literal> floating_lits;
-    for (auto &m : build.literals) {
-        const auto &lit = m.left;
+    for (auto &lit : build.literals) {
         if (lit.table == ROSE_FLOATING) {
             floating_lits.insert(lit.s);
         }
@@ -524,7 +522,7 @@ bool checkEodStealFloating(const RoseBuildImpl &build,
     u32 new_floating_lits = 0;
 
     for (u32 eod_id : eodLiteralsForFloating) {
-        const rose_literal_id &lit = build.literals.right.at(eod_id);
+        const rose_literal_id &lit = build.literals.at(eod_id);
         DEBUG_PRINTF("checking '%s'\n", dumpString(lit.s).c_str());
 
         if (contains(floating_lits, lit.s)) {
@@ -558,12 +556,16 @@ bool checkEodStealFloating(const RoseBuildImpl &build,
 
 static
 void promoteEodToFloating(RoseBuildImpl &tbi, const vector<u32> &eodLiterals) {
-    DEBUG_PRINTF("promoting eod literals to floating table\n");
+    DEBUG_PRINTF("promoting %zu eod literals to floating table\n",
+                 eodLiterals.size());
 
     for (u32 eod_id : eodLiterals) {
-        const rose_literal_id &lit = tbi.literals.right.at(eod_id);
+        const rose_literal_id &lit = tbi.literals.at(eod_id);
+        DEBUG_PRINTF("eod_id=%u, lit=%s\n", eod_id, dumpString(lit.s).c_str());
         u32 floating_id = tbi.getLiteralId(lit.s, lit.msk, lit.cmp, lit.delay,
                                            ROSE_FLOATING);
+        DEBUG_PRINTF("floating_id=%u, lit=%s\n", floating_id,
+                     dumpString(tbi.literals.at(floating_id).s).c_str());
         auto &float_verts = tbi.literal_info[floating_id].vertices;
         auto &eod_verts = tbi.literal_info[eod_id].vertices;
 
@@ -588,7 +590,7 @@ bool promoteEodToAnchored(RoseBuildImpl &tbi, const vector<u32> &eodLiterals) {
     bool rv = true;
 
     for (u32 eod_id : eodLiterals) {
-        const rose_literal_id &lit = tbi.literals.right.at(eod_id);
+        const rose_literal_id &lit = tbi.literals.at(eod_id);
 
         NGHolder h;
         add_edge(h.start, h.accept, h);
@@ -728,7 +730,7 @@ void stealEodVertices(RoseBuildImpl &tbi) {
             continue; // skip unused literals
         }
 
-        const rose_literal_id &lit = tbi.literals.right.at(i);
+        const rose_literal_id &lit = tbi.literals.at(i);
 
         if (lit.table == ROSE_EOD_ANCHORED) {
             if (suitableForAnchored(tbi, lit, info)) {
@@ -770,7 +772,7 @@ bool RoseBuildImpl::isDelayed(u32 id) const {
 
 bool RoseBuildImpl::hasDelayedLiteral(RoseVertex v) const {
     for (u32 lit_id : g[v].literals) {
-        if (literals.right.at(lit_id).delay) {
+        if (literals.at(lit_id).delay) {
             return true;
         }
     }
@@ -1096,7 +1098,7 @@ bool triggerKillsRoseGraph(const RoseBuildImpl &build, const left_id &left,
     /* check each pred literal to see if they all kill previous graph
      * state */
     for (u32 lit_id : build.g[source(e, build.g)].literals) {
-        const rose_literal_id &pred_lit = build.literals.right.at(lit_id);
+        const rose_literal_id &pred_lit = build.literals.at(lit_id);
         const ue2_literal s = findNonOverlappingTail(all_lits, pred_lit.s);
 
         DEBUG_PRINTF("running graph %zu\n", states.size());
@@ -1170,7 +1172,7 @@ void findTopTriggerCancels(RoseBuildImpl &build) {
         }
 
         for (u32 lit_id : pred_lit_ids) {
-            const rose_literal_id &p_lit = build.literals.right.at(lit_id);
+            const rose_literal_id &p_lit = build.literals.at(lit_id);
             if (p_lit.delay || p_lit.table == ROSE_ANCHORED) {
                 goto next_rose;
             }
@@ -1271,7 +1273,7 @@ void countFloatingLiterals(const RoseBuildImpl &tbi, u32 *total_count,
                            u32 *short_count) {
     *total_count = 0;
     *short_count = 0;
-    for (const rose_literal_id &lit : tbi.literals.right | map_values) {
+    for (const rose_literal_id &lit : tbi.literals) {
         if (lit.delay) {
             continue; /* delay id's are virtual-ish */
         }

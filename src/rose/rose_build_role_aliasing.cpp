@@ -328,9 +328,9 @@ bool canMergeLiterals(RoseVertex a, RoseVertex b, const RoseBuildImpl &build) {
 
     // Otherwise, all the literals involved must have the same length.
     for (u32 a_id : lits_a) {
-        const rose_literal_id &la = build.literals.right.at(a_id);
+        const rose_literal_id &la = build.literals.at(a_id);
         for (u32 b_id : lits_b) {
-            const rose_literal_id &lb = build.literals.right.at(b_id);
+            const rose_literal_id &lb = build.literals.at(b_id);
 
             if (la.elength() != lb.elength()) {
                 DEBUG_PRINTF("bad merge %zu!=%zu '%s', '%s'\n", la.elength(),
@@ -1483,7 +1483,7 @@ void splitByLiteralTable(const RoseBuildImpl &build,
     auto make_split_key = [&](RoseVertex v) {
         const auto &lits = g[v].literals;
         assert(!lits.empty());
-        return build.literals.right.at(*lits.begin()).table;
+        return build.literals.at(*lits.begin()).table;
     };
     splitAndFilterBuckets(buckets, make_split_key);
 }

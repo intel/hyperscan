@@ -447,7 +447,7 @@ static
 void findFloodReach(const RoseBuildImpl &tbi, const RoseVertex v,
                     set<CharReach> &flood_reach) {
     for (u32 lit_id : tbi.g[v].literals) {
-        const ue2_literal &s = tbi.literals.right.at(lit_id).s;
+        const ue2_literal &s = tbi.literals.at(lit_id).s;
         if (s.empty()) {
             continue;
         }
@@ -491,7 +491,7 @@ map<s32, CharReach> findLiteralReach(const RoseBuildImpl &build,
     map<s32, CharReach> look;
 
     for (u32 lit_id : build.g[v].literals) {
-        const rose_literal_id &lit = build.literals.right.at(lit_id);
+        const rose_literal_id &lit = build.literals.at(lit_id);
         auto lit_look = findLiteralReach(lit);
 
         if (first) {

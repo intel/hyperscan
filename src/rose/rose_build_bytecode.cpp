@@ -746,8 +746,8 @@ void findTriggerSequences(const RoseBuildImpl &tbi,
         const u32 top = e.first;
         const set<u32> &lit_ids = e.second;
 
-        for (u32 id :  lit_ids) {
-            const rose_literal_id &lit = tbi.literals.right.at(id);
+        for (u32 id : lit_ids) {
+            const rose_literal_id &lit = tbi.literals.at(id);
             (*trigger_lits)[top].push_back(as_cr_seq(lit));
         }
     }
@@ -905,8 +905,8 @@ u32 decreaseLag(const RoseBuildImpl &build, NGHolder &h,
     for (RoseVertex v : succs) {
         u32 lag = rg[v].left.lag;
         for (u32 lit_id : rg[v].literals) {
-            u32 delay = build.literals.right.at(lit_id).delay;
-            const ue2_literal &literal = build.literals.right.at(lit_id).s;
+            u32 delay = build.literals.at(lit_id).delay;
+            const ue2_literal &literal = build.literals.at(lit_id).s;
             assert(lag <= literal.length() + delay);
             size_t base = literal.length() + delay - lag;
             if (base >= literal.length()) {
@@ -1134,7 +1134,7 @@ bool buildLeftfix(RoseBuildImpl &build, build_context &bc, bool prefix, u32 qi,
         for (RoseVertex v : succs) {
             for (auto u : inv_adjacent_vertices_range(v, g)) {
                 for (u32 lit_id : g[u].literals) {
-                    lits.insert(build.literals.right.at(lit_id).s);
+                    lits.insert(build.literals.at(lit_id).s);
                 }
             }
         }
@@ -1315,7 +1315,7 @@ void updateExclusiveInfixProperties(const RoseBuildImpl &build,
                 set<ue2_literal> lits;
                 for (auto u : inv_adjacent_vertices_range(v, build.g)) {
                     for (u32 lit_id : build.g[u].literals) {
-                        lits.insert(build.literals.right.at(lit_id).s);
+                        lits.insert(build.literals.at(lit_id).s);
                     }
                 }
                 DEBUG_PRINTF("%zu literals\n", lits.size());
@@ -2117,9 +2117,8 @@ u32 RoseBuildImpl::calcHistoryRequired() const {
     }
 
     // Delayed literals contribute to history requirement as well.
-    for (const auto &e : literals.right) {
-        const u32 id = e.first;
-        const auto &lit = e.second;
+    for (u32 id = 0; id < literals.size(); id++) {
+        const auto &lit = literals.at(id);
         if (lit.delay) {
             // If the literal is delayed _and_ has a mask that is longer than
             // the literal, we need enough history to match the whole mask as
@@ -2716,10 +2715,10 @@ void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
             } else {
                 left.lagIndex = ROSE_OFFSET_INVALID;
             }
-
-            DEBUG_PRINTF("rose %u is %s\n", left_index,
-                         left.infix ? "infix" : "prefix");
         }
+
+        DEBUG_PRINTF("rose %u is %s\n", left_index,
+                     left.infix ? "infix" : "prefix");
 
         // Update squash mask.
         left.squash_mask &= lbi.squash_mask;
@@ -2853,9 +2852,8 @@ vector<LitFragment> groupByFragment(const RoseBuildImpl &build) {
 
     map<rose_literal_id, FragmentInfo> frag_info;
 
-    for (const auto &m : build.literals.right) {
-        const u32 lit_id = m.first;
-        const auto &lit = m.second;
+    for (u32 lit_id = 0; lit_id < build.literals.size(); lit_id++) {
+        const auto &lit = build.literals.at(lit_id);
         const auto &info = build.literal_info.at(lit_id);
 
         if (!isUsedLiteral(build, lit_id)) {
@@ -2993,7 +2991,7 @@ pair<u32, u32> writeAnchoredPrograms(const RoseBuildImpl &build,
 
     for (const auto &frag : fragments) {
         for (const u32 lit_id : frag.lit_ids) {
-            const auto &lit = build.literals.right.at(lit_id);
+            const auto &lit = build.literals.at(lit_id);
 
             if (lit.table != ROSE_ANCHORED) {
                 continue;
@@ -3238,7 +3236,7 @@ void fillMatcherDistances(const RoseBuildImpl &build, RoseEngine *engine) {
         assert(g[v].min_offset <= g[v].max_offset);
 
         for (u32 lit_id : g[v].literals) {
-            const rose_literal_id &key = build.literals.right.at(lit_id);
+            const rose_literal_id &key = build.literals.at(lit_id);
             u32 max_d = g[v].max_offset;
             u32 min_d = g[v].min_offset;
 
@@ -3371,9 +3369,8 @@ pair<size_t, size_t> floatingCountAndMaxLen(const RoseBuildImpl &build) {
     size_t num = 0;
     size_t max_len = 0;
 
-    for (const auto &e : build.literals.right) {
-        const u32 id = e.first;
-        const rose_literal_id &lit = e.second;
+    for (u32 id = 0; id < build.literals.size(); id++) {
+        const rose_literal_id &lit = build.literals.at(id);
 
         if (lit.table != ROSE_FLOATING) {
             continue;

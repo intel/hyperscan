@@ -238,9 +238,8 @@ void assignGroupsToLiterals(RoseBuildImpl &build) {
     u32 group_always_on = 0;
 
     // First pass: handle always on literals.
-    for (const auto &e : literals.right) {
-        u32 id = e.first;
-        const rose_literal_id &lit = e.second;
+    for (u32 id = 0; id < literals.size(); id++) {
+        const rose_literal_id &lit = literals.at(id);
         rose_literal_info &info = literal_info[id];
 
         if (!requires_group_assignment(lit, info)) {
@@ -274,9 +273,8 @@ void assignGroupsToLiterals(RoseBuildImpl &build) {
     priority_queue<tuple<s32, s32, u32>> pq;
 
     // Second pass: the other literals.
-    for (const auto &e : literals.right) {
-        u32 id = e.first;
-        const rose_literal_id &lit = e.second;
+    for (u32 id = 0; id < literals.size(); id++) {
+        const rose_literal_id &lit = literals.at(id);
         rose_literal_info &info = literal_info[id];
 
         if (!requires_group_assignment(lit, info)) {
@@ -290,7 +288,7 @@ void assignGroupsToLiterals(RoseBuildImpl &build) {
     while (!pq.empty()) {
         u32 id = get<2>(pq.top());
         pq.pop();
-        UNUSED const rose_literal_id &lit = literals.right.at(id);
+        UNUSED const rose_literal_id &lit = literals.at(id);
         DEBUG_PRINTF("assigning groups to lit %u (v %zu l %zu)\n", id,
                      literal_info[id].vertices.size(), lit.s.length());
 
@@ -361,9 +359,8 @@ void assignGroupsToLiterals(RoseBuildImpl &build) {
         }
     }
     /* assign delayed literals to the same group as their parent */
-    for (const auto &e : literals.right) {
-        u32 id = e.first;
-        const rose_literal_id &lit = e.second;
+    for (u32 id = 0; id < literals.size(); id++) {
+        const rose_literal_id &lit = literals.at(id);
 
         if (!lit.delay) {
             continue;
@@ -378,7 +375,7 @@ void assignGroupsToLiterals(RoseBuildImpl &build) {
     }
 
     DEBUG_PRINTF("populate group to literal mapping\n");
-    for (const u32 id : literals.right | map_keys) {
+    for (u32 id = 0; id < literals.size(); id++) {
         rose_group groups = literal_info[id].group_mask;
         while (groups) {
             u32 group_id = findAndClearLSB_64(&groups);
@@ -561,10 +558,10 @@ bool isGroupSquasher(const RoseBuildImpl &build, const u32 id /* literal id */,
     const rose_literal_info &lit_info = build.literal_info.at(id);
 
     DEBUG_PRINTF("checking if %u '%s' is a group squasher %016llx\n", id,
-                  dumpString(build.literals.right.at(id).s).c_str(),
-                  lit_info.group_mask);
+                 dumpString(build.literals.at(id).s).c_str(),
+                 lit_info.group_mask);
 
-    if (build.literals.right.at(id).table == ROSE_EVENT) {
+    if (build.literals.at(id).table == ROSE_EVENT) {
         DEBUG_PRINTF("event literal\n");
         return false;
     }
@@ -693,9 +690,10 @@ bool isGroupSquasher(const RoseBuildImpl &build, const u32 id /* literal id */,
 
 void findGroupSquashers(RoseBuildImpl &build) {
     rose_group forbidden_squash_group = build.boundary_group_mask;
-    for (const auto &e : build.literals.right) {
-        if (e.second.delay) {
-            forbidden_squash_group |= build.literal_info[e.first].group_mask;
+    for (u32 id = 0; id < build.literals.size(); id++) {
+        const auto &lit = build.literals.at(id);
+        if (lit.delay) {
+            forbidden_squash_group |= build.literal_info[id].group_mask;
         }
     }
 

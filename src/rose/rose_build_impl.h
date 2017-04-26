@@ -39,16 +39,17 @@
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_revacc.h"
 #include "util/bytecode_ptr.h"
+#include "util/hash.h"
 #include "util/order_check.h"
 #include "util/queue_index_factory.h"
 #include "util/ue2_containers.h"
+#include "util/ue2string.h"
+#include "util/verify_types.h"
 
 #include <deque>
 #include <map>
 #include <string>
 #include <vector>
-#include <boost/bimap.hpp>
-#include <boost/functional/hash/hash.hpp>
 #include <boost/variant.hpp>
 
 struct RoseEngine;
@@ -300,6 +301,11 @@ struct rose_literal_id {
         }
         return MAX(mask_len, s.length()) + delay;
     }
+
+    bool operator==(const rose_literal_id &b) const {
+        return s == b.s && msk == b.msk && cmp == b.cmp && table == b.table &&
+               delay == b.delay && distinctiveness == b.distinctiveness;
+    }
 };
 
 static inline
@@ -313,8 +319,60 @@ bool operator<(const rose_literal_id &a, const rose_literal_id &b) {
     return 0;
 }
 
-// Literals are stored in a map from (string, nocase) -> ID
-typedef boost::bimap<rose_literal_id, u32> RoseLiteralMap;
+inline
+size_t hash_value(const rose_literal_id &lit) {
+    return hash_all(lit.s, lit.msk, lit.cmp, lit.table, lit.delay,
+                    lit.distinctiveness);
+}
+
+class RoseLiteralMap {
+    /**
+     * \brief Main storage for literals.
+     *
+     * Note that this cannot be a vector, as the present code relies on
+     * iterator stability when iterating over this list and adding to it inside
+     * the loop.
+     */
+    std::deque<rose_literal_id> lits;
+
+    /** \brief Quick-lookup index from literal -> index in lits. */
+    unordered_map<rose_literal_id, u32> lits_index;
+
+public:
+    std::pair<u32, bool> insert(const rose_literal_id &lit) {
+        auto it = lits_index.find(lit);
+        if (it != lits_index.end()) {
+            return {it->second, false};
+        }
+        u32 id = verify_u32(lits.size());
+        lits.push_back(lit);
+        lits_index.emplace(lit, id);
+        return {id, true};
+    }
+
+    // Erase the last num elements.
+    void erase_back(size_t num) {
+        assert(num <= lits.size());
+        for (size_t i = 0; i < num; i++) {
+            lits_index.erase(lits.back());
+            lits.pop_back();
+        }
+        assert(lits.size() == lits_index.size());
+    }
+
+    const rose_literal_id &at(u32 id) const {
+        assert(id < lits.size());
+        return lits.at(id);
+    }
+
+    using const_iterator = decltype(lits)::const_iterator;
+    const_iterator begin() const { return lits.begin(); }
+    const_iterator end() const { return lits.end(); }
+
+    size_t size() const {
+        return lits.size();
+    }
+};
 
 struct simple_anchored_info {
     simple_anchored_info(u32 min_b, u32 max_b, const ue2_literal &lit)

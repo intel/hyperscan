@@ -257,17 +257,13 @@ private:
             os << "/nofrag ";
         }
 
-        if (contains(build.literals.right, id)) {
-            const auto &lit = build.literals.right.at(id);
-            os << '\'' << dotEscapeString(lit.s.get_string()) << '\'';
-            if (lit.s.any_nocase()) {
-                os << " (nocase)";
-            }
-            if (lit.delay) {
-                os << " +" << lit.delay;
-            }
-        } else {
-            os << "<unknown>";
+        const auto &lit = build.literals.at(id);
+        os << '\'' << dotEscapeString(lit.s.get_string()) << '\'';
+        if (lit.s.any_nocase()) {
+            os << " (nocase)";
+        }
+        if (lit.delay) {
+            os << " +" << lit.delay;
         }
     }
 
@@ -358,15 +354,16 @@ void dumpRoseLiterals(const RoseBuildImpl &build,
     DEBUG_PRINTF("dumping literals\n");
     ofstream os(grey.dumpPath + "rose_literals.txt");
 
-    os << "ROSE LITERALS: a total of " << build.literals.right.size()
-       << " literals and " << num_vertices(g) << " roles." << endl << endl;
+    os << "ROSE LITERALS: a total of " << build.literals.size()
+       << " literals and " << num_vertices(g) << " roles." << endl
+       << endl;
 
-    for (const auto &e : build.literals.right) {
-        u32 id = e.first;
-        const ue2_literal &s = e.second.s;
+    for (u32 id = 0; id < build.literals.size(); id++) {
+        const auto &lit = build.literals.at(id);
+        const ue2_literal &s = lit.s;
         const rose_literal_info &lit_info = build.literal_info[id];
 
-        switch (e.second.table) {
+        switch (lit.table) {
         case ROSE_ANCHORED:
             os << "ANCHORED";
             break;
@@ -397,8 +394,8 @@ void dumpRoseLiterals(const RoseBuildImpl &build,
             os << " benefits,";
         }
 
-        if (e.second.delay) {
-            os << " delayed "<< e.second.delay << ",";
+        if (lit.delay) {
+            os << " delayed "<< lit.delay << ",";
         }
 
         os << " groups 0x" << hex << setw(16) << setfill('0')

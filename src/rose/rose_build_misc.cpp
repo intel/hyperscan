@@ -154,14 +154,12 @@ bool isInTable(const RoseBuildImpl &tbi, RoseVertex v,
 
     // All literals for a given vertex will be in the same table, so we need
     // only inspect the first one.
-    const auto lit_table = tbi.literals.right.at(*lit_ids.begin()).table;
+    const auto lit_table = tbi.literals.at(*lit_ids.begin()).table;
 
-#ifndef NDEBUG
     // Verify that all literals for this vertex are in the same table.
-    for (auto lit_id : lit_ids) {
-        assert(tbi.literals.right.at(lit_id).table == lit_table);
-    }
-#endif
+    assert(all_of_in(lit_ids, [&](u32 lit_id) {
+        return tbi.literals.at(lit_id).table == lit_table;
+    }));
 
     return lit_table == table;
 }
@@ -211,7 +209,7 @@ size_t RoseBuildImpl::maxLiteralLen(RoseVertex v) const {
     size_t maxlen = 0;
 
     for (const auto &lit_id : lit_ids) {
-        maxlen = max(maxlen, literals.right.at(lit_id).elength());
+        maxlen = max(maxlen, literals.at(lit_id).elength());
     }
 
     return maxlen;
@@ -224,7 +222,7 @@ size_t RoseBuildImpl::minLiteralLen(RoseVertex v) const {
     size_t minlen = ROSE_BOUND_INF;
 
     for (const auto &lit_id : lit_ids) {
-        minlen = min(minlen, literals.right.at(lit_id).elength());
+        minlen = min(minlen, literals.at(lit_id).elength());
     }
 
     return minlen;
@@ -287,12 +285,11 @@ size_t maxOverlap(const rose_literal_id &a, const rose_literal_id &b) {
 static
 const rose_literal_id &getOverlapLiteral(const RoseBuildImpl &tbi,
                                          u32 literal_id) {
-    map<u32, rose_literal_id>::const_iterator it =
-        tbi.anchoredLitSuffix.find(literal_id);
+    auto it = tbi.anchoredLitSuffix.find(literal_id);
     if (it != tbi.anchoredLitSuffix.end()) {
         return it->second;
     }
-    return tbi.literals.right.at(literal_id);
+    return tbi.literals.at(literal_id);
 }
 
 ue2_literal findNonOverlappingTail(const set<ue2_literal> &lits,
@@ -368,16 +365,14 @@ u32 RoseBuildImpl::calcSuccMaxBound(RoseVertex u) const {
 
 u32 RoseBuildImpl::getLiteralId(const ue2_literal &s, u32 delay,
                                 rose_literal_table table) {
-    DEBUG_PRINTF("getting id for %s\n", dumpString(s).c_str());
+    DEBUG_PRINTF("getting id for %s in table %d\n", dumpString(s).c_str(),
+                 table);
     assert(table != ROSE_ANCHORED);
     rose_literal_id key(s, table, delay);
-    u32 numLiterals = verify_u32(literals.left.size());
 
-    RoseLiteralMap::iterator it;
-    bool inserted;
-    tie(it, inserted)
-        = literals.insert(RoseLiteralMap::value_type(key, numLiterals));
-    u32 id = it->right;
+    auto m = literals.insert(key);
+    u32 id = m.first;
+    bool inserted = m.second;
 
     if (inserted) {
         literal_info.push_back(rose_literal_info());
@@ -457,19 +452,17 @@ rose_literal_id::rose_literal_id(const ue2_literal &s_in,
 u32 RoseBuildImpl::getLiteralId(const ue2_literal &s, const vector<u8> &msk,
                                 const vector<u8> &cmp, u32 delay,
                                 rose_literal_table table) {
-    DEBUG_PRINTF("getting id for %s\n", dumpString(s).c_str());
+    DEBUG_PRINTF("getting id for %s in table %d\n", dumpString(s).c_str(),
+                 table);
     assert(table != ROSE_ANCHORED);
     rose_literal_id key(s, msk, cmp, table, delay);
-    u32 numLiterals = verify_u32(literals.left.size());
 
     /* ue2_literals are always uppercased if nocase and must have an
      * alpha char */
 
-    RoseLiteralMap::iterator it;
-    bool inserted;
-    tie(it, inserted) = literals.insert(
-            RoseLiteralMap::value_type(key, numLiterals));
-    u32 id = it->right;
+    auto m = literals.insert(key);
+    u32 id = m.first;
+    bool inserted = m.second;
 
     if (inserted) {
         literal_info.push_back(rose_literal_info());
@@ -488,16 +481,12 @@ u32 RoseBuildImpl::getLiteralId(const ue2_literal &s, const vector<u8> &msk,
 
 u32 RoseBuildImpl::getNewLiteralId() {
     rose_literal_id key(ue2_literal(), ROSE_ANCHORED, 0);
-    u32 numLiterals = verify_u32(literals.left.size());
+    u32 numLiterals = verify_u32(literals.size());
     key.distinctiveness = numLiterals;
 
-    RoseLiteralMap::iterator it;
-    bool inserted;
-    tie(it, inserted)
-        = literals.insert(RoseLiteralMap::value_type(key, numLiterals));
-    u32 id = it->right;
-
-    assert(inserted);
+    auto m = literals.insert(key);
+    assert(m.second);
+    u32 id = m.first;
 
     literal_info.push_back(rose_literal_info());
     assert(literal_info.size() == id + 1);

@@ -349,7 +349,7 @@ void makeAnchoredLiteralDelay(const RoseBuildImpl &build,
                               const ProgramBuild &prog_build, u32 lit_id,
                               RoseProgram &program) {
     // Only relevant for literals in the anchored table.
-    const rose_literal_id &lit = build.literals.right.at(lit_id);
+    const rose_literal_id &lit = build.literals.at(lit_id);
     if (lit.table != ROSE_ANCHORED) {
         return;
     }
@@ -686,7 +686,7 @@ void makePushDelayedInstructions(const RoseLiteralMap &literals,
         DEBUG_PRINTF("delayed lit id %u\n", delayed_lit_id);
         assert(contains(prog_build.delay_programs, delayed_lit_id));
         u32 delay_id = prog_build.delay_programs.at(delayed_lit_id);
-        const auto &delay_lit = literals.right.at(delayed_lit_id);
+        const auto &delay_lit = literals.at(delayed_lit_id);
         delay_instructions.emplace_back(verify_u8(delay_lit.delay), delay_id);
     }
 
@@ -1335,7 +1335,7 @@ void makeCheckLitMaskInstruction(const RoseBuildImpl &build,
 
     vector<LookEntry> look;
 
-    const ue2_literal &s = build.literals.right.at(lit_id).s;
+    const ue2_literal &s = build.literals.at(lit_id).s;
     DEBUG_PRINTF("building mask for lit %u: %s\n", lit_id,
                  dumpString(s).c_str());
     assert(s.length() <= MAX_MASK2_WIDTH);
@@ -1369,7 +1369,7 @@ void makeCheckLitEarlyInstruction(const RoseBuildImpl &build, u32 lit_id,
         return;
     }
 
-    const auto &lit = build.literals.right.at(lit_id);
+    const auto &lit = build.literals.at(lit_id);
     size_t min_len = lit.elength();
     u32 min_offset = findMinOffset(build, lit_id);
     DEBUG_PRINTF("has min_len=%zu, min_offset=%u, global min is %u\n", min_len,
@@ -1404,7 +1404,7 @@ void makeGroupCheckInstruction(const RoseBuildImpl &build, u32 lit_id,
 static
 bool hasDelayedLiteral(const RoseBuildImpl &build,
                        const vector<RoseEdge> &lit_edges) {
-    auto is_delayed = bind(&RoseBuildImpl::isDelayed, &build, _1);
+    auto is_delayed = [&build](u32 lit_id) { return build.isDelayed(lit_id); };
     for (const auto &e : lit_edges) {
         auto v = target(e, build.g);
         const auto &lits = build.g[v].literals;
@@ -1425,7 +1425,7 @@ RoseProgram makeLitInitialProgram(const RoseBuildImpl &build,
 
     // Check long literal info.
     if (!build.isDelayed(lit_id)) {
-        makeCheckLiteralInstruction(build.literals.right.at(lit_id),
+        makeCheckLiteralInstruction(build.literals.at(lit_id),
                                     prog_build.longLitLengthThreshold,
                                     program, build.cc);
     }
@@ -2121,7 +2121,7 @@ RoseProgram makeDelayRebuildProgram(const RoseBuildImpl &build,
 
         RoseProgram prog;
         if (!build.isDelayed(lit_id)) {
-            makeCheckLiteralInstruction(build.literals.right.at(lit_id),
+            makeCheckLiteralInstruction(build.literals.at(lit_id),
                                         prog_build.longLitLengthThreshold, prog,
                                         build.cc);
         }
