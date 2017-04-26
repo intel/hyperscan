@@ -909,6 +909,59 @@ u32 roseQuality(const RoseEngine *t) {
     return 1;
 }
 
+u32 findMinOffset(const RoseBuildImpl &build, u32 lit_id) {
+    const auto &lit_vertices = build.literal_info.at(lit_id).vertices;
+    assert(!lit_vertices.empty());
+
+    u32 min_offset = UINT32_MAX;
+    for (const auto &v : lit_vertices) {
+        min_offset = min(min_offset, build.g[v].min_offset);
+    }
+
+    return min_offset;
+}
+
+u32 findMaxOffset(const RoseBuildImpl &build, u32 lit_id) {
+    const auto &lit_vertices = build.literal_info.at(lit_id).vertices;
+    assert(!lit_vertices.empty());
+
+    u32 max_offset = 0;
+    for (const auto &v : lit_vertices) {
+        max_offset = max(max_offset, build.g[v].max_offset);
+    }
+
+    return max_offset;
+}
+
+bool canEagerlyReportAtEod(const RoseBuildImpl &build, const RoseEdge &e) {
+    const auto &g = build.g;
+    const auto v = target(e, g);
+
+    if (!build.g[v].eod_accept) {
+        return false;
+    }
+
+    // If there's a graph between us and EOD, we shouldn't be eager.
+    if (build.g[v].left) {
+        return false;
+    }
+
+    // Must be exactly at EOD.
+    if (g[e].minBound != 0 || g[e].maxBound != 0) {
+        return false;
+    }
+
+    // In streaming mode, we can only eagerly report EOD for literals in the
+    // EOD-anchored table, as that's the only time we actually know where EOD
+    // is. In block mode, we always have this information.
+    const auto u = source(e, g);
+    if (build.cc.streaming && !build.isInETable(u)) {
+        return false;
+    }
+
+    return true;
+}
+
 #ifndef NDEBUG
 /** \brief Returns true if all the graphs (NFA, DFA, Haig, etc) in this Rose
  * graph are implementable. */

@@ -42,8 +42,10 @@
 
 namespace ue2 {
 
+struct LookEntry;
 class RoseEngineBlob;
 class RoseInstruction;
+struct RoseResources;
 
 /**
  * \brief Container for a list of program instructions.
@@ -145,11 +147,161 @@ public:
     bool operator()(const RoseProgram &prog1, const RoseProgram &prog2) const;
 };
 
-/* Removes any CHECK_HANDLED instructions from the given program */
-void stripCheckHandledInstruction(RoseProgram &prog);
+/** \brief Data only used during construction of various programs (literal,
+ * anchored, delay, etc). */
+struct ProgramBuild : noncopyable {
+    explicit ProgramBuild(u32 fMinLitOffset, size_t longLitThresh,
+                          bool catchup)
+        : floatingMinLiteralMatchOffset(fMinLitOffset),
+        longLitLengthThreshold(longLitThresh), needs_catchup(catchup) {
+    }
 
-/** Returns true if the program may read the the interpreter's work_done flag */
-bool reads_work_done_flag(const RoseProgram &prog);
+    /** \brief Minimum offset of a match from the floating table. */
+    const u32 floatingMinLiteralMatchOffset;
+
+    /** \brief Long literal length threshold, used in streaming mode. */
+    const size_t longLitLengthThreshold;
+
+    /** \brief True if reports need CATCH_UP instructions to catch up suffixes,
+     * outfixes etc. */
+    const bool needs_catchup;
+
+    /** \brief Mapping from vertex to key, for vertices with a
+     * CHECK_NOT_HANDLED instruction. */
+    ue2::unordered_map<RoseVertex, u32> handledKeys;
+
+    /** \brief Mapping from Rose literal ID to anchored program index. */
+    std::map<u32, u32> anchored_programs;
+
+    /** \brief Mapping from Rose literal ID to delayed program index. */
+    std::map<u32, u32> delay_programs;
+
+    /** \brief Mapping from every vertex to the groups that must be on for that
+     * vertex to be reached. */
+    ue2::unordered_map<RoseVertex, rose_group> vertex_group_map;
+
+    /** \brief Global bitmap of groups that can be squashed. */
+    rose_group squashable_groups = 0;
+};
+
+void addEnginesEodProgram(u32 eodNfaIterOffset, RoseProgram &program);
+void addSuffixesEodProgram(RoseProgram &program);
+void addMatcherEodProgram(RoseProgram &program);
+
+static constexpr u32 INVALID_QUEUE = ~0U;
+
+struct left_build_info {
+    // Constructor for an engine implementation.
+    left_build_info(u32 q, u32 l, u32 t, rose_group sm,
+                    const std::vector<u8> &stops, u32 max_ql, u8 cm_count,
+                    const CharReach &cm_cr);
+
+    // Constructor for a lookaround implementation.
+    explicit left_build_info(const std::vector<std::vector<LookEntry>> &looks);
+
+    u32 queue = INVALID_QUEUE; /* uniquely idents the left_build_info */
+    u32 lag = 0;
+    u32 transient = 0;
+    rose_group squash_mask = ~rose_group{0};
+    std::vector<u8> stopAlphabet;
+    u32 max_queuelen = 0;
+    u8 countingMiracleCount = 0;
+    CharReach countingMiracleReach;
+    u32 countingMiracleOffset = 0; /* populated later when laying out bytecode */
+    bool has_lookaround = false;
+
+    // alternative implementation to the NFA
+    std::vector<std::vector<LookEntry>> lookaround;
+};
+
+struct lookaround_info : noncopyable {
+    /** \brief LookEntry list cache, so that we can reuse the look index and
+     * reach index for the same lookaround. */
+    ue2::unordered_map<std::vector<std::vector<LookEntry>>,
+        std::pair<size_t, size_t>> cache;
+
+    /** \brief Lookaround table for Rose roles. */
+    std::vector<std::vector<std::vector<LookEntry>>> table;
+
+    /** \brief Lookaround look table size. */
+    size_t lookTableSize = 0;
+
+    /** \brief Lookaround reach table size.
+     * since single path lookaround and multi-path lookaround have different
+     * bitvectors range (32 and 256), we need to maintain both look table size
+     * and reach table size. */
+    size_t reachTableSize = 0;
+};
+
+/**
+ * \brief Provides a brief summary of properties of an NFA that has already been
+ * finalised and stored in the blob.
+ */
+struct engine_info {
+    engine_info(const NFA *nfa, bool trans);
+
+    enum NFAEngineType type;
+    bool accepts_eod;
+    u32 stream_size;
+    u32 scratch_size;
+    u32 scratch_align;
+    bool transient;
+};
+
+/**
+ * \brief Consumes list of program blocks corresponding to different literals,
+ * checks them for duplicates and then concatenates them into one program.
+ *
+ * Note: if a block will squash groups, a CLEAR_WORK_DONE instruction is
+ * inserted to prevent the work_done flag being contaminated by early blocks.
+ */
+RoseProgram assembleProgramBlocks(std::vector<RoseProgram> &&blocks);
+
+RoseProgram makeLiteralProgram(const RoseBuildImpl &build,
+                      const std::map<RoseVertex, left_build_info> &leftfix_info,
+                      const std::map<suffix_id, u32> &suffixes,
+                      const std::map<u32, engine_info> &engine_info_by_queue,
+                      lookaround_info &lookarounds,
+                      unordered_map<RoseVertex, u32> roleStateIndices,
+                      ProgramBuild &prog_build, u32 lit_id,
+                      const std::vector<RoseEdge> &lit_edges,
+                      bool is_anchored_replay_program);
+
+RoseProgram makeDelayRebuildProgram(const RoseBuildImpl &build,
+                                    lookaround_info &lookarounds,
+                                    ProgramBuild &prog_build,
+                                    const std::vector<u32> &lit_ids);
+
+RoseProgram makeEodAnchorProgram(const RoseBuildImpl &build,
+                                 ProgramBuild &prog_build, const RoseEdge &e,
+                                 const bool multiple_preds);
+
+RoseProgram makeReportProgram(const RoseBuildImpl &build,
+                              bool needs_mpv_catchup, ReportID id);
+
+RoseProgram makeBoundaryProgram(const RoseBuildImpl &build,
+                                const std::set<ReportID> &reports);
+
+struct TriggerInfo {
+    TriggerInfo(bool c, u32 q, u32 e) : cancel(c), queue(q), event(e) {}
+    bool cancel;
+    u32 queue;
+    u32 event;
+
+    bool operator==(const TriggerInfo &b) const {
+        return cancel == b.cancel && queue == b.queue && event == b.event;
+    }
+};
+
+void addPredBlocks(std::map<u32, RoseProgram> &pred_blocks, u32 num_states,
+                   RoseProgram &program);
+
+void applyFinalSpecialisation(RoseProgram &program);
+
+void recordLongLiterals(std::vector<ue2_case_string> &longLiterals,
+                        const RoseProgram &program);
+
+void recordResources(RoseResources &resources, const RoseProgram &program);
 
 } // namespace ue2
 

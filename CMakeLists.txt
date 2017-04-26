@@ -971,6 +971,7 @@ SET (hs_SRCS
     src/rose/rose_build_misc.cpp
     src/rose/rose_build_program.cpp
     src/rose/rose_build_program.h
+    src/rose/rose_build_resources.h
     src/rose/rose_build_role_aliasing.cpp
     src/rose/rose_build_scatter.cpp
     src/rose/rose_build_scatter.h

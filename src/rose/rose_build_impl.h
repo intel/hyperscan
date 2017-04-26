@@ -622,6 +622,11 @@ u64a findMaxOffset(const std::set<ReportID> &reports, const ReportManager &rm);
 void normaliseLiteralMask(const ue2_literal &s, std::vector<u8> &msk,
                           std::vector<u8> &cmp);
 
+u32 findMinOffset(const RoseBuildImpl &build, u32 lit_id);
+u32 findMaxOffset(const RoseBuildImpl &build, u32 lit_id);
+
+bool canEagerlyReportAtEod(const RoseBuildImpl &build, const RoseEdge &e);
+
 #ifndef NDEBUG
 bool canImplementGraphs(const RoseBuildImpl &tbi);
 #endif
