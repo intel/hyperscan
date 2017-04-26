@@ -38,6 +38,7 @@
 #include "rose_build_exclusive.h"
 #include "rose_build_groups.h"
 #include "rose_build_infix.h"
+#include "rose_build_instructions.h"
 #include "rose_build_long_lit.h"
 #include "rose_build_lookaround.h"
 #include "rose_build_matchers.h"

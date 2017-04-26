@@ -955,6 +955,8 @@ SET (hs_SRCS
     src/rose/rose_build_impl.h
     src/rose/rose_build_infix.cpp
     src/rose/rose_build_infix.h
+    src/rose/rose_build_instructions.cpp
+    src/rose/rose_build_instructions.h
     src/rose/rose_build_lit_accel.cpp
     src/rose/rose_build_lit_accel.h
     src/rose/rose_build_long_lit.cpp
