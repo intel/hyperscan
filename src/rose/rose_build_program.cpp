@@ -1903,7 +1903,7 @@ RoseProgram makeRoleProgram(const RoseBuildImpl &build,
                         const map<suffix_id, u32> &suffixes,
                         const map<u32, engine_info> &engine_info_by_queue,
                         lookaround_info &lookarounds,
-                        unordered_map<RoseVertex, u32> roleStateIndices,
+                        const unordered_map<RoseVertex, u32> &roleStateIndices,
                         ProgramBuild &prog_build, const RoseEdge &e) {
     const RoseGraph &g = build.g;
     auto v = target(e, g);
@@ -2026,14 +2026,14 @@ RoseProgram assembleProgramBlocks(vector<RoseProgram> &&blocks) {
 }
 
 RoseProgram makeLiteralProgram(const RoseBuildImpl &build,
-                          const map<RoseVertex, left_build_info> &leftfix_info,
-                          const map<suffix_id, u32> &suffixes,
-                          const map<u32, engine_info> &engine_info_by_queue,
-                          lookaround_info &lookarounds,
-                          unordered_map<RoseVertex, u32> roleStateIndices,
-                          ProgramBuild &prog_build, u32 lit_id,
-                          const vector<RoseEdge> &lit_edges,
-                          bool is_anchored_replay_program) {
+                         const map<RoseVertex, left_build_info> &leftfix_info,
+                         const map<suffix_id, u32> &suffixes,
+                         const map<u32, engine_info> &engine_info_by_queue,
+                         lookaround_info &lookarounds,
+                         const unordered_map<RoseVertex, u32> &roleStateIndices,
+                         ProgramBuild &prog_build, u32 lit_id,
+                         const vector<RoseEdge> &lit_edges,
+                         bool is_anchored_replay_program) {
     const auto &g = build.g;
 
     DEBUG_PRINTF("lit id=%u, %zu lit edges\n", lit_id, lit_edges.size());

@@ -262,7 +262,7 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build,
                       const std::map<suffix_id, u32> &suffixes,
                       const std::map<u32, engine_info> &engine_info_by_queue,
                       lookaround_info &lookarounds,
-                      unordered_map<RoseVertex, u32> roleStateIndices,
+                      const unordered_map<RoseVertex, u32> &roleStateIndices,
                       ProgramBuild &prog_build, u32 lit_id,
                       const std::vector<RoseEdge> &lit_edges,
                       bool is_anchored_replay_program);
