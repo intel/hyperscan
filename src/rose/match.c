@@ -150,7 +150,7 @@ hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
     }
 
     if (top_squash_distance) {
-        assert(q->cur != q->end);
+        assert(q->cur < q->end);
         struct mq_item *last = &q->items[q->end - 1];
         if (last->type == event
             && last->location >= loc - (s64a)top_squash_distance) {
