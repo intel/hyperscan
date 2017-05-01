@@ -33,16 +33,25 @@
 #include "util/compile_error.h"
 
 #include <cassert>
+#include <type_traits>
 
 namespace ue2 {
 
 template<typename To_T, typename From_T>
 To_T verify_cast(From_T val) {
+    static_assert(std::is_integral<To_T>::value,
+                  "Output type must be integral.");
+    static_assert(std::is_integral<From_T>::value ||
+                      std::is_enum<From_T>::value ||
+                      std::is_convertible<From_T, To_T>::value,
+                  "Must be integral or enum type, or convertible to output.");
+
     To_T conv_val = static_cast<To_T>(val);
     if (static_cast<From_T>(conv_val) != val) {
         assert(0);
         throw ResourceLimitError();
     }
+
     return conv_val;
 }
 
