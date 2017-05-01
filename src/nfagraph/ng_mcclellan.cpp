@@ -379,7 +379,9 @@ public:
             NFAVertex v = sq.first;
             u32 vert_id = graph[v].index;
             squash.set(vert_id);
-            squash_mask[vert_id] = shrinkStateSet(sq.second);
+            squash_mask[vert_id]
+                = Automaton_Traits::copy_states(std::move(sq.second),
+                                                numStates);
         }
 
         cr_by_index = populateCR(graph, v_by_index, alpha);
@@ -387,19 +389,9 @@ public:
             dynamic_bitset<> temp(numStates);
             markToppableStarts(graph, unused, single_trigger, triggers,
                                &temp);
-            toppable = Automaton_Traits::copy_states(temp, numStates);
+            toppable = Automaton_Traits::copy_states(std::move(temp),
+                                                     numStates);
         }
-    }
-
-private:
-    // Convert an NFAStateSet (as used by the squash code) into a StateSet
-    StateSet shrinkStateSet(const NFAStateSet &in) const {
-        StateSet out = Automaton_Traits::init_states(numStates);
-        for (size_t i = in.find_first(); i != in.npos && i < out.size();
-             i = in.find_next(i)) {
-            out.set(i);
-        }
-        return out;
     }
 
 public:
@@ -475,7 +467,7 @@ struct Big_Traits {
         return StateSet(num);
     }
 
-    static StateSet copy_states(const dynamic_bitset<> &in, UNUSED u32 num) {
+    static StateSet copy_states(dynamic_bitset<> in, UNUSED u32 num) {
         assert(in.size() == num);
         return in;
     }
