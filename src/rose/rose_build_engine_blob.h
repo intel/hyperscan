@@ -34,6 +34,7 @@
 #include "ue2common.h"
 #include "util/alloc.h"
 #include "util/bytecode_ptr.h"
+#include "util/charreach.h"
 #include "util/container.h"
 #include "util/multibit_build.h"
 #include "util/noncopyable.h"
@@ -44,6 +45,21 @@
 #include <type_traits>
 
 namespace ue2 {
+
+class RoseEngineBlob;
+
+struct lookaround_info : noncopyable {
+    u32 get_offset_of(const std::vector<std::vector<CharReach>> &look,
+                      RoseEngineBlob &blob);
+    u32 get_offset_of(const std::vector<CharReach> &reach,
+                      RoseEngineBlob &blob);
+    u32 get_offset_of(const std::vector<s8> &look, RoseEngineBlob &blob);
+
+private:
+    unordered_map<std::vector<std::vector<CharReach>>, u32> multi_cache;
+    unordered_map<std::vector<s8>, u32> lcache;
+    unordered_map<std::vector<CharReach>, u32> rcache;
+};
 
 class RoseEngineBlob : noncopyable {
 public:
@@ -132,6 +148,8 @@ public:
     void write_bytes(RoseEngine *engine) {
         copy_bytes((char *)engine + base_offset, blob);
     }
+
+    lookaround_info lookaround_cache;
 
 private:
     void pad(size_t align) {

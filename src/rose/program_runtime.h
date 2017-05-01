@@ -1031,8 +1031,7 @@ int roseCheckSingleLookaround(const struct RoseEngine *t,
         return 0;
     }
 
-    const u8 *reach_base = (const u8 *)t + t->lookaroundReachOffset;
-    const u8 *reach = reach_base + lookaroundReachIndex;
+    const u8 *reach = getByOffset(t, lookaroundReachIndex);
 
     u8 c;
     if (offset >= 0 && offset < (s64a)ci->len) {
@@ -1069,14 +1068,11 @@ int roseCheckLookaround(const struct RoseEngine *t,
     DEBUG_PRINTF("end=%llu, buf_offset=%llu, buf_end=%llu\n", end,
                  ci->buf_offset, ci->buf_offset + ci->len);
 
-    const u8 *base = (const u8 *)t;
-    const s8 *look_base = (const s8 *)(base + t->lookaroundTableOffset);
-    const s8 *look = look_base + lookaroundLookIndex;
+    const s8 *look = getByOffset(t, lookaroundLookIndex);
     const s8 *look_end = look + lookaroundCount;
     assert(look < look_end);
 
-    const u8 *reach_base = base + t->lookaroundReachOffset;
-    const u8 *reach = reach_base + lookaroundReachIndex;
+    const u8 *reach = getByOffset(t, lookaroundReachIndex);
 
     // The following code assumes that the lookaround structures are ordered by
     // increasing offset.
@@ -1166,13 +1162,11 @@ int roseMultipathLookaround(const struct RoseEngine *t,
     DEBUG_PRINTF("end=%llu, buf_offset=%llu, buf_end=%llu\n", end,
                  ci->buf_offset, ci->buf_offset + ci->len);
 
-    const s8 *look_base = getByOffset(t, t->lookaroundTableOffset);
-    const s8 *look = look_base + multipathLookaroundLookIndex;
+    const s8 *look = getByOffset(t, multipathLookaroundLookIndex);
     const s8 *look_end = look + multipathLookaroundCount;
     assert(look < look_end);
 
-    const u8 *reach_base = getByOffset(t, t->lookaroundReachOffset);
-    const u8 *reach = reach_base + multipathLookaroundReachIndex;
+    const u8 *reach = getByOffset(t, multipathLookaroundReachIndex);
 
     const s64a base_offset = (s64a)end - ci->buf_offset;
     DEBUG_PRINTF("base_offset=%lld\n", base_offset);

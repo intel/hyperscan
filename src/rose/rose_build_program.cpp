@@ -28,6 +28,7 @@
 
 #include "rose_build_program.h"
 
+#include "rose_build_engine_blob.h"
 #include "rose_build_instructions.h"
 #include "rose_build_lookaround.h"
 #include "rose_build_resources.h"
@@ -39,7 +40,6 @@
 #include "util/container.h"
 #include "util/compile_context.h"
 #include "util/compile_error.h"
-#include "util/dump_charclass.h"
 #include "util/report_manager.h"
 #include "util/verify_types.h"
 
@@ -852,40 +852,6 @@ void makeRoleGroups(const RoseGraph &g, ProgramBuild &prog_build,
 }
 
 static
-void addLookaround(lookaround_info &lookarounds,
-                   const vector<vector<LookEntry>> &look,
-                   u32 &look_index, u32 &reach_index) {
-    // Check the cache.
-    auto it = lookarounds.cache.find(look);
-    if (it != lookarounds.cache.end()) {
-        look_index = verify_u32(it->second.first);
-        reach_index = verify_u32(it->second.second);
-        DEBUG_PRINTF("reusing look at idx %u\n", look_index);
-        DEBUG_PRINTF("reusing reach at idx %u\n", reach_index);
-        return;
-    }
-
-    size_t look_idx = lookarounds.lookTableSize;
-    size_t reach_idx = lookarounds.reachTableSize;
-
-    if (look.size() == 1) {
-        lookarounds.lookTableSize += look.front().size();
-        lookarounds.reachTableSize += look.front().size() * REACH_BITVECTOR_LEN;
-    } else {
-        lookarounds.lookTableSize += look.size();
-        lookarounds.reachTableSize += look.size() * MULTI_REACH_BITVECTOR_LEN;
-    }
-
-    lookarounds.cache.emplace(look, make_pair(look_idx, reach_idx));
-    lookarounds.table.emplace_back(look);
-
-    DEBUG_PRINTF("adding look at idx %zu\n", look_idx);
-    DEBUG_PRINTF("adding reach at idx %zu\n", reach_idx);
-    look_index =  verify_u32(look_idx);
-    reach_index = verify_u32(reach_idx);
-}
-
-static
 bool checkReachMask(const CharReach &cr, u8 &andmask, u8 &cmpmask) {
     size_t reach_size = cr.count();
     assert(reach_size > 0);
@@ -1278,8 +1244,7 @@ bool makeRoleShufti(const vector<LookEntry> &look, RoseProgram &program) {
  * available.
  */
 static
-void makeLookaroundInstruction(lookaround_info &lookarounds,
-                               const vector<LookEntry> &look,
+void makeLookaroundInstruction(const vector<LookEntry> &look,
                                RoseProgram &program) {
     assert(!look.empty());
 
@@ -1289,12 +1254,8 @@ void makeLookaroundInstruction(lookaround_info &lookarounds,
 
     if (look.size() == 1) {
         s8 offset = look.begin()->offset;
-        u32 look_idx, reach_idx;
-        vector<vector<LookEntry>> lookaround;
-        lookaround.emplace_back(look);
-        addLookaround(lookarounds, lookaround, look_idx, reach_idx);
-        // We don't need look_idx here.
-        auto ri = make_unique<RoseInstrCheckSingleLookaround>(offset, reach_idx,
+        const CharReach &reach = look.begin()->reach;
+        auto ri = make_unique<RoseInstrCheckSingleLookaround>(offset, reach,
                                                      program.end_instruction());
         program.add_before_end(move(ri));
         return;
@@ -1312,21 +1273,13 @@ void makeLookaroundInstruction(lookaround_info &lookarounds,
         return;
     }
 
-    u32 look_idx, reach_idx;
-    vector<vector<LookEntry>> lookaround;
-    lookaround.emplace_back(look);
-    addLookaround(lookarounds, lookaround, look_idx, reach_idx);
-    u32 look_count = verify_u32(look.size());
-
-    auto ri = make_unique<RoseInstrCheckLookaround>(look_idx, reach_idx,
-                                                    look_count,
+    auto ri = make_unique<RoseInstrCheckLookaround>(look,
                                                     program.end_instruction());
     program.add_before_end(move(ri));
 }
 
 static
-void makeCheckLitMaskInstruction(const RoseBuildImpl &build,
-                                 lookaround_info &lookarounds, u32 lit_id,
+void makeCheckLitMaskInstruction(const RoseBuildImpl &build, u32 lit_id,
                                  RoseProgram &program) {
     const auto &info = build.literal_info.at(lit_id);
     if (!info.requires_benefits) {
@@ -1348,7 +1301,7 @@ void makeCheckLitMaskInstruction(const RoseBuildImpl &build,
     }
 
     assert(!look.empty());
-    makeLookaroundInstruction(lookarounds, look, program);
+    makeLookaroundInstruction(look, program);
 }
 
 static
@@ -1417,7 +1370,6 @@ bool hasDelayedLiteral(const RoseBuildImpl &build,
 
 static
 RoseProgram makeLitInitialProgram(const RoseBuildImpl &build,
-                                  lookaround_info &lookarounds,
                                   ProgramBuild &prog_build, u32 lit_id,
                                   const vector<RoseEdge> &lit_edges,
                                   bool is_anchored_replay_program) {
@@ -1431,7 +1383,7 @@ RoseProgram makeLitInitialProgram(const RoseBuildImpl &build,
     }
 
     // Check lit mask.
-    makeCheckLitMaskInstruction(build, lookarounds, lit_id, program);
+    makeCheckLitMaskInstruction(build, lit_id, program);
 
     // Check literal groups. This is an optimisation that we only perform for
     // delayed literals, as their groups may be switched off; ordinarily, we
@@ -1457,20 +1409,6 @@ RoseProgram makeLitInitialProgram(const RoseBuildImpl &build,
 
     return program;
 }
-
-#if defined(DEBUG) || defined(DUMP_SUPPORT)
-static UNUSED
-string dumpMultiLook(const vector<LookEntry> &looks) {
-    ostringstream oss;
-    for (auto it = looks.begin(); it != looks.end(); ++it) {
-        if (it != looks.begin()) {
-            oss << ", ";
-        }
-        oss << "{" << int(it->offset) << ": " << describeClass(it->reach) << "}";
-    }
-    return oss.str();
-}
-#endif
 
 static
 bool makeRoleMultipathShufti(const vector<vector<LookEntry>> &multi_look,
@@ -1612,8 +1550,7 @@ bool makeRoleMultipathShufti(const vector<vector<LookEntry>> &multi_look,
 }
 
 static
-void makeRoleMultipathLookaround(lookaround_info &lookarounds,
-                                 const vector<vector<LookEntry>> &multi_look,
+void makeRoleMultipathLookaround(const vector<vector<LookEntry>> &multi_look,
                                  RoseProgram &program) {
     assert(!multi_look.empty());
     assert(multi_look.size() <= MAX_LOOKAROUND_PATHS);
@@ -1675,13 +1612,8 @@ void makeRoleMultipathLookaround(lookaround_info &lookarounds,
         ordered_look.emplace_back(multi_entry);
     }
 
-    u32 look_idx, reach_idx;
-    addLookaround(lookarounds, ordered_look, look_idx, reach_idx);
-    u32 look_count = verify_u32(ordered_look.size());
-
-    auto ri = make_unique<RoseInstrMultipathLookaround>(look_idx, reach_idx,
-                                                        look_count, last_start,
-                                                        start_mask,
+    auto ri = make_unique<RoseInstrMultipathLookaround>(move(ordered_look),
+                                                        last_start, start_mask,
                                                     program.end_instruction());
     program.add_before_end(move(ri));
 }
@@ -1689,8 +1621,7 @@ void makeRoleMultipathLookaround(lookaround_info &lookarounds,
 static
 void makeRoleLookaround(const RoseBuildImpl &build,
                         const map<RoseVertex, left_build_info> &leftfix_info,
-                        lookaround_info &lookarounds, RoseVertex v,
-                        RoseProgram &program) {
+                        RoseVertex v, RoseProgram &program) {
     if (!build.cc.grey.roseLookaroundMasks) {
         return;
     }
@@ -1714,14 +1645,14 @@ void makeRoleLookaround(const RoseBuildImpl &build,
         findLookaroundMasks(build, v, look_more);
         mergeLookaround(look, look_more);
         if (!look.empty()) {
-            makeLookaroundInstruction(lookarounds, look, program);
+            makeLookaroundInstruction(look, program);
         }
         return;
     }
 
     if (!makeRoleMultipathShufti(looks, program)) {
         assert(looks.size() <= 8);
-        makeRoleMultipathLookaround(lookarounds, looks, program);
+        makeRoleMultipathLookaround(looks, program);
     }
 }
 
@@ -1902,7 +1833,6 @@ RoseProgram makeRoleProgram(const RoseBuildImpl &build,
                         const map<RoseVertex, left_build_info> &leftfix_info,
                         const map<suffix_id, u32> &suffixes,
                         const map<u32, engine_info> &engine_info_by_queue,
-                        lookaround_info &lookarounds,
                         const unordered_map<RoseVertex, u32> &roleStateIndices,
                         ProgramBuild &prog_build, const RoseEdge &e) {
     const RoseGraph &g = build.g;
@@ -1929,7 +1859,7 @@ RoseProgram makeRoleProgram(const RoseBuildImpl &build,
         makeRoleCheckNotHandled(prog_build, v, program);
     }
 
-    makeRoleLookaround(build, leftfix_info, lookarounds, v, program);
+    makeRoleLookaround(build, leftfix_info, v, program);
     makeRoleCheckLeftfix(build, leftfix_info, v, program);
 
     // Next, we can add program instructions that have effects. This must be
@@ -2029,7 +1959,6 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build,
                          const map<RoseVertex, left_build_info> &leftfix_info,
                          const map<suffix_id, u32> &suffixes,
                          const map<u32, engine_info> &engine_info_by_queue,
-                         lookaround_info &lookarounds,
                          const unordered_map<RoseVertex, u32> &roleStateIndices,
                          ProgramBuild &prog_build, u32 lit_id,
                          const vector<RoseEdge> &lit_edges,
@@ -2040,8 +1969,8 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build,
 
     // Construct initial program up front, as its early checks must be able
     // to jump to end and terminate processing for this literal.
-    auto lit_program = makeLitInitialProgram(build, lookarounds, prog_build,
-                                             lit_id, lit_edges,
+    auto lit_program = makeLitInitialProgram(build, prog_build, lit_id,
+                                             lit_edges,
                                              is_anchored_replay_program);
 
     RoseProgram role_programs;
@@ -2060,8 +1989,8 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build,
         assert(contains(roleStateIndices, u));
         u32 pred_state = roleStateIndices.at(u);
         auto role_prog = makeRoleProgram(build, leftfix_info, suffixes,
-                                         engine_info_by_queue, lookarounds,
-                                         roleStateIndices, prog_build, e);
+                                         engine_info_by_queue, roleStateIndices,
+                                         prog_build, e);
         if (!role_prog.empty()) {
             pred_blocks[pred_state].add_block(move(role_prog));
         }
@@ -2080,8 +2009,8 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build,
         DEBUG_PRINTF("root edge (%zu,%zu)\n", g[u].index,
                      g[target(e, g)].index);
         auto role_prog = makeRoleProgram(build, leftfix_info, suffixes,
-                                         engine_info_by_queue, lookarounds,
-                                         roleStateIndices, prog_build, e);
+                                         engine_info_by_queue, roleStateIndices,
+                                         prog_build, e);
         role_programs.add_block(move(role_prog));
     }
 
@@ -2104,7 +2033,6 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build,
 }
 
 RoseProgram makeDelayRebuildProgram(const RoseBuildImpl &build,
-                                    lookaround_info &lookarounds,
                                     ProgramBuild &prog_build,
                                     const vector<u32> &lit_ids) {
     assert(!lit_ids.empty());
@@ -2126,7 +2054,7 @@ RoseProgram makeDelayRebuildProgram(const RoseBuildImpl &build,
                                         build.cc);
         }
 
-        makeCheckLitMaskInstruction(build, lookarounds, lit_id, prog);
+        makeCheckLitMaskInstruction(build, lit_id, prog);
         makePushDelayedInstructions(build.literals, prog_build,
                                     build.literal_info.at(lit_id).delayed_ids,
                                     prog);

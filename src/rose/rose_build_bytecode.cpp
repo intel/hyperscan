@@ -147,8 +147,6 @@ struct build_context : noncopyable {
     ue2::unordered_map<RoseProgram, u32, RoseProgramHash,
                        RoseProgramEquivalence> program_cache;
 
-    lookaround_info lookarounds;
-
     /** \brief State indices, for those roles that have them.
      * Each vertex present has a unique state index in the range
      * [0, roleStateIndices.size()). */
@@ -2429,70 +2427,6 @@ bool hasEodAnchors(const RoseBuildImpl &build, const build_context &bc,
 }
 
 static
-void writeLookaround(const vector<LookEntry> &look_vec, s8 *&look, u8 *&reach) {
-    for (const auto &le : look_vec) {
-        *look = verify_s8(le.offset);
-        const CharReach &cr = le.reach;
-
-        assert(cr.any()); // Should be at least one character!
-        fill_bitvector(cr, reach);
-
-        ++look;
-        reach += REACH_BITVECTOR_LEN;
-    }
-}
-
-static
-void writeMultipathLookaround(const vector<vector<LookEntry>> &multi_look,
-                              s8 *&look, u8 *&reach) {
-    for (const auto &m : multi_look) {
-        u8 u = 0;
-        assert(m.size() == MAX_LOOKAROUND_PATHS);
-        for (size_t i = 0; i < m.size(); i++) {
-            if (m[i].reach.none()) {
-                u |= (u8)1U << i;
-            }
-        }
-        std::fill_n(reach, MULTI_REACH_BITVECTOR_LEN, u);
-
-        for (size_t i = 0; i < m.size(); i++) {
-            const CharReach &cr = m[i].reach;
-            if (cr.none()) {
-                continue;
-            }
-            *look = m[i].offset;
-
-            for (size_t c = cr.find_first(); c != cr.npos;
-                 c = cr.find_next(c)) {
-                reach[c] |= (u8)1U << i;
-            }
-        }
-
-        ++look;
-        reach += MULTI_REACH_BITVECTOR_LEN;
-    }
-}
-
-static
-void writeLookaroundTables(const lookaround_info &lookarounds,
-                           RoseEngineBlob &engine_blob, RoseEngine &proto) {
-    vector<s8> look_table(lookarounds.lookTableSize, 0);
-    vector<u8> reach_table(lookarounds.reachTableSize, 0);
-    s8 *look = look_table.data();
-    u8 *reach = reach_table.data();
-    for (const auto &la : lookarounds.table) {
-        if (la.size() == 1) {
-            writeLookaround(la.front(), look, reach);
-        } else {
-            writeMultipathLookaround(la, look, reach);
-        }
-    }
-
-    proto.lookaroundTableOffset = engine_blob.add_range(look_table);
-    proto.lookaroundReachOffset = engine_blob.add_range(reach_table);
-}
-
-static
 void writeDkeyInfo(const ReportManager &rm, RoseEngineBlob &engine_blob,
                    RoseEngine &proto) {
     const auto inv_dkeys = rm.getDkeyToReportTable();
@@ -2752,7 +2686,7 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
     }
 
     return makeLiteralProgram(build, bc.leftfix_info, bc.suffixes,
-                              bc.engine_info_by_queue, bc.lookarounds,
+                              bc.engine_info_by_queue,
                               bc.roleStateIndices, prog_build, lit_id,
                               *edges_ptr, is_anchored_replay_program);
 }
@@ -2917,8 +2851,7 @@ void buildLiteralPrograms(const RoseBuildImpl &build,
             continue;
         }
 
-        auto rebuild_prog = makeDelayRebuildProgram(build,
-                                                    bc.lookarounds, prog_build,
+        auto rebuild_prog = makeDelayRebuildProgram(build, prog_build,
                                                     frag.lit_ids);
         frag.delay_program_offset = writeProgram(bc, move(rebuild_prog));
     }
@@ -3181,7 +3114,7 @@ void addEodEventProgram(const RoseBuildImpl &build, build_context &bc,
          });
 
     auto block = makeLiteralProgram(build, bc.leftfix_info, bc.suffixes,
-                                    bc.engine_info_by_queue, bc.lookarounds,
+                                    bc.engine_info_by_queue,
                                     bc.roleStateIndices, prog_build,
                                     build.eod_event_literal_id, edge_list,
                                     false);
@@ -3555,7 +3488,6 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     addSomRevNfas(bc, proto, ssm);
 
-    writeLookaroundTables(bc.lookarounds, bc.engine_blob, proto);
     writeDkeyInfo(rm, bc.engine_blob, proto);
     writeLeftInfo(bc.engine_blob, proto, leftInfoTable);
 

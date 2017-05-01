@@ -37,6 +37,7 @@
 #ifndef ROSE_BUILD_INSTRUCTIONS_H
 #define ROSE_BUILD_INSTRUCTIONS_H
 
+#include "rose_build_lookaround.h"
 #include "rose_build_program.h"
 #include "util/verify_types.h"
 
@@ -382,20 +383,19 @@ class RoseInstrCheckSingleLookaround
                                     RoseInstrCheckSingleLookaround> {
 public:
     s8 offset;
-    u32 reach_index;
+    CharReach reach;
     const RoseInstruction *target;
 
-    RoseInstrCheckSingleLookaround(s8 offset_in, u32 reach_index_in,
+    RoseInstrCheckSingleLookaround(s8 offset_in, CharReach reach_in,
                                    const RoseInstruction *target_in)
-        : offset(offset_in), reach_index(reach_index_in), target(target_in) {}
+        : offset(offset_in), reach(std::move(reach_in)), target(target_in) {}
 
     bool operator==(const RoseInstrCheckSingleLookaround &ri) const {
-        return offset == ri.offset && reach_index == ri.reach_index &&
-               target == ri.target;
+        return offset == ri.offset && reach == ri.reach && target == ri.target;
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), offset, reach_index);
+        return hash_all(static_cast<int>(opcode), offset, reach);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -404,7 +404,7 @@ public:
     bool equiv_to(const RoseInstrCheckSingleLookaround &ri,
                   const OffsetMap &offsets,
                   const OffsetMap &other_offsets) const {
-        return offset == ri.offset && reach_index == ri.reach_index &&
+        return offset == ri.offset && reach == ri.reach &&
                offsets.at(target) == other_offsets.at(ri.target);
     }
 };
@@ -414,24 +414,19 @@ class RoseInstrCheckLookaround
                                     ROSE_STRUCT_CHECK_LOOKAROUND,
                                     RoseInstrCheckLookaround> {
 public:
-    u32 look_index;
-    u32 reach_index;
-    u32 count;
+    std::vector<LookEntry> look;
     const RoseInstruction *target;
 
-    RoseInstrCheckLookaround(u32 look_index_in, u32 reach_index_in,
-                             u32 count_in, const RoseInstruction *target_in)
-        : look_index(look_index_in), reach_index(reach_index_in),
-          count(count_in), target(target_in) {}
+    RoseInstrCheckLookaround(std::vector<LookEntry> look_in,
+                             const RoseInstruction *target_in)
+        : look(std::move(look_in)), target(target_in) {}
 
     bool operator==(const RoseInstrCheckLookaround &ri) const {
-        return look_index == ri.look_index && reach_index == ri.reach_index &&
-               count == ri.count && target == ri.target;
+        return look == ri.look && target == ri.target;
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), look_index, reach_index,
-                        count);
+        return hash_all(static_cast<int>(opcode), look);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -439,9 +434,8 @@ public:
 
     bool equiv_to(const RoseInstrCheckLookaround &ri, const OffsetMap &offsets,
                   const OffsetMap &other_offsets) const {
-        return look_index == ri.look_index && reach_index == ri.reach_index &&
-               count == ri.count &&
-               offsets.at(target) == other_offsets.at(ri.target);
+        return look == ri.look
+            && offsets.at(target) == other_offsets.at(ri.target);
     }
 };
 
@@ -1837,30 +1831,26 @@ class RoseInstrMultipathLookaround
                                     ROSE_STRUCT_MULTIPATH_LOOKAROUND,
                                     RoseInstrMultipathLookaround> {
 public:
-    u32 look_index;
-    u32 reach_index;
-    u32 count;
+    std::vector<std::vector<LookEntry>> multi_look;
     s32 last_start;
     std::array<u8, 16> start_mask;
     const RoseInstruction *target;
 
-    RoseInstrMultipathLookaround(u32 look_index_in, u32 reach_index_in,
-                                 u32 count_in, s32 last_start_in,
+    RoseInstrMultipathLookaround(std::vector<std::vector<LookEntry>> ml,
+                                 s32 last_start_in,
                                  std::array<u8, 16> start_mask_in,
                                  const RoseInstruction *target_in)
-        : look_index(look_index_in), reach_index(reach_index_in),
-          count(count_in), last_start(last_start_in),
+        : multi_look(std::move(ml)), last_start(last_start_in),
           start_mask(std::move(start_mask_in)), target(target_in) {}
 
     bool operator==(const RoseInstrMultipathLookaround &ri) const {
-        return look_index == ri.look_index && reach_index == ri.reach_index &&
-               count == ri.count && last_start == ri.last_start &&
-               start_mask == ri.start_mask && target == ri.target;
+        return multi_look == ri.multi_look && last_start == ri.last_start
+        && start_mask == ri.start_mask && target == ri.target;
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), look_index, reach_index,
-                        count, last_start, start_mask);
+        return hash_all(static_cast<int>(opcode), multi_look, last_start,
+                        start_mask);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1869,10 +1859,9 @@ public:
     bool equiv_to(const RoseInstrMultipathLookaround &ri,
                   const OffsetMap &offsets,
                   const OffsetMap &other_offsets) const {
-        return look_index == ri.look_index && reach_index == ri.reach_index &&
-               count == ri.count && last_start == ri.last_start &&
-               start_mask == ri.start_mask &&
-               offsets.at(target) == other_offsets.at(ri.target);
+        return multi_look == ri.multi_look && last_start == ri.last_start
+            && start_mask == ri.start_mask
+            && offsets.at(target) == other_offsets.at(ri.target);
     }
 };
 

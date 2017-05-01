@@ -214,25 +214,6 @@ struct left_build_info {
     std::vector<std::vector<LookEntry>> lookaround;
 };
 
-struct lookaround_info : noncopyable {
-    /** \brief LookEntry list cache, so that we can reuse the look index and
-     * reach index for the same lookaround. */
-    ue2::unordered_map<std::vector<std::vector<LookEntry>>,
-        std::pair<size_t, size_t>> cache;
-
-    /** \brief Lookaround table for Rose roles. */
-    std::vector<std::vector<std::vector<LookEntry>>> table;
-
-    /** \brief Lookaround look table size. */
-    size_t lookTableSize = 0;
-
-    /** \brief Lookaround reach table size.
-     * since single path lookaround and multi-path lookaround have different
-     * bitvectors range (32 and 256), we need to maintain both look table size
-     * and reach table size. */
-    size_t reachTableSize = 0;
-};
-
 /**
  * \brief Provides a brief summary of properties of an NFA that has already been
  * finalised and stored in the blob.
@@ -261,14 +242,12 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build,
                       const std::map<RoseVertex, left_build_info> &leftfix_info,
                       const std::map<suffix_id, u32> &suffixes,
                       const std::map<u32, engine_info> &engine_info_by_queue,
-                      lookaround_info &lookarounds,
                       const unordered_map<RoseVertex, u32> &roleStateIndices,
                       ProgramBuild &prog_build, u32 lit_id,
                       const std::vector<RoseEdge> &lit_edges,
                       bool is_anchored_replay_program);
 
 RoseProgram makeDelayRebuildProgram(const RoseBuildImpl &build,
-                                    lookaround_info &lookarounds,
                                     ProgramBuild &prog_build,
                                     const std::vector<u32> &lit_ids);
 

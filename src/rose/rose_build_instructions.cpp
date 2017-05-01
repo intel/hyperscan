@@ -118,7 +118,7 @@ void RoseInstrCheckSingleLookaround::write(void *dest, RoseEngineBlob &blob,
     RoseInstrBase::write(dest, blob, offset_map);
     auto *inst = static_cast<impl_type *>(dest);
     inst->offset = offset;
-    inst->reach_index = reach_index;
+    inst->reach_index = blob.lookaround_cache.get_offset_of({reach}, blob);
     inst->fail_jump = calc_jump(offset_map, this, target);
 }
 
@@ -126,9 +126,15 @@ void RoseInstrCheckLookaround::write(void *dest, RoseEngineBlob &blob,
                                      const OffsetMap &offset_map) const {
     RoseInstrBase::write(dest, blob, offset_map);
     auto *inst = static_cast<impl_type *>(dest);
-    inst->look_index = look_index;
-    inst->reach_index = reach_index;
-    inst->count = count;
+    vector<s8> look_offsets;
+    vector<CharReach> reaches;
+    for (const auto &le : look) {
+        look_offsets.push_back(le.offset);
+        reaches.push_back(le.reach);
+    }
+    inst->look_index = blob.lookaround_cache.get_offset_of(look_offsets, blob);
+    inst->reach_index = blob.lookaround_cache.get_offset_of(reaches, blob);
+    inst->count = verify_u32(look.size());
     inst->fail_jump = calc_jump(offset_map, this, target);
 }
 
@@ -532,9 +538,26 @@ void RoseInstrMultipathLookaround::write(void *dest, RoseEngineBlob &blob,
                                          const OffsetMap &offset_map) const {
     RoseInstrBase::write(dest, blob, offset_map);
     auto *inst = static_cast<impl_type *>(dest);
-    inst->look_index = look_index;
-    inst->reach_index = reach_index;
-    inst->count = count;
+    auto &cache = blob.lookaround_cache;
+    vector<s8> look_offsets;
+    vector<vector<CharReach>> reaches;
+    for (const auto &vle : multi_look) {
+        reaches.push_back({});
+        bool done_offset = false;
+
+        for (const auto &le : vle) {
+            reaches.back().push_back(le.reach);
+
+            /* empty reaches don't have valid offsets */
+            if (!done_offset && le.reach.any()) {
+                look_offsets.push_back(le.offset);
+                done_offset = true;
+            }
+        }
+    }
+    inst->look_index = cache.get_offset_of(look_offsets, blob);
+    inst->reach_index = cache.get_offset_of(reaches, blob);
+    inst->count = verify_u32(multi_look.size());
     inst->last_start = last_start;
     copy(begin(start_mask), end(start_mask), inst->start_mask);
     inst->fail_jump = calc_jump(offset_map, this, target);

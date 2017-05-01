@@ -231,8 +231,8 @@ struct ROSE_STRUCT_CHECK_SINGLE_LOOKAROUND {
 
 struct ROSE_STRUCT_CHECK_LOOKAROUND {
     u8 code; //!< From enum RoseInstructionCode.
-    u32 look_index; //!< Index for lookaround offset list.
-    u32 reach_index; //!< Index for lookaround reach bitvectors.
+    u32 look_index; //!< Offset in bytecode of lookaround offset list.
+    u32 reach_index; //!< Offset in bytecode of lookaround reach bitvectors.
     u32 count; //!< The count of lookaround entries in one instruction.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
@@ -561,8 +561,8 @@ struct ROSE_STRUCT_CLEAR_WORK_DONE {
 
 struct ROSE_STRUCT_MULTIPATH_LOOKAROUND {
     u8 code; //!< From enum RoseInstructionCode.
-    u32 look_index; //!< Index for lookaround offset list.
-    u32 reach_index; //!< Index for lookaround reach bitvectors.
+    u32 look_index; //!< Offset in bytecode of lookaround offset list.
+    u32 reach_index; //!< Offset in bytecode of lookaround reach bitvectors.
     u32 count; //!< The lookaround byte numbers for each path.
     s32 last_start; //!< The latest start offset among 8 paths.
     u8 start_mask[MULTIPATH_MAX_LEN]; /*!< Used to initialize path if left-most

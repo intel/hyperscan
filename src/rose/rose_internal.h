@@ -383,10 +383,6 @@ struct RoseEngine {
 
     u32 leftOffset;
     u32 roseCount;
-    u32 lookaroundTableOffset; //!< base of lookaround offset list (of s8 values)
-    u32 lookaroundReachOffset; /**< base of lookaround reach bitvectors (32
-                                * bytes for single-path lookaround and 256 bytes
-                                * for multi-path lookaround) */
 
     u32 eodProgramOffset; //!< EOD program, otherwise 0.
 

@@ -625,12 +625,10 @@ void dumpLookaround(ofstream &os, const RoseEngine *t,
     assert(ri);
 
     const u8 *base = (const u8 *)t;
-    const s8 *look_base = (const s8 *)(base + t->lookaroundTableOffset);
-    const u8 *reach_base = base + t->lookaroundReachOffset;
 
-    const s8 *look = look_base + ri->look_index;
+    const s8 *look = (const s8 *)base + ri->look_index;
     const s8 *look_end = look + ri->count;
-    const u8 *reach = reach_base + ri->reach_index;
+    const u8 *reach = base + ri->reach_index;
 
     os << "    contents:" << endl;
 
@@ -648,12 +646,10 @@ void dumpMultipathLookaround(ofstream &os, const RoseEngine *t,
     assert(ri);
 
     const u8 *base = (const u8 *)t;
-    const s8 *look_base = (const s8 *)(base + t->lookaroundTableOffset);
-    const u8 *reach_base = base + t->lookaroundReachOffset;
 
-    const s8 *look_begin = look_base + ri->look_index;
+    const s8 *look_begin = (const s8 *)base + ri->look_index;
     const s8 *look_end = look_begin + ri->count;
-    const u8 *reach_begin = reach_base + ri->reach_index;
+    const u8 *reach_begin = base + ri->reach_index;
 
     os << "    contents:" << endl;
 
@@ -926,10 +922,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
                 os << "    offset " << int{ri->offset} << endl;
                 os << "    reach_index " << ri->reach_index << endl;
                 os << "    fail_jump " << offset + ri->fail_jump << endl;
-                const u8 *base = (const u8 *)t;
-                const u8 *reach_base = base + t->lookaroundReachOffset;
-                const u8 *reach = reach_base +
-                                  ri->reach_index * REACH_BITVECTOR_LEN;
+                const u8 *reach = (const u8 *)t + ri->reach_index;
                 os << "    contents ";
                 describeClass(os, bitvectorToReach(reach), 1000, CC_OUT_TEXT);
                 os << endl;
@@ -2146,8 +2139,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, handledKeyFatbitSize);
     DUMP_U32(t, leftOffset);
     DUMP_U32(t, roseCount);
-    DUMP_U32(t, lookaroundTableOffset);
-    DUMP_U32(t, lookaroundReachOffset);
     DUMP_U32(t, eodProgramOffset);
     DUMP_U32(t, lastByteHistoryIterOffset);
     DUMP_U32(t, minWidth);
