@@ -198,15 +198,16 @@ static
 bool pruneOverlong(NGHolder &g, const depth &max_depth,
                    const ReportManager &rm) {
     bool modified = false;
-    auto depths = calcDepths(g);
+    auto depths = calcBidiDepths(g);
 
     for (auto v : vertices_range(g)) {
         if (is_special(v, g)) {
             continue;
         }
         const auto &d = depths.at(g[v].index);
-        depth min_depth = min(d.fromStart.min, d.fromStartDotStar.min);
-        if (min_depth > max_depth) {
+        depth min_match_offset = min(d.fromStart.min, d.fromStartDotStar.min)
+                               + min(d.toAccept.min, d.toAcceptEod.min);
+        if (min_match_offset > max_depth) {
             clear_vertex(v, g);
             modified = true;
             continue;
