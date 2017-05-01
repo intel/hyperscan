@@ -118,13 +118,12 @@ struct ReachSubgraph {
 static
 void findInitDepths(const NGHolder &g,
                     ue2::unordered_map<NFAVertex, NFAVertexDepth> &depths) {
-    vector<NFAVertexDepth> d;
-    calcDepths(g, d);
+    auto d = calcDepths(g);
 
     for (auto v : vertices_range(g)) {
-        u32 idx = g[v].index;
+        size_t idx = g[v].index;
         assert(idx < d.size());
-        depths.insert(make_pair(v, d[idx]));
+        depths.emplace(v, d[idx]);
     }
 }
 

@@ -1928,8 +1928,7 @@ void removeAddedLiterals(RoseBuildImpl &tbi, const flat_set<u32> &lit_ids) {
 }
 
 bool RoseBuildImpl::addAnchoredAcyclic(const NGHolder &h) {
-    vector<DepthMinMax> vertexDepths;
-    calcDepthsFrom(h, h.start, vertexDepths);
+    auto vertexDepths = calcDepthsFrom(h, h.start);
 
     map<NFAVertex, set<u32> > reportMap;  /* NFAVertex -> literal ids */
     map<u32, DepthMinMax> depthMap;       /* literal id -> min/max depth */

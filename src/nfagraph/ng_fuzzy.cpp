@@ -603,9 +603,7 @@ private:
 // check if we will edit our way into a vacuous pattern
 static
 bool will_turn_vacuous(const NGHolder &g, u32 edit_distance) {
-    vector<NFAVertexRevDepth> depths;
-
-    calcDepths(g, depths);
+    auto depths = calcRevDepths(g);
 
     depth min_depth = depth::infinity();
     auto idx = g[g.start].index;

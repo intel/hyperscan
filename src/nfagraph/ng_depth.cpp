@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,7 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief NFA graph vertex depth calculations.
  */
 #include "ng_depth.h"
@@ -269,12 +270,11 @@ void calcAndStoreDepth(const Graph &g,
     }
 }
 
-void calcDepths(const NGHolder &g, std::vector<NFAVertexDepth> &depths) {
+vector<NFAVertexDepth> calcDepths(const NGHolder &g) {
     assert(hasCorrectlyNumberedVertices(g));
     const size_t numVertices = num_vertices(g);
-    depths.clear();
-    depths.resize(numVertices);
 
+    vector<NFAVertexDepth> depths(numVertices);
     vector<int> dMin;
     vector<int> dMax;
 
@@ -291,14 +291,15 @@ void calcDepths(const NGHolder &g, std::vector<NFAVertexDepth> &depths) {
     DEBUG_PRINTF("doing startds\n");
     calcAndStoreDepth(g, g.startDs, deadNodes, dMin, dMax, depths,
                       &NFAVertexDepth::fromStartDotStar);
+
+    return depths;
 }
 
-void calcDepths(const NGHolder &g, std::vector<NFAVertexRevDepth> &depths) {
+vector<NFAVertexRevDepth> calcRevDepths(const NGHolder &g) {
     assert(hasCorrectlyNumberedVertices(g));
     const size_t numVertices = num_vertices(g);
-    depths.clear();
-    depths.resize(numVertices);
 
+    vector<NFAVertexRevDepth> depths(numVertices);
     vector<int> dMin;
     vector<int> dMax;
 
@@ -324,14 +325,15 @@ void calcDepths(const NGHolder &g, std::vector<NFAVertexRevDepth> &depths) {
     calcAndStoreDepth<RevNFAGraph, NFAVertexRevDepth>(
         rg, g.acceptEod, deadNodes, dMin, dMax, depths,
         &NFAVertexRevDepth::toAcceptEod);
+
+    return depths;
 }
 
-void calcDepths(const NGHolder &g, vector<NFAVertexBidiDepth> &depths) {
+vector<NFAVertexBidiDepth> calcBidiDepths(const NGHolder &g) {
     assert(hasCorrectlyNumberedVertices(g));
     const size_t numVertices = num_vertices(g);
-    depths.clear();
-    depths.resize(numVertices);
 
+    vector<NFAVertexBidiDepth> depths(numVertices);
     vector<int> dMin;
     vector<int> dMax;
 
@@ -366,10 +368,11 @@ void calcDepths(const NGHolder &g, vector<NFAVertexBidiDepth> &depths) {
     calcAndStoreDepth<RevNFAGraph, NFAVertexBidiDepth>(
         rg, g.acceptEod, deadNodes, dMin, dMax, depths,
         &NFAVertexBidiDepth::toAcceptEod);
+
+    return depths;
 }
 
-void calcDepthsFrom(const NGHolder &g, const NFAVertex src,
-                    vector<DepthMinMax> &depths) {
+vector<DepthMinMax> calcDepthsFrom(const NGHolder &g, const NFAVertex src) {
     assert(hasCorrectlyNumberedVertices(g));
     const size_t numVertices = num_vertices(g);
 
@@ -379,13 +382,14 @@ void calcDepthsFrom(const NGHolder &g, const NFAVertex src,
     vector<int> dMin, dMax;
     calcDepthFromSource(g, src, deadNodes, dMin, dMax);
 
-    depths.clear();
-    depths.resize(numVertices);
+    vector<DepthMinMax> depths(numVertices);
 
     for (auto v : vertices_range(g)) {
-        u32 idx = g[v].index;
+        auto idx = g[v].index;
         depths.at(idx) = getDepths(idx, dMin, dMax);
     }
+
+    return depths;
 }
 
 } // namespace ue2

@@ -78,8 +78,8 @@ vector<DepthMinMax> getDistancesFromSOM(const NGHolder &g_orig) {
 
     //dumpGraph("som_depth.dot", g);
 
-    vector<DepthMinMax> temp_depths; // numbered by vertex index in g
-    calcDepthsFrom(g, g.start, temp_depths);
+    // Find depths, indexed by vertex index in g
+    auto temp_depths = calcDepthsFrom(g, g.start);
 
     // Transfer depths, indexed by vertex index in g_orig.
     vector<DepthMinMax> depths(num_vertices(g_orig));

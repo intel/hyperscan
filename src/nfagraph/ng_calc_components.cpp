@@ -235,8 +235,7 @@ void splitIntoComponents(unique_ptr<NGHolder> g,
     *shell_comp = false;
 
     // Compute "shell" head and tail subgraphs.
-    vector<NFAVertexBidiDepth> depths;
-    calcDepths(*g, depths);
+    auto depths = calcBidiDepths(*g);
     auto head_shell = findHeadShell(*g, depths, max_head_depth);
     auto tail_shell = findTailShell(*g, depths, max_tail_depth);
     for (auto v : head_shell) {

@@ -1472,8 +1472,7 @@ void avoidOutfixes(RoseInGraph &vg, bool last_chance,
     if (last_chance) {
         /* look for a prefix split as it allows us to accept very weak anchored
          * literals. */
-        vector<NFAVertexDepth> depths;
-        calcDepths(h, depths);
+        auto depths = calcDepths(h);
 
         split = findBestPrefixSplit(h, depths, vg, {e}, last_chance, cc);
 
@@ -1973,8 +1972,7 @@ bool improvePrefix(NGHolder &h, RoseInGraph &vg, const vector<RoseInEdge> &ee,
     renumber_vertices(h);
     renumber_edges(h);
 
-    vector<NFAVertexDepth> depths;
-    calcDepths(h, depths);
+    auto depths = calcDepths(h);
 
     /* If the reason the prefix is not transient is due to a very long literal
      * following, we can make it transient by restricting ourselves to using
@@ -2856,8 +2854,7 @@ bool splitForImplementabilty(RoseInGraph &vg, NGHolder &h,
     unique_ptr<VertLitInfo> split;
     bool last_chance = true;
     if (h.kind == NFA_PREFIX) {
-        vector<NFAVertexDepth> depths;
-        calcDepths(h, depths);
+        auto depths = calcDepths(h);
 
         split = findBestPrefixSplit(h, depths, vg, edges, last_chance, cc);
     } else {

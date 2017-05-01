@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -94,8 +94,7 @@ void wireNewAccepts(NGHolder &g, NFAVertex head,
 static
 bool isFixedDepth(const NGHolder &g, NFAVertex v) {
     // If the vertex is reachable from startDs, it can't be fixed depth.
-    vector<DepthMinMax> depthFromStartDs;
-    calcDepthsFrom(g, g.startDs, depthFromStartDs);
+    auto depthFromStartDs = calcDepthsFrom(g, g.startDs);
 
     u32 idx = g[v].index;
     const DepthMinMax &ds = depthFromStartDs.at(idx);
@@ -104,8 +103,7 @@ bool isFixedDepth(const NGHolder &g, NFAVertex v) {
         return false;
     }
 
-    vector<DepthMinMax> depthFromStart;
-    calcDepthsFrom(g, g.start, depthFromStart);
+    auto depthFromStart = calcDepthsFrom(g, g.start);
 
     /* we can still consider the head of a puff chain as at fixed depth if
      * it has a self-loop: so we look at all the preds of v (other than v

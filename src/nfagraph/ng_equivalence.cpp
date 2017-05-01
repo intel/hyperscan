@@ -342,9 +342,9 @@ vector<VertexInfoSet> partitionGraph(vector<unique_ptr<VertexInfo>> &infos,
     vector<NFAVertexRevDepth> rdepths;
 
     if (eq == LEFT_EQUIVALENCE) {
-        calcDepths(g, depths);
+        depths = calcDepths(g);
     } else {
-        calcDepths(g, rdepths);
+        rdepths = calcRevDepths(g);
     }
 
     // partition the graph based on CharReach

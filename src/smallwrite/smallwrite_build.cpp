@@ -198,8 +198,7 @@ static
 bool pruneOverlong(NGHolder &g, const depth &max_depth,
                    const ReportManager &rm) {
     bool modified = false;
-    std::vector<NFAVertexDepth> depths;
-    calcDepths(g, depths);
+    auto depths = calcDepths(g);
 
     for (auto v : vertices_range(g)) {
         if (is_special(v, g)) {

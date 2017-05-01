@@ -147,8 +147,7 @@ void fillExpressionInfo(ReportManager &rm, NGHolder &g,
     removeLeadingVirtualVerticesFromRoot(g, g.start);
     removeLeadingVirtualVerticesFromRoot(g, g.startDs);
 
-    vector<DepthMinMax> depths;
-    calcDepthsFrom(g, g.start, depths);
+    auto depths = calcDepthsFrom(g, g.start);
 
     DepthMinMax d;
 

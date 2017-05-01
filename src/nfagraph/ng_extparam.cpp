@@ -734,8 +734,7 @@ void pruneExtUnreachable(NGHolder &g, const ReportManager &rm) {
 
     const auto &report = rm.getReport(*reports.begin());
 
-    vector<NFAVertexBidiDepth> depths;
-    calcDepths(g, depths);
+    auto depths = calcBidiDepths(g);
 
     vector<NFAEdge> dead;
 
@@ -957,8 +956,7 @@ void replaceMinLengthWithOffset(NGHolder &g, ReportManager &rm) {
  */
 static
 void removeUnneededOffsetBounds(NGHolder &g, ReportManager &rm) {
-    vector<NFAVertexDepth> depths;
-    calcDepths(g, depths);
+    auto depths = calcDepths(g);
 
     replaceReports(g, [&](NFAVertex v, ReportID id) {
         const auto &d = depths.at(g[v].index);
