@@ -698,7 +698,6 @@ unique_ptr<raw_dfa> buildDfa(LitTrie &trie, bool nocase) {
                 continue;
             }
             auto v_state = state_ids.at(v);
-            assert((u16)trie[v].c < alpha.size());
             u16 sym = alpha[trie[v].c];
             DEBUG_PRINTF("edge to %u on 0x%02x (sym %u)\n", v_state,
                          trie[v].c, sym);
