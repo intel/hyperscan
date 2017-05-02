@@ -63,9 +63,9 @@ class VertexInfo;
 struct VertexInfoPtrCmp {
     // for flat_set
     bool operator()(const VertexInfo *a, const VertexInfo *b) const;
-    // for unordered_set
-    size_t operator()(const VertexInfo *a) const;
 };
+
+using VertexInfoSet = flat_set<VertexInfo *, VertexInfoPtrCmp>;
 
 /** Precalculated (and maintained) information about a vertex. */
 class VertexInfo {
@@ -74,8 +74,8 @@ public:
         : v(v_in), vert_index(g[v].index), cr(g[v].char_reach),
           equivalence_class(~0), vertex_flags(g[v].assert_flags) {}
 
-    flat_set<VertexInfo *, VertexInfoPtrCmp> pred; //!< predecessors of this vertex
-    flat_set<VertexInfo *, VertexInfoPtrCmp> succ; //!< successors of this vertex
+    VertexInfoSet pred; //!< predecessors of this vertex
+    VertexInfoSet succ; //!< successors of this vertex
     NFAVertex v;
     size_t vert_index;
     CharReach cr;
@@ -86,21 +86,11 @@ public:
     unsigned vertex_flags;
 };
 
-}
-
-typedef ue2::unordered_set<VertexInfo *, VertexInfoPtrCmp> VertexInfoSet;
-
 // compare two vertex info pointers on their vertex index
 bool VertexInfoPtrCmp::operator()(const VertexInfo *a,
                                   const VertexInfo *b) const {
     return a->vert_index < b->vert_index;
 }
-// provide a "hash" for vertex info pointer by returning its vertex index
-size_t VertexInfoPtrCmp::operator()(const VertexInfo *a) const {
-    return a->vert_index;
-}
-
-namespace {
 
 // to avoid traversing infomap each time we need to check the class during
 // partitioning, we will cache the information pertaining to a particular class
