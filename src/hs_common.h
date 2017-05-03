@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -545,7 +545,7 @@ hs_error_t hs_valid_platform(void);
  * At a minimum, Hyperscan requires Supplemental Streaming SIMD Extensions 3
  * (SSSE3).
  */
-#define HS_ARCH_ERROR		    (-11)
+#define HS_ARCH_ERROR           (-11)
 
 /** @} */
 

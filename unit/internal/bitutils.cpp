@@ -36,26 +36,26 @@
 // open coded implementations to test against
 static
 u32 our_clz(u32 x) {
-	u32 n;
+    u32 n;
 
-	if (x == 0) return(32);
-	n = 0;
-	if (x <= 0x0000FFFF) { n = n + 16; x = x << 16; }
-	if (x <= 0x00FFFFFF) { n = n + 8; x = x << 8; }
-	if (x <= 0x0FFFFFFF) { n = n + 4; x = x << 4; }
-	if (x <= 0x3FFFFFFF) { n = n + 2; x = x << 2; }
-	if (x <= 0x7FFFFFFF) { n = n + 1; }
-	return n;
+    if (x == 0) return(32);
+    n = 0;
+    if (x <= 0x0000FFFF) { n = n + 16; x = x << 16; }
+    if (x <= 0x00FFFFFF) { n = n + 8; x = x << 8; }
+    if (x <= 0x0FFFFFFF) { n = n + 4; x = x << 4; }
+    if (x <= 0x3FFFFFFF) { n = n + 2; x = x << 2; }
+    if (x <= 0x7FFFFFFF) { n = n + 1; }
+    return n;
 }
 
 static
 u32 our_clzll(u64a x) {
-	// Synthesise from 32-bit variant.
-	u32 high = x >> 32;
-	if (high) {
-		return our_clz(high);
-	}
-	return 32 + our_clz(x);
+    // Synthesise from 32-bit variant.
+    u32 high = x >> 32;
+    if (high) {
+        return our_clz(high);
+    }
+    return 32 + our_clz(x);
 }
 
 

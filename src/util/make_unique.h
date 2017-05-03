@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,9 +39,9 @@
 
 namespace ue2 {
 #if defined(USE_STD)
-	using std::make_unique;
+using std::make_unique;
 #else
-	using boost::make_unique;
+using boost::make_unique;
 #endif
 }
 
