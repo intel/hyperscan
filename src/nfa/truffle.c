@@ -264,11 +264,11 @@ u32 block(m256 shuf_mask_lo_highclear, m256 shuf_mask_lo_highset, m256 v) {
     m256 shuf_mask_hi = _mm256_set1_epi64x(0x8040201008040201);
 
     // and now do the real work
-    m256 shuf1 = vpshufb(shuf_mask_lo_highclear, v);
+    m256 shuf1 = pshufb_m256(shuf_mask_lo_highclear, v);
     m256 t1 = xor256(v, highconst);
-    m256 shuf2 = vpshufb(shuf_mask_lo_highset, t1);
+    m256 shuf2 = pshufb_m256(shuf_mask_lo_highset, t1);
     m256 t2 = andnot256(highconst, rshift64_m256(v, 4));
-    m256 shuf3 = vpshufb(shuf_mask_hi, t2);
+    m256 shuf3 = pshufb_m256(shuf_mask_hi, t2);
     m256 tmp = and256(or256(shuf1, shuf2), shuf3);
     m256 tmp2 = eq256(tmp, zeroes256());
     u32 z = movemask256(tmp2);

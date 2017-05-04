@@ -1334,11 +1334,11 @@ int roseCheckMultipathShufti32x8(const struct hs_scratch *scratch,
         DEBUG_PRINTF("expand_lo %llx\n", valid_lo);
         expand_valid = set64x4(valid_hi, valid_lo, valid_hi,
                                          valid_lo);
-        valid_path_mask = ~movemask256(vpshufb(expand_valid,
-                                               data_select_mask));
+        valid_path_mask = ~movemask256(pshufb_m256(expand_valid,
+                                                  data_select_mask));
     }
 
-    m256 data = vpshufb(data_double, data_select_mask);
+    m256 data = pshufb_m256(data_double, data_select_mask);
     m256 hi_mask = loadu2x128(ri->hi_mask);
     m256 lo_mask = loadu2x128(ri->lo_mask);
     m256 bucket_select_mask = loadu256(ri->bucket_select_mask);
@@ -1395,11 +1395,11 @@ int roseCheckMultipathShufti32x16(const struct hs_scratch *scratch,
         DEBUG_PRINTF("expand_lo %llx\n", valid_lo);
         expand_valid = set64x4(valid_hi, valid_lo, valid_hi,
                                          valid_lo);
-        valid_path_mask = ~movemask256(vpshufb(expand_valid,
-                                               data_select_mask));
+        valid_path_mask = ~movemask256(pshufb_m256(expand_valid,
+                                                   data_select_mask));
     }
 
-    m256 data = vpshufb(data_double, data_select_mask);
+    m256 data = pshufb_m256(data_double, data_select_mask);
 
     m256 hi_mask_1 = loadu2x128(ri->hi_mask);
     m256 hi_mask_2 = loadu2x128(ri->hi_mask + 16);
@@ -1463,15 +1463,15 @@ int roseCheckMultipathShufti64(const struct hs_scratch *scratch,
         DEBUG_PRINTF("expand_lo %llx\n", valid_lo);
         expand_valid = set64x4(valid_hi, valid_lo, valid_hi,
                                          valid_lo);
-        u32 valid_path_1 = movemask256(vpshufb(expand_valid,
-                                               data_select_mask_1));
-        u32 valid_path_2 = movemask256(vpshufb(expand_valid,
-                                               data_select_mask_2));
+        u32 valid_path_1 = movemask256(pshufb_m256(expand_valid,
+                                                   data_select_mask_1));
+        u32 valid_path_2 = movemask256(pshufb_m256(expand_valid,
+                                                   data_select_mask_2));
         valid_path_mask = ~((u64a)valid_path_1 | (u64a)valid_path_2 << 32);
     }
 
-    m256 data_1 = vpshufb(data_m256, data_select_mask_1);
-    m256 data_2 = vpshufb(data_m256, data_select_mask_2);
+    m256 data_1 = pshufb_m256(data_m256, data_select_mask_1);
+    m256 data_2 = pshufb_m256(data_m256, data_select_mask_2);
 
     m256 hi_mask = loadu2x128(ri->hi_mask);
     m256 lo_mask = loadu2x128(ri->lo_mask);

@@ -54,7 +54,7 @@ u32 packedExtract128(m128 s, const m128 permute, const m128 compare) {
 static really_inline
 u32 packedExtract256(m256 s, const m256 permute, const m256 compare) {
     // vpshufb doesn't cross lanes, so this is a bit of a cheat
-    m256 shuffled = vpshufb(s, permute);
+    m256 shuffled = pshufb_m256(s, permute);
     m256 compared = and256(shuffled, compare);
     u32 rv = ~movemask256(eq256(compared, shuffled));
     // stitch the lane-wise results back together

@@ -373,8 +373,8 @@ DUMP_MSK(256)
 static really_inline
 u32 block(m256 mask_lo, m256 mask_hi, m256 chars, const m256 low4bits,
           const m256 compare) {
-    m256 c_lo  = vpshufb(mask_lo, GET_LO_4(chars));
-    m256 c_hi  = vpshufb(mask_hi, GET_HI_4(chars));
+    m256 c_lo  = pshufb_m256(mask_lo, GET_LO_4(chars));
+    m256 c_hi  = pshufb_m256(mask_hi, GET_HI_4(chars));
     m256 t = and256(c_lo, c_hi);
 
 #ifdef DEBUG
@@ -407,7 +407,7 @@ const u8 *fwdBlockShort(m256 mask, m128 chars, const u8 *buf,
     // do the hi and lo shuffles in the one avx register
     m256 c = combine2x128(rshift64_m128(chars, 4), chars);
     c = and256(c, low4bits);
-    m256 c_shuf = vpshufb(mask, c);
+    m256 c_shuf = pshufb_m256(mask, c);
     m128 t = and128(movdq_hi(c_shuf), cast256to128(c_shuf));
     // the upper 32-bits can't match
     u32 z = 0xffff0000U | movemask128(eq128(t, zeroes128()));
@@ -516,8 +516,8 @@ const u8 *lastMatch(const u8 *buf, u32 z) {
 static really_inline
 const u8 *revBlock(m256 mask_lo, m256 mask_hi, m256 chars, const u8 *buf,
                    const m256 low4bits, const m256 zeroes) {
-    m256 c_lo  = vpshufb(mask_lo, GET_LO_4(chars));
-    m256 c_hi  = vpshufb(mask_hi, GET_HI_4(chars));
+    m256 c_lo  = pshufb_m256(mask_lo, GET_LO_4(chars));
+    m256 c_hi  = pshufb_m256(mask_hi, GET_HI_4(chars));
     m256 t     = and256(c_lo, c_hi);
 
 #ifdef DEBUG
@@ -538,7 +538,7 @@ const u8 *revBlockShort(m256 mask, m128 chars, const u8 *buf,
     // do the hi and lo shuffles in the one avx register
     m256 c = combine2x128(rshift64_m128(chars, 4), chars);
     c = and256(c, low4bits);
-    m256 c_shuf = vpshufb(mask, c);
+    m256 c_shuf = pshufb_m256(mask, c);
     m128 t = and128(movdq_hi(c_shuf), cast256to128(c_shuf));
     // the upper 32-bits can't match
     u32 z = 0xffff0000U | movemask128(eq128(t, zeroes128()));
@@ -630,8 +630,8 @@ const u8 *fwdBlock2(m256 mask1_lo, m256 mask1_hi, m256 mask2_lo, m256 mask2_hi,
     DEBUG_PRINTF("buf %p\n", buf);
     m256 chars_lo = GET_LO_4(chars);
     m256 chars_hi = GET_HI_4(chars);
-    m256 c_lo  = vpshufb(mask1_lo, chars_lo);
-    m256 c_hi  = vpshufb(mask1_hi, chars_hi);
+    m256 c_lo  = pshufb_m256(mask1_lo, chars_lo);
+    m256 c_hi  = pshufb_m256(mask1_hi, chars_hi);
     m256 t     = or256(c_lo, c_hi);
 
 #ifdef DEBUG
@@ -642,8 +642,8 @@ const u8 *fwdBlock2(m256 mask1_lo, m256 mask1_hi, m256 mask2_lo, m256 mask2_hi,
     DEBUG_PRINTF("     t: "); dumpMsk256(t);            printf("\n");
 #endif
 
-    m256 c2_lo  = vpshufb(mask2_lo, chars_lo);
-    m256 c2_hi  = vpshufb(mask2_hi, chars_hi);
+    m256 c2_lo  = pshufb_m256(mask2_lo, chars_lo);
+    m256 c2_hi  = pshufb_m256(mask2_hi, chars_hi);
     m256 t2 = or256(t, rshift128_m256(or256(c2_lo, c2_hi), 1));
 
 #ifdef DEBUG
@@ -662,8 +662,8 @@ const u8 *fwdBlockShort2(m256 mask1, m256 mask2, m128 chars, const u8 *buf,
     // do the hi and lo shuffles in the one avx register
     m256 c = combine2x128(rshift64_m128(chars, 4), chars);
     c = and256(c, low4bits);
-    m256 c_shuf1 = vpshufb(mask1, c);
-    m256 c_shuf2 = rshift128_m256(vpshufb(mask2, c), 1);
+    m256 c_shuf1 = pshufb_m256(mask1, c);
+    m256 c_shuf2 = rshift128_m256(pshufb_m256(mask2, c), 1);
     m256 t0 = or256(c_shuf1, c_shuf2);
     m128 t = or128(movdq_hi(t0), cast256to128(t0));
     // the upper 32-bits can't match

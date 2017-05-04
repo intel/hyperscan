@@ -147,8 +147,8 @@ m256 prep_conf_fat_teddy_m1(const m256 *maskBase, m256 val) {
     m256 mask = set32x8(0xf);
     m256 lo = and256(val, mask);
     m256 hi = and256(rshift64_m256(val, 4), mask);
-    return and256(vpshufb(maskBase[0*2], lo),
-                  vpshufb(maskBase[0*2+1], hi));
+    return and256(pshufb_m256(maskBase[0*2], lo),
+                  pshufb_m256(maskBase[0*2+1], hi));
 }
 
 static really_inline
@@ -158,8 +158,8 @@ m256 prep_conf_fat_teddy_m2(const m256 *maskBase, m256 *old_1, m256 val) {
     m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 r = prep_conf_fat_teddy_m1(maskBase, val);
 
-    m256 res_1 = and256(vpshufb(maskBase[1*2], lo),
-                        vpshufb(maskBase[1*2+1], hi));
+    m256 res_1 = and256(pshufb_m256(maskBase[1*2], lo),
+                        pshufb_m256(maskBase[1*2+1], hi));
     m256 res_shifted_1 = vpalignr(res_1, *old_1, 16-1);
     *old_1 = res_1;
     return and256(r, res_shifted_1);
@@ -173,8 +173,8 @@ m256 prep_conf_fat_teddy_m3(const m256 *maskBase, m256 *old_1, m256 *old_2,
     m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 r = prep_conf_fat_teddy_m2(maskBase, old_1, val);
 
-    m256 res_2 = and256(vpshufb(maskBase[2*2], lo),
-                        vpshufb(maskBase[2*2+1], hi));
+    m256 res_2 = and256(pshufb_m256(maskBase[2*2], lo),
+                        pshufb_m256(maskBase[2*2+1], hi));
     m256 res_shifted_2 = vpalignr(res_2, *old_2, 16-2);
     *old_2 = res_2;
     return and256(r, res_shifted_2);
@@ -188,8 +188,8 @@ m256 prep_conf_fat_teddy_m4(const m256 *maskBase, m256 *old_1, m256 *old_2,
     m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 r = prep_conf_fat_teddy_m3(maskBase, old_1, old_2, val);
 
-    m256 res_3 = and256(vpshufb(maskBase[3*2], lo),
-                        vpshufb(maskBase[3*2+1], hi));
+    m256 res_3 = and256(pshufb_m256(maskBase[3*2], lo),
+                        pshufb_m256(maskBase[3*2+1], hi));
     m256 res_shifted_3 = vpalignr(res_3, *old_3, 16-3);
     *old_3 = res_3;
     return and256(r, res_shifted_3);
