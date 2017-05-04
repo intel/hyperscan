@@ -36,7 +36,6 @@
 #include "huge.h"
 #include "timer.h"
 
-#include "crc32.h"
 #include "database.h"
 #include "hs_compile.h"
 #include "hs_internal.h"
@@ -46,11 +45,14 @@
 
 #include <cassert>
 #include <cstring>
+#include <functional>
 #include <iomanip>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <boost/crc.hpp>
 
 using namespace std;
 
@@ -230,11 +232,13 @@ string dbSettingsHash(const string &filename, u32 mode) {
 
     string info = info_oss.str();
 
-    u32 crc = Crc32c_ComputeBuf(0, info.data(), info.size());
+    boost::crc_32_type crc;
+
+    crc.process_bytes(info.data(), info.length());
 
     // return STL string with printable version of digest
     ostringstream oss;
-    oss << hex << setw(8) << setfill('0') << crc << dec;
+    oss << hex << setw(8) << setfill('0') << crc.checksum() << dec;
 
     return oss.str();
 }
