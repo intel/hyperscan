@@ -179,7 +179,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
 
 #define SHENG_SINGLE_ITER do {                                             \
         m128 shuffle_mask = masks[*(c++)];                                 \
-        s = pshufb(shuffle_mask, s);                                       \
+        s = pshufb_m128(shuffle_mask, s);                                  \
         u32 s_gpr_x4 = movd(s); /* convert to u8 */                        \
         DEBUG_PRINTF("c %hhu (%c) --> s %hhu\n", c[-1], c[-1], s_gpr_x4);  \
         if (s_gpr_x4 >= sheng_stop_limit_x4) {                             \
@@ -198,7 +198,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
         u64a cc0 = pdep64(data_bytes, 0xff0); /* extract scaled low byte */
         data_bytes &= ~0xffULL; /* clear low bits for scale space */
         m128 shuffle_mask0 = load128((const char *)masks + cc0);
-        s = pshufb(shuffle_mask0, s);
+        s = pshufb_m128(shuffle_mask0, s);
         m128 s_max = s;
         m128 s_max0 = s_max;
         DEBUG_PRINTF("c %02llx --> s %hhu\n", cc0 >> 4, movd(s));
@@ -208,7 +208,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
         u64a cc##iter = pext64(data_bytes, mcsheng_pext_mask[iter]);    \
         assert(cc##iter == (u64a)c[iter] << 4);                         \
         m128 shuffle_mask##iter = load128((const char *)masks + cc##iter); \
-        s = pshufb(shuffle_mask##iter, s);                              \
+        s = pshufb_m128(shuffle_mask##iter, s);                         \
         if (do_accel && iter == 7) {                                    \
             /* in the final iteration we also have to check against accel */ \
             m128 s_temp = sadd_u8_m128(s, accel_delta);                 \

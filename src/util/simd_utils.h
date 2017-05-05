@@ -272,7 +272,7 @@ char testbit128(m128 val, unsigned int n) {
 #define palignr(r, l, offset) _mm_alignr_epi8(r, l, offset)
 
 static really_inline
-m128 pshufb(m128 a, m128 b) {
+m128 pshufb_m128(m128 a, m128 b) {
     m128 result;
     result = _mm_shuffle_epi8(a, b);
     return result;
@@ -284,8 +284,8 @@ m256 pshufb_m256(m256 a, m256 b) {
     return _mm256_shuffle_epi8(a, b);
 #else
     m256 rv;
-    rv.lo = pshufb(a.lo, b.lo);
-    rv.hi = pshufb(a.hi, b.hi);
+    rv.lo = pshufb_m128(a.lo, b.lo);
+    rv.hi = pshufb_m128(a.hi, b.hi);
     return rv;
 #endif
 }
@@ -306,7 +306,7 @@ static really_inline
 m128 variable_byte_shift_m128(m128 in, s32 amount) {
     assert(amount >= -16 && amount <= 16);
     m128 shift_mask = loadu128(vbs_mask_data + 16 - amount);
-    return pshufb(in, shift_mask);
+    return pshufb_m128(in, shift_mask);
 }
 
 static really_inline

@@ -114,8 +114,8 @@ DUMP_MSK(128)
 static really_inline
 u32 block(m128 mask_lo, m128 mask_hi, m128 chars, const m128 low4bits,
           const m128 compare) {
-    m128 c_lo  = pshufb(mask_lo, GET_LO_4(chars));
-    m128 c_hi  = pshufb(mask_hi, GET_HI_4(chars));
+    m128 c_lo  = pshufb_m128(mask_lo, GET_LO_4(chars));
+    m128 c_hi  = pshufb_m128(mask_hi, GET_HI_4(chars));
     m128 t     = and128(c_lo, c_hi);
 
 #ifdef DEBUG
@@ -219,8 +219,8 @@ const u8 *lastMatch(const u8 *buf, m128 t, m128 compare) {
 static really_inline
 const u8 *revBlock(m128 mask_lo, m128 mask_hi, m128 chars, const u8 *buf,
                    const m128 low4bits, const m128 zeroes) {
-    m128 c_lo  = pshufb(mask_lo, GET_LO_4(chars));
-    m128 c_hi  = pshufb(mask_hi, GET_HI_4(chars));
+    m128 c_lo  = pshufb_m128(mask_lo, GET_LO_4(chars));
+    m128 c_hi  = pshufb_m128(mask_hi, GET_HI_4(chars));
     m128 t     = and128(c_lo, c_hi);
 
 #ifdef DEBUG
@@ -289,8 +289,8 @@ const u8 *fwdBlock2(m128 mask1_lo, m128 mask1_hi, m128 mask2_lo, m128 mask2_hi,
                     const m128 ones) {
     m128 chars_lo = GET_LO_4(chars);
     m128 chars_hi = GET_HI_4(chars);
-    m128 c_lo  = pshufb(mask1_lo, chars_lo);
-    m128 c_hi  = pshufb(mask1_hi, chars_hi);
+    m128 c_lo  = pshufb_m128(mask1_lo, chars_lo);
+    m128 c_hi  = pshufb_m128(mask1_hi, chars_hi);
     m128 t     = or128(c_lo, c_hi);
 
 #ifdef DEBUG
@@ -301,8 +301,8 @@ const u8 *fwdBlock2(m128 mask1_lo, m128 mask1_hi, m128 mask2_lo, m128 mask2_hi,
     DEBUG_PRINTF("     t: "); dumpMsk128(t);            printf("\n");
 #endif
 
-    m128 c2_lo  = pshufb(mask2_lo, chars_lo);
-    m128 c2_hi  = pshufb(mask2_hi, chars_hi);
+    m128 c2_lo  = pshufb_m128(mask2_lo, chars_lo);
+    m128 c2_hi  = pshufb_m128(mask2_hi, chars_hi);
     m128 t2     = or128(t, rshiftbyte_m128(or128(c2_lo, c2_hi), 1));
 
 #ifdef DEBUG

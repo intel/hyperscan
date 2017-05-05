@@ -1274,11 +1274,11 @@ int roseCheckMultipathShufti16x8(const struct hs_scratch *scratch,
         DEBUG_PRINTF("expand_hi %llx\n", valid_hi);
         DEBUG_PRINTF("expand_lo %llx\n", valid_lo);
         expand_valid = set64x2(valid_hi, valid_lo);
-        valid_path_mask = ~movemask128(pshufb(expand_valid,
+        valid_path_mask = ~movemask128(pshufb_m128(expand_valid,
                                                data_select_mask));
     }
 
-    m128 data = pshufb(data_init, data_select_mask);
+    m128 data = pshufb_m128(data_init, data_select_mask);
     m256 nib_mask = loadu256(ri->nib_mask);
     m128 bucket_select_mask = loadu128(ri->bucket_select_mask);
 

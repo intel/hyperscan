@@ -68,11 +68,11 @@ u32 block(m128 shuf_mask_lo_highclear, m128 shuf_mask_lo_highset, m128 v) {
     m128 shuf_mask_hi = _mm_set1_epi64x(0x8040201008040201);
 
     // and now do the real work
-    m128 shuf1 = pshufb(shuf_mask_lo_highclear, v);
+    m128 shuf1 = pshufb_m128(shuf_mask_lo_highclear, v);
     m128 t1 = xor128(v, highconst);
-    m128 shuf2 = pshufb(shuf_mask_lo_highset, t1);
+    m128 shuf2 = pshufb_m128(shuf_mask_lo_highset, t1);
     m128 t2 = andnot128(highconst, rshift64_m128(v, 4));
-    m128 shuf3 = pshufb(shuf_mask_hi, t2);
+    m128 shuf3 = pshufb_m128(shuf_mask_hi, t2);
     m128 tmp = and128(or128(shuf1, shuf2), shuf3);
     m128 tmp2 = eq128(tmp, zeroes128());
     u32 z = movemask128(tmp2);
