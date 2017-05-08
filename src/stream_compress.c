@@ -32,6 +32,7 @@
 #include "nfa/nfa_internal.h"
 #include "rose/rose_internal.h"
 #include "util/multibit.h"
+#include "util/multibit_compress.h"
 #include "util/uniform_ops.h"
 
 #include <string.h>
@@ -57,7 +58,39 @@
         DEBUG_PRINTF("co = %zu\n", currOffset);         \
     } while (0);
 
+#define COPY_MULTIBIT_IN(p, total_bits) do {                                \
+        size_t sz;                                                          \
+        STREAM_QUAL u8 *bits = (STREAM_QUAL u8 *)p;                         \
+        BUF_QUAL u8 *comp = (BUF_QUAL u8 *)(buf + currOffset);              \
+        if (!mmbit_compress(bits, total_bits, comp, &sz,                    \
+                            buf_size - currOffset)) {                       \
+            return 0; /* error */                                           \
+        }                                                                   \
+        currOffset += sz;                                                   \
+        DEBUG_PRINTF("co = %zu\n", currOffset);                             \
+    } while (0);
+
+#define COPY_MULTIBIT_OUT(p, total_bits) do {                               \
+        size_t sz;                                                          \
+        STREAM_QUAL u8 *bits = (STREAM_QUAL u8 *)p;                         \
+        BUF_QUAL u8 *comp = (BUF_QUAL u8 *)(buf + currOffset);              \
+        if (!mmbit_decompress(bits, total_bits, comp, &sz,                  \
+                              buf_size - currOffset)) {                     \
+            return 0; /* error */                                           \
+        }                                                                   \
+        currOffset += sz;                                                   \
+        DEBUG_PRINTF("co = %zu\n", currOffset);                             \
+    } while (0);
+
+#define COPY_MULTIBIT_SIZE(p, total_bits) do {                              \
+        STREAM_QUAL u8 *bits = (STREAM_QUAL u8 *)p;                         \
+        size_t sz = mmbit_compsize(bits, total_bits);                       \
+        currOffset += sz;                                                   \
+        DEBUG_PRINTF("co = %zu\n", currOffset);                             \
+    } while (0);
+
 #define COPY COPY_OUT
+#define COPY_MULTIBIT COPY_MULTIBIT_OUT
 #define ASSIGN(lhs, rhs) do { lhs = rhs; } while (0)
 #define FN_SUFFIX expand
 #define STREAM_QUAL
@@ -70,6 +103,7 @@ int expand_stream(struct hs_stream *stream, const struct RoseEngine *rose,
 }
 
 #define COPY COPY_IN
+#define COPY_MULTIBIT COPY_MULTIBIT_IN
 #define ASSIGN(lhs, rhs) do { } while (0)
 #define FN_SUFFIX compress
 #define STREAM_QUAL const
@@ -83,6 +117,7 @@ size_t compress_stream(char *buf, size_t buf_size,
 }
 
 #define COPY SIZE_COPY_IN
+#define COPY_MULTIBIT COPY_MULTIBIT_SIZE
 #define ASSIGN(lhs, rhs) do { } while (0)
 #define FN_SUFFIX size
 #define STREAM_QUAL const

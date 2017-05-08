@@ -629,6 +629,7 @@ set (hs_exec_SRCS
     src/util/masked_move.h
     src/util/multibit.h
     src/util/multibit.c
+    src/util/multibit_compress.h
     src/util/multibit_internal.h
     src/util/pack_bits.h
     src/util/popcount.h

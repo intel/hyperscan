@@ -29,10 +29,6 @@
 #include "util/join.h"
 
 #define COPY_FIELD(x) COPY(&x, sizeof(x))
-
-/* TODO: replace with a multibit compress/expand call */
-#define COPY_MULTIBIT(mm_p, mm_size_bytes) COPY(mm_p, mm_size_bytes)
-
 #define COPY_LEFTFIXES JOIN(sc_left_, FN_SUFFIX)
 #define COPY_SOM_INFO JOIN(sc_som_, FN_SUFFIX)
 
@@ -93,8 +89,8 @@ size_t COPY_SOM_INFO(const struct RoseEngine *rose, size_t currOffset,
     assert(so->somValid);
     assert(so->somWritable);
 
-    COPY_MULTIBIT(stream_body + so->somWritable, so->somMultibit_size);
-    COPY_MULTIBIT(stream_body + so->somValid, so->somMultibit_size);
+    COPY_MULTIBIT(stream_body + so->somWritable, rose->somLocationCount);
+    COPY_MULTIBIT(stream_body + so->somValid, rose->somLocationCount);
 
     /* Copy only the som slots which contain valid values. */
     /* Note: in the expand case the som valid array has been copied in. */
@@ -123,7 +119,7 @@ size_t JOIN(sc_, FN_SUFFIX)(const struct RoseEngine *rose,
     ASSIGN(stream->rose, rose);
 
     COPY(stream_body + ROSE_STATE_OFFSET_STATUS_FLAGS, 1);
-    COPY_MULTIBIT(stream_body + ROSE_STATE_OFFSET_ROLE_MMBIT, rose->stateSize);
+    COPY_MULTIBIT(stream_body + ROSE_STATE_OFFSET_ROLE_MMBIT, rose->rolesWithStateCount);
 
     /* stream is valid in compress/size, and stream->offset has been set already
      * on the expand side */
@@ -131,8 +127,8 @@ size_t JOIN(sc_, FN_SUFFIX)(const struct RoseEngine *rose,
     u32 history = MIN((u32)offset, rose->historyRequired);
 
     /* copy the active mmbits */
-    COPY_MULTIBIT(stream_body + so->activeLeafArray, so->activeLeafArray_size);
-    COPY_MULTIBIT(stream_body + so->activeLeftArray, so->activeLeftArray_size);
+    COPY_MULTIBIT(stream_body + so->activeLeafArray, rose->activeArrayCount);
+    COPY_MULTIBIT(stream_body + so->activeLeftArray, rose->activeLeftCount);
 
     COPY(stream_body + so->longLitState, so->longLitState_size);
 
@@ -150,7 +146,7 @@ size_t JOIN(sc_, FN_SUFFIX)(const struct RoseEngine *rose,
     COPY(stream_body + hend - history, history);
 
     /* copy the exhaustion multibit */
-    COPY_MULTIBIT(stream_body + so->exhausted, so->exhausted_size);
+    COPY_MULTIBIT(stream_body + so->exhausted, rose->ekeyCount);
 
     /* copy nfa stream state for endfixes */
     /* Note: in the expand case the active array has already been copied into
