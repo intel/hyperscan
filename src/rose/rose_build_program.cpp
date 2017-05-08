@@ -1923,17 +1923,37 @@ void makeGroupSquashInstruction(const RoseBuildImpl &build, u32 lit_id,
     prog.add_before_end(make_unique<RoseInstrSquashGroups>(~info.group_mask));
 }
 
-RoseProgram assembleProgramBlocks(vector<RoseProgram> &&blocks) {
-    DEBUG_PRINTF("%zu blocks before dedupe\n", blocks.size());
+namespace {
+struct ProgKey {
+    ProgKey(const RoseProgram &p) : prog(&p) { }
 
-    sort(blocks.begin(), blocks.end(),
-         [](const RoseProgram &a, const RoseProgram &b) {
-             RoseProgramHash hasher;
-             return hasher(a) < hasher(b);
-         });
+    bool operator==(const ProgKey &b) const {
+        return RoseProgramEquivalence()(*prog, *b.prog);
+    }
 
-    blocks.erase(unique(blocks.begin(), blocks.end(), RoseProgramEquivalence()),
-                 blocks.end());
+    friend size_t hash_value(const ProgKey &a) {
+        return RoseProgramHash()(*a.prog);
+    }
+private:
+    const RoseProgram *prog;
+};
+}
+
+RoseProgram assembleProgramBlocks(vector<RoseProgram> &&blocks_in) {
+    DEBUG_PRINTF("%zu blocks before dedupe\n", blocks_in.size());
+
+    vector<RoseProgram> blocks;
+    blocks.reserve(blocks_in.size()); /* to ensure stable reference for seen */
+
+    unordered_set<ProgKey> seen;
+    for (auto &block : blocks_in) {
+        if (contains(seen, block)) {
+            continue;
+        }
+
+        blocks.push_back(move(block));
+        seen.emplace(blocks.back());
+    }
 
     DEBUG_PRINTF("%zu blocks after dedupe\n", blocks.size());
 

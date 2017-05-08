@@ -2819,7 +2819,6 @@ vector<LitFragment> groupByFragment(const RoseBuildImpl &build) {
         auto &fi = m.second;
         DEBUG_PRINTF("frag %s -> ids: %s\n", dumpString(m.first.s).c_str(),
                      as_string_list(fi.lit_ids).c_str());
-        sort(fi.lit_ids.begin(), fi.lit_ids.end()); /* to match old behaviour */
         fragments.emplace_back(frag_id, fi.groups, move(fi.lit_ids));
         frag_id++;
         assert(frag_id == fragments.size());
