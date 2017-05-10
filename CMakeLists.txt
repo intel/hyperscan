@@ -1165,21 +1165,21 @@ else (FAT_RUNTIME)
     if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
         # build shared libs
         add_library(hs_exec_shared_core2 OBJECT ${hs_exec_SRCS})
-        list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_core2>)
+        list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_shared_core2>)
         set_target_properties(hs_exec_shared_core2 PROPERTIES
             COMPILE_FLAGS "-march=core2"
             POSITION_INDEPENDENT_CODE TRUE
             RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} core2 ${CMAKE_MODULE_PATH}/keep.syms.in"
             )
         add_library(hs_exec_shared_corei7 OBJECT ${hs_exec_SRCS})
-        list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_corei7>)
+        list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_shared_corei7>)
         set_target_properties(hs_exec_shared_corei7 PROPERTIES
             COMPILE_FLAGS "-march=corei7"
             POSITION_INDEPENDENT_CODE TRUE
             RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} corei7 ${CMAKE_MODULE_PATH}/keep.syms.in"
             )
         add_library(hs_exec_shared_avx2 OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
-        list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_avx2>)
+        list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_shared_avx2>)
         set_target_properties(hs_exec_shared_avx2 PROPERTIES
             COMPILE_FLAGS "-march=core-avx2"
             POSITION_INDEPENDENT_CODE TRUE
@@ -1188,7 +1188,7 @@ else (FAT_RUNTIME)
 
         if (BUILD_AVX512)
             add_library(hs_exec_shared_avx512 OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
-            list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_avx512>)
+            list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_shared_avx512>)
             set_target_properties(hs_exec_shared_avx512 PROPERTIES
                 COMPILE_FLAGS "${SKYLAKE_FLAG}"
                 POSITION_INDEPENDENT_CODE TRUE
