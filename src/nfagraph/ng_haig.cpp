@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -518,7 +518,7 @@ bool doHaig(const NGHolder &g, som_type som,
     vector<StateSet> nfa_state_map;
     Auto n(g, som, triggers, unordered_som);
     try {
-        if (determinise(n, rdfa->states, state_limit, &nfa_state_map)) {
+        if (!determinise(n, rdfa->states, state_limit, &nfa_state_map)) {
             DEBUG_PRINTF("state limit exceeded\n");
             return false;
         }
@@ -726,9 +726,8 @@ unique_ptr<raw_som_dfa> attemptToMergeHaig(const vector<const raw_som_dfa *> &df
                                               NODE_START,
                                               dfas[0]->stream_som_loc_width);
 
-    int rv = determinise(n, rdfa->states, limit, &nfa_state_map);
-    if (rv) {
-        DEBUG_PRINTF("%d:state limit (%u) exceeded\n", rv, limit);
+    if (!determinise(n, rdfa->states, limit, &nfa_state_map)) {
+        DEBUG_PRINTF("state limit (%u) exceeded\n", limit);
         return nullptr; /* over state limit */
     }
 

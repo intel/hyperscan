@@ -701,8 +701,8 @@ int addAutomaton(RoseBuildImpl &build, const NGHolder &h, ReportID *remap) {
 
     Automaton_Holder autom(h);
 
-    unique_ptr<raw_dfa> out_dfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
-    if (!determinise(autom, out_dfa->states, MAX_DFA_STATES)) {
+    auto out_dfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
+    if (determinise(autom, out_dfa->states, MAX_DFA_STATES)) {
         return finalise_out(build, h, autom, move(out_dfa), remap);
     }
 
@@ -764,8 +764,8 @@ void buildSimpleDfas(const RoseBuildImpl &build, const vector<u32> &frag_map,
         auto h = populate_holder(simple.first, exit_ids);
         Automaton_Holder autom(*h);
         auto rdfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
-        UNUSED int rv = determinise(autom, rdfa->states, MAX_DFA_STATES);
-        assert(!rv);
+        UNUSED bool rv = determinise(autom, rdfa->states, MAX_DFA_STATES);
+        assert(rv);
         rdfa->start_anchored = INIT_STATE;
         rdfa->start_floating = DEAD_STATE;
         rdfa->alpha_size = autom.alphasize;

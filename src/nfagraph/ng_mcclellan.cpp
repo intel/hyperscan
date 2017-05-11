@@ -433,6 +433,7 @@ public:
         }
         return allExternalReports(*rm, test_reports);
     }
+
 private:
     const ReportManager *rm;
 public:
@@ -568,7 +569,7 @@ unique_ptr<raw_dfa> buildMcClellan(const NGHolder &graph,
         /* Fast path. Automaton_Graph uses a bitfield internally to represent
          * states and is quicker than Automaton_Big. */
         Automaton_Graph n(rm, graph, single_trigger, triggers, prunable);
-        if (determinise(n, rdfa->states, state_limit)) {
+        if (!determinise(n, rdfa->states, state_limit)) {
             DEBUG_PRINTF("state limit exceeded\n");
             return nullptr; /* over state limit */
         }
@@ -580,7 +581,7 @@ unique_ptr<raw_dfa> buildMcClellan(const NGHolder &graph,
     } else {
         /* Slow path. Too many states to use Automaton_Graph. */
         Automaton_Big n(rm, graph, single_trigger, triggers, prunable);
-        if (determinise(n, rdfa->states, state_limit)) {
+        if (!determinise(n, rdfa->states, state_limit)) {
             DEBUG_PRINTF("state limit exceeded\n");
             return nullptr; /* over state limit */
         }

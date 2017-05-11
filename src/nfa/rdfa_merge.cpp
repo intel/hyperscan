@@ -289,7 +289,7 @@ unique_ptr<raw_dfa> mergeTwoDfas(const raw_dfa *d1, const raw_dfa *d2,
     auto rdfa = ue2::make_unique<raw_dfa>(d1->kind);
 
     Automaton_Merge autom(d1, d2, rm, grey);
-    if (!determinise(autom, rdfa->states, max_states)) {
+    if (determinise(autom, rdfa->states, max_states)) {
         rdfa->start_anchored = autom.start_anchored;
         rdfa->start_floating = autom.start_floating;
         rdfa->alpha_size = autom.alphasize;
@@ -374,7 +374,7 @@ unique_ptr<raw_dfa> mergeAllDfas(const vector<const raw_dfa *> &dfas,
 
     DEBUG_PRINTF("merging dfa\n");
 
-    if (determinise(n, rdfa->states, max_states)) {
+    if (!determinise(n, rdfa->states, max_states)) {
         DEBUG_PRINTF("state limit (%zu) exceeded\n", max_states);
         return nullptr; /* over state limit */
     }
