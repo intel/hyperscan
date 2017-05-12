@@ -46,6 +46,8 @@
    0 if you don't. */
 #cmakedefine HAVE_DECL_PTHREAD_SETAFFINITY_NP
 
+#cmakedefine HAVE_PTHREAD_NP_H
+
 /* Define to 1 if you have the `malloc_info' function. */
 #cmakedefine HAVE_MALLOC_INFO
 

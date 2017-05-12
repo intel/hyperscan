@@ -56,6 +56,9 @@
 #include <getopt.h>
 #ifndef _WIN32
 #include <pthread.h>
+#if defined(HAVE_PTHREAD_NP_H)
+#include <pthread_np.h>
+#endif
 #include <unistd.h>
 #endif
 
@@ -122,7 +125,11 @@ public:
     // Apply processor affinity (if available) to this thread.
     bool affine(UNUSED int cpu) {
 #ifdef HAVE_DECL_PTHREAD_SETAFFINITY_NP
+#if defined(__linux__)
         cpu_set_t cpuset;
+#else // BSD
+        cpuset_t cpuset;
+#endif
         CPU_ZERO(&cpuset);
         assert(cpu >= 0 && cpu < CPU_SETSIZE);
 
@@ -166,7 +173,9 @@ void usage(const char *error) {
            " (default: streaming).\n");
     printf("  -V              Benchmark in vectored mode"
            " (default: streaming).\n");
+#ifdef HAVE_DECL_PTHREAD_SETAFFINITY_NP
     printf("  -T CPU,CPU,...  Benchmark with threads on these CPUs.\n");
+#endif
     printf("  -i DIR          Don't compile, load from files in DIR"
            " instead.\n");
     printf("  -w DIR          After compiling, save to files in DIR.\n");
@@ -195,7 +204,11 @@ struct BenchmarkSigs {
 static
 void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
                  UNUSED unique_ptr<Grey> &grey) {
-    const char options[] = "-b:c:Cd:e:E:G:hi:n:No:p:sT:Vw:z:";
+    const char options[] = "-b:c:Cd:e:E:G:hi:n:No:p:sVw:z:"
+#if HAVE_DECL_PTHREAD_SETAFFINITY_N
+        "T:" // add the thread flag
+#endif
+        ;
     int in_sigfile = 0;
     int do_per_scan = 0;
     int do_echo_matches = 0;
