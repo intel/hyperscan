@@ -42,6 +42,7 @@
 #include "util/determinise.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
+#include "util/hash_dynamic_bitset.h"
 #include "util/make_unique.h"
 #include "util/ue2_containers.h"
 
@@ -236,7 +237,7 @@ public:
 
 struct Big_Traits {
     using StateSet = dynamic_bitset<>;
-    using StateMap = map<StateSet, dstate_id_t>;
+    using StateMap = unordered_map<StateSet, dstate_id_t, hash_dynamic_bitset>;
 
     static StateSet init_states(u32 num) {
         return StateSet(num);
