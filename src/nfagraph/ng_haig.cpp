@@ -285,8 +285,8 @@ public:
 
 class Automaton_Haig_Merge {
 public:
-    typedef vector<u16> StateSet;
-    typedef ue2::unordered_map<StateSet, dstate_id_t> StateMap;
+    using StateSet = vector<u16>;
+    using StateMap = unordered_map<StateSet, dstate_id_t>;
 
     explicit Automaton_Haig_Merge(const vector<const raw_som_dfa *> &in)
         : nfas(in.begin(), in.end()), dead(in.size()) {
@@ -515,7 +515,7 @@ bool doHaig(const NGHolder &g, som_type som,
             raw_som_dfa *rdfa) {
     u32 state_limit = HAIG_FINAL_DFA_STATE_LIMIT; /* haig never backs down from
                                                      a fight */
-    typedef typename Auto::StateSet StateSet;
+    using StateSet = typename Auto::StateSet;
     vector<StateSet> nfa_state_map;
     Auto n(g, som, triggers, unordered_som);
     try {
@@ -721,7 +721,7 @@ unique_ptr<raw_som_dfa> attemptToMergeHaig(const vector<const raw_som_dfa *> &df
         }
     }
 
-    typedef Automaton_Haig_Merge::StateSet StateSet;
+    using StateSet = Automaton_Haig_Merge::StateSet;
     vector<StateSet> nfa_state_map;
     auto rdfa = ue2::make_unique<raw_som_dfa>(dfas[0]->kind, unordered_som,
                                               NODE_START,

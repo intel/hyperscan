@@ -79,9 +79,8 @@ never_inline
 bool determinise(Auto &n, std::vector<ds> &dstates, size_t state_limit,
                 std::vector<typename Auto::StateSet> *statesets_out = nullptr) {
     DEBUG_PRINTF("the determinator\n");
-    typedef typename Auto::StateSet StateSet;
-    typedef typename Auto::StateMap DstateIdMap;
-    DstateIdMap dstate_ids;
+    using StateSet = typename Auto::StateSet;
+    typename Auto::StateMap dstate_ids;
 
     const size_t alphabet_size = n.alphasize;
 

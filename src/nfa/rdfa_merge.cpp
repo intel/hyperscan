@@ -53,8 +53,8 @@ namespace {
 
 class Automaton_Merge {
 public:
-    typedef vector<u16> StateSet;
-    typedef ue2::unordered_map<StateSet, dstate_id_t> StateMap;
+    using StateSet = vector<u16>;
+    using StateMap = unordered_map<StateSet, dstate_id_t>;
 
     Automaton_Merge(const raw_dfa *rdfa1, const raw_dfa *rdfa2,
                     const ReportManager *rm_in, const Grey &grey_in)

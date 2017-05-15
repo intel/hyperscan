@@ -274,7 +274,7 @@ u32 anchoredStateSize(const anchored_matcher_info &atable) {
 
 namespace {
 
-typedef bitfield<ANCHORED_NFA_STATE_LIMIT> nfa_state_set;
+using nfa_state_set = bitfield<ANCHORED_NFA_STATE_LIMIT>;
 
 struct Holder_StateSet {
     Holder_StateSet() : wdelay(0) {}
@@ -296,8 +296,8 @@ size_t hash_value(const Holder_StateSet &s) {
 
 class Automaton_Holder {
 public:
-    typedef Holder_StateSet StateSet;
-    typedef ue2::unordered_map<StateSet, dstate_id_t> StateMap;
+    using StateSet = Holder_StateSet;
+    using StateMap = unordered_map<StateSet, dstate_id_t>;
 
     explicit Automaton_Holder(const NGHolder &g_in) : g(g_in) {
         for (auto v : vertices_range(g)) {
