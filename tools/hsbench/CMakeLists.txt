@@ -12,7 +12,7 @@ else()
 endif()
 
 # BSD has the _np funcs in a _np header
-CHECK_INCLUDE_FILE(pthread_np.h HAVE_PTHREAD_NP_H)
+CHECK_INCLUDE_FILE_CXX(pthread_np.h HAVE_PTHREAD_NP_H)
 if (HAVE_PTHREAD_NP_H)
     set (PTHREAD_NP_INC pthread_np.h)
 else ()
