@@ -74,10 +74,6 @@ public:
         return blob.size();
     }
 
-    const char *data() const {
-        return blob.data();
-    }
-
     u32 add(const void *a, const size_t len, const size_t align) {
         pad(align);
 
