@@ -36,6 +36,7 @@
 #include "util/arch.h"
 #include "util/bitutils.h"
 #include "util/compare.h"
+#include "util/intrinsics.h"
 #include "util/join.h"
 #include "util/masked_move.h"
 #include "util/simd_utils.h"
@@ -43,7 +44,6 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <string.h>
-#include <x86intrin.h>
 
 /** \brief Noodle runtime context. */
 struct cb_info {
