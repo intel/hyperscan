@@ -81,6 +81,9 @@
 /* Define to 1 if you have the `_aligned_malloc' function. */
 #cmakedefine HAVE__ALIGNED_MALLOC
 
+/* Define if compiler has __builtin_constant_p */
+#cmakedefine HAVE__BUILTIN_CONSTANT_P
+
 /* Optimize, inline critical functions */
 #cmakedefine HS_OPTIMIZE
 

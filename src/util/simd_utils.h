@@ -123,7 +123,17 @@ static really_inline u32 diffrich64_128(m128 a, m128 b) {
 #endif
 }
 
-#define lshift64_m128(a, b) _mm_slli_epi64((a), (b))
+static really_really_inline
+m128 lshift64_m128(m128 a, unsigned b) {
+#if defined(HAVE__BUILTIN_CONSTANT_P)
+    if (__builtin_constant_p(b)) {
+        return _mm_slli_epi64(a, b);
+    }
+#endif
+    m128 x = _mm_cvtsi32_si128(b);
+    return _mm_sll_epi64(a, x);
+}
+
 #define rshift64_m128(a, b) _mm_srli_epi64((a), (b))
 #define eq128(a, b)      _mm_cmpeq_epi8((a), (b))
 #define movemask128(a)  ((u32)_mm_movemask_epi8((a)))
@@ -339,7 +349,18 @@ m128 set64x2(u64a hi, u64a lo) {
  ****/
 
 #if defined(HAVE_AVX2)
-#define lshift64_m256(a, b) _mm256_slli_epi64((a), (b))
+
+static really_really_inline
+m256 lshift64_m256(m256 a, unsigned b) {
+#if defined(HAVE__BUILTIN_CONSTANT_P)
+    if (__builtin_constant_p(b)) {
+        return _mm256_slli_epi64(a, b);
+    }
+#endif
+    m128 x = _mm_cvtsi32_si128(b);
+    return _mm256_sll_epi64(a, x);
+}
+
 #define rshift64_m256(a, b) _mm256_srli_epi64((a), (b))
 
 static really_inline
@@ -357,7 +378,7 @@ m256 set2x128(m128 a) {
 
 #else
 
-static really_inline
+static really_really_inline
 m256 lshift64_m256(m256 a, int b) {
     m256 rv = a;
     rv.lo = lshift64_m128(rv.lo, b);
@@ -776,7 +797,6 @@ static really_inline m384 andnot384(m384 a, m384 b) {
     return rv;
 }
 
-// The shift amount is an immediate
 static really_really_inline
 m384 lshift64_m384(m384 a, unsigned b) {
     m384 rv;
@@ -1016,9 +1036,17 @@ m512 andnot512(m512 a, m512 b) {
 }
 
 #if defined(HAVE_AVX512)
-#define lshift64_m512(a, b) _mm512_slli_epi64((a), b)
+static really_really_inline
+m512 lshift64_m512(m512 a, unsigned b) {
+#if defined(HAVE__BUILTIN_CONSTANT_P)
+    if (__builtin_constant_p(b)) {
+        return _mm512_slli_epi64(a, b);
+    }
+#endif
+    m128 x = _mm_cvtsi32_si128(b);
+    return _mm512_sll_epi64(a, x);
+}
 #else
-// The shift amount is an immediate
 static really_really_inline
 m512 lshift64_m512(m512 a, unsigned b) {
     m512 rv;

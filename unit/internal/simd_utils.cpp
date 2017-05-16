@@ -143,6 +143,10 @@ void simd_loadbytes(m128 *a, const void *ptr, unsigned i) { *a = loadbytes128(pt
 void simd_loadbytes(m256 *a, const void *ptr, unsigned i) { *a = loadbytes256(ptr, i); }
 void simd_loadbytes(m384 *a, const void *ptr, unsigned i) { *a = loadbytes384(ptr, i); }
 void simd_loadbytes(m512 *a, const void *ptr, unsigned i) { *a = loadbytes512(ptr, i); }
+m128 simd_lshift64(const m128 &a, unsigned i) { return lshift64_m128(a, i); }
+m256 simd_lshift64(const m256 &a, unsigned i) { return lshift64_m256(a, i); }
+m384 simd_lshift64(const m384 &a, unsigned i) { return lshift64_m384(a, i); }
+m512 simd_lshift64(const m512 &a, unsigned i) { return lshift64_m512(a, i); }
 
 template<typename T>
 class SimdUtilsTest : public testing::Test {
@@ -585,6 +589,56 @@ TYPED_TEST(SimdUtilsTest, loadbytes_storebytes) {
         }
     }
 }
+
+TYPED_TEST(SimdUtilsTest, lshift64) {
+    TypeParam a;
+    memset(&a, 0x5a, sizeof(a));
+
+    static constexpr u64a exp_val = 0x5a5a5a5a5a5a5a5aULL;
+
+    union {
+        TypeParam simd;
+        u64a qword[sizeof(TypeParam) / 8];
+    } c;
+    cout << "non-const for size " << sizeof(a) << '\n';
+    for (unsigned s = 0; s < 64; s++) {
+        c.simd = simd_lshift64(a, s);
+
+        const u64a expected = exp_val << s;
+        for (size_t i = 0; i < sizeof(c) / 8; i++) {
+            EXPECT_EQ(expected, c.qword[i]);
+        }
+    }
+
+    // test immediates
+    u64a expected;
+
+    cout << "imm for size " << sizeof(a) << '\n';
+    c.simd = simd_lshift64(a, 1);
+    expected = exp_val << 1;
+    for (size_t i = 0; i < sizeof(c) / 8; i++) {
+        EXPECT_EQ(expected, c.qword[i]);
+    }
+
+    c.simd = simd_lshift64(a, 2);
+    expected = exp_val << 2;
+    for (size_t i = 0; i < sizeof(c) / 8; i++) {
+        EXPECT_EQ(expected, c.qword[i]);
+    }
+
+    c.simd = simd_lshift64(a, 7);
+    expected = exp_val << 7;
+    for (size_t i = 0; i < sizeof(c) / 8; i++) {
+        EXPECT_EQ(expected, c.qword[i]);
+    }
+
+    c.simd = simd_lshift64(a, 31);
+    expected = exp_val << 31;
+    for (size_t i = 0; i < sizeof(c) / 8; i++) {
+        EXPECT_EQ(expected, c.qword[i]);
+    }
+}
+
 
 TEST(SimdUtilsTest, alignment) {
     ASSERT_EQ(16, alignof(m128));
