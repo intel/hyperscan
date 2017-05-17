@@ -215,16 +215,30 @@ struct SAccelScheme {
 };
 }
 
+/**
+ * \brief Limit on the number of (recursive) calls to findBestInternal().
+ */
+static constexpr size_t MAX_FINDBEST_CALLS = 1000000;
+
 static
-void findBest(vector<vector<CharReach> >::const_iterator pb,
-              vector<vector<CharReach> >::const_iterator pe,
-              const SAccelScheme &curr, SAccelScheme *best) {
+void findBestInternal(vector<vector<CharReach>>::const_iterator pb,
+                      vector<vector<CharReach>>::const_iterator pe,
+                      size_t *num_calls, const SAccelScheme &curr,
+                      SAccelScheme *best) {
     assert(curr.offset <= MAX_ACCEL_DEPTH);
+
+    if (++(*num_calls) > MAX_FINDBEST_CALLS) {
+        DEBUG_PRINTF("hit num_calls limit %zu\n", *num_calls);
+        return;
+    }
+
     DEBUG_PRINTF("paths left %zu\n", pe - pb);
     if (pb == pe) {
         if (curr < *best) {
-            DEBUG_PRINTF("new best\n");
             *best = curr;
+            DEBUG_PRINTF("new best: count=%zu, class=%s, offset=%u\n",
+                         best->cr.count(), describeClass(best->cr).c_str(),
+                         best->offset);
         }
         return;
     }
@@ -262,12 +276,25 @@ void findBest(vector<vector<CharReach> >::const_iterator pb,
             DEBUG_PRINTF("worse\n");
             continue;
         }
-        findBest(pb + 1, pe, in, best);
+        findBestInternal(pb + 1, pe, num_calls, in, best);
 
         if (curr.cr == best->cr) {
             return; /* could only get better by offset */
         }
     }
+}
+
+static
+SAccelScheme findBest(const vector<vector<CharReach>> &paths,
+                      const CharReach &terminating) {
+    SAccelScheme curr(terminating, 0U);
+    SAccelScheme best;
+    size_t num_calls = 0;
+    findBestInternal(paths.begin(), paths.end(), &num_calls, curr, &best);
+    DEBUG_PRINTF("findBest completed, num_calls=%zu\n", num_calls);
+    DEBUG_PRINTF("selected scheme: count=%zu, class=%s, offset=%u\n",
+                 best.cr.count(), describeClass(best.cr).c_str(), best.offset);
+    return best;
 }
 
 namespace {
@@ -557,9 +584,7 @@ AccelScheme findBestAccelScheme(vector<vector<CharReach>> paths,
     /* if we were smart we would do something netflowy on the paths to find the
      * best cut. But we aren't, so we will just brute force it.
      */
-    SAccelScheme curr(terminating, 0U);
-    SAccelScheme best;
-    findBest(paths.begin(), paths.end(), curr, &best);
+    SAccelScheme best = findBest(paths, terminating);
 
     /* find best is a bit lazy in terms of minimising the offset, see if we can
      * make it better. need to find the min max offset that we need.*/
