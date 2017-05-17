@@ -600,7 +600,7 @@ TYPED_TEST(SimdUtilsTest, lshift64) {
         TypeParam simd;
         u64a qword[sizeof(TypeParam) / 8];
     } c;
-    cout << "non-const for size " << sizeof(a) << '\n';
+
     for (unsigned s = 0; s < 64; s++) {
         c.simd = simd_lshift64(a, s);
 
@@ -610,10 +610,12 @@ TYPED_TEST(SimdUtilsTest, lshift64) {
         }
     }
 
+    /* Clang 3.4 on FreeBSD 10 crashes on the following - disable for now */
+#if !(defined(__FreeBSD__) && defined(__clang__) && __clang_major__ == 3)
+
     // test immediates
     u64a expected;
 
-    cout << "imm for size " << sizeof(a) << '\n';
     c.simd = simd_lshift64(a, 1);
     expected = exp_val << 1;
     for (size_t i = 0; i < sizeof(c) / 8; i++) {
@@ -637,8 +639,8 @@ TYPED_TEST(SimdUtilsTest, lshift64) {
     for (size_t i = 0; i < sizeof(c) / 8; i++) {
         EXPECT_EQ(expected, c.qword[i]);
     }
+#endif
 }
-
 
 TEST(SimdUtilsTest, alignment) {
     ASSERT_EQ(16, alignof(m128));
