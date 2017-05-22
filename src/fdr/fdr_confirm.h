@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,7 +46,6 @@ typedef enum LitInfoFlags {
     NoFlags = 0,
     Caseless = 1,
     NoRepeat = 2,
-    ComplexConfirm = 4
 } LitInfoFlags;
 
 /**
@@ -63,7 +62,6 @@ struct LitInfo {
     u8 size;
     u8 flags; /* LitInfoFlags */
     u8 next;
-    u8 extended_size;
 };
 
 #define FDRC_FLAG_NO_CONFIRM 1

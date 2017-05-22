@@ -99,12 +99,8 @@ void fillLitInfo(const vector<hwlmLiteral> &lits, vector<LitInfo> &tmpLitInfo,
         if (lit.noruns) {
             flags |= NoRepeat;
         }
-        if (lit.msk.size() > lit.s.size()) {
-            flags |= ComplexConfirm;
-            info.extended_size = verify_u8(lit.msk.size());
-        }
         info.flags = flags;
-        info.size = verify_u8(lit.s.size());
+        info.size = verify_u8(max(lit.msk.size(), lit.s.size()));
         info.groups = lit.groups;
 
         // these are built up assuming a LE machine

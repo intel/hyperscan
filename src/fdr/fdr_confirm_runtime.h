@@ -86,17 +86,6 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
             goto out;
         }
 
-        if (unlikely(li->flags & ComplexConfirm)) {
-            const u8 *loc2 = buf + i - li->extended_size + 1;
-            if (loc2 < buf) {
-                u32 full_overhang = buf - loc2;
-                size_t len_history = a->len_history;
-                if (full_overhang > len_history) {
-                    goto out;
-                }
-            }
-        }
-
         *last_match = li->id;
         *control = a->cb(loc - buf, i, li->id, a->ctxt);
     out:
