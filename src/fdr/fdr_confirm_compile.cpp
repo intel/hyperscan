@@ -364,14 +364,15 @@ setupFullConfs(const vector<hwlmLiteral> &lits,
     }
 
     u32 nBuckets = eng.getNumBuckets();
-    u32 totalConfSwitchSize = nBuckets * sizeof(u32);
-    u32 totalSize = ROUNDUP_16(totalConfSwitchSize + totalConfirmSize);
+    u32 totalConfSwitchSize = ROUNDUP_CL(nBuckets * sizeof(u32));
+    u32 totalSize = totalConfSwitchSize + totalConfirmSize;
 
     auto buf = make_zeroed_bytecode_ptr<u8>(totalSize, 64);
     assert(buf); // otherwise would have thrown std::bad_alloc
 
     u32 *confBase = (u32 *)buf.get();
     u8 *ptr = buf.get() + totalConfSwitchSize;
+    assert(ISALIGNED_CL(ptr));
 
     for (const auto &m : bc2Conf) {
         const BucketIndex &idx = m.first;
