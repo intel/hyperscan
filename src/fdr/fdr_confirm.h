@@ -43,8 +43,6 @@ u32 mul_hash_64(u64a lv, u64a andmsk, u64a mult, u32 nBits) {
 #define CONF_HASH_CALL mul_hash_64
 
 typedef enum LitInfoFlags {
-    NoFlags = 0,
-    Caseless = 1,
     NoRepeat = 2,
 } LitInfoFlags;
 

@@ -92,10 +92,7 @@ void fillLitInfo(const vector<hwlmLiteral> &lits, vector<LitInfo> &tmpLitInfo,
         LitInfo &info = tmpLitInfo[i];
         memset(&info, 0, sizeof(info));
         info.id = lit.id;
-        u8 flags = NoFlags;
-        if (lit.nocase) {
-            flags |= Caseless;
-        }
+        u8 flags = 0;
         if (lit.noruns) {
             flags |= NoRepeat;
         }
