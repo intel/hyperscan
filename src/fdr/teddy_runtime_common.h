@@ -239,14 +239,14 @@ void do_confWithBitMany_teddy(TEDDY_CONF_TYPE *conf, u8 bucket, u8 offset,
 }
 
 static really_inline
-const m128 * getMaskBase(const struct Teddy *teddy) {
-    return (const m128 *)((const u8 *)teddy + sizeof(struct Teddy));
+const m128 *getMaskBase(const struct Teddy *teddy) {
+    return (const m128 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)));
 }
 
 static really_inline
-const u32 * getConfBase(const struct Teddy *teddy, u8 numMask) {
-    return (const u32 *)((const u8 *)teddy + sizeof(struct Teddy) +
-                         (numMask*32));
+const u32 *getConfBase(const struct Teddy *teddy, u8 numMask) {
+    return (const u32 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)) +
+                         ROUNDUP_CL(numMask * 32));
 }
 
 #endif /* TEDDY_RUNTIME_COMMON_H_ */

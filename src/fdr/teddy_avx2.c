@@ -196,14 +196,14 @@ m256 prep_conf_fat_teddy_m4(const m256 *maskBase, m256 *old_1, m256 *old_2,
 }
 
 static really_inline
-const m256 * getMaskBase_avx2(const struct Teddy *teddy) {
-    return (const m256 *)((const u8 *)teddy + sizeof(struct Teddy));
+const m256 *getMaskBase_avx2(const struct Teddy *teddy) {
+    return (const m256 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)));
 }
 
 static really_inline
-const u32 * getConfBase_avx2(const struct Teddy *teddy, u8 numMask) {
-    return (const u32 *)((const u8 *)teddy + sizeof(struct Teddy) +
-                         (numMask*32*2));
+const u32 *getConfBase_avx2(const struct Teddy *teddy, u8 numMask) {
+    return (const u32 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)) +
+                         ROUNDUP_CL((numMask * 32 * 2)));
 }
 
 hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,

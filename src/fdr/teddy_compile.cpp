@@ -313,35 +313,39 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
     }
     u32 maskWidth = eng.getNumBuckets() / 8;
 
-    size_t maskLen = eng.numMasks * 16 * 2 * maskWidth;
+    size_t headerSize = ROUNDUP_CL(sizeof(Teddy));
+    size_t maskLen = ROUNDUP_CL(eng.numMasks * 16 * 2 * maskWidth);
 
-    auto floodControlTmp = setupFDRFloodControl(lits, eng, grey);
-    auto confirmTmp = setupFullConfs(lits, eng, bucketToLits, make_small);
+    auto floodTable = setupFDRFloodControl(lits, eng, grey);
+    auto confirmTable = setupFullConfs(lits, eng, bucketToLits, make_small);
 
-    size_t size = ROUNDUP_N(sizeof(Teddy) +
-                            maskLen +
-                            confirmTmp.size() +
-                            floodControlTmp.size(),
-                            16 * maskWidth);
+    size_t size = headerSize + maskLen + ROUNDUP_CL(confirmTable.size()) +
+                  floodTable.size();
 
     auto fdr = make_zeroed_bytecode_ptr<FDR>(size, 64);
     assert(fdr); // otherwise would have thrown std::bad_alloc
     Teddy *teddy = (Teddy *)fdr.get(); // ugly
     u8 *teddy_base = (u8 *)teddy;
 
+    // Write header.
     teddy->size = size;
     teddy->engineID = eng.getID();
     teddy->maxStringLen = verify_u32(maxLen(lits));
 
-    u8 *ptr = teddy_base + sizeof(Teddy) + maskLen;
-    memcpy(ptr, confirmTmp.get(), confirmTmp.size());
-    ptr += confirmTmp.size();
+    // Write confirm structures.
+    u8 *ptr = teddy_base + headerSize + maskLen;
+    assert(ISALIGNED_CL(ptr));
+    memcpy(ptr, confirmTable.get(), confirmTable.size());
+    ptr += ROUNDUP_CL(confirmTable.size());
 
+    // Write flood control structures.
+    assert(ISALIGNED_CL(ptr));
     teddy->floodOffset = verify_u32(ptr - teddy_base);
-    memcpy(ptr, floodControlTmp.get(), floodControlTmp.size());
-    ptr += floodControlTmp.size();
+    memcpy(ptr, floodTable.get(), floodTable.size());
+    ptr += floodTable.size();
 
-    u8 *baseMsk = teddy_base + sizeof(Teddy);
+    // Write teddy masks.
+    u8 *baseMsk = teddy_base + headerSize;
 
     for (const auto &b2l : bucketToLits) {
         const u32 &bucket_id = b2l.first;
