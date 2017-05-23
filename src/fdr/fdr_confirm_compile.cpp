@@ -367,7 +367,7 @@ setupFullConfs(const vector<hwlmLiteral> &lits,
     u32 totalConfSwitchSize = nBuckets * sizeof(u32);
     u32 totalSize = ROUNDUP_16(totalConfSwitchSize + totalConfirmSize);
 
-    auto buf = make_zeroed_bytecode_ptr<u8>(totalSize, 16);
+    auto buf = make_zeroed_bytecode_ptr<u8>(totalSize, 64);
     assert(buf); // otherwise would have thrown std::bad_alloc
 
     u32 *confBase = (u32 *)buf.get();

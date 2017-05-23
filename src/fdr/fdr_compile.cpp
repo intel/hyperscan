@@ -144,50 +144,59 @@ void FDRCompiler::createInitialState(FDR *fdr) {
     }
 }
 
+/**
+ * \brief Lay out FDR structures in bytecode.
+ *
+ * Note that each major structure (header, table, confirm, flood control) is
+ * cacheline-aligned.
+ */
 bytecode_ptr<FDR> FDRCompiler::setupFDR() {
-    size_t tabSize = eng.getTabSizeBytes();
+    size_t tabSize = ROUNDUP_CL(eng.getTabSizeBytes());
 
-    auto floodControlTmp = setupFDRFloodControl(lits, eng, grey);
-    auto confirmTmp = setupFullConfs(lits, eng, bucketToLits, make_small);
+    auto floodTable = setupFDRFloodControl(lits, eng, grey);
+    auto confirmTable = setupFullConfs(lits, eng, bucketToLits, make_small);
 
-    assert(ISALIGNED_16(tabSize));
-    assert(ISALIGNED_16(confirmTmp.size()));
-    assert(ISALIGNED_16(floodControlTmp.size()));
-    size_t headerSize = ROUNDUP_16(sizeof(FDR));
-    size_t size = ROUNDUP_16(headerSize + tabSize + confirmTmp.size() +
-                             floodControlTmp.size());
+    size_t headerSize = ROUNDUP_CL(sizeof(FDR));
+    size_t size = headerSize + tabSize + ROUNDUP_CL(confirmTable.size()) +
+                  floodTable.size();
 
     DEBUG_PRINTF("sizes base=%zu tabSize=%zu confirm=%zu floodControl=%zu "
                  "total=%zu\n",
-                 headerSize, tabSize, confirmTmp.size(), floodControlTmp.size(),
+                 headerSize, tabSize, confirmTable.size(), floodTable.size(),
                  size);
 
     auto fdr = make_zeroed_bytecode_ptr<FDR>(size, 64);
     assert(fdr); // otherwise would have thrown std::bad_alloc
 
+    u8 *fdr_base = (u8 *)fdr.get();
+
+    // Write header.
     fdr->size = size;
     fdr->engineID = eng.getID();
     fdr->maxStringLen = verify_u32(maxLen(lits));
-    createInitialState(fdr.get());
-
-    u8 *fdr_base = (u8 *)fdr.get();
-    u8 *ptr = fdr_base + ROUNDUP_16(sizeof(FDR));
-    copy(tab.begin(), tab.end(), ptr);
-    ptr += tabSize;
-
-    memcpy(ptr, confirmTmp.get(), confirmTmp.size());
-    ptr += confirmTmp.size();
-
-    fdr->floodOffset = verify_u32(ptr - fdr_base);
-    memcpy(ptr, floodControlTmp.get(), floodControlTmp.size());
-    ptr += floodControlTmp.size();
-
-    /*  we are allowing domains 9 to 15 only */
-    assert(eng.bits > 8 && eng.bits < 16);
+    assert(eng.bits > 8 && eng.bits < 16); // we allow domains 9 to 15 only
     fdr->domain = eng.bits;
     fdr->domainMask = (1 << eng.bits) - 1;
     fdr->tabSize = (1 << eng.bits) * (eng.schemeWidth / 8);
     fdr->stride = eng.stride;
+    createInitialState(fdr.get());
+
+    // Write table.
+    u8 *ptr = fdr_base + ROUNDUP_CL(sizeof(FDR));
+    assert(ISALIGNED_CL(ptr));
+    copy(tab.begin(), tab.end(), ptr);
+    ptr += tabSize;
+
+    // Write confirm structures.
+    assert(ISALIGNED_CL(ptr));
+    memcpy(ptr, confirmTable.get(), confirmTable.size());
+    ptr += ROUNDUP_CL(confirmTable.size());
+
+    // Write flood control structures.
+    assert(ISALIGNED_CL(ptr));
+    fdr->floodOffset = verify_u32(ptr - fdr_base);
+    memcpy(ptr, floodTable.get(), floodTable.size());
+    ptr += floodTable.size(); // last write, no need to round up
 
     return fdr;
 }

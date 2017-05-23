@@ -725,13 +725,18 @@ static never_inline
 hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
                              const struct FDR_Runtime_Args *a,
                              hwlm_group_t control) {
+    assert(ISALIGNED_CL(fdr));
+
     u32 floodBackoff = FLOOD_BACKOFF_START;
     u32 last_match_id = INVALID_MATCH_ID;
     u32 domain_mask_flipped = ~fdr->domainMask;
     u8 stride = fdr->stride;
     const u64a *ft =
-        (const u64a *)((const u8 *)fdr + ROUNDUP_16(sizeof(struct FDR)));
-    const u32 *confBase = (const u32 *)((const u8 *)ft + fdr->tabSize);
+        (const u64a *)((const u8 *)fdr + ROUNDUP_CL(sizeof(struct FDR)));
+    assert(ISALIGNED_CL(ft));
+    const u32 *confBase =
+        (const u32 *)((const u8 *)ft + ROUNDUP_CL(fdr->tabSize));
+    assert(ISALIGNED_CL(confBase));
     struct zone zones[ZONE_MAX];
     assert(fdr->domain > 8 && fdr->domain < 16);
 
