@@ -46,7 +46,7 @@ u32 mul_hash_64(u64a lv, u64a andmsk, u64a mult, u32 nBits) {
  * \brief Flag indicating this literal doesn't need to be delivered more than
  * once, used in LitInfo::flags.
  */
-#define FDR_LIT_FLAG_NOREPEAT   2
+#define FDR_LIT_FLAG_NOREPEAT   1
 
 /**
  * \brief Structure describing a literal, linked to by FDRConfirm.
