@@ -94,7 +94,7 @@ void fillLitInfo(const vector<hwlmLiteral> &lits, vector<LitInfo> &tmpLitInfo,
         info.id = lit.id;
         u8 flags = 0;
         if (lit.noruns) {
-            flags |= NoRepeat;
+            flags |= FDR_LIT_FLAG_NOREPEAT;
         }
         info.flags = flags;
         info.size = verify_u8(max(lit.msk.size(), lit.s.size()));
@@ -170,7 +170,7 @@ bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
     if (!make_confirm) {
         flags = FDRC_FLAG_NO_CONFIRM;
         if (lits[0].noruns) {
-            flags |= NoRepeat; // messy - need to clean this up later as flags is sorta kinda obsoleted
+            flags |= FDRC_FLAG_NOREPEAT; // messy - need to clean this up later as flags is sorta kinda obsoleted
         }
         mult = 0;
         soleLitSize = lits[0].s.size() - 1;

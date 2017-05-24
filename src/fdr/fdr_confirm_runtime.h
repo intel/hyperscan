@@ -64,7 +64,7 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
             goto out;
         }
 
-        if ((*last_match == li->id) && (li->flags & NoRepeat)) {
+        if ((*last_match == li->id) && (li->flags & FDR_LIT_FLAG_NOREPEAT)) {
             goto out;
         }
 
@@ -110,7 +110,7 @@ void confWithBit1(const struct FDRConfirm *fdrc,
     } else {
         u32 id = fdrc->nBitsOrSoleID;
 
-        if ((*last_match == id) && (fdrc->flags & NoRepeat)) {
+        if ((*last_match == id) && (fdrc->flags & FDRC_FLAG_NOREPEAT)) {
             return;
         }
         *last_match = id;
@@ -139,7 +139,7 @@ void confWithBitMany(const struct FDRConfirm *fdrc,
         const u32 id = fdrc->nBitsOrSoleID;
         const u32 len = fdrc->soleLitSize;
 
-        if ((*last_match == id) && (fdrc->flags & NoRepeat)) {
+        if ((*last_match == id) && (fdrc->flags & FDRC_FLAG_NOREPEAT)) {
             return;
         }
 
