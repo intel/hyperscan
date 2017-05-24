@@ -313,14 +313,15 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
     }
     u32 maskWidth = eng.getNumBuckets() / 8;
 
-    size_t headerSize = ROUNDUP_CL(sizeof(Teddy));
-    size_t maskLen = ROUNDUP_CL(eng.numMasks * 16 * 2 * maskWidth);
+    size_t headerSize = sizeof(Teddy);
+    size_t maskLen = eng.numMasks * 16 * 2 * maskWidth;
 
     auto floodTable = setupFDRFloodControl(lits, eng, grey);
     auto confirmTable = setupFullConfs(lits, eng, bucketToLits, make_small);
 
-    size_t size = headerSize + maskLen + ROUNDUP_CL(confirmTable.size()) +
-                  floodTable.size();
+    // Note: we place each major structure here on a cacheline boundary.
+    size_t size = ROUNDUP_CL(headerSize) + ROUNDUP_CL(maskLen) +
+                  ROUNDUP_CL(confirmTable.size()) + floodTable.size();
 
     auto fdr = make_zeroed_bytecode_ptr<FDR>(size, 64);
     assert(fdr); // otherwise would have thrown std::bad_alloc
@@ -333,7 +334,7 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
     teddy->maxStringLen = verify_u32(maxLen(lits));
 
     // Write confirm structures.
-    u8 *ptr = teddy_base + headerSize + maskLen;
+    u8 *ptr = teddy_base + ROUNDUP_CL(headerSize) + ROUNDUP_CL(maskLen);
     assert(ISALIGNED_CL(ptr));
     teddy->confOffset = verify_u32(ptr - teddy_base);
     memcpy(ptr, confirmTable.get(), confirmTable.size());
@@ -346,7 +347,7 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
     ptr += floodTable.size();
 
     // Write teddy masks.
-    u8 *baseMsk = teddy_base + headerSize;
+    u8 *baseMsk = teddy_base + ROUNDUP_CL(headerSize);
 
     for (const auto &b2l : bucketToLits) {
         const u32 &bucket_id = b2l.first;
