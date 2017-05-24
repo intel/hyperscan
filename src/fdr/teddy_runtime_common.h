@@ -244,9 +244,8 @@ const m128 *getMaskBase(const struct Teddy *teddy) {
 }
 
 static really_inline
-const u32 *getConfBase(const struct Teddy *teddy, u8 numMask) {
-    return (const u32 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)) +
-                         ROUNDUP_CL(numMask * 32));
+const u32 *getConfBase(const struct Teddy *teddy) {
+    return (const u32 *)((const u8 *)teddy + teddy->confOffset);
 }
 
 #endif /* TEDDY_RUNTIME_COMMON_H_ */

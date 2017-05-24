@@ -69,6 +69,7 @@ struct FDR {
     u32 engineID;
     u32 size;
     u32 maxStringLen;
+    u32 confOffset;
     u32 floodOffset;
 
     u8 stride; /* stride - how frequeuntly the data is consulted by the first

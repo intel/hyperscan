@@ -335,6 +335,7 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
     // Write confirm structures.
     u8 *ptr = teddy_base + headerSize + maskLen;
     assert(ISALIGNED_CL(ptr));
+    teddy->confOffset = verify_u32(ptr - teddy_base);
     memcpy(ptr, confirmTable.get(), confirmTable.size());
     ptr += ROUNDUP_CL(confirmTable.size());
 

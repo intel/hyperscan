@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,6 +36,7 @@ struct Teddy {
     u32 engineID;
     u32 size;
     u32 maxStringLen;
+    u32 confOffset;
     u32 floodOffset;
     u32 link;
     u32 pad1;

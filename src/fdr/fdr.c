@@ -734,8 +734,7 @@ hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
     const u64a *ft =
         (const u64a *)((const u8 *)fdr + ROUNDUP_CL(sizeof(struct FDR)));
     assert(ISALIGNED_CL(ft));
-    const u32 *confBase =
-        (const u32 *)((const u8 *)ft + ROUNDUP_CL(fdr->tabSize));
+    const u32 *confBase = (const u32 *)((const u8 *)fdr + fdr->confOffset);
     assert(ISALIGNED_CL(confBase));
     struct zone zones[ZONE_MAX];
     assert(fdr->domain > 8 && fdr->domain < 16);

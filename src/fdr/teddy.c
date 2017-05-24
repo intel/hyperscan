@@ -191,7 +191,7 @@ hwlm_error_t fdr_exec_teddy_msks1(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m128 *maskBase = getMaskBase(teddy);
-    const u32 *confBase = getConfBase(teddy, 1);
+    const u32 *confBase = getConfBase(teddy);
 
     const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
     DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);
@@ -247,7 +247,7 @@ hwlm_error_t fdr_exec_teddy_msks1_pck(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m128 *maskBase = getMaskBase(teddy);
-    const u32 *confBase = getConfBase(teddy, 1);
+    const u32 *confBase = getConfBase(teddy);
 
     const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
     DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);
@@ -303,7 +303,7 @@ hwlm_error_t fdr_exec_teddy_msks2(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m128 *maskBase = getMaskBase(teddy);
-    const u32 *confBase = getConfBase(teddy, 2);
+    const u32 *confBase = getConfBase(teddy);
 
     m128 res_old_1 = ones128();
     const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
@@ -360,7 +360,7 @@ hwlm_error_t fdr_exec_teddy_msks2_pck(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m128 *maskBase = getMaskBase(teddy);
-    const u32 *confBase = getConfBase(teddy, 2);
+    const u32 *confBase = getConfBase(teddy);
 
     m128 res_old_1 = ones128();
     const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
@@ -417,7 +417,7 @@ hwlm_error_t fdr_exec_teddy_msks3(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m128 *maskBase = getMaskBase(teddy);
-    const u32 *confBase = getConfBase(teddy, 3);
+    const u32 *confBase = getConfBase(teddy);
 
     m128 res_old_1 = ones128();
     m128 res_old_2 = ones128();
@@ -479,7 +479,7 @@ hwlm_error_t fdr_exec_teddy_msks3_pck(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m128 *maskBase = getMaskBase(teddy);
-    const u32 *confBase = getConfBase(teddy, 3);
+    const u32 *confBase = getConfBase(teddy);
 
     m128 res_old_1 = ones128();
     m128 res_old_2 = ones128();
@@ -541,7 +541,7 @@ hwlm_error_t fdr_exec_teddy_msks4(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m128 *maskBase = getMaskBase(teddy);
-    const u32 *confBase = getConfBase(teddy, 4);
+    const u32 *confBase = getConfBase(teddy);
 
     m128 res_old_1 = ones128();
     m128 res_old_2 = ones128();
@@ -605,7 +605,7 @@ hwlm_error_t fdr_exec_teddy_msks4_pck(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m128 *maskBase = getMaskBase(teddy);
-    const u32 *confBase = getConfBase(teddy, 4);
+    const u32 *confBase = getConfBase(teddy);
 
     m128 res_old_1 = ones128();
     m128 res_old_2 = ones128();

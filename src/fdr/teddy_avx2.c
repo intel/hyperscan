@@ -200,12 +200,6 @@ const m256 *getMaskBase_avx2(const struct Teddy *teddy) {
     return (const m256 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)));
 }
 
-static really_inline
-const u32 *getConfBase_avx2(const struct Teddy *teddy, u8 numMask) {
-    return (const u32 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)) +
-                         ROUNDUP_CL((numMask * 32 * 2)));
-}
-
 hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
                                            const struct FDR_Runtime_Args *a,
                                            hwlm_group_t control) {
@@ -220,7 +214,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase_avx2(teddy, 1);
+    const u32 *confBase = getConfBase(teddy);
 
     const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
     DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);
@@ -276,7 +270,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fat(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase_avx2(teddy, 1);
+    const u32 *confBase = getConfBase(teddy);
 
     const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
     DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);
@@ -332,7 +326,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_fat(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase_avx2(teddy, 2);
+    const u32 *confBase = getConfBase(teddy);
 
     m256 res_old_1 = ones256();
     const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
@@ -390,7 +384,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks2_pck_fat(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase_avx2(teddy, 2);
+    const u32 *confBase = getConfBase(teddy);
 
     m256 res_old_1 = ones256();
     const u8 *mainStart = ROUNDUP_PTR(ptr, 16);
@@ -448,7 +442,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_fat(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase_avx2(teddy, 3);
+    const u32 *confBase = getConfBase(teddy);
 
     m256 res_old_1 = ones256();
     m256 res_old_2 = ones256();
@@ -511,7 +505,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks3_pck_fat(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase_avx2(teddy, 3);
+    const u32 *confBase = getConfBase(teddy);
 
     m256 res_old_1 = ones256();
     m256 res_old_2 = ones256();
@@ -574,7 +568,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase_avx2(teddy, 4);
+    const u32 *confBase = getConfBase(teddy);
 
     m256 res_old_1 = ones256();
     m256 res_old_2 = ones256();
@@ -638,7 +632,7 @@ hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
                  a->buf, a->len, a->start_offset);
 
     const m256 *maskBase = getMaskBase_avx2(teddy);
-    const u32 *confBase = getConfBase_avx2(teddy, 4);
+    const u32 *confBase = getConfBase(teddy);
 
     m256 res_old_1 = ones256();
     m256 res_old_2 = ones256();

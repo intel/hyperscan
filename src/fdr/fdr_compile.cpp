@@ -190,6 +190,7 @@ bytecode_ptr<FDR> FDRCompiler::setupFDR() {
 
     // Write confirm structures.
     assert(ISALIGNED_CL(ptr));
+    fdr->confOffset = verify_u32(ptr - fdr_base);
     memcpy(ptr, confirmTable.get(), confirmTable.size());
     ptr += ROUNDUP_CL(confirmTable.size());
 
