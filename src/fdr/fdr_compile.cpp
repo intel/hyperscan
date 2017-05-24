@@ -151,14 +151,15 @@ void FDRCompiler::createInitialState(FDR *fdr) {
  * cacheline-aligned.
  */
 bytecode_ptr<FDR> FDRCompiler::setupFDR() {
-    size_t tabSize = ROUNDUP_CL(eng.getTabSizeBytes());
-
     auto floodTable = setupFDRFloodControl(lits, eng, grey);
     auto confirmTable = setupFullConfs(lits, eng, bucketToLits, make_small);
 
-    size_t headerSize = ROUNDUP_CL(sizeof(FDR));
-    size_t size = headerSize + tabSize + ROUNDUP_CL(confirmTable.size()) +
-                  floodTable.size();
+    size_t headerSize = sizeof(FDR);
+    size_t tabSize = eng.getTabSizeBytes();
+
+    // Note: we place each major structure here on a cacheline boundary.
+    size_t size = ROUNDUP_CL(headerSize) + ROUNDUP_CL(tabSize) +
+                  ROUNDUP_CL(confirmTable.size()) + floodTable.size();
 
     DEBUG_PRINTF("sizes base=%zu tabSize=%zu confirm=%zu floodControl=%zu "
                  "total=%zu\n",
@@ -177,7 +178,7 @@ bytecode_ptr<FDR> FDRCompiler::setupFDR() {
     assert(eng.bits > 8 && eng.bits < 16); // we allow domains 9 to 15 only
     fdr->domain = eng.bits;
     fdr->domainMask = (1 << eng.bits) - 1;
-    fdr->tabSize = (1 << eng.bits) * (eng.schemeWidth / 8);
+    fdr->tabSize = tabSize;
     fdr->stride = eng.stride;
     createInitialState(fdr.get());
 
@@ -185,7 +186,7 @@ bytecode_ptr<FDR> FDRCompiler::setupFDR() {
     u8 *ptr = fdr_base + ROUNDUP_CL(sizeof(FDR));
     assert(ISALIGNED_CL(ptr));
     copy(tab.begin(), tab.end(), ptr);
-    ptr += tabSize;
+    ptr += ROUNDUP_CL(tabSize);
 
     // Write confirm structures.
     assert(ISALIGNED_CL(ptr));
