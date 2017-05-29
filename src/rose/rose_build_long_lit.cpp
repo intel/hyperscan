@@ -44,7 +44,7 @@ using namespace std;
 namespace ue2 {
 
 /** \brief Minimum size for a non-empty hash table. Must be a power of two. */
-static constexpr u32 MIN_HASH_TABLE_SIZE = 128;
+static constexpr size_t MIN_HASH_TABLE_SIZE = 128;
 
 /** \brief Maximum load factor (between zero and one) for a hash table. */
 static constexpr double MAX_HASH_TABLE_LOAD = 0.7;
@@ -167,30 +167,69 @@ vector<u8> makeBloomFilter(const vector<ue2_case_string> &lits,
     return bloom;
 }
 
-static
+static UNUSED
 size_t hashTableOccupancy(const vector<RoseLongLitHashEntry> &tab) {
     return count_if(begin(tab), end(tab), [](const RoseLongLitHashEntry &ent) {
         return ent.str_offset != 0;
     });
 }
 
-static
+static UNUSED
 double hashTableLoad(const vector<RoseLongLitHashEntry> &tab) {
     return (double)hashTableOccupancy(tab) / (double)(tab.size());
 }
 
+using LitOffsetVector = small_vector<pair<u32, u32>, 1>;
+
 static
-vector<RoseLongLitHashEntry> buildHashTable(const vector<ue2_case_string> &lits,
-                                            size_t max_len,
-                                            const vector<u32> &litToOffsetVal,
-                                            size_t numEntries, bool nocase) {
+vector<RoseLongLitHashEntry> buildHashTable(
+               size_t max_len, const vector<u32> &litToOffsetVal,
+               const map<u32, LitOffsetVector> &hashToLitOffPairs,
+               size_t numEntries) {
     vector<RoseLongLitHashEntry> tab(numEntries, {0,0});
 
     if (!numEntries) {
         return tab;
     }
 
-    map<u32, vector<pair<u32, u32>>> hashToLitOffPairs;
+    for (const auto &m : hashToLitOffPairs) {
+        u32 hash = m.first;
+        const LitOffsetVector &d = m.second;
+
+        u32 bucket = hash % numEntries;
+
+        // Placement via linear probing.
+        for (const auto &lit_offset : d) {
+            while (tab[bucket].str_offset != 0) {
+                bucket++;
+                if (bucket == numEntries) {
+                    bucket = 0;
+                }
+            }
+
+            u32 lit_id = lit_offset.first;
+            u32 offset = lit_offset.second;
+
+            DEBUG_PRINTF("hash 0x%08x lit_id %u offset %u bucket %u\n", hash,
+                         lit_id, offset, bucket);
+
+            auto &entry = tab[bucket];
+            entry.str_offset = verify_u32(litToOffsetVal.at(lit_id));
+            assert(entry.str_offset != 0);
+            entry.str_len = offset + max_len;
+        }
+    }
+
+    DEBUG_PRINTF("hash table occupancy %zu of %zu entries\n",
+                 hashTableOccupancy(tab), numEntries);
+
+    return tab;
+}
+
+static
+map<u32, LitOffsetVector> computeLitHashes(const vector<ue2_case_string> &lits,
+                                           size_t max_len, bool nocase) {
+    map<u32, LitOffsetVector> hashToLitOffPairs;
 
     for (u32 lit_id = 0; lit_id < lits.size(); lit_id++) {
         const ue2_case_string &lit = lits[lit_id];
@@ -205,8 +244,10 @@ vector<RoseLongLitHashEntry> buildHashTable(const vector<ue2_case_string> &lits,
     }
 
     for (auto &m : hashToLitOffPairs) {
-        u32 hash = m.first;
-        vector<pair<u32, u32>> &d = m.second;
+        LitOffsetVector &d = m.second;
+        if (d.size() == 1) {
+            continue;
+        }
 
         // Sort by (offset, string) so that we'll be able to remove identical
         // string prefixes.
@@ -240,36 +281,9 @@ vector<RoseLongLitHashEntry> buildHashTable(const vector<ue2_case_string> &lits,
                         }
                         return a.first < b.first;
                     });
-
-        u32 bucket = hash % numEntries;
-
-        // Placement via linear probing.
-        for (const auto &lit_offset : d) {
-            while (tab[bucket].str_offset != 0) {
-                bucket++;
-                if (bucket == numEntries) {
-                    bucket = 0;
-                }
-            }
-
-            u32 lit_id = lit_offset.first;
-            u32 offset = lit_offset.second;
-
-            DEBUG_PRINTF("hash 0x%08x lit_id %u offset %u bucket %u\n", hash,
-                         lit_id, offset, bucket);
-
-            auto &entry = tab[bucket];
-            entry.str_offset = verify_u32(litToOffsetVal.at(lit_id));
-            assert(entry.str_offset != 0);
-            entry.str_len = offset + max_len;
-        }
     }
 
-    DEBUG_PRINTF("%s hash table occupancy %zu of %zu entries\n",
-                 nocase ? "nocase" : "caseful", hashTableOccupancy(tab),
-                 numEntries);
-
-    return tab;
+    return hashToLitOffPairs;
 }
 
 static
@@ -277,24 +291,21 @@ vector<RoseLongLitHashEntry> makeHashTable(const vector<ue2_case_string> &lits,
                                            size_t max_len,
                                            const vector<u32> &litToOffsetVal,
                                            u32 numPositions, bool nocase) {
-    vector<RoseLongLitHashEntry> tab;
+    // Compute lit substring hashes.
+    const auto hashToLitOffPairs = computeLitHashes(lits, max_len, nocase);
 
-    // Note: for the hash table, we must always have at least enough entries
-    // for the number of hashable positions.
-    size_t num_entries = roundUpToPowerOfTwo(max(MIN_HASH_TABLE_SIZE,
-    numPositions));
+    // Compute the size of the hash table: we need enough entries to satisfy
+    // our max load constraint, and it must be a power of two.
+    size_t num_entries = (double)numPositions / MAX_HASH_TABLE_LOAD + 1;
+    num_entries = roundUpToPowerOfTwo(max(MIN_HASH_TABLE_SIZE, num_entries));
 
-    for (;;) {
-        tab = buildHashTable(lits, max_len, litToOffsetVal, num_entries,
-                             nocase);
-        DEBUG_PRINTF("built %s hash table for %zu entries: load %f\n",
-                     nocase ? "nocase" : "caseful", num_entries,
-                     hashTableLoad(tab));
-        if (hashTableLoad(tab) < MAX_HASH_TABLE_LOAD) {
-            break;
-        }
-        num_entries *= 2;
-    }
+    auto tab = buildHashTable(max_len, litToOffsetVal, hashToLitOffPairs,
+                              num_entries);
+    DEBUG_PRINTF("built %s hash table for %zu entries: load %f\n",
+                 nocase ? "nocase" : "caseful", num_entries,
+                 hashTableLoad(tab));
+    assert(hashTableLoad(tab) < MAX_HASH_TABLE_LOAD);
+
     return tab;
 }
 
@@ -383,7 +394,7 @@ u32 buildLongLiteralTable(const RoseBuildImpl &build, RoseEngineBlob &blob,
     if (info.nocase.num_literals) {
         bloom_nocase = makeBloomFilter(lits, max_len, true);
         tab_nocase = makeHashTable(lits, max_len, litToOffsetVal,
-                                 info.nocase.hashed_positions, true);
+                                   info.nocase.hashed_positions, true);
     }
 
     size_t wholeLitTabSize = ROUNDUP_16(byte_length(lit_blob));
