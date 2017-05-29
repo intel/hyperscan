@@ -42,6 +42,7 @@ set(unit_hyperscan_SOURCES
     hyperscan/expr_info.cpp
     hyperscan/extparam.cpp
     hyperscan/identical.cpp
+    hyperscan/literals.cpp
     hyperscan/main.cpp
     hyperscan/multi.cpp
     hyperscan/order.cpp
