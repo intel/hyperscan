@@ -39,6 +39,7 @@
 #include "util/intrinsics.h"
 #include "util/join.h"
 #include "util/masked_move.h"
+#include "util/partial_store.h"
 #include "util/simd_utils.h"
 
 #include <ctype.h>
@@ -385,8 +386,11 @@ hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
         size_t tl2 = MIN(n->len - 1, len);
         size_t temp_len = tl1 + tl2;
         assert(temp_len < sizeof(temp_buf));
-        memcpy(temp_buf, hbuf + hlen - tl1, tl1);
-        memcpy(temp_buf + tl1, buf, tl2);
+        assert(tl1 <= sizeof(u64a));
+        assert(tl2 <= sizeof(u64a));
+        unaligned_store_u64a(temp_buf,
+                             partial_load_u64a(hbuf + hlen - tl1, tl1));
+        unaligned_store_u64a(temp_buf + tl1, partial_load_u64a(buf, tl2));
 
         cbi.offsetAdj = -tl1;
         rv = scan(temp_buf, temp_len, n->str, n->len, n->key_offset, n->nocase,
