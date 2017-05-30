@@ -221,6 +221,38 @@ vector<NFAEdge> findShellEdges(const NGHolder &g,
 }
 
 /**
+ * True if all edges out of vertices in the head shell lead to at most a single
+ * outside vertex.
+ */
+static
+bool shellHasOnePath(const NGHolder &g,
+                     const flat_set<NFAVertex> &head_shell) {
+    if (head_shell.empty()) {
+        DEBUG_PRINTF("no head shell\n");
+        return false;
+    }
+
+    NFAVertex succ = NGHolder::null_vertex();
+    for (auto u : head_shell) {
+        for (auto v : adjacent_vertices_range(u, g)) {
+            if (contains(head_shell, v)) {
+                continue;
+            }
+            if (!succ) {
+                succ = v;
+                continue;
+            }
+            if (succ == v) {
+                continue;
+            }
+            return false;
+        }
+    }
+    DEBUG_PRINTF("head shell has only one path through it\n");
+    return true;
+}
+
+/**
  * Common code called by calc- and recalc- below. Splits the given holder into
  * one or more connected components, adding them to the comps deque.
  */
@@ -250,10 +282,19 @@ void splitIntoComponents(unique_ptr<NGHolder> g,
         return;
     }
 
+    // Find edges connecting the head and tail shells directly.
     vector<NFAEdge> shell_edges = findShellEdges(*g, head_shell, tail_shell);
 
     DEBUG_PRINTF("%zu vertices in head, %zu in tail, %zu shell edges\n",
                  head_shell.size(), tail_shell.size(), shell_edges.size());
+
+    // If there's only one way out of the head shell and no shell edges, we
+    // aren't going to find more than one component.
+    if (shell_edges.empty() && shellHasOnePath(*g, head_shell)) {
+        DEBUG_PRINTF("single component\n");
+        comps.push_back(std::move(g));
+        return;
+    }
 
     ue2::unordered_map<NFAVertex, NFAUndirectedVertex> old2new;
     auto ug = createUnGraph(*g, true, true, old2new);
