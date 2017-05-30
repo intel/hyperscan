@@ -38,10 +38,11 @@ static really_inline m256 getCaseMask(void) {
 }
 
 static really_inline
-hwlm_error_t scanSingleUnaligned(const u8 *buf, size_t len, size_t offset,
-                                 const u8 *key, bool noCase, m256 caseMask,
-                                 m256 mask1, const struct cb_info *cbi,
-                                 size_t start, size_t end) {
+hwlm_error_t scanSingleUnaligned(const struct noodTable *n, const u8 *buf,
+                                 size_t len, size_t offset, bool noCase,
+                                 m256 caseMask, m256 mask1,
+                                 const struct cb_info *cbi, size_t start,
+                                 size_t end) {
     const u8 *d = buf + offset;
     DEBUG_PRINTF("start %zu end %zu offset %zu\n", start, end, offset);
     const size_t l = end - start;
@@ -66,11 +67,11 @@ hwlm_error_t scanSingleUnaligned(const u8 *buf, size_t len, size_t offset,
 }
 
 static really_inline
-hwlm_error_t scanDoubleUnaligned(const u8 *buf, size_t len, size_t offset,
-                                 const u8 *key, size_t keyLen, size_t keyOffset,
-                                 bool noCase, m256 caseMask, m256 mask1,
-                                 m256 mask2, const struct cb_info *cbi,
-                                 size_t start, size_t end) {
+hwlm_error_t scanDoubleUnaligned(const struct noodTable *n, const u8 *buf,
+                                 size_t len, size_t offset, bool noCase,
+                                 m256 caseMask, m256 mask1, m256 mask2,
+                                 const struct cb_info *cbi, size_t start,
+                                 size_t end) {
     const u8 *d = buf + offset;
     DEBUG_PRINTF("start %zu end %zu offset %zu\n", start, end, offset);
     size_t l = end - start;
@@ -100,8 +101,8 @@ hwlm_error_t scanDoubleUnaligned(const u8 *buf, size_t len, size_t offset,
 // alignment boundary if needed and to finish off data that the aligned scan
 // function can't handle (due to small/unaligned chunk at end)
 static really_inline
-hwlm_error_t scanSingleShort(const u8 *buf, size_t len, const u8 *key,
-                             bool noCase, m256 caseMask, m256 mask1,
+hwlm_error_t scanSingleShort(const struct noodTable *n, const u8 *buf,
+                             size_t len, bool noCase, m256 caseMask, m256 mask1,
                              const struct cb_info *cbi, size_t start,
                              size_t end) {
     const u8 *d = buf + start;
@@ -140,11 +141,10 @@ hwlm_error_t scanSingleShort(const u8 *buf, size_t len, const u8 *key,
 }
 
 static really_inline
-hwlm_error_t scanDoubleShort(const u8 *buf, size_t len, const u8 *key,
-                             size_t keyLen, size_t keyOffset, bool noCase,
-                             m256 caseMask, m256 mask1, m256 mask2,
-                             const struct cb_info *cbi, size_t start,
-                             size_t end) {
+hwlm_error_t scanDoubleShort(const struct noodTable *n, const u8 *buf,
+                             size_t len, bool noCase, m256 caseMask, m256 mask1,
+                             m256 mask2, const struct cb_info *cbi,
+                             size_t start, size_t end) {
     const u8 *d = buf + start;
     size_t l = end - start;
     if (!l) {
@@ -182,8 +182,8 @@ hwlm_error_t scanDoubleShort(const u8 *buf, size_t len, const u8 *key,
 }
 
 static really_inline
-hwlm_error_t scanSingleFast(const u8 *buf, size_t len, const u8 *key,
-                            bool noCase, m256 caseMask, m256 mask1,
+hwlm_error_t scanSingleFast(const struct noodTable *n, const u8 *buf,
+                            size_t len, bool noCase, m256 caseMask, m256 mask1,
                             const struct cb_info *cbi, size_t start,
                             size_t end) {
     const u8 *d = buf + start, *e = buf + end;
@@ -203,10 +203,9 @@ hwlm_error_t scanSingleFast(const u8 *buf, size_t len, const u8 *key,
 }
 
 static really_inline
-hwlm_error_t scanDoubleFast(const u8 *buf, size_t len, const u8 *key,
-                            size_t keyLen, size_t keyOffset, bool noCase,
-                            m256 caseMask, m256 mask1, m256 mask2,
-                            const struct cb_info *cbi, size_t start,
+hwlm_error_t scanDoubleFast(const struct noodTable *n, const u8 *buf,
+                            size_t len, bool noCase, m256 caseMask, m256 mask1,
+                            m256 mask2, const struct cb_info *cbi, size_t start,
                             size_t end) {
     const u8 *d = buf + start, *e = buf + end;
     DEBUG_PRINTF("start %zu end %zu \n", start, end);

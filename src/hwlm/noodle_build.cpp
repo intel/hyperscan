@@ -35,13 +35,32 @@
 
 #include "hwlm_literal.h"
 #include "noodle_internal.h"
+#include "util/bitutils.h"
 #include "util/compare.h"
 #include "util/verify_types.h"
 #include "ue2common.h"
 
 #include <cstring> // for memcpy
+#include <vector>
+
+using std::vector;
 
 namespace ue2 {
+
+static
+u64a make_u64a_mask(const vector<u8> &v) {
+    assert(v.size() <= sizeof(u64a));
+    if (v.size() > sizeof(u64a)) {
+        throw std::exception();
+    }
+
+    u64a mask = 0;
+    size_t len = v.size();
+    unsigned char *m = (unsigned char *)&mask;
+    DEBUG_PRINTF("making mask len %zu\n", len);
+    memcpy(m, &v[0], len);
+    return mask;
+}
 
 static
 size_t findNoodFragOffset(const hwlmLiteral &lit) {
@@ -67,30 +86,60 @@ size_t findNoodFragOffset(const hwlmLiteral &lit) {
 }
 
 bytecode_ptr<noodTable> noodBuildTable(const hwlmLiteral &lit) {
-    if (!lit.msk.empty()) {
-        DEBUG_PRINTF("noodle can't handle supplementary masks\n");
-        return nullptr;
+    const auto &s = lit.s;
+
+    size_t mask_len = std::max(s.length(), lit.msk.size());
+    DEBUG_PRINTF("mask is %zu bytes\n", lit.msk.size());
+    assert(mask_len <= 8);
+    assert(lit.msk.size() == lit.cmp.size());
+
+    vector<u8> n_msk(mask_len);
+    vector<u8> n_cmp(mask_len);
+
+    for (unsigned i = mask_len - lit.msk.size(), j = 0; i < mask_len;
+         i++, j++) {
+        DEBUG_PRINTF("m[%u] %hhx c[%u] %hhx\n", i, lit.msk[j], i, lit.cmp[j]);
+        n_msk[i] = lit.msk[j];
+        n_cmp[i] = lit.cmp[j];
     }
 
-    const auto &s = lit.s;
-    size_t noodle_len = sizeof(noodTable) + s.length();
-    auto n = make_zeroed_bytecode_ptr<noodTable>(noodle_len);
+    size_t s_off = mask_len - s.length();
+    for (unsigned i = s_off; i < mask_len; i++) {
+        u8 c = s[i - s_off];
+        u8 si_msk = lit.nocase && ourisalpha(c) ? (u8)CASE_CLEAR : (u8)0xff;
+        n_msk[i] |= si_msk;
+        n_cmp[i] |= c & si_msk;
+        assert((n_cmp[i] & si_msk) == c);
+        DEBUG_PRINTF("m[%u] %hhx c[%u] %hhx '%c'\n", i, n_msk[i], i, n_cmp[i],
+                     ourisprint(c) ? (char)c : '.');
+    }
+
+    auto n = make_zeroed_bytecode_ptr<noodTable>(sizeof(noodTable));
     assert(n);
+    DEBUG_PRINTF("size of nood %zu\n", sizeof(noodTable));
 
     size_t key_offset = findNoodFragOffset(lit);
 
     n->id = lit.id;
-    n->len = verify_u32(s.length());
-    n->key_offset = verify_u32(key_offset);
+    n->lit_len = s.length();
+    n->single = s.length() == 1 ? 1 : 0;
+    n->key_offset = verify_u8(n->lit_len - key_offset);
     n->nocase = lit.nocase ? 1 : 0;
-    memcpy(n->str, s.c_str(), s.length());
+    n->key0 = s[key_offset];
+    if (n->single) {
+        n->key1 = 0;
+    } else {
+        n->key1 = s[key_offset + 1];
+    }
+    n->msk = make_u64a_mask(n_msk);
+    n->cmp = make_u64a_mask(n_cmp);
+    n->msk_len = mask_len;
 
     return n;
 }
 
-size_t noodSize(const noodTable *n) {
-    assert(n); // shouldn't call with null
-    return sizeof(*n) + n->len;
+size_t noodSize(const noodTable *) {
+    return sizeof(noodTable);
 }
 
 } // namespace ue2
@@ -102,13 +151,17 @@ namespace ue2 {
 
 void noodPrintStats(const noodTable *n, FILE *f) {
     fprintf(f, "Noodle table\n");
-    fprintf(f, "Len: %u Key Offset: %u\n", n->len, n->key_offset);
+    fprintf(f, "Len: %u Key Offset: %u\n", n->lit_len, n->key_offset);
+    fprintf(f, "Msk: %llx Cmp: %llx MskLen %u\n",
+            n->msk >> 8 * (8 - n->msk_len), n->cmp >> 8 * (8 - n->msk_len),
+            n->msk_len);
     fprintf(f, "String: ");
-    for (u32 i = 0; i < n->len; i++) {
-        if (isgraph(n->str[i]) && n->str[i] != '\\') {
-            fprintf(f, "%c", n->str[i]);
+    for (u32 i = n->msk_len - n->lit_len; i < n->msk_len; i++) {
+        const u8 *m = (const u8 *)&n->cmp;
+        if (isgraph(m[i]) && m[i] != '\\') {
+            fprintf(f, "%c", m[i]);
         } else {
-            fprintf(f, "\\x%02hhx", n->str[i]);
+            fprintf(f, "\\x%02hhx", m[i]);
         }
     }
     fprintf(f, "\n");

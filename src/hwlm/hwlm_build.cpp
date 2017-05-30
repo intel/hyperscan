@@ -89,11 +89,6 @@ bool isNoodleable(const vector<hwlmLiteral> &lits,
         return false;
     }
 
-    if (!lits.front().msk.empty()) {
-        DEBUG_PRINTF("noodle can't handle supplementary masks\n");
-        return false;
-    }
-
     return true;
 }
 
