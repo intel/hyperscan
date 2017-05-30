@@ -2952,6 +2952,15 @@ RoseInGraph doInitialVioletTransform(const NGHolder &h, bool last_chance,
         return vg;
     }
 
+    /* Avoid running the Violet analysis at all on graphs with no vertices with
+     * small reach, since we will not be able to extract any literals. */
+    if (all_of_in(vertices_range(h), [&](NFAVertex v) {
+            return is_special(v, h) || h[v].char_reach.count() >= 200;
+        })) {
+        DEBUG_PRINTF("fail, no vertices with small reach\n");
+        return vg;
+    }
+
     DEBUG_PRINTF("hello world\n");
 
     /* Step 1: avoid outfixes as we always have to run them. */
