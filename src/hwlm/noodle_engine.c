@@ -370,8 +370,7 @@ hwlm_error_t noodExec(const struct noodTable *n, const u8 *buf, size_t len,
 /** \brief Streaming-mode scanner. */
 hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
                                size_t hlen, const u8 *buf, size_t len,
-                               HWLMCallback cb, void *ctxt, u8 *temp_buf,
-                               UNUSED size_t temp_buffer_size) {
+                               HWLMCallback cb, void *ctxt) {
     assert(n);
 
     struct cb_info cbi = {cb, n->id, ctxt, 0};
@@ -380,10 +379,12 @@ hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
     if (hlen) {
         assert(hbuf);
 
+        u8 ALIGN_DIRECTIVE temp_buf[16]; // HWLM_LITERAL_MAX_LEN * 2
+
         size_t tl1 = MIN(n->len - 1, hlen);
         size_t tl2 = MIN(n->len - 1, len);
         size_t temp_len = tl1 + tl2;
-        assert(temp_len < temp_buffer_size);
+        assert(temp_len < sizeof(temp_buf));
         memcpy(temp_buf, hbuf + hlen - tl1, tl1);
         memcpy(temp_buf + tl1, buf, tl2);
 

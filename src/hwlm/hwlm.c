@@ -228,8 +228,7 @@ hwlm_error_t hwlmExecStreaming(const struct HWLM *t, struct hs_scratch *scratch,
                             cb, ctxt);
         } else {
             return noodExecStreaming(HWLM_C_DATA(t), hbuf, hlen, buf, len, cb,
-                                     ctxt, scratch->fdr_temp_buf,
-                                     FDR_TEMP_BUF_SIZE);
+                                     ctxt);
         }
     } else {
         // t->type == HWLM_ENGINE_FDR

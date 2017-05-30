@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -49,8 +49,7 @@ hwlm_error_t noodExec(const struct noodTable *n, const u8 *buf, size_t len,
 /** \brief Streaming-mode scanner. */
 hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
                                size_t hlen, const u8 *buf, size_t len,
-                               HWLMCallback cb, void *ctxt, u8 *temp_buf,
-                               size_t temp_buffer_size);
+                               HWLMCallback cb, void *ctxt);
 
 #ifdef __cplusplus
 }       /* extern "C" */
