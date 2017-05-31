@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -554,9 +554,6 @@ bool mergeCyclicDotStars(NGHolder &g) {
  */
 static
 flat_set<NFAVertex> findDependentVertices(const NGHolder &g, NFAVertex v) {
-    auto v_pred = preds(v, g);
-    flat_set<NFAVertex> may_be_on;
-
     /* We need to exclude any vertex that may be reached on a path which is
      * incompatible with the vertex v being on. */
 
