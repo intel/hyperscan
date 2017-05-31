@@ -681,10 +681,17 @@ vector<u32> sparseIterValues(const mmbit_sparse_iter *it, u32 num_bits) {
         return keys;
     }
 
-    vector<u8> bits(mmbit_size(num_bits), u8{0xff}); // All bits on.
-    vector<mmbit_sparse_state> state(MAX_SPARSE_ITER_STATES);
-
+    // Populate a multibit structure with all-ones. Note that the multibit
+    // runtime assumes that it is always safe to read 8 bytes, so we must
+    // over-allocate for smaller sizes.
+    const size_t num_bytes = mmbit_size(num_bits);
+    vector<u8> bits(max(size_t{8}, num_bytes), u8{0xff}); // All bits on.
     const u8 *b = bits.data();
+    if (num_bytes < 8) {
+        b += 8 - num_bytes;
+    }
+
+    vector<mmbit_sparse_state> state(MAX_SPARSE_ITER_STATES);
     mmbit_sparse_state *s = state.data();
 
     u32 idx = 0;
