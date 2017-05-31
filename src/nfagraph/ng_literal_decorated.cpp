@@ -210,6 +210,11 @@ bool handleDecoratedLiterals(RoseBuild &rose, const NGHolder &g,
         return false;
     }
 
+    if (!hasNarrowReachVertex(g)) {
+        DEBUG_PRINTF("no narrow reach vertices\n");
+        return false;
+    }
+
     if (hasLargeDegreeVertex(g)) {
         DEBUG_PRINTF("large degree\n");
         return false;

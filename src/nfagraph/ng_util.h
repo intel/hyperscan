@@ -233,6 +233,12 @@ bool hasReachableCycle(const NGHolder &g, NFAVertex src);
 /** True if g has any cycles which are not self-loops. */
 bool hasBigCycles(const NGHolder &g);
 
+/**
+ * \brief True if g has at least one non-special vertex with reach smaller than
+ * max_reach_count. The default of 200 is pretty conservative.
+ */
+bool hasNarrowReachVertex(const NGHolder &g, size_t max_reach_count = 200);
+
 /** Returns the set of all vertices that appear in any of the graph's cycles. */
 std::set<NFAVertex> findVerticesInCycles(const NGHolder &g);
 

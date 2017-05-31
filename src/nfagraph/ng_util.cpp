@@ -257,6 +257,12 @@ bool hasBigCycles(const NGHolder &g) {
     return false;
 }
 
+bool hasNarrowReachVertex(const NGHolder &g, size_t max_reach_count) {
+    return any_of_in(vertices_range(g), [&](NFAVertex v) {
+        return !is_special(v, g) && g[v].char_reach.count() < max_reach_count;
+    });
+}
+
 bool can_never_match(const NGHolder &g) {
     assert(edge(g.accept, g.acceptEod, g).second);
     if (in_degree(g.accept, g) == 0 && in_degree(g.acceptEod, g) == 1) {
