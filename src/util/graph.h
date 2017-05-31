@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -233,6 +233,29 @@ public:
 template<typename Cont>
 vertex_recorder<Cont> make_vertex_recorder(Cont &o) {
     return vertex_recorder<Cont>(o);
+}
+
+/**
+ * \brief A vertex recorder visitor that sets the bits in the given bitset
+ * type (e.g. boost::dynamic_bitset) corresponding to the indices of the
+ * vertices encountered.
+ */
+template<typename Bitset>
+class vertex_index_bitset_recorder : public boost::default_dfs_visitor {
+public:
+    explicit vertex_index_bitset_recorder(Bitset &o) : out(o) {}
+    template<class Graph>
+    void discover_vertex(typename Graph::vertex_descriptor v, const Graph &g) {
+        assert(g[v].index < out.size());
+        out.set(g[v].index);
+    }
+    Bitset &out;
+};
+
+template<typename Bitset>
+vertex_index_bitset_recorder<Bitset>
+make_vertex_index_bitset_recorder(Bitset &o) {
+    return vertex_index_bitset_recorder<Bitset>(o);
 }
 
 template <class Graph>
