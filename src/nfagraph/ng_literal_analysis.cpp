@@ -488,12 +488,14 @@ const char *describeColor(boost::default_color_type c) {
  */
 static
 vector<LitEdge> add_reverse_edges_and_index(LitGraph &lg) {
+    const size_t edge_count = num_edges(lg);
     vector<LitEdge> fwd_edges;
+    fwd_edges.reserve(edge_count);
     for (const auto &e : edges_range(lg)) {
         fwd_edges.push_back(e);
     }
 
-    vector<LitEdge> rev_map(2 * num_edges(lg));
+    vector<LitEdge> rev_map(2 * edge_count);
 
     for (const auto &e : fwd_edges) {
         LitVertex u = source(e, lg);
