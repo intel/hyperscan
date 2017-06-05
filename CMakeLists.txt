@@ -301,8 +301,11 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
             set (FAT_RUNTIME_REQUISITES TRUE)
         endif()
     endif()
-    CMAKE_DEPENDENT_OPTION(FAT_RUNTIME "Build a library that supports multiple microarchitecures" ${RELEASE_BUILD} "FAT_RUNTIME_REQUISITES" OFF)
+else()
+    message (STATUS "Non-Linux platform detected, not building a fat runtime")
+    set (FAT_RUNTIME_REQUISITES FALSE)
 endif ()
+CMAKE_DEPENDENT_OPTION(FAT_RUNTIME "Build a library that supports multiple microarchitectures" ${RELEASE_BUILD} "FAT_RUNTIME_REQUISITES" OFF)
 
 include (${CMAKE_MODULE_PATH}/arch.cmake)
 
