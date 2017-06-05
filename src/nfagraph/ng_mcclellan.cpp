@@ -283,10 +283,8 @@ static
 bool triggerAllowed(const NGHolder &g, const NFAVertex v,
                     const vector<vector<CharReach> > &all_triggers,
                     const vector<CharReach> &trigger) {
-    set<NFAVertex> curr;
-    set<NFAVertex> next;
-
-    curr.insert(v);
+    flat_set<NFAVertex> curr({v});
+    flat_set<NFAVertex> next;
 
     for (auto it = trigger.rbegin(); it != trigger.rend(); ++it) {
         next.clear();
