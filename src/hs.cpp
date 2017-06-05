@@ -44,6 +44,7 @@
 #include "parser/parse_error.h"
 #include "parser/Parser.h"
 #include "parser/prefilter.h"
+#include "parser/unsupported.h"
 #include "util/compile_error.h"
 #include "util/cpuid_flags.h"
 #include "util/depth.h"
@@ -375,6 +376,14 @@ hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
         if (pe.expr.prefilter) {
             prefilterTree(pe.component, ParseMode(flags));
         }
+
+        // Expressions containing zero-width assertions and other extended pcre
+        // types aren't supported yet. This call will throw a ParseError
+        // exception if the component tree contains such a construct.
+        checkUnsupported(*pe.component);
+
+        pe.component->checkEmbeddedStartAnchor(true);
+        pe.component->checkEmbeddedEndAnchor(true);
 
         auto built_expr = buildGraph(rm, cc, pe);
         unique_ptr<NGHolder> &g = built_expr.g;
