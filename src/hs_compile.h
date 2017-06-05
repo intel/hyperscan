@@ -169,13 +169,23 @@ typedef struct hs_platform_info {
 typedef struct hs_expr_info {
     /**
      * The minimum length in bytes of a match for the pattern.
+     *
+     * Note: in some cases when using advanced features to suppress matches
+     * (such as extended parameters or the @ref HS_FLAG_SINGLEMATCH flag) this
+     * may represent a conservative lower bound for the true minimum length of
+     * a match.
      */
     unsigned int min_width;
 
     /**
      * The maximum length in bytes of a match for the pattern. If the pattern
-     * has an unbounded maximum width, this will be set to the maximum value of
-     * an unsigned int (UINT_MAX).
+     * has an unbounded maximum length, this will be set to the maximum value
+     * of an unsigned int (UINT_MAX).
+     *
+     * Note: in some cases when using advanced features to suppress matches
+     * (such as extended parameters or the @ref HS_FLAG_SINGLEMATCH flag) this
+     * may represent a conservative upper bound for the true maximum length of
+     * a match.
      */
     unsigned int max_width;
 
@@ -525,6 +535,17 @@ hs_error_t HS_CDECL hs_free_compile_error(hs_compile_error_t *error);
  * information provided in @ref hs_expr_info_t includes the minimum and maximum
  * width of a pattern match.
  *
+ * Note: successful analysis of an expression with this function does not imply
+ * that compilation of the same expression (via @ref hs_compile(), @ref
+ * hs_compile_multi() or @ref hs_compile_ext_multi()) would succeed. This
+ * function may return @ref HS_SUCCESS for regular expressions that Hyperscan
+ * cannot compile.
+ *
+ * Note: some per-pattern flags (such as @ref HS_FLAG_ALLOWEMPTY, @ref
+ * HS_FLAG_SOM_LEFTMOST) are accepted by this call, but as they do not affect
+ * the properties returned in the @ref hs_expr_info_t structure, they will not
+ * affect the outcome of this function.
+ *
  * @param expression
  *      The NULL-terminated expression to parse. Note that this string must
  *      represent ONLY the pattern to be matched, with no delimiters or flags;
@@ -575,6 +596,17 @@ hs_error_t HS_CDECL hs_expression_info(const char *expression,
  * Utility function providing information about a regular expression, with
  * extended parameter support. The information provided in @ref hs_expr_info_t
  * includes the minimum and maximum width of a pattern match.
+ *
+ * Note: successful analysis of an expression with this function does not imply
+ * that compilation of the same expression (via @ref hs_compile(), @ref
+ * hs_compile_multi() or @ref hs_compile_ext_multi()) would succeed. This
+ * function may return @ref HS_SUCCESS for regular expressions that Hyperscan
+ * cannot compile.
+ *
+ * Note: some per-pattern flags (such as @ref HS_FLAG_ALLOWEMPTY, @ref
+ * HS_FLAG_SOM_LEFTMOST) are accepted by this call, but as they do not affect
+ * the properties returned in the @ref hs_expr_info_t structure, they will not
+ * affect the outcome of this function.
  *
  * @param expression
  *      The NULL-terminated expression to parse. Note that this string must
