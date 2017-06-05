@@ -45,8 +45,6 @@
 #include <memory>
 #include <sstream>
 
-#include <boost/graph/depth_first_search.hpp>
-
 using namespace std;
 
 namespace ue2 {
