@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Intel Corporation
+ * Copyright (c) 2017-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -112,6 +112,21 @@ public:
         assert(static_cast<u8>(color) < sizeof(fill_lut));
         u8 val = fill_lut[static_cast<u8>(color)];
         std::memset(data->data(), val, data->size());
+    }
+
+    size_t count(small_color color) const {
+        assert(static_cast<u8>(color) < sizeof(fill_lut));
+        size_t num = 0;
+        for (size_t i = 0; i < n; i++) {
+            size_t byte = i / entries_per_byte;
+            assert(byte < data->size());
+            size_t bit = (i % entries_per_byte) * bit_size;
+            u8 val = ((*data)[byte] >> bit) & bit_mask;
+            if (static_cast<small_color>(val) == color) {
+                num++;
+            }
+        }
+        return num;
     }
 
     small_color get_impl(key_type key) const {
