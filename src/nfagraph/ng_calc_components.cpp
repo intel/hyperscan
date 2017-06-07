@@ -220,36 +220,50 @@ vector<NFAEdge> findShellEdges(const NGHolder &g,
     return shell_edges;
 }
 
-/**
- * True if all edges out of vertices in the head shell lead to at most a single
- * outside vertex.
- */
-static
-bool shellHasOnePath(const NGHolder &g,
-                     const flat_set<NFAVertex> &head_shell) {
-    if (head_shell.empty()) {
-        DEBUG_PRINTF("no head shell\n");
+template<typename GetAdjRange>
+bool shellHasOnePath(const NGHolder &g, const flat_set<NFAVertex> &shell,
+                     GetAdjRange adj_range_func) {
+    if (shell.empty()) {
+        DEBUG_PRINTF("no shell\n");
         return false;
     }
 
-    NFAVertex succ = NGHolder::null_vertex();
-    for (auto u : head_shell) {
-        for (auto v : adjacent_vertices_range(u, g)) {
-            if (contains(head_shell, v)) {
+    NFAVertex exit_vertex = NGHolder::null_vertex();
+    for (auto u : shell) {
+        for (auto v : adj_range_func(u, g)) {
+            if (contains(shell, v)) {
                 continue;
             }
-            if (!succ) {
-                succ = v;
+            if (!exit_vertex) {
+                exit_vertex = v;
                 continue;
             }
-            if (succ == v) {
+            if (exit_vertex == v) {
                 continue;
             }
             return false;
         }
     }
-    DEBUG_PRINTF("head shell has only one path through it\n");
+
     return true;
+}
+
+/**
+ * True if all edges out of vertices in the head shell lead to at most a single
+ * outside vertex, or the inverse for the tail shell.
+ */
+static
+bool shellHasOnePath(const NGHolder &g, const flat_set<NFAVertex> &head_shell,
+                     const flat_set<NFAVertex> &tail_shell) {
+    if (shellHasOnePath(g, head_shell, adjacent_vertices_range<NGHolder>)) {
+        DEBUG_PRINTF("head shell has only one path through it\n");
+        return true;
+    }
+    if (shellHasOnePath(g, tail_shell, inv_adjacent_vertices_range<NGHolder>)) {
+        DEBUG_PRINTF("tail shell has only one path into it\n");
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -288,9 +302,9 @@ void splitIntoComponents(unique_ptr<NGHolder> g,
     DEBUG_PRINTF("%zu vertices in head, %zu in tail, %zu shell edges\n",
                  head_shell.size(), tail_shell.size(), shell_edges.size());
 
-    // If there's only one way out of the head shell and no shell edges, we
-    // aren't going to find more than one component.
-    if (shell_edges.empty() && shellHasOnePath(*g, head_shell)) {
+    // If there are no shell edges and only one path out of the head shell or
+    // into the tail shell, we aren't going to find more than one component.
+    if (shell_edges.empty() && shellHasOnePath(*g, head_shell, tail_shell)) {
         DEBUG_PRINTF("single component\n");
         comps.push_back(std::move(g));
         return;
