@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 '''
 This script creates a Hyperscan benchmarking corpus database from a supplied
