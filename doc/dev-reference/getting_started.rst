@@ -254,18 +254,32 @@ the current platform is supported by Hyperscan.
 At of this release, the variants of the runtime that are built, and the CPU
 capability that is required, are the following:
 
-+----------+-------------------------------+---------------------+
-| Variant  | CPU Feature Flag(s) Required  | gcc arch flag       |
-+==========+===============================+=====================+
-| Core 2   | ``SSSE3``                     | ``-march=core2``    |
-+----------+-------------------------------+---------------------+
-| Core i7  | ``SSE4_2`` and ``POPCNT``     | ``-march=corei7``   |
-+----------+-------------------------------+---------------------+
-| AVX 2    | ``AVX2``                      | ``-march=avx2``     |
-+----------+-------------------------------+---------------------+
++----------+-------------------------------+---------------------------+
+| Variant  | CPU Feature Flag(s) Required  | gcc arch flag             |
++==========+===============================+===========================+
+| Core 2   | ``SSSE3``                     | ``-march=core2``          |
++----------+-------------------------------+---------------------------+
+| Core i7  | ``SSE4_2`` and ``POPCNT``     | ``-march=corei7``         |
++----------+-------------------------------+---------------------------+
+| AVX 2    | ``AVX2``                      | ``-march=core-avx2``      |
++----------+-------------------------------+---------------------------+
+| AVX 512  | ``AVX512BW`` (see note below) | ``-march=skylake-avx512`` |
++----------+-------------------------------+---------------------------+
 
-As this requires compiler, libc, and binutils support, at this time the fat
-runtime will only be enabled for Linux builds where the compiler supports the
+.. note::
+
+    Hyperscan v4.5 adds support for AVX-512 instructions - in particular the
+    ``AVX-512BW`` instruction set that was introduced on Intel "Skylake" Xeon
+    processors - however the AVX-512 runtime variant is **not** enabled by
+    default in fat runtime builds as not all toolchains support AVX-512
+    instruction sets. To build an AVX-512 runtime, the CMake variable
+    ``BUILD_AVX512`` must be enabled manually during configuration. For
+    example: ::
+
+        cmake -DBUILD_AVX512=on <...>
+
+As the fat runtime requires compiler, libc, and binutils support, at this time
+it will only be enabled for Linux builds where the compiler supports the
 `indirect function "ifunc" function attribute
 <https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-indirect-functions-3321>`_.
 
