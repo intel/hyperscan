@@ -253,6 +253,11 @@ else()
         set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-abi")
     endif ()
 
+    if (CMAKE_C_COMPILER_ID MATCHES "Intel")
+        set(SKYLAKE_FLAG "-xCORE-AVX512")
+    else ()
+        set(SKYLAKE_FLAG "-march=skylake-avx512")
+    endif ()
 endif()
 
 CHECK_INCLUDE_FILES(unistd.h HAVE_UNISTD_H)
@@ -305,10 +310,6 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
 endif ()
 
 include (${CMAKE_MODULE_PATH}/arch.cmake)
-
-if (NOT FAT_RUNTIME AND NOT HAVE_SSSE3)
-        message(FATAL_ERROR "A minimum of SSSE3 compiler support is required")
-endif ()
 
 # testing a builtin takes a little more work
 CHECK_C_SOURCE_COMPILES("void *aa_test(void *x) { return __builtin_assume_aligned(x, 16);}\nint main(void) { return 0; }" HAVE_CC_BUILTIN_ASSUME_ALIGNED)
@@ -458,12 +459,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 else()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
-endif()
-
-if(CMAKE_C_COMPILER_ID MATCHES "Intel")
-    set(SKYLAKE_FLAG "-xCORE-AVX512")
-else()
-    set(SKYLAKE_FLAG "-march=skylake-avx512")
 endif()
 
 if(NOT WIN32)

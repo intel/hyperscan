@@ -10,8 +10,24 @@ else ()
     message (FATAL_ERROR "No intrinsics header found")
 endif ()
 
+if (BUILD_AVX512)
+    CHECK_C_COMPILER_FLAG(${SKYLAKE_FLAG} HAS_ARCH_SKYLAKE)
+    if (NOT HAS_ARCH_SKYLAKE)
+        message (FATAL_ERROR "AVX512 not supported by compiler")
+    endif ()
+endif ()
 
-set (CMAKE_REQUIRED_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS} ${ARCH_C_FLAGS}")
+if (FAT_RUNTIME)
+    # test the highest level microarch to make sure everything works
+    if (BUILD_AVX512)
+        set (CMAKE_REQUIRED_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS} ${SKYLAKE_FLAG}")
+    else ()
+        set (CMAKE_REQUIRED_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS} -march=core-avx2")
+    endif ()
+else (NOT FAT_RUNTIME)
+    # if not fat runtime, then test given cflags
+    set (CMAKE_REQUIRED_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS} ${ARCH_C_FLAGS}")
+endif ()
 
 # ensure we have the minimum of SSSE3 - call a SSSE3 intrinsic
 CHECK_C_SOURCE_COMPILES("#include <${INTRIN_INC_H}>
@@ -31,10 +47,6 @@ int main(){
     (void)_mm256_xor_si256(z, z);
 }" HAVE_AVX2)
 
-if (NOT HAVE_AVX2)
-    message(STATUS "Building without AVX2 support")
-endif ()
-
 # and now for AVX512
 CHECK_C_SOURCE_COMPILES("#include <${INTRIN_INC_H}>
 #if !defined(__AVX512BW__)
@@ -46,8 +58,27 @@ int main(){
     (void)_mm512_abs_epi8(z);
 }" HAVE_AVX512)
 
-if (NOT HAVE_AVX512)
-    message(STATUS "Building without AVX512 support")
+if (FAT_RUNTIME)
+    if (NOT HAVE_SSSE3)
+        message(FATAL_ERROR "SSSE3 support required to build fat runtime")
+    endif ()
+    if (NOT HAVE_AVX2)
+        message(FATAL_ERROR "AVX2 support required to build fat runtime")
+    endif ()
+    if (BUILD_AVX512 AND NOT HAVE_AVX512)
+        message(FATAL_ERROR "AVX512 support requested but not supported")
+    endif ()
+else (NOT FAT_RUNTIME)
+    if (NOT HAVE_AVX2)
+        message(STATUS "Building without AVX2 support")
+    endif ()
+    if (NOT HAVE_AVX512)
+        message(STATUS "Building without AVX512 support")
+    endif ()
+else (NOT FAT_RUNTIME)
+    if (NOT HAVE_SSSE3)
+        message(FATAL_ERROR "A minimum of SSSE3 compiler support is required")
+    endif ()
 endif ()
 
 unset (CMAKE_REQUIRED_FLAGS)
