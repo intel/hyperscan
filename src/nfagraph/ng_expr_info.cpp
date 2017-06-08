@@ -37,10 +37,14 @@
 #include "ng_asserts.h"
 #include "ng_depth.h"
 #include "ng_edge_redundancy.h"
+#include "ng_extparam.h"
+#include "ng_fuzzy.h"
 #include "ng_holder.h"
+#include "ng_prune.h"
 #include "ng_reports.h"
 #include "ng_util.h"
 #include "ue2common.h"
+#include "compiler/expression_info.h"
 #include "parser/position.h" // for POS flags
 #include "util/boundary_reports.h"
 #include "util/compile_context.h"
@@ -135,14 +139,47 @@ bool hasOffsetAdjust(const ReportManager &rm, const NGHolder &g) {
     return false;
 }
 
-void fillExpressionInfo(ReportManager &rm, NGHolder &g,
-                        const ExpressionInfo &expr, hs_expr_info *info) {
+void fillExpressionInfo(ReportManager &rm, const CompileContext &cc,
+                        NGHolder &g, ExpressionInfo &expr,
+                        hs_expr_info *info) {
     assert(info);
+
+    // remove reports that aren't on vertices connected to accept.
+    clearReports(g);
+
+    assert(allMatchStatesHaveReports(g));
+
+    /*
+     * Note: the following set of analysis passes / transformations should
+     * match those in NG::addGraph().
+     */
 
     /* ensure utf8 starts at cp boundary */
     ensureCodePointStart(rm, g, expr);
+
+    if (can_never_match(g)) {
+        throw CompileError(expr.index, "Pattern can never match.");
+    }
+
+    // validate graph's suitability for fuzzing
+    validate_fuzzy_compile(g, expr.edit_distance, expr.utf8, cc.grey);
+
     resolveAsserts(rm, g, expr);
+    assert(allMatchStatesHaveReports(g));
+
+    // fuzz graph - this must happen before any transformations are made
+    make_fuzzy(g, expr.edit_distance, cc.grey);
+
+    pruneUseless(g);
+    pruneEmptyVertices(g);
+
+    if (can_never_match(g)) {
+        throw CompileError(expr.index, "Pattern can never match.");
+    }
+
     optimiseVirtualStarts(g);
+
+    propagateExtendedParams(g, expr, rm);
 
     removeLeadingVirtualVerticesFromRoot(g, g.start);
     removeLeadingVirtualVerticesFromRoot(g, g.startDs);

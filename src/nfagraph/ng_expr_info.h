@@ -41,9 +41,10 @@ namespace ue2 {
 class ExpressionInfo;
 class NGHolder;
 class ReportManager;
+struct CompileContext;
 
-void fillExpressionInfo(ReportManager &rm, NGHolder &g,
-                        const ExpressionInfo &expr, hs_expr_info *info);
+void fillExpressionInfo(ReportManager &rm, const CompileContext &cc,
+                        NGHolder &g, ExpressionInfo &expr, hs_expr_info *info);
 
 } // namespace ue2
 

@@ -39,10 +39,8 @@
 #include "compiler/error.h"
 #include "nfagraph/ng.h"
 #include "nfagraph/ng_expr_info.h"
-#include "nfagraph/ng_extparam.h"
-#include "nfagraph/ng_fuzzy.h"
-#include "parser/parse_error.h"
 #include "parser/Parser.h"
+#include "parser/parse_error.h"
 #include "parser/prefilter.h"
 #include "parser/unsupported.h"
 #include "util/compile_error.h"
@@ -394,14 +392,7 @@ hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
             throw ParseError("Internal error.");
         }
 
-        // validate graph's suitability for fuzzing
-        validate_fuzzy_compile(*g, expr.edit_distance, expr.utf8, cc.grey);
-
-        // fuzz graph - this must happen before any transformations are made
-        make_fuzzy(*g, expr.edit_distance, cc.grey);
-
-        propagateExtendedParams(*g, expr, rm);
-        fillExpressionInfo(rm, *g, expr, &local_info);
+        fillExpressionInfo(rm, cc, *g, expr, &local_info);
     }
     catch (const CompileError &e) {
         // Compiler error occurred
