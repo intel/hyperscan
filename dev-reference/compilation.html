@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Compiling Patterns &mdash; Hyperscan 4.4.0 documentation</title>
+    <title>Compiling Patterns &#8212; Hyperscan 4.5.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,25 +15,29 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.4.0',
+        VERSION:     '4.5.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
       };
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 4.4.0 documentation" href="index.html" />
     <link rel="next" title="Scanning for Patterns" href="runtime.html" />
     <link rel="prev" title="Getting Started" href="getting_started.html" />
    
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
-  <body role="document">  
+  <body role="document">
+  
 
     <div class="document">
       <div class="documentwrapper">
@@ -54,7 +58,7 @@ databases:</p>
 database. All of the supplied patterns will be scanned for concurrently at
 scan time, with user-supplied identifiers returned when they match.</li>
 <li><a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_ext_multi()</span></code></a>: compiles an array of expressions as above,
-but allows <a class="reference internal" href="#extparam"><span>Extended Parameters</span></a> to be specified for each expression.</li>
+but allows <a class="reference internal" href="#extparam"><span class="std std-ref">Extended Parameters</span></a> to be specified for each expression.</li>
 </ol>
 <p>Compilation allows the Hyperscan library to analyze the given pattern(s) and
 pre-determine how to scan for these patterns in an optimized fashion that would
@@ -80,7 +84,7 @@ for one mode (streaming, block or vectored) can only be used in that mode. The
 version of Hyperscan used to produce a compiled pattern database must match the
 version of Hyperscan used to scan with it.</p>
 <p>Hyperscan provides support for targeting a database at a particular CPU
-platform; see <a class="reference internal" href="#instr-specialization"><span>Instruction Set Specialization</span></a> for details.</p>
+platform; see <a class="reference internal" href="#instr-specialization"><span class="std std-ref">Instruction Set Specialization</span></a> for details.</p>
 </div>
 <div class="section" id="pattern-support">
 <h2>Pattern Support<a class="headerlink" href="#pattern-support" title="Permalink to this headline">¶</a></h2>
@@ -89,7 +93,7 @@ described at &lt;<a class="reference external" href="http://www.pcre.org/">http:
 libpcre are supported. The use of unsupported constructs will result in
 compilation errors.</p>
 <p>The version of PCRE used to validate Hyperscan&#8217;s interpretation of this syntax
-is 8.38.</p>
+is 8.40.</p>
 <div class="section" id="supported-constructs">
 <h3>Supported Constructs<a class="headerlink" href="#supported-constructs" title="Permalink to this headline">¶</a></h3>
 <p>The following regex constructs are supported by Hyperscan:</p>
@@ -176,7 +180,7 @@ expressions (e.g. <code class="regexp docutils literal"><span class="pre">([a-z]
 <p class="first admonition-title">Note</p>
 <p class="last">At this time, not all patterns can be successfully compiled with the
 <a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag, which enables per-pattern support for
-<a class="reference internal" href="#som"><span>Start of Match</span></a>. The patterns that support this flag are a subset of patterns that
+<a class="reference internal" href="#som"><span class="std std-ref">Start of Match</span></a>. The patterns that support this flag are a subset of patterns that
 can be successfully compiled with Hyperscan; notably, many bounded repeat
 forms that can be compiled with Hyperscan without the Start of Match flag
 enabled cannot be compiled with the flag enabled.</p>
@@ -200,7 +204,7 @@ enabled cannot be compiled with the flag enabled.</p>
 </div>
 </div>
 <div class="section" id="semantics">
-<h2>Semantics<a class="headerlink" href="#semantics" title="Permalink to this headline">¶</a></h2>
+<span id="id1"></span><h2>Semantics<a class="headerlink" href="#semantics" title="Permalink to this headline">¶</a></h2>
 <p>While Hyperscan follows libpcre syntax, it provides different semantics. The
 major departures from libpcre semantics are motivated by the requirements of
 streaming and multiple simultaneous pattern matching.</p>
@@ -215,7 +219,7 @@ guaranteed to be ordered, although they will always fall within the bounds of
 the current scan.</li>
 <li><strong>End offsets only</strong>: Hyperscan&#8217;s default behaviour is only to report the end
 offset of a match. Reporting of the start offset can be enabled with
-per-expression flags at pattern compile time. See <a class="reference internal" href="#som"><span>Start of Match</span></a> for details.</li>
+per-expression flags at pattern compile time. See <a class="reference internal" href="#som"><span class="std std-ref">Start of Match</span></a> for details.</li>
 <li><strong>&#8220;All matches&#8221; reported</strong>: scanning <code class="regexp docutils literal"><span class="pre">/foo.*bar/</span></code> against
 <code class="docutils literal"><span class="pre">fooxyzbarbar</span></code> will return two matches from Hyperscan &#8211; at the points
 corresponding to the ends of <code class="docutils literal"><span class="pre">fooxyzbar</span></code> and <code class="docutils literal"><span class="pre">fooxyzbarbar</span></code>. In contrast,
@@ -310,14 +314,21 @@ expression should match successfully.</li>
 expression should match successfully.</li>
 <li><code class="docutils literal"><span class="pre">min_length</span></code>: The minimum match length (from start to end) required to
 successfully match this expression.</li>
+<li><code class="docutils literal"><span class="pre">edit_distance</span></code>: Match this expression within a given Levenshtein distance.</li>
 </ul>
-<p>These parameters allow the set of matches produced by a pattern to be
-constrained at compile time, rather than relying on the application to process
-unwanted matches at runtime.</p>
+<p>These parameters either allow the set of matches produced by a pattern to be
+constrained at compile time (rather than relying on the application to process
+unwanted matches at runtime), or allow matching a pattern approximately (within
+a given edit distance) to produce more matches.</p>
 <p>For example, the pattern <code class="regexp docutils literal"><span class="pre">/foo.*bar/</span></code> when given a <code class="docutils literal"><span class="pre">min_offset</span></code> of 10
 and a <code class="docutils literal"><span class="pre">max_offset</span></code> of 15 will not produce matches when scanned against
 <code class="docutils literal"><span class="pre">foobar</span></code> or <code class="docutils literal"><span class="pre">foo0123456789bar</span></code> but will produce a match against the data
 streams <code class="docutils literal"><span class="pre">foo0123bar</span></code> or <code class="docutils literal"><span class="pre">foo0123456bar</span></code>.</p>
+<p>Similarly, the pattern <code class="regexp docutils literal"><span class="pre">/foobar/</span></code> when given an <code class="docutils literal"><span class="pre">edit_distance</span></code> of 2
+will produce matches when scanned against <code class="docutils literal"><span class="pre">foobar</span></code>, <code class="docutils literal"><span class="pre">fooba</span></code>, <code class="docutils literal"><span class="pre">fobr</span></code>,
+<code class="docutils literal"><span class="pre">fo_baz</span></code>, <code class="docutils literal"><span class="pre">foooobar</span></code>, and anything else that lies within edit distance of 2
+(as defined by Levenshtein distance). For more details, see the
+<a class="reference internal" href="#approximate-matching"><span class="std std-ref">Approximate matching</span></a> section.</p>
 </div>
 <div class="section" id="prefiltering-mode">
 <h3>Prefiltering Mode<a class="headerlink" href="#prefiltering-mode" title="Permalink to this headline">¶</a></h3>
@@ -386,7 +397,71 @@ a CPU without that feature.</li>
 </ol>
 <p>An <a class="reference internal" href="api_files.html#c.hs_platform_info_t" title="hs_platform_info_t"><code class="xref c c-type docutils literal"><span class="pre">hs_platform_info_t</span></code></a> structure targeted at the current host can be
 built with the <a class="reference internal" href="api_files.html#c.hs_populate_platform" title="hs_populate_platform"><code class="xref c c-func docutils literal"><span class="pre">hs_populate_platform()</span></code></a> function.</p>
-<p>See <a class="reference internal" href="api_constants.html#api-constants"><span>API Reference: Constants</span></a> for the full list of CPU tuning and feature flags.</p>
+<p>See <a class="reference internal" href="api_constants.html#api-constants"><span class="std std-ref">API Reference: Constants</span></a> for the full list of CPU tuning and feature flags.</p>
+</div>
+<div class="section" id="approximate-matching">
+<span id="id2"></span><h2>Approximate matching<a class="headerlink" href="#approximate-matching" title="Permalink to this headline">¶</a></h2>
+<p>Hyperscan provides an experimental approximate matching mode, which will match
+patterns within a given edit distance. The exact matching behavior is defined as
+follows:</p>
+<ol class="arabic simple">
+<li><strong>Edit distance</strong> is defined as Levenshtein distance. That is, there are
+three possible edit types considered: insertion, removal and substitution.
+More formal description can be found on
+<a class="reference external" href="https://en.wikipedia.org/wiki/Levenshtein_distance">Wikipedia</a>.</li>
+<li><strong>Approximate matching</strong> will match all <em>corpora</em> within a given edit
+distance. That is, given a pattern, approximate matching will match anything
+that can be edited to arrive at a corpus that exactly matches the original
+pattern.</li>
+<li><strong>Matching semantics</strong> are exactly the same as described in <a class="reference internal" href="#semantics"><span class="std std-ref">Semantics</span></a>.</li>
+</ol>
+<p>Here are a few examples of approximate matching:</p>
+<ul class="simple">
+<li>Pattern <code class="regexp docutils literal"><span class="pre">/foo/</span></code> can match <code class="docutils literal"><span class="pre">foo</span></code> when using regular Hyperscan
+matching behavior. With approximate matching within edit distance 2, the
+pattern will produce matches when scanned against <code class="docutils literal"><span class="pre">foo</span></code>, <code class="docutils literal"><span class="pre">foooo</span></code>, <code class="docutils literal"><span class="pre">f00</span></code>,
+<code class="docutils literal"><span class="pre">f</span></code>, and anything else that lies within edit distance 2 of matching corpora
+for the original pattern (<code class="docutils literal"><span class="pre">foo</span></code> in this case).</li>
+<li>Pattern <code class="regexp docutils literal"><span class="pre">/foo(bar)+/</span></code> with edit distance 1 will match <code class="docutils literal"><span class="pre">foobarbar</span></code>,
+<code class="docutils literal"><span class="pre">foobarb0r</span></code>, <code class="docutils literal"><span class="pre">fooarbar</span></code>, <code class="docutils literal"><span class="pre">foobarba</span></code>, <code class="docutils literal"><span class="pre">f0obarbar</span></code>, <code class="docutils literal"><span class="pre">fobarbar</span></code> and
+anything else that lies within edit distance 1 of matching corpora for the
+original pattern (<code class="docutils literal"><span class="pre">foobarbar</span></code> in this case).</li>
+<li>Pattern <code class="regexp docutils literal"><span class="pre">/foob?ar/</span></code> with edit distance 2 will match <code class="docutils literal"><span class="pre">fooar</span></code>,
+<code class="docutils literal"><span class="pre">foo</span></code>, <code class="docutils literal"><span class="pre">fabar</span></code>, <code class="docutils literal"><span class="pre">oar</span></code> and anything else that lies within edit distance 2
+of matching corpora for the original pattern (<code class="docutils literal"><span class="pre">fooar</span></code> in this case).</li>
+</ul>
+<p>Currently, there are trade-offs and limitations that come with approximate
+matching support. Here they are, in a nutshell:</p>
+<ul class="simple">
+<li>Reduced pattern support:<ul>
+<li>For many patterns, approximate matching is complex and can result in
+Hyperscan failing to compile a pattern with a &#8220;Pattern too large&#8221; error,
+even if the pattern is supported in normal operation.</li>
+<li>Additionally, some patterns cannot be approximately matched because they
+reduce to so-called &#8220;vacuous&#8221; patterns (patterns that match everything). For
+example, pattern <code class="regexp docutils literal"><span class="pre">/foo/</span></code> with edit distance 3, if implemented,
+would reduce to matching zero-length buffers. Such patterns will result in a
+&#8220;Pattern cannot be approximately matched&#8221; compile error.</li>
+<li>Finally, due to the inherent complexities of defining matching behavior,
+approximate matching implements a reduced subset of regular expression
+syntax. Approximate matching does not support UTF-8 (and other
+multibyte character encodings), and word boundaries (that is, <code class="docutils literal"><span class="pre">\b</span></code>, <code class="docutils literal"><span class="pre">\B</span></code>
+and other equivalent constructs). Patterns containing unsupported constructs
+will result in &#8220;Pattern cannot be approximately matched&#8221; compile error.</li>
+<li>When using approximate matching in conjunction with SOM, all of the
+restrictions of SOM also apply. See <a class="reference internal" href="#som"><span class="std std-ref">Start of Match</span></a> for more
+details.</li>
+</ul>
+</li>
+<li>Increased stream state/byte code size requirements: due to approximate
+matching byte code being inherently larger and more complex than exact
+matching, the corresponding requirements also increase.</li>
+<li>Performance overhead: similarly, there is generally a performance cost
+associated with approximate matching, both due to increased matching
+complexity, and due to the fact that it will produce more matches.</li>
+</ul>
+<p>Approximate matching is always disabled by default, and can be enabled on a
+per-pattern basis by using an extended parameter described in <a class="reference internal" href="#extparam"><span class="std std-ref">Extended Parameters</span></a>.</p>
 </div>
 </div>
 
@@ -402,11 +477,12 @@ built with the <a class="reference internal" href="api_files.html#c.hs_populate_
 <li class="toctree-l1"><a class="reference internal" href="preface.html">Preface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="">Compiling Patterns</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Compiling Patterns</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#building-a-database">Building a Database</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pattern-support">Pattern Support</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#semantics">Semantics</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#instruction-set-specialization">Instruction Set Specialization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#approximate-matching">Approximate matching</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
@@ -420,14 +496,11 @@ built with the <a class="reference internal" href="api_files.html#c.hs_populate_
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -438,8 +511,8 @@ built with the <a class="reference internal" href="api_files.html#c.hs_populate_
       &copy;2015-2017, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
       
     </div>
 

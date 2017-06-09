@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Tools &mdash; Hyperscan 4.4.0 documentation</title>
+    <title>Tools &#8212; Hyperscan 4.5.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,25 +15,29 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.4.0',
+        VERSION:     '4.5.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
       };
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 4.4.0 documentation" href="index.html" />
     <link rel="next" title="API Reference: Constants" href="api_constants.html" />
     <link rel="prev" title="Performance Considerations" href="performance.html" />
    
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
-  <body role="document">  
+  <body role="document">
+  
 
     <div class="document">
       <div class="documentwrapper">
@@ -48,7 +52,7 @@
 <p>The <code class="docutils literal"><span class="pre">hsbench</span></code> tool provides an easy way to measure Hyperscan&#8217;s performance
 for a particular set of patterns and corpus of data to be scanned.</p>
 <p>Patterns are supplied in the format described below in
-<a class="reference internal" href="#tools-pattern-format"><span>Pattern Format</span></a>, while the corpus must be provided in the form of a
+<a class="reference internal" href="#tools-pattern-format"><span class="std std-ref">Pattern Format</span></a>, while the corpus must be provided in the form of a
 <cite>corpus database</cite>: this is a simple SQLite database format intended to allow for
 easy control of how a corpus is broken into blocks and streams.</p>
 <div class="admonition note">
@@ -62,7 +66,7 @@ be found in the Hyperscan source tree in <code class="docutils literal"><span cl
 <p>Given a file full of patterns specified with <code class="docutils literal"><span class="pre">-e</span></code> and a corpus database
 specified with <code class="docutils literal"><span class="pre">-c</span></code>, <code class="docutils literal"><span class="pre">hsbench</span></code> will perform a single-threaded benchmark and
 produce output like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>$ hsbench -e /tmp/patterns -c /tmp/corpus.db
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ hsbench -e /tmp/patterns -c /tmp/corpus.db
 
 Signatures:        /tmp/patterns
 Hyperscan info:    Version: 4.3.1 Features:  AVX2 Mode: STREAM
@@ -106,15 +110,15 @@ text files with one pattern per line. Each line looks like this:</p>
 <li><code class="docutils literal"><span class="pre">&lt;integer</span> <span class="pre">id&gt;:/&lt;regex&gt;/&lt;flags&gt;</span></code></li>
 </ul>
 <p>For example:</p>
-<div class="highlight-python"><div class="highlight"><pre>1:/hatstand.*teakettle/s
-2:/(hatstand|teakettle)/iH
-3:/^.{10,20}hatstand/m
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="mi">1</span><span class="p">:</span><span class="o">/</span><span class="n">hatstand</span><span class="o">.*</span><span class="n">teakettle</span><span class="o">/</span><span class="n">s</span>
+<span class="mi">2</span><span class="p">:</span><span class="o">/</span><span class="p">(</span><span class="n">hatstand</span><span class="o">|</span><span class="n">teakettle</span><span class="p">)</span><span class="o">/</span><span class="n">iH</span>
+<span class="mi">3</span><span class="p">:</span><span class="o">/^.</span><span class="p">{</span><span class="mi">10</span><span class="p">,</span><span class="mi">20</span><span class="p">}</span><span class="n">hatstand</span><span class="o">/</span><span class="n">m</span>
 </pre></div>
 </div>
 <p>The integer ID is the value that will be reported when a match is found by
 Hyperscan and must be unique.</p>
 <p>The pattern itself is a regular expression in PCRE syntax; see
-<a class="reference internal" href="compilation.html#compilation"><span>Compiling Patterns</span></a> for more information on supported features.</p>
+<a class="reference internal" href="compilation.html#compilation"><span class="std std-ref">Compiling Patterns</span></a> for more information on supported features.</p>
 <p>The flags are single characters that map to Hyperscan flags as follows:</p>
 <table border="1" class="docutils">
 <colgroup>
@@ -167,10 +171,10 @@ Hyperscan and must be unique.</p>
 </tr>
 </tbody>
 </table>
-<p>In addition to the set of flags above, <a class="reference internal" href="compilation.html#extparam"><span>Extended Parameters</span></a> can be supplied
+<p>In addition to the set of flags above, <a class="reference internal" href="compilation.html#extparam"><span class="std std-ref">Extended Parameters</span></a> can be supplied
 for each pattern. These are supplied after the flags as <code class="docutils literal"><span class="pre">key=value</span></code> pairs
 between braces, separated by commas. For example:</p>
-<div class="highlight-python"><div class="highlight"><pre>1:/hatstand.*teakettle/s{min_offset=50,max_offset=100}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="mi">1</span><span class="p">:</span><span class="o">/</span><span class="n">hatstand</span><span class="o">.*</span><span class="n">teakettle</span><span class="o">/</span><span class="n">s</span><span class="p">{</span><span class="n">min_offset</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span><span class="n">max_offset</span><span class="o">=</span><span class="mi">100</span><span class="p">}</span>
 </pre></div>
 </div>
 <p>All Hyperscan tools will accept a pattern file (or a directory containing
@@ -198,7 +202,7 @@ argument.</p>
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="">Tools</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Tools</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#benchmarker-hsbench">Benchmarker: hsbench</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pattern-format">Pattern Format</a></li>
 </ul>
@@ -210,14 +214,11 @@ argument.</p>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -228,8 +229,8 @@ argument.</p>
       &copy;2015-2017, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
       
     </div>
 

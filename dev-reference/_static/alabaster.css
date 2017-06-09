@@ -28,6 +28,7 @@ body {
     padding: 0;
 }
 
+
 div.document {
     width: 940px;
     margin: 30px auto 0 auto;
@@ -44,6 +45,8 @@ div.bodywrapper {
 
 div.sphinxsidebar {
     width: 220px;
+    font-size: 14px;
+    line-height: 1.5;
 }
 
 hr {
@@ -72,6 +75,11 @@ div.footer a {
     color: #888;
 }
 
+p.caption {
+    font-family: ;
+    font-size: inherit;
+}
+
 
 div.relations {
     display: none;
@@ -86,11 +94,6 @@ div.sphinxsidebar a {
 
 div.sphinxsidebar a:hover {
     border-bottom: 1px solid #999;
-}
-
-div.sphinxsidebar {
-    font-size: 14px;
-    line-height: 1.5;
 }
 
 div.sphinxsidebarwrapper {
@@ -359,7 +362,7 @@ table.field-list p {
 }
 
 table.footnote td.label {
-    width: 0px;
+    width: .1px;
     padding: 0.3em 0 0.3em 0.5em;
 }
 
@@ -382,6 +385,7 @@ blockquote {
 }
 
 ul, ol {
+    /* Matches the 30px from the narrow-screen "li > ul" selector below */
     margin: 10px 0 10px 30px;
     padding: 0;
 }
@@ -417,6 +421,11 @@ tt.xref, code.xref, a tt {
 a.reference {
     text-decoration: none;
     border-bottom: 1px dotted #004B6B;
+}
+
+/* Don't put an underline on images */
+a.image-reference, a.image-reference:hover {
+    border-bottom: none;
 }
 
 a.reference:hover {
@@ -467,6 +476,11 @@ a:hover tt, a:hover code {
     ul {
     	margin-left: 0;
     }
+
+	li > ul {
+        /* Matches the 30px from the "ul, ol" selector above */
+		margin-left: 30px;
+	}
 
     .document {
     	width: auto;

@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Introduction &mdash; Hyperscan 4.4.0 documentation</title>
+    <title>Introduction &#8212; Hyperscan 4.5.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,25 +15,29 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.4.0',
+        VERSION:     '4.5.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
       };
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 4.4.0 documentation" href="index.html" />
     <link rel="next" title="Getting Started" href="getting_started.html" />
     <link rel="prev" title="Preface" href="preface.html" />
    
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
-  <body role="document">  
+  <body role="document">
+  
 
     <div class="document">
       <div class="documentwrapper">
@@ -60,7 +64,7 @@ an error will be returned by the pattern compiler.</p>
 to disk or moved between hosts. They can also be targeted to particular
 platform features (for example, the use of Intel® Advanced Vector Extensions
 2 (Intel® AVX2) instructions).</p>
-<p>See <a class="reference internal" href="compilation.html#compilation"><span>Compiling Patterns</span></a> for more detail.</p>
+<p>See <a class="reference internal" href="compilation.html#compilation"><span class="std std-ref">Compiling Patterns</span></a> for more detail.</p>
 </div>
 <div class="section" id="scanning">
 <h2>Scanning<a class="headerlink" href="#scanning" title="Permalink to this headline">¶</a></h2>
@@ -93,12 +97,12 @@ reasons.</li>
 be scanned against any input. There are no internal resource limits or other
 limitations at runtime that could cause a scan call to return an error.</li>
 </ul>
-<p>See <a class="reference internal" href="runtime.html#runtime"><span>Scanning for Patterns</span></a> for more detail.</p>
+<p>See <a class="reference internal" href="runtime.html#runtime"><span class="std std-ref">Scanning for Patterns</span></a> for more detail.</p>
 </div>
 <div class="section" id="tools">
 <h2>Tools<a class="headerlink" href="#tools" title="Permalink to this headline">¶</a></h2>
 <p>Some utilities for testing and benchmarking Hyperscan are included with the
-library. See <a class="reference internal" href="tools.html#tools"><span>Tools</span></a> for more information.</p>
+library. See <a class="reference internal" href="tools.html#tools"><span class="std std-ref">Tools</span></a> for more information.</p>
 </div>
 <div class="section" id="example-code">
 <h2>Example Code<a class="headerlink" href="#example-code" title="Permalink to this headline">¶</a></h2>
@@ -117,7 +121,7 @@ available in the <code class="docutils literal"><span class="pre">examples/</spa
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
 <li class="toctree-l1"><a class="reference internal" href="preface.html">Preface</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="">Introduction</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Introduction</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#compilation">Compilation</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#scanning">Scanning</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#tools">Tools</a></li>
@@ -137,14 +141,11 @@ available in the <code class="docutils literal"><span class="pre">examples/</spa
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -155,8 +156,8 @@ available in the <code class="docutils literal"><span class="pre">examples/</spa
       &copy;2015-2017, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
       
     </div>
 
