@@ -38,10 +38,6 @@ struct Teddy {
     u32 maxStringLen;
     u32 confOffset;
     u32 floodOffset;
-    u32 link;
-    u32 pad1;
-    u32 pad2;
-    u32 pad3;
 };
 
 #endif

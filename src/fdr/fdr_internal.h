@@ -71,18 +71,15 @@ struct FDR {
     u32 maxStringLen;
     u32 confOffset;
     u32 floodOffset;
-
-    u8 stride; /* stride - how frequeuntly the data is consulted by the first
+    u8 stride; /* stride - how frequently the data is consulted by the first
                 * stage matcher */
     u8 domain; /* number of bits used to index into main FDR table. This value
                 * is used only of debugging/asserts. */
     u16 domainMask; /* pre-computed domain mask */
     u32 tabSize; /* pre-computed hashtable size in bytes */
-    u32 pad;
-
-    m128 start; /* initial start state to use at offset 0. The state has been set
-                 * up based on the min length of buckets to reduce the need for
-                 * pointless confirms. */
+    m128 start; /* initial start state to use at offset 0. The state has been
+                 * set up based on the min length of buckets to reduce the need
+                 * for pointless confirms. */
 };
 
 /** \brief FDR runtime arguments.
