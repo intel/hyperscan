@@ -170,7 +170,9 @@ bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
     if (!make_confirm) {
         flags = FDRC_FLAG_NO_CONFIRM;
         if (lits[0].noruns) {
-            flags |= FDRC_FLAG_NOREPEAT; // messy - need to clean this up later as flags is sorta kinda obsoleted
+            // messy - need to clean this up later as flags is sorta kinda
+            // obsoleted
+            flags |= FDRC_FLAG_NOREPEAT;
         }
         mult = 0;
         soleLitSize = lits[0].s.size() - 1;
