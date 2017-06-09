@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -122,6 +122,22 @@ struct bad_edge_filter {
 template<typename EdgeSet>
 bad_edge_filter<EdgeSet> make_bad_edge_filter(const EdgeSet *e) {
     return bad_edge_filter<EdgeSet>(e);
+}
+
+/** \brief vertex graph filter. */
+template<typename VertexSet>
+struct bad_vertex_filter {
+    bad_vertex_filter() = default;
+    explicit bad_vertex_filter(const VertexSet *bad_v) : bad_vertices(bad_v) {}
+    bool operator()(const typename VertexSet::value_type &v) const {
+        return !contains(*bad_vertices, v); /* keep vertices not in bad set */
+    }
+    const VertexSet *bad_vertices = nullptr;
+};
+
+template<typename VertexSet>
+bad_vertex_filter<VertexSet> make_bad_vertex_filter(const VertexSet *v) {
+    return bad_vertex_filter<VertexSet>(v);
 }
 
 /** Visitor that records back edges */
@@ -274,6 +290,11 @@ void duplicateReport(NGHolder &g, ReportID r_old, ReportID r_new);
 /** Construct a reversed copy of an arbitrary NGHolder, mapping starts to
  * accepts. */
 void reverseHolder(const NGHolder &g, NGHolder &out);
+
+/** \brief Returns the delay or ~0U if the graph cannot match with
+ * the trailing literal. */
+u32 removeTrailingLiteralStates(NGHolder &g, const ue2_literal &lit,
+                                u32 max_delay, bool overhang_ok = true);
 
 #ifndef NDEBUG
 

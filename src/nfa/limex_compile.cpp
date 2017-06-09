@@ -26,9 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief Main NFA build code.
  */
+
 #include "limex_compile.h"
 
 #include "accel.h"
@@ -47,6 +49,7 @@
 #include "repeatcompile.h"
 #include "util/alloc.h"
 #include "util/bitutils.h"
+#include "util/bytecode_ptr.h"
 #include "util/charreach.h"
 #include "util/compile_context.h"
 #include "util/container.h"
@@ -66,6 +69,7 @@
 #include <vector>
 
 #include <boost/graph/breadth_first_search.hpp>
+#include <boost/graph/depth_first_search.hpp>
 #include <boost/range/adaptor/map.hpp>
 
 using namespace std;
@@ -89,8 +93,6 @@ struct precalcAccel {
     CharReach double_cr;
     flat_set<pair<u8, u8>> double_lits; /* double-byte accel stop literals */
     u32 double_offset;
-
-    MultibyteAccelInfo ma_info;
 };
 
 struct limex_accel_info {
@@ -354,16 +356,12 @@ void buildReachMapping(const build_info &args, vector<NFAStateSet> &reach,
 }
 
 struct AccelBuild {
-    AccelBuild() : v(NGHolder::null_vertex()), state(0), offset(0), ma_len1(0),
-            ma_len2(0), ma_type(MultibyteAccelInfo::MAT_NONE) {}
+    AccelBuild() : v(NGHolder::null_vertex()), state(0), offset(0) {}
     NFAVertex v;
     u32 state;
     u32 offset; // offset correction to apply
     CharReach stop1; // single-byte accel stop literals
     flat_set<pair<u8, u8>> stop2; // double-byte accel stop literals
-    u32 ma_len1; // multiaccel len1
-    u32 ma_len2; // multiaccel len2
-    MultibyteAccelInfo::multiaccel_type ma_type; // multiaccel type
 };
 
 static
@@ -378,12 +376,7 @@ void findStopLiterals(const build_info &bi, NFAVertex v, AccelBuild &build) {
         build.stop1 = CharReach::dot();
     } else {
         const precalcAccel &precalc = bi.accel.precalc.at(ss);
-        unsigned ma_len = precalc.ma_info.len1 + precalc.ma_info.len2;
-        if (ma_len >= MULTIACCEL_MIN_LEN) {
-            build.ma_len1 = precalc.ma_info.len1;
-            build.stop1 = precalc.ma_info.cr;
-            build.offset = precalc.ma_info.offset;
-        } else if (precalc.double_lits.empty()) {
+        if (precalc.double_lits.empty()) {
             build.stop1 = precalc.single_cr;
             build.offset = precalc.single_offset;
         } else {
@@ -602,7 +595,6 @@ void fillAccelInfo(build_info &bi) {
     limex_accel_info &accel = bi.accel;
     unordered_map<NFAVertex, AccelScheme> &accel_map = accel.accel_map;
     const map<NFAVertex, BoundedRepeatSummary> &br_cyclic = bi.br_cyclic;
-    const CompileContext &cc = bi.cc;
     const unordered_map<NFAVertex, u32> &state_ids = bi.state_ids;
     const u32 num_states = bi.num_states;
 
@@ -659,27 +651,17 @@ void fillAccelInfo(build_info &bi) {
         DEBUG_PRINTF("accel %u ok with offset s%u, d%u\n", i, as.offset,
                      as.double_offset);
 
-        // try multibyte acceleration first
-        MultibyteAccelInfo mai = nfaCheckMultiAccel(g, states, cc);
-
         precalcAccel &pa = accel.precalc[state_set];
-        useful |= state_set;
-
-        // if we successfully built a multibyte accel scheme, use that
-        if (mai.type != MultibyteAccelInfo::MAT_NONE) {
-            pa.ma_info = mai;
-
-            DEBUG_PRINTF("multibyte acceleration!\n");
-            continue;
-        }
-
         pa.single_offset = as.offset;
         pa.single_cr = as.cr;
+
         if (as.double_byte.size() != 0) {
             pa.double_offset = as.double_offset;
             pa.double_lits = as.double_byte;
             pa.double_cr = as.double_cr;
-        };
+        }
+
+        useful |= state_set;
     }
 
     for (const auto &m : accel_map) {
@@ -696,19 +678,8 @@ void fillAccelInfo(build_info &bi) {
         state_set.reset();
         state_set.set(state_id);
 
-        bool is_multi = false;
-        auto p_it = accel.precalc.find(state_set);
-        if (p_it != accel.precalc.end()) {
-            const precalcAccel &pa = p_it->second;
-            offset = max(pa.double_offset, pa.single_offset);
-            is_multi = pa.ma_info.type != MultibyteAccelInfo::MAT_NONE;
-            assert(offset <= MAX_ACCEL_DEPTH);
-        }
-
         accel.accelerable.insert(v);
-        if (!is_multi) {
-            findAccelFriends(g, v, br_cyclic, offset, &accel.friends[v]);
-        }
+        findAccelFriends(g, v, br_cyclic, offset, &accel.friends[v]);
     }
 }
 
@@ -721,6 +692,7 @@ typedef vector<AccelAux, AlignedAllocator<AccelAux, alignof(AccelAux)>>
 
 static
 u32 getEffectiveAccelStates(const build_info &args,
+                            const unordered_map<NFAVertex, NFAVertex> &dom_map,
                             u32 active_accel_mask,
                             const vector<AccelBuild> &accelStates) {
     /* accelStates is indexed by the acceleration bit index and contains a
@@ -756,7 +728,6 @@ u32 getEffectiveAccelStates(const build_info &args,
      * so we may still require on earlier states to be accurately modelled.
      */
     const NGHolder &h = args.h;
-    auto dom_map = findDominators(h);
 
     /* map from accel_id to mask of accel_ids that it is dominated by */
     vector<u32> dominated_by(accelStates.size());
@@ -773,8 +744,8 @@ u32 getEffectiveAccelStates(const build_info &args,
         u32 accel_id = findAndClearLSB_32(&local_accel_mask);
         assert(accel_id < accelStates.size());
         NFAVertex v = accelStates[accel_id].v;
-        while (dom_map[v]) {
-            v = dom_map[v];
+        while (contains(dom_map, v) && dom_map.at(v)) {
+            v = dom_map.at(v);
             if (contains(accel_id_map, v)) {
                 dominated_by[accel_id] |= 1U << accel_id_map[v];
             }
@@ -887,6 +858,8 @@ void buildAccel(const build_info &args, NFAStateSet &accelMask,
         return;
     }
 
+    const auto dom_map = findDominators(args.h);
+
     // We have 2^n different accel entries, one for each possible
     // combination of accelerable states.
     assert(accelStates.size() < 32);
@@ -900,7 +873,8 @@ void buildAccel(const build_info &args, NFAStateSet &accelMask,
     effective_accel_set.push_back(0); /* empty is effectively empty */
 
     for (u32 i = 1; i < accelCount; i++) {
-        u32 effective_i = getEffectiveAccelStates(args, i, accelStates);
+        u32 effective_i = getEffectiveAccelStates(args, dom_map, i,
+                                                  accelStates);
         effective_accel_set.push_back(effective_i);
 
         if (effective_i == IMPOSSIBLE_ACCEL_MASK) {
@@ -947,16 +921,8 @@ void buildAccel(const build_info &args, NFAStateSet &accelMask,
 
             if (contains(accel.precalc, effective_states)) {
                 const auto &precalc = accel.precalc.at(effective_states);
-                if (precalc.ma_info.type != MultibyteAccelInfo::MAT_NONE) {
-                    ainfo.ma_len1 = precalc.ma_info.len1;
-                    ainfo.ma_len2 = precalc.ma_info.len2;
-                    ainfo.multiaccel_offset = precalc.ma_info.offset;
-                    ainfo.multiaccel_stops = precalc.ma_info.cr;
-                    ainfo.ma_type = precalc.ma_info.type;
-                } else {
-                    ainfo.single_offset = precalc.single_offset;
-                    ainfo.single_stops = precalc.single_cr;
-                }
+                ainfo.single_offset = precalc.single_offset;
+                ainfo.single_stops = precalc.single_cr;
             }
         }
 
@@ -1637,6 +1603,84 @@ u32 findBestNumOfVarShifts(const build_info &args,
     return bestNumOfVarShifts;
 }
 
+static
+bool cannotDie(const build_info &args, const set<NFAVertex> &tops) {
+    const auto &h = args.h;
+
+    // When this top is activated, all of the vertices in 'tops' are switched
+    // on. If any of those lead to a graph that cannot die, then this top
+    // cannot die.
+
+    // For each top, we use a depth-first search to traverse the graph from the
+    // top, looking for a cyclic path consisting of vertices of dot reach. If
+    // one exists, than the NFA cannot die after this top is triggered.
+
+    vector<boost::default_color_type> colours(num_vertices(h));
+    auto colour_map = boost::make_iterator_property_map(colours.begin(),
+                                                        get(vertex_index, h));
+
+    struct CycleFound {};
+    struct CannotDieVisitor : public boost::default_dfs_visitor {
+        void back_edge(const NFAEdge &e, const NGHolder &g) const {
+            DEBUG_PRINTF("back-edge %zu,%zu\n", g[source(e, g)].index,
+                         g[target(e, g)].index);
+            if (g[target(e, g)].char_reach.all()) {
+                assert(g[source(e, g)].char_reach.all());
+                throw CycleFound();
+            }
+        }
+    };
+
+    try {
+        for (const auto &top : tops) {
+            DEBUG_PRINTF("checking top vertex %zu\n", h[top].index);
+
+            // Constrain the search to the top vertices and any dot vertices it
+            // can reach.
+            auto term_func = [&](NFAVertex v, const NGHolder &g) {
+                if (v == top) {
+                    return false;
+                }
+                if (!g[v].char_reach.all()) {
+                    return true;
+                }
+                if (contains(args.br_cyclic, v) &&
+                    args.br_cyclic.at(v).repeatMax != depth::infinity()) {
+                    // Bounded repeat vertices without inf max can be turned
+                    // off.
+                    return true;
+                }
+                return false;
+            };
+
+            boost::depth_first_visit(h, top, CannotDieVisitor(), colour_map,
+                                     term_func);
+        }
+    } catch (const CycleFound &) {
+        DEBUG_PRINTF("cycle found\n");
+        return true;
+    }
+
+    return false;
+}
+
+/** \brief True if this NFA cannot ever be in no states at all. */
+static
+bool cannotDie(const build_info &args) {
+    const auto &h = args.h;
+    const auto &state_ids = args.state_ids;
+
+    // If we have a startDs we're actually using, we can't die.
+    if (state_ids.at(h.startDs) != NO_STATE) {
+        DEBUG_PRINTF("is using startDs\n");
+        return true;
+    }
+
+    return all_of_in(args.tops | map_values, [&](const set<NFAVertex> &verts) {
+        return cannotDie(args, verts);
+    });
+}
+
 template<NFAEngineType dtype>
 struct Factory {
     // typedefs for readability, for types derived from traits
@@ -1700,8 +1744,8 @@ struct Factory {
 
     static
     void buildRepeats(const build_info &args,
-                vector<pair<aligned_unique_ptr<NFARepeatInfo>, size_t>> &out,
-                u32 *scratchStateSize, u32 *streamState) {
+                      vector<bytecode_ptr<NFARepeatInfo>> &out,
+                      u32 *scratchStateSize, u32 *streamState) {
         out.reserve(args.repeats.size());
 
         u32 repeat_idx = 0;
@@ -1712,7 +1756,7 @@ struct Factory {
 
             u32 tableOffset, tugMaskOffset;
             size_t len = repeatAllocSize(br, &tableOffset, &tugMaskOffset);
-            auto info = aligned_zmalloc_unique<NFARepeatInfo>(len);
+            auto info = make_zeroed_bytecode_ptr<NFARepeatInfo>(len);
             char *info_ptr = (char *)info.get();
 
             // Collect state space info.
@@ -1766,7 +1810,7 @@ struct Factory {
             *streamState += streamStateLen;
             *scratchStateSize += sizeof(RepeatControl);
 
-            out.emplace_back(move(info), len);
+            out.emplace_back(move(info));
         }
     }
 
@@ -2074,8 +2118,7 @@ struct Factory {
     }
 
     static
-    void writeRepeats(const vector<pair<aligned_unique_ptr<NFARepeatInfo>,
-                                        size_t>> &repeats,
+    void writeRepeats(const vector<bytecode_ptr<NFARepeatInfo>> &repeats,
                       vector<u32> &repeatOffsets, implNFA_t *limex,
                       const u32 repeatOffsetsOffset, const u32 repeatOffset) {
         const u32 num_repeats = verify_u32(repeats.size());
@@ -2088,10 +2131,9 @@ struct Factory {
 
         for (u32 i = 0; i < num_repeats; i++) {
             repeatOffsets[i] = offset;
-            assert(repeats[i].first);
-            memcpy((char *)limex + offset, repeats[i].first.get(),
-                   repeats[i].second);
-            offset += repeats[i].second;
+            assert(repeats[i]);
+            memcpy((char *)limex + offset, repeats[i].get(), repeats[i].size());
+            offset += repeats[i].size();
         }
 
         // Write repeat offset lookup table.
@@ -2112,19 +2154,19 @@ struct Factory {
     }
 
     static
-    aligned_unique_ptr<NFA> generateNfa(const build_info &args) {
+    bytecode_ptr<NFA> generateNfa(const build_info &args) {
         if (args.num_states > NFATraits<dtype>::maxStates) {
             return nullptr;
         }
 
         // Build bounded repeat structures.
-        vector<pair<aligned_unique_ptr<NFARepeatInfo>, size_t>> repeats;
+        vector<bytecode_ptr<NFARepeatInfo>> repeats;
         u32 repeats_full_state = 0;
         u32 repeats_stream_state = 0;
         buildRepeats(args, repeats, &repeats_full_state, &repeats_stream_state);
         size_t repeatSize = 0;
         for (size_t i = 0; i < repeats.size(); i++) {
-            repeatSize += repeats[i].second;
+            repeatSize += repeats[i].size();
         }
 
         // We track report lists that have already been written into the global
@@ -2214,7 +2256,7 @@ struct Factory {
 
         size_t nfaSize = sizeof(NFA) + offset;
         DEBUG_PRINTF("nfa size %zu\n", nfaSize);
-        auto nfa = aligned_zmalloc_unique<NFA>(nfaSize);
+        auto nfa = make_zeroed_bytecode_ptr<NFA>(nfaSize);
         assert(nfa); // otherwise we would have thrown std::bad_alloc
 
         implNFA_t *limex = (implNFA_t *)getMutableImplNfa(nfa.get());
@@ -2233,6 +2275,11 @@ struct Factory {
 
         limex->shiftCount = shiftCount;
         writeShiftMasks(args, limex);
+
+        if (cannotDie(args)) {
+            DEBUG_PRINTF("nfa cannot die\n");
+            setLimexFlag(limex, LIMEX_FLAG_CANNOT_DIE);
+        }
 
         // Determine the state required for our state vector.
         findStateSize(args, limex);
@@ -2295,7 +2342,7 @@ struct Factory {
 
 template<NFAEngineType dtype>
 struct generateNfa {
-    static aligned_unique_ptr<NFA> call(const build_info &args) {
+    static bytecode_ptr<NFA> call(const build_info &args) {
         return Factory<dtype>::generateNfa(args);
     }
 };
@@ -2392,17 +2439,15 @@ u32 max_state(const ue2::unordered_map<NFAVertex, u32> &state_ids) {
     return rv;
 }
 
-aligned_unique_ptr<NFA> generate(NGHolder &h,
-                         const ue2::unordered_map<NFAVertex, u32> &states,
-                         const vector<BoundedRepeatData> &repeats,
-                         const map<NFAVertex, NFAStateSet> &reportSquashMap,
-                         const map<NFAVertex, NFAStateSet> &squashMap,
-                         const map<u32, set<NFAVertex>> &tops,
-                         const set<NFAVertex> &zombies,
-                         bool do_accel,
-                         bool stateCompression,
-                         u32 hint,
-                         const CompileContext &cc) {
+bytecode_ptr<NFA> generate(NGHolder &h,
+                           const ue2::unordered_map<NFAVertex, u32> &states,
+                           const vector<BoundedRepeatData> &repeats,
+                           const map<NFAVertex, NFAStateSet> &reportSquashMap,
+                           const map<NFAVertex, NFAStateSet> &squashMap,
+                           const map<u32, set<NFAVertex>> &tops,
+                           const set<NFAVertex> &zombies, bool do_accel,
+                           bool stateCompression, u32 hint,
+                           const CompileContext &cc) {
     const u32 num_states = max_state(states) + 1;
     DEBUG_PRINTF("total states: %u\n", num_states);
 

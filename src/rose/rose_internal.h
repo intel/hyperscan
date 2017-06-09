@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -304,7 +304,6 @@ struct RoseEngine {
     u8  hasSom; /**< has at least one pattern which tracks SOM. */
     u8  somHorizon; /**< width in bytes of SOM offset storage (governed by
                         SOM precision) */
-    u8 needsCatchup; /** catch up needs to be run on every report. */
     u32 mode; /**< scanning mode, one of HS_MODE_{BLOCK,STREAM,VECTORED} */
     u32 historyRequired; /**< max amount of history required for streaming */
     u32 ekeyCount; /**< number of exhaustion keys */
@@ -326,6 +325,7 @@ struct RoseEngine {
     u32 amatcherOffset; // offset of the anchored literal matcher (bytes)
     u32 ematcherOffset; // offset of the eod-anchored literal matcher (bytes)
     u32 fmatcherOffset; // offset of the floating literal matcher (bytes)
+    u32 drmatcherOffset; // offset of the delayed rebuild table (bytes)
     u32 sbmatcherOffset; // offset of the small-block literal matcher (bytes)
     u32 longLitTableOffset; // offset of the long literal table
     u32 amatcherMinWidth; /**< minimum number of bytes required for a pattern
@@ -343,12 +343,6 @@ struct RoseEngine {
     u32 fmatcherMaxBiAnchoredWidth; /**< maximum number of bytes that can still
                                      * produce a match for a pattern involved
                                      * with the anchored table. */
-    /** \brief Offset of u32 array of program offsets for literals. */
-    u32 litProgramOffset;
-
-    /** \brief Offset of u32 array of delay rebuild program offsets for
-     * literals. */
-    u32 litDelayRebuildProgramOffset;
 
     /**
      * \brief Offset of u32 array of program offsets for reports used by
@@ -362,12 +356,15 @@ struct RoseEngine {
     u32 reportProgramCount;
 
     /**
-     * \brief Number of entries in the arrays pointed to by litProgramOffset,
-     * litDelayRebuildProgramOffset.
-     *
-     * Note: NOT the total number of literals.
+     * \brief Offset of u32 array of program offsets for delayed replay of
+     * literals.
      */
-    u32 literalCount;
+    u32 delayProgramOffset;
+
+    /**
+     * \brief Offset of u32 array of program offsets for anchored literals.
+     */
+    u32 anchoredProgramOffset;
 
     u32 activeArrayCount; //number of nfas tracked in the active array
     u32 activeLeftCount; //number of nfas tracked in the active rose array
@@ -386,9 +383,6 @@ struct RoseEngine {
 
     u32 leftOffset;
     u32 roseCount;
-    u32 lookaroundTableOffset; //!< base of lookaround offset list (of s8 values)
-    u32 lookaroundReachOffset; /**< base of lookaround reach bitvectors (32
-                                * bytes each) */
 
     u32 eodProgramOffset; //!< EOD program, otherwise 0.
 
@@ -419,12 +413,8 @@ struct RoseEngine {
     u32 size; // (bytes)
     u32 delay_count; /* number of delayed literal ids. */
     u32 delay_fatbit_size; //!< size of each delay fatbit in scratch (bytes)
-    u32 delay_base_id; /* literal id of the first delayed literal.
-                        * delayed literal ids are contiguous */
     u32 anchored_count; /* number of anchored literal ids */
     u32 anchored_fatbit_size; //!< size of each anch fatbit in scratch (bytes)
-    u32 anchored_base_id; /* literal id of the first literal in the A table.
-                           * anchored literal ids are contiguous */
     u32 maxFloatingDelayedMatch; /* max offset that a delayed literal can
                                   * usefully be reported */
     u32 delayRebuildLength; /* length of the history region which needs to be

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,6 +41,7 @@ struct Grey {
 
     bool optimiseComponentTree;
 
+    bool calcComponents;
     bool performGraphSimplification;
     bool prefilterReductions;
     bool removeEdgeRedundancy;
@@ -54,7 +55,6 @@ struct Grey {
     bool allowMcSheng;
     bool allowPuff;
     bool allowLiteral;
-    bool allowRose;
     bool allowViolet;
     bool allowExtendedNFA;
     bool allowLimExNFA;
@@ -62,9 +62,11 @@ struct Grey {
     bool allowSmallLiteralSet;
     bool allowCastle;
     bool allowDecoratedLiteral;
+    bool allowApproximateMatching;
 
     bool allowNoodle;
     bool fdrAllowTeddy;
+    bool fdrAllowFlood;
 
     u32  violetAvoidSuffixes; /* 0=never, 1=sometimes, 2=always */
     bool violetAvoidWeakInfixes;
@@ -107,6 +109,7 @@ struct Grey {
     u32 minRoseLiteralLength;
     u32 minRoseNetflowLiteralLength;
     u32 maxRoseNetflowEdges;
+    u32 maxEditDistance;
 
     u32 minExtBoundedRepeatSize; /* to be considered for ng_repeat */
 
@@ -118,8 +121,6 @@ struct Grey {
     bool roseGraphReduction;
     bool roseRoleAliasing;
     bool roseMasks;
-    u32 roseMaxBadLeafLength;
-    bool roseConvertInfBadLeaves;
     bool roseConvertFloodProneSuffixes;
     bool roseMergeRosesDuringAliasing;
     bool roseMultiTopRoses;
@@ -130,7 +131,6 @@ struct Grey {
                               * always */
     u32 roseMcClellanOutfix; /* 0 = off, 1 = sometimes, 2 = almost always */
     bool roseTransformDelay;
-    u32 roseDesiredSplit;
 
     bool earlyMcClellanPrefix;
     bool earlyMcClellanInfix;
@@ -202,6 +202,9 @@ struct Grey {
     u32 limitDFASize;    //!< max size of a DFA (in bytes)
     u32 limitNFASize;    //!< max size of an NFA (in bytes)
     u32 limitLBRSize;    //!< max size of an LBR engine (in bytes)
+
+    // Approximate matching limits.
+    u32 limitApproxMatchingVertices; //!< max number of vertices per graph
 };
 
 #ifndef RELEASE_BUILD

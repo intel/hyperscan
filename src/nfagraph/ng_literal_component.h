@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,10 +37,10 @@
 namespace ue2 {
 
 class NG;
-class NGWrapper;
+class NGHolder;
 
 /** \brief Split off literals. True if any changes were made to the graph. */
-bool splitOffLiterals(NG &ng, NGWrapper &graph);
+bool splitOffLiterals(NG &ng, NGHolder &g);
 
 } // namespace ue2
 

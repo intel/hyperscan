@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,12 +36,13 @@
 namespace ue2 {
 
 struct BoundaryReports;
-class NGWrapper;
+class ExpressionInfo;
+class NGHolder;
 class ReportManager;
 
 // Returns true if a "vacuous" reporter was created.
 bool splitOffVacuous(BoundaryReports &boundary, ReportManager &rm,
-                     NGWrapper &graph);
+                     NGHolder &g, const ExpressionInfo &expr);
 
 } // namespace ue2
 

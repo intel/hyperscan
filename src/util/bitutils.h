@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,37 +35,8 @@
 
 #include "ue2common.h"
 #include "popcount.h"
-
-#ifdef __cplusplus
-# if defined(HAVE_CXX_X86INTRIN_H)
-#  define USE_X86INTRIN_H
-# endif
-#else // C, baby
-# if defined(HAVE_C_X86INTRIN_H)
-#  define USE_X86INTRIN_H
-# endif
-#endif
-
-#ifdef __cplusplus
-# if defined(HAVE_CXX_INTRIN_H)
-#  define USE_INTRIN_H
-# endif
-#else // C, baby
-# if defined(HAVE_C_INTRIN_H)
-#  define USE_INTRIN_H
-# endif
-#endif
-
-#if defined(USE_X86INTRIN_H)
-#include <x86intrin.h>
-#elif defined(USE_INTRIN_H)
-#include <intrin.h>
-#endif
-
-// MSVC has a different form of inline asm
-#ifdef _WIN32
-#define NO_ASM
-#endif
+#include "util/arch.h"
+#include "util/intrinsics.h"
 
 #define CASE_BIT          0x20
 #define CASE_CLEAR        0xdf
@@ -269,7 +240,7 @@ u32 findAndClearMSB_64(u64a *v) {
 
 static really_inline
 u32 compress32(u32 x, u32 m) {
-#if defined(__BMI2__)
+#if defined(HAVE_BMI2)
     // BMI2 has a single instruction for this operation.
     return _pext_u32(x, m);
 #else
@@ -304,7 +275,7 @@ u32 compress32(u32 x, u32 m) {
 
 static really_inline
 u64a compress64(u64a x, u64a m) {
-#if defined(ARCH_X86_64) && defined(__BMI2__)
+#if defined(ARCH_X86_64) && defined(HAVE_BMI2)
     // BMI2 has a single instruction for this operation.
     return _pext_u64(x, m);
 #else
@@ -340,7 +311,7 @@ u64a compress64(u64a x, u64a m) {
 
 static really_inline
 u32 expand32(u32 x, u32 m) {
-#if defined(__BMI2__)
+#if defined(HAVE_BMI2)
     // BMI2 has a single instruction for this operation.
     return _pdep_u32(x, m);
 #else
@@ -380,7 +351,7 @@ u32 expand32(u32 x, u32 m) {
 
 static really_inline
 u64a expand64(u64a x, u64a m) {
-#if defined(ARCH_X86_64) && defined(__BMI2__)
+#if defined(ARCH_X86_64) && defined(HAVE_BMI2)
     // BMI2 has a single instruction for this operation.
     return _pdep_u64(x, m);
 #else
@@ -471,13 +442,9 @@ u32 rank_in_mask64(u64a mask, u32 bit) {
     return popcount64(mask);
 }
 
-#if defined(__BMI2__) || (defined(_WIN32) && defined(__AVX2__))
-#define HAVE_PEXT
-#endif
-
 static really_inline
 u32 pext32(u32 x, u32 mask) {
-#if defined(HAVE_PEXT)
+#if defined(HAVE_BMI2)
     // Intel BMI2 can do this operation in one instruction.
     return _pext_u32(x, mask);
 #else
@@ -497,7 +464,7 @@ u32 pext32(u32 x, u32 mask) {
 
 static really_inline
 u64a pext64(u64a x, u64a mask) {
-#if defined(HAVE_PEXT) && defined(ARCH_64_BIT)
+#if defined(HAVE_BMI2) && defined(ARCH_64_BIT)
     // Intel BMI2 can do this operation in one instruction.
     return _pext_u64(x, mask);
 #else
@@ -515,7 +482,7 @@ u64a pext64(u64a x, u64a mask) {
 #endif
 }
 
-#if defined(HAVE_PEXT) && defined(ARCH_64_BIT)
+#if defined(HAVE_BMI2) && defined(ARCH_64_BIT)
 static really_inline
 u64a pdep64(u64a x, u64a mask) {
     return _pdep_u64(x, mask);

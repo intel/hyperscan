@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -161,8 +161,8 @@ TEST_P(FDRFloodp, NoMask) {
         vector<hwlmLiteral> lits;
 
         // build literals of type "aaaa", "aaab", "baaa"
-        // of lengths 1, 2, 4, 8, 16, 32, both case-less and case-sensitive
-        for (int i = 0; i < 6 ; i++) {
+        // of lengths 1, 2, 4, 8, both case-less and case-sensitive
+        for (int i = 0; i < 4; i++) {
             string s(1 << i, c);
             lits.push_back(hwlmLiteral(s, false, i * 8 + 0));
             s[0] = cAlt;
@@ -183,13 +183,13 @@ TEST_P(FDRFloodp, NoMask) {
                                        Grey());
         CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
-        map <u32, int> matchesCounts;
+        map<u32, int> matchesCounts;
 
         hwlm_error_t fdrStatus = fdrExec(fdr.get(), &data[0], dataSize,
                     0, countCallback, (void *)&matchesCounts, HWLM_ALL_GROUPS);
         ASSERT_EQ(0, fdrStatus);
 
-        for (u8 i = 0; i < 6 ; i++) {
+        for (u8 i = 0; i < 4; i++) {
             u32 cnt = dataSize - (1 << i) + 1;
             ASSERT_EQ(cnt, matchesCounts[i * 8 + 0]);
             ASSERT_EQ(0, matchesCounts[i * 8 + 1]);
@@ -214,7 +214,7 @@ TEST_P(FDRFloodp, NoMask) {
                     0, countCallback, (void *)&matchesCounts, HWLM_ALL_GROUPS);
         ASSERT_EQ(0, fdrStatus);
 
-        for (u8 i = 0; i < 6 ; i++) {
+        for (u8 i = 0; i < 4; i++) {
             u32 cnt = dataSize - (1 << i) + 1;
             ASSERT_EQ(0, matchesCounts[i * 8 + 0]);
             ASSERT_EQ(i == 0 ? cnt : 0, matchesCounts[i * 8 + 1]);

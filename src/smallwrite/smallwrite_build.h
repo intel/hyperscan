@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,17 +30,19 @@
 #define SMWR_BUILD_H
 
 /**
- * SmallWrite Build interface. Everything you ever needed to feed literals in
- * and get a SmallWriteEngine out. This header should be everything needed by
- * the rest of UE2.
+ * \file
+ * \brief Small-write engine build interface.
+ *
+ * Everything you ever needed to feed literals in and get a SmallWriteEngine
+ * out. This header should be everything needed by the rest of UE2.
  */
 
 #include "ue2common.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
+#include "util/noncopyable.h"
 
+#include <memory>
 #include <set>
-
-#include <boost/core/noncopyable.hpp>
 
 struct SmallWriteEngine;
 
@@ -48,31 +50,30 @@ namespace ue2 {
 
 struct CompileContext;
 struct ue2_literal;
-class  NGWrapper;
-class  ReportManager;
+class ExpressionInfo;
+class NGHolder;
+class ReportManager;
 
-// Abstract interface intended for callers from elsewhere in the tree, real
-// underlying implementation is SmallWriteBuildImpl in smwr_build_impl.h.
-class SmallWriteBuild : boost::noncopyable {
+/**
+ * Abstract interface intended for callers from elsewhere in the tree, real
+ * underlying implementation is SmallWriteBuildImpl in smwr_build_impl.h.
+ */
+class SmallWriteBuild : noncopyable {
 public:
-    // Destructor
     virtual ~SmallWriteBuild();
 
-    // Construct a runtime implementation.
-    virtual ue2::aligned_unique_ptr<SmallWriteEngine> build(u32 roseQuality) = 0;
+    virtual bytecode_ptr<SmallWriteEngine> build(u32 roseQuality) = 0;
 
-    virtual void add(const NGWrapper &w) = 0;
+    virtual void add(const NGHolder &g, const ExpressionInfo &expr) = 0;
     virtual void add(const ue2_literal &literal, ReportID r) = 0;
 
     virtual std::set<ReportID> all_reports() const = 0;
 };
 
-// Construct a usable SmallWrite builder.
-std::unique_ptr<SmallWriteBuild> makeSmallWriteBuilder(size_t num_patterns,
-                                                       const ReportManager &rm,
-                                                       const CompileContext &cc);
-
-size_t smwrSize(const SmallWriteEngine *t);
+/** \brief Construct a usable SmallWrite builder. */
+std::unique_ptr<SmallWriteBuild>
+makeSmallWriteBuilder(size_t num_patterns, const ReportManager &rm,
+                      const CompileContext &cc);
 
 } // namespace ue2
 

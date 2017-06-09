@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,7 @@
 #include "crc32.h"
 #include "database.h"
 #include "ue2common.h"
+#include "util/arch.h"
 #include "util/target_info.h"
 
 #include "gtest/gtest.h"
@@ -47,8 +48,12 @@ TEST(DB, flagsToPlatform) {
 
     p.cpu_features = 0;
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
     p.cpu_features |= HS_CPU_FEATURES_AVX2;
+#endif
+
+#if defined(HAVE_AVX512)
+    p.cpu_features |= HS_CPU_FEATURES_AVX512;
 #endif
 
     platform_t pp = target_to_platform(target_t(p));

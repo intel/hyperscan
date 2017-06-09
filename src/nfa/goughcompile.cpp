@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,7 +35,6 @@
 #include "grey.h"
 #include "mcclellancompile.h"
 #include "nfa_internal.h"
-#include "util/alloc.h"
 #include "util/compile_context.h"
 #include "util/container.h"
 #include "util/graph_range.h"
@@ -81,7 +80,7 @@ public:
     gough_build_strat(
         raw_som_dfa &r, const GoughGraph &g, const ReportManager &rm_in,
         const map<dstate_id_t, gough_accel_state_info> &accel_info)
-        : mcclellan_build_strat(r, rm_in), rdfa(r), gg(g),
+        : mcclellan_build_strat(r, rm_in, false), rdfa(r), gg(g),
           accel_gough_info(accel_info) {}
     unique_ptr<raw_report_info> gatherReports(vector<u32> &reports /* out */,
                             vector<u32> &reports_eod /* out */,
@@ -1036,9 +1035,9 @@ void update_accel_prog_offset(const gough_build_strat &gbs,
     }
 }
 
-aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
-                                     const CompileContext &cc,
-                                     const ReportManager &rm) {
+bytecode_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
+                               const CompileContext &cc,
+                               const ReportManager &rm) {
     assert(somPrecision == 2 || somPrecision == 4 || somPrecision == 8
            || !cc.streaming);
 
@@ -1071,7 +1070,7 @@ aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
     map<dstate_id_t, gough_accel_state_info> accel_allowed;
     find_allowed_accel_states(*cfg, blocks, &accel_allowed);
     gough_build_strat gbs(raw, *cfg, rm, accel_allowed);
-    aligned_unique_ptr<NFA> basic_dfa = mcclellanCompile_i(raw, gbs, cc);
+    auto basic_dfa = mcclellanCompile_i(raw, gbs, cc);
     assert(basic_dfa);
     if (!basic_dfa) {
         return nullptr;
@@ -1117,7 +1116,7 @@ aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
     gi.stream_som_loc_width = somPrecision;
 
     u32 gough_size = ROUNDUP_N(curr_offset, 16);
-    aligned_unique_ptr<NFA> gough_dfa = aligned_zmalloc_unique<NFA>(gough_size);
+    auto gough_dfa = make_zeroed_bytecode_ptr<NFA>(gough_size);
 
     memcpy(gough_dfa.get(), basic_dfa.get(), basic_dfa->length);
     memcpy((char *)gough_dfa.get() + haig_offset, &gi, sizeof(gi));

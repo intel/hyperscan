@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,9 +33,11 @@
 #include "nfagraph/ng_limex_accel.h"
 #include "shufticompile.h"
 #include "trufflecompile.h"
+#include "util/accel_scheme.h"
 #include "util/charreach.h"
 #include "util/container.h"
 #include "util/dump_charclass.h"
+#include "util/small_vector.h"
 #include "util/verify_types.h"
 
 #include <sstream>
@@ -49,16 +51,15 @@ namespace ue2 {
 
 namespace {
 struct path {
-    vector<CharReach> reach;
+    small_vector<CharReach, MAX_ACCEL_DEPTH + 1> reach;
     dstate_id_t dest = DEAD_STATE;
-    explicit path(dstate_id_t base) : dest(base) {
-    }
+    explicit path(dstate_id_t base) : dest(base) {}
 };
 };
 
-static
-void dump_paths(const vector<path> &paths) {
-    for (UNUSED const auto &p : paths) {
+template<typename Container>
+void dump_paths(const Container &paths) {
+    for (UNUSED const path &p : paths) {
         DEBUG_PRINTF("[%s] -> %u\n", describeClasses(p.reach).c_str(), p.dest);
     }
     DEBUG_PRINTF("%zu paths\n", paths.size());
@@ -113,17 +114,17 @@ void extend(const raw_dfa &rdfa, const path &p,
         } else {
             path pp = append(p, CharReach(), p.dest);
             all[p.dest].push_back(pp);
-            out.push_back(pp);
+            out.push_back(move(pp));
         }
     }
 
     if (!s.reports_eod.empty()) {
         path pp = append(p, CharReach(), p.dest);
         all[p.dest].push_back(pp);
-        out.push_back(pp);
+        out.push_back(move(pp));
     }
 
-    map<u32, CharReach> dest;
+    flat_map<u32, CharReach> dest;
     for (unsigned i = 0; i < N_CHARS; i++) {
         u32 succ = s.next[rdfa.alpha_remap[i]];
         dest[succ].set(i);
@@ -140,7 +141,7 @@ void extend(const raw_dfa &rdfa, const path &p,
         DEBUG_PRINTF("----good: [%s] -> %u\n",
                      describeClasses(pp.reach).c_str(), pp.dest);
         all[e.first].push_back(pp);
-        out.push_back(pp);
+        out.push_back(move(pp));
     }
 }
 
@@ -162,8 +163,10 @@ vector<vector<CharReach>> generate_paths(const raw_dfa &rdfa,
     dump_paths(paths);
 
     vector<vector<CharReach>> rv;
+    rv.reserve(paths.size());
     for (auto &p : paths) {
-        rv.push_back(move(p.reach));
+        rv.push_back(vector<CharReach>(std::make_move_iterator(p.reach.begin()),
+                                       std::make_move_iterator(p.reach.end())));
     }
     return rv;
 }
@@ -327,7 +330,7 @@ accel_dfa_build_strat::find_escape_strings(dstate_id_t this_idx) const {
     const dstate &raw = rdfa.states[this_idx];
     const vector<CharReach> rev_map = reverse_alpha_remapping(rdfa);
     bool outs2_broken = false;
-    map<dstate_id_t, CharReach> succs;
+    flat_map<dstate_id_t, CharReach> succs;
 
     for (u32 i = 0; i < rev_map.size(); i++) {
         if (raw.next[i] == this_idx) {
@@ -379,16 +382,18 @@ accel_dfa_build_strat::find_escape_strings(dstate_id_t this_idx) const {
                     for (auto jj = cr_all_j.find_first(); jj != CharReach::npos;
                          jj = cr_all_j.find_next(jj)) {
                         rv.double_byte.emplace((u8)ii, (u8)jj);
+                        if (rv.double_byte.size() > 8) {
+                            DEBUG_PRINTF("outs2 too big\n");
+                            outs2_broken = true;
+                            goto done;
+                        }
                     }
                 }
             }
         }
 
-        if (rv.double_byte.size() > 8) {
-            DEBUG_PRINTF("outs2 too big\n");
-            outs2_broken = true;
-        }
-
+    done:
+        assert(outs2_broken || rv.double_byte.size() <= 8);
         if (outs2_broken) {
             rv.double_byte.clear();
         }
@@ -536,17 +541,17 @@ accel_dfa_build_strat::getAccelInfo(const Grey &grey) {
     dstate_id_t sds_proxy = get_sds_or_proxy(rdfa);
     DEBUG_PRINTF("sds %hu\n", sds_proxy);
 
-    for (size_t i = 0; i < rdfa.states.size(); i++) {
+    /* Find accel info for a single state. */
+    auto do_state = [&](size_t i) {
         if (i == DEAD_STATE) {
-            continue;
+            return;
         }
 
         /* Note on report acceleration states: While we can't accelerate while
-         * we
-         * are spamming out callbacks, the QR code paths don't raise reports
+         * we are spamming out callbacks, the QR code paths don't raise reports
          * during scanning so they can accelerate report states. */
         if (generates_callbacks(rdfa.kind) && !rdfa.states[i].reports.empty()) {
-            continue;
+            return;
         }
 
         size_t single_limit =
@@ -557,15 +562,28 @@ accel_dfa_build_strat::getAccelInfo(const Grey &grey) {
         if (ei.cr.count() > single_limit) {
             DEBUG_PRINTF("state %zu is not accelerable has %zu\n", i,
                          ei.cr.count());
-            continue;
+            return;
         }
 
         DEBUG_PRINTF("state %zu should be accelerable %zu\n", i, ei.cr.count());
 
         rv[i] = ei;
+    };
+
+    if (only_accel_init) {
+        DEBUG_PRINTF("only computing accel for init states\n");
+        do_state(rdfa.start_anchored);
+        if (rdfa.start_floating != rdfa.start_anchored) {
+            do_state(rdfa.start_floating);
+        }
+    } else {
+        DEBUG_PRINTF("computing accel for all states\n");
+        for (size_t i = 0; i < rdfa.states.size(); i++) {
+            do_state(i);
+        }
     }
 
-    /* provide accleration states to states in the region of sds */
+    /* provide acceleration states to states in the region of sds */
     if (contains(rv, sds_proxy)) {
         AccelScheme sds_ei = rv[sds_proxy];
         sds_ei.double_byte.clear(); /* region based on single byte scheme

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -85,7 +85,7 @@ struct LeftEngInfo {
     std::shared_ptr<TamaProto> tamarama;
     u32 lag = 0U;
     ReportID leftfix_report = MO_INVALID_IDX;
-    depth dfa_min_width = 0;
+    depth dfa_min_width{0};
     depth dfa_max_width = depth::infinity();
 
     bool operator==(const LeftEngInfo &other) const {
@@ -125,7 +125,7 @@ struct RoseSuffixInfo {
     std::shared_ptr<raw_som_dfa> haig;
     std::shared_ptr<raw_dfa> rdfa;
     std::shared_ptr<TamaProto> tamarama;
-    depth dfa_min_width = 0;
+    depth dfa_min_width{0};
     depth dfa_max_width = depth::infinity();
 
     bool operator==(const RoseSuffixInfo &b) const;

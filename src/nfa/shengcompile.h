@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,12 +26,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SHENGCOMPILE_H_
-#define SHENGCOMPILE_H_
+#ifndef SHENGCOMPILE_H
+#define SHENGCOMPILE_H
 
 #include "accel_dfa_build_strat.h"
 #include "rdfa.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/charreach.h"
 #include "util/ue2_containers.h"
 
@@ -45,8 +45,9 @@ struct raw_dfa;
 
 class sheng_build_strat : public accel_dfa_build_strat {
 public:
-    sheng_build_strat(raw_dfa &rdfa_in, const ReportManager &rm_in)
-        : accel_dfa_build_strat(rm_in), rdfa(rdfa_in) {}
+    sheng_build_strat(raw_dfa &rdfa_in, const ReportManager &rm_in,
+                      bool only_accel_init_in)
+        : accel_dfa_build_strat(rm_in, only_accel_init_in), rdfa(rdfa_in) {}
     raw_dfa &get_raw() const override { return rdfa; }
     std::unique_ptr<raw_report_info> gatherReports(
                                   std::vector<u32> &reports /* out */,
@@ -62,9 +63,9 @@ private:
     raw_dfa &rdfa;
 };
 
-aligned_unique_ptr<NFA>
-shengCompile(raw_dfa &raw, const CompileContext &cc, const ReportManager &rm,
-             std::set<dstate_id_t> *accel_states = nullptr);
+bytecode_ptr<NFA> shengCompile(raw_dfa &raw, const CompileContext &cc,
+                               const ReportManager &rm, bool only_accel_init,
+                               std::set<dstate_id_t> *accel_states = nullptr);
 
 struct sheng_escape_info {
     CharReach outs;
@@ -77,4 +78,4 @@ bool has_accel_sheng(const NFA *nfa);
 
 } // namespace ue2
 
-#endif /* SHENGCOMPILE_H_ */
+#endif /* SHENGCOMPILE_H */

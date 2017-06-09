@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,16 +26,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <cstring>
-#include <iostream>
-#include <string>
-#include <vector>
-
 #include "hs.h"
 #include "test_util.h"
 #include "gtest/gtest.h"
 #include "util/expressions.h"
 #include "util/ExpressionParser.h"
+
+#include <cstring>
+#include <iostream>
+#include <string>
+#include <vector>
 
 using namespace std;
 
@@ -43,13 +43,18 @@ int record_cb(unsigned id, unsigned long long, unsigned long long to,
               unsigned, void *ctxt) {
     CallBackContext *c = (CallBackContext *)ctxt;
 
-    c->matches.push_back(MatchRecord(to, id));
+    c->matches.emplace_back(to, id);
 
     return (int)c->halt;
 }
 
-std::ostream &operator<< (std::ostream &o, const MatchRecord &m) {
+std::ostream &operator<<(std::ostream &o, const MatchRecord &m) {
     return o << "[" << m.to << ", " << m.id << "]";
+}
+
+std::ostream &operator<<(std::ostream &o, const pattern &p) {
+    return o << "[" << "expr=\"" << p.expression << "\", flags=" << p.flags
+             << ", id=" << p.id << "]";
 }
 
 hs_database_t *buildDB(const vector<pattern> &patterns, unsigned int mode,
@@ -59,20 +64,20 @@ hs_database_t *buildDB(const vector<pattern> &patterns, unsigned int mode,
     vector<unsigned int> ids;
     vector<const hs_expr_ext *> ext;
 
-    for (vector<pattern>::const_iterator it = patterns.begin();
-         it != patterns.end(); ++it) {
-        expressions.push_back(it->expression.c_str());
-        flags.push_back(it->flags);
-        ids.push_back(it->id);
-        ext.push_back(&it->ext);
+    for (const auto &pat : patterns) {
+        expressions.push_back(pat.expression.c_str());
+        flags.push_back(pat.flags);
+        ids.push_back(pat.id);
+        ext.push_back(&pat.ext);
     }
 
     hs_database_t *db = nullptr;
     hs_compile_error_t *compile_err = nullptr;
     hs_error_t err;
 
-    err = hs_compile_ext_multi(&expressions[0], &flags[0], &ids[0], &ext[0],
-                               patterns.size(), mode, plat, &db, &compile_err);
+    err = hs_compile_ext_multi(expressions.data(), flags.data(), ids.data(),
+                               ext.data(), patterns.size(), mode, plat, &db,
+                               &compile_err);
 
     if (err != HS_SUCCESS) {
         return nullptr;
@@ -82,15 +87,13 @@ hs_database_t *buildDB(const vector<pattern> &patterns, unsigned int mode,
 }
 
 hs_database_t *buildDB(const pattern &expr, unsigned int mode) {
-    return buildDB(vector<pattern>(1, expr), mode);
+    return buildDB(vector<pattern>({expr}), mode);
 }
 
 hs_database_t *buildDB(const char *expression, unsigned int flags,
                        unsigned int id, unsigned int mode,
                        hs_platform_info_t *plat) {
-    vector<pattern> patterns;
-    patterns.push_back(pattern(expression, flags, id));
-    return buildDB(patterns, mode, plat);
+    return buildDB({pattern(expression, flags, id)}, mode, plat);
 }
 
 hs_database_t *buildDB(const char *filename, unsigned int mode,
@@ -99,16 +102,14 @@ hs_database_t *buildDB(const char *filename, unsigned int mode,
     ExpressionMap expressions;
     loadExpressionsFromFile(filename, expressions);
 
-    for (ExpressionMap::iterator it = expressions.begin();
-         it != expressions.end(); ++it) {
+    for (const auto &expr : expressions) {
         unsigned int flags = 0;
         string regex;
         hs_expr_ext ext;
-        if (!readExpression(it->second, regex, &flags, &ext)) {
+        if (!readExpression(expr.second, regex, &flags, &ext)) {
             return nullptr;
         }
-        patterns.push_back(pattern(regex, flags | extra_flags, it->first,
-                                   ext));
+        patterns.emplace_back(regex, flags | extra_flags, expr.first, ext);
     }
     return buildDB(patterns, mode);
 }
@@ -145,13 +146,13 @@ hs_database_t *buildDB(const char *filename, unsigned int mode,
     ExpressionMap expressions;
     loadExpressionsFromFile(filename, expressions);
 
-    for (ExpressionMap::iterator it = expressions.begin();
-         it != expressions.end(); ++it) {
+    for (const auto &expr : expressions) {
         unsigned int flags = 0;
         string regex;
         hs_expr_ext ext;
         bool must_be_ordered;
-        if (!readExpression(it->second, regex, &flags, &ext, &must_be_ordered)) {
+        if (!readExpression(expr.second, regex, &flags, &ext,
+                            &must_be_ordered)) {
             return nullptr;
         }
 
@@ -159,7 +160,7 @@ hs_database_t *buildDB(const char *filename, unsigned int mode,
             return nullptr;
         }
 
-        patterns.emplace_back(regex, flags, it->first, ext);
+        patterns.emplace_back(regex, flags, expr.first, ext);
     }
     return buildDB(patterns, mode);
 }

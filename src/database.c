@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -49,7 +49,7 @@ int db_correctly_aligned(const void *db) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_free_database(hs_database_t *db) {
+hs_error_t HS_CDECL hs_free_database(hs_database_t *db) {
     if (db && db->magic != HS_DB_MAGIC) {
         return HS_INVALID;
     }
@@ -59,8 +59,8 @@ hs_error_t hs_free_database(hs_database_t *db) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_serialize_database(const hs_database_t *db, char **bytes,
-                                 size_t *serialized_length) {
+hs_error_t HS_CDECL hs_serialize_database(const hs_database_t *db, char **bytes,
+                                          size_t *serialized_length) {
     if (!db || !bytes || !serialized_length) {
         return HS_INVALID;
     }
@@ -114,7 +114,8 @@ hs_error_t hs_serialize_database(const hs_database_t *db, char **bytes,
 static
 hs_error_t db_check_platform(const u64a p) {
     if (p != hs_current_platform
-        && p != hs_current_platform_no_avx2) {
+        && p != hs_current_platform_no_avx2
+        && p != hs_current_platform_no_avx512) {
         return HS_DB_PLATFORM_ERROR;
     }
     // passed all checks
@@ -195,8 +196,9 @@ void db_copy_bytecode(const char *serialized, hs_database_t *db) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_deserialize_database_at(const char *bytes, const size_t length,
-                                      hs_database_t *db) {
+hs_error_t HS_CDECL hs_deserialize_database_at(const char *bytes,
+                                               const size_t length,
+                                               hs_database_t *db) {
     if (!bytes || !db) {
         return HS_INVALID;
     }
@@ -237,8 +239,9 @@ hs_error_t hs_deserialize_database_at(const char *bytes, const size_t length,
 }
 
 HS_PUBLIC_API
-hs_error_t hs_deserialize_database(const char *bytes, const size_t length,
-                                   hs_database_t **db) {
+hs_error_t HS_CDECL hs_deserialize_database(const char *bytes,
+                                            const size_t length,
+                                            hs_database_t **db) {
     if (!bytes || !db) {
         return HS_INVALID;
     }
@@ -286,7 +289,7 @@ hs_error_t hs_deserialize_database(const char *bytes, const size_t length,
 }
 
 HS_PUBLIC_API
-hs_error_t hs_database_size(const hs_database_t *db, size_t *size) {
+hs_error_t HS_CDECL hs_database_size(const hs_database_t *db, size_t *size) {
     if (!size) {
         return HS_INVALID;
     }
@@ -301,8 +304,9 @@ hs_error_t hs_database_size(const hs_database_t *db, size_t *size) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_serialized_database_size(const char *bytes, const size_t length,
-                                       size_t *size) {
+hs_error_t HS_CDECL hs_serialized_database_size(const char *bytes,
+                                                const size_t length,
+                                                size_t *size) {
     // Decode and check the header
     hs_database_t header;
     hs_error_t ret = db_decode_header(&bytes, length, &header);
@@ -366,7 +370,9 @@ hs_error_t print_database_string(char **s, u32 version, const platform_t plat,
     u8 minor = (version >> 16) & 0xff;
     u8 major = (version >> 24) & 0xff;
 
-    const char *avx2 = (plat & HS_PLATFORM_NOAVX2)  ? "NOAVX2" : " AVX2";
+    const char *features = (plat & HS_PLATFORM_NOAVX512)
+                               ? (plat & HS_PLATFORM_NOAVX2) ? "" : "AVX2"
+                               : "AVX512";
 
     const char *mode = NULL;
 
@@ -395,7 +401,7 @@ hs_error_t print_database_string(char **s, u32 version, const platform_t plat,
         // that don't have snprintf but have a workalike.
         int p_len = SNPRINTF_COMPAT(
             buf, len, "Version: %u.%u.%u Features: %s Mode: %s",
-            major, minor, release, avx2, mode);
+            major, minor, release, features, mode);
         if (p_len < 0) {
             DEBUG_PRINTF("snprintf output error, returned %d\n", p_len);
             hs_misc_free(buf);
@@ -414,8 +420,8 @@ hs_error_t print_database_string(char **s, u32 version, const platform_t plat,
 }
 
 HS_PUBLIC_API
-hs_error_t hs_serialized_database_info(const char *bytes, size_t length,
-                                       char **info) {
+hs_error_t HS_CDECL hs_serialized_database_info(const char *bytes,
+                                                size_t length, char **info) {
     if (!info) {
         return HS_INVALID;
     }
@@ -434,7 +440,7 @@ hs_error_t hs_serialized_database_info(const char *bytes, size_t length,
 }
 
 HS_PUBLIC_API
-hs_error_t hs_database_info(const hs_database_t *db, char **info) {
+hs_error_t HS_CDECL hs_database_info(const hs_database_t *db, char **info) {
     if (!info) {
         return HS_INVALID;
     }

@@ -70,6 +70,13 @@ For a given database, Hyperscan provides several guarantees:
 
 See :ref:`runtime` for more detail.
 
+*****
+Tools
+*****
+
+Some utilities for testing and benchmarking Hyperscan are included with the
+library. See :ref:`tools` for more information.
+
 ************
 Example Code
 ************

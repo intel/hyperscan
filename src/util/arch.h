@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,48 +26,61 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MULTITRUFFLE_H
-#define MULTITRUFFLE_H
-
 /** \file
- * \brief Multitruffle: multibyte version of Truffle.
- *
- * Utilises the SSSE3 pshufb shuffle instruction
+ * \brief Per-platform architecture definitions
  */
 
-#include "util/simd_types.h"
+#ifndef UTIL_ARCH_H_
+#define UTIL_ARCH_H_
 
-#ifdef __cplusplus
-extern "C"
-{
+#if defined(__SSE2__) || defined(_M_X64) || (_M_IX86_FP >= 2)
+#define HAVE_SSE2
 #endif
 
-const u8 *long_truffleExec(m128 shuf_mask_lo_highclear, m128 shuf_mask_lo_highset,
-                           const u8 *buf, const u8 *buf_end, const u8 run_len);
-
-const u8 *longgrab_truffleExec(m128 shuf_mask_lo_highclear, m128 shuf_mask_lo_highset,
-                               const u8 *buf, const u8 *buf_end, const u8 run_len);
-
-const u8 *shift_truffleExec(m128 shuf_mask_lo_highclear, m128 shuf_mask_lo_highset,
-                            const u8 *buf, const u8 *buf_end, const u8 run_len);
-
-const u8 *shiftgrab_truffleExec(m128 shuf_mask_lo_highclear,
-                                m128 shuf_mask_lo_highset, const u8 *buf,
-                                const u8 *buf_end, const u8 run_len);
-
-const u8 *doubleshift_truffleExec(m128 shuf_mask_lo_highclear,
-                                  m128 shuf_mask_lo_highset, const u8 *buf,
-                                  const u8 *buf_end, const u8 run_len,
-                                  const u8 run2_len);
-
-const u8 *doubleshiftgrab_truffleExec(m128 shuf_mask_lo_highclear,
-                                      m128 shuf_mask_lo_highset, const u8 *buf,
-                                      const u8 *buf_end, const u8 run_len,
-                                      const u8 run2_len);
-
-#ifdef __cplusplus
-}
+#if defined(__SSE4_1__) || (defined(_WIN32) && defined(__AVX__))
+#define HAVE_SSE41
 #endif
 
+#if defined(__SSE4_2__) || (defined(_WIN32) && defined(__AVX__))
+#define HAVE_SSE42
+#endif
 
-#endif /* MULTITRUFFLE_H */
+#if defined(__AVX__)
+#define HAVE_AVX
+#endif
+
+#if defined(__AVX2__)
+#define HAVE_AVX2
+#endif
+
+#if defined(__AVX512BW__)
+#define HAVE_AVX512
+#endif
+
+/*
+ * ICC and MSVC don't break out POPCNT or BMI/2 as separate pre-def macros
+ */
+#if defined(__POPCNT__) ||                                                     \
+    (defined(__INTEL_COMPILER) && defined(__SSE4_2__)) ||                      \
+    (defined(_WIN32) && defined(__AVX__))
+#define HAVE_POPCOUNT_INSTR
+#endif
+
+#if defined(__BMI__) || (defined(_WIN32) && defined(__AVX2__)) ||              \
+    (defined(__INTEL_COMPILER) && defined(__AVX2__))
+#define HAVE_BMI
+#endif
+
+#if defined(__BMI2__) || (defined(_WIN32) && defined(__AVX2__)) ||             \
+    (defined(__INTEL_COMPILER) && defined(__AVX2__))
+#define HAVE_BMI2
+#endif
+
+/*
+ * MSVC uses a different form of inline asm
+ */
+#if defined(_WIN32) && defined(_MSC_VER)
+#define NO_ASM
+#endif
+
+#endif // UTIL_ARCH_H_

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,12 +34,12 @@
 #define DEPTH_H
 
 #include "ue2common.h"
+#include "util/hash.h"
+#include "util/operators.h"
 
 #ifdef DUMP_SUPPORT
 #include <string>
 #endif
-
-#include <boost/functional/hash/hash_fwd.hpp>
 
 namespace ue2 {
 
@@ -52,11 +52,12 @@ struct DepthOverflowError {};
  * \brief Type used to represent depth information; value is either a count,
  * or the special values "infinity" and "unreachable".
  */
-class depth {
+class depth : totally_ordered<depth> {
 public:
-    depth() : val(val_unreachable) {}
+    /** \brief The default depth is special value "unreachable". */
+    depth() = default;
 
-    depth(u32 v) : val(v) {
+    explicit depth(u32 v) : val(v) {
         if (v > max_value()) {
             DEBUG_PRINTF("depth %u too large to represent!\n", v);
             throw DepthOverflowError();
@@ -92,11 +93,7 @@ public:
     }
 
     bool operator<(const depth &d) const { return val < d.val; }
-    bool operator>(const depth &d) const { return val > d.val; }
-    bool operator<=(const depth &d) const { return val <= d.val; }
-    bool operator>=(const depth &d) const { return val >= d.val; }
     bool operator==(const depth &d) const { return val == d.val; }
-    bool operator!=(const depth &d) const { return val != d.val; }
 
     // The following comparison operators exist for use against integer types
     // that are bigger than what we can safely convert to depth (such as those
@@ -196,6 +193,29 @@ public:
         return *this;
     }
 
+    depth operator-(s32 d) const {
+        if (is_unreachable()) {
+            return unreachable();
+        }
+        if (is_infinite()) {
+            return infinity();
+        }
+
+        s64a rv = val - d;
+        if (rv < 0 || (u64a)rv >= val_infinity) {
+            DEBUG_PRINTF("depth %lld too large to represent!\n", rv);
+            throw DepthOverflowError();
+        }
+
+        return depth((u32)rv);
+    }
+
+    depth operator-=(s32 d) {
+        depth rv = *this - d;
+        *this = rv;
+        return *this;
+    }
+
 #ifdef DUMP_SUPPORT
     /** \brief Render as a string, useful for debugging. */
     std::string str() const;
@@ -209,17 +229,17 @@ private:
     static constexpr u32 val_infinity = (1u << 31) - 1;
     static constexpr u32 val_unreachable = 1u << 31;
 
-    u32 val;
+    u32 val = val_unreachable;
 };
 
 /**
  * \brief Encapsulates a min/max pair.
  */
-struct DepthMinMax {
-    depth min;
-    depth max;
+struct DepthMinMax : totally_ordered<DepthMinMax> {
+    depth min{depth::infinity()};
+    depth max{0};
 
-    DepthMinMax() : min(depth::infinity()), max(depth(0)) {}
+    DepthMinMax() = default;
     DepthMinMax(const depth &mn, const depth &mx) : min(mn), max(mx) {}
 
     bool operator<(const DepthMinMax &b) const {
@@ -233,21 +253,15 @@ struct DepthMinMax {
         return min == b.min && max == b.max;
     }
 
-    bool operator!=(const DepthMinMax &b) const {
-        return !(*this == b);
-    }
-
 #ifdef DUMP_SUPPORT
     /** \brief Render as a string, useful for debugging. */
     std::string str() const;
 #endif
+
 };
 
 inline size_t hash_value(const DepthMinMax &d) {
-    size_t val = 0;
-    boost::hash_combine(val, d.min);
-    boost::hash_combine(val, d.max);
-    return val;
+    return hash_all(d.min, d.max);
 }
 
 /**

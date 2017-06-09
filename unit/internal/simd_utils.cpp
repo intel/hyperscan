@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,8 @@
 #include "config.h"
 
 #include "gtest/gtest.h"
-#include "util/alloc.h"
+#include "util/arch.h"
+#include "util/bytecode_ptr.h"
 #include "util/make_unique.h"
 #include "util/simd_utils.h"
 
@@ -142,6 +143,10 @@ void simd_loadbytes(m128 *a, const void *ptr, unsigned i) { *a = loadbytes128(pt
 void simd_loadbytes(m256 *a, const void *ptr, unsigned i) { *a = loadbytes256(ptr, i); }
 void simd_loadbytes(m384 *a, const void *ptr, unsigned i) { *a = loadbytes384(ptr, i); }
 void simd_loadbytes(m512 *a, const void *ptr, unsigned i) { *a = loadbytes512(ptr, i); }
+m128 simd_lshift64(const m128 &a, unsigned i) { return lshift64_m128(a, i); }
+m256 simd_lshift64(const m256 &a, unsigned i) { return lshift64_m256(a, i); }
+m384 simd_lshift64(const m384 &a, unsigned i) { return lshift64_m384(a, i); }
+m512 simd_lshift64(const m512 &a, unsigned i) { return lshift64_m512(a, i); }
 
 template<typename T>
 class SimdUtilsTest : public testing::Test {
@@ -539,8 +544,9 @@ TYPED_TEST(SimdUtilsTest, load_store) {
         a.bytes[i] = (char)(i % 256);
     }
 
-    aligned_unique_ptr<char> mem_ptr = aligned_zmalloc_unique<char>(sizeof(a));
+    auto mem_ptr = make_bytecode_ptr<char>(sizeof(a), alignof(TypeParam));
     char *mem = mem_ptr.get();
+
     ASSERT_EQ(0, (size_t)mem % 16U);
 
     memset(mem, 0, sizeof(a));
@@ -584,6 +590,65 @@ TYPED_TEST(SimdUtilsTest, loadbytes_storebytes) {
     }
 }
 
+TYPED_TEST(SimdUtilsTest, lshift64) {
+    TypeParam a;
+    memset(&a, 0x5a, sizeof(a));
+
+    static constexpr u64a exp_val = 0x5a5a5a5a5a5a5a5aULL;
+
+    union {
+        TypeParam simd;
+        u64a qword[sizeof(TypeParam) / 8];
+    } c;
+
+    for (unsigned s = 0; s < 64; s++) {
+        c.simd = simd_lshift64(a, s);
+
+        const u64a expected = exp_val << s;
+        for (size_t i = 0; i < sizeof(c) / 8; i++) {
+            EXPECT_EQ(expected, c.qword[i]);
+        }
+    }
+
+    /* Clang 3.4 on FreeBSD 10 crashes on the following - disable for now */
+#if !(defined(__FreeBSD__) && defined(__clang__) && __clang_major__ == 3)
+
+    // test immediates
+    u64a expected;
+
+    c.simd = simd_lshift64(a, 1);
+    expected = exp_val << 1;
+    for (size_t i = 0; i < sizeof(c) / 8; i++) {
+        EXPECT_EQ(expected, c.qword[i]);
+    }
+
+    c.simd = simd_lshift64(a, 2);
+    expected = exp_val << 2;
+    for (size_t i = 0; i < sizeof(c) / 8; i++) {
+        EXPECT_EQ(expected, c.qword[i]);
+    }
+
+    c.simd = simd_lshift64(a, 7);
+    expected = exp_val << 7;
+    for (size_t i = 0; i < sizeof(c) / 8; i++) {
+        EXPECT_EQ(expected, c.qword[i]);
+    }
+
+    c.simd = simd_lshift64(a, 31);
+    expected = exp_val << 31;
+    for (size_t i = 0; i < sizeof(c) / 8; i++) {
+        EXPECT_EQ(expected, c.qword[i]);
+    }
+#endif
+}
+
+TEST(SimdUtilsTest, alignment) {
+    ASSERT_EQ(16, alignof(m128));
+    ASSERT_EQ(32, alignof(m256));
+    ASSERT_EQ(16, alignof(m384));
+    ASSERT_EQ(64, alignof(m512));
+}
+
 TEST(SimdUtilsTest, movq) {
     m128 simd;
 
@@ -620,7 +685,7 @@ TEST(SimdUtilsTest, set4x32) {
     ASSERT_EQ(0, memcmp(cmp, &simd, sizeof(simd)));
 }
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 TEST(SimdUtilsTest, set32x8) {
     char cmp[sizeof(m256)];
 

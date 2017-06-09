@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -131,7 +131,7 @@ vector<rose_literal_id> literals_for_vertex(const RoseBuildImpl &tbi,
     vector<rose_literal_id> rv;
 
     for (const u32 id : tbi.g[v].literals) {
-        rv.push_back(tbi.literals.right.at(id));
+        rv.push_back(tbi.literals.at(id));
     }
 
     return rv;
@@ -366,7 +366,7 @@ bool triggerKillsRoseCastle(const RoseBuildImpl &tbi, const left_id &left,
     /* check each pred literal to see if they all kill previous castle
      * state */
     for (u32 lit_id : tbi.g[source(e, tbi.g)].literals) {
-        const rose_literal_id &pred_lit = tbi.literals.right.at(lit_id);
+        const rose_literal_id &pred_lit = tbi.literals.at(lit_id);
         const ue2_literal s = findNonOverlappingTail(all_lits, pred_lit.s);
         const CharReach &cr = c.reach();
 

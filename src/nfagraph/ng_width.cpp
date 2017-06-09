@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -157,12 +157,12 @@ depth findMaxWidth(const NGHolder &h, const SpecialEdgeFilter &filter,
     if (colors.at(NODE_ACCEPT) == boost::white_color) {
         acceptDepth = depth::unreachable();
     } else {
-        acceptDepth = -1 * distance.at(NODE_ACCEPT);
+        acceptDepth = depth(-1 * distance.at(NODE_ACCEPT));
     }
     if (colors.at(NODE_ACCEPT_EOD) == boost::white_color) {
         acceptEodDepth = depth::unreachable();
     } else {
-        acceptEodDepth = -1 * distance.at(NODE_ACCEPT_EOD);
+        acceptEodDepth = depth(-1 * distance.at(NODE_ACCEPT_EOD));
     }
 
     depth d;

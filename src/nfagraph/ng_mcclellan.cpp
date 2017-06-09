@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,6 +42,8 @@
 #include "util/bitfield.h"
 #include "util/determinise.h"
 #include "util/graph_range.h"
+#include "util/hash.h"
+#include "util/hash_dynamic_bitset.h"
 #include "util/make_unique.h"
 #include "util/report_manager.h"
 #include "util/ue2_containers.h"
@@ -377,7 +379,9 @@ public:
             NFAVertex v = sq.first;
             u32 vert_id = graph[v].index;
             squash.set(vert_id);
-            squash_mask[vert_id] = shrinkStateSet(sq.second);
+            squash_mask[vert_id]
+                = Automaton_Traits::copy_states(std::move(sq.second),
+                                                numStates);
         }
 
         cr_by_index = populateCR(graph, v_by_index, alpha);
@@ -385,19 +389,9 @@ public:
             dynamic_bitset<> temp(numStates);
             markToppableStarts(graph, unused, single_trigger, triggers,
                                &temp);
-            toppable = Automaton_Traits::copy_states(temp, numStates);
+            toppable = Automaton_Traits::copy_states(std::move(temp),
+                                                     numStates);
         }
-    }
-
-private:
-    // Convert an NFAStateSet (as used by the squash code) into a StateSet
-    StateSet shrinkStateSet(const NFAStateSet &in) const {
-        StateSet out = Automaton_Traits::init_states(numStates);
-        for (size_t i = in.find_first(); i != in.npos && i < out.size();
-             i = in.find_next(i)) {
-            out.set(i);
-        }
-        return out;
     }
 
 public:
@@ -467,13 +461,13 @@ public:
 
 struct Big_Traits {
     using StateSet = dynamic_bitset<>;
-    using StateMap = map<StateSet, dstate_id_t>;
+    using StateMap = unordered_map<StateSet, dstate_id_t, hash_dynamic_bitset>;
 
     static StateSet init_states(u32 num) {
         return StateSet(num);
     }
 
-    static StateSet copy_states(const dynamic_bitset<> &in, UNUSED u32 num) {
+    static StateSet copy_states(dynamic_bitset<> in, UNUSED u32 num) {
         assert(in.size() == num);
         return in;
     }

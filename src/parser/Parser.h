@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -69,7 +69,7 @@ struct ParseMode {
  *
  * This call will throw a ParseError on failure.
  */
-std::unique_ptr<Component> parse(const char *const ptr, ParseMode &mode);
+std::unique_ptr<Component> parse(const char *ptr, ParseMode &mode);
 
 } // namespace ue2
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1054,14 +1054,14 @@ bool mergeableRoseVertices(const RoseBuildImpl &tbi, RoseVertex u,
     vector<pair<const rose_literal_id *, u32>> ulits;
     ulits.reserve(tbi.g[u].literals.size());
     for (u32 id : tbi.g[u].literals) {
-        ulits.push_back(make_pair(&tbi.literals.right.at(id), ulag));
+        ulits.emplace_back(&tbi.literals.at(id), ulag);
     }
 
     u32 vlag = tbi.g[v].left.lag;
     vector<pair<const rose_literal_id *, u32>> vlits;
     vlits.reserve(tbi.g[v].literals.size());
     for (u32 id : tbi.g[v].literals) {
-        vlits.push_back(make_pair(&tbi.literals.right.at(id), vlag));
+        vlits.emplace_back(&tbi.literals.at(id), vlag);
     }
 
     if (!compatibleLiteralsForMerge(ulits, vlits)) {
@@ -1130,7 +1130,7 @@ bool checkPredDelays(const RoseBuildImpl &tbi, const deque<RoseVertex> &v1,
     vector<const rose_literal_id *> pred_rose_lits;
     pred_rose_lits.reserve(pred_lits.size());
     for (const auto &p : pred_lits) {
-        pred_rose_lits.push_back(&tbi.literals.right.at(p));
+        pred_rose_lits.push_back(&tbi.literals.at(p));
     }
 
     for (auto v : v2) {
@@ -1140,7 +1140,7 @@ bool checkPredDelays(const RoseBuildImpl &tbi, const deque<RoseVertex> &v1,
         }
 
         for (const u32 vlit : tbi.g[v].literals) {
-            const rose_literal_id &vl = tbi.literals.right.at(vlit);
+            const rose_literal_id &vl = tbi.literals.at(vlit);
             assert(!vl.delay); // this should never have got this far?
             for (const auto &ul : pred_rose_lits) {
                 assert(!ul->delay); // this should never have got this far?
@@ -1195,7 +1195,7 @@ bool mergeableRoseVertices(const RoseBuildImpl &tbi,
 
         u32 ulag = tbi.g[a].left.lag;
         for (u32 id : tbi.g[a].literals) {
-            ulits.push_back(make_pair(&tbi.literals.right.at(id), ulag));
+            ulits.emplace_back(&tbi.literals.at(id), ulag);
         }
     }
 
@@ -1207,7 +1207,7 @@ bool mergeableRoseVertices(const RoseBuildImpl &tbi,
 
         u32 vlag = tbi.g[a].left.lag;
         for (u32 id : tbi.g[a].literals) {
-            vlits.push_back(make_pair(&tbi.literals.right.at(id), vlag));
+            vlits.emplace_back(&tbi.literals.at(id), vlag);
         }
     }
 
@@ -1759,7 +1759,7 @@ void replaceTops(NGHolder &h, const map<u32, u32> &top_mapping) {
             DEBUG_PRINTF("vertex %zu has top %u\n", h[v].index, t);
             new_tops.insert(top_mapping.at(t));
         }
-        h[e].tops = move(new_tops);
+        h[e].tops = std::move(new_tops);
     }
 }
 
@@ -2730,7 +2730,7 @@ u32 allowedSquashDistance(const CharReach &cr, u32 min_width,
 
     /* TODO: inspect further back in the pattern */
     for (u32 lit_id : g[tv].literals) {
-        const rose_literal_id &lit = tbi.literals.right.at(lit_id);
+        const rose_literal_id &lit = tbi.literals.at(lit_id);
         if (lit.delay) {
             return 0; /* TODO: better */
         }

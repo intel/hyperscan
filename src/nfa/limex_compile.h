@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,7 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief Main NFA build code.
  */
 
@@ -37,10 +38,10 @@
 #include <memory>
 #include <vector>
 
-#include "ue2common.h"
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_squash.h" // for NFAStateSet
-#include "util/alloc.h"
+#include "ue2common.h"
+#include "util/bytecode_ptr.h"
 #include "util/ue2_containers.h"
 
 struct NFA;
@@ -50,7 +51,8 @@ namespace ue2 {
 struct BoundedRepeatData;
 struct CompileContext;
 
-/** \brief Construct a LimEx NFA from an NGHolder.
+/**
+ * \brief Construct a LimEx NFA from an NGHolder.
  *
  * \param g Input NFA graph. Must have state IDs assigned.
  * \param repeats Bounded repeat information, if any.
@@ -66,7 +68,7 @@ struct CompileContext;
  * \return a built NFA, or nullptr if no NFA could be constructed for this
  * graph.
  */
-aligned_unique_ptr<NFA> generate(NGHolder &g,
+bytecode_ptr<NFA> generate(NGHolder &g,
                         const ue2::unordered_map<NFAVertex, u32> &states,
                         const std::vector<BoundedRepeatData> &repeats,
                         const std::map<NFAVertex, NFAStateSet> &reportSquashMap,

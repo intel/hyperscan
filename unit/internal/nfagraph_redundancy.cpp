@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -53,7 +53,7 @@ TEST(NFAGraph, RemoveRedundancy1) {
     // The character reachability should be merged into: [ab]c
     CompileContext cc(false, false, get_current_target(), Grey());
 
-    unique_ptr<NGWrapper> graph(constructGraphWithCC("(a|b)c", cc, 0));
+    auto graph(constructGraphWithCC("(a|b)c", cc, 0));
     ASSERT_TRUE(graph.get() != nullptr);
     NGHolder &g = *graph;
 
@@ -95,8 +95,7 @@ TEST(NFAGraph, RemoveRedundancy2) {
     // Build a small graph with a redundant vertex: a.*b?c
     // The dot-star should swallow the 'b?', leaving a.*c
     CompileContext cc(false, false, get_current_target(), Grey());
-    unique_ptr<NGWrapper> graph(constructGraphWithCC("a.*b?c", cc,
-                                                     HS_FLAG_DOTALL));
+    auto graph(constructGraphWithCC("a.*b?c", cc, HS_FLAG_DOTALL));
     ASSERT_TRUE(graph.get() != nullptr);
     NGHolder &g = *graph;
 
@@ -152,8 +151,7 @@ TEST(NFAGraph, RemoveRedundancy2) {
 
 TEST(NFAGraph, RemoveRedundancy3) {
     CompileContext cc(false, false, get_current_target(), Grey());
-    unique_ptr<NGWrapper> graph(constructGraphWithCC("foobar.*(a|b)?teakettle",
-                                                     cc, 0));
+    auto graph(constructGraphWithCC("foobar.*(a|b)?teakettle", cc, 0));
     ASSERT_TRUE(graph.get() != nullptr);
 
     unsigned countBefore = num_vertices(*graph);
@@ -166,7 +164,7 @@ TEST(NFAGraph, RemoveRedundancy3) {
 
 TEST(NFAGraph, RemoveRedundancy4) {
     CompileContext cc(false, false, get_current_target(), Grey());
-    unique_ptr<NGWrapper> graph(constructGraphWithCC("foo([A-Z]|a|b|q)", cc, 0));
+    auto graph(constructGraphWithCC("foo([A-Z]|a|b|q)", cc, 0));
     ASSERT_TRUE(graph.get() != nullptr);
 
     unsigned countBefore = num_vertices(*graph);
@@ -178,8 +176,7 @@ TEST(NFAGraph, RemoveRedundancy4) {
 
 TEST(NFAGraph, RemoveRedundancy5) {
     CompileContext cc(false, false, get_current_target(), Grey());
-    unique_ptr<NGWrapper> graph(constructGraphWithCC("[0-9]?badgerbrush",
-            cc, 0));
+    auto graph(constructGraphWithCC("[0-9]?badgerbrush", cc, 0));
     ASSERT_TRUE(graph.get() != nullptr);
 
     unsigned countBefore = num_vertices(*graph);

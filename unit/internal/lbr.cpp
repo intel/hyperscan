@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,20 +29,20 @@
 #include "config.h"
 #include "gtest/gtest.h"
 
-#include "util/target_info.h"
-#include "util/charreach.h"
+#include "grey.h"
+#include "hs_compile.h" /* for controlling ssse3 usage */
+#include "compiler/compiler.h"
 #include "nfa/lbr.h"
 #include "nfa/nfa_api.h"
-#include "nfa/nfa_internal.h"
 #include "nfa/nfa_api_util.h"
+#include "nfa/nfa_internal.h"
+#include "nfagraph/ng.h"
 #include "nfagraph/ng_lbr.h"
 #include "nfagraph/ng_util.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
+#include "util/charreach.h"
 #include "util/compile_context.h"
-#include "grey.h"
-#include "nfagraph/ng.h"
-#include "compiler/compiler.h"
-#include "hs_compile.h" /* for controlling ssse3 usage */
+#include "util/target_info.h"
 
 #include <ostream>
 
@@ -96,7 +96,8 @@ protected:
         const CompileContext cc(true, false, target, grey);
         ReportManager rm(cc.grey);
         ParsedExpression parsed(0, pattern.c_str(), flags, 0);
-        unique_ptr<NGWrapper> g = buildWrapper(rm, cc, parsed);
+        auto built_expr = buildGraph(rm, cc, parsed);
+        const auto &g = built_expr.g;
         ASSERT_TRUE(g != nullptr);
         clearReports(*g);
 
@@ -109,8 +110,8 @@ protected:
         nfa = constructLBR(*g, triggers, cc, rm);
         ASSERT_TRUE(nfa != nullptr);
 
-        full_state = aligned_zmalloc_unique<char>(nfa->scratchStateSize);
-        stream_state = aligned_zmalloc_unique<char>(nfa->streamStateSize);
+        full_state = make_bytecode_ptr<char>(nfa->scratchStateSize, 64);
+        stream_state = make_bytecode_ptr<char>(nfa->streamStateSize);
     }
 
     virtual void initQueue() {
@@ -151,13 +152,13 @@ protected:
     unsigned matches;
 
     // Compiled NFA structure.
-    aligned_unique_ptr<NFA> nfa;
+    bytecode_ptr<NFA> nfa;
 
-    // Space for full state.
-    aligned_unique_ptr<char> full_state;
+    // Aligned space for full state.
+    bytecode_ptr<char> full_state;
 
     // Space for stream state.
-    aligned_unique_ptr<char> stream_state;
+    bytecode_ptr<char> stream_state;
 
     // Queue structure.
     struct mq q;

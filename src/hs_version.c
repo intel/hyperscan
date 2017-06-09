@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,6 @@
 #include "hs_version.h"
 
 HS_PUBLIC_API
-const char *hs_version(void) {
+const char * HS_CDECL hs_version(void) {
     return HS_VERSION_STRING;
 }

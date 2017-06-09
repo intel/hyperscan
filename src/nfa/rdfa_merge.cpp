@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,7 @@
 #include "util/report_manager.h"
 #include "util/ue2_containers.h"
 
+#include <algorithm>
 #include <queue>
 
 using namespace std;
@@ -134,6 +135,10 @@ public:
                 }
             }
         }
+
+        // Sort so that our alphabet mapping isn't dependent on the order of
+        // rdfas passed in.
+        sort(esets.begin(), esets.end());
 
         alphasize = buildAlphabetFromEquivSets(esets, alpha, unalpha);
     }

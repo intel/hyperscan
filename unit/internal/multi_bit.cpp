@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 
 #include "gtest/gtest.h"
 #include "ue2common.h"
+#include "rose/rose_build_scatter.h"
 #include "util/compile_error.h"
 #include "util/make_unique.h"
 #include "util/multibit.h"
@@ -698,7 +699,9 @@ TEST_P(MultiBitTest, InitRangeChunked) {
 
     for (u32 n = 2; n <= 10; n++) {
         u32 chunk_size = test_size / n;
-        if (chunk_size == 0) break;
+        if (chunk_size == 0) {
+            break;
+        }
 
         for (u32 k = 0; k < n; k++) {
             u32 chunk_begin = k * chunk_size;
@@ -723,9 +726,62 @@ TEST_P(MultiBitTest, InitRangeChunked) {
     }
 }
 
+static
+void apply(const scatter_plan_raw &sp, u8 *out) {
+    for (const auto &e : sp.p_u64a) {
+        memcpy(out + e.offset, &e.val, sizeof(e.val));
+    }
+    for (const auto &e : sp.p_u32) {
+        memcpy(out + e.offset, &e.val, sizeof(e.val));
+    }
+    for (const auto &e : sp.p_u16) {
+        memcpy(out + e.offset, &e.val, sizeof(e.val));
+    }
+    for (const auto &e : sp.p_u8) {
+        memcpy(out + e.offset, &e.val, sizeof(e.val));
+    }
+}
+
+TEST_P(MultiBitTest, InitRangePlanChunked) {
+    SCOPED_TRACE(test_size);
+    ASSERT_TRUE(ba != nullptr);
+
+    // Init ranges chunk by chunk.
+
+    for (u32 n = 2; n <= 10; n++) {
+        u32 chunk_size = test_size / n;
+        if (chunk_size == 0) {
+            break;
+        }
+
+        for (u32 k = 0; k < n; k++) {
+            u32 chunk_begin = k * chunk_size;
+            u32 chunk_end = min(test_size, (k + 1) * chunk_size);
+
+            scatter_plan_raw sp;
+            mmbBuildInitRangePlan(test_size, chunk_begin, chunk_end, &sp);
+            memset(ba, 0xaa, mmbit_size(test_size));
+            apply(sp, ba);
+
+            // First bit set should be chunk_begin.
+            ASSERT_EQ(chunk_begin, mmbit_iterate(ba, test_size, MMB_INVALID));
+
+            // All bits in the chunk should be on.
+            for (u64a i = chunk_begin; i < chunk_end; i += stride) {
+                SCOPED_TRACE(i);
+                ASSERT_TRUE(mmbit_isset(ba, test_size, i));
+            }
+
+            // Last bit on is chunk_end - 1.
+            if (chunk_end) {
+                ASSERT_EQ(MMB_INVALID, mmbit_iterate(ba, test_size, chunk_end - 1));
+            }
+        }
+    }
+}
+
 TEST(MultiBit, SparseIteratorBegin1) {
     const u32 test_size = 100;
-    vector<mmbit_sparse_iter> it;
     vector<u32> bits;
 
     bits.push_back(1);
@@ -734,7 +790,7 @@ TEST(MultiBit, SparseIteratorBegin1) {
     bits.push_back(35);
     bits.push_back(68);
 
-    mmbBuildSparseIterator(it, bits, test_size);
+    auto it = mmbBuildSparseIterator(bits, test_size);
     //ASSERT_EQ(4U, it.size());
 
     // Trivial initial test: all bits in 'bits' are on, all others are off
@@ -763,7 +819,6 @@ TEST(MultiBit, SparseIteratorBegin1) {
 
 TEST(MultiBit, SparseIteratorBegin2) {
     const u32 test_size = 40000;
-    vector<mmbit_sparse_iter> it;
     vector<u32> bits;
 
     bits.push_back(1);
@@ -773,7 +828,7 @@ TEST(MultiBit, SparseIteratorBegin2) {
     bits.push_back(8920);
     bits.push_back(37000);
 
-    mmbBuildSparseIterator(it, bits, test_size);
+    auto it = mmbBuildSparseIterator(bits, test_size);
     //ASSERT_EQ(12U, it.size());
 
     // Trivial initial test: all bits in 'bits' are on, all others are off
@@ -802,7 +857,6 @@ TEST(MultiBit, SparseIteratorBegin2) {
 
 TEST(MultiBit, SparseIteratorNext1) {
     const u32 test_size = 100;
-    vector<mmbit_sparse_iter> it;
     vector<u32> bits;
 
     bits.push_back(1);
@@ -811,7 +865,7 @@ TEST(MultiBit, SparseIteratorNext1) {
     bits.push_back(35);
     bits.push_back(68);
 
-    mmbBuildSparseIterator(it, bits, test_size);
+    auto it = mmbBuildSparseIterator(bits, test_size);
 
     // Trivial initial test: all bits in 'bits' are on, all others are off
     mmbit_holder ba(test_size);
@@ -867,7 +921,6 @@ TEST(MultiBit, SparseIteratorNext1) {
 
 TEST(MultiBit, SparseIteratorNext2) {
     const u32 test_size = 40000;
-    vector<mmbit_sparse_iter> it;
     vector<u32> bits;
 
     bits.push_back(1);
@@ -882,7 +935,7 @@ TEST(MultiBit, SparseIteratorNext2) {
     bits.push_back(37000);
     bits.push_back(39999);
 
-    mmbBuildSparseIterator(it, bits, test_size);
+    auto it = mmbBuildSparseIterator(bits, test_size);
 
     // Trivial initial test: all bits in 'bits' are on, all others are off
     mmbit_holder ba(test_size);
@@ -938,7 +991,6 @@ TEST(MultiBit, SparseIteratorNext2) {
 
 TEST(MultiBit, SparseIteratorNextSmall) {
     const u32 test_size = 15;
-    vector<mmbit_sparse_iter> it;
     vector<u32> bits;
 
     bits.push_back(1);
@@ -948,7 +1000,7 @@ TEST(MultiBit, SparseIteratorNextSmall) {
     bits.push_back(12);
     bits.push_back(14);
 
-    mmbBuildSparseIterator(it, bits, test_size);
+    auto it = mmbBuildSparseIterator(bits, test_size);
 
     // Trivial initial test: all bits in 'bits' are on, all others are off
     mmbit_holder ba(test_size);
@@ -1007,13 +1059,12 @@ TEST_P(MultiBitTest, SparseIteratorBeginAll) {
     ASSERT_TRUE(ba != nullptr);
 
     // Put all our bits into the sparse iterator.
-    vector<mmbit_sparse_iter> it;
     vector<u32> bits;
     bits.reserve(test_size / stride);
     for (u64a i = 0; i < test_size; i += stride) {
         bits.push_back(i);
     }
-    mmbBuildSparseIterator(it, bits, test_size);
+    auto it = mmbBuildSparseIterator(bits, test_size);
 
     // Switch all bits on in state.
     mmbit_clear(ba, test_size);
@@ -1047,12 +1098,11 @@ TEST_P(MultiBitTest, SparseIteratorBeginThirds) {
     }
 
     // Put all our bits into the sparse iterator
-    vector<mmbit_sparse_iter> it;
     vector<u32> bits(test_size);
     for (u32 i = 0; i != test_size; i++) {
         bits[i] = i;
     }
-    mmbBuildSparseIterator(it, bits, test_size);
+    auto it = mmbBuildSparseIterator(bits, test_size);
 
     // Switch every third bits on in state
     mmbit_clear(ba, test_size);
@@ -1082,13 +1132,12 @@ TEST_P(MultiBitTest, SparseIteratorNextAll) {
     ASSERT_TRUE(ba != nullptr);
 
     // Put all our bits into the sparse iterator.
-    vector<mmbit_sparse_iter> it;
     vector<u32> bits;
     bits.reserve(test_size / stride);
     for (u64a i = 0; i < test_size; i += stride) {
         bits.push_back(i);
     }
-    mmbBuildSparseIterator(it, bits, test_size);
+    auto it = mmbBuildSparseIterator(bits, test_size);
 
     // Switch all bits on in state
     mmbit_clear(ba, test_size);
@@ -1125,14 +1174,13 @@ TEST_P(MultiBitTest, SparseIteratorNextExactStrided) {
     // Put all our bits into the sparse iterator and switch them on in the
     // state.
     mmbit_clear(ba, test_size);
-    vector<mmbit_sparse_iter> it;
     vector<u32> bits;
     bits.reserve(test_size / stride);
     for (u64a i = 0; i < test_size; i += stride) {
         bits.push_back(i);
         mmbit_set(ba, test_size, i);
     }
-    mmbBuildSparseIterator(it, bits, test_size);
+    auto it = mmbBuildSparseIterator(bits, test_size);
 
     // Iterate over all bits.
     vector<mmbit_sparse_state> state(mmbit_sparse_iter_state_size(test_size));
@@ -1157,13 +1205,12 @@ TEST_P(MultiBitTest, SparseIteratorNextNone) {
     ASSERT_TRUE(ba != nullptr);
 
     // Put all our bits into the sparse iterator.
-    vector<mmbit_sparse_iter> it;
     vector<u32> bits;
     bits.reserve(test_size / stride);
     for (u64a i = 0; i < test_size; i += stride) {
         bits.push_back(i);
     }
-    mmbBuildSparseIterator(it, bits, test_size);
+    auto it = mmbBuildSparseIterator(bits, test_size);
 
     // Switch only the first bit on
     mmbit_clear(ba, test_size);
@@ -1186,13 +1233,12 @@ TEST_P(MultiBitTest, SparseIteratorUnsetAll) {
     ASSERT_TRUE(ba != nullptr);
 
     // Put all our bits into the sparse iterator
-    vector<mmbit_sparse_iter> it;
     vector<u32> bits;
     bits.reserve(test_size / stride);
     for (u64a i = 0; i < test_size; i += stride) {
         bits.push_back(i);
     }
-    mmbBuildSparseIterator(it, bits, test_size);
+    auto it = mmbBuildSparseIterator(bits, test_size);
 
     // Switch all bits on
     mmbit_clear(ba, test_size);
@@ -1226,9 +1272,8 @@ TEST_P(MultiBitTest, SparseIteratorUnsetHalves) {
         odd.push_back(i);
     }
 
-    vector<mmbit_sparse_iter> it_even, it_odd;
-    mmbBuildSparseIterator(it_even, even, test_size);
-    mmbBuildSparseIterator(it_odd, odd, test_size);
+    auto it_even = mmbBuildSparseIterator(even, test_size);
+    auto it_odd = mmbBuildSparseIterator(odd, test_size);
 
     // Switch all bits on
     mmbit_clear(ba, test_size);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,7 +35,6 @@
 
 #include "hwlm_literal.h"
 #include "noodle_internal.h"
-#include "util/alloc.h"
 #include "util/compare.h"
 #include "util/verify_types.h"
 #include "ue2common.h"
@@ -67,7 +66,7 @@ size_t findNoodFragOffset(const hwlmLiteral &lit) {
     return offset;
 }
 
-aligned_unique_ptr<noodTable> noodBuildTable(const hwlmLiteral &lit) {
+bytecode_ptr<noodTable> noodBuildTable(const hwlmLiteral &lit) {
     if (!lit.msk.empty()) {
         DEBUG_PRINTF("noodle can't handle supplementary masks\n");
         return nullptr;
@@ -75,7 +74,7 @@ aligned_unique_ptr<noodTable> noodBuildTable(const hwlmLiteral &lit) {
 
     const auto &s = lit.s;
     size_t noodle_len = sizeof(noodTable) + s.length();
-    auto n = aligned_zmalloc_unique<noodTable>(noodle_len);
+    auto n = make_zeroed_bytecode_ptr<noodTable>(noodle_len);
     assert(n);
 
     size_t key_offset = findNoodFragOffset(lit);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -60,10 +60,9 @@ namespace {
 
 /** Depths from start, startDs for this graph. */
 struct InitDepths {
-    explicit InitDepths(const NGHolder &g) {
-        calcDepthsFrom(g, g.start, start);
-        calcDepthsFrom(g, g.startDs, startDs);
-    }
+    explicit InitDepths(const NGHolder &g)
+        : start(calcDepthsFrom(g, g.start)),
+          startDs(calcDepthsFrom(g, g.startDs)) {}
 
     depth maxDist(const NGHolder &g, NFAVertex v) const {
         u32 idx = g[v].index;

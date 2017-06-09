@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,13 +30,13 @@
 #define BOUNDARY_REPORTS_H
 
 #include "ue2common.h"
+#include "util/noncopyable.h"
 
 #include <set>
-#include <boost/core/noncopyable.hpp>
 
 namespace ue2 {
 
-struct BoundaryReports : boost::noncopyable {
+struct BoundaryReports : noncopyable {
     std::set<ReportID> report_at_0; /* set of internal reports to fire
                                      * unconditionally at offset 0 */
     std::set<ReportID> report_at_0_eod; /* set of internal reports to fire

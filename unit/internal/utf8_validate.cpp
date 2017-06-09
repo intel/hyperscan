@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -117,6 +117,6 @@ INSTANTIATE_TEST_CASE_P(ValidUtf8, ValidUtf8Test, ValuesIn(valid_utf8_tests));
 
 TEST_P(ValidUtf8Test, check) {
     const auto &info = GetParam();
-    ASSERT_EQ(info.is_valid, isValidUtf8(info.str.c_str()))
-        << "String is: " << printable(info.str) << std::endl;
+    SCOPED_TRACE(testing::Message() << "String is: " << printable(info.str));
+    ASSERT_EQ(info.is_valid, isValidUtf8(info.str.c_str()));
 }

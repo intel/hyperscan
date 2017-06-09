@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,9 +31,13 @@
 
 #include <cstdio>
 
+namespace ue2 {
+
 /**
  * Same as fopen(), but on error throws an exception rather than returning NULL.
  */
 FILE *fopen_or_throw(const char *path, const char *mode);
+
+} // namespace ue2
 
 #endif

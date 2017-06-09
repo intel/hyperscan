@@ -1,4 +1,8 @@
 include (${CMAKE_MODULE_PATH}/sqlite3.cmake)
+if (NOT SQLITE3_FOUND)
+    message(STATUS "sqlite3 not found, not building hsbench")
+    return()
+endif()
 
 if (NOT XCODE)
     include_directories(SYSTEM ${SQLITE3_INCLUDE_DIRS})
@@ -6,6 +10,18 @@ else()
     # cmake doesn't think Xcode supports isystem
     set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -isystem ${SQLITE3_INCLUDE_DIRS}")
 endif()
+
+# BSD has the _np funcs in a _np header
+CHECK_INCLUDE_FILE_CXX(pthread_np.h HAVE_PTHREAD_NP_H)
+if (HAVE_PTHREAD_NP_H)
+    set (PTHREAD_NP_INC pthread_np.h)
+else ()
+    set (PTHREAD_NP_INC pthread.h)
+endif ()
+
+set (CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -D_GNU_SOURCE")
+set (CMAKE_REQUIRED_LIBRARIES pthread)
+CHECK_CXX_SYMBOL_EXISTS(pthread_setaffinity_np ${PTHREAD_NP_INC} HAVE_DECL_PTHREAD_SETAFFINITY_NP)
 
 CHECK_FUNCTION_EXISTS(malloc_info HAVE_MALLOC_INFO)
 CHECK_FUNCTION_EXISTS(shmget HAVE_SHMGET)

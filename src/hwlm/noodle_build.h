@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,11 +30,11 @@
  * \brief Noodle literal matcher: build code.
  */
 
-#ifndef NOODLE_BUILD_H_048A1A6D585A9A
-#define NOODLE_BUILD_H_048A1A6D585A9A
+#ifndef NOODLE_BUILD_H
+#define NOODLE_BUILD_H
 
 #include "ue2common.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 
 struct noodTable;
 
@@ -43,7 +43,7 @@ namespace ue2 {
 struct hwlmLiteral;
 
 /** \brief Construct a Noodle matcher for the given literal. */
-ue2::aligned_unique_ptr<noodTable> noodBuildTable(const hwlmLiteral &lit);
+bytecode_ptr<noodTable> noodBuildTable(const hwlmLiteral &lit);
 
 size_t noodSize(const noodTable *n);
 
@@ -61,5 +61,5 @@ void noodPrintStats(const noodTable *n, FILE *f);
 
 #endif // DUMP_SUPPORT
 
-#endif /* NOODLE_BUILD_H_048A1A6D585A9A */
+#endif /* NOODLE_BUILD_H */
 

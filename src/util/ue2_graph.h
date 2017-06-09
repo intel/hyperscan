@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,8 +31,9 @@
 
 #include "ue2common.h"
 #include "util/graph_range.h"
+#include "util/noncopyable.h"
+#include "util/operators.h"
 
-#include <boost/operators.hpp>
 #include <boost/functional/hash.hpp>
 #include <boost/graph/properties.hpp> /* vertex_index_t, ... */
 #include <boost/pending/property.hpp> /* no_property */
@@ -156,7 +157,7 @@ namespace ue2 {
 
 namespace graph_detail {
 
-class graph_base : boost::noncopyable {
+class graph_base : noncopyable {
 };
 
 struct default_edge_property {
@@ -292,7 +293,7 @@ public:
     using vertex_bundled = VertexPropertyType;
     using edge_bundled = EdgePropertyType;
 
-    class vertex_descriptor : boost::totally_ordered<vertex_descriptor> {
+    class vertex_descriptor : totally_ordered<vertex_descriptor> {
     public:
         vertex_descriptor() : p(nullptr), serial(0) { }
         explicit vertex_descriptor(vertex_node *pp)
@@ -324,7 +325,7 @@ public:
         friend ue2_graph;
     };
 
-    class edge_descriptor : boost::totally_ordered<edge_descriptor> {
+    class edge_descriptor : totally_ordered<edge_descriptor> {
     public:
         edge_descriptor() : p(nullptr), serial(0) { }
         explicit edge_descriptor(edge_node *pp) : p(pp), serial(pp->serial) { }

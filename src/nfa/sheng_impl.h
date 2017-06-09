@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -58,7 +58,7 @@ char SHENG_IMPL(u8 *state, NfaCallback cb, void *ctxt, const struct sheng *s,
     while (likely(cur_buf != end)) {
         const u8 c = *cur_buf;
         const m128 shuffle_mask = masks[c];
-        cur_state = pshufb(shuffle_mask, cur_state);
+        cur_state = pshufb_m128(shuffle_mask, cur_state);
         const u8 tmp = movd(cur_state);
 
         DEBUG_PRINTF("c: %02hhx '%c'\n", c, ourisprint(c) ? c : '?');

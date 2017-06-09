@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -105,8 +105,8 @@ typedef boost::filtered_graph<NGHolder, ReachFilter<NGHolder>> RepeatGraph;
 
 struct ReachSubgraph {
     vector<NFAVertex> vertices;
-    depth repeatMin = 0;
-    depth repeatMax = 0;
+    depth repeatMin{0};
+    depth repeatMax{0};
     u32 minPeriod = 1;
     bool is_reset = false;
     enum RepeatType historyType = REPEAT_RING;
@@ -118,13 +118,12 @@ struct ReachSubgraph {
 static
 void findInitDepths(const NGHolder &g,
                     ue2::unordered_map<NFAVertex, NFAVertexDepth> &depths) {
-    vector<NFAVertexDepth> d;
-    calcDepths(g, d);
+    auto d = calcDepths(g);
 
     for (auto v : vertices_range(g)) {
-        u32 idx = g[v].index;
+        size_t idx = g[v].index;
         assert(idx < d.size());
-        depths.insert(make_pair(v, d[idx]));
+        depths.emplace(v, d[idx]);
     }
 }
 
@@ -296,9 +295,8 @@ void splitSubgraph(const NGHolder &g, const deque<NFAVertex> &verts,
     ue2::unordered_map<NFAVertex, NFAVertex> verts_map; // in g -> in verts_g
     fillHolder(&verts_g, g, verts, &verts_map);
 
-    NFAUndirectedGraph ug;
     ue2::unordered_map<NFAVertex, NFAUndirectedVertex> old2new;
-    createUnGraph(verts_g, true, true, ug, old2new);
+    auto ug = createUnGraph(verts_g, true, true, old2new);
 
     ue2::unordered_map<NFAUndirectedVertex, u32> repeatMap;
 
@@ -587,8 +585,8 @@ bool processSubgraph(const NGHolder &g, ReachSubgraph &rsi,
                      range.first, range.second);
         return false;
     }
-    rsi.repeatMin = range.first;
-    rsi.repeatMax = range.second;
+    rsi.repeatMin = depth(range.first);
+    rsi.repeatMax = depth(range.second);
 
     // If we've got a self-loop anywhere, we've got inf max.
     if (anySelfLoop(g, rsi.vertices.begin(), rsi.vertices.end())) {
@@ -1020,9 +1018,8 @@ void buildReachSubgraphs(const NGHolder &g, vector<ReachSubgraph> &rs,
         return;
     }
 
-    NFAUndirectedGraph ug;
     unordered_map<RepeatGraph::vertex_descriptor, NFAUndirectedVertex> old2new;
-    createUnGraph(rg, true, true, ug, old2new);
+    auto ug = createUnGraph(rg, true, true, old2new);
 
     unordered_map<NFAUndirectedVertex, u32> repeatMap;
 
@@ -2108,7 +2105,7 @@ void populateFixedTopInfo(const map<u32, u32> &fixed_depth_tops,
                 td = depth::infinity();
                 break;
             }
-            depth td_t = fixed_depth_tops.at(top);
+            depth td_t(fixed_depth_tops.at(top));
             if (td == td_t) {
                 continue;
             } else if (td == depth::infinity()) {
@@ -2481,7 +2478,7 @@ bool isPureRepeat(const NGHolder &g, PureRepeat &repeat) {
         // have the same report set as the vertices in the repeat.
         if (repeat.bounds.min == depth(1) &&
             g[g.start].reports == g[v].reports) {
-            repeat.bounds.min = 0;
+            repeat.bounds.min = depth(0);
             DEBUG_PRINTF("graph is %s repeat\n", repeat.bounds.str().c_str());
         } else {
             DEBUG_PRINTF("not a supported repeat\n");

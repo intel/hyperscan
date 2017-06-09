@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,6 +35,7 @@
 #include "ng_corpus_generator.h"
 
 #include "ng_corpus_editor.h"
+#include "compiler/compiler.h"
 #include "nfagraph/ng.h"
 #include "nfagraph/ng_util.h"
 #include "ue2common.h"
@@ -48,15 +49,15 @@
 
 #include <algorithm>
 #include <deque>
+#include <memory>
 #include <set>
 #include <sstream>
 #include <vector>
 
-#include <boost/ptr_container/ptr_vector.hpp>
+#include <boost/utility.hpp>
 
 using namespace std;
 using namespace ue2;
-using boost::ptr_vector;
 
 typedef vector<NFAVertex> VertexPath;
 
@@ -139,8 +140,8 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
     // limit will evict a random existing one.
     const size_t MAX_OPEN = min((size_t)1000, corpusLimit * 10);
 
-    ptr_vector<VertexPath> open;
-    open.push_back(new VertexPath(1, g.start));
+    vector<unique_ptr<VertexPath>> open;
+    open.push_back(ue2::make_unique<VertexPath>(1, g.start));
 
     ue2::unordered_set<NFAVertex> one_way_in;
     for (const auto &v : vertices_range(g)) {
@@ -152,7 +153,8 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
     while (!open.empty()) {
         u32 slot = cProps.rand(0, open.size() - 1);
         swap(open.at(slot), open.back());
-        ptr_vector<VertexPath>::auto_type p = open.pop_back();
+        auto p = std::move(open.back());
+        open.pop_back();
         NFAVertex u = p->back();
 
         DEBUG_PRINTF("dequeuing path %s, back %zu\n",
@@ -194,19 +196,19 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
 
             // If we've got no further adjacent vertices, re-use p rather than
             // copying it for the next path.
-            VertexPath *new_path;
+            unique_ptr<VertexPath> new_path;
             if (boost::next(ai) == ae) {
-                new_path = p.release();
+                new_path = std::move(p);
             } else {
-                new_path = new VertexPath(*p);
+                new_path = make_unique<VertexPath>(*p);
             }
 
             new_path->push_back(v);
             if (open.size() < MAX_OPEN) {
-                open.push_back(new_path);
+                open.push_back(std::move(new_path));
             } else {
                 u32 victim = cProps.rand(0, open.size() - 1);
-                open.replace(victim, new_path);
+                open[victim] = std::move(new_path);
             }
         }
     }
@@ -218,8 +220,9 @@ namespace {
 /** \brief Concrete implementation */
 class CorpusGeneratorImpl : public CorpusGenerator {
 public:
-    CorpusGeneratorImpl(const NGHolder &graph_in, CorpusProperties &props);
-    ~CorpusGeneratorImpl() {}
+    CorpusGeneratorImpl(const NGHolder &graph_in, const ExpressionInfo &expr_in,
+                        CorpusProperties &props);
+    ~CorpusGeneratorImpl() = default;
 
     void generateCorpus(vector<string> &data);
 
@@ -236,6 +239,9 @@ private:
      * bytes in length. */
     void addRandom(const min_max &mm, string *out);
 
+    /** \brief Info about this expression. */
+    const ExpressionInfo &expr;
+
     /** \brief The NFA graph we operate over. */
     const NGHolder &graph;
 
@@ -245,9 +251,13 @@ private:
 };
 
 CorpusGeneratorImpl::CorpusGeneratorImpl(const NGHolder &graph_in,
+                                         const ExpressionInfo &expr_in,
                                          CorpusProperties &props)
-    : graph(graph_in), cProps(props) {
-    // empty
+    : expr(expr_in), graph(graph_in), cProps(props) {
+    // if this pattern is to be matched approximately
+    if (expr.edit_distance && !props.editDistance) {
+        props.editDistance = props.rand(0, expr.edit_distance + 1);
+    }
 }
 
 void CorpusGeneratorImpl::generateCorpus(vector<string> &data) {
@@ -388,8 +398,9 @@ hit_limit:
 /** \brief Concrete implementation for UTF-8 */
 class CorpusGeneratorUtf8 : public CorpusGenerator {
 public:
-    CorpusGeneratorUtf8(const NGHolder &graph_in, CorpusProperties &props);
-    ~CorpusGeneratorUtf8() {}
+    CorpusGeneratorUtf8(const NGHolder &graph_in, const ExpressionInfo &expr_in,
+                        CorpusProperties &props);
+    ~CorpusGeneratorUtf8() = default;
 
     void generateCorpus(vector<string> &data);
 
@@ -406,6 +417,9 @@ private:
      * length. */
     void addRandom(const min_max &mm, vector<unichar> *out);
 
+    /** \brief Info about this expression. */
+    const ExpressionInfo &expr;
+
     /** \brief The NFA graph we operate over. */
     const NGHolder &graph;
 
@@ -415,9 +429,14 @@ private:
 };
 
 CorpusGeneratorUtf8::CorpusGeneratorUtf8(const NGHolder &graph_in,
+                                         const ExpressionInfo &expr_in,
                                          CorpusProperties &props)
-    : graph(graph_in), cProps(props) {
-    // empty
+    : expr(expr_in), graph(graph_in), cProps(props) {
+    // we do not support Utf8 for approximate matching
+    if (expr.edit_distance) {
+        throw CorpusGenerationFailure("UTF-8 for edited patterns is not "
+                                      "supported.");
+    }
 }
 
 void CorpusGeneratorUtf8::generateCorpus(vector<string> &data) {
@@ -673,11 +692,12 @@ CorpusGenerator::~CorpusGenerator() { }
 
 // External entry point
 
-unique_ptr<CorpusGenerator> makeCorpusGenerator(const NGWrapper &graph,
+unique_ptr<CorpusGenerator> makeCorpusGenerator(const NGHolder &graph,
+                                                const ExpressionInfo &expr,
                                                 CorpusProperties &props) {
-    if (graph.utf8) {
-        return ue2::make_unique<CorpusGeneratorUtf8>(graph, props);
+    if (expr.utf8) {
+        return ue2::make_unique<CorpusGeneratorUtf8>(graph, expr, props);
     } else {
-        return ue2::make_unique<CorpusGeneratorImpl>(graph, props);
+        return ue2::make_unique<CorpusGeneratorImpl>(graph, expr, props);
     }
 }

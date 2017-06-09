@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,24 +35,25 @@
 
 #include "config.h"
 
-#include "ng_dump.h"
+#include "nfagraph/ng_dump.h"
 
-#include "hwlm/hwlm_build.h"
-#include "ng.h"
-#include "ng_util.h"
-#include "parser/position.h"
+#include "hs_compile.h" /* for HS_MODE_* flags */
 #include "ue2common.h"
+#include "compiler/compiler.h"
+#include "hwlm/hwlm_build.h"
 #include "nfa/accel.h"
 #include "nfa/nfa_internal.h" // for MO_INVALID_IDX
-#include "smallwrite/smallwrite_dump.h"
+#include "nfagraph/ng.h"
+#include "nfagraph/ng_util.h"
+#include "parser/position.h"
 #include "rose/rose_build.h"
 #include "rose/rose_internal.h"
+#include "smallwrite/smallwrite_dump.h"
 #include "util/bitutils.h"
 #include "util/dump_charclass.h"
 #include "util/report.h"
 #include "util/report_manager.h"
 #include "util/ue2string.h"
-#include "hs_compile.h" /* for HS_MODE_* flags */
 
 #include <cmath>
 #include <fstream>
@@ -287,13 +288,13 @@ void dumpGraphImpl(const char *name, const GraphT &g,
 // manual instantiation of templated dumpGraph above.
 template void dumpGraphImpl(const char *, const NGHolder &);
 
-void dumpDotWrapperImpl(const NGWrapper &nw, const char *name,
-                        const Grey &grey) {
+void dumpDotWrapperImpl(const NGHolder &g, const ExpressionInfo &expr,
+                        const char *name, const Grey &grey) {
     if (grey.dumpFlags & Grey::DUMP_INT_GRAPH) {
         stringstream ss;
-        ss << grey.dumpPath << "Expr_" << nw.expressionIndex << "_" << name << ".dot";
+        ss << grey.dumpPath << "Expr_" << expr.index << "_" << name << ".dot";
         DEBUG_PRINTF("dumping dot graph to '%s'\n", ss.str().c_str());
-        dumpGraphImpl(ss.str().c_str(), nw);
+        dumpGraphImpl(ss.str().c_str(), g);
     }
 }
 

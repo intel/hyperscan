@@ -30,12 +30,41 @@ if(CMAKE_COMPILER_IS_GNUCC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-array-bounds")
 endif()
 
-add_library(gtest STATIC ${gtest_SOURCES})
-
 add_definitions(-DGTEST_HAS_PTHREAD=0 -DSRCDIR=${PROJECT_SOURCE_DIR})
+
+set(unit_hyperscan_SOURCES
+    ${gtest_SOURCES}
+    hyperscan/allocators.cpp
+    hyperscan/arg_checks.cpp
+    hyperscan/bad_patterns.cpp
+    hyperscan/bad_patterns.txt
+    hyperscan/behaviour.cpp
+    hyperscan/expr_info.cpp
+    hyperscan/extparam.cpp
+    hyperscan/identical.cpp
+    hyperscan/main.cpp
+    hyperscan/multi.cpp
+    hyperscan/order.cpp
+    hyperscan/scratch_op.cpp
+    hyperscan/scratch_in_use.cpp
+    hyperscan/serialize.cpp
+    hyperscan/single.cpp
+    hyperscan/som.cpp
+    hyperscan/stream_op.cpp
+    hyperscan/test_util.cpp
+    hyperscan/test_util.h
+    )
+add_executable(unit-hyperscan ${unit_hyperscan_SOURCES})
+if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
+target_link_libraries(unit-hyperscan hs_shared expressionutil)
+else()
+target_link_libraries(unit-hyperscan hs expressionutil)
+endif()
+
 
 if (NOT (RELEASE_BUILD OR FAT_RUNTIME))
 set(unit_internal_SOURCES
+    ${gtest_SOURCES}
     internal/bitfield.cpp
     internal/bitutils.cpp
     internal/charreach.cpp
@@ -52,8 +81,6 @@ set(unit_internal_SOURCES
     internal/limex_nfa.cpp
     internal/masked_move.cpp
     internal/multi_bit.cpp
-    internal/multiaccel_matcher.cpp
-    internal/multiaccel_shift.cpp
     internal/nfagraph_common.h
     internal/nfagraph_comp.cpp
     internal/nfagraph_equivalence.cpp
@@ -85,39 +112,12 @@ set(unit_internal_SOURCES
     internal/util_string.cpp
     internal/vermicelli.cpp
     internal/main.cpp
-)
+    )
 
 add_executable(unit-internal ${unit_internal_SOURCES})
-target_link_libraries(unit-internal hs gtest corpusomatic)
+set_target_properties(unit-internal PROPERTIES COMPILE_FLAGS "${HS_CXX_FLAGS}")
+target_link_libraries(unit-internal hs corpusomatic)
 endif(NOT (RELEASE_BUILD OR FAT_RUNTIME))
-
-set(unit_hyperscan_SOURCES
-    hyperscan/allocators.cpp
-    hyperscan/arg_checks.cpp
-    hyperscan/bad_patterns.cpp
-    hyperscan/bad_patterns.txt
-    hyperscan/behaviour.cpp
-    hyperscan/expr_info.cpp
-    hyperscan/extparam.cpp
-    hyperscan/identical.cpp
-    hyperscan/main.cpp
-    hyperscan/multi.cpp
-    hyperscan/order.cpp
-    hyperscan/scratch_op.cpp
-    hyperscan/scratch_in_use.cpp
-    hyperscan/serialize.cpp
-    hyperscan/single.cpp
-    hyperscan/som.cpp
-    hyperscan/stream_op.cpp
-    hyperscan/test_util.cpp
-    hyperscan/test_util.h
-    )
-add_executable(unit-hyperscan ${unit_hyperscan_SOURCES})
-if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
-target_link_libraries(unit-hyperscan hs_shared gtest expressionutil)
-else()
-target_link_libraries(unit-hyperscan hs gtest expressionutil)
-endif()
 
 #
 # build target to run unit tests

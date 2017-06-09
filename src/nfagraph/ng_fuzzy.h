@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,56 +26,24 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "src/ue2common.h"
-
-#include "gtest/gtest.h"
-#include "nfa/multiaccel_common.h"
-
-/*
- * Unit tests for the shifters.
- *
- * This is a bit messy, as shifters are macros, so we're using macros to test
- * other macros.
+/** \file
+ * \brief Graph fuzzer for approximate matching
  */
 
-#define TEST_SHIFT(n) \
-    do { \
-        u64a val = ((u64a) 1 << n) - 1; \
-        JOIN(SHIFT, n)(val); \
-        ASSERT_EQ(val, 1); \
-    } while (0)
+#ifndef NG_FUZZY_H
+#define NG_FUZZY_H
 
-TEST(MultiaccelShift, StaticShift) {
-    TEST_SHIFT(1);
-    TEST_SHIFT(2);
-    TEST_SHIFT(3);
-    TEST_SHIFT(4);
-    TEST_SHIFT(5);
-    TEST_SHIFT(6);
-    TEST_SHIFT(7);
-    TEST_SHIFT(8);
-    TEST_SHIFT(10);
-    TEST_SHIFT(11);
-    TEST_SHIFT(12);
-    TEST_SHIFT(13);
-    TEST_SHIFT(14);
-    TEST_SHIFT(15);
-    TEST_SHIFT(16);
-    TEST_SHIFT(17);
-    TEST_SHIFT(18);
-    TEST_SHIFT(19);
-    TEST_SHIFT(20);
-    TEST_SHIFT(21);
-    TEST_SHIFT(22);
-    TEST_SHIFT(23);
-    TEST_SHIFT(24);
-    TEST_SHIFT(25);
-    TEST_SHIFT(26);
-    TEST_SHIFT(27);
-    TEST_SHIFT(28);
-    TEST_SHIFT(29);
-    TEST_SHIFT(30);
-    TEST_SHIFT(31);
-    TEST_SHIFT(32);
+#include "ue2common.h"
+
+namespace ue2 {
+struct Grey;
+class NGHolder;
+class ReportManager;
+
+void validate_fuzzy_compile(const NGHolder &g, u32 edit_distance, bool utf8,
+                            const Grey &grey);
+
+void make_fuzzy(NGHolder &g, u32 edit_distance, const Grey &grey);
 }
+
+#endif // NG_FUZZY_H

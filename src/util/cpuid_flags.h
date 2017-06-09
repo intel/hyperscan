@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,8 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef CPUID_H_53FFCB14B257C2
-#define CPUID_H_53FFCB14B257C2
+#ifndef UTIL_CPUID_H_
+#define UTIL_CPUID_H_
 
 #include "ue2common.h"
 
@@ -41,6 +41,7 @@ u64a cpuid_flags(void);
 
 u32 cpuid_tune(void);
 
+int check_avx512(void);
 int check_avx2(void);
 int check_ssse3(void);
 int check_sse42(void);
@@ -50,5 +51,5 @@ int check_popcnt(void);
 } /* extern "C" */
 #endif
 
-#endif /* CPUID_H_53FFCB14B257C2 */
+#endif /* UTIL_CPUID_H_ */
 

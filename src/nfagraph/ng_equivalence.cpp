@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -63,9 +63,9 @@ class VertexInfo;
 struct VertexInfoPtrCmp {
     // for flat_set
     bool operator()(const VertexInfo *a, const VertexInfo *b) const;
-    // for unordered_set
-    size_t operator()(const VertexInfo *a) const;
 };
+
+using VertexInfoSet = flat_set<VertexInfo *, VertexInfoPtrCmp>;
 
 /** Precalculated (and maintained) information about a vertex. */
 class VertexInfo {
@@ -74,8 +74,8 @@ public:
         : v(v_in), vert_index(g[v].index), cr(g[v].char_reach),
           equivalence_class(~0), vertex_flags(g[v].assert_flags) {}
 
-    flat_set<VertexInfo *, VertexInfoPtrCmp> pred; //!< predecessors of this vertex
-    flat_set<VertexInfo *, VertexInfoPtrCmp> succ; //!< successors of this vertex
+    VertexInfoSet pred; //!< predecessors of this vertex
+    VertexInfoSet succ; //!< successors of this vertex
     NFAVertex v;
     size_t vert_index;
     CharReach cr;
@@ -86,21 +86,11 @@ public:
     unsigned vertex_flags;
 };
 
-}
-
-typedef ue2::unordered_set<VertexInfo *, VertexInfoPtrCmp> VertexInfoSet;
-
 // compare two vertex info pointers on their vertex index
 bool VertexInfoPtrCmp::operator()(const VertexInfo *a,
                                   const VertexInfo *b) const {
     return a->vert_index < b->vert_index;
 }
-// provide a "hash" for vertex info pointer by returning its vertex index
-size_t VertexInfoPtrCmp::operator()(const VertexInfo *a) const {
-    return a->vert_index;
-}
-
-namespace {
 
 // to avoid traversing infomap each time we need to check the class during
 // partitioning, we will cache the information pertaining to a particular class
@@ -133,7 +123,7 @@ public:
 
     friend size_t hash_value(const ClassInfo &c) {
         size_t val = 0;
-        boost::hash_combine(val, boost::hash_range(begin(c.rs), end(c.rs)));
+        boost::hash_combine(val, c.rs);
         boost::hash_combine(val, c.vertex_flags);
         boost::hash_combine(val, c.cr);
         boost::hash_combine(val, c.adjacent_cr);
@@ -342,9 +332,9 @@ vector<VertexInfoSet> partitionGraph(vector<unique_ptr<VertexInfo>> &infos,
     vector<NFAVertexRevDepth> rdepths;
 
     if (eq == LEFT_EQUIVALENCE) {
-        calcDepths(g, depths);
+        depths = calcDepths(g);
     } else {
-        calcDepths(g, rdepths);
+        rdepths = calcRevDepths(g);
     }
 
     // partition the graph based on CharReach

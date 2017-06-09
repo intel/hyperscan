@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,14 +31,14 @@
  */
 #include "config.h"
 
-#include <cstring>
-#include <string>
-#include <vector>
-
 #include "gtest/gtest.h"
 #include "hs.h"
 #include "hs_internal.h"
 #include "test_util.h"
+
+#include <cstring>
+#include <string>
+#include <vector>
 
 namespace {
 
@@ -46,40 +46,63 @@ using namespace std;
 using namespace testing;
 
 static const unsigned validModes[] = {
-    HS_MODE_STREAM,
-    HS_MODE_NOSTREAM
+    HS_MODE_NOSTREAM,
+    HS_MODE_STREAM | HS_MODE_SOM_HORIZON_LARGE,
+    HS_MODE_VECTORED
 };
 
-class Serializep : public TestWithParam<unsigned> {
+static const pattern testPatterns[] = {
+    pattern("hatstand.*teakettle.*badgerbrush", HS_FLAG_CASELESS, 1000),
+    pattern("hatstand.*teakettle.*badgerbrush", HS_FLAG_DOTALL, 1001),
+    pattern("hatstand|teakettle|badgerbrush", 0, 1002),
+    pattern("^hatstand|teakettle|badgerbrush$", 0, 1003),
+    pattern("foobar.{10,1000}xyzzy", HS_FLAG_DOTALL, 1004),
+    pattern("foobar.{2,501}roobar", 0, 1005),
+    pattern("abc.*def.*ghi", HS_FLAG_SOM_LEFTMOST, 1006),
+    pattern("(\\p{L}){4}", HS_FLAG_UTF8|HS_FLAG_UCP, 1007),
+    pattern("\\.(exe|pdf|gif|jpg|png|wav|riff|mp4)\\z", 0, 1008)
 };
+
+class SerializeP : public TestWithParam<tuple<unsigned, pattern>> {};
+
+static
+const char *getModeString(unsigned mode) {
+    if (mode & HS_MODE_STREAM) {
+        return "STREAM";
+    }
+    if (mode & HS_MODE_BLOCK) {
+        return "BLOCK";
+    }
+    if (mode & HS_MODE_VECTORED) {
+        return "VECTORED";
+    }
+    return "UNKNOWN";
+}
 
 // Check that we can deserialize from a char array at any alignment and the info
 // is consistent
-TEST_P(Serializep, DeserializeFromAnyAlignment) {
-    const unsigned mode = GetParam();
+TEST_P(SerializeP, DeserializeFromAnyAlignment) {
+    const unsigned mode = get<0>(GetParam());
+    const pattern &pat = get<1>(GetParam());
     SCOPED_TRACE(mode);
+    SCOPED_TRACE(pat);
 
     hs_error_t err;
-    hs_database_t *db = buildDB("hatstand.*teakettle.*badgerbrush",
-                                HS_FLAG_CASELESS, 1000, mode);
+    hs_database_t *db = buildDB(pat, mode);
     ASSERT_TRUE(db != nullptr) << "database build failed.";
 
     char *original_info = nullptr;
     err = hs_database_info(db, &original_info);
     ASSERT_EQ(HS_SUCCESS, err);
 
-    const char *mode_string = nullptr;
-    switch (mode) {
-    case HS_MODE_STREAM:
-        mode_string = "STREAM";
-        break;
-    case HS_MODE_NOSTREAM:
-        mode_string = "BLOCK";
-    }
+    const char *mode_string = getModeString(mode);
 
-    ASSERT_NE(nullptr, original_info) << "hs_serialized_database_info returned null.";
+    ASSERT_NE(nullptr, original_info)
+        << "hs_serialized_database_info returned null.";
     ASSERT_STREQ("Version:", string(original_info).substr(0, 8).c_str());
-    ASSERT_TRUE(strstr(original_info, mode_string) != nullptr);
+    ASSERT_TRUE(strstr(original_info, mode_string) != nullptr)
+        << "Original info \"" << original_info
+        << "\" does not contain " << mode_string;
 
     char *bytes = nullptr;
     size_t length = 0;
@@ -133,31 +156,28 @@ TEST_P(Serializep, DeserializeFromAnyAlignment) {
 
 // Check that we can deserialize_at from a char array at any alignment and the
 // info is consistent
-TEST_P(Serializep, DeserializeAtFromAnyAlignment) {
-    const unsigned mode = GetParam();
+TEST_P(SerializeP, DeserializeAtFromAnyAlignment) {
+    const unsigned mode = get<0>(GetParam());
+    const pattern &pat = get<1>(GetParam());
     SCOPED_TRACE(mode);
+    SCOPED_TRACE(pat);
 
     hs_error_t err;
-    hs_database_t *db = buildDB("hatstand.*teakettle.*badgerbrush",
-                                HS_FLAG_CASELESS, 1000, mode);
+    hs_database_t *db = buildDB(pat, mode);
     ASSERT_TRUE(db != nullptr) << "database build failed.";
 
     char *original_info;
     err = hs_database_info(db, &original_info);
     ASSERT_EQ(HS_SUCCESS, err);
 
-    const char *mode_string = nullptr;
-    switch (mode) {
-    case HS_MODE_STREAM:
-        mode_string = "STREAM";
-        break;
-    case HS_MODE_NOSTREAM:
-        mode_string = "BLOCK";
-    }
+    const char *mode_string = getModeString(mode);
 
-    ASSERT_NE(nullptr, original_info) << "hs_serialized_database_info returned null.";
+    ASSERT_NE(nullptr, original_info)
+        << "hs_serialized_database_info returned null.";
     ASSERT_STREQ("Version:", string(original_info).substr(0, 8).c_str());
-    ASSERT_TRUE(strstr(original_info, mode_string) != nullptr);
+    ASSERT_TRUE(strstr(original_info, mode_string) != nullptr)
+        << "Original info \"" << original_info
+        << "\" does not contain " << mode_string;
 
     char *bytes = nullptr;
     size_t length = 0;
@@ -217,8 +237,8 @@ TEST_P(Serializep, DeserializeAtFromAnyAlignment) {
     delete[] mem;
 }
 
-INSTANTIATE_TEST_CASE_P(Serialize, Serializep,
-                        ValuesIn(validModes));
+INSTANTIATE_TEST_CASE_P(Serialize, SerializeP,
+                        Combine(ValuesIn(validModes), ValuesIn(testPatterns)));
 
 // Attempt to reproduce the scenario in UE-1946.
 TEST(Serialize, CrossCompileSom) {
@@ -226,11 +246,10 @@ TEST(Serialize, CrossCompileSom) {
     plat.cpu_features = 0;
     plat.tune = HS_TUNE_FAMILY_GENERIC;
 
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
     const unsigned mode = HS_MODE_STREAM
                           | HS_MODE_SOM_HORIZON_LARGE;
-    hs_database_t *db = buildDB(pattern, HS_FLAG_SOM_LEFTMOST, 1000, mode,
-                                &plat);
+    hs_database_t *db = buildDB(pat, HS_FLAG_SOM_LEFTMOST, 1000, mode, &plat);
     ASSERT_TRUE(db != nullptr) << "database build failed.";
 
     size_t db_len;
@@ -275,15 +294,16 @@ static void misaligned_free(void *p) {
     free(c - 1);
 }
 
-// make sure that serializing/deserializing to null or an unaligned address fails
+// make sure that serializing/deserializing to null or an unaligned address
+// fails
 TEST(Serialize, CompileNullMalloc) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
 
     // mallocing null should fail compile
     hs_set_allocator(null_malloc, nullptr);
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_NE(HS_SUCCESS, err);
     ASSERT_TRUE(db == nullptr);
     ASSERT_TRUE(c_err != nullptr);
@@ -294,14 +314,14 @@ TEST(Serialize, CompileNullMalloc) {
 TEST(Serialize, CompileErrorAllocator) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatsta^nd.*(badgerbrush|teakettle)";
+    static const char *pat = "hatsta^nd.*(badgerbrush|teakettle)";
 
     // failing to compile should use the misc allocator
     allocated_count = 0;
     allocated_count_b = 0;
     hs_set_allocator(count_malloc_b, count_free_b);
     hs_set_misc_allocator(count_malloc, count_free);
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_NE(HS_SUCCESS, err);
     ASSERT_TRUE(db == nullptr);
     ASSERT_TRUE(c_err != nullptr);
@@ -315,13 +335,13 @@ TEST(Serialize, CompileErrorAllocator) {
 TEST(Serialize, AllocatorsUsed) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
 
     allocated_count = 0;
     allocated_count_b = 0;
     hs_set_allocator(count_malloc_b, count_free_b);
     hs_set_database_allocator(count_malloc, count_free);
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
     ASSERT_TRUE(c_err == nullptr);
@@ -344,15 +364,14 @@ TEST(Serialize, AllocatorsUsed) {
     ASSERT_EQ(0, allocated_count_b);
 }
 
-
 TEST(Serialize, CompileUnalignedMalloc) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
 
     // unaligned malloc should fail compile
     hs_set_allocator(misaligned_malloc, misaligned_free);
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_NE(HS_SUCCESS, err);
     ASSERT_TRUE(db == nullptr);
     ASSERT_TRUE(c_err != nullptr);
@@ -363,8 +382,8 @@ TEST(Serialize, CompileUnalignedMalloc) {
 TEST(Serialize, SerializeNullMalloc) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
 
@@ -384,13 +403,14 @@ TEST(Serialize, SerializeNullMalloc) {
     hs_free_database(db);
 }
 
-// make sure that serializing/deserializing to null or an unaligned address fails
+// make sure that serializing/deserializing to null or an unaligned address
+// fails
 TEST(Serialize, SerializeUnalignedMalloc) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat= "hatstand.*(badgerbrush|teakettle)";
 
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
 
@@ -414,9 +434,9 @@ TEST(Serialize, SerializeUnalignedMalloc) {
 TEST(Serialize, DeserializeNullMalloc) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
 
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
 
@@ -447,9 +467,9 @@ TEST(Serialize, DeserializeNullMalloc) {
 TEST(Serialize, DeserializeUnalignedMalloc) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
 
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
 
@@ -486,9 +506,9 @@ TEST(Serialize, DeserializeUnalignedMalloc) {
 TEST(Serialize, DeserializeGarbage) {
     hs_database_t *db;
     hs_compile_error_t *c_err;
-    static const char *pattern = "hatstand.*(badgerbrush|teakettle)";
+    static const char *pat = "hatstand.*(badgerbrush|teakettle)";
 
-    hs_error_t err = hs_compile(pattern, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
+    hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr, &db, &c_err);
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
 

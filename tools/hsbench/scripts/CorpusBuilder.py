@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 '''
 A module to construct corpora databases for the Hyperscan benchmarker

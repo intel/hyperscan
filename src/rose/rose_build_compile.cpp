@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,7 @@
 #include "rose_build_role_aliasing.h"
 #include "rose_build_util.h"
 #include "ue2common.h"
+#include "hwlm/hwlm_literal.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/rdfa.h"
 #include "nfagraph/ng_holder.h"
@@ -102,10 +103,75 @@ bool limited_explosion(const ue2_literal &s) {
     return nc_count <= MAX_EXPLOSION_NC;
 }
 
+static
+void removeLiteralFromGraph(RoseBuildImpl &build, u32 id) {
+    assert(id < build.literal_info.size());
+    auto &info = build.literal_info.at(id);
+    for (const auto &v : info.vertices) {
+        build.g[v].literals.erase(id);
+    }
+    info.vertices.clear();
+}
+
+/**
+ * \brief Replace the given mixed-case literal with the set of its caseless
+ * variants.
+ */
+static
+void explodeLiteral(RoseBuildImpl &build, u32 id) {
+    const auto &lit = build.literals.at(id);
+    auto &info = build.literal_info[id];
+
+    assert(!info.group_mask); // not set yet
+    assert(info.undelayed_id == id); // we do not explode delayed literals
+
+    for (auto it = caseIterateBegin(lit.s); it != caseIterateEnd(); ++it) {
+        ue2_literal new_str(*it, false);
+
+        if (!maskIsConsistent(new_str.get_string(), false, lit.msk, lit.cmp)) {
+            DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
+            continue;
+        }
+
+        u32 new_id =
+            build.getLiteralId(new_str, lit.msk, lit.cmp, lit.delay, lit.table);
+
+        DEBUG_PRINTF("adding exploded lit %u: '%s'\n", new_id,
+                     dumpString(new_str).c_str());
+
+        const auto &new_lit = build.literals.at(new_id);
+        auto &new_info = build.literal_info.at(new_id);
+        insert(&new_info.vertices, info.vertices);
+        for (const auto &v : info.vertices) {
+            build.g[v].literals.insert(new_id);
+        }
+
+        build.literal_info[new_id].undelayed_id = new_id;
+        if (!info.delayed_ids.empty()) {
+            flat_set<u32> &del_ids = new_info.delayed_ids;
+            for (u32 delay_id : info.delayed_ids) {
+                const auto &dlit = build.literals.at(delay_id);
+                u32 new_delay_id =
+                    build.getLiteralId(new_lit.s, new_lit.msk, new_lit.cmp,
+                                       dlit.delay, dlit.table);
+                del_ids.insert(new_delay_id);
+                build.literal_info[new_delay_id].undelayed_id = new_id;
+            }
+        }
+    }
+
+    // Remove the old literal and any old delay variants.
+    removeLiteralFromGraph(build, id);
+    for (u32 delay_id : info.delayed_ids) {
+        removeLiteralFromGraph(build, delay_id);
+    }
+    info.delayed_ids.clear();
+}
+
 void RoseBuildImpl::handleMixedSensitivity(void) {
-    for (const auto &e : literals.right) {
-        u32 id = e.first;
-        const rose_literal_id &lit = e.second;
+    vector<u32> explode;
+    for (u32 id = 0; id < literals.size(); id++) {
+        const rose_literal_id &lit = literals.at(id);
 
         if (lit.delay) {
             continue; /* delay id's are virtual-ish */
@@ -120,17 +186,22 @@ void RoseBuildImpl::handleMixedSensitivity(void) {
         }
 
         // We don't want to explode long literals, as they require confirmation
-        // with a CHECK_LITERAL instruction and need unique final_ids.
+        // with a CHECK_LONG_LIT instruction and need unique final_ids.
         // TODO: we could allow explosion for literals where the prefixes
-        // covered by CHECK_LITERAL are identical.
+        // covered by CHECK_LONG_LIT are identical.
+
         if (lit.s.length() <= ROSE_LONG_LITERAL_THRESHOLD_MIN &&
-            limited_explosion(lit.s)) {
+            limited_explosion(lit.s) && literal_info[id].delayed_ids.empty()) {
             DEBUG_PRINTF("need to explode existing string '%s'\n",
                          dumpString(lit.s).c_str());
-            literal_info[id].requires_explode = true;
+            explode.push_back(id);
         } else {
             literal_info[id].requires_benefits = true;
         }
+    }
+
+    for (u32 id : explode) {
+        explodeLiteral(*this, id);
     }
 }
 
@@ -348,7 +419,7 @@ bool RoseBuildImpl::isDirectReport(u32 id) const {
             }
         }
 
-        if (literals.right.at(id).table == ROSE_ANCHORED) {
+        if (literals.at(id).table == ROSE_ANCHORED) {
             /* in-edges are irrelevant for anchored region. */
             continue;
         }
@@ -367,7 +438,7 @@ bool RoseBuildImpl::isDirectReport(u32 id) const {
     }
 
     DEBUG_PRINTF("literal %u ('%s') is a %s report\n", id,
-                 dumpString(literals.right.at(id).s).c_str(),
+                 dumpString(literals.at(id).s).c_str(),
                  info.vertices.size() > 1 ? "multi-direct" : "direct");
     return true;
 }
@@ -412,7 +483,7 @@ bool checkFloatingKillableByPrefixes(const RoseBuildImpl &tbi) {
 }
 
 static
-bool checkEodStealFloating(const RoseBuildImpl &tbi,
+bool checkEodStealFloating(const RoseBuildImpl &build,
                            const vector<u32> &eodLiteralsForFloating,
                            u32 numFloatingLiterals,
                            size_t shortestFloatingLen) {
@@ -426,15 +497,23 @@ bool checkEodStealFloating(const RoseBuildImpl &tbi,
         return false;
     }
 
-    if (tbi.hasNoFloatingRoots()) {
+    if (build.hasNoFloatingRoots()) {
         DEBUG_PRINTF("skipping as floating table is conditional\n");
         /* TODO: investigate putting stuff in atable */
         return false;
     }
 
-    if (checkFloatingKillableByPrefixes(tbi)) {
+    if (checkFloatingKillableByPrefixes(build)) {
          DEBUG_PRINTF("skipping as prefixes may make ftable conditional\n");
          return false;
+    }
+
+    // Collect a set of all floating literals.
+    unordered_set<ue2_literal> floating_lits;
+    for (auto &lit : build.literals) {
+        if (lit.table == ROSE_FLOATING) {
+            floating_lits.insert(lit.s);
+        }
     }
 
     DEBUG_PRINTF("%zu are eod literals, %u floating; floating len=%zu\n",
@@ -443,10 +522,10 @@ bool checkEodStealFloating(const RoseBuildImpl &tbi,
     u32 new_floating_lits = 0;
 
     for (u32 eod_id : eodLiteralsForFloating) {
-        const rose_literal_id &lit = tbi.literals.right.at(eod_id);
+        const rose_literal_id &lit = build.literals.at(eod_id);
         DEBUG_PRINTF("checking '%s'\n", dumpString(lit.s).c_str());
 
-        if (tbi.hasLiteral(lit.s, ROSE_FLOATING)) {
+        if (contains(floating_lits, lit.s)) {
             DEBUG_PRINTF("skip; there is already a floating version\n");
             continue;
         }
@@ -477,12 +556,16 @@ bool checkEodStealFloating(const RoseBuildImpl &tbi,
 
 static
 void promoteEodToFloating(RoseBuildImpl &tbi, const vector<u32> &eodLiterals) {
-    DEBUG_PRINTF("promoting eod literals to floating table\n");
+    DEBUG_PRINTF("promoting %zu eod literals to floating table\n",
+                 eodLiterals.size());
 
     for (u32 eod_id : eodLiterals) {
-        const rose_literal_id &lit = tbi.literals.right.at(eod_id);
+        const rose_literal_id &lit = tbi.literals.at(eod_id);
+        DEBUG_PRINTF("eod_id=%u, lit=%s\n", eod_id, dumpString(lit.s).c_str());
         u32 floating_id = tbi.getLiteralId(lit.s, lit.msk, lit.cmp, lit.delay,
                                            ROSE_FLOATING);
+        DEBUG_PRINTF("floating_id=%u, lit=%s\n", floating_id,
+                     dumpString(tbi.literals.at(floating_id).s).c_str());
         auto &float_verts = tbi.literal_info[floating_id].vertices;
         auto &eod_verts = tbi.literal_info[eod_id].vertices;
 
@@ -496,8 +579,6 @@ void promoteEodToFloating(RoseBuildImpl &tbi, const vector<u32> &eodLiterals) {
             tbi.g[v].literals.insert(floating_id);
         }
 
-        tbi.literal_info[floating_id].requires_explode
-            = tbi.literal_info[eod_id].requires_explode;
         tbi.literal_info[floating_id].requires_benefits
             = tbi.literal_info[eod_id].requires_benefits;
     }
@@ -509,7 +590,7 @@ bool promoteEodToAnchored(RoseBuildImpl &tbi, const vector<u32> &eodLiterals) {
     bool rv = true;
 
     for (u32 eod_id : eodLiterals) {
-        const rose_literal_id &lit = tbi.literals.right.at(eod_id);
+        const rose_literal_id &lit = tbi.literals.at(eod_id);
 
         NGHolder h;
         add_edge(h.start, h.accept, h);
@@ -649,7 +730,7 @@ void stealEodVertices(RoseBuildImpl &tbi) {
             continue; // skip unused literals
         }
 
-        const rose_literal_id &lit = tbi.literals.right.at(i);
+        const rose_literal_id &lit = tbi.literals.at(i);
 
         if (lit.table == ROSE_EOD_ANCHORED) {
             if (suitableForAnchored(tbi, lit, info)) {
@@ -689,13 +770,9 @@ bool RoseBuildImpl::isDelayed(u32 id) const {
     return literal_info.at(id).undelayed_id != id;
 }
 
-bool RoseBuildImpl::hasFinalId(u32 id) const {
-    return literal_info.at(id).final_id != MO_INVALID_IDX;
-}
-
 bool RoseBuildImpl::hasDelayedLiteral(RoseVertex v) const {
     for (u32 lit_id : g[v].literals) {
-        if (literals.right.at(lit_id).delay) {
+        if (literals.at(lit_id).delay) {
             return true;
         }
     }
@@ -966,7 +1043,7 @@ void packInfixTops(NGHolder &h, RoseGraph &g,
                 updated_tops.insert(top_mapping.at(t));
             }
         }
-        h[e].tops = move(updated_tops);
+        h[e].tops = std::move(updated_tops);
         if (h[e].tops.empty()) {
             DEBUG_PRINTF("edge (start,%zu) has only unused tops\n", h[v].index);
             dead.push_back(e);
@@ -1021,7 +1098,7 @@ bool triggerKillsRoseGraph(const RoseBuildImpl &build, const left_id &left,
     /* check each pred literal to see if they all kill previous graph
      * state */
     for (u32 lit_id : build.g[source(e, build.g)].literals) {
-        const rose_literal_id &pred_lit = build.literals.right.at(lit_id);
+        const rose_literal_id &pred_lit = build.literals.at(lit_id);
         const ue2_literal s = findNonOverlappingTail(all_lits, pred_lit.s);
 
         DEBUG_PRINTF("running graph %zu\n", states.size());
@@ -1095,7 +1172,7 @@ void findTopTriggerCancels(RoseBuildImpl &build) {
         }
 
         for (u32 lit_id : pred_lit_ids) {
-            const rose_literal_id &p_lit = build.literals.right.at(lit_id);
+            const rose_literal_id &p_lit = build.literals.at(lit_id);
             if (p_lit.delay || p_lit.table == ROSE_ANCHORED) {
                 goto next_rose;
             }
@@ -1166,11 +1243,15 @@ void buildRoseSquashMasks(RoseBuildImpl &tbi) {
             }
         }
 
-        rose_group unsquashable = 0;
+        rose_group unsquashable = tbi.boundary_group_mask;
 
         for (u32 lit_id : lit_ids) {
             const rose_literal_info &info = tbi.literal_info[lit_id];
-            if (info.vertices.size() > 1 || !info.delayed_ids.empty()) {
+            if (!info.delayed_ids.empty()
+                || !all_of_in(info.vertices,
+                              [&](RoseVertex v) {
+                                  return left == tbi.g[v].left; })) {
+                DEBUG_PRINTF("group %llu is unsquashable\n", info.group_mask);
                 unsquashable |= info.group_mask;
             }
         }
@@ -1192,7 +1273,7 @@ void countFloatingLiterals(const RoseBuildImpl &tbi, u32 *total_count,
                            u32 *short_count) {
     *total_count = 0;
     *short_count = 0;
-    for (const rose_literal_id &lit : tbi.literals.right | map_values) {
+    for (const rose_literal_id &lit : tbi.literals) {
         if (lit.delay) {
             continue; /* delay id's are virtual-ish */
         }
@@ -1598,8 +1679,8 @@ bool roleOffsetsAreValid(const RoseGraph &g) {
 }
 #endif // NDEBUG
 
-aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
-    dumpRoseGraph(*this, nullptr, "rose_early.dot");
+bytecode_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
+    dumpRoseGraph(*this, "rose_early.dot");
 
     // Early check for Rose implementability.
     assert(canImplementGraphs(*this));
@@ -1644,8 +1725,6 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
     dedupeLeftfixes(*this);
     aliasRoles(*this, false); // Don't merge leftfixes.
     dedupeLeftfixes(*this);
-
-    convertBadLeaves(*this);
     uncalcLeaves(*this);
 
     /* note the leftfixes which do not need to keep state across stream
@@ -1712,7 +1791,7 @@ aligned_unique_ptr<RoseEngine> RoseBuildImpl::buildRose(u32 minWidth) {
     assert(roleOffsetsAreValid(g));
     assert(historiesAreValid(g));
 
-    dumpRoseGraph(*this, nullptr, "rose_pre_norm.dot");
+    dumpRoseGraph(*this, "rose_pre_norm.dot");
 
     return buildFinalEngine(minWidth);
 }

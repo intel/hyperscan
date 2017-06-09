@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,9 +26,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- * \brief Tamarama: container engine for exclusive engines,
- *                  compiler code.
+/**
+ * \file
+ * \brief Tamarama: container engine for exclusive engines, compiler code.
  */
 
 #include "config.h"
@@ -111,8 +111,9 @@ void copyInSubnfas(const char *base_offset, NFA &nfa,
  * returns via out_top_remap, a mapping indicating how tops in the subengines in
  * relate to the tamarama's tops.
  */
-aligned_unique_ptr<NFA> buildTamarama(const TamaInfo &tamaInfo, const u32 queue,
-                        map<pair<const NFA *, u32>, u32> &out_top_remap) {
+bytecode_ptr<NFA>
+buildTamarama(const TamaInfo &tamaInfo, const u32 queue,
+              map<pair<const NFA *, u32>, u32> &out_top_remap) {
     vector<u32> top_base;
     remapTops(tamaInfo, top_base, out_top_remap);
 
@@ -133,7 +134,7 @@ aligned_unique_ptr<NFA> buildTamarama(const TamaInfo &tamaInfo, const u32 queue,
     // use subSize as a sentinel value for no active subengines,
     // so add one to subSize here
     u32 activeIdxSize = calcPackedBytes(subSize + 1);
-    aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(total_size);
     nfa->type = verify_u8(TAMARAMA_NFA);
     nfa->length = verify_u32(total_size);
     nfa->queueIndex = queue;
@@ -148,7 +149,7 @@ aligned_unique_ptr<NFA> buildTamarama(const TamaInfo &tamaInfo, const u32 queue,
     copy_bytes(ptr, top_base);
     ptr += byte_length(top_base);
 
-    u32 *offsets = (u32*)ptr;
+    u32 *offsets = (u32 *)ptr;
     char *sub_nfa_offset = ptr + sizeof(u32) * subSize;
     copyInSubnfas(base_offset, *nfa, tamaInfo, offsets, sub_nfa_offset,
                   activeIdxSize);

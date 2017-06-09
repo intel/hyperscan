@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -73,8 +73,11 @@ struct catchup_pq {
 /** \brief Status flag: user requested termination. */
 #define STATUS_TERMINATED   (1U << 0)
 
-/** \brief Status flag: all possible matches on this stream have
- * been raised (i.e. all its exhaustion keys are on.) */
+/** \brief Status flag: it has been determined that it is not possible for this
+ * stream to raise any more matches.
+ *
+ * This may be because all its exhaustion keys are on or for other reasons
+ * (anchored sections not matching). */
 #define STATUS_EXHAUSTED    (1U << 1)
 
 /** \brief Status flag: Rose requires rebuild as delay literal matched in

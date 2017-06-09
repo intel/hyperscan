@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,26 +52,26 @@ struct WidthTest {
 class NFAWidthTest : public TestWithParam<WidthTest> { };
 
 static const WidthTest widthTests[] = {
-    { "()", 0, 0 },
-    { "a", 1, 1 },
-    { "a?b", 1, 2 },
-    { "foobar", 6, 6 },
-    { "foo(bar)?", 3, 6 },
-    { "(a|ab|abc|abcd)", 1, 4 },
-    { "foo.*bar", 6, depth::infinity() },
-    { "foo(bar)*", 3, depth::infinity() },
-    { "foo(bar)+", 6, depth::infinity() },
-    { "foo(bar){1,3}", 6, 12 },
-    { "(abcd)+", 4, depth::infinity() },
-    { "foo\\z", 3, 3 },
-    { "^foo", 3, 3 },
-    { "^foo|bar.*baz", 3, depth::infinity() },
-    { "^foobar.*|baz", 3, depth::infinity() },
-    { "foo(\\z|bar)", 3, 6 },
-    { "foo(|bar\\z)", 3, 6 },
-    { "foo.{0,15}bar", 6, 21 },
-    { "foo.{0,15}.*bar", 6, depth::infinity() },
-    { "(?smi)^(aa[^a]aa$|a|a+\\Z|a)", 1, depth::infinity() }
+    { "()", depth(0), depth(0) },
+    { "a", depth(1), depth(1) },
+    { "a?b", depth(1), depth(2) },
+    { "foobar", depth(6), depth(6) },
+    { "foo(bar)?", depth(3), depth(6) },
+    { "(a|ab|abc|abcd)", depth(1), depth(4) },
+    { "foo.*bar", depth(6), depth::infinity() },
+    { "foo(bar)*", depth(3), depth::infinity() },
+    { "foo(bar)+", depth(6), depth::infinity() },
+    { "foo(bar){1,3}", depth(6), depth(12) },
+    { "(abcd)+", depth(4), depth::infinity() },
+    { "foo\\z", depth(3), depth(3) },
+    { "^foo", depth(3), depth(3) },
+    { "^foo|bar.*baz", depth(3), depth::infinity() },
+    { "^foobar.*|baz", depth(3), depth::infinity() },
+    { "foo(\\z|bar)", depth(3), depth(6) },
+    { "foo(|bar\\z)", depth(3), depth(6) },
+    { "foo.{0,15}bar", depth(6), depth(21) },
+    { "foo.{0,15}.*bar", depth(6), depth::infinity() },
+    { "(?smi)^(aa[^a]aa$|a|a+\\Z|a)", depth(1), depth::infinity() }
 };
 
 INSTANTIATE_TEST_CASE_P(NFAWidth, NFAWidthTest, ValuesIn(widthTests));
@@ -79,10 +79,10 @@ INSTANTIATE_TEST_CASE_P(NFAWidth, NFAWidthTest, ValuesIn(widthTests));
 TEST_P(NFAWidthTest, Check) {
     const WidthTest &t = GetParam();
     SCOPED_TRACE(testing::Message() << "Pattern: " << t.pattern);
-    unique_ptr<NGWrapper> w(constructGraph(t.pattern, 0));
+    auto g = constructGraph(t.pattern, 0);
 
-    ASSERT_EQ(t.minWidth, findMinWidth(*w));
-    ASSERT_EQ(t.maxWidth, findMaxWidth(*w));
+    ASSERT_EQ(t.minWidth, findMinWidth(*g));
+    ASSERT_EQ(t.maxWidth, findMaxWidth(*g));
 }
 
 // for google test

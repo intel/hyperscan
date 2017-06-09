@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,7 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief SOM Slot Manager.
  */
 
@@ -35,12 +36,12 @@
 
 #include "ue2common.h"
 #include "nfagraph/ng_holder.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
+#include "util/noncopyable.h"
 #include "util/ue2_containers.h"
 
 #include <deque>
 #include <memory>
-#include <boost/core/noncopyable.hpp>
 
 struct NFA;
 
@@ -54,7 +55,7 @@ struct SlotCache;
 /** \brief SOM slot manager. Used to hand out SOM slots and track their
  * relationships during SOM construction. Also stores reverse NFAs used for
  * SOM. */
-class SomSlotManager : boost::noncopyable {
+class SomSlotManager : noncopyable {
 public:
     explicit SomSlotManager(u8 precision);
     ~SomSlotManager();
@@ -78,11 +79,11 @@ public:
 
     u32 numSomSlots() const;
 
-    const std::deque<aligned_unique_ptr<NFA>> &getRevNfas() const {
+    const std::deque<bytecode_ptr<NFA>> &getRevNfas() const {
         return rev_nfas;
     }
 
-    u32 addRevNfa(aligned_unique_ptr<NFA> nfa, u32 maxWidth);
+    u32 addRevNfa(bytecode_ptr<NFA> nfa, u32 maxWidth);
 
     u32 somHistoryRequired() const { return historyRequired; }
 
@@ -97,7 +98,7 @@ private:
     std::unique_ptr<SlotCache> cache;
 
     /** \brief Reverse NFAs used for SOM support. */
-    std::deque<aligned_unique_ptr<NFA>> rev_nfas;
+    std::deque<bytecode_ptr<NFA>> rev_nfas;
 
     /** \brief In streaming mode, the amount of history we've committed to
      * using for SOM rev NFAs. */

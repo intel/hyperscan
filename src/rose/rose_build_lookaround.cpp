@@ -45,6 +45,7 @@
 
 #include <cstdlib>
 #include <queue>
+#include <sstream>
 
 using namespace std;
 
@@ -61,6 +62,20 @@ static const u32 MAX_LOOKAROUND_ENTRIES = 16;
 
 /** \brief We would rather have lookarounds with smaller reach than this. */
 static const u32 LOOKAROUND_WIDE_REACH = 200;
+
+#if defined(DEBUG) || defined(DUMP_SUPPORT)
+static UNUSED
+string dump(const map<s32, CharReach> &look) {
+    ostringstream oss;
+    for (auto it = look.begin(), ite = look.end(); it != ite; ++it) {
+        if (it != look.begin()) {
+            oss << ", ";
+        }
+        oss << "{" << it->first << ": " << describeClass(it->second) << "}";
+    }
+    return oss.str();
+}
+#endif
 
 static
 void getForwardReach(const NGHolder &g, u32 top, map<s32, CharReach> &look) {
@@ -298,21 +313,6 @@ void findBackwardReach(const RoseGraph &g, const RoseVertex v,
     // TODO: implement DFA variants if necessary.
 }
 
-#if defined(DEBUG) || defined(DUMP_SUPPORT)
-#include <sstream>
-static UNUSED
-string dump(const map<s32, CharReach> &look) {
-    ostringstream oss;
-    for (auto it = look.begin(), ite = look.end(); it != ite; ++it) {
-        if (it != look.begin()) {
-            oss << ", ";
-        }
-        oss << "{" << it->first << ": " << describeClass(it->second) << "}";
-    }
-    return oss.str();
-}
-#endif
-
 static
 void normalise(map<s32, CharReach> &look) {
     // We can erase entries where the reach is "all characters".
@@ -447,7 +447,7 @@ static
 void findFloodReach(const RoseBuildImpl &tbi, const RoseVertex v,
                     set<CharReach> &flood_reach) {
     for (u32 lit_id : tbi.g[v].literals) {
-        const ue2_literal &s = tbi.literals.right.at(lit_id).s;
+        const ue2_literal &s = tbi.literals.at(lit_id).s;
         if (s.empty()) {
             continue;
         }
@@ -460,13 +460,24 @@ void findFloodReach(const RoseBuildImpl &tbi, const RoseVertex v,
     }
 }
 
-static
-map<s32, CharReach> findLiteralReach(const rose_literal_id &lit) {
-    map<s32, CharReach> look;
 
-    u32 i = lit.delay + 1;
-    for (auto it = lit.s.rbegin(), ite = lit.s.rend(); it != ite; ++it) {
-        look[0 - i] |= *it;
+namespace {
+struct LookProto {
+    LookProto(s32 offset_in, CharReach reach_in)
+        : offset(offset_in), reach(move(reach_in)) {}
+    s32 offset;
+    CharReach reach;
+};
+}
+
+static
+vector<LookProto> findLiteralReach(const rose_literal_id &lit) {
+    vector<LookProto> look;
+    look.reserve(lit.s.length());
+
+    s32 i = 0 - lit.s.length() - lit.delay;
+    for (const auto &c : lit.s) {
+        look.emplace_back(i, c);
         i++;
     }
 
@@ -478,22 +489,40 @@ map<s32, CharReach> findLiteralReach(const RoseBuildImpl &build,
                                      const RoseVertex v) {
     bool first = true;
     map<s32, CharReach> look;
+
     for (u32 lit_id : build.g[v].literals) {
-        const rose_literal_id &lit = build.literals.right.at(lit_id);
+        const rose_literal_id &lit = build.literals.at(lit_id);
         auto lit_look = findLiteralReach(lit);
 
         if (first) {
-            look = move(lit_look);
+            for (auto &p : lit_look) {
+                look.emplace(p.offset, p.reach);
+            }
             first = false;
-        } else {
-            for (auto it = look.begin(); it != look.end();) {
-                auto l_it = lit_look.find(it->first);
-                if (l_it == lit_look.end()) {
-                    it = look.erase(it);
-                } else {
-                    it->second |= l_it->second;
-                    ++it;
-                }
+            continue;
+        }
+
+        // Erase elements from look with keys not in lit_look. Where a key is
+        // in both maps, union its reach with the lookaround.
+        auto jt = begin(lit_look);
+        for (auto it = begin(look); it != end(look);) {
+            if (jt == end(lit_look)) {
+                // No further lit_look entries, erase remaining elements from
+                // look.
+                look.erase(it, end(look));
+                break;
+            }
+            if (it->first < jt->offset) {
+                // Offset is present in look but not in lit_look, erase.
+                it = look.erase(it);
+            } else if (it->first > jt->offset) {
+                // Offset is preset in lit_look but not in look, ignore.
+                ++jt;
+            } else {
+                // Offset is present in both, union its reach with look.
+                it->second |= jt->reach;
+                ++it;
+                ++jt;
             }
         }
     }
@@ -523,6 +552,76 @@ void trimLiterals(const RoseBuildImpl &build, const RoseVertex v,
     }
 
     DEBUG_PRINTF("post-trim lookaround: %s\n", dump(look).c_str());
+}
+
+static
+void normaliseLeftfix(map<s32, CharReach> &look) {
+    // We can erase entries where the reach is "all characters", except for the
+    // very first one -- this might be required to establish a minimum bound on
+    // the literal's match offset.
+
+    // TODO: It would be cleaner to use a literal program instruction to check
+    // the minimum bound explicitly.
+
+    if (look.empty()) {
+        return;
+    }
+
+    const auto earliest = begin(look)->first;
+
+    vector<s32> dead;
+    for (const auto &m : look) {
+        if (m.second.all() && m.first != earliest) {
+            dead.push_back(m.first);
+        }
+    }
+    erase_all(&look, dead);
+}
+
+static
+bool trimMultipathLeftfix(const RoseBuildImpl &build, const RoseVertex v,
+                          vector<map<s32, CharReach>> &looks) {
+    size_t path_count = 0;
+    for (auto &look : looks) {
+        ++path_count;
+        DEBUG_PRINTF("Path #%ld\n", path_count);
+
+        assert(!look.empty());
+        trimLiterals(build, v, look);
+
+        if (look.empty()) {
+            return false;
+        }
+
+        // Could be optimized here, just keep the empty byte of the longest path
+        normaliseLeftfix(look);
+
+        if (look.size() > MAX_LOOKAROUND_ENTRIES) {
+            DEBUG_PRINTF("lookaround too big (%zu entries)\n", look.size());
+            return false;
+        }
+    }
+    return true;
+}
+
+static
+void transToLookaround(const vector<map<s32, CharReach>> &looks,
+                       vector<vector<LookEntry>> &lookarounds) {
+    for (const auto &look : looks) {
+        vector<LookEntry> lookaround;
+        DEBUG_PRINTF("lookaround: %s\n", dump(look).c_str());
+        lookaround.reserve(look.size());
+        for (const auto &m : look) {
+            if (m.first < -128 || m.first > 127) {
+                DEBUG_PRINTF("range too big\n");
+                lookarounds.clear();
+                return;
+            }
+            s8 offset = verify_s8(m.first);
+            lookaround.emplace_back(offset, m.second);
+        }
+        lookarounds.push_back(lookaround);
+    }
 }
 
 void findLookaroundMasks(const RoseBuildImpl &tbi, const RoseVertex v,
@@ -563,115 +662,155 @@ void findLookaroundMasks(const RoseBuildImpl &tbi, const RoseVertex v,
 }
 
 static
-bool hasSingleFloatingStart(const NGHolder &g) {
-    NFAVertex initial = NGHolder::null_vertex();
-    for (auto v : adjacent_vertices_range(g.startDs, g)) {
-        if (v == g.startDs) {
-            continue;
-        }
-        if (initial != NGHolder::null_vertex()) {
-            DEBUG_PRINTF("more than one start\n");
-            return false;
-        }
-        initial = v;
-    }
+bool checkShuftiBuckets(const vector<map<s32, CharReach>> &looks,
+                        u32 bucket_size) {
+    set<u32> bucket;
+    for (const auto &look : looks) {
+        for (const auto &l : look) {
+            CharReach cr = l.second;
+            if (cr.count() > 128) {
+                cr.flip();
+            }
+            map <u16, u16> lo2hi;
 
-    if (initial == NGHolder::null_vertex()) {
-        DEBUG_PRINTF("no floating starts\n");
-        return false;
-    }
+            for (size_t i = cr.find_first(); i != CharReach::npos;) {
+                u8 it_hi = i >> 4;
+                u16 low_encode = 0;
+                while (i != CharReach::npos && (i >> 4) == it_hi) {
+                    low_encode |= 1 << (i &0xf);
+                    i = cr.find_next(i);
+                }
+                lo2hi[low_encode] |= 1 << it_hi;
+            }
 
-    // Anchored start must have no successors other than startDs and initial.
-    for (auto v : adjacent_vertices_range(g.start, g)) {
-        if (v != initial && v != g.startDs) {
-            DEBUG_PRINTF("anchored start\n");
-            return false;
+            for (const auto &it : lo2hi) {
+                u32 hi_lo = (it.second << 16) | it.first;
+                bucket.insert(hi_lo);
+            }
         }
     }
-
-    return true;
+    DEBUG_PRINTF("shufti has %lu bucket(s)\n", bucket.size());
+    return bucket.size() <= bucket_size;
 }
 
 static
-bool getTransientPrefixReach(const NGHolder &g, u32 lag,
-                             map<s32, CharReach> &look) {
-    if (in_degree(g.accept, g) != 1) {
-        DEBUG_PRINTF("more than one accept\n");
+bool getTransientPrefixReach(const NGHolder &g, ReportID report, u32 lag,
+                             vector<map<s32, CharReach>> &looks) {
+    if (!isAcyclic(g)) {
+        DEBUG_PRINTF("contains back-edge\n");
         return false;
     }
 
-    // Must be a floating chain wired to startDs.
-    if (!hasSingleFloatingStart(g)) {
-        DEBUG_PRINTF("not a single floating start\n");
+    // Must be floating chains wired to startDs.
+    if (!isFloating(g)) {
+        DEBUG_PRINTF("not a floating start\n");
         return false;
     }
 
-    NFAVertex v = *(inv_adjacent_vertices(g.accept, g).first);
-    u32 i = lag + 1;
-    while (v != g.startDs) {
-        DEBUG_PRINTF("i=%u, v=%zu\n", i, g[v].index);
-        if (is_special(v, g)) {
-            DEBUG_PRINTF("special\n");
+    vector<NFAVertex> curr;
+    for (auto v : inv_adjacent_vertices_range(g.accept, g)) {
+        if (v == g.start || v == g.startDs) {
+            DEBUG_PRINTF("empty graph\n");
+            return true;
+        }
+        if (contains(g[v].reports, report)) {
+            curr.push_back(v);
+        }
+    }
+
+    assert(!curr.empty());
+
+    u32 total_len = curr.size();
+
+    for (const auto &v : curr) {
+        looks.emplace_back(map<s32, CharReach>());
+        looks.back()[0 - (lag + 1)] = g[v].char_reach;
+    }
+
+    bool curr_active = false;
+
+    /* For each offset -i, we backwardly trace the path by vertices in curr.
+     * Once there are more than 8 paths and more than 64 bits total_len,
+     * which means that neither MULTIPATH_LOOKAROUND nor MULTIPATH_SHUFTI
+     * could be successfully built, we will give up the path finding.
+     * Otherwise, the loop will halt when all vertices in curr are startDs.
+     */
+    for (u32 i = lag + 2; i < (lag + 2) + MAX_BACK_LEN; i++) {
+        curr_active = false;
+        size_t curr_size = curr.size();
+        if (curr.size() > 1 && i > lag + MULTIPATH_MAX_LEN) {
+            DEBUG_PRINTF("range is larger than 16 in multi-path\n");
             return false;
         }
 
-        look[0 - i] = g[v].char_reach;
-
-        NFAVertex next = NGHolder::null_vertex();
-        for (auto u : inv_adjacent_vertices_range(v, g)) {
-            if (u == g.start) {
-                continue; // Benign, checked by hasSingleFloatingStart
-            }
-            if (next == NGHolder::null_vertex()) {
-                next = u;
+        for (size_t idx = 0; idx < curr_size; idx++) {
+            NFAVertex v = curr[idx];
+            if (v == g.startDs) {
                 continue;
             }
-            DEBUG_PRINTF("branch\n");
-            return false;
-        }
+            assert(!is_special(v, g));
 
-        if (next == NGHolder::null_vertex() || next == v) {
-            DEBUG_PRINTF("no predecessor or only self-loop\n");
-            // This graph is malformed -- all vertices in a graph that makes it
-            // to this analysis should have predecessors.
-            assert(0);
-            return false;
-        }
+            for (auto u : inv_adjacent_vertices_range(v, g)) {
+                if (u == g.start || u == g.startDs) {
+                    curr[idx] = g.startDs;
+                    break;
+                }
+            }
 
-        v = next;
-        i++;
+            if (is_special(curr[idx], g)) {
+                continue;
+            }
+
+            for (auto u : inv_adjacent_vertices_range(v, g)) {
+                curr_active = true;
+                if (curr[idx] == v) {
+                    curr[idx] = u;
+                    looks[idx][0 - i] = g[u].char_reach;
+                    total_len++;
+                } else {
+                    curr.push_back(u);
+                    looks.push_back(looks[idx]);
+                    (looks.back())[0 - i] = g[u].char_reach;
+                    total_len += looks.back().size();
+                }
+
+                if (curr.size() > MAX_LOOKAROUND_PATHS && total_len > 64) {
+                    DEBUG_PRINTF("too many branches\n");
+                    return false;
+                }
+            }
+        }
+        if (!curr_active) {
+            break;
+        }
     }
 
+    if (curr_active) {
+        DEBUG_PRINTF("single path too long\n");
+        return false;
+    }
+
+    // More than 8 paths, check multi-path shufti.
+    if (curr.size() > MAX_LOOKAROUND_PATHS) {
+        u32 bucket_size = total_len > 32 ? 8 : 16;
+        if (!checkShuftiBuckets(looks, bucket_size)) {
+            DEBUG_PRINTF("shufti has too many buckets\n");
+            return false;
+        }
+    }
+
+    assert(!looks.empty());
+    if (looks.size() == 1) {
+        DEBUG_PRINTF("single lookaround\n");
+    } else {
+        DEBUG_PRINTF("multi-path lookaround\n");
+    }
     DEBUG_PRINTF("done\n");
     return true;
 }
 
-static
-void normaliseLeftfix(map<s32, CharReach> &look) {
-    // We can erase entries where the reach is "all characters", except for the
-    // very first one -- this might be required to establish a minimum bound on
-    // the literal's match offset.
-
-    // TODO: It would be cleaner to use a literal program instruction to check
-    // the minimum bound explicitly.
-
-    if (look.empty()) {
-        return;
-    }
-
-    const auto earliest = begin(look)->first;
-
-    vector<s32> dead;
-    for (const auto &m : look) {
-        if (m.second.all() && m.first != earliest) {
-            dead.push_back(m.first);
-        }
-    }
-    erase_all(&look, dead);
-}
-
 bool makeLeftfixLookaround(const RoseBuildImpl &build, const RoseVertex v,
-                           vector<LookEntry> &lookaround) {
+                           vector<vector<LookEntry>> &lookaround) {
     lookaround.clear();
 
     const RoseGraph &g = build.g;
@@ -687,36 +826,19 @@ bool makeLeftfixLookaround(const RoseBuildImpl &build, const RoseVertex v,
         return false;
     }
 
-    map<s32, CharReach> look;
-    if (!getTransientPrefixReach(*leftfix.graph(), g[v].left.lag, look)) {
-        DEBUG_PRINTF("not a chain\n");
+    vector<map<s32, CharReach>> looks;
+    if (!getTransientPrefixReach(*leftfix.graph(), g[v].left.leftfix_report,
+                                 g[v].left.lag, looks)) {
+        DEBUG_PRINTF("graph has loop or too large\n");
         return false;
     }
 
-    trimLiterals(build, v, look);
-    normaliseLeftfix(look);
-
-    if (look.size() > MAX_LOOKAROUND_ENTRIES) {
-        DEBUG_PRINTF("lookaround too big (%zu entries)\n", look.size());
+    if (!trimMultipathLeftfix(build, v, looks)) {
         return false;
     }
+    transToLookaround(looks, lookaround);
 
-    if (look.empty()) {
-        DEBUG_PRINTF("lookaround empty; this is weird\n");
-        return false;
-    }
-
-    lookaround.reserve(look.size());
-    for (const auto &m : look) {
-        if (m.first < -128 || m.first > 127) {
-            DEBUG_PRINTF("range too big\n");
-            return false;
-        }
-        s8 offset = verify_s8(m.first);
-        lookaround.emplace_back(offset, m.second);
-    }
-
-    return true;
+    return !lookaround.empty();
 }
 
 void mergeLookaround(vector<LookEntry> &lookaround,

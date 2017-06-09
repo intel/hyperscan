@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,23 +48,6 @@
 #include <vector>
 
 namespace ue2 {
-
-/** brief subengine info including built engine and
- * corresponding triggering rose vertices */
-struct ExclusiveSubengine {
-    aligned_unique_ptr<NFA> nfa;
-    std::vector<RoseVertex> vertices;
-};
-
-/** \brief exclusive info to build tamarama */
-struct ExclusiveInfo {
-    // subengine info
-    std::vector<ExclusiveSubengine> subengines;
-    // all the report in tamarama
-    std::set<ReportID> reports;
-    // assigned queue id
-    u32 queue;
-};
 
 /** \brief role info structure for exclusive analysis */
 template<typename role_id>

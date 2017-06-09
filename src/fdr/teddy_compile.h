@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,7 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief FDR literal matcher: Teddy build API.
  */
 
@@ -34,22 +35,22 @@
 #define TEDDY_COMPILE_H
 
 #include "ue2common.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 
 #include <vector>
-#include <utility> // std::pair
 
 struct FDR;
-struct target_t;
 
 namespace ue2 {
 
+struct Grey;
 struct hwlmLiteral;
+struct target_t;
 
-ue2::aligned_unique_ptr<FDR>
-teddyBuildTableHinted(const std::vector<hwlmLiteral> &lits, bool make_small,
-                      u32 hint, const target_t &target,
-                      std::pair<aligned_unique_ptr<u8>, size_t> &link);
+bytecode_ptr<FDR> teddyBuildTableHinted(const std::vector<hwlmLiteral> &lits,
+                                        bool make_small, u32 hint,
+                                        const target_t &target,
+                                        const Grey &grey);
 
 } // namespace ue2
 

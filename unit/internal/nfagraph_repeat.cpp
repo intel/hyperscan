@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -66,28 +66,28 @@ struct PureRepeatTest {
 class NFAPureRepeatTest : public TestWithParam<PureRepeatTest> { };
 
 static const PureRepeatTest pureRepeatTests[] = {
-    { "^.*", 0, depth::infinity() },
-    { "^.+", 1, depth::infinity() },
-    { "^.", 1, 1 },
-    { "^..", 2, 2 },
-    { "^.?.", 1, 2 },
-    { "^.{1,2}", 1, 2 },
-    { "^.{1,3}", 1, 3 },
-    { "^.{1,10}", 1, 10 },
-    { "^.{1,200}", 1, 200 },
-    { "^.{200}", 200, 200 },
-    { "^.{0,}", 0, depth::infinity() },
-    { "^.{1,}", 1, depth::infinity() },
-    { "^.{2,}", 2, depth::infinity() },
-    { "^.{10,}", 10, depth::infinity() },
-    { "^.{200,}", 200, depth::infinity() },
-    { "^.{5000,}", 5000, depth::infinity() },
-    { "^.{0,1}", 0, 1 },
-    { "^.{0,2}", 0, 2 },
-    { "^.{0,100}", 0, 100 },
-    { "^.{0,5000}", 0, 5000 },
-    { "^x{10}x{20,30}", 30, 40 },
-    { "^..?..?..?..?..?", 5, 10 }
+    { "^.*", depth(0), depth::infinity() },
+    { "^.+", depth(1), depth::infinity() },
+    { "^.", depth(1), depth(1) },
+    { "^..", depth(2), depth(2) },
+    { "^.?.", depth(1), depth(2) },
+    { "^.{1,2}", depth(1), depth(2) },
+    { "^.{1,3}", depth(1), depth(3) },
+    { "^.{1,10}", depth(1), depth(10) },
+    { "^.{1,200}", depth(1), depth(200) },
+    { "^.{200}", depth(200), depth(200) },
+    { "^.{0,}", depth(0), depth::infinity() },
+    { "^.{1,}", depth(1), depth::infinity() },
+    { "^.{2,}", depth(2), depth::infinity() },
+    { "^.{10,}", depth(10), depth::infinity() },
+    { "^.{200,}", depth(200), depth::infinity() },
+    { "^.{5000,}", depth(5000), depth::infinity() },
+    { "^.{0,1}", depth(0), depth(1) },
+    { "^.{0,2}", depth(0), depth(2) },
+    { "^.{0,100}", depth(0), depth(100) },
+    { "^.{0,5000}", depth(0), depth(5000) },
+    { "^x{10}x{20,30}", depth(30), depth(40) },
+    { "^..?..?..?..?..?", depth(5), depth(10) }
 };
 
 INSTANTIATE_TEST_CASE_P(PureRepeat, NFAPureRepeatTest,

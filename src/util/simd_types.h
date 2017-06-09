@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,52 +30,28 @@
 #define SIMD_TYPES_H
 
 #include "config.h"
+#include "util/arch.h"
+#include "util/intrinsics.h"
 #include "ue2common.h"
 
-// more recent headers are bestest, but only if we can use them
-#ifdef __cplusplus
-# if defined(HAVE_CXX_X86INTRIN_H)
-#  define USE_X86INTRIN_H
-# endif
-#else // C
-# if defined(HAVE_C_X86INTRIN_H)
-#  define USE_X86INTRIN_H
-# endif
-#endif
-
-#ifdef __cplusplus
-# if defined(HAVE_CXX_INTRIN_H)
-#  define USE_INTRIN_H
-# endif
-#else // C
-# if defined(HAVE_C_INTRIN_H)
-#  define USE_INTRIN_H
-# endif
-#endif
-
-#if defined(USE_X86INTRIN_H)
-#include <x86intrin.h>
-#elif defined(USE_INTRIN_H)
-#include <intrin.h>
-#else
-#error no intrinsics!
-#endif
-
-#if defined(__SSE2__) || defined(_M_X64) || (_M_IX86_FP >= 2)
+#if defined(HAVE_SSE2)
 typedef __m128i m128;
 #else
 typedef struct ALIGN_DIRECTIVE {u64a hi; u64a lo;} m128;
 #endif
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 typedef __m256i m256;
 #else
-typedef ALIGN_AVX_DIRECTIVE struct {m128 lo; m128 hi;} m256;
+typedef struct ALIGN_AVX_DIRECTIVE {m128 lo; m128 hi;} m256;
 #endif
 
-// these should align to 16 and 32 respectively
 typedef struct {m128 lo; m128 mid; m128 hi;} m384;
-typedef struct {m256 lo; m256 hi;} m512;
+#if defined(HAVE_AVX512)
+typedef __m512i m512;
+#else
+typedef struct ALIGN_ATTR(64) {m256 lo; m256 hi;} m512;
+#endif
 
 #endif /* SIMD_TYPES_H */
 

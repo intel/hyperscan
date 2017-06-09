@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,7 @@
 #include "accel_dfa_build_strat.h"
 #include "rdfa.h"
 #include "ue2common.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/ue2_containers.h"
 
 #include <memory>
@@ -48,14 +48,15 @@ struct CompileContext;
 
 class mcclellan_build_strat : public accel_dfa_build_strat {
 public:
-    mcclellan_build_strat(raw_dfa &rdfa_in, const ReportManager &rm_in)
-        : accel_dfa_build_strat(rm_in), rdfa(rdfa_in) {}
+    mcclellan_build_strat(raw_dfa &rdfa_in, const ReportManager &rm_in,
+                          bool only_accel_init_in)
+        : accel_dfa_build_strat(rm_in, only_accel_init_in), rdfa(rdfa_in) {}
     raw_dfa &get_raw() const override { return rdfa; }
     std::unique_ptr<raw_report_info> gatherReports(
                                   std::vector<u32> &reports /* out */,
                                   std::vector<u32> &reports_eod /* out */,
                                   u8 *isSingleReport /* out */,
-                                  ReportID *arbReport  /* out */) const override;
+                                  ReportID *arbReport /* out */) const override;
     size_t accelSize(void) const override;
     u32 max_allowed_offset_accel() const override;
     u32 max_stop_char() const override;
@@ -65,17 +66,30 @@ private:
     raw_dfa &rdfa;
 };
 
-/* accel_states: (optional) on success, is filled with the set of accelerable
- * states */
-ue2::aligned_unique_ptr<NFA>
+/**
+ * \brief Construct an implementation DFA.
+ *
+ * \param raw the raw dfa to construct from
+ * \param cc compile context
+ * \param rm report manger
+ * \param only_accel_init if true, only the init states will be examined for
+ *        acceleration opportunities
+ * \param trust_daddy_states if true, trust the daddy state set in the raw dfa
+ *        rather than conducting a search for a better daddy (for Sherman
+ *        states)
+ * \param accel_states (optional) success, is filled with the set of
+ *        accelerable states
+ */
+bytecode_ptr<NFA>
 mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
-                 const ReportManager &rm,
+                 const ReportManager &rm, bool only_accel_init,
+                 bool trust_daddy_states = false,
                  std::set<dstate_id_t> *accel_states = nullptr);
 
 /* used internally by mcclellan/haig/gough compile process */
-ue2::aligned_unique_ptr<NFA>
+bytecode_ptr<NFA>
 mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
-                   const CompileContext &cc,
+                   const CompileContext &cc, bool trust_daddy_states = false,
                    std::set<dstate_id_t> *accel_states = nullptr);
 
 /**
@@ -89,4 +103,4 @@ bool has_accel_mcclellan(const NFA *nfa);
 
 } // namespace ue2
 
-#endif
+#endif // MCCLELLANCOMPILE_H

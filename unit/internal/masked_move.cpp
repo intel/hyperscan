@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,11 +31,12 @@
 #include <cstring>
 
 #include "gtest/gtest.h"
+#include "util/arch.h"
 #include "util/masked_move.h"
 
 namespace {
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 
 bool try_mask_len(const u8 *buf, u8 *target, size_t len) {
     memset(target, 0, 32);

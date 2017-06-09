@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,8 +40,8 @@
 // the whole confirmation procedure
 static really_inline
 void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a,
-                 size_t i, u32 pullBackAmount, hwlmcb_rv_t *control,
-                 u32 *last_match, u64a conf_key) {
+                 size_t i, hwlmcb_rv_t *control, u32 *last_match,
+                 u64a conf_key) {
     assert(i < a->len);
     assert(ISALIGNED(fdrc));
 
@@ -68,13 +68,10 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
             goto out;
         }
 
-        const u8 *loc = buf + i - li->size + 1 - pullBackAmount;
+        const u8 *loc = buf + i - li->size + 1;
 
-        u8 caseless = li->flags & Caseless;
         if (loc < buf) {
             u32 full_overhang = buf - loc;
-
-            const u8 *history = a->buf_history;
             size_t len_history = a->len_history;
 
             // can't do a vectored confirm either if we don't have
@@ -82,44 +79,15 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
             if (full_overhang > len_history) {
                 goto out;
             }
-
-            // as for the regular case, no need to do a full confirm if
-            // we're a short literal
-            if (unlikely(li->size > sizeof(CONF_TYPE))) {
-                const u8 *s1 = (const u8 *)li + sizeof(*li);
-                const u8 *s2 = s1 + full_overhang;
-                const u8 *loc1 = history + len_history - full_overhang;
-                const u8 *loc2 = buf;
-                size_t size1 = MIN(full_overhang, li->size - sizeof(CONF_TYPE));
-                size_t wind_size2_back = sizeof(CONF_TYPE) + full_overhang;
-                size_t size2 = wind_size2_back > li->size ?
-                    0 : li->size - wind_size2_back;
-
-                if (cmpForward(loc1, s1, size1, caseless)) {
-                    goto out;
-                }
-                if (cmpForward(loc2, s2, size2, caseless)) {
-                    goto out;
-                }
-            }
-        } else { // NON-VECTORING PATH
-
-            // if string < conf_type we don't need regular string cmp
-            if (unlikely(li->size > sizeof(CONF_TYPE))) {
-                const u8 *s = (const u8 *)li + sizeof(*li);
-                if (cmpForward(loc, s, li->size - sizeof(CONF_TYPE),
-                               caseless)) {
-                    goto out;
-                }
-            }
         }
+        assert(li->size <= sizeof(CONF_TYPE));
 
         if (unlikely(!(li->groups & *control))) {
             goto out;
         }
 
         if (unlikely(li->flags & ComplexConfirm)) {
-            const u8 *loc2 = buf + i - li->extended_size + 1 - pullBackAmount;
+            const u8 *loc2 = buf + i - li->extended_size + 1;
             if (loc2 < buf) {
                 u32 full_overhang = buf - loc2;
                 size_t len_history = a->len_history;
@@ -133,7 +101,7 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
         *control = a->cb(loc - buf, i, li->id, a->ctxt);
     out:
         oldNext = li->next; // oldNext is either 0 or an 'adjust' value
-        li = (const struct LitInfo *)((const u8 *)li + oldNext + li->size);
+        li++;
     } while (oldNext);
 }
 
@@ -148,7 +116,7 @@ void confWithBit1(const struct FDRConfirm *fdrc,
     assert(ISALIGNED(fdrc));
 
     if (unlikely(fdrc->mult)) {
-        confWithBit(fdrc, a, i, 0, control, last_match, conf_key);
+        confWithBit(fdrc, a, i, control, last_match, conf_key);
         return;
     } else {
         u32 id = fdrc->nBitsOrSoleID;
@@ -176,7 +144,7 @@ void confWithBitMany(const struct FDRConfirm *fdrc,
     }
 
     if (unlikely(fdrc->mult)) {
-        confWithBit(fdrc, a, i, 0, control, last_match, conf_key);
+        confWithBit(fdrc, a, i, control, last_match, conf_key);
         return;
     } else {
         const u32 id = fdrc->nBitsOrSoleID;

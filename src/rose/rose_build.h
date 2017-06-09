@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,8 +40,9 @@
 #include "ue2common.h"
 #include "rose_common.h"
 #include "rose_in_graph.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/charreach.h"
+#include "util/noncopyable.h"
 #include "util/ue2_containers.h"
 #include "util/ue2string.h"
 
@@ -49,8 +50,6 @@
 #include <set>
 #include <utility>
 #include <vector>
-
-#include <boost/core/noncopyable.hpp>
 
 struct NFA;
 struct SmallWriteEngine;
@@ -80,7 +79,7 @@ public:
 
 /** \brief Abstract interface intended for callers from elsewhere in the tree,
  * real underlying implementation is RoseBuildImpl in rose_build_impl.h. */
-class RoseBuild : boost::noncopyable {
+class RoseBuild : noncopyable {
 public:
     virtual ~RoseBuild();
 
@@ -88,8 +87,7 @@ public:
     virtual void add(bool anchored, bool eod, const ue2_literal &lit,
                      const ue2::flat_set<ReportID> &ids) = 0;
 
-    virtual bool addRose(const RoseInGraph &ig, bool prefilter,
-                         bool finalChance = false) = 0;
+    virtual bool addRose(const RoseInGraph &ig, bool prefilter) = 0;
     virtual bool addSombeRose(const RoseInGraph &ig) = 0;
 
     virtual bool addOutfix(const NGHolder &h) = 0;
@@ -115,7 +113,7 @@ public:
                          bool eod) = 0;
 
     /** \brief Construct a runtime implementation. */
-    virtual ue2::aligned_unique_ptr<RoseEngine> buildRose(u32 minWidth) = 0;
+    virtual bytecode_ptr<RoseEngine> buildRose(u32 minWidth) = 0;
 
     virtual std::unique_ptr<RoseDedupeAux> generateDedupeAux() const = 0;
 
@@ -135,8 +133,6 @@ std::unique_ptr<RoseBuild> makeRoseBuilder(ReportManager &rm,
 
 bool roseCheckRose(const RoseInGraph &ig, bool prefilter,
                    const ReportManager &rm, const CompileContext &cc);
-
-size_t roseSize(const RoseEngine *t);
 
 /* used by heuristics to determine the small write engine. High numbers are
  * intended to indicate a lightweight rose. */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,8 @@
 
 using namespace std;
 
+namespace ue2 {
+
 FILE *fopen_or_throw(const char *path, const char *mode) {
     FILE *f = fopen(path, mode);
     if (!f) {
@@ -40,3 +42,5 @@ FILE *fopen_or_throw(const char *path, const char *mode) {
     }
     return f;
 }
+
+} // namespace ue2

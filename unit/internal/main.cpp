@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,9 +27,10 @@
  */
 
 #include "gtest/gtest.h"
+#include "hs_common.h"
 
 // Driver: run all the tests (defined in other source files in this directory)
-int main(int argc, char **argv) {
+int HS_CDECL main(int argc, char **argv) {
     testing::InitGoogleTest(&argc, argv);
 
     return RUN_ALL_TESTS();

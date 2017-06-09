@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -159,23 +159,26 @@ public:
 ConstructLiteralVisitor::~ConstructLiteralVisitor() {}
 
 /** \brief True if the literal expression \a expr could be added to Rose. */
-bool shortcutLiteral(NG &ng, const ParsedExpression &expr) {
-    assert(expr.component);
+bool shortcutLiteral(NG &ng, const ParsedExpression &pe) {
+    assert(pe.component);
 
     if (!ng.cc.grey.allowLiteral) {
         return false;
     }
 
+    const auto &expr = pe.expr;
+
     // XXX: don't shortcut literals with extended params (yet)
-    if (expr.min_offset || expr.max_offset != MAX_OFFSET || expr.min_length) {
+    if (expr.min_offset || expr.max_offset != MAX_OFFSET || expr.min_length ||
+        expr.edit_distance) {
         DEBUG_PRINTF("extended params not allowed\n");
         return false;
     }
 
     ConstructLiteralVisitor vis;
     try {
-        assert(expr.component);
-        expr.component->accept(vis);
+        assert(pe.component);
+        pe.component->accept(vis);
         assert(vis.repeat_stack.empty());
     } catch (const ConstructLiteralVisitor::NotLiteral&) {
         DEBUG_PRINTF("not a literal\n");
@@ -195,7 +198,8 @@ bool shortcutLiteral(NG &ng, const ParsedExpression &expr) {
     }
 
     DEBUG_PRINTF("constructed literal %s\n", dumpString(lit).c_str());
-    return ng.addLiteral(lit, expr.index, expr.id, expr.highlander, expr.som);
+    return ng.addLiteral(lit, expr.index, expr.report, expr.highlander,
+                         expr.som);
 }
 
 } // namespace ue2

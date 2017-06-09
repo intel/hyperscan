@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,37 +26,32 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MULTIVERMICELLI_H_
-#define MULTIVERMICELLI_H_
+#ifndef ROSE_BUILD_RESOURCES_H
+#define ROSE_BUILD_RESOURCES_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+namespace ue2 {
 
-const u8 *long_vermicelliExec(char c, char nocase, const u8 *buf,
-                              const u8 *buf_end, const u8 run_len);
+/**
+ * \brief Structure tracking which resources are used by this Rose instance at
+ * runtime.
+ *
+ * We use this to control how much initialisation we need to do at the
+ * beginning of a stream/block at runtime.
+ */
+struct RoseResources {
+    bool has_outfixes = false;
+    bool has_suffixes = false;
+    bool has_leftfixes = false;
+    bool has_literals = false;
+    bool has_states = false;
+    bool checks_groups = false;
+    bool has_lit_delay = false;
+    bool has_lit_check = false; // long literal support
+    bool has_anchored = false;
+    bool has_floating = false;
+    bool has_eod = false;
+};
 
-const u8 *longgrab_vermicelliExec(char c, char nocase, const u8 *buf,
-                                  const u8 *buf_end, const u8 run_len);
-
-const u8 *shift_vermicelliExec(char c, char nocase, const u8 *buf,
-                               const u8 *buf_end, const u8 run_len);
-
-const u8 *shiftgrab_vermicelliExec(char c, char nocase, const u8 *buf,
-                                   const u8 *buf_end, const u8 run_len);
-
-const u8 *doubleshift_vermicelliExec(char c, char nocase, const u8 *buf,
-                                     const u8 *buf_end, const u8 run_len,
-                                     const u8 run2_len);
-
-const u8 *doubleshiftgrab_vermicelliExec(char c, char nocase, const u8 *buf,
-                                         const u8 *buf_end, const u8 run_len,
-                                         const u8 run2_len);
-
-#ifdef __cplusplus
 }
+
 #endif
-
-
-#endif /* MULTIVERMICELLI_H_ */

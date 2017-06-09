@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,12 +29,14 @@
 #ifndef EXPRESSIONPARSER_H
 #define EXPRESSIONPARSER_H
 
+#include "hs_common.h"
+
 #include <string>
 
 struct hs_expr_ext;
 
-bool readExpression(const std::string &line, std::string &expr,
-                    unsigned int *flags, hs_expr_ext *ext,
-                    bool *must_be_ordered = nullptr);
+bool HS_CDECL readExpression(const std::string &line, std::string &expr,
+                             unsigned int *flags, hs_expr_ext *ext,
+                             bool *must_be_ordered = nullptr);
 
 #endif

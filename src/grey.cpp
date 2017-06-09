@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,6 +42,7 @@ namespace ue2 {
 
 Grey::Grey(void) :
                    optimiseComponentTree(true),
+                   calcComponents(true),
                    performGraphSimplification(true),
                    prefilterReductions(true),
                    removeEdgeRedundancy(true),
@@ -54,7 +55,6 @@ Grey::Grey(void) :
                    allowMcSheng(true),
                    allowPuff(true),
                    allowLiteral(true),
-                   allowRose(true),
                    allowViolet(true),
                    allowExtendedNFA(true), /* bounded repeats of course */
                    allowLimExNFA(true),
@@ -62,8 +62,10 @@ Grey::Grey(void) :
                    allowSmallLiteralSet(true),
                    allowCastle(true),
                    allowDecoratedLiteral(true),
+                   allowApproximateMatching(true),
                    allowNoodle(true),
                    fdrAllowTeddy(true),
+                   fdrAllowFlood(true),
                    violetAvoidSuffixes(true),
                    violetAvoidWeakInfixes(true),
                    violetDoubleCut(true),
@@ -98,6 +100,7 @@ Grey::Grey(void) :
                    minRoseLiteralLength(3),
                    minRoseNetflowLiteralLength(2),
                    maxRoseNetflowEdges(50000), /* otherwise no netflow pass. */
+                   maxEditDistance(16),
                    minExtBoundedRepeatSize(32),
                    goughCopyPropagate(true),
                    goughRegisterAllocate(true),
@@ -105,8 +108,6 @@ Grey::Grey(void) :
                    roseGraphReduction(true),
                    roseRoleAliasing(true),
                    roseMasks(true),
-                   roseMaxBadLeafLength(5),
-                   roseConvertInfBadLeaves(true),
                    roseConvertFloodProneSuffixes(true),
                    roseMergeRosesDuringAliasing(true),
                    roseMultiTopRoses(true),
@@ -116,7 +117,6 @@ Grey::Grey(void) :
                    roseMcClellanSuffix(1),
                    roseMcClellanOutfix(2),
                    roseTransformDelay(true),
-                   roseDesiredSplit(4),
                    earlyMcClellanPrefix(true),
                    earlyMcClellanInfix(true),
                    earlyMcClellanSuffix(true),
@@ -157,7 +157,8 @@ Grey::Grey(void) :
                    limitEngineSize(1073741824), // 1 GB
                    limitDFASize(1073741824), // 1 GB
                    limitNFASize(1048576), // 1 MB
-                   limitLBRSize(1048576) // 1 MB
+                   limitLBRSize(1048576), // 1 MB
+                   limitApproxMatchingVertices(5000)
 {
     assert(maxAnchoredRegion < 64); /* a[lm]_log_sum have limited capacity */
 }
@@ -209,6 +210,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         } while (0)
 
         G_UPDATE(optimiseComponentTree);
+        G_UPDATE(calcComponents);
         G_UPDATE(performGraphSimplification);
         G_UPDATE(prefilterReductions);
         G_UPDATE(removeEdgeRedundancy);
@@ -221,7 +223,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(allowMcSheng);
         G_UPDATE(allowPuff);
         G_UPDATE(allowLiteral);
-        G_UPDATE(allowRose);
         G_UPDATE(allowViolet);
         G_UPDATE(allowExtendedNFA);
         G_UPDATE(allowLimExNFA);
@@ -230,7 +231,9 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(allowCastle);
         G_UPDATE(allowDecoratedLiteral);
         G_UPDATE(allowNoodle);
+        G_UPDATE(allowApproximateMatching);
         G_UPDATE(fdrAllowTeddy);
+        G_UPDATE(fdrAllowFlood);
         G_UPDATE(violetAvoidSuffixes);
         G_UPDATE(violetAvoidWeakInfixes);
         G_UPDATE(violetDoubleCut);
@@ -265,6 +268,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(minRoseLiteralLength);
         G_UPDATE(minRoseNetflowLiteralLength);
         G_UPDATE(maxRoseNetflowEdges);
+        G_UPDATE(maxEditDistance);
         G_UPDATE(minExtBoundedRepeatSize);
         G_UPDATE(goughCopyPropagate);
         G_UPDATE(goughRegisterAllocate);
@@ -272,8 +276,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(roseGraphReduction);
         G_UPDATE(roseRoleAliasing);
         G_UPDATE(roseMasks);
-        G_UPDATE(roseMaxBadLeafLength);
-        G_UPDATE(roseConvertInfBadLeaves);
         G_UPDATE(roseConvertFloodProneSuffixes);
         G_UPDATE(roseMergeRosesDuringAliasing);
         G_UPDATE(roseMultiTopRoses);
@@ -283,7 +285,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(roseMcClellanSuffix);
         G_UPDATE(roseMcClellanOutfix);
         G_UPDATE(roseTransformDelay);
-        G_UPDATE(roseDesiredSplit);
         G_UPDATE(earlyMcClellanPrefix);
         G_UPDATE(earlyMcClellanInfix);
         G_UPDATE(earlyMcClellanSuffix);
@@ -319,6 +320,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(limitDFASize);
         G_UPDATE(limitNFASize);
         G_UPDATE(limitLBRSize);
+        G_UPDATE(limitApproxMatchingVertices);
 
 #undef G_UPDATE
         if (key == "simple_som") {
@@ -340,7 +342,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
             g->allowMcClellan = false;
             g->allowPuff = false;
             g->allowLiteral = false;
-            g->allowRose = false;
             g->allowViolet = false;
             g->allowSmallLiteralSet = false;
             g->roseMasks = false;
@@ -358,7 +359,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
             g->allowMcClellan = true;
             g->allowPuff = false;
             g->allowLiteral = false;
-            g->allowRose = false;
             g->allowViolet = false;
             g->allowSmallLiteralSet = false;
             g->roseMasks = false;
@@ -376,7 +376,6 @@ void applyGreyOverrides(Grey *g, const string &s) {
             g->allowMcClellan = true;
             g->allowPuff = false;
             g->allowLiteral = false;
-            g->allowRose = false;
             g->allowViolet = false;
             g->allowSmallLiteralSet = false;
             g->roseMasks = false;

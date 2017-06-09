@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,9 +30,9 @@
 #define ROSE_BUILD_ANCHORED
 
 #include "ue2common.h"
-#include "rose_build.h"
+#include "rose_build_impl.h"
 #include "nfagraph/ng_holder.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 
 #include <map>
 #include <vector>
@@ -44,11 +44,13 @@ namespace ue2 {
 
 class RoseBuildImpl;
 struct raw_dfa;
+struct LitFragment;
 
 /**
  * \brief Construct a set of anchored DFAs from our anchored literals/engines.
  */
-std::vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build);
+std::vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build,
+                                    const std::vector<LitFragment> &fragments);
 
 /**
  * \brief Construct an anchored_matcher_info runtime structure from the given
@@ -57,9 +59,10 @@ std::vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build);
  * Remap the literal final_ids used for raw_dfa reports to the program offsets
  * given in litPrograms.
  */
-aligned_unique_ptr<anchored_matcher_info>
-buildAnchoredMatcher(RoseBuildImpl &build, std::vector<raw_dfa> &dfas,
-                     const std::vector<u32> &litPrograms, size_t *asize);
+bytecode_ptr<anchored_matcher_info>
+buildAnchoredMatcher(RoseBuildImpl &build,
+                     const std::vector<LitFragment> &fragments,
+                     std::vector<raw_dfa> &dfas);
 
 u32 anchoredStateSize(const anchored_matcher_info &atable);
 
@@ -67,10 +70,10 @@ u32 anchoredStateSize(const anchored_matcher_info &atable);
 #define ANCHORED_SUCCESS 1
 #define ANCHORED_REMAP   2
 
-int addAnchoredNFA(RoseBuildImpl &tbi, const NGHolder &wrapper,
+int addAnchoredNFA(RoseBuildImpl &build, const NGHolder &wrapper,
                    const std::map<NFAVertex, std::set<u32>> &reportMap);
 
-int addToAnchoredMatcher(RoseBuildImpl &tbi, const NGHolder &anchored,
+int addToAnchoredMatcher(RoseBuildImpl &build, const NGHolder &anchored,
                          u32 exit_id, ReportID *remap);
 
 } // namespace ue2

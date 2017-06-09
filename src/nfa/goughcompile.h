@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,7 @@
 #include "mcclellancompile.h"
 #include "nfa_kind.h"
 #include "ue2common.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/ue2_containers.h"
 #include "util/order_check.h"
 
@@ -88,10 +88,10 @@ struct raw_som_dfa : public raw_dfa {
                             * som */
 };
 
-aligned_unique_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
-                                     const CompileContext &cc,
-                                     const ReportManager &rm);
+bytecode_ptr<NFA> goughCompile(raw_som_dfa &raw, u8 somPrecision,
+                               const CompileContext &cc,
+                               const ReportManager &rm);
 
 } // namespace ue2
 
-#endif
+#endif // GOUGHCOMPILE_H

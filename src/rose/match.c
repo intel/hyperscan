@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -85,19 +85,13 @@ hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
 
     DEBUG_PRINTF("STATE groups=0x%016llx\n", tctx->groups);
 
-    const u32 *delayRebuildPrograms =
-        getByOffset(t, t->litDelayRebuildProgramOffset);
-    assert(id < t->literalCount);
-    const u32 program = delayRebuildPrograms[id];
-
-    if (program) {
-        const u64a som = 0;
-        const size_t match_len = end - start + 1;
-        const u8 flags = 0;
-        UNUSED hwlmcb_rv_t rv = roseRunProgram(t, scratch, program, som,
-                                               real_end, match_len, flags);
-        assert(rv != HWLM_TERMINATE_MATCHING);
-    }
+    assert(id && id < t->size); // id is a program offset
+    const u64a som = 0;
+    const size_t match_len = end - start + 1;
+    const u8 flags = 0;
+    UNUSED hwlmcb_rv_t rv =
+        roseRunProgram(t, scratch, id, som, real_end, match_len, flags);
+    assert(rv != HWLM_TERMINATE_MATCHING);
 
     /* we are just repopulating the delay queue, groups should be
      * already set from the original scan. */
@@ -156,7 +150,7 @@ hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
     }
 
     if (top_squash_distance) {
-        assert(q->cur != q->end);
+        assert(q->cur < q->end);
         struct mq_item *last = &q->items[q->end - 1];
         if (last->type == event
             && last->location >= loc - (s64a)top_squash_distance) {
@@ -242,33 +236,13 @@ int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx) {
  */
 static really_inline
 hwlmcb_rv_t roseProcessMatchInline(const struct RoseEngine *t,
-                             struct hs_scratch *scratch, u64a end,
-                             size_t match_len, u32 id) {
+                                   struct hs_scratch *scratch, u64a end,
+                                   size_t match_len, u32 id) {
     DEBUG_PRINTF("id=%u\n", id);
-    const u32 *programs = getByOffset(t, t->litProgramOffset);
-    assert(id < t->literalCount);
+    assert(id && id < t->size); // id is an offset into bytecode
     const u64a som = 0;
     const u8 flags = 0;
-    return roseRunProgram_i(t, scratch, programs[id], som, end, match_len,
-                            flags);
-}
-
-/**
- * \brief Run the program for the given literal ID, with the interpreter
- * out of line.
- *
- * Assumes not in_anchored.
- */
-static really_inline
-hwlmcb_rv_t roseProcessMatch(const struct RoseEngine *t,
-                             struct hs_scratch *scratch, u64a end,
-                             size_t match_len, u32 id) {
-    DEBUG_PRINTF("id=%u\n", id);
-    const u32 *programs = getByOffset(t, t->litProgramOffset);
-    assert(id < t->literalCount);
-    const u64a som = 0;
-    const u8 flags = 0;
-    return roseRunProgram(t, scratch, programs[id], som, end, match_len, flags);
+    return roseRunProgram_i(t, scratch, id, som, end, match_len, flags);
 }
 
 static rose_inline
@@ -290,14 +264,17 @@ hwlmcb_rv_t playDelaySlot(const struct RoseEngine *t,
     roseFlushLastByteHistory(t, scratch, offset);
     tctxt->lastEndOffset = offset;
 
+    const u32 *programs = getByOffset(t, t->delayProgramOffset);
+
     for (u32 it = fatbit_iterate(vicSlot, delay_count, MMB_INVALID);
          it != MMB_INVALID; it = fatbit_iterate(vicSlot, delay_count, it)) {
-        u32 literal_id = t->delay_base_id + it;
-
         UNUSED rose_group old_groups = tctxt->groups;
 
-        DEBUG_PRINTF("DELAYED MATCH id=%u offset=%llu\n", literal_id, offset);
-        hwlmcb_rv_t rv = roseProcessMatch(t, scratch, offset, 0, literal_id);
+        DEBUG_PRINTF("DELAYED MATCH id=%u offset=%llu\n", it, offset);
+        const u64a som = 0;
+        const u8 flags = 0;
+        hwlmcb_rv_t rv = roseRunProgram(t, scratch, programs[it], som, offset,
+                                        0, flags);
         DEBUG_PRINTF("DONE groups=0x%016llx\n", tctxt->groups);
 
         /* delayed literals can't safely set groups.
@@ -322,16 +299,19 @@ hwlmcb_rv_t flushAnchoredLiteralAtLoc(const struct RoseEngine *t,
     struct fatbit *curr_row = getAnchoredLiteralLog(scratch)[curr_loc - 1];
     u32 region_width = t->anchored_count;
 
+    const u32 *programs = getByOffset(t, t->anchoredProgramOffset);
+
     DEBUG_PRINTF("report matches at curr loc\n");
     for (u32 it = fatbit_iterate(curr_row, region_width, MMB_INVALID);
          it != MMB_INVALID; it = fatbit_iterate(curr_row, region_width, it)) {
         DEBUG_PRINTF("it = %u/%u\n", it, region_width);
-        u32 literal_id = t->anchored_base_id + it;
 
         rose_group old_groups = tctxt->groups;
-        DEBUG_PRINTF("ANCH REPLAY MATCH id=%u offset=%u\n", literal_id,
-                     curr_loc);
-        hwlmcb_rv_t rv = roseProcessMatch(t, scratch, curr_loc, 0, literal_id);
+        DEBUG_PRINTF("ANCH REPLAY MATCH id=%u offset=%u\n", it, curr_loc);
+        const u64a som = 0;
+        const u8 flags = 0;
+        hwlmcb_rv_t rv = roseRunProgram(t, scratch, programs[it], som, curr_loc,
+                                        0, flags);
         DEBUG_PRINTF("DONE groups=0x%016llx\n", tctxt->groups);
 
         /* anchored literals can't safely set groups.

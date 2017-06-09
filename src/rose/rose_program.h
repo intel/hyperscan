@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,6 +36,7 @@
 #include "som/som_operation.h"
 #include "rose_internal.h"
 #include "ue2common.h"
+#include "util/simd_types.h"
 
 /** \brief Minimum alignment for each instruction in memory. */
 #define ROSE_INSTR_MIN_ALIGN 8U
@@ -61,7 +62,7 @@ enum RoseInstructionCode {
     ROSE_INSTR_CHECK_INFIX,       //!< Infix engine must be in accept state.
     ROSE_INSTR_CHECK_PREFIX,      //!< Prefix engine must be in accept state.
     ROSE_INSTR_PUSH_DELAYED,      //!< Push delayed literal matches.
-    ROSE_INSTR_RECORD_ANCHORED,   //!< Record an anchored literal match.
+    ROSE_INSTR_DUMMY_NOP,         //!< NOP. Should not exist in build programs.
     ROSE_INSTR_CATCH_UP,          //!< Catch up engines, anchored matches.
     ROSE_INSTR_CATCH_UP_MPV,      //!< Catch up the MPV.
     ROSE_INSTR_SOM_ADJUST,        //!< Set SOM from a distance to EOM.
@@ -129,7 +130,55 @@ enum RoseInstructionCode {
      */
     ROSE_INSTR_CHECK_LONG_LIT_NOCASE,
 
-    LAST_ROSE_INSTRUCTION = ROSE_INSTR_CHECK_LONG_LIT_NOCASE //!< Sentinel.
+    /**
+     * \brief Confirm a case-sensitive "medium length" literal at the current
+     * offset. In streaming mode, this will check history if needed.
+     */
+    ROSE_INSTR_CHECK_MED_LIT,
+
+    /**
+     * \brief Confirm a case-insensitive "medium length" literal at the current
+     * offset. In streaming mode, this will check history if needed.
+     */
+    ROSE_INSTR_CHECK_MED_LIT_NOCASE,
+
+    /**
+     * \brief Clear the "work done" flag used by the SQUASH_GROUPS instruction.
+     */
+    ROSE_INSTR_CLEAR_WORK_DONE,
+
+    /** \brief Check lookaround if it has multiple paths. */
+    ROSE_INSTR_MULTIPATH_LOOKAROUND,
+
+    /**
+     * \brief Use shufti to check lookaround with multiple paths. The total
+     * length of the paths is 16 bytes at most and shufti has 8 buckets.
+     * All paths can be at most 16 bytes long.
+     */
+    ROSE_INSTR_CHECK_MULTIPATH_SHUFTI_16x8,
+
+    /**
+     * \brief Use shufti to check lookaround with multiple paths. The total
+     * length of the paths is 32 bytes at most and shufti has 8 buckets.
+     * All paths can be at most 16 bytes long.
+     */
+    ROSE_INSTR_CHECK_MULTIPATH_SHUFTI_32x8,
+
+    /**
+     * \brief Use shufti to check lookaround with multiple paths. The total
+     * length of the paths is 32 bytes at most and shufti has 16 buckets.
+     * All paths can be at most 16 bytes long.
+     */
+    ROSE_INSTR_CHECK_MULTIPATH_SHUFTI_32x16,
+
+    /**
+     * \brief Use shufti to check multiple paths lookaround. The total
+     * length of the paths is 64 bytes at most and shufti has 8 buckets.
+     * All paths can be at most 16 bytes long.
+     */
+    ROSE_INSTR_CHECK_MULTIPATH_SHUFTI_64,
+
+    LAST_ROSE_INSTRUCTION = ROSE_INSTR_CHECK_MULTIPATH_SHUFTI_64 //!< Sentinel.
 };
 
 struct ROSE_STRUCT_END {
@@ -139,13 +188,14 @@ struct ROSE_STRUCT_END {
 struct ROSE_STRUCT_ANCHORED_DELAY {
     u8 code; //!< From enum RoseInstructionCode.
     rose_group groups; //!< Bitmask.
-    u32 done_jump; //!< Jump forward this many bytes if successful.
+    u32 anch_id; //!< Program to restart after the delay.
+    u32 done_jump; //!< Jump forward this many bytes if we have to delay.
 };
 
-/** Note: check failure will halt program. */
 struct ROSE_STRUCT_CHECK_LIT_EARLY {
     u8 code; //!< From enum RoseInstructionCode.
     u32 min_offset; //!< Minimum offset for this literal.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
 /** Note: check failure will halt program. */
@@ -175,14 +225,15 @@ struct ROSE_STRUCT_CHECK_NOT_HANDLED {
 struct ROSE_STRUCT_CHECK_SINGLE_LOOKAROUND {
     u8 code; //!< From enum RoseInstructionCode.
     s8 offset; //!< The offset of the byte to examine.
-    u32 reach_index; //!< The index of the reach table entry to use.
+    u32 reach_index; //!< Index for lookaround reach bitvectors.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
 struct ROSE_STRUCT_CHECK_LOOKAROUND {
     u8 code; //!< From enum RoseInstructionCode.
-    u32 index;
-    u32 count;
+    u32 look_index; //!< Offset in bytecode of lookaround offset list.
+    u32 reach_index; //!< Offset in bytecode of lookaround reach bitvectors.
+    u32 count; //!< The count of lookaround entries in one instruction.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
@@ -277,9 +328,8 @@ struct ROSE_STRUCT_PUSH_DELAYED {
     u32 index; // Delay literal index (relative to first delay lit).
 };
 
-struct ROSE_STRUCT_RECORD_ANCHORED {
+struct ROSE_STRUCT_DUMMY_NOP {
     u8 code; //!< From enum RoseInstructionCode.
-    u32 id; //!< Literal ID.
 };
 
 struct ROSE_STRUCT_CATCH_UP {
@@ -477,18 +527,102 @@ struct ROSE_STRUCT_MATCHER_EOD {
     u8 code; //!< From enum RoseInstructionCode.
 };
 
-/** Note: check failure will halt program. */
 struct ROSE_STRUCT_CHECK_LONG_LIT {
     u8 code; //!< From enum RoseInstructionCode.
     u32 lit_offset; //!< Offset of literal string.
     u32 lit_length; //!< Length of literal string.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
-/** Note: check failure will halt program. */
 struct ROSE_STRUCT_CHECK_LONG_LIT_NOCASE {
     u8 code; //!< From enum RoseInstructionCode.
     u32 lit_offset; //!< Offset of literal string.
     u32 lit_length; //!< Length of literal string.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
+struct ROSE_STRUCT_CHECK_MED_LIT {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 lit_offset; //!< Offset of literal string.
+    u32 lit_length; //!< Length of literal string.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_MED_LIT_NOCASE {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 lit_offset; //!< Offset of literal string.
+    u32 lit_length; //!< Length of literal string.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CLEAR_WORK_DONE {
+    u8 code; //!< From enum RoseInstructionCode.
+};
+
+struct ROSE_STRUCT_MULTIPATH_LOOKAROUND {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 look_index; //!< Offset in bytecode of lookaround offset list.
+    u32 reach_index; //!< Offset in bytecode of lookaround reach bitvectors.
+    u32 count; //!< The lookaround byte numbers for each path.
+    s32 last_start; //!< The latest start offset among 8 paths.
+    u8 start_mask[MULTIPATH_MAX_LEN]; /*!< Used to initialize path if left-most
+                                       * data is missed. */
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_MULTIPATH_SHUFTI_16x8 {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 nib_mask[2 * sizeof(m128)]; //!< High and low nibble mask in shufti.
+    u8 bucket_select_mask[sizeof(m128)]; //!< Mask for bucket assigning.
+    u8 data_select_mask[sizeof(m128)]; //!< Shuffle mask for data ordering.
+    u32 hi_bits_mask; //!< High-bits used in multi-path validation.
+    u32 lo_bits_mask; //!< Low-bits used in multi-path validation.
+    u32 neg_mask; //!< 64 bits negation mask.
+    s32 base_offset; //!< Relative offset of the first byte.
+    s32 last_start; //!< The latest start offset among 8 paths.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_MULTIPATH_SHUFTI_32x8 {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 hi_mask[sizeof(m128)]; //!< High nibble mask in shufti.
+    u8 lo_mask[sizeof(m128)]; //!< Low nibble mask in shufti.
+    u8 bucket_select_mask[sizeof(m256)]; //!< Mask for bucket assigning.
+    u8 data_select_mask[sizeof(m256)]; //!< Shuffle mask for data ordering.
+    u32 hi_bits_mask; //!< High-bits used in multi-path validation.
+    u32 lo_bits_mask; //!< Low-bits used in multi-path validation.
+    u32 neg_mask; //!< 64 bits negation mask.
+    s32 base_offset; //!< Relative offset of the first byte.
+    s32 last_start; //!< The latest start offset among 8 paths.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_MULTIPATH_SHUFTI_32x16 {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 hi_mask[sizeof(m256)]; //!< High nibble mask in shufti.
+    u8 lo_mask[sizeof(m256)]; //!< Low nibble mask in shufti.
+    u8 bucket_select_mask_hi[sizeof(m256)]; //!< Mask for bucket assigning.
+    u8 bucket_select_mask_lo[sizeof(m256)]; //!< Mask for bucket assigning.
+    u8 data_select_mask[sizeof(m256)]; //!< Shuffle mask for data ordering.
+    u32 hi_bits_mask; //!< High-bits used in multi-path validation.
+    u32 lo_bits_mask; //!< Low-bits used in multi-path validation.
+    u32 neg_mask; //!< 64 bits negation mask.
+    s32 base_offset; //!< Relative offset of the first byte.
+    s32 last_start; //!< The latest start offset among 8 paths.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_CHECK_MULTIPATH_SHUFTI_64 {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 hi_mask[sizeof(m128)]; //!< High nibble mask in shufti.
+    u8 lo_mask[sizeof(m128)]; //!< Low nibble mask in shufti.
+    u8 bucket_select_mask[2 * sizeof(m256)]; //!< Mask for bucket assigning.
+    u8 data_select_mask[2 * sizeof(m256)]; //!< Shuffle mask for data ordering.
+    u64a hi_bits_mask; //!< High-bits used in multi-path validation.
+    u64a lo_bits_mask; //!< Low-bits used in multi-path validation.
+    u64a neg_mask; //!< 64 bits negation mask.
+    s32 base_offset; //!< Relative offset of the first byte.
+    s32 last_start; //!< The latest start offset among 8 paths.
+    u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
 #endif // ROSE_ROSE_PROGRAM_H

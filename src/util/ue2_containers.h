@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,12 +30,15 @@
 #define UTIL_UE2_CONTAINERS_H_
 
 #include "ue2common.h"
+#include "util/operators.h"
+#include "util/small_vector.h"
 
 #include <algorithm>
 #include <iterator>
 #include <type_traits>
 #include <utility>
 
+#include <boost/functional/hash/hash_fwd.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 #include <boost/unordered/unordered_map.hpp>
 #include <boost/unordered/unordered_set.hpp>
@@ -57,8 +60,8 @@ class iter_wrapper
     : public boost::iterator_facade<iter_wrapper<WrappedIter, Value>, Value,
                                     boost::random_access_traversal_tag> {
 public:
-    iter_wrapper() {}
-    explicit iter_wrapper(const WrappedIter &it_in) : it(it_in) {}
+    iter_wrapper() = default;
+    explicit iter_wrapper(WrappedIter it_in) : it(std::move(it_in)) {}
 
     // Templated copy-constructor to allow for interoperable iterator and
     // const_iterator.
@@ -67,10 +70,10 @@ private:
 
 public:
     template <class OtherIter, class OtherValue>
-    iter_wrapper(const iter_wrapper<OtherIter, OtherValue> &other,
+    iter_wrapper(iter_wrapper<OtherIter, OtherValue> other,
                  typename std::enable_if<std::is_convertible<
                      OtherIter, WrappedIter>::value>::type * = nullptr)
-        : it(other.it) {}
+        : it(std::move(other.it)) {}
 
     WrappedIter get() const { return it; }
 
@@ -90,6 +93,58 @@ private:
     Value &dereference() const { return *it; }
 };
 
+template <class T, class Compare, class Allocator>
+class flat_base {
+protected:
+    // Underlying storage is a small vector with local space for one element.
+    using storage_type = small_vector<T, 1, Allocator>;
+    using storage_alloc_type = typename storage_type::allocator_type;
+
+    // Putting our storage and comparator in a tuple allows us to make use of
+    // the empty base class optimization (if this STL implements it for
+    // std::tuple).
+    std::tuple<storage_type, Compare> storage;
+
+    flat_base(const Compare &compare, const Allocator &alloc)
+        : storage(storage_type(storage_alloc_type(alloc)), compare) {}
+
+    storage_type &data() { return std::get<0>(this->storage); }
+    const storage_type &data() const { return std::get<0>(this->storage); }
+
+    Compare &comp() { return std::get<1>(this->storage); }
+    const Compare &comp() const { return std::get<1>(this->storage); }
+
+public:
+    // Common member types.
+    using key_compare = Compare;
+
+    Allocator get_allocator() const {
+        return data().get_allocator();
+    }
+
+    key_compare key_comp() const {
+        return comp();
+    }
+
+    // Capacity.
+
+    bool empty() const { return data().empty(); }
+    size_t size() const { return data().size(); }
+    size_t max_size() const { return data().max_size(); }
+
+    // Modifiers.
+
+    void clear() {
+        data().clear();
+    }
+
+    void swap(flat_base &a) {
+        using std::swap;
+        swap(comp(), a.comp());
+        swap(data(), a.data());
+    }
+};
+
 } // namespace flat_detail
 
 /**
@@ -102,33 +157,35 @@ private:
  */
 template <class T, class Compare = std::less<T>,
           class Allocator = std::allocator<T>>
-class flat_set {
-    // Underlying storage is a sorted std::vector.
-    using StorageT = std::vector<T, Allocator>;
-
-    Compare comp;
-    StorageT data;
+class flat_set
+    : public flat_detail::flat_base<T, Compare, Allocator>,
+      public totally_ordered<flat_set<T, Compare, Allocator>> {
+    using base_type = flat_detail::flat_base<T, Compare, Allocator>;
+    using storage_type = typename base_type::storage_type;
+    using base_type::data;
+    using base_type::comp;
 
 public:
     // Member types.
     using key_type = T;
     using value_type = T;
-    using size_type = typename StorageT::size_type;
-    using difference_type = typename StorageT::difference_type;
-    using key_compare = Compare;
+    using size_type = typename storage_type::size_type;
+    using difference_type = typename storage_type::difference_type;
+    using key_compare = typename base_type::key_compare;
     using value_compare = Compare;
     using allocator_type = Allocator;
     using reference = value_type &;
     using const_reference = const value_type &;
-    using pointer = typename std::allocator_traits<Allocator>::pointer;
-    using const_pointer = typename std::allocator_traits<Allocator>::const_pointer;
+    using allocator_traits_type = typename std::allocator_traits<Allocator>;
+    using pointer = typename allocator_traits_type::pointer;
+    using const_pointer = typename allocator_traits_type::const_pointer;
 
     // Iterator types.
 
-    using iterator = flat_detail::iter_wrapper<typename StorageT::iterator,
+    using iterator = flat_detail::iter_wrapper<typename storage_type::iterator,
                                                const value_type>;
     using const_iterator =
-        flat_detail::iter_wrapper<typename StorageT::const_iterator,
+        flat_detail::iter_wrapper<typename storage_type::const_iterator,
                                   const value_type>;
 
     using reverse_iterator = std::reverse_iterator<iterator>;
@@ -138,19 +195,19 @@ public:
 
     flat_set(const Compare &compare = Compare(),
              const Allocator &alloc = Allocator())
-        : comp(compare), data(alloc) {}
+        : base_type(compare, alloc) {}
 
     template <class InputIt>
     flat_set(InputIt first, InputIt last, const Compare &compare = Compare(),
              const Allocator &alloc = Allocator())
-        : comp(compare), data(alloc) {
+        : flat_set(compare, alloc) {
         insert(first, last);
     }
 
     flat_set(std::initializer_list<value_type> init,
              const Compare &compare = Compare(),
              const Allocator &alloc = Allocator())
-        : comp(compare), data(alloc) {
+        : flat_set(compare, alloc) {
         insert(init.begin(), init.end());
     }
 
@@ -159,20 +216,14 @@ public:
     flat_set &operator=(const flat_set &) = default;
     flat_set &operator=(flat_set &&) = default;
 
-    // Other members.
-
-    allocator_type get_allocator() const {
-        return data.get_allocator();
-    }
-
     // Iterators.
 
-    iterator begin() { return iterator(data.begin()); }
-    const_iterator cbegin() const { return const_iterator(data.cbegin()); }
+    iterator begin() { return iterator(data().begin()); }
+    const_iterator cbegin() const { return const_iterator(data().cbegin()); }
     const_iterator begin() const { return cbegin(); }
 
-    iterator end() { return iterator(data.end()); }
-    const_iterator cend() const { return const_iterator(data.cend()); }
+    iterator end() { return iterator(data().end()); }
+    const_iterator cend() const { return const_iterator(data().cend()); }
     const_iterator end() const { return cend(); }
 
     reverse_iterator rbegin() { return reverse_iterator(end()); }
@@ -187,22 +238,12 @@ public:
     }
     const_reverse_iterator rend() const { return crend(); }
 
-    // Capacity.
-
-    bool empty() const { return data.empty(); }
-    size_t size() const { return data.size(); }
-    size_t max_size() const { return data.max_size(); }
-
     // Modifiers.
 
-    void clear() {
-        data.clear();
-    }
-
     std::pair<iterator, bool> insert(const value_type &value) {
-        auto it = std::lower_bound(data.begin(), data.end(), value, comp);
-        if (it == data.end() || comp(value, *it)) {
-            return std::make_pair(iterator(data.insert(it, value)), true);
+        auto it = std::lower_bound(data().begin(), data().end(), value, comp());
+        if (it == data().end() || comp()(value, *it)) {
+            return std::make_pair(iterator(data().insert(it, value)), true);
         }
         return std::make_pair(iterator(it), false);
     }
@@ -212,9 +253,9 @@ public:
     }
 
     std::pair<iterator, bool> insert(value_type &&value) {
-        auto it = std::lower_bound(data.begin(), data.end(), value, comp);
-        if (it == data.end() || comp(value, *it)) {
-            return std::make_pair(iterator(data.insert(it, std::move(value))),
+        auto it = std::lower_bound(data().begin(), data().end(), value, comp());
+        if (it == data().end() || comp()(value, *it)) {
+            return std::make_pair(iterator(data().insert(it, std::move(value))),
                                   true);
         }
         return std::make_pair(iterator(it), false);
@@ -240,12 +281,12 @@ public:
         return insert(value_type(std::forward<Args>(args)...));
     }
 
-    void erase(iterator pos) {
-        data.erase(pos.get());
+    void erase(const_iterator pos) {
+        data().erase(pos.get());
     }
 
-    void erase(iterator first, iterator last) {
-        data.erase(first.get(), last.get());
+    void erase(const_iterator first, const_iterator last) {
+        data().erase(first.get(), last.get());
     }
 
     void erase(const key_type &key) {
@@ -255,12 +296,6 @@ public:
         }
     }
 
-    void swap(flat_set &a) {
-        using std::swap;
-        swap(comp, a.comp);
-        swap(data, a.data);
-    }
-
     // Lookup.
 
     size_type count(const value_type &value) const {
@@ -268,61 +303,50 @@ public:
     }
 
     iterator find(const value_type &value) {
-        auto it = std::lower_bound(data.begin(), data.end(), value, comp);
-        if (it != data.end() && comp(value, *it)) {
-            it = data.end();
+        auto it = std::lower_bound(data().begin(), data().end(), value, comp());
+        if (it != data().end() && comp()(value, *it)) {
+            it = data().end();
         }
         return iterator(it);
     }
 
     const_iterator find(const value_type &value) const {
-        auto it = std::lower_bound(data.begin(), data.end(), value, comp);
-        if (it != data.end() && comp(value, *it)) {
-            it = data.end();
+        auto it = std::lower_bound(data().begin(), data().end(), value, comp());
+        if (it != data().end() && comp()(value, *it)) {
+            it = data().end();
         }
         return const_iterator(it);
     }
 
     // Observers.
 
-    key_compare key_comp() const {
-        return comp;
-    }
-
     value_compare value_comp() const {
-        return comp;
+        return comp();
     }
 
-    // Operators.
+    // Operators. All others provided by ue2::totally_ordered.
 
     bool operator==(const flat_set &a) const {
-        return data == a.data;
-    }
-    bool operator!=(const flat_set &a) const {
-        return data != a.data;
+        return data() == a.data();
     }
     bool operator<(const flat_set &a) const {
-        return data < a.data;
-    }
-    bool operator<=(const flat_set &a) const {
-        return data <= a.data;
-    }
-    bool operator>(const flat_set &a) const {
-        return data > a.data;
-    }
-    bool operator>=(const flat_set &a) const {
-        return data >= a.data;
+        return data() < a.data();
     }
 
     // Free swap function for ADL.
     friend void swap(flat_set &a, flat_set &b) {
         a.swap(b);
     }
+
+    // Free hash function.
+    friend size_t hash_value(const flat_set &a) {
+        return boost::hash_range(a.begin(), a.end());
+    }
 };
 
 /**
  * \brief Map container implemented internally as a sorted vector. Use this
- * rather than std::map for small sets as it's faster, uses less memory and
+ * rather than std::map for small maps as it's faster, uses less memory and
  * incurs less malloc time.
  *
  * Note: we used to use boost::flat_map, but have run into problems with all
@@ -336,7 +360,9 @@ public:
  */
 template <class Key, class T, class Compare = std::less<Key>,
           class Allocator = std::allocator<std::pair<Key, T>>>
-class flat_map {
+class flat_map
+    : public flat_detail::flat_base<std::pair<Key, T>, Compare, Allocator>,
+      public totally_ordered<flat_map<Key, T, Compare, Allocator>> {
 public:
     // Member types.
     using key_type = Key;
@@ -344,28 +370,29 @@ public:
     using value_type = std::pair<const Key, T>;
 
 private:
-    // Underlying storage is a sorted std::vector.
-    using storage_type = std::pair<key_type, mapped_type>;
-    using StorageT = std::vector<storage_type, Allocator>;
-
-    Compare comp;
-    StorageT data;
+    using base_type =
+        flat_detail::flat_base<std::pair<Key, T>, Compare, Allocator>;
+    using keyval_storage_type = std::pair<key_type, mapped_type>;
+    using storage_type = typename base_type::storage_type;
+    using base_type::data;
+    using base_type::comp;
 
 public:
     // More Member types.
-    using size_type = typename StorageT::size_type;
-    using difference_type = typename StorageT::difference_type;
-    using key_compare = Compare;
+    using size_type = typename storage_type::size_type;
+    using difference_type = typename storage_type::difference_type;
+    using key_compare = typename base_type::key_compare;
     using allocator_type = Allocator;
     using reference = value_type &;
     using const_reference = const value_type &;
-    using pointer = typename std::allocator_traits<Allocator>::pointer;
-    using const_pointer = typename std::allocator_traits<Allocator>::const_pointer;
+    using allocator_traits_type = typename std::allocator_traits<Allocator>;
+    using pointer = typename allocator_traits_type::pointer;
+    using const_pointer = typename allocator_traits_type::const_pointer;
 
 public:
     using const_iterator =
-        flat_detail::iter_wrapper<typename StorageT::const_iterator,
-                                  const storage_type>;
+        flat_detail::iter_wrapper<typename storage_type::const_iterator,
+                                  const keyval_storage_type>;
 
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -377,19 +404,19 @@ public:
 
     flat_map(const Compare &compare = Compare(),
              const Allocator &alloc = Allocator())
-        : comp(compare), data(alloc) {}
+        : base_type(compare, alloc) {}
 
     template <class InputIt>
     flat_map(InputIt first, InputIt last, const Compare &compare = Compare(),
              const Allocator &alloc = Allocator())
-        : comp(compare), data(alloc) {
+        : flat_map(compare, alloc) {
         insert(first, last);
     }
 
     flat_map(std::initializer_list<value_type> init,
              const Compare &compare = Compare(),
              const Allocator &alloc = Allocator())
-        : comp(compare), data(alloc) {
+        : flat_map(compare, alloc) {
         insert(init.begin(), init.end());
     }
 
@@ -398,18 +425,12 @@ public:
     flat_map &operator=(const flat_map &) = default;
     flat_map &operator=(flat_map &&) = default;
 
-    // Other members.
-
-    allocator_type get_allocator() const {
-        return data.get_allocator();
-    }
-
     // Iterators.
 
-    const_iterator cbegin() const { return const_iterator(data.cbegin()); }
+    const_iterator cbegin() const { return const_iterator(data().cbegin()); }
     const_iterator begin() const { return cbegin(); }
 
-    const_iterator cend() const { return const_iterator(data.cend()); }
+    const_iterator cend() const { return const_iterator(data().cend()); }
     const_iterator end() const { return cend(); }
 
     const_reverse_iterator crbegin() const {
@@ -422,71 +443,61 @@ public:
     }
     const_reverse_iterator rend() const { return crend(); }
 
-    // Capacity.
-
-    bool empty() const { return data.empty(); }
-    size_t size() const { return data.size(); }
-    size_t max_size() const { return data.max_size(); }
-
 private:
-    using storage_iterator = typename StorageT::iterator;
-    using storage_const_iterator = typename StorageT::const_iterator;
+    using storage_iterator = typename storage_type::iterator;
+    using storage_const_iterator = typename storage_type::const_iterator;
 
     storage_iterator data_lower_bound(const key_type &key) {
         return std::lower_bound(
-            data.begin(), data.end(), key,
-            [&](const storage_type &elem, const key_type &k) {
-                return comp(elem.first, k);
+            data().begin(), data().end(), key,
+            [&](const keyval_storage_type &elem, const key_type &k) {
+                return comp()(elem.first, k);
             });
     }
 
     storage_const_iterator
     data_lower_bound(const key_type &key) const {
         return std::lower_bound(
-            data.begin(), data.end(), key,
-            [&](const storage_type &elem, const key_type &k) {
-                return comp(elem.first, k);
+            data().begin(), data().end(), key,
+            [&](const keyval_storage_type &elem, const key_type &k) {
+                return comp()(elem.first, k);
             });
     }
 
     std::pair<storage_iterator, bool> data_insert(const value_type &value) {
         auto it = data_lower_bound(value.first);
-        if (it == data.end() || comp(value.first, it->first)) {
-            return std::make_pair(data.insert(it, value), true);
+        if (it == data().end() || comp()(value.first, it->first)) {
+            return std::make_pair(data().insert(it, value), true);
         }
         return std::make_pair(it, false);
     }
 
     std::pair<storage_iterator, bool> data_insert(value_type &&value) {
         auto it = data_lower_bound(value.first);
-        if (it == data.end() || comp(value.first, it->first)) {
-            return std::make_pair(data.insert(it, std::move(value)), true);
+        if (it == data().end() || comp()(value.first, it->first)) {
+            return std::make_pair(data().insert(it, std::move(value)), true);
         }
         return std::make_pair(it, false);
     }
 
     storage_iterator data_find(const key_type &key) {
         auto it = data_lower_bound(key);
-        if (it != data.end() && comp(key, it->first)) {
-            it = data.end();
+        if (it != data().end() && comp()(key, it->first)) {
+            it = data().end();
         }
         return it;
     }
 
     storage_const_iterator data_find(const key_type &key) const {
         auto it = data_lower_bound(key);
-        if (it != data.end() && comp(key, it->first)) {
-            it = data.end();
+        if (it != data().end() && comp()(key, it->first)) {
+            it = data().end();
         }
         return it;
     }
 
 public:
     // Modifiers.
-
-    void clear() {
-        data.clear();
-    }
 
     std::pair<iterator, bool> insert(const value_type &value) {
         auto rv = data_insert(value);
@@ -514,17 +525,12 @@ public:
         return insert(value_type(std::forward<Args>(args)...));
     }
 
-    void erase(iterator pos) {
-        // Convert to a non-const storage iterator via pointer arithmetic.
-        storage_iterator it = data.begin() + distance(begin(), pos);
-        data.erase(it);
+    void erase(const_iterator pos) {
+        data().erase(pos.get());
     }
 
-    void erase(iterator first, iterator last) {
-        // Convert to a non-const storage iterator via pointer arithmetic.
-        storage_iterator data_first = data.begin() + distance(begin(), first);
-        storage_iterator data_last = data.begin() + distance(begin(), last);
-        data.erase(data_first, data_last);
+    void erase(const_iterator first, const_iterator last) {
+        data().erase(first.get(), last.get());
     }
 
     void erase(const key_type &key) {
@@ -532,12 +538,6 @@ public:
         if (it != end()) {
             erase(it);
         }
-    }
-
-    void swap(flat_map &a) {
-        using std::swap;
-        swap(comp, a.comp);
-        swap(data, a.data);
     }
 
     // Lookup.
@@ -554,7 +554,7 @@ public:
 
     mapped_type &at(const key_type &key) {
         auto it = data_find(key);
-        if (it == data.end()) {
+        if (it == data().end()) {
             throw std::out_of_range("element not found");
         }
         return it->second;
@@ -562,7 +562,7 @@ public:
 
     const mapped_type &at(const key_type &key) const {
         auto it = data_find(key);
-        if (it == data.end()) {
+        if (it == data().end()) {
             throw std::out_of_range("element not found");
         }
         return it->second;
@@ -575,34 +575,38 @@ public:
 
     // Observers.
 
-    key_compare key_comp() const {
-        return comp;
+    class value_compare {
+        friend class flat_map;
+    protected:
+        Compare c;
+        value_compare(Compare c_in) : c(c_in) {}
+    public:
+        bool operator()(const value_type &lhs, const value_type &rhs) {
+            return c(lhs.first, rhs.first);
+        }
+    };
+
+    value_compare value_comp() const {
+        return value_compare(comp());
     }
 
-    // Operators.
+    // Operators. All others provided by ue2::totally_ordered.
 
     bool operator==(const flat_map &a) const {
-        return data == a.data;
-    }
-    bool operator!=(const flat_map &a) const {
-        return data != a.data;
+        return data() == a.data();
     }
     bool operator<(const flat_map &a) const {
-        return data < a.data;
-    }
-    bool operator<=(const flat_map &a) const {
-        return data <= a.data;
-    }
-    bool operator>(const flat_map &a) const {
-        return data > a.data;
-    }
-    bool operator>=(const flat_map &a) const {
-        return data >= a.data;
+        return data() < a.data();
     }
 
     // Free swap function for ADL.
     friend void swap(flat_map &a, flat_map &b) {
         a.swap(b);
+    }
+
+    // Free hash function.
+    friend size_t hash_value(const flat_map &a) {
+        return boost::hash_range(a.begin(), a.end());
     }
 };
 

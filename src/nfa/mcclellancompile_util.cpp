@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,6 +44,12 @@ namespace ue2 {
 #define INIT_STATE 1
 
 static
+bool state_has_reports(const raw_dfa &raw, dstate_id_t s) {
+    const auto &ds = raw.states[s];
+    return !ds.reports.empty() || !ds.reports_eod.empty();
+}
+
+static
 u32 count_dots(const raw_dfa &raw) {
     assert(raw.start_anchored == INIT_STATE);
 
@@ -60,8 +66,7 @@ u32 count_dots(const raw_dfa &raw) {
             }
         }
 
-        if (!raw.states[raw.states[i].next[0]].reports.empty()
-            || !raw.states[raw.states[i].next[0]].reports_eod.empty()) {
+        if (state_has_reports(raw, raw.states[i].next[0])) {
             goto validate;
         }
 
@@ -162,74 +167,8 @@ u32 calc_min_dist_from_bob(raw_dfa &raw, vector<u32> *dist_in) {
     return last_d;
 }
 
-static
-void find_in_edges(const raw_dfa &raw, vector<vector<dstate_id_t> > *in_edges) {
-    in_edges->clear();
-    in_edges->resize(raw.states.size());
-    ue2::unordered_set<dstate_id_t> seen;
-
-    for (u32 s = 1; s < raw.states.size(); s++) {
-        seen.clear();
-        for (u32 j = 0; j < raw.alpha_size; j++) {
-            dstate_id_t t = raw.states[s].next[j];
-            if (contains(seen, t)) {
-                continue;
-            }
-            seen.insert(t);
-            (*in_edges)[t].push_back(s);
-        }
-    }
-}
-
-static
-void calc_min_dist_to_accept(const raw_dfa &raw,
-                             const vector<vector<dstate_id_t> > &in_edges,
-                             vector<u32> *accept_dist) {
-    vector<u32> &dist = *accept_dist;
-    dist.clear();
-    dist.resize(raw.states.size(), ~0U);
-
-    /* for reporting states to start from */
-    deque<dstate_id_t> to_visit;
-    for (u32 s = 0; s < raw.states.size(); s++) {
-        if (!raw.states[s].reports.empty()
-            || !raw.states[s].reports_eod.empty()) {
-            to_visit.push_back(s);
-            dist[s] = 0;
-        }
-    }
-
-    /* bfs */
-    UNUSED u32 last_d = 0;
-    while (!to_visit.empty()) {
-        dstate_id_t s = to_visit.front();
-        to_visit.pop_front();
-        assert(s != DEAD_STATE);
-
-        u32 d = dist[s];
-        assert(d >= last_d);
-        assert(d != ~0U);
-
-        for (vector<dstate_id_t>::const_iterator it = in_edges[s].begin();
-             it != in_edges[s].end(); ++it) {
-            dstate_id_t t = *it;
-            if (t == DEAD_STATE) {
-                continue;
-            }
-            if (dist[t] == ~0U) {
-                to_visit.push_back(t);
-                dist[t] = d + 1;
-            } else {
-                assert(dist[t] <= d + 1);
-            }
-        }
-
-        last_d = d;
-    }
-}
-
-bool prune_overlong(raw_dfa &raw, u32 max_offset) {
-    DEBUG_PRINTF("pruning to at most %u\n", max_offset);
+bool clear_deeper_reports(raw_dfa &raw, u32 max_offset) {
+    DEBUG_PRINTF("clearing reports on states deeper than %u\n", max_offset);
     vector<u32> bob_dist;
     u32 max_min_dist_bob = calc_min_dist_from_bob(raw, &bob_dist);
 
@@ -237,53 +176,18 @@ bool prune_overlong(raw_dfa &raw, u32 max_offset) {
         return false;
     }
 
-    vector<vector<dstate_id_t> > in_edges;
-    find_in_edges(raw, &in_edges);
-
-    vector<u32> accept_dist;
-    calc_min_dist_to_accept(raw, in_edges, &accept_dist);
-
-    in_edges.clear();
-
-    /* look over the states and filter out any which cannot reach a report
-     * states before max_offset */
-    vector<dstate_id_t> new_ids(raw.states.size());
-    vector<dstate> new_states;
-    u32 count = 1;
-    new_states.push_back(raw.states[DEAD_STATE]);
-
+    bool changed = false;
     for (u32 s = DEAD_STATE + 1; s < raw.states.size(); s++) {
-        if (bob_dist[s] + accept_dist[s] > max_offset) {
-            DEBUG_PRINTF("pruned %u: bob %u, report %u\n", s, bob_dist[s],
-                          accept_dist[s]);
-            new_ids[s] = DEAD_STATE;
-        } else {
-            new_ids[s] = count++;
-            new_states.push_back(raw.states[s]);
-            assert(new_states.size() == count);
-            assert(new_ids[s] <= s);
+        if (bob_dist[s] > max_offset && state_has_reports(raw, s)) {
+            DEBUG_PRINTF("clearing reports on %u (depth %u)\n", s, bob_dist[s]);
+            auto &ds = raw.states[s];
+            ds.reports.clear();
+            ds.reports_eod.clear();
+            changed = true;
         }
     }
 
-    /* swap states */
-    DEBUG_PRINTF("pruned %zu -> %u\n", raw.states.size(), count);
-    raw.states.swap(new_states);
-    new_states.clear();
-
-    /* update edges and daddys to refer to the new ids */
-    for (u32 s = DEAD_STATE + 1; s < raw.states.size(); s++) {
-        for (u32 j = 0; j < raw.alpha_size; j++) {
-            dstate_id_t old_t = raw.states[s].next[j];
-            raw.states[s].next[j] = new_ids[old_t];
-        }
-        raw.states[s].daddy = new_ids[raw.states[s].daddy];
-    }
-
-    /* update specials */
-    raw.start_floating = new_ids[raw.start_floating];
-    raw.start_anchored = new_ids[raw.start_anchored];
-
-    return true;
+    return changed;
 }
 
 set<ReportID> all_reports(const raw_dfa &rdfa) {

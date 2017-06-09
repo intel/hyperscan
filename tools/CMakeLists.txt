@@ -1,3 +1,6 @@
+if (WIN32)
+    return()
+endif()
 find_package(Threads)
 
 # remove some warnings

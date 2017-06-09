@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,9 +34,8 @@
 #define HWLM_BUILD_H
 
 #include "hwlm.h"
-#include "hwlm_literal.h"
 #include "ue2common.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 
 #include <memory>
 #include <vector>
@@ -47,30 +46,12 @@ namespace ue2 {
 
 struct CompileContext;
 struct Grey;
-struct target_t;
-
-/** \brief Structure gathering together the input/output parameters related to
- * streaming mode operation. */
-struct hwlmStreamingControl {
-    /** \brief IN parameter: Upper limit on the amount of history that can be
-     * requested. */
-    size_t history_max;
-
-    /** \brief IN parameter: History already known to be used before literal
-     * analysis. */
-    size_t history_min;
-
-    /** \brief OUT parameter: History required by the literal matcher to
-     * correctly match all literals. */
-    size_t literal_history_required;
-};
+struct hwlmLiteral;
 
 /** \brief Build an \ref HWLM literal matcher runtime structure for a group of
  * literals.
  *
  * \param lits The group of literals.
- * \param stream_control Streaming control parameters. If the matcher will
- *        operate in non-streaming (block) mode, this pointer should be NULL.
  * \param make_small Optimise matcher for small size.
  * \param cc Compile context.
  * \param expected_groups FIXME: document me!
@@ -79,11 +60,9 @@ struct hwlmStreamingControl {
  * may result in a nullptr return value, or a std::bad_alloc exception being
  * thrown.
  */
-aligned_unique_ptr<HWLM>
-hwlmBuild(const std::vector<hwlmLiteral> &lits,
-          hwlmStreamingControl *stream_control, bool make_small,
-          const CompileContext &cc,
-          hwlm_group_t expected_groups = HWLM_ALL_GROUPS);
+bytecode_ptr<HWLM> hwlmBuild(const std::vector<hwlmLiteral> &lits,
+                             bool make_small, const CompileContext &cc,
+                             hwlm_group_t expected_groups = HWLM_ALL_GROUPS);
 
 /**
  * Returns an estimate of the number of repeated characters on the end of a

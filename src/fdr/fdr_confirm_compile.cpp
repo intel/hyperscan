@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,10 +45,7 @@ using namespace std;
 
 namespace ue2 {
 
-using ConfSplitType = u8;
-using BucketSplitPair = pair<BucketIndex, ConfSplitType>;
-using BC2CONF = map<BucketSplitPair,
-                    pair<aligned_unique_ptr<FDRConfirm>, size_t>>;
+using BC2CONF = map<BucketIndex, bytecode_ptr<FDRConfirm>>;
 
 // return the number of bytes beyond a length threshold in all strings in lits
 static
@@ -150,9 +147,9 @@ void fillLitInfo(const vector<hwlmLiteral> &lits, vector<LitInfo> &tmpLitInfo,
 
 //#define FDR_CONFIRM_DUMP 1
 
-static pair<aligned_unique_ptr<FDRConfirm>, size_t>
-getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
-              bool make_small, bool make_confirm) {
+static
+bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
+                                       bool make_small, bool make_confirm) {
     vector<LitInfo> tmpLitInfo(lits.size());
     CONF_TYPE andmsk;
     fillLitInfo(lits, tmpLitInfo, andmsk);
@@ -166,7 +163,7 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
     if (make_small) {
         nBits = min(10U, lg2(lits.size()) + 1);
     } else {
-        nBits = min(13U, lg2(lits.size()) + 4);
+        nBits = lg2(lits.size() + 4);
     }
 
     CONF_TYPE mult = (CONF_TYPE)0x0b4e0ef37bc32127ULL;
@@ -177,8 +174,7 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
     u32 soleLitCmp = 0;
     u32 soleLitMsk = 0;
 
-    if ((applyOneCharOpt && lits.size() == 1 && lits[0].s.size() == 0 &&
-            lits[0].msk.empty()) || make_confirm == false) {
+    if (!make_confirm) {
         flags = FDRC_FLAG_NO_CONFIRM;
         if (lits[0].noruns) {
             flags |= NoRepeat; // messy - need to clean this up later as flags is sorta kinda obsoleted
@@ -288,7 +284,7 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
                   sizeof(LitInfo) * lits.size() + totalLitSize;
     size = ROUNDUP_N(size, alignof(FDRConfirm));
 
-    auto fdrc = aligned_zmalloc_unique<FDRConfirm>(size);
+    auto fdrc = make_zeroed_bytecode_ptr<FDRConfirm>(size);
     assert(fdrc); // otherwise would have thrown std::bad_alloc
 
     fdrc->andmsk = andmsk;
@@ -322,32 +318,15 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
             LiteralIndex litIdx = *i;
 
             // Write LitInfo header.
-            u8 *oldPtr = ptr;
             LitInfo &finalLI = *(LitInfo *)ptr;
             finalLI = tmpLitInfo[litIdx];
 
             ptr += sizeof(LitInfo); // String starts directly after LitInfo.
-
-            // Write literal prefix (everything before the last N characters,
-            // as the last N are already confirmed).
-            const string &t = lits[litIdx].s;
-            if (t.size() > sizeof(CONF_TYPE)) {
-                size_t prefix_len = t.size() - sizeof(CONF_TYPE);
-                memcpy(ptr, t.c_str(), prefix_len);
-                ptr += prefix_len;
-            }
-
-            ptr = ROUNDUP_PTR(ptr, alignof(LitInfo));
+            assert(lits[litIdx].s.size() <= sizeof(CONF_TYPE));
             if (next(i) == e) {
                 finalLI.next = 0;
             } else {
-                // our next field represents an adjustment on top of
-                // current address + the actual size of the literal
-                // so we track any rounding up done for alignment and
-                // add this in - that way we don't have to use bigger
-                // than a u8 (for now)
-                assert((size_t)(ptr - oldPtr) > t.size());
-                finalLI.next = verify_u8(ptr - oldPtr - t.size());
+                finalLI.next = 1;
             }
         }
         assert((size_t)(ptr - fdrc_base) <= size);
@@ -358,19 +337,16 @@ getFDRConfirm(const vector<hwlmLiteral> &lits, bool applyOneCharOpt,
     size_t actual_size = ROUNDUP_N((size_t)(ptr - fdrc_base),
                                    alignof(FDRConfirm));
     assert(actual_size <= size);
+    fdrc.shrink(actual_size);
 
-    return {move(fdrc), actual_size};
+    return fdrc;
 }
 
-static
-u32 setupMultiConfirms(const vector<hwlmLiteral> &lits,
-                       const EngineDescription &eng, BC2CONF &bc2Conf,
-                       map<BucketIndex, vector<LiteralIndex> > &bucketToLits,
-                       bool make_small) {
-    u32 pullBack = eng.getConfirmPullBackDistance();
-    u32 splitMask = eng.getConfirmTopLevelSplit() - 1;
-    bool splitHasCase = splitMask & 0x20;
-
+bytecode_ptr<u8>
+setupFullConfs(const vector<hwlmLiteral> &lits,
+               const EngineDescription &eng,
+               map<BucketIndex, vector<LiteralIndex>> &bucketToLits,
+               bool make_small) {
     bool makeConfirm = true;
     unique_ptr<TeddyEngineDescription> teddyDescr =
         getTeddyDescription(eng.getID());
@@ -378,101 +354,43 @@ u32 setupMultiConfirms(const vector<hwlmLiteral> &lits,
         makeConfirm = teddyDescr->needConfirm(lits);
     }
 
+    BC2CONF bc2Conf;
     u32 totalConfirmSize = 0;
     for (BucketIndex b = 0; b < eng.getNumBuckets(); b++) {
         if (!bucketToLits[b].empty()) {
-            vector<vector<hwlmLiteral>> vl(eng.getConfirmTopLevelSplit());
+            vector<hwlmLiteral> vl;
             for (const LiteralIndex &lit_idx : bucketToLits[b]) {
-                hwlmLiteral lit = lits[lit_idx]; // copy
-                // c is last char of this literal
-                u8 c = *(lit.s.rbegin());
-
-                bool suppressSplit = false;
-                if (pullBack) {
-                    // make a shorter string to work over if we're pulling back
-                    // getFDRConfirm doesn't know about that stuff
-                    assert(lit.s.size() >= pullBack);
-                    lit.s.resize(lit.s.size() - pullBack);
-
-                    u8 c_sub, c_sub_msk;
-                    if (lit.msk.empty()) {
-                        c_sub = 0;
-                        c_sub_msk = 0;
-                    } else {
-                        c_sub = *(lit.cmp.rbegin());
-                        c_sub_msk = *(lit.msk.rbegin());
-                        size_t len = lit.msk.size() -
-                                     min(lit.msk.size(), (size_t)pullBack);
-                        lit.msk.resize(len);
-                        lit.cmp.resize(len);
-                    }
-
-                    // if c_sub_msk is 0xff and lit.nocase
-                    // resteer 'c' to an exact value and set suppressSplit
-                    if ((c_sub_msk == 0xff) && (lit.nocase)) {
-                        suppressSplit = true;
-                        c = c_sub;
-                    }
-                }
-
-                if (!suppressSplit && splitHasCase && lit.nocase &&
-                    ourisalpha(c)) {
-                    vl[(u8)(mytoupper(c) & splitMask)].push_back(lit);
-                    vl[(u8)(mytolower(c) & splitMask)].push_back(lit);
-                } else {
-                    vl[c & splitMask].push_back(lit);
-                }
+                vl.push_back(lits[lit_idx]);
             }
 
-            for (u32 c = 0; c < eng.getConfirmTopLevelSplit(); c++) {
-                if (vl[c].empty()) {
-                    continue;
-                }
-                DEBUG_PRINTF("b %d c %02x sz %zu\n", b, c, vl[c].size());
-                auto key = make_pair(b, c);
-                auto fc = getFDRConfirm(vl[c], eng.typicallyHoldsOneCharLits(),
-                                        make_small, makeConfirm);
-                totalConfirmSize += fc.second;
-                assert(bc2Conf.find(key) == end(bc2Conf));
-                bc2Conf.emplace(key, move(fc));
-            }
+            DEBUG_PRINTF("b %d sz %zu\n", b, vl.size());
+            auto fc = getFDRConfirm(vl, make_small, makeConfirm);
+            totalConfirmSize += fc.size();
+            bc2Conf.emplace(b, move(fc));
         }
     }
-    return totalConfirmSize;
-}
 
-pair<aligned_unique_ptr<u8>, size_t>
-setupFullMultiConfs(const vector<hwlmLiteral> &lits,
-                    const EngineDescription &eng,
-                    map<BucketIndex, vector<LiteralIndex>> &bucketToLits,
-                    bool make_small) {
-    BC2CONF bc2Conf;
-    u32 totalConfirmSize = setupMultiConfirms(lits, eng, bc2Conf, bucketToLits,
-                                              make_small);
-
-    u32 primarySwitch = eng.getConfirmTopLevelSplit();
     u32 nBuckets = eng.getNumBuckets();
-    u32 totalConfSwitchSize = primarySwitch * nBuckets * sizeof(u32);
+    u32 totalConfSwitchSize = nBuckets * sizeof(u32);
     u32 totalSize = ROUNDUP_16(totalConfSwitchSize + totalConfirmSize);
 
-    auto buf = aligned_zmalloc_unique<u8>(totalSize);
+    auto buf = make_zeroed_bytecode_ptr<u8>(totalSize, 16);
     assert(buf); // otherwise would have thrown std::bad_alloc
 
     u32 *confBase = (u32 *)buf.get();
     u8 *ptr = buf.get() + totalConfSwitchSize;
 
     for (const auto &m : bc2Conf) {
-        const BucketIndex &b = m.first.first;
-        const u8 &c = m.first.second;
-        const pair<aligned_unique_ptr<FDRConfirm>, size_t> &p = m.second;
+        const BucketIndex &idx = m.first;
+        const bytecode_ptr<FDRConfirm> &p = m.second;
         // confirm offset is relative to the base of this structure, now
         u32 confirm_offset = verify_u32(ptr - buf.get());
-        memcpy(ptr, p.first.get(), p.second);
-        ptr += p.second;
-        u32 idx = c * nBuckets + b;
+        memcpy(ptr, p.get(), p.size());
+        ptr += p.size();
         confBase[idx] = confirm_offset;
     }
-    return {move(buf), totalSize};
+
+    return buf;
 }
 
 } // namespace ue2

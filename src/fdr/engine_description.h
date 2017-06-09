@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,29 +38,19 @@ class EngineDescription {
     u32 id;
     target_t code_target; // the target that we built this code for
     u32 numBuckets;
-    u32 confirmPullBackDistance;
-    u32 confirmTopLevelSplit;
 
 public:
     EngineDescription(u32 id_in, const target_t &code_target_in,
-                      u32 numBuckets_in, u32 confirmPullBackDistance_in,
-                      u32 confirmTopLevelSplit_in)
-        : id(id_in), code_target(code_target_in), numBuckets(numBuckets_in),
-          confirmPullBackDistance(confirmPullBackDistance_in),
-          confirmTopLevelSplit(confirmTopLevelSplit_in) {}
+                      u32 numBuckets_in)
+        : id(id_in), code_target(code_target_in), numBuckets(numBuckets_in) {}
 
     virtual ~EngineDescription();
 
     u32 getID() const { return id; }
     u32 getNumBuckets() const { return numBuckets; }
-    u32 getConfirmPullBackDistance() const { return confirmPullBackDistance; }
-    u32 getConfirmTopLevelSplit() const { return confirmTopLevelSplit; }
-    void setConfirmTopLevelSplit(u32 split) { confirmTopLevelSplit = split; }
 
     bool isValidOnTarget(const target_t &target_in) const;
     virtual u32 getDefaultFloodSuffixLength() const = 0;
-
-    virtual bool typicallyHoldsOneCharLits() const { return true; }
 };
 
 /** Returns a target given a CPU feature set value. */

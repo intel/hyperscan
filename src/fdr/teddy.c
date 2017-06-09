@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -129,7 +129,8 @@ m128 prep_conf_teddy_m1(const m128 *maskBase, m128 val) {
     m128 mask = set16x8(0xf);
     m128 lo = and128(val, mask);
     m128 hi = and128(rshift64_m128(val, 4), mask);
-    return and128(pshufb(maskBase[0*2], lo), pshufb(maskBase[0*2+1], hi));
+    return and128(pshufb_m128(maskBase[0 * 2], lo),
+                  pshufb_m128(maskBase[0 * 2 + 1], hi));
 }
 
 static really_inline
@@ -139,8 +140,8 @@ m128 prep_conf_teddy_m2(const m128 *maskBase, m128 *old_1, m128 val) {
     m128 hi = and128(rshift64_m128(val, 4), mask);
     m128 r = prep_conf_teddy_m1(maskBase, val);
 
-    m128 res_1 = and128(pshufb(maskBase[1*2], lo),
-                        pshufb(maskBase[1*2+1], hi));
+    m128 res_1 = and128(pshufb_m128(maskBase[1*2], lo),
+                        pshufb_m128(maskBase[1*2+1], hi));
     m128 res_shifted_1 = palignr(res_1, *old_1, 16-1);
     *old_1 = res_1;
     return and128(r, res_shifted_1);
@@ -154,8 +155,8 @@ m128 prep_conf_teddy_m3(const m128 *maskBase, m128 *old_1, m128 *old_2,
     m128 hi = and128(rshift64_m128(val, 4), mask);
     m128 r = prep_conf_teddy_m2(maskBase, old_1, val);
 
-    m128 res_2 = and128(pshufb(maskBase[2*2], lo),
-                        pshufb(maskBase[2*2+1], hi));
+    m128 res_2 = and128(pshufb_m128(maskBase[2*2], lo),
+                        pshufb_m128(maskBase[2*2+1], hi));
     m128 res_shifted_2 = palignr(res_2, *old_2, 16-2);
     *old_2 = res_2;
     return and128(r, res_shifted_2);
@@ -169,8 +170,8 @@ m128 prep_conf_teddy_m4(const m128 *maskBase, m128 *old_1, m128 *old_2,
     m128 hi = and128(rshift64_m128(val, 4), mask);
     m128 r = prep_conf_teddy_m3(maskBase, old_1, old_2, val);
 
-    m128 res_3 = and128(pshufb(maskBase[3*2], lo),
-                        pshufb(maskBase[3*2+1], hi));
+    m128 res_3 = and128(pshufb_m128(maskBase[3*2], lo),
+                        pshufb_m128(maskBase[3*2+1], hi));
     m128 res_shifted_3 = palignr(res_3, *old_3, 16-3);
     *old_3 = res_3;
     return and128(r, res_shifted_3);

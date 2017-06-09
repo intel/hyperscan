@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,7 +26,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief Prefilter Reductions.
  *
  * This file contains routines for reducing the size of an NFA graph that we
@@ -92,13 +93,13 @@ struct RegionInfo {
     u32 id;                             //!< region id
     deque<NFAVertex> vertices;          //!< vertices in the region
     CharReach reach;                    //!< union of region reach
-    depth minWidth = 0;                 //!< min width of region subgraph
-    depth maxWidth = depth::infinity(); //!< max width of region subgraph
+    depth minWidth{0};                  //!< min width of region subgraph
+    depth maxWidth{depth::infinity()};  //!< max width of region subgraph
     bool atBoundary = false;            //!< region is next to an accept
 
     // Bigger score is better.
     size_t score() const {
-        // FIXME: charreach should be a signal?
+        // TODO: charreach should be a signal?
         size_t numVertices = vertices.size();
         if (atBoundary) {
             return numVertices - min(PENALTY_BOUNDARY, numVertices);

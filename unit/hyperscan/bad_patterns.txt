@@ -70,8 +70,8 @@
 70:/foo[^\x00-\xff]/ #Pattern can never match.
 71:/foo[^\x00-\xff]$/ #Pattern can never match.
 72:/\Bd\B/i{min_length=2,min_offset=4,max_offset=54} #Expression has min_length=2 but can only produce matches of length 1 bytes at most.
-73:/(((.|aaa)aaaaaa.aaa){14,19}a((a|a{5,6}|aa){3,11}|aa.|a){2}){4}\Z/sm #Pattern is too large.
-74:/(((.|aaa)aaaaaa.aaa){14,19}a((a|a{5,6}|aa){3,11}|aa.|a){2}){4}\Z/smL #Pattern is too large.
+73:/(((.|aaa)aaaaaa.aaa){14,19}a((a|a{5,6}|aa){3,11}|aa.|a){2}){40}\Z/sm #Pattern is too large.
+74:/(((.|aaa)aaaaaa.aaa){14,19}a((a|a{5,6}|aa){3,11}|aa.|a){2}){40}\Z/smL #Pattern is too large.
 75:/\B/s8{min_length=1} #Expression has min_length=1 but can only produce matches of length 0 bytes at most.
 76:/(f|d|(\b)|i|a\Z)/mHV8{min_length=2,min_offset=9,max_offset=14} #Expression has min_length=2 but can only produce matches of length 1 bytes at most.
 77:/(f|e|d{19,}|h\Z|^j|\Aa)/smi{min_length=7,min_offset=8,max_offset=18} #Extended parameter constraints can not be satisfied for any match from this expression.
@@ -90,9 +90,9 @@
 91:/a\owibble/ #Value in \o{...} sequence is non-octal or missing braces at index 1.
 92:/a\o{wibble/ #Value in \o{...} sequence is non-octal or missing braces at index 1.
 93:/a\o{777}/ #Value in \o{...} sequence is too large at index 1.
-94:/(*UTF16)foo/ #(*UTF16) not supported at index 2.
-95:/(*BSR_UNICODE)abc/ #Unknown control verb at index 2.
-96:/a+(*SKIP)b/ #Unknown control verb at index 4.
+94:/(*UTF16)foo/ #Unsupported control verb (*UTF16) at index 0.
+95:/(*BSR_UNICODE)abc/ #Unsupported control verb (*BSR_UNICODE) at index 0.
+96:/a+(*SKIP)b/ #Unknown control verb (*SKIP) at index 2.
 97:/foo(*/ #Invalid repeat at index 4.
 98:/[:\]:]/ #POSIX named classes are only supported inside a class at index 0.
 99:/[[:[:]/ #Invalid POSIX named class at index 1.
@@ -130,3 +130,15 @@
 133:/[a[.\].]]/ #Unsupported POSIX collating element at index 2.
 134:/[a[=\]=]]/ #Unsupported POSIX collating element at index 2.
 135:/[^\D\d]/8W #Pattern can never match.
+136:/(*LIMIT_MATCH=1000)foobar/ #Unsupported control verb (*LIMIT_MATCH=1000) at index 0.
+137:/(*UTF32)foobar/ #Unsupported control verb (*UTF32) at index 0.
+138:/(*UNKNOWNVERB)foobar/ #Unknown control verb (*UNKNOWNVERB) at index 0.
+139:/foo(*UTF8)bar/ #(*UTF8) must be at start of expression, encountered at index 5.
+140:/(?i)(*UTF8)foobar/ #(*UTF8) must be at start of expression, encountered at index 6.
+141:/(*@&/ #Unknown control verb at index 2.
+142:/abcd/si{edit_distance=4} #Approximate matching patterns that reduce to vacuous patterns are disallowed.
+143:/foobar|hatstand/sL{edit_distance=6} #Approximate matching patterns that reduce to vacuous patterns are disallowed.
+144:/abc\b/{edit_distance=1} #Zero-width assertions are disallowed for approximate matching.
+145:/abc/8{edit_distance=1} #UTF-8 is disallowed for approximate matching.
+146:/(*UTF8)abc/{edit_distance=1} #UTF-8 is disallowed for approximate matching.
+147:/\b\BMYBt/s{edit_distance=1} #Pattern can never match.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,8 +35,9 @@
 
 namespace ue2 {
 
+class ExpressionInfo;
 class ReportManager;
-class NGWrapper;
+class NGHolder;
 
 /** \brief Convert temporary assert vertices (from construction method) to
  * edge-based flags.
@@ -44,7 +45,8 @@ class NGWrapper;
  * Remove the horrors that are the temporary assert vertices which arise from
  * our construction method. Allows the rest of our code base to live in
  * blissful ignorance of their existence. */
-void removeAssertVertices(ReportManager &rm, NGWrapper &g);
+void removeAssertVertices(ReportManager &rm, NGHolder &g,
+                          const ExpressionInfo &expr);
 
 } // namespace ue2
 

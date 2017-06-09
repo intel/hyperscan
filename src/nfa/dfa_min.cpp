@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,12 +26,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
-* \brief Build code for DFA minimization
-*/
+/**
+ * \file
+ * \brief Build code for DFA minimization.
+ */
 
 /**
- * /Summary of the Hopcrofts algorithm/
+ * /Summary of the Hopcroft minimisation algorithm/
+ *
  * partition := {F, Q \ F};
  * work_queue := {F};
  * while (work_queue is not empty) do
@@ -57,22 +59,20 @@
 #include "dfa_min.h"
 
 #include "grey.h"
-#include "nfa/rdfa.h"
-#include "nfagraph/ng_mcclellan.h"
+#include "rdfa.h"
 #include "ue2common.h"
-#include "util/partitioned_set.h"
 #include "util/container.h"
+#include "util/noncopyable.h"
+#include "util/partitioned_set.h"
 #include "util/ue2_containers.h"
 
 #include <algorithm>
 #include <functional>
+#include <iterator>
 #include <map>
+#include <queue>
 #include <set>
 #include <vector>
-#include <iterator>
-
-#include <boost/core/noncopyable.hpp>
-#include <boost/dynamic_bitset.hpp>
 
 using namespace std;
 
@@ -81,115 +81,78 @@ namespace ue2 {
 namespace {
 
 struct hopcroft_state_info {
-    vector<vector<dstate_id_t> > prev;
+    explicit hopcroft_state_info(size_t alpha_size) : prev(alpha_size) {}
+
+    /** \brief Mapping from symbol to a list of predecessors that transition to
+     * this state on that symbol. */
+    vector<vector<dstate_id_t>> prev;
 };
 
-struct DFA_components : boost::noncopyable {
-    dstate_id_t nstates;
-    size_t inp_size;
-    set<size_t> work_queue;
-    /*Partition contains reduced states*/
-    partitioned_set<dstate_id_t> partition;
-    vector<hopcroft_state_info> states;
+struct HopcroftInfo : noncopyable {
+    size_t alpha_size; //!< Size of DFA alphabet.
+    queue<size_t> work_queue; //!< Hopcroft work queue of partition indices.
+    partitioned_set<dstate_id_t> partition; //!< Partition set of DFA states.
+    vector<hopcroft_state_info> states; //!< Pre-calculated state info (preds)
 
-    explicit DFA_components(const raw_dfa &rdfa);
+    explicit HopcroftInfo(const raw_dfa &rdfa);
 };
 
-} //namespace
+} // namespace
 
 /**
- * create_map:
- *   Creates an initial partitioning and work_queue.
- *   Initial partition contains {accepting states..., Non-accepting states}
- *   Initial work_queue contains accepting state subsets
+ * \brief Create an initial partitioning and work_queue.
  *
- *   The initial partitioning needs to distinguish between the different
- *   reporting behaviours (unlike standard hopcroft) --> more than one subset
- *   possible for the accepting states.
+ * Initial partition contains {accepting states..., Non-accepting states}
+ * Initial work_queue contains accepting state subsets
  *
- *   Look for accepting states in both reports and reports_eod.
- *   Creates a map with a key(reports, reports_eod) and an id.
- *   Reports of each state are searched against the map and
- *   added to the corresponding id -> partition[id] and work_queue[id].
- *   Non Accept states are added to partition[id+1].
+ * The initial partitioning needs to distinguish between the different
+ * reporting behaviours (unlike standard Hopcroft) --> more than one subset
+ * possible for the accepting states.
+ *
+ * Look for accepting states in both reports and reports_eod.
+ * Creates a map with a key(reports, reports_eod) and an id.
+ * Reports of each state are searched against the map and
+ * added to the corresponding id -> partition[id] and work_queue[id].
+ * Non Accept states are added to partition[id+1].
  */
 static
-vector<size_t> create_map(const raw_dfa &rdfa, set<size_t> &work_queue) {
+vector<size_t> create_map(const raw_dfa &rdfa, queue<size_t> &work_queue) {
     using ReportKey = pair<flat_set<ReportID>, flat_set<ReportID>>;
     map<ReportKey, size_t> subset_map;
     vector<size_t> state_to_subset(rdfa.states.size(), INVALID_SUBSET);
 
     for (size_t i = 0; i < rdfa.states.size(); i++) {
-        if (!rdfa.states[i].reports.empty() ||
-            !rdfa.states[i].reports_eod.empty()) {
-            ReportKey key(rdfa.states[i].reports, rdfa.states[i].reports_eod);
+        const auto &ds = rdfa.states[i];
+        if (!ds.reports.empty() || !ds.reports_eod.empty()) {
+            ReportKey key(ds.reports, ds.reports_eod);
             if (contains(subset_map, key)) {
                 state_to_subset[i] = subset_map[key];
             } else {
                 size_t sub = subset_map.size();
-                subset_map[key] = sub;
+                subset_map.emplace(std::move(key), sub);
                 state_to_subset[i] = sub;
-                work_queue.insert(sub);
+                work_queue.push(sub);
             }
         }
     }
 
-    /* handle non accepts */
+    /* Give non-accept states their own subset. */
     size_t non_accept_sub = subset_map.size();
-    for (size_t i = 0; i < state_to_subset.size(); i++) {
-        if (state_to_subset[i] == INVALID_SUBSET) {
-            state_to_subset[i] = non_accept_sub;
-        }
-    }
+    replace(state_to_subset.begin(), state_to_subset.end(), INVALID_SUBSET,
+            non_accept_sub);
 
     return state_to_subset;
 }
 
-DFA_components::DFA_components(const raw_dfa &rdfa)
-                             : nstates(rdfa.states.size()),
-                               inp_size(rdfa.states[nstates - 1].next.size()),
-                               partition(create_map(rdfa, work_queue)) {
-    /* initializing states */
-    for (size_t i = 0; i < nstates; i++) {
-        states.push_back(hopcroft_state_info());
-        states.back().prev.resize(inp_size);
-    }
-
-    for (size_t i = 0; i < nstates; i++) {  // i is the previous state
-        for (size_t  j = 0; j < inp_size; j++) {
-            /* Creating X_table */
-            dstate_id_t present_state = rdfa.states[i].next[j];
-            states[present_state].prev[j].push_back(i);
-
-            DEBUG_PRINTF("rdfa.states[%zu].next[%zu] %hu \n", i, j,
-                         rdfa.states[i].next[j]);
+HopcroftInfo::HopcroftInfo(const raw_dfa &rdfa)
+    : alpha_size(rdfa.alpha_size), partition(create_map(rdfa, work_queue)),
+      states(rdfa.states.size(), hopcroft_state_info(alpha_size)) {
+    /* Construct predecessor lists for each state, indexed by symbol. */
+    for (size_t i = 0; i < states.size(); i++) { // i is the previous state
+        for (size_t sym = 0; sym < alpha_size; sym++) {
+            dstate_id_t present_state = rdfa.states[i].next[sym];
+            states[present_state].prev[sym].push_back(i);
         }
-    }
-}
-
-/**
- * choose and remove a set A from work_queue.
- */
-static
-void get_work_item(DFA_components &mdfa, ue2::flat_set<dstate_id_t> &A) {
-    A.clear();
-    assert(!mdfa.work_queue.empty());
-    set<size_t>::iterator pt = mdfa.work_queue.begin();
-    insert(&A, mdfa.partition[*pt]);
-    mdfa.work_queue.erase(pt);
-}
-
-/**
- * X is the set of states for which a transition on the input leads to a state
- * in A.
- */
-static
-void create_X(const DFA_components &mdfa, const ue2::flat_set<dstate_id_t> &A,
-              size_t inp, ue2::flat_set<dstate_id_t> &X) {
-    X.clear();
-
-    for (dstate_id_t id : A) {
-        insert(&X, mdfa.states[id].prev[inp]);
     }
 }
 
@@ -206,14 +169,14 @@ void create_X(const DFA_components &mdfa, const ue2::flat_set<dstate_id_t> &A,
  *      - replace S in work_queue by the smaller of the two sets.
  */
 static
-void split_and_replace_set(const size_t part_index, DFA_components &mdfa,
-                           const ue2::flat_set<dstate_id_t> &splitter) {
+void split_and_replace_set(const size_t part_index, HopcroftInfo &info,
+                           const flat_set<dstate_id_t> &splitter) {
     /* singleton sets cannot be split */
-    if (mdfa.partition[part_index].size() == 1) {
+    if (info.partition[part_index].size() == 1) {
         return;
     }
 
-    size_t small_index = mdfa.partition.split(part_index, splitter);
+    size_t small_index = info.partition.split(part_index, splitter);
 
     if (small_index == INVALID_SUBSET) {
         /* the set could not be split */
@@ -223,54 +186,56 @@ void split_and_replace_set(const size_t part_index, DFA_components &mdfa,
     /* larger subset remains at the input subset index, if the input subset was
      * already in the work queue then the larger subset will remain there. */
 
-    mdfa.work_queue.insert(small_index);
+    info.work_queue.push(small_index);
 }
 
 /**
- * The complete Hopcrofts algorithm is implemented in this function.
- * Choose and remove a set tray from work_queue
- * For each input- X is created.
- * For each subset in the partition, split_and_replace_sets are called with the
- * split set.
+ * \brief Core of the Hopcroft minimisation algorithm.
  */
 static
-void dfa_min(DFA_components &mdfa) {
-    ue2::flat_set<dstate_id_t> A, X;
+void dfa_min(HopcroftInfo &info) {
+    flat_set<dstate_id_t> curr, sym_preds;
     vector<size_t> cand_subsets;
 
-    while (!mdfa.work_queue.empty()) {
-        get_work_item(mdfa, A);
+    while (!info.work_queue.empty()) {
+        /* Choose and remove a set of states (curr, or A in the description
+         * above) from the work queue. Note that we copy the set because the
+         * partition may be split by the loop below. */
+        curr.clear();
+        insert(&curr, info.partition[info.work_queue.front()]);
+        info.work_queue.pop();
 
-        for (size_t inp = 0; inp < mdfa.inp_size; inp++) {
-            create_X(mdfa, A, inp, X);
-            if (X.empty()) {
+        for (size_t sym = 0; sym < info.alpha_size; sym++) {
+            /* Find the set of states sym_preds for which a transition on the
+             * given symbol leads to a state in curr. */
+            sym_preds.clear();
+            for (dstate_id_t s : curr) {
+                insert(&sym_preds, info.states[s].prev[sym]);
+            }
+
+            if (sym_preds.empty()) {
                 continue;
             }
 
-            /* we only need to consider subsets with at least one member in X for
-             * splitting */
+            /* we only need to consider subsets with at least one member in
+             * sym_preds for splitting */
             cand_subsets.clear();
-            mdfa.partition.find_overlapping(X, &cand_subsets);
+            info.partition.find_overlapping(sym_preds, &cand_subsets);
 
             for (size_t sub : cand_subsets) {
-                split_and_replace_set(sub, mdfa, X);
+                split_and_replace_set(sub, info, sym_preds);
             }
         }
     }
 }
 
 /**
- * Creating new dfa table
- * Map ordering contains key being an equivalence classes first state
- * and the value being the equivalence class index.
- * Eq_state[i] tells us new state id the equivalence class located at
- * partition[i].
+ * \brief Build the new DFA state table.
  */
 static
-void mapping_new_states(const DFA_components &mdfa,
-                        vector<dstate_id_t> &old_to_new,
-                        raw_dfa &rdfa) {
-    const size_t num_partitions = mdfa.partition.size();
+void mapping_new_states(const HopcroftInfo &info,
+                        vector<dstate_id_t> &old_to_new, raw_dfa &rdfa) {
+    const size_t num_partitions = info.partition.size();
 
     // Mapping from equiv class's first state to equiv class index.
     map<dstate_id_t, size_t> ordering;
@@ -279,7 +244,7 @@ void mapping_new_states(const DFA_components &mdfa,
     vector<dstate_id_t> eq_state(num_partitions);
 
     for (size_t i = 0; i < num_partitions; i++) {
-        ordering[*mdfa.partition[i].begin()] = i;
+        ordering[*info.partition[i].begin()] = i;
     }
 
     dstate_id_t new_id = 0;
@@ -287,30 +252,28 @@ void mapping_new_states(const DFA_components &mdfa,
         eq_state[m.second] = new_id++;
     }
 
-    for (size_t t = 0; t < mdfa.partition.size(); t++) {
-        for (dstate_id_t id : mdfa.partition[t]) {
+    for (size_t t = 0; t < info.partition.size(); t++) {
+        for (dstate_id_t id : info.partition[t]) {
             old_to_new[id] = eq_state[t];
         }
     }
 
     vector<dstate> new_states;
     new_states.reserve(num_partitions);
-    for (size_t i = 0; i < mdfa.nstates; i++) {
-        if (contains(ordering, i)) {
-            new_states.push_back(rdfa.states[i]);
-        }
+
+    for (const auto &m : ordering) {
+        new_states.push_back(rdfa.states[m.first]);
     }
-    rdfa.states.swap(new_states);
+    rdfa.states = std::move(new_states);
 }
 
 static
-void renumber_new_states(const DFA_components &mdfa,
-                         const vector<dstate_id_t> &old_to_new,
-                         raw_dfa &rdfa) {
-    for (size_t i = 0; i < mdfa.partition.size(); i++) {
-        for (size_t j = 0; j < mdfa.inp_size; j++) {
-            dstate_id_t output = rdfa.states[i].next[j];
-            rdfa.states[i].next[j] = old_to_new[output];
+void renumber_new_states(const HopcroftInfo &info,
+                         const vector<dstate_id_t> &old_to_new, raw_dfa &rdfa) {
+    for (size_t i = 0; i < info.partition.size(); i++) {
+        for (size_t sym = 0; sym < info.alpha_size; sym++) {
+            dstate_id_t output = rdfa.states[i].next[sym];
+            rdfa.states[i].next[sym] = old_to_new[output];
         }
         dstate_id_t dad = rdfa.states[i].daddy;
         rdfa.states[i].daddy = old_to_new[dad];
@@ -321,17 +284,16 @@ void renumber_new_states(const DFA_components &mdfa,
 }
 
 static
-void new_dfa(raw_dfa &rdfa, const DFA_components &mdfa) {
-    if (mdfa.partition.size() != mdfa.nstates) {
-        vector<dstate_id_t> old_to_new(mdfa.nstates);
-        mapping_new_states(mdfa, old_to_new, rdfa);
-        renumber_new_states(mdfa, old_to_new, rdfa);
+void new_dfa(raw_dfa &rdfa, const HopcroftInfo &info) {
+    if (info.partition.size() == info.states.size()) {
+        return;
     }
+
+    vector<dstate_id_t> old_to_new(info.states.size());
+    mapping_new_states(info, old_to_new, rdfa);
+    renumber_new_states(info, old_to_new, rdfa);
 }
 
-/**
- * MAIN FUNCTION
- */
 void minimize_hopcroft(raw_dfa &rdfa, const Grey &grey) {
     if (!grey.minimizeDFA) {
         return;
@@ -339,10 +301,10 @@ void minimize_hopcroft(raw_dfa &rdfa, const Grey &grey) {
 
     UNUSED const size_t states_before = rdfa.states.size();
 
-    DFA_components mdfa(rdfa);
+    HopcroftInfo info(rdfa);
 
-    dfa_min(mdfa);
-    new_dfa(rdfa, mdfa);
+    dfa_min(info);
+    new_dfa(rdfa, info);
 
     DEBUG_PRINTF("reduced from %zu to %zu states\n", states_before,
                  rdfa.states.size());

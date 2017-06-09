@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,7 +30,7 @@
 #define MPV_COMPILE_H
 
 #include "ue2common.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 #include "util/charreach.h"
 
 #include <memory>
@@ -61,9 +61,9 @@ struct raw_puff {
  * puffs in the triggered_puffs vector are enabled when an TOP_N event is
  * delivered corresponding to their index in the vector
  */
-aligned_unique_ptr<NFA> mpvCompile(const std::vector<raw_puff> &puffs,
-                                   const std::vector<raw_puff> &triggered_puffs,
-                                   const ReportManager &rm);
+bytecode_ptr<NFA> mpvCompile(const std::vector<raw_puff> &puffs,
+                             const std::vector<raw_puff> &triggered_puffs,
+                             const ReportManager &rm);
 
 } // namespace ue2
 

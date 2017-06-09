@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 
 #include "gtest/gtest.h"
 
+#include "util/arch.h"
 #include "util/simd_utils.h"
 #include "nfa/limex_shuffle.h"
 
@@ -164,14 +165,15 @@ TEST(Shuffle, PackedExtract64_3) {
 template<typename T>
 static
 void build_pshufb_masks_onebit(unsigned int bit, T *permute, T *compare) {
-    static_assert(sizeof(T) == sizeof(m128) || sizeof(T) == sizeof(m256),
+    static_assert(sizeof(T) == sizeof(m128) || sizeof(T) == sizeof(m256) ||
+                      sizeof(T) == sizeof(m512),
                   "should be valid type");
     // permute mask has 0x80 in all bytes except the one we care about
     memset(permute, 0x80, sizeof(*permute));
     memset(compare, 0, sizeof(*compare));
     char *pmsk = (char *)permute;
     char *cmsk = (char *)compare;
-    u8 off = (bit >= 128) ? 0x10 : 0;
+    u8 off = (bit >= 128) ? (bit >= 256) ? (bit >= 384) ? 0x30 : 0x20 : 0x10 : 0;
     pmsk[off] = bit/8;
     cmsk[off] = ~(1 << (bit % 8));
 }
@@ -194,7 +196,7 @@ TEST(Shuffle, PackedExtract128_1) {
     }
 }
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 TEST(Shuffle, PackedExtract256_1) {
     // Try all possible one-bit masks
     for (unsigned int i = 0; i < 256; i++) {
@@ -209,6 +211,26 @@ TEST(Shuffle, PackedExtract256_1) {
         // we should get zero out of all the other bit positions
         for (unsigned int j = 0; (j != i && j < 256); j++) {
             EXPECT_EQ(0U, packedExtract256(setbit<m256>(j), permute, compare));
+        }
+    }
+}
+#endif
+
+#if defined(HAVE_AVX512)
+TEST(Shuffle, PackedExtract512_1) {
+    // Try all possible one-bit masks
+    for (unsigned int i = 0; i < 512; i++) {
+        // shuffle a single 1 bit to the front
+        m512 permute, compare;
+        build_pshufb_masks_onebit(i, &permute, &compare);
+        EXPECT_EQ(1U, packedExtract512(setbit<m512>(i), permute, compare));
+        EXPECT_EQ(1U, packedExtract512(ones512(), permute, compare));
+        // we should get zero out of these cases
+        EXPECT_EQ(0U, packedExtract512(zeroes512(), permute, compare));
+        EXPECT_EQ(0U, packedExtract512(not512(setbit<m512>(i)), permute, compare));
+        // we should get zero out of all the other bit positions
+        for (unsigned int j = 0; (j != i && j < 512); j++) {
+            EXPECT_EQ(0U, packedExtract512(setbit<m512>(j), permute, compare));
         }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -67,7 +67,7 @@ hs_free_t normalise_free(hs_free_t f) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_set_allocator(hs_alloc_t allocfunc, hs_free_t freefunc) {
+hs_error_t HS_CDECL hs_set_allocator(hs_alloc_t allocfunc, hs_free_t freefunc) {
     hs_set_database_allocator(allocfunc, freefunc);
     hs_set_misc_allocator(allocfunc, freefunc);
     hs_set_stream_allocator(allocfunc, freefunc);
@@ -77,7 +77,8 @@ hs_error_t hs_set_allocator(hs_alloc_t allocfunc, hs_free_t freefunc) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_set_database_allocator(hs_alloc_t allocfunc, hs_free_t freefunc) {
+hs_error_t HS_CDECL hs_set_database_allocator(hs_alloc_t allocfunc,
+                                              hs_free_t freefunc) {
     hs_database_alloc = normalise_alloc(allocfunc);
     hs_database_free = normalise_free(freefunc);
 
@@ -85,7 +86,8 @@ hs_error_t hs_set_database_allocator(hs_alloc_t allocfunc, hs_free_t freefunc) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_set_misc_allocator(hs_alloc_t allocfunc, hs_free_t freefunc) {
+hs_error_t HS_CDECL hs_set_misc_allocator(hs_alloc_t allocfunc,
+                                          hs_free_t freefunc) {
     hs_misc_alloc = normalise_alloc(allocfunc);
     hs_misc_free = normalise_free(freefunc);
 
@@ -93,7 +95,8 @@ hs_error_t hs_set_misc_allocator(hs_alloc_t allocfunc, hs_free_t freefunc) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_set_scratch_allocator(hs_alloc_t allocfunc, hs_free_t freefunc) {
+hs_error_t HS_CDECL hs_set_scratch_allocator(hs_alloc_t allocfunc,
+                                             hs_free_t freefunc) {
     hs_scratch_alloc = normalise_alloc(allocfunc);
     hs_scratch_free = normalise_free(freefunc);
 
@@ -101,7 +104,8 @@ hs_error_t hs_set_scratch_allocator(hs_alloc_t allocfunc, hs_free_t freefunc) {
 }
 
 HS_PUBLIC_API
-hs_error_t hs_set_stream_allocator(hs_alloc_t allocfunc, hs_free_t freefunc) {
+hs_error_t HS_CDECL hs_set_stream_allocator(hs_alloc_t allocfunc,
+                                            hs_free_t freefunc) {
     hs_stream_alloc = normalise_alloc(allocfunc);
     hs_stream_free = normalise_free(freefunc);
 

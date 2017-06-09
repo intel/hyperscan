@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,15 +26,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- *  \brief Tamarama: container engine for exclusive engines, compiler code.
+/**
+ * \file
+ * \brief Tamarama: container engine for exclusive engines, compiler code.
  */
 
 #ifndef NFA_TAMARAMACOMPILE_H
 #define NFA_TAMARAMACOMPILE_H
 
 #include "ue2common.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 
 #include <map>
 #include <set>
@@ -45,7 +46,7 @@ struct NFA;
 namespace ue2 {
 
 /**
- * \brief A TamaProto that contains top remapping and reports info
+ * \brief A TamaProto that contains top remapping and reports info.
  */
 struct TamaProto {
     void add(const NFA *n, const u32 id, const u32 top,
@@ -59,7 +60,7 @@ struct TamaProto {
 };
 
 /**
- * \brief Contruction info for a Tamarama engine:
+ * \brief Construction info for a Tamarama engine:
  * contains at least two subengines.
  *
  * A TamaInfo is converted into a single NFA, with each top triggering a
@@ -70,7 +71,7 @@ struct TamaInfo {
     static constexpr size_t max_occupancy = 65536; // arbitrary limit
 
     /** \brief Add a new subengine. */
-    void add(NFA* sub, const std::set<u32> &top);
+    void add(NFA *sub, const std::set<u32> &top);
 
     /** \brief All the subengines */
     std::vector<NFA *> subengines;
@@ -86,9 +87,10 @@ std::set<ReportID> all_reports(const TamaProto &proto);
  * returns via out_top_remap, a mapping indicating how tops in the subengines in
  * relate to the tamarama's tops.
  */
-ue2::aligned_unique_ptr<NFA> buildTamarama(const TamaInfo &tamaInfo,
-                      const u32 queue,
-                      std::map<std::pair<const NFA *, u32>, u32> &out_top_remap);
+bytecode_ptr<NFA>
+buildTamarama(const TamaInfo &tamaInfo, const u32 queue,
+              std::map<std::pair<const NFA *, u32>, u32> &out_top_remap);
+
 } // namespace ue2
 
 #endif // NFA_TAMARAMACOMPILE_H

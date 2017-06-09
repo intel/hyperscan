@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,36 +35,47 @@
 #define ROSE_BUILD_MATCHERS_H
 
 #include "rose_build_impl.h"
+#include "util/bytecode_ptr.h"
 
 #include <vector>
 
+struct Grey;
 struct HWLM;
 
 namespace ue2 {
 
-struct hwlmLiteral;
+struct LitFragment {
+    LitFragment(u32 fragment_id_in, rose_group groups_in, u32 lit_id)
+    : fragment_id(fragment_id_in), groups(groups_in), lit_ids({lit_id}) {}
+    LitFragment(u32 fragment_id_in, rose_group groups_in,
+                std::vector<u32> lit_ids_in)
+    : fragment_id(fragment_id_in), groups(groups_in),
+        lit_ids(std::move(lit_ids_in)) {}
+    u32 fragment_id;
+    rose_group groups;
+    std::vector<u32> lit_ids;
+    u32 lit_program_offset = ROSE_INVALID_PROG_OFFSET;
+    u32 delay_program_offset = ROSE_INVALID_PROG_OFFSET;
+};
 
-/**
- * \brief Build up a vector of literals for the given table.
- *
- * If max_offset is specified (and not ROSE_BOUND_INF), then literals that can
- * only lead to a pattern match after max_offset may be excluded.
- */
-std::vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
-                    rose_literal_table table, size_t max_len,
-                    u32 max_offset = ROSE_BOUND_INF);
+bytecode_ptr<HWLM>
+buildFloatingMatcher(const RoseBuildImpl &build,
+                     const std::vector<LitFragment> &fragments,
+                     size_t longLitLengthThreshold, rose_group *fgroups,
+                     size_t *historyRequired);
 
-aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
-                                              size_t longLitLengthThreshold,
-                                              rose_group *fgroups,
-                                              size_t *fsize,
-                                              size_t *historyRequired);
+bytecode_ptr<HWLM>
+buildDelayRebuildMatcher(const RoseBuildImpl &build,
+                         const std::vector<LitFragment> &fragments,
+                         size_t longLitLengthThreshold);
 
-aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
-                                                size_t *sbsize);
+bytecode_ptr<HWLM>
+buildSmallBlockMatcher(const RoseBuildImpl &build,
+                       const std::vector<LitFragment> &fragments);
 
-aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
-                                                 size_t *esize);
+bytecode_ptr<HWLM>
+buildEodAnchoredMatcher(const RoseBuildImpl &build,
+                        const std::vector<LitFragment> &fragments);
 
 void findMoreLiteralMasks(RoseBuildImpl &build);
 

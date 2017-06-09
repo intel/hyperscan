@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -456,9 +456,8 @@ bool allocateFSN16(dfa_info &info, dstate_id_t *sherman_base) {
 }
 
 static
-aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
-                                           const CompileContext &cc,
-                                           set<dstate_id_t> *accel_states) {
+bytecode_ptr<NFA> mcclellanCompile16(dfa_info &info, const CompileContext &cc,
+                                     set<dstate_id_t> *accel_states) {
     DEBUG_PRINTF("building mcclellan 16\n");
 
     vector<u32> reports; /* index in ri for the appropriate report list */
@@ -497,7 +496,7 @@ aligned_unique_ptr<NFA> mcclellanCompile16(dfa_info &info,
     accel_offset -= sizeof(NFA); /* adj accel offset to be relative to m */
     assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
 
-    aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(total_size);
     char *nfa_base = (char *)nfa.get();
 
     populateBasicInfo(sizeof(u16), info, total_size, aux_offset, accel_offset,
@@ -685,9 +684,8 @@ void allocateFSN8(dfa_info &info,
 }
 
 static
-aligned_unique_ptr<NFA> mcclellanCompile8(dfa_info &info,
-                                          const CompileContext &cc,
-                                          set<dstate_id_t> *accel_states) {
+bytecode_ptr<NFA> mcclellanCompile8(dfa_info &info, const CompileContext &cc,
+                                    set<dstate_id_t> *accel_states) {
     DEBUG_PRINTF("building mcclellan 8\n");
 
     vector<u32> reports;
@@ -717,12 +715,13 @@ aligned_unique_ptr<NFA> mcclellanCompile8(dfa_info &info,
     accel_offset -= sizeof(NFA); /* adj accel offset to be relative to m */
     assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
 
-    aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(total_size);
     char *nfa_base = (char *)nfa.get();
 
     mcclellan *m = (mcclellan *)getMutableImplNfa(nfa.get());
 
-    allocateFSN8(info, accel_escape_info, &m->accel_limit_8, &m->accept_limit_8);
+    allocateFSN8(info, accel_escape_info, &m->accel_limit_8,
+                 &m->accept_limit_8);
     populateBasicInfo(sizeof(u8), info, total_size, aux_offset, accel_offset,
                       accel_escape_info.size(), arb, single, nfa.get());
 
@@ -763,7 +762,7 @@ aligned_unique_ptr<NFA> mcclellanCompile8(dfa_info &info,
 #define MAX_SHERMAN_LIST_LEN 8
 
 static
-void addIfEarlier(set<dstate_id_t> &dest, dstate_id_t candidate,
+void addIfEarlier(flat_set<dstate_id_t> &dest, dstate_id_t candidate,
                   dstate_id_t max) {
     if (candidate < max) {
         dest.insert(candidate);
@@ -771,19 +770,41 @@ void addIfEarlier(set<dstate_id_t> &dest, dstate_id_t candidate,
 }
 
 static
-void addSuccessors(set<dstate_id_t> &dest, const dstate &source,
+void addSuccessors(flat_set<dstate_id_t> &dest, const dstate &source,
                    u16 alphasize, dstate_id_t curr_id) {
     for (symbol_t s = 0; s < alphasize; s++) {
         addIfEarlier(dest, source.next[s], curr_id);
     }
 }
 
+/* \brief Returns a set of states to search for a better daddy. */
+static
+flat_set<dstate_id_t> find_daddy_candidates(const dfa_info &info,
+                                            dstate_id_t curr_id) {
+    flat_set<dstate_id_t> hinted;
+
+    addIfEarlier(hinted, 0, curr_id);
+    addIfEarlier(hinted, info.raw.start_anchored, curr_id);
+    addIfEarlier(hinted, info.raw.start_floating, curr_id);
+
+    // Add existing daddy and his successors, then search back one generation.
+    const u16 alphasize = info.impl_alpha_size;
+    dstate_id_t daddy = info.states[curr_id].daddy;
+    for (u32 level = 0; daddy && level < 2; level++) {
+        addIfEarlier(hinted, daddy, curr_id);
+        addSuccessors(hinted, info.states[daddy], alphasize, curr_id);
+        daddy = info.states[daddy].daddy;
+    }
+
+    return hinted;
+}
+
 #define MAX_SHERMAN_SELF_LOOP 20
 
 static
-void find_better_daddy(dfa_info &info, dstate_id_t curr_id,
-                       bool using8bit, bool any_cyclic_near_anchored_state,
-                       const Grey &grey) {
+void find_better_daddy(dfa_info &info, dstate_id_t curr_id, bool using8bit,
+                       bool any_cyclic_near_anchored_state,
+                       bool trust_daddy_states, const Grey &grey) {
     if (!grey.allowShermanStates) {
         return;
     }
@@ -818,21 +839,21 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id,
     dstate_id_t best_daddy = 0;
     dstate &currState = info.states[curr_id];
 
-    set<dstate_id_t> hinted; /* set of states to search for a better daddy */
-    addIfEarlier(hinted, 0, curr_id);
-    addIfEarlier(hinted, info.raw.start_anchored, curr_id);
-    addIfEarlier(hinted, info.raw.start_floating, curr_id);
-
-    dstate_id_t mydaddy = currState.daddy;
-    if (mydaddy) {
-        addIfEarlier(hinted, mydaddy, curr_id);
-        addSuccessors(hinted, info.states[mydaddy], alphasize, curr_id);
-        dstate_id_t mygranddaddy = info.states[mydaddy].daddy;
-        if (mygranddaddy) {
-            addIfEarlier(hinted, mygranddaddy, curr_id);
-            addSuccessors(hinted, info.states[mygranddaddy], alphasize,
-                          curr_id);
+    flat_set<dstate_id_t> hinted;
+    if (trust_daddy_states) {
+        // Use the daddy already set for this state so long as it isn't already
+        // a Sherman state.
+        if (!info.is_sherman(currState.daddy)) {
+            hinted.insert(currState.daddy);
+        } else {
+            // Fall back to granddaddy, which has already been processed (due
+            // to BFS ordering) and cannot be a Sherman state.
+            dstate_id_t granddaddy = info.states[currState.daddy].daddy;
+            assert(!info.is_sherman(granddaddy));
+            hinted.insert(granddaddy);
         }
+    } else {
+        hinted = find_daddy_candidates(info, curr_id);
     }
 
     for (const dstate_id_t &donor : hinted) {
@@ -885,7 +906,7 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id,
 
     if (self_loop_width > MAX_SHERMAN_SELF_LOOP) {
         DEBUG_PRINTF("%hu is banned wide self loop (%u)\n", curr_id,
-                      self_loop_width);
+                     self_loop_width);
         return;
     }
 
@@ -939,9 +960,10 @@ bool is_cyclic_near(const raw_dfa &raw, dstate_id_t root) {
     return false;
 }
 
-aligned_unique_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
-                                           const CompileContext &cc,
-                                           set<dstate_id_t> *accel_states) {
+bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
+                                     const CompileContext &cc,
+                                     bool trust_daddy_states,
+                                     set<dstate_id_t> *accel_states) {
     u16 total_daddy = 0;
     dfa_info info(strat);
     bool using8bit = cc.grey.allowMcClellan8 && info.size() <= 256;
@@ -957,7 +979,7 @@ aligned_unique_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &
 
     for (u32 i = 0; i < info.size(); i++) {
         find_better_daddy(info, i, using8bit, any_cyclic_near_anchored_state,
-                          cc.grey);
+                          trust_daddy_states, cc.grey);
         total_daddy += info.extra[i].daddytaken;
     }
 
@@ -965,7 +987,7 @@ aligned_unique_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &
                  info.size() * info.impl_alpha_size, info.size(),
                  info.impl_alpha_size);
 
-    aligned_unique_ptr<NFA> nfa;
+    bytecode_ptr<NFA> nfa;
     if (!using8bit) {
         nfa = mcclellanCompile16(info, cc, accel_states);
     } else {
@@ -980,11 +1002,13 @@ aligned_unique_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &
     return nfa;
 }
 
-aligned_unique_ptr<NFA> mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
-                                         const ReportManager &rm,
-                                         set<dstate_id_t> *accel_states) {
-    mcclellan_build_strat mbs(raw, rm);
-    return mcclellanCompile_i(raw, mbs, cc, accel_states);
+bytecode_ptr<NFA> mcclellanCompile(raw_dfa &raw, const CompileContext &cc,
+                                   const ReportManager &rm,
+                                   bool only_accel_init,
+                                   bool trust_daddy_states,
+                                   set<dstate_id_t> *accel_states) {
+    mcclellan_build_strat mbs(raw, rm, only_accel_init);
+    return mcclellanCompile_i(raw, mbs, cc, trust_daddy_states, accel_states);
 }
 
 size_t mcclellan_build_strat::accelSize(void) const {

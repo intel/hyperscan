@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,50 +26,37 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MULTIACCELCOMPILE_H_
-#define MULTIACCELCOMPILE_H_
-
-#include "ue2common.h"
-
-#include "nfagraph/ng_limex_accel.h"
+#ifndef UTIL_SMALL_VECTOR_H
+#define UTIL_SMALL_VECTOR_H
 
 #include <vector>
 
+#include <boost/version.hpp>
+
+#if BOOST_VERSION >= 105800
+#  define HAVE_BOOST_CONTAINER_SMALL_VECTOR
+#endif
+
+#if defined(HAVE_BOOST_CONTAINER_SMALL_VECTOR)
+#  include <boost/container/small_vector.hpp>
+#endif
+
 namespace ue2 {
 
-/* accel scheme state machine */
-enum accel_scheme_state {
-    STATE_FIRST_RUN,
-    STATE_SECOND_RUN,
-    STATE_WAITING_FOR_GRAB,
-    STATE_FIRST_TAIL,
-    STATE_SECOND_TAIL,
-    STATE_STOPPED,
-    STATE_INVALID
-};
+#if defined(HAVE_BOOST_CONTAINER_SMALL_VECTOR)
 
-struct accel_data {
-    MultibyteAccelInfo::multiaccel_type type = MultibyteAccelInfo::MAT_NONE;
-    accel_scheme_state state = STATE_INVALID;
-    unsigned len1 = 0; /* length of first run */
-    unsigned len2 = 0; /* length of second run, if present */
-    unsigned tlen1 = 0; /* first tail length */
-    unsigned tlen2 = 0; /* second tail length */
-};
+template <class T, std::size_t N,
+          typename Allocator = boost::container::new_allocator<T>>
+using small_vector = boost::container::small_vector<T, N, Allocator>;
 
-class MultiaccelCompileHelper {
-private:
-    const CharReach &cr;
-    u32 offset;
-    std::vector<accel_data> accels;
-    unsigned max_len;
-public:
-    MultiaccelCompileHelper(const CharReach &cr, u32 off, unsigned max_len);
-    bool canAdvance();
-    MultibyteAccelInfo getBestScheme();
-    void advance(const ue2::CharReach &cr);
-};
+#else
 
-}; // namespace
+// Boost version isn't new enough, fall back to just using std::vector.
+template <class T, std::size_t N, typename Allocator = std::allocator<T>>
+using small_vector = std::vector<T, Allocator>;
 
-#endif /* MULTIACCELCOMPILE_H_ */
+#endif // HAVE_BOOST_CONTAINER_SMALL_VECTOR
+
+} // namespace ue2
+
+#endif // UTIL_SMALL_VECTOR_H

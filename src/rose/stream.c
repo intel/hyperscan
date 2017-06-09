@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -412,16 +412,18 @@ void ensureStreamNeatAndTidy(const struct RoseEngine *t, char *state,
 }
 
 static really_inline
-void do_rebuild(const struct RoseEngine *t, const struct HWLM *ftable,
-                struct hs_scratch *scratch) {
+void do_rebuild(const struct RoseEngine *t, struct hs_scratch *scratch) {
+    assert(t->drmatcherOffset);
     assert(!can_stop_matching(scratch));
+
+    const struct HWLM *hwlm = getByOffset(t, t->drmatcherOffset);
     size_t len = MIN(scratch->core_info.hlen, t->delayRebuildLength);
     const u8 *buf = scratch->core_info.hbuf + scratch->core_info.hlen - len;
     DEBUG_PRINTF("BEGIN FLOATING REBUILD over %zu bytes\n", len);
 
     scratch->core_info.status &= ~STATUS_DELAY_DIRTY;
 
-    hwlmExec(ftable, buf, len, 0, roseDelayRebuildCallback, scratch,
+    hwlmExec(hwlm, buf, len, 0, roseDelayRebuildCallback, scratch,
              scratch->tctxt.groups);
     assert(!can_stop_matching(scratch));
 }
@@ -510,6 +512,34 @@ void runEagerPrefixesStream(const struct RoseEngine *t,
             q->end--; /* remove end item */
         }
     }
+}
+
+static really_inline
+int can_never_match(const struct RoseEngine *t, char *state,
+                    struct hs_scratch *scratch, size_t length, u64a offset) {
+    struct RoseContext *tctxt = &scratch->tctxt;
+
+    if (tctxt->groups) {
+        DEBUG_PRINTF("still has active groups\n");
+        return 0;
+    }
+
+    if (offset + length <= t->anchoredDistance) { /* not < as may have eod */
+        DEBUG_PRINTF("still in anchored region\n");
+        return 0;
+    }
+
+    if (t->lastByteHistoryIterOffset) { /* last byte history is hard */
+        DEBUG_PRINTF("last byte history\n");
+        return 0;
+    }
+
+    if (mmbit_any(getActiveLeafArray(t, state), t->activeArrayCount)) {
+        DEBUG_PRINTF("active leaf\n");
+        return 0;
+    }
+
+    return 1;
 }
 
 void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
@@ -607,15 +637,12 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
                      rebuild, scratch->core_info.status,
                      t->maxFloatingDelayedMatch, offset);
 
-        if (!flen) {
-            if (rebuild) { /* rebuild floating delayed match stuff */
-                do_rebuild(t, ftable, scratch);
-            }
-            goto flush_delay_and_exit;
+        if (rebuild) { /* rebuild floating delayed match stuff */
+            do_rebuild(t, scratch);
         }
 
-        if (rebuild) { /* rebuild floating delayed match stuff */
-            do_rebuild(t, ftable, scratch);
+        if (!flen) {
+            goto flush_delay_and_exit;
         }
 
         if (flen + offset <= t->floatingMinDistance) {
@@ -647,6 +674,14 @@ exit:
     if (!can_stop_matching(scratch)) {
         ensureStreamNeatAndTidy(t, state, scratch, length, offset);
     }
+
+    if (!told_to_stop_matching(scratch)
+        && can_never_match(t, state, scratch, length, offset)) {
+        DEBUG_PRINTF("PATTERN SET IS EXHAUSTED\n");
+        scratch->core_info.status = STATUS_EXHAUSTED;
+        return;
+    }
+
     DEBUG_PRINTF("DONE STREAMING SCAN, status = %u\n",
                  scratch->core_info.status);
     return;

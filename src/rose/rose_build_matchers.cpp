@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,9 +33,12 @@
 
 #include "rose_build_matchers.h"
 
+#include "rose_build_dump.h"
 #include "rose_build_impl.h"
+#include "rose_build_lit_accel.h"
 #include "rose_build_width.h"
 #include "hwlm/hwlm_build.h"
+#include "hwlm/hwlm_internal.h"
 #include "hwlm/hwlm_literal.h"
 #include "nfa/castlecompile.h"
 #include "nfa/nfa_api_queue.h"
@@ -57,6 +60,8 @@ using namespace std;
 using boost::adaptors::map_values;
 
 namespace ue2 {
+
+static const size_t MAX_ACCEL_STRING_LEN = 16;
 
 #ifdef DEBUG
 static UNUSED
@@ -206,7 +211,7 @@ bool maskFromPreds(const RoseBuildImpl &build, const rose_literal_id &id,
     }
 
     u32 u_lit_id = *(g[u].literals.begin());
-    const rose_literal_id &u_id = build.literals.right.at(u_lit_id);
+    const rose_literal_id &u_id = build.literals.at(u_lit_id);
     DEBUG_PRINTF("u has lit: %s\n", escapeString(u_id.s).c_str());
 
     // Number of characters to take from the back of u's literal.
@@ -341,12 +346,8 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
     }
 
     vector<u32> candidates;
-    for (const auto &e : build.literals.right) {
-        const u32 id = e.first;
-        const auto &lit = e.second;
-
-        // This pass takes place before final IDs are assigned to literals.
-        assert(!build.hasFinalId(id));
+    for (u32 id = 0; id < build.literals.size(); id++) {
+        const auto &lit = build.literals.at(id);
 
         if (lit.delay || build.isDelayed(id)) {
             continue;
@@ -375,7 +376,7 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
     }
 
     for (const u32 &id : candidates) {
-        const auto &lit = build.literals.right.at(id);
+        const auto &lit = build.literals.at(id);
         auto &lit_info = build.literal_info.at(id);
 
         vector<u8> msk, cmp;
@@ -404,7 +405,6 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
         lit_info.vertices.clear();
 
         // Preserve other properties.
-        new_info.requires_explode = lit_info.requires_explode;
         new_info.requires_benefits = lit_info.requires_benefits;
     }
 }
@@ -491,8 +491,14 @@ bool isNoRunsLiteral(const RoseBuildImpl &build, const u32 id,
         return false;
     }
 
-    if (build.literals.right.at(id).s.length() > max_len) {
-        DEBUG_PRINTF("requires literal check\n");
+    size_t len = build.literals.at(id).s.length();
+    if (len > max_len) {
+        DEBUG_PRINTF("long literal, requires confirm\n");
+        return false;
+    }
+
+    if (len > ROSE_SHORT_LITERAL_LEN_MAX) {
+        DEBUG_PRINTF("medium-length literal, requires confirm\n");
         return false;
     }
 
@@ -610,7 +616,7 @@ u64a literalMinReportOffset(const RoseBuildImpl &build,
     // If this literal in the undelayed literal corresponding to some delayed
     // literals, we must take their minimum offsets into account.
     for (const u32 &delayed_id : info.delayed_ids) {
-        const auto &delayed_lit = build.literals.right.at(delayed_id);
+        const auto &delayed_lit = build.literals.at(delayed_id);
         const auto &delayed_info = build.literal_info.at(delayed_id);
         u64a delayed_min_offset = literalMinReportOffset(build, delayed_lit,
                                                          delayed_info);
@@ -626,159 +632,245 @@ u64a literalMinReportOffset(const RoseBuildImpl &build,
     return lit_min_offset;
 }
 
-vector<hwlmLiteral> fillHamsterLiteralList(const RoseBuildImpl &build,
-                                           rose_literal_table table,
-                                           size_t max_len, u32 max_offset) {
+template<class Container>
+void trim_to_suffix(Container &c, size_t len) {
+    if (c.size() <= len) {
+        return;
+    }
+
+    size_t suffix_len = c.size() - len;
+    c.erase(c.begin(), c.begin() + suffix_len);
+}
+
+namespace {
+
+/** \brief Prototype for literal matcher construction. */
+struct MatcherProto {
+    /** \brief Literal fragments used to construct the literal matcher. */
     vector<hwlmLiteral> lits;
 
-    for (const auto &e : build.literals.right) {
-        const u32 id = e.first;
-        if (!build.hasFinalId(id)) {
-            continue;
-        }
+    /** \brief Longer literals used for acceleration analysis. */
+    vector<AccelString> accel_lits;
 
-        if (e.second.delay) {
-            continue; /* delay id's are virtual-ish */
-        }
+    /** \brief The history required by the literal matcher. */
+    size_t history_required = 0;
 
-        if (e.second.table != table) {
-            continue; /* wrong table */
-        }
+    /** \brief Insert the contents of another MatcherProto. */
+    void insert(const MatcherProto &a);
+};
+}
 
-        assert(id < build.literal_info.size());
-        const rose_literal_info &info = build.literal_info[id];
-        u32 final_id = info.final_id;
-        rose_group groups = info.group_mask;
-        /* Note: requires_benefits are handled in the literal entries */
-        const ue2_literal &lit = e.second.s;
+/**
+ * \brief Build up a vector of literals (and associated other data) for the
+ * given table.
+ *
+ * If max_offset is specified (and not ROSE_BOUND_INF), then literals that can
+ * only lead to a pattern match after max_offset may be excluded.
+ */
+static
+MatcherProto makeMatcherProto(const RoseBuildImpl &build,
+                              const vector<LitFragment> &fragments,
+                              rose_literal_table table, bool delay_rebuild,
+                              size_t max_len, u32 max_offset = ROSE_BOUND_INF) {
+    MatcherProto mp;
 
-        DEBUG_PRINTF("lit='%s'\n", escapeString(lit).c_str());
+    if (delay_rebuild) {
+        assert(table == ROSE_FLOATING);
+        assert(build.cc.streaming);
+    }
 
-        if (max_offset != ROSE_BOUND_INF) {
-            u64a min_report = literalMinReportOffset(build, e.second, info);
-            if (min_report > max_offset) {
-                DEBUG_PRINTF("min report offset=%llu exceeds max_offset=%u\n",
-                             min_report, max_offset);
+    for (const auto &f : fragments) {
+        for (u32 id : f.lit_ids) {
+            const rose_literal_id &lit = build.literals.at(id);
+
+            if (lit.table != table) {
+                continue; /* wrong table */
+            }
+
+            if (lit.delay) {
+                continue;  /* delay id's are virtual-ish */
+            }
+
+            assert(id < build.literal_info.size());
+            const auto &info = build.literal_info.at(id);
+
+            /* Note: requires_benefits are handled in the literal entries */
+            const ue2_literal &s = lit.s;
+
+            DEBUG_PRINTF("lit='%s' (len %zu)\n", escapeString(s).c_str(),
+                         s.length());
+
+            // When building the delay rebuild table, we only want to include
+            // literals that have delayed variants.
+            if (delay_rebuild && info.delayed_ids.empty()) {
+                DEBUG_PRINTF("not needed for delay rebuild\n");
                 continue;
             }
-        }
 
-        const vector<u8> &msk = e.second.msk;
-        const vector<u8> &cmp = e.second.cmp;
-
-        bool noruns = isNoRunsLiteral(build, id, info, max_len);
-
-        if (info.requires_explode) {
-            DEBUG_PRINTF("exploding lit\n");
-
-            // We do not require_explode for long literals.
-            assert(lit.length() <= max_len);
-
-            case_iter cit = caseIterateBegin(lit);
-            case_iter cite = caseIterateEnd();
-            for (; cit != cite; ++cit) {
-                string s = *cit;
-                bool nocase = false;
-
-                DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d msk=%s, "
-                             "cmp=%s (exploded)\n",
-                             final_id, escapeString(s).c_str(), nocase, noruns,
-                             dumpMask(msk).c_str(), dumpMask(cmp).c_str());
-
-                if (!maskIsConsistent(s, nocase, msk, cmp)) {
-                    DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
+            if (max_offset != ROSE_BOUND_INF) {
+                u64a min_report = literalMinReportOffset(build, lit, info);
+                if (min_report > max_offset) {
+                    DEBUG_PRINTF("min report offset=%llu exceeds "
+                                 "max_offset=%u\n", min_report, max_offset);
                     continue;
                 }
-
-                lits.emplace_back(move(s), nocase, noruns, final_id, groups,
-                                  msk, cmp);
             }
-        } else {
-            string s = lit.get_string();
-            bool nocase = lit.any_nocase();
+
+            const vector<u8> &msk = lit.msk;
+            const vector<u8> &cmp = lit.cmp;
+            bool noruns = isNoRunsLiteral(build, id, info, max_len);
+
+            size_t lit_hist_len = 0;
+            if (build.cc.streaming) {
+                lit_hist_len = max(msk.size(), min(s.length(), max_len));
+                lit_hist_len = lit_hist_len ? lit_hist_len - 1 : 0;
+            }
+            DEBUG_PRINTF("lit requires %zu bytes of history\n", lit_hist_len);
+            assert(lit_hist_len <= build.cc.grey.maxHistoryAvailable);
+
+            auto lit_final = s; // copy
+
+            if (lit_final.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
+                DEBUG_PRINTF("truncating to tail of length %zu\n",
+                             size_t{ROSE_SHORT_LITERAL_LEN_MAX});
+                lit_final.erase(0, lit_final.length()
+                                - ROSE_SHORT_LITERAL_LEN_MAX);
+                // We shouldn't have set a threshold below 8 chars.
+                assert(msk.size() <= ROSE_SHORT_LITERAL_LEN_MAX);
+                assert(!noruns);
+            }
+
+            const auto &s_final = lit_final.get_string();
+            bool nocase = lit_final.any_nocase();
 
             DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d, msk=%s, "
-                         "cmp=%s\n",
-                         final_id, escapeString(s).c_str(), (int)nocase, noruns,
+                         "cmp=%s\n", f.fragment_id,
+                         escapeString(s_final).c_str(), (int)nocase, noruns,
                          dumpMask(msk).c_str(), dumpMask(cmp).c_str());
 
-            if (s.length() > max_len) {
-                DEBUG_PRINTF("truncating to tail of length %zu\n", max_len);
-                s.erase(0, s.length() - max_len);
-                // We shouldn't have set a threshold below 8 chars.
-                assert(msk.size() <= max_len);
-            }
-
-            if (!maskIsConsistent(s, nocase, msk, cmp)) {
+            if (!maskIsConsistent(s_final, nocase, msk, cmp)) {
                 DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
                 continue;
             }
 
-            lits.emplace_back(move(s), nocase, noruns, final_id, groups, msk,
-                              cmp);
+            mp.accel_lits.emplace_back(s.get_string(), s.any_nocase(), msk, cmp,
+                                       info.group_mask);
+            mp.history_required = max(mp.history_required, lit_hist_len);
+
+            u32 prog_offset = delay_rebuild ? f.delay_program_offset
+                                            : f.lit_program_offset;
+            const auto &groups = f.groups;
+
+            mp.lits.emplace_back(move(s_final), nocase, noruns, prog_offset,
+                                 groups, msk, cmp);
         }
     }
 
-    return lits;
+    sort_and_unique(mp.lits);
+
+    // Literals used for acceleration must be limited to max_len, as that's all
+    // we can see in history.
+    for_each(begin(mp.accel_lits), end(mp.accel_lits),
+             [&max_len](AccelString &a) {
+                 trim_to_suffix(a.s, max_len);
+                 trim_to_suffix(a.msk, max_len);
+                 trim_to_suffix(a.cmp, max_len);
+             });
+
+    sort_and_unique(mp.accel_lits);
+
+    return mp;
 }
 
-aligned_unique_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
-                                              size_t longLitLengthThreshold,
-                                              rose_group *fgroups,
-                                              size_t *fsize,
-                                              size_t *historyRequired) {
-    *fsize = 0;
+void MatcherProto::insert(const MatcherProto &a) {
+    ::ue2::insert(&lits, lits.end(), a.lits);
+    ::ue2::insert(&accel_lits, accel_lits.end(), a.accel_lits);
+    sort_and_unique(lits);
+    sort_and_unique(accel_lits);
+    history_required = max(history_required, a.history_required);
+}
+
+static
+void buildAccel(const RoseBuildImpl &build, const MatcherProto &mp,
+                HWLM &hwlm) {
+    if (!build.cc.grey.hamsterAccelForward) {
+        return;
+    }
+
+    if (hwlm.type == HWLM_ENGINE_NOOD) {
+        return;
+    }
+
+    buildForwardAccel(&hwlm, mp.accel_lits, build.getInitialGroups());
+}
+
+bytecode_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
+                                        const vector<LitFragment> &fragments,
+                                        size_t longLitLengthThreshold,
+                                        rose_group *fgroups,
+                                        size_t *historyRequired) {
     *fgroups = 0;
 
-    auto fl = fillHamsterLiteralList(build, ROSE_FLOATING,
-                                     longLitLengthThreshold);
-    if (fl.empty()) {
+    auto mp = makeMatcherProto(build, fragments, ROSE_FLOATING, false,
+                               longLitLengthThreshold);
+    if (mp.lits.empty()) {
         DEBUG_PRINTF("empty floating matcher\n");
         return nullptr;
     }
+    dumpMatcherLiterals(mp.lits, "floating", build.cc.grey);
 
-    for (const hwlmLiteral &hlit : fl) {
-        *fgroups |= hlit.groups;
+    for (const hwlmLiteral &lit : mp.lits) {
+        *fgroups |= lit.groups;
     }
 
-    hwlmStreamingControl ctl;
-    hwlmStreamingControl *ctlp;
-    if (build.cc.streaming) {
-        ctl.history_max = build.cc.grey.maxHistoryAvailable;
-        ctl.history_min = MAX(*historyRequired,
-                              build.cc.grey.minHistoryAvailable);
-        DEBUG_PRINTF("streaming control, history max=%zu, min=%zu\n",
-                     ctl.history_max, ctl.history_min);
-        ctlp = &ctl;
-    } else {
-        ctlp = nullptr; // Null for non-streaming.
-    }
-
-    aligned_unique_ptr<HWLM> ftable =
-        hwlmBuild(fl, ctlp, false, build.cc, build.getInitialGroups());
-    if (!ftable) {
+    auto hwlm = hwlmBuild(mp.lits, false, build.cc, build.getInitialGroups());
+    if (!hwlm) {
         throw CompileError("Unable to generate bytecode.");
     }
 
+    buildAccel(build, mp, *hwlm);
+
     if (build.cc.streaming) {
-        DEBUG_PRINTF("literal_history_required=%zu\n",
-                ctl.literal_history_required);
-        assert(ctl.literal_history_required <=
-               build.cc.grey.maxHistoryAvailable);
-        *historyRequired = max(*historyRequired,
-                ctl.literal_history_required);
+        DEBUG_PRINTF("history_required=%zu\n", mp.history_required);
+        assert(mp.history_required <= build.cc.grey.maxHistoryAvailable);
+        *historyRequired = max(*historyRequired, mp.history_required);
     }
 
-    *fsize = hwlmSize(ftable.get());
-    assert(*fsize);
-    DEBUG_PRINTF("built floating literal table size %zu bytes\n", *fsize);
-    return ftable;
+    DEBUG_PRINTF("built floating literal table size %zu bytes\n", hwlm.size());
+    return hwlm;
 }
 
-aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
-                                                size_t *sbsize) {
-    *sbsize = 0;
+bytecode_ptr<HWLM>
+buildDelayRebuildMatcher(const RoseBuildImpl &build,
+                         const vector<LitFragment> &fragments,
+                         size_t longLitLengthThreshold) {
+    if (!build.cc.streaming) {
+        DEBUG_PRINTF("not streaming\n");
+        return nullptr;
+    }
 
+    auto mp = makeMatcherProto(build, fragments, ROSE_FLOATING, true,
+                               longLitLengthThreshold);
+    if (mp.lits.empty()) {
+        DEBUG_PRINTF("empty delay rebuild matcher\n");
+        return nullptr;
+    }
+    dumpMatcherLiterals(mp.lits, "delay_rebuild", build.cc.grey);
+
+    auto hwlm = hwlmBuild(mp.lits, false, build.cc, build.getInitialGroups());
+    if (!hwlm) {
+        throw CompileError("Unable to generate bytecode.");
+    }
+
+    buildAccel(build, mp, *hwlm);
+
+    DEBUG_PRINTF("built delay rebuild table size %zu bytes\n", hwlm.size());
+    return hwlm;
+}
+
+bytecode_ptr<HWLM>
+buildSmallBlockMatcher(const RoseBuildImpl &build,
+                       const vector<LitFragment> &fragments) {
     if (build.cc.streaming) {
         DEBUG_PRINTF("streaming mode\n");
         return nullptr;
@@ -791,74 +883,75 @@ aligned_unique_ptr<HWLM> buildSmallBlockMatcher(const RoseBuildImpl &build,
         return nullptr;
     }
 
-    auto lits = fillHamsterLiteralList(
-        build, ROSE_FLOATING, ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
-    if (lits.empty()) {
+    auto mp = makeMatcherProto(build, fragments, ROSE_FLOATING, false,
+                               ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
+    if (mp.lits.empty()) {
         DEBUG_PRINTF("no floating table\n");
         return nullptr;
-    } else if (lits.size() == 1) {
+    } else if (mp.lits.size() == 1) {
         DEBUG_PRINTF("single floating literal, noodle will be fast enough\n");
         return nullptr;
     }
 
-    auto anchored_lits =
-        fillHamsterLiteralList(build, ROSE_ANCHORED_SMALL_BLOCK,
-                               ROSE_SMALL_BLOCK_LEN, ROSE_SMALL_BLOCK_LEN);
-    if (anchored_lits.empty()) {
+    auto mp_anchored = makeMatcherProto(build, fragments,
+                                        ROSE_ANCHORED_SMALL_BLOCK, false,
+                                        ROSE_SMALL_BLOCK_LEN,
+                                        ROSE_SMALL_BLOCK_LEN);
+    if (mp_anchored.lits.empty()) {
         DEBUG_PRINTF("no small-block anchored literals\n");
         return nullptr;
     }
 
-    lits.insert(lits.end(), anchored_lits.begin(), anchored_lits.end());
+    mp.insert(mp_anchored);
+    dumpMatcherLiterals(mp.lits, "smallblock", build.cc.grey);
 
     // None of our literals should be longer than the small block limit.
-    assert(all_of(begin(lits), end(lits), [](const hwlmLiteral &lit) {
+    assert(all_of(begin(mp.lits), end(mp.lits), [](const hwlmLiteral &lit) {
         return lit.s.length() <= ROSE_SMALL_BLOCK_LEN;
     }));
 
-    if (lits.empty()) {
+    if (mp.lits.empty()) {
         DEBUG_PRINTF("no literals shorter than small block len\n");
         return nullptr;
     }
 
-    aligned_unique_ptr<HWLM> hwlm =
-        hwlmBuild(lits, nullptr, true, build.cc, build.getInitialGroups());
+    auto hwlm = hwlmBuild(mp.lits, true, build.cc, build.getInitialGroups());
     if (!hwlm) {
         throw CompileError("Unable to generate bytecode.");
     }
 
-    *sbsize = hwlmSize(hwlm.get());
-    assert(*sbsize);
-    DEBUG_PRINTF("built small block literal table size %zu bytes\n", *sbsize);
+    buildAccel(build, mp, *hwlm);
+
+    DEBUG_PRINTF("built small block literal table size %zu bytes\n",
+                 hwlm.size());
     return hwlm;
 }
 
-aligned_unique_ptr<HWLM> buildEodAnchoredMatcher(const RoseBuildImpl &build,
-                                                 size_t *esize) {
-    *esize = 0;
+bytecode_ptr<HWLM>
+buildEodAnchoredMatcher(const RoseBuildImpl &build,
+                        const vector<LitFragment> &fragments) {
+    auto mp = makeMatcherProto(build, fragments, ROSE_EOD_ANCHORED, false,
+                               build.ematcher_region_size);
 
-    auto el = fillHamsterLiteralList(build, ROSE_EOD_ANCHORED,
-                                     build.ematcher_region_size);
-
-    if (el.empty()) {
+    if (mp.lits.empty()) {
         DEBUG_PRINTF("no eod anchored literals\n");
         assert(!build.ematcher_region_size);
         return nullptr;
     }
+    dumpMatcherLiterals(mp.lits, "eod", build.cc.grey);
 
     assert(build.ematcher_region_size);
 
-    hwlmStreamingControl *ctlp = nullptr; // not a streaming case
-    aligned_unique_ptr<HWLM> etable =
-        hwlmBuild(el, ctlp, true, build.cc, build.getInitialGroups());
-    if (!etable) {
+    auto hwlm = hwlmBuild(mp.lits, true, build.cc, build.getInitialGroups());
+    if (!hwlm) {
         throw CompileError("Unable to generate bytecode.");
     }
 
-    *esize = hwlmSize(etable.get());
-    assert(*esize);
-    DEBUG_PRINTF("built eod-anchored literal table size %zu bytes\n", *esize);
-    return etable;
+    buildAccel(build, mp, *hwlm);
+
+    DEBUG_PRINTF("built eod-anchored literal table size %zu bytes\n",
+                 hwlm.size());
+    return hwlm;
 }
 
 } // namespace ue2

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,7 @@
 #include "nfa_api.h"
 #include "nfa_api_queue.h"
 #include "nfa_internal.h"
+#include "util/arch.h"
 #include "util/bitutils.h"
 #include "util/compare.h"
 #include "util/simd_utils.h"
@@ -168,7 +169,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
      * extract a single copy of the state from the u32 for checking. */
     u32 sheng_stop_limit_x4 = sheng_stop_limit * 0x01010101;
 
-#if defined(HAVE_PEXT) && defined(ARCH_64_BIT)
+#if defined(HAVE_BMI2) && defined(ARCH_64_BIT)
     u32 sheng_limit_x4 = sheng_limit * 0x01010101;
     m128 simd_stop_limit = set4x32(sheng_stop_limit_x4);
     m128 accel_delta = set16x8(sheng_limit - sheng_stop_limit);
@@ -176,20 +177,20 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
                  m->sheng_accel_limit, sheng_stop_limit);
 #endif
 
-#define SHENG_SINGLE_ITER do {                                          \
-        m128 shuffle_mask = masks[*(c++)];                              \
-        s = pshufb(shuffle_mask, s);                                    \
-        u32 s_gpr_x4 = movd(s); /* convert to u8 */                     \
-        DEBUG_PRINTF("c %hhu (%c) --> s %hhu\n", c[-1], c[-1], s_gpr);  \
-        if (s_gpr_x4 >= sheng_stop_limit_x4) {                          \
-            s_gpr = s_gpr_x4;                                           \
-            goto exit;                                                  \
-        }                                                               \
+#define SHENG_SINGLE_ITER do {                                             \
+        m128 shuffle_mask = masks[*(c++)];                                 \
+        s = pshufb_m128(shuffle_mask, s);                                  \
+        u32 s_gpr_x4 = movd(s); /* convert to u8 */                        \
+        DEBUG_PRINTF("c %hhu (%c) --> s %hhu\n", c[-1], c[-1], s_gpr_x4);  \
+        if (s_gpr_x4 >= sheng_stop_limit_x4) {                             \
+            s_gpr = s_gpr_x4;                                              \
+            goto exit;                                                     \
+        }                                                                  \
     } while (0)
 
     u8 s_gpr;
     while (c < c_end) {
-#if defined(HAVE_PEXT) && defined(ARCH_64_BIT)
+#if defined(HAVE_BMI2) && defined(ARCH_64_BIT)
         /* This version uses pext for efficently bitbashing out scaled
          * versions of the bytes to process from a u64a */
 
@@ -197,7 +198,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
         u64a cc0 = pdep64(data_bytes, 0xff0); /* extract scaled low byte */
         data_bytes &= ~0xffULL; /* clear low bits for scale space */
         m128 shuffle_mask0 = load128((const char *)masks + cc0);
-        s = pshufb(shuffle_mask0, s);
+        s = pshufb_m128(shuffle_mask0, s);
         m128 s_max = s;
         m128 s_max0 = s_max;
         DEBUG_PRINTF("c %02llx --> s %hhu\n", cc0 >> 4, movd(s));
@@ -207,7 +208,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
         u64a cc##iter = pext64(data_bytes, mcsheng_pext_mask[iter]);    \
         assert(cc##iter == (u64a)c[iter] << 4);                         \
         m128 shuffle_mask##iter = load128((const char *)masks + cc##iter); \
-        s = pshufb(shuffle_mask##iter, s);                              \
+        s = pshufb_m128(shuffle_mask##iter, s);                         \
         if (do_accel && iter == 7) {                                    \
             /* in the final iteration we also have to check against accel */ \
             m128 s_temp = sadd_u8_m128(s, accel_delta);                 \
@@ -287,19 +288,19 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
         assert(soft_c_end - c < SHENG_CHUNK);
         switch (soft_c_end - c) {
         case 7:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         case 6:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         case 5:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         case 4:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         case 3:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         case 2:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         case 1:
-            SHENG_SINGLE_ITER;
+            SHENG_SINGLE_ITER; // fallthrough
         }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,6 +34,7 @@
 #include "ng.h"
 #include "ng_prune.h"
 #include "ng_util.h"
+#include "compiler/compiler.h"
 #include "util/graph_range.h"
 #include "util/unicode_def.h"
 
@@ -45,14 +46,14 @@ using namespace std;
 namespace ue2 {
 
 static
-void allowIllegal(NGWrapper &w, NFAVertex v, u8 pred_char) {
-    if (in_degree(v, w) != 1) {
+void allowIllegal(NGHolder &g, NFAVertex v, u8 pred_char) {
+    if (in_degree(v, g) != 1) {
         DEBUG_PRINTF("unexpected pred\n");
         assert(0); /* should be true due to the early stage of this analysis */
         return;
     }
 
-    CharReach &cr = w[v].char_reach;
+    CharReach &cr = g[v].char_reach;
     if (pred_char == 0xe0) {
         assert(cr.isSubsetOf(CharReach(0xa0, 0xbf)));
         if (cr == CharReach(0xa0, 0xbf)) {
@@ -79,8 +80,8 @@ void allowIllegal(NGWrapper &w, NFAVertex v, u8 pred_char) {
  * above \\x{10ffff} or they represent overlong encodings. As we require valid
  * UTF-8 input, we have no defined behaviour in these cases, as a result we can
  * accept them if it simplifies the graph. */
-void relaxForbiddenUtf8(NGWrapper &w) {
-    if (!w.utf8) {
+void relaxForbiddenUtf8(NGHolder &g, const ExpressionInfo &expr) {
+    if (!expr.utf8) {
         return;
     }
 
@@ -88,12 +89,12 @@ void relaxForbiddenUtf8(NGWrapper &w) {
     const CharReach f0(0xf0);
     const CharReach f4(0xf4);
 
-    for (auto v : vertices_range(w)) {
-        const CharReach &cr = w[v].char_reach;
+    for (auto v : vertices_range(g)) {
+        const CharReach &cr = g[v].char_reach;
         if (cr == e0 || cr == f0 || cr == f4) {
             u8 pred_char = cr.find_first();
-            for (auto t : adjacent_vertices_range(v, w)) {
-                allowIllegal(w, t, pred_char);
+            for (auto t : adjacent_vertices_range(v, g)) {
+                allowIllegal(g, t, pred_char);
             }
         }
     }

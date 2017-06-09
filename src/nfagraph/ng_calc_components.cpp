@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -55,6 +55,7 @@
 #include "ng_prune.h"
 #include "ng_undirected.h"
 #include "ng_util.h"
+#include "grey.h"
 #include "ue2common.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
@@ -63,6 +64,7 @@
 #include <vector>
 
 #include <boost/graph/connected_components.hpp>
+#include <boost/graph/filtered_graph.hpp>
 
 using namespace std;
 
@@ -218,66 +220,43 @@ vector<NFAEdge> findShellEdges(const NGHolder &g,
     return shell_edges;
 }
 
-static
-void removeVertices(const flat_set<NFAVertex> &verts, NFAUndirectedGraph &ug,
-                   ue2::unordered_map<NFAVertex, NFAUndirectedVertex> &old2new,
-                   ue2::unordered_map<NFAUndirectedVertex, NFAVertex> &new2old) {
-    for (auto v : verts) {
-        assert(contains(old2new, v));
-        auto uv = old2new.at(v);
-        clear_vertex(uv, ug);
-        remove_vertex(uv, ug);
-        old2new.erase(v);
-        new2old.erase(uv);
-    }
-}
-
-static
-void renumberVertices(NFAUndirectedGraph &ug) {
-    u32 vertexIndex = 0;
-    for (auto uv : vertices_range(ug)) {
-        put(boost::vertex_index, ug, uv, vertexIndex++);
-    }
-}
-
 /**
  * Common code called by calc- and recalc- below. Splits the given holder into
  * one or more connected components, adding them to the comps deque.
  */
 static
-void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
+void splitIntoComponents(unique_ptr<NGHolder> g,
+                         deque<unique_ptr<NGHolder>> &comps,
                          const depth &max_head_depth,
                          const depth &max_tail_depth, bool *shell_comp) {
-    DEBUG_PRINTF("graph has %zu vertices\n", num_vertices(g));
+    DEBUG_PRINTF("graph has %zu vertices\n", num_vertices(*g));
 
     assert(shell_comp);
     *shell_comp = false;
 
     // Compute "shell" head and tail subgraphs.
-    vector<NFAVertexBidiDepth> depths;
-    calcDepths(g, depths);
-    auto head_shell = findHeadShell(g, depths, max_head_depth);
-    auto tail_shell = findTailShell(g, depths, max_tail_depth);
+    auto depths = calcBidiDepths(*g);
+    auto head_shell = findHeadShell(*g, depths, max_head_depth);
+    auto tail_shell = findTailShell(*g, depths, max_tail_depth);
     for (auto v : head_shell) {
         tail_shell.erase(v);
     }
 
-    if (head_shell.size() + tail_shell.size() + N_SPECIALS >= num_vertices(g)) {
+    if (head_shell.size() + tail_shell.size() + N_SPECIALS >=
+        num_vertices(*g)) {
         DEBUG_PRINTF("all in shell component\n");
-        comps.push_back(cloneHolder(g));
+        comps.push_back(std::move(g));
         *shell_comp = true;
         return;
     }
 
-    vector<NFAEdge> shell_edges = findShellEdges(g, head_shell, tail_shell);
+    vector<NFAEdge> shell_edges = findShellEdges(*g, head_shell, tail_shell);
 
     DEBUG_PRINTF("%zu vertices in head, %zu in tail, %zu shell edges\n",
                  head_shell.size(), tail_shell.size(), shell_edges.size());
 
-    NFAUndirectedGraph ug;
     ue2::unordered_map<NFAVertex, NFAUndirectedVertex> old2new;
-
-    createUnGraph(g, true, true, ug, old2new);
+    auto ug = createUnGraph(*g, true, true, old2new);
 
     // Construct reverse mapping.
     ue2::unordered_map<NFAUndirectedVertex, NFAVertex> new2old;
@@ -285,20 +264,26 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
         new2old.emplace(m.second, m.first);
     }
 
-    // Remove shells from undirected graph and renumber so we have dense
-    // vertex indices.
-    removeVertices(head_shell, ug, old2new, new2old);
-    removeVertices(tail_shell, ug, old2new, new2old);
-    renumberVertices(ug);
+    // Filter shell vertices from undirected graph.
+    unordered_set<NFAUndirectedVertex> shell_undir_vertices;
+    for (auto v : head_shell) {
+        shell_undir_vertices.insert(old2new.at(v));
+    }
+    for (auto v : tail_shell) {
+        shell_undir_vertices.insert(old2new.at(v));
+    }
+    auto filtered_ug = boost::make_filtered_graph(
+        ug, boost::keep_all(), make_bad_vertex_filter(&shell_undir_vertices));
 
+    // Actually run the connected components algorithm.
     map<NFAUndirectedVertex, u32> split_components;
     const u32 num = connected_components(
-        ug, boost::make_assoc_property_map(split_components));
+        filtered_ug, boost::make_assoc_property_map(split_components));
 
     assert(num > 0);
     if (num == 1 && shell_edges.empty()) {
         DEBUG_PRINTF("single component\n");
-        comps.push_back(cloneHolder(g));
+        comps.push_back(std::move(g));
         return;
     }
 
@@ -313,7 +298,7 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
         assert(contains(new2old, uv));
         NFAVertex v = new2old.at(uv);
         verts[c].push_back(v);
-        DEBUG_PRINTF("vertex %zu is in comp %u\n", g[v].index, c);
+        DEBUG_PRINTF("vertex %zu is in comp %u\n", (*g)[v].index, c);
     }
 
     ue2::unordered_map<NFAVertex, NFAVertex> v_map; // temp map for fillHolder
@@ -328,12 +313,12 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
 
         auto gc = ue2::make_unique<NGHolder>();
         v_map.clear();
-        fillHolder(gc.get(), g, vv, &v_map);
+        fillHolder(gc.get(), *g, vv, &v_map);
 
         // Remove shell edges, which will get their own component.
         for (const auto &e : shell_edges) {
-            auto cu = v_map.at(source(e, g));
-            auto cv = v_map.at(target(e, g));
+            auto cu = v_map.at(source(e, *g));
+            auto cv = v_map.at(target(e, *g));
             assert(edge(cu, cv, *gc).second);
             remove_edge(cu, cv, *gc);
         }
@@ -352,7 +337,7 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
 
         auto gc = ue2::make_unique<NGHolder>();
         v_map.clear();
-        fillHolder(gc.get(), g, vv, &v_map);
+        fillHolder(gc.get(), *g, vv, &v_map);
 
         pruneUseless(*gc);
         DEBUG_PRINTF("shell edge component %zu has %zu vertices\n",
@@ -374,33 +359,39 @@ void splitIntoComponents(const NGHolder &g, deque<unique_ptr<NGHolder>> &comps,
                   }));
 }
 
-deque<unique_ptr<NGHolder>> calcComponents(const NGHolder &g) {
+deque<unique_ptr<NGHolder>> calcComponents(unique_ptr<NGHolder> g,
+                                           const Grey &grey) {
     deque<unique_ptr<NGHolder>> comps;
 
     // For trivial cases, we needn't bother running the full
     // connected_components algorithm.
-    if (isAlternationOfClasses(g)) {
-        comps.push_back(cloneHolder(g));
+    if (!grey.calcComponents || isAlternationOfClasses(*g)) {
+        comps.push_back(std::move(g));
         return comps;
     }
 
     bool shell_comp = false;
-    splitIntoComponents(g, comps, MAX_HEAD_SHELL_DEPTH, MAX_TAIL_SHELL_DEPTH,
-                        &shell_comp);
+    splitIntoComponents(std::move(g), comps, depth(MAX_HEAD_SHELL_DEPTH),
+                        depth(MAX_TAIL_SHELL_DEPTH), &shell_comp);
 
     if (shell_comp) {
         DEBUG_PRINTF("re-running on shell comp\n");
         assert(!comps.empty());
-        auto sc = move(comps.back());
+        auto sc = std::move(comps.back());
         comps.pop_back();
-        splitIntoComponents(*sc, comps, 0, 0, &shell_comp);
+        splitIntoComponents(std::move(sc), comps, depth(0), depth(0),
+                            &shell_comp);
     }
 
     DEBUG_PRINTF("finished; split into %zu components\n", comps.size());
     return comps;
 }
 
-void recalcComponents(deque<unique_ptr<NGHolder>> &comps) {
+void recalcComponents(deque<unique_ptr<NGHolder>> &comps, const Grey &grey) {
+    if (!grey.calcComponents) {
+        return;
+    }
+
     deque<unique_ptr<NGHolder>> out;
 
     for (auto &gc : comps) {
@@ -409,14 +400,13 @@ void recalcComponents(deque<unique_ptr<NGHolder>> &comps) {
         }
 
         if (isAlternationOfClasses(*gc)) {
-            out.push_back(move(gc));
+            out.push_back(std::move(gc));
             continue;
         }
 
-        auto gc_comps = calcComponents(*gc);
-        for (auto &elem : gc_comps) {
-            out.push_back(move(elem));
-        }
+        auto gc_comps = calcComponents(std::move(gc), grey);
+        out.insert(end(out), std::make_move_iterator(begin(gc_comps)),
+                   std::make_move_iterator(end(gc_comps)));
     }
 
     // Replace comps with our recalculated list.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,9 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief SOM Slot Manager.
  */
+
 #include "slot_manager.h"
 
 #include "slot_manager_internal.h"
@@ -245,7 +247,7 @@ u32 SomSlotManager::numSomSlots() const {
     return nextSomSlot;
 }
 
-u32 SomSlotManager::addRevNfa(aligned_unique_ptr<NFA> nfa, u32 maxWidth) {
+u32 SomSlotManager::addRevNfa(bytecode_ptr<NFA> nfa, u32 maxWidth) {
     u32 rv = verify_u32(rev_nfas.size());
     rev_nfas.push_back(move(nfa));
 

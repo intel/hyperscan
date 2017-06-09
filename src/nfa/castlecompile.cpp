@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,9 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief Castle: multi-tenant repeat engine, compiler code.
  */
+
 #include "castlecompile.h"
 
 #include "castle_internal.h"
@@ -439,7 +441,7 @@ void buildSubcastles(const CastleProto &proto, vector<SubCastle> &subs,
     }
 }
 
-aligned_unique_ptr<NFA>
+bytecode_ptr<NFA>
 buildCastle(const CastleProto &proto,
             const map<u32, vector<vector<CharReach>>> &triggers,
             const CompileContext &cc, const ReportManager &rm) {
@@ -501,7 +503,7 @@ buildCastle(const CastleProto &proto,
         // possibly means that we've got a repeat that we can't trigger. We do
         // need to cope with it though.
         if (contains(triggers, top)) {
-            min_period = minPeriod(triggers.at(top), cr, &is_reset);
+            min_period = depth(minPeriod(triggers.at(top), cr, &is_reset));
         }
 
         if (min_period > pr.bounds.max) {
@@ -560,7 +562,7 @@ buildCastle(const CastleProto &proto,
     DEBUG_PRINTF("%zu subcastles may go stale\n", may_stale.size());
     vector<mmbit_sparse_iter> stale_iter;
     if (!may_stale.empty()) {
-        mmbBuildSparseIterator(stale_iter, may_stale, numRepeats);
+        stale_iter = mmbBuildSparseIterator(may_stale, numRepeats);
     }
 
 
@@ -577,7 +579,7 @@ buildCastle(const CastleProto &proto,
     total_size = ROUNDUP_N(total_size, alignof(mmbit_sparse_iter));
     total_size += byte_length(stale_iter); // stale sparse iter
 
-    aligned_unique_ptr<NFA> nfa = aligned_zmalloc_unique<NFA>(total_size);
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(total_size);
     nfa->type = verify_u8(CASTLE_NFA);
     nfa->length = verify_u32(total_size);
     nfa->nPositions = verify_u32(subs.size());

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,6 +30,7 @@
 
 #include "grey.h"
 #include "rose_build_impl.h"
+#include "rose_build_matchers.h"
 #include "rose_internal.h"
 #include "ue2common.h"
 #include "nfa/dfa_min.h"
@@ -70,6 +71,8 @@ namespace ue2 {
 #define MAX_SMALL_START_REACH    4
 
 #define INIT_STATE (DEAD_STATE + 1)
+
+#define NO_FRAG_ID (~0U)
 
 // Adds a vertex with the given reach.
 static
@@ -173,7 +176,7 @@ void mergeAnchoredDfas(vector<unique_ptr<raw_dfa>> &dfas,
 }
 
 static
-void remapAnchoredReports(raw_dfa &rdfa, const RoseBuildImpl &build) {
+void remapAnchoredReports(raw_dfa &rdfa, const vector<u32> &frag_map) {
     for (dstate &ds : rdfa.states) {
         assert(ds.reports_eod.empty()); // Not used in anchored matcher.
         if (ds.reports.empty()) {
@@ -182,25 +185,41 @@ void remapAnchoredReports(raw_dfa &rdfa, const RoseBuildImpl &build) {
 
         flat_set<ReportID> new_reports;
         for (auto id : ds.reports) {
-            assert(id < build.literal_info.size());
-            new_reports.insert(build.literal_info.at(id).final_id);
+            assert(id < frag_map.size());
+            new_reports.insert(frag_map[id]);
         }
-        ds.reports = move(new_reports);
+        ds.reports = std::move(new_reports);
     }
 }
 
 /**
  * \brief Replaces the report ids currently in the dfas (rose graph literal
- * ids) with the final id for each literal.
+ * ids) with the fragment id for each literal.
  */
 static
-void remapAnchoredReports(RoseBuildImpl &build) {
+void remapAnchoredReports(RoseBuildImpl &build, const vector<u32> &frag_map) {
     for (auto &m : build.anchored_nfas) {
         for (auto &rdfa : m.second) {
             assert(rdfa);
-            remapAnchoredReports(*rdfa, build);
+            remapAnchoredReports(*rdfa, frag_map);
         }
     }
+}
+
+/**
+ * Returns mapping from literal ids to fragment ids.
+ */
+static
+vector<u32> reverseFragMap(const RoseBuildImpl &build,
+                           const vector<LitFragment> &fragments) {
+    vector<u32> rev(build.literal_info.size(), NO_FRAG_ID);
+    for (const auto &f : fragments) {
+        for (u32 lit_id : f.lit_ids) {
+            assert(lit_id < rev.size());
+            rev[lit_id] = f.fragment_id;
+        }
+    }
+    return rev;
 }
 
 /**
@@ -208,7 +227,7 @@ void remapAnchoredReports(RoseBuildImpl &build) {
  * raw_dfa with program offsets.
  */
 static
-void remapIdsToPrograms(raw_dfa &rdfa, const vector<u32> &litPrograms) {
+void remapIdsToPrograms(const vector<LitFragment> &fragments, raw_dfa &rdfa) {
     for (dstate &ds : rdfa.states) {
         assert(ds.reports_eod.empty()); // Not used in anchored matcher.
         if (ds.reports.empty()) {
@@ -216,25 +235,27 @@ void remapIdsToPrograms(raw_dfa &rdfa, const vector<u32> &litPrograms) {
         }
 
         flat_set<ReportID> new_reports;
-        for (auto id : ds.reports) {
-            assert(id < litPrograms.size());
-            new_reports.insert(litPrograms.at(id));
+        for (auto fragment_id : ds.reports) {
+            const auto &frag = fragments.at(fragment_id);
+            new_reports.insert(frag.lit_program_offset);
         }
-        ds.reports = move(new_reports);
+        ds.reports = std::move(new_reports);
     }
 }
 
 static
-void populate_holder(const simple_anchored_info &sai, const set<u32> &exit_ids,
-                     NGHolder *h_in) {
+unique_ptr<NGHolder> populate_holder(const simple_anchored_info &sai,
+                                     const flat_set<u32> &exit_ids) {
     DEBUG_PRINTF("populating holder for ^.{%u,%u}%s\n", sai.min_bound,
                  sai.max_bound, dumpString(sai.literal).c_str());
-    NGHolder &h = *h_in;
-    set<NFAVertex> ends = addDotsToGraph(h, h.start, sai.min_bound,
-                                         sai.max_bound, CharReach::dot());
+    auto h_ptr = make_unique<NGHolder>();
+    NGHolder &h = *h_ptr;
+    auto ends = addDotsToGraph(h, h.start, sai.min_bound, sai.max_bound,
+                               CharReach::dot());
     NFAVertex v = addToGraph(h, ends, sai.literal);
     add_edge(v, h.accept, h);
     h[v].reports.insert(exit_ids.begin(), exit_ids.end());
+    return h_ptr;
 }
 
 u32 anchoredStateSize(const anchored_matcher_info &atable) {
@@ -467,7 +488,7 @@ bool check_dupe(const raw_dfa &rdfa,
 }
 
 static
-bool check_dupe_simple(const RoseBuildImpl &tbi, u32 min_bound, u32 max_bound,
+bool check_dupe_simple(const RoseBuildImpl &build, u32 min_bound, u32 max_bound,
                        const ue2_literal &lit, ReportID *remap) {
     if (!remap) {
         DEBUG_PRINTF("no remap\n");
@@ -475,8 +496,8 @@ bool check_dupe_simple(const RoseBuildImpl &tbi, u32 min_bound, u32 max_bound,
     }
 
     simple_anchored_info sai(min_bound, max_bound, lit);
-    if (contains(tbi.anchored_simple, sai)) {
-        *remap = *tbi.anchored_simple.at(sai).begin();
+    if (contains(build.anchored_simple, sai)) {
+        *remap = *build.anchored_simple.at(sai).begin();
         return true;
     }
 
@@ -640,7 +661,7 @@ bool isSimple(const NGHolder &h, u32 *min_bound, u32 *max_bound,
 }
 
 static
-int finalise_out(RoseBuildImpl &tbi, const NGHolder &h,
+int finalise_out(RoseBuildImpl &build, const NGHolder &h,
                  const Automaton_Holder &autom, unique_ptr<raw_dfa> out_dfa,
                  ReportID *remap) {
     u32 min_bound = ~0U;
@@ -649,12 +670,12 @@ int finalise_out(RoseBuildImpl &tbi, const NGHolder &h,
     u32 simple_report = MO_INVALID_IDX;
     if (isSimple(h, &min_bound, &max_bound, &lit, &simple_report)) {
         assert(simple_report != MO_INVALID_IDX);
-        if (check_dupe_simple(tbi, min_bound, max_bound, lit, remap)) {
+        if (check_dupe_simple(build, min_bound, max_bound, lit, remap)) {
             DEBUG_PRINTF("found duplicate remapping to %u\n", *remap);
             return ANCHORED_REMAP;
         }
         DEBUG_PRINTF("add with report %u\n", simple_report);
-        tbi.anchored_simple[simple_anchored_info(min_bound, max_bound, lit)]
+        build.anchored_simple[simple_anchored_info(min_bound, max_bound, lit)]
             .insert(simple_report);
         return ANCHORED_SUCCESS;
     }
@@ -664,15 +685,15 @@ int finalise_out(RoseBuildImpl &tbi, const NGHolder &h,
     out_dfa->alpha_size = autom.alphasize;
     out_dfa->alpha_remap = autom.alpha;
     auto hash = hash_dfa_no_reports(*out_dfa);
-    if (check_dupe(*out_dfa, tbi.anchored_nfas[hash], remap)) {
+    if (check_dupe(*out_dfa, build.anchored_nfas[hash], remap)) {
         return ANCHORED_REMAP;
     }
-    tbi.anchored_nfas[hash].push_back(move(out_dfa));
+    build.anchored_nfas[hash].push_back(move(out_dfa));
     return ANCHORED_SUCCESS;
 }
 
 static
-int addAutomaton(RoseBuildImpl &tbi, const NGHolder &h, ReportID *remap) {
+int addAutomaton(RoseBuildImpl &build, const NGHolder &h, ReportID *remap) {
     if (num_vertices(h) > ANCHORED_NFA_STATE_LIMIT) {
         DEBUG_PRINTF("autom bad!\n");
         return ANCHORED_FAIL;
@@ -682,7 +703,7 @@ int addAutomaton(RoseBuildImpl &tbi, const NGHolder &h, ReportID *remap) {
 
     unique_ptr<raw_dfa> out_dfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
     if (!determinise(autom, out_dfa->states, MAX_DFA_STATES)) {
-        return finalise_out(tbi, h, autom, move(out_dfa), remap);
+        return finalise_out(build, h, autom, move(out_dfa), remap);
     }
 
     DEBUG_PRINTF("determinise failed\n");
@@ -700,7 +721,7 @@ void setReports(NGHolder &h, const map<NFAVertex, set<u32>> &reportMap,
     }
 }
 
-int addAnchoredNFA(RoseBuildImpl &tbi, const NGHolder &wrapper,
+int addAnchoredNFA(RoseBuildImpl &build, const NGHolder &wrapper,
                    const map<NFAVertex, set<u32>> &reportMap) {
     NGHolder h;
     ue2::unordered_map<NFAVertex, NFAVertex> orig_to_copy;
@@ -711,10 +732,10 @@ int addAnchoredNFA(RoseBuildImpl &tbi, const NGHolder &wrapper,
     clearReports(h);
     setReports(h, reportMap, orig_to_copy);
 
-    return addAutomaton(tbi, h, nullptr);
+    return addAutomaton(build, h, nullptr);
 }
 
-int addToAnchoredMatcher(RoseBuildImpl &tbi, const NGHolder &anchored,
+int addToAnchoredMatcher(RoseBuildImpl &build, const NGHolder &anchored,
                          u32 exit_id, ReportID *remap) {
     NGHolder h;
     cloneHolder(h, anchored);
@@ -725,23 +746,24 @@ int addToAnchoredMatcher(RoseBuildImpl &tbi, const NGHolder &anchored,
         h[v].reports.insert(exit_id);
     }
 
-    return addAutomaton(tbi, h, remap);
+    return addAutomaton(build, h, remap);
 }
 
 static
-void buildSimpleDfas(const RoseBuildImpl &tbi,
+void buildSimpleDfas(const RoseBuildImpl &build, const vector<u32> &frag_map,
                      vector<unique_ptr<raw_dfa>> *anchored_dfas) {
     /* we should have determinised all of these before so there should be no
      * chance of failure. */
-     for (const auto &simple : tbi.anchored_simple) {
-        set<u32> exit_ids;
+    flat_set<u32> exit_ids;
+    for (const auto &simple : build.anchored_simple) {
+        exit_ids.clear();
         for (auto lit_id : simple.second) {
-            exit_ids.insert(tbi.literal_info[lit_id].final_id);
+            assert(lit_id < frag_map.size());
+            exit_ids.insert(frag_map[lit_id]);
         }
-        NGHolder h;
-        populate_holder(simple.first, exit_ids, &h);
-        Automaton_Holder autom(h);
-        unique_ptr<raw_dfa> rdfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
+        auto h = populate_holder(simple.first, exit_ids);
+        Automaton_Holder autom(*h);
+        auto rdfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
         UNUSED int rv = determinise(autom, rdfa->states, MAX_DFA_STATES);
         assert(!rv);
         rdfa->start_anchored = INIT_STATE;
@@ -758,7 +780,8 @@ void buildSimpleDfas(const RoseBuildImpl &tbi,
  * from RoseBuildImpl.
  */
 static
-vector<unique_ptr<raw_dfa>> getAnchoredDfas(RoseBuildImpl &build) {
+vector<unique_ptr<raw_dfa>> getAnchoredDfas(RoseBuildImpl &build,
+                                            const vector<u32> &frag_map) {
     vector<unique_ptr<raw_dfa>> dfas;
 
     // DFAs that already exist as raw_dfas.
@@ -771,7 +794,7 @@ vector<unique_ptr<raw_dfa>> getAnchoredDfas(RoseBuildImpl &build) {
 
     // DFAs we currently have as simple literals.
     if (!build.anchored_simple.empty()) {
-        buildSimpleDfas(build, &dfas);
+        buildSimpleDfas(build, frag_map, &dfas);
         build.anchored_simple.clear();
     }
 
@@ -790,7 +813,7 @@ vector<unique_ptr<raw_dfa>> getAnchoredDfas(RoseBuildImpl &build) {
  */
 static
 size_t buildNfas(vector<raw_dfa> &anchored_dfas,
-                 vector<aligned_unique_ptr<NFA>> *nfas,
+                 vector<bytecode_ptr<NFA>> *nfas,
                  vector<u32> *start_offset, const CompileContext &cc,
                  const ReportManager &rm) {
     const size_t num_dfas = anchored_dfas.size();
@@ -806,7 +829,7 @@ size_t buildNfas(vector<raw_dfa> &anchored_dfas,
 
         minimize_hopcroft(rdfa, cc.grey);
 
-        auto nfa = mcclellanCompile(rdfa, cc, rm);
+        auto nfa = mcclellanCompile(rdfa, cc, rm, false);
         if (!nfa) {
             assert(0);
             throw std::bad_alloc();
@@ -823,7 +846,8 @@ size_t buildNfas(vector<raw_dfa> &anchored_dfas,
     return total_size;
 }
 
-vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build) {
+vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build,
+                                  const vector<LitFragment> &fragments) {
     vector<raw_dfa> dfas;
 
     if (build.anchored_nfas.empty() && build.anchored_simple.empty()) {
@@ -831,9 +855,10 @@ vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build) {
         return dfas;
     }
 
-    remapAnchoredReports(build);
+    const auto frag_map = reverseFragMap(build, fragments);
+    remapAnchoredReports(build, frag_map);
 
-    auto anch_dfas = getAnchoredDfas(build);
+    auto anch_dfas = getAnchoredDfas(build, frag_map);
     mergeAnchoredDfas(anch_dfas, build);
 
     dfas.reserve(anch_dfas.size());
@@ -844,22 +869,21 @@ vector<raw_dfa> buildAnchoredDfas(RoseBuildImpl &build) {
     return dfas;
 }
 
-aligned_unique_ptr<anchored_matcher_info>
-buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
-                     const vector<u32> &litPrograms, size_t *asize) {
+bytecode_ptr<anchored_matcher_info>
+buildAnchoredMatcher(RoseBuildImpl &build, const vector<LitFragment> &fragments,
+                     vector<raw_dfa> &dfas) {
     const CompileContext &cc = build.cc;
 
     if (dfas.empty()) {
         DEBUG_PRINTF("empty\n");
-        *asize = 0;
         return nullptr;
     }
 
     for (auto &rdfa : dfas) {
-        remapIdsToPrograms(rdfa, litPrograms);
+        remapIdsToPrograms(fragments, rdfa);
     }
 
-    vector<aligned_unique_ptr<NFA>> nfas;
+    vector<bytecode_ptr<NFA>> nfas;
     vector<u32> start_offset; // start offset for each dfa (dots removed)
     size_t total_size = buildNfas(dfas, &nfas, &start_offset, cc, build.rm);
 
@@ -867,8 +891,8 @@ buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
         throw ResourceLimitError();
     }
 
-    *asize = total_size;
-    auto atable = aligned_zmalloc_unique<anchored_matcher_info>(total_size);
+    auto atable =
+        make_zeroed_bytecode_ptr<anchored_matcher_info>(total_size, 64);
     char *curr = (char *)atable.get();
 
     u32 state_offset = 0;
@@ -894,7 +918,7 @@ buildAnchoredMatcher(RoseBuildImpl &build, vector<raw_dfa> &dfas,
         ami->anchoredMinDistance = start_offset[i];
     }
 
-    DEBUG_PRINTF("success %zu\n", *asize);
+    DEBUG_PRINTF("success %zu\n", atable.size());
     return atable;
 }
 

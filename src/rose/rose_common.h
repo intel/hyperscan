@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,5 +40,17 @@
 
 /** \brief Length in bytes of a reach bitvector, used by the lookaround code. */
 #define REACH_BITVECTOR_LEN 32
+
+/** \brief Length in bytes of a reach bitvector for multi-path lookaround. */
+#define MULTI_REACH_BITVECTOR_LEN 256
+
+/**
+ * \brief The max offset from the leftmost byte to the rightmost byte in
+ * multi-path lookaround.
+ */
+#define MULTIPATH_MAX_LEN 16
+
+/** \brief Value used to represent an invalid Rose program offset. */
+#define ROSE_INVALID_PROG_OFFSET 0
 
 #endif // ROSE_COMMON_H

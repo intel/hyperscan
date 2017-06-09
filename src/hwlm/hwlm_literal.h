@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,12 +37,13 @@
 #include "ue2common.h"
 
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace ue2 {
 
 /** \brief Max length of the literal passed to HWLM. */
-#define HWLM_LITERAL_MAX_LEN 255
+#define HWLM_LITERAL_MAX_LEN 8
 
 /** \brief Max length of the hwlmLiteral::msk and hwlmLiteral::cmp vectors. */
 #define HWLM_MASKLEN 8
@@ -110,6 +111,19 @@ struct hwlmLiteral {
     hwlmLiteral(const std::string &s_in, bool nocase_in, u32 id_in)
         : hwlmLiteral(s_in, nocase_in, false, id_in, HWLM_ALL_GROUPS, {}, {}) {}
 };
+
+inline
+bool operator<(const hwlmLiteral &a, const hwlmLiteral &b) {
+    return std::tie(a.id, a.s, a.nocase, a.noruns, a.groups, a.msk, a.cmp) <
+           std::tie(b.id, b.s, b.nocase, b.noruns, b.groups, b.msk, b.cmp);
+}
+
+inline
+bool operator==(const hwlmLiteral &a, const hwlmLiteral &b) {
+    return a.id == b.id && a.s == b.s && a.nocase == b.nocase &&
+           a.noruns == b.noruns && a.groups == b.groups && a.msk == b.msk &&
+           a.cmp == b.cmp;
+}
 
 /**
  * Consistency test; returns false if the given msk/cmp test can never match

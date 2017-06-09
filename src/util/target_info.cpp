@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,6 +46,10 @@ bool target_t::can_run_on_code_built_for(const target_t &code_target) const {
         return false;
     }
 
+    if (!has_avx512() && code_target.has_avx512()) {
+        return false;
+    }
+
     return true;
 }
 
@@ -53,11 +57,15 @@ target_t::target_t(const hs_platform_info &p)
     : tune(p.tune), cpu_features(p.cpu_features) {}
 
 bool target_t::has_avx2(void) const {
-    return (cpu_features & HS_CPU_FEATURES_AVX2);
+    return cpu_features & HS_CPU_FEATURES_AVX2;
+}
+
+bool target_t::has_avx512(void) const {
+    return cpu_features & HS_CPU_FEATURES_AVX512;
 }
 
 bool target_t::is_atom_class(void) const {
-    return tune == HS_TUNE_FAMILY_SLM;
+    return tune == HS_TUNE_FAMILY_SLM || tune == HS_TUNE_FAMILY_GLM;
 }
 
 } // namespace ue2

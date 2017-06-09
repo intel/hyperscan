@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,19 +33,35 @@
 
 #include "ue2common.h"
 #include "util/alloc.h"
+#include "util/bytecode_ptr.h"
+#include "util/charreach.h"
 #include "util/container.h"
 #include "util/multibit_build.h"
+#include "util/noncopyable.h"
 #include "util/ue2_containers.h"
 #include "util/verify_types.h"
 
 #include <vector>
 #include <type_traits>
 
-#include <boost/core/noncopyable.hpp>
-
 namespace ue2 {
 
-class RoseEngineBlob : boost::noncopyable {
+class RoseEngineBlob;
+
+struct lookaround_info : noncopyable {
+    u32 get_offset_of(const std::vector<std::vector<CharReach>> &look,
+                      RoseEngineBlob &blob);
+    u32 get_offset_of(const std::vector<CharReach> &reach,
+                      RoseEngineBlob &blob);
+    u32 get_offset_of(const std::vector<s8> &look, RoseEngineBlob &blob);
+
+private:
+    unordered_map<std::vector<std::vector<CharReach>>, u32> multi_cache;
+    unordered_map<std::vector<s8>, u32> lcache;
+    unordered_map<std::vector<CharReach>, u32> rcache;
+};
+
+class RoseEngineBlob : noncopyable {
 public:
     /** \brief Base offset of engine_blob in the Rose engine bytecode. */
     static constexpr u32 base_offset = ROUNDUP_CL(sizeof(RoseEngine));
@@ -56,10 +72,6 @@ public:
 
     size_t size() const {
         return blob.size();
-    }
-
-    const char *data() const {
-        return blob.data();
     }
 
     u32 add(const void *a, const size_t len, const size_t align) {
@@ -75,6 +87,11 @@ public:
         memcpy(&blob.back() - len + 1, a, len);
 
         return verify_u32(rv);
+    }
+
+    template<typename T>
+    u32 add(const bytecode_ptr<T> &a) {
+        return add(a.get(), a.size(), a.align());
     }
 
     template<typename T>
@@ -106,6 +123,11 @@ public:
         return offset;
     }
 
+    template<typename Range>
+    u32 add_range(const Range &range) {
+        return add(begin(range), end(range));
+    }
+
     u32 add_iterator(const std::vector<mmbit_sparse_iter> &iter) {
         auto cache_it = cached_iters.find(iter);
         if (cache_it != cached_iters.end()) {
@@ -122,6 +144,8 @@ public:
     void write_bytes(RoseEngine *engine) {
         copy_bytes((char *)engine + base_offset, blob);
     }
+
+    lookaround_info lookaround_cache;
 
 private:
     void pad(size_t align) {

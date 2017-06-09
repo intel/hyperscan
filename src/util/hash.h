@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,6 +34,7 @@
 #ifndef UTIL_HASH_H
 #define UTIL_HASH_H
 
+#include <iterator>
 #include <boost/functional/hash/hash_fwd.hpp>
 
 namespace ue2 {
@@ -67,6 +68,15 @@ size_t hash_all(Args&&... args) {
     size_t v = 0;
     hash_detail::hash_build(v, args...);
     return v;
+}
+
+/**
+ * \brief Compute the hash of all the elements of any range on which we can
+ * call std::begin() and std::end().
+ */
+template<typename Range>
+size_t hash_range(const Range &r) {
+    return boost::hash_range(std::begin(r), std::end(r));
 }
 
 } // namespace ue2

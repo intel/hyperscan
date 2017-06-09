@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -76,7 +76,7 @@ class MatchesTest: public TestWithParam<MatchesTestParams> {
 static const MatchesTestParams matchesTests[] = {
     // EOD and anchored patterns
 
-	// these should produce no matches
+    // these should produce no matches
     { "^foobar", "foolish", {}, 0, false, true},
     { "^foobar$", "ze foobar", {}, 0, false, true},
     { "^foobar$", "foobar ", {}, 0, false, true},
@@ -208,13 +208,24 @@ TEST_P(MatchesTest, Check) {
     CompileContext cc(false, false, get_current_target(), Grey());
     ReportManager rm(cc.grey);
     ParsedExpression parsed(0, t.pattern.c_str(), t.flags, 0);
-    auto g = buildWrapper(rm, cc, parsed);
+    auto built_expr = buildGraph(rm, cc, parsed);
+    const auto &g = built_expr.g;
     bool utf8 = (t.flags & HS_FLAG_UTF8) > 0;
 
     set<pair<size_t, size_t>> matches;
-    findMatches(*g, rm, t.input, matches, t.notEod, t.som, utf8);
+    bool success = findMatches(*g, rm, t.input, matches, 0, t.notEod, utf8);
+    ASSERT_TRUE(success);
 
     set<pair<size_t, size_t>> expected(begin(t.matches), end(t.matches));
+
+    // findMatches returns matches with SOM, so zero them out if not SOM
+    if (!t.som) {
+        set<pair<size_t, size_t>> new_matches;
+        for (auto &m : matches) {
+            new_matches.emplace(0, m.second);
+        }
+        matches.swap(new_matches);
+    }
 
     ASSERT_EQ(expected, matches) << "Pattern '" << t.pattern
                                  << "' against input '" << t.input << "'";

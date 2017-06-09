@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -189,8 +189,8 @@ typedef u32 ReportID;
   #define unlikely(x)   __builtin_expect(!!(x), 0)
 #endif
 #else
-#define likely(x)	(x)
-#define unlikely(x)	(x)
+#define likely(x)   (x)
+#define unlikely(x) (x)
 #endif
 
 #if !defined(RELEASE_BUILD) || defined(DEBUG)

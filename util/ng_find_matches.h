@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,13 +44,18 @@ struct BoundaryReports;
 
 } // namespace ue2
 
-/** \brief Find all matches for a given graph when executed against \a input.
+/**
+ * \brief Find all matches for a given graph when executed against \a input.
  *
- *  Fills \a matches with offsets into the data stream where a match is found.
+ * Fills \a matches with offsets into the data stream where a match is found.
+ *
+ * Returns false if this graph is too large to find its matches in reasonable
+ * time.
  */
-void findMatches(const ue2::NGHolder &g, const ue2::ReportManager &rm,
+bool findMatches(const ue2::NGHolder &g, const ue2::ReportManager &rm,
                  const std::string &input,
                  std::set<std::pair<size_t, size_t>> &matches,
-                 const bool notEod, const bool som, const bool utf8);
+                 const unsigned int max_edit_distance, const bool notEod,
+                 const bool utf8);
 
 #endif // NG_FIND_MATCHES_H

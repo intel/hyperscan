@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,7 +31,7 @@
 
 #include "ue2common.h"
 #include "hwlm/hwlm_literal.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 
 #include <map>
 #include <utility>
@@ -55,21 +55,22 @@ typedef u32 PositionInBucket;  // zero is 'we are matching right now!",
 class EngineDescription;
 class FDREngineDescription;
 struct hwlmStreamingControl;
+struct Grey;
 
-std::pair<aligned_unique_ptr<u8>, size_t> setupFullMultiConfs(
-    const std::vector<hwlmLiteral> &lits, const EngineDescription &eng,
-    std::map<BucketIndex, std::vector<LiteralIndex>> &bucketToLits,
-    bool make_small);
+bytecode_ptr<u8> setupFullConfs(const std::vector<hwlmLiteral> &lits,
+               const EngineDescription &eng,
+               std::map<BucketIndex, std::vector<LiteralIndex>> &bucketToLits,
+               bool make_small);
 
 // all suffixes include an implicit max_bucket_width suffix to ensure that
 // we always read a full-scale flood "behind" us in terms of what's in our
 // state; if we don't have a flood that's long enough we won't be in the
 // right state yet to allow blindly advancing
-std::pair<aligned_unique_ptr<u8>, size_t>
-setupFDRFloodControl(const std::vector<hwlmLiteral> &lits,
-                     const EngineDescription &eng);
+bytecode_ptr<u8> setupFDRFloodControl(const std::vector<hwlmLiteral> &lits,
+                                      const EngineDescription &eng,
+                                      const Grey &grey);
 
-std::pair<aligned_unique_ptr<u8>, size_t>
+bytecode_ptr<u8>
 fdrBuildTableStreaming(const std::vector<hwlmLiteral> &lits,
                        hwlmStreamingControl &stream_control);
 

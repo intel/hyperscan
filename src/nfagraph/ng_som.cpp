@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,9 +26,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
+/**
+ * \file
  * \brief SOM ("Start of Match") analysis.
  */
+
+#include "ng_som.h"
+
 #include "ng.h"
 #include "ng_dump.h"
 #include "ng_equivalence.h"
@@ -40,15 +44,15 @@
 #include "ng_redundancy.h"
 #include "ng_region.h"
 #include "ng_reports.h"
-#include "ng_rose.h"
-#include "ng_som.h"
 #include "ng_som_add_redundancy.h"
 #include "ng_som_util.h"
 #include "ng_split.h"
 #include "ng_util.h"
+#include "ng_violet.h"
 #include "ng_width.h"
 #include "grey.h"
 #include "ue2common.h"
+#include "compiler/compiler.h"
 #include "nfa/goughcompile.h"
 #include "nfa/nfa_internal.h" // for MO_INVALID_IDX
 #include "parser/position.h"
@@ -1584,8 +1588,9 @@ void dumpSomPlan(UNUSED const NGHolder &g, UNUSED const som_plan &p,
  * implement the full pattern.
  */
 static
-void implementSomPlan(NG &ng, const NGWrapper &w, u32 comp_id, NGHolder &g,
-                      vector<som_plan> &plan, const u32 first_som_slot) {
+void implementSomPlan(NG &ng, const ExpressionInfo &expr, u32 comp_id,
+                      NGHolder &g, vector<som_plan> &plan,
+                      const u32 first_som_slot) {
     ReportManager &rm = ng.rm;
     SomSlotManager &ssm = ng.ssm;
 
@@ -1598,14 +1603,14 @@ void implementSomPlan(NG &ng, const NGWrapper &w, u32 comp_id, NGHolder &g,
 
     // Root plan, which already has a SOM slot assigned (first_som_slot).
     dumpSomPlan(g, plan.front(), 0);
-    dumpSomSubComponent(*plan.front().prefix, "04_som", w.expressionIndex,
-                        comp_id, 0, ng.cc.grey);
+    dumpSomSubComponent(*plan.front().prefix, "04_som", expr.index, comp_id, 0,
+                        ng.cc.grey);
     assert(plan.front().prefix);
     if (plan.front().escapes.any() && !plan.front().is_reset) {
         /* setup escaper for first som location */
         if (!createEscaper(ng, *plan.front().prefix, plan.front().escapes,
                            first_som_slot)) {
-            throw CompileError(w.expressionIndex, "Pattern is too large.");
+            throw CompileError(expr.index, "Pattern is too large.");
         }
     }
 
@@ -1617,7 +1622,7 @@ void implementSomPlan(NG &ng, const NGWrapper &w, u32 comp_id, NGHolder &g,
     for (++it; it != plan.end(); ++it) {
         const u32 plan_num = it - plan.begin();
         dumpSomPlan(g, *it, plan_num);
-        dumpSomSubComponent(*it->prefix, "04_som", w.expressionIndex, comp_id,
+        dumpSomSubComponent(*it->prefix, "04_som", expr.index, comp_id,
                             plan_num, ng.cc.grey);
 
         assert(it->parent < plan_num);
@@ -1628,7 +1633,7 @@ void implementSomPlan(NG &ng, const NGWrapper &w, u32 comp_id, NGHolder &g,
 
         assert(!it->no_implement);
         if (!buildMidfix(ng, *it, som_slot_in, som_slot_out)) {
-            throw CompileError(w.expressionIndex, "Pattern is too large.");
+            throw CompileError(expr.index, "Pattern is too large.");
         }
         updateReportToUseRecordedSom(rm, g, it->reporters_in, som_slot_in);
         updateReportToUseRecordedSom(rm, g, it->reporters, som_slot_out);
@@ -1639,7 +1644,7 @@ void implementSomPlan(NG &ng, const NGWrapper &w, u32 comp_id, NGHolder &g,
         renumber_vertices(*plan.front().prefix);
         assert(plan.front().prefix->kind == NFA_OUTFIX);
         if (!ng.addHolder(*plan.front().prefix)) {
-            throw CompileError(w.expressionIndex, "Pattern is too large.");
+            throw CompileError(expr.index, "Pattern is too large.");
         }
     }
 }
@@ -1727,19 +1732,19 @@ void clearProperInEdges(NGHolder &g, const NFAVertex sink) {
 
 namespace {
 struct SomRevNfa {
-    SomRevNfa(NFAVertex s, ReportID r, aligned_unique_ptr<NFA> n)
+    SomRevNfa(NFAVertex s, ReportID r, bytecode_ptr<NFA> n)
         : sink(s), report(r), nfa(move(n)) {}
-	SomRevNfa(SomRevNfa&& s) // MSVC2013 needs this for emplace
-		: sink(s.sink), report(s.report), nfa(move(s.nfa)) {}
+    SomRevNfa(SomRevNfa &&s) // MSVC2013 needs this for emplace
+        : sink(s.sink), report(s.report), nfa(move(s.nfa)) {}
     NFAVertex sink;
     ReportID report;
-    aligned_unique_ptr<NFA> nfa;
+    bytecode_ptr<NFA> nfa;
 };
 }
 
 static
-aligned_unique_ptr<NFA> makeBareSomRevNfa(const NGHolder &g,
-                                          const CompileContext &cc) {
+bytecode_ptr<NFA> makeBareSomRevNfa(const NGHolder &g,
+                                    const CompileContext &cc) {
     // Create a reversed anchored version of this NFA which fires a zero report
     // ID on accept.
     NGHolder g_rev;
@@ -1755,7 +1760,7 @@ aligned_unique_ptr<NFA> makeBareSomRevNfa(const NGHolder &g,
 
     DEBUG_PRINTF("building a rev NFA with %zu vertices\n", num_vertices(g_rev));
 
-    aligned_unique_ptr<NFA> nfa = constructReversedNFA(g_rev, cc);
+    auto nfa = constructReversedNFA(g_rev, cc);
     if (!nfa) {
         return nfa;
     }
@@ -1790,7 +1795,7 @@ bool makeSomRevNfa(vector<SomRevNfa> &som_nfas, const NGHolder &g,
 
     renumber_vertices(g2); // for findMinWidth, findMaxWidth.
 
-    aligned_unique_ptr<NFA> nfa = makeBareSomRevNfa(g2, cc);
+    auto nfa = makeBareSomRevNfa(g2, cc);
     if (!nfa) {
         DEBUG_PRINTF("couldn't build rev nfa\n");
         return false;
@@ -1852,7 +1857,7 @@ bool doSomRevNfa(NG &ng, NGHolder &g, const CompileContext &cc) {
 }
 
 static
-u32 doSomRevNfaPrefix(NG &ng, const NGWrapper &w, NGHolder &g,
+u32 doSomRevNfaPrefix(NG &ng, const ExpressionInfo &expr, NGHolder &g,
                       const CompileContext &cc) {
     depth maxWidth = findMaxWidth(g);
 
@@ -1861,7 +1866,7 @@ u32 doSomRevNfaPrefix(NG &ng, const NGWrapper &w, NGHolder &g,
 
     auto nfa = makeBareSomRevNfa(g, cc);
     if (!nfa) {
-        throw CompileError(w.expressionIndex, "Pattern is too large.");
+        throw CompileError(expr.index, "Pattern is too large.");
     }
 
     if (ng.cc.streaming) {
@@ -2055,8 +2060,8 @@ void roseAddHaigLiteral(RoseBuild &tb, const shared_ptr<NGHolder> &prefix,
 }
 
 static
-sombe_rv doHaigLitSom(NG &ng, NGHolder &g, const NGWrapper &w, u32 comp_id,
-                      som_type som,
+sombe_rv doHaigLitSom(NG &ng, NGHolder &g, const ExpressionInfo &expr,
+                      u32 comp_id, som_type som,
                       const ue2::unordered_map<NFAVertex, u32> &regions,
                       const map<u32, region_info> &info,
                       map<u32, region_info>::const_iterator lower_bound) {
@@ -2073,11 +2078,11 @@ sombe_rv doHaigLitSom(NG &ng, NGHolder &g, const NGWrapper &w, u32 comp_id,
     const u32 numSomLocsBefore = ssm.numSomSlots(); /* for rollback */
     u32 som_loc = ssm.getPrivateSomSlot();
 
-    if (!checkRose(rm, g, false, cc) && !isImplementableNFA(g, &rm, cc)) {
+    if (!checkViolet(rm, g, false, cc) && !isImplementableNFA(g, &rm, cc)) {
         // This is an optimisation: if we can't build a Haig from a portion of
         // the graph, then we won't be able to manage it as an outfix either
         // when we fall back.
-        throw CompileError(w.expressionIndex, "Pattern is too large.");
+        throw CompileError(expr.index, "Pattern is too large.");
     }
 
     while (1) {
@@ -2152,7 +2157,7 @@ sombe_rv doHaigLitSom(NG &ng, NGHolder &g, const NGWrapper &w, u32 comp_id,
                 goto next_try;
             }
 
-            implementSomPlan(ng, w, comp_id, g, plan, som_loc);
+            implementSomPlan(ng, expr, comp_id, g, plan, som_loc);
 
             Report ir = makeCallback(0U, 0);
             assert(!plan.empty());
@@ -2877,7 +2882,7 @@ unique_ptr<NGHolder> makePrefixForChain(NGHolder &g,
     return prefix;
 }
 
-sombe_rv doSom(NG &ng, NGHolder &g, const NGWrapper &w, u32 comp_id,
+sombe_rv doSom(NG &ng, NGHolder &g, const ExpressionInfo &expr, u32 comp_id,
                som_type som) {
     assert(som);
     DEBUG_PRINTF("som hello\n");
@@ -3001,7 +3006,7 @@ sombe_rv doSom(NG &ng, NGHolder &g, const NGWrapper &w, u32 comp_id,
         /* create prefix to set the som_loc */
         updatePrefixReports(rm, *prefix, INTERNAL_SOM_LOC_SET_IF_UNSET);
         if (prefix_by_rev) {
-            u32 rev_comp_id = doSomRevNfaPrefix(ng, w, *prefix, cc);
+            u32 rev_comp_id = doSomRevNfaPrefix(ng, expr, *prefix, cc);
             updatePrefixReportsRevNFA(rm, *prefix, rev_comp_id);
         }
         renumber_vertices(*prefix);
@@ -3084,18 +3089,18 @@ sombe_rv doSom(NG &ng, NGHolder &g, const NGWrapper &w, u32 comp_id,
         updatePrefixReports(rm, *prefix, INTERNAL_SOM_LOC_SET);
     }
     if (prefix_by_rev && !plan.front().no_implement) {
-        u32 rev_comp_id = doSomRevNfaPrefix(ng, w, *prefix, cc);
+        u32 rev_comp_id = doSomRevNfaPrefix(ng, expr, *prefix, cc);
         updatePrefixReportsRevNFA(rm, *prefix, rev_comp_id);
     }
 
-    implementSomPlan(ng, w, comp_id, g, plan, som_loc);
+    implementSomPlan(ng, expr, comp_id, g, plan, som_loc);
 
     DEBUG_PRINTF("success\n");
     return SOMBE_HANDLED_INTERNAL;
 }
 
-sombe_rv doSomWithHaig(NG &ng, NGHolder &g, const NGWrapper &w, u32 comp_id,
-                       som_type som) {
+sombe_rv doSomWithHaig(NG &ng, NGHolder &g, const ExpressionInfo &expr,
+                       u32 comp_id, som_type som) {
     assert(som);
 
     DEBUG_PRINTF("som+haig hello\n");
@@ -3132,7 +3137,7 @@ sombe_rv doSomWithHaig(NG &ng, NGHolder &g, const NGWrapper &w, u32 comp_id,
     buildRegionMapping(g, regions, info, true);
 
     sombe_rv rv =
-        doHaigLitSom(ng, g, w, comp_id, som, regions, info, info.begin());
+        doHaigLitSom(ng, g, expr, comp_id, som, regions, info, info.begin());
     if (rv == SOMBE_FAIL) {
         clear_graph(g);
         cloneHolder(g, g_pristine);

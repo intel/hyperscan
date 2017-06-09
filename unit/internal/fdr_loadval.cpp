@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,7 +30,7 @@
 #include "gtest/gtest.h"
 
 #include "fdr/fdr_loadval.h"
-#include "util/alloc.h"
+#include "util/bytecode_ptr.h"
 
 using namespace std;
 using namespace testing;
@@ -71,7 +71,7 @@ static void fillWithBytes(u8 *ptr, size_t len) {
 TYPED_TEST(FDR_Loadval, Normal) {
     // We should be able to do a normal load at any alignment.
     const size_t len = sizeof(TypeParam);
-    aligned_unique_ptr<u8> mem_p = aligned_zmalloc_unique<u8>(len + 15);
+    auto mem_p = make_bytecode_ptr<u8>(len + 15, 16);
     u8 * mem = mem_p.get();
     ASSERT_TRUE(ISALIGNED_16(mem));
     fillWithBytes(mem, len + 15);
@@ -90,7 +90,7 @@ TYPED_TEST(FDR_Loadval, CautiousEverywhere) {
     // the 'lo' ptr or after the 'hi' ptr.
     const size_t len = sizeof(TypeParam);
 
-    aligned_unique_ptr<u8> mem_p = aligned_zmalloc_unique<u8>(len + 1);
+    auto mem_p = make_bytecode_ptr<u8>(len + 1, 16);
     u8 *mem = mem_p.get() + 1; // force unaligned
     fillWithBytes(mem, len);
 

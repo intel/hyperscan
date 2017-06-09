@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,8 +44,7 @@ namespace ue2 {
 
 FDREngineDescription::FDREngineDescription(const FDREngineDef &def)
     : EngineDescription(def.id, targetByArchFeatures(def.cpu_features),
-                        def.numBuckets, def.confirmPullBackDistance,
-                        def.confirmTopLevelSplit),
+                        def.numBuckets),
       schemeWidth(def.schemeWidth), stride(0), bits(0) {}
 
 u32 FDREngineDescription::getDefaultFloodSuffixLength() const {
@@ -55,7 +54,7 @@ u32 FDREngineDescription::getDefaultFloodSuffixLength() const {
 }
 
 void getFdrDescriptions(vector<FDREngineDescription> *out) {
-    static const FDREngineDef def = {0, 128, 8, 0, 1, 256};
+    static const FDREngineDef def = {0, 64, 8, 0};
     out->clear();
     out->emplace_back(def);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,7 +48,7 @@ namespace ue2 {
 
 class NGHolder;
 class NG;
-class NGWrapper;
+class ExpressionInfo;
 class ReportManager;
 
 // Implementations for stubs below -- all have the suffix "Impl".
@@ -61,7 +61,8 @@ void dumpGraphImpl(const char *name, const GraphT &g);
 template <typename GraphT>
 void dumpGraphImpl(const char *name, const GraphT &g, const ReportManager &rm);
 
-void dumpDotWrapperImpl(const NGWrapper &w, const char *name, const Grey &grey);
+void dumpDotWrapperImpl(const NGHolder &g, const ExpressionInfo &expr,
+                        const char *name, const Grey &grey);
 
 void dumpComponentImpl(const NGHolder &g, const char *name, u32 expr, u32 comp,
                        const Grey &grey);
@@ -88,10 +89,10 @@ static inline void dumpGraph(UNUSED const char *name, UNUSED const GraphT &g) {
 // Stubs which call through to dump code if compiled in.
 
 UNUSED static inline
-void dumpDotWrapper(UNUSED const NGWrapper &w, UNUSED const char *name,
-                    UNUSED const Grey &grey) {
+void dumpDotWrapper(UNUSED const NGHolder &g, UNUSED const ExpressionInfo &expr,
+                    UNUSED const char *name, UNUSED const Grey &grey) {
 #ifdef DUMP_SUPPORT
-    dumpDotWrapperImpl(w, name, grey);
+    dumpDotWrapperImpl(g, expr, name, grey);
 #endif
 }
 

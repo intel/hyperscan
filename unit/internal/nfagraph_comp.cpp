@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,13 +33,8 @@
 #include "config.h"
 #include "gtest/gtest.h"
 #include "nfagraph_common.h"
-#include "grey.h"
-#include "hs.h"
-#include "compiler/compiler.h"
 #include "nfagraph/ng.h"
-#include "nfagraph/ng_builder.h"
 #include "nfagraph/ng_calc_components.h"
-#include "util/target_info.h"
 
 using namespace std;
 using namespace ue2;
@@ -48,7 +43,9 @@ TEST(NFAGraph, CalcComp1) {
     auto graph = constructGraph("abc|def|ghi", 0);
     ASSERT_TRUE(graph != nullptr);
 
-    deque<unique_ptr<NGHolder>> comps = calcComponents(*graph);
+    Grey grey;
+    grey.calcComponents = true;
+    auto comps = calcComponents(std::move(graph), grey);
     ASSERT_EQ(3, comps.size());
 }
 
@@ -56,7 +53,9 @@ TEST(NFAGraph, CalcComp2) {
     auto graph = constructGraph("a|b|c|d|e|f|g|h|i", 0);
     ASSERT_TRUE(graph != nullptr);
 
-    deque<unique_ptr<NGHolder>> comps = calcComponents(*graph);
+    Grey grey;
+    grey.calcComponents = true;
+    auto comps = calcComponents(std::move(graph), grey);
 
     // We should be identifying this as a trivial case and not splitting it.
     ASSERT_EQ(1, comps.size());
@@ -67,7 +66,9 @@ TEST(NFAGraph, RecalcComp1) {
     comps.push_back(constructGraph("abc|def|ghi", 0));
     ASSERT_TRUE(comps.back() != nullptr);
 
-    recalcComponents(comps);
+    Grey grey;
+    grey.calcComponents = true;
+    recalcComponents(comps, grey);
 
     ASSERT_EQ(3, comps.size());
 }

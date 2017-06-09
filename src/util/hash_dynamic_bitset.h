@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,25 +26,70 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ROSE_DUMP_H
-#define ROSE_DUMP_H
+/**
+ * \file
+ * \brief Hashing utility functions.
+ */
 
-#ifdef DUMP_SUPPORT
+#ifndef UTIL_HASH_DYNAMIC_BITSET_H
+#define UTIL_HASH_DYNAMIC_BITSET_H
 
-#include <cstdio>
-#include <string>
+#include <boost/dynamic_bitset.hpp>
+#include <boost/functional/hash/hash.hpp>
 
-struct RoseEngine;
+#include <iterator>
 
 namespace ue2 {
 
-void roseDumpText(const RoseEngine *t, FILE *f);
-void roseDumpInternals(const RoseEngine *t, const std::string &base);
-void roseDumpComponents(const RoseEngine *t, bool dump_raw,
-                        const std::string &base);
-void roseDumpStructRaw(const RoseEngine *t, FILE *f);
+/**
+ * \brief An output iterator which calculates the combined hash of all elements
+ * written to it.
+ *
+ * The location to output the hash is provided to the constructor and should
+ * already be zero initialised.
+ */
+struct hash_output_it {
+    using value_type = void;
+    using difference_type = ptrdiff_t;
+    using pointer = void *;
+    using reference = void;
+    using iterator_category = std::output_iterator_tag;
+
+    hash_output_it(size_t *hash_out = nullptr) : out(hash_out) {}
+    hash_output_it &operator++() {
+        return *this;
+    }
+    hash_output_it &operator++(int) {
+        return *this;
+    }
+
+    struct deref_proxy {
+        deref_proxy(size_t *hash_out) : out(hash_out) {}
+
+        template<typename T>
+        void operator=(const T &val) const {
+            boost::hash_combine(*out, val);
+        }
+
+    private:
+        size_t *out; /* output location of the owning iterator */
+    };
+
+    deref_proxy operator*() { return {out}; }
+
+private:
+    size_t *out; /* location to output the hashes to */
+};
+
+/* Function object for hashing a dynamic bitset */
+struct hash_dynamic_bitset {
+    size_t operator()(const boost::dynamic_bitset<> &bs) const {
+        size_t rv = 0;
+        to_block_range(bs, hash_output_it(&rv));
+        return rv;
+    }
+};
 
 } // namespace ue2
 
-#endif
 #endif
