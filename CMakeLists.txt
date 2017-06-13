@@ -651,7 +651,7 @@ set (hs_exec_avx2_SRCS
 )
 
 
-SET (hs_SRCS
+SET (hs_compile_SRCS
     ${hs_HEADERS}
     src/crc32.h
     src/database.h
@@ -659,7 +659,6 @@ SET (hs_SRCS
     src/grey.h
     src/hs.cpp
     src/hs_internal.h
-    src/hs_version.c
     src/hs_version.h
     src/scratch.h
     src/state.h
@@ -1080,7 +1079,7 @@ set(hs_dump_SRCS
 )
 
 if (DUMP_SUPPORT)
-    set(hs_SRCS ${hs_SRCS} ${hs_dump_SRCS})
+    set(hs_compile_SRCS ${hs_compile_SRCS} ${hs_dump_SRCS})
 endif()
 
 # we group things by sublibraries, specifying shared and static and then
@@ -1103,12 +1102,20 @@ if (NOT FAT_RUNTIME)
         add_library(hs_runtime STATIC src/hs_version.c src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec>)
         set_target_properties(hs_runtime PROPERTIES LINKER_LANGUAGE C)
 
-        add_library(hs STATIC ${hs_SRCS} src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec>)
+        add_library(hs_compile OBJECT ${hs_compile_SRCS})
+
+        add_library(hs STATIC
+            src/hs_version.c
+            src/hs_valid_platform.c
+            $<TARGET_OBJECTS:hs_exec>
+            $<TARGET_OBJECTS:hs_compile>)
     endif (BUILD_STATIC_LIBS)
 
     if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
         add_library(hs_exec_shared OBJECT ${hs_exec_SRCS})
         set_target_properties(hs_exec_shared PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+        add_library(hs_compile_shared OBJECT ${hs_compile_SRCS})
+        set_target_properties(hs_compile_shared PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
     endif()
 
 else (FAT_RUNTIME)
@@ -1162,10 +1169,11 @@ else (FAT_RUNTIME)
            $<TARGET_OBJECTS:hs_exec_common>
            ${RUNTIME_LIBS})
        set_target_properties(hs_runtime PROPERTIES LINKER_LANGUAGE C)
+        add_library(hs_compile OBJECT ${hs_compile_SRCS})
 
        # we want the static lib for testing
        add_library(hs STATIC src/hs_version.c src/hs_valid_platform.c
-           ${hs_SRCS}
+           $<TARGET_OBJECTS:hs_compile>
            $<TARGET_OBJECTS:hs_exec_common>
            ${RUNTIME_LIBS})
 
@@ -1173,6 +1181,8 @@ else (FAT_RUNTIME)
 
     if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
         # build shared libs
+        add_library(hs_compile_shared OBJECT ${hs_compile_SRCS})
+        set_target_properties(hs_compile_shared PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
         add_library(hs_exec_shared_core2 OBJECT ${hs_exec_SRCS})
         list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_shared_core2>)
         set_target_properties(hs_exec_shared_core2 PROPERTIES
@@ -1253,10 +1263,10 @@ endif()
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
     if (NOT FAT_RUNTIME)
         add_library(hs_shared SHARED src/hs_version.c src/hs_valid_platform.c
-            ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_shared>)
+            $<TARGET_OBJECTS:hs_compile_shared> $<TARGET_OBJECTS:hs_exec_shared>)
     else()
         add_library(hs_shared SHARED src/hs_version.c src/hs_valid_platform.c
-            ${hs_SRCS} $<TARGET_OBJECTS:hs_exec_common_shared>
+            $<TARGET_OBJECTS:hs_compile_shared> $<TARGET_OBJECTS:hs_exec_common_shared>
             ${RUNTIME_SHLIBS})
 
     endif()
