@@ -651,8 +651,8 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
         }
     }
 
-    printf("Time spent scanning:     %'0.3f seconds\n", totalSecs);
-    printf("Corpus size:             %'llu bytes ", bytesPerRun);
+    printf("Time spent scanning:       %'0.3f seconds\n", totalSecs);
+    printf("Corpus size:               %'llu bytes ", bytesPerRun);
     switch (scan_mode) {
     case ScanMode::STREAMING:
         printf("(%'zu blocks in %'llu streams)\n", corpus_blocks.size(),
@@ -671,16 +671,16 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
     u64a totalBlocks = corpus_blocks.size() * repeats * threads.size();
 
     double matchRate = ((double)matchesPerRun * 1024) / bytesPerRun;
-    printf("Matches per iteration:   %'llu (%'0.3f matches/kilobyte)\n",
+    printf("Matches per iteration:     %'llu (%'0.3f matches/kilobyte)\n",
            matchesPerRun, matchRate);
 
     double blockRate = (double)totalBlocks / (double)totalSecs;
-    printf("Overall block rate:      %'0.2f blocks/sec\n", blockRate);
-    printf("Mean throughput:         %'0.2Lf Mbit/sec\n",
+    printf("Overall block rate:        %'0.2f blocks/sec\n", blockRate);
+    printf("Mean throughput (overall): %'0.2Lf Mbit/sec\n",
            calc_mbps(totalSecs, totalBytes));
 
     double lowestScanTime = fastestResult(threads);
-    printf("Maximum throughput:      %'0.2Lf Mbit/sec\n",
+    printf("Max throughput (per core): %'0.2Lf Mbit/sec\n",
            calc_mbps(lowestScanTime, bytesPerRun));
     printf("\n");
 
