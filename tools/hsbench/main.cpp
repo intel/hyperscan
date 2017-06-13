@@ -205,7 +205,7 @@ static
 void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
                  UNUSED unique_ptr<Grey> &grey) {
     const char options[] = "-b:c:Cd:e:E:G:hi:n:No:p:sVw:z:"
-#if HAVE_DECL_PTHREAD_SETAFFINITY_N
+#ifdef HAVE_DECL_PTHREAD_SETAFFINITY_NP
         "T:" // add the thread flag
 #endif
         ;
@@ -287,6 +287,7 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
         case 'V':
             scan_mode = ScanMode::VECTORED;
             break;
+#ifdef HAVE_DECL_PTHREAD_SETAFFINITY_NP
         case 'T':
             if (!strToList(optarg, threadCores)) {
                 usage("Couldn't parse argument to -T flag, should be"
@@ -294,6 +295,7 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
                 exit(1);
             }
             break;
+#endif
         case 'z': {
             unsigned int sinumber;
             if (!fromString(optarg, sinumber)) {
