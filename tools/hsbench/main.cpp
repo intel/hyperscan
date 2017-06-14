@@ -125,10 +125,10 @@ public:
     // Apply processor affinity (if available) to this thread.
     bool affine(UNUSED int cpu) {
 #ifdef HAVE_DECL_PTHREAD_SETAFFINITY_NP
-#if defined(__linux__)
-        cpu_set_t cpuset;
-#else // BSD
+#if defined(__FreeBSD__)
         cpuset_t cpuset;
+#else
+        cpu_set_t cpuset;
 #endif
         CPU_ZERO(&cpuset);
         assert(cpu >= 0 && cpu < CPU_SETSIZE);
