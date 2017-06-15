@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,10 +30,12 @@
 
 #include "fdr_compile.h"
 #include "fdr_compile_internal.h"
+#include "fdr_confirm.h"
 #include "fdr_dump.h"
 #include "fdr_engine_description.h"
 #include "fdr_internal.h"
 #include "teddy_engine_description.h"
+#include "teddy_internal.h"
 #include "ue2common.h"
 
 #include <cstdio>
@@ -58,33 +60,68 @@ bool fdrIsTeddy(const FDR *fdr) {
     return !getFdrDescription(engine);
 }
 
-void fdrPrintStats(const FDR *fdr, FILE *f) {
-    const bool isTeddy = fdrIsTeddy(fdr);
+static
+void dumpConfirms(const void *fdr_base, u32 conf_offset, u32 num_confirms,
+                  FILE *f) {
+    const u32 *conf = (const u32 *)((const char *)fdr_base + conf_offset);
+    for (u32 i = 0; i < num_confirms; i++) {
+        const auto *fdrc = (const FDRConfirm *)((const char *)conf + conf[i]);
+        fprintf(f, "    confirm %u\n", i);
+        fprintf(f, "      andmsk  0x%016llx\n", fdrc->andmsk);
+        fprintf(f, "      mult    0x%016llx\n", fdrc->mult);
+        fprintf(f, "      nbits   %u\n", fdrc->nBits);
+        fprintf(f, "      groups  0x%016llx\n", fdrc->groups);
+    }
+}
 
-    if (isTeddy) {
-        fprintf(f, "TEDDY:         %u\n", fdr->engineID);
-    } else {
-        fprintf(f, "FDR:           %u\n", fdr->engineID);
+static
+void dumpTeddy(const Teddy *teddy, FILE *f) {
+    fprintf(f, "TEDDY:         %u\n", teddy->engineID);
+    auto des = getTeddyDescription(teddy->engineID);
+    if (!des) {
+        fprintf(f, "   <unknown engine>\n");
+        return;
     }
 
-    if (isTeddy) {
-        auto des = getTeddyDescription(fdr->engineID);
-        if (des) {
-            fprintf(f, "    masks      %u\n", des->numMasks);
-            fprintf(f, "    buckets    %u\n", des->getNumBuckets());
-            fprintf(f, "    packed     %s\n", des->packed ? "true" : "false");
-        } else {
-            fprintf(f, "   <unknown engine>\n");
-        }
-    } else {
-        fprintf(f, "    domain     %u\n", fdr->domain);
-        fprintf(f, "    stride     %u\n", fdr->stride);
+    fprintf(f, "    masks      %u\n", des->numMasks);
+    fprintf(f, "    buckets    %u\n", des->getNumBuckets());
+    fprintf(f, "    packed     %s\n", des->packed ? "true" : "false");
+    fprintf(f, "    strings    ???\n");
+    fprintf(f, "    size       %zu bytes\n", fdrSize((const FDR *)teddy));
+    fprintf(f, "    max length %u\n", teddy->maxStringLen);
+    fprintf(f, "    floodoff   %u (%x)\n", teddy->floodOffset,
+            teddy->floodOffset);
+    fprintf(f, "\n");
+
+    dumpConfirms(teddy, teddy->confOffset, des->getNumBuckets(), f);
+}
+
+static
+void dumpFDR(const FDR *fdr, FILE *f) {
+    fprintf(f, "FDR:           %u\n", fdr->engineID);
+    auto des = getFdrDescription(fdr->engineID);
+    if (!des) {
+        fprintf(f, "   <unknown engine>\n");
+        return;
     }
 
+    fprintf(f, "    domain     %u\n", fdr->domain);
+    fprintf(f, "    stride     %u\n", fdr->stride);
     fprintf(f, "    strings    ???\n");
     fprintf(f, "    size       %zu bytes\n", fdrSize(fdr));
     fprintf(f, "    max length %u\n", fdr->maxStringLen);
     fprintf(f, "    floodoff   %u (%x)\n", fdr->floodOffset, fdr->floodOffset);
+    fprintf(f, "\n");
+
+    dumpConfirms(fdr, fdr->confOffset, des->getNumBuckets(), f);
+}
+
+void fdrPrintStats(const FDR *fdr, FILE *f) {
+    if (fdrIsTeddy(fdr)) {
+        dumpTeddy((const Teddy *)fdr, f);
+    } else {
+        dumpFDR(fdr, f);
+    }
 }
 
 } // namespace ue2
