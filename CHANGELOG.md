@@ -2,6 +2,15 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [4.5.1] 2017-06-16
+- Bugfix for issue #56: workaround for gcc-4.8 C++11 defect.
+- Bugfix for literal matching table generation, reversing a regression in
+  performance for some literal matching cases.
+- Bugfixes for hsbench, related to multicore benchmarking, portability fixes
+  for FreeBSD, and clarifying output results.
+- CMake: removed a duplicate else branch that causes very recent (v3.9) builds
+  of CMake to fail.
+
 ## [4.5.0] 2017-06-09
 - New API feature: approximate matching using the "edit distance" extended
   parameter. This allows the user to request all matches that are a given edit
