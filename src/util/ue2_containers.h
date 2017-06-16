@@ -162,8 +162,18 @@ class flat_set
       public totally_ordered<flat_set<T, Compare, Allocator>> {
     using base_type = flat_detail::flat_base<T, Compare, Allocator>;
     using storage_type = typename base_type::storage_type;
+    using storage_iterator = typename storage_type::iterator;
+    using storage_const_iterator = typename storage_type::const_iterator;
     using base_type::data;
     using base_type::comp;
+
+#if defined(SMALL_VECTOR_IS_STL_VECTOR)
+    // Construct a non-const iterator from a const iterator. Used in flat_map
+    // and flat_set erase() calls to work around g++-4.8 compatibility issues.
+    storage_iterator mutable_iterator(storage_const_iterator it) {
+        return data().begin() + std::distance(data().cbegin(), it);
+    }
+#endif
 
 public:
     // Member types.
@@ -282,11 +292,27 @@ public:
     }
 
     void erase(const_iterator pos) {
-        data().erase(pos.get());
+#if defined(SMALL_VECTOR_IS_STL_VECTOR)
+        // Cope with libstdc++ 4.8's incomplete STL (it's missing C++11
+        // vector::erase(const_iterator)) by explicitly using a non-const
+        // iterator.
+        auto pos_it = mutable_iterator(pos.get());
+#else
+        auto pos_it = pos.get();
+#endif
+        data().erase(pos_it);
     }
 
     void erase(const_iterator first, const_iterator last) {
-        data().erase(first.get(), last.get());
+#if defined(SMALL_VECTOR_IS_STL_VECTOR)
+        // As above, work around libstdc++ 4.8's incomplete C++11 support.
+        auto first_it = mutable_iterator(first.get());
+        auto last_it = mutable_iterator(last.get());
+#else
+        auto first_it = first.get();
+        auto last_it = last.get();
+#endif
+        data().erase(first_it, last_it);
     }
 
     void erase(const key_type &key) {
@@ -374,8 +400,18 @@ private:
         flat_detail::flat_base<std::pair<Key, T>, Compare, Allocator>;
     using keyval_storage_type = std::pair<key_type, mapped_type>;
     using storage_type = typename base_type::storage_type;
+    using storage_iterator = typename storage_type::iterator;
+    using storage_const_iterator = typename storage_type::const_iterator;
     using base_type::data;
     using base_type::comp;
+
+#if defined(SMALL_VECTOR_IS_STL_VECTOR)
+    // Construct a non-const iterator from a const iterator. Used in flat_map
+    // and flat_set erase() calls to work around g++-4.8 compatibility issues.
+    storage_iterator mutable_iterator(storage_const_iterator it) {
+        return data().begin() + std::distance(data().cbegin(), it);
+    }
+#endif
 
 public:
     // More Member types.
@@ -444,9 +480,6 @@ public:
     const_reverse_iterator rend() const { return crend(); }
 
 private:
-    using storage_iterator = typename storage_type::iterator;
-    using storage_const_iterator = typename storage_type::const_iterator;
-
     storage_iterator data_lower_bound(const key_type &key) {
         return std::lower_bound(
             data().begin(), data().end(), key,
@@ -526,11 +559,27 @@ public:
     }
 
     void erase(const_iterator pos) {
-        data().erase(pos.get());
+#if defined(SMALL_VECTOR_IS_STL_VECTOR)
+        // Cope with libstdc++ 4.8's incomplete STL (it's missing C++11
+        // vector::erase(const_iterator)) by explicitly using a non-const
+        // iterator.
+        auto pos_it = mutable_iterator(pos.get());
+#else
+        auto pos_it = pos.get();
+#endif
+        data().erase(pos_it);
     }
 
     void erase(const_iterator first, const_iterator last) {
-        data().erase(first.get(), last.get());
+#if defined(SMALL_VECTOR_IS_STL_VECTOR)
+        // As above, work around libstdc++ 4.8's incomplete C++11 support.
+        auto first_it = mutable_iterator(first.get());
+        auto last_it = mutable_iterator(last.get());
+#else
+        auto first_it = first.get();
+        auto last_it = last.get();
+#endif
+        data().erase(first_it, last_it);
     }
 
     void erase(const key_type &key) {

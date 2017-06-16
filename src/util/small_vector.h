@@ -55,6 +55,9 @@ using small_vector = boost::container::small_vector<T, N, Allocator>;
 template <class T, std::size_t N, typename Allocator = std::allocator<T>>
 using small_vector = std::vector<T, Allocator>;
 
+// Support workarounds for flat_set/flat_map and GCC 4.8.
+#define SMALL_VECTOR_IS_STL_VECTOR 1
+
 #endif // HAVE_BOOST_CONTAINER_SMALL_VECTOR
 
 } // namespace ue2
