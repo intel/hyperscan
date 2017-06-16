@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -62,7 +62,7 @@ unique_ptr<hs_platform_info> xcompileReadMode(const char *s) {
     if (!opt.empty()) {
         const size_t numOpts = ARRAY_LENGTH(xcompile_options);
         for (size_t i = 0; i < numOpts; i++) {
-            if (opt.compare(xcompile_options[i].name) == 0) {
+            if (opt == xcompile_options[i].name) {
                 DEBUG_PRINTF("found opt %zu:%llu\n", i,
                              xcompile_options[i].cpu_features);
                 rv.cpu_features = xcompile_options[i].cpu_features;
