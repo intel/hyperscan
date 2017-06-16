@@ -1735,8 +1735,6 @@ namespace {
 struct SomRevNfa {
     SomRevNfa(NFAVertex s, ReportID r, bytecode_ptr<NFA> n)
         : sink(s), report(r), nfa(move(n)) {}
-    SomRevNfa(SomRevNfa &&s) // MSVC2013 needs this for emplace
-        : sink(s.sink), report(s.report), nfa(move(s.nfa)) {}
     NFAVertex sink;
     ReportID report;
     bytecode_ptr<NFA> nfa;
