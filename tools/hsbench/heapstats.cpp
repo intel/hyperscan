@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,18 +47,21 @@
 #include <malloc.h>
 
 size_t getPeakHeap(void) {
-    FILE *tmpf = tmpfile();
-    if (!tmpf) {
+    size_t fsize;
+    char *fptr;
+    FILE *fstr = open_memstream(&fptr, &fsize);
+    if (!fstr) {
         return 0;
     }
 
-    int rv = malloc_info(0, tmpf);
+    int rv = malloc_info(0, fstr);
     if (rv != 0) {
-        fclose(tmpf);
+        fclose(fstr);
+        free(fptr);
         return 0;
     }
 
-    rewind(tmpf);
+    rewind(fstr);
 
     // We don't want to depend on a real XML parser. This is ugly and brittle
     // and hopefully good enough for the time being. We look for the last
@@ -71,7 +74,7 @@ size_t getPeakHeap(void) {
     size_t len = 0, maxheap = 0;
     ssize_t read;
 
-    while ((read = getline(&line, &len, tmpf)) != -1) {
+    while ((read = getline(&line, &len, fstr)) != -1) {
         if (strncmp(line, begin, begin_len) == 0) {
             errno = 0;
             maxheap = (size_t)strtoull(line + begin_len, nullptr, 10);
@@ -83,7 +86,8 @@ size_t getPeakHeap(void) {
 
 finish:
     free(line);
-    fclose(tmpf);
+    fclose(fstr);
+    free(fptr);
     return maxheap;
 }
 
