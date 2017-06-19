@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -165,6 +165,7 @@ static bool higher_is_better(Criterion c) {
 }
 
 static void print_criterion(Criterion c, double val) {
+    std::ios::fmtflags f(cout.flags());
     switch (c) {
     case CRITERION_THROUGHPUT:
         cout << std::fixed << std::setprecision(3) << val << " Megabits/s";
@@ -179,6 +180,7 @@ static void print_criterion(Criterion c, double val) {
         cout << static_cast<size_t>(val) << " bytes";
         break;
     }
+    cout.flags(f);
 }
 
 // Key for identifying a stream in our pcap input data, using data from its IP
@@ -596,11 +598,13 @@ double eval_set(Benchmark &bench, Sigdata &sigs, unsigned int mode,
     size_t bytes = bench.bytes();
     size_t matches = bench.matches();
     if (diagnose) {
+        std::ios::fmtflags f(cout.flags());
         cout << "Scan time " << std::fixed << std::setprecision(3) << scan_time
              << " sec, Scanned " << bytes * repeatCount << " bytes, Throughput "
              << std::fixed << std::setprecision(3)
              << (bytes * 8 * repeatCount) / (scan_time * 1000000)
              << " Mbps, Matches " << matches << endl;
+        cout.flags(f);
     }
     return (bytes * 8 * repeatCount) / (scan_time * 1000000);
 }
@@ -755,10 +759,12 @@ int main(int argc, char **argv) {
         for (unsigned i = count; i < 16; i++) {
             cout << " ";
         }
+        std::ios::fmtflags out_f(cout.flags());
         cout << "Performance: ";
         print_criterion(criterion, best);
         cout << " (" << std::fixed << std::setprecision(3) << (best / score_base)
              << "x) after cutting:" << endl;
+        cout.flags(out_f);
 
         // s now has factor_max signatures
         for (const auto &found : s) {
