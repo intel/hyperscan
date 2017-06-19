@@ -35,6 +35,7 @@
 #include "util/alloc.h"
 #include "util/bitutils.h"
 #include "util/compare.h"
+#include "util/container.h"
 #include "util/verify_types.h"
 
 #include <algorithm>
@@ -46,19 +47,6 @@ using namespace std;
 namespace ue2 {
 
 using BC2CONF = map<BucketIndex, bytecode_ptr<FDRConfirm>>;
-
-// return the number of bytes beyond a length threshold in all strings in lits
-static
-size_t thresholdedSize(const vector<hwlmLiteral> &lits, size_t threshold) {
-    size_t tot = 0;
-    for (const auto &lit : lits) {
-        size_t sz = lit.s.size();
-        if (sz > threshold) {
-            tot += ROUNDUP_N(sz - threshold, 8);
-        }
-    }
-    return tot;
-}
 
 static
 u64a make_u64a_mask(const vector<u8> &v) {
@@ -143,6 +131,11 @@ void fillLitInfo(const vector<hwlmLiteral> &lits, vector<LitInfo> &tmpLitInfo,
 static
 bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
                                        bool make_small, bool make_confirm) {
+    // Every literal must fit within CONF_TYPE.
+    assert(all_of_in(lits, [](const hwlmLiteral &lit) {
+        return lit.s.size() <= sizeof(CONF_TYPE);
+    }));
+
     vector<LitInfo> tmpLitInfo(lits.size());
     CONF_TYPE andmsk;
     fillLitInfo(lits, tmpLitInfo, andmsk);
@@ -271,12 +264,11 @@ bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
 #endif
 
     const size_t bitsToLitIndexSize = (1U << nBits) * sizeof(u32);
-    const size_t totalLitSize = thresholdedSize(lits, sizeof(CONF_TYPE));
 
     // this size can now be a worst-case as we can always be a bit smaller
     size_t size = ROUNDUP_N(sizeof(FDRConfirm), alignof(u32)) +
                   ROUNDUP_N(bitsToLitIndexSize, alignof(LitInfo)) +
-                  sizeof(LitInfo) * lits.size() + totalLitSize;
+                  sizeof(LitInfo) * lits.size();
     size = ROUNDUP_N(size, alignof(FDRConfirm));
 
     auto fdrc = make_zeroed_bytecode_ptr<FDRConfirm>(size);
