@@ -262,7 +262,7 @@ hs_compile_multi_int(const char *const *expressions, const unsigned *flags,
                                            e.hasIndex ? (int)e.index : -1);
         return HS_COMPILER_ERROR;
     }
-    catch (std::bad_alloc) {
+    catch (const std::bad_alloc &) {
         *db = nullptr;
         *comp_error = const_cast<hs_compile_error_t *>(&hs_enomem);
         return HS_COMPILER_ERROR;
@@ -399,7 +399,7 @@ hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
         *error = generateCompileError(e);
         return HS_COMPILER_ERROR;
     }
-    catch (std::bad_alloc) {
+    catch (std::bad_alloc &) {
         *error = const_cast<hs_compile_error_t *>(&hs_enomem);
         return HS_COMPILER_ERROR;
     }
