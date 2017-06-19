@@ -1155,6 +1155,35 @@ unichar readUtf8CodePoint4c(const char *s) {
               '\\E' => {
                   fgoto main;
               };
+
+              #unicode chars
+              utf8_2c when is_utf8 => {
+                  assert(mode.utf8);
+                  /* leverage ComponentClass to generate the vertices */
+                  auto cc = getComponentClass(mode);
+                  cc->add(readUtf8CodePoint2c(ts));
+                  cc->finalize();
+                  currentSeq->addComponent(move(cc));
+              };
+
+              utf8_3c when is_utf8 => {
+                  assert(mode.utf8);
+                  /* leverage ComponentClass to generate the vertices */
+                  auto cc = getComponentClass(mode);
+                  cc->add(readUtf8CodePoint3c(ts));
+                  cc->finalize();
+                  currentSeq->addComponent(move(cc));
+              };
+
+              utf8_4c when is_utf8 => {
+                  assert(mode.utf8);
+                  /* leverage ComponentClass to generate the vertices */
+                  auto cc = getComponentClass(mode);
+                  cc->add(readUtf8CodePoint4c(ts));
+                  cc->finalize();
+                  currentSeq->addComponent(move(cc));
+              };
+
               # Literal character
               any => {
                   addLiteral(currentSeq, *ts, mode);
