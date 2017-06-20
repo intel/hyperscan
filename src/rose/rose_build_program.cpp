@@ -1288,19 +1288,28 @@ void makeCheckLitMaskInstruction(const RoseBuildImpl &build, u32 lit_id,
 
     vector<LookEntry> look;
 
-    const ue2_literal &s = build.literals.at(lit_id).s;
+    const auto &lit = build.literals.at(lit_id);
+    const ue2_literal &s = lit.s;
+    const auto &msk = lit.msk;
+
     DEBUG_PRINTF("building mask for lit %u: %s\n", lit_id,
                  dumpString(s).c_str());
+
     assert(s.length() <= MAX_MASK2_WIDTH);
-    s32 i = 0 - s.length();
-    for (const auto &e : s) {
-        if (!e.nocase) {
-            look.emplace_back(verify_s8(i), e);
+
+    // Note: the literal matcher will confirm the HWLM mask in lit.msk, so we
+    // do not include those entries in the lookaround.
+    auto it = s.begin();
+    for (s32 i = 0 - s.length(), i_end = 0 - msk.size(); i < i_end; ++i, ++it) {
+        if (!it->nocase) {
+            look.emplace_back(verify_s8(i), *it);
         }
-        i++;
     }
 
-    assert(!look.empty());
+    if (look.empty()) {
+        return; // all caseful chars handled by HWLM mask.
+    }
+
     makeLookaroundInstruction(look, program);
 }
 
