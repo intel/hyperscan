@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,8 +33,8 @@
 #include "ng_small_literal_set.h"
 
 #include "grey.h"
-#include "ng_util.h"
 #include "ng_holder.h"
+#include "ng_util.h"
 #include "rose/rose_build.h"
 #include "util/compare.h"
 #include "util/compile_context.h"
@@ -219,6 +219,11 @@ bool handleSmallLiteralSets(RoseBuild &rose, const NGHolder &g,
     if (!isAcyclic(g)) {
         /* literal sets would typically be acyclic... */
         DEBUG_PRINTF("not acyclic\n");
+        return false;
+    }
+
+    if (!hasNarrowReachVertex(g, MAX_LITERAL_SET_SIZE * 2 + 1)) {
+        DEBUG_PRINTF("vertex with wide reach found\n");
         return false;
     }
 
