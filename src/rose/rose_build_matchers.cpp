@@ -55,6 +55,7 @@
 #include <sstream>
 
 #include <boost/range/adaptor/map.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
 using namespace std;
 using boost::adaptors::map_values;
@@ -63,7 +64,7 @@ namespace ue2 {
 
 static const size_t MAX_ACCEL_STRING_LEN = 16;
 
-#ifdef DEBUG
+#if defined(DEBUG) || defined(DUMP_SUPPORT)
 static UNUSED
 string dumpMask(const vector<u8> &v) {
     ostringstream oss;
@@ -231,27 +232,11 @@ bool maskFromPreds(const RoseBuildImpl &build, const rose_literal_id &id,
 }
 
 static
-bool findHamsterMask(const RoseBuildImpl &build, const rose_literal_id &id,
-                     const rose_literal_info &info, const RoseVertex v,
-                     vector<u8> &msk, vector<u8> &cmp) {
+bool addSurroundingMask(const RoseBuildImpl &build, const rose_literal_id &id,
+                        const RoseVertex v, vector<u8> &msk, vector<u8> &cmp) {
     // Start with zero masks.
     msk.assign(HWLM_MASKLEN, 0);
     cmp.assign(HWLM_MASKLEN, 0);
-
-    // Masks can come from literal benefits (for mixed-case literals).
-    if (info.requires_benefits) {
-        assert(mixed_sensitivity(id.s));
-
-        size_t j = 0;
-        for (ue2_literal::const_reverse_iterator it = id.s.rbegin(),
-                                                 ite = id.s.rend();
-             it != ite && j < HWLM_MASKLEN; ++it, ++j) {
-            size_t offset = HWLM_MASKLEN - j - 1;
-            const CharReach &cr = *it;
-            make_and_cmp_mask(cr, &msk[offset], &cmp[offset]);
-        }
-        return true;
-    }
 
     const LeftEngInfo &left = build.g[v].left;
     if (left && left.lag < HWLM_MASKLEN) {
@@ -293,9 +278,9 @@ bool hamsterMaskCombine(vector<u8> &msk, vector<u8> &cmp,
 }
 
 static
-bool findHamsterMask(const RoseBuildImpl &build, const rose_literal_id &id,
-                     const rose_literal_info &info,
-                     vector<u8> &msk, vector<u8> &cmp) {
+bool addSurroundingMask(const RoseBuildImpl &build, const rose_literal_id &id,
+                        const rose_literal_info &info, vector<u8> &msk,
+                        vector<u8> &cmp) {
     if (!build.cc.grey.roseHamsterMasks) {
         return false;
     }
@@ -305,11 +290,14 @@ bool findHamsterMask(const RoseBuildImpl &build, const rose_literal_id &id,
         return false;
     }
 
+    msk.assign(HWLM_MASKLEN, 0);
+    cmp.assign(HWLM_MASKLEN, 0);
+
     size_t num = 0;
     vector<u8> v_msk, v_cmp;
 
     for (RoseVertex v : info.vertices) {
-        if (!findHamsterMask(build, id, info, v, v_msk, v_cmp)) {
+        if (!addSurroundingMask(build, id, v, v_msk, v_cmp)) {
             DEBUG_PRINTF("no mask\n");
             return false;
         }
@@ -364,14 +352,6 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
             continue;
         }
 
-        if (!lit.msk.empty()) {
-            continue;
-        }
-
-        const auto &lit_info = build.literal_info.at(id);
-        if (lit_info.requires_benefits) {
-            continue;
-        }
         candidates.push_back(id);
     }
 
@@ -380,14 +360,15 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
         auto &lit_info = build.literal_info.at(id);
 
         vector<u8> msk, cmp;
-        if (!findHamsterMask(build, lit, lit_info, msk, cmp)) {
+        if (!addSurroundingMask(build, lit, lit_info, msk, cmp)) {
             continue;
         }
-        assert(!msk.empty());
-        DEBUG_PRINTF("found advisory mask for lit_id=%u (%s)\n", id,
+        DEBUG_PRINTF("found surrounding mask for lit_id=%u (%s)\n", id,
                      dumpString(lit.s).c_str());
         u32 new_id = build.getLiteralId(lit.s, msk, cmp, lit.delay, lit.table);
-        assert(new_id != id);
+        if (new_id == id) {
+            continue;
+        }
         DEBUG_PRINTF("replacing with new lit_id=%u\n", new_id);
 
         // Note that our new literal may already exist and have vertices, etc.
@@ -407,6 +388,48 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
         // Preserve other properties.
         new_info.requires_benefits = lit_info.requires_benefits;
     }
+}
+
+// The mask already associated with the literal and any mask due to
+// mixed-case is mandatory.
+static
+void addLiteralMask(const rose_literal_id &id, vector<u8> &msk,
+                    vector<u8> &cmp) {
+    if (id.msk.empty() && !mixed_sensitivity(id.s)) {
+        return;
+    }
+
+    while (msk.size() < HWLM_MASKLEN) {
+        msk.insert(msk.begin(), 0);
+        cmp.insert(cmp.begin(), 0);
+    }
+
+    if (!id.msk.empty()) {
+        assert(id.msk.size() <= HWLM_MASKLEN);
+        assert(id.msk.size() == id.cmp.size());
+        for (size_t i = 0; i < id.msk.size(); i++) {
+            size_t mand_offset = msk.size() - i - 1;
+            size_t lit_offset = id.msk.size() - i - 1;
+            msk[mand_offset] = id.msk[lit_offset];
+            cmp[mand_offset] = id.cmp[lit_offset];
+        }
+    }
+
+    if (mixed_sensitivity(id.s)) {
+        auto it = id.s.rbegin();
+        for (size_t i = 0, i_end = min(id.s.length(), size_t{HWLM_MASKLEN});
+             i < i_end; ++i, ++it) {
+            const auto &c = *it;
+            if (!c.nocase) {
+                size_t offset = HWLM_MASKLEN - i - 1;
+                DEBUG_PRINTF("offset %zu must match 0x%02x exactly\n", offset,
+                             c.c);
+                make_and_cmp_mask(c, &msk[offset], &cmp[offset]);
+            }
+        }
+    }
+
+    normaliseLiteralMask(id.s, msk, cmp);
 }
 
 static
@@ -716,8 +739,8 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
                 }
             }
 
-            const vector<u8> &msk = lit.msk;
-            const vector<u8> &cmp = lit.cmp;
+            vector<u8> msk = lit.msk; // copy
+            vector<u8> cmp = lit.cmp; // copy
             bool noruns = isNoRunsLiteral(build, id, info, max_len);
 
             size_t lit_hist_len = 0;
@@ -739,6 +762,8 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
                 assert(msk.size() <= ROSE_SHORT_LITERAL_LEN_MAX);
                 assert(!noruns);
             }
+
+            addLiteralMask(lit, msk, cmp);
 
             const auto &s_final = lit_final.get_string();
             bool nocase = lit_final.any_nocase();
