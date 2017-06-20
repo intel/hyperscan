@@ -142,3 +142,5 @@
 145:/abc/8{edit_distance=1} #UTF-8 is disallowed for approximate matching.
 146:/(*UTF8)abc/{edit_distance=1} #UTF-8 is disallowed for approximate matching.
 147:/\b\BMYBt/s{edit_distance=1} #Pattern can never match.
+148:/\QÀ\Eaaaa/8 #Expression is not valid UTF-8.
+149:/[\QÀ\Eaaaa]/8 #Expression is not valid UTF-8.

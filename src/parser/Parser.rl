@@ -1184,6 +1184,11 @@ unichar readUtf8CodePoint4c(const char *s) {
                   currentSeq->addComponent(move(cc));
               };
 
+              hi_byte when is_utf8 => {
+                  assert(mode.utf8);
+                  throwInvalidUtf8();
+              };
+
               # Literal character
               any => {
                   addLiteral(currentSeq, *ts, mode);
@@ -1198,6 +1203,31 @@ unichar readUtf8CodePoint4c(const char *s) {
               '\\E' => {
                   fret;
               };
+
+              #unicode chars
+              utf8_2c when is_utf8 => {
+                  assert(mode.utf8);
+                  currentCls->add(readUtf8CodePoint2c(ts));
+                  inCharClassEarly = false;
+              };
+
+              utf8_3c when is_utf8 => {
+                  assert(mode.utf8);
+                  currentCls->add(readUtf8CodePoint3c(ts));
+                  inCharClassEarly = false;
+              };
+
+              utf8_4c when is_utf8 => {
+                  assert(mode.utf8);
+                  currentCls->add(readUtf8CodePoint4c(ts));
+                  inCharClassEarly = false;
+              };
+
+              hi_byte when is_utf8 => {
+                  assert(mode.utf8);
+                  throwInvalidUtf8();
+              };
+
               # Literal character
               any => {
                   currentCls->add(*ts);
