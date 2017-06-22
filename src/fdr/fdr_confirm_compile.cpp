@@ -292,7 +292,7 @@ bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
 bytecode_ptr<u8>
 setupFullConfs(const vector<hwlmLiteral> &lits,
                const EngineDescription &eng,
-               map<BucketIndex, vector<LiteralIndex>> &bucketToLits,
+               const map<BucketIndex, vector<LiteralIndex>> &bucketToLits,
                bool make_small) {
     unique_ptr<TeddyEngineDescription> teddyDescr =
         getTeddyDescription(eng.getID());
@@ -300,9 +300,9 @@ setupFullConfs(const vector<hwlmLiteral> &lits,
     BC2CONF bc2Conf;
     u32 totalConfirmSize = 0;
     for (BucketIndex b = 0; b < eng.getNumBuckets(); b++) {
-        if (!bucketToLits[b].empty()) {
+        if (contains(bucketToLits, b)) {
             vector<hwlmLiteral> vl;
-            for (const LiteralIndex &lit_idx : bucketToLits[b]) {
+            for (const LiteralIndex &lit_idx : bucketToLits.at(b)) {
                 vl.push_back(lits[lit_idx]);
             }
 

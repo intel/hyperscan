@@ -636,4 +636,12 @@ void RoseInstrCheckMultipathShufti64::write(void *dest, RoseEngineBlob &blob,
     inst->fail_jump = calc_jump(offset_map, this, target);
 }
 
+void RoseInstrIncludedJump::write(void *dest, RoseEngineBlob &blob,
+                                  const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    inst->child_offset = child_offset;
+    inst->squash = squash;
+}
+
 }

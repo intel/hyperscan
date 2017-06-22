@@ -282,6 +282,7 @@ void recordLongLiterals(std::vector<ue2_case_string> &longLiterals,
 
 void recordResources(RoseResources &resources, const RoseProgram &program);
 
+void addIncludedJumpProgram(RoseProgram &program, u32 child_offset, u8 squash);
 } // namespace ue2
 
 #endif // ROSE_BUILD_PROGRAM_H

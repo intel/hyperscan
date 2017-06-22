@@ -49,6 +49,7 @@
 #include "rose_internal.h"
 #include "rose_program.h"
 #include "hwlm/hwlm.h" /* engine types */
+#include "hwlm/hwlm_build.h"
 #include "hwlm/hwlm_literal.h"
 #include "nfa/castlecompile.h"
 #include "nfa/goughcompile.h"
@@ -2803,7 +2804,7 @@ vector<LitFragment> groupByFragment(const RoseBuildImpl &build) {
         auto groups = info.group_mask;
 
         if (lit.s.length() < ROSE_SHORT_LITERAL_LEN_MAX) {
-            fragments.emplace_back(frag_id, groups, lit_id);
+            fragments.emplace_back(frag_id, lit.s, groups, lit_id);
             frag_id++;
             continue;
         }
@@ -2816,15 +2817,173 @@ vector<LitFragment> groupByFragment(const RoseBuildImpl &build) {
     }
 
     for (auto &m : frag_info) {
+        auto &lit = m.first;
         auto &fi = m.second;
         DEBUG_PRINTF("frag %s -> ids: %s\n", dumpString(m.first.s).c_str(),
                      as_string_list(fi.lit_ids).c_str());
-        fragments.emplace_back(frag_id, fi.groups, move(fi.lit_ids));
+        fragments.emplace_back(frag_id, lit.s, fi.groups, move(fi.lit_ids));
         frag_id++;
         assert(frag_id == fragments.size());
     }
 
     return fragments;
+}
+
+static
+void buildIncludedIdMap(unordered_map<u32, pair<u32, u8>> &includedIdMap,
+                        const LitProto *litProto) {
+    if (!litProto) {
+        return;
+    }
+    const auto &proto = *litProto->hwlmProto;
+    for (const auto &lit : proto.lits) {
+        if (lit.included_id != INVALID_LIT_ID) {
+            includedIdMap[lit.id] = make_pair(lit.included_id, lit.squash);
+        }
+    }
+}
+
+static
+void findInclusionGroups(vector<LitFragment> &fragments,
+                         LitProto *fproto, LitProto *drproto,
+                         LitProto *eproto, LitProto *sbproto) {
+    unordered_map<u32, pair<u32, u8>> includedIdMap;
+    unordered_map<u32, pair<u32, u8>> includedDelayIdMap;
+    buildIncludedIdMap(includedIdMap, fproto);
+    buildIncludedIdMap(includedDelayIdMap, drproto);
+    buildIncludedIdMap(includedIdMap, eproto);
+    buildIncludedIdMap(includedIdMap, sbproto);
+
+    size_t fragNum = fragments.size();
+    vector<u32> candidates;
+    for (size_t j = 0; j < fragNum; j++) {
+        DEBUG_PRINTF("frag id %lu\n", j);
+        u32 id = j;
+        if (contains(includedIdMap, id) ||
+            contains(includedDelayIdMap, id)) {
+            candidates.push_back(j);
+            DEBUG_PRINTF("find candidate\n");
+        }
+    }
+
+    for (const auto &c : candidates) {
+        auto &frag = fragments[c];
+        u32 id = c;
+        if (contains(includedIdMap, id)) {
+            const auto &childId = includedIdMap[id];
+            frag.included_frag_id = childId.first;
+            frag.squash = childId.second;
+            DEBUG_PRINTF("frag id %u child frag id %u\n", c,
+                         frag.included_frag_id);
+        }
+
+        if (contains(includedDelayIdMap, id)) {
+            const auto &childId = includedDelayIdMap[id];
+            frag.included_delay_frag_id = childId.first;
+            frag.delay_squash = childId.second;
+
+            DEBUG_PRINTF("delay frag id %u child frag id %u\n", c,
+                             frag.included_delay_frag_id);
+        }
+    }
+}
+
+static
+void buildFragmentPrograms(const RoseBuildImpl &build,
+                           vector<LitFragment> &fragments,
+                           build_context &bc, ProgramBuild &prog_build,
+                           const map<u32, vector<RoseEdge>> &lit_edge_map) {
+    // Sort fragments based on literal length and case info to build
+    // included literal programs before their parent programs.
+    vector<LitFragment> ordered_fragments(fragments);
+    stable_sort(begin(ordered_fragments), end(ordered_fragments),
+         [](const LitFragment &a, const LitFragment &b) {
+             auto len1 = a.s.length();
+             auto caseful1 = !a.s.any_nocase();
+             auto len2 = b.s.length();
+             auto caseful2 = !b.s.any_nocase();
+             return tie(len1, caseful1) < tie(len2, caseful2);
+         });
+
+    for (auto &frag : ordered_fragments) {
+        auto &pfrag = fragments[frag.fragment_id];
+        DEBUG_PRINTF("frag_id=%u, lit_ids=[%s]\n", pfrag.fragment_id,
+                     as_string_list(pfrag.lit_ids).c_str());
+
+        auto lit_prog = makeFragmentProgram(build, bc, prog_build,
+                                            pfrag.lit_ids, lit_edge_map);
+        if (pfrag.included_frag_id != INVALID_FRAG_ID &&
+            !lit_prog.empty()) {
+            auto &cfrag = fragments[pfrag.included_frag_id];
+            assert(pfrag.s.length() >= cfrag.s.length() &&
+                   !pfrag.s.any_nocase() >= !cfrag.s.any_nocase());
+            u32 child_offset = cfrag.lit_program_offset;
+            DEBUG_PRINTF("child %u offset %u\n", cfrag.fragment_id,
+                         child_offset);
+            addIncludedJumpProgram(lit_prog, child_offset, pfrag.squash);
+        }
+        pfrag.lit_program_offset = writeProgram(bc, move(lit_prog));
+
+        // We only do delayed rebuild in streaming mode.
+        if (!build.cc.streaming) {
+            continue;
+        }
+
+        auto rebuild_prog = makeDelayRebuildProgram(build, prog_build,
+                                                    pfrag.lit_ids);
+        if (pfrag.included_delay_frag_id != INVALID_FRAG_ID &&
+            !rebuild_prog.empty()) {
+            auto &cfrag = fragments[pfrag.included_delay_frag_id];
+            assert(pfrag.s.length() >= cfrag.s.length() &&
+                   !pfrag.s.any_nocase() >= !cfrag.s.any_nocase());
+            u32 child_offset = cfrag.delay_program_offset;
+            DEBUG_PRINTF("child %u offset %u\n", cfrag.fragment_id,
+                         child_offset);
+            addIncludedJumpProgram(rebuild_prog, child_offset,
+                                   pfrag.delay_squash);
+        }
+        pfrag.delay_program_offset = writeProgram(bc, move(rebuild_prog));
+    }
+}
+
+static
+void updateLitProtoProgramOffset(vector<LitFragment> &fragments,
+                                 LitProto &litProto, bool delay) {
+    auto &proto = *litProto.hwlmProto;
+    for (auto &lit : proto.lits) {
+        auto fragId = lit.id;
+        auto &frag = fragments[fragId];
+        if (delay) {
+            DEBUG_PRINTF("delay_program_offset:%u\n",
+                         frag.delay_program_offset);
+            lit.id = frag.delay_program_offset;
+        } else {
+            DEBUG_PRINTF("lit_program_offset:%u\n",
+                         frag.lit_program_offset);
+            lit.id = frag.lit_program_offset;
+        }
+    }
+}
+
+static
+void updateLitProgramOffset(vector<LitFragment> &fragments,
+                            LitProto *fproto, LitProto *drproto,
+                            LitProto *eproto, LitProto *sbproto) {
+    if (fproto) {
+        updateLitProtoProgramOffset(fragments, *fproto, false);
+    }
+
+    if (drproto) {
+        updateLitProtoProgramOffset(fragments, *drproto, true);
+    }
+
+    if (eproto) {
+        updateLitProtoProgramOffset(fragments, *eproto, false);
+    }
+
+    if (sbproto) {
+        updateLitProtoProgramOffset(fragments, *sbproto, false);
+    }
 }
 
 /**
@@ -2833,27 +2992,18 @@ vector<LitFragment> groupByFragment(const RoseBuildImpl &build) {
 static
 void buildLiteralPrograms(const RoseBuildImpl &build,
                           vector<LitFragment> &fragments, build_context &bc,
-                          ProgramBuild &prog_build) {
+                          ProgramBuild &prog_build, LitProto *fproto,
+                          LitProto *drproto, LitProto *eproto,
+                          LitProto *sbproto) {
     DEBUG_PRINTF("%zu fragments\n", fragments.size());
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    for (auto &frag : fragments) {
-        DEBUG_PRINTF("frag_id=%u, lit_ids=[%s]\n", frag.fragment_id,
-                     as_string_list(frag.lit_ids).c_str());
+    findInclusionGroups(fragments, fproto, drproto, eproto, sbproto);
 
-        auto lit_prog = makeFragmentProgram(build, bc, prog_build, frag.lit_ids,
-                                            lit_edge_map);
-        frag.lit_program_offset = writeProgram(bc, move(lit_prog));
+    buildFragmentPrograms(build, fragments, bc, prog_build, lit_edge_map);
 
-        // We only do delayed rebuild in streaming mode.
-        if (!build.cc.streaming) {
-            continue;
-        }
-
-        auto rebuild_prog = makeDelayRebuildProgram(build, prog_build,
-                                                    frag.lit_ids);
-        frag.delay_program_offset = writeProgram(bc, move(rebuild_prog));
-    }
+    // update literal program offsets for literal matcher prototypes
+    updateLitProgramOffset(fragments, fproto, drproto, eproto, sbproto);
 }
 
 /**
@@ -3470,7 +3620,24 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     tie(proto.delayProgramOffset, proto.delay_count) =
         writeDelayPrograms(*this, fragments, bc, prog_build);
 
-    buildLiteralPrograms(*this, fragments, bc, prog_build);
+    // Build floating HWLM matcher prototype.
+    rose_group fgroups = 0;
+    auto fproto = buildFloatingMatcherProto(*this, fragments,
+                                            longLitLengthThreshold,
+                                            &fgroups, &historyRequired);
+
+    // Build delay rebuild HWLM matcher prototype.
+    auto drproto = buildDelayRebuildMatcherProto(*this, fragments,
+                                                 longLitLengthThreshold);
+
+    // Build EOD-anchored HWLM matcher prototype.
+    auto eproto = buildEodAnchoredMatcherProto(*this, fragments);
+
+    // Build small-block HWLM matcher prototype.
+    auto sbproto = buildSmallBlockMatcherProto(*this, fragments);
+
+    buildLiteralPrograms(*this, fragments, bc, prog_build, fproto.get(),
+                         drproto.get(), eproto.get(), sbproto.get());
 
     auto eod_prog = makeEodProgram(*this, bc, prog_build, eodNfaIterOffset);
     proto.eodProgramOffset = writeProgram(bc, move(eod_prog));
@@ -3497,29 +3664,26 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     }
 
     // Build floating HWLM matcher.
-    rose_group fgroups = 0;
-    auto ftable = buildFloatingMatcher(*this, fragments, longLitLengthThreshold,
-                                       &fgroups, &historyRequired);
+    auto ftable = buildHWLMMatcher(*this, fproto.get());
     if (ftable) {
         proto.fmatcherOffset = bc.engine_blob.add(ftable);
         bc.resources.has_floating = true;
     }
 
     // Build delay rebuild HWLM matcher.
-    auto drtable = buildDelayRebuildMatcher(*this, fragments,
-                                            longLitLengthThreshold);
+    auto drtable = buildHWLMMatcher(*this, drproto.get());
     if (drtable) {
         proto.drmatcherOffset = bc.engine_blob.add(drtable);
     }
 
     // Build EOD-anchored HWLM matcher.
-    auto etable = buildEodAnchoredMatcher(*this, fragments);
+    auto etable = buildHWLMMatcher(*this, eproto.get());
     if (etable) {
         proto.ematcherOffset = bc.engine_blob.add(etable);
     }
 
     // Build small-block HWLM matcher.
-    auto sbtable = buildSmallBlockMatcher(*this, fragments);
+    auto sbtable = buildHWLMMatcher(*this, sbproto.get());
     if (sbtable) {
         proto.sbmatcherOffset = bc.engine_blob.add(sbtable);
     }

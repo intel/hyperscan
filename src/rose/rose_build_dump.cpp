@@ -1463,6 +1463,12 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(INCLUDED_JUMP) {
+                os << "    child_offset " << ri->child_offset << endl;
+                os << "    squash " << ri->squash << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
         default:
             os << "  UNKNOWN (code " << int{code} << ")" << endl;
             os << "  <stopping>" << endl;

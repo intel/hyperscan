@@ -36,6 +36,7 @@
 #include "fdr/fdr_engine_description.h"
 #include "fdr/teddy_compile.h"
 #include "fdr/teddy_engine_description.h"
+#include "hwlm/hwlm_internal.h"
 #include "scratch.h"
 #include "util/alloc.h"
 #include "util/bitutils.h"
@@ -131,6 +132,16 @@ static vector<u32> getValidFdrEngines() {
     return ret;
 }
 
+static
+bytecode_ptr<FDR> buildFDREngineHinted(std::vector<hwlmLiteral> &lits,
+                                       bool make_small, u32 hint,
+                                       const target_t &target,
+                                       const Grey &grey) {
+    auto proto = fdrBuildProtoHinted(HWLM_ENGINE_FDR, lits, make_small, hint,
+                                     target, grey);
+    return fdrBuildTable(*proto, grey);
+}
+
 class FDRFloodp : public TestWithParam<u32> {
 };
 
@@ -142,6 +153,7 @@ TEST_P(FDRFloodp, NoMask) {
     u8 c = 0;
 
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     while (1) {
         SCOPED_TRACE((unsigned int)c);
         u8 bit = 1 << (c & 0x7);
@@ -169,8 +181,8 @@ TEST_P(FDRFloodp, NoMask) {
             lits.push_back(hwlmLiteral(sAlt, false, i * 8 + 7));
         }
 
-        auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(),
-                                       Grey());
+        auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                        Grey());
         CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
         hwlm_error_t fdrStatus = fdrExec(fdr.get(), &data[0], dataSize,
@@ -235,6 +247,7 @@ TEST_P(FDRFloodp, WithMask) {
     u8 c = '\0';
 
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     while (1) {
         u8 bit = 1 << (c & 0x7);
         u8 cAlt = c ^ bit;
@@ -305,8 +318,8 @@ TEST_P(FDRFloodp, WithMask) {
                                                     HWLM_ALL_GROUPS, msk, cmp));
             }
         }
-        auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(),
-                                       Grey());
+        auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                        Grey());
         CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
         hwlm_error_t fdrStatus = fdrExec(fdr.get(), &data[0], dataSize,
@@ -400,6 +413,7 @@ TEST_P(FDRFloodp, StreamingMask) {
     u8 c = '\0';
 
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     while (1) {
         u8 bit = 1 << (c & 0x7);
         u8 cAlt = c ^ bit;
@@ -470,8 +484,8 @@ TEST_P(FDRFloodp, StreamingMask) {
                                                     HWLM_ALL_GROUPS, msk, cmp));
             }
         }
-        auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(),
-                                       Grey());
+        auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                        Grey());
         CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
         hwlm_error_t fdrStatus;

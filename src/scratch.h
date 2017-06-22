@@ -200,6 +200,9 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     u32 delay_fatbit_size; /**< size of each delay fatbit in bytes */
     u32 scratchSize;
     char *scratch_alloc; /* user allocated scratch object */
+    u64a *fdr_conf; /**< FDR confirm value */
+    u8 fdr_conf_offset; /**< offset where FDR/Teddy front end matches
+                         * in buffer */
 };
 
 /* array of fatbit ptr; TODO: why not an array of fatbits? */

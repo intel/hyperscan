@@ -2164,6 +2164,14 @@ RoseProgram makeBoundaryProgram(const RoseBuildImpl &build,
     return prog;
 }
 
+void addIncludedJumpProgram(RoseProgram &program, u32 child_offset,
+                            u8 squash) {
+    RoseProgram block;
+    block.add_before_end(make_unique<RoseInstrIncludedJump>(child_offset,
+                                                            squash));
+    program.add_block(move(block));
+}
+
 static
 void addPredBlockSingle(u32 pred_state, RoseProgram &pred_block,
                         RoseProgram &program) {

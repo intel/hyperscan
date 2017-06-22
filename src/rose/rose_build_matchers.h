@@ -35,7 +35,10 @@
 #define ROSE_BUILD_MATCHERS_H
 
 #include "rose_build_impl.h"
+#include "rose_build_lit_accel.h"
+#include "hwlm/hwlm_build.h"
 #include "util/bytecode_ptr.h"
+#include "util/ue2string.h"
 
 #include <vector>
 
@@ -44,38 +47,80 @@ struct HWLM;
 
 namespace ue2 {
 
+static constexpr u32 INVALID_FRAG_ID = ~0U;
+
 struct LitFragment {
-    LitFragment(u32 fragment_id_in, rose_group groups_in, u32 lit_id)
-    : fragment_id(fragment_id_in), groups(groups_in), lit_ids({lit_id}) {}
-    LitFragment(u32 fragment_id_in, rose_group groups_in,
-                std::vector<u32> lit_ids_in)
-    : fragment_id(fragment_id_in), groups(groups_in),
-        lit_ids(std::move(lit_ids_in)) {}
+    LitFragment(u32 fragment_id_in, ue2_literal s_in,
+                rose_group groups_in, u32 lit_id)
+    : fragment_id(fragment_id_in), s(s_in), groups(groups_in),
+      lit_ids({lit_id}) {}
+    LitFragment(u32 fragment_id_in, ue2_literal s_in,
+                rose_group groups_in, std::vector<u32> lit_ids_in)
+    : fragment_id(fragment_id_in), s(s_in), groups(groups_in),
+      lit_ids(std::move(lit_ids_in)) {}
     u32 fragment_id;
+
+    /**
+     * \brief literal fragment.
+     */
+    ue2_literal s;
+
+    /**
+     * \brief FDR confirm squash mask for included literals.
+     */
+    u8 squash;
+
+    /**
+     * \brief FDR confirm squash mask for included literals (Delayed
+     * literals only).
+     */
+    u8 delay_squash;
+
+    /**
+     * \brief Fragment id of included literal.
+     */
+    u32 included_frag_id = INVALID_FRAG_ID;
+
+    /**
+     * \brief Fragment Id of included literal (Delayed literals only).
+     */
+    u32 included_delay_frag_id = INVALID_FRAG_ID;
     rose_group groups;
     std::vector<u32> lit_ids;
     u32 lit_program_offset = ROSE_INVALID_PROG_OFFSET;
     u32 delay_program_offset = ROSE_INVALID_PROG_OFFSET;
 };
 
-bytecode_ptr<HWLM>
-buildFloatingMatcher(const RoseBuildImpl &build,
-                     const std::vector<LitFragment> &fragments,
-                     size_t longLitLengthThreshold, rose_group *fgroups,
-                     size_t *historyRequired);
+struct LitProto {
+    LitProto(std::unique_ptr<HWLMProto> hwlmProto_in,
+             std::vector<AccelString> &accel_lits_in)
+    : hwlmProto(std::move(hwlmProto_in)), accel_lits(accel_lits_in) {}
+
+    std::unique_ptr<HWLMProto> hwlmProto;
+    std::vector<AccelString> accel_lits;
+};
 
 bytecode_ptr<HWLM>
-buildDelayRebuildMatcher(const RoseBuildImpl &build,
-                         const std::vector<LitFragment> &fragments,
-                         size_t longLitLengthThreshold);
+buildHWLMMatcher(const RoseBuildImpl &build, LitProto *proto);
 
-bytecode_ptr<HWLM>
-buildSmallBlockMatcher(const RoseBuildImpl &build,
-                       const std::vector<LitFragment> &fragments);
+std::unique_ptr<LitProto>
+buildFloatingMatcherProto(const RoseBuildImpl &build,
+                          const std::vector<LitFragment> &fragments,
+                          size_t longLitLengthThreshold,
+                          rose_group *fgroups,
+                          size_t *historyRequired);
 
-bytecode_ptr<HWLM>
-buildEodAnchoredMatcher(const RoseBuildImpl &build,
-                        const std::vector<LitFragment> &fragments);
+std::unique_ptr<LitProto>
+buildDelayRebuildMatcherProto(const RoseBuildImpl &build,
+                              const std::vector<LitFragment> &fragments,
+                              size_t longLitLengthThreshold);
+std::unique_ptr<LitProto>
+buildSmallBlockMatcherProto(const RoseBuildImpl &build,
+                            const std::vector<LitFragment> &fragments);
+
+std::unique_ptr<LitProto>
+buildEodAnchoredMatcherProto(const RoseBuildImpl &build,
+                             const std::vector<LitFragment> &fragments);
 
 void findMoreLiteralMasks(RoseBuildImpl &build);
 

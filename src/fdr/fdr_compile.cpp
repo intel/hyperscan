@@ -42,10 +42,13 @@
 #include "ue2common.h"
 #include "hwlm/hwlm_build.h"
 #include "util/compare.h"
+#include "util/container.h"
 #include "util/dump_mask.h"
+#include "util/make_unique.h"
 #include "util/math.h"
 #include "util/noncopyable.h"
 #include "util/target_info.h"
+#include "util/ue2_containers.h"
 #include "util/ue2string.h"
 #include "util/verify_types.h"
 
@@ -81,7 +84,6 @@ private:
     bool make_small;
 
     u8 *tabIndexToMask(u32 indexInTable);
-    void assignStringsToBuckets();
 #ifdef DEBUG
     void dumpMasks(const u8 *defaultMask);
 #endif
@@ -90,10 +92,13 @@ private:
     void createInitialState(FDR *fdr);
 
 public:
-    FDRCompiler(vector<hwlmLiteral> lits_in, const FDREngineDescription &eng_in,
+    FDRCompiler(vector<hwlmLiteral> lits_in,
+                map<BucketIndex, std::vector<LiteralIndex>> bucketToLits_in,
+                const FDREngineDescription &eng_in,
                 bool make_small_in, const Grey &grey_in)
         : eng(eng_in), grey(grey_in), tab(eng_in.getTabSizeBytes()),
-          lits(move(lits_in)), make_small(make_small_in) {}
+          lits(move(lits_in)), bucketToLits(move(bucketToLits_in)),
+          make_small(make_small_in) {}
 
     bytecode_ptr<FDR> build();
 };
@@ -309,7 +314,10 @@ next_literal:
     return chunks;
 }
 
-void FDRCompiler::assignStringsToBuckets() {
+static
+map<BucketIndex, vector<LiteralIndex>> assignStringsToBuckets(
+                                    vector<hwlmLiteral> &lits,
+                                    const FDREngineDescription &eng) {
     const double MAX_SCORE = numeric_limits<double>::max();
 
     assert(!lits.empty()); // Shouldn't be called with no literals.
@@ -393,6 +401,7 @@ void FDRCompiler::assignStringsToBuckets() {
 
     // our best score is in t[0][N_BUCKETS-1] and we can follow the links
     // to find where our buckets should start and what goes into them
+    vector<vector<LiteralIndex>> buckets;
     for (u32 i = 0, n = numBuckets; n && (i != numChunks - 1); n--) {
         u32 j = t[i][n - 1].second;
         if (j == 0) {
@@ -403,21 +412,33 @@ void FDRCompiler::assignStringsToBuckets() {
         u32 first_id = chunks[i].first_id;
         u32 last_id = chunks[j].first_id;
         assert(first_id < last_id);
-        u32 bucket = numBuckets - n;
         UNUSED const auto &first_lit = lits[first_id];
         UNUSED const auto &last_lit = lits[last_id - 1];
-        DEBUG_PRINTF("placing [%u-%u) in bucket %u (%u lits, len %zu-%zu, "
+        DEBUG_PRINTF("placing [%u-%u) in one bucket (%u lits, len %zu-%zu, "
                       "score %0.4f)\n",
-                      first_id, last_id, bucket, last_id - first_id,
+                      first_id, last_id, last_id - first_id,
                       first_lit.s.length(), last_lit.s.length(),
                       getScoreUtil(first_lit.s.length(), last_id - first_id));
 
-        auto &bucket_lits = bucketToLits[bucket];
-        for (u32 k = first_id; k < last_id; k++) {
-            bucket_lits.push_back(k);
+        vector<LiteralIndex> litIds;
+        u32 cnt = last_id - first_id;
+        // long literals first for included literals checking
+        for (u32 k = 0; k < cnt; k++) {
+            litIds.push_back(last_id - k - 1);
         }
+
         i = j;
+        buckets.push_back(litIds);
     }
+
+    // reverse bucket id, longer literals come first
+    map<BucketIndex, vector<LiteralIndex>> bucketToLits;
+    size_t bucketCnt = buckets.size();
+    for (size_t i = 0; i < bucketCnt; i++) {
+        bucketToLits.emplace(bucketCnt - i - 1, move(buckets[i]));
+    }
+
+    return bucketToLits;
 }
 
 #ifdef DEBUG
@@ -541,24 +562,216 @@ void FDRCompiler::setupTab() {
 }
 
 bytecode_ptr<FDR> FDRCompiler::build() {
-    assignStringsToBuckets();
     setupTab();
     return setupFDR();
+}
+
+static
+bool isSuffix(const hwlmLiteral &lit1, const hwlmLiteral &lit2) {
+    auto s1 = lit1.s;
+    auto s2 = lit2.s;
+    if (lit1.nocase || lit2.nocase) {
+        upperString(s1);
+        upperString(s2);
+    }
+    size_t len1 = s1.length();
+    size_t len2 = s2.length();
+    assert(len1 >= len2);
+    return equal(s2.begin(), s2.end(), s1.begin() + len1 - len2);
+}
+
+/*
+ * if lit2 is a suffix of lit1 but the case sensitivity, groups or mask info
+ * of lit2 is a subset of lit1, then lit1 can't squash lit2 and lit2 can
+ * possibly match when lit1 matches. In this case, we can't do bucket
+ * squashing. e.g. AAA(no case) in bucket 0, AA(no case) and aa in bucket 1,
+ * we can't squash bucket 1 if we have input like "aaa" as aa can also match.
+ */
+static
+bool includedCheck(const hwlmLiteral &lit1, const hwlmLiteral &lit2) {
+    /* lit1 is caseless and lit2 is case sensitive */
+    if ((lit1.nocase && !lit2.nocase)) {
+        return true;
+    }
+
+    /* lit2's group is a subset of lit1 */
+    if (lit1.groups != lit2.groups &&
+        (lit2.groups == (lit1.groups & lit2.groups))) {
+        return true;
+    }
+
+    /* TODO: narrow down cases for mask check */
+    if (lit1.cmp != lit2.cmp || lit1.msk != lit2.msk) {
+        return true;
+    }
+
+    return false;
+}
+
+/*
+ * if lit2 is an included literal of both lit1 and lit0, and lit1 is an
+ * exceptional literal of lit0 - lit1 sometimes matches when lit0 matches,
+ * then we give up squashing for lit1. e.g. lit0:AAA(no case), lit1:aa,
+ * lit2:A(no case). We can have duplicate matches for input "aaa" if lit0
+ * and lit1 both squash lit2.
+ */
+static
+bool checkParentLit(
+            u32 pos1, const unordered_set<u32> &parent_map,
+            const unordered_map<u32, unordered_set<u32>> &exception_map) {
+    for (const auto pos2 : parent_map) {
+        if (contains(exception_map, pos2)) {
+            const auto &exception_pos = exception_map.at(pos2);
+            if (contains(exception_pos, pos1)) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+static
+void buildSquashMask(vector<hwlmLiteral> &lits, u32 id1, u32 bucket1,
+                     size_t start, const vector<pair<u32, u32>> &group,
+                     unordered_map<u32, unordered_set<u32>> &parent_map,
+                     unordered_map<u32, unordered_set<u32>> &exception_map) {
+    auto &lit1 = lits[id1];
+    DEBUG_PRINTF("b:%u len:%zu\n", bucket1, lit1.s.length());
+
+    size_t cnt = group.size();
+    bool included = false;
+    bool exception = false;
+    u32 child_id = ~0U;
+    for (size_t i = start; i < cnt; i++) {
+        u32 bucket2 = group[i].first;
+        assert(bucket2 >= bucket1);
+
+        u32 id2 = group[i].second;
+        auto &lit2 = lits[id2];
+        // check if lit2 is a suffix of lit1
+        if (isSuffix(lit1, lit2)) {
+            /* if we have a included literal in the same bucket,
+             * quit and let the included literal to do possible squashing
+             */
+            if (bucket1 == bucket2) {
+                DEBUG_PRINTF("same bucket\n");
+                return;
+            }
+            /*
+             * if lit2 is a suffix but doesn't pass included checks for
+             * extra info, we give up sqaushing
+             */
+            if (includedCheck(lit1, lit2)) {
+                DEBUG_PRINTF("find exceptional suffix %u\n", lit2.id);
+                exception_map[id1].insert(id2);
+                exception = true;
+            } else if (checkParentLit(id1, parent_map[id2], exception_map)) {
+                if (lit1.included_id == INVALID_LIT_ID) {
+                    DEBUG_PRINTF("find suffix lit1 %u lit2 %u\n",
+                                 lit1.id, lit2.id);
+                    lit1.included_id = lit2.id;
+                } else {
+                    /*
+                     * if we have multiple included literals in one bucket,
+                     * give up squashing.
+                     */
+                    DEBUG_PRINTF("multiple included literals\n");
+                    lit1.included_id = INVALID_LIT_ID;
+                    return;
+                }
+                child_id = id2;
+                included = true;
+            }
+        }
+
+        size_t next = i + 1;
+        u32 nextBucket = next < cnt ? group[next].first : ~0U;
+        if (bucket2 != nextBucket) {
+            if (included) {
+                if (exception) {
+                    /*
+                     * give up if we have exception literals
+                     * in the same bucket as the included literal
+                     */
+                    lit1.included_id = INVALID_LIT_ID;
+                } else {
+                    parent_map[child_id].insert(id1);
+
+                    lit1.squash |= 1U << bucket2;
+                    DEBUG_PRINTF("build squash mask %2x for %u\n",
+                                 lit1.squash, lit1.id);
+                }
+                return;
+            }
+            exception = false;
+        }
+    }
+}
+
+static constexpr u32 INCLUDED_LIMIT = 1000;
+
+static
+void findIncludedLits(vector<hwlmLiteral> &lits,
+                      const vector<vector<pair<u32, u32>>> &lastCharMap) {
+    /** Map for finding the positions of literal which includes a literal
+     * in FDR hwlm literal vector.
+     */
+    unordered_map<u32, unordered_set<u32>> parent_map;
+
+    /** Map for finding the positions of exception literals which could
+     * sometimes match if a literal matches in FDR hwlm literal vector.
+     */
+    unordered_map<u32, unordered_set<u32>> exception_map;
+    for (const auto &group : lastCharMap) {
+        size_t cnt = group.size();
+        if (cnt > INCLUDED_LIMIT) {
+            continue;
+        }
+        for (size_t i = 0; i < cnt; i++) {
+            u32 bucket1 = group[i].first;
+            u32 id1 = group[i].second;
+            buildSquashMask(lits, id1, bucket1, i + 1, group, parent_map,
+                            exception_map);
+        }
+    }
+}
+
+static
+void addIncludedInfo(
+               vector<hwlmLiteral> &lits, u32 nBuckets,
+               map<BucketIndex, vector<LiteralIndex>> &bucketToLits) {
+    vector<vector<pair<u32, u32>>> lastCharMap(256);
+
+    for (BucketIndex b = 0; b < nBuckets; b++) {
+        if (!bucketToLits[b].empty()) {
+            for (const LiteralIndex &lit_idx : bucketToLits[b]) {
+                const auto &lit = lits[lit_idx];
+                u8 c = mytoupper(lit.s.back());
+                lastCharMap[c].emplace_back(b, lit_idx);
+            }
+        }
+    }
+
+    findIncludedLits(lits, lastCharMap);
 }
 
 } // namespace
 
 static
-bytecode_ptr<FDR> fdrBuildTableInternal(const vector<hwlmLiteral> &lits,
-                                        bool make_small, const target_t &target,
-                                        const Grey &grey, u32 hint) {
+unique_ptr<HWLMProto> fdrBuildProtoInternal(u8 engType,
+                                            vector<hwlmLiteral> &lits,
+                                            bool make_small,
+                                            const target_t &target,
+                                            const Grey &grey, u32 hint) {
     DEBUG_PRINTF("cpu has %s\n", target.has_avx2() ? "avx2" : "no-avx2");
 
     if (grey.fdrAllowTeddy) {
-        auto fdr = teddyBuildTableHinted(lits, make_small, hint, target, grey);
-        if (fdr) {
+        auto proto = teddyBuildProtoHinted(engType, lits, make_small, hint,
+                                           target);
+        if (proto) {
             DEBUG_PRINTF("build with teddy succeeded\n");
-            return fdr;
+            return proto;
         } else {
             DEBUG_PRINTF("build with teddy failed, will try with FDR\n");
         }
@@ -576,23 +789,47 @@ bytecode_ptr<FDR> fdrBuildTableInternal(const vector<hwlmLiteral> &lits,
         des->stride = 1;
     }
 
-    FDRCompiler fc(lits, *des, make_small, grey);
+    auto bucketToLits = assignStringsToBuckets(lits, *des);
+    addIncludedInfo(lits, des->getNumBuckets(), bucketToLits);
+    auto proto =
+        ue2::make_unique<HWLMProto>(engType, move(des), lits, bucketToLits,
+                                    make_small);
+    return proto;
+}
+
+unique_ptr<HWLMProto> fdrBuildProto(u8 engType, vector<hwlmLiteral> lits,
+                                    bool make_small, const target_t &target,
+                                    const Grey &grey) {
+    return fdrBuildProtoInternal(engType, lits, make_small, target, grey,
+                                 HINT_INVALID);
+}
+
+static
+bytecode_ptr<FDR> fdrBuildTableInternal(const HWLMProto &proto,
+                                        const Grey &grey) {
+
+    if (proto.teddyEng) {
+        return teddyBuildTable(proto, grey);
+    }
+
+    FDRCompiler fc(proto.lits, proto.bucketToLits, *(proto.fdrEng),
+                   proto.make_small, grey);
     return fc.build();
 }
 
-bytecode_ptr<FDR> fdrBuildTable(const vector<hwlmLiteral> &lits,
-                                bool make_small, const target_t &target,
-                                const Grey &grey) {
-    return fdrBuildTableInternal(lits, make_small, target, grey, HINT_INVALID);
+bytecode_ptr<FDR> fdrBuildTable(const HWLMProto &proto, const Grey &grey) {
+    return fdrBuildTableInternal(proto, grey);
 }
 
 #if !defined(RELEASE_BUILD)
 
-bytecode_ptr<FDR> fdrBuildTableHinted(const vector<hwlmLiteral> &lits,
-                                      bool make_small, u32 hint,
-                                      const target_t &target,
-                                      const Grey &grey) {
-    return fdrBuildTableInternal(lits, make_small, target, grey, hint);
+unique_ptr<HWLMProto> fdrBuildProtoHinted(u8 engType,
+                                          vector<hwlmLiteral> lits,
+                                          bool make_small, u32 hint,
+                                          const target_t &target,
+                                          const Grey &grey) {
+    return fdrBuildProtoInternal(engType, lits, make_small, target, grey,
+                                 hint);
 }
 
 #endif

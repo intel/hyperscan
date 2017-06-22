@@ -36,6 +36,7 @@
 #include "fdr/fdr_engine_description.h"
 #include "fdr/teddy_compile.h"
 #include "fdr/teddy_engine_description.h"
+#include "hwlm/hwlm_internal.h"
 #include "util/alloc.h"
 
 #include "database.h"
@@ -135,6 +136,31 @@ vector<u32> getValidFdrEngines() {
     return ret;
 }
 
+
+static
+bytecode_ptr<FDR> buildFDREngineHinted(std::vector<hwlmLiteral> &lits,
+                                       bool make_small, u32 hint,
+                                       const target_t &target,
+                                       const Grey &grey) {
+    auto proto = fdrBuildProtoHinted(HWLM_ENGINE_FDR, lits, make_small, hint,
+                                     target, grey);
+    if (!proto) {
+        return nullptr;
+    }
+    return fdrBuildTable(*proto, grey);
+}
+
+static
+bytecode_ptr<FDR> buildFDREngine(std::vector<hwlmLiteral> &lits,
+                                 bool make_small, const target_t &target,
+                                 const Grey &grey) {
+    auto proto = fdrBuildProto(HWLM_ENGINE_FDR, lits, make_small, target, grey);
+    if (!proto) {
+        return nullptr;
+    }
+    return fdrBuildTable(*proto, grey);
+}
+
 class FDRp : public TestWithParam<u32> {
 };
 
@@ -147,10 +173,12 @@ TEST_P(FDRp, Simple) {
     vector<hwlmLiteral> lits;
     lits.push_back(hwlmLiteral("mnopqr", 0, 0));
 
-    auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
+    auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                    Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     fdrExec(fdr.get(), (const u8 *)data, sizeof(data), 0, decentCallback,
             &scratch, HWLM_ALL_GROUPS);
 
@@ -170,10 +198,12 @@ TEST_P(FDRp, SimpleSingle) {
     vector<hwlmLiteral> lits;
     lits.push_back(hwlmLiteral("m", 0, 0));
 
-    auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
+    auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                    Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     fdrExec(fdr.get(), (const u8 *)data, sizeof(data) - 1 /* skip nul */, 0,
             decentCallback, &scratch, HWLM_ALL_GROUPS);
 
@@ -192,7 +222,8 @@ TEST_P(FDRp, MultiLocation) {
     vector<hwlmLiteral> lits;
     lits.push_back(hwlmLiteral("abc", 0, 1));
 
-    auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
+    auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                    Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     const u32 testSize = 128;
@@ -200,6 +231,7 @@ TEST_P(FDRp, MultiLocation) {
     vector<u8> data(testSize, 0);
 
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     for (u32 i = 0; i < testSize - 3; i++) {
         memcpy(data.data() + i, "abc", 3);
         fdrExec(fdr.get(), data.data(), testSize, 0, decentCallback, &scratch,
@@ -220,10 +252,12 @@ TEST_P(FDRp, NoRepeat1) {
     vector<hwlmLiteral> lits
         = { hwlmLiteral("m", 0, 1, 0, HWLM_ALL_GROUPS, {}, {}) };
 
-    auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
+    auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                    Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     fdrExec(fdr.get(), (const u8 *)data, sizeof(data) - 1 /* skip nul */, 0,
             decentCallback, &scratch, HWLM_ALL_GROUPS);
 
@@ -242,10 +276,12 @@ TEST_P(FDRp, NoRepeat2) {
         = { hwlmLiteral("m", 0, 1, 0, HWLM_ALL_GROUPS, {}, {}),
             hwlmLiteral("A", 0, 42) };
 
-    auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
+    auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                    Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     fdrExec(fdr.get(), (const u8 *)data, sizeof(data) - 1 /* skip nul */, 0,
             decentCallback, &scratch, HWLM_ALL_GROUPS);
 
@@ -265,10 +301,12 @@ TEST_P(FDRp, NoRepeat3) {
         = { hwlmLiteral("90m", 0, 1, 0, HWLM_ALL_GROUPS, {}, {}),
             hwlmLiteral("zA", 0, 1, 0, HWLM_ALL_GROUPS, {}, {}) };
 
-    auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
+    auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                    Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     fdrExec(fdr.get(), (const u8 *)data, sizeof(data) - 1 /* skip nul */, 0,
             decentCallback, &scratch, HWLM_ALL_GROUPS);
 
@@ -293,6 +331,7 @@ hwlm_error_t safeExecStreaming(const FDR *fdr, const u8 *hbuf, size_t hlen,
         hbuf = new_hbuf;
     }
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     return fdrExecStreaming(fdr, hbuf, hlen, buf, len, start, cb, &scratch,
                             groups);
 }
@@ -304,7 +343,8 @@ TEST_P(FDRp, SmallStreaming) {
     vector<hwlmLiteral> lits = {hwlmLiteral("a", 1, 1),
                                 hwlmLiteral("aardvark", 0, 10)};
 
-    auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
+    auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                    Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     vector<match> expected;
@@ -342,7 +382,8 @@ TEST_P(FDRp, SmallStreaming2) {
                                 hwlmLiteral("kk", 1, 2),
                                 hwlmLiteral("aardvark", 0, 10)};
 
-    auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
+    auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                    Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     vector<match> expected;
@@ -373,7 +414,8 @@ TEST_P(FDRp, moveByteStream) {
     vector<hwlmLiteral> lits;
     lits.push_back(hwlmLiteral("mnopqr", 0, 0));
 
-    auto fdrTable0 = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
+    auto fdrTable0 = buildFDREngineHinted(lits, false, hint,
+                                          get_current_target(), Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdrTable0, hint);
 
     size_t size = fdrSize(fdrTable0.get());
@@ -390,6 +432,7 @@ TEST_P(FDRp, moveByteStream) {
 
     // check matches
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
 
     hwlm_error_t fdrStatus = fdrExec(fdrTable.get(), (const u8 *)data,
                                      data_len, 0, decentCallback, &scratch,
@@ -414,7 +457,8 @@ TEST_P(FDRp, Stream1) {
     lits.push_back(hwlmLiteral("f", 0, 0));
     lits.push_back(hwlmLiteral("literal", 0, 1));
 
-    auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
+    auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                    Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     // check matches
@@ -470,12 +514,13 @@ TEST_P(FDRpp, AlignAndTooEarly) {
 
     vector<hwlmLiteral> lits;
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     for (size_t litLen = 1; litLen <= patLen; litLen++) {
 
         // building literal from pattern substring of variable length 1-patLen
         lits.push_back(hwlmLiteral(string(pattern, 0, litLen), 0, 0));
-        auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(),
-                                       Grey());
+        auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                        Grey());
         CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
         // check with buffer offset from aligned start from 0 to 31
@@ -592,6 +637,7 @@ TEST_P(FDRpa, ShortWritings) {
 
     // run the literal matching through all generated literals
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     for (size_t patIdx = 0; patIdx < pats.size();) {
         // group them in the sets of 32
         vector<hwlmLiteral> testSigs;
@@ -599,8 +645,8 @@ TEST_P(FDRpa, ShortWritings) {
             testSigs.push_back(hwlmLiteral(pats[patIdx], false, patIdx));
         }
 
-        auto fdr = fdrBuildTableHinted(testSigs, false, hint,
-                                       get_current_target(), Grey());
+        auto fdr = buildFDREngineHinted(testSigs, false, hint,
+                                        get_current_target(), Grey());
 
         CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
@@ -659,7 +705,7 @@ TEST(FDR, FDRTermS) {
     lits.push_back(hwlmLiteral("f", 0, 0));
     lits.push_back(hwlmLiteral("ff", 0, 1));
 
-    auto fdr = fdrBuildTable(lits, false, get_current_target(), Grey());
+    auto fdr = buildFDREngine(lits, false, get_current_target(), Grey());
     ASSERT_TRUE(fdr != nullptr);
 
     // check matches
@@ -682,11 +728,12 @@ TEST(FDR, FDRTermB) {
     lits.push_back(hwlmLiteral("f", 0, 0));
     lits.push_back(hwlmLiteral("ff", 0, 1));
 
-    auto fdr = fdrBuildTable(lits, false, get_current_target(), Grey());
+    auto fdr = buildFDREngine(lits, false, get_current_target(), Grey());
     ASSERT_TRUE(fdr != nullptr);
 
     // check matches
     struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
 
     fdrStatus = fdrExec(fdr.get(), (const u8 *)data1, data_len1,
                         0, decentCallbackT, &scratch, HWLM_ALL_GROUPS);

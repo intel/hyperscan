@@ -34,9 +34,11 @@
 #define HWLM_BUILD_H
 
 #include "hwlm.h"
+#include "hwlm_literal.h"
 #include "ue2common.h"
 #include "util/bytecode_ptr.h"
 
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -44,15 +46,62 @@ struct HWLM;
 
 namespace ue2 {
 
+class FDREngineDescription;
+class TeddyEngineDescription;
 struct CompileContext;
 struct Grey;
-struct hwlmLiteral;
+
+/** \brief Class representing a literal matcher prototype. */
+struct HWLMProto {
+    /**
+     * \brief Engine type to distinguish noodle from FDR and Teddy.
+     */
+    u8 engType;
+
+    /**
+     * \brief FDR engine description.
+     */
+    std::unique_ptr<FDREngineDescription> fdrEng;
+
+    /**
+     * \brief Teddy engine description.
+     */
+    std::unique_ptr<TeddyEngineDescription> teddyEng;
+
+     /**
+      * \brief HWLM literals passed from Rose.
+      */
+    std::vector<hwlmLiteral> lits;
+
+    /**
+     * \brief Bucket assignment info in FDR and Teddy
+     */
+    std::map<u32, std::vector<u32>> bucketToLits;
+
+    /**
+     * \brief Flag to optimise matcher for small size from Rose.
+     */
+    bool make_small;
+
+    HWLMProto(u8 engType_in, std::vector<hwlmLiteral> lits_in);
+
+    HWLMProto(u8 engType_in, std::unique_ptr<FDREngineDescription> eng_in,
+              std::vector<hwlmLiteral> lits_in,
+              std::map<u32, std::vector<u32>> bucketToLits_in,
+              bool make_small_in);
+
+    HWLMProto(u8 engType_in, std::unique_ptr<TeddyEngineDescription> eng_in,
+              std::vector<hwlmLiteral> lits_in,
+              std::map<u32, std::vector<u32>> bucketToLits_in,
+              bool make_small_in);
+
+    ~HWLMProto();
+};
 
 /** \brief Build an \ref HWLM literal matcher runtime structure for a group of
  * literals.
  *
- * \param lits The group of literals.
- * \param make_small Optimise matcher for small size.
+ * \param proto Literal matcher prototype.
  * \param cc Compile context.
  * \param expected_groups FIXME: document me!
  *
@@ -60,9 +109,12 @@ struct hwlmLiteral;
  * may result in a nullptr return value, or a std::bad_alloc exception being
  * thrown.
  */
-bytecode_ptr<HWLM> hwlmBuild(const std::vector<hwlmLiteral> &lits,
-                             bool make_small, const CompileContext &cc,
+bytecode_ptr<HWLM> hwlmBuild(const HWLMProto &proto, const CompileContext &cc,
                              hwlm_group_t expected_groups = HWLM_ALL_GROUPS);
+
+std::unique_ptr<HWLMProto>
+hwlmBuildProto(std::vector<hwlmLiteral> &lits, bool make_small,
+               const CompileContext &cc);
 
 /**
  * Returns an estimate of the number of repeated characters on the end of a

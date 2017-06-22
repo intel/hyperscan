@@ -46,6 +46,7 @@
 #include "util/compile_context.h"
 #include "util/compile_error.h"
 #include "util/dump_charclass.h"
+#include "util/make_unique.h"
 #include "util/report.h"
 #include "util/report_manager.h"
 #include "util/verify_types.h"
@@ -699,8 +700,7 @@ struct MatcherProto {
 
 static
 void addFragmentLiteral(const RoseBuildImpl &build, MatcherProto &mp,
-                        const LitFragment &f, u32 id, bool delay_rebuild,
-                        size_t max_len) {
+                        const LitFragment &f, u32 id, size_t max_len) {
     const rose_literal_id &lit = build.literals.at(id);
 
     DEBUG_PRINTF("lit='%s' (len %zu)\n", dumpString(lit.s).c_str(),
@@ -737,12 +737,10 @@ void addFragmentLiteral(const RoseBuildImpl &build, MatcherProto &mp,
         return;
     }
 
-    u32 prog_offset =
-        delay_rebuild ? f.delay_program_offset : f.lit_program_offset;
     const auto &groups = f.groups;
 
-    mp.lits.emplace_back(move(s_final), nocase, noruns, prog_offset, groups,
-                         msk, cmp);
+    mp.lits.emplace_back(move(s_final), nocase, noruns, f.fragment_id,
+                         groups, msk, cmp);
 }
 
 static
@@ -837,8 +835,7 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
         }
 
         // Build our fragment (for the HWLM matcher) from the first literal.
-        addFragmentLiteral(build, mp, f, used_lit_ids.front(), delay_rebuild,
-                           max_len);
+        addFragmentLiteral(build, mp, f, used_lit_ids.front(), max_len);
 
         for (u32 id : used_lit_ids) {
             const rose_literal_id &lit = build.literals.at(id);
@@ -876,8 +873,8 @@ void MatcherProto::insert(const MatcherProto &a) {
 }
 
 static
-void buildAccel(const RoseBuildImpl &build, const MatcherProto &mp,
-                HWLM &hwlm) {
+void buildAccel(const RoseBuildImpl &build,
+                const vector<AccelString> &accel_lits, HWLM &hwlm) {
     if (!build.cc.grey.hamsterAccelForward) {
         return;
     }
@@ -886,49 +883,68 @@ void buildAccel(const RoseBuildImpl &build, const MatcherProto &mp,
         return;
     }
 
-    buildForwardAccel(&hwlm, mp.accel_lits, build.getInitialGroups());
+    buildForwardAccel(&hwlm, accel_lits, build.getInitialGroups());
 }
 
-bytecode_ptr<HWLM> buildFloatingMatcher(const RoseBuildImpl &build,
-                                        const vector<LitFragment> &fragments,
-                                        size_t longLitLengthThreshold,
-                                        rose_group *fgroups,
-                                        size_t *historyRequired) {
-    *fgroups = 0;
-
-    auto mp = makeMatcherProto(build, fragments, ROSE_FLOATING, false,
-                               longLitLengthThreshold);
-    if (mp.lits.empty()) {
-        DEBUG_PRINTF("empty floating matcher\n");
+bytecode_ptr<HWLM>
+buildHWLMMatcher(const RoseBuildImpl &build, LitProto *litProto) {
+    if (!litProto) {
         return nullptr;
     }
-    dumpMatcherLiterals(mp.lits, "floating", build.cc.grey);
-
-    for (const hwlmLiteral &lit : mp.lits) {
-        *fgroups |= lit.groups;
-    }
-
-    auto hwlm = hwlmBuild(mp.lits, false, build.cc, build.getInitialGroups());
+    auto hwlm = hwlmBuild(*litProto->hwlmProto, build.cc,
+                          build.getInitialGroups());
     if (!hwlm) {
         throw CompileError("Unable to generate bytecode.");
     }
 
-    buildAccel(build, mp, *hwlm);
+    buildAccel(build, litProto->accel_lits, *hwlm);
 
-    if (build.cc.streaming) {
-        DEBUG_PRINTF("history_required=%zu\n", mp.history_required);
-        assert(mp.history_required <= build.cc.grey.maxHistoryAvailable);
-        *historyRequired = max(*historyRequired, mp.history_required);
-    }
-
-    DEBUG_PRINTF("built floating literal table size %zu bytes\n", hwlm.size());
+    DEBUG_PRINTF("built eod-anchored literal table size %zu bytes\n",
+                 hwlm.size());
     return hwlm;
 }
 
-bytecode_ptr<HWLM>
-buildDelayRebuildMatcher(const RoseBuildImpl &build,
-                         const vector<LitFragment> &fragments,
-                         size_t longLitLengthThreshold) {
+unique_ptr<LitProto>
+buildFloatingMatcherProto(const RoseBuildImpl &build,
+                          const vector<LitFragment> &fragments,
+                          size_t longLitLengthThreshold,
+                          rose_group *fgroups,
+                          size_t *historyRequired) {
+    DEBUG_PRINTF("Floating literal matcher\n");
+    *fgroups = 0;
+
+     auto mp = makeMatcherProto(build, fragments, ROSE_FLOATING, false,
+                                           longLitLengthThreshold);
+     if (mp.lits.empty()) {
+         DEBUG_PRINTF("empty floating matcher\n");
+         return nullptr;
+     }
+     dumpMatcherLiterals(mp.lits, "floating", build.cc.grey);
+
+     for (const hwlmLiteral &lit : mp.lits) {
+         *fgroups |= lit.groups;
+     }
+
+     if (build.cc.streaming) {
+         DEBUG_PRINTF("history_required=%zu\n", mp.history_required);
+         assert(mp.history_required <= build.cc.grey.maxHistoryAvailable);
+         *historyRequired = max(*historyRequired, mp.history_required);
+     }
+
+     auto proto = hwlmBuildProto(mp.lits, false, build.cc);
+
+     if (!proto) {
+        throw CompileError("Unable to generate literal matcher proto.");
+     }
+
+     return ue2::make_unique<LitProto>(move(proto), mp.accel_lits);
+}
+
+unique_ptr<LitProto>
+buildDelayRebuildMatcherProto(const RoseBuildImpl &build,
+                              const vector<LitFragment> &fragments,
+                              size_t longLitLengthThreshold) {
+    DEBUG_PRINTF("Delay literal matcher\n");
     if (!build.cc.streaming) {
         DEBUG_PRINTF("not streaming\n");
         return nullptr;
@@ -942,20 +958,20 @@ buildDelayRebuildMatcher(const RoseBuildImpl &build,
     }
     dumpMatcherLiterals(mp.lits, "delay_rebuild", build.cc.grey);
 
-    auto hwlm = hwlmBuild(mp.lits, false, build.cc, build.getInitialGroups());
-    if (!hwlm) {
-        throw CompileError("Unable to generate bytecode.");
+
+    auto proto = hwlmBuildProto(mp.lits, false, build.cc);
+
+    if (!proto) {
+        throw CompileError("Unable to generate literal matcher proto.");
     }
 
-    buildAccel(build, mp, *hwlm);
-
-    DEBUG_PRINTF("built delay rebuild table size %zu bytes\n", hwlm.size());
-    return hwlm;
+    return ue2::make_unique<LitProto>(move(proto), mp.accel_lits);
 }
 
-bytecode_ptr<HWLM>
-buildSmallBlockMatcher(const RoseBuildImpl &build,
-                       const vector<LitFragment> &fragments) {
+unique_ptr<LitProto>
+buildSmallBlockMatcherProto(const RoseBuildImpl &build,
+                            const vector<LitFragment> &fragments) {
+    DEBUG_PRINTF("Small block literal matcher\n");
     if (build.cc.streaming) {
         DEBUG_PRINTF("streaming mode\n");
         return nullptr;
@@ -1000,21 +1016,19 @@ buildSmallBlockMatcher(const RoseBuildImpl &build,
         return nullptr;
     }
 
-    auto hwlm = hwlmBuild(mp.lits, true, build.cc, build.getInitialGroups());
-    if (!hwlm) {
-        throw CompileError("Unable to generate bytecode.");
+    auto proto = hwlmBuildProto(mp.lits, false, build.cc);
+
+    if (!proto) {
+        throw CompileError("Unable to generate literal matcher proto.");
     }
 
-    buildAccel(build, mp, *hwlm);
-
-    DEBUG_PRINTF("built small block literal table size %zu bytes\n",
-                 hwlm.size());
-    return hwlm;
+    return ue2::make_unique<LitProto>(move(proto), mp.accel_lits);
 }
 
-bytecode_ptr<HWLM>
-buildEodAnchoredMatcher(const RoseBuildImpl &build,
-                        const vector<LitFragment> &fragments) {
+unique_ptr<LitProto>
+buildEodAnchoredMatcherProto(const RoseBuildImpl &build,
+                             const vector<LitFragment> &fragments) {
+    DEBUG_PRINTF("Eod anchored literal matcher\n");
     auto mp = makeMatcherProto(build, fragments, ROSE_EOD_ANCHORED, false,
                                build.ematcher_region_size);
 
@@ -1027,16 +1041,13 @@ buildEodAnchoredMatcher(const RoseBuildImpl &build,
 
     assert(build.ematcher_region_size);
 
-    auto hwlm = hwlmBuild(mp.lits, true, build.cc, build.getInitialGroups());
-    if (!hwlm) {
-        throw CompileError("Unable to generate bytecode.");
+    auto proto = hwlmBuildProto(mp.lits, false, build.cc);
+
+    if (!proto) {
+        throw CompileError("Unable to generate literal matcher proto.");
     }
 
-    buildAccel(build, mp, *hwlm);
-
-    DEBUG_PRINTF("built eod-anchored literal table size %zu bytes\n",
-                 hwlm.size());
-    return hwlm;
+    return ue2::make_unique<LitProto>(move(proto), mp.accel_lits);
 }
 
 } // namespace ue2

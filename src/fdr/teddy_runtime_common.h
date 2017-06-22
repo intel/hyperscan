@@ -419,9 +419,10 @@ void do_confWithBit_teddy(TEDDY_CONF_TYPE *conf, u8 bucket, u8 offset,
         if (!(fdrc->groups & *control)) {
             continue;
         }
+        u64a tmp = 0;
         u64a confVal = getConfVal(a, ptr, byte, reason);
         confWithBit(fdrc, a, ptr - a->buf + byte, control,
-                    last_match, confVal);
+                    last_match, confVal, &tmp, 0);
     } while (unlikely(*conf));
 }
 

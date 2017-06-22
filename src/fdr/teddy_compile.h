@@ -35,6 +35,7 @@
 #define TEDDY_COMPILE_H
 
 #include "ue2common.h"
+#include "hwlm/hwlm_build.h"
 #include "util/bytecode_ptr.h"
 
 #include <vector>
@@ -46,12 +47,13 @@ namespace ue2 {
 struct Grey;
 struct hwlmLiteral;
 struct target_t;
+struct TeddyEngineDescription;
 
-bytecode_ptr<FDR> teddyBuildTableHinted(const std::vector<hwlmLiteral> &lits,
-                                        bool make_small, u32 hint,
-                                        const target_t &target,
-                                        const Grey &grey);
+bytecode_ptr<FDR> teddyBuildTable(const HWLMProto &proto, const Grey &grey);
 
+std::unique_ptr<HWLMProto> teddyBuildProtoHinted(
+                          u8 engType, const std::vector<hwlmLiteral> &lits,
+                          bool make_small, u32 hint, const target_t &target);
 } // namespace ue2
 
 #endif // TEDDY_COMPILE_H

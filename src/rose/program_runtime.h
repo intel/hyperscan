@@ -2570,6 +2570,23 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                 }
             }
             PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(INCLUDED_JUMP) {
+                if (scratch->fdr_conf) {
+                    // squash the bucket of included literal
+                    u8 shift = scratch->fdr_conf_offset & ~7U;
+                    u64a mask = ((~(u64a)ri->squash) << shift);
+                    *(scratch->fdr_conf) &= mask;
+
+                    pc = getByOffset(t, ri->child_offset);
+                    pc_base = pc;
+                    programOffset = (const u8 *)pc_base -(const u8 *)t;
+                    DEBUG_PRINTF("pc_base %p pc %p child_offset %u\n",
+                                 pc_base, pc, ri->child_offset);
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
         }
     }
 

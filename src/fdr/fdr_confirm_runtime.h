@@ -29,6 +29,7 @@
 #ifndef FDR_CONFIRM_RUNTIME_H
 #define FDR_CONFIRM_RUNTIME_H
 
+#include "scratch.h"
 #include "fdr_internal.h"
 #include "fdr_loadval.h"
 #include "hwlm/hwlm.h"
@@ -41,7 +42,7 @@
 static really_inline
 void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a,
                  size_t i, hwlmcb_rv_t *control, u32 *last_match,
-                 u64a conf_key) {
+                 u64a conf_key, u64a *conf, u8 bit) {
     assert(i < a->len);
     assert(i >= a->start_offset);
     assert(ISALIGNED(fdrc));
@@ -57,6 +58,10 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
     const struct LitInfo *li
         = (const struct LitInfo *)((const u8 *)fdrc + start);
 
+    struct hs_scratch *scratch = a->scratch;
+    assert(!scratch->fdr_conf);
+    scratch->fdr_conf = conf;
+    scratch->fdr_conf_offset = bit;
     u8 oldNext; // initialized in loop
     do {
         assert(ISALIGNED(li));
@@ -88,11 +93,12 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
         }
 
         *last_match = li->id;
-        *control = a->cb(i, li->id, a->scratch);
+        *control = a->cb(i, li->id, scratch);
     out:
         oldNext = li->next; // oldNext is either 0 or an 'adjust' value
         li++;
     } while (oldNext);
+    scratch->fdr_conf = NULL;
 }
 
 #endif

@@ -42,9 +42,11 @@
 #include "teddy_engine_description.h"
 #include "grey.h"
 #include "ue2common.h"
+#include "hwlm/hwlm_build.h"
 #include "util/alloc.h"
 #include "util/compare.h"
 #include "util/container.h"
+#include "util/make_unique.h"
 #include "util/noncopyable.h"
 #include "util/popcount.h"
 #include "util/target_info.h"
@@ -77,17 +79,18 @@ class TeddyCompiler : noncopyable {
     const TeddyEngineDescription &eng;
     const Grey &grey;
     const vector<hwlmLiteral> &lits;
+    map<BucketIndex, std::vector<LiteralIndex>> bucketToLits;
     bool make_small;
 
 public:
     TeddyCompiler(const vector<hwlmLiteral> &lits_in,
+                  map<BucketIndex, std::vector<LiteralIndex>> bucketToLits_in,
                   const TeddyEngineDescription &eng_in, bool make_small_in,
                   const Grey &grey_in)
-        : eng(eng_in), grey(grey_in), lits(lits_in), make_small(make_small_in) {
-    }
+        : eng(eng_in), grey(grey_in), lits(lits_in),
+          bucketToLits(move(bucketToLits_in)), make_small(make_small_in) {}
 
     bytecode_ptr<FDR> build();
-    bool pack(map<BucketIndex, std::vector<LiteralIndex>> &bucketToLits);
 };
 
 class TeddySet {
@@ -216,8 +219,10 @@ public:
     }
 };
 
-bool TeddyCompiler::pack(map<BucketIndex,
-                             std::vector<LiteralIndex>> &bucketToLits) {
+static
+bool pack(const vector<hwlmLiteral> &lits,
+          const TeddyEngineDescription &eng,
+          map<BucketIndex, std::vector<LiteralIndex>> &bucketToLits) {
     set<TeddySet> sts;
 
     for (u32 i = 0; i < lits.size(); i++) {
@@ -473,30 +478,6 @@ void fillReinforcedTable(const map<BucketIndex,
 }
 
 bytecode_ptr<FDR> TeddyCompiler::build() {
-    assert(eng.numMasks <= MAX_NUM_MASKS);
-
-    if (lits.size() > eng.getNumBuckets() * TEDDY_BUCKET_LOAD) {
-        DEBUG_PRINTF("too many literals: %zu\n", lits.size());
-        return nullptr;
-    }
-
-#ifdef TEDDY_DEBUG
-    for (size_t i = 0; i < lits.size(); i++) {
-        printf("lit %zu (len = %zu, %s) is ", i, lits[i].s.size(),
-               lits[i].nocase ? "caseless" : "caseful");
-        for (size_t j = 0; j < lits[i].s.size(); j++) {
-            printf("%02x", ((u32)lits[i].s[j])&0xff);
-        }
-        printf("\n");
-    }
-#endif
-
-    map<BucketIndex, std::vector<LiteralIndex>> bucketToLits;
-    if (!pack(bucketToLits)) {
-        DEBUG_PRINTF("more lits (%zu) than buckets (%u), can't pack.\n",
-                     lits.size(), eng.getNumBuckets());
-        return nullptr;
-    }
     u32 maskWidth = eng.getNumBuckets() / 8;
 
     size_t headerSize = sizeof(Teddy);
@@ -565,12 +546,49 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
     return fdr;
 }
 
+
+static
+bool assignStringsToBuckets(
+                const vector<hwlmLiteral> &lits,
+                TeddyEngineDescription &eng,
+                map<BucketIndex, vector<LiteralIndex>> &bucketToLits) {
+    assert(eng.numMasks <= MAX_NUM_MASKS);
+    if (lits.size() > eng.getNumBuckets() * TEDDY_BUCKET_LOAD) {
+        DEBUG_PRINTF("too many literals: %zu\n", lits.size());
+        return false;
+    }
+
+#ifdef TEDDY_DEBUG
+    for (size_t i = 0; i < lits.size(); i++) {
+        printf("lit %zu (len = %zu, %s) is ", i, lits[i].s.size(),
+               lits[i].nocase ? "caseless" : "caseful");
+        for (size_t j = 0; j < lits[i].s.size(); j++) {
+            printf("%02x", ((u32)lits[i].s[j])&0xff);
+        }
+        printf("\n");
+    }
+#endif
+
+    if (!pack(lits, eng, bucketToLits)) {
+        DEBUG_PRINTF("more lits (%zu) than buckets (%u), can't pack.\n",
+                     lits.size(), eng.getNumBuckets());
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
-bytecode_ptr<FDR> teddyBuildTableHinted(const vector<hwlmLiteral> &lits,
-                                        bool make_small, u32 hint,
-                                        const target_t &target,
-                                        const Grey &grey) {
+bytecode_ptr<FDR> teddyBuildTable(const HWLMProto &proto, const Grey &grey) {
+    TeddyCompiler tc(proto.lits, proto.bucketToLits, *(proto.teddyEng),
+                     proto.make_small, grey);
+    return tc.build();
+}
+
+
+unique_ptr<HWLMProto> teddyBuildProtoHinted(
+                        u8 engType, const vector<hwlmLiteral> &lits,
+                        bool make_small, u32 hint, const target_t &target) {
     unique_ptr<TeddyEngineDescription> des;
     if (hint == HINT_INVALID) {
         des = chooseTeddyEngine(target, lits);
@@ -580,8 +598,14 @@ bytecode_ptr<FDR> teddyBuildTableHinted(const vector<hwlmLiteral> &lits,
     if (!des) {
         return nullptr;
     }
-    TeddyCompiler tc(lits, *des, make_small, grey);
-    return tc.build();
+
+    map<BucketIndex, std::vector<LiteralIndex>> bucketToLits;
+    if (!assignStringsToBuckets(lits, *des, bucketToLits)) {
+        return nullptr;
+    }
+
+    return ue2::make_unique<HWLMProto>(engType, move(des), lits,
+                                       bucketToLits, make_small);
 }
 
 } // namespace ue2

@@ -2121,6 +2121,34 @@ public:
     }
 };
 
+class RoseInstrIncludedJump
+    : public RoseInstrBaseNoTargets<ROSE_INSTR_INCLUDED_JUMP,
+                                    ROSE_STRUCT_INCLUDED_JUMP,
+                                    RoseInstrIncludedJump> {
+public:
+    u32 child_offset;
+    u8 squash;
+
+    RoseInstrIncludedJump(u32 child_offset_in, u8 squash_in)
+        : child_offset(child_offset_in), squash(squash_in) {}
+
+    bool operator==(const RoseInstrIncludedJump &ri) const {
+        return child_offset == ri.child_offset && squash == ri.squash;
+    }
+
+    size_t hash() const override {
+        return hash_all(static_cast<int>(opcode), child_offset, squash);
+    }
+
+    void write(void *dest, RoseEngineBlob &blob,
+               const OffsetMap &offset_map) const override;
+
+    bool equiv_to(const RoseInstrIncludedJump &ri, const OffsetMap &,
+                  const OffsetMap &) const {
+        return child_offset == ri.child_offset && squash == ri.squash;
+    }
+};
+
 class RoseInstrEnd
     : public RoseInstrBaseTrivial<ROSE_INSTR_END, ROSE_STRUCT_END,
                                   RoseInstrEnd> {
