@@ -70,6 +70,9 @@ namespace {
 
 //#define TEDDY_DEBUG
 
+/** \brief Max number of Teddy masks we use. */
+static constexpr size_t MAX_NUM_MASKS = 4;
+
 class TeddyCompiler : noncopyable {
     const TeddyEngineDescription &eng;
     const Grey &grey;
@@ -84,13 +87,10 @@ public:
     }
 
     bytecode_ptr<FDR> build();
-    bool pack(map<BucketIndex, std::vector<LiteralIndex> > &bucketToLits);
+    bool pack(map<BucketIndex, std::vector<LiteralIndex>> &bucketToLits);
 };
 
 class TeddySet {
-    /** \brief Max number of Teddy masks we use. */
-    static constexpr size_t MAX_NUM_MASKS = 4;
-
     /**
      * \brief Estimate of the max number of literals in a set, used to
      * minimise allocations.
@@ -136,7 +136,7 @@ public:
             printf("%u ", id);
         }
         printf("\n");
-        printf("Flood prone : %s\n", isRunProne()?"yes":"no");
+        printf("Flood prone : %s\n", isRunProne() ? "yes" : "no");
     }
 #endif
 
@@ -151,25 +151,18 @@ public:
                 u8 c = s[s.size() - i - 1];
                 u8 c_hi = (c >> 4) & 0xf;
                 u8 c_lo = c & 0xf;
-                nibbleSets[i*2] = 1 << c_lo;
+                nibbleSets[i * 2] = 1 << c_lo;
                 if (lit.nocase && ourisalpha(c)) {
-                    nibbleSets[i*2+1] =  (1 << (c_hi&0xd)) | (1 << (c_hi|0x2));
+                    nibbleSets[i * 2 + 1] =
+                        (1 << (c_hi & 0xd)) | (1 << (c_hi | 0x2));
                 } else {
-                    nibbleSets[i*2+1] =  1 << c_hi;
+                    nibbleSets[i * 2 + 1] = 1 << c_hi;
                 }
             } else {
-                nibbleSets[i*2] = nibbleSets[i*2+1] = 0xffff;
+                nibbleSets[i * 2] = nibbleSets[i * 2 + 1] = 0xffff;
             }
         }
         litIds.push_back(lit_id);
-        sort_and_unique(litIds);
-    }
-
-    void merge(const TeddySet &ts) {
-        for (u32 i = 0; i < nibbleSets.size(); i++) {
-            nibbleSets[i] |= ts.nibbleSets[i];
-        }
-        litIds.insert(litIds.end(), ts.litIds.begin(), ts.litIds.end());
         sort_and_unique(litIds);
     }
 
@@ -189,15 +182,15 @@ public:
     // a small fixed cost + the cost of traversing some sort of followup
     // (assumption is that the followup is linear)
     u64a heuristic() const {
-        return probability() * (2+litCount());
+        return probability() * (2 + litCount());
     }
 
     bool isRunProne() const {
         u16 lo_and = 0xffff;
         u16 hi_and = 0xffff;
         for (u32 i = 0; i < len; i++) {
-            lo_and &= nibbleSets[i*2];
-            hi_and &= nibbleSets[i*2+1];
+            lo_and &= nibbleSets[i * 2];
+            hi_and &= nibbleSets[i * 2 + 1];
         }
         // we're not flood-prone if there's no way to get
         // through with a flood
@@ -206,10 +199,25 @@ public:
         }
         return true;
     }
+
+    friend TeddySet merge(const TeddySet &a, const TeddySet &b) {
+        assert(a.nibbleSets.size() == b.nibbleSets.size());
+
+        TeddySet m(a);
+
+        for (size_t i = 0; i < m.nibbleSets.size(); i++) {
+            m.nibbleSets[i] |= b.nibbleSets[i];
+        }
+
+        m.litIds.insert(m.litIds.end(), b.litIds.begin(), b.litIds.end());
+        sort_and_unique(m.litIds);
+
+        return m;
+    }
 };
 
 bool TeddyCompiler::pack(map<BucketIndex,
-                             std::vector<LiteralIndex> > &bucketToLits) {
+                             std::vector<LiteralIndex>> &bucketToLits) {
     set<TeddySet> sts;
 
     for (u32 i = 0; i < lits.size(); i++) {
@@ -222,7 +230,8 @@ bool TeddyCompiler::pack(map<BucketIndex,
 #ifdef TEDDY_DEBUG
         printf("Size %zu\n", sts.size());
         for (const TeddySet &ts : sts) {
-            printf("\n"); ts.dump();
+            printf("\n");
+            ts.dump();
         }
         printf("\n===============================================\n");
 #endif
@@ -242,9 +251,7 @@ bool TeddyCompiler::pack(map<BucketIndex,
                     continue;
                 }
 
-                TeddySet tmpSet(eng.numMasks);
-                tmpSet.merge(s1);
-                tmpSet.merge(s2);
+                TeddySet tmpSet = merge(s1, s2);
                 u64a newScore = tmpSet.heuristic();
                 u64a oldScore = s1.heuristic() + s2.heuristic();
                 if (newScore < oldScore) {
@@ -272,9 +279,7 @@ bool TeddyCompiler::pack(map<BucketIndex,
         }
 
         // do the merge
-        TeddySet nts(eng.numMasks);
-        nts.merge(*m1);
-        nts.merge(*m2);
+        TeddySet nts = merge(*m1, *m2);
 #ifdef TEDDY_DEBUG
         printf("Merging\n");
         printf("m1 = \n");
@@ -305,6 +310,8 @@ bool TeddyCompiler::pack(map<BucketIndex,
 }
 
 bytecode_ptr<FDR> TeddyCompiler::build() {
+    assert(eng.numMasks <= MAX_NUM_MASKS);
+
     if (lits.size() > eng.getNumBuckets() * TEDDY_BUCKET_LOAD) {
         DEBUG_PRINTF("too many literals: %zu\n", lits.size());
         return nullptr;
@@ -315,14 +322,14 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
         printf("lit %zu (len = %zu, %s) is ", i, lits[i].s.size(),
                lits[i].nocase ? "caseless" : "caseful");
         for (size_t j = 0; j < lits[i].s.size(); j++) {
-            printf("%02x", ((u32)lits[i].s[j])&0xff);
+            printf("%02x", ((u32)lits[i].s[j]) & 0xff);
         }
         printf("\n");
     }
 #endif
 
-    map<BucketIndex, std::vector<LiteralIndex> > bucketToLits;
-    if(eng.needConfirm(lits)) {
+    map<BucketIndex, std::vector<LiteralIndex>> bucketToLits;
+    if (eng.needConfirm(lits)) {
         if (!pack(bucketToLits)) {
             DEBUG_PRINTF("more lits (%zu) than buckets (%u), can't pack.\n",
                          lits.size(), eng.getNumBuckets());
@@ -383,15 +390,17 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
 
             // fill in masks
             for (u32 j = 0; j < eng.numMasks; j++) {
-                u32 msk_id_lo = j * 2 * maskWidth + (bucket_id  / 8);
-                u32 msk_id_hi = (j * 2 + 1) * maskWidth + (bucket_id  / 8);
+                const u32 msk_id_lo = j * 2 * maskWidth + (bucket_id / 8);
+                const u32 msk_id_hi = (j * 2 + 1) * maskWidth + (bucket_id / 8);
+                const u32 lo_base = msk_id_lo * 16;
+                const u32 hi_base = msk_id_hi * 16;
 
                 // if we don't have a char at this position, fill in i
                 // locations in these masks with '1'
                 if (j >= sz) {
                     for (u32 n = 0; n < 16; n++) {
-                        baseMsk[msk_id_lo * 16 + n] |= bmsk;
-                        baseMsk[msk_id_hi * 16 + n] |= bmsk;
+                        baseMsk[lo_base + n] |= bmsk;
+                        baseMsk[hi_base + n] |= bmsk;
                     }
                 } else {
                     u8 c = l.s[sz - 1 - j];
@@ -410,28 +419,27 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
 
                         for (u8 cm = 0; cm < 0x10; cm++) {
                             if ((cm & m_lo) == (cmp_lo & m_lo)) {
-                                baseMsk[msk_id_lo * 16 + cm] |= bmsk;
+                                baseMsk[lo_base + cm] |= bmsk;
                             }
                             if ((cm & m_hi) == (cmp_hi & m_hi)) {
-                                baseMsk[msk_id_hi * 16 + cm] |= bmsk;
+                                baseMsk[hi_base + cm] |= bmsk;
                             }
                         }
-                    } else{
+                    } else {
                         if (l.nocase && ourisalpha(c)) {
                             u32 cmHalfClear = (0xdf >> hiShift) & 0xf;
-                            u32 cmHalfSet   = (0x20 >> hiShift) & 0xf;
-                            baseMsk[msk_id_hi * 16 + (n_hi & cmHalfClear)] |= bmsk;
-                            baseMsk[msk_id_hi * 16 + (n_hi | cmHalfSet  )] |= bmsk;
+                            u32 cmHalfSet = (0x20 >> hiShift) & 0xf;
+                            baseMsk[hi_base + (n_hi & cmHalfClear)] |= bmsk;
+                            baseMsk[hi_base + (n_hi | cmHalfSet)] |= bmsk;
                         } else {
-                            baseMsk[msk_id_hi * 16 + n_hi] |= bmsk;
+                            baseMsk[hi_base + n_hi] |= bmsk;
                         }
-                        baseMsk[msk_id_lo * 16 + n_lo] |= bmsk;
+                        baseMsk[lo_base + n_lo] |= bmsk;
                     }
                 }
             }
         }
     }
-
 
 #ifdef TEDDY_DEBUG
     for (u32 i = 0; i < eng.numMasks * 2; i++) {
