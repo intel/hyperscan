@@ -395,7 +395,11 @@ void findMoreLiteralMasks(RoseBuildImpl &build) {
 static
 void addLiteralMask(const rose_literal_id &id, vector<u8> &msk,
                     vector<u8> &cmp) {
-    if (id.msk.empty() && !mixed_sensitivity(id.s)) {
+    const size_t suffix_len = min(id.s.length(), size_t{HWLM_MASKLEN});
+    bool mixed_suffix = mixed_sensitivity_in(id.s.end() - suffix_len,
+                                             id.s.end());
+
+    if (id.msk.empty() && !mixed_suffix) {
         return;
     }
 
@@ -415,10 +419,9 @@ void addLiteralMask(const rose_literal_id &id, vector<u8> &msk,
         }
     }
 
-    if (mixed_sensitivity(id.s)) {
+    if (mixed_suffix) {
         auto it = id.s.rbegin();
-        for (size_t i = 0, i_end = min(id.s.length(), size_t{HWLM_MASKLEN});
-             i < i_end; ++i, ++it) {
+        for (size_t i = 0; i < suffix_len; ++i, ++it) {
             const auto &c = *it;
             if (!c.nocase) {
                 size_t offset = HWLM_MASKLEN - i - 1;
@@ -683,6 +686,81 @@ struct MatcherProto {
 };
 }
 
+static
+void addFragmentLiteral(const RoseBuildImpl &build, MatcherProto &mp,
+                        const LitFragment &f, u32 id, bool delay_rebuild,
+                        size_t max_len) {
+    const rose_literal_id &lit = build.literals.at(id);
+    assert(id < build.literal_info.size());
+    const auto &info = build.literal_info.at(id);
+
+    DEBUG_PRINTF("lit='%s' (len %zu)\n", dumpString(lit.s).c_str(),
+                 lit.s.length());
+
+    vector<u8> msk = lit.msk; // copy
+    vector<u8> cmp = lit.cmp; // copy
+    bool noruns = isNoRunsLiteral(build, id, info, max_len);
+
+    auto lit_final = lit.s; // copy
+
+    if (lit_final.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
+        DEBUG_PRINTF("truncating to tail of length %zu\n",
+                     size_t{ROSE_SHORT_LITERAL_LEN_MAX});
+        lit_final.erase(0, lit_final.length() - ROSE_SHORT_LITERAL_LEN_MAX);
+        // We shouldn't have set a threshold below 8 chars.
+        assert(msk.size() <= ROSE_SHORT_LITERAL_LEN_MAX);
+        assert(!noruns);
+    }
+
+    addLiteralMask(lit, msk, cmp);
+
+    const auto &s_final = lit_final.get_string();
+    bool nocase = lit_final.any_nocase();
+
+    DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d, msk=%s, cmp=%s\n",
+                 f.fragment_id, escapeString(s_final).c_str(), (int)nocase,
+                 noruns, dumpMask(msk).c_str(), dumpMask(cmp).c_str());
+
+    if (!maskIsConsistent(s_final, nocase, msk, cmp)) {
+        DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
+        return;
+    }
+
+    u32 prog_offset =
+        delay_rebuild ? f.delay_program_offset : f.lit_program_offset;
+    const auto &groups = f.groups;
+
+    mp.lits.emplace_back(move(s_final), nocase, noruns, prog_offset, groups,
+                         msk, cmp);
+}
+
+static
+void addAccelLiteral(MatcherProto &mp, const rose_literal_id &lit,
+                     const rose_literal_info &info, size_t max_len) {
+    const auto &s = lit.s; // copy
+
+    DEBUG_PRINTF("lit='%s' (len %zu)\n", dumpString(s).c_str(), s.length());
+
+    vector<u8> msk = lit.msk; // copy
+    vector<u8> cmp = lit.cmp; // copy
+    addLiteralMask(lit, msk, cmp);
+
+    if (!maskIsConsistent(s.get_string(), s.any_nocase(), msk, cmp)) {
+        DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
+        return;
+    }
+
+    // Literals used for acceleration must be limited to max_len, as that's all
+    // we can see in history.
+    string s_final = lit.s.get_string();
+    trim_to_suffix(s_final, max_len);
+    trim_to_suffix(msk, max_len);
+    trim_to_suffix(cmp, max_len);
+
+    mp.accel_lits.emplace_back(s_final, lit.s.any_nocase(), msk, cmp,
+                               info.group_mask);
+}
+
 /**
  * \brief Build up a vector of literals (and associated other data) for the
  * given table.
@@ -702,26 +780,27 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
         assert(build.cc.streaming);
     }
 
+    vector<u32> used_lit_ids;
+
     for (const auto &f : fragments) {
+        assert(!f.lit_ids.empty());
+
+        // All literals that share a fragment are in the same table.
+        if (build.literals.at(f.lit_ids.front()).table != table) {
+            continue; // next fragment.
+        }
+
+        DEBUG_PRINTF("fragment %u, %zu lit_ids\n", f.fragment_id,
+                     f.lit_ids.size());
+
+        used_lit_ids.clear();
         for (u32 id : f.lit_ids) {
             const rose_literal_id &lit = build.literals.at(id);
-
-            if (lit.table != table) {
-                continue; /* wrong table */
-            }
-
-            if (lit.delay) {
-                continue;  /* delay id's are virtual-ish */
-            }
-
             assert(id < build.literal_info.size());
             const auto &info = build.literal_info.at(id);
-
-            /* Note: requires_benefits are handled in the literal entries */
-            const ue2_literal &s = lit.s;
-
-            DEBUG_PRINTF("lit='%s' (len %zu)\n", escapeString(s).c_str(),
-                         s.length());
+            if (lit.delay) {
+                continue; /* delay id's are virtual-ish */
+            }
 
             // When building the delay rebuild table, we only want to include
             // literals that have delayed variants.
@@ -739,69 +818,39 @@ MatcherProto makeMatcherProto(const RoseBuildImpl &build,
                 }
             }
 
-            vector<u8> msk = lit.msk; // copy
-            vector<u8> cmp = lit.cmp; // copy
-            bool noruns = isNoRunsLiteral(build, id, info, max_len);
+            used_lit_ids.push_back(id);
+        }
 
-            size_t lit_hist_len = 0;
+        if (used_lit_ids.empty()) {
+            continue; // next fragment.
+        }
+
+        // Build our fragment (for the HWLM matcher) from the first literal.
+        addFragmentLiteral(build, mp, f, used_lit_ids.front(), delay_rebuild,
+                           max_len);
+
+        for (u32 id : used_lit_ids) {
+            const rose_literal_id &lit = build.literals.at(id);
+            assert(id < build.literal_info.size());
+            const auto &info = build.literal_info.at(id);
+
+            // All literals contribute accel information.
+            addAccelLiteral(mp, lit, info, max_len);
+
+            // All literals contribute to history requirement in streaming mode.
             if (build.cc.streaming) {
-                lit_hist_len = max(msk.size(), min(s.length(), max_len));
+                size_t lit_hist_len =
+                    max(lit.msk.size(), min(lit.s.length(), max_len));
                 lit_hist_len = lit_hist_len ? lit_hist_len - 1 : 0;
+                DEBUG_PRINTF("lit requires %zu bytes of history\n",
+                             lit_hist_len);
+                assert(lit_hist_len <= build.cc.grey.maxHistoryAvailable);
+                mp.history_required = max(mp.history_required, lit_hist_len);
             }
-            DEBUG_PRINTF("lit requires %zu bytes of history\n", lit_hist_len);
-            assert(lit_hist_len <= build.cc.grey.maxHistoryAvailable);
-
-            auto lit_final = s; // copy
-
-            if (lit_final.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
-                DEBUG_PRINTF("truncating to tail of length %zu\n",
-                             size_t{ROSE_SHORT_LITERAL_LEN_MAX});
-                lit_final.erase(0, lit_final.length()
-                                - ROSE_SHORT_LITERAL_LEN_MAX);
-                // We shouldn't have set a threshold below 8 chars.
-                assert(msk.size() <= ROSE_SHORT_LITERAL_LEN_MAX);
-                assert(!noruns);
-            }
-
-            addLiteralMask(lit, msk, cmp);
-
-            const auto &s_final = lit_final.get_string();
-            bool nocase = lit_final.any_nocase();
-
-            DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d, msk=%s, "
-                         "cmp=%s\n", f.fragment_id,
-                         escapeString(s_final).c_str(), (int)nocase, noruns,
-                         dumpMask(msk).c_str(), dumpMask(cmp).c_str());
-
-            if (!maskIsConsistent(s_final, nocase, msk, cmp)) {
-                DEBUG_PRINTF("msk/cmp for literal can't match, skipping\n");
-                continue;
-            }
-
-            mp.accel_lits.emplace_back(s.get_string(), s.any_nocase(), msk, cmp,
-                                       info.group_mask);
-            mp.history_required = max(mp.history_required, lit_hist_len);
-
-            u32 prog_offset = delay_rebuild ? f.delay_program_offset
-                                            : f.lit_program_offset;
-            const auto &groups = f.groups;
-
-            mp.lits.emplace_back(move(s_final), nocase, noruns, prog_offset,
-                                 groups, msk, cmp);
         }
     }
 
     sort_and_unique(mp.lits);
-
-    // Literals used for acceleration must be limited to max_len, as that's all
-    // we can see in history.
-    for_each(begin(mp.accel_lits), end(mp.accel_lits),
-             [&max_len](AccelString &a) {
-                 trim_to_suffix(a.s, max_len);
-                 trim_to_suffix(a.msk, max_len);
-                 trim_to_suffix(a.cmp, max_len);
-             });
-
     sort_and_unique(mp.accel_lits);
 
     return mp;

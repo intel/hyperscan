@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -318,23 +318,6 @@ void ue2_literal::operator+=(const ue2_literal &b) {
 
 bool ue2_literal::any_nocase() const {
     return find(nocase.begin(), nocase.end(), true) != nocase.end();
-}
-
-bool mixed_sensitivity(const ue2_literal &s) {
-    bool cs = false;
-    bool nc = false;
-    for (ue2_literal::const_iterator it = s.begin(); it != s.end(); ++it) {
-        if (!ourisalpha(it->c)) {
-            continue;
-        }
-        if (it->nocase) {
-            nc = true;
-        } else {
-            cs = true;
-        }
-    }
-
-    return cs && nc;
 }
 
 void make_nocase(ue2_literal *lit) {

@@ -35,6 +35,7 @@
 
 #include "ue2common.h"
 #include "util/charreach.h"
+#include "util/compare.h"
 #include "util/hash.h"
 
 #include <iterator>
@@ -226,9 +227,36 @@ size_t maxStringSelfOverlap(const ue2_literal &a);
 size_t minStringPeriod(const ue2_literal &a);
 size_t maxStringOverlap(const ue2_literal &a, const ue2_literal &b);
 
-/** \brief True iff the literal cannot be considered entirely case-sensitive
- * nor entirely case-insensitive */
-bool mixed_sensitivity(const ue2_literal &lit);
+/**
+ * \brief True iff the range of a literal given cannot be considered entirely
+ * case-sensitive nor entirely case-insensitive.
+ */
+template<class Iter>
+bool mixed_sensitivity_in(Iter begin, Iter end) {
+    bool cs = false;
+    bool nc = false;
+    for (auto it = begin; it != end; ++it) {
+        if (!ourisalpha(it->c)) {
+            continue;
+        }
+        if (it->nocase) {
+            nc = true;
+        } else {
+            cs = true;
+        }
+    }
+
+    return cs && nc;
+}
+
+/**
+ * \brief True iff the literal cannot be considered entirely case-sensitive
+ * nor entirely case-insensitive.
+ */
+inline
+bool mixed_sensitivity(const ue2_literal &s) {
+    return mixed_sensitivity_in(s.begin(), s.end());
+}
 
 void make_nocase(ue2_literal *lit);
 
