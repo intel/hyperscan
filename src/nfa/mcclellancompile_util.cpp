@@ -187,7 +187,22 @@ bool clear_deeper_reports(raw_dfa &raw, u32 max_offset) {
         }
     }
 
-    return changed;
+    if (!changed) {
+        return false;
+    }
+
+    // We may have cleared all reports from the DFA, in which case it should
+    // become empty.
+    if (all_of_in(raw.states, [](const dstate &ds) {
+            return ds.reports.empty() && ds.reports_eod.empty();
+        })) {
+        DEBUG_PRINTF("no reports left at all, dfa is dead\n");
+        raw.states.clear();
+        raw.start_anchored = DEAD_STATE;
+        raw.start_floating = DEAD_STATE;
+    }
+
+    return true;
 }
 
 set<ReportID> all_reports(const raw_dfa &rdfa) {
