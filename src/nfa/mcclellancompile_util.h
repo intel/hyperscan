@@ -59,6 +59,13 @@ size_t hash_dfa(const raw_dfa &rdfa);
 
 bool can_die_early(const raw_dfa &raw, u32 age_limit);
 
+/**
+ * \brief Returns true if this DFA cannot match, i.e. its start state is
+ * DEAD_STATE.
+ */
+bool is_dead(const raw_dfa &rdfa);
+
+
 } // namespace ue2
 
 #endif

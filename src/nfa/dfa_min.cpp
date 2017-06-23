@@ -59,6 +59,7 @@
 #include "dfa_min.h"
 
 #include "grey.h"
+#include "mcclellancompile_util.h"
 #include "rdfa.h"
 #include "ue2common.h"
 #include "util/container.h"
@@ -297,6 +298,10 @@ void new_dfa(raw_dfa &rdfa, const HopcroftInfo &info) {
 void minimize_hopcroft(raw_dfa &rdfa, const Grey &grey) {
     if (!grey.minimizeDFA) {
         return;
+    }
+
+    if (is_dead(rdfa)) {
+        DEBUG_PRINTF("dfa is empty\n");
     }
 
     UNUSED const size_t states_before = rdfa.states.size();

@@ -197,7 +197,6 @@ bool clear_deeper_reports(raw_dfa &raw, u32 max_offset) {
             return ds.reports.empty() && ds.reports_eod.empty();
         })) {
         DEBUG_PRINTF("no reports left at all, dfa is dead\n");
-        raw.states.clear();
         raw.start_anchored = DEAD_STATE;
         raw.start_floating = DEAD_STATE;
     }
@@ -285,6 +284,11 @@ bool can_die_early(const raw_dfa &raw, dstate_id_t s,
 bool can_die_early(const raw_dfa &raw, u32 age_limit) {
     map<dstate_id_t, u32> visited;
     return can_die_early(raw, raw.start_anchored, visited, age_limit);
+}
+
+bool is_dead(const raw_dfa &rdfa) {
+    return rdfa.start_anchored == DEAD_STATE &&
+           rdfa.start_floating == DEAD_STATE;
 }
 
 } // namespace ue2

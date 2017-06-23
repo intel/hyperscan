@@ -964,6 +964,8 @@ bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
                                      const CompileContext &cc,
                                      bool trust_daddy_states,
                                      set<dstate_id_t> *accel_states) {
+    assert(!is_dead(raw));
+
     u16 total_daddy = 0;
     dfa_info info(strat);
     bool using8bit = cc.grey.allowMcClellan8 && info.size() <= 256;
