@@ -175,6 +175,7 @@ bytecode_ptr<FDR> FDRCompiler::setupFDR() {
     fdr->size = size;
     fdr->engineID = eng.getID();
     fdr->maxStringLen = verify_u32(maxLen(lits));
+    fdr->numStrings = verify_u32(lits.size());
     assert(eng.bits > 8 && eng.bits < 16); // we allow domains 9 to 15 only
     fdr->domain = eng.bits;
     fdr->domainMask = (1 << eng.bits) - 1;

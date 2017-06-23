@@ -520,6 +520,7 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
     teddy->size = size;
     teddy->engineID = eng.getID();
     teddy->maxStringLen = verify_u32(maxLen(lits));
+    teddy->numStrings = verify_u32(lits.size());
 
     // Write confirm structures.
     u8 *ptr = teddy_base + ROUNDUP_CL(headerSize) + ROUNDUP_CL(maskLen) +

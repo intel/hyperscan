@@ -86,7 +86,7 @@ void dumpTeddy(const Teddy *teddy, FILE *f) {
     fprintf(f, "    masks      %u\n", des->numMasks);
     fprintf(f, "    buckets    %u\n", des->getNumBuckets());
     fprintf(f, "    packed     %s\n", des->packed ? "true" : "false");
-    fprintf(f, "    strings    ???\n");
+    fprintf(f, "    strings    %u\n", teddy->numStrings);
     fprintf(f, "    size       %zu bytes\n", fdrSize((const FDR *)teddy));
     fprintf(f, "    max length %u\n", teddy->maxStringLen);
     fprintf(f, "    floodoff   %u (%x)\n", teddy->floodOffset,
@@ -107,7 +107,7 @@ void dumpFDR(const FDR *fdr, FILE *f) {
 
     fprintf(f, "    domain     %u\n", fdr->domain);
     fprintf(f, "    stride     %u\n", fdr->stride);
-    fprintf(f, "    strings    ???\n");
+    fprintf(f, "    strings    %u\n", fdr->numStrings);
     fprintf(f, "    size       %zu bytes\n", fdrSize(fdr));
     fprintf(f, "    max length %u\n", fdr->maxStringLen);
     fprintf(f, "    floodoff   %u (%x)\n", fdr->floodOffset, fdr->floodOffset);
