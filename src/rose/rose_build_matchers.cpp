@@ -557,6 +557,17 @@ bool isNoRunsLiteral(const RoseBuildImpl &build, const u32 id,
 }
 
 static
+bool isNoRunsFragment(const RoseBuildImpl &build, const LitFragment &f,
+                      const size_t max_len) {
+    // For the fragment to be marked "no runs", every literal it fires must
+    // need no further confirmation work.
+    return all_of_in(f.lit_ids, [&](u32 lit_id) {
+        const auto &info = build.literal_info.at(lit_id);
+        return isNoRunsLiteral(build, lit_id, info, max_len);
+    });
+}
+
+static
 const raw_puff &getChainedPuff(const RoseBuildImpl &build,
                                const Report &report) {
     DEBUG_PRINTF("chained report, event %u\n", report.onmatch);
@@ -691,15 +702,15 @@ void addFragmentLiteral(const RoseBuildImpl &build, MatcherProto &mp,
                         const LitFragment &f, u32 id, bool delay_rebuild,
                         size_t max_len) {
     const rose_literal_id &lit = build.literals.at(id);
-    assert(id < build.literal_info.size());
-    const auto &info = build.literal_info.at(id);
 
     DEBUG_PRINTF("lit='%s' (len %zu)\n", dumpString(lit.s).c_str(),
                  lit.s.length());
 
     vector<u8> msk = lit.msk; // copy
     vector<u8> cmp = lit.cmp; // copy
-    bool noruns = isNoRunsLiteral(build, id, info, max_len);
+
+    bool noruns = isNoRunsFragment(build, f, max_len);
+    DEBUG_PRINTF("fragment is %s\n", noruns ? "noruns" : "not noruns");
 
     auto lit_final = lit.s; // copy
 
