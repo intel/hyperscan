@@ -1679,13 +1679,22 @@ void dumpComponentInfo(const RoseEngine *t, const string &base) {
     }
 }
 
+/**
+ * \brief Helper function: returns a writeable C stdio FILE* handle wrapped in
+ * a unique_ptr that takes care of closing the file on destruction.
+ */
+static
+std::unique_ptr<FILE, decltype(&fclose)> openStdioFile(const string &filename) {
+    return std::unique_ptr<FILE, decltype(&fclose)>(
+        fopen(filename.c_str(), "w"), &fclose);
+}
 
 static
 void dumpComponentInfoCsv(const RoseEngine *t, const string &base) {
-    FILE *f = fopen((base +"rose_components.csv").c_str(), "w");
+    auto f = openStdioFile(base + "/rose_components.csv");
 
-    fprintf(f, "Index, Offset,Engine Type,States,Stream State,Bytecode Size,"
-            "Kind,Notes\n");
+    fprintf(f.get(), "Index, Offset,Engine Type,States,Stream State,"
+                     "Bytecode Size,Kind,Notes\n");
 
     for (u32 i = 0; i < t->queueCount; i++) {
         const NfaInfo *nfa_info = getNfaInfoByQueue(t, i);
@@ -1740,19 +1749,16 @@ void dumpComponentInfoCsv(const RoseEngine *t, const string &base) {
             }
         }
 
-        fprintf(f, "%u,%zd,\"%s\",%u,%u,%u,%s,%s\n", i,
+        fprintf(f.get(), "%u,%zd,\"%s\",%u,%u,%u,%s,%s\n", i,
                 (const char *)n - (const char *)t, describe(*n).c_str(),
                 n->nPositions, n->streamStateSize, n->length,
                 to_string(kind).c_str(), notes.str().c_str());
     }
-    fclose(f);
 }
 
 static
 void dumpExhaust(const RoseEngine *t, const string &base) {
-    stringstream sstxt;
-    sstxt << base << "rose_exhaust.txt";
-    FILE *f = fopen(sstxt.str().c_str(), "w");
+    auto f = openStdioFile(base + "/rose_exhaust.csv");
 
     const NfaInfo *infos
         = (const NfaInfo *)((const char *)t + t->nfaInfoOffset);
@@ -1762,7 +1768,7 @@ void dumpExhaust(const RoseEngine *t, const string &base) {
     for (u32 i = 0; i < queue_count; ++i) {
         u32 ekey_offset = infos[i].ekeyListOffset;
 
-        fprintf(f, "%u (%u):", i, ekey_offset);
+        fprintf(f.get(), "%u (%u):", i, ekey_offset);
 
         if (ekey_offset) {
             const u32 *ekeys = (const u32 *)((const char *)t + ekey_offset);
@@ -1772,14 +1778,12 @@ void dumpExhaust(const RoseEngine *t, const string &base) {
                 if (e == ~0U) {
                     break;
                 }
-                fprintf(f, " %u", e);
+                fprintf(f.get(), " %u", e);
             }
         }
 
-        fprintf(f, "\n");
+        fprintf(f.get(), "\n");
     }
-
-    fclose(f);
 }
 
 static
@@ -1797,9 +1801,8 @@ void dumpNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         if (dump_raw) {
             stringstream ssraw;
             ssraw << base << "rose_nfa_" << i << ".raw";
-            FILE *f = fopen(ssraw.str().c_str(), "w");
-            fwrite(n, 1, n->length, f);
-            fclose(f);
+            auto f = openStdioFile(ssraw.str());
+            fwrite(n, 1, n->length, f.get());
         }
     }
 }
@@ -1847,9 +1850,8 @@ void dumpRevNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         if (dump_raw) {
             stringstream ssraw;
             ssraw << base << "som_rev_nfa_" << i << ".raw";
-            FILE *f = fopen(ssraw.str().c_str(), "w");
-            fwrite(n, 1, n->length, f);
-            fclose(f);
+            auto f = openStdioFile(ssraw.str());
+            fwrite(n, 1, n->length, f.get());
         }
     }
 }
@@ -2067,26 +2069,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
         dumpAnchoredStats(atable, f);
     }
 
-    if (ftable) {
-        fprintf(f, "\nFloating literal matcher stats:\n\n");
-        hwlmPrintStats(ftable, f);
-    }
-
-    if (drtable) {
-        fprintf(f, "\nDelay Rebuild literal matcher stats:\n\n");
-        hwlmPrintStats(drtable, f);
-    }
-
-    if (etable) {
-        fprintf(f, "\nEOD-anchored literal matcher stats:\n\n");
-        hwlmPrintStats(etable, f);
-    }
-
-    if (sbtable) {
-        fprintf(f, "\nSmall-block literal matcher stats:\n\n");
-        hwlmPrintStats(sbtable, f);
-    }
-
     dumpLongLiteralTable(t, f);
 }
 
@@ -2221,6 +2203,30 @@ void roseDumpPrograms(const vector<LitFragment> &fragments, const RoseEngine *t,
     dumpRoseDelayPrograms(t, base + "/rose_delay_programs.txt");
 }
 
+static
+void roseDumpLiteralMatchers(const RoseEngine *t, const string &base) {
+    if (const HWLM *ftable = getFloatingMatcher(t)) {
+        auto f = openStdioFile(base + "/lit_table_floating.txt");
+        hwlmPrintStats(ftable, f.get());
+    }
+
+    if (const HWLM *drtable = getDelayRebuildMatcher(t)) {
+        auto f = openStdioFile(base + "/lit_table_delay_rebuild.txt");
+        hwlmPrintStats(drtable, f.get());
+    }
+
+    if (const HWLM *etable = getEodMatcher(t)) {
+        auto f = openStdioFile(base + "/lit_table_eod.txt");
+        hwlmPrintStats(etable, f.get());
+    }
+
+    if (const HWLM *sbtable = getSmallBlockMatcher(t)) {
+        auto f = openStdioFile(base + "/lit_table_small_block.txt");
+        hwlmPrintStats(sbtable, f.get());
+    }
+
+}
+
 void dumpRose(const RoseBuildImpl &build, const vector<LitFragment> &fragments,
               const map<left_id, u32> &leftfix_queue_map,
               const map<suffix_id, u32> &suffix_queue_map,
@@ -2231,24 +2237,19 @@ void dumpRose(const RoseBuildImpl &build, const vector<LitFragment> &fragments,
         return;
     }
 
-    stringstream ss;
-    ss << grey.dumpPath << "rose.txt";
-
-    FILE *f = fopen(ss.str().c_str(), "w");
+    auto f = openStdioFile(grey.dumpPath + "/rose.txt");
 
     if (!t) {
-        fprintf(f, "<< no rose >>\n");
-        fclose(f);
+        fprintf(f.get(), "<< no rose >>\n");
         return;
     }
 
     // Dump Rose table info
-    roseDumpText(t, f);
-
-    fclose(f);
+    roseDumpText(t, f.get());
 
     roseDumpComponents(t, false, grey.dumpPath);
     roseDumpPrograms(fragments, t, grey.dumpPath);
+    roseDumpLiteralMatchers(t, grey.dumpPath);
 
     // Graph.
     dumpRoseGraph(build, t, fragments, leftfix_queue_map, suffix_queue_map,
@@ -2257,9 +2258,8 @@ void dumpRose(const RoseBuildImpl &build, const vector<LitFragment> &fragments,
     // Literals
     dumpRoseLiterals(build, fragments, grey);
 
-    f = fopen((grey.dumpPath + "/rose_struct.txt").c_str(), "w");
-    roseDumpStructRaw(t, f);
-    fclose(f);
+    f = openStdioFile(grey.dumpPath + "/rose_struct.txt");
+    roseDumpStructRaw(t, f.get());
 }
 
 } // namespace ue2
