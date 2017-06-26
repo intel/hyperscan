@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,16 +38,19 @@
 #include "ue2common.h"
 #include "fdr/fdr_dump.h"
 #include "nfa/accel_dump.h"
-
-#include <cstdio>
+#include "util/dump_util.h"
 
 #ifndef DUMP_SUPPORT
 #error No dump support!
 #endif
 
+using namespace std;
+
 namespace ue2 {
 
-void hwlmPrintStats(const HWLM *h, FILE *f) {
+void hwlmGenerateDumpFiles(const HWLM *h, const string &base) {
+    StdioFile f(base + ".txt", "w");
+
     switch (h->type) {
     case HWLM_ENGINE_NOOD:
         noodPrintStats((const noodTable *)HWLM_C_DATA(h), f);

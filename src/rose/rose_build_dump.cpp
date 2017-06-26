@@ -2196,26 +2196,21 @@ void roseDumpPrograms(const vector<LitFragment> &fragments, const RoseEngine *t,
 
 static
 void roseDumpLiteralMatchers(const RoseEngine *t, const string &base) {
-    if (const HWLM *ftable = getFloatingMatcher(t)) {
-        StdioFile f(base + "/lit_table_floating.txt", "w");
-        hwlmPrintStats(ftable, f);
+    if (const HWLM *hwlm = getFloatingMatcher(t)) {
+        hwlmGenerateDumpFiles(hwlm, base + "/lit_table_floating");
     }
 
-    if (const HWLM *drtable = getDelayRebuildMatcher(t)) {
-        StdioFile f(base + "/lit_table_delay_rebuild.txt", "w");
-        hwlmPrintStats(drtable, f);
+    if (const HWLM *hwlm = getDelayRebuildMatcher(t)) {
+        hwlmGenerateDumpFiles(hwlm, base + "/lit_table_delay_rebuild");
     }
 
-    if (const HWLM *etable = getEodMatcher(t)) {
-        StdioFile f(base + "/lit_table_eod.txt", "w");
-        hwlmPrintStats(etable, f);
+    if (const HWLM *hwlm = getEodMatcher(t)) {
+        hwlmGenerateDumpFiles(hwlm, base + "/lit_table_eod");
     }
 
-    if (const HWLM *sbtable = getSmallBlockMatcher(t)) {
-        StdioFile f(base + "/lit_table_small_block.txt", "w");
-        hwlmPrintStats(sbtable, f);
+    if (const HWLM *hwlm = getSmallBlockMatcher(t)) {
+        hwlmGenerateDumpFiles(hwlm, base + "/lit_table_small_block");
     }
-
 }
 
 void dumpRose(const RoseBuildImpl &build, const vector<LitFragment> &fragments,
