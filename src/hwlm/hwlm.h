@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -70,6 +70,9 @@ typedef hwlm_group_t hwlmcb_rv_t;
  * This should only be used if an unsupported engine was called (like one
  * designed for a different architecture). */
 #define HWLM_ERROR_UNKNOWN 2
+
+/** \brief Max length of the literal passed to HWLM. */
+#define HWLM_LITERAL_MAX_LEN 8
 
 struct hs_scratch;
 struct HWLM;

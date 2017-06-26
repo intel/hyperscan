@@ -42,9 +42,6 @@
 
 namespace ue2 {
 
-/** \brief Max length of the literal passed to HWLM. */
-#define HWLM_LITERAL_MAX_LEN 8
-
 /** \brief Max length of the hwlmLiteral::msk and hwlmLiteral::cmp vectors. */
 #define HWLM_MASKLEN 8
 

@@ -380,7 +380,8 @@ hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
     if (hlen) {
         assert(hbuf);
 
-        u8 ALIGN_DIRECTIVE temp_buf[16]; // HWLM_LITERAL_MAX_LEN * 2
+        u8 ALIGN_DIRECTIVE temp_buf[HWLM_LITERAL_MAX_LEN * 2];
+        memset(temp_buf, 0, sizeof(temp_buf));
 
         size_t tl1 = MIN(n->len - 1, hlen);
         size_t tl2 = MIN(n->len - 1, len);
