@@ -558,10 +558,15 @@ unique_ptr<raw_dfa> buildMcClellan(const NGHolder &graph,
         = (graph.kind == NFA_OUTFIX || finalChance) ? FINAL_DFA_STATE_LIMIT
                                                     : DFA_STATE_LIMIT;
 
-    unique_ptr<raw_dfa> rdfa = ue2::make_unique<raw_dfa>(graph.kind);
-
     const u32 numStates = num_vertices(graph);
     DEBUG_PRINTF("determinising nfa with %u vertices\n", numStates);
+
+    if (numStates > FINAL_DFA_STATE_LIMIT) {
+        DEBUG_PRINTF("rejecting nfa as too many vertices\n");
+        return nullptr;
+    }
+
+    auto rdfa = ue2::make_unique<raw_dfa>(graph.kind);
 
     if (numStates <= NFA_STATE_LIMIT) {
         /* Fast path. Automaton_Graph uses a bitfield internally to represent
