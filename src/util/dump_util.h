@@ -30,6 +30,8 @@
 #define DUMP_UTIL
 
 #include <cstdio>
+#include <memory>
+#include <string>
 
 namespace ue2 {
 
@@ -37,6 +39,20 @@ namespace ue2 {
  * Same as fopen(), but on error throws an exception rather than returning NULL.
  */
 FILE *fopen_or_throw(const char *path, const char *mode);
+
+/**
+ * \brief Helper function: returns a C stdio FILE* handle wrapped in
+ * a unique_ptr that takes care of closing the file on destruction.
+ *
+ * If the file cannot be opened, throws an exception.
+ */
+inline
+std::unique_ptr<FILE, decltype(&fclose)>
+openStdioFile(const std::string &filename, const char *mode) {
+    return std::unique_ptr<FILE, decltype(&fclose)>(
+        fopen_or_throw(filename.c_str(), mode), &fclose);
+}
+
 
 } // namespace ue2
 

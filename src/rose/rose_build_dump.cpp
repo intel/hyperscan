@@ -48,6 +48,7 @@
 #include "util/compile_context.h"
 #include "util/container.h"
 #include "util/dump_charclass.h"
+#include "util/dump_util.h"
 #include "util/graph_range.h"
 #include "util/multibit.h"
 #include "util/multibit_build.h"
@@ -1679,19 +1680,9 @@ void dumpComponentInfo(const RoseEngine *t, const string &base) {
     }
 }
 
-/**
- * \brief Helper function: returns a writeable C stdio FILE* handle wrapped in
- * a unique_ptr that takes care of closing the file on destruction.
- */
-static
-std::unique_ptr<FILE, decltype(&fclose)> openStdioFile(const string &filename) {
-    return std::unique_ptr<FILE, decltype(&fclose)>(
-        fopen(filename.c_str(), "w"), &fclose);
-}
-
 static
 void dumpComponentInfoCsv(const RoseEngine *t, const string &base) {
-    auto f = openStdioFile(base + "/rose_components.csv");
+    auto f = openStdioFile(base + "/rose_components.csv", "w");
 
     fprintf(f.get(), "Index, Offset,Engine Type,States,Stream State,"
                      "Bytecode Size,Kind,Notes\n");
@@ -1758,7 +1749,7 @@ void dumpComponentInfoCsv(const RoseEngine *t, const string &base) {
 
 static
 void dumpExhaust(const RoseEngine *t, const string &base) {
-    auto f = openStdioFile(base + "/rose_exhaust.csv");
+    auto f = openStdioFile(base + "/rose_exhaust.csv", "w");
 
     const NfaInfo *infos
         = (const NfaInfo *)((const char *)t + t->nfaInfoOffset);
@@ -1801,7 +1792,7 @@ void dumpNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         if (dump_raw) {
             stringstream ssraw;
             ssraw << base << "rose_nfa_" << i << ".raw";
-            auto f = openStdioFile(ssraw.str());
+            auto f = openStdioFile(ssraw.str(), "w");
             fwrite(n, 1, n->length, f.get());
         }
     }
@@ -1850,7 +1841,7 @@ void dumpRevNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         if (dump_raw) {
             stringstream ssraw;
             ssraw << base << "som_rev_nfa_" << i << ".raw";
-            auto f = openStdioFile(ssraw.str());
+            auto f = openStdioFile(ssraw.str(), "w");
             fwrite(n, 1, n->length, f.get());
         }
     }
@@ -2206,22 +2197,22 @@ void roseDumpPrograms(const vector<LitFragment> &fragments, const RoseEngine *t,
 static
 void roseDumpLiteralMatchers(const RoseEngine *t, const string &base) {
     if (const HWLM *ftable = getFloatingMatcher(t)) {
-        auto f = openStdioFile(base + "/lit_table_floating.txt");
+        auto f = openStdioFile(base + "/lit_table_floating.txt", "w");
         hwlmPrintStats(ftable, f.get());
     }
 
     if (const HWLM *drtable = getDelayRebuildMatcher(t)) {
-        auto f = openStdioFile(base + "/lit_table_delay_rebuild.txt");
+        auto f = openStdioFile(base + "/lit_table_delay_rebuild.txt", "w");
         hwlmPrintStats(drtable, f.get());
     }
 
     if (const HWLM *etable = getEodMatcher(t)) {
-        auto f = openStdioFile(base + "/lit_table_eod.txt");
+        auto f = openStdioFile(base + "/lit_table_eod.txt", "w");
         hwlmPrintStats(etable, f.get());
     }
 
     if (const HWLM *sbtable = getSmallBlockMatcher(t)) {
-        auto f = openStdioFile(base + "/lit_table_small_block.txt");
+        auto f = openStdioFile(base + "/lit_table_small_block.txt", "w");
         hwlmPrintStats(sbtable, f.get());
     }
 
@@ -2237,7 +2228,7 @@ void dumpRose(const RoseBuildImpl &build, const vector<LitFragment> &fragments,
         return;
     }
 
-    auto f = openStdioFile(grey.dumpPath + "/rose.txt");
+    auto f = openStdioFile(grey.dumpPath + "/rose.txt", "w");
 
     if (!t) {
         fprintf(f.get(), "<< no rose >>\n");
@@ -2258,7 +2249,7 @@ void dumpRose(const RoseBuildImpl &build, const vector<LitFragment> &fragments,
     // Literals
     dumpRoseLiterals(build, fragments, grey);
 
-    f = openStdioFile(grey.dumpPath + "/rose_struct.txt");
+    f = openStdioFile(grey.dumpPath + "/rose_struct.txt", "w");
     roseDumpStructRaw(t, f.get());
 }
 
