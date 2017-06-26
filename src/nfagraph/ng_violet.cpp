@@ -1198,7 +1198,8 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
                      const vector<RoseInEdge> &to_cut,
                      const vector<NFAEdge> &cut,
                      const map<NFAEdge, set<ue2_literal>> &cut_lits) {
-    DEBUG_PRINTF("splitting %s:\n", to_string(h.kind).c_str());
+    DEBUG_PRINTF("splitting %s (%zu vertices)\n", to_string(h.kind).c_str(),
+                 num_vertices(h));
 
     /* create literal vertices and connect preds */
     unordered_set<RoseInVertex> done_sources;
@@ -1233,7 +1234,9 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
             renumber_vertices(*new_lhs);
             renumber_edges(*new_lhs);
 
-            DEBUG_PRINTF("    into lhs %s\n", to_string(new_lhs->kind).c_str());
+            DEBUG_PRINTF("    into lhs %s (%zu vertices)\n",
+                         to_string(new_lhs->kind).c_str(),
+                         num_vertices(*new_lhs));
 
             assert(hasCorrectlyNumberedVertices(*new_lhs));
             assert(hasCorrectlyNumberedEdges(*new_lhs));
@@ -1301,8 +1304,9 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
                 remove_edge(new_rhs->start, new_rhs->accept, *new_rhs);
                 remove_edge(new_rhs->start, new_rhs->acceptEod, *new_rhs);
                 renumber_edges(*new_rhs);
-                DEBUG_PRINTF("    into rhs %s\n",
-                              to_string(new_rhs->kind).c_str());
+                DEBUG_PRINTF("    into rhs %s (%zu vertices)\n",
+                             to_string(new_rhs->kind).c_str(),
+                             num_vertices(*new_rhs));
                 done_rhs.emplace(adj, new_rhs);
                 assert(isCorrectlyTopped(*new_rhs));
             }
@@ -2828,9 +2832,9 @@ bool doEarlyDfa(RoseBuild &rose, RoseInGraph &vg, NGHolder &h,
 #define MAX_EDGES_FOR_IMPLEMENTABILITY 50
 
 static
-bool splitForImplementabilty(RoseInGraph &vg, NGHolder &h,
-                             const vector<RoseInEdge> &edges,
-                             const CompileContext &cc) {
+bool splitForImplementability(RoseInGraph &vg, NGHolder &h,
+                              const vector<RoseInEdge> &edges,
+                              const CompileContext &cc) {
     vector<pair<ue2_literal, u32>> succ_lits;
     DEBUG_PRINTF("trying to split %s with %zu vertices on %zu edges\n",
                   to_string(h.kind).c_str(), num_vertices(h), edges.size());
@@ -2912,8 +2916,12 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
                 return false;
             }
 
-            if (splitForImplementabilty(vg, *h, edges_by_graph[h], cc)) {
+            if (splitForImplementability(vg, *h, edges_by_graph[h], cc)) {
                 added_count++;
+                if (added_count > MAX_IMPLEMENTABLE_SPLITS) {
+                    DEBUG_PRINTF("added_count hit limit\n");
+                    return false;
+                }
                 changed = true;
                 continue;
             }
@@ -2921,9 +2929,7 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
             return false;
         }
 
-        if (added_count > MAX_IMPLEMENTABLE_SPLITS) {
-            return false;
-        }
+        assert(added_count <= MAX_IMPLEMENTABLE_SPLITS);
 
         if (changed) {
             removeRedundantLiterals(vg, cc);
