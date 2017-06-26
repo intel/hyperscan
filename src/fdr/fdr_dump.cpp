@@ -45,7 +45,7 @@
 #error No dump support!
 #endif
 
-using std::unique_ptr;
+using namespace std;
 
 namespace ue2 {
 
@@ -61,6 +61,17 @@ bool fdrIsTeddy(const FDR *fdr) {
 }
 
 static
+void dumpLitIndex(const FDRConfirm *fdrc, FILE *f) {
+    const u32 *lit_index = getConfirmLitIndex(fdrc);
+    u32 num_lits = 1U << fdrc->nBits;
+    u32 lits_used = count_if(lit_index, lit_index + num_lits,
+                             [](u32 idx) { return idx != 0; });
+
+    fprintf(f, "      load    %u/%u (%0.2f%%)\n", lits_used, num_lits,
+            (double)lits_used / (double)(num_lits)*100);
+}
+
+static
 void dumpConfirms(const void *fdr_base, u32 conf_offset, u32 num_confirms,
                   FILE *f) {
     const u32 *conf = (const u32 *)((const char *)fdr_base + conf_offset);
@@ -71,6 +82,7 @@ void dumpConfirms(const void *fdr_base, u32 conf_offset, u32 num_confirms,
         fprintf(f, "      mult    0x%016llx\n", fdrc->mult);
         fprintf(f, "      nbits   %u\n", fdrc->nBits);
         fprintf(f, "      groups  0x%016llx\n", fdrc->groups);
+        dumpLitIndex(fdrc, f);
     }
 }
 
