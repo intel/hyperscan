@@ -1682,10 +1682,10 @@ void dumpComponentInfo(const RoseEngine *t, const string &base) {
 
 static
 void dumpComponentInfoCsv(const RoseEngine *t, const string &base) {
-    auto f = openStdioFile(base + "/rose_components.csv", "w");
+    StdioFile f(base + "/rose_components.csv", "w");
 
-    fprintf(f.get(), "Index, Offset,Engine Type,States,Stream State,"
-                     "Bytecode Size,Kind,Notes\n");
+    fprintf(f, "Index, Offset,Engine Type,States,Stream State,"
+               "Bytecode Size,Kind,Notes\n");
 
     for (u32 i = 0; i < t->queueCount; i++) {
         const NfaInfo *nfa_info = getNfaInfoByQueue(t, i);
@@ -1740,7 +1740,7 @@ void dumpComponentInfoCsv(const RoseEngine *t, const string &base) {
             }
         }
 
-        fprintf(f.get(), "%u,%zd,\"%s\",%u,%u,%u,%s,%s\n", i,
+        fprintf(f, "%u,%zd,\"%s\",%u,%u,%u,%s,%s\n", i,
                 (const char *)n - (const char *)t, describe(*n).c_str(),
                 n->nPositions, n->streamStateSize, n->length,
                 to_string(kind).c_str(), notes.str().c_str());
@@ -1749,7 +1749,7 @@ void dumpComponentInfoCsv(const RoseEngine *t, const string &base) {
 
 static
 void dumpExhaust(const RoseEngine *t, const string &base) {
-    auto f = openStdioFile(base + "/rose_exhaust.csv", "w");
+    StdioFile f(base + "/rose_exhaust.csv", "w");
 
     const NfaInfo *infos
         = (const NfaInfo *)((const char *)t + t->nfaInfoOffset);
@@ -1759,7 +1759,7 @@ void dumpExhaust(const RoseEngine *t, const string &base) {
     for (u32 i = 0; i < queue_count; ++i) {
         u32 ekey_offset = infos[i].ekeyListOffset;
 
-        fprintf(f.get(), "%u (%u):", i, ekey_offset);
+        fprintf(f, "%u (%u):", i, ekey_offset);
 
         if (ekey_offset) {
             const u32 *ekeys = (const u32 *)((const char *)t + ekey_offset);
@@ -1769,11 +1769,11 @@ void dumpExhaust(const RoseEngine *t, const string &base) {
                 if (e == ~0U) {
                     break;
                 }
-                fprintf(f.get(), " %u", e);
+                fprintf(f, " %u", e);
             }
         }
 
-        fprintf(f.get(), "\n");
+        fprintf(f, "\n");
     }
 }
 
@@ -1792,8 +1792,8 @@ void dumpNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         if (dump_raw) {
             stringstream ssraw;
             ssraw << base << "rose_nfa_" << i << ".raw";
-            auto f = openStdioFile(ssraw.str(), "w");
-            fwrite(n, 1, n->length, f.get());
+            StdioFile f(ssraw.str(), "w");
+            fwrite(n, 1, n->length, f);
         }
     }
 }
@@ -1841,8 +1841,8 @@ void dumpRevNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         if (dump_raw) {
             stringstream ssraw;
             ssraw << base << "som_rev_nfa_" << i << ".raw";
-            auto f = openStdioFile(ssraw.str(), "w");
-            fwrite(n, 1, n->length, f.get());
+            StdioFile f(ssraw.str(), "w");
+            fwrite(n, 1, n->length, f);
         }
     }
 }
@@ -2197,23 +2197,23 @@ void roseDumpPrograms(const vector<LitFragment> &fragments, const RoseEngine *t,
 static
 void roseDumpLiteralMatchers(const RoseEngine *t, const string &base) {
     if (const HWLM *ftable = getFloatingMatcher(t)) {
-        auto f = openStdioFile(base + "/lit_table_floating.txt", "w");
-        hwlmPrintStats(ftable, f.get());
+        StdioFile f(base + "/lit_table_floating.txt", "w");
+        hwlmPrintStats(ftable, f);
     }
 
     if (const HWLM *drtable = getDelayRebuildMatcher(t)) {
-        auto f = openStdioFile(base + "/lit_table_delay_rebuild.txt", "w");
-        hwlmPrintStats(drtable, f.get());
+        StdioFile f(base + "/lit_table_delay_rebuild.txt", "w");
+        hwlmPrintStats(drtable, f);
     }
 
     if (const HWLM *etable = getEodMatcher(t)) {
-        auto f = openStdioFile(base + "/lit_table_eod.txt", "w");
-        hwlmPrintStats(etable, f.get());
+        StdioFile f(base + "/lit_table_eod.txt", "w");
+        hwlmPrintStats(etable, f);
     }
 
     if (const HWLM *sbtable = getSmallBlockMatcher(t)) {
-        auto f = openStdioFile(base + "/lit_table_small_block.txt", "w");
-        hwlmPrintStats(sbtable, f.get());
+        StdioFile f(base + "/lit_table_small_block.txt", "w");
+        hwlmPrintStats(sbtable, f);
     }
 
 }
@@ -2228,15 +2228,15 @@ void dumpRose(const RoseBuildImpl &build, const vector<LitFragment> &fragments,
         return;
     }
 
-    auto f = openStdioFile(grey.dumpPath + "/rose.txt", "w");
+    StdioFile f(grey.dumpPath + "/rose.txt", "w");
 
     if (!t) {
-        fprintf(f.get(), "<< no rose >>\n");
+        fprintf(f, "<< no rose >>\n");
         return;
     }
 
     // Dump Rose table info
-    roseDumpText(t, f.get());
+    roseDumpText(t, f);
 
     roseDumpComponents(t, false, grey.dumpPath);
     roseDumpPrograms(fragments, t, grey.dumpPath);
@@ -2249,8 +2249,8 @@ void dumpRose(const RoseBuildImpl &build, const vector<LitFragment> &fragments,
     // Literals
     dumpRoseLiterals(build, fragments, grey);
 
-    f = openStdioFile(grey.dumpPath + "/rose_struct.txt", "w");
-    roseDumpStructRaw(t, f.get());
+    f = StdioFile(grey.dumpPath + "/rose_struct.txt", "w");
+    roseDumpStructRaw(t, f);
 }
 
 } // namespace ue2
