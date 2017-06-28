@@ -997,6 +997,7 @@ SET (hs_SRCS
     src/util/fatbit_build.cpp
     src/util/fatbit_build.h
     src/util/graph.h
+    src/util/graph_small_color_map.h
     src/util/hash.h
     src/util/hash_dynamic_bitset.h
     src/util/math.h

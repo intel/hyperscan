@@ -63,6 +63,7 @@
 #include "ng_util.h"
 #include "util/container.h"
 #include "util/graph_range.h"
+#include "util/graph_small_color_map.h"
 #include "util/ue2_containers.h"
 
 #include <algorithm>
@@ -124,17 +125,15 @@ class SearchVisitor : public boost::default_dfs_visitor {
 
 } // namespace
 
-template<class Graph>
+template<class Graph, class ColorMap>
 static
 bool searchForward(const Graph &g, const CharReach &reach,
-                   vector<boost::default_color_type> &colours,
+                   ColorMap &colours,
                    const flat_set<typename Graph::vertex_descriptor> &s,
                    typename Graph::vertex_descriptor w) {
-    fill(colours.begin(), colours.end(), boost::white_color);
-    auto colour_map =
-        make_iterator_property_map(colours.begin(), get(vertex_index, g));
+    colours.fill(small_color::white);
     try {
-        depth_first_visit(g, w, SearchVisitor(reach), colour_map,
+        depth_first_visit(g, w, SearchVisitor(reach), colours,
             VertexInSet<typename Graph::vertex_descriptor, Graph>(s));
     } catch (SearchFailed &) {
         return false;
@@ -166,7 +165,7 @@ bool removeCyclicPathRedundancy(Graph &g, typename Graph::vertex_descriptor v,
     typedef typename Graph::vertex_descriptor vertex_descriptor;
 
     // Colour map used for depth_first_visit().
-    vector<boost::default_color_type> colours(num_vertices(g));
+    auto colours = make_small_color_map(g);
 
     // precalc successors of v.
     flat_set<vertex_descriptor> succ_v;
