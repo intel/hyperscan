@@ -47,6 +47,7 @@
 #include "util/container.h"
 #include "util/dump_charclass.h"
 #include "util/graph_range.h"
+#include "util/graph_small_color_map.h"
 #include "util/report_manager.h"
 
 #include <algorithm>
@@ -2084,14 +2085,14 @@ public:
 static
 void populateFixedTopInfo(const map<u32, u32> &fixed_depth_tops,
                           const NGHolder &g,
-                          ue2::unordered_set<NFAVertex> *reached_by_fixed_tops) {
+                          unordered_set<NFAVertex> *reached_by_fixed_tops) {
     if (fixed_depth_tops.empty()) {
         return; /* we will never find anything */
     }
 
     assert(!proper_out_degree(g.startDs, g));
     ue2::unordered_map<NFAVertex, depth> top_depths;
-    vector<boost::default_color_type> colours(num_vertices(g));
+    auto colours = make_small_color_map(g);
 
     for (const auto &e : out_edges_range(g.start, g)) {
         NFAVertex v = target(e, g);
@@ -2121,9 +2122,7 @@ void populateFixedTopInfo(const map<u32, u32> &fixed_depth_tops,
         /* for each vertex reachable from v update its map to reflect that it is
          * reachable from a top of depth td. */
 
-        depth_first_visit(g, v, pfti_visitor(top_depths, td),
-                          make_iterator_property_map(colours.begin(),
-                                                     get(vertex_index, g)));
+        depth_first_visit(g, v, pfti_visitor(top_depths, td), colours);
     }
 
     for (const auto &v_depth : top_depths) {
