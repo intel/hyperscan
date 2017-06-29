@@ -487,25 +487,24 @@ void dumpLimDotInfo(const limex_type *limex, u32 state, FILE *f) {
     }
 }
 
+template<typename limex_type>
+static
+void dumpLimexDot(const NFA *nfa, const limex_type *limex, FILE *f) {
+    dumpDotPreamble(f);
+    u32 state_count = nfa->nPositions;
+    dumpVertexDotInfo(limex, state_count, f, limex_labeller<limex_type>(limex));
+    for (u32 i = 0; i < state_count; i++) {
+        dumpLimDotInfo(limex, i, f);
+        dumpExDotInfo(limex, i, f);
+    }
+    dumpDotTrailer(f);
+}
+
 #define LIMEX_DUMP_FN(size)                                                    \
     void nfaExecLimEx##size##_dump(const NFA *nfa, const string &base) {       \
         auto limex = (const LimExNFA##size *)getImplNfa(nfa);                  \
-                                                                               \
-        FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");                \
-        dumpLimexText(limex, f);                                               \
-        fclose(f);                                                             \
-                                                                               \
-        f = fopen_or_throw((base + ".dot").c_str(), "w");                      \
-        dumpDotPreamble(f);                                                    \
-        u32 state_count = nfa->nPositions;                                     \
-        dumpVertexDotInfo(limex, state_count, f,                               \
-                          limex_labeller<LimExNFA##size>(limex));              \
-        for (u32 i = 0; i < state_count; i++) {                                \
-            dumpLimDotInfo(limex, i, f);                                       \
-            dumpExDotInfo(limex, i, f);                                        \
-        }                                                                      \
-        dumpDotTrailer(f);                                                     \
-        fclose(f);                                                             \
+        dumpLimexText(limex, StdioFile(base + ".txt", "w"));                   \
+        dumpLimexDot(nfa, limex, StdioFile(base + ".dot", "w"));               \
     }
 
 LIMEX_DUMP_FN(32)
