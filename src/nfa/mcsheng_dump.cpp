@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -394,22 +394,14 @@ void dump_text_8(const NFA *nfa, FILE *f) {
 
 void nfaExecMcSheng16_dump(const NFA *nfa, const string &base) {
     assert(nfa->type == MCSHENG_NFA_16);
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
-    dump_text_16(nfa, f);
-    fclose(f);
-    f = fopen_or_throw((base + ".dot").c_str(), "w");
-    dump_dot_16(nfa, f);
-    fclose(f);
+    dump_text_16(nfa, StdioFile(base + ".txt", "w"));
+    dump_dot_16(nfa, StdioFile(base + ".dot", "w"));
 }
 
 void nfaExecMcSheng8_dump(const NFA *nfa, const string &base) {
     assert(nfa->type == MCSHENG_NFA_8);
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
-    dump_text_8(nfa, f);
-    fclose(f);
-    f = fopen_or_throw((base + ".dot").c_str(), "w");
-    dump_dot_8(nfa, f);
-    fclose(f);
+    dump_text_8(nfa, StdioFile(base + ".txt", "w"));
+    dump_dot_8(nfa, StdioFile(base + ".dot", "w"));
 }
 
 } // namespace ue2
