@@ -37,6 +37,7 @@
 #include "ue2common.h"
 #include "util/depth.h"
 #include "util/graph.h"
+#include "util/graph_small_color_map.h"
 
 #include <deque>
 #include <vector>
@@ -143,7 +144,7 @@ depth findMaxWidth(const NGHolder &h, const SpecialEdgeFilter &filter,
     assert(hasCorrectlyNumberedVertices(h));
     const size_t num = num_vertices(h);
     vector<int> distance(num);
-    vector<boost::default_color_type> colors(num);
+    auto colors = make_small_color_map(h);
 
     auto index_map = get(&NFAGraphVertexProps::index, g);
 
@@ -151,15 +152,15 @@ depth findMaxWidth(const NGHolder &h, const SpecialEdgeFilter &filter,
     dag_shortest_paths(g, src,
         distance_map(make_iterator_property_map(distance.begin(), index_map))
             .weight_map(boost::make_constant_property<NFAEdge>(-1))
-            .color_map(make_iterator_property_map(colors.begin(), index_map)));
+            .color_map(colors));
 
     depth acceptDepth, acceptEodDepth;
-    if (colors.at(NODE_ACCEPT) == boost::white_color) {
+    if (get(colors, h.accept) == small_color::white) {
         acceptDepth = depth::unreachable();
     } else {
         acceptDepth = depth(-1 * distance.at(NODE_ACCEPT));
     }
-    if (colors.at(NODE_ACCEPT_EOD) == boost::white_color) {
+    if (get(colors, h.acceptEod) == small_color::white) {
         acceptEodDepth = depth::unreachable();
     } else {
         acceptEodDepth = depth(-1 * distance.at(NODE_ACCEPT_EOD));
