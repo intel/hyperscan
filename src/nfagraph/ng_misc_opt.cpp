@@ -69,6 +69,7 @@
 #include "util/charreach.h"
 #include "util/container.h"
 #include "util/graph_range.h"
+#include "util/graph_small_color_map.h"
 #include "util/ue2_containers.h"
 #include "ue2common.h"
 
@@ -552,16 +553,17 @@ bool mergeCyclicDotStars(NGHolder &g) {
 
 struct PrunePathsInfo {
     explicit PrunePathsInfo(const NGHolder &g)
-        : color_map(num_vertices(g)), bad(num_vertices(g)) {}
+        : color_map(make_small_color_map(g)), bad(num_vertices(g)) {}
 
     void clear() {
         no_explore.clear();
-        fill(color_map.begin(), color_map.end(), boost::white_color);
+        color_map.fill(small_color::white);
         bad.reset();
     }
 
     flat_set<NFAEdge> no_explore;
-    vector<boost::default_color_type> color_map;
+    using color_map_type = decltype(make_small_color_map(NGHolder()));
+    color_map_type color_map;
     boost::dynamic_bitset<> bad;
 };
 
@@ -597,9 +599,6 @@ void findDependentVertices(const NGHolder &g, PrunePathsInfo &info,
     auto filtered_g =
         make_filtered_graph(g, make_bad_edge_filter(&info.no_explore));
 
-    auto color = make_iterator_property_map(info.color_map.begin(),
-                                            get(vertex_index, g));
-
     // We use a bitset to track bad vertices, rather than filling a (potentially
     // very large) set structure.
     auto recorder = make_vertex_index_bitset_recorder(info.bad);
@@ -608,7 +607,7 @@ void findDependentVertices(const NGHolder &g, PrunePathsInfo &info,
         if (b != g.start && g[b].char_reach.isSubsetOf(g[v].char_reach)) {
             continue;
         }
-        boost::depth_first_visit(filtered_g, b, recorder, color);
+        boost::depth_first_visit(filtered_g, b, recorder, info.color_map);
     }
 }
 
