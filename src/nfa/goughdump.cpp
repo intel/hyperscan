@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -353,22 +353,14 @@ void nfaExecGough16_dumpText(const struct NFA *nfa, FILE *f) {
 
 void nfaExecGough16_dump(const NFA *nfa, const string &base) {
     assert(nfa->type == GOUGH_NFA_16);
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
-    nfaExecGough16_dumpText(nfa, f);
-    fclose(f);
-    f = fopen_or_throw((base + ".dot").c_str(), "w");
-    nfaExecGough16_dumpDot(nfa, f);
-    fclose(f);
+    nfaExecGough16_dumpText(nfa, StdioFile(base + ".txt", "w"));
+    nfaExecGough16_dumpDot(nfa, StdioFile(base + ".dot", "w"));
 }
 
 void nfaExecGough8_dump(const NFA *nfa, const string &base) {
     assert(nfa->type == GOUGH_NFA_8);
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
-    nfaExecGough8_dumpText(nfa, f);
-    fclose(f);
-    f = fopen_or_throw((base + ".dot").c_str(), "w");
-    nfaExecGough8_dumpDot(nfa, f);
-    fclose(f);
+    nfaExecGough8_dumpText(nfa, StdioFile(base + ".txt", "w"));
+    nfaExecGough8_dumpDot(nfa, StdioFile(base + ".dot", "w"));
 }
 
 } // namespace ue2
