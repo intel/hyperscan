@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -71,47 +71,40 @@ void nfaExecLbrDot_dump(const NFA *nfa, const string &base) {
     assert(nfa);
     assert(nfa->type == LBR_NFA_DOT);
     const lbr_dot *ld = (const lbr_dot *)getImplNfa(nfa);
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+    StdioFile f(base + ".txt", "w");
     lbrDumpCommon(&ld->common, f);
     fprintf(f, "DOT model\n");
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
-    fclose(f);
 }
 
 void nfaExecLbrVerm_dump(const NFA *nfa, const string &base) {
     assert(nfa);
     assert(nfa->type == LBR_NFA_VERM);
     const lbr_verm *lv = (const lbr_verm *)getImplNfa(nfa);
-
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
-
+    StdioFile f(base + ".txt", "w");
     lbrDumpCommon(&lv->common, f);
     fprintf(f, "VERM model, scanning for 0x%02x\n", lv->c);
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
-    fclose(f);
 }
 
 void nfaExecLbrNVerm_dump(const NFA *nfa, const string &base) {
     assert(nfa);
     assert(nfa->type == LBR_NFA_NVERM);
     const lbr_verm *lv = (const lbr_verm *)getImplNfa(nfa);
-
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
-
+    StdioFile f(base + ".txt", "w");
     lbrDumpCommon(&lv->common, f);
     fprintf(f, "NEGATED VERM model, scanning for 0x%02x\n", lv->c);
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
-    fclose(f);
 }
 
 void nfaExecLbrShuf_dump(const NFA *nfa, const string &base) {
     assert(nfa);
     assert(nfa->type == LBR_NFA_SHUF);
 
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+    StdioFile f(base + ".txt", "w");
 
     const lbr_shuf *ls = (const lbr_shuf *)getImplNfa(nfa);
     lbrDumpCommon(&ls->common, f);
@@ -122,14 +115,13 @@ void nfaExecLbrShuf_dump(const NFA *nfa, const string &base) {
             describeClass(cr, 20, CC_OUT_TEXT).c_str(), cr.count());
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
-    fclose(f);
 }
 
 void nfaExecLbrTruf_dump(const NFA *nfa, const string &base) {
     assert(nfa);
     assert(nfa->type == LBR_NFA_TRUF);
 
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+    StdioFile f(base + ".txt", "w");
 
     const lbr_truf *lt = (const lbr_truf *)getImplNfa(nfa);
     lbrDumpCommon(&lt->common, f);
@@ -140,7 +132,6 @@ void nfaExecLbrTruf_dump(const NFA *nfa, const string &base) {
             describeClass(cr, 20, CC_OUT_TEXT).c_str(), cr.count());
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
-    fclose(f);
 }
 
 } // namespace ue2
