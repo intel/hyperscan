@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,7 +40,6 @@
 #include "util/dump_charclass.h"
 #include "util/dump_util.h"
 #include "util/simd_types.h"
-
 
 #ifndef DUMP_SUPPORT
 #error No dump support!
@@ -267,12 +266,8 @@ void nfaExecSheng_dumpDot(const NFA *nfa, FILE *f) {
 
 void nfaExecSheng_dump(const NFA *nfa, const string &base) {
     assert(nfa->type == SHENG_NFA);
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
-    nfaExecSheng_dumpText(nfa, f);
-    fclose(f);
-    f = fopen_or_throw((base + ".dot").c_str(), "w");
-    nfaExecSheng_dumpDot(nfa, f);
-    fclose(f);
+    nfaExecSheng_dumpText(nfa, StdioFile(base + ".txt", "w"));
+    nfaExecSheng_dumpDot(nfa, StdioFile(base + ".dot", "w"));
 }
 
 } // namespace ue2
