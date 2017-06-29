@@ -44,7 +44,7 @@ struct noodTable;
 
 /** \brief Block-mode scanner. */
 hwlm_error_t noodExec(const struct noodTable *n, const u8 *buf, size_t len,
-                      size_t offset_adj, HWLMCallback cb, void *ctxt);
+                      size_t start, HWLMCallback cb, void *ctxt);
 
 /** \brief Streaming-mode scanner. */
 hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
