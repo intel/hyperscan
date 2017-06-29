@@ -192,7 +192,8 @@ u64a cpuid_flags(void) {
     cap &= ~HS_CPU_FEATURES_AVX2;
 #endif
 
-#if !defined(FAT_RUNTIME) && !defined(HAVE_AVX512)
+#if (!defined(FAT_RUNTIME) && !defined(HAVE_AVX512)) ||                        \
+    (defined(FAT_RUNTIME) && !defined(BUILD_AVX512))
     cap &= ~HS_CPU_FEATURES_AVX512;
 #endif
 

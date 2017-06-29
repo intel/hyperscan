@@ -21,6 +21,9 @@
 /* Define if building "fat" runtime. */
 #cmakedefine FAT_RUNTIME
 
+/* Define if building AVX-512 in the fat runtime. */
+#cmakedefine BUILD_AVX512
+
 /* Define to 1 if `backtrace' works. */
 #cmakedefine HAVE_BACKTRACE
 
