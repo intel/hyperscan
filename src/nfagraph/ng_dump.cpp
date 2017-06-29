@@ -51,6 +51,7 @@
 #include "smallwrite/smallwrite_dump.h"
 #include "util/bitutils.h"
 #include "util/dump_charclass.h"
+#include "util/dump_util.h"
 #include "util/report.h"
 #include "util/report_manager.h"
 #include "util/ue2string.h"
@@ -348,14 +349,7 @@ void dumpSmallWrite(const RoseEngine *rose, const Grey &grey) {
     }
 
     const struct SmallWriteEngine *smwr = getSmallWrite(rose);
-
-    stringstream ss;
-    ss << grey.dumpPath << "smallwrite.txt";
-
-    FILE *f = fopen(ss.str().c_str(), "w");
-    smwrDumpText(smwr, f);
-    fclose(f);
-
+    smwrDumpText(smwr, StdioFile(grey.dumpPath + "smallwrite.txt", "w"));
     smwrDumpNFA(smwr, false, grey.dumpPath);
 }
 
@@ -420,9 +414,7 @@ void dumpReportManager(const ReportManager &rm, const Grey &grey) {
         return;
     }
 
-    stringstream ss;
-    ss << grey.dumpPath << "internal_reports.txt";
-    FILE *f = fopen(ss.str().c_str(), "w");
+    StdioFile f(grey.dumpPath + "internal_reports.txt", "w");
     const vector<Report> &reports = rm.reports();
     for (size_t i = 0; i < reports.size(); i++) {
         const Report &report = reports[i];
@@ -461,7 +453,6 @@ void dumpReportManager(const ReportManager &rm, const Grey &grey) {
         }
         fprintf(f, "\n");
     }
-    fclose(f);
 }
 
 } // namespace ue2
