@@ -207,14 +207,16 @@ void calcDepthFromSource(const GraphT &g,
                          visitor(make_bfs_visitor(record_distances(
                              make_iterator_property_map(dMin.begin(),
                                                         min_index_map),
-                             boost::on_tree_edge()))));
+                             boost::on_tree_edge())))
+                         .color_map(make_small_color_map(mindist_g)));
 
     auto max_index_map = get(vertex_index, maxdist_g);
 
     dag_shortest_paths(maxdist_g, srcVertex,
                        distance_map(make_iterator_property_map(dMax.begin(),
                                                                max_index_map))
-                       .weight_map(make_constant_property<EdgeT>(-1)));
+                       .weight_map(make_constant_property<EdgeT>(-1))
+                       .color_map(make_small_color_map(maxdist_g)));
 
     for (size_t i = 0; i < numVerts; i++) {
         if (dMin[i] > DIST_UNREACHABLE) {
