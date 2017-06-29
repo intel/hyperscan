@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,6 +34,7 @@
 #include "nfa/nfa_build_util.h"
 #include "nfa/nfa_dump_api.h"
 #include "nfa/nfa_internal.h"
+#include "util/dump_util.h"
 
 #include <cstdio>
 #include <string>
@@ -74,9 +75,8 @@ void smwrDumpNFA(const SmallWriteEngine *smwr, bool dump_raw,
     nfaGenerateDumpFiles(n, base + "smallwrite_nfa");
 
     if (dump_raw) {
-        FILE *f = fopen((base + "smallwrite_nfa.raw").c_str(), "w");
+        StdioFile f(base + "smallwrite_nfa.raw", "w");
         fwrite(n, 1, n->length, f);
-        fclose(f);
     }
 }
 
