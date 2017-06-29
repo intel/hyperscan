@@ -27,7 +27,7 @@
  */
 
 /** \file
- * \brief Tamarama: container engine for exclusve engines, dump code.
+ * \brief Tamarama: container engine for exclusive engines, dump code.
  */
 
 #include "config.h"
