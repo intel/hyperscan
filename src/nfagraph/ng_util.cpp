@@ -39,6 +39,7 @@
 #include "nfa/limex_limits.h" // for NFA_MAX_TOP_MASKS.
 #include "parser/position.h"
 #include "util/graph_range.h"
+#include "util/graph_small_color_map.h"
 #include "util/make_unique.h"
 #include "util/order_check.h"
 #include "util/ue2string.h"
@@ -52,7 +53,6 @@
 #include <boost/range/adaptor/map.hpp>
 
 using namespace std;
-using boost::default_color_type;
 using boost::make_filtered_graph;
 using boost::make_assoc_property_map;
 
@@ -226,15 +226,12 @@ bool isAcyclic(const NGHolder &g) {
 /** True if the graph has a cycle reachable from the given source vertex. */
 bool hasReachableCycle(const NGHolder &g, NFAVertex src) {
     assert(hasCorrectlyNumberedVertices(g));
-    vector<default_color_type> colors(num_vertices(g));
 
     try {
         // Use depth_first_visit, rather than depth_first_search, so that we
         // only search from src.
-        auto index_map = get(vertex_index, g);
         boost::depth_first_visit(g, src, DetectCycles(g),
-                                 make_iterator_property_map(colors.begin(),
-                                                            index_map));
+                                 make_small_color_map(g));
     } catch (const CycleFound &) {
         return true;
     }
@@ -353,24 +350,19 @@ vector<NFAVertex> getTopoOrdering(const NGHolder &g) {
 
     // Use the same colour map for both DFS and topological_sort below: avoids
     // having to reallocate it, etc.
-    const size_t num_verts = num_vertices(g);
-    vector<default_color_type> colour(num_verts);
+    auto colors = make_small_color_map(g);
 
     using EdgeSet = ue2::unordered_set<NFAEdge>;
     EdgeSet backEdges;
     BackEdges<EdgeSet> be(backEdges);
 
-    auto index_map = get(vertex_index, g);
-    depth_first_search(g, visitor(be).root_vertex(g.start)
-                                     .color_map(make_iterator_property_map(
-                                                colour.begin(), index_map)));
+    depth_first_search(g, visitor(be).root_vertex(g.start).color_map(colors));
 
     auto acyclic_g = make_filtered_graph(g, make_bad_edge_filter(&backEdges));
 
     vector<NFAVertex> ordering;
-    ordering.reserve(num_verts);
-    topological_sort(acyclic_g, back_inserter(ordering),
-        color_map(make_iterator_property_map(colour.begin(), index_map)));
+    ordering.reserve(num_vertices(g));
+    topological_sort(acyclic_g, back_inserter(ordering), color_map(colors));
 
     reorderSpecials(g, ordering);
 
@@ -379,7 +371,7 @@ vector<NFAVertex> getTopoOrdering(const NGHolder &g) {
 
 static
 void mustBeSetBefore_int(NFAVertex u, const NGHolder &g,
-                         vector<default_color_type> &vertexColor) {
+                         decltype(make_small_color_map(NGHolder())) &colors) {
     set<NFAVertex> s;
     insert(&s, adjacent_vertices(u, g));
 
@@ -396,10 +388,8 @@ void mustBeSetBefore_int(NFAVertex u, const NGHolder &g,
 
     auto prefix = make_filtered_graph(g, make_bad_edge_filter(&dead));
 
-    depth_first_visit(
-        prefix, g.start, make_dfs_visitor(boost::null_visitor()),
-        make_iterator_property_map(vertexColor.begin(),
-                                   get(vertex_index, g)));
+    depth_first_visit(prefix, g.start, make_dfs_visitor(boost::null_visitor()),
+                      colors);
 }
 
 bool mustBeSetBefore(NFAVertex u, NFAVertex v, const NGHolder &g,
@@ -412,14 +402,14 @@ bool mustBeSetBefore(NFAVertex u, NFAVertex v, const NGHolder &g,
         return cache.cache[key];
     }
 
-    vector<default_color_type> vertexColor(num_vertices(g));
-    mustBeSetBefore_int(u, g, vertexColor);
+    auto colors = make_small_color_map(g);
+    mustBeSetBefore_int(u, g, colors);
 
     for (auto vi : vertices_range(g)) {
         auto key2 = make_pair(g[u].index, g[vi].index);
         DEBUG_PRINTF("adding %zu %zu\n", key2.first, key2.second);
         assert(!contains(cache.cache, key2));
-        bool value = vertexColor[g[vi].index] == boost::white_color;
+        bool value = get(colors, vi) == small_color::white;
         cache.cache[key2] = value;
         assert(contains(cache.cache, key2));
     }
