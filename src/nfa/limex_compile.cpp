@@ -55,6 +55,7 @@
 #include "util/container.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
+#include "util/graph_small_color_map.h"
 #include "util/order_check.h"
 #include "util/verify_types.h"
 #include "util/ue2_containers.h"
@@ -544,11 +545,9 @@ void filterAccelStates(NGHolder &g, const map<u32, set<NFAVertex>> &tops,
     ue2::unordered_map<NFAVertex, AccelScheme> out;
 
     try {
-        vector<boost::default_color_type> colour(num_vertices(g));
         boost::breadth_first_search(g, g.start,
-            visitor(fas_visitor(*accel_map, &out))
-                .color_map(make_iterator_property_map(colour.begin(),
-                                                      get(vertex_index, g))));
+                                    visitor(fas_visitor(*accel_map, &out))
+                                        .color_map(make_small_color_map(g)));
     } catch (fas_visitor *) {
         ; /* found max accel_states */
     }
@@ -1615,9 +1614,7 @@ bool cannotDie(const build_info &args, const set<NFAVertex> &tops) {
     // top, looking for a cyclic path consisting of vertices of dot reach. If
     // one exists, than the NFA cannot die after this top is triggered.
 
-    vector<boost::default_color_type> colours(num_vertices(h));
-    auto colour_map = boost::make_iterator_property_map(colours.begin(),
-                                                        get(vertex_index, h));
+    auto colour_map = make_small_color_map(h);
 
     struct CycleFound {};
     struct CannotDieVisitor : public boost::default_dfs_visitor {
