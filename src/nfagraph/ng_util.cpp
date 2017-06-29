@@ -214,8 +214,8 @@ bool isFloating(const NGHolder &g) {
 
 bool isAcyclic(const NGHolder &g) {
     try {
-        boost::depth_first_search(g, visitor(DetectCycles(g))
-                                     .root_vertex(g.start));
+        boost::depth_first_search(g, DetectCycles(g), make_small_color_map(g),
+                                  g.start);
     } catch (const CycleFound &) {
         return false;
     }
@@ -243,7 +243,8 @@ bool hasBigCycles(const NGHolder &g) {
     assert(hasCorrectlyNumberedVertices(g));
     set<NFAEdge> dead;
     BackEdges<set<NFAEdge>> backEdgeVisitor(dead);
-    boost::depth_first_search(g, visitor(backEdgeVisitor).root_vertex(g.start));
+    boost::depth_first_search(g, backEdgeVisitor, make_small_color_map(g),
+                              g.start);
 
     for (const auto &e : dead) {
         if (source(e, g) != target(e, g)) {
