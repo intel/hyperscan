@@ -174,8 +174,8 @@ hwlm_error_t scanSingleMain(const struct noodTable *n, const u8 *buf,
     }
 
     if (end - offset == CHUNKSIZE) {
-        rv = scanSingleUnaligned(n, buf, len, 0, noCase, caseMask, mask1, cbi,
-                                 offset, end);
+        rv = scanSingleUnaligned(n, buf, len, offset, noCase, caseMask, mask1,
+                                 cbi, offset, end);
         return rv;
     }
 
@@ -188,8 +188,8 @@ hwlm_error_t scanSingleMain(const struct noodTable *n, const u8 *buf,
     if (offset != s2Start) {
         // first scan out to the fast scan starting point
         DEBUG_PRINTF("stage 1: -> %zu\n", s2Start);
-        rv = scanSingleUnaligned(n, buf, len, 0, noCase, caseMask, mask1, cbi,
-                                 offset, s2Start);
+        rv = scanSingleUnaligned(n, buf, len, offset, noCase, caseMask, mask1,
+                                 cbi, offset, s2Start);
         RETURN_IF_TERMINATED(rv);
     }
 
