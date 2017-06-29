@@ -36,10 +36,11 @@
 #include "nfagraph/ng_dump.h"
 #include "nfagraph/ng_is_equal.h"
 #include "util/container.h"
+#include "util/dump_util.h"
 #include "ue2common.h"
 
-#include <map>
 #include <cstdio>
+#include <map>
 #include <string>
 
 #ifndef DUMP_SUPPORT
@@ -55,7 +56,6 @@ void dumpSomSlotManager(const SomSlotManager &ssm, const Grey &grey) {
         return;
     }
 
-    string filename = grey.dumpPath + "/ssm.txt";
     map<u32, const SlotCacheEntry *> by_slot;
     map<u32, const InitialResetInfo *> by_slot_ir;
 
@@ -67,7 +67,7 @@ void dumpSomSlotManager(const SomSlotManager &ssm, const Grey &grey) {
         by_slot_ir[e.slot] = &e;
     }
 
-    FILE *f = fopen(filename.c_str(), "w");
+    StdioFile f(grey.dumpPath + "/ssm.txt", "w");
 
     fprintf(f, "slot width %u bytes\n\n", ssm.precision);
 
@@ -93,8 +93,6 @@ void dumpSomSlotManager(const SomSlotManager &ssm, const Grey &grey) {
             fprintf(f, "\t<private>\n");
         }
     }
-
-    fclose(f);
 
     for (const auto &h : ssm.cache->initial_prefixes) {
         dumpHolder(*h, hash_holder(*h), "ssm_prefix", grey);
