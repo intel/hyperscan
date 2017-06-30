@@ -479,7 +479,6 @@ do {                                                                          \
                                      a->buf, buf_end,                         \
                                      a->buf_history, a->len_history, n_msk);  \
         m256 r_0 = PREP_CONF_FN_NO_REINFORCEMENT(val_0, n_msk);               \
-        c_0 = *(ptr + 31);                                                    \
         r_0 = or256(r_0, p_mask);                                             \
         CONFIRM_TEDDY(r_0, 8, 0, VECTORING, conf_fn);                         \
         ptr += 32;                                                            \
