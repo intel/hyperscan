@@ -389,12 +389,17 @@ hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
                                HWLMCallback cb, void *ctxt) {
     assert(n);
 
+    if (len + hlen < n->msk_len) {
+        DEBUG_PRINTF("not enough bytes for a match\n");
+        return HWLM_SUCCESS;
+    }
+
     struct cb_info cbi = {cb, n->id, ctxt, 0};
     DEBUG_PRINTF("nood scan of %zu bytes (%zu hlen) for %*s @ %p\n", len, hlen,
                  n->lit_len, (const char *)&n->cmp + n->msk_len - n->lit_len,
                  buf);
 
-    if (hlen) {
+    if (hlen && n->msk_len > 1) {
         /*
          * we have history, so build up a buffer from enough of the history
          * buffer plus what we've been given to scan. Since this is relatively
@@ -409,6 +414,7 @@ hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
         size_t tl2 = MIN((size_t)n->msk_len - 1, len);
 
         assert(tl1 + tl2 <= sizeof(temp_buf));
+        assert(tl1 + tl2 >= n->msk_len);
         assert(tl1 <= sizeof(u64a));
         assert(tl2 <= sizeof(u64a));
         DEBUG_PRINTF("using %zu bytes of hist and %zu bytes of buf\n", tl1, tl2);
@@ -417,7 +423,7 @@ hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
                              partial_load_u64a(hbuf + hlen - tl1, tl1));
         unaligned_store_u64a(temp_buf + tl1, partial_load_u64a(buf, tl2));
 
-        for (size_t i = 0; i < tl1; i++) {
+        for (size_t i = 0; i <= tl1 + tl2 - n->msk_len; i++) {
             u64a v = unaligned_load_u64a(temp_buf + i);
             if ((v & n->msk) == n->cmp) {
                 size_t m_end = -tl1 + i + n->msk_len - 1;
