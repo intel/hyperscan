@@ -735,6 +735,7 @@ SET (hs_SRCS
     src/nfa/nfa_build_util.h
     src/nfa/nfa_internal.h
     src/nfa/nfa_kind.h
+    src/nfa/rdfa.cpp
     src/nfa/rdfa.h
     src/nfa/rdfa_graph.cpp
     src/nfa/rdfa_graph.h

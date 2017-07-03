@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,13 +26,34 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "dfa_build_strat.h"
+#include "rdfa.h"
 
 namespace ue2 {
 
-// prevent weak vtables for raw_report_info, dfa_build_strat
-raw_report_info::~raw_report_info() {}
+// prevent weak vtables
+raw_dfa::~raw_dfa() {}
 
-dfa_build_strat::~dfa_build_strat() {}
+u16 raw_dfa::getImplAlphaSize() const {
+    return alpha_size - N_SPECIAL_SYMBOL;
+}
+
+void raw_dfa::stripExtraEodReports(void) {
+    /* if a state generates a given report as a normal accept - then it does
+     * not also need to generate an eod report for it */
+    for (dstate &ds : states) {
+        for (const ReportID &report : ds.reports) {
+            ds.reports_eod.erase(report);
+        }
+    }
+}
+
+bool raw_dfa::hasEodReports(void) const {
+    for (const dstate &ds : states) {
+        if (!ds.reports_eod.empty()) {
+            return true;
+        }
+    }
+    return false;
+}
 
 } // namespace ue2

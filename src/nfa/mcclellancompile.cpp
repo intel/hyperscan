@@ -914,33 +914,6 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id, bool using8bit,
     info.extra[curr_id].shermanState = true;
 }
 
-/*
- * Calls accessible outside this module.
- */
-
-u16 raw_dfa::getImplAlphaSize() const {
-    return alpha_size - N_SPECIAL_SYMBOL;
-}
-
-void raw_dfa::stripExtraEodReports(void) {
-    /* if a state generates a given report as a normal accept - then it does
-     * not also need to generate an eod report for it */
-    for (dstate &ds : states) {
-        for (const ReportID &report : ds.reports) {
-            ds.reports_eod.erase(report);
-        }
-    }
-}
-
-bool raw_dfa::hasEodReports(void) const {
-    for (const dstate &ds : states) {
-        if (!ds.reports_eod.empty()) {
-            return true;
-        }
-    }
-    return false;
-}
-
 static
 bool is_cyclic_near(const raw_dfa &raw, dstate_id_t root) {
     symbol_t alphasize = raw.getImplAlphaSize();
