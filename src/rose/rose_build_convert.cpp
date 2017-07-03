@@ -84,7 +84,7 @@ size_t suffixFloodLen(const ue2_literal &s) {
 
     const ue2_literal::elem &c = s.back();
     auto it = find_if(s.rbegin(), s.rend(),
-                      bind2nd(not_equal_to<ue2_literal::elem>(), c));
+                      [&c](const ue2_literal::elem &e) { return e != c; });
     return distance(s.rbegin(), it);
 }
 
