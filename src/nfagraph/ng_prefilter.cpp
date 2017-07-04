@@ -213,33 +213,38 @@ map<u32, RegionInfo> findRegionInfo(const NGHolder &h,
 }
 
 static
-void copyInEdges(NGHolder &g, NFAVertex from, NFAVertex to,
-                 const ue2::unordered_set<NFAVertex> &rverts) {
+void copyInEdges(NGHolder &g, NFAVertex from, NFAVertex to) {
     for (const auto &e : in_edges_range(from, g)) {
         NFAVertex u = source(e, g);
-        if (contains(rverts, u)) {
-            continue;
-        }
-
         add_edge_if_not_present(u, to, g[e], g);
     }
 }
 
 static
-void copyOutEdges(NGHolder &g, NFAVertex from, NFAVertex to,
-                  const ue2::unordered_set<NFAVertex> &rverts) {
+void copyOutEdges(NGHolder &g, NFAVertex from, NFAVertex to) {
     for (const auto &e : out_edges_range(from, g)) {
         NFAVertex t = target(e, g);
-        if (contains(rverts, t)) {
-            continue;
-        }
-
         add_edge_if_not_present(to, t, g[e], g);
 
         if (is_any_accept(t, g)) {
             const auto &reports = g[from].reports;
             g[to].reports.insert(reports.begin(), reports.end());
         }
+    }
+}
+
+static
+void removeInteriorEdges(NGHolder &g, const RegionInfo &ri) {
+    // Set of vertices in region, for quick lookups.
+    const unordered_set<NFAVertex> rverts(ri.vertices.begin(),
+                                          ri.vertices.end());
+
+    auto is_interior_in_edge = [&](const NFAEdge &e) {
+        return contains(rverts, source(e, g));
+    };
+
+    for (auto v : ri.vertices) {
+        remove_in_edge_if(v, is_interior_in_edge, g);
     }
 }
 
@@ -284,19 +289,17 @@ void replaceRegion(NGHolder &g, const RegionInfo &ri,
         add_edge(verts.back(), verts.back(), g);
     }
 
-    // Set of vertices in region, for quick lookups.
-    const ue2::unordered_set<NFAVertex> rverts(ri.vertices.begin(),
-                                               ri.vertices.end());
+    removeInteriorEdges(g, ri);
 
     for (size_t i = 0; i < replacementSize; i++) {
         NFAVertex v_new = verts[i];
 
         for (auto v_old : ri.vertices) {
             if (i == 0) {
-                copyInEdges(g, v_old, v_new, rverts);
+                copyInEdges(g, v_old, v_new);
             }
             if (i + 1 >= ri.minWidth) {
-                copyOutEdges(g, v_old, v_new, rverts);
+                copyOutEdges(g, v_old, v_new);
             }
         }
     }
