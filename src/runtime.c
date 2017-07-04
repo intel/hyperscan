@@ -764,7 +764,7 @@ void pureLiteralStreamExec(struct hs_stream *stream_state,
     // start the match region at zero.
     const size_t start = 0;
 
-    hwlmExecStreaming(ftable, scratch, len2, start, roseCallback, scratch,
+    hwlmExecStreaming(ftable, len2, start, roseCallback, scratch,
                       rose->initialGroups & rose->floating_group_mask);
 
     if (!told_to_stop_matching(scratch) &&

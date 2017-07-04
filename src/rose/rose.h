@@ -46,7 +46,7 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch);
 void roseStreamEodExec(const struct RoseEngine *t, u64a offset,
                        struct hs_scratch *scratch);
 
-hwlmcb_rv_t roseCallback(size_t end, u32 id, void *context);
+hwlmcb_rv_t roseCallback(size_t end, u32 id, struct hs_scratch *scratch);
 
 int roseReportAdaptor(u64a start, u64a end, ReportID id, void *context);
 

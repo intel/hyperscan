@@ -659,8 +659,8 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
         DEBUG_PRINTF("start=%zu\n", start);
 
         DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
-        hwlmExecStreaming(ftable, scratch, flen, start, roseFloatingCallback,
-                          scratch, tctxt->groups & t->floating_group_mask);
+        hwlmExecStreaming(ftable, flen, start, roseFloatingCallback, scratch,
+                          tctxt->groups & t->floating_group_mask);
     }
 
 flush_delay_and_exit:

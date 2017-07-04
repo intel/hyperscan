@@ -39,6 +39,7 @@
 #include "util/alloc.h"
 
 #include "database.h"
+#include "scratch.h"
 #include "gtest/gtest.h"
 
 #include <algorithm>
@@ -85,28 +86,23 @@ struct match {
     }
 };
 
+vector<match> matches;
+
 extern "C" {
 
 static
-hwlmcb_rv_t decentCallback(size_t end, u32 id, void *ctxt) {
+hwlmcb_rv_t decentCallback(size_t end, u32 id,
+                           UNUSED struct hs_scratch *scratch) {
     DEBUG_PRINTF("match @%zu : %u\n", end, id);
-    if (!ctxt) {
-        return HWLM_CONTINUE_MATCHING;
-    }
 
-    vector<match> *out = (vector<match> *)ctxt;
-    out->push_back(match(end, id));
+    matches.push_back(match(end, id));
     return HWLM_CONTINUE_MATCHING;
 }
 
 static
-hwlmcb_rv_t decentCallbackT(size_t end, u32 id, void *ctxt) {
-    if (!ctxt) {
-        return HWLM_TERMINATE_MATCHING;
-    }
-
-    vector<match> *out = (vector<match> *)ctxt;
-    out->push_back(match(end, id));
+hwlmcb_rv_t decentCallbackT(size_t end, u32 id,
+                            UNUSED struct hs_scratch *scratch) {
+    matches.push_back(match(end, id));
     return HWLM_TERMINATE_MATCHING;
 }
 
@@ -154,14 +150,15 @@ TEST_P(FDRp, Simple) {
     auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
-    vector<match> matches;
+    struct hs_scratch scratch;
     fdrExec(fdr.get(), (const u8 *)data, sizeof(data), 0, decentCallback,
-            &matches, HWLM_ALL_GROUPS);
+            &scratch, HWLM_ALL_GROUPS);
 
     ASSERT_EQ(3U, matches.size());
     EXPECT_EQ(match(5, 0), matches[0]);
     EXPECT_EQ(match(23, 0), matches[1]);
     EXPECT_EQ(match(83, 0), matches[2]);
+    matches.clear();
 }
 
 TEST_P(FDRp, SimpleSingle) {
@@ -176,15 +173,16 @@ TEST_P(FDRp, SimpleSingle) {
     auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
-    vector<match> matches;
+    struct hs_scratch scratch;
     fdrExec(fdr.get(), (const u8 *)data, sizeof(data) - 1 /* skip nul */, 0,
-            decentCallback, &matches, HWLM_ALL_GROUPS);
+            decentCallback, &scratch, HWLM_ALL_GROUPS);
 
     ASSERT_EQ(4U, matches.size());
     EXPECT_EQ(match(0, 0), matches[0]);
     EXPECT_EQ(match(18, 0), matches[1]);
     EXPECT_EQ(match(78, 0), matches[2]);
     EXPECT_EQ(match(80, 0), matches[3]);
+    matches.clear();
 }
 
 TEST_P(FDRp, MultiLocation) {
@@ -201,14 +199,15 @@ TEST_P(FDRp, MultiLocation) {
 
     vector<u8> data(testSize, 0);
 
+    struct hs_scratch scratch;
     for (u32 i = 0; i < testSize - 3; i++) {
         memcpy(data.data() + i, "abc", 3);
-        vector<match> matches;
-        fdrExec(fdr.get(), data.data(), testSize, 0, decentCallback, &matches,
+        fdrExec(fdr.get(), data.data(), testSize, 0, decentCallback, &scratch,
                 HWLM_ALL_GROUPS);
         ASSERT_EQ(1U, matches.size());
         EXPECT_EQ(match(i + 2, 1), matches[0]);
         memset(data.data() + i, 0, 3);
+        matches.clear();
     }
 }
 
@@ -224,12 +223,13 @@ TEST_P(FDRp, NoRepeat1) {
     auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
-    vector<match> matches;
+    struct hs_scratch scratch;
     fdrExec(fdr.get(), (const u8 *)data, sizeof(data) - 1 /* skip nul */, 0,
-            decentCallback, &matches, HWLM_ALL_GROUPS);
+            decentCallback, &scratch, HWLM_ALL_GROUPS);
 
     ASSERT_EQ(1U, matches.size());
     EXPECT_EQ(match(0, 0), matches[0]);
+    matches.clear();
 }
 
 TEST_P(FDRp, NoRepeat2) {
@@ -245,13 +245,14 @@ TEST_P(FDRp, NoRepeat2) {
     auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
-    vector<match> matches;
+    struct hs_scratch scratch;
     fdrExec(fdr.get(), (const u8 *)data, sizeof(data) - 1 /* skip nul */, 0,
-            decentCallback, &matches, HWLM_ALL_GROUPS);
+            decentCallback, &scratch, HWLM_ALL_GROUPS);
 
     ASSERT_EQ(3U, matches.size());
     EXPECT_EQ(match(0, 0), matches[0]);
     EXPECT_EQ(match(78, 0), matches[2]);
+    matches.clear();
 }
 
 TEST_P(FDRp, NoRepeat3) {
@@ -267,12 +268,13 @@ TEST_P(FDRp, NoRepeat3) {
     auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
-    vector<match> matches;
+    struct hs_scratch scratch;
     fdrExec(fdr.get(), (const u8 *)data, sizeof(data) - 1 /* skip nul */, 0,
-            decentCallback, &matches, HWLM_ALL_GROUPS);
+            decentCallback, &scratch, HWLM_ALL_GROUPS);
 
     ASSERT_EQ(1U, matches.size());
     EXPECT_EQ(match(32, 0), matches[0]);
+    matches.clear();
 }
 
 /**
@@ -282,8 +284,7 @@ TEST_P(FDRp, NoRepeat3) {
 static
 hwlm_error_t safeExecStreaming(const FDR *fdr, const u8 *hbuf, size_t hlen,
                                const u8 *buf, size_t len, size_t start,
-                               HWLMCallback cb, void *ctxt,
-                               hwlm_group_t groups) {
+                               HWLMCallback cb, hwlm_group_t groups) {
     array<u8, 16> wrapped_history = {{'0', '1', '2', '3', '4', '5', '6', '7',
                                       '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'}};
     if (hlen < 16) {
@@ -291,7 +292,9 @@ hwlm_error_t safeExecStreaming(const FDR *fdr, const u8 *hbuf, size_t hlen,
         memcpy(new_hbuf, hbuf, hlen);
         hbuf = new_hbuf;
     }
-    return fdrExecStreaming(fdr, hbuf, hlen, buf, len, start, cb, ctxt, groups);
+    struct hs_scratch scratch;
+    return fdrExecStreaming(fdr, hbuf, hlen, buf, len, start, cb, &scratch,
+                            groups);
 }
 
 TEST_P(FDRp, SmallStreaming) {
@@ -304,13 +307,13 @@ TEST_P(FDRp, SmallStreaming) {
     auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
-    vector<match> expected, matches;
+    vector<match> expected;
     expected.push_back(match(0, 1));
     expected.push_back(match(1, 1));
     expected.push_back(match(2, 1));
 
     safeExecStreaming(fdr.get(), (const u8 *)"", 0, (const u8 *)"aaar", 4, 0,
-                      decentCallback, &matches, HWLM_ALL_GROUPS);
+                      decentCallback, HWLM_ALL_GROUPS);
     for (u32 i = 0; i < MIN(expected.size(), matches.size()); i++) {
         EXPECT_EQ(expected[i], matches[i]);
     }
@@ -322,12 +325,13 @@ TEST_P(FDRp, SmallStreaming) {
     expected.push_back(match(8, 10));
 
     safeExecStreaming(fdr.get(), (const u8 *)"aaar", 4, (const u8 *)"dvark", 5,
-                      0, decentCallback, &matches, HWLM_ALL_GROUPS);
+                      0, decentCallback, HWLM_ALL_GROUPS);
 
     for (u32 i = 0; i < MIN(expected.size(), matches.size()); i++) {
         EXPECT_EQ(expected[i], matches[i] + 4);
     }
     ASSERT_EQ(expected.size(), matches.size());
+    matches.clear();
 }
 
 TEST_P(FDRp, SmallStreaming2) {
@@ -341,7 +345,7 @@ TEST_P(FDRp, SmallStreaming2) {
     auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(), Grey());
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
-    vector<match> expected, matches;
+    vector<match> expected;
     expected.push_back(match(6,1));
     expected.push_back(match(7,1));
     expected.push_back(match(11,1));
@@ -350,13 +354,14 @@ TEST_P(FDRp, SmallStreaming2) {
     expected.push_back(match(15,2));
 
     safeExecStreaming(fdr.get(), (const u8 *)"foobar", 6,
-                      (const u8 *)"aardvarkkk", 10, 0, decentCallback, &matches,
+                      (const u8 *)"aardvarkkk", 10, 0, decentCallback,
                       HWLM_ALL_GROUPS);
 
     for (u32 i = 0; i < MIN(expected.size(), matches.size()); i++) {
         EXPECT_EQ(expected[i], matches[i] + 6);
     }
     ASSERT_EQ(expected.size(), matches.size());
+    matches.clear();
 }
 
 TEST_P(FDRp, moveByteStream) {
@@ -384,15 +389,16 @@ TEST_P(FDRp, moveByteStream) {
     }
 
     // check matches
-    vector<match> matches;
+    struct hs_scratch scratch;
 
     hwlm_error_t fdrStatus = fdrExec(fdrTable.get(), (const u8 *)data,
-                                     data_len, 0, decentCallback, &matches,
+                                     data_len, 0, decentCallback, &scratch,
                                      HWLM_ALL_GROUPS);
     ASSERT_EQ(0, fdrStatus);
 
     ASSERT_EQ(1U, matches.size());
     EXPECT_EQ(match(17, 0), matches[0]);
+    matches.clear();
 }
 
 TEST_P(FDRp, Stream1) {
@@ -412,17 +418,17 @@ TEST_P(FDRp, Stream1) {
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     // check matches
-    vector<match> matches;
 
     fdrStatus = safeExecStreaming(fdr.get(), (const u8 *)data1, data_len1,
                                   (const u8 *)data2, data_len2, 0,
-                                  decentCallback, &matches, HWLM_ALL_GROUPS);
+                                  decentCallback, HWLM_ALL_GROUPS);
     ASSERT_EQ(0, fdrStatus);
 
     ASSERT_EQ(4U, matches.size());
     for (size_t i = 0; i < matches.size(); i++) {
         EXPECT_EQ(match(i, 0), matches[i]);
     }
+    matches.clear();
 }
 
 INSTANTIATE_TEST_CASE_P(FDR, FDRp, ValuesIn(getValidFdrEngines()));
@@ -463,6 +469,7 @@ TEST_P(FDRpp, AlignAndTooEarly) {
         aligned_free_internal);
 
     vector<hwlmLiteral> lits;
+    struct hs_scratch scratch;
     for (size_t litLen = 1; litLen <= patLen; litLen++) {
 
         // building literal from pattern substring of variable length 1-patLen
@@ -482,11 +489,10 @@ TEST_P(FDRpp, AlignAndTooEarly) {
                         pattern.data(), litLen);
 
             for (size_t j = 0; j <= litLen; j++) {
-                vector<match> matches;
                 hwlm_error_t fdrStatus = fdrExec(fdr.get(),
                         (const u8 *)dataBufAligned.get() + i + j,
                         4 * buf_alignment - j * 2, 0, decentCallback,
-                        &matches, HWLM_ALL_GROUPS);
+                        &scratch, HWLM_ALL_GROUPS);
                 ASSERT_EQ(0, fdrStatus);
                 // j == 0 means that start and end matches are entirely within
                 // searched buffer. Otherwise they are out of buffer boundaries
@@ -585,6 +591,7 @@ TEST_P(FDRpa, ShortWritings) {
     }
 
     // run the literal matching through all generated literals
+    struct hs_scratch scratch;
     for (size_t patIdx = 0; patIdx < pats.size();) {
         // group them in the sets of 32
         vector<hwlmLiteral> testSigs;
@@ -603,9 +610,8 @@ TEST_P(FDRpa, ShortWritings) {
             const string &buf = bufs[bufIdx];
             size_t bufLen = buf.size();
 
-            vector<match> matches;
             hwlm_error_t fdrStatus = fdrExec(fdr.get(), (const u8 *)buf.data(),
-                        bufLen, 0, decentCallback, &matches, HWLM_ALL_GROUPS);
+                        bufLen, 0, decentCallback, &scratch, HWLM_ALL_GROUPS);
             ASSERT_EQ(0, fdrStatus);
 
             // build the set of expected matches using standard
@@ -627,6 +633,7 @@ TEST_P(FDRpa, ShortWritings) {
             sort(expMatches.begin(), expMatches.end());
             sort(matches.begin(), matches.end());
             ASSERT_EQ(expMatches, matches);
+            matches.clear();
         }
     }
 }
@@ -656,14 +663,14 @@ TEST(FDR, FDRTermS) {
     ASSERT_TRUE(fdr != nullptr);
 
     // check matches
-    vector<match> matches;
 
     fdrStatus = safeExecStreaming(fdr.get(), (const u8 *)data1, data_len1,
                                   (const u8 *)data2, data_len2, 0,
-                                  decentCallbackT, &matches, HWLM_ALL_GROUPS);
+                                  decentCallbackT, HWLM_ALL_GROUPS);
     ASSERT_EQ(HWLM_TERMINATED, fdrStatus);
 
     ASSERT_EQ(1U, matches.size());
+    matches.clear();
 }
 
 TEST(FDR, FDRTermB) {
@@ -679,11 +686,12 @@ TEST(FDR, FDRTermB) {
     ASSERT_TRUE(fdr != nullptr);
 
     // check matches
-    vector<match> matches;
+    struct hs_scratch scratch;
 
     fdrStatus = fdrExec(fdr.get(), (const u8 *)data1, data_len1,
-                        0, decentCallbackT, &matches, HWLM_ALL_GROUPS);
+                        0, decentCallbackT, &scratch, HWLM_ALL_GROUPS);
     ASSERT_EQ(HWLM_TERMINATED, fdrStatus);
 
     ASSERT_EQ(1U, matches.size());
+    matches.clear();
 }

@@ -41,15 +41,17 @@ extern "C"
 #endif
 
 struct noodTable;
+struct hs_scratch;
 
 /** \brief Block-mode scanner. */
 hwlm_error_t noodExec(const struct noodTable *n, const u8 *buf, size_t len,
-                      size_t start, HWLMCallback cb, void *ctxt);
+                      size_t start, HWLMCallback cb,
+                      struct hs_scratch *scratch);
 
 /** \brief Streaming-mode scanner. */
 hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
                                size_t hlen, const u8 *buf, size_t len,
-                               HWLMCallback cb, void *ctxt);
+                               HWLMCallback cb, struct hs_scratch *scratch);
 
 #ifdef __cplusplus
 }       /* extern "C" */

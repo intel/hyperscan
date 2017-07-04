@@ -33,6 +33,7 @@
 #include "hwlm/noodle_engine.h"
 #include "hwlm/hwlm.h"
 #include "hwlm/hwlm_literal.h"
+#include "scratch.h"
 #include "util/alloc.h"
 #include "util/ue2string.h"
 
@@ -51,52 +52,51 @@ struct hlmMatchEntry {
             to(end), id(identifier) {}
 };
 
-typedef vector<hlmMatchEntry> hlmMatchRecord;
+vector<hlmMatchEntry> ctxt;
 
 static
-hwlmcb_rv_t hlmSimpleCallback(size_t to, u32 id, void *context) {
-    hlmMatchRecord *mr = (hlmMatchRecord *)context;
+hwlmcb_rv_t hlmSimpleCallback(size_t to, u32 id,
+                              UNUSED struct hs_scratch *scratch) {
+    DEBUG_PRINTF("match @%zu = %u\n", to, id);
 
-    DEBUG_PRINTF("match @%zu = %u,%p\n", to, id, context);
-
-    mr->push_back(hlmMatchEntry(to, id));
+    ctxt.push_back(hlmMatchEntry(to, id));
 
     return HWLM_CONTINUE_MATCHING;
 }
 
 static
 void noodleMatch(const u8 *data, size_t data_len, const char *lit_str,
-                 size_t lit_len, char nocase, HWLMCallback cb, void *ctxt) {
+                 size_t lit_len, char nocase, HWLMCallback cb) {
     u32 id = 1000;
     hwlmLiteral lit(std::string(lit_str, lit_len), nocase, id);
     auto n = noodBuildTable(lit);
     ASSERT_TRUE(n != nullptr);
 
     hwlm_error_t rv;
-    rv = noodExec(n.get(), data, data_len, 0, cb, ctxt);
+    struct hs_scratch scratch;
+    rv = noodExec(n.get(), data, data_len, 0, cb, &scratch);
     ASSERT_EQ(HWLM_SUCCESS, rv);
 }
 
 TEST(Noodle, nood1) {
     const size_t data_len = 1024;
     unsigned int i, j;
-    hlmMatchRecord ctxt;
     u8 data[data_len];
 
     memset(data, 'a', data_len);
 
-    noodleMatch(data, data_len, "a", 1, 0, hlmSimpleCallback, &ctxt);
+    noodleMatch(data, data_len, "a", 1, 0, hlmSimpleCallback);
     ASSERT_EQ(1024U, ctxt.size());
     for (i = 0; i < 1024; i++) {
         ASSERT_EQ(i, ctxt[i].to);
     }
 
     ctxt.clear();
-    noodleMatch(data, data_len, "A", 1, 0, hlmSimpleCallback, &ctxt);
+    noodleMatch(data, data_len, "A", 1, 0, hlmSimpleCallback);
     ASSERT_EQ(0U, ctxt.size());
 
     ctxt.clear();
-    noodleMatch(data, data_len, "A", 1, 1, hlmSimpleCallback, &ctxt);
+    noodleMatch(data, data_len, "A", 1, 1, hlmSimpleCallback);
     ASSERT_EQ(1024U, ctxt.size());
     for (i = 0; i < 1024; i++) {
         ASSERT_EQ(i, ctxt[i].to);
@@ -104,60 +104,59 @@ TEST(Noodle, nood1) {
 
     for (j = 0; j < 16; j++) {
         ctxt.clear();
-        noodleMatch(data + j, data_len - j, "A", 1, 1, hlmSimpleCallback,
-                    &ctxt);
+        noodleMatch(data + j, data_len - j, "A", 1, 1, hlmSimpleCallback);
         ASSERT_EQ(1024 - j, ctxt.size());
         for (i = 0; i < 1024 - j; i++) {
             ASSERT_EQ(i, ctxt[i].to);
         }
 
         ctxt.clear();
-        noodleMatch(data, data_len - j, "A", 1, 1, hlmSimpleCallback, &ctxt);
+        noodleMatch(data, data_len - j, "A", 1, 1, hlmSimpleCallback);
         ASSERT_EQ(1024 - j, ctxt.size());
         for (i = 0; i < 1024 - j; i++) {
             ASSERT_EQ(i, ctxt[i].to);
         }
     }
+    ctxt.clear();
 }
 
 TEST(Noodle, nood2) {
     const size_t data_len = 1024;
     unsigned int i, j;
-    hlmMatchRecord ctxt;
     u8 data[data_len];
 
     memset(data, 'a', data_len);
 
-    noodleMatch(data, data_len, "aa", 2, 0, hlmSimpleCallback, &ctxt);
+    noodleMatch(data, data_len, "aa", 2, 0, hlmSimpleCallback);
     ASSERT_EQ(1023U, ctxt.size());
     for (i = 0; i < 1023; i++) {
         ASSERT_EQ(i + 1, ctxt[i].to);
     }
 
     ctxt.clear();
-    noodleMatch(data, data_len, "aA", 2, 0, hlmSimpleCallback, &ctxt);
+    noodleMatch(data, data_len, "aA", 2, 0, hlmSimpleCallback);
     ASSERT_EQ(0U, ctxt.size());
 
     ctxt.clear();
-    noodleMatch(data, data_len, "AA", 2, 0, hlmSimpleCallback, &ctxt);
+    noodleMatch(data, data_len, "AA", 2, 0, hlmSimpleCallback);
     ASSERT_EQ(0U, ctxt.size());
 
     ctxt.clear();
-    noodleMatch(data, data_len, "aa", 2, 1, hlmSimpleCallback, &ctxt);
+    noodleMatch(data, data_len, "aa", 2, 1, hlmSimpleCallback);
     ASSERT_EQ(1023U, ctxt.size());
     for (i = 0; i < 1023; i++) {
         ASSERT_EQ(i + 1, ctxt[i].to);
     }
 
     ctxt.clear();
-    noodleMatch(data, data_len, "Aa", 2, 1, hlmSimpleCallback, &ctxt);
+    noodleMatch(data, data_len, "Aa", 2, 1, hlmSimpleCallback);
     ASSERT_EQ(1023U, ctxt.size());
     for (i = 0; i < 1023; i++) {
         ASSERT_EQ(i + 1, ctxt[i].to);
     }
 
     ctxt.clear();
-    noodleMatch(data, data_len, "AA", 2, 1, hlmSimpleCallback, &ctxt);
+    noodleMatch(data, data_len, "AA", 2, 1, hlmSimpleCallback);
     ASSERT_EQ(1023U, ctxt.size());
     for (i = 0; i < 1023; i++) {
         ASSERT_EQ(i + 1, ctxt[i].to);
@@ -165,42 +164,41 @@ TEST(Noodle, nood2) {
 
     for (j = 0; j < 16; j++) {
         ctxt.clear();
-        noodleMatch(data + j, data_len - j, "Aa", 2, 1, hlmSimpleCallback,
-                    &ctxt);
+        noodleMatch(data + j, data_len - j, "Aa", 2, 1, hlmSimpleCallback);
         ASSERT_EQ(1023 - j, ctxt.size());
         for (i = 0; i < 1023 - j; i++) {
             ASSERT_EQ(i + 1, ctxt[i].to);
         }
 
         ctxt.clear();
-        noodleMatch(data, data_len - j, "aA", 2, 1, hlmSimpleCallback, &ctxt);
+        noodleMatch(data, data_len - j, "aA", 2, 1, hlmSimpleCallback);
         ASSERT_EQ(1023 - j, ctxt.size());
         for (i = 0; i < 1023 - j; i++) {
             ASSERT_EQ(i + 1, ctxt[i].to);
         }
     }
+    ctxt.clear();
 }
 
 TEST(Noodle, noodLong) {
     const size_t data_len = 1024;
     unsigned int i, j;
-    hlmMatchRecord ctxt;
     u8 data[data_len];
 
     memset(data, 'a', data_len);
 
-    noodleMatch(data, data_len, "aaaa", 4, 0, hlmSimpleCallback, &ctxt);
+    noodleMatch(data, data_len, "aaaa", 4, 0, hlmSimpleCallback);
     ASSERT_EQ(1021U, ctxt.size());
     for (i = 0; i < 1021; i++) {
         ASSERT_EQ(i + 3, ctxt[i].to);
     }
 
     ctxt.clear();
-    noodleMatch(data, data_len, "aaAA", 4, 0, hlmSimpleCallback, &ctxt);
+    noodleMatch(data, data_len, "aaAA", 4, 0, hlmSimpleCallback);
     ASSERT_EQ(0U, ctxt.size());
 
     ctxt.clear();
-    noodleMatch(data, data_len, "aaAA", 4, 1, hlmSimpleCallback, &ctxt);
+    noodleMatch(data, data_len, "aaAA", 4, 1, hlmSimpleCallback);
     ASSERT_EQ(1021U, ctxt.size());
     for (i = 0; i < 1021; i++) {
         ASSERT_EQ(i + 3, ctxt[i].to);
@@ -208,26 +206,24 @@ TEST(Noodle, noodLong) {
 
     for (j = 0; j < 16; j++) {
         ctxt.clear();
-        noodleMatch(data + j, data_len - j, "AAaa", 4, 1, hlmSimpleCallback,
-                    &ctxt);
+        noodleMatch(data + j, data_len - j, "AAaa", 4, 1, hlmSimpleCallback);
         ASSERT_EQ(1021 - j, ctxt.size());
         for (i = 0; i < 1021 - j; i++) {
             ASSERT_EQ(i + 3, ctxt[i].to);
         }
 
         ctxt.clear();
-        noodleMatch(data + j, data_len - j, "aaaA", 4, 1, hlmSimpleCallback,
-                    &ctxt);
+        noodleMatch(data + j, data_len - j, "aaaA", 4, 1, hlmSimpleCallback);
         ASSERT_EQ(1021 - j, ctxt.size());
         for (i = 0; i < 1021 - j; i++) {
             ASSERT_EQ(i + 3, ctxt[i].to);
         }
     }
+    ctxt.clear();
 }
 
 TEST(Noodle, noodCutoverSingle) {
     const size_t max_data_len = 128;
-    hlmMatchRecord ctxt;
     u8 data[max_data_len + 15];
 
     memset(data, 'a', max_data_len + 15);
@@ -235,18 +231,18 @@ TEST(Noodle, noodCutoverSingle) {
     for (u32 align = 0; align < 16; align++) {
         for (u32 len = 0; len < max_data_len; len++) {
             ctxt.clear();
-            noodleMatch(data + align, len, "a", 1, 0, hlmSimpleCallback, &ctxt);
+            noodleMatch(data + align, len, "a", 1, 0, hlmSimpleCallback);
             EXPECT_EQ(len, ctxt.size());
             for (u32 i = 0; i < ctxt.size(); i++) {
                 ASSERT_EQ(i, ctxt[i].to);
             }
         }
     }
+    ctxt.clear();
 }
 
 TEST(Noodle, noodCutoverDouble) {
     const size_t max_data_len = 128;
-    hlmMatchRecord ctxt;
     u8 data[max_data_len + 15];
 
     memset(data, 'a', max_data_len + 15);
@@ -254,13 +250,13 @@ TEST(Noodle, noodCutoverDouble) {
     for (u32 align = 0; align < 16; align++) {
         for (u32 len = 0; len < max_data_len; len++) {
             ctxt.clear();
-            noodleMatch(data + align, len, "aa", 2, 0, hlmSimpleCallback,
-                        &ctxt);
+            noodleMatch(data + align, len, "aa", 2, 0, hlmSimpleCallback);
             EXPECT_EQ(len ? len - 1 : 0U, ctxt.size());
             for (u32 i = 0; i < ctxt.size(); i++) {
                 ASSERT_EQ(i + 1, ctxt[i].to);
             }
         }
     }
+    ctxt.clear();
 }
 

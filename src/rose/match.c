@@ -66,8 +66,8 @@ void printMatch(const struct core_info *ci, u64a start, u64a end) {
 }
 #endif
 
-hwlmcb_rv_t roseDelayRebuildCallback(size_t end, u32 id, void *ctx) {
-    struct hs_scratch *scratch = ctx;
+hwlmcb_rv_t roseDelayRebuildCallback(size_t end, u32 id,
+                                     struct hs_scratch *scratch) {
     struct RoseContext *tctx = &scratch->tctxt;
     struct core_info *ci = &scratch->core_info;
     const struct RoseEngine *t = ci->rose;
@@ -472,8 +472,7 @@ anchored_leftovers:;
 }
 
 static really_inline
-hwlmcb_rv_t roseCallback_i(size_t end, u32 id, void *ctxt) {
-    struct hs_scratch *scratch = ctxt;
+hwlmcb_rv_t roseCallback_i(size_t end, u32 id, struct hs_scratch *scratch) {
     struct RoseContext *tctx = &scratch->tctxt;
     const struct RoseEngine *t = scratch->core_info.rose;
 
@@ -519,15 +518,15 @@ hwlmcb_rv_t roseCallback_i(size_t end, u32 id, void *ctxt) {
     return HWLM_TERMINATE_MATCHING;
 }
 
-hwlmcb_rv_t roseCallback(size_t end, u32 id, void *ctxt) {
-    return roseCallback_i(end, id, ctxt);
+hwlmcb_rv_t roseCallback(size_t end, u32 id, struct hs_scratch *scratch) {
+    return roseCallback_i(end, id, scratch);
 }
 
-hwlmcb_rv_t roseFloatingCallback(size_t end, u32 id, void *ctxt) {
-    struct hs_scratch *scratch = ctxt;
+hwlmcb_rv_t roseFloatingCallback(size_t end, u32 id,
+                                 struct hs_scratch *scratch) {
     const struct RoseEngine *t = scratch->core_info.rose;
 
-    return roseCallback_i(end, id, ctxt) & t->floating_group_mask;
+    return roseCallback_i(end, id, scratch) & t->floating_group_mask;
 }
 
 /**

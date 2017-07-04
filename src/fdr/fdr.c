@@ -32,6 +32,7 @@
 #include "fdr_internal.h"
 #include "fdr_loadval.h"
 #include "flood_runtime.h"
+#include "scratch.h"
 #include "teddy.h"
 #include "teddy_internal.h"
 #include "util/arch.h"
@@ -824,8 +825,8 @@ static const FDRFUNCTYPE funcs[] = {
 static const u8 fake_history[FAKE_HISTORY_SIZE];
 
 hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
-                     size_t start, HWLMCallback cb, void *ctxt,
-                     hwlm_group_t groups) {
+                     size_t start, HWLMCallback cb,
+                     struct hs_scratch *scratch, hwlm_group_t groups) {
     // We guarantee (for safezone construction) that it is safe to read 16
     // bytes before the end of the history buffer.
     const u8 *hbuf = fake_history + FAKE_HISTORY_SIZE;
@@ -837,7 +838,7 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
         0,
         start,
         cb,
-        ctxt,
+        scratch,
         nextFloodDetect(buf, len, FLOOD_BACKOFF_START),
         0
     };
@@ -851,7 +852,8 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
 
 hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
                               size_t hlen, const u8 *buf, size_t len,
-                              size_t start, HWLMCallback cb, void *ctxt,
+                              size_t start, HWLMCallback cb,
+                              struct hs_scratch *scratch,
                               hwlm_group_t groups) {
     struct FDR_Runtime_Args a = {
         buf,
@@ -860,7 +862,7 @@ hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
         hlen,
         start,
         cb,
-        ctxt,
+        scratch,
         nextFloodDetect(buf, len, FLOOD_BACKOFF_START),
         /* we are guaranteed to always have 16 initialised bytes at the end of
          * the history buffer (they may be garbage). */

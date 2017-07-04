@@ -32,6 +32,7 @@
 #include "hwlm.h"
 #include "noodle_engine.h"
 #include "noodle_internal.h"
+#include "scratch.h"
 #include "ue2common.h"
 #include "util/arch.h"
 #include "util/bitutils.h"
@@ -50,7 +51,7 @@
 struct cb_info {
     HWLMCallback cb; //!< callback function called on match
     u32 id; //!< ID to pass to callback on match
-    void *ctx; //!< caller-supplied context to pass to callback
+    struct hs_scratch *scratch; //!< scratch to pass to callback
     size_t offsetAdj; //!< used in streaming mode
 };
 
@@ -129,7 +130,7 @@ hwlm_error_t final(const struct noodTable *n, const u8 *buf, UNUSED size_t len,
 match:
     pos -= cbi->offsetAdj;
     DEBUG_PRINTF("match @ %zu\n", pos + n->key_offset);
-    hwlmcb_rv_t rv = cbi->cb(pos + n->key_offset - 1, cbi->id, cbi->ctx);
+    hwlmcb_rv_t rv = cbi->cb(pos + n->key_offset - 1, cbi->id, cbi->scratch);
     if (rv == HWLM_TERMINATE_MATCHING) {
         return HWLM_TERMINATED;
     }
@@ -371,10 +372,11 @@ hwlm_error_t scan(const struct noodTable *n, const u8 *buf, size_t len,
 
 /** \brief Block-mode scanner. */
 hwlm_error_t noodExec(const struct noodTable *n, const u8 *buf, size_t len,
-                      size_t start, HWLMCallback cb, void *ctxt) {
+                      size_t start, HWLMCallback cb,
+                      struct hs_scratch *scratch) {
     assert(n && buf);
 
-    struct cb_info cbi = {cb, n->id, ctxt, 0};
+    struct cb_info cbi = {cb, n->id, scratch, 0};
     DEBUG_PRINTF("nood scan of %zu bytes for %*s @ %p\n", len, n->msk_len,
                  (const char *)&n->cmp, buf);
 
@@ -384,7 +386,7 @@ hwlm_error_t noodExec(const struct noodTable *n, const u8 *buf, size_t len,
 /** \brief Streaming-mode scanner. */
 hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
                                size_t hlen, const u8 *buf, size_t len,
-                               HWLMCallback cb, void *ctxt) {
+                               HWLMCallback cb, struct hs_scratch *scratch) {
     assert(n);
 
     if (len + hlen < n->msk_len) {
@@ -392,7 +394,7 @@ hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
         return HWLM_SUCCESS;
     }
 
-    struct cb_info cbi = {cb, n->id, ctxt, 0};
+    struct cb_info cbi = {cb, n->id, scratch, 0};
     DEBUG_PRINTF("nood scan of %zu bytes (%zu hlen) for %*s @ %p\n", len, hlen,
                  n->msk_len, (const char *)&n->cmp, buf);
 
@@ -425,7 +427,7 @@ hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
             if ((v & n->msk) == n->cmp) {
                 size_t m_end = -tl1 + i + n->msk_len - 1;
                 DEBUG_PRINTF("match @ %zu (i %zu)\n", m_end, i);
-                hwlmcb_rv_t rv = cb(m_end, n->id, ctxt);
+                hwlmcb_rv_t rv = cb(m_end, n->id, scratch);
                 if (rv == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATED;
                 }

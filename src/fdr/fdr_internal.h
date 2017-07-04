@@ -36,6 +36,8 @@
 #include "ue2common.h"
 #include "hwlm/hwlm.h" // for hwlm_group_t, HWLMCallback
 
+struct hs_scratch;
+
 typedef enum {
     NOT_CAUTIOUS, //!< not near a boundary (quantify?)
     VECTORING     //!< potentially vectoring
@@ -95,7 +97,7 @@ struct FDR_Runtime_Args {
     size_t len_history;
     size_t start_offset;
     HWLMCallback cb;
-    void *ctxt;
+    struct hs_scratch *scratch;
     const u8 *firstFloodDetect;
     const u64a histBytes;
 };

@@ -95,7 +95,8 @@ struct HWLM;
  * belonging to the literal which was active at the when the end match location
  * was first reached.
  */
-typedef hwlmcb_rv_t (*HWLMCallback)(size_t end, u32 id, void *context);
+typedef hwlmcb_rv_t (*HWLMCallback)(size_t end, u32 id,
+                     struct hs_scratch *scratch);
 
 /** \brief Match strings in table.
  *
@@ -112,18 +113,18 @@ typedef hwlmcb_rv_t (*HWLMCallback)(size_t end, u32 id, void *context);
  * the first possible match of a literal which is in the initial group mask.
  */
 hwlm_error_t hwlmExec(const struct HWLM *tab, const u8 *buf, size_t len,
-                      size_t start, HWLMCallback callback, void *context,
-                      hwlm_group_t groups);
+                      size_t start, HWLMCallback callback,
+                      struct hs_scratch *scratch, hwlm_group_t groups);
 
 /** \brief As for \ref hwlmExec, but a streaming case across two buffers.
- *
- * \p scratch is used to access fdr_temp_buf and to access the history buffer,
- * history length and the main buffer.
  *
  * \p len is the length of the main buffer to be scanned.
  *
  * \p start is an advisory hint representing the first offset at which a match
  * may start. Some underlying literal matches may not respect it.
+ *
+ * \p scratch is used to access the history buffer, history length and
+ * the main buffer.
  *
  * Two buffers/lengths are provided. Matches that occur entirely within
  * the history buffer will not be reported by this function. The offsets
@@ -131,10 +132,9 @@ hwlm_error_t hwlmExec(const struct HWLM *tab, const u8 *buf, size_t len,
  * match at byte 10 of the main buffer is reported as 10). Matches that start
  * in the history buffer will have starts reported with 'negative' values.
  */
-hwlm_error_t hwlmExecStreaming(const struct HWLM *tab,
-                               struct hs_scratch *scratch, size_t len,
-                               size_t start, HWLMCallback callback,
-                               void *context, hwlm_group_t groups);
+hwlm_error_t hwlmExecStreaming(const struct HWLM *tab, size_t len, size_t start,
+                               HWLMCallback callback,
+                               struct hs_scratch *scratch, hwlm_group_t groups);
 
 #ifdef __cplusplus
 }       /* extern "C" */

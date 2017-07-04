@@ -52,9 +52,11 @@ int roseNfaAdaptor(u64a start, u64a end, ReportID id, void *context);
 
 /* Callbacks, defined in match.c */
 
-hwlmcb_rv_t roseCallback(size_t end, u32 id, void *ctx);
-hwlmcb_rv_t roseFloatingCallback(size_t end, u32 id, void *ctx);
-hwlmcb_rv_t roseDelayRebuildCallback(size_t end, u32 id, void *ctx);
+hwlmcb_rv_t roseCallback(size_t end, u32 id, struct hs_scratch *scratch);
+hwlmcb_rv_t roseFloatingCallback(size_t end, u32 id,
+                                 struct hs_scratch *scratch);
+hwlmcb_rv_t roseDelayRebuildCallback(size_t end, u32 id,
+                                     struct hs_scratch *scratch);
 int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx);
 
 /* Common code, used all over Rose runtime */
