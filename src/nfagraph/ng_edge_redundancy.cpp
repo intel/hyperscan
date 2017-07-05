@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -181,6 +181,28 @@ bool removeEdgeRedundancyNearCyclesFwd(NGHolder &g, bool ignore_starts) {
     return dead_count;
 }
 
+static
+bool checkReportsRev(const NGHolder &g, NFAVertex v,
+                     const set<NFAVertex> &happy) {
+    if (g[v].reports.empty()) {
+        return true;
+    }
+
+    assert(edge(v, g.accept, g).second || edge(v, g.acceptEod, g).second);
+
+    /* an edge to accept takes priority over eod only accept */
+    NFAVertex accept = edge(v, g.accept, g).second ? g.accept : g.acceptEod;
+
+    flat_set<ReportID> happy_reports;
+    for (NFAVertex u : happy) {
+        if (edge(u, accept, g).second) {
+            insert(&happy_reports, g[u].reports);
+        }
+    }
+
+    return is_subset_of(g[v].reports, happy_reports);
+}
+
 /** \brief Redundant self-loop removal (reverse version).
  *
  * A self loop on a vertex v can be removed if:
@@ -233,7 +255,8 @@ bool removeEdgeRedundancyNearCyclesRev(NGHolder &g) {
             happy.insert(u);
         }
 
-        if (!happy.empty() && checkVerticesRev(g, sad, happy)) {
+        if (!happy.empty() && checkVerticesRev(g, sad, happy)
+            && checkReportsRev(g, v, happy)) {
             dead_count++;
             remove_edge(v, v, g);
         }
