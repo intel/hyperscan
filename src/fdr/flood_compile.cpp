@@ -82,7 +82,6 @@ void addFlood(vector<FDRFlood> &tmpFlood, u8 c, const hwlmLiteral &lit,
         fl.ids[fl.idCount] = lit.id;
         fl.allGroups |= lit.groups;
         fl.groups[fl.idCount] = lit.groups;
-        fl.len[fl.idCount] = suffix;
         // when idCount gets to max_ids this flood no longer happens
         // only incremented one more time to avoid arithmetic overflow
         DEBUG_PRINTF("Added Flood for char '%c' suffix=%u len[%hu]=%u\n",

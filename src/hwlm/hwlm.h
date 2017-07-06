@@ -79,9 +79,9 @@ struct HWLM;
 
 /** \brief The type for an HWLM callback.
  *
- * This callback receives a start-of-match offset, an end-of-match offset, the
- * ID of the match and the context pointer that was passed into \ref
- * hwlmExec or \ref hwlmExecStreaming.
+ * This callback receives an end-of-match offset, the ID of the match and
+ * the context pointer that was passed into \ref hwlmExec or
+ * \ref hwlmExecStreaming.
  *
  * A callback return of \ref HWLM_TERMINATE_MATCHING will stop matching.
  *
@@ -95,8 +95,7 @@ struct HWLM;
  * belonging to the literal which was active at the when the end match location
  * was first reached.
  */
-typedef hwlmcb_rv_t (*HWLMCallback)(size_t start, size_t end, u32 id,
-                                    void *context);
+typedef hwlmcb_rv_t (*HWLMCallback)(size_t end, u32 id, void *context);
 
 /** \brief Match strings in table.
  *

@@ -69,7 +69,7 @@
 
 hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                            struct hs_scratch *scratch, u32 programOffset,
-                           u64a som, u64a end, size_t match_len, u8 prog_flags);
+                           u64a som, u64a end, u8 prog_flags);
 
 /* Inline implementation follows. */
 
@@ -1838,8 +1838,7 @@ void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
 static rose_inline
 hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                              struct hs_scratch *scratch, u32 programOffset,
-                             u64a som, u64a end, UNUSED size_t match_len,
-                             u8 prog_flags) {
+                             u64a som, u64a end, u8 prog_flags) {
     DEBUG_PRINTF("program=%u, offsets [%llu,%llu], flags=%u\n", programOffset,
                  som, end, prog_flags);
 

@@ -88,7 +88,7 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
         }
 
         *last_match = li->id;
-        *control = a->cb(loc - buf, i, li->id, a->ctxt);
+        *control = a->cb(i, li->id, a->ctxt);
     out:
         oldNext = li->next; // oldNext is either 0 or an 'adjust' value
         li++;

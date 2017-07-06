@@ -56,7 +56,6 @@ struct FDRFlood {
 
     u32 ids[FDR_FLOOD_MAX_IDS]; //!< the ids
     hwlm_group_t groups[FDR_FLOOD_MAX_IDS]; //!< group ids to go with string ids
-    u32 len[FDR_FLOOD_MAX_IDS]; //!< lengths to go with the string ids
 };
 
 /** \brief FDR structure.

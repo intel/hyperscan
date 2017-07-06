@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -45,22 +45,21 @@ using std::vector;
 using namespace ue2;
 
 struct hlmMatchEntry {
-    size_t from;
     size_t to;
     u32 id;
-    hlmMatchEntry(size_t start, size_t end, u32 identifier) :
-            from(start), to(end), id(identifier) {}
+    hlmMatchEntry(size_t end, u32 identifier) :
+            to(end), id(identifier) {}
 };
 
 typedef vector<hlmMatchEntry> hlmMatchRecord;
 
 static
-hwlmcb_rv_t hlmSimpleCallback(size_t from, size_t to, u32 id, void *context) {
+hwlmcb_rv_t hlmSimpleCallback(size_t to, u32 id, void *context) {
     hlmMatchRecord *mr = (hlmMatchRecord *)context;
 
     DEBUG_PRINTF("match @%zu = %u,%p\n", to, id, context);
 
-    mr->push_back(hlmMatchEntry(from, to, id));
+    mr->push_back(hlmMatchEntry(to, id));
 
     return HWLM_CONTINUE_MATCHING;
 }
@@ -89,7 +88,6 @@ TEST(Noodle, nood1) {
     noodleMatch(data, data_len, "a", 1, 0, hlmSimpleCallback, &ctxt);
     ASSERT_EQ(1024U, ctxt.size());
     for (i = 0; i < 1024; i++) {
-        ASSERT_EQ(i, ctxt[i].from);
         ASSERT_EQ(i, ctxt[i].to);
     }
 
@@ -101,7 +99,6 @@ TEST(Noodle, nood1) {
     noodleMatch(data, data_len, "A", 1, 1, hlmSimpleCallback, &ctxt);
     ASSERT_EQ(1024U, ctxt.size());
     for (i = 0; i < 1024; i++) {
-        ASSERT_EQ(i, ctxt[i].from);
         ASSERT_EQ(i, ctxt[i].to);
     }
 
@@ -111,7 +108,6 @@ TEST(Noodle, nood1) {
                     &ctxt);
         ASSERT_EQ(1024 - j, ctxt.size());
         for (i = 0; i < 1024 - j; i++) {
-            ASSERT_EQ(i, ctxt[i].from);
             ASSERT_EQ(i, ctxt[i].to);
         }
 
@@ -119,7 +115,6 @@ TEST(Noodle, nood1) {
         noodleMatch(data, data_len - j, "A", 1, 1, hlmSimpleCallback, &ctxt);
         ASSERT_EQ(1024 - j, ctxt.size());
         for (i = 0; i < 1024 - j; i++) {
-            ASSERT_EQ(i, ctxt[i].from);
             ASSERT_EQ(i, ctxt[i].to);
         }
     }
@@ -136,7 +131,6 @@ TEST(Noodle, nood2) {
     noodleMatch(data, data_len, "aa", 2, 0, hlmSimpleCallback, &ctxt);
     ASSERT_EQ(1023U, ctxt.size());
     for (i = 0; i < 1023; i++) {
-        ASSERT_EQ(i, ctxt[i].from);
         ASSERT_EQ(i + 1, ctxt[i].to);
     }
 
@@ -152,7 +146,6 @@ TEST(Noodle, nood2) {
     noodleMatch(data, data_len, "aa", 2, 1, hlmSimpleCallback, &ctxt);
     ASSERT_EQ(1023U, ctxt.size());
     for (i = 0; i < 1023; i++) {
-        ASSERT_EQ(i, ctxt[i].from);
         ASSERT_EQ(i + 1, ctxt[i].to);
     }
 
@@ -160,7 +153,6 @@ TEST(Noodle, nood2) {
     noodleMatch(data, data_len, "Aa", 2, 1, hlmSimpleCallback, &ctxt);
     ASSERT_EQ(1023U, ctxt.size());
     for (i = 0; i < 1023; i++) {
-        ASSERT_EQ(i, ctxt[i].from);
         ASSERT_EQ(i + 1, ctxt[i].to);
     }
 
@@ -168,7 +160,6 @@ TEST(Noodle, nood2) {
     noodleMatch(data, data_len, "AA", 2, 1, hlmSimpleCallback, &ctxt);
     ASSERT_EQ(1023U, ctxt.size());
     for (i = 0; i < 1023; i++) {
-        ASSERT_EQ(i, ctxt[i].from);
         ASSERT_EQ(i + 1, ctxt[i].to);
     }
 
@@ -178,7 +169,6 @@ TEST(Noodle, nood2) {
                     &ctxt);
         ASSERT_EQ(1023 - j, ctxt.size());
         for (i = 0; i < 1023 - j; i++) {
-            ASSERT_EQ(i, ctxt[i].from);
             ASSERT_EQ(i + 1, ctxt[i].to);
         }
 
@@ -186,7 +176,6 @@ TEST(Noodle, nood2) {
         noodleMatch(data, data_len - j, "aA", 2, 1, hlmSimpleCallback, &ctxt);
         ASSERT_EQ(1023 - j, ctxt.size());
         for (i = 0; i < 1023 - j; i++) {
-            ASSERT_EQ(i, ctxt[i].from);
             ASSERT_EQ(i + 1, ctxt[i].to);
         }
     }
@@ -203,7 +192,6 @@ TEST(Noodle, noodLong) {
     noodleMatch(data, data_len, "aaaa", 4, 0, hlmSimpleCallback, &ctxt);
     ASSERT_EQ(1021U, ctxt.size());
     for (i = 0; i < 1021; i++) {
-        ASSERT_EQ(i, ctxt[i].from);
         ASSERT_EQ(i + 3, ctxt[i].to);
     }
 
@@ -215,7 +203,6 @@ TEST(Noodle, noodLong) {
     noodleMatch(data, data_len, "aaAA", 4, 1, hlmSimpleCallback, &ctxt);
     ASSERT_EQ(1021U, ctxt.size());
     for (i = 0; i < 1021; i++) {
-        ASSERT_EQ(i, ctxt[i].from);
         ASSERT_EQ(i + 3, ctxt[i].to);
     }
 
@@ -225,7 +212,6 @@ TEST(Noodle, noodLong) {
                     &ctxt);
         ASSERT_EQ(1021 - j, ctxt.size());
         for (i = 0; i < 1021 - j; i++) {
-            ASSERT_EQ(i, ctxt[i].from);
             ASSERT_EQ(i + 3, ctxt[i].to);
         }
 
@@ -234,7 +220,6 @@ TEST(Noodle, noodLong) {
                     &ctxt);
         ASSERT_EQ(1021 - j, ctxt.size());
         for (i = 0; i < 1021 - j; i++) {
-            ASSERT_EQ(i, ctxt[i].from);
             ASSERT_EQ(i + 3, ctxt[i].to);
         }
     }
@@ -253,7 +238,6 @@ TEST(Noodle, noodCutoverSingle) {
             noodleMatch(data + align, len, "a", 1, 0, hlmSimpleCallback, &ctxt);
             EXPECT_EQ(len, ctxt.size());
             for (u32 i = 0; i < ctxt.size(); i++) {
-                ASSERT_EQ(i, ctxt[i].from);
                 ASSERT_EQ(i, ctxt[i].to);
             }
         }
@@ -274,7 +258,6 @@ TEST(Noodle, noodCutoverDouble) {
                         &ctxt);
             EXPECT_EQ(len ? len - 1 : 0U, ctxt.size());
             for (u32 i = 0; i < ctxt.size(); i++) {
-                ASSERT_EQ(i, ctxt[i].from);
                 ASSERT_EQ(i + 1, ctxt[i].to);
             }
         }

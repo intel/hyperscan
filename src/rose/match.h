@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,10 +52,9 @@ int roseNfaAdaptor(u64a start, u64a end, ReportID id, void *context);
 
 /* Callbacks, defined in match.c */
 
-hwlmcb_rv_t roseCallback(size_t start, size_t end, u32 id, void *ctx);
-hwlmcb_rv_t roseFloatingCallback(size_t start, size_t end, u32 id, void *ctx);
-hwlmcb_rv_t roseDelayRebuildCallback(size_t start, size_t end, u32 id,
-                                     void *ctx);
+hwlmcb_rv_t roseCallback(size_t end, u32 id, void *ctx);
+hwlmcb_rv_t roseFloatingCallback(size_t end, u32 id, void *ctx);
+hwlmcb_rv_t roseDelayRebuildCallback(size_t end, u32 id, void *ctx);
 int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx);
 
 /* Common code, used all over Rose runtime */

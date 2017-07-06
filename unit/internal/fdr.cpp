@@ -70,53 +70,43 @@ using namespace ue2;
 namespace {
 
 struct match {
-    size_t start;
     size_t end;
     u32 id;
-    match(size_t start_in, size_t end_in, u32 id_in)
-        : start(start_in), end(end_in), id(id_in) {}
+    match(size_t end_in, u32 id_in)
+        : end(end_in), id(id_in) {}
     bool operator==(const match &b) const {
-        return start == b.start && end == b.end && id == b.id;
+        return end == b.end && id == b.id;
     }
     bool operator<(const match &b) const {
-        if (id < b.id) {
-            return true;
-        } else if (id == b.id) {
-            if (start < b.start) {
-                return true;
-            } else if (start == b.start) {
-                return end < b.end;
-            }
-        }
-        return false;
+        return tie(id, end) < tie(b.id, b.end);
     }
     match operator+(size_t adj) {
-        return match(start + adj, end + adj, id);
+        return match(end + adj, id);
     }
 };
 
 extern "C" {
 
 static
-hwlmcb_rv_t decentCallback(size_t start, size_t end, u32 id, void *ctxt) {
-    DEBUG_PRINTF("match %zu-%zu : %u\n", start, end, id);
+hwlmcb_rv_t decentCallback(size_t end, u32 id, void *ctxt) {
+    DEBUG_PRINTF("match @%zu : %u\n", end, id);
     if (!ctxt) {
         return HWLM_CONTINUE_MATCHING;
     }
 
     vector<match> *out = (vector<match> *)ctxt;
-    out->push_back(match(start, end, id));
+    out->push_back(match(end, id));
     return HWLM_CONTINUE_MATCHING;
 }
 
 static
-hwlmcb_rv_t decentCallbackT(size_t start, size_t end, u32 id, void *ctxt) {
+hwlmcb_rv_t decentCallbackT(size_t end, u32 id, void *ctxt) {
     if (!ctxt) {
         return HWLM_TERMINATE_MATCHING;
     }
 
     vector<match> *out = (vector<match> *)ctxt;
-    out->push_back(match(start, end, id));
+    out->push_back(match(end, id));
     return HWLM_TERMINATE_MATCHING;
 }
 
@@ -169,9 +159,9 @@ TEST_P(FDRp, Simple) {
             &matches, HWLM_ALL_GROUPS);
 
     ASSERT_EQ(3U, matches.size());
-    EXPECT_EQ(match(0, 5, 0), matches[0]);
-    EXPECT_EQ(match(18, 23, 0), matches[1]);
-    EXPECT_EQ(match(78, 83, 0), matches[2]);
+    EXPECT_EQ(match(5, 0), matches[0]);
+    EXPECT_EQ(match(23, 0), matches[1]);
+    EXPECT_EQ(match(83, 0), matches[2]);
 }
 
 TEST_P(FDRp, SimpleSingle) {
@@ -191,10 +181,10 @@ TEST_P(FDRp, SimpleSingle) {
             decentCallback, &matches, HWLM_ALL_GROUPS);
 
     ASSERT_EQ(4U, matches.size());
-    EXPECT_EQ(match(0, 0, 0), matches[0]);
-    EXPECT_EQ(match(18, 18, 0), matches[1]);
-    EXPECT_EQ(match(78, 78, 0), matches[2]);
-    EXPECT_EQ(match(80, 80, 0), matches[3]);
+    EXPECT_EQ(match(0, 0), matches[0]);
+    EXPECT_EQ(match(18, 0), matches[1]);
+    EXPECT_EQ(match(78, 0), matches[2]);
+    EXPECT_EQ(match(80, 0), matches[3]);
 }
 
 TEST_P(FDRp, MultiLocation) {
@@ -217,7 +207,7 @@ TEST_P(FDRp, MultiLocation) {
         fdrExec(fdr.get(), data.data(), testSize, 0, decentCallback, &matches,
                 HWLM_ALL_GROUPS);
         ASSERT_EQ(1U, matches.size());
-        EXPECT_EQ(match(i, i+2, 1), matches[0]);
+        EXPECT_EQ(match(i + 2, 1), matches[0]);
         memset(data.data() + i, 0, 3);
     }
 }
@@ -239,7 +229,7 @@ TEST_P(FDRp, NoRepeat1) {
             decentCallback, &matches, HWLM_ALL_GROUPS);
 
     ASSERT_EQ(1U, matches.size());
-    EXPECT_EQ(match(0, 0, 0), matches[0]);
+    EXPECT_EQ(match(0, 0), matches[0]);
 }
 
 TEST_P(FDRp, NoRepeat2) {
@@ -260,8 +250,8 @@ TEST_P(FDRp, NoRepeat2) {
             decentCallback, &matches, HWLM_ALL_GROUPS);
 
     ASSERT_EQ(3U, matches.size());
-    EXPECT_EQ(match(0, 0, 0), matches[0]);
-    EXPECT_EQ(match(78, 78, 0), matches[2]);
+    EXPECT_EQ(match(0, 0), matches[0]);
+    EXPECT_EQ(match(78, 0), matches[2]);
 }
 
 TEST_P(FDRp, NoRepeat3) {
@@ -282,7 +272,7 @@ TEST_P(FDRp, NoRepeat3) {
             decentCallback, &matches, HWLM_ALL_GROUPS);
 
     ASSERT_EQ(1U, matches.size());
-    EXPECT_EQ(match(31, 32, 0), matches[0]);
+    EXPECT_EQ(match(32, 0), matches[0]);
 }
 
 /**
@@ -315,9 +305,9 @@ TEST_P(FDRp, SmallStreaming) {
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     vector<match> expected, matches;
-    expected.push_back(match(0, 0, 1));
-    expected.push_back(match(1, 1, 1));
-    expected.push_back(match(2, 2, 1));
+    expected.push_back(match(0, 1));
+    expected.push_back(match(1, 1));
+    expected.push_back(match(2, 1));
 
     safeExecStreaming(fdr.get(), (const u8 *)"", 0, (const u8 *)"aaar", 4, 0,
                       decentCallback, &matches, HWLM_ALL_GROUPS);
@@ -328,8 +318,8 @@ TEST_P(FDRp, SmallStreaming) {
     expected.clear();
     matches.clear();
 
-    expected.push_back(match(6, 6, 1));
-    expected.push_back(match(1, 8, 10));
+    expected.push_back(match(6, 1));
+    expected.push_back(match(8, 10));
 
     safeExecStreaming(fdr.get(), (const u8 *)"aaar", 4, (const u8 *)"dvark", 5,
                       0, decentCallback, &matches, HWLM_ALL_GROUPS);
@@ -352,12 +342,12 @@ TEST_P(FDRp, SmallStreaming2) {
     CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
     vector<match> expected, matches;
-    expected.push_back(match(6,6,1));
-    expected.push_back(match(7,7,1));
-    expected.push_back(match(11,11,1));
-    expected.push_back(match(6,13,10));
-    expected.push_back(match(13,14,2));
-    expected.push_back(match(14,15,2));
+    expected.push_back(match(6,1));
+    expected.push_back(match(7,1));
+    expected.push_back(match(11,1));
+    expected.push_back(match(13,10));
+    expected.push_back(match(14,2));
+    expected.push_back(match(15,2));
 
     safeExecStreaming(fdr.get(), (const u8 *)"foobar", 6,
                       (const u8 *)"aardvarkkk", 10, 0, decentCallback, &matches,
@@ -402,7 +392,7 @@ TEST_P(FDRp, moveByteStream) {
     ASSERT_EQ(0, fdrStatus);
 
     ASSERT_EQ(1U, matches.size());
-    EXPECT_EQ(match(12, 17, 0), matches[0]);
+    EXPECT_EQ(match(17, 0), matches[0]);
 }
 
 TEST_P(FDRp, Stream1) {
@@ -431,7 +421,7 @@ TEST_P(FDRp, Stream1) {
 
     ASSERT_EQ(4U, matches.size());
     for (size_t i = 0; i < matches.size(); i++) {
-        EXPECT_EQ(match(i, i, 0), matches[i]);
+        EXPECT_EQ(match(i, 0), matches[i]);
     }
 }
 
@@ -506,8 +496,8 @@ TEST_P(FDRpp, AlignAndTooEarly) {
                     // we should get two and only two matches - at the beginning and
                     // at the end of unaligned buffer
                     ASSERT_EQ(2U, matches.size());
-                    ASSERT_EQ(match(0, litLen - 1, 0), matches[0]);
-                    ASSERT_EQ(match(4 * buf_alignment - litLen, 4 * buf_alignment - 1, 0), matches[1]);
+                    ASSERT_EQ(match(litLen - 1, 0), matches[0]);
+                    ASSERT_EQ(match(4 * buf_alignment - 1, 0), matches[1]);
                     matches.clear();
                 } else {
                     // "Too early" / "too late" condition - should not match anything
@@ -628,7 +618,7 @@ TEST_P(FDRpa, ShortWritings) {
 
                 for (int j = 0; j <= (int)bufLen - (int)patLen; j++) {
                     if (!buf.compare(j, patLen, pat)) {
-                        expMatches.push_back(match(j, j + patLen - 1,
+                        expMatches.push_back(match(j + patLen - 1,
                                                 testSigs[pIdx].id));
                     }
                 }

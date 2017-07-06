@@ -121,9 +121,8 @@ bytecode_ptr<noodTable> noodBuildTable(const hwlmLiteral &lit) {
     size_t key_offset = findNoodFragOffset(lit);
 
     n->id = lit.id;
-    n->lit_len = s.length();
     n->single = s.length() == 1 ? 1 : 0;
-    n->key_offset = verify_u8(n->lit_len - key_offset);
+    n->key_offset = verify_u8(s.length() - key_offset);
     n->nocase = lit.nocase ? 1 : 0;
     n->key0 = s[key_offset];
     if (n->single) {
@@ -151,12 +150,12 @@ namespace ue2 {
 
 void noodPrintStats(const noodTable *n, FILE *f) {
     fprintf(f, "Noodle table\n");
-    fprintf(f, "Len: %u Key Offset: %u\n", n->lit_len, n->key_offset);
+    fprintf(f, "Key Offset: %u\n", n->key_offset);
     fprintf(f, "Msk: %llx Cmp: %llx MskLen %u\n",
             n->msk >> 8 * (8 - n->msk_len), n->cmp >> 8 * (8 - n->msk_len),
             n->msk_len);
     fprintf(f, "String: ");
-    for (u32 i = n->msk_len - n->lit_len; i < n->msk_len; i++) {
+    for (u32 i = 0; i < n->msk_len; i++) {
         const u8 *m = (const u8 *)&n->cmp;
         if (isgraph(m[i]) && m[i] != '\\') {
             fprintf(f, "%c", m[i]);

@@ -128,10 +128,8 @@ hwlm_error_t final(const struct noodTable *n, const u8 *buf, UNUSED size_t len,
 
 match:
     pos -= cbi->offsetAdj;
-    DEBUG_PRINTF("match @ %zu->%zu\n", pos + n->key_offset - n->lit_len,
-                 pos + n->key_offset);
-    hwlmcb_rv_t rv = cbi->cb(pos + n->key_offset - n->lit_len,
-                             pos + n->key_offset - 1, cbi->id, cbi->ctx);
+    DEBUG_PRINTF("match @ %zu\n", pos + n->key_offset);
+    hwlmcb_rv_t rv = cbi->cb(pos + n->key_offset - 1, cbi->id, cbi->ctx);
     if (rv == HWLM_TERMINATE_MATCHING) {
         return HWLM_TERMINATED;
     }
@@ -377,8 +375,8 @@ hwlm_error_t noodExec(const struct noodTable *n, const u8 *buf, size_t len,
     assert(n && buf);
 
     struct cb_info cbi = {cb, n->id, ctxt, 0};
-    DEBUG_PRINTF("nood scan of %zu bytes for %*s @ %p\n", len, n->lit_len,
-                 (const char *)&n->cmp + n->msk_len - n->lit_len, buf);
+    DEBUG_PRINTF("nood scan of %zu bytes for %*s @ %p\n", len, n->msk_len,
+                 (const char *)&n->cmp, buf);
 
     return scan(n, buf, len, start, n->single, n->nocase, &cbi);
 }
@@ -396,8 +394,7 @@ hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
 
     struct cb_info cbi = {cb, n->id, ctxt, 0};
     DEBUG_PRINTF("nood scan of %zu bytes (%zu hlen) for %*s @ %p\n", len, hlen,
-                 n->lit_len, (const char *)&n->cmp + n->msk_len - n->lit_len,
-                 buf);
+                 n->msk_len, (const char *)&n->cmp, buf);
 
     if (hlen && n->msk_len > 1) {
         /*
@@ -427,9 +424,8 @@ hwlm_error_t noodExecStreaming(const struct noodTable *n, const u8 *hbuf,
             u64a v = unaligned_load_u64a(temp_buf + i);
             if ((v & n->msk) == n->cmp) {
                 size_t m_end = -tl1 + i + n->msk_len - 1;
-                size_t m_start = m_end - n->lit_len;
-                DEBUG_PRINTF("match @ %zu->%zu (i %zu)\n", m_start, m_end, i);
-                hwlmcb_rv_t rv = cb(m_start, m_end, n->id, ctxt);
+                DEBUG_PRINTF("match @ %zu (i %zu)\n", m_end, i);
+                hwlmcb_rv_t rv = cb(m_end, n->id, ctxt);
                 if (rv == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATED;
                 }

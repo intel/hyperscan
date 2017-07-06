@@ -39,7 +39,6 @@ struct noodTable {
     u32 id;
     u64a msk;
     u64a cmp;
-    u8 lit_len;
     u8 msk_len;
     u8 key_offset;
     u8 nocase;

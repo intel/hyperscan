@@ -64,34 +64,23 @@ using namespace ue2;
 namespace {
 
 struct match {
-    size_t start;
     size_t end;
     u32 id;
-    match(size_t start_in, size_t end_in, u32 id_in)
-        : start(start_in), end(end_in), id(id_in) {}
+    match(size_t end_in, u32 id_in) : end(end_in), id(id_in) {}
     bool operator==(const match &b) const {
-        return start == b.start && end == b.end && id == b.id;
+        return end == b.end && id == b.id;
     }
     bool operator<(const match &b) const {
-        if (id < b.id) {
-            return true;
-        } else if (id == b.id) {
-            if (start < b.start) {
-                return true;
-            } else if (start == b.start) {
-                return end < b.end;
-            }
-        }
-        return false;
+        return tie(id, end) < tie(b.id, b.end);
     }
     match operator+(size_t adj) {
-        return match(start + adj, end + adj, id);
+        return match(end + adj, id);
     }
 };
 
 template<typename T>
 T &operator<<(T &a, const match &b) {
-    a << "(" << b.start << ", " << b.end << ", " << b.id << ")";
+    a << "(" << b.end << ", " << b.id << ")";
     return a;
 }
 
@@ -107,8 +96,7 @@ T &operator<<(T &a, const vector<match> &b) {
 
 extern "C" {
 
-static hwlmcb_rv_t countCallback(UNUSED size_t start, UNUSED size_t end, u32 id,
-                                 void *cntxt) {
+static hwlmcb_rv_t countCallback(UNUSED size_t end, u32 id, void *cntxt) {
     if (cntxt) {
         map<u32, int> *matchesCounts = (map<u32, int> *)cntxt;
         (*matchesCounts)[id]++;
