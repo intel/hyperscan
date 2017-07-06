@@ -109,6 +109,31 @@ const u8 ALIGN_AVX_DIRECTIVE p_mask_arr256[33][64] = {
      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 };
 
+#define CONF_FAT_CHUNK_64(chunk, bucket, off, reason, conf_fn)              \
+do {                                                                        \
+    if (unlikely(chunk != ones_u64a)) {                                     \
+        chunk = ~chunk;                                                     \
+        conf_fn(&chunk, bucket, off, confBase, reason, a, ptr,              \
+                &control, &last_match);                                     \
+        CHECK_HWLM_TERMINATE_MATCHING;                                      \
+    }                                                                       \
+} while(0)
+
+#define CONF_FAT_CHUNK_32(chunk, bucket, off, reason, conf_fn)              \
+do {                                                                        \
+    if (unlikely(chunk != ones_u32a)) {                                     \
+        chunk = ~chunk;                                                     \
+        conf_fn(&chunk, bucket, off, confBase, reason, a, ptr,              \
+                &control, &last_match);                                     \
+        CHECK_HWLM_TERMINATE_MATCHING;                                      \
+    }                                                                       \
+} while(0)
+
+static really_inline
+const m256 *getMaskBase_avx2(const struct Teddy *teddy) {
+    return (const m256 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)));
+}
+
 #ifdef ARCH_64_BIT
 #define CONFIRM_FAT_TEDDY(var, bucket, offset, reason, conf_fn)             \
 do {                                                                        \
@@ -120,30 +145,10 @@ do {                                                                        \
         r = interleave256hi(var, swap);                                     \
         u64a part3 = extractlow64from256(r);                                \
         u64a part4 = extract64from256(r, 1);                                \
-        if (unlikely(part1 != ones_u64a)) {                                 \
-            part1 = ~part1;                                                 \
-            conf_fn(&part1, bucket, offset, confBase, reason, a, ptr,       \
-                    &control, &last_match);                                 \
-            CHECK_HWLM_TERMINATE_MATCHING;                                  \
-        }                                                                   \
-        if (unlikely(part2 != ones_u64a)) {                                 \
-            part2 = ~part2;                                                 \
-            conf_fn(&part2, bucket, offset + 4, confBase, reason, a, ptr,   \
-                    &control, &last_match);                                 \
-            CHECK_HWLM_TERMINATE_MATCHING;                                  \
-        }                                                                   \
-        if (unlikely(part3 != ones_u64a)) {                                 \
-            part3 = ~part3;                                                 \
-            conf_fn(&part3, bucket, offset + 8, confBase, reason, a, ptr,   \
-                    &control, &last_match);                                 \
-            CHECK_HWLM_TERMINATE_MATCHING;                                  \
-        }                                                                   \
-        if (unlikely(part4 != ones_u64a)) {                                 \
-            part4 = ~part4;                                                 \
-            conf_fn(&part4, bucket, offset + 12, confBase, reason, a, ptr,  \
-                    &control, &last_match);                                 \
-            CHECK_HWLM_TERMINATE_MATCHING;                                  \
-        }                                                                   \
+        CONF_FAT_CHUNK_64(part1, bucket, offset, reason, conf_fn);          \
+        CONF_FAT_CHUNK_64(part2, bucket, offset + 4, reason, conf_fn);      \
+        CONF_FAT_CHUNK_64(part3, bucket, offset + 8, reason, conf_fn);      \
+        CONF_FAT_CHUNK_64(part4, bucket, offset + 12, reason, conf_fn);     \
     }                                                                       \
 } while(0)
 #else
@@ -161,53 +166,14 @@ do {                                                                        \
         u32 part6 = extract32from256(r, 1);                                 \
         u32 part7 = extract32from256(r, 2);                                 \
         u32 part8 = extract32from256(r, 3);                                 \
-        if (unlikely(part1 != ones_u32)) {                                  \
-            part1 = ~part1;                                                 \
-            conf_fn(&part1, bucket, offset, confBase, reason, a, ptr,       \
-                    &control, &last_match);                                 \
-            CHECK_HWLM_TERMINATE_MATCHING;                                  \
-        }                                                                   \
-        if (unlikely(part2 != ones_u32)) {                                  \
-            part2 = ~part2;                                                 \
-            conf_fn(&part2, bucket, offset + 2, confBase, reason, a, ptr,   \
-                    &control, &last_match);                                 \
-        }                                                                   \
-        if (unlikely(part3 != ones_u32)) {                                  \
-            part3 = ~part3;                                                 \
-            conf_fn(&part3, bucket, offset + 4, confBase, reason, a, ptr,   \
-                    &control, &last_match);                                 \
-            CHECK_HWLM_TERMINATE_MATCHING;                                  \
-        }                                                                   \
-        if (unlikely(part4 != ones_u32)) {                                  \
-            part4 = ~part4;                                                 \
-            conf_fn(&part4, bucket, offset + 6, confBase, reason, a, ptr,   \
-                    &control, &last_match);                                 \
-            CHECK_HWLM_TERMINATE_MATCHING;                                  \
-        }                                                                   \
-        if (unlikely(part5 != ones_u32)) {                                  \
-            part5 = ~part5;                                                 \
-            conf_fn(&part5, bucket, offset + 8, confBase, reason, a, ptr,   \
-                    &control, &last_match);                                 \
-            CHECK_HWLM_TERMINATE_MATCHING;                                  \
-        }                                                                   \
-        if (unlikely(part6 != ones_u32)) {                                  \
-            part6 = ~part6;                                                 \
-            conf_fn(&part6, bucket, offset + 10, confBase, reason, a, ptr,  \
-                    &control, &last_match);                                 \
-            CHECK_HWLM_TERMINATE_MATCHING;                                  \
-        }                                                                   \
-        if (unlikely(part7 != ones_u32)) {                                  \
-            part7 = ~part7;                                                 \
-            conf_fn(&part7, bucket, offset + 12, confBase, reason, a, ptr,  \
-                    &control, &last_match);                                 \
-            CHECK_HWLM_TERMINATE_MATCHING;                                  \
-        }                                                                   \
-        if (unlikely(part8 != ones_u32)) {                                  \
-            part8 = ~part8;                                                 \
-            conf_fn(&part8, bucket, offset + 14, confBase, reason, a, ptr,  \
-                    &control, &last_match);                                 \
-            CHECK_HWLM_TERMINATE_MATCHING;                                  \
-        }                                                                   \
+        CONF_FAT_CHUNK_32(part1, bucket, offset, reason, conf_fn);          \
+        CONF_FAT_CHUNK_32(part2, bucket, offset + 2, reason, conf_fn);      \
+        CONF_FAT_CHUNK_32(part3, bucket, offset + 4, reason, conf_fn);      \
+        CONF_FAT_CHUNK_32(part4, bucket, offset + 6, reason, conf_fn);      \
+        CONF_FAT_CHUNK_32(part5, bucket, offset + 8, reason, conf_fn);      \
+        CONF_FAT_CHUNK_32(part6, bucket, offset + 10, reason, conf_fn);     \
+        CONF_FAT_CHUNK_32(part7, bucket, offset + 12, reason, conf_fn);     \
+        CONF_FAT_CHUNK_32(part8, bucket, offset + 14, reason, conf_fn);     \
     }                                                                       \
 } while(0)
 #endif
@@ -275,11 +241,6 @@ m256 prep_conf_fat_teddy_m4(const m256 *maskBase, m256 *old_1, m256 *old_2,
     m256 res_shifted_3 = vpalignr(res_3, *old_3, 16 - 3);
     *old_3 = res_3;
     return or256(r, res_shifted_3);
-}
-
-static really_inline
-const m256 *getMaskBase_avx2(const struct Teddy *teddy) {
-    return (const m256 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)));
 }
 
 #define FDR_EXEC_FAT_TEDDY_RES_OLD_1                                        \

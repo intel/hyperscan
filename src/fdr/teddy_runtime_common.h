@@ -41,7 +41,7 @@
 #include "util/uniform_ops.h"
 
 extern const u8 ALIGN_DIRECTIVE p_mask_arr[17][32];
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 extern const u8 ALIGN_DIRECTIVE p_mask_arr256[33][64];
 #endif
 
@@ -123,7 +123,7 @@ void copyRuntBlock128(u8 *dst, const u8 *src, size_t len) {
 //     for start zone, see below
 //          lo         ptr                      hi           hi
 //          |----------|-------|----------------|............|
-//          start      0       start+offset     end(<=16)
+//          -start     0       -start+offset    MIN(avail,16)
 // p_mask              ffff..ff0000...........00ffff..........
 // ptr < lo:
 //     only start zone.
@@ -182,7 +182,7 @@ m128 vectoredLoad128(m128 *p_mask, const u8 *ptr, const size_t start_offset,
     return u.val128;
 }
 
-#if defined(__AVX2__)
+#if defined(HAVE_AVX2)
 /*
  * \brief Copy a block of [0,31] bytes efficiently.
  *
@@ -251,7 +251,7 @@ void copyRuntBlock256(u8 *dst, const u8 *src, size_t len) {
 //     for start zone, see below
 //          lo         ptr                      hi           hi
 //          |----------|-------|----------------|............|
-//          start      0       start+offset     end(<=32)
+//          -start     0       -start+offset    MIN(avail,32)
 // p_mask              ffff..ff0000...........00ffff..........
 // ptr < lo:
 //     only start zone.
@@ -309,7 +309,77 @@ m256 vectoredLoad256(m256 *p_mask, const u8 *ptr, const size_t start_offset,
 
     return u.val256;
 }
-#endif // __AVX2__
+#endif // HAVE_AVX2
+
+#if defined(HAVE_AVX512)
+// Note: p_mask is an output param that initialises a poison mask.
+//       u64a k = ones_u64a << n' >> m'; // m' < n'
+//       *p_mask = set_mask_m512(~k);
+//       means p_mask is consist of:
+//       (n' - m') poison bytes "0xff" at the beginning,
+//       followed by (64 - n') valid bytes "0x00",
+//       then followed by the rest m' poison bytes "0xff".
+// ptr >= lo:
+//     no history.
+//     for end/short zone, ptr==lo and start_offset==0
+//     for start zone, see below
+//          lo         ptr                      hi           hi
+//          |----------|-------|----------------|............|
+//          -start     0       -start+offset    MIN(avail,64)
+// p_mask              ffff..ff0000...........00ffff..........
+// ptr < lo:
+//     only start zone.
+//             history
+//          ptr        lo                       hi           hi
+//          |----------|-------|----------------|............|
+//          0          start   start+offset     end(<=64)
+// p_mask   ffff.....ffffff..ff0000...........00ffff..........
+static really_inline
+m512 vectoredLoad512(m512 *p_mask, const u8 *ptr, const size_t start_offset,
+                     const u8 *lo, const u8 *hi, const u8 *hbuf, size_t hlen,
+                     const u32 nMasks) {
+    m512 val;
+
+    uintptr_t copy_start;
+    uintptr_t copy_len;
+
+    if (ptr >= lo) { // short/end/start zone
+        uintptr_t start = (uintptr_t)(ptr - lo);
+        uintptr_t avail = (uintptr_t)(hi - ptr);
+        if (avail >= 64) {
+            assert(start_offset - start <= 64);
+            u64a k = ones_u64a << (start_offset - start);
+            *p_mask = set_mask_m512(~k);
+            return loadu512(ptr);
+        }
+        assert(start_offset - start <= avail);
+        u64a k = ones_u64a << (64 - avail + start_offset - start)
+                           >> (64 - avail);
+        *p_mask = set_mask_m512(~k);
+        copy_start = 0;
+        copy_len = avail;
+    } else { //start zone
+        uintptr_t need = MIN((uintptr_t)(lo - ptr),
+                             MIN(hlen, nMasks - 1));
+        uintptr_t start = (uintptr_t)(lo - ptr);
+        u64a j = 0x7fffffffffffffffULL >> (63 - need) << (start - need);
+        val = loadu_maskz_m512(j, &hbuf[hlen - start]);
+        uintptr_t end = MIN(64, (uintptr_t)(hi - ptr));
+        assert(start + start_offset <= end);
+        u64a k = ones_u64a << (64 - end + start + start_offset) >> (64 - end);
+        *p_mask = set_mask_m512(~k);
+        copy_start = start;
+        copy_len = end - start;
+    }
+
+    assert(copy_len < 64);
+    assert(copy_len > 0);
+    u64a j = ones_u64a >> (64 - copy_len) << copy_start;
+    val = loadu_mask_m512(val, j, ptr);
+
+    return val;
+}
+#endif // HAVE_AVX512
 
 static really_inline
 u64a getConfVal(const struct FDR_Runtime_Args *a, const u8 *ptr, u32 byte,

@@ -755,6 +755,10 @@ m256 combine2x128(m128 hi, m128 lo) {
 }
 #endif //AVX2
 
+#if defined(HAVE_AVX512)
+#define extract128from512(a, imm) _mm512_extracti32x4_epi32(a, imm)
+#endif
+
 /****
  **** 384-bit Primitives
  ****/
@@ -970,6 +974,13 @@ m512 set8x64(u64a a) {
 }
 
 static really_inline
+m512 set512_64(u64a hi_3, u64a hi_2, u64a hi_1, u64a hi_0,
+               u64a lo_3, u64a lo_2, u64a lo_1, u64a lo_0) {
+    return _mm512_set_epi64(hi_3, hi_2, hi_1, hi_0,
+                            lo_3, lo_2, lo_1, lo_0);
+}
+
+static really_inline
 m512 set4x128(m128 a) {
     return _mm512_broadcast_i32x4(a);
 }
@@ -1059,6 +1070,7 @@ m512 lshift64_m512(m512 a, unsigned b) {
 #if defined(HAVE_AVX512)
 #define rshift64_m512(a, b) _mm512_srli_epi64((a), (b))
 #define rshift128_m512(a, count_immed) _mm512_bsrli_epi128(a, count_immed)
+#define lshift128_m512(a, count_immed) _mm512_bslli_epi128(a, count_immed)
 #endif
 
 #if !defined(_MM_CMPINT_NE)
@@ -1168,6 +1180,11 @@ m512 loadu_maskz_m512(__mmask64 k, const void *ptr) {
 static really_inline
 m512 loadu_mask_m512(m512 src, __mmask64 k, const void *ptr) {
     return _mm512_mask_loadu_epi8(src, k, ptr);
+}
+
+static really_inline
+m512 set_mask_m512(__mmask64 k) {
+    return _mm512_movm_epi8(k);
 }
 #endif
 
