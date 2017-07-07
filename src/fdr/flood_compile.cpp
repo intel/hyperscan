@@ -85,7 +85,7 @@ void addFlood(vector<FDRFlood> &tmpFlood, u8 c, const hwlmLiteral &lit,
         // when idCount gets to max_ids this flood no longer happens
         // only incremented one more time to avoid arithmetic overflow
         DEBUG_PRINTF("Added Flood for char '%c' suffix=%u len[%hu]=%u\n",
-                                        c, fl.suffix, fl.idCount, suffix);
+                     c, fl.suffix, fl.idCount, suffix);
         fl.idCount++;
    }
 }
@@ -181,8 +181,7 @@ bytecode_ptr<u8> setupFDRFloodControl(const vector<hwlmLiteral> &lits,
         printf("i is %02x fl->idCount is %hd fl->suffix is %d fl->allGroups is "
                "%016llx\n", i, fl.idCount, fl.suffix, fl.allGroups);
         for (u32 j = 0; j < fl.idCount; j++) {
-            printf("j is %d fl.groups[j] %016llx fl.len[j] %d \n", j,
-                   fl.groups[j], fl.len[j]);
+            printf("j is %d fl.groups[j] %016llx\n", j, fl.groups[j]);
         }
     }
 #endif
