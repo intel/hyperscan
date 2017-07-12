@@ -752,12 +752,34 @@ bool operator==(const StateSet::State &a, const StateSet::State &b) {
            a.som == b.som;
 }
 
+/** \brief Cache to speed up edge lookups, rather than hitting the graph. */
+struct EdgeCache {
+    explicit EdgeCache(const NGHolder &g) {
+        cache.reserve(num_vertices(g));
+        for (auto e : edges_range(g)) {
+            cache.emplace(make_pair(source(e, g), target(e, g)), e);
+        }
+    }
+
+    NFAEdge get(NFAVertex u, NFAVertex v) const {
+        auto it = cache.find(make_pair(u, v));
+        if (it != cache.end()) {
+            return it->second;
+        }
+        return NFAEdge();
+    }
+
+private:
+    unordered_map<pair<NFAVertex, NFAVertex>, NFAEdge> cache;
+};
+
 struct fmstate {
     const size_t num_states; // number of vertices in graph
     StateSet states; // currently active states
     StateSet next; // states on after this iteration
     GraphCache &gc;
     vector<NFAVertex> vertices; // mapping from index to vertex
+    EdgeCache edge_cache;
     size_t offset = 0;
     unsigned char cur = 0;
     unsigned char prev = 0;
@@ -771,7 +793,7 @@ struct fmstate {
           states(num_states, edit_distance),
           next(num_states, edit_distance),
           gc(gc_in), vertices(num_vertices(g), NGHolder::null_vertex()),
-          utf8(utf8_in), allowStartDs(aSD_in), rm(rm_in) {
+          edge_cache(g), utf8(utf8_in), allowStartDs(aSD_in), rm(rm_in) {
         // init states
         states.activateState(
                     StateSet::State {g[g.start].index, 0, 0,
@@ -889,7 +911,7 @@ void getAcceptMatches(const NGHolder &g, MatchSet &matches,
             eod ? state.gc.vertex_eod_reports_by_level[cur.level][u]
                 : state.gc.vertex_reports_by_level[cur.level][u];
 
-        NFAEdge e = edge(u, accept_vertex, g);
+        NFAEdge e = state.edge_cache.get(u, accept_vertex);
 
         // we assume edge assertions only exist at level 0
         if (e && !canReach(g, e, state)) {
@@ -965,7 +987,7 @@ void step(const NGHolder &g, fmstate &state, StateSet::WorkingData &wd) {
             } else {
                 // we assume edge assertions only exist on level 0
                 const CharReach &cr = g[v].char_reach;
-                NFAEdge e = edge(u, v, g);
+                NFAEdge e = state.edge_cache.get(u, v);
 
                 if (cr.test(state.cur) &&
                     (!e || canReach(g, e, state))) {
