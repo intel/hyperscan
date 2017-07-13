@@ -298,7 +298,7 @@ do {                                                                          \
     const u8 *ptr = a->buf + a->start_offset;                                 \
     u32 floodBackoff = FLOOD_BACKOFF_START;                                   \
     const u8 *tryFloodDetect = a->firstFloodDetect;                           \
-    u32 last_match = (u32)-1;                                                 \
+    u32 last_match = ones_u32;                                                \
     const struct Teddy *teddy = (const struct Teddy *)fdr;                    \
     const size_t iterBytes = 128;                                             \
     DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",                 \
@@ -533,7 +533,7 @@ do {                                                                          \
     const u8 *ptr = a->buf + a->start_offset;                                 \
     u32 floodBackoff = FLOOD_BACKOFF_START;                                   \
     const u8 *tryFloodDetect = a->firstFloodDetect;                           \
-    u32 last_match = (u32)-1;                                                 \
+    u32 last_match = ones_u32;                                                \
     const struct Teddy *teddy = (const struct Teddy *)fdr;                    \
     const size_t iterBytes = 64;                                              \
     DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",                 \
@@ -712,7 +712,7 @@ do {                                                                          \
     const u8 *ptr = a->buf + a->start_offset;                                 \
     u32 floodBackoff = FLOOD_BACKOFF_START;                                   \
     const u8 *tryFloodDetect = a->firstFloodDetect;                           \
-    u32 last_match = (u32)-1;                                                 \
+    u32 last_match = ones_u32;                                                \
     const struct Teddy *teddy = (const struct Teddy *)fdr;                    \
     const size_t iterBytes = 32;                                              \
     DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",                 \

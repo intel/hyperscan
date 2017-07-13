@@ -169,16 +169,24 @@ m128 load_m128_from_u64a(const u64a *p) {
 #define rshiftbyte_m128(a, count_immed) _mm_srli_si128(a, count_immed)
 #define lshiftbyte_m128(a, count_immed) _mm_slli_si128(a, count_immed)
 
+#if defined(HAVE_SSE41)
+#define extract32from128(a, imm) _mm_extract_epi32(a, imm)
+#define extract64from128(a, imm) _mm_extract_epi64(a, imm)
+#else
+#define extract32from128(a, imm) movd(_mm_srli_si128(a, imm << 2))
+#define extract64from128(a, imm) movq(_mm_srli_si128(a, imm << 3))
+#endif
+
 #if !defined(HAVE_AVX2)
 // TODO: this entire file needs restructuring - this carveout is awful
 #define extractlow64from256(a) movq(a.lo)
 #define extractlow32from256(a) movd(a.lo)
 #if defined(HAVE_SSE41)
 #define extract32from256(a, imm) _mm_extract_epi32((imm >> 2) ? a.hi : a.lo, imm % 4)
-#define extract64from256(a, imm) _mm_extract_epi64((imm >> 2) ? a.hi : a.lo, imm % 2)
+#define extract64from256(a, imm) _mm_extract_epi64((imm >> 1) ? a.hi : a.lo, imm % 2)
 #else
-#define extract32from256(a, imm) movd(_mm_srli_si128((imm >> 2) ? a.hi : a.lo, (imm % 4) * 8))
-#define extract64from256(a, imm) movq(_mm_srli_si128((imm >> 2) ? a.hi : a.lo, (imm % 2) * 8))
+#define extract32from256(a, imm) movd(_mm_srli_si128((imm >> 2) ? a.hi : a.lo, (imm % 4) * 4))
+#define extract64from256(a, imm) movq(_mm_srli_si128((imm >> 1) ? a.hi : a.lo, (imm % 2) * 8))
 #endif
 
 #endif // !AVX2
@@ -741,8 +749,8 @@ m128 movdq_lo(m256 x) {
 #define extract32from256(a, imm) _mm_extract_epi32(_mm256_extracti128_si256(a, imm >> 2), imm % 4)
 #define extractlow64from256(a) _mm_cvtsi128_si64(cast256to128(a))
 #define extractlow32from256(a) movd(cast256to128(a))
-#define interleave256hi(a, b) _mm256_unpackhi_epi8(a, b);
-#define interleave256lo(a, b) _mm256_unpacklo_epi8(a, b);
+#define interleave256hi(a, b) _mm256_unpackhi_epi8(a, b)
+#define interleave256lo(a, b) _mm256_unpacklo_epi8(a, b)
 #define vpalignr(r, l, offset) _mm256_alignr_epi8(r, l, offset)
 
 static really_inline
@@ -757,6 +765,11 @@ m256 combine2x128(m128 hi, m128 lo) {
 
 #if defined(HAVE_AVX512)
 #define extract128from512(a, imm) _mm512_extracti32x4_epi32(a, imm)
+#define interleave512hi(a, b) _mm512_unpackhi_epi8(a, b)
+#define interleave512lo(a, b) _mm512_unpacklo_epi8(a, b)
+#define set2x256(a) _mm512_broadcast_i64x4(a)
+#define mask_set2x256(src, k, a) _mm512_mask_broadcast_i64x4(src, k, a)
+#define vpermq512(idx, a) _mm512_permutexvar_epi64(idx, a)
 #endif
 
 /****
@@ -978,6 +991,12 @@ m512 set512_64(u64a hi_3, u64a hi_2, u64a hi_1, u64a hi_0,
                u64a lo_3, u64a lo_2, u64a lo_1, u64a lo_0) {
     return _mm512_set_epi64(hi_3, hi_2, hi_1, hi_0,
                             lo_3, lo_2, lo_1, lo_0);
+}
+
+static really_inline
+m512 swap256in512(m512 a) {
+    m512 idx = set512_64(3ULL, 2ULL, 1ULL, 0ULL, 7ULL, 6ULL, 5ULL, 4ULL);
+    return vpermq512(idx, a);
 }
 
 static really_inline
