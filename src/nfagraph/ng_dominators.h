@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,15 +36,14 @@
 #define NG_DOMINATORS_H
 
 #include "ng_holder.h"
-#include "util/ue2_containers.h"
+
+#include <unordered_map>
 
 namespace ue2 {
 
-class NGHolder;
+std::unordered_map<NFAVertex, NFAVertex> findDominators(const NGHolder &g);
 
-ue2::unordered_map<NFAVertex, NFAVertex> findDominators(const NGHolder &g);
-
-ue2::unordered_map<NFAVertex, NFAVertex> findPostDominators(const NGHolder &g);
+std::unordered_map<NFAVertex, NFAVertex> findPostDominators(const NGHolder &g);
 
 } // namespace ue2
 

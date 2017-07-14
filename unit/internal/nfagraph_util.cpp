@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -79,8 +79,8 @@ TEST(NFAGraph, split1) {
 
     NFAVertex pivot = c;
 
-    ue2::unordered_map<NFAVertex, NFAVertex> lhs_map;
-    ue2::unordered_map<NFAVertex, NFAVertex> rhs_map;
+    unordered_map<NFAVertex, NFAVertex> lhs_map;
+    unordered_map<NFAVertex, NFAVertex> rhs_map;
 
     splitGraph(src, pivot, &lhs, &lhs_map, &rhs, &rhs_map);
 
@@ -130,8 +130,8 @@ TEST(NFAGraph, split2) {
 
     NFAVertex pivot = c;
 
-    ue2::unordered_map<NFAVertex, NFAVertex> lhs_map;
-    ue2::unordered_map<NFAVertex, NFAVertex> rhs_map;
+    unordered_map<NFAVertex, NFAVertex> lhs_map;
+    unordered_map<NFAVertex, NFAVertex> rhs_map;
 
     splitGraph(src, pivot, &lhs, &lhs_map, &rhs, &rhs_map);
 
@@ -203,8 +203,8 @@ TEST(NFAGraph, split3) {
     pivots.push_back(d);
     pivots.push_back(g);
 
-    ue2::unordered_map<NFAVertex, NFAVertex> lhs_map;
-    ue2::unordered_map<NFAVertex, NFAVertex> rhs_map;
+    unordered_map<NFAVertex, NFAVertex> lhs_map;
+    unordered_map<NFAVertex, NFAVertex> rhs_map;
 
     splitGraph(src, pivots, &lhs, &lhs_map, &rhs, &rhs_map);
 
@@ -280,8 +280,8 @@ TEST(NFAGraph, split4) {
     pivots.push_back(d);
     pivots.push_back(g);
 
-    ue2::unordered_map<NFAVertex, NFAVertex> lhs_map;
-    ue2::unordered_map<NFAVertex, NFAVertex> rhs_map;
+    unordered_map<NFAVertex, NFAVertex> lhs_map;
+    unordered_map<NFAVertex, NFAVertex> rhs_map;
 
     splitGraph(src, pivots, &lhs, &lhs_map, &rhs, &rhs_map);
 

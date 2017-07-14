@@ -38,10 +38,10 @@
 #include "util/compile_error.h"
 #include "util/noncopyable.h"
 #include "util/report.h"
-#include "util/ue2_containers.h"
 
 #include <map>
 #include <set>
+#include <unordered_map>
 #include <vector>
 
 namespace ue2 {
@@ -131,17 +131,17 @@ private:
 
     /** \brief Mapping from Report to ID (inverse of \ref reportIds
      * vector). */
-    unordered_map<Report, size_t> reportIdToInternalMap;
+    std::unordered_map<Report, size_t> reportIdToInternalMap;
 
     /** \brief Mapping from ReportID to dedupe key. */
-    unordered_map<ReportID, u32> reportIdToDedupeKey;
+    std::unordered_map<ReportID, u32> reportIdToDedupeKey;
 
     /** \brief Mapping from ReportID to Rose program offset in bytecode. */
-    unordered_map<ReportID, u32> reportIdToProgramOffset;
+    std::unordered_map<ReportID, u32> reportIdToProgramOffset;
 
     /** \brief Mapping from external match ids to information about that
      * id. */
-    unordered_map<ReportID, external_report_info> externalIdMap;
+    std::unordered_map<ReportID, external_report_info> externalIdMap;
 
     /** \brief Mapping from expression index to exhaustion key. */
     std::map<s64a, u32> toExhaustibleKeyMap;

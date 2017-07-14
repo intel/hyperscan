@@ -223,7 +223,7 @@ void pruneHighlanderAccepts(NGHolder &g, const ReportManager &rm) {
 
 static
 bool isDominatedByReporter(const NGHolder &g,
-                           const ue2::unordered_map<NFAVertex, NFAVertex> &dom,
+                           const unordered_map<NFAVertex, NFAVertex> &dom,
                            NFAVertex v, ReportID report_id) {
     for (auto it = dom.find(v); it != end(dom); it = dom.find(v)) {
         NFAVertex u = it->second;

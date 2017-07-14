@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -196,12 +196,17 @@ bool isSubsetOf(const CharReach &small, const CharReach &big);
 bool isutf8ascii(const CharReach &cr);
 bool isutf8start(const CharReach &cr);
 
-/** \brief Boost-style hash free function. */
-static really_inline
-size_t hash_value(const CharReach &cr) {
-    return cr.hash();
-}
-
 } // namespace ue2
+
+namespace std {
+
+template<>
+struct hash<ue2::CharReach> {
+    size_t operator()(const ue2::CharReach &cr) const {
+        return cr.hash();
+    }
+};
+
+} // namespace std
 
 #endif // NG_CHARREACH_H

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -78,8 +78,8 @@
 #include "ng_util.h"
 #include "ue2common.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
-#include "util/ue2_containers.h"
 
 #include <algorithm>
 #include <cassert>
@@ -747,7 +747,7 @@ u32 findCyclic(const NGHolder &g, vector<bool> &cyclic) {
 static
 void findCyclicDom(NGHolder &g, vector<bool> &cyclic,
                    set<NFAEdge> &dead, som_type som) {
-    ue2::unordered_map<NFAVertex, NFAVertex> dominators = findDominators(g);
+    auto dominators = findDominators(g);
 
     for (auto v : vertices_range(g)) {
         if (is_special(v, g)) {
@@ -791,8 +791,7 @@ void findCyclicDom(NGHolder &g, vector<bool> &cyclic,
 static
 void findCyclicPostDom(NGHolder &g, vector<bool> &cyclic,
                        set<NFAEdge> &dead) {
-    ue2::unordered_map<NFAVertex, NFAVertex> postdominators =
-        findPostDominators(g);
+    auto postdominators = findPostDominators(g);
 
     for (auto v : vertices_range(g)) {
         if (is_special(v, g)) {

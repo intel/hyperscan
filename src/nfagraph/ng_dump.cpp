@@ -176,7 +176,7 @@ public:
         : g(g_in), rm(&rm_in) {}
 
     NFAWriter(const GraphT &g_in,
-              const ue2::unordered_map<NFAVertex, u32> &region_map_in)
+              const unordered_map<NFAVertex, u32> &region_map_in)
         : g(g_in), region_map(&region_map_in) {}
 
     void operator()(ostream& os, const VertexT& v) const {
@@ -254,7 +254,7 @@ public:
 private:
     const GraphT &g;
     const ReportManager *rm = nullptr;
-    const ue2::unordered_map<NFAVertex, u32> *region_map = nullptr;
+    const unordered_map<NFAVertex, u32> *region_map = nullptr;
 };
 }
 
@@ -278,7 +278,7 @@ void dumpGraphImpl(const char *name, const GraphT &g, const ReportManager &rm) {
 
 template <typename GraphT>
 void dumpGraphImpl(const char *name, const GraphT &g,
-                   const ue2::unordered_map<NFAVertex, u32> &region_map) {
+                   const unordered_map<NFAVertex, u32> &region_map) {
     typedef typename boost::graph_traits<GraphT>::vertex_descriptor VertexT;
     typedef typename boost::graph_traits<GraphT>::edge_descriptor EdgeT;
     ofstream os(name);
@@ -332,7 +332,7 @@ void dumpHolderImpl(const NGHolder &h, unsigned int stageNumber,
 }
 
 void dumpHolderImpl(const NGHolder &h,
-                    const ue2::unordered_map<NFAVertex, u32> &region_map,
+                    const unordered_map<NFAVertex, u32> &region_map,
                     unsigned int stageNumber, const char *stageName,
                     const Grey &grey) {
     if (grey.dumpFlags & Grey::DUMP_INT_GRAPH) {

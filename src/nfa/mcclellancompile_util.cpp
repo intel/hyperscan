@@ -30,12 +30,11 @@
 
 #include "rdfa.h"
 #include "util/container.h"
-#include "util/ue2_containers.h"
+#include "util/hash.h"
 #include "ue2common.h"
 
 #include <deque>
-
-#include <boost/functional/hash/hash.hpp>
+#include <map>
 
 using namespace std;
 
@@ -232,22 +231,18 @@ bool has_non_eod_accepts(const raw_dfa &rdfa) {
 }
 
 size_t hash_dfa_no_reports(const raw_dfa &rdfa) {
-    using boost::hash_combine;
-    using boost::hash_range;
-
     size_t v = 0;
     hash_combine(v, rdfa.alpha_size);
-    hash_combine(v, hash_range(begin(rdfa.alpha_remap), end(rdfa.alpha_remap)));
+    hash_combine(v, rdfa.alpha_remap);
 
     for (const auto &ds : rdfa.states) {
-        hash_combine(v, hash_range(begin(ds.next), end(ds.next)));
+        hash_combine(v, ds.next);
     }
 
     return v;
 }
 
 size_t hash_dfa(const raw_dfa &rdfa) {
-    using boost::hash_combine;
     size_t v = 0;
     hash_combine(v, hash_dfa_no_reports(rdfa));
     hash_combine(v, all_reports(rdfa));

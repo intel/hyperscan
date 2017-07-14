@@ -41,6 +41,7 @@
 #include "util/compare.h"
 #include "util/report.h"
 #include "util/report_manager.h"
+#include "util/unordered.h"
 
 #include <algorithm>
 
@@ -770,7 +771,7 @@ struct EdgeCache {
     }
 
 private:
-    unordered_map<pair<NFAVertex, NFAVertex>, NFAEdge> cache;
+    ue2_unordered_map<pair<NFAVertex, NFAVertex>, NFAEdge> cache;
 };
 
 struct fmstate {

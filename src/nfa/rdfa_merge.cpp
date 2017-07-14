@@ -36,9 +36,10 @@
 #include "nfagraph/ng_mcclellan_internal.h"
 #include "util/container.h"
 #include "util/determinise.h"
+#include "util/flat_containers.h"
 #include "util/make_unique.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
+#include "util/unordered.h"
 
 #include <algorithm>
 #include <queue>
@@ -54,7 +55,7 @@ namespace {
 class Automaton_Merge {
 public:
     using StateSet = vector<u16>;
-    using StateMap = unordered_map<StateSet, dstate_id_t>;
+    using StateMap = ue2_unordered_map<StateSet, dstate_id_t>;
 
     Automaton_Merge(const raw_dfa *rdfa1, const raw_dfa *rdfa2,
                     const ReportManager *rm_in, const Grey &grey_in)

@@ -41,17 +41,18 @@
 #include "ue2common.h"
 #include "util/bitfield.h"
 #include "util/determinise.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
 #include "util/hash.h"
 #include "util/hash_dynamic_bitset.h"
 #include "util/make_unique.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
 
 #include <algorithm>
 #include <functional>
 #include <map>
 #include <set>
+#include <unordered_map>
 #include <vector>
 
 #include <boost/dynamic_bitset.hpp>
@@ -483,7 +484,7 @@ public:
 
 struct Graph_Traits {
     using StateSet = bitfield<NFA_STATE_LIMIT>;
-    using StateMap = ue2::unordered_map<StateSet, dstate_id_t>;
+    using StateMap = unordered_map<StateSet, dstate_id_t>;
 
     static StateSet init_states(UNUSED u32 num) {
         assert(num <= NFA_STATE_LIMIT);

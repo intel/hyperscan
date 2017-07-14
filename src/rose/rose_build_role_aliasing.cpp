@@ -45,16 +45,15 @@
 #include "util/bitutils.h"
 #include "util/compile_context.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
 #include "util/hash.h"
 #include "util/order_check.h"
-#include "util/ue2_containers.h"
 
 #include <algorithm>
 #include <numeric>
 #include <vector>
-#include <boost/functional/hash/hash.hpp>
 #include <boost/graph/adjacency_iterator.hpp>
 #include <boost/range/adaptor/map.hpp>
 
@@ -154,7 +153,7 @@ public:
 private:
     /* if a vertex is worth storing, it is worth storing twice */
     set<RoseVertex> main_cont; /* deterministic iterator */
-    ue2::unordered_set<RoseVertex> hash_cont; /* member checks */
+    unordered_set<RoseVertex> hash_cont; /* member checks */
 };
 
 struct RoseAliasingInfo {
@@ -175,10 +174,10 @@ struct RoseAliasingInfo {
     }
 
     /** \brief Mapping from leftfix to vertices. */
-    ue2::unordered_map<left_id, set<RoseVertex>> rev_leftfix;
+    unordered_map<left_id, set<RoseVertex>> rev_leftfix;
 
     /** \brief Mapping from undelayed ghost to delayed vertices. */
-    ue2::unordered_map<RoseVertex, set<RoseVertex>> rev_ghost;
+    unordered_map<RoseVertex, set<RoseVertex>> rev_ghost;
 };
 
 } // namespace
@@ -787,7 +786,7 @@ void updateEdgeTops(RoseGraph &g, RoseVertex v, const map<u32, u32> &top_map) {
 static
 void pruneUnusedTops(CastleProto &castle, const RoseGraph &g,
                      const set<RoseVertex> &verts) {
-    ue2::unordered_set<u32> used_tops;
+    unordered_set<u32> used_tops;
     for (auto v : verts) {
         assert(g[v].left.castle.get() == &castle);
 
@@ -818,7 +817,7 @@ void pruneUnusedTops(NGHolder &h, const RoseGraph &g,
     }
     assert(isCorrectlyTopped(h));
     DEBUG_PRINTF("pruning unused tops\n");
-    ue2::flat_set<u32> used_tops;
+    flat_set<u32> used_tops;
     for (auto v : verts) {
         assert(g[v].left.graph.get() == &h);
 
@@ -1415,7 +1414,7 @@ void removeSingletonBuckets(vector<vector<RoseVertex>> &buckets) {
 
 static
 void buildInvBucketMap(const vector<vector<RoseVertex>> &buckets,
-                       ue2::unordered_map<RoseVertex, size_t> &inv) {
+                       unordered_map<RoseVertex, size_t> &inv) {
     inv.clear();
     for (size_t i = 0; i < buckets.size(); i++) {
         for (auto v : buckets[i]) {
@@ -1469,7 +1468,7 @@ void splitByReportSuffixBehaviour(const RoseGraph &g,
                                   vector<vector<RoseVertex>> &buckets) {
     // Split by report set and suffix info.
     auto make_split_key = [&g](RoseVertex v) {
-        return hash_all(g[v].reports, g[v].suffix);
+        return hash_all(g[v].reports, suffix_id(g[v].suffix));
     };
     splitAndFilterBuckets(buckets, make_split_key);
 }
@@ -1483,14 +1482,15 @@ void splitByLiteralTable(const RoseBuildImpl &build,
     auto make_split_key = [&](RoseVertex v) {
         const auto &lits = g[v].literals;
         assert(!lits.empty());
-        return build.literals.at(*lits.begin()).table;
+        auto table = build.literals.at(*lits.begin()).table;
+        return std::underlying_type<decltype(table)>::type(table);
     };
     splitAndFilterBuckets(buckets, make_split_key);
 }
 
 static
 void splitByNeighbour(const RoseGraph &g, vector<vector<RoseVertex>> &buckets,
-                      ue2::unordered_map<RoseVertex, size_t> &inv, bool succ) {
+                      unordered_map<RoseVertex, size_t> &inv, bool succ) {
     vector<vector<RoseVertex>> extras;
     map<size_t, vector<RoseVertex>> neighbours_by_bucket;
     set<RoseVertex> picked;
@@ -1575,7 +1575,7 @@ splitDiamondMergeBuckets(CandidateSet &candidates, const RoseBuildImpl &build) {
     }
 
     // Neighbour splits require inverse map.
-    ue2::unordered_map<RoseVertex, size_t> inv;
+    unordered_map<RoseVertex, size_t> inv;
     buildInvBucketMap(buckets, inv);
 
     splitByNeighbour(g, buckets, inv, true);

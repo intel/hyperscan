@@ -29,11 +29,14 @@
 /** \file
  * \brief Tools for string manipulation, ue2_literal definition.
  */
-#include "charreach.h"
-#include "compare.h"
+
 #include "ue2string.h"
 
+#include "charreach.h"
+#include "compare.h"
+
 #include <algorithm>
+#include <cstring>
 #include <iomanip>
 #include <sstream>
 #include <string>

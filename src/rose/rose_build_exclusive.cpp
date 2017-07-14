@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -87,7 +87,7 @@ vector<RoleChunk<role_id>> divideIntoChunks(const RoseBuildImpl &build,
 
 /* add prefix literals to engine graph */
 static
-bool addPrefixLiterals(NGHolder &h, ue2::unordered_set<u32> &tailId,
+bool addPrefixLiterals(NGHolder &h, unordered_set<u32> &tailId,
                        const vector<vector<CharReach>> &triggers) {
     DEBUG_PRINTF("add literals to graph\n");
 
@@ -196,8 +196,8 @@ vector<CharReach> findStartPos(const CharReach &cr1,
 template<typename role_id>
 static
 bool isExclusive(const NGHolder &h,
-                 const u32 num, ue2::unordered_set<u32> &tailId,
-                 map<u32, ue2::unordered_set<u32>> &skipList,
+                 const u32 num, unordered_set<u32> &tailId,
+                 map<u32, unordered_set<u32>> &skipList,
                  const RoleInfo<role_id> &role1,
                  const RoleInfo<role_id> &role2) {
     const u32 id1 = role1.id;
@@ -253,12 +253,12 @@ bool isExclusive(const NGHolder &h,
 
 template<typename role_id>
 static
-ue2::unordered_set<u32> checkExclusivity(const NGHolder &h,
-                            const u32 num, ue2::unordered_set<u32> &tailId,
-                            map<u32, ue2::unordered_set<u32>> &skipList,
-                            const RoleInfo<role_id> &role1,
-                            const RoleChunk<role_id> &roleChunk) {
-    ue2::unordered_set<u32> info;
+unordered_set<u32> checkExclusivity(const NGHolder &h,
+                                    const u32 num, unordered_set<u32> &tailId,
+                                    map<u32, unordered_set<u32>> &skipList,
+                                    const RoleInfo<role_id> &role1,
+                                    const RoleChunk<role_id> &roleChunk) {
+    unordered_set<u32> info;
     const u32 id1 = role1.id;
     for (const auto &role2 : roleChunk.roles) {
         const u32 id2 = role2.id;
@@ -316,7 +316,7 @@ void findCliques(const map<u32, set<u32>> &exclusiveGroups,
 
 static
 map<u32, set<u32>> findExclusiveGroups(const RoseBuildImpl &build,
-            const map<u32, ue2::unordered_set<u32>> &exclusiveInfo,
+            const map<u32, unordered_set<u32>> &exclusiveInfo,
             const map<u32, vector<RoseVertex>> &vertex_map,
             const bool is_infix) {
     map<u32, set<u32>> exclusiveGroups;
@@ -396,10 +396,10 @@ void exclusiveAnalysis(const RoseBuildImpl &build,
                vector<vector<u32>> &exclusive_roles, const bool is_infix) {
     const auto &chunks = divideIntoChunks(build, roleInfoSet);
     DEBUG_PRINTF("Exclusivity analysis entry\n");
-    map<u32, ue2::unordered_set<u32>> exclusiveInfo;
+    map<u32, unordered_set<u32>> exclusiveInfo;
 
     for (const auto &roleChunk : chunks) {
-        map<u32, ue2::unordered_set<u32>> skipList;
+        map<u32, unordered_set<u32>> skipList;
         for (const auto &role1 : roleChunk.roles) {
             const u32 id1 = role1.id;
             const role_id &s1 = role1.role;

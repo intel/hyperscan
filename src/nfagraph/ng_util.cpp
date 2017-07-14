@@ -48,6 +48,9 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <unordered_map>
+#include <unordered_set>
+
 #include <boost/graph/filtered_graph.hpp>
 #include <boost/graph/topological_sort.hpp>
 #include <boost/range/adaptor/map.hpp>
@@ -353,7 +356,7 @@ vector<NFAVertex> getTopoOrdering(const NGHolder &g) {
     // having to reallocate it, etc.
     auto colors = make_small_color_map(g);
 
-    using EdgeSet = ue2::unordered_set<NFAEdge>;
+    using EdgeSet = unordered_set<NFAEdge>;
     EdgeSet backEdges;
     BackEdges<EdgeSet> be(backEdges);
 
@@ -467,7 +470,7 @@ void setTops(NGHolder &h, u32 top) {
 
 void clearReports(NGHolder &g) {
     DEBUG_PRINTF("clearing reports without an accept edge\n");
-    ue2::unordered_set<NFAVertex> allow;
+    unordered_set<NFAVertex> allow;
     insert(&allow, inv_adjacent_vertices(g.accept, g));
     insert(&allow, inv_adjacent_vertices(g.acceptEod, g));
     allow.erase(g.accept); // due to stylised edge.
@@ -491,7 +494,7 @@ void duplicateReport(NGHolder &g, ReportID r_old, ReportID r_new) {
 
 static
 void fillHolderOutEdges(NGHolder &out, const NGHolder &in,
-                        const ue2::unordered_map<NFAVertex, NFAVertex> &v_map,
+                        const unordered_map<NFAVertex, NFAVertex> &v_map,
                         NFAVertex u) {
     NFAVertex u_new = v_map.at(u);
 
@@ -513,9 +516,9 @@ void fillHolderOutEdges(NGHolder &out, const NGHolder &in,
 }
 
 void fillHolder(NGHolder *outp, const NGHolder &in, const deque<NFAVertex> &vv,
-                ue2::unordered_map<NFAVertex, NFAVertex> *v_map_out) {
+                unordered_map<NFAVertex, NFAVertex> *v_map_out) {
     NGHolder &out = *outp;
-    ue2::unordered_map<NFAVertex, NFAVertex> &v_map = *v_map_out;
+    unordered_map<NFAVertex, NFAVertex> &v_map = *v_map_out;
 
     out.kind = in.kind;
 
@@ -597,7 +600,7 @@ void cloneHolder(NGHolder &out, const NGHolder &in) {
 }
 
 void cloneHolder(NGHolder &out, const NGHolder &in,
-                 ue2::unordered_map<NFAVertex, NFAVertex> *mapping) {
+                 unordered_map<NFAVertex, NFAVertex> *mapping) {
     cloneHolder(out, in);
     vector<NFAVertex> out_verts(num_vertices(in));
     for (auto v : vertices_range(out)) {
@@ -620,7 +623,7 @@ unique_ptr<NGHolder> cloneHolder(const NGHolder &in) {
 
 void reverseHolder(const NGHolder &g_in, NGHolder &g) {
     // Make the BGL do the grunt work.
-    ue2::unordered_map<NFAVertex, NFAVertex> vertexMap;
+    unordered_map<NFAVertex, NFAVertex> vertexMap;
     boost::transpose_graph(g_in, g,
                 orig_to_copy(boost::make_assoc_property_map(vertexMap)));
 

@@ -63,9 +63,11 @@
 #include "util/container.h"
 #include "util/dump_charclass.h"
 #include "util/graph_range.h"
+#include "util/hash.h"
 #include "util/order_check.h"
 #include "util/report_manager.h"
 #include "util/ue2string.h"
+#include "util/unordered.h"
 
 #include <algorithm>
 #include <functional>
@@ -77,12 +79,10 @@
 #include <vector>
 #include <utility>
 
-#include <boost/functional/hash/hash_fwd.hpp>
 #include <boost/range/adaptor/map.hpp>
 
 using namespace std;
 using boost::adaptors::map_values;
-using boost::hash_combine;
 
 namespace ue2 {
 
@@ -336,7 +336,7 @@ void findUncalcLeavesCandidates(RoseBuildImpl &tbi,
     const RoseGraph &g = tbi.g;
 
     vector<RoseVertex> suffix_vertices; // vertices with suffix graphs
-    ue2::unordered_map<const NGHolder *, u32> fcount; // ref count per graph
+    unordered_map<const NGHolder *, u32> fcount; // ref count per graph
 
     for (auto v : vertices_range(g)) {
         if (g[v].suffix) {
@@ -566,7 +566,7 @@ bool dedupeLeftfixes(RoseBuildImpl &tbi) {
     for (deque<RoseVertex> &verts : roses | map_values) {
         DEBUG_PRINTF("group has %zu vertices\n", verts.size());
 
-        ue2::unordered_set<left_id> seen;
+        unordered_set<left_id> seen;
 
         for (auto jt = verts.begin(), jte = verts.end(); jt != jte; ++jt) {
             RoseVertex v = *jt;
@@ -636,7 +636,7 @@ bool is_equal(const suffix_id &s1, const suffix_id &s2) {
 void dedupeSuffixes(RoseBuildImpl &tbi) {
     DEBUG_PRINTF("deduping suffixes\n");
 
-    ue2::unordered_map<suffix_id, set<RoseVertex>> suffix_map;
+    unordered_map<suffix_id, set<RoseVertex>> suffix_map;
     map<pair<size_t, set<ReportID>>, vector<suffix_id>> part;
 
     // Collect suffixes into groups.
@@ -703,7 +703,7 @@ template<class EngineRef>
 class Bouquet {
 private:
     list<EngineRef> ordering; // Unique list in insert order.
-    typedef ue2::unordered_map<EngineRef, deque<RoseVertex> > BouquetMap;
+    using BouquetMap = ue2_unordered_map<EngineRef, deque<RoseVertex>>;
     BouquetMap bouquet;
 public:
     void insert(const EngineRef &h, RoseVertex v) {
@@ -1331,7 +1331,7 @@ bool mergeRosePair(RoseBuildImpl &tbi, left_id &r1, left_id &r2,
 static
 void processMergeQueue(RoseBuildImpl &tbi, RoseBouquet &roses,
                        priority_queue<RoseMergeCandidate> &pq) {
-    ue2::unordered_set<left_id> dead;
+    unordered_set<left_id> dead;
 
     DEBUG_PRINTF("merge queue has %zu entries\n", pq.size());
 
@@ -1862,7 +1862,7 @@ void mergeNfaLeftfixes(RoseBuildImpl &tbi, RoseBouquet &roses) {
 
     // We track the number of accelerable states for each graph in a map and
     // only recompute them when the graph is modified.
-    ue2::unordered_map<left_id, u32> accel_count;
+    unordered_map<left_id, u32> accel_count;
     for (const auto &rose : roses) {
         assert(rose.graph()->kind == NFA_INFIX);
         accel_count[rose] = estimatedAccelStates(tbi, *rose.graph());
@@ -2157,7 +2157,7 @@ void mergeSuffixes(RoseBuildImpl &tbi, SuffixBouquet &suffixes,
     // If this isn't an acyclic case, we track the number of accelerable states
     // for each graph in a map and only recompute them when the graph is
     // modified.
-    ue2::unordered_map<suffix_id, u32> accel_count;
+    unordered_map<suffix_id, u32> accel_count;
     if (!acyclic) {
         for (const auto &suffix : suffixes) {
             assert(suffix.graph() && suffix.graph()->kind == NFA_SUFFIX);
@@ -2499,7 +2499,7 @@ private:
 template<class RawDfa, class MergeFunctor>
 static
 void pairwiseDfaMerge(vector<RawDfa *> &dfas,
-                      ue2::unordered_map<RawDfa *, size_t> &dfa_mapping,
+                      unordered_map<RawDfa *, size_t> &dfa_mapping,
                       vector<OutfixInfo> &outfixes,
                       MergeFunctor merge_func) {
     DEBUG_PRINTF("merging group of size %zu\n", dfas.size());
@@ -2541,7 +2541,7 @@ void pairwiseDfaMerge(vector<RawDfa *> &dfas,
 template<class RawDfa, class MergeFunctor>
 static
 void chunkedDfaMerge(vector<RawDfa *> &dfas,
-                     ue2::unordered_map<RawDfa *, size_t> &dfa_mapping,
+                     unordered_map<RawDfa *, size_t> &dfa_mapping,
                      vector<OutfixInfo> &outfixes,
                      MergeFunctor merge_func) {
     DEBUG_PRINTF("begin merge of %zu dfas\n", dfas.size());
@@ -2575,7 +2575,7 @@ void mergeOutfixDfas(RoseBuildImpl &tbi, vector<raw_dfa *> &dfas) {
 
     /* key is index into outfix array as iterators, etc may be invalidated by
      * element addition. */
-    ue2::unordered_map<raw_dfa *, size_t> dfa_mapping;
+    unordered_map<raw_dfa *, size_t> dfa_mapping;
     for (size_t i = 0; i < outfixes.size(); i++) {
         auto *rdfa = outfixes[i].rdfa();
         if (rdfa) {
@@ -2619,7 +2619,7 @@ void mergeOutfixCombo(RoseBuildImpl &tbi, const ReportManager &rm,
     /* key is index into outfix array as iterators, etc may be invalidated by
      * element addition. */
     size_t new_dfas = 0;
-    ue2::unordered_map<raw_dfa *, size_t> dfa_mapping;
+    unordered_map<raw_dfa *, size_t> dfa_mapping;
     vector<raw_dfa *> dfas;
 
     for (auto it = tbi.outfixes.begin(); it != tbi.outfixes.end(); ++it) {
@@ -2670,7 +2670,7 @@ void mergeOutfixHaigs(RoseBuildImpl &tbi, vector<raw_som_dfa *> &dfas,
 
     vector<OutfixInfo> &outfixes = tbi.outfixes;
 
-    ue2::unordered_map<raw_som_dfa *, size_t> dfa_mapping;
+    unordered_map<raw_som_dfa *, size_t> dfa_mapping;
     for (size_t i = 0; i < outfixes.size(); i++) {
         auto *haig = outfixes[i].haig();
         if (haig) {

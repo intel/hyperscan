@@ -44,7 +44,6 @@
 #include "util/graph.h"
 #include "util/noncopyable.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
 
 #include <deque>
 #include <map>

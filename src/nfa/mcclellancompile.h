@@ -33,7 +33,6 @@
 #include "rdfa.h"
 #include "ue2common.h"
 #include "util/bytecode_ptr.h"
-#include "util/ue2_containers.h"
 
 #include <memory>
 #include <vector>

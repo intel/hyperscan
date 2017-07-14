@@ -46,7 +46,7 @@
 #include "util/make_unique.h"
 #include "util/order_check.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/unaligned.h"
 #include "util/verify_types.h"
 

@@ -41,6 +41,7 @@
 #include "util/verify_types.h"
 
 #include <sstream>
+#include <unordered_set>
 #include <vector>
 
 #define PATHS_LIMIT 500
@@ -254,7 +255,7 @@ dstate_id_t get_sds_or_proxy(const raw_dfa &raw) {
 
     u16 top_remap = raw.alpha_remap[TOP];
 
-    ue2::unordered_set<dstate_id_t> seen;
+    std::unordered_set<dstate_id_t> seen;
     while (true) {
         seen.insert(s);
         DEBUG_PRINTF("basis %hu\n", s);

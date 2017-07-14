@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -104,7 +104,6 @@
 #include "ng_region.h"
 #include "ng_som_util.h"
 #include "ng_util.h"
-#include "ng_util.h"
 #include "util/container.h"
 #include "util/graph_range.h"
 #include "util/report_manager.h"
@@ -112,6 +111,8 @@
 
 #include <deque>
 #include <map>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/reverse_graph.hpp>
@@ -120,13 +121,11 @@ using namespace std;
 
 namespace ue2 {
 
-typedef ue2::unordered_map<NFAVertex,
-                           ue2::unordered_set<NFAVertex> > PostDomTree;
+typedef unordered_map<NFAVertex, unordered_set<NFAVertex>> PostDomTree;
 
 static
 void buildPDomTree(const NGHolder &g, PostDomTree &tree) {
-    ue2::unordered_map<NFAVertex, NFAVertex> postdominators =
-        findPostDominators(g);
+    auto postdominators = findPostDominators(g);
 
     for (auto v : vertices_range(g)) {
         if (is_special(v, g)) {
@@ -150,7 +149,7 @@ void buildSquashMask(NFAStateSet &mask, const NGHolder &g, NFAVertex v,
                      const CharReach &cr, const NFAStateSet &init,
                      const vector<NFAVertex> &vByIndex, const PostDomTree &tree,
                      som_type som, const vector<DepthMinMax> &som_depths,
-                     const ue2::unordered_map<NFAVertex, u32> &region_map,
+                     const unordered_map<NFAVertex, u32> &region_map,
                      smgb_cache &cache) {
     DEBUG_PRINTF("build base squash mask for vertex %zu)\n", g[v].index);
 
@@ -274,7 +273,7 @@ void findDerivedSquashers(const NGHolder &g, const vector<NFAVertex> &vByIndex,
                           const PostDomTree &pdom_tree, const NFAStateSet &init,
                           map<NFAVertex, NFAStateSet> *squash, som_type som,
                           const vector<DepthMinMax> &som_depths,
-                          const ue2::unordered_map<NFAVertex, u32> &region_map,
+                          const unordered_map<NFAVertex, u32> &region_map,
                           smgb_cache &cache) {
     deque<NFAVertex> remaining;
     for (const auto &m : *squash) {
@@ -619,7 +618,7 @@ static
 vector<NFAVertex> findUnreachable(const NGHolder &g) {
     const boost::reverse_graph<NGHolder, const NGHolder &> revg(g);
 
-    ue2::unordered_map<NFAVertex, boost::default_color_type> colours;
+    unordered_map<NFAVertex, boost::default_color_type> colours;
     colours.reserve(num_vertices(g));
 
     depth_first_visit(revg, g.acceptEod,
@@ -661,7 +660,7 @@ findHighlanderSquashers(const NGHolder &g, const ReportManager &rm) {
         // cutting the appropriate out-edges to accept and seeing which
         // vertices become unreachable.
 
-        ue2::unordered_map<NFAVertex, NFAVertex> orig_to_copy;
+        unordered_map<NFAVertex, NFAVertex> orig_to_copy;
         NGHolder h;
         cloneHolder(h, g, &orig_to_copy);
         removeEdgesToAccept(h, orig_to_copy[v]);

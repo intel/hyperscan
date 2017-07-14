@@ -53,8 +53,8 @@
 #include "parser/Parser.h"
 #include "ue2common.h"
 #include "util/compare.h"
+#include "util/flat_containers.h"
 #include "util/make_unique.h"
-#include "util/ue2_containers.h"
 #include "util/unicode_def.h"
 #include "util/verify_types.h"
 

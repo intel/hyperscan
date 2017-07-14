@@ -811,7 +811,7 @@ bool splitOffLeadingLiteral(const NGHolder &g, ue2_literal *lit_out,
     }
     assert(u != g.startDs);
 
-    ue2::unordered_map<NFAVertex, NFAVertex> rhs_map;
+    unordered_map<NFAVertex, NFAVertex> rhs_map;
     vector<NFAVertex> pivots = make_vector_from(adjacent_vertices(u, g));
     splitRHS(g, pivots, rhs, &rhs_map);
 

@@ -43,10 +43,16 @@ bool operator==(const mmbit_sparse_iter &a, const mmbit_sparse_iter &b) {
     return a.mask == b.mask && a.val == b.val;
 }
 
-inline
-size_t hash_value(const mmbit_sparse_iter &iter) {
-    return ue2::hash_all(iter.mask, iter.val);
-}
+namespace std {
+
+template<>
+struct hash<mmbit_sparse_iter> {
+    size_t operator()(const mmbit_sparse_iter &iter) const {
+        return ue2::hash_all(iter.mask, iter.val);
+    }
+};
+
+} // namespace std
 
 namespace ue2 {
 

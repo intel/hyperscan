@@ -38,8 +38,8 @@
 #include "parser/position.h"
 #include "util/compile_context.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
-#include "util/ue2_containers.h"
 
 #include <set>
 #include <vector>

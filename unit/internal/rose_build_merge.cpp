@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,7 +42,11 @@
 #include "smallwrite/smallwrite_build.h"
 #include "som/slot_manager.h"
 
-using std::vector;
+#include <memory>
+#include <unordered_set>
+#include <vector>
+
+using namespace std;
 using namespace ue2;
 
 static
@@ -78,7 +82,7 @@ RoseVertex addVertex(RoseBuildImpl &build, RoseVertex parent, u32 lit_id) {
 
 static
 size_t numUniqueSuffixGraphs(const RoseGraph &g) {
-    ue2::unordered_set<const NGHolder *> seen;
+    unordered_set<const NGHolder *> seen;
 
     for (const auto &v : vertices_range(g)) {
         if (g[v].suffix) {

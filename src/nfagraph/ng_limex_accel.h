@@ -39,8 +39,8 @@
 #include "nfa/accelcompile.h"
 #include "util/accel_scheme.h"
 #include "util/charreach.h"
+#include "util/flat_containers.h"
 #include "util/order_check.h"
-#include "util/ue2_containers.h"
 
 #include <map>
 #include <vector>

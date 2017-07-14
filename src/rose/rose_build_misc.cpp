@@ -56,11 +56,9 @@
 #include "ue2common.h"
 #include "grey.h"
 
-#include <boost/functional/hash/hash_fwd.hpp>
 #include <boost/graph/breadth_first_search.hpp>
 
 using namespace std;
-using boost::hash_combine;
 
 namespace ue2 {
 
@@ -691,16 +689,7 @@ set<u32> all_tops(const suffix_id &s) {
 }
 
 size_t suffix_id::hash() const {
-    size_t val = 0;
-    hash_combine(val, g);
-    hash_combine(val, c);
-    hash_combine(val, d);
-    hash_combine(val, h);
-    return val;
-}
-
-size_t hash_value(const suffix_id &s) {
-    return s.hash();
+    return hash_all(g, c, d, h);
 }
 
 bool isAnchored(const left_id &r) {
@@ -761,16 +750,7 @@ u32 num_tops(const left_id &r) {
 }
 
 size_t left_id::hash() const {
-    size_t val = 0;
-    hash_combine(val, g);
-    hash_combine(val, c);
-    hash_combine(val, d);
-    hash_combine(val, h);
-    return val;
-}
-
-size_t hash_value(const left_id &r) {
-    return r.hash();
+    return hash_all(g, c, d, h);
 }
 
 u64a findMaxOffset(const set<ReportID> &reports, const ReportManager &rm) {
@@ -997,8 +977,8 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
 bool hasOrphanedTops(const RoseBuildImpl &build) {
     const RoseGraph &g = build.g;
 
-    ue2::unordered_map<left_id, set<u32> > roses;
-    ue2::unordered_map<suffix_id, set<u32> > suffixes;
+    unordered_map<left_id, set<u32>> roses;
+    unordered_map<suffix_id, set<u32>> suffixes;
 
     for (auto v : vertices_range(g)) {
         if (g[v].left) {

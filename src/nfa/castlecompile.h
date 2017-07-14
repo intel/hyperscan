@@ -39,11 +39,12 @@
 #include "nfagraph/ng_repeat.h"
 #include "util/bytecode_ptr.h"
 #include "util/depth.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 
 #include <map>
 #include <memory>
 #include <set>
+#include <unordered_map>
 #include <vector>
 
 struct NFA;
@@ -89,7 +90,7 @@ struct CastleProto {
     std::map<u32, PureRepeat> repeats;
 
     /** \brief Mapping from report to associated tops. */
-    ue2::unordered_map<ReportID, flat_set<u32>> report_map;
+    std::unordered_map<ReportID, flat_set<u32>> report_map;
 
     /**
      * \brief Next top id to use. Repeats may be removed without top remapping,
@@ -155,7 +156,7 @@ bool is_equal(const CastleProto &c1, const CastleProto &c2);
  * of the reports in the given set.
  */
 bool requiresDedupe(const CastleProto &proto,
-                    const ue2::flat_set<ReportID> &reports);
+                    const flat_set<ReportID> &reports);
 
 /**
  * \brief Build an NGHolder from a CastleProto.

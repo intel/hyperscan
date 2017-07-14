@@ -39,6 +39,7 @@
 
 #include "rose_build_lookaround.h"
 #include "rose_build_program.h"
+#include "util/hash.h"
 #include "util/verify_types.h"
 
 namespace ue2 {
@@ -65,7 +66,7 @@ public:
     /** \brief Length of the bytecode instruction in bytes. */
     virtual size_t byte_length() const = 0;
 
-    using OffsetMap = unordered_map<const RoseInstruction *, u32>;
+    using OffsetMap = std::unordered_map<const RoseInstruction *, u32>;
 
     /**
      * \brief Writes a concrete implementation of this instruction.
@@ -149,6 +150,10 @@ private:
     }
 };
 
+template<RoseInstructionCode Opcode, class ImplType, class RoseInstrType>
+constexpr RoseInstructionCode
+    RoseInstrBase<Opcode, ImplType, RoseInstrType>::opcode;
+
 /**
  * \brief Refinement of RoseInstrBase to use for instructions that have
  * just a single target member, called "target".
@@ -190,7 +195,7 @@ public:
     virtual bool operator==(const RoseInstrType &) const { return true; }
 
     size_t hash() const override {
-        return boost::hash_value(static_cast<int>(Opcode));
+        return hash_all(Opcode);
     }
 
     bool equiv_to(const RoseInstrType &, const RoseInstruction::OffsetMap &,
@@ -222,7 +227,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), groups, anch_id);
+        return hash_all(opcode, groups, anch_id);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -251,7 +256,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), min_offset);
+        return hash_all(opcode, min_offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -278,7 +283,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), groups);
+        return hash_all(opcode, groups);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -305,7 +310,7 @@ public:
     }
 
     size_t hash() const override {
-        return boost::hash_value(static_cast<int>(opcode));
+        return hash_all(opcode);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -335,7 +340,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), min_bound, max_bound);
+        return hash_all(opcode, min_bound, max_bound);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -364,7 +369,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), key);
+        return hash_all(opcode, key);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -395,7 +400,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), offset, reach);
+        return hash_all(opcode, offset, reach);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -426,7 +431,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), look);
+        return hash_all(opcode, look);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -462,8 +467,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), and_mask, cmp_mask, neg_mask,
-                        offset);
+        return hash_all(opcode, and_mask, cmp_mask, neg_mask, offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -501,8 +505,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), and_mask, cmp_mask, neg_mask,
-                        offset);
+        return hash_all(opcode, and_mask, cmp_mask, neg_mask, offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -539,8 +542,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), and_mask, cmp_mask, negation,
-                        offset);
+        return hash_all(opcode, and_mask, cmp_mask, negation, offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -581,8 +583,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), nib_mask,
-                        bucket_select_mask, neg_mask, offset);
+        return hash_all(opcode, nib_mask, bucket_select_mask, neg_mask, offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -626,8 +627,8 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), hi_mask, lo_mask,
-                        bucket_select_mask, neg_mask, offset);
+        return hash_all(opcode, hi_mask, lo_mask, bucket_select_mask, neg_mask,
+                        offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -671,8 +672,8 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), hi_mask, lo_mask,
-                        bucket_select_mask, neg_mask, offset);
+        return hash_all(opcode, hi_mask, lo_mask, bucket_select_mask, neg_mask,
+                        offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -720,9 +721,8 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), hi_mask, lo_mask,
-                        bucket_select_mask_hi, bucket_select_mask_lo,
-                        neg_mask, offset);
+        return hash_all(opcode, hi_mask, lo_mask, bucket_select_mask_hi,
+                        bucket_select_mask_lo, neg_mask, offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -758,7 +758,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), queue, lag, report);
+        return hash_all(opcode, queue, lag, report);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -791,7 +791,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), queue, lag, report);
+        return hash_all(opcode, queue, lag, report);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -820,7 +820,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), delay, index);
+        return hash_all(opcode, delay, index);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -861,7 +861,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), distance);
+        return hash_all(opcode, distance);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -889,7 +889,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), queue, lag);
+        return hash_all(opcode, queue, lag);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -917,7 +917,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), som.type, som.onmatch);
+        return hash_all(opcode, som.type, som.onmatch);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -953,7 +953,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), cancel, queue, event);
+        return hash_all(opcode, cancel, queue, event);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -981,7 +981,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), queue, event);
+        return hash_all(opcode, queue, event);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1013,8 +1013,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), quash_som, dkey,
-                        offset_adjust);
+        return hash_all(opcode, quash_som, dkey, offset_adjust);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1049,8 +1048,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), quash_som, dkey,
-                        offset_adjust);
+        return hash_all(opcode, quash_som, dkey, offset_adjust);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1081,7 +1079,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), event, top_squash_distance);
+        return hash_all(opcode, event, top_squash_distance);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1110,7 +1108,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), som.type, som.onmatch);
+        return hash_all(opcode, som.type, som.onmatch);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1138,7 +1136,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), som.type, som.onmatch);
+        return hash_all(opcode, som.type, som.onmatch);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1165,7 +1163,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), onmatch, offset_adjust);
+        return hash_all(opcode, onmatch, offset_adjust);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1196,7 +1194,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), onmatch, offset_adjust, ekey);
+        return hash_all(opcode, onmatch, offset_adjust, ekey);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1225,7 +1223,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), onmatch, offset_adjust);
+        return hash_all(opcode, onmatch, offset_adjust);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1256,7 +1254,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), onmatch, offset_adjust, ekey);
+        return hash_all(opcode, onmatch, offset_adjust, ekey);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1293,8 +1291,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), quash_som, dkey, onmatch,
-                        offset_adjust);
+        return hash_all(opcode, quash_som, dkey, onmatch, offset_adjust);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1324,7 +1321,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), onmatch, offset_adjust);
+        return hash_all(opcode, onmatch, offset_adjust);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1352,7 +1349,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), ekey);
+        return hash_all(opcode, ekey);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1384,7 +1381,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), end_adj, min_length);
+        return hash_all(opcode, end_adj, min_length);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1410,7 +1407,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), index);
+        return hash_all(opcode, index);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1436,7 +1433,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), groups);
+        return hash_all(opcode, groups);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1462,7 +1459,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), groups);
+        return hash_all(opcode, groups);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1490,7 +1487,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), index);
+        return hash_all(opcode, index);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1522,9 +1519,9 @@ public:
     }
 
     size_t hash() const override {
-        size_t v = hash_all(static_cast<int>(opcode), num_keys);
+        size_t v = hash_all(opcode, num_keys);
         for (const u32 &key : jump_table | boost::adaptors::map_keys) {
-            boost::hash_combine(v, key);
+            hash_combine(v, key);
         }
         return v;
     }
@@ -1594,7 +1591,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), state);
+        return hash_all(opcode, state);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1638,7 +1635,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), num_keys, keys);
+        return hash_all(opcode, num_keys, keys);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1665,7 +1662,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), iter_offset);
+        return hash_all(opcode, iter_offset);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1709,7 +1706,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), literal);
+        return hash_all(opcode, literal);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1741,7 +1738,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), literal);
+        return hash_all(opcode, literal);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1772,7 +1769,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), literal);
+        return hash_all(opcode, literal);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1804,7 +1801,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), literal);
+        return hash_all(opcode, literal);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1849,8 +1846,7 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), multi_look, last_start,
-                        start_mask);
+        return hash_all(opcode, multi_look, last_start, start_mask);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1905,9 +1901,9 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), nib_mask,
-                        bucket_select_mask, data_select_mask, hi_bits_mask,
-                        lo_bits_mask, neg_mask, base_offset, last_start);
+        return hash_all(opcode, nib_mask, bucket_select_mask, data_select_mask,
+                        hi_bits_mask, lo_bits_mask, neg_mask, base_offset,
+                        last_start);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -1968,9 +1964,9 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), hi_mask, lo_mask,
-                        bucket_select_mask, data_select_mask, hi_bits_mask,
-                        lo_bits_mask, neg_mask, base_offset, last_start);
+        return hash_all(opcode, hi_mask, lo_mask, bucket_select_mask,
+                        data_select_mask, hi_bits_mask, lo_bits_mask, neg_mask,
+                        base_offset, last_start);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -2035,10 +2031,9 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), hi_mask, lo_mask,
-                        bucket_select_mask_hi, bucket_select_mask_lo,
-                        data_select_mask, hi_bits_mask, lo_bits_mask, neg_mask,
-                        base_offset, last_start);
+        return hash_all(opcode, hi_mask, lo_mask, bucket_select_mask_hi,
+                        bucket_select_mask_lo, data_select_mask, hi_bits_mask,
+                        lo_bits_mask, neg_mask, base_offset, last_start);
     }
 
     void write(void *dest, RoseEngineBlob &blob,
@@ -2100,9 +2095,9 @@ public:
     }
 
     size_t hash() const override {
-        return hash_all(static_cast<int>(opcode), hi_mask, lo_mask,
-                        bucket_select_mask, data_select_mask, hi_bits_mask,
-                        lo_bits_mask, neg_mask, base_offset, last_start);
+        return hash_all(opcode, hi_mask, lo_mask, bucket_select_mask,
+                        data_select_mask, hi_bits_mask, lo_bits_mask, neg_mask,
+                        base_offset, last_start);
     }
 
     void write(void *dest, RoseEngineBlob &blob,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,11 +35,12 @@
 #define ROSE_BUILD_GROUPS_H
 
 #include "rose_build_impl.h"
-#include "util/ue2_containers.h"
+
+#include <unordered_map>
 
 namespace ue2 {
 
-unordered_map<RoseVertex, rose_group>
+std::unordered_map<RoseVertex, rose_group>
 getVertexGroupMap(const RoseBuildImpl &build);
 
 rose_group getSquashableGroups(const RoseBuildImpl &build);

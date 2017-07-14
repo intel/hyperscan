@@ -62,9 +62,9 @@
 #include "ng_prune.h"
 #include "ng_util.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
 #include "util/graph_small_color_map.h"
-#include "util/ue2_containers.h"
 
 #include <algorithm>
 #include <boost/graph/depth_first_search.hpp>

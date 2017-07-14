@@ -31,7 +31,7 @@
 
 #include "container.h"
 #include "noncopyable.h"
-#include "ue2_containers.h"
+#include "flat_containers.h"
 #include "ue2common.h"
 
 #include <algorithm>

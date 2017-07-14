@@ -41,6 +41,7 @@
 #include "util/compile_context.h"
 #include "util/compile_error.h"
 #include "util/report_manager.h"
+#include "util/unordered.h"
 #include "util/verify_types.h"
 
 #include <boost/range/adaptor/map.hpp>
@@ -226,7 +227,7 @@ size_t RoseProgramHash::operator()(const RoseProgram &program) const {
     size_t v = 0;
     for (const auto &ri : program) {
         assert(ri);
-        boost::hash_combine(v, ri->hash());
+        hash_combine(v, ri->hash());
     }
     return v;
 }
@@ -1934,14 +1935,14 @@ void makeGroupSquashInstruction(const RoseBuildImpl &build, u32 lit_id,
 
 namespace {
 struct ProgKey {
-    ProgKey(const RoseProgram &p) : prog(&p) { }
+    ProgKey(const RoseProgram &p) : prog(&p) {}
 
     bool operator==(const ProgKey &b) const {
         return RoseProgramEquivalence()(*prog, *b.prog);
     }
 
-    friend size_t hash_value(const ProgKey &a) {
-        return RoseProgramHash()(*a.prog);
+    size_t hash() const {
+        return RoseProgramHash()(*prog);
     }
 private:
     const RoseProgram *prog;
@@ -1954,7 +1955,7 @@ RoseProgram assembleProgramBlocks(vector<RoseProgram> &&blocks_in) {
     vector<RoseProgram> blocks;
     blocks.reserve(blocks_in.size()); /* to ensure stable reference for seen */
 
-    unordered_set<ProgKey> seen;
+    ue2_unordered_set<ProgKey> seen;
     for (auto &block : blocks_in) {
         if (contains(seen, block)) {
             continue;

@@ -36,7 +36,6 @@
 #include "ue2common.h"
 #include "ng_holder.h"
 #include "ng_util.h"
-#include "util/ue2_containers.h"
 
 #include <boost-patched/graph/dominator_tree.hpp> // locally patched version
 #include <boost-patched/graph/reverse_graph.hpp>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,12 +32,15 @@
  * truffle is always able to represent an entire character class, providing a
  * backstop to other acceleration engines.
  */
+
 #include "trufflecompile.h"
+
 #include "ue2common.h"
 #include "util/charreach.h"
+#include "util/dump_mask.h"
 #include "util/simd_types.h"
 
-#include "util/dump_mask.h"
+#include <cstring>
 
 using namespace std;
 

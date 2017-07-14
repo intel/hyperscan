@@ -48,11 +48,11 @@
 #include "util/compile_context.h"
 #include "util/container.h"
 #include "util/dump_charclass.h"
+#include "util/flat_containers.h"
 #include "util/graph.h"
 #include "util/make_unique.h"
 #include "util/multibit_build.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
 #include "util/verify_types.h"
 #include "grey.h"
 
@@ -153,7 +153,7 @@ static
 void getNeighborInfo(const CliqueGraph &g, vector<u32> &neighbor,
                      const CliqueVertex &cv, const set<u32> &group) {
     u32 id = g[cv].stateId;
-    ue2::unordered_set<u32> neighborId;
+    unordered_set<u32> neighborId;
 
     // find neighbors for cv
     for (const auto &v : adjacent_vertices_range(cv, g)) {

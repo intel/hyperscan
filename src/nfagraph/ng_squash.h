@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,7 +35,6 @@
 #include "ng_holder.h"
 #include "som/som.h"
 #include "ue2common.h"
-#include "util/ue2_containers.h"
 
 #include <map>
 #include <boost/dynamic_bitset.hpp>
@@ -45,7 +44,9 @@ namespace ue2 {
 class NGHolder;
 class ReportManager;
 
-/** Dynamically-sized bitset, as an NFA can have an arbitrary number of states. */
+/**
+ * Dynamically-sized bitset, as an NFA can have an arbitrary number of states.
+ */
 typedef boost::dynamic_bitset<> NFAStateSet;
 
 /**

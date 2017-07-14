@@ -57,13 +57,13 @@
 #include "util/compare.h"
 #include "util/compile_context.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
 #include "util/order_check.h"
 #include "util/target_info.h"
 #include "util/ue2string.h"
-#include "util/ue2_containers.h"
 
 #include <set>
 #include <utility>
@@ -559,7 +559,7 @@ void filterCandPivots(const NGHolder &g, const set<NFAVertex> &cand_raw,
 static
 void getCandidatePivots(const NGHolder &g, set<NFAVertex> *cand,
                         set<NFAVertex> *cand_raw) {
-    ue2::unordered_map<NFAVertex, NFAVertex> dominators = findDominators(g);
+    auto dominators = findDominators(g);
 
     set<NFAVertex> accepts;
 
@@ -1023,8 +1023,8 @@ bool splitRoseEdge(const NGHolder &base_graph, RoseInGraph &vg,
     shared_ptr<NGHolder> lhs = make_shared<NGHolder>();
     shared_ptr<NGHolder> rhs = make_shared<NGHolder>();
 
-    ue2::unordered_map<NFAVertex, NFAVertex> lhs_map;
-    ue2::unordered_map<NFAVertex, NFAVertex> rhs_map;
+    unordered_map<NFAVertex, NFAVertex> lhs_map;
+    unordered_map<NFAVertex, NFAVertex> rhs_map;
 
     splitGraph(base_graph, splitters, lhs.get(), &lhs_map, rhs.get(), &rhs_map);
     DEBUG_PRINTF("split %s:%zu into %s:%zu + %s:%zu\n",
@@ -1217,7 +1217,7 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
             NFAVertex pivot = target(e, h);
 
             DEBUG_PRINTF("splitting on pivot %zu\n", h[pivot].index);
-            ue2::unordered_map<NFAVertex, NFAVertex> temp_map;
+            unordered_map<NFAVertex, NFAVertex> temp_map;
             shared_ptr<NGHolder> new_lhs = make_shared<NGHolder>();
             splitLHS(h, pivot, new_lhs.get(), &temp_map);
 
@@ -1298,7 +1298,7 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
                effort */
 
             if (!contains(done_rhs, adj)) {
-                ue2::unordered_map<NFAVertex, NFAVertex> temp_map;
+                unordered_map<NFAVertex, NFAVertex> temp_map;
                 shared_ptr<NGHolder> new_rhs = make_shared<NGHolder>();
                 splitRHS(h, adj, new_rhs.get(), &temp_map);
                 remove_edge(new_rhs->start, new_rhs->accept, *new_rhs);

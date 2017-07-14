@@ -53,11 +53,13 @@
 #include "util/container.h"
 #include "util/graph_range.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/verify_types.h"
 
 #include <algorithm>
 #include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <boost/range/adaptor/map.hpp>
@@ -73,8 +75,8 @@ namespace ue2 {
 // Only used in assertions.
 static
 bool sanityCheckGraph(const NGHolder &g,
-                      const ue2::unordered_map<NFAVertex, u32> &state_ids) {
-    ue2::unordered_set<u32> seen_states;
+                      const unordered_map<NFAVertex, u32> &state_ids) {
+    unordered_set<u32> seen_states;
 
     for (auto v : vertices_range(g)) {
         // Non-specials should have non-empty reachability.
@@ -468,7 +470,7 @@ void makeTopStates(NGHolder &g, map<u32, set<NFAVertex>> &tops_out,
 static
 set<NFAVertex> findZombies(const NGHolder &h,
             const map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
-            const ue2::unordered_map<NFAVertex, u32> &state_ids,
+            const unordered_map<NFAVertex, u32> &state_ids,
             const CompileContext &cc) {
     set<NFAVertex> zombies;
     if (!cc.grey.allowZombies) {
@@ -516,7 +518,7 @@ set<NFAVertex> findZombies(const NGHolder &h,
 }
 
 static
-void reverseStateOrdering(ue2::unordered_map<NFAVertex, u32> &state_ids) {
+void reverseStateOrdering(unordered_map<NFAVertex, u32> &state_ids) {
     vector<NFAVertex> ordering;
     for (auto &e : state_ids) {
         if (e.second == NO_STATE) {
@@ -569,7 +571,7 @@ prepareGraph(const NGHolder &h_in, const ReportManager *rm,
              const map<u32, u32> &fixed_depth_tops,
              const map<u32, vector<vector<CharReach>>> &triggers,
              bool impl_test_only, const CompileContext &cc,
-             ue2::unordered_map<NFAVertex, u32> &state_ids,
+             unordered_map<NFAVertex, u32> &state_ids,
              vector<BoundedRepeatData> &repeats,
              map<u32, set<NFAVertex>> &tops) {
     assert(is_triggered(h_in) || fixed_depth_tops.empty());
@@ -637,7 +639,7 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
         assert(rm);
     }
 
-    ue2::unordered_map<NFAVertex, u32> state_ids;
+    unordered_map<NFAVertex, u32> state_ids;
     vector<BoundedRepeatData> repeats;
     map<u32, set<NFAVertex>> tops;
     unique_ptr<NGHolder> h
@@ -785,7 +787,7 @@ u32 isImplementableNFA(const NGHolder &g, const ReportManager *rm,
      * resultant NGHolder has <= NFA_MAX_STATES. If it does, we know we can
      * implement it as an NFA. */
 
-    ue2::unordered_map<NFAVertex, u32> state_ids;
+    unordered_map<NFAVertex, u32> state_ids;
     vector<BoundedRepeatData> repeats;
     map<u32, set<NFAVertex>> tops;
     unique_ptr<NGHolder> h
@@ -832,7 +834,7 @@ u32 countAccelStates(const NGHolder &g, const ReportManager *rm,
     const map<u32, u32> fixed_depth_tops; // empty
     const map<u32, vector<vector<CharReach>>> triggers; // empty
 
-    ue2::unordered_map<NFAVertex, u32> state_ids;
+    unordered_map<NFAVertex, u32> state_ids;
     vector<BoundedRepeatData> repeats;
     map<u32, set<NFAVertex>> tops;
     unique_ptr<NGHolder> h

@@ -63,9 +63,9 @@
 #include "rdfa.h"
 #include "ue2common.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/noncopyable.h"
 #include "util/partitioned_set.h"
-#include "util/ue2_containers.h"
 
 #include <algorithm>
 #include <functional>

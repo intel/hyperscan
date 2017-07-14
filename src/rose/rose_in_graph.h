@@ -45,7 +45,7 @@
 
 #include "ue2common.h"
 #include "rose/rose_common.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/ue2_graph.h"
 #include "util/ue2string.h"
 

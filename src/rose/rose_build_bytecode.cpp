@@ -145,8 +145,8 @@ struct build_context : noncopyable {
 
     /** \brief Simple cache of programs written to engine blob, used for
      * deduplication. */
-    ue2::unordered_map<RoseProgram, u32, RoseProgramHash,
-                       RoseProgramEquivalence> program_cache;
+    unordered_map<RoseProgram, u32, RoseProgramHash,
+                  RoseProgramEquivalence> program_cache;
 
     /** \brief State indices, for those roles that have them.
      * Each vertex present has a unique state index in the range
@@ -155,7 +155,7 @@ struct build_context : noncopyable {
 
     /** \brief Mapping from queue index to bytecode offset for built engines
      * that have already been pushed into the engine_blob. */
-    ue2::unordered_map<u32, u32> engineOffsets;
+    unordered_map<u32, u32> engineOffsets;
 
     /** \brief List of long literals (ones with CHECK_LONG_LIT instructions)
      * that need hash table support. */
@@ -1470,7 +1470,7 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
 
     map<left_id, set<PredTopPair> > infixTriggers;
     vector<left_id> order;
-    unordered_map<left_id, vector<RoseVertex> > succs;
+    unordered_map<left_id, vector<RoseVertex>> succs;
     findInfixTriggers(tbi, &infixTriggers);
 
     if (cc.grey.allowTamarama && cc.streaming && !do_prefix) {
@@ -2269,9 +2269,9 @@ bool hasMpvTrigger(const set<u32> &reports, const ReportManager &rm) {
 }
 
 static
-bool anyEndfixMpvTriggers(const RoseBuildImpl &tbi) {
-    const RoseGraph &g = tbi.g;
-    ue2::unordered_set<suffix_id> done;
+bool anyEndfixMpvTriggers(const RoseBuildImpl &build) {
+    const RoseGraph &g = build.g;
+    unordered_set<suffix_id> done;
 
     /* suffixes */
     for (auto v : vertices_range(g)) {
@@ -2283,14 +2283,14 @@ bool anyEndfixMpvTriggers(const RoseBuildImpl &tbi) {
         }
         done.insert(g[v].suffix);
 
-        if (hasMpvTrigger(all_reports(g[v].suffix), tbi.rm)) {
+        if (hasMpvTrigger(all_reports(g[v].suffix), build.rm)) {
             return true;
         }
     }
 
     /* outfixes */
-    for (const auto &out : tbi.outfixes) {
-        if (hasMpvTrigger(all_reports(out), tbi.rm)) {
+    for (const auto &out : build.outfixes) {
+        if (hasMpvTrigger(all_reports(out), build.rm)) {
             return true;
         }
     }
@@ -2588,7 +2588,7 @@ void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
     const RoseGraph &g = tbi.g;
     const CompileContext &cc = tbi.cc;
 
-    ue2::unordered_set<u32> done_core;
+    unordered_set<u32> done_core;
 
     leftTable.resize(leftfixCount);
 

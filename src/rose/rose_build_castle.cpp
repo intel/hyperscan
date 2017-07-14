@@ -38,7 +38,6 @@
 #include "util/container.h"
 #include "util/dump_charclass.h"
 #include "util/graph_range.h"
-#include "util/ue2_containers.h"
 #include "util/ue2string.h"
 
 #include <map>
@@ -55,7 +54,7 @@ namespace ue2 {
 
 static
 void makeCastle(LeftEngInfo &left,
-               unordered_map<const NGHolder *, shared_ptr<CastleProto>> &cache) {
+            unordered_map<const NGHolder *, shared_ptr<CastleProto>> &cache) {
     if (left.dfa || left.haig || left.castle) {
         return;
     }
@@ -85,7 +84,7 @@ void makeCastle(LeftEngInfo &left,
 
 static
 void makeCastleSuffix(RoseBuildImpl &tbi, RoseVertex v,
-        ue2::unordered_map<const NGHolder *, shared_ptr<CastleProto> > &cache) {
+            unordered_map<const NGHolder *, shared_ptr<CastleProto>> &cache) {
     RoseSuffixInfo &suffix = tbi.g[v].suffix;
     if (!suffix.graph) {
         return;
@@ -298,8 +297,8 @@ bool unmakeCastles(RoseBuildImpl &tbi) {
 }
 
 void remapCastleTops(RoseBuildImpl &tbi) {
-    ue2::unordered_map<CastleProto *, vector<RoseVertex> > rose_castles;
-    ue2::unordered_map<CastleProto *, vector<RoseVertex> > suffix_castles;
+    unordered_map<CastleProto *, vector<RoseVertex>> rose_castles;
+    unordered_map<CastleProto *, vector<RoseVertex>> suffix_castles;
 
     RoseGraph &g = tbi.g;
     for (auto v : vertices_range(g)) {

@@ -55,10 +55,11 @@
 #include "util/compile_context.h"
 #include "util/container.h"
 #include "util/dump_charclass.h"
-#include "util/ue2_containers.h"
 #include "util/graph_range.h"
 
 #include <queue>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <boost/range/adaptor/map.hpp>
 
@@ -127,10 +128,10 @@ struct RegionInfoQueueComp {
 
 static
 void findWidths(const NGHolder &g,
-                const ue2::unordered_map<NFAVertex, u32> &region_map,
+                const unordered_map<NFAVertex, u32> &region_map,
                 RegionInfo &ri) {
     NGHolder rg;
-    ue2::unordered_map<NFAVertex, NFAVertex> mapping;
+    unordered_map<NFAVertex, NFAVertex> mapping;
     fillHolder(&rg, g, ri.vertices, &mapping);
 
     // Wire our entries to start and our exits to accept.
@@ -155,7 +156,7 @@ void findWidths(const NGHolder &g,
 // acc can be either h.accept or h.acceptEod.
 static
 void markBoundaryRegions(const NGHolder &h,
-                         const ue2::unordered_map<NFAVertex, u32> &region_map,
+                         const unordered_map<NFAVertex, u32> &region_map,
                          map<u32, RegionInfo> &regions, NFAVertex acc) {
     for (auto v : inv_adjacent_vertices_range(acc, h)) {
         if (is_special(v, h)) {
@@ -174,7 +175,7 @@ void markBoundaryRegions(const NGHolder &h,
 
 static
 map<u32, RegionInfo> findRegionInfo(const NGHolder &h,
-               const ue2::unordered_map<NFAVertex, u32> &region_map) {
+               const unordered_map<NFAVertex, u32> &region_map) {
     map<u32, RegionInfo> regions;
     for (auto v : vertices_range(h)) {
         if (is_special(v, h)) {

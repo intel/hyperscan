@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,66 +26,28 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef RDFA_H
-#define RDFA_H
+#ifndef UTIL_UNORDERED_H
+#define UTIL_UNORDERED_H
 
-#include "nfa_kind.h"
-#include "ue2common.h"
+/**
+ * \file
+ * \brief Unordered set and map containers that default to using our own hasher.
+ */
 
-#include "util/flat_containers.h"
+#include "hash.h"
 
-#include <array>
-#include <vector>
+#include <unordered_set>
+#include <unordered_map>
 
 namespace ue2 {
 
-typedef u16 dstate_id_t;
-typedef u16 symbol_t;
+template<class Key, class Hash = ue2_hasher>
+using ue2_unordered_set = std::unordered_set<Key, Hash>;
 
-static constexpr symbol_t TOP = 256;
-static constexpr symbol_t ALPHABET_SIZE = 257;
-static constexpr symbol_t N_SPECIAL_SYMBOL = 1;
-static constexpr dstate_id_t DEAD_STATE = 0;
+template<class Key, class T, class Hash = ue2_hasher>
+using ue2_unordered_map = std::unordered_map<Key, T, Hash>;
 
-/** Structure representing a dfa state during construction. */
-struct dstate {
-    /** Next state; indexed by remapped sym */
-    std::vector<dstate_id_t> next;
+} // namespace ue2
 
-    /** Set by ng_mcclellan, refined by mcclellancompile */
-    dstate_id_t daddy = 0;
 
-    /** Set by mcclellancompile, implementation state id, excludes edge
-     * decorations */
-    dstate_id_t impl_id = 0;
-
-    /** Reports to fire (at any location). */
-    flat_set<ReportID> reports;
-
-    /** Reports to fire (at EOD). */
-    flat_set<ReportID> reports_eod;
-
-    explicit dstate(size_t alphabet_size) : next(alphabet_size, 0) {}
-};
-
-struct raw_dfa {
-    nfa_kind kind;
-    std::vector<dstate> states;
-    dstate_id_t start_anchored = DEAD_STATE;
-    dstate_id_t start_floating = DEAD_STATE;
-    u16 alpha_size = 0; /* including special symbols */
-
-    /* mapping from input symbol --> equiv class id */
-    std::array<u16, ALPHABET_SIZE> alpha_remap;
-
-    explicit raw_dfa(nfa_kind k) : kind(k) {}
-    virtual ~raw_dfa();
-
-    u16 getImplAlphaSize() const;
-    virtual void stripExtraEodReports(void);
-    bool hasEodReports(void) const;
-};
-
-}
-
-#endif
+#endif // UTIL_UNORDERED_H

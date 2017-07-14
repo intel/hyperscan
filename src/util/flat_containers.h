@@ -26,10 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTIL_UE2_CONTAINERS_H_
-#define UTIL_UE2_CONTAINERS_H_
+#ifndef UTIL_FLAT_CONTAINERS_H
+#define UTIL_FLAT_CONTAINERS_H
 
 #include "ue2common.h"
+#include "util/hash.h"
 #include "util/operators.h"
 #include "util/small_vector.h"
 
@@ -38,18 +39,9 @@
 #include <type_traits>
 #include <utility>
 
-#include <boost/functional/hash/hash_fwd.hpp>
 #include <boost/iterator/iterator_facade.hpp>
-#include <boost/unordered/unordered_map.hpp>
-#include <boost/unordered/unordered_set.hpp>
 
 namespace ue2 {
-
-/** \brief Unordered set container implemented internally as a hash table. */
-using boost::unordered_set;
-
-/** \brief Unordered map container implemented internally as a hash table. */
-using boost::unordered_map;
 
 namespace flat_detail {
 
@@ -363,11 +355,6 @@ public:
     friend void swap(flat_set &a, flat_set &b) {
         a.swap(b);
     }
-
-    // Free hash function.
-    friend size_t hash_value(const flat_set &a) {
-        return boost::hash_range(a.begin(), a.end());
-    }
 };
 
 /**
@@ -652,13 +639,26 @@ public:
     friend void swap(flat_map &a, flat_map &b) {
         a.swap(b);
     }
+};
 
-    // Free hash function.
-    friend size_t hash_value(const flat_map &a) {
-        return boost::hash_range(a.begin(), a.end());
+} // namespace ue2
+
+namespace std {
+
+template<typename T, typename Compare, typename Allocator>
+struct hash<ue2::flat_set<T, Compare, Allocator>> {
+    size_t operator()(const ue2::flat_set<T, Compare, Allocator> &f) {
+        return ue2::ue2_hasher()(f);
     }
 };
 
-} // namespace
+template<typename Key, typename T, typename Compare, typename Allocator>
+struct hash<ue2::flat_map<Key, T, Compare, Allocator>> {
+    size_t operator()(const ue2::flat_map<Key, T, Compare, Allocator> &f) {
+        return ue2::ue2_hasher()(f);
+    }
+};
 
-#endif // UTIL_UE2_CONTAINERS_H_
+} // namespace std
+
+#endif // UTIL_FLAT_CONTAINERS_H

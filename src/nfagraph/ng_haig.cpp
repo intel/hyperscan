@@ -40,11 +40,12 @@
 #include "util/bitfield.h"
 #include "util/container.h"
 #include "util/determinise.h"
+#include "util/flat_containers.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
 #include "util/hash_dynamic_bitset.h"
 #include "util/make_unique.h"
-#include "util/ue2_containers.h"
+#include "util/unordered.h"
 
 #include <algorithm>
 #include <functional>
@@ -258,7 +259,7 @@ public:
 
 struct Graph_Traits {
     using StateSet = bitfield<NFA_STATE_LIMIT>;
-    using StateMap = ue2::unordered_map<StateSet, dstate_id_t>;
+    using StateMap = unordered_map<StateSet, dstate_id_t>;
 
     static StateSet init_states(UNUSED u32 num) {
         assert(num <= NFA_STATE_LIMIT);
@@ -286,7 +287,7 @@ public:
 class Automaton_Haig_Merge {
 public:
     using StateSet = vector<u16>;
-    using StateMap = unordered_map<StateSet, dstate_id_t>;
+    using StateMap = ue2_unordered_map<StateSet, dstate_id_t>;
 
     explicit Automaton_Haig_Merge(const vector<const raw_som_dfa *> &in)
         : nfas(in.begin(), in.end()), dead(in.size()) {

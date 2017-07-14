@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,10 +30,11 @@
 
 #include "gtest/gtest.h"
 #include "util/bitfield.h"
-#include "util/ue2_containers.h"
 
 #include <algorithm>
+#include <unordered_set>
 
+using namespace std;
 using namespace ue2;
 
 template<size_t N>
@@ -393,9 +394,9 @@ TYPED_TEST(BitfieldTest, find_nth_sparse) {
 TYPED_TEST(BitfieldTest, unordered_set) {
     const size_t size = TypeParam::size();
 
-    // Exercise the hash_value free function by adding bitfields to an
+    // Exercise the hash specialisation by adding bitfields to an
     // unordered_set.
-    ue2::unordered_set<TypeParam> s;
+    unordered_set<TypeParam> s;
     s.reserve(size);
 
     for (size_t i = 0; i < size; ++i) {

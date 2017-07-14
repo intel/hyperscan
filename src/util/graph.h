@@ -35,8 +35,9 @@
 
 #include "container.h"
 #include "ue2common.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
-#include "util/ue2_containers.h"
+#include "util/unordered.h"
 
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/strong_components.hpp>
@@ -115,7 +116,7 @@ bool has_proper_successor(const typename Graph::vertex_descriptor &v,
 template<class Graph, class SourceCont, class OutCont>
 void find_reachable(const Graph &g, const SourceCont &sources, OutCont *out) {
     using vertex_descriptor = typename Graph::vertex_descriptor;
-    ue2::unordered_map<vertex_descriptor, boost::default_color_type> colours;
+    std::unordered_map<vertex_descriptor, boost::default_color_type> colours;
 
     for (auto v : sources) {
         boost::depth_first_visit(g, v,
@@ -133,7 +134,7 @@ void find_reachable(const Graph &g, const SourceCont &sources, OutCont *out) {
 template<class Graph, class SourceCont, class OutCont>
 void find_unreachable(const Graph &g, const SourceCont &sources, OutCont *out) {
     using vertex_descriptor = typename Graph::vertex_descriptor;
-    ue2::unordered_set<vertex_descriptor> reachable;
+    std::unordered_set<vertex_descriptor> reachable;
 
     find_reachable(g, sources, &reachable);
 
@@ -182,7 +183,8 @@ find_vertices_in_cycles(const Graph &g) {
 template <class Graph>
 bool has_parallel_edge(const Graph &g) {
     using vertex_descriptor = typename Graph::vertex_descriptor;
-    ue2::unordered_set<std::pair<vertex_descriptor, vertex_descriptor>> seen;
+    ue2_unordered_set<std::pair<vertex_descriptor, vertex_descriptor>> seen;
+
     for (const auto &e : edges_range(g)) {
         auto u = source(e, g);
         auto v = target(e, g);

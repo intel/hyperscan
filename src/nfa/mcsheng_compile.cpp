@@ -45,13 +45,14 @@
 #include "util/compare.h"
 #include "util/compile_context.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
 #include "util/order_check.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
 #include "util/unaligned.h"
+#include "util/unordered.h"
 #include "util/verify_types.h"
 
 #include <algorithm>
@@ -383,6 +384,8 @@ CharReach get_edge_reach(dstate_id_t u, dstate_id_t v, const dfa_info &info) {
 #define MAX_SHENG_STATES 16
 #define MAX_SHENG_LEAKINESS 0.05
 
+using LeakinessCache = ue2_unordered_map<pair<RdfaVertex, u32>, double>;
+
 /**
  * Returns the proportion of strings of length 'depth' which will leave the
  * sheng region when starting at state 'u'.
@@ -390,8 +393,7 @@ CharReach get_edge_reach(dstate_id_t u, dstate_id_t v, const dfa_info &info) {
 static
 double leakiness(const RdfaGraph &g, dfa_info &info,
                  const flat_set<RdfaVertex> &sheng_states, RdfaVertex u,
-                 u32 depth,
-                 unordered_map<pair<RdfaVertex, u32>, double> &cache) {
+                 u32 depth, LeakinessCache &cache) {
     double rv = 0;
     if (contains(cache, make_pair(u, depth))) {
         return cache[make_pair(u, depth)];
@@ -426,7 +428,7 @@ double leakiness(const RdfaGraph &g, dfa_info &info,
 static
 double leakiness(const RdfaGraph &g, dfa_info &info,
                  const flat_set<RdfaVertex> &sheng_states, RdfaVertex u) {
-    unordered_map<pair<RdfaVertex, u32>, double> cache;
+    LeakinessCache cache;
     double rv = leakiness(g, info, sheng_states, u, 8, cache);
     return rv;
 }

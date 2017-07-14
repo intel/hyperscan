@@ -44,6 +44,8 @@
 #include "util/simd_types.h"
 
 #include <cstdio>
+#include <map>
+#include <set>
 #include <vector>
 
 #ifndef DUMP_SUPPORT

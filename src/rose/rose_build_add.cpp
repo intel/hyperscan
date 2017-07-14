@@ -85,7 +85,7 @@ struct RoseBuildData : noncopyable {
 
     /** Edges we've transformed (in \ref transformAnchoredLiteralOverlap) which
      * require ANCH history to prevent overlap. */
-    ue2::unordered_set<RoseInEdge> anch_history_edges;
+    unordered_set<RoseInEdge> anch_history_edges;
 
     /** True if we're tracking Start of Match. */
     bool som;

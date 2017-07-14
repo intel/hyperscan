@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,13 +39,9 @@
 #include "ng_util.h"
 #include "ue2common.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
-#include "util/ue2_containers.h"
-
-#include <set>
-
-#include <boost/functional/hash/hash.hpp>
 
 using namespace std;
 
@@ -200,11 +196,11 @@ u64a hash_holder(const NGHolder &g) {
     size_t rv = 0;
 
     for (auto v : vertices_range(g)) {
-        boost::hash_combine(rv, g[v].index);
-        boost::hash_combine(rv, g[v].char_reach);
+        hash_combine(rv, g[v].index);
+        hash_combine(rv, g[v].char_reach);
 
         for (auto w : adjacent_vertices_range(v, g)) {
-            boost::hash_combine(rv, g[w].index);
+            hash_combine(rv, g[w].index);
         }
     }
 

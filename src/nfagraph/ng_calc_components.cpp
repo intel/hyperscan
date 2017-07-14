@@ -310,11 +310,11 @@ void splitIntoComponents(unique_ptr<NGHolder> g,
         return;
     }
 
-    ue2::unordered_map<NFAVertex, NFAUndirectedVertex> old2new;
+    unordered_map<NFAVertex, NFAUndirectedVertex> old2new;
     auto ug = createUnGraph(*g, true, true, old2new);
 
     // Construct reverse mapping.
-    ue2::unordered_map<NFAUndirectedVertex, NFAVertex> new2old;
+    unordered_map<NFAUndirectedVertex, NFAVertex> new2old;
     for (const auto &m : old2new) {
         new2old.emplace(m.second, m.first);
     }
@@ -356,7 +356,7 @@ void splitIntoComponents(unique_ptr<NGHolder> g,
         DEBUG_PRINTF("vertex %zu is in comp %u\n", (*g)[v].index, c);
     }
 
-    ue2::unordered_map<NFAVertex, NFAVertex> v_map; // temp map for fillHolder
+    unordered_map<NFAVertex, NFAVertex> v_map; // temp map for fillHolder
     for (auto &vv : verts) {
         // Shells are in every component.
         vv.insert(vv.end(), begin(head_shell), end(head_shell));

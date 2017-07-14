@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,19 +36,19 @@
 #include "ng_holder.h"
 #include "util/container.h"
 #include "util/graph_range.h"
-#include "util/ue2_containers.h"
 
+#include <unordered_map>
 #include <vector>
 
 namespace ue2 {
 
 /** \brief Assign a region ID to every vertex in the graph. */
-ue2::unordered_map<NFAVertex, u32> assignRegions(const NGHolder &g);
+std::unordered_map<NFAVertex, u32> assignRegions(const NGHolder &g);
 
 /** \brief True if vertices \p a and \p b are in the same region. */
 template <class Graph>
 bool inSameRegion(const Graph &g, NFAVertex a, NFAVertex b,
-                  const ue2::unordered_map<NFAVertex, u32> &region_map) {
+                  const std::unordered_map<NFAVertex, u32> &region_map) {
     assert(contains(region_map, a) && contains(region_map, b));
 
     return region_map.at(a) == region_map.at(b) &&
@@ -58,7 +58,7 @@ bool inSameRegion(const Graph &g, NFAVertex a, NFAVertex b,
 /** \brief True if vertex \p b is in a later region than vertex \p a. */
 template <class Graph>
 bool inLaterRegion(const Graph &g, NFAVertex a, NFAVertex b,
-                   const ue2::unordered_map<NFAVertex, u32> &region_map) {
+                   const std::unordered_map<NFAVertex, u32> &region_map) {
     assert(contains(region_map, a) && contains(region_map, b));
 
     u32 aa = g[a].index;
@@ -85,7 +85,7 @@ bool inLaterRegion(const Graph &g, NFAVertex a, NFAVertex b,
 /** \brief True if vertex \p b is in an earlier region than vertex \p a. */
 template <class Graph>
 bool inEarlierRegion(const Graph &g, NFAVertex a, NFAVertex b,
-                     const ue2::unordered_map<NFAVertex, u32> &region_map) {
+                     const std::unordered_map<NFAVertex, u32> &region_map) {
     assert(contains(region_map, a) && contains(region_map, b));
 
     u32 aa = g[a].index;
@@ -112,7 +112,7 @@ bool inEarlierRegion(const Graph &g, NFAVertex a, NFAVertex b,
 /** \brief True if vertex \p v is an entry vertex for its region. */
 template <class Graph>
 bool isRegionEntry(const Graph &g, NFAVertex v,
-                   const ue2::unordered_map<NFAVertex, u32> &region_map) {
+                   const std::unordered_map<NFAVertex, u32> &region_map) {
     // Note that some graph types do not have inv_adjacent_vertices, so we must
     // use in_edges here.
     for (const auto &e : in_edges_range(v, g)) {
@@ -127,7 +127,7 @@ bool isRegionEntry(const Graph &g, NFAVertex v,
 /** \brief True if vertex \p v is an exit vertex for its region. */
 template <class Graph>
 bool isRegionExit(const Graph &g, NFAVertex v,
-                  const ue2::unordered_map<NFAVertex, u32> &region_map) {
+                  const std::unordered_map<NFAVertex, u32> &region_map) {
     for (auto w : adjacent_vertices_range(v, g)) {
         if (!inSameRegion(g, v, w, region_map)) {
             return true;
@@ -140,7 +140,7 @@ bool isRegionExit(const Graph &g, NFAVertex v,
 /** \brief True if vertex \p v is in a region all on its own. */
 template <class Graph>
 bool isSingletonRegion(const Graph &g, NFAVertex v,
-                       const ue2::unordered_map<NFAVertex, u32> &region_map) {
+                       const std::unordered_map<NFAVertex, u32> &region_map) {
     for (const auto &e : in_edges_range(v, g)) {
         auto u = source(e, g);
         if (u != v && inSameRegion(g, v, u, region_map)) {
@@ -178,7 +178,7 @@ bool isSingletonRegion(const Graph &g, NFAVertex v,
  */
 template <class Graph>
 bool isOptionalRegion(const Graph &g, NFAVertex v,
-                      const ue2::unordered_map<NFAVertex, u32> &region_map) {
+                      const std::unordered_map<NFAVertex, u32> &region_map) {
     assert(isRegionEntry(g, v, region_map));
 
     DEBUG_PRINTF("check if r%u is optional (inspecting v%zu)\n",

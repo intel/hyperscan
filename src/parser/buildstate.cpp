@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,8 +39,10 @@
 #include "nfagraph/ng_builder.h"
 #include "util/charreach.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
+#include "util/hash.h"
 #include "util/make_unique.h"
-#include "util/ue2_containers.h"
+#include "util/unordered.h"
 
 #include <algorithm>
 #include <iterator>
@@ -449,7 +451,7 @@ unique_ptr<GlushkovBuildState> makeGlushkovBuildState(NFABuilder &b,
  * Scans through a list of positions and retains only the highest priority
  * version of a given (position, flags) entry. */
 void cleanupPositions(vector<PositionInfo> &a) {
-    ue2::unordered_set<pair<Position, int>> seen; // track dupes
+    ue2_unordered_set<pair<Position, int>> seen;
 
     vector<PositionInfo> out;
     out.reserve(a.size()); // output should be close to input in size.

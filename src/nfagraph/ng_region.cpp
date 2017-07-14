@@ -56,7 +56,7 @@
 #include "ng_util.h"
 #include "ue2common.h"
 #include "util/container.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
 #include "util/graph_small_color_map.h"
 

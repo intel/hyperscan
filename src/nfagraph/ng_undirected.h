@@ -37,7 +37,7 @@
 #include "ng_util.h"
 #include "ue2common.h"
 #include "util/graph_range.h"
-#include "util/ue2_containers.h"
+#include "util/unordered.h"
 
 #include <vector>
 
@@ -71,8 +71,8 @@ template <typename Graph>
 NFAUndirectedGraph createUnGraph(const Graph &g,
            bool excludeStarts,
            bool excludeAccepts,
-           unordered_map<typename Graph::vertex_descriptor,
-                         NFAUndirectedVertex> &old2new) {
+           std::unordered_map<typename Graph::vertex_descriptor,
+                              NFAUndirectedVertex> &old2new) {
     NFAUndirectedGraph ug;
     size_t idx = 0;
 
@@ -97,7 +97,7 @@ NFAUndirectedGraph createUnGraph(const Graph &g,
 
     // Track seen edges so that we don't insert parallel edges.
     using Vertex = typename Graph::vertex_descriptor;
-    unordered_set<std::pair<Vertex, Vertex>> seen;
+    ue2_unordered_set<std::pair<Vertex, Vertex>> seen;
     seen.reserve(num_edges(g));
     auto make_ordered_edge = [](Vertex a, Vertex b) {
         return std::make_pair(std::min(a, b), std::max(a, b));

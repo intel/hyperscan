@@ -42,7 +42,6 @@
 #include "util/container.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
-#include "util/ue2_containers.h"
 #include "util/ue2string.h"
 #include "util/unicode_def.h"
 #include "util/unicode_set.h"
@@ -52,6 +51,7 @@
 #include <memory>
 #include <set>
 #include <sstream>
+#include <unordered_set>
 #include <vector>
 
 #include <boost/utility.hpp>
@@ -143,7 +143,7 @@ void findPaths(const NGHolder &g, CorpusProperties &cProps,
     vector<unique_ptr<VertexPath>> open;
     open.push_back(ue2::make_unique<VertexPath>(1, g.start));
 
-    ue2::unordered_set<NFAVertex> one_way_in;
+    unordered_set<NFAVertex> one_way_in;
     for (const auto &v : vertices_range(g)) {
         if (in_degree(v, g) <= 1) {
             one_way_in.insert(v);

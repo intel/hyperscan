@@ -40,7 +40,7 @@
 #include "util/container.h"
 #include "util/dump_charclass.h"
 #include "util/graph_range.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/verify_types.h"
 
 #include <cstdlib>
@@ -79,7 +79,7 @@ string dump(const map<s32, CharReach> &look) {
 
 static
 void getForwardReach(const NGHolder &g, u32 top, map<s32, CharReach> &look) {
-    ue2::flat_set<NFAVertex> curr, next;
+    flat_set<NFAVertex> curr, next;
 
     // Consider only successors of start with the required top.
     for (const auto &e : out_edges_range(g.start, g)) {
@@ -116,7 +116,7 @@ void getForwardReach(const NGHolder &g, u32 top, map<s32, CharReach> &look) {
 static
 void getBackwardReach(const NGHolder &g, ReportID report, u32 lag,
                       map<s32, CharReach> &look) {
-    ue2::flat_set<NFAVertex> curr, next;
+    flat_set<NFAVertex> curr, next;
 
     for (auto v : inv_adjacent_vertices_range(g.accept, g)) {
         if (contains(g[v].reports, report)) {
@@ -187,7 +187,7 @@ void getForwardReach(const raw_dfa &rdfa, map<s32, CharReach> &look) {
         return;
     }
 
-    ue2::flat_set<dstate_id_t> curr, next;
+    flat_set<dstate_id_t> curr, next;
     curr.insert(rdfa.start_anchored);
 
     for (u32 i = 0; i < MAX_FWD_LEN && !curr.empty(); i++) {
@@ -849,7 +849,7 @@ void mergeLookaround(vector<LookEntry> &lookaround,
     }
 
     // Don't merge lookarounds at offsets we already have entries for.
-    ue2::flat_set<s8> offsets;
+    flat_set<s8> offsets;
     for (const auto &e : lookaround) {
         offsets.insert(e.offset);
     }

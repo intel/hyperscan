@@ -49,6 +49,7 @@
 #include "util/make_unique.h"
 #include "util/noncopyable.h"
 #include "util/popcount.h"
+#include "util/small_vector.h"
 #include "util/target_info.h"
 #include "util/verify_types.h"
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,7 +28,7 @@
 
 #include "config.h"
 
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "ue2common.h"
 
 #include "gtest/gtest.h"
@@ -391,6 +391,11 @@ TEST(flat_set, get_allocator) {
 TEST(flat_set, max_size) {
     flat_set<string> f;
     ASSERT_LE(1ULL << 24, f.max_size());
+}
+
+template<typename FlatSet>
+size_t hash_value(const FlatSet &f) {
+    return std::hash<FlatSet>()(f);
 }
 
 TEST(flat_set, hash_value) {

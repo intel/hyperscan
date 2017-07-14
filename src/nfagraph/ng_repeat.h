@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,7 +37,7 @@
 #include "ue2common.h"
 #include "nfa/repeat_internal.h"
 #include "util/depth.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 
 #include <map>
 #include <vector>
@@ -122,7 +122,7 @@ void findRepeats(const NGHolder &h, u32 minRepeatVertices,
 struct PureRepeat {
     CharReach reach;
     DepthMinMax bounds;
-    ue2::flat_set<ReportID> reports;
+    flat_set<ReportID> reports;
 
     bool operator==(const PureRepeat &a) const {
         return reach == a.reach && bounds == a.bounds && reports == a.reports;

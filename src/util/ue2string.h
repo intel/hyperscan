@@ -208,14 +208,6 @@ private:
     std::vector<bool> nocase; /* for trolling value */
 };
 
-inline
-size_t hash_value(const ue2_literal::elem &elem) {
-    return hash_all(elem.c, elem.nocase);
-}
-
-inline
-size_t hash_value(const ue2_literal &lit) { return hash_range(lit); }
-
 /// Return a reversed copy of this literal.
 ue2_literal reverse_literal(const ue2_literal &in);
 
@@ -313,5 +305,23 @@ std::string escapeString(const ue2_literal &lit);
 #endif
 
 } // namespace ue2
+
+namespace std {
+
+template<>
+struct hash<ue2::ue2_literal::elem> {
+    size_t operator()(const ue2::ue2_literal::elem &elem) const {
+        return ue2::hash_all(elem.c, elem.nocase);
+    }
+};
+
+template<>
+struct hash<ue2::ue2_literal> {
+    size_t operator()(const ue2::ue2_literal &lit) const {
+        return ue2::ue2_hasher()(lit);
+    }
+};
+
+} // namespace std
 
 #endif

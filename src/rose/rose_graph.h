@@ -43,7 +43,7 @@
 #include "nfa/nfa_internal.h" // for MO_INVALID_IDX
 #include "util/charreach.h"
 #include "util/depth.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/ue2_graph.h"
 
 #include <memory>

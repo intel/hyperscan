@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,7 +40,7 @@
 #include "ue2common.h"
 #include "nfa/nfa_kind.h"
 #include "util/charreach.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/ue2_graph.h"
 
 namespace ue2 {

@@ -34,7 +34,6 @@
 #include "util/noncopyable.h"
 #include "util/operators.h"
 
-#include <boost/functional/hash.hpp>
 #include <boost/graph/properties.hpp> /* vertex_index_t, ... */
 #include <boost/pending/property.hpp> /* no_property */
 #include <boost/property_map/property_map.hpp>
@@ -42,7 +41,9 @@
 #include <boost/iterator/iterator_adaptor.hpp>
 #include <boost/iterator/iterator_facade.hpp>
 
+#include <functional> /* hash */
 #include <tuple> /* tie */
+#include <type_traits> /* is_same, etc */
 #include <utility> /* pair, declval */
 
 /*
@@ -187,9 +188,8 @@ public:
     }
     bool operator==(const vertex_descriptor b) const { return p == b.p; }
 
-    friend size_t hash_value(vertex_descriptor v) {
-        using boost::hash_value;
-        return hash_value(v.serial);
+    size_t hash() const {
+        return std::hash<u64a>()(serial);
     }
 
 private:
@@ -227,9 +227,8 @@ public:
     }
     bool operator==(const edge_descriptor b) const { return p == b.p; }
 
-    friend size_t hash_value(edge_descriptor e) {
-        using boost::hash_value;
-        return hash_value(e.serial);
+    size_t hash() const {
+        return std::hash<u64a>()(serial);
     }
 
 private:
@@ -1288,7 +1287,7 @@ edge_index_upper_bound(const Graph &g) {
 using boost::vertex_index;
 using boost::edge_index;
 
-}
+} // namespace ue2
 
 namespace boost {
 
@@ -1305,5 +1304,29 @@ struct property_map<Graph, Prop,
                          std::declval<const Graph &>())) const_type;
 };
 
-}
+} // namespace boost
+
+namespace std {
+
+/* Specialization of std::hash so that vertex_descriptor can be used in
+ * unordered containers. */
+template<typename Graph>
+struct hash<ue2::graph_detail::vertex_descriptor<Graph>> {
+    using vertex_descriptor = ue2::graph_detail::vertex_descriptor<Graph>;
+    std::size_t operator()(const vertex_descriptor &v) const {
+        return v.hash();
+    }
+};
+
+/* Specialization of std::hash so that edge_descriptor can be used in
+ * unordered containers. */
+template<typename Graph>
+struct hash<ue2::graph_detail::edge_descriptor<Graph>> {
+    using edge_descriptor = ue2::graph_detail::edge_descriptor<Graph>;
+    std::size_t operator()(const edge_descriptor &e) const {
+        return e.hash();
+    }
+};
+
+} // namespace std
 #endif

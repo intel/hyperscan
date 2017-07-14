@@ -48,7 +48,6 @@
 #include "util/math.h"
 #include "util/noncopyable.h"
 #include "util/target_info.h"
-#include "util/ue2_containers.h"
 #include "util/ue2string.h"
 #include "util/verify_types.h"
 
@@ -64,6 +63,8 @@
 #include <numeric>
 #include <set>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <boost/multi_array.hpp>
@@ -459,7 +460,7 @@ bool getMultiEntriesAtPosition(const FDREngineDescription &eng,
                                const vector<LiteralIndex> &vl,
                                const vector<hwlmLiteral> &lits,
                                SuffixPositionInString pos,
-                               std::map<u32, ue2::unordered_set<u32> > &m2) {
+                               map<u32, unordered_set<u32>> &m2) {
     assert(eng.bits < 32);
 
     u32 distance = 0;
@@ -530,7 +531,7 @@ void FDRCompiler::setupTab() {
         SuffixPositionInString pLimit = eng.getBucketWidth(b);
         for (SuffixPositionInString pos = 0; pos < pLimit; pos++) {
             u32 bit = eng.getSchemeBit(b, pos);
-            map<u32, ue2::unordered_set<u32>> m2;
+            map<u32, unordered_set<u32>> m2;
             bool done = getMultiEntriesAtPosition(eng, vl, lits, pos, m2);
             if (done) {
                 clearbit(&defaultMask[0], bit);
@@ -538,7 +539,7 @@ void FDRCompiler::setupTab() {
             }
             for (const auto &elem : m2) {
                 u32 dc = elem.first;
-                const ue2::unordered_set<u32> &mskSet = elem.second;
+                const unordered_set<u32> &mskSet = elem.second;
                 u32 v = ~dc;
                 do {
                     u32 b2 = v & dc;

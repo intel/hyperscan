@@ -61,10 +61,10 @@
 #include "util/compile_context.h"
 #include "util/container.h"
 #include "util/dump_charclass.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
 #include "util/order_check.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
 #include "util/ue2string.h"
 #include "util/verify_types.h"
 
@@ -1639,7 +1639,7 @@ static
 bool danglingVertexRef(RoseBuildImpl &tbi) {
     RoseGraph::vertex_iterator vi, ve;
     tie(vi, ve) = vertices(tbi.g);
-    const ue2::unordered_set<RoseVertex> valid_vertices(vi, ve);
+    const unordered_set<RoseVertex> valid_vertices(vi, ve);
 
     if (!contains(valid_vertices, tbi.anchored_root)) {
         DEBUG_PRINTF("anchored root vertex %zu not in graph\n",

@@ -32,16 +32,17 @@
 #ifndef NG_UTIL_H
 #define NG_UTIL_H
 
-#include <map>
-#include <vector>
+#include "ng_holder.h"
+#include "ue2common.h"
+#include "util/flat_containers.h"
+#include "util/graph.h"
+#include "util/graph_range.h"
 
 #include <boost/graph/depth_first_search.hpp> // for default_dfs_visitor
 
-#include "ng_holder.h"
-#include "ue2common.h"
-#include "util/graph.h"
-#include "util/graph_range.h"
-#include "util/ue2_containers.h"
+#include <map>
+#include <unordered_map>
+#include <vector>
 
 namespace ue2 {
 
@@ -272,12 +273,12 @@ void appendLiteral(NGHolder &h, const ue2_literal &s);
  * \a in). A vertex mapping is returned in \a v_map_out. */
 void fillHolder(NGHolder *outp, const NGHolder &in,
                 const std::deque<NFAVertex> &vv,
-                unordered_map<NFAVertex, NFAVertex> *v_map_out);
+                std::unordered_map<NFAVertex, NFAVertex> *v_map_out);
 
 /** \brief Clone the graph in \a in into graph \a out, returning a vertex
  * mapping in \a v_map_out. */
 void cloneHolder(NGHolder &out, const NGHolder &in,
-                 unordered_map<NFAVertex, NFAVertex> *v_map_out);
+                 std::unordered_map<NFAVertex, NFAVertex> *v_map_out);
 
 /** \brief Clone the graph in \a in into graph \a out. */
 void cloneHolder(NGHolder &out, const NGHolder &in);

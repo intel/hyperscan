@@ -997,6 +997,7 @@ SET (hs_SRCS
     src/util/dump_mask.h
     src/util/fatbit_build.cpp
     src/util/fatbit_build.h
+    src/util/flat_containers.h
     src/util/graph.h
     src/util/graph_range.h
     src/util/graph_small_color_map.h
@@ -1019,7 +1020,6 @@ SET (hs_SRCS
     src/util/small_vector.h
     src/util/target_info.cpp
     src/util/target_info.h
-    src/util/ue2_containers.h
     src/util/ue2_graph.h
     src/util/ue2string.cpp
     src/util/ue2string.h
@@ -1027,6 +1027,7 @@ SET (hs_SRCS
     src/util/unicode_def.h
     src/util/unicode_set.h
     src/util/uniform_ops.h
+    src/util/unordered.h
     src/util/verify_types.h
 )
 
