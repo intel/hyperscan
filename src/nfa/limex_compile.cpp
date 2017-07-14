@@ -1519,18 +1519,14 @@ u32 depth_to_u32(const depth &d) {
 }
 
 static
-bool isExceptionalTransition(const NGHolder &h, const NFAEdge &e,
-                             const build_info &args, u32 maxShift) {
-    NFAVertex from = source(e, h);
-    NFAVertex to = target(e, h);
-    u32 f = args.state_ids.at(from);
-    u32 t = args.state_ids.at(to);
-    if (!isLimitedTransition(f, t, maxShift)) {
+bool isExceptionalTransition(u32 from, u32 to, const build_info &args,
+                             u32 maxShift) {
+    if (!isLimitedTransition(from, to, maxShift)) {
         return true;
     }
 
     // All transitions out of a tug trigger are exceptional.
-    if (args.tugs.test(f)) {
+    if (args.tugs.test(from)) {
         return true;
     }
     return false;
@@ -1546,7 +1542,7 @@ u32 findMaxVarShift(const build_info &args, u32 nShifts) {
         if (from == NO_STATE || to == NO_STATE) {
             continue;
         }
-        if (!isExceptionalTransition(h, e, args, MAX_SHIFT_AMOUNT)) {
+        if (!isExceptionalTransition(from, to, args, MAX_SHIFT_AMOUNT)) {
             shiftMask |= (1UL << (to - from));
         }
     }
@@ -1575,7 +1571,7 @@ int getLimexScore(const build_info &args, u32 nShifts) {
         if (from == NO_STATE || to == NO_STATE) {
             continue;
         }
-        if (isExceptionalTransition(h, e, args, maxVarShift)) {
+        if (isExceptionalTransition(from, to, args, maxVarShift)) {
             exceptionalStates.set(from);
         }
     }
@@ -1870,7 +1866,7 @@ struct Factory {
             // We check for exceptional transitions here, as we don't want tug
             // trigger transitions emitted as limited transitions (even if they
             // could be in this model).
-            if (!isExceptionalTransition(h, e, args, maxShift)) {
+            if (!isExceptionalTransition(from, to, args, maxShift)) {
                 u32 shift = to - from;
                 if ((shiftMask & (1UL << shift)) == 0UL) {
                     shiftMask |= (1UL << shift);
@@ -1905,7 +1901,7 @@ struct Factory {
                 continue;
             }
 
-            if (isExceptionalTransition(h, e, args, maxShift)) {
+            if (isExceptionalTransition(from, to, args, maxShift)) {
                 exceptional.insert(e);
             }
         }
