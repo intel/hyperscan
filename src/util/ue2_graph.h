@@ -168,7 +168,78 @@ struct default_vertex_property {
     size_t index;
 };
 
-}
+template<typename Graph>
+class vertex_descriptor : totally_ordered<vertex_descriptor<Graph>> {
+    using vertex_node = typename Graph::vertex_node;
+public:
+    vertex_descriptor() : p(nullptr), serial(0) {}
+    explicit vertex_descriptor(vertex_node *pp) : p(pp), serial(pp->serial) {}
+
+    operator bool() const { return p; }
+    bool operator<(const vertex_descriptor b) const {
+        if (p && b.p) {
+            /* no vertices in the same graph can have the same serial */
+            assert(p == b.p || serial != b.serial);
+            return serial < b.serial;
+        } else {
+            return p < b.p;
+        }
+    }
+    bool operator==(const vertex_descriptor b) const { return p == b.p; }
+
+    friend size_t hash_value(vertex_descriptor v) {
+        using boost::hash_value;
+        return hash_value(v.serial);
+    }
+
+private:
+    vertex_node *raw(void) { return p; }
+    vertex_node *p;
+    u64a serial;
+    friend Graph;
+};
+
+template<typename Graph>
+class edge_descriptor : totally_ordered<edge_descriptor<Graph>> {
+    using edge_node = typename Graph::edge_node;
+public:
+    edge_descriptor() : p(nullptr), serial(0) {}
+    explicit edge_descriptor(edge_node *pp) : p(pp), serial(pp->serial) {}
+
+    /* Convenience ctor to allow us to directly get an edge_descriptor from
+     * edge() and add_edge(). As we have null_edges and we always allow
+     * parallel edges, the bool component of the return from these functions is
+     * not required. */
+    edge_descriptor(const std::pair<edge_descriptor, bool> &tup)
+        : p(tup.first.p), serial(tup.first.serial) {
+        assert(tup.second == (bool)tup.first);
+    }
+
+    operator bool() const { return p; }
+    bool operator<(const edge_descriptor b) const {
+        if (p && b.p) {
+            /* no edges in the same graph can have the same serial */
+            assert(p == b.p || serial != b.serial);
+            return serial < b.serial;
+        } else {
+            return p < b.p;
+        }
+    }
+    bool operator==(const edge_descriptor b) const { return p == b.p; }
+
+    friend size_t hash_value(edge_descriptor e) {
+        using boost::hash_value;
+        return hash_value(e.serial);
+    }
+
+private:
+    edge_node *raw(void) { return p; }
+    edge_node *p;
+    u64a serial;
+    friend Graph;
+};
+
+} // namespace graph_detail
 
 template<typename Graph,
          typename VertexPropertyType = graph_detail::default_vertex_property,
@@ -281,6 +352,11 @@ private:
         return serial;
     }
 public:
+    using vertex_descriptor = graph_detail::vertex_descriptor<ue2_graph>;
+    using edge_descriptor = graph_detail::edge_descriptor<ue2_graph>;
+    friend vertex_descriptor;
+    friend edge_descriptor;
+
     using vertices_size_type = typename vertices_list_type::size_type;
     using degree_size_type
         = typename vertex_edge_list<out_edge_hook>::size_type;
@@ -292,78 +368,6 @@ public:
     using graph_bundled = boost::no_property;
     using vertex_bundled = VertexPropertyType;
     using edge_bundled = EdgePropertyType;
-
-    class vertex_descriptor : totally_ordered<vertex_descriptor> {
-    public:
-        vertex_descriptor() : p(nullptr), serial(0) { }
-        explicit vertex_descriptor(vertex_node *pp)
-            : p(pp), serial(pp->serial) { }
-
-        operator bool() const { return p; }
-        bool operator<(const vertex_descriptor b) const {
-            if (p && b.p) {
-                 /* no vertices in the same graph can have the same serial */
-                assert(p == b.p || serial != b.serial);
-                return serial < b.serial;
-            } else {
-                return p < b.p;
-            }
-        }
-        bool operator==(const vertex_descriptor b) const {
-            return p == b.p;
-        }
-
-        friend size_t hash_value(vertex_descriptor v) {
-            using boost::hash_value;
-            return hash_value(v.serial);
-        }
-
-    private:
-        vertex_node *raw(void) { return p; }
-        vertex_node *p;
-        u64a serial;
-        friend ue2_graph;
-    };
-
-    class edge_descriptor : totally_ordered<edge_descriptor> {
-    public:
-        edge_descriptor() : p(nullptr), serial(0) { }
-        explicit edge_descriptor(edge_node *pp) : p(pp), serial(pp->serial) { }
-
-        /* Convenice ctor to allow us to directly get an edge_descriptor from
-         * edge() and add_edge(). As we have null_edges and we always allow
-         * parallel edges, the bool component of the return from these functions
-         * is not required. */
-        edge_descriptor(const std::pair<edge_descriptor, bool> &tup)
-            : p(tup.first.p), serial(tup.first.serial) {
-            assert(tup.second == (bool)tup.first);
-        }
-
-        operator bool() const { return p; }
-        bool operator<(const edge_descriptor b) const {
-            if (p && b.p) {
-                 /* no edges in the same graph can have the same serial */
-                assert(p == b.p || serial != b.serial);
-                return serial < b.serial;
-            } else {
-                return p < b.p;
-            }
-        }
-        bool operator==(const edge_descriptor b) const {
-            return p == b.p;
-        }
-
-        friend size_t hash_value(edge_descriptor e) {
-            using boost::hash_value;
-            return hash_value(e.serial);
-        }
-
-    private:
-        edge_node *raw(void) { return p; }
-        edge_node *p;
-        u64a serial;
-        friend ue2_graph;
-    };
 
 private:
     /* Note: apparently, nested class templates cannot be fully specialised but
