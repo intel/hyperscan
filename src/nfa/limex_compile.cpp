@@ -144,13 +144,15 @@ struct build_info {
                const map<NFAVertex, NFAStateSet> &rsmi,
                const map<NFAVertex, NFAStateSet> &smi,
                const map<u32, set<NFAVertex>> &ti, const set<NFAVertex> &zi,
-               bool dai, bool sci, const CompileContext &cci,
-               u32 nsi)
-        : h(hi), state_ids(states_in), repeats(ri), tops(ti), zombies(zi),
-          do_accel(dai), stateCompression(sci), cc(cci),
+               bool dai, bool sci, const CompileContext &cci, u32 nsi)
+        : h(hi), state_ids(states_in), repeats(ri), tops(ti), tugs(nsi),
+          zombies(zi), do_accel(dai), stateCompression(sci), cc(cci),
           num_states(nsi) {
         for (const auto &br : repeats) {
-            insert(&tugs, br.tug_triggers);
+            for (auto v : br.tug_triggers) {
+                assert(state_ids.at(v) != NO_STATE);
+                tugs.set(state_ids.at(v));
+            }
             br_cyclic[br.cyclic] =
                 BoundedRepeatSummary(br.repeatMin, br.repeatMax);
         }
@@ -170,7 +172,7 @@ struct build_info {
     map<NFAVertex, NFAStateSet> squashMap;
 
     const map<u32, set<NFAVertex>> &tops;
-    unordered_set<NFAVertex> tugs;
+    NFAStateSet tugs;
     map<NFAVertex, BoundedRepeatSummary> br_cyclic;
     const set<NFAVertex> &zombies;
     bool do_accel;
@@ -1528,7 +1530,7 @@ bool isExceptionalTransition(const NGHolder &h, const NFAEdge &e,
     }
 
     // All transitions out of a tug trigger are exceptional.
-    if (contains(args.tugs, from)) {
+    if (args.tugs.test(f)) {
         return true;
     }
     return false;
@@ -1845,10 +1847,9 @@ struct Factory {
             maskSetBit(limex->repeatCyclicMask, cyclic);
         }
         /* also include tugs in repeat cyclic mask */
-        for (NFAVertex v : args.tugs) {
-            u32 v_state = args.state_ids.at(v);
-            assert(v_state != NO_STATE);
-            maskSetBit(limex->repeatCyclicMask, v_state);
+        for (size_t i = args.tugs.find_first(); i != args.tugs.npos;
+             i = args.tugs.find_next(i)) {
+            maskSetBit(limex->repeatCyclicMask, i);
         }
     }
 
