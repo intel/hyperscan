@@ -1759,7 +1759,6 @@ void removeRedundantLiteralsFromInfixes(RoseInGraph &g,
     }
 }
 
-
 static
 void removeRedundantLiterals(RoseInGraph &g, const CompileContext &cc) {
     removeRedundantLiteralsFromPrefixes(g, cc);
@@ -2886,6 +2885,7 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
     bool changed = false;
     bool need_to_recalc = false;
     u32 added_count = 0;
+    unordered_set<NGHolder *> good; /* known to be implementable */
     do {
         changed = false;
         DEBUG_PRINTF("added %u\n", added_count);
@@ -2901,13 +2901,19 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
             }
         }
         for (NGHolder *h : graphs) {
+            if (contains(good, h)) {
+                continue;
+            }
+            reduceGraphEquivalences(*h, cc);
             if (isImplementableNFA(*h, &rm, cc)) {
+                good.insert(h);
                 continue;
             }
 
             if (tryForEarlyDfa(*h, cc)
                 && doEarlyDfa(rose, vg, *h, edges_by_graph[h], final_chance, rm,
                               cc)) {
+                good.insert(h);
                 continue;
             }
 
@@ -2923,6 +2929,7 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
                     return false;
                 }
                 changed = true;
+                good.insert(h);
                 continue;
             }
 
