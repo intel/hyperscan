@@ -762,13 +762,20 @@ void getSuccessors(const NGHolder &g, const ReachSubgraph &rsi,
  * NFA graph and replace it with a cyclic state. */
 static
 void replaceSubgraphWithSpecial(NGHolder &g, ReachSubgraph &rsi,
-                                vector<BoundedRepeatData> *repeats,
-                                unordered_map<NFAVertex, NFAVertexDepth> &depths,
-                                unordered_set<NFAVertex> &created) {
+                               vector<BoundedRepeatData> *repeats,
+                               unordered_map<NFAVertex, NFAVertexDepth> &depths,
+                               unordered_set<NFAVertex> &created) {
     assert(!rsi.bad);
+    /* As we may need to unpeel 2 vertices, we need the width to be more than 2.
+     * This should only happen if the graph did not have redundancy pass
+     * performed on as vertex count checks would be prevent us reaching here.
+     */
+    if (rsi.repeatMax <= depth(2)) {
+        return;
+    }
     assert(rsi.repeatMin > depth(0));
     assert(rsi.repeatMax >= rsi.repeatMin);
-    assert(rsi.repeatMax > depth(2)); /* may need to unpeel 2 vertices */
+    assert(rsi.repeatMax > depth(2));
 
     DEBUG_PRINTF("entry\n");
 
