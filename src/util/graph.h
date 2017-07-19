@@ -146,7 +146,7 @@ void find_unreachable(const Graph &g, const SourceCont &sources, OutCont *out) {
 }
 
 template <class Graph>
-ue2::flat_set<typename Graph::vertex_descriptor>
+flat_set<typename Graph::vertex_descriptor>
 find_vertices_in_cycles(const Graph &g) {
     using vertex_descriptor = typename Graph::vertex_descriptor;
 
@@ -160,7 +160,7 @@ find_vertices_in_cycles(const Graph &g) {
         comps[e.second].push_back(e.first);
     }
 
-    ue2::flat_set<vertex_descriptor> rv;
+    flat_set<vertex_descriptor> rv;
 
     for (const auto &comp : comps | boost::adaptors::map_values) {
         /* every vertex in a strongly connected component is reachable from

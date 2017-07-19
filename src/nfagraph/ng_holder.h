@@ -67,7 +67,7 @@ struct NFAGraphEdgeProps {
 
     /** \brief For graphs that will be implemented as multi-top engines, this
      * specifies the top events. Only used on edges from the start vertex. */
-    ue2::flat_set<u32> tops;
+    flat_set<u32> tops;
 
     /** \brief Flags associated with assertions. */
     u32 assert_flags = 0;

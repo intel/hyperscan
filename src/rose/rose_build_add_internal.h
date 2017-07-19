@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,8 +31,7 @@
 
 #include "rose_graph.h"
 #include "ue2common.h"
-
-#include <set>
+#include "util/flat_containers.h"
 
 namespace ue2 {
 
@@ -41,8 +40,8 @@ class RoseBuildImpl;
 RoseVertex createVertex(RoseBuildImpl *build, const RoseVertex parent,
                         u32 minBound, u32 maxBound, u32 literalId,
                         size_t literalLength,
-                        const ue2::flat_set<ReportID> &reports);
+                        const flat_set<ReportID> &reports);
 
 } // namespace ue2
 
-#endif
+#endif // ROSE_BUILD_ADD_INTERNAL_H

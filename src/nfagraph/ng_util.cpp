@@ -450,8 +450,8 @@ void appendLiteral(NGHolder &h, const ue2_literal &s) {
     }
 }
 
-ue2::flat_set<u32> getTops(const NGHolder &h) {
-    ue2::flat_set<u32> tops;
+flat_set<u32> getTops(const NGHolder &h) {
+    flat_set<u32> tops;
     for (const auto &e : out_edges_range(h.start, h)) {
         insert(&tops, h[e].tops);
     }

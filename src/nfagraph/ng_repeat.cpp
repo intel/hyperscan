@@ -1598,7 +1598,7 @@ vector<CharReach> getUnionedTrigger(const NGHolder &g, const NFAVertex v) {
 
     vector<CharReach> trigger;
 
-    ue2::flat_set<NFAVertex> curr, next;
+    flat_set<NFAVertex> curr, next;
     insert(&curr, inv_adjacent_vertices(v, g));
 
     if (contains(curr, g.start)) {
@@ -2234,7 +2234,7 @@ void analyseRepeats(NGHolder &g, const ReportManager *rm,
 #ifndef NDEBUG
     // So we can assert that the number of tops hasn't changed at the end of
     // this analysis.
-    const ue2::flat_set<u32> allTops = getTops(g);
+    const flat_set<u32> allTops = getTops(g);
 #endif
 
     // Later on, we're (a little bit) dependent on depth information for

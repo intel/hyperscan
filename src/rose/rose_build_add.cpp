@@ -121,7 +121,7 @@ RoseVertex createVertex(RoseBuildImpl *build, u32 literalId, u32 min_offset,
 RoseVertex createVertex(RoseBuildImpl *build, const RoseVertex parent,
                         u32 minBound, u32 maxBound, u32 literalId,
                         size_t literalLength,
-                        const ue2::flat_set<ReportID> &reports) {
+                        const flat_set<ReportID> &reports) {
     assert(parent != RoseGraph::null_vertex());
 
     RoseGraph &g = build->g;
@@ -1641,7 +1641,7 @@ bool roseCheckRose(const RoseInGraph &ig, bool prefilter,
 }
 
 void RoseBuildImpl::add(bool anchored, bool eod, const ue2_literal &lit,
-                        const ue2::flat_set<ReportID> &reports) {
+                        const flat_set<ReportID> &reports) {
     assert(!reports.empty());
 
     if (cc.grey.floodAsPuffette && !anchored && !eod && is_flood(lit) &&

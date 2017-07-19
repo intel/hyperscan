@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,7 +48,7 @@ namespace ue2 {
 
 static
 bool findMask(const NGHolder &g, vector<CharReach> *mask, bool *anchored,
-              ue2::flat_set<ReportID> *reports) {
+              flat_set<ReportID> *reports) {
     DEBUG_PRINTF("looking for a mask pattern\n");
     set<NFAVertex> s_succ;
     insert(&s_succ, adjacent_vertices(g.start, g));
@@ -117,7 +117,7 @@ bool handleFixedWidth(RoseBuild &rose, const NGHolder &g, const Grey &grey) {
         return false;
     }
 
-    ue2::flat_set<ReportID> reports;
+    flat_set<ReportID> reports;
     bool anchored = false;
     vector<CharReach> mask;
 

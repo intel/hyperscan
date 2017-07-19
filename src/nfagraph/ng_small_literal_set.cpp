@@ -100,7 +100,7 @@ bool operator<(const sls_literal &a, const sls_literal &b) {
 
 static
 bool checkLongMixedSensitivityLiterals(
-        const map<sls_literal, ue2::flat_set<ReportID>> &literals) {
+        const map<sls_literal, flat_set<ReportID>> &literals) {
     const size_t len = MAX_MASK2_WIDTH;
 
     for (const sls_literal &lit : literals | map_keys) {
@@ -114,7 +114,7 @@ bool checkLongMixedSensitivityLiterals(
 
 static
 bool findLiterals(const NGHolder &g,
-                  map<sls_literal, ue2::flat_set<ReportID>> *literals) {
+                  map<sls_literal, flat_set<ReportID>> *literals) {
     vector<NFAVertex> order = getTopoOrdering(g);
 
     vector<set<sls_literal>> built(num_vertices(g));
@@ -198,7 +198,7 @@ bool findLiterals(const NGHolder &g,
 }
 
 static
-size_t min_period(const map<sls_literal, ue2::flat_set<ReportID>> &literals) {
+size_t min_period(const map<sls_literal, flat_set<ReportID>> &literals) {
     size_t rv = SIZE_MAX;
 
     for (const sls_literal &lit : literals | map_keys) {
@@ -229,7 +229,7 @@ bool handleSmallLiteralSets(RoseBuild &rose, const NGHolder &g,
 
     DEBUG_PRINTF("looking for literals\n");
 
-    map<sls_literal, ue2::flat_set<ReportID>> literals;
+    map<sls_literal, flat_set<ReportID>> literals;
     if (!findLiterals(g, &literals)) {
         DEBUG_PRINTF(":(\n");
         return false;

@@ -26,9 +26,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "ue2common.h"
-
 #include "rose_build_exclusive.h"
+
+#include "ue2common.h"
 #include "rose_build_merge.h"
 #include "nfa/castlecompile.h"
 #include "nfagraph/ng_execute.h"
@@ -37,6 +37,7 @@
 #include "util/clique.h"
 #include "util/compile_context.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/graph.h"
 #include "util/make_unique.h"
 
@@ -228,7 +229,7 @@ bool isExclusive(const NGHolder &h,
                 lower_bound = ~0U;
             }
 
-            ue2::flat_set<NFAVertex> states;
+            flat_set<NFAVertex> states;
             for (const auto &v : vertices_range(h)) {
                 if (h[v].index >= lower_bound || h[v].index < 2) {
                     states.insert(v);

@@ -114,7 +114,7 @@ public:
 ReferenceVisitor::~ReferenceVisitor() {}
 
 void checkReferences(const Component &root, unsigned int groupIndices,
-                     const ue2::flat_set<std::string> &groupNames) {
+                     const flat_set<std::string> &groupNames) {
     ReferenceVisitor vis(groupIndices, groupNames);
     root.accept(vis);
 }

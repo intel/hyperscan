@@ -414,8 +414,8 @@ bool validateTransientMask(const vector<CharReach> &mask, bool anchored,
 
 static
 bool maskIsNeeded(const ue2_literal &lit, const NGHolder &g) {
-    ue2::flat_set<NFAVertex> curr = {g.accept};
-    ue2::flat_set<NFAVertex> next;
+    flat_set<NFAVertex> curr = {g.accept};
+    flat_set<NFAVertex> next;
 
     for (auto it = lit.rbegin(), ite = lit.rend(); it != ite; ++it) {
         const CharReach &cr = *it;
@@ -451,7 +451,7 @@ bool maskIsNeeded(const ue2_literal &lit, const NGHolder &g) {
 
 static
 void addTransientMask(RoseBuildImpl &build, const vector<CharReach> &mask,
-                      const ue2::flat_set<ReportID> &reports, bool anchored,
+                      const flat_set<ReportID> &reports, bool anchored,
                       bool eod) {
     vector<ue2_literal> lits;
     u32 lit_minBound; /* minBound of each literal in lit */
@@ -516,7 +516,7 @@ void addTransientMask(RoseBuildImpl &build, const vector<CharReach> &mask,
         ENSURE_AT_LEAST(&build.ematcher_region_size, mask.size());
     }
 
-    const ue2::flat_set<ReportID> no_reports;
+    const flat_set<ReportID> no_reports;
 
     for (const auto &lit : lits) {
         u32 lit_id = build.getLiteralId(lit, msk, cmp, delay, table);
@@ -553,7 +553,7 @@ void addTransientMask(RoseBuildImpl &build, const vector<CharReach> &mask,
 }
 
 static
-unique_ptr<NGHolder> buildMaskRhs(const ue2::flat_set<ReportID> &reports,
+unique_ptr<NGHolder> buildMaskRhs(const flat_set<ReportID> &reports,
                                   const vector<CharReach> &mask,
                                   u32 suffix_len) {
     assert(suffix_len);
@@ -581,10 +581,9 @@ unique_ptr<NGHolder> buildMaskRhs(const ue2::flat_set<ReportID> &reports,
 }
 
 static
-void doAddMask(RoseBuildImpl &tbi, bool anchored,
-               const vector<CharReach> &mask, const ue2_literal &lit,
-               u32 prefix_len, u32 suffix_len,
-               const ue2::flat_set<ReportID> &reports) {
+void doAddMask(RoseBuildImpl &tbi, bool anchored, const vector<CharReach> &mask,
+               const ue2_literal &lit, u32 prefix_len, u32 suffix_len,
+               const flat_set<ReportID> &reports) {
     /* Note: bounds are relative to literal start */
     RoseInGraph ig;
     RoseInVertex s = add_vertex(RoseInVertexProps::makeStart(anchored), ig);
@@ -711,7 +710,7 @@ bool checkAllowMask(const vector<CharReach> &mask, ue2_literal *lit,
 }
 
 bool RoseBuildImpl::add(bool anchored, const vector<CharReach> &mask,
-                        const ue2::flat_set<ReportID> &reports) {
+                        const flat_set<ReportID> &reports) {
     if (validateTransientMask(mask, anchored, false, cc.grey)) {
         bool eod = false;
         addTransientMask(*this, mask, reports, anchored, eod);
@@ -734,14 +733,14 @@ bool RoseBuildImpl::add(bool anchored, const vector<CharReach> &mask,
 }
 
 bool RoseBuildImpl::validateMask(const vector<CharReach> &mask,
-                                 UNUSED const ue2::flat_set<ReportID> &reports,
+                                 UNUSED const flat_set<ReportID> &reports,
                                  bool anchored, bool eod) const {
     return validateTransientMask(mask, anchored, eod, cc.grey);
 }
 
 static
 unique_ptr<NGHolder> makeAnchoredGraph(const vector<CharReach> &mask,
-                                       const ue2::flat_set<ReportID> &reports,
+                                       const flat_set<ReportID> &reports,
                                        bool eod) {
     auto gp = ue2::make_unique<NGHolder>();
     NGHolder &g = *gp;
@@ -763,7 +762,7 @@ unique_ptr<NGHolder> makeAnchoredGraph(const vector<CharReach> &mask,
 
 static
 bool addAnchoredMask(RoseBuildImpl &build, const vector<CharReach> &mask,
-                     const ue2::flat_set<ReportID> &reports, bool eod) {
+                     const flat_set<ReportID> &reports, bool eod) {
     if (!build.cc.grey.allowAnchoredAcyclic) {
         return false;
     }
@@ -775,8 +774,8 @@ bool addAnchoredMask(RoseBuildImpl &build, const vector<CharReach> &mask,
 }
 
 void RoseBuildImpl::addMask(const vector<CharReach> &mask,
-                            const ue2::flat_set<ReportID> &reports,
-                            bool anchored, bool eod) {
+                            const flat_set<ReportID> &reports, bool anchored,
+                            bool eod) {
     if (anchored && addAnchoredMask(*this, mask, reports, eod)) {
         DEBUG_PRINTF("added mask as anchored acyclic graph\n");
         return;

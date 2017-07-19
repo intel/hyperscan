@@ -1087,13 +1087,13 @@ bool triggerKillsRoseGraph(const RoseBuildImpl &build, const left_id &left,
     assert(left.graph());
     const NGHolder &h = *left.graph();
 
-    ue2::flat_set<NFAVertex> all_states;
+    flat_set<NFAVertex> all_states;
     insert(&all_states, vertices(h));
     assert(out_degree(h.startDs, h) == 1); /* triggered don't use sds */
     DEBUG_PRINTF("removing sds\n");
     all_states.erase(h.startDs);
 
-    ue2::flat_set<NFAVertex> states;
+    flat_set<NFAVertex> states;
 
     /* check each pred literal to see if they all kill previous graph
      * state */

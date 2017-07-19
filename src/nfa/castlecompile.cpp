@@ -883,7 +883,7 @@ bool is_equal(const CastleProto &c1, const CastleProto &c2) {
 }
 
 bool requiresDedupe(const CastleProto &proto,
-                    const ue2::flat_set<ReportID> &reports) {
+                    const flat_set<ReportID> &reports) {
     for (const auto &report : reports) {
         auto it = proto.report_map.find(report);
         if (it == end(proto.report_map)) {

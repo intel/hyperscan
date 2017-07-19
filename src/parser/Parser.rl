@@ -1950,7 +1950,7 @@ unique_ptr<Component> parse(const char *ptr, ParseMode &globalMode) {
     unsigned groupIndex = 1;
 
     // Set storing group names that are currently in use.
-    ue2::flat_set<string> groupNames;
+    flat_set<string> groupNames;
 
     // Root sequence.
     unique_ptr<ComponentSequence> rootSeq = ue2::make_unique<ComponentSequence>();

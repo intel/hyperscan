@@ -1738,7 +1738,7 @@ void dedupeLeftfixesVariableLag(RoseBuildImpl &tbi) {
 }
 
 static
-u32 findUnusedTop(const ue2::flat_set<u32> &tops) {
+u32 findUnusedTop(const flat_set<u32> &tops) {
     u32 i = 0;
     while (contains(tops, i)) {
         i++;
@@ -1766,7 +1766,7 @@ void replaceTops(NGHolder &h, const map<u32, u32> &top_mapping) {
 static
 bool setDistinctTops(NGHolder &h1, const NGHolder &h2,
                      map<u32, u32> &top_mapping) {
-    ue2::flat_set<u32> tops1 = getTops(h1), tops2 = getTops(h2);
+    flat_set<u32> tops1 = getTops(h1), tops2 = getTops(h2);
 
     DEBUG_PRINTF("before: h1 has %zu tops, h2 has %zu tops\n", tops1.size(),
                  tops2.size());

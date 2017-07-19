@@ -267,7 +267,7 @@ bool validateEXSL(const NGHolder &g,
     const vector<CharReach> escapes_vec(1, escapes);
     const vector<CharReach> notescapes_vec(1, ~escapes);
 
-    ue2::flat_set<NFAVertex> states;
+    flat_set<NFAVertex> states;
     /* turn on all states past the prefix */
     DEBUG_PRINTF("region %u is cutover\n", region);
     for (auto v : vertices_range(g)) {
@@ -280,7 +280,7 @@ bool validateEXSL(const NGHolder &g,
     states = execute_graph(g, escapes_vec, states);
 
     /* flood with any number of not escapes */
-    ue2::flat_set<NFAVertex> prev_states;
+    flat_set<NFAVertex> prev_states;
     while (prev_states != states) {
         prev_states = states;
         states = execute_graph(g, notescapes_vec, states);
@@ -290,7 +290,7 @@ bool validateEXSL(const NGHolder &g,
     /* find input starts to use for when we are running the prefix through as
      * when the escape character arrives we may be in matching the prefix
      * already */
-    ue2::flat_set<NFAVertex> prefix_start_states;
+    flat_set<NFAVertex> prefix_start_states;
     for (auto v : vertices_range(prefix)) {
         if (v != prefix.accept && v != prefix.acceptEod
             /* and as we have already made it past the prefix once */

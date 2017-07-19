@@ -106,10 +106,10 @@ struct GoughSSAVarJoin;
 struct GoughSSAVar : noncopyable {
     GoughSSAVar(void) : seen(false), slot(INVALID_SLOT) {}
     virtual ~GoughSSAVar();
-    const ue2::flat_set<GoughSSAVar *> &get_inputs() const {
+    const flat_set<GoughSSAVar *> &get_inputs() const {
         return inputs;
     }
-    const ue2::flat_set<GoughSSAVarWithInputs *> &get_outputs() const {
+    const flat_set<GoughSSAVarWithInputs *> &get_outputs() const {
         return outputs;
     }
     virtual void replace_input(GoughSSAVar *old_v, GoughSSAVar *new_v) = 0;
@@ -127,8 +127,8 @@ struct GoughSSAVar : noncopyable {
         clear_outputs();
     }
 protected:
-    ue2::flat_set<GoughSSAVar *> inputs;
-    ue2::flat_set<GoughSSAVarWithInputs *> outputs;
+    flat_set<GoughSSAVar *> inputs;
+    flat_set<GoughSSAVarWithInputs *> outputs;
     friend struct GoughSSAVarWithInputs;
     friend struct GoughSSAVarMin;
     friend struct GoughSSAVarJoin;
@@ -184,16 +184,14 @@ struct GoughSSAVarJoin : public GoughSSAVarWithInputs {
 
     void add_input(GoughSSAVar *v, GoughEdge prev);
 
-    const ue2::flat_set<GoughEdge> &get_edges_for_input(GoughSSAVar *input)
-        const;
-    const std::map<GoughSSAVar *, ue2::flat_set<GoughEdge> > &get_input_map()
-        const;
+    const flat_set<GoughEdge> &get_edges_for_input(GoughSSAVar *input) const;
+    const std::map<GoughSSAVar *, flat_set<GoughEdge>> &get_input_map() const;
 
 protected:
     void remove_input_raw(GoughSSAVar *v) override;
 
 private:
-    std::map<GoughSSAVar *, ue2::flat_set<GoughEdge>> input_map;
+    std::map<GoughSSAVar *, flat_set<GoughEdge>> input_map;
 };
 
 struct gough_accel_state_info {
