@@ -157,6 +157,7 @@ struct Grey {
     u32 limitSmallWriteOutfixSize; //!< max total size of outfix DFAs
     u32 smallWriteMaxPatterns; // only try small writes if fewer patterns
     u32 smallWriteMaxLiterals; // only try small writes if fewer literals
+    u32 smallWriteMergeBatchSize; // number of DFAs to merge in a batch
 
     // Tamarama engine
     bool allowTamarama;

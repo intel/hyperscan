@@ -132,12 +132,10 @@ public:
 
     set<ReportID> all_reports() const override;
 
-    bool determiniseLiterals();
-
     const ReportManager &rm;
     const CompileContext &cc;
 
-    unique_ptr<raw_dfa> rdfa;
+    vector<unique_ptr<raw_dfa>> dfas;
     LitTrie lit_trie;
     LitTrie lit_trie_nocase;
     size_t num_literals = 0;
@@ -226,6 +224,40 @@ bool pruneOverlong(NGHolder &g, const depth &max_depth,
     return modified;
 }
 
+/**
+ * \brief Attempt to merge the set of DFAs given down into a single raw_dfa.
+ * Returns false on failure.
+ */
+static
+bool mergeDfas(vector<unique_ptr<raw_dfa>> &dfas, const ReportManager &rm,
+               const CompileContext &cc) {
+    assert(!dfas.empty());
+
+    if (dfas.size() == 1) {
+        return true;
+    }
+
+    DEBUG_PRINTF("attempting to merge %zu DFAs\n", dfas.size());
+
+    vector<const raw_dfa *> dfa_ptrs;
+    dfa_ptrs.reserve(dfas.size());
+    for (auto &d : dfas) {
+        dfa_ptrs.push_back(d.get());
+    }
+
+    auto merged = mergeAllDfas(dfa_ptrs, DFA_MERGE_MAX_STATES, &rm, cc.grey);
+    if (!merged) {
+        DEBUG_PRINTF("merge failed\n");
+        return false;
+    }
+
+    DEBUG_PRINTF("merge succeeded, result has %zu states\n",
+                  merged->states.size());
+    dfas.clear();
+    dfas.push_back(std::move(merged));
+    return true;
+}
+
 void SmallWriteBuildImpl::add(const NGHolder &g, const ExpressionInfo &expr) {
     // If the graph is poisoned (i.e. we can't build a SmallWrite version),
     // we don't even try.
@@ -283,19 +315,14 @@ void SmallWriteBuildImpl::add(const NGHolder &g, const ExpressionInfo &expr) {
         minimize_hopcroft(*r, cc.grey);
     }
 
-    if (rdfa) {
-        // do a merge of the new dfa with the existing dfa
-        auto merged = mergeTwoDfas(rdfa.get(), r.get(), DFA_MERGE_MAX_STATES,
-                                   &rm, cc.grey);
-        if (!merged) {
-            DEBUG_PRINTF("merge failed\n");
+    dfas.push_back(std::move(r));
+
+    if (dfas.size() >= cc.grey.smallWriteMergeBatchSize) {
+        if (!mergeDfas(dfas, rm, cc)) {
+            dfas.clear();
             poisoned = true;
             return;
         }
-        DEBUG_PRINTF("merge succeeded, built %p\n", merged.get());
-        rdfa = move(merged);
-    } else {
-        rdfa = move(r);
     }
 }
 
@@ -710,64 +737,6 @@ unique_ptr<raw_dfa> buildDfa(LitTrie &trie, bool nocase) {
     return rdfa;
 }
 
-bool SmallWriteBuildImpl::determiniseLiterals() {
-    DEBUG_PRINTF("handling literals\n");
-    assert(!poisoned);
-    assert(num_literals <= cc.grey.smallWriteMaxLiterals);
-
-    if (is_empty(lit_trie) && is_empty(lit_trie_nocase)) {
-        DEBUG_PRINTF("no literals\n");
-        return true; /* nothing to do */
-    }
-
-    vector<unique_ptr<raw_dfa>> dfas;
-
-    if (!is_empty(lit_trie)) {
-        dfas.push_back(buildDfa(lit_trie, false));
-        DEBUG_PRINTF("caseful literal dfa with %zu states\n",
-                     dfas.back()->states.size());
-    }
-    if (!is_empty(lit_trie_nocase)) {
-        dfas.push_back(buildDfa(lit_trie_nocase, true));
-        DEBUG_PRINTF("nocase literal dfa with %zu states\n",
-                     dfas.back()->states.size());
-    }
-
-    if (rdfa) {
-        dfas.push_back(move(rdfa));
-        DEBUG_PRINTF("general dfa with %zu states\n",
-                     dfas.back()->states.size());
-    }
-
-    // If we only have one DFA, no merging is necessary.
-    if (dfas.size() == 1) {
-        DEBUG_PRINTF("only one dfa\n");
-        rdfa = move(dfas.front());
-        return true;
-    }
-
-    // Merge all DFAs.
-    vector<const raw_dfa *> to_merge;
-    for (const auto &d : dfas) {
-        to_merge.push_back(d.get());
-    }
-
-    auto merged = mergeAllDfas(to_merge, DFA_MERGE_MAX_STATES, &rm, cc.grey);
-
-    if (!merged) {
-        DEBUG_PRINTF("merge failed\n");
-        poisoned = true;
-        return false;
-    }
-
-    DEBUG_PRINTF("merge succeeded, built dfa with %zu states\n",
-                 merged->states.size());
-
-    // Replace our only DFA with the merged one.
-    rdfa = move(merged);
-    return true;
-}
-
 #define MAX_GOOD_ACCEL_DEPTH 4
 
 static
@@ -890,8 +859,8 @@ unique_ptr<SmallWriteBuild> makeSmallWriteBuilder(size_t num_patterns,
 
 bytecode_ptr<SmallWriteEngine> SmallWriteBuildImpl::build(u32 roseQuality) {
     const bool has_literals = !is_empty(lit_trie) || !is_empty(lit_trie_nocase);
-    const bool has_non_literals = rdfa != nullptr;
-    if (!rdfa && !has_literals) {
+    const bool has_non_literals = !dfas.empty();
+    if (dfas.empty() && !has_literals) {
         DEBUG_PRINTF("no smallwrite engine\n");
         poisoned = true;
         return nullptr;
@@ -914,15 +883,30 @@ bytecode_ptr<SmallWriteEngine> SmallWriteBuildImpl::build(u32 roseQuality) {
         }
     }
 
-    if (!determiniseLiterals()) {
-        DEBUG_PRINTF("some literal could not be made into a smallwrite dfa\n");
-        return nullptr;
+    if (!is_empty(lit_trie)) {
+        dfas.push_back(buildDfa(lit_trie, false));
+        DEBUG_PRINTF("caseful literal dfa with %zu states\n",
+                     dfas.back()->states.size());
+    }
+    if (!is_empty(lit_trie_nocase)) {
+        dfas.push_back(buildDfa(lit_trie_nocase, true));
+        DEBUG_PRINTF("nocase literal dfa with %zu states\n",
+                     dfas.back()->states.size());
     }
 
-    if (!rdfa) {
+    if (dfas.empty()) {
         DEBUG_PRINTF("no dfa, pruned everything away\n");
         return nullptr;
     }
+
+    if (!mergeDfas(dfas, rm, cc)) {
+        dfas.clear();
+        return nullptr;
+    }
+
+    assert(dfas.size() == 1);
+    auto rdfa = std::move(dfas.front());
+    dfas.clear();
 
     DEBUG_PRINTF("building rdfa %p\n", rdfa.get());
 
@@ -957,7 +941,8 @@ set<ReportID> SmallWriteBuildImpl::all_reports() const {
     if (poisoned) {
         return reports;
     }
-    if (rdfa) {
+
+    for (const auto &rdfa : dfas) {
         insert(&reports, ::ue2::all_reports(*rdfa));
     }
 
