@@ -1465,7 +1465,7 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
 
             PROGRAM_CASE(INCLUDED_JUMP) {
                 os << "    child_offset " << ri->child_offset << endl;
-                os << "    squash " << ri->squash << endl;
+                os << "    squash " << (u32)ri->squash << endl;
             }
             PROGRAM_NEXT_INSTRUCTION
 

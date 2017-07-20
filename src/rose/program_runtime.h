@@ -2581,8 +2581,9 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                     pc = getByOffset(t, ri->child_offset);
                     pc_base = pc;
                     programOffset = (const u8 *)pc_base -(const u8 *)t;
-                    DEBUG_PRINTF("pc_base %p pc %p child_offset %u\n",
-                                 pc_base, pc, ri->child_offset);
+                    DEBUG_PRINTF("pc_base %p pc %p child_offset %u squash %u\n",
+                                 pc_base, pc, ri->child_offset, ri->squash);
+                    work_done = 0;
                     continue;
                 }
             }

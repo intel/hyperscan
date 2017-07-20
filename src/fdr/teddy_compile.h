@@ -44,10 +44,10 @@ struct FDR;
 
 namespace ue2 {
 
+class TeddyEngineDescription;
 struct Grey;
 struct hwlmLiteral;
 struct target_t;
-struct TeddyEngineDescription;
 
 bytecode_ptr<FDR> teddyBuildTable(const HWLMProto &proto, const Grey &grey);
 

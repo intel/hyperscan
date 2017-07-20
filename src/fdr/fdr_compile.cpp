@@ -609,22 +609,34 @@ bool includedCheck(const hwlmLiteral &lit1, const hwlmLiteral &lit2) {
 }
 
 /*
- * if lit2 is an included literal of both lit1 and lit0, and lit1 is an
- * exceptional literal of lit0 - lit1 sometimes matches when lit0 matches,
- * then we give up squashing for lit1. e.g. lit0:AAA(no case), lit1:aa,
- * lit2:A(no case). We can have duplicate matches for input "aaa" if lit0
- * and lit1 both squash lit2.
+ * if lit2 is an included literal of both lit0 and lit1, then lit0 and lit1
+ * shouldn't match at the same offset, otherwise we give up squashing for lit1.
+ * e.g. lit0:AAA(no case), lit1:aa, lit2:A(no case). We can have duplicate
+ * matches for input "aaa" if lit0 and lit1 both squash lit2.
  */
 static
 bool checkParentLit(
-            u32 pos1, const unordered_set<u32> &parent_map,
+            const vector<hwlmLiteral> &lits, u32 pos1,
+            const unordered_set<u32> &parent_map,
             const unordered_map<u32, unordered_set<u32>> &exception_map) {
+    assert(pos1 < lits.size());
+    const auto &lit1 = lits[pos1];
     for (const auto pos2 : parent_map) {
         if (contains(exception_map, pos2)) {
             const auto &exception_pos = exception_map.at(pos2);
             if (contains(exception_pos, pos1)) {
                 return false;
             }
+        }
+
+        /* if lit1 isn't an exception of lit2, then we have to do further
+         * exclusive check.
+         * TODO: More mask checks. Note if two literals are group exclusive,
+         * it is possible that they match at the same offset. */
+        assert(pos2 < lits.size());
+        const auto &lit2 = lits[pos2];
+        if (isSuffix(lit2, lit1)) {
+            return false;
         }
     }
 
@@ -652,30 +664,26 @@ void buildSquashMask(vector<hwlmLiteral> &lits, u32 id1, u32 bucket1,
         // check if lit2 is a suffix of lit1
         if (isSuffix(lit1, lit2)) {
             /* if we have a included literal in the same bucket,
-             * quit and let the included literal to do possible squashing
-             */
+             * quit and let the included literal to do possible squashing */
             if (bucket1 == bucket2) {
                 DEBUG_PRINTF("same bucket\n");
                 return;
             }
-            /*
-             * if lit2 is a suffix but doesn't pass included checks for
-             * extra info, we give up sqaushing
-             */
+            /* if lit2 is a suffix but doesn't pass included checks for
+             * extra info, we give up sqaushing */
             if (includedCheck(lit1, lit2)) {
                 DEBUG_PRINTF("find exceptional suffix %u\n", lit2.id);
                 exception_map[id1].insert(id2);
                 exception = true;
-            } else if (checkParentLit(id1, parent_map[id2], exception_map)) {
+            } else if (checkParentLit(lits, id1, parent_map[id2],
+                       exception_map)) {
                 if (lit1.included_id == INVALID_LIT_ID) {
                     DEBUG_PRINTF("find suffix lit1 %u lit2 %u\n",
                                  lit1.id, lit2.id);
                     lit1.included_id = lit2.id;
                 } else {
-                    /*
-                     * if we have multiple included literals in one bucket,
-                     * give up squashing.
-                     */
+                    /* if we have multiple included literals in one bucket,
+                     * give up squashing. */
                     DEBUG_PRINTF("multiple included literals\n");
                     lit1.included_id = INVALID_LIT_ID;
                     return;
@@ -690,10 +698,8 @@ void buildSquashMask(vector<hwlmLiteral> &lits, u32 id1, u32 bucket1,
         if (bucket2 != nextBucket) {
             if (included) {
                 if (exception) {
-                    /*
-                     * give up if we have exception literals
-                     * in the same bucket as the included literal
-                     */
+                    /* give up if we have exception literals
+                     * in the same bucket as the included literal. */
                     lit1.included_id = INVALID_LIT_ID;
                 } else {
                     parent_map[child_id].insert(id1);
@@ -714,14 +720,12 @@ static constexpr u32 INCLUDED_LIMIT = 1000;
 static
 void findIncludedLits(vector<hwlmLiteral> &lits,
                       const vector<vector<pair<u32, u32>>> &lastCharMap) {
-    /** Map for finding the positions of literal which includes a literal
-     * in FDR hwlm literal vector.
-     */
+    /* Map for finding the positions of literal which includes a literal
+     * in FDR hwlm literal vector. */
     unordered_map<u32, unordered_set<u32>> parent_map;
 
-    /** Map for finding the positions of exception literals which could
-     * sometimes match if a literal matches in FDR hwlm literal vector.
-     */
+    /* Map for finding the positions of exception literals which could
+     * sometimes match if a literal matches in FDR hwlm literal vector. */
     unordered_map<u32, unordered_set<u32>> exception_map;
     for (const auto &group : lastCharMap) {
         size_t cnt = group.size();
