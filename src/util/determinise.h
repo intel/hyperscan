@@ -139,14 +139,16 @@ bool determinise(Auto &n, std::vector<ds> &dstates, size_t state_limit,
             if (s && succs[s] == succs[s - 1]) {
                 succ_id = dstates[curr_id].next[s - 1];
             } else {
-                auto p = dstate_ids.emplace(succs[s], dstates.size());
-                succ_id = p.first->second;
-                if (!p.second) { /* succs[s] is already present */
+                auto p = dstate_ids.find(succs[s]);
+                if (p != dstate_ids.end()) { // succ[s] is already present
+                    succ_id = p->second;
                     if (succ_id > curr_id && !dstates[succ_id].daddy
                         && n.unalpha[s] < N_CHARS) {
                         dstates[succ_id].daddy = curr_id;
                     }
                 } else {
+                    succ_id = dstate_ids.size();
+                    dstate_ids.emplace(succs[s], succ_id);
                     dstates.push_back(ds(alphabet_size));
                     dstates.back().daddy = n.unalpha[s] < N_CHARS ? curr_id : 0;
                     q.emplace(succs[s], succ_id);
