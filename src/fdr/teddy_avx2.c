@@ -121,7 +121,7 @@ do {                                                                        \
 
 #define CONF_FAT_CHUNK_32(chunk, bucket, off, reason, conf_fn)              \
 do {                                                                        \
-    if (unlikely(chunk != ones_u32a)) {                                     \
+    if (unlikely(chunk != ones_u32)) {                                      \
         chunk = ~chunk;                                                     \
         conf_fn(&chunk, bucket, off, confBase, reason, a, ptr,              \
                 &control, &last_match);                                     \
