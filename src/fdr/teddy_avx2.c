@@ -332,6 +332,29 @@ m512 prep_conf_fat_teddy_m4(const m512 *lo_mask, const m512 *dup_mask,
     prep_conf_fat_teddy_m##n(&lo_mask, dup_mask, ptr,                         \
                              r_msk_base_lo, r_msk_base_hi, &c_0, &c_16)
 
+/*
+ * In FAT teddy, it needs 2 bytes to represent result of each position,
+ * so each nibble's(for example, lo nibble of last byte) FAT teddy mask
+ * has 16x2 bytes:
+ *   |----------------------------------|----------------------------------|
+ *   16bytes (bucket 0..7 in each byte) 16bytes (bucket 8..15 in each byte)
+ *                     A                                  B
+ * at runtime FAT teddy reads 16 bytes once and duplicate them to 32 bytes:
+ *   |----------------------------------|----------------------------------|
+ *   16bytes input data (lo nibbles)    16bytes duplicated data (lo nibbles)
+ *                     X                                  X
+ * then do pshufb_m256(AB, XX).
+ *
+ * In AVX512 reinforced FAT teddy, it reads 32 bytes once and duplicate them
+ * to 64 bytes:
+ *   |----------------|----------------|----------------|----------------|
+ *            X                Y                X                Y
+ * in this case we need DUP_FAT_MASK to construct AABB:
+ *   |----------------|----------------|----------------|----------------|
+ *            A                A                B                B
+ * then do pshufb_m512(AABB, XYXY).
+ */
+
 #define DUP_FAT_MASK(a) mask_set2x256(set2x256(swap128in256(a)), 0xC3, a)
 
 #define PREPARE_FAT_MASKS_1                                                   \

@@ -33,7 +33,10 @@
  * * |     | teddy masks
  * * |     |
  * * |-----|
- * * |     | reinforcement mask table
+ * * |     | reinforcement mask table for bucket 0..7
+ * * |     |
+ * * |-----|
+ * * |     | reinforcement mask table for bucket 8..15 (FAT teddy)
  * * |     |
  * * |-----|
  * * |     | confirm

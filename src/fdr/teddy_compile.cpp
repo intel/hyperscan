@@ -324,50 +324,44 @@ bool pack(const vector<hwlmLiteral> &lits,
 // each item's reinforcement mask has REINFORCED_MSK_LEN bytes
 #define REINFORCED_MSK_LEN 8
 
+// reinforcement table size for each 8 buckets set
+#define RTABLE_SIZE ((N_CHARS + 1) * REINFORCED_MSK_LEN)
+
 static
-void initReinforcedTable(u8 *rmsk, const size_t rmsklen,
-                         const u32 maskWidth) {
-    for (u32 b = 0; b < maskWidth; b++) {
-        u64a *mask = (u64a *)(rmsk + b * (rmsklen / maskWidth));
-        fill_n(mask, N_CHARS, 0x00ffffffffffffffULL);
-    }
+void initReinforcedTable(u8 *rmsk) {
+    u64a *mask = (u64a *)rmsk;
+    fill_n(mask, N_CHARS, 0x00ffffffffffffffULL);
 }
 
 static
-void fillReinforcedMskZero(u8 *rmsk, const size_t rmsklen,
-                           const u32 maskWidth) {
-    for (u32 b = 0; b < maskWidth; b++) {
-        u8 *mc = rmsk + b * (rmsklen / maskWidth) +
-                 NO_REINFORCEMENT * REINFORCED_MSK_LEN;
-        fill_n(mc, REINFORCED_MSK_LEN, 0x00);
-    }
+void fillReinforcedMskZero(u8 *rmsk) {
+    u8 *mc = rmsk + NO_REINFORCEMENT * REINFORCED_MSK_LEN;
+    fill_n(mc, REINFORCED_MSK_LEN, 0x00);
 }
 
 static
-void fillReinforcedMsk(u8 *rmsk, u32 boff, u16 c, u32 j, u8 bmsk) {
+void fillReinforcedMsk(u8 *rmsk, u16 c, u32 j, u8 bmsk) {
     assert(j > 0);
     if (c == ALL_CHAR_SET) {
         for (size_t i = 0; i < N_CHARS; i++) {
-            u8 *mc = rmsk + boff + i * REINFORCED_MSK_LEN;
+            u8 *mc = rmsk + i * REINFORCED_MSK_LEN;
             mc[j - 1] &= ~bmsk;
         }
     } else {
-        u8 *mc = rmsk + boff + c * REINFORCED_MSK_LEN;
+        u8 *mc = rmsk + c * REINFORCED_MSK_LEN;
         mc[j - 1] &= ~bmsk;
     }
 }
 
 #ifdef TEDDY_DEBUG
 static
-void dumpReinforcedMaskTable(const u8 *rmsk, const size_t rmsklen,
-                             const u32 maskWidth) {
-    for (u32 b = 0; b < maskWidth; b++) {
+void dumpReinforcedMaskTable(const u8 *rmsk, const u32 num_tables) {
+    for (u32 b = 0; b < num_tables; b++) {
         printf("reinforcement table for bucket %u..%u:\n", b * 8, b * 8 + 7);
         for (u32 i = 0; i <= N_CHARS; i++) {
             printf("0x%02x: ", i);
             for (u32 j = 0; j < REINFORCED_MSK_LEN; j++) {
-                u8 val = rmsk[b * (rmsklen / maskWidth) +
-                              i * REINFORCED_MSK_LEN + j];
+                u8 val = rmsk[b * RTABLE_SIZE + i * REINFORCED_MSK_LEN + j];
                 for (u32 k = 0; k < 8; k++) {
                     printf("%s", ((val >> k) & 0x1) ? "1" : "0");
                 }
@@ -455,13 +449,20 @@ static
 void fillReinforcedTable(const map<BucketIndex,
                                    vector<LiteralIndex>> &bucketToLits,
                          const vector<hwlmLiteral> &lits,
-                         u8 *rmsk, const size_t rmsklen, const u32 maskWidth) {
-    initReinforcedTable(rmsk, rmsklen, maskWidth);
+                         u8 *rtable_base, const u32 num_tables) {
+    vector<u8 *> tables;
+    for (u32 i = 0; i < num_tables; i++) {
+        tables.push_back(rtable_base + i * RTABLE_SIZE);
+    }
+
+    for (auto t : tables) {
+        initReinforcedTable(t);
+    }
 
     for (const auto &b2l : bucketToLits) {
         const u32 &bucket_id = b2l.first;
         const vector<LiteralIndex> &ids = b2l.second;
-        const u32 boff = (bucket_id / 8) * (rmsklen / maskWidth);
+        u8 *rmsk = tables[bucket_id / 8];
         const u8 bmsk = 1U << (bucket_id % 8);
 
         for (const LiteralIndex &lit_id : ids) {
@@ -472,23 +473,25 @@ void fillReinforcedTable(const map<BucketIndex,
             // fill in reinforced masks
             for (u32 j = 1; j < REINFORCED_MSK_LEN; j++) {
                 if (sz - 1 < j) {
-                    fillReinforcedMsk(rmsk, boff, ALL_CHAR_SET, j, bmsk);
+                    fillReinforcedMsk(rmsk, ALL_CHAR_SET, j, bmsk);
                 } else {
                     u8 c = l.s[sz - 1 - j];
                     if (l.nocase && ourisalpha(c)) {
                         u8 c_up = c & 0xdf;
-                        fillReinforcedMsk(rmsk, boff, c_up, j, bmsk);
+                        fillReinforcedMsk(rmsk, c_up, j, bmsk);
                         u8 c_lo = c | 0x20;
-                        fillReinforcedMsk(rmsk, boff, c_lo, j, bmsk);
+                        fillReinforcedMsk(rmsk, c_lo, j, bmsk);
                     } else {
-                        fillReinforcedMsk(rmsk, boff, c, j, bmsk);
+                        fillReinforcedMsk(rmsk, c, j, bmsk);
                     }
                 }
             }
         }
     }
 
-    fillReinforcedMskZero(rmsk, rmsklen, maskWidth);
+    for (auto t : tables) {
+        fillReinforcedMskZero(t);
+    }
 }
 
 bytecode_ptr<FDR> TeddyCompiler::build() {
@@ -496,7 +499,7 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
 
     size_t headerSize = sizeof(Teddy);
     size_t maskLen = eng.numMasks * 16 * 2 * maskWidth;
-    size_t reinforcedMaskLen = (N_CHARS + 1) * REINFORCED_MSK_LEN * maskWidth;
+    size_t reinforcedMaskLen = RTABLE_SIZE * maskWidth;
 
     auto floodTable = setupFDRFloodControl(lits, eng, grey);
     auto confirmTable = setupFullConfs(lits, eng, bucketToLits, make_small);
@@ -538,8 +541,7 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
 
     // Write reinforcement masks.
     u8 *reinforcedMsk = baseMsk + ROUNDUP_CL(maskLen);
-    fillReinforcedTable(bucketToLits, lits, reinforcedMsk,
-                        reinforcedMaskLen, maskWidth);
+    fillReinforcedTable(bucketToLits, lits, reinforcedMsk, maskWidth);
 
 #ifdef TEDDY_DEBUG
     for (u32 i = 0; i < eng.numMasks * 2; i++) {
@@ -555,7 +557,7 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
 
     printf("\n===============================================\n"
            "reinforced mask table for low boundary (original)\n\n");
-    dumpReinforcedMaskTable(reinforcedMsk, reinforcedMaskLen, maskWidth);
+    dumpReinforcedMaskTable(reinforcedMsk, maskWidth);
 #endif
 
     return fdr;
