@@ -130,15 +130,15 @@ do {                                                                        \
 } while(0)
 
 static really_inline
-const m256 *getMaskBase_avx2(const struct Teddy *teddy) {
+const m256 *getMaskBase_fat(const struct Teddy *teddy) {
     return (const m256 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)));
 }
 
 #if defined(HAVE_AVX512)
 
 static really_inline
-const u64a *getReinforcedMaskBase_avx2(const struct Teddy *teddy, u8 numMask) {
-    return (const u64a *)((const u8 *)getMaskBase_avx2(teddy)
+const u64a *getReinforcedMaskBase_fat(const struct Teddy *teddy, u8 numMask) {
+    return (const u64a *)((const u8 *)getMaskBase_fat(teddy)
                           + ROUNDUP_CL(2 * numMask * sizeof(m256)));
 }
 
@@ -370,11 +370,11 @@ do {                                                                          \
     DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",                 \
                  a->buf, a->len, a->start_offset);                            \
                                                                               \
-    const m256 *maskBase = getMaskBase_avx2(teddy);                           \
+    const m256 *maskBase = getMaskBase_fat(teddy);                            \
     PREPARE_FAT_MASKS(n_msk);                                                 \
     const u32 *confBase = getConfBase(teddy);                                 \
                                                                               \
-    const u64a *r_msk_base_lo = getReinforcedMaskBase_avx2(teddy, n_msk);     \
+    const u64a *r_msk_base_lo = getReinforcedMaskBase_fat(teddy, n_msk);      \
     const u64a *r_msk_base_hi = r_msk_base_lo + (N_CHARS + 1);                \
     u32 c_0 = 0x100;                                                          \
     u32 c_16 = 0x100;                                                         \
@@ -582,7 +582,7 @@ do {                                                                        \
     DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",               \
                  a->buf, a->len, a->start_offset);                          \
                                                                             \
-    const m256 *maskBase = getMaskBase_avx2(teddy);                         \
+    const m256 *maskBase = getMaskBase_fat(teddy);                          \
     const u32 *confBase = getConfBase(teddy);                               \
                                                                             \
     FDR_EXEC_FAT_TEDDY_RES_OLD(n_msk);                                      \
@@ -638,51 +638,51 @@ do {                                                                        \
 
 #endif // HAVE_AVX512
 
-hwlm_error_t fdr_exec_teddy_avx2_msks1_fat(const struct FDR *fdr,
-                                           const struct FDR_Runtime_Args *a,
-                                           hwlm_group_t control) {
+hwlm_error_t fdr_exec_fat_teddy_msks1(const struct FDR *fdr,
+                                      const struct FDR_Runtime_Args *a,
+                                      hwlm_group_t control) {
     FDR_EXEC_FAT_TEDDY(fdr, a, control, 1, do_confWithBit_teddy);
 }
 
-hwlm_error_t fdr_exec_teddy_avx2_msks1_pck_fat(const struct FDR *fdr,
-                                               const struct FDR_Runtime_Args *a,
-                                               hwlm_group_t control) {
+hwlm_error_t fdr_exec_fat_teddy_msks1_pck(const struct FDR *fdr,
+                                          const struct FDR_Runtime_Args *a,
+                                          hwlm_group_t control) {
     FDR_EXEC_FAT_TEDDY(fdr, a, control, 1, do_confWithBit_teddy);
 }
 
-hwlm_error_t fdr_exec_teddy_avx2_msks2_fat(const struct FDR *fdr,
-                                           const struct FDR_Runtime_Args *a,
-                                           hwlm_group_t control) {
+hwlm_error_t fdr_exec_fat_teddy_msks2(const struct FDR *fdr,
+                                      const struct FDR_Runtime_Args *a,
+                                      hwlm_group_t control) {
     FDR_EXEC_FAT_TEDDY(fdr, a, control, 2, do_confWithBit_teddy);
 }
 
-hwlm_error_t fdr_exec_teddy_avx2_msks2_pck_fat(const struct FDR *fdr,
-                                               const struct FDR_Runtime_Args *a,
-                                               hwlm_group_t control) {
+hwlm_error_t fdr_exec_fat_teddy_msks2_pck(const struct FDR *fdr,
+                                          const struct FDR_Runtime_Args *a,
+                                          hwlm_group_t control) {
     FDR_EXEC_FAT_TEDDY(fdr, a, control, 2, do_confWithBit_teddy);
 }
 
-hwlm_error_t fdr_exec_teddy_avx2_msks3_fat(const struct FDR *fdr,
-                                           const struct FDR_Runtime_Args *a,
-                                           hwlm_group_t control) {
+hwlm_error_t fdr_exec_fat_teddy_msks3(const struct FDR *fdr,
+                                      const struct FDR_Runtime_Args *a,
+                                      hwlm_group_t control) {
     FDR_EXEC_FAT_TEDDY(fdr, a, control, 3, do_confWithBit_teddy);
 }
 
-hwlm_error_t fdr_exec_teddy_avx2_msks3_pck_fat(const struct FDR *fdr,
-                                               const struct FDR_Runtime_Args *a,
-                                               hwlm_group_t control) {
+hwlm_error_t fdr_exec_fat_teddy_msks3_pck(const struct FDR *fdr,
+                                          const struct FDR_Runtime_Args *a,
+                                          hwlm_group_t control) {
     FDR_EXEC_FAT_TEDDY(fdr, a, control, 3, do_confWithBit_teddy);
 }
 
-hwlm_error_t fdr_exec_teddy_avx2_msks4_fat(const struct FDR *fdr,
-                                           const struct FDR_Runtime_Args *a,
-                                           hwlm_group_t control) {
+hwlm_error_t fdr_exec_fat_teddy_msks4(const struct FDR *fdr,
+                                      const struct FDR_Runtime_Args *a,
+                                      hwlm_group_t control) {
     FDR_EXEC_FAT_TEDDY(fdr, a, control, 4, do_confWithBit_teddy);
 }
 
-hwlm_error_t fdr_exec_teddy_avx2_msks4_pck_fat(const struct FDR *fdr,
-                                               const struct FDR_Runtime_Args *a,
-                                               hwlm_group_t control) {
+hwlm_error_t fdr_exec_fat_teddy_msks4_pck(const struct FDR *fdr,
+                                          const struct FDR_Runtime_Args *a,
+                                          hwlm_group_t control) {
     FDR_EXEC_FAT_TEDDY(fdr, a, control, 4, do_confWithBit_teddy);
 }
 
