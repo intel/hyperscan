@@ -11,8 +11,8 @@ shift 2
 # $@ contains the actual build command
 OUT=$(echo "$@" | sed 's/.* -o \(.*\.o\).*/\1/')
 trap cleanup INT QUIT EXIT
-SYMSFILE=$(mktemp --tmpdir ${PREFIX}_rename.syms.XXXXX)
-KEEPSYMS=$(mktemp --tmpdir keep.syms.XXXXX)
+SYMSFILE=$(mktemp -p /tmp ${PREFIX}_rename.syms.XXXXX)
+KEEPSYMS=$(mktemp -p /tmp keep.syms.XXXXX)
 # find the libc used by gcc
 LIBC_SO=$("$@" --print-file-name=libc.so.6)
 cp ${KEEPSYMS_IN} ${KEEPSYMS}

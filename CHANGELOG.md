@@ -2,6 +2,13 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [4.5.2] 2017-07-26
+- Bugfix for issue #57: Treat characters between `\Q.\E` as codepoints in
+  UTF8 mode.
+- Bugfix for issue #60: Use a portable flag for mktemp for fat runtime builds.
+- Bugfix for fat runtime builds on AVX-512 capable machines with Hyperscan's
+  AVX-512 support disabled.
+
 ## [4.5.1] 2017-06-16
 - Bugfix for issue #56: workaround for gcc-4.8 C++11 defect.
 - Bugfix for literal matching table generation, reversing a regression in
