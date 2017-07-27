@@ -220,7 +220,7 @@ else()
 
     # set compiler flags - more are tested and added later
     set(EXTRA_C_FLAGS "${OPT_C_FLAG} -std=c99 -Wall -Wextra -Wshadow -Wcast-qual -fno-strict-aliasing")
-    set(EXTRA_CXX_FLAGS "${OPT_CXX_FLAG} -std=c++11 -Wall -Wextra -Wshadow -Wswitch -Wreturn-type -Wcast-qual -Wno-deprecated -Wnon-virtual-dtor -fno-strict-aliasing")
+    set(EXTRA_CXX_FLAGS "${OPT_CXX_FLAG} -std=c++11 -Wall -Wextra -Wshadow -Wswitch -Wreturn-type -Wcast-qual -Wno-deprecated -Wnon-virtual-dtor -Wno-unused-local-typedefs -fno-strict-aliasing")
 
     if (NOT RELEASE_BUILD)
         # -Werror is most useful during development, don't potentially break
@@ -248,7 +248,7 @@ else()
     endif()
 
     if(CMAKE_COMPILER_IS_GNUCXX)
-        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fabi-version=0 -Wno-unused-local-typedefs -Wno-maybe-uninitialized")
+        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fabi-version=0 -Wno-maybe-uninitialized")
     endif()
 
     if (NOT(ARCH_IA32 AND RELEASE_BUILD))
