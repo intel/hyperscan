@@ -353,26 +353,6 @@ void fillReinforcedMsk(u8 *rmsk, u16 c, u32 j, u8 bmsk) {
     }
 }
 
-#ifdef TEDDY_DEBUG
-static
-void dumpReinforcedMaskTable(const u8 *rmsk, const u32 num_tables) {
-    for (u32 b = 0; b < num_tables; b++) {
-        printf("reinforcement table for bucket %u..%u:\n", b * 8, b * 8 + 7);
-        for (u32 i = 0; i <= N_CHARS; i++) {
-            printf("0x%02x: ", i);
-            for (u32 j = 0; j < REINFORCED_MSK_LEN; j++) {
-                u8 val = rmsk[b * RTABLE_SIZE + i * REINFORCED_MSK_LEN + j];
-                for (u32 k = 0; k < 8; k++) {
-                    printf("%s", ((val >> k) & 0x1) ? "1" : "0");
-                }
-                printf(" ");
-            }
-            printf("\n");
-        }
-    }
-}
-#endif
-
 static
 void fillNibbleMasks(const map<BucketIndex,
                                vector<LiteralIndex>> &bucketToLits,
@@ -542,23 +522,6 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
     // Write reinforcement masks.
     u8 *reinforcedMsk = baseMsk + ROUNDUP_CL(maskLen);
     fillReinforcedTable(bucketToLits, lits, reinforcedMsk, maskWidth);
-
-#ifdef TEDDY_DEBUG
-    for (u32 i = 0; i < eng.numMasks * 2; i++) {
-        for (u32 j = 0; j < 16; j++) {
-            u8 val = baseMsk[i * 16 + j];
-            for (u32 k = 0; k < 8; k++) {
-                printf("%s", ((val >> k) & 0x1) ? "1" : "0");
-            }
-            printf(" ");
-        }
-        printf("\n");
-    }
-
-    printf("\n===============================================\n"
-           "reinforced mask table for low boundary (original)\n\n");
-    dumpReinforcedMaskTable(reinforcedMsk, maskWidth);
-#endif
 
     return fdr;
 }

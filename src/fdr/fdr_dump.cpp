@@ -87,6 +87,45 @@ void dumpConfirms(const void *fdr_base, u32 conf_offset, u32 num_confirms,
 }
 
 static
+void dumpTeddyReinforced(const u8 *rmsk, const u32 num_tables, FILE *f) {
+    // dump reinforcement masks
+    for (u32 b = 0; b < num_tables; b++) {
+        fprintf(f, "    reinforcement table for bucket %u..%u:\n",
+                   b * 8, b * 8 + 7);
+        for (u32 i = 0; i <= N_CHARS; i++) {
+            fprintf(f, "      0x%02x: ", i);
+            for (u32 j = 0; j < 8; j++) {
+                u8 val = rmsk[b * ((N_CHARS + 1) * 8) + i * 8 + j];
+                for (u32 k = 0; k < 8; k++) {
+                    fprintf(f, "%s", ((val >> k) & 0x1) ? "1" : "0");
+                }
+                fprintf(f, " ");
+            }
+            fprintf(f, "\n");
+        }
+        fprintf(f, "\n");
+    }
+}
+
+static
+void dumpTeddyMasks(const u8 *baseMsk, u32 numMasks, u32 maskWidth, FILE *f) {
+    // dump nibble masks
+    fprintf(f, "    nibble masks:\n");
+    for (u32 i = 0; i < numMasks * 2; i++) {
+        fprintf(f, "      -%d%s: ", 1 + i / 2, (i % 2) ? "hi" : "lo");
+        for (u32 j = 0; j < 16 * maskWidth; j++) {
+            u8 val = baseMsk[i * 16 * maskWidth + j];
+            for (u32 k = 0; k < 8; k++) {
+                fprintf(f, "%s", ((val >> k) & 0x1) ? "1" : "0");
+            }
+            fprintf(f, " ");
+        }
+        fprintf(f, "\n");
+    }
+    fprintf(f, "\n");
+}
+
+static
 void dumpTeddy(const Teddy *teddy, FILE *f) {
     fprintf(f, "TEDDY:         %u\n", teddy->engineID);
     auto des = getTeddyDescription(teddy->engineID);
@@ -105,6 +144,14 @@ void dumpTeddy(const Teddy *teddy, FILE *f) {
             teddy->floodOffset);
     fprintf(f, "\n");
 
+    u32 maskWidth = des->getNumBuckets() / 8;
+    size_t headerSize = sizeof(Teddy);
+    size_t maskLen = des->numMasks * 16 * 2 * maskWidth;
+    const u8 *teddy_base = (const u8 *)teddy;
+    const u8 *baseMsk = teddy_base + ROUNDUP_CL(headerSize);
+    const u8 *rmsk = baseMsk + ROUNDUP_CL(maskLen);
+    dumpTeddyMasks(baseMsk, des->numMasks, maskWidth, f);
+    dumpTeddyReinforced(rmsk, maskWidth, f);
     dumpConfirms(teddy, teddy->confOffset, des->getNumBuckets(), f);
 }
 
