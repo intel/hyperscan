@@ -107,7 +107,8 @@ typedef hwlmcb_rv_t (*HWLMCallback)(size_t end, u32 id,
  * Returns \ref HWLM_TERMINATED if scanning is cancelled due to the callback
  * returning \ref HWLM_TERMINATE_MATCHING.
  *
- * \p start is the first offset at which a match may start.
+ * \p start is the first offset at which a match may start. Note: match
+ * starts may include masks overhanging the main literal.
  *
  * The underlying engine may choose not to report any match which starts before
  * the first possible match of a literal which is in the initial group mask.
@@ -121,7 +122,8 @@ hwlm_error_t hwlmExec(const struct HWLM *tab, const u8 *buf, size_t len,
  * \p len is the length of the main buffer to be scanned.
  *
  * \p start is an advisory hint representing the first offset at which a match
- * may start. Some underlying literal matches may not respect it.
+ * may start. Some underlying literal matches may not respect it. Note: match
+ * starts may include masks overhanging the main literal.
  *
  * \p scratch is used to access the history buffer, history length and
  * the main buffer.

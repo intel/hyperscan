@@ -50,7 +50,7 @@ struct hs_scratch;
  * \param fdr FDR matcher engine.
  * \param buf Buffer to scan.
  * \param len Length of buffer to scan.
- * \param start First offset in buf at which a match may end.
+ * \param start First offset in buf at which a match may start.
  * \param cb Callback to call when a match is found.
  * \param scratch Scratch supplied to callback on match.
  * \param groups Initial groups mask.
@@ -67,7 +67,7 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
  * \param hlen Length of history buffer (hbuf).
  * \param buf Buffer to scan.
  * \param len Length of buffer to scan (buf).
- * \param start First offset in buf at which a match may end.
+ * \param start First offset in buf at which a match may start.
  * \param cb Callback to call when a match is found.
  * \param scratch Scratch supplied to callback on match.
  * \param groups Initial groups mask.
