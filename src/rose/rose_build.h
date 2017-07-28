@@ -134,10 +134,6 @@ std::unique_ptr<RoseBuild> makeRoseBuilder(ReportManager &rm,
 bool roseCheckRose(const RoseInGraph &ig, bool prefilter,
                    const ReportManager &rm, const CompileContext &cc);
 
-/* used by heuristics to determine the small write engine. High numbers are
- * intended to indicate a lightweight rose. */
-u32 roseQuality(const RoseEngine *t);
-
 bool roseIsPureLiteral(const RoseEngine *t);
 
 size_t maxOverlap(const ue2_literal &a, const ue2_literal &b, u32 b_delay);

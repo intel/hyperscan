@@ -41,6 +41,7 @@
 #include "rose_build_long_lit.h"
 #include "rose_build_lookaround.h"
 #include "rose_build_matchers.h"
+#include "rose_build_misc.h"
 #include "rose_build_program.h"
 #include "rose_build_resources.h"
 #include "rose_build_scatter.h"

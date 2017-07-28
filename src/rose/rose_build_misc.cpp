@@ -26,6 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "rose_build_misc.h"
 #include "rose_build_impl.h"
 
 #include "hwlm/hwlm_literal.h"

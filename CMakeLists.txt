@@ -964,6 +964,7 @@ SET (hs_compile_SRCS
     src/rose/rose_build_merge.cpp
     src/rose/rose_build_merge.h
     src/rose/rose_build_misc.cpp
+    src/rose/rose_build_misc.h
     src/rose/rose_build_program.cpp
     src/rose/rose_build_program.h
     src/rose/rose_build_resources.h
