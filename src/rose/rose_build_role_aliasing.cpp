@@ -1468,7 +1468,7 @@ void splitByReportSuffixBehaviour(const RoseGraph &g,
                                   vector<vector<RoseVertex>> &buckets) {
     // Split by report set and suffix info.
     auto make_split_key = [&g](RoseVertex v) {
-        return hash_all(g[v].reports, suffix_id(g[v].suffix));
+        return hash_all(g[v].reports, g[v].suffix);
     };
     splitAndFilterBuckets(buckets, make_split_key);
 }

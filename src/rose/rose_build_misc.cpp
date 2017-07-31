@@ -576,6 +576,9 @@ bool RoseSuffixInfo::operator<(const RoseSuffixInfo &b) const {
     return false;
 }
 
+size_t RoseSuffixInfo::hash() const {
+    return hash_all(top, graph, castle, rdfa, haig, tamarama);
+}
 
 void RoseSuffixInfo::reset(void) {
     top = 0;
@@ -691,7 +694,7 @@ set<u32> all_tops(const suffix_id &s) {
 }
 
 size_t suffix_id::hash() const {
-    return hash_all(g, c, d, h);
+    return hash_all(g, c, d, h, t);
 }
 
 bool isAnchored(const left_id &r) {
@@ -767,6 +770,10 @@ u64a findMaxOffset(const set<ReportID> &reports, const ReportManager &rm) {
         }
     }
     return maxOffset;
+}
+
+size_t LeftEngInfo::hash() const {
+    return hash_all(graph, castle, dfa, haig, tamarama, lag, leftfix_report);
 }
 
 void LeftEngInfo::reset(void) {
