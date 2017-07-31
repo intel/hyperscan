@@ -2687,30 +2687,22 @@ void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
 static
 RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
                                ProgramBuild &prog_build, u32 lit_id,
-                               const map<u32, vector<RoseEdge>> &lit_edge_map,
+                               const vector<vector<RoseEdge>> &lit_edge_map,
                                bool is_anchored_replay_program) {
-    const vector<RoseEdge> no_edges;
-
     DEBUG_PRINTF("lit_id=%u\n", lit_id);
-    const vector<RoseEdge> *edges_ptr;
-    if (contains(lit_edge_map, lit_id)) {
-        edges_ptr = &lit_edge_map.at(lit_id);
-    } else {
-        /* literal may happen only in a delay context */
-        edges_ptr = &no_edges;
-    }
+    assert(lit_id < lit_edge_map.size());
 
     return makeLiteralProgram(build, bc.leftfix_info, bc.suffixes,
-                              bc.engine_info_by_queue,
-                              bc.roleStateIndices, prog_build, lit_id,
-                              *edges_ptr, is_anchored_replay_program);
+                              bc.engine_info_by_queue, bc.roleStateIndices,
+                              prog_build, lit_id, lit_edge_map.at(lit_id),
+                              is_anchored_replay_program);
 }
 
 static
 RoseProgram makeFragmentProgram(const RoseBuildImpl &build, build_context &bc,
                                ProgramBuild &prog_build,
                                const vector<u32> &lit_ids,
-                               const map<u32, vector<RoseEdge>> &lit_edge_map) {
+                               const vector<vector<RoseEdge>> &lit_edge_map) {
     assert(!lit_ids.empty());
 
     vector<RoseProgram> blocks;
@@ -2728,28 +2720,27 @@ RoseProgram makeFragmentProgram(const RoseBuildImpl &build, build_context &bc,
  * vertices with that literal ID.
  */
 static
-map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
-    // Use a set of edges while building the map to cull duplicates.
-    map<u32, flat_set<RoseEdge>> unique_lit_edge_map;
+vector<vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
+    vector<vector<RoseEdge>> lit_edge_map(build.literals.size());
 
     const auto &g = build.g;
-    for (const auto &e : edges_range(g)) {
-        const auto &v = target(e, g);
+    for (const auto &v : vertices_range(g)) {
         for (const auto &lit_id : g[v].literals) {
-            unique_lit_edge_map[lit_id].insert(e);
+            assert(lit_id < lit_edge_map.size());
+            auto &edge_list = lit_edge_map.at(lit_id);
+            insert(&edge_list, edge_list.end(), in_edges(v, g));
         }
     }
 
-    // Build output map, sorting edges by (source, target) vertex index.
-    map<u32, vector<RoseEdge>> lit_edge_map;
-    for (const auto &m : unique_lit_edge_map) {
-        auto edge_list = vector<RoseEdge>(begin(m.second), end(m.second));
-        sort(begin(edge_list), end(edge_list),
-             [&g](const RoseEdge &a, const RoseEdge &b) {
-                 return tie(g[source(a, g)].index, g[target(a, g)].index) <
-                        tie(g[source(b, g)].index, g[target(b, g)].index);
-             });
-        lit_edge_map.emplace(m.first, std::move(edge_list));
+    // Sort edges in each edge list by (source, target) indices. This gives us
+    // less surprising ordering in program generation for a literal with many
+    // edges.
+    for (auto &edge_list : lit_edge_map) {
+        sort(begin(edge_list), end(edge_list), [&g](const RoseEdge &a,
+                                                    const RoseEdge &b) {
+            return tie(g[source(a, g)].index, g[target(a, g)].index) <
+                   tie(g[source(b, g)].index, g[target(b, g)].index);
+        });
     }
 
     return lit_edge_map;
@@ -2906,7 +2897,7 @@ static
 void buildFragmentPrograms(const RoseBuildImpl &build,
                            vector<LitFragment> &fragments,
                            build_context &bc, ProgramBuild &prog_build,
-                           const map<u32, vector<RoseEdge>> &lit_edge_map) {
+                           const vector<vector<RoseEdge>> &lit_edge_map) {
     // Sort fragments based on literal length and case info to build
     // included literal programs before their parent programs.
     vector<LitFragment> ordered_fragments(fragments);
