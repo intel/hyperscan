@@ -2333,6 +2333,7 @@ void addSomRevNfas(build_context &bc, RoseEngine &proto,
 
 static
 void recordResources(RoseResources &resources, const RoseBuildImpl &build,
+                     const vector<raw_dfa> &anchored_dfas,
                      const vector<LitFragment> &fragments) {
     if (!build.outfixes.empty()) {
         resources.has_outfixes = true;
@@ -2351,6 +2352,15 @@ void recordResources(RoseResources &resources, const RoseBuildImpl &build,
             break;
         }
     }
+
+    resources.has_anchored = !anchored_dfas.empty();
+    resources.has_anchored_multiple = anchored_dfas.size() > 1;
+    for (const auto &rdfa : anchored_dfas) {
+        if (rdfa.states.size() > 256) {
+            resources.has_anchored_large = true;
+        }
+    }
+
 }
 
 static
@@ -3413,6 +3423,7 @@ u32 writeEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
 
 static
 bytecode_ptr<RoseEngine> addSmallWriteEngine(const RoseBuildImpl &build,
+                                             const RoseResources &res,
                                              bytecode_ptr<RoseEngine> rose) {
     assert(rose);
 
@@ -3421,7 +3432,7 @@ bytecode_ptr<RoseEngine> addSmallWriteEngine(const RoseBuildImpl &build,
         return rose;
     }
 
-    u32 qual = roseQuality(rose.get());
+    u32 qual = roseQuality(res, rose.get());
     auto smwr_engine = build.smwr.build(qual);
     if (!smwr_engine) {
         DEBUG_PRINTF("no smwr built\n");
@@ -3561,10 +3572,7 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     build_context bc;
     u32 floatingMinLiteralMatchOffset
         = findMinFloatingLiteralMatch(*this, anchored_dfas);
-    recordResources(bc.resources, *this, fragments);
-    if (!anchored_dfas.empty()) {
-        bc.resources.has_anchored = true;
-    }
+    recordResources(bc.resources, *this, anchored_dfas, fragments);
     bc.needs_mpv_catchup = needsMpvCatchup(*this);
 
     makeBoundaryPrograms(*this, bc, boundary, dboundary, proto.boundary);
@@ -3803,7 +3811,7 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     bc.engine_blob.write_bytes(engine.get());
 
     // Add a small write engine if appropriate.
-    engine = addSmallWriteEngine(*this, move(engine));
+    engine = addSmallWriteEngine(*this, bc.resources, move(engine));
 
     DEBUG_PRINTF("rose done %p\n", engine.get());
 

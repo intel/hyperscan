@@ -29,6 +29,7 @@
 #include "rose_build_misc.h"
 #include "rose_build_impl.h"
 
+#include "rose_build_resources.h"
 #include "hwlm/hwlm_literal.h"
 #include "nfa/castlecompile.h"
 #include "nfa/goughcompile.h"
@@ -788,18 +789,16 @@ LeftEngInfo::operator bool() const {
     return graph || castle || dfa || haig;
 }
 
-u32 roseQuality(const RoseEngine *t) {
+u32 roseQuality(const RoseResources &res, const RoseEngine *t) {
     /* Rose is low quality if the atable is a Mcclellan 16 or has multiple DFAs
      */
-    const anchored_matcher_info *atable = getALiteralMatcher(t);
-    if (atable) {
-        if (atable->next_offset) {
+    if (res.has_anchored) {
+        if (res.has_anchored_multiple) {
             DEBUG_PRINTF("multiple atable engines\n");
             return 0;
         }
-        const NFA *nfa = (const NFA *)((const char *)atable + sizeof(*atable));
 
-        if (!isSmallDfaType(nfa->type)) {
+        if (res.has_anchored_large) {
             DEBUG_PRINTF("m16 atable engine\n");
             return 0;
         }
@@ -808,7 +807,7 @@ u32 roseQuality(const RoseEngine *t) {
     /* if we always run multiple engines then we are slow */
     u32 always_run = 0;
 
-    if (atable) {
+    if (res.has_anchored) {
         always_run++;
     }
 
@@ -817,8 +816,7 @@ u32 roseQuality(const RoseEngine *t) {
         always_run++;
     }
 
-    const HWLM *ftable = getFLiteralMatcher(t);
-    if (ftable) {
+    if (res.has_floating) {
         /* TODO: ignore conditional ftables, or ftables beyond smwr region */
         always_run++;
     }
