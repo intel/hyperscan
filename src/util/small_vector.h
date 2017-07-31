@@ -33,7 +33,12 @@
 
 #include <boost/version.hpp>
 
-#if BOOST_VERSION >= 105800
+/*
+ * We use the small_vector constructors introduced in Boost 1.61 (trac bug
+ * #11866, github commit b436c91). If the Boost version is too old, we fall
+ * back to using std::vector.
+ */
+#if BOOST_VERSION >= 106100
 #  define HAVE_BOOST_CONTAINER_SMALL_VECTOR
 #endif
 
