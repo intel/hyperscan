@@ -234,7 +234,7 @@ void ComponentRepeat::optimise(bool connected_to_sds) {
 }
 
 bool ComponentRepeat::vacuous_everywhere() const {
-    return !m_min;
+    return !m_min || sub_comp->vacuous_everywhere();
 }
 
 bool ComponentRepeat::checkEmbeddedStartAnchor(bool at_start) const {
