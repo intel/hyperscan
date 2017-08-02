@@ -128,7 +128,9 @@ buildCastle(const CastleProto &proto,
             const CompileContext &cc, const ReportManager &rm);
 
 /**
- * \brief Merge two CastleProto prototypes together, if possible.
+ * \brief Merge two CastleProto prototypes together, if possible. If a
+ * particular repeat from c2 is already in c1, then it will be reused rather
+ * than adding a duplicate repeat.
  *
  * Returns true if merge of all repeats in c2 into c1 succeeds, and fills
  * mapping with the repeat indices.

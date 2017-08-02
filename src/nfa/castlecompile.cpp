@@ -772,7 +772,7 @@ bool mergeCastle(CastleProto &c1, const CastleProto &c2,
         const u32 top = m.first;
         const PureRepeat &pr = m.second;
         DEBUG_PRINTF("top %u\n", top);
-        u32 new_top = c1.add(pr);
+        u32 new_top = c1.merge(pr);
         top_map[top] = new_top;
         DEBUG_PRINTF("adding repeat: map %u->%u\n", top, new_top);
     }
