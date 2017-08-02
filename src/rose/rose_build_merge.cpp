@@ -1283,6 +1283,12 @@ bool mergeRosePair(RoseBuildImpl &tbi, left_id &r1, left_id &r2,
                    const deque<RoseVertex> &verts2) {
     assert(!verts1.empty() && !verts2.empty());
 
+    DEBUG_PRINTF("merging rose pair:\n");
+    DEBUG_PRINTF("  A:%016zx: tops %s\n", r1.hash(),
+                 as_string_list(all_tops(r1)).c_str());
+    DEBUG_PRINTF("  B:%016zx: tops %s\n", r2.hash(),
+                 as_string_list(all_tops(r2)).c_str());
+
     RoseGraph &g = tbi.g;
 
     if (r1.graph()) {
@@ -1293,9 +1299,14 @@ bool mergeRosePair(RoseBuildImpl &tbi, left_id &r1, left_id &r2,
             return false;
         }
 
-        // The graph in r1 has been merged into the graph in r2. Update r1's
-        // vertices with the new graph ptr. Since the parent vertices are the
-        // same, we know that tops will already have been distinct.
+        /* The graph in r1 has been merged into the graph in r2. Update r1's
+         * vertices with the new graph ptr. mergeNfaPair() does not alter the
+         * tops from the input graph so no need to update top values.
+         *
+         * It is the responsibility of the caller to ensure that the tops are
+         * distinct when they have different trigger conditions.
+         * [Note: mergeLeftfixesVariableLag() should have a common parent set]
+         */
         shared_ptr<NGHolder> &h = g[verts2.front()].left.graph;
         for (RoseVertex v : verts1) {
             g[v].left.graph = h;
@@ -1465,6 +1476,10 @@ u32 commonPrefixLength(left_id &r1, left_id &r2) {
  * This pass attempts to merge prefix/infix engines which share a common set of
  * parent vertices.
  *
+ * TODO: this function should be rewritten as it assumes all instances of an
+ * engine have the same set of parent vertices. This can cause the same set of
+ * merges to be attempted multiple times.
+ *
  * Engines are greedily merged pairwise by this process based on a priority
  * queue keyed off the common prefix length.
  *
@@ -1472,7 +1487,13 @@ u32 commonPrefixLength(left_id &r1, left_id &r2) {
  * the stop alphabet.
  *
  * Infixes:
- * - LBR candidates are not considered.
+ * - LBR candidates are not considered. However, LBRs which have already been
+ *   converted to castles are considered for merging with other castles.
+ *   TODO: Check if we can still have LBR candidates at this stage and if these
+ *   criteria still makes sense and then add explanation as to why there are
+ *   both castles and graphs which are LBR candidates at this stage.
+ * - It is expected that when this is run all infixes are still at the single
+ *   top stage.
  *
  * Prefixes:
  * - transient prefixes are not considered.
@@ -1486,6 +1507,7 @@ void mergeLeftfixesVariableLag(RoseBuildImpl &tbi) {
     if (!tbi.cc.grey.mergeRose) {
         return;
     }
+    assert(!hasOrphanedTops(tbi));
 
     map<RoseMergeKey, RoseBouquet> rosesByParent;
     RoseGraph &g = tbi.g;
@@ -1535,6 +1557,10 @@ void mergeLeftfixesVariableLag(RoseBuildImpl &tbi) {
         // We collapse the anchored root into the root vertex when calculating
         // parents, so that we can merge differently-anchored prefix roses
         // together. (Prompted by UE-2100)
+
+        /* TODO: check this if this still does anything given that
+         * mergeableRoseVertices() does a strict check.
+         */
         parents.clear();
         for (auto u : inv_adjacent_vertices_range(v, g)) {
             if (tbi.isAnyStart(u)) {
@@ -1612,6 +1638,7 @@ void mergeLeftfixesVariableLag(RoseBuildImpl &tbi) {
     DEBUG_PRINTF("-----\n");
     DEBUG_PRINTF("exit\n");
     DEBUG_PRINTF("-----\n");
+    assert(!hasOrphanedTops(tbi));
 }
 
 namespace {
