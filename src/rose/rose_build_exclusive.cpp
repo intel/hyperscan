@@ -219,29 +219,29 @@ bool isExclusive(const NGHolder &h,
     const auto &cr1 = role1.cr;
     if (overlaps(cr1, role2.last_cr)) {
         CharReach cr = cr1 | role1.prefix_cr;
+        flat_set<NFAVertex> states;
         for (const auto &lit : triggers2) {
             auto lit1 = findStartPos(cr, lit);
             if (lit1.empty()) {
                 continue;
             }
-            u32 lower_bound = 0;
-            if (lit1.size() < lit.size()) {
-                lower_bound = ~0U;
-            }
 
-            flat_set<NFAVertex> states;
-            for (const auto &v : vertices_range(h)) {
-                if (h[v].index >= lower_bound || h[v].index < 2) {
-                    states.insert(v);
-                }
+            states.clear();
+
+            if (lit1.size() < lit.size()) {
+                // Only starts.
+                states.insert(h.start);
+                states.insert(h.startDs);
+            } else {
+                // All vertices.
+                insert(&states, vertices(h));
             }
 
             auto activeStates = execute_graph(h, lit1, states);
-            // Check if has only literal states are on
+            // Check if only literal states are on
             for (const auto &s : activeStates) {
-                u32 stateId = h[s].index;
-                if ((stateId > 1 && stateId <= num) ||
-                    contains(tailId, stateId)) {
+                if ((!is_any_start(s, h) && h[s].index <= num) ||
+                    contains(tailId, h[s].index)) {
                     skipList[id2].insert(id1);
                     return false;
                 }
