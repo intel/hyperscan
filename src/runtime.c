@@ -1121,6 +1121,7 @@ hs_error_t hs_compress_stream(const hs_stream_t *stream, char *buf,
     return HS_SUCCESS;
 }
 
+HS_PUBLIC_API
 hs_error_t hs_expand_stream(const hs_database_t *db, hs_stream_t **stream,
                             const char *buf, size_t buf_size) {
     if (unlikely(!stream || !buf)) {
@@ -1159,6 +1160,7 @@ hs_error_t hs_expand_stream(const hs_database_t *db, hs_stream_t **stream,
     return HS_SUCCESS;
 }
 
+HS_PUBLIC_API
 hs_error_t hs_reset_and_expand_stream(hs_stream_t *to_stream,
                                       const char *buf, size_t buf_size,
                                       hs_scratch_t *scratch,

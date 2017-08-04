@@ -356,8 +356,8 @@ hs_error_t HS_CDECL hs_reset_and_copy_stream(hs_stream_t *to_id,
  *      @ref HS_SUCCESS on success, @ref HS_INSUFFICIENT_SPACE if the provided
  *      buffer is too small.
  */
-hs_error_t hs_compress_stream(const hs_stream_t *stream, char *buf,
-                              size_t buf_space, size_t *used_space);
+hs_error_t HS_CDECL hs_compress_stream(const hs_stream_t *stream, char *buf,
+                                       size_t buf_space, size_t *used_space);
 
 /**
  * Decompresses a compressed representation created by @ref hs_compress_stream()
@@ -386,8 +386,9 @@ hs_error_t hs_compress_stream(const hs_stream_t *stream, char *buf,
  * @return
  *      @ref HS_SUCCESS on success, other values on failure.
  */
-hs_error_t hs_expand_stream(const hs_database_t *db, hs_stream_t **stream,
-                            const char *buf, size_t buf_size);
+hs_error_t HS_CDECL hs_expand_stream(const hs_database_t *db,
+                                     hs_stream_t **stream, const char *buf,
+                                     size_t buf_size);
 
 /**
  * Decompresses a compressed representation created by @ref hs_compress_stream()
@@ -428,11 +429,11 @@ hs_error_t hs_expand_stream(const hs_database_t *db, hs_stream_t **stream,
  * @return
  *      @ref HS_SUCCESS on success, other values on failure.
  */
-hs_error_t hs_reset_and_expand_stream(hs_stream_t *to_stream,
-                                      const char *buf, size_t buf_size,
-                                      hs_scratch_t *scratch,
-                                      match_event_handler onEvent,
-                                      void *context);
+hs_error_t HS_CDECL hs_reset_and_expand_stream(hs_stream_t *to_stream,
+                                               const char *buf, size_t buf_size,
+                                               hs_scratch_t *scratch,
+                                               match_event_handler onEvent,
+                                               void *context);
 
 /**
  * The block (non-streaming) regular expression scanner.
