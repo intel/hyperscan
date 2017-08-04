@@ -2767,17 +2767,13 @@ bool isUsedLiteral(const RoseBuildImpl &build, u32 lit_id) {
 }
 
 static
-rose_literal_id getFragment(const rose_literal_id &lit) {
-    if (lit.s.length() <= ROSE_SHORT_LITERAL_LEN_MAX) {
-        DEBUG_PRINTF("whole lit is frag\n");
-        return lit;
+rose_literal_id getFragment(rose_literal_id lit) {
+    if (lit.s.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
+        // Trim to last ROSE_SHORT_LITERAL_LEN_MAX bytes.
+        lit.s.erase(0, lit.s.length() - ROSE_SHORT_LITERAL_LEN_MAX);
     }
-
-    rose_literal_id frag = lit;
-    frag.s = frag.s.substr(frag.s.length() - ROSE_SHORT_LITERAL_LEN_MAX);
-
-    DEBUG_PRINTF("fragment: %s\n", dumpString(frag.s).c_str());
-    return frag;
+    DEBUG_PRINTF("fragment: %s\n", dumpString(lit.s).c_str());
+    return lit;
 }
 
 static
