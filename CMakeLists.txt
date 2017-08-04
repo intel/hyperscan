@@ -1007,6 +1007,7 @@ SET (hs_compile_SRCS
     src/util/graph_small_color_map.h
     src/util/hash.h
     src/util/hash_dynamic_bitset.h
+    src/util/insertion_ordered.h
     src/util/math.h
     src/util/multibit_build.cpp
     src/util/multibit_build.h

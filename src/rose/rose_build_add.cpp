@@ -55,6 +55,7 @@
 #include "util/container.h"
 #include "util/dump_charclass.h"
 #include "util/graph_range.h"
+#include "util/insertion_ordered.h"
 #include "util/make_unique.h"
 #include "util/noncopyable.h"
 #include "util/order_check.h"
@@ -1525,8 +1526,7 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter) {
     renumber_vertices(in);
     assert(validateKinds(in));
 
-    map<NGHolder *, vector<RoseInEdge> > graphs;
-    vector<NGHolder *> ordered_graphs; // Stored in first-encounter order.
+    insertion_ordered_map<NGHolder *, vector<RoseInEdge>> graphs;
 
     for (const auto &e : edges_range(in)) {
         if (!in[e].graph) {
@@ -1544,21 +1544,17 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter) {
         NGHolder *h = in[e].graph.get();
 
         assert(isCorrectlyTopped(*h));
-        if (!contains(graphs, h)) {
-            ordered_graphs.push_back(h);
-        }
         graphs[h].push_back(e);
     }
 
-    assert(ordered_graphs.size() == graphs.size());
-
     vector<RoseInEdge> graph_edges;
 
-    for (auto h : ordered_graphs) {
+    for (const auto &m : graphs) {
+        NGHolder *h = m.first;
         if (!canImplementGraph(*h, prefilter, rm, cc)) {
             return false;
         }
-        insert(&graph_edges, graph_edges.end(), graphs[h]);
+        insert(&graph_edges, graph_edges.end(), m.second);
     }
 
     /* we are now past the point of no return. We can start making irreversible

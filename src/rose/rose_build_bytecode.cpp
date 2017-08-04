@@ -86,6 +86,7 @@
 #include "util/container.h"
 #include "util/fatbit_build.h"
 #include "util/graph_range.h"
+#include "util/insertion_ordered.h"
 #include "util/make_unique.h"
 #include "util/multibit_build.h"
 #include "util/noncopyable.h"
@@ -1474,10 +1475,10 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
     RoseGraph &g = tbi.g;
     const CompileContext &cc = tbi.cc;
 
-    map<left_id, set<PredTopPair> > infixTriggers;
-    vector<left_id> order;
-    unordered_map<left_id, vector<RoseVertex>> succs;
+    map<left_id, set<PredTopPair>> infixTriggers;
     findInfixTriggers(tbi, &infixTriggers);
+
+    insertion_ordered_map<left_id, vector<RoseVertex>> succs;
 
     if (cc.grey.allowTamarama && cc.streaming && !do_prefix) {
         findExclusiveInfixes(tbi, bc, qif, infixTriggers, no_retrigger_queues);
@@ -1517,10 +1518,6 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
             }
         }
 
-        if (!contains(succs, leftfix)) {
-            order.push_back(leftfix);
-        }
-
         succs[leftfix].push_back(v);
     }
 
@@ -1529,8 +1526,9 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
 
     map<left_id, eager_info> eager;
 
-    for (const left_id &leftfix : order) {
-        const auto &left_succs = succs[leftfix];
+    for (const auto &m : succs) {
+        const left_id &leftfix = m.first;
+        const auto &left_succs = m.second;
 
         rose_group squash_mask = tbi.rose_squash_masks.at(leftfix);
         eager_info ei;
@@ -1549,9 +1547,11 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
         eager.clear();
     }
 
-    for (const left_id &leftfix : order) {
+    for (const auto &m : succs) {
+        const left_id &leftfix = m.first;
+        const auto &left_succs = m.second;
         buildLeftfix(tbi, bc, do_prefix, qif.get_queue(), infixTriggers,
-                     no_retrigger_queues, eager_queues, eager, succs[leftfix],
+                     no_retrigger_queues, eager_queues, eager, left_succs,
                      leftfix);
     }
 
