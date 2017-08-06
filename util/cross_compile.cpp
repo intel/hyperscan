@@ -63,7 +63,6 @@ unique_ptr<hs_platform_info> xcompileReadMode(const char *s) {
     if (!opt.empty()) {
         for (const auto &xcompile : xcompile_options) {
             if (opt == xcompile.name) {
-                DEBUG_PRINTF("found opt %zu:%llu\n", i, xcompile.cpu_features);
                 rv.cpu_features = xcompile.cpu_features;
                 found_mode = true;
                 break;
