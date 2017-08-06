@@ -127,6 +127,16 @@ CREATE_DISPATCH(hs_error_t, hs_serialized_database_info, const char *bytes,
 CREATE_DISPATCH(hs_error_t, hs_serialized_database_size, const char *bytes,
                 const size_t length, size_t *deserialized_size);
 
+CREATE_DISPATCH(hs_error_t, hs_compress_stream, const hs_stream_t *stream,
+                char *buf, size_t buf_space, size_t *used_space);
+
+CREATE_DISPATCH(hs_error_t, hs_expand_stream, const hs_database_t *db,
+                hs_stream_t **stream, const char *buf,size_t buf_size);
+
+CREATE_DISPATCH(hs_error_t, hs_reset_and_expand_stream, hs_stream_t *to_stream,
+                const char *buf, size_t buf_size, hs_scratch_t *scratch,
+                match_event_handler onEvent, void *context);
+
 /** INTERNALS **/
 
 CREATE_DISPATCH(u32, Crc32c_ComputeBuf, u32 inCrc32, const void *buf, size_t bufLen);
