@@ -1556,6 +1556,12 @@ void removeRedundantLiteralsFromPrefixes(RoseInGraph &g,
             continue;
         }
 
+        if (g[e].dfa) {
+            /* if we removed any more states, we would need to rebuild the
+             * the dfa which can be time consuming. */
+            continue;
+        }
+
         assert(!g[t].delay);
         const ue2_literal &lit = g[t].s;
 
@@ -1673,6 +1679,8 @@ void removeRedundantLiteralsFromInfix(const NGHolder &h, RoseInGraph &ig,
             /* already removed redundant parts of literals */
             return;
         }
+
+        assert(!ig[e].dfa);
     }
 
     map<ue2_literal, pair<shared_ptr<NGHolder>, u32> > graphs; /* + delay */
@@ -1746,6 +1754,11 @@ void removeRedundantLiteralsFromInfixes(RoseInGraph &g,
         }
 
         assert(!g[t].delay);
+        if (g[e].dfa) {
+            /* if we removed any more states, we would need to rebuild the
+             * the dfa which can be time consuming. */
+            continue;
+        }
 
         NGHolder *h = g[e].graph.get();
         if (!contains(infixes, h)) {
@@ -2870,7 +2883,7 @@ bool splitForImplementability(RoseInGraph &vg, NGHolder &h,
     }
 
     DEBUG_PRINTF("trying to netflow\n");
-    bool rv =  doNetflowCut(h, nullptr, vg, edges, false, cc.grey);
+    bool rv = doNetflowCut(h, nullptr, vg, edges, false, cc.grey);
     DEBUG_PRINTF("done\n");
 
     return rv;
@@ -2892,7 +2905,7 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
         map<const NGHolder *, vector<RoseInEdge> > edges_by_graph;
         vector<NGHolder *> graphs;
         for (const RoseInEdge &ve : edges_range(vg)) {
-            if (vg[ve].graph) {
+            if (vg[ve].graph && !vg[ve].dfa) {
                 NGHolder *h = vg[ve].graph.get();
                 if (!contains(edges_by_graph, h)) {
                     graphs.push_back(h);
@@ -2929,7 +2942,6 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
                     return false;
                 }
                 changed = true;
-                good.insert(h);
                 continue;
             }
 
