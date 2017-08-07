@@ -2838,8 +2838,21 @@ void buildIncludedIdMap(unordered_map<u32, pair<u32, u8>> &includedIdMap,
     }
     const auto &proto = *litProto->hwlmProto;
     for (const auto &lit : proto.lits) {
-        if (lit.included_id != INVALID_LIT_ID) {
+        if (contains(includedIdMap, lit.id)) {
+            const auto &included_id = includedIdMap[lit.id].first;
+            const auto &squash = includedIdMap[lit.id].second;
+            // The squash behavior should be the same for the same literal
+            // in different literal matchers.
+            if (lit.included_id != included_id ||
+                lit.squash != squash) {
+                includedIdMap[lit.id] = make_pair(INVALID_LIT_ID, 0);
+                DEBUG_PRINTF("find different included info for the"
+                             " same literal\n");
+            }
+        } else if (lit.included_id != INVALID_LIT_ID) {
             includedIdMap[lit.id] = make_pair(lit.included_id, lit.squash);
+        } else {
+            includedIdMap[lit.id] = make_pair(INVALID_LIT_ID, 0);
         }
     }
 }
@@ -2870,7 +2883,8 @@ void findInclusionGroups(vector<LitFragment> &fragments,
     for (const auto &c : candidates) {
         auto &frag = fragments[c];
         u32 id = c;
-        if (contains(includedIdMap, id)) {
+        if (contains(includedIdMap, id) &&
+            includedIdMap[id].first != INVALID_LIT_ID) {
             const auto &childId = includedIdMap[id];
             frag.included_frag_id = childId.first;
             frag.squash = childId.second;
@@ -2878,7 +2892,8 @@ void findInclusionGroups(vector<LitFragment> &fragments,
                          frag.included_frag_id);
         }
 
-        if (contains(includedDelayIdMap, id)) {
+        if (contains(includedDelayIdMap, id) &&
+            includedDelayIdMap[id].first != INVALID_LIT_ID) {
             const auto &childId = includedDelayIdMap[id];
             frag.included_delay_frag_id = childId.first;
             frag.delay_squash = childId.second;
