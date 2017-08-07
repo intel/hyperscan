@@ -1096,8 +1096,8 @@ hs_error_t HS_CDECL hs_scan_vector(const hs_database_t *db,
 }
 
 HS_PUBLIC_API
-hs_error_t hs_compress_stream(const hs_stream_t *stream, char *buf,
-                              size_t buf_space, size_t *used_space) {
+hs_error_t HS_CDECL hs_compress_stream(const hs_stream_t *stream, char *buf,
+                                       size_t buf_space, size_t *used_space) {
     if (unlikely(!stream || !used_space)) {
         return HS_INVALID;
     }
@@ -1123,8 +1123,9 @@ hs_error_t hs_compress_stream(const hs_stream_t *stream, char *buf,
 }
 
 HS_PUBLIC_API
-hs_error_t hs_expand_stream(const hs_database_t *db, hs_stream_t **stream,
-                            const char *buf, size_t buf_size) {
+hs_error_t HS_CDECL hs_expand_stream(const hs_database_t *db,
+                                     hs_stream_t **stream,
+                                     const char *buf, size_t buf_size) {
     if (unlikely(!stream || !buf)) {
         return HS_INVALID;
     }
@@ -1162,11 +1163,11 @@ hs_error_t hs_expand_stream(const hs_database_t *db, hs_stream_t **stream,
 }
 
 HS_PUBLIC_API
-hs_error_t hs_reset_and_expand_stream(hs_stream_t *to_stream,
-                                      const char *buf, size_t buf_size,
-                                      hs_scratch_t *scratch,
-                                      match_event_handler onEvent,
-                                      void *context) {
+hs_error_t HS_CDECL hs_reset_and_expand_stream(hs_stream_t *to_stream,
+                                               const char *buf, size_t buf_size,
+                                               hs_scratch_t *scratch,
+                                               match_event_handler onEvent,
+                                               void *context) {
     if (unlikely(!to_stream || !buf)) {
         return HS_INVALID;
     }
