@@ -2898,22 +2898,22 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
     bool changed = false;
     bool need_to_recalc = false;
     u32 added_count = 0;
-    unordered_set<NGHolder *> good; /* known to be implementable */
+    unordered_set<shared_ptr<NGHolder>> good; /* known to be implementable */
     do {
         changed = false;
         DEBUG_PRINTF("added %u\n", added_count);
         map<const NGHolder *, vector<RoseInEdge> > edges_by_graph;
-        vector<NGHolder *> graphs;
+        vector<shared_ptr<NGHolder>> graphs;
         for (const RoseInEdge &ve : edges_range(vg)) {
             if (vg[ve].graph && !vg[ve].dfa) {
-                NGHolder *h = vg[ve].graph.get();
-                if (!contains(edges_by_graph, h)) {
+                auto &h = vg[ve].graph;
+                if (!contains(edges_by_graph, h.get())) {
                     graphs.push_back(h);
                 }
-                edges_by_graph[h].push_back(ve);
+                edges_by_graph[h.get()].push_back(ve);
             }
         }
-        for (NGHolder *h : graphs) {
+        for (auto &h : graphs) {
             if (contains(good, h)) {
                 continue;
             }
@@ -2924,9 +2924,8 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
             }
 
             if (tryForEarlyDfa(*h, cc)
-                && doEarlyDfa(rose, vg, *h, edges_by_graph[h], final_chance, rm,
-                              cc)) {
-                good.insert(h);
+                && doEarlyDfa(rose, vg, *h, edges_by_graph[h.get()],
+                              final_chance, rm, cc)) {
                 continue;
             }
 
@@ -2935,7 +2934,7 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
                 return false;
             }
 
-            if (splitForImplementability(vg, *h, edges_by_graph[h], cc)) {
+            if (splitForImplementability(vg, *h, edges_by_graph[h.get()], cc)) {
                 added_count++;
                 if (added_count > MAX_IMPLEMENTABLE_SPLITS) {
                     DEBUG_PRINTF("added_count hit limit\n");
