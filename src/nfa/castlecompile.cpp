@@ -153,13 +153,11 @@ static
 void getNeighborInfo(const CliqueGraph &g, vector<u32> &neighbor,
                      const CliqueVertex &cv, const set<u32> &group) {
     u32 id = g[cv].stateId;
-    unordered_set<u32> neighborId;
 
     // find neighbors for cv
     for (const auto &v : adjacent_vertices_range(cv, g)) {
-        if (g[v].stateId != id && contains(group, g[v].stateId)){
+        if (g[v].stateId != id && contains(group, g[v].stateId)) {
             neighbor.push_back(g[v].stateId);
-            neighborId.insert(g[v].stateId);
             DEBUG_PRINTF("Neighbor:%u\n", g[v].stateId);
         }
     }
