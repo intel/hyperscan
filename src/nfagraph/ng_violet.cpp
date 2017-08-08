@@ -1713,6 +1713,11 @@ void removeRedundantLiteralsFromInfix(const NGHolder &h, RoseInGraph &ig,
             continue;
         }
 
+        if (!delay) {
+            /* unable to trim graph --> no point swapping to new holder */
+            continue;
+        }
+
         assert(isCorrectlyTopped(*h_new));
         graphs[right] = make_pair(h_new, delay);
     }
