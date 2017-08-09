@@ -517,8 +517,8 @@ private:
  *
  * Note: only roles with a single predecessor vertex are considered for this
  * transform - it should probably be generalised to work for roles which share
- * the same set of predecessor roles as for \ref dedupeLeftfixesVariableLag or it
- * should be retired entirely.
+ * the same set of predecessor roles as for \ref dedupeLeftfixesVariableLag or
+ * it should be retired entirely.
  */
 bool dedupeLeftfixes(RoseBuildImpl &tbi) {
     DEBUG_PRINTF("deduping leftfixes\n");
@@ -1812,7 +1812,8 @@ namespace {
  */
 struct DedupeLeftKey {
     DedupeLeftKey(const RoseBuildImpl &build, RoseVertex v)
-        : left_hash(hashLeftfix(build.g[v].left)) {
+        : left_hash(hashLeftfix(build.g[v].left)),
+          transient(contains(build.transient, build.g[v].left)) {
         const auto &g = build.g;
         for (const auto &e : in_edges_range(v, g)) {
             preds.emplace(g[source(e, g)].index, g[e].rose_top);
@@ -1820,7 +1821,8 @@ struct DedupeLeftKey {
     }
 
     bool operator<(const DedupeLeftKey &b) const {
-        return tie(left_hash, preds) < tie(b.left_hash, b.preds);
+        return tie(left_hash, preds, transient)
+             < tie(b.left_hash, b.preds, b.transient);
     }
 
 private:
@@ -1830,6 +1832,9 @@ private:
 
     /** For each in-edge, the pair of (parent index, edge top). */
     set<pair<size_t, u32>> preds;
+
+    /** We don't want to combine transient with non-transient. */
+    bool transient;
 };
 
 } // namespace
@@ -1851,26 +1856,24 @@ private:
  *    successor may want to inspect it; the overlap relationships between the
  *    involved literals are examined to ensure that this property holds.
  *
+ * Note: this is unable to dedupe when delayed literals are involved unlike
+ * dedupeLeftfixes.
+ *
  * Note: in block mode we restrict the dedupe of prefixes further as some of
  * logic checks are shared with the mergeLeftfix functions.
  */
-void dedupeLeftfixesVariableLag(RoseBuildImpl &tbi) {
+void dedupeLeftfixesVariableLag(RoseBuildImpl &build) {
     map<DedupeLeftKey, RoseBouquet> roseGrouping;
 
     DEBUG_PRINTF("entry\n");
 
-    RoseGraph &g = tbi.g;
+    RoseGraph &g = build.g;
     for (auto v : vertices_range(g)) {
         if (!g[v].left) {
             continue;
         }
 
         const left_id leftfix(g[v].left);
-
-        // Only non-transient for the moment.
-        if (contains(tbi.transient, leftfix)) {
-            continue;
-        }
 
         if (leftfix.haig()) {
             /* TODO: allow merging of identical haigs */
@@ -1883,7 +1886,7 @@ void dedupeLeftfixesVariableLag(RoseBuildImpl &tbi) {
                    || onlyOneTop(*leftfix.graph()));
         }
 
-        roseGrouping[DedupeLeftKey(tbi, v)].insert(leftfix, v);
+        roseGrouping[DedupeLeftKey(build, v)].insert(leftfix, v);
     }
 
     for (RoseBouquet &roses : roseGrouping | map_values) {
@@ -1907,7 +1910,7 @@ void dedupeLeftfixesVariableLag(RoseBuildImpl &tbi) {
                     continue;
                 }
 
-                if (!mergeableRoseVertices(tbi, verts1, verts2)) {
+                if (!mergeableRoseVertices(build, verts1, verts2)) {
                     continue;
                 }
 
@@ -1927,6 +1930,10 @@ void dedupeLeftfixesVariableLag(RoseBuildImpl &tbi) {
                     g[v].left.lag = orig_lag;
                 }
                 roses.insert(r2, verts1);
+
+                 /* remove stale entry from transient set, if present */
+                build.transient.erase(r1);
+
                 // no need to erase h1 from roses, that would invalidate `it'.
                 break;
             }
