@@ -52,6 +52,7 @@
 #include "util/verify_types.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cctype>
 #include <cstdio>
@@ -212,11 +213,77 @@ bytecode_ptr<FDR> FDRCompiler::setupFDR() {
 
 //#define DEBUG_ASSIGNMENT
 
-static
-double getScoreUtil(u32 len, u32 count) {
-    return len == 0 ? numeric_limits<double>::max()
-                    : our_pow(count, 1.05) * our_pow(len, -3.0);
-}
+/**
+ * Utility class for computing:
+ *
+ *    score(count, len) = pow(count, 1.05) * pow(len, -3)
+ *
+ * Calling pow() is expensive. This is mitigated by using pre-computed LUTs for
+ * small inputs and a cache for larger ones.
+ */
+class Scorer {
+    unordered_map<u32, double> count_factor_cache;
+
+    // LUT: pow(count, 1.05) for small values of count.
+    static const array<double, 100> count_lut;
+
+    double count_factor(u32 count) {
+        if (count < count_lut.size()) {
+            return count_lut[count];
+        }
+
+        auto it = count_factor_cache.find(count);
+        if (it != count_factor_cache.end()) {
+            return it->second;
+        }
+        double r = our_pow(count, 1.05);
+        count_factor_cache.emplace(count, r);
+        return r;
+    }
+
+    // LUT: pow(len, -3) for len in range [0,8].
+    static const array<double, 9> len_lut;
+
+    double len_factor(u32 len) {
+        assert(len <= len_lut.size());
+        return len_lut[len];
+    }
+
+public:
+    double operator()(u32 len, u32 count) {
+        if (len == 0) {
+            return numeric_limits<double>::max();
+        }
+        return count_factor(count) * len_factor(len);
+    }
+};
+
+const array<double, 100> Scorer::count_lut{{
+    pow(0, 1.05),  pow(1, 1.05),  pow(2, 1.05),  pow(3, 1.05),  pow(4, 1.05),
+    pow(5, 1.05),  pow(6, 1.05),  pow(7, 1.05),  pow(8, 1.05),  pow(9, 1.05),
+    pow(10, 1.05), pow(11, 1.05), pow(12, 1.05), pow(13, 1.05), pow(14, 1.05),
+    pow(15, 1.05), pow(16, 1.05), pow(17, 1.05), pow(18, 1.05), pow(19, 1.05),
+    pow(20, 1.05), pow(21, 1.05), pow(22, 1.05), pow(23, 1.05), pow(24, 1.05),
+    pow(25, 1.05), pow(26, 1.05), pow(27, 1.05), pow(28, 1.05), pow(29, 1.05),
+    pow(30, 1.05), pow(31, 1.05), pow(32, 1.05), pow(33, 1.05), pow(34, 1.05),
+    pow(35, 1.05), pow(36, 1.05), pow(37, 1.05), pow(38, 1.05), pow(39, 1.05),
+    pow(40, 1.05), pow(41, 1.05), pow(42, 1.05), pow(43, 1.05), pow(44, 1.05),
+    pow(45, 1.05), pow(46, 1.05), pow(47, 1.05), pow(48, 1.05), pow(49, 1.05),
+    pow(50, 1.05), pow(51, 1.05), pow(52, 1.05), pow(53, 1.05), pow(54, 1.05),
+    pow(55, 1.05), pow(56, 1.05), pow(57, 1.05), pow(58, 1.05), pow(59, 1.05),
+    pow(60, 1.05), pow(61, 1.05), pow(62, 1.05), pow(63, 1.05), pow(64, 1.05),
+    pow(65, 1.05), pow(66, 1.05), pow(67, 1.05), pow(68, 1.05), pow(69, 1.05),
+    pow(70, 1.05), pow(71, 1.05), pow(72, 1.05), pow(73, 1.05), pow(74, 1.05),
+    pow(75, 1.05), pow(76, 1.05), pow(77, 1.05), pow(78, 1.05), pow(79, 1.05),
+    pow(80, 1.05), pow(81, 1.05), pow(82, 1.05), pow(83, 1.05), pow(84, 1.05),
+    pow(85, 1.05), pow(86, 1.05), pow(87, 1.05), pow(88, 1.05), pow(89, 1.05),
+    pow(90, 1.05), pow(91, 1.05), pow(92, 1.05), pow(93, 1.05), pow(94, 1.05),
+    pow(95, 1.05), pow(96, 1.05), pow(97, 1.05), pow(98, 1.05), pow(99, 1.05),
+}};
+
+const array<double, 9> Scorer::len_lut{{
+    pow(0, -3.0), pow(1, -3.0), pow(2, -3.0), pow(3, -3.0), pow(4, -3.0),
+    pow(5, -3.0), pow(6, -3.0), pow(7, -3.0), pow(8, -3.0)}};
 
 /**
  * Returns true if the two given literals should be placed in the same chunk as
@@ -361,12 +428,14 @@ map<BucketIndex, vector<LiteralIndex>> assignStringsToBuckets(
     boost::multi_array<pair<double, u32>, 2> t(
         boost::extents[numChunks][numBuckets]);
 
+    Scorer scorer;
+
     for (u32 j = 0; j < numChunks; j++) {
         u32 cnt = 0;
         for (u32 k = j; k < numChunks; ++k) {
             cnt += chunks[k].count;
         }
-        t[j][0] = {getScoreUtil(chunks[j].length, cnt), 0};
+        t[j][0] = {scorer(chunks[j].length, cnt), 0};
     }
 
     for (u32 i = 1; i < numBuckets; i++) {
@@ -374,7 +443,7 @@ map<BucketIndex, vector<LiteralIndex>> assignStringsToBuckets(
             pair<double, u32> best = {MAX_SCORE, 0};
             u32 cnt = chunks[j].count;
             for (u32 k = j + 1; k < numChunks - 1; k++) {
-                auto score = getScoreUtil(chunks[j].length, cnt);
+                auto score = scorer(chunks[j].length, cnt);
                 if (score > best.first) {
                     break; // now worse locally than our best score, give up
                 }
@@ -416,10 +485,10 @@ map<BucketIndex, vector<LiteralIndex>> assignStringsToBuckets(
         UNUSED const auto &first_lit = lits[first_id];
         UNUSED const auto &last_lit = lits[last_id - 1];
         DEBUG_PRINTF("placing [%u-%u) in one bucket (%u lits, len %zu-%zu, "
-                      "score %0.4f)\n",
-                      first_id, last_id, last_id - first_id,
-                      first_lit.s.length(), last_lit.s.length(),
-                      getScoreUtil(first_lit.s.length(), last_id - first_id));
+                     "score %0.4f)\n",
+                     first_id, last_id, last_id - first_id,
+                     first_lit.s.length(), last_lit.s.length(),
+                     scorer(first_lit.s.length(), last_id - first_id));
 
         vector<LiteralIndex> litIds;
         u32 cnt = last_id - first_id;
