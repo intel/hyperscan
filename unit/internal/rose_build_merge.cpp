@@ -34,6 +34,7 @@
 #include "rose/rose_build.h"
 #include "rose/rose_build_impl.h"
 #include "rose/rose_build_merge.h"
+#include "rose/rose_build_role_aliasing.h"
 #include "util/report_manager.h"
 #include "util/boundary_reports.h"
 #include "util/compile_context.h"

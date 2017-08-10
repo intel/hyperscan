@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,14 +26,22 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ROSE_BUILD_ROLE_ALIASING
-#define ROSE_BUILD_ROLE_ALIASING
+#ifndef ROSE_BUILD_ROLE_ALIASING_H
+#define ROSE_BUILD_ROLE_ALIASING_H
+
+/** \file
+ * \brief Rose Build: functions for reducing the size of the Rose graph
+ * through merging roles (RoseVertices) together.
+ */
 
 namespace ue2 {
 
 class RoseBuildImpl;
 
 void aliasRoles(RoseBuildImpl &build, bool mergeRoses);
+
+void mergeDupeLeaves(RoseBuildImpl &build);
+void uncalcLeaves(RoseBuildImpl &build);
 
 } // namespace ue2
 
