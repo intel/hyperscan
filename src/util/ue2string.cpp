@@ -237,12 +237,12 @@ ue2_literal::elem::operator CharReach () const {
 }
 
 ue2_literal::ue2_literal(const std::string &s_in, bool nc_in)
-    : s(nc_in ? toUpperString(s_in) : s_in), nocase(s_in.size(), nc_in) {
+    : s(nc_in ? toUpperString(s_in) : s_in), nocase(s_in.size()) {
     if (nc_in) {
-        // Quash nocase bit for non-alpha chars
+        // Switch on nocase bit for all alpha characters.
         for (size_t i = 0; i < s.length(); i++) {
-            if (!ourisalpha(s[i])) {
-                nocase[i] = false;
+            if (ourisalpha(s[i])) {
+                nocase.set(i);
             }
         }
     }
@@ -255,21 +255,27 @@ ue2_literal ue2_literal::substr(size_type pos, size_type n) const {
     ue2_literal rv;
     rv.s = s.substr(pos, n);
     size_type upper = nocase.size();
-    if (n != string::npos && n + pos < nocase.size()) {
+    if (n != npos && n + pos < nocase.size()) {
         upper = n + pos;
     }
-    rv.nocase.insert(rv.nocase.end(), nocase.begin() + pos,
-                     nocase.begin() + upper);
+
+    rv.nocase.resize(upper - pos, false);
+    for (size_t i = pos; i < upper; i++) {
+        rv.nocase.set(i - pos, nocase.test(i));
+    }
+    assert(s.size() == nocase.size());
     return rv;
 }
 
 ue2_literal &ue2_literal::erase(size_type pos, size_type n) {
     s.erase(pos, n);
-    size_type upper = nocase.size();
-    if (n != string::npos && n + pos < nocase.size()) {
-        upper = n + pos;
+
+    if (n != npos) {
+        for (size_type i = pos + n; i < nocase.size(); i++) {
+            nocase.set(i - n, nocase.test(i));
+        }
     }
-    nocase.erase(nocase.begin() + pos, nocase.begin() + upper);
+    nocase.resize(s.size());
     return *this;
 }
 
@@ -306,29 +312,24 @@ bool ue2_literal::operator<(const ue2_literal &b) const {
     return nocase < b.nocase;
 }
 
-ue2_literal operator+(const ue2_literal &a, const ue2_literal &b) {
-    ue2_literal rv;
-    rv.s = a.s + b.s;
-    rv.nocase = a.nocase;
-    rv.nocase.insert(rv.nocase.end(), b.nocase.begin(), b.nocase.end());
-    return rv;
-}
-
 void ue2_literal::operator+=(const ue2_literal &b) {
     s += b.s;
-    nocase.insert(nocase.end(), b.nocase.begin(), b.nocase.end());
+    size_t prefix = nocase.size();
+    nocase.resize(prefix + b.nocase.size());
+    for (size_t i = 0; i < b.nocase.size(); i++) {
+        nocase.set(prefix + i, b.nocase[i]);
+    }
 }
 
 bool ue2_literal::any_nocase() const {
-    return find(nocase.begin(), nocase.end(), true) != nocase.end();
+    return nocase.any();
 }
 
 void make_nocase(ue2_literal *lit) {
     ue2_literal rv;
 
-    for (ue2_literal::const_iterator it = lit->begin(); it != lit->end();
-         ++it) {
-        rv.push_back(it->c, ourisalpha(it->c));
+    for (const auto &elem: *lit) {
+        rv.push_back(elem.c, ourisalpha(elem.c));
     }
 
     lit->swap(rv);
