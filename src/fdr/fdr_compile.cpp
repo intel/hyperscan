@@ -638,16 +638,17 @@ bytecode_ptr<FDR> FDRCompiler::build() {
 
 static
 bool isSuffix(const hwlmLiteral &lit1, const hwlmLiteral &lit2) {
-    auto s1 = lit1.s;
-    auto s2 = lit2.s;
-    if (lit1.nocase || lit2.nocase) {
-        upperString(s1);
-        upperString(s2);
-    }
+    const auto &s1 = lit1.s;
+    const auto &s2 = lit2.s;
     size_t len1 = s1.length();
     size_t len2 = s2.length();
     assert(len1 >= len2);
-    return equal(s2.begin(), s2.end(), s1.begin() + len1 - len2);
+
+    auto lit_cmp = (lit1.nocase || lit2.nocase)
+            ? [](char a, char b) { return mytoupper(a) == mytoupper(b); }
+            : [](char a, char b) { return a == b; };
+
+    return equal(s2.begin(), s2.end(), s1.begin() + len1 - len2, lit_cmp);
 }
 
 /*
