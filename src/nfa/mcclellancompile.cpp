@@ -288,11 +288,12 @@ unique_ptr<raw_report_info> mcclellan_build_strat::gatherReports(
 
         raw_report_list rrl(s.reports, rm, remap_reports);
         DEBUG_PRINTF("non empty r\n");
-        if (rev.find(rrl) != rev.end()) {
-            reports.push_back(rev[rrl]);
+        auto it = rev.find(rrl);
+        if (it != rev.end()) {
+            reports.push_back(it->second);
         } else {
             DEBUG_PRINTF("adding to rl %zu\n", ri->size());
-            rev[rrl] = ri->size();
+            rev.emplace(rrl, ri->size());
             reports.push_back(ri->size());
             ri->rl.push_back(rrl);
         }
@@ -306,13 +307,14 @@ unique_ptr<raw_report_info> mcclellan_build_strat::gatherReports(
 
         DEBUG_PRINTF("non empty r eod\n");
         raw_report_list rrl(s.reports_eod, rm, remap_reports);
-        if (rev.find(rrl) != rev.end()) {
-            reports_eod.push_back(rev[rrl]);
+        auto it = rev.find(rrl);
+        if (it != rev.end()) {
+            reports_eod.push_back(it->second);
             continue;
         }
 
         DEBUG_PRINTF("adding to rl eod %zu\n", s.reports_eod.size());
-        rev[rrl] = ri->size();
+        rev.emplace(rrl, ri->size());
         reports_eod.push_back(ri->size());
         ri->rl.push_back(rrl);
     }
@@ -325,10 +327,9 @@ unique_ptr<raw_report_info> mcclellan_build_strat::gatherReports(
         *arbReport = 0;
     }
 
-
     /* if we have only a single report id generated from all accepts (not eod)
      * we can take some short cuts */
-    set<ReportID> reps;
+    flat_set<ReportID> reps;
 
     for (u32 rl_index : reports) {
         if (rl_index == MO_INVALID_IDX) {
