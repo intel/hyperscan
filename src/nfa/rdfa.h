@@ -81,7 +81,7 @@ struct raw_dfa {
     explicit raw_dfa(nfa_kind k) : kind(k) {}
     virtual ~raw_dfa();
 
-    u16 getImplAlphaSize() const;
+    u16 getImplAlphaSize() const { return alpha_size - N_SPECIAL_SYMBOL; }
     virtual void stripExtraEodReports(void);
     bool hasEodReports(void) const;
 };

@@ -33,10 +33,6 @@ namespace ue2 {
 // prevent weak vtables
 raw_dfa::~raw_dfa() {}
 
-u16 raw_dfa::getImplAlphaSize() const {
-    return alpha_size - N_SPECIAL_SYMBOL;
-}
-
 void raw_dfa::stripExtraEodReports(void) {
     /* if a state generates a given report as a normal accept - then it does
      * not also need to generate an eod report for it */
