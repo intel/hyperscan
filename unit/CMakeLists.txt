@@ -2,12 +2,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 
 set(gtest_SOURCES gtest/gtest-all.cc gtest/gtest.h)
-if(NOT XCODE)
-    include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR})
-else()
-    set(CMAKE_CXX_FLAGS "-isystem ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CXX_FLAGS}")
-endif()
-
+include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR})
 
 # remove some warnings

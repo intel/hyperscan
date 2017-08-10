@@ -38,6 +38,7 @@ endif()
 
 set(BINDIR "${PROJECT_BINARY_DIR}/bin")
 set(LIBDIR "${PROJECT_BINARY_DIR}/lib")
+
 set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR})
 
 # First for the generic no-config case
@@ -56,6 +57,11 @@ endforeach (OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES)
 if(CMAKE_GENERATOR STREQUAL Xcode)
     set(XCODE TRUE)
 endif()
+
+# older versions of cmake don't know things support isystem
+if (XCODE OR CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+    set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-isystem")
+endif ()
 
 set(CMAKE_INCLUDE_CURRENT_DIR 1)
 include_directories(${PROJECT_SOURCE_DIR}/src)
@@ -402,13 +408,7 @@ CHECK_CXX_COMPILER_FLAG("-Wunused-variable" CXX_WUNUSED_VARIABLE)
 
 endif()
 
-if (NOT XCODE)
-    include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
-else()
-    # cmake doesn't think Xcode supports isystem
-    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -isystem ${Boost_INCLUDE_DIRS}")
-endif()
-
+include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     set(LINUX TRUE)
