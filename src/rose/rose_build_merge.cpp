@@ -101,10 +101,6 @@ static const size_t DFA_CHUNK_SIZE_MAX = 200;
 /** \brief Max DFA states in a merged DFA. */
 static const size_t DFA_MERGE_MAX_STATES = 8000;
 
-/** \brief An LBR must have at least this many vertices to be protected from
- * merging with other graphs. */
-static const size_t LARGE_LBR_MIN_VERTICES = 32;
-
 /** \brief In block mode, merge two prefixes even if they don't have identical
  * literal sets if they have fewer than this many states and the merged graph
  * is also small. */
@@ -120,14 +116,6 @@ static
 size_t small_rose_threshold(const CompileContext &cc) {
     return cc.streaming ? SMALL_ROSE_THRESHOLD_STREAM
                         : SMALL_ROSE_THRESHOLD_BLOCK;
-}
-
-static
-bool isLargeLBR(const NGHolder &g, const Grey &grey) {
-    if (num_vertices(g) < LARGE_LBR_MIN_VERTICES) {
-        return false;
-    }
-    return isLBR(g, grey);
 }
 
 namespace {
@@ -1889,6 +1877,12 @@ void dedupeLeftfixesVariableLag(RoseBuildImpl &tbi) {
             continue;
         }
 
+        if (leftfix.graph()) {
+            /* we should not have merged yet */
+            assert(!is_triggered(*leftfix.graph())
+                   || onlyOneTop(*leftfix.graph()));
+        }
+
         roseGrouping[DedupeLeftKey(tbi, v)].insert(leftfix, v);
     }
 
@@ -2275,11 +2269,6 @@ void mergeSmallLeftfixes(RoseBuildImpl &tbi) {
             continue;
         }
 
-        // Don't merge cases that will become LBRs or haigs.
-        if (isLargeLBR(h, tbi.cc.grey)) {
-            continue;
-        }
-
         // Small roses only.
         if (num_vertices(h) > small_rose_threshold(tbi.cc)) {
             continue;
@@ -2497,11 +2486,6 @@ void mergeAcyclicSuffixes(RoseBuildImpl &tbi) {
             continue;
         }
 
-        if (isLargeLBR(*h, tbi.cc.grey)) {
-            DEBUG_PRINTF("not considering LBR suffix for merge\n");
-            continue;
-        }
-
         suffixes.insert(g[v].suffix, v);
     }
 
@@ -2561,11 +2545,6 @@ void mergeSmallSuffixes(RoseBuildImpl &tbi) {
 
         // Small-ish suffixes only.
         if (num_vertices(*h) > 32) {
-            continue;
-        }
-
-        if (isLargeLBR(*h, tbi.cc.grey)) {
-            DEBUG_PRINTF("not considering LBR suffix for merge\n");
             continue;
         }
 

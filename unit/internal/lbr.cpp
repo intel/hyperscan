@@ -101,8 +101,6 @@ protected:
         ASSERT_TRUE(g != nullptr);
         clearReports(*g);
 
-        ASSERT_TRUE(isLBR(*g, grey));
-
         rm.setProgramOffset(0, MATCH_REPORT);
 
         /* LBR triggered by dot */

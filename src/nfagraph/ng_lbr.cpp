@@ -346,24 +346,4 @@ bytecode_ptr<NFA> constructLBR(const NGHolder &g,
     return constructLBR(proto, triggers, cc, rm);
 }
 
-/** \brief True if graph \p g could be turned into an LBR engine. */
-bool isLBR(const NGHolder &g, const Grey &grey) {
-    if (!grey.allowLbr) {
-        return false;
-    }
-
-    PureRepeat repeat;
-    if (!isPureRepeat(g, repeat)) {
-        DEBUG_PRINTF("not pure bounded repeat\n");
-        return false;
-    }
-
-    if (repeat.reports.size() != 1) {
-        DEBUG_PRINTF("too many reports\n");
-        return false;
-    }
-
-    return true;
-}
-
 } // namespace ue2
