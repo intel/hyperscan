@@ -35,6 +35,7 @@
 #define UTIL_HASH_H
 
 #include <functional>
+#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -123,10 +124,16 @@ struct ue2_hash<T, typename std::enable_if<has_hash_member<T>::value>::type> {
     }
 };
 
-/** \brief Hash for any container type that supports std::begin(). */
+/**
+ * \brief Hash for any container type that supports std::begin().
+ *
+ * We exempt std::string as std::hash<std:string> is provided and quicker.
+ */
 template<typename T>
-struct ue2_hash<T, typename std::enable_if<is_container<T>::value &&
-                                           !has_hash_member<T>::value>::type> {
+struct ue2_hash<T, typename std::enable_if<
+           is_container<T>::value &&
+           !std::is_same<typename std::decay<T>::type, std::string>::value &&
+           !has_hash_member<T>::value>::type> {
     size_t operator()(const T &obj) const {
         size_t v = 0;
         for (const auto &elem : obj) {
