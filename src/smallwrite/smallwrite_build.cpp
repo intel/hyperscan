@@ -395,7 +395,7 @@ namespace {
  */
 struct ACVisitor : public boost::default_bfs_visitor {
     ACVisitor(LitTrie &trie_in,
-              map<LitTrieVertex, LitTrieVertex> &failure_map_in,
+              unordered_map<LitTrieVertex, LitTrieVertex> &failure_map_in,
               vector<LitTrieVertex> &ordering_in)
         : mutable_trie(trie_in), failure_map(failure_map_in),
           ordering(ordering_in) {}
@@ -445,7 +445,7 @@ struct ACVisitor : public boost::default_bfs_visitor {
 
 private:
     LitTrie &mutable_trie; //!< For setting reports property.
-    map<LitTrieVertex, LitTrieVertex> &failure_map;
+    unordered_map<LitTrieVertex, LitTrieVertex> &failure_map;
     vector<LitTrieVertex> &ordering; //!< BFS ordering for vertices.
 };
 }
@@ -471,11 +471,13 @@ bool isSaneTrie(const LitTrie &trie) {
  */
 static
 void buildAutomaton(LitTrie &trie,
-                    map<LitTrieVertex, LitTrieVertex> &failure_map,
+                    unordered_map<LitTrieVertex, LitTrieVertex> &failure_map,
                     vector<LitTrieVertex> &ordering) {
     assert(isSaneTrie(trie));
 
     // Find our failure transitions and reports.
+    failure_map.reserve(num_vertices(trie));
+    ordering.reserve(num_vertices(trie));
     ACVisitor ac_vis(trie, failure_map, ordering);
     boost::breadth_first_search(trie, trie.root, visitor(ac_vis));
 
@@ -672,7 +674,7 @@ unique_ptr<raw_dfa> buildDfa(LitTrie &trie, bool nocase) {
     DEBUG_PRINTF("trie has %zu states\n", num_vertices(trie));
 
     vector<LitTrieVertex> ordering;
-    map<LitTrieVertex, LitTrieVertex> failure_map;
+    unordered_map<LitTrieVertex, LitTrieVertex> failure_map;
     buildAutomaton(trie, failure_map, ordering);
 
     // Construct DFA states in BFS order.
