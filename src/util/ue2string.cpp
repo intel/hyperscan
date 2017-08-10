@@ -34,6 +34,7 @@
 
 #include "charreach.h"
 #include "compare.h"
+#include "hash_dynamic_bitset.h"
 
 #include <algorithm>
 #include <cstring>
@@ -323,6 +324,10 @@ void ue2_literal::operator+=(const ue2_literal &b) {
 
 bool ue2_literal::any_nocase() const {
     return nocase.any();
+}
+
+size_t ue2_literal::hash() const {
+    return hash_all(s, hash_dynamic_bitset()(nocase));
 }
 
 void make_nocase(ue2_literal *lit) {

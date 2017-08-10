@@ -205,6 +205,8 @@ public:
         nocase.swap(other.nocase);
     }
 
+    size_t hash() const;
+
 private:
     friend const_iterator;
     std::string s;
@@ -321,7 +323,7 @@ struct hash<ue2::ue2_literal::elem> {
 template<>
 struct hash<ue2::ue2_literal> {
     size_t operator()(const ue2::ue2_literal &lit) const {
-        return ue2::ue2_hasher()(lit);
+        return lit.hash();
     }
 };
 
