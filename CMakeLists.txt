@@ -248,7 +248,13 @@ else()
     endif()
 
     if(CMAKE_COMPILER_IS_GNUCXX)
-        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fabi-version=0 -Wno-unused-local-typedefs -Wno-maybe-uninitialized")
+        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-unused-local-typedefs -Wno-maybe-uninitialized")
+        if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0)
+            set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fabi-version=0")
+        endif ()
+        # don't complain about abi
+        set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -Wno-abi")
+        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-abi")
     endif()
 
     if (NOT(ARCH_IA32 AND RELEASE_BUILD))
@@ -256,11 +262,6 @@ else()
         set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fno-omit-frame-pointer")
     endif()
 
-    if (RELEASE_BUILD)
-        # we don't need the noise of ABI warnings in a release build
-        set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -Wno-abi")
-        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-abi")
-    endif ()
 
     if (CMAKE_C_COMPILER_ID MATCHES "Intel")
         set(SKYLAKE_FLAG "-xCORE-AVX512")
