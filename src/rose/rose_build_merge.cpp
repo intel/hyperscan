@@ -64,6 +64,7 @@
 #include "util/dump_charclass.h"
 #include "util/graph_range.h"
 #include "util/hash.h"
+#include "util/insertion_ordered.h"
 #include "util/order_check.h"
 #include "util/report_manager.h"
 #include "util/ue2string.h"
@@ -886,6 +887,18 @@ bool hasSameEngineType(const RoseVertexProps &u_prop,
     return true;
 }
 
+/**
+ * Verifies that merging the leftfix of vertices does not cause conflicts due
+ * to the literals on the right.
+ *
+ * The main concern is that the lags of the literals and overlap between them
+ * allow the engine check offset to potentially regress.
+ *
+ * Parameters are vectors of literals + lag pairs.
+ *
+ * Note: if more constaints of when the leftfixes were going to be checked
+ * (mandatory lookarounds passing, offset checks), more merges may be allowed.
+ */
 static
 bool compatibleLiteralsForMerge(
                      const vector<pair<const rose_literal_id *, u32>> &ulits,
@@ -899,6 +912,21 @@ bool compatibleLiteralsForMerge(
         return false;
     }
 
+    // We don't handle delayed cases yet.
+    for (const auto &ue : ulits) {
+        const rose_literal_id &ul = *ue.first;
+        if (ul.delay) {
+            return false;
+        }
+    }
+
+    for (const auto &ve : vlits) {
+        const rose_literal_id &vl = *ve.first;
+        if (vl.delay) {
+            return false;
+        }
+    }
+
     /* An engine requires that all accesses to it are ordered by offsets. (ie,
        we can not check an engine's state at offset Y, if we have already
        checked its status at offset X and X > Y). If we can not establish that
@@ -908,17 +936,9 @@ bool compatibleLiteralsForMerge(
         const rose_literal_id &ul = *ue.first;
         u32 ulag = ue.second;
 
-        if (ul.delay) {
-            return false; // We don't handle delayed cases yet.
-        }
-
         for (const auto &ve : vlits) {
             const rose_literal_id &vl = *ve.first;
             u32 vlag = ve.second;
-
-            if (vl.delay) {
-                return false; // We don't handle delayed cases yet.
-            }
 
             if (!checkPrefix(ul, ulag, vl, vlag)
                 || !checkPrefix(vl, vlag, ul, ulag)) {
@@ -944,8 +964,8 @@ bool isAccelerableLeftfix(const RoseBuildImpl &build, const NGHolder &g) {
 }
 
 /**
- * In block mode, we want to be a little more selective, We will only merge
- * prefix engines when the literal sets are the same, or if the merged graph
+ * In block mode, we want to be a little more selective -- We will only merge
+ * prefix engines when the literal sets are the same or if the merged graph
  * has only grown by a small amount.
  */
 static
@@ -1101,12 +1121,13 @@ bool checkPredDelay(const rose_literal_id &ul, const rose_literal_id &vl,
     return true;
 }
 
+template<typename VertexCont>
 static never_inline
-bool checkPredDelays(const RoseBuildImpl &tbi, const deque<RoseVertex> &v1,
-                     const deque<RoseVertex> &v2) {
+bool checkPredDelays(const RoseBuildImpl &build, const VertexCont &v1,
+                     const VertexCont &v2) {
     flat_set<RoseVertex> preds;
     for (auto v : v1) {
-        insert(&preds, inv_adjacent_vertices(v, tbi.g));
+        insert(&preds, inv_adjacent_vertices(v, build.g));
     }
 
     flat_set<u32> pred_lits;
@@ -1118,29 +1139,29 @@ bool checkPredDelays(const RoseBuildImpl &tbi, const deque<RoseVertex> &v1,
      * the literal is no longer available. */
     flat_set<RoseVertex> known_good_preds;
     for (auto v : v2) {
-        insert(&known_good_preds, inv_adjacent_vertices(v, tbi.g));
+        insert(&known_good_preds, inv_adjacent_vertices(v, build.g));
     }
 
     for (auto u : preds) {
         if (!contains(known_good_preds, u)) {
-            insert(&pred_lits, tbi.g[u].literals);
+            insert(&pred_lits, build.g[u].literals);
         }
     }
 
     vector<const rose_literal_id *> pred_rose_lits;
     pred_rose_lits.reserve(pred_lits.size());
     for (const auto &p : pred_lits) {
-        pred_rose_lits.push_back(&tbi.literals.at(p));
+        pred_rose_lits.push_back(&build.literals.at(p));
     }
 
     for (auto v : v2) {
-        u32 vlag = tbi.g[v].left.lag;
+        u32 vlag = build.g[v].left.lag;
         if (!vlag) {
             continue;
         }
 
-        for (const u32 vlit : tbi.g[v].literals) {
-            const rose_literal_id &vl = tbi.literals.at(vlit);
+        for (const u32 vlit : build.g[v].literals) {
+            const rose_literal_id &vl = build.literals.at(vlit);
             assert(!vl.delay); // this should never have got this far?
             for (const auto &ul : pred_rose_lits) {
                 assert(!ul->delay); // this should never have got this far?
@@ -1189,7 +1210,7 @@ bool mergeableRoseVertices(const RoseBuildImpl &tbi,
 
     vector<pair<const rose_literal_id *, u32>> ulits; /* lit + lag pairs */
     for (auto a : verts1) {
-        if (!tbi.cc.streaming && !safeBlockModeMerge(tbi, u_front, a)) {
+        if (!tbi.cc.streaming && !safeBlockModeMerge(tbi, v_front, a)) {
             return false;
         }
 
@@ -1278,23 +1299,23 @@ struct RoseMergeCandidate {
 }
 
 static
-bool mergeRosePair(RoseBuildImpl &tbi, left_id &r1, left_id &r2,
-                   const deque<RoseVertex> &verts1,
-                   const deque<RoseVertex> &verts2) {
+bool mergeLeftfixPair(RoseBuildImpl &build, left_id &r1, left_id &r2,
+                      const vector<RoseVertex> &verts1,
+                      const vector<RoseVertex> &verts2) {
     assert(!verts1.empty() && !verts2.empty());
 
-    DEBUG_PRINTF("merging rose pair:\n");
+    DEBUG_PRINTF("merging pair of leftfixes:\n");
     DEBUG_PRINTF("  A:%016zx: tops %s\n", r1.hash(),
                  as_string_list(all_tops(r1)).c_str());
     DEBUG_PRINTF("  B:%016zx: tops %s\n", r2.hash(),
                  as_string_list(all_tops(r2)).c_str());
 
-    RoseGraph &g = tbi.g;
+    RoseGraph &g = build.g;
 
     if (r1.graph()) {
         assert(r2.graph());
         assert(r1.graph()->kind == r2.graph()->kind);
-        if (!mergeNfaPair(*r1.graph(), *r2.graph(), nullptr, tbi.cc)) {
+        if (!mergeNfaPair(*r1.graph(), *r2.graph(), nullptr, build.cc)) {
             DEBUG_PRINTF("nfa merge failed\n");
             return false;
         }
@@ -1315,7 +1336,7 @@ bool mergeRosePair(RoseBuildImpl &tbi, left_id &r1, left_id &r2,
         return true;
     } else if (r1.castle()) {
         assert(r2.castle());
-        assert(tbi.cc.grey.allowCastle);
+        assert(build.cc.grey.allowCastle);
 
         map<u32, u32> top_map;
         if (!mergeCastle(*r2.castle(), *r1.castle(), top_map)) {
@@ -1340,58 +1361,184 @@ bool mergeRosePair(RoseBuildImpl &tbi, left_id &r1, left_id &r2,
 }
 
 static
-void processMergeQueue(RoseBuildImpl &tbi, RoseBouquet &roses,
-                       priority_queue<RoseMergeCandidate> &pq) {
-    unordered_set<left_id> dead;
+bool mergeLeftVL_checkTargetsCompatible(const RoseBuildImpl &build,
+                                        const vector<RoseVertex> &targets_1,
+                                        const vector<RoseVertex> &targets_2) {
+    assert(!targets_1.empty());
+    assert(!targets_2.empty());
 
-    DEBUG_PRINTF("merge queue has %zu entries\n", pq.size());
-
-    while (!pq.empty()) {
-        DEBUG_PRINTF("pq pop h1=%p, h2=%p, cpl=%u, states=%u\n",
-                     pq.top().r1.graph(), pq.top().r2.graph(), pq.top().cpl,
-                     pq.top().states);
-
-        left_id r1 = pq.top().r1, r2 = pq.top().r2;
-        pq.pop();
-
-        if (contains(dead, r1) || contains(dead, r2)) {
-            continue;
+    vector<pair<const rose_literal_id *, u32>> ulits; /* lit + lag pairs */
+    for (auto a : targets_1) {
+        u32 ulag = build.g[a].left.lag;
+        for (u32 id : build.g[a].literals) {
+            ulits.emplace_back(&build.literals.at(id), ulag);
         }
-
-        if (r1.graph() && r2.graph()) {
-            NGHolder *h1 = r1.graph(), *h2 = r2.graph();
-            CharReach stop1 = findStopAlphabet(*h1, SOM_NONE);
-            CharReach stop2 = findStopAlphabet(*h2, SOM_NONE);
-            CharReach stopboth(stop1 & stop2);
-            DEBUG_PRINTF("stop1=%zu, stop2=%zu, stopboth=%zu\n", stop1.count(),
-                         stop2.count(), stopboth.count());
-            if (stopboth.count() < 10 &&
-                (stop1.count() > 10 || stop2.count() > 10)) {
-                DEBUG_PRINTF("skip merge, would kill stop alphabet\n");
-                continue;
-            }
-            size_t maxstop = max(stop1.count(), stop2.count());
-            if (maxstop > 200 && stopboth.count() < 200) {
-                DEBUG_PRINTF("skip merge, would reduce stop alphabet\n");
-                continue;
-            }
-        }
-
-        const deque<RoseVertex> &verts1 = roses.vertices(r1);
-        const deque<RoseVertex> &verts2 = roses.vertices(r2);
-
-        if (!mergeableRoseVertices(tbi, verts1, verts2)) {
-            continue;
-        }
-
-        if (!mergeRosePair(tbi, r1, r2, verts1, verts2)) {
-            continue;
-        }
-
-        roses.insert(r2, verts1);
-        roses.erase(r1);
-        dead.insert(r1);
     }
+
+    vector<pair<const rose_literal_id *, u32>> vlits;
+    for (auto a : targets_2) {
+        u32 vlag = build.g[a].left.lag;
+        for (u32 id : build.g[a].literals) {
+            vlits.emplace_back(&build.literals.at(id), vlag);
+        }
+    }
+
+    if (!compatibleLiteralsForMerge(ulits, vlits)) {
+        return false;
+    }
+
+    // Check preds are compatible as well.
+    if (!checkPredDelays(build, targets_1, targets_2)
+        || !checkPredDelays(build, targets_2, targets_1)) {
+        return false;
+    }
+
+    DEBUG_PRINTF("vertex sets are mergeable\n");
+    return true;
+}
+
+/**
+ * In block mode, we want to be a little more selective -- we will only merge
+ * prefix engines when the literal sets are the same or if the merged graph
+ * has only grown by a small amount.
+ */
+static
+bool goodBlockModeMerge(const RoseBuildImpl &build,
+                        const vector<RoseVertex> &u_verts, const left_id &u_eng,
+                        const vector<RoseVertex> &v_verts,
+                        const left_id &v_eng) {
+    assert(!build.cc.streaming);
+
+    // Always merge infixes if we can (subject to the other criteria in
+    // mergeableRoseVertices).
+    if (!build.isRootSuccessor(u_verts.front())) {
+        return true;
+    }
+
+    const RoseGraph &g = build.g;
+
+    flat_set<u32> u_lits;
+    for (RoseVertex u : u_verts) {
+        insert(&u_lits, g[u].literals);
+    }
+
+    flat_set<u32> v_lits;
+    for (RoseVertex v : v_verts) {
+        insert(&v_lits, g[v].literals);
+    }
+
+    // Merge prefixes with identical literal sets (as we'd have to run them
+    // both when we see those literals anyway).
+    if (u_lits == v_lits) {
+        return true;
+    }
+
+    // The rest of this function only deals with the case when have graph
+    // leftfixes.
+    if (!u_eng.graph()) {
+        return false;
+    }
+    assert(v_eng.graph());
+    const NGHolder &ug = *u_eng.graph();
+    const NGHolder &vg = *v_eng.graph();
+
+    size_t u_count = num_vertices(ug);
+    size_t v_count = num_vertices(vg);
+    DEBUG_PRINTF("u prefix has %zu vertices, v prefix has %zu vertices\n",
+                 u_count, v_count);
+    if (u_count > MAX_BLOCK_PREFIX_MERGE_VERTICES ||
+        v_count > MAX_BLOCK_PREFIX_MERGE_VERTICES) {
+        DEBUG_PRINTF("prefixes too big already\n");
+        return false;
+    }
+
+    DEBUG_PRINTF("trying merge\n");
+    NGHolder h;
+    cloneHolder(h, vg);
+    if (!mergeNfaPair(ug, h, nullptr, build.cc)) {
+        DEBUG_PRINTF("couldn't merge\n");
+        return false;
+    }
+
+    const size_t merged_count = num_vertices(h);
+    DEBUG_PRINTF("merged result has %zu vertices\n", merged_count);
+    if (merged_count > MAX_BLOCK_PREFIX_MERGE_VERTICES) {
+        DEBUG_PRINTF("exceeded limit\n");
+        return false;
+    }
+
+    // We want to only perform merges that take advantage of some
+    // commonality in the two input graphs, so we check that the number of
+    // vertices has only grown a small amount: somewhere between the sum
+    // (no commonality) and the max (no growth at all) of the vertex counts
+    // of the input graphs.
+    size_t max_size = u_count + v_count;
+    size_t min_size = max(u_count, v_count);
+    size_t max_growth = ((max_size - min_size) * 25) / 100;
+    if (merged_count > min_size + max_growth) {
+        DEBUG_PRINTF("grew too much\n");
+        return false;
+    }
+
+    // We don't want to squander any chances at accelerating.
+    if (!isAccelerableLeftfix(build, h)
+        && (isAccelerableLeftfix(build, ug)
+            || isAccelerableLeftfix(build, vg))) {
+        DEBUG_PRINTF("would lose accel property\n");
+        return false;
+    }
+
+    DEBUG_PRINTF("safe to merge\n");
+    return true;
+}
+
+/**
+ * Merge r1 into r2 if safe and appropriate. Returns true on success.
+ */
+static
+bool mergeLeftVL_tryMergeCandidate(RoseBuildImpl &build, left_id &r1,
+                                   const vector<RoseVertex> &targets_1,
+                                   left_id &r2,
+                                   const vector<RoseVertex> &targets_2) {
+    if (targets_1.empty() || targets_2.empty()) {
+        /* one of the engines has already been merged away */
+        return false;
+    }
+
+    assert(!r1.graph() == !r2.graph());
+    if (r1.graph()) {
+        NGHolder *h1 = r1.graph();
+        NGHolder *h2 = r2.graph();
+        CharReach stop1 = findStopAlphabet(*h1, SOM_NONE);
+        CharReach stop2 = findStopAlphabet(*h2, SOM_NONE);
+        CharReach stopboth = stop1 & stop2;
+        DEBUG_PRINTF("stop1=%zu, stop2=%zu, stopboth=%zu\n", stop1.count(),
+                     stop2.count(), stopboth.count());
+        if (stopboth.count() < 10
+            && (stop1.count() > 10 || stop2.count() > 10)) {
+            DEBUG_PRINTF("skip merge, would kill stop alphabet\n");
+            return false;
+        }
+        size_t maxstop = max(stop1.count(), stop2.count());
+        if (maxstop > 200 && stopboth.count() < 200) {
+            DEBUG_PRINTF("skip merge, would reduce stop alphabet\n");
+            return false;
+        }
+    }
+
+    /* Rechecking that the targets are compatible, as we may have already
+     * merged new states into r1 or r2 and we need to verify that this
+     * candidate is still ok. */
+    if (!mergeLeftVL_checkTargetsCompatible(build, targets_1, targets_2)) {
+        return false;
+    }
+
+    if (!build.cc.streaming
+        && !goodBlockModeMerge(build, targets_1, r1, targets_2, r2)) {
+        return false;
+    }
+
+    return mergeLeftfixPair(build, r1, r2, targets_1, targets_2);
 }
 
 static
@@ -1414,30 +1561,6 @@ bool nfaHasNarrowStart(const NGHolder &g) {
 static
 bool nfaHasFiniteMaxWidth(const NGHolder &g) {
     return findMaxWidth(g).is_finite();
-}
-
-namespace {
-struct RoseMergeKey {
-    RoseMergeKey(const set<RoseVertex> &parents_in,
-                 bool narrowStart_in, bool hasMaxWidth_in) :
-                        narrowStart(narrowStart_in),
-                        hasMaxWidth(hasMaxWidth_in),
-                        parents(parents_in) {}
-    bool operator<(const RoseMergeKey &b) const {
-        const RoseMergeKey &a = *this;
-        ORDER_CHECK(narrowStart);
-        ORDER_CHECK(hasMaxWidth);
-        ORDER_CHECK(parents);
-        return false;
-    }
-
-    // NOTE: these two bool discriminators are only used for prefixes, not
-    // infixes.
-    bool narrowStart;
-    bool hasMaxWidth;
-
-    set<RoseVertex> parents;
-};
 }
 
 static
@@ -1472,13 +1595,72 @@ u32 commonPrefixLength(left_id &r1, left_id &r2) {
     return 0;
 }
 
+namespace {
+struct MergeKey {
+    MergeKey(const left_id &left, flat_set<RoseVertex> parents_in) :
+        parents(std::move(parents_in)) {
+
+        // We want to distinguish prefixes (but not infixes) on whether they
+        // have a narrow start or max width.
+        if (left.graph() && !is_triggered(*left.graph())) {
+            const NGHolder &h = *left.graph();
+            narrowStart = nfaHasNarrowStart(h);
+            hasMaxWidth = nfaHasFiniteMaxWidth(h);
+        } else {
+            narrowStart = false;
+            hasMaxWidth = false;
+        }
+
+        if (left.castle()) {
+            /* castles should have a non-empty reach */
+            assert(left.castle()->reach().any());
+            castle_cr = left.castle()->reach();
+        } else {
+            assert(left.graph());
+        }
+    }
+
+    bool operator<(const MergeKey &b) const {
+        const MergeKey &a = *this;
+        ORDER_CHECK(narrowStart);
+        ORDER_CHECK(hasMaxWidth);
+        ORDER_CHECK(castle_cr);
+        ORDER_CHECK(parents);
+        return false;
+    }
+
+    // NOTE: these two bool discriminators are only used for prefixes, not
+    // infixes.
+    bool narrowStart;
+    bool hasMaxWidth;
+    CharReach castle_cr; /* empty for graphs, reach (non-empty) for castles. */
+
+    flat_set<RoseVertex> parents;
+};
+}
+
+template <typename T>
+static
+void chunk(vector<T> in, vector<vector<T>> *out, size_t chunk_size) {
+    if (in.size() <= chunk_size) {
+        out->push_back(std::move(in));
+        return;
+    }
+
+    out->push_back(vector<T>());
+    out->back().reserve(chunk_size);
+    for (const auto &t : in) {
+        if (out->back().size() >= chunk_size) {
+            out->push_back(vector<T>());
+            out->back().reserve(chunk_size);
+        }
+        out->back().push_back(std::move(t));
+    }
+}
+
 /**
  * This pass attempts to merge prefix/infix engines which share a common set of
  * parent vertices.
- *
- * TODO: this function should be rewritten as it assumes all instances of an
- * engine have the same set of parent vertices. This can cause the same set of
- * merges to be attempted multiple times.
  *
  * Engines are greedily merged pairwise by this process based on a priority
  * queue keyed off the common prefix length.
@@ -1487,13 +1669,9 @@ u32 commonPrefixLength(left_id &r1, left_id &r2) {
  * the stop alphabet.
  *
  * Infixes:
- * - LBR candidates are not considered. However, LBRs which have already been
- *   converted to castles are considered for merging with other castles.
- *   TODO: Check if we can still have LBR candidates at this stage and if these
- *   criteria still makes sense and then add explanation as to why there are
- *   both castles and graphs which are LBR candidates at this stage.
  * - It is expected that when this is run all infixes are still at the single
- *   top stage.
+ *   top stage as we have not yet merged unrelated infixes together. After
+ *   execution, castles may have multiple (but equivalent) tops.
  *
  * Prefixes:
  * - transient prefixes are not considered.
@@ -1503,142 +1681,140 @@ u32 commonPrefixLength(left_id &r1, left_id &r2) {
  * - merges are not considered in cases where dot star start state will be
  *   reformed to optimise a leading repeat.
  */
-void mergeLeftfixesVariableLag(RoseBuildImpl &tbi) {
-    if (!tbi.cc.grey.mergeRose) {
+void mergeLeftfixesVariableLag(RoseBuildImpl &build) {
+    if (!build.cc.grey.mergeRose) {
         return;
     }
-    assert(!hasOrphanedTops(tbi));
+    assert(!hasOrphanedTops(build));
 
-    map<RoseMergeKey, RoseBouquet> rosesByParent;
-    RoseGraph &g = tbi.g;
-    set<RoseVertex> parents;
+    RoseGraph &g = build.g;
+
+    insertion_ordered_map<left_id, vector<RoseVertex>> eng_verts;
 
     DEBUG_PRINTF("-----\n");
     DEBUG_PRINTF("entry\n");
     DEBUG_PRINTF("-----\n");
 
     for (auto v : vertices_range(g)) {
-        if (!g[v].left) {
+        const auto &left = g[v].left;
+        if (!left) {
             continue;
         }
+        eng_verts[left].push_back(v);
+    }
 
-        const bool is_prefix = tbi.isRootSuccessor(v);
-
+    map<MergeKey, vector<left_id>> engine_groups;
+    for (const auto &e : eng_verts) {
+        const left_id &left = e.first;
+        const auto &verts = e.second;
         // Only non-transient for the moment.
-        if (contains(tbi.transient, g[v].left)) {
+        if (contains(build.transient, left)) {
             continue;
         }
 
         // No forced McClellan or Haig infix merges.
-        if (g[v].left.dfa || (!is_prefix && g[v].left.haig)) {
+        if (left.dfa() || left.haig()) {
             continue;
         }
+        assert(left.graph() || left.castle());
 
-        if (g[v].left.graph) {
-            NGHolder &h = *g[v].left.graph;
+        if (left.graph()) {
+            const NGHolder &h = *left.graph();
+            /* we should not have merged yet */
+            assert(!is_triggered(h) || onlyOneTop(h));
 
-            /* Ensure that kind on the graph is correct */
-            assert(h.kind == (is_prefix ? NFA_PREFIX : NFA_INFIX));
-
-            if (hasReformedStartDotStar(h, tbi.cc.grey)) {
+            if (hasReformedStartDotStar(h, build.cc.grey)) {
                 continue; // preserve the optimisation of the leading repeat
             }
+        } else {
+            assert(left.castle());
 
-            if (!is_prefix && isLargeLBR(h, tbi.cc.grey)) {
+            if (!build.cc.grey.allowCastle) {
+                DEBUG_PRINTF("castle merging disallowed by greybox\n");
                 continue;
             }
-        }
-
-        if (g[v].left.castle && !tbi.cc.grey.allowCastle) {
-            DEBUG_PRINTF("castle merging disallowed by greybox\n");
-            continue;
         }
 
         // We collapse the anchored root into the root vertex when calculating
         // parents, so that we can merge differently-anchored prefix roses
         // together. (Prompted by UE-2100)
 
-        /* TODO: check this if this still does anything given that
-         * mergeableRoseVertices() does a strict check.
-         */
-        parents.clear();
-        for (auto u : inv_adjacent_vertices_range(v, g)) {
-            if (tbi.isAnyStart(u)) {
-                parents.insert(tbi.root);
-            } else {
-                parents.insert(u);
-            }
+        flat_set<RoseVertex> parents;
+        for (RoseVertex v : verts) {
+            insert(&parents, inv_adjacent_vertices_range(v, g));
         }
 
-        if (parents.empty()) {
-            assert(0);
-            continue;
+        if (contains(parents, build.anchored_root)) {
+            parents.erase(build.anchored_root);
+            parents.insert(build.root);
         }
 
-        // We want to distinguish prefixes (but not infixes) on whether they
-        // have a narrow start or max width.
-        bool narrowStart = false, hasMaxWidth = false;
-        if (is_prefix && g[v].left.graph) {
-            const NGHolder &h = *g[v].left.graph;
-            narrowStart = nfaHasNarrowStart(h);
-            hasMaxWidth = nfaHasFiniteMaxWidth(h);
-        }
+        assert(!parents.empty());
 
-        RoseMergeKey key(parents, narrowStart, hasMaxWidth);
-        rosesByParent[key].insert(g[v].left, v);
+        engine_groups[MergeKey(left, parents)].push_back(left);
     }
 
-    for (auto &m : rosesByParent) {
-        if (m.second.size() < 2) {
+    vector<vector<left_id>> chunks;
+    for (auto &raw_group : engine_groups | map_values) {
+        chunk(move(raw_group), &chunks, MERGE_GROUP_SIZE_MAX);
+    }
+    engine_groups.clear();
+
+    DEBUG_PRINTF("chunked roses into %zu groups\n", chunks.size());
+
+    for (auto &roses : chunks) {
+        if (roses.size() < 2) {
             continue;
         }
+        // All pairs on the prio queue.
+        u32 tie_breaker = 0;
+        priority_queue<RoseMergeCandidate> pq;
+        for (auto it = roses.begin(), ite = roses.end(); it != ite; ++it) {
+            left_id r1 = *it;
+            const vector<RoseVertex> &targets_1 = eng_verts[r1];
 
-        deque<RoseBouquet> rose_groups;
-        chunkBouquets(m.second, rose_groups, MERGE_GROUP_SIZE_MAX);
-        m.second.clear();
-        DEBUG_PRINTF("chunked roses into %zu groups\n", rose_groups.size());
+            for (auto jt = next(it); jt != ite; ++jt) {
+                left_id r2 = *jt;
 
-        for (auto &roses : rose_groups) {
-            // All pairs on the prio queue.
-            u32 tie_breaker = 0;
-            priority_queue<RoseMergeCandidate> pq;
-            for (auto it = roses.begin(), ite = roses.end(); it != ite; ++it) {
-                left_id r1 = *it;
-                const deque<RoseVertex> &verts1 = roses.vertices(r1);
+                /* we should have already split on engine types and reach */
+                assert(!r1.castle() == !r2.castle());
+                assert(!r1.graph() == !r2.graph());
+                assert(!r1.castle()
+                       || r1.castle()->reach() == r2.castle()->reach());
 
-                for (auto jt = next(it); jt != ite; ++jt) {
-                    left_id r2 = *jt;
-
-                    // Roses must be of the same engine type to be mergeable.
-                    if ((!r1.graph() != !r2.graph()) ||
-                        (!r1.castle() != !r2.castle())) {
-                        continue;
-                    }
-
-                    // Castles must have the same reach to be mergeable.
-                    if (r1.castle()) {
-                        if (r1.castle()->reach() != r2.castle()->reach()) {
-                            continue;
-                        }
-                    }
-
-                    const deque<RoseVertex> &verts2 = roses.vertices(r2);
-                    if (!mergeableRoseVertices(tbi, verts1, verts2)) {
-                        continue; // No point queueing unmergeable cases.
-                    }
-
-                    u32 cpl = commonPrefixLength(r1, r2);
-                    pq.push(RoseMergeCandidate(r1, r2, cpl, tie_breaker++));
+                const vector<RoseVertex> &targets_2 = eng_verts[r2];
+                if (!mergeLeftVL_checkTargetsCompatible(build, targets_1,
+                                                        targets_2)) {
+                    continue; // No point queueing unmergeable cases.
                 }
+
+                u32 cpl = commonPrefixLength(r1, r2);
+                pq.push(RoseMergeCandidate(r1, r2, cpl, tie_breaker++));
             }
-            processMergeQueue(tbi, roses, pq);
+        }
+
+        DEBUG_PRINTF("merge queue has %zu entries\n", pq.size());
+
+        while (!pq.empty()) {
+            left_id r1 = pq.top().r1;
+            left_id r2 = pq.top().r2;
+            DEBUG_PRINTF("pq pop h1=%p, h2=%p, cpl=%u, states=%u\n",
+                         r1.graph(), r2.graph(), pq.top().cpl, pq.top().states);
+            pq.pop();
+            vector<RoseVertex> &targets_1 = eng_verts[r1];
+            vector<RoseVertex> &targets_2 = eng_verts[r2];
+            if (mergeLeftVL_tryMergeCandidate(build, r1, targets_1, r2,
+                                              targets_2)) {
+                insert(&targets_2, targets_2.end(), targets_1);
+                targets_1.clear();
+            }
         }
     }
 
     DEBUG_PRINTF("-----\n");
     DEBUG_PRINTF("exit\n");
     DEBUG_PRINTF("-----\n");
-    assert(!hasOrphanedTops(tbi));
+    assert(!hasOrphanedTops(build));
 }
 
 namespace {
