@@ -226,16 +226,16 @@ bool has_self_loop(dstate_id_t s, const raw_dfa &raw) {
 }
 
 static
-vector<u16> find_nonexit_symbols(const raw_dfa &rdfa,
-                                        const CharReach &escape) {
-    set<u16> rv;
+flat_set<u16> find_nonexit_symbols(const raw_dfa &rdfa,
+                                   const CharReach &escape) {
+    flat_set<u16> rv;
     CharReach nonexit = ~escape;
-    for (auto i = nonexit.find_first(); i != CharReach::npos;
+    for (auto i = nonexit.find_first(); i != nonexit.npos;
          i = nonexit.find_next(i)) {
         rv.insert(rdfa.alpha_remap[i]);
     }
 
-    return vector<u16>(rv.begin(), rv.end());
+    return rv;
 }
 
 static
@@ -289,7 +289,7 @@ dstate_id_t get_sds_or_proxy(const raw_dfa &raw) {
 
 static
 set<dstate_id_t> find_region(const raw_dfa &rdfa, dstate_id_t base,
-                                    const AccelScheme &ei) {
+                             const AccelScheme &ei) {
     DEBUG_PRINTF("looking for region around %hu\n", base);
 
     set<dstate_id_t> region = {base};
