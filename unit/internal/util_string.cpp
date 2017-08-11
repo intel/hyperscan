@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,18 @@
 #include "util/ue2string.h"
 
 using namespace ue2;
+
+#if defined(DUMP_SUPPORT)
+
+namespace ue2 {
+
+static void PrintTo(const ue2_literal &lit, ::std::ostream *os) {
+    *os << dumpString(lit);
+}
+
+} // namespace ue2
+
+#endif // DUMP_SUPPORT
 
 TEST(string, case_iter1) {
     const char * const expected[] = {
