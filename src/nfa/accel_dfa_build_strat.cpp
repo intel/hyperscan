@@ -41,6 +41,7 @@
 #include "util/verify_types.h"
 
 #include <sstream>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -64,6 +65,17 @@ void dump_paths(const Container &paths) {
         DEBUG_PRINTF("[%s] -> %u\n", describeClasses(p.reach).c_str(), p.dest);
     }
     DEBUG_PRINTF("%zu paths\n", paths.size());
+}
+
+static
+vector<CharReach> reverse_alpha_remapping(const raw_dfa &rdfa) {
+    vector<CharReach> rv(rdfa.alpha_size - 1); /* TOP not required */
+
+    for (u32 i = 0; i < N_CHARS; i++) {
+        rv.at(rdfa.alpha_remap[i]).set(i);
+    }
+
+    return rv;
 }
 
 static
@@ -99,9 +111,10 @@ path append(const path &orig, const CharReach &cr, u32 new_dest) {
 }
 
 static
-void extend(const raw_dfa &rdfa, const path &p,
-            map<u32, vector<path>> &all, vector<path> &out) {
-    dstate s = rdfa.states[p.dest];
+void extend(const raw_dfa &rdfa, const vector<CharReach> &rev_map,
+            const path &p, unordered_map<u32, vector<path>> &all,
+            vector<path> &out) {
+    const dstate &s = rdfa.states[p.dest];
 
     if (!p.reach.empty() && p.reach.back().none()) {
         out.push_back(p);
@@ -126,9 +139,9 @@ void extend(const raw_dfa &rdfa, const path &p,
     }
 
     flat_map<u32, CharReach> dest;
-    for (unsigned i = 0; i < N_CHARS; i++) {
-        u32 succ = s.next[rdfa.alpha_remap[i]];
-        dest[succ].set(i);
+    for (u32 i = 0; i < rev_map.size(); i++) {
+        u32 succ = s.next[i];
+        dest[succ] |= rev_map[i];
     }
 
     for (const auto &e : dest) {
@@ -149,13 +162,14 @@ void extend(const raw_dfa &rdfa, const path &p,
 static
 vector<vector<CharReach>> generate_paths(const raw_dfa &rdfa,
                                          dstate_id_t base, u32 len) {
+    const vector<CharReach> rev_map = reverse_alpha_remapping(rdfa);
     vector<path> paths{path(base)};
-    map<u32, vector<path>> all;
+    unordered_map<u32, vector<path>> all;
     all[base].push_back(path(base));
     for (u32 i = 0; i < len && paths.size() < PATHS_LIMIT; i++) {
         vector<path> next_gen;
         for (const auto &p : paths) {
-            extend(rdfa, p, all, next_gen);
+            extend(rdfa, rev_map, p, all, next_gen);
         }
 
         paths = move(next_gen);
@@ -194,17 +208,6 @@ bool better(const AccelScheme &a, const AccelScheme &b) {
     }
 
     return a.cr.count() < b.cr.count();
-}
-
-static
-vector<CharReach> reverse_alpha_remapping(const raw_dfa &rdfa) {
-    vector<CharReach> rv(rdfa.alpha_size - 1); /* TOP not required */
-
-    for (u32 i = 0; i < N_CHARS; i++) {
-        rv.at(rdfa.alpha_remap[i]).set(i);
-    }
-
-    return rv;
 }
 
 static
