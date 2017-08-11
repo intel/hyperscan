@@ -126,13 +126,11 @@ u32 remove_leading_dots(raw_dfa &raw) {
 static never_inline
 u32 calc_min_dist_from_bob(raw_dfa &raw, vector<u32> *dist_in) {
     vector<u32> &dist = *dist_in;
-    dist.clear();
-    dist.resize(raw.states.size(), ~0U);
+    dist.assign(raw.states.size(), ~0U);
 
     assert(raw.start_anchored != DEAD_STATE);
 
-    deque<dstate_id_t> to_visit;
-    to_visit.push_back(raw.start_anchored);
+    deque<dstate_id_t> to_visit = { raw.start_anchored };
     dist[raw.start_anchored] = 0;
 
     u32 last_d = 0;
@@ -147,8 +145,7 @@ u32 calc_min_dist_from_bob(raw_dfa &raw, vector<u32> *dist_in) {
         assert(d >= last_d);
         assert(d != ~0U);
 
-        for (u32 j = 0; j < raw.alpha_size; j++) {
-            dstate_id_t t = raw.states[s].next[j];
+        for (dstate_id_t t : raw.states[s].next) {
             if (t == DEAD_STATE) {
                 continue;
             }
