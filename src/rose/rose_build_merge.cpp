@@ -84,6 +84,7 @@
 
 using namespace std;
 using boost::adaptors::map_values;
+using boost::adaptors::map_keys;
 
 namespace ue2 {
 
@@ -1037,10 +1038,20 @@ bool mergeLeftfixPair(RoseBuildImpl &build, left_id &r1, left_id &r2,
     return false;
 }
 
+/**
+ * Checks that there is no problem due to the involved vertices if we merge two
+ * leftfix engines.
+ *
+ * This functions takes the vertices on the right of the two engines.
+ *
+ * Unlike mergeableRoseVertices(), this does not:
+ * - check that engines themselves can be merged
+ * - use heuristics to find out if merging the engines is wise.
+ */
 static
-bool mergeLeftVL_checkTargetsCompatible(const RoseBuildImpl &build,
-                                        const vector<RoseVertex> &targets_1,
-                                        const vector<RoseVertex> &targets_2) {
+bool checkVerticesOkForLeftfixMerge(const RoseBuildImpl &build,
+                                    const vector<RoseVertex> &targets_1,
+                                    const vector<RoseVertex> &targets_2) {
     assert(!targets_1.empty());
     assert(!targets_2.empty());
 
@@ -1206,7 +1217,7 @@ bool mergeLeftVL_tryMergeCandidate(RoseBuildImpl &build, left_id &r1,
     /* Rechecking that the targets are compatible, as we may have already
      * merged new states into r1 or r2 and we need to verify that this
      * candidate is still ok. */
-    if (!mergeLeftVL_checkTargetsCompatible(build, targets_1, targets_2)) {
+    if (!checkVerticesOkForLeftfixMerge(build, targets_1, targets_2)) {
         return false;
     }
 
@@ -1460,8 +1471,8 @@ void mergeLeftfixesVariableLag(RoseBuildImpl &build) {
                        || r1.castle()->reach() == r2.castle()->reach());
 
                 const vector<RoseVertex> &targets_2 = eng_verts[r2];
-                if (!mergeLeftVL_checkTargetsCompatible(build, targets_1,
-                                                        targets_2)) {
+                if (!checkVerticesOkForLeftfixMerge(build, targets_1,
+                                                    targets_2)) {
                     continue; // No point queueing unmergeable cases.
                 }
 
@@ -1847,66 +1858,6 @@ void mergeNfaLeftfixes(RoseBuildImpl &tbi, RoseBouquet &roses) {
     }
 }
 
-static
-void mergeCastleChunk(RoseBuildImpl &tbi, RoseBouquet &cands) {
-    /* caller must have already ensured that candidates have the same reach */
-    RoseGraph &g = tbi.g;
-    DEBUG_PRINTF("%zu castle rose merge candidates\n", cands.size());
-
-    deque<left_id> merged;
-
-    for (auto it = cands.begin(); it != cands.end(); ++it) {
-        left_id r1 = *it;
-        CastleProto &castle1 = *r1.castle();
-        const deque<RoseVertex> &verts1 = cands.vertices(r1);
-
-        merged.clear();
-
-        for (auto jt = next(it); jt != cands.end(); ++jt) {
-            left_id r2 = *jt;
-            CastleProto &castle2 = *r2.castle();
-            const deque<RoseVertex> &verts2 = cands.vertices(r2);
-
-            if (castle1.repeats.size() == castle1.max_occupancy) {
-                DEBUG_PRINTF("castle1 has hit max occupancy\n");
-                break; // next castle1
-            }
-
-            assert(castle1.reach() == castle2.reach());
-
-            if (!mergeableRoseVertices(tbi, verts1, verts2)) {
-                DEBUG_PRINTF("not mergeable\n");
-                continue; // next castle2
-            }
-
-            DEBUG_PRINTF("castle1=%p (size %zu), castle2=%p (size %zu)\n",
-                         &castle1, castle1.repeats.size(), &castle2,
-                         castle2.repeats.size());
-
-            map<u32, u32> top_map;
-            if (!mergeCastle(castle1, castle2, top_map)) {
-                DEBUG_PRINTF("couldn't merge\n");
-                continue; // next castle2
-            }
-
-            // Update castle2's roses to point to castle1 now.
-            shared_ptr<CastleProto> winner = g[verts1.front()].left.castle;
-            for (auto v : verts2) {
-                g[v].left.castle = winner;
-                for (const auto &e : in_edges_range(v, g)) {
-                    g[e].rose_top = top_map.at(g[e].rose_top);
-                }
-            }
-
-            cands.insert(r1, verts2);
-            merged.push_back(r2);
-        }
-
-        DEBUG_PRINTF("%zu roses merged\n", merged.size());
-        cands.erase_all(merged.begin(), merged.end());
-    }
-}
-
 /**
  * This pass attempts to merge prefix/infix engines with a small number of
  * vertices together into larger engines. The engines must not be have a
@@ -1983,55 +1934,110 @@ void mergeSmallLeftfixes(RoseBuildImpl &tbi) {
     }
 }
 
-void mergeCastleLeftfixes(RoseBuildImpl &tbi) {
+
+static
+void mergeCastleChunk(RoseBuildImpl &build, vector<left_id> &cands,
+                insertion_ordered_map<left_id, vector<RoseVertex>> &eng_verts) {
+    /* caller must have already ensured that candidates have the same reach */
+    RoseGraph &g = build.g;
+    DEBUG_PRINTF("%zu castle leftfix merge candidates\n", cands.size());
+
+    for (auto it = cands.begin(); it != cands.end(); ++it) {
+        left_id &cand_1 = *it;
+        vector<RoseVertex> &verts_1 = eng_verts[cand_1];
+        if (verts_1.empty()) {
+            continue;
+        }
+
+        for (auto jt = next(it); jt != cands.end(); ++jt) {
+            const left_id &cand_2 = *jt;
+            vector<RoseVertex> &verts_2 = eng_verts[cand_2];
+            if (verts_2.empty()) {
+                continue;
+            }
+
+            assert(cand_1.castle()->reach() == cand_2.castle()->reach());
+
+            if (!checkVerticesOkForLeftfixMerge(build, verts_1, verts_2)) {
+                DEBUG_PRINTF("not mergeable\n");
+                continue; // next cand_2
+            }
+
+            DEBUG_PRINTF("castle1=%p (size %zu)\n", cand_1.castle(),
+                         cand_1.castle()->repeats.size());
+            DEBUG_PRINTF("castle2=%p (size %zu)\n", cand_2.castle(),
+                         cand_2.castle()->repeats.size());
+
+            map<u32, u32> top_map;
+            if (!mergeCastle(*cand_1.castle(), *cand_2.castle(), top_map)) {
+                DEBUG_PRINTF("couldn't merge\n");
+                continue; // next cand_2
+            }
+
+            // Update castle2's roses to point to castle1 now.
+            shared_ptr<CastleProto> winner = g[verts_1.front()].left.castle;
+            for (auto v : verts_2) {
+                assert(g[v].left.castle.get() == cand_2.castle());
+                g[v].left.castle = winner;
+                for (const auto &e : in_edges_range(v, g)) {
+                    g[e].rose_top = top_map.at(g[e].rose_top);
+                }
+            }
+
+            insert(&verts_1, verts_1.end(), verts_2);
+            verts_2.clear();
+        }
+    }
+}
+
+/**
+ * Merges castles with the same reach together regardless of where in the rose
+ * graph they are. Note: there is no requirement for the castles to have common
+ * parent or target vertices.
+ *
+ * There are no heuristics for reducing block mode merges as castle speed
+ * mainly depends on the reach being scanned.
+ */
+void mergeCastleLeftfixes(RoseBuildImpl &build) {
     DEBUG_PRINTF("entry\n");
 
-    if (!tbi.cc.grey.mergeRose || !tbi.cc.grey.roseMultiTopRoses ||
-        !tbi.cc.grey.allowCastle) {
+    if (!build.cc.grey.mergeRose || !build.cc.grey.roseMultiTopRoses
+        || !build.cc.grey.allowCastle) {
         return;
     }
 
-    RoseGraph &g = tbi.g;
+    RoseGraph &g = build.g;
 
-    map<CharReach, RoseBouquet> by_reach;
+    insertion_ordered_map<left_id, vector<RoseVertex>> eng_verts;
 
     for (auto v : vertices_range(g)) {
-        if (!g[v].left) {
+        if (!g[v].left.castle) {
             continue;
         }
 
-        // Handle single-parent infixes only.
-        if (tbi.isRootSuccessor(v)) {
+        // Handle infixes only.
+        if (build.isRootSuccessor(v)) {
             continue;
         }
 
-        const left_id left(g[v].left);
-
-        // Only non-transient for the moment.
-        if (contains(tbi.transient, left)) {
-            continue;
-        }
-
-        if (!left.castle()) {
-            continue;
-        }
-
-        const CastleProto &castle = *left.castle();
-        const CharReach &cr = castle.reach();
-        by_reach[cr].insert(left, v);
+        eng_verts[g[v].left].push_back(v);
     }
 
-    for (auto &m : by_reach) {
-        DEBUG_PRINTF("%zu castles for reach: %s\n", m.second.size(),
-                     describeClass(m.first).c_str());
-        RoseBouquet &candidates = m.second;
-        deque<RoseBouquet> cand_groups;
-        chunkBouquets(candidates, cand_groups, MERGE_CASTLE_GROUP_SIZE_MAX);
-        candidates.clear();
+    map<CharReach, vector<left_id>> by_reach;
+    for (const auto &left : eng_verts | map_keys) {
+        by_reach[left.castle()->reach()].push_back(left);
+    }
 
-        for (auto &group : cand_groups) {
-            mergeCastleChunk(tbi, group);
-        }
+    vector<vector<left_id>> chunks;
+    for (auto &raw_group : by_reach | map_values) {
+        chunk(move(raw_group), &chunks, MERGE_CASTLE_GROUP_SIZE_MAX);
+    }
+    by_reach.clear();
+
+    DEBUG_PRINTF("chunked castles into %zu groups\n", chunks.size());
+
+    for (auto &chunk : chunks) {
+        mergeCastleChunk(build, chunk, eng_verts);
     }
 }
 
