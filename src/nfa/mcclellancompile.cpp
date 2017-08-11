@@ -898,7 +898,7 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id, bool using8bit,
     }
 
     u32 self_loop_width = 0;
-    const dstate curr_raw = info.states[curr_id];
+    const dstate &curr_raw = info.states[curr_id];
     for (unsigned i = 0; i < N_CHARS; i++) {
         if (curr_raw.next[info.alpha_remap[i]] == curr_id) {
             self_loop_width++;
