@@ -2706,8 +2706,8 @@ void mergePuffixes(RoseBuildImpl &tbi) {
 static
 void updateCastleSuffix(RoseGraph &g, const shared_ptr<CastleProto> &m,
                         u32 top, const vector<RoseVertex> &verts) {
-    DEBUG_PRINTF("merged in as top %u, updating %zu vertices\n", top,
-                  verts.size());
+    DEBUG_PRINTF("merged in as top %u of %p, updating %zu vertices\n", top,
+                  m.get(), verts.size());
 
     for (auto v : verts) {
         assert(g[v].suffix.castle);
@@ -2717,77 +2717,56 @@ void updateCastleSuffix(RoseGraph &g, const shared_ptr<CastleProto> &m,
 }
 
 static
-void mergeCastleSuffixes(RoseBuildImpl &tbi,
-            vector<shared_ptr<CastleProto> > &castles,
-            map<shared_ptr<CastleProto>, vector<RoseVertex> > &castle_map) {
+void mergeCastleSuffixChunk(RoseGraph &g, const vector<CastleProto *> &castles,
+            const unordered_map<CastleProto *, vector<RoseVertex>> &eng_verts) {
     if (castles.size() <= 1) {
         return;
     }
 
-    RoseGraph &g = tbi.g;
-    const size_t max_size = CastleProto::max_occupancy;
+    DEBUG_PRINTF("merging reach %s, %zu elements\n",
+                 describeClass(castles[0]->reach()).c_str(), castles.size());
 
-    shared_ptr<CastleProto> m = castles.front();
-    assert(m->repeats.size() == 1); // Not yet merged.
+    CastleProto *m = nullptr;
 
-    // Cache repeats we've already merged, mapped to (prototype, top). That
-    // way, we can ensure that we don't construct more than one completely
-    // identical repeat.
-    typedef map<PureRepeat, pair<shared_ptr<CastleProto>, u32> > RepeatCache;
-    RepeatCache cache;
-    {
-        // Initial entry in cache.
-        const u32 top = m->repeats.begin()->first;
-        const PureRepeat &pr = m->repeats.begin()->second;
-        cache[pr] = make_pair(m, top);
-    }
-
-    for (size_t i = 1; i < castles.size(); i++) {
-        shared_ptr<CastleProto> c = castles[i];
+    for (CastleProto *c : castles) {
         assert(c->repeats.size() == 1); // Not yet merged.
-        const PureRepeat &pr = c->repeats.begin()->second;
-        RepeatCache::const_iterator it = cache.find(pr);
-        if (it != cache.end()) {
-            DEBUG_PRINTF("reusing cached merge, top=%u, proto=%p\n",
-                         it->second.second, it->second.first.get());
-            updateCastleSuffix(g, it->second.first, it->second.second,
-                               castle_map[c]);
+        assert(g[eng_verts.at(c).front()].suffix.castle.get() == c);
+        if (!m) {
+            m = c;
             continue;
         }
 
-        if (m->repeats.size() == max_size) {
+        u32 top = m->merge(c->repeats[0]);
+        if (top == CastleProto::max_occupancy) {
             // No room left to merge into 'm'. This one becomes the new 'm'.
             DEBUG_PRINTF("next mergee\n");
             m = c;
-            u32 top = m->repeats.begin()->first;
-            cache[pr] = make_pair(m, top);
-        } else {
-            u32 top = m->add(pr);
-            updateCastleSuffix(g, m, top, castle_map[c]);
-            DEBUG_PRINTF("added to %p, top %u\n", m.get(), top);
-            cache[pr] = make_pair(m, top);
+            continue;
         }
+        updateCastleSuffix(g, g[eng_verts.at(m).front()].suffix.castle, top,
+                           eng_verts.at(c));
+        DEBUG_PRINTF("added to %p, top %u\n", m, top);
     }
 }
 
-void mergeCastleSuffixes(RoseBuildImpl &tbi) {
+void mergeCastleSuffixes(RoseBuildImpl &build) {
     DEBUG_PRINTF("entry\n");
 
-    if (!(tbi.cc.grey.allowCastle && tbi.cc.grey.mergeSuffixes)) {
+    if (!build.cc.grey.allowCastle || !build.cc.grey.mergeSuffixes) {
         return;
     }
 
-    map<shared_ptr<CastleProto>, vector<RoseVertex>> castles;
-    map<CharReach, vector<shared_ptr<CastleProto>>> by_reach;
+    unordered_map<CastleProto *, vector<RoseVertex>> eng_verts;
+    map<CharReach, vector<CastleProto *>> by_reach;
 
-    RoseGraph &g = tbi.g;
+    RoseGraph &g = build.g;
 
     for (auto v : vertices_range(g)) {
         if (!g[v].suffix.castle) {
             continue;
         }
 
-        shared_ptr<CastleProto> c = g[v].suffix.castle;
+        CastleProto *c = g[v].suffix.castle.get();
 
         if (c->repeats.size() != 1) {
             // This code assumes it's the only place merging is being done.
@@ -2795,16 +2774,14 @@ void mergeCastleSuffixes(RoseBuildImpl &tbi) {
             continue;
         }
 
-        if (!contains(castles, c)) {
+        if (!contains(eng_verts, c)) {
             by_reach[c->reach()].push_back(c);
         }
-        castles[c].push_back(v);
+        eng_verts[c].push_back(v);
     }
 
-    for (auto &m : by_reach) {
-        DEBUG_PRINTF("reach %s, %zu elements\n", describeClass(m.first).c_str(),
-                     m.second.size());
-        mergeCastleSuffixes(tbi, m.second, castles);
+    for (auto &chunk : by_reach | map_values) {
+        mergeCastleSuffixChunk(g, chunk, eng_verts);
     }
 }
 
