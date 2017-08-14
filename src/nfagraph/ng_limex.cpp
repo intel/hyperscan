@@ -117,10 +117,9 @@ bool sanityCheckGraph(const NGHolder &g,
 #endif
 
 static
-void findSquashStates(const NGHolder &g,
-                      const vector<BoundedRepeatData> &repeats,
-                      map<NFAVertex, NFAStateSet> &squashMap) {
-    squashMap = findSquashers(g);
+unordered_map<NFAVertex, NFAStateSet> findSquashStates(const NGHolder &g,
+                                    const vector<BoundedRepeatData> &repeats) {
+    auto squashMap = findSquashers(g);
     filterSquashers(g, squashMap);
 
     /* We also filter out the cyclic states representing bounded repeats, as
@@ -130,6 +129,8 @@ void findSquashStates(const NGHolder &g,
             squashMap.erase(br.cyclic);
         }
     }
+
+    return squashMap;
 }
 
 /**
@@ -659,12 +660,12 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
         br_cyclic[br.cyclic] = BoundedRepeatSummary(br.repeatMin, br.repeatMax);
     }
 
-    map<NFAVertex, NFAStateSet> reportSquashMap;
-    map<NFAVertex, NFAStateSet> squashMap;
+    unordered_map<NFAVertex, NFAStateSet> reportSquashMap;
+    unordered_map<NFAVertex, NFAStateSet> squashMap;
 
     // build map of squashed and squashers
     if (cc.grey.squashNFA) {
-        findSquashStates(*h, repeats, squashMap);
+        squashMap = findSquashStates(*h, repeats);
 
         if (rm && cc.grey.highlanderSquash) {
             reportSquashMap = findHighlanderSquashers(*h, *rm);
@@ -736,8 +737,8 @@ bytecode_ptr<NFA> constructReversedNFA_i(const NGHolder &h_in, u32 hint,
     map<u32, set<NFAVertex>> tops; /* only the standards tops for nfas */
     set<NFAVertex> zombies;
     vector<BoundedRepeatData> repeats;
-    map<NFAVertex, NFAStateSet> reportSquashMap;
-    map<NFAVertex, NFAStateSet> squashMap;
+    unordered_map<NFAVertex, NFAStateSet> reportSquashMap;
+    unordered_map<NFAVertex, NFAStateSet> squashMap;
 
     return generate(h, state_ids, repeats, reportSquashMap, squashMap, tops,
                     zombies, false, false, hint, cc);
@@ -850,8 +851,8 @@ u32 countAccelStates(const NGHolder &g, const ReportManager *rm,
 
     // Should have no bearing on accel calculation, so we leave these empty.
     const set<NFAVertex> zombies;
-    const map<NFAVertex, NFAStateSet> reportSquashMap;
-    const map<NFAVertex, NFAStateSet> squashMap;
+    const unordered_map<NFAVertex, NFAStateSet> reportSquashMap;
+    const unordered_map<NFAVertex, NFAStateSet> squashMap;
 
     return countAccelStates(*h, state_ids, repeats, reportSquashMap, squashMap,
                             tops, zombies, cc);

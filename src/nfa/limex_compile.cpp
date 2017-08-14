@@ -105,11 +105,13 @@ struct limex_accel_info {
 };
 
 static
-map<NFAVertex, NFAStateSet>
-reindexByStateId(const map<NFAVertex, NFAStateSet> &in, const NGHolder &g,
+unordered_map<NFAVertex, NFAStateSet>
+reindexByStateId(const unordered_map<NFAVertex, NFAStateSet> &in,
+                 const NGHolder &g,
                  const unordered_map<NFAVertex, u32> &state_ids,
                  const u32 num_states) {
-    map<NFAVertex, NFAStateSet> out;
+    unordered_map<NFAVertex, NFAStateSet> out;
+    out.reserve(in.size());
 
     vector<u32> indexToState(num_vertices(g), NO_STATE);
     for (const auto &m : state_ids) {
@@ -141,8 +143,8 @@ struct build_info {
     build_info(NGHolder &hi,
                const unordered_map<NFAVertex, u32> &states_in,
                const vector<BoundedRepeatData> &ri,
-               const map<NFAVertex, NFAStateSet> &rsmi,
-               const map<NFAVertex, NFAStateSet> &smi,
+               const unordered_map<NFAVertex, NFAStateSet> &rsmi,
+               const unordered_map<NFAVertex, NFAStateSet> &smi,
                const map<u32, set<NFAVertex>> &ti, const set<NFAVertex> &zi,
                bool dai, bool sci, const CompileContext &cci, u32 nsi)
         : h(hi), state_ids(states_in), repeats(ri), tops(ti), tugs(nsi),
@@ -168,8 +170,8 @@ struct build_info {
     const vector<BoundedRepeatData> &repeats;
 
     // Squash maps; state sets are indexed by state_id.
-    map<NFAVertex, NFAStateSet> reportSquashMap;
-    map<NFAVertex, NFAStateSet> squashMap;
+    unordered_map<NFAVertex, NFAStateSet> reportSquashMap;
+    unordered_map<NFAVertex, NFAStateSet> squashMap;
 
     const map<u32, set<NFAVertex>> &tops;
     NFAStateSet tugs;
@@ -2434,14 +2436,14 @@ u32 max_state(const unordered_map<NFAVertex, u32> &state_ids) {
 }
 
 bytecode_ptr<NFA> generate(NGHolder &h,
-                           const unordered_map<NFAVertex, u32> &states,
-                           const vector<BoundedRepeatData> &repeats,
-                           const map<NFAVertex, NFAStateSet> &reportSquashMap,
-                           const map<NFAVertex, NFAStateSet> &squashMap,
-                           const map<u32, set<NFAVertex>> &tops,
-                           const set<NFAVertex> &zombies, bool do_accel,
-                           bool stateCompression, u32 hint,
-                           const CompileContext &cc) {
+                const unordered_map<NFAVertex, u32> &states,
+                const vector<BoundedRepeatData> &repeats,
+                const unordered_map<NFAVertex, NFAStateSet> &reportSquashMap,
+                const unordered_map<NFAVertex, NFAStateSet> &squashMap,
+                const map<u32, set<NFAVertex>> &tops,
+                const set<NFAVertex> &zombies, bool do_accel,
+                bool stateCompression, u32 hint,
+                const CompileContext &cc) {
     const u32 num_states = max_state(states) + 1;
     DEBUG_PRINTF("total states: %u\n", num_states);
 
@@ -2504,13 +2506,13 @@ bytecode_ptr<NFA> generate(NGHolder &h,
 }
 
 u32 countAccelStates(NGHolder &h,
-                     const unordered_map<NFAVertex, u32> &states,
-                     const vector<BoundedRepeatData> &repeats,
-                     const map<NFAVertex, NFAStateSet> &reportSquashMap,
-                     const map<NFAVertex, NFAStateSet> &squashMap,
-                     const map<u32, set<NFAVertex>> &tops,
-                     const set<NFAVertex> &zombies,
-                     const CompileContext &cc) {
+                const unordered_map<NFAVertex, u32> &states,
+                const vector<BoundedRepeatData> &repeats,
+                const unordered_map<NFAVertex, NFAStateSet> &reportSquashMap,
+                const unordered_map<NFAVertex, NFAStateSet> &squashMap,
+                const map<u32, set<NFAVertex>> &tops,
+                const set<NFAVertex> &zombies,
+                const CompileContext &cc) {
     const u32 num_states = max_state(states) + 1;
     DEBUG_PRINTF("total states: %u\n", num_states);
 
