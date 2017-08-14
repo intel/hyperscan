@@ -750,6 +750,19 @@ set<u32> all_tops(const left_id &r) {
     return {0};
 }
 
+set<u32> all_reports(const left_id &left) {
+    assert(left.graph() || left.castle() || left.haig() || left.dfa());
+    if (left.graph()) {
+        return all_reports(*left.graph());
+    } else if (left.castle()) {
+        return all_reports(*left.castle());
+    } else if (left.dfa()) {
+        return all_reports(*left.dfa());
+    } else {
+        return all_reports(*left.haig());
+    }
+}
+
 u32 num_tops(const left_id &r) {
     return all_tops(r).size();
 }

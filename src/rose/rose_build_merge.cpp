@@ -124,17 +124,17 @@ size_t small_rose_threshold(const CompileContext &cc) {
  * reports should not contribute to the hash.
  */
 static
-size_t hashLeftfix(const LeftEngInfo &left) {
+size_t hashLeftfix(const left_id &left) {
     size_t val = 0;
 
-    if (left.castle) {
-        hash_combine(val, left.castle->reach());
-        for (const auto &pr : left.castle->repeats) {
+    if (left.castle()) {
+        hash_combine(val, left.castle()->reach());
+        for (const auto &pr : left.castle()->repeats) {
             hash_combine(val, pr.first); // top
             hash_combine(val, pr.second.bounds);
         }
-    } else if (left.graph) {
-        hash_combine(val, hash_holder(*left.graph));
+    } else if (left.graph()) {
+        hash_combine(val, hash_holder(*left.graph()));
     }
 
     return val;
@@ -180,33 +180,24 @@ private:
 };
 
 /**
- * Trivial Rose comparator intended to find graphs that are identical except
- * for their report IDs. Relies on vertex and edge indices to pick up graphs
- * that have been messily put together in different orderings...
+ * Intended to find graphs that are identical except for their report
+ * IDs. Relies on vertex and edge indices to pick up graphs that have been
+ * messily put together in different orderings. Only implemented for castles and
+ * holders.
  */
-struct RoseComparator {
-    explicit RoseComparator(const RoseGraph &g_in) : g(g_in) {}
-
-    bool operator()(const RoseVertex u, const RoseVertex v) const {
-        const LeftEngInfo &u_left = g[u].left;
-        const LeftEngInfo &v_left = g[v].left;
-
-        if (u_left.castle && v_left.castle) {
-            return is_equal(*u_left.castle, u_left.leftfix_report,
-                            *v_left.castle, v_left.leftfix_report);
-        }
-
-        if (!u_left.graph || !v_left.graph) {
-            return false;
-        }
-
-        return is_equal(*u_left.graph, u_left.leftfix_report, *v_left.graph,
-                        v_left.leftfix_report);
+static
+bool is_equal(const left_id &u_left, ReportID u_report,
+              const left_id &v_left, ReportID v_report) {
+    if (u_left.castle() && v_left.castle()) {
+        return is_equal(*u_left.castle(), u_report, *v_left.castle(), v_report);
     }
 
-private:
-    const RoseGraph &g;
-};
+    if (!u_left.graph() || !v_left.graph()) {
+        return false;
+    }
+
+    return is_equal(*u_left.graph(), u_report, *v_left.graph(), v_report);
+}
 
 } // namespace
 
@@ -253,8 +244,6 @@ bool dedupeLeftfixes(RoseBuildImpl &tbi) {
 
     DEBUG_PRINTF("collected %zu rose groups\n", roses.size());
 
-    const RoseComparator rosecmp(g);
-
     // Walk groups and dedupe the roses therein.
     for (deque<RoseVertex> &verts : roses | map_values) {
         DEBUG_PRINTF("group has %zu vertices\n", verts.size());
@@ -272,7 +261,9 @@ bool dedupeLeftfixes(RoseBuildImpl &tbi) {
 
             // Scan the rest of the list for dupes.
             for (auto kt = std::next(jt); kt != jte; ++kt) {
-                if (g[v].left == g[*kt].left || !rosecmp(v, *kt)) {
+                if (g[v].left == g[*kt].left
+                    || !is_equal(g[v].left, g[v].left.leftfix_report,
+                                 g[*kt].left, g[*kt].left.leftfix_report)) {
                     continue;
                 }
 
@@ -1346,6 +1337,21 @@ void chunk(vector<T> in, vector<vector<T>> *out, size_t chunk_size) {
     }
 }
 
+static
+insertion_ordered_map<left_id, vector<RoseVertex>> get_eng_verts(RoseGraph &g) {
+    insertion_ordered_map<left_id, vector<RoseVertex>> eng_verts;
+    for (auto v : vertices_range(g)) {
+        const auto &left = g[v].left;
+        if (!left) {
+            continue;
+        }
+        assert(contains(all_reports(left), left.leftfix_report));
+        eng_verts[left].push_back(v);
+    }
+
+    return eng_verts;
+}
+
 /**
  * This pass attempts to merge prefix/infix engines which share a common set of
  * parent vertices.
@@ -1377,19 +1383,11 @@ void mergeLeftfixesVariableLag(RoseBuildImpl &build) {
 
     RoseGraph &g = build.g;
 
-    insertion_ordered_map<left_id, vector<RoseVertex>> eng_verts;
-
     DEBUG_PRINTF("-----\n");
     DEBUG_PRINTF("entry\n");
     DEBUG_PRINTF("-----\n");
 
-    for (auto v : vertices_range(g)) {
-        const auto &left = g[v].left;
-        if (!left) {
-            continue;
-        }
-        eng_verts[left].push_back(v);
-    }
+    auto eng_verts = get_eng_verts(g);
 
     map<MergeKey, vector<left_id>> engine_groups;
     for (const auto &e : eng_verts) {
@@ -1511,13 +1509,10 @@ namespace {
  * Key used to group sets of leftfixes for the dedupeLeftfixesVariableLag path.
  */
 struct DedupeLeftKey {
-    DedupeLeftKey(const RoseBuildImpl &build, RoseVertex v)
-        : left_hash(hashLeftfix(build.g[v].left)),
-          transient(contains(build.transient, build.g[v].left)) {
-        const auto &g = build.g;
-        for (const auto &e : in_edges_range(v, g)) {
-            preds.emplace(g[source(e, g)].index, g[e].rose_top);
-        }
+    DedupeLeftKey(const RoseBuildImpl &build,
+                  flat_set<pair<size_t, u32>> preds_in, const left_id &left)
+        : left_hash(hashLeftfix(left)), preds(move(preds_in)),
+          transient(contains(build.transient, left)) {
     }
 
     bool operator<(const DedupeLeftKey &b) const {
@@ -1531,13 +1526,22 @@ private:
     size_t left_hash;
 
     /** For each in-edge, the pair of (parent index, edge top). */
-    set<pair<size_t, u32>> preds;
+    flat_set<pair<size_t, u32>> preds;
 
     /** We don't want to combine transient with non-transient. */
     bool transient;
 };
 
 } // namespace
+
+static
+flat_set<pair<size_t, u32>> get_pred_tops(RoseVertex v, const RoseGraph &g) {
+    flat_set<pair<size_t, u32>> preds;
+    for (const auto &e : in_edges_range(v, g)) {
+        preds.emplace(g[source(e, g)].index, g[e].rose_top);
+    }
+    return preds;
+}
 
 /**
  * This is a generalisation of \ref dedupeLeftfixes which relaxes two
@@ -1558,83 +1562,97 @@ private:
  *
  * Note: this is unable to dedupe when delayed literals are involved unlike
  * dedupeLeftfixes.
- *
- * Note: in block mode we restrict the dedupe of prefixes further as some of
- * logic checks are shared with the mergeLeftfix functions.
  */
 void dedupeLeftfixesVariableLag(RoseBuildImpl &build) {
-    map<DedupeLeftKey, RoseBouquet> roseGrouping;
-
     DEBUG_PRINTF("entry\n");
 
     RoseGraph &g = build.g;
-    for (auto v : vertices_range(g)) {
-        if (!g[v].left) {
+    auto eng_verts = get_eng_verts(g);
+
+    map<DedupeLeftKey, vector<left_id>> engine_groups;
+    for (const auto &e : eng_verts) {
+        const left_id &left = e.first;
+        const auto &verts = e.second;
+
+        /* There should only be one report on an engine as no merges have
+         * happened yet. (aside from eod prefixes) */
+        if (all_reports(left).size() != 1) {
+            assert(any_of_in(adjacent_vertices_range(verts.front(), g),
+                             [&](RoseVertex w) { return g[w].eod_accept; }));
             continue;
         }
 
-        const left_id leftfix(g[v].left);
-
-        if (leftfix.haig()) {
-            /* TODO: allow merging of identical haigs */
+         if (left.haig()) {
+            /* TODO: allow deduping of identical haigs */
             continue;
         }
 
-        if (leftfix.graph()) {
+        if (left.graph()) {
             /* we should not have merged yet */
-            assert(!is_triggered(*leftfix.graph())
-                   || onlyOneTop(*leftfix.graph()));
+            assert(!is_triggered(*left.graph()) || onlyOneTop(*left.graph()));
         }
 
-        roseGrouping[DedupeLeftKey(build, v)].insert(leftfix, v);
+        auto preds = get_pred_tops(verts.front(), g);
+        for (RoseVertex v : verts) {
+            if (preds != get_pred_tops(v, g)) {
+                DEBUG_PRINTF("distinct pred sets\n");
+                continue;
+            }
+        }
+        engine_groups[DedupeLeftKey(build, move(preds), left)].push_back(left);
     }
 
-    for (RoseBouquet &roses : roseGrouping | map_values) {
-        DEBUG_PRINTF("group of %zu roses\n", roses.size());
+    /* We don't bother chunking as we expect deduping to be successful if the
+     * hashes match */
 
-        if (roses.size() < 2) {
+    for (auto &group : engine_groups | map_values) {
+        DEBUG_PRINTF("group of %zu roses\n", group.size());
+
+        if (group.size() < 2) {
             continue;
         }
 
-        const RoseComparator rosecmp(g);
-
-        for (auto it = roses.begin(); it != roses.end(); ++it) {
+        for (auto it = group.begin(); it != group.end(); ++it) {
             left_id r1 = *it;
-            const deque<RoseVertex> &verts1 = roses.vertices(r1);
+            vector<RoseVertex> &verts1 = eng_verts[r1];
+            assert(!verts1.empty()); /* cleared engines should be behind us */
 
-            for (auto jt = next(it); jt != roses.end(); ++jt) {
+            assert(all_reports(r1).size() == 1);
+            ReportID r1_report = *all_reports(r1).begin();
+
+            for (auto jt = next(it); jt != group.end(); ++jt) {
                 left_id r2 = *jt;
-                const deque<RoseVertex> &verts2 = roses.vertices(r2);
+                vector<RoseVertex> &verts2 = eng_verts[r2];
+                assert(!verts2.empty());
+                assert(all_reports(r2).size() == 1);
+                ReportID r2_report = *all_reports(r2).begin();
 
-                if (!rosecmp(verts1.front(), verts2.front())) {
+                if (!is_equal(r1, r1_report, r2, r2_report)) {
                     continue;
                 }
 
-                if (!mergeableRoseVertices(build, verts1, verts2)) {
+                if (!checkVerticesOkForLeftfixMerge(build, verts1, verts2)) {
                     continue;
                 }
 
                 DEBUG_PRINTF("%p and %p are dupes\n", r1.graph(), r2.graph());
 
-                // Replace h1 with h2.
-
-                const LeftEngInfo &v2_left = g[verts2.front()].left;
-                assert(v2_left.graph.get() == r2.graph());
+                // Replace r1 with r2.
 
                 for (auto v : verts1) {
                     DEBUG_PRINTF("replacing report %u with %u on %zu\n",
-                                 g[v].left.leftfix_report,
-                                 v2_left.leftfix_report, g[v].index);
+                                 r2_report, r1_report, g[v].index);
                     u32 orig_lag = g[v].left.lag;
-                    g[v].left = v2_left;
+                    g[v].left = g[verts2.front()].left;
                     g[v].left.lag = orig_lag;
                 }
-                roses.insert(r2, verts1);
 
-                 /* remove stale entry from transient set, if present */
+                insert(&verts2, verts2.end(), verts1);
+                verts1.clear();
+
+                /* remove stale entry from transient set, if present */
                 build.transient.erase(r1);
 
-                // no need to erase h1 from roses, that would invalidate `it'.
                 break;
             }
         }

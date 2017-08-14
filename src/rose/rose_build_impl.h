@@ -254,6 +254,7 @@ private:
 };
 
 std::set<u32> all_tops(const left_id &r);
+std::set<ReportID> all_reports(const left_id &left);
 bool isAnchored(const left_id &r);
 depth findMinWidth(const left_id &r);
 depth findMaxWidth(const left_id &r);
