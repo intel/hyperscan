@@ -291,18 +291,24 @@ void ue2_literal::push_back(char c, bool nc) {
     s.push_back(c);
 }
 
+void ue2_literal::reverse() {
+    std::reverse(s.begin(), s.end());
+
+    const size_t len = nocase.size();
+    for (size_t i = 0; i < len / 2; i++) {
+        size_t j = len - i - 1;
+        bool a = nocase.test(i);
+        bool b = nocase.test(j);
+        nocase.set(i, b);
+        nocase.set(j, a);
+    }
+}
+
 // Return a copy of this literal in reverse order.
 ue2_literal reverse_literal(const ue2_literal &in) {
-    ue2_literal rv;
-    if (in.empty()) {
-        return rv;
-    }
-
-    for (ue2_literal::const_iterator it = in.end(); it != in.begin();) {
-        --it;
-        rv.push_back(it->c, it->nocase);
-    }
-    return rv;
+    auto out = in;
+    out.reverse();
+    return out;
 }
 
 bool ue2_literal::operator<(const ue2_literal &b) const {

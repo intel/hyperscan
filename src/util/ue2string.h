@@ -191,6 +191,9 @@ public:
         return a;
     }
 
+    /// Reverse this literal in-place.
+    void reverse();
+
     void operator+=(const ue2_literal &b);
     bool operator==(const ue2_literal &b) const {
         return s == b.s && nocase == b.nocase;
