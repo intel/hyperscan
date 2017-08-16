@@ -555,27 +555,13 @@ bool checkPrefix(const rose_literal_id &ul, const u32 ulag,
 static
 bool hasSameEngineType(const RoseVertexProps &u_prop,
                        const RoseVertexProps &v_prop) {
-    const left_id u_left(u_prop.left), v_left(v_prop.left);
+    const left_id u_left = u_prop.left;
+    const left_id v_left = v_prop.left;
 
-    if (u_left.haig() || v_left.haig()) {
-        if (u_left.graph() != v_left.graph()) {
-            return false;
-        }
-    }
-
-    if (u_left.dfa() || v_left.dfa()) {
-        if (u_left.graph() != v_left.graph()) {
-            return false;
-        }
-    }
-
-    if (u_left.castle() || v_left.castle()) {
-        if (!u_left.castle() || !v_left.castle()) {
-            return false; // Must both be castles.
-        }
-    }
-
-    return true;
+    return !u_left.haig() == !v_left.haig()
+        && !u_left.dfa() == !v_left.dfa()
+        && !u_left.castle() == !v_left.castle()
+        && !u_left.graph() == !v_left.graph();
 }
 
 /**
