@@ -128,12 +128,10 @@ public:
         }
 
         for (auto it = orig.members.begin(); it != orig.members.end(); ++it) {
-            T member = *it;
+            const auto &member = *it;
             assert(member < member_to_subset.size());
 
-            while (sp_it != sp_e && *sp_it < member) {
-                ++sp_it;
-            }
+            sp_it = std::lower_bound(sp_it, sp_e, member);
             if (sp_it == sp_e) {
                 split_temp_diff.insert(split_temp_diff.end(), it,
                                        orig.members.end());
