@@ -644,11 +644,12 @@ bool isSuffix(const hwlmLiteral &lit1, const hwlmLiteral &lit2) {
     size_t len2 = s2.length();
     assert(len1 >= len2);
 
-    auto lit_cmp = (lit1.nocase || lit2.nocase)
-            ? [](char a, char b) { return mytoupper(a) == mytoupper(b); }
-            : [](char a, char b) { return a == b; };
-
-    return equal(s2.begin(), s2.end(), s1.begin() + len1 - len2, lit_cmp);
+    if (lit1.nocase || lit2.nocase) {
+        return equal(s2.begin(), s2.end(), s1.begin() + len1 - len2,
+            [](char a, char b) { return mytoupper(a) == mytoupper(b); });
+    } else {
+        return equal(s2.begin(), s2.end(), s1.begin() + len1 - len2);
+    }
 }
 
 /*
