@@ -242,7 +242,7 @@ bool isLimitedTransition(int from, int to, int maxshift) {
 
 // Fill a bit mask
 template<class Mask>
-void maskFill(Mask &m, char c) {
+void maskFill(Mask &m, u8 c) {
     memset(&m, c, sizeof(m));
 }
 
