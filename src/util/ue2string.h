@@ -138,7 +138,8 @@ public:
 
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
     using size_type = std::string::size_type;
-    static const size_type npos = std::string::npos;
+
+    static const size_type npos;
 
     ue2_literal() = default;
     ue2_literal(const std::string &s_in, bool nc_in);

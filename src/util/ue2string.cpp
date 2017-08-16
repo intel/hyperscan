@@ -237,6 +237,8 @@ ue2_literal::elem::operator CharReach () const {
     }
 }
 
+const ue2_literal::size_type ue2_literal::npos = std::string::npos;
+
 ue2_literal::ue2_literal(const std::string &s_in, bool nc_in)
     : s(nc_in ? toUpperString(s_in) : s_in), nocase(s_in.size()) {
     if (nc_in) {
