@@ -772,9 +772,13 @@ void pruneCastle(CastleProto &castle, ReportID report) {
 /** \brief Set all reports to the given one. */
 static
 void setReports(CastleProto &castle, ReportID report) {
-    for (auto &repeat : castle.repeats | map_values) {
+    castle.report_map.clear();
+    for (auto &e : castle.repeats) {
+        u32 top = e.first;
+        auto &repeat = e.second;
         repeat.reports.clear();
         repeat.reports.insert(report);
+        castle.report_map[report].insert(top);
     }
 }
 
