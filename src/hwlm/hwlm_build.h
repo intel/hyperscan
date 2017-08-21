@@ -81,7 +81,7 @@ struct HWLMProto {
     /**
      * \brief Flag to optimise matcher for small size from Rose.
      */
-    bool make_small;
+    bool make_small = false;
 
     HWLMProto(u8 engType_in, std::vector<hwlmLiteral> lits_in);
 
