@@ -68,13 +68,13 @@ struct LitFragment {
     /**
      * \brief FDR confirm squash mask for included literals.
      */
-    u8 squash;
+    u8 squash = 0;
 
     /**
      * \brief FDR confirm squash mask for included literals (Delayed
      * literals only).
      */
-    u8 delay_squash;
+    u8 delay_squash = 0;
 
     /**
      * \brief Fragment id of included literal.
