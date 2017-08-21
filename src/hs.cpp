@@ -227,10 +227,10 @@ hs_compile_multi_int(const char *const *expressions, const unsigned *flags,
     target_t target_info = platform ? target_t(*platform)
                                     : get_current_target();
 
-    CompileContext cc(isStreaming, isVectored, target_info, g);
-    NG ng(cc, elements, somPrecision);
-
     try {
+        CompileContext cc(isStreaming, isVectored, target_info, g);
+        NG ng(cc, elements, somPrecision);
+
         for (unsigned int i = 0; i < elements; i++) {
             // Add this expression to the compiler
             try {
