@@ -42,7 +42,7 @@
 
 extern const u8 ALIGN_DIRECTIVE p_mask_arr[17][32];
 #if defined(HAVE_AVX2)
-extern const u8 ALIGN_DIRECTIVE p_mask_arr256[33][64];
+extern const u8 ALIGN_AVX_DIRECTIVE p_mask_arr256[33][64];
 #endif
 
 #ifdef ARCH_64_BIT
