@@ -1445,6 +1445,10 @@ void findExclusiveInfixes(RoseBuildImpl &build, build_context &bc,
             continue;
         }
 
+        if (leftfix.haig()) {
+            continue;
+        }
+
         if (leftfix.graph() || leftfix.castle()) {
             leftfixes.emplace(leftfix, role_id);
             vertex_map[role_id].push_back(v);
@@ -1878,6 +1882,10 @@ void findExclusiveSuffixes(RoseBuildImpl &tbi, build_context &bc,
             if (!tbi.isInETable(v)) {
                 vertex_map[id].push_back(v);
             }
+            continue;
+        }
+
+        if (s.haig()) {
             continue;
         }
 
