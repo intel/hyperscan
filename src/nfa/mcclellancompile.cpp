@@ -940,7 +940,6 @@ bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
                                      set<dstate_id_t> *accel_states) {
     assert(!is_dead(raw));
 
-    u16 total_daddy = 0;
     dfa_info info(strat);
     bool using8bit = cc.grey.allowMcClellan8 && info.size() <= 256;
 
@@ -950,21 +949,24 @@ bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
     }
 
     bool has_eod_reports = raw.hasEodReports();
-    bool any_cyclic_near_anchored_state = is_cyclic_near(raw,
-                                                         raw.start_anchored);
-
-    for (u32 i = 0; i < info.size(); i++) {
-        find_better_daddy(info, i, using8bit, any_cyclic_near_anchored_state,
-                          trust_daddy_states, cc.grey);
-        total_daddy += info.extra[i].daddytaken;
-    }
-
-    DEBUG_PRINTF("daddy %hu/%zu states=%zu alpha=%hu\n", total_daddy,
-                 info.size() * info.impl_alpha_size, info.size(),
-                 info.impl_alpha_size);
 
     bytecode_ptr<NFA> nfa;
     if (!using8bit) {
+        u16 total_daddy = 0;
+        bool any_cyclic_near_anchored_state
+            = is_cyclic_near(raw, raw.start_anchored);
+
+        for (u32 i = 0; i < info.size(); i++) {
+            find_better_daddy(info, i, using8bit,
+                              any_cyclic_near_anchored_state,
+                              trust_daddy_states, cc.grey);
+            total_daddy += info.extra[i].daddytaken;
+        }
+
+        DEBUG_PRINTF("daddy %hu/%zu states=%zu alpha=%hu\n", total_daddy,
+                     info.size() * info.impl_alpha_size, info.size(),
+                     info.impl_alpha_size);
+
         nfa = mcclellanCompile16(info, cc, accel_states);
     } else {
         nfa = mcclellanCompile8(info, cc, accel_states);
