@@ -255,7 +255,7 @@ else()
     endif()
 
     if(CMAKE_COMPILER_IS_GNUCXX)
-        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-unused-local-typedefs -Wno-maybe-uninitialized")
+        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-maybe-uninitialized")
         if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0)
             set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fabi-version=0")
         endif ()
@@ -403,6 +403,8 @@ CHECK_CXX_COMPILER_FLAG("-Wmissing-declarations" CXX_MISSING_DECLARATIONS)
 if (CXX_MISSING_DECLARATIONS)
     set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wmissing-declarations")
 endif()
+
+CHECK_CXX_COMPILER_FLAG("-Wunused-local-typedefs" CXX_UNUSED_LOCAL_TYPEDEFS)
 
 # gcc5 complains about this
 CHECK_CXX_COMPILER_FLAG("-Wunused-variable" CXX_WUNUSED_VARIABLE)

@@ -20,6 +20,10 @@ if(CXX_WUNUSED_VARIABLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
 endif()
 
+if (CXX_UNUSED_LOCAL_TYPEDEFS)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-local-typedefs")
+endif()
+
 if(CMAKE_COMPILER_IS_GNUCC)
     # spurious warnings?
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-array-bounds")
