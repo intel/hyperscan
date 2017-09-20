@@ -2,6 +2,17 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [4.6.0] 2017-09-22
+- New API feature: stream state compression. This allows the user to compress
+  and restore state for streams to reduce memory usage.
+- Many improvements to literal matching performance, including more support
+  for Intel(R) Advanced Vector Extensions 512 (Intel(R) AVX-512).
+- Compile time improvements, mainly reducing compiler memory allocation.
+  Also results in reduced compile time for some pattern sets.
+- Bugfix for issue #62: fix error building Hyperscan using older versions of
+  Boost.
+- Small updates to fix warnings identified by Coverity.
+
 ## [4.5.2] 2017-07-26
 - Bugfix for issue #57: Treat characters between `\Q.\E` as codepoints in
   UTF8 mode.
