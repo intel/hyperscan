@@ -851,8 +851,8 @@ u32 countAccelStates(const NGHolder &g, const ReportManager *rm,
 
     // Should have no bearing on accel calculation, so we leave these empty.
     const set<NFAVertex> zombies;
-    const unordered_map<NFAVertex, NFAStateSet> reportSquashMap;
-    const unordered_map<NFAVertex, NFAStateSet> squashMap;
+    unordered_map<NFAVertex, NFAStateSet> reportSquashMap;
+    unordered_map<NFAVertex, NFAStateSet> squashMap;
 
     return countAccelStates(*h, state_ids, repeats, reportSquashMap, squashMap,
                             tops, zombies, cc);
