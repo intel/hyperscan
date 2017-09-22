@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>API Reference: Files &#8212; Hyperscan 4.5.0 documentation</title>
+    <title>API Reference: Files &#8212; Hyperscan 4.6.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.5.0',
+        VERSION:     '4.6.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true,
@@ -140,6 +140,14 @@
 <dd><p>Unsupported CPU architecture.</p>
 <p>This error is returned when Hyperscan is able to detect that the current system does not support the required instruction set.</p>
 <p>At a minimum, Hyperscan requires Supplemental Streaming SIMD Extensions 3 (SSSE3). </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.HS_INSUFFICIENT_SPACE">
+<span class="target" id="hyperscangroup__HS__ERROR_1ga5cda332b921d1f8022bdb4454047a815"></span><code class="descname">HS_INSUFFICIENT_SPACE</code><a class="headerlink" href="#c.HS_INSUFFICIENT_SPACE" title="Permalink to this definition">¶</a></dt>
+<dd><p>Provided buffer was too small.</p>
+<p>This error indicates that there was insufficient space in the buffer. The call should be repeated with a larger provided buffer.</p>
+<p>Note: in this situation, it is normal for the amount of space required to be returned in the same manner as the used space would have been returned if the call was successful. </p>
 </dd></dl>
 
 </div>
@@ -1329,6 +1337,70 @@
 <dd><ul class="breatheparameterlist first last simple">
 <li><code class="docutils literal"><span class="pre">to_id</span></code>: On success, a pointer to the new, copied <a class="reference internal" href="#hyperscanhs__runtime_8h_1a2ef982d1aaecd7b08c091d355c44e7f3"><span class="std std-ref">hs_stream_t</span></a> will be returned; NULL on failure.</li>
 <li><code class="docutils literal"><span class="pre">from_id</span></code>: The stream (as created by <a class="reference internal" href="#hyperscanhs__runtime_8h_1ab23648c2f86ab9fa80c96e60f3cba89e"><span class="std std-ref">hs_open_stream()</span></a>) to be copied.</li>
+<li><code class="docutils literal"><span class="pre">scratch</span></code>: A per-thread scratch space allocated by <a class="reference internal" href="#hyperscanhs__runtime_8h_1a7e8599401d691b11410f84aee324683e"><span class="std std-ref">hs_alloc_scratch()</span></a>. This is allowed to be NULL only if the <em>onEvent</em> callback is also NULL.</li>
+<li><code class="docutils literal"><span class="pre">onEvent</span></code>: Pointer to a match event callback function. If a NULL pointer is given, no matches will be returned.</li>
+<li><code class="docutils literal"><span class="pre">context</span></code>: The user defined pointer which will be passed to the callback function when a match occurs.</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.hs_compress_stream">
+<span class="target" id="hyperscanhs__runtime_8h_1af3cc3d50c19bddceb0ac241dd239188b"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <a class="reference internal" href="#c.HS_CDECL" title="HS_CDECL">HS_CDECL</a> <code class="descname">hs_compress_stream</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  *<em>&nbsp;stream</em>, char *<em>&nbsp;buf</em>, size_t<em>&nbsp;buf_space</em>, size_t *<em>&nbsp;used_space</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compress_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a compressed representation of the provided stream in the buffer provided. This compressed representation can be converted back into a stream state by using <a class="reference internal" href="#hyperscanhs__runtime_8h_1aa3b745882f7c13360bfcdd0406834cf1"><span class="std std-ref">hs_expand_stream()</span></a> or <a class="reference internal" href="#hyperscanhs__runtime_8h_1a4de1cf1e0cc1135d130f85f80dc1873c"><span class="std std-ref">hs_reset_and_expand_stream()</span></a>. The size of the compressed representation will be placed into <em>used_space</em>.</p>
+<p>If there is not sufficient space in the buffer to hold the compressed represention, <a class="reference internal" href="#hyperscangroup__HS__ERROR_1ga5cda332b921d1f8022bdb4454047a815"><span class="std std-ref">HS_INSUFFICIENT_SPACE</span></a> will be returned and <em>used_space</em> will be populated with the amount of space required.</p>
+<p>Note: this function does not close the provided stream, you may continue to use the stream or to free it with <a class="reference internal" href="#hyperscanhs__runtime_8h_1a265de9b5c61ee75444ddc0b66a0cb0fe"><span class="std std-ref">hs_close_stream()</span></a>.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#hyperscangroup__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> on success, <a class="reference internal" href="#hyperscangroup__HS__ERROR_1ga5cda332b921d1f8022bdb4454047a815"><span class="std std-ref">HS_INSUFFICIENT_SPACE</span></a> if the provided buffer is too small. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last simple">
+<li><code class="docutils literal"><span class="pre">stream</span></code>: The stream (as created by <a class="reference internal" href="#hyperscanhs__runtime_8h_1ab23648c2f86ab9fa80c96e60f3cba89e"><span class="std std-ref">hs_open_stream()</span></a>) to be compressed.</li>
+<li><code class="docutils literal"><span class="pre">buf</span></code>: Buffer to write the compressed representation into. Note: if the call is just being used to determine the amount of space required, it is allowed to pass NULL here and <em>buf_space</em> as 0.</li>
+<li><code class="docutils literal"><span class="pre">buf_space</span></code>: The number of bytes in <em>buf</em>. If buf_space is too small, the call will fail with <a class="reference internal" href="#hyperscangroup__HS__ERROR_1ga5cda332b921d1f8022bdb4454047a815"><span class="std std-ref">HS_INSUFFICIENT_SPACE</span></a>.</li>
+<li><code class="docutils literal"><span class="pre">used_space</span></code>: Pointer to where the amount of used space will be written to. The used buffer space is always less than or equal to <em>buf_space</em>. If the call fails with <a class="reference internal" href="#hyperscangroup__HS__ERROR_1ga5cda332b921d1f8022bdb4454047a815"><span class="std std-ref">HS_INSUFFICIENT_SPACE</span></a>, this pointer will be used to write out the amount of buffer space required.</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.hs_expand_stream">
+<span class="target" id="hyperscanhs__runtime_8h_1aa3b745882f7c13360bfcdd0406834cf1"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <a class="reference internal" href="#c.HS_CDECL" title="HS_CDECL">HS_CDECL</a> <code class="descname">hs_expand_stream</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  *<em>&nbsp;db</em>, <a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  **<em>&nbsp;stream</em>, const char *<em>&nbsp;buf</em>, size_t<em>&nbsp;buf_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_expand_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decompresses a compressed representation created by <a class="reference internal" href="#hyperscanhs__runtime_8h_1af3cc3d50c19bddceb0ac241dd239188b"><span class="std std-ref">hs_compress_stream()</span></a> into a new stream.</p>
+<p>Note: <em>buf</em> must correspond to a complete compressed representation created by <a class="reference internal" href="#hyperscanhs__runtime_8h_1af3cc3d50c19bddceb0ac241dd239188b"><span class="std std-ref">hs_compress_stream()</span></a> of a stream that was opened against <em>db</em>. It is not always possible to detect misuse of this API and behaviour is undefined if these properties are not satisfied.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#hyperscangroup__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> on success, other values on failure. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last simple">
+<li><code class="docutils literal"><span class="pre">db</span></code>: The compiled pattern database that the compressed stream was opened against.</li>
+<li><code class="docutils literal"><span class="pre">stream</span></code>: On success, a pointer to the expanded <a class="reference internal" href="#hyperscanhs__runtime_8h_1a2ef982d1aaecd7b08c091d355c44e7f3"><span class="std std-ref">hs_stream_t</span></a> will be returned; NULL on failure.</li>
+<li><code class="docutils literal"><span class="pre">buf</span></code>: A compressed representation of a stream. These compressed forms are created by <a class="reference internal" href="#hyperscanhs__runtime_8h_1af3cc3d50c19bddceb0ac241dd239188b"><span class="std std-ref">hs_compress_stream()</span></a>.</li>
+<li><code class="docutils literal"><span class="pre">buf_size</span></code>: The size in bytes of the compressed representation.</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.hs_reset_and_expand_stream">
+<span class="target" id="hyperscanhs__runtime_8h_1a4de1cf1e0cc1135d130f85f80dc1873c"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <a class="reference internal" href="#c.HS_CDECL" title="HS_CDECL">HS_CDECL</a> <code class="descname">hs_reset_and_expand_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  *<em>&nbsp;to_stream</em>, const char *<em>&nbsp;buf</em>, size_t<em>&nbsp;buf_size</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  *<em>&nbsp;scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a><em>&nbsp;onEvent</em>, void *<em>&nbsp;context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_reset_and_expand_stream" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decompresses a compressed representation created by <a class="reference internal" href="#hyperscanhs__runtime_8h_1af3cc3d50c19bddceb0ac241dd239188b"><span class="std std-ref">hs_compress_stream()</span></a> on top of the &#8216;to&#8217; stream. The &#8216;to&#8217; stream will first be reset (reporting any EOD matches if a non-NULL <em>onEvent</em> callback handler is provided).</p>
+<p>Note: the &#8216;to&#8217; stream must be opened against the same database as the compressed stream.</p>
+<p>Note: <em>buf</em> must correspond to a complete compressed representation created by <a class="reference internal" href="#hyperscanhs__runtime_8h_1af3cc3d50c19bddceb0ac241dd239188b"><span class="std std-ref">hs_compress_stream()</span></a> of a stream that was opened against <em>db</em>. It is not always possible to detect misuse of this API and behaviour is undefined if these properties are not satisfied.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#hyperscangroup__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> on success, other values on failure. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last simple">
+<li><code class="docutils literal"><span class="pre">to_stream</span></code>: A pointer to the generated <a class="reference internal" href="#hyperscanhs__runtime_8h_1a2ef982d1aaecd7b08c091d355c44e7f3"><span class="std std-ref">hs_stream_t</span></a> will be returned; NULL on failure.</li>
+<li><code class="docutils literal"><span class="pre">buf</span></code>: A compressed representation of a stream. These compressed forms are created by <a class="reference internal" href="#hyperscanhs__runtime_8h_1af3cc3d50c19bddceb0ac241dd239188b"><span class="std std-ref">hs_compress_stream()</span></a>.</li>
+<li><code class="docutils literal"><span class="pre">buf_size</span></code>: The size in bytes of the compressed representation.</li>
 <li><code class="docutils literal"><span class="pre">scratch</span></code>: A per-thread scratch space allocated by <a class="reference internal" href="#hyperscanhs__runtime_8h_1a7e8599401d691b11410f84aee324683e"><span class="std std-ref">hs_alloc_scratch()</span></a>. This is allowed to be NULL only if the <em>onEvent</em> callback is also NULL.</li>
 <li><code class="docutils literal"><span class="pre">onEvent</span></code>: Pointer to a match event callback function. If a NULL pointer is given, no matches will be returned.</li>
 <li><code class="docutils literal"><span class="pre">context</span></code>: The user defined pointer which will be passed to the callback function when a match occurs.</li>

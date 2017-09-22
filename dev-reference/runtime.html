@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Scanning for Patterns &#8212; Hyperscan 4.5.0 documentation</title>
+    <title>Scanning for Patterns &#8212; Hyperscan 4.6.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.5.0',
+        VERSION:     '4.6.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true,
@@ -109,6 +109,37 @@ stream.</li>
 another, resetting the destination stream first. This call avoids the
 allocation done by <a class="reference internal" href="api_files.html#c.hs_copy_stream" title="hs_copy_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_copy_stream()</span></code></a>.</li>
 </ul>
+</div>
+<div class="section" id="stream-compression">
+<h3>Stream Compression<a class="headerlink" href="#stream-compression" title="Permalink to this headline">¶</a></h3>
+<p>A stream object is allocated as a fixed size region of memory which has been
+sized to ensure that no memory allocations are required during scan
+operations. When the system is under memory pressure, it may be useful to reduce
+the memory consumed by streams that are not expected to be used soon. The
+Hyperscan API provides calls for translating a stream to and from a compressed
+representation for this purpose. The compressed representation differs from the
+full stream object as it does not reserve space for components which are not
+required given the current stream state. The Hyperscan API functions for this
+functionality are:</p>
+<ul class="simple">
+<li><a class="reference internal" href="api_files.html#c.hs_compress_stream" title="hs_compress_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_compress_stream()</span></code></a>: fills the provided buffer with a compressed
+representation of the stream and returns the number of bytes consumed by the
+compressed representation. If the buffer is not large enough to hold the
+compressed representation, <a class="reference internal" href="api_files.html#c.HS_INSUFFICIENT_SPACE" title="HS_INSUFFICIENT_SPACE"><code class="xref c c-member docutils literal"><span class="pre">HS_INSUFFICIENT_SPACE</span></code></a> is returned along
+with the required size. This call does not modify the original stream in any
+way: it may still be written to with <a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_scan_stream()</span></code></a>, used as part of
+the various reset calls to reinitialise its state, or
+<a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_close_stream()</span></code></a> may be called to free its resources.</li>
+<li><a class="reference internal" href="api_files.html#c.hs_expand_stream" title="hs_expand_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_expand_stream()</span></code></a>: creates a new stream based on a buffer containing
+a compressed representation.</li>
+<li><a class="reference internal" href="api_files.html#c.hs_reset_and_expand_stream" title="hs_reset_and_expand_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_reset_and_expand_stream()</span></code></a>: constructs a stream based on a buffer
+containing a compressed representation on top of an existing stream, resetting
+the existing stream first. This call avoids the allocation done by
+<a class="reference internal" href="api_files.html#c.hs_expand_stream" title="hs_expand_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_expand_stream()</span></code></a>.</li>
+</ul>
+<p>Note: it is not recommended to use stream compression between every call to scan
+for performance reasons as it takes time to convert between the compressed
+representation and a standard stream.</p>
 </div>
 </div>
 <div class="section" id="block-mode">
