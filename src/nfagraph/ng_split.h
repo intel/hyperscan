@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,10 +33,10 @@
 #ifndef NG_SPLIT_H
 #define NG_SPLIT_H
 
-#include <vector>
-
 #include "ng_holder.h"
-#include "util/ue2_containers.h"
+
+#include <unordered_map>
+#include <vector>
 
 namespace ue2 {
 
@@ -55,21 +55,21 @@ class NGHolder;
  *   vertices which have an edge to every pivot
  */
 void splitGraph(const NGHolder &base, NFAVertex pivot, NGHolder *lhs,
-                ue2::unordered_map<NFAVertex, NFAVertex> *lhs_map,
+                std::unordered_map<NFAVertex, NFAVertex> *lhs_map,
                 NGHolder *rhs,
-                ue2::unordered_map<NFAVertex, NFAVertex> *rhs_map);
+                std::unordered_map<NFAVertex, NFAVertex> *rhs_map);
 
 void splitGraph(const NGHolder &base, const std::vector<NFAVertex> &pivots,
                 NGHolder *lhs,
-                ue2::unordered_map<NFAVertex, NFAVertex> *lhs_map,
+                std::unordered_map<NFAVertex, NFAVertex> *lhs_map,
                 NGHolder *rhs,
-                ue2::unordered_map<NFAVertex, NFAVertex> *rhs_map);
+                std::unordered_map<NFAVertex, NFAVertex> *rhs_map);
 
 void splitLHS(const NGHolder &base, NFAVertex pivot, NGHolder *lhs,
-              ue2::unordered_map<NFAVertex, NFAVertex> *lhs_map);
+              std::unordered_map<NFAVertex, NFAVertex> *lhs_map);
 
 void splitRHS(const NGHolder &base, const std::vector<NFAVertex> &pivots,
-              NGHolder *rhs, ue2::unordered_map<NFAVertex, NFAVertex> *rhs_map);
+              NGHolder *rhs, std::unordered_map<NFAVertex, NFAVertex> *rhs_map);
 
 } // namespace ue2
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,6 +42,7 @@ extern "C" {
 #endif
 
 struct FDR;
+struct hs_scratch;
 
 /**
  * \brief Block-mode scan.
@@ -49,13 +50,13 @@ struct FDR;
  * \param fdr FDR matcher engine.
  * \param buf Buffer to scan.
  * \param len Length of buffer to scan.
- * \param start First offset in buf at which a match may end.
+ * \param start First offset in buf at which a match may start.
  * \param cb Callback to call when a match is found.
- * \param ctxt Caller-provided context pointer supplied to callback on match.
+ * \param scratch Scratch supplied to callback on match.
  * \param groups Initial groups mask.
  */
 hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
-                     size_t start, HWLMCallback cb, void *ctxt,
+                     size_t start, HWLMCallback cb, struct hs_scratch *scratch,
                      hwlm_group_t groups);
 
 /**
@@ -66,14 +67,15 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
  * \param hlen Length of history buffer (hbuf).
  * \param buf Buffer to scan.
  * \param len Length of buffer to scan (buf).
- * \param start First offset in buf at which a match may end.
+ * \param start First offset in buf at which a match may start.
  * \param cb Callback to call when a match is found.
- * \param ctxt Caller-provided context pointer supplied to callback on match.
+ * \param scratch Scratch supplied to callback on match.
  * \param groups Initial groups mask.
  */
 hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
                               size_t hlen, const u8 *buf, size_t len,
-                              size_t start, HWLMCallback cb, void *ctxt,
+                              size_t start, HWLMCallback cb,
+                              struct hs_scratch *scratch,
                               hwlm_group_t groups);
 
 #ifdef __cplusplus

@@ -34,8 +34,9 @@
 #ifndef UTIL_HASH_DYNAMIC_BITSET_H
 #define UTIL_HASH_DYNAMIC_BITSET_H
 
+#include "hash.h"
+
 #include <boost/dynamic_bitset.hpp>
-#include <boost/functional/hash/hash.hpp>
 
 #include <iterator>
 
@@ -68,7 +69,7 @@ struct hash_output_it {
 
         template<typename T>
         void operator=(const T &val) const {
-            boost::hash_combine(*out, val);
+            hash_combine(*out, val);
         }
 
     private:

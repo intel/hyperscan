@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -71,7 +71,7 @@ void dumpTextSubCastle(const SubCastle &sub, FILE *f) {
 void nfaExecCastle_dump(const struct NFA *nfa, const string &base) {
     const Castle *c = (const Castle *)getImplNfa(nfa);
 
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+    StdioFile f(base + ".txt", "w");
 
     fprintf(f, "Castle multi-tenant repeat engine\n");
     fprintf(f, "\n");
@@ -117,7 +117,6 @@ void nfaExecCastle_dump(const struct NFA *nfa, const string &base) {
         fprintf(f, "Sub %u:\n", i);
         dumpTextSubCastle(sub[i], f);
     }
-    fclose(f);
 }
 
 } // namespace ue2

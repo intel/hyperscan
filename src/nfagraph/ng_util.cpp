@@ -39,6 +39,7 @@
 #include "nfa/limex_limits.h" // for NFA_MAX_TOP_MASKS.
 #include "parser/position.h"
 #include "util/graph_range.h"
+#include "util/graph_small_color_map.h"
 #include "util/make_unique.h"
 #include "util/order_check.h"
 #include "util/ue2string.h"
@@ -47,12 +48,14 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <unordered_map>
+#include <unordered_set>
+
 #include <boost/graph/filtered_graph.hpp>
 #include <boost/graph/topological_sort.hpp>
 #include <boost/range/adaptor/map.hpp>
 
 using namespace std;
-using boost::default_color_type;
 using boost::make_filtered_graph;
 using boost::make_assoc_property_map;
 
@@ -214,8 +217,8 @@ bool isFloating(const NGHolder &g) {
 
 bool isAcyclic(const NGHolder &g) {
     try {
-        boost::depth_first_search(g, visitor(DetectCycles(g))
-                                     .root_vertex(g.start));
+        boost::depth_first_search(g, DetectCycles(g), make_small_color_map(g),
+                                  g.start);
     } catch (const CycleFound &) {
         return false;
     }
@@ -226,15 +229,12 @@ bool isAcyclic(const NGHolder &g) {
 /** True if the graph has a cycle reachable from the given source vertex. */
 bool hasReachableCycle(const NGHolder &g, NFAVertex src) {
     assert(hasCorrectlyNumberedVertices(g));
-    vector<default_color_type> colors(num_vertices(g));
 
     try {
         // Use depth_first_visit, rather than depth_first_search, so that we
         // only search from src.
-        auto index_map = get(vertex_index, g);
         boost::depth_first_visit(g, src, DetectCycles(g),
-                                 make_iterator_property_map(colors.begin(),
-                                                            index_map));
+                                 make_small_color_map(g));
     } catch (const CycleFound &) {
         return true;
     }
@@ -246,7 +246,8 @@ bool hasBigCycles(const NGHolder &g) {
     assert(hasCorrectlyNumberedVertices(g));
     set<NFAEdge> dead;
     BackEdges<set<NFAEdge>> backEdgeVisitor(dead);
-    boost::depth_first_search(g, visitor(backEdgeVisitor).root_vertex(g.start));
+    boost::depth_first_search(g, backEdgeVisitor, make_small_color_map(g),
+                              g.start);
 
     for (const auto &e : dead) {
         if (source(e, g) != target(e, g)) {
@@ -255,6 +256,12 @@ bool hasBigCycles(const NGHolder &g) {
     }
 
     return false;
+}
+
+bool hasNarrowReachVertex(const NGHolder &g, size_t max_reach_count) {
+    return any_of_in(vertices_range(g), [&](NFAVertex v) {
+        return !is_special(v, g) && g[v].char_reach.count() < max_reach_count;
+    });
 }
 
 bool can_never_match(const NGHolder &g) {
@@ -347,24 +354,19 @@ vector<NFAVertex> getTopoOrdering(const NGHolder &g) {
 
     // Use the same colour map for both DFS and topological_sort below: avoids
     // having to reallocate it, etc.
-    const size_t num_verts = num_vertices(g);
-    vector<default_color_type> colour(num_verts);
+    auto colors = make_small_color_map(g);
 
-    using EdgeSet = ue2::unordered_set<NFAEdge>;
+    using EdgeSet = unordered_set<NFAEdge>;
     EdgeSet backEdges;
     BackEdges<EdgeSet> be(backEdges);
 
-    auto index_map = get(vertex_index, g);
-    depth_first_search(g, visitor(be).root_vertex(g.start)
-                                     .color_map(make_iterator_property_map(
-                                                colour.begin(), index_map)));
+    depth_first_search(g, visitor(be).root_vertex(g.start).color_map(colors));
 
     auto acyclic_g = make_filtered_graph(g, make_bad_edge_filter(&backEdges));
 
     vector<NFAVertex> ordering;
-    ordering.reserve(num_verts);
-    topological_sort(acyclic_g, back_inserter(ordering),
-        color_map(make_iterator_property_map(colour.begin(), index_map)));
+    ordering.reserve(num_vertices(g));
+    topological_sort(acyclic_g, back_inserter(ordering), color_map(colors));
 
     reorderSpecials(g, ordering);
 
@@ -373,7 +375,7 @@ vector<NFAVertex> getTopoOrdering(const NGHolder &g) {
 
 static
 void mustBeSetBefore_int(NFAVertex u, const NGHolder &g,
-                         vector<default_color_type> &vertexColor) {
+                         decltype(make_small_color_map(NGHolder())) &colors) {
     set<NFAVertex> s;
     insert(&s, adjacent_vertices(u, g));
 
@@ -390,10 +392,8 @@ void mustBeSetBefore_int(NFAVertex u, const NGHolder &g,
 
     auto prefix = make_filtered_graph(g, make_bad_edge_filter(&dead));
 
-    depth_first_visit(
-        prefix, g.start, make_dfs_visitor(boost::null_visitor()),
-        make_iterator_property_map(vertexColor.begin(),
-                                   get(vertex_index, g)));
+    depth_first_visit(prefix, g.start, make_dfs_visitor(boost::null_visitor()),
+                      colors);
 }
 
 bool mustBeSetBefore(NFAVertex u, NFAVertex v, const NGHolder &g,
@@ -406,14 +406,14 @@ bool mustBeSetBefore(NFAVertex u, NFAVertex v, const NGHolder &g,
         return cache.cache[key];
     }
 
-    vector<default_color_type> vertexColor(num_vertices(g));
-    mustBeSetBefore_int(u, g, vertexColor);
+    auto colors = make_small_color_map(g);
+    mustBeSetBefore_int(u, g, colors);
 
     for (auto vi : vertices_range(g)) {
         auto key2 = make_pair(g[u].index, g[vi].index);
         DEBUG_PRINTF("adding %zu %zu\n", key2.first, key2.second);
         assert(!contains(cache.cache, key2));
-        bool value = vertexColor[g[vi].index] == boost::white_color;
+        bool value = get(colors, vi) == small_color::white;
         cache.cache[key2] = value;
         assert(contains(cache.cache, key2));
     }
@@ -450,8 +450,8 @@ void appendLiteral(NGHolder &h, const ue2_literal &s) {
     }
 }
 
-ue2::flat_set<u32> getTops(const NGHolder &h) {
-    ue2::flat_set<u32> tops;
+flat_set<u32> getTops(const NGHolder &h) {
+    flat_set<u32> tops;
     for (const auto &e : out_edges_range(h.start, h)) {
         insert(&tops, h[e].tops);
     }
@@ -470,7 +470,7 @@ void setTops(NGHolder &h, u32 top) {
 
 void clearReports(NGHolder &g) {
     DEBUG_PRINTF("clearing reports without an accept edge\n");
-    ue2::unordered_set<NFAVertex> allow;
+    unordered_set<NFAVertex> allow;
     insert(&allow, inv_adjacent_vertices(g.accept, g));
     insert(&allow, inv_adjacent_vertices(g.acceptEod, g));
     allow.erase(g.accept); // due to stylised edge.
@@ -494,7 +494,7 @@ void duplicateReport(NGHolder &g, ReportID r_old, ReportID r_new) {
 
 static
 void fillHolderOutEdges(NGHolder &out, const NGHolder &in,
-                        const ue2::unordered_map<NFAVertex, NFAVertex> &v_map,
+                        const unordered_map<NFAVertex, NFAVertex> &v_map,
                         NFAVertex u) {
     NFAVertex u_new = v_map.at(u);
 
@@ -516,9 +516,9 @@ void fillHolderOutEdges(NGHolder &out, const NGHolder &in,
 }
 
 void fillHolder(NGHolder *outp, const NGHolder &in, const deque<NFAVertex> &vv,
-                ue2::unordered_map<NFAVertex, NFAVertex> *v_map_out) {
+                unordered_map<NFAVertex, NFAVertex> *v_map_out) {
     NGHolder &out = *outp;
-    ue2::unordered_map<NFAVertex, NFAVertex> &v_map = *v_map_out;
+    unordered_map<NFAVertex, NFAVertex> &v_map = *v_map_out;
 
     out.kind = in.kind;
 
@@ -600,7 +600,7 @@ void cloneHolder(NGHolder &out, const NGHolder &in) {
 }
 
 void cloneHolder(NGHolder &out, const NGHolder &in,
-                 ue2::unordered_map<NFAVertex, NFAVertex> *mapping) {
+                 unordered_map<NFAVertex, NFAVertex> *mapping) {
     cloneHolder(out, in);
     vector<NFAVertex> out_verts(num_vertices(in));
     for (auto v : vertices_range(out)) {
@@ -623,7 +623,7 @@ unique_ptr<NGHolder> cloneHolder(const NGHolder &in) {
 
 void reverseHolder(const NGHolder &g_in, NGHolder &g) {
     // Make the BGL do the grunt work.
-    ue2::unordered_map<NFAVertex, NFAVertex> vertexMap;
+    unordered_map<NFAVertex, NFAVertex> vertexMap;
     boost::transpose_graph(g_in, g,
                 orig_to_copy(boost::make_assoc_property_map(vertexMap)));
 

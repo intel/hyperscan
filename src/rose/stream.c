@@ -659,8 +659,8 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
         DEBUG_PRINTF("start=%zu\n", start);
 
         DEBUG_PRINTF("BEGIN FLOATING (over %zu/%zu)\n", flen, length);
-        hwlmExecStreaming(ftable, scratch, flen, start, roseFloatingCallback,
-                          scratch, tctxt->groups & t->floating_group_mask);
+        hwlmExecStreaming(ftable, flen, start, roseFloatingCallback, scratch,
+                          tctxt->groups & t->floating_group_mask);
     }
 
 flush_delay_and_exit:
@@ -742,11 +742,9 @@ void roseStreamEodExec(const struct RoseEngine *t, u64a offset,
     assert(!scratch->tctxt.filledDelayedSlots);
 
     const u64a som = 0;
-    const size_t match_len = 0;
     const u8 flags = ROSE_PROG_FLAG_SKIP_MPV_CATCHUP;
 
     // Note: we ignore the result, as this is the last thing to ever happen on
     // a scan.
-    roseRunProgram(t, scratch, t->eodProgramOffset, som, offset, match_len,
-                   flags);
+    roseRunProgram(t, scratch, t->eodProgramOffset, som, offset, flags);
 }

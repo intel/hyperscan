@@ -40,7 +40,7 @@
 #include "util/container.h"
 #include "util/dump_charclass.h"
 #include "util/graph_range.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/verify_types.h"
 
 #include <cstdlib>
@@ -79,7 +79,7 @@ string dump(const map<s32, CharReach> &look) {
 
 static
 void getForwardReach(const NGHolder &g, u32 top, map<s32, CharReach> &look) {
-    ue2::flat_set<NFAVertex> curr, next;
+    flat_set<NFAVertex> curr, next;
 
     // Consider only successors of start with the required top.
     for (const auto &e : out_edges_range(g.start, g)) {
@@ -116,7 +116,7 @@ void getForwardReach(const NGHolder &g, u32 top, map<s32, CharReach> &look) {
 static
 void getBackwardReach(const NGHolder &g, ReportID report, u32 lag,
                       map<s32, CharReach> &look) {
-    ue2::flat_set<NFAVertex> curr, next;
+    flat_set<NFAVertex> curr, next;
 
     for (auto v : inv_adjacent_vertices_range(g.accept, g)) {
         if (contains(g[v].reports, report)) {
@@ -187,7 +187,7 @@ void getForwardReach(const raw_dfa &rdfa, map<s32, CharReach> &look) {
         return;
     }
 
-    ue2::flat_set<dstate_id_t> curr, next;
+    flat_set<dstate_id_t> curr, next;
     curr.insert(rdfa.start_anchored);
 
     for (u32 i = 0; i < MAX_FWD_LEN && !curr.empty(); i++) {
@@ -485,19 +485,17 @@ vector<LookProto> findLiteralReach(const rose_literal_id &lit) {
 }
 
 static
-map<s32, CharReach> findLiteralReach(const RoseBuildImpl &build,
-                                     const RoseVertex v) {
+vector<LookProto> findLiteralReach(const RoseBuildImpl &build,
+                                   const RoseVertex v) {
     bool first = true;
-    map<s32, CharReach> look;
+    vector<LookProto> look;
 
     for (u32 lit_id : build.g[v].literals) {
         const rose_literal_id &lit = build.literals.at(lit_id);
         auto lit_look = findLiteralReach(lit);
 
         if (first) {
-            for (auto &p : lit_look) {
-                look.emplace(p.offset, p.reach);
-            }
+            look = std::move(lit_look);
             first = false;
             continue;
         }
@@ -512,22 +510,21 @@ map<s32, CharReach> findLiteralReach(const RoseBuildImpl &build,
                 look.erase(it, end(look));
                 break;
             }
-            if (it->first < jt->offset) {
+            if (it->offset < jt->offset) {
                 // Offset is present in look but not in lit_look, erase.
                 it = look.erase(it);
-            } else if (it->first > jt->offset) {
+            } else if (it->offset > jt->offset) {
                 // Offset is preset in lit_look but not in look, ignore.
                 ++jt;
             } else {
                 // Offset is present in both, union its reach with look.
-                it->second |= jt->reach;
+                it->reach |= jt->reach;
                 ++it;
                 ++jt;
             }
         }
     }
 
-    DEBUG_PRINTF("lit lookaround: %s\n", dump(look).c_str());
     return look;
 }
 
@@ -541,11 +538,11 @@ void trimLiterals(const RoseBuildImpl &build, const RoseVertex v,
     DEBUG_PRINTF("pre-trim lookaround: %s\n", dump(look).c_str());
 
     for (const auto &m : findLiteralReach(build, v)) {
-        auto it = look.find(m.first);
+        auto it = look.find(m.offset);
         if (it == end(look)) {
             continue;
         }
-        if (m.second.isSubsetOf(it->second)) {
+        if (m.reach.isSubsetOf(it->second)) {
             DEBUG_PRINTF("can trim entry at %d\n", it->first);
             look.erase(it);
         }
@@ -849,7 +846,7 @@ void mergeLookaround(vector<LookEntry> &lookaround,
     }
 
     // Don't merge lookarounds at offsets we already have entries for.
-    ue2::flat_set<s8> offsets;
+    flat_set<s8> offsets;
     for (const auto &e : lookaround) {
         offsets.insert(e.offset);
     }

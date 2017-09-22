@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,8 +43,6 @@ int roseNfaEarliestSom(u64a start, UNUSED u64a end, UNUSED ReportID id,
 
 hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                            struct hs_scratch *scratch, u32 programOffset,
-                           u64a som, u64a end, size_t match_len,
-                           u8 prog_flags) {
-    return roseRunProgram_i(t, scratch, programOffset, som, end, match_len,
-                            prog_flags);
+                           u64a som, u64a end, u8 prog_flags) {
+    return roseRunProgram_i(t, scratch, programOffset, som, end, prog_flags);
 }

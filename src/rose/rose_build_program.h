@@ -34,8 +34,8 @@
 #include "util/bytecode_ptr.h"
 #include "util/hash.h"
 #include "util/make_unique.h"
-#include "util/ue2_containers.h"
 
+#include <unordered_map>
 #include <vector>
 
 #include <boost/range/adaptor/map.hpp>
@@ -168,7 +168,7 @@ struct ProgramBuild : noncopyable {
 
     /** \brief Mapping from vertex to key, for vertices with a
      * CHECK_NOT_HANDLED instruction. */
-    ue2::unordered_map<RoseVertex, u32> handledKeys;
+    std::unordered_map<RoseVertex, u32> handledKeys;
 
     /** \brief Mapping from Rose literal ID to anchored program index. */
     std::map<u32, u32> anchored_programs;
@@ -178,7 +178,7 @@ struct ProgramBuild : noncopyable {
 
     /** \brief Mapping from every vertex to the groups that must be on for that
      * vertex to be reached. */
-    ue2::unordered_map<RoseVertex, rose_group> vertex_group_map;
+    std::unordered_map<RoseVertex, rose_group> vertex_group_map;
 
     /** \brief Global bitmap of groups that can be squashed. */
     rose_group squashable_groups = 0;
@@ -239,13 +239,13 @@ struct engine_info {
 RoseProgram assembleProgramBlocks(std::vector<RoseProgram> &&blocks);
 
 RoseProgram makeLiteralProgram(const RoseBuildImpl &build,
-                      const std::map<RoseVertex, left_build_info> &leftfix_info,
-                      const std::map<suffix_id, u32> &suffixes,
-                      const std::map<u32, engine_info> &engine_info_by_queue,
-                      const unordered_map<RoseVertex, u32> &roleStateIndices,
-                      ProgramBuild &prog_build, u32 lit_id,
-                      const std::vector<RoseEdge> &lit_edges,
-                      bool is_anchored_replay_program);
+                    const std::map<RoseVertex, left_build_info> &leftfix_info,
+                    const std::map<suffix_id, u32> &suffixes,
+                    const std::map<u32, engine_info> &engine_info_by_queue,
+                    const std::unordered_map<RoseVertex, u32> &roleStateIndices,
+                    ProgramBuild &prog_build, u32 lit_id,
+                    const std::vector<RoseEdge> &lit_edges,
+                    bool is_anchored_replay_program);
 
 RoseProgram makeDelayRebuildProgram(const RoseBuildImpl &build,
                                     ProgramBuild &prog_build,
@@ -282,6 +282,7 @@ void recordLongLiterals(std::vector<ue2_case_string> &longLiterals,
 
 void recordResources(RoseResources &resources, const RoseProgram &program);
 
+void addIncludedJumpProgram(RoseProgram &program, u32 child_offset, u8 squash);
 } // namespace ue2
 
 #endif // ROSE_BUILD_PROGRAM_H

@@ -57,10 +57,11 @@ class FDREngineDescription;
 struct hwlmStreamingControl;
 struct Grey;
 
-bytecode_ptr<u8> setupFullConfs(const std::vector<hwlmLiteral> &lits,
-               const EngineDescription &eng,
-               std::map<BucketIndex, std::vector<LiteralIndex>> &bucketToLits,
-               bool make_small);
+bytecode_ptr<u8> setupFullConfs(
+      const std::vector<hwlmLiteral> &lits,
+      const EngineDescription &eng,
+      const std::map<BucketIndex, std::vector<LiteralIndex>> &bucketToLits,
+      bool make_small);
 
 // all suffixes include an implicit max_bucket_width suffix to ensure that
 // we always read a full-scale flood "behind" us in terms of what's in our

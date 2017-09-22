@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,6 +38,7 @@
 #include "util/container.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
+#include "util/graph_small_color_map.h"
 #include "util/report_manager.h"
 
 #include <deque>
@@ -105,23 +106,18 @@ template<class nfag_t>
 static
 bool pruneForwardUseless(NGHolder &h, const nfag_t &g,
                          typename nfag_t::vertex_descriptor s,
-                         vector<default_color_type> &vertexColor) {
+                         decltype(make_small_color_map(NGHolder())) &colors) {
     // Begin with all vertices set to white, as DFV only marks visited
     // vertices.
-    fill(vertexColor.begin(), vertexColor.end(), boost::white_color);
+    colors.fill(small_color::white);
 
-    auto index_map = get(&NFAGraphVertexProps::index, g);
-
-    depth_first_visit(g, s, make_dfs_visitor(boost::null_visitor()),
-                      make_iterator_property_map(vertexColor.begin(),
-                                                 index_map));
+    depth_first_visit(g, s, make_dfs_visitor(boost::null_visitor()), colors);
 
     vector<NFAVertex> dead;
 
     // All non-special vertices that are still white can be removed.
     for (auto v : vertices_range(g)) {
-        u32 idx = g[v].index;
-        if (!is_special(v, g) && vertexColor[idx] == boost::white_color) {
+        if (!is_special(v, g) && get(colors, v) == small_color::white) {
             DEBUG_PRINTF("vertex %zu is unreachable from %zu\n",
                          g[v].index, g[s].index);
             dead.push_back(NFAVertex(v));
@@ -143,11 +139,11 @@ bool pruneForwardUseless(NGHolder &h, const nfag_t &g,
 void pruneUseless(NGHolder &g, bool renumber) {
     DEBUG_PRINTF("pruning useless vertices\n");
     assert(hasCorrectlyNumberedVertices(g));
-    vector<default_color_type> vertexColor(num_vertices(g));
+    auto colors = make_small_color_map(g);
 
-    bool work_done = pruneForwardUseless(g, g, g.start, vertexColor);
+    bool work_done = pruneForwardUseless(g, g, g.start, colors);
     work_done |= pruneForwardUseless(g, reverse_graph<NGHolder, NGHolder &>(g),
-                                     g.acceptEod, vertexColor);
+                                     g.acceptEod, colors);
 
     if (!work_done) {
         return;
@@ -227,7 +223,7 @@ void pruneHighlanderAccepts(NGHolder &g, const ReportManager &rm) {
 
 static
 bool isDominatedByReporter(const NGHolder &g,
-                           const ue2::unordered_map<NFAVertex, NFAVertex> &dom,
+                           const unordered_map<NFAVertex, NFAVertex> &dom,
                            NFAVertex v, ReportID report_id) {
     for (auto it = dom.find(v); it != end(dom); it = dom.find(v)) {
         NFAVertex u = it->second;

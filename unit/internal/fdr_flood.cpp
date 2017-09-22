@@ -36,6 +36,8 @@
 #include "fdr/fdr_engine_description.h"
 #include "fdr/teddy_compile.h"
 #include "fdr/teddy_engine_description.h"
+#include "hwlm/hwlm_internal.h"
+#include "scratch.h"
 #include "util/alloc.h"
 #include "util/bitutils.h"
 
@@ -64,34 +66,23 @@ using namespace ue2;
 namespace {
 
 struct match {
-    size_t start;
     size_t end;
     u32 id;
-    match(size_t start_in, size_t end_in, u32 id_in)
-        : start(start_in), end(end_in), id(id_in) {}
+    match(size_t end_in, u32 id_in) : end(end_in), id(id_in) {}
     bool operator==(const match &b) const {
-        return start == b.start && end == b.end && id == b.id;
+        return end == b.end && id == b.id;
     }
     bool operator<(const match &b) const {
-        if (id < b.id) {
-            return true;
-        } else if (id == b.id) {
-            if (start < b.start) {
-                return true;
-            } else if (start == b.start) {
-                return end < b.end;
-            }
-        }
-        return false;
+        return tie(id, end) < tie(b.id, b.end);
     }
     match operator+(size_t adj) {
-        return match(start + adj, end + adj, id);
+        return match(end + adj, id);
     }
 };
 
 template<typename T>
 T &operator<<(T &a, const match &b) {
-    a << "(" << b.start << ", " << b.end << ", " << b.id << ")";
+    a << "(" << b.end << ", " << b.id << ")";
     return a;
 }
 
@@ -105,14 +96,13 @@ T &operator<<(T &a, const vector<match> &b) {
     return a;
 }
 
+map<u32, int> matchesCounts;
+
 extern "C" {
 
-static hwlmcb_rv_t countCallback(UNUSED size_t start, UNUSED size_t end, u32 id,
-                                 void *cntxt) {
-    if (cntxt) {
-        map<u32, int> *matchesCounts = (map<u32, int> *)cntxt;
-        (*matchesCounts)[id]++;
-    }
+static hwlmcb_rv_t countCallback(UNUSED size_t end, u32 id,
+                                 UNUSED struct hs_scratch *scratch) {
+    matchesCounts[id]++;
     return HWLM_CONTINUE_MATCHING;
 }
 
@@ -142,6 +132,16 @@ static vector<u32> getValidFdrEngines() {
     return ret;
 }
 
+static
+bytecode_ptr<FDR> buildFDREngineHinted(std::vector<hwlmLiteral> &lits,
+                                       bool make_small, u32 hint,
+                                       const target_t &target,
+                                       const Grey &grey) {
+    auto proto = fdrBuildProtoHinted(HWLM_ENGINE_FDR, lits, make_small, hint,
+                                     target, grey);
+    return fdrBuildTable(*proto, grey);
+}
+
 class FDRFloodp : public TestWithParam<u32> {
 };
 
@@ -152,6 +152,8 @@ TEST_P(FDRFloodp, NoMask) {
     vector<u8> data(dataSize);
     u8 c = 0;
 
+    struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     while (1) {
         SCOPED_TRACE((unsigned int)c);
         u8 bit = 1 << (c & 0x7);
@@ -179,14 +181,12 @@ TEST_P(FDRFloodp, NoMask) {
             lits.push_back(hwlmLiteral(sAlt, false, i * 8 + 7));
         }
 
-        auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(),
-                                       Grey());
+        auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                        Grey());
         CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
-        map<u32, int> matchesCounts;
-
         hwlm_error_t fdrStatus = fdrExec(fdr.get(), &data[0], dataSize,
-                    0, countCallback, (void *)&matchesCounts, HWLM_ALL_GROUPS);
+                    0, countCallback, &scratch, HWLM_ALL_GROUPS);
         ASSERT_EQ(0, fdrStatus);
 
         for (u8 i = 0; i < 4; i++) {
@@ -211,7 +211,7 @@ TEST_P(FDRFloodp, NoMask) {
         matchesCounts.clear();
         memset(&data[0], cAlt, dataSize);
         fdrStatus = fdrExec(fdr.get(), &data[0], dataSize,
-                    0, countCallback, (void *)&matchesCounts, HWLM_ALL_GROUPS);
+                    0, countCallback, &scratch, HWLM_ALL_GROUPS);
         ASSERT_EQ(0, fdrStatus);
 
         for (u8 i = 0; i < 4; i++) {
@@ -231,6 +231,7 @@ TEST_P(FDRFloodp, NoMask) {
                 ASSERT_EQ(0, matchesCounts[i * 8 + 6]);
             }
         }
+        matchesCounts.clear();
 
         if (++c == 0) {
             break;
@@ -245,6 +246,8 @@ TEST_P(FDRFloodp, WithMask) {
     vector<u8> data(dataSize);
     u8 c = '\0';
 
+    struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     while (1) {
         u8 bit = 1 << (c & 0x7);
         u8 cAlt = c ^ bit;
@@ -315,14 +318,12 @@ TEST_P(FDRFloodp, WithMask) {
                                                     HWLM_ALL_GROUPS, msk, cmp));
             }
         }
-        auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(),
-                                       Grey());
+        auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                        Grey());
         CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
-        map <u32, int> matchesCounts;
-
         hwlm_error_t fdrStatus = fdrExec(fdr.get(), &data[0], dataSize,
-                             0, countCallback, &matchesCounts, HWLM_ALL_GROUPS);
+                             0, countCallback, &scratch, HWLM_ALL_GROUPS);
         ASSERT_EQ(0, fdrStatus);
 
         const u32 cnt4 = dataSize - 4 + 1;
@@ -360,7 +361,7 @@ TEST_P(FDRFloodp, WithMask) {
         memset(&data[0], cAlt, dataSize);
         matchesCounts.clear();
         fdrStatus = fdrExec(fdr.get(), &data[0], dataSize,
-                            0, countCallback, &matchesCounts, HWLM_ALL_GROUPS);
+                            0, countCallback, &scratch, HWLM_ALL_GROUPS);
         ASSERT_EQ(0, fdrStatus);
 
         for (u8 i = 0; i < 4; i++) {
@@ -393,6 +394,7 @@ TEST_P(FDRFloodp, WithMask) {
                 ASSERT_EQ(0, matchesCounts[i * 12 + 11]);
             }
         }
+        matchesCounts.clear();
 
         if (++c == '\0') {
             break;
@@ -410,6 +412,8 @@ TEST_P(FDRFloodp, StreamingMask) {
     vector<u8> tempdata(dataSize + fake_history_size); // headroom
     u8 c = '\0';
 
+    struct hs_scratch scratch;
+    scratch.fdr_conf = NULL;
     while (1) {
         u8 bit = 1 << (c & 0x7);
         u8 cAlt = c ^ bit;
@@ -480,11 +484,10 @@ TEST_P(FDRFloodp, StreamingMask) {
                                                     HWLM_ALL_GROUPS, msk, cmp));
             }
         }
-        auto fdr = fdrBuildTableHinted(lits, false, hint, get_current_target(),
-                                       Grey());
+        auto fdr = buildFDREngineHinted(lits, false, hint, get_current_target(),
+                                        Grey());
         CHECK_WITH_TEDDY_OK_TO_FAIL(fdr, hint);
 
-        map <u32, int> matchesCounts;
         hwlm_error_t fdrStatus;
         const u32 cnt4 = dataSize - 4 + 1;
 
@@ -494,7 +497,7 @@ TEST_P(FDRFloodp, StreamingMask) {
             // reference past the end of fake history to allow headroom
             const u8 *fhist = fake_history.data() + fake_history_size;
             fdrStatus = fdrExecStreaming(fdr.get(), fhist, 0, d, streamChunk, 0,
-                                         countCallback, &matchesCounts,
+                                         countCallback, &scratch,
                                          HWLM_ALL_GROUPS);
             ASSERT_EQ(0, fdrStatus);
             for (u32 j = streamChunk; j < dataSize; j += streamChunk) {
@@ -505,13 +508,11 @@ TEST_P(FDRFloodp, StreamingMask) {
                     const u8 *tmp_d = tempdata.data() + fake_history_size;
                     fdrStatus = fdrExecStreaming(fdr.get(), tmp_d, j, tmp_d + j,
                                                  streamChunk, 0, countCallback,
-                                                 &matchesCounts,
-                                                 HWLM_ALL_GROUPS);
+                                                 &scratch, HWLM_ALL_GROUPS);
                 } else {
                     fdrStatus = fdrExecStreaming(fdr.get(), d + j - 8, 8, d + j,
                                                  streamChunk, 0, countCallback,
-                                                 &matchesCounts,
-                                                 HWLM_ALL_GROUPS);
+                                                 &scratch, HWLM_ALL_GROUPS);
                 }
                 ASSERT_EQ(0, fdrStatus);
             }
@@ -552,6 +553,7 @@ TEST_P(FDRFloodp, StreamingMask) {
             break;
         }
     }
+    matchesCounts.clear();
 }
 
 INSTANTIATE_TEST_CASE_P(FDRFlood, FDRFloodp, ValuesIn(getValidFdrEngines()));

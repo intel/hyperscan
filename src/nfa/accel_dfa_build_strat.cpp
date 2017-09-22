@@ -41,6 +41,8 @@
 #include "util/verify_types.h"
 
 #include <sstream>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #define PATHS_LIMIT 500
@@ -63,6 +65,17 @@ void dump_paths(const Container &paths) {
         DEBUG_PRINTF("[%s] -> %u\n", describeClasses(p.reach).c_str(), p.dest);
     }
     DEBUG_PRINTF("%zu paths\n", paths.size());
+}
+
+static
+vector<CharReach> reverse_alpha_remapping(const raw_dfa &rdfa) {
+    vector<CharReach> rv(rdfa.alpha_size - 1); /* TOP not required */
+
+    for (u32 i = 0; i < N_CHARS; i++) {
+        rv.at(rdfa.alpha_remap[i]).set(i);
+    }
+
+    return rv;
 }
 
 static
@@ -98,9 +111,10 @@ path append(const path &orig, const CharReach &cr, u32 new_dest) {
 }
 
 static
-void extend(const raw_dfa &rdfa, const path &p,
-            map<u32, vector<path>> &all, vector<path> &out) {
-    dstate s = rdfa.states[p.dest];
+void extend(const raw_dfa &rdfa, const vector<CharReach> &rev_map,
+            const path &p, unordered_map<u32, vector<path>> &all,
+            vector<path> &out) {
+    const dstate &s = rdfa.states[p.dest];
 
     if (!p.reach.empty() && p.reach.back().none()) {
         out.push_back(p);
@@ -125,9 +139,9 @@ void extend(const raw_dfa &rdfa, const path &p,
     }
 
     flat_map<u32, CharReach> dest;
-    for (unsigned i = 0; i < N_CHARS; i++) {
-        u32 succ = s.next[rdfa.alpha_remap[i]];
-        dest[succ].set(i);
+    for (u32 i = 0; i < rev_map.size(); i++) {
+        u32 succ = s.next[i];
+        dest[succ] |= rev_map[i];
     }
 
     for (const auto &e : dest) {
@@ -148,13 +162,14 @@ void extend(const raw_dfa &rdfa, const path &p,
 static
 vector<vector<CharReach>> generate_paths(const raw_dfa &rdfa,
                                          dstate_id_t base, u32 len) {
+    const vector<CharReach> rev_map = reverse_alpha_remapping(rdfa);
     vector<path> paths{path(base)};
-    map<u32, vector<path>> all;
+    unordered_map<u32, vector<path>> all;
     all[base].push_back(path(base));
     for (u32 i = 0; i < len && paths.size() < PATHS_LIMIT; i++) {
         vector<path> next_gen;
         for (const auto &p : paths) {
-            extend(rdfa, p, all, next_gen);
+            extend(rdfa, rev_map, p, all, next_gen);
         }
 
         paths = move(next_gen);
@@ -196,17 +211,6 @@ bool better(const AccelScheme &a, const AccelScheme &b) {
 }
 
 static
-vector<CharReach> reverse_alpha_remapping(const raw_dfa &rdfa) {
-    vector<CharReach> rv(rdfa.alpha_size - 1); /* TOP not required */
-
-    for (u32 i = 0; i < N_CHARS; i++) {
-        rv.at(rdfa.alpha_remap[i]).set(i);
-    }
-
-    return rv;
-}
-
-static
 bool double_byte_ok(const AccelScheme &info) {
     return !info.double_byte.empty() &&
            info.double_cr.count() < info.double_byte.size() &&
@@ -225,16 +229,16 @@ bool has_self_loop(dstate_id_t s, const raw_dfa &raw) {
 }
 
 static
-vector<u16> find_nonexit_symbols(const raw_dfa &rdfa,
-                                        const CharReach &escape) {
-    set<u16> rv;
+flat_set<u16> find_nonexit_symbols(const raw_dfa &rdfa,
+                                   const CharReach &escape) {
+    flat_set<u16> rv;
     CharReach nonexit = ~escape;
-    for (auto i = nonexit.find_first(); i != CharReach::npos;
+    for (auto i = nonexit.find_first(); i != nonexit.npos;
          i = nonexit.find_next(i)) {
         rv.insert(rdfa.alpha_remap[i]);
     }
 
-    return vector<u16>(rv.begin(), rv.end());
+    return rv;
 }
 
 static
@@ -254,7 +258,7 @@ dstate_id_t get_sds_or_proxy(const raw_dfa &raw) {
 
     u16 top_remap = raw.alpha_remap[TOP];
 
-    ue2::unordered_set<dstate_id_t> seen;
+    std::unordered_set<dstate_id_t> seen;
     while (true) {
         seen.insert(s);
         DEBUG_PRINTF("basis %hu\n", s);
@@ -288,7 +292,7 @@ dstate_id_t get_sds_or_proxy(const raw_dfa &raw) {
 
 static
 set<dstate_id_t> find_region(const raw_dfa &rdfa, dstate_id_t base,
-                                    const AccelScheme &ei) {
+                             const AccelScheme &ei) {
     DEBUG_PRINTF("looking for region around %hu\n", base);
 
     set<dstate_id_t> region = {base};

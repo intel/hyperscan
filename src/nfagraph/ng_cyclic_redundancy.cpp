@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -62,9 +62,11 @@
 #include "ng_prune.h"
 #include "ng_util.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
-#include "util/ue2_containers.h"
+#include "util/graph_small_color_map.h"
 
+#include <algorithm>
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/reverse_graph.hpp>
 
@@ -123,17 +125,17 @@ class SearchVisitor : public boost::default_dfs_visitor {
 
 } // namespace
 
-template<class Graph>
+template<class Graph, class ColorMap>
 static
 bool searchForward(const Graph &g, const CharReach &reach,
+                   ColorMap &colours,
                    const flat_set<typename Graph::vertex_descriptor> &s,
                    typename Graph::vertex_descriptor w) {
-    map<NFAVertex, boost::default_color_type> colours;
+    colours.fill(small_color::white);
     try {
-        depth_first_visit(g, w, SearchVisitor(reach),
-                     make_assoc_property_map(colours),
-                     VertexInSet<typename Graph::vertex_descriptor, Graph>(s));
-    } catch (SearchFailed&) {
+        depth_first_visit(g, w, SearchVisitor(reach), colours,
+            VertexInSet<typename Graph::vertex_descriptor, Graph>(s));
+    } catch (SearchFailed &) {
         return false;
     }
 
@@ -161,6 +163,9 @@ bool removeCyclicPathRedundancy(Graph &g, typename Graph::vertex_descriptor v,
     const CharReach &reach = g[v].char_reach;
 
     typedef typename Graph::vertex_descriptor vertex_descriptor;
+
+    // Colour map used for depth_first_visit().
+    auto colours = make_small_color_map(g);
 
     // precalc successors of v.
     flat_set<vertex_descriptor> succ_v;
@@ -200,7 +205,7 @@ bool removeCyclicPathRedundancy(Graph &g, typename Graph::vertex_descriptor v,
 
             DEBUG_PRINTF("  - checking w %zu\n", g[w].index);
 
-            if (!searchForward(g, reach, s, w)) {
+            if (!searchForward(g, reach, colours, s, w)) {
                 continue;
             }
 
@@ -234,6 +239,8 @@ bool cyclicPathRedundancyPass(Graph &g, NGHolder &raw) {
 }
 
 bool removeCyclicPathRedundancy(NGHolder &g) {
+    assert(hasCorrectlyNumberedVertices(g));
+
     // Forward pass.
     bool f_changed = cyclicPathRedundancyPass(g, g);
     if (f_changed) {

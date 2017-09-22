@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,8 +27,8 @@
  */
 
 /** \file
- * \brief Rose Build: functions for reducing the size of the Rose graph
- * through merging.
+ * \brief Rose Build: functions for reducing the number of engines in a Rose
+ * graph through merging or deduplicating engines.
  */
 
 #ifndef ROSE_BUILD_MERGE_H
@@ -43,9 +43,6 @@ namespace ue2 {
 
 class NGHolder;
 class RoseBuildImpl;
-
-void mergeDupeLeaves(RoseBuildImpl &tbi);
-void uncalcLeaves(RoseBuildImpl &tbi);
 
 bool dedupeLeftfixes(RoseBuildImpl &tbi);
 void mergeLeftfixesVariableLag(RoseBuildImpl &tbi);

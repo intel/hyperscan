@@ -34,16 +34,133 @@
 #ifndef UTIL_HASH_H
 #define UTIL_HASH_H
 
-#include <iterator>
-#include <boost/functional/hash/hash_fwd.hpp>
+#include <functional>
+#include <string>
+#include <type_traits>
+#include <utility>
 
 namespace ue2 {
 
 namespace hash_detail {
 
+inline
+void hash_combine_impl(size_t &seed, size_t value) {
+    // Note: constants explicitly truncated on 32-bit platforms.
+    const size_t a = (size_t)0x0b4e0ef37bc32127ULL;
+    const size_t b = (size_t)0x318f07b0c8eb9be9ULL;
+    seed ^= value * a;
+    seed += b;
+}
+
+/** \brief Helper that determines whether std::begin() exists for T. */
+template<typename T>
+struct is_container_check {
+private:
+    template<typename C>
+    static auto has_begin_function(const C &obj) -> decltype(std::begin(obj)) {
+        return std::begin(obj);
+    }
+    static void has_begin_function(...) {
+        return;
+    }
+    using has_begin_type = decltype(has_begin_function(std::declval<T>()));
+
+public:
+    static const bool value = !std::is_void<has_begin_type>::value;
+};
+
+/** \brief Type trait to enable on whether T is a container. */
+template<typename T>
+struct is_container
+    : public ::std::integral_constant<bool, is_container_check<T>::value> {};
+
+/** \brief Helper that determines whether T::hash() exists. */
+template<typename T>
+struct has_hash_member_check {
+private:
+    template<typename C>
+    static auto has_hash_member_function(const C &obj) -> decltype(obj.hash()) {
+        return obj.hash();
+    }
+    static void has_hash_member_function(...) {
+        return;
+    }
+    using has_hash = decltype(has_hash_member_function(std::declval<T>()));
+
+public:
+    static const bool value = !std::is_void<has_hash>::value;
+};
+
+/** \brief Type trait to enable on whether T::hash() exists. */
+template<typename T>
+struct has_hash_member
+    : public ::std::integral_constant<bool, has_hash_member_check<T>::value> {};
+
+/** \brief Default hash: falls back to std::hash. */
+template<typename T, typename Enable = void>
+struct ue2_hash {
+    using decayed_type = typename std::decay<T>::type;
+    size_t operator()(const T &obj) const {
+        return std::hash<decayed_type>()(obj);
+    }
+};
+
+/** \brief Hash for std::pair. */
+template<typename A, typename B>
+struct ue2_hash<std::pair<A, B>, void> {
+    size_t operator()(const std::pair<A, B> &p) const {
+        size_t v = 0;
+        hash_combine_impl(v, ue2_hash<A>()(p.first));
+        hash_combine_impl(v, ue2_hash<B>()(p.second));
+        return v;
+    }
+};
+
+/** \brief Hash for any type that has a hash() member function. */
+template<typename T>
+struct ue2_hash<T, typename std::enable_if<has_hash_member<T>::value>::type> {
+    size_t operator()(const T &obj) const {
+        return obj.hash();
+    }
+};
+
+/**
+ * \brief Hash for any container type that supports std::begin().
+ *
+ * We exempt std::string as std::hash<std:string> is provided and quicker.
+ */
+template<typename T>
+struct ue2_hash<T, typename std::enable_if<
+           is_container<T>::value &&
+           !std::is_same<typename std::decay<T>::type, std::string>::value &&
+           !has_hash_member<T>::value>::type> {
+    size_t operator()(const T &obj) const {
+        size_t v = 0;
+        for (const auto &elem : obj) {
+            using element_type = typename std::decay<decltype(elem)>::type;
+            hash_combine_impl(v, ue2_hash<element_type>()(elem));
+        }
+        return v;
+    }
+};
+
+/** \brief Hash for enum types. */
+template<typename T>
+struct ue2_hash<T, typename std::enable_if<std::is_enum<T>::value>::type> {
+    size_t operator()(const T &obj) const {
+        using utype = typename std::underlying_type<T>::type;
+        return ue2_hash<utype>()(static_cast<utype>(obj));
+    }
+};
+
+template<typename T>
+void hash_combine(size_t &seed, const T &obj) {
+    hash_combine_impl(seed, ue2_hash<T>()(obj));
+}
+
 template<typename T>
 void hash_build(size_t &v, const T &obj) {
-    boost::hash_combine(v, obj);
+    hash_combine(v, obj);
 }
 
 template<typename T, typename... Args>
@@ -53,6 +170,21 @@ void hash_build(size_t &v, const T &obj, Args&&... args) {
 }
 
 } // namespace hash_detail
+
+using hash_detail::hash_combine;
+
+/**
+ * \brief Hasher for general use.
+ *
+ * Provides operators for most standard containers and falls back to
+ * std::hash<T>.
+ */
+struct ue2_hasher {
+    template<typename T>
+    size_t operator()(const T &obj) const {
+        return hash_detail::ue2_hash<T>()(obj);
+    }
+};
 
 /**
  * \brief Computes the combined hash of all its arguments.
@@ -68,15 +200,6 @@ size_t hash_all(Args&&... args) {
     size_t v = 0;
     hash_detail::hash_build(v, args...);
     return v;
-}
-
-/**
- * \brief Compute the hash of all the elements of any range on which we can
- * call std::begin() and std::end().
- */
-template<typename Range>
-size_t hash_range(const Range &r) {
-    return boost::hash_range(std::begin(r), std::end(r));
 }
 
 } // namespace ue2

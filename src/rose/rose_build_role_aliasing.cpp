@@ -45,16 +45,15 @@
 #include "util/bitutils.h"
 #include "util/compile_context.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
 #include "util/hash.h"
 #include "util/order_check.h"
-#include "util/ue2_containers.h"
 
 #include <algorithm>
 #include <numeric>
 #include <vector>
-#include <boost/functional/hash/hash.hpp>
 #include <boost/graph/adjacency_iterator.hpp>
 #include <boost/range/adaptor/map.hpp>
 
@@ -62,6 +61,8 @@ using namespace std;
 using boost::adaptors::map_values;
 
 namespace ue2 {
+
+static constexpr size_t MERGE_GROUP_SIZE_MAX = 200;
 
 namespace {
 // Used for checking edge sets (both in- and out-) against each other.
@@ -154,7 +155,7 @@ public:
 private:
     /* if a vertex is worth storing, it is worth storing twice */
     set<RoseVertex> main_cont; /* deterministic iterator */
-    ue2::unordered_set<RoseVertex> hash_cont; /* member checks */
+    unordered_set<RoseVertex> hash_cont; /* member checks */
 };
 
 struct RoseAliasingInfo {
@@ -175,10 +176,10 @@ struct RoseAliasingInfo {
     }
 
     /** \brief Mapping from leftfix to vertices. */
-    ue2::unordered_map<left_id, set<RoseVertex>> rev_leftfix;
+    unordered_map<left_id, set<RoseVertex>> rev_leftfix;
 
     /** \brief Mapping from undelayed ghost to delayed vertices. */
-    ue2::unordered_map<RoseVertex, set<RoseVertex>> rev_ghost;
+    unordered_map<RoseVertex, set<RoseVertex>> rev_ghost;
 };
 
 } // namespace
@@ -771,9 +772,13 @@ void pruneCastle(CastleProto &castle, ReportID report) {
 /** \brief Set all reports to the given one. */
 static
 void setReports(CastleProto &castle, ReportID report) {
-    for (auto &repeat : castle.repeats | map_values) {
+    castle.report_map.clear();
+    for (auto &e : castle.repeats) {
+        u32 top = e.first;
+        auto &repeat = e.second;
         repeat.reports.clear();
         repeat.reports.insert(report);
+        castle.report_map[report].insert(top);
     }
 }
 
@@ -787,7 +792,7 @@ void updateEdgeTops(RoseGraph &g, RoseVertex v, const map<u32, u32> &top_map) {
 static
 void pruneUnusedTops(CastleProto &castle, const RoseGraph &g,
                      const set<RoseVertex> &verts) {
-    ue2::unordered_set<u32> used_tops;
+    unordered_set<u32> used_tops;
     for (auto v : verts) {
         assert(g[v].left.castle.get() == &castle);
 
@@ -818,7 +823,7 @@ void pruneUnusedTops(NGHolder &h, const RoseGraph &g,
     }
     assert(isCorrectlyTopped(h));
     DEBUG_PRINTF("pruning unused tops\n");
-    ue2::flat_set<u32> used_tops;
+    flat_set<u32> used_tops;
     for (auto v : verts) {
         assert(g[v].left.graph.get() == &h);
 
@@ -1415,7 +1420,7 @@ void removeSingletonBuckets(vector<vector<RoseVertex>> &buckets) {
 
 static
 void buildInvBucketMap(const vector<vector<RoseVertex>> &buckets,
-                       ue2::unordered_map<RoseVertex, size_t> &inv) {
+                       unordered_map<RoseVertex, size_t> &inv) {
     inv.clear();
     for (size_t i = 0; i < buckets.size(); i++) {
         for (auto v : buckets[i]) {
@@ -1483,14 +1488,15 @@ void splitByLiteralTable(const RoseBuildImpl &build,
     auto make_split_key = [&](RoseVertex v) {
         const auto &lits = g[v].literals;
         assert(!lits.empty());
-        return build.literals.at(*lits.begin()).table;
+        auto table = build.literals.at(*lits.begin()).table;
+        return std::underlying_type<decltype(table)>::type(table);
     };
     splitAndFilterBuckets(buckets, make_split_key);
 }
 
 static
 void splitByNeighbour(const RoseGraph &g, vector<vector<RoseVertex>> &buckets,
-                      ue2::unordered_map<RoseVertex, size_t> &inv, bool succ) {
+                      unordered_map<RoseVertex, size_t> &inv, bool succ) {
     vector<vector<RoseVertex>> extras;
     map<size_t, vector<RoseVertex>> neighbours_by_bucket;
     set<RoseVertex> picked;
@@ -1575,7 +1581,7 @@ splitDiamondMergeBuckets(CandidateSet &candidates, const RoseBuildImpl &build) {
     }
 
     // Neighbour splits require inverse map.
-    ue2::unordered_map<RoseVertex, size_t> inv;
+    unordered_map<RoseVertex, size_t> inv;
     buildInvBucketMap(buckets, inv);
 
     splitByNeighbour(g, buckets, inv, true);
@@ -2024,6 +2030,306 @@ void aliasRoles(RoseBuildImpl &build, bool mergeRoses) {
     build.removeVertices(dead);
     assert(!hasOrphanedTops(build));
     assert(canImplementGraphs(build));
+}
+
+namespace {
+struct DupeLeafKey {
+    explicit DupeLeafKey(const RoseVertexProps &litv)
+        : literals(litv.literals), reports(litv.reports),
+          eod_accept(litv.eod_accept), suffix(litv.suffix), left(litv.left),
+          som_adjust(litv.som_adjust) {
+        DEBUG_PRINTF("eod_accept %d\n", (int)eod_accept);
+        DEBUG_PRINTF("report %u\n", left.leftfix_report);
+        DEBUG_PRINTF("lag %u\n", left.lag);
+    }
+
+    bool operator<(const DupeLeafKey &b) const {
+        const DupeLeafKey &a = *this;
+        ORDER_CHECK(literals);
+        ORDER_CHECK(eod_accept);
+        ORDER_CHECK(suffix);
+        ORDER_CHECK(reports);
+        ORDER_CHECK(som_adjust);
+        ORDER_CHECK(left.leftfix_report);
+        ORDER_CHECK(left.lag);
+        return false;
+    }
+
+    flat_set<u32> literals;
+    flat_set<ReportID> reports;
+    bool eod_accept;
+    suffix_id suffix;
+    LeftEngInfo left;
+    u32 som_adjust;
+};
+
+struct UncalcLeafKey {
+    UncalcLeafKey(const RoseGraph &g, RoseVertex v)
+        : literals(g[v].literals), rose(g[v].left) {
+        for (const auto &e : in_edges_range(v, g)) {
+            RoseVertex u = source(e, g);
+            preds.insert(make_pair(u, g[e]));
+        }
+    }
+
+    bool operator<(const UncalcLeafKey &b) const {
+        const UncalcLeafKey &a = *this;
+        ORDER_CHECK(literals);
+        ORDER_CHECK(preds);
+        ORDER_CHECK(rose);
+        return false;
+    }
+
+    flat_set<u32> literals;
+    flat_set<pair<RoseVertex, RoseEdgeProps>> preds;
+    LeftEngInfo rose;
+};
+} // namespace
+
+/**
+ * This function merges leaf vertices with the same literals and report
+ * id/suffix. The leaf vertices of the graph are inspected and a mapping of
+ * leaf vertex properties to vertices is built. If the same set of leaf
+ * properties has already been seen when we inspect a vertex, we attempt to
+ * merge the vertex in with the previously seen vertex. This process can fail
+ * if the vertices share a common predecessor vertex but have a differing,
+ * incompatible relationship (different bounds or infix) with the predecessor.
+ *
+ * This takes place after \ref dedupeSuffixes to increase effectiveness as the
+ * same suffix is required for a merge to occur.
+ *
+ * TODO: work if this is a subset of role aliasing (and if it can be eliminated)
+ * or clearly document cases that would not be covered by role aliasing.
+ */
+void mergeDupeLeaves(RoseBuildImpl &build) {
+    map<DupeLeafKey, RoseVertex> leaves;
+    vector<RoseVertex> changed;
+
+    RoseGraph &g = build.g;
+    for (auto v : vertices_range(g)) {
+        if (in_degree(v, g) == 0) {
+            assert(build.isAnyStart(v));
+            continue;
+        }
+
+        DEBUG_PRINTF("inspecting vertex index=%zu in_degree %zu "
+                     "out_degree %zu\n", g[v].index, in_degree(v, g),
+                     out_degree(v, g));
+
+        // Vertex must be a reporting leaf node
+        if (g[v].reports.empty() || !isLeafNode(v, g)) {
+            continue;
+        }
+
+        // At the moment, we ignore all successors of root or anchored_root,
+        // since many parts of our runtime assume that these have in-degree 1.
+        if (build.isRootSuccessor(v)) {
+            continue;
+        }
+
+        DupeLeafKey dupe(g[v]);
+        if (leaves.find(dupe) == leaves.end()) {
+            leaves.insert(make_pair(dupe, v));
+            continue;
+        }
+
+        RoseVertex t = leaves.find(dupe)->second;
+        DEBUG_PRINTF("found two leaf dupe roles, index=%zu,%zu\n", g[v].index,
+                     g[t].index);
+
+        vector<RoseEdge> deadEdges;
+        for (const auto &e : in_edges_range(v, g)) {
+            RoseVertex u = source(e, g);
+            DEBUG_PRINTF("u index=%zu\n", g[u].index);
+            if (RoseEdge et = edge(u, t, g)) {
+                if (g[et].minBound <= g[e].minBound
+                    && g[et].maxBound >= g[e].maxBound) {
+                    DEBUG_PRINTF("remove more constrained edge\n");
+                    deadEdges.push_back(e);
+                }
+            } else {
+                DEBUG_PRINTF("rehome edge: add %zu->%zu\n", g[u].index,
+                             g[t].index);
+                add_edge(u, t, g[e], g);
+                deadEdges.push_back(e);
+            }
+        }
+
+        if (!deadEdges.empty()) {
+            for (auto &e : deadEdges) {
+                remove_edge(e, g);
+            }
+            changed.push_back(v);
+            g[t].min_offset = min(g[t].min_offset, g[v].min_offset);
+            g[t].max_offset = max(g[t].max_offset, g[v].max_offset);
+        }
+    }
+    DEBUG_PRINTF("find loop done\n");
+
+    // Remove any vertices that now have no in-edges.
+    size_t countRemovals = 0;
+    for (size_t i = 0; i < changed.size(); i++) {
+        RoseVertex v = changed[i];
+        if (in_degree(v, g) == 0) {
+            DEBUG_PRINTF("remove vertex\n");
+            if (!build.isVirtualVertex(v)) {
+                for (u32 lit_id : g[v].literals) {
+                    build.literal_info[lit_id].vertices.erase(v);
+                }
+            }
+            remove_vertex(v, g);
+            countRemovals++;
+        }
+    }
+
+    // if we've removed anything, we need to renumber vertices
+    if (countRemovals) {
+        renumber_vertices(g);
+        DEBUG_PRINTF("removed %zu vertices.\n", countRemovals);
+    }
+}
+
+/** Merges the suffixes on the (identical) vertices in \a vcluster, used by
+ * \ref uncalcLeaves. */
+static
+void mergeCluster(RoseGraph &g, const ReportManager &rm,
+                  const vector<RoseVertex> &vcluster,
+                  vector<RoseVertex> &dead, const CompileContext &cc) {
+    if (vcluster.size() <= 1) {
+        return; // No merge to perform.
+    }
+
+    // Note that we batch merges up fairly crudely for performance reasons.
+    vector<RoseVertex>::const_iterator it = vcluster.begin(), it2;
+    while (it != vcluster.end()) {
+        vector<NGHolder *> cluster;
+        map<NGHolder *, RoseVertex> rev;
+
+        for (it2 = it;
+             it2 != vcluster.end() && cluster.size() < MERGE_GROUP_SIZE_MAX;
+             ++it2) {
+            RoseVertex v = *it2;
+            NGHolder *h = g[v].suffix.graph.get();
+            assert(!g[v].suffix.haig); /* should not be here if haig */
+            rev[h] = v;
+            cluster.push_back(h);
+        }
+        it = it2;
+
+        DEBUG_PRINTF("merging cluster %zu\n", cluster.size());
+        auto merged = mergeNfaCluster(cluster, &rm, cc);
+        DEBUG_PRINTF("done\n");
+
+        for (const auto &m : merged) {
+            NGHolder *h_victim = m.first; // mergee
+            NGHolder *h_winner = m.second;
+            RoseVertex victim = rev[h_victim];
+            RoseVertex winner = rev[h_winner];
+
+            LIMIT_TO_AT_MOST(&g[winner].min_offset, g[victim].min_offset);
+            ENSURE_AT_LEAST(&g[winner].max_offset, g[victim].max_offset);
+            insert(&g[winner].reports, g[victim].reports);
+
+            dead.push_back(victim);
+        }
+    }
+}
+
+static
+void findUncalcLeavesCandidates(RoseBuildImpl &build,
+                           map<UncalcLeafKey, vector<RoseVertex> > &clusters,
+                           deque<UncalcLeafKey> &ordered) {
+    const RoseGraph &g = build.g;
+
+    vector<RoseVertex> suffix_vertices; // vertices with suffix graphs
+    unordered_map<const NGHolder *, u32> fcount; // ref count per graph
+
+    for (auto v : vertices_range(g)) {
+        if (g[v].suffix) {
+            if (!g[v].suffix.graph) {
+                continue; /* cannot uncalc (haig/mcclellan); TODO */
+            }
+
+            assert(g[v].suffix.graph->kind == NFA_SUFFIX);
+
+            // Ref count all suffixes, as we don't want to merge a suffix
+            // that happens to be shared with a non-leaf vertex somewhere.
+            DEBUG_PRINTF("vertex %zu has suffix %p\n", g[v].index,
+                         g[v].suffix.graph.get());
+            fcount[g[v].suffix.graph.get()]++;
+
+            // Vertex must be a reporting pseudo accept
+            if (!isLeafNode(v, g)) {
+                continue;
+            }
+
+            suffix_vertices.push_back(v);
+        }
+    }
+
+    for (auto v : suffix_vertices) {
+        if (in_degree(v, g) == 0) {
+            assert(build.isAnyStart(v));
+            continue;
+        }
+
+        const NGHolder *h = g[v].suffix.graph.get();
+        assert(h);
+        DEBUG_PRINTF("suffix %p\n", h);
+
+        // We can't easily merge suffixes shared with other vertices, and
+        // creating a unique copy to do so may just mean we end up tracking
+        // more NFAs. Better to leave shared suffixes alone.
+        if (fcount[h] != 1) {
+            DEBUG_PRINTF("skipping shared suffix\n");
+            continue;
+        }
+
+        UncalcLeafKey key(g, v);
+        vector<RoseVertex> &vec = clusters[key];
+        if (vec.empty()) {
+
+            ordered.push_back(key);
+        }
+        vec.push_back(v);
+    }
+
+    DEBUG_PRINTF("find loop done\n");
+}
+
+/**
+ * This function attempts to combine identical roles (same literals, same
+ * predecessors, etc) with different suffixes into a single role which
+ * activates a larger suffix. The leaf vertices of the graph with a suffix are
+ * grouped into clusters which have members triggered by identical roles. The
+ * \ref mergeNfaCluster function (from ng_uncalc_components) is then utilised
+ * to build a set of larger (and still implementable) suffixes. The graph is
+ * then updated to point to the new suffixes and any unneeded roles are
+ * removed.
+ *
+ * Note: suffixes which are shared amongst multiple roles are not considered
+ * for this pass as the individual suffixes would have to continue to exist for
+ * the other roles to trigger resulting in the transformation not producing any
+ * savings.
+ *
+ * Note: as \ref mergeNfaCluster is slow when the cluster sizes are large,
+ * clusters of more than \ref MERGE_GROUP_SIZE_MAX roles are split into smaller
+ * chunks for processing.
+ */
+void uncalcLeaves(RoseBuildImpl &build) {
+    DEBUG_PRINTF("uncalcing\n");
+
+    map<UncalcLeafKey, vector<RoseVertex> > clusters;
+    deque<UncalcLeafKey> ordered;
+    findUncalcLeavesCandidates(build, clusters, ordered);
+
+    vector<RoseVertex> dead;
+
+    for (const auto &key : ordered) {
+        DEBUG_PRINTF("cluster of size %zu\n", clusters[key].size());
+        mergeCluster(build.g, build.rm, clusters[key], dead, build.cc);
+    }
+    build.removeVertices(dead);
 }
 
 } // namespace ue2

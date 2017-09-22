@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,10 +40,12 @@
 #include "util/bitfield.h"
 #include "util/container.h"
 #include "util/determinise.h"
+#include "util/flat_containers.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
+#include "util/hash_dynamic_bitset.h"
 #include "util/make_unique.h"
-#include "util/ue2_containers.h"
+#include "util/unordered.h"
 
 #include <algorithm>
 #include <functional>
@@ -236,7 +238,7 @@ public:
 
 struct Big_Traits {
     using StateSet = dynamic_bitset<>;
-    using StateMap = map<StateSet, dstate_id_t>;
+    using StateMap = unordered_map<StateSet, dstate_id_t, hash_dynamic_bitset>;
 
     static StateSet init_states(u32 num) {
         return StateSet(num);
@@ -257,7 +259,7 @@ public:
 
 struct Graph_Traits {
     using StateSet = bitfield<NFA_STATE_LIMIT>;
-    using StateMap = ue2::unordered_map<StateSet, dstate_id_t>;
+    using StateMap = unordered_map<StateSet, dstate_id_t>;
 
     static StateSet init_states(UNUSED u32 num) {
         assert(num <= NFA_STATE_LIMIT);
@@ -284,8 +286,8 @@ public:
 
 class Automaton_Haig_Merge {
 public:
-    typedef vector<u16> StateSet;
-    typedef ue2::unordered_map<StateSet, dstate_id_t> StateMap;
+    using StateSet = vector<u16>;
+    using StateMap = ue2_unordered_map<StateSet, dstate_id_t>;
 
     explicit Automaton_Haig_Merge(const vector<const raw_som_dfa *> &in)
         : nfas(in.begin(), in.end()), dead(in.size()) {
@@ -514,11 +516,11 @@ bool doHaig(const NGHolder &g, som_type som,
             raw_som_dfa *rdfa) {
     u32 state_limit = HAIG_FINAL_DFA_STATE_LIMIT; /* haig never backs down from
                                                      a fight */
-    typedef typename Auto::StateSet StateSet;
+    using StateSet = typename Auto::StateSet;
     vector<StateSet> nfa_state_map;
     Auto n(g, som, triggers, unordered_som);
     try {
-        if (determinise(n, rdfa->states, state_limit, &nfa_state_map)) {
+        if (!determinise(n, rdfa->states, state_limit, &nfa_state_map)) {
             DEBUG_PRINTF("state limit exceeded\n");
             return false;
         }
@@ -720,15 +722,14 @@ unique_ptr<raw_som_dfa> attemptToMergeHaig(const vector<const raw_som_dfa *> &df
         }
     }
 
-    typedef Automaton_Haig_Merge::StateSet StateSet;
+    using StateSet = Automaton_Haig_Merge::StateSet;
     vector<StateSet> nfa_state_map;
     auto rdfa = ue2::make_unique<raw_som_dfa>(dfas[0]->kind, unordered_som,
                                               NODE_START,
                                               dfas[0]->stream_som_loc_width);
 
-    int rv = determinise(n, rdfa->states, limit, &nfa_state_map);
-    if (rv) {
-        DEBUG_PRINTF("%d:state limit (%u) exceeded\n", rv, limit);
+    if (!determinise(n, rdfa->states, limit, &nfa_state_map)) {
+        DEBUG_PRINTF("state limit (%u) exceeded\n", limit);
         return nullptr; /* over state limit */
     }
 

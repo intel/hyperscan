@@ -69,7 +69,7 @@
 
 hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                            struct hs_scratch *scratch, u32 programOffset,
-                           u64a som, u64a end, size_t match_len, u8 prog_flags);
+                           u64a som, u64a end, u8 prog_flags);
 
 /* Inline implementation follows. */
 
@@ -1838,8 +1838,7 @@ void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
 static rose_inline
 hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                              struct hs_scratch *scratch, u32 programOffset,
-                             u64a som, u64a end, UNUSED size_t match_len,
-                             u8 prog_flags) {
+                             u64a som, u64a end, u8 prog_flags) {
     DEBUG_PRINTF("program=%u, offsets [%llu,%llu], flags=%u\n", programOffset,
                  som, end, prog_flags);
 
@@ -2567,6 +2566,24 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                     DEBUG_PRINTF("failed multi-path shufti 64 check\n");
                     assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
+                    continue;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(INCLUDED_JUMP) {
+                if (scratch->fdr_conf) {
+                    // squash the bucket of included literal
+                    u8 shift = scratch->fdr_conf_offset & ~7U;
+                    u64a mask = ((~(u64a)ri->squash) << shift);
+                    *(scratch->fdr_conf) &= mask;
+
+                    pc = getByOffset(t, ri->child_offset);
+                    pc_base = pc;
+                    programOffset = (const u8 *)pc_base -(const u8 *)t;
+                    DEBUG_PRINTF("pc_base %p pc %p child_offset %u squash %u\n",
+                                 pc_base, pc, ri->child_offset, ri->squash);
+                    work_done = 0;
                     continue;
                 }
             }

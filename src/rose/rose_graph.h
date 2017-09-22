@@ -43,7 +43,7 @@
 #include "nfa/nfa_internal.h" // for MO_INVALID_IDX
 #include "util/charreach.h"
 #include "util/depth.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/ue2_graph.h"
 
 #include <memory>
@@ -111,6 +111,7 @@ struct LeftEngInfo {
         ORDER_CHECK(leftfix_report);
         return false;
     }
+    size_t hash() const;
     void reset(void);
     operator bool() const;
     bool tracksSom() const { return !!haig; }
@@ -131,6 +132,7 @@ struct RoseSuffixInfo {
     bool operator==(const RoseSuffixInfo &b) const;
     bool operator!=(const RoseSuffixInfo &b) const { return !(*this == b); }
     bool operator<(const RoseSuffixInfo &b) const;
+    size_t hash() const;
     void reset(void);
     operator bool() const { return graph || castle || haig || rdfa || tamarama; }
 };

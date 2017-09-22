@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -910,12 +910,13 @@ TEST(ReverseShufti, ExecNoMatch1) {
     int ret = shuftiBuildMasks(chars, (u8 *)&lo, (u8 *)&hi);
     ASSERT_NE(-1, ret);
 
-    char t1[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    char t[] = " bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    char *t1 = t + 1;
     size_t len = strlen(t1);
 
     for (size_t i = 0; i < 16; i++) {
         const u8 *rv = rshuftiExec(lo, hi, (u8 *)t1, (u8 *)t1 + len - i);
-        ASSERT_EQ((const u8 *)(t1 - 1), rv);
+        ASSERT_EQ((const u8 *)t, rv);
     }
 }
 
@@ -929,12 +930,13 @@ TEST(ReverseShufti, ExecNoMatch2) {
     int ret = shuftiBuildMasks(chars, (u8 *)&lo, (u8 *)&hi);
     ASSERT_NE(-1, ret);
 
-    char t1[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    char t[] = " bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    char *t1 = t + 1;
     size_t len = strlen(t1);
 
     for (size_t i = 0; i < 16; i++) {
         const u8 *rv = rshuftiExec(lo, hi, (u8 *)t1, (u8 *)t1 + len - i);
-        ASSERT_EQ((const u8 *)(t1 - 1), rv);
+        ASSERT_EQ((const u8 *)t, rv);
     }
 }
 
@@ -947,12 +949,13 @@ TEST(ReverseShufti, ExecNoMatch3) {
     int ret = shuftiBuildMasks(chars, (u8 *)&lo, (u8 *)&hi);
     ASSERT_NE(-1, ret);
 
-    char t1[] = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    char t[] = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    char *t1 = t + 1;
     size_t len = strlen(t1);
 
     for (size_t i = 0; i < 16; i++) {
         const u8 *rv = rshuftiExec(lo, hi, (u8 *)t1, (u8 *)t1 + len - i);
-        ASSERT_EQ((const u8 *)(t1 - 1), rv);
+        ASSERT_EQ((const u8 *)t, rv);
     }
 }
 

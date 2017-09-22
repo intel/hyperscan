@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,7 +38,7 @@
 #include "nfagraph/ng_holder.h"
 #include "util/charreach.h"
 #include "util/graph_range.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 
 #include <boost/dynamic_bitset.hpp>
 

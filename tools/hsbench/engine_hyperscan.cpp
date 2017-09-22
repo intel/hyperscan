@@ -205,6 +205,35 @@ void EngineHyperscan::streamScan(EngineStream &stream, const char *data,
     }
 }
 
+void EngineHyperscan::streamCompressExpand(EngineStream &stream,
+                                           vector<char> &temp) const {
+    size_t used = 0;
+    hs_error_t err = hs_compress_stream(stream.id, temp.data(), temp.size(),
+                                        &used);
+    if (err == HS_INSUFFICIENT_SPACE) {
+        temp.resize(used);
+        err = hs_compress_stream(stream.id, temp.data(), temp.size(), &used);
+    }
+
+    if (err != HS_SUCCESS) {
+        printf("Fatal error: hs_compress_stream returned error %d\n", err);
+        abort();
+    }
+
+    if (printCompressSize) {
+        printf("stream %u: compressed to %zu\n", stream.sn, used);
+    }
+
+    err = hs_reset_and_expand_stream(stream.id, temp.data(), temp.size(),
+                                     nullptr, nullptr, nullptr);
+
+    if (err != HS_SUCCESS) {
+        printf("Fatal error: hs_reset_and expand_stream returned error %d\n",
+               err);
+        abort();
+    }
+}
+
 static
 unsigned makeModeFlags(ScanMode scan_mode) {
     switch (scan_mode) {

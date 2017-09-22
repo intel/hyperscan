@@ -58,8 +58,9 @@
 #include <queue>
 #include <set>
 #include <string>
-#include <vector>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include <boost/range/adaptor/map.hpp>
 
@@ -84,7 +85,7 @@ size_t suffixFloodLen(const ue2_literal &s) {
 
     const ue2_literal::elem &c = s.back();
     auto it = find_if(s.rbegin(), s.rend(),
-                      bind2nd(not_equal_to<ue2_literal::elem>(), c));
+                      [&c](const ue2_literal::elem &e) { return e != c; });
     return distance(s.rbegin(), it);
 }
 
@@ -561,7 +562,7 @@ bool handleMixedPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
     DEBUG_PRINTF("woot?\n");
 
     shared_ptr<NGHolder> h_new = make_shared<NGHolder>();
-    ue2::unordered_map<NFAVertex, NFAVertex> rhs_map;
+    unordered_map<NFAVertex, NFAVertex> rhs_map;
     vector<NFAVertex> exits_vec;
     insert(&exits_vec, exits_vec.end(), exits);
     splitRHS(h, exits_vec, h_new.get(), &rhs_map);

@@ -27,7 +27,7 @@
  */
 
 /** \file
- * \brief Tamarama: container engine for exclusve engines, dump code.
+ * \brief Tamarama: container engine for exclusive engines, dump code.
  */
 
 #include "config.h"
@@ -54,7 +54,7 @@ namespace ue2 {
 void nfaExecTamarama_dump(const struct NFA *nfa, const string &base) {
     const Tamarama *t = (const Tamarama *)getImplNfa(nfa);
 
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+    StdioFile f(base + ".txt", "w");
 
     fprintf(f, "Tamarama container engine\n");
     fprintf(f, "\n");
@@ -63,7 +63,6 @@ void nfaExecTamarama_dump(const struct NFA *nfa, const string &base) {
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
     fprintf(f, "\n");
-    fclose(f);
 
     const u32 *subOffset =
         (const u32 *)((const char *)t + sizeof(struct Tamarama) +

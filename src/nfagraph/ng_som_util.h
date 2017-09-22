@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,9 +35,9 @@
 
 #include "ng_util.h"
 #include "util/depth.h"
-#include "util/ue2_containers.h"
 
 #include <map>
+#include <unordered_map>
 #include <vector>
 
 namespace ue2 {
@@ -61,7 +61,7 @@ struct smgb_cache : public mbsb_cache {
 };
 
 bool somMayGoBackwards(NFAVertex u, const NGHolder &g,
-                       const ue2::unordered_map<NFAVertex, u32> &region_map,
+                       const std::unordered_map<NFAVertex, u32> &region_map,
                        smgb_cache &cache);
 
 /**
@@ -75,7 +75,7 @@ bool somMayGoBackwards(NFAVertex u, const NGHolder &g,
  *   region ID associated with a tail state that is still on.
  */
 bool sentClearsTail(const NGHolder &g,
-                    const ue2::unordered_map<NFAVertex, u32> &region_map,
+                    const std::unordered_map<NFAVertex, u32> &region_map,
                     const NGHolder &sent, u32 last_head_region,
                     u32 *bad_region);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,6 +34,7 @@
 #include "hs_runtime.h"
 
 #include <memory>
+#include <vector>
 
 /** Structure for the result of a single complete scan. */
 struct ResultEntry {
@@ -78,6 +79,9 @@ public:
 
     void streamClose(std::unique_ptr<EngineStream> stream,
                      ResultEntry &result) const;
+
+    void streamCompressExpand(EngineStream &stream,
+                              std::vector<char> &temp) const;
 
     void streamScan(EngineStream &stream, const char *data, unsigned int len,
                     unsigned int id, ResultEntry &result) const;

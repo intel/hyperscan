@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,13 +51,12 @@ static really_inline
 int roseNfaRunProgram(const struct RoseEngine *rose, struct hs_scratch *scratch,
                       u64a som, u64a offset, ReportID id, const char from_mpv) {
     const u32 program = id;
-    const size_t match_len = 0; // Unused in this path.
     u8 flags = ROSE_PROG_FLAG_IN_CATCHUP;
     if (from_mpv) {
         flags |= ROSE_PROG_FLAG_FROM_MPV;
     }
 
-    roseRunProgram(rose, scratch, program, som, offset, match_len, flags);
+    roseRunProgram(rose, scratch, program, som, offset, flags);
 
     return can_stop_matching(scratch) ? MO_HALT_MATCHING : MO_CONTINUE_MATCHING;
 }

@@ -48,6 +48,7 @@
 #include "util/compile_context.h"
 #include "util/container.h"
 #include "util/dump_charclass.h"
+#include "util/dump_util.h"
 #include "util/graph_range.h"
 #include "util/multibit.h"
 #include "util/multibit_build.h"
@@ -681,10 +682,17 @@ vector<u32> sparseIterValues(const mmbit_sparse_iter *it, u32 num_bits) {
         return keys;
     }
 
-    vector<u8> bits(mmbit_size(num_bits), u8{0xff}); // All bits on.
-    vector<mmbit_sparse_state> state(MAX_SPARSE_ITER_STATES);
-
+    // Populate a multibit structure with all-ones. Note that the multibit
+    // runtime assumes that it is always safe to read 8 bytes, so we must
+    // over-allocate for smaller sizes.
+    const size_t num_bytes = mmbit_size(num_bits);
+    vector<u8> bits(max(size_t{8}, num_bytes), u8{0xff}); // All bits on.
     const u8 *b = bits.data();
+    if (num_bytes < 8) {
+        b += 8 - num_bytes;
+    }
+
+    vector<mmbit_sparse_state> state(MAX_SPARSE_ITER_STATES);
     mmbit_sparse_state *s = state.data();
 
     u32 idx = 0;
@@ -1455,6 +1463,12 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(INCLUDED_JUMP) {
+                os << "    child_offset " << ri->child_offset << endl;
+                os << "    squash " << (u32)ri->squash << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
         default:
             os << "  UNKNOWN (code " << int{code} << ")" << endl;
             os << "  <stopping>" << endl;
@@ -1672,13 +1686,12 @@ void dumpComponentInfo(const RoseEngine *t, const string &base) {
     }
 }
 
-
 static
 void dumpComponentInfoCsv(const RoseEngine *t, const string &base) {
-    FILE *f = fopen((base +"rose_components.csv").c_str(), "w");
+    StdioFile f(base + "/rose_components.csv", "w");
 
-    fprintf(f, "Index, Offset,Engine Type,States,Stream State,Bytecode Size,"
-            "Kind,Notes\n");
+    fprintf(f, "Index, Offset,Engine Type,States,Stream State,"
+               "Bytecode Size,Kind,Notes\n");
 
     for (u32 i = 0; i < t->queueCount; i++) {
         const NfaInfo *nfa_info = getNfaInfoByQueue(t, i);
@@ -1738,14 +1751,11 @@ void dumpComponentInfoCsv(const RoseEngine *t, const string &base) {
                 n->nPositions, n->streamStateSize, n->length,
                 to_string(kind).c_str(), notes.str().c_str());
     }
-    fclose(f);
 }
 
 static
 void dumpExhaust(const RoseEngine *t, const string &base) {
-    stringstream sstxt;
-    sstxt << base << "rose_exhaust.txt";
-    FILE *f = fopen(sstxt.str().c_str(), "w");
+    StdioFile f(base + "/rose_exhaust.csv", "w");
 
     const NfaInfo *infos
         = (const NfaInfo *)((const char *)t + t->nfaInfoOffset);
@@ -1771,8 +1781,6 @@ void dumpExhaust(const RoseEngine *t, const string &base) {
 
         fprintf(f, "\n");
     }
-
-    fclose(f);
 }
 
 static
@@ -1790,9 +1798,8 @@ void dumpNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         if (dump_raw) {
             stringstream ssraw;
             ssraw << base << "rose_nfa_" << i << ".raw";
-            FILE *f = fopen(ssraw.str().c_str(), "w");
+            StdioFile f(ssraw.str(), "w");
             fwrite(n, 1, n->length, f);
-            fclose(f);
         }
     }
 }
@@ -1840,9 +1847,8 @@ void dumpRevNfas(const RoseEngine *t, bool dump_raw, const string &base) {
         if (dump_raw) {
             stringstream ssraw;
             ssraw << base << "som_rev_nfa_" << i << ".raw";
-            FILE *f = fopen(ssraw.str().c_str(), "w");
+            StdioFile f(ssraw.str(), "w");
             fwrite(n, 1, n->length, f);
-            fclose(f);
         }
     }
 }
@@ -2020,15 +2026,17 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
 
     fprintf(f, "state space required : %u bytes\n", t->stateOffsets.end);
     fprintf(f, " - history buffer    : %u bytes\n", t->historyRequired);
-    fprintf(f, " - exhaustion vector : %u bytes\n", (t->ekeyCount + 7) / 8);
+    fprintf(f, " - exhaustion vector : %u bytes\n",
+            t->stateOffsets.exhausted_size);
     fprintf(f, " - role state mmbit  : %u bytes\n", t->stateSize);
     fprintf(f, " - long lit matcher  : %u bytes\n", t->longLitStreamState);
     fprintf(f, " - active array      : %u bytes\n",
-            mmbit_size(t->activeArrayCount));
+            t->stateOffsets.activeLeafArray_size);
     fprintf(f, " - active rose       : %u bytes\n",
-            mmbit_size(t->activeLeftCount));
+            t->stateOffsets.activeLeftArray_size);
     fprintf(f, " - anchored state    : %u bytes\n", t->anchorStateSize);
-    fprintf(f, " - nfa state         : %u bytes\n", t->nfaStateSize);
+    fprintf(f, " - nfa state         : %u bytes\n",
+            t->stateOffsets.end - t->stateOffsets.nfaStateBegin);
     fprintf(f, " - (trans. nfa state): %u bytes\n", t->tStateSize);
     fprintf(f, " - one whole bytes   : %u bytes\n",
             t->stateOffsets.anchorState - t->stateOffsets.leftfixLagTable);
@@ -2058,26 +2066,6 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     if (atable) {
         fprintf(f, "\nAnchored literal matcher stats:\n\n");
         dumpAnchoredStats(atable, f);
-    }
-
-    if (ftable) {
-        fprintf(f, "\nFloating literal matcher stats:\n\n");
-        hwlmPrintStats(ftable, f);
-    }
-
-    if (drtable) {
-        fprintf(f, "\nDelay Rebuild literal matcher stats:\n\n");
-        hwlmPrintStats(drtable, f);
-    }
-
-    if (etable) {
-        fprintf(f, "\nEOD-anchored literal matcher stats:\n\n");
-        hwlmPrintStats(etable, f);
-    }
-
-    if (sbtable) {
-        fprintf(f, "\nSmall-block literal matcher stats:\n\n");
-        hwlmPrintStats(sbtable, f);
     }
 
     dumpLongLiteralTable(t, f);
@@ -2112,7 +2100,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, rolesWithStateCount);
     DUMP_U32(t, stateSize);
     DUMP_U32(t, anchorStateSize);
-    DUMP_U32(t, nfaStateSize);
     DUMP_U32(t, tStateSize);
     DUMP_U32(t, smallWriteOffset);
     DUMP_U32(t, amatcherOffset);
@@ -2162,7 +2149,9 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, delayRebuildLength);
     DUMP_U32(t, stateOffsets.history);
     DUMP_U32(t, stateOffsets.exhausted);
+    DUMP_U32(t, stateOffsets.exhausted_size);
     DUMP_U32(t, stateOffsets.activeLeafArray);
+    DUMP_U32(t, stateOffsets.activeLeafArray_size);
     DUMP_U32(t, stateOffsets.activeLeftArray);
     DUMP_U32(t, stateOffsets.activeLeftArray_size);
     DUMP_U32(t, stateOffsets.leftfixLagTable);
@@ -2170,9 +2159,12 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, stateOffsets.groups);
     DUMP_U32(t, stateOffsets.groups_size);
     DUMP_U32(t, stateOffsets.longLitState);
+    DUMP_U32(t, stateOffsets.longLitState_size);
     DUMP_U32(t, stateOffsets.somLocation);
     DUMP_U32(t, stateOffsets.somValid);
     DUMP_U32(t, stateOffsets.somWritable);
+    DUMP_U32(t, stateOffsets.somMultibit_size);
+    DUMP_U32(t, stateOffsets.nfaStateBegin);
     DUMP_U32(t, stateOffsets.end);
     DUMP_U32(t, boundary.reportEodOffset);
     DUMP_U32(t, boundary.reportZeroOffset);
@@ -2188,7 +2180,6 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, ematcherRegionSize);
     DUMP_U32(t, somRevCount);
     DUMP_U32(t, somRevOffsetOffset);
-    DUMP_U32(t, longLitStreamState);
     fprintf(f, "}\n");
     fprintf(f, "sizeof(RoseEngine) = %zu\n", sizeof(RoseEngine));
 }
@@ -2214,6 +2205,25 @@ void roseDumpPrograms(const vector<LitFragment> &fragments, const RoseEngine *t,
     dumpRoseDelayPrograms(t, base + "/rose_delay_programs.txt");
 }
 
+static
+void roseDumpLiteralMatchers(const RoseEngine *t, const string &base) {
+    if (const HWLM *hwlm = getFloatingMatcher(t)) {
+        hwlmGenerateDumpFiles(hwlm, base + "/lit_table_floating");
+    }
+
+    if (const HWLM *hwlm = getDelayRebuildMatcher(t)) {
+        hwlmGenerateDumpFiles(hwlm, base + "/lit_table_delay_rebuild");
+    }
+
+    if (const HWLM *hwlm = getEodMatcher(t)) {
+        hwlmGenerateDumpFiles(hwlm, base + "/lit_table_eod");
+    }
+
+    if (const HWLM *hwlm = getSmallBlockMatcher(t)) {
+        hwlmGenerateDumpFiles(hwlm, base + "/lit_table_small_block");
+    }
+}
+
 void dumpRose(const RoseBuildImpl &build, const vector<LitFragment> &fragments,
               const map<left_id, u32> &leftfix_queue_map,
               const map<suffix_id, u32> &suffix_queue_map,
@@ -2224,24 +2234,19 @@ void dumpRose(const RoseBuildImpl &build, const vector<LitFragment> &fragments,
         return;
     }
 
-    stringstream ss;
-    ss << grey.dumpPath << "rose.txt";
-
-    FILE *f = fopen(ss.str().c_str(), "w");
+    StdioFile f(grey.dumpPath + "/rose.txt", "w");
 
     if (!t) {
         fprintf(f, "<< no rose >>\n");
-        fclose(f);
         return;
     }
 
     // Dump Rose table info
     roseDumpText(t, f);
 
-    fclose(f);
-
     roseDumpComponents(t, false, grey.dumpPath);
     roseDumpPrograms(fragments, t, grey.dumpPath);
+    roseDumpLiteralMatchers(t, grey.dumpPath);
 
     // Graph.
     dumpRoseGraph(build, t, fragments, leftfix_queue_map, suffix_queue_map,
@@ -2250,9 +2255,8 @@ void dumpRose(const RoseBuildImpl &build, const vector<LitFragment> &fragments,
     // Literals
     dumpRoseLiterals(build, fragments, grey);
 
-    f = fopen((grey.dumpPath + "/rose_struct.txt").c_str(), "w");
+    f = StdioFile(grey.dumpPath + "/rose_struct.txt", "w");
     roseDumpStructRaw(t, f);
-    fclose(f);
 }
 
 } // namespace ue2

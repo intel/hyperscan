@@ -94,7 +94,7 @@ const u8 * floodDetect(const struct FDR * fdr,
     const u8 * buf = a->buf;
     const size_t len = a->len;
     HWLMCallback cb = a->cb;
-    void * ctxt = a->ctxt;
+    struct hs_scratch *scratch = a->scratch;
 
     const u8 * ptr = *ptrPtr;
     // tryFloodDetect is never put in places where unconditional
@@ -196,120 +196,110 @@ const u8 * floodDetect(const struct FDR * fdr,
                 for (u32 t = 0; t < floodSize && (*control & fl->allGroups);
                      t += 4) {
                     DEBUG_PRINTF("aaa %u %llx\n", t, fl->groups[0]);
-                    u32 len0 = fl->len[0] - 1;
                     if (*control & fl->groups[0]) {
-                        *control = cb(i + t + 0 - len0, i + t + 0, fl->ids[0], ctxt);
+                        *control = cb(i + t + 0, fl->ids[0], scratch);
                     }
                     if (*control & fl->groups[0]) {
-                        *control = cb(i + t + 1 - len0, i + t + 1, fl->ids[0], ctxt);
+                        *control = cb(i + t + 1, fl->ids[0], scratch);
                     }
                     if (*control & fl->groups[0]) {
-                        *control = cb(i + t + 2 - len0, i + t + 2, fl->ids[0], ctxt);
+                        *control = cb(i + t + 2, fl->ids[0], scratch);
                     }
                     if (*control & fl->groups[0]) {
-                        *control = cb(i + t + 3 - len0, i + t + 3, fl->ids[0], ctxt);
+                        *control = cb(i + t + 3, fl->ids[0], scratch);
                     }
                 }
                 break;
             case 2:
                 for (u32 t = 0; t < floodSize && (*control & fl->allGroups); t += 4) {
-                    u32 len0 = fl->len[0] - 1;
-                    u32 len1 = fl->len[1] - 1;
                     if (*control & fl->groups[0]) {
-                        *control = cb(i + t - len0, i + t, fl->ids[0], ctxt);
+                        *control = cb(i + t, fl->ids[0], scratch);
                     }
                     if (*control & fl->groups[1]) {
-                        *control = cb(i + t - len1, i + t, fl->ids[1], ctxt);
+                        *control = cb(i + t, fl->ids[1], scratch);
                     }
                     if (*control & fl->groups[0]) {
                         *control =
-                            cb(i + t + 1 - len0, i + t + 1, fl->ids[0], ctxt);
+                            cb(i + t + 1, fl->ids[0], scratch);
                     }
                     if (*control & fl->groups[1]) {
-                        *control = cb(i + t + 1 - len1, i + t + 1, fl->ids[1], ctxt);
+                        *control = cb(i + t + 1, fl->ids[1], scratch);
                     }
                     if (*control & fl->groups[0]) {
-                        *control = cb(i + t + 2 - len0, i + t + 2, fl->ids[0], ctxt);
+                        *control = cb(i + t + 2, fl->ids[0], scratch);
                     }
                     if (*control & fl->groups[1]) {
-                        *control = cb(i + t + 2 - len1, i + t + 2, fl->ids[1], ctxt);
+                        *control = cb(i + t + 2, fl->ids[1], scratch);
                     }
                     if (*control & fl->groups[0]) {
-                        *control = cb(i + t + 3 - len0, i + t + 3, fl->ids[0], ctxt);
+                        *control = cb(i + t + 3, fl->ids[0], scratch);
                     }
                     if (*control & fl->groups[1]) {
-                        *control = cb(i + t + 3 - len1, i + t + 3, fl->ids[1], ctxt);
+                        *control = cb(i + t + 3, fl->ids[1], scratch);
                     }
                 }
                 break;
             case 3:
                 for (u32 t = 0; t < floodSize && (*control & fl->allGroups); t += 2) {
-                    u32 len0 = fl->len[0] - 1;
-                    u32 len1 = fl->len[1] - 1;
-                    u32 len2 = fl->len[2] - 1;
                     if (*control & fl->groups[0]) {
-                        *control = cb(i + t - len0, i + t, fl->ids[0], ctxt);
+                        *control = cb(i + t, fl->ids[0], scratch);
                     }
                     if (*control & fl->groups[1]) {
-                        *control = cb(i + t - len1, i + t, fl->ids[1], ctxt);
+                        *control = cb(i + t, fl->ids[1], scratch);
                     }
                     if (*control & fl->groups[2]) {
-                        *control = cb(i + t - len2, i + t, fl->ids[2], ctxt);
+                        *control = cb(i + t, fl->ids[2], scratch);
                     }
                     if (*control & fl->groups[0]) {
-                        *control = cb(i + t + 1 - len0, i + t + 1, fl->ids[0], ctxt);
+                        *control = cb(i + t + 1, fl->ids[0], scratch);
                     }
                     if (*control & fl->groups[1]) {
-                        *control = cb(i + t + 1 - len1, i + t + 1, fl->ids[1], ctxt);
+                        *control = cb(i + t + 1, fl->ids[1], scratch);
                     }
                     if (*control & fl->groups[2]) {
-                        *control = cb(i + t + 1 - len2, i + t + 1, fl->ids[2], ctxt);
+                        *control = cb(i + t + 1, fl->ids[2], scratch);
                     }
                 }
                 break;
             default:
                 // slow generalized loop
                 for (u32 t = 0; t < floodSize && (*control & fl->allGroups); t += 2) {
-                    u32 len0 = fl->len[0] - 1;
-                    u32 len1 = fl->len[1] - 1;
-                    u32 len2 = fl->len[2] - 1;
-                    u32 len3 = fl->len[3] - 1;
 
                     if (*control & fl->groups[0]) {
-                        *control = cb(i + t - len0, i + t, fl->ids[0], ctxt);
+                        *control = cb(i + t, fl->ids[0], scratch);
                     }
                     if (*control & fl->groups[1]) {
-                        *control = cb(i + t - len1, i + t, fl->ids[1], ctxt);
+                        *control = cb(i + t, fl->ids[1], scratch);
                     }
                     if (*control & fl->groups[2]) {
-                        *control = cb(i + t - len2, i + t, fl->ids[2], ctxt);
+                        *control = cb(i + t, fl->ids[2], scratch);
                     }
                     if (*control & fl->groups[3]) {
-                        *control = cb(i + t - len3, i + t, fl->ids[3], ctxt);
+                        *control = cb(i + t, fl->ids[3], scratch);
                     }
 
                     for (u32 t2 = 4; t2 < fl->idCount; t2++) {
                         if (*control & fl->groups[t2]) {
-                            *control = cb(i + t - (fl->len[t2] - 1), i + t, fl->ids[t2], ctxt);
+                            *control = cb(i + t, fl->ids[t2], scratch);
                         }
                     }
 
                     if (*control & fl->groups[0]) {
-                        *control = cb(i + t + 1 - len0, i + t + 1, fl->ids[0], ctxt);
+                        *control = cb(i + t + 1, fl->ids[0], scratch);
                     }
                     if (*control & fl->groups[1]) {
-                        *control = cb(i + t + 1 - len1, i + t + 1, fl->ids[1], ctxt);
+                        *control = cb(i + t + 1, fl->ids[1], scratch);
                     }
                     if (*control & fl->groups[2]) {
-                        *control = cb(i + t + 1 - len2, i + t + 1, fl->ids[2], ctxt);
+                        *control = cb(i + t + 1, fl->ids[2], scratch);
                     }
                     if (*control & fl->groups[3]) {
-                        *control = cb(i + t + 1 - len3, i + t + 1, fl->ids[3], ctxt);
+                        *control = cb(i + t + 1, fl->ids[3], scratch);
                     }
 
                     for (u32 t2 = 4; t2 < fl->idCount; t2++) {
                         if (*control & fl->groups[t2]) {
-                            *control = cb(i + t + 1 - (fl->len[t2] - 1), i + t + 1, fl->ids[t2], ctxt);
+                            *control = cb(i + t + 1, fl->ids[t2], scratch);
                         }
                     }
                 }
@@ -320,7 +310,7 @@ const u8 * floodDetect(const struct FDR * fdr,
                 for (u32 t = 0; t < floodSize && (*control & fl->allGroups); t++) {
                     for (u32 t2 = 0; t2 < fl->idCount; t2++) {
                         if (*control & fl->groups[t2]) {
-                            *control = cb(i + t - (fl->len[t2] - 1), i + t, fl->ids[t2], ctxt);
+                            *control = cb(i + t, fl->ids[t2], scratch);
                         }
                     }
                 }

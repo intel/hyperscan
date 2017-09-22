@@ -170,6 +170,12 @@ struct NfaInfo {
 #define OWB_ZOMBIE_ALWAYS_YES 128 /* nfa will always answer yes to any rose
                                    * prefix checks */
 
+/* offset of the status flags in the stream state. */
+#define ROSE_STATE_OFFSET_STATUS_FLAGS 0
+
+/* offset of role mmbit in stream state (just after the status flag byte). */
+#define ROSE_STATE_OFFSET_ROLE_MMBIT   sizeof(u8)
+
 /**
  * \brief Rose state offsets.
  *
@@ -184,24 +190,28 @@ struct NfaInfo {
 struct RoseStateOffsets {
     /** History buffer.
      *
-     * First byte is an 8-bit count of the number of valid history bytes
-     * available, followed by the history itself. Max size of history is
-     * RoseEngine::historyRequired. */
+     * Max size of history is RoseEngine::historyRequired. */
     u32 history;
 
-    /** Exhausted bitvector.
+    /** Exhausted multibit.
      *
-     * 1 bit per exhaustible key (used by Highlander mode). If a bit is set,
+     * entry per exhaustible key (used by Highlander mode). If a bit is set,
      * reports with that ekey should not be delivered to the user. */
     u32 exhausted;
+
+    /** size of exhausted multibit */
+    u32 exhausted_size;
 
     /** Multibit for active suffix/outfix engines. */
     u32 activeLeafArray;
 
-    /** Multibit for active Rose (prefix/infix) engines. */
+    /** Size of multibit for active suffix/outfix engines in bytes. */
+    u32 activeLeafArray_size;
+
+    /** Multibit for active leftfix (prefix/infix) engines. */
     u32 activeLeftArray;
 
-    /** Size of the active Rose array multibit, in bytes. */
+    /** Size of multibit for active leftfix (prefix/infix) engines in bytes. */
     u32 activeLeftArray_size;
 
     /** Table of lag information (stored as one byte per engine) for active
@@ -220,6 +230,9 @@ struct RoseStateOffsets {
     /** State for long literal support. */
     u32 longLitState;
 
+    /** Size of the long literal state. */
+    u32 longLitState_size;
+
     /** Packed SOM location slots. */
     u32 somLocation;
 
@@ -228,6 +241,13 @@ struct RoseStateOffsets {
 
     /** Multibit guarding SOM location slots. */
     u32 somWritable;
+
+    /** Size of each of the somValid and somWritable multibits, in bytes. */
+    u32 somMultibit_size;
+
+    /** Begin of the region where NFA engine state is stored.
+     * The NFA state region extends to end. */
+    u32 nfaStateBegin;
 
     /** Total size of Rose state, in bytes. */
     u32 end;
@@ -317,7 +337,6 @@ struct RoseEngine {
     u32 stateSize; /* size of the state bitset
                     * WARNING: not the size of the rose state */
     u32 anchorStateSize; /* size of the state for the anchor dfas */
-    u32 nfaStateSize; /* total size of the state for the mask/rose nfas */
     u32 tStateSize; /* total size of the state for transient rose nfas */
     u32 scratchStateSize; /**< uncompressed state req'd for NFAs in scratch;
                            * used for sizing scratch only. */

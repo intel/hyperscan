@@ -66,9 +66,6 @@ constructLBR(const CastleProto &proto,
              const std::vector<std::vector<CharReach>> &triggers,
              const CompileContext &cc, const ReportManager &rm);
 
-/** \brief True if graph \p g could be turned into an LBR engine. */
-bool isLBR(const NGHolder &g, const Grey &grey);
-
 } // namespace ue2
 
 #endif // NG_LBR_H

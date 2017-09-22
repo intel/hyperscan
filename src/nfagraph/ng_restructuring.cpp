@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -131,9 +131,9 @@ void getStateOrdering(NGHolder &g, const flat_set<NFAVertex> &tops,
 
 // Returns the number of states.
 static
-ue2::unordered_map<NFAVertex, u32>
+unordered_map<NFAVertex, u32>
 getStateIndices(const NGHolder &h, const vector<NFAVertex> &ordering) {
-    ue2::unordered_map<NFAVertex, u32> states;
+    unordered_map<NFAVertex, u32> states;
     for (const auto &v : vertices_range(h)) {
         states[v] = NO_STATE;
     }

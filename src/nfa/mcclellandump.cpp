@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -442,22 +442,14 @@ void nfaExecMcClellan8_dumpText(const NFA *nfa, FILE *f) {
 
 void nfaExecMcClellan16_dump(const NFA *nfa, const string &base) {
     assert(nfa->type == MCCLELLAN_NFA_16);
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
-    nfaExecMcClellan16_dumpText(nfa, f);
-    fclose(f);
-    f = fopen_or_throw((base + ".dot").c_str(), "w");
-    nfaExecMcClellan16_dumpDot(nfa, f);
-    fclose(f);
+    nfaExecMcClellan16_dumpText(nfa, StdioFile(base + ".txt", "w"));
+    nfaExecMcClellan16_dumpDot(nfa, StdioFile(base + ".dot", "w"));
 }
 
 void nfaExecMcClellan8_dump(const NFA *nfa, const string &base) {
     assert(nfa->type == MCCLELLAN_NFA_8);
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
-    nfaExecMcClellan8_dumpText(nfa, f);
-    fclose(f);
-    f = fopen_or_throw((base + ".dot").c_str(), "w");
-    nfaExecMcClellan8_dumpDot(nfa, f);
-    fclose(f);
+    nfaExecMcClellan8_dumpText(nfa, StdioFile(base + ".txt", "w"));
+    nfaExecMcClellan8_dumpDot(nfa, StdioFile(base + ".dot", "w"));
 }
 
 } // namespace ue2

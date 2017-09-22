@@ -41,17 +41,18 @@
 #include "ue2common.h"
 #include "util/bitfield.h"
 #include "util/determinise.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
 #include "util/hash.h"
 #include "util/hash_dynamic_bitset.h"
 #include "util/make_unique.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
 
 #include <algorithm>
 #include <functional>
 #include <map>
 #include <set>
+#include <unordered_map>
 #include <vector>
 
 #include <boost/dynamic_bitset.hpp>
@@ -283,10 +284,8 @@ static
 bool triggerAllowed(const NGHolder &g, const NFAVertex v,
                     const vector<vector<CharReach> > &all_triggers,
                     const vector<CharReach> &trigger) {
-    set<NFAVertex> curr;
-    set<NFAVertex> next;
-
-    curr.insert(v);
+    flat_set<NFAVertex> curr({v});
+    flat_set<NFAVertex> next;
 
     for (auto it = trigger.rbegin(); it != trigger.rend(); ++it) {
         next.clear();
@@ -433,6 +432,7 @@ public:
         }
         return allExternalReports(*rm, test_reports);
     }
+
 private:
     const ReportManager *rm;
 public:
@@ -484,7 +484,7 @@ public:
 
 struct Graph_Traits {
     using StateSet = bitfield<NFA_STATE_LIMIT>;
-    using StateMap = ue2::unordered_map<StateSet, dstate_id_t>;
+    using StateMap = unordered_map<StateSet, dstate_id_t>;
 
     static StateSet init_states(UNUSED u32 num) {
         assert(num <= NFA_STATE_LIMIT);
@@ -559,16 +559,21 @@ unique_ptr<raw_dfa> buildMcClellan(const NGHolder &graph,
         = (graph.kind == NFA_OUTFIX || finalChance) ? FINAL_DFA_STATE_LIMIT
                                                     : DFA_STATE_LIMIT;
 
-    unique_ptr<raw_dfa> rdfa = ue2::make_unique<raw_dfa>(graph.kind);
-
     const u32 numStates = num_vertices(graph);
     DEBUG_PRINTF("determinising nfa with %u vertices\n", numStates);
+
+    if (numStates > FINAL_DFA_STATE_LIMIT) {
+        DEBUG_PRINTF("rejecting nfa as too many vertices\n");
+        return nullptr;
+    }
+
+    auto rdfa = ue2::make_unique<raw_dfa>(graph.kind);
 
     if (numStates <= NFA_STATE_LIMIT) {
         /* Fast path. Automaton_Graph uses a bitfield internally to represent
          * states and is quicker than Automaton_Big. */
         Automaton_Graph n(rm, graph, single_trigger, triggers, prunable);
-        if (determinise(n, rdfa->states, state_limit)) {
+        if (!determinise(n, rdfa->states, state_limit)) {
             DEBUG_PRINTF("state limit exceeded\n");
             return nullptr; /* over state limit */
         }
@@ -580,7 +585,7 @@ unique_ptr<raw_dfa> buildMcClellan(const NGHolder &graph,
     } else {
         /* Slow path. Too many states to use Automaton_Graph. */
         Automaton_Big n(rm, graph, single_trigger, triggers, prunable);
-        if (determinise(n, rdfa->states, state_limit)) {
+        if (!determinise(n, rdfa->states, state_limit)) {
             DEBUG_PRINTF("state limit exceeded\n");
             return nullptr; /* over state limit */
         }

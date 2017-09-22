@@ -38,10 +38,10 @@
 #include "nfagraph/ng_holder.h"
 #include "util/bytecode_ptr.h"
 #include "util/noncopyable.h"
-#include "util/ue2_containers.h"
 
 #include <deque>
 #include <memory>
+#include <unordered_map>
 
 struct NFA;
 
@@ -69,7 +69,7 @@ public:
     /** prefix must be acting as a resetting sentinel and should be a dag (if
      * not how are we establish som?) */
     u32 getInitialResetSomSlot(const NGHolder &prefix, const NGHolder &g,
-                           const ue2::unordered_map<NFAVertex, u32> &region_map,
+                           const std::unordered_map<NFAVertex, u32> &region_map,
                            u32 last_sent_region,
                            bool *prefix_already_implemented);
 

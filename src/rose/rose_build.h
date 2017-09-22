@@ -42,8 +42,8 @@
 #include "rose_in_graph.h"
 #include "util/bytecode_ptr.h"
 #include "util/charreach.h"
+#include "util/flat_containers.h"
 #include "util/noncopyable.h"
-#include "util/ue2_containers.h"
 #include "util/ue2string.h"
 
 #include <memory>
@@ -73,7 +73,7 @@ public:
 
     /** \brief True if we can not establish that at most a single callback will
      * be generated at a given offset from this set of reports. */
-    virtual bool requiresDedupeSupport(const ue2::flat_set<ReportID> &reports)
+    virtual bool requiresDedupeSupport(const flat_set<ReportID> &reports)
         const = 0;
 };
 
@@ -85,7 +85,7 @@ public:
 
     /** \brief Adds a single literal. */
     virtual void add(bool anchored, bool eod, const ue2_literal &lit,
-                     const ue2::flat_set<ReportID> &ids) = 0;
+                     const flat_set<ReportID> &ids) = 0;
 
     virtual bool addRose(const RoseInGraph &ig, bool prefilter) = 0;
     virtual bool addSombeRose(const RoseInGraph &ig) = 0;
@@ -99,17 +99,17 @@ public:
 
     /** \brief Returns true if we were able to add it as a mask. */
     virtual bool add(bool anchored, const std::vector<CharReach> &mask,
-                     const ue2::flat_set<ReportID> &reports) = 0;
+                     const flat_set<ReportID> &reports) = 0;
 
     /** \brief Attempts to add the graph to the anchored acyclic table. Returns
      * true on success. */
     virtual bool addAnchoredAcyclic(const NGHolder &graph) = 0;
 
     virtual bool validateMask(const std::vector<CharReach> &mask,
-                              const ue2::flat_set<ReportID> &reports,
+                              const flat_set<ReportID> &reports,
                               bool anchored, bool eod) const = 0;
     virtual void addMask(const std::vector<CharReach> &mask,
-                         const ue2::flat_set<ReportID> &reports, bool anchored,
+                         const flat_set<ReportID> &reports, bool anchored,
                          bool eod) = 0;
 
     /** \brief Construct a runtime implementation. */
@@ -133,10 +133,6 @@ std::unique_ptr<RoseBuild> makeRoseBuilder(ReportManager &rm,
 
 bool roseCheckRose(const RoseInGraph &ig, bool prefilter,
                    const ReportManager &rm, const CompileContext &cc);
-
-/* used by heuristics to determine the small write engine. High numbers are
- * intended to indicate a lightweight rose. */
-u32 roseQuality(const RoseEngine *t);
 
 bool roseIsPureLiteral(const RoseEngine *t);
 

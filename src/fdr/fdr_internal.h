@@ -36,6 +36,8 @@
 #include "ue2common.h"
 #include "hwlm/hwlm.h" // for hwlm_group_t, HWLMCallback
 
+struct hs_scratch;
+
 typedef enum {
     NOT_CAUTIOUS, //!< not near a boundary (quantify?)
     VECTORING     //!< potentially vectoring
@@ -56,7 +58,6 @@ struct FDRFlood {
 
     u32 ids[FDR_FLOOD_MAX_IDS]; //!< the ids
     hwlm_group_t groups[FDR_FLOOD_MAX_IDS]; //!< group ids to go with string ids
-    u32 len[FDR_FLOOD_MAX_IDS]; //!< lengths to go with the string ids
 };
 
 /** \brief FDR structure.
@@ -69,19 +70,18 @@ struct FDR {
     u32 engineID;
     u32 size;
     u32 maxStringLen;
+    u32 numStrings;
+    u32 confOffset;
     u32 floodOffset;
-
-    u8 stride; /* stride - how frequeuntly the data is consulted by the first
+    u8 stride; /* stride - how frequently the data is consulted by the first
                 * stage matcher */
     u8 domain; /* number of bits used to index into main FDR table. This value
                 * is used only of debugging/asserts. */
     u16 domainMask; /* pre-computed domain mask */
     u32 tabSize; /* pre-computed hashtable size in bytes */
-    u32 pad;
-
-    m128 start; /* initial start state to use at offset 0. The state has been set
-                 * up based on the min length of buckets to reduce the need for
-                 * pointless confirms. */
+    m128 start; /* initial start state to use at offset 0. The state has been
+                 * set up based on the min length of buckets to reduce the need
+                 * for pointless confirms. */
 };
 
 /** \brief FDR runtime arguments.
@@ -97,7 +97,7 @@ struct FDR_Runtime_Args {
     size_t len_history;
     size_t start_offset;
     HWLMCallback cb;
-    void *ctxt;
+    struct hs_scratch *scratch;
     const u8 *firstFloodDetect;
     const u64a histBytes;
 };

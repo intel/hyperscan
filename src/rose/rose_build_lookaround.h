@@ -33,6 +33,7 @@
 #define ROSE_ROSE_BUILD_LOOKAROUND_H
 
 #include "rose_graph.h"
+#include "util/hash.h"
 
 #include <vector>
 
@@ -58,14 +59,6 @@ struct LookEntry {
     }
 };
 
-static inline
-size_t hash_value(const LookEntry &l) {
-    size_t val = 0;
-    boost::hash_combine(val, l.offset);
-    boost::hash_combine(val, l.reach);
-    return val;
-}
-
 void findLookaroundMasks(const RoseBuildImpl &tbi, const RoseVertex v,
                          std::vector<LookEntry> &look_more);
 
@@ -82,5 +75,16 @@ void mergeLookaround(std::vector<LookEntry> &lookaround,
                      const std::vector<LookEntry> &more_lookaround);
 
 } // namespace ue2
+
+namespace std {
+
+template<>
+struct hash<ue2::LookEntry> {
+    size_t operator()(const ue2::LookEntry &l) const {
+        return ue2::hash_all(l.offset, l.reach);
+    }
+};
+
+} // namespace std
 
 #endif // ROSE_ROSE_BUILD_LOOKAROUND_H

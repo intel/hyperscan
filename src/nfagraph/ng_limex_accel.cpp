@@ -335,7 +335,7 @@ struct DAccelScheme {
         return false;
     }
 
-    ue2::flat_set<std::pair<u8, u8> > double_byte;
+    flat_set<pair<u8, u8>> double_byte;
     CharReach double_cr;
     u32 double_offset = 0;
 };

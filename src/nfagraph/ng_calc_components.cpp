@@ -220,6 +220,52 @@ vector<NFAEdge> findShellEdges(const NGHolder &g,
     return shell_edges;
 }
 
+template<typename GetAdjRange>
+bool shellHasOnePath(const NGHolder &g, const flat_set<NFAVertex> &shell,
+                     GetAdjRange adj_range_func) {
+    if (shell.empty()) {
+        DEBUG_PRINTF("no shell\n");
+        return false;
+    }
+
+    NFAVertex exit_vertex = NGHolder::null_vertex();
+    for (auto u : shell) {
+        for (auto v : adj_range_func(u, g)) {
+            if (contains(shell, v)) {
+                continue;
+            }
+            if (!exit_vertex) {
+                exit_vertex = v;
+                continue;
+            }
+            if (exit_vertex == v) {
+                continue;
+            }
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * True if all edges out of vertices in the head shell lead to at most a single
+ * outside vertex, or the inverse for the tail shell.
+ */
+static
+bool shellHasOnePath(const NGHolder &g, const flat_set<NFAVertex> &head_shell,
+                     const flat_set<NFAVertex> &tail_shell) {
+    if (shellHasOnePath(g, head_shell, adjacent_vertices_range<NGHolder>)) {
+        DEBUG_PRINTF("head shell has only one path through it\n");
+        return true;
+    }
+    if (shellHasOnePath(g, tail_shell, inv_adjacent_vertices_range<NGHolder>)) {
+        DEBUG_PRINTF("tail shell has only one path into it\n");
+        return true;
+    }
+    return false;
+}
+
 /**
  * Common code called by calc- and recalc- below. Splits the given holder into
  * one or more connected components, adding them to the comps deque.
@@ -250,16 +296,25 @@ void splitIntoComponents(unique_ptr<NGHolder> g,
         return;
     }
 
+    // Find edges connecting the head and tail shells directly.
     vector<NFAEdge> shell_edges = findShellEdges(*g, head_shell, tail_shell);
 
     DEBUG_PRINTF("%zu vertices in head, %zu in tail, %zu shell edges\n",
                  head_shell.size(), tail_shell.size(), shell_edges.size());
 
-    ue2::unordered_map<NFAVertex, NFAUndirectedVertex> old2new;
+    // If there are no shell edges and only one path out of the head shell or
+    // into the tail shell, we aren't going to find more than one component.
+    if (shell_edges.empty() && shellHasOnePath(*g, head_shell, tail_shell)) {
+        DEBUG_PRINTF("single component\n");
+        comps.push_back(std::move(g));
+        return;
+    }
+
+    unordered_map<NFAVertex, NFAUndirectedVertex> old2new;
     auto ug = createUnGraph(*g, true, true, old2new);
 
     // Construct reverse mapping.
-    ue2::unordered_map<NFAUndirectedVertex, NFAVertex> new2old;
+    unordered_map<NFAUndirectedVertex, NFAVertex> new2old;
     for (const auto &m : old2new) {
         new2old.emplace(m.second, m.first);
     }
@@ -301,7 +356,7 @@ void splitIntoComponents(unique_ptr<NGHolder> g,
         DEBUG_PRINTF("vertex %zu is in comp %u\n", (*g)[v].index, c);
     }
 
-    ue2::unordered_map<NFAVertex, NFAVertex> v_map; // temp map for fillHolder
+    unordered_map<NFAVertex, NFAVertex> v_map; // temp map for fillHolder
     for (auto &vv : verts) {
         // Shells are in every component.
         vv.insert(vv.end(), begin(head_shell), end(head_shell));

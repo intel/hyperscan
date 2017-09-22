@@ -39,8 +39,8 @@
 #include "nfa/accelcompile.h"
 #include "util/accel_scheme.h"
 #include "util/charreach.h"
+#include "util/flat_containers.h"
 #include "util/order_check.h"
-#include "util/ue2_containers.h"
 
 #include <map>
 #include <vector>
@@ -57,8 +57,7 @@ struct CompileContext;
 
 void findAccelFriends(const NGHolder &g, NFAVertex v,
                   const std::map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
-                      u32 offset,
-                      ue2::flat_set<NFAVertex> *friends);
+                  u32 offset, flat_set<NFAVertex> *friends);
 
 #define DOUBLE_SHUFTI_LIMIT 20
 

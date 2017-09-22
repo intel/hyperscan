@@ -56,8 +56,9 @@
 #include "ng_util.h"
 #include "ue2common.h"
 #include "util/container.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
+#include "util/graph_small_color_map.h"
 
 #include <set>
 #include <utility>
@@ -407,19 +408,20 @@ void liftSinks(const AcyclicGraph &acyclic_g, vector<NFAVertex> &topoOrder) {
     }
 }
 
+using ColorMap = decltype(make_small_color_map(NGHolder()));
+
 /** Build a reverse topo ordering (with only the specials that are in use). We
  * also want to ensure vertices which only lead to back edges are placed near
  * their parents. */
 static
 vector<NFAVertex> buildTopoOrder(const NGHolder &w,
                                  const AcyclicGraph &acyclic_g,
-                                 vector<boost::default_color_type> &colours) {
+                                 ColorMap &colours) {
     vector<NFAVertex> topoOrder;
     topoOrder.reserve(num_vertices(w));
 
     topological_sort(acyclic_g, back_inserter(topoOrder),
-                     color_map(make_iterator_property_map(colours.begin(),
-                                             get(vertex_index, acyclic_g))));
+                     color_map(colours));
 
     reorderSpecials(w, acyclic_g, topoOrder);
 
@@ -443,15 +445,14 @@ unordered_map<NFAVertex, u32> assignRegions(const NGHolder &g) {
     const u32 numVertices = num_vertices(g);
     DEBUG_PRINTF("assigning regions for %u vertices in holder\n", numVertices);
 
-    vector<boost::default_color_type> colours(numVertices);
+    auto colours = make_small_color_map(g);
 
     // Build an acyclic graph for this NGHolder.
     BackEdgeSet deadEdges;
     depth_first_search(g,
                        visitor(BackEdges<BackEdgeSet>(deadEdges))
                        .root_vertex(g.start)
-                       .color_map(make_iterator_property_map(colours.begin(),
-                                          get(vertex_index, g))));
+                       .color_map(colours));
 
     auto af = make_bad_edge_filter(&deadEdges);
     AcyclicGraph acyclic_g(g, af);

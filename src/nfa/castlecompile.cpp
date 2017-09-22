@@ -48,11 +48,11 @@
 #include "util/compile_context.h"
 #include "util/container.h"
 #include "util/dump_charclass.h"
+#include "util/flat_containers.h"
 #include "util/graph.h"
 #include "util/make_unique.h"
 #include "util/multibit_build.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
 #include "util/verify_types.h"
 #include "grey.h"
 
@@ -153,13 +153,11 @@ static
 void getNeighborInfo(const CliqueGraph &g, vector<u32> &neighbor,
                      const CliqueVertex &cv, const set<u32> &group) {
     u32 id = g[cv].stateId;
-    ue2::unordered_set<u32> neighborId;
 
     // find neighbors for cv
     for (const auto &v : adjacent_vertices_range(cv, g)) {
-        if (g[v].stateId != id && contains(group, g[v].stateId)){
+        if (g[v].stateId != id && contains(group, g[v].stateId)) {
             neighbor.push_back(g[v].stateId);
-            neighborId.insert(g[v].stateId);
             DEBUG_PRINTF("Neighbor:%u\n", g[v].stateId);
         }
     }
@@ -772,7 +770,7 @@ bool mergeCastle(CastleProto &c1, const CastleProto &c2,
         const u32 top = m.first;
         const PureRepeat &pr = m.second;
         DEBUG_PRINTF("top %u\n", top);
-        u32 new_top = c1.add(pr);
+        u32 new_top = c1.merge(pr);
         top_map[top] = new_top;
         DEBUG_PRINTF("adding repeat: map %u->%u\n", top, new_top);
     }
@@ -883,7 +881,7 @@ bool is_equal(const CastleProto &c1, const CastleProto &c2) {
 }
 
 bool requiresDedupe(const CastleProto &proto,
-                    const ue2::flat_set<ReportID> &reports) {
+                    const flat_set<ReportID> &reports) {
     for (const auto &report : reports) {
         auto it = proto.report_map.find(report);
         if (it == end(proto.report_map)) {

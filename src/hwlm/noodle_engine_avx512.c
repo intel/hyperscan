@@ -43,8 +43,8 @@ m512 getCaseMask(void) {
 // alignment boundary if needed and to finish off data that the aligned scan
 // function can't handle (due to small/unaligned chunk at end)
 static really_inline
-hwlm_error_t scanSingleShort(const u8 *buf, size_t len, const u8 *key,
-                             bool noCase, m512 caseMask, m512 mask1,
+hwlm_error_t scanSingleShort(const struct noodTable *n, const u8 *buf,
+                             size_t len, bool noCase, m512 caseMask, m512 mask1,
                              const struct cb_info *cbi, size_t start,
                              size_t end) {
     const u8 *d = buf + start;
@@ -73,11 +73,12 @@ hwlm_error_t scanSingleShort(const u8 *buf, size_t len, const u8 *key,
 }
 
 static really_inline
-hwlm_error_t scanSingle512(const u8 *buf, size_t len, const u8 *key,
+hwlm_error_t scanSingle512(const struct noodTable *n, const u8 *buf, size_t len,
                            bool noCase, m512 caseMask, m512 mask1,
-                           const struct cb_info *cbi) {
-    const u8 *d = buf;
-    const u8 *e = buf + len;
+                           const struct cb_info *cbi, size_t start,
+                           size_t end) {
+    const u8 *d = buf + start;
+    const u8 *e = buf + end;
     DEBUG_PRINTF("start %p end %p \n", d, e);
     assert(d < e);
     if (d + 64 >= e) {
@@ -86,8 +87,8 @@ hwlm_error_t scanSingle512(const u8 *buf, size_t len, const u8 *key,
 
     // peel off first part to cacheline boundary
     const u8 *d1 = ROUNDUP_PTR(d, 64);
-    if (scanSingleShort(buf, len, key, noCase, caseMask, mask1, cbi, 0,
-                        d1 - d) == HWLM_TERMINATED) {
+    if (scanSingleShort(n, buf, len, noCase, caseMask, mask1, cbi, start,
+                        d1 - buf) == HWLM_TERMINATED) {
         return HWLM_TERMINATED;
     }
     d = d1;
@@ -106,16 +107,15 @@ tail:
     DEBUG_PRINTF("d %p e %p \n", d, e);
     // finish off tail
 
-    return scanSingleShort(buf, len, key, noCase, caseMask, mask1, cbi, d - buf,
+    return scanSingleShort(n, buf, len, noCase, caseMask, mask1, cbi, d - buf,
                            e - buf);
 }
 
 static really_inline
-hwlm_error_t scanDoubleShort(const u8 *buf, size_t len, const u8 *key,
-                             size_t keyLen, size_t keyOffset, bool noCase,
-                             m512 caseMask, m512 mask1, m512 mask2,
-                             const struct cb_info *cbi, u64a *lastz0,
-                             size_t start, size_t end) {
+hwlm_error_t scanDoubleShort(const struct noodTable *n, const u8 *buf,
+                             size_t len, bool noCase, m512 caseMask, m512 mask1,
+                             m512 mask2, const struct cb_info *cbi,
+                             u64a *lastz0, size_t start, size_t end) {
     DEBUG_PRINTF("start %zu end %zu last 0x%016llx\n", start, end, *lastz0);
     const u8 *d = buf + start;
     ptrdiff_t scan_len = end - start;
@@ -142,9 +142,8 @@ hwlm_error_t scanDoubleShort(const u8 *buf, size_t len, const u8 *key,
 }
 
 static really_inline
-hwlm_error_t scanDouble512(const u8 *buf, size_t len, const u8 *key,
-                           size_t keyLen, size_t keyOffset, bool noCase,
-                           m512 caseMask, m512 mask1, m512 mask2,
+hwlm_error_t scanDouble512(const struct noodTable *n, const u8 *buf, size_t len,
+                           bool noCase, m512 caseMask, m512 mask1, m512 mask2,
                            const struct cb_info *cbi, size_t start,
                            size_t end) {
     const u8 *d = buf + start;
@@ -158,9 +157,8 @@ hwlm_error_t scanDouble512(const u8 *buf, size_t len, const u8 *key,
 
     // peel off first part to cacheline boundary
     const u8 *d1 = ROUNDUP_PTR(d, 64);
-    if (scanDoubleShort(buf, len, key, keyLen, keyOffset, noCase, caseMask,
-                        mask1, mask2, cbi, &lastz0, start,
-                        d1 - buf) == HWLM_TERMINATED) {
+    if (scanDoubleShort(n, buf, len, noCase, caseMask, mask1, mask2, cbi,
+                        &lastz0, start, d1 - buf) == HWLM_TERMINATED) {
         return HWLM_TERMINATED;
     }
     d = d1;
@@ -188,6 +186,6 @@ tail:
     DEBUG_PRINTF("d %p e %p off %zu \n", d, e, d - buf);
     // finish off tail
 
-    return scanDoubleShort(buf, len, key, keyLen, keyOffset, noCase, caseMask,
-                           mask1, mask2, cbi, &lastz0, d - buf, end);
+    return scanDoubleShort(n, buf, len, noCase, caseMask, mask1, mask2, cbi,
+                           &lastz0, d - buf, end);
 }

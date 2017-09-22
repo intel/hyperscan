@@ -31,7 +31,7 @@
 
 #include "container.h"
 #include "noncopyable.h"
-#include "ue2_containers.h"
+#include "flat_containers.h"
 #include "ue2common.h"
 
 #include <algorithm>
@@ -98,8 +98,7 @@ public:
      * If the set was not split (due to there being no overlap with splitter or
      * being a complete subset), INVALID_SUBSET is returned.
      */
-    size_t split(size_t subset_index,
-                 const typename ue2::flat_set<T> &splitter) {
+    size_t split(size_t subset_index, const flat_set<T> &splitter) {
         assert(!splitter.empty());
         if (splitter.empty()) {
             return INVALID_SUBSET;
@@ -129,12 +128,10 @@ public:
         }
 
         for (auto it = orig.members.begin(); it != orig.members.end(); ++it) {
-            T member = *it;
+            const auto &member = *it;
             assert(member < member_to_subset.size());
 
-            while (sp_it != sp_e && *sp_it < member) {
-                ++sp_it;
-            }
+            sp_it = std::lower_bound(sp_it, sp_e, member);
             if (sp_it == sp_e) {
                 split_temp_diff.insert(split_temp_diff.end(), it,
                                        orig.members.end());
@@ -193,7 +190,7 @@ public:
     /**
      * Returns all subsets which have a member in keys.
      */
-    void find_overlapping(const typename ue2::flat_set<T> &keys,
+    void find_overlapping(const flat_set<T> &keys,
                           std::vector<size_t> *containing) const {
         boost::dynamic_bitset<> seen(subsets.size()); // all zero by default.
 

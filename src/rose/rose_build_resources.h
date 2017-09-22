@@ -48,6 +48,8 @@ struct RoseResources {
     bool has_lit_delay = false;
     bool has_lit_check = false; // long literal support
     bool has_anchored = false;
+    bool has_anchored_multiple = false; /* multiple anchored dfas */
+    bool has_anchored_large = false; /* mcclellan 16 anchored dfa */
     bool has_floating = false;
     bool has_eod = false;
 };

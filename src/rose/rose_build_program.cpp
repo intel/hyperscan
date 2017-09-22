@@ -41,6 +41,7 @@
 #include "util/compile_context.h"
 #include "util/compile_error.h"
 #include "util/report_manager.h"
+#include "util/unordered.h"
 #include "util/verify_types.h"
 
 #include <boost/range/adaptor/map.hpp>
@@ -226,7 +227,7 @@ size_t RoseProgramHash::operator()(const RoseProgram &program) const {
     size_t v = 0;
     for (const auto &ri : program) {
         assert(ri);
-        boost::hash_combine(v, ri->hash());
+        hash_combine(v, ri->hash());
     }
     return v;
 }
@@ -1288,19 +1289,28 @@ void makeCheckLitMaskInstruction(const RoseBuildImpl &build, u32 lit_id,
 
     vector<LookEntry> look;
 
-    const ue2_literal &s = build.literals.at(lit_id).s;
+    const auto &lit = build.literals.at(lit_id);
+    const ue2_literal &s = lit.s;
+    const auto &msk = lit.msk;
+
     DEBUG_PRINTF("building mask for lit %u: %s\n", lit_id,
                  dumpString(s).c_str());
+
     assert(s.length() <= MAX_MASK2_WIDTH);
-    s32 i = 0 - s.length();
-    for (const auto &e : s) {
-        if (!e.nocase) {
-            look.emplace_back(verify_s8(i), e);
+
+    // Note: the literal matcher will confirm the HWLM mask in lit.msk, so we
+    // do not include those entries in the lookaround.
+    auto it = s.begin();
+    for (s32 i = 0 - s.length(), i_end = 0 - msk.size(); i < i_end; ++i, ++it) {
+        if (!it->nocase) {
+            look.emplace_back(verify_s8(i), *it);
         }
-        i++;
     }
 
-    assert(!look.empty());
+    if (look.empty()) {
+        return; // all caseful chars handled by HWLM mask.
+    }
+
     makeLookaroundInstruction(look, program);
 }
 
@@ -1925,14 +1935,14 @@ void makeGroupSquashInstruction(const RoseBuildImpl &build, u32 lit_id,
 
 namespace {
 struct ProgKey {
-    ProgKey(const RoseProgram &p) : prog(&p) { }
+    ProgKey(const RoseProgram &p) : prog(&p) {}
 
     bool operator==(const ProgKey &b) const {
         return RoseProgramEquivalence()(*prog, *b.prog);
     }
 
-    friend size_t hash_value(const ProgKey &a) {
-        return RoseProgramHash()(*a.prog);
+    size_t hash() const {
+        return RoseProgramHash()(*prog);
     }
 private:
     const RoseProgram *prog;
@@ -1945,7 +1955,7 @@ RoseProgram assembleProgramBlocks(vector<RoseProgram> &&blocks_in) {
     vector<RoseProgram> blocks;
     blocks.reserve(blocks_in.size()); /* to ensure stable reference for seen */
 
-    unordered_set<ProgKey> seen;
+    ue2_unordered_set<ProgKey> seen;
     for (auto &block : blocks_in) {
         if (contains(seen, block)) {
             continue;
@@ -2153,6 +2163,14 @@ RoseProgram makeBoundaryProgram(const RoseBuildImpl &build,
     }
 
     return prog;
+}
+
+void addIncludedJumpProgram(RoseProgram &program, u32 child_offset,
+                            u8 squash) {
+    RoseProgram block;
+    block.add_before_end(make_unique<RoseInstrIncludedJump>(child_offset,
+                                                            squash));
+    program.add_block(move(block));
 }
 
 static

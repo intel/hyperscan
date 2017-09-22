@@ -29,7 +29,11 @@
 #ifndef DUMP_UTIL
 #define DUMP_UTIL
 
+#include "noncopyable.h"
+
 #include <cstdio>
+#include <memory>
+#include <string>
 
 namespace ue2 {
 
@@ -37,6 +41,22 @@ namespace ue2 {
  * Same as fopen(), but on error throws an exception rather than returning NULL.
  */
 FILE *fopen_or_throw(const char *path, const char *mode);
+
+/**
+ * \brief Helper class: wraps C stdio FILE* handle and takes care of closing
+ * the file on destruction.
+ */
+class StdioFile : noncopyable {
+public:
+    StdioFile(const std::string &filename, const char *mode)
+        : handle(fopen_or_throw(filename.c_str(), mode), &fclose) {}
+
+    // Implicit conversion to FILE* for use by stdio calls.
+    operator FILE *() { return handle.get(); }
+
+private:
+    std::unique_ptr<FILE, decltype(&fclose)> handle;
+};
 
 } // namespace ue2
 

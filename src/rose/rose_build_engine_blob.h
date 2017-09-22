@@ -36,13 +36,14 @@
 #include "util/bytecode_ptr.h"
 #include "util/charreach.h"
 #include "util/container.h"
+#include "util/hash.h"
 #include "util/multibit_build.h"
 #include "util/noncopyable.h"
-#include "util/ue2_containers.h"
 #include "util/verify_types.h"
+#include "util/unordered.h"
 
-#include <vector>
 #include <type_traits>
+#include <vector>
 
 namespace ue2 {
 
@@ -56,9 +57,10 @@ struct lookaround_info : noncopyable {
     u32 get_offset_of(const std::vector<s8> &look, RoseEngineBlob &blob);
 
 private:
-    unordered_map<std::vector<std::vector<CharReach>>, u32> multi_cache;
-    unordered_map<std::vector<s8>, u32> lcache;
-    unordered_map<std::vector<CharReach>, u32> rcache;
+    using Path = std::vector<CharReach>;
+    ue2_unordered_map<std::vector<Path>, u32> multi_cache;
+    ue2_unordered_map<std::vector<s8>, u32> lcache;
+    ue2_unordered_map<Path, u32> rcache;
 };
 
 class RoseEngineBlob : noncopyable {
@@ -160,7 +162,7 @@ private:
     }
 
     /** \brief Cache of previously-written sparse iterators. */
-    unordered_map<std::vector<mmbit_sparse_iter>, u32> cached_iters;
+    ue2_unordered_map<std::vector<mmbit_sparse_iter>, u32> cached_iters;
 
     /**
      * \brief Contents of the Rose bytecode immediately following the

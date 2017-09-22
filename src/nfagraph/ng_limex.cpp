@@ -53,11 +53,13 @@
 #include "util/container.h"
 #include "util/graph_range.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/verify_types.h"
 
 #include <algorithm>
 #include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <boost/range/adaptor/map.hpp>
@@ -73,8 +75,8 @@ namespace ue2 {
 // Only used in assertions.
 static
 bool sanityCheckGraph(const NGHolder &g,
-                      const ue2::unordered_map<NFAVertex, u32> &state_ids) {
-    ue2::unordered_set<u32> seen_states;
+                      const unordered_map<NFAVertex, u32> &state_ids) {
+    unordered_set<u32> seen_states;
 
     for (auto v : vertices_range(g)) {
         // Non-specials should have non-empty reachability.
@@ -115,10 +117,9 @@ bool sanityCheckGraph(const NGHolder &g,
 #endif
 
 static
-void findSquashStates(const NGHolder &g,
-                      const vector<BoundedRepeatData> &repeats,
-                      map<NFAVertex, NFAStateSet> &squashMap) {
-    squashMap = findSquashers(g);
+unordered_map<NFAVertex, NFAStateSet> findSquashStates(const NGHolder &g,
+                                    const vector<BoundedRepeatData> &repeats) {
+    auto squashMap = findSquashers(g);
     filterSquashers(g, squashMap);
 
     /* We also filter out the cyclic states representing bounded repeats, as
@@ -128,6 +129,8 @@ void findSquashStates(const NGHolder &g,
             squashMap.erase(br.cyclic);
         }
     }
+
+    return squashMap;
 }
 
 /**
@@ -468,7 +471,7 @@ void makeTopStates(NGHolder &g, map<u32, set<NFAVertex>> &tops_out,
 static
 set<NFAVertex> findZombies(const NGHolder &h,
             const map<NFAVertex, BoundedRepeatSummary> &br_cyclic,
-            const ue2::unordered_map<NFAVertex, u32> &state_ids,
+            const unordered_map<NFAVertex, u32> &state_ids,
             const CompileContext &cc) {
     set<NFAVertex> zombies;
     if (!cc.grey.allowZombies) {
@@ -516,7 +519,7 @@ set<NFAVertex> findZombies(const NGHolder &h,
 }
 
 static
-void reverseStateOrdering(ue2::unordered_map<NFAVertex, u32> &state_ids) {
+void reverseStateOrdering(unordered_map<NFAVertex, u32> &state_ids) {
     vector<NFAVertex> ordering;
     for (auto &e : state_ids) {
         if (e.second == NO_STATE) {
@@ -569,7 +572,7 @@ prepareGraph(const NGHolder &h_in, const ReportManager *rm,
              const map<u32, u32> &fixed_depth_tops,
              const map<u32, vector<vector<CharReach>>> &triggers,
              bool impl_test_only, const CompileContext &cc,
-             ue2::unordered_map<NFAVertex, u32> &state_ids,
+             unordered_map<NFAVertex, u32> &state_ids,
              vector<BoundedRepeatData> &repeats,
              map<u32, set<NFAVertex>> &tops) {
     assert(is_triggered(h_in) || fixed_depth_tops.empty());
@@ -637,7 +640,7 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
         assert(rm);
     }
 
-    ue2::unordered_map<NFAVertex, u32> state_ids;
+    unordered_map<NFAVertex, u32> state_ids;
     vector<BoundedRepeatData> repeats;
     map<u32, set<NFAVertex>> tops;
     unique_ptr<NGHolder> h
@@ -657,12 +660,12 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
         br_cyclic[br.cyclic] = BoundedRepeatSummary(br.repeatMin, br.repeatMax);
     }
 
-    map<NFAVertex, NFAStateSet> reportSquashMap;
-    map<NFAVertex, NFAStateSet> squashMap;
+    unordered_map<NFAVertex, NFAStateSet> reportSquashMap;
+    unordered_map<NFAVertex, NFAStateSet> squashMap;
 
     // build map of squashed and squashers
     if (cc.grey.squashNFA) {
-        findSquashStates(*h, repeats, squashMap);
+        squashMap = findSquashStates(*h, repeats);
 
         if (rm && cc.grey.highlanderSquash) {
             reportSquashMap = findHighlanderSquashers(*h, *rm);
@@ -734,8 +737,8 @@ bytecode_ptr<NFA> constructReversedNFA_i(const NGHolder &h_in, u32 hint,
     map<u32, set<NFAVertex>> tops; /* only the standards tops for nfas */
     set<NFAVertex> zombies;
     vector<BoundedRepeatData> repeats;
-    map<NFAVertex, NFAStateSet> reportSquashMap;
-    map<NFAVertex, NFAStateSet> squashMap;
+    unordered_map<NFAVertex, NFAStateSet> reportSquashMap;
+    unordered_map<NFAVertex, NFAStateSet> squashMap;
 
     return generate(h, state_ids, repeats, reportSquashMap, squashMap, tops,
                     zombies, false, false, hint, cc);
@@ -785,7 +788,7 @@ u32 isImplementableNFA(const NGHolder &g, const ReportManager *rm,
      * resultant NGHolder has <= NFA_MAX_STATES. If it does, we know we can
      * implement it as an NFA. */
 
-    ue2::unordered_map<NFAVertex, u32> state_ids;
+    unordered_map<NFAVertex, u32> state_ids;
     vector<BoundedRepeatData> repeats;
     map<u32, set<NFAVertex>> tops;
     unique_ptr<NGHolder> h
@@ -832,7 +835,7 @@ u32 countAccelStates(const NGHolder &g, const ReportManager *rm,
     const map<u32, u32> fixed_depth_tops; // empty
     const map<u32, vector<vector<CharReach>>> triggers; // empty
 
-    ue2::unordered_map<NFAVertex, u32> state_ids;
+    unordered_map<NFAVertex, u32> state_ids;
     vector<BoundedRepeatData> repeats;
     map<u32, set<NFAVertex>> tops;
     unique_ptr<NGHolder> h
@@ -848,8 +851,8 @@ u32 countAccelStates(const NGHolder &g, const ReportManager *rm,
 
     // Should have no bearing on accel calculation, so we leave these empty.
     const set<NFAVertex> zombies;
-    const map<NFAVertex, NFAStateSet> reportSquashMap;
-    const map<NFAVertex, NFAStateSet> squashMap;
+    unordered_map<NFAVertex, NFAStateSet> reportSquashMap;
+    unordered_map<NFAVertex, NFAStateSet> squashMap;
 
     return countAccelStates(*h, state_ids, repeats, reportSquashMap, squashMap,
                             tops, zombies, cc);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,16 +35,16 @@
 
 #ifdef DUMP_SUPPORT
 
-#include <cstdio>
+#include <string>
 
 struct HWLM;
 
 namespace ue2 {
 
 /** \brief Dump some information about the give HWLM structure. */
-void hwlmPrintStats(const HWLM *h, FILE *f);
+void hwlmGenerateDumpFiles(const HWLM *h, const std::string &base);
 
 } // namespace ue2
 
-#endif
-#endif
+#endif // DUMP_SUPPORT
+#endif // HWLM_DUMP_H

@@ -37,11 +37,11 @@
 #include "nfa_internal.h"
 #include "util/compile_context.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
 #include "util/order_check.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
 #include "util/verify_types.h"
 
 #include "ue2common.h"

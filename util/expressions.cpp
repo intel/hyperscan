@@ -42,6 +42,7 @@
 #include <sys/stat.h>
 #if !defined(_WIN32)
 #include <dirent.h>
+#include <fcntl.h>
 #include <unistd.h>
 #else
 // Windows support is probably very fragile
@@ -145,8 +146,9 @@ bool isIgnorable(const std::string &f) {
 #ifndef _WIN32
 void loadExpressions(const string &inPath, ExpressionMap &exprMap) {
     // Is our input path a file or a directory?
+    int fd = open(inPath.c_str(), O_RDONLY);
     struct stat st;
-    if (stat(inPath.c_str(), &st) != 0) {
+    if (fstat(fd, &st) != 0) {
         cerr << "Can't stat path: '" << inPath << "'" << endl;
         exit(1);
     }
@@ -159,7 +161,7 @@ void loadExpressions(const string &inPath, ExpressionMap &exprMap) {
             exit(1);
         }
     } else if (S_ISDIR(st.st_mode)) {
-        DIR *d = opendir(inPath.c_str());
+        DIR *d = fdopendir(fd);
         if (d == nullptr) {
             cerr << "Can't open directory: '" << inPath << "'" << endl;
             exit(1);
@@ -188,11 +190,12 @@ void loadExpressions(const string &inPath, ExpressionMap &exprMap) {
                 exit(1);
             }
         }
-        closedir(d);
+        (void)closedir(d);
     } else {
         cerr << "Can't stat path: '" << inPath << "'" << endl;
         exit(1);
     }
+    (void)close(fd);
 }
 #else // windows TODO: improve
 void HS_CDECL loadExpressions(const string &inPath, ExpressionMap &exprMap) {

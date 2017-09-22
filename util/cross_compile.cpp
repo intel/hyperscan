@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,11 +39,12 @@
 using namespace std;
 
 struct XcompileMode {
-    const char *name;
+    const string name;
     unsigned long long cpu_features;
 };
 
 static const XcompileMode xcompile_options[] = {
+    { "avx512", HS_CPU_FEATURES_AVX512 },
     { "avx2", HS_CPU_FEATURES_AVX2 },
     { "base", 0 },
 };
@@ -60,12 +61,9 @@ unique_ptr<hs_platform_info> xcompileReadMode(const char *s) {
     bool found_mode = false;
 
     if (!opt.empty()) {
-        const size_t numOpts = ARRAY_LENGTH(xcompile_options);
-        for (size_t i = 0; i < numOpts; i++) {
-            if (opt.compare(xcompile_options[i].name) == 0) {
-                DEBUG_PRINTF("found opt %zu:%llu\n", i,
-                             xcompile_options[i].cpu_features);
-                rv.cpu_features = xcompile_options[i].cpu_features;
+        for (const auto &xcompile : xcompile_options) {
+            if (opt == xcompile.name) {
+                rv.cpu_features = xcompile.cpu_features;
                 found_mode = true;
                 break;
             }
@@ -88,6 +86,11 @@ string to_string(const hs_platform_info &p) {
 
     if (p.cpu_features) {
         u64a features = p.cpu_features;
+        if (features & HS_CPU_FEATURES_AVX512) {
+            out << " avx512";
+            features &= ~HS_CPU_FEATURES_AVX512;
+        }
+
         if (features & HS_CPU_FEATURES_AVX2) {
             out << " avx2";
             features &= ~HS_CPU_FEATURES_AVX2;
@@ -103,13 +106,11 @@ string to_string(const hs_platform_info &p) {
 
 string xcompileUsage(void) {
     string variants = "Instruction set options: ";
-    const size_t numOpts = ARRAY_LENGTH(xcompile_options);
-    for (size_t i = 0; i < numOpts; i++) {
-        variants += xcompile_options[i].name;
-        if (i + 1 != numOpts) {
-            variants += ", ";
-        }
+    const auto commaspace = ", ";
+    auto sep = "";
+    for (const auto &xcompile : xcompile_options) {
+        variants += sep + xcompile.name;
+        sep = commaspace;
     }
-
     return variants;
 }

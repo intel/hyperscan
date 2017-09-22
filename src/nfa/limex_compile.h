@@ -34,15 +34,16 @@
 #ifndef LIMEX_COMPILE_H
 #define LIMEX_COMPILE_H
 
-#include <map>
-#include <memory>
-#include <vector>
-
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_squash.h" // for NFAStateSet
 #include "ue2common.h"
 #include "util/bytecode_ptr.h"
-#include "util/ue2_containers.h"
+
+#include <set>
+#include <map>
+#include <memory>
+#include <unordered_map>
+#include <vector>
 
 struct NFA;
 
@@ -69,16 +70,16 @@ struct CompileContext;
  * graph.
  */
 bytecode_ptr<NFA> generate(NGHolder &g,
-                        const ue2::unordered_map<NFAVertex, u32> &states,
-                        const std::vector<BoundedRepeatData> &repeats,
-                        const std::map<NFAVertex, NFAStateSet> &reportSquashMap,
-                        const std::map<NFAVertex, NFAStateSet> &squashMap,
-                        const std::map<u32, std::set<NFAVertex>> &tops,
-                        const std::set<NFAVertex> &zombies,
-                        bool do_accel,
-                        bool stateCompression,
-                        u32 hint,
-                        const CompileContext &cc);
+            const std::unordered_map<NFAVertex, u32> &states,
+            const std::vector<BoundedRepeatData> &repeats,
+            const std::unordered_map<NFAVertex, NFAStateSet> &reportSquashMap,
+            const std::unordered_map<NFAVertex, NFAStateSet> &squashMap,
+            const std::map<u32, std::set<NFAVertex>> &tops,
+            const std::set<NFAVertex> &zombies,
+            bool do_accel,
+            bool stateCompression,
+            u32 hint,
+            const CompileContext &cc);
 
 /**
  * \brief For a given graph, count the number of accelerable states it has.
@@ -87,13 +88,13 @@ bytecode_ptr<NFA> generate(NGHolder &g,
  * implementable.
  */
 u32 countAccelStates(NGHolder &h,
-                     const ue2::unordered_map<NFAVertex, u32> &states,
-                     const std::vector<BoundedRepeatData> &repeats,
-                     const std::map<NFAVertex, NFAStateSet> &reportSquashMap,
-                     const std::map<NFAVertex, NFAStateSet> &squashMap,
-                     const std::map<u32, std::set<NFAVertex>> &tops,
-                     const std::set<NFAVertex> &zombies,
-                     const CompileContext &cc);
+            const std::unordered_map<NFAVertex, u32> &states,
+            const std::vector<BoundedRepeatData> &repeats,
+            const std::unordered_map<NFAVertex, NFAStateSet> &reportSquashMap,
+            const std::unordered_map<NFAVertex, NFAStateSet> &squashMap,
+            const std::map<u32, std::set<NFAVertex>> &tops,
+            const std::set<NFAVertex> &zombies,
+            const CompileContext &cc);
 
 } // namespace ue2
 

@@ -41,6 +41,7 @@
 #include "rose_build_long_lit.h"
 #include "rose_build_lookaround.h"
 #include "rose_build_matchers.h"
+#include "rose_build_misc.h"
 #include "rose_build_program.h"
 #include "rose_build_resources.h"
 #include "rose_build_scatter.h"
@@ -49,6 +50,7 @@
 #include "rose_internal.h"
 #include "rose_program.h"
 #include "hwlm/hwlm.h" /* engine types */
+#include "hwlm/hwlm_build.h"
 #include "hwlm/hwlm_literal.h"
 #include "nfa/castlecompile.h"
 #include "nfa/goughcompile.h"
@@ -84,6 +86,7 @@
 #include "util/container.h"
 #include "util/fatbit_build.h"
 #include "util/graph_range.h"
+#include "util/insertion_ordered.h"
 #include "util/make_unique.h"
 #include "util/multibit_build.h"
 #include "util/noncopyable.h"
@@ -144,8 +147,8 @@ struct build_context : noncopyable {
 
     /** \brief Simple cache of programs written to engine blob, used for
      * deduplication. */
-    ue2::unordered_map<RoseProgram, u32, RoseProgramHash,
-                       RoseProgramEquivalence> program_cache;
+    unordered_map<RoseProgram, u32, RoseProgramHash,
+                  RoseProgramEquivalence> program_cache;
 
     /** \brief State indices, for those roles that have them.
      * Each vertex present has a unique state index in the range
@@ -154,7 +157,7 @@ struct build_context : noncopyable {
 
     /** \brief Mapping from queue index to bytecode offset for built engines
      * that have already been pushed into the engine_blob. */
-    ue2::unordered_map<u32, u32> engineOffsets;
+    unordered_map<u32, u32> engineOffsets;
 
     /** \brief List of long literals (ones with CHECK_LONG_LIT instructions)
      * that need hash table support. */
@@ -392,13 +395,15 @@ void fillStateOffsets(const RoseBuildImpl &build, u32 rolesWithStateCount,
 
     so->activeLeafArray = curr_offset; /* TODO: limit size of array */
     curr_offset += mmbit_size(activeArrayCount);
+    so->activeLeafArray_size = mmbit_size(activeArrayCount);
 
     so->activeLeftArray = curr_offset; /* TODO: limit size of array */
+    curr_offset += mmbit_size(activeLeftCount);
     so->activeLeftArray_size = mmbit_size(activeLeftCount);
-    curr_offset += so->activeLeftArray_size;
 
     so->longLitState = curr_offset;
     curr_offset += longLitStreamStateRequired;
+    so->longLitState_size = longLitStreamStateRequired;
 
     // ONE WHOLE BYTE for each active leftfix with lag.
     so->leftfixLagTable = curr_offset;
@@ -419,6 +424,7 @@ void fillStateOffsets(const RoseBuildImpl &build, u32 rolesWithStateCount,
     // Exhaustion multibit.
     so->exhausted = curr_offset;
     curr_offset += mmbit_size(build.rm.numEkeys());
+    so->exhausted_size = mmbit_size(build.rm.numEkeys());
 
     // SOM locations and valid/writeable multibit structures.
     if (build.ssm.numSomSlots()) {
@@ -434,6 +440,7 @@ void fillStateOffsets(const RoseBuildImpl &build, u32 rolesWithStateCount,
         curr_offset += mmbit_size(build.ssm.numSomSlots());
         so->somWritable = curr_offset;
         curr_offset += mmbit_size(build.ssm.numSomSlots());
+        so->somMultibit_size = mmbit_size(build.ssm.numSomSlots());
     } else {
         // No SOM handling, avoid growing the stream state any further.
         so->somLocation = 0;
@@ -442,6 +449,7 @@ void fillStateOffsets(const RoseBuildImpl &build, u32 rolesWithStateCount,
     }
 
     // note: state space for mask nfas is allocated later
+    so->nfaStateBegin = curr_offset;
     so->end = curr_offset;
 }
 
@@ -1437,6 +1445,10 @@ void findExclusiveInfixes(RoseBuildImpl &build, build_context &bc,
             continue;
         }
 
+        if (leftfix.haig()) {
+            continue;
+        }
+
         if (leftfix.graph() || leftfix.castle()) {
             leftfixes.emplace(leftfix, role_id);
             vertex_map[role_id].push_back(v);
@@ -1467,10 +1479,10 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
     RoseGraph &g = tbi.g;
     const CompileContext &cc = tbi.cc;
 
-    map<left_id, set<PredTopPair> > infixTriggers;
-    vector<left_id> order;
-    unordered_map<left_id, vector<RoseVertex> > succs;
+    map<left_id, set<PredTopPair>> infixTriggers;
     findInfixTriggers(tbi, &infixTriggers);
+
+    insertion_ordered_map<left_id, vector<RoseVertex>> succs;
 
     if (cc.grey.allowTamarama && cc.streaming && !do_prefix) {
         findExclusiveInfixes(tbi, bc, qif, infixTriggers, no_retrigger_queues);
@@ -1510,10 +1522,6 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
             }
         }
 
-        if (!contains(succs, leftfix)) {
-            order.push_back(leftfix);
-        }
-
         succs[leftfix].push_back(v);
     }
 
@@ -1522,8 +1530,9 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
 
     map<left_id, eager_info> eager;
 
-    for (const left_id &leftfix : order) {
-        const auto &left_succs = succs[leftfix];
+    for (const auto &m : succs) {
+        const left_id &leftfix = m.first;
+        const auto &left_succs = m.second;
 
         rose_group squash_mask = tbi.rose_squash_masks.at(leftfix);
         eager_info ei;
@@ -1542,9 +1551,11 @@ bool buildLeftfixes(RoseBuildImpl &tbi, build_context &bc,
         eager.clear();
     }
 
-    for (const left_id &leftfix : order) {
+    for (const auto &m : succs) {
+        const left_id &leftfix = m.first;
+        const auto &left_succs = m.second;
         buildLeftfix(tbi, bc, do_prefix, qif.get_queue(), infixTriggers,
-                     no_retrigger_queues, eager_queues, eager, succs[leftfix],
+                     no_retrigger_queues, eager_queues, eager, left_succs,
                      leftfix);
     }
 
@@ -1874,6 +1885,10 @@ void findExclusiveSuffixes(RoseBuildImpl &tbi, build_context &bc,
             continue;
         }
 
+        if (s.haig()) {
+            continue;
+        }
+
         // Currently disable eod suffixes for exclusive analysis
         if (!tbi.isInETable(v) && (s.graph() || s.castle())) {
             DEBUG_PRINTF("assigning %p to id %u\n", s.graph(), role_id);
@@ -2038,7 +2053,7 @@ bool buildNfas(RoseBuildImpl &tbi, build_context &bc, QueueIndexFactory &qif,
 static
 void allocateStateSpace(const engine_info &eng_info, NfaInfo &nfa_info,
                         RoseStateOffsets *so, u32 *scratchStateSize,
-                        u32 *streamStateSize, u32 *transientStateSize) {
+                        u32 *transientStateSize) {
     u32 state_offset;
     if (eng_info.transient) {
         // Transient engines do not use stream state, but must have room in
@@ -2049,7 +2064,6 @@ void allocateStateSpace(const engine_info &eng_info, NfaInfo &nfa_info,
         // Pack NFA stream state on to the end of the Rose stream state.
         state_offset = so->end;
         so->end += eng_info.stream_size;
-        *streamStateSize += eng_info.stream_size;
     }
 
     nfa_info.stateOffset = state_offset;
@@ -2063,12 +2077,11 @@ void allocateStateSpace(const engine_info &eng_info, NfaInfo &nfa_info,
 static
 void updateNfaState(const build_context &bc, vector<NfaInfo> &nfa_infos,
                     RoseStateOffsets *so, u32 *scratchStateSize,
-                    u32 *streamStateSize, u32 *transientStateSize) {
+                    u32 *transientStateSize) {
     if (nfa_infos.empty()) {
         return;
     }
 
-    *streamStateSize = 0;
     *transientStateSize = 0;
     *scratchStateSize = 0;
 
@@ -2076,7 +2089,7 @@ void updateNfaState(const build_context &bc, vector<NfaInfo> &nfa_infos,
         NfaInfo &nfa_info = nfa_infos[qi];
         const auto &eng_info = bc.engine_info_by_queue.at(qi);
         allocateStateSpace(eng_info, nfa_info, so, scratchStateSize,
-                           streamStateSize, transientStateSize);
+                           transientStateSize);
     }
 }
 
@@ -2268,9 +2281,9 @@ bool hasMpvTrigger(const set<u32> &reports, const ReportManager &rm) {
 }
 
 static
-bool anyEndfixMpvTriggers(const RoseBuildImpl &tbi) {
-    const RoseGraph &g = tbi.g;
-    ue2::unordered_set<suffix_id> done;
+bool anyEndfixMpvTriggers(const RoseBuildImpl &build) {
+    const RoseGraph &g = build.g;
+    unordered_set<suffix_id> done;
 
     /* suffixes */
     for (auto v : vertices_range(g)) {
@@ -2282,14 +2295,14 @@ bool anyEndfixMpvTriggers(const RoseBuildImpl &tbi) {
         }
         done.insert(g[v].suffix);
 
-        if (hasMpvTrigger(all_reports(g[v].suffix), tbi.rm)) {
+        if (hasMpvTrigger(all_reports(g[v].suffix), build.rm)) {
             return true;
         }
     }
 
     /* outfixes */
-    for (const auto &out : tbi.outfixes) {
-        if (hasMpvTrigger(all_reports(out), tbi.rm)) {
+    for (const auto &out : build.outfixes) {
+        if (hasMpvTrigger(all_reports(out), build.rm)) {
             return true;
         }
     }
@@ -2328,6 +2341,7 @@ void addSomRevNfas(build_context &bc, RoseEngine &proto,
 
 static
 void recordResources(RoseResources &resources, const RoseBuildImpl &build,
+                     const vector<raw_dfa> &anchored_dfas,
                      const vector<LitFragment> &fragments) {
     if (!build.outfixes.empty()) {
         resources.has_outfixes = true;
@@ -2346,6 +2360,15 @@ void recordResources(RoseResources &resources, const RoseBuildImpl &build,
             break;
         }
     }
+
+    resources.has_anchored = !anchored_dfas.empty();
+    resources.has_anchored_multiple = anchored_dfas.size() > 1;
+    for (const auto &rdfa : anchored_dfas) {
+        if (rdfa.states.size() > 256) {
+            resources.has_anchored_large = true;
+        }
+    }
+
 }
 
 static
@@ -2490,7 +2513,7 @@ void writeNfaInfo(const RoseBuildImpl &build, build_context &bc,
     // Update state offsets to do with NFAs in proto and in the NfaInfo
     // structures.
     updateNfaState(bc, infos, &proto.stateOffsets, &proto.scratchStateSize,
-                   &proto.nfaStateSize, &proto.tStateSize);
+                   &proto.tStateSize);
 
     proto.nfaInfoOffset = bc.engine_blob.add_range(infos);
 }
@@ -2587,7 +2610,7 @@ void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
     const RoseGraph &g = tbi.g;
     const CompileContext &cc = tbi.cc;
 
-    ue2::unordered_set<u32> done_core;
+    unordered_set<u32> done_core;
 
     leftTable.resize(leftfixCount);
 
@@ -2672,30 +2695,22 @@ void buildLeftInfoTable(const RoseBuildImpl &tbi, build_context &bc,
 static
 RoseProgram makeLiteralProgram(const RoseBuildImpl &build, build_context &bc,
                                ProgramBuild &prog_build, u32 lit_id,
-                               const map<u32, vector<RoseEdge>> &lit_edge_map,
+                               const vector<vector<RoseEdge>> &lit_edge_map,
                                bool is_anchored_replay_program) {
-    const vector<RoseEdge> no_edges;
-
     DEBUG_PRINTF("lit_id=%u\n", lit_id);
-    const vector<RoseEdge> *edges_ptr;
-    if (contains(lit_edge_map, lit_id)) {
-        edges_ptr = &lit_edge_map.at(lit_id);
-    } else {
-        /* literal may happen only in a delay context */
-        edges_ptr = &no_edges;
-    }
+    assert(lit_id < lit_edge_map.size());
 
     return makeLiteralProgram(build, bc.leftfix_info, bc.suffixes,
-                              bc.engine_info_by_queue,
-                              bc.roleStateIndices, prog_build, lit_id,
-                              *edges_ptr, is_anchored_replay_program);
+                              bc.engine_info_by_queue, bc.roleStateIndices,
+                              prog_build, lit_id, lit_edge_map.at(lit_id),
+                              is_anchored_replay_program);
 }
 
 static
 RoseProgram makeFragmentProgram(const RoseBuildImpl &build, build_context &bc,
                                ProgramBuild &prog_build,
                                const vector<u32> &lit_ids,
-                               const map<u32, vector<RoseEdge>> &lit_edge_map) {
+                               const vector<vector<RoseEdge>> &lit_edge_map) {
     assert(!lit_ids.empty());
 
     vector<RoseProgram> blocks;
@@ -2713,28 +2728,27 @@ RoseProgram makeFragmentProgram(const RoseBuildImpl &build, build_context &bc,
  * vertices with that literal ID.
  */
 static
-map<u32, vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
-    // Use a set of edges while building the map to cull duplicates.
-    map<u32, flat_set<RoseEdge>> unique_lit_edge_map;
+vector<vector<RoseEdge>> findEdgesByLiteral(const RoseBuildImpl &build) {
+    vector<vector<RoseEdge>> lit_edge_map(build.literals.size());
 
     const auto &g = build.g;
-    for (const auto &e : edges_range(g)) {
-        const auto &v = target(e, g);
+    for (const auto &v : vertices_range(g)) {
         for (const auto &lit_id : g[v].literals) {
-            unique_lit_edge_map[lit_id].insert(e);
+            assert(lit_id < lit_edge_map.size());
+            auto &edge_list = lit_edge_map.at(lit_id);
+            insert(&edge_list, edge_list.end(), in_edges(v, g));
         }
     }
 
-    // Build output map, sorting edges by (source, target) vertex index.
-    map<u32, vector<RoseEdge>> lit_edge_map;
-    for (const auto &m : unique_lit_edge_map) {
-        auto edge_list = vector<RoseEdge>(begin(m.second), end(m.second));
-        sort(begin(edge_list), end(edge_list),
-             [&g](const RoseEdge &a, const RoseEdge &b) {
-                 return tie(g[source(a, g)].index, g[target(a, g)].index) <
-                        tie(g[source(b, g)].index, g[target(b, g)].index);
-             });
-        lit_edge_map.emplace(m.first, std::move(edge_list));
+    // Sort edges in each edge list by (source, target) indices. This gives us
+    // less surprising ordering in program generation for a literal with many
+    // edges.
+    for (auto &edge_list : lit_edge_map) {
+        sort(begin(edge_list), end(edge_list), [&g](const RoseEdge &a,
+                                                    const RoseEdge &b) {
+            return tie(g[source(a, g)].index, g[target(a, g)].index) <
+                   tie(g[source(b, g)].index, g[target(b, g)].index);
+        });
     }
 
     return lit_edge_map;
@@ -2761,17 +2775,13 @@ bool isUsedLiteral(const RoseBuildImpl &build, u32 lit_id) {
 }
 
 static
-rose_literal_id getFragment(const rose_literal_id &lit) {
-    if (lit.s.length() <= ROSE_SHORT_LITERAL_LEN_MAX) {
-        DEBUG_PRINTF("whole lit is frag\n");
-        return lit;
+rose_literal_id getFragment(rose_literal_id lit) {
+    if (lit.s.length() > ROSE_SHORT_LITERAL_LEN_MAX) {
+        // Trim to last ROSE_SHORT_LITERAL_LEN_MAX bytes.
+        lit.s.erase(0, lit.s.length() - ROSE_SHORT_LITERAL_LEN_MAX);
     }
-
-    rose_literal_id frag = lit;
-    frag.s = frag.s.substr(frag.s.length() - ROSE_SHORT_LITERAL_LEN_MAX);
-
-    DEBUG_PRINTF("fragment: %s\n", dumpString(frag.s).c_str());
-    return frag;
+    DEBUG_PRINTF("fragment: %s\n", dumpString(lit.s).c_str());
+    return lit;
 }
 
 static
@@ -2803,7 +2813,7 @@ vector<LitFragment> groupByFragment(const RoseBuildImpl &build) {
         auto groups = info.group_mask;
 
         if (lit.s.length() < ROSE_SHORT_LITERAL_LEN_MAX) {
-            fragments.emplace_back(frag_id, groups, lit_id);
+            fragments.emplace_back(frag_id, lit.s, groups, lit_id);
             frag_id++;
             continue;
         }
@@ -2816,15 +2826,188 @@ vector<LitFragment> groupByFragment(const RoseBuildImpl &build) {
     }
 
     for (auto &m : frag_info) {
+        auto &lit = m.first;
         auto &fi = m.second;
         DEBUG_PRINTF("frag %s -> ids: %s\n", dumpString(m.first.s).c_str(),
                      as_string_list(fi.lit_ids).c_str());
-        fragments.emplace_back(frag_id, fi.groups, move(fi.lit_ids));
+        fragments.emplace_back(frag_id, lit.s, fi.groups, move(fi.lit_ids));
         frag_id++;
         assert(frag_id == fragments.size());
     }
 
     return fragments;
+}
+
+static
+void buildIncludedIdMap(unordered_map<u32, pair<u32, u8>> &includedIdMap,
+                        const LitProto *litProto) {
+    if (!litProto) {
+        return;
+    }
+    const auto &proto = *litProto->hwlmProto;
+    for (const auto &lit : proto.lits) {
+        if (contains(includedIdMap, lit.id)) {
+            const auto &included_id = includedIdMap[lit.id].first;
+            const auto &squash = includedIdMap[lit.id].second;
+            // The squash behavior should be the same for the same literal
+            // in different literal matchers.
+            if (lit.included_id != included_id ||
+                lit.squash != squash) {
+                includedIdMap[lit.id] = make_pair(INVALID_LIT_ID, 0);
+                DEBUG_PRINTF("find different included info for the"
+                             " same literal\n");
+            }
+        } else if (lit.included_id != INVALID_LIT_ID) {
+            includedIdMap[lit.id] = make_pair(lit.included_id, lit.squash);
+        } else {
+            includedIdMap[lit.id] = make_pair(INVALID_LIT_ID, 0);
+        }
+    }
+}
+
+static
+void findInclusionGroups(vector<LitFragment> &fragments,
+                         LitProto *fproto, LitProto *drproto,
+                         LitProto *eproto, LitProto *sbproto) {
+    unordered_map<u32, pair<u32, u8>> includedIdMap;
+    unordered_map<u32, pair<u32, u8>> includedDelayIdMap;
+    buildIncludedIdMap(includedIdMap, fproto);
+    buildIncludedIdMap(includedDelayIdMap, drproto);
+    buildIncludedIdMap(includedIdMap, eproto);
+    buildIncludedIdMap(includedIdMap, sbproto);
+
+    size_t fragNum = fragments.size();
+    vector<u32> candidates;
+    for (size_t j = 0; j < fragNum; j++) {
+        DEBUG_PRINTF("frag id %lu\n", j);
+        u32 id = j;
+        if (contains(includedIdMap, id) ||
+            contains(includedDelayIdMap, id)) {
+            candidates.push_back(j);
+            DEBUG_PRINTF("find candidate\n");
+        }
+    }
+
+    for (const auto &c : candidates) {
+        auto &frag = fragments[c];
+        u32 id = c;
+        if (contains(includedIdMap, id) &&
+            includedIdMap[id].first != INVALID_LIT_ID) {
+            const auto &childId = includedIdMap[id];
+            frag.included_frag_id = childId.first;
+            frag.squash = childId.second;
+            DEBUG_PRINTF("frag id %u child frag id %u\n", c,
+                         frag.included_frag_id);
+        }
+
+        if (contains(includedDelayIdMap, id) &&
+            includedDelayIdMap[id].first != INVALID_LIT_ID) {
+            const auto &childId = includedDelayIdMap[id];
+            frag.included_delay_frag_id = childId.first;
+            frag.delay_squash = childId.second;
+
+            DEBUG_PRINTF("delay frag id %u child frag id %u\n", c,
+                             frag.included_delay_frag_id);
+        }
+    }
+}
+
+static
+void buildFragmentPrograms(const RoseBuildImpl &build,
+                           vector<LitFragment> &fragments,
+                           build_context &bc, ProgramBuild &prog_build,
+                           const vector<vector<RoseEdge>> &lit_edge_map) {
+    // Sort fragments based on literal length and case info to build
+    // included literal programs before their parent programs.
+    vector<LitFragment> ordered_fragments(fragments);
+    stable_sort(begin(ordered_fragments), end(ordered_fragments),
+         [](const LitFragment &a, const LitFragment &b) {
+             auto len1 = a.s.length();
+             auto caseful1 = !a.s.any_nocase();
+             auto len2 = b.s.length();
+             auto caseful2 = !b.s.any_nocase();
+             return tie(len1, caseful1) < tie(len2, caseful2);
+         });
+
+    for (auto &frag : ordered_fragments) {
+        auto &pfrag = fragments[frag.fragment_id];
+        DEBUG_PRINTF("frag_id=%u, lit_ids=[%s]\n", pfrag.fragment_id,
+                     as_string_list(pfrag.lit_ids).c_str());
+
+        auto lit_prog = makeFragmentProgram(build, bc, prog_build,
+                                            pfrag.lit_ids, lit_edge_map);
+        if (pfrag.included_frag_id != INVALID_FRAG_ID &&
+            !lit_prog.empty()) {
+            auto &cfrag = fragments[pfrag.included_frag_id];
+            assert(pfrag.s.length() >= cfrag.s.length() &&
+                   !pfrag.s.any_nocase() >= !cfrag.s.any_nocase());
+            u32 child_offset = cfrag.lit_program_offset;
+            DEBUG_PRINTF("child %u offset %u\n", cfrag.fragment_id,
+                         child_offset);
+            addIncludedJumpProgram(lit_prog, child_offset, pfrag.squash);
+        }
+        pfrag.lit_program_offset = writeProgram(bc, move(lit_prog));
+
+        // We only do delayed rebuild in streaming mode.
+        if (!build.cc.streaming) {
+            continue;
+        }
+
+        auto rebuild_prog = makeDelayRebuildProgram(build, prog_build,
+                                                    pfrag.lit_ids);
+        if (pfrag.included_delay_frag_id != INVALID_FRAG_ID &&
+            !rebuild_prog.empty()) {
+            auto &cfrag = fragments[pfrag.included_delay_frag_id];
+            assert(pfrag.s.length() >= cfrag.s.length() &&
+                   !pfrag.s.any_nocase() >= !cfrag.s.any_nocase());
+            u32 child_offset = cfrag.delay_program_offset;
+            DEBUG_PRINTF("child %u offset %u\n", cfrag.fragment_id,
+                         child_offset);
+            addIncludedJumpProgram(rebuild_prog, child_offset,
+                                   pfrag.delay_squash);
+        }
+        pfrag.delay_program_offset = writeProgram(bc, move(rebuild_prog));
+    }
+}
+
+static
+void updateLitProtoProgramOffset(vector<LitFragment> &fragments,
+                                 LitProto &litProto, bool delay) {
+    auto &proto = *litProto.hwlmProto;
+    for (auto &lit : proto.lits) {
+        auto fragId = lit.id;
+        auto &frag = fragments[fragId];
+        if (delay) {
+            DEBUG_PRINTF("delay_program_offset:%u\n",
+                         frag.delay_program_offset);
+            lit.id = frag.delay_program_offset;
+        } else {
+            DEBUG_PRINTF("lit_program_offset:%u\n",
+                         frag.lit_program_offset);
+            lit.id = frag.lit_program_offset;
+        }
+    }
+}
+
+static
+void updateLitProgramOffset(vector<LitFragment> &fragments,
+                            LitProto *fproto, LitProto *drproto,
+                            LitProto *eproto, LitProto *sbproto) {
+    if (fproto) {
+        updateLitProtoProgramOffset(fragments, *fproto, false);
+    }
+
+    if (drproto) {
+        updateLitProtoProgramOffset(fragments, *drproto, true);
+    }
+
+    if (eproto) {
+        updateLitProtoProgramOffset(fragments, *eproto, false);
+    }
+
+    if (sbproto) {
+        updateLitProtoProgramOffset(fragments, *sbproto, false);
+    }
 }
 
 /**
@@ -2833,27 +3016,18 @@ vector<LitFragment> groupByFragment(const RoseBuildImpl &build) {
 static
 void buildLiteralPrograms(const RoseBuildImpl &build,
                           vector<LitFragment> &fragments, build_context &bc,
-                          ProgramBuild &prog_build) {
+                          ProgramBuild &prog_build, LitProto *fproto,
+                          LitProto *drproto, LitProto *eproto,
+                          LitProto *sbproto) {
     DEBUG_PRINTF("%zu fragments\n", fragments.size());
     auto lit_edge_map = findEdgesByLiteral(build);
 
-    for (auto &frag : fragments) {
-        DEBUG_PRINTF("frag_id=%u, lit_ids=[%s]\n", frag.fragment_id,
-                     as_string_list(frag.lit_ids).c_str());
+    findInclusionGroups(fragments, fproto, drproto, eproto, sbproto);
 
-        auto lit_prog = makeFragmentProgram(build, bc, prog_build, frag.lit_ids,
-                                            lit_edge_map);
-        frag.lit_program_offset = writeProgram(bc, move(lit_prog));
+    buildFragmentPrograms(build, fragments, bc, prog_build, lit_edge_map);
 
-        // We only do delayed rebuild in streaming mode.
-        if (!build.cc.streaming) {
-            continue;
-        }
-
-        auto rebuild_prog = makeDelayRebuildProgram(build, prog_build,
-                                                    frag.lit_ids);
-        frag.delay_program_offset = writeProgram(bc, move(rebuild_prog));
-    }
+    // update literal program offsets for literal matcher prototypes
+    updateLitProgramOffset(fragments, fproto, drproto, eproto, sbproto);
 }
 
 /**
@@ -3259,6 +3433,7 @@ u32 writeEagerQueueIter(const set<u32> &eager, u32 leftfixBeginQueue,
 
 static
 bytecode_ptr<RoseEngine> addSmallWriteEngine(const RoseBuildImpl &build,
+                                             const RoseResources &res,
                                              bytecode_ptr<RoseEngine> rose) {
     assert(rose);
 
@@ -3267,7 +3442,7 @@ bytecode_ptr<RoseEngine> addSmallWriteEngine(const RoseBuildImpl &build,
         return rose;
     }
 
-    u32 qual = roseQuality(rose.get());
+    u32 qual = roseQuality(res, rose.get());
     auto smwr_engine = build.smwr.build(qual);
     if (!smwr_engine) {
         DEBUG_PRINTF("no smwr built\n");
@@ -3407,10 +3582,7 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     build_context bc;
     u32 floatingMinLiteralMatchOffset
         = findMinFloatingLiteralMatch(*this, anchored_dfas);
-    recordResources(bc.resources, *this, fragments);
-    if (!anchored_dfas.empty()) {
-        bc.resources.has_anchored = true;
-    }
+    recordResources(bc.resources, *this, anchored_dfas, fragments);
     bc.needs_mpv_catchup = needsMpvCatchup(*this);
 
     makeBoundaryPrograms(*this, bc, boundary, dboundary, proto.boundary);
@@ -3470,7 +3642,24 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     tie(proto.delayProgramOffset, proto.delay_count) =
         writeDelayPrograms(*this, fragments, bc, prog_build);
 
-    buildLiteralPrograms(*this, fragments, bc, prog_build);
+    // Build floating HWLM matcher prototype.
+    rose_group fgroups = 0;
+    auto fproto = buildFloatingMatcherProto(*this, fragments,
+                                            longLitLengthThreshold,
+                                            &fgroups, &historyRequired);
+
+    // Build delay rebuild HWLM matcher prototype.
+    auto drproto = buildDelayRebuildMatcherProto(*this, fragments,
+                                                 longLitLengthThreshold);
+
+    // Build EOD-anchored HWLM matcher prototype.
+    auto eproto = buildEodAnchoredMatcherProto(*this, fragments);
+
+    // Build small-block HWLM matcher prototype.
+    auto sbproto = buildSmallBlockMatcherProto(*this, fragments);
+
+    buildLiteralPrograms(*this, fragments, bc, prog_build, fproto.get(),
+                         drproto.get(), eproto.get(), sbproto.get());
 
     auto eod_prog = makeEodProgram(*this, bc, prog_build, eodNfaIterOffset);
     proto.eodProgramOffset = writeProgram(bc, move(eod_prog));
@@ -3497,29 +3686,26 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     }
 
     // Build floating HWLM matcher.
-    rose_group fgroups = 0;
-    auto ftable = buildFloatingMatcher(*this, fragments, longLitLengthThreshold,
-                                       &fgroups, &historyRequired);
+    auto ftable = buildHWLMMatcher(*this, fproto.get());
     if (ftable) {
         proto.fmatcherOffset = bc.engine_blob.add(ftable);
         bc.resources.has_floating = true;
     }
 
     // Build delay rebuild HWLM matcher.
-    auto drtable = buildDelayRebuildMatcher(*this, fragments,
-                                            longLitLengthThreshold);
+    auto drtable = buildHWLMMatcher(*this, drproto.get());
     if (drtable) {
         proto.drmatcherOffset = bc.engine_blob.add(drtable);
     }
 
     // Build EOD-anchored HWLM matcher.
-    auto etable = buildEodAnchoredMatcher(*this, fragments);
+    auto etable = buildHWLMMatcher(*this, eproto.get());
     if (etable) {
         proto.ematcherOffset = bc.engine_blob.add(etable);
     }
 
     // Build small-block HWLM matcher.
-    auto sbtable = buildSmallBlockMatcher(*this, fragments);
+    auto sbtable = buildHWLMMatcher(*this, sbproto.get());
     if (sbtable) {
         proto.sbmatcherOffset = bc.engine_blob.add(sbtable);
     }
@@ -3618,7 +3804,6 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     proto.totalNumLiterals = verify_u32(literal_info.size());
     proto.asize = verify_u32(atable.size());
     proto.ematcherRegionSize = ematcher_region_size;
-    proto.longLitStreamState = verify_u32(longLitStreamStateRequired);
 
     proto.size = currOffset;
 
@@ -3636,7 +3821,7 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     bc.engine_blob.write_bytes(engine.get());
 
     // Add a small write engine if appropriate.
-    engine = addSmallWriteEngine(*this, move(engine));
+    engine = addSmallWriteEngine(*this, bc.resources, move(engine));
 
     DEBUG_PRINTF("rose done %p\n", engine.get());
 

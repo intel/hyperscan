@@ -57,13 +57,14 @@
 #include "util/compare.h"
 #include "util/compile_context.h"
 #include "util/container.h"
+#include "util/flat_containers.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
+#include "util/insertion_ordered.h"
 #include "util/make_unique.h"
 #include "util/order_check.h"
 #include "util/target_info.h"
 #include "util/ue2string.h"
-#include "util/ue2_containers.h"
 
 #include <set>
 #include <utility>
@@ -559,7 +560,7 @@ void filterCandPivots(const NGHolder &g, const set<NFAVertex> &cand_raw,
 static
 void getCandidatePivots(const NGHolder &g, set<NFAVertex> *cand,
                         set<NFAVertex> *cand_raw) {
-    ue2::unordered_map<NFAVertex, NFAVertex> dominators = findDominators(g);
+    auto dominators = findDominators(g);
 
     set<NFAVertex> accepts;
 
@@ -1023,8 +1024,8 @@ bool splitRoseEdge(const NGHolder &base_graph, RoseInGraph &vg,
     shared_ptr<NGHolder> lhs = make_shared<NGHolder>();
     shared_ptr<NGHolder> rhs = make_shared<NGHolder>();
 
-    ue2::unordered_map<NFAVertex, NFAVertex> lhs_map;
-    ue2::unordered_map<NFAVertex, NFAVertex> rhs_map;
+    unordered_map<NFAVertex, NFAVertex> lhs_map;
+    unordered_map<NFAVertex, NFAVertex> rhs_map;
 
     splitGraph(base_graph, splitters, lhs.get(), &lhs_map, rhs.get(), &rhs_map);
     DEBUG_PRINTF("split %s:%zu into %s:%zu + %s:%zu\n",
@@ -1076,24 +1077,21 @@ bool splitRoseEdge(const NGHolder &base_graph, RoseInGraph &vg,
         insert(&splitter_reports, base_graph[v].reports);
     }
 
-    /* find the targets of each source vertex; note the use of vectors to
+    /* find the targets of each source vertex; insertion_ordered_map used to
      * preserve deterministic ordering */
-    vector<RoseInVertex> sources;
-    map<RoseInVertex, vector<RoseInVertex>> images;
+    insertion_ordered_map<RoseInVertex, vector<RoseInVertex>> images;
     for (const RoseInEdge &e : ee) {
         RoseInVertex src = source(e, vg);
         RoseInVertex dest = target(e, vg);
-        if (!contains(images, src)) {
-            sources.push_back(src);
-        }
         images[src].push_back(dest);
         remove_edge(e, vg);
     }
 
     map<vector<RoseInVertex>, vector<RoseInVertex>> verts_by_image;
 
-    for (const auto &u : sources) {
-        const auto &image = images[u];
+    for (const auto &m : images) {
+        const auto &u = m.first;
+        const auto &image = m.second;
 
         if (contains(verts_by_image, image)) {
             for (RoseInVertex v : verts_by_image[image]) {
@@ -1198,7 +1196,8 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
                      const vector<RoseInEdge> &to_cut,
                      const vector<NFAEdge> &cut,
                      const map<NFAEdge, set<ue2_literal>> &cut_lits) {
-    DEBUG_PRINTF("splitting %s:\n", to_string(h.kind).c_str());
+    DEBUG_PRINTF("splitting %s (%zu vertices)\n", to_string(h.kind).c_str(),
+                 num_vertices(h));
 
     /* create literal vertices and connect preds */
     unordered_set<RoseInVertex> done_sources;
@@ -1216,7 +1215,7 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
             NFAVertex pivot = target(e, h);
 
             DEBUG_PRINTF("splitting on pivot %zu\n", h[pivot].index);
-            ue2::unordered_map<NFAVertex, NFAVertex> temp_map;
+            unordered_map<NFAVertex, NFAVertex> temp_map;
             shared_ptr<NGHolder> new_lhs = make_shared<NGHolder>();
             splitLHS(h, pivot, new_lhs.get(), &temp_map);
 
@@ -1233,7 +1232,9 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
             renumber_vertices(*new_lhs);
             renumber_edges(*new_lhs);
 
-            DEBUG_PRINTF("    into lhs %s\n", to_string(new_lhs->kind).c_str());
+            DEBUG_PRINTF("    into lhs %s (%zu vertices)\n",
+                         to_string(new_lhs->kind).c_str(),
+                         num_vertices(*new_lhs));
 
             assert(hasCorrectlyNumberedVertices(*new_lhs));
             assert(hasCorrectlyNumberedEdges(*new_lhs));
@@ -1295,14 +1296,15 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
                effort */
 
             if (!contains(done_rhs, adj)) {
-                ue2::unordered_map<NFAVertex, NFAVertex> temp_map;
+                unordered_map<NFAVertex, NFAVertex> temp_map;
                 shared_ptr<NGHolder> new_rhs = make_shared<NGHolder>();
                 splitRHS(h, adj, new_rhs.get(), &temp_map);
                 remove_edge(new_rhs->start, new_rhs->accept, *new_rhs);
                 remove_edge(new_rhs->start, new_rhs->acceptEod, *new_rhs);
                 renumber_edges(*new_rhs);
-                DEBUG_PRINTF("    into rhs %s\n",
-                              to_string(new_rhs->kind).c_str());
+                DEBUG_PRINTF("    into rhs %s (%zu vertices)\n",
+                             to_string(new_rhs->kind).c_str(),
+                             num_vertices(*new_rhs));
                 done_rhs.emplace(adj, new_rhs);
                 assert(isCorrectlyTopped(*new_rhs));
             }
@@ -1552,6 +1554,12 @@ void removeRedundantLiteralsFromPrefixes(RoseInGraph &g,
             continue;
         }
 
+        if (g[e].dfa) {
+            /* if we removed any more states, we would need to rebuild the
+             * the dfa which can be time consuming. */
+            continue;
+        }
+
         assert(!g[t].delay);
         const ue2_literal &lit = g[t].s;
 
@@ -1669,6 +1677,8 @@ void removeRedundantLiteralsFromInfix(const NGHolder &h, RoseInGraph &ig,
             /* already removed redundant parts of literals */
             return;
         }
+
+        assert(!ig[e].dfa);
     }
 
     map<ue2_literal, pair<shared_ptr<NGHolder>, u32> > graphs; /* + delay */
@@ -1701,6 +1711,11 @@ void removeRedundantLiteralsFromInfix(const NGHolder &h, RoseInGraph &ig,
             continue;
         }
 
+        if (!delay) {
+            /* unable to trim graph --> no point swapping to new holder */
+            continue;
+        }
+
         assert(isCorrectlyTopped(*h_new));
         graphs[right] = make_pair(h_new, delay);
     }
@@ -1726,8 +1741,7 @@ void removeRedundantLiteralsFromInfix(const NGHolder &h, RoseInGraph &ig,
 static
 void removeRedundantLiteralsFromInfixes(RoseInGraph &g,
                                         const CompileContext &cc) {
-    vector<NGHolder *> seen_order;
-    map<NGHolder *, vector<RoseInEdge>> infixes;
+    insertion_ordered_map<NGHolder *, vector<RoseInEdge>> infixes;
 
     for (const RoseInEdge &e : edges_range(g)) {
         RoseInVertex s = source(e, g);
@@ -1742,19 +1756,22 @@ void removeRedundantLiteralsFromInfixes(RoseInGraph &g,
         }
 
         assert(!g[t].delay);
+        if (g[e].dfa) {
+            /* if we removed any more states, we would need to rebuild the
+             * the dfa which can be time consuming. */
+            continue;
+        }
 
         NGHolder *h = g[e].graph.get();
-        if (!contains(infixes, h)) {
-            seen_order.push_back(h);
-        }
         infixes[h].push_back(e);
     }
 
-    for (NGHolder *h : seen_order) {
-        removeRedundantLiteralsFromInfix(*h, g, infixes[h], cc);
+    for (const auto &m : infixes) {
+        NGHolder *h = m.first;
+        const auto &edges = m.second;
+        removeRedundantLiteralsFromInfix(*h, g, edges, cc);
     }
 }
-
 
 static
 void removeRedundantLiterals(RoseInGraph &g, const CompileContext &cc) {
@@ -2067,13 +2084,13 @@ void findBetterPrefixes(RoseInGraph &vg, const CompileContext &cc) {
     STAGE_DEBUG_PRINTF("FIND BETTER PREFIXES\n");
     RoseInVertex start = getStart(vg);
 
+    insertion_ordered_map<NGHolder *, vector<RoseInEdge>> prefixes;
     bool changed;
     u32 gen = 0;
     do {
         DEBUG_PRINTF("gen %u\n", gen);
         changed = false;
-        vector<NGHolder *> seen_order;
-        map<NGHolder *, vector<RoseInEdge> > prefixes;
+        prefixes.clear();
 
         /* find prefixes */
         for (const RoseInEdge &e : out_edges_range(start, vg)) {
@@ -2081,9 +2098,6 @@ void findBetterPrefixes(RoseInGraph &vg, const CompileContext &cc) {
             assert(vg[target(e, vg)].type == RIV_LITERAL);
             if (vg[e].graph) {
                 NGHolder *h = vg[e].graph.get();
-                if (!contains(prefixes, h)) {
-                    seen_order.push_back(h);
-                }
                 prefixes[h].push_back(e);
             }
         }
@@ -2093,14 +2107,16 @@ void findBetterPrefixes(RoseInGraph &vg, const CompileContext &cc) {
         }
 
         /* look for bad prefixes and try to split */
-        for (NGHolder *h : seen_order) {
+        for (const auto &m : prefixes) {
+            NGHolder *h = m.first;
+            const auto &edges = m.second;
             depth max_width = findMaxWidth(*h);
             if (willBeTransient(max_width, cc)
                 || willBeAnchoredTable(max_width, cc.grey)) {
                 continue;
             }
 
-            changed = improvePrefix(*h, vg, prefixes[h], cc);
+            changed = improvePrefix(*h, vg, edges, cc);
         }
     } while (changed && gen++ < MAX_FIND_BETTER_PREFIX_GEN);
 }
@@ -2128,24 +2144,25 @@ void extractStrongLiterals(RoseInGraph &vg, const CompileContext &cc) {
     if (!cc.grey.violetExtractStrongLiterals) {
         return;
     }
-    STAGE_DEBUG_PRINTF("EXTRACT STRONG LITERALS\n");
-    set<NGHolder *> stuck;
 
+    STAGE_DEBUG_PRINTF("EXTRACT STRONG LITERALS\n");
+
+    unordered_set<NGHolder *> stuck;
+    insertion_ordered_map<NGHolder *, vector<RoseInEdge>> edges_by_graph;
     bool changed;
+
     do {
         changed = false;
 
-        vector<NGHolder *> seen_order;
-        map<NGHolder *, vector<RoseInEdge> > edges_by_graph;
+        edges_by_graph.clear();
         for (const RoseInEdge &ve : edges_range(vg)) {
             if (vg[source(ve, vg)].type != RIV_LITERAL) {
                 continue;
             }
+
             if (vg[ve].graph) {
-                if (!contains(edges_by_graph, vg[ve].graph.get())) {
-                    seen_order.push_back(vg[ve].graph.get());
-                }
-                edges_by_graph[vg[ve].graph.get()].push_back(ve);
+                NGHolder *h = vg[ve].graph.get();
+                edges_by_graph[h].push_back(ve);
             }
         }
 
@@ -2154,12 +2171,14 @@ void extractStrongLiterals(RoseInGraph &vg, const CompileContext &cc) {
             return;
         }
 
-        for (NGHolder *g : seen_order) {
+        for (const auto &m : edges_by_graph) {
+            NGHolder *g = m.first;
+            const auto &edges = m.second;
             if (contains(stuck, g)) {
                 DEBUG_PRINTF("already known to be bad\n");
                 continue;
             }
-            bool rv = extractStrongLiteral(*g, vg, edges_by_graph[g], cc);
+            bool rv = extractStrongLiteral(*g, vg, edges, cc);
             if (rv) {
                 changed = true;
             } else {
@@ -2207,8 +2226,7 @@ void improveWeakInfixes(RoseInGraph &vg, const CompileContext &cc) {
 
     RoseInVertex start = getStart(vg);
 
-    set<NGHolder *> weak;
-    vector<NGHolder *> ordered_weak;
+    unordered_set<NGHolder *> weak;
 
     for (RoseInVertex vv : adjacent_vertices_range(start, vg)) {
         /* outfixes shouldn't have made it this far */
@@ -2224,22 +2242,22 @@ void improveWeakInfixes(RoseInGraph &vg, const CompileContext &cc) {
 
             NGHolder *h = vg[e].graph.get();
             DEBUG_PRINTF("'%s' guards %p\n", dumpString(vg[vv].s).c_str(), h);
-            if (!contains(weak, h)) {
-                weak.insert(h);
-                ordered_weak.push_back(h);
-            }
+            weak.insert(h);
         }
     }
 
-    map<NGHolder *, vector<RoseInEdge> > weak_edges;
+    insertion_ordered_map<NGHolder *, vector<RoseInEdge>> weak_edges;
     for (const RoseInEdge &ve : edges_range(vg)) {
-        if (contains(weak, vg[ve].graph.get())) {
-            weak_edges[vg[ve].graph.get()].push_back(ve);
+        NGHolder *h = vg[ve].graph.get();
+        if (contains(weak, h)) {
+            weak_edges[h].push_back(ve);
         }
     }
 
-    for (NGHolder *h : ordered_weak) {
-        improveInfix(*h, vg, weak_edges[h], cc);
+    for (const auto &m : weak_edges) {
+        NGHolder *h = m.first;
+        const auto &edges = m.second;
+        improveInfix(*h, vg, edges, cc);
     }
 }
 
@@ -2395,8 +2413,8 @@ void avoidSuffixes(RoseInGraph &vg, const CompileContext &cc) {
     STAGE_DEBUG_PRINTF("AVOID SUFFIXES\n");
 
     RoseInVertex accept = getPrimaryAccept(vg);
-    map<const NGHolder *, vector<RoseInEdge> > suffixes;
-    vector<const NGHolder *> ordered_suffixes;
+
+    insertion_ordered_map<const NGHolder *, vector<RoseInEdge>> suffixes;
 
     /* find suffixes */
     for (const RoseInEdge &e : in_edges_range(accept, vg)) {
@@ -2405,15 +2423,14 @@ void avoidSuffixes(RoseInGraph &vg, const CompileContext &cc) {
         assert(vg[e].graph); /* non suffix paths should be wired to other
                                 accepts */
         const NGHolder *h = vg[e].graph.get();
-        if (!contains(suffixes, h)) {
-            ordered_suffixes.push_back(h);
-        }
         suffixes[h].push_back(e);
     }
 
     /* look at suffixes and try to split */
-    for (const NGHolder *h : ordered_suffixes) {
-        replaceSuffixWithInfix(*h, vg, suffixes[h], cc);
+    for (const auto &m : suffixes) {
+        const NGHolder *h = m.first;
+        const auto &edges = m.second;
+        replaceSuffixWithInfix(*h, vg, edges, cc);
     }
 }
 
@@ -2497,20 +2514,18 @@ void lookForDoubleCut(RoseInGraph &vg, const CompileContext &cc) {
         return;
     }
 
-    map<const NGHolder *, vector<RoseInEdge> > right_edges;
-    vector<const NGHolder *> ordered_graphs;
+    insertion_ordered_map<const NGHolder *, vector<RoseInEdge>> right_edges;
     for (const RoseInEdge &ve : edges_range(vg)) {
         if (vg[ve].graph && vg[source(ve, vg)].type == RIV_LITERAL) {
             const NGHolder *h = vg[ve].graph.get();
-            if (!contains(right_edges, h)) {
-                ordered_graphs.push_back(h);
-            }
             right_edges[h].push_back(ve);
         }
     }
 
-    for (const NGHolder *h : ordered_graphs) {
-        lookForDoubleCut(*h, right_edges[h], vg, cc.grey);
+    for (const auto &m : right_edges) {
+        const NGHolder *h = m.first;
+        const auto &edges = m.second;
+        lookForDoubleCut(*h, edges, vg, cc.grey);
     }
 }
 
@@ -2635,24 +2650,22 @@ void decomposeLiteralChains(RoseInGraph &vg, const CompileContext &cc) {
         return;
     }
 
+    insertion_ordered_map<const NGHolder *, vector<RoseInEdge>> right_edges;
     bool changed;
     do {
         changed = false;
 
-        map<const NGHolder *, vector<RoseInEdge> > right_edges;
-        vector<const NGHolder *> ordered_graphs;
+        right_edges.clear();
         for (const RoseInEdge &ve : edges_range(vg)) {
             if (vg[ve].graph && vg[source(ve, vg)].type == RIV_LITERAL) {
                 const NGHolder *h = vg[ve].graph.get();
-                if (!contains(right_edges, h)) {
-                    ordered_graphs.push_back(h);
-                }
                 right_edges[h].push_back(ve);
             }
         }
 
-        for (const NGHolder *h : ordered_graphs) {
-            const vector<RoseInEdge> &ee = right_edges[h];
+        for (const auto &m : right_edges) {
+            const NGHolder *h = m.first;
+            const vector<RoseInEdge> &ee = m.second;
             bool rv = lookForDoubleCut(*h, ee, vg, cc.grey);
             if (!rv && h->kind != NFA_SUFFIX) {
                 rv = lookForTrailingLiteralDotStar(*h, ee, vg, cc.grey);
@@ -2680,39 +2693,34 @@ static
 void lookForCleanEarlySplits(RoseInGraph &vg, const CompileContext &cc) {
     u32 gen = 0;
 
-    vector<RoseInVertex> prev = {getStart(vg)};
+    insertion_ordered_set<RoseInVertex> prev({getStart(vg)});
+    insertion_ordered_set<RoseInVertex> curr;
 
     while (gen < MAX_DESIRED_CLEAN_SPLIT_DEPTH) {
-        /* collect vertices in edge order for determinism */
-        vector<RoseInVertex> curr;
-        set<RoseInVertex> curr_seen;
+        curr.clear();
         for (RoseInVertex u : prev) {
             for (auto v : adjacent_vertices_range(u, vg)) {
-                if (curr_seen.insert(v).second) {
-                    curr.push_back(v);
-                }
+                curr.insert(v);
             }
         }
 
-        map<const NGHolder *, vector<RoseInEdge>> rightfixes;
-        vector<NGHolder *> ordered_graphs;
+        insertion_ordered_map<const NGHolder *, vector<RoseInEdge>> rightfixes;
         for (RoseInVertex v : curr) {
             for (const RoseInEdge &e : out_edges_range(v, vg)) {
                 if (vg[e].graph) {
                     NGHolder *h = vg[e].graph.get();
-                    if (!contains(rightfixes, h)) {
-                        ordered_graphs.push_back(h);
-                    }
                     rightfixes[h].push_back(e);
                 }
             }
         }
 
-        for (const NGHolder *h : ordered_graphs) {
-            lookForCleanSplit(*h, rightfixes[h], vg, cc);
+        for (const auto &m : rightfixes) {
+            const NGHolder *h = m.first;
+            const auto &edges = m.second;
+            lookForCleanSplit(*h, edges, vg, cc);
         }
 
-        prev = curr;
+        prev = std::move(curr);
         gen++;
     }
 }
@@ -2828,9 +2836,9 @@ bool doEarlyDfa(RoseBuild &rose, RoseInGraph &vg, NGHolder &h,
 #define MAX_EDGES_FOR_IMPLEMENTABILITY 50
 
 static
-bool splitForImplementabilty(RoseInGraph &vg, NGHolder &h,
-                             const vector<RoseInEdge> &edges,
-                             const CompileContext &cc) {
+bool splitForImplementability(RoseInGraph &vg, NGHolder &h,
+                              const vector<RoseInEdge> &edges,
+                              const CompileContext &cc) {
     vector<pair<ue2_literal, u32>> succ_lits;
     DEBUG_PRINTF("trying to split %s with %zu vertices on %zu edges\n",
                   to_string(h.kind).c_str(), num_vertices(h), edges.size());
@@ -2867,7 +2875,7 @@ bool splitForImplementabilty(RoseInGraph &vg, NGHolder &h,
     }
 
     DEBUG_PRINTF("trying to netflow\n");
-    bool rv =  doNetflowCut(h, nullptr, vg, edges, false, cc.grey);
+    bool rv = doNetflowCut(h, nullptr, vg, edges, false, cc.grey);
     DEBUG_PRINTF("done\n");
 
     return rv;
@@ -2882,28 +2890,33 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
     bool changed = false;
     bool need_to_recalc = false;
     u32 added_count = 0;
+    unordered_set<shared_ptr<NGHolder>> good; /* known to be implementable */
     do {
         changed = false;
         DEBUG_PRINTF("added %u\n", added_count);
-        map<const NGHolder *, vector<RoseInEdge> > edges_by_graph;
-        vector<NGHolder *> graphs;
+        insertion_ordered_map<shared_ptr<NGHolder>,
+                              vector<RoseInEdge>> edges_by_graph;
         for (const RoseInEdge &ve : edges_range(vg)) {
-            if (vg[ve].graph) {
-                NGHolder *h = vg[ve].graph.get();
-                if (!contains(edges_by_graph, h)) {
-                    graphs.push_back(h);
-                }
+            if (vg[ve].graph && !vg[ve].dfa) {
+                auto &h = vg[ve].graph;
                 edges_by_graph[h].push_back(ve);
             }
         }
-        for (NGHolder *h : graphs) {
+        for (auto &m : edges_by_graph) {
+            auto &h = m.first;
+            if (contains(good, h)) {
+                continue;
+            }
+            reduceGraphEquivalences(*h, cc);
             if (isImplementableNFA(*h, &rm, cc)) {
+                good.insert(h);
                 continue;
             }
 
-            if (tryForEarlyDfa(*h, cc)
-                && doEarlyDfa(rose, vg, *h, edges_by_graph[h], final_chance, rm,
-                              cc)) {
+            const auto &edges = m.second;
+
+            if (tryForEarlyDfa(*h, cc) &&
+                doEarlyDfa(rose, vg, *h, edges, final_chance, rm, cc)) {
                 continue;
             }
 
@@ -2912,8 +2925,12 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
                 return false;
             }
 
-            if (splitForImplementabilty(vg, *h, edges_by_graph[h], cc)) {
+            if (splitForImplementability(vg, *h, edges, cc)) {
                 added_count++;
+                if (added_count > MAX_IMPLEMENTABLE_SPLITS) {
+                    DEBUG_PRINTF("added_count hit limit\n");
+                    return false;
+                }
                 changed = true;
                 continue;
             }
@@ -2921,9 +2938,7 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
             return false;
         }
 
-        if (added_count > MAX_IMPLEMENTABLE_SPLITS) {
-            return false;
-        }
+        assert(added_count <= MAX_IMPLEMENTABLE_SPLITS);
 
         if (changed) {
             removeRedundantLiterals(vg, cc);
@@ -2949,6 +2964,13 @@ RoseInGraph doInitialVioletTransform(const NGHolder &h, bool last_chance,
     RoseInGraph vg = populateTrivialGraph(h);
 
     if (!cc.grey.allowViolet) {
+        return vg;
+    }
+
+    /* Avoid running the Violet analysis at all on graphs with no vertices with
+     * small reach, since we will not be able to extract any literals. */
+    if (!hasNarrowReachVertex(h)) {
+        DEBUG_PRINTF("fail, no vertices with small reach\n");
         return vg;
     }
 

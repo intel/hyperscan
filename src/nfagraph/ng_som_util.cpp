@@ -54,7 +54,7 @@ vector<DepthMinMax> getDistancesFromSOM(const NGHolder &g_orig) {
     // We operate on a temporary copy of the original graph here, so we don't
     // have to mutate the original.
     NGHolder g;
-    ue2::unordered_map<NFAVertex, NFAVertex> vmap; // vertex in g_orig to vertex in g
+    unordered_map<NFAVertex, NFAVertex> vmap; // vertex in g_orig to vertex in g
     cloneHolder(g, g_orig, &vmap);
 
     vector<NFAVertex> vstarts;
@@ -136,7 +136,7 @@ bool firstMatchIsFirst(const NGHolder &p) {
         return false;
     }
 
-    ue2::flat_set<NFAVertex> states;
+    flat_set<NFAVertex> states;
     /* turn on all states (except starts - avoid suffix matches) */
     /* If we were doing (1) we would also except states leading to accepts -
        avoid prefix matches */
@@ -166,7 +166,7 @@ bool firstMatchIsFirst(const NGHolder &p) {
 }
 
 bool somMayGoBackwards(NFAVertex u, const NGHolder &g,
-                       const ue2::unordered_map<NFAVertex, u32> &region_map,
+                       const unordered_map<NFAVertex, u32> &region_map,
                        smgb_cache &cache) {
     /* Need to ensure all matches of the graph g up to u contain no infixes
      * which are also matches of the graph to u.
@@ -215,7 +215,7 @@ bool somMayGoBackwards(NFAVertex u, const NGHolder &g,
         }
     }
 
-    ue2::unordered_map<NFAVertex, NFAVertex> orig_to_copy;
+    unordered_map<NFAVertex, NFAVertex> orig_to_copy;
     NGHolder c_g;
     cloneHolder(c_g, g, &orig_to_copy);
 
@@ -287,7 +287,7 @@ bool somMayGoBackwards(NFAVertex u, const NGHolder &g,
 }
 
 bool sentClearsTail(const NGHolder &g,
-                    const ue2::unordered_map<NFAVertex, u32> &region_map,
+                    const unordered_map<NFAVertex, u32> &region_map,
                     const NGHolder &sent, u32 last_head_region,
                     u32 *bad_region) {
     /* if a subsequent match from the prefix clears the rest of the pattern
@@ -312,7 +312,7 @@ bool sentClearsTail(const NGHolder &g,
      */
 
     u32 first_bad_region = ~0U;
-    ue2::flat_set<NFAVertex> states;
+    flat_set<NFAVertex> states;
     /* turn on all states */
     DEBUG_PRINTF("region %u is cutover\n", last_head_region);
     for (auto v : vertices_range(g)) {

@@ -221,8 +221,8 @@ public:
     std::string str() const;
 #endif
 
-    friend size_t hash_value(const depth &d) {
-        return d.val;
+    size_t hash() const {
+        return val;
     }
 
 private:
@@ -260,15 +260,29 @@ struct DepthMinMax : totally_ordered<DepthMinMax> {
 
 };
 
-inline size_t hash_value(const DepthMinMax &d) {
-    return hash_all(d.min, d.max);
-}
-
 /**
  * \brief Merge two DepthMinMax values together to produce their union.
  */
 DepthMinMax unionDepthMinMax(const DepthMinMax &a, const DepthMinMax &b);
 
 } // namespace ue2
+
+namespace std {
+
+template<>
+struct hash<ue2::depth> {
+    size_t operator()(const ue2::depth &d) const {
+        return d.hash();
+    }
+};
+
+template<>
+struct hash<ue2::DepthMinMax> {
+    size_t operator()(const ue2::DepthMinMax &d) const {
+        return hash_all(d.min, d.max);
+    }
+};
+
+} // namespace
 
 #endif // DEPTH_H

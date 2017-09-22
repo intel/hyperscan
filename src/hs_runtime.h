@@ -322,6 +322,120 @@ hs_error_t HS_CDECL hs_reset_and_copy_stream(hs_stream_t *to_id,
                                              void *context);
 
 /**
+ * Creates a compressed representation of the provided stream in the buffer
+ * provided. This compressed representation can be converted back into a stream
+ * state by using @ref hs_expand_stream() or @ref hs_reset_and_expand_stream().
+ * The size of the compressed representation will be placed into @a used_space.
+ *
+ * If there is not sufficient space in the buffer to hold the compressed
+ * represention, @ref HS_INSUFFICIENT_SPACE will be returned and @a used_space
+ * will be populated with the amount of space required.
+ *
+ * Note: this function does not close the provided stream, you may continue to
+ * use the stream or to free it with @ref hs_close_stream().
+ *
+ * @param stream
+ *      The stream (as created by @ref hs_open_stream()) to be compressed.
+ *
+ * @param buf
+ *      Buffer to write the compressed representation into. Note: if the call is
+ *      just being used to determine the amount of space required, it is allowed
+ *      to pass NULL here and @a buf_space as 0.
+ *
+ * @param buf_space
+ *      The number of bytes in @a buf. If buf_space is too small, the call will
+ *      fail with @ref HS_INSUFFICIENT_SPACE.
+ *
+ * @param used_space
+ *      Pointer to where the amount of used space will be written to. The used
+ *      buffer space is always less than or equal to @a buf_space. If the call
+ *      fails with @ref HS_INSUFFICIENT_SPACE, this pointer will be used to
+ *      write out the amount of buffer space required.
+ *
+ * @return
+ *      @ref HS_SUCCESS on success, @ref HS_INSUFFICIENT_SPACE if the provided
+ *      buffer is too small.
+ */
+hs_error_t HS_CDECL hs_compress_stream(const hs_stream_t *stream, char *buf,
+                                       size_t buf_space, size_t *used_space);
+
+/**
+ * Decompresses a compressed representation created by @ref hs_compress_stream()
+ * into a new stream.
+ *
+ * Note: @a buf must correspond to a complete compressed representation created
+ * by @ref hs_compress_stream() of a stream that was opened against @a db. It is
+ * not always possible to detect misuse of this API and behaviour is undefined
+ * if these properties are not satisfied.
+ *
+ * @param db
+ *      The compiled pattern database that the compressed stream was opened
+ *      against.
+ *
+ * @param stream
+ *      On success, a pointer to the expanded @ref hs_stream_t will be
+ *      returned; NULL on failure.
+ *
+ * @param buf
+ *      A compressed representation of a stream. These compressed forms are
+ *      created by @ref hs_compress_stream().
+ *
+ * @param buf_size
+ *      The size in bytes of the compressed representation.
+ *
+ * @return
+ *      @ref HS_SUCCESS on success, other values on failure.
+ */
+hs_error_t HS_CDECL hs_expand_stream(const hs_database_t *db,
+                                     hs_stream_t **stream, const char *buf,
+                                     size_t buf_size);
+
+/**
+ * Decompresses a compressed representation created by @ref hs_compress_stream()
+ * on top of the 'to' stream. The 'to' stream will first be reset (reporting
+ * any EOD matches if a non-NULL @a onEvent callback handler is provided).
+ *
+ * Note: the 'to' stream must be opened against the same database as the
+ * compressed stream.
+ *
+ * Note: @a buf must correspond to a complete compressed representation created
+ * by @ref hs_compress_stream() of a stream that was opened against @a db. It is
+ * not always possible to detect misuse of this API and behaviour is undefined
+ * if these properties are not satisfied.
+ *
+ * @param to_stream
+ *      A pointer to the generated @ref hs_stream_t will be
+ *      returned; NULL on failure.
+ *
+ * @param buf
+ *      A compressed representation of a stream. These compressed forms are
+ *      created by @ref hs_compress_stream().
+ *
+ * @param buf_size
+ *      The size in bytes of the compressed representation.
+ *
+ * @param scratch
+ *      A per-thread scratch space allocated by @ref hs_alloc_scratch(). This is
+ *      allowed to be NULL only if the @a onEvent callback is also NULL.
+ *
+ * @param onEvent
+ *      Pointer to a match event callback function. If a NULL pointer is given,
+ *      no matches will be returned.
+ *
+ * @param context
+ *      The user defined pointer which will be passed to the callback function
+ *      when a match occurs.
+ *
+ * @return
+ *      @ref HS_SUCCESS on success, other values on failure.
+ */
+hs_error_t HS_CDECL hs_reset_and_expand_stream(hs_stream_t *to_stream,
+                                               const char *buf, size_t buf_size,
+                                               hs_scratch_t *scratch,
+                                               match_event_handler onEvent,
+                                               void *context);
+
+/**
  * The block (non-streaming) regular expression scanner.
  *
  * This is the function call in which the actual pattern matching takes place

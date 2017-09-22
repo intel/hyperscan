@@ -32,16 +32,17 @@
 #ifndef NG_UTIL_H
 #define NG_UTIL_H
 
-#include <map>
-#include <vector>
+#include "ng_holder.h"
+#include "ue2common.h"
+#include "util/flat_containers.h"
+#include "util/graph.h"
+#include "util/graph_range.h"
 
 #include <boost/graph/depth_first_search.hpp> // for default_dfs_visitor
 
-#include "ng_holder.h"
-#include "ue2common.h"
-#include "util/graph.h"
-#include "util/graph_range.h"
-#include "util/ue2_containers.h"
+#include <map>
+#include <unordered_map>
+#include <vector>
 
 namespace ue2 {
 
@@ -233,6 +234,12 @@ bool hasReachableCycle(const NGHolder &g, NFAVertex src);
 /** True if g has any cycles which are not self-loops. */
 bool hasBigCycles(const NGHolder &g);
 
+/**
+ * \brief True if g has at least one non-special vertex with reach smaller than
+ * max_reach_count. The default of 200 is pretty conservative.
+ */
+bool hasNarrowReachVertex(const NGHolder &g, size_t max_reach_count = 200);
+
 /** Returns the set of all vertices that appear in any of the graph's cycles. */
 std::set<NFAVertex> findVerticesInCycles(const NGHolder &g);
 
@@ -266,12 +273,12 @@ void appendLiteral(NGHolder &h, const ue2_literal &s);
  * \a in). A vertex mapping is returned in \a v_map_out. */
 void fillHolder(NGHolder *outp, const NGHolder &in,
                 const std::deque<NFAVertex> &vv,
-                unordered_map<NFAVertex, NFAVertex> *v_map_out);
+                std::unordered_map<NFAVertex, NFAVertex> *v_map_out);
 
 /** \brief Clone the graph in \a in into graph \a out, returning a vertex
  * mapping in \a v_map_out. */
 void cloneHolder(NGHolder &out, const NGHolder &in,
-                 unordered_map<NFAVertex, NFAVertex> *v_map_out);
+                 std::unordered_map<NFAVertex, NFAVertex> *v_map_out);
 
 /** \brief Clone the graph in \a in into graph \a out. */
 void cloneHolder(NGHolder &out, const NGHolder &in);

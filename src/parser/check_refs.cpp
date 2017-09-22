@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,7 +36,7 @@
 #include "ConstComponentVisitor.h"
 #include "parse_error.h"
 #include "util/container.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 
 #include <sstream>
 
@@ -114,7 +114,7 @@ public:
 ReferenceVisitor::~ReferenceVisitor() {}
 
 void checkReferences(const Component &root, unsigned int groupIndices,
-                     const ue2::flat_set<std::string> &groupNames) {
+                     const flat_set<std::string> &groupNames) {
     ReferenceVisitor vis(groupIndices, groupNames);
     root.accept(vis);
 }

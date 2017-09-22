@@ -29,9 +29,11 @@
 #include "config.h"
 
 #include "util/depth.h"
-#include "util/ue2_containers.h"
 #include "gtest/gtest.h"
 
+#include <unordered_set>
+
+using namespace std;
 using namespace ue2;
 
 static UNUSED
@@ -265,7 +267,7 @@ TEST(depth, u64a_operators) {
 }
 
 TEST(depth, unordered_set) {
-    ue2::unordered_set<depth> depths;
+    unordered_set<depth> depths;
 
     for (const auto &val : finite_values) {
         depths.emplace(val);

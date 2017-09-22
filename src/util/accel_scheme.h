@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,7 +30,7 @@
 #define ACCEL_SCHEME_H
 
 #include "util/charreach.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 
 #include <utility>
 
@@ -39,7 +39,7 @@ namespace ue2 {
 #define MAX_ACCEL_DEPTH 4
 
 struct AccelScheme {
-    flat_set<std::pair<u8, u8> > double_byte;
+    flat_set<std::pair<u8, u8>> double_byte;
     CharReach cr = CharReach::dot();
     CharReach double_cr;
     u32 offset = MAX_ACCEL_DEPTH + 1;

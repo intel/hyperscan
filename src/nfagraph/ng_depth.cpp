@@ -34,17 +34,18 @@
 #include "ng_util.h"
 #include "ue2common.h"
 #include "util/graph_range.h"
+#include "util/graph_small_color_map.h"
 
 #include <deque>
 #include <vector>
 
+#include <boost/graph/breadth_first_search.hpp>
 #include <boost/graph/dag_shortest_paths.hpp>
 #include <boost/graph/depth_first_search.hpp>
-#include <boost/graph/breadth_first_search.hpp>
 #include <boost/graph/filtered_graph.hpp>
+#include <boost/graph/property_maps/constant_property_map.hpp>
 #include <boost/graph/reverse_graph.hpp>
 #include <boost/graph/topological_sort.hpp>
-#include <boost/graph/property_maps/constant_property_map.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 
 using namespace std;
@@ -137,13 +138,15 @@ vector<bool> findLoopReachable(const Graph &g,
     EdgeSet deadEdges;
     BackEdges<EdgeSet> be(deadEdges);
 
-    depth_first_search(g, visitor(be).root_vertex(src));
+    auto colors = make_small_color_map(g);
+
+    depth_first_search(g, be, colors, src);
     auto af = make_bad_edge_filter(&deadEdges);
     auto acyclic_g = make_filtered_graph(g, af);
 
     vector<Vertex> topoOrder; /* actually reverse topological order */
     topoOrder.reserve(deadNodes.size());
-    topological_sort(acyclic_g, back_inserter(topoOrder));
+    topological_sort(acyclic_g, back_inserter(topoOrder), color_map(colors));
 
     for (const auto &e : deadEdges) {
         size_t srcIdx = g[source(e, g)].index;
@@ -204,14 +207,16 @@ void calcDepthFromSource(const GraphT &g,
                          visitor(make_bfs_visitor(record_distances(
                              make_iterator_property_map(dMin.begin(),
                                                         min_index_map),
-                             boost::on_tree_edge()))));
+                             boost::on_tree_edge())))
+                         .color_map(make_small_color_map(mindist_g)));
 
     auto max_index_map = get(vertex_index, maxdist_g);
 
     dag_shortest_paths(maxdist_g, srcVertex,
                        distance_map(make_iterator_property_map(dMax.begin(),
                                                                max_index_map))
-                       .weight_map(make_constant_property<EdgeT>(-1)));
+                       .weight_map(make_constant_property<EdgeT>(-1))
+                       .color_map(make_small_color_map(maxdist_g)));
 
     for (size_t i = 0; i < numVerts; i++) {
         if (dMin[i] > DIST_UNREACHABLE) {

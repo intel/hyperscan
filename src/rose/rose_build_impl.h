@@ -39,11 +39,12 @@
 #include "nfagraph/ng_holder.h"
 #include "nfagraph/ng_revacc.h"
 #include "util/bytecode_ptr.h"
+#include "util/flat_containers.h"
 #include "util/hash.h"
 #include "util/order_check.h"
 #include "util/queue_index_factory.h"
-#include "util/ue2_containers.h"
 #include "util/ue2string.h"
+#include "util/unordered.h"
 #include "util/verify_types.h"
 
 #include <deque>
@@ -177,7 +178,6 @@ depth findMinWidth(const suffix_id &s);
 depth findMaxWidth(const suffix_id &s);
 depth findMinWidth(const suffix_id &s, u32 top);
 depth findMaxWidth(const suffix_id &s, u32 top);
-size_t hash_value(const suffix_id &s);
 
 /** \brief represents an engine to the left of a rose role */
 struct left_id {
@@ -254,15 +254,15 @@ private:
 };
 
 std::set<u32> all_tops(const left_id &r);
+std::set<ReportID> all_reports(const left_id &left);
 bool isAnchored(const left_id &r);
 depth findMinWidth(const left_id &r);
 depth findMaxWidth(const left_id &r);
 u32 num_tops(const left_id &r);
-size_t hash_value(const left_id &r);
 
 struct rose_literal_info {
-    ue2::flat_set<u32> delayed_ids;
-    ue2::flat_set<RoseVertex> vertices;
+    flat_set<u32> delayed_ids;
+    flat_set<RoseVertex> vertices;
     rose_group group_mask = 0;
     u32 undelayed_id = MO_INVALID_IDX;
     bool squash_group = false;
@@ -306,6 +306,10 @@ struct rose_literal_id {
         return s == b.s && msk == b.msk && cmp == b.cmp && table == b.table &&
                delay == b.delay && distinctiveness == b.distinctiveness;
     }
+
+    size_t hash() const {
+        return hash_all(s, msk, cmp, table, delay, distinctiveness);
+    }
 };
 
 static inline
@@ -319,12 +323,6 @@ bool operator<(const rose_literal_id &a, const rose_literal_id &b) {
     return 0;
 }
 
-inline
-size_t hash_value(const rose_literal_id &lit) {
-    return hash_all(lit.s, lit.msk, lit.cmp, lit.table, lit.delay,
-                    lit.distinctiveness);
-}
-
 class RoseLiteralMap {
     /**
      * \brief Main storage for literals.
@@ -336,7 +334,7 @@ class RoseLiteralMap {
     std::deque<rose_literal_id> lits;
 
     /** \brief Quick-lookup index from literal -> index in lits. */
-    unordered_map<rose_literal_id, u32> lits_index;
+    ue2_unordered_map<rose_literal_id, u32> lits_index;
 
 public:
     std::pair<u32, bool> insert(const rose_literal_id &lit) {
@@ -504,7 +502,7 @@ public:
 
     // Adds a single literal.
     void add(bool anchored, bool eod, const ue2_literal &lit,
-             const ue2::flat_set<ReportID> &ids) override;
+             const flat_set<ReportID> &ids) override;
 
     bool addRose(const RoseInGraph &ig, bool prefilter) override;
     bool addSombeRose(const RoseInGraph &ig) override;
@@ -517,15 +515,15 @@ public:
 
     // Returns true if we were able to add it as a mask
     bool add(bool anchored, const std::vector<CharReach> &mask,
-             const ue2::flat_set<ReportID> &reports) override;
+             const flat_set<ReportID> &reports) override;
 
     bool addAnchoredAcyclic(const NGHolder &graph) override;
 
     bool validateMask(const std::vector<CharReach> &mask,
-                      const ue2::flat_set<ReportID> &reports, bool anchored,
+                      const flat_set<ReportID> &reports, bool anchored,
                       bool eod) const override;
     void addMask(const std::vector<CharReach> &mask,
-                 const ue2::flat_set<ReportID> &reports, bool anchored,
+                 const flat_set<ReportID> &reports, bool anchored,
                  bool eod) override;
 
     // Construct a runtime implementation.
@@ -627,8 +625,8 @@ public:
      * overlap calculation in history assignment. */
     std::map<u32, rose_literal_id> anchoredLitSuffix;
 
-    unordered_set<left_id> transient;
-    unordered_map<left_id, rose_group> rose_squash_masks;
+    ue2_unordered_set<left_id> transient;
+    ue2_unordered_map<left_id, rose_group> rose_squash_masks;
 
     std::vector<OutfixInfo> outfixes;
 
@@ -688,5 +686,23 @@ bool canImplementGraphs(const RoseBuildImpl &tbi);
 #endif
 
 } // namespace ue2
+
+namespace std {
+
+template<>
+struct hash<ue2::left_id> {
+    size_t operator()(const ue2::left_id &l) const {
+        return l.hash();
+    }
+};
+
+template<>
+struct hash<ue2::suffix_id> {
+    size_t operator()(const ue2::suffix_id &s) const {
+        return s.hash();
+    }
+};
+
+} // namespace std
 
 #endif /* ROSE_BUILD_IMPL_H */

@@ -30,7 +30,6 @@
 #define FDR_ENGINE_DESCRIPTION_H
 
 #include "engine_description.h"
-#include "util/ue2_containers.h"
 
 #include <map>
 #include <memory>

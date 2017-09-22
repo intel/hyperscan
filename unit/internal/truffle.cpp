@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -391,12 +391,13 @@ TEST(ReverseTruffle, ExecNoMatch1) {
 
     truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
-    char t1[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    char t[] = " bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    char *t1 = t + 1;
     size_t len = strlen(t1);
 
     for (size_t i = 0; i < 16; i++) {
         const u8 *rv = rtruffleExec(mask1, mask2, (u8 *)t1, (u8 *)t1 + len - i);
-        ASSERT_EQ((const u8 *)(t1 - 1), rv);
+        ASSERT_EQ((const u8 *)t, rv);
     }
 }
 
@@ -410,12 +411,13 @@ TEST(ReverseTruffle, ExecNoMatch2) {
 
     truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
-    char t1[] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    char t[] = " bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    char *t1 = t + 1;
     size_t len = strlen(t1);
 
     for (size_t i = 0; i < 16; i++) {
         const u8 *rv = rtruffleExec(mask1, mask2, (u8 *)t1, (u8 *)t1 + len - i);
-        ASSERT_EQ((const u8 *)(t1 - 1), rv);
+        ASSERT_EQ((const u8 *)t, rv);
     }
 }
 
@@ -427,12 +429,13 @@ TEST(ReverseTruffle, ExecNoMatch3) {
 
     truffleBuildMasks(chars, (u8 *)&mask1, (u8 *)&mask2);
 
-    char t1[] = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    char t[] = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    char *t1 = t + 1;
     size_t len = strlen(t1);
 
     for (size_t i = 0; i < 16; i++) {
         const u8 *rv = rtruffleExec(mask1, mask2, (u8 *)t1, (u8 *)t1 + len - i);
-        ASSERT_EQ((const u8 *)(t1 - 1), rv);
+        ASSERT_EQ((const u8 *)t, rv);
     }
 }
 

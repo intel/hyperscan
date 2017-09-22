@@ -37,9 +37,10 @@
 #include "ng_holder.h"
 #include "ng_util.h"
 #include "util/compile_context.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
-#include "util/ue2_containers.h"
+#include "util/unordered.h"
 
 #include <algorithm>
 #include <memory>
@@ -121,16 +122,9 @@ public:
                vertex_flags == b.vertex_flags && rs == b.rs;
     }
 
-    friend size_t hash_value(const ClassInfo &c) {
-        size_t val = 0;
-        boost::hash_combine(val, c.rs);
-        boost::hash_combine(val, c.vertex_flags);
-        boost::hash_combine(val, c.cr);
-        boost::hash_combine(val, c.adjacent_cr);
-        boost::hash_combine(val, c.node_type);
-        boost::hash_combine(val, c.depth.d1);
-        boost::hash_combine(val, c.depth.d2);
-        return val;
+    size_t hash() const {
+        return hash_all(rs, vertex_flags, cr, adjacent_cr, node_type, depth.d1,
+                        depth.d2);
     }
 
 private:
@@ -319,7 +313,7 @@ vector<VertexInfoSet> partitionGraph(vector<unique_ptr<VertexInfo>> &infos,
     const size_t num_verts = infos.size();
 
     vector<VertexInfoSet> classes;
-    unordered_map<ClassInfo, unsigned> classinfomap;
+    ue2_unordered_map<ClassInfo, unsigned> classinfomap;
 
     // assume we will have lots of classes, so we don't waste time resizing
     // these structures.

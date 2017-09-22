@@ -42,11 +42,10 @@
 
 namespace ue2 {
 
-/** \brief Max length of the literal passed to HWLM. */
-#define HWLM_LITERAL_MAX_LEN 8
-
 /** \brief Max length of the hwlmLiteral::msk and hwlmLiteral::cmp vectors. */
 #define HWLM_MASKLEN 8
+
+#define INVALID_LIT_ID ~0U
 
 /** \brief Class representing a literal, fed to \ref hwlmBuild. */
 struct hwlmLiteral {
@@ -66,6 +65,21 @@ struct hwlmLiteral {
      * additional matches for a literal after the first one, so such matches
      * can be quashed by the literal matcher. */
     bool noruns;
+
+    /** \brief included literal id. */
+    u32 included_id = INVALID_LIT_ID;
+
+    /** \brief Squash mask for FDR's confirm mask for included literals.
+     *
+     * In FDR confirm, if we have included literal in another bucket,
+     * we can use this mask to squash the bit for the bucket in FDR confirm
+     * mask and then run programs of included literal directly and avoid
+     * confirm work.
+     *
+     * This value is calculated in FDR compile code once bucket assignment is
+     * completed
+     */
+    u8 squash = 0;
 
     /** \brief Set of groups that literal belongs to.
      *

@@ -39,7 +39,7 @@ using namespace std;
 namespace ue2 {
 
 static
-bool requiresDedupe(const NGHolder &h, const ue2::flat_set<ReportID> &reports,
+bool requiresDedupe(const NGHolder &h, const flat_set<ReportID> &reports,
                     const Grey &grey) {
     /* TODO: tighten */
     NFAVertex seen_vert = NGHolder::null_vertex();
@@ -83,10 +83,10 @@ class RoseDedupeAuxImpl : public RoseDedupeAux {
 public:
     explicit RoseDedupeAuxImpl(const RoseBuildImpl &build_in);
     bool requiresDedupeSupport(
-        const ue2::flat_set<ReportID> &reports) const override;
+        const flat_set<ReportID> &reports) const override;
 
 private:
-    bool hasSafeMultiReports(const ue2::flat_set<ReportID> &reports) const;
+    bool hasSafeMultiReports(const flat_set<ReportID> &reports) const;
 
     const RoseBuildImpl &build;
     map<ReportID, set<RoseVertex>> vert_map; //!< ordinary literals

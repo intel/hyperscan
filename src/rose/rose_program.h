@@ -178,7 +178,12 @@ enum RoseInstructionCode {
      */
     ROSE_INSTR_CHECK_MULTIPATH_SHUFTI_64,
 
-    LAST_ROSE_INSTRUCTION = ROSE_INSTR_CHECK_MULTIPATH_SHUFTI_64 //!< Sentinel.
+    /**
+     * \brief Jump to the program of included literal.
+     */
+    ROSE_INSTR_INCLUDED_JUMP,
+
+    LAST_ROSE_INSTRUCTION = ROSE_INSTR_INCLUDED_JUMP //!< Sentinel.
 };
 
 struct ROSE_STRUCT_END {
@@ -624,5 +629,11 @@ struct ROSE_STRUCT_CHECK_MULTIPATH_SHUFTI_64 {
     s32 base_offset; //!< Relative offset of the first byte.
     s32 last_start; //!< The latest start offset among 8 paths.
     u32 fail_jump; //!< Jump forward this many bytes on failure.
+};
+
+struct ROSE_STRUCT_INCLUDED_JUMP {
+    u8 code; //!< From enum RoseInstructionCode.
+    u8 squash; //!< FDR confirm squash mask for included literal.
+    u32 child_offset; //!< Program offset of included literal.
 };
 #endif // ROSE_ROSE_PROGRAM_H

@@ -206,13 +206,6 @@ bool operator==(const Report &a, const Report &b) {
            a.topSquashDistance == b.topSquashDistance;
 }
 
-inline
-size_t hash_value(const Report &r) {
-    return hash_all(r.type, r.quashSom, r.minOffset, r.maxOffset, r.minLength,
-                    r.ekey, r.offsetAdjust, r.onmatch, r.revNfaIndex,
-                    r.somDistance, r.topSquashDistance);
-}
-
 static inline
 Report makeECallback(u32 report, s32 offsetAdjust, u32 ekey) {
     Report ir(EXTERNAL_CALLBACK, report);
@@ -262,6 +255,19 @@ bool isSimpleExhaustible(const Report &ir) {
     return true;
 }
 
-} // namespace
+} // namespace ue2
+
+namespace std {
+
+template<>
+struct hash<ue2::Report> {
+    std::size_t operator()(const ue2::Report &r) const {
+        return ue2::hash_all(r.type, r.quashSom, r.minOffset, r.maxOffset,
+                             r.minLength, r.ekey, r.offsetAdjust, r.onmatch,
+                             r.revNfaIndex, r.somDistance, r.topSquashDistance);
+    }
+};
+
+} // namespace std
 
 #endif // UTIL_REPORT_H

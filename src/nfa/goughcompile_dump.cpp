@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,8 +32,10 @@
 #include "goughcompile_internal.h"
 #include "grey.h"
 #include "util/container.h"
+#include "util/dump_util.h"
 #include "util/graph_range.h"
 
+#include <sstream>
 #include <string>
 
 #ifndef DUMP_SUPPORT
@@ -66,10 +68,7 @@ string dump_name(const gough_edge_id &e) {
 
 static
 void dump_graph(const GoughGraph &g, const string &base, const Grey &grey) {
-    stringstream ss;
-    ss << grey.dumpPath << "gough_" << base << ".dot";
-
-    FILE *f = fopen(ss.str().c_str(), "w");
+    StdioFile f(grey.dumpPath + "gough_" + base + ".dot", "w");
 
     fprintf(f, "digraph NFA {\n");
     fprintf(f, "rankdir=LR;\n");
@@ -94,8 +93,6 @@ void dump_graph(const GoughGraph &g, const string &base, const Grey &grey) {
                 dump_name(g[s]).c_str(), dump_name(g[t]).c_str());
     }
     fprintf(f, "}\n");
-
-    fclose(f);
 }
 
 static
@@ -133,9 +130,7 @@ set<const GoughSSAVar *> uses(const GoughEdgeProps &ep) {
 static
 void dump_var_mapping(const GoughGraph &g, const string &base,
                       const Grey &grey) {
-    stringstream ss;
-    ss << grey.dumpPath << "gough_" << base << "_vars.txt";
-    FILE *f = fopen(ss.str().c_str(), "w");
+    StdioFile f(grey.dumpPath + "gough_" + base + "_vars.txt", "w");
     for (auto v : vertices_range(g)) {
         set<const GoughSSAVar *> used = uses(g[v]);
         if (g[v].vars.empty() && used.empty()) {
@@ -180,7 +175,6 @@ void dump_var_mapping(const GoughGraph &g, const string &base,
             fprintf(f, "\n");
         }
     }
-    fclose(f);
 }
 
 static
@@ -220,12 +214,7 @@ void gather_vars(const GoughGraph &g, vector<const GoughSSAVar *> *vars,
 
 static
 void dump_vars(const GoughGraph &g, const string &base, const Grey &grey) {
-    FILE *f;
-    {
-        stringstream ss;
-        ss << grey.dumpPath << "gough_" << base << "_vars.dot";
-        f = fopen(ss.str().c_str(), "w");
-    }
+    StdioFile f(grey.dumpPath + "gough_" + base + "_vars.dot", "w");
     fprintf(f, "digraph NFA {\n");
     fprintf(f, "rankdir=LR;\n");
     fprintf(f, "size=\"11.5,8\"\n");
@@ -271,7 +260,6 @@ void dump_vars(const GoughGraph &g, const string &base, const Grey &grey) {
     }
 
     fprintf(f, "}\n");
-    fclose(f);
 }
 
 void dump(const GoughGraph &g, const string &base, const Grey &grey) {
@@ -317,18 +305,11 @@ void dump_blocks(const map<gough_edge_id, vector<gough_ins>> &blocks,
         return;
     }
 
-    FILE *f;
-    {
-        stringstream ss;
-        ss << grey.dumpPath <<  "gough_" << base << "_programs.txt";
-        f = fopen(ss.str().c_str(), "w");
-    }
+    StdioFile f(grey.dumpPath + "gough_" + base + "_programs.txt", "w");
 
     for (const auto &m : blocks) {
         dump_block(f, m.first, m.second);
     }
-
-    fclose(f);
 }
 
 } // namespace ue2

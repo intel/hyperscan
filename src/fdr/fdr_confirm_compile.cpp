@@ -35,6 +35,7 @@
 #include "util/alloc.h"
 #include "util/bitutils.h"
 #include "util/compare.h"
+#include "util/container.h"
 #include "util/verify_types.h"
 
 #include <algorithm>
@@ -46,19 +47,6 @@ using namespace std;
 namespace ue2 {
 
 using BC2CONF = map<BucketIndex, bytecode_ptr<FDRConfirm>>;
-
-// return the number of bytes beyond a length threshold in all strings in lits
-static
-size_t thresholdedSize(const vector<hwlmLiteral> &lits, size_t threshold) {
-    size_t tot = 0;
-    for (const auto &lit : lits) {
-        size_t sz = lit.s.size();
-        if (sz > threshold) {
-            tot += ROUNDUP_N(sz - threshold, 8);
-        }
-    }
-    return tot;
-}
 
 static
 u64a make_u64a_mask(const vector<u8> &v) {
@@ -92,19 +80,12 @@ void fillLitInfo(const vector<hwlmLiteral> &lits, vector<LitInfo> &tmpLitInfo,
         LitInfo &info = tmpLitInfo[i];
         memset(&info, 0, sizeof(info));
         info.id = lit.id;
-        u8 flags = NoFlags;
-        if (lit.nocase) {
-            flags |= Caseless;
-        }
+        u8 flags = 0;
         if (lit.noruns) {
-            flags |= NoRepeat;
-        }
-        if (lit.msk.size() > lit.s.size()) {
-            flags |= ComplexConfirm;
-            info.extended_size = verify_u8(lit.msk.size());
+            flags |= FDR_LIT_FLAG_NOREPEAT;
         }
         info.flags = flags;
-        info.size = verify_u8(lit.s.size());
+        info.size = verify_u8(max(lit.msk.size(), lit.s.size()));
         info.groups = lit.groups;
 
         // these are built up assuming a LE machine
@@ -149,7 +130,12 @@ void fillLitInfo(const vector<hwlmLiteral> &lits, vector<LitInfo> &tmpLitInfo,
 
 static
 bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
-                                       bool make_small, bool make_confirm) {
+                                       bool make_small) {
+    // Every literal must fit within CONF_TYPE.
+    assert(all_of_in(lits, [](const hwlmLiteral &lit) {
+        return lit.s.size() <= sizeof(CONF_TYPE);
+    }));
+
     vector<LitInfo> tmpLitInfo(lits.size());
     CONF_TYPE andmsk;
     fillLitInfo(lits, tmpLitInfo, andmsk);
@@ -167,40 +153,6 @@ bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
     }
 
     CONF_TYPE mult = (CONF_TYPE)0x0b4e0ef37bc32127ULL;
-    u32 flags = 0;
-    // we use next three variables for 'confirmless' case to speed-up
-    // confirmation process
-    u32 soleLitSize = 0;
-    u32 soleLitCmp = 0;
-    u32 soleLitMsk = 0;
-
-    if (!make_confirm) {
-        flags = FDRC_FLAG_NO_CONFIRM;
-        if (lits[0].noruns) {
-            flags |= NoRepeat; // messy - need to clean this up later as flags is sorta kinda obsoleted
-        }
-        mult = 0;
-        soleLitSize = lits[0].s.size() - 1;
-        // we can get to this point only in confirmless case;
-        // it means that we have only one literal per FDRConfirm (no packing),
-        // with no literal mask and size of literal is less or equal
-        // to the number of masks of Teddy engine;
-        // maximum number of masks for Teddy is 4, so the size of
-        // literal is definitely less or equal to size of u32
-        assert(lits[0].s.size() <= sizeof(u32));
-        for (u32 i = 0; i < lits[0].s.size(); i++) {
-            u32 shiftLoc = (sizeof(u32) - i - 1) * 8;
-            u8 c = lits[0].s[lits[0].s.size() - i - 1];
-            if (lits[0].nocase && ourisalpha(c)) {
-                soleLitCmp |= (u32)(c & CASE_CLEAR) << shiftLoc;
-                soleLitMsk |= (u32)CASE_CLEAR << shiftLoc;
-            }
-            else {
-                soleLitCmp |= (u32)c << shiftLoc;
-                soleLitMsk |= (u32)0xff << shiftLoc;
-            }
-        }
-    }
 
     // we can walk the vector and assign elements from the vectors to a
     // map by hash value
@@ -276,12 +228,11 @@ bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
 #endif
 
     const size_t bitsToLitIndexSize = (1U << nBits) * sizeof(u32);
-    const size_t totalLitSize = thresholdedSize(lits, sizeof(CONF_TYPE));
 
     // this size can now be a worst-case as we can always be a bit smaller
     size_t size = ROUNDUP_N(sizeof(FDRConfirm), alignof(u32)) +
                   ROUNDUP_N(bitsToLitIndexSize, alignof(LitInfo)) +
-                  sizeof(LitInfo) * lits.size() + totalLitSize;
+                  sizeof(LitInfo) * lits.size();
     size = ROUNDUP_N(size, alignof(FDRConfirm));
 
     auto fdrc = make_zeroed_bytecode_ptr<FDRConfirm>(size);
@@ -289,11 +240,7 @@ bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
 
     fdrc->andmsk = andmsk;
     fdrc->mult = mult;
-    fdrc->nBitsOrSoleID = (flags & FDRC_FLAG_NO_CONFIRM) ? lits[0].id : nBits;
-    fdrc->flags = flags;
-    fdrc->soleLitSize = soleLitSize;
-    fdrc->soleLitCmp = soleLitCmp;
-    fdrc->soleLitMsk = soleLitMsk;
+    fdrc->nBits = nBits;
 
     fdrc->groups = gm;
 
@@ -345,40 +292,37 @@ bytecode_ptr<FDRConfirm> getFDRConfirm(const vector<hwlmLiteral> &lits,
 bytecode_ptr<u8>
 setupFullConfs(const vector<hwlmLiteral> &lits,
                const EngineDescription &eng,
-               map<BucketIndex, vector<LiteralIndex>> &bucketToLits,
+               const map<BucketIndex, vector<LiteralIndex>> &bucketToLits,
                bool make_small) {
-    bool makeConfirm = true;
     unique_ptr<TeddyEngineDescription> teddyDescr =
         getTeddyDescription(eng.getID());
-    if (teddyDescr) {
-        makeConfirm = teddyDescr->needConfirm(lits);
-    }
 
     BC2CONF bc2Conf;
     u32 totalConfirmSize = 0;
     for (BucketIndex b = 0; b < eng.getNumBuckets(); b++) {
-        if (!bucketToLits[b].empty()) {
+        if (contains(bucketToLits, b)) {
             vector<hwlmLiteral> vl;
-            for (const LiteralIndex &lit_idx : bucketToLits[b]) {
+            for (const LiteralIndex &lit_idx : bucketToLits.at(b)) {
                 vl.push_back(lits[lit_idx]);
             }
 
             DEBUG_PRINTF("b %d sz %zu\n", b, vl.size());
-            auto fc = getFDRConfirm(vl, make_small, makeConfirm);
+            auto fc = getFDRConfirm(vl, make_small);
             totalConfirmSize += fc.size();
             bc2Conf.emplace(b, move(fc));
         }
     }
 
     u32 nBuckets = eng.getNumBuckets();
-    u32 totalConfSwitchSize = nBuckets * sizeof(u32);
-    u32 totalSize = ROUNDUP_16(totalConfSwitchSize + totalConfirmSize);
+    u32 totalConfSwitchSize = ROUNDUP_CL(nBuckets * sizeof(u32));
+    u32 totalSize = totalConfSwitchSize + totalConfirmSize;
 
-    auto buf = make_zeroed_bytecode_ptr<u8>(totalSize, 16);
+    auto buf = make_zeroed_bytecode_ptr<u8>(totalSize, 64);
     assert(buf); // otherwise would have thrown std::bad_alloc
 
     u32 *confBase = (u32 *)buf.get();
     u8 *ptr = buf.get() + totalConfSwitchSize;
+    assert(ISALIGNED_CL(ptr));
 
     for (const auto &m : bc2Conf) {
         const BucketIndex &idx = m.first;

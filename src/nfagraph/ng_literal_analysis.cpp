@@ -40,6 +40,7 @@
 #include "util/depth.h"
 #include "util/graph.h"
 #include "util/graph_range.h"
+#include "util/graph_small_color_map.h"
 #include "util/ue2_graph.h"
 #include "util/ue2string.h"
 
@@ -462,17 +463,13 @@ next_literal:
 
 #ifdef DEBUG
 static UNUSED
-const char *describeColor(boost::default_color_type c) {
+const char *describeColor(small_color c) {
     switch (c) {
-    case boost::white_color:
+    case small_color::white:
         return "white";
-    case boost::gray_color:
+    case small_color::gray:
         return "gray";
-    case boost::green_color:
-        return "green";
-    case boost::red_color:
-        return "red";
-    case boost::black_color:
+    case small_color::black:
         return "black";
     default:
         return "unknown";
@@ -488,12 +485,14 @@ const char *describeColor(boost::default_color_type c) {
  */
 static
 vector<LitEdge> add_reverse_edges_and_index(LitGraph &lg) {
+    const size_t edge_count = num_edges(lg);
     vector<LitEdge> fwd_edges;
+    fwd_edges.reserve(edge_count);
     for (const auto &e : edges_range(lg)) {
         fwd_edges.push_back(e);
     }
 
-    vector<LitEdge> rev_map(2 * num_edges(lg));
+    vector<LitEdge> rev_map(2 * edge_count);
 
     for (const auto &e : fwd_edges) {
         LitVertex u = source(e, lg);
@@ -525,7 +524,7 @@ void findMinCut(LitGraph &lg, vector<LitEdge> &cutset) {
     const auto v_index_map = get(&LitGraphVertexProps::index, lg);
     const auto e_index_map = get(&LitGraphEdgeProps::index, lg);
     const size_t num_verts = num_vertices(lg);
-    vector<boost::default_color_type> colors(num_verts);
+    auto colors = make_small_color_map(lg);
     vector<s32> distances(num_verts);
     vector<LitEdge> predecessors(num_verts);
     vector<u64a> residuals(num_edges(lg));
@@ -535,7 +534,7 @@ void findMinCut(LitGraph &lg, vector<LitEdge> &cutset) {
             make_iterator_property_map(residuals.begin(), e_index_map),
             make_iterator_property_map(rev_edges.begin(), e_index_map),
             make_iterator_property_map(predecessors.begin(), v_index_map),
-            make_iterator_property_map(colors.begin(), v_index_map),
+            colors,
             make_iterator_property_map(distances.begin(), v_index_map),
             v_index_map, lg.root, lg.sink);
     DEBUG_PRINTF("done, flow = %llu\n", flow);
@@ -550,19 +549,19 @@ void findMinCut(LitGraph &lg, vector<LitEdge> &cutset) {
 
     for (const auto &e : edges_range(lg)) {
         const LitVertex u = source(e, lg), v = target(e, lg);
-        const auto ucolor = colors[lg[u].index];
-        const auto vcolor = colors[lg[v].index];
+        const auto ucolor = get(colors, u);
+        const auto vcolor = get(colors, v);
 
         DEBUG_PRINTF("edge %zu:%s -> %zu:%s score %llu\n", lg[u].index,
                      describeColor(ucolor), lg[v].index, describeColor(vcolor),
                      lg[e].score);
 
-        if (ucolor != boost::white_color && vcolor == boost::white_color) {
+        if (ucolor != small_color::white && vcolor == small_color::white) {
             assert(v != lg.sink);
             white_cut.push_back(e);
             white_flow += lg[e].score;
         }
-        if (ucolor == boost::black_color && vcolor != boost::black_color) {
+        if (ucolor == small_color::black && vcolor != small_color::black) {
             assert(v != lg.sink);
             black_cut.push_back(e);
             black_flow += lg[e].score;
@@ -812,7 +811,7 @@ bool splitOffLeadingLiteral(const NGHolder &g, ue2_literal *lit_out,
     }
     assert(u != g.startDs);
 
-    ue2::unordered_map<NFAVertex, NFAVertex> rhs_map;
+    unordered_map<NFAVertex, NFAVertex> rhs_map;
     vector<NFAVertex> pivots = make_vector_from(adjacent_vertices(u, g));
     splitRHS(g, pivots, rhs, &rhs_map);
 

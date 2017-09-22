@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,7 @@
 #include "nfa_kind.h"
 #include "ue2common.h"
 
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 
 #include <array>
 #include <vector>
@@ -81,7 +81,7 @@ struct raw_dfa {
     explicit raw_dfa(nfa_kind k) : kind(k) {}
     virtual ~raw_dfa();
 
-    u16 getImplAlphaSize() const;
+    u16 getImplAlphaSize() const { return alpha_size - N_SPECIAL_SYMBOL; }
     virtual void stripExtraEodReports(void);
     bool hasEodReports(void) const;
 };

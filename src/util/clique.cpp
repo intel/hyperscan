@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,6 @@
 #include "container.h"
 #include "graph_range.h"
 #include "make_unique.h"
-#include "ue2_containers.h"
 
 #include <map>
 #include <set>

@@ -46,7 +46,7 @@
 #include "util/make_unique.h"
 #include "util/order_check.h"
 #include "util/report_manager.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/unaligned.h"
 #include "util/verify_types.h"
 
@@ -288,11 +288,12 @@ unique_ptr<raw_report_info> mcclellan_build_strat::gatherReports(
 
         raw_report_list rrl(s.reports, rm, remap_reports);
         DEBUG_PRINTF("non empty r\n");
-        if (rev.find(rrl) != rev.end()) {
-            reports.push_back(rev[rrl]);
+        auto it = rev.find(rrl);
+        if (it != rev.end()) {
+            reports.push_back(it->second);
         } else {
             DEBUG_PRINTF("adding to rl %zu\n", ri->size());
-            rev[rrl] = ri->size();
+            rev.emplace(rrl, ri->size());
             reports.push_back(ri->size());
             ri->rl.push_back(rrl);
         }
@@ -306,13 +307,14 @@ unique_ptr<raw_report_info> mcclellan_build_strat::gatherReports(
 
         DEBUG_PRINTF("non empty r eod\n");
         raw_report_list rrl(s.reports_eod, rm, remap_reports);
-        if (rev.find(rrl) != rev.end()) {
-            reports_eod.push_back(rev[rrl]);
+        auto it = rev.find(rrl);
+        if (it != rev.end()) {
+            reports_eod.push_back(it->second);
             continue;
         }
 
         DEBUG_PRINTF("adding to rl eod %zu\n", s.reports_eod.size());
-        rev[rrl] = ri->size();
+        rev.emplace(rrl, ri->size());
         reports_eod.push_back(ri->size());
         ri->rl.push_back(rrl);
     }
@@ -325,10 +327,9 @@ unique_ptr<raw_report_info> mcclellan_build_strat::gatherReports(
         *arbReport = 0;
     }
 
-
     /* if we have only a single report id generated from all accepts (not eod)
      * we can take some short cuts */
-    set<ReportID> reps;
+    flat_set<ReportID> reps;
 
     for (u32 rl_index : reports) {
         if (rl_index == MO_INVALID_IDX) {
@@ -897,7 +898,7 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id, bool using8bit,
     }
 
     u32 self_loop_width = 0;
-    const dstate curr_raw = info.states[curr_id];
+    const dstate &curr_raw = info.states[curr_id];
     for (unsigned i = 0; i < N_CHARS; i++) {
         if (curr_raw.next[info.alpha_remap[i]] == curr_id) {
             self_loop_width++;
@@ -912,33 +913,6 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id, bool using8bit,
 
     DEBUG_PRINTF("%hu is sherman\n", curr_id);
     info.extra[curr_id].shermanState = true;
-}
-
-/*
- * Calls accessible outside this module.
- */
-
-u16 raw_dfa::getImplAlphaSize() const {
-    return alpha_size - N_SPECIAL_SYMBOL;
-}
-
-void raw_dfa::stripExtraEodReports(void) {
-    /* if a state generates a given report as a normal accept - then it does
-     * not also need to generate an eod report for it */
-    for (dstate &ds : states) {
-        for (const ReportID &report : ds.reports) {
-            ds.reports_eod.erase(report);
-        }
-    }
-}
-
-bool raw_dfa::hasEodReports(void) const {
-    for (const dstate &ds : states) {
-        if (!ds.reports_eod.empty()) {
-            return true;
-        }
-    }
-    return false;
 }
 
 static
@@ -964,7 +938,8 @@ bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
                                      const CompileContext &cc,
                                      bool trust_daddy_states,
                                      set<dstate_id_t> *accel_states) {
-    u16 total_daddy = 0;
+    assert(!is_dead(raw));
+
     dfa_info info(strat);
     bool using8bit = cc.grey.allowMcClellan8 && info.size() <= 256;
 
@@ -974,21 +949,24 @@ bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
     }
 
     bool has_eod_reports = raw.hasEodReports();
-    bool any_cyclic_near_anchored_state = is_cyclic_near(raw,
-                                                         raw.start_anchored);
-
-    for (u32 i = 0; i < info.size(); i++) {
-        find_better_daddy(info, i, using8bit, any_cyclic_near_anchored_state,
-                          trust_daddy_states, cc.grey);
-        total_daddy += info.extra[i].daddytaken;
-    }
-
-    DEBUG_PRINTF("daddy %hu/%zu states=%zu alpha=%hu\n", total_daddy,
-                 info.size() * info.impl_alpha_size, info.size(),
-                 info.impl_alpha_size);
 
     bytecode_ptr<NFA> nfa;
     if (!using8bit) {
+        u16 total_daddy = 0;
+        bool any_cyclic_near_anchored_state
+            = is_cyclic_near(raw, raw.start_anchored);
+
+        for (u32 i = 0; i < info.size(); i++) {
+            find_better_daddy(info, i, using8bit,
+                              any_cyclic_near_anchored_state,
+                              trust_daddy_states, cc.grey);
+            total_daddy += info.extra[i].daddytaken;
+        }
+
+        DEBUG_PRINTF("daddy %hu/%zu states=%zu alpha=%hu\n", total_daddy,
+                     info.size() * info.impl_alpha_size, info.size(),
+                     info.impl_alpha_size);
+
         nfa = mcclellanCompile16(info, cc, accel_states);
     } else {
         nfa = mcclellanCompile8(info, cc, accel_states);

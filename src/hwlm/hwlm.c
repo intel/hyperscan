@@ -170,7 +170,7 @@ void do_accel_streaming(const union AccelAux *aux, const u8 *hbuf, size_t hlen,
 }
 
 hwlm_error_t hwlmExec(const struct HWLM *t, const u8 *buf, size_t len,
-                      size_t start, HWLMCallback cb, void *ctxt,
+                      size_t start, HWLMCallback cb, struct hs_scratch *scratch,
                       hwlm_group_t groups) {
     assert(t);
 
@@ -184,25 +184,23 @@ hwlm_error_t hwlmExec(const struct HWLM *t, const u8 *buf, size_t len,
 
     if (t->type == HWLM_ENGINE_NOOD) {
         DEBUG_PRINTF("calling noodExec\n");
-        return noodExec(HWLM_C_DATA(t), buf + start, len - start, start, cb,
-                        ctxt);
-    } else {
-        assert(t->type == HWLM_ENGINE_FDR);
-        const union AccelAux *aa = &t->accel0;
-        if ((groups & ~t->accel1_groups) == 0) {
-            DEBUG_PRINTF("using hq accel %hhu\n", t->accel1.accel_type);
-            aa = &t->accel1;
-        }
-        do_accel_block(aa, buf, len, &start);
-        DEBUG_PRINTF("calling frankie (groups=%08llx, start=%zu)\n", groups,
-                     start);
-        return fdrExec(HWLM_C_DATA(t), buf, len, start, cb, ctxt, groups);
+        return noodExec(HWLM_C_DATA(t), buf, len, start, cb, scratch);
     }
+
+    assert(t->type == HWLM_ENGINE_FDR);
+    const union AccelAux *aa = &t->accel0;
+    if ((groups & ~t->accel1_groups) == 0) {
+        DEBUG_PRINTF("using hq accel %hhu\n", t->accel1.accel_type);
+        aa = &t->accel1;
+    }
+    do_accel_block(aa, buf, len, &start);
+    DEBUG_PRINTF("calling frankie (groups=%08llx, start=%zu)\n", groups, start);
+    return fdrExec(HWLM_C_DATA(t), buf, len, start, cb, scratch, groups);
 }
 
-hwlm_error_t hwlmExecStreaming(const struct HWLM *t, struct hs_scratch *scratch,
-                               size_t len, size_t start, HWLMCallback cb,
-                               void *ctxt, hwlm_group_t groups) {
+hwlm_error_t hwlmExecStreaming(const struct HWLM *t, size_t len, size_t start,
+                               HWLMCallback cb, struct hs_scratch *scratch,
+                               hwlm_group_t groups) {
     assert(t);
     assert(scratch);
 
@@ -224,24 +222,21 @@ hwlm_error_t hwlmExecStreaming(const struct HWLM *t, struct hs_scratch *scratch,
         // If we've been handed a start offset, we can use a block mode scan at
         // that offset.
         if (start) {
-            return noodExec(HWLM_C_DATA(t), buf + start, len - start, start,
-                            cb, ctxt);
+            return noodExec(HWLM_C_DATA(t), buf, len, start, cb, scratch);
         } else {
             return noodExecStreaming(HWLM_C_DATA(t), hbuf, hlen, buf, len, cb,
-                                     ctxt, scratch->fdr_temp_buf,
-                                     FDR_TEMP_BUF_SIZE);
+                                     scratch);
         }
-    } else {
-        // t->type == HWLM_ENGINE_FDR
-        const union AccelAux *aa = &t->accel0;
-        if ((groups & ~t->accel1_groups) == 0) {
-            DEBUG_PRINTF("using hq accel %hhu\n", t->accel1.accel_type);
-            aa = &t->accel1;
-        }
-        do_accel_streaming(aa, hbuf, hlen, buf, len, &start);
-        DEBUG_PRINTF("calling frankie (groups=%08llx, start=%zu)\n", groups,
-                     start);
-        return fdrExecStreaming(HWLM_C_DATA(t), hbuf, hlen, buf, len,
-                                start, cb, ctxt, groups);
     }
+
+    assert(t->type == HWLM_ENGINE_FDR);
+    const union AccelAux *aa = &t->accel0;
+    if ((groups & ~t->accel1_groups) == 0) {
+        DEBUG_PRINTF("using hq accel %hhu\n", t->accel1.accel_type);
+        aa = &t->accel1;
+    }
+    do_accel_streaming(aa, hbuf, hlen, buf, len, &start);
+    DEBUG_PRINTF("calling frankie (groups=%08llx, start=%zu)\n", groups, start);
+    return fdrExecStreaming(HWLM_C_DATA(t), hbuf, hlen, buf, len, start, cb,
+                            scratch, groups);
 }

@@ -32,6 +32,7 @@
 #include "fdr_internal.h"
 #include "fdr_loadval.h"
 #include "flood_runtime.h"
+#include "scratch.h"
 #include "teddy.h"
 #include "teddy_internal.h"
 #include "util/arch.h"
@@ -358,7 +359,7 @@ void do_confirm_fdr(u64a *conf, u8 offset, hwlmcb_rv_t *control,
         }
         u64a confVal = unaligned_load_u64a(confLoc + byte - sizeof(u64a) + 1);
         confWithBit(fdrc, a, ptr_main - a->buf + byte, control,
-                    last_match_id, confVal);
+                    last_match_id, confVal, conf, bit);
     } while (unlikely(!!*conf));
 }
 
@@ -725,13 +726,17 @@ static never_inline
 hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
                              const struct FDR_Runtime_Args *a,
                              hwlm_group_t control) {
+    assert(ISALIGNED_CL(fdr));
+
     u32 floodBackoff = FLOOD_BACKOFF_START;
     u32 last_match_id = INVALID_MATCH_ID;
     u32 domain_mask_flipped = ~fdr->domainMask;
     u8 stride = fdr->stride;
     const u64a *ft =
-        (const u64a *)((const u8 *)fdr + ROUNDUP_16(sizeof(struct FDR)));
-    const u32 *confBase = (const u32 *)((const u8 *)ft + fdr->tabSize);
+        (const u64a *)((const u8 *)fdr + ROUNDUP_CL(sizeof(struct FDR)));
+    assert(ISALIGNED_CL(ft));
+    const u32 *confBase = (const u32 *)((const u8 *)fdr + fdr->confOffset);
+    assert(ISALIGNED_CL(confBase));
     struct zone zones[ZONE_MAX];
     assert(fdr->domain > 8 && fdr->domain < 16);
 
@@ -798,14 +803,14 @@ static const FDRFUNCTYPE funcs[] = {
     fdr_engine_exec,
     NULL, /* old: fast teddy */
     NULL, /* old: fast teddy */
-    ONLY_AVX2(fdr_exec_teddy_avx2_msks1_fat),
-    ONLY_AVX2(fdr_exec_teddy_avx2_msks1_pck_fat),
-    ONLY_AVX2(fdr_exec_teddy_avx2_msks2_fat),
-    ONLY_AVX2(fdr_exec_teddy_avx2_msks2_pck_fat),
-    ONLY_AVX2(fdr_exec_teddy_avx2_msks3_fat),
-    ONLY_AVX2(fdr_exec_teddy_avx2_msks3_pck_fat),
-    ONLY_AVX2(fdr_exec_teddy_avx2_msks4_fat),
-    ONLY_AVX2(fdr_exec_teddy_avx2_msks4_pck_fat),
+    ONLY_AVX2(fdr_exec_fat_teddy_msks1),
+    ONLY_AVX2(fdr_exec_fat_teddy_msks1_pck),
+    ONLY_AVX2(fdr_exec_fat_teddy_msks2),
+    ONLY_AVX2(fdr_exec_fat_teddy_msks2_pck),
+    ONLY_AVX2(fdr_exec_fat_teddy_msks3),
+    ONLY_AVX2(fdr_exec_fat_teddy_msks3_pck),
+    ONLY_AVX2(fdr_exec_fat_teddy_msks4),
+    ONLY_AVX2(fdr_exec_fat_teddy_msks4_pck),
     fdr_exec_teddy_msks1,
     fdr_exec_teddy_msks1_pck,
     fdr_exec_teddy_msks2,
@@ -820,8 +825,8 @@ static const FDRFUNCTYPE funcs[] = {
 static const u8 fake_history[FAKE_HISTORY_SIZE];
 
 hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
-                     size_t start, HWLMCallback cb, void *ctxt,
-                     hwlm_group_t groups) {
+                     size_t start, HWLMCallback cb,
+                     struct hs_scratch *scratch, hwlm_group_t groups) {
     // We guarantee (for safezone construction) that it is safe to read 16
     // bytes before the end of the history buffer.
     const u8 *hbuf = fake_history + FAKE_HISTORY_SIZE;
@@ -833,7 +838,7 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
         0,
         start,
         cb,
-        ctxt,
+        scratch,
         nextFloodDetect(buf, len, FLOOD_BACKOFF_START),
         0
     };
@@ -847,7 +852,8 @@ hwlm_error_t fdrExec(const struct FDR *fdr, const u8 *buf, size_t len,
 
 hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
                               size_t hlen, const u8 *buf, size_t len,
-                              size_t start, HWLMCallback cb, void *ctxt,
+                              size_t start, HWLMCallback cb,
+                              struct hs_scratch *scratch,
                               hwlm_group_t groups) {
     struct FDR_Runtime_Args a = {
         buf,
@@ -856,7 +862,7 @@ hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
         hlen,
         start,
         cb,
-        ctxt,
+        scratch,
         nextFloodDetect(buf, len, FLOOD_BACKOFF_START),
         /* we are guaranteed to always have 16 initialised bytes at the end of
          * the history buffer (they may be garbage). */

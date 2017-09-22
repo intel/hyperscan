@@ -36,7 +36,8 @@
 #include "grey.h"
 #include "ng_holder.h" // for graph types
 #include "ue2common.h"
-#include "util/ue2_containers.h"
+
+#include <unordered_map>
 
 #ifdef DUMP_SUPPORT
 #include <fstream>
@@ -75,7 +76,7 @@ void dumpHolderImpl(const NGHolder &h, unsigned int stageNumber,
 
 // Variant that takes a region map as well.
 void dumpHolderImpl(const NGHolder &h,
-                    const ue2::unordered_map<NFAVertex, u32> &region_map,
+                    const std::unordered_map<NFAVertex, u32> &region_map,
                     unsigned int stageNumber, const char *stageName,
                     const Grey &grey);
 
@@ -123,7 +124,7 @@ void dumpHolder(UNUSED const NGHolder &h, UNUSED unsigned int stageNumber,
 
 UNUSED static inline
 void dumpHolder(UNUSED const NGHolder &h,
-                UNUSED const ue2::unordered_map<NFAVertex, u32> &region_map,
+                UNUSED const std::unordered_map<NFAVertex, u32> &region_map,
                 UNUSED unsigned int stageNumber, UNUSED const char *name,
                 UNUSED const Grey &grey) {
 #ifdef DUMP_SUPPORT

@@ -30,12 +30,11 @@
 
 #include "rdfa.h"
 #include "util/container.h"
-#include "util/ue2_containers.h"
+#include "util/hash.h"
 #include "ue2common.h"
 
 #include <deque>
-
-#include <boost/functional/hash/hash.hpp>
+#include <map>
 
 using namespace std;
 
@@ -127,13 +126,11 @@ u32 remove_leading_dots(raw_dfa &raw) {
 static never_inline
 u32 calc_min_dist_from_bob(raw_dfa &raw, vector<u32> *dist_in) {
     vector<u32> &dist = *dist_in;
-    dist.clear();
-    dist.resize(raw.states.size(), ~0U);
+    dist.assign(raw.states.size(), ~0U);
 
     assert(raw.start_anchored != DEAD_STATE);
 
-    deque<dstate_id_t> to_visit;
-    to_visit.push_back(raw.start_anchored);
+    deque<dstate_id_t> to_visit = { raw.start_anchored };
     dist[raw.start_anchored] = 0;
 
     u32 last_d = 0;
@@ -148,8 +145,7 @@ u32 calc_min_dist_from_bob(raw_dfa &raw, vector<u32> *dist_in) {
         assert(d >= last_d);
         assert(d != ~0U);
 
-        for (u32 j = 0; j < raw.alpha_size; j++) {
-            dstate_id_t t = raw.states[s].next[j];
+        for (dstate_id_t t : raw.states[s].next) {
             if (t == DEAD_STATE) {
                 continue;
             }
@@ -187,7 +183,21 @@ bool clear_deeper_reports(raw_dfa &raw, u32 max_offset) {
         }
     }
 
-    return changed;
+    if (!changed) {
+        return false;
+    }
+
+    // We may have cleared all reports from the DFA, in which case it should
+    // become empty.
+    if (all_of_in(raw.states, [](const dstate &ds) {
+            return ds.reports.empty() && ds.reports_eod.empty();
+        })) {
+        DEBUG_PRINTF("no reports left at all, dfa is dead\n");
+        raw.start_anchored = DEAD_STATE;
+        raw.start_floating = DEAD_STATE;
+    }
+
+    return true;
 }
 
 set<ReportID> all_reports(const raw_dfa &rdfa) {
@@ -218,22 +228,18 @@ bool has_non_eod_accepts(const raw_dfa &rdfa) {
 }
 
 size_t hash_dfa_no_reports(const raw_dfa &rdfa) {
-    using boost::hash_combine;
-    using boost::hash_range;
-
     size_t v = 0;
     hash_combine(v, rdfa.alpha_size);
-    hash_combine(v, hash_range(begin(rdfa.alpha_remap), end(rdfa.alpha_remap)));
+    hash_combine(v, rdfa.alpha_remap);
 
     for (const auto &ds : rdfa.states) {
-        hash_combine(v, hash_range(begin(ds.next), end(ds.next)));
+        hash_combine(v, ds.next);
     }
 
     return v;
 }
 
 size_t hash_dfa(const raw_dfa &rdfa) {
-    using boost::hash_combine;
     size_t v = 0;
     hash_combine(v, hash_dfa_no_reports(rdfa));
     hash_combine(v, all_reports(rdfa));
@@ -270,6 +276,11 @@ bool can_die_early(const raw_dfa &raw, dstate_id_t s,
 bool can_die_early(const raw_dfa &raw, u32 age_limit) {
     map<dstate_id_t, u32> visited;
     return can_die_early(raw, raw.start_anchored, visited, age_limit);
+}
+
+bool is_dead(const raw_dfa &rdfa) {
+    return rdfa.start_anchored == DEAD_STATE &&
+           rdfa.start_floating == DEAD_STATE;
 }
 
 } // namespace ue2

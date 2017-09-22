@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -132,7 +132,7 @@ void dumpCounter(FILE *f, const mpv_counter_info *c) {
 void nfaExecMpv_dump(const NFA *nfa, const string &base) {
     const mpv *m = (const mpv *)getImplNfa(nfa);
 
-    FILE *f = fopen_or_throw((base + ".txt").c_str(), "w");
+    StdioFile f(base + ".txt", "w");
 
     fprintf(f, "Puff the Magic Engines\n");
     fprintf(f, "\n");
@@ -154,7 +154,6 @@ void nfaExecMpv_dump(const NFA *nfa, const string &base) {
     }
 
     dumpTextReverse(nfa, f);
-    fclose(f);
 }
 
 } // namespace ue2

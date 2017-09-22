@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,13 +38,12 @@
 #include "container.h"
 #include "ue2common.h"
 
-#include <array>
 #include <algorithm>
+#include <array>
+#include <queue>
 #include <vector>
 
 namespace ue2 {
-
-#define DETERMINISE_RESERVE_SIZE 10
 
 /* Automaton details:
  *
@@ -73,42 +72,43 @@ namespace ue2 {
  *  \param state_limit limit on the number of dfa states to construct
  *  \param statesets_out a mapping from DFA state to the set of NFA states in
  *         the automaton
- *  \return zero on success
+ *  \return true on success, false if state limit exceeded
  */
 template<class Auto, class ds>
 never_inline
-int determinise(Auto &n, std::vector<ds> &dstates_out, dstate_id_t state_limit,
+bool determinise(Auto &n, std::vector<ds> &dstates, size_t state_limit,
                 std::vector<typename Auto::StateSet> *statesets_out = nullptr) {
     DEBUG_PRINTF("the determinator\n");
-    typedef typename Auto::StateSet StateSet;
-    typedef typename Auto::StateMap DstateIdMap;
-    DstateIdMap dstate_ids;
-    std::vector<StateSet> statesets;
+    using StateSet = typename Auto::StateSet;
+    typename Auto::StateMap dstate_ids;
 
     const size_t alphabet_size = n.alphasize;
 
-    std::vector<ds> dstates;
-    dstates.reserve(DETERMINISE_RESERVE_SIZE);
-    statesets.reserve(DETERMINISE_RESERVE_SIZE);
+    dstates.clear();
+    dstates.reserve(state_limit);
 
-    dstate_ids[n.dead] = DEAD_STATE;
+    dstate_ids.emplace(n.dead, DEAD_STATE);
     dstates.push_back(ds(alphabet_size));
     std::fill_n(dstates[0].next.begin(), alphabet_size, DEAD_STATE);
 
-    statesets.push_back(n.dead);
+    std::queue<std::pair<StateSet, dstate_id_t>> q;
+    q.emplace(n.dead, DEAD_STATE);
 
     const std::vector<StateSet> &init = n.initial();
     for (u32 i = 0; i < init.size(); i++) {
-        statesets.push_back(init[i]);
+        q.emplace(init[i], dstates.size());
         assert(!contains(dstate_ids, init[i]));
-        dstate_ids[init[i]] = dstates.size();
+        dstate_ids.emplace(init[i], dstates.size());
         dstates.push_back(ds(alphabet_size));
     }
 
     std::vector<StateSet> succs(alphabet_size, n.dead);
-    for (dstate_id_t curr_id = DEAD_STATE; curr_id < dstates.size();
-         curr_id++) {
-        StateSet &curr = statesets[curr_id];
+
+    while (!q.empty()) {
+        auto m = std::move(q.front());
+        q.pop();
+        StateSet &curr = m.first;
+        dstate_id_t curr_id = m.second;
 
         DEBUG_PRINTF("curr: %hu\n", curr_id);
 
@@ -139,43 +139,48 @@ int determinise(Auto &n, std::vector<ds> &dstates_out, dstate_id_t state_limit,
             if (s && succs[s] == succs[s - 1]) {
                 succ_id = dstates[curr_id].next[s - 1];
             } else {
-                typename DstateIdMap::const_iterator dstate_id_iter;
-                dstate_id_iter = dstate_ids.find(succs[s]);
-
-                if (dstate_id_iter != dstate_ids.end()) {
-                    succ_id = dstate_id_iter->second;
-
+                auto p = dstate_ids.find(succs[s]);
+                if (p != dstate_ids.end()) { // succ[s] is already present
+                    succ_id = p->second;
                     if (succ_id > curr_id && !dstates[succ_id].daddy
                         && n.unalpha[s] < N_CHARS) {
                         dstates[succ_id].daddy = curr_id;
                     }
                 } else {
-                    statesets.push_back(succs[s]);
-                    succ_id = dstates.size();
-                    dstate_ids[succs[s]] = succ_id;
+                    succ_id = dstate_ids.size();
+                    dstate_ids.emplace(succs[s], succ_id);
                     dstates.push_back(ds(alphabet_size));
                     dstates.back().daddy = n.unalpha[s] < N_CHARS ? curr_id : 0;
+                    q.emplace(succs[s], succ_id);
                 }
 
                 DEBUG_PRINTF("-->%hu on %02hx\n", succ_id, n.unalpha[s]);
             }
 
             if (succ_id >= state_limit) {
-                DEBUG_PRINTF("succ_id %hu >= state_limit %hu\n",
+                DEBUG_PRINTF("succ_id %hu >= state_limit %zu\n",
                              succ_id, state_limit);
-                return -2;
+                dstates.clear();
+                return false;
             }
 
             dstates[curr_id].next[s] = succ_id;
         }
     }
 
-    dstates_out = dstates;
+    // The dstates vector will persist in the raw_dfa.
+    dstates.shrink_to_fit();
+
     if (statesets_out) {
-        statesets_out->swap(statesets);
+        auto &statesets = *statesets_out;
+        statesets.resize(dstate_ids.size());
+        for (auto &m : dstate_ids) {
+            statesets[m.second] = std::move(m.first);
+        }
     }
+
     DEBUG_PRINTF("ok\n");
-    return 0;
+    return true;
 }
 
 static inline

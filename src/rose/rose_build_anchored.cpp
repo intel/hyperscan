@@ -49,11 +49,12 @@
 #include "util/compile_error.h"
 #include "util/container.h"
 #include "util/determinise.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
 #include "util/make_unique.h"
 #include "util/order_check.h"
-#include "util/ue2_containers.h"
 #include "util/ue2string.h"
+#include "util/unordered.h"
 #include "util/verify_types.h"
 
 #include <map>
@@ -274,7 +275,7 @@ u32 anchoredStateSize(const anchored_matcher_info &atable) {
 
 namespace {
 
-typedef bitfield<ANCHORED_NFA_STATE_LIMIT> nfa_state_set;
+using nfa_state_set = bitfield<ANCHORED_NFA_STATE_LIMIT>;
 
 struct Holder_StateSet {
     Holder_StateSet() : wdelay(0) {}
@@ -285,19 +286,16 @@ struct Holder_StateSet {
     bool operator==(const Holder_StateSet &b) const {
         return wdelay == b.wdelay && wrap_state == b.wrap_state;
     }
-};
 
-size_t hash_value(const Holder_StateSet &s) {
-    size_t val = 0;
-    boost::hash_combine(val, s.wrap_state);
-    boost::hash_combine(val, s.wdelay);
-    return val;
-}
+    size_t hash() const {
+        return hash_all(wrap_state, wdelay);
+    }
+};
 
 class Automaton_Holder {
 public:
-    typedef Holder_StateSet StateSet;
-    typedef ue2::unordered_map<StateSet, dstate_id_t> StateMap;
+    using StateSet = Holder_StateSet;
+    using StateMap = ue2_unordered_map<StateSet, dstate_id_t>;
 
     explicit Automaton_Holder(const NGHolder &g_in) : g(g_in) {
         for (auto v : vertices_range(g)) {
@@ -416,7 +414,7 @@ public:
 
 private:
     const NGHolder &g;
-    ue2::unordered_map<NFAVertex, u32> vertexToIndex;
+    unordered_map<NFAVertex, u32> vertexToIndex;
     vector<NFAVertex> indexToVertex;
     vector<CharReach> cr_by_index;
     StateSet init;
@@ -701,8 +699,8 @@ int addAutomaton(RoseBuildImpl &build, const NGHolder &h, ReportID *remap) {
 
     Automaton_Holder autom(h);
 
-    unique_ptr<raw_dfa> out_dfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
-    if (!determinise(autom, out_dfa->states, MAX_DFA_STATES)) {
+    auto out_dfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
+    if (determinise(autom, out_dfa->states, MAX_DFA_STATES)) {
         return finalise_out(build, h, autom, move(out_dfa), remap);
     }
 
@@ -712,7 +710,7 @@ int addAutomaton(RoseBuildImpl &build, const NGHolder &h, ReportID *remap) {
 
 static
 void setReports(NGHolder &h, const map<NFAVertex, set<u32>> &reportMap,
-                const ue2::unordered_map<NFAVertex, NFAVertex> &orig_to_copy) {
+                const unordered_map<NFAVertex, NFAVertex> &orig_to_copy) {
     for (const auto &m : reportMap) {
         NFAVertex t = orig_to_copy.at(m.first);
         assert(!m.second.empty());
@@ -724,7 +722,7 @@ void setReports(NGHolder &h, const map<NFAVertex, set<u32>> &reportMap,
 int addAnchoredNFA(RoseBuildImpl &build, const NGHolder &wrapper,
                    const map<NFAVertex, set<u32>> &reportMap) {
     NGHolder h;
-    ue2::unordered_map<NFAVertex, NFAVertex> orig_to_copy;
+    unordered_map<NFAVertex, NFAVertex> orig_to_copy;
     cloneHolder(h, wrapper, &orig_to_copy);
     clear_in_edges(h.accept, h);
     clear_in_edges(h.acceptEod, h);
@@ -764,8 +762,8 @@ void buildSimpleDfas(const RoseBuildImpl &build, const vector<u32> &frag_map,
         auto h = populate_holder(simple.first, exit_ids);
         Automaton_Holder autom(*h);
         auto rdfa = ue2::make_unique<raw_dfa>(NFA_OUTFIX_RAW);
-        UNUSED int rv = determinise(autom, rdfa->states, MAX_DFA_STATES);
-        assert(!rv);
+        UNUSED bool rv = determinise(autom, rdfa->states, MAX_DFA_STATES);
+        assert(rv);
         rdfa->start_anchored = INIT_STATE;
         rdfa->start_floating = DEAD_STATE;
         rdfa->alpha_size = autom.alphasize;

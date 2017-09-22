@@ -33,7 +33,7 @@
 #include "nfa_kind.h"
 #include "ue2common.h"
 #include "util/bytecode_ptr.h"
-#include "util/ue2_containers.h"
+#include "util/flat_containers.h"
 #include "util/order_check.h"
 
 #include <map>

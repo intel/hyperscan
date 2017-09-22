@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,8 +44,6 @@
 #include <algorithm>
 #include <memory>
 #include <sstream>
-
-#include <boost/graph/depth_first_search.hpp>
 
 using namespace std;
 
@@ -194,7 +192,7 @@ struct PathMask {
     }
 
     vector<CharReach> mask;
-    ue2::flat_set<ReportID> reports;
+    flat_set<ReportID> reports;
     bool is_anchored;
     bool is_eod;
 };
@@ -207,6 +205,11 @@ bool handleDecoratedLiterals(RoseBuild &rose, const NGHolder &g,
 
     if (!isAcyclic(g)) {
         DEBUG_PRINTF("not acyclic\n");
+        return false;
+    }
+
+    if (!hasNarrowReachVertex(g)) {
+        DEBUG_PRINTF("no narrow reach vertices\n");
         return false;
     }
 

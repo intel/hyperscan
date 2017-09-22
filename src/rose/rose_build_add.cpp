@@ -55,6 +55,7 @@
 #include "util/container.h"
 #include "util/dump_charclass.h"
 #include "util/graph_range.h"
+#include "util/insertion_ordered.h"
 #include "util/make_unique.h"
 #include "util/noncopyable.h"
 #include "util/order_check.h"
@@ -85,7 +86,7 @@ struct RoseBuildData : noncopyable {
 
     /** Edges we've transformed (in \ref transformAnchoredLiteralOverlap) which
      * require ANCH history to prevent overlap. */
-    ue2::unordered_set<RoseInEdge> anch_history_edges;
+    unordered_set<RoseInEdge> anch_history_edges;
 
     /** True if we're tracking Start of Match. */
     bool som;
@@ -121,7 +122,7 @@ RoseVertex createVertex(RoseBuildImpl *build, u32 literalId, u32 min_offset,
 RoseVertex createVertex(RoseBuildImpl *build, const RoseVertex parent,
                         u32 minBound, u32 maxBound, u32 literalId,
                         size_t literalLength,
-                        const ue2::flat_set<ReportID> &reports) {
+                        const flat_set<ReportID> &reports) {
     assert(parent != RoseGraph::null_vertex());
 
     RoseGraph &g = build->g;
@@ -1525,8 +1526,7 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter) {
     renumber_vertices(in);
     assert(validateKinds(in));
 
-    map<NGHolder *, vector<RoseInEdge> > graphs;
-    vector<NGHolder *> ordered_graphs; // Stored in first-encounter order.
+    insertion_ordered_map<NGHolder *, vector<RoseInEdge>> graphs;
 
     for (const auto &e : edges_range(in)) {
         if (!in[e].graph) {
@@ -1544,21 +1544,17 @@ bool RoseBuildImpl::addRose(const RoseInGraph &ig, bool prefilter) {
         NGHolder *h = in[e].graph.get();
 
         assert(isCorrectlyTopped(*h));
-        if (!contains(graphs, h)) {
-            ordered_graphs.push_back(h);
-        }
         graphs[h].push_back(e);
     }
 
-    assert(ordered_graphs.size() == graphs.size());
-
     vector<RoseInEdge> graph_edges;
 
-    for (auto h : ordered_graphs) {
+    for (const auto &m : graphs) {
+        NGHolder *h = m.first;
         if (!canImplementGraph(*h, prefilter, rm, cc)) {
             return false;
         }
-        insert(&graph_edges, graph_edges.end(), graphs[h]);
+        insert(&graph_edges, graph_edges.end(), m.second);
     }
 
     /* we are now past the point of no return. We can start making irreversible
@@ -1641,7 +1637,7 @@ bool roseCheckRose(const RoseInGraph &ig, bool prefilter,
 }
 
 void RoseBuildImpl::add(bool anchored, bool eod, const ue2_literal &lit,
-                        const ue2::flat_set<ReportID> &reports) {
+                        const flat_set<ReportID> &reports) {
     assert(!reports.empty());
 
     if (cc.grey.floodAsPuffette && !anchored && !eod && is_flood(lit) &&

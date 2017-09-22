@@ -133,7 +133,7 @@ vector<ReportID> ReportManager::getDkeyToReportTable() const {
 void ReportManager::assignDkeys(const RoseBuild *rose) {
     DEBUG_PRINTF("assigning...\n");
 
-    map<u32, ue2::flat_set<ReportID>> ext_to_int;
+    map<u32, flat_set<ReportID>> ext_to_int;
 
     for (u32 i = 0; i < reportIds.size(); i++) {
         const Report &ir = reportIds[i];

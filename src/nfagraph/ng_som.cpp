@@ -69,6 +69,8 @@
 
 #include <algorithm>
 #include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 using namespace std;
@@ -103,7 +105,7 @@ struct som_plan {
 
 static
 bool regionCanEstablishSom(const NGHolder &g,
-                           const ue2::unordered_map<NFAVertex, u32> &regions,
+                           const unordered_map<NFAVertex, u32> &regions,
                            const u32 region, const vector<NFAVertex> &r_exits,
                            const vector<DepthMinMax> &depths) {
     if (region == regions.at(g.accept) ||
@@ -149,7 +151,7 @@ struct region_info {
 
 static
 void buildRegionMapping(const NGHolder &g,
-                        const ue2::unordered_map<NFAVertex, u32> &regions,
+                        const unordered_map<NFAVertex, u32> &regions,
                         map<u32, region_info> &info,
                         bool include_region_0 = false) {
     for (auto v : vertices_range(g)) {
@@ -228,7 +230,7 @@ void buildRegionMapping(const NGHolder &g,
 
 static
 bool validateXSL(const NGHolder &g,
-                 const ue2::unordered_map<NFAVertex, u32> &regions,
+                 const unordered_map<NFAVertex, u32> &regions,
                  const u32 region, const CharReach &escapes, u32 *bad_region) {
     /* need to check that the escapes escape all of the graph past region */
     u32 first_bad_region = ~0U;
@@ -251,7 +253,7 @@ bool validateXSL(const NGHolder &g,
 
 static
 bool validateEXSL(const NGHolder &g,
-                  const ue2::unordered_map<NFAVertex, u32> &regions,
+                  const unordered_map<NFAVertex, u32> &regions,
                   const u32 region, const CharReach &escapes,
                   const NGHolder &prefix, u32 *bad_region) {
     /* EXSL: To be a valid EXSL with escapes e, we require that all states
@@ -265,7 +267,7 @@ bool validateEXSL(const NGHolder &g,
     const vector<CharReach> escapes_vec(1, escapes);
     const vector<CharReach> notescapes_vec(1, ~escapes);
 
-    ue2::flat_set<NFAVertex> states;
+    flat_set<NFAVertex> states;
     /* turn on all states past the prefix */
     DEBUG_PRINTF("region %u is cutover\n", region);
     for (auto v : vertices_range(g)) {
@@ -278,7 +280,7 @@ bool validateEXSL(const NGHolder &g,
     states = execute_graph(g, escapes_vec, states);
 
     /* flood with any number of not escapes */
-    ue2::flat_set<NFAVertex> prev_states;
+    flat_set<NFAVertex> prev_states;
     while (prev_states != states) {
         prev_states = states;
         states = execute_graph(g, notescapes_vec, states);
@@ -288,7 +290,7 @@ bool validateEXSL(const NGHolder &g,
     /* find input starts to use for when we are running the prefix through as
      * when the escape character arrives we may be in matching the prefix
      * already */
-    ue2::flat_set<NFAVertex> prefix_start_states;
+    flat_set<NFAVertex> prefix_start_states;
     for (auto v : vertices_range(prefix)) {
         if (v != prefix.accept && v != prefix.acceptEod
             /* and as we have already made it past the prefix once */
@@ -353,7 +355,7 @@ bool isPossibleLock(const NGHolder &g,
 
 static
 unique_ptr<NGHolder>
-makePrefix(const NGHolder &g, const ue2::unordered_map<NFAVertex, u32> &regions,
+makePrefix(const NGHolder &g, const unordered_map<NFAVertex, u32> &regions,
            const region_info &curr, const region_info &next,
            bool renumber = true) {
     const vector<NFAVertex> &curr_exits = curr.exits;
@@ -368,12 +370,12 @@ makePrefix(const NGHolder &g, const ue2::unordered_map<NFAVertex, u32> &regions,
     deque<NFAVertex> lhs_verts;
     insert(&lhs_verts, lhs_verts.end(), vertices(g));
 
-    ue2::unordered_map<NFAVertex, NFAVertex> lhs_map; // g -> prefix
+    unordered_map<NFAVertex, NFAVertex> lhs_map; // g -> prefix
     fillHolder(&prefix, g, lhs_verts, &lhs_map);
     prefix.kind = NFA_OUTFIX;
 
     // We need a reverse mapping to track regions.
-    ue2::unordered_map<NFAVertex, NFAVertex> rev_map; // prefix -> g
+    unordered_map<NFAVertex, NFAVertex> rev_map; // prefix -> g
     for (const auto &e : lhs_map) {
         rev_map.emplace(e.second, e.first);
     }
@@ -541,7 +543,7 @@ void setMidfixReports(ReportManager &rm, const som_plan &item,
 
 static
 bool finalRegion(const NGHolder &g,
-                 const ue2::unordered_map<NFAVertex, u32> &regions,
+                 const unordered_map<NFAVertex, u32> &regions,
                  NFAVertex v) {
     u32 region = regions.at(v);
     for (auto w : adjacent_vertices_range(v, g)) {
@@ -771,7 +773,7 @@ void fillHolderForLockCheck(NGHolder *out, const NGHolder &g,
 
 static
 void fillRoughMidfix(NGHolder *out, const NGHolder &g,
-                     const ue2::unordered_map<NFAVertex, u32> &regions,
+                     const unordered_map<NFAVertex, u32> &regions,
                      const map<u32, region_info> &info,
                      map<u32, region_info>::const_iterator picked) {
     /* as we are not the first prefix, we are probably not acyclic. We need to
@@ -941,7 +943,7 @@ bool isMandRegionBetween(map<u32, region_info>::const_iterator a,
 // (woot!); updates picked, plan and bad_region.
 static
 bool advancePlan(const NGHolder &g,
-                 const ue2::unordered_map<NFAVertex, u32> &regions,
+                 const unordered_map<NFAVertex, u32> &regions,
                  const NGHolder &prefix, bool stuck,
                  map<u32, region_info>::const_iterator &picked,
                  const map<u32, region_info>::const_iterator furthest,
@@ -1051,13 +1053,12 @@ void addReporterVertices(const region_info &r, const NGHolder &g,
 // Fetches the mappings of all preds of {accept, acceptEod} in this region.
 static
 void addMappedReporterVertices(const region_info &r, const NGHolder &g,
-                        const ue2::unordered_map<NFAVertex, NFAVertex> &mapping,
+                        const unordered_map<NFAVertex, NFAVertex> &mapping,
                         vector<NFAVertex> &reporters) {
     for (auto v : r.exits) {
         if (edge(v, g.accept, g).second || edge(v, g.acceptEod, g).second) {
             DEBUG_PRINTF("adding v=%zu\n", g[v].index);
-            ue2::unordered_map<NFAVertex, NFAVertex>::const_iterator it =
-                mapping.find(v);
+            auto it = mapping.find(v);
             assert(it != mapping.end());
             reporters.push_back(it->second);
         }
@@ -1068,9 +1069,9 @@ void addMappedReporterVertices(const region_info &r, const NGHolder &g,
 // from earlier regions.
 static
 void cloneGraphWithOneEntry(NGHolder &out, const NGHolder &g,
-                       const ue2::unordered_map<NFAVertex, u32> &regions,
+                       const unordered_map<NFAVertex, u32> &regions,
                        NFAVertex entry, const vector<NFAVertex> &enters,
-                       ue2::unordered_map<NFAVertex, NFAVertex> &orig_to_copy) {
+                       unordered_map<NFAVertex, NFAVertex> &orig_to_copy) {
     orig_to_copy.clear();
     cloneHolder(out, g, &orig_to_copy);
 
@@ -1095,7 +1096,7 @@ void cloneGraphWithOneEntry(NGHolder &out, const NGHolder &g,
 }
 
 static
-void expandGraph(NGHolder &g, ue2::unordered_map<NFAVertex, u32> &regions,
+void expandGraph(NGHolder &g, unordered_map<NFAVertex, u32> &regions,
                  vector<NFAVertex> &enters) {
     assert(!enters.empty());
     const u32 split_region = regions.at(enters.front());
@@ -1178,11 +1179,11 @@ void expandGraph(NGHolder &g, ue2::unordered_map<NFAVertex, u32> &regions,
 
 static
 bool doTreePlanningIntl(NGHolder &g,
-            const ue2::unordered_map<NFAVertex, u32> &regions,
+            const unordered_map<NFAVertex, u32> &regions,
             const map<u32, region_info> &info,
             map<u32, region_info>::const_iterator picked, u32 bad_region,
             u32 parent_plan,
-            const ue2::unordered_map<NFAVertex, NFAVertex> &copy_to_orig,
+            const unordered_map<NFAVertex, NFAVertex> &copy_to_orig,
             vector<som_plan> &plan, const Grey &grey) {
     assert(picked != info.end());
 
@@ -1341,7 +1342,7 @@ bool doTreePlanning(NGHolder &g,
         // regions.
 
         NGHolder g_path;
-        ue2::unordered_map<NFAVertex, NFAVertex> orig_to_copy;
+        unordered_map<NFAVertex, NFAVertex> orig_to_copy;
         cloneGraphWithOneEntry(g_path, g, g_regions, v, enters, orig_to_copy);
         auto regions = assignRegions(g_path);
         dumpHolder(g_path, regions, 14, "som_treepath", grey);
@@ -1375,7 +1376,7 @@ bool doTreePlanning(NGHolder &g,
         }
 
         // Construct reverse mapping from vertices in g_path to g.
-        ue2::unordered_map<NFAVertex, NFAVertex> copy_to_orig;
+        unordered_map<NFAVertex, NFAVertex> copy_to_orig;
         for (const auto &m : orig_to_copy) {
             copy_to_orig.insert(make_pair(m.second, m.first));
         }
@@ -1398,7 +1399,7 @@ enum dsp_behaviour {
 
 static
 bool doSomPlanning(NGHolder &g, bool stuck_in,
-                   const ue2::unordered_map<NFAVertex, u32> &regions,
+                   const unordered_map<NFAVertex, u32> &regions,
                    const map<u32, region_info> &info,
                    map<u32, region_info>::const_iterator picked,
                    vector<som_plan> &plan,
@@ -1734,8 +1735,6 @@ namespace {
 struct SomRevNfa {
     SomRevNfa(NFAVertex s, ReportID r, bytecode_ptr<NFA> n)
         : sink(s), report(r), nfa(move(n)) {}
-    SomRevNfa(SomRevNfa &&s) // MSVC2013 needs this for emplace
-        : sink(s.sink), report(s.report), nfa(move(s.nfa)) {}
     NFAVertex sink;
     ReportID report;
     bytecode_ptr<NFA> nfa;
@@ -1940,7 +1939,7 @@ map<u32, region_info>::const_iterator findLaterLiteral(const NGHolder &g,
 
 static
 bool attemptToBuildChainAfterSombe(SomSlotManager &ssm, NGHolder &g,
-                  const ue2::unordered_map<NFAVertex, u32> &regions,
+                  const unordered_map<NFAVertex, u32> &regions,
                   const map<u32, region_info> &info,
                   map<u32, region_info>::const_iterator picked,
                   const Grey &grey,
@@ -2014,7 +2013,7 @@ void setReportOnHaigPrefix(RoseBuild &rose, NGHolder &h) {
 
 static
 bool tryHaig(RoseBuild &rose, NGHolder &g,
-             const ue2::unordered_map<NFAVertex, u32> &regions,
+             const unordered_map<NFAVertex, u32> &regions,
              som_type som, u32 somPrecision,
              map<u32, region_info>::const_iterator picked,
              shared_ptr<raw_som_dfa> *haig, shared_ptr<NGHolder> *haig_prefix,
@@ -2062,7 +2061,7 @@ void roseAddHaigLiteral(RoseBuild &tb, const shared_ptr<NGHolder> &prefix,
 static
 sombe_rv doHaigLitSom(NG &ng, NGHolder &g, const ExpressionInfo &expr,
                       u32 comp_id, som_type som,
-                      const ue2::unordered_map<NFAVertex, u32> &regions,
+                      const unordered_map<NFAVertex, u32> &regions,
                       const map<u32, region_info> &info,
                       map<u32, region_info>::const_iterator lower_bound) {
     DEBUG_PRINTF("entry\n");
@@ -2343,7 +2342,7 @@ bool splitOffLeadingLiterals(const NGHolder &g, set<ue2_literal> *lit_out,
         }
     }
 
-    ue2::unordered_map<NFAVertex, NFAVertex> rhs_map;
+    unordered_map<NFAVertex, NFAVertex> rhs_map;
     vector<NFAVertex> pivots;
     insert(&pivots, pivots.end(), adj_term1);
     splitRHS(g, pivots, rhs, &rhs_map);
@@ -2354,7 +2353,7 @@ bool splitOffLeadingLiterals(const NGHolder &g, set<ue2_literal> *lit_out,
 
 static
 void findBestLiteral(const NGHolder &g,
-                     const ue2::unordered_map<NFAVertex, u32> &regions,
+                     const unordered_map<NFAVertex, u32> &regions,
                      ue2_literal *lit_out, NFAVertex *v,
                      const CompileContext &cc) {
     map<u32, region_info> info;
@@ -2394,7 +2393,7 @@ void findBestLiteral(const NGHolder &g,
 
 static
 bool splitOffBestLiteral(const NGHolder &g,
-                         const ue2::unordered_map<NFAVertex, u32> &regions,
+                         const unordered_map<NFAVertex, u32> &regions,
                          ue2_literal *lit_out, NGHolder *lhs, NGHolder *rhs,
                          const CompileContext &cc) {
     NFAVertex v = NGHolder::null_vertex();
@@ -2406,8 +2405,8 @@ bool splitOffBestLiteral(const NGHolder &g,
 
     DEBUG_PRINTF("literal is '%s'\n", dumpString(*lit_out).c_str());
 
-    ue2::unordered_map<NFAVertex, NFAVertex> lhs_map;
-    ue2::unordered_map<NFAVertex, NFAVertex> rhs_map;
+    unordered_map<NFAVertex, NFAVertex> lhs_map;
+    unordered_map<NFAVertex, NFAVertex> rhs_map;
 
     splitGraph(g, v, lhs, &lhs_map, rhs, &rhs_map);
 
@@ -2498,7 +2497,7 @@ bool doLitHaigSom(NG &ng, NGHolder &g, som_type som) {
 
 static
 bool doHaigLitHaigSom(NG &ng, NGHolder &g,
-                      const ue2::unordered_map<NFAVertex, u32> &regions,
+                      const unordered_map<NFAVertex, u32> &regions,
                       som_type som) {
     if (!ng.cc.grey.allowLitHaig) {
         return false;
@@ -2732,7 +2731,7 @@ bool trySombe(NG &ng, NGHolder &g, som_type som) {
 
 static
 map<u32, region_info>::const_iterator pickInitialSomCut(const NGHolder &g,
-                        const ue2::unordered_map<NFAVertex, u32> &regions,
+                        const unordered_map<NFAVertex, u32> &regions,
                         const map<u32, region_info> &info,
                         const vector<DepthMinMax> &depths) {
     map<u32, region_info>::const_iterator picked = info.end();
@@ -2757,7 +2756,7 @@ map<u32, region_info>::const_iterator pickInitialSomCut(const NGHolder &g,
 
 static
 map<u32, region_info>::const_iterator tryForLaterRevNfaCut(const NGHolder &g,
-                              const ue2::unordered_map<NFAVertex, u32> &regions,
+                              const unordered_map<NFAVertex, u32> &regions,
                               const map<u32, region_info> &info,
                               const vector<DepthMinMax> &depths,
                               const map<u32, region_info>::const_iterator &orig,
@@ -2849,7 +2848,7 @@ map<u32, region_info>::const_iterator tryForLaterRevNfaCut(const NGHolder &g,
 
 static
 unique_ptr<NGHolder> makePrefixForChain(NGHolder &g,
-                         const ue2::unordered_map<NFAVertex, u32> &regions,
+                         const unordered_map<NFAVertex, u32> &regions,
                          const map<u32, region_info> &info,
                          const map<u32, region_info>::const_iterator &picked,
                          vector<DepthMinMax> *depths, bool prefix_by_rev,

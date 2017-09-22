@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -30,11 +30,9 @@
 
 namespace ue2 {
 
-// prevent weak vtables for raw_report_info, dfa_build_strat and raw_dfa
+// prevent weak vtables for raw_report_info, dfa_build_strat
 raw_report_info::~raw_report_info() {}
 
 dfa_build_strat::~dfa_build_strat() {}
-
-raw_dfa::~raw_dfa() {}
 
 } // namespace ue2

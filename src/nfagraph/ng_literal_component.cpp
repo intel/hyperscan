@@ -45,6 +45,8 @@
 #include "util/graph_range.h"
 #include "util/ue2string.h"
 
+#include <unordered_set>
+
 using namespace std;
 
 namespace ue2 {
@@ -196,7 +198,7 @@ bool splitOffLiterals(NG &ng, NGHolder &g) {
     bool changed = false;
     set<NFAVertex> dead;
 
-    ue2::unordered_set<NFAVertex> unanchored; // for faster lookup.
+    unordered_set<NFAVertex> unanchored; // for faster lookup.
     insert(&unanchored, adjacent_vertices(g.startDs, g));
 
     // Anchored literals.

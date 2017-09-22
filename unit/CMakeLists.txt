@@ -2,12 +2,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 
 set(gtest_SOURCES gtest/gtest-all.cc gtest/gtest.h)
-if(NOT XCODE)
-    include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR})
-else()
-    set(CMAKE_CXX_FLAGS "-isystem ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CXX_FLAGS}")
-endif()
-
+include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR})
 
 # remove some warnings
@@ -23,6 +18,10 @@ endif()
 
 if(CXX_WUNUSED_VARIABLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable")
+endif()
+
+if (CXX_UNUSED_LOCAL_TYPEDEFS)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-local-typedefs")
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCC)
@@ -42,6 +41,7 @@ set(unit_hyperscan_SOURCES
     hyperscan/expr_info.cpp
     hyperscan/extparam.cpp
     hyperscan/identical.cpp
+    hyperscan/literals.cpp
     hyperscan/main.cpp
     hyperscan/multi.cpp
     hyperscan/order.cpp
@@ -77,10 +77,12 @@ set(unit_internal_SOURCES
     internal/flat_set.cpp
     internal/flat_map.cpp
     internal/graph.cpp
+    internal/insertion_ordered.cpp
     internal/lbr.cpp
     internal/limex_nfa.cpp
     internal/masked_move.cpp
     internal/multi_bit.cpp
+    internal/multi_bit_compress.cpp
     internal/nfagraph_common.h
     internal/nfagraph_comp.cpp
     internal/nfagraph_equivalence.cpp

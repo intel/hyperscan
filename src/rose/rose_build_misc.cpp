@@ -26,8 +26,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "rose_build_misc.h"
 #include "rose_build_impl.h"
 
+#include "rose_build_resources.h"
 #include "hwlm/hwlm_literal.h"
 #include "nfa/castlecompile.h"
 #include "nfa/goughcompile.h"
@@ -56,11 +58,9 @@
 #include "ue2common.h"
 #include "grey.h"
 
-#include <boost/functional/hash/hash_fwd.hpp>
 #include <boost/graph/breadth_first_search.hpp>
 
 using namespace std;
-using boost::hash_combine;
 
 namespace ue2 {
 
@@ -576,6 +576,9 @@ bool RoseSuffixInfo::operator<(const RoseSuffixInfo &b) const {
     return false;
 }
 
+size_t RoseSuffixInfo::hash() const {
+    return hash_all(top, graph, castle, rdfa, haig, tamarama);
+}
 
 void RoseSuffixInfo::reset(void) {
     top = 0;
@@ -691,16 +694,7 @@ set<u32> all_tops(const suffix_id &s) {
 }
 
 size_t suffix_id::hash() const {
-    size_t val = 0;
-    hash_combine(val, g);
-    hash_combine(val, c);
-    hash_combine(val, d);
-    hash_combine(val, h);
-    return val;
-}
-
-size_t hash_value(const suffix_id &s) {
-    return s.hash();
+    return hash_all(g, c, d, h, t);
 }
 
 bool isAnchored(const left_id &r) {
@@ -756,21 +750,25 @@ set<u32> all_tops(const left_id &r) {
     return {0};
 }
 
+set<u32> all_reports(const left_id &left) {
+    assert(left.graph() || left.castle() || left.haig() || left.dfa());
+    if (left.graph()) {
+        return all_reports(*left.graph());
+    } else if (left.castle()) {
+        return all_reports(*left.castle());
+    } else if (left.dfa()) {
+        return all_reports(*left.dfa());
+    } else {
+        return all_reports(*left.haig());
+    }
+}
+
 u32 num_tops(const left_id &r) {
     return all_tops(r).size();
 }
 
 size_t left_id::hash() const {
-    size_t val = 0;
-    hash_combine(val, g);
-    hash_combine(val, c);
-    hash_combine(val, d);
-    hash_combine(val, h);
-    return val;
-}
-
-size_t hash_value(const left_id &r) {
-    return r.hash();
+    return hash_all(g, c, d, h);
 }
 
 u64a findMaxOffset(const set<ReportID> &reports, const ReportManager &rm) {
@@ -785,6 +783,10 @@ u64a findMaxOffset(const set<ReportID> &reports, const ReportManager &rm) {
         }
     }
     return maxOffset;
+}
+
+size_t LeftEngInfo::hash() const {
+    return hash_all(graph, castle, dfa, haig, tamarama, lag, leftfix_report);
 }
 
 void LeftEngInfo::reset(void) {
@@ -807,18 +809,16 @@ LeftEngInfo::operator bool() const {
     return graph || castle || dfa || haig;
 }
 
-u32 roseQuality(const RoseEngine *t) {
+u32 roseQuality(const RoseResources &res, const RoseEngine *t) {
     /* Rose is low quality if the atable is a Mcclellan 16 or has multiple DFAs
      */
-    const anchored_matcher_info *atable = getALiteralMatcher(t);
-    if (atable) {
-        if (atable->next_offset) {
+    if (res.has_anchored) {
+        if (res.has_anchored_multiple) {
             DEBUG_PRINTF("multiple atable engines\n");
             return 0;
         }
-        const NFA *nfa = (const NFA *)((const char *)atable + sizeof(*atable));
 
-        if (!isSmallDfaType(nfa->type)) {
+        if (res.has_anchored_large) {
             DEBUG_PRINTF("m16 atable engine\n");
             return 0;
         }
@@ -827,7 +827,7 @@ u32 roseQuality(const RoseEngine *t) {
     /* if we always run multiple engines then we are slow */
     u32 always_run = 0;
 
-    if (atable) {
+    if (res.has_anchored) {
         always_run++;
     }
 
@@ -836,8 +836,7 @@ u32 roseQuality(const RoseEngine *t) {
         always_run++;
     }
 
-    const HWLM *ftable = getFLiteralMatcher(t);
-    if (ftable) {
+    if (res.has_floating) {
         /* TODO: ignore conditional ftables, or ftables beyond smwr region */
         always_run++;
     }
@@ -997,8 +996,8 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
 bool hasOrphanedTops(const RoseBuildImpl &build) {
     const RoseGraph &g = build.g;
 
-    ue2::unordered_map<left_id, set<u32> > roses;
-    ue2::unordered_map<suffix_id, set<u32> > suffixes;
+    unordered_map<left_id, set<u32>> roses;
+    unordered_map<suffix_id, set<u32>> suffixes;
 
     for (auto v : vertices_range(g)) {
         if (g[v].left) {

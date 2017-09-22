@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,10 +36,12 @@
 #include "rose/rose_build_impl.h"
 #include "util/container.h"
 #include "util/dump_charclass.h"
+#include "util/flat_containers.h"
 #include "util/graph_range.h"
 #include "util/graph.h"
-#include "util/ue2_containers.h"
+#include "util/hash.h"
 #include "util/ue2string.h"
+#include "util/unordered.h"
 
 #include <algorithm>
 #include <set>
@@ -51,7 +53,7 @@ namespace ue2 {
 static
 bool couldEndLiteral(const ue2_literal &s, NFAVertex initial,
                      const NGHolder &h) {
-    ue2::flat_set<NFAVertex> curr, next;
+    flat_set<NFAVertex> curr, next;
     curr.insert(initial);
 
     for (auto it = s.rbegin(), ite = s.rend(); it != ite; ++it) {
@@ -82,9 +84,10 @@ bool couldEndLiteral(const ue2_literal &s, NFAVertex initial,
     return true;
 }
 
+using EdgeCache = ue2_unordered_set<pair<NFAVertex, NFAVertex>>;
+
 static
-void contractVertex(NGHolder &g, NFAVertex v,
-                    ue2::unordered_set<pair<NFAVertex, NFAVertex>> &all_edges) {
+void contractVertex(NGHolder &g, NFAVertex v, EdgeCache &all_edges) {
     for (auto u : inv_adjacent_vertices_range(v, g)) {
         if (u == v) {
             continue; // self-edge
@@ -144,8 +147,9 @@ u32 findMaxLiteralMatches(const NGHolder &h, const set<ue2_literal> &lits) {
     cloneHolder(g, h);
     vector<NFAVertex> dead;
 
-    // The set of all edges in the graph is used for existence checks in contractVertex.
-    ue2::unordered_set<pair<NFAVertex, NFAVertex>> all_edges;
+    // The set of all edges in the graph is used for existence checks in
+    // contractVertex.
+    EdgeCache all_edges;
     for (const auto &e : edges_range(g)) {
         all_edges.emplace(source(e, g), target(e, g));
     }
