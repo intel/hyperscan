@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -25,26 +25,62 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#ifndef SQLDB_H_
+#define SQLDB_H_
 
-#ifndef COMMON_H
-#define COMMON_H
+#include "ue2common.h"
 
+#include "common.h"
+#include "sqldb_bind.h"
+
+#include <iostream>
 #include <string>
 
-enum class ScanMode { BLOCK, STREAMING, VECTORED };
+#include <sqlite3.h>
 
-extern bool echo_matches;
-extern bool saveDatabases;
-extern bool loadDatabases;
-extern std::string serializePath;
-extern unsigned int somPrecisionMode;
-extern bool forceEditDistance;
-extern unsigned editDistance;
-extern bool printCompressSize;
+class SqlDB {
+public:
+    SqlDB() : db(nullptr) {};
+    ~SqlDB();
+    void open(const std::string &filename);
+    void exec(const std::string &query);
+    u64a lastRowId();
 
-struct SqlFailure {
-    explicit SqlFailure(const std::string &s) : message(s) {}
-    std::string message;
+    template <typename... Args>
+    void insert_all(const std::string &query, Args&&... args) {
+        sqlite3_stmt *stmt;
+        const char *tail;
+
+        int rc = sqlite3_prepare(db, query.c_str(), query.size(), &stmt, &tail);
+        if (rc != SQLITE_OK) {
+            std::ostringstream oss;
+            oss << "Unable to prepare query: " << sqlite3_errmsg(db);
+            throw SqlFailure(oss.str());
+        }
+
+        // only one statement per function call
+        assert(strlen(tail) == 0);
+
+        // perform templated binds to this statement
+        ue2_sqlite::bind_args(stmt, 1, args...);
+
+        rc = sqlite3_step(stmt);
+        if (rc != SQLITE_DONE) {
+            std::ostringstream oss;
+            oss << "Unable to run insert: " << sqlite3_errmsg(db);
+            throw SqlFailure(oss.str());
+        }
+
+        rc = sqlite3_finalize(stmt);
+        if (rc != SQLITE_OK) {
+            std::ostringstream oss;
+            oss << "Unable to finalize statement: " << sqlite3_errmsg(db);
+            throw SqlFailure(oss.str());
+        }
+    }
+
+private:
+    sqlite3 *db;
 };
 
-#endif // COMMON_H
+#endif /* SQLDB_H_ */

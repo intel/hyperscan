@@ -32,6 +32,7 @@
 #include "data_corpus.h"
 #include "engine_hyperscan.h"
 #include "expressions.h"
+#include "sqldb.h"
 #include "thread_barrier.h"
 #include "timer.h"
 #include "util/expression_path.h"
@@ -89,9 +90,13 @@ ScanMode scan_mode = ScanMode::STREAMING;
 unsigned repeats = 20;
 string exprPath("");
 string corpusFile("");
+string sqloutFile("");
+string sigName(""); // info only
 vector<unsigned int> threadCores;
 Timer totalTimer;
 double totalSecs = 0;
+
+SqlDB out_db;
 
 typedef void (*thread_func_t)(void *context);
 
@@ -188,6 +193,8 @@ void usage(const char *error) {
     printf("\n");
     printf("  --per-scan      Display per-scan Mbit/sec results.\n");
     printf("  --echo-matches  Display all matches that occur during scan.\n");
+    printf("  --sql-out FILE  Output sqlite db.\n");
+    printf("  -S NAME         Signature set name (for sqlite db).\n");
     printf("\n\n");
 
     if (error) {
@@ -207,28 +214,30 @@ struct BenchmarkSigs {
 static
 void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
                  UNUSED unique_ptr<Grey> &grey) {
-    const char options[] = "-b:c:Cd:e:E:G:hi:n:No:p:sVw:z:"
+    const char options[] = "-b:c:Cd:e:E:G:hi:n:No:p:sS:Vw:z:"
 #ifdef HAVE_DECL_PTHREAD_SETAFFINITY_NP
         "T:" // add the thread flag
 #endif
         ;
     int in_sigfile = 0;
     int do_per_scan = 0;
-    int do_echo_matches = 0;
     int do_compress = 0;
     int do_compress_size = 0;
+    int do_echo_matches = 0;
+    int do_sql_output = 0;
+    int option_index = 0;
     vector<string> sigFiles;
 
     static struct option longopts[] = {
-        {"per-scan", 0, &do_per_scan, 1},
-        {"echo-matches", 0, &do_echo_matches, 1},
-        {"compress-stream", 0, &do_compress, 1},
-        {"print-compress-size", 0, &do_compress_size, 1},
+        {"per-scan", no_argument, &do_per_scan, 1},
+        {"echo-matches", no_argument, &do_echo_matches, 1},
+        {"compress-stream", no_argument, &do_compress, 1},
+        {"sql-out", required_argument, &do_sql_output, 1},
         {nullptr, 0, nullptr, 0}
     };
 
     for (;;) {
-        int c = getopt_long(argc, argv, options, longopts, nullptr);
+        int c = getopt_long(argc, argv, options, longopts, &option_index);
         if (c < 0) {
             break;
         }
@@ -294,6 +303,9 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
         case 'V':
             scan_mode = ScanMode::VECTORED;
             break;
+        case 'S':
+            sigName.assign(optarg);
+            break;
 #ifdef HAVE_DECL_PTHREAD_SETAFFINITY_NP
         case 'T':
             if (!strToList(optarg, threadCores)) {
@@ -321,14 +333,19 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
             saveDatabases = true;
             serializePath = optarg;
             break;
+        case 0:
+            if (do_sql_output) {
+                sqloutFile.assign(optarg);
+                do_sql_output = 0;
+            }
+            break;
         case 1:
             if (in_sigfile) {
                 sigFiles.push_back(optarg);
                 in_sigfile = 2;
                 break;
             }
-        case 0:
-            break;
+            /* fallthrough */
         default:
             usage("Unrecognised command line argument.");
             exit(1);
@@ -726,6 +743,67 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
     }
 }
 
+/** Dump per-scan throughput data to sql. */
+static
+void sqlPerScanResults(const vector<unique_ptr<ThreadContext>> &threads,
+                       u64a bytesPerRun, u64a scan_id) {
+    static const std::string Q =
+        "INSERT INTO ScanResults (scan_id, thread, scan, throughput) "
+        "VALUES (?1, ?2, ?3, ?4)";
+
+    for (const auto &t : threads) {
+        const auto &results = t->results;
+        for (size_t j = 0; j != results.size(); j++) {
+            const auto &r = results[j];
+            double mbps = calc_mbps(r.seconds, bytesPerRun);
+            out_db.insert_all(Q, scan_id, t->num, j, mbps);
+        }
+    }
+}
+
+/** Dump benchmark results to sql. */
+static
+void sqlResults(const vector<unique_ptr<ThreadContext>> &threads,
+                const vector<DataBlock> &corpus_blocks) {
+    u64a bytesPerRun = byte_size(corpus_blocks);
+    u64a matchesPerRun = threads[0]->results[0].matches;
+
+    u64a scan_id = out_db.lastRowId();
+
+    // Sanity check: all of our results should have the same match count.
+    for (const auto &t : threads) {
+        if (!all_of(begin(t->results), end(t->results),
+                    [&matchesPerRun](const ResultEntry &e) {
+                        return e.matches == matchesPerRun;
+                    })) {
+            printf("\nWARNING: PER-SCAN MATCH COUNTS ARE INCONSISTENT!\n\n");
+            break;
+        }
+    }
+
+    u64a totalBytes = bytesPerRun * repeats * threads.size();
+    double matchRate = ((double)matchesPerRun * 1024) / bytesPerRun;
+
+    const auto pos = corpusFile.find_last_of('/');
+    const auto corpus = corpusFile.substr(pos + 1);
+
+    static const std::string Q =
+        "INSERT INTO Scan (scan_id, corpusFile, totalSecs, "
+            "bytesPerRun, blockSize, blockCount, totalBytes, "
+            "totalBlocks, matchesPerRun, matchRate, overallTput) "
+        "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)";
+
+    out_db.insert_all(
+        Q, scan_id, corpus, totalSecs, bytesPerRun, corpus_blocks.size(),
+        scan_mode == ScanMode::BLOCK ? 1 : count_streams(corpus_blocks),
+        totalBytes, corpus_blocks.size() * repeats * threads.size(),
+        matchesPerRun, matchRate, calc_mbps(totalSecs, totalBytes));
+
+    if (display_per_scan) {
+        sqlPerScanResults(threads, bytesPerRun, scan_id);
+    }
+}
+
 /**
  * Construct a thread context for this scanning mode.
  *
@@ -798,10 +876,15 @@ void runBenchmark(const EngineHyperscan &db,
         t->join();
     }
 
-    // Display global results.
-    displayResults(threads, corpus_blocks);
+    if (sqloutFile.empty()) {
+        // Display global results.
+        displayResults(threads, corpus_blocks);
+    } else {
+        // write to sqlite file
+        sqlResults(threads, corpus_blocks);
+        out_db.exec("END");
+    }
 }
-
 } // namespace
 
 /** Main driver. */
@@ -842,22 +925,39 @@ int main(int argc, char *argv[]) {
         printf("Corpus data error: %s\n", e.msg.c_str());
         return 1;
     }
-
-    for (const auto &s : sigSets) {
-        auto exprMap = limitToSignatures(exprMapTemplate, s.sigs);
-        if (exprMap.empty()) {
-            continue;
+    try {
+        if (!sqloutFile.empty()) {
+            out_db.open(sqloutFile);
         }
 
-        auto engine = buildEngineHyperscan(exprMap, scan_mode, s.name, *grey);
-        if (!engine) {
-            printf("Error: expressions failed to compile.\n");
-            exit(1);
+        for (const auto &s : sigSets) {
+            auto exprMap = limitToSignatures(exprMapTemplate, s.sigs);
+            if (exprMap.empty()) {
+                continue;
+            }
+
+            auto engine = buildEngineHyperscan(exprMap, scan_mode, s.name,
+                                               sigName, *grey);
+            if (!engine) {
+                printf("Error: expressions failed to compile.\n");
+                exit(1);
+            }
+
+            if (sqloutFile.empty()) {
+                // Display global results.
+                engine->printStats();
+                printf("\n");
+
+            } else {
+                out_db.exec("BEGIN");
+                engine->sqlStats(out_db);
+            }
+
+            runBenchmark(*engine, corpus_blocks);
         }
-
-        printf("\n");
-
-        runBenchmark(*engine, corpus_blocks);
+    } catch (const SqlFailure &f) {
+        cerr << f.message << '\n';
+        return -1;
     }
 
     return 0;
