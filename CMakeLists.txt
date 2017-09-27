@@ -1271,25 +1271,42 @@ if (NOT BUILD_SHARED_LIBS)
 endif()
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
-    if (NOT FAT_RUNTIME)
-        add_library(hs_shared SHARED src/hs_version.c src/hs_valid_platform.c
-            $<TARGET_OBJECTS:hs_compile_shared> $<TARGET_OBJECTS:hs_exec_shared>)
-    else()
-        add_library(hs_shared SHARED src/hs_version.c src/hs_valid_platform.c
-            $<TARGET_OBJECTS:hs_compile_shared> $<TARGET_OBJECTS:hs_exec_common_shared>
-            ${RUNTIME_SHLIBS})
+    set(hs_shared_SRCS
+        src/hs_version.c
+        src/hs_valid_platform.c
+        $<TARGET_OBJECTS:hs_compile_shared>)
 
-    endif()
+    if (XCODE)
+        # force this lib to use C++ linkage
+        add_custom_command(OUTPUT empty.cxx
+            COMMAND ${CMAKE_COMMAND} -E touch empty.cxx)
+        set (hs_shared_SRCS ${hs_shared_SRCS} empty.cxx)
+    endif (XCODE)
+
+    if (NOT FAT_RUNTIME)
+        set(hs_shared_SRCS
+            ${hs_shared_SRCS}
+            $<TARGET_OBJECTS:hs_exec_shared>)
+    else ()
+        set(hs_shared_SRCS
+            ${hs_shared_SRCS}
+            $<TARGET_OBJECTS:hs_exec_common_shared>
+            ${RUNTIME_SHLIBS})
+    endif ()
+
+    add_library(hs_shared SHARED ${hs_shared_SRCS})
+
     add_dependencies(hs_shared ragel_Parser)
     set_target_properties(hs_shared PROPERTIES
         OUTPUT_NAME hs
         VERSION ${LIB_VERSION}
         SOVERSION ${LIB_SOVERSION}
         MACOSX_RPATH ON)
-install(TARGETS hs_shared
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+    install(TARGETS hs_shared
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 # used by tools and other targets
