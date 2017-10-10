@@ -45,11 +45,13 @@ public:
     ExpressionInfo(unsigned int index_in, bool allow_vacuous_in,
                    bool highlander_in, bool utf8_in, bool prefilter_in,
                    som_type som_in, ReportID report_in, u64a min_offset_in,
-                   u64a max_offset_in, u64a min_length_in, u32 edit_distance_in)
+                   u64a max_offset_in, u64a min_length_in, u32 edit_distance_in,
+                   u32 hamm_distance_in)
         : index(index_in), report(report_in), allow_vacuous(allow_vacuous_in),
           highlander(highlander_in), utf8(utf8_in), prefilter(prefilter_in),
           som(som_in), min_offset(min_offset_in), max_offset(max_offset_in),
-          min_length(min_length_in), edit_distance(edit_distance_in) {}
+          min_length(min_length_in), edit_distance(edit_distance_in),
+          hamm_distance(hamm_distance_in) {}
 
     /**
      * \brief Index of the expression represented by this graph.
@@ -95,6 +97,7 @@ public:
      * 0 if not used.
      */
     u32 edit_distance;
+    u32 hamm_distance;
 };
 
 }

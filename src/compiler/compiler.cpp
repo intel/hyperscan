@@ -78,7 +78,8 @@ void validateExt(const hs_expr_ext &ext) {
     static const unsigned long long ALL_EXT_FLAGS = HS_EXT_FLAG_MIN_OFFSET |
                                                     HS_EXT_FLAG_MAX_OFFSET |
                                                     HS_EXT_FLAG_MIN_LENGTH |
-                                                    HS_EXT_FLAG_EDIT_DISTANCE;
+                                                    HS_EXT_FLAG_EDIT_DISTANCE |
+                                                    HS_EXT_FLAG_HAMMING_DISTANCE;
     if (ext.flags & ~ALL_EXT_FLAGS) {
         throw CompileError("Invalid hs_expr_ext flag set.");
     }
@@ -96,6 +97,13 @@ void validateExt(const hs_expr_ext &ext) {
         throw CompileError("In hs_expr_ext, min_length must be less than or "
                            "equal to max_offset.");
     }
+
+    if ((ext.flags & HS_EXT_FLAG_EDIT_DISTANCE) &&
+        (ext.flags & HS_EXT_FLAG_HAMMING_DISTANCE)) {
+        throw CompileError("In hs_expr_ext, cannot have both edit distance and "
+                           "Hamming distance.");
+    }
+
 }
 
 ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
@@ -103,7 +111,7 @@ ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
                                    const hs_expr_ext *ext)
     : expr(index_in, flags & HS_FLAG_ALLOWEMPTY, flags & HS_FLAG_SINGLEMATCH,
            false, flags & HS_FLAG_PREFILTER, SOM_NONE, report, 0, MAX_OFFSET,
-           0, 0) {
+           0, 0, 0) {
     ParseMode mode(flags);
 
     component = parse(expression, mode);
@@ -157,6 +165,9 @@ ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
         }
         if (ext->flags & HS_EXT_FLAG_EDIT_DISTANCE) {
             expr.edit_distance = ext->edit_distance;
+        }
+        if (ext->flags & HS_EXT_FLAG_HAMMING_DISTANCE) {
+            expr.hamm_distance = ext->hamming_distance;
         }
     }
 

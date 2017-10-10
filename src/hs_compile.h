@@ -258,6 +258,13 @@ typedef struct hs_expr_ext {
      * hs_expr_ext::flags field.
      */
     unsigned edit_distance;
+
+    /**
+     * Allow patterns to approximately match within this Hamming distance. To
+     * use this parameter, set the @ref HS_EXT_FLAG_HAMMING_DISTANCE flag in the
+     * hs_expr_ext::flags field.
+     */
+    unsigned hamming_distance;
 } hs_expr_ext_t;
 
 /**
@@ -280,6 +287,9 @@ typedef struct hs_expr_ext {
 
 /** Flag indicating that the hs_expr_ext::edit_distance field is used. */
 #define HS_EXT_FLAG_EDIT_DISTANCE   8ULL
+
+/** Flag indicating that the hs_expr_ext::hamming_distance field is used. */
+#define HS_EXT_FLAG_HAMMING_DISTANCE 16ULL
 
 /** @} */
 

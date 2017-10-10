@@ -170,7 +170,7 @@ bool shortcutLiteral(NG &ng, const ParsedExpression &pe) {
 
     // XXX: don't shortcut literals with extended params (yet)
     if (expr.min_offset || expr.max_offset != MAX_OFFSET || expr.min_length ||
-        expr.edit_distance) {
+        expr.edit_distance || expr.hamm_distance) {
         DEBUG_PRINTF("extended params not allowed\n");
         return false;
     }

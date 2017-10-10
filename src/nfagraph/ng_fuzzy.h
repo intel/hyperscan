@@ -40,10 +40,10 @@ struct Grey;
 class NGHolder;
 class ReportManager;
 
-void validate_fuzzy_compile(const NGHolder &g, u32 edit_distance, bool utf8,
-                            const Grey &grey);
+void validate_fuzzy_compile(const NGHolder &g, u32 edit_distance, bool hamming,
+                            bool utf8, const Grey &grey);
 
-void make_fuzzy(NGHolder &g, u32 edit_distance, const Grey &grey);
+void make_fuzzy(NGHolder &g, u32 edit_distance, bool hamming, const Grey &grey);
 }
 
 #endif // NG_FUZZY_H
