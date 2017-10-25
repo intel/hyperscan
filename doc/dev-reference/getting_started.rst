@@ -10,7 +10,7 @@ Very Quick Start
 #. Clone Hyperscan ::
 
      cd <where-you-want-hyperscan-source>
-     git clone git://github/01org/hyperscan
+     git clone git://github/intel/hyperscan
 
 #. Configure Hyperscan
 
