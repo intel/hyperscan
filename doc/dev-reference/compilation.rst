@@ -405,14 +405,14 @@ follows:
 #. **Edit distance** is defined as Levenshtein distance. That is, there are
    three possible edit types considered: insertion, removal and substitution.
    A more formal description can be found on
-   `Wikipedia <https://en.wikipedia.org/wiki/Levenshtein_distance>`_.
+   `Wikipedia <https://en.wikipedia.org/wiki/Levenshtein_distance>`__.
 
 #. **Hamming distance** is the number of positions by which two strings of
    equal length differ. That is, it is the number of substitutions required to
    convert one string to the other. There are no insertions or removals when
    approximate matching using a Hamming distance. A more formal description can
    be found on
-   `Wikipedia <https://en.wikipedia.org/wiki/Hamming_distance>`_.
+   `Wikipedia <https://en.wikipedia.org/wiki/Hamming_distance>`__.
 
 #. **Approximate matching** will match all *corpora* within a given edit or
    Hamming distance. That is, given a pattern, approximate matching will match
