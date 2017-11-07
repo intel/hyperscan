@@ -303,9 +303,9 @@ typedef struct hs_expr_ext {
  * @param expression
  *      The NULL-terminated expression to parse. Note that this string must
  *      represent ONLY the pattern to be matched, with no delimiters or flags;
- *      any global flags should be specified with the @a flags argument. For
+ *      any global flags should be specified with the @p flags argument. For
  *      example, the expression `/abc?def/i` should be compiled by providing
- *      `abc?def` as the @a expression, and @ref HS_FLAG_CASELESS as the @a
+ *      `abc?def` as the @p expression, and @ref HS_FLAG_CASELESS as the @a
  *      flags.
  *
  * @param flags
@@ -372,8 +372,8 @@ hs_error_t HS_CDECL hs_compile(const char *expression, unsigned int flags,
  *      hs_compile()) these strings must contain only the pattern to be
  *      matched, with no delimiters or flags. For example, the expression
  *      `/abc?def/i` should be compiled by providing `abc?def` as the first
- *      string in the @a expressions array, and @ref HS_FLAG_CASELESS as the
- *      first value in the @a flags array.
+ *      string in the @p expressions array, and @ref HS_FLAG_CASELESS as the
+ *      first value in the @p flags array.
  *
  * @param flags
  *      Array of flags which modify the behaviour of each expression. Multiple
@@ -428,7 +428,7 @@ hs_error_t HS_CDECL hs_compile(const char *expression, unsigned int flags,
  *
  * @return
  *      @ref HS_SUCCESS is returned on successful compilation; @ref
- *      HS_COMPILER_ERROR on failure, with details provided in the @a error
+ *      HS_COMPILER_ERROR on failure, with details provided in the @p error
  *      parameter.
  *
  */
@@ -452,8 +452,8 @@ hs_error_t HS_CDECL hs_compile_multi(const char *const *expressions,
  *      hs_compile()) these strings must contain only the pattern to be
  *      matched, with no delimiters or flags. For example, the expression
  *      `/abc?def/i` should be compiled by providing `abc?def` as the first
- *      string in the @a expressions array, and @ref HS_FLAG_CASELESS as the
- *      first value in the @a flags array.
+ *      string in the @p expressions array, and @ref HS_FLAG_CASELESS as the
+ *      first value in the @p flags array.
  *
  * @param flags
  *      Array of flags which modify the behaviour of each expression. Multiple
@@ -515,7 +515,7 @@ hs_error_t HS_CDECL hs_compile_multi(const char *const *expressions,
  *
  * @return
  *      @ref HS_SUCCESS is returned on successful compilation; @ref
- *      HS_COMPILER_ERROR on failure, with details provided in the @a error
+ *      HS_COMPILER_ERROR on failure, with details provided in the @p error
  *      parameter.
  *
  */
@@ -559,9 +559,9 @@ hs_error_t HS_CDECL hs_free_compile_error(hs_compile_error_t *error);
  * @param expression
  *      The NULL-terminated expression to parse. Note that this string must
  *      represent ONLY the pattern to be matched, with no delimiters or flags;
- *      any global flags should be specified with the @a flags argument.  For
+ *      any global flags should be specified with the @p flags argument.  For
  *      example, the expression `/abc?def/i` should be compiled by providing
- *      `abc?def` as the @a expression, and @ref HS_FLAG_CASELESS as the @a
+ *      `abc?def` as the @p expression, and @ref HS_FLAG_CASELESS as the @a
  *      flags.
  *
  * @param flags
@@ -621,9 +621,9 @@ hs_error_t HS_CDECL hs_expression_info(const char *expression,
  * @param expression
  *      The NULL-terminated expression to parse. Note that this string must
  *      represent ONLY the pattern to be matched, with no delimiters or flags;
- *      any global flags should be specified with the @a flags argument.  For
+ *      any global flags should be specified with the @p flags argument.  For
  *      example, the expression `/abc?def/i` should be compiled by providing
- *      `abc?def` as the @a expression, and @ref HS_FLAG_CASELESS as the @a
+ *      `abc?def` as the @p expression, and @ref HS_FLAG_CASELESS as the @a
  *      flags.
  *
  * @param flags

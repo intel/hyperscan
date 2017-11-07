@@ -143,7 +143,7 @@ hs_error_t HS_CDECL hs_deserialize_database(const char *bytes,
  * by @ref hs_serialize_database() at a given memory location.
  *
  * This function (unlike @ref hs_deserialize_database()) will write the
- * reconstructed database to the memory location given in the @a db parameter.
+ * reconstructed database to the memory location given in the @p db parameter.
  * The amount of space required at this location can be determined with the
  * @ref hs_serialized_database_size() function.
  *
