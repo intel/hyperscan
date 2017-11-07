@@ -479,6 +479,10 @@ hs_error_t HS_CDECL hs_valid_platform(void);
 
 /**
  * A parameter passed to this function was invalid.
+ *
+ * This error is only returned in cases where the function can detect an
+ * invalid parameter -- it cannot be relied upon to detect (for example)
+ * pointers to freed memory or other invalid data.
  */
 #define HS_INVALID              (-1)
 

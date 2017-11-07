@@ -193,6 +193,12 @@ hs_error_t HS_CDECL hs_scan_stream(hs_stream_t *id, const char *data,
 /**
  * Close a stream.
  *
+ * This function completes matching on the given stream and frees the memory
+ * associated with the stream state. After this call, the stream pointed to by
+ * @a id is invalid and can no longer be used. To reuse the stream state after
+ * completion, rather than closing it, the @ref hs_reset_stream function can be
+ * used.
+ *
  * This function must be called for any stream created with @ref
  * hs_open_stream(), even if scanning has been terminated by a non-zero return
  * from the match callback function.
@@ -404,8 +410,8 @@ hs_error_t HS_CDECL hs_expand_stream(const hs_database_t *db,
  * if these properties are not satisfied.
  *
  * @param to_stream
- *      A pointer to the generated @ref hs_stream_t will be
- *      returned; NULL on failure.
+ *      A pointer to a valid stream state. A pointer to the expanded @ref
+ *      hs_stream_t will be returned; NULL on failure.
  *
  * @param buf
  *      A compressed representation of a stream. These compressed forms are
