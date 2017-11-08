@@ -301,7 +301,7 @@ struct GraphCache {
                 vertex_reports_by_level[d][v].insert(rs.begin(), rs.end());
             }
 
-            if (edit_distance == 0) {
+            if (edit_distance == 0 || hamming) {
                 // if edit distance is 0, no predecessors will have reports
                 continue;
             }
