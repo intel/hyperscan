@@ -32,6 +32,7 @@
 #ifndef NG_UTIL_H
 #define NG_UTIL_H
 
+#include "ng_depth.h"
 #include "ng_holder.h"
 #include "ue2common.h"
 #include "util/flat_containers.h"
@@ -40,6 +41,7 @@
 
 #include <boost/graph/depth_first_search.hpp> // for default_dfs_visitor
 
+#include <algorithm>
 #include <map>
 #include <unordered_map>
 #include <vector>
@@ -47,13 +49,29 @@
 namespace ue2 {
 
 struct Grey;
-struct NFAVertexDepth;
 struct ue2_literal;
-class depth;
 class ReportManager;
 
-depth maxDistFromInit(const NFAVertexDepth &d);
-depth maxDistFromStartOfData(const NFAVertexDepth &d);
+template<class VertexDepth>
+depth maxDistFromInit(const VertexDepth &vd) {
+    if (vd.fromStart.max.is_unreachable()) {
+        return vd.fromStartDotStar.max;
+    } else if (vd.fromStartDotStar.max.is_unreachable()) {
+        return vd.fromStart.max;
+    } else {
+        return std::max(vd.fromStartDotStar.max, vd.fromStart.max);
+    }
+}
+
+template<class VertexDepth>
+depth maxDistFromStartOfData(const VertexDepth &vd) {
+    if (vd.fromStartDotStar.max.is_reachable()) {
+        /* the irrepressible nature of floating literals cannot be contained */
+        return depth::infinity();
+    } else {
+        return vd.fromStart.max;
+    }
+}
 
 /** True if the given vertex is a dot (reachable on any character). */
 template<class GraphT>

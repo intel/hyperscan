@@ -629,15 +629,6 @@ bool hasExtParams(const ExpressionInfo &expr) {
     return false;
 }
 
-template<class VertexDepth>
-depth maxDistFromStart(const VertexDepth &d) {
-    if (!d.fromStartDotStar.max.is_unreachable()) {
-        // A path from startDs, any path, implies we can match at any offset.
-        return depth::infinity();
-    }
-    return d.fromStart.max;
-}
-
 static
 const depth& maxDistToAccept(const NFAVertexBidiDepth &d) {
     if (d.toAccept.max.is_unreachable()) {
@@ -689,7 +680,7 @@ bool isEdgePrunable(const NGHolder &g, const Report &report,
     const NFAVertexBidiDepth &dv = depths.at(v_idx);
 
     if (report.minOffset) {
-        depth max_offset = maxDistFromStart(du) + maxDistToAccept(dv);
+        depth max_offset = maxDistFromStartOfData(du) + maxDistToAccept(dv);
         if (max_offset.is_finite() && max_offset < report.minOffset) {
             DEBUG_PRINTF("max_offset=%s too small\n", max_offset.str().c_str());
             return true;
@@ -709,7 +700,7 @@ bool isEdgePrunable(const NGHolder &g, const Report &report,
     if (report.minLength && is_any_accept(v, g)) {
         // Simple take on min_length. If we're an edge to accept and our max
         // dist from start is too small, we can be pruned.
-        const depth &width = du.fromStart.max;
+        const depth &width = maxDistFromInit(du);
         if (width.is_finite() && width < report.minLength) {
             DEBUG_PRINTF("max width %s from start too small for min_length\n",
                          width.str().c_str());
@@ -961,7 +952,7 @@ void removeUnneededOffsetBounds(NGHolder &g, ReportManager &rm) {
     replaceReports(g, [&](NFAVertex v, ReportID id) {
         const auto &d = depths.at(g[v].index);
         const depth &min_depth = min(d.fromStartDotStar.min, d.fromStart.min);
-        const depth &max_depth = maxDistFromStart(d);
+        const depth &max_depth = maxDistFromStartOfData(d);
 
         DEBUG_PRINTF("vertex %zu has min_depth=%s, max_depth=%s\n", g[v].index,
                      min_depth.str().c_str(), max_depth.str().c_str());

@@ -32,7 +32,6 @@
 #include "ng_util.h"
 
 #include "grey.h"
-#include "ng_depth.h" // for NFAVertexDepth
 #include "ng_dump.h"
 #include "ng_prune.h"
 #include "ue2common.h"
@@ -60,25 +59,6 @@ using boost::make_filtered_graph;
 using boost::make_assoc_property_map;
 
 namespace ue2 {
-
-depth maxDistFromInit(const NFAVertexDepth &vd) {
-    if (vd.fromStart.max.is_unreachable()) {
-        return vd.fromStartDotStar.max;
-    } else if (vd.fromStartDotStar.max.is_unreachable()) {
-        return vd.fromStart.max;
-    } else {
-        return max(vd.fromStartDotStar.max, vd.fromStart.max);
-    }
-}
-
-depth maxDistFromStartOfData(const NFAVertexDepth &vd) {
-    if (vd.fromStartDotStar.max.is_reachable()) {
-        /* the irrepressible nature of floating literals cannot be contained */
-        return depth::infinity();
-    } else {
-        return vd.fromStart.max;
-    }
-}
 
 NFAVertex getSoleDestVertex(const NGHolder &g, NFAVertex a) {
     assert(a != NGHolder::null_vertex());
