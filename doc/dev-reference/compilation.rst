@@ -383,7 +383,7 @@ The :c:type:`hs_platform_info_t` structure has two fields:
 #. ``cpu_features``: This allows the application to specify a mask of CPU
    features that may be used on the target platform. For example,
    :c:member:`HS_CPU_FEATURES_AVX2` can be specified for Intel\ |reg| Advanced
-   Vector Extensions +2 (Intel\ |reg| AVX2) instruction set support. If a flag
+   Vector Extensions 2 (Intel\ |reg| AVX2) instruction set support. If a flag
    for a particular CPU feature is specified, the database will not be usable on
    a CPU without that feature.
 
