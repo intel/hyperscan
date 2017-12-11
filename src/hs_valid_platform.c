@@ -28,6 +28,7 @@
 
 #include "hs_common.h"
 #include "util/cpuid_flags.h"
+#include "util/cpuid_inline.h"
 
 HS_PUBLIC_API
 hs_error_t HS_CDECL hs_valid_platform(void) {
