@@ -1014,6 +1014,7 @@ SET (hs_compile_SRCS
     src/util/graph.h
     src/util/graph_range.h
     src/util/graph_small_color_map.h
+    src/util/graph_undirected.h
     src/util/hash.h
     src/util/hash_dynamic_bitset.h
     src/util/insertion_ordered.h

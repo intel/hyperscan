@@ -77,6 +77,7 @@ set(unit_internal_SOURCES
     internal/flat_set.cpp
     internal/flat_map.cpp
     internal/graph.cpp
+    internal/graph_undirected.cpp
     internal/insertion_ordered.cpp
     internal/lbr.cpp
     internal/limex_nfa.cpp
