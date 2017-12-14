@@ -38,7 +38,6 @@
 #include "ng_prune.h"
 #include "ng_reports.h"
 #include "ng_som_util.h"
-#include "ng_undirected.h"
 #include "ng_util.h"
 #include "nfa/accel.h"
 #include "nfa/limex_limits.h"

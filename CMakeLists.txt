@@ -860,7 +860,6 @@ SET (hs_compile_SRCS
     src/nfagraph/ng_stop.h
     src/nfagraph/ng_uncalc_components.cpp
     src/nfagraph/ng_uncalc_components.h
-    src/nfagraph/ng_undirected.h
     src/nfagraph/ng_utf8.cpp
     src/nfagraph/ng_utf8.h
     src/nfagraph/ng_util.cpp
