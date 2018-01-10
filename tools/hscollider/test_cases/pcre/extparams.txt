@@ -1,0 +1,119 @@
+16200:/foo.*bar/{min_offset=1}
+16201:/foo.*bar/{min_offset=10}
+16202:/foo.*bar/{max_offset=10}
+16203:/foo.*bar/{min_offset=10,max_offset=10}
+16204:/foo.*bar/{min_offset=10,max_offset=15}
+16205:/a.*b/{min_length=5}
+16206:/a.*b/{min_offset=10,min_length=3}
+16207:/preamble.*q/{max_offset=30}
+16208:/preamble.*q/{min_length=12}
+16209:/aa[^a]+aa/{max_offset=10}
+16210:/[0-9]{32,}/{max_offset=48}
+16211:/\x04\S+/{max_offset=17,min_length=17}
+16212:/[^x]+/{min_offset=10,max_offset=10}
+16213:/[^x]+x/{min_length=20}
+16214:/foo.*/{min_length=10}
+16215:/foo.+/{min_length=10}
+16216:/^hatstand.*teakettle/{min_length=25}
+16217:/hatstand/{min_offset=10,max_offset=15}
+16218:/[abcdef]{3}/{min_offset=5,max_offset=10}
+
+# Test min_length with one cyclic -> bounded repeat transform.
+16219:/foo.*bar/{min_length=10}
+16220:/foo.+bar/{min_length=10}
+16221:/.*./{min_length=4}
+16222:/.+/{min_length=4}
+16223:/^.*hatstand/{min_length=20}
+16224:/^.+hatstand/{min_length=20}
+16225:/hatstand.*/{min_length=20}
+
+# Unnecessary min_length
+16226:/long cat is lo+ng/{min_length=8}
+
+# Be wary of assertions.
+16227:/(\B|\Al)/smiV{min_offset=1,max_offset=10}
+
+# Anchoring via max_offset.
+16228:/rascal/{max_offset=6}
+
+# Be wary of vacuous patterns.
+16229:/(..v[xmdf]wn\b)*/V{max_offset=27}
+
+16230:/abc([^a]|ab|a[^b]c)d+ef/{max_offset=30,min_length=10}
+
+# Some alternations are disallowed by min_length. The next two also have $
+# metachars, which invoke -1 offset adjustment.
+16231:/(^g$|k\z|egs$|t)/{min_length=1}
+16232:/(h|.ab$)/{min_length=2}
+16233:/(abc|abcd|abcde|abcdef)/{min_length=5}
+
+# Some highlander optimisations play merry hell with min_length.
+16234:/kn[er]{2,10}/sH{min_length=5}
+
+# Mixed anchored/unanchored pattern with offsets.
+16235:/(\As|^c|z|[ycld]|^.)/s{min_offset=4,max_offset=22}
+
+# More highlander shenanigans.
+16236:/h|z|w|efp./H{min_offset=4}
+
+# \b or \B offset adjustments can cause trouble.
+16237:/\A(g|l|(\b)|[wfse]|^[wc])/s{min_length=1,max_offset=4}
+16238:/g(\B)/sV{max_offset=2}
+
+# min_length with virtual starts (multiline)
+16239:/^p{1,}/m{min_length=5,max_offset=15}
+
+# vacuous edges that need to to away.
+16240:/c?/V{min_length=1,min_offset=4}
+
+# min_length -> bounded repeat for a trailing cyclic.
+16241:/ykmy[^kaib]g*/{min_length=8}
+
+# Alternation that stresses our min_length/max offset transforms.
+16242:/\Aq[rgm]h+|z/i{min_length=8,max_offset=20}
+
+16243:/cj.wjn*v?/{min_length=9,min_offset=4}
+
+# min_length transformation with an offset-adjusted report.
+16244:/qye.+ys(\B)/si{min_length=7}
+
+# More word-boundary tests.
+16245:/\bfoo/{min_offset=2,max_offset=10}
+16246:/foo\b/{min_offset=2,max_offset=10}
+16247:/\bfoo\b/{min_offset=2,max_offset=10}
+16248:/\bfoo\b.*\bbar\b/{min_offset=2,max_offset=15}
+16249:/\bfoo\b.*\bbar\b/{min_length=10}
+16250:/\bfoo\b.*\bbar\b/{max_offset=15}
+
+# highlander + min_offset puff/lbr tests.
+16251:/.{50}/H{min_offset=51}
+16252:/.{50}/H{min_offset=52}
+16253:/.{50}/H{min_offset=53}
+16254:/.{50,}/H{min_offset=51}
+16255:/.{50,}/H{min_offset=52}
+16256:/.{50,}/H{min_offset=53}
+16257:/aaa.{50}/H{min_offset=54}
+16258:/aaa.{50}/H{min_offset=55}
+16259:/aaa.{50}/H{min_offset=56}
+16260:/aaa.{50,}/H{min_offset=54}
+16261:/aaa.{50,}/H{min_offset=55}
+16262:/aaa.{50,}/H{min_offset=56}
+
+# unnecessary min_length
+16263:/unambiguous/{min_length=11}
+
+# cases with prunable paths
+16264:/^a|g/m{min_offset=10,max_offset=16}
+16265:/^foo|jabberwocky|apple2|foo.*bar/{max_offset=6}
+16266:/^(a{8}|b{9}|c{10})|floating/{min_offset=10}
+
+# some more cases to stress small block analyses
+16267:/abcdef.{5,}/s{min_offset=20}
+16268:/abcdef./s{min_offset=20}
+16269:/abcdef../s{min_offset=20}
+16270:/abcdef/sH{min_offset=10,max_offset=20}
+16271:/abcdef/s{min_offset=10,max_offset=10}
+16272:/abcdef../s{min_offset=10,max_offset=10}
+
+# several things at once
+16273:/^[^dj].b$/sH8{min_length=9,max_offset=19}

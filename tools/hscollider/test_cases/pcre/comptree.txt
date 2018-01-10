@@ -1,0 +1,10 @@
+1000:/(foo){2,}bar/
+1001:/(foo){2,3}bar/
+1002:/^(foo){2,}bar/
+1003:/^(foo){2,3}bar/
+1004:/x?(foo){2,}bar/
+1005:/x?(foo){2,3}bar/
+1006:/(foo){2,}bar/{min_length=10}
+1007:/(foo){2,3}bar/{min_length=10}
+1008:/(foo){2,}bar/L
+1009:/(foo){2,3}bar/L

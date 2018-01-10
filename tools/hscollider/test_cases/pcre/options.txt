@@ -1,0 +1,37 @@
+# Patterns that set/unset various options
+
+# DOTALL
+24500:/(?s)foo.*bar/O
+24501:/foo.*bar(?s).baz/O
+24502:/(?-s)foo.*bar/sO
+24503:/(?-s)foo.*bar/O
+24504:/(?-s)foo.*bar(?s).*baz/sO
+
+# CASELESS
+24600:/(?i)foobar/O
+24601:/(?i)foobar/iO
+24602:/(?-i)foobar/iO
+24603:/foo(?-i)bar/iO
+24604:/(?-i)foo(?i)bar/iO
+24605:/(?i)foo(?-i)bar/O
+
+# MULTILINE
+24700:/(?m)foobar$/
+24701:/(?-m)foobar$/m
+
+# EXTENDED
+24800:/(?x)foo bar/O
+24801:/(?x)foo  bar(?-x) baz/O
+
+# EPIC COMBOS
+24900:/(?imsx)^ foo .* bar .*   baz/O
+
+# MORE COMPLEX CASES
+24901:/^(?i:(?:abbr(?:ev(?:iation)?)))/
+24902:/(?s)foo(?i).bar/
+24903:/(?s)foo(?i-s).bar/
+24904:/foo(?i:bar)baz/
+24905:/nested(?i:caseless(?-i:caseful)caseless)literal/
+24906:/(a(?i)b|c)/
+24907:/(?i:hatstand|teakettle)/
+24908:/foo.*(?i-s:bar.*baz).*bing/s

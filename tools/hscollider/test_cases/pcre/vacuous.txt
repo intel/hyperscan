@@ -1,0 +1,52 @@
+# A selection of fine vacuous patterns (patterns that match the empty string).
+# Only true FIREHOSE patterns need the /V flag.
+
+22000:/.*/V
+22001:/.?/V
+22002:/.{0,16}/V
+22003:/.*/sV
+22004:/.?/sV
+22005:/.{0,16}/sV
+22006:/(foo|)/V
+22007:/(foo|.?)/sV
+22008:/(foo|.*)/sV
+22009:/(foo|.{0,16})/sV
+22010:/^.*/
+22011:/^.?/
+22012:/^.{0,16}/
+22013:/^.*/s
+22014:/^.?/s
+22015:/^.{0,16}/s
+22016:/^(foo|)/
+22017:/^(foo|.?)/s
+22018:/^(foo|.*)/s
+22019:/^(foo|.{0,16})/s
+
+22020:/^$/
+22021:/^\z/
+
+22022:/(foo|$)/
+22023:/(foo|\z)/
+22024:/(.?|$)/sV
+22025:/(.?|\z)/sV
+22026:/(^|\z)/
+
+# Tricky mix of vacuous and multiline
+22027:/^a?/m
+22028:/^$/m
+
+# We handle /./s as a firehose with a min start offset of zero, now.
+22029:/./s
+
+# For completeness, some other cases (especially multiline)
+22030:/^/m
+22031:/$/m
+22032:/\z/m
+22033:/\Z/m
+22034:/^\z/m
+22035:/^./sm
+22036:/^.?/sm
+22037:/(foo|$)/m
+
+# Messy cases
+22038:/((?:d|C|B|D|B*|.)){1,4}/VP

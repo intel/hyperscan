@@ -1,0 +1,72 @@
+# Prefiltering ("/P" flag) patterns.
+
+# Assertions.
+90000:/foo(?!bar)/P
+90001:/foo(?!bar).*baz/sP
+90002:/(?<!foo)bar/P
+90003:/foo.*(?=bar)/P
+
+# Backreferences
+90200:/(sens|respons)e and \1ibility/P
+90201:/((?i)rah)\s+\1/P
+90202:/(\d{3}).*\1/P
+90203:/this is a (["'])quoted string\1/P
+90204:/<([^>+i])>.*?</\1>/sP
+
+# Relative backreferences.
+90205:/(foo|bar).*\g{-1}/P
+90206:/((foo|bar).*)\g{-2}/P
+
+# More simple back-references.
+90207:/([abc])teakettle\1/P
+90208:/([abc]+)teakettle\1/P
+90209:/([a-f])_\1\1\1/P
+
+# Named back-references, in a variety of syntaxes.
+90210:/(?<label>[0-9])backref\k<label>/P
+90211:/(?'label'[0-9])backref\k'label'/P
+90212:/(?<label>[0-9])backref\g{label}/P
+90213:/(?P<label>[0-9])backref(?P=label)/P
+
+# Atomic groups
+90300:/a(?>bc|b)c/P
+
+90320:/possessive \d*+/P
+90321:/possessive \d++/P
+90322:/possessive \d?+/P
+90323:/possessive \d{4}+/P
+90324:/possessive \d{6,}+/P
+90325:/possessive \d{10,20}+/P
+
+# Conditional references
+90400:/a (pine)?(?(1)apple)/P
+90401:/a (water)?(?(1)melon|orange)/P
+90402:/((?<animal>hamster)|guinea pig) (?(<animal>)party)/P
+90403:/((?<animal>hamster)|guinea pig) (?(<animal>)party|nothing)/P
+90404:/((?'animal'hamster)|guinea pig) (?('animal')party|nothing)/P
+90405:/((?P<animal>hamster)|guinea pig) (?(animal)party|nothing)/P
+
+# Empty conditional reference group
+90406:/water(-buffalo)?(?(1)) field/P
+
+# DEFINE group, which can only have one branch and is always false
+90407:/jabber(?(DEFINE)wocky)/P
+
+# Conditional references with assertions
+90408:/^(?(?=hello)[a-z]+|[a-z]{3})/P
+90409:/^(?(?!hello)[a-z]+|[a-z]{3})/P
+90410:/[a-z]+(?(?<=hatstand)teakettle|badgerbrush)/P
+90411:/[a-z]+(?(?<!hatstand)teakettle|badgerbrush)/P
+
+# This is a case that stresses some of the rose merging code.
+90413:/([Cc]C|[ab])(d|Ba[aD]De.{14})((EdeDa|d|CC|[ab]){2,8}|.bE|(\b)*|b|Cd|[ED]EE[adeD]){7}[EA]ea+/sP
+
+# Repeats of small regions.
+90414:/qq(a.|.a){300}/sP
+90415:/prefix(\d{2}|\D){300}/P
+
+# Repeats of modifiers
+90416:/((?i)a)foo\1/P
+
+# Very large case that stresses prefilter region replacement
+90417:/dDcB.Ac(((\x65CA|D){0,19}){7}){1,26}/s8P

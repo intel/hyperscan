@@ -1,0 +1,37 @@
+15300:/foo/HO
+15301:/foo.*bar/sHO
+15302:/foo.*bar/HO
+15303:/foo[^X]{15}/sHO
+15304:/foo[^X]{16}/sHO
+15305:/foo[^X]{17}/sHO
+15306:/foo.*[^X]{17}/sH
+15307:/foo[^X]{17}blah/sHO
+15308:/foo[^XY]{17}/sHO
+15309:/foo[^X]{17}$/sH
+15310:/[^X]{17}/sH
+15311:/^[^X]{17}/sHO
+15312:/fo.*o[^X]{15}/sH
+15313:/fo.*o[^X]{16}/sH
+15314:/fo.*o[^X]{17}/sH
+15315:/[fb][oa][or][^X]{15}/sH
+15316:/[fb][oa][or][^X]{16}/sH
+15317:/[fb][oa][or][^X]{17}/sH
+15318:/foo|bar/HO
+# for people who are unsure of highlander semantics
+15319:/foo.|bar./HO
+15320:/^(a[^aa]..aa|a*)/mHV
+
+# highlander pruning
+15321:/(foo.*bar)|(foo.*bar.*baz)/H
+15322:/foo.*bar(.*baz)?/H
+15323:/foo.*bar+/H
+15324:/(foo.*bar)|(foo.*bar.*baz)|(foo.*bar.*eod\z)/H
+15325:/foo.*eod+\z/H
+15326:/foo.*eod+$/H
+
+# SEP patterns
+15327:/[a-f]/iH
+15328:/a|b|c/H
+
+# Longer, run-prone literals
+15329:/(p{100})|(q{100})/H

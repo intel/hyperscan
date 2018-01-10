@@ -1,0 +1,9 @@
+15800:/^.*(foo.*bar|baz.*baz)/sO
+15801:/^.*(foo.*bar|baz.*baz)a/s
+15802:/^.{1,6}(foo.*bar|baz.*baz)/sO
+15803:/.{1,6}(foo.*bar|baz.*baz)/sO
+15804:/.{1,6}(foo.*bar|........baz.*baz)/sO
+15805:/^.{1,}(foo.*bar|........baz.*baz)/sO
+15806:/anorak.*trainspotter|ANORAK.*trainspotter/iO
+15807:/anorak.*trainspotter/iO
+15808:/anorak.*trainspotter\z|ANORAK.*trainspotter/iO

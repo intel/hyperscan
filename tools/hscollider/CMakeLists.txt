@@ -77,3 +77,21 @@ else() # WIN32
     target_link_libraries(hscollider hs ${PCRE_LDFLAGS} databaseutil
         expressionutil corpusomatic crosscompileutil)
 endif()
+
+add_custom_target(
+    collide_quick_test
+    COMMAND ${CMAKE_BINARY_DIR}/bin/hscollider
+        -s ${CMAKE_SOURCE_DIR}/tools/hscollider/test_cases/signatures/collider_tests.txt
+        -c ${CMAKE_SOURCE_DIR}/tools/hscollider/test_cases/corpora/*
+        -Z0 -t3
+    DEPENDS hscollider
+)
+
+add_custom_target(
+    collide_quick_test_block
+    COMMAND ${CMAKE_BINARY_DIR}/bin/hscollider
+        -s ${CMAKE_SOURCE_DIR}/tools/hscollider/test_cases/signatures/collider_tests.txt
+        -c ${CMAKE_SOURCE_DIR}/tools/hscollider/test_cases/corpora/*
+        -Z0
+    DEPENDS hscollider
+)

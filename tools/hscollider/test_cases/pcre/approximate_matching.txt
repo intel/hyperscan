@@ -1,0 +1,25 @@
+# patterns that should produce matches
+40000:/^(012)*test$/ms{edit_distance=1}
+40001:/[^k]{3}$/ms{edit_distance=2}
+40002:/^test$/ms{edit_distance=1}
+40003:/^test/s{edit_distance=2}
+40004:/test/s{edit_distance=2}
+40005:/test|^lit/s{edit_distance=2}
+40006:/tta+tt/s{edit_distance=2}
+40007:/^ab(..)+bc/s{edit_distance=2}
+40008:/a( bc|d)e/s{edit_distance=1}
+40009:/abc|def$/s{edit_distance=2}
+40010:/abc|def$/ms{edit_distance=2}
+
+40050:/^(012)*test$/ms{hamming_distance=1}
+40051:/[^k]{3}$/ms{hamming_distance=2}
+40052:/^test$/ms{hamming_distance=1}
+40053:/^test/s{hamming_distance=2}
+40054:/test/s{hamming_distance=2}
+40055:/test|^lit/s{hamming_distance=2}
+40056:/tta+tt/s{hamming_distance=2}
+40057:/^ab(..)+bc/s{hamming_distance=2}
+40058:/a( bc|d)e/s{hamming_distance=1}
+40059:/abc|def$/s{hamming_distance=2}
+40060:/abc|def$/ms{hamming_distance=2}
+40061:/^a?/m{hamming_distance=1}

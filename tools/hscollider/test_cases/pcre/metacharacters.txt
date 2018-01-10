@@ -1,0 +1,66 @@
+# Some tests for specific special metacharacters
+
+# matches any byte
+24000:/\C/
+
+# alarm, that is, the BEL character (hex 07)
+24001:/\a/O
+
+# "control-x", where x is any character
+24002:/\cz/O
+24003:/\c{/O
+24004:/\c;/O
+24005:/\ca/O
+24006:/\c0/O
+
+# escape (hex 1B)
+24007:/\e/O
+
+# formfeed (hex 0C)
+24008:/\f/O
+
+# linefeed (hex 0A)
+24009:/\n/O
+
+# carriage return (hex 0D)
+24010:/\r/O
+
+# tab (hex 09)
+24011:/\t/O
+
+# real hex escapes
+24012:/\xdc\x{dc}\x00\x{ff}/O
+
+# broken hex escape, interpreted as a null followed by some chars
+24013:/\x{dc/O
+
+# more control
+24015:/\cA/O
+24016:/[\cz]/O
+24017:/[\c{]/O
+24018:/[\c;]/O
+24019:/[\ca]/O
+24020:/[\c0]/O
+24021:/[\cA]/O
+24022:/\c\n/O
+
+# \8 and \9 are not back-references, they are simply the literals 8 and 9.
+24023:/\8 literal \9/
+
+# Big numbers
+24024:/bignum \1111111111/
+24025:/bignum \2147483639/
+24026:/bignum \18888/
+24027:/bignum \128888/
+24028:/bignum \1238888/
+24029:/bignum \3778888/
+
+# Octal escapes
+24030:/\060/
+24031:/\60/
+24032:/\12/
+24033:/\012/
+24034:/\0120/
+24035:/\120/
+24036:/\377/
+24037:/\80/
