@@ -453,7 +453,7 @@ RoseVertex tryForAnchoredVertex(RoseBuildImpl *tbi,
                <= tbi->cc.grey.maxAnchoredRegion) {
         if (ep.maxBound || ep.minBound) {
             /* TODO: handle, however these cases are not generated currently by
-               ng_rose */
+               ng_violet */
             return RoseGraph::null_vertex();
         }
         max_width = depth(ep.maxBound + iv_info.s.length());
@@ -567,7 +567,7 @@ void doRoseLiteralVertex(RoseBuildImpl *tbi, bool use_eod_table,
     assert(iv_info.type == RIV_LITERAL);
     assert(!parents.empty()); /* start vertices should not be here */
 
-    // ng_rose should have ensured that mixed-sensitivity literals are no
+    // ng_violet should have ensured that mixed-sensitivity literals are no
     // longer than the benefits max width.
     assert(iv_info.s.length() <= MAX_MASK2_WIDTH ||
            !mixed_sensitivity(iv_info.s));

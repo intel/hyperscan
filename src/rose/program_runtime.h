@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -501,8 +501,7 @@ hwlmcb_rv_t roseReport(const struct RoseEngine *t, struct hs_scratch *scratch,
 }
 
 /* catches up engines enough to ensure any earlier mpv triggers are enqueued
- * and then adds the trigger to the mpv queue. Must not be called during catch
- * up */
+ * and then adds the trigger to the mpv queue. */
 static rose_inline
 hwlmcb_rv_t roseCatchUpAndHandleChainMatch(const struct RoseEngine *t,
                                            struct hs_scratch *scratch,

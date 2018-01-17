@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -374,7 +374,7 @@ unique_ptr<GoughGraph> makeCFG(const raw_som_dfa &raw) {
     }
 
     u16 top_sym = raw.alpha_remap[TOP];
-    DEBUG_PRINTF("top: %hu, kind %d\n", top_sym, raw.kind);
+    DEBUG_PRINTF("top: %hu, kind %s\n", top_sym, to_string(raw.kind).c_str());
 
     /* create edges, JOIN variables (on edge targets) */
     map<dstate_id_t, GoughEdge> seen;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -89,7 +89,7 @@
  * (1) Deterministic ordering for vertices and edges
  *     boost::adjacency_list<> uses pointer ordering for vertex_descriptors. As
  *     a result, ordering of vertices and edges between runs is
- *     non-deterministic  unless containers, etc use custom comparators.
+ *     non-deterministic unless containers, etc use custom comparators.
  *
  * (2) Proper types for descriptors, etc.
  *     No more void * for vertex_descriptors and trying to use it for the wrong
@@ -288,7 +288,7 @@ private:
         vertex_edge_list<in_edge_hook> in_edge_list;
 
         /* The out going edges are considered owned by the vertex and
-         * need to be freed when the graph is begin destroyed */
+         * need to be freed when the graph is being destroyed */
         vertex_edge_list<out_edge_hook> out_edge_list;
 
         /* The destructor only frees memory owned by the vertex and will leave

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -280,7 +280,7 @@ void stripCheckHandledInstruction(RoseProgram &prog) {
 }
 
 
-/** Returns true if the program may read the the interpreter's work_done flag */
+/** Returns true if the program may read the interpreter's work_done flag */
 static
 bool reads_work_done_flag(const RoseProgram &prog) {
     for (const auto &ri : prog) {
@@ -1837,7 +1837,7 @@ void makeRoleEagerEodReports(const RoseBuildImpl &build,
     program.add_before_end(move(eod_program));
 }
 
-/* Makes a program for a role/vertex given a specfic pred/in_edge. */
+/** Makes a program for a role/vertex given a specific pred/in_edge. */
 static
 RoseProgram makeRoleProgram(const RoseBuildImpl &build,
                         const map<RoseVertex, left_build_info> &leftfix_info,
@@ -2045,7 +2045,7 @@ RoseProgram makeLiteralProgram(const RoseBuildImpl &build,
     }
 
     if (lit_id == build.eod_event_literal_id) {
-        /* Note: does not require the lit intial program */
+        /* Note: does not require the lit initial program */
         assert(build.eod_event_literal_id != MO_INVALID_IDX);
         return role_programs;
     }
