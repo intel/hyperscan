@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -628,7 +628,7 @@ char nfaExecSheng_reportCurrent(const struct NFA *n, struct mq *q) {
             fireSingleReport(cb, ctxt, sh->report, offset);
         } else {
             fireReports(sh, cb, ctxt, s, offset, &cached_state_id,
-                        &cached_report_id, 1);
+                        &cached_report_id, 0);
         }
     }
 
