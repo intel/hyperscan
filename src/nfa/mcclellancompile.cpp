@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -760,7 +760,7 @@ bytecode_ptr<NFA> mcclellanCompile8(dfa_info &info, const CompileContext &cc,
     return nfa;
 }
 
-#define MAX_SHERMAN_LIST_LEN 8
+#define MAX_SHERMAN_LIST_LEN 9
 
 static
 void addIfEarlier(flat_set<dstate_id_t> &dest, dstate_id_t candidate,
