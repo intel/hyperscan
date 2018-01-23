@@ -2,6 +2,18 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [4.7.0] 2018-01-24
+- Introduced hscollider pattern testing tool, for validating Hyperscan match
+  behaviour against PCRE.
+- Introduced hscheck pattern compilation tool.
+- Introduced hsdump development tool for producing information about Hyperscan
+  pattern compilation.
+- New API feature: extended approximate matching support for Hamming distance.
+- Bugfix for issue #69: Force C++ linkage in Xcode.
+- Bugfix for issue #73: More documentation for `hs_close_stream()`.
+- Bugfix for issue #78: Fix for fat runtime initialisation when used as a
+  shared library.
+
 ## [4.6.0] 2017-09-22
 - New API feature: stream state compression. This allows the user to compress
   and restore state for streams to reduce memory usage.
