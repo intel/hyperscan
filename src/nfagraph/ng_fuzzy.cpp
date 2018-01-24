@@ -144,6 +144,7 @@ vector<flat_set<NFAVertex>> gatherPredecessorsByDepth(const NGHolder &g,
 struct ShadowGraph {
     NGHolder &g;
     u32 edit_distance;
+    bool hamming;
     map<pair<NFAVertex, u32>, NFAVertex> shadow_map;
     map<pair<NFAVertex, u32>, NFAVertex> helper_map;
     map<NFAVertex, NFAVertex> clones;
@@ -151,12 +152,16 @@ struct ShadowGraph {
     vector<pair<NFAVertex, NFAVertex>> edges_to_be_added;
     flat_set<NFAVertex> orig;
 
-    ShadowGraph(NGHolder &g_in, u32 ed_in) : g(g_in), edit_distance(ed_in) {}
+    ShadowGraph(NGHolder &g_in, u32 ed_in, bool hamm_in)
+        : g(g_in), edit_distance(ed_in), hamming(hamm_in) {}
 
     void fuzz_graph() {
         if (edit_distance == 0) {
             return;
         }
+
+        DEBUG_PRINTF("edit distance = %u hamming = %s\n", edit_distance,
+                     hamming ? "true" : "false");
 
         // step 1: prepare the vertices, helpers and shadows according to
         // the original graph
@@ -167,7 +172,9 @@ struct ShadowGraph {
 
         // step 3: set up reports for newly created vertices (and make clones
         // if necessary)
-        create_reports();
+        if (!hamming) {
+            create_reports();
+        }
 
         // step 4: wire up shadow graph and helpers for insert/replace/remove
         connect_shadow_graph();
@@ -244,6 +251,16 @@ private:
 
                 // if there's nowhere to go from this vertex, no helper needed
                 if (proper_out_degree(v, g) < 1) {
+                    DEBUG_PRINTF("No helper for node ID: %zu (level %u)\n",
+                                 g[shadow_v].index, dist);
+                    helper_map[make_pair(v, dist)] = shadow_v;
+                    continue;
+                }
+
+                // start and startDs only have helpers for insert, so not Hamming
+                if (hamming && is_any_start(v, g)) {
+                    DEBUG_PRINTF("No helper for node ID: %zu (level %u)\n",
+                                 g[shadow_v].index, dist);
                     helper_map[make_pair(v, dist)] = shadow_v;
                     continue;
                 }
@@ -256,6 +273,8 @@ private:
                 g[helper_v].char_reach = CharReach::dot();
                 // do not copy virtual start's assert flags
                 if (is_virtual_start(v, g)) {
+                    DEBUG_PRINTF("Helper node ID is virtual start: %zu (level %u)\n",
+                             g[helper_v].index, dist);
                     g[helper_v].assert_flags = 0;
                 }
                 helper_map[make_pair(v, dist)] = helper_v;
@@ -272,7 +291,7 @@ private:
         const auto &cur_shadow_helper = helper_map[make_pair(v, dist)];
 
         // multiple insert
-        if (dist > 1) {
+        if (!hamming && dist > 1) {
             const auto &prev_level_helper = helper_map[make_pair(v, dist - 1)];
             connect_to_clones(prev_level_helper, cur_shadow_helper);
         }
@@ -429,13 +448,15 @@ private:
                 connect_preds(v, dist);
 
                 // handle helpers
-                if (dist > 0) {
+                if (!hamming && dist > 0) {
                     connect_helpers(v, dist);
                 }
             }
 
             // handle removals
-            connect_removals(v);
+            if (!hamming) {
+                connect_removals(v);
+            }
         }
     }
 
@@ -636,8 +657,8 @@ bool will_turn_vacuous(const NGHolder &g, u32 edit_distance) {
     return false;
 }
 
-void validate_fuzzy_compile(const NGHolder &g, u32 edit_distance, bool utf8,
-                            const Grey &grey) {
+void validate_fuzzy_compile(const NGHolder &g, u32 edit_distance, bool hamming,
+                            bool utf8, const Grey &grey) {
     if (edit_distance == 0) {
         return;
     }
@@ -657,13 +678,14 @@ void validate_fuzzy_compile(const NGHolder &g, u32 edit_distance, bool utf8,
                                "approximate matching.");
         }
     }
-    if (will_turn_vacuous(g, edit_distance)) {
+    if (!hamming && will_turn_vacuous(g, edit_distance)) {
         throw CompileError("Approximate matching patterns that reduce to "
                            "vacuous patterns are disallowed.");
     }
 }
 
-void make_fuzzy(NGHolder &g, u32 edit_distance, const Grey &grey) {
+void make_fuzzy(NGHolder &g, u32 edit_distance, bool hamming,
+                const Grey &grey) {
     if (edit_distance == 0) {
         return;
     }
@@ -671,7 +693,7 @@ void make_fuzzy(NGHolder &g, u32 edit_distance, const Grey &grey) {
     assert(grey.allowApproximateMatching);
     assert(grey.maxEditDistance >= edit_distance);
 
-    ShadowGraph sg(g, edit_distance);
+    ShadowGraph sg(g, edit_distance, hamming);
     sg.fuzz_graph();
 
     // For safety, enforce limit on actual vertex count.

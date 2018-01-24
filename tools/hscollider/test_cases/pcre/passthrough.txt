@@ -1,0 +1,12 @@
+9000:/(abc|def)(xxx|yyyy)/O
+9001:/^(abc|def)(xxx|yyyy)/O
+9002:/(^anchored|floating)(XXX|YYY)/O
+
+# Some long literals.
+9005:/a{40}/
+9006:/a{48}/
+9007:/a{49}/
+9008:/a{50}/
+9009:/q{1000}/
+9010:/coagulateshyperinnervationagitationreassuranceexchangeability/
+9011:/nonplasticerythematoussnakebitesjubilatedworklessnesses/

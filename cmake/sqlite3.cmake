@@ -44,7 +44,7 @@ else()
     # build sqlite as a static lib to compile into our test programs
     add_library(sqlite3_static STATIC "${PROJECT_SOURCE_DIR}/sqlite3/sqlite3.c")
     if (NOT WIN32)
-        set_target_properties(sqlite3_static PROPERTIES COMPILE_FLAGS "-Wno-unused -Wno-cast-qual -DSQLITE_OMIT_LOAD_EXTENSION")
+        set_target_properties(sqlite3_static PROPERTIES COMPILE_FLAGS "-Wno-error -Wno-extra -Wno-unused -Wno-cast-qual -DSQLITE_OMIT_LOAD_EXTENSION")
     endif()
     endif()
 endif()

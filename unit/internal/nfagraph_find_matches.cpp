@@ -213,7 +213,7 @@ TEST_P(MatchesTest, Check) {
     bool utf8 = (t.flags & HS_FLAG_UTF8) > 0;
 
     set<pair<size_t, size_t>> matches;
-    bool success = findMatches(*g, rm, t.input, matches, 0, t.notEod, utf8);
+    bool success = findMatches(*g, rm, t.input, matches, 0, 0, t.notEod, utf8);
     ASSERT_TRUE(success);
 
     set<pair<size_t, size_t>> expected(begin(t.matches), end(t.matches));

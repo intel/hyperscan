@@ -34,6 +34,7 @@
 #include "expressions.h"
 #include "heapstats.h"
 #include "huge.h"
+#include "sqldb.h"
 #include "timer.h"
 
 #include "database.h"
@@ -113,7 +114,8 @@ int onMatchEcho(unsigned int id, unsigned long long, unsigned long long to,
     return 0;
 }
 
-EngineHyperscan::EngineHyperscan(hs_database_t *db_in) : db(db_in) {
+EngineHyperscan::EngineHyperscan(hs_database_t *db_in, CompileStats cs)
+    : db(db_in), compile_stats(std::move(cs)) {
     assert(db);
 }
 
@@ -234,6 +236,43 @@ void EngineHyperscan::streamCompressExpand(EngineStream &stream,
     }
 }
 
+void EngineHyperscan::printStats() const {
+    // Output summary information.
+    if (!compile_stats.sigs_name.empty()) {
+        printf("Signature set:        %s\n", compile_stats.sigs_name.c_str());
+    }
+    printf("Signatures:        %s\n", compile_stats.signatures.c_str());
+    printf("Hyperscan info:    %s\n", compile_stats.db_info.c_str());
+    printf("Expression count:  %'zu\n", compile_stats.expressionCount);
+    printf("Bytecode size:     %'zu bytes\n", compile_stats.compiledSize);
+    printf("Database CRC:      0x%x\n", compile_stats.crc32);
+    if (compile_stats.streaming) {
+        printf("Stream state size: %'zu bytes\n", compile_stats.streamSize);
+    }
+    printf("Scratch size:      %'zu bytes\n", compile_stats.scratchSize);
+    printf("Compile time:      %'0.3Lf seconds\n", compile_stats.compileSecs);
+    printf("Peak heap usage:   %'u bytes\n", compile_stats.peakMemorySize);
+}
+
+void EngineHyperscan::sqlStats(SqlDB &sqldb) const {
+    ostringstream crc;
+    crc << "0x" << hex << compile_stats.crc32;
+
+    static const std::string Q =
+        "INSERT INTO Compile ("
+            "sigsName, signatures, dbInfo, exprCount, dbSize, crc, streaming,"
+            "streamSize, scratchSize, compileSecs, peakMemory) "
+        "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)";
+
+    sqldb.insert_all(Q, compile_stats.sigs_name, compile_stats.signatures,
+                     compile_stats.db_info, compile_stats.expressionCount,
+                     compile_stats.compiledSize, crc.str(),
+                     compile_stats.streaming ? "TRUE" : "FALSE",
+                     compile_stats.streamSize, compile_stats.scratchSize,
+                     compile_stats.compileSecs, compile_stats.peakMemorySize);
+}
+
+
 static
 unsigned makeModeFlags(ScanMode scan_mode) {
     switch (scan_mode) {
@@ -281,7 +320,8 @@ string dbFilename(const std::string &name, unsigned mode) {
 
 std::unique_ptr<EngineHyperscan>
 buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
-                     const std::string &name, UNUSED const ue2::Grey &grey) {
+                     const std::string &name, const std::string &sigs_name,
+                     UNUSED const ue2::Grey &grey) {
     if (expressions.empty()) {
         assert(0);
         return nullptr;
@@ -292,7 +332,6 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
     size_t streamSize = 0;
     size_t scratchSize = 0;
     unsigned int peakMemorySize = 0;
-    unsigned int crc = 0;
     std::string db_info;
 
     unsigned int mode = makeModeFlags(scan_mode);
@@ -393,8 +432,6 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
     }
     assert(compiledSize > 0);
 
-    crc = db->crc32;
-
     if (saveDatabases) {
         saveDatabase(db, dbFilename(name, mode).c_str());
     }
@@ -431,18 +468,24 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
     }
     hs_free_scratch(scratch);
 
-    // Output summary information.
-    printf("Signatures:        %s\n", name.c_str());
-    printf("Hyperscan info:    %s\n", db_info.c_str());
-    printf("Expression count:  %'zu\n", expressions.size());
-    printf("Bytecode size:     %'zu bytes\n", compiledSize);
-    printf("Database CRC:      0x%x\n", crc);
-    if (mode & HS_MODE_STREAM) {
-        printf("Stream state size: %'zu bytes\n", streamSize);
+    // Collect summary information.
+    CompileStats cs;
+    cs.sigs_name = sigs_name;
+    if (!sigs_name.empty()) {
+        const auto pos = name.find_last_of('/');
+        cs.signatures = name.substr(pos + 1);
+    } else {
+        cs.signatures = name;
     }
-    printf("Scratch size:      %'zu bytes\n", scratchSize);
-    printf("Compile time:      %'0.3Lf seconds\n", compileSecs);
-    printf("Peak heap usage:   %'u bytes\n", peakMemorySize);
+    cs.db_info = db_info;
+    cs.expressionCount = expressions.size();
+    cs.compiledSize = compiledSize;
+    cs.crc32 = db->crc32;
+    cs.streaming = mode & HS_MODE_STREAM;
+    cs.streamSize = streamSize;
+    cs.scratchSize = scratchSize;
+    cs.compileSecs = compileSecs;
+    cs.peakMemorySize = peakMemorySize;
 
-    return ue2::make_unique<EngineHyperscan>(db);
+    return ue2::make_unique<EngineHyperscan>(db, std::move(cs));
 }

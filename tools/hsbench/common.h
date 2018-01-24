@@ -42,4 +42,9 @@ extern bool forceEditDistance;
 extern unsigned editDistance;
 extern bool printCompressSize;
 
+struct SqlFailure {
+    explicit SqlFailure(const std::string &s) : message(s) {}
+    std::string message;
+};
+
 #endif // COMMON_H

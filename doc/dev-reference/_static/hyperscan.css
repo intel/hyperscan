@@ -2,3 +2,9 @@
 .regexp {
   color: darkred !important;
 }
+
+/* Avoid (the alabaster theme default) Goudy Old Style, which renders in
+ * italics on some Mac/Safari systems. */
+body {
+    font-family: 'minion pro', 'bell mt', Georgia, 'Hiragino Mincho Pro', serif;
+}

@@ -1,0 +1,896 @@
+15100="hatstandteakettle": 17
+15100="hatstand teakettle": 18
+15100="hatstand    teakettle": 21
+15100="hatstandateakettle": 18
+15100="hatstandaaaaateakettle": 22
+15100="hatstandeakettle": 
+15101="foobar": 
+15101="fooAbar": 7
+15101="fooAAbar": 
+15102="foobar": 
+15102="foo1bar": 7
+15102="foo2bar": 7
+15102="foo3bar": 7
+15102="foo4bar": 7
+15102="foo5bar": 
+15103="abc": 3
+15103="aabc": 4
+15103="aaabc": 5
+15103="aaaabc": 6
+15103="aaaaaaaaaaaaaaaaaaaaaaaaaaabc": 29
+15103="aaaaaaaaaaaaaaaaaaaaaaaaaa\nabc": 
+15103="aaaaaaaaaaaaaaaaaaaaaaaaaaa\nbc": 
+15104="fooaabar": 8
+15104="fooAabar": 8
+15104="fooAAbar": 
+15104="fooabar": 
+15104="fooAbar": 
+15104="fooabbar": 
+15104="fooaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabar": 39
+15105="fooaabar": 8
+15105="fooAabar": 8
+15105="fooAAbar": 
+15105="fooabar": 
+15105="fooAbar": 
+15105="fooabbar": 
+15105="fooaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabar": 39
+15105="fooaBbar": 8
+15105="fooaBBbar": 9
+15105="fooaBBBbar": 10
+15106="fooaabar": 8
+15106="fooBBbar": 8
+15106="fooAabar": 8
+15106="fooAAbar": 
+15106="fooabar": 
+15106="fooAbar": 
+15106="fooabbar": 
+15106="fooaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabar": 39
+15106="fooaBbar": 8
+15106="fooaBBbar": 9
+15106="fooaBBBbar": 10
+15107="fooaabar": 8
+15107="fooBBbar": 8
+15107="fooAabar": 8
+15107="fooAAbar": 
+15107="fooabar": 7
+15107="fooAbar": 
+15107="fooabbar": 
+15107="fooaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabar": 39
+15107="fooaBbar": 8
+15107="fooaBBbar": 9
+15107="fooaBBBbar": 10
+15107="fooabar": 7
+15107="fooBbar": 7
+15107="fooabar": 7
+15107="fooAbar": 
+15107="foobar": 
+15107="foobar": 
+15107="foobbar": 
+15107="fooaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabar": 38
+15107="foobar": 
+15107="fooBBbar": 8
+15107="fooBBBbar": 9
+15108="fooaabar": 8
+15108="fooBBbar": 8
+15108="fooAabar": 8
+15108="fooAAbar": 
+15108="fooabar": 7
+15108="fooAbar": 
+15108="fooabbar": 
+15108="fooaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabar": 39
+15108="fooaBbar": 8
+15108="fooaBBbar": 9
+15108="fooaBBBbar": 10
+15108="fooabar": 7
+15108="fooBbar": 7
+15108="fooabar": 7
+15108="fooAbar": 
+15108="foobar": 
+15108="foobar": 
+15108="foobbar": 
+15108="fooaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabar": 38
+15108="foobar": 
+15108="fooBBbar": 8
+15108="fooBBBbar": 9
+15109="abde": 4
+15109="abdde": 5
+15109="abXde": 
+15109="acde": 
+15109="acXde": 5
+15109="acXXde": 6
+15109="acXdde": 6
+15110="abde": 4
+15110="abdde": 5
+15110="abXde": 
+15110="acde": 4
+15110="acXde": 5
+15110="acXXde": 6
+15110="acXdde": 6
+15120="foobar": 6
+15120="fooXbar": 7
+15120="fooXXbar": 8
+15120="fooabar": 7
+15120="fooXabar": 8
+15120="fooaXbar": 8
+15120="fooaaaabar": 10
+15120="fooaaXaabar": 11
+15121="foobar": 6
+15121="fooXbar": 7
+15121="fooXXbar": 8
+15121="fooabar": 7
+15121="fooXabar": 8
+15121="fooaXbar": 8
+15121="fooaaaabar": 10
+15121="fooaaXaabar": 11
+15122="foobar": 6
+15122="fooXbar": 7
+15122="fooXXbar": 8
+15122="fooabar": 7
+15122="fooXabar": 8
+15122="fooaXbar": 8
+15122="fooaaaabar": 10
+15122="fooaaXaabar": 11
+15123="foobar": 6
+15123="fooXbar": 7
+15123="fooXXbar": 8
+15123="fooabar": 7
+15123="fooXabar": 8
+15123="fooaXbar": 8
+15123="fooaaaabar": 10
+15123="fooaaXaabar": 11
+15124="foobar": 
+15124="fooXbar": 
+15124="fooXXbar": 
+15124="fooabar": 7
+15124="fooXabar": 8
+15124="fooaXbar": 
+15124="fooaaaabar": 10
+15124="fooaaXaabar": 11
+15125="foobar": 
+15125="fooXbar": 
+15125="fooXXbar": 
+15125="fooabar": 7
+15125="fooXabar": 
+15125="fooaXbar": 8
+15125="fooaaaabar": 10
+15125="fooaaXaabar": 11
+15126="foobar": 
+15126="fooXbar": 7
+15126="fooXXbar": 8
+15126="fooabar": 7
+15126="fooXabar": 8
+15126="fooaXbar": 8
+15126="fooaaaabar": 10
+15126="fooaaXaabar": 11
+15127="foobar": 
+15127="fooXbar": 7
+15127="fooXXbar": 8
+15127="fooabar": 7
+15127="fooXabar": 8
+15127="fooaXbar": 8
+15127="fooaaaabar": 10
+15127="fooaaXaabar": 11
+15128="foobar": 
+15128="fooXbar": 7
+15128="fooXXbar": 8
+15128="fooabar": 7
+15128="fooXabar": 8
+15128="fooaXbar": 8
+15128="fooaaaabar": 10
+15128="fooaaXaabar": 11
+15129="foobar": 
+15129="fooXbar": 7
+15129="fooXXbar": 8
+15129="fooabar": 7
+15129="fooXabar": 8
+15129="fooaXbar": 8
+15129="fooaaaabar": 10
+15129="fooaaXaabar": 11
+15130="foobar": 
+15130="fooXbar": 
+15130="fooXXbar": 
+15130="fooabar": 
+15130="fooXabar": 8
+15130="fooaXbar": 
+15130="fooaaaabar": 10
+15130="fooaaXaabar": 11
+15131="foobar": 
+15131="fooXbar": 
+15131="fooXXbar": 
+15131="fooabar": 
+15131="fooXabar": 
+15131="fooaXbar": 8
+15131="fooaaaabar": 10
+15131="fooaaXaabar": 11
+15132="abcdef": 6
+15132="abcadef": 7
+15132="abcaadef": 8
+15132="abcaaaaadef": 11
+15132="abcaaaaaadef": 12
+15132="abcaaaaaaadef": 
+15133="AAAAZZZZ": 8
+15133="AAAA_ZZZ": 8
+15133="AAA_AZZZ": 
+15133="AAAAA_ZZZ": 9
+15133="AAAAA__ZZZZ": 10,11
+15133="AAAA_A__ZZZZ": 11,12
+15133="AAAA_A__ZZZZ": 11,12
+15134="/(Y.|X.+)a[^a]*foo/s": 18
+15134="Yya_foo": 7
+15134="Yyaafoo": 
+15134="Xya_foo": 7
+15134="Xyaafoo": 7
+15135="oof_ayY": 7
+15135="oofaayY": 
+15135="oof_ayX": 7
+15135="oofaayX": 7
+15136="foo<<<bar": 9
+15136="foo<<=bar": 9
+15136="foo<<>bar": 9
+15136="foo<=<bar": 9
+15136="foo<==bar": 9
+15136="foo<=>bar": 9
+15136="foo<><bar": 9
+15136="foo<>=bar": 9
+15136="foo<>>bar": 9
+15136="foo=<<bar": 9
+15136="foo=<=bar": 9
+15136="foo=<>bar": 9
+15136="foo==<bar": 9
+15136="foo===bar": 
+15136="foo==>bar": 
+15136="foo=><bar": 9
+15136="foo=>=bar": 
+15136="foo=>>bar": 
+15136="foo><<bar": 9
+15136="foo><=bar": 9
+15136="foo><>bar": 9
+15136="foo>=<bar": 9
+15136="foo>==bar": 
+15136="foo>=>bar": 
+15136="foo>><bar": 9
+15136="foo>>=bar": 
+15136="foo>>>bar": 
+15136="foo<<<<bar": 10
+15136="foo<<<=bar": 10
+15136="foo<<<>bar": 10
+15136="foo<<=<bar": 10
+15136="foo<<==bar": 10
+15136="foo<<=>bar": 10
+15136="foo<<><bar": 10
+15136="foo<<>=bar": 10
+15136="foo<<>>bar": 10
+15136="foo<=<<bar": 10
+15136="foo<=<=bar": 10
+15136="foo<=<>bar": 10
+15136="foo<==<bar": 10
+15136="foo<===bar": 10
+15136="foo<==>bar": 10
+15136="foo<=><bar": 10
+15136="foo<=>=bar": 10
+15136="foo<=>>bar": 10
+15136="foo<><<bar": 10
+15136="foo<><=bar": 10
+15136="foo<><>bar": 10
+15136="foo<>=<bar": 10
+15136="foo<>==bar": 10
+15136="foo<>=>bar": 10
+15136="foo<>><bar": 10
+15136="foo<>>=bar": 10
+15136="foo<>>>bar": 10
+15136="foo=<<<bar": 10
+15136="foo=<<=bar": 10
+15136="foo=<<>bar": 10
+15136="foo=<=<bar": 10
+15136="foo=<==bar": 10
+15136="foo=<=>bar": 10
+15136="foo=<><bar": 10
+15136="foo=<>=bar": 10
+15136="foo=<>>bar": 10
+15136="foo==<<bar": 10
+15136="foo==<=bar": 10
+15136="foo==<>bar": 10
+15136="foo===<bar": 10
+15136="foo====bar": 
+15136="foo===>bar": 
+15136="foo==><bar": 10
+15136="foo==>=bar": 
+15136="foo==>>bar": 
+15136="foo=><<bar": 10
+15136="foo=><=bar": 10
+15136="foo=><>bar": 10
+15136="foo=>=<bar": 10
+15136="foo=>==bar": 
+15136="foo=>=>bar": 
+15136="foo=>><bar": 10
+15136="foo=>>=bar": 
+15136="foo=>>>bar": 
+15136="foo><<<bar": 10
+15136="foo><<=bar": 10
+15136="foo><<>bar": 10
+15136="foo><=<bar": 10
+15136="foo><==bar": 10
+15136="foo><=>bar": 10
+15136="foo><><bar": 10
+15136="foo><>=bar": 10
+15136="foo><>>bar": 10
+15136="foo>=<<bar": 10
+15136="foo>=<=bar": 10
+15136="foo>=<>bar": 10
+15136="foo>==<bar": 10
+15136="foo>===bar": 
+15136="foo>==>bar": 
+15136="foo>=><bar": 10
+15136="foo>=>=bar": 
+15136="foo>=>>bar": 
+15136="foo>><<bar": 10
+15136="foo>><=bar": 10
+15136="foo>><>bar": 10
+15136="foo>>=<bar": 10
+15136="foo>>==bar": 
+15136="foo>>=>bar": 
+15136="foo>>><bar": 10
+15136="foo>>>=bar": 
+15136="foo>>>>bar": 
+15137="foo<<<bar": 9
+15137="foo<<=bar": 9
+15137="foo<<>bar": 9
+15137="foo<=<bar": 9
+15137="foo<==bar": 9
+15137="foo<=>bar": 9
+15137="foo<><bar": 9
+15137="foo<>=bar": 9
+15137="foo<>>bar": 9
+15137="foo=<<bar": 9
+15137="foo=<=bar": 9
+15137="foo=<>bar": 9
+15137="foo==<bar": 9
+15137="foo===bar": 
+15137="foo==>bar": 
+15137="foo=><bar": 9
+15137="foo=>=bar": 
+15137="foo=>>bar": 
+15137="foo><<bar": 9
+15137="foo><=bar": 9
+15137="foo><>bar": 9
+15137="foo>=<bar": 9
+15137="foo>==bar": 
+15137="foo>=>bar": 
+15137="foo>><bar": 9
+15137="foo>>=bar": 
+15137="foo>>>bar": 
+15137="foo<<<<bar": 10
+15137="foo<<<=bar": 10
+15137="foo<<<>bar": 10
+15137="foo<<=<bar": 10
+15137="foo<<==bar": 10
+15137="foo<<=>bar": 10
+15137="foo<<><bar": 10
+15137="foo<<>=bar": 10
+15137="foo<<>>bar": 10
+15137="foo<=<<bar": 10
+15137="foo<=<=bar": 10
+15137="foo<=<>bar": 10
+15137="foo<==<bar": 10
+15137="foo<===bar": 10
+15137="foo<==>bar": 10
+15137="foo<=><bar": 10
+15137="foo<=>=bar": 10
+15137="foo<=>>bar": 10
+15137="foo<><<bar": 10
+15137="foo<><=bar": 10
+15137="foo<><>bar": 10
+15137="foo<>=<bar": 10
+15137="foo<>==bar": 10
+15137="foo<>=>bar": 10
+15137="foo<>><bar": 10
+15137="foo<>>=bar": 10
+15137="foo<>>>bar": 10
+15137="foo=<<<bar": 10
+15137="foo=<<=bar": 10
+15137="foo=<<>bar": 10
+15137="foo=<=<bar": 10
+15137="foo=<==bar": 10
+15137="foo=<=>bar": 10
+15137="foo=<><bar": 10
+15137="foo=<>=bar": 10
+15137="foo=<>>bar": 10
+15137="foo==<<bar": 10
+15137="foo==<=bar": 10
+15137="foo==<>bar": 10
+15137="foo===<bar": 10
+15137="foo====bar": 
+15137="foo===>bar": 
+15137="foo==><bar": 10
+15137="foo==>=bar": 
+15137="foo==>>bar": 
+15137="foo=><<bar": 10
+15137="foo=><=bar": 10
+15137="foo=><>bar": 10
+15137="foo=>=<bar": 10
+15137="foo=>==bar": 
+15137="foo=>=>bar": 
+15137="foo=>><bar": 10
+15137="foo=>>=bar": 
+15137="foo=>>>bar": 
+15137="foo><<<bar": 10
+15137="foo><<=bar": 10
+15137="foo><<>bar": 10
+15137="foo><=<bar": 10
+15137="foo><==bar": 10
+15137="foo><=>bar": 10
+15137="foo><><bar": 10
+15137="foo><>=bar": 10
+15137="foo><>>bar": 10
+15137="foo>=<<bar": 10
+15137="foo>=<=bar": 10
+15137="foo>=<>bar": 10
+15137="foo>==<bar": 10
+15137="foo>===bar": 
+15137="foo>==>bar": 
+15137="foo>=><bar": 10
+15137="foo>=>=bar": 
+15137="foo>=>>bar": 
+15137="foo>><<bar": 10
+15137="foo>><=bar": 10
+15137="foo>><>bar": 10
+15137="foo>>=<bar": 10
+15137="foo>>==bar": 
+15137="foo>>=>bar": 
+15137="foo>>><bar": 10
+15137="foo>>>=bar": 
+15137="foo>>>>bar": 
+15138="fooaaabar": 
+15138="fooaa bar": 
+15138="fooa abar": 
+15138="fooa  bar": 
+15138="foo aabar": 9
+15138="foo a bar": 9
+15138="foo  abar": 9
+15138="foo   bar": 9
+15139="fooaaabar": 
+15139="fooaa bar": 9
+15139="fooa abar": 
+15139="fooa  bar": 9
+15139="foo aabar": 
+15139="foo a bar": 9
+15139="foo  abar": 
+15139="foo   bar": 9
+15140="foo<<<bar": 9
+15140="foo<<=bar": 9
+15140="foo<<>bar": 
+15140="foo<=<bar": 9
+15140="foo<==bar": 9
+15140="foo<=>bar": 
+15140="foo<><bar": 
+15140="foo<>=bar": 
+15140="foo<>>bar": 
+15140="foo=<<bar": 9
+15140="foo=<=bar": 9
+15140="foo=<>bar": 
+15140="foo==<bar": 9
+15140="foo===bar": 
+15140="foo==>bar": 
+15140="foo=><bar": 9
+15140="foo=>=bar": 
+15140="foo=>>bar": 
+15140="foo><<bar": 9
+15140="foo><=bar": 9
+15140="foo><>bar": 
+15140="foo>=<bar": 9
+15140="foo>==bar": 
+15140="foo>=>bar": 
+15140="foo>><bar": 9
+15140="foo>>=bar": 
+15140="foo>>>bar": 
+15140="foo<<<<bar": 10
+15140="foo<<<=bar": 10
+15140="foo<<<>bar": 
+15140="foo<<=<bar": 10
+15140="foo<<==bar": 10
+15140="foo<<=>bar": 
+15140="foo<<><bar": 
+15140="foo<<>=bar": 
+15140="foo<<>>bar": 
+15140="foo<=<<bar": 10
+15140="foo<=<=bar": 10
+15140="foo<=<>bar": 
+15140="foo<==<bar": 10
+15140="foo<===bar": 10
+15140="foo<==>bar": 
+15140="foo<=><bar": 
+15140="foo<=>=bar": 
+15140="foo<=>>bar": 
+15140="foo<><<bar": 
+15140="foo<><=bar": 
+15140="foo<><>bar": 
+15140="foo<>=<bar": 
+15140="foo<>==bar": 
+15140="foo<>=>bar": 
+15140="foo<>><bar": 
+15140="foo<>>=bar": 
+15140="foo<>>>bar": 
+15140="foo=<<<bar": 10
+15140="foo=<<=bar": 10
+15140="foo=<<>bar": 
+15140="foo=<=<bar": 10
+15140="foo=<==bar": 10
+15140="foo=<=>bar": 
+15140="foo=<><bar": 
+15140="foo=<>=bar": 
+15140="foo=<>>bar": 
+15140="foo==<<bar": 10
+15140="foo==<=bar": 10
+15140="foo==<>bar": 
+15140="foo===<bar": 10
+15140="foo====bar": 
+15140="foo===>bar": 
+15140="foo==><bar": 10
+15140="foo==>=bar": 
+15140="foo==>>bar": 
+15140="foo=><<bar": 10
+15140="foo=><=bar": 10
+15140="foo=><>bar": 
+15140="foo=>=<bar": 10
+15140="foo=>==bar": 
+15140="foo=>=>bar": 
+15140="foo=>><bar": 10
+15140="foo=>>=bar": 
+15140="foo=>>>bar": 
+15140="foo><<<bar": 10
+15140="foo><<=bar": 10
+15140="foo><<>bar": 
+15140="foo><=<bar": 10
+15140="foo><==bar": 10
+15140="foo><=>bar": 
+15140="foo><><bar": 
+15140="foo><>=bar": 
+15140="foo><>>bar": 
+15140="foo>=<<bar": 10
+15140="foo>=<=bar": 10
+15140="foo>=<>bar": 
+15140="foo>==<bar": 10
+15140="foo>===bar": 
+15140="foo>==>bar": 
+15140="foo>=><bar": 10
+15140="foo>=>=bar": 
+15140="foo>=>>bar": 
+15140="foo>><<bar": 10
+15140="foo>><=bar": 10
+15140="foo>><>bar": 
+15140="foo>>=<bar": 10
+15140="foo>>==bar": 
+15140="foo>>=>bar": 
+15140="foo>>><bar": 10
+15140="foo>>>=bar": 
+15140="foo>>>>bar": 
+15141="foo<<<bar": 
+15141="foo<<=bar": 
+15141="foo<<>bar": 
+15141="foo<=<bar": 
+15141="foo<==bar": 
+15141="foo<=>bar": 
+15141="foo<><bar": 
+15141="foo<>=bar": 
+15141="foo<>>bar": 
+15141="foo=<<bar": 
+15141="foo=<=bar": 
+15141="foo=<>bar": 
+15141="foo==<bar": 
+15141="foo===bar": 
+15141="foo==>bar": 9
+15141="foo=><bar": 9
+15141="foo=>=bar": 9
+15141="foo=>>bar": 9
+15141="foo><<bar": 9
+15141="foo><=bar": 9
+15141="foo><>bar": 
+15141="foo>=<bar": 9
+15141="foo>==bar": 9
+15141="foo>=>bar": 9
+15141="foo>><bar": 9
+15141="foo>>=bar": 9
+15141="foo>>>bar": 9
+15141="foo<<<<bar": 
+15141="foo<<<=bar": 
+15141="foo<<<>bar": 
+15141="foo<<=<bar": 
+15141="foo<<==bar": 
+15141="foo<<=>bar": 
+15141="foo<<><bar": 
+15141="foo<<>=bar": 
+15141="foo<<>>bar": 
+15141="foo<=<<bar": 
+15141="foo<=<=bar": 
+15141="foo<=<>bar": 
+15141="foo<==<bar": 
+15141="foo<===bar": 
+15141="foo<==>bar": 
+15141="foo<=><bar": 
+15141="foo<=>=bar": 
+15141="foo<=>>bar": 
+15141="foo<><<bar": 
+15141="foo<><=bar": 
+15141="foo<><>bar": 
+15141="foo<>=<bar": 
+15141="foo<>==bar": 
+15141="foo<>=>bar": 
+15141="foo<>><bar": 
+15141="foo<>>=bar": 
+15141="foo<>>>bar": 
+15141="foo=<<<bar": 
+15141="foo=<<=bar": 
+15141="foo=<<>bar": 
+15141="foo=<=<bar": 
+15141="foo=<==bar": 
+15141="foo=<=>bar": 
+15141="foo=<><bar": 
+15141="foo=<>=bar": 
+15141="foo=<>>bar": 
+15141="foo==<<bar": 
+15141="foo==<=bar": 
+15141="foo==<>bar": 
+15141="foo===<bar": 
+15141="foo====bar": 
+15141="foo===>bar": 10
+15141="foo==><bar": 10
+15141="foo==>=bar": 10
+15141="foo==>>bar": 10
+15141="foo=><<bar": 10
+15141="foo=><=bar": 10
+15141="foo=><>bar": 
+15141="foo=>=<bar": 10
+15141="foo=>==bar": 10
+15141="foo=>=>bar": 10
+15141="foo=>><bar": 10
+15141="foo=>>=bar": 10
+15141="foo=>>>bar": 10
+15141="foo><<<bar": 10
+15141="foo><<=bar": 10
+15141="foo><<>bar": 
+15141="foo><=<bar": 10
+15141="foo><==bar": 10
+15141="foo><=>bar": 
+15141="foo><><bar": 
+15141="foo><>=bar": 
+15141="foo><>>bar": 
+15141="foo>=<<bar": 10
+15141="foo>=<=bar": 10
+15141="foo>=<>bar": 
+15141="foo>==<bar": 10
+15141="foo>===bar": 10
+15141="foo>==>bar": 10
+15141="foo>=><bar": 10
+15141="foo>=>=bar": 10
+15141="foo>=>>bar": 10
+15141="foo>><<bar": 10
+15141="foo>><=bar": 10
+15141="foo>><>bar": 
+15141="foo>>=<bar": 10
+15141="foo>>==bar": 10
+15141="foo>>=>bar": 10
+15141="foo>>><bar": 10
+15141="foo>>>=bar": 10
+15141="foo>>>>bar": 10
+15142="foo<<<bar": 9
+15142="foo<<=bar": 
+15142="foo<<>bar": 
+15142="foo<=<bar": 
+15142="foo<==bar": 
+15142="foo<=>bar": 
+15142="foo<><bar": 
+15142="foo<>=bar": 
+15142="foo<>>bar": 
+15142="foo=<<bar": 9
+15142="foo=<=bar": 
+15142="foo=<>bar": 
+15142="foo==<bar": 
+15142="foo===bar": 
+15142="foo==>bar": 
+15142="foo=><bar": 
+15142="foo=>=bar": 
+15142="foo=>>bar": 
+15142="foo><<bar": 9
+15142="foo><=bar": 
+15142="foo><>bar": 
+15142="foo>=<bar": 9
+15142="foo>==bar": 
+15142="foo>=>bar": 
+15142="foo>><bar": 9
+15142="foo>>=bar": 9
+15142="foo>>>bar": 
+15142="foo<<<<bar": 10
+15142="foo<<<=bar": 
+15142="foo<<<>bar": 
+15142="foo<<=<bar": 
+15142="foo<<==bar": 
+15142="foo<<=>bar": 
+15142="foo<<><bar": 
+15142="foo<<>=bar": 
+15142="foo<<>>bar": 
+15142="foo<=<<bar": 
+15142="foo<=<=bar": 
+15142="foo<=<>bar": 
+15142="foo<==<bar": 
+15142="foo<===bar": 
+15142="foo<==>bar": 
+15142="foo<=><bar": 
+15142="foo<=>=bar": 
+15142="foo<=>>bar": 
+15142="foo<><<bar": 
+15142="foo<><=bar": 
+15142="foo<><>bar": 
+15142="foo<>=<bar": 
+15142="foo<>==bar": 
+15142="foo<>=>bar": 
+15142="foo<>><bar": 
+15142="foo<>>=bar": 
+15142="foo<>>>bar": 
+15142="foo=<<<bar": 10
+15142="foo=<<=bar": 
+15142="foo=<<>bar": 
+15142="foo=<=<bar": 
+15142="foo=<==bar": 
+15142="foo=<=>bar": 
+15142="foo=<><bar": 
+15142="foo=<>=bar": 
+15142="foo=<>>bar": 
+15142="foo==<<bar": 
+15142="foo==<=bar": 
+15142="foo==<>bar": 
+15142="foo===<bar": 
+15142="foo====bar": 
+15142="foo===>bar": 
+15142="foo==><bar": 
+15142="foo==>=bar": 
+15142="foo==>>bar": 
+15142="foo=><<bar": 
+15142="foo=><=bar": 
+15142="foo=><>bar": 
+15142="foo=>=<bar": 
+15142="foo=>==bar": 
+15142="foo=>=>bar": 
+15142="foo=>><bar": 
+15142="foo=>>=bar": 
+15142="foo=>>>bar": 
+15142="foo><<<bar": 10
+15142="foo><<=bar": 
+15142="foo><<>bar": 
+15142="foo><=<bar": 
+15142="foo><==bar": 
+15142="foo><=>bar": 
+15142="foo><><bar": 
+15142="foo><>=bar": 
+15142="foo><>>bar": 
+15142="foo>=<<bar": 10
+15142="foo>=<=bar": 
+15142="foo>=<>bar": 
+15142="foo>==<bar": 
+15142="foo>===bar": 
+15142="foo>==>bar": 
+15142="foo>=><bar": 
+15142="foo>=>=bar": 
+15142="foo>=>>bar": 
+15142="foo>><<bar": 10
+15142="foo>><=bar": 
+15142="foo>><>bar": 
+15142="foo>>=<bar": 10
+15142="foo>>==bar": 
+15142="foo>>=>bar": 
+15142="foo>>><bar": 10
+15142="foo>>>=bar": 10
+15142="foo>>>>bar": 
+15143="foo<<<bar": 
+15143="foo<<=bar": 
+15143="foo<<>bar": 
+15143="foo<=<bar": 
+15143="foo<==bar": 
+15143="foo<=>bar": 
+15143="foo<><bar": 
+15143="foo<>=bar": 
+15143="foo<>>bar": 
+15143="foo=<<bar": 9
+15143="foo=<=bar": 
+15143="foo=<>bar": 
+15143="foo==<bar": 
+15143="foo===bar": 
+15143="foo==>bar": 
+15143="foo=><bar": 
+15143="foo=>=bar": 
+15143="foo=>>bar": 
+15143="foo><<bar": 9
+15143="foo><=bar": 
+15143="foo><>bar": 
+15143="foo>=<bar": 9
+15143="foo>==bar": 
+15143="foo>=>bar": 
+15143="foo>><bar": 9
+15143="foo>>=bar": 9
+15143="foo>>>bar": 9
+15143="foo<<<<bar": 
+15143="foo<<<=bar": 
+15143="foo<<<>bar": 
+15143="foo<<=<bar": 
+15143="foo<<==bar": 
+15143="foo<<=>bar": 
+15143="foo<<><bar": 
+15143="foo<<>=bar": 
+15143="foo<<>>bar": 
+15143="foo<=<<bar": 
+15143="foo<=<=bar": 
+15143="foo<=<>bar": 
+15143="foo<==<bar": 
+15143="foo<===bar": 
+15143="foo<==>bar": 
+15143="foo<=><bar": 
+15143="foo<=>=bar": 
+15143="foo<=>>bar": 
+15143="foo<><<bar": 
+15143="foo<><=bar": 
+15143="foo<><>bar": 
+15143="foo<>=<bar": 
+15143="foo<>==bar": 
+15143="foo<>=>bar": 
+15143="foo<>><bar": 
+15143="foo<>>=bar": 
+15143="foo<>>>bar": 
+15143="foo=<<<bar": 10
+15143="foo=<<=bar": 
+15143="foo=<<>bar": 
+15143="foo=<=<bar": 
+15143="foo=<==bar": 
+15143="foo=<=>bar": 
+15143="foo=<><bar": 
+15143="foo=<>=bar": 
+15143="foo=<>>bar": 
+15143="foo==<<bar": 
+15143="foo==<=bar": 
+15143="foo==<>bar": 
+15143="foo===<bar": 
+15143="foo====bar": 
+15143="foo===>bar": 
+15143="foo==><bar": 
+15143="foo==>=bar": 
+15143="foo==>>bar": 
+15143="foo=><<bar": 
+15143="foo=><=bar": 
+15143="foo=><>bar": 
+15143="foo=>=<bar": 
+15143="foo=>==bar": 
+15143="foo=>=>bar": 
+15143="foo=>><bar": 
+15143="foo=>>=bar": 
+15143="foo=>>>bar": 
+15143="foo><<<bar": 10
+15143="foo><<=bar": 
+15143="foo><<>bar": 
+15143="foo><=<bar": 
+15143="foo><==bar": 
+15143="foo><=>bar": 
+15143="foo><><bar": 
+15143="foo><>=bar": 
+15143="foo><>>bar": 
+15143="foo>=<<bar": 10
+15143="foo>=<=bar": 
+15143="foo>=<>bar": 
+15143="foo>==<bar": 
+15143="foo>===bar": 
+15143="foo>==>bar": 
+15143="foo>=><bar": 
+15143="foo>=>=bar": 
+15143="foo>=>>bar": 
+15143="foo>><<bar": 10
+15143="foo>><=bar": 
+15143="foo>><>bar": 
+15143="foo>>=<bar": 10
+15143="foo>>==bar": 
+15143="foo>>=>bar": 
+15143="foo>>><bar": 10
+15143="foo>>>=bar": 10
+15143="foo>>>>bar": 10
+15144="______________________________________________________________________________________________AA_AAAA_______________________________________________________________________________________AA_AAAA": 101,195
+15144="______________________________________________________________________________________________AA_AAAA_______________________________________________________________________________________AA_AAAA_______________________________": 101,195
+15145="abc___a__a_____": 15
+15145="abc__a__a_____": 14
+15145="abc_foo_a__a___a_": 17
+15145="abcaaaaaaaaaaaaaaaaaaaaaaaaaaa": 14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30

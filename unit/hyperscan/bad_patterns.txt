@@ -144,3 +144,4 @@
 147:/\b\BMYBt/s{edit_distance=1} #Pattern can never match.
 148:/\QÀ\Eaaaa/8 #Expression is not valid UTF-8.
 149:/[\QÀ\Eaaaa]/8 #Expression is not valid UTF-8.
+150:/abcd/{edit_distance=1,hamming_distance=1} #In hs_expr_ext, cannot have both edit distance and Hamming distance.

@@ -347,14 +347,19 @@ bool NG::addGraph(ExpressionInfo &expr, unique_ptr<NGHolder> g_ptr) {
         throw CompileError(expr.index, "Pattern can never match.");
     }
 
+    bool hamming = expr.hamm_distance > 0;
+    u32 e_dist = hamming ? expr.hamm_distance : expr.edit_distance;
+
+    DEBUG_PRINTF("edit distance = %u hamming = %s\n", e_dist, hamming ? "true" : "false");
+
     // validate graph's suitability for fuzzing before resolving asserts
-    validate_fuzzy_compile(g, expr.edit_distance, expr.utf8, cc.grey);
+    validate_fuzzy_compile(g, e_dist, hamming, expr.utf8, cc.grey);
 
     resolveAsserts(rm, g, expr);
     dumpDotWrapper(g, expr, "02_post_assert_resolve", cc.grey);
     assert(allMatchStatesHaveReports(g));
 
-    make_fuzzy(g, expr.edit_distance, cc.grey);
+    make_fuzzy(g, e_dist, hamming, cc.grey);
     dumpDotWrapper(g, expr, "02a_post_fuzz", cc.grey);
 
     pruneUseless(g);

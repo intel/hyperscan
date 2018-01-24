@@ -31,6 +31,12 @@
 
 #include "ue2common.h"
 
+#if !defined(_WIN32) && !defined(CPUID_H_)
+#include <cpuid.h>
+ /* system header doesn't have a header guard */
+#define CPUID_H_
+#endif
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -40,12 +46,6 @@ extern "C"
 u64a cpuid_flags(void);
 
 u32 cpuid_tune(void);
-
-int check_avx512(void);
-int check_avx2(void);
-int check_ssse3(void);
-int check_sse42(void);
-int check_popcnt(void);
 
 #ifdef __cplusplus
 } /* extern "C" */

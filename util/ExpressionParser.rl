@@ -49,7 +49,8 @@ enum ParamKey {
     PARAM_MIN_OFFSET,
     PARAM_MAX_OFFSET,
     PARAM_MIN_LENGTH,
-    PARAM_EDIT_DISTANCE
+    PARAM_EDIT_DISTANCE,
+    PARAM_HAMM_DISTANCE
 };
 
 %%{
@@ -96,6 +97,10 @@ enum ParamKey {
             case PARAM_EDIT_DISTANCE:
                 ext->flags |= HS_EXT_FLAG_EDIT_DISTANCE;
                 ext->edit_distance = num;
+                break;
+            case PARAM_HAMM_DISTANCE:
+                ext->flags |= HS_EXT_FLAG_HAMMING_DISTANCE;
+                ext->hamming_distance = num;
                 break;
             case PARAM_NONE:
             default:
@@ -158,7 +163,8 @@ bool HS_CDECL readExpression(const std::string &input, std::string &expr,
         param = ('min_offset' @{ key = PARAM_MIN_OFFSET; } |
                  'max_offset' @{ key = PARAM_MAX_OFFSET; } |
                  'min_length' @{ key = PARAM_MIN_LENGTH; } |
-                 'edit_distance' @{ key = PARAM_EDIT_DISTANCE; });
+                 'edit_distance' @{ key = PARAM_EDIT_DISTANCE; } |
+                 'hamming_distance' @{ key = PARAM_HAMM_DISTANCE; });
 
         value = (digit @accumulateNum)+ >{num = 0;};
         param_spec = (' '* param '=' value ' '*) >{ key = PARAM_NONE; }

@@ -1,0 +1,34 @@
+19501:/a..b/sO
+19502:/a..bc/sO
+19503:/ab..c/sO
+19504:/ab..c../sO
+19505:/ab..c../siO
+19506:/.ab..c../siO
+19507:/abcdefgh....abcd....efgh/sO
+19508:/foo..ba/sO
+19509:/foo..ba\z/sO
+
+# Longer masks
+19510:/[a-f]{3}-[a-f]{3}-[a-f]{4}/
+
+# Mixed-sensitivity literals can use masks.
+19511:/ab(?i)cdef(?-i)ghi/
+
+# Fixed width pattern that's too long to use a benefits mask.
+19512:/a{10}b{10}[Cc]{10}d{10}/
+
+# Mixed sensitivity and dot mask
+19513:/f[Yy][mPiU].W/
+
+# Short mixed-case literals to stress literal matchers
+19514:/(?i)godzill(?-i)a/
+19515:/g(?i)odzilla/
+19516:/G(?i)odzilla/
+19517:/(?i)god(?-i)z(?i)illa/
+19518:/g(?i)od(?-i)z(?i)illa/
+
+# Masks and mixed-case
+19519:/^nqt(?-i)qkf{14}bdr+k.t(?i)r[cp]q{3}\z/is
+
+# More mixed-case
+19520:/[Bb][Cc][Aa][CDc]abaaEbcd/

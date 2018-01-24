@@ -38,6 +38,9 @@ SET(hsbench_SOURCES
     huge.cpp
     huge.h
     main.cpp
+    sqldb.cpp
+    sqldb.h
+    sqldb_bind.h
     thread_barrier.h
     timer.h
 )

@@ -1,0 +1,8 @@
+27000:/a[A-L]?[B-M]?[C-N]?[D-O]?foobar/
+27001:/ar[A-Z]{1,9}foobar/
+27002:/a{5}\w{1,8}foobar/
+27003:/(ab|bc|cd|de|ef|fg|gh|hi)[\w]{12}foobar/
+27004:/(abcdef|bcdefg|cdefgh|defghi|efghij|fghijk|ghijkl|hijklm)[\w]{8}foobar/
+27005:/[\x20\x31\x42\x53\x64][\x20\x25\x31\x35\x42\x45\x53\x55\x64\x65][\w]{1,7}foobar/
+27006:/[\dABcd][\dABCd][\dAbcd][\dabcd][\dabCD][\dEFGH][\dEFGh][\dEfgh][0-5B-Iw-z][\dA-Z]{1,6}foobar/
+27007:/ec.((c|C|d){3}|.BEe|...|dE.[bdC]A.Ac[Aa]|ca)CC.cdCA.D{1,}[Dd]..b(dbe{16,18}|E|b)aaC(c|d*|e|[Da]|C|a)/s

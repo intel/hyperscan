@@ -101,7 +101,7 @@ typedef struct hs_scratch hs_scratch_t;
 
  *      - If the start of match value lies outside this horizon (possible only
  *        when the SOM_HORIZON value is not @ref HS_MODE_SOM_HORIZON_LARGE),
- *        the @a from value will be set to @ref HS_OFFSET_PAST_HORIZON.
+ *        the @p from value will be set to @ref HS_OFFSET_PAST_HORIZON.
 
  *      - This argument will be set to zero if the Start of Match flag is not
  *        enabled for the given pattern.
@@ -193,6 +193,12 @@ hs_error_t HS_CDECL hs_scan_stream(hs_stream_t *id, const char *data,
 /**
  * Close a stream.
  *
+ * This function completes matching on the given stream and frees the memory
+ * associated with the stream state. After this call, the stream pointed to by
+ * @p id is invalid and can no longer be used. To reuse the stream state after
+ * completion, rather than closing it, the @ref hs_reset_stream function can be
+ * used.
+ *
  * This function must be called for any stream created with @ref
  * hs_open_stream(), even if scanning has been terminated by a non-zero return
  * from the match callback function.
@@ -210,7 +216,7 @@ hs_error_t HS_CDECL hs_scan_stream(hs_stream_t *id, const char *data,
  *
  * @param scratch
  *      A per-thread scratch space allocated by @ref hs_alloc_scratch(). This is
- *      allowed to be NULL only if the @a onEvent callback is also NULL.
+ *      allowed to be NULL only if the @p onEvent callback is also NULL.
  *
  * @param onEvent
  *      Pointer to a match event callback function. If a NULL pointer is given,
@@ -251,7 +257,7 @@ hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
  *
  * @param scratch
  *      A per-thread scratch space allocated by @ref hs_alloc_scratch(). This is
- *      allowed to be NULL only if the @a onEvent callback is also NULL.
+ *      allowed to be NULL only if the @p onEvent callback is also NULL.
  *
  * @param onEvent
  *      Pointer to a match event callback function. If a NULL pointer is given,
@@ -287,7 +293,7 @@ hs_error_t HS_CDECL hs_copy_stream(hs_stream_t **to_id,
 
 /**
  * Duplicate the given 'from' stream state onto the 'to' stream. The 'to' stream
- * will first be reset (reporting any EOD matches if a non-NULL @a onEvent
+ * will first be reset (reporting any EOD matches if a non-NULL @p onEvent
  * callback handler is provided).
  *
  * Note: the 'to' stream and the 'from' stream must be open against the same
@@ -302,7 +308,7 @@ hs_error_t HS_CDECL hs_copy_stream(hs_stream_t **to_id,
  *
  * @param scratch
  *      A per-thread scratch space allocated by @ref hs_alloc_scratch(). This is
- *      allowed to be NULL only if the @a onEvent callback is also NULL.
+ *      allowed to be NULL only if the @p onEvent callback is also NULL.
  *
  * @param onEvent
  *      Pointer to a match event callback function. If a NULL pointer is given,
@@ -325,10 +331,10 @@ hs_error_t HS_CDECL hs_reset_and_copy_stream(hs_stream_t *to_id,
  * Creates a compressed representation of the provided stream in the buffer
  * provided. This compressed representation can be converted back into a stream
  * state by using @ref hs_expand_stream() or @ref hs_reset_and_expand_stream().
- * The size of the compressed representation will be placed into @a used_space.
+ * The size of the compressed representation will be placed into @p used_space.
  *
  * If there is not sufficient space in the buffer to hold the compressed
- * represention, @ref HS_INSUFFICIENT_SPACE will be returned and @a used_space
+ * representation, @ref HS_INSUFFICIENT_SPACE will be returned and @p used_space
  * will be populated with the amount of space required.
  *
  * Note: this function does not close the provided stream, you may continue to
@@ -340,15 +346,15 @@ hs_error_t HS_CDECL hs_reset_and_copy_stream(hs_stream_t *to_id,
  * @param buf
  *      Buffer to write the compressed representation into. Note: if the call is
  *      just being used to determine the amount of space required, it is allowed
- *      to pass NULL here and @a buf_space as 0.
+ *      to pass NULL here and @p buf_space as 0.
  *
  * @param buf_space
- *      The number of bytes in @a buf. If buf_space is too small, the call will
+ *      The number of bytes in @p buf. If buf_space is too small, the call will
  *      fail with @ref HS_INSUFFICIENT_SPACE.
  *
  * @param used_space
  *      Pointer to where the amount of used space will be written to. The used
- *      buffer space is always less than or equal to @a buf_space. If the call
+ *      buffer space is always less than or equal to @p buf_space. If the call
  *      fails with @ref HS_INSUFFICIENT_SPACE, this pointer will be used to
  *      write out the amount of buffer space required.
  *
@@ -363,8 +369,8 @@ hs_error_t HS_CDECL hs_compress_stream(const hs_stream_t *stream, char *buf,
  * Decompresses a compressed representation created by @ref hs_compress_stream()
  * into a new stream.
  *
- * Note: @a buf must correspond to a complete compressed representation created
- * by @ref hs_compress_stream() of a stream that was opened against @a db. It is
+ * Note: @p buf must correspond to a complete compressed representation created
+ * by @ref hs_compress_stream() of a stream that was opened against @p db. It is
  * not always possible to detect misuse of this API and behaviour is undefined
  * if these properties are not satisfied.
  *
@@ -393,19 +399,19 @@ hs_error_t HS_CDECL hs_expand_stream(const hs_database_t *db,
 /**
  * Decompresses a compressed representation created by @ref hs_compress_stream()
  * on top of the 'to' stream. The 'to' stream will first be reset (reporting
- * any EOD matches if a non-NULL @a onEvent callback handler is provided).
+ * any EOD matches if a non-NULL @p onEvent callback handler is provided).
  *
  * Note: the 'to' stream must be opened against the same database as the
  * compressed stream.
  *
- * Note: @a buf must correspond to a complete compressed representation created
- * by @ref hs_compress_stream() of a stream that was opened against @a db. It is
+ * Note: @p buf must correspond to a complete compressed representation created
+ * by @ref hs_compress_stream() of a stream that was opened against @p db. It is
  * not always possible to detect misuse of this API and behaviour is undefined
  * if these properties are not satisfied.
  *
  * @param to_stream
- *      A pointer to the generated @ref hs_stream_t will be
- *      returned; NULL on failure.
+ *      A pointer to a valid stream state. A pointer to the expanded @ref
+ *      hs_stream_t will be returned; NULL on failure.
  *
  * @param buf
  *      A compressed representation of a stream. These compressed forms are
@@ -416,7 +422,7 @@ hs_error_t HS_CDECL hs_expand_stream(const hs_database_t *db,
  *
  * @param scratch
  *      A per-thread scratch space allocated by @ref hs_alloc_scratch(). This is
- *      allowed to be NULL only if the @a onEvent callback is also NULL.
+ *      allowed to be NULL only if the @p onEvent callback is also NULL.
  *
  * @param onEvent
  *      Pointer to a match event callback function. If a NULL pointer is given,
@@ -492,7 +498,7 @@ hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
  *
  * @param count
  *      Number of data blocks to scan. This should correspond to the size of
- *      of the @a data and @a length arrays.
+ *      of the @p data and @p length arrays.
  *
  * @param flags
  *      Flags modifying the behaviour of this function. This parameter is

@@ -33,11 +33,21 @@ See :c:type:`match_event_handler` for more information.
 Streaming Mode
 **************
 
-The streaming runtime API consists of functions to open, scan, and close
-Hyperscan data streams -- these functions being :c:func:`hs_open_stream`,
-:c:func:`hs_scan_stream`, and :c:func:`hs_close_stream`. Any matches detected
-in the written data are returned to the calling application via a function
-pointer callback.
+The core of the Hyperscan streaming runtime API consists of functions to open,
+scan, and close Hyperscan data streams:
+
+* :c:func:`hs_open_stream`: allocates and initializes a new stream for scanning.
+
+* :c:func:`hs_scan_stream`: scans a block of data in a given stream, raising
+  matches as they are detected.
+
+* :c:func:`hs_close_stream`: completes scanning of a given stream (raising any
+  matches that occur at the end of the stream) and frees the stream state. After
+  a call to :c:func:`hs_close_stream`, the stream handle is invalid and should
+  not be used again for any purpose.
+
+Any matches detected in the data as it is scanned are returned to the calling
+application via a function pointer callback.
 
 The match callback function has the capability to halt scanning of the current
 data stream by returning a non-zero value. In streaming mode, the result of

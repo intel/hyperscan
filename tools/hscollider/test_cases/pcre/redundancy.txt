@@ -1,0 +1,47 @@
+15100:/hatstand.*a?teakettle/sO
+15101:/foo(A|A)bar/O
+15102:/foo(1|2|3|4)bar/O
+15103:/^.*a+bc/
+15104:/foo[Aa]+a+bar/
+15105:/foo[Aa]+[aB]+bar/
+15106:/foo[AaB]+[aB]+bar/
+15107:/foo[Aa]*[aB]+bar/
+15108:/foo[AaB]*[aB]+bar/
+15109:/a(b|c.+)d+e/
+15110:/a(b|c.*)d+e/
+
+# cases specifically aimed at the cyclic-dom redundancy code
+15120:/foo.*a*bar/O
+15121:/fooa*.*bar/O
+15122:/fooa?.*bar/O
+15123:/foo.*a?bar/O
+15124:/foo.*a+bar/O
+15125:/fooa+.*bar/O
+15126:/foo.+a*bar/O
+15127:/fooa*.+bar/O
+15128:/fooa?.+bar/O
+15129:/foo.+a?bar/O
+15130:/foo.+a+bar/O
+15131:/fooa+.+bar/O
+
+# edge redun
+15132:/abc(a|\B){6}def/sO
+15133:/AAA([A-Z]_?)+(([\x00-\x3d]|[\x3f-\xff])\x00?)+ZZZ/s
+
+# misc opt
+15134:/(Y.|X.+)a[^a]*foo/s
+15135:/oof[^a]*a(.+X|.Y)/s
+15136:/foo.*<[^<]*bar/s
+15137:/foo[^<]*<.*bar/s
+15138:/foo\b.*bar/s
+15139:/foo.*\bbar/s
+15140:/foo[^<]*<[^>]*bar/s
+15141:/foo[^<]*>[^>]*bar/s
+15142:/foo[^<=]*[<=][^>=]*bar/s
+15143:/foo[^<=]*[>=][^>=]*bar/s
+
+# rev misc opt
+15144:/aa+.aaaa/si
+
+# needs cyclic path redundancy followed by other redundancy passes.
+15145:/^abc.(.*|foo)\Sa..a...\S./s

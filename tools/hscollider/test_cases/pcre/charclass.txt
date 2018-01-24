@@ -1,0 +1,174 @@
+# All the generic character types
+11000:/\d\D\h\H\s\S\v\V\w\W/
+
+# All the following should be equivalent to a dot (type plus non-type)
+11001:/[\d\D]/
+11002:/[\h\H]/
+11003:/[\s\S]/
+11004:/[\v\V]/
+11005:/[\w\W]/
+
+# POSIX classes
+11006:/[[:alnum:]][[:alpha:]][[:ascii:]][[:blank:]][[:cntrl:]][[:digit:]][[:graph:]]/
+11007:/[[:lower:]][[:print:]][[:punct:]][[:space:]][[:upper:]][[:word:]][[:xdigit:]]/
+11008:/[01[:alpha:]%]/
+# Perl extension: negation of posix classes. This matches 1, 2 or any non-digit.
+11009:/[12[:^digit:]]/
+
+# Ranges
+11010:/[A-F][a-f][0-9][a-f5-7][^t-z][^a-f0-9]/
+11011:/[^^][^\n]/
+11012:/[\000-\037]/
+11013:/[W-c]/i
+11014:/[^\W_]/
+
+# Literal 'dash' characters
+11015:/[\s-\w]/
+11016:/[A-]/O
+11017:/[A-Z-]/
+11018:/[a-f0-]/O
+
+# \b is a backspace in a character class (hex 08)
+11020:/[\b]/O
+
+# Dollar and dot have no special meaning inside a class
+11021:/[.][$]/O
+
+# Closing square brackets can be unescaped if they are the first element in a
+# class (scary!)
+11022:/[]a]/O
+11023:/[^]a]/
+11024:/[]-_]/O
+
+# \R and \X are the literal chars R and X (unlike outside a class)
+# 11025:/[\R\X]/O
+
+# Others
+11100:/[\]]/O
+11101:/[]]/O
+11102:/[\[\]]/O
+11103:/[\^]/O
+11104:/[+--]/O
+11105:/[--A]/
+11106:/[A-C-E-G]/O
+11107:/[A-C-E]/O
+11108:/[\0]/O
+11109:/[\40]/O
+11110:/[\040]/O
+11111:/[\0400]/O
+11112:/[\0401]/O
+#hint: equiv to [18\x00]
+11113:/[\81]/O
+11114:/[\xg]/O
+11115:/[\x31]/O
+11116:/[\x{31}]/O
+11117:/[\x{0000000000000031}]/O
+11118:/[\x{31g}]/O
+11119:/[\x{foo}-~]/O
+11120:/[\x00-\x{31g}]/O
+11121:/[[:foo]/O
+11122:/[\Q^\Ea]/O
+11123:/[\Qa]\E]/O
+11124:/[\Q\Q\E]/O
+11125:/[\E]]/O
+11126:/[\x{31]/O
+11127:/[^e]/i
+11128:/[(?i)a]/O
+
+# These classes with escaped '-' chars in them aren't ranges
+11200:/[\x20\x2d\x5f]/O
+11201:/[A\x2dZ]/O
+11202:/[A\055Z]/O
+11203:/[-\x2da]/O
+11204:/[\x20\x2d-]/O
+
+# Is a range (dash-to-\x5f)
+11205:/[\x2d-\x5f]/s
+
+# void character classed
+11300:/[^\x00-\xff]/O
+11301:/[^\x00-\xff]foo/O
+11302:/[^\x00-\xff]foo|bar/O
+11303:/^[^\x00-\xff]foo/O
+11304:/foo[^\x00-\xff]/O
+11305:/foo[^\x00-\xff]$/O
+11306:/baz.*([^\x00-\xff]foo|bar).*baz/O
+
+# we had a buggy defn of xdigit (as '[0-9a-fA-Z]')
+11307:/[[:xdigit:]]/
+
+# test negation of all the POSIX classes
+11308:/[[:^alnum:]][[:^alpha:]][[:^ascii:]][[:^blank:]][[:^cntrl:]][[:^digit:]][[:^graph:]]/
+11309:/[[:^lower:]][[:^print:]][[:^punct:]][[:^space:]][[:^upper:]][[:^word:]][[:^xdigit:]]/
+
+# test cntrl against DEL
+11310:/[[:cntrl:]]/
+
+# \C should just be the literal char C
+#11311:/[\C]/O
+
+11312:/[[:alnum:]]/
+11313:/[[:^alnum:]]/
+11314:/[[:alpha:]]/
+11315:/[[:^alpha:]]/
+11316:/[[:ascii:]]/
+11317:/[[:^ascii:]]/
+11318:/[[:blank:]]/
+11319:/[[:^blank:]]/
+11320:/[[:cntrl:]]/
+11321:/[[:^cntrl:]]/
+11322:/[[:digit:]]/
+11323:/[[:^digit:]]/
+11324:/[[:graph:]]/
+11325:/[[:^graph:]]/
+11326:/[[:lower:]]/
+11327:/[[:^lower:]]/
+11328:/[[:print:]]/
+11329:/[[:^print:]]/
+11330:/[[:space:]]/
+11331:/[[:^space:]]/
+11332:/[[:upper:]]/
+11333:/[[:^upper:]]/
+11334:/[[:xdigit:]]/
+11335:/[[:^xdigit:]]/
+11339:/[[:punct:]]/
+11340:/[[:^punct:]]/
+
+# Oddities
+11336:/[\f]/
+11337:/[\a]/
+11338:/[\e]/
+
+# Unterminated classes.
+11341:/[ab-]/
+11342:/[ab-\Q\E]/
+
+# More negated POSIX classes and interaction with mode bits.
+11343:/[[:^upper:]]/i
+11344:/[[:^lower:]]/i
+11345:/[^A-Z]/i
+11346:/[^a-z]/i
+
+# More unterminated classes.
+11347:/[ab-]/8
+11348:/[ab-\Q\E]/8
+
+# Some classes that look a little similar to POSIX collating classes, but
+# aren't.
+11349:/[.abc=] [=abc.] [^=abc=] [^.abc.]/
+
+# Bug in PCRE versions before 8.38 (see PCRE issue #1697).
+11350:/[\W\p{Any}]/
+
+# Bug in PCRE versions before 8.38 (see PCRE issue #1717).
+11351:/a[[:punct:]b]/W
+11352:/[[:^graph:]a]/W
+
+# Bug in PCRE versions before 8.38 (see PCRE issue #1732).
+11353:/[^[:alpha:][:^cntrl:]]/8W
+
+# Bug in PCRE versions before 8.38 (see PCRE issue #1719).
+11354:/[[:^ascii:][:alnum:]a]/8W
+
+# Bug in PCRE < 8.38 to do with [:punct:] in UCP mode (see PCRE issue #1718).
+11355:/[[:punct:]]/8W

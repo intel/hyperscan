@@ -139,8 +139,9 @@ gatherPredecessorsByDepth(const NGHolder &g, NFAVertex src, u32 depth) {
 
 // this is a per-vertex, per-shadow level state transition table
 struct GraphCache {
-    GraphCache(u32 dist_in, const NGHolder &g) :
-        size(num_vertices(g)), edit_distance(dist_in)
+    GraphCache(u32 dist_in, u32 hamm_in, const NGHolder &g)
+        : hamming(hamm_in > 0), size(num_vertices(g)),
+          edit_distance(hamming ? hamm_in : dist_in)
     {
         auto dist_max = edit_distance + 1;
 
@@ -220,7 +221,7 @@ struct GraphCache {
                 auto cur_v_bit = i;
 
                 // enable transition to next level helper (this handles insertion)
-                if (d < edit_distance && !is_any_accept(cur_v, g)) {
+                if (!hamming && d < edit_distance && !is_any_accept(cur_v, g)) {
                     auto &next_v_helpers = helper_transitions[i][d + 1];
 
                     next_v_helpers.set(cur_v_bit);
@@ -230,6 +231,10 @@ struct GraphCache {
                 // but only if we're at shadow level 0
                 if (edge(cur_v, cur_v, g).second && d == 0) {
                     v_shadows.set(cur_v_bit);
+                }
+
+                if (hamming && d > 0) {
+                    continue;
                 }
 
                 // populate state transition tables
@@ -295,7 +300,8 @@ struct GraphCache {
                 // add self to report list at all levels
                 vertex_reports_by_level[d][v].insert(rs.begin(), rs.end());
             }
-            if (edit_distance == 0) {
+
+            if (edit_distance == 0 || hamming) {
                 // if edit distance is 0, no predecessors will have reports
                 continue;
             }
@@ -323,7 +329,7 @@ struct GraphCache {
                 // add self to report list at all levels
                 vertex_eod_reports_by_level[d][v].insert(rs.begin(), rs.end());
             }
-            if (edit_distance == 0) {
+            if (edit_distance == 0 || hamming) {
                 // if edit distance is 0, no predecessors will have reports
                 continue;
             }
@@ -479,6 +485,7 @@ struct GraphCache {
     vector<map<NFAVertex, flat_set<ReportID>>> vertex_reports_by_level;
     vector<map<NFAVertex, flat_set<ReportID>>> vertex_eod_reports_by_level;
 
+    bool hamming;
     u32 size;
     u32 edit_distance;
 };
@@ -682,6 +689,7 @@ struct StateSet {
                 result.emplace_back(id, dist, shadows_som[dist][id],
                                     State::NODE_SHADOW);
             }
+
             auto cur_helper_vertices = helpers[dist];
             cur_helper_vertices &= gc.getAcceptTransitions(dist);
             for (size_t id = cur_helper_vertices.find_first();
@@ -708,6 +716,7 @@ struct StateSet {
                 result.emplace_back(id, dist, shadows_som[dist][id],
                                     State::NODE_SHADOW);
             }
+
             auto cur_helper_vertices = helpers[dist];
             cur_helper_vertices &= gc.getAcceptEodTransitions(dist);
             for (size_t id = cur_helper_vertices.find_first();
@@ -1076,27 +1085,33 @@ void filterMatches(MatchSet &matches) {
  */
 bool findMatches(const NGHolder &g, const ReportManager &rm,
                  const string &input, MatchSet &matches,
-                 const u32 edit_distance, const bool notEod, const bool utf8) {
+                 const u32 edit_distance, const u32 hamm_distance,
+                 const bool notEod, const bool utf8) {
     assert(hasCorrectlyNumberedVertices(g));
     // cannot match fuzzy utf8 patterns, this should've been filtered out at
     // compile time, so make it an assert
     assert(!edit_distance || !utf8);
+    // cannot be both edit and Hamming distance at once
+    assert(!edit_distance || !hamm_distance);
 
-    const size_t total_states = num_vertices(g) * (3 * edit_distance + 1);
+    bool hamming = hamm_distance > 0;
+    auto dist = hamming ? hamm_distance : edit_distance;
+
+    const size_t total_states = num_vertices(g) * (3 * dist + 1);
     DEBUG_PRINTF("Finding matches (%zu total states)\n", total_states);
     if (total_states > STATE_COUNT_MAX) {
         DEBUG_PRINTF("too big\n");
         return false;
     }
 
-    GraphCache gc(edit_distance, g);
+    GraphCache gc(edit_distance, hamm_distance, g);
 #ifdef DEBUG
     gc.dumpStateTransitionTable(g);
 #endif
 
     const bool allowStartDs = (proper_out_degree(g.startDs, g) > 0);
 
-    struct fmstate state(g, gc, utf8, allowStartDs, edit_distance, rm);
+    struct fmstate state(g, gc, utf8, allowStartDs, dist, rm);
 
     StateSet::WorkingData wd;
 
@@ -1104,7 +1119,7 @@ bool findMatches(const NGHolder &g, const ReportManager &rm,
 #ifdef DEBUG
         state.states.dumpActiveStates();
 #endif
-        state.offset = distance(input.begin(), it);
+        state.offset = std::distance(input.begin(), it);
         state.cur = *it;
 
         step(g, state, wd);

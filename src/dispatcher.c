@@ -30,7 +30,7 @@
 #include "hs_common.h"
 #include "hs_runtime.h"
 #include "ue2common.h"
-#include "util/cpuid_flags.h"
+#include "util/cpuid_inline.h"
 #include "util/join.h"
 
 #if defined(DISABLE_AVX512_DISPATCH)

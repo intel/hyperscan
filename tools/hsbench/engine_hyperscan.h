@@ -31,15 +31,32 @@
 
 #include "expressions.h"
 #include "common.h"
+#include "sqldb.h"
 #include "hs_runtime.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 /** Structure for the result of a single complete scan. */
 struct ResultEntry {
     double seconds = 0;       //!< Time taken for scan.
     unsigned int matches = 0; //!< Count of matches found.
+};
+
+/** Infomation about the database compile */
+struct CompileStats {
+    std::string sigs_name;
+    std::string signatures;
+    std::string db_info;
+    size_t expressionCount = 0;
+    size_t compiledSize = 0;
+    uint32_t crc32 = 0;
+    bool streaming;
+    size_t streamSize = 0;
+    size_t scratchSize = 0;
+    long double compileSecs = 0;
+    unsigned int peakMemorySize = 0;
 };
 
 /** Engine context which is allocated on a per-thread basis. */
@@ -62,7 +79,7 @@ public:
 /** Hyperscan Engine for scanning data. */
 class EngineHyperscan {
 public:
-    explicit EngineHyperscan(hs_database_t *db);
+    explicit EngineHyperscan(hs_database_t *db, CompileStats cs);
     ~EngineHyperscan();
 
     std::unique_ptr<EngineContext> makeContext() const;
@@ -86,8 +103,13 @@ public:
     void streamScan(EngineStream &stream, const char *data, unsigned int len,
                     unsigned int id, ResultEntry &result) const;
 
+    void printStats() const;
+
+    void sqlStats(SqlDB &db) const;
+
 private:
     hs_database_t *db;
+    CompileStats compile_stats;
 };
 
 namespace ue2 {
@@ -96,6 +118,7 @@ struct Grey;
 
 std::unique_ptr<EngineHyperscan>
 buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
-                     const std::string &name, const ue2::Grey &grey);
+                     const std::string &name, const std::string &sigs_name,
+                     const ue2::Grey &grey);
 
 #endif // ENGINEHYPERSCAN_H

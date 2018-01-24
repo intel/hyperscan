@@ -161,14 +161,17 @@ void fillExpressionInfo(ReportManager &rm, const CompileContext &cc,
         throw CompileError(expr.index, "Pattern can never match.");
     }
 
+    bool hamming = expr.hamm_distance > 0;
+    u32 e_dist = hamming ? expr.hamm_distance : expr.edit_distance;
+
     // validate graph's suitability for fuzzing
-    validate_fuzzy_compile(g, expr.edit_distance, expr.utf8, cc.grey);
+    validate_fuzzy_compile(g, e_dist, hamming, expr.utf8, cc.grey);
 
     resolveAsserts(rm, g, expr);
     assert(allMatchStatesHaveReports(g));
 
     // fuzz graph - this must happen before any transformations are made
-    make_fuzzy(g, expr.edit_distance, cc.grey);
+    make_fuzzy(g, e_dist, hamming, cc.grey);
 
     pruneUseless(g);
     pruneEmptyVertices(g);

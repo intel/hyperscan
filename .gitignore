@@ -30,6 +30,8 @@ bin
 
 # sigs dir is handled externally
 signatures
+# but not the regression tests
+!tools/hscollider/test_cases/signatures
 
 # ignore pcre symlink if it exists
 pcre

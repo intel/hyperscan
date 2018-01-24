@@ -55,7 +55,8 @@ struct BoundaryReports;
 bool findMatches(const ue2::NGHolder &g, const ue2::ReportManager &rm,
                  const std::string &input,
                  std::set<std::pair<size_t, size_t>> &matches,
-                 const unsigned int max_edit_distance, const bool notEod,
+                 const unsigned int max_edit_distance,
+                 const unsigned int max_hamm_distance, const bool notEod,
                  const bool utf8);
 
 #endif // NG_FIND_MATCHES_H

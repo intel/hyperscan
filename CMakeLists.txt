@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.8.11)
 project (hyperscan C CXX)
 
 set (HS_MAJOR_VERSION 4)
-set (HS_MINOR_VERSION 6)
+set (HS_MINOR_VERSION 7)
 set (HS_PATCH_VERSION 0)
 set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
 
@@ -30,7 +30,7 @@ else()
     message(STATUS "Build type ${CMAKE_BUILD_TYPE}")
 endif()
 
-if(CMAKE_BUILD_TYPE MATCHES RELEASE|RELWITHDEBINFO)
+if(CMAKE_BUILD_TYPE MATCHES RELEASE|RELWITHDEBINFO|MINSIZEREL)
     set(RELEASE_BUILD TRUE)
 else()
     set(RELEASE_BUILD FALSE)
@@ -218,8 +218,13 @@ else()
     endif()
 
     if(OPTIMISE)
-        set(OPT_C_FLAG "-O3")
-        set(OPT_CXX_FLAG "-O2")
+        if (NOT CMAKE_BUILD_TYPE MATCHES MINSIZEREL)
+            set(OPT_C_FLAG "-O3")
+            set(OPT_CXX_FLAG "-O2")
+        else ()
+            set(OPT_C_FLAG "-Os")
+            set(OPT_CXX_FLAG "-Os")
+        endif ()
     else()
         set(OPT_C_FLAG "-O0")
         set(OPT_CXX_FLAG "-O0")
@@ -423,10 +428,10 @@ endif(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
 
 if(NOT WIN32)
 if(CMAKE_C_COMPILER_ID MATCHES "Intel")
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -diag-error 10006 -diag-disable 68 -diag-disable 177 -diag-disable 186 -diag-disable 2304 -diag-disable 2305 -diag-disable 2338 -diag-disable 1418 -diag-disable=remark")
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -diag-error 10006 -diag-disable 68 -diag-disable 177 -diag-disable 186 -diag-disable 2304 -diag-disable 2305 -diag-disable 2338 -diag-disable 1418 -diag-disable 279 -diag-disable=remark")
 endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "Intel")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -diag-error 10006 -diag-disable 68 -diag-disable 177 -diag-disable 186 -diag-disable 2304 -diag-disable 2305 -diag-disable 2338 -diag-disable 1418 -diag-disable 1170 -diag-disable 3373 -diag-disable=remark")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -diag-error 10006 -diag-disable 68 -diag-disable 177 -diag-disable 186 -diag-disable 2304 -diag-disable 2305 -diag-disable 2338 -diag-disable 1418 -diag-disable 1170 -diag-disable 3373 -diag-disable 279 -diag-disable=remark")
 endif()
 endif()
 
@@ -1271,25 +1276,42 @@ if (NOT BUILD_SHARED_LIBS)
 endif()
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
-    if (NOT FAT_RUNTIME)
-        add_library(hs_shared SHARED src/hs_version.c src/hs_valid_platform.c
-            $<TARGET_OBJECTS:hs_compile_shared> $<TARGET_OBJECTS:hs_exec_shared>)
-    else()
-        add_library(hs_shared SHARED src/hs_version.c src/hs_valid_platform.c
-            $<TARGET_OBJECTS:hs_compile_shared> $<TARGET_OBJECTS:hs_exec_common_shared>
-            ${RUNTIME_SHLIBS})
+    set(hs_shared_SRCS
+        src/hs_version.c
+        src/hs_valid_platform.c
+        $<TARGET_OBJECTS:hs_compile_shared>)
 
-    endif()
+    if (XCODE)
+        # force this lib to use C++ linkage
+        add_custom_command(OUTPUT empty.cxx
+            COMMAND ${CMAKE_COMMAND} -E touch empty.cxx)
+        set (hs_shared_SRCS ${hs_shared_SRCS} empty.cxx)
+    endif (XCODE)
+
+    if (NOT FAT_RUNTIME)
+        set(hs_shared_SRCS
+            ${hs_shared_SRCS}
+            $<TARGET_OBJECTS:hs_exec_shared>)
+    else ()
+        set(hs_shared_SRCS
+            ${hs_shared_SRCS}
+            $<TARGET_OBJECTS:hs_exec_common_shared>
+            ${RUNTIME_SHLIBS})
+    endif ()
+
+    add_library(hs_shared SHARED ${hs_shared_SRCS})
+
     add_dependencies(hs_shared ragel_Parser)
     set_target_properties(hs_shared PROPERTIES
         OUTPUT_NAME hs
         VERSION ${LIB_VERSION}
         SOVERSION ${LIB_SOVERSION}
         MACOSX_RPATH ON)
-install(TARGETS hs_shared
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+    install(TARGETS hs_shared
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
 
 # used by tools and other targets
