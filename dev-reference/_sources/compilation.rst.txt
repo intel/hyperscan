@@ -287,6 +287,7 @@ which provides the following fields:
 * ``min_length``: The minimum match length (from start to end) required to
   successfully match this expression.
 * ``edit_distance``: Match this expression within a given Levenshtein distance.
+* ``hamming_distance``: Match this expression within a given Hamming distance.
 
 These parameters either allow the set of matches produced by a pattern to be
 constrained at compile time (rather than relying on the application to process
@@ -299,10 +300,15 @@ and a ``max_offset`` of 15 will not produce matches when scanned against
 streams ``foo0123bar`` or ``foo0123456bar``.
 
 Similarly, the pattern :regexp:`/foobar/` when given an ``edit_distance`` of 2
-will produce matches when scanned against ``foobar``, ``fooba``, ``fobr``,
-``fo_baz``, ``foooobar``, and anything else that lies within edit distance of 2
-(as defined by Levenshtein distance). For more details, see the
-:ref:`approximate_matching` section.
+will produce matches when scanned against ``foobar``, ``f00bar``, ``fooba``,
+``fobr``, ``fo_baz``, ``foooobar``, and anything else that lies within edit
+distance of 2 (as defined by Levenshtein distance).
+
+When the same pattern :regexp:`/foobar/` is given a ``hamming_distance`` of 2,
+it will produce matches when scanned against ``foobar``, ``boofar``,
+``f00bar``, and anything else with at most two characters substituted from the
+original pattern. For more details, see the :ref:`approximate_matching`
+section.
 
 =================
 Prefiltering Mode
@@ -377,7 +383,7 @@ The :c:type:`hs_platform_info_t` structure has two fields:
 #. ``cpu_features``: This allows the application to specify a mask of CPU
    features that may be used on the target platform. For example,
    :c:member:`HS_CPU_FEATURES_AVX2` can be specified for Intel\ |reg| Advanced
-   Vector Extensions +2 (Intel\ |reg| AVX2) instruction set support. If a flag
+   Vector Extensions 2 (Intel\ |reg| AVX2) instruction set support. If a flag
    for a particular CPU feature is specified, the database will not be usable on
    a CPU without that feature.
 
@@ -398,13 +404,20 @@ follows:
 
 #. **Edit distance** is defined as Levenshtein distance. That is, there are
    three possible edit types considered: insertion, removal and substitution.
-   More formal description can be found on
-   `Wikipedia <https://en.wikipedia.org/wiki/Levenshtein_distance>`_.
+   A more formal description can be found on
+   `Wikipedia <https://en.wikipedia.org/wiki/Levenshtein_distance>`__.
 
-#. **Approximate matching** will match all *corpora* within a given edit
-   distance. That is, given a pattern, approximate matching will match anything
-   that can be edited to arrive at a corpus that exactly matches the original
-   pattern.
+#. **Hamming distance** is the number of positions by which two strings of
+   equal length differ. That is, it is the number of substitutions required to
+   convert one string to the other. There are no insertions or removals when
+   approximate matching using a Hamming distance. A more formal description can
+   be found on
+   `Wikipedia <https://en.wikipedia.org/wiki/Hamming_distance>`__.
+
+#. **Approximate matching** will match all *corpora* within a given edit or
+   Hamming distance. That is, given a pattern, approximate matching will match
+   anything that can be edited to arrive at a corpus that exactly matches the
+   original pattern.
 
 #. **Matching semantics** are exactly the same as described in :ref:`semantics`.
 
@@ -437,7 +450,9 @@ matching support. Here they are, in a nutshell:
     reduce to so-called "vacuous" patterns (patterns that match everything). For
     example, pattern :regexp:`/foo/` with edit distance 3, if implemented,
     would reduce to matching zero-length buffers. Such patterns will result in a
-    "Pattern cannot be approximately matched" compile error.
+    "Pattern cannot be approximately matched" compile error. Approximate
+    matching within a Hamming distance does not remove symbols, so will not
+    reduce to a vacuous pattern.
   * Finally, due to the inherent complexities of defining matching behavior,
     approximate matching implements a reduced subset of regular expression
     syntax. Approximate matching does not support UTF-8 (and other

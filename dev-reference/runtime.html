@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Scanning for Patterns &#8212; Hyperscan 4.6.0 documentation</title>
+    <title>Scanning for Patterns &#8212; Hyperscan 4.7.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.6.0',
+        VERSION:     '4.7.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true,
@@ -56,7 +56,7 @@ is found. This function has the following signature:</p>
 <blockquote>
 <div><dl class="typedef">
 <dt>
-<em class="property">typedef </em><code class="descname">(* match_event_handler)</code><span class="sig-paren">(</span>unsigned int<em>&nbsp;id</em>, unsigned long long<em>&nbsp;from</em>, unsigned long long<em>&nbsp;to</em>, unsigned int<em>&nbsp;flags</em>, void<em>&nbsp;*context</em><span class="sig-paren">)</span></dt>
+<em class="property">typedef </em>int<code class="descname">(* match_event_handler)</code><span class="sig-paren">(</span>unsigned int<em>&nbsp;id</em>, unsigned long long<em>&nbsp;from</em>, unsigned long long<em>&nbsp;to</em>, unsigned int<em>&nbsp;flags</em>, void<em>&nbsp;*context</em><span class="sig-paren">)</span></dt>
 <dd></dd></dl>
 
 </div></blockquote>
@@ -70,11 +70,19 @@ by returning a non-zero value.</p>
 </div>
 <div class="section" id="streaming-mode">
 <h2>Streaming Mode<a class="headerlink" href="#streaming-mode" title="Permalink to this headline">¶</a></h2>
-<p>The streaming runtime API consists of functions to open, scan, and close
-Hyperscan data streams &#8211; these functions being <a class="reference internal" href="api_files.html#c.hs_open_stream" title="hs_open_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_open_stream()</span></code></a>,
-<a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_scan_stream()</span></code></a>, and <a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_close_stream()</span></code></a>. Any matches detected
-in the written data are returned to the calling application via a function
-pointer callback.</p>
+<p>The core of the Hyperscan streaming runtime API consists of functions to open,
+scan, and close Hyperscan data streams:</p>
+<ul class="simple">
+<li><a class="reference internal" href="api_files.html#c.hs_open_stream" title="hs_open_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_open_stream()</span></code></a>: allocates and initializes a new stream for scanning.</li>
+<li><a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_scan_stream()</span></code></a>: scans a block of data in a given stream, raising
+matches as they are detected.</li>
+<li><a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_close_stream()</span></code></a>: completes scanning of a given stream (raising any
+matches that occur at the end of the stream) and frees the stream state. After
+a call to <a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_close_stream()</span></code></a>, the stream handle is invalid and should
+not be used again for any purpose.</li>
+</ul>
+<p>Any matches detected in the data as it is scanned are returned to the calling
+application via a function pointer callback.</p>
 <p>The match callback function has the capability to halt scanning of the current
 data stream by returning a non-zero value. In streaming mode, the result of
 this is that the stream is then left in a state where no more data can be
@@ -285,10 +293,10 @@ allocators to the same allocate/free pair.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2015-2017, Intel Corporation.
+      &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.3</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.6</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
       
     </div>

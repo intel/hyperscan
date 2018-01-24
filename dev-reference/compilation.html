@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Compiling Patterns &#8212; Hyperscan 4.6.0 documentation</title>
+    <title>Compiling Patterns &#8212; Hyperscan 4.7.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,7 +15,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.6.0',
+        VERSION:     '4.7.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true,
@@ -315,6 +315,7 @@ expression should match successfully.</li>
 <li><code class="docutils literal"><span class="pre">min_length</span></code>: The minimum match length (from start to end) required to
 successfully match this expression.</li>
 <li><code class="docutils literal"><span class="pre">edit_distance</span></code>: Match this expression within a given Levenshtein distance.</li>
+<li><code class="docutils literal"><span class="pre">hamming_distance</span></code>: Match this expression within a given Hamming distance.</li>
 </ul>
 <p>These parameters either allow the set of matches produced by a pattern to be
 constrained at compile time (rather than relying on the application to process
@@ -325,10 +326,14 @@ and a <code class="docutils literal"><span class="pre">max_offset</span></code> 
 <code class="docutils literal"><span class="pre">foobar</span></code> or <code class="docutils literal"><span class="pre">foo0123456789bar</span></code> but will produce a match against the data
 streams <code class="docutils literal"><span class="pre">foo0123bar</span></code> or <code class="docutils literal"><span class="pre">foo0123456bar</span></code>.</p>
 <p>Similarly, the pattern <code class="regexp docutils literal"><span class="pre">/foobar/</span></code> when given an <code class="docutils literal"><span class="pre">edit_distance</span></code> of 2
-will produce matches when scanned against <code class="docutils literal"><span class="pre">foobar</span></code>, <code class="docutils literal"><span class="pre">fooba</span></code>, <code class="docutils literal"><span class="pre">fobr</span></code>,
-<code class="docutils literal"><span class="pre">fo_baz</span></code>, <code class="docutils literal"><span class="pre">foooobar</span></code>, and anything else that lies within edit distance of 2
-(as defined by Levenshtein distance). For more details, see the
-<a class="reference internal" href="#approximate-matching"><span class="std std-ref">Approximate matching</span></a> section.</p>
+will produce matches when scanned against <code class="docutils literal"><span class="pre">foobar</span></code>, <code class="docutils literal"><span class="pre">f00bar</span></code>, <code class="docutils literal"><span class="pre">fooba</span></code>,
+<code class="docutils literal"><span class="pre">fobr</span></code>, <code class="docutils literal"><span class="pre">fo_baz</span></code>, <code class="docutils literal"><span class="pre">foooobar</span></code>, and anything else that lies within edit
+distance of 2 (as defined by Levenshtein distance).</p>
+<p>When the same pattern <code class="regexp docutils literal"><span class="pre">/foobar/</span></code> is given a <code class="docutils literal"><span class="pre">hamming_distance</span></code> of 2,
+it will produce matches when scanned against <code class="docutils literal"><span class="pre">foobar</span></code>, <code class="docutils literal"><span class="pre">boofar</span></code>,
+<code class="docutils literal"><span class="pre">f00bar</span></code>, and anything else with at most two characters substituted from the
+original pattern. For more details, see the <a class="reference internal" href="#approximate-matching"><span class="std std-ref">Approximate matching</span></a>
+section.</p>
 </div>
 <div class="section" id="prefiltering-mode">
 <h3>Prefiltering Mode<a class="headerlink" href="#prefiltering-mode" title="Permalink to this headline">¶</a></h3>
@@ -391,7 +396,7 @@ can run on, but may impact the performance of the resulting database.</li>
 <li><code class="docutils literal"><span class="pre">cpu_features</span></code>: This allows the application to specify a mask of CPU
 features that may be used on the target platform. For example,
 <a class="reference internal" href="api_files.html#c.HS_CPU_FEATURES_AVX2" title="HS_CPU_FEATURES_AVX2"><code class="xref c c-member docutils literal"><span class="pre">HS_CPU_FEATURES_AVX2</span></code></a> can be specified for Intel® Advanced
-Vector Extensions +2 (Intel® AVX2) instruction set support. If a flag
+Vector Extensions 2 (Intel® AVX2) instruction set support. If a flag
 for a particular CPU feature is specified, the database will not be usable on
 a CPU without that feature.</li>
 </ol>
@@ -407,12 +412,18 @@ follows:</p>
 <ol class="arabic simple">
 <li><strong>Edit distance</strong> is defined as Levenshtein distance. That is, there are
 three possible edit types considered: insertion, removal and substitution.
-More formal description can be found on
+A more formal description can be found on
 <a class="reference external" href="https://en.wikipedia.org/wiki/Levenshtein_distance">Wikipedia</a>.</li>
-<li><strong>Approximate matching</strong> will match all <em>corpora</em> within a given edit
-distance. That is, given a pattern, approximate matching will match anything
-that can be edited to arrive at a corpus that exactly matches the original
-pattern.</li>
+<li><strong>Hamming distance</strong> is the number of positions by which two strings of
+equal length differ. That is, it is the number of substitutions required to
+convert one string to the other. There are no insertions or removals when
+approximate matching using a Hamming distance. A more formal description can
+be found on
+<a class="reference external" href="https://en.wikipedia.org/wiki/Hamming_distance">Wikipedia</a>.</li>
+<li><strong>Approximate matching</strong> will match all <em>corpora</em> within a given edit or
+Hamming distance. That is, given a pattern, approximate matching will match
+anything that can be edited to arrive at a corpus that exactly matches the
+original pattern.</li>
 <li><strong>Matching semantics</strong> are exactly the same as described in <a class="reference internal" href="#semantics"><span class="std std-ref">Semantics</span></a>.</li>
 </ol>
 <p>Here are a few examples of approximate matching:</p>
@@ -441,7 +452,9 @@ even if the pattern is supported in normal operation.</li>
 reduce to so-called &#8220;vacuous&#8221; patterns (patterns that match everything). For
 example, pattern <code class="regexp docutils literal"><span class="pre">/foo/</span></code> with edit distance 3, if implemented,
 would reduce to matching zero-length buffers. Such patterns will result in a
-&#8220;Pattern cannot be approximately matched&#8221; compile error.</li>
+&#8220;Pattern cannot be approximately matched&#8221; compile error. Approximate
+matching within a Hamming distance does not remove symbols, so will not
+reduce to a vacuous pattern.</li>
 <li>Finally, due to the inherent complexities of defining matching behavior,
 approximate matching implements a reduced subset of regular expression
 syntax. Approximate matching does not support UTF-8 (and other
@@ -508,10 +521,10 @@ per-pattern basis by using an extended parameter described in <a class="referenc
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2015-2017, Intel Corporation.
+      &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.3</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.6</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
       
     </div>
