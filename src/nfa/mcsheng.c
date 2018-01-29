@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -173,7 +173,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
     u32 sheng_limit_x4 = sheng_limit * 0x01010101;
     m128 simd_stop_limit = set4x32(sheng_stop_limit_x4);
     m128 accel_delta = set16x8(sheng_limit - sheng_stop_limit);
-    DEBUG_PRINTF("end %hu, accel %hhu --> limit %hhu\n", sheng_limit,
+    DEBUG_PRINTF("end %hhu, accel %hu --> limit %hhu\n", sheng_limit,
                  m->sheng_accel_limit, sheng_stop_limit);
 #endif
 
@@ -181,7 +181,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
         m128 shuffle_mask = masks[*(c++)];                                 \
         s = pshufb_m128(shuffle_mask, s);                                  \
         u32 s_gpr_x4 = movd(s); /* convert to u8 */                        \
-        DEBUG_PRINTF("c %hhu (%c) --> s %hhu\n", c[-1], c[-1], s_gpr_x4);  \
+        DEBUG_PRINTF("c %hhu (%c) --> s %u\n", c[-1], c[-1], s_gpr_x4);    \
         if (s_gpr_x4 >= sheng_stop_limit_x4) {                             \
             s_gpr = s_gpr_x4;                                              \
             goto exit;                                                     \
@@ -191,7 +191,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
     u8 s_gpr;
     while (c < c_end) {
 #if defined(HAVE_BMI2) && defined(ARCH_64_BIT)
-        /* This version uses pext for efficently bitbashing out scaled
+        /* This version uses pext for efficiently bitbashing out scaled
          * versions of the bytes to process from a u64a */
 
         u64a data_bytes = unaligned_load_u64a(c);
@@ -201,7 +201,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
         s = pshufb_m128(shuffle_mask0, s);
         m128 s_max = s;
         m128 s_max0 = s_max;
-        DEBUG_PRINTF("c %02llx --> s %hhu\n", cc0 >> 4, movd(s));
+        DEBUG_PRINTF("c %02llx --> s %u\n", cc0 >> 4, movd(s));
 
 #define SHENG_SINGLE_UNROLL_ITER(iter)                                  \
         assert(iter);                                                   \
@@ -217,7 +217,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
             s_max = max_u8_m128(s_max, s);                              \
         }                                                               \
         m128 s_max##iter = s_max;                                       \
-        DEBUG_PRINTF("c %02llx --> s %hhu max %hhu\n", cc##iter >> 4,   \
+        DEBUG_PRINTF("c %02llx --> s %u max %u\n", cc##iter >> 4,       \
                      movd(s), movd(s_max));
 
         SHENG_SINGLE_UNROLL_ITER(1);
