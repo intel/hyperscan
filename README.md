@@ -32,7 +32,7 @@ branch.
 
 # Get Involved
 
-The official homepage for Hyperscan is at [01.org/hyperscan](https://01.org/hyperscan).
+The official homepage for Hyperscan is at [www.hyperscan.io](https://www.hyperscan.io).
 
 If you have questions or comments, we encourage you to [join the mailing
 list](https://lists.01.org/mailman/listinfo/hyperscan). Bugs can be filed by
