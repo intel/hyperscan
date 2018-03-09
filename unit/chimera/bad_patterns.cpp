@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,59 +26,70 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- * \brief Multibit: build code (for sparse iterators)
- */
+#include "gtest/gtest.h"
+#include "chimera/ch.h"
 
-#ifndef MULTIBIT_BUILD_H
-#define MULTIBIT_BUILD_H
+using namespace testing;
 
-#include "hs_common.h"
-#include "multibit_internal.h"
-#include "hash.h"
-
-#include <vector>
-
-inline
-bool operator==(const mmbit_sparse_iter &a, const mmbit_sparse_iter &b) {
-    return a.mask == b.mask && a.val == b.val;
-}
-
-namespace std {
-
-template<>
-struct hash<mmbit_sparse_iter> {
-    size_t operator()(const mmbit_sparse_iter &iter) const {
-        return ue2::hash_all(iter.mask, iter.val);
-    }
+class HybridCompile : public TestWithParam<const char *> {
+    // empty
 };
 
-} // namespace std
+TEST_P(HybridCompile, BadPattern) {
+    ch_error_t err;
+    ch_compile_error_t *compile_err = nullptr;
+    const char *pattern = GetParam();
+    ch_database_t *db = nullptr;
 
-namespace ue2 {
+    err = ch_compile_multi(&pattern, nullptr, nullptr, 1, 0, nullptr, &db,
+                           &compile_err);
+    ASSERT_NE(CH_SUCCESS, err) << "Compile should have failed for expr: "
+        << pattern;
+    ASSERT_TRUE(db == nullptr);
+    ASSERT_TRUE(compile_err != nullptr);
 
-/**
- * \brief Return the size in bytes of a multibit that can store the given
- * number of bits.
- *
- * This will throw a resource limit assertion if the requested mmbit is too
- * large.
- *
- * TODO:add temporary HS_CDECL for chimera on Windows, need improve this.
- */
-u32 HS_CDECL mmbit_size(u32 total_bits);
+    ch_free_compile_error(compile_err);
+}
 
-/** \brief Construct a sparse iterator over the values in \a bits for a
- * multibit of size \a total_bits. */
-std::vector<mmbit_sparse_iter>
-mmbBuildSparseIterator(const std::vector<u32> &bits, u32 total_bits);
+static
+const char * BAD_PATTERNS[] = {
+    // unmatched parens
+    "(foo",
+    "foo)",
+    "((foo)",
+    "(foo))",
+    // nothing to repeat
+    "a+++",
+    "a+?+",
+    "a???",
+    "a??+",
+    "?qa",
+    "*abc",
+    "+abc",
+    // repeating boundaries is not allowed (UE-1007)
+    "^?0",
+    "^*0",
+    "^+0",
+    "^{1,3}0",
+    "0$?",
+    "0$*",
+    "0$+",
+    "0${1,3}",
+    // char classes
+    "[]",
+    "[]foobar",
+    "[`-\\80",
+    // bad named classes
+    "[[:foo:]]",
+    "[[:1234:]]",
+    "[[:f\\oo:]]",
+    "[[: :]]",
+    "[[:...:]]",
+    "[[:l\\ower:]]",
+    "[[:abc\\:]]",
+    "[abc[:x\\]pqr:]]",
+    "[[:a\\dz:]]",
+    "foobar\\", // trailing unescaped backslash
+};
 
-struct scatter_plan_raw;
-
-void mmbBuildInitRangePlan(u32 total_bits, u32 begin, u32 end,
-                           scatter_plan_raw *out);
-void mmbBuildClearPlan(u32 total_bits, scatter_plan_raw *out);
-
-} // namespace ue2
-
-#endif // MULTIBIT_BUILD_H
+INSTANTIATE_TEST_CASE_P(Compile, HybridCompile, ValuesIn(BAD_PATTERNS));

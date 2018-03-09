@@ -59,6 +59,11 @@
 #include "hs_internal.h"
 #include "ue2common.h"
 
+#ifdef HS_HYBRID
+#include <pcre.h>
+#include "chimera/ch.h"
+#endif
+
 #include <cassert>
 #include <fstream>
 #include <mutex>
@@ -77,6 +82,7 @@ namespace /* anonymous */ {
 // are we in streaming mode? (default: yes)
 bool g_streaming = true;
 bool g_vectored = false;
+bool g_hybrid = false;
 string g_exprPath("");
 string g_signatureFile("");
 bool g_allSignatures = false;
@@ -282,34 +288,57 @@ void checkExpression(UNUSED void *threadarg) {
 
         // Try and compile a database.
         const char *regexp = regex.c_str();
-        const hs_expr_ext *extp = &ext;
 
         hs_error_t err;
-        hs_compile_error_t *compile_err;
-        hs_database_t *db = nullptr;
+
+        if (g_hybrid) {
+#ifdef HS_HYBRID
+            ch_compile_error_t *ch_compile_err;
+            ch_database_t *hybrid_db = nullptr;
+            err = ch_compile_multi(&regexp, &flags, nullptr, 1, CH_MODE_GROUPS,
+                                   nullptr, &hybrid_db, &ch_compile_err);
+            if (err == HS_SUCCESS) {
+                assert(hybrid_db);
+                recordSuccess(g_exprMap, it->first);
+                ch_free_database(hybrid_db);
+            } else {
+                assert(!hybrid_db);
+                assert(ch_compile_err);
+                recordFailure(g_exprMap, it->first, ch_compile_err->message);
+                ch_free_compile_error(ch_compile_err);
+            }
+#else
+            cerr << "Hybrid mode not available in this build." << endl;
+            exit(1);
+#endif // HS_HYBRID
+        } else {
+            const hs_expr_ext *extp = &ext;
+            hs_compile_error_t *compile_err;
+            hs_database_t *db = nullptr;
 
 #if !defined(RELEASE_BUILD)
-        // This variant is available in non-release builds and allows us to
-        // modify greybox settings.
-        err = hs_compile_multi_int(&regexp, &flags, nullptr, &extp, 1, mode,
-                                   nullptr, &db, &compile_err, *g_grey);
+            // This variant is available in non-release builds and allows us to
+            // modify greybox settings.
+            err = hs_compile_multi_int(&regexp, &flags, nullptr, &extp, 1, mode,
+                                       nullptr, &db, &compile_err, *g_grey);
 #else
-        err = hs_compile_ext_multi(&regexp, &flags, nullptr, &extp, 1, mode,
-                                   nullptr, &db, &compile_err);
+            err = hs_compile_ext_multi(&regexp, &flags, nullptr, &extp, 1, mode,
+                                       nullptr, &db, &compile_err);
 #endif
 
-        if (err == HS_SUCCESS) {
-            assert(db);
-            recordSuccess(g_exprMap, it->first);
-            hs_free_database(db);
-            if (check_logical) {
-                cacheSubExpr(it->first, regex, flags, ext);
+            if (err == HS_SUCCESS) {
+                assert(db);
+                recordSuccess(g_exprMap, it->first);
+                hs_free_database(db);
+                if (check_logical) {
+                    cacheSubExpr(it->first, regex, flags, ext);
+                }
+            } else {
+                assert(!db);
+                assert(compile_err);
+                recordFailure(g_exprMap, it->first, compile_err->message);
+                hs_free_compile_error(compile_err);
             }
-        } else {
-            assert(!db);
-            assert(compile_err);
-            recordFailure(g_exprMap, it->first, compile_err->message);
-            hs_free_compile_error(compile_err);
         }
     }
 }
@@ -429,6 +458,9 @@ void usage() {
 #endif
          << "  -V              Operate in vectored mode." << endl
          << "  -N              Operate in block mode (default: streaming)." << endl
+#ifdef HS_HYBRID
+         << "  -H              Operate in hybrid mode." << endl
+#endif
          << "  -L              Pass HS_FLAG_SOM_LEFTMOST for all expressions (default: off)." << endl
          << "  -8              Force UTF8 mode on all patterns." << endl
          << "  -T NUM          Run with NUM threads." << endl
@@ -440,7 +472,7 @@ void usage() {
 
 static
 void processArgs(int argc, char *argv[], UNUSED unique_ptr<Grey> &grey) {
-    const char options[] = "e:E:s:z:hLNV8G:T:BC";
+    const char options[] = "e:E:s:z:hHLNV8G:T:BC";
     bool signatureSet = false;
 
     for (;;) {
@@ -491,6 +523,9 @@ void processArgs(int argc, char *argv[], UNUSED unique_ptr<Grey> &grey) {
         case 'V':
             g_streaming = false;
             g_vectored = true;
+            break;
+        case 'H':
+            g_hybrid = true;
             break;
         case 'T':
             num_of_threads = atoi(optarg);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, Intel Corporation
+ * Copyright (c) 2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,54 +26,45 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ENGINEHYPERSCAN_H
-#define ENGINEHYPERSCAN_H
+#ifndef ENGINECHIMERA_H
+#define ENGINECHIMERA_H
 
 #include "expressions.h"
 #include "engine.h"
-#include "hs_runtime.h"
+
+#include "chimera/ch.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
 /** Infomation about the database compile */
-struct CompileHSStats {
+struct CompileCHStats {
     std::string sigs_name;
     std::string signatures;
     std::string db_info;
     size_t expressionCount = 0;
     size_t compiledSize = 0;
     uint32_t crc32 = 0;
-    bool streaming;
-    size_t streamSize = 0;
     size_t scratchSize = 0;
     long double compileSecs = 0;
     unsigned int peakMemorySize = 0;
 };
 
 /** Engine context which is allocated on a per-thread basis. */
-class EngineHSContext : public EngineContext {
+class EngineCHContext : public EngineContext{
 public:
-    explicit EngineHSContext(const hs_database_t *db);
-    ~EngineHSContext();
+    explicit EngineCHContext(const ch_database_t *db);
+    ~EngineCHContext();
 
-    hs_scratch_t *scratch = nullptr;
+    ch_scratch_t *scratch = nullptr;
 };
 
-/** Streaming mode scans have persistent stream state associated with them. */
-class EngineHSStream : public EngineStream {
+/** Chimera Engine for scanning data. */
+class EngineChimera : public Engine {
 public:
-    ~EngineHSStream();
-    hs_stream_t *id;
-    EngineHSContext *ctx;
-};
-
-/** Hyperscan Engine for scanning data. */
-class EngineHyperscan : public Engine {
-public:
-    explicit EngineHyperscan(hs_database_t *db, CompileHSStats cs);
-    ~EngineHyperscan();
+    explicit EngineChimera(ch_database_t *db, CompileCHStats cs);
+    ~EngineChimera();
 
     std::unique_ptr<EngineContext> makeContext() const;
 
@@ -101,17 +92,12 @@ public:
     void sqlStats(SqlDB &db) const;
 
 private:
-    hs_database_t *db;
-    CompileHSStats compile_stats;
+    ch_database_t *db;
+    CompileCHStats compile_stats;
 };
 
-namespace ue2 {
-struct Grey;
-}
+std::unique_ptr<EngineChimera>
+buildEngineChimera(const ExpressionMap &expressions, const std::string &name,
+                   const std::string &sigs_name);
 
-std::unique_ptr<EngineHyperscan>
-buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
-                     const std::string &name, const std::string &sigs_name,
-                     const ue2::Grey &grey);
-
-#endif // ENGINEHYPERSCAN_H
+#endif // ENGINECHIMERA_H

@@ -187,6 +187,14 @@ string pcreErrStr(int err) {
     }
 }
 
+/* that is, a mode provided by native hyperscan */
+static
+bool isStandardMode(unsigned int mode) {
+    return mode == MODE_BLOCK
+        || mode == MODE_STREAMING
+        || mode == MODE_VECTORED;
+}
+
 GroundTruth::GroundTruth(ostream &os, const ExpressionMap &expr,
                          unsigned long int limit,
                          unsigned long int limit_recursion)
@@ -194,8 +202,10 @@ GroundTruth::GroundTruth(ostream &os, const ExpressionMap &expr,
       matchLimitRecursion(limit_recursion) {}
 
 void GroundTruth::global_prep() {
-    // We're using pcre callouts
-    pcre_callout = &pcreCallOut;
+    if (isStandardMode(colliderMode)) {
+        // We're using pcre callouts
+        pcre_callout = &pcreCallOut;
+    }
 }
 
 static
@@ -262,11 +272,17 @@ GroundTruth::compile(unsigned id, bool no_callouts) {
         throw PcreCompileFailure("Unsupported extended flags.");
     }
 
+    // Hybrid mode implies SOM.
+    if (colliderMode == MODE_HYBRID) {
+        assert(!use_NFA);
+        som = true;
+    }
+
     // SOM flags might be set globally.
     som |= !!somFlags;
 
     // For traditional Hyperscan, add global callout to pattern.
-    if (!combination && !no_callouts) {
+    if (!combination && !no_callouts && isStandardMode(colliderMode)) {
         addCallout(re);
     }
 
@@ -404,6 +420,79 @@ int scanBasic(const CompiledPcre &compiled, const string &buffer,
 }
 
 static
+bool isUtf8(const CompiledPcre &compiled) {
+    unsigned long int options = 0;
+    pcre_fullinfo(compiled.bytecode, NULL, PCRE_INFO_OPTIONS, &options);
+    return options & PCRE_UTF8;
+}
+
+static
+CaptureVec makeCaptureVec(const vector<int> &ovector, int ret) {
+    assert(ret > 0);
+
+    CaptureVec cap;
+
+    if (no_groups) {
+        return cap; // No group info requested.
+    }
+
+    cap.reserve(ret * 2);
+    for (int i = 0; i < ret * 2; i += 2) {
+        int from = ovector[i], to = ovector[i + 1];
+        cap.push_back(make_pair(from, to));
+    }
+    return cap;
+}
+
+static
+int scanHybrid(const CompiledPcre &compiled, const string &buffer,
+               const pcre_extra &extra, vector<int> &ovector,
+               ResultSet &rs, ostream &out) {
+    int len = (int)buffer.length();
+    int startoffset = 0;
+    bool utf8 = isUtf8(compiled);
+
+    int flags = 0;
+    int ret;
+    do {
+        ret = pcre_exec(compiled.bytecode, &extra, buffer.c_str(), len,
+                        startoffset, flags, &ovector[0], ovector.size());
+
+        if (ret <= PCRE_ERROR_NOMATCH) {
+            return ret;
+        }
+
+        int from = ovector.at(0);
+        int to = ovector.at(1);
+        rs.addMatch(from, to, makeCaptureVec(ovector, ret));
+
+        if (echo_matches) {
+            out << "PCRE Match @ (" << from << "," << to << ")" << endl;
+        }
+
+        // If we only wanted a single match, we're done.
+        if (compiled.highlander) break;
+
+        // Next scan starts at the first codepoint after the match. It's
+        // possible that we have a vacuous match, in which case we must step
+        // past it to ensure that we always progress.
+        if (from != to) {
+            startoffset = to;
+        } else if (utf8) {
+            startoffset = to + 1;
+            while (startoffset < len
+                   && ((buffer[startoffset] & 0xc0) == UTF_CONT_BYTE_HEADER)) {
+                ++startoffset;
+            }
+        } else {
+            startoffset = to + 1;
+        }
+    } while (startoffset <= len);
+
+    return ret;
+}
+
+static
 int scanOffset(const CompiledPcre &compiled, const string &buffer,
                const pcre_extra &extra, vector<int> &ovector,
                CalloutContext &ctx) {
@@ -532,15 +621,24 @@ bool GroundTruth::run(unsigned, const CompiledPcre &compiled,
     pcre_extra extra;
     extra.flags = 0;
 
-    // Switch on callouts.
-    extra.flags |= PCRE_EXTRA_CALLOUT_DATA;
-    extra.callout_data = &ctx;
+    // If running in traditional HyperScan mode, switch on callouts.
+    bool usingCallouts = isStandardMode(colliderMode);
+    if (usingCallouts) {
+        // Switch on callouts.
+        extra.flags |= PCRE_EXTRA_CALLOUT_DATA;
+        extra.callout_data = &ctx;
+    }
 
     // Set the match_limit (in order to bound execution time on very complex
     // patterns)
     extra.flags |= (PCRE_EXTRA_MATCH_LIMIT | PCRE_EXTRA_MATCH_LIMIT_RECURSION);
-    extra.match_limit = matchLimit;
-    extra.match_limit_recursion = matchLimitRecursion;
+    if (colliderMode == MODE_HYBRID) {
+        extra.match_limit = 10000000;
+        extra.match_limit_recursion = 1500;
+    } else {
+        extra.match_limit = matchLimit;
+        extra.match_limit_recursion = matchLimitRecursion;
+    }
 
 #ifdef PCRE_NO_START_OPTIMIZE
     // Switch off optimizations that may result in callouts not occurring.
@@ -553,6 +651,7 @@ bool GroundTruth::run(unsigned, const CompiledPcre &compiled,
     ovector.resize(ovecsize);
 
     int ret;
+    bool hybrid = false;
     switch (colliderMode) {
     case MODE_BLOCK:
     case MODE_STREAMING:
@@ -562,6 +661,10 @@ bool GroundTruth::run(unsigned, const CompiledPcre &compiled,
         } else {
             ret = scanBasic(compiled, buffer, extra, ovector, ctx);
         }
+        break;
+    case MODE_HYBRID:
+        ret = scanHybrid(compiled, buffer, extra, ovector, rs, out);
+        hybrid = true;
         break;
     default:
         assert(0);
@@ -595,7 +698,7 @@ bool GroundTruth::run(unsigned, const CompiledPcre &compiled,
         return true;
     }
 
-    if (compiled.som) {
+    if (compiled.som && !hybrid) {
         filterLeftmostSom(rs);
     }
 

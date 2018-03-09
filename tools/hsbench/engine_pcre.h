@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, Intel Corporation
+ * Copyright (c) 2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,54 +26,53 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ENGINEHYPERSCAN_H
-#define ENGINEHYPERSCAN_H
+#ifndef ENGINEPCRE_H
+#define ENGINEPCRE_H
 
 #include "expressions.h"
 #include "engine.h"
-#include "hs_runtime.h"
+
+#include <pcre.h>
 
 #include <memory>
 #include <string>
 #include <vector>
 
 /** Infomation about the database compile */
-struct CompileHSStats {
+struct CompilePCREStats {
     std::string sigs_name;
     std::string signatures;
     std::string db_info;
     size_t expressionCount = 0;
     size_t compiledSize = 0;
-    uint32_t crc32 = 0;
-    bool streaming;
-    size_t streamSize = 0;
     size_t scratchSize = 0;
     long double compileSecs = 0;
     unsigned int peakMemorySize = 0;
 };
 
 /** Engine context which is allocated on a per-thread basis. */
-class EngineHSContext : public EngineContext {
+class EnginePCREContext : public EngineContext{
 public:
-    explicit EngineHSContext(const hs_database_t *db);
-    ~EngineHSContext();
+    explicit EnginePCREContext(int capture_cnt);
+    ~EnginePCREContext();
 
-    hs_scratch_t *scratch = nullptr;
+    int *ovec = nullptr;
 };
 
-/** Streaming mode scans have persistent stream state associated with them. */
-class EngineHSStream : public EngineStream {
-public:
-    ~EngineHSStream();
-    hs_stream_t *id;
-    EngineHSContext *ctx;
+struct PcreDB {
+    bool highlander = false;
+    bool utf8 = false;
+    u32 id;
+    pcre *db = nullptr;
+    pcre_extra *extra = nullptr;
 };
 
-/** Hyperscan Engine for scanning data. */
-class EngineHyperscan : public Engine {
+/** PCRE Engine for scanning data. */
+class EnginePCRE : public Engine {
 public:
-    explicit EngineHyperscan(hs_database_t *db, CompileHSStats cs);
-    ~EngineHyperscan();
+    explicit EnginePCRE(std::vector<std::unique_ptr<PcreDB>> dbs_in,
+                        CompilePCREStats cs, int capture_cnt_in);
+    ~EnginePCRE();
 
     std::unique_ptr<EngineContext> makeContext() const;
 
@@ -101,17 +100,15 @@ public:
     void sqlStats(SqlDB &db) const;
 
 private:
-    hs_database_t *db;
-    CompileHSStats compile_stats;
+    std::vector<std::unique_ptr<PcreDB>> dbs;
+
+    CompilePCREStats compile_stats;
+
+    int capture_cnt;
 };
 
-namespace ue2 {
-struct Grey;
-}
+std::unique_ptr<EnginePCRE>
+buildEnginePcre(const ExpressionMap &expressions, const std::string &name,
+                const std::string &sigs_name);
 
-std::unique_ptr<EngineHyperscan>
-buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
-                     const std::string &name, const std::string &sigs_name,
-                     const ue2::Grey &grey);
-
-#endif // ENGINEHYPERSCAN_H
+#endif // ENGINEPCRE_H

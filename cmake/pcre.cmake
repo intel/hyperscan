@@ -61,5 +61,3 @@ else ()
         return ()
     endif ()
 endif (PCRE_BUILD_SOURCE)
-
-set (PCRE_CHECKED TRUE PARENT_SCOPE)

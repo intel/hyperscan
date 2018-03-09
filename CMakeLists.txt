@@ -70,6 +70,16 @@ include_directories(SYSTEM include)
 
 include (${CMAKE_MODULE_PATH}/boost.cmake)
 
+# PCRE check, we have a fixed requirement for PCRE to use Chimera
+# and hscollider
+set(PCRE_REQUIRED_MAJOR_VERSION 8)
+set(PCRE_REQUIRED_MINOR_VERSION 41)
+set(PCRE_REQUIRED_VERSION ${PCRE_REQUIRED_MAJOR_VERSION}.${PCRE_REQUIRED_MINOR_VERSION})
+include (${CMAKE_MODULE_PATH}/pcre.cmake)
+if (NOT CORRECT_PCRE_VERSION)
+    message(STATUS "PCRE ${PCRE_REQUIRED_VERSION} not found")
+endif()
+
 # -- make this work? set(python_ADDITIONAL_VERSIONS 2.7 2.6)
 find_package(PythonInterp)
 find_program(RAGEL ragel)
@@ -154,7 +164,7 @@ if(MSVC OR MSVC_IDE)
             # todo: change these as required
             set(ARCH_C_FLAGS "/arch:AVX2")
             set(ARCH_CXX_FLAGS "/arch:AVX2")
-            set(MSVC_WARNS "/wd4101 /wd4146 /wd4172 /wd4200 /wd4244 /wd4267 /wd4307 /wd4334 /wd4805 -D_CRT_SECURE_NO_WARNINGS")
+            set(MSVC_WARNS "/wd4101 /wd4146 /wd4172 /wd4200 /wd4244 /wd4267 /wd4307 /wd4334 /wd4805 /wd4996 -D_CRT_SECURE_NO_WARNINGS")
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  /O2 ${MSVC_WARNS}")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 ${MSVC_WARNS} /wd4800 -DBOOST_DETAIL_NO_CONTAINER_FWD")
         endif()
@@ -445,11 +455,19 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
+# we need static libs for Chimera - too much deep magic for shared libs
+if (CORRECT_PCRE_VERSION AND BUILD_STATIC_LIBS)
+    set(BUILD_CHIMERA TRUE)
+endif()
+
 add_subdirectory(util)
 add_subdirectory(unit)
 add_subdirectory(doc/dev-reference)
 if (EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
     add_subdirectory(tools)
+endif()
+if (EXISTS ${CMAKE_SOURCE_DIR}/chimera/CMakeLists.txt AND BUILD_CHIMERA)
+    add_subdirectory(chimera)
 endif()
 
 # do substitutions

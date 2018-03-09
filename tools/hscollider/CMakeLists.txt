@@ -1,9 +1,3 @@
-# we have a fixed requirement for PCRE
-set(PCRE_REQUIRED_MAJOR_VERSION 8)
-set(PCRE_REQUIRED_MINOR_VERSION 41)
-set(PCRE_REQUIRED_VERSION ${PCRE_REQUIRED_MAJOR_VERSION}.${PCRE_REQUIRED_MINOR_VERSION})
-
-include (${CMAKE_MODULE_PATH}/pcre.cmake)
 if (NOT CORRECT_PCRE_VERSION)
     message(STATUS "PCRE ${PCRE_REQUIRED_VERSION} not found, not building hscollider")
     return()
@@ -28,6 +22,8 @@ set_source_files_properties(
     COMPILE_FLAGS "${RAGEL_C_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}")
 
 ragelmaker(ColliderCorporaParser.rl)
+
+add_definitions(-DHS_HYBRID)
 
 # only set these after all tests are done
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
@@ -69,7 +65,7 @@ add_dependencies(hscollider ragel_ColliderCorporaParser)
 add_dependencies(hscollider pcre)
 
 if(NOT WIN32)
-    target_link_libraries(hscollider hs ${PCRE_LDFLAGS} databaseutil
+    target_link_libraries(hscollider hs chimera ${PCRE_LDFLAGS} databaseutil
         expressionutil corpusomatic crosscompileutil pthread
     "${BACKTRACE_LDFLAGS}")
 
@@ -78,7 +74,7 @@ if(HAVE_BACKTRACE)
         "${BACKTRACE_CFLAGS}")
 endif()
 else() # WIN32
-    target_link_libraries(hscollider hs ${PCRE_LDFLAGS} databaseutil
+    target_link_libraries(hscollider hs chimera ${PCRE_LDFLAGS} databaseutil
         expressionutil corpusomatic crosscompileutil)
 endif()
 

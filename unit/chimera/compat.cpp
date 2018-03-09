@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,59 +26,31 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- * \brief Multibit: build code (for sparse iterators)
- */
+#include "gtest/gtest.h"
+#include "chimera/ch.h"
+#include "hs.h"
 
-#ifndef MULTIBIT_BUILD_H
-#define MULTIBIT_BUILD_H
+// We currently depend on our common (meaning) hash defines having the same
+// values.
+TEST(HybridCompat, Defines) {
+    // flags
+    EXPECT_EQ(HS_FLAG_CASELESS, CH_FLAG_CASELESS);
+    EXPECT_EQ(HS_FLAG_DOTALL, CH_FLAG_DOTALL);
+    EXPECT_EQ(HS_FLAG_MULTILINE, CH_FLAG_MULTILINE);
+    EXPECT_EQ(HS_FLAG_SINGLEMATCH, CH_FLAG_SINGLEMATCH);
+    EXPECT_EQ(HS_FLAG_UTF8, CH_FLAG_UTF8);
+    EXPECT_EQ(HS_FLAG_UCP, CH_FLAG_UCP);
 
-#include "hs_common.h"
-#include "multibit_internal.h"
-#include "hash.h"
-
-#include <vector>
-
-inline
-bool operator==(const mmbit_sparse_iter &a, const mmbit_sparse_iter &b) {
-    return a.mask == b.mask && a.val == b.val;
+    // errors
+    EXPECT_EQ(HS_SUCCESS, CH_SUCCESS);
+    EXPECT_EQ(HS_INVALID, CH_INVALID);
+    EXPECT_EQ(HS_NOMEM, CH_NOMEM);
+    EXPECT_EQ(HS_SCAN_TERMINATED, CH_SCAN_TERMINATED);
+    EXPECT_EQ(HS_COMPILER_ERROR, CH_COMPILER_ERROR);
+    EXPECT_EQ(HS_DB_VERSION_ERROR, CH_DB_VERSION_ERROR);
+    EXPECT_EQ(HS_DB_PLATFORM_ERROR, CH_DB_PLATFORM_ERROR);
+    EXPECT_EQ(HS_DB_MODE_ERROR, CH_DB_MODE_ERROR);
+    EXPECT_EQ(HS_BAD_ALIGN, CH_BAD_ALIGN);
+    EXPECT_EQ(HS_BAD_ALLOC, CH_BAD_ALLOC);
+    EXPECT_EQ(HS_SCRATCH_IN_USE, CH_SCRATCH_IN_USE);
 }
-
-namespace std {
-
-template<>
-struct hash<mmbit_sparse_iter> {
-    size_t operator()(const mmbit_sparse_iter &iter) const {
-        return ue2::hash_all(iter.mask, iter.val);
-    }
-};
-
-} // namespace std
-
-namespace ue2 {
-
-/**
- * \brief Return the size in bytes of a multibit that can store the given
- * number of bits.
- *
- * This will throw a resource limit assertion if the requested mmbit is too
- * large.
- *
- * TODO:add temporary HS_CDECL for chimera on Windows, need improve this.
- */
-u32 HS_CDECL mmbit_size(u32 total_bits);
-
-/** \brief Construct a sparse iterator over the values in \a bits for a
- * multibit of size \a total_bits. */
-std::vector<mmbit_sparse_iter>
-mmbBuildSparseIterator(const std::vector<u32> &bits, u32 total_bits);
-
-struct scatter_plan_raw;
-
-void mmbBuildInitRangePlan(u32 total_bits, u32 begin, u32 end,
-                           scatter_plan_raw *out);
-void mmbBuildClearPlan(u32 total_bits, scatter_plan_raw *out);
-
-} // namespace ue2
-
-#endif // MULTIBIT_BUILD_H

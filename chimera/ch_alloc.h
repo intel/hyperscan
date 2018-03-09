@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,59 +26,40 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- * \brief Multibit: build code (for sparse iterators)
- */
-
-#ifndef MULTIBIT_BUILD_H
-#define MULTIBIT_BUILD_H
+#ifndef CH_ALLOC_H
+#define CH_ALLOC_H
 
 #include "hs_common.h"
-#include "multibit_internal.h"
-#include "hash.h"
+#include "ue2common.h"
+#include "ch_common.h"
 
-#include <vector>
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+extern hs_alloc_t ch_database_alloc;
+extern hs_alloc_t ch_misc_alloc;
+extern hs_alloc_t ch_scratch_alloc;
 
-inline
-bool operator==(const mmbit_sparse_iter &a, const mmbit_sparse_iter &b) {
-    return a.mask == b.mask && a.val == b.val;
+extern hs_free_t ch_database_free;
+extern hs_free_t ch_misc_free;
+extern hs_free_t ch_scratch_free;
+#ifdef __cplusplus
+} /* extern C */
+#endif
+/** \brief Check the results of an alloc done with hs_alloc for alignment.
+ *
+ * If we have incorrect alignment, return an error. Caller should free the
+ * offending block. */
+static really_inline
+ch_error_t ch_check_alloc(const void *mem) {
+    ch_error_t ret = CH_SUCCESS;
+    if (!mem) {
+        ret = CH_NOMEM;
+    } else if (!ISALIGNED_N(mem, alignof(unsigned long long))) {
+        ret = CH_BAD_ALLOC;
+    }
+    return ret;
 }
 
-namespace std {
-
-template<>
-struct hash<mmbit_sparse_iter> {
-    size_t operator()(const mmbit_sparse_iter &iter) const {
-        return ue2::hash_all(iter.mask, iter.val);
-    }
-};
-
-} // namespace std
-
-namespace ue2 {
-
-/**
- * \brief Return the size in bytes of a multibit that can store the given
- * number of bits.
- *
- * This will throw a resource limit assertion if the requested mmbit is too
- * large.
- *
- * TODO:add temporary HS_CDECL for chimera on Windows, need improve this.
- */
-u32 HS_CDECL mmbit_size(u32 total_bits);
-
-/** \brief Construct a sparse iterator over the values in \a bits for a
- * multibit of size \a total_bits. */
-std::vector<mmbit_sparse_iter>
-mmbBuildSparseIterator(const std::vector<u32> &bits, u32 total_bits);
-
-struct scatter_plan_raw;
-
-void mmbBuildInitRangePlan(u32 total_bits, u32 begin, u32 end,
-                           scatter_plan_raw *out);
-void mmbBuildClearPlan(u32 total_bits, scatter_plan_raw *out);
-
-} // namespace ue2
-
-#endif // MULTIBIT_BUILD_H
+#endif

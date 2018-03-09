@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,59 +26,20 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- * \brief Multibit: build code (for sparse iterators)
- */
-
-#ifndef MULTIBIT_BUILD_H
-#define MULTIBIT_BUILD_H
-
-#include "hs_common.h"
-#include "multibit_internal.h"
-#include "hash.h"
-
-#include <vector>
-
-inline
-bool operator==(const mmbit_sparse_iter &a, const mmbit_sparse_iter &b) {
-    return a.mask == b.mask && a.val == b.val;
-}
-
-namespace std {
-
-template<>
-struct hash<mmbit_sparse_iter> {
-    size_t operator()(const mmbit_sparse_iter &iter) const {
-        return ue2::hash_all(iter.mask, iter.val);
-    }
-};
-
-} // namespace std
-
-namespace ue2 {
+#ifndef CH_H_
+#define CH_H_
 
 /**
- * \brief Return the size in bytes of a multibit that can store the given
- * number of bits.
+ * @file
+ * @brief The complete Chimera API definition.
  *
- * This will throw a resource limit assertion if the requested mmbit is too
- * large.
+ * Chimera is a hybrid solution of Hyperscan and PCRE.
  *
- * TODO:add temporary HS_CDECL for chimera on Windows, need improve this.
+ * This header includes both the Chimera compiler and runtime components. See
+ * the individual component headers for documentation.
  */
-u32 HS_CDECL mmbit_size(u32 total_bits);
 
-/** \brief Construct a sparse iterator over the values in \a bits for a
- * multibit of size \a total_bits. */
-std::vector<mmbit_sparse_iter>
-mmbBuildSparseIterator(const std::vector<u32> &bits, u32 total_bits);
+#include "ch_compile.h"
+#include "ch_runtime.h"
 
-struct scatter_plan_raw;
-
-void mmbBuildInitRangePlan(u32 total_bits, u32 begin, u32 end,
-                           scatter_plan_raw *out);
-void mmbBuildClearPlan(u32 total_bits, scatter_plan_raw *out);
-
-} // namespace ue2
-
-#endif // MULTIBIT_BUILD_H
+#endif /* CH_H_ */
