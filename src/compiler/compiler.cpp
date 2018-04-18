@@ -118,7 +118,8 @@ ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
 
     expr.utf8 = mode.utf8; /* utf8 may be set by parse() */
 
-    if (expr.utf8 && !isValidUtf8(expression)) {
+    const size_t len = strlen(expression);
+    if (expr.utf8 && !isValidUtf8(expression, len)) {
         throw ParseError("Expression is not valid UTF-8.");
     }
 

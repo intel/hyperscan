@@ -118,5 +118,5 @@ INSTANTIATE_TEST_CASE_P(ValidUtf8, ValidUtf8Test, ValuesIn(valid_utf8_tests));
 TEST_P(ValidUtf8Test, check) {
     const auto &info = GetParam();
     SCOPED_TRACE(testing::Message() << "String is: " << printable(info.str));
-    ASSERT_EQ(info.is_valid, isValidUtf8(info.str.c_str()));
+    ASSERT_EQ(info.is_valid, isValidUtf8(info.str.c_str(), info.str.size()));
 }

@@ -1060,7 +1060,7 @@ void addCorporaToQueue(ostream &out, BoundedQueue<TestUnit> &testq, unsigned id,
     // is undefined.
     if (utf8) {
         auto is_invalid_utf8 = [](const Corpus &corpus) {
-            return !isValidUtf8(corpus.data.c_str());
+            return !isValidUtf8(corpus.data.c_str(), corpus.data.size());
         };
         c.erase(remove_if(begin(c), end(c), is_invalid_utf8), end(c));
     }
