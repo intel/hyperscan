@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -122,11 +122,11 @@ typedef struct hs_scratch hs_scratch_t;
  *      subsequent calls to @ref hs_scan_stream() for that stream will
  *      immediately return with @ref HS_SCAN_TERMINATED.
  */
-typedef int (*match_event_handler)(unsigned int id,
-                                   unsigned long long from,
-                                   unsigned long long to,
-                                   unsigned int flags,
-                                   void *context);
+typedef int (HS_CDECL *match_event_handler)(unsigned int id,
+                                            unsigned long long from,
+                                            unsigned long long to,
+                                            unsigned int flags,
+                                            void *context);
 
 /**
  * Open and initialise a stream.

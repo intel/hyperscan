@@ -61,8 +61,13 @@ endif()
 add_executable(hsbench ${hsbench_SOURCES})
 if (BUILD_CHIMERA)
     include_directories(${PCRE_INCLUDE_DIRS})
-    target_link_libraries(hsbench hs chimera ${PCRE_LDFLAGS} databaseutil
-        expressionutil ${SQLITE3_LDFLAGS} ${CMAKE_THREAD_LIBS_INIT})
+    if(NOT WIN32)
+        target_link_libraries(hsbench hs chimera ${PCRE_LDFLAGS} databaseutil
+            expressionutil ${SQLITE3_LDFLAGS} ${CMAKE_THREAD_LIBS_INIT})
+    else()
+        target_link_libraries(hsbench hs chimera pcre databaseutil
+            expressionutil ${SQLITE3_LDFLAGS} ${CMAKE_THREAD_LIBS_INIT})
+    endif()
 else()
     target_link_libraries(hsbench hs databaseutil expressionutil
         ${SQLITE3_LDFLAGS} ${CMAKE_THREAD_LIBS_INIT})

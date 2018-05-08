@@ -46,7 +46,7 @@ using namespace std;
 
 namespace ue2 {
 
-u32 HS_CDECL mmbit_size(u32 total_bits) {
+u32 mmbit_size(u32 total_bits) {
     if (total_bits > MMB_MAX_BITS) {
         throw ResourceLimitError();
     }

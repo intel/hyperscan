@@ -58,7 +58,11 @@
 #include <set>
 #include <thread>
 
+#ifndef _WIN32
 #include <getopt.h>
+#else
+#include "win_getopt.h"
+#endif
 #ifndef _WIN32
 #include <pthread.h>
 #if defined(HAVE_PTHREAD_NP_H)
@@ -138,6 +142,16 @@ public:
 
     // Apply processor affinity (if available) to this thread.
     bool affine(UNUSED int cpu) {
+
+#if defined(_WIN32)
+        SYSTEM_INFO system_info;
+        GetSystemInfo(&system_info);
+        assert(cpu >= 0 && (DWORD)cpu < system_info.dwNumberOfProcessors);
+        DWORD_PTR mask = 1 << cpu;
+        DWORD_PTR rv = SetThreadAffinityMask(thr.native_handle(), mask);
+        return rv != 0;
+#endif
+
 #ifdef HAVE_DECL_PTHREAD_SETAFFINITY_NP
 #if defined(__FreeBSD__)
         cpuset_t cpuset;
@@ -191,7 +205,7 @@ void usage(const char *error) {
     printf("  -H              Benchmark using Chimera (if supported).\n");
     printf("  -P              Benchmark using PCRE (if supported).\n");
 #endif
-#ifdef HAVE_DECL_PTHREAD_SETAFFINITY_NP
+#if defined(HAVE_DECL_PTHREAD_SETAFFINITY_NP) || defined(_WIN32)
     printf("  -T CPU,CPU,...  Benchmark with threads on these CPUs.\n");
 #endif
     printf("  -i DIR          Don't compile, load from files in DIR"
@@ -225,7 +239,7 @@ static
 void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
                  UNUSED unique_ptr<Grey> &grey) {
     const char options[] = "-b:c:Cd:e:E:G:hHi:n:No:p:PsS:Vw:z:"
-#ifdef HAVE_DECL_PTHREAD_SETAFFINITY_NP
+#if defined(HAVE_DECL_PTHREAD_SETAFFINITY_NP) || defined(_WIN32)
         "T:" // add the thread flag
 #endif
         ;
@@ -332,7 +346,7 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
         case 'S':
             sigName.assign(optarg);
             break;
-#ifdef HAVE_DECL_PTHREAD_SETAFFINITY_NP
+#if defined(HAVE_DECL_PTHREAD_SETAFFINITY_NP) || defined(_WIN32)
         case 'T':
             if (!strToList(optarg, threadCores)) {
                 usage("Couldn't parse argument to -T flag, should be"
@@ -704,7 +718,11 @@ void displayPerScanResults(const vector<unique_ptr<ThreadContext>> &threads,
         for (size_t j = 0; j != results.size(); j++) {
             const auto &r = results[j];
             double mbps = calc_mbps(r.seconds, bytesPerRun);
+#ifndef _WIN32
             printf("T %2u Scan %2zu: %'0.2f Mbit/sec\n", t->num, j, mbps);
+#else
+            printf("T %2u Scan %2zu: %0.2f Mbit/sec\n", t->num, j, mbps);
+#endif
         }
     }
     printf("\n");
@@ -749,6 +767,7 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
         }
     }
 
+#ifndef _WIN32
     printf("Time spent scanning:       %'0.3f seconds\n", totalSecs);
     printf("Corpus size:               %'llu bytes ", bytesPerRun);
     switch (scan_mode) {
@@ -764,22 +783,56 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
         printf("(%'zu blocks)\n", corpus_blocks.size());
         break;
     }
+#else
+    printf("Time spent scanning:       %0.3f seconds\n", totalSecs);
+    printf("Corpus size:               %llu bytes ", bytesPerRun);
+    switch (scan_mode) {
+    case ScanMode::STREAMING:
+        printf("(%zu blocks in %llu streams)\n", corpus_blocks.size(),
+               count_streams(corpus_blocks));
+        break;
+    case ScanMode::VECTORED:
+        printf("(%zu blocks in %llu vectors)\n", corpus_blocks.size(),
+               count_streams(corpus_blocks));
+        break;
+    case ScanMode::BLOCK:
+        printf("(%zu blocks)\n", corpus_blocks.size());
+        break;
+    }
+#endif
 
     u64a totalBytes = bytesPerRun * repeats * threads.size();
     u64a totalBlocks = corpus_blocks.size() * repeats * threads.size();
 
     double matchRate = ((double)matchesPerRun * 1024) / bytesPerRun;
+#ifndef _WIN32
     printf("Matches per iteration:     %'llu (%'0.3f matches/kilobyte)\n",
            matchesPerRun, matchRate);
+#else
+    printf("Matches per iteration:     %llu (%0.3f matches/kilobyte)\n",
+           matchesPerRun, matchRate);
+#endif
 
     double blockRate = (double)totalBlocks / (double)totalSecs;
+#ifndef _WIN32
     printf("Overall block rate:        %'0.2f blocks/sec\n", blockRate);
     printf("Mean throughput (overall): %'0.2Lf Mbit/sec\n",
            calc_mbps(totalSecs, totalBytes));
 
+#else
+    printf("Overall block rate:        %0.2f blocks/sec\n", blockRate);
+    printf("Mean throughput (overall): %0.2Lf Mbit/sec\n",
+           calc_mbps(totalSecs, totalBytes));
+
+#endif
     double lowestScanTime = fastestResult(threads);
+#ifndef _WIN32
     printf("Max throughput (per core): %'0.2Lf Mbit/sec\n",
            calc_mbps(lowestScanTime, bytesPerRun));
+#else
+    printf("Max throughput (per core): %0.2Lf Mbit/sec\n",
+           calc_mbps(lowestScanTime, bytesPerRun));
+#endif
     printf("\n");
 
     if (display_per_scan) {
@@ -892,7 +945,7 @@ void runBenchmark(const Engine &db,
         numThreads = 1;
     } else {
         numThreads = threadCores.size();
-#ifdef HAVE_DECL_PTHREAD_SETAFFINITY_NP
+#if defined(HAVE_DECL_PTHREAD_SETAFFINITY_NP) || defined(_WIN32)
         useAffinity = true;
 #else
         useAffinity = false;
@@ -932,7 +985,7 @@ void runBenchmark(const Engine &db,
 } // namespace
 
 /** Main driver. */
-int main(int argc, char *argv[]) {
+int HS_CDECL main(int argc, char *argv[]) {
     unique_ptr<Grey> grey;
 #if !defined(RELEASE_BUILD)
     grey = make_unique<Grey>();

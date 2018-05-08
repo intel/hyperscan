@@ -1437,7 +1437,19 @@ void mergeLeftfixesVariableLag(RoseBuildImpl &build) {
 
         assert(!parents.empty());
 
+#ifndef _WIN32
         engine_groups[MergeKey(left, parents)].push_back(left);
+#else
+        // On windows, when passing MergeKey object into map 'engine_groups',
+        // it will not be copied, but will be freed along with
+        // engine_groups.clear().
+        // If we construct MergeKey object on the stack, it will be destructed
+        // on its life cycle ending, then on engine_groups.clear(), which
+        // will cause is_block_type_valid() assertion error in MergeKey
+        // destructor.
+        MergeKey *mk = new MergeKey(left, parents);
+        engine_groups[*mk].push_back(left);
+#endif
     }
 
     vector<vector<left_id>> chunks;

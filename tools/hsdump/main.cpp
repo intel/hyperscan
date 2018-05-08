@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -58,9 +58,19 @@
 #include <string>
 #include <vector>
 
+#ifndef _WIN32
 #include <getopt.h>
+#else
+#include "win_getopt.h"
+#endif
 #include <sys/stat.h>
+
+#ifndef _WIN32
 #include <dirent.h>
+#else
+#include <direct.h>
+#define stat _stat
+#endif
 
 #include <boost/ptr_container/ptr_vector.hpp>
 
@@ -318,6 +328,7 @@ u32 buildDumpFlags(void) {
     return flags;
 }
 
+#ifndef _WIN32
 static
 void clearDir(const string &path) {
     DIR *dir = opendir(path.c_str());
@@ -341,15 +352,54 @@ void clearDir(const string &path) {
     }
     closedir(dir);
 }
+#else // windows
+static
+void clearDir(const string &path) {
+    WIN32_FIND_DATA ffd;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+    string glob = path + "/*";
+    hFind = FindFirstFile(glob.c_str(), &ffd);
+    if (hFind == INVALID_HANDLE_VALUE) {
+        printf("ERROR: couldn't open location %s\n", path.c_str());
+        exit(1);
+    }
+    do {
+        string basename(ffd.cFileName);
+        string fname(path);
+        fname.push_back('/');
+        fname.append(basename);
+
+        // Ignore '.' and '..'
+        if (basename == "." || basename == "..") {
+            continue;
+        }
+
+        if (!DeleteFile(fname.c_str())) {
+            printf("ERROR: couldn't remove file %s\n", fname.c_str());
+        }
+
+    } while (FindNextFile(hFind, &ffd) != 0);
+    FindClose(hFind);
+}
+#endif
+
+static
+int makeDirectory(const string &dirName) {
+#ifndef _WIN32
+    mode_t mode = S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP |
+                  S_IROTH | S_IXOTH;
+    return mkdir(dirName.c_str(), mode);
+#else
+    return _mkdir(dirName.c_str());
+#endif
+}
 
 static
 void prepareDumpLoc(string parent, string path, u32 flags, Grey &grey) {
     struct stat st;
     if (stat(parent.c_str(), &st)) {
         // Create dump location if not found
-        mode_t mode = S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP |
-                      S_IROTH | S_IXOTH;
-        if (mkdir(parent.c_str(), mode) < 0) {
+        if (makeDirectory(parent) < 0) {
             printf("ERROR: could not create dump location %s: %s\n",
                    parent.c_str(), strerror(errno));
             exit(1);
@@ -365,9 +415,7 @@ void prepareDumpLoc(string parent, string path, u32 flags, Grey &grey) {
     path = parent.append(path);
     if (stat(path.c_str(), &st)) {
         // Create dump location if not found
-        mode_t mode = S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP |
-                      S_IROTH | S_IXOTH;
-        if (mkdir(path.c_str(), mode) < 0) {
+        if (makeDirectory(path) < 0) {
             printf("ERROR: could not create dump location %s: %s\n",
                    path.c_str(), strerror(errno));
             exit(1);
@@ -546,7 +594,7 @@ unsigned int dumpData(const ExpressionMap &exprMap, Grey &grey) {
     return dumpDataMulti(patterns, flags, ids, ext, grey);
 }
 
-int main(int argc, char *argv[]) {
+int HS_CDECL main(int argc, char *argv[]) {
     Grey grey;
     grey.dumpFlags = Grey::DUMP_BASICS;
 

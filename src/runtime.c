@@ -67,9 +67,9 @@ void prefetch_data(const char *data, unsigned length) {
 
 /** dummy event handler for use when user does not provide one */
 static
-int null_onEvent(UNUSED unsigned id, UNUSED unsigned long long from,
-                 UNUSED unsigned long long to, UNUSED unsigned flags,
-                 UNUSED void *ctxt) {
+int HS_CDECL null_onEvent(UNUSED unsigned id, UNUSED unsigned long long from,
+                          UNUSED unsigned long long to, UNUSED unsigned flags,
+                          UNUSED void *ctxt) {
     return 0;
 }
 

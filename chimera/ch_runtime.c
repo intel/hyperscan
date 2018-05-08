@@ -92,7 +92,7 @@ void pq_pop_nice(struct match_pq *pq) {
 
 /** dummy event handler for use when user does not provide one */
 static
-int null_onEvent(UNUSED unsigned id, UNUSED unsigned long long from,
+int HS_CDECL null_onEvent(UNUSED unsigned id, UNUSED unsigned long long from,
                  UNUSED unsigned long long to, UNUSED unsigned flags,
                  UNUSED unsigned size, UNUSED const ch_capture_t *captured,
                  UNUSED void *ctxt) {
@@ -108,12 +108,12 @@ struct HybridContext {
     struct ch_scratch *scratch;
     struct match_pq *pq;
     /** \brief user-supplied match callback */
-    int (*match_callback)(unsigned int id, unsigned long long from,
+    int (HS_CDECL *match_callback)(unsigned int id, unsigned long long from,
                           unsigned long long to, unsigned int flags,
                           unsigned int size, const ch_capture_t *capture,
                           void *ctx);
     /** \brief user-supplied error callback */
-    int (*error_callback)(ch_error_event_t error_type, unsigned int id,
+    int (HS_CDECL *error_callback)(ch_error_event_t error_type, unsigned int id,
                           void *info, void *ctx);
     /** \brief user-supplied context */
     void *context;
@@ -363,7 +363,7 @@ ch_error_t catchupPcre(struct HybridContext *hyctx, unsigned int id,
 
 /** \brief Callback used for internal Hyperscan multi-matcher. */
 static
-int multiCallback(unsigned int id, unsigned long long from,
+int HS_CDECL multiCallback(unsigned int id, unsigned long long from,
                   unsigned long long to, UNUSED unsigned int flags,
                   void *ctx) {
     assert(ctx);

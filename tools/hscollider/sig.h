@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,7 +40,11 @@
 #define STAGE_GRAPH_COMPILE 6
 #define STAGE_GRAPH_RUN 7
 
+#ifndef WIN32
 #define TLS_VARIABLE __thread
+#else
+#define TLS_VARIABLE __declspec(thread)
+#endif
 
 extern TLS_VARIABLE volatile int debug_stage;
 extern TLS_VARIABLE volatile int debug_expr;

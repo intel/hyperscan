@@ -70,16 +70,6 @@ include_directories(SYSTEM include)
 
 include (${CMAKE_MODULE_PATH}/boost.cmake)
 
-# PCRE check, we have a fixed requirement for PCRE to use Chimera
-# and hscollider
-set(PCRE_REQUIRED_MAJOR_VERSION 8)
-set(PCRE_REQUIRED_MINOR_VERSION 41)
-set(PCRE_REQUIRED_VERSION ${PCRE_REQUIRED_MAJOR_VERSION}.${PCRE_REQUIRED_MINOR_VERSION})
-include (${CMAKE_MODULE_PATH}/pcre.cmake)
-if (NOT CORRECT_PCRE_VERSION)
-    message(STATUS "PCRE ${PCRE_REQUIRED_VERSION} not found")
-endif()
-
 # -- make this work? set(python_ADDITIONAL_VERSIONS 2.7 2.6)
 find_package(PythonInterp)
 find_program(RAGEL ragel)
@@ -455,19 +445,32 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
+add_subdirectory(util)
+add_subdirectory(doc/dev-reference)
+
+if (NOT WIN32)
+# PCRE check, we have a fixed requirement for PCRE to use Chimera
+# and hscollider
+set(PCRE_REQUIRED_MAJOR_VERSION 8)
+set(PCRE_REQUIRED_MINOR_VERSION 41)
+set(PCRE_REQUIRED_VERSION ${PCRE_REQUIRED_MAJOR_VERSION}.${PCRE_REQUIRED_MINOR_VERSION})
+include (${CMAKE_MODULE_PATH}/pcre.cmake)
+if (NOT CORRECT_PCRE_VERSION)
+    message(STATUS "PCRE ${PCRE_REQUIRED_VERSION} not found")
+endif()
+
 # we need static libs for Chimera - too much deep magic for shared libs
 if (CORRECT_PCRE_VERSION AND BUILD_STATIC_LIBS)
     set(BUILD_CHIMERA TRUE)
 endif()
 
-add_subdirectory(util)
 add_subdirectory(unit)
-add_subdirectory(doc/dev-reference)
 if (EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
     add_subdirectory(tools)
 endif()
 if (EXISTS ${CMAKE_SOURCE_DIR}/chimera/CMakeLists.txt AND BUILD_CHIMERA)
     add_subdirectory(chimera)
+endif()
 endif()
 
 # do substitutions
@@ -495,6 +498,31 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS} ${HS_CXX_FLAGS}")
 else()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
+endif()
+
+if (WIN32)
+# PCRE check, we have a fixed requirement for PCRE to use Chimera
+# and hscollider
+set(PCRE_REQUIRED_MAJOR_VERSION 8)
+set(PCRE_REQUIRED_MINOR_VERSION 41)
+set(PCRE_REQUIRED_VERSION ${PCRE_REQUIRED_MAJOR_VERSION}.${PCRE_REQUIRED_MINOR_VERSION})
+include (${CMAKE_MODULE_PATH}/pcre.cmake)
+if (NOT CORRECT_PCRE_VERSION)
+    message(STATUS "PCRE ${PCRE_REQUIRED_VERSION} not found")
+endif()
+
+# we need static libs for Chimera - too much deep magic for shared libs
+if (CORRECT_PCRE_VERSION AND BUILD_STATIC_LIBS)
+    set(BUILD_CHIMERA TRUE)
+endif()
+
+add_subdirectory(unit)
+if (EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
+    add_subdirectory(tools)
+endif()
+if (EXISTS ${CMAKE_SOURCE_DIR}/chimera/CMakeLists.txt AND BUILD_CHIMERA)
+    add_subdirectory(chimera)
+endif()
 endif()
 
 if(NOT WIN32)

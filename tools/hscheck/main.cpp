@@ -70,8 +70,11 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
-
+#ifndef _WIN32
 #include <getopt.h>
+#else
+#include "win_getopt.h"
+#endif
 #include <boost/algorithm/string/trim.hpp>
 
 using namespace std;
@@ -625,7 +628,7 @@ void loadSignatureBuildSigs(const string &inFile,
     }
 }
 
-int main(int argc, char **argv) {
+int HS_CDECL main(int argc, char **argv) {
     num_of_threads = max(1u, std::thread::hardware_concurrency());
 
 #if !defined(RELEASE_BUILD)

@@ -63,10 +63,8 @@ namespace ue2 {
  *
  * This will throw a resource limit assertion if the requested mmbit is too
  * large.
- *
- * TODO:add temporary HS_CDECL for chimera on Windows, need improve this.
  */
-u32 HS_CDECL mmbit_size(u32 total_bits);
+u32 mmbit_size(u32 total_bits);
 
 /** \brief Construct a sparse iterator over the values in \a bits for a
  * multibit of size \a total_bits. */

@@ -74,7 +74,8 @@ if(HAVE_BACKTRACE)
         "${BACKTRACE_CFLAGS}")
 endif()
 else() # WIN32
-    target_link_libraries(hscollider hs chimera ${PCRE_LDFLAGS} databaseutil
+    set_target_properties(hscollider PROPERTIES LINK_FLAGS "/STACK:8388608,8388608")
+    target_link_libraries(hscollider hs chimera pcre databaseutil
         expressionutil corpusomatic crosscompileutil)
 endif()
 

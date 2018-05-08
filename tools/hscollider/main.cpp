@@ -1840,13 +1840,17 @@ unique_ptr<CorporaSource> buildCorpora(const vector<string> &corporaFiles,
 static
 bool needsQuotes(const char *s) {
     size_t len = strlen(s);
-    // don't confuse the correct isblank for the one in locale
-    int (*blank)(int) = &std::isblank;
 
     if (len == 0) {
         return true;
     }
+#ifndef _WIN32
+    // don't confuse the correct isblank for the one in locale
+    int (*blank)(int) = &std::isblank;
     if (find_if(s, s + len, blank) != s + len) {
+#else
+    if (find_if(s, s + len, [](unsigned char c){ return std::isblank(c); }) != s + len) {
+#endif
         return true;
     }
 
@@ -1910,7 +1914,7 @@ bool runTests(CorporaSource &corpora_source, const ExpressionMap &exprMap,
     return !summary.hasFailure();
 }
 
-int main(int argc, char *argv[]) {
+int HS_CDECL main(int argc, char *argv[]) {
     Grey grey;
     vector<string> corporaFiles;
 

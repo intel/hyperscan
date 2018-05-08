@@ -201,7 +201,7 @@ typedef struct ch_capture {
  *      pattern, while a return value of @ref CH_CALLBACK_SKIP_PATTERN will
  *      cease matching this pattern but continue matching the next pattern.
  */
-typedef ch_callback_t (*ch_match_event_handler)(unsigned int id,
+typedef ch_callback_t (HS_CDECL *ch_match_event_handler)(unsigned int id,
                                                 unsigned long long from,
                                                 unsigned long long to,
                                                 unsigned int flags,
@@ -233,11 +233,12 @@ typedef ch_callback_t (*ch_match_event_handler)(unsigned int id,
  *      function.
  *
  * @return
- *      The callback can return @ref CH_CALLBACK_SKIP_PATTERN to cease matching this
- *      pattern but continue matching the next pattern. Otherwise, we stop
+ *      The callback can return @ref CH_CALLBACK_SKIP_PATTERN to cease matching
+ *      this pattern but continue matching the next pattern. Otherwise, we stop
  *      matching for all patterns with @ref CH_CALLBACK_TERMINATE.
  */
- typedef ch_callback_t (*ch_error_event_handler)(ch_error_event_t error_type,
+ typedef ch_callback_t (HS_CDECL *ch_error_event_handler)(
+                                                 ch_error_event_t error_type,
                                                  unsigned int id, void *info,
                                                  void *ctx);
 

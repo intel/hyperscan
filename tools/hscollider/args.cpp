@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,7 +46,11 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#ifndef _WIN32
 #include <getopt.h>
+#else
+#include "win_getopt.h"
+#endif
 
 #define xstr(s) str(s)
 #define str(s) #s
@@ -467,7 +471,7 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
                     exit(1);
                 }
                 break;
-            case 'Z':
+            case 'Z': {     // Parentheses save VS C2360
                 static constexpr unsigned ALIGN_LIMIT = MAX_MAX_UE2_ALIGN - 1;
                 if (optarg == string("R")) {
                     // Random min alignment selected.
@@ -481,6 +485,7 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
                 }
                 max_ue2_align = min_ue2_align + 1;
                 break;
+            }
             case '8':
                 force_utf8 = true;
                 break;

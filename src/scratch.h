@@ -36,6 +36,7 @@
 #ifndef SCRATCH_H_DA6D4FC06FF410
 #define SCRATCH_H_DA6D4FC06FF410
 
+#include "hs_common.h"
 #include "ue2common.h"
 #include "rose/rose_types.h"
 
@@ -88,8 +89,9 @@ struct core_info {
     void *userContext; /**< user-supplied context */
 
     /** \brief user-supplied match callback */
-    int (*userCallback)(unsigned int id, unsigned long long from,
-                        unsigned long long to, unsigned int flags, void *ctx);
+    int (HS_CDECL *userCallback)(unsigned int id, unsigned long long from,
+                                 unsigned long long to, unsigned int flags,
+                                 void *ctx);
 
     const struct RoseEngine *rose;
     char *state; /**< full stream state */

@@ -1,6 +1,13 @@
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 
+if(CMAKE_C_FLAGS MATCHES "/Gv" )
+    string(REPLACE "/Gv" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+endif()
+if(CMAKE_CXX_FLAGS MATCHES "/Gv" )
+    string(REPLACE "/Gv" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+endif()
+
 set(gtest_SOURCES gtest/gtest-all.cc gtest/gtest.h)
 include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR})
@@ -30,6 +37,10 @@ if(CMAKE_COMPILER_IS_GNUCC)
 endif()
 
 add_definitions(-DGTEST_HAS_PTHREAD=0 -DSRCDIR=${PROJECT_SOURCE_DIR})
+
+if (WIN32)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4309 /wd4018")
+endif()
 
 set(unit_hyperscan_SOURCES
     ${gtest_SOURCES}

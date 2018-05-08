@@ -169,8 +169,9 @@ struct MultiContext {
 
 // Callback used for all (both single and multi-mode) scans.
 static
-int callbackMulti(unsigned int id, unsigned long long from,
-                  unsigned long long to, UNUSED unsigned int flags, void *ctx) {
+int HS_CDECL callbackMulti(unsigned int id, unsigned long long from,
+                           unsigned long long to,
+                           UNUSED unsigned int flags, void *ctx) {
     MultiContext *mctx = static_cast<MultiContext *>(ctx);
     assert(mctx);
     assert(mctx->rs);
@@ -269,7 +270,7 @@ int callbackMulti(unsigned int id, unsigned long long from,
 
 // Hybrid matcher callback.
 static
-ch_callback_t callbackHybrid(unsigned id, unsigned long long from,
+ch_callback_t HS_CDECL callbackHybrid(unsigned id, unsigned long long from,
                              unsigned long long to, unsigned, unsigned size,
                              const ch_capture_t *captured, void *ctx) {
     MultiContext *mctx = static_cast<MultiContext *>(ctx);
@@ -322,8 +323,9 @@ ch_callback_t callbackHybrid(unsigned id, unsigned long long from,
 
 // Hybrid matcher error callback.
 static
-ch_callback_t errorCallback(UNUSED ch_error_event_t errorType, UNUSED unsigned int id, void *,
-                            void *ctx) {
+ch_callback_t HS_CDECL errorCallback(UNUSED ch_error_event_t errorType,
+                                     UNUSED unsigned int id, void *,
+                                     void *ctx) {
     UNUSED MultiContext *mctx = static_cast<MultiContext *>(ctx);
     assert(mctx);
     assert(mctx->rs);
