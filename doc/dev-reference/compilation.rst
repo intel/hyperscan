@@ -471,3 +471,93 @@ matching support. Here they are, in a nutshell:
 
 Approximate matching is always disabled by default, and can be enabled on a
 per-pattern basis by using an extended parameter described in :ref:`extparam`.
+
+.. _logical_combinations:
+
+********************
+Logical Combinations
+********************
+
+For situations when a user requires behaviour that depends on the presence or
+absence of matches from groups of patterns, Hyperscan provides support for the
+logical combination of patterns in a given pattern set, with three operators:
+``NOT``, ``AND`` and ``OR``.
+
+The logical value of such a combination is based on each expression's matching
+status at a given offset. The matching status of any expression has a boolean
+value: *false* if the expression has not yet matched or *true* if the expression
+has already matched. In particular, the value of a ``NOT`` operation at a given
+offset is *true* if the expression it refers to is *false* at this offset.
+
+For example, ``NOT 101`` means that expression 101 has not yet matched at this
+offset.
+
+A logical combination is passed to Hyperscan at compile time as an expression.
+This combination expression will raise matches at every offset where one of its
+sub-expressions matches and the logical value of the whole expression is *true*.
+
+To illustrate, here is an example combination expression: ::
+
+    ((301 OR 302) AND 303) AND (304 OR NOT 305)
+
+If expression 301 matches at offset 10, the logical value of 301 is *true*
+while the other patterns' values are *false*. Hence, the whole combination's value is
+*false*.
+
+Then expression 303 matches at offset 20. Now the values of 301 and 303 are
+*true* while the other patterns' values are still *false*. In this case, the
+combination's value is *true*, so the combination expression raises a match at
+offset 20.
+
+Finally, expression 305 has matches at offset 30. Now the values of 301, 303 and 305
+are *true* while the other patterns' values are still *false*. In this case, the
+combination's value is *false* and no match is raised.
+
+**Using Logical Combinations**
+
+In logical combination syntax, an expression is written as infix notation, it
+consists of operands, operators and parentheses. The operands are expression
+IDs, and operators are ``!`` (NOT), ``&`` (AND) or ``|`` (OR). For example, the
+combination described in the previous section would be written as: ::
+
+    ((301 | 302) & 303) & (304 | !305)
+
+In a logical combination expression:
+
+ * The priority of operators are ``!`` > ``&`` > ``|``. For example:
+    - ``A&B|C`` is treated as ``(A&B)|C``,
+    - ``A|B&C`` is treated as ``A|(B&C)``,
+    - ``A&!B`` is treated as ``A&(!B)``.
+ * Extra parentheses are allowed. For example:
+    - ``(A)&!(B)`` is the same as ``A&!B``,
+    - ``(A&B)|C`` is the same as ``A&B|C``.
+ * Whitespace is ignored.
+
+To use a logical combination expression, it must be passed to one of the
+Hyperscan compile functions (:c:func:`hs_compile_multi`,
+:c:func:`hs_compile_ext_multi`) along with the :c:member:`HS_FLAG_COMBINATION` flag,
+which identifies the pattern as a logical combination expression. The patterns
+referred to in the logical combination expression must be compiled together in
+the same pattern set as the combination expression.
+
+When an expression has the :c:member:`HS_FLAG_COMBINATION` flag set, it ignores
+all other flags except the :c:member:`HS_FLAG_SINGLEMATCH` flag and the
+:c:member:`HS_FLAG_QUIET` flag.
+
+Hyperscan will reject logical combination expressions at compile time that
+evaluate to *true* when no patterns have matched; for example: ::
+
+    !101
+    !101|102
+    !101&!102
+    !(101&102)
+
+Patterns that are referred to as operands within a logical combination (for
+example, 301 through 305 in the examples above) may also use the
+:c:member:`HS_FLAG_QUIET` flag to silence the reporting of individual matches
+for those patterns. In the absence of this flag, all matches (for
+both individual patterns and their logical combinations) will be reported.
+
+When an expression has both the :c:member:`HS_FLAG_COMBINATION` flag and the
+:c:member:`HS_FLAG_QUIET` flag set, no matches for this logical combination
+will be reported.

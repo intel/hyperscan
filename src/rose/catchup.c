@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -424,6 +424,12 @@ hwlmcb_rv_t roseCatchUpMPV_i(const struct RoseEngine *t, s64a loc,
     }
 
 done:
+    if (t->flushCombProgramOffset) {
+        if (roseRunFlushCombProgram(t, scratch, mpv_exec_end)
+                == HWLM_TERMINATE_MATCHING) {
+            return HWLM_TERMINATE_MATCHING;
+        }
+    }
     updateMinMatchOffsetFromMpv(&scratch->tctxt, mpv_exec_end);
     scratch->tctxt.next_mpv_offset
         = MAX(next_pos_match_loc + scratch->core_info.buf_offset,

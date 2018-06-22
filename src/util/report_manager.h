@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,6 +38,7 @@
 #include "util/compile_error.h"
 #include "util/noncopyable.h"
 #include "util/report.h"
+#include "parser/logical_combination.h"
 
 #include <map>
 #include <set>
@@ -80,6 +81,15 @@ public:
     /** \brief Total number of exhaustion keys. */
     u32 numEkeys() const;
 
+    /** \brief Total number of logical keys. */
+    u32 numLogicalKeys() const;
+
+    /** \brief Total number of logical operators. */
+    u32 numLogicalOps() const;
+
+    /** \brief Total number of combination keys. */
+    u32 numCkeys() const;
+
     /** \brief True if the pattern set can exhaust (i.e. all patterns are
      * highlander). */
     bool patternSetCanExhaust() const;
@@ -110,6 +120,19 @@ public:
      * assigning one if necessary. */
     u32 getExhaustibleKey(u32 expressionIndex);
 
+    /** \brief Get lkey's corresponding ckeys. */
+    const std::set<u32> &getRelateCKeys(u32 lkey);
+
+    /** \brief Renumber lkey for logical operations, after parsed
+     * all logical expressions. */
+    void logicalKeyRenumber();
+
+    /** \brief Used in Rose for writing bytecode. */
+    const std::vector<LogicalOp> &getLogicalTree() const;
+
+    /** \brief Used in Rose for writing bytecode. */
+    const std::vector<CombInfo> &getCombInfoMap() const;
+
     /** \brief Fetch the dedupe key associated with the given report. Returns
      * ~0U if no dkey is needed. */
     u32 getDkey(const Report &r) const;
@@ -121,6 +144,9 @@ public:
      * for this to be called with a report for which no program offset has been
      * set. */
     u32 getProgramOffset(ReportID id) const;
+
+    /** \brief Parsed logical combination structure. */
+    ParsedLogical pl;
 
 private:
     /** \brief Grey box ref, for checking resource limits. */

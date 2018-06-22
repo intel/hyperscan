@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -76,6 +76,8 @@ enum ParamKey {
             case '8': *flags |= HS_FLAG_UTF8; break;
             case 'P': *flags |= HS_FLAG_PREFILTER; break;
             case 'L': *flags |= HS_FLAG_SOM_LEFTMOST; break;
+            case 'C': *flags |= HS_FLAG_COMBINATION; break;
+            case 'Q': *flags |= HS_FLAG_QUIET; break;
             default: fbreak;
         }
     }
@@ -159,7 +161,7 @@ bool HS_CDECL readExpression(const std::string &input, std::string &expr,
     enum ParamKey key = PARAM_NONE;
 
     %%{
-        single_flag = [ismW8HPLVO];
+        single_flag = [ismW8HPLVOCQ];
         param = ('min_offset' @{ key = PARAM_MIN_OFFSET; } |
                  'max_offset' @{ key = PARAM_MAX_OFFSET; } |
                  'min_length' @{ key = PARAM_MIN_LENGTH; } |

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,17 +26,52 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PCRE_UTIL_H
-#define PCRE_UTIL_H
-
-/** Translates the given hyperscan flags into pcre flags (where appropriate)
- *  and other bools (for flags which are not directly translateable).
- *
- * Returns false if an unknown hyperscan flag is encountered.
+/** \file
+ * \brief Inline functions for manipulating logical combinations.
  */
-bool getPcreFlags(unsigned int hs_flags, unsigned int *pcre_flags,
-                  bool *highlander, bool *prefilter, bool *som,
-                  bool *combination = nullptr, bool *quiet = nullptr);
 
-#endif /* PCRE_UTIL_H */
+#ifndef LOGICAL_H
+#define LOGICAL_H
 
+#include "ue2common.h"
+
+/** Index meaning a given logical key is invalid. */
+#define INVALID_LKEY    (~(u32)0)
+#define INVALID_CKEY    INVALID_LKEY
+
+/** Logical operation type, the priority is from high to low. */
+enum LogicalOpType {
+    LOGICAL_OP_NOT,
+    LOGICAL_OP_AND,
+    LOGICAL_OP_OR,
+    LAST_LOGICAL_OP =  LOGICAL_OP_OR //!< Sentinel.
+};
+
+#define UNKNOWN_OP      (~(u32)0)
+
+/** Logical Operation is consist of 4 parts. */
+struct LogicalOp {
+    u32 id; //!< logical operator/operation id
+    u32 op; //!< LogicalOpType
+    u32 lo; //!< left operand
+    u32 ro; //!< right operand
+};
+
+/** Each logical combination has its info:
+ * It occupies a region in LogicalOp vector.
+ * It has an exhaustion key for single-match mode. */
+struct CombInfo {
+    u32 id;
+    u32 ekey; //!< exhaustion key
+    u32 start; //!< ckey of logical operation to start calculating
+    u32 result; //!< ckey of logical operation to give final result
+    u64a min_offset;
+    u64a max_offset;
+};
+
+/** Temporarily use to seperate operations' id from reports' lkey
+  * when building logicalTree in shunting yard algorithm,
+  * operations' id will be finally renumbered following reports' lkey. */
+#define LOGICAL_OP_BIT 0x80000000UL
+
+#endif

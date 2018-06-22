@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,7 @@
 
 #include "expressions.h"
 #include "ResultSet.h"
+#include "parser/logical_combination.h"
 
 #include <memory>
 #include <mutex>
@@ -85,6 +86,14 @@ public:
     bool highlander = false;
     bool prefilter = false;
     bool som = false;
+    bool combination = false;
+    bool quiet = false;
+
+    // Parsed logical combinations.
+    ue2::ParsedLogical pl;
+
+    // Combination expression report id.
+    unsigned report;
 
 private:
     // If a PCRE has hit its match recursion limit when scanning a corpus, we

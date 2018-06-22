@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1469,6 +1469,25 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(SET_LOGICAL) {
+                os << "    lkey " << ri->lkey << endl;
+                os << "    offset_adjust " << ri->offset_adjust << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(SET_COMBINATION) {
+                os << "    ckey " << ri->ckey << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(FLUSH_COMBINATION) {}
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(SET_EXHAUST) {
+                os << "    ekey " << ri->ekey << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
         default:
             os << "  UNKNOWN (code " << int{code} << ")" << endl;
             os << "  <stopping>" << endl;
@@ -1518,6 +1537,23 @@ void dumpRoseEodPrograms(const RoseEngine *t, const string &filename) {
         os << endl;
     } else {
         os << "<No EOD Program>" << endl;
+    }
+
+    os.close();
+}
+
+static
+void dumpRoseFlushCombPrograms(const RoseEngine *t, const string &filename) {
+    ofstream os(filename);
+    const char *base = (const char *)t;
+
+    if (t->flushCombProgramOffset) {
+        os << "Flush Combination Program @ " << t->flushCombProgramOffset
+           << ":" << endl;
+        dumpProgram(os, t, base + t->flushCombProgramOffset);
+        os << endl;
+    } else {
+        os << "<No Flush Combination Program>" << endl;
     }
 
     os.close();
@@ -2028,6 +2064,10 @@ void roseDumpText(const RoseEngine *t, FILE *f) {
     fprintf(f, " - history buffer    : %u bytes\n", t->historyRequired);
     fprintf(f, " - exhaustion vector : %u bytes\n",
             t->stateOffsets.exhausted_size);
+    fprintf(f, " - logical vector    : %u bytes\n",
+            t->stateOffsets.logicalVec_size);
+    fprintf(f, " - combination vector: %u bytes\n",
+            t->stateOffsets.combVec_size);
     fprintf(f, " - role state mmbit  : %u bytes\n", t->stateSize);
     fprintf(f, " - long lit matcher  : %u bytes\n", t->longLitStreamState);
     fprintf(f, " - active array      : %u bytes\n",
@@ -2092,6 +2132,11 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, mode);
     DUMP_U32(t, historyRequired);
     DUMP_U32(t, ekeyCount);
+    DUMP_U32(t, lkeyCount);
+    DUMP_U32(t, lopCount);
+    DUMP_U32(t, ckeyCount);
+    DUMP_U32(t, logicalTreeOffset);
+    DUMP_U32(t, combInfoMapOffset);
     DUMP_U32(t, dkeyCount);
     DUMP_U32(t, dkeyLogSize);
     DUMP_U32(t, invDkeyOffset);
@@ -2127,6 +2172,7 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, leftOffset);
     DUMP_U32(t, roseCount);
     DUMP_U32(t, eodProgramOffset);
+    DUMP_U32(t, flushCombProgramOffset);
     DUMP_U32(t, lastByteHistoryIterOffset);
     DUMP_U32(t, minWidth);
     DUMP_U32(t, minWidthExcludingBoundaries);
@@ -2150,6 +2196,10 @@ void roseDumpStructRaw(const RoseEngine *t, FILE *f) {
     DUMP_U32(t, stateOffsets.history);
     DUMP_U32(t, stateOffsets.exhausted);
     DUMP_U32(t, stateOffsets.exhausted_size);
+    DUMP_U32(t, stateOffsets.logicalVec);
+    DUMP_U32(t, stateOffsets.logicalVec_size);
+    DUMP_U32(t, stateOffsets.combVec);
+    DUMP_U32(t, stateOffsets.combVec_size);
     DUMP_U32(t, stateOffsets.activeLeafArray);
     DUMP_U32(t, stateOffsets.activeLeafArray_size);
     DUMP_U32(t, stateOffsets.activeLeftArray);
@@ -2200,6 +2250,7 @@ void roseDumpPrograms(const vector<LitFragment> &fragments, const RoseEngine *t,
                       const string &base) {
     dumpRoseLitPrograms(fragments, t, base + "/rose_lit_programs.txt");
     dumpRoseEodPrograms(t, base + "/rose_eod_programs.txt");
+    dumpRoseFlushCombPrograms(t, base + "/rose_flush_comb_programs.txt");
     dumpRoseReportPrograms(t, base + "/rose_report_programs.txt");
     dumpRoseAnchoredPrograms(t, base + "/rose_anchored_programs.txt");
     dumpRoseDelayPrograms(t, base + "/rose_delay_programs.txt");

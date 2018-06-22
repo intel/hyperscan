@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -112,6 +112,13 @@ public:
         } else {
             matches_by_block[block].insert(m);
         }
+    }
+
+    // Clear all matches.
+    void clear() {
+        matches.clear();
+        dupe_matches.clear();
+        matches_by_block.clear();
     }
 
     // Unexpected out of order match seen.

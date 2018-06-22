@@ -313,6 +313,10 @@ void addMatcherEodProgram(RoseProgram &program) {
     program.add_block(move(block));
 }
 
+void addFlushCombinationProgram(RoseProgram &program) {
+    program.add_before_end(make_unique<RoseInstrFlushCombination>());
+}
+
 static
 void makeRoleCheckLeftfix(const RoseBuildImpl &build,
                           const map<RoseVertex, left_build_info> &leftfix_info,
@@ -497,6 +501,23 @@ void writeSomOperation(const Report &report, som_operation *op) {
 }
 
 static
+void addLogicalSetRequired(const Report &report, ReportManager &rm,
+                           RoseProgram &program) {
+    if (report.lkey == INVALID_LKEY) {
+        return;
+    }
+    // set matching status of current lkey
+    auto risl = make_unique<RoseInstrSetLogical>(report.lkey,
+                                                 report.offsetAdjust);
+    program.add_before_end(move(risl));
+    // set current lkey's corresponding ckeys active, pending to check
+    for (auto ckey : rm.getRelateCKeys(report.lkey)) {
+        auto risc = make_unique<RoseInstrSetCombination>(ckey);
+        program.add_before_end(move(risc));
+    }
+}
+
+static
 void makeReport(const RoseBuildImpl &build, const ReportID id,
                 const bool has_som, RoseProgram &program) {
     assert(id < build.rm.numReports());
@@ -542,38 +563,62 @@ void makeReport(const RoseBuildImpl &build, const ReportID id,
 
     switch (report.type) {
     case EXTERNAL_CALLBACK:
+        if (build.rm.numCkeys()) {
+            addFlushCombinationProgram(report_block);
+        }
         if (!has_som) {
             // Dedupe is only necessary if this report has a dkey, or if there
             // are SOM reports to catch up.
             bool needs_dedupe = build.rm.getDkey(report) != ~0U || build.hasSom;
             if (report.ekey == INVALID_EKEY) {
                 if (needs_dedupe) {
-                    report_block.add_before_end(
-                        make_unique<RoseInstrDedupeAndReport>(
-                            report.quashSom, build.rm.getDkey(report),
-                            report.onmatch, report.offsetAdjust, end_inst));
+                    if (!report.quiet) {
+                        report_block.add_before_end(
+                            make_unique<RoseInstrDedupeAndReport>(
+                                report.quashSom, build.rm.getDkey(report),
+                                report.onmatch, report.offsetAdjust, end_inst));
+                    } else {
+                        makeDedupe(build.rm, report, report_block);
+                    }
                 } else {
-                    report_block.add_before_end(make_unique<RoseInstrReport>(
-                        report.onmatch, report.offsetAdjust));
+                    if (!report.quiet) {
+                        report_block.add_before_end(
+                            make_unique<RoseInstrReport>(
+                                report.onmatch, report.offsetAdjust));
+                    }
                 }
             } else {
                 if (needs_dedupe) {
                     makeDedupe(build.rm, report, report_block);
                 }
-                report_block.add_before_end(make_unique<RoseInstrReportExhaust>(
-                    report.onmatch, report.offsetAdjust, report.ekey));
+                if (!report.quiet) {
+                    report_block.add_before_end(
+                        make_unique<RoseInstrReportExhaust>(
+                            report.onmatch, report.offsetAdjust, report.ekey));
+                } else {
+                    report_block.add_before_end(
+                        make_unique<RoseInstrSetExhaust>(report.ekey));
+                }
             }
         } else { // has_som
             makeDedupeSom(build.rm, report, report_block);
             if (report.ekey == INVALID_EKEY) {
-                report_block.add_before_end(make_unique<RoseInstrReportSom>(
-                    report.onmatch, report.offsetAdjust));
+                if (!report.quiet) {
+                    report_block.add_before_end(make_unique<RoseInstrReportSom>(
+                        report.onmatch, report.offsetAdjust));
+                }
             } else {
-                report_block.add_before_end(
-                    make_unique<RoseInstrReportSomExhaust>(
-                        report.onmatch, report.offsetAdjust, report.ekey));
+                if (!report.quiet) {
+                    report_block.add_before_end(
+                        make_unique<RoseInstrReportSomExhaust>(
+                            report.onmatch, report.offsetAdjust, report.ekey));
+                } else {
+                    report_block.add_before_end(
+                        make_unique<RoseInstrSetExhaust>(report.ekey));
+                }
             }
         }
+        addLogicalSetRequired(report, build.rm, report_block);
         break;
     case INTERNAL_SOM_LOC_SET:
     case INTERNAL_SOM_LOC_SET_IF_UNSET:
@@ -586,6 +631,9 @@ void makeReport(const RoseBuildImpl &build, const ReportID id,
     case INTERNAL_SOM_LOC_MAKE_WRITABLE:
     case INTERNAL_SOM_LOC_SET_FROM:
     case INTERNAL_SOM_LOC_SET_FROM_IF_WRITABLE:
+        if (build.rm.numCkeys()) {
+            addFlushCombinationProgram(report_block);
+        }
         if (has_som) {
             auto ri = make_unique<RoseInstrReportSomAware>();
             writeSomOperation(report, &ri->som);
@@ -605,24 +653,48 @@ void makeReport(const RoseBuildImpl &build, const ReportID id,
     case EXTERNAL_CALLBACK_SOM_STORED:
     case EXTERNAL_CALLBACK_SOM_ABS:
     case EXTERNAL_CALLBACK_SOM_REV_NFA:
+        if (build.rm.numCkeys()) {
+            addFlushCombinationProgram(report_block);
+        }
         makeDedupeSom(build.rm, report, report_block);
         if (report.ekey == INVALID_EKEY) {
-            report_block.add_before_end(make_unique<RoseInstrReportSom>(
-                report.onmatch, report.offsetAdjust));
+            if (!report.quiet) {
+                report_block.add_before_end(make_unique<RoseInstrReportSom>(
+                    report.onmatch, report.offsetAdjust));
+            }
         } else {
-            report_block.add_before_end(make_unique<RoseInstrReportSomExhaust>(
-                report.onmatch, report.offsetAdjust, report.ekey));
+            if (!report.quiet) {
+                report_block.add_before_end(
+                    make_unique<RoseInstrReportSomExhaust>(
+                        report.onmatch, report.offsetAdjust, report.ekey));
+            } else {
+                report_block.add_before_end(
+                    make_unique<RoseInstrSetExhaust>(report.ekey));
+            }
         }
+        addLogicalSetRequired(report, build.rm, report_block);
         break;
     case EXTERNAL_CALLBACK_SOM_PASS:
+        if (build.rm.numCkeys()) {
+            addFlushCombinationProgram(report_block);
+        }
         makeDedupeSom(build.rm, report, report_block);
         if (report.ekey == INVALID_EKEY) {
-            report_block.add_before_end(make_unique<RoseInstrReportSom>(
-                report.onmatch, report.offsetAdjust));
+            if (!report.quiet) {
+                report_block.add_before_end(make_unique<RoseInstrReportSom>(
+                    report.onmatch, report.offsetAdjust));
+            }
         } else {
-            report_block.add_before_end(make_unique<RoseInstrReportSomExhaust>(
-                report.onmatch, report.offsetAdjust, report.ekey));
+            if (!report.quiet) {
+                report_block.add_before_end(
+                    make_unique<RoseInstrReportSomExhaust>(
+                        report.onmatch, report.offsetAdjust, report.ekey));
+            } else {
+                report_block.add_before_end(
+                    make_unique<RoseInstrSetExhaust>(report.ekey));
+            }
         }
+        addLogicalSetRequired(report, build.rm, report_block);
         break;
 
     default:
@@ -630,7 +702,6 @@ void makeReport(const RoseBuildImpl &build, const ReportID id,
         throw CompileError("Unable to generate bytecode.");
     }
 
-    assert(!report_block.empty());
     program.add_block(move(report_block));
 }
 

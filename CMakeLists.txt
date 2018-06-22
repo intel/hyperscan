@@ -914,6 +914,8 @@ SET (hs_compile_SRCS
     src/parser/check_refs.h
     src/parser/control_verbs.cpp
     src/parser/control_verbs.h
+    src/parser/logical_combination.cpp
+    src/parser/logical_combination.h
     src/parser/parse_error.cpp
     src/parser/parse_error.h
     src/parser/parser_util.cpp

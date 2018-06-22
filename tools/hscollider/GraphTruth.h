@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -106,6 +106,10 @@ public:
     bool highlander = false;
     bool prefilter = false;
     bool som = false;
+    bool combination = false;
+    bool quiet = false;
+
+    unsigned id;
 private:
     void compile();
     // If NFA graph scan failed for some reason, we mark it as bad and skip
@@ -115,8 +119,6 @@ private:
 
     std::unique_ptr<CompiledNG> cng; // compiled NFA graph
     std::mutex cng_mutex; // serialised accesses to NFA graph
-
-    unsigned id;
 
     // Our expression map
     const ExpressionMap &m_expr;

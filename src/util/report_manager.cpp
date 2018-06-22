@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -95,6 +95,31 @@ u32 ReportManager::getExhaustibleKey(u32 a) {
     return it->second;
 }
 
+const set<u32> &ReportManager::getRelateCKeys(u32 lkey) {
+    auto it = pl.lkey2ckeys.find(lkey);
+    assert(it != pl.lkey2ckeys.end());
+    return it->second;
+}
+
+void ReportManager::logicalKeyRenumber() {
+    pl.logicalKeyRenumber();
+    // assign to corresponding report
+    for (u32 i = 0; i < reportIds.size(); i++) {
+        Report &ir = reportIds[i];
+        if (contains(pl.toLogicalKeyMap, ir.onmatch)) {
+            ir.lkey = pl.toLogicalKeyMap.at(ir.onmatch);
+        }
+    }
+}
+
+const vector<LogicalOp> &ReportManager::getLogicalTree() const {
+    return pl.logicalTree;
+}
+
+const vector<CombInfo> &ReportManager::getCombInfoMap() const {
+    return pl.combInfoMap;
+}
+
 u32 ReportManager::getUnassociatedExhaustibleKey(void) {
     u32 rv = toExhaustibleKeyMap.size();
     bool inserted;
@@ -113,6 +138,18 @@ u32 ReportManager::numDkeys() const {
 
 u32 ReportManager::numEkeys() const {
     return (u32) toExhaustibleKeyMap.size();
+}
+
+u32 ReportManager::numLogicalKeys() const {
+    return (u32) pl.toLogicalKeyMap.size();
+}
+
+u32 ReportManager::numLogicalOps() const {
+    return (u32) pl.logicalTree.size();
+}
+
+u32 ReportManager::numCkeys() const {
+    return (u32) pl.toCombKeyMap.size();
 }
 
 bool ReportManager::patternSetCanExhaust() const {
@@ -219,7 +256,7 @@ Report ReportManager::getBasicInternalReport(const ExpressionInfo &expr,
         ekey = getExhaustibleKey(expr.report);
     }
 
-    return makeECallback(expr.report, adj, ekey);
+    return makeECallback(expr.report, adj, ekey, expr.quiet);
 }
 
 void ReportManager::setProgramOffset(ReportID id, u32 programOffset) {

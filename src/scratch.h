@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -94,6 +94,8 @@ struct core_info {
     const struct RoseEngine *rose;
     char *state; /**< full stream state */
     char *exhaustionVector; /**< pointer to evec for this stream */
+    char *logicalVector; /**< pointer to lvec for this stream */
+    char *combVector; /**< pointer to cvec for this stream */
     const u8 *buf; /**< main scan buffer */
     size_t len; /**< length of main scan buffer in bytes */
     const u8 *hbuf; /**< history buffer */
@@ -115,6 +117,7 @@ struct RoseContext {
                          * stream */
     u64a lastMatchOffset; /**< last match offset report up out of rose;
                            * used _only_ for debugging, asserts */
+    u64a lastCombMatchOffset; /**< last match offset of active combinations */
     u64a minMatchOffset; /**< the earliest offset that we are still allowed to
                           * report */
     u64a minNonMpvMatchOffset; /**< the earliest offset that non-mpv engines are

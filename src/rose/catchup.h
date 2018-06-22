@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,6 +51,7 @@
 #include "hwlm/hwlm.h"
 #include "runtime.h"
 #include "scratch.h"
+#include "rose.h"
 #include "rose_common.h"
 #include "rose_internal.h"
 #include "ue2common.h"
@@ -105,6 +106,12 @@ hwlmcb_rv_t roseCatchUpMPV(const struct RoseEngine *t, s64a loc,
     assert(!can_stop_matching(scratch));
 
     if (canSkipCatchUpMPV(t, scratch, cur_offset)) {
+        if (t->flushCombProgramOffset) {
+            if (roseRunFlushCombProgram(t, scratch, cur_offset)
+                    == HWLM_TERMINATE_MATCHING) {
+                return HWLM_TERMINATE_MATCHING;
+            }
+        }
         updateMinMatchOffsetFromMpv(&scratch->tctxt, cur_offset);
         return HWLM_CONTINUE_MATCHING;
     }
@@ -139,6 +146,12 @@ hwlmcb_rv_t roseCatchUpTo(const struct RoseEngine *t,
     hwlmcb_rv_t rv;
     if (!t->activeArrayCount
         || !mmbit_any(getActiveLeafArray(t, state), t->activeArrayCount)) {
+        if (t->flushCombProgramOffset) {
+            if (roseRunFlushCombProgram(t, scratch, end)
+                    == HWLM_TERMINATE_MATCHING) {
+                return HWLM_TERMINATE_MATCHING;
+            }
+        }
         updateMinMatchOffset(&scratch->tctxt, end);
         rv = HWLM_CONTINUE_MATCHING;
     } else {

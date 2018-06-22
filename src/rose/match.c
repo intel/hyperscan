@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -568,6 +568,22 @@ int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
         return MO_HALT_MATCHING;
     }
 
+    return MO_CONTINUE_MATCHING;
+}
+
+/**
+ * \brief Execute a flush combination program.
+ *
+ * Returns MO_HALT_MATCHING if the stream is exhausted or the user has
+ * instructed us to halt, or MO_CONTINUE_MATCHING otherwise.
+ */
+int roseRunFlushCombProgram(const struct RoseEngine *rose,
+                            struct hs_scratch *scratch, u64a end) {
+    hwlmcb_rv_t rv = roseRunProgram(rose, scratch, rose->flushCombProgramOffset,
+                                    0, end, 0);
+    if (rv == HWLM_TERMINATE_MATCHING) {
+        return MO_HALT_MATCHING;
+    }
     return MO_CONTINUE_MATCHING;
 }
 

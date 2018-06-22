@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -425,6 +425,17 @@ void fillStateOffsets(const RoseBuildImpl &build, u32 rolesWithStateCount,
     so->exhausted = curr_offset;
     curr_offset += mmbit_size(build.rm.numEkeys());
     so->exhausted_size = mmbit_size(build.rm.numEkeys());
+
+    // Logical multibit.
+    so->logicalVec = curr_offset;
+    so->logicalVec_size = mmbit_size(build.rm.numLogicalKeys() +
+                                     build.rm.numLogicalOps());
+    curr_offset += so->logicalVec_size;
+
+    // Combination multibit.
+    so->combVec = curr_offset;
+    so->combVec_size = mmbit_size(build.rm.numCkeys());
+    curr_offset += so->combVec_size;
 
     // SOM locations and valid/writeable multibit structures.
     if (build.ssm.numSomSlots()) {
@@ -2470,6 +2481,18 @@ void writeLeftInfo(RoseEngineBlob &engine_blob, RoseEngine &proto,
 }
 
 static
+void writeLogicalInfo(const ReportManager &rm, RoseEngineBlob &engine_blob,
+                      RoseEngine &proto) {
+    const auto &tree = rm.getLogicalTree();
+    proto.logicalTreeOffset = engine_blob.add_range(tree);
+    const auto &combMap = rm.getCombInfoMap();
+    proto.combInfoMapOffset = engine_blob.add_range(combMap);
+    proto.lkeyCount = rm.numLogicalKeys();
+    proto.lopCount = rm.numLogicalOps();
+    proto.ckeyCount = rm.numCkeys();
+}
+
+static
 void writeNfaInfo(const RoseBuildImpl &build, build_context &bc,
                   RoseEngine &proto, const set<u32> &no_retrigger_queues) {
     const u32 queue_count = build.qif.allocated_count();
@@ -3314,6 +3337,15 @@ RoseProgram makeEodProgram(const RoseBuildImpl &build, build_context &bc,
 }
 
 static
+RoseProgram makeFlushCombProgram(const RoseEngine &t) {
+    RoseProgram program;
+    if (t.ckeyCount) {
+        addFlushCombinationProgram(program);
+    }
+    return program;
+}
+
+static
 u32 history_required(const rose_literal_id &key) {
     if (key.msk.size() < key.s.length()) {
         return key.elength() - 1;
@@ -3678,6 +3710,10 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     writeDkeyInfo(rm, bc.engine_blob, proto);
     writeLeftInfo(bc.engine_blob, proto, leftInfoTable);
+    writeLogicalInfo(rm, bc.engine_blob, proto);
+
+    auto flushComb_prog = makeFlushCombProgram(proto);
+    proto.flushCombProgramOffset = writeProgram(bc, move(flushComb_prog));
 
     // Build anchored matcher.
     auto atable = buildAnchoredMatcher(*this, fragments, anchored_dfas);

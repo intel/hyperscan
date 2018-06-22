@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Intel Corporation
+ * Copyright (c) 2017-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,6 +47,7 @@ RoseInstrSuffixesEod::~RoseInstrSuffixesEod() = default;
 RoseInstrMatcherEod::~RoseInstrMatcherEod() = default;
 RoseInstrEnd::~RoseInstrEnd() = default;
 RoseInstrClearWorkDone::~RoseInstrClearWorkDone() = default;
+RoseInstrFlushCombination::~RoseInstrFlushCombination() = default;
 
 using OffsetMap = RoseInstruction::OffsetMap;
 
@@ -642,6 +643,28 @@ void RoseInstrIncludedJump::write(void *dest, RoseEngineBlob &blob,
     auto *inst = static_cast<impl_type *>(dest);
     inst->child_offset = child_offset;
     inst->squash = squash;
+}
+
+void RoseInstrSetLogical::write(void *dest, RoseEngineBlob &blob,
+                                const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    inst->lkey = lkey;
+    inst->offset_adjust = offset_adjust;
+}
+
+void RoseInstrSetCombination::write(void *dest, RoseEngineBlob &blob,
+                                    const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    inst->ckey = ckey;
+}
+
+void RoseInstrSetExhaust::write(void *dest, RoseEngineBlob &blob,
+                                const OffsetMap &offset_map) const {
+    RoseInstrBase::write(dest, blob, offset_map);
+    auto *inst = static_cast<impl_type *>(dest);
+    inst->ekey = ekey;
 }
 
 }

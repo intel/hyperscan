@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,6 +42,7 @@
 #include "rose/runtime.h"
 #include "som/som_runtime.h"
 #include "util/exhaust.h"
+#include "util/logical.h"
 #include "util/fatbit.h"
 
 enum DedupeResult {
@@ -149,6 +150,93 @@ static really_inline
 void clearEvec(const struct RoseEngine *rose, char *evec) {
     DEBUG_PRINTF("clearing evec %p %u\n", evec, rose->ekeyCount);
     mmbit_clear((u8 *)evec, rose->ekeyCount);
+}
+
+/** \brief Test whether the given key (\a lkey) is set in the logical vector
+ * \a lvec. */
+static really_inline
+char getLogicalVal(const struct RoseEngine *rose, const char *lvec, u32 lkey) {
+    DEBUG_PRINTF("checking lkey matching %p %u\n", lvec, lkey);
+    assert(lkey != INVALID_LKEY);
+    assert(lkey < rose->lkeyCount + rose->lopCount);
+    return mmbit_isset((const u8 *)lvec, rose->lkeyCount + rose->lopCount,
+                       lkey);
+}
+
+/** \brief Mark key \a lkey on in the logical vector. */
+static really_inline
+void setLogicalVal(const struct RoseEngine *rose, char *lvec, u32 lkey,
+                   char val) {
+    DEBUG_PRINTF("marking as matched logical key %u\n", lkey);
+    assert(lkey != INVALID_LKEY);
+    assert(lkey < rose->lkeyCount + rose->lopCount);
+    switch (val) {
+    case 0:
+        mmbit_unset((u8 *)lvec, rose->lkeyCount + rose->lopCount, lkey);
+        break;
+    default:
+        mmbit_set((u8 *)lvec, rose->lkeyCount + rose->lopCount, lkey);
+        break;
+    }
+}
+
+/** \brief Mark key \a ckey on in the combination vector. */
+static really_inline
+void setCombinationActive(const struct RoseEngine *rose, char *cvec, u32 ckey) {
+    DEBUG_PRINTF("marking as active combination key %u\n", ckey);
+    assert(ckey != INVALID_CKEY);
+    assert(ckey < rose->ckeyCount);
+    mmbit_set((u8 *)cvec, rose->ckeyCount, ckey);
+}
+
+/** \brief Returns 1 if compliant to all logical combinations. */
+static really_inline
+char isLogicalCombination(const struct RoseEngine *rose, char *lvec,
+                          u32 start, u32 result) {
+    const struct LogicalOp *logicalTree = (const struct LogicalOp *)
+        ((const char *)rose + rose->logicalTreeOffset);
+    assert(start >= rose->lkeyCount);
+    assert(start <= result);
+    assert(result < rose->lkeyCount + rose->lopCount);
+    for (u32 i = start; i <= result; i++) {
+        const struct LogicalOp *op = logicalTree + (i - rose->lkeyCount);
+        assert(i == op->id);
+        assert(op->op <= LAST_LOGICAL_OP);
+        switch ((enum LogicalOpType)op->op) {
+        case LOGICAL_OP_NOT:
+            setLogicalVal(rose, lvec, op->id,
+                          !getLogicalVal(rose, lvec, op->ro));
+            break;
+        case LOGICAL_OP_AND:
+            setLogicalVal(rose, lvec, op->id,
+                          getLogicalVal(rose, lvec, op->lo) &
+                          getLogicalVal(rose, lvec, op->ro)); // &&
+            break;
+        case LOGICAL_OP_OR:
+            setLogicalVal(rose, lvec, op->id,
+                          getLogicalVal(rose, lvec, op->lo) |
+                          getLogicalVal(rose, lvec, op->ro)); // ||
+            break;
+        }
+    }
+    return getLogicalVal(rose, lvec, result);
+}
+
+/** \brief Clear all keys in the logical vector. */
+static really_inline
+void clearLvec(const struct RoseEngine *rose, char *lvec, char *cvec) {
+    DEBUG_PRINTF("clearing lvec %p %u\n", lvec,
+                 rose->lkeyCount + rose->lopCount);
+    DEBUG_PRINTF("clearing cvec %p %u\n", cvec, rose->ckeyCount);
+    mmbit_clear((u8 *)lvec, rose->lkeyCount + rose->lopCount);
+    mmbit_clear((u8 *)cvec, rose->ckeyCount);
+}
+
+/** \brief Clear all keys in the combination vector. */
+static really_inline
+void clearCvec(const struct RoseEngine *rose, char *cvec) {
+    DEBUG_PRINTF("clearing cvec %p %u\n", cvec, rose->ckeyCount);
+    mmbit_clear((u8 *)cvec, rose->ckeyCount);
 }
 
 /**

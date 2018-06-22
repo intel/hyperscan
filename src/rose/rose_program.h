@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -183,7 +183,25 @@ enum RoseInstructionCode {
      */
     ROSE_INSTR_INCLUDED_JUMP,
 
-    LAST_ROSE_INSTRUCTION = ROSE_INSTR_INCLUDED_JUMP //!< Sentinel.
+    /**
+     * \brief Set matching status of a sub-expression.
+     */
+    ROSE_INSTR_SET_LOGICAL,
+
+    /**
+     * \brief Set combination status pending checking.
+     */
+    ROSE_INSTR_SET_COMBINATION,
+
+    /**
+     * \brief Check if compliant with any logical constraints.
+     */
+    ROSE_INSTR_FLUSH_COMBINATION,
+
+    /** \brief Mark as exhausted instead of report while quiet. */
+    ROSE_INSTR_SET_EXHAUST,
+
+    LAST_ROSE_INSTRUCTION = ROSE_INSTR_SET_EXHAUST //!< Sentinel.
 };
 
 struct ROSE_STRUCT_END {
@@ -635,5 +653,25 @@ struct ROSE_STRUCT_INCLUDED_JUMP {
     u8 code; //!< From enum RoseInstructionCode.
     u8 squash; //!< FDR confirm squash mask for included literal.
     u32 child_offset; //!< Program offset of included literal.
+};
+
+struct ROSE_STRUCT_SET_LOGICAL {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 lkey; //!< Logical key to set.
+    s32 offset_adjust; //!< offsetAdjust from struct Report triggers the flush.
+};
+
+struct ROSE_STRUCT_SET_COMBINATION {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 ckey; //!< Combination key to set.
+};
+
+struct ROSE_STRUCT_FLUSH_COMBINATION {
+    u8 code; //!< From enum RoseInstructionCode.
+};
+
+struct ROSE_STRUCT_SET_EXHAUST {
+    u8 code; //!< From enum RoseInstructionCode.
+    u32 ekey; //!< Exhaustion key.
 };
 #endif // ROSE_ROSE_PROGRAM_H

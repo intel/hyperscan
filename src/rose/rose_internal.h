@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -199,8 +199,24 @@ struct RoseStateOffsets {
      * reports with that ekey should not be delivered to the user. */
     u32 exhausted;
 
-    /** size of exhausted multibit */
+    /** size in bytes of exhausted multibit */
     u32 exhausted_size;
+
+    /** Logical multibit.
+     *
+     * entry per logical key(operand/operator) (used by Logical Combination). */
+    u32 logicalVec;
+
+    /** size in bytes of logical multibit */
+    u32 logicalVec_size;
+
+    /** Combination multibit.
+     *
+     * entry per combination key (used by Logical Combination). */
+    u32 combVec;
+
+    /** size in bytes of combination multibit */
+    u32 combVec_size;
 
     /** Multibit for active suffix/outfix engines. */
     u32 activeLeafArray;
@@ -327,6 +343,11 @@ struct RoseEngine {
     u32 mode; /**< scanning mode, one of HS_MODE_{BLOCK,STREAM,VECTORED} */
     u32 historyRequired; /**< max amount of history required for streaming */
     u32 ekeyCount; /**< number of exhaustion keys */
+    u32 lkeyCount; /**< number of logical keys */
+    u32 lopCount; /**< number of logical ops */
+    u32 ckeyCount; /**< number of combination keys */
+    u32 logicalTreeOffset; /**< offset to mapping from lkey to LogicalOp */
+    u32 combInfoMapOffset; /**< offset to mapping from ckey to combInfo */
     u32 dkeyCount; /**< number of dedupe keys */
     u32 dkeyLogSize; /**< size of fatbit for storing dkey log (bytes) */
     u32 invDkeyOffset; /**< offset to table mapping from dkeys to the external
@@ -404,6 +425,7 @@ struct RoseEngine {
     u32 roseCount;
 
     u32 eodProgramOffset; //!< EOD program, otherwise 0.
+    u32 flushCombProgramOffset; /**< FlushCombination program, otherwise 0 */
 
     u32 lastByteHistoryIterOffset; // if non-zero
 

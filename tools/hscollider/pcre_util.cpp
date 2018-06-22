@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -34,7 +34,8 @@
 #include <pcre.h> /* for pcre flags */
 
 bool getPcreFlags(unsigned int hs_flags, unsigned int *flags,
-                  bool *highlander, bool *prefilter, bool *som) {
+                  bool *highlander, bool *prefilter, bool *som,
+                  bool *combination, bool *quiet) {
     assert(flags);
     assert(highlander);
     assert(prefilter);
@@ -75,6 +76,14 @@ bool getPcreFlags(unsigned int hs_flags, unsigned int *flags,
     if (hs_flags & HS_FLAG_SOM_LEFTMOST) {
         *som = true;
         hs_flags &= ~HS_FLAG_SOM_LEFTMOST;
+    }
+    if (hs_flags & HS_FLAG_COMBINATION) {
+        *combination = true;
+        hs_flags &= ~HS_FLAG_COMBINATION;
+    }
+    if (hs_flags & HS_FLAG_QUIET) {
+        *quiet = true;
+        hs_flags &= ~HS_FLAG_QUIET;
     }
 
     // Flags that are irrelevant to PCRE.

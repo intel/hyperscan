@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Intel Corporation
+ * Copyright (c) 2017-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -147,6 +147,13 @@ size_t JOIN(sc_, FN_SUFFIX)(const struct RoseEngine *rose,
 
     /* copy the exhaustion multibit */
     COPY_MULTIBIT(stream_body + so->exhausted, rose->ekeyCount);
+
+    /* copy the logical multibit */
+    COPY_MULTIBIT(stream_body + so->logicalVec,
+                  rose->lkeyCount + rose->lopCount);
+
+    /* copy the combination multibit */
+    COPY_MULTIBIT(stream_body + so->combVec, rose->ckeyCount);
 
     /* copy nfa stream state for endfixes */
     /* Note: in the expand case the active array has already been copied into

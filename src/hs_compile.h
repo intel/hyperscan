@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -810,6 +810,28 @@ hs_error_t HS_CDECL hs_populate_platform(hs_platform_info_t *platform);
  * requirements in streaming mode.
  */
 #define HS_FLAG_SOM_LEFTMOST    256
+
+/**
+ * Compile flag: Logical combination.
+ *
+ * This flag instructs Hyperscan to parse this expression as logical
+ * combination syntax.
+ * Logical constraints consist of operands, operators and parentheses.
+ * The operands are expression indices, and operators can be
+ * '!'(NOT), '&'(AND) or '|'(OR).
+ * For example:
+ *     (101&102&103)|(104&!105)
+ *     ((301|302)&303)&(304|305)
+ */
+#define HS_FLAG_COMBINATION     512
+
+/**
+ * Compile flag: Don't do any match reporting.
+ *
+ * This flag instructs Hyperscan to ignore match reporting for this expression.
+ * It is designed to be used on the sub-expressions in logical combinations.
+ */
+#define HS_FLAG_QUIET           1024
 
 /** @} */
 

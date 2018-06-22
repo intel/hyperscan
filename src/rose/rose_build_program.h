@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -187,6 +187,7 @@ struct ProgramBuild : noncopyable {
 void addEnginesEodProgram(u32 eodNfaIterOffset, RoseProgram &program);
 void addSuffixesEodProgram(RoseProgram &program);
 void addMatcherEodProgram(RoseProgram &program);
+void addFlushCombinationProgram(RoseProgram &program);
 
 static constexpr u32 INVALID_QUEUE = ~0U;
 

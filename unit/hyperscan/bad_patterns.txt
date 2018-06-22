@@ -145,3 +145,21 @@
 148:/\QÀ\Eaaaa/8 #Expression is not valid UTF-8.
 149:/[\QÀ\Eaaaa]/8 #Expression is not valid UTF-8.
 150:/abcd/{edit_distance=1,hamming_distance=1} #In hs_expr_ext, cannot have both edit distance and Hamming distance.
+151:/141 | abc/C #Unknown character at index 6.
+152:/141 & | 142/C #Not enough operand at index 6.
+153:/141 142 & 143/C #Not enough operator at index 13.
+154:/141 !142/C #Not enough operator at index 8.
+155:/141 & 142 |/C #Not enough operand at index 11.
+156:/)141 & 142 /C #Not enough left parentheses at index 0.
+157:/(141 & (142|!143) |144/C #Not enough right parentheses at index 22.
+158:/141 & (142|!143) )| 144/C #Not enough left parentheses at index 17.
+159:/1234567890 & (142|!143 )/C #Expression id too large at index 10.
+160:/141 & (142|!143 )|/C #Not enough operand at index 18.
+161:/!141/C #Has match from purely negative sub-expressions.
+162:/!141 | 142 | 143/C #Has match from purely negative sub-expressions.
+163:/!141 & !142 & !143/C #Has match from purely negative sub-expressions.
+164:/(141 | !142 & !143)/C #Has match from purely negative sub-expressions.
+165:/!(141 | 142 | 143)/C #Has match from purely negative sub-expressions.
+166:/141/C #No logical operation.
+167:/119 & 121/C #Unknown sub-expression id.
+168:/166 & 167/C #Unknown sub-expression id.
