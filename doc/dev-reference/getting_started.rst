@@ -50,6 +50,8 @@ Very Quick Start
 Requirements
 ************
 
+.. _hardware:
+
 Hardware
 ========
 
