@@ -1,0 +1,1291 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Chimera &mdash; Hyperscan 5.0.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '5.0.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="top" title="Hyperscan 5.0.0 documentation" href="index.html" />
+    <link rel="prev" title="API Reference: Files" href="api_files.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="chimera">
+<span id="id1"></span><h1>Chimera<a class="headerlink" href="#chimera" title="Permalink to this headline">¶</a></h1>
+<p>This section describes Chimera library.</p>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>Chimera is a software regular expression matching engine that is a hybrid of
+Hyperscan and PCRE. The design goals of Chimera are to fully support PCRE
+syntax as well as to take advantage of the high performance nature of Hyperscan.</p>
+<p>Chimera inherits the design guideline of Hyperscan with C APIs for compilation
+and scanning.</p>
+<p>The Chimera API itself is composed of two major components:</p>
+<div class="section" id="compilation">
+<h3>Compilation<a class="headerlink" href="#compilation" title="Permalink to this headline">¶</a></h3>
+<p>These functions take a group of regular expressions, along with identifiers and
+option flags, and compile them into an immutable database that can be used by
+the Chimera scanning API. This compilation process performs considerable
+analysis and optimization work in order to build a database that will match
+the given expressions efficiently.</p>
+<p>See <a class="reference internal" href="#chcompile"><span>Compiling Patterns</span></a> for more details</p>
+</div>
+<div class="section" id="scanning">
+<h3>Scanning<a class="headerlink" href="#scanning" title="Permalink to this headline">¶</a></h3>
+<p>Once a Chimera database has been created, it can be used to scan data in memory.
+Chimera only supports block mode in which we scan a single contiguous block in
+memory.</p>
+<p>Matches are delivered to the application via a user-supplied callback function
+that is called synchronously for each match.</p>
+<p>For a given database, Chimera provides several guarantees:</p>
+<ul class="simple">
+<li>No memory allocations occur at runtime with the exception of scratch space
+allocation, it should be done ahead of time for performance-critical
+applications:<ul>
+<li><strong>Scratch space</strong>: temporary memory used for internal data at scan time.
+Structures in scratch space do not persist beyond the end of a single scan
+call.</li>
+</ul>
+</li>
+<li>The size of the scratch space required for a given database is fixed and
+determined at database compile time. This means that the memory requirement
+of the application are known ahead of time, and the scratch space can be
+pre-allocated if required for performance reasons.</li>
+<li>Any pattern that has successfully been compiled by the Chimera compiler can
+be scanned against any input. There could be internal resource limits or
+other limitations caused by PCRE at runtime that could cause a scan call to
+return an error.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Chimera is designed to have the same matching behavior as PCRE,
+including greedy/ungreedy, capturing, etc. Chimera reports both
+<strong>start offset</strong> and <strong>end offset</strong> for each match like PCRE. Different
+from the fashion of reporting all matches in Hyperscan, Chimera only reports
+non-overlapping matches. For example, the pattern <code class="regexp docutils literal"><span class="pre">/foofoo/</span></code> will
+match <code class="docutils literal"><span class="pre">foofoofoofoo</span></code> at offsets (0, 6) and (6, 12).</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Since Chimera is a hybrid of Hyperscan and PCRE in order to support
+full PCRE syntax, there will be extra performance overhead compared to
+Hyperscan-only solution. Please always use Hyperscan for better performance
+unless you must need full PCRE syntax support.</p>
+</div>
+<p>See <a class="reference internal" href="#chruntime"><span>Scanning for Patterns</span></a> for more details</p>
+</div>
+</div>
+<div class="section" id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<p>The PCRE library (<a class="reference external" href="http://pcre.org/">http://pcre.org/</a>) version 8.41 is required for Chimera.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Since Chimera needs to reference PCRE internal function, please place PCRE source
+directory under Hyperscan root directory in order to build Chimera.</p>
+</div>
+<p>Beside this, both hardware and software requirements of Chimera are the same to Hyperscan.
+See <a class="reference internal" href="getting_started.html#hardware"><span>Hardware</span></a> and <a class="reference internal" href="getting_started.html#software"><span>Software</span></a> for more details.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Building Hyperscan will automatically generate Chimera library.
+Currently only static library is supported for Chimera, so please
+use static build type when configure CMake build options.</p>
+</div>
+</div>
+<div class="section" id="compiling-patterns">
+<span id="chcompile"></span><h2>Compiling Patterns<a class="headerlink" href="#compiling-patterns" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="building-a-database">
+<h3>Building a Database<a class="headerlink" href="#building-a-database" title="Permalink to this headline">¶</a></h3>
+<p>The Chimera compiler API accepts regular expressions and converts them into a
+compiled pattern database that can then be used to scan data.</p>
+<p>The API provides two functions that compile regular expressions into
+databases:</p>
+<ol class="arabic simple">
+<li><a class="reference internal" href="#c.ch_compile" title="ch_compile"><code class="xref c c-func docutils literal"><span class="pre">ch_compile()</span></code></a>: compiles a single expression into a pattern database.</li>
+<li><a class="reference internal" href="#c.ch_compile_multi" title="ch_compile_multi"><code class="xref c c-func docutils literal"><span class="pre">ch_compile_multi()</span></code></a>: compiles an array of expressions into a pattern
+database. All of the supplied patterns will be scanned for concurrently at
+scan time, with user-supplied identifiers returned when they match.</li>
+<li><a class="reference internal" href="#c.ch_compile_ext_multi" title="ch_compile_ext_multi"><code class="xref c c-func docutils literal"><span class="pre">ch_compile_ext_multi()</span></code></a>: compiles an array of expressions as above,
+but allows PCRE match limits to be specified for each expression.</li>
+</ol>
+<p>Compilation allows the Chimera library to analyze the given pattern(s) and
+pre-determine how to scan for these patterns in an optimized fashion using
+Hyperscan and PCRE.</p>
+</div>
+<div class="section" id="pattern-support">
+<h3>Pattern Support<a class="headerlink" href="#pattern-support" title="Permalink to this headline">¶</a></h3>
+<p>Chimera fully supports the pattern syntax used by the PCRE library (&#8220;libpcre&#8221;),
+described at &lt;<a class="reference external" href="http://www.pcre.org/">http://www.pcre.org/</a>&gt;.The version of PCRE used to validate
+Chimera&#8217;s interpretation of this syntax is 8.41.</p>
+</div>
+<div class="section" id="semantics">
+<h3>Semantics<a class="headerlink" href="#semantics" title="Permalink to this headline">¶</a></h3>
+<p>Chimera supports the exact same semantics of PCRE library. Moreover, it supports
+multiple simultaneous pattern matching like Hyperscan and the multiple matches
+will be reported in order by end offset.</p>
+</div>
+</div>
+<div class="section" id="scanning-for-patterns">
+<span id="chruntime"></span><h2>Scanning for Patterns<a class="headerlink" href="#scanning-for-patterns" title="Permalink to this headline">¶</a></h2>
+<p>Chimera provides scan function with <code class="docutils literal"><span class="pre">ch_scan</span></code>.</p>
+<div class="section" id="handling-matches">
+<h3>Handling Matches<a class="headerlink" href="#handling-matches" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal"><span class="pre">ch_scan</span></code> will call a user-supplied callback function when a match
+is found. This function has the following signature:</p>
+<blockquote>
+<div><dl class="typedef">
+<dt>
+<em class="property">typedef </em><code class="descname">( * ch_match_event_handler)</code><span class="sig-paren">(</span>unsigned int<em>&nbsp;id</em>, unsigned long long<em>&nbsp;from</em>, unsigned long long<em>&nbsp;to</em>, unsigned int<em>&nbsp;flags</em>, unsigned int<em>&nbsp;size</em>, const <a class="reference internal" href="#c.ch_capture_t" title="ch_capture_t">ch_capture_t</a><em>&nbsp;*captured</em>, void<em>&nbsp;*ctx</em><span class="sig-paren">)</span></dt>
+<dd></dd></dl>
+
+</div></blockquote>
+<p>The <em>id</em> argument will be set to the identifier for the matching expression
+provided at compile time, and the <em>from</em> argument will be set to the
+start-offset of the match the <em>to</em> argument will be set to the end-offset
+of the match. The <em>captured</em> stores offsets of entire pattern match as well as
+captured subexpressions. The <em>size</em> will be set to the number of valid entries in
+the <em>captured</em>.</p>
+<p>The match callback function has the capability to continue or halt scanning
+by returning different values.</p>
+<p>See <a class="reference internal" href="#c.ch_match_event_handler" title="ch_match_event_handler"><code class="xref c c-type docutils literal"><span class="pre">ch_match_event_handler</span></code></a> for more information.</p>
+</div>
+<div class="section" id="handling-runtime-errors">
+<h3>Handling Runtime Errors<a class="headerlink" href="#handling-runtime-errors" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal"><span class="pre">ch_scan</span></code> will call a user-supplied callback function when a runtime error
+occurs in libpcre. This function has the following signature:</p>
+<blockquote>
+<div><dl class="typedef">
+<dt>
+<em class="property">typedef </em><code class="descname">( * ch_error_event_handler)</code><span class="sig-paren">(</span><a class="reference internal" href="#c.ch_error_event_t" title="ch_error_event_t">ch_error_event_t</a><em>&nbsp;error_type</em>, unsigned int<em>&nbsp;id</em>, void<em>&nbsp;*info</em>, void<em>&nbsp;*ctx</em><span class="sig-paren">)</span></dt>
+<dd></dd></dl>
+
+</div></blockquote>
+<p>The <em>id</em> argument will be set to the identifier for the matching expression
+provided at compile time.</p>
+<p>The match callback function has the capability to either halt scanning or
+continue scanning for the next pattern.</p>
+<p>See <a class="reference internal" href="#c.ch_error_event_handler" title="ch_error_event_handler"><code class="xref c c-type docutils literal"><span class="pre">ch_error_event_handler</span></code></a> for more information.</p>
+</div>
+<div class="section" id="scratch-space">
+<h3>Scratch Space<a class="headerlink" href="#scratch-space" title="Permalink to this headline">¶</a></h3>
+<p>While scanning data, Chimera needs a small amount of temporary memory to store
+on-the-fly internal data. This amount is unfortunately too large to fit on the
+stack, particularly for embedded applications, and allocating memory dynamically
+is too expensive, so a pre-allocated &#8220;scratch&#8221; space must be provided to the
+scanning functions.</p>
+<p>The function <a class="reference internal" href="#c.ch_alloc_scratch" title="ch_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">ch_alloc_scratch()</span></code></a> allocates a large enough region of
+scratch space to support a given database. If the application uses multiple
+databases, only a single scratch region is necessary: in this case, calling
+<a class="reference internal" href="#c.ch_alloc_scratch" title="ch_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">ch_alloc_scratch()</span></code></a> on each database (with the same <code class="docutils literal"><span class="pre">scratch</span></code> pointer)
+will ensure that the scratch space is large enough to support scanning against
+any of the given databases.</p>
+<p>While the Chimera library is re-entrant, the use of scratch spaces is not.
+For example, if by design it is deemed necessary to run recursive or nested
+scanning (say, from the match callback function), then an additional scratch
+space is required for that context.</p>
+<p>In the absence of recursive scanning, only one such space is required per thread
+and can (and indeed should) be allocated before data scanning is to commence.</p>
+<p>In a scenario where a set of expressions are compiled by a single &#8220;master&#8221;
+thread and data will be scanned by multiple &#8220;worker&#8221; threads, the convenience
+function <a class="reference internal" href="#c.ch_clone_scratch" title="ch_clone_scratch"><code class="xref c c-func docutils literal"><span class="pre">ch_clone_scratch()</span></code></a> allows multiple copies of an existing
+scratch space to be made for each thread (rather than forcing the caller to pass
+all the compiled databases through <a class="reference internal" href="#c.ch_alloc_scratch" title="ch_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">ch_alloc_scratch()</span></code></a> multiple times).</p>
+<p>For example:</p>
+<div class="highlight-c"><div class="highlight"><pre><span class="n">ch_error_t</span> <span class="n">err</span><span class="p">;</span>
+<span class="n">ch_scratch_t</span> <span class="o">*</span><span class="n">scratch_prototype</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="n">err</span> <span class="o">=</span> <span class="n">ch_alloc_scratch</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">scratch_prototype</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">!=</span> <span class="n">CH_SUCCESS</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">&quot;ch_alloc_scratch failed!&quot;</span><span class="p">);</span>
+    <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">ch_scratch_t</span> <span class="o">*</span><span class="n">scratch_thread1</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+<span class="n">ch_scratch_t</span> <span class="o">*</span><span class="n">scratch_thread2</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+
+<span class="n">err</span> <span class="o">=</span> <span class="n">ch_clone_scratch</span><span class="p">(</span><span class="n">scratch_prototype</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">scratch_thread1</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">!=</span> <span class="n">CH_SUCCESS</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">&quot;ch_clone_scratch failed!&quot;</span><span class="p">);</span>
+    <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="n">err</span> <span class="o">=</span> <span class="n">ch_clone_scratch</span><span class="p">(</span><span class="n">scratch_prototype</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">scratch_thread2</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">!=</span> <span class="n">CH_SUCCESS</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">printf</span><span class="p">(</span><span class="s">&quot;ch_clone_scratch failed!&quot;</span><span class="p">);</span>
+    <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">ch_free_scratch</span><span class="p">(</span><span class="n">scratch_prototype</span><span class="p">);</span>
+
+<span class="cm">/* Now two threads can both scan against database db,</span>
+<span class="cm">   each with its own scratch space. */</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="custom-allocators">
+<h3>Custom Allocators<a class="headerlink" href="#custom-allocators" title="Permalink to this headline">¶</a></h3>
+<p>By default, structures used by Chimera at runtime (scratch space, etc) are
+allocated with the default system allocators, usually
+<code class="docutils literal"><span class="pre">malloc()</span></code> and <code class="docutils literal"><span class="pre">free()</span></code>.</p>
+<p>The Chimera API provides a facility for changing this behaviour to support
+applications that use custom memory allocators.</p>
+<p>These functions are:</p>
+<ul class="simple">
+<li><a class="reference internal" href="#c.ch_set_database_allocator" title="ch_set_database_allocator"><code class="xref c c-func docutils literal"><span class="pre">ch_set_database_allocator()</span></code></a>, which sets the allocate and free functions
+used for compiled pattern databases.</li>
+<li><a class="reference internal" href="#c.ch_set_scratch_allocator" title="ch_set_scratch_allocator"><code class="xref c c-func docutils literal"><span class="pre">ch_set_scratch_allocator()</span></code></a>, which sets the allocate and free
+functions used for scratch space.</li>
+<li><a class="reference internal" href="#c.ch_set_misc_allocator" title="ch_set_misc_allocator"><code class="xref c c-func docutils literal"><span class="pre">ch_set_misc_allocator()</span></code></a>, which sets the allocate and free functions
+used for miscellaneous data, such as compile error structures and
+informational strings.</li>
+</ul>
+<p>The <a class="reference internal" href="#c.ch_set_allocator" title="ch_set_allocator"><code class="xref c c-func docutils literal"><span class="pre">ch_set_allocator()</span></code></a> function can be used to set all of the custom
+allocators to the same allocate/free pair.</p>
+</div>
+</div>
+<div class="section" id="api-reference-constants">
+<h2>API Reference: Constants<a class="headerlink" href="#api-reference-constants" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="error-codes">
+<h3>Error Codes<a class="headerlink" href="#error-codes" title="Permalink to this headline">¶</a></h3>
+<dl class="define">
+<dt>
+<code class="descname">CH_SUCCESS</code></dt>
+<dd><p>The engine completed normally. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_INVALID</code></dt>
+<dd><p>A parameter passed to this function was invalid. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_NOMEM</code></dt>
+<dd><p>A memory allocation failed. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_SCAN_TERMINATED</code></dt>
+<dd><p>The engine was terminated by callback.</p>
+<p>This return value indicates that the target buffer was partially scanned, but that the callback function requested that scanning cease after a match was located. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_COMPILER_ERROR</code></dt>
+<dd><p>The pattern compiler failed, and the <a class="reference internal" href="#project0ch__compile_8h_1a8a5035f7767f59b039981a37ce8572da"><span>ch_compile_error_t</span></a> should be inspected for more detail. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_DB_VERSION_ERROR</code></dt>
+<dd><p>The given database was built for a different version of the Chimera matcher. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_DB_PLATFORM_ERROR</code></dt>
+<dd><p>The given database was built for a different platform (i.e., CPU type). </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_DB_MODE_ERROR</code></dt>
+<dd><p>The given database was built for a different mode of operation. This error is returned when streaming calls are used with a non-streaming database and vice versa. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_BAD_ALIGN</code></dt>
+<dd><p>A parameter passed to this function was not correctly aligned. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_BAD_ALLOC</code></dt>
+<dd><p>The memory allocator did not correctly return memory suitably aligned for the largest representable data type on this platform. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_SCRATCH_IN_USE</code></dt>
+<dd><p>The scratch region was already in use.</p>
+<p>This error is returned when Chimera is able to detect that the scratch region given is already in use by another Chimera API call.</p>
+<p>A separate scratch region, allocated with <a class="reference internal" href="#project0ch__runtime_8h_1a3c7d88639ce32646f9aaf5b57b2d0b1d"><span>ch_alloc_scratch()</span></a> or <a class="reference internal" href="#project0ch__runtime_8h_1a15e83801bb74dfff8c4d8623f64f967c"><span>ch_clone_scratch()</span></a>, is required for every concurrent caller of the Chimera API.</p>
+<p>For example, this error might be returned when <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan()</span></a> has been called inside a callback delivered by a currently-executing <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan()</span></a> call using the same scratch region.</p>
+<p>Note: Not all concurrent uses of scratch regions may be detected. This error is intended as a best-effort debugging tool, not a guarantee. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_FAIL_INTERNAL</code></dt>
+<dd><p>Returned when pcre_exec (called for some expressions internally from <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan</span></a>) failed due to a fatal error. </p>
+</dd></dl>
+
+</div>
+<div class="section" id="pattern-flags">
+<h3>Pattern flags<a class="headerlink" href="#pattern-flags" title="Permalink to this headline">¶</a></h3>
+<dl class="define">
+<dt>
+<code class="descname">CH_FLAG_CASELESS</code></dt>
+<dd><p>Compile flag: Set case-insensitive matching.</p>
+<p>This flag sets the expression to be matched case-insensitively by default. The expression may still use PCRE tokens (notably <code class="docutils literal"><span class="pre">(?i)</span></code> and <code class="docutils literal"><span class="pre">(?-i)</span></code>) to switch case-insensitive matching on and off. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_FLAG_DOTALL</code></dt>
+<dd><p>Compile flag: Matching a <code class="docutils literal"><span class="pre">.</span></code> will not exclude newlines.</p>
+<p>This flag sets any instances of the <code class="docutils literal"><span class="pre">.</span></code> token to match newline characters as well as all other characters. The PCRE specification states that the <code class="docutils literal"><span class="pre">.</span></code> token does not match newline characters by default, so without this flag the <code class="docutils literal"><span class="pre">.</span></code> token will not cross line boundaries. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_FLAG_MULTILINE</code></dt>
+<dd><p>Compile flag: Set multi-line anchoring.</p>
+<p>This flag instructs the expression to make the <code class="docutils literal"><span class="pre">^</span></code> and <code class="docutils literal"><span class="pre">$</span></code> tokens match newline characters as well as the start and end of the stream. If this flag is not specified, the <code class="docutils literal"><span class="pre">^</span></code> token will only ever match at the start of a stream, and the <code class="docutils literal"><span class="pre">$</span></code> token will only ever match at the end of a stream within the guidelines of the PCRE specification. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_FLAG_SINGLEMATCH</code></dt>
+<dd><p>Compile flag: Set single-match only mode.</p>
+<p>This flag sets the expression&#8217;s match ID to match at most once, only the first match for each invocation of <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan()</span></a> will be returned. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_FLAG_UTF8</code></dt>
+<dd><p>Compile flag: Enable UTF-8 mode for this expression.</p>
+<p>This flag instructs Chimera to treat the pattern as a sequence of UTF-8 characters. The results of scanning invalid UTF-8 sequences with a Chimera library that has been compiled with one or more patterns using this flag are undefined. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_FLAG_UCP</code></dt>
+<dd><p>Compile flag: Enable Unicode property support for this expression.</p>
+<p>This flag instructs Chimera to use Unicode properties, rather than the default ASCII interpretations, for character mnemonics like <code class="docutils literal"><span class="pre">\w</span></code> and <code class="docutils literal"><span class="pre">\s</span></code> as well as the POSIX character classes. It is only meaningful in conjunction with <a class="reference internal" href="#project0group__CH__PATTERN__FLAG_1ga007859d8e84ef50bd6547af87e13d7e4"><span>CH_FLAG_UTF8</span></a>. </p>
+</dd></dl>
+
+</div>
+<div class="section" id="compile-mode-flags">
+<h3>Compile mode flags<a class="headerlink" href="#compile-mode-flags" title="Permalink to this headline">¶</a></h3>
+<dl class="define">
+<dt>
+<code class="descname">CH_MODE_NOGROUPS</code></dt>
+<dd><p>Compiler mode flag: Disable capturing groups. </p>
+</dd></dl>
+
+<dl class="define">
+<dt>
+<code class="descname">CH_MODE_GROUPS</code></dt>
+<dd><p>Compiler mode flag: Enable capturing groups. </p>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="api-reference-files">
+<h2>API Reference: Files<a class="headerlink" href="#api-reference-files" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="file-ch-h">
+<h3>File: ch.h<a class="headerlink" href="#file-ch-h" title="Permalink to this headline">¶</a></h3>
+<p>The complete Chimera API definition. </p>
+<p>Chimera is a hybrid solution of Hyperscan and PCRE.</p>
+<p>This header includes both the Chimera compiler and runtime components. See the individual component headers for documentation. </p>
+</div>
+<div class="section" id="file-ch-common-h">
+<h3>File: ch_common.h<a class="headerlink" href="#file-ch-common-h" title="Permalink to this headline">¶</a></h3>
+<p>The Chimera common API definition. </p>
+<p>Chimera is a hybrid of Hyperscan and PCRE.</p>
+<p>This header contains functions available to both the Chimera compiler and runtime. </p>
+<div class="breathe-sectiondef container">
+<p class="breathe-sectiondef-title rubric">Defines</p>
+<dl class="define">
+<dt id="c.CH_SUCCESS">
+<span class="target" id="project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"></span><code class="descname">CH_SUCCESS</code><a class="headerlink" href="#c.CH_SUCCESS" title="Permalink to this definition">¶</a></dt>
+<dd><p>The engine completed normally. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_INVALID">
+<span class="target" id="project0group__CH__ERROR_1gaba42a34630d3d8ba1292f80b4592c7ca"></span><code class="descname">CH_INVALID</code><a class="headerlink" href="#c.CH_INVALID" title="Permalink to this definition">¶</a></dt>
+<dd><p>A parameter passed to this function was invalid. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_NOMEM">
+<span class="target" id="project0group__CH__ERROR_1ga3950bacd58097c01ad05091e07e47318"></span><code class="descname">CH_NOMEM</code><a class="headerlink" href="#c.CH_NOMEM" title="Permalink to this definition">¶</a></dt>
+<dd><p>A memory allocation failed. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_SCAN_TERMINATED">
+<span class="target" id="project0group__CH__ERROR_1ga97fa0c8edae135770162a30d95f4d827"></span><code class="descname">CH_SCAN_TERMINATED</code><a class="headerlink" href="#c.CH_SCAN_TERMINATED" title="Permalink to this definition">¶</a></dt>
+<dd><p>The engine was terminated by callback.</p>
+<p>This return value indicates that the target buffer was partially scanned, but that the callback function requested that scanning cease after a match was located. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_COMPILER_ERROR">
+<span class="target" id="project0group__CH__ERROR_1ga1f5afef70e16c03380b518063346af4b"></span><code class="descname">CH_COMPILER_ERROR</code><a class="headerlink" href="#c.CH_COMPILER_ERROR" title="Permalink to this definition">¶</a></dt>
+<dd><p>The pattern compiler failed, and the <a class="reference internal" href="#project0ch__compile_8h_1a8a5035f7767f59b039981a37ce8572da"><span>ch_compile_error_t</span></a> should be inspected for more detail. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_DB_VERSION_ERROR">
+<span class="target" id="project0group__CH__ERROR_1ga8fe79e9ad7631169fdbcdeaf8a723c2f"></span><code class="descname">CH_DB_VERSION_ERROR</code><a class="headerlink" href="#c.CH_DB_VERSION_ERROR" title="Permalink to this definition">¶</a></dt>
+<dd><p>The given database was built for a different version of the Chimera matcher. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_DB_PLATFORM_ERROR">
+<span class="target" id="project0group__CH__ERROR_1gace2952e3621b89778bf9dfffbb51d258"></span><code class="descname">CH_DB_PLATFORM_ERROR</code><a class="headerlink" href="#c.CH_DB_PLATFORM_ERROR" title="Permalink to this definition">¶</a></dt>
+<dd><p>The given database was built for a different platform (i.e., CPU type). </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_DB_MODE_ERROR">
+<span class="target" id="project0group__CH__ERROR_1gaf3ffdb909663d21a3ad3165cf8258893"></span><code class="descname">CH_DB_MODE_ERROR</code><a class="headerlink" href="#c.CH_DB_MODE_ERROR" title="Permalink to this definition">¶</a></dt>
+<dd><p>The given database was built for a different mode of operation. This error is returned when streaming calls are used with a non-streaming database and vice versa. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_BAD_ALIGN">
+<span class="target" id="project0group__CH__ERROR_1ga1f5dba11d1efe11c5c4554c65dd0b50c"></span><code class="descname">CH_BAD_ALIGN</code><a class="headerlink" href="#c.CH_BAD_ALIGN" title="Permalink to this definition">¶</a></dt>
+<dd><p>A parameter passed to this function was not correctly aligned. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_BAD_ALLOC">
+<span class="target" id="project0group__CH__ERROR_1ga416e7dea69d3bf52d57ea8364262befd"></span><code class="descname">CH_BAD_ALLOC</code><a class="headerlink" href="#c.CH_BAD_ALLOC" title="Permalink to this definition">¶</a></dt>
+<dd><p>The memory allocator did not correctly return memory suitably aligned for the largest representable data type on this platform. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_SCRATCH_IN_USE">
+<span class="target" id="project0group__CH__ERROR_1ga913e385fa42748c424e52e68fbf35f54"></span><code class="descname">CH_SCRATCH_IN_USE</code><a class="headerlink" href="#c.CH_SCRATCH_IN_USE" title="Permalink to this definition">¶</a></dt>
+<dd><p>The scratch region was already in use.</p>
+<p>This error is returned when Chimera is able to detect that the scratch region given is already in use by another Chimera API call.</p>
+<p>A separate scratch region, allocated with <a class="reference internal" href="#project0ch__runtime_8h_1a3c7d88639ce32646f9aaf5b57b2d0b1d"><span>ch_alloc_scratch()</span></a> or <a class="reference internal" href="#project0ch__runtime_8h_1a15e83801bb74dfff8c4d8623f64f967c"><span>ch_clone_scratch()</span></a>, is required for every concurrent caller of the Chimera API.</p>
+<p>For example, this error might be returned when <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan()</span></a> has been called inside a callback delivered by a currently-executing <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan()</span></a> call using the same scratch region.</p>
+<p>Note: Not all concurrent uses of scratch regions may be detected. This error is intended as a best-effort debugging tool, not a guarantee. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_FAIL_INTERNAL">
+<span class="target" id="project0group__CH__ERROR_1gae7ad2d1f67f920a9ebaa8d97f405992b"></span><code class="descname">CH_FAIL_INTERNAL</code><a class="headerlink" href="#c.CH_FAIL_INTERNAL" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returned when pcre_exec (called for some expressions internally from <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan</span></a>) failed due to a fatal error. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef container">
+<p class="breathe-sectiondef-title rubric">Typedefs</p>
+<dl class="typedef">
+<dt id="c.ch_database_t">
+<span class="target" id="project0ch__common_8h_1a8819edde18ac5d9ad4bb84a3b214b234"></span><em class="property">typedef </em><code class="descname">ch_database_t</code><a class="headerlink" href="#c.ch_database_t" title="Permalink to this definition">¶</a></dt>
+<dd><p>A Chimera pattern database.</p>
+<p>Generated by one of the Chimera compiler functions:<ul class="simple">
+<li><a class="reference internal" href="#project0ch__compile_8h_1a6a013051b2cff9ab317f09ff99efc4ce"><span>ch_compile()</span></a></li>
+<li><a class="reference internal" href="#project0ch__compile_8h_1a42e42ceae9e88e63bddfd66b80ea8ee6"><span>ch_compile_multi()</span></a></li>
+<li><a class="reference internal" href="#project0ch__compile_8h_1aa74568707164b8efc98cd88c5f332db2"><span>ch_compile_ext_multi()</span></a> </li>
+</ul>
+</p>
+</dd></dl>
+
+<dl class="typedef">
+<dt id="c.ch_error_t">
+<span class="target" id="project0ch__common_8h_1acabf60c29bb14b51caf63a550bff429a"></span><em class="property">typedef </em><code class="descname">ch_error_t</code><a class="headerlink" href="#c.ch_error_t" title="Permalink to this definition">¶</a></dt>
+<dd><p>A type for errors returned by Chimera functions. </p>
+</dd></dl>
+
+<dl class="typedef">
+<dt id="c.ch_alloc_t">
+<span class="target" id="project0ch__common_8h_1a3a2d4e06ecf58339d4bccde1fae4c698"></span><em class="property">typedef </em><code class="descname">( * ch_alloc_t)</code><span class="sig-paren">(</span>size_t<em>&nbsp;size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_alloc_t" title="Permalink to this definition">¶</a></dt>
+<dd><p>The type of the callback function that will be used by Chimera to allocate more memory at runtime as required.</p>
+<p>If Chimera is to be used in a multi-threaded, or similarly concurrent environment, the allocation function will need to be re-entrant, or similarly safe for concurrent use.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd>A pointer to the region of memory allocated, or NULL on error. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">size</span></code> - <p>The number of bytes to allocate. </p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="typedef">
+<dt id="c.ch_free_t">
+<span class="target" id="project0ch__common_8h_1ab246194e6ab7bd5fde52b57055c0a3bc"></span><em class="property">typedef </em><code class="descname">( * ch_free_t)</code><span class="sig-paren">(</span>void<em>&nbsp;*ptr</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_free_t" title="Permalink to this definition">¶</a></dt>
+<dd><p>The type of the callback function that will be used by Chimera to free memory regions previously allocated using the <a class="reference internal" href="#project0ch__common_8h_1a3a2d4e06ecf58339d4bccde1fae4c698"><span>ch_alloc_t</span></a> function.</p>
+<p><dl class="docutils">
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">ptr</span></code> - <p>The region of memory to be freed. </p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef container">
+<p class="breathe-sectiondef-title rubric">Functions</p>
+<dl class="function">
+<dt id="c.ch_free_database">
+<span class="target" id="project0ch__common_8h_1a1e87569ac35ac18c4212c0ced9a7323b"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_free_database</code><span class="sig-paren">(</span><a class="reference internal" href="#c.ch_database_t" title="ch_database_t">ch_database_t</a>  *<em>&nbsp;db</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_free_database" title="Permalink to this definition">¶</a></dt>
+<dd><p>Free a compiled pattern database.</p>
+<p>The free callback set by <a class="reference internal" href="#project0ch__common_8h_1a06b7bdbcc2e56c57771271025e33b93b"><span>ch_set_allocator()</span></a>) will be used by this function.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> on success, other values on failure. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">db</span></code> - <p>A compiled pattern database. NULL may also be safely provided, in which case the function does nothing.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_version">
+<span class="target" id="project0ch__common_8h_1aec1c184aa5c0a8f2f8fe7ee913512127"></span>const char* <code class="descname">ch_version</code><span class="sig-paren">(</span>void<span class="sig-paren">)</span><a class="headerlink" href="#c.ch_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Utility function for identifying this release version.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd>A string containing the version number of this release build and the date of the build. It is allocated statically, so it does not need to be freed by the caller. </dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_database_size">
+<span class="target" id="project0ch__common_8h_1a7196993045889f37053cd1872a2069e9"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_database_size</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.ch_database_t" title="ch_database_t">ch_database_t</a>  *<em>&nbsp;database</em>, size_t *<em>&nbsp;database_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_database_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the size of the given database.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> on success, other values on failure. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">database</span></code> - <p>Pointer to compiled expression database.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">database_size</span></code> - <p>On success, the size of the compiled database in bytes is placed in this parameter.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_database_info">
+<span class="target" id="project0ch__common_8h_1a923180a2e5fdbc6f3709c80a8e52aabf"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_database_info</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.ch_database_t" title="ch_database_t">ch_database_t</a>  *<em>&nbsp;database</em>, char **<em>&nbsp;info</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_database_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Utility function providing information about a database.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> on success, other values on failure. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">database</span></code> - <p>Pointer to a compiled database.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">info</span></code> - <p>On success, a string containing the version and platform information for the supplied database is placed in the parameter. The string is allocated using the allocator supplied in <a class="reference internal" href="api_files.html#project0hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span>hs_set_allocator()</span></a> (or malloc() if no allocator was set) and should be freed by the caller.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_set_allocator">
+<span class="target" id="project0ch__common_8h_1a06b7bdbcc2e56c57771271025e33b93b"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_set_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.ch_alloc_t" title="ch_alloc_t">ch_alloc_t</a><em>&nbsp;alloc_func</em>, <a class="reference internal" href="#c.ch_free_t" title="ch_free_t">ch_free_t</a><em>&nbsp;free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_set_allocator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the allocate and free functions used by Chimera for allocating memory at runtime for stream state, scratch space, database bytecode, and various other data structure returned by the Chimera API.</p>
+<p>The function is equivalent to calling <a class="reference internal" href="#project0ch__common_8h_1a1a1378a43cfb81f8628a3452f5cc2fce"><span>ch_set_scratch_allocator()</span></a>, <a class="reference internal" href="#project0ch__common_8h_1a518e61120b451f8eca1334b114827331"><span>ch_set_database_allocator()</span></a> and <a class="reference internal" href="#project0ch__common_8h_1a6a5003ba83834fce7f7fb7e7eb535509"><span>ch_set_misc_allocator()</span></a> with the provided parameters.</p>
+<p>This call will override any previous allocators that have been set.</p>
+<p>Note: there is no way to change the allocator used for temporary objects created during the various compile calls (<a class="reference internal" href="#project0ch__compile_8h_1a6a013051b2cff9ab317f09ff99efc4ce"><span>ch_compile()</span></a> and <a class="reference internal" href="#project0ch__compile_8h_1a42e42ceae9e88e63bddfd66b80ea8ee6"><span>ch_compile_multi()</span></a>).</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> on success, other values on failure. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">alloc_func</span></code> - <p>A callback function pointer that allocates memory. This function must return memory suitably aligned for the largest representable data type on this platform.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">free_func</span></code> - <p>A callback function pointer that frees allocated memory.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_set_database_allocator">
+<span class="target" id="project0ch__common_8h_1a518e61120b451f8eca1334b114827331"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_set_database_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.ch_alloc_t" title="ch_alloc_t">ch_alloc_t</a><em>&nbsp;alloc_func</em>, <a class="reference internal" href="#c.ch_free_t" title="ch_free_t">ch_free_t</a><em>&nbsp;free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_set_database_allocator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the allocate and free functions used by Chimera for allocating memory for database bytecode produced by the compile calls (<a class="reference internal" href="#project0ch__compile_8h_1a6a013051b2cff9ab317f09ff99efc4ce"><span>ch_compile()</span></a> and <a class="reference internal" href="#project0ch__compile_8h_1a42e42ceae9e88e63bddfd66b80ea8ee6"><span>ch_compile_multi()</span></a>).</p>
+<p>If no database allocation functions are set, or if NULL is used in place of both parameters, then memory allocation will default to standard methods (such as the system malloc() and free() calls).</p>
+<p>This call will override any previous database allocators that have been set.</p>
+<p>Note: the database allocator may also be set by calling <a class="reference internal" href="#project0ch__common_8h_1a06b7bdbcc2e56c57771271025e33b93b"><span>ch_set_allocator()</span></a>.</p>
+<p>Note: there is no way to change how temporary objects created during the various compile calls (<a class="reference internal" href="#project0ch__compile_8h_1a6a013051b2cff9ab317f09ff99efc4ce"><span>ch_compile()</span></a> and <a class="reference internal" href="#project0ch__compile_8h_1a42e42ceae9e88e63bddfd66b80ea8ee6"><span>ch_compile_multi()</span></a>) are allocated.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="api_files.html#project0group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span>HS_SUCCESS</span></a> on success, other values on failure. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">alloc_func</span></code> - <p>A callback function pointer that allocates memory. This function must return memory suitably aligned for the largest representable data type on this platform.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">free_func</span></code> - <p>A callback function pointer that frees allocated memory.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_set_misc_allocator">
+<span class="target" id="project0ch__common_8h_1a6a5003ba83834fce7f7fb7e7eb535509"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_set_misc_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.ch_alloc_t" title="ch_alloc_t">ch_alloc_t</a><em>&nbsp;alloc_func</em>, <a class="reference internal" href="#c.ch_free_t" title="ch_free_t">ch_free_t</a><em>&nbsp;free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_set_misc_allocator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the allocate and free functions used by Chimera for allocating memory for items returned by the Chimera API such as <a class="reference internal" href="#project0ch__compile_8h_1a8a5035f7767f59b039981a37ce8572da"><span>ch_compile_error_t</span></a>.</p>
+<p>If no misc allocation functions are set, or if NULL is used in place of both parameters, then memory allocation will default to standard methods (such as the system malloc() and free() calls).</p>
+<p>This call will override any previous misc allocators that have been set.</p>
+<p>Note: the misc allocator may also be set by calling <a class="reference internal" href="#project0ch__common_8h_1a06b7bdbcc2e56c57771271025e33b93b"><span>ch_set_allocator()</span></a>.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> on success, other values on failure. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">alloc_func</span></code> - <p>A callback function pointer that allocates memory. This function must return memory suitably aligned for the largest representable data type on this platform.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">free_func</span></code> - <p>A callback function pointer that frees allocated memory.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_set_scratch_allocator">
+<span class="target" id="project0ch__common_8h_1a1a1378a43cfb81f8628a3452f5cc2fce"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_set_scratch_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.ch_alloc_t" title="ch_alloc_t">ch_alloc_t</a><em>&nbsp;alloc_func</em>, <a class="reference internal" href="#c.ch_free_t" title="ch_free_t">ch_free_t</a><em>&nbsp;free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_set_scratch_allocator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the allocate and free functions used by Chimera for allocating memory for scratch space by <a class="reference internal" href="#project0ch__runtime_8h_1a3c7d88639ce32646f9aaf5b57b2d0b1d"><span>ch_alloc_scratch()</span></a> and <a class="reference internal" href="#project0ch__runtime_8h_1a15e83801bb74dfff8c4d8623f64f967c"><span>ch_clone_scratch()</span></a>.</p>
+<p>If no scratch allocation functions are set, or if NULL is used in place of both parameters, then memory allocation will default to standard methods (such as the system malloc() and free() calls).</p>
+<p>This call will override any previous scratch allocators that have been set.</p>
+<p>Note: the scratch allocator may also be set by calling <a class="reference internal" href="#project0ch__common_8h_1a06b7bdbcc2e56c57771271025e33b93b"><span>ch_set_allocator()</span></a>.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> on success, other values on failure. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">alloc_func</span></code> - <p>A callback function pointer that allocates memory. This function must return memory suitably aligned for the largest representable data type on this platform.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">free_func</span></code> - <p>A callback function pointer that frees allocated memory.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+</div>
+</div>
+<div class="section" id="file-ch-compile-h">
+<h3>File: ch_compile.h<a class="headerlink" href="#file-ch-compile-h" title="Permalink to this headline">¶</a></h3>
+<p>The Chimera compiler API definition. </p>
+<p>Chimera is a hybrid solution of Hyperscan and PCRE.</p>
+<p>This header contains functions for compiling regular expressions into Chimera databases that can be used by the Chimera runtime. </p>
+<div class="breathe-sectiondef container">
+<p class="breathe-sectiondef-title rubric">Defines</p>
+<dl class="define">
+<dt id="c.CH_FLAG_CASELESS">
+<span class="target" id="project0group__CH__PATTERN__FLAG_1gac5aa4ab282c6758aaac1001525d7695e"></span><code class="descname">CH_FLAG_CASELESS</code><a class="headerlink" href="#c.CH_FLAG_CASELESS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compile flag: Set case-insensitive matching.</p>
+<p>This flag sets the expression to be matched case-insensitively by default. The expression may still use PCRE tokens (notably <code class="docutils literal"><span class="pre">(?i)</span></code> and <code class="docutils literal"><span class="pre">(?-i)</span></code>) to switch case-insensitive matching on and off. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_FLAG_DOTALL">
+<span class="target" id="project0group__CH__PATTERN__FLAG_1gac19cbff4cfae5b1e1d0c534c37ecf84b"></span><code class="descname">CH_FLAG_DOTALL</code><a class="headerlink" href="#c.CH_FLAG_DOTALL" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compile flag: Matching a <code class="docutils literal"><span class="pre">.</span></code> will not exclude newlines.</p>
+<p>This flag sets any instances of the <code class="docutils literal"><span class="pre">.</span></code> token to match newline characters as well as all other characters. The PCRE specification states that the <code class="docutils literal"><span class="pre">.</span></code> token does not match newline characters by default, so without this flag the <code class="docutils literal"><span class="pre">.</span></code> token will not cross line boundaries. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_FLAG_MULTILINE">
+<span class="target" id="project0group__CH__PATTERN__FLAG_1ga9573914352a77ec0bee64903933124b5"></span><code class="descname">CH_FLAG_MULTILINE</code><a class="headerlink" href="#c.CH_FLAG_MULTILINE" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compile flag: Set multi-line anchoring.</p>
+<p>This flag instructs the expression to make the <code class="docutils literal"><span class="pre">^</span></code> and <code class="docutils literal"><span class="pre">$</span></code> tokens match newline characters as well as the start and end of the stream. If this flag is not specified, the <code class="docutils literal"><span class="pre">^</span></code> token will only ever match at the start of a stream, and the <code class="docutils literal"><span class="pre">$</span></code> token will only ever match at the end of a stream within the guidelines of the PCRE specification. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_FLAG_SINGLEMATCH">
+<span class="target" id="project0group__CH__PATTERN__FLAG_1ga79abececa1acf65b33607eab08a09be1"></span><code class="descname">CH_FLAG_SINGLEMATCH</code><a class="headerlink" href="#c.CH_FLAG_SINGLEMATCH" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compile flag: Set single-match only mode.</p>
+<p>This flag sets the expression&#8217;s match ID to match at most once, only the first match for each invocation of <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan()</span></a> will be returned. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_FLAG_UTF8">
+<span class="target" id="project0group__CH__PATTERN__FLAG_1ga007859d8e84ef50bd6547af87e13d7e4"></span><code class="descname">CH_FLAG_UTF8</code><a class="headerlink" href="#c.CH_FLAG_UTF8" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compile flag: Enable UTF-8 mode for this expression.</p>
+<p>This flag instructs Chimera to treat the pattern as a sequence of UTF-8 characters. The results of scanning invalid UTF-8 sequences with a Chimera library that has been compiled with one or more patterns using this flag are undefined. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_FLAG_UCP">
+<span class="target" id="project0group__CH__PATTERN__FLAG_1gac27fcf01c71ed6c9107286e85db84f76"></span><code class="descname">CH_FLAG_UCP</code><a class="headerlink" href="#c.CH_FLAG_UCP" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compile flag: Enable Unicode property support for this expression.</p>
+<p>This flag instructs Chimera to use Unicode properties, rather than the default ASCII interpretations, for character mnemonics like <code class="docutils literal"><span class="pre">\w</span></code> and <code class="docutils literal"><span class="pre">\s</span></code> as well as the POSIX character classes. It is only meaningful in conjunction with <a class="reference internal" href="#project0group__CH__PATTERN__FLAG_1ga007859d8e84ef50bd6547af87e13d7e4"><span>CH_FLAG_UTF8</span></a>. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_MODE_NOGROUPS">
+<span class="target" id="project0group__CH__MODE__FLAG_1ga246b470e7999e2570033aecfca73eeda"></span><code class="descname">CH_MODE_NOGROUPS</code><a class="headerlink" href="#c.CH_MODE_NOGROUPS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compiler mode flag: Disable capturing groups. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_MODE_GROUPS">
+<span class="target" id="project0group__CH__MODE__FLAG_1ga2749b27a4948dadeb96e5ab0207db550"></span><code class="descname">CH_MODE_GROUPS</code><a class="headerlink" href="#c.CH_MODE_GROUPS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compiler mode flag: Enable capturing groups. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef container">
+<p class="breathe-sectiondef-title rubric">Typedefs</p>
+<dl class="typedef">
+<dt id="c.ch_compile_error_t">
+<span class="target" id="project0ch__compile_8h_1a8a5035f7767f59b039981a37ce8572da"></span><em class="property">typedef </em><code class="descname">ch_compile_error_t</code><a class="headerlink" href="#c.ch_compile_error_t" title="Permalink to this definition">¶</a></dt>
+<dd><p>A type containing error details that is returned by the compile calls (<a class="reference internal" href="#project0ch__compile_8h_1a6a013051b2cff9ab317f09ff99efc4ce"><span>ch_compile()</span></a> and <a class="reference internal" href="#project0ch__compile_8h_1a42e42ceae9e88e63bddfd66b80ea8ee6"><span>ch_compile_multi()</span></a> on failure. The caller may inspect the values returned in this type to determine the cause of failure. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef container">
+<p class="breathe-sectiondef-title rubric">Functions</p>
+<dl class="function">
+<dt id="c.ch_compile">
+<span class="target" id="project0ch__compile_8h_1a6a013051b2cff9ab317f09ff99efc4ce"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_compile</code><span class="sig-paren">(</span>const char *<em>&nbsp;expression</em>, unsigned int<em>&nbsp;flags</em>, unsigned int<em>&nbsp;mode</em>, const  <a class="reference internal" href="api_files.html#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a>  *<em>&nbsp;platform</em>, <a class="reference internal" href="#c.ch_database_t" title="ch_database_t">ch_database_t</a>  **<em>&nbsp;db</em>, <a class="reference internal" href="#c.ch_compile_error_t" title="ch_compile_error_t">ch_compile_error_t</a>  **<em>&nbsp;compile_error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_compile" title="Permalink to this definition">¶</a></dt>
+<dd><p>The basic regular expression compiler.</p>
+<p>This is the function call with which an expression is compiled into a Chimera database which can be passed to the runtime function ( <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan()</span></a>)</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> is returned on successful compilation; <a class="reference internal" href="#project0group__CH__ERROR_1ga1f5afef70e16c03380b518063346af4b"><span>CH_COMPILER_ERROR</span></a> on failure, with details provided in the error parameter. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">expression</span></code> - <p>The NULL-terminated expression to parse. Note that this string must represent ONLY the pattern to be matched, with no delimiters or flags; any global flags should be specified with the <em>flags</em> argument. For example, the expression <code class="docutils literal"><span class="pre">/abc?def/i</span></code> should be compiled by providing <code class="docutils literal"><span class="pre">abc?def</span></code> as the <em>expression</em>, and <a class="reference internal" href="#project0group__CH__PATTERN__FLAG_1gac5aa4ab282c6758aaac1001525d7695e"><span>CH_FLAG_CASELESS</span></a> as the <em>flags</em>.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">flags</span></code> - <p>Flags which modify the behaviour of the expression. Multiple flags may be used by ORing them together. Valid values are:<ul class="simple">
+<li>CH_FLAG_CASELESS - Matching will be performed case-insensitively.</li>
+<li>CH_FLAG_DOTALL - Matching a <code class="docutils literal"><span class="pre">.</span></code> will not exclude newlines.</li>
+<li>CH_FLAG_MULTILINE - <code class="docutils literal"><span class="pre">^</span></code> and <code class="docutils literal"><span class="pre">$</span></code> anchors match any newlines in data.</li>
+<li>CH_FLAG_SINGLEMATCH - Only one match will be generated for the expression per stream.</li>
+<li>CH_FLAG_UTF8 - Treat this pattern as a sequence of UTF-8 characters.</li>
+<li>CH_FLAG_UCP - Use Unicode properties for character classes.</li>
+</ul>
+</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">mode</span></code> - <p>Compiler mode flag that affect the database as a whole for capturing groups. One of CH_MODE_NOGROUPS or CH_MODE_GROUPS must be supplied. See Compile mode flags for more details.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">platform</span></code> - <p>If not NULL, the platform structure is used to determine the target platform for the database. If NULL, a database suitable for running on the current host platform is produced.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">db</span></code> - <p>On success, a pointer to the generated database will be returned in this parameter, or NULL on failure. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#project0ch__common_8h_1a1e87569ac35ac18c4212c0ced9a7323b"><span>ch_free_database()</span></a> function.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">compile_error</span></code> - <p>If the compile fails, a pointer to a <a class="reference internal" href="#project0ch__compile_8h_1a8a5035f7767f59b039981a37ce8572da"><span>ch_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#project0ch__compile_8h_1ad381fe6cf9daade9e7bf5f12d5037c6c"><span>ch_free_compile_error()</span></a> function.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_compile_multi">
+<span class="target" id="project0ch__compile_8h_1a42e42ceae9e88e63bddfd66b80ea8ee6"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_compile_multi</code><span class="sig-paren">(</span>const char *const *<em>&nbsp;expressions</em>, const unsigned int *<em>&nbsp;flags</em>, const unsigned int *<em>&nbsp;ids</em>, unsigned int<em>&nbsp;elements</em>, unsigned int<em>&nbsp;mode</em>, const  <a class="reference internal" href="api_files.html#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a>  *<em>&nbsp;platform</em>, <a class="reference internal" href="#c.ch_database_t" title="ch_database_t">ch_database_t</a>  **<em>&nbsp;db</em>, <a class="reference internal" href="#c.ch_compile_error_t" title="ch_compile_error_t">ch_compile_error_t</a>  **<em>&nbsp;compile_error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_compile_multi" title="Permalink to this definition">¶</a></dt>
+<dd><p>The multiple regular expression compiler.</p>
+<p>This is the function call with which a set of expressions is compiled into a database which can be passed to the runtime function (<a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan()</span></a>). Each expression can be labelled with a unique integer which is passed into the match callback to identify the pattern that has matched.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> is returned on successful compilation; <a class="reference internal" href="#project0group__CH__ERROR_1ga1f5afef70e16c03380b518063346af4b"><span>CH_COMPILER_ERROR</span></a> on failure, with details provided in the <em>error</em> parameter. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">expressions</span></code> - <p>Array of NULL-terminated expressions to compile. Note that (as for <a class="reference internal" href="#project0ch__compile_8h_1a6a013051b2cff9ab317f09ff99efc4ce"><span>ch_compile()</span></a>) these strings must contain only the pattern to be matched, with no delimiters or flags. For example, the expression <code class="docutils literal"><span class="pre">/abc?def/i</span></code> should be compiled by providing <code class="docutils literal"><span class="pre">abc?def</span></code> as the first string in the <em>expressions</em> array, and <a class="reference internal" href="#project0group__CH__PATTERN__FLAG_1gac5aa4ab282c6758aaac1001525d7695e"><span>CH_FLAG_CASELESS</span></a> as the first value in the <em>flags</em> array.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">flags</span></code> - <p>Array of flags which modify the behaviour of each expression. Multiple flags may be used by ORing them together. Specifying the NULL pointer in place of an array will set the flags value for all patterns to zero. Valid values are:<ul class="simple">
+<li>CH_FLAG_CASELESS - Matching will be performed case-insensitively.</li>
+<li>CH_FLAG_DOTALL - Matching a <code class="docutils literal"><span class="pre">.</span></code> will not exclude newlines.</li>
+<li>CH_FLAG_MULTILINE - <code class="docutils literal"><span class="pre">^</span></code> and <code class="docutils literal"><span class="pre">$</span></code> anchors match any newlines in data.</li>
+<li>CH_FLAG_SINGLEMATCH - Only one match will be generated by patterns with this match id per stream.</li>
+<li>CH_FLAG_UTF8 - Treat this pattern as a sequence of UTF-8 characters.</li>
+<li>CH_FLAG_UCP - Use Unicode properties for character classes.</li>
+</ul>
+</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">ids</span></code> - <p>An array of integers specifying the ID number to be associated with the corresponding pattern in the expressions array. Specifying the NULL pointer in place of an array will set the ID value for all patterns to zero.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">elements</span></code> - <p>The number of elements in the input arrays.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">mode</span></code> - <p>Compiler mode flag that affect the database as a whole for capturing groups. One of CH_MODE_NOGROUPS or CH_MODE_GROUPS must be supplied. See Compile mode flags for more details.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">platform</span></code> - <p>If not NULL, the platform structure is used to determine the target platform for the database. If NULL, a database suitable for running on the current host platform is produced.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">db</span></code> - <p>On success, a pointer to the generated database will be returned in this parameter, or NULL on failure. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#project0ch__common_8h_1a1e87569ac35ac18c4212c0ced9a7323b"><span>ch_free_database()</span></a> function.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">compile_error</span></code> - <p>If the compile fails, a pointer to a <a class="reference internal" href="#project0ch__compile_8h_1a8a5035f7767f59b039981a37ce8572da"><span>ch_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#project0ch__compile_8h_1ad381fe6cf9daade9e7bf5f12d5037c6c"><span>ch_free_compile_error()</span></a> function.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_compile_ext_multi">
+<span class="target" id="project0ch__compile_8h_1aa74568707164b8efc98cd88c5f332db2"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_compile_ext_multi</code><span class="sig-paren">(</span>const char *const *<em>&nbsp;expressions</em>, const unsigned int *<em>&nbsp;flags</em>, const unsigned int *<em>&nbsp;ids</em>, unsigned int<em>&nbsp;elements</em>, unsigned int<em>&nbsp;mode</em>, unsigned long int<em>&nbsp;match_limit</em>, unsigned long int<em>&nbsp;match_limit_recursion</em>, const  <a class="reference internal" href="api_files.html#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a>  *<em>&nbsp;platform</em>, <a class="reference internal" href="#c.ch_database_t" title="ch_database_t">ch_database_t</a>  **<em>&nbsp;db</em>, <a class="reference internal" href="#c.ch_compile_error_t" title="ch_compile_error_t">ch_compile_error_t</a>  **<em>&nbsp;compile_error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_compile_ext_multi" title="Permalink to this definition">¶</a></dt>
+<dd><p>The multiple regular expression compiler with extended match limits support.</p>
+<p>This is the function call with which a set of expressions is compiled into a database in the same way as <a class="reference internal" href="#project0ch__compile_8h_1a42e42ceae9e88e63bddfd66b80ea8ee6"><span>ch_compile_multi()</span></a>, but allows additional parameters to be specified via match_limit and match_limit_recursion to define match limits for PCRE runtime.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> is returned on successful compilation; <a class="reference internal" href="#project0group__CH__ERROR_1ga1f5afef70e16c03380b518063346af4b"><span>CH_COMPILER_ERROR</span></a> on failure, with details provided in the <em>error</em> parameter. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">expressions</span></code> - <p>Array of NULL-terminated expressions to compile. Note that (as for <a class="reference internal" href="#project0ch__compile_8h_1a6a013051b2cff9ab317f09ff99efc4ce"><span>ch_compile()</span></a>) these strings must contain only the pattern to be matched, with no delimiters or flags. For example, the expression <code class="docutils literal"><span class="pre">/abc?def/i</span></code> should be compiled by providing <code class="docutils literal"><span class="pre">abc?def</span></code> as the first string in the <em>expressions</em> array, and <a class="reference internal" href="#project0group__CH__PATTERN__FLAG_1gac5aa4ab282c6758aaac1001525d7695e"><span>CH_FLAG_CASELESS</span></a> as the first value in the <em>flags</em> array.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">flags</span></code> - <p>Array of flags which modify the behaviour of each expression. Multiple flags may be used by ORing them together. Specifying the NULL pointer in place of an array will set the flags value for all patterns to zero. Valid values are:<ul class="simple">
+<li>CH_FLAG_CASELESS - Matching will be performed case-insensitively.</li>
+<li>CH_FLAG_DOTALL - Matching a <code class="docutils literal"><span class="pre">.</span></code> will not exclude newlines.</li>
+<li>CH_FLAG_MULTILINE - <code class="docutils literal"><span class="pre">^</span></code> and <code class="docutils literal"><span class="pre">$</span></code> anchors match any newlines in data.</li>
+<li>CH_FLAG_SINGLEMATCH - Only one match will be generated by patterns with this match id per stream.</li>
+<li>CH_FLAG_UTF8 - Treat this pattern as a sequence of UTF-8 characters.</li>
+<li>CH_FLAG_UCP - Use Unicode properties for character classes.</li>
+</ul>
+</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">ids</span></code> - <p>An array of integers specifying the ID number to be associated with the corresponding pattern in the expressions array. Specifying the NULL pointer in place of an array will set the ID value for all patterns to zero.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">elements</span></code> - <p>The number of elements in the input arrays.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">mode</span></code> - <p>Compiler mode flag that affect the database as a whole for capturing groups. One of CH_MODE_NOGROUPS or CH_MODE_GROUPS must be supplied. See Compile mode flags for more details.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">match_limit</span></code> - <p>A limit from pcre_extra on the amount of match function called in PCRE to limit backtracking that can take place.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">match_limit_recursion</span></code> - <p>A limit from pcre_extra on the recursion depth of match function in PCRE.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">platform</span></code> - <p>If not NULL, the platform structure is used to determine the target platform for the database. If NULL, a database suitable for running on the current host platform is produced.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">db</span></code> - <p>On success, a pointer to the generated database will be returned in this parameter, or NULL on failure. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#project0ch__common_8h_1a1e87569ac35ac18c4212c0ced9a7323b"><span>ch_free_database()</span></a> function.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">compile_error</span></code> - <p>If the compile fails, a pointer to a <a class="reference internal" href="#project0ch__compile_8h_1a8a5035f7767f59b039981a37ce8572da"><span>ch_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#project0ch__compile_8h_1ad381fe6cf9daade9e7bf5f12d5037c6c"><span>ch_free_compile_error()</span></a> function.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_free_compile_error">
+<span class="target" id="project0ch__compile_8h_1ad381fe6cf9daade9e7bf5f12d5037c6c"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_free_compile_error</code><span class="sig-paren">(</span><a class="reference internal" href="#c.ch_compile_error_t" title="ch_compile_error_t">ch_compile_error_t</a>  *<em>&nbsp;error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_free_compile_error" title="Permalink to this definition">¶</a></dt>
+<dd><p>Free an error structure generated by <a class="reference internal" href="#project0ch__compile_8h_1a6a013051b2cff9ab317f09ff99efc4ce"><span>ch_compile()</span></a>, <a class="reference internal" href="#project0ch__compile_8h_1a42e42ceae9e88e63bddfd66b80ea8ee6"><span>ch_compile_multi()</span></a>.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> on success, other values on failure. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">error</span></code> - <p>The <a class="reference internal" href="#project0ch__compile_8h_1a8a5035f7767f59b039981a37ce8572da"><span>ch_compile_error_t</span></a> to be freed. NULL may also be safely provided.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+</div>
+<dl class="struct">
+<dt id="c.ch_compile_error">
+<span class="target" id="project0structch__compile__error"></span><em class="property">struct </em><code class="descname">ch_compile_error</code><a class="headerlink" href="#c.ch_compile_error" title="Permalink to this definition">¶</a></dt>
+<dd><em>#include &lt;ch_compile.h&gt;</em><p>A type containing error details that is returned by the compile calls (<a class="reference internal" href="#project0ch__compile_8h_1a6a013051b2cff9ab317f09ff99efc4ce"><span>ch_compile()</span></a> and <a class="reference internal" href="#project0ch__compile_8h_1a42e42ceae9e88e63bddfd66b80ea8ee6"><span>ch_compile_multi()</span></a> on failure. The caller may inspect the values returned in this type to determine the cause of failure. </p>
+<div class="breathe-sectiondef container">
+<p class="breathe-sectiondef-title rubric">Public Members</p>
+<dl class="variable">
+<dt id="c.ch_compile_error::message">
+<span class="target" id="project0structch__compile__error_1a0f7da715c69e8135b72ee16e4d5cbc16"></span>char* <code class="descname">message</code><a class="headerlink" href="#c.ch_compile_error::message" title="Permalink to this definition">¶</a></dt>
+<dd><p>A human-readable error message describing the error. </p>
+</dd></dl>
+
+<dl class="variable">
+<dt id="c.ch_compile_error::expression">
+<span class="target" id="project0structch__compile__error_1aedf433ff3a652350d0b54a26f0f00f05"></span>int <code class="descname">expression</code><a class="headerlink" href="#c.ch_compile_error::expression" title="Permalink to this definition">¶</a></dt>
+<dd><p>The zero-based number of the expression that caused the error (if this can be determined). If the error is not specific to an expression, then this value will be less than zero. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</div>
+<div class="section" id="file-ch-runtime-h">
+<h3>File: ch_runtime.h<a class="headerlink" href="#file-ch-runtime-h" title="Permalink to this headline">¶</a></h3>
+<p>The Chimera runtime API definition. </p>
+<p>Chimera is a hybrid of Hyperscan and PCRE regular expression engine.</p>
+<p>This header contains functions for using compiled Chimera databases for scanning data at runtime. </p>
+<div class="breathe-sectiondef container">
+<p class="breathe-sectiondef-title rubric">Defines</p>
+<dl class="define">
+<dt id="c.CH_CALLBACK_CONTINUE">
+<span class="target" id="project0group__CH__CALLBACK_1ga279a7c4abe841baabecfaabc7c2ff9ee"></span><code class="descname">CH_CALLBACK_CONTINUE</code><a class="headerlink" href="#c.CH_CALLBACK_CONTINUE" title="Permalink to this definition">¶</a></dt>
+<dd><p>Continue matching. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_CALLBACK_TERMINATE">
+<span class="target" id="project0group__CH__CALLBACK_1ga0078f0e41041a72b729bb188c45f8350"></span><code class="descname">CH_CALLBACK_TERMINATE</code><a class="headerlink" href="#c.CH_CALLBACK_TERMINATE" title="Permalink to this definition">¶</a></dt>
+<dd><p>Terminate matching. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_CALLBACK_SKIP_PATTERN">
+<span class="target" id="project0group__CH__CALLBACK_1ga398fe37f7470d895a57b1206e4246c4b"></span><code class="descname">CH_CALLBACK_SKIP_PATTERN</code><a class="headerlink" href="#c.CH_CALLBACK_SKIP_PATTERN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Skip remaining matches for this ID and continue. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_ERROR_MATCHLIMIT">
+<span class="target" id="project0group__CH__ERROR__EVENT_1ga7cdec5f63af4becb36267fd092eb38a5"></span><code class="descname">CH_ERROR_MATCHLIMIT</code><a class="headerlink" href="#c.CH_ERROR_MATCHLIMIT" title="Permalink to this definition">¶</a></dt>
+<dd><p>PCRE hits its match limit and reports PCRE_ERROR_MATCHLIMIT. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_ERROR_RECURSIONLIMIT">
+<span class="target" id="project0group__CH__ERROR__EVENT_1ga5208dff2cf2886273c7075f2ea4ec056"></span><code class="descname">CH_ERROR_RECURSIONLIMIT</code><a class="headerlink" href="#c.CH_ERROR_RECURSIONLIMIT" title="Permalink to this definition">¶</a></dt>
+<dd><p>PCRE hits its recursion limit and reports PCRE_ERROR_RECURSIONLIMIT. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_CAPTURE_FLAG_INACTIVE">
+<span class="target" id="project0group__CH__CAPTURE_1gab6125185cd2f27deeb2459a08205a62b"></span><code class="descname">CH_CAPTURE_FLAG_INACTIVE</code><a class="headerlink" href="#c.CH_CAPTURE_FLAG_INACTIVE" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flag indicating that a particular capture group is inactive, used in <a class="reference internal" href="#project0structch__capture_1a61a703e15c96a4e2af0e1773fdfe546d"><span>ch_capture_t::flags</span></a>. </p>
+</dd></dl>
+
+<dl class="define">
+<dt id="c.CH_CAPTURE_FLAG_ACTIVE">
+<span class="target" id="project0group__CH__CAPTURE_1ga92153bcbb73315f8279fdde8e4be7a72"></span><code class="descname">CH_CAPTURE_FLAG_ACTIVE</code><a class="headerlink" href="#c.CH_CAPTURE_FLAG_ACTIVE" title="Permalink to this definition">¶</a></dt>
+<dd><p>Flag indicating that a particular capture group is active, used in <a class="reference internal" href="#project0structch__capture_1a61a703e15c96a4e2af0e1773fdfe546d"><span>ch_capture_t::flags</span></a>. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef container">
+<p class="breathe-sectiondef-title rubric">Typedefs</p>
+<dl class="typedef">
+<dt id="c.ch_scratch_t">
+<span class="target" id="project0ch__runtime_8h_1a4d106e0306f1d4b802d1929365893207"></span><em class="property">typedef </em><code class="descname">ch_scratch_t</code><a class="headerlink" href="#c.ch_scratch_t" title="Permalink to this definition">¶</a></dt>
+<dd><p>A Chimera scratch space. </p>
+</dd></dl>
+
+<dl class="typedef">
+<dt id="c.ch_callback_t">
+<span class="target" id="project0ch__runtime_8h_1a19c604fbad776eef9b77e3972fa27100"></span><em class="property">typedef </em><code class="descname">ch_callback_t</code><a class="headerlink" href="#c.ch_callback_t" title="Permalink to this definition">¶</a></dt>
+<dd><p>Callback return value used to tell the Chimera matcher what to do after processing this match. </p>
+</dd></dl>
+
+<dl class="typedef">
+<dt id="c.ch_error_event_t">
+<span class="target" id="project0ch__runtime_8h_1aaaf804dd730de521244fd970e94f141b"></span><em class="property">typedef </em><code class="descname">ch_error_event_t</code><a class="headerlink" href="#c.ch_error_event_t" title="Permalink to this definition">¶</a></dt>
+<dd><p>Type used to differentiate the errors raised with the <a class="reference internal" href="#project0ch__runtime_8h_1ac9af00c32b98ae018cd0fa8f67fbe16c"><span>ch_error_event_handler</span></a> callback. </p>
+</dd></dl>
+
+<dl class="typedef">
+<dt id="c.ch_capture_t">
+<span class="target" id="project0ch__runtime_8h_1a472f261071c00e9710939866e0001f07"></span><em class="property">typedef </em><code class="descname">ch_capture_t</code><a class="headerlink" href="#c.ch_capture_t" title="Permalink to this definition">¶</a></dt>
+<dd><p>Structure representing a captured subexpression within a match. An array of these structures corresponding to capture groups in order is passed to the callback on match, with active structures identified by the CH_CAPTURE_FLAG_ACTIVE flag. </p>
+</dd></dl>
+
+<dl class="typedef">
+<dt id="c.ch_match_event_handler">
+<span class="target" id="project0ch__runtime_8h_1a4cfaab3c3e07af05a71def8e803ede24"></span><em class="property">typedef </em><code class="descname">( * ch_match_event_handler)</code><span class="sig-paren">(</span>unsigned int<em>&nbsp;id</em>, unsigned long long<em>&nbsp;from</em>, unsigned long long<em>&nbsp;to</em>, unsigned int<em>&nbsp;flags</em>, unsigned int<em>&nbsp;size</em>, const <a class="reference internal" href="#c.ch_capture_t" title="ch_capture_t">ch_capture_t</a><em>&nbsp;*captured</em>, void<em>&nbsp;*ctx</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_match_event_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Definition of the match event callback function type.</p>
+<p>A callback function matching the defined type must be provided by the application calling the <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan()</span></a></p>
+<p>This callback function will be invoked whenever a match is located in the target data during the execution of a scan. The details of the match are passed in as parameters to the callback function, and the callback function should return a value indicating whether or not matching should continue on the target data. If no callbacks are desired from a scan call, NULL may be provided in order to suppress match production.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd>The callback can return <a class="reference internal" href="#project0group__CH__CALLBACK_1ga0078f0e41041a72b729bb188c45f8350"><span>CH_CALLBACK_TERMINATE</span></a> to stop matching. Otherwise, a return value of <a class="reference internal" href="#project0group__CH__CALLBACK_1ga279a7c4abe841baabecfaabc7c2ff9ee"><span>CH_CALLBACK_CONTINUE</span></a> will continue, with the current pattern if configured to produce multiple matches per pattern, while a return value of <a class="reference internal" href="#project0group__CH__CALLBACK_1ga398fe37f7470d895a57b1206e4246c4b"><span>CH_CALLBACK_SKIP_PATTERN</span></a> will cease matching this pattern but continue matching the next pattern. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">id</span></code> - <p>The ID number of the expression that matched. If the expression was a single expression compiled with <a class="reference internal" href="#project0ch__compile_8h_1a6a013051b2cff9ab317f09ff99efc4ce"><span>ch_compile()</span></a>, this value will be zero.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">from</span></code> - <p>The offset of the first byte that matches the expression.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">to</span></code> - <p>The offset after the last byte that matches the expression.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">flags</span></code> - <p>This is provided for future use and is unused at present.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">size</span></code> - <p>The number of valid entries pointed to by the captured parameter.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">captured</span></code> - <p>A pointer to an array of <a class="reference internal" href="#project0ch__runtime_8h_1a472f261071c00e9710939866e0001f07"><span>ch_capture_t</span></a> structures that contain the start and end offsets of entire pattern match and each captured subexpression.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">ctx</span></code> - <p>The pointer supplied by the user to the <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan()</span></a> function.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="typedef">
+<dt id="c.ch_error_event_handler">
+<span class="target" id="project0ch__runtime_8h_1ac9af00c32b98ae018cd0fa8f67fbe16c"></span><em class="property">typedef </em><code class="descname">( * ch_error_event_handler)</code><span class="sig-paren">(</span><a class="reference internal" href="#c.ch_error_event_t" title="ch_error_event_t">ch_error_event_t</a><em>&nbsp;error_type</em>, unsigned int<em>&nbsp;id</em>, void<em>&nbsp;*info</em>, void<em>&nbsp;*ctx</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_error_event_handler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Definition of the Chimera error event callback function type.</p>
+<p>A callback function matching the defined type may be provided by the application calling the <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan</span></a> function. This callback function will be invoked when an error event occurs during matching; this indicates that some matches for a given expression may not be reported.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd>The callback can return <a class="reference internal" href="#project0group__CH__CALLBACK_1ga398fe37f7470d895a57b1206e4246c4b"><span>CH_CALLBACK_SKIP_PATTERN</span></a> to cease matching this pattern but continue matching the next pattern. Otherwise, we stop matching for all patterns with <a class="reference internal" href="#project0group__CH__CALLBACK_1ga0078f0e41041a72b729bb188c45f8350"><span>CH_CALLBACK_TERMINATE</span></a>. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">error_type</span></code> - <p>The type of error event that occurred. Currently these errors correspond to resource limits on PCRE backtracking <a class="reference internal" href="#project0group__CH__ERROR__EVENT_1ga7cdec5f63af4becb36267fd092eb38a5"><span>CH_ERROR_MATCHLIMIT</span></a> and <a class="reference internal" href="#project0group__CH__ERROR__EVENT_1ga5208dff2cf2886273c7075f2ea4ec056"><span>CH_ERROR_RECURSIONLIMIT</span></a>.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">id</span></code> - <p>The ID number of the expression that matched.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">info</span></code> - <p>Event-specific data, for future use. Currently unused.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">ctx</span></code> - <p>The context pointer supplied by the user to the <a class="reference internal" href="#project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"><span>ch_scan</span></a> function.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef container">
+<p class="breathe-sectiondef-title rubric">Functions</p>
+<dl class="function">
+<dt id="c.ch_scan">
+<span class="target" id="project0ch__runtime_8h_1a2a297a612f301abfb5042b680381df6e"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_scan</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.ch_database_t" title="ch_database_t">ch_database_t</a>  *<em>&nbsp;db</em>, const char *<em>&nbsp;data</em>, unsigned int<em>&nbsp;length</em>, unsigned int<em>&nbsp;flags</em>, <a class="reference internal" href="#c.ch_scratch_t" title="ch_scratch_t">ch_scratch_t</a>  *<em>&nbsp;scratch</em>, <a class="reference internal" href="#c.ch_match_event_handler" title="ch_match_event_handler">ch_match_event_handler</a><em>&nbsp;onEvent</em>, <a class="reference internal" href="#c.ch_error_event_handler" title="ch_error_event_handler">ch_error_event_handler</a><em>&nbsp;onError</em>, void *<em>&nbsp;context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_scan" title="Permalink to this definition">¶</a></dt>
+<dd><p>The block regular expression scanner.</p>
+<p>This is the function call in which the actual pattern matching takes place for block-mode pattern databases.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd>Returns <a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> on success; <a class="reference internal" href="#project0group__CH__ERROR_1ga97fa0c8edae135770162a30d95f4d827"><span>CH_SCAN_TERMINATED</span></a> if the match callback indicated that scanning should stop; other values on error. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">db</span></code> - <p>A compiled pattern database.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">data</span></code> - <p>Pointer to the data to be scanned.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">length</span></code> - <p>The number of bytes to scan.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">flags</span></code> - <p>Flags modifying the behaviour of this function. This parameter is provided for future use and is unused at present.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">scratch</span></code> - <p>A per-thread scratch space allocated by <a class="reference internal" href="#project0ch__runtime_8h_1a3c7d88639ce32646f9aaf5b57b2d0b1d"><span>ch_alloc_scratch()</span></a> for this database.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">onEvent</span></code> - <p>Pointer to a match event callback function. If a NULL pointer is given, no matches will be returned.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">onError</span></code> - <p>Pointer to a error event callback function. If a NULL pointer is given, <a class="reference internal" href="#project0group__CH__ERROR__EVENT_1ga7cdec5f63af4becb36267fd092eb38a5"><span>CH_ERROR_MATCHLIMIT</span></a> and <a class="reference internal" href="#project0group__CH__ERROR__EVENT_1ga5208dff2cf2886273c7075f2ea4ec056"><span>CH_ERROR_RECURSIONLIMIT</span></a> errors will be ignored and match will continue.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">context</span></code> - <p>The user defined pointer which will be passed to the callback function.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_alloc_scratch">
+<span class="target" id="project0ch__runtime_8h_1a3c7d88639ce32646f9aaf5b57b2d0b1d"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_alloc_scratch</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.ch_database_t" title="ch_database_t">ch_database_t</a>  *<em>&nbsp;db</em>, <a class="reference internal" href="#c.ch_scratch_t" title="ch_scratch_t">ch_scratch_t</a>  **<em>&nbsp;scratch</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_alloc_scratch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Allocate a &#8220;scratch&#8221; space for use by Chimera.</p>
+<p>This is required for runtime use, and one scratch space per thread, or concurrent caller, is required. Any allocator callback set by <a class="reference internal" href="#project0ch__common_8h_1a1a1378a43cfb81f8628a3452f5cc2fce"><span>ch_set_scratch_allocator()</span></a> or <a class="reference internal" href="#project0ch__common_8h_1a06b7bdbcc2e56c57771271025e33b93b"><span>ch_set_allocator()</span></a> will be used by this function.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> on successful allocation; <a class="reference internal" href="#project0group__CH__ERROR_1ga3950bacd58097c01ad05091e07e47318"><span>CH_NOMEM</span></a> if the allocation fails. Other errors may be returned if invalid parameters are specified. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">db</span></code> - <p>The database, as produced by <a class="reference internal" href="#project0ch__compile_8h_1a6a013051b2cff9ab317f09ff99efc4ce"><span>ch_compile()</span></a>.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">scratch</span></code> - <p>On first allocation, a pointer to NULL should be provided so a new scratch can be allocated. If a scratch block has been previously allocated, then a pointer to it should be passed back in to see if it is valid for this database block. If a new scratch block is required, the original will be freed and the new one returned, otherwise the previous scratch block will be returned. On success, the scratch block will be suitable for use with the provided database in addition to any databases that original scratch space was suitable for.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_clone_scratch">
+<span class="target" id="project0ch__runtime_8h_1a15e83801bb74dfff8c4d8623f64f967c"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_clone_scratch</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.ch_scratch_t" title="ch_scratch_t">ch_scratch_t</a>  *<em>&nbsp;src</em>, <a class="reference internal" href="#c.ch_scratch_t" title="ch_scratch_t">ch_scratch_t</a>  **<em>&nbsp;dest</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_clone_scratch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Allocate a scratch space that is a clone of an existing scratch space.</p>
+<p>This is useful when multiple concurrent threads will be using the same set of compiled databases, and another scratch space is required. Any allocator callback set by <a class="reference internal" href="#project0ch__common_8h_1a1a1378a43cfb81f8628a3452f5cc2fce"><span>ch_set_scratch_allocator()</span></a> or <a class="reference internal" href="#project0ch__common_8h_1a06b7bdbcc2e56c57771271025e33b93b"><span>ch_set_allocator()</span></a> will be used by this function.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> on success; <a class="reference internal" href="#project0group__CH__ERROR_1ga3950bacd58097c01ad05091e07e47318"><span>CH_NOMEM</span></a> if the allocation fails. Other errors may be returned if invalid parameters are specified. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">src</span></code> - <p>The existing <a class="reference internal" href="#project0ch__runtime_8h_1a4d106e0306f1d4b802d1929365893207"><span>ch_scratch_t</span></a> to be cloned.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">dest</span></code> - <p>A pointer to the new scratch space will be returned here.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_scratch_size">
+<span class="target" id="project0ch__runtime_8h_1a9d2389446b962f4ffb6c60d5109d78f5"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_scratch_size</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.ch_scratch_t" title="ch_scratch_t">ch_scratch_t</a>  *<em>&nbsp;scratch</em>, size_t *<em>&nbsp;scratch_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_scratch_size" title="Permalink to this definition">¶</a></dt>
+<dd><p>Provides the size of the given scratch space.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> on success, other values on failure. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">scratch</span></code> - <p>A per-thread scratch space allocated by <a class="reference internal" href="#project0ch__runtime_8h_1a3c7d88639ce32646f9aaf5b57b2d0b1d"><span>ch_alloc_scratch()</span></a> or <a class="reference internal" href="#project0ch__runtime_8h_1a15e83801bb74dfff8c4d8623f64f967c"><span>ch_clone_scratch()</span></a>.</p>
+</li>
+<li><code class="first docutils literal"><span class="pre">scratch_size</span></code> - <p>On success, the size of the scratch space in bytes is placed in this parameter.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="c.ch_free_scratch">
+<span class="target" id="project0ch__runtime_8h_1adb332a61033ea20604f8a1acb047ca59"></span><a class="reference internal" href="#c.ch_error_t" title="ch_error_t">ch_error_t</a> <code class="descname">ch_free_scratch</code><span class="sig-paren">(</span><a class="reference internal" href="#c.ch_scratch_t" title="ch_scratch_t">ch_scratch_t</a>  *<em>&nbsp;scratch</em><span class="sig-paren">)</span><a class="headerlink" href="#c.ch_free_scratch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Free a scratch block previously allocated by <a class="reference internal" href="#project0ch__runtime_8h_1a3c7d88639ce32646f9aaf5b57b2d0b1d"><span>ch_alloc_scratch()</span></a> or <a class="reference internal" href="#project0ch__runtime_8h_1a15e83801bb74dfff8c4d8623f64f967c"><span>ch_clone_scratch()</span></a>.</p>
+<p>The free callback set by <a class="reference internal" href="#project0ch__common_8h_1a1a1378a43cfb81f8628a3452f5cc2fce"><span>ch_set_scratch_allocator()</span></a> or <a class="reference internal" href="#project0ch__common_8h_1a06b7bdbcc2e56c57771271025e33b93b"><span>ch_set_allocator()</span></a> will be used by this function.</p>
+<p><dl class="docutils">
+<dt><strong>Return</strong></dt>
+<dd><a class="reference internal" href="#project0group__CH__ERROR_1ga2ac91c9a68ace90cec58294dde94bc67"><span>CH_SUCCESS</span></a> on success, other values on failure. </dd>
+<dt><strong>Parameters</strong></dt>
+<dd><ul class="breatheparameterlist first last">
+<li><code class="first docutils literal"><span class="pre">scratch</span></code> - <p>The scratch block to be freed. NULL may also be safely provided.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd></dl>
+
+</div>
+<dl class="struct">
+<dt id="c.ch_capture">
+<span class="target" id="project0structch__capture"></span><em class="property">struct </em><code class="descname">ch_capture</code><a class="headerlink" href="#c.ch_capture" title="Permalink to this definition">¶</a></dt>
+<dd><em>#include &lt;ch_runtime.h&gt;</em><p>Structure representing a captured subexpression within a match. An array of these structures corresponding to capture groups in order is passed to the callback on match, with active structures identified by the CH_CAPTURE_FLAG_ACTIVE flag. </p>
+<div class="breathe-sectiondef container">
+<p class="breathe-sectiondef-title rubric">Public Members</p>
+<dl class="variable">
+<dt id="c.ch_capture::flags">
+<span class="target" id="project0structch__capture_1a61a703e15c96a4e2af0e1773fdfe546d"></span>unsigned int <code class="descname">flags</code><a class="headerlink" href="#c.ch_capture::flags" title="Permalink to this definition">¶</a></dt>
+<dd><p>The flags indicating if this structure is active. </p>
+</dd></dl>
+
+<dl class="variable">
+<dt id="c.ch_capture::from">
+<span class="target" id="project0structch__capture_1ac5bcf485e1d741922f716a30892c08f8"></span>unsigned long long <code class="descname">from</code><a class="headerlink" href="#c.ch_capture::from" title="Permalink to this definition">¶</a></dt>
+<dd><p>offset at which this capture group begins. </p>
+</dd></dl>
+
+<dl class="variable">
+<dt id="c.ch_capture::to">
+<span class="target" id="project0structch__capture_1a61b002e91c9d3c47988e3e37e035d5af"></span>unsigned long long <code class="descname">to</code><a class="headerlink" href="#c.ch_capture::to" title="Permalink to this definition">¶</a></dt>
+<dd><p>offset at which this capture group ends. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="index.html">Table Of Contents</a></h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
+<li class="toctree-l1"><a class="reference internal" href="preface.html">Preface</a></li>
+<li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compilation.html">Compiling Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
+<li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tools.html">Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_constants.html">API Reference: Constants</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_files.html">API Reference: Files</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Chimera</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#compiling-patterns">Compiling Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#scanning-for-patterns">Scanning for Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#api-reference-constants">API Reference: Constants</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#api-reference-files">API Reference: Files</a></li>
+</ul>
+</li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2015-2018, Intel Corporation.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

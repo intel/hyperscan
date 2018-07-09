@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Performance Considerations &#8212; Hyperscan 4.7.0 documentation</title>
+    <title>Performance Considerations &mdash; Hyperscan 5.0.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,29 +15,25 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.7.0',
+        VERSION:     '5.0.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true,
-        SOURCELINK_SUFFIX: '.txt'
+        HAS_SOURCE:  true
       };
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="top" title="Hyperscan 5.0.0 documentation" href="index.html" />
     <link rel="next" title="Tools" href="tools.html" />
     <link rel="prev" title="Serialization" href="serialization.html" />
    
-  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
-  <body role="document">
-  
+  <body role="document">  
 
     <div class="document">
       <div class="documentwrapper">
@@ -163,7 +159,7 @@ instead of allocating one scratch space for every database used by an
 application, one can call <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> with a pointer to the same
 <a class="reference internal" href="api_files.html#c.hs_scratch_t" title="hs_scratch_t"><code class="xref c c-type docutils literal"><span class="pre">hs_scratch_t</span></code></a> and it will be sized appropriately for use with any of
 the given databases. For example:</p>
-<div class="highlight-c"><div class="highlight"><pre><span></span><span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db1</span> <span class="o">=</span> <span class="n">buildDatabaseOne</span><span class="p">();</span>
+<div class="highlight-c"><div class="highlight"><pre><span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db1</span> <span class="o">=</span> <span class="n">buildDatabaseOne</span><span class="p">();</span>
 <span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db2</span> <span class="o">=</span> <span class="n">buildDatabaseTwo</span><span class="p">();</span>
 <span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db3</span> <span class="o">=</span> <span class="n">buildDatabaseThree</span><span class="p">();</span>
 
@@ -373,7 +369,7 @@ depending on the pattern and edit distance.</p>
 <li class="toctree-l1"><a class="reference internal" href="compilation.html">Compiling Patterns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Performance Considerations</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Performance Considerations</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#regular-expression-constructs">Regular expression constructs</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#library-usage">Library usage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#block-based-matching">Block-based matching</a></li>
@@ -393,16 +389,20 @@ depending on the pattern and edit distance.</p>
 <li class="toctree-l1"><a class="reference internal" href="tools.html">Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_constants.html">API Reference: Constants</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_files.html">API Reference: Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chimera.html">Chimera</a></li>
 </ul>
 
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -413,8 +413,8 @@ depending on the pattern and edit distance.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
       
     </div>
 

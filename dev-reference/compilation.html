@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Compiling Patterns &#8212; Hyperscan 4.7.0 documentation</title>
+    <title>Compiling Patterns &mdash; Hyperscan 5.0.0 documentation</title>
     
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -15,29 +15,25 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '4.7.0',
+        VERSION:     '5.0.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true,
-        SOURCELINK_SUFFIX: '.txt'
+        HAS_SOURCE:  true
       };
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="top" title="Hyperscan 5.0.0 documentation" href="index.html" />
     <link rel="next" title="Scanning for Patterns" href="runtime.html" />
     <link rel="prev" title="Getting Started" href="getting_started.html" />
    
-  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
-  <body role="document">
-  
+  <body role="document">  
 
     <div class="document">
       <div class="documentwrapper">
@@ -58,7 +54,7 @@ databases:</p>
 database. All of the supplied patterns will be scanned for concurrently at
 scan time, with user-supplied identifiers returned when they match.</li>
 <li><a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_ext_multi()</span></code></a>: compiles an array of expressions as above,
-but allows <a class="reference internal" href="#extparam"><span class="std std-ref">Extended Parameters</span></a> to be specified for each expression.</li>
+but allows <a class="reference internal" href="#extparam"><span>Extended Parameters</span></a> to be specified for each expression.</li>
 </ol>
 <p>Compilation allows the Hyperscan library to analyze the given pattern(s) and
 pre-determine how to scan for these patterns in an optimized fashion that would
@@ -84,7 +80,7 @@ for one mode (streaming, block or vectored) can only be used in that mode. The
 version of Hyperscan used to produce a compiled pattern database must match the
 version of Hyperscan used to scan with it.</p>
 <p>Hyperscan provides support for targeting a database at a particular CPU
-platform; see <a class="reference internal" href="#instr-specialization"><span class="std std-ref">Instruction Set Specialization</span></a> for details.</p>
+platform; see <a class="reference internal" href="#instr-specialization"><span>Instruction Set Specialization</span></a> for details.</p>
 </div>
 <div class="section" id="pattern-support">
 <h2>Pattern Support<a class="headerlink" href="#pattern-support" title="Permalink to this headline">¶</a></h2>
@@ -180,7 +176,7 @@ expressions (e.g. <code class="regexp docutils literal"><span class="pre">([a-z]
 <p class="first admonition-title">Note</p>
 <p class="last">At this time, not all patterns can be successfully compiled with the
 <a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag, which enables per-pattern support for
-<a class="reference internal" href="#som"><span class="std std-ref">Start of Match</span></a>. The patterns that support this flag are a subset of patterns that
+<a class="reference internal" href="#som"><span>Start of Match</span></a>. The patterns that support this flag are a subset of patterns that
 can be successfully compiled with Hyperscan; notably, many bounded repeat
 forms that can be compiled with Hyperscan without the Start of Match flag
 enabled cannot be compiled with the flag enabled.</p>
@@ -219,7 +215,7 @@ guaranteed to be ordered, although they will always fall within the bounds of
 the current scan.</li>
 <li><strong>End offsets only</strong>: Hyperscan&#8217;s default behaviour is only to report the end
 offset of a match. Reporting of the start offset can be enabled with
-per-expression flags at pattern compile time. See <a class="reference internal" href="#som"><span class="std std-ref">Start of Match</span></a> for details.</li>
+per-expression flags at pattern compile time. See <a class="reference internal" href="#som"><span>Start of Match</span></a> for details.</li>
 <li><strong>&#8220;All matches&#8221; reported</strong>: scanning <code class="regexp docutils literal"><span class="pre">/foo.*bar/</span></code> against
 <code class="docutils literal"><span class="pre">fooxyzbarbar</span></code> will return two matches from Hyperscan &#8211; at the points
 corresponding to the ends of <code class="docutils literal"><span class="pre">fooxyzbar</span></code> and <code class="docutils literal"><span class="pre">fooxyzbarbar</span></code>. In contrast,
@@ -332,7 +328,7 @@ distance of 2 (as defined by Levenshtein distance).</p>
 <p>When the same pattern <code class="regexp docutils literal"><span class="pre">/foobar/</span></code> is given a <code class="docutils literal"><span class="pre">hamming_distance</span></code> of 2,
 it will produce matches when scanned against <code class="docutils literal"><span class="pre">foobar</span></code>, <code class="docutils literal"><span class="pre">boofar</span></code>,
 <code class="docutils literal"><span class="pre">f00bar</span></code>, and anything else with at most two characters substituted from the
-original pattern. For more details, see the <a class="reference internal" href="#approximate-matching"><span class="std std-ref">Approximate matching</span></a>
+original pattern. For more details, see the <a class="reference internal" href="#approximate-matching"><span>Approximate matching</span></a>
 section.</p>
 </div>
 <div class="section" id="prefiltering-mode">
@@ -402,7 +398,7 @@ a CPU without that feature.</li>
 </ol>
 <p>An <a class="reference internal" href="api_files.html#c.hs_platform_info_t" title="hs_platform_info_t"><code class="xref c c-type docutils literal"><span class="pre">hs_platform_info_t</span></code></a> structure targeted at the current host can be
 built with the <a class="reference internal" href="api_files.html#c.hs_populate_platform" title="hs_populate_platform"><code class="xref c c-func docutils literal"><span class="pre">hs_populate_platform()</span></code></a> function.</p>
-<p>See <a class="reference internal" href="api_constants.html#api-constants"><span class="std std-ref">API Reference: Constants</span></a> for the full list of CPU tuning and feature flags.</p>
+<p>See <a class="reference internal" href="api_constants.html#api-constants"><span>API Reference: Constants</span></a> for the full list of CPU tuning and feature flags.</p>
 </div>
 <div class="section" id="approximate-matching">
 <span id="id2"></span><h2>Approximate matching<a class="headerlink" href="#approximate-matching" title="Permalink to this headline">¶</a></h2>
@@ -424,7 +420,7 @@ be found on
 Hamming distance. That is, given a pattern, approximate matching will match
 anything that can be edited to arrive at a corpus that exactly matches the
 original pattern.</li>
-<li><strong>Matching semantics</strong> are exactly the same as described in <a class="reference internal" href="#semantics"><span class="std std-ref">Semantics</span></a>.</li>
+<li><strong>Matching semantics</strong> are exactly the same as described in <a class="reference internal" href="#semantics"><span>Semantics</span></a>.</li>
 </ol>
 <p>Here are a few examples of approximate matching:</p>
 <ul class="simple">
@@ -462,7 +458,7 @@ multibyte character encodings), and word boundaries (that is, <code class="docut
 and other equivalent constructs). Patterns containing unsupported constructs
 will result in &#8220;Pattern cannot be approximately matched&#8221; compile error.</li>
 <li>When using approximate matching in conjunction with SOM, all of the
-restrictions of SOM also apply. See <a class="reference internal" href="#som"><span class="std std-ref">Start of Match</span></a> for more
+restrictions of SOM also apply. See <a class="reference internal" href="#som"><span>Start of Match</span></a> for more
 details.</li>
 </ul>
 </li>
@@ -474,7 +470,97 @@ associated with approximate matching, both due to increased matching
 complexity, and due to the fact that it will produce more matches.</li>
 </ul>
 <p>Approximate matching is always disabled by default, and can be enabled on a
-per-pattern basis by using an extended parameter described in <a class="reference internal" href="#extparam"><span class="std std-ref">Extended Parameters</span></a>.</p>
+per-pattern basis by using an extended parameter described in <a class="reference internal" href="#extparam"><span>Extended Parameters</span></a>.</p>
+</div>
+<div class="section" id="logical-combinations">
+<span id="id3"></span><h2>Logical Combinations<a class="headerlink" href="#logical-combinations" title="Permalink to this headline">¶</a></h2>
+<p>For situations when a user requires behaviour that depends on the presence or
+absence of matches from groups of patterns, Hyperscan provides support for the
+logical combination of patterns in a given pattern set, with three operators:
+<code class="docutils literal"><span class="pre">NOT</span></code>, <code class="docutils literal"><span class="pre">AND</span></code> and <code class="docutils literal"><span class="pre">OR</span></code>.</p>
+<p>The logical value of such a combination is based on each expression&#8217;s matching
+status at a given offset. The matching status of any expression has a boolean
+value: <em>false</em> if the expression has not yet matched or <em>true</em> if the expression
+has already matched. In particular, the value of a <code class="docutils literal"><span class="pre">NOT</span></code> operation at a given
+offset is <em>true</em> if the expression it refers to is <em>false</em> at this offset.</p>
+<p>For example, <code class="docutils literal"><span class="pre">NOT</span> <span class="pre">101</span></code> means that expression 101 has not yet matched at this
+offset.</p>
+<p>A logical combination is passed to Hyperscan at compile time as an expression.
+This combination expression will raise matches at every offset where one of its
+sub-expressions matches and the logical value of the whole expression is <em>true</em>.</p>
+<p>To illustrate, here is an example combination expression:</p>
+<div class="highlight-python"><div class="highlight"><pre>((301 OR 302) AND 303) AND (304 OR NOT 305)
+</pre></div>
+</div>
+<p>If expression 301 matches at offset 10, the logical value of 301 is <em>true</em>
+while the other patterns&#8217; values are <em>false</em>. Hence, the whole combination&#8217;s value is
+<em>false</em>.</p>
+<p>Then expression 303 matches at offset 20. Now the values of 301 and 303 are
+<em>true</em> while the other patterns&#8217; values are still <em>false</em>. In this case, the
+combination&#8217;s value is <em>true</em>, so the combination expression raises a match at
+offset 20.</p>
+<p>Finally, expression 305 has matches at offset 30. Now the values of 301, 303 and 305
+are <em>true</em> while the other patterns&#8217; values are still <em>false</em>. In this case, the
+combination&#8217;s value is <em>false</em> and no match is raised.</p>
+<p><strong>Using Logical Combinations</strong></p>
+<p>In logical combination syntax, an expression is written as infix notation, it
+consists of operands, operators and parentheses. The operands are expression
+IDs, and operators are <code class="docutils literal"><span class="pre">!</span></code> (NOT), <code class="docutils literal"><span class="pre">&amp;</span></code> (AND) or <code class="docutils literal"><span class="pre">|</span></code> (OR). For example, the
+combination described in the previous section would be written as:</p>
+<div class="highlight-python"><div class="highlight"><pre>((301 | 302) &amp; 303) &amp; (304 | !305)
+</pre></div>
+</div>
+<p>In a logical combination expression:</p>
+<blockquote>
+<div><ul>
+<li><dl class="first docutils">
+<dt>The priority of operators are <code class="docutils literal"><span class="pre">!</span></code> &gt; <code class="docutils literal"><span class="pre">&amp;</span></code> &gt; <code class="docutils literal"><span class="pre">|</span></code>. For example:</dt>
+<dd><ul class="first last simple">
+<li><code class="docutils literal"><span class="pre">A&amp;B|C</span></code> is treated as <code class="docutils literal"><span class="pre">(A&amp;B)|C</span></code>,</li>
+<li><code class="docutils literal"><span class="pre">A|B&amp;C</span></code> is treated as <code class="docutils literal"><span class="pre">A|(B&amp;C)</span></code>,</li>
+<li><code class="docutils literal"><span class="pre">A&amp;!B</span></code> is treated as <code class="docutils literal"><span class="pre">A&amp;(!B)</span></code>.</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>Extra parentheses are allowed. For example:</dt>
+<dd><ul class="first last simple">
+<li><code class="docutils literal"><span class="pre">(A)&amp;!(B)</span></code> is the same as <code class="docutils literal"><span class="pre">A&amp;!B</span></code>,</li>
+<li><code class="docutils literal"><span class="pre">(A&amp;B)|C</span></code> is the same as <code class="docutils literal"><span class="pre">A&amp;B|C</span></code>.</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">Whitespace is ignored.</p>
+</li>
+</ul>
+</div></blockquote>
+<p>To use a logical combination expression, it must be passed to one of the
+Hyperscan compile functions (<a class="reference internal" href="api_files.html#c.hs_compile_multi" title="hs_compile_multi"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_multi()</span></code></a>,
+<a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_ext_multi()</span></code></a>) along with the <a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag,
+which identifies the pattern as a logical combination expression. The patterns
+referred to in the logical combination expression must be compiled together in
+the same pattern set as the combination expression.</p>
+<p>When an expression has the <a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag set, it ignores
+all other flags except the <a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> flag and the
+<a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_QUIET</span></code></a> flag.</p>
+<p>Hyperscan will reject logical combination expressions at compile time that
+evaluate to <em>true</em> when no patterns have matched; for example:</p>
+<div class="highlight-python"><div class="highlight"><pre>!101
+!101|102
+!101&amp;!102
+!(101&amp;102)
+</pre></div>
+</div>
+<p>Patterns that are referred to as operands within a logical combination (for
+example, 301 through 305 in the examples above) may also use the
+<a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_QUIET</span></code></a> flag to silence the reporting of individual matches
+for those patterns. In the absence of this flag, all matches (for
+both individual patterns and their logical combinations) will be reported.</p>
+<p>When an expression has both the <a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag and the
+<a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_QUIET</span></code></a> flag set, no matches for this logical combination
+will be reported.</p>
 </div>
 </div>
 
@@ -490,12 +576,13 @@ per-pattern basis by using an extended parameter described in <a class="referenc
 <li class="toctree-l1"><a class="reference internal" href="preface.html">Preface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Compiling Patterns</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Compiling Patterns</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#building-a-database">Building a Database</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pattern-support">Pattern Support</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#semantics">Semantics</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#instruction-set-specialization">Instruction Set Specialization</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#approximate-matching">Approximate matching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#logical-combinations">Logical Combinations</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
@@ -504,16 +591,20 @@ per-pattern basis by using an extended parameter described in <a class="referenc
 <li class="toctree-l1"><a class="reference internal" href="tools.html">Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_constants.html">API Reference: Constants</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api_files.html">API Reference: Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="chimera.html">Chimera</a></li>
 </ul>
 
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -524,8 +615,8 @@ per-pattern basis by using an extended parameter described in <a class="referenc
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.5.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
       
     </div>
 

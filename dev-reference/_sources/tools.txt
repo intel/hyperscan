@@ -246,6 +246,8 @@ Character   API Flag                             Description
 ``W``       :c:member:`HS_FLAG_UCP`              Unicode property support
 ``P``       :c:member:`HS_FLAG_PREFILTER`        Prefiltering mode
 ``L``       :c:member:`HS_FLAG_SOM_LEFTMOST`     Leftmost start of match reporting
+``C``       :c:member:`HS_FLAG_COMBINATION`      Logical combination of patterns
+``Q``       :c:member:`HS_FLAG_QUIET`            Quiet at matching
 =========   =================================    ===========
 
 In addition to the set of flags above, :ref:`extparam` can be supplied
