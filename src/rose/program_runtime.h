@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -501,8 +501,7 @@ hwlmcb_rv_t roseReport(const struct RoseEngine *t, struct hs_scratch *scratch,
 }
 
 /* catches up engines enough to ensure any earlier mpv triggers are enqueued
- * and then adds the trigger to the mpv queue. Must not be called during catch
- * up */
+ * and then adds the trigger to the mpv queue. */
 static rose_inline
 hwlmcb_rv_t roseCatchUpAndHandleChainMatch(const struct RoseEngine *t,
                                            struct hs_scratch *scratch,
@@ -556,6 +555,22 @@ void roseHandleSomSom(struct hs_scratch *scratch,
 
     updateLastMatchOffset(&scratch->tctxt, end);
     setSomFromSomAware(scratch, sr, start, end);
+}
+
+static rose_inline
+hwlmcb_rv_t roseSetExhaust(const struct RoseEngine *t,
+                           struct hs_scratch *scratch, u32 ekey) {
+    assert(scratch);
+    assert(scratch->magic == SCRATCH_MAGIC);
+
+    struct core_info *ci = &scratch->core_info;
+
+    assert(!can_stop_matching(scratch));
+    assert(!isExhausted(ci->rose, ci->exhaustionVector, ekey));
+
+    markAsMatched(ci->rose, ci->exhaustionVector, ekey);
+
+    return roseHaltIfExhausted(t, scratch);
 }
 
 static really_inline
@@ -1823,6 +1838,56 @@ void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
     }
 }
 
+static rose_inline
+hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
+                                    struct hs_scratch *scratch) {
+    u8 *cvec = (u8 *)scratch->core_info.combVector;
+    if (!mmbit_any(cvec, t->ckeyCount)) {
+        return HWLM_CONTINUE_MATCHING;
+    }
+    u64a end = scratch->tctxt.lastCombMatchOffset;
+    for (u32 i = mmbit_iterate(cvec, t->ckeyCount, MMB_INVALID);
+         i != MMB_INVALID; i = mmbit_iterate(cvec, t->ckeyCount, i)) {
+        const struct CombInfo *combInfoMap = (const struct CombInfo *)
+            ((const char *)t + t->combInfoMapOffset);
+        const struct CombInfo *ci = combInfoMap + i;
+        if ((ci->min_offset != 0) && (end < ci->min_offset)) {
+            DEBUG_PRINTF("halt: before min_offset=%llu\n", ci->min_offset);
+            continue;
+        }
+        if ((ci->max_offset != MAX_OFFSET) && (end > ci->max_offset)) {
+            DEBUG_PRINTF("halt: after max_offset=%llu\n", ci->max_offset);
+            continue;
+        }
+
+        DEBUG_PRINTF("check ekey %u\n", ci->ekey);
+        if (ci->ekey != INVALID_EKEY) {
+            assert(ci->ekey < t->ekeyCount);
+            const char *evec = scratch->core_info.exhaustionVector;
+            if (isExhausted(t, evec, ci->ekey)) {
+                DEBUG_PRINTF("ekey %u already set, match is exhausted\n",
+                             ci->ekey);
+                continue;
+            }
+        }
+
+        DEBUG_PRINTF("check ckey %u\n", i);
+        char *lvec = scratch->core_info.logicalVector;
+        if (!isLogicalCombination(t, lvec, ci->start, ci->result)) {
+            DEBUG_PRINTF("Logical Combination Failed!\n");
+            continue;
+        }
+
+        DEBUG_PRINTF("Logical Combination Passed!\n");
+        if (roseReport(t, scratch, end, ci->id, 0,
+                       ci->ekey) == HWLM_TERMINATE_MATCHING) {
+            return HWLM_TERMINATE_MATCHING;
+        }
+    }
+    clearCvec(t, (char *)cvec);
+    return HWLM_CONTINUE_MATCHING;
+}
+
 #define PROGRAM_CASE(name)                                                     \
     case ROSE_INSTR_##name: {                                                  \
         DEBUG_PRINTF("instruction: " #name " (pc=%u)\n",                       \
@@ -2586,6 +2651,47 @@ hwlmcb_rv_t roseRunProgram_i(const struct RoseEngine *t,
                     work_done = 0;
                     continue;
                 }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(SET_LOGICAL) {
+                DEBUG_PRINTF("set logical value of lkey %u, offset_adjust=%d\n",
+                             ri->lkey, ri->offset_adjust);
+                assert(ri->lkey != INVALID_LKEY);
+                assert(ri->lkey < t->lkeyCount);
+                char *lvec = scratch->core_info.logicalVector;
+                setLogicalVal(t, lvec, ri->lkey, 1);
+                updateLastCombMatchOffset(tctxt, end + ri->offset_adjust);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(SET_COMBINATION) {
+                DEBUG_PRINTF("set ckey %u as active\n", ri->ckey);
+                assert(ri->ckey != INVALID_CKEY);
+                assert(ri->ckey < t->ckeyCount);
+                char *cvec = scratch->core_info.combVector;
+                setCombinationActive(t, cvec, ri->ckey);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(FLUSH_COMBINATION) {
+                assert(end >= tctxt->lastCombMatchOffset);
+                if (end > tctxt->lastCombMatchOffset) {
+                    if (flushActiveCombinations(t, scratch)
+                            == HWLM_TERMINATE_MATCHING) {
+                        return HWLM_TERMINATE_MATCHING;
+                    }
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(SET_EXHAUST) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                if (roseSetExhaust(t, scratch, ri->ekey)
+                        == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+                work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -90,19 +90,14 @@ hs_error_t open_magic_stream(const hs_database_t *db, unsigned flags,
 
 #endif // RELEASE_BUILD
 
-class HyperscanDB : boost::noncopyable {
+class BaseDB : boost::noncopyable {
 public:
     // Constructor takes iterators over a container of pattern IDs.
     template <class Iter>
-    HyperscanDB(hs_database_t *db_in, Iter ids_begin, Iter ids_end)
-        : db(db_in), ids(ids_begin, ids_end) {}
+    BaseDB(Iter ids_begin, Iter ids_end)
+        : ids(ids_begin, ids_end) {}
 
-    ~HyperscanDB() {
-        hs_free_database(db);
-    }
-
-    // Underlying Hyperscan database pointer.
-    hs_database_t *db;
+    virtual ~BaseDB();
 
     // The set of expression IDs that must return their matches in order.
     unordered_set<unsigned> ordered;
@@ -111,15 +106,55 @@ public:
     unordered_set<unsigned> ids;
 };
 
+BaseDB::~BaseDB() { }
+
+class HyperscanDB : public BaseDB {
+public:
+    // Constructor takes iterators over a container of pattern IDs.
+    template <class Iter>
+    HyperscanDB(hs_database_t *db_in, Iter ids_begin, Iter ids_end)
+        : BaseDB(ids_begin, ids_end), db(db_in) {}
+
+    ~HyperscanDB();
+
+    // Underlying Hyperscan database pointer.
+    hs_database_t *db;
+};
+
+HyperscanDB::~HyperscanDB() {
+    hs_free_database(db);
+}
+
+#ifdef HS_HYBRID
+
+class HybridDB : public BaseDB {
+public:
+    // Constructor takes iterators over a container of pattern IDs.
+    template <class Iter>
+    HybridDB(ch_database_t *db_in, Iter ids_begin, Iter ids_end)
+        : BaseDB(ids_begin, ids_end), db(db_in) {}
+
+    ~HybridDB();
+
+    // Underlying Hyperscan database pointer.
+    ch_database_t *db;
+};
+
+HybridDB::~HybridDB() {
+    ch_free_database(db);
+}
+
+#endif // HS_HYBRID
+
 // Used to track the ID and result set.
 namespace {
 struct MultiContext {
-    MultiContext(unsigned int id_in, const HyperscanDB &db_in, ResultSet *rs_in,
+    MultiContext(unsigned int id_in, const BaseDB &db_in, ResultSet *rs_in,
                  bool single_in, ostream &os)
         : id(id_in), db(db_in), rs(rs_in), single(single_in), out(os) {}
     unsigned int id;
     int block = 0;
-    const HyperscanDB &db;
+    const BaseDB &db;
     ResultSet *rs;
     u64a lastRawMatch = 0; /* store last known unadjusted match location */
     u64a lastOrderMatch = 0;
@@ -134,8 +169,9 @@ struct MultiContext {
 
 // Callback used for all (both single and multi-mode) scans.
 static
-int callbackMulti(unsigned int id, unsigned long long from,
-                  unsigned long long to, UNUSED unsigned int flags, void *ctx) {
+int HS_CDECL callbackMulti(unsigned int id, unsigned long long from,
+                           unsigned long long to,
+                           UNUSED unsigned int flags, void *ctx) {
     MultiContext *mctx = static_cast<MultiContext *>(ctx);
     assert(mctx);
     assert(mctx->rs);
@@ -230,6 +266,76 @@ int callbackMulti(unsigned int id, unsigned long long from,
     return 0;
 }
 
+#ifdef HS_HYBRID
+
+// Hybrid matcher callback.
+static
+ch_callback_t HS_CDECL callbackHybrid(unsigned id, unsigned long long from,
+                             unsigned long long to, unsigned, unsigned size,
+                             const ch_capture_t *captured, void *ctx) {
+    MultiContext *mctx = static_cast<MultiContext *>(ctx);
+    assert(mctx);
+    assert(mctx->rs);
+    assert(mctx->in_scan_call);
+
+    ostream &out = mctx->out;
+
+    to -= g_corpora_prefix.size();
+
+    if (mctx->terminated) {
+        out << "UE2 Match @ (" << from << "," << to << ") for " << id
+            << " after termination" << endl;
+        mctx->rs->match_after_halt = true;
+    }
+
+    if (mctx->single || id == mctx->id) {
+        CaptureVec cap;
+        for (unsigned int i = 0; i < size; i++) {
+            if (!(captured[i].flags & CH_CAPTURE_FLAG_ACTIVE)) {
+                cap.push_back(make_pair(-1, -1));
+            } else {
+                cap.push_back(make_pair(captured[i].from, captured[i].to));
+            }
+        }
+        mctx->rs->addMatch(from, to, cap);
+    }
+
+    if (echo_matches) {
+        out << "Match @ [" << from << "," << to << "] for " << id << endl;
+        out << "  Captured " << size << " groups: ";
+        for (unsigned int i = 0; i < size; i++) {
+            if (!(captured[i].flags & CH_CAPTURE_FLAG_ACTIVE)) {
+                out << "{} ";
+            } else {
+                out << "{" << captured[i].from << "," << captured[i].to << "} ";
+            }
+        }
+        out << endl;
+    }
+
+    if (limit_matches && mctx->rs->matches.size() == limit_matches) {
+        mctx->terminated = true;
+        return CH_CALLBACK_TERMINATE;
+    }
+
+    return CH_CALLBACK_CONTINUE;
+}
+
+// Hybrid matcher error callback.
+static
+ch_callback_t HS_CDECL errorCallback(UNUSED ch_error_event_t errorType,
+                                     UNUSED unsigned int id, void *,
+                                     void *ctx) {
+    UNUSED MultiContext *mctx = static_cast<MultiContext *>(ctx);
+    assert(mctx);
+    assert(mctx->rs);
+    assert(mctx->in_scan_call);
+
+    return CH_CALLBACK_SKIP_PATTERN;
+}
+
+#endif // HS_HYBRID
+
 static
 void filterLeftmostSom(ResultSet &rs) {
     if (rs.matches.size() <= 1) {
@@ -252,6 +358,9 @@ UltimateTruth::UltimateTruth(ostream &os, const ExpressionMap &expr,
                              const Grey &grey_in, unsigned int streamBlocks)
     : grey(grey_in), out(os), m_expr(expr), m_xcompile(false),
       m_streamBlocks(streamBlocks), scratch(nullptr),
+#ifdef HS_HYBRID
+      chimeraScratch(nullptr),
+#endif
       platform(plat) {
     // Build our mode flags.
 
@@ -265,15 +374,27 @@ UltimateTruth::UltimateTruth(ostream &os, const ExpressionMap &expr,
     case MODE_VECTORED:
         m_mode = HS_MODE_VECTORED;
         break;
+    case MODE_HYBRID:
+        m_mode = 0;
+        break;
     }
 
     // Set desired SOM precision, if we're in streaming mode.
     if (colliderMode == MODE_STREAMING) {
         m_mode |= somPrecisionMode;
     }
+
+#ifdef HS_HYBRID
+    if (colliderMode == MODE_HYBRID && !no_groups) {
+        m_mode |= CH_MODE_GROUPS;
+    }
+#endif
 }
 
 UltimateTruth::~UltimateTruth() {
+#ifdef HS_HYBRID
+    ch_free_scratch(chimeraScratch);
+#endif
     hs_free_scratch(scratch);
 }
 
@@ -327,13 +448,13 @@ void mangle_scratch(hs_scratch_t *scratch) {
     scratch->fdr_conf_offset = 0xe4;
 }
 
-bool UltimateTruth::blockScan(const HyperscanDB &hdb, const string &buffer,
+bool UltimateTruth::blockScan(const BaseDB &bdb, const string &buffer,
                               size_t align, match_event_handler callback,
                               void *ctx_in, ResultSet *) {
     assert(colliderMode == MODE_BLOCK);
     assert(!m_xcompile);
 
-    const hs_database_t *db = hdb.db;
+    const hs_database_t *db = reinterpret_cast<const HyperscanDB &>(bdb).db;
     assert(db);
     MultiContext *ctx = (MultiContext *)ctx_in;
 
@@ -438,13 +559,13 @@ hs_stream_t *compressAndResetExpandStream(const hs_database_t *db,
     return out;
 }
 
-bool UltimateTruth::streamingScan(const HyperscanDB &hdb, const string &buffer,
+bool UltimateTruth::streamingScan(const BaseDB &bdb, const string &buffer,
                                   size_t align, match_event_handler callback,
                                   void *ctx_in, ResultSet *rs) {
     assert(colliderMode == MODE_STREAMING);
     assert(!m_xcompile);
 
-    const hs_database_t *db = hdb.db;
+    const hs_database_t *db = reinterpret_cast<const HyperscanDB &>(bdb).db;
     assert(db);
     MultiContext *ctx = (MultiContext *)ctx_in;
 
@@ -594,13 +715,13 @@ bool UltimateTruth::streamingScan(const HyperscanDB &hdb, const string &buffer,
     return ret == HS_SUCCESS;
 }
 
-bool UltimateTruth::vectoredScan(const HyperscanDB &hdb, const string &buffer,
+bool UltimateTruth::vectoredScan(const BaseDB &bdb, const string &buffer,
                                  size_t align, match_event_handler callback,
                                  void *ctx_in, ResultSet *rs) {
     assert(colliderMode == MODE_VECTORED);
     assert(!m_xcompile);
 
-    const hs_database_t *db = hdb.db;
+    const hs_database_t *db = reinterpret_cast<const HyperscanDB &>(bdb).db;
     assert(db);
     MultiContext *ctx = (MultiContext *)ctx_in;
 
@@ -682,19 +803,67 @@ bool UltimateTruth::vectoredScan(const HyperscanDB &hdb, const string &buffer,
     return true;
 }
 
-bool UltimateTruth::run(unsigned int id, shared_ptr<const HyperscanDB> hdb,
+#ifdef HS_HYBRID
+bool UltimateTruth::hybridScan(const BaseDB &bdb, const string &buffer,
+                               size_t align, ch_match_event_handler callback,
+                               ch_error_event_handler error_callback,
+                               void *ctx_in, ResultSet *) {
+    assert(colliderMode == MODE_HYBRID);
+    assert(!m_xcompile);
+
+    const ch_database_t *db = reinterpret_cast<const HybridDB &>(bdb).db;
+    assert(db);
+    MultiContext *ctx = (MultiContext *)ctx_in;
+
+    char *realigned = setupScanBuffer(buffer.c_str(), buffer.size(), align);
+    if (!realigned) {
+        return false;
+    }
+
+    if (use_copy_scratch && !cloneScratch()) {
+        return false;
+    }
+
+    ctx->in_scan_call = true;
+    ch_error_t ret =
+        ch_scan(db, realigned, buffer.size(), 0, chimeraScratch, callback,
+                error_callback, ctx);
+    ctx->in_scan_call = false;
+
+    if (g_verbose) {
+        out << "Scan call returned " << ret << endl;
+    }
+
+    if (ctx->terminated) {
+        if (g_verbose && ret != CH_SCAN_TERMINATED) {
+            out << "Scan should have returned CH_SCAN_TERMINATED, returned "
+                 << ret << " instead." << endl;
+        }
+        return ret == CH_SCAN_TERMINATED;
+    }
+
+    if (g_verbose && ret != CH_SUCCESS) {
+        out << "Scan should have returned CH_SUCCESS, returned " << ret
+             << " instead." << endl;
+    }
+
+    return ret == CH_SUCCESS;
+}
+#endif
+
+bool UltimateTruth::run(unsigned int id, shared_ptr<const BaseDB> bdb,
                         const string &buffer, bool single_pattern,
                         unsigned int align, ResultSet &rs) {
     assert(!m_xcompile);
-    assert(hdb);
+    assert(bdb);
 
     // Ensure that scratch is appropriate for this database.
-    if (!allocScratch(hdb)) {
+    if (!allocScratch(bdb)) {
         out << "Scratch alloc failed." << endl;
         return false;
     }
 
-    MultiContext ctx(id, *hdb, &rs, single_pattern, out);
+    MultiContext ctx(id, *bdb, &rs, single_pattern, out);
     if (!g_corpora_suffix.empty()) {
         ctx.use_max_offset = true;
         ctx.max_offset = buffer.size() - g_corpora_suffix.size();
@@ -702,11 +871,20 @@ bool UltimateTruth::run(unsigned int id, shared_ptr<const HyperscanDB> hdb,
 
     switch (colliderMode) {
     case MODE_BLOCK:
-        return blockScan(*hdb, buffer, align, callbackMulti, &ctx, &rs);
+        return blockScan(*bdb, buffer, align, callbackMulti, &ctx, &rs);
     case MODE_STREAMING:
-        return streamingScan(*hdb, buffer, align, callbackMulti, &ctx, &rs);
+        return streamingScan(*bdb, buffer, align, callbackMulti, &ctx, &rs);
     case MODE_VECTORED:
-        return vectoredScan(*hdb, buffer, align, callbackMulti, &ctx, &rs);
+        return vectoredScan(*bdb, buffer, align, callbackMulti, &ctx, &rs);
+    case MODE_HYBRID:
+#ifdef HS_HYBRID
+        return hybridScan(*bdb, buffer, align, callbackHybrid, errorCallback,
+                          &ctx, &rs);
+#else
+        cerr << "Hybrid mode not available in this build." << endl;
+        abort();
+#endif
+        break;
     }
 
     assert(0);
@@ -739,7 +917,7 @@ bool isOrdered(const string &expr, unsigned int flags) {
     return ordered;
 }
 
-static unique_ptr<HyperscanDB>
+static unique_ptr<BaseDB>
 compileHyperscan(vector<const char *> &patterns, vector<unsigned> &flags,
                  vector<unsigned> &idsvec, ptr_vector<hs_expr_ext> &ext,
                  unsigned mode, const hs_platform_info *platform, string &error,
@@ -762,7 +940,30 @@ compileHyperscan(vector<const char *> &patterns, vector<unsigned> &flags,
     return ue2::make_unique<HyperscanDB>(db, idsvec.begin(), idsvec.end());
 }
 
-shared_ptr<HyperscanDB> UltimateTruth::compile(const set<unsigned> &ids,
+#ifdef HS_HYBRID
+static unique_ptr<BaseDB>
+compileHybrid(vector<const char *> &patterns,
+              vector<unsigned> &flags, vector<unsigned> &idsvec,
+              unsigned mode, const hs_platform_info *platform, string &error) {
+    const unsigned count = patterns.size();
+    ch_database_t *db = nullptr;
+    ch_compile_error_t *compile_err;
+
+    ch_error_t err = ch_compile_multi(&patterns[0], &flags[0],
+                                      &idsvec[0], count, mode, platform, &db,
+                                      &compile_err);
+
+    if (err != HS_SUCCESS) {
+        error = compile_err->message;
+        ch_free_compile_error(compile_err);
+        return nullptr;
+    }
+
+    return ue2::make_unique<HybridDB>(db, idsvec.begin(), idsvec.end());
+}
+#endif
+
+shared_ptr<BaseDB> UltimateTruth::compile(const set<unsigned> &ids,
                                                string &error) const {
     // Build our vectors for compilation
     const size_t count = ids.size();
@@ -811,6 +1012,17 @@ shared_ptr<HyperscanDB> UltimateTruth::compile(const set<unsigned> &ids,
             ext[n].edit_distance = edit_distance;
         }
 
+        if (colliderMode == MODE_HYBRID) {
+            if (ext[n].flags) {
+                error = "Hybrid does not support extended parameters.";
+                return nullptr;
+            }
+            // We can also strip some other flags in the hybrid matcher.
+            flags[n] &= ~HS_FLAG_PREFILTER; // prefilter always used
+            flags[n] &= ~HS_FLAG_ALLOWEMPTY; // empty always allowed
+            flags[n] &= ~HS_FLAG_SOM_LEFTMOST; // SOM always on
+        }
+
         n++;
     }
 
@@ -827,8 +1039,18 @@ shared_ptr<HyperscanDB> UltimateTruth::compile(const set<unsigned> &ids,
         idsvec.push_back(0);
     }
 
-    auto db = compileHyperscan(patterns, flags, idsvec, ext, m_mode, platform,
-                               error, grey);
+    unique_ptr<BaseDB> db;
+    if (colliderMode == MODE_HYBRID) {
+#ifdef HS_HYBRID
+        db = compileHybrid(patterns, flags, idsvec, m_mode, platform, error);
+#else
+        error = "Hybrid mode not available in this build.";
+#endif
+    } else {
+        db = compileHyperscan(patterns, flags, idsvec, ext, m_mode,
+                              platform, error, grey);
+    }
+
     if (!db) {
         return nullptr;
     }
@@ -850,18 +1072,29 @@ shared_ptr<HyperscanDB> UltimateTruth::compile(const set<unsigned> &ids,
     return move(db);
 }
 
-bool UltimateTruth::allocScratch(shared_ptr<const HyperscanDB> db) {
+bool UltimateTruth::allocScratch(shared_ptr<const BaseDB> db) {
     assert(db);
 
-    // We explicitly avoid running scratch allocators for the same HyperscanDB
+    // We explicitly avoid running scratch allocators for the same BaseDB
     // over and over again by retaining a shared_ptr to the last one we saw.
     if (db == last_db) {
         return true;
     }
 
-    hs_error_t err = hs_alloc_scratch(db.get()->db, &scratch);
-    if (err != HS_SUCCESS) {
-        return false;
+    if (colliderMode == MODE_HYBRID) {
+#ifdef HS_HYBRID
+        ch_error_t err = ch_alloc_scratch(
+            reinterpret_cast<const HybridDB *>(db.get())->db, &chimeraScratch);
+        if (err != HS_SUCCESS) {
+            return false;
+        }
+#endif // HS_HYBRID
+    } else {
+        hs_error_t err = hs_alloc_scratch(
+            reinterpret_cast<const HyperscanDB *>(db.get())->db, &scratch);
+        if (err != HS_SUCCESS) {
+            return false;
+        }
     }
 
     last_db = db;
@@ -869,20 +1102,40 @@ bool UltimateTruth::allocScratch(shared_ptr<const HyperscanDB> db) {
 }
 
 bool UltimateTruth::cloneScratch(void) {
-    hs_scratch_t *old_scratch = scratch;
-    hs_scratch_t *new_scratch;
-    hs_error_t ret = hs_clone_scratch(scratch, &new_scratch);
-    if (ret != HS_SUCCESS) {
-        DEBUG_PRINTF("failure to clone %d\n", ret);
-        return false;
+    if (colliderMode == MODE_HYBRID) {
+#ifdef HS_HYBRID
+        ch_scratch_t *old_scratch = chimeraScratch;
+        ch_scratch_t *new_scratch;
+        ch_error_t ret = ch_clone_scratch(chimeraScratch, &new_scratch);
+        if (ret != CH_SUCCESS) {
+            DEBUG_PRINTF("failure to clone %d\n", ret);
+            return false;
+        }
+        chimeraScratch = new_scratch;
+        ret = ch_free_scratch(old_scratch);
+        if (ret != CH_SUCCESS) {
+            DEBUG_PRINTF("failure to free %d\n", ret);
+            return false;
+        }
+        DEBUG_PRINTF("hybrid scratch cloned from %p to %p\n",
+                     old_scratch, chimeraScratch);
+#endif // HS_HYBRID
+    } else {
+        hs_scratch_t *old_scratch = scratch;
+        hs_scratch_t *new_scratch;
+        hs_error_t ret = hs_clone_scratch(scratch, &new_scratch);
+        if (ret != HS_SUCCESS) {
+            DEBUG_PRINTF("failure to clone %d\n", ret);
+            return false;
+        }
+        scratch = new_scratch;
+        ret = hs_free_scratch(old_scratch);
+        if (ret != HS_SUCCESS) {
+            DEBUG_PRINTF("failure to free %d\n", ret);
+            return false;
+        }
+        DEBUG_PRINTF("scratch cloned from %p to %p\n", old_scratch, scratch);
     }
-    scratch = new_scratch;
-    ret = hs_free_scratch(old_scratch);
-    if (ret != HS_SUCCESS) {
-        DEBUG_PRINTF("failure to free %d\n", ret);
-        return false;
-    }
-    DEBUG_PRINTF("scratch cloned from %p to %p\n", old_scratch, scratch);
     return true;
 }
 
@@ -947,20 +1200,35 @@ char *UltimateTruth::setupVecScanBuffer(const char *begin, size_t len,
     return ptr;
 }
 
-bool UltimateTruth::saveDatabase(const HyperscanDB &hdb,
+bool UltimateTruth::saveDatabase(const BaseDB &bdb,
                                  const string &filename) const {
-    return ::saveDatabase(hdb.db, filename.c_str(), g_verbose);
+    if (colliderMode == MODE_HYBRID) {
+        cerr << "Hybrid mode doesn't support serialization." << endl;
+        abort();
+    } else {
+        return ::saveDatabase(reinterpret_cast<const HyperscanDB *>(&bdb)->db,
+                              filename.c_str(), g_verbose);
+    }
+    return false;
 }
 
-shared_ptr<HyperscanDB>
+shared_ptr<BaseDB>
 UltimateTruth::loadDatabase(const string &filename,
                             const std::set<unsigned> &ids) const {
-    hs_database_t *hs_db = ::loadDatabase(filename.c_str(), g_verbose);
-    if (!hs_db) {
-        return nullptr;
+    shared_ptr<BaseDB> db;
+
+    if (colliderMode == MODE_HYBRID) {
+        cerr << "Hybrid mode doesn't support deserialization." << endl;
+        abort();
+    } else {
+        hs_database_t *hs_db = ::loadDatabase(filename.c_str(), g_verbose);
+        if (!hs_db) {
+            return nullptr;
+        }
+
+        db = make_shared<HyperscanDB>(hs_db, ids.begin(), ids.end());
     }
 
-    auto db = make_shared<HyperscanDB>(hs_db, ids.begin(), ids.end());
     assert(db);
 
     // Fill db::ordered with the expressions that require the ordered flag.

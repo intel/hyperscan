@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,7 +46,11 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#ifndef _WIN32
 #include <getopt.h>
+#else
+#include "win_getopt.h"
+#endif
 
 #define xstr(s) str(s)
 #define str(s) #s
@@ -76,6 +80,7 @@ void usage(const char *name, const char *error) {
            "blocks.\n");
     printf("  -V NUM          Use vectored mode, split data into ~NUM "
            "blocks.\n");
+    printf("  -H              Use hybrid mode.\n");
     printf("  -Z {R or 0-%d}  Only test one alignment, either as given or "
            "'R' for random.\n", MAX_MAX_UE2_ALIGN - 1);
     printf("  -q              Quiet; display only match differences, no other "
@@ -90,6 +95,7 @@ void usage(const char *name, const char *error) {
     printf("  -E DISTANCE     Match all patterns within edit distance"
            " DISTANCE.\n");
     printf("  --prefilter     Apply HS_FLAG_PREFILTER to all patterns.\n");
+    printf("  --no-groups     Disable capturing in Hybrid mode.\n");
     printf("\n");
     printf("Testing mode options:\n");
     printf("\n");
@@ -157,7 +163,7 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
                  vector<string> *corpora, UNUSED Grey *grey,
                  unique_ptr<hs_platform_info> *plat_out) {
     static const char options[]
-        = "-ab:cC:d:D:e:E:G:hi:k:Lm:M:n:o:O:p:P:qr:R:S:s:t:T:vV:w:x:X:Y:z:Z:8";
+        = "-ab:cC:d:D:e:E:G:hHi:k:Lm:M:n:o:O:p:P:qr:R:S:s:t:T:vV:w:x:X:Y:z:Z:8";
     s32 in_multi = 0;
     s32 in_corpora = 0;
     int pcreFlag = 1;
@@ -180,6 +186,7 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
         {"no-signal-handler", 0, &no_signal_handler, 1},
         {"compress-expand", 0, &compressFlag, 1},
         {"compress-reset-expand", 0, &compressResetFlag, 1},
+        {"no-groups", 0, &no_groups, 1},
         {nullptr, 0, nullptr, 0}};
 
     for (;;) {
@@ -271,6 +278,15 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
             case 'h':
                 usage(argv[0], nullptr);
                 exit(0);
+            case 'H':
+                if (colliderMode != MODE_BLOCK) {
+                    usage(argv[0], "You can only use one mode at a time!");
+                    exit(1);
+                }
+                colliderMode = MODE_HYBRID;
+                // Disable graph truth in hybrid mode
+                nfaFlag = 0;
+                break;
             case 'i':
                 loadDatabases = true;
                 serializePath = optarg;
@@ -455,7 +471,7 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
                     exit(1);
                 }
                 break;
-            case 'Z':
+            case 'Z': {     // Parentheses save VS C2360
                 static constexpr unsigned ALIGN_LIMIT = MAX_MAX_UE2_ALIGN - 1;
                 if (optarg == string("R")) {
                     // Random min alignment selected.
@@ -469,6 +485,7 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
                 }
                 max_ue2_align = min_ue2_align + 1;
                 break;
+            }
             case '8':
                 force_utf8 = true;
                 break;
@@ -539,6 +556,11 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
     // Cannot ask for cross-compile and loading
     if (loadDatabases && *plat_out) {
         usage(argv[0], "You cannot both load and xcompile of databases.");
+        exit(1);
+    }
+
+    if (colliderMode == MODE_HYBRID && !ue2Flag) {
+        usage(argv[0], "You cannot disable UE2 engine in Hybrid mode.");
         exit(1);
     }
 

@@ -33,6 +33,7 @@
 #ifndef MULTIBIT_BUILD_H
 #define MULTIBIT_BUILD_H
 
+#include "hs_common.h"
 #include "multibit_internal.h"
 #include "hash.h"
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -77,7 +77,7 @@ public:
     /** \brief Adds a literal to Rose, used by literal shortcut passes (instead
      * of using \ref addGraph) */
     bool addLiteral(const ue2_literal &lit, u32 expr_index, u32 external_report,
-                    bool highlander, som_type som);
+                    bool highlander, som_type som, bool quiet);
 
     /** \brief Maximum history in bytes available for use by SOM reverse NFAs,
      * a hack for pattern support (see UE-1903). This is always set to the max

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,7 +31,11 @@
 
 #include <cstdlib>
 
+#ifndef _WIN32
 #include <pthread.h>
+#else
+#include <thread>
+#endif
 
 #include <boost/core/noncopyable.hpp>
 
@@ -54,7 +58,11 @@ protected:
     const size_t thread_id;
 
 private:
+#ifndef _WIN32
     pthread_t thread;
+#else
+    std::thread thread;
+#endif
 };
 
 #endif // UE2COLLIDER_THREAD_H

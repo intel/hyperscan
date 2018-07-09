@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -578,6 +578,7 @@ void roseStreamExec(const struct RoseEngine *t, struct hs_scratch *scratch) {
     tctxt->lastEndOffset = offset;
     tctxt->filledDelayedSlots = 0;
     tctxt->lastMatchOffset = 0;
+    tctxt->lastCombMatchOffset = offset;
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;
     tctxt->next_mpv_offset = 0;
@@ -700,6 +701,7 @@ void roseStreamInitEod(const struct RoseEngine *t, u64a offset,
     tctxt->lastEndOffset = offset;
     tctxt->filledDelayedSlots = 0;
     tctxt->lastMatchOffset = 0;
+    tctxt->lastCombMatchOffset = offset; /* DO NOT set 0 here! */
     tctxt->minMatchOffset = offset;
     tctxt->minNonMpvMatchOffset = offset;
     tctxt->next_mpv_offset = offset;

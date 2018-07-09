@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,10 +54,10 @@ public:
     explicit DatabaseProxy(const std::set<unsigned> &expr_ids)
         : ids(expr_ids) {}
 
-    explicit DatabaseProxy(std::shared_ptr<HyperscanDB> built_db)
+    explicit DatabaseProxy(std::shared_ptr<BaseDB> built_db)
         : db(built_db) {}
 
-    std::shared_ptr<HyperscanDB> get(const UltimateTruth &ultimate) {
+    std::shared_ptr<BaseDB> get(const UltimateTruth &ultimate) {
         std::lock_guard<std::mutex> lock(mutex);
         if (failed) {
             // We have previously failed to compile this database.
@@ -80,7 +80,7 @@ public:
 
 private:
     std::mutex mutex;
-    std::shared_ptr<HyperscanDB> db;
+    std::shared_ptr<BaseDB> db;
     std::set<unsigned> ids;
     bool failed = false; // Database failed compilation.
 };

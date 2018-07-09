@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,6 +41,12 @@ extern unsigned int somPrecisionMode;
 extern bool forceEditDistance;
 extern unsigned editDistance;
 extern bool printCompressSize;
+
+/** Structure for the result of a single complete scan. */
+struct ResultEntry {
+    double seconds = 0;       //!< Time taken for scan.
+    unsigned int matches = 0; //!< Count of matches found.
+};
 
 struct SqlFailure {
     explicit SqlFailure(const std::string &s) : message(s) {}

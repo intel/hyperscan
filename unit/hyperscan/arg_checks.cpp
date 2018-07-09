@@ -171,7 +171,9 @@ TEST(HyperscanArgChecks, SingleCompileBogusFlags) {
                                 nullptr, &db, &compile_err);
     EXPECT_EQ(HS_COMPILER_ERROR, err);
     EXPECT_TRUE(compile_err != nullptr);
-    EXPECT_STREQ("Unrecognised flag.", compile_err->message);
+    EXPECT_STREQ("only HS_FLAG_QUIET and HS_FLAG_SINGLEMATCH "
+                 "are supported in combination "
+                 "with HS_FLAG_COMBINATION.", compile_err->message);
 
     hs_free_compile_error(compile_err);
 }

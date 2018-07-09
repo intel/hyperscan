@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -84,7 +84,7 @@ struct mcsheng {
     u8  has_accel; /**< 1 iff there are any accel plans */
     u8  remap[256]; /**< remaps characters to a smaller alphabet */
     ReportID arb_report; /**< one of the accepts that this dfa may raise */
-    u32 accel_offset; /**< offset of the accel structures from start of NFA */
+    u32 accel_offset; /**< offset of accel structures from start of McClellan */
     m128 sheng_masks[N_CHARS];
 };
 

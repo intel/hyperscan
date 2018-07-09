@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -56,7 +56,11 @@ void describeChar(ostream &os, char c, enum cc_output_t out_type) {
 
     const string backslash((out_type == CC_OUT_DOT ? 2 : 1), '\\');
 
+#ifdef _WIN32
+    if (c >= 0x21 && c < 0x7F && c != '\\') {
+#else
     if (isgraph(c) && c != '\\') {
+#endif
         if (escaped.find(c) != string::npos) {
             os << backslash << c;
         } else if (out_type == CC_OUT_DOT

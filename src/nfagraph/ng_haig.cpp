@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -73,7 +73,7 @@ static
 void populateInit(const NGHolder &g, const flat_set<NFAVertex> &unused,
                   stateset *init, stateset *initDS,
                   vector<NFAVertex> *v_by_index) {
-    DEBUG_PRINTF("graph kind: %u\n", (int)g.kind);
+    DEBUG_PRINTF("graph kind: %s\n", to_string(g.kind).c_str());
     for (auto v : vertices_range(g)) {
         if (contains(unused, v)) {
             continue;

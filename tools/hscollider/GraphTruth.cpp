@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,6 +48,7 @@
 #include "nfagraph/ng_util.h"
 #include "parser/Parser.h"
 #include "parser/unsupported.h"
+#include "parser/logical_combination.h"
 #include "util/compile_context.h"
 #include "util/make_unique.h"
 #include "util/report_manager.h"
@@ -69,8 +70,11 @@ public:
     CompiledNG(unique_ptr<NGHolder> g_in,
                unique_ptr<ReportManager> rm_in)
         : g(std::move(g_in)), rm(std::move(rm_in)) {}
+    CompiledNG(unique_ptr<ParsedLogical> pl_in)
+        : pl(std::move(pl_in)) {}
     unique_ptr<ue2::NGHolder> g;
     unique_ptr<ue2::ReportManager> rm;
+    unique_ptr<ue2::ParsedLogical> pl;
 };
 
 static
@@ -126,6 +130,14 @@ void CNGInfo::compile() {
     }
 
     try {
+        if (combination) {
+            auto pl = ue2::make_unique<ParsedLogical>();
+            pl->parseLogicalCombination(id, re.c_str(), ~0U, 0, ~0ULL);
+            pl->logicalKeyRenumber();
+            cng = make_unique<CompiledNG>(move(pl));
+            return;
+        }
+
         bool isStreaming = colliderMode == MODE_STREAMING;
         bool isVectored = colliderMode == MODE_VECTORED;
         CompileContext cc(isStreaming, isVectored, get_current_target(),
@@ -199,6 +211,8 @@ unique_ptr<CNGInfo> GraphTruth::preprocess(unsigned id,
     bool highlander = false;
     bool prefilter = false;
     bool som = false;
+    bool combination = false;
+    bool quiet = false;
 
     auto i = m_expr.find(id);
     if (i == m_expr.end()) {
@@ -214,7 +228,8 @@ unique_ptr<CNGInfo> GraphTruth::preprocess(unsigned id,
         throw NGCompileFailure("Cannot parse expression flags.");
     }
     // read PCRE flags
-    if (!getPcreFlags(hs_flags, &flags, &highlander, &prefilter, &som)) {
+    if (!getPcreFlags(hs_flags, &flags, &highlander, &prefilter, &som,
+                      &combination, &quiet)) {
         throw NGCompileFailure("Cannot get PCRE flags.");
     }
     if (force_utf8) {
@@ -247,6 +262,8 @@ unique_ptr<CNGInfo> GraphTruth::preprocess(unsigned id,
     cngi->highlander = highlander;
     cngi->prefilter = prefilter;
     cngi->som = som;
+    cngi->combination = combination;
+    cngi->quiet = quiet;
     cngi->min_offset = ext.min_offset;
     cngi->max_offset = ext.max_offset;
     cngi->min_length = ext.min_length;
@@ -256,8 +273,95 @@ unique_ptr<CNGInfo> GraphTruth::preprocess(unsigned id,
     return cngi;
 }
 
+/** \brief Returns 1 if compliant to all logical combinations. */
+static
+char isLogicalCombination(vector<char> &lv, const vector<LogicalOp> &comb,
+                          size_t lkeyCount, unsigned start, unsigned result) {
+    assert(start <= result);
+    for (unsigned i = start; i <= result; i++) {
+        const LogicalOp &op = comb[i - lkeyCount];
+        assert(i == op.id);
+        switch (op.op) {
+        case LOGICAL_OP_NOT:
+            lv[op.id] = !lv[op.ro];
+            break;
+        case LOGICAL_OP_AND:
+            lv[op.id] = lv[op.lo] & lv[op.ro]; // &&
+            break;
+        case LOGICAL_OP_OR:
+            lv[op.id] = lv[op.lo] | lv[op.ro]; // ||
+            break;
+        default:
+            assert(0);
+            break;
+        }
+    }
+    return lv[result];
+}
+
 bool GraphTruth::run(unsigned, const CompiledNG &cng, const CNGInfo &cngi,
-                     const string &buffer, ResultSet &rs, string &) {
+                     const string &buffer, ResultSet &rs, string &error) {
+    if (cngi.quiet) {
+        return true;
+    }
+
+    if (cngi.combination) {
+        // Compile and run sub-expressions, store match results.
+        map<unsigned long long, set<MatchResult>> offset_to_matches;
+        map<unsigned long long, set<unsigned>> offset_to_lkeys;
+        set<unsigned> sub_exps;
+        const auto &m_lkey = cng.pl->getLkeyMap();
+        for (const auto &it_lkey : m_lkey) {
+            if (sub_exps.find(it_lkey.first) == sub_exps.end()) {
+                sub_exps.emplace(it_lkey.first);
+                ResultSet sub_rs(RESULT_FROM_PCRE);
+                shared_ptr<CNGInfo> sub_cngi = preprocess(it_lkey.first);
+                const CompiledNG *sub_cng;
+                try {
+                    sub_cng = sub_cngi->get();
+                }
+                catch (const NGCompileFailure &err) {
+                    return false;
+                }
+                catch (const NGUnsupportedFailure &err) {
+                    return false;
+                }
+                sub_cngi->quiet = false; // force not quiet in sub-exp.
+                if (!run(it_lkey.first, *sub_cng, *sub_cngi, buffer, sub_rs, error)) {
+                    rs.clear();
+                    return false;
+                }
+                for (const auto &it_mr : sub_rs.matches) {
+                    offset_to_matches[it_mr.to].emplace(it_mr);
+                    offset_to_lkeys[it_mr.to].emplace(it_lkey.second);
+                    if (sub_cngi->highlander) {
+                        break;
+                    }
+                }
+            }
+        }
+        // Calculate rs for combination expression.
+        vector<char> lv;
+        const auto &comb = cng.pl->getLogicalTree();
+        lv.resize(m_lkey.size() + comb.size());
+        const auto &li = cng.pl->getCombInfoById(cngi.id);
+        for (const auto &it : offset_to_lkeys) {
+            for (auto report : it.second) {
+                lv[report] = 1;
+            }
+            if (isLogicalCombination(lv, comb, m_lkey.size(),
+                                     li.start, li.result)) {
+                for (const auto &mr : offset_to_matches.at(it.first)) {
+                    if ((mr.to >= cngi.min_offset) &&
+                        (mr.to <= cngi.max_offset)) {
+                        rs.addMatch(mr.from, mr.to);
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
     set<pair<size_t, size_t>> matches;
 
     if (g_streamOffset) {

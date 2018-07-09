@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -66,6 +66,7 @@ hwlmcb_rv_t roseHandleChainMatch(const struct RoseEngine *t,
                                  u64a top_squash_distance, u64a end,
                                  char in_catchup);
 
+/** \brief Initialize the queue for a suffix/outfix engine. */
 static really_inline
 void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
                struct hs_scratch *scratch) {
@@ -90,6 +91,7 @@ void initQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
                  info->stateOffset, *(u32 *)q->state);
 }
 
+/** \brief Initialize the queue for a leftfix (prefix/infix) engine. */
 static really_inline
 void initRoseQueue(const struct RoseEngine *t, u32 qi,
                    const struct LeftNfaInfo *left,

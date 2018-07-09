@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,7 +27,7 @@
  */
 
 /** \file
- * \brief Rose Input Graph: Used for ng_rose -> rose_build_add communication.
+ * \brief Rose Input Graph: Used for ng_violet -> rose_build_add communication.
  *
  * The input graph MUST be a DAG.
  * There MUST be exactly 1 START or ANCHORED_START vertex.
@@ -127,7 +127,7 @@ public:
     flat_set<ReportID> reports; /**< for RIV_ACCEPT/RIV_ACCEPT_EOD */
     u32 min_offset; /**< Minimum offset at which this vertex can match. */
     u32 max_offset; /**< Maximum offset at which this vertex can match. */
-    size_t index = 0;
+    size_t index = 0; /**< \brief Unique vertex index. */
 };
 
 struct RoseInEdgeProps {
@@ -176,7 +176,13 @@ struct RoseInEdgeProps {
     /** \brief Haig version of graph, if required. */
     std::shared_ptr<raw_som_dfa> haig;
 
+    /**
+     * \brief Distance behind the match offset for the literal in the target
+     * vertex that the leftfix needs to be checked at.
+     */
     u32 graph_lag;
+
+    /** \brief Unique edge index. */
     size_t index = 0;
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Intel Corporation
+ * Copyright (c) 2017-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -2141,6 +2141,94 @@ public:
     bool equiv_to(const RoseInstrIncludedJump &ri, const OffsetMap &,
                   const OffsetMap &) const {
         return child_offset == ri.child_offset && squash == ri.squash;
+    }
+};
+
+class RoseInstrSetLogical
+    : public RoseInstrBaseNoTargets<ROSE_INSTR_SET_LOGICAL,
+                                    ROSE_STRUCT_SET_LOGICAL,
+                                    RoseInstrSetLogical> {
+public:
+    u32 lkey;
+    s32 offset_adjust;
+
+    RoseInstrSetLogical(u32 lkey_in, s32 offset_adjust_in)
+        : lkey(lkey_in), offset_adjust(offset_adjust_in) {}
+
+    bool operator==(const RoseInstrSetLogical &ri) const {
+        return lkey == ri.lkey && offset_adjust == ri.offset_adjust;
+    }
+
+    size_t hash() const override {
+        return hash_all(opcode, lkey, offset_adjust);
+    }
+
+    void write(void *dest, RoseEngineBlob &blob,
+               const OffsetMap &offset_map) const override;
+
+    bool equiv_to(const RoseInstrSetLogical &ri, const OffsetMap &,
+                  const OffsetMap &) const {
+        return lkey == ri.lkey && offset_adjust == ri.offset_adjust;
+    }
+};
+
+class RoseInstrSetCombination
+    : public RoseInstrBaseNoTargets<ROSE_INSTR_SET_COMBINATION,
+                                    ROSE_STRUCT_SET_COMBINATION,
+                                    RoseInstrSetCombination> {
+public:
+    u32 ckey;
+
+    RoseInstrSetCombination(u32 ckey_in) : ckey(ckey_in) {}
+
+    bool operator==(const RoseInstrSetCombination &ri) const {
+        return ckey == ri.ckey;
+    }
+
+    size_t hash() const override {
+        return hash_all(opcode, ckey);
+    }
+
+    void write(void *dest, RoseEngineBlob &blob,
+               const OffsetMap &offset_map) const override;
+
+    bool equiv_to(const RoseInstrSetCombination &ri, const OffsetMap &,
+                  const OffsetMap &) const {
+        return ckey == ri.ckey;
+    }
+};
+
+class RoseInstrFlushCombination
+    : public RoseInstrBaseTrivial<ROSE_INSTR_FLUSH_COMBINATION,
+                                  ROSE_STRUCT_FLUSH_COMBINATION,
+                                  RoseInstrFlushCombination> {
+public:
+    ~RoseInstrFlushCombination() override;
+};
+
+class RoseInstrSetExhaust
+    : public RoseInstrBaseNoTargets<ROSE_INSTR_SET_EXHAUST,
+                                    ROSE_STRUCT_SET_EXHAUST,
+                                    RoseInstrSetExhaust> {
+public:
+    u32 ekey;
+
+    RoseInstrSetExhaust(u32 ekey_in) : ekey(ekey_in) {}
+
+    bool operator==(const RoseInstrSetExhaust &ri) const {
+        return ekey == ri.ekey;
+    }
+
+    size_t hash() const override {
+        return hash_all(opcode, ekey);
+    }
+
+    void write(void *dest, RoseEngineBlob &blob,
+               const OffsetMap &offset_map) const override;
+
+    bool equiv_to(const RoseInstrSetExhaust &ri, const OffsetMap &,
+                  const OffsetMap &) const {
+        return ekey == ri.ekey;
     }
 };
 

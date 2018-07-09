@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,6 +33,10 @@
 
 #include "hs.h"
 
+#ifdef HS_HYBRID
+#include "chimera/ch.h"
+#endif
+
 #include <memory>
 #include <ostream>
 #include <set>
@@ -47,7 +51,7 @@ struct Grey;
 
 } // namespace ue2
 
-class HyperscanDB;
+class BaseDB;
 class ResultSet;
 
 // Wrapper around ue2 to generate results for an expression and corpus.
@@ -59,13 +63,13 @@ public:
 
     ~UltimateTruth();
 
-    std::shared_ptr<HyperscanDB> compile(const std::set<unsigned> &ids,
+    std::shared_ptr<BaseDB> compile(const std::set<unsigned> &ids,
                                          std::string &error) const;
 
-    bool saveDatabase(const HyperscanDB &db,
+    bool saveDatabase(const BaseDB &db,
                       const std::string &filename) const;
 
-    std::shared_ptr<HyperscanDB>
+    std::shared_ptr<BaseDB>
     loadDatabase(const std::string &filename,
                  const std::set<unsigned> &ids) const;
 
@@ -74,7 +78,7 @@ public:
         return !m_xcompile;
     }
 
-    bool run(unsigned id, std::shared_ptr<const HyperscanDB> db,
+    bool run(unsigned id, std::shared_ptr<const BaseDB> db,
              const std::string &buffer, bool single_pattern, unsigned align,
              ResultSet &rs);
 
@@ -84,22 +88,28 @@ public:
     std::string dbFilename(const std::set<unsigned int> &ids) const;
 
 private:
-    bool blockScan(const HyperscanDB &db, const std::string &buffer,
+    bool blockScan(const BaseDB &db, const std::string &buffer,
                    size_t align, match_event_handler callback, void *ctx,
                    ResultSet *rs);
-    bool streamingScan(const HyperscanDB &db, const std::string &buffer,
+    bool streamingScan(const BaseDB &db, const std::string &buffer,
                        size_t align, match_event_handler callback, void *ctx,
                        ResultSet *rs);
-    bool vectoredScan(const HyperscanDB &db, const std::string &buffer,
+    bool vectoredScan(const BaseDB &db, const std::string &buffer,
                       size_t align, match_event_handler callback, void *ctx,
                       ResultSet *rs);
+#ifdef HS_HYBRID
+    bool hybridScan(const BaseDB &db, const std::string &buffer,
+                    size_t align, ch_match_event_handler callback,
+                    ch_error_event_handler error_callback,
+                    void *ctx, ResultSet *rs);
+#endif // HS_HYBRID
 
     char *setupScanBuffer(const char *buf, size_t len, size_t align);
 
     char *setupVecScanBuffer(const char *buf, size_t len, size_t align,
                              unsigned int block_id);
 
-    bool allocScratch(std::shared_ptr<const HyperscanDB> db);
+    bool allocScratch(std::shared_ptr<const BaseDB> db);
 
     bool cloneScratch(void);
 
@@ -126,6 +136,11 @@ private:
     // Scratch space for Hyperscan.
     hs_scratch_t *scratch;
 
+#ifdef HS_HYBRID
+    // Scratch space for Chimera.
+    ch_scratch_t *chimeraScratch;
+#endif // HS_HYBRID
+
     // Temporary scan buffer used for realigned scanning
     std::vector<char> m_scanBuf;
 
@@ -134,7 +149,7 @@ private:
 
     // Last database we successfully allocated scratch for, so that we can
     // avoid unnecessarily reallocating for it.
-    std::shared_ptr<const HyperscanDB> last_db;
+    std::shared_ptr<const BaseDB> last_db;
 
     const hs_platform_info *platform;
 };

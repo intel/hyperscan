@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -453,7 +453,7 @@ RoseVertex tryForAnchoredVertex(RoseBuildImpl *tbi,
                <= tbi->cc.grey.maxAnchoredRegion) {
         if (ep.maxBound || ep.minBound) {
             /* TODO: handle, however these cases are not generated currently by
-               ng_rose */
+               ng_violet */
             return RoseGraph::null_vertex();
         }
         max_width = depth(ep.maxBound + iv_info.s.length());
@@ -567,7 +567,7 @@ void doRoseLiteralVertex(RoseBuildImpl *tbi, bool use_eod_table,
     assert(iv_info.type == RIV_LITERAL);
     assert(!parents.empty()); /* start vertices should not be here */
 
-    // ng_rose should have ensured that mixed-sensitivity literals are no
+    // ng_violet should have ensured that mixed-sensitivity literals are no
     // longer than the benefits max width.
     assert(iv_info.s.length() <= MAX_MASK2_WIDTH ||
            !mixed_sensitivity(iv_info.s));
@@ -1849,13 +1849,12 @@ bool RoseBuildImpl::addChainTail(const raw_puff &rp, u32 *queue_out,
     return true; /* failure is not yet an option */
 }
 
-
 static
 bool prepAcceptForAddAnchoredNFA(RoseBuildImpl &tbi, const NGHolder &w,
-                                 u32 max_adj, NFAVertex u,
+                                 NFAVertex u,
                                  const vector<DepthMinMax> &vertexDepths,
                                  map<u32, DepthMinMax> &depthMap,
-                                 map<NFAVertex, set<u32> > &reportMap,
+                                 map<NFAVertex, set<u32>> &reportMap,
                                  map<ReportID, u32> &allocated_reports,
                                  flat_set<u32> &added_lit_ids) {
     const depth max_anchored_depth(tbi.cc.grey.maxAnchoredRegion);
@@ -1883,9 +1882,9 @@ bool prepAcceptForAddAnchoredNFA(RoseBuildImpl &tbi, const NGHolder &w,
             depthMap[lit_id] = unionDepthMinMax(depthMap[lit_id], d);
         }
 
-        if (depthMap[lit_id].max + depth(max_adj) > max_anchored_depth) {
+        if (depthMap[lit_id].max > max_anchored_depth) {
             DEBUG_PRINTF("depth=%s exceeds maxAnchoredRegion=%u\n",
-                         (depthMap[lit_id].max + depth(max_adj)).str().c_str(),
+                         depthMap[lit_id].max.str().c_str(),
                          tbi.cc.grey.maxAnchoredRegion);
             return false;
         }
@@ -1932,7 +1931,7 @@ bool RoseBuildImpl::addAnchoredAcyclic(const NGHolder &h) {
     flat_set<u32> added_lit_ids;          /* literal ids added for this NFA */
 
     for (auto v : inv_adjacent_vertices_range(h.accept, h)) {
-        if (!prepAcceptForAddAnchoredNFA(*this, h, 0, v, vertexDepths, depthMap,
+        if (!prepAcceptForAddAnchoredNFA(*this, h, v, vertexDepths, depthMap,
                                          reportMap, allocated_reports,
                                          added_lit_ids)) {
             removeAddedLiterals(*this, added_lit_ids);
@@ -1946,7 +1945,7 @@ bool RoseBuildImpl::addAnchoredAcyclic(const NGHolder &h) {
         if (v == h.accept) {
             continue;
         }
-        if (!prepAcceptForAddAnchoredNFA(*this, h, 0, v, vertexDepths, depthMap,
+        if (!prepAcceptForAddAnchoredNFA(*this, h, v, vertexDepths, depthMap,
                                          reportMap, allocated_reports_eod,
                                          added_lit_ids)) {
             removeAddedLiterals(*this, added_lit_ids);

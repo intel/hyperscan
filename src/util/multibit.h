@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1197,7 +1197,11 @@ u32 mmbit_sparse_iter_begin(const u8 *bits, u32 total_bits, u32 *idx,
     assert(ISALIGNED_N(it_root, alignof(struct mmbit_sparse_iter)));
 
     // Our state _may_ be on the stack
+#ifndef _WIN32
     assert(ISALIGNED_N(s, alignof(struct mmbit_sparse_state)));
+#else
+    assert(ISALIGNED_N(s, 4));
+#endif
 
     MDEBUG_PRINTF("%p total_bits %u\n", bits, total_bits);
     // iterator should have _something_ at the root level
@@ -1305,7 +1309,11 @@ u32 mmbit_sparse_iter_next(const u8 *bits, u32 total_bits, u32 last_key,
     assert(ISALIGNED_N(it_root, alignof(struct mmbit_sparse_iter)));
 
     // Our state _may_ be on the stack
+#ifndef _WIN32
     assert(ISALIGNED_N(s, alignof(struct mmbit_sparse_state)));
+#else
+    assert(ISALIGNED_N(s, 4));
+#endif
 
     MDEBUG_PRINTF("%p total_bits %u\n", bits, total_bits);
     MDEBUG_PRINTF("NEXT (total_bits=%u, last_key=%u)\n", total_bits, last_key);
@@ -1458,7 +1466,11 @@ void mmbit_sparse_iter_unset(u8 *bits, u32 total_bits,
     assert(ISALIGNED_N(it, alignof(struct mmbit_sparse_iter)));
 
     // Our state _may_ be on the stack
+#ifndef _WIN32
     assert(ISALIGNED_N(s, alignof(struct mmbit_sparse_state)));
+#else
+    assert(ISALIGNED_N(s, 4));
+#endif
 
     MDEBUG_PRINTF("%p total_bits %u\n", bits, total_bits);
 

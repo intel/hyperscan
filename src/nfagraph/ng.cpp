@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -577,7 +577,8 @@ bool NG::addHolder(NGHolder &g) {
 }
 
 bool NG::addLiteral(const ue2_literal &literal, u32 expr_index,
-                    u32 external_report, bool highlander, som_type som) {
+                    u32 external_report, bool highlander, som_type som,
+                    bool quiet) {
     assert(!literal.empty());
 
     if (!cc.grey.shortcutLiterals) {
@@ -605,7 +606,7 @@ bool NG::addLiteral(const ue2_literal &literal, u32 expr_index,
     } else {
         u32 ekey = highlander ? rm.getExhaustibleKey(external_report)
                               : INVALID_EKEY;
-        Report r = makeECallback(external_report, 0, ekey);
+        Report r = makeECallback(external_report, 0, ekey, quiet);
         id = rm.getInternalId(r);
     }
 

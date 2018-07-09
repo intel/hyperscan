@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -89,7 +89,7 @@
  * (1) Deterministic ordering for vertices and edges
  *     boost::adjacency_list<> uses pointer ordering for vertex_descriptors. As
  *     a result, ordering of vertices and edges between runs is
- *     non-deterministic  unless containers, etc use custom comparators.
+ *     non-deterministic unless containers, etc use custom comparators.
  *
  * (2) Proper types for descriptors, etc.
  *     No more void * for vertex_descriptors and trying to use it for the wrong
@@ -288,7 +288,7 @@ private:
         vertex_edge_list<in_edge_hook> in_edge_list;
 
         /* The out going edges are considered owned by the vertex and
-         * need to be freed when the graph is begin destroyed */
+         * need to be freed when the graph is being destroyed */
         vertex_edge_list<out_edge_hook> out_edge_list;
 
         /* The destructor only frees memory owned by the vertex and will leave
@@ -1025,229 +1025,208 @@ public:
     }
 };
 
+/** \brief Type trait to enable on whether the Graph is an ue2_graph. */
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    typename Graph::vertex_descriptor>::type
+struct is_ue2_graph
+    : public ::std::integral_constant<
+          bool, std::is_base_of<graph_detail::graph_base, Graph>::value> {};
+
+template<typename Graph>
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        typename Graph::vertex_descriptor>::type
 add_vertex(Graph &g) {
     return g.add_vertex_impl();
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+typename std::enable_if<is_ue2_graph<Graph>::value>::type
 remove_vertex(typename Graph::vertex_descriptor v, Graph &g) {
     g.remove_vertex_impl(v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+typename std::enable_if<is_ue2_graph<Graph>::value>::type
 clear_in_edges(typename Graph::vertex_descriptor v, Graph &g) {
     g.clear_in_edges_impl(v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+typename std::enable_if<is_ue2_graph<Graph>::value>::type
 clear_out_edges(typename Graph::vertex_descriptor v, Graph &g) {
     g.clear_out_edges_impl(v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+typename std::enable_if<is_ue2_graph<Graph>::value>::type
 clear_vertex(typename Graph::vertex_descriptor v, Graph &g) {
     g.clear_in_edges_impl(v);
     g.clear_out_edges_impl(v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    typename Graph::vertex_descriptor>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        typename Graph::vertex_descriptor>::type
 source(typename Graph::edge_descriptor e, const Graph &) {
     return Graph::source_impl(e);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    typename Graph::vertex_descriptor>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        typename Graph::vertex_descriptor>::type
 target(typename Graph::edge_descriptor e, const Graph &) {
     return Graph::target_impl(e);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    typename Graph::degree_size_type>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        typename Graph::degree_size_type>::type
 out_degree(typename Graph::vertex_descriptor v, const Graph &) {
     return Graph::out_degree_impl(v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    std::pair<typename Graph::out_edge_iterator,
-              typename Graph::out_edge_iterator>>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        std::pair<typename Graph::out_edge_iterator,
+                                  typename Graph::out_edge_iterator>>::type
 out_edges(typename Graph::vertex_descriptor v, const Graph &) {
     return Graph::out_edges_impl(v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    typename Graph::degree_size_type>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        typename Graph::degree_size_type>::type
 in_degree(typename Graph::vertex_descriptor v, const Graph &) {
     return Graph::in_degree_impl(v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    std::pair<typename Graph::in_edge_iterator,
-              typename Graph::in_edge_iterator>>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        std::pair<typename Graph::in_edge_iterator,
+                                  typename Graph::in_edge_iterator>>::type
 in_edges(typename Graph::vertex_descriptor v, const Graph &) {
     return Graph::in_edges_impl(v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    typename Graph::degree_size_type>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        typename Graph::degree_size_type>::type
 degree(typename Graph::vertex_descriptor v, const Graph &) {
     return Graph::degree_impl(v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    std::pair<typename Graph::adjacency_iterator,
-              typename Graph::adjacency_iterator>>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        std::pair<typename Graph::adjacency_iterator,
+                                  typename Graph::adjacency_iterator>>::type
 adjacent_vertices(typename Graph::vertex_descriptor v, const Graph &) {
     return Graph::adjacent_vertices_impl(v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    std::pair<typename Graph::edge_descriptor, bool>>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        std::pair<typename Graph::edge_descriptor, bool>>::type
 edge(typename Graph::vertex_descriptor u, typename Graph::vertex_descriptor v,
      const Graph &g) {
     return g.edge_impl(u, v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    std::pair<typename Graph::inv_adjacency_iterator,
-              typename Graph::inv_adjacency_iterator>>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        std::pair<typename Graph::inv_adjacency_iterator,
+                                  typename Graph::inv_adjacency_iterator>>::type
 inv_adjacent_vertices(typename Graph::vertex_descriptor v, const Graph &) {
     return Graph::inv_adjacent_vertices_impl(v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    std::pair<typename Graph::edge_descriptor, bool>>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        std::pair<typename Graph::edge_descriptor, bool>>::type
 add_edge(typename Graph::vertex_descriptor u,
          typename Graph::vertex_descriptor v, Graph &g) {
     return g.add_edge_impl(u, v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+typename std::enable_if<is_ue2_graph<Graph>::value>::type
 remove_edge(typename Graph::edge_descriptor e, Graph &g) {
     g.remove_edge_impl(e);
 }
 
 template<typename Graph, typename Iter>
 typename std::enable_if<
-    !std::is_convertible<Iter, typename Graph::edge_descriptor>::value
-    && std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+    !std::is_convertible<Iter, typename Graph::edge_descriptor>::value &&
+    is_ue2_graph<Graph>::value>::type
 remove_edge(Iter it, Graph &g) {
     g.remove_edge_impl(*it);
 }
 
 template<typename Graph, typename Predicate>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+typename std::enable_if<is_ue2_graph<Graph>::value>::type
 remove_out_edge_if(typename Graph::vertex_descriptor v, Predicate pred,
                    Graph &g) {
     g.remove_out_edge_if_impl(v, pred);
 }
 
 template<typename Graph, typename Predicate>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+typename std::enable_if<is_ue2_graph<Graph>::value>::type
 remove_in_edge_if(typename Graph::vertex_descriptor v, Predicate pred,
                   Graph &g) {
     g.remove_in_edge_if_impl(v, pred);
 }
 
 template<typename Graph, typename Predicate>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+typename std::enable_if<is_ue2_graph<Graph>::value>::type
 remove_edge_if(Predicate pred, Graph &g) {
     g.remove_edge_if_impl(pred);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+typename std::enable_if<is_ue2_graph<Graph>::value>::type
 remove_edge(const typename Graph::vertex_descriptor &u,
             const typename Graph::vertex_descriptor &v, Graph &g) {
     g.remove_edge_impl(u, v);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    typename Graph::vertices_size_type>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        typename Graph::vertices_size_type>::type
 num_vertices(const Graph &g) {
     return g.num_vertices_impl();
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    std::pair<typename Graph::vertex_iterator,
-              typename Graph::vertex_iterator>>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        std::pair<typename Graph::vertex_iterator,
+                                  typename Graph::vertex_iterator>>::type
 vertices(const Graph &g) {
     return g.vertices_impl();
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    typename Graph::edges_size_type>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        typename Graph::edges_size_type>::type
 num_edges(const Graph &g) {
     return g.num_edges_impl();
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    std::pair<typename Graph::edge_iterator,
-              typename Graph::edge_iterator>>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        std::pair<typename Graph::edge_iterator,
+                                  typename Graph::edge_iterator>>::type
 edges(const Graph &g) {
     return g.edges_impl();
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    typename Graph::vertex_descriptor>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        typename Graph::vertex_descriptor>::type
 add_vertex(const typename Graph::vertex_property_type &vp, Graph &g) {
     return g.add_vertex_impl(vp);
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    std::pair<typename Graph::edge_descriptor, bool>>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        std::pair<typename Graph::edge_descriptor, bool>>::type
 add_edge(typename Graph::vertex_descriptor u,
          typename Graph::vertex_descriptor v,
          const typename Graph::edge_property_type &ep, Graph &g) {
@@ -1255,34 +1234,58 @@ add_edge(typename Graph::vertex_descriptor u,
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+typename std::enable_if<is_ue2_graph<Graph>::value>::type
 renumber_edges(Graph &g) {
     g.renumber_edges_impl();
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value>::type
+typename std::enable_if<is_ue2_graph<Graph>::value>::type
 renumber_vertices(Graph &g) {
     g.renumber_vertices_impl();
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    typename Graph::vertices_size_type>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        typename Graph::vertices_size_type>::type
 vertex_index_upper_bound(const Graph &g) {
     return g.vertex_index_upper_bound_impl();
 }
 
 template<typename Graph>
-typename std::enable_if<
-    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value,
-    typename Graph::edges_size_type>::type
+typename std::enable_if<is_ue2_graph<Graph>::value,
+                        typename Graph::edges_size_type>::type
 edge_index_upper_bound(const Graph &g) {
     return g.edge_index_upper_bound_impl();
 }
+
+template<typename T> struct pointer_to_member_traits {};
+
+template<typename Return, typename Class>
+struct pointer_to_member_traits<Return(Class::*)> {
+    using member_type = Return;
+    using class_type = Class;
+};
+
+template<typename Graph, typename Property, typename Enable = void>
+struct is_ue2_vertex_or_edge_property {
+    static constexpr bool value = false;
+};
+
+template<typename Graph, typename Property>
+struct is_ue2_vertex_or_edge_property<
+    Graph, Property, typename std::enable_if<is_ue2_graph<Graph>::value &&
+                                             std::is_member_object_pointer<
+                                                 Property>::value>::type> {
+private:
+    using class_type = typename pointer_to_member_traits<Property>::class_type;
+    using vertex_type = typename Graph::vertex_property_type;
+    using edge_type = typename Graph::edge_property_type;
+public:
+    static constexpr bool value =
+        std::is_same<class_type, vertex_type>::value ||
+        std::is_same<class_type, edge_type>::value;
+};
 
 using boost::vertex_index;
 using boost::edge_index;
@@ -1295,13 +1298,53 @@ namespace boost {
  * adaptors (like filtered_graph) to know the type of the property maps */
 template<typename Graph, typename Prop>
 struct property_map<Graph, Prop,
-                typename std::enable_if<
-                    std::is_base_of<ue2::graph_detail::graph_base, Graph>::value
-                 >::type > {
-    typedef decltype(get(std::declval<Prop>(),
-                         std::declval<Graph &>())) type;
-    typedef decltype(get(std::declval<Prop>(),
-                         std::declval<const Graph &>())) const_type;
+                    typename std::enable_if<ue2::is_ue2_graph<Graph>::value &&
+                                            ue2::is_ue2_vertex_or_edge_property<
+                                                Graph, Prop>::value>::type> {
+private:
+    using prop_traits = ue2::pointer_to_member_traits<Prop>;
+    using member_type = typename prop_traits::member_type;
+    using class_type = typename prop_traits::class_type;
+public:
+    using type = typename Graph::template prop_map<member_type &, class_type>;
+    using const_type = typename Graph::template prop_map<const member_type &,
+                                                         class_type>;
+};
+
+template<typename Graph>
+struct property_map<Graph, vertex_index_t,
+    typename std::enable_if<ue2::is_ue2_graph<Graph>::value>::type> {
+    using v_prop_type = typename Graph::vertex_property_type;
+    using type = typename Graph::template prop_map<size_t &, v_prop_type>;
+    using const_type =
+        typename Graph::template prop_map<const size_t &, v_prop_type>;
+};
+
+template<typename Graph>
+struct property_map<Graph, edge_index_t,
+    typename std::enable_if<ue2::is_ue2_graph<Graph>::value>::type> {
+    using e_prop_type = typename Graph::edge_property_type;
+    using type = typename Graph::template prop_map<size_t &, e_prop_type>;
+    using const_type =
+        typename Graph::template prop_map<const size_t &, e_prop_type>;
+};
+
+template<typename Graph>
+struct property_map<Graph, vertex_all_t,
+    typename std::enable_if<ue2::is_ue2_graph<Graph>::value>::type> {
+    using v_prop_type = typename Graph::vertex_property_type;
+    using type = typename Graph::template prop_map_all<v_prop_type &>;
+    using const_type =
+        typename Graph::template prop_map_all<const v_prop_type &>;
+};
+
+template<typename Graph>
+struct property_map<Graph, edge_all_t,
+    typename std::enable_if<ue2::is_ue2_graph<Graph>::value>::type> {
+    using e_prop_type = typename Graph::edge_property_type;
+    using type = typename Graph::template prop_map_all<e_prop_type &>;
+    using const_type =
+        typename Graph::template prop_map_all<const e_prop_type &>;
 };
 
 } // namespace boost

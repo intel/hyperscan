@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -67,9 +67,9 @@ void prefetch_data(const char *data, unsigned length) {
 
 /** dummy event handler for use when user does not provide one */
 static
-int null_onEvent(UNUSED unsigned id, UNUSED unsigned long long from,
-                 UNUSED unsigned long long to, UNUSED unsigned flags,
-                 UNUSED void *ctxt) {
+int HS_CDECL null_onEvent(UNUSED unsigned id, UNUSED unsigned long long from,
+                          UNUSED unsigned long long to, UNUSED unsigned flags,
+                          UNUSED void *ctxt) {
     return 0;
 }
 
@@ -356,6 +356,15 @@ hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
                      length, NULL, 0, 0, 0, flags);
 
     clearEvec(rose, scratch->core_info.exhaustionVector);
+    if (rose->ckeyCount) {
+        scratch->core_info.logicalVector = scratch->bstate +
+                                           rose->stateOffsets.logicalVec;
+        scratch->core_info.combVector = scratch->bstate +
+                                        rose->stateOffsets.combVec;
+        scratch->tctxt.lastCombMatchOffset = 0;
+        clearLvec(rose, scratch->core_info.logicalVector,
+                  scratch->core_info.combVector);
+    }
 
     if (!length) {
         if (rose->boundary.reportZeroEodOffset) {
@@ -436,6 +445,13 @@ done_scan:
                                scratch);
     }
 
+    if (rose->flushCombProgramOffset) {
+        if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
+            unmarkScratchInUse(scratch);
+            return HS_SCAN_TERMINATED;
+        }
+    }
+
 set_retval:
     DEBUG_PRINTF("done. told_to_stop_matching=%d\n",
                  told_to_stop_matching(scratch));
@@ -500,6 +516,10 @@ void init_stream(struct hs_stream *s, const struct RoseEngine *rose,
     roseInitState(rose, state);
 
     clearEvec(rose, state + rose->stateOffsets.exhausted);
+    if (rose->ckeyCount) {
+        clearLvec(rose, state + rose->stateOffsets.logicalVec,
+                  state + rose->stateOffsets.combVec);
+    }
 
     // SOM state multibit structures.
     initSomState(rose, state);
@@ -614,6 +634,13 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
                      getHistory(state, rose, id->offset),
                      getHistoryAmount(rose, id->offset), id->offset, status, 0);
 
+    if (rose->ckeyCount) {
+        scratch->core_info.logicalVector = state +
+                                           rose->stateOffsets.logicalVec;
+        scratch->core_info.combVector = state + rose->stateOffsets.combVec;
+        scratch->tctxt.lastCombMatchOffset = id->offset;
+    }
+
     if (rose->somLocationCount) {
         loadSomFromStream(scratch, id->offset);
     }
@@ -653,6 +680,13 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
     if (rose->hasSom && !told_to_stop_matching(scratch)) {
         int halt = flushStoredSomMatches(scratch, ~0ULL);
         if (halt) {
+            DEBUG_PRINTF("told to stop matching\n");
+            scratch->core_info.status |= STATUS_TERMINATED;
+        }
+    }
+
+    if (rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
+        if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
             DEBUG_PRINTF("told to stop matching\n");
             scratch->core_info.status |= STATUS_TERMINATED;
         }
@@ -849,6 +883,12 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
     populateCoreInfo(scratch, rose, state, onEvent, context, data, length,
                      getHistory(state, rose, id->offset), historyAmount,
                      id->offset, status, flags);
+    if (rose->ckeyCount) {
+        scratch->core_info.logicalVector = state +
+                                           rose->stateOffsets.logicalVec;
+        scratch->core_info.combVector = state + rose->stateOffsets.combVec;
+        scratch->tctxt.lastCombMatchOffset = id->offset;
+    }
     assert(scratch->core_info.hlen <= id->offset
            && scratch->core_info.hlen <= rose->historyRequired);
 
@@ -890,6 +930,12 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
     if (rose->hasSom && !told_to_stop_matching(scratch)) {
         int halt = flushStoredSomMatches(scratch, ~0ULL);
         if (halt) {
+            scratch->core_info.status |= STATUS_TERMINATED;
+        }
+    }
+
+    if (rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
+        if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
             scratch->core_info.status |= STATUS_TERMINATED;
         }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -448,6 +448,9 @@ void printMode(void) {
         case MODE_VECTORED:
             cout << "Vectored-" << g_streamBlocks;
             break;
+        case MODE_HYBRID:
+            cout << "Hybrid";
+            break;
     }
 
     if (use_copy_scratch) {
@@ -690,7 +693,7 @@ shared_ptr<DatabaseProxy> constructDatabase(const set<unsigned int> &ids,
 
     if (loadDatabases) {
         string filename = ultimate.dbFilename(ids);
-        shared_ptr<HyperscanDB> db = ultimate.loadDatabase(filename, ids);
+        shared_ptr<BaseDB> db = ultimate.loadDatabase(filename, ids);
         if (!db) {
             if (!g_quiet) {
                 cout << "FAILED: could not load database " << filename << endl;
@@ -706,7 +709,7 @@ shared_ptr<DatabaseProxy> constructDatabase(const set<unsigned int> &ids,
         // If we're not runnable (i.e. we're cross-compiling), let's at least
         // try to build the database.
         if (!ultimate.runnable()) {
-            shared_ptr<HyperscanDB> db = ue2->get(ultimate);
+            shared_ptr<BaseDB> db = ue2->get(ultimate);
             assert(db); // throws otherwise
         }
 
@@ -872,7 +875,7 @@ void runTestUnit(ostream &out, GroundTruth &ground, GraphTruth &graph,
     assert(use_UE2);
     Corpus &corpus = unit.corpus;
 
-    shared_ptr<const HyperscanDB> db;
+    shared_ptr<const BaseDB> db;
     if (use_UE2) {
         // Acquire UE2 database.
         debug_stage = STAGE_UE2_COMPILE;
@@ -1060,7 +1063,7 @@ void addCorporaToQueue(ostream &out, BoundedQueue<TestUnit> &testq, unsigned id,
     // is undefined.
     if (utf8) {
         auto is_invalid_utf8 = [](const Corpus &corpus) {
-            return !isValidUtf8(corpus.data.c_str());
+            return !isValidUtf8(corpus.data.c_str(), corpus.data.size());
         };
         c.erase(remove_if(begin(c), end(c), is_invalid_utf8), end(c));
     }
@@ -1648,6 +1651,7 @@ void printSettingsV(const vector<string> &corporaFiles,
         case MODE_BLOCK:        cout << "block mode"; break;
         case MODE_STREAMING:    cout << "streaming mode"; break;
         case MODE_VECTORED:     cout << "vectored mode"; break;
+        case MODE_HYBRID:       cout << "hybrid mode"; break;
     }
     cout << endl;
 
@@ -1746,6 +1750,7 @@ void printSettingsQ(const vector<string> &corporaFiles,
         case MODE_BLOCK:        cout << "block mode"; break;
         case MODE_STREAMING:    cout << "streaming mode"; break;
         case MODE_VECTORED:     cout << "vectored mode"; break;
+        case MODE_HYBRID:       cout << "hybrid mode"; break;
     }
     cout << endl;
 
@@ -1835,13 +1840,17 @@ unique_ptr<CorporaSource> buildCorpora(const vector<string> &corporaFiles,
 static
 bool needsQuotes(const char *s) {
     size_t len = strlen(s);
-    // don't confuse the correct isblank for the one in locale
-    int (*blank)(int) = &std::isblank;
 
     if (len == 0) {
         return true;
     }
+#ifndef _WIN32
+    // don't confuse the correct isblank for the one in locale
+    int (*blank)(int) = &std::isblank;
     if (find_if(s, s + len, blank) != s + len) {
+#else
+    if (find_if(s, s + len, [](unsigned char c){ return std::isblank(c); }) != s + len) {
+#endif
         return true;
     }
 
@@ -1905,7 +1914,7 @@ bool runTests(CorporaSource &corpora_source, const ExpressionMap &exprMap,
     return !summary.hasFailure();
 }
 
-int main(int argc, char *argv[]) {
+int HS_CDECL main(int argc, char *argv[]) {
     Grey grey;
     vector<string> corporaFiles;
 

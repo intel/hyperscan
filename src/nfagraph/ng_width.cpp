@@ -176,11 +176,7 @@ depth findMaxWidth(const NGHolder &h, const SpecialEdgeFilter &filter,
     }
 
     if (d.is_unreachable()) {
-        // If we're actually reachable, we'll have a min width, so we can
-        // return infinity in this case.
-        if (findMinWidth(h, filter, src).is_reachable()) {
-            return depth::infinity();
-        }
+        assert(findMinWidth(h, filter, src).is_unreachable());
         return d;
     }
 

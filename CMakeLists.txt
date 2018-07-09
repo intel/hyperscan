@@ -1,8 +1,8 @@
 cmake_minimum_required (VERSION 2.8.11)
 project (hyperscan C CXX)
 
-set (HS_MAJOR_VERSION 4)
-set (HS_MINOR_VERSION 7)
+set (HS_MAJOR_VERSION 5)
+set (HS_MINOR_VERSION 0)
 set (HS_PATCH_VERSION 0)
 set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
 
@@ -154,7 +154,7 @@ if(MSVC OR MSVC_IDE)
             # todo: change these as required
             set(ARCH_C_FLAGS "/arch:AVX2")
             set(ARCH_CXX_FLAGS "/arch:AVX2")
-            set(MSVC_WARNS "/wd4101 /wd4146 /wd4172 /wd4200 /wd4244 /wd4267 /wd4307 /wd4334 /wd4805 -D_CRT_SECURE_NO_WARNINGS")
+            set(MSVC_WARNS "/wd4101 /wd4146 /wd4172 /wd4200 /wd4244 /wd4267 /wd4307 /wd4334 /wd4805 /wd4996 -D_CRT_SECURE_NO_WARNINGS")
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  /O2 ${MSVC_WARNS}")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 ${MSVC_WARNS} /wd4800 -DBOOST_DETAIL_NO_CONTAINER_FWD")
         endif()
@@ -446,10 +446,31 @@ else()
 endif()
 
 add_subdirectory(util)
-add_subdirectory(unit)
 add_subdirectory(doc/dev-reference)
+
+if (NOT WIN32)
+# PCRE check, we have a fixed requirement for PCRE to use Chimera
+# and hscollider
+set(PCRE_REQUIRED_MAJOR_VERSION 8)
+set(PCRE_REQUIRED_MINOR_VERSION 41)
+set(PCRE_REQUIRED_VERSION ${PCRE_REQUIRED_MAJOR_VERSION}.${PCRE_REQUIRED_MINOR_VERSION})
+include (${CMAKE_MODULE_PATH}/pcre.cmake)
+if (NOT CORRECT_PCRE_VERSION)
+    message(STATUS "PCRE ${PCRE_REQUIRED_VERSION} not found")
+endif()
+
+# we need static libs for Chimera - too much deep magic for shared libs
+if (CORRECT_PCRE_VERSION AND PCRE_BUILD_SOURCE AND BUILD_STATIC_LIBS)
+    set(BUILD_CHIMERA TRUE)
+endif()
+
+add_subdirectory(unit)
 if (EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
     add_subdirectory(tools)
+endif()
+if (EXISTS ${CMAKE_SOURCE_DIR}/chimera/CMakeLists.txt AND BUILD_CHIMERA)
+    add_subdirectory(chimera)
+endif()
 endif()
 
 # do substitutions
@@ -477,6 +498,31 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS} ${HS_CXX_FLAGS}")
 else()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
+endif()
+
+if (WIN32)
+# PCRE check, we have a fixed requirement for PCRE to use Chimera
+# and hscollider
+set(PCRE_REQUIRED_MAJOR_VERSION 8)
+set(PCRE_REQUIRED_MINOR_VERSION 41)
+set(PCRE_REQUIRED_VERSION ${PCRE_REQUIRED_MAJOR_VERSION}.${PCRE_REQUIRED_MINOR_VERSION})
+include (${CMAKE_MODULE_PATH}/pcre.cmake)
+if (NOT CORRECT_PCRE_VERSION)
+    message(STATUS "PCRE ${PCRE_REQUIRED_VERSION} not found")
+endif()
+
+# we need static libs for Chimera - too much deep magic for shared libs
+if (CORRECT_PCRE_VERSION AND PCRE_BUILD_SOURCE AND BUILD_STATIC_LIBS)
+    set(BUILD_CHIMERA TRUE)
+endif()
+
+add_subdirectory(unit)
+if (EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
+    add_subdirectory(tools)
+endif()
+if (EXISTS ${CMAKE_SOURCE_DIR}/chimera/CMakeLists.txt AND BUILD_CHIMERA)
+    add_subdirectory(chimera)
+endif()
 endif()
 
 if(NOT WIN32)
@@ -860,7 +906,6 @@ SET (hs_compile_SRCS
     src/nfagraph/ng_stop.h
     src/nfagraph/ng_uncalc_components.cpp
     src/nfagraph/ng_uncalc_components.h
-    src/nfagraph/ng_undirected.h
     src/nfagraph/ng_utf8.cpp
     src/nfagraph/ng_utf8.h
     src/nfagraph/ng_util.cpp
@@ -915,6 +960,8 @@ SET (hs_compile_SRCS
     src/parser/check_refs.h
     src/parser/control_verbs.cpp
     src/parser/control_verbs.h
+    src/parser/logical_combination.cpp
+    src/parser/logical_combination.h
     src/parser/parse_error.cpp
     src/parser/parse_error.h
     src/parser/parser_util.cpp
@@ -1014,6 +1061,7 @@ SET (hs_compile_SRCS
     src/util/graph.h
     src/util/graph_range.h
     src/util/graph_small_color_map.h
+    src/util/graph_undirected.h
     src/util/hash.h
     src/util/hash_dynamic_bitset.h
     src/util/insertion_ordered.h

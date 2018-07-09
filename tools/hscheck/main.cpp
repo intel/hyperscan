@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,14 +59,22 @@
 #include "hs_internal.h"
 #include "ue2common.h"
 
+#ifdef HS_HYBRID
+#include <pcre.h>
+#include "chimera/ch.h"
+#endif
+
 #include <cassert>
 #include <fstream>
 #include <mutex>
 #include <stdexcept>
 #include <string>
 #include <thread>
-
+#ifndef _WIN32
 #include <getopt.h>
+#else
+#include "win_getopt.h"
+#endif
 #include <boost/algorithm/string/trim.hpp>
 
 using namespace std;
@@ -77,16 +85,35 @@ namespace /* anonymous */ {
 // are we in streaming mode? (default: yes)
 bool g_streaming = true;
 bool g_vectored = false;
+bool g_hybrid = false;
 string g_exprPath("");
 string g_signatureFile("");
 bool g_allSignatures = false;
 bool g_forceEditDistance = false;
 bool build_sigs = false;
+bool check_logical = false;
 unsigned int g_signature;
 unsigned int g_editDistance;
 unsigned int globalFlags = 0;
 unsigned int num_of_threads = 1;
 unsigned int countFailures = 0;
+
+class ParsedExpr {
+public:
+    ParsedExpr(string regex_in, unsigned int flags_in, hs_expr_ext ext_in)
+        : regex(regex_in), flags(flags_in), ext(ext_in) {}
+    ~ParsedExpr() {}
+    string regex;
+    unsigned int flags;
+    hs_expr_ext ext;
+};
+
+typedef map<unsigned int, ParsedExpr> ExprExtMap;
+ExprExtMap g_combs;
+ExprExtMap g_validSubs;
+
+// Iterator pointing to next logical expression to process.
+ExprExtMap::const_iterator comb_read_it;
 
 // Global greybox structure, used in non-release builds.
 unique_ptr<Grey> g_grey;
@@ -106,6 +133,12 @@ std::mutex lk_read;
 // Mutex serialising access to output map and stdout.
 std::mutex lk_output;
 
+// Mutex guarding access to write g_combs.
+std::mutex lk_write_comb;
+
+// Mutex guarding access to write g_validSubs.
+std::mutex lk_write_sub;
+
 // Possible values for pattern check results.
 enum ExprStatus {NOT_PROCESSED, SUCCESS, FAILURE};
 
@@ -124,6 +157,32 @@ bool getNextExpressionId(ExpressionMap::const_iterator &it) {
     } else {
         return false;
     }
+}
+
+static
+bool getNextLogicalExpression(ExprExtMap::const_iterator &it) {
+    lock_guard<mutex> lock(lk_read);
+    if (comb_read_it != g_combs.end()) {
+        it = comb_read_it;
+        ++comb_read_it;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+static
+void cacheCombExpr(unsigned id, const string &regex, unsigned int flags,
+                   const hs_expr_ext &ext) {
+    lock_guard<mutex> lock(lk_write_comb);
+    g_combs.emplace(id, ParsedExpr(regex, flags, ext));
+}
+
+static
+void cacheSubExpr(unsigned id, const string &regex, unsigned int flags,
+                  const hs_expr_ext &ext) {
+    lock_guard<mutex> lock(lk_write_sub);
+    g_validSubs.emplace(id, ParsedExpr(regex, flags, ext));
 }
 
 // This function prints the Pattern IDs order
@@ -221,10 +280,146 @@ void checkExpression(UNUSED void *threadarg) {
             ext.flags |= HS_EXT_FLAG_EDIT_DISTANCE;
         }
 
+        if (flags & HS_FLAG_COMBINATION) {
+            if (check_logical) {
+                cacheCombExpr(it->first, regex, flags, ext);
+            } else {
+                recordFailure(g_exprMap, it->first, "Unsupported flag used.");
+            }
+            continue;
+        }
+
         // Try and compile a database.
         const char *regexp = regex.c_str();
-        const hs_expr_ext *extp = &ext;
 
+        hs_error_t err;
+
+        if (g_hybrid) {
+#ifdef HS_HYBRID
+            ch_compile_error_t *ch_compile_err;
+            ch_database_t *hybrid_db = nullptr;
+            err = ch_compile_multi(&regexp, &flags, nullptr, 1, CH_MODE_GROUPS,
+                                   nullptr, &hybrid_db, &ch_compile_err);
+            if (err == HS_SUCCESS) {
+                assert(hybrid_db);
+                recordSuccess(g_exprMap, it->first);
+                ch_free_database(hybrid_db);
+            } else {
+                assert(!hybrid_db);
+                assert(ch_compile_err);
+                recordFailure(g_exprMap, it->first, ch_compile_err->message);
+                ch_free_compile_error(ch_compile_err);
+            }
+#else
+            cerr << "Hybrid mode not available in this build." << endl;
+            exit(1);
+#endif // HS_HYBRID
+        } else {
+            const hs_expr_ext *extp = &ext;
+            hs_compile_error_t *compile_err;
+            hs_database_t *db = nullptr;
+
+#if !defined(RELEASE_BUILD)
+            // This variant is available in non-release builds and allows us to
+            // modify greybox settings.
+            err = hs_compile_multi_int(&regexp, &flags, nullptr, &extp, 1, mode,
+                                       nullptr, &db, &compile_err, *g_grey);
+#else
+            err = hs_compile_ext_multi(&regexp, &flags, nullptr, &extp, 1, mode,
+                                       nullptr, &db, &compile_err);
+#endif
+
+            if (err == HS_SUCCESS) {
+                assert(db);
+                recordSuccess(g_exprMap, it->first);
+                hs_free_database(db);
+                if (check_logical) {
+                    cacheSubExpr(it->first, regex, flags, ext);
+                }
+            } else {
+                assert(!db);
+                assert(compile_err);
+                recordFailure(g_exprMap, it->first, compile_err->message);
+                hs_free_compile_error(compile_err);
+            }
+        }
+    }
+}
+
+static
+bool fetchSubIds(const char *logical, vector<unsigned> &ids) {
+    unsigned mult = 1;
+    unsigned id = 0;
+    for (int i = strlen(logical) - 1; i >= 0; i--) {
+        if (isdigit(logical[i])) {
+            if (mult > 100000000) {
+                return false;
+            }
+            id += (logical[i] - '0') * mult;
+            mult *= 10;
+        } else if (mult > 1) {
+                ids.push_back(id);
+                mult = 1;
+                id = 0;
+        }
+    }
+    if (mult > 1) {
+        ids.push_back(id);
+    }
+    return true;
+}
+
+static
+void checkLogicalExpression(UNUSED void *threadarg) {
+    unsigned int mode = g_streaming  ? HS_MODE_STREAM
+                        : g_vectored ? HS_MODE_VECTORED
+                                     : HS_MODE_BLOCK;
+    if (g_streaming) {
+        // Use SOM mode, for permissiveness' sake.
+        mode |= HS_MODE_SOM_HORIZON_LARGE;
+    }
+
+    ExprExtMap::const_iterator it;
+    while (getNextLogicalExpression(it)) {
+        const ParsedExpr &comb = it->second;
+
+        vector<unsigned> subIds;
+        if (!fetchSubIds(comb.regex.c_str(), subIds)) {
+            recordFailure(g_exprMap, it->first, "Sub-expression id too large.");
+            continue;
+        }
+
+        vector<const char *> regexv;
+        vector<unsigned> flagsv;
+        vector<unsigned> idv;
+        vector<const hs_expr_ext *> extv;
+        bool valid = true;
+
+        for (const auto i : subIds) {
+            ExprExtMap::const_iterator jt = g_validSubs.find(i);
+            if (jt != g_validSubs.end()) {
+                const ParsedExpr &sub = jt->second;
+                regexv.push_back(sub.regex.c_str());
+                flagsv.push_back(sub.flags);
+                idv.push_back(i);
+                extv.push_back(&sub.ext);
+            } else {
+                valid = false;
+                break;
+            }
+        }
+
+        if (valid) {
+            regexv.push_back(comb.regex.c_str());
+            flagsv.push_back(comb.flags);
+            idv.push_back(it->first);
+            extv.push_back(&comb.ext);
+        } else {
+            recordFailure(g_exprMap, it->first, "Sub-expression id not valid.");
+            continue;
+        }
+
+        // Try and compile a database.
         hs_error_t err;
         hs_compile_error_t *compile_err;
         hs_database_t *db = nullptr;
@@ -232,10 +427,12 @@ void checkExpression(UNUSED void *threadarg) {
 #if !defined(RELEASE_BUILD)
         // This variant is available in non-release builds and allows us to
         // modify greybox settings.
-        err = hs_compile_multi_int(&regexp, &flags, nullptr, &extp, 1, mode,
+        err = hs_compile_multi_int(regexv.data(), flagsv.data(), idv.data(),
+                                   extv.data(), regexv.size(), mode,
                                    nullptr, &db, &compile_err, *g_grey);
 #else
-        err = hs_compile_ext_multi(&regexp, &flags, nullptr, &extp, 1, mode,
+        err = hs_compile_ext_multi(regexv.data(), flagsv.data(), idv.data(),
+                                   extv.data(), regexv.size(), mode,
                                    nullptr, &db, &compile_err);
 #endif
 
@@ -264,17 +461,21 @@ void usage() {
 #endif
          << "  -V              Operate in vectored mode." << endl
          << "  -N              Operate in block mode (default: streaming)." << endl
+#ifdef HS_HYBRID
+         << "  -H              Operate in hybrid mode." << endl
+#endif
          << "  -L              Pass HS_FLAG_SOM_LEFTMOST for all expressions (default: off)." << endl
          << "  -8              Force UTF8 mode on all patterns." << endl
          << "  -T NUM          Run with NUM threads." << endl
          << "  -h              Display this help." << endl
          << "  -B              Build signature set." << endl
+         << "  -C              Check logical combinations (default: off)." << endl
          << endl;
 }
 
 static
 void processArgs(int argc, char *argv[], UNUSED unique_ptr<Grey> &grey) {
-    const char options[] = "e:E:s:z:hLNV8G:T:B";
+    const char options[] = "e:E:s:z:hHLNV8G:T:BC";
     bool signatureSet = false;
 
     for (;;) {
@@ -326,11 +527,17 @@ void processArgs(int argc, char *argv[], UNUSED unique_ptr<Grey> &grey) {
             g_streaming = false;
             g_vectored = true;
             break;
+        case 'H':
+            g_hybrid = true;
+            break;
         case 'T':
             num_of_threads = atoi(optarg);
             break;
         case 'B':
             build_sigs = true;
+            break;
+        case 'C':
+            check_logical = true;
             break;
         default:
             usage();
@@ -421,7 +628,7 @@ void loadSignatureBuildSigs(const string &inFile,
     }
 }
 
-int main(int argc, char **argv) {
+int HS_CDECL main(int argc, char **argv) {
     num_of_threads = max(1u, std::thread::hardware_concurrency());
 
 #if !defined(RELEASE_BUILD)
@@ -466,6 +673,18 @@ int main(int argc, char **argv) {
 
     for (unsigned int i = 0; i < num_of_threads; i++) {
         threads[i].join();
+    }
+
+    if (check_logical) {
+        comb_read_it = g_combs.begin();
+
+        for (unsigned int i = 0; i < num_of_threads; i++) {
+            threads[i] = thread(checkLogicalExpression, nullptr);
+        }
+
+        for (unsigned int i = 0; i < num_of_threads; i++) {
+            threads[i].join();
+        }
     }
 
     if (!g_exprMap.empty() && !build_sigs) {

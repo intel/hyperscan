@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -244,6 +244,11 @@ hs_compile_multi_int(const char *const *expressions, const unsigned *flags,
                 throw; /* do not slice */
             }
         }
+
+        // Check sub-expression ids
+        ng.rm.pl.validateSubIDs(ids, expressions, flags, elements);
+        // Renumber and assign lkey to reports
+        ng.rm.logicalKeyRenumber();
 
         unsigned length = 0;
         struct hs_database *out = build(ng, &length);

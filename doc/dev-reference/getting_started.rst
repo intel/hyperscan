@@ -27,10 +27,10 @@ Very Quick Start
    Known working generators:
       * ``Unix Makefiles`` --- make-compatible makefiles (default on Linux/FreeBSD/Mac OS X)
       * ``Ninja`` --- `Ninja <http://martine.github.io/ninja/>`_ build files.
+      * ``Visual Studio 15 2017`` --- Visual Studio projects
 
    Generators that might work include:
       * ``Xcode`` --- OS X Xcode projects.
-      * ``Visual Studio`` --- Visual Studio projects - very experimental
 
 #. Build Hyperscan
 
@@ -38,6 +38,7 @@ Very Quick Start
      * ``cmake --build .`` --- will build everything
      * ``make -j<jobs>`` --- use makefiles in parallel
      * ``ninja`` --- use Ninja build
+     * ``MsBuild.exe`` --- use Visual Studio MsBuild
      * etc.
 
 #. Check Hyperscan
@@ -48,6 +49,8 @@ Very Quick Start
 
 Requirements
 ************
+
+.. _hardware:
 
 Hardware
 ========
@@ -84,6 +87,7 @@ compiler support. The supported compilers are:
     * GCC, v4.8.1 or higher
     * Clang, v3.4 or higher (with libstdc++ or libc++)
     * Intel C++ Compiler v15 or higher
+    * Visual C++ 2017 Build Tools
 
 Examples of operating systems that Hyperscan is known to work on include:
 
@@ -96,13 +100,17 @@ FreeBSD:
 
 * 10.0 or newer
 
+Windows:
+
+* 8 or newer
+
 Mac OS X:
 
 * 10.8 or newer, using XCode/Clang
 
 Hyperscan *may* compile and run on other platforms, but there is no guarantee.
 We currently have experimental support for Windows using Intel C++ Compiler
-or Visual Studio 2015.
+or Visual Studio 2017.
 
 In addition, the following software is required for compiling the Hyperscan library:
 
@@ -118,7 +126,8 @@ Dependency                                              Version     Notes
 
 Most of these dependencies can be provided by the package manager on the build
 system (e.g. Debian/Ubuntu/RedHat packages, FreeBSD ports, etc). However,
-ensure that the correct version is present.
+ensure that the correct version is present. As for Windows, in order to have
+Ragel, you may use Cygwin to build it from source.
 
 Boost Headers
 -------------

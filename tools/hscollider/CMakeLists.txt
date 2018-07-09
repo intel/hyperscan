@@ -1,9 +1,3 @@
-# we have a fixed requirement for PCRE
-set(PCRE_REQUIRED_MAJOR_VERSION 8)
-set(PCRE_REQUIRED_MINOR_VERSION 41)
-set(PCRE_REQUIRED_VERSION ${PCRE_REQUIRED_MAJOR_VERSION}.${PCRE_REQUIRED_MINOR_VERSION})
-
-include (${CMAKE_MODULE_PATH}/pcre.cmake)
 if (NOT CORRECT_PCRE_VERSION)
     message(STATUS "PCRE ${PCRE_REQUIRED_VERSION} not found, not building hscollider")
     return()
@@ -28,6 +22,10 @@ set_source_files_properties(
     COMPILE_FLAGS "${RAGEL_C_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}")
 
 ragelmaker(ColliderCorporaParser.rl)
+
+if (BUILD_CHIMERA)
+    add_definitions(-DHS_HYBRID)
+endif()
 
 # only set these after all tests are done
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
@@ -69,17 +67,29 @@ add_dependencies(hscollider ragel_ColliderCorporaParser)
 add_dependencies(hscollider pcre)
 
 if(NOT WIN32)
-    target_link_libraries(hscollider hs ${PCRE_LDFLAGS} databaseutil
-        expressionutil corpusomatic crosscompileutil pthread
-    "${BACKTRACE_LDFLAGS}")
+    if (BUILD_CHIMERA)
+        target_link_libraries(hscollider hs chimera ${PCRE_LDFLAGS} databaseutil
+            expressionutil corpusomatic crosscompileutil pthread
+        "${BACKTRACE_LDFLAGS}")
+    else()
+        target_link_libraries(hscollider hs ${PCRE_LDFLAGS} databaseutil
+            expressionutil corpusomatic crosscompileutil pthread
+        "${BACKTRACE_LDFLAGS}")
+    endif()
 
 if(HAVE_BACKTRACE)
     set_source_files_properties(hscollider_SOURCES COMPILE_FLAGS
         "${BACKTRACE_CFLAGS}")
 endif()
 else() # WIN32
-    target_link_libraries(hscollider hs ${PCRE_LDFLAGS} databaseutil
-        expressionutil corpusomatic crosscompileutil)
+    set_target_properties(hscollider PROPERTIES LINK_FLAGS "/STACK:8388608,8388608")
+    if (BUILD_CHIMERA)
+        target_link_libraries(hscollider hs chimera pcre databaseutil
+            expressionutil corpusomatic crosscompileutil)
+    else()
+        target_link_libraries(hscollider hs pcre databaseutil
+            expressionutil corpusomatic crosscompileutil)
+    endif()
 endif()
 
 add_custom_target(

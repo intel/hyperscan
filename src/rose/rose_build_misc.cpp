@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -993,15 +993,19 @@ bool canImplementGraphs(const RoseBuildImpl &tbi) {
     return true;
 }
 
+/**
+ * \brief True if there is an engine with a top that is not triggered by a
+ * vertex in the Rose graph. This is a consistency check used in assertions.
+ */
 bool hasOrphanedTops(const RoseBuildImpl &build) {
     const RoseGraph &g = build.g;
 
-    unordered_map<left_id, set<u32>> roses;
+    unordered_map<left_id, set<u32>> leftfixes;
     unordered_map<suffix_id, set<u32>> suffixes;
 
     for (auto v : vertices_range(g)) {
         if (g[v].left) {
-            set<u32> &tops = roses[g[v].left];
+            set<u32> &tops = leftfixes[g[v].left];
             if (!build.isRootSuccessor(v)) {
                 // Tops for infixes come from the in-edges.
                 for (const auto &e : in_edges_range(v, g)) {
@@ -1014,7 +1018,7 @@ bool hasOrphanedTops(const RoseBuildImpl &build) {
         }
     }
 
-    for (const auto &e : roses) {
+    for (const auto &e : leftfixes) {
         if (all_tops(e.first) != e.second) {
             DEBUG_PRINTF("rose tops (%s) don't match rose graph (%s)\n",
                          as_string_list(all_tops(e.first)).c_str(),

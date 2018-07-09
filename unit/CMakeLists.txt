@@ -1,6 +1,13 @@
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 
+if(CMAKE_C_FLAGS MATCHES "/Gv" )
+    string(REPLACE "/Gv" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+endif()
+if(CMAKE_CXX_FLAGS MATCHES "/Gv" )
+    string(REPLACE "/Gv" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+endif()
+
 set(gtest_SOURCES gtest/gtest-all.cc gtest/gtest.h)
 include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR})
@@ -31,6 +38,10 @@ endif()
 
 add_definitions(-DGTEST_HAS_PTHREAD=0 -DSRCDIR=${PROJECT_SOURCE_DIR})
 
+if (WIN32)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4309 /wd4018")
+endif()
+
 set(unit_hyperscan_SOURCES
     ${gtest_SOURCES}
     hyperscan/allocators.cpp
@@ -42,6 +53,7 @@ set(unit_hyperscan_SOURCES
     hyperscan/extparam.cpp
     hyperscan/identical.cpp
     hyperscan/literals.cpp
+    hyperscan/logical_combination.cpp
     hyperscan/main.cpp
     hyperscan/multi.cpp
     hyperscan/order.cpp
@@ -77,6 +89,7 @@ set(unit_internal_SOURCES
     internal/flat_set.cpp
     internal/flat_map.cpp
     internal/graph.cpp
+    internal/graph_undirected.cpp
     internal/insertion_ordered.cpp
     internal/lbr.cpp
     internal/limex_nfa.cpp
@@ -121,22 +134,58 @@ set_target_properties(unit-internal PROPERTIES COMPILE_FLAGS "${HS_CXX_FLAGS}")
 target_link_libraries(unit-internal hs corpusomatic)
 endif(NOT (RELEASE_BUILD OR FAT_RUNTIME))
 
-#
-# build target to run unit tests
-#
-if (NOT RELEASE_BUILD)
-add_custom_target(
-    unit
-    COMMAND bin/unit-internal
-    COMMAND bin/unit-hyperscan
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    DEPENDS unit-internal unit-hyperscan
-)
-else ()
-add_custom_target(
-    unit
-    COMMAND bin/unit-hyperscan
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    DEPENDS unit-hyperscan
-)
+if (BUILD_CHIMERA)
+    # enable Chimera unit tests
+    set(unit_chimera_SOURCES
+        ${gtest_SOURCES}
+        chimera/allocators.cpp
+        chimera/arg_checks.cpp
+        chimera/bad_patterns.cpp
+        chimera/compat.cpp
+        chimera/main.cpp
+        chimera/scan.cpp
+        )
+    add_executable(unit-chimera ${unit_chimera_SOURCES})
+    target_link_libraries(unit-chimera chimera hs pcre)
+    #
+    # build target to run unit tests
+    #
+    if (NOT RELEASE_BUILD)
+    add_custom_target(
+        unit
+        COMMAND bin/unit-internal
+        COMMAND bin/unit-hyperscan
+        COMMAND bin/unit-chimera
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        DEPENDS unit-internal unit-hyperscan unit-chimera
+    )
+    else ()
+    add_custom_target(
+        unit
+        COMMAND bin/unit-hyperscan
+        COMMAND bin/unit-chimera
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        DEPENDS unit-hyperscan unit-chimera
+    )
+    endif()
+else()
+    #
+    # build target to run unit tests
+    #
+    if (NOT RELEASE_BUILD)
+    add_custom_target(
+        unit
+        COMMAND bin/unit-internal
+        COMMAND bin/unit-hyperscan
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        DEPENDS unit-internal unit-hyperscan
+    )
+    else ()
+    add_custom_target(
+        unit
+        COMMAND bin/unit-hyperscan
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        DEPENDS unit-hyperscan
+    )
+    endif()
 endif()

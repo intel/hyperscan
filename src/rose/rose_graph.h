@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,7 +41,6 @@
 #include "rose_build.h"
 #include "rose_internal.h"
 #include "nfa/nfa_internal.h" // for MO_INVALID_IDX
-#include "util/charreach.h"
 #include "util/depth.h"
 #include "util/flat_containers.h"
 #include "util/ue2_graph.h"

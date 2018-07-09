@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,7 +47,11 @@ class NGHolder;
 /** Find the set of characters that are not present in the reachability of
  * graph \p g after a certain depth (currently 8). If a character in this set
  * is encountered, it means that the NFA is either dead or has not progressed
- * more than 8 characters from its start states. */
+ * more than 8 characters from its start states.
+ *
+ * This is only used to guide merging heuristics, use
+ * findLeftOffsetStopAlphabet for real uses.
+ */
 CharReach findStopAlphabet(const NGHolder &g, som_type som);
 
 /** Calculate the stop alphabet for each depth from 0 to MAX_STOP_DEPTH. Then

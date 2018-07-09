@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,6 +36,7 @@
 
 #include "ue2common.h"
 #include "util/exhaust.h" // for INVALID_EKEY
+#include "util/logical.h" // for INVALID_LKEY
 #include "util/hash.h"
 #include "util/order_check.h"
 
@@ -106,6 +107,16 @@ struct Report {
      * Additionally after reporting a match the ekey will be set. If not
      * exhaustible, this will be INVALID_EKEY. */
     u32 ekey = INVALID_EKEY;
+
+    /** \brief Logical Combination key in each combination.
+     *
+     * If in Logical Combination, the lkey to check before reporting a match.
+     * Additionally before checking the lkey will be set. If not
+     * in Logical Combination, this will be INVALID_LKEY. */
+    u32 lkey = INVALID_LKEY;
+
+    /** \brief Quiet flag for expressions in any logical combination. */
+    bool quiet = false;
 
     /** \brief Adjustment to add to the match offset when we report a match.
      *
@@ -207,16 +218,17 @@ bool operator==(const Report &a, const Report &b) {
 }
 
 static inline
-Report makeECallback(u32 report, s32 offsetAdjust, u32 ekey) {
+Report makeECallback(u32 report, s32 offsetAdjust, u32 ekey, bool quiet) {
     Report ir(EXTERNAL_CALLBACK, report);
     ir.offsetAdjust = offsetAdjust;
     ir.ekey = ekey;
+    ir.quiet = (u8)quiet;
     return ir;
 }
 
 static inline
 Report makeCallback(u32 report, s32 offsetAdjust) {
-    return makeECallback(report, offsetAdjust, INVALID_EKEY);
+    return makeECallback(report, offsetAdjust, INVALID_EKEY, false);
 }
 
 static inline

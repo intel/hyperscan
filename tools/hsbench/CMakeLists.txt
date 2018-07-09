@@ -31,6 +31,8 @@ SET(hsbench_SOURCES
     common.h
     data_corpus.cpp
     data_corpus.h
+    engine.cpp
+    engine.h
     engine_hyperscan.cpp
     engine_hyperscan.h
     heapstats.cpp
@@ -45,6 +47,28 @@ SET(hsbench_SOURCES
     timer.h
 )
 
+if (BUILD_CHIMERA)
+    add_definitions(-DHS_HYBRID)
+    SET(hsbench_SOURCES
+        ${hsbench_SOURCES}
+        engine_chimera.cpp
+        engine_chimera.h
+        engine_pcre.cpp
+        engine_pcre.h
+    )
+endif()
+
 add_executable(hsbench ${hsbench_SOURCES})
-target_link_libraries(hsbench hs databaseutil expressionutil ${SQLITE3_LDFLAGS}
-    ${CMAKE_THREAD_LIBS_INIT})
+if (BUILD_CHIMERA)
+    include_directories(${PCRE_INCLUDE_DIRS})
+    if(NOT WIN32)
+        target_link_libraries(hsbench hs chimera ${PCRE_LDFLAGS} databaseutil
+            expressionutil ${SQLITE3_LDFLAGS} ${CMAKE_THREAD_LIBS_INIT})
+    else()
+        target_link_libraries(hsbench hs chimera pcre databaseutil
+            expressionutil ${SQLITE3_LDFLAGS} ${CMAKE_THREAD_LIBS_INIT})
+    endif()
+else()
+    target_link_libraries(hsbench hs databaseutil expressionutil
+        ${SQLITE3_LDFLAGS} ${CMAKE_THREAD_LIBS_INIT})
+endif()

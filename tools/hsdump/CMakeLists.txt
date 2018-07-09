@@ -3,10 +3,6 @@ if (NOT DUMP_SUPPORT)
     return()
 endif ()
 
-if (WIN32)
-    return()
-endif ()
-
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/util)
 
