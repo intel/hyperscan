@@ -2,6 +2,18 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [5.0.0] 2018-07-09
+- Introduce chimera hybrid engine of Hyperscan and PCRE, to fully support
+  PCRE syntax as well as to take advantage of the high performance nature of
+  Hyperscan.
+- New API feature: logical combinations (AND, OR and NOT) of patterns in a
+  given pattern set.
+- Windows porting: hsbench, hscheck, hscollider and hsdump tools now available
+  on Windows 8 or newer.
+- Improve undirected graph implementation to avoid graph copy and reduce
+  compile time.
+- Bugfix for issue #86: enable hscollider for installed PCRE package.
+
 ## [4.7.0] 2018-01-24
 - Introduced hscollider pattern testing tool, for validating Hyperscan match
   behaviour against PCRE.
