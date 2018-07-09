@@ -460,7 +460,7 @@ if (NOT CORRECT_PCRE_VERSION)
 endif()
 
 # we need static libs for Chimera - too much deep magic for shared libs
-if (CORRECT_PCRE_VERSION AND BUILD_STATIC_LIBS)
+if (CORRECT_PCRE_VERSION AND PCRE_BUILD_SOURCE AND BUILD_STATIC_LIBS)
     set(BUILD_CHIMERA TRUE)
 endif()
 
@@ -512,7 +512,7 @@ if (NOT CORRECT_PCRE_VERSION)
 endif()
 
 # we need static libs for Chimera - too much deep magic for shared libs
-if (CORRECT_PCRE_VERSION AND BUILD_STATIC_LIBS)
+if (CORRECT_PCRE_VERSION AND PCRE_BUILD_SOURCE AND BUILD_STATIC_LIBS)
     set(BUILD_CHIMERA TRUE)
 endif()
 

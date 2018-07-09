@@ -30,3 +30,20 @@ SET(chimera_SRCS
 add_library(chimera STATIC ${chimera_SRCS})
 add_dependencies(chimera hs pcre)
 target_link_libraries(chimera hs pcre)
+
+install(TARGETS chimera DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+if (NOT WIN32)
+    # expand out library names for pkgconfig static link info
+    foreach (LIB ${CMAKE_CXX_IMPLICIT_LINK_LIBRARIES})
+        # this is fragile, but protects us from toolchain specific files
+        if (NOT EXISTS ${LIB})
+            set(PRIVATE_LIBS "${PRIVATE_LIBS} -l${LIB}")
+        endif()
+    endforeach()
+    set(PRIVATE_LIBS "${PRIVATE_LIBS} -L${LIBDIR} -lpcre")
+
+    configure_file(libch.pc.in libch.pc @ONLY) # only replace @ quoted vars
+    install(FILES ${CMAKE_BINARY_DIR}/chimera/libch.pc
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+endif()
