@@ -934,12 +934,6 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
         }
     }
 
-    if (rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
-        if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
-            scratch->core_info.status |= STATUS_TERMINATED;
-        }
-    }
-
     setStreamStatus(state, scratch->core_info.status);
 
     if (likely(!can_stop_matching(scratch))) {
@@ -994,6 +988,13 @@ hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
         unmarkScratchInUse(scratch);
     }
 
+    if (id->rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
+        if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
+            == MO_HALT_MATCHING) {
+            scratch->core_info.status |= STATUS_TERMINATED;
+        }
+    }
+
     hs_stream_free(id);
 
     return HS_SUCCESS;
@@ -1017,6 +1018,13 @@ hs_error_t HS_CDECL hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
         }
         report_eod_matches(id, scratch, onEvent, context);
         unmarkScratchInUse(scratch);
+    }
+
+    if (id->rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
+        if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
+            == MO_HALT_MATCHING) {
+            scratch->core_info.status |= STATUS_TERMINATED;
+        }
     }
 
     // history already initialised
