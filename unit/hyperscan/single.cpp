@@ -214,9 +214,26 @@ protected:
         ASSERT_EQ(HS_SUCCESS, err);
         EXPECT_TRUE(cloned != nullptr);
 
-        err = hs_free_scratch(scratch);
-        EXPECT_EQ(HS_SUCCESS, err);
         err = hs_free_scratch(cloned);
+        EXPECT_EQ(HS_SUCCESS, err);
+        cloned = NULL;
+
+        // Try cloning with external allocation
+        size_t clone_size;
+        err = hs_scratch_size(scratch, &clone_size);
+        EXPECT_EQ(HS_SUCCESS, err);
+        char* clone_buffer = new char[clone_size];
+        cloned = (hs_scratch_t*)clone_buffer;
+        err = hs_clone_scratch_at(scratch, &cloned);
+        EXPECT_EQ(HS_SUCCESS, err);
+        EXPECT_TRUE(cloned != nullptr);
+        char* clone_buffer2 = NULL;
+        err = hs_scratch_memaddr(cloned, &clone_buffer2);
+        EXPECT_TRUE(clone_buffer2 != nullptr);
+        EXPECT_TRUE(clone_buffer2 == clone_buffer);
+        delete [] clone_buffer2;
+
+        err = hs_free_scratch(scratch);
         EXPECT_EQ(HS_SUCCESS, err);
     }
 
