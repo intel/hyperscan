@@ -445,6 +445,7 @@ done_scan:
                                scratch);
     }
 
+set_retval:
     if (rose->flushCombProgramOffset) {
         if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
             unmarkScratchInUse(scratch);
@@ -452,7 +453,6 @@ done_scan:
         }
     }
 
-set_retval:
     DEBUG_PRINTF("done. told_to_stop_matching=%d\n",
                  told_to_stop_matching(scratch));
     hs_error_t rv = told_to_stop_matching(scratch) ? HS_SCAN_TERMINATED
