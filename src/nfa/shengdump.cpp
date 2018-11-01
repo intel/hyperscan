@@ -51,7 +51,7 @@ namespace ue2 {
 
 static
 const sstate_aux *get_aux(const NFA *n, dstate_id_t i) {
-    assert(n && isShengType(n->type));
+    assert(n && isSheng16Type(n->type));
 
     const sheng *s = (const sheng *)getImplNfa(n);
     const sstate_aux *aux_base =
@@ -63,6 +63,23 @@ const sstate_aux *get_aux(const NFA *n, dstate_id_t i) {
 
     return aux;
 }
+
+#if defined(HAVE_AVX512VBMI)
+static
+const sstate_aux *get_aux32(const NFA *n, dstate_id_t i) {
+    assert(n && isSheng32Type(n->type));
+
+    const sheng32 *s = (const sheng32 *)getImplNfa(n);
+    const sstate_aux *aux_base =
+        (const sstate_aux *)((const char *)n + s->aux_offset);
+
+    const sstate_aux *aux = aux_base + i;
+
+    assert((const char *)aux < (const char *)s + s->length);
+
+    return aux;
+}
+#endif
 
 static
 void dumpHeader(FILE *f, const sheng *s) {
@@ -79,6 +96,23 @@ void dumpHeader(FILE *f, const sheng *s) {
             !!(s->flags & SHENG_FLAG_SINGLE_REPORT));
 }
 
+#if defined(HAVE_AVX512VBMI)
+static
+void dumpHeader32(FILE *f, const sheng32 *s) {
+    fprintf(f, "number of states: %u, DFA engine size: %u\n", s->n_states,
+            s->length);
+    fprintf(f, "aux base offset: %u, reports base offset: %u, "
+               "accel offset: %u\n",
+            s->aux_offset, s->report_offset, s->accel_offset);
+    fprintf(f, "anchored start state: %u, floating start state: %u\n",
+            s->anchored & SHENG32_STATE_MASK, s->floating & SHENG32_STATE_MASK);
+    fprintf(f, "has accel: %u can die: %u single report: %u\n",
+            !!(s->flags & SHENG_FLAG_HAS_ACCEL),
+            !!(s->flags & SHENG_FLAG_CAN_DIE),
+            !!(s->flags & SHENG_FLAG_SINGLE_REPORT));
+}
+#endif
+
 static
 void dumpAux(FILE *f, u32 state, const sstate_aux *aux) {
     fprintf(f, "state id: %u, reports offset: %u, EOD reports offset: %u, "
@@ -86,6 +120,16 @@ void dumpAux(FILE *f, u32 state, const sstate_aux *aux) {
             state, aux->accept, aux->accept_eod, aux->accel,
             aux->top & SHENG_STATE_MASK);
 }
+
+#if defined(HAVE_AVX512VBMI)
+static
+void dumpAux32(FILE *f, u32 state, const sstate_aux *aux) {
+    fprintf(f, "state id: %u, reports offset: %u, EOD reports offset: %u, "
+               "accel offset: %u, top: %u\n",
+            state, aux->accept, aux->accept_eod, aux->accel,
+            aux->top & SHENG32_STATE_MASK);
+}
+#endif
 
 static
 void dumpReports(FILE *f, const report_list *rl) {
@@ -114,6 +158,30 @@ void dumpMasks(FILE *f, const sheng *s) {
         fprintf(f, "\n");
     }
 }
+
+#if defined(HAVE_AVX512VBMI)
+static
+void dumpMasks32(FILE *f, const sheng32 *s) {
+    //u8 flags[64];
+    //memcpy(flags, &s->flag_mask, sizeof(m512));
+    for (u32 chr = 0; chr < 256; chr++) {
+        u8 buf[64];
+        m512 succ_mask = s->succ_masks[chr];
+        memcpy(buf, &succ_mask, sizeof(m512));
+
+        fprintf(f, "%3u: ", chr);
+        for (u32 pos = 0; pos < 64; pos++) {
+            u8 c = buf[pos];
+            if (c & SHENG32_STATE_FLAG_MASK) {
+                fprintf(f, "%2u* ", c & SHENG32_STATE_MASK);
+            } else {
+                fprintf(f, "%2u  ", c & SHENG32_STATE_MASK);
+            }
+        }
+        fprintf(f, "\n");
+    }
+}
+#endif
 
 static
 void nfaExecSheng_dumpText(const NFA *nfa, FILE *f) {
@@ -153,6 +221,46 @@ void nfaExecSheng_dumpText(const NFA *nfa, FILE *f) {
     fprintf(f, "\n");
 }
 
+#if defined(HAVE_AVX512VBMI)
+static
+void nfaExecSheng32_dumpText(const NFA *nfa, FILE *f) {
+    assert(nfa->type == SHENG_NFA_32);
+    const sheng32 *s = (const sheng32 *)getImplNfa(nfa);
+
+    fprintf(f, "sheng32 DFA\n");
+    dumpHeader32(f, s);
+
+    for (u32 state = 0; state < s->n_states; state++) {
+        const sstate_aux *aux = get_aux32(nfa, state);
+        dumpAux32(f, state, aux);
+        if (aux->accept) {
+            fprintf(f, "report list:\n");
+            const report_list *rl =
+                (const report_list *)((const char *)nfa + aux->accept);
+            dumpReports(f, rl);
+        }
+        if (aux->accept_eod) {
+            fprintf(f, "EOD report list:\n");
+            const report_list *rl =
+                (const report_list *)((const char *)nfa + aux->accept_eod);
+            dumpReports(f, rl);
+        }
+        if (aux->accel) {
+            fprintf(f, "accel:\n");
+            const AccelAux *accel =
+                (const AccelAux *)((const char *)nfa + aux->accel);
+            dumpAccelInfo(f, *accel);
+        }
+    }
+
+    fprintf(f, "\n");
+
+    dumpMasks32(f, s);
+
+    fprintf(f, "\n");
+}
+#endif
+
 static
 void dumpDotPreambleDfa(FILE *f) {
     dumpDotPreamble(f);
@@ -163,8 +271,13 @@ void dumpDotPreambleDfa(FILE *f) {
     fprintf(f, "0 [style=invis];\n");
 }
 
+template <typename T>
 static
-void describeNode(const NFA *n, const sheng *s, u16 i, FILE *f) {
+void describeNode(const NFA *n, const T *s, u16 i, FILE *f) {
+}
+
+template <>
+void describeNode<sheng>(const NFA *n, const sheng *s, u16 i, FILE *f) {
     const sstate_aux *aux = get_aux(n, i);
 
     fprintf(f, "%u [ width = 1, fixedsize = true, fontsize = 12, "
@@ -192,6 +305,38 @@ void describeNode(const NFA *n, const sheng *s, u16 i, FILE *f) {
         fprintf(f, "STARTF -> %u [color = red ]\n", i);
     }
 }
+
+#if defined(HAVE_AVX512VBMI)
+template <>
+void describeNode<sheng32>(const NFA *n, const sheng32 *s, u16 i, FILE *f) {
+    const sstate_aux *aux = get_aux32(n, i);
+
+    fprintf(f, "%u [ width = 1, fixedsize = true, fontsize = 12, "
+               "label = \"%u\" ]; \n",
+            i, i);
+
+    if (aux->accept_eod) {
+        fprintf(f, "%u [ color = darkorchid ];\n", i);
+    }
+
+    if (aux->accept) {
+        fprintf(f, "%u [ shape = doublecircle ];\n", i);
+    }
+
+    if (aux->top && (aux->top & SHENG32_STATE_MASK) != i) {
+        fprintf(f, "%u -> %u [color = darkgoldenrod weight=0.1 ]\n", i,
+                aux->top & SHENG32_STATE_MASK);
+    }
+
+    if (i == (s->anchored & SHENG32_STATE_MASK)) {
+        fprintf(f, "STARTA -> %u [color = blue ]\n", i);
+    }
+
+    if (i == (s->floating & SHENG32_STATE_MASK)) {
+        fprintf(f, "STARTF -> %u [color = red ]\n", i);
+    }
+}
+#endif
 
 static
 void describeEdge(FILE *f, const u16 *t, u16 i) {
@@ -228,7 +373,7 @@ void describeEdge(FILE *f, const u16 *t, u16 i) {
 
 static
 void shengGetTransitions(const NFA *n, u16 state, u16 *t) {
-    assert(isShengType(n->type));
+    assert(isSheng16Type(n->type));
     const sheng *s = (const sheng *)getImplNfa(n);
     const sstate_aux *aux = get_aux(n, state);
 
@@ -244,6 +389,26 @@ void shengGetTransitions(const NFA *n, u16 state, u16 *t) {
     t[TOP] = aux->top & SHENG_STATE_MASK;
 }
 
+#if defined(HAVE_AVX512VBMI)
+static
+void sheng32GetTransitions(const NFA *n, u16 state, u16 *t) {
+    assert(isSheng32Type(n->type));
+    const sheng32 *s = (const sheng32 *)getImplNfa(n);
+    const sstate_aux *aux = get_aux32(n, state);
+
+    for (unsigned i = 0; i < N_CHARS; i++) {
+        u8 buf[64];
+        m512 succ_mask = s->succ_masks[i];
+
+        memcpy(buf, &succ_mask, sizeof(m512));
+
+        t[i] = buf[state] & SHENG32_STATE_MASK;
+    }
+
+    t[TOP] = aux->top & SHENG32_STATE_MASK;
+}
+#endif
+
 static
 void nfaExecSheng_dumpDot(const NFA *nfa, FILE *f) {
     assert(nfa->type == SHENG_NFA);
@@ -252,7 +417,7 @@ void nfaExecSheng_dumpDot(const NFA *nfa, FILE *f) {
     dumpDotPreambleDfa(f);
 
     for (u16 i = 1; i < s->n_states; i++) {
-        describeNode(nfa, s, i, f);
+        describeNode<sheng>(nfa, s, i, f);
 
         u16 t[ALPHABET_SIZE];
 
@@ -264,10 +429,40 @@ void nfaExecSheng_dumpDot(const NFA *nfa, FILE *f) {
     fprintf(f, "}\n");
 }
 
+#if defined(HAVE_AVX512VBMI)
+static
+void nfaExecSheng32_dumpDot(const NFA *nfa, FILE *f) {
+    assert(nfa->type == SHENG_NFA_32);
+    const sheng32 *s = (const sheng32 *)getImplNfa(nfa);
+
+    dumpDotPreambleDfa(f);
+
+    for (u16 i = 1; i < s->n_states; i++) {
+        describeNode<sheng32>(nfa, s, i, f);
+
+        u16 t[ALPHABET_SIZE];
+
+        sheng32GetTransitions(nfa, i, t);
+
+        describeEdge(f, t, i);
+    }
+
+    fprintf(f, "}\n");
+}
+#endif
+
 void nfaExecSheng_dump(const NFA *nfa, const string &base) {
     assert(nfa->type == SHENG_NFA);
     nfaExecSheng_dumpText(nfa, StdioFile(base + ".txt", "w"));
     nfaExecSheng_dumpDot(nfa, StdioFile(base + ".dot", "w"));
+}
+
+void nfaExecSheng32_dump(UNUSED const NFA *nfa, UNUSED const string &base) {
+#if defined(HAVE_AVX512VBMI)
+    assert(nfa->type == SHENG_NFA_32);
+    nfaExecSheng32_dumpText(nfa, StdioFile(base + ".txt", "w"));
+    nfaExecSheng32_dumpDot(nfa, StdioFile(base + ".dot", "w"));
+#endif
 }
 
 } // namespace ue2

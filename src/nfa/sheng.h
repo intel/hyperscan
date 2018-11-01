@@ -58,4 +58,45 @@ char nfaExecSheng_reportCurrent(const struct NFA *n, struct mq *q);
 char nfaExecSheng_B(const struct NFA *n, u64a offset, const u8 *buffer,
                     size_t length, NfaCallback cb, void *context);
 
+#if defined(HAVE_AVX512VBMI)
+#define nfaExecSheng32_B_Reverse NFA_API_NO_IMPL
+#define nfaExecSheng32_zombie_status NFA_API_ZOMBIE_NO_IMPL
+
+char nfaExecSheng32_Q(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecSheng32_Q2(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecSheng32_QR(const struct NFA *n, struct mq *q, ReportID report);
+char nfaExecSheng32_inAccept(const struct NFA *n, ReportID report,
+                             struct mq *q);
+char nfaExecSheng32_inAnyAccept(const struct NFA *n, struct mq *q);
+char nfaExecSheng32_queueInitState(const struct NFA *nfa, struct mq *q);
+char nfaExecSheng32_queueCompressState(const struct NFA *nfa,
+                                       const struct mq *q, s64a loc);
+char nfaExecSheng32_expandState(const struct NFA *nfa, void *dest,
+                                const void *src, u64a offset, u8 key);
+char nfaExecSheng32_initCompressedState(const struct NFA *nfa, u64a offset,
+                                        void *state, u8 key);
+char nfaExecSheng32_testEOD(const struct NFA *nfa, const char *state,
+                            const char *streamState, u64a offset,
+                            NfaCallback callback, void *context);
+char nfaExecSheng32_reportCurrent(const struct NFA *n, struct mq *q);
+
+char nfaExecSheng32_B(const struct NFA *n, u64a offset, const u8 *buffer,
+                      size_t length, NfaCallback cb, void *context);
+#else // !HAVE_AVX512VBMI
+#define nfaExecSheng32_B_Reverse NFA_API_NO_IMPL
+#define nfaExecSheng32_zombie_status NFA_API_ZOMBIE_NO_IMPL
+#define nfaExecSheng32_Q NFA_API_NO_IMPL
+#define nfaExecSheng32_Q2 NFA_API_NO_IMPL
+#define nfaExecSheng32_QR NFA_API_NO_IMPL
+#define nfaExecSheng32_inAccept NFA_API_NO_IMPL
+#define nfaExecSheng32_inAnyAccept NFA_API_NO_IMPL
+#define nfaExecSheng32_queueInitState NFA_API_NO_IMPL
+#define nfaExecSheng32_queueCompressState NFA_API_NO_IMPL
+#define nfaExecSheng32_expandState NFA_API_NO_IMPL
+#define nfaExecSheng32_initCompressedState NFA_API_NO_IMPL
+#define nfaExecSheng32_testEOD NFA_API_NO_IMPL
+#define nfaExecSheng32_reportCurrent NFA_API_NO_IMPL
+#define nfaExecSheng32_B NFA_API_NO_IMPL
+#endif // end of HAVE_AVX512VBMI
+
 #endif /* SHENG_H_ */

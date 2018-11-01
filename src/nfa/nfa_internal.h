@@ -72,6 +72,7 @@ enum NFAEngineType {
     TAMARAMA_NFA,       /**< magic nfa container */
     MCSHENG_NFA_8,      /**< magic pseudo nfa */
     MCSHENG_NFA_16,     /**< magic pseudo nfa */
+    SHENG_NFA_32,       /**< magic pseudo nfa */
     /** \brief bogus NFA - not used */
     INVALID_NFA
 };
@@ -157,8 +158,24 @@ static really_inline int isGoughType(u8 t) {
 }
 
 /** \brief True if the given type (from NFA::type) is a Sheng DFA. */
-static really_inline int isShengType(u8 t) {
+static really_inline int isSheng16Type(u8 t) {
     return t == SHENG_NFA;
+}
+
+#if defined(HAVE_AVX512VBMI)
+/** \brief True if the given type (from NFA::type) is a Sheng32 DFA. */
+static really_inline int isSheng32Type(u8 t) {
+    return t == SHENG_NFA_32;
+}
+#endif
+
+/** \brief True if the given type (from NFA::type) is a Sheng/Sheng32 DFA. */
+static really_inline int isShengType(u8 t) {
+#if defined(HAVE_AVX512VBMI)
+    return t == SHENG_NFA || t == SHENG_NFA_32;
+#else
+    return t == SHENG_NFA;
+#endif
 }
 
 /**

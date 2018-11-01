@@ -38,6 +38,14 @@
 #define SHENG_STATE_MASK 0xF
 #define SHENG_STATE_FLAG_MASK 0x70
 
+#if defined (HAVE_AVX512VBMI)
+#define SHENG32_STATE_ACCEPT 0x20
+#define SHENG32_STATE_DEAD 0x40
+#define SHENG32_STATE_ACCEL 0x80
+#define SHENG32_STATE_MASK 0x1F
+#define SHENG32_STATE_FLAG_MASK 0xE0
+#endif
+
 #define SHENG_FLAG_SINGLE_REPORT 0x1
 #define SHENG_FLAG_CAN_DIE 0x2
 #define SHENG_FLAG_HAS_ACCEL 0x4
@@ -66,5 +74,20 @@ struct sheng {
     u8 flags;
     ReportID report;
 };
+
+#if defined (HAVE_AVX512VBMI)
+struct sheng32 {
+    m512 succ_masks[256];
+    u32 length;
+    u32 aux_offset;
+    u32 report_offset;
+    u32 accel_offset;
+    u8 n_states;
+    u8 anchored;
+    u8 floating;
+    u8 flags;
+    ReportID report;
+};
+#endif
 
 #endif /* SHENG_INTERNAL_H_ */

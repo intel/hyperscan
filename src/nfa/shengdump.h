@@ -38,6 +38,7 @@ struct NFA;
 namespace ue2 {
 
 void nfaExecSheng_dump(const struct NFA *nfa, const std::string &base);
+void nfaExecSheng32_dump(const struct NFA *nfa, const std::string &base);
 
 } // namespace ue2
 
