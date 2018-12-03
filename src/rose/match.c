@@ -238,7 +238,7 @@ hwlmcb_rv_t roseProcessMatchInline(const struct RoseEngine *t,
     assert(id && id < t->size); // id is an offset into bytecode
     const u64a som = 0;
     const u8 flags = 0;
-    return roseRunProgram_i(t, scratch, id, som, end, flags);
+    return roseRunProgram(t, scratch, id, som, end, flags);
 }
 
 static rose_inline

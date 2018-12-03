@@ -33,6 +33,7 @@
 #include "rose_common.h"
 #include "rose_internal.h"
 #include "stream_long_lit_hash.h"
+#include "util/compare.h"
 #include "util/copybytes.h"
 
 static really_inline
