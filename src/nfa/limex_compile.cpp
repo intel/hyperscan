@@ -980,7 +980,7 @@ u32 addSquashMask(const build_info &args, const NFAVertex &v,
     // see if we've already seen it, otherwise add a new one.
     auto it = find(squash.begin(), squash.end(), sit->second);
     if (it != squash.end()) {
-        return verify_u32(distance(squash.begin(), it));
+        return verify_u32(std::distance(squash.begin(), it));
     }
     u32 idx = verify_u32(squash.size());
     squash.push_back(sit->second);
