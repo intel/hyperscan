@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -82,6 +82,7 @@ Grey::Grey(void) :
                    onlyOneOutfix(false),
                    allowShermanStates(true),
                    allowMcClellan8(true),
+                   allowWideStates(true), // enable wide state for McClellan8
                    highlanderPruneDFA(true),
                    minimizeDFA(true),
                    accelerateDFA(true),
@@ -251,6 +252,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(onlyOneOutfix);
         G_UPDATE(allowShermanStates);
         G_UPDATE(allowMcClellan8);
+        G_UPDATE(allowWideStates);
         G_UPDATE(highlanderPruneDFA);
         G_UPDATE(minimizeDFA);
         G_UPDATE(accelerateDFA);

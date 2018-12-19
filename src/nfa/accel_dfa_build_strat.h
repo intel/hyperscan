@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,6 +40,11 @@ namespace ue2 {
 
 class ReportManager;
 struct Grey;
+enum DfaType {
+    McClellan,
+    Sheng,
+    Gough
+};
 
 class accel_dfa_build_strat : public dfa_build_strat {
 public:
@@ -53,6 +58,8 @@ public:
     virtual void buildAccel(dstate_id_t this_idx, const AccelScheme &info,
                             void *accel_out);
     virtual std::map<dstate_id_t, AccelScheme> getAccelInfo(const Grey &grey);
+    virtual DfaType getType() const = 0;
+
 private:
     bool only_accel_init;
 };
