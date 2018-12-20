@@ -456,7 +456,7 @@ set(PCRE_REQUIRED_MINOR_VERSION 41)
 set(PCRE_REQUIRED_VERSION ${PCRE_REQUIRED_MAJOR_VERSION}.${PCRE_REQUIRED_MINOR_VERSION})
 include (${CMAKE_MODULE_PATH}/pcre.cmake)
 if (NOT CORRECT_PCRE_VERSION)
-    message(STATUS "PCRE ${PCRE_REQUIRED_VERSION} not found")
+    message(STATUS "PCRE ${PCRE_REQUIRED_VERSION} or above not found")
 endif()
 
 # we need static libs for Chimera - too much deep magic for shared libs
@@ -508,7 +508,7 @@ set(PCRE_REQUIRED_MINOR_VERSION 41)
 set(PCRE_REQUIRED_VERSION ${PCRE_REQUIRED_MAJOR_VERSION}.${PCRE_REQUIRED_MINOR_VERSION})
 include (${CMAKE_MODULE_PATH}/pcre.cmake)
 if (NOT CORRECT_PCRE_VERSION)
-    message(STATUS "PCRE ${PCRE_REQUIRED_VERSION} not found")
+    message(STATUS "PCRE ${PCRE_REQUIRED_VERSION} or above not found")
 endif()
 
 # we need static libs for Chimera - too much deep magic for shared libs
