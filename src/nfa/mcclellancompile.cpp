@@ -261,22 +261,24 @@ void markEdges(NFA *n, u16 *succ_table, const dfa_info &info) {
 
             // check successful transition
             u16 next = unaligned_load_u16((u8 *)trans);
-            if (next >= wide_limit) {
-                continue;
+            if (next < wide_limit) {
+                mstate_aux *aux = getAux(n, next);
+                if (aux->accept) {
+                    next |= ACCEPT_FLAG;
+                }
+                if (aux->accel_offset) {
+                    next |= ACCEL_FLAG;
+                }
+                unaligned_store_u16((u8 *)trans, next);
             }
-            mstate_aux *aux = getAux(n, next);
-            if (aux->accept) {
-                next |= ACCEPT_FLAG;
-            }
-            if (aux->accel_offset) {
-                next |= ACCEL_FLAG;
-            }
-            unaligned_store_u16((u8 *)trans, next);
-            trans ++;
+            trans++;
 
             // check failure transition
             for (symbol_t k = 0; k < alphaSize; k++) {
                 u16 next_k = unaligned_load_u16((u8 *)&trans[k]);
+                if (next_k >= wide_limit) {
+                    continue;
+                }
                 mstate_aux *aux_k = getAux(n, next_k);
                 if (aux_k->accept) {
                     next_k |= ACCEPT_FLAG;
@@ -525,11 +527,12 @@ size_t calcWideRegionSize(const dfa_info &info) {
     }
 
     // wide info header
-    size_t rv = info.wide_symbol_chain.size() * sizeof(u32) + 3;
+    size_t rv = info.wide_symbol_chain.size() * sizeof(u32) + 4;
 
     // wide info body
     for (const auto &chain : info.wide_symbol_chain) {
-        rv += chain.size() + (info.impl_alpha_size + 1) * sizeof(u16) + 2;
+        rv += ROUNDUP_N(chain.size(), 2) +
+              (info.impl_alpha_size + 1) * sizeof(u16) + 2;
     }
 
     return ROUNDUP_16(rv);
@@ -776,6 +779,7 @@ bytecode_ptr<NFA> mcclellanCompile16(dfa_info &info, const CompileContext &cc,
 
         char *wide_top = wide_base;
         *(u8 *)(wide_top++) = WIDE_STATE;
+        wide_top = ROUNDUP_PTR(wide_top, 2);
         *(u16 *)(wide_top) = wide_number;
         wide_top += 2;
 

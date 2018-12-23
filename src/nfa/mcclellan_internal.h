@@ -52,13 +52,13 @@ extern "C"
 
 #define WIDE_STATE 2
 #define WIDE_ENTRY_OFFSET8(weo_pos) (2 + (weo_pos))
-#define WIDE_ENTRY_OFFSET16(weo_pos) (3 + (weo_pos))
+#define WIDE_ENTRY_OFFSET16(weo_pos) (4 + (weo_pos))
 
 #define WIDE_WIDTH_OFFSET 0
 #define WIDE_SYMBOL_OFFSET8 1
 #define WIDE_TRANSITION_OFFSET8(wto_width) (1 + (wto_width))
 #define WIDE_SYMBOL_OFFSET16 2
-#define WIDE_TRANSITION_OFFSET16(wto_width) (2 + (wto_width))
+#define WIDE_TRANSITION_OFFSET16(wto_width) (2 + ROUNDUP_N(wto_width, 2))
 
 struct report_list {
     u32 count;

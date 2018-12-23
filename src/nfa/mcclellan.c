@@ -1197,7 +1197,7 @@ char nfaExecMcClellan16_initCompressedState(const struct NFA *nfa, u64a offset,
 
     // new byte
     if (m->has_wide) {
-        *((u16 *)state + 1) = 0;
+        unaligned_store_u16((u16 *)state + 1, 0);
     }
 
     if (s) {
@@ -1236,7 +1236,7 @@ void nfaExecMcClellan16_SimpStream(const struct NFA *nfa, char *state,
 
         // new byte
         if (m->has_wide) {
-            *((u16 *)state + 1) = 0;
+            unaligned_store_u16((u16 *)state + 1, 0);
         }
     } else {
         s = unaligned_load_u16(state);
@@ -1285,7 +1285,7 @@ char nfaExecMcClellan16_queueInitState(UNUSED const struct NFA *nfa,
 
     // new byte
     if (m->has_wide) {
-        *((u16 *)q->state + 1) = 0;
+        unaligned_store_u16((u16 *)q->state + 1, 0);
     }
     return 0;
 }
@@ -1325,7 +1325,7 @@ char nfaExecMcClellan16_queueCompressState(UNUSED const struct NFA *nfa,
 
     // new byte
     if (m->has_wide) {
-        *((u16 *)dest + 1) = *((const u16 *)src + 1);
+        unaligned_store_u16((u16 *)dest + 1, *((const u16 *)src + 1));
     }
     return 0;
 }
@@ -1344,7 +1344,7 @@ char nfaExecMcClellan16_expandState(UNUSED const struct NFA *nfa, void *dest,
 
     // new byte
     if (m->has_wide) {
-        *((u16 *)dest + 1) = *((const u16 *)src + 1);
+        *((u16 *)dest + 1) =  unaligned_load_u16((const u16 *)src + 1);
     }
     return 0;
 }

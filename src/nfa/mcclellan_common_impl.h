@@ -88,7 +88,7 @@ u16 doWide16(const char *wide_entry, const u8 **c_inout, const u8 *end,
              const u8 *remap, const u16 *s, char *qstate, u16 *offset) {
     // Internal relative offset after the last visit of the wide state.
     if (qstate != NULL) { // stream mode
-        *offset = *(const u16 *)(qstate + 2);
+        *offset = unaligned_load_u16((const u16 *)(qstate + 2));
     }
 
     u8 successful = 0;
