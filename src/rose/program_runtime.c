@@ -1875,6 +1875,7 @@ hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
     return HWLM_CONTINUE_MATCHING;
 }
 
+#if !defined(_WIN32)
 #define PROGRAM_CASE(name)                                                     \
     case ROSE_INSTR_##name: {                                                  \
     LABEL_ROSE_INSTR_##name:                                                   \
@@ -1890,6 +1891,21 @@ hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
 
 #define PROGRAM_NEXT_INSTRUCTION_JUMP                                          \
     goto *(next_instr[*(const u8 *)pc]);
+#else
+#define PROGRAM_CASE(name)                                                     \
+    case ROSE_INSTR_##name: {                                                  \
+        DEBUG_PRINTF("instruction: " #name " (pc=%u)\n",                       \
+                     programOffset + (u32)(pc - pc_base));                     \
+        const struct ROSE_STRUCT_##name *ri =                                  \
+            (const struct ROSE_STRUCT_##name *)pc;
+
+#define PROGRAM_NEXT_INSTRUCTION                                               \
+    pc += ROUNDUP_N(sizeof(*ri), ROSE_INSTR_MIN_ALIGN);                        \
+    break;                                                                     \
+    }
+
+#define PROGRAM_NEXT_INSTRUCTION_JUMP
+#endif
 
 hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                            struct hs_scratch *scratch, u32 programOffset,
@@ -1921,6 +1937,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
 
     assert(*(const u8 *)pc != ROSE_INSTR_END);
 
+#if !defined(_WIN32)
     static const void *next_instr[] = {
         &&LABEL_ROSE_INSTR_END,               //!< End of program.
         &&LABEL_ROSE_INSTR_ANCHORED_DELAY,    //!< Delay until after anchored matcher.
@@ -1989,6 +2006,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
         &&LABEL_ROSE_INSTR_FLUSH_COMBINATION,
         &&LABEL_ROSE_INSTR_SET_EXHAUST
     };
+#endif
 
     for (;;) {
         assert(ISALIGNED_N(pc, ROSE_INSTR_MIN_ALIGN));
