@@ -1904,7 +1904,7 @@ hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
     break;                                                                     \
     }
 
-#define PROGRAM_NEXT_INSTRUCTION_JUMP
+#define PROGRAM_NEXT_INSTRUCTION_JUMP continue;
 #endif
 
 hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
