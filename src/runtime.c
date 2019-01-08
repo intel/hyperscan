@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -141,6 +141,7 @@ void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
     s->deduper.current_report_offset = ~0ULL;
     s->deduper.som_log_dirty = 1; /* som logs have not been cleared */
     s->fdr_conf = NULL;
+    s->pure = 0;
 
     // Rose program execution (used for some report paths) depends on these
     // values being initialised.

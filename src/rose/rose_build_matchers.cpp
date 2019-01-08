@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -727,6 +727,7 @@ void addFragmentLiteral(const RoseBuildImpl &build, MatcherProto &mp,
 
     const auto &s_final = lit_final.get_string();
     bool nocase = lit_final.any_nocase();
+    bool pure = f.s.get_pure();
 
     DEBUG_PRINTF("id=%u, s='%s', nocase=%d, noruns=%d, msk=%s, cmp=%s\n",
                  f.fragment_id, escapeString(s_final).c_str(), (int)nocase,
@@ -740,7 +741,7 @@ void addFragmentLiteral(const RoseBuildImpl &build, MatcherProto &mp,
     const auto &groups = f.groups;
 
     mp.lits.emplace_back(move(s_final), nocase, noruns, f.fragment_id,
-                         groups, msk, cmp);
+                         groups, msk, cmp, pure);
 }
 
 static

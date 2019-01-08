@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -2777,6 +2777,293 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
     assert(0); // unreachable
     return HWLM_CONTINUE_MATCHING;
 }
+
+#define L_PROGRAM_CASE(name)                                                   \
+    case ROSE_INSTR_##name: {                                                  \
+        DEBUG_PRINTF("l_instruction: " #name " (pc=%u)\n",                     \
+                     programOffset + (u32)(pc - pc_base));                     \
+        const struct ROSE_STRUCT_##name *ri =                                  \
+            (const struct ROSE_STRUCT_##name *)pc;
+
+#define L_PROGRAM_NEXT_INSTRUCTION                                             \
+    pc += ROUNDUP_N(sizeof(*ri), ROSE_INSTR_MIN_ALIGN);                        \
+    break;                                                                     \
+    }
+
+#define L_PROGRAM_NEXT_INSTRUCTION_JUMP continue;
+
+hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
+                             struct hs_scratch *scratch, u32 programOffset,
+                             u64a som, u64a end, u8 prog_flags) {
+    DEBUG_PRINTF("program=%u, offsets [%llu,%llu], flags=%u\n", programOffset,
+                 som, end, prog_flags);
+
+    assert(programOffset != ROSE_INVALID_PROG_OFFSET);
+    assert(programOffset >= sizeof(struct RoseEngine));
+    assert(programOffset < t->size);
+
+    const char from_mpv = prog_flags & ROSE_PROG_FLAG_FROM_MPV;
+
+    const char *pc_base = getByOffset(t, programOffset);
+    const char *pc = pc_base;
+
+    struct RoseContext *tctxt = &scratch->tctxt;
+
+    assert(*(const u8 *)pc != ROSE_INSTR_END);
+
+    for (;;) {
+        assert(ISALIGNED_N(pc, ROSE_INSTR_MIN_ALIGN));
+        assert(pc >= pc_base);
+        assert((size_t)(pc - pc_base) < t->size);
+        const u8 code = *(const u8 *)pc;
+        assert(code <= LAST_ROSE_INSTRUCTION);
+
+        switch ((enum RoseInstructionCode)code) {
+            L_PROGRAM_CASE(END) {
+                DEBUG_PRINTF("finished\n");
+                return HWLM_CONTINUE_MATCHING;
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CATCH_UP) {
+                if (roseCatchUpTo(t, scratch, end) == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(SOM_FROM_REPORT) {
+                som = handleSomExternal(scratch, &ri->som, end);
+                DEBUG_PRINTF("som from report %u is %llu\n", ri->som.onmatch,
+                             som);
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(DEDUPE) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                const char do_som = t->hasSom; // TODO: constant propagate
+                const char is_external_report = 1;
+                enum DedupeResult rv =
+                    dedupeCatchup(t, scratch, end, som, end + ri->offset_adjust,
+                                  ri->dkey, ri->offset_adjust,
+                                  is_external_report, ri->quash_som, do_som);
+                switch (rv) {
+                case DEDUPE_HALT:
+                    return HWLM_TERMINATE_MATCHING;
+                case DEDUPE_SKIP:
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                case DEDUPE_CONTINUE:
+                    break;
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(DEDUPE_SOM) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                const char is_external_report = 0;
+                const char do_som = 1;
+                enum DedupeResult rv =
+                    dedupeCatchup(t, scratch, end, som, end + ri->offset_adjust,
+                                  ri->dkey, ri->offset_adjust,
+                                  is_external_report, ri->quash_som, do_som);
+                switch (rv) {
+                case DEDUPE_HALT:
+                    return HWLM_TERMINATE_MATCHING;
+                case DEDUPE_SKIP:
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                case DEDUPE_CONTINUE:
+                    break;
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(REPORT) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                if (roseReport(t, scratch, end, ri->onmatch, ri->offset_adjust,
+                               INVALID_EKEY) == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(REPORT_EXHAUST) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                if (roseReport(t, scratch, end, ri->onmatch, ri->offset_adjust,
+                               ri->ekey) == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(REPORT_SOM) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                if (roseReportSom(t, scratch, som, end, ri->onmatch,
+                                  ri->offset_adjust,
+                                  INVALID_EKEY) == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(DEDUPE_AND_REPORT) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                const char do_som = t->hasSom; // TODO: constant propagate
+                const char is_external_report = 1;
+                enum DedupeResult rv =
+                    dedupeCatchup(t, scratch, end, som, end + ri->offset_adjust,
+                                  ri->dkey, ri->offset_adjust,
+                                  is_external_report, ri->quash_som, do_som);
+                switch (rv) {
+                case DEDUPE_HALT:
+                    return HWLM_TERMINATE_MATCHING;
+                case DEDUPE_SKIP:
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                case DEDUPE_CONTINUE:
+                    break;
+                }
+
+                const u32 ekey = INVALID_EKEY;
+                if (roseReport(t, scratch, end, ri->onmatch, ri->offset_adjust,
+                               ekey) == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(FINAL_REPORT) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                if (roseReport(t, scratch, end, ri->onmatch, ri->offset_adjust,
+                               INVALID_EKEY) == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+                /* One-shot specialisation: this instruction always terminates
+                 * execution of the program. */
+                return HWLM_CONTINUE_MATCHING;
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_EXHAUSTED) {
+                DEBUG_PRINTF("check ekey %u\n", ri->ekey);
+                assert(ri->ekey != INVALID_EKEY);
+                assert(ri->ekey < t->ekeyCount);
+                const char *evec = scratch->core_info.exhaustionVector;
+                if (isExhausted(t, evec, ri->ekey)) {
+                    DEBUG_PRINTF("ekey %u already set, match is exhausted\n",
+                                 ri->ekey);
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_LONG_LIT) {
+                const char nocase = 0;
+                if (!roseCheckLongLiteral(t, scratch, end, ri->lit_offset,
+                                          ri->lit_length, nocase)) {
+                    DEBUG_PRINTF("failed long lit check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_LONG_LIT_NOCASE) {
+                const char nocase = 1;
+                if (!roseCheckLongLiteral(t, scratch, end, ri->lit_offset,
+                                          ri->lit_length, nocase)) {
+                    DEBUG_PRINTF("failed nocase long lit check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_MED_LIT) {
+                const char nocase = 0;
+                if (!roseCheckMediumLiteral(t, scratch, end, ri->lit_offset,
+                                            ri->lit_length, nocase)) {
+                    DEBUG_PRINTF("failed lit check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_MED_LIT_NOCASE) {
+                const char nocase = 1;
+                if (!roseCheckMediumLiteral(t, scratch, end, ri->lit_offset,
+                                            ri->lit_length, nocase)) {
+                    DEBUG_PRINTF("failed long lit check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(SET_LOGICAL) {
+                DEBUG_PRINTF("set logical value of lkey %u, offset_adjust=%d\n",
+                             ri->lkey, ri->offset_adjust);
+                assert(ri->lkey != INVALID_LKEY);
+                assert(ri->lkey < t->lkeyCount);
+                char *lvec = scratch->core_info.logicalVector;
+                setLogicalVal(t, lvec, ri->lkey, 1);
+                updateLastCombMatchOffset(tctxt, end + ri->offset_adjust);
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(SET_COMBINATION) {
+                DEBUG_PRINTF("set ckey %u as active\n", ri->ckey);
+                assert(ri->ckey != INVALID_CKEY);
+                assert(ri->ckey < t->ckeyCount);
+                char *cvec = scratch->core_info.combVector;
+                setCombinationActive(t, cvec, ri->ckey);
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(FLUSH_COMBINATION) {
+                assert(end >= tctxt->lastCombMatchOffset);
+                if (end > tctxt->lastCombMatchOffset) {
+                    if (flushActiveCombinations(t, scratch)
+                            == HWLM_TERMINATE_MATCHING) {
+                        return HWLM_TERMINATE_MATCHING;
+                    }
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(SET_EXHAUST) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                if (roseSetExhaust(t, scratch, ri->ekey)
+                        == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            default: {
+                assert(0); // unreachable
+            }
+        }
+    }
+
+    assert(0); // unreachable
+    return HWLM_CONTINUE_MATCHING;
+}
+
+#undef L_PROGRAM_CASE
+#undef L_PROGRAM_NEXT_INSTRUCTION
+#undef L_PROGRAM_NEXT_INSTRUCTION_JUMP
 
 #undef PROGRAM_CASE
 #undef PROGRAM_NEXT_INSTRUCTION

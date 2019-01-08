@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -83,9 +83,10 @@ bool maskIsConsistent(const std::string &s, bool nocase, const vector<u8> &msk,
  * \ref HWLM_MASKLEN. */
 hwlmLiteral::hwlmLiteral(const std::string &s_in, bool nocase_in,
                          bool noruns_in, u32 id_in, hwlm_group_t groups_in,
-                         const vector<u8> &msk_in, const vector<u8> &cmp_in)
+                         const vector<u8> &msk_in, const vector<u8> &cmp_in,
+                         bool pure_in)
     : s(s_in), id(id_in), nocase(nocase_in), noruns(noruns_in),
-      groups(groups_in), msk(msk_in), cmp(cmp_in) {
+      groups(groups_in), msk(msk_in), cmp(cmp_in), pure(pure_in) {
     assert(s.size() <= HWLM_LITERAL_MAX_LEN);
     assert(msk.size() <= HWLM_MASKLEN);
     assert(msk.size() == cmp.size());

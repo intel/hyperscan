@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -65,6 +65,7 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
     u8 oldNext; // initialized in loop
     do {
         assert(ISALIGNED(li));
+        scratch->pure = li->pure;
 
         if (unlikely((conf_key & li->msk) != li->v)) {
             goto out;
@@ -99,6 +100,7 @@ void confWithBit(const struct FDRConfirm *fdrc, const struct FDR_Runtime_Args *a
         li++;
     } while (oldNext);
     scratch->fdr_conf = NULL;
+    scratch->pure = 0;
 }
 
 #endif

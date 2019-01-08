@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -62,6 +62,7 @@ struct LitInfo {
     u8 size;
     u8 flags; //!< bitfield of flags from FDR_LIT_FLAG_* above.
     u8 next;
+    u8 pure; //!< The pass-on of pure flag from hwlmLiteral.
 };
 
 #define FDRC_FLAG_NO_CONFIRM 1
