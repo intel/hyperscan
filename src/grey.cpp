@@ -198,7 +198,15 @@ void applyGreyOverrides(Grey *g, const string &s) {
 
         string::const_iterator ve = find(ke, pe, ';');
 
-        unsigned int value = lexical_cast<unsigned int>(string(ke + 1, ve));
+        unsigned int value = 0;
+        try {
+            value = lexical_cast<unsigned int>(string(ke + 1, ve));
+        } catch (boost::bad_lexical_cast &e) {
+            printf("Invalid grey override key %s:%s\n", key.c_str(),
+                   string(ke + 1, ve).c_str());
+            invalid_key_seen = true;
+            break;
+        }
         bool done = false;
 
         /* surely there exists a nice template to go with this macro to make
