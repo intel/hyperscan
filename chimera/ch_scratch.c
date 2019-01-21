@@ -216,7 +216,6 @@ ch_error_t HS_CDECL ch_alloc_scratch(const ch_database_t *hydb,
     }
 
     if (db->flags & CHIMERA_FLAG_NO_MULTIMATCH) {
-        (*scratch)->multi_scratch = NULL;
         return CH_SUCCESS;
     }
 
