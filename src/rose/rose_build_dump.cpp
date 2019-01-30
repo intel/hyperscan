@@ -115,9 +115,9 @@ class RoseGraphWriter {
 public:
     RoseGraphWriter(const RoseBuildImpl &b_in, const map<u32, u32> &frag_map_in,
                     const map<left_id, u32> &lqm_in,
-                    const map<suffix_id, u32> &sqm_in, const RoseEngine *t_in)
+                    const map<suffix_id, u32> &sqm_in)
         : frag_map(frag_map_in), leftfix_queue_map(lqm_in),
-          suffix_queue_map(sqm_in), build(b_in), t(t_in) {
+          suffix_queue_map(sqm_in), build(b_in) {
         for (const auto &m : build.ghost) {
             ghost.insert(m.second);
         }
@@ -273,7 +273,6 @@ private:
     const map<left_id, u32> &leftfix_queue_map;
     const map<suffix_id, u32> &suffix_queue_map;
     const RoseBuildImpl &build;
-    const RoseEngine *t;
 };
 
 } // namespace
@@ -313,8 +312,7 @@ void dumpRoseGraph(const RoseBuildImpl &build, const RoseEngine *t,
     ofstream os(ss.str());
 
     auto frag_map = makeFragMap(fragments);
-    RoseGraphWriter writer(build, frag_map, leftfix_queue_map, suffix_queue_map,
-                           t);
+    RoseGraphWriter writer(build, frag_map, leftfix_queue_map, suffix_queue_map);
     writeGraphviz(os, build.g, writer, get(boost::vertex_index, build.g));
 }
 

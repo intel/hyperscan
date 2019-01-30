@@ -56,13 +56,19 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <queue>
 #include <set>
 #include <vector>
 
 #include <boost/range/adaptor/map.hpp>
 
+#include "mcclellandump.h"
+#include "util/dump_util.h"
+#include "util/dump_charclass.h"
+
 using namespace std;
 using boost::adaptors::map_keys;
+using boost::dynamic_bitset;
 
 #define ACCEL_DFA_MAX_OFFSET_DEPTH 4
 
@@ -82,6 +88,8 @@ namespace /* anon */ {
 struct dstate_extra {
     u16 daddytaken = 0;
     bool shermanState = false;
+    bool wideState = false;
+    bool wideHead = false;
 };
 
 struct dfa_info {
@@ -89,6 +97,8 @@ struct dfa_info {
     raw_dfa &raw;
     vector<dstate> &states;
     vector<dstate_extra> extra;
+    vector<vector<dstate_id_t>> wide_state_chain;
+    vector<vector<symbol_t>> wide_symbol_chain;
     const u16 alpha_size; /* including special symbols */
     const array<u16, ALPHABET_SIZE> &alpha_remap;
     const u16 impl_alpha_size;
@@ -112,6 +122,14 @@ struct dfa_info {
         return extra[raw_id].shermanState;
     }
 
+    bool is_widestate(dstate_id_t raw_id) const {
+        return extra[raw_id].wideState;
+    }
+
+    bool is_widehead(dstate_id_t raw_id) const {
+        return extra[raw_id].wideHead;
+    }
+
     size_t size(void) const { return states.size(); }
 };
 
@@ -124,6 +142,35 @@ u8 dfa_info::getAlphaShift() const {
     }
 }
 
+struct state_prev_info {
+    vector<vector<dstate_id_t>> prev_vec;
+    explicit state_prev_info(size_t alpha_size) : prev_vec(alpha_size) {}
+};
+
+struct DfaPrevInfo {
+    u16 impl_alpha_size;
+    u16 state_num;
+    vector<state_prev_info> states;
+    set<dstate_id_t> accepts;
+
+    explicit DfaPrevInfo(raw_dfa &rdfa);
+};
+
+DfaPrevInfo::DfaPrevInfo(raw_dfa &rdfa)
+    : impl_alpha_size(rdfa.getImplAlphaSize()), state_num(rdfa.states.size()),
+      states(state_num, state_prev_info(impl_alpha_size)){
+    for (size_t i = 0; i < states.size(); i++) {
+        for (symbol_t sym = 0; sym < impl_alpha_size; sym++) {
+            dstate_id_t curr = rdfa.states[i].next[sym];
+            states[curr].prev_vec[sym].push_back(i);
+        }
+        if (!rdfa.states[i].reports.empty()
+            || !rdfa.states[i].reports_eod.empty()) {
+            DEBUG_PRINTF("accept raw state: %ld\n", i);
+            accepts.insert(i);
+        }
+    }
+}
 } // namespace
 
 static
@@ -151,6 +198,11 @@ void markEdges(NFA *n, u16 *succ_table, const dfa_info &info) {
         for (size_t j = 0; j < alphaSize; j++) {
             size_t c_prime = (i << alphaShift) + j;
 
+            // wide state has no aux structure.
+            if (m->has_wide && succ_table[c_prime] >= m->wide_limit) {
+                continue;
+            }
+
             mstate_aux *aux = getAux(n, succ_table[c_prime]);
 
             if (aux->accept) {
@@ -165,7 +217,8 @@ void markEdges(NFA *n, u16 *succ_table, const dfa_info &info) {
 
     /* handle the sherman states */
     char *sherman_base_offset = (char *)n + m->sherman_offset;
-    for (u16 j = m->sherman_limit; j < m->state_count; j++) {
+    u16 sherman_ceil = m->has_wide == 1 ? m->wide_limit : m->state_count;
+    for (u16 j = m->sherman_limit; j < sherman_ceil; j++) {
         char *sherman_cur
             = findMutableShermanState(sherman_base_offset, m->sherman_limit, j);
         assert(*(sherman_cur + SHERMAN_TYPE_OFFSET) == SHERMAN_STATE);
@@ -174,6 +227,11 @@ void markEdges(NFA *n, u16 *succ_table, const dfa_info &info) {
 
         for (u8 i = 0; i < len; i++) {
             u16 succ_i = unaligned_load_u16((u8 *)&succs[i]);
+            // wide state has no aux structure.
+            if (m->has_wide && succ_i >= m->wide_limit) {
+                continue;
+            }
+
             mstate_aux *aux = getAux(n, succ_i);
 
             if (aux->accept) {
@@ -185,6 +243,51 @@ void markEdges(NFA *n, u16 *succ_table, const dfa_info &info) {
             }
 
             unaligned_store_u16((u8 *)&succs[i], succ_i);
+        }
+    }
+
+    /* handle the wide states */
+    if (m->has_wide) {
+        u32 wide_limit = m->wide_limit;
+        char *wide_base = (char *)n + m->wide_offset;
+        assert(*wide_base == WIDE_STATE);
+        u16 wide_number = verify_u16(info.wide_symbol_chain.size());
+        // traverse over wide head states.
+        for (u16 j = wide_limit; j < wide_limit + wide_number; j++) {
+            char *wide_cur
+                = findMutableWideEntry16(wide_base, wide_limit, j);
+            u16 width = *(const u16 *)(wide_cur + WIDE_WIDTH_OFFSET);
+            u16 *trans = (u16 *)(wide_cur + WIDE_TRANSITION_OFFSET16(width));
+
+            // check successful transition
+            u16 next = unaligned_load_u16((u8 *)trans);
+            if (next < wide_limit) {
+                mstate_aux *aux = getAux(n, next);
+                if (aux->accept) {
+                    next |= ACCEPT_FLAG;
+                }
+                if (aux->accel_offset) {
+                    next |= ACCEL_FLAG;
+                }
+                unaligned_store_u16((u8 *)trans, next);
+            }
+            trans++;
+
+            // check failure transition
+            for (symbol_t k = 0; k < alphaSize; k++) {
+                u16 next_k = unaligned_load_u16((u8 *)&trans[k]);
+                if (next_k >= wide_limit) {
+                    continue;
+                }
+                mstate_aux *aux_k = getAux(n, next_k);
+                if (aux_k->accept) {
+                    next_k |= ACCEPT_FLAG;
+                }
+                if (aux_k->accel_offset) {
+                    next_k |= ACCEL_FLAG;
+                }
+                unaligned_store_u16((u8 *)&trans[k], next_k);
+            }
         }
     }
 }
@@ -232,6 +335,19 @@ void populateBasicInfo(size_t state_size, const dfa_info &info,
     m->start_anchored = info.implId(info.raw.start_anchored);
     m->start_floating = info.implId(info.raw.start_floating);
     m->has_accel = accel_count ? 1 : 0;
+    m->has_wide = info.wide_state_chain.size() > 0 ? 1 : 0;
+
+    if (state_size == sizeof(u8) && m->has_wide == 1) {
+        // allocate 1 more byte for wide state use.
+        nfa->scratchStateSize += sizeof(u8);
+        nfa->streamStateSize += sizeof(u8);
+    }
+
+    if (state_size == sizeof(u16) && m->has_wide == 1) {
+        // allocate 2 more bytes for wide state use.
+        nfa->scratchStateSize += sizeof(u16);
+        nfa->streamStateSize += sizeof(u16);
+    }
 
     if (single) {
         m->flags |= MCCLELLAN_FLAG_SINGLE;
@@ -405,6 +521,24 @@ size_t calcShermanRegionSize(const dfa_info &info) {
 }
 
 static
+size_t calcWideRegionSize(const dfa_info &info) {
+    if (info.wide_state_chain.empty()) {
+        return 0;
+    }
+
+    // wide info header
+    size_t rv = info.wide_symbol_chain.size() * sizeof(u32) + 4;
+
+    // wide info body
+    for (const auto &chain : info.wide_symbol_chain) {
+        rv += ROUNDUP_N(chain.size(), 2) +
+              (info.impl_alpha_size + 1) * sizeof(u16) + 2;
+    }
+
+    return ROUNDUP_16(rv);
+}
+
+static
 void fillInAux(mstate_aux *aux, dstate_id_t i, const dfa_info &info,
                const vector<u32> &reports, const vector<u32> &reports_eod,
                vector<u32> &reportOffsets) {
@@ -418,42 +552,60 @@ void fillInAux(mstate_aux *aux, dstate_id_t i, const dfa_info &info,
 
 /* returns false on error */
 static
-bool allocateFSN16(dfa_info &info, dstate_id_t *sherman_base) {
+bool allocateFSN16(dfa_info &info, dstate_id_t *sherman_base,
+                   dstate_id_t *wide_limit) {
     info.states[0].impl_id = 0; /* dead is always 0 */
 
     vector<dstate_id_t> norm;
     vector<dstate_id_t> sherm;
+    vector<dstate_id_t> wideHead;
+    vector<dstate_id_t> wideState;
 
     if (info.size() > (1 << 16)) {
         DEBUG_PRINTF("too many states\n");
-        *sherman_base = 0;
+        *wide_limit = 0;
         return false;
     }
 
     for (u32 i = 1; i < info.size(); i++) {
-        if (info.is_sherman(i)) {
+        if (info.is_widehead(i)) {
+            wideHead.push_back(i);
+        } else if (info.is_widestate(i)) {
+            wideState.push_back(i);
+        } else if (info.is_sherman(i)) {
             sherm.push_back(i);
         } else {
             norm.push_back(i);
         }
     }
 
-    dstate_id_t next_norm = 1;
+    dstate_id_t next = 1;
     for (const dstate_id_t &s : norm) {
-        info.states[s].impl_id = next_norm++;
+        DEBUG_PRINTF("[norm] mapping state %u to %u\n", s, next);
+        info.states[s].impl_id = next++;
     }
 
-    *sherman_base = next_norm;
-    dstate_id_t next_sherman = next_norm;
-
+    *sherman_base = next;
     for (const dstate_id_t &s : sherm) {
-        info.states[s].impl_id = next_sherman++;
+        DEBUG_PRINTF("[sherm] mapping state %u to %u\n", s, next);
+        info.states[s].impl_id = next++;
+    }
+
+    *wide_limit = next;
+    for (const dstate_id_t &s : wideHead) {
+        DEBUG_PRINTF("[widehead] mapping state %u to %u\n", s, next);
+        info.states[s].impl_id = next++;
+    }
+
+    for (const dstate_id_t &s : wideState) {
+        DEBUG_PRINTF("[wide] mapping state %u to %u\n", s, next);
+        info.states[s].impl_id = next++;
     }
 
     /* Check to see if we haven't over allocated our states */
-    DEBUG_PRINTF("next sherman %u masked %u\n", next_sherman,
-                 (dstate_id_t)(next_sherman & STATE_MASK));
-    return (next_sherman - 1) == ((next_sherman - 1) & STATE_MASK);
+    DEBUG_PRINTF("next sherman %u masked %u\n", next,
+                 (dstate_id_t)(next & STATE_MASK));
+    return (next - 1) == ((next - 1) & STATE_MASK);
 }
 
 static
@@ -470,11 +622,15 @@ bytecode_ptr<NFA> mcclellanCompile16(dfa_info &info, const CompileContext &cc,
     assert(alphaShift <= 8);
 
     u16 count_real_states;
-    if (!allocateFSN16(info, &count_real_states)) {
+    u16 wide_limit;
+    if (!allocateFSN16(info, &count_real_states, &wide_limit)) {
         DEBUG_PRINTF("failed to allocate state numbers, %zu states total\n",
                      info.size());
         return nullptr;
     }
+
+    DEBUG_PRINTF("count_real_states: %d\n", count_real_states);
+    DEBUG_PRINTF("non_wide_states: %d\n", wide_limit);
 
     auto ri = info.strat.gatherReports(reports, reports_eod, &single, &arb);
     map<dstate_id_t, AccelScheme> accel_escape_info
@@ -483,7 +639,7 @@ bytecode_ptr<NFA> mcclellanCompile16(dfa_info &info, const CompileContext &cc,
     size_t tran_size = (1 << info.getAlphaShift())
         * sizeof(u16) * count_real_states;
 
-    size_t aux_size = sizeof(mstate_aux) * info.size();
+    size_t aux_size = sizeof(mstate_aux) * wide_limit;
 
     size_t aux_offset = ROUNDUP_16(sizeof(NFA) + sizeof(mcclellan) + tran_size);
     size_t accel_size = info.strat.accelSize() * accel_escape_info.size();
@@ -491,11 +647,23 @@ bytecode_ptr<NFA> mcclellanCompile16(dfa_info &info, const CompileContext &cc,
                                     + ri->getReportListSize(), 32);
     size_t sherman_offset = ROUNDUP_16(accel_offset + accel_size);
     size_t sherman_size = calcShermanRegionSize(info);
-
-    size_t total_size = sherman_offset + sherman_size;
+    size_t wide_offset = ROUNDUP_16(sherman_offset + sherman_size);
+    size_t wide_size = calcWideRegionSize(info);
+    size_t total_size = wide_offset + wide_size;
 
     accel_offset -= sizeof(NFA); /* adj accel offset to be relative to m */
     assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
+
+    DEBUG_PRINTF("aux_offset %zu\n", aux_offset);
+    DEBUG_PRINTF("aux_size %zu\n", aux_size);
+    DEBUG_PRINTF("rl size %u\n", ri->getReportListSize());
+    DEBUG_PRINTF("accel_offset %zu\n", accel_offset + sizeof(NFA));
+    DEBUG_PRINTF("accel_size %zu\n", accel_size);
+    DEBUG_PRINTF("sherman_offset %zu\n", sherman_offset);
+    DEBUG_PRINTF("sherman_size %zu\n", sherman_size);
+    DEBUG_PRINTF("wide_offset %zu\n", wide_offset);
+    DEBUG_PRINTF("wide_size %zu\n", wide_size);
+    DEBUG_PRINTF("total_size %zu\n", total_size);
 
     auto nfa = make_zeroed_bytecode_ptr<NFA>(total_size);
     char *nfa_base = (char *)nfa.get();
@@ -511,6 +679,9 @@ bytecode_ptr<NFA> mcclellanCompile16(dfa_info &info, const CompileContext &cc,
     mstate_aux *aux = (mstate_aux *)(nfa_base + aux_offset);
     mcclellan *m = (mcclellan *)getMutableImplNfa(nfa.get());
 
+    m->wide_limit = wide_limit;
+    m->wide_offset = wide_offset;
+
     /* copy in the mc header information */
     m->sherman_offset = sherman_offset;
     m->sherman_end = total_size;
@@ -518,7 +689,7 @@ bytecode_ptr<NFA> mcclellanCompile16(dfa_info &info, const CompileContext &cc,
 
     /* do normal states */
     for (size_t i = 0; i < info.size(); i++) {
-        if (info.is_sherman(i)) {
+        if (info.is_sherman(i) || info.is_widestate(i)) {
             continue;
         }
 
@@ -556,6 +727,7 @@ bytecode_ptr<NFA> mcclellanCompile16(dfa_info &info, const CompileContext &cc,
         mstate_aux *this_aux = getAux(nfa.get(), fs);
 
         assert(fs >= count_real_states);
+        assert(fs < wide_limit);
 
         char *curr_sherman_entry
             = sherman_table + (fs - m->sherman_limit) * SHERMAN_FIXED_SIZE;
@@ -596,6 +768,71 @@ bytecode_ptr<NFA> mcclellanCompile16(dfa_info &info, const CompileContext &cc,
                 unaligned_store_u16((u8 *)states++,
                                     info.implId(info.states[i].next[s]));
             }
+        }
+    }
+
+    if (!info.wide_state_chain.empty()) {
+        /* do wide states using info */
+        u16 wide_number = verify_u16(info.wide_symbol_chain.size());
+        char *wide_base = nfa_base + m->wide_offset;
+        assert(ISALIGNED_16(wide_base));
+
+        char *wide_top = wide_base;
+        *(u8 *)(wide_top++) = WIDE_STATE;
+        wide_top = ROUNDUP_PTR(wide_top, 2);
+        *(u16 *)(wide_top) = wide_number;
+        wide_top += 2;
+
+        char *curr_wide_entry = wide_top + wide_number * sizeof(u32);
+        u32 *wide_offset_list = (u32 *)wide_top;
+
+        /* get the order of writing wide states */
+        vector<size_t> order(wide_number);
+        for (size_t i = 0; i < wide_number; i++) {
+            dstate_id_t head = info.wide_state_chain[i].front();
+            size_t pos = info.implId(head) - m->wide_limit;
+            order[pos] = i;
+        }
+
+        for (size_t i : order) {
+            vector<dstate_id_t> &state_chain = info.wide_state_chain[i];
+            vector<symbol_t> &symbol_chain = info.wide_symbol_chain[i];
+
+            u16 width = verify_u16(symbol_chain.size());
+            *(u16 *)(curr_wide_entry + WIDE_WIDTH_OFFSET) = width;
+            u8 *chars = (u8 *)(curr_wide_entry + WIDE_SYMBOL_OFFSET16);
+
+            // store wide state symbol chain
+            for (size_t j = 0; j < width; j++) {
+                *(chars++) = verify_u8(symbol_chain[j]);
+            }
+
+            // store wide state transition table
+            u16 *trans = (u16 *)(curr_wide_entry
+                                + WIDE_TRANSITION_OFFSET16(width));
+            dstate_id_t tail = state_chain[width - 1];
+            symbol_t last = symbol_chain[width -1];
+            dstate_id_t tran = info.states[tail].next[last];
+            // 1. successful transition
+            *trans++ = info.implId(tran);
+            // 2. failure transition
+            for (size_t j = 0; verify_u16(j) < width - 1; j++) {
+                if (symbol_chain[j] != last) {
+                    tran = info.states[state_chain[j]].next[last];
+                }
+            }
+            for (symbol_t sym = 0; sym < info.impl_alpha_size; sym++) {
+                if (sym != last) {
+                    *trans++ = info.implId(info.states[tail].next[sym]);
+                }
+                else {
+                    *trans++ = info.implId(tran);
+                }
+            }
+
+            *wide_offset_list++ = verify_u32(curr_wide_entry - wide_base);
+
+            curr_wide_entry = (char *)trans;
         }
     }
 
@@ -844,12 +1081,16 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id, bool using8bit,
     if (trust_daddy_states) {
         // Use the daddy already set for this state so long as it isn't already
         // a Sherman state.
-        if (!info.is_sherman(currState.daddy)) {
+        dstate_id_t daddy = currState.daddy;
+        if (!info.is_sherman(daddy) && !info.is_widestate(daddy)) {
             hinted.insert(currState.daddy);
         } else {
             // Fall back to granddaddy, which has already been processed (due
             // to BFS ordering) and cannot be a Sherman state.
             dstate_id_t granddaddy = info.states[currState.daddy].daddy;
+            if (info.is_widestate(granddaddy)) {
+                return;
+            }
             assert(!info.is_sherman(granddaddy));
             hinted.insert(granddaddy);
         }
@@ -861,7 +1102,7 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id, bool using8bit,
         assert(donor < curr_id);
         u32 score = 0;
 
-        if (info.is_sherman(donor)) {
+        if (info.is_sherman(donor) || info.is_widestate(donor)) {
             continue;
         }
 
@@ -934,6 +1175,290 @@ bool is_cyclic_near(const raw_dfa &raw, dstate_id_t root) {
     return false;
 }
 
+/* \brief Test for only-one-predecessor property. */
+static
+bool check_property1(const DfaPrevInfo &info, const u16 impl_alpha_size,
+                     const dstate_id_t curr_id, dstate_id_t &prev_id,
+                     symbol_t &prev_sym) {
+    u32 num_prev = 0;
+    bool test_p1 = false;
+
+    for (symbol_t sym = 0; sym < impl_alpha_size; sym++) {
+        num_prev += info.states[curr_id].prev_vec[sym].size();
+        DEBUG_PRINTF("Check symbol: %u, with its vector size: %lu\n", sym,
+                     info.states[curr_id].prev_vec[sym].size());
+        if (num_prev == 1 && !test_p1) {
+            test_p1 = true;
+            prev_id = info.states[curr_id].prev_vec[sym].front(); //[0] for sure???
+            prev_sym = sym;
+        }
+    }
+
+    return num_prev == 1;
+}
+
+/* \brief Test for same-failure-action property. */
+static
+bool check_property2(const raw_dfa &rdfa, const u16 impl_alpha_size,
+                     const dstate_id_t curr_id, const dstate_id_t prev_id,
+                     const symbol_t curr_sym, const symbol_t prev_sym) {
+    const dstate &prevState = rdfa.states[prev_id];
+    const dstate &currState = rdfa.states[curr_id];
+
+    // Compare transition tables between currState and prevState.
+    u16 score = 0;
+    for (symbol_t sym = 0; sym < impl_alpha_size; sym++) {
+        if (currState.next[sym] == prevState.next[sym]
+            && sym != curr_sym && sym != prev_sym) {
+            score++;
+        }
+    }
+    DEBUG_PRINTF("(Score: %u/%u)\n", score, impl_alpha_size);
+
+    // 2 cases.
+    if (curr_sym != prev_sym && score >= impl_alpha_size - 2
+        && currState.next[prev_sym] == prevState.next[curr_sym]) {
+        return true;
+    } else if (curr_sym == prev_sym && score == impl_alpha_size - 1) {
+        return true;
+    }
+    return false;
+}
+
+/* \brief Check whether adding current prev_id will generate a circle.*/
+static
+bool check_circle(const DfaPrevInfo &info, const u16 impl_alpha_size,
+                  const vector<dstate_id_t> &chain, const dstate_id_t id) {
+    const vector<vector<dstate_id_t>> &prev_vec = info.states[id].prev_vec;
+    const dstate_id_t tail = chain.front();
+    for (symbol_t sym = 0; sym < impl_alpha_size; sym++) {
+        auto iter = find(prev_vec[sym].begin(), prev_vec[sym].end(), tail);
+        if (iter != prev_vec[sym].end()) {
+            // Tail is one of id's predecessors, forming a circle.
+            return true;
+        }
+    }
+    return false;
+}
+
+/* \brief Returns a chain of state ids and symbols. */
+static
+dstate_id_t find_chain_candidate(const raw_dfa &rdfa, const DfaPrevInfo &info,
+                                 const dstate_id_t curr_id,
+                                 const symbol_t curr_sym,
+                                 vector<dstate_id_t> &temp_chain) {
+    //Record current id first.
+    temp_chain.push_back(curr_id);
+
+    const u16 size = info.impl_alpha_size;
+
+    // Stop when entering root cloud.
+    if (rdfa.start_anchored != DEAD_STATE
+        && is_cyclic_near(rdfa, rdfa.start_anchored)
+        && curr_id < size) {
+       return curr_id;
+    }
+    if (rdfa.start_floating != DEAD_STATE
+        && curr_id >= rdfa.start_floating
+        && curr_id < rdfa.start_floating + size * 3) {
+        return curr_id;
+    }
+
+    // Stop when reaching anchored or floating.
+    if (curr_id == rdfa.start_anchored || curr_id == rdfa.start_floating) {
+        return curr_id;
+    }
+
+    dstate_id_t prev_id = 0;
+    symbol_t prev_sym = ALPHABET_SIZE;
+
+    // Check the only-one-predecessor property.
+    if (!check_property1(info, size, curr_id, prev_id, prev_sym)) {
+        return curr_id;
+    }
+    assert(prev_id != 0 && prev_sym != ALPHABET_SIZE);
+    DEBUG_PRINTF("(P1 test passed.)\n");
+
+    // Circle testing for the prev_id that passes the P1 test.
+    if (check_circle(info, size, temp_chain, prev_id)) {
+        DEBUG_PRINTF("(A circle is found.)\n");
+        return curr_id;
+    }
+
+    // Check the same-failure-action property.
+    if (!check_property2(rdfa, size, curr_id, prev_id, curr_sym, prev_sym)) {
+        return curr_id;
+    }
+    DEBUG_PRINTF("(P2 test passed.)\n");
+
+    if (!rdfa.states[prev_id].reports.empty()
+        || !rdfa.states[prev_id].reports_eod.empty()) {
+        return curr_id;
+    } else {
+        return find_chain_candidate(rdfa, info, prev_id, prev_sym, temp_chain);
+    }
+}
+
+/* \brief Always store the non-extensible chains found till now. */
+static
+bool store_chain_longest(vector<vector<dstate_id_t>> &candidate_chain,
+                         vector<dstate_id_t> &temp_chain,
+                         dynamic_bitset<> &added, bool head_is_new) {
+    dstate_id_t head = temp_chain.front();
+    u16 length = temp_chain.size();
+
+    if (head_is_new) {
+        DEBUG_PRINTF("This is a new chain!\n");
+
+        // Add this new chain and get it marked.
+        candidate_chain.push_back(temp_chain);
+
+        for (auto &id : temp_chain) {
+            DEBUG_PRINTF("(Marking s%u ...)\n", id);
+            added.set(id);
+        }
+
+        return true;
+    }
+
+    DEBUG_PRINTF("This is a longer chain!\n");
+    assert(!candidate_chain.empty());
+
+    auto chain = find_if(candidate_chain.begin(), candidate_chain.end(),
+                         [&](const vector<dstate_id_t> &it) {
+                            return it.front() == head;
+                         });
+
+    // Not a valid head, just do nothing and return.
+    if (chain == candidate_chain.end()) {
+        return false;
+    }
+
+    u16 len = chain->size();
+
+    if (length > len) {
+        // Find out the branch node first.
+        size_t piv = 0;
+        for (; piv < length; piv++) {
+            if ((*chain)[piv] != temp_chain[piv]) {
+                break;
+            }
+        }
+
+        for (size_t j = piv + 1; j < length; j++) {
+            DEBUG_PRINTF("(Marking s%u (new branch) ...)\n", temp_chain[j]);
+            added.set(temp_chain[j]);
+        }
+
+        // Unmark old unuseful nodes.
+        // (Except the tail node, which is in working queue)
+        for (size_t j = piv + 1; j < verify_u16(len - 1); j++) {
+            DEBUG_PRINTF("(UnMarking s%u (old branch)...)\n", (*chain)[j]);
+            added.reset((*chain)[j]);
+        }
+
+        chain->assign(temp_chain.begin(), temp_chain.end());
+    }
+
+    return false;
+}
+
+/* \brief Generate wide_symbol_chain from wide_state_chain. */
+static
+void generate_symbol_chain(dfa_info &info, vector<symbol_t> &chain_tail) {
+    raw_dfa &rdfa = info.raw;
+    assert(chain_tail.size() == info.wide_state_chain.size());
+
+    for (size_t i = 0; i < info.wide_state_chain.size(); i++) {
+        vector<dstate_id_t> &state_chain = info.wide_state_chain[i];
+        vector<symbol_t> symbol_chain;
+
+        info.extra[state_chain[0]].wideHead = true;
+        size_t width = state_chain.size() - 1;
+
+        for (size_t j = 0; j < width; j++) {
+            dstate_id_t curr_id = state_chain[j];
+            dstate_id_t next_id = state_chain[j + 1];
+
+            // The last state of the chain doesn't belong to a wide state.
+            info.extra[curr_id].wideState = true;
+
+            // The tail symbol comes from vector chain_tail;
+            if (j == width - 1) {
+                symbol_chain.push_back(chain_tail[i]);
+            } else {
+                for (symbol_t sym = 0; sym < info.impl_alpha_size; sym++) {
+                    if (rdfa.states[curr_id].next[sym] == next_id) {
+                        symbol_chain.push_back(sym);
+                        break;
+                    }
+                }
+            }
+        }
+
+        info.wide_symbol_chain.push_back(symbol_chain);
+    }
+}
+
+/* \brief Find potential regions of states to be packed into wide states. */
+static
+void find_wide_state(dfa_info &info) {
+    DfaPrevInfo dinfo(info.raw);
+    queue<dstate_id_t> work_queue;
+
+    dynamic_bitset<> added(info.raw.states.size());
+    for (auto it : dinfo.accepts) {
+        work_queue.push(it);
+        added.set(it);
+    }
+
+    vector<symbol_t> chain_tail;
+    while (!work_queue.empty()) {
+        dstate_id_t curr_id = work_queue.front();
+        work_queue.pop();
+        DEBUG_PRINTF("Newly popped state: s%u\n", curr_id);
+
+        for (symbol_t sym = 0; sym < dinfo.impl_alpha_size; sym++) {
+            for (auto info_it : dinfo.states[curr_id].prev_vec[sym]) {
+                if (added.test(info_it)) {
+                    DEBUG_PRINTF("(s%u already marked.)\n", info_it);
+                    continue;
+                }
+
+                vector<dstate_id_t> temp_chain;
+                // Head is a state failing the test of the chain.
+                dstate_id_t head = find_chain_candidate(info.raw, dinfo,
+                                                        info_it, sym,
+                                                        temp_chain);
+
+                // A candidate chain should contain 8 substates at least.
+                if (temp_chain.size() < 8) {
+                    DEBUG_PRINTF("(Not enough substates, continue.)\n");
+                    continue;
+                }
+
+                bool head_is_new = !added.test(head);
+                if (head_is_new) {
+                    added.set(head);
+                    work_queue.push(head);
+                    DEBUG_PRINTF("Newly pushed state: s%u\n", head);
+                }
+
+                reverse(temp_chain.begin(), temp_chain.end());
+                temp_chain.push_back(curr_id);
+
+                assert(head > 0 && head == temp_chain.front());
+                if (store_chain_longest(info.wide_state_chain, temp_chain,
+                                        added, head_is_new)) {
+                    chain_tail.push_back(sym);
+                }
+            }
+        }
+    }
+
+    generate_symbol_chain(info, chain_tail);
+}
+
 bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
                                      const CompileContext &cc,
                                      bool trust_daddy_states,
@@ -952,11 +1477,19 @@ bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
 
     bytecode_ptr<NFA> nfa;
     if (!using8bit) {
+        if (cc.grey.allowWideStates && strat.getType() == McClellan
+            && !is_triggered(raw.kind)) {
+            find_wide_state(info);
+        }
+
         u16 total_daddy = 0;
         bool any_cyclic_near_anchored_state
             = is_cyclic_near(raw, raw.start_anchored);
 
         for (u32 i = 0; i < info.size(); i++) {
+            if (info.is_widestate(i)) {
+                continue;
+            }
             find_better_daddy(info, i, using8bit,
                               any_cyclic_near_anchored_state,
                               trust_daddy_states, cc.grey);

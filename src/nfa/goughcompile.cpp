@@ -91,6 +91,7 @@ public:
     void buildAccel(dstate_id_t this_idx, const AccelScheme &info,
                     void *accel_out) override;
     u32 max_allowed_offset_accel() const override { return 0; }
+    DfaType getType() const override { return Gough; }
 
     raw_som_dfa &rdfa;
     const GoughGraph &gg;

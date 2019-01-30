@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -340,7 +340,14 @@ public:
     std::pair<u32, bool> insert(const rose_literal_id &lit) {
         auto it = lits_index.find(lit);
         if (it != lits_index.end()) {
-            return {it->second, false};
+            u32 idx = it->second;
+            auto &l = lits.at(idx);
+            if (!lit.s.get_pure() && l.s.get_pure()) {
+                lits_index.erase(l);
+                l.s.unset_pure();
+                lits_index.emplace(l, idx);
+            }
+            return {idx, false};
         }
         u32 id = verify_u32(lits.size());
         lits.push_back(lit);

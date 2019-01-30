@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -807,6 +807,9 @@ void findIncludedLits(vector<hwlmLiteral> &lits,
         for (size_t i = 0; i < cnt; i++) {
             u32 bucket1 = group[i].first;
             u32 id1 = group[i].second;
+            if (lits[id1].pure) {
+                continue;
+            }
             buildSquashMask(lits, id1, bucket1, i + 1, group, parent_map,
                             exception_map);
         }
