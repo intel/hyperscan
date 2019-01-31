@@ -64,7 +64,7 @@ libpcre are supported. The use of unsupported constructs will result in
 compilation errors.
 
 The version of PCRE used to validate Hyperscan's interpretation of this syntax
-is 8.41.
+is 8.41 or above.
 
 ====================
 Supported Constructs
