@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -167,9 +167,68 @@ u32 doNormal16(const struct mcclellan *m, const u8 **c_inout, const u8 *end,
 }
 
 static really_inline
-char mcclellanExec16_i(const struct mcclellan *m, u32 *state, const u8 *buf,
-                       size_t len, u64a offAdj, NfaCallback cb, void *ctxt,
-                       char single, const u8 **c_final, enum MatchMode mode) {
+u32 doNormalWide16(const struct mcclellan *m, const u8 **c_inout,
+                   const u8 *end, u32 s, char *qstate, u16 *offset,
+                   char do_accel, enum MatchMode mode) {
+    const u8 *c = *c_inout;
+
+    u32 wide_limit = m->wide_limit;
+    const char *wide_base
+        = (const char *)m - sizeof(struct NFA) + m->wide_offset;
+
+    const u16 *succ_table
+        = (const u16 *)((const char *)m + sizeof(struct mcclellan));
+    assert(ISALIGNED_N(succ_table, 2));
+    u32 sherman_base = m->sherman_limit;
+    const char *sherman_base_offset
+        = (const char *)m - sizeof(struct NFA) + m->sherman_offset;
+    u32 as = m->alphaShift;
+
+    s &= STATE_MASK;
+
+    while (c < end && s) {
+        u8 cprime = m->remap[*c];
+        DEBUG_PRINTF("c: %02hhx '%c' cp:%02hhx (s=%u) &c: %p\n", *c,
+                     ourisprint(*c) ? *c : '?', cprime, s, c);
+
+        if (unlikely(s >= wide_limit)) {
+            const char *wide_entry
+                = findWideEntry16(m, wide_base, wide_limit, s);
+            DEBUG_PRINTF("doing wide head (%u)\n", s);
+            s = doWide16(wide_entry, &c, end, m->remap, (u16 *)&s, qstate,
+                         offset);
+        } else if (s >= sherman_base) {
+            const char *sherman_state
+                = findShermanState(m, sherman_base_offset, sherman_base, s);
+            DEBUG_PRINTF("doing sherman (%u)\n", s);
+            s = doSherman16(sherman_state, cprime, succ_table, as);
+        } else {
+            DEBUG_PRINTF("doing normal\n");
+            s = succ_table[(s << as) + cprime];
+        }
+
+        DEBUG_PRINTF("s: %u (%u)\n", s, s & STATE_MASK);
+        c++;
+
+        if (do_accel && (s & ACCEL_FLAG)) {
+            break;
+        }
+        if (mode != NO_MATCHES && (s & ACCEPT_FLAG)) {
+            break;
+        }
+
+        s &= STATE_MASK;
+    }
+
+    *c_inout = c;
+    return s;
+}
+
+static really_inline
+char mcclellanExec16_i(const struct mcclellan *m, u32 *state, char *qstate,
+                       const u8 *buf, size_t len, u64a offAdj, NfaCallback cb,
+                       void *ctxt, char single, const u8 **c_final,
+                       enum MatchMode mode) {
     assert(ISALIGNED_N(state, 2));
     if (!len) {
         if (mode == STOP_AT_MATCH) {
@@ -179,6 +238,7 @@ char mcclellanExec16_i(const struct mcclellan *m, u32 *state, const u8 *buf,
     }
 
     u32 s = *state;
+    u16 offset = 0;
     const u8 *c = buf;
     const u8 *c_end = buf + len;
     const struct mstate_aux *aux
@@ -207,7 +267,12 @@ without_accel:
             goto exit;
         }
 
-        s = doNormal16(m, &c, min_accel_offset, s, 0, mode);
+        if (unlikely(m->has_wide)) {
+            s = doNormalWide16(m, &c, min_accel_offset, s, qstate, &offset, 0,
+                               mode);
+        } else {
+            s = doNormal16(m, &c, min_accel_offset, s, 0, mode);
+        }
 
         if (mode != NO_MATCHES && (s & ACCEPT_FLAG)) {
             if (mode == STOP_AT_MATCH) {
@@ -259,7 +324,11 @@ with_accel:
             }
         }
 
-        s = doNormal16(m, &c, c_end, s, 1, mode);
+        if (unlikely(m->has_wide)) {
+            s = doNormalWide16(m, &c, c_end, s, qstate, &offset, 1, mode);
+        } else {
+            s = doNormal16(m, &c, c_end, s, 1, mode);
+        }
 
         if (mode != NO_MATCHES && (s & ACCEPT_FLAG)) {
             if (mode == STOP_AT_MATCH) {
@@ -297,44 +366,47 @@ exit:
 }
 
 static never_inline
-char mcclellanExec16_i_cb(const struct mcclellan *m, u32 *state, const u8 *buf,
-                          size_t len, u64a offAdj, NfaCallback cb, void *ctxt,
-                          char single, const u8 **final_point) {
-    return mcclellanExec16_i(m, state, buf, len, offAdj, cb, ctxt, single,
-                             final_point, CALLBACK_OUTPUT);
+char mcclellanExec16_i_cb(const struct mcclellan *m, u32 *state, char *qstate,
+                          const u8 *buf, size_t len, u64a offAdj,
+                          NfaCallback cb, void *ctxt, char single,
+                          const u8 **final_point) {
+    return mcclellanExec16_i(m, state, qstate, buf, len, offAdj, cb, ctxt,
+                             single, final_point, CALLBACK_OUTPUT);
 }
 
 static never_inline
-char mcclellanExec16_i_sam(const struct mcclellan *m, u32 *state, const u8 *buf,
-                           size_t len, u64a offAdj, NfaCallback cb, void *ctxt,
-                           char single, const u8 **final_point) {
-    return mcclellanExec16_i(m, state, buf, len, offAdj, cb, ctxt, single,
-                             final_point, STOP_AT_MATCH);
+char mcclellanExec16_i_sam(const struct mcclellan *m, u32 *state, char *qstate,
+                           const u8 *buf, size_t len, u64a offAdj,
+                           NfaCallback cb, void *ctxt, char single,
+                           const u8 **final_point) {
+    return mcclellanExec16_i(m, state, qstate, buf, len, offAdj, cb, ctxt,
+                             single, final_point, STOP_AT_MATCH);
 }
 
 static never_inline
-char mcclellanExec16_i_nm(const struct mcclellan *m, u32 *state, const u8 *buf,
-                          size_t len, u64a offAdj, NfaCallback cb, void *ctxt,
-                          char single, const u8 **final_point) {
-    return mcclellanExec16_i(m, state, buf, len, offAdj, cb, ctxt, single,
-                             final_point, NO_MATCHES);
+char mcclellanExec16_i_nm(const struct mcclellan *m, u32 *state, char *qstate,
+                          const u8 *buf, size_t len, u64a offAdj,
+                          NfaCallback cb, void *ctxt, char single,
+                          const u8 **final_point) {
+    return mcclellanExec16_i(m, state, qstate, buf, len, offAdj, cb, ctxt,
+                             single, final_point, NO_MATCHES);
 }
 
 static really_inline
-char mcclellanExec16_i_ni(const struct mcclellan *m, u32 *state, const u8 *buf,
-                          size_t len, u64a offAdj, NfaCallback cb, void *ctxt,
-                          char single, const u8 **final_point,
-                          enum MatchMode mode) {
+char mcclellanExec16_i_ni(const struct mcclellan *m, u32 *state, char *qstate,
+                          const u8 *buf, size_t len, u64a offAdj,
+                          NfaCallback cb, void *ctxt, char single,
+                          const u8 **final_point, enum MatchMode mode) {
     if (mode == CALLBACK_OUTPUT) {
-        return mcclellanExec16_i_cb(m, state, buf, len, offAdj, cb, ctxt,
-                                    single, final_point);
+        return mcclellanExec16_i_cb(m, state, qstate, buf, len, offAdj, cb,
+                                    ctxt, single, final_point);
     } else if (mode == STOP_AT_MATCH) {
-        return mcclellanExec16_i_sam(m, state, buf, len, offAdj, cb, ctxt,
-                                     single, final_point);
+        return mcclellanExec16_i_sam(m, state, qstate, buf, len, offAdj, cb,
+                                     ctxt, single, final_point);
     } else {
         assert(mode == NO_MATCHES);
-        return mcclellanExec16_i_nm(m, state, buf, len, offAdj, cb, ctxt,
-                                    single, final_point);
+        return mcclellanExec16_i_nm(m, state, qstate, buf, len, offAdj, cb,
+                                    ctxt, single, final_point);
     }
 }
 
@@ -540,6 +612,10 @@ char mcclellanCheckEOD(const struct NFA *nfa, u32 s, u64a offset,
     const struct mcclellan *m = getImplNfa(nfa);
     const struct mstate_aux *aux = get_aux(m, s);
 
+    if (m->has_wide == 1 && s >= m->wide_limit) {
+        return MO_CONTINUE_MATCHING;
+    }
+
     if (!aux->accept_eod) {
         return MO_CONTINUE_MATCHING;
     }
@@ -612,9 +688,9 @@ char nfaExecMcClellan16_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
 
         /* do main buffer region */
         const u8 *final_look;
-        char rv = mcclellanExec16_i_ni(m, &s, cur_buf + sp, local_ep - sp,
-                                      offset + sp, cb, context, single,
-                                      &final_look, mode);
+        char rv = mcclellanExec16_i_ni(m, &s, q->state, cur_buf + sp,
+                                       local_ep - sp, offset + sp, cb, context,
+                                       single, &final_look, mode);
         if (rv == MO_DEAD) {
             *(u16 *)q->state = 0;
             return MO_DEAD;
@@ -684,10 +760,14 @@ char nfaExecMcClellan16_Bi(const struct NFA *n, u64a offset, const u8 *buffer,
     const struct mcclellan *m = getImplNfa(n);
     u32 s = m->start_anchored;
 
-    if (mcclellanExec16_i(m, &s, buffer, length, offset, cb, context, single,
-                          NULL, CALLBACK_OUTPUT)
+    if (mcclellanExec16_i(m, &s, NULL, buffer, length, offset, cb, context,
+                          single, NULL, CALLBACK_OUTPUT)
         == MO_DEAD) {
         return s ? MO_ALIVE : MO_DEAD;
+    }
+
+    if (m->has_wide == 1 && s >= m->wide_limit) {
+        return MO_ALIVE;
     }
 
     const struct mstate_aux *aux = get_aux(m, s);
@@ -768,6 +848,7 @@ char nfaExecMcClellan8_Q2i(const struct NFA *n, u64a offset, const u8 *buffer,
         char rv = mcclellanExec8_i_ni(m, &s, cur_buf + sp, local_ep - sp,
                                      offset + sp, cb, context, single,
                                      &final_look, mode);
+
         if (rv == MO_HALT_MATCHING) {
             *(u8 *)q->state = 0;
             return MO_DEAD;
@@ -1016,7 +1097,8 @@ char nfaExecMcClellan16_inAccept(const struct NFA *n, ReportID report,
     u16 s = *(u16 *)q->state;
     DEBUG_PRINTF("checking accepts for %hu\n", s);
 
-    return mcclellanHasAccept(m, get_aux(m, s), report);
+    return (m->has_wide == 1 && s >= m->wide_limit) ?
+                0 : mcclellanHasAccept(m, get_aux(m, s), report);
 }
 
 char nfaExecMcClellan16_inAnyAccept(const struct NFA *n, struct mq *q) {
@@ -1026,7 +1108,8 @@ char nfaExecMcClellan16_inAnyAccept(const struct NFA *n, struct mq *q) {
     u16 s = *(u16 *)q->state;
     DEBUG_PRINTF("checking accepts for %hu\n", s);
 
-    return !!get_aux(m, s)->accept;
+    return (m->has_wide == 1 && s >= m->wide_limit) ?
+                0 : !!get_aux(m, s)->accept;
 }
 
 char nfaExecMcClellan8_Q2(const struct NFA *n, struct mq *q, s64a end) {
@@ -1111,6 +1194,12 @@ char nfaExecMcClellan16_initCompressedState(const struct NFA *nfa, u64a offset,
                                             void *state, UNUSED u8 key) {
     const struct mcclellan *m = getImplNfa(nfa);
     u16 s = offset ? m->start_floating : m->start_anchored;
+
+    // new byte
+    if (m->has_wide) {
+        unaligned_store_u16((u16 *)state + 1, 0);
+    }
+
     if (s) {
         unaligned_store_u16(state, s);
         return 1;
@@ -1140,14 +1229,24 @@ void nfaExecMcClellan16_SimpStream(const struct NFA *nfa, char *state,
                                    const u8 *buf, char top, size_t start_off,
                                    size_t len, NfaCallback cb, void *ctxt) {
     const struct mcclellan *m = getImplNfa(nfa);
+    u32 s;
 
-    u32 s = top ? m->start_anchored : unaligned_load_u16(state);
+    if (top) {
+        s = m->start_anchored;
+
+        // new byte
+        if (m->has_wide) {
+            unaligned_store_u16((u16 *)state + 1, 0);
+        }
+    } else {
+        s = unaligned_load_u16(state);
+    }
 
     if (m->flags & MCCLELLAN_FLAG_SINGLE) {
-        mcclellanExec16_i(m, &s, buf + start_off, len - start_off,
+        mcclellanExec16_i(m, &s, state, buf + start_off, len - start_off,
                           start_off, cb, ctxt, 1, NULL, CALLBACK_OUTPUT);
     } else {
-        mcclellanExec16_i(m, &s, buf + start_off, len - start_off,
+        mcclellanExec16_i(m, &s, state, buf + start_off, len - start_off,
                           start_off, cb, ctxt, 0, NULL, CALLBACK_OUTPUT);
     }
 
@@ -1178,9 +1277,16 @@ char nfaExecMcClellan8_queueInitState(UNUSED const struct NFA *nfa,
 
 char nfaExecMcClellan16_queueInitState(UNUSED const struct NFA *nfa,
                                        struct mq *q) {
-    assert(nfa->scratchStateSize == 2);
+    const struct mcclellan *m = getImplNfa(nfa);
+    assert(m->has_wide == 1 ? nfa->scratchStateSize == 4
+                            : nfa->scratchStateSize == 2);
     assert(ISALIGNED_N(q->state, 2));
     *(u16 *)q->state = 0;
+
+    // new byte
+    if (m->has_wide) {
+        unaligned_store_u16((u16 *)q->state + 1, 0);
+    }
     return 0;
 }
 
@@ -1206,21 +1312,39 @@ char nfaExecMcClellan8_expandState(UNUSED const struct NFA *nfa, void *dest,
 char nfaExecMcClellan16_queueCompressState(UNUSED const struct NFA *nfa,
                                            const struct mq *q,
                                            UNUSED s64a loc) {
+    const struct mcclellan *m = getImplNfa(nfa);
     void *dest = q->streamState;
     const void *src = q->state;
-    assert(nfa->scratchStateSize == 2);
-    assert(nfa->streamStateSize == 2);
+    assert(m->has_wide == 1 ? nfa->scratchStateSize == 4
+                            : nfa->scratchStateSize == 2);
+    assert(m->has_wide == 1 ? nfa->streamStateSize == 4
+                            : nfa->streamStateSize == 2);
+
     assert(ISALIGNED_N(src, 2));
     unaligned_store_u16(dest, *(const u16 *)(src));
+
+    // new byte
+    if (m->has_wide) {
+        unaligned_store_u16((u16 *)dest + 1, *((const u16 *)src + 1));
+    }
     return 0;
 }
 
 char nfaExecMcClellan16_expandState(UNUSED const struct NFA *nfa, void *dest,
                                     const void *src, UNUSED u64a offset,
                                     UNUSED u8 key) {
-    assert(nfa->scratchStateSize == 2);
-    assert(nfa->streamStateSize == 2);
+    const struct mcclellan *m = getImplNfa(nfa);
+    assert(m->has_wide == 1 ? nfa->scratchStateSize == 4
+                            : nfa->scratchStateSize == 2);
+    assert(m->has_wide == 1 ? nfa->streamStateSize == 4
+                            : nfa->streamStateSize == 2);
+
     assert(ISALIGNED_N(dest, 2));
     *(u16 *)dest = unaligned_load_u16(src);
+
+    // new byte
+    if (m->has_wide) {
+        *((u16 *)dest + 1) =  unaligned_load_u16((const u16 *)src + 1);
+    }
     return 0;
 }

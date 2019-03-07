@@ -61,6 +61,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <mutex>
 #include <queue>
 #include <string>

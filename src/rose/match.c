@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -238,7 +238,11 @@ hwlmcb_rv_t roseProcessMatchInline(const struct RoseEngine *t,
     assert(id && id < t->size); // id is an offset into bytecode
     const u64a som = 0;
     const u8 flags = 0;
-    return roseRunProgram_i(t, scratch, id, som, end, flags);
+    if (!scratch->pure) {
+        return roseRunProgram(t, scratch, id, som, end, flags);
+    } else {
+        return roseRunProgram_l(t, scratch, id, som, end, flags);
+    }
 }
 
 static rose_inline

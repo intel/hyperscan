@@ -2,6 +2,24 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [5.1.0] 2019-01-17
+- Improve DFA state compression by wide-state optimization to reduce bytecode
+  size.
+- Create specific interpreter runtime handling to boost the performance of pure
+  literal matching.
+- Optimize original presentation of interpreter (the "Rose" engine ) to
+  increase overall performance.
+- Bugfix for logical combinations: fix error reporting combination's match in
+  case of sub-expression has EOD match under streaming mode.
+- Bugfix for logical combinations: fix miss reporting combination's match under
+  vacuous input.
+- Bugfix for issue #104: fix compile error with Boost 1.68.0.
+- Bugfix for issue #127: avoid pcre error for hscollider with installed PCRE
+  package.
+- Update version of PCRE used by testing tools as a syntax and semantic
+  reference to PCRE 8.41 or above.
+- Fix github repo address in doc.
+
 ## [5.0.0] 2018-07-09
 - Introduce chimera hybrid engine of Hyperscan and PCRE, to fully support
   PCRE syntax as well as to take advantage of the high performance nature of

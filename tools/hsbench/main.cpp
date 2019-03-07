@@ -1065,6 +1065,9 @@ int HS_CDECL main(int argc, char *argv[]) {
     } catch (const SqlFailure &f) {
         cerr << f.message << '\n';
         return -1;
+    } catch (const std::runtime_error &e) {
+        cerr << "Internal error: " << e.what() << '\n';
+        return -1;
     }
 
     return 0;

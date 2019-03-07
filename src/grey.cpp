@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -82,6 +82,7 @@ Grey::Grey(void) :
                    onlyOneOutfix(false),
                    allowShermanStates(true),
                    allowMcClellan8(true),
+                   allowWideStates(true), // enable wide state for McClellan8
                    highlanderPruneDFA(true),
                    minimizeDFA(true),
                    accelerateDFA(true),
@@ -197,7 +198,15 @@ void applyGreyOverrides(Grey *g, const string &s) {
 
         string::const_iterator ve = find(ke, pe, ';');
 
-        unsigned int value = lexical_cast<unsigned int>(string(ke + 1, ve));
+        unsigned int value = 0;
+        try {
+            value = lexical_cast<unsigned int>(string(ke + 1, ve));
+        } catch (boost::bad_lexical_cast &e) {
+            printf("Invalid grey override key %s:%s\n", key.c_str(),
+                   string(ke + 1, ve).c_str());
+            invalid_key_seen = true;
+            break;
+        }
         bool done = false;
 
         /* surely there exists a nice template to go with this macro to make
@@ -251,6 +260,7 @@ void applyGreyOverrides(Grey *g, const string &s) {
         G_UPDATE(onlyOneOutfix);
         G_UPDATE(allowShermanStates);
         G_UPDATE(allowMcClellan8);
+        G_UPDATE(allowWideStates);
         G_UPDATE(highlanderPruneDFA);
         G_UPDATE(minimizeDFA);
         G_UPDATE(accelerateDFA);

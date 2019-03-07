@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -141,6 +141,7 @@ void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
     s->deduper.current_report_offset = ~0ULL;
     s->deduper.som_log_dirty = 1; /* som logs have not been cleared */
     s->fdr_conf = NULL;
+    s->pure = 0;
 
     // Rose program execution (used for some report paths) depends on these
     // values being initialised.
@@ -445,6 +446,7 @@ done_scan:
                                scratch);
     }
 
+set_retval:
     if (rose->flushCombProgramOffset) {
         if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
             unmarkScratchInUse(scratch);
@@ -452,7 +454,6 @@ done_scan:
         }
     }
 
-set_retval:
     DEBUG_PRINTF("done. told_to_stop_matching=%d\n",
                  told_to_stop_matching(scratch));
     hs_error_t rv = told_to_stop_matching(scratch) ? HS_SCAN_TERMINATED
@@ -934,12 +935,6 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
         }
     }
 
-    if (rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
-        if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
-            scratch->core_info.status |= STATUS_TERMINATED;
-        }
-    }
-
     setStreamStatus(state, scratch->core_info.status);
 
     if (likely(!can_stop_matching(scratch))) {
@@ -994,6 +989,13 @@ hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
         unmarkScratchInUse(scratch);
     }
 
+    if (id->rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
+        if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
+            == MO_HALT_MATCHING) {
+            scratch->core_info.status |= STATUS_TERMINATED;
+        }
+    }
+
     hs_stream_free(id);
 
     return HS_SUCCESS;
@@ -1017,6 +1019,13 @@ hs_error_t HS_CDECL hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
         }
         report_eod_matches(id, scratch, onEvent, context);
         unmarkScratchInUse(scratch);
+    }
+
+    if (id->rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
+        if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
+            == MO_HALT_MATCHING) {
+            scratch->core_info.status |= STATUS_TERMINATED;
+        }
     }
 
     // history already initialised

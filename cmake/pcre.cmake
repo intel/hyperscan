@@ -27,7 +27,7 @@ if (PCRE_BUILD_SOURCE)
 
     # first, check version number
     CHECK_C_SOURCE_COMPILES("#include <pcre.h.generic>
-    #if PCRE_MAJOR != ${PCRE_REQUIRED_MAJOR_VERSION} || PCRE_MINOR != ${PCRE_REQUIRED_MINOR_VERSION}
+    #if PCRE_MAJOR != ${PCRE_REQUIRED_MAJOR_VERSION} || PCRE_MINOR < ${PCRE_REQUIRED_MINOR_VERSION}
     #error Incorrect pcre version
     #endif
     main() {}" CORRECT_PCRE_VERSION)
@@ -35,10 +35,10 @@ if (PCRE_BUILD_SOURCE)
 
     if (NOT CORRECT_PCRE_VERSION)
         unset(CORRECT_PCRE_VERSION CACHE)
-        message(STATUS "Incorrect version of pcre - version ${PCRE_REQUIRED_VERSION} is required")
+        message(STATUS "Incorrect version of pcre - version ${PCRE_REQUIRED_VERSION} or above is required")
         return ()
     else()
-        message(STATUS "PCRE version ${PCRE_REQUIRED_VERSION} - building from source.")
+        message(STATUS "PCRE version ${PCRE_REQUIRED_VERSION} or above - building from source.")
     endif()
 
     # PCRE compile options
@@ -52,12 +52,12 @@ if (PCRE_BUILD_SOURCE)
 else ()
     # pkgconf should save us
     find_package(PkgConfig)
-    pkg_check_modules(PCRE libpcre=${PCRE_REQUIRED_VERSION})
+    pkg_check_modules(PCRE libpcre>=${PCRE_REQUIRED_VERSION})
     if (PCRE_FOUND)
         set(CORRECT_PCRE_VERSION TRUE)
-        message(STATUS "PCRE version ${PCRE_REQUIRED_VERSION}")
+        message(STATUS "PCRE version ${PCRE_REQUIRED_VERSION} or above")
     else ()
-        message(STATUS "PCRE version ${PCRE_REQUIRED_VERSION} not found")
+        message(STATUS "PCRE version ${PCRE_REQUIRED_VERSION} or above not found")
         return ()
     endif ()
 endif (PCRE_BUILD_SOURCE)
