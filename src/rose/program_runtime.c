@@ -2771,6 +2771,12 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                 work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
+
+            default: {
+                assert(0); // unreachable
+                scratch->core_info.status |= STATUS_ERROR;
+                return HWLM_TERMINATE_MATCHING;
+            }
         }
     }
 
@@ -3053,6 +3059,8 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
 
             default: {
                 assert(0); // unreachable
+                scratch->core_info.status |= STATUS_ERROR;
+                return HWLM_TERMINATE_MATCHING;
             }
         }
     }

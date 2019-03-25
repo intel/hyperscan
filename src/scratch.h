@@ -84,6 +84,9 @@ struct catchup_pq {
  * history. */
 #define STATUS_DELAY_DIRTY  (1U << 2)
 
+/** \brief Status flag: Unexpected Rose program error. */
+#define STATUS_ERROR        (1U << 3)
+
 /** \brief Core information about the current scan, used everywhere. */
 struct core_info {
     void *userContext; /**< user-supplied context */
@@ -229,7 +232,13 @@ char told_to_stop_matching(const struct hs_scratch *scratch) {
 
 static really_inline
 char can_stop_matching(const struct hs_scratch *scratch) {
-    return scratch->core_info.status & (STATUS_TERMINATED | STATUS_EXHAUSTED);
+    return scratch->core_info.status &
+           (STATUS_TERMINATED | STATUS_EXHAUSTED | STATUS_ERROR);
+}
+
+static really_inline
+char internal_matching_error(const struct hs_scratch *scratch) {
+    return scratch->core_info.status & STATUS_ERROR;
 }
 
 /**

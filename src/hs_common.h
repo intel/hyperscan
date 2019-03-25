@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -576,6 +576,16 @@ hs_error_t HS_CDECL hs_valid_platform(void);
  * call was successful.
  */
 #define HS_INSUFFICIENT_SPACE   (-12)
+
+/**
+ * Unexpected internal error.
+ *
+ * This error indicates that there was unexpected matching behaviors. This
+ * could be related to invalid usage of stream and scratch space or invalid memory
+ * operations by users.
+ *
+ */
+#define HS_UNKNOWN_ERROR   (-13)
 
 /** @} */
 
