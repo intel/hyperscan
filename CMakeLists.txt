@@ -110,6 +110,8 @@ option(BUILD_STATIC_AND_SHARED "Build shared libs as well as static" OFF)
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
         message(STATUS "Building shared libraries")
+else()
+        message(STATUS "Building static libraries")
 endif()
 
 if (NOT BUILD_SHARED_LIBS)
@@ -1292,12 +1294,14 @@ endif()
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
     if (NOT FAT_RUNTIME)
         add_library(hs_runtime_shared SHARED src/hs_version.c
-            src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec_shared>)
+            src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec_shared>
+            hs_runtime.def)
     else()
         add_library(hs_runtime_shared SHARED src/hs_version.c
             src/hs_valid_platform.c
             $<TARGET_OBJECTS:hs_exec_common_shared>
-            ${RUNTIME_SHLIBS})
+            ${RUNTIME_SHLIBS}
+            hs_runtime.def)
     endif()
     set_target_properties(hs_runtime_shared PROPERTIES
         VERSION ${LIB_VERSION}
@@ -1343,7 +1347,7 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
             ${RUNTIME_SHLIBS})
     endif ()
 
-    add_library(hs_shared SHARED ${hs_shared_SRCS})
+    add_library(hs_shared SHARED ${hs_shared_SRCS} hs.def)
 
     add_dependencies(hs_shared ragel_Parser)
     set_target_properties(hs_shared PROPERTIES
