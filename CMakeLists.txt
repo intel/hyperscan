@@ -109,11 +109,7 @@ option(BUILD_SHARED_LIBS "Build shared libs instead of static" OFF)
 option(BUILD_STATIC_AND_SHARED "Build shared libs as well as static" OFF)
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
-    if (WIN32)
-        message(FATAL_ERROR "Windows DLLs currently not supported")
-    else()
         message(STATUS "Building shared libraries")
-    endif()
 endif()
 
 if (NOT BUILD_SHARED_LIBS)

@@ -30,10 +30,15 @@
 #define HS_COMMON_H_
 
 #if defined(_WIN32)
-#define HS_CDECL    __cdecl
+#if defined(hs_shared_EXPORTS) || defined(hs_runtime_shared_EXPORTS)
+#define HS_CDECL   __cdecl  __declspec(dllexport)
+#else
+#define HS_CDECL   __cdecl  __declspec(dllimport)
+#endif
 #else
 #define HS_CDECL
 #endif
+
 #include <stdlib.h>
 
 /**
