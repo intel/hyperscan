@@ -458,6 +458,10 @@ set_retval:
     if (rose->flushCombProgramOffset) {
         if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
             unmarkScratchInUse(scratch);
+            if (unlikely(internal_matching_error(scratch))) {
+                return HS_UNKNOWN_ERROR;
+            }
+
             return HS_SCAN_TERMINATED;
         }
     }
@@ -1011,6 +1015,10 @@ hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
         if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
             == MO_HALT_MATCHING) {
             scratch->core_info.status |= STATUS_TERMINATED;
+            unmarkScratchInUse(scratch);
+            if (unlikely(internal_matching_error(scratch))) {
+                return HS_UNKNOWN_ERROR;
+            }
         }
     }
 
@@ -1046,6 +1054,10 @@ hs_error_t HS_CDECL hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
         if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
             == MO_HALT_MATCHING) {
             scratch->core_info.status |= STATUS_TERMINATED;
+            unmarkScratchInUse(scratch);
+            if (unlikely(internal_matching_error(scratch))) {
+                return HS_UNKNOWN_ERROR;
+            }
         }
     }
 
