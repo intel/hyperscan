@@ -31,6 +31,7 @@ else()
 endif()
 
 if(CMAKE_BUILD_TYPE MATCHES RELEASE|RELWITHDEBINFO|MINSIZEREL)
+    message(STATUS "using release build")
     set(RELEASE_BUILD TRUE)
 else()
     set(RELEASE_BUILD FALSE)
@@ -109,11 +110,9 @@ option(BUILD_SHARED_LIBS "Build shared libs instead of static" OFF)
 option(BUILD_STATIC_AND_SHARED "Build shared libs as well as static" OFF)
 
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
-    if (WIN32)
-        message(FATAL_ERROR "Windows DLLs currently not supported")
-    else()
         message(STATUS "Building shared libraries")
-    endif()
+else()
+        message(STATUS "Building static libraries")
 endif()
 
 if (NOT BUILD_SHARED_LIBS)
@@ -151,9 +150,6 @@ if(MSVC OR MSVC_IDE)
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /O3 /Qstd=c99 /Qrestrict /wd4267 /Qdiag-disable:remark")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /Qstd=c++11 /Qrestrict /QxHost /wd4267 /wd4800 /Qdiag-disable:remark -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
         else()
-            # todo: change these as required
-            set(ARCH_C_FLAGS "/arch:AVX2")
-            set(ARCH_CXX_FLAGS "/arch:AVX2")
             set(MSVC_WARNS "/wd4101 /wd4146 /wd4172 /wd4200 /wd4244 /wd4267 /wd4307 /wd4334 /wd4805 /wd4996 -D_CRT_SECURE_NO_WARNINGS")
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  /O2 ${MSVC_WARNS}")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 ${MSVC_WARNS} /wd4800 -DBOOST_DETAIL_NO_CONTAINER_FWD")
@@ -1298,12 +1294,14 @@ endif()
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
     if (NOT FAT_RUNTIME)
         add_library(hs_runtime_shared SHARED src/hs_version.c
-            src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec_shared>)
+            src/hs_valid_platform.c $<TARGET_OBJECTS:hs_exec_shared>
+            hs_runtime.def)
     else()
         add_library(hs_runtime_shared SHARED src/hs_version.c
             src/hs_valid_platform.c
             $<TARGET_OBJECTS:hs_exec_common_shared>
-            ${RUNTIME_SHLIBS})
+            ${RUNTIME_SHLIBS}
+            hs_runtime.def)
     endif()
     set_target_properties(hs_runtime_shared PROPERTIES
         VERSION ${LIB_VERSION}
@@ -1349,7 +1347,7 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
             ${RUNTIME_SHLIBS})
     endif ()
 
-    add_library(hs_shared SHARED ${hs_shared_SRCS})
+    add_library(hs_shared SHARED ${hs_shared_SRCS} hs.def)
 
     add_dependencies(hs_shared ragel_Parser)
     set_target_properties(hs_shared PROPERTIES
