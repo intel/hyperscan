@@ -455,8 +455,9 @@ set_retval:
         return HS_UNKNOWN_ERROR;
     }
 
-    if (rose->flushCombProgramOffset) {
-        if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
+    if (rose->lastFlushCombProgramOffset) {
+        if (roseRunLastFlushCombProgram(rose, scratch, length)
+            == MO_HALT_MATCHING) {
             if (unlikely(internal_matching_error(scratch))) {
                 unmarkScratchInUse(scratch);
                 return HS_UNKNOWN_ERROR;
@@ -698,8 +699,9 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
         }
     }
 
-    if (rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
-        if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
+    if (rose->lastFlushCombProgramOffset && !told_to_stop_matching(scratch)) {
+        if (roseRunLastFlushCombProgram(rose, scratch, id->offset)
+            == MO_HALT_MATCHING) {
             DEBUG_PRINTF("told to stop matching\n");
             scratch->core_info.status |= STATUS_TERMINATED;
         }
@@ -1000,29 +1002,20 @@ hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
 
     if (onEvent) {
         if (!scratch || !validScratch(id->rose, scratch)) {
+            hs_stream_free(id);
             return HS_INVALID;
         }
         if (unlikely(markScratchInUse(scratch))) {
+            hs_stream_free(id);
             return HS_SCRATCH_IN_USE;
         }
         report_eod_matches(id, scratch, onEvent, context);
         if (unlikely(internal_matching_error(scratch))) {
             unmarkScratchInUse(scratch);
+            hs_stream_free(id);
             return HS_UNKNOWN_ERROR;
         }
         unmarkScratchInUse(scratch);
-    }
-
-    if (id->rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
-        if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
-            == MO_HALT_MATCHING) {
-            scratch->core_info.status |= STATUS_TERMINATED;
-            if (unlikely(internal_matching_error(scratch))) {
-                unmarkScratchInUse(scratch);
-                return HS_UNKNOWN_ERROR;
-            }
-            unmarkScratchInUse(scratch);
-        }
     }
 
     hs_stream_free(id);
@@ -1052,18 +1045,6 @@ hs_error_t HS_CDECL hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
             return HS_UNKNOWN_ERROR;
         }
         unmarkScratchInUse(scratch);
-    }
-
-    if (id->rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
-        if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
-            == MO_HALT_MATCHING) {
-            scratch->core_info.status |= STATUS_TERMINATED;
-            if (unlikely(internal_matching_error(scratch))) {
-                unmarkScratchInUse(scratch);
-                return HS_UNKNOWN_ERROR;
-            }
-            unmarkScratchInUse(scratch);
-        }
     }
 
     // history already initialised

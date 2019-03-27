@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -426,6 +426,8 @@ struct RoseEngine {
 
     u32 eodProgramOffset; //!< EOD program, otherwise 0.
     u32 flushCombProgramOffset; /**< FlushCombination program, otherwise 0 */
+    u32 lastFlushCombProgramOffset; /**< LastFlushCombination program,
+                                     * otherwise 0 */
 
     u32 lastByteHistoryIterOffset; // if non-zero
 

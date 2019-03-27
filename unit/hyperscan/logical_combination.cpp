@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Intel Corporation
+ * Copyright (c) 2018-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -689,6 +689,116 @@ TEST(LogicalCombination, MultiCombQuietUniSub5) {
     ASSERT_EQ(MatchRecord(253, 305), c.matches[27]);
     ASSERT_EQ(MatchRecord(253, 1003), c.matches[28]);
     ASSERT_EQ(MatchRecord(258, 1003), c.matches[29]);
+
+    hs_free_database(db);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+}
+
+TEST(LogicalCombination, SingleCombPurelyNegative6) {
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *compile_err = nullptr;
+    CallBackContext c;
+    string data = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+    const char *expr[] = {"abc", "def", "foobar.*gh", "teakettle{4,10}",
+                          "ijkl[mMn]", "(!201 | 202 & 203) & (!204 | 205)"};
+    unsigned flags[] = {0, 0, 0, 0, 0, HS_FLAG_COMBINATION};
+    unsigned ids[] = {201, 202, 203, 204, 205, 1002};
+    hs_error_t err = hs_compile_multi(expr, flags, ids, 6, HS_MODE_NOSTREAM,
+                                      nullptr, &db, &compile_err);
+
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(db != nullptr);
+
+    hs_scratch_t *scratch = nullptr;
+    err = hs_alloc_scratch(db, &scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(scratch != nullptr);
+
+    c.halt = 0;
+    err = hs_scan(db, data.c_str(), data.size(), 0, scratch, record_cb,
+                  (void *)&c);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_EQ(1U, c.matches.size());
+    ASSERT_EQ(MatchRecord(53, 1002), c.matches[0]);
+
+    hs_free_database(db);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+}
+
+TEST(LogicalCombination, SingleCombQuietPurelyNegative6) {
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *compile_err = nullptr;
+    CallBackContext c;
+    string data = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+    const char *expr[] = {"abc", "def", "foobar.*gh", "teakettle{4,10}",
+                          "ijkl[mMn]", "(!201 | 202 & 203) & (!204 | 205)"};
+    unsigned flags[] = {0, 0, 0, 0, 0, HS_FLAG_COMBINATION | HS_FLAG_QUIET};
+    unsigned ids[] = {201, 202, 203, 204, 205, 1002};
+    hs_error_t err = hs_compile_multi(expr, flags, ids, 6, HS_MODE_NOSTREAM,
+                                      nullptr, &db, &compile_err);
+
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(db != nullptr);
+
+    hs_scratch_t *scratch = nullptr;
+    err = hs_alloc_scratch(db, &scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(scratch != nullptr);
+
+    c.halt = 0;
+    err = hs_scan(db, data.c_str(), data.size(), 0, scratch, record_cb,
+                  (void *)&c);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_EQ(0U, c.matches.size());
+
+    hs_free_database(db);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+}
+
+TEST(LogicalCombination, MultiCombPurelyNegativeUniSub6) {
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *compile_err = nullptr;
+    CallBackContext c;
+    string data = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  "-----------------------------------------------"
+                  "xxxfedxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  "-----------------------------------------------"
+                  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  "------------------------------------------";
+    const char *expr[] = {"abc", "def", "foobar.*gh", "teakettle{4,10}",
+                          "ijkl[mMn]", "cba", "fed", "google.*cn",
+                          "haystacks{4,8}", "ijkl[oOp]", "cab", "fee",
+                          "goobar.*jp", "shockwave{4,6}", "ijkl[rRs]",
+                          "(101 & 102 & 103) | (!104 & !105)",
+                          "(!201 | 202 & 203) & (!204 | 205)",
+                          "((301 | 302) & 303) & (304 | 305)"};
+    unsigned flags[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        HS_FLAG_COMBINATION, HS_FLAG_COMBINATION,
+                        HS_FLAG_COMBINATION};
+    unsigned ids[] = {101, 102, 103, 104, 105, 201, 202, 203, 204, 205, 301,
+                      302, 303, 304, 305, 1001, 1002, 1003};
+    hs_error_t err = hs_compile_multi(expr, flags, ids, 18, HS_MODE_NOSTREAM,
+                                      nullptr, &db, &compile_err);
+
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(db != nullptr);
+
+    hs_scratch_t *scratch = nullptr;
+    err = hs_alloc_scratch(db, &scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(scratch != nullptr);
+
+    c.halt = 0;
+    err = hs_scan(db, data.c_str(), data.size(), 0, scratch, record_cb,
+                  (void *)&c);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_EQ(3U, c.matches.size());
+    ASSERT_EQ(MatchRecord(106, 202), c.matches[0]);
+    ASSERT_EQ(MatchRecord(106, 1002), c.matches[1]);
+    ASSERT_EQ(MatchRecord(300, 1001), c.matches[2]);
 
     hs_free_database(db);
     err = hs_free_scratch(scratch);

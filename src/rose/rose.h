@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -55,5 +55,8 @@ int roseRunBoundaryProgram(const struct RoseEngine *rose, u32 program,
 
 int roseRunFlushCombProgram(const struct RoseEngine *rose,
                             struct hs_scratch *scratch, u64a end);
+
+int roseRunLastFlushCombProgram(const struct RoseEngine *rose,
+                                struct hs_scratch *scratch, u64a end);
 
 #endif // ROSE_H

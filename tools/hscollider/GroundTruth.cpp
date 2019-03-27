@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -557,6 +557,46 @@ char isLogicalCombination(vector<char> &lv, const vector<LogicalOp> &comb,
     return lv[result];
 }
 
+/** \brief Returns 1 if combination matches when no sub-expression matches. */
+static
+char isPurelyNegativeMatch(vector<char> &lv, const vector<LogicalOp> &comb,
+                           size_t lkeyCount, unsigned start, unsigned result) {
+    assert(start <= result);
+    for (unsigned i = start; i <= result; i++) {
+        const LogicalOp &op = comb[i - lkeyCount];
+        assert(i == op.id);
+        switch (op.op) {
+        case LOGICAL_OP_NOT:
+            if ((op.ro < lkeyCount) && lv[op.ro]) {
+                // sub-expression not negative
+                return 0;
+            }
+            lv[op.id] = !lv[op.ro];
+            break;
+        case LOGICAL_OP_AND:
+            if (((op.lo < lkeyCount) && lv[op.lo]) ||
+                ((op.ro < lkeyCount) && lv[op.ro])) {
+                // sub-expression not negative
+                return 0;
+            }
+            lv[op.id] = lv[op.lo] & lv[op.ro]; // &&
+            break;
+        case LOGICAL_OP_OR:
+            if (((op.lo < lkeyCount) && lv[op.lo]) ||
+                ((op.ro < lkeyCount) && lv[op.ro])) {
+                // sub-expression not negative
+                return 0;
+            }
+            lv[op.id] = lv[op.lo] | lv[op.ro]; // ||
+            break;
+        default:
+            assert(0);
+            break;
+        }
+    }
+    return lv[result];
+}
+
 bool GroundTruth::run(unsigned, const CompiledPcre &compiled,
                       const string &buffer, ResultSet &rs, string &error) {
     if (compiled.quiet) {
@@ -614,6 +654,13 @@ bool GroundTruth::run(unsigned, const CompiledPcre &compiled,
                         rs.addMatch(mr.from, mr.to);
                     }
                 }
+            }
+        }
+        if (isPurelyNegativeMatch(lv, comb, m_lkey.size(),
+                                  li.start, li.result)) {
+            u64a to = buffer.length();
+            if ((to >= compiled.min_offset) && (to <= compiled.max_offset)) {
+                rs.addMatch(0, to);
             }
         }
         return true;

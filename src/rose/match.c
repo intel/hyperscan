@@ -591,6 +591,23 @@ int roseRunFlushCombProgram(const struct RoseEngine *rose,
     return MO_CONTINUE_MATCHING;
 }
 
+/**
+ * \brief Execute last flush combination program.
+ *
+ * Returns MO_HALT_MATCHING if the stream is exhausted or the user has
+ * instructed us to halt, or MO_CONTINUE_MATCHING otherwise.
+ */
+int roseRunLastFlushCombProgram(const struct RoseEngine *rose,
+                                struct hs_scratch *scratch, u64a end) {
+    hwlmcb_rv_t rv = roseRunProgram(rose, scratch,
+                                    rose->lastFlushCombProgramOffset,
+                                    0, end, 0);
+    if (rv == HWLM_TERMINATE_MATCHING) {
+        return MO_HALT_MATCHING;
+    }
+    return MO_CONTINUE_MATCHING;
+}
+
 int roseReportAdaptor(u64a start, u64a end, ReportID id, void *context) {
     struct hs_scratch *scratch = context;
     assert(scratch && scratch->magic == SCRATCH_MAGIC);
