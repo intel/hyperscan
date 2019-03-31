@@ -457,11 +457,11 @@ set_retval:
 
     if (rose->flushCombProgramOffset) {
         if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
-            unmarkScratchInUse(scratch);
             if (unlikely(internal_matching_error(scratch))) {
+                unmarkScratchInUse(scratch);
                 return HS_UNKNOWN_ERROR;
             }
-
+            unmarkScratchInUse(scratch);
             return HS_SCAN_TERMINATED;
         }
     }
@@ -760,10 +760,11 @@ hs_error_t HS_CDECL hs_reset_and_copy_stream(hs_stream_t *to_id,
             return HS_SCRATCH_IN_USE;
         }
         report_eod_matches(to_id, scratch, onEvent, context);
-        unmarkScratchInUse(scratch);
         if (unlikely(internal_matching_error(scratch))) {
+            unmarkScratchInUse(scratch);
             return HS_UNKNOWN_ERROR;
         }
+        unmarkScratchInUse(scratch);
     }
 
     size_t stateSize
@@ -1005,20 +1006,22 @@ hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
             return HS_SCRATCH_IN_USE;
         }
         report_eod_matches(id, scratch, onEvent, context);
-        unmarkScratchInUse(scratch);
         if (unlikely(internal_matching_error(scratch))) {
+            unmarkScratchInUse(scratch);
             return HS_UNKNOWN_ERROR;
         }
+        unmarkScratchInUse(scratch);
     }
 
     if (id->rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
         if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
             == MO_HALT_MATCHING) {
             scratch->core_info.status |= STATUS_TERMINATED;
-            unmarkScratchInUse(scratch);
             if (unlikely(internal_matching_error(scratch))) {
+                unmarkScratchInUse(scratch);
                 return HS_UNKNOWN_ERROR;
             }
+            unmarkScratchInUse(scratch);
         }
     }
 
@@ -1044,20 +1047,22 @@ hs_error_t HS_CDECL hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
             return HS_SCRATCH_IN_USE;
         }
         report_eod_matches(id, scratch, onEvent, context);
-        unmarkScratchInUse(scratch);
         if (unlikely(internal_matching_error(scratch))) {
+            unmarkScratchInUse(scratch);
             return HS_UNKNOWN_ERROR;
         }
+        unmarkScratchInUse(scratch);
     }
 
     if (id->rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
         if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
             == MO_HALT_MATCHING) {
             scratch->core_info.status |= STATUS_TERMINATED;
-            unmarkScratchInUse(scratch);
             if (unlikely(internal_matching_error(scratch))) {
+                unmarkScratchInUse(scratch);
                 return HS_UNKNOWN_ERROR;
             }
+            unmarkScratchInUse(scratch);
         }
     }
 
@@ -1273,10 +1278,11 @@ hs_error_t HS_CDECL hs_reset_and_expand_stream(hs_stream_t *to_stream,
             return HS_SCRATCH_IN_USE;
         }
         report_eod_matches(to_stream, scratch, onEvent, context);
-        unmarkScratchInUse(scratch);
         if (unlikely(internal_matching_error(scratch))) {
+            unmarkScratchInUse(scratch);
             return HS_UNKNOWN_ERROR;
         }
+        unmarkScratchInUse(scratch);
     }
 
     if (expand_stream(to_stream, rose, buf, buf_size)) {
