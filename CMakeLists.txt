@@ -31,6 +31,7 @@ else()
 endif()
 
 if(CMAKE_BUILD_TYPE MATCHES RELEASE|RELWITHDEBINFO|MINSIZEREL)
+    message(STATUS "using release build")
     set(RELEASE_BUILD TRUE)
 else()
     set(RELEASE_BUILD FALSE)
@@ -173,6 +174,7 @@ else()
 
     # remove CMake's idea of optimisation
     foreach (CONFIG ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
+        message(STATUS "building ${CONFIG}")
         string(REGEX REPLACE "-O[^ ]*" "" CMAKE_C_FLAGS_${CONFIG} "${CMAKE_C_FLAGS_${CONFIG}}")
         string(REGEX REPLACE "-O[^ ]*" "" CMAKE_CXX_FLAGS_${CONFIG} "${CMAKE_CXX_FLAGS_${CONFIG}}")
     endforeach ()

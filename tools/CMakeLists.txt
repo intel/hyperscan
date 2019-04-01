@@ -12,7 +12,6 @@ include_directories(${PROJECT_SOURCE_DIR}/util)
 if (WIN32)
     add_subdirectory(hscheck)
     add_subdirectory(hsbench)
-    add_subdirectory(hsdump)
     add_subdirectory(hscollider)
 else()
     # add any subdir with a cmake file
