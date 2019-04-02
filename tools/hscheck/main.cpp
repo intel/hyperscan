@@ -49,7 +49,7 @@ int __cdecl main(int argc, char* argv[])
     printf("Scan 1\n");
     hsError = hs_scan(
         pRegexDatabase,
-        "Sample\?Value",
+        "Sample?Value",
         12,
         0,
         pScratch,
