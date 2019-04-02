@@ -333,3 +333,37 @@ TEST(MPV, UE_2395) {
     err = hs_free_scratch(scratch);
     ASSERT_EQ(HS_SUCCESS, err);
 }
+
+TEST(MMRoseLiteralPath, issue_141) {
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *compile_err = nullptr;
+    CallBackContext c;
+    string data = "/odezhda-dlya-bega/";
+    const char *expr[] = {"/odezhda-dlya-bega/",
+                          "kurtki-i-vetrovki-dlya-bega",
+                          "futbolki-i-mayki-dlya-bega"};
+    unsigned flags[] = {HS_FLAG_DOTALL | HS_FLAG_SINGLEMATCH,
+                        HS_FLAG_DOTALL | HS_FLAG_SINGLEMATCH,
+                        HS_FLAG_DOTALL | HS_FLAG_SINGLEMATCH};
+    hs_error_t err = hs_compile_multi(expr, flags, nullptr, 3, HS_MODE_BLOCK,
+                                      nullptr, &db, &compile_err);
+
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(db != nullptr);
+
+    hs_scratch_t *scratch = nullptr;
+    err = hs_alloc_scratch(db, &scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(scratch != nullptr);
+
+    c.halt = 0;
+    err = hs_scan(db, data.c_str(), data.size(), 0, scratch, record_cb,
+                  (void *)&c);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_EQ(1U, c.matches.size());
+    ASSERT_EQ(MatchRecord(19, 0), c.matches[0]);
+
+    hs_free_database(db);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+}
