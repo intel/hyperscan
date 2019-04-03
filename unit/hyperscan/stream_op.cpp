@@ -823,4 +823,70 @@ TEST(StreamUtil, StreamAllocUsage) {
     ASSERT_EQ(0, alloc3_called);
 }
 
+TEST(StreamUtil, is_exhausted1) {
+    hs_error_t err;
+    hs_scratch_t *scratch = nullptr;
+    hs_database_t *db = buildDBAndScratch("^bar", 0, 0, HS_MODE_STREAM,
+                                          &scratch);
+
+    hs_stream_t *stream = nullptr;
+
+    CallBackContext c;
+
+    err = hs_open_stream(db, 0, &stream);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(stream != nullptr);
+
+    int exhausted = 0;
+    err = hs_is_stream_exhausted(stream, &exhausted);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_EQ(0, exhausted);
+
+    err = hs_scan_stream(stream, data1, sizeof(data1), 0, scratch, record_cb,
+                         (void *)&c);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    err = hs_is_stream_exhausted(stream, &exhausted);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(exhausted != 0);
+
+    hs_close_stream(stream, scratch, nullptr, nullptr);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+    hs_free_database(db);
+}
+
+TEST(StreamUtil, is_exhausted2) {
+    hs_error_t err;
+    hs_scratch_t *scratch = nullptr;
+    hs_database_t *db = buildDBAndScratch("^foo", 0, 0, HS_MODE_STREAM,
+                                          &scratch);
+
+    hs_stream_t *stream = nullptr;
+
+    CallBackContext c;
+
+    err = hs_open_stream(db, 0, &stream);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(stream != nullptr);
+
+    int exhausted = 0;
+    err = hs_is_stream_exhausted(stream, &exhausted);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_EQ(0, exhausted);
+
+    err = hs_scan_stream(stream, data1, sizeof(data1), 0, scratch, record_cb,
+                         (void *)&c);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    err = hs_is_stream_exhausted(stream, &exhausted);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(exhausted != 0);
+
+    hs_close_stream(stream, scratch, nullptr, nullptr);
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+    hs_free_database(db);
+}
+
 }

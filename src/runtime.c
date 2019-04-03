@@ -986,6 +986,25 @@ hs_error_t HS_CDECL hs_scan_stream(hs_stream_t *id, const char *data,
 }
 
 HS_PUBLIC_API
+hs_error_t HS_CDECL hs_is_stream_exhausted(hs_stream_t *id, int *exhausted) {
+    if (unlikely(!id || !exhausted)) {
+        return HS_INVALID;
+    }
+
+    char *state = getMultiState(id);
+
+    u8 status = getStreamStatus(state);
+
+    if (status & STATUS_EXHAUSTED) {
+        *exhausted = 1;
+    } else {
+        *exhausted = 0;
+    }
+
+    return HS_SUCCESS;
+}
+
+HS_PUBLIC_API
 hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
                                     match_event_handler onEvent,
                                     void *context) {
