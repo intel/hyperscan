@@ -191,22 +191,6 @@ hs_error_t HS_CDECL hs_scan_stream(hs_stream_t *id, const char *data,
                                    match_event_handler onEvent, void *ctxt);
 
 /**
- * Get whether it has been determined that it is not possible for this stream
- * to raise any more matches (i.e. the stream is exhausted).
- *
- * @param id
- *      The stream ID (returned by @ref hs_open_stream()).
- *
- * @param exhausted
- *      Returns an integer value. The value would be 0 if the stream is not
- *      exhausted, otherwise the value would be a non-zero integer.
- *
- * @return
- *      @ref HS_SUCCESS on success, other values on failure.
- */
-hs_error_t HS_CDECL hs_is_stream_exhausted(hs_stream_t *id, int *exhausted);
-
-/**
  * Close a stream.
  *
  * This function completes matching on the given stream and frees the memory
@@ -456,6 +440,22 @@ hs_error_t HS_CDECL hs_reset_and_expand_stream(hs_stream_t *to_stream,
                                                hs_scratch_t *scratch,
                                                match_event_handler onEvent,
                                                void *context);
+
+/**
+ * Get whether it has been determined that it is not possible for this stream
+ * to raise any more matches (i.e. the stream is exhausted).
+ *
+ * @param id
+ *      The stream ID (returned by @ref hs_open_stream()).
+ *
+ * @param exhausted
+ *      Returns an integer value. The value would be 0 if the stream is not
+ *      exhausted, otherwise the value would be a non-zero integer.
+ *
+ * @return
+ *      @ref HS_SUCCESS on success, other values on failure.
+ */
+hs_error_t HS_CDECL hs_is_stream_exhausted(hs_stream_t *id, int *exhausted);
 
 /**
  * The block (non-streaming) regular expression scanner.

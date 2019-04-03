@@ -91,8 +91,6 @@ CREATE_DISPATCH(hs_error_t, hs_scan_stream, hs_stream_t *id, const char *data,
                 unsigned int length, unsigned int flags, hs_scratch_t *scratch,
                 match_event_handler onEvent, void *ctxt);
 
-CREATE_DISPATCH(hs_error_t, hs_is_stream_exhausted, hs_stream_t *id, int *exhausted);
-
 CREATE_DISPATCH(hs_error_t, hs_close_stream, hs_stream_t *id,
                 hs_scratch_t *scratch, match_event_handler onEvent, void *ctxt);
 
@@ -113,6 +111,8 @@ CREATE_DISPATCH(hs_error_t, hs_reset_stream, hs_stream_t *id,
 CREATE_DISPATCH(hs_error_t, hs_reset_and_copy_stream, hs_stream_t *to_id,
                 const hs_stream_t *from_id, hs_scratch_t *scratch,
                 match_event_handler onEvent, void *context);
+
+CREATE_DISPATCH(hs_error_t, hs_is_stream_exhausted, hs_stream_t *id, int *exhausted);
 
 CREATE_DISPATCH(hs_error_t, hs_serialize_database, const hs_database_t *db,
                 char **bytes, size_t *length);
