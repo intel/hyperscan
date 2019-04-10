@@ -1,39 +1,40 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>Performance Considerations &mdash; Hyperscan 5.1.0 documentation</title>
-    
+    <title>Performance Considerations &#8212; Hyperscan 5.1.1 documentation</title>
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
-    
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '5.1.0',
+        VERSION:     '5.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
       };
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 5.1.0 documentation" href="index.html" />
     <link rel="next" title="Tools" href="tools.html" />
     <link rel="prev" title="Serialization" href="serialization.html" />
    
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
-  <body role="document">  
+  <body>
+  
 
     <div class="document">
       <div class="documentwrapper">
@@ -105,7 +106,7 @@ accumulated before processing, it should be scanned in block rather than in
 streaming mode.</p>
 <p>Unnecessary use of streaming mode reduces the number of optimizations that can
 be applied in Hyperscan and may make some patterns run slower.</p>
-<p>If there is a mixture of &#8216;block&#8217; and &#8216;streaming&#8217; mode patterns, these should be
+<p>If there is a mixture of ‘block’ and ‘streaming’ mode patterns, these should be
 scanned in separate databases except in the case that the streaming patterns
 vastly outnumber the block mode patterns.</p>
 </div>
@@ -113,7 +114,7 @@ vastly outnumber the block mode patterns.</p>
 <h2>Unnecessary databases<a class="headerlink" href="#unnecessary-databases" title="Permalink to this headline">¶</a></h2>
 <div class="admonition tip">
 <p class="first admonition-title">Tip</p>
-<p class="last">Avoid unnecessary &#8216;union&#8217; databases.</p>
+<p class="last">Avoid unnecessary ‘union’ databases.</p>
 </div>
 <p>If there are 5 different types of network traffic T1 through T5 that must
 be scanned against 5 different signature sets, it will be far more efficient to
@@ -140,7 +141,7 @@ time (after compilation or deserialization) that a pattern database is used,
 Hyperscan performs some validation checks inside <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> and
 must also allocate memory.</p>
 <p>Therefore, it is important to ensure that <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> is not
-called in the application&#8217;s scanning path just before <a class="reference internal" href="api_files.html#c.hs_scan" title="hs_scan"><code class="xref c c-func docutils literal"><span class="pre">hs_scan()</span></code></a> (for
+called in the application’s scanning path just before <a class="reference internal" href="api_files.html#c.hs_scan" title="hs_scan"><code class="xref c c-func docutils literal"><span class="pre">hs_scan()</span></code></a> (for
 example).</p>
 <p>Instead, scratch should be allocated immediately after a pattern database is
 compiled or deserialized, then retained for later scanning operations.</p>
@@ -154,12 +155,12 @@ a number of databases. Each concurrent scan operation (such as a thread)
 needs its own scratch space.</p>
 </div>
 <p>The <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> function can accept an existing scratch space and
-&#8220;grow&#8221; it to support scanning with another pattern database. This means that
+“grow” it to support scanning with another pattern database. This means that
 instead of allocating one scratch space for every database used by an
 application, one can call <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> with a pointer to the same
 <a class="reference internal" href="api_files.html#c.hs_scratch_t" title="hs_scratch_t"><code class="xref c c-type docutils literal"><span class="pre">hs_scratch_t</span></code></a> and it will be sized appropriately for use with any of
 the given databases. For example:</p>
-<div class="highlight-c"><div class="highlight"><pre><span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db1</span> <span class="o">=</span> <span class="n">buildDatabaseOne</span><span class="p">();</span>
+<div class="highlight-c"><div class="highlight"><pre><span></span><span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db1</span> <span class="o">=</span> <span class="n">buildDatabaseOne</span><span class="p">();</span>
 <span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db2</span> <span class="o">=</span> <span class="n">buildDatabaseTwo</span><span class="p">();</span>
 <span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db3</span> <span class="o">=</span> <span class="n">buildDatabaseThree</span><span class="p">();</span>
 
@@ -219,7 +220,7 @@ than or equal to 10 in the buffer. (This pattern could also be written as
 <div class="admonition tip">
 <p class="first admonition-title">Tip</p>
 <p class="last">Avoid patterns that match everywhere, and remember that our semantics
-are &#8216;match everywhere, end of match only&#8217;.</p>
+are ‘match everywhere, end of match only’.</p>
 </div>
 <p>Pattern that match everywhere will run slowly due to the sheer number of
 matches that they return.</p>
@@ -229,14 +230,14 @@ return 101 matches. Greedy pattern matchers such as libpcre will return a
 single match in this case, but our semantics is to return all matches. This is
 likely to be very expensive for our code and for the client code of the
 library.</p>
-<p>Another result of our semantics (&#8220;match everywhere&#8221;) is that patterns that have
-optional start or ending sections &#8211; for example <code class="regexp docutils literal"><span class="pre">/x?abcd*/</span></code> &#8211; may not
+<p>Another result of our semantics (“match everywhere”) is that patterns that have
+optional start or ending sections – for example <code class="regexp docutils literal"><span class="pre">/x?abcd*/</span></code> – may not
 perform as expected.</p>
 <p>Firstly, the <code class="regexp docutils literal"><span class="pre">x?</span></code> portion of the pattern is unnecessary, as it will not
 affect the match results.</p>
-<p>Secondly, the above pattern will match &#8216;more&#8217; than <code class="regexp docutils literal"><span class="pre">/abc/</span></code> but
+<p>Secondly, the above pattern will match ‘more’ than <code class="regexp docutils literal"><span class="pre">/abc/</span></code> but
 <code class="regexp docutils literal"><span class="pre">/abc/</span></code> will always detect any input data that will be matched by
-<code class="regexp docutils literal"><span class="pre">/x?abcd*/</span></code> &#8211; it will just produce fewer matches.</p>
+<code class="regexp docutils literal"><span class="pre">/x?abcd*/</span></code> – it will just produce fewer matches.</p>
 <p>For example, input data <code class="docutils literal"><span class="pre">0123abcdddd</span></code> will match <code class="regexp docutils literal"><span class="pre">/abc/</span></code> once but
 <code class="regexp docutils literal"><span class="pre">/abcd*/</span></code> five times (at <code class="docutils literal"><span class="pre">abc</span></code>, <code class="docutils literal"><span class="pre">abcd</span></code>, <code class="docutils literal"><span class="pre">abcdd</span></code>, <code class="docutils literal"><span class="pre">abcddd</span></code>, and
 <code class="docutils literal"><span class="pre">abcdddd</span></code>).</p>
@@ -262,8 +263,8 @@ a bounded repeat beforehand.</p>
 <h2>Prefer literals<a class="headerlink" href="#prefer-literals" title="Permalink to this headline">¶</a></h2>
 <div class="admonition tip">
 <p class="first admonition-title">Tip</p>
-<p class="last">Where possible, prefer patterns which &#8216;require&#8217; literals, especially
-longer literals, and in streaming mode, prefer signatures that &#8216;require&#8217;
+<p class="last">Where possible, prefer patterns which ‘require’ literals, especially
+longer literals, and in streaming mode, prefer signatures that ‘require’
 literals earlier in the pattern.</p>
 </div>
 <p>Patterns which must match on a literal will run faster than patterns that do
@@ -292,16 +293,16 @@ For example, both of the above patterns are stronger and will scan faster than
 <code class="regexp docutils literal"><span class="pre">/b\w*fo/</span></code> even in streaming mode.</p>
 </div>
 <div class="section" id="dot-all-mode">
-<h2>&#8220;Dot all&#8221; mode<a class="headerlink" href="#dot-all-mode" title="Permalink to this headline">¶</a></h2>
+<h2>“Dot all” mode<a class="headerlink" href="#dot-all-mode" title="Permalink to this headline">¶</a></h2>
 <div class="admonition tip">
 <p class="first admonition-title">Tip</p>
-<p class="last">Use &#8220;dot all&#8221; mode where possible.</p>
+<p class="last">Use “dot all” mode where possible.</p>
 </div>
 <p>Not using the <a class="reference internal" href="api_files.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_DOTALL</span></code></a> pattern flag can be expensive, as
 implicitly, it means that patterns of the form <code class="regexp docutils literal"><span class="pre">/A.*B/</span></code> become
 <code class="regexp docutils literal"><span class="pre">/A[^\n]*B/</span></code>.</p>
-<p>It is likely that scanning tasks without the DOTALL flag are better done &#8216;line
-at a time&#8217;, with the newline sequences marking the beginning and end of each
+<p>It is likely that scanning tasks without the DOTALL flag are better done ‘line
+at a time’, with the newline sequences marking the beginning and end of each
 block.</p>
 <p>This will be true in most use-cases (an exception being where the DOTALL flag
 is off but the pattern contains either explicit newlines or constructs such as
@@ -369,7 +370,7 @@ depending on the pattern and edit distance.</p>
 <li class="toctree-l1"><a class="reference internal" href="compilation.html">Compiling Patterns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="">Performance Considerations</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Performance Considerations</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#regular-expression-constructs">Regular expression constructs</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#library-usage">Library usage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#block-based-matching">Block-based matching</a></li>
@@ -380,7 +381,7 @@ depending on the pattern and edit distance.</p>
 <li class="toctree-l2"><a class="reference internal" href="#matching-everywhere">Matching everywhere</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#bounded-repeats-in-streaming-mode">Bounded repeats in streaming mode</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#prefer-literals">Prefer literals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#dot-all-mode">&#8220;Dot all&#8221; mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dot-all-mode">“Dot all” mode</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#single-match-flag">Single-match flag</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#start-of-match-flag">Start of Match flag</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#approximate-matching">Approximate matching</a></li>
@@ -395,14 +396,11 @@ depending on the pattern and edit distance.</p>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -413,8 +411,8 @@ depending on the pattern and edit distance.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.7</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
       
     </div>
 

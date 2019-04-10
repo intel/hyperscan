@@ -1,39 +1,40 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>Tools &mdash; Hyperscan 5.1.0 documentation</title>
-    
+    <title>Tools &#8212; Hyperscan 5.1.1 documentation</title>
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
-    
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '5.1.0',
+        VERSION:     '5.1.1',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
       };
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 5.1.0 documentation" href="index.html" />
     <link rel="next" title="API Reference: Constants" href="api_constants.html" />
     <link rel="prev" title="Performance Considerations" href="performance.html" />
    
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
-  <body role="document">  
+  <body>
+  
 
     <div class="document">
       <div class="documentwrapper">
@@ -46,17 +47,17 @@
 <div class="section" id="quick-check-hscheck">
 <h2>Quick Check: hscheck<a class="headerlink" href="#quick-check-hscheck" title="Permalink to this headline">¶</a></h2>
 <p>The <code class="docutils literal"><span class="pre">hscheck</span></code> tool allows the user to quickly check whether Hyperscan supports
-a group of patterns. If a pattern is rejected by Hyperscan&#8217;s compiler, the
+a group of patterns. If a pattern is rejected by Hyperscan’s compiler, the
 compile error is provided on standard output.</p>
 <p>For example, given the following three patterns (the last of which contains a
 syntax error) in a file called <code class="docutils literal"><span class="pre">/tmp/test</span></code>:</p>
-<div class="highlight-python"><div class="highlight"><pre>1:/foo.*bar/
-2:/abc|def|ghi/
-3:/((foo|bar)/
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="mi">1</span><span class="p">:</span><span class="o">/</span><span class="n">foo</span><span class="o">.*</span><span class="n">bar</span><span class="o">/</span>
+<span class="mi">2</span><span class="p">:</span><span class="o">/</span><span class="n">abc</span><span class="o">|</span><span class="n">def</span><span class="o">|</span><span class="n">ghi</span><span class="o">/</span>
+<span class="mi">3</span><span class="p">:</span><span class="o">/</span><span class="p">((</span><span class="n">foo</span><span class="o">|</span><span class="n">bar</span><span class="p">)</span><span class="o">/</span>
 </pre></div>
 </div>
-<p>... the <code class="docutils literal"><span class="pre">hscheck</span></code> tool will produce the following output:</p>
-<div class="highlight-python"><div class="highlight"><pre>$ bin/hscheck -e /tmp/test
+<p>… the <code class="docutils literal"><span class="pre">hscheck</span></code> tool will produce the following output:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ bin/hscheck -e /tmp/test
 
 OK: 1:/foo.*bar/
 OK: 2:/abc|def|ghi/
@@ -67,10 +68,10 @@ SUMMARY: 1 of 3 failed.
 </div>
 <div class="section" id="benchmarker-hsbench">
 <h2>Benchmarker: hsbench<a class="headerlink" href="#benchmarker-hsbench" title="Permalink to this headline">¶</a></h2>
-<p>The <code class="docutils literal"><span class="pre">hsbench</span></code> tool provides an easy way to measure Hyperscan&#8217;s performance
+<p>The <code class="docutils literal"><span class="pre">hsbench</span></code> tool provides an easy way to measure Hyperscan’s performance
 for a particular set of patterns and corpus of data to be scanned.</p>
 <p>Patterns are supplied in the format described below in
-<a class="reference internal" href="#tools-pattern-format"><span>Pattern Format</span></a>, while the corpus must be provided in the form of a
+<a class="reference internal" href="#tools-pattern-format"><span class="std std-ref">Pattern Format</span></a>, while the corpus must be provided in the form of a
 <cite>corpus database</cite>: this is a simple SQLite database format intended to allow for
 easy control of how a corpus is broken into blocks and streams.</p>
 <div class="admonition note">
@@ -84,7 +85,7 @@ be found in the Hyperscan source tree in <code class="docutils literal"><span cl
 <p>Given a file full of patterns specified with <code class="docutils literal"><span class="pre">-e</span></code> and a corpus database
 specified with <code class="docutils literal"><span class="pre">-c</span></code>, <code class="docutils literal"><span class="pre">hsbench</span></code> will perform a single-threaded benchmark and
 produce output like this:</p>
-<div class="highlight-python"><div class="highlight"><pre>$ hsbench -e /tmp/patterns -c /tmp/corpus.db
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ hsbench -e /tmp/patterns -c /tmp/corpus.db
 
 Signatures:        /tmp/patterns
 Hyperscan info:    Version: 4.3.1 Features:  AVX2 Mode: STREAM
@@ -116,26 +117,26 @@ to complete all of them.</p>
 <p class="first admonition-title">Tip</p>
 <p class="last">For single-threaded benchmarks on multi-processor systems, we recommend
 using a utility like <code class="docutils literal"><span class="pre">taskset</span></code> to lock the hsbench process to one core and
-minimize jitter due to the operating system&#8217;s scheduler.</p>
+minimize jitter due to the operating system’s scheduler.</p>
 </div>
 </div>
 </div>
 <div class="section" id="correctness-testing-hscollider">
 <h2>Correctness Testing: hscollider<a class="headerlink" href="#correctness-testing-hscollider" title="Permalink to this headline">¶</a></h2>
 <p>The <code class="docutils literal"><span class="pre">hscollider</span></code> tool, or Pattern Collider, provides a way to verify
-Hyperscan&#8217;s matching behaviour. It does this by compiling and scanning patterns
+Hyperscan’s matching behaviour. It does this by compiling and scanning patterns
 (either singly or in groups) against known corpora and comparing the results
-against another engine (the &#8220;ground truth&#8221;). Two sources of ground truth for
+against another engine (the “ground truth”). Two sources of ground truth for
 comparison are available:</p>
 <blockquote>
 <div><ul class="simple">
 <li>The PCRE library (<a class="reference external" href="http://pcre.org/">http://pcre.org/</a>).</li>
-<li>An NFA simulation run on Hyperscan&#8217;s compile-time graph representation. This
+<li>An NFA simulation run on Hyperscan’s compile-time graph representation. This
 is used if PCRE cannot support the pattern or if PCRE execution fails due to
 a resource limit.</li>
 </ul>
 </div></blockquote>
-<p>Much of Hyperscan&#8217;s testing infrastructure is built on <code class="docutils literal"><span class="pre">hscollider</span></code>, and the
+<p>Much of Hyperscan’s testing infrastructure is built on <code class="docutils literal"><span class="pre">hscollider</span></code>, and the
 tool is designed to take advantage of multiple cores and provide considerable
 flexibility in controlling the test. These options are described in the help
 (<code class="docutils literal"><span class="pre">hscollider</span> <span class="pre">-h</span></code>) and include:</p>
@@ -152,23 +153,23 @@ flexibility in controlling the test. These options are described in the help
 <div class="section" id="using-hscollider-to-debug-a-pattern">
 <h3>Using hscollider to debug a pattern<a class="headerlink" href="#using-hscollider-to-debug-a-pattern" title="Permalink to this headline">¶</a></h3>
 <p>One common use-case for <code class="docutils literal"><span class="pre">hscollider</span></code> is to determine whether Hyperscan will
-match a pattern in the expected location, and whether this accords with PCRE&#8217;s
+match a pattern in the expected location, and whether this accords with PCRE’s
 behaviour for the same case.</p>
-<p>Here is an example. We put our pattern in a file in Hyperscan&#8217;s pattern
+<p>Here is an example. We put our pattern in a file in Hyperscan’s pattern
 format:</p>
-<div class="highlight-python"><div class="highlight"><pre>$ cat /tmp/pat
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ cat /tmp/pat
 1:/hatstand.*badgerbrush/
 </pre></div>
 </div>
 <p>We put the corpus to be scanned in another file, with the same numeric
 identifier at the start to indicate that it should match pattern 1:</p>
-<div class="highlight-python"><div class="highlight"><pre>$ cat /tmp/corpus
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ cat /tmp/corpus
 1:__hatstand__hatstand__badgerbrush_badgerbrush
 </pre></div>
 </div>
 <p>Then we can run <code class="docutils literal"><span class="pre">hscollider</span></code> with its verbosity turned up (<code class="docutils literal"><span class="pre">-vv</span></code>) so that
 individual matches are displayed in the output:</p>
-<div class="highlight-python"><div class="highlight"><pre>$ bin/ue2collider -e /tmp/pat -c /tmp/corpus -Z 0 -T 1 -vv
+<div class="highlight-default"><div class="highlight"><pre><span></span>$ bin/ue2collider -e /tmp/pat -c /tmp/corpus -Z 0 -T 1 -vv
 ue2collider: The Pattern Collider Mark II
 
 Number of threads:  1 (1 scanner, 1 generator)
@@ -214,8 +215,8 @@ corpus alignment 0, and <code class="docutils literal"><span class="pre">-T</spa
 <div class="admonition note">
 <p class="first admonition-title">Note</p>
 <p class="last">In default operation, PCRE produces only one match for a scan, unlike
-Hyperscan&#8217;s automata semantics. The <code class="docutils literal"><span class="pre">hscollider</span></code> tool uses libpcre&#8217;s
-&#8220;callout&#8221; functionality to match Hyperscan&#8217;s semantics.</p>
+Hyperscan’s automata semantics. The <code class="docutils literal"><span class="pre">hscollider</span></code> tool uses libpcre’s
+“callout” functionality to match Hyperscan’s semantics.</p>
 </div>
 </div>
 <div class="section" id="running-a-larger-scan-test">
@@ -250,7 +251,7 @@ provided to do this easily:</p>
 <code class="docutils literal"><span class="pre">Debug</span></code>), Hyperscan includes support for dumping information about its
 internals during pattern compilation with the <code class="docutils literal"><span class="pre">hsdump</span></code> tool.</p>
 <p>This information is mostly of use to Hyperscan developers familiar with the
-library&#8217;s internal structure, but can be used to diagnose issues with patterns
+library’s internal structure, but can be used to diagnose issues with patterns
 and provide more information in bug reports.</p>
 </div>
 <div class="section" id="pattern-format">
@@ -261,15 +262,15 @@ text files with one pattern per line. Each line looks like this:</p>
 <li><code class="docutils literal"><span class="pre">&lt;integer</span> <span class="pre">id&gt;:/&lt;regex&gt;/&lt;flags&gt;</span></code></li>
 </ul>
 <p>For example:</p>
-<div class="highlight-python"><div class="highlight"><pre>1:/hatstand.*teakettle/s
-2:/(hatstand|teakettle)/iH
-3:/^.{10,20}hatstand/m
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="mi">1</span><span class="p">:</span><span class="o">/</span><span class="n">hatstand</span><span class="o">.*</span><span class="n">teakettle</span><span class="o">/</span><span class="n">s</span>
+<span class="mi">2</span><span class="p">:</span><span class="o">/</span><span class="p">(</span><span class="n">hatstand</span><span class="o">|</span><span class="n">teakettle</span><span class="p">)</span><span class="o">/</span><span class="n">iH</span>
+<span class="mi">3</span><span class="p">:</span><span class="o">/^.</span><span class="p">{</span><span class="mi">10</span><span class="p">,</span><span class="mi">20</span><span class="p">}</span><span class="n">hatstand</span><span class="o">/</span><span class="n">m</span>
 </pre></div>
 </div>
 <p>The integer ID is the value that will be reported when a match is found by
 Hyperscan and must be unique.</p>
 <p>The pattern itself is a regular expression in PCRE syntax; see
-<a class="reference internal" href="compilation.html#compilation"><span>Compiling Patterns</span></a> for more information on supported features.</p>
+<a class="reference internal" href="compilation.html#compilation"><span class="std std-ref">Compiling Patterns</span></a> for more information on supported features.</p>
 <p>The flags are single characters that map to Hyperscan flags as follows:</p>
 <table border="1" class="docutils">
 <colgroup>
@@ -330,10 +331,10 @@ Hyperscan and must be unique.</p>
 </tr>
 </tbody>
 </table>
-<p>In addition to the set of flags above, <a class="reference internal" href="compilation.html#extparam"><span>Extended Parameters</span></a> can be supplied
+<p>In addition to the set of flags above, <a class="reference internal" href="compilation.html#extparam"><span class="std std-ref">Extended Parameters</span></a> can be supplied
 for each pattern. These are supplied after the flags as <code class="docutils literal"><span class="pre">key=value</span></code> pairs
 between braces, separated by commas. For example:</p>
-<div class="highlight-python"><div class="highlight"><pre>1:/hatstand.*teakettle/s{min_offset=50,max_offset=100}
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="mi">1</span><span class="p">:</span><span class="o">/</span><span class="n">hatstand</span><span class="o">.*</span><span class="n">teakettle</span><span class="o">/</span><span class="n">s</span><span class="p">{</span><span class="n">min_offset</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span><span class="n">max_offset</span><span class="o">=</span><span class="mi">100</span><span class="p">}</span>
 </pre></div>
 </div>
 <p>All Hyperscan tools will accept a pattern file (or a directory containing
@@ -361,7 +362,7 @@ argument.</p>
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="">Tools</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Tools</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#quick-check-hscheck">Quick Check: hscheck</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#benchmarker-hsbench">Benchmarker: hsbench</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#correctness-testing-hscollider">Correctness Testing: hscollider</a></li>
@@ -377,14 +378,11 @@ argument.</p>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -395,8 +393,8 @@ argument.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.7</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
       
     </div>
 
