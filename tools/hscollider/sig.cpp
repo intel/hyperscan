@@ -36,13 +36,15 @@
 #include <ctype.h>
 #include <string>
 
-#if defined(HAVE_SIGACTION) || defined(_WIN32)
+#if defined(_WIN32)
 #include <signal.h>
+#elif defined(HAVE_SIGACTION)
+#include <signal.h>
+#include <unistd.h>
 #endif
 
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>
-#include <unistd.h>
 #endif
 
 #define BACKTRACE_BUFFER_SIZE 200
