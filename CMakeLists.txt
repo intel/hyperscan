@@ -3,7 +3,7 @@ project (hyperscan C CXX)
 
 set (HS_MAJOR_VERSION 5)
 set (HS_MINOR_VERSION 1)
-set (HS_PATCH_VERSION 0)
+set (HS_PATCH_VERSION 1)
 set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -191,6 +191,8 @@ else()
         set (EXEC_ARGS ${CC_ARG1} -c -Q --help=target -march=native -mtune=native)
         execute_process(COMMAND ${CMAKE_C_COMPILER} ${EXEC_ARGS}
             OUTPUT_VARIABLE _GCC_OUTPUT)
+        string(FIND "${_GCC_OUTPUT}" "Known" POS)
+        string(SUBSTRING "${_GCC_OUTPUT}" 0 ${POS} _GCC_OUTPUT)
         string(REGEX REPLACE ".*march=[ \t]*([^ \n]*)[ \n].*" "\\1"
             GNUCC_ARCH "${_GCC_OUTPUT}")
 

@@ -2771,6 +2771,12 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                 work_done = 1;
             }
             PROGRAM_NEXT_INSTRUCTION
+
+            default: {
+                assert(0); // unreachable
+                scratch->core_info.status |= STATUS_ERROR;
+                return HWLM_TERMINATE_MATCHING;
+            }
         }
     }
 
@@ -2806,6 +2812,10 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
 
     const char *pc_base = getByOffset(t, programOffset);
     const char *pc = pc_base;
+
+    // If this program has an effect, work_done will be set to one (which may
+    // allow the program to squash groups).
+    int work_done = 0;
 
     struct RoseContext *tctxt = &scratch->tctxt;
 
@@ -2887,6 +2897,7 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
                                INVALID_EKEY) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
+                work_done = 1;
             }
             L_PROGRAM_NEXT_INSTRUCTION
 
@@ -2896,6 +2907,7 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
                                ri->ekey) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
+                work_done = 1;
             }
             L_PROGRAM_NEXT_INSTRUCTION
 
@@ -2906,6 +2918,7 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
                                   INVALID_EKEY) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
+                work_done = 1;
             }
             L_PROGRAM_NEXT_INSTRUCTION
 
@@ -2933,6 +2946,7 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
                                ekey) == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
+                work_done = 1;
             }
             L_PROGRAM_NEXT_INSTRUCTION
 
@@ -2959,6 +2973,16 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
                     assert(ri->fail_jump); // must progress
                     pc += ri->fail_jump;
                     L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(SQUASH_GROUPS) {
+                assert(popcount64(ri->groups) == 63); // Squash only one group.
+                if (work_done) {
+                    tctxt->groups &= ri->groups;
+                    DEBUG_PRINTF("squash groups 0x%llx -> 0x%llx\n", ri->groups,
+                                 tctxt->groups);
                 }
             }
             L_PROGRAM_NEXT_INSTRUCTION
@@ -3011,6 +3035,12 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
             }
             L_PROGRAM_NEXT_INSTRUCTION
 
+            L_PROGRAM_CASE(CLEAR_WORK_DONE) {
+                DEBUG_PRINTF("clear work_done flag\n");
+                work_done = 0;
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
             L_PROGRAM_CASE(SET_LOGICAL) {
                 DEBUG_PRINTF("set logical value of lkey %u, offset_adjust=%d\n",
                              ri->lkey, ri->offset_adjust);
@@ -3048,11 +3078,14 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
                         == HWLM_TERMINATE_MATCHING) {
                     return HWLM_TERMINATE_MATCHING;
                 }
+                work_done = 1;
             }
             L_PROGRAM_NEXT_INSTRUCTION
 
             default: {
                 assert(0); // unreachable
+                scratch->core_info.status |= STATUS_ERROR;
+                return HWLM_TERMINATE_MATCHING;
             }
         }
     }

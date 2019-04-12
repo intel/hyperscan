@@ -151,7 +151,7 @@ void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
 }
 
 #define STATUS_VALID_BITS                                                      \
-    (STATUS_TERMINATED | STATUS_EXHAUSTED | STATUS_DELAY_DIRTY)
+    (STATUS_TERMINATED | STATUS_EXHAUSTED | STATUS_DELAY_DIRTY | STATUS_ERROR)
 
 /** \brief Retrieve status bitmask from stream state. */
 static really_inline
@@ -428,7 +428,10 @@ hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
     }
 
 done_scan:
-    if (told_to_stop_matching(scratch)) {
+    if (unlikely(internal_matching_error(scratch))) {
+        unmarkScratchInUse(scratch);
+        return HS_UNKNOWN_ERROR;
+    } else if (told_to_stop_matching(scratch)) {
         unmarkScratchInUse(scratch);
         return HS_SCAN_TERMINATED;
     }
@@ -447,8 +450,17 @@ done_scan:
     }
 
 set_retval:
+    if (unlikely(internal_matching_error(scratch))) {
+        unmarkScratchInUse(scratch);
+        return HS_UNKNOWN_ERROR;
+    }
+
     if (rose->flushCombProgramOffset) {
         if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
+            if (unlikely(internal_matching_error(scratch))) {
+                unmarkScratchInUse(scratch);
+                return HS_UNKNOWN_ERROR;
+            }
             unmarkScratchInUse(scratch);
             return HS_SCAN_TERMINATED;
         }
@@ -626,7 +638,7 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
     char *state = getMultiState(id);
     u8 status = getStreamStatus(state);
 
-    if (status & (STATUS_TERMINATED | STATUS_EXHAUSTED)) {
+    if (status & (STATUS_TERMINATED | STATUS_EXHAUSTED | STATUS_ERROR)) {
         DEBUG_PRINTF("stream is broken, just freeing storage\n");
         return;
     }
@@ -748,6 +760,10 @@ hs_error_t HS_CDECL hs_reset_and_copy_stream(hs_stream_t *to_id,
             return HS_SCRATCH_IN_USE;
         }
         report_eod_matches(to_id, scratch, onEvent, context);
+        if (unlikely(internal_matching_error(scratch))) {
+            unmarkScratchInUse(scratch);
+            return HS_UNKNOWN_ERROR;
+        }
         unmarkScratchInUse(scratch);
     }
 
@@ -863,9 +879,11 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
     char *state = getMultiState(id);
 
     u8 status = getStreamStatus(state);
-    if (status & (STATUS_TERMINATED | STATUS_EXHAUSTED)) {
+    if (status & (STATUS_TERMINATED | STATUS_EXHAUSTED | STATUS_ERROR)) {
         DEBUG_PRINTF("stream is broken, halting scan\n");
-        if (status & STATUS_TERMINATED) {
+        if (status & STATUS_ERROR) {
+            return HS_UNKNOWN_ERROR;
+        } else if (status & STATUS_TERMINATED) {
             return HS_SCAN_TERMINATED;
         } else {
             return HS_SUCCESS;
@@ -937,7 +955,9 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
 
     setStreamStatus(state, scratch->core_info.status);
 
-    if (likely(!can_stop_matching(scratch))) {
+    if (unlikely(internal_matching_error(scratch))) {
+        return HS_UNKNOWN_ERROR;
+    } else if (likely(!can_stop_matching(scratch))) {
         maintainHistoryBuffer(rose, state, data, length);
         id->offset += length; /* maintain offset */
 
@@ -986,6 +1006,10 @@ hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
             return HS_SCRATCH_IN_USE;
         }
         report_eod_matches(id, scratch, onEvent, context);
+        if (unlikely(internal_matching_error(scratch))) {
+            unmarkScratchInUse(scratch);
+            return HS_UNKNOWN_ERROR;
+        }
         unmarkScratchInUse(scratch);
     }
 
@@ -993,6 +1017,11 @@ hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
         if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
             == MO_HALT_MATCHING) {
             scratch->core_info.status |= STATUS_TERMINATED;
+            if (unlikely(internal_matching_error(scratch))) {
+                unmarkScratchInUse(scratch);
+                return HS_UNKNOWN_ERROR;
+            }
+            unmarkScratchInUse(scratch);
         }
     }
 
@@ -1018,6 +1047,10 @@ hs_error_t HS_CDECL hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
             return HS_SCRATCH_IN_USE;
         }
         report_eod_matches(id, scratch, onEvent, context);
+        if (unlikely(internal_matching_error(scratch))) {
+            unmarkScratchInUse(scratch);
+            return HS_UNKNOWN_ERROR;
+        }
         unmarkScratchInUse(scratch);
     }
 
@@ -1025,6 +1058,11 @@ hs_error_t HS_CDECL hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
         if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
             == MO_HALT_MATCHING) {
             scratch->core_info.status |= STATUS_TERMINATED;
+            if (unlikely(internal_matching_error(scratch))) {
+                unmarkScratchInUse(scratch);
+                return HS_UNKNOWN_ERROR;
+            }
+            unmarkScratchInUse(scratch);
         }
     }
 
@@ -1139,7 +1177,10 @@ hs_error_t HS_CDECL hs_scan_vector(const hs_database_t *db,
     if (onEvent) {
         report_eod_matches(id, scratch, onEvent, context);
 
-        if (told_to_stop_matching(scratch)) {
+        if (unlikely(internal_matching_error(scratch))) {
+            unmarkScratchInUse(scratch);
+            return HS_UNKNOWN_ERROR;
+        } else if (told_to_stop_matching(scratch)) {
             unmarkScratchInUse(scratch);
             return HS_SCAN_TERMINATED;
         }
@@ -1237,6 +1278,10 @@ hs_error_t HS_CDECL hs_reset_and_expand_stream(hs_stream_t *to_stream,
             return HS_SCRATCH_IN_USE;
         }
         report_eod_matches(to_stream, scratch, onEvent, context);
+        if (unlikely(internal_matching_error(scratch))) {
+            unmarkScratchInUse(scratch);
+            return HS_UNKNOWN_ERROR;
+        }
         unmarkScratchInUse(scratch);
     }
 
