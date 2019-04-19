@@ -51,7 +51,7 @@
     }                                                                          \
                                                                                \
     /* resolver */                                                             \
-    static void(*JOIN(resolve_, NAME)(void)) {                                 \
+    static RTYPE (*JOIN(resolve_, NAME)(void))(__VA_ARGS__) {                  \
         if (check_avx512()) {                                                  \
             return JOIN(avx512_, NAME);                                        \
         }                                                                      \
