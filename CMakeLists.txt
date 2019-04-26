@@ -151,8 +151,8 @@ if(MSVC OR MSVC_IDE)
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 /Qstd=c++11 /Qrestrict /QxHost /wd4267 /wd4800 /Qdiag-disable:remark -DBOOST_DETAIL_NO_CONTAINER_FWD -D_SCL_SECURE_NO_WARNINGS")
         else()
             # todo: change these as required
-            set(ARCH_C_FLAGS "/arch:AVX2")
-            set(ARCH_CXX_FLAGS "/arch:AVX2")
+            #set(ARCH_C_FLAGS "/arch:AVX2")
+            #set(ARCH_CXX_FLAGS "/arch:AVX2")
             set(MSVC_WARNS "/wd4101 /wd4146 /wd4172 /wd4200 /wd4244 /wd4267 /wd4307 /wd4334 /wd4805 /wd4996 -D_CRT_SECURE_NO_WARNINGS")
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}  /O2 ${MSVC_WARNS}")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /O2 ${MSVC_WARNS} /wd4800 -DBOOST_DETAIL_NO_CONTAINER_FWD")
@@ -174,7 +174,6 @@ else()
 
     # remove CMake's idea of optimisation
     foreach (CONFIG ${CMAKE_BUILD_TYPE} ${CMAKE_CONFIGURATION_TYPES})
-        message(STATUS "building ${CONFIG}")
         string(REGEX REPLACE "-O[^ ]*" "" CMAKE_C_FLAGS_${CONFIG} "${CMAKE_C_FLAGS_${CONFIG}}")
         string(REGEX REPLACE "-O[^ ]*" "" CMAKE_CXX_FLAGS_${CONFIG} "${CMAKE_CXX_FLAGS_${CONFIG}}")
     endforeach ()
