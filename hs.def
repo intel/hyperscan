@@ -40,4 +40,5 @@ EXPORTS
    hs_set_stream_allocator
    hs_stream_size
    hs_valid_platform
+   hs_validate
    hs_version
