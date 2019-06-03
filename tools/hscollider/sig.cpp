@@ -42,7 +42,10 @@
 
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>
-#include <unistd.h>
+#endif
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h> // for _exit
 #endif
 
 #define BACKTRACE_BUFFER_SIZE 200
