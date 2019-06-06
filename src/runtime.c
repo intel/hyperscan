@@ -652,7 +652,9 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
         scratch->core_info.logicalVector = state +
                                            rose->stateOffsets.logicalVec;
         scratch->core_info.combVector = state + rose->stateOffsets.combVec;
-        scratch->tctxt.lastCombMatchOffset = id->offset;
+        if (!id->offset) {
+            scratch->tctxt.lastCombMatchOffset = id->offset;
+        }
     }
 
     if (rose->somLocationCount) {
@@ -908,7 +910,9 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
         scratch->core_info.logicalVector = state +
                                            rose->stateOffsets.logicalVec;
         scratch->core_info.combVector = state + rose->stateOffsets.combVec;
-        scratch->tctxt.lastCombMatchOffset = id->offset;
+        if (!id->offset) {
+            scratch->tctxt.lastCombMatchOffset = id->offset;
+        }
     }
     assert(scratch->core_info.hlen <= id->offset
            && scratch->core_info.hlen <= rose->historyRequired);

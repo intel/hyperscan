@@ -480,6 +480,25 @@ hwlmcb_rv_t roseReport(const struct RoseEngine *t, struct hs_scratch *scratch,
     return roseHaltIfExhausted(t, scratch);
 }
 
+static rose_inline
+hwlmcb_rv_t roseReportComb(const struct RoseEngine *t,
+                           struct hs_scratch *scratch, u64a end,
+                           ReportID onmatch, s32 offset_adjust, u32 ekey) {
+    DEBUG_PRINTF("firing callback onmatch=%u, end=%llu\n", onmatch, end);
+
+    int cb_rv = roseDeliverReport(end, onmatch, offset_adjust, scratch, ekey);
+    if (cb_rv == MO_HALT_MATCHING) {
+        DEBUG_PRINTF("termination requested\n");
+        return HWLM_TERMINATE_MATCHING;
+    }
+
+    if (ekey == INVALID_EKEY || cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
+        return HWLM_CONTINUE_MATCHING;
+    }
+
+    return roseHaltIfExhausted(t, scratch);
+}
+
 /* catches up engines enough to ensure any earlier mpv triggers are enqueued
  * and then adds the trigger to the mpv queue. */
 static rose_inline
@@ -1866,8 +1885,8 @@ hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
         }
 
         DEBUG_PRINTF("Logical Combination Passed!\n");
-        if (roseReport(t, scratch, end, ci->id, 0,
-                       ci->ekey) == HWLM_TERMINATE_MATCHING) {
+        if (roseReportComb(t, scratch, end, ci->id, 0,
+                           ci->ekey) == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
         }
     }
@@ -1910,8 +1929,8 @@ hwlmcb_rv_t checkPurelyNegatives(const struct RoseEngine *t,
         }
 
         DEBUG_PRINTF("Logical Combination from purely negative Passed!\n");
-        if (roseReport(t, scratch, end, ci->id, 0,
-                       ci->ekey) == HWLM_TERMINATE_MATCHING) {
+        if (roseReportComb(t, scratch, end, ci->id, 0,
+                           ci->ekey) == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
         }
     }
