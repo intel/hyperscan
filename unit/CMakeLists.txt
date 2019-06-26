@@ -129,6 +129,9 @@ set(unit_internal_SOURCES
     internal/main.cpp
     )
 
+add_executable(unit-internal ${unit_internal_SOURCES})
+set_target_properties(unit-internal PROPERTIES COMPILE_FLAGS "${HS_CXX_FLAGS}")
+target_link_libraries(unit-internal hs corpusomatic)
 endif(NOT (RELEASE_BUILD OR FAT_RUNTIME))
 
 if (BUILD_CHIMERA)
@@ -150,10 +153,11 @@ if (BUILD_CHIMERA)
     if (NOT RELEASE_BUILD)
     add_custom_target(
         unit
+        COMMAND bin/unit-internal
         COMMAND bin/unit-hyperscan
         COMMAND bin/unit-chimera
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        DEPENDS unit-hyperscan unit-chimera
+        DEPENDS unit-internal unit-hyperscan unit-chimera
     )
     else ()
     add_custom_target(
@@ -171,9 +175,10 @@ else()
     if (NOT RELEASE_BUILD)
     add_custom_target(
         unit
+        COMMAND bin/unit-internal
         COMMAND bin/unit-hyperscan
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        DEPENDS unit-hyperscan
+        DEPENDS unit-internal unit-hyperscan
     )
     else ()
     add_custom_target(
