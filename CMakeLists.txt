@@ -720,7 +720,6 @@ SET (hs_compile_SRCS
     src/scratch.h
     src/state.h
     src/ue2common.h
-    src/hs_validate.c
     src/compiler/asserts.cpp
     src/compiler/asserts.h
     src/compiler/compiler.cpp
