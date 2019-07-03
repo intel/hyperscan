@@ -322,7 +322,7 @@ PatternData::PatternData(const char *pattern, u32 flags, u32 idx, u32 id_in,
         ch_misc_free(info);
 
         u32 guardflags;
-        guardflags = (flags | HS_FLAG_PREFILTER) & ~HS_FLAG_SINGLEMATCH;
+        guardflags = flags | HS_FLAG_PREFILTER;
         guard = isHyperscanSupported(pattern, guardflags, platform);
     } else {
         // We can't even prefilter this pattern, so we're dependent on Big Dumb
