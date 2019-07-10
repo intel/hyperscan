@@ -279,7 +279,9 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
     hs_error_t proto_ret = hs_check_alloc(proto_tmp);
     if (proto_ret != HS_SUCCESS) {
         hs_scratch_free(proto_tmp);
-        hs_scratch_free(*scratch);
+        if (*scratch) {
+            hs_scratch_free((*scratch)->scratch_alloc);
+        }
         *scratch = NULL;
         return proto_ret;
     }
