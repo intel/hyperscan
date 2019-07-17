@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -125,6 +125,20 @@ void prettyPrintRange(std::ostream &out, it_t begin, it_t end) {
     if (in_range) {
         out << "-" << *itp;
     }
+}
+
+// Transfer given string into a hex-escaped pattern.
+static really_inline
+char *makeHex(const unsigned char *pat, unsigned patlen) {
+    size_t hexlen = patlen * 4;
+    char *hexbuf = (char *)malloc(hexlen + 1);
+    unsigned i;
+    char *buf;
+    for (i = 0, buf = hexbuf; i < patlen; i++, buf += 4) {
+        snprintf(buf, 5, "\\x%02x", (unsigned char)pat[i]);
+    }
+    hexbuf[hexlen] = '\0';
+    return hexbuf;
 }
 
 #endif // STRING_UTIL_H

@@ -113,16 +113,13 @@ struct hwlmLiteral {
      */
     std::vector<u8> cmp;
 
-    bool pure; //!< \brief The pass-on of pure flag from LitFragment.
-
     /** \brief Complete constructor, takes group information and msk/cmp.
      *
      * This constructor takes a msk/cmp pair. Both must be vectors of length <=
      * \ref HWLM_MASKLEN. */
     hwlmLiteral(const std::string &s_in, bool nocase_in, bool noruns_in,
                 u32 id_in, hwlm_group_t groups_in,
-                const std::vector<u8> &msk_in, const std::vector<u8> &cmp_in,
-                bool pure_in = false);
+                const std::vector<u8> &msk_in, const std::vector<u8> &cmp_in);
 
     /** \brief Simple constructor: no group information, no msk/cmp.
      *

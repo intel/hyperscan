@@ -137,7 +137,6 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     s->scratchSize = alloc_size;
     s->scratch_alloc = (char *)s_tmp;
     s->fdr_conf = NULL;
-    s->pure = 0;
 
     // each of these is at an offset from the previous
     char *current = (char *)s + sizeof(*s);

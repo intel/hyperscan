@@ -238,10 +238,10 @@ hwlmcb_rv_t roseProcessMatchInline(const struct RoseEngine *t,
     assert(id && id < t->size); // id is an offset into bytecode
     const u64a som = 0;
     const u8 flags = 0;
-    if (!scratch->pure) {
-        return roseRunProgram(t, scratch, id, som, end, flags);
-    } else {
+    if (t->pureLiteral) {
         return roseRunProgram_l(t, scratch, id, som, end, flags);
+    } else {
+        return roseRunProgram(t, scratch, id, som, end, flags);
     }
 }
 
@@ -619,8 +619,12 @@ int roseReportAdaptor(u64a start, u64a end, ReportID id, void *context) {
     // Our match ID is the program offset.
     const u32 program = id;
     const u8 flags = ROSE_PROG_FLAG_SKIP_MPV_CATCHUP;
-    hwlmcb_rv_t rv =
-        roseRunProgram(rose, scratch, program, start, end, flags);
+    hwlmcb_rv_t rv;
+    if (rose->pureLiteral) {
+        rv = roseRunProgram_l(rose, scratch, program, start, end, flags);
+    } else {
+        rv = roseRunProgram(rose, scratch, program, start, end, flags);
+    }
     if (rv == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;
     }

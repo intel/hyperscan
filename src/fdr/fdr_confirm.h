@@ -62,7 +62,6 @@ struct LitInfo {
     u8 size;
     u8 flags; //!< bitfield of flags from FDR_LIT_FLAG_* above.
     u8 next;
-    u8 pure; //!< The pass-on of pure flag from hwlmLiteral.
 };
 
 #define FDRC_FLAG_NO_CONFIRM 1

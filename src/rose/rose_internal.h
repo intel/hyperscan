@@ -328,6 +328,7 @@ struct RoseBoundaryReports {
  *  nfas). Rose nfa info table can distinguish the cases.
  */
 struct RoseEngine {
+    u8  pureLiteral; /* Indicator of pure literal API */
     u8  noFloatingRoots; /* only need to run the anchored table if something
                           * matched in the anchored table */
     u8  requiresEodCheck; /* stuff happens at eod time */

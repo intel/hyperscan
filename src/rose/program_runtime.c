@@ -2884,6 +2884,7 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
     assert(programOffset >= sizeof(struct RoseEngine));
     assert(programOffset < t->size);
 
+    const char in_catchup = prog_flags & ROSE_PROG_FLAG_IN_CATCHUP;
     const char from_mpv = prog_flags & ROSE_PROG_FLAG_FROM_MPV;
 
     const char *pc_base = getByOffset(t, programOffset);
@@ -2908,6 +2909,56 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
             L_PROGRAM_CASE(END) {
                 DEBUG_PRINTF("finished\n");
                 return HWLM_CONTINUE_MATCHING;
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_GROUPS) {
+                DEBUG_PRINTF("groups=0x%llx, checking instr groups=0x%llx\n",
+                             tctxt->groups, ri->groups);
+                if (!(ri->groups & tctxt->groups)) {
+                    DEBUG_PRINTF("halt: no groups are set\n");
+                    return HWLM_CONTINUE_MATCHING;
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_MASK) {
+                struct core_info *ci = &scratch->core_info;
+                if (!roseCheckMask(ci, ri->and_mask, ri->cmp_mask,
+                                   ri->neg_mask, ri->offset, end)) {
+                    DEBUG_PRINTF("failed mask check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_MASK_32) {
+                struct core_info *ci = &scratch->core_info;
+                if (!roseCheckMask32(ci, ri->and_mask, ri->cmp_mask,
+                                     ri->neg_mask, ri->offset, end)) {
+                    assert(ri->fail_jump);
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_BYTE) {
+                const struct core_info *ci = &scratch->core_info;
+                if (!roseCheckByte(ci, ri->and_mask, ri->cmp_mask,
+                                   ri->negation, ri->offset, end)) {
+                    DEBUG_PRINTF("failed byte check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(PUSH_DELAYED) {
+                rosePushDelayedMatch(t, scratch, ri->delay, ri->index, end);
             }
             L_PROGRAM_NEXT_INSTRUCTION
 
@@ -2964,6 +3015,17 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
                 case DEDUPE_CONTINUE:
                     break;
                 }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(REPORT_CHAIN) {
+                // Note: sequence points updated inside this function.
+                if (roseCatchUpAndHandleChainMatch(
+                        t, scratch, ri->event, ri->top_squash_distance, end,
+                        in_catchup) == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+                work_done = 1;
             }
             L_PROGRAM_NEXT_INSTRUCTION
 
@@ -3114,6 +3176,24 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
             L_PROGRAM_CASE(CLEAR_WORK_DONE) {
                 DEBUG_PRINTF("clear work_done flag\n");
                 work_done = 0;
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(INCLUDED_JUMP) {
+                if (scratch->fdr_conf) {
+                    // squash the bucket of included literal
+                    u8 shift = scratch->fdr_conf_offset & ~7U;
+                    u64a mask = ((~(u64a)ri->squash) << shift);
+                    *(scratch->fdr_conf) &= mask;
+
+                    pc = getByOffset(t, ri->child_offset);
+                    pc_base = pc;
+                    programOffset = (const u8 *)pc_base -(const u8 *)t;
+                    DEBUG_PRINTF("pc_base %p pc %p child_offset %u squash %u\n",
+                                 pc_base, pc, ri->child_offset, ri->squash);
+                    work_done = 0;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
             }
             L_PROGRAM_NEXT_INSTRUCTION
 

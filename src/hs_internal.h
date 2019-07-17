@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,6 +52,17 @@ hs_error_t hs_compile_multi_int(const char *const *expressions,
                                 hs_database_t **db,
                                 hs_compile_error_t **comp_error, const Grey &g);
 
+/** \brief Internal use only: takes a Grey argument so that we can use it in
+ * tools. */
+hs_error_t hs_compile_lit_multi_int(const char *const *expressions,
+                                    const unsigned *flags, const unsigned *ids,
+                                    const hs_expr_ext *const *ext,
+                                    const size_t *lens, unsigned elements,
+                                    unsigned mode,
+                                    const hs_platform_info_t *platform,
+                                    hs_database_t **db,
+                                    hs_compile_error_t **comp_error,
+                                    const Grey &g);
 } // namespace ue2
 
 extern "C"

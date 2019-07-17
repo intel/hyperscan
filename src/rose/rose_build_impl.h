@@ -340,14 +340,7 @@ public:
     std::pair<u32, bool> insert(const rose_literal_id &lit) {
         auto it = lits_index.find(lit);
         if (it != lits_index.end()) {
-            u32 idx = it->second;
-            auto &l = lits.at(idx);
-            if (!lit.s.get_pure() && l.s.get_pure()) {
-                lits_index.erase(l);
-                l.s.unset_pure();
-                lits_index.emplace(l, idx);
-            }
-            return {idx, false};
+            return {it->second, false};
         }
         u32 id = verify_u32(lits.size());
         lits.push_back(lit);

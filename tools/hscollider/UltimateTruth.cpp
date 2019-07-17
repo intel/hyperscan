@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -925,11 +925,22 @@ compileHyperscan(vector<const char *> &patterns, vector<unsigned> &flags,
     const unsigned count = patterns.size();
     hs_database_t *db = nullptr;
     hs_compile_error_t *compile_err;
+    hs_error_t err;
 
-    hs_error_t err = hs_compile_multi_int(&patterns[0], &flags[0],
-                                          &idsvec[0], ext.c_array(), count,
-                                          mode, platform, &db,
-                                          &compile_err, grey);
+    if (use_literal_api) {
+        // Compute length of each pattern.
+        vector<size_t> lens(count);
+        for (unsigned int i = 0; i < count; i++) {
+            lens[i] = strlen(patterns[i]);
+        }
+        err = hs_compile_lit_multi_int(&patterns[0], &flags[0], &idsvec[0],
+                                       ext.c_array(), &lens[0], count, mode,
+                                       platform, &db, &compile_err, grey);
+    } else {
+        err = hs_compile_multi_int(&patterns[0], &flags[0], &idsvec[0],
+                                   ext.c_array(), count, mode, platform, &db,
+                                   &compile_err, grey);
+    }
 
     if (err != HS_SUCCESS) {
         error = compile_err->message;

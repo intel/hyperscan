@@ -185,7 +185,6 @@ bool shortcutLiteral(NG &ng, const ParsedExpression &pe) {
         return false;
     }
 
-    vis.lit.set_pure();
     const ue2_literal &lit = vis.lit;
 
     if (lit.empty()) {

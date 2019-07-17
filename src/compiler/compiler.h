@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,6 +38,7 @@
 #include "compiler/expression_info.h"
 #include "parser/Component.h"
 #include "util/noncopyable.h"
+#include "util/ue2string.h"
 
 #include <memory>
 
@@ -64,6 +65,22 @@ public:
 
     /** \brief Root node of parsed component tree. */
     std::unique_ptr<Component> component;
+};
+
+
+/** \brief Class gathering together the pieces of a parsed lit-expression. */
+class ParsedLitExpression : noncopyable {
+public:
+    ParsedLitExpression(unsigned index, const char *expression,
+                        size_t expLength, unsigned flags, ReportID report);
+
+    void parseLiteral(const char *expression, size_t len, bool nocase);
+
+    /** \brief Expression information (from flags, extparam etc) */
+    ExpressionInfo expr;
+
+    /** \brief Format the lit-expression text into Hyperscan literal type. */
+    ue2_literal lit;
 };
 
 /**
@@ -99,6 +116,10 @@ struct BuiltExpression {
 void addExpression(NG &ng, unsigned index, const char *expression,
                    unsigned flags, const hs_expr_ext *ext, ReportID report);
 
+void addLitExpression(NG &ng, unsigned index, const char *expression,
+                      unsigned flags, const hs_expr_ext *ext, ReportID id,
+                      size_t expLength);
+
 /**
  * Build a Hyperscan database out of the expressions we've been given. A
  * fatal error will result in an exception being thrown.
@@ -107,11 +128,13 @@ void addExpression(NG &ng, unsigned index, const char *expression,
  *      The global NG object.
  * @param[out] length
  *      The number of bytes occupied by the compiled structure.
+ * @param pureFlag
+ *      The flag indicating invocation from literal API or not.
  * @return
  *      The compiled structure. Should be deallocated with the
  *      hs_database_free() function.
  */
-struct hs_database *build(NG &ng, unsigned int *length);
+struct hs_database *build(NG &ng, unsigned int *length, u8 pureFlag);
 
 /**
  * Constructs an NFA graph from the given expression tree.

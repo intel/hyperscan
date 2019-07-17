@@ -141,7 +141,6 @@ void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
     s->deduper.current_report_offset = ~0ULL;
     s->deduper.som_log_dirty = 1; /* som logs have not been cleared */
     s->fdr_conf = NULL;
-    s->pure = 0;
 
     // Rose program execution (used for some report paths) depends on these
     // values being initialised.
