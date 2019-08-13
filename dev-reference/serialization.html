@@ -1,40 +1,39 @@
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Serialization &#8212; Hyperscan 5.1.1 documentation</title>
+    
+    <title>Serialization &mdash; Hyperscan 5.2.0 documentation</title>
+    
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
+    
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '5.1.1',
+        VERSION:     '5.2.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true,
-        SOURCELINK_SUFFIX: '.txt'
+        HAS_SOURCE:  true
       };
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="top" title="Hyperscan 5.2.0 documentation" href="index.html" />
     <link rel="next" title="Performance Considerations" href="performance.html" />
     <link rel="prev" title="Scanning for Patterns" href="runtime.html" />
    
-  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
-  <body>
-  
+  <body role="document">  
 
     <div class="document">
       <div class="documentwrapper">
@@ -79,7 +78,7 @@ upon deserialization. The <a class="reference internal" href="api_files.html#c.h
 <a class="reference internal" href="api_files.html#c.hs_deserialize_database_at" title="hs_deserialize_database_at"><code class="xref c c-func docutils literal"><span class="pre">hs_deserialize_database_at()</span></code></a> functions will only permit the
 deserialization of databases compiled with (a) the same version of Hyperscan
 and (b) platform features supported by the current host platform. See
-<a class="reference internal" href="compilation.html#instr-specialization"><span class="std std-ref">Instruction Set Specialization</span></a> for more information on platform specialization.</p>
+<a class="reference internal" href="compilation.html#instr-specialization"><span>Instruction Set Specialization</span></a> for more information on platform specialization.</p>
 </div>
 <div class="section" id="the-runtime-library">
 <h2>The Runtime Library<a class="headerlink" href="#the-runtime-library" title="Permalink to this headline">¶</a></h2>
@@ -87,7 +86,7 @@ and (b) platform features supported by the current host platform. See
 portions of the library. This means that in order to support the Hyperscan
 compiler, which is written in C++, it requires C++ linkage and has a
 dependency on the C++ standard library.</p>
-<p>Many embedded applications require only the scanning (“runtime”) portion of the
+<p>Many embedded applications require only the scanning (&#8220;runtime&#8221;) portion of the
 Hyperscan library. In these cases, pattern compilation generally takes place on
 another host, and serialized pattern databases are delivered to the application
 for use.</p>
@@ -112,7 +111,7 @@ provides all Hyperscan functions other that those used to compile databases.</p>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="compilation.html">Compiling Patterns</a></li>
 <li class="toctree-l1"><a class="reference internal" href="runtime.html">Scanning for Patterns</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Serialization</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Serialization</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#the-runtime-library">The Runtime Library</a></li>
 </ul>
 </li>
@@ -126,11 +125,14 @@ provides all Hyperscan functions other that those used to compile databases.</p>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -141,8 +143,8 @@ provides all Hyperscan functions other that those used to compile databases.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.7</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
       
     </div>
 

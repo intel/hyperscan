@@ -1,40 +1,39 @@
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Scanning for Patterns &#8212; Hyperscan 5.1.1 documentation</title>
+    
+    <title>Scanning for Patterns &mdash; Hyperscan 5.2.0 documentation</title>
+    
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
+    
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '5.1.1',
+        VERSION:     '5.2.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true,
-        SOURCELINK_SUFFIX: '.txt'
+        HAS_SOURCE:  true
       };
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="top" title="Hyperscan 5.2.0 documentation" href="index.html" />
     <link rel="next" title="Serialization" href="serialization.html" />
     <link rel="prev" title="Compiling Patterns" href="compilation.html" />
    
-  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
-  <body>
-  
+  <body role="document">  
 
     <div class="document">
       <div class="documentwrapper">
@@ -53,13 +52,13 @@ is found. This function has the following signature:</p>
 <blockquote>
 <div><dl class="typedef">
 <dt>
-<em class="property">typedef </em>int<code class="descname">( * match_event_handler)</code><span class="sig-paren">(</span>unsigned int<em>&nbsp;id</em>, unsigned long long<em>&nbsp;from</em>, unsigned long long<em>&nbsp;to</em>, unsigned int<em>&nbsp;flags</em>, void<em>&nbsp;*context</em><span class="sig-paren">)</span></dt>
+<em class="property">typedef </em><code class="descname">( * match_event_handler)</code><span class="sig-paren">(</span>unsigned int<em>&nbsp;id</em>, unsigned long long<em>&nbsp;from</em>, unsigned long long<em>&nbsp;to</em>, unsigned int<em>&nbsp;flags</em>, void<em>&nbsp;*context</em><span class="sig-paren">)</span></dt>
 <dd></dd></dl>
 
 </div></blockquote>
 <p>The <em>id</em> argument will be set to the identifier for the matching expression
 provided at compile time, and the <em>to</em> argument will be set to the end-offset
-of the match. If SOM was requested for the pattern (see <a class="reference internal" href="compilation.html#som"><span class="std std-ref">Start of Match</span></a>), the
+of the match. If SOM was requested for the pattern (see <a class="reference internal" href="compilation.html#som"><span>Start of Match</span></a>), the
 <em>from</em> argument will be set to the leftmost possible start-offset for the match.</p>
 <p>The match callback function has the capability to halt scanning
 by returning a non-zero value.</p>
@@ -88,7 +87,7 @@ will return immediately with <a class="reference internal" href="api_files.html#
 still call <a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_close_stream()</span></code></a> to complete the clean-up process for that
 stream.</p>
 <p>Streams exist in the Hyperscan library so that pattern matching state can be
-maintained across multiple blocks of target data – without maintaining this
+maintained across multiple blocks of target data &#8211; without maintaining this
 state, it would not be possible to detect patterns that span these blocks of
 data. This, however, does come at the cost of requiring an amount of storage
 per-stream (the size of this storage is fixed at compile time), and a slight
@@ -163,7 +162,7 @@ incur all the stream related overhead.</p>
 function: <a class="reference internal" href="api_files.html#c.hs_scan_vector" title="hs_scan_vector"><code class="xref c c-func docutils literal"><span class="pre">hs_scan_vector()</span></code></a>. This function accepts an array of data
 pointers and lengths, facilitating the scanning in sequence of a set of data
 blocks that are not contiguous in memory.</p>
-<p>From the caller’s perspective, this mode will produce the same matches as if
+<p>From the caller&#8217;s perspective, this mode will produce the same matches as if
 the set of data blocks were (a) scanned in sequence with a series of streaming
 mode scans, or (b) copied in sequence into a single block of memory and then
 scanned in block mode.</p>
@@ -173,7 +172,7 @@ scanned in block mode.</p>
 <p>While scanning data, Hyperscan needs a small amount of temporary memory to store
 on-the-fly internal data. This amount is unfortunately too large to fit on the
 stack, particularly for embedded applications, and allocating memory dynamically
-is too expensive, so a pre-allocated “scratch” space must be provided to the
+is too expensive, so a pre-allocated &#8220;scratch&#8221; space must be provided to the
 scanning functions.</p>
 <p>The function <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> allocates a large enough region of
 scratch space to support a given database. If the application uses multiple
@@ -187,13 +186,13 @@ scanning (say, from the match callback function), then an additional scratch
 space is required for that context.</p>
 <p>In the absence of recursive scanning, only one such space is required per thread
 and can (and indeed should) be allocated before data scanning is to commence.</p>
-<p>In a scenario where a set of expressions are compiled by a single “master”
-thread and data will be scanned by multiple “worker” threads, the convenience
+<p>In a scenario where a set of expressions are compiled by a single &#8220;master&#8221;
+thread and data will be scanned by multiple &#8220;worker&#8221; threads, the convenience
 function <a class="reference internal" href="api_files.html#c.hs_clone_scratch" title="hs_clone_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_clone_scratch()</span></code></a> allows multiple copies of an existing
 scratch space to be made for each thread (rather than forcing the caller to pass
 all the compiled databases through <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> multiple times).</p>
 <p>For example:</p>
-<div class="highlight-c"><div class="highlight"><pre><span></span><span class="n">hs_error_t</span> <span class="n">err</span><span class="p">;</span>
+<div class="highlight-c"><div class="highlight"><pre><span class="n">hs_error_t</span> <span class="n">err</span><span class="p">;</span>
 <span class="n">hs_scratch_t</span> <span class="o">*</span><span class="n">scratch_prototype</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
 <span class="n">err</span> <span class="o">=</span> <span class="n">hs_alloc_scratch</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">scratch_prototype</span><span class="p">);</span>
 <span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">!=</span> <span class="n">HS_SUCCESS</span><span class="p">)</span> <span class="p">{</span>
@@ -259,7 +258,7 @@ allocators to the same allocate/free pair.</p>
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="compilation.html">Compiling Patterns</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Scanning for Patterns</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Scanning for Patterns</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#handling-matches">Handling Matches</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#streaming-mode">Streaming Mode</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#block-mode">Block Mode</a></li>
@@ -279,11 +278,14 @@ allocators to the same allocate/free pair.</p>
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -294,8 +296,8 @@ allocators to the same allocate/free pair.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.7</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
       
     </div>
 

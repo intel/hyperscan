@@ -1,40 +1,39 @@
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>API Reference: Constants &#8212; Hyperscan 5.1.1 documentation</title>
+    
+    <title>API Reference: Constants &mdash; Hyperscan 5.2.0 documentation</title>
+    
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
+    
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '5.1.1',
+        VERSION:     '5.2.0',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true,
-        SOURCELINK_SUFFIX: '.txt'
+        HAS_SOURCE:  true
       };
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
+    <link rel="top" title="Hyperscan 5.2.0 documentation" href="index.html" />
     <link rel="next" title="API Reference: Files" href="api_files.html" />
     <link rel="prev" title="Tools" href="tools.html" />
    
-  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
   </head>
-  <body>
-  
+  <body role="document">  
 
     <div class="document">
       <div class="documentwrapper">
@@ -74,7 +73,7 @@
 <dl class="define">
 <dt>
 <code class="descname">HS_COMPILER_ERROR</code></dt>
-<dd><p>The pattern compiler failed, and the <a class="reference internal" href="api_files.html#hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span class="std std-ref">hs_compile_error_t</span></a> should be inspected for more detail. </p>
+<dd><p>The pattern compiler failed, and the <a class="reference internal" href="api_files.html#project0hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span>hs_compile_error_t</span></a> should be inspected for more detail. </p>
 </dd></dl>
 
 <dl class="define">
@@ -104,7 +103,7 @@
 <dl class="define">
 <dt>
 <code class="descname">HS_BAD_ALLOC</code></dt>
-<dd><p>The memory allocator (either malloc() or the allocator set with <a class="reference internal" href="api_files.html#hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span class="std std-ref">hs_set_allocator()</span></a>) did not correctly return memory suitably aligned for the largest representable data type on this platform. </p>
+<dd><p>The memory allocator (either malloc() or the allocator set with <a class="reference internal" href="api_files.html#project0hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span>hs_set_allocator()</span></a>) did not correctly return memory suitably aligned for the largest representable data type on this platform. </p>
 </dd></dl>
 
 <dl class="define">
@@ -112,8 +111,8 @@
 <code class="descname">HS_SCRATCH_IN_USE</code></dt>
 <dd><p>The scratch region was already in use.</p>
 <p>This error is returned when Hyperscan is able to detect that the scratch region given is already in use by another Hyperscan API call.</p>
-<p>A separate scratch region, allocated with <a class="reference internal" href="api_files.html#hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span class="std std-ref">hs_alloc_scratch()</span></a> or <a class="reference internal" href="api_files.html#hs__runtime_8h_1a5ccab293a24ee56fcb82c715a7dca861"><span class="std std-ref">hs_clone_scratch()</span></a>, is required for every concurrent caller of the Hyperscan API.</p>
-<p>For example, this error might be returned when <a class="reference internal" href="api_files.html#hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span class="std std-ref">hs_scan()</span></a> has been called inside a callback delivered by a currently-executing <a class="reference internal" href="api_files.html#hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span class="std std-ref">hs_scan()</span></a> call using the same scratch region.</p>
+<p>A separate scratch region, allocated with <a class="reference internal" href="api_files.html#project0hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span>hs_alloc_scratch()</span></a> or <a class="reference internal" href="api_files.html#project0hs__runtime_8h_1a5ccab293a24ee56fcb82c715a7dca861"><span>hs_clone_scratch()</span></a>, is required for every concurrent caller of the Hyperscan API.</p>
+<p>For example, this error might be returned when <a class="reference internal" href="api_files.html#project0hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span>hs_scan()</span></a> has been called inside a callback delivered by a currently-executing <a class="reference internal" href="api_files.html#project0hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span>hs_scan()</span></a> call using the same scratch region.</p>
 <p>Note: Not all concurrent uses of scratch regions may be detected. This error is intended as a best-effort debugging tool, not a guarantee. </p>
 </dd></dl>
 
@@ -146,31 +145,31 @@
 <dl class="define">
 <dt>
 <code class="descname">HS_EXT_FLAG_MIN_OFFSET</code></dt>
-<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#strucths__expr__ext_1a006843974cb05dbf16291da621a72fa9"><span class="std std-ref">hs_expr_ext::min_offset</span></a> field is used. </p>
+<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#project0strucths__expr__ext_1a006843974cb05dbf16291da621a72fa9"><span>hs_expr_ext::min_offset</span></a> field is used. </p>
 </dd></dl>
 
 <dl class="define">
 <dt>
 <code class="descname">HS_EXT_FLAG_MAX_OFFSET</code></dt>
-<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#strucths__expr__ext_1a263c613f20c6b8ef30ca01785e0f55fc"><span class="std std-ref">hs_expr_ext::max_offset</span></a> field is used. </p>
+<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#project0strucths__expr__ext_1a263c613f20c6b8ef30ca01785e0f55fc"><span>hs_expr_ext::max_offset</span></a> field is used. </p>
 </dd></dl>
 
 <dl class="define">
 <dt>
 <code class="descname">HS_EXT_FLAG_MIN_LENGTH</code></dt>
-<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#strucths__expr__ext_1a6afdac1e0bb89d9a76d6c91ed86a6fe8"><span class="std std-ref">hs_expr_ext::min_length</span></a> field is used. </p>
+<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#project0strucths__expr__ext_1a6afdac1e0bb89d9a76d6c91ed86a6fe8"><span>hs_expr_ext::min_length</span></a> field is used. </p>
 </dd></dl>
 
 <dl class="define">
 <dt>
 <code class="descname">HS_EXT_FLAG_EDIT_DISTANCE</code></dt>
-<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#strucths__expr__ext_1a8b7536c6ca0b01faa975b195e04b3913"><span class="std std-ref">hs_expr_ext::edit_distance</span></a> field is used. </p>
+<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#project0strucths__expr__ext_1a8b7536c6ca0b01faa975b195e04b3913"><span>hs_expr_ext::edit_distance</span></a> field is used. </p>
 </dd></dl>
 
 <dl class="define">
 <dt>
 <code class="descname">HS_EXT_FLAG_HAMMING_DISTANCE</code></dt>
-<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#strucths__expr__ext_1a94072afd1400402fad2e59c6dbdb7973"><span class="std std-ref">hs_expr_ext::hamming_distance</span></a> field is used. </p>
+<dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#project0strucths__expr__ext_1a94072afd1400402fad2e59c6dbdb7973"><span>hs_expr_ext::hamming_distance</span></a> field is used. </p>
 </dd></dl>
 
 </div>
@@ -201,9 +200,9 @@
 <dt>
 <code class="descname">HS_FLAG_SINGLEMATCH</code></dt>
 <dd><p>Compile flag: Set single-match only mode.</p>
-<p>This flag sets the expression’s match ID to match at most once. In streaming mode, this means that the expression will return only a single match over the lifetime of the stream, rather than reporting every match as per standard Hyperscan semantics. In block mode or vectored mode, only the first match for each invocation of <a class="reference internal" href="api_files.html#hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span class="std std-ref">hs_scan()</span></a> or <a class="reference internal" href="api_files.html#hs__runtime_8h_1ad6b603921a1fd2ddf12230730d6634c6"><span class="std std-ref">hs_scan_vector()</span></a> will be returned.</p>
-<p>If multiple expressions in the database share the same match ID, then they either must all specify <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"><span class="std std-ref">HS_FLAG_SINGLEMATCH</span></a> or none of them specify <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"><span class="std std-ref">HS_FLAG_SINGLEMATCH</span></a>. If a group of expressions sharing a match ID specify the flag, then at most one match with the match ID will be generated per stream.</p>
-<p>Note: The use of this flag in combination with <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> is not currently supported. </p>
+<p>This flag sets the expression&#8217;s match ID to match at most once. In streaming mode, this means that the expression will return only a single match over the lifetime of the stream, rather than reporting every match as per standard Hyperscan semantics. In block mode or vectored mode, only the first match for each invocation of <a class="reference internal" href="api_files.html#project0hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span>hs_scan()</span></a> or <a class="reference internal" href="api_files.html#project0hs__runtime_8h_1ad6b603921a1fd2ddf12230730d6634c6"><span>hs_scan_vector()</span></a> will be returned.</p>
+<p>If multiple expressions in the database share the same match ID, then they either must all specify <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"><span>HS_FLAG_SINGLEMATCH</span></a> or none of them specify <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"><span>HS_FLAG_SINGLEMATCH</span></a>. If a group of expressions sharing a match ID specify the flag, then at most one match with the match ID will be generated per stream.</p>
+<p>Note: The use of this flag in combination with <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span>HS_FLAG_SOM_LEFTMOST</span></a> is not currently supported. </p>
 </dd></dl>
 
 <dl class="define">
@@ -224,19 +223,19 @@
 <dt>
 <code class="descname">HS_FLAG_UCP</code></dt>
 <dd><p>Compile flag: Enable Unicode property support for this expression.</p>
-<p>This flag instructs Hyperscan to use Unicode properties, rather than the default ASCII interpretations, for character mnemonics like <code class="docutils literal"><span class="pre">\w</span></code> and <code class="docutils literal"><span class="pre">\s</span></code> as well as the POSIX character classes. It is only meaningful in conjunction with <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1ga8c95741825e963834f8f53dd545132bd"><span class="std std-ref">HS_FLAG_UTF8</span></a>. </p>
+<p>This flag instructs Hyperscan to use Unicode properties, rather than the default ASCII interpretations, for character mnemonics like <code class="docutils literal"><span class="pre">\w</span></code> and <code class="docutils literal"><span class="pre">\s</span></code> as well as the POSIX character classes. It is only meaningful in conjunction with <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1ga8c95741825e963834f8f53dd545132bd"><span>HS_FLAG_UTF8</span></a>. </p>
 </dd></dl>
 
 <dl class="define">
 <dt>
 <code class="descname">HS_FLAG_PREFILTER</code></dt>
 <dd><p>Compile flag: Enable prefiltering mode for this expression.</p>
-<p>This flag instructs Hyperscan to compile an “approximate” version of this pattern for use in a prefiltering application, even if Hyperscan does not support the pattern in normal operation.</p>
+<p>This flag instructs Hyperscan to compile an &#8220;approximate&#8221; version of this pattern for use in a prefiltering application, even if Hyperscan does not support the pattern in normal operation.</p>
 <p>The set of matches returned when this flag is used is guaranteed to be a superset of the matches specified by the non-prefiltering expression.</p>
 <p>If the pattern contains pattern constructs not supported by Hyperscan (such as zero-width assertions, back-references or conditional references) these constructs will be replaced internally with broader constructs that may match more often.</p>
-<p>Furthermore, in prefiltering mode Hyperscan may simplify a pattern that would otherwise return a “Pattern too large” error at compile time, or for performance reasons (subject to the matching guarantee above).</p>
+<p>Furthermore, in prefiltering mode Hyperscan may simplify a pattern that would otherwise return a &#8220;Pattern too large&#8221; error at compile time, or for performance reasons (subject to the matching guarantee above).</p>
 <p>It is generally expected that the application will subsequently confirm prefilter matches with another regular expression matcher that can provide exact matches for the pattern.</p>
-<p>Note: The use of this flag in combination with <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> is not currently supported. </p>
+<p>Note: The use of this flag in combination with <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span>HS_FLAG_SOM_LEFTMOST</span></a> is not currently supported. </p>
 </dd></dl>
 
 <dl class="define">
@@ -251,13 +250,13 @@
 <dt>
 <code class="descname">HS_FLAG_COMBINATION</code></dt>
 <dd><p>Compile flag: Logical combination.</p>
-<p>This flag instructs Hyperscan to parse this expression as logical combination syntax. Logical constraints consist of operands, operators and parentheses. The operands are expression indices, and operators can be ‘!’(NOT), ‘&amp;’(AND) or ‘|’(OR). For example: (101&amp;102&amp;103)|(104&amp;!105) ((301|302)&amp;303)&amp;(304|305) </p>
+<p>This flag instructs Hyperscan to parse this expression as logical combination syntax. Logical constraints consist of operands, operators and parentheses. The operands are expression indices, and operators can be &#8216;!&#8217;(NOT), &#8216;&amp;&#8217;(AND) or &#8216;|&#8217;(OR). For example: (101&amp;102&amp;103)|(104&amp;!105) ((301|302)&amp;303)&amp;(304|305) </p>
 </dd></dl>
 
 <dl class="define">
 <dt>
 <code class="descname">HS_FLAG_QUIET</code></dt>
-<dd><p>Compile flag: Don’t do any match reporting.</p>
+<dd><p>Compile flag: Don&#8217;t do any match reporting.</p>
 <p>This flag instructs Hyperscan to ignore match reporting for this expression. It is designed to be used on the sub-expressions in logical combinations. </p>
 </dd></dl>
 
@@ -356,7 +355,7 @@
 <dl class="define">
 <dt>
 <code class="descname">HS_MODE_NOSTREAM</code></dt>
-<dd><p>Compiler mode flag: Alias for <a class="reference internal" href="api_files.html#group__HS__MODE__FLAG_1ga494ea2cf28a49627e4d131e596f489c0"><span class="std std-ref">HS_MODE_BLOCK</span></a>. </p>
+<dd><p>Compiler mode flag: Alias for <a class="reference internal" href="api_files.html#project0group__HS__MODE__FLAG_1ga494ea2cf28a49627e4d131e596f489c0"><span>HS_MODE_BLOCK</span></a>. </p>
 </dd></dl>
 
 <dl class="define">
@@ -376,23 +375,23 @@
 <code class="descname">HS_MODE_SOM_HORIZON_LARGE</code></dt>
 <dd><p>Compiler mode flag: use full precision to track start of match offsets in stream state.</p>
 <p>This mode will use the most stream state per pattern, but will always return an accurate start of match offset regardless of how far back in the past it was found.</p>
-<p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
+<p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span>HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
 </dd></dl>
 
 <dl class="define">
 <dt>
 <code class="descname">HS_MODE_SOM_HORIZON_MEDIUM</code></dt>
 <dd><p>Compiler mode flag: use medium precision to track start of match offsets in stream state.</p>
-<p>This mode will use less stream state than <a class="reference internal" href="api_files.html#group__HS__MODE__FLAG_1gaae54cf9532a990b1ef7bdb4fa51eb3c6"><span class="std std-ref">HS_MODE_SOM_HORIZON_LARGE</span></a> and will limit start of match accuracy to offsets within 2^32 bytes of the end of match offset reported.</p>
-<p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
+<p>This mode will use less stream state than <a class="reference internal" href="api_files.html#project0group__HS__MODE__FLAG_1gaae54cf9532a990b1ef7bdb4fa51eb3c6"><span>HS_MODE_SOM_HORIZON_LARGE</span></a> and will limit start of match accuracy to offsets within 2^32 bytes of the end of match offset reported.</p>
+<p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span>HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
 </dd></dl>
 
 <dl class="define">
 <dt>
 <code class="descname">HS_MODE_SOM_HORIZON_SMALL</code></dt>
 <dd><p>Compiler mode flag: use limited precision to track start of match offsets in stream state.</p>
-<p>This mode will use less stream state than <a class="reference internal" href="api_files.html#group__HS__MODE__FLAG_1gaae54cf9532a990b1ef7bdb4fa51eb3c6"><span class="std std-ref">HS_MODE_SOM_HORIZON_LARGE</span></a> and will limit start of match accuracy to offsets within 2^16 bytes of the end of match offset reported.</p>
-<p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
+<p>This mode will use less stream state than <a class="reference internal" href="api_files.html#project0group__HS__MODE__FLAG_1gaae54cf9532a990b1ef7bdb4fa51eb3c6"><span>HS_MODE_SOM_HORIZON_LARGE</span></a> and will limit start of match accuracy to offsets within 2^16 bytes of the end of match offset reported.</p>
+<p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="api_files.html#project0group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span>HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
 </dd></dl>
 
 </div>
@@ -415,7 +414,7 @@
 <li class="toctree-l1"><a class="reference internal" href="serialization.html">Serialization</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance Considerations</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tools.html">Tools</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">API Reference: Constants</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="">API Reference: Constants</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#error-codes">Error Codes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#hs-expr-ext-flags">hs_expr_ext flags</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pattern-flags">Pattern flags</a></li>
@@ -431,11 +430,14 @@
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -446,8 +448,8 @@
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.7</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.8</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
       
     </div>
 
