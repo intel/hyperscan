@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, Intel Corporation
+ * Copyright (c) 2016-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -213,6 +213,58 @@ char isLogicalCombination(const struct RoseEngine *rose, char *lvec,
                           getLogicalVal(rose, lvec, op->ro)); // &&
             break;
         case LOGICAL_OP_OR:
+            setLogicalVal(rose, lvec, op->id,
+                          getLogicalVal(rose, lvec, op->lo) |
+                          getLogicalVal(rose, lvec, op->ro)); // ||
+            break;
+        }
+    }
+    return getLogicalVal(rose, lvec, result);
+}
+
+/** \brief Returns 1 if combination matches when no sub-expression matches. */
+static really_inline
+char isPurelyNegativeMatch(const struct RoseEngine *rose, char *lvec,
+                           u32 start, u32 result) {
+    const struct LogicalOp *logicalTree = (const struct LogicalOp *)
+        ((const char *)rose + rose->logicalTreeOffset);
+    assert(start >= rose->lkeyCount);
+    assert(start <= result);
+    assert(result < rose->lkeyCount + rose->lopCount);
+    for (u32 i = start; i <= result; i++) {
+        const struct LogicalOp *op = logicalTree + (i - rose->lkeyCount);
+        assert(i == op->id);
+        assert(op->op <= LAST_LOGICAL_OP);
+        switch ((enum LogicalOpType)op->op) {
+        case LOGICAL_OP_NOT:
+            if ((op->ro < rose->lkeyCount) &&
+                getLogicalVal(rose, lvec, op->ro)) {
+                // sub-expression not negative
+                return 0;
+            }
+            setLogicalVal(rose, lvec, op->id,
+                          !getLogicalVal(rose, lvec, op->ro));
+            break;
+        case LOGICAL_OP_AND:
+            if (((op->lo < rose->lkeyCount) &&
+                 getLogicalVal(rose, lvec, op->lo)) ||
+                ((op->ro < rose->lkeyCount) &&
+                 getLogicalVal(rose, lvec, op->ro))) {
+                // sub-expression not negative
+                return 0;
+            }
+            setLogicalVal(rose, lvec, op->id,
+                          getLogicalVal(rose, lvec, op->lo) &
+                          getLogicalVal(rose, lvec, op->ro)); // &&
+            break;
+        case LOGICAL_OP_OR:
+            if (((op->lo < rose->lkeyCount) &&
+                 getLogicalVal(rose, lvec, op->lo)) ||
+                ((op->ro < rose->lkeyCount) &&
+                 getLogicalVal(rose, lvec, op->ro))) {
+                // sub-expression not negative
+                return 0;
+            }
             setLogicalVal(rose, lvec, op->id,
                           getLogicalVal(rose, lvec, op->lo) |
                           getLogicalVal(rose, lvec, op->ro)); // ||

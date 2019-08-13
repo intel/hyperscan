@@ -137,7 +137,6 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     s->scratchSize = alloc_size;
     s->scratch_alloc = (char *)s_tmp;
     s->fdr_conf = NULL;
-    s->pure = 0;
 
     // each of these is at an offset from the previous
     char *current = (char *)s + sizeof(*s);
@@ -280,7 +279,9 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
     hs_error_t proto_ret = hs_check_alloc(proto_tmp);
     if (proto_ret != HS_SUCCESS) {
         hs_scratch_free(proto_tmp);
-        hs_scratch_free(*scratch);
+        if (*scratch) {
+            hs_scratch_free((*scratch)->scratch_alloc);
+        }
         *scratch = NULL;
         return proto_ret;
     }

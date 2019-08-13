@@ -2843,34 +2843,9 @@ vector<LitFragment> groupByFragment(const RoseBuildImpl &build) {
 
         DEBUG_PRINTF("fragment candidate: lit_id=%u %s\n", lit_id,
                      dumpString(lit.s).c_str());
-
-        /**   0:/xxabcdefgh/      */
-        /**   1:/yyabcdefgh/      */
-        /**   2:/yyabcdefgh.+/    */
-        // Above 3 patterns should firstly convert into RoseLiteralMap with
-        // 2 elements ("xxabcdefgh" and "yyabcdefgh"), then convert into
-        // LitFragment with 1 element ("abcdefgh"). Special care should be
-        // taken to handle the 'pure' flag during the conversion.
-
-        rose_literal_id lit_frag = getFragment(lit);
-        auto it = frag_info.find(lit_frag);
-        if (it != frag_info.end()) {
-            if (!lit_frag.s.get_pure() && it->first.s.get_pure()) {
-                struct FragmentInfo f_info = it->second;
-                f_info.lit_ids.push_back(lit_id);
-                f_info.groups |= groups;
-                frag_info.erase(it->first);
-                frag_info.emplace(lit_frag, f_info);
-            } else {
-                it->second.lit_ids.push_back(lit_id);
-                it->second.groups |= groups;
-            }
-        } else {
-            struct FragmentInfo f_info;
-            f_info.lit_ids.push_back(lit_id);
-            f_info.groups |= groups;
-            frag_info.emplace(lit_frag, f_info);
-        }
+        auto &fi = frag_info[getFragment(lit)];
+        fi.lit_ids.push_back(lit_id);
+        fi.groups |= groups;
     }
 
     for (auto &m : frag_info) {
@@ -3371,6 +3346,15 @@ RoseProgram makeFlushCombProgram(const RoseEngine &t) {
 }
 
 static
+RoseProgram makeLastFlushCombProgram(const RoseEngine &t) {
+    RoseProgram program;
+    if (t.ckeyCount) {
+        addLastFlushCombinationProgram(program);
+    }
+    return program;
+}
+
+static
 u32 history_required(const rose_literal_id &key) {
     if (key.msk.size() < key.s.length()) {
         return key.elength() - 1;
@@ -3739,6 +3723,10 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     auto flushComb_prog = makeFlushCombProgram(proto);
     proto.flushCombProgramOffset = writeProgram(bc, move(flushComb_prog));
+
+    auto lastFlushComb_prog = makeLastFlushCombProgram(proto);
+    proto.lastFlushCombProgramOffset =
+        writeProgram(bc, move(lastFlushComb_prog));
 
     // Build anchored matcher.
     auto atable = buildAnchoredMatcher(*this, fragments, anchored_dfas);

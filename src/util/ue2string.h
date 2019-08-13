@@ -211,17 +211,10 @@ public:
 
     size_t hash() const;
 
-    void set_pure() { pure = true; }
-    void unset_pure() { pure = false; }
-    bool get_pure() const { return pure; }
-
-    /* TODO: consider existing member functions possibly related with pure. */
-
 private:
     friend const_iterator;
     std::string s;
     boost::dynamic_bitset<> nocase;
-    bool pure = false; /**< born from cutting or not (pure literal). */
 };
 
 /// Return a reversed copy of this literal.

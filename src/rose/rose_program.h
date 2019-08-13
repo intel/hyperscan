@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -201,7 +201,14 @@ enum RoseInstructionCode {
     /** \brief Mark as exhausted instead of report while quiet. */
     ROSE_INSTR_SET_EXHAUST,
 
-    LAST_ROSE_INSTRUCTION = ROSE_INSTR_SET_EXHAUST //!< Sentinel.
+    /**
+     * \brief Calculate any combination's logical value if none of its
+     * sub-expression matches until EOD, then check if compliant with any
+     * logical constraints.
+     */
+    ROSE_INSTR_LAST_FLUSH_COMBINATION,
+
+    LAST_ROSE_INSTRUCTION = ROSE_INSTR_LAST_FLUSH_COMBINATION //!< Sentinel.
 };
 
 struct ROSE_STRUCT_END {
@@ -673,5 +680,9 @@ struct ROSE_STRUCT_FLUSH_COMBINATION {
 struct ROSE_STRUCT_SET_EXHAUST {
     u8 code; //!< From enum RoseInstructionCode.
     u32 ekey; //!< Exhaustion key.
+};
+
+struct ROSE_STRUCT_LAST_FLUSH_COMBINATION {
+    u8 code; //!< From enum RoseInstructionCode.
 };
 #endif // ROSE_ROSE_PROGRAM_H

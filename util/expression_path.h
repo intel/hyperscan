@@ -56,9 +56,8 @@ std::string inferExpressionPath(const std::string &sigFile) {
     // POSIX variant.
 
     // dirname() may modify its argument, so we must make a copy.
-    std::vector<char> path(sigFile.size() + 1);
-    memcpy(path.data(), sigFile.c_str(), sigFile.size());
-    path[sigFile.size()] = 0; // ensure null termination.
+    std::vector<char> path(sigFile.begin(), sigFile.end());
+    path.push_back(0); // ensure null termination.
 
     std::string rv = dirname(path.data());
 #else

@@ -155,11 +155,6 @@
 158:/141 & (142|!143) )| 144/C #Not enough left parentheses at index 17.
 159:/1234567890 & (142|!143 )/C #Expression id too large at index 10.
 160:/141 & (142|!143 )|/C #Not enough operand at index 18.
-161:/!141/C #Has match from purely negative sub-expressions.
-162:/!141 | 142 | 143/C #Has match from purely negative sub-expressions.
-163:/!141 & !142 & !143/C #Has match from purely negative sub-expressions.
-164:/(141 | !142 & !143)/C #Has match from purely negative sub-expressions.
-165:/!(141 | 142 | 143)/C #Has match from purely negative sub-expressions.
-166:/141/C #No logical operation.
-167:/119 & 121/C #Unknown sub-expression id.
-168:/166 & 167/C #Unknown sub-expression id.
+161:/141/C #No logical operation.
+162:/119 & 121/C #Unknown sub-expression id.
+163:/166 & 167/C #Unknown sub-expression id.

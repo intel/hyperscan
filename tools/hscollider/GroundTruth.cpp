@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -43,6 +43,7 @@
 #include "parser/Parser.h"
 #include "parser/parse_error.h"
 #include "util/make_unique.h"
+#include "util/string_util.h"
 #include "util/unicode_def.h"
 #include "util/unordered.h"
 
@@ -109,6 +110,15 @@ bool decodeExprPcre(string &expr, unsigned *flags, bool *highlander,
     unsigned int hs_flags = 0;
     if (!readExpression(expr, regex, &hs_flags, ext)) {
         return false;
+    }
+
+    if (use_literal_api) {
+        // filter out flags not supported by pure literal API.
+        u32 not_supported = HS_FLAG_DOTALL | HS_FLAG_ALLOWEMPTY | HS_FLAG_UTF8 |
+                             HS_FLAG_UCP | HS_FLAG_PREFILTER;
+        hs_flags &= ~not_supported;
+        force_utf8 = false;
+        force_prefilter = false;
     }
 
     expr.swap(regex);
@@ -260,9 +270,29 @@ GroundTruth::compile(unsigned id, bool no_callouts) {
         throw PcreCompileFailure("Unable to decode flags.");
     }
 
+    // When hyperscan literal api is on, transfer the regex string into hex.
+    if (use_literal_api && !combination) {
+        unsigned char *pat
+            = reinterpret_cast<unsigned char *>(const_cast<char *>(re.c_str()));
+        char *str = makeHex(pat, re.length());
+        if (!str) {
+            throw PcreCompileFailure("makeHex() malloc failure.");
+        }
+        re.assign(str);
+        free(str);
+    }
+
     // filter out flags not supported by PCRE
     u64a supported = HS_EXT_FLAG_MIN_OFFSET | HS_EXT_FLAG_MAX_OFFSET |
                      HS_EXT_FLAG_MIN_LENGTH;
+    if (use_literal_api) {
+        ext.flags &= 0ULL;
+        ext.min_offset = 0;
+        ext.max_offset = MAX_OFFSET;
+        ext.min_length = 0;
+        ext.edit_distance = 0;
+        ext.hamming_distance = 0;
+    }
     if (ext.flags & ~supported) {
         // edit distance is a known unsupported flag, so just throw a soft error
         if (ext.flags & HS_EXT_FLAG_EDIT_DISTANCE) {
@@ -313,7 +343,6 @@ GroundTruth::compile(unsigned id, bool no_callouts) {
         compiled->report = id;
         return compiled;
     }
-
 
     compiled->bytecode =
         pcre_compile2(re.c_str(), flags, &errcode, &errptr, &errloc, nullptr);
@@ -557,6 +586,46 @@ char isLogicalCombination(vector<char> &lv, const vector<LogicalOp> &comb,
     return lv[result];
 }
 
+/** \brief Returns 1 if combination matches when no sub-expression matches. */
+static
+char isPurelyNegativeMatch(vector<char> &lv, const vector<LogicalOp> &comb,
+                           size_t lkeyCount, unsigned start, unsigned result) {
+    assert(start <= result);
+    for (unsigned i = start; i <= result; i++) {
+        const LogicalOp &op = comb[i - lkeyCount];
+        assert(i == op.id);
+        switch (op.op) {
+        case LOGICAL_OP_NOT:
+            if ((op.ro < lkeyCount) && lv[op.ro]) {
+                // sub-expression not negative
+                return 0;
+            }
+            lv[op.id] = !lv[op.ro];
+            break;
+        case LOGICAL_OP_AND:
+            if (((op.lo < lkeyCount) && lv[op.lo]) ||
+                ((op.ro < lkeyCount) && lv[op.ro])) {
+                // sub-expression not negative
+                return 0;
+            }
+            lv[op.id] = lv[op.lo] & lv[op.ro]; // &&
+            break;
+        case LOGICAL_OP_OR:
+            if (((op.lo < lkeyCount) && lv[op.lo]) ||
+                ((op.ro < lkeyCount) && lv[op.ro])) {
+                // sub-expression not negative
+                return 0;
+            }
+            lv[op.id] = lv[op.lo] | lv[op.ro]; // ||
+            break;
+        default:
+            assert(0);
+            break;
+        }
+    }
+    return lv[result];
+}
+
 bool GroundTruth::run(unsigned, const CompiledPcre &compiled,
                       const string &buffer, ResultSet &rs, string &error) {
     if (compiled.quiet) {
@@ -614,6 +683,13 @@ bool GroundTruth::run(unsigned, const CompiledPcre &compiled,
                         rs.addMatch(mr.from, mr.to);
                     }
                 }
+            }
+        }
+        if (isPurelyNegativeMatch(lv, comb, m_lkey.size(),
+                                  li.start, li.result)) {
+            u64a to = buffer.length();
+            if ((to >= compiled.min_offset) && (to <= compiled.max_offset)) {
+                rs.addMatch(0, to);
             }
         }
         return true;

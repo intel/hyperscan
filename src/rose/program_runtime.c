@@ -480,6 +480,25 @@ hwlmcb_rv_t roseReport(const struct RoseEngine *t, struct hs_scratch *scratch,
     return roseHaltIfExhausted(t, scratch);
 }
 
+static rose_inline
+hwlmcb_rv_t roseReportComb(const struct RoseEngine *t,
+                           struct hs_scratch *scratch, u64a end,
+                           ReportID onmatch, s32 offset_adjust, u32 ekey) {
+    DEBUG_PRINTF("firing callback onmatch=%u, end=%llu\n", onmatch, end);
+
+    int cb_rv = roseDeliverReport(end, onmatch, offset_adjust, scratch, ekey);
+    if (cb_rv == MO_HALT_MATCHING) {
+        DEBUG_PRINTF("termination requested\n");
+        return HWLM_TERMINATE_MATCHING;
+    }
+
+    if (ekey == INVALID_EKEY || cb_rv == ROSE_CONTINUE_MATCHING_NO_EXHAUST) {
+        return HWLM_CONTINUE_MATCHING;
+    }
+
+    return roseHaltIfExhausted(t, scratch);
+}
+
 /* catches up engines enough to ensure any earlier mpv triggers are enqueued
  * and then adds the trigger to the mpv queue. */
 static rose_inline
@@ -1866,12 +1885,55 @@ hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
         }
 
         DEBUG_PRINTF("Logical Combination Passed!\n");
-        if (roseReport(t, scratch, end, ci->id, 0,
-                       ci->ekey) == HWLM_TERMINATE_MATCHING) {
+        if (roseReportComb(t, scratch, end, ci->id, 0,
+                           ci->ekey) == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
         }
     }
     clearCvec(t, (char *)cvec);
+    return HWLM_CONTINUE_MATCHING;
+}
+
+static rose_inline
+hwlmcb_rv_t checkPurelyNegatives(const struct RoseEngine *t,
+                                 struct hs_scratch *scratch, u64a end) {
+    for (u32 i = 0; i < t->ckeyCount; i++) {
+        const struct CombInfo *combInfoMap = (const struct CombInfo *)
+            ((const char *)t + t->combInfoMapOffset);
+        const struct CombInfo *ci = combInfoMap + i;
+        if ((ci->min_offset != 0) && (end < ci->min_offset)) {
+            DEBUG_PRINTF("halt: before min_offset=%llu\n", ci->min_offset);
+            continue;
+        }
+        if ((ci->max_offset != MAX_OFFSET) && (end > ci->max_offset)) {
+            DEBUG_PRINTF("halt: after max_offset=%llu\n", ci->max_offset);
+            continue;
+        }
+
+        DEBUG_PRINTF("check ekey %u\n", ci->ekey);
+        if (ci->ekey != INVALID_EKEY) {
+            assert(ci->ekey < t->ekeyCount);
+            const char *evec = scratch->core_info.exhaustionVector;
+            if (isExhausted(t, evec, ci->ekey)) {
+                DEBUG_PRINTF("ekey %u already set, match is exhausted\n",
+                             ci->ekey);
+                continue;
+            }
+        }
+
+        DEBUG_PRINTF("check ckey %u purely negative\n", i);
+        char *lvec = scratch->core_info.logicalVector;
+        if (!isPurelyNegativeMatch(t, lvec, ci->start, ci->result)) {
+            DEBUG_PRINTF("Logical Combination from purely negative Failed!\n");
+            continue;
+        }
+
+        DEBUG_PRINTF("Logical Combination from purely negative Passed!\n");
+        if (roseReportComb(t, scratch, end, ci->id, 0,
+                           ci->ekey) == HWLM_TERMINATE_MATCHING) {
+            return HWLM_TERMINATE_MATCHING;
+        }
+    }
     return HWLM_CONTINUE_MATCHING;
 }
 
@@ -2004,7 +2066,8 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
         &&LABEL_ROSE_INSTR_SET_LOGICAL,
         &&LABEL_ROSE_INSTR_SET_COMBINATION,
         &&LABEL_ROSE_INSTR_FLUSH_COMBINATION,
-        &&LABEL_ROSE_INSTR_SET_EXHAUST
+        &&LABEL_ROSE_INSTR_SET_EXHAUST,
+        &&LABEL_ROSE_INSTR_LAST_FLUSH_COMBINATION
     };
 #endif
 
@@ -2772,6 +2835,19 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(LAST_FLUSH_COMBINATION) {
+                assert(end >= tctxt->lastCombMatchOffset);
+                if (flushActiveCombinations(t, scratch)
+                        == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+                if (checkPurelyNegatives(t, scratch, end)
+                        == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             default: {
                 assert(0); // unreachable
                 scratch->core_info.status |= STATUS_ERROR;
@@ -2808,6 +2884,7 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
     assert(programOffset >= sizeof(struct RoseEngine));
     assert(programOffset < t->size);
 
+    const char in_catchup = prog_flags & ROSE_PROG_FLAG_IN_CATCHUP;
     const char from_mpv = prog_flags & ROSE_PROG_FLAG_FROM_MPV;
 
     const char *pc_base = getByOffset(t, programOffset);
@@ -2832,6 +2909,56 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
             L_PROGRAM_CASE(END) {
                 DEBUG_PRINTF("finished\n");
                 return HWLM_CONTINUE_MATCHING;
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_GROUPS) {
+                DEBUG_PRINTF("groups=0x%llx, checking instr groups=0x%llx\n",
+                             tctxt->groups, ri->groups);
+                if (!(ri->groups & tctxt->groups)) {
+                    DEBUG_PRINTF("halt: no groups are set\n");
+                    return HWLM_CONTINUE_MATCHING;
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_MASK) {
+                struct core_info *ci = &scratch->core_info;
+                if (!roseCheckMask(ci, ri->and_mask, ri->cmp_mask,
+                                   ri->neg_mask, ri->offset, end)) {
+                    DEBUG_PRINTF("failed mask check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_MASK_32) {
+                struct core_info *ci = &scratch->core_info;
+                if (!roseCheckMask32(ci, ri->and_mask, ri->cmp_mask,
+                                     ri->neg_mask, ri->offset, end)) {
+                    assert(ri->fail_jump);
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(CHECK_BYTE) {
+                const struct core_info *ci = &scratch->core_info;
+                if (!roseCheckByte(ci, ri->and_mask, ri->cmp_mask,
+                                   ri->negation, ri->offset, end)) {
+                    DEBUG_PRINTF("failed byte check\n");
+                    assert(ri->fail_jump); // must progress
+                    pc += ri->fail_jump;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(PUSH_DELAYED) {
+                rosePushDelayedMatch(t, scratch, ri->delay, ri->index, end);
             }
             L_PROGRAM_NEXT_INSTRUCTION
 
@@ -2888,6 +3015,17 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
                 case DEDUPE_CONTINUE:
                     break;
                 }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(REPORT_CHAIN) {
+                // Note: sequence points updated inside this function.
+                if (roseCatchUpAndHandleChainMatch(
+                        t, scratch, ri->event, ri->top_squash_distance, end,
+                        in_catchup) == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+                work_done = 1;
             }
             L_PROGRAM_NEXT_INSTRUCTION
 
@@ -3041,6 +3179,24 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
             }
             L_PROGRAM_NEXT_INSTRUCTION
 
+            L_PROGRAM_CASE(INCLUDED_JUMP) {
+                if (scratch->fdr_conf) {
+                    // squash the bucket of included literal
+                    u8 shift = scratch->fdr_conf_offset & ~7U;
+                    u64a mask = ((~(u64a)ri->squash) << shift);
+                    *(scratch->fdr_conf) &= mask;
+
+                    pc = getByOffset(t, ri->child_offset);
+                    pc_base = pc;
+                    programOffset = (const u8 *)pc_base -(const u8 *)t;
+                    DEBUG_PRINTF("pc_base %p pc %p child_offset %u squash %u\n",
+                                 pc_base, pc, ri->child_offset, ri->squash);
+                    work_done = 0;
+                    L_PROGRAM_NEXT_INSTRUCTION_JUMP
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
             L_PROGRAM_CASE(SET_LOGICAL) {
                 DEBUG_PRINTF("set logical value of lkey %u, offset_adjust=%d\n",
                              ri->lkey, ri->offset_adjust);
@@ -3079,6 +3235,19 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
                     return HWLM_TERMINATE_MATCHING;
                 }
                 work_done = 1;
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(LAST_FLUSH_COMBINATION) {
+                assert(end >= tctxt->lastCombMatchOffset);
+                if (flushActiveCombinations(t, scratch)
+                        == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+                if (checkPurelyNegatives(t, scratch, end)
+                        == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
             }
             L_PROGRAM_NEXT_INSTRUCTION
 

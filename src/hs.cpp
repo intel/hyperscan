@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -251,7 +251,7 @@ hs_compile_multi_int(const char *const *expressions, const unsigned *flags,
         ng.rm.logicalKeyRenumber();
 
         unsigned length = 0;
-        struct hs_database *out = build(ng, &length);
+        struct hs_database *out = build(ng, &length, 0);
 
         assert(out);    // should have thrown exception on error
         assert(length);
@@ -275,6 +275,130 @@ hs_compile_multi_int(const char *const *expressions, const unsigned *flags,
     }
     catch (...) {
         assert(!"Internal error, unexpected exception");
+        *db = nullptr;
+        *comp_error = const_cast<hs_compile_error_t *>(&hs_einternal);
+        return HS_COMPILER_ERROR;
+    }
+}
+
+hs_error_t
+hs_compile_lit_multi_int(const char *const *expressions, const unsigned *flags,
+                         const unsigned *ids, const hs_expr_ext *const *ext,
+                         const size_t *lens, unsigned elements, unsigned mode,
+                         const hs_platform_info_t *platform, hs_database_t **db,
+                         hs_compile_error_t **comp_error, const Grey &g) {
+    // Check the args: note that it's OK for flags, ids or ext to be null.
+    if (!comp_error) {
+        if (db) {
+            *db = nullptr;
+        }
+        // nowhere to write the string, but we can still report an error code
+        return HS_COMPILER_ERROR;
+    }
+    if (!db) {
+        *comp_error = generateCompileError("Invalid parameter: db is NULL", -1);
+        return HS_COMPILER_ERROR;
+    }
+    if (!expressions) {
+        *db = nullptr;
+        *comp_error
+            = generateCompileError("Invalid parameter: expressions is NULL",
+                                   -1);
+        return HS_COMPILER_ERROR;
+    }
+    if (!lens) {
+        *db = nullptr;
+        *comp_error = generateCompileError("Invalid parameter: len is NULL", -1);
+        return HS_COMPILER_ERROR;
+    }
+    if (elements == 0) {
+        *db = nullptr;
+        *comp_error = generateCompileError("Invalid parameter: elements is zero", -1);
+        return HS_COMPILER_ERROR;
+    }
+
+#if defined(FAT_RUNTIME)
+    if (!check_ssse3()) {
+        *db = nullptr;
+        *comp_error = generateCompileError("Unsupported architecture", -1);
+        return HS_ARCH_ERROR;
+    }
+#endif
+
+    if (!checkMode(mode, comp_error)) {
+        *db = nullptr;
+        assert(*comp_error); // set by checkMode.
+        return HS_COMPILER_ERROR;
+    }
+
+    if (!checkPlatform(platform, comp_error)) {
+        *db = nullptr;
+        assert(*comp_error); // set by checkPlattform.
+        return HS_COMPILER_ERROR;
+    }
+
+    if (elements > g.limitPatternCount) {
+        *db = nullptr;
+        *comp_error = generateCompileError("Number of patterns too large", -1);
+        return HS_COMPILER_ERROR;
+    }
+
+    // This function is simply a wrapper around both the parser and compiler
+    bool isStreaming = mode & (HS_MODE_STREAM | HS_MODE_VECTORED);
+    bool isVectored = mode & HS_MODE_VECTORED;
+    unsigned somPrecision = getSomPrecision(mode);
+
+    target_t target_info = platform ? target_t(*platform)
+                                    : get_current_target();
+
+    try {
+        CompileContext cc(isStreaming, isVectored, target_info, g);
+        NG ng(cc, elements, somPrecision);
+
+        for (unsigned int i = 0; i < elements; i++) {
+            // Add this expression to the compiler
+            try {
+                addLitExpression(ng, i, expressions[i], flags ? flags[i] : 0,
+                                 ext ? ext[i] : nullptr, ids ? ids[i] : 0,
+                                 lens[i]);
+            } catch (CompileError &e) {
+                /* Caught a parse error;
+                 * throw it upstream as a CompileError with a specific index */
+                e.setExpressionIndex(i);
+                throw; /* do not slice */
+            }
+        }
+
+        // Check sub-expression ids
+        ng.rm.pl.validateSubIDs(ids, expressions, flags, elements);
+        // Renumber and assign lkey to reports
+        ng.rm.logicalKeyRenumber();
+
+        unsigned length = 0;
+        struct hs_database *out = build(ng, &length, 1);
+
+        assert(out);    //should have thrown exception on error
+        assert(length);
+
+        *db = out;
+        *comp_error = nullptr;
+
+        return HS_SUCCESS;
+    }
+    catch (const CompileError &e) {
+        // Compiler error occurred
+        *db = nullptr;
+        *comp_error = generateCompileError(e.reason,
+                                           e.hasIndex ? (int)e.index : -1);
+        return HS_COMPILER_ERROR;
+    }
+    catch (const std::bad_alloc &) {
+        *db = nullptr;
+        *comp_error = const_cast<hs_compile_error_t *>(&hs_enomem);
+        return HS_COMPILER_ERROR;
+    }
+    catch (...) {
+        assert(!"Internal errror, unexpected exception");
         *db = nullptr;
         *comp_error = const_cast<hs_compile_error_t *>(&hs_einternal);
         return HS_COMPILER_ERROR;
@@ -324,6 +448,41 @@ hs_error_t HS_CDECL hs_compile_ext_multi(const char * const *expressions,
                                      hs_compile_error_t **error) {
     return hs_compile_multi_int(expressions, flags, ids, ext, elements, mode,
                                 platform, db, error, Grey());
+}
+
+extern "C" HS_PUBLIC_API
+hs_error_t HS_CDECL hs_compile_lit(const char *expression, unsigned flags,
+                                   const size_t len, unsigned mode,
+                                   const hs_platform_info_t *platform,
+                                   hs_database_t **db,
+                                   hs_compile_error_t **error) {
+    if (expression == nullptr) {
+        *db = nullptr;
+        *error = generateCompileError("Invalid parameter: expression is NULL",
+                                      -1);
+        return HS_COMPILER_ERROR;
+    }
+
+    unsigned id = 0; // single expressions get zero as an ID
+    const hs_expr_ext * const *ext = nullptr; // unused for this call.
+
+    return hs_compile_lit_multi_int(&expression, &flags, &id, ext, &len, 1,
+                                    mode, platform, db, error, Grey());
+}
+
+extern "C" HS_PUBLIC_API
+hs_error_t HS_CDECL hs_compile_lit_multi(const char * const *expressions,
+                                         const unsigned *flags,
+                                         const unsigned *ids,
+                                         const size_t *lens,
+                                         unsigned elements, unsigned mode,
+                                         const hs_platform_info_t *platform,
+                                         hs_database_t **db,
+                                         hs_compile_error_t **error) {
+    const hs_expr_ext * const *ext = nullptr; // unused for this call.
+    return hs_compile_lit_multi_int(expressions, flags, ids, ext, lens,
+                                    elements, mode, platform, db, error,
+                                    Grey());
 }
 
 static

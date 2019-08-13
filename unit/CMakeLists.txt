@@ -129,7 +129,11 @@ set(unit_internal_SOURCES
     internal/main.cpp
     )
 
+if(WIN32 AND (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS))
+add_executable(unit-internal ${unit_internal_SOURCES} $<TARGET_OBJECTS:hs_compile_shared> $<TARGET_OBJECTS:hs_exec_shared>)
+else()
 add_executable(unit-internal ${unit_internal_SOURCES})
+endif()
 set_target_properties(unit-internal PROPERTIES COMPILE_FLAGS "${HS_CXX_FLAGS}")
 target_link_libraries(unit-internal hs corpusomatic)
 endif(NOT (RELEASE_BUILD OR FAT_RUNTIME))

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -118,6 +118,7 @@ bool use_copy_stream = false;
 bool use_mangle_scratch = false;
 bool use_compress_expand = false;
 bool use_compress_reset_expand = false;
+bool use_literal_api = false;
 int abort_on_failure = 0;
 int no_signal_handler = 0;
 size_t max_scan_queue_len = 25000;

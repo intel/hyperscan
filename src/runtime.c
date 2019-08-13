@@ -141,7 +141,6 @@ void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
     s->deduper.current_report_offset = ~0ULL;
     s->deduper.som_log_dirty = 1; /* som logs have not been cleared */
     s->fdr_conf = NULL;
-    s->pure = 0;
 
     // Rose program execution (used for some report paths) depends on these
     // values being initialised.
@@ -455,8 +454,9 @@ set_retval:
         return HS_UNKNOWN_ERROR;
     }
 
-    if (rose->flushCombProgramOffset) {
-        if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
+    if (rose->lastFlushCombProgramOffset) {
+        if (roseRunLastFlushCombProgram(rose, scratch, length)
+            == MO_HALT_MATCHING) {
             if (unlikely(internal_matching_error(scratch))) {
                 unmarkScratchInUse(scratch);
                 return HS_UNKNOWN_ERROR;
@@ -651,7 +651,9 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
         scratch->core_info.logicalVector = state +
                                            rose->stateOffsets.logicalVec;
         scratch->core_info.combVector = state + rose->stateOffsets.combVec;
-        scratch->tctxt.lastCombMatchOffset = id->offset;
+        if (!id->offset) {
+            scratch->tctxt.lastCombMatchOffset = id->offset;
+        }
     }
 
     if (rose->somLocationCount) {
@@ -698,8 +700,9 @@ void report_eod_matches(hs_stream_t *id, hs_scratch_t *scratch,
         }
     }
 
-    if (rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
-        if (roseRunFlushCombProgram(rose, scratch, ~0ULL) == MO_HALT_MATCHING) {
+    if (rose->lastFlushCombProgramOffset && !told_to_stop_matching(scratch)) {
+        if (roseRunLastFlushCombProgram(rose, scratch, id->offset)
+            == MO_HALT_MATCHING) {
             DEBUG_PRINTF("told to stop matching\n");
             scratch->core_info.status |= STATUS_TERMINATED;
         }
@@ -906,7 +909,9 @@ hs_error_t hs_scan_stream_internal(hs_stream_t *id, const char *data,
         scratch->core_info.logicalVector = state +
                                            rose->stateOffsets.logicalVec;
         scratch->core_info.combVector = state + rose->stateOffsets.combVec;
-        scratch->tctxt.lastCombMatchOffset = id->offset;
+        if (!id->offset) {
+            scratch->tctxt.lastCombMatchOffset = id->offset;
+        }
     }
     assert(scratch->core_info.hlen <= id->offset
            && scratch->core_info.hlen <= rose->historyRequired);
@@ -1013,18 +1018,6 @@ hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
         unmarkScratchInUse(scratch);
     }
 
-    if (id->rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
-        if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
-            == MO_HALT_MATCHING) {
-            scratch->core_info.status |= STATUS_TERMINATED;
-            if (unlikely(internal_matching_error(scratch))) {
-                unmarkScratchInUse(scratch);
-                return HS_UNKNOWN_ERROR;
-            }
-            unmarkScratchInUse(scratch);
-        }
-    }
-
     hs_stream_free(id);
 
     return HS_SUCCESS;
@@ -1052,18 +1045,6 @@ hs_error_t HS_CDECL hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
             return HS_UNKNOWN_ERROR;
         }
         unmarkScratchInUse(scratch);
-    }
-
-    if (id->rose->flushCombProgramOffset && !told_to_stop_matching(scratch)) {
-        if (roseRunFlushCombProgram(id->rose, scratch, ~0ULL)
-            == MO_HALT_MATCHING) {
-            scratch->core_info.status |= STATUS_TERMINATED;
-            if (unlikely(internal_matching_error(scratch))) {
-                unmarkScratchInUse(scratch);
-                return HS_UNKNOWN_ERROR;
-            }
-            unmarkScratchInUse(scratch);
-        }
     }
 
     // history already initialised

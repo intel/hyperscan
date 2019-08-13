@@ -211,7 +211,6 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     u64a *fdr_conf; /**< FDR confirm value */
     u8 fdr_conf_offset; /**< offset where FDR/Teddy front end matches
                          * in buffer */
-    u8 pure; /**< indicator of pure-literal or cutting-literal */
 };
 
 /* array of fatbit ptr; TODO: why not an array of fatbits? */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -82,6 +82,7 @@ extern bool use_copy_stream;
 extern bool use_mangle_scratch;
 extern bool use_compress_expand;
 extern bool use_compress_reset_expand;
+extern bool use_literal_api;
 extern int abort_on_failure;
 extern int no_signal_handler;
 extern bool force_edit_distance;

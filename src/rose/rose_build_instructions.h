@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, Intel Corporation
+ * Copyright (c) 2017-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -2204,6 +2204,14 @@ class RoseInstrFlushCombination
                                   RoseInstrFlushCombination> {
 public:
     ~RoseInstrFlushCombination() override;
+};
+
+class RoseInstrLastFlushCombination
+    : public RoseInstrBaseTrivial<ROSE_INSTR_LAST_FLUSH_COMBINATION,
+                                  ROSE_STRUCT_LAST_FLUSH_COMBINATION,
+                                  RoseInstrLastFlushCombination> {
+public:
+    ~RoseInstrLastFlushCombination() override;
 };
 
 class RoseInstrSetExhaust

@@ -87,7 +87,6 @@ void fillLitInfo(const vector<hwlmLiteral> &lits, vector<LitInfo> &tmpLitInfo,
         info.flags = flags;
         info.size = verify_u8(max(lit.msk.size(), lit.s.size()));
         info.groups = lit.groups;
-        info.pure = lit.pure;
 
         // these are built up assuming a LE machine
         CONF_TYPE msk = all_ones;

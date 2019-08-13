@@ -282,8 +282,8 @@ const array<double, 100> Scorer::count_lut{{
 }};
 
 const array<double, 9> Scorer::len_lut{{
-    pow(0, -3.0), pow(1, -3.0), pow(2, -3.0), pow(3, -3.0), pow(4, -3.0),
-    pow(5, -3.0), pow(6, -3.0), pow(7, -3.0), pow(8, -3.0)}};
+    0, pow(1, -3.0), pow(2, -3.0), pow(3, -3.0), pow(4, -3.0),
+       pow(5, -3.0), pow(6, -3.0), pow(7, -3.0), pow(8, -3.0)}};
 
 /**
  * Returns true if the two given literals should be placed in the same chunk as
@@ -807,9 +807,6 @@ void findIncludedLits(vector<hwlmLiteral> &lits,
         for (size_t i = 0; i < cnt; i++) {
             u32 bucket1 = group[i].first;
             u32 id1 = group[i].second;
-            if (lits[id1].pure) {
-                continue;
-            }
             buildSquashMask(lits, id1, bucket1, i + 1, group, parent_map,
                             exception_map);
         }

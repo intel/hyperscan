@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1486,6 +1486,9 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(LAST_FLUSH_COMBINATION) {}
+            PROGRAM_NEXT_INSTRUCTION
+
         default:
             os << "  UNKNOWN (code " << int{code} << ")" << endl;
             os << "  <stopping>" << endl;
@@ -1552,6 +1555,25 @@ void dumpRoseFlushCombPrograms(const RoseEngine *t, const string &filename) {
         os << endl;
     } else {
         os << "<No Flush Combination Program>" << endl;
+    }
+
+    os.close();
+}
+
+static
+void dumpRoseLastFlushCombPrograms(const RoseEngine *t,
+                                   const string &filename) {
+    ofstream os(filename);
+    const char *base = (const char *)t;
+
+    if (t->lastFlushCombProgramOffset) {
+        os << "Last Flush Combination Program @ "
+           << t->lastFlushCombProgramOffset
+           << ":" << endl;
+        dumpProgram(os, t, base + t->lastFlushCombProgramOffset);
+        os << endl;
+    } else {
+        os << "<No Last Flush Combination Program>" << endl;
     }
 
     os.close();
@@ -2249,6 +2271,8 @@ void roseDumpPrograms(const vector<LitFragment> &fragments, const RoseEngine *t,
     dumpRoseLitPrograms(fragments, t, base + "/rose_lit_programs.txt");
     dumpRoseEodPrograms(t, base + "/rose_eod_programs.txt");
     dumpRoseFlushCombPrograms(t, base + "/rose_flush_comb_programs.txt");
+    dumpRoseLastFlushCombPrograms(t,
+            base + "/rose_last_flush_comb_programs.txt");
     dumpRoseReportPrograms(t, base + "/rose_report_programs.txt");
     dumpRoseAnchoredPrograms(t, base + "/rose_anchored_programs.txt");
     dumpRoseDelayPrograms(t, base + "/rose_delay_programs.txt");
