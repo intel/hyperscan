@@ -214,7 +214,7 @@ static
 bool double_byte_ok(const AccelScheme &info) {
     return !info.double_byte.empty() &&
            info.double_cr.count() < info.double_byte.size() &&
-           info.double_cr.count() <= 2 && !info.double_byte.empty();
+           info.double_cr.count() <= 2;
 }
 
 static
