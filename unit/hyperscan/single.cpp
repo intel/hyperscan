@@ -243,7 +243,7 @@ protected:
         size_t origSize;
         err = hs_database_size(db, &origSize);
         ASSERT_EQ(HS_SUCCESS, err);
-        memset(db, 0xff, origSize);
+        memset_s(db, 0xff, origSize);
         free(db); /* hs_free_database not used as it is no longer a valid db */
 
         // relocate to 16 different alignments, ensuring that we can
