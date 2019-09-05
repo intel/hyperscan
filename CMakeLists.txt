@@ -395,6 +395,12 @@ if (CXX_IGNORED_ATTR)
     set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-ignored-attributes")
 endif()
 
+# gcc 9 complains about redundant move for returned variable
+CHECK_CXX_COMPILER_FLAG("-Wredundant-move" CXX_REDUNDANT_MOVE)
+if (CXX_REDUNDANT_MOVE)
+    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-redundant-move")
+endif()
+
 # note this for later
 # g++ doesn't have this flag but clang does
 CHECK_CXX_COMPILER_FLAG("-Wweak-vtables" CXX_WEAK_VTABLES)
