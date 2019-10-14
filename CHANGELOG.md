@@ -2,6 +2,11 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [5.2.1] 2019-10-13
+- Bugfix for issue #186: fix compile issue when `BUILD_SHARED_LIBS` is on in
+  release mode.
+- Disable redundant move check for older compiler versions.
+
 ## [5.2.0] 2019-07-12
 - Literal API: add new API `hs_compile_lit()` and `hs_compile_lit_multi()` to
   process pure literal rule sets. The 2 literal APIs treat each expression text
