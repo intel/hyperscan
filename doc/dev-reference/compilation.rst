@@ -613,8 +613,9 @@ When an expression has the :c:member:`HS_FLAG_COMBINATION` flag set, it ignores
 all other flags except the :c:member:`HS_FLAG_SINGLEMATCH` flag and the
 :c:member:`HS_FLAG_QUIET` flag.
 
-Hyperscan will reject logical combination expressions at compile time that
-evaluate to *true* when no patterns have matched; for example: ::
+Hyperscan will accept logical combination expressions at compile time that
+evaluate to *true* when no patterns have matched, and report the match for
+combination at end of data if no patterns have matched; for example: ::
 
     !101
     !101|102
