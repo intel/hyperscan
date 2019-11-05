@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -149,6 +149,14 @@ static really_inline m128 set4x32(u32 c) {
 static really_inline u32 movd(const m128 in) {
     return _mm_cvtsi128_si32(in);
 }
+
+#if defined(HAVE_AVX512)
+static really_inline u32 movd512(const m512 in) {
+    // NOTE: seems gcc doesn't support _mm512_cvtsi512_si32(in),
+    //       so we use 2-step convertions to work around.
+    return _mm_cvtsi128_si32(_mm512_castsi512_si128(in));
+}
+#endif
 
 static really_inline u64a movq(const m128 in) {
 #if defined(ARCH_X86_64)
@@ -318,6 +326,12 @@ static really_inline
 m512 maskz_pshufb_m512(__mmask64 k, m512 a, m512 b) {
     return _mm512_maskz_shuffle_epi8(k, a, b);
 }
+
+#if defined(HAVE_AVX512VBMI)
+#define vpermb512(idx, a) _mm512_permutexvar_epi8(idx, a)
+#define maskz_vpermb512(k, idx, a) _mm512_maskz_permutexvar_epi8(k, idx, a)
+#endif
+
 #endif
 
 static really_inline
