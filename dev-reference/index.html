@@ -1,48 +1,42 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
+<!DOCTYPE html>
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>Hyperscan 5.2 Developer’s Reference Guide &mdash; Hyperscan 5.2.0 documentation</title>
-    
+    <meta charset="utf-8" />
+    <title>Hyperscan 5.2 Developer’s Reference Guide &#8212; Hyperscan 5.2.1 documentation</title>
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
-    
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    './',
-        VERSION:     '5.2.0',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 5.2.0 documentation" href="#" />
     <link rel="next" title="Copyright" href="copyright.html" />
    
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
-  </head>
-  <body role="document">  
+  </head><body>
+  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
+          
+
           <div class="body" role="main">
             
   <div class="section" id="hyperscan-version-developer-s-reference-guide">
-<h1>Hyperscan 5.2 Developer&#8217;s Reference Guide<a class="headerlink" href="#hyperscan-version-developer-s-reference-guide" title="Permalink to this headline">¶</a></h1>
+<h1>Hyperscan 5.2 Developer’s Reference Guide<a class="headerlink" href="#hyperscan-version-developer-s-reference-guide" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="today">
-<h2>August 13, 2019<a class="headerlink" href="#today" title="Permalink to this headline">¶</a></h2>
+<h2>Nov 05, 2019<a class="headerlink" href="#today" title="Permalink to this headline">¶</a></h2>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
@@ -97,7 +91,7 @@
 <li class="toctree-l2"><a class="reference internal" href="performance.html#matching-everywhere">Matching everywhere</a></li>
 <li class="toctree-l2"><a class="reference internal" href="performance.html#bounded-repeats-in-streaming-mode">Bounded repeats in streaming mode</a></li>
 <li class="toctree-l2"><a class="reference internal" href="performance.html#prefer-literals">Prefer literals</a></li>
-<li class="toctree-l2"><a class="reference internal" href="performance.html#dot-all-mode">&#8220;Dot all&#8221; mode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="performance.html#dot-all-mode">“Dot all” mode</a></li>
 <li class="toctree-l2"><a class="reference internal" href="performance.html#single-match-flag">Single-match flag</a></li>
 <li class="toctree-l2"><a class="reference internal" href="performance.html#start-of-match-flag">Start of Match flag</a></li>
 <li class="toctree-l2"><a class="reference internal" href="performance.html#approximate-matching">Approximate matching</a></li>
@@ -143,11 +137,12 @@
 
 
           </div>
+          
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<h3><a href="#">Table Of Contents</a></h3>
+<h3><a href="#">Table of Contents</a></h3>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
 <li class="toctree-l1"><a class="reference internal" href="preface.html">Preface</a></li>
@@ -164,16 +159,13 @@
 </ul>
 
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -184,8 +176,8 @@
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>
 

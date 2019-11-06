@@ -1,43 +1,37 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
+<!DOCTYPE html>
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>Compiling Patterns &mdash; Hyperscan 5.2.0 documentation</title>
-    
+    <meta charset="utf-8" />
+    <title>Compiling Patterns &#8212; Hyperscan 5.2.1 documentation</title>
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
-    
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    './',
-        VERSION:     '5.2.0',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 5.2.0 documentation" href="index.html" />
     <link rel="next" title="Scanning for Patterns" href="runtime.html" />
     <link rel="prev" title="Getting Started" href="getting_started.html" />
    
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
-  </head>
-  <body role="document">  
+  </head><body>
+  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
+          
+
           <div class="body" role="main">
             
   <div class="section" id="compiling-patterns">
@@ -49,12 +43,12 @@ compiled pattern database that can then be used to scan data.</p>
 <p>The API provides three functions that compile regular expressions into
 databases:</p>
 <ol class="arabic simple">
-<li><a class="reference internal" href="api_files.html#c.hs_compile" title="hs_compile"><code class="xref c c-func docutils literal"><span class="pre">hs_compile()</span></code></a>: compiles a single expression into a pattern database.</li>
-<li><a class="reference internal" href="api_files.html#c.hs_compile_multi" title="hs_compile_multi"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_multi()</span></code></a>: compiles an array of expressions into a pattern
+<li><p><a class="reference internal" href="api_files.html#c.hs_compile" title="hs_compile"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile()</span></code></a>: compiles a single expression into a pattern database.</p></li>
+<li><p><a class="reference internal" href="api_files.html#c.hs_compile_multi" title="hs_compile_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_multi()</span></code></a>: compiles an array of expressions into a pattern
 database. All of the supplied patterns will be scanned for concurrently at
-scan time, with user-supplied identifiers returned when they match.</li>
-<li><a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_ext_multi()</span></code></a>: compiles an array of expressions as above,
-but allows <a class="reference internal" href="#extparam"><span>Extended Parameters</span></a> to be specified for each expression.</li>
+scan time, with user-supplied identifiers returned when they match.</p></li>
+<li><p><a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_ext_multi()</span></code></a>: compiles an array of expressions as above,
+but allows <a class="reference internal" href="#extparam"><span class="std std-ref">Extended Parameters</span></a> to be specified for each expression.</p></li>
 </ol>
 <p>Compilation allows the Hyperscan library to analyze the given pattern(s) and
 pre-determine how to scan for these patterns in an optimized fashion that would
@@ -62,40 +56,40 @@ be far too expensive to compute at run-time.</p>
 <p>When compiling expressions, a decision needs to be made whether the resulting
 compiled patterns are to be used in a streaming, block or vectored mode:</p>
 <ul class="simple">
-<li><strong>Streaming mode</strong>: the target data to be scanned is a continuous stream, not
+<li><p><strong>Streaming mode</strong>: the target data to be scanned is a continuous stream, not
 all of which is available at once; blocks of data are scanned in sequence and
 matches may span multiple blocks in a stream. In streaming mode, each stream
-requires a block of memory to store its state between scan calls.</li>
-<li><strong>Block mode</strong>: the target data is a discrete, contiguous block which can be
-scanned in one call and does not require state to be retained.</li>
-<li><strong>Vectored mode</strong>: the target data consists of a list of non-contiguous
+requires a block of memory to store its state between scan calls.</p></li>
+<li><p><strong>Block mode</strong>: the target data is a discrete, contiguous block which can be
+scanned in one call and does not require state to be retained.</p></li>
+<li><p><strong>Vectored mode</strong>: the target data consists of a list of non-contiguous
 blocks that are available all at once. As for block mode, no retention of
-state is required.</li>
+state is required.</p></li>
 </ul>
-<p>To compile patterns to be used in streaming mode, the <code class="docutils literal"><span class="pre">mode</span></code> parameter of
-<a class="reference internal" href="api_files.html#c.hs_compile" title="hs_compile"><code class="xref c c-func docutils literal"><span class="pre">hs_compile()</span></code></a> must be set to <a class="reference internal" href="api_files.html#c.HS_MODE_STREAM" title="HS_MODE_STREAM"><code class="xref c c-member docutils literal"><span class="pre">HS_MODE_STREAM</span></code></a>; similarly,
-block mode requires the use of <a class="reference internal" href="api_files.html#c.HS_MODE_BLOCK" title="HS_MODE_BLOCK"><code class="xref c c-member docutils literal"><span class="pre">HS_MODE_BLOCK</span></code></a> and vectored mode
-requires the use of <a class="reference internal" href="api_files.html#c.HS_MODE_VECTORED" title="HS_MODE_VECTORED"><code class="xref c c-member docutils literal"><span class="pre">HS_MODE_VECTORED</span></code></a>. A pattern database compiled
+<p>To compile patterns to be used in streaming mode, the <code class="docutils literal notranslate"><span class="pre">mode</span></code> parameter of
+<a class="reference internal" href="api_files.html#c.hs_compile" title="hs_compile"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile()</span></code></a> must be set to <a class="reference internal" href="api_files.html#c.HS_MODE_STREAM" title="HS_MODE_STREAM"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_MODE_STREAM</span></code></a>; similarly,
+block mode requires the use of <a class="reference internal" href="api_files.html#c.HS_MODE_BLOCK" title="HS_MODE_BLOCK"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_MODE_BLOCK</span></code></a> and vectored mode
+requires the use of <a class="reference internal" href="api_files.html#c.HS_MODE_VECTORED" title="HS_MODE_VECTORED"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_MODE_VECTORED</span></code></a>. A pattern database compiled
 for one mode (streaming, block or vectored) can only be used in that mode. The
 version of Hyperscan used to produce a compiled pattern database must match the
 version of Hyperscan used to scan with it.</p>
 <p>Hyperscan provides support for targeting a database at a particular CPU
-platform; see <a class="reference internal" href="#instr-specialization"><span>Instruction Set Specialization</span></a> for details.</p>
+platform; see <a class="reference internal" href="#instr-specialization"><span class="std std-ref">Instruction Set Specialization</span></a> for details.</p>
 <div class="section" id="compile-pure-literals">
 <h3>Compile Pure Literals<a class="headerlink" href="#compile-pure-literals" title="Permalink to this headline">¶</a></h3>
 <p>Pure literal is a special case of regular expression. A character sequence is
 regarded as a pure literal if and only if each character is read and
 interpreted independently. No syntax association happens between any adjacent
 characters.</p>
-<p>For example, given an expression written as <code class="regexp docutils literal"><span class="pre">/bc?/</span></code>. We could say it is
-a regluar expression, with the meaning that character <code class="docutils literal"><span class="pre">b</span></code> followed by nothing
-or by one character <code class="docutils literal"><span class="pre">c</span></code>. On the other view, we could also say it is a pure
+<p>For example, given an expression written as <code class="regexp docutils literal notranslate"><span class="pre">/bc?/</span></code>. We could say it is
+a regluar expression, with the meaning that character <code class="docutils literal notranslate"><span class="pre">b</span></code> followed by nothing
+or by one character <code class="docutils literal notranslate"><span class="pre">c</span></code>. On the other view, we could also say it is a pure
 literal expression, with the meaning that this is a character sequence of 3-byte
-length, containing characters <code class="docutils literal"><span class="pre">b</span></code>, <code class="docutils literal"><span class="pre">c</span></code> and <code class="docutils literal"><span class="pre">?</span></code>. In regular case, the
-question mark character <code class="docutils literal"><span class="pre">?</span></code> has a particular syntax role called 0-1 quantifier,
+length, containing characters <code class="docutils literal notranslate"><span class="pre">b</span></code>, <code class="docutils literal notranslate"><span class="pre">c</span></code> and <code class="docutils literal notranslate"><span class="pre">?</span></code>. In regular case, the
+question mark character <code class="docutils literal notranslate"><span class="pre">?</span></code> has a particular syntax role called 0-1 quantifier,
 which has an syntax association with the character ahead of it. Similar
-characters exist in regular grammer like <code class="docutils literal"><span class="pre">[</span></code>, <code class="docutils literal"><span class="pre">]</span></code>, <code class="docutils literal"><span class="pre">(</span></code>, <code class="docutils literal"><span class="pre">)</span></code>, <code class="docutils literal"><span class="pre">{</span></code>,
-<code class="docutils literal"><span class="pre">}</span></code>, <code class="docutils literal"><span class="pre">-</span></code>, <code class="docutils literal"><span class="pre">*</span></code>, <code class="docutils literal"><span class="pre">+</span></code>, <code class="docutils literal"><span class="pre">\</span></code>, <code class="docutils literal"><span class="pre">|</span></code>, <code class="docutils literal"><span class="pre">/</span></code>, <code class="docutils literal"><span class="pre">:</span></code>, <code class="docutils literal"><span class="pre">^</span></code>, <code class="docutils literal"><span class="pre">.</span></code>, <code class="docutils literal"><span class="pre">$</span></code>.
+characters exist in regular grammer like <code class="docutils literal notranslate"><span class="pre">[</span></code>, <code class="docutils literal notranslate"><span class="pre">]</span></code>, <code class="docutils literal notranslate"><span class="pre">(</span></code>, <code class="docutils literal notranslate"><span class="pre">)</span></code>, <code class="docutils literal notranslate"><span class="pre">{</span></code>,
+<code class="docutils literal notranslate"><span class="pre">}</span></code>, <code class="docutils literal notranslate"><span class="pre">-</span></code>, <code class="docutils literal notranslate"><span class="pre">*</span></code>, <code class="docutils literal notranslate"><span class="pre">+</span></code>, <code class="docutils literal notranslate"><span class="pre">\</span></code>, <code class="docutils literal notranslate"><span class="pre">|</span></code>, <code class="docutils literal notranslate"><span class="pre">/</span></code>, <code class="docutils literal notranslate"><span class="pre">:</span></code>, <code class="docutils literal notranslate"><span class="pre">^</span></code>, <code class="docutils literal notranslate"><span class="pre">.</span></code>, <code class="docutils literal notranslate"><span class="pre">$</span></code>.
 While in pure literal case, all these meta characters lost extra meanings
 expect for that they are just common ASCII codes.</p>
 <p>Hyperscan is initially designed to process common regualr expressions. It is
@@ -109,38 +103,38 @@ compile API, all these meta characters will be interpreted in predefined ways,
 which is unnecessary and the result is totally out of expectation. To avoid
 such misunderstanding by traditional API, users have to preprocess these
 literal patterns by converting the meta characters into some other formats:
-either by adding a backslash <code class="docutils literal"><span class="pre">\</span></code> before certain meta characters, or by
+either by adding a backslash <code class="docutils literal notranslate"><span class="pre">\</span></code> before certain meta characters, or by
 converting all the characters into a hexadecimal representation.</p>
-<p>In <code class="docutils literal"><span class="pre">v5.2.0</span></code>, Hyperscan introduces 2 new compile APIs for pure literal patterns:</p>
+<p>In <code class="docutils literal notranslate"><span class="pre">v5.2.0</span></code>, Hyperscan introduces 2 new compile APIs for pure literal patterns:</p>
 <ol class="arabic simple">
-<li><a class="reference internal" href="api_files.html#c.hs_compile_lit" title="hs_compile_lit"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_lit()</span></code></a>: compiles a single pure literal into a pattern
-database.</li>
-<li><a class="reference internal" href="api_files.html#c.hs_compile_lit_multi" title="hs_compile_lit_multi"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_lit_multi()</span></code></a>: compiles an array of pure literals into a
+<li><p><a class="reference internal" href="api_files.html#c.hs_compile_lit" title="hs_compile_lit"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_lit()</span></code></a>: compiles a single pure literal into a pattern
+database.</p></li>
+<li><p><a class="reference internal" href="api_files.html#c.hs_compile_lit_multi" title="hs_compile_lit_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_lit_multi()</span></code></a>: compiles an array of pure literals into a
 pattern database. All of the supplied patterns will be scanned for
 concurrently at scan time, with user-supplied identifiers returned when they
-match.</li>
+match.</p></li>
 </ol>
 <p>These 2 APIs are designed for use cases where all patterns contained in the
 target rule set are pure literals. Users can pass the initial pure literal
 content directly into these APIs without worrying about writing regular meta
 characters in their patterns. No preprocessing work is needed any more.</p>
-<p>For new APIs, the <code class="docutils literal"><span class="pre">length</span></code> of each literal pattern is a newly added parameter.
+<p>For new APIs, the <code class="docutils literal notranslate"><span class="pre">length</span></code> of each literal pattern is a newly added parameter.
 Hyperscan needs to locate the end position of the input expression via clearly
-knowing each literal&#8217;s length, not by simply identifying character <code class="docutils literal"><span class="pre">\0</span></code> of a
+knowing each literal’s length, not by simply identifying character <code class="docutils literal notranslate"><span class="pre">\0</span></code> of a
 string.</p>
-<p>Supported flags: <a class="reference internal" href="api_files.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_CASELESS</span></code></a>, <a class="reference internal" href="api_files.html#c.HS_FLAG_MULTILINE" title="HS_FLAG_MULTILINE"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_MULTILINE</span></code></a>,
-<a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a>, <a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a>.</p>
+<p>Supported flags: <a class="reference internal" href="api_files.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_CASELESS</span></code></a>, <a class="reference internal" href="api_files.html#c.HS_FLAG_MULTILINE" title="HS_FLAG_MULTILINE"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_MULTILINE</span></code></a>,
+<a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a>, <a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a>.</p>
 <div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">We don&#8217;t support literal compilation API with <a class="reference internal" href="#extparam"><span>Extended Parameters</span></a>. And
+<p class="admonition-title">Note</p>
+<p>We don’t support literal compilation API with <a class="reference internal" href="#extparam"><span class="std std-ref">Extended Parameters</span></a>. And
 for runtime implementation, traditional runtime APIs can still be
 used to match pure literal patterns.</p>
 </div>
 <div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">If the target rule set contains at least one regular expression,
-please use traditional compile APIs <a class="reference internal" href="api_files.html#c.hs_compile" title="hs_compile"><code class="xref c c-func docutils literal"><span class="pre">hs_compile()</span></code></a>,
-<a class="reference internal" href="api_files.html#c.hs_compile_multi" title="hs_compile_multi"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_multi()</span></code></a> and <a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_ext_multi()</span></code></a>.
+<p class="admonition-title">Note</p>
+<p>If the target rule set contains at least one regular expression,
+please use traditional compile APIs <a class="reference internal" href="api_files.html#c.hs_compile" title="hs_compile"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile()</span></code></a>,
+<a class="reference internal" href="api_files.html#c.hs_compile_multi" title="hs_compile_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_multi()</span></code></a> and <a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_ext_multi()</span></code></a>.
 The new literal APIs introduced here are designed for rule sets
 containing only pure literal expressions.</p>
 </div>
@@ -148,99 +142,90 @@ containing only pure literal expressions.</p>
 </div>
 <div class="section" id="pattern-support">
 <h2>Pattern Support<a class="headerlink" href="#pattern-support" title="Permalink to this headline">¶</a></h2>
-<p>Hyperscan supports the pattern syntax used by the PCRE library (&#8220;libpcre&#8221;),
+<p>Hyperscan supports the pattern syntax used by the PCRE library (“libpcre”),
 described at &lt;<a class="reference external" href="http://www.pcre.org/">http://www.pcre.org/</a>&gt;. However, not all constructs available in
 libpcre are supported. The use of unsupported constructs will result in
 compilation errors.</p>
-<p>The version of PCRE used to validate Hyperscan&#8217;s interpretation of this syntax
+<p>The version of PCRE used to validate Hyperscan’s interpretation of this syntax
 is 8.41 or above.</p>
 <div class="section" id="supported-constructs">
 <h3>Supported Constructs<a class="headerlink" href="#supported-constructs" title="Permalink to this headline">¶</a></h3>
 <p>The following regex constructs are supported by Hyperscan:</p>
 <ul>
-<li><p class="first">Literal characters and strings, with all libpcre quoting and character
-escapes.</p>
-</li>
-<li><p class="first">Character classes such as <code class="regexp docutils literal"><span class="pre">.</span></code> (dot), <code class="regexp docutils literal"><span class="pre">[abc]</span></code>, and
-<code class="regexp docutils literal"><span class="pre">[^abc]</span></code>, as well as the predefined character classes <code class="regexp docutils literal"><span class="pre">\s</span></code>,
-<code class="regexp docutils literal"><span class="pre">\d</span></code>, <code class="regexp docutils literal"><span class="pre">\w</span></code>, <code class="regexp docutils literal"><span class="pre">\v</span></code>, and <code class="regexp docutils literal"><span class="pre">\h</span></code> and their
-negated counterparts (<code class="regexp docutils literal"><span class="pre">\S</span></code>, <code class="regexp docutils literal"><span class="pre">\D</span></code>, <code class="regexp docutils literal"><span class="pre">\W</span></code>,
-<code class="regexp docutils literal"><span class="pre">\V</span></code>, and <code class="regexp docutils literal"><span class="pre">\H</span></code>).</p>
-</li>
-<li><p class="first">The POSIX named character classes <code class="regexp docutils literal"><span class="pre">[[:xxx:]]</span></code> and negated named
-character classes <code class="regexp docutils literal"><span class="pre">[[:^xxx:]]</span></code>.</p>
-</li>
-<li><p class="first">Unicode character properties, such as <code class="regexp docutils literal"><span class="pre">\p{L}</span></code>, <code class="regexp docutils literal"><span class="pre">\P{Sc}</span></code>,
-<code class="regexp docutils literal"><span class="pre">\p{Greek}</span></code>.</p>
-</li>
-<li><p class="first">Quantifiers:</p>
+<li><p>Literal characters and strings, with all libpcre quoting and character
+escapes.</p></li>
+<li><p>Character classes such as <code class="regexp docutils literal notranslate"><span class="pre">.</span></code> (dot), <code class="regexp docutils literal notranslate"><span class="pre">[abc]</span></code>, and
+<code class="regexp docutils literal notranslate"><span class="pre">[^abc]</span></code>, as well as the predefined character classes <code class="regexp docutils literal notranslate"><span class="pre">\s</span></code>,
+<code class="regexp docutils literal notranslate"><span class="pre">\d</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">\w</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">\v</span></code>, and <code class="regexp docutils literal notranslate"><span class="pre">\h</span></code> and their
+negated counterparts (<code class="regexp docutils literal notranslate"><span class="pre">\S</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">\D</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">\W</span></code>,
+<code class="regexp docutils literal notranslate"><span class="pre">\V</span></code>, and <code class="regexp docutils literal notranslate"><span class="pre">\H</span></code>).</p></li>
+<li><p>The POSIX named character classes <code class="regexp docutils literal notranslate"><span class="pre">[[:xxx:]]</span></code> and negated named
+character classes <code class="regexp docutils literal notranslate"><span class="pre">[[:^xxx:]]</span></code>.</p></li>
+<li><p>Unicode character properties, such as <code class="regexp docutils literal notranslate"><span class="pre">\p{L}</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">\P{Sc}</span></code>,
+<code class="regexp docutils literal notranslate"><span class="pre">\p{Greek}</span></code>.</p></li>
+<li><p>Quantifiers:</p>
 <ul class="simple">
-<li>Quantifiers such as <code class="regexp docutils literal"><span class="pre">?</span></code>, <code class="regexp docutils literal"><span class="pre">*</span></code> and <code class="regexp docutils literal"><span class="pre">+</span></code> are supported
-when applied to arbitrary supported sub-expressions.</li>
-<li>Bounded repeat qualifiers such as <code class="regexp docutils literal"><span class="pre">{n}</span></code>, <code class="regexp docutils literal"><span class="pre">{m,n}</span></code>,
-<code class="regexp docutils literal"><span class="pre">{n,}</span></code> are supported with limitations.<ul>
-<li>For arbitrary repeated sub-patterns: <em>n</em> and <em>m</em> should be either small
-or infinite, e.g. <code class="regexp docutils literal"><span class="pre">(a|b}{4}</span></code>, <code class="regexp docutils literal"><span class="pre">(ab?c?d){4,10}</span></code> or
-<code class="regexp docutils literal"><span class="pre">(ab(cd)*){6,}</span></code>.</li>
-<li>For single-character width sub-patterns such as <code class="regexp docutils literal"><span class="pre">[^\a]</span></code> or
-<code class="regexp docutils literal"><span class="pre">.</span></code> or <code class="regexp docutils literal"><span class="pre">x</span></code>, nearly all repeat counts are supported, except
+<li><p>Quantifiers such as <code class="regexp docutils literal notranslate"><span class="pre">?</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">*</span></code> and <code class="regexp docutils literal notranslate"><span class="pre">+</span></code> are supported
+when applied to arbitrary supported sub-expressions.</p></li>
+<li><p>Bounded repeat qualifiers such as <code class="regexp docutils literal notranslate"><span class="pre">{n}</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">{m,n}</span></code>,
+<code class="regexp docutils literal notranslate"><span class="pre">{n,}</span></code> are supported with limitations.</p>
+<ul>
+<li><p>For arbitrary repeated sub-patterns: <em>n</em> and <em>m</em> should be either small
+or infinite, e.g. <code class="regexp docutils literal notranslate"><span class="pre">(a|b}{4}</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">(ab?c?d){4,10}</span></code> or
+<code class="regexp docutils literal notranslate"><span class="pre">(ab(cd)*){6,}</span></code>.</p></li>
+<li><p>For single-character width sub-patterns such as <code class="regexp docutils literal notranslate"><span class="pre">[^\a]</span></code> or
+<code class="regexp docutils literal notranslate"><span class="pre">.</span></code> or <code class="regexp docutils literal notranslate"><span class="pre">x</span></code>, nearly all repeat counts are supported, except
 where repeats are extremely large (maximum bound greater than 32767).
 Stream states may be very large for large bounded repeats, e.g.
-<code class="regexp docutils literal"><span class="pre">a.{2000}b</span></code>. Note: such sub-patterns may be considerably
+<code class="regexp docutils literal notranslate"><span class="pre">a.{2000}b</span></code>. Note: such sub-patterns may be considerably
 cheaper if at the beginning or end of patterns and especially if the
-<a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> flag is on for that pattern.</li>
+<a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> flag is on for that pattern.</p></li>
 </ul>
 </li>
-<li>Lazy modifiers (<code class="regexp docutils literal"><span class="pre">?</span></code> appended to another quantifier, e.g.
-<code class="regexp docutils literal"><span class="pre">\w+?</span></code>) are supported but ignored (as Hyperscan reports all
-matches).</li>
+<li><p>Lazy modifiers (<code class="regexp docutils literal notranslate"><span class="pre">?</span></code> appended to another quantifier, e.g.
+<code class="regexp docutils literal notranslate"><span class="pre">\w+?</span></code>) are supported but ignored (as Hyperscan reports all
+matches).</p></li>
 </ul>
 </li>
-<li><p class="first">Parenthesization, including the named and unnamed capturing and
-non-capturing forms. However, capturing is ignored.</p>
-</li>
-<li><p class="first">Alternation with the <code class="regexp docutils literal"><span class="pre">|</span></code> symbol, as in <code class="regexp docutils literal"><span class="pre">foo|bar</span></code>.</p>
-</li>
-<li><p class="first">The anchors <code class="regexp docutils literal"><span class="pre">^</span></code>, <code class="regexp docutils literal"><span class="pre">$</span></code>, <code class="regexp docutils literal"><span class="pre">\A</span></code>, <code class="regexp docutils literal"><span class="pre">\Z</span></code> and
-<code class="regexp docutils literal"><span class="pre">\z</span></code>.</p>
-</li>
-<li><p class="first">Option modifiers:</p>
-<p>These allow behaviour to be switched on (with <code class="regexp docutils literal"><span class="pre">(?&lt;option&gt;)</span></code>) and off
-(with <code class="regexp docutils literal"><span class="pre">(?-&lt;option&gt;)</span></code>) for a sub-pattern. The supported options are:</p>
+<li><p>Parenthesization, including the named and unnamed capturing and
+non-capturing forms. However, capturing is ignored.</p></li>
+<li><p>Alternation with the <code class="regexp docutils literal notranslate"><span class="pre">|</span></code> symbol, as in <code class="regexp docutils literal notranslate"><span class="pre">foo|bar</span></code>.</p></li>
+<li><p>The anchors <code class="regexp docutils literal notranslate"><span class="pre">^</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">$</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">\A</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">\Z</span></code> and
+<code class="regexp docutils literal notranslate"><span class="pre">\z</span></code>.</p></li>
+<li><p>Option modifiers:</p>
+<p>These allow behaviour to be switched on (with <code class="regexp docutils literal notranslate"><span class="pre">(?&lt;option&gt;)</span></code>) and off
+(with <code class="regexp docutils literal notranslate"><span class="pre">(?-&lt;option&gt;)</span></code>) for a sub-pattern. The supported options are:</p>
 <blockquote>
 <div><ul class="simple">
-<li><code class="regexp docutils literal"><span class="pre">i</span></code>: Case-insensitive matching, as per
-<a class="reference internal" href="api_files.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_CASELESS</span></code></a>.</li>
-<li><code class="regexp docutils literal"><span class="pre">m</span></code>: Multi-line matching, as per <a class="reference internal" href="api_files.html#c.HS_FLAG_MULTILINE" title="HS_FLAG_MULTILINE"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_MULTILINE</span></code></a>.</li>
-<li><code class="regexp docutils literal"><span class="pre">s</span></code>: Interpret <code class="docutils literal"><span class="pre">.</span></code> as &#8220;any character&#8221;, as per
-<a class="reference internal" href="api_files.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_DOTALL</span></code></a>.</li>
-<li><code class="regexp docutils literal"><span class="pre">x</span></code>: Extended syntax, which will ignore most whitespace in the
-pattern for compatibility with libpcre&#8217;s <code class="docutils literal"><span class="pre">PCRE_EXTENDED</span></code> option.</li>
+<li><p><code class="regexp docutils literal notranslate"><span class="pre">i</span></code>: Case-insensitive matching, as per
+<a class="reference internal" href="api_files.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_CASELESS</span></code></a>.</p></li>
+<li><p><code class="regexp docutils literal notranslate"><span class="pre">m</span></code>: Multi-line matching, as per <a class="reference internal" href="api_files.html#c.HS_FLAG_MULTILINE" title="HS_FLAG_MULTILINE"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_MULTILINE</span></code></a>.</p></li>
+<li><p><code class="regexp docutils literal notranslate"><span class="pre">s</span></code>: Interpret <code class="docutils literal notranslate"><span class="pre">.</span></code> as “any character”, as per
+<a class="reference internal" href="api_files.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_DOTALL</span></code></a>.</p></li>
+<li><p><code class="regexp docutils literal notranslate"><span class="pre">x</span></code>: Extended syntax, which will ignore most whitespace in the
+pattern for compatibility with libpcre’s <code class="docutils literal notranslate"><span class="pre">PCRE_EXTENDED</span></code> option.</p></li>
 </ul>
 </div></blockquote>
-<p>For example, the expression <code class="regexp docutils literal"><span class="pre">foo(?i)bar(?-i)baz</span></code> will switch on
-case-insensitive matching <em>only</em> for the <code class="docutils literal"><span class="pre">bar</span></code> portion of the match.</p>
+<p>For example, the expression <code class="regexp docutils literal notranslate"><span class="pre">foo(?i)bar(?-i)baz</span></code> will switch on
+case-insensitive matching <em>only</em> for the <code class="docutils literal notranslate"><span class="pre">bar</span></code> portion of the match.</p>
 </li>
-<li><p class="first">The <code class="regexp docutils literal"><span class="pre">\b</span></code> and <code class="regexp docutils literal"><span class="pre">\B</span></code> zero-width assertions (word boundary and
-&#8216;not word boundary&#8217;, respectively).</p>
-</li>
-<li><p class="first">Comments in <code class="regexp docutils literal"><span class="pre">(?#</span> <span class="pre">comment)</span></code> syntax.</p>
-</li>
-<li><p class="first">The <code class="regexp docutils literal"><span class="pre">(*UTF8)</span></code> and <code class="regexp docutils literal"><span class="pre">(*UCP)</span></code> control verbs at the beginning of a
-pattern, used to enable UTF-8 and UCP mode.</p>
-</li>
+<li><p>The <code class="regexp docutils literal notranslate"><span class="pre">\b</span></code> and <code class="regexp docutils literal notranslate"><span class="pre">\B</span></code> zero-width assertions (word boundary and
+‘not word boundary’, respectively).</p></li>
+<li><p>Comments in <code class="regexp docutils literal notranslate"><span class="pre">(?#</span> <span class="pre">comment)</span></code> syntax.</p></li>
+<li><p>The <code class="regexp docutils literal notranslate"><span class="pre">(*UTF8)</span></code> and <code class="regexp docutils literal notranslate"><span class="pre">(*UCP)</span></code> control verbs at the beginning of a
+pattern, used to enable UTF-8 and UCP mode.</p></li>
 </ul>
 <div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">Bounded-repeat quantifiers with large repeat counts of arbitrary
-expressions (e.g. <code class="regexp docutils literal"><span class="pre">([a-z]|bc*d|xy?z){1000,5000}</span></code>) will result in a
-&#8220;Pattern too large&#8221; error at pattern compile time.</p>
+<p class="admonition-title">Note</p>
+<p>Bounded-repeat quantifiers with large repeat counts of arbitrary
+expressions (e.g. <code class="regexp docutils literal notranslate"><span class="pre">([a-z]|bc*d|xy?z){1000,5000}</span></code>) will result in a
+“Pattern too large” error at pattern compile time.</p>
 </div>
 <div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">At this time, not all patterns can be successfully compiled with the
-<a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag, which enables per-pattern support for
-<a class="reference internal" href="#som"><span>Start of Match</span></a>. The patterns that support this flag are a subset of patterns that
+<p class="admonition-title">Note</p>
+<p>At this time, not all patterns can be successfully compiled with the
+<a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag, which enables per-pattern support for
+<a class="reference internal" href="#som"><span class="std std-ref">Start of Match</span></a>. The patterns that support this flag are a subset of patterns that
 can be successfully compiled with Hyperscan; notably, many bounded repeat
 forms that can be compiled with Hyperscan without the Start of Match flag
 enabled cannot be compiled with the flag enabled.</p>
@@ -250,16 +235,16 @@ enabled cannot be compiled with the flag enabled.</p>
 <h3>Unsupported Constructs<a class="headerlink" href="#unsupported-constructs" title="Permalink to this headline">¶</a></h3>
 <p>The following regex constructs are not supported by Hyperscan:</p>
 <ul class="simple">
-<li>Backreferences and capturing sub-expressions.</li>
-<li>Arbitrary zero-width assertions.</li>
-<li>Subroutine references and recursive patterns.</li>
-<li>Conditional patterns.</li>
-<li>Backtracking control verbs.</li>
-<li>The <code class="regexp docutils literal"><span class="pre">\C</span></code> &#8220;single-byte&#8221; directive (which breaks UTF-8 sequences).</li>
-<li>The <code class="regexp docutils literal"><span class="pre">\R</span></code> newline match.</li>
-<li>The <code class="regexp docutils literal"><span class="pre">\K</span></code> start of match reset directive.</li>
-<li>Callouts and embedded code.</li>
-<li>Atomic grouping and possessive quantifiers.</li>
+<li><p>Backreferences and capturing sub-expressions.</p></li>
+<li><p>Arbitrary zero-width assertions.</p></li>
+<li><p>Subroutine references and recursive patterns.</p></li>
+<li><p>Conditional patterns.</p></li>
+<li><p>Backtracking control verbs.</p></li>
+<li><p>The <code class="regexp docutils literal notranslate"><span class="pre">\C</span></code> “single-byte” directive (which breaks UTF-8 sequences).</p></li>
+<li><p>The <code class="regexp docutils literal notranslate"><span class="pre">\R</span></code> newline match.</p></li>
+<li><p>The <code class="regexp docutils literal notranslate"><span class="pre">\K</span></code> start of match reset directive.</p></li>
+<li><p>Callouts and embedded code.</p></li>
+<li><p>Atomic grouping and possessive quantifiers.</p></li>
 </ul>
 </div>
 </div>
@@ -270,88 +255,88 @@ major departures from libpcre semantics are motivated by the requirements of
 streaming and multiple simultaneous pattern matching.</p>
 <p>The major departures from libpcre semantics are:</p>
 <ol class="arabic simple">
-<li><strong>Multiple pattern matching</strong>: Hyperscan allows matches to be reported for
+<li><p><strong>Multiple pattern matching</strong>: Hyperscan allows matches to be reported for
 several patterns simultaneously. This is not equivalent to separating the
-patterns by <code class="regexp docutils literal"><span class="pre">|</span></code> in libpcre, which evaluates alternations
-left-to-right.</li>
-<li><strong>Lack of ordering</strong>: the multiple matches that Hyperscan produces are not
+patterns by <code class="regexp docutils literal notranslate"><span class="pre">|</span></code> in libpcre, which evaluates alternations
+left-to-right.</p></li>
+<li><p><strong>Lack of ordering</strong>: the multiple matches that Hyperscan produces are not
 guaranteed to be ordered, although they will always fall within the bounds of
-the current scan.</li>
-<li><strong>End offsets only</strong>: Hyperscan&#8217;s default behaviour is only to report the end
+the current scan.</p></li>
+<li><p><strong>End offsets only</strong>: Hyperscan’s default behaviour is only to report the end
 offset of a match. Reporting of the start offset can be enabled with
-per-expression flags at pattern compile time. See <a class="reference internal" href="#som"><span>Start of Match</span></a> for details.</li>
-<li><strong>&#8220;All matches&#8221; reported</strong>: scanning <code class="regexp docutils literal"><span class="pre">/foo.*bar/</span></code> against
-<code class="docutils literal"><span class="pre">fooxyzbarbar</span></code> will return two matches from Hyperscan &#8211; at the points
-corresponding to the ends of <code class="docutils literal"><span class="pre">fooxyzbar</span></code> and <code class="docutils literal"><span class="pre">fooxyzbarbar</span></code>. In contrast,
-libpcre semantics by default would report only one match at <code class="docutils literal"><span class="pre">fooxyzbarbar</span></code>
+per-expression flags at pattern compile time. See <a class="reference internal" href="#som"><span class="std std-ref">Start of Match</span></a> for details.</p></li>
+<li><p><strong>“All matches” reported</strong>: scanning <code class="regexp docutils literal notranslate"><span class="pre">/foo.*bar/</span></code> against
+<code class="docutils literal notranslate"><span class="pre">fooxyzbarbar</span></code> will return two matches from Hyperscan – at the points
+corresponding to the ends of <code class="docutils literal notranslate"><span class="pre">fooxyzbar</span></code> and <code class="docutils literal notranslate"><span class="pre">fooxyzbarbar</span></code>. In contrast,
+libpcre semantics by default would report only one match at <code class="docutils literal notranslate"><span class="pre">fooxyzbarbar</span></code>
 (greedy semantics) or, if non-greedy semantics were switched on, one match at
-<code class="docutils literal"><span class="pre">fooxyzbar</span></code>. This means that switching between greedy and non-greedy
-semantics is a no-op in Hyperscan.</li>
+<code class="docutils literal notranslate"><span class="pre">fooxyzbar</span></code>. This means that switching between greedy and non-greedy
+semantics is a no-op in Hyperscan.</p></li>
 </ol>
 <p>To support libpcre quantifier semantics while accurately reporting streaming
 matches at the time they occur is impossible. For example, consider the pattern
-above, <code class="regexp docutils literal"><span class="pre">/foo.*bar/</span></code>, in streaming mode, against the following
+above, <code class="regexp docutils literal notranslate"><span class="pre">/foo.*bar/</span></code>, in streaming mode, against the following
 stream (three blocks scanned in sequence):</p>
 <blockquote>
-<div><table border="1" class="docutils">
+<div><table class="docutils align-default">
 <colgroup>
-<col width="46%" />
-<col width="25%" />
-<col width="29%" />
+<col style="width: 46%" />
+<col style="width: 25%" />
+<col style="width: 29%" />
 </colgroup>
-<thead valign="bottom">
-<tr class="row-odd"><th class="head">block 1</th>
-<th class="head">block 2</th>
-<th class="head">block 3</th>
+<thead>
+<tr class="row-odd"><th class="head"><p>block 1</p></th>
+<th class="head"><p>block 2</p></th>
+<th class="head"><p>block 3</p></th>
 </tr>
 </thead>
-<tbody valign="top">
-<tr class="row-even"><td><code class="docutils literal"><span class="pre">fooxyzbar</span></code></td>
-<td><code class="docutils literal"><span class="pre">baz</span></code></td>
-<td><code class="docutils literal"><span class="pre">qbar</span></code></td>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fooxyzbar</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">baz</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">qbar</span></code></p></td>
 </tr>
 </tbody>
 </table>
 </div></blockquote>
-<p>Since the <code class="regexp docutils literal"><span class="pre">.*</span></code> repeat in the pattern is a <em>greedy</em> repeat in libpcre, it
+<p>Since the <code class="regexp docutils literal notranslate"><span class="pre">.*</span></code> repeat in the pattern is a <em>greedy</em> repeat in libpcre, it
 must match as much as possible without causing the rest of the pattern to fail.
 However, in streaming mode, this would require knowledge of data in the stream
 beyond the current block being scanned.</p>
 <p>In this example, the match at offset 9 in the first block is only the correct
-match (under libpcre semantics) if there is no <code class="docutils literal"><span class="pre">bar</span></code> in a subsequent block &#8211;
-as in block 3 &#8211; which would constitute a better match for the pattern.</p>
+match (under libpcre semantics) if there is no <code class="docutils literal notranslate"><span class="pre">bar</span></code> in a subsequent block –
+as in block 3 – which would constitute a better match for the pattern.</p>
 <div class="section" id="start-of-match">
 <span id="som"></span><h3>Start of Match<a class="headerlink" href="#start-of-match" title="Permalink to this headline">¶</a></h3>
 <p>In standard operation, Hyperscan will only provide the end offset of a match
-when the match callback is called. If the <a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag
+when the match callback is called. If the <a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag
 is specified for a particular pattern, then the same set of matches is
 returned, but each match will also provide the leftmost possible start offset
 corresponding to its end offset.</p>
 <p>Using the SOM flag entails a number of trade-offs and limitations:</p>
 <ul class="simple">
-<li>Reduced pattern support: For many patterns, tracking SOM is complex and can
-result in Hyperscan failing to compile a pattern with a &#8220;Pattern too
-large&#8221; error, even if the pattern is supported in normal operation.</li>
-<li>Increased stream state: At scan time, state space is required to track
+<li><p>Reduced pattern support: For many patterns, tracking SOM is complex and can
+result in Hyperscan failing to compile a pattern with a “Pattern too
+large” error, even if the pattern is supported in normal operation.</p></li>
+<li><p>Increased stream state: At scan time, state space is required to track
 potential SOM offsets, and this must be stored in persistent stream state in
 streaming mode. Accordingly, SOM will generally increase the stream state
-required to match a pattern.</li>
-<li>Performance overhead: Similarly, there is generally a performance cost
-associated with tracking SOM.</li>
-<li>Incompatible features: Some other Hyperscan pattern flags (such as
-<a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> and <a class="reference internal" href="api_files.html#c.HS_FLAG_PREFILTER" title="HS_FLAG_PREFILTER"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_PREFILTER</span></code></a>) can not be
+required to match a pattern.</p></li>
+<li><p>Performance overhead: Similarly, there is generally a performance cost
+associated with tracking SOM.</p></li>
+<li><p>Incompatible features: Some other Hyperscan pattern flags (such as
+<a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> and <a class="reference internal" href="api_files.html#c.HS_FLAG_PREFILTER" title="HS_FLAG_PREFILTER"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_PREFILTER</span></code></a>) can not be
 used in combination with SOM. Specifying them together with
-<a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> will result in a compilation error.</li>
+<a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> will result in a compilation error.</p></li>
 </ul>
 <p>In streaming mode, the amount of precision delivered by SOM can be controlled
 with the SOM horizon flags. These instruct Hyperscan to deliver accurate SOM
 information within a certain distance of the end offset, and return a special
-start offset of <a class="reference internal" href="api_files.html#c.HS_OFFSET_PAST_HORIZON" title="HS_OFFSET_PAST_HORIZON"><code class="xref c c-member docutils literal"><span class="pre">HS_OFFSET_PAST_HORIZON</span></code></a> otherwise. Specifying a
+start offset of <a class="reference internal" href="api_files.html#c.HS_OFFSET_PAST_HORIZON" title="HS_OFFSET_PAST_HORIZON"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_OFFSET_PAST_HORIZON</span></code></a> otherwise. Specifying a
 small or medium SOM horizon will usually reduce the stream state required for a
 given database.</p>
 <div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">In streaming mode, the start offset returned for a match may refer to
+<p class="admonition-title">Note</p>
+<p>In streaming mode, the start offset returned for a match may refer to
 a point in the stream <em>before</em> the current block being scanned. Hyperscan
 provides no facility for accessing earlier blocks; if the calling application
 needs to inspect historical data, then it must store it itself.</p>
@@ -361,46 +346,46 @@ needs to inspect historical data, then it must store it itself.</p>
 <span id="extparam"></span><h3>Extended Parameters<a class="headerlink" href="#extended-parameters" title="Permalink to this headline">¶</a></h3>
 <p>In some circumstances, more control over the matching behaviour of a pattern is
 required than can be specified easily using regular expression syntax. For
-these scenarios, Hyperscan provides the <a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_ext_multi()</span></code></a> function
-that allows a set of &#8220;extended parameters&#8221; to be set on a per-pattern basis.</p>
-<p>Extended parameters are specified using an <a class="reference internal" href="api_files.html#c.hs_expr_ext_t" title="hs_expr_ext_t"><code class="xref c c-type docutils literal"><span class="pre">hs_expr_ext_t</span></code></a> structure,
+these scenarios, Hyperscan provides the <a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_ext_multi()</span></code></a> function
+that allows a set of “extended parameters” to be set on a per-pattern basis.</p>
+<p>Extended parameters are specified using an <a class="reference internal" href="api_files.html#c.hs_expr_ext_t" title="hs_expr_ext_t"><code class="xref c c-type docutils literal notranslate"><span class="pre">hs_expr_ext_t</span></code></a> structure,
 which provides the following fields:</p>
 <ul class="simple">
-<li><code class="docutils literal"><span class="pre">flags</span></code>: Flags governing which of the other fields in the structure are
-used.</li>
-<li><code class="docutils literal"><span class="pre">min_offset</span></code>: The minimum end offset in the data stream at which this
-expression should match successfully.</li>
-<li><code class="docutils literal"><span class="pre">max_offset</span></code>: The maximum end offset in the data stream at which this
-expression should match successfully.</li>
-<li><code class="docutils literal"><span class="pre">min_length</span></code>: The minimum match length (from start to end) required to
-successfully match this expression.</li>
-<li><code class="docutils literal"><span class="pre">edit_distance</span></code>: Match this expression within a given Levenshtein distance.</li>
-<li><code class="docutils literal"><span class="pre">hamming_distance</span></code>: Match this expression within a given Hamming distance.</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">flags</span></code>: Flags governing which of the other fields in the structure are
+used.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_offset</span></code>: The minimum end offset in the data stream at which this
+expression should match successfully.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">max_offset</span></code>: The maximum end offset in the data stream at which this
+expression should match successfully.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">min_length</span></code>: The minimum match length (from start to end) required to
+successfully match this expression.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">edit_distance</span></code>: Match this expression within a given Levenshtein distance.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hamming_distance</span></code>: Match this expression within a given Hamming distance.</p></li>
 </ul>
 <p>These parameters either allow the set of matches produced by a pattern to be
 constrained at compile time (rather than relying on the application to process
 unwanted matches at runtime), or allow matching a pattern approximately (within
 a given edit distance) to produce more matches.</p>
-<p>For example, the pattern <code class="regexp docutils literal"><span class="pre">/foo.*bar/</span></code> when given a <code class="docutils literal"><span class="pre">min_offset</span></code> of 10
-and a <code class="docutils literal"><span class="pre">max_offset</span></code> of 15 will not produce matches when scanned against
-<code class="docutils literal"><span class="pre">foobar</span></code> or <code class="docutils literal"><span class="pre">foo0123456789bar</span></code> but will produce a match against the data
-streams <code class="docutils literal"><span class="pre">foo0123bar</span></code> or <code class="docutils literal"><span class="pre">foo0123456bar</span></code>.</p>
-<p>Similarly, the pattern <code class="regexp docutils literal"><span class="pre">/foobar/</span></code> when given an <code class="docutils literal"><span class="pre">edit_distance</span></code> of 2
-will produce matches when scanned against <code class="docutils literal"><span class="pre">foobar</span></code>, <code class="docutils literal"><span class="pre">f00bar</span></code>, <code class="docutils literal"><span class="pre">fooba</span></code>,
-<code class="docutils literal"><span class="pre">fobr</span></code>, <code class="docutils literal"><span class="pre">fo_baz</span></code>, <code class="docutils literal"><span class="pre">foooobar</span></code>, and anything else that lies within edit
+<p>For example, the pattern <code class="regexp docutils literal notranslate"><span class="pre">/foo.*bar/</span></code> when given a <code class="docutils literal notranslate"><span class="pre">min_offset</span></code> of 10
+and a <code class="docutils literal notranslate"><span class="pre">max_offset</span></code> of 15 will not produce matches when scanned against
+<code class="docutils literal notranslate"><span class="pre">foobar</span></code> or <code class="docutils literal notranslate"><span class="pre">foo0123456789bar</span></code> but will produce a match against the data
+streams <code class="docutils literal notranslate"><span class="pre">foo0123bar</span></code> or <code class="docutils literal notranslate"><span class="pre">foo0123456bar</span></code>.</p>
+<p>Similarly, the pattern <code class="regexp docutils literal notranslate"><span class="pre">/foobar/</span></code> when given an <code class="docutils literal notranslate"><span class="pre">edit_distance</span></code> of 2
+will produce matches when scanned against <code class="docutils literal notranslate"><span class="pre">foobar</span></code>, <code class="docutils literal notranslate"><span class="pre">f00bar</span></code>, <code class="docutils literal notranslate"><span class="pre">fooba</span></code>,
+<code class="docutils literal notranslate"><span class="pre">fobr</span></code>, <code class="docutils literal notranslate"><span class="pre">fo_baz</span></code>, <code class="docutils literal notranslate"><span class="pre">foooobar</span></code>, and anything else that lies within edit
 distance of 2 (as defined by Levenshtein distance).</p>
-<p>When the same pattern <code class="regexp docutils literal"><span class="pre">/foobar/</span></code> is given a <code class="docutils literal"><span class="pre">hamming_distance</span></code> of 2,
-it will produce matches when scanned against <code class="docutils literal"><span class="pre">foobar</span></code>, <code class="docutils literal"><span class="pre">boofar</span></code>,
-<code class="docutils literal"><span class="pre">f00bar</span></code>, and anything else with at most two characters substituted from the
-original pattern. For more details, see the <a class="reference internal" href="#approximate-matching"><span>Approximate matching</span></a>
+<p>When the same pattern <code class="regexp docutils literal notranslate"><span class="pre">/foobar/</span></code> is given a <code class="docutils literal notranslate"><span class="pre">hamming_distance</span></code> of 2,
+it will produce matches when scanned against <code class="docutils literal notranslate"><span class="pre">foobar</span></code>, <code class="docutils literal notranslate"><span class="pre">boofar</span></code>,
+<code class="docutils literal notranslate"><span class="pre">f00bar</span></code>, and anything else with at most two characters substituted from the
+original pattern. For more details, see the <a class="reference internal" href="#approximate-matching"><span class="std std-ref">Approximate matching</span></a>
 section.</p>
 </div>
 <div class="section" id="prefiltering-mode">
 <h3>Prefiltering Mode<a class="headerlink" href="#prefiltering-mode" title="Permalink to this headline">¶</a></h3>
-<p>Hyperscan provides a per-pattern flag, <a class="reference internal" href="api_files.html#c.HS_FLAG_PREFILTER" title="HS_FLAG_PREFILTER"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_PREFILTER</span></code></a>, which can
+<p>Hyperscan provides a per-pattern flag, <a class="reference internal" href="api_files.html#c.HS_FLAG_PREFILTER" title="HS_FLAG_PREFILTER"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_PREFILTER</span></code></a>, which can
 be used to implement a prefilter for a pattern than Hyperscan would not
 ordinarily support.</p>
-<p>This flag instructs Hyperscan to compile an &#8220;approximate&#8221; version of this
+<p>This flag instructs Hyperscan to compile an “approximate” version of this
 pattern for use in a prefiltering application, even if Hyperscan does not
 support the pattern in normal operation.</p>
 <p>The set of matches returned when this flag is used is guaranteed to be a
@@ -409,20 +394,20 @@ superset of the matches specified by the non-prefiltering expression.</p>
 zero-width assertions, back-references or conditional references) these
 constructs will be replaced internally with broader constructs that may match
 more often.</p>
-<p>For example, the pattern <code class="regexp docutils literal"><span class="pre">/(\w+)</span> <span class="pre">again</span> <span class="pre">\1/</span></code> contains the
-back-reference <code class="regexp docutils literal"><span class="pre">\1</span></code>. In prefiltering mode, this pattern might be
+<p>For example, the pattern <code class="regexp docutils literal notranslate"><span class="pre">/(\w+)</span> <span class="pre">again</span> <span class="pre">\1/</span></code> contains the
+back-reference <code class="regexp docutils literal notranslate"><span class="pre">\1</span></code>. In prefiltering mode, this pattern might be
 approximated by having its back-reference replaced with its referent, forming
-<code class="regexp docutils literal"><span class="pre">/\w+</span> <span class="pre">again</span> <span class="pre">\w+/</span></code>.</p>
+<code class="regexp docutils literal notranslate"><span class="pre">/\w+</span> <span class="pre">again</span> <span class="pre">\w+/</span></code>.</p>
 <p>Furthermore, in prefiltering mode Hyperscan may simplify a pattern that would
-otherwise return a &#8220;Pattern too large&#8221; error at compile time, or for performance
+otherwise return a “Pattern too large” error at compile time, or for performance
 reasons (subject to the matching guarantee above).</p>
 <p>It is generally expected that the application will subsequently confirm
 prefilter matches with another regular expression matcher that can provide exact
 matches for the pattern.</p>
 <div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">The use of this flag in combination with Start of Match mode (using
-the <a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag) is not currently supported and
+<p class="admonition-title">Note</p>
+<p>The use of this flag in combination with Start of Match mode (using
+the <a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag) is not currently supported and
 will result in a pattern compilation error.</p>
 </div>
 </div>
@@ -432,37 +417,37 @@ will result in a pattern compilation error.</p>
 <p>Hyperscan is able to make use of several modern instruction set features found
 on x86 processors to provide improvements in scanning performance.</p>
 <p>Some of these features are selected when the library is built; for example,
-Hyperscan will use the native <code class="docutils literal"><span class="pre">POPCNT</span></code> instruction on processors where it is
+Hyperscan will use the native <code class="docutils literal notranslate"><span class="pre">POPCNT</span></code> instruction on processors where it is
 available and the library has been optimized for the host architecture.</p>
 <div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">By default, the Hyperscan runtime is built with the <code class="docutils literal"><span class="pre">-march=native</span></code>
+<p class="admonition-title">Note</p>
+<p>By default, the Hyperscan runtime is built with the <code class="docutils literal notranslate"><span class="pre">-march=native</span></code>
 compiler flag and (where possible) will make use of all instructions known by
-the host&#8217;s C compiler.</p>
+the host’s C compiler.</p>
 </div>
 <p>To use some instruction set features, however, Hyperscan must build a
 specialized database to support them. This means that the target platform must
 be specified at pattern compile time.</p>
 <p>The Hyperscan compiler API functions all accept an optional
-<a class="reference internal" href="api_files.html#c.hs_platform_info_t" title="hs_platform_info_t"><code class="xref c c-type docutils literal"><span class="pre">hs_platform_info_t</span></code></a> argument, which describes the target platform
+<a class="reference internal" href="api_files.html#c.hs_platform_info_t" title="hs_platform_info_t"><code class="xref c c-type docutils literal notranslate"><span class="pre">hs_platform_info_t</span></code></a> argument, which describes the target platform
 for the database to be built. If this argument is NULL, the database will be
 targeted at the current host platform.</p>
-<p>The <a class="reference internal" href="api_files.html#c.hs_platform_info_t" title="hs_platform_info_t"><code class="xref c c-type docutils literal"><span class="pre">hs_platform_info_t</span></code></a> structure has two fields:</p>
+<p>The <a class="reference internal" href="api_files.html#c.hs_platform_info_t" title="hs_platform_info_t"><code class="xref c c-type docutils literal notranslate"><span class="pre">hs_platform_info_t</span></code></a> structure has two fields:</p>
 <ol class="arabic simple">
-<li><code class="docutils literal"><span class="pre">tune</span></code>: This allows the application to specify information about the target
+<li><p><code class="docutils literal notranslate"><span class="pre">tune</span></code>: This allows the application to specify information about the target
 platform which may be used to guide the optimisation process of the compile.
 Use of this field does not limit the processors that the resulting database
-can run on, but may impact the performance of the resulting database.</li>
-<li><code class="docutils literal"><span class="pre">cpu_features</span></code>: This allows the application to specify a mask of CPU
+can run on, but may impact the performance of the resulting database.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cpu_features</span></code>: This allows the application to specify a mask of CPU
 features that may be used on the target platform. For example,
-<a class="reference internal" href="api_files.html#c.HS_CPU_FEATURES_AVX2" title="HS_CPU_FEATURES_AVX2"><code class="xref c c-member docutils literal"><span class="pre">HS_CPU_FEATURES_AVX2</span></code></a> can be specified for Intel® Advanced
+<a class="reference internal" href="api_files.html#c.HS_CPU_FEATURES_AVX2" title="HS_CPU_FEATURES_AVX2"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_CPU_FEATURES_AVX2</span></code></a> can be specified for Intel® Advanced
 Vector Extensions 2 (Intel® AVX2) instruction set support. If a flag
 for a particular CPU feature is specified, the database will not be usable on
-a CPU without that feature.</li>
+a CPU without that feature.</p></li>
 </ol>
-<p>An <a class="reference internal" href="api_files.html#c.hs_platform_info_t" title="hs_platform_info_t"><code class="xref c c-type docutils literal"><span class="pre">hs_platform_info_t</span></code></a> structure targeted at the current host can be
-built with the <a class="reference internal" href="api_files.html#c.hs_populate_platform" title="hs_populate_platform"><code class="xref c c-func docutils literal"><span class="pre">hs_populate_platform()</span></code></a> function.</p>
-<p>See <a class="reference internal" href="api_constants.html#api-constants"><span>API Reference: Constants</span></a> for the full list of CPU tuning and feature flags.</p>
+<p>An <a class="reference internal" href="api_files.html#c.hs_platform_info_t" title="hs_platform_info_t"><code class="xref c c-type docutils literal notranslate"><span class="pre">hs_platform_info_t</span></code></a> structure targeted at the current host can be
+built with the <a class="reference internal" href="api_files.html#c.hs_populate_platform" title="hs_populate_platform"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_populate_platform()</span></code></a> function.</p>
+<p>See <a class="reference internal" href="api_constants.html#api-constants"><span class="std std-ref">API Reference: Constants</span></a> for the full list of CPU tuning and feature flags.</p>
 </div>
 <div class="section" id="approximate-matching">
 <span id="id2"></span><h2>Approximate matching<a class="headerlink" href="#approximate-matching" title="Permalink to this headline">¶</a></h2>
@@ -470,148 +455,147 @@ built with the <a class="reference internal" href="api_files.html#c.hs_populate_
 patterns within a given edit distance. The exact matching behavior is defined as
 follows:</p>
 <ol class="arabic simple">
-<li><strong>Edit distance</strong> is defined as Levenshtein distance. That is, there are
+<li><p><strong>Edit distance</strong> is defined as Levenshtein distance. That is, there are
 three possible edit types considered: insertion, removal and substitution.
 A more formal description can be found on
-<a class="reference external" href="https://en.wikipedia.org/wiki/Levenshtein_distance">Wikipedia</a>.</li>
-<li><strong>Hamming distance</strong> is the number of positions by which two strings of
+<a class="reference external" href="https://en.wikipedia.org/wiki/Levenshtein_distance">Wikipedia</a>.</p></li>
+<li><p><strong>Hamming distance</strong> is the number of positions by which two strings of
 equal length differ. That is, it is the number of substitutions required to
 convert one string to the other. There are no insertions or removals when
 approximate matching using a Hamming distance. A more formal description can
 be found on
-<a class="reference external" href="https://en.wikipedia.org/wiki/Hamming_distance">Wikipedia</a>.</li>
-<li><strong>Approximate matching</strong> will match all <em>corpora</em> within a given edit or
+<a class="reference external" href="https://en.wikipedia.org/wiki/Hamming_distance">Wikipedia</a>.</p></li>
+<li><p><strong>Approximate matching</strong> will match all <em>corpora</em> within a given edit or
 Hamming distance. That is, given a pattern, approximate matching will match
 anything that can be edited to arrive at a corpus that exactly matches the
-original pattern.</li>
-<li><strong>Matching semantics</strong> are exactly the same as described in <a class="reference internal" href="#semantics"><span>Semantics</span></a>.</li>
+original pattern.</p></li>
+<li><p><strong>Matching semantics</strong> are exactly the same as described in <a class="reference internal" href="#semantics"><span class="std std-ref">Semantics</span></a>.</p></li>
 </ol>
 <p>Here are a few examples of approximate matching:</p>
 <ul class="simple">
-<li>Pattern <code class="regexp docutils literal"><span class="pre">/foo/</span></code> can match <code class="docutils literal"><span class="pre">foo</span></code> when using regular Hyperscan
+<li><p>Pattern <code class="regexp docutils literal notranslate"><span class="pre">/foo/</span></code> can match <code class="docutils literal notranslate"><span class="pre">foo</span></code> when using regular Hyperscan
 matching behavior. With approximate matching within edit distance 2, the
-pattern will produce matches when scanned against <code class="docutils literal"><span class="pre">foo</span></code>, <code class="docutils literal"><span class="pre">foooo</span></code>, <code class="docutils literal"><span class="pre">f00</span></code>,
-<code class="docutils literal"><span class="pre">f</span></code>, and anything else that lies within edit distance 2 of matching corpora
-for the original pattern (<code class="docutils literal"><span class="pre">foo</span></code> in this case).</li>
-<li>Pattern <code class="regexp docutils literal"><span class="pre">/foo(bar)+/</span></code> with edit distance 1 will match <code class="docutils literal"><span class="pre">foobarbar</span></code>,
-<code class="docutils literal"><span class="pre">foobarb0r</span></code>, <code class="docutils literal"><span class="pre">fooarbar</span></code>, <code class="docutils literal"><span class="pre">foobarba</span></code>, <code class="docutils literal"><span class="pre">f0obarbar</span></code>, <code class="docutils literal"><span class="pre">fobarbar</span></code> and
+pattern will produce matches when scanned against <code class="docutils literal notranslate"><span class="pre">foo</span></code>, <code class="docutils literal notranslate"><span class="pre">foooo</span></code>, <code class="docutils literal notranslate"><span class="pre">f00</span></code>,
+<code class="docutils literal notranslate"><span class="pre">f</span></code>, and anything else that lies within edit distance 2 of matching corpora
+for the original pattern (<code class="docutils literal notranslate"><span class="pre">foo</span></code> in this case).</p></li>
+<li><p>Pattern <code class="regexp docutils literal notranslate"><span class="pre">/foo(bar)+/</span></code> with edit distance 1 will match <code class="docutils literal notranslate"><span class="pre">foobarbar</span></code>,
+<code class="docutils literal notranslate"><span class="pre">foobarb0r</span></code>, <code class="docutils literal notranslate"><span class="pre">fooarbar</span></code>, <code class="docutils literal notranslate"><span class="pre">foobarba</span></code>, <code class="docutils literal notranslate"><span class="pre">f0obarbar</span></code>, <code class="docutils literal notranslate"><span class="pre">fobarbar</span></code> and
 anything else that lies within edit distance 1 of matching corpora for the
-original pattern (<code class="docutils literal"><span class="pre">foobarbar</span></code> in this case).</li>
-<li>Pattern <code class="regexp docutils literal"><span class="pre">/foob?ar/</span></code> with edit distance 2 will match <code class="docutils literal"><span class="pre">fooar</span></code>,
-<code class="docutils literal"><span class="pre">foo</span></code>, <code class="docutils literal"><span class="pre">fabar</span></code>, <code class="docutils literal"><span class="pre">oar</span></code> and anything else that lies within edit distance 2
-of matching corpora for the original pattern (<code class="docutils literal"><span class="pre">fooar</span></code> in this case).</li>
+original pattern (<code class="docutils literal notranslate"><span class="pre">foobarbar</span></code> in this case).</p></li>
+<li><p>Pattern <code class="regexp docutils literal notranslate"><span class="pre">/foob?ar/</span></code> with edit distance 2 will match <code class="docutils literal notranslate"><span class="pre">fooar</span></code>,
+<code class="docutils literal notranslate"><span class="pre">foo</span></code>, <code class="docutils literal notranslate"><span class="pre">fabar</span></code>, <code class="docutils literal notranslate"><span class="pre">oar</span></code> and anything else that lies within edit distance 2
+of matching corpora for the original pattern (<code class="docutils literal notranslate"><span class="pre">fooar</span></code> in this case).</p></li>
 </ul>
 <p>Currently, there are trade-offs and limitations that come with approximate
 matching support. Here they are, in a nutshell:</p>
 <ul class="simple">
-<li>Reduced pattern support:<ul>
-<li>For many patterns, approximate matching is complex and can result in
-Hyperscan failing to compile a pattern with a &#8220;Pattern too large&#8221; error,
-even if the pattern is supported in normal operation.</li>
-<li>Additionally, some patterns cannot be approximately matched because they
-reduce to so-called &#8220;vacuous&#8221; patterns (patterns that match everything). For
-example, pattern <code class="regexp docutils literal"><span class="pre">/foo/</span></code> with edit distance 3, if implemented,
+<li><p>Reduced pattern support:</p>
+<ul>
+<li><p>For many patterns, approximate matching is complex and can result in
+Hyperscan failing to compile a pattern with a “Pattern too large” error,
+even if the pattern is supported in normal operation.</p></li>
+<li><p>Additionally, some patterns cannot be approximately matched because they
+reduce to so-called “vacuous” patterns (patterns that match everything). For
+example, pattern <code class="regexp docutils literal notranslate"><span class="pre">/foo/</span></code> with edit distance 3, if implemented,
 would reduce to matching zero-length buffers. Such patterns will result in a
-&#8220;Pattern cannot be approximately matched&#8221; compile error. Approximate
+“Pattern cannot be approximately matched” compile error. Approximate
 matching within a Hamming distance does not remove symbols, so will not
-reduce to a vacuous pattern.</li>
-<li>Finally, due to the inherent complexities of defining matching behavior,
+reduce to a vacuous pattern.</p></li>
+<li><p>Finally, due to the inherent complexities of defining matching behavior,
 approximate matching implements a reduced subset of regular expression
 syntax. Approximate matching does not support UTF-8 (and other
-multibyte character encodings), and word boundaries (that is, <code class="docutils literal"><span class="pre">\b</span></code>, <code class="docutils literal"><span class="pre">\B</span></code>
+multibyte character encodings), and word boundaries (that is, <code class="docutils literal notranslate"><span class="pre">\b</span></code>, <code class="docutils literal notranslate"><span class="pre">\B</span></code>
 and other equivalent constructs). Patterns containing unsupported constructs
-will result in &#8220;Pattern cannot be approximately matched&#8221; compile error.</li>
-<li>When using approximate matching in conjunction with SOM, all of the
-restrictions of SOM also apply. See <a class="reference internal" href="#som"><span>Start of Match</span></a> for more
-details.</li>
+will result in “Pattern cannot be approximately matched” compile error.</p></li>
+<li><p>When using approximate matching in conjunction with SOM, all of the
+restrictions of SOM also apply. See <a class="reference internal" href="#som"><span class="std std-ref">Start of Match</span></a> for more
+details.</p></li>
 </ul>
 </li>
-<li>Increased stream state/byte code size requirements: due to approximate
+<li><p>Increased stream state/byte code size requirements: due to approximate
 matching byte code being inherently larger and more complex than exact
-matching, the corresponding requirements also increase.</li>
-<li>Performance overhead: similarly, there is generally a performance cost
+matching, the corresponding requirements also increase.</p></li>
+<li><p>Performance overhead: similarly, there is generally a performance cost
 associated with approximate matching, both due to increased matching
-complexity, and due to the fact that it will produce more matches.</li>
+complexity, and due to the fact that it will produce more matches.</p></li>
 </ul>
 <p>Approximate matching is always disabled by default, and can be enabled on a
-per-pattern basis by using an extended parameter described in <a class="reference internal" href="#extparam"><span>Extended Parameters</span></a>.</p>
+per-pattern basis by using an extended parameter described in <a class="reference internal" href="#extparam"><span class="std std-ref">Extended Parameters</span></a>.</p>
 </div>
 <div class="section" id="logical-combinations">
 <span id="id3"></span><h2>Logical Combinations<a class="headerlink" href="#logical-combinations" title="Permalink to this headline">¶</a></h2>
 <p>For situations when a user requires behaviour that depends on the presence or
 absence of matches from groups of patterns, Hyperscan provides support for the
 logical combination of patterns in a given pattern set, with three operators:
-<code class="docutils literal"><span class="pre">NOT</span></code>, <code class="docutils literal"><span class="pre">AND</span></code> and <code class="docutils literal"><span class="pre">OR</span></code>.</p>
-<p>The logical value of such a combination is based on each expression&#8217;s matching
+<code class="docutils literal notranslate"><span class="pre">NOT</span></code>, <code class="docutils literal notranslate"><span class="pre">AND</span></code> and <code class="docutils literal notranslate"><span class="pre">OR</span></code>.</p>
+<p>The logical value of such a combination is based on each expression’s matching
 status at a given offset. The matching status of any expression has a boolean
 value: <em>false</em> if the expression has not yet matched or <em>true</em> if the expression
-has already matched. In particular, the value of a <code class="docutils literal"><span class="pre">NOT</span></code> operation at a given
+has already matched. In particular, the value of a <code class="docutils literal notranslate"><span class="pre">NOT</span></code> operation at a given
 offset is <em>true</em> if the expression it refers to is <em>false</em> at this offset.</p>
-<p>For example, <code class="docutils literal"><span class="pre">NOT</span> <span class="pre">101</span></code> means that expression 101 has not yet matched at this
+<p>For example, <code class="docutils literal notranslate"><span class="pre">NOT</span> <span class="pre">101</span></code> means that expression 101 has not yet matched at this
 offset.</p>
 <p>A logical combination is passed to Hyperscan at compile time as an expression.
 This combination expression will raise matches at every offset where one of its
 sub-expressions matches and the logical value of the whole expression is <em>true</em>.</p>
 <p>To illustrate, here is an example combination expression:</p>
-<div class="highlight-python"><div class="highlight"><pre>((301 OR 302) AND 303) AND (304 OR NOT 305)
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">((</span><span class="mi">301</span> <span class="n">OR</span> <span class="mi">302</span><span class="p">)</span> <span class="n">AND</span> <span class="mi">303</span><span class="p">)</span> <span class="n">AND</span> <span class="p">(</span><span class="mi">304</span> <span class="n">OR</span> <span class="n">NOT</span> <span class="mi">305</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>If expression 301 matches at offset 10, the logical value of 301 is <em>true</em>
-while the other patterns&#8217; values are <em>false</em>. Hence, the whole combination&#8217;s value is
+while the other patterns’ values are <em>false</em>. Hence, the whole combination’s value is
 <em>false</em>.</p>
 <p>Then expression 303 matches at offset 20. Now the values of 301 and 303 are
-<em>true</em> while the other patterns&#8217; values are still <em>false</em>. In this case, the
-combination&#8217;s value is <em>true</em>, so the combination expression raises a match at
+<em>true</em> while the other patterns’ values are still <em>false</em>. In this case, the
+combination’s value is <em>true</em>, so the combination expression raises a match at
 offset 20.</p>
 <p>Finally, expression 305 has matches at offset 30. Now the values of 301, 303 and 305
-are <em>true</em> while the other patterns&#8217; values are still <em>false</em>. In this case, the
-combination&#8217;s value is <em>false</em> and no match is raised.</p>
+are <em>true</em> while the other patterns’ values are still <em>false</em>. In this case, the
+combination’s value is <em>false</em> and no match is raised.</p>
 <p><strong>Using Logical Combinations</strong></p>
 <p>In logical combination syntax, an expression is written as infix notation, it
 consists of operands, operators and parentheses. The operands are expression
-IDs, and operators are <code class="docutils literal"><span class="pre">!</span></code> (NOT), <code class="docutils literal"><span class="pre">&amp;</span></code> (AND) or <code class="docutils literal"><span class="pre">|</span></code> (OR). For example, the
+IDs, and operators are <code class="docutils literal notranslate"><span class="pre">!</span></code> (NOT), <code class="docutils literal notranslate"><span class="pre">&amp;</span></code> (AND) or <code class="docutils literal notranslate"><span class="pre">|</span></code> (OR). For example, the
 combination described in the previous section would be written as:</p>
-<div class="highlight-python"><div class="highlight"><pre>((301 | 302) &amp; 303) &amp; (304 | !305)
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>((301 | 302) &amp; 303) &amp; (304 | !305)
 </pre></div>
 </div>
 <p>In a logical combination expression:</p>
 <blockquote>
-<div><ul>
-<li><dl class="first docutils">
-<dt>The priority of operators are <code class="docutils literal"><span class="pre">!</span></code> &gt; <code class="docutils literal"><span class="pre">&amp;</span></code> &gt; <code class="docutils literal"><span class="pre">|</span></code>. For example:</dt>
-<dd><ul class="first last simple">
-<li><code class="docutils literal"><span class="pre">A&amp;B|C</span></code> is treated as <code class="docutils literal"><span class="pre">(A&amp;B)|C</span></code>,</li>
-<li><code class="docutils literal"><span class="pre">A|B&amp;C</span></code> is treated as <code class="docutils literal"><span class="pre">A|(B&amp;C)</span></code>,</li>
-<li><code class="docutils literal"><span class="pre">A&amp;!B</span></code> is treated as <code class="docutils literal"><span class="pre">A&amp;(!B)</span></code>.</li>
+<div><ul class="simple">
+<li><dl class="simple">
+<dt>The priority of operators are <code class="docutils literal notranslate"><span class="pre">!</span></code> &gt; <code class="docutils literal notranslate"><span class="pre">&amp;</span></code> &gt; <code class="docutils literal notranslate"><span class="pre">|</span></code>. For example:</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">A&amp;B|C</span></code> is treated as <code class="docutils literal notranslate"><span class="pre">(A&amp;B)|C</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">A|B&amp;C</span></code> is treated as <code class="docutils literal notranslate"><span class="pre">A|(B&amp;C)</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">A&amp;!B</span></code> is treated as <code class="docutils literal notranslate"><span class="pre">A&amp;(!B)</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
 </li>
-<li><dl class="first docutils">
-<dt>Extra parentheses are allowed. For example:</dt>
-<dd><ul class="first last simple">
-<li><code class="docutils literal"><span class="pre">(A)&amp;!(B)</span></code> is the same as <code class="docutils literal"><span class="pre">A&amp;!B</span></code>,</li>
-<li><code class="docutils literal"><span class="pre">(A&amp;B)|C</span></code> is the same as <code class="docutils literal"><span class="pre">A&amp;B|C</span></code>.</li>
+<li><dl class="simple">
+<dt>Extra parentheses are allowed. For example:</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">(A)&amp;!(B)</span></code> is the same as <code class="docutils literal notranslate"><span class="pre">A&amp;!B</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">(A&amp;B)|C</span></code> is the same as <code class="docutils literal notranslate"><span class="pre">A&amp;B|C</span></code>.</p></li>
 </ul>
 </dd>
 </dl>
 </li>
-<li><p class="first">Whitespace is ignored.</p>
-</li>
+<li><p>Whitespace is ignored.</p></li>
 </ul>
 </div></blockquote>
 <p>To use a logical combination expression, it must be passed to one of the
-Hyperscan compile functions (<a class="reference internal" href="api_files.html#c.hs_compile_multi" title="hs_compile_multi"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_multi()</span></code></a>,
-<a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal"><span class="pre">hs_compile_ext_multi()</span></code></a>) along with the <a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag,
+Hyperscan compile functions (<a class="reference internal" href="api_files.html#c.hs_compile_multi" title="hs_compile_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_multi()</span></code></a>,
+<a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_ext_multi()</span></code></a>) along with the <a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag,
 which identifies the pattern as a logical combination expression. The patterns
 referred to in the logical combination expression must be compiled together in
 the same pattern set as the combination expression.</p>
-<p>When an expression has the <a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag set, it ignores
-all other flags except the <a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> flag and the
-<a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_QUIET</span></code></a> flag.</p>
-<p>Hyperscan will reject logical combination expressions at compile time that
-evaluate to <em>true</em> when no patterns have matched; for example:</p>
-<div class="highlight-python"><div class="highlight"><pre>!101
+<p>When an expression has the <a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag set, it ignores
+all other flags except the <a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> flag and the
+<a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_QUIET</span></code></a> flag.</p>
+<p>Hyperscan will accept logical combination expressions at compile time that
+evaluate to <em>true</em> when no patterns have matched, and report the match for
+combination at end of data if no patterns have matched; for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>!101
 !101|102
 !101&amp;!102
 !(101&amp;102)
@@ -619,28 +603,29 @@ evaluate to <em>true</em> when no patterns have matched; for example:</p>
 </div>
 <p>Patterns that are referred to as operands within a logical combination (for
 example, 301 through 305 in the examples above) may also use the
-<a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_QUIET</span></code></a> flag to silence the reporting of individual matches
+<a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_QUIET</span></code></a> flag to silence the reporting of individual matches
 for those patterns. In the absence of this flag, all matches (for
 both individual patterns and their logical combinations) will be reported.</p>
-<p>When an expression has both the <a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag and the
-<a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal"><span class="pre">HS_FLAG_QUIET</span></code></a> flag set, no matches for this logical combination
+<p>When an expression has both the <a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag and the
+<a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_QUIET</span></code></a> flag set, no matches for this logical combination
 will be reported.</p>
 </div>
 </div>
 
 
           </div>
+          
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<h3><a href="index.html">Table Of Contents</a></h3>
+<h3><a href="index.html">Table of Contents</a></h3>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
 <li class="toctree-l1"><a class="reference internal" href="preface.html">Preface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="">Compiling Patterns</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Compiling Patterns</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#building-a-database">Building a Database</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#pattern-support">Pattern Support</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#semantics">Semantics</a></li>
@@ -659,16 +644,13 @@ will be reported.</p>
 </ul>
 
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -679,8 +661,8 @@ will be reported.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>
 

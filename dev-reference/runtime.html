@@ -1,49 +1,43 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
+<!DOCTYPE html>
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>Scanning for Patterns &mdash; Hyperscan 5.2.0 documentation</title>
-    
+    <meta charset="utf-8" />
+    <title>Scanning for Patterns &#8212; Hyperscan 5.2.1 documentation</title>
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/hyperscan.css" type="text/css" />
-    
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    './',
-        VERSION:     '5.2.0',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
+    <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
-    <link rel="top" title="Hyperscan 5.2.0 documentation" href="index.html" />
     <link rel="next" title="Serialization" href="serialization.html" />
     <link rel="prev" title="Compiling Patterns" href="compilation.html" />
    
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
   
   <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
 
-  </head>
-  <body role="document">  
+  </head><body>
+  
 
     <div class="document">
       <div class="documentwrapper">
         <div class="bodywrapper">
+          
+
           <div class="body" role="main">
             
   <div class="section" id="scanning-for-patterns">
 <span id="runtime"></span><h1>Scanning for Patterns<a class="headerlink" href="#scanning-for-patterns" title="Permalink to this headline">¶</a></h1>
 <p>Hyperscan provides three different scanning modes, each with its own scan
-function beginning with <code class="docutils literal"><span class="pre">hs_scan</span></code>. In addition, streaming mode has a number
+function beginning with <code class="docutils literal notranslate"><span class="pre">hs_scan</span></code>. In addition, streaming mode has a number
 of other API functions for managing stream state.</p>
 <div class="section" id="handling-matches">
 <h2>Handling Matches<a class="headerlink" href="#handling-matches" title="Permalink to this headline">¶</a></h2>
@@ -52,42 +46,42 @@ is found. This function has the following signature:</p>
 <blockquote>
 <div><dl class="typedef">
 <dt>
-<em class="property">typedef </em><code class="descname">( * match_event_handler)</code><span class="sig-paren">(</span>unsigned int<em>&nbsp;id</em>, unsigned long long<em>&nbsp;from</em>, unsigned long long<em>&nbsp;to</em>, unsigned int<em>&nbsp;flags</em>, void<em>&nbsp;*context</em><span class="sig-paren">)</span></dt>
+<em class="property">typedef </em>int<code class="sig-name descname">( * match_event_handler)</code><span class="sig-paren">(</span>unsigned int<em> id</em>, unsigned long long<em> from</em>, unsigned long long<em> to</em>, unsigned int<em> flags</em>, void<em> *context</em><span class="sig-paren">)</span></dt>
 <dd></dd></dl>
 
 </div></blockquote>
 <p>The <em>id</em> argument will be set to the identifier for the matching expression
 provided at compile time, and the <em>to</em> argument will be set to the end-offset
-of the match. If SOM was requested for the pattern (see <a class="reference internal" href="compilation.html#som"><span>Start of Match</span></a>), the
+of the match. If SOM was requested for the pattern (see <a class="reference internal" href="compilation.html#som"><span class="std std-ref">Start of Match</span></a>), the
 <em>from</em> argument will be set to the leftmost possible start-offset for the match.</p>
 <p>The match callback function has the capability to halt scanning
 by returning a non-zero value.</p>
-<p>See <a class="reference internal" href="api_files.html#c.match_event_handler" title="match_event_handler"><code class="xref c c-type docutils literal"><span class="pre">match_event_handler</span></code></a> for more information.</p>
+<p>See <a class="reference internal" href="api_files.html#c.match_event_handler" title="match_event_handler"><code class="xref c c-type docutils literal notranslate"><span class="pre">match_event_handler</span></code></a> for more information.</p>
 </div>
 <div class="section" id="streaming-mode">
 <h2>Streaming Mode<a class="headerlink" href="#streaming-mode" title="Permalink to this headline">¶</a></h2>
 <p>The core of the Hyperscan streaming runtime API consists of functions to open,
 scan, and close Hyperscan data streams:</p>
 <ul class="simple">
-<li><a class="reference internal" href="api_files.html#c.hs_open_stream" title="hs_open_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_open_stream()</span></code></a>: allocates and initializes a new stream for scanning.</li>
-<li><a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_scan_stream()</span></code></a>: scans a block of data in a given stream, raising
-matches as they are detected.</li>
-<li><a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_close_stream()</span></code></a>: completes scanning of a given stream (raising any
+<li><p><a class="reference internal" href="api_files.html#c.hs_open_stream" title="hs_open_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_open_stream()</span></code></a>: allocates and initializes a new stream for scanning.</p></li>
+<li><p><a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_scan_stream()</span></code></a>: scans a block of data in a given stream, raising
+matches as they are detected.</p></li>
+<li><p><a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_close_stream()</span></code></a>: completes scanning of a given stream (raising any
 matches that occur at the end of the stream) and frees the stream state. After
-a call to <a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_close_stream()</span></code></a>, the stream handle is invalid and should
-not be used again for any purpose.</li>
+a call to <a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_close_stream()</span></code></a>, the stream handle is invalid and should
+not be used again for any purpose.</p></li>
 </ul>
 <p>Any matches detected in the data as it is scanned are returned to the calling
 application via a function pointer callback.</p>
 <p>The match callback function has the capability to halt scanning of the current
 data stream by returning a non-zero value. In streaming mode, the result of
 this is that the stream is then left in a state where no more data can be
-scanned, and any subsequent calls to <a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_scan_stream()</span></code></a> for that stream
-will return immediately with <a class="reference internal" href="api_files.html#c.HS_SCAN_TERMINATED" title="HS_SCAN_TERMINATED"><code class="xref c c-member docutils literal"><span class="pre">HS_SCAN_TERMINATED</span></code></a>. The caller must
-still call <a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_close_stream()</span></code></a> to complete the clean-up process for that
+scanned, and any subsequent calls to <a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_scan_stream()</span></code></a> for that stream
+will return immediately with <a class="reference internal" href="api_files.html#c.HS_SCAN_TERMINATED" title="HS_SCAN_TERMINATED"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_SCAN_TERMINATED</span></code></a>. The caller must
+still call <a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_close_stream()</span></code></a> to complete the clean-up process for that
 stream.</p>
 <p>Streams exist in the Hyperscan library so that pattern matching state can be
-maintained across multiple blocks of target data &#8211; without maintaining this
+maintained across multiple blocks of target data – without maintaining this
 state, it would not be possible to detect patterns that span these blocks of
 data. This, however, does come at the cost of requiring an amount of storage
 per-stream (the size of this storage is fixed at compile time), and a slight
@@ -95,23 +89,23 @@ performance penalty in some cases to manage the state.</p>
 <p>While Hyperscan does always support a strict ordering of multiple matches,
 streaming matches will not be delivered at offsets before the current stream
 write, with the exception of zero-width asserts, where constructs such as
-<code class="regexp docutils literal"><span class="pre">\b</span></code> and <code class="regexp docutils literal"><span class="pre">$</span></code> can cause a match on the final character of a
+<code class="regexp docutils literal notranslate"><span class="pre">\b</span></code> and <code class="regexp docutils literal notranslate"><span class="pre">$</span></code> can cause a match on the final character of a
 stream write to be delayed until the next stream write or stream close
 operation.</p>
 <div class="section" id="stream-management">
 <h3>Stream Management<a class="headerlink" href="#stream-management" title="Permalink to this headline">¶</a></h3>
-<p>In addition to <a class="reference internal" href="api_files.html#c.hs_open_stream" title="hs_open_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_open_stream()</span></code></a>, <a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_scan_stream()</span></code></a>, and
-<a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_close_stream()</span></code></a>, the Hyperscan API provides a number of other
+<p>In addition to <a class="reference internal" href="api_files.html#c.hs_open_stream" title="hs_open_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_open_stream()</span></code></a>, <a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_scan_stream()</span></code></a>, and
+<a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_close_stream()</span></code></a>, the Hyperscan API provides a number of other
 functions for the management of streams:</p>
 <ul class="simple">
-<li><a class="reference internal" href="api_files.html#c.hs_reset_stream" title="hs_reset_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_reset_stream()</span></code></a>: resets a stream to its initial state; this is
-equivalent to calling <a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_close_stream()</span></code></a> but will not free the memory
-used for stream state.</li>
-<li><a class="reference internal" href="api_files.html#c.hs_copy_stream" title="hs_copy_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_copy_stream()</span></code></a>: constructs a (newly allocated) duplicate of a
-stream.</li>
-<li><a class="reference internal" href="api_files.html#c.hs_reset_and_copy_stream" title="hs_reset_and_copy_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_reset_and_copy_stream()</span></code></a>: constructs a duplicate of a stream into
+<li><p><a class="reference internal" href="api_files.html#c.hs_reset_stream" title="hs_reset_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_reset_stream()</span></code></a>: resets a stream to its initial state; this is
+equivalent to calling <a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_close_stream()</span></code></a> but will not free the memory
+used for stream state.</p></li>
+<li><p><a class="reference internal" href="api_files.html#c.hs_copy_stream" title="hs_copy_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_copy_stream()</span></code></a>: constructs a (newly allocated) duplicate of a
+stream.</p></li>
+<li><p><a class="reference internal" href="api_files.html#c.hs_reset_and_copy_stream" title="hs_reset_and_copy_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_reset_and_copy_stream()</span></code></a>: constructs a duplicate of a stream into
 another, resetting the destination stream first. This call avoids the
-allocation done by <a class="reference internal" href="api_files.html#c.hs_copy_stream" title="hs_copy_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_copy_stream()</span></code></a>.</li>
+allocation done by <a class="reference internal" href="api_files.html#c.hs_copy_stream" title="hs_copy_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_copy_stream()</span></code></a>.</p></li>
 </ul>
 </div>
 <div class="section" id="stream-compression">
@@ -126,20 +120,20 @@ full stream object as it does not reserve space for components which are not
 required given the current stream state. The Hyperscan API functions for this
 functionality are:</p>
 <ul class="simple">
-<li><a class="reference internal" href="api_files.html#c.hs_compress_stream" title="hs_compress_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_compress_stream()</span></code></a>: fills the provided buffer with a compressed
+<li><p><a class="reference internal" href="api_files.html#c.hs_compress_stream" title="hs_compress_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compress_stream()</span></code></a>: fills the provided buffer with a compressed
 representation of the stream and returns the number of bytes consumed by the
 compressed representation. If the buffer is not large enough to hold the
-compressed representation, <a class="reference internal" href="api_files.html#c.HS_INSUFFICIENT_SPACE" title="HS_INSUFFICIENT_SPACE"><code class="xref c c-member docutils literal"><span class="pre">HS_INSUFFICIENT_SPACE</span></code></a> is returned along
+compressed representation, <a class="reference internal" href="api_files.html#c.HS_INSUFFICIENT_SPACE" title="HS_INSUFFICIENT_SPACE"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_INSUFFICIENT_SPACE</span></code></a> is returned along
 with the required size. This call does not modify the original stream in any
-way: it may still be written to with <a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_scan_stream()</span></code></a>, used as part of
+way: it may still be written to with <a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_scan_stream()</span></code></a>, used as part of
 the various reset calls to reinitialise its state, or
-<a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_close_stream()</span></code></a> may be called to free its resources.</li>
-<li><a class="reference internal" href="api_files.html#c.hs_expand_stream" title="hs_expand_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_expand_stream()</span></code></a>: creates a new stream based on a buffer containing
-a compressed representation.</li>
-<li><a class="reference internal" href="api_files.html#c.hs_reset_and_expand_stream" title="hs_reset_and_expand_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_reset_and_expand_stream()</span></code></a>: constructs a stream based on a buffer
+<a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_close_stream()</span></code></a> may be called to free its resources.</p></li>
+<li><p><a class="reference internal" href="api_files.html#c.hs_expand_stream" title="hs_expand_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_expand_stream()</span></code></a>: creates a new stream based on a buffer containing
+a compressed representation.</p></li>
+<li><p><a class="reference internal" href="api_files.html#c.hs_reset_and_expand_stream" title="hs_reset_and_expand_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_reset_and_expand_stream()</span></code></a>: constructs a stream based on a buffer
 containing a compressed representation on top of an existing stream, resetting
 the existing stream first. This call avoids the allocation done by
-<a class="reference internal" href="api_files.html#c.hs_expand_stream" title="hs_expand_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_expand_stream()</span></code></a>.</li>
+<a class="reference internal" href="api_files.html#c.hs_expand_stream" title="hs_expand_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_expand_stream()</span></code></a>.</p></li>
 </ul>
 <p>Note: it is not recommended to use stream compression between every call to scan
 for performance reasons as it takes time to convert between the compressed
@@ -148,21 +142,21 @@ representation and a standard stream.</p>
 </div>
 <div class="section" id="block-mode">
 <h2>Block Mode<a class="headerlink" href="#block-mode" title="Permalink to this headline">¶</a></h2>
-<p>The block mode runtime API consists of a single function: <a class="reference internal" href="api_files.html#c.hs_scan" title="hs_scan"><code class="xref c c-func docutils literal"><span class="pre">hs_scan()</span></code></a>. Using
+<p>The block mode runtime API consists of a single function: <a class="reference internal" href="api_files.html#c.hs_scan" title="hs_scan"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_scan()</span></code></a>. Using
 the compiled patterns this function identifies matches in the target data,
 using a function pointer callback to communicate with the application.</p>
-<p>This single <a class="reference internal" href="api_files.html#c.hs_scan" title="hs_scan"><code class="xref c c-func docutils literal"><span class="pre">hs_scan()</span></code></a> function is essentially equivalent to calling
-<a class="reference internal" href="api_files.html#c.hs_open_stream" title="hs_open_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_open_stream()</span></code></a>, making a single call to <a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_scan_stream()</span></code></a>, and
-then <a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal"><span class="pre">hs_close_stream()</span></code></a>, except that block mode operation does not
+<p>This single <a class="reference internal" href="api_files.html#c.hs_scan" title="hs_scan"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_scan()</span></code></a> function is essentially equivalent to calling
+<a class="reference internal" href="api_files.html#c.hs_open_stream" title="hs_open_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_open_stream()</span></code></a>, making a single call to <a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_scan_stream()</span></code></a>, and
+then <a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_close_stream()</span></code></a>, except that block mode operation does not
 incur all the stream related overhead.</p>
 </div>
 <div class="section" id="vectored-mode">
 <h2>Vectored Mode<a class="headerlink" href="#vectored-mode" title="Permalink to this headline">¶</a></h2>
 <p>The vectored mode runtime API, like the block mode API, consists of a single
-function: <a class="reference internal" href="api_files.html#c.hs_scan_vector" title="hs_scan_vector"><code class="xref c c-func docutils literal"><span class="pre">hs_scan_vector()</span></code></a>. This function accepts an array of data
+function: <a class="reference internal" href="api_files.html#c.hs_scan_vector" title="hs_scan_vector"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_scan_vector()</span></code></a>. This function accepts an array of data
 pointers and lengths, facilitating the scanning in sequence of a set of data
 blocks that are not contiguous in memory.</p>
-<p>From the caller&#8217;s perspective, this mode will produce the same matches as if
+<p>From the caller’s perspective, this mode will produce the same matches as if
 the set of data blocks were (a) scanned in sequence with a series of streaming
 mode scans, or (b) copied in sequence into a single block of memory and then
 scanned in block mode.</p>
@@ -172,12 +166,12 @@ scanned in block mode.</p>
 <p>While scanning data, Hyperscan needs a small amount of temporary memory to store
 on-the-fly internal data. This amount is unfortunately too large to fit on the
 stack, particularly for embedded applications, and allocating memory dynamically
-is too expensive, so a pre-allocated &#8220;scratch&#8221; space must be provided to the
+is too expensive, so a pre-allocated “scratch” space must be provided to the
 scanning functions.</p>
-<p>The function <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> allocates a large enough region of
+<p>The function <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_alloc_scratch()</span></code></a> allocates a large enough region of
 scratch space to support a given database. If the application uses multiple
 databases, only a single scratch region is necessary: in this case, calling
-<a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> on each database (with the same <code class="docutils literal"><span class="pre">scratch</span></code> pointer)
+<a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_alloc_scratch()</span></code></a> on each database (with the same <code class="docutils literal notranslate"><span class="pre">scratch</span></code> pointer)
 will ensure that the scratch space is large enough to support scanning against
 any of the given databases.</p>
 <p>While the Hyperscan library is re-entrant, the use of scratch spaces is not.
@@ -186,13 +180,13 @@ scanning (say, from the match callback function), then an additional scratch
 space is required for that context.</p>
 <p>In the absence of recursive scanning, only one such space is required per thread
 and can (and indeed should) be allocated before data scanning is to commence.</p>
-<p>In a scenario where a set of expressions are compiled by a single &#8220;master&#8221;
-thread and data will be scanned by multiple &#8220;worker&#8221; threads, the convenience
-function <a class="reference internal" href="api_files.html#c.hs_clone_scratch" title="hs_clone_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_clone_scratch()</span></code></a> allows multiple copies of an existing
+<p>In a scenario where a set of expressions are compiled by a single “master”
+thread and data will be scanned by multiple “worker” threads, the convenience
+function <a class="reference internal" href="api_files.html#c.hs_clone_scratch" title="hs_clone_scratch"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_clone_scratch()</span></code></a> allows multiple copies of an existing
 scratch space to be made for each thread (rather than forcing the caller to pass
-all the compiled databases through <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal"><span class="pre">hs_alloc_scratch()</span></code></a> multiple times).</p>
+all the compiled databases through <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_alloc_scratch()</span></code></a> multiple times).</p>
 <p>For example:</p>
-<div class="highlight-c"><div class="highlight"><pre><span class="n">hs_error_t</span> <span class="n">err</span><span class="p">;</span>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="n">hs_error_t</span> <span class="n">err</span><span class="p">;</span>
 <span class="n">hs_scratch_t</span> <span class="o">*</span><span class="n">scratch_prototype</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
 <span class="n">err</span> <span class="o">=</span> <span class="n">hs_alloc_scratch</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">scratch_prototype</span><span class="p">);</span>
 <span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">!=</span> <span class="n">HS_SUCCESS</span><span class="p">)</span> <span class="p">{</span>
@@ -225,40 +219,41 @@ all the compiled databases through <a class="reference internal" href="api_files
 <h2>Custom Allocators<a class="headerlink" href="#custom-allocators" title="Permalink to this headline">¶</a></h2>
 <p>By default, structures used by Hyperscan at runtime (scratch space, stream
 state, etc) are allocated with the default system allocators, usually
-<code class="docutils literal"><span class="pre">malloc()</span></code> and <code class="docutils literal"><span class="pre">free()</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">malloc()</span></code> and <code class="docutils literal notranslate"><span class="pre">free()</span></code>.</p>
 <p>The Hyperscan API provides a facility for changing this behaviour to support
 applications that use custom memory allocators.</p>
 <p>These functions are:</p>
 <ul class="simple">
-<li><a class="reference internal" href="api_files.html#c.hs_set_database_allocator" title="hs_set_database_allocator"><code class="xref c c-func docutils literal"><span class="pre">hs_set_database_allocator()</span></code></a>, which sets the allocate and free functions
-used for compiled pattern databases.</li>
-<li><a class="reference internal" href="api_files.html#c.hs_set_scratch_allocator" title="hs_set_scratch_allocator"><code class="xref c c-func docutils literal"><span class="pre">hs_set_scratch_allocator()</span></code></a>, which sets the allocate and free
-functions used for scratch space.</li>
-<li><a class="reference internal" href="api_files.html#c.hs_set_stream_allocator" title="hs_set_stream_allocator"><code class="xref c c-func docutils literal"><span class="pre">hs_set_stream_allocator()</span></code></a>, which sets the allocate and free functions
-used for stream state in streaming mode.</li>
-<li><a class="reference internal" href="api_files.html#c.hs_set_misc_allocator" title="hs_set_misc_allocator"><code class="xref c c-func docutils literal"><span class="pre">hs_set_misc_allocator()</span></code></a>, which sets the allocate and free functions
+<li><p><a class="reference internal" href="api_files.html#c.hs_set_database_allocator" title="hs_set_database_allocator"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_set_database_allocator()</span></code></a>, which sets the allocate and free functions
+used for compiled pattern databases.</p></li>
+<li><p><a class="reference internal" href="api_files.html#c.hs_set_scratch_allocator" title="hs_set_scratch_allocator"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_set_scratch_allocator()</span></code></a>, which sets the allocate and free
+functions used for scratch space.</p></li>
+<li><p><a class="reference internal" href="api_files.html#c.hs_set_stream_allocator" title="hs_set_stream_allocator"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_set_stream_allocator()</span></code></a>, which sets the allocate and free functions
+used for stream state in streaming mode.</p></li>
+<li><p><a class="reference internal" href="api_files.html#c.hs_set_misc_allocator" title="hs_set_misc_allocator"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_set_misc_allocator()</span></code></a>, which sets the allocate and free functions
 used for miscellaneous data, such as compile error structures and
-informational strings.</li>
+informational strings.</p></li>
 </ul>
-<p>The <a class="reference internal" href="api_files.html#c.hs_set_allocator" title="hs_set_allocator"><code class="xref c c-func docutils literal"><span class="pre">hs_set_allocator()</span></code></a> function can be used to set all of the custom
+<p>The <a class="reference internal" href="api_files.html#c.hs_set_allocator" title="hs_set_allocator"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_set_allocator()</span></code></a> function can be used to set all of the custom
 allocators to the same allocate/free pair.</p>
 </div>
 </div>
 
 
           </div>
+          
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<h3><a href="index.html">Table Of Contents</a></h3>
+<h3><a href="index.html">Table of Contents</a></h3>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="copyright.html">Copyright</a></li>
 <li class="toctree-l1"><a class="reference internal" href="preface.html">Preface</a></li>
 <li class="toctree-l1"><a class="reference internal" href="intro.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="compilation.html">Compiling Patterns</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="">Scanning for Patterns</a><ul>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Scanning for Patterns</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#handling-matches">Handling Matches</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#streaming-mode">Streaming Mode</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#block-mode">Block Mode</a></li>
@@ -276,16 +271,13 @@ allocators to the same allocate/free pair.</p>
 </ul>
 
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" />
       <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
+    </div>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -296,8 +288,8 @@ allocators to the same allocate/free pair.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.3.6</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>
 
