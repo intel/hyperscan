@@ -75,12 +75,12 @@ characters exist in regular grammer like ``[``, ``]``, ``(``, ``)``, ``{``,
 While in pure literal case, all these meta characters lost extra meanings
 expect for that they are just common ASCII codes.
 
-Hyperscan is initially designed to process common regualr expressions. It is
+Hyperscan is initially designed to process common regular expressions. It is
 hence embedded with a complex parser to do comprehensive regular grammer
 interpretion. Particularly, the identification of above meta characters is the
 basic step for the interpretion of far more complex regular grammers.
 
-However in real cases, patterns may not always be regualr expressions. They
+However in real cases, patterns may not always be regular expressions. They
 could just be pure literals. Problem will come if the pure literals contain
 regular meta characters. Supposing fed directly into traditional Hyperscan
 compile API, all these meta characters will be interpreted in predefined ways,
