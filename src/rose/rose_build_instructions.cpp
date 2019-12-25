@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, Intel Corporation
+ * Copyright (c) 2017-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -48,6 +48,7 @@ RoseInstrMatcherEod::~RoseInstrMatcherEod() = default;
 RoseInstrEnd::~RoseInstrEnd() = default;
 RoseInstrClearWorkDone::~RoseInstrClearWorkDone() = default;
 RoseInstrFlushCombination::~RoseInstrFlushCombination() = default;
+RoseInstrLastFlushCombination::~RoseInstrLastFlushCombination() = default;
 
 using OffsetMap = RoseInstruction::OffsetMap;
 

@@ -50,6 +50,16 @@ extern "C"
 #define SHERMAN_CHARS_OFFSET           4
 #define SHERMAN_STATES_OFFSET(sso_len) (4 + (sso_len))
 
+#define WIDE_STATE 2
+#define WIDE_ENTRY_OFFSET8(weo_pos) (2 + (weo_pos))
+#define WIDE_ENTRY_OFFSET16(weo_pos) (4 + (weo_pos))
+
+#define WIDE_WIDTH_OFFSET 0
+#define WIDE_SYMBOL_OFFSET8 1
+#define WIDE_TRANSITION_OFFSET8(wto_width) (1 + (wto_width))
+#define WIDE_SYMBOL_OFFSET16 2
+#define WIDE_TRANSITION_OFFSET16(wto_width) (2 + ROUNDUP_N(wto_width, 2))
+
 struct report_list {
     u32 count;
     ReportID report[];
@@ -79,13 +89,17 @@ struct mcclellan {
     u16 accel_limit_8; /**< 8 bit, lowest accelerable state */
     u16 accept_limit_8; /**< 8 bit, lowest accept state */
     u16 sherman_limit; /**< lowest sherman state */
+    u16 wide_limit; /**< 8/16 bit, lowest wide head state */
     u8  alphaShift;
     u8  flags;
     u8  has_accel; /**< 1 iff there are any accel plans */
+    u8  has_wide; /**< 1 iff there exists any wide state */
     u8  remap[256]; /**< remaps characters to a smaller alphabet */
     ReportID arb_report; /**< one of the accepts that this dfa may raise */
     u32 accel_offset; /**< offset of accel structures from start of McClellan */
     u32 haig_offset; /**< reserved for use by Haig, relative to start of NFA */
+    u32 wide_offset; /**< offset of the wide state entries to the start of the
+                      * nfa structure */
 };
 
 static really_inline
@@ -104,6 +118,43 @@ static really_inline
 char *findMutableShermanState(char *sherman_base_offset, u16 sherman_base,
                               u32 s) {
     return sherman_base_offset + SHERMAN_FIXED_SIZE * (s - sherman_base);
+}
+
+static really_inline
+const char *findWideEntry8(UNUSED const struct mcclellan *m,
+                           const char *wide_base, u32 wide_limit, u32 s) {
+    UNUSED u8 type = *(const u8 *)wide_base;
+    assert(type == WIDE_STATE);
+    const u32 entry_offset
+        = *(const u32 *)(wide_base
+        + WIDE_ENTRY_OFFSET8((s - wide_limit) * sizeof(u32)));
+
+    const char *rv = wide_base + entry_offset;
+    assert(rv < (const char *)m + m->length - sizeof(struct NFA));
+    return rv;
+}
+
+static really_inline
+const char *findWideEntry16(UNUSED const struct mcclellan *m,
+                            const char *wide_base, u32 wide_limit, u32 s) {
+    UNUSED u8 type = *(const u8 *)wide_base;
+    assert(type == WIDE_STATE);
+    const u32 entry_offset
+        = *(const u32 *)(wide_base
+        + WIDE_ENTRY_OFFSET16((s - wide_limit) * sizeof(u32)));
+
+    const char *rv = wide_base + entry_offset;
+    assert(rv < (const char *)m + m->length - sizeof(struct NFA));
+    return rv;
+}
+
+static really_inline
+char *findMutableWideEntry16(char *wide_base, u32 wide_limit, u32 s) {
+    u32 entry_offset
+        = *(const u32 *)(wide_base
+        + WIDE_ENTRY_OFFSET16((s - wide_limit) * sizeof(u32)));
+
+    return wide_base + entry_offset;
 }
 
 #ifdef __cplusplus

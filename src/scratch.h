@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -83,6 +83,9 @@ struct catchup_pq {
 /** \brief Status flag: Rose requires rebuild as delay literal matched in
  * history. */
 #define STATUS_DELAY_DIRTY  (1U << 2)
+
+/** \brief Status flag: Unexpected Rose program error. */
+#define STATUS_ERROR        (1U << 3)
 
 /** \brief Core information about the current scan, used everywhere. */
 struct core_info {
@@ -228,7 +231,13 @@ char told_to_stop_matching(const struct hs_scratch *scratch) {
 
 static really_inline
 char can_stop_matching(const struct hs_scratch *scratch) {
-    return scratch->core_info.status & (STATUS_TERMINATED | STATUS_EXHAUSTED);
+    return scratch->core_info.status &
+           (STATUS_TERMINATED | STATUS_EXHAUSTED | STATUS_ERROR);
+}
+
+static really_inline
+char internal_matching_error(const struct hs_scratch *scratch) {
+    return scratch->core_info.status & STATUS_ERROR;
 }
 
 /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -121,7 +121,9 @@ struct hwlmLiteral {
                 u32 id_in, hwlm_group_t groups_in,
                 const std::vector<u8> &msk_in, const std::vector<u8> &cmp_in);
 
-    /** \brief Simple constructor: no group information, no msk/cmp. */
+    /** \brief Simple constructor: no group information, no msk/cmp.
+     *
+     * This constructor is only used in internal unit test. */
     hwlmLiteral(const std::string &s_in, bool nocase_in, u32 id_in)
         : hwlmLiteral(s_in, nocase_in, false, id_in, HWLM_ALL_GROUPS, {}, {}) {}
 };

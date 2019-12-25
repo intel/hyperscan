@@ -9,7 +9,7 @@ PREFIX=$1
 KEEPSYMS_IN=$2
 shift 2
 # $@ contains the actual build command
-OUT=$(echo "$@" | sed 's/.* -o \(.*\.o\).*/\1/')
+OUT=$(echo "$@" | rev | cut -d ' ' -f 2- | rev | sed 's/.* -o \(.*\.o\).*/\1/')
 trap cleanup INT QUIT EXIT
 SYMSFILE=$(mktemp -p /tmp ${PREFIX}_rename.syms.XXXXX)
 KEEPSYMS=$(mktemp -p /tmp keep.syms.XXXXX)

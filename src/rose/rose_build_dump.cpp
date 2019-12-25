@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -115,9 +115,9 @@ class RoseGraphWriter {
 public:
     RoseGraphWriter(const RoseBuildImpl &b_in, const map<u32, u32> &frag_map_in,
                     const map<left_id, u32> &lqm_in,
-                    const map<suffix_id, u32> &sqm_in, const RoseEngine *t_in)
+                    const map<suffix_id, u32> &sqm_in)
         : frag_map(frag_map_in), leftfix_queue_map(lqm_in),
-          suffix_queue_map(sqm_in), build(b_in), t(t_in) {
+          suffix_queue_map(sqm_in), build(b_in) {
         for (const auto &m : build.ghost) {
             ghost.insert(m.second);
         }
@@ -273,7 +273,6 @@ private:
     const map<left_id, u32> &leftfix_queue_map;
     const map<suffix_id, u32> &suffix_queue_map;
     const RoseBuildImpl &build;
-    const RoseEngine *t;
 };
 
 } // namespace
@@ -313,8 +312,7 @@ void dumpRoseGraph(const RoseBuildImpl &build, const RoseEngine *t,
     ofstream os(ss.str());
 
     auto frag_map = makeFragMap(fragments);
-    RoseGraphWriter writer(build, frag_map, leftfix_queue_map, suffix_queue_map,
-                           t);
+    RoseGraphWriter writer(build, frag_map, leftfix_queue_map, suffix_queue_map);
     writeGraphviz(os, build.g, writer, get(boost::vertex_index, build.g));
 }
 
@@ -1488,6 +1486,9 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(LAST_FLUSH_COMBINATION) {}
+            PROGRAM_NEXT_INSTRUCTION
+
         default:
             os << "  UNKNOWN (code " << int{code} << ")" << endl;
             os << "  <stopping>" << endl;
@@ -1554,6 +1555,25 @@ void dumpRoseFlushCombPrograms(const RoseEngine *t, const string &filename) {
         os << endl;
     } else {
         os << "<No Flush Combination Program>" << endl;
+    }
+
+    os.close();
+}
+
+static
+void dumpRoseLastFlushCombPrograms(const RoseEngine *t,
+                                   const string &filename) {
+    ofstream os(filename);
+    const char *base = (const char *)t;
+
+    if (t->lastFlushCombProgramOffset) {
+        os << "Last Flush Combination Program @ "
+           << t->lastFlushCombProgramOffset
+           << ":" << endl;
+        dumpProgram(os, t, base + t->lastFlushCombProgramOffset);
+        os << endl;
+    } else {
+        os << "<No Last Flush Combination Program>" << endl;
     }
 
     os.close();
@@ -2251,6 +2271,8 @@ void roseDumpPrograms(const vector<LitFragment> &fragments, const RoseEngine *t,
     dumpRoseLitPrograms(fragments, t, base + "/rose_lit_programs.txt");
     dumpRoseEodPrograms(t, base + "/rose_eod_programs.txt");
     dumpRoseFlushCombPrograms(t, base + "/rose_flush_comb_programs.txt");
+    dumpRoseLastFlushCombPrograms(t,
+            base + "/rose_last_flush_comb_programs.txt");
     dumpRoseReportPrograms(t, base + "/rose_report_programs.txt");
     dumpRoseAnchoredPrograms(t, base + "/rose_anchored_programs.txt");
     dumpRoseDelayPrograms(t, base + "/rose_delay_programs.txt");

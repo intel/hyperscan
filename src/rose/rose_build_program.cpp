@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, Intel Corporation
+ * Copyright (c) 2016-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -315,6 +315,10 @@ void addMatcherEodProgram(RoseProgram &program) {
 
 void addFlushCombinationProgram(RoseProgram &program) {
     program.add_before_end(make_unique<RoseInstrFlushCombination>());
+}
+
+void addLastFlushCombinationProgram(RoseProgram &program) {
+    program.add_before_end(make_unique<RoseInstrLastFlushCombination>());
 }
 
 static

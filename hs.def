@@ -1,0 +1,43 @@
+; Hyperscan DLL export definitions
+
+LIBRARY hs
+
+EXPORTS
+   hs_alloc_scratch
+   hs_clone_scratch
+   hs_close_stream
+   hs_compile
+   hs_compile_ext_multi
+   hs_compile_multi
+   hs_compress_stream
+   hs_copy_stream
+   hs_database_info
+   hs_database_size
+   hs_deserialize_database
+   hs_deserialize_database_at
+   hs_expand_stream
+   hs_expression_ext_info
+   hs_expression_info
+   hs_free_compile_error
+   hs_free_database
+   hs_free_scratch
+   hs_open_stream
+   hs_populate_platform
+   hs_reset_and_copy_stream
+   hs_reset_and_expand_stream
+   hs_reset_stream
+   hs_scan
+   hs_scan_stream
+   hs_scan_vector
+   hs_scratch_size
+   hs_serialize_database
+   hs_serialized_database_info
+   hs_serialized_database_size
+   hs_set_allocator
+   hs_set_database_allocator
+   hs_set_misc_allocator
+   hs_set_scratch_allocator
+   hs_set_stream_allocator
+   hs_stream_size
+   hs_valid_platform
+   hs_version

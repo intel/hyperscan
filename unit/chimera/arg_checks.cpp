@@ -477,6 +477,7 @@ TEST(HybridArgChecks, AllocScratchBogusScratch) {
     makeDatabase(&db);
 
     ch_scratch_t *blah = (ch_scratch_t *)malloc(100);
+    ASSERT_TRUE(blah != nullptr);
     memset(blah, 0xf0, 100);
     ch_error_t err = ch_alloc_scratch(db, &blah);
     ASSERT_EQ(CH_INVALID, err);
@@ -536,6 +537,7 @@ TEST(HybridArgChecks, DatabaseSizeNoDatabase) {
 TEST(HybridArgChecks, CloneBadScratch) {
     // Try cloning the scratch
     void *local_garbage = malloc(sizeof(garbage));
+    ASSERT_TRUE(local_garbage != nullptr);
     memcpy(local_garbage, garbage, sizeof(garbage));
     ch_scratch_t *cloned = nullptr;
     ch_scratch_t *scratch = (ch_scratch_t *)local_garbage;
@@ -550,6 +552,7 @@ TEST(HybridArgChecks, ScanBadScratch) {
     makeDatabase(&db);
 
     void *local_garbage = malloc(sizeof(garbage));
+    ASSERT_TRUE(local_garbage != nullptr);
     memcpy(local_garbage, garbage, sizeof(garbage));
 
     ch_scratch_t *scratch = (ch_scratch_t *)local_garbage;

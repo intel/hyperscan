@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -92,6 +92,7 @@ bool g_allSignatures = false;
 bool g_forceEditDistance = false;
 bool build_sigs = false;
 bool check_logical = false;
+bool use_literal_api = false;
 unsigned int g_signature;
 unsigned int g_editDistance;
 unsigned int globalFlags = 0;
@@ -322,11 +323,25 @@ void checkExpression(UNUSED void *threadarg) {
 #if !defined(RELEASE_BUILD)
             // This variant is available in non-release builds and allows us to
             // modify greybox settings.
-            err = hs_compile_multi_int(&regexp, &flags, nullptr, &extp, 1, mode,
-                                       nullptr, &db, &compile_err, *g_grey);
+            if (use_literal_api) {
+                size_t len = strlen(regexp);
+                err = hs_compile_lit_multi_int(&regexp, &flags, nullptr, &extp,
+                                               &len, 1, mode, nullptr, &db,
+                                               &compile_err, *g_grey);
+            } else {
+                err = hs_compile_multi_int(&regexp, &flags, nullptr, &extp, 1,
+                                           mode, nullptr, &db, &compile_err,
+                                           *g_grey);
+            }
 #else
-            err = hs_compile_ext_multi(&regexp, &flags, nullptr, &extp, 1, mode,
-                                       nullptr, &db, &compile_err);
+            if (use_literal_api) {
+                size_t len = strlen(regexp);
+                err = hs_compile_lit_multi(&regexp, &flags, nullptr, &len, 1,
+                                           mode, nullptr, &db, &compile_err);
+            } else {
+                err = hs_compile_ext_multi(&regexp, &flags, nullptr, &extp, 1,
+                                           mode, nullptr, &db, &compile_err);
+            }
 #endif
 
             if (err == HS_SUCCESS) {
@@ -381,6 +396,11 @@ void checkLogicalExpression(UNUSED void *threadarg) {
 
     ExprExtMap::const_iterator it;
     while (getNextLogicalExpression(it)) {
+        if (use_literal_api) {
+            recordSuccess(g_exprMap, it->first);
+            continue;
+        }
+
         const ParsedExpr &comb = it->second;
 
         vector<unsigned> subIds;
@@ -470,6 +490,7 @@ void usage() {
          << "  -h              Display this help." << endl
          << "  -B              Build signature set." << endl
          << "  -C              Check logical combinations (default: off)." << endl
+         << "  --literal-on    Processing pure literals, no need to check." << endl
          << endl;
 }
 
@@ -477,9 +498,15 @@ static
 void processArgs(int argc, char *argv[], UNUSED unique_ptr<Grey> &grey) {
     const char options[] = "e:E:s:z:hHLNV8G:T:BC";
     bool signatureSet = false;
+    int literalFlag = 0;
+
+    static struct option longopts[] = {
+        {"literal-on", no_argument, &literalFlag, 1},
+        {nullptr, 0, nullptr, 0}
+    };
 
     for (;;) {
-        int c = getopt_long(argc, argv, options, nullptr, nullptr);
+        int c = getopt_long(argc, argv, options, longopts, nullptr);
         if (c < 0) {
             break;
         }
@@ -539,6 +566,9 @@ void processArgs(int argc, char *argv[], UNUSED unique_ptr<Grey> &grey) {
         case 'C':
             check_logical = true;
             break;
+        case 0:
+        case 1:
+            break;
         default:
             usage();
             exit(1);
@@ -564,6 +594,8 @@ void processArgs(int argc, char *argv[], UNUSED unique_ptr<Grey> &grey) {
         usage();
         exit(1);
     }
+
+    use_literal_api = (bool)literalFlag;
 }
 
 static

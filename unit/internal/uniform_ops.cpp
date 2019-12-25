@@ -75,7 +75,7 @@ TEST(Uniform, loadstore_u16) {
 
 TEST(Uniform, loadstore_u32) {
     for (int i = 0; i < 32; i++) {
-        u32 in = 1 << i;
+        u32 in = 1U << i;
         const char *cin = (const char *)(&in);
         u32 out = load_u32(cin);
         EXPECT_EQ(in, out);
@@ -106,7 +106,7 @@ TEST(Uniform, loadstore_m128) {
     } in;
     for (int i = 0; i < 128; i++) {
         memset(&in, 0, sizeof(in));
-        in.words[i/32] = 1 << (i % 32);
+        in.words[i/32] = 1U << (i % 32);
         const char *cin = (const char *)(&in);
         m128 out = load_m128(cin);
         EXPECT_EQ(0, memcmp(&out, &in, sizeof(out)));
@@ -124,7 +124,7 @@ TEST(Uniform, loadstore_m256) {
     } in;
     for (int i = 0; i < 256; i++) {
         memset(&in, 0, sizeof(in));
-        in.words[i/32] = 1 << (i % 32);
+        in.words[i/32] = 1U << (i % 32);
         const char *cin = (const char *)(&in);
         m256 out = load_m256(cin);
         EXPECT_EQ(0, memcmp(&out, &in, sizeof(out)));
@@ -142,7 +142,7 @@ TEST(Uniform, loadstore_m512) {
     } in;
     for (int i = 0; i < 512; i++) {
         memset(&in, 0, sizeof(in));
-        in.words[i/32] = 1 << (i % 32);
+        in.words[i/32] = 1U << (i % 32);
         const char *cin = (const char *)(&in);
         m512 out = load_m512(cin);
         EXPECT_EQ(0, memcmp(&out, &in, sizeof(out)));

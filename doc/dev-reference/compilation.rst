@@ -54,6 +54,75 @@ version of Hyperscan used to scan with it.
 Hyperscan provides support for targeting a database at a particular CPU
 platform; see :ref:`instr_specialization` for details.
 
+=====================
+Compile Pure Literals 
+=====================
+
+Pure literal is a special case of regular expression. A character sequence is
+regarded as a pure literal if and only if each character is read and
+interpreted independently. No syntax association happens between any adjacent
+characters.
+
+For example, given an expression written as :regexp:`/bc?/`. We could say it is
+a regluar expression, with the meaning that character ``b`` followed by nothing
+or by one character ``c``. On the other view, we could also say it is a pure
+literal expression, with the meaning that this is a character sequence of 3-byte
+length, containing characters ``b``, ``c`` and ``?``. In regular case, the
+question mark character ``?`` has a particular syntax role called 0-1 quantifier,
+which has an syntax association with the character ahead of it. Similar
+characters exist in regular grammer like ``[``, ``]``, ``(``, ``)``, ``{``,
+``}``, ``-``, ``*``, ``+``, ``\``, ``|``, ``/``, ``:``, ``^``, ``.``, ``$``.
+While in pure literal case, all these meta characters lost extra meanings
+expect for that they are just common ASCII codes.
+
+Hyperscan is initially designed to process common regualr expressions. It is
+hence embedded with a complex parser to do comprehensive regular grammer
+interpretion. Particularly, the identification of above meta characters is the
+basic step for the interpretion of far more complex regular grammers.
+
+However in real cases, patterns may not always be regualr expressions. They
+could just be pure literals. Problem will come if the pure literals contain
+regular meta characters. Supposing fed directly into traditional Hyperscan
+compile API, all these meta characters will be interpreted in predefined ways,
+which is unnecessary and the result is totally out of expectation. To avoid
+such misunderstanding by traditional API, users have to preprocess these
+literal patterns by converting the meta characters into some other formats:
+either by adding a backslash ``\`` before certain meta characters, or by
+converting all the characters into a hexadecimal representation.
+
+In ``v5.2.0``, Hyperscan introduces 2 new compile APIs for pure literal patterns:
+
+#. :c:func:`hs_compile_lit`: compiles a single pure literal into a pattern
+   database.
+
+#. :c:func:`hs_compile_lit_multi`: compiles an array of pure literals into a
+   pattern database. All of the supplied patterns will be scanned for
+   concurrently at scan time, with user-supplied identifiers returned when they
+   match. 
+
+These 2 APIs are designed for use cases where all patterns contained in the
+target rule set are pure literals. Users can pass the initial pure literal
+content directly into these APIs without worrying about writing regular meta
+characters in their patterns. No preprocessing work is needed any more.
+
+For new APIs, the ``length`` of each literal pattern is a newly added parameter.
+Hyperscan needs to locate the end position of the input expression via clearly
+knowing each literal's length, not by simply identifying character ``\0`` of a
+string.
+
+Supported flags: :c:member:`HS_FLAG_CASELESS`, :c:member:`HS_FLAG_MULTILINE`,
+:c:member:`HS_FLAG_SINGLEMATCH`, :c:member:`HS_FLAG_SOM_LEFTMOST`.
+
+.. note:: We don't support literal compilation API with :ref:`extparam`. And
+          for runtime implementation, traditional runtime APIs can still be
+          used to match pure literal patterns.
+
+.. note:: If the target rule set contains at least one regular expression,
+          please use traditional compile APIs :c:func:`hs_compile`,
+          :c:func:`hs_compile_multi` and :c:func:`hs_compile_ext_multi`.
+          The new literal APIs introduced here are designed for rule sets
+          containing only pure literal expressions.
+
 ***************
 Pattern Support
 ***************
@@ -64,7 +133,7 @@ libpcre are supported. The use of unsupported constructs will result in
 compilation errors.
 
 The version of PCRE used to validate Hyperscan's interpretation of this syntax
-is 8.41.
+is 8.41 or above.
 
 ====================
 Supported Constructs
@@ -544,8 +613,9 @@ When an expression has the :c:member:`HS_FLAG_COMBINATION` flag set, it ignores
 all other flags except the :c:member:`HS_FLAG_SINGLEMATCH` flag and the
 :c:member:`HS_FLAG_QUIET` flag.
 
-Hyperscan will reject logical combination expressions at compile time that
-evaluate to *true* when no patterns have matched; for example: ::
+Hyperscan will accept logical combination expressions at compile time that
+evaluate to *true* when no patterns have matched, and report the match for
+combination at end of data if no patterns have matched; for example: ::
 
     !101
     !101|102

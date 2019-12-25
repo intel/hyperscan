@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -282,8 +282,8 @@ const array<double, 100> Scorer::count_lut{{
 }};
 
 const array<double, 9> Scorer::len_lut{{
-    pow(0, -3.0), pow(1, -3.0), pow(2, -3.0), pow(3, -3.0), pow(4, -3.0),
-    pow(5, -3.0), pow(6, -3.0), pow(7, -3.0), pow(8, -3.0)}};
+    0, pow(1, -3.0), pow(2, -3.0), pow(3, -3.0), pow(4, -3.0),
+       pow(5, -3.0), pow(6, -3.0), pow(7, -3.0), pow(8, -3.0)}};
 
 /**
  * Returns true if the two given literals should be placed in the same chunk as

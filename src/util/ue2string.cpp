@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -283,7 +283,6 @@ ue2_literal &ue2_literal::erase(size_type pos, size_type n) {
 }
 
 void ue2_literal::push_back(char c, bool nc) {
-    assert(!nc || ourisalpha(c));
     if (nc) {
         c = mytoupper(c);
     }

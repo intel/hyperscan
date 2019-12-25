@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -238,7 +238,11 @@ hwlmcb_rv_t roseProcessMatchInline(const struct RoseEngine *t,
     assert(id && id < t->size); // id is an offset into bytecode
     const u64a som = 0;
     const u8 flags = 0;
-    return roseRunProgram_i(t, scratch, id, som, end, flags);
+    if (t->pureLiteral) {
+        return roseRunProgram_l(t, scratch, id, som, end, flags);
+    } else {
+        return roseRunProgram(t, scratch, id, som, end, flags);
+    }
 }
 
 static rose_inline
@@ -587,6 +591,23 @@ int roseRunFlushCombProgram(const struct RoseEngine *rose,
     return MO_CONTINUE_MATCHING;
 }
 
+/**
+ * \brief Execute last flush combination program.
+ *
+ * Returns MO_HALT_MATCHING if the stream is exhausted or the user has
+ * instructed us to halt, or MO_CONTINUE_MATCHING otherwise.
+ */
+int roseRunLastFlushCombProgram(const struct RoseEngine *rose,
+                                struct hs_scratch *scratch, u64a end) {
+    hwlmcb_rv_t rv = roseRunProgram(rose, scratch,
+                                    rose->lastFlushCombProgramOffset,
+                                    0, end, 0);
+    if (rv == HWLM_TERMINATE_MATCHING) {
+        return MO_HALT_MATCHING;
+    }
+    return MO_CONTINUE_MATCHING;
+}
+
 int roseReportAdaptor(u64a start, u64a end, ReportID id, void *context) {
     struct hs_scratch *scratch = context;
     assert(scratch && scratch->magic == SCRATCH_MAGIC);
@@ -598,8 +619,12 @@ int roseReportAdaptor(u64a start, u64a end, ReportID id, void *context) {
     // Our match ID is the program offset.
     const u32 program = id;
     const u8 flags = ROSE_PROG_FLAG_SKIP_MPV_CATCHUP;
-    hwlmcb_rv_t rv =
-        roseRunProgram(rose, scratch, program, start, end, flags);
+    hwlmcb_rv_t rv;
+    if (rose->pureLiteral) {
+        rv = roseRunProgram_l(rose, scratch, program, start, end, flags);
+    } else {
+        rv = roseRunProgram(rose, scratch, program, start, end, flags);
+    }
     if (rv == HWLM_TERMINATE_MATCHING) {
         return MO_HALT_MATCHING;
     }

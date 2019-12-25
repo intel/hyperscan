@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, Intel Corporation
+ * Copyright (c) 2016-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -411,22 +411,51 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
             ext_ptr[i] = &ext[i];
         }
 
-        Timer timer;
-        timer.start();
-
         hs_compile_error_t *compile_err;
+        Timer timer;
 
 #ifndef RELEASE_BUILD
-        err = hs_compile_multi_int(patterns.data(), flags.data(), ids.data(),
-                                   ext_ptr.data(), count, full_mode, nullptr,
-                                   &db, &compile_err, grey);
+        if (useLiteralApi) {
+            // Pattern length computation should be done before timer start.
+            vector<size_t> lens(count);
+            for (unsigned int i = 0; i < count; i++) {
+                lens[i] = strlen(patterns[i]);
+            }
+            timer.start();
+            err = hs_compile_lit_multi_int(patterns.data(), flags.data(),
+                                           ids.data(), ext_ptr.data(),
+                                           lens.data(), count, full_mode,
+                                           nullptr, &db, &compile_err, grey);
+            timer.complete();
+        } else {
+            timer.start();
+            err = hs_compile_multi_int(patterns.data(), flags.data(),
+                                       ids.data(), ext_ptr.data(), count,
+                                       full_mode, nullptr, &db, &compile_err,
+                                       grey);
+            timer.complete();
+        }
 #else
-        err = hs_compile_ext_multi(patterns.data(), flags.data(), ids.data(),
-                                   ext_ptr.data(), count, full_mode, nullptr,
-                                   &db, &compile_err);
+        if (useLiteralApi) {
+            // Pattern length computation should be done before timer start.
+            vector<size_t> lens(count);
+            for (unsigned int i = 0; i < count; i++) {
+                lens[i] = strlen(patterns[i]);
+            }
+            timer.start();
+            err = hs_compile_lit_multi(patterns.data(), flags.data(),
+                                       ids.data(), lens.data(), count,
+                                       full_mode, nullptr, &db, &compile_err);
+            timer.complete();
+        } else {
+            timer.start();
+            err = hs_compile_ext_multi(patterns.data(), flags.data(),
+                                       ids.data(), ext_ptr.data(), count,
+                                       full_mode, nullptr, &db, &compile_err);
+            timer.complete();
+        }
 #endif
 
-        timer.complete();
         compileSecs = timer.seconds();
         peakMemorySize = getPeakHeap();
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -116,6 +116,7 @@ void usage(const char *name, const char *error) {
     printf("  --abort-on-fail Abort, rather than exit, on failure.\n");
     printf("  --no-signal-handler Do not handle handle signals (to generate "
            "backtraces).\n");
+    printf("  --literal-on    Use Hyperscan pure literal matching.\n");
     printf("\n");
     printf("Memory and resource control options:\n");
     printf("\n");
@@ -174,6 +175,7 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
     int mangleScratch = 0;
     int compressFlag = 0;
     int compressResetFlag = 0;
+    int literalFlag = 0;
     static const struct option longopts[] = {
         {"copy-scratch", 0, &copyScratch, 1},
         {"copy-stream", 0, &copyStream, 1},
@@ -187,6 +189,7 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
         {"compress-expand", 0, &compressFlag, 1},
         {"compress-reset-expand", 0, &compressResetFlag, 1},
         {"no-groups", 0, &no_groups, 1},
+        {"literal-on", 0, &literalFlag, 1},
         {nullptr, 0, nullptr, 0}};
 
     for (;;) {
@@ -589,4 +592,5 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
     use_mangle_scratch = (bool) mangleScratch;
     use_compress_expand = (bool)compressFlag;
     use_compress_reset_expand = (bool)compressResetFlag;
+    use_literal_api = (bool)literalFlag;
 }

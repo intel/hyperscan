@@ -10,6 +10,10 @@ include_directories(${PROJECT_SOURCE_DIR}/util)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_C_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CXX_FLAGS}")
 
-add_executable(hsdump main.cpp)
+if(WIN32 AND (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS))
+    add_executable(hsdump main.cpp $<TARGET_OBJECTS:hs_compile_shared> $<TARGET_OBJECTS:hs_exec_shared>)
+else()
+    add_executable(hsdump main.cpp)
+endif()
 target_link_libraries(hsdump hs expressionutil crosscompileutil)
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -279,7 +279,9 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
     hs_error_t proto_ret = hs_check_alloc(proto_tmp);
     if (proto_ret != HS_SUCCESS) {
         hs_scratch_free(proto_tmp);
-        hs_scratch_free(*scratch);
+        if (*scratch) {
+            hs_scratch_free((*scratch)->scratch_alloc);
+        }
         *scratch = NULL;
         return proto_ret;
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -3346,6 +3346,15 @@ RoseProgram makeFlushCombProgram(const RoseEngine &t) {
 }
 
 static
+RoseProgram makeLastFlushCombProgram(const RoseEngine &t) {
+    RoseProgram program;
+    if (t.ckeyCount) {
+        addLastFlushCombinationProgram(program);
+    }
+    return program;
+}
+
+static
 u32 history_required(const rose_literal_id &key) {
     if (key.msk.size() < key.s.length()) {
         return key.elength() - 1;
@@ -3714,6 +3723,10 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     auto flushComb_prog = makeFlushCombProgram(proto);
     proto.flushCombProgramOffset = writeProgram(bc, move(flushComb_prog));
+
+    auto lastFlushComb_prog = makeLastFlushCombProgram(proto);
+    proto.lastFlushCombProgramOffset =
+        writeProgram(bc, move(lastFlushComb_prog));
 
     // Build anchored matcher.
     auto atable = buildAnchoredMatcher(*this, fragments, anchored_dfas);

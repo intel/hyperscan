@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, Intel Corporation
+ * Copyright (c) 2016-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -87,6 +87,7 @@ unsigned int somPrecisionMode = HS_MODE_SOM_HORIZON_LARGE;
 bool forceEditDistance = false;
 unsigned editDistance = 0;
 bool printCompressSize = false;
+bool useLiteralApi = false;
 
 // Globals local to this file.
 static bool compressStream = false;
@@ -218,6 +219,7 @@ void usage(const char *error) {
     printf("  --per-scan      Display per-scan Mbit/sec results.\n");
     printf("  --echo-matches  Display all matches that occur during scan.\n");
     printf("  --sql-out FILE  Output sqlite db.\n");
+    printf("  --literal-on    Use Hyperscan pure literal matching.\n");
     printf("  -S NAME         Signature set name (for sqlite db).\n");
     printf("\n\n");
 
@@ -250,6 +252,7 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
     int do_echo_matches = 0;
     int do_sql_output = 0;
     int option_index = 0;
+    int literalFlag = 0;
     vector<string> sigFiles;
 
     static struct option longopts[] = {
@@ -257,6 +260,7 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
         {"echo-matches", no_argument, &do_echo_matches, 1},
         {"compress-stream", no_argument, &do_compress, 1},
         {"sql-out", required_argument, &do_sql_output, 1},
+        {"literal-on", no_argument, &literalFlag, 1},
         {nullptr, 0, nullptr, 0}
     };
 
@@ -463,6 +467,8 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
         loadSignatureList(file, sigs);
         sigSets.emplace_back(file, move(sigs));
     }
+
+    useLiteralApi = (bool)literalFlag;
 }
 
 /** Start the global timer. */
@@ -1064,6 +1070,9 @@ int HS_CDECL main(int argc, char *argv[]) {
         }
     } catch (const SqlFailure &f) {
         cerr << f.message << '\n';
+        return -1;
+    } catch (const std::runtime_error &e) {
+        cerr << "Internal error: " << e.what() << '\n';
         return -1;
     }
 

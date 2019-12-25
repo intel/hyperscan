@@ -322,7 +322,7 @@ PatternData::PatternData(const char *pattern, u32 flags, u32 idx, u32 id_in,
         ch_misc_free(info);
 
         u32 guardflags;
-        guardflags = (flags | HS_FLAG_PREFILTER) & ~HS_FLAG_SINGLEMATCH;
+        guardflags = flags | HS_FLAG_PREFILTER;
         guard = isHyperscanSupported(pattern, guardflags, platform);
     } else {
         // We can't even prefilter this pattern, so we're dependent on Big Dumb
@@ -714,7 +714,7 @@ ch_error_t HS_CDECL ch_compile(const char *expression, unsigned flags,
                                                   (int)e.index : -1);
         return CH_COMPILER_ERROR;
     }
-    catch (std::bad_alloc) {
+    catch (std::bad_alloc &) {
         *db = nullptr;
         *comp_error = const_cast<ch_compile_error_t *>(&ch_enomem);
         return CH_COMPILER_ERROR;
@@ -782,7 +782,7 @@ ch_error_t HS_CDECL ch_compile_multi(const char *const *expressions,
                                                   (int)e.index : -1);
         return CH_COMPILER_ERROR;
     }
-    catch (std::bad_alloc) {
+    catch (std::bad_alloc &) {
         *db = nullptr;
         *comp_error = const_cast<ch_compile_error_t *>(&ch_enomem);
         return CH_COMPILER_ERROR;
@@ -855,7 +855,7 @@ ch_error_t HS_CDECL ch_compile_ext_multi(
                                                   (int)e.index : -1);
         return CH_COMPILER_ERROR;
     }
-    catch (std::bad_alloc) {
+    catch (std::bad_alloc &) {
         *db = nullptr;
         *comp_error = const_cast<ch_compile_error_t *>(&ch_enomem);
         return CH_COMPILER_ERROR;
