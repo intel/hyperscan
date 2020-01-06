@@ -205,7 +205,7 @@ bool removeCyclicPathRedundancy(Graph &g, typename Graph::vertex_descriptor v,
 
             DEBUG_PRINTF("  - checking w %zu\n", g[w].index);
 
-            if (!searchForward(g, reach, colours, s, w)) {
+            if (!searchForward(g, reach, colours, succ_v, w)) {
                 continue;
             }
 
