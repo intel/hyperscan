@@ -114,8 +114,8 @@ hs_error_t HS_CDECL hs_serialize_database(const hs_database_t *db, char **bytes,
 static
 hs_error_t db_check_platform(const u64a p) {
     if (p != hs_current_platform
-        && p != hs_current_platform_no_avx2
-        && p != hs_current_platform_no_avx512) {
+        && p != (hs_current_platform | hs_current_platform_no_avx2)
+        && p != (hs_current_platform | hs_current_platform_no_avx512)) {
         return HS_DB_PLATFORM_ERROR;
     }
     // passed all checks
