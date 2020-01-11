@@ -64,8 +64,8 @@ const u8 *firstMatch(const u8 *buf, u32 z) {
 static really_inline
 u32 block(m128 shuf_mask_lo_highclear, m128 shuf_mask_lo_highset, m128 v) {
 
-    m128 highconst = _mm_set1_epi8(0x80);
-    m128 shuf_mask_hi = _mm_set1_epi64x(0x8040201008040201);
+    m128 highconst = set16x8(0x80);
+    m128 shuf_mask_hi = set2x64(0x8040201008040201);
 
     // and now do the real work
     m128 shuf1 = pshufb_m128(shuf_mask_lo_highclear, v);

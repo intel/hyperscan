@@ -30,28 +30,58 @@
 #define SIMD_TYPES_H
 
 #include "config.h"
+#include "ue2common.h"
 #include "util/arch.h"
 #include "util/intrinsics.h"
-#include "ue2common.h"
 
 #if defined(HAVE_SSE2)
 typedef __m128i m128;
+#elif defined(HAVE_NEON)
+#include "arm_neon.h"
+
+typedef union {
+    int8x16_t vect_s8;
+    int16x8_t vect_s16;
+    int32x4_t vect_s32;
+    int64x2_t vect_s64;
+    uint8x16_t vect_u8;
+    uint16x8_t vect_u16;
+    uint32x4_t vect_u32;
+    uint64x2_t vect_u64;
+} __m128i;
+typedef float32x4_t __m128;
+typedef float64x2_t __m128d;
+
+typedef __m128i m128;
 #else
-typedef struct ALIGN_DIRECTIVE {u64a hi; u64a lo;} m128;
+typedef struct ALIGN_DIRECTIVE {
+    u64a hi;
+    u64a lo;
+} m128;
+
 #endif
 
 #if defined(HAVE_AVX2)
 typedef __m256i m256;
 #else
-typedef struct ALIGN_AVX_DIRECTIVE {m128 lo; m128 hi;} m256;
+typedef struct ALIGN_AVX_DIRECTIVE {
+    m128 lo;
+    m128 hi;
+} m256;
 #endif
 
-typedef struct {m128 lo; m128 mid; m128 hi;} m384;
+typedef struct {
+    m128 lo;
+    m128 mid;
+    m128 hi;
+} m384;
 #if defined(HAVE_AVX512)
 typedef __m512i m512;
 #else
-typedef struct ALIGN_ATTR(64) {m256 lo; m256 hi;} m512;
+typedef struct ALIGN_ATTR(64) {
+    m256 lo;
+    m256 hi;
+} m512;
 #endif
 
 #endif /* SIMD_TYPES_H */
-

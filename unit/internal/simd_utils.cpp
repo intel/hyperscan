@@ -40,7 +40,7 @@ using namespace ue2;
 namespace {
 
 // Switch one bit on in a bitmask.
-template<class Mask>
+template <class Mask> 
 Mask setbit(unsigned int bit) {
     union {
         Mask simd;
@@ -148,7 +148,7 @@ m256 simd_lshift64(const m256 &a, unsigned i) { return lshift64_m256(a, i); }
 m384 simd_lshift64(const m384 &a, unsigned i) { return lshift64_m384(a, i); }
 m512 simd_lshift64(const m512 &a, unsigned i) { return lshift64_m512(a, i); }
 
-template<typename T>
+template <typename T> 
 class SimdUtilsTest : public testing::Test {
     // empty
 };
@@ -260,9 +260,9 @@ TYPED_TEST(SimdUtilsTest, or2) {
 
     for (unsigned j = 0; j < 8; j++) {
         for (unsigned i = 0; i < 32; i++) {
-            m256 x = setbit<m256>(j*32+i);
+            m256 x = setbit<m256>(j * 32 + i);
             m256 y = zeroes256();
-            ASSERT_EQ(1U << j, diffrich256(x, y)) << "bit " << j*32+i << " not happy";
+            ASSERT_EQ(1U << j, diffrich256(x, y)) << "bit " << j * 32 + i << " not happy";
         }
     }
 
@@ -431,8 +431,8 @@ TYPED_TEST(SimdUtilsTest, testbit) {
     for (unsigned int i = 0; i < total_bits; i++) {
         TypeParam a = setbit<TypeParam>(i);
         for (unsigned int j = 0; j < total_bits; j++) {
-            ASSERT_EQ(i == j ? 1 : 0, simd_testbit(a, j)) << "bit " << i
-                                                          << " is wrong";
+            ASSERT_EQ(i == j ? 1 : 0, simd_testbit(a, j))
+                << "bit " << i << " is wrong";
         }
     }
 }
@@ -455,7 +455,6 @@ TYPED_TEST(SimdUtilsTest, setbit) {
         simd_setbit(&a, i);
     }
     ASSERT_FALSE(simd_diff(simd_ones(), a));
-
 }
 
 TYPED_TEST(SimdUtilsTest, diffrich) {
@@ -663,11 +662,10 @@ TEST(SimdUtilsTest, movq) {
     ASSERT_EQ(0, memcmp(cmp, &simd, sizeof(simd)));
     ASSERT_EQ(0, memcmp(cmp, &r, sizeof(r)));
 
-    simd = _mm_set_epi64x(~0LL, 0x123456789abcdef);
+    simd = set64x2(~0LL, 0x123456789abcdef);
     r = movq(simd);
     ASSERT_EQ(r, 0x123456789abcdef);
 }
-
 
 TEST(SimdUtilsTest, set16x8) {
     char cmp[sizeof(m128)];
@@ -680,7 +678,7 @@ TEST(SimdUtilsTest, set16x8) {
 }
 
 TEST(SimdUtilsTest, set4x32) {
-    u32 cmp[4] = { 0x12345678, 0x12345678, 0x12345678, 0x12345678 };
+    u32 cmp[4] = {0x12345678, 0x12345678, 0x12345678, 0x12345678};
     m128 simd = set4x32(cmp[0]);
     ASSERT_EQ(0, memcmp(cmp, &simd, sizeof(simd)));
 }
@@ -714,51 +712,51 @@ TEST(SimdUtilsTest, variableByteShift128) {
     char base[] = "0123456789ABCDEF";
     m128 in = loadu128(base);
 
-    EXPECT_TRUE(!diff128(rshiftbyte_m128(in, 0),
-                         variable_byte_shift_m128(in, 0)));
-    EXPECT_TRUE(!diff128(rshiftbyte_m128(in, 1),
-                         variable_byte_shift_m128(in, -1)));
-    EXPECT_TRUE(!diff128(rshiftbyte_m128(in, 2),
-                         variable_byte_shift_m128(in, -2)));
-    EXPECT_TRUE(!diff128(rshiftbyte_m128(in, 3),
-                         variable_byte_shift_m128(in, -3)));
-    EXPECT_TRUE(!diff128(rshiftbyte_m128(in, 4),
-                         variable_byte_shift_m128(in, -4)));
-    EXPECT_TRUE(!diff128(rshiftbyte_m128(in, 5),
-                         variable_byte_shift_m128(in, -5)));
-    EXPECT_TRUE(!diff128(rshiftbyte_m128(in, 6),
-                         variable_byte_shift_m128(in, -6)));
-    EXPECT_TRUE(!diff128(rshiftbyte_m128(in, 7),
-                         variable_byte_shift_m128(in, -7)));
-    EXPECT_TRUE(!diff128(rshiftbyte_m128(in, 8),
-                         variable_byte_shift_m128(in, -8)));
-    EXPECT_TRUE(!diff128(rshiftbyte_m128(in, 9),
-                         variable_byte_shift_m128(in, -9)));
-    EXPECT_TRUE(!diff128(rshiftbyte_m128(in, 10),
-                         variable_byte_shift_m128(in, -10)));
+    EXPECT_TRUE(
+        !diff128(rshiftbyte_m128(in, 0), variable_byte_shift_m128(in, 0)));
+    EXPECT_TRUE(
+        !diff128(rshiftbyte_m128(in, 1), variable_byte_shift_m128(in, -1)));
+    EXPECT_TRUE(
+        !diff128(rshiftbyte_m128(in, 2), variable_byte_shift_m128(in, -2)));
+    EXPECT_TRUE(
+        !diff128(rshiftbyte_m128(in, 3), variable_byte_shift_m128(in, -3)));
+    EXPECT_TRUE(
+        !diff128(rshiftbyte_m128(in, 4), variable_byte_shift_m128(in, -4)));
+    EXPECT_TRUE(
+        !diff128(rshiftbyte_m128(in, 5), variable_byte_shift_m128(in, -5)));
+    EXPECT_TRUE(
+        !diff128(rshiftbyte_m128(in, 6), variable_byte_shift_m128(in, -6)));
+    EXPECT_TRUE(
+        !diff128(rshiftbyte_m128(in, 7), variable_byte_shift_m128(in, -7)));
+    EXPECT_TRUE(
+        !diff128(rshiftbyte_m128(in, 8), variable_byte_shift_m128(in, -8)));
+    EXPECT_TRUE(
+        !diff128(rshiftbyte_m128(in, 9), variable_byte_shift_m128(in, -9)));
+    EXPECT_TRUE(
+        !diff128(rshiftbyte_m128(in, 10), variable_byte_shift_m128(in, -10)));
 
-    EXPECT_TRUE(!diff128(lshiftbyte_m128(in, 0),
-                         variable_byte_shift_m128(in, 0)));
-    EXPECT_TRUE(!diff128(lshiftbyte_m128(in, 1),
-                         variable_byte_shift_m128(in, 1)));
-    EXPECT_TRUE(!diff128(lshiftbyte_m128(in, 2),
-                         variable_byte_shift_m128(in, 2)));
-    EXPECT_TRUE(!diff128(lshiftbyte_m128(in, 3),
-                         variable_byte_shift_m128(in, 3)));
-    EXPECT_TRUE(!diff128(lshiftbyte_m128(in, 4),
-                         variable_byte_shift_m128(in, 4)));
-    EXPECT_TRUE(!diff128(lshiftbyte_m128(in, 5),
-                         variable_byte_shift_m128(in, 5)));
-    EXPECT_TRUE(!diff128(lshiftbyte_m128(in, 6),
-                         variable_byte_shift_m128(in, 6)));
-    EXPECT_TRUE(!diff128(lshiftbyte_m128(in, 7),
-                         variable_byte_shift_m128(in, 7)));
-    EXPECT_TRUE(!diff128(lshiftbyte_m128(in, 8),
-                         variable_byte_shift_m128(in, 8)));
-    EXPECT_TRUE(!diff128(lshiftbyte_m128(in, 9),
-                         variable_byte_shift_m128(in, 9)));
-    EXPECT_TRUE(!diff128(lshiftbyte_m128(in, 10),
-                         variable_byte_shift_m128(in, 10)));
+    EXPECT_TRUE(
+        !diff128(lshiftbyte_m128(in, 0), variable_byte_shift_m128(in, 0)));
+    EXPECT_TRUE(
+        !diff128(lshiftbyte_m128(in, 1), variable_byte_shift_m128(in, 1)));
+    EXPECT_TRUE(
+        !diff128(lshiftbyte_m128(in, 2), variable_byte_shift_m128(in, 2)));
+    EXPECT_TRUE(
+        !diff128(lshiftbyte_m128(in, 3), variable_byte_shift_m128(in, 3)));
+    EXPECT_TRUE(
+        !diff128(lshiftbyte_m128(in, 4), variable_byte_shift_m128(in, 4)));
+    EXPECT_TRUE(
+        !diff128(lshiftbyte_m128(in, 5), variable_byte_shift_m128(in, 5)));
+    EXPECT_TRUE(
+        !diff128(lshiftbyte_m128(in, 6), variable_byte_shift_m128(in, 6)));
+    EXPECT_TRUE(
+        !diff128(lshiftbyte_m128(in, 7), variable_byte_shift_m128(in, 7)));
+    EXPECT_TRUE(
+        !diff128(lshiftbyte_m128(in, 8), variable_byte_shift_m128(in, 8)));
+    EXPECT_TRUE(
+        !diff128(lshiftbyte_m128(in, 9), variable_byte_shift_m128(in, 9)));
+    EXPECT_TRUE(
+        !diff128(lshiftbyte_m128(in, 10), variable_byte_shift_m128(in, 10)));
 
     EXPECT_TRUE(!diff128(zeroes128(), variable_byte_shift_m128(in, 16)));
     EXPECT_TRUE(!diff128(zeroes128(), variable_byte_shift_m128(in, -16)));
@@ -785,12 +783,12 @@ TEST(SimdUtilsTest, min_u8_m128) {
 }
 
 TEST(SimdUtilsTest, sadd_u8_m128) {
-    unsigned char base1[] = {0, 0x80, 0xff, 'A', '1', '2', '3', '4',
-                             '1', '2', '3', '4', '1', '2', '3', '4'};
-    unsigned char base2[] = {'a', 0x80, 'b', 'A', 0x10, 0x10, 0x10, 0x10,
-                             0x30, 0x30, 0x30, 0x30, 0, 0, 0, 0};
+    unsigned char base1[] = {0,   0x80, 0xff, 'A', '1', '2', '3', '4',
+                             '1', '2',  '3',  '4', '1', '2', '3', '4'};
+    unsigned char base2[] = {'a',  0x80, 'b',  'A',  0x10, 0x10, 0x10, 0x10,
+                             0x30, 0x30, 0x30, 0x30, 0,    0,    0,    0};
     unsigned char expec[] = {'a', 0xff, 0xff, 0x82, 'A', 'B', 'C', 'D',
-                             'a', 'b', 'c', 'd', '1', '2', '3', '4'};
+                             'a', 'b',  'c',  'd',  '1', '2', '3', '4'};
     m128 in1 = loadu128(base1);
     m128 in2 = loadu128(base2);
     m128 result = sadd_u8_m128(in1, in2);
@@ -799,11 +797,11 @@ TEST(SimdUtilsTest, sadd_u8_m128) {
 
 TEST(SimdUtilsTest, sub_u8_m128) {
     unsigned char base1[] = {'a', 0xff, 0xff, 0x82, 'A', 'B', 'C', 'D',
-                             'a', 'b', 'c', 'd', '1', '2', '3', '4'};
-    unsigned char base2[] = {0, 0x80, 0xff, 'A', '1', '2', '3', '4',
-                             '1', '2', '3', '4', '1', '2', '3', '4'};
-    unsigned char expec[] = {'a', 0x7f, 0, 'A', 0x10, 0x10, 0x10, 0x10,
-                             0x30, 0x30, 0x30, 0x30, 0, 0, 0, 0};
+                             'a', 'b',  'c',  'd',  '1', '2', '3', '4'};
+    unsigned char base2[] = {0,   0x80, 0xff, 'A', '1', '2', '3', '4',
+                             '1', '2',  '3',  '4', '1', '2', '3', '4'};
+    unsigned char expec[] = {'a',  0x7f, 0,    'A',  0x10, 0x10, 0x10, 0x10,
+                             0x30, 0x30, 0x30, 0x30, 0,    0,    0,    0};
     m128 in1 = loadu128(base1);
     m128 in2 = loadu128(base2);
     m128 result = sub_u8_m128(in1, in2);

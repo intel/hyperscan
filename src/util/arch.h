@@ -57,6 +57,10 @@
 #define HAVE_AVX512
 #endif
 
+#if defined(__aarch64__)
+#define HAVE_NEON
+#endif
+
 /*
  * ICC and MSVC don't break out POPCNT or BMI/2 as separate pre-def macros
  */
@@ -80,6 +84,13 @@
  * MSVC uses a different form of inline asm
  */
 #if defined(_WIN32) && defined(_MSC_VER)
+#define NO_ASM
+#endif
+
+/*
+ * AARCH64 uses a different form of inline asm
+ */
+#if defined(__aarch64__)
 #define NO_ASM
 #endif
 
