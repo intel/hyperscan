@@ -131,7 +131,8 @@ CMAKE_DEPENDENT_OPTION(DUMP_SUPPORT "Dump code support; normally on, except in r
 
 CMAKE_DEPENDENT_OPTION(DISABLE_ASSERTS "Disable assert(); Asserts are enabled in debug builds, disabled in release builds" OFF "NOT RELEASE_BUILD" ON)
 
-option(BUILD_AVX512 "Experimental: support avx512 in the fat runtime" OFF)
+option(BUILD_AVX512 "Experimental: support avx512 in the fat runtime" 
+	OFF)
 
 option(WINDOWS_ICC "Use Intel C++ Compiler on Windows, default off, requires ICC to be set in project" OFF)
 
