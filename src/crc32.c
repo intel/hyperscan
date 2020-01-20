@@ -32,6 +32,47 @@
 #include "util/arch.h"
 #include "util/intrinsics.h"
 
+#if defined(HAVE_NEON)
+
+#define CRC32CX(crc, value) __asm__("crc32cx %w[c], %w[c], %x[v]":[c]"+r"(crc):[v]"r"(value))
+#define CRC32CW(crc, value) __asm__("crc32cw %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value))
+#define CRC32CH(crc, value) __asm__("crc32ch %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value))
+#define CRC32CB(crc, value) __asm__("crc32cb %w[c], %w[c], %w[v]":[c]"+r"(crc):[v]"r"(value))
+#define CRC_WORD 8
+#define CRC_TYPE u64a
+static  really_inline
+u32 crc32c_neon(u32 running_crc, const unsigned char * p_buf, const size_t length)
+{
+    u32 crc=running_crc;
+
+    //Processbyte-by-byteuntilp_bufisaligned
+    const unsigned char * aligned_buf = ROUNDUP_PTR(p_buf, CRC_WORD);
+    size_t init_bytes = aligned_buf - p_buf;
+    size_t running_length = ((length - init_bytes) / CRC_WORD) * CRC_WORD;
+    size_t end_bytes = length - init_bytes - running_length;
+
+    while(p_buf < aligned_buf){
+        CRC32CB(crc, *p_buf);
+        p_buf++;
+    }
+
+    //Main aligned loop, processes a word at a time.
+    for(size_t li = 0; li < running_length / CRC_WORD; li++){
+        CRC_TYPE block = *(const CRC_TYPE *)p_buf;
+        CRC32CX(crc,block);
+        p_buf += CRC_WORD;
+    }
+
+    //Remainingbytes
+    for(size_t li = 0; li < end_bytes; li++){
+        CRC32CB(crc,*p_buf);
+        p_buf++;
+    }
+    return crc;
+}
+#endif
+
+
 #if !defined(HAVE_SSE42)
 
 /***
@@ -636,6 +677,8 @@ u32 crc32c_sse42(u32 running_crc, const unsigned char* p_buf,
 u32 Crc32c_ComputeBuf(u32 inCrc32, const void *buf, size_t bufLen) {
 #if defined(HAVE_SSE42)
     u32 crc = crc32c_sse42(inCrc32, (const unsigned char *)buf, bufLen);
+#elif defined(HAVE_NEON)
+    u32 crc = crc32c_neon(inCrc32, (const unsigned char *)buf, bufLen);
 #else
     u32 crc = crc32c_sb8_64_bit(inCrc32, (const unsigned char *)buf, bufLen);
 #endif

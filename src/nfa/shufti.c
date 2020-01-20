@@ -159,7 +159,7 @@ const u8 *shuftiExec(m128 mask_lo, m128 mask_hi, const u8 *buf,
     }
 
     const m128 zeroes = zeroes128();
-    const m128 low4bits = _mm_set1_epi8(0xf);
+    const m128 low4bits = set16x8(0xf);
     const u8 *rv;
 
     size_t min = (size_t)buf % 16;
@@ -246,7 +246,7 @@ const u8 *rshuftiExec(m128 mask_lo, m128 mask_hi, const u8 *buf,
     }
 
     const m128 zeroes = zeroes128();
-    const m128 low4bits = _mm_set1_epi8(0xf);
+    const m128 low4bits = set16x8(0xf);
     const u8 *rv;
 
     assert(buf_end - buf >= 16);
@@ -320,7 +320,7 @@ const u8 *shuftiDoubleExec(m128 mask1_lo, m128 mask1_hi,
                            m128 mask2_lo, m128 mask2_hi,
                            const u8 *buf, const u8 *buf_end) {
     const m128 ones = ones128();
-    const m128 low4bits = _mm_set1_epi8(0xf);
+    const m128 low4bits = set16x8(0xf);
     const u8 *rv;
 
     size_t min = (size_t)buf % 16;

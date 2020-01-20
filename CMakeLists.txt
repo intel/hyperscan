@@ -74,6 +74,7 @@ include (${CMAKE_MODULE_PATH}/boost.cmake)
 # -- make this work? set(python_ADDITIONAL_VERSIONS 2.7 2.6)
 find_package(PythonInterp)
 find_program(RAGEL ragel)
+find_program(COPY cp)
 
 if(PYTHONINTERP_FOUND)
     set(PYTHON ${PYTHON_EXECUTABLE})
@@ -130,8 +131,8 @@ CMAKE_DEPENDENT_OPTION(DUMP_SUPPORT "Dump code support; normally on, except in r
 
 CMAKE_DEPENDENT_OPTION(DISABLE_ASSERTS "Disable assert(); Asserts are enabled in debug builds, disabled in release builds" OFF "NOT RELEASE_BUILD" ON)
 
-option(BUILD_AVX512 "Experimental: support avx512 in the fat runtime"
-    OFF)
+option(BUILD_AVX512 "Experimental: support avx512 in the fat runtime" 
+	OFF)
 
 option(WINDOWS_ICC "Use Intel C++ Compiler on Windows, default off, requires ICC to be set in project" OFF)
 
@@ -181,26 +182,33 @@ else()
         # generic, which isn't very good in some cases. march=native looks at
         # cpuid info and then chooses the best microarch it can (and replaces
         # the flag), so use that for tune.
+        
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i386")
+            # arg1 might exist if using ccache
+            string (STRIP "${CMAKE_C_COMPILER_ARG1}" CC_ARG1)
+            set (EXEC_ARGS ${CC_ARG1} -c -Q --help=target -march=native -mtune=native)
+            execute_process(COMMAND ${CMAKE_C_COMPILER} ${EXEC_ARGS}
+                OUTPUT_VARIABLE _GCC_OUTPUT)
+            string(FIND "${_GCC_OUTPUT}" "Known" POS)
+            string(SUBSTRING "${_GCC_OUTPUT}" 0 ${POS} _GCC_OUTPUT)
+            string(REGEX REPLACE ".*march=[ \t]*([^ \n]*)[ \n].*" "\\1"
+                GNUCC_ARCH "${_GCC_OUTPUT}")
 
-        # arg1 might exist if using ccache
-        string (STRIP "${CMAKE_C_COMPILER_ARG1}" CC_ARG1)
-        set (EXEC_ARGS ${CC_ARG1} -c -Q --help=target -march=native -mtune=native)
-        execute_process(COMMAND ${CMAKE_C_COMPILER} ${EXEC_ARGS}
-            OUTPUT_VARIABLE _GCC_OUTPUT)
-        string(FIND "${_GCC_OUTPUT}" "Known" POS)
-        string(SUBSTRING "${_GCC_OUTPUT}" 0 ${POS} _GCC_OUTPUT)
-        string(REGEX REPLACE ".*march=[ \t]*([^ \n]*)[ \n].*" "\\1"
-            GNUCC_ARCH "${_GCC_OUTPUT}")
-
-        # test the parsed flag
-        set (EXEC_ARGS ${CC_ARG1} -E - -mtune=${GNUCC_ARCH})
-        execute_process(COMMAND ${CMAKE_C_COMPILER} ${EXEC_ARGS}
-            OUTPUT_QUIET ERROR_QUIET
-            INPUT_FILE /dev/null
-            RESULT_VARIABLE GNUCC_TUNE_TEST)
-        if (NOT GNUCC_TUNE_TEST EQUAL 0)
-            message(SEND_ERROR "Something went wrong determining gcc tune: -mtune=${GNUCC_ARCH} not valid")
+            # test the parsed flag
+            set (EXEC_ARGS ${CC_ARG1} -E - -mtune=${GNUCC_ARCH})
+            execute_process(COMMAND ${CMAKE_C_COMPILER} ${EXEC_ARGS}
+                OUTPUT_QUIET ERROR_QUIET
+                INPUT_FILE /dev/null
+                RESULT_VARIABLE GNUCC_TUNE_TEST)
+            if (NOT GNUCC_TUNE_TEST EQUAL 0)
+                message(SEND_ERROR "Something went wrong determining gcc tune: -mtune=${GNUCC_ARCH} not valid")
+            endif()
         endif()
+
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|AARCH64") 
+            set (EXEC_ARGS ${CC_ARG1} -c -Q --help=target -march=armv8-a -mtune=armv8-a)
+        endif()
+        
         set(TUNE_FLAG ${GNUCC_ARCH})
     else ()
         set(TUNE_FLAG native)
@@ -232,6 +240,13 @@ else()
     set(EXTRA_C_FLAGS "${OPT_C_FLAG} -std=c99 -Wall -Wextra -Wshadow -Wcast-qual -fno-strict-aliasing")
     set(EXTRA_CXX_FLAGS "${OPT_CXX_FLAG} -std=c++11 -Wall -Wextra -Wshadow -Wswitch -Wreturn-type -Wcast-qual -Wno-deprecated -Wnon-virtual-dtor -fno-strict-aliasing")
 
+    if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|AARCH64")
+        set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -fsigned-char")
+        set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fsigned-char")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=armv8-a+crc")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a+crc")
+    endif()
+
     if (NOT RELEASE_BUILD)
         # -Werror is most useful during development, don't potentially break
         # release builds
@@ -245,11 +260,19 @@ else()
     endif()
 
     if (NOT CMAKE_C_FLAGS MATCHES .*march.* AND NOT CMAKE_C_FLAGS MATCHES .*mtune.*)
-        set(ARCH_C_FLAGS "-march=native -mtune=${TUNE_FLAG}")
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i386")
+            set(ARCH_C_FLAGS "-march=native -mtune=${TUNE_FLAG}")
+        elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|AARCH64")
+            set(ARCH_C_FLAGS "-march=armv8-a -mtune=${TUNE_FLAG}")
+        endif ()
     endif()
 
     if (NOT CMAKE_CXX_FLAGS MATCHES .*march.* AND NOT CMAKE_CXX_FLAGS MATCHES .*mtune.*)
-        set(ARCH_CXX_FLAGS "-march=native -mtune=${TUNE_FLAG}")
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i386")
+            set(ARCH_CXX_FLAGS "-march=native -mtune=${TUNE_FLAG}")
+        elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|AARCH64")
+            set(ARCH_CXX_FLAGS "-march=armv8-a -mtune=${TUNE_FLAG}")
+        endif()
     endif()
 
     if(CMAKE_COMPILER_IS_GNUCC)
@@ -272,7 +295,6 @@ else()
         set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -fno-omit-frame-pointer")
     endif()
 
-
     if (CMAKE_C_COMPILER_ID MATCHES "Intel")
         set(SKYLAKE_FLAG "-xCORE-AVX512")
     else ()
@@ -281,10 +303,18 @@ else()
 endif()
 
 CHECK_INCLUDE_FILES(unistd.h HAVE_UNISTD_H)
-CHECK_INCLUDE_FILES(intrin.h HAVE_C_INTRIN_H)
-CHECK_INCLUDE_FILE_CXX(intrin.h HAVE_CXX_INTRIN_H)
-CHECK_INCLUDE_FILES(x86intrin.h HAVE_C_X86INTRIN_H)
-CHECK_INCLUDE_FILE_CXX(x86intrin.h HAVE_CXX_X86INTRIN_H)
+
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i386")
+    CHECK_INCLUDE_FILES(intrin.h HAVE_C_INTRIN_H)
+    CHECK_INCLUDE_FILE_CXX(intrin.h HAVE_CXX_INTRIN_H)
+    CHECK_INCLUDE_FILES(x86intrin.h HAVE_C_X86INTRIN_H)
+    CHECK_INCLUDE_FILE_CXX(x86intrin.h HAVE_CXX_X86INTRIN_H)
+endif()
+
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|AARCH64")
+    CHECK_INCLUDE_FILES(arm_neon.h HAVE_C_ARM_NEON_H)
+    CHECK_INCLUDE_FILE_CXX(arm_neon.h HAVE_CXX_ARM_NEON_H)
+endif()
 
 CHECK_FUNCTION_EXISTS(posix_memalign HAVE_POSIX_MEMALIGN)
 CHECK_FUNCTION_EXISTS(_aligned_malloc HAVE__ALIGNED_MALLOC)
@@ -317,7 +347,10 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
             (CMAKE_VERSION VERSION_GREATER "3.0" AND CMAKE_GENERATOR MATCHES "Ninja")))
         message (STATUS "Building the fat runtime requires the Unix Makefiles generator, or Ninja with CMake v3.0 or higher")
         set (FAT_RUNTIME_REQUISITES FALSE)
-    else()
+    elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|AARCH64")
+        message(STATUS "AARCH64 platform don't support fat runtime")
+        set (FAT_RUNTIME_REQUISITES FALSE)
+	else()
         include (${CMAKE_MODULE_PATH}/attrib.cmake)
         if (NOT HAS_C_ATTR_IFUNC)
             message(STATUS "Compiler does not support ifunc attribute, cannot build fat runtime")
@@ -329,7 +362,9 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     CMAKE_DEPENDENT_OPTION(FAT_RUNTIME "Build a library that supports multiple microarchitecures" ${RELEASE_BUILD} "FAT_RUNTIME_REQUISITES" OFF)
 endif ()
 
-include (${CMAKE_MODULE_PATH}/arch.cmake)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i386")
+    include (${CMAKE_MODULE_PATH}/arch.cmake)
+endif()
 
 # testing a builtin takes a little more work
 CHECK_C_SOURCE_COMPILES("void *aa_test(void *x) { return __builtin_assume_aligned(x, 16);}\nint main(void) { return 0; }" HAVE_CC_BUILTIN_ASSUME_ALIGNED)
@@ -346,6 +381,7 @@ set(C_FLAGS_TO_CHECK
  "-Wstrict-prototypes"
  "-Wmissing-prototypes"
 )
+
 foreach (FLAG ${C_FLAGS_TO_CHECK})
     # munge the name so it doesn't break things
     string(REPLACE "-" "_" FNAME C_FLAG${FLAG})
@@ -393,12 +429,6 @@ endif()
 CHECK_CXX_COMPILER_FLAG("-Wignored-attributes" CXX_IGNORED_ATTR)
 if (CXX_IGNORED_ATTR)
     set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-ignored-attributes")
-endif()
-
-# gcc 9 complains about redundant move for returned variable
-CHECK_CXX_COMPILER_FLAG("-Wredundant-move" CXX_REDUNDANT_MOVE)
-if (CXX_REDUNDANT_MOVE)
-    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-redundant-move")
 endif()
 
 # note this for later
@@ -449,6 +479,14 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 endif()
 
+# Test case for neon function.
+option(UNIT_SIMD "Simd funtion test case, default is OFF" OFF)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|AARCH64")
+  if (UNIT_SIMD)
+	add_subdirectory(unit-simd)
+  endif()
+endif()
+
 add_subdirectory(util)
 add_subdirectory(doc/dev-reference)
 
@@ -469,6 +507,7 @@ if (CORRECT_PCRE_VERSION AND PCRE_BUILD_SOURCE AND BUILD_STATIC_LIBS)
 endif()
 
 add_subdirectory(unit)
+
 if (EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
     add_subdirectory(tools)
 endif()
@@ -538,14 +577,27 @@ set_source_files_properties(
     PROPERTIES
         COMPILE_FLAGS "${RAGEL_C_FLAGS}")
 
-ragelmaker(src/parser/Parser.rl)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i386")
+    ragelmaker(src/parser/Parser.rl)
+endif()
+
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|AARCH64") 
+    ragelcopyer(src/parser/Parser.rl)
+endif()
 
 set_source_files_properties(
     ${CMAKE_BINARY_DIR}/src/parser/control_verbs.cpp
     PROPERTIES
         COMPILE_FLAGS "${RAGEL_C_FLAGS}")
 
-ragelmaker(src/parser/control_verbs.rl)
+
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i386")
+    ragelmaker(src/parser/control_verbs.rl)
+endif()
+
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|AARCH64") 
+    ragelcopyer(src/parser/control_verbs.rl)
+endif()
 
 SET(hs_HEADERS
     src/hs.h
