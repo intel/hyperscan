@@ -336,9 +336,8 @@ void checkExpression(UNUSED void *threadarg) {
 #else
             if (use_literal_api) {
                 size_t len = strlen(regexp);
-                err = hs_compile_lit_multi_int(&regexp, &flags, nullptr, &extp,
-                                               &len, 1, mode, nullptr, &db,
-                                               &compile_err, *g_grey);
+                err = hs_compile_lit_multi(&regexp, &flags, nullptr, &len, 1,
+                                           mode, nullptr, &db, &compile_err);
             } else {
                 err = hs_compile_ext_multi(&regexp, &flags, nullptr, &extp, 1,
                                            mode, nullptr, &db, &compile_err);
