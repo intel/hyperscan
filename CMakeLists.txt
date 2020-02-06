@@ -326,7 +326,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
             set (FAT_RUNTIME_REQUISITES TRUE)
         endif()
     endif()
-    CMAKE_DEPENDENT_OPTION(FAT_RUNTIME "Build a library that supports multiple microarchitecures" ${RELEASE_BUILD} "FAT_RUNTIME_REQUISITES" OFF)
+    CMAKE_DEPENDENT_OPTION(FAT_RUNTIME "Build a library that supports multiple microarchitectures" ${RELEASE_BUILD} "FAT_RUNTIME_REQUISITES" OFF)
 endif ()
 
 include (${CMAKE_MODULE_PATH}/arch.cmake)
@@ -340,7 +340,7 @@ if (NOT WIN32)
 set(C_FLAGS_TO_CHECK
 # Variable length arrays are way bad, most especially at run time
 "-Wvla"
-# Pointer arith on void pointers is doing it wong.
+# Pointer arith on void pointers is doing it wrong.
  "-Wpointer-arith"
 # Build our C code with -Wstrict-prototypes -Wmissing-prototypes
  "-Wstrict-prototypes"
@@ -383,7 +383,7 @@ if (CC_PAREN_EQUALITY)
     set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -Wno-parentheses-equality")
 endif()
 
-# clang compains about unused const vars in our Ragel-generated code.
+# clang complains about unused const vars in our Ragel-generated code.
 CHECK_CXX_COMPILER_FLAG("-Wunused-const-variable" CXX_UNUSED_CONST_VAR)
 if (CXX_UNUSED_CONST_VAR)
     set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-unused-const-variable")
