@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -354,6 +354,89 @@ void fillReinforcedMsk(u8 *rmsk, u16 c, u32 j, u8 bmsk) {
 }
 
 static
+void fillDupNibbleMasks(const map<BucketIndex,
+                                  vector<LiteralIndex>> &bucketToLits,
+                        const vector<hwlmLiteral> &lits,
+                        u32 numMasks, size_t maskLen,
+                        u8 *baseMsk) {
+    u32 maskWidth = 2;
+    memset(baseMsk, 0xff, maskLen);
+
+    for (const auto &b2l : bucketToLits) {
+        const u32 &bucket_id = b2l.first;
+        const vector<LiteralIndex> &ids = b2l.second;
+        const u8 bmsk = 1U << (bucket_id % 8);
+
+        for (const LiteralIndex &lit_id : ids) {
+            const hwlmLiteral &l = lits[lit_id];
+            DEBUG_PRINTF("putting lit %u into bucket %u\n", lit_id, bucket_id);
+            const u32 sz = verify_u32(l.s.size());
+
+            // fill in masks
+            for (u32 j = 0; j < numMasks; j++) {
+                const u32 msk_id_lo = j * 2 * maskWidth + (bucket_id / 8);
+                const u32 msk_id_hi = (j * 2 + 1) * maskWidth + (bucket_id / 8);
+                const u32 lo_base0 = msk_id_lo * 32;
+                const u32 lo_base1 = msk_id_lo * 32 + 16;
+                const u32 hi_base0 = msk_id_hi * 32;
+                const u32 hi_base1 = msk_id_hi * 32 + 16;
+
+                // if we don't have a char at this position, fill in i
+                // locations in these masks with '1'
+                if (j >= sz) {
+                    for (u32 n = 0; n < 16; n++) {
+                        baseMsk[lo_base0 + n] &= ~bmsk;
+                        baseMsk[lo_base1 + n] &= ~bmsk;
+                        baseMsk[hi_base0 + n] &= ~bmsk;
+                        baseMsk[hi_base1 + n] &= ~bmsk;
+                    }
+                } else {
+                    u8 c = l.s[sz - 1 - j];
+                    // if we do have a char at this position
+                    const u32 hiShift = 4;
+                    u32 n_hi = (c >> hiShift) & 0xf;
+                    u32 n_lo = c & 0xf;
+
+                    if (j < l.msk.size() && l.msk[l.msk.size() - 1 - j]) {
+                        u8 m = l.msk[l.msk.size() - 1 - j];
+                        u8 m_hi = (m >> hiShift) & 0xf;
+                        u8 m_lo = m & 0xf;
+                        u8 cmp = l.cmp[l.msk.size() - 1 - j];
+                        u8 cmp_lo = cmp & 0xf;
+                        u8 cmp_hi = (cmp >> hiShift) & 0xf;
+
+                        for (u8 cm = 0; cm < 0x10; cm++) {
+                            if ((cm & m_lo) == (cmp_lo & m_lo)) {
+                                baseMsk[lo_base0 + cm] &= ~bmsk;
+                                baseMsk[lo_base1 + cm] &= ~bmsk;
+                            }
+                            if ((cm & m_hi) == (cmp_hi & m_hi)) {
+                                baseMsk[hi_base0 + cm] &= ~bmsk;
+                                baseMsk[hi_base1 + cm] &= ~bmsk;
+                            }
+                        }
+                    } else {
+                        if (l.nocase && ourisalpha(c)) {
+                            u32 cmHalfClear = (0xdf >> hiShift) & 0xf;
+                            u32 cmHalfSet = (0x20 >> hiShift) & 0xf;
+                            baseMsk[hi_base0 + (n_hi & cmHalfClear)] &= ~bmsk;
+                            baseMsk[hi_base1 + (n_hi & cmHalfClear)] &= ~bmsk;
+                            baseMsk[hi_base0 + (n_hi | cmHalfSet)] &= ~bmsk;
+                            baseMsk[hi_base1 + (n_hi | cmHalfSet)] &= ~bmsk;
+                        } else {
+                            baseMsk[hi_base0 + n_hi] &= ~bmsk;
+                            baseMsk[hi_base1 + n_hi] &= ~bmsk;
+                        }
+                        baseMsk[lo_base0 + n_lo] &= ~bmsk;
+                        baseMsk[lo_base1 + n_lo] &= ~bmsk;
+                    }
+                }
+            }
+        }
+    }
+}
+
+static
 void fillNibbleMasks(const map<BucketIndex,
                                vector<LiteralIndex>> &bucketToLits,
                      const vector<hwlmLiteral> &lits,
@@ -479,14 +562,17 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
 
     size_t headerSize = sizeof(Teddy);
     size_t maskLen = eng.numMasks * 16 * 2 * maskWidth;
-    size_t reinforcedMaskLen = RTABLE_SIZE * maskWidth;
+    size_t reinforcedDupMaskLen = RTABLE_SIZE * maskWidth;
+    if (maskWidth == 2) { // dup nibble mask table in Fat Teddy
+        reinforcedDupMaskLen = maskLen * 2;
+    }
 
     auto floodTable = setupFDRFloodControl(lits, eng, grey);
     auto confirmTable = setupFullConfs(lits, eng, bucketToLits, make_small);
 
     // Note: we place each major structure here on a cacheline boundary.
     size_t size = ROUNDUP_CL(headerSize) + ROUNDUP_CL(maskLen) +
-                  ROUNDUP_CL(reinforcedMaskLen) +
+                  ROUNDUP_CL(reinforcedDupMaskLen) +
                   ROUNDUP_CL(confirmTable.size()) + floodTable.size();
 
     auto fdr = make_zeroed_bytecode_ptr<FDR>(size, 64);
@@ -502,7 +588,7 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
 
     // Write confirm structures.
     u8 *ptr = teddy_base + ROUNDUP_CL(headerSize) + ROUNDUP_CL(maskLen) +
-              ROUNDUP_CL(reinforcedMaskLen);
+              ROUNDUP_CL(reinforcedDupMaskLen);
     assert(ISALIGNED_CL(ptr));
     teddy->confOffset = verify_u32(ptr - teddy_base);
     memcpy(ptr, confirmTable.get(), confirmTable.size());
@@ -519,9 +605,16 @@ bytecode_ptr<FDR> TeddyCompiler::build() {
     fillNibbleMasks(bucketToLits, lits, eng.numMasks, maskWidth, maskLen,
                     baseMsk);
 
-    // Write reinforcement masks.
-    u8 *reinforcedMsk = baseMsk + ROUNDUP_CL(maskLen);
-    fillReinforcedTable(bucketToLits, lits, reinforcedMsk, maskWidth);
+    if (maskWidth == 1) { // reinforcement table in Teddy
+        // Write reinforcement masks.
+        u8 *reinforcedMsk = baseMsk + ROUNDUP_CL(maskLen);
+        fillReinforcedTable(bucketToLits, lits, reinforcedMsk, maskWidth);
+    } else { // dup nibble mask table in Fat Teddy
+        assert(maskWidth == 2);
+        u8 *dupMsk = baseMsk + ROUNDUP_CL(maskLen);
+        fillDupNibbleMasks(bucketToLits, lits, eng.numMasks,
+			   reinforcedDupMaskLen, dupMsk);
+    }
 
     return fdr;
 }

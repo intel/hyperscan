@@ -1219,6 +1219,11 @@ static really_inline
 m512 set_mask_m512(__mmask64 k) {
     return _mm512_movm_epi8(k);
 }
+
+static really_inline
+m256 loadu_maskz_m256(__mmask32 k, const void *ptr) {
+    return _mm256_maskz_loadu_epi8(k, ptr);
+}
 #endif
 
 // packed unaligned store of first N bytes
