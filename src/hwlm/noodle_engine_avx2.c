@@ -210,7 +210,7 @@ hwlm_error_t scanDoubleFast(const struct noodTable *n, const u8 *buf,
     const u8 *d = buf + start, *e = buf + end;
     DEBUG_PRINTF("start %zu end %zu \n", start, end);
     assert(d < e);
-    u8 lastz0 = 0;
+    u32 lastz0 = 0;
 
     for (; d < e; d += 32) {
         m256 v = noCase ? and256(load256(d), caseMask) : load256(d);
