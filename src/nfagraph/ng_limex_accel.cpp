@@ -170,7 +170,7 @@ void findPaths(const NGHolder &g, NFAVertex v,
             /* path has looped back to one of the active+boring acceleration
              * states.  We can ignore this path if we have sufficient back-
              * off. */
-            paths->push_back({CharReach()});
+            paths->push_back({cr});
             continue;
         }
 
