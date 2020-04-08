@@ -241,6 +241,13 @@ void addCallout(string &re) {
     re.append("\\E)(?C)");
 }
 
+static
+bool isUtf8(const CompiledPcre &compiled) {
+    unsigned long int options = 0;
+    pcre_fullinfo(compiled.bytecode, NULL, PCRE_INFO_OPTIONS, &options);
+    return options & PCRE_UTF8;
+}
+
 unique_ptr<CompiledPcre>
 GroundTruth::compile(unsigned id, bool no_callouts) {
     bool highlander = false;
@@ -380,6 +387,8 @@ GroundTruth::compile(unsigned id, bool no_callouts) {
         throw PcreCompileFailure(oss.str());
     }
 
+    compiled->utf8 |= isUtf8(*compiled);
+
     return compiled;
 }
 
@@ -449,13 +458,6 @@ int scanBasic(const CompiledPcre &compiled, const string &buffer,
     }
 
     return ret;
-}
-
-static
-bool isUtf8(const CompiledPcre &compiled) {
-    unsigned long int options = 0;
-    pcre_fullinfo(compiled.bytecode, NULL, PCRE_INFO_OPTIONS, &options);
-    return options & PCRE_UTF8;
 }
 
 static
