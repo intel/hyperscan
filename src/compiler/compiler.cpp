@@ -402,7 +402,7 @@ void addLitExpression(NG &ng, unsigned index, const char *expression,
     }
 
     // Ensure that our pattern isn't too long (in characters).
-    if (strlen(expression) > cc.grey.limitPatternLength) {
+    if (expLength > cc.grey.limitPatternLength) {
         throw CompileError("Pattern length exceeds limit.");
     }
 
