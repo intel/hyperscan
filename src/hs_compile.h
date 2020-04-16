@@ -985,8 +985,8 @@ hs_error_t HS_CDECL hs_populate_platform(hs_platform_info_t *platform);
  * offset when a match is reported for this expression. (By default, no start
  * of match is returned.)
  *
- * Enabling this behaviour may reduce performance and increase stream state
- * requirements in streaming mode.
+ * For all the 3 modes, enabling this behaviour may reduce performance. And
+ * particularly, it may increase stream state requirements in streaming mode.
  */
 #define HS_FLAG_SOM_LEFTMOST    256
 

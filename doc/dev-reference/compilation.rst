@@ -55,7 +55,7 @@ Hyperscan provides support for targeting a database at a particular CPU
 platform; see :ref:`instr_specialization` for details.
 
 =====================
-Compile Pure Literals 
+Compile Pure Literals
 =====================
 
 Pure literal is a special case of regular expression. A character sequence is
@@ -98,7 +98,7 @@ In ``v5.2.0``, Hyperscan introduces 2 new compile APIs for pure literal patterns
 #. :c:func:`hs_compile_lit_multi`: compiles an array of pure literals into a
    pattern database. All of the supplied patterns will be scanned for
    concurrently at scan time, with user-supplied identifiers returned when they
-   match. 
+   match.
 
 These 2 APIs are designed for use cases where all patterns contained in the
 target rule set are pure literals. Users can pass the initial pure literal
