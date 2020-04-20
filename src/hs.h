@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,6 +38,12 @@
  * This header includes both the Hyperscan compiler and runtime components. See
  * the individual component headers for documentation.
  */
+
+/* The current Hyperscan version information. */
+
+#define HS_MAJOR      5
+#define HS_MINOR      3
+#define HS_PATCH      0
 
 #include "hs_compile.h"
 #include "hs_runtime.h"
