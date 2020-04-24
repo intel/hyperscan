@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -86,6 +86,7 @@
 #define LIMEX_FLAG_COMPRESS_STATE  1 /**< pack state into stream state */
 #define LIMEX_FLAG_COMPRESS_MASKED 2 /**< use reach mask-based compression */
 #define LIMEX_FLAG_CANNOT_DIE      4 /**< limex cannot have no states on */
+#define LIMEX_FLAG_EXTRACT_EXP     8 /**< use limex exception bit extraction */
 
 enum LimExTrigger {
     LIMEX_TRIGGER_NONE = 0,
@@ -157,6 +158,9 @@ struct LimExNFA##size {                                                     \
     u_##size shift[MAX_SHIFT_COUNT];                                        \
     u32 shiftCount; /**< number of shift masks used */                      \
     u8 shiftAmount[MAX_SHIFT_COUNT]; /**< shift amount for each mask */     \
+    m512 exceptionShufMask; /**< exception byte shuffle mask  */            \
+    m512 exceptionBitMask; /**< exception bit mask */                       \
+    m512 exceptionAndMask; /**< exception and mask */                       \
 };
 
 CREATE_NFA_LIMEX(32)

@@ -1922,7 +1922,8 @@ struct Factory {
     }
 
     static
-    void writeExceptions(const map<ExceptionProto, vector<u32>> &exceptionMap,
+    void writeExceptions(const build_info &args,
+                         const map<ExceptionProto, vector<u32>> &exceptionMap,
                          const vector<u32> &repeatOffsets, implNFA_t *limex,
                          const u32 exceptionsOffset,
                          const u32 reportListOffset) {
@@ -1974,6 +1975,59 @@ struct Factory {
 
         limex->exceptionOffset = exceptionsOffset;
         limex->exceptionCount = ecount;
+
+        if (args.num_states > 64 && args.cc.target_info.has_avx512vbmi()) {
+            const u8 *exceptionMask = (const u8 *)(&limex->exceptionMask);
+            u8 *shufMask = (u8 *)&limex->exceptionShufMask;
+            u8 *bitMask = (u8 *)&limex->exceptionBitMask;
+            u8 *andMask = (u8 *)&limex->exceptionAndMask;
+
+            u32 tot_cnt = 0;
+            u32 pos = 0;
+            bool valid = true;
+            size_t tot = sizeof(limex->exceptionMask);
+            size_t base = 0;
+
+            // We normally have up to 64 exceptions to handle,
+            // but treat 384 state Limex differently to simplify operations
+            size_t limit = 64;
+            if (args.num_states > 256 && args.num_states <= 384) {
+                limit = 48;
+            }
+
+            for (size_t i = 0; i < tot; i++) {
+                if (!exceptionMask[i]) {
+                    continue;
+                }
+                u32 bit_cnt = popcount32(exceptionMask[i]);
+
+                tot_cnt += bit_cnt;
+                if (tot_cnt > limit) {
+                    valid = false;
+                    break;
+                }
+
+                u32 emsk = exceptionMask[i];
+                while (emsk) {
+                    u32 t = findAndClearLSB_32(&emsk);
+                    bitMask[pos] = 1U << t;
+                    andMask[pos] = 1U << t;
+                    shufMask[pos++] = i + base;
+
+                    if (pos == 32 &&
+                        (args.num_states > 128 && args.num_states <= 256)) {
+                        base += 32;
+                    }
+                }
+            }
+            // Avoid matching unused bytes
+            for (u32 i = pos; i < 64; i++) {
+                bitMask[i] = 0xff;
+            }
+            if (valid) {
+                setLimexFlag(limex, LIMEX_FLAG_EXTRACT_EXP);
+            }
+        }
     }
 
     static
@@ -2299,7 +2353,7 @@ struct Factory {
         writeRepeats(repeats, repeatOffsets, limex, repeatOffsetsOffset,
                      repeatsOffset);
 
-        writeExceptions(exceptionMap, repeatOffsets, limex, exceptionsOffset,
+        writeExceptions(args, exceptionMap, repeatOffsets, limex, exceptionsOffset,
                         reportListOffset);
 
         writeLimexMasks(args, limex);

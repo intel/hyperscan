@@ -223,6 +223,24 @@ static really_inline m128 or128(m128 a, m128 b) {
     return _mm_or_si128(a,b);
 }
 
+#if defined(HAVE_AVX512VBMI)
+static really_inline m512 expand128(m128 a) {
+    return _mm512_broadcast_i32x4(a);
+}
+
+static really_inline m512 expand256(m256 a) {
+    return _mm512_broadcast_i64x4(a);
+}
+
+static really_inline m512 expand384(m384 a) {
+    u64a *lo = (u64a*)&a.lo;
+    u64a *mid = (u64a*)&a.mid;
+    u64a *hi = (u64a*)&a.hi;
+    return _mm512_set_epi64(0ULL, 0ULL, hi[1], hi[0], mid[1], mid[0],
+                            lo[1], lo[0]);
+}
+#endif
+
 static really_inline m128 andnot128(m128 a, m128 b) {
     return _mm_andnot_si128(a, b);
 }

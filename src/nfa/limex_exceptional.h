@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -47,6 +47,8 @@
 #define AND_STATE               JOIN(and_, STATE_T)
 #define EQ_STATE(a, b)          (!JOIN(noteq_, STATE_T)((a), (b)))
 #define OR_STATE                JOIN(or_, STATE_T)
+#define EXPAND_STATE            JOIN(expand_, STATE_T)
+#define SHUFFLE_BYTE_STATE      JOIN(shuffle_byte_, STATE_T)
 #define TESTBIT_STATE           JOIN(testbit_, STATE_T)
 #define EXCEPTION_T             JOIN(struct NFAException, SIZE)
 #define CONTEXT_T               JOIN(NFAContext, SIZE)
@@ -208,7 +210,7 @@ int RUN_EXCEPTION_FN(const EXCEPTION_T *e, STATE_ARG,
 /** \brief Process all of the exceptions associated with the states in the \a
  * estate. */
 static really_inline
-int PE_FN(STATE_ARG, ESTATE_ARG, u32 diffmask, STATE_T *succ,
+int PE_FN(STATE_ARG, ESTATE_ARG, UNUSED u32 diffmask, STATE_T *succ,
           const struct IMPL_NFA_T *limex, const EXCEPTION_T *exceptions,
           u64a offset, struct CONTEXT_T *ctx, char in_rev, char flags) {
     assert(diffmask > 0); // guaranteed by caller macro
@@ -233,6 +235,72 @@ int PE_FN(STATE_ARG, ESTATE_ARG, u32 diffmask, STATE_T *succ,
     ctx->local_succ = ZERO_STATE;
 #endif
 
+    struct proto_cache new_cache = {0, NULL};
+    enum CacheResult cacheable = CACHE_RESULT;
+
+#if defined(HAVE_AVX512VBMI) && SIZE > 64
+    if (likely(limex->flags & LIMEX_FLAG_EXTRACT_EXP)) {
+        m512 emask = EXPAND_STATE(*STATE_ARG_P);
+        emask = SHUFFLE_BYTE_STATE(load_m512(&limex->exceptionShufMask), emask);
+        emask = and512(emask, load_m512(&limex->exceptionAndMask));
+        u64a word = eq512mask(emask, load_m512(&limex->exceptionBitMask));
+
+        do {
+            u32 bit = FIND_AND_CLEAR_FN(&word);
+            const EXCEPTION_T *e = &exceptions[bit];
+
+            if (!RUN_EXCEPTION_FN(e, STATE_ARG_NAME, succ,
+#ifndef BIG_MODEL
+                                  &local_succ,
+#endif
+                                  limex, offset, ctx, &new_cache, &cacheable,
+                                  in_rev, flags)) {
+                return PE_RV_HALT;
+            }
+        } while (word);
+    } else {
+        // A copy of the estate as an array of GPR-sized chunks.
+        CHUNK_T chunks[sizeof(STATE_T) / sizeof(CHUNK_T)];
+        CHUNK_T emask_chunks[sizeof(STATE_T) / sizeof(CHUNK_T)];
+#ifdef ESTATE_ON_STACK
+        memcpy(chunks, &estate, sizeof(STATE_T));
+#else
+        memcpy(chunks, estatep, sizeof(STATE_T));
+#endif
+        memcpy(emask_chunks, &limex->exceptionMask, sizeof(STATE_T));
+
+        u32 base_index[sizeof(STATE_T) / sizeof(CHUNK_T)];
+        base_index[0] = 0;
+        for (s32 i = 0; i < (s32)ARRAY_LENGTH(base_index) - 1; i++) {
+            base_index[i + 1] = base_index[i] + POPCOUNT_FN(emask_chunks[i]);
+        }
+
+        do {
+            u32 t = findAndClearLSB_32(&diffmask);
+#ifdef ARCH_64_BIT
+            t >>= 1; // Due to diffmask64, which leaves holes in the bitmask.
+#endif
+            assert(t < ARRAY_LENGTH(chunks));
+            CHUNK_T word = chunks[t];
+            assert(word != 0);
+            do {
+                u32 bit = FIND_AND_CLEAR_FN(&word);
+                u32 local_index = RANK_IN_MASK_FN(emask_chunks[t], bit);
+                u32 idx = local_index + base_index[t];
+                const EXCEPTION_T *e = &exceptions[idx];
+
+                if (!RUN_EXCEPTION_FN(e, STATE_ARG_NAME, succ,
+#ifndef BIG_MODEL
+                                      &local_succ,
+#endif
+                                      limex, offset, ctx, &new_cache, &cacheable,
+                                      in_rev, flags)) {
+                    return PE_RV_HALT;
+                }
+            } while (word);
+        } while (diffmask);
+    }
+#else
     // A copy of the estate as an array of GPR-sized chunks.
     CHUNK_T chunks[sizeof(STATE_T) / sizeof(CHUNK_T)];
     CHUNK_T emask_chunks[sizeof(STATE_T) / sizeof(CHUNK_T)];
@@ -242,9 +310,6 @@ int PE_FN(STATE_ARG, ESTATE_ARG, u32 diffmask, STATE_T *succ,
     memcpy(chunks, estatep, sizeof(STATE_T));
 #endif
     memcpy(emask_chunks, &limex->exceptionMask, sizeof(STATE_T));
-
-    struct proto_cache new_cache = {0, NULL};
-    enum CacheResult cacheable = CACHE_RESULT;
 
     u32 base_index[sizeof(STATE_T) / sizeof(CHUNK_T)];
     base_index[0] = 0;
@@ -276,6 +341,7 @@ int PE_FN(STATE_ARG, ESTATE_ARG, u32 diffmask, STATE_T *succ,
             }
         } while (word);
     } while (diffmask);
+#endif
 
 #ifndef BIG_MODEL
     *succ = OR_STATE(*succ, local_succ);
@@ -307,6 +373,8 @@ int PE_FN(STATE_ARG, ESTATE_ARG, u32 diffmask, STATE_T *succ,
 #undef AND_STATE
 #undef EQ_STATE
 #undef OR_STATE
+#undef EXPAND_STATE
+#undef SHUFFLE_BYTE_STATE
 #undef TESTBIT_STATE
 #undef PE_FN
 #undef RUN_EXCEPTION_FN
