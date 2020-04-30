@@ -227,6 +227,15 @@ void EnginePCRE::printStats() const {
 #endif
 }
 
+void EnginePCRE::printCsvStats() const {
+    printf(",\"%s\"", compile_stats.signatures.c_str());
+    printf(",\"%zu\"", compile_stats.expressionCount);
+    printf(",\"%zu\"", compile_stats.compiledSize);
+    printf(",\"%zu\"", compile_stats.scratchSize);
+    printf(",\"%0.3Lf\"", compile_stats.compileSecs);
+    printf(",\"%u\"", compile_stats.peakMemorySize);
+}
+
 void EnginePCRE::sqlStats(SqlDB &sqldb) const {
     ostringstream crc;
 

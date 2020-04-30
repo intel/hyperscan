@@ -187,6 +187,16 @@ void EngineChimera::printStats() const {
 #endif
 }
 
+void EngineChimera::printCsvStats() const {
+    printf(",\"%s\"", compile_stats.signatures.c_str());
+    printf(",\"%zu\"", compile_stats.expressionCount);
+    printf(",\"0x%x\"", compile_stats.crc32);
+    printf(",\"%zu\"", compile_stats.compiledSize);
+    printf(",\"%zu\"", compile_stats.scratchSize);
+    printf(",\"%0.3Lf\"", compile_stats.compileSecs);
+    printf(",\"%u\"", compile_stats.peakMemorySize);
+}
+
 void EngineChimera::sqlStats(SqlDB &sqldb) const {
     ostringstream crc;
     crc << "0x" << hex << compile_stats.crc32;

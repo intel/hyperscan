@@ -98,6 +98,8 @@ public:
 
     void printStats() const;
 
+    void printCsvStats() const;
+
     void sqlStats(SqlDB &db) const;
 
 private:

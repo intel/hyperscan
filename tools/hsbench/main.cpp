@@ -98,6 +98,7 @@ bool display_per_scan = false;
 ScanMode scan_mode = ScanMode::STREAMING;
 bool useHybrid = false;
 bool usePcre = false;
+bool dumpCsvOut = false;
 unsigned repeats = 20;
 string exprPath("");
 string corpusFile("");
@@ -211,6 +212,7 @@ void usage(const char *error) {
     printf("                  Benchmark with threads on specified CPUs or CPU"
            " range.\n");
 #endif
+    printf("  -C              Dump CSV output for tput matrix.\n");
     printf("  -i DIR          Don't compile, load from files in DIR"
            " instead.\n");
     printf("  -w DIR          After compiling, save to files in DIR.\n");
@@ -274,6 +276,9 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
         switch (c) {
         case 'c':
             corpusFile.assign(optarg);
+            break;
+        case 'C':
+            dumpCsvOut = true;
             break;
         case 'd': {
             unsigned dist;
@@ -849,6 +854,39 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
     }
 }
 
+/** Dump benchmark results to csv. */
+static
+void displayCsvResults(const vector<unique_ptr<ThreadContext>> &threads,
+                       const vector<DataBlock> &corpus_blocks) {
+    u64a bytesPerRun = byte_size(corpus_blocks);
+    u64a matchesPerRun = threads[0]->results[0].matches;
+
+    // Sanity check: all of our results should have the same match count.
+    for (const auto &t : threads) {
+        if (!all_of(begin(t->results), end(t->results),
+                    [&matchesPerRun](const ResultEntry &e) {
+                        return e.matches == matchesPerRun;
+                    })) {
+            printf("\nWARNING: PER-SCAN MATCH COUNTS ARE INCONSISTENT!\n\n");
+            break;
+        }
+    }
+
+    u64a totalBytes = bytesPerRun * repeats * threads.size();
+    u64a totalBlocks = corpus_blocks.size() * repeats * threads.size();
+    printf(",\"%0.3f\"", totalSecs);
+    printf(",\"%0.2Lf\"", calc_mbps(totalSecs, totalBytes));
+
+    double matchRate = ((double)matchesPerRun * 1024) / bytesPerRun;
+    printf(",\"%llu\"", matchesPerRun);
+    printf(",\"%0.3f\"", matchRate);
+
+    double blockRate = (double)totalBlocks / (double)totalSecs;
+    printf(",\"%0.2f\"", blockRate);
+    printf("\n");
+}
+
+
 /** Dump per-scan throughput data to sql. */
 static
 void sqlPerScanResults(const vector<unique_ptr<ThreadContext>> &threads,
@@ -982,7 +1020,9 @@ void runBenchmark(const Engine &db,
         t->join();
     }
 
-    if (sqloutFile.empty()) {
+    if (dumpCsvOut) {
+        displayCsvResults(threads, corpus_blocks);
+    } else if (sqloutFile.empty()) {
         // Display global results.
         displayResults(threads, corpus_blocks);
     } else {
@@ -1059,7 +1099,9 @@ int HS_CDECL main(int argc, char *argv[]) {
                 exit(1);
             }
 
-            if (sqloutFile.empty()) {
+            if (dumpCsvOut) {
+                engine->printCsvStats();
+            } else if (sqloutFile.empty()) {
                 // Display global results.
                 engine->printStats();
                 printf("\n");
