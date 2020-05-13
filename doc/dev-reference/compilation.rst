@@ -110,8 +110,8 @@ Hyperscan needs to locate the end position of the input expression via clearly
 knowing each literal's length, not by simply identifying character ``\0`` of a
 string.
 
-Supported flags: :c:member:`HS_FLAG_CASELESS`, :c:member:`HS_FLAG_MULTILINE`,
-:c:member:`HS_FLAG_SINGLEMATCH`, :c:member:`HS_FLAG_SOM_LEFTMOST`.
+Supported flags: :c:member:`HS_FLAG_CASELESS`, :c:member:`HS_FLAG_SINGLEMATCH`,
+:c:member:`HS_FLAG_SOM_LEFTMOST`.
 
 .. note:: We don't support literal compilation API with :ref:`extparam`. And
           for runtime implementation, traditional runtime APIs can still be
