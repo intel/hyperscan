@@ -64,21 +64,21 @@ interpreted independently. No syntax association happens between any adjacent
 characters.
 
 For example, given an expression written as :regexp:`/bc?/`. We could say it is
-a regluar expression, with the meaning that character ``b`` followed by nothing
+a regular expression, with the meaning that character ``b`` followed by nothing
 or by one character ``c``. On the other view, we could also say it is a pure
 literal expression, with the meaning that this is a character sequence of 3-byte
 length, containing characters ``b``, ``c`` and ``?``. In regular case, the
 question mark character ``?`` has a particular syntax role called 0-1 quantifier,
-which has an syntax association with the character ahead of it. Similar
-characters exist in regular grammer like ``[``, ``]``, ``(``, ``)``, ``{``,
+which has a syntax association with the character ahead of it. Similar
+characters exist in regular grammar like ``[``, ``]``, ``(``, ``)``, ``{``,
 ``}``, ``-``, ``*``, ``+``, ``\``, ``|``, ``/``, ``:``, ``^``, ``.``, ``$``.
 While in pure literal case, all these meta characters lost extra meanings
 expect for that they are just common ASCII codes.
 
 Hyperscan is initially designed to process common regular expressions. It is
-hence embedded with a complex parser to do comprehensive regular grammer
-interpretion. Particularly, the identification of above meta characters is the
-basic step for the interpretion of far more complex regular grammers.
+hence embedded with a complex parser to do comprehensive regular grammar
+interpretation. Particularly, the identification of above meta characters is the
+basic step for the interpretation of far more complex regular grammars.
 
 However in real cases, patterns may not always be regular expressions. They
 could just be pure literals. Problem will come if the pure literals contain
