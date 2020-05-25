@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta charset="utf-8" />
-    <title>Compiling Patterns &#8212; Hyperscan 5.2.1 documentation</title>
+    <title>Compiling Patterns &#8212; Hyperscan 5.3.0 documentation</title>
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
@@ -92,11 +92,11 @@ characters exist in regular grammer like <code class="docutils literal notransla
 <code class="docutils literal notranslate"><span class="pre">}</span></code>, <code class="docutils literal notranslate"><span class="pre">-</span></code>, <code class="docutils literal notranslate"><span class="pre">*</span></code>, <code class="docutils literal notranslate"><span class="pre">+</span></code>, <code class="docutils literal notranslate"><span class="pre">\</span></code>, <code class="docutils literal notranslate"><span class="pre">|</span></code>, <code class="docutils literal notranslate"><span class="pre">/</span></code>, <code class="docutils literal notranslate"><span class="pre">:</span></code>, <code class="docutils literal notranslate"><span class="pre">^</span></code>, <code class="docutils literal notranslate"><span class="pre">.</span></code>, <code class="docutils literal notranslate"><span class="pre">$</span></code>.
 While in pure literal case, all these meta characters lost extra meanings
 expect for that they are just common ASCII codes.</p>
-<p>Hyperscan is initially designed to process common regualr expressions. It is
+<p>Hyperscan is initially designed to process common regular expressions. It is
 hence embedded with a complex parser to do comprehensive regular grammer
 interpretion. Particularly, the identification of above meta characters is the
 basic step for the interpretion of far more complex regular grammers.</p>
-<p>However in real cases, patterns may not always be regualr expressions. They
+<p>However in real cases, patterns may not always be regular expressions. They
 could just be pure literals. Problem will come if the pure literals contain
 regular meta characters. Supposing fed directly into traditional Hyperscan
 compile API, all these meta characters will be interpreted in predefined ways,
@@ -122,8 +122,8 @@ characters in their patterns. No preprocessing work is needed any more.</p>
 Hyperscan needs to locate the end position of the input expression via clearly
 knowing each literal’s length, not by simply identifying character <code class="docutils literal notranslate"><span class="pre">\0</span></code> of a
 string.</p>
-<p>Supported flags: <a class="reference internal" href="api_files.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_CASELESS</span></code></a>, <a class="reference internal" href="api_files.html#c.HS_FLAG_MULTILINE" title="HS_FLAG_MULTILINE"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_MULTILINE</span></code></a>,
-<a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a>, <a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a>.</p>
+<p>Supported flags: <a class="reference internal" href="api_files.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_CASELESS</span></code></a>, <a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a>,
+<a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>We don’t support literal compilation API with <a class="reference internal" href="#extparam"><span class="std std-ref">Extended Parameters</span></a>. And

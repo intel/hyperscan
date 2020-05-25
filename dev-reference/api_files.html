@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta charset="utf-8" />
-    <title>API Reference: Files &#8212; Hyperscan 5.2.1 documentation</title>
+    <title>API Reference: Files &#8212; Hyperscan 5.3.0 documentation</title>
     <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
@@ -41,6 +41,24 @@
 <p>The complete Hyperscan API definition. </p>
 <p>Hyperscan is a high speed regular expression engine.</p>
 <p>This header includes both the Hyperscan compiler and runtime components. See the individual component headers for documentation. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric">Defines</p>
+<dl class="define">
+<dt id="c.HS_MAJOR">
+<span class="target" id="hs_8h_1a58442be0e18cfb0594fd11e054b7b893"></span><code class="sig-name descname">HS_MAJOR</code><a class="headerlink" href="#c.HS_MAJOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="define">
+<dt id="c.HS_MINOR">
+<span class="target" id="hs_8h_1a71156368b5340469a20c23635d617d64"></span><code class="sig-name descname">HS_MINOR</code><a class="headerlink" href="#c.HS_MINOR" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="define">
+<dt id="c.HS_PATCH">
+<span class="target" id="hs_8h_1ab41a84244d74e912e32aa810c084f240"></span><code class="sig-name descname">HS_PATCH</code><a class="headerlink" href="#c.HS_PATCH" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
 </div>
 <div class="section" id="file-hs-common-h">
 <h2>File: hs_common.h<a class="headerlink" href="#file-hs-common-h" title="Permalink to this headline">¶</a></h2>
@@ -577,7 +595,7 @@
 <span class="target" id="group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"></span><code class="sig-name descname">HS_FLAG_SOM_LEFTMOST</code><a class="headerlink" href="#c.HS_FLAG_SOM_LEFTMOST" title="Permalink to this definition">¶</a></dt>
 <dd><p>Compile flag: Enable leftmost start of match reporting.</p>
 <p>This flag instructs Hyperscan to report the leftmost possible start of match offset when a match is reported for this expression. (By default, no start of match is returned.)</p>
-<p>Enabling this behaviour may reduce performance and increase stream state requirements in streaming mode. </p>
+<p>For all the 3 modes, enabling this behaviour may reduce performance. And particularly, it may increase stream state requirements in streaming mode. </p>
 </dd></dl>
 
 <dl class="define">
@@ -904,7 +922,6 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">expression</span></code>: The NULL-terminated expression to parse. Note that this string must represent ONLY the pattern to be matched, with no delimiters or flags; any global flags should be specified with the <code class="docutils literal notranslate"><span class="pre">flags</span></code> argument. For example, the expression <code class="docutils literal notranslate"><span class="pre">/abc?def/i</span></code> should be compiled by providing <code class="docutils literal notranslate"><span class="pre">abc?def</span></code> as the <code class="docutils literal notranslate"><span class="pre">expression</span></code>, and <a class="reference internal" href="#group__HS__PATTERN__FLAG_1gac933fc9be6a6d3ea8eeb5532dd974236"><span class="std std-ref">HS_FLAG_CASELESS</span></a> as the <em>flags</em>. Meanwhile, the string content shall be fully parsed in a literal sense without any regular grammars. For example, the <code class="docutils literal notranslate"><span class="pre">expression</span></code> <code class="docutils literal notranslate"><span class="pre">abc?</span></code> simply means a char sequence of <code class="docutils literal notranslate"><span class="pre">a</span></code>, <code class="docutils literal notranslate"><span class="pre">b</span></code>, <code class="docutils literal notranslate"><span class="pre">c</span></code>, and <code class="docutils literal notranslate"><span class="pre">?</span></code>. The <code class="docutils literal notranslate"><span class="pre">?</span></code> here doesn’t mean 0 or 1 quantifier under regular semantics.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">flags</span></code>: Flags which modify the behaviour of the expression. Multiple flags may be used by ORing them together. Compared to <a class="reference internal" href="#hs__compile_8h_1aeb302c749c316b296e3c3cdaa8508e73"><span class="std std-ref">hs_compile()</span></a>, fewer valid values are provided:<ul>
 <li><p>HS_FLAG_CASELESS - Matching will be performed case-insensitively.</p></li>
-<li><p>HS_FLAG_MULTILINE - <code class="docutils literal notranslate"><span class="pre">^</span></code> and <code class="docutils literal notranslate"><span class="pre">$</span></code> anchors match any newlines in data.</p></li>
 <li><p>HS_FLAG_SINGLEMATCH - Only one match will be generated for the expression per stream.</p></li>
 <li><p>HS_FLAG_SOM_LEFTMOST - Report the leftmost start of match offset when a match is found.</p></li>
 </ul>
@@ -932,7 +949,6 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">expressions</span></code>: The NULL-terminated expression to parse. Note that this string must represent ONLY the pattern to be matched, with no delimiters or flags; any global flags should be specified with the <code class="docutils literal notranslate"><span class="pre">flags</span></code> argument. For example, the expression <code class="docutils literal notranslate"><span class="pre">/abc?def/i</span></code> should be compiled by providing <code class="docutils literal notranslate"><span class="pre">abc?def</span></code> as the <code class="docutils literal notranslate"><span class="pre">expression</span></code>, and <a class="reference internal" href="#group__HS__PATTERN__FLAG_1gac933fc9be6a6d3ea8eeb5532dd974236"><span class="std std-ref">HS_FLAG_CASELESS</span></a> as the <em>flags</em>. Meanwhile, the string content shall be fully parsed in a literal sense without any regular grammars. For example, the <code class="docutils literal notranslate"><span class="pre">expression</span></code> <code class="docutils literal notranslate"><span class="pre">abc?</span></code> simply means a char sequence of <code class="docutils literal notranslate"><span class="pre">a</span></code>, <code class="docutils literal notranslate"><span class="pre">b</span></code>, <code class="docutils literal notranslate"><span class="pre">c</span></code>, and <code class="docutils literal notranslate"><span class="pre">?</span></code>. The <code class="docutils literal notranslate"><span class="pre">?</span></code> here doesn’t mean 0 or 1 quantifier under regular semantics.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">flags</span></code>: Array of flags which modify the behaviour of each expression. Multiple flags may be used by ORing them together. Specifying the NULL pointer in place of an array will set the flags value for all patterns to zero. Compared to <a class="reference internal" href="#hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"><span class="std std-ref">hs_compile_multi()</span></a>, fewer valid values are provided:<ul>
 <li><p>HS_FLAG_CASELESS - Matching will be performed case-insensitively.</p></li>
-<li><p>HS_FLAG_MULTILINE - <code class="docutils literal notranslate"><span class="pre">^</span></code> and <code class="docutils literal notranslate"><span class="pre">$</span></code> anchors match any newlines in data.</p></li>
 <li><p>HS_FLAG_SINGLEMATCH - Only one match will be generated for the expression per stream.</p></li>
 <li><p>HS_FLAG_SOM_LEFTMOST - Report the leftmost start of match offset when a match is found.</p></li>
 </ul>
