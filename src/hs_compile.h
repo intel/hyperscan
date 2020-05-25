@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -563,7 +563,6 @@ hs_error_t HS_CDECL hs_compile_ext_multi(const char *const *expressions,
  *      be used by ORing them together. Compared to @ref hs_compile(), fewer
  *      valid values are provided:
  *       - HS_FLAG_CASELESS - Matching will be performed case-insensitively.
- *       - HS_FLAG_MULTILINE - `^` and `$` anchors match any newlines in data.
  *       - HS_FLAG_SINGLEMATCH - Only one match will be generated for the
  *                               expression per stream.
  *       - HS_FLAG_SOM_LEFTMOST - Report the leftmost start of match offset
@@ -637,7 +636,6 @@ hs_error_t HS_CDECL hs_compile_lit(const char *expression, unsigned flags,
  *      in place of an array will set the flags value for all patterns to zero.
  *      Compared to @ref hs_compile_multi(), fewer valid values are provided:
  *       - HS_FLAG_CASELESS - Matching will be performed case-insensitively.
- *       - HS_FLAG_MULTILINE - `^` and `$` anchors match any newlines in data.
  *       - HS_FLAG_SINGLEMATCH - Only one match will be generated for the
  *                               expression per stream.
  *       - HS_FLAG_SOM_LEFTMOST - Report the leftmost start of match offset
@@ -985,8 +983,8 @@ hs_error_t HS_CDECL hs_populate_platform(hs_platform_info_t *platform);
  * offset when a match is reported for this expression. (By default, no start
  * of match is returned.)
  *
- * Enabling this behaviour may reduce performance and increase stream state
- * requirements in streaming mode.
+ * For all the 3 modes, enabling this behaviour may reduce performance. And
+ * particularly, it may increase stream state requirements in streaming mode.
  */
 #define HS_FLAG_SOM_LEFTMOST    256
 

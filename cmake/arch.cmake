@@ -58,6 +58,18 @@ int main(){
     (void)_mm512_abs_epi8(z);
 }" HAVE_AVX512)
 
+# and now for AVX512VBMI
+CHECK_C_SOURCE_COMPILES("#include <${INTRIN_INC_H}>
+#if !defined(__AVX512VBMI__)
+#error no avx512vbmi
+#endif
+
+int main(){
+    __m512i a = _mm512_set1_epi8(0xFF);
+    __m512i idx = _mm512_set_epi64(3ULL, 2ULL, 1ULL, 0ULL, 7ULL, 6ULL, 5ULL, 4ULL);
+    (void)_mm512_permutexvar_epi8(idx, a);
+}" HAVE_AVX512VBMI)
+
 if (FAT_RUNTIME)
     if (NOT HAVE_SSSE3)
         message(FATAL_ERROR "SSSE3 support required to build fat runtime")

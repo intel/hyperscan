@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -134,7 +134,7 @@ const m256 *getMaskBase_fat(const struct Teddy *teddy) {
     return (const m256 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)));
 }
 
-#if defined(HAVE_AVX512)
+#if defined(HAVE_AVX512_REVERT) // revert to AVX2 Fat Teddy
 
 static really_inline
 const u64a *getReinforcedMaskBase_fat(const struct Teddy *teddy, u8 numMask) {

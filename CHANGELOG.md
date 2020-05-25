@@ -2,6 +2,29 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [5.3.0] 2020-05-15
+- Improvement on literal matcher "Teddy" performance, including support for
+  Intel(R) AVX-512 Vector Byte Manipulation Instructions (Intel(R) AVX-512
+  VBMI).
+- Improvement on single-byte/two-byte matching performance, including support
+  for Intel(R) Advanced Vector Extensions 512 (Intel(R) AVX-512).
+- hsbench: add hyphen support for -T option.
+- tools/fuzz: add test scripts for synthetic pattern generation.
+- Bugfix for acceleration path analysis in LimEx NFA.
+- Bugfix for duplicate matches for Small-write engine.
+- Bugfix for UTF8 checking problem for hscollider.
+- Bugfix for issue #205: avoid crash of `hs_compile_lit_multi()` with clang and
+  ASAN.
+- Bugfix for issue #211: fix error in `db_check_platform()` function.
+- Bugfix for issue #217: fix cmake parsing issue of CPU arch for non-English
+  locale.
+- Bugfix for issue #228: avoid undefined behavior when calling `close()` after
+  `fdopendir()` in `loadExpressions()`.
+- Bugfix for issue #239: fix hyperscan compile issue under gcc-10.
+- Add VLAN packets processing capability in pcap analysis script. (#214)
+- Avoid extra convert instruction for "Noodle". (#221)
+- Add Hyperscan version marcro in `hs.h`. (#222)
+
 ## [5.2.1] 2019-10-13
 - Bugfix for issue #186: fix compile issue when `BUILD_SHARED_LIBS` is on in
   release mode.

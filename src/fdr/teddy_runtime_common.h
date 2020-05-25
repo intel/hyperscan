@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -383,12 +383,16 @@ m512 vectoredLoad512(m512 *p_mask, const u8 *ptr, const size_t start_offset,
 
 static really_inline
 u64a getConfVal(const struct FDR_Runtime_Args *a, const u8 *ptr, u32 byte,
-                CautionReason reason) {
+                UNUSED CautionReason reason) {
     u64a confVal = 0;
     const u8 *buf = a->buf;
     size_t len = a->len;
     const u8 *confirm_loc = ptr + byte - 7;
+#if defined(HAVE_AVX512VBMI)
+    if (likely(confirm_loc >= buf)) {
+#else
     if (likely(reason == NOT_CAUTIOUS || confirm_loc >= buf)) {
+#endif
         confVal = lv_u64a(confirm_loc, buf, buf + len);
     } else { // r == VECTORING, confirm_loc < buf
         u64a histBytes = a->histBytes;

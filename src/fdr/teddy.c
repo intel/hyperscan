@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -74,6 +74,30 @@ const u8 ALIGN_DIRECTIVE p_mask_arr[17][32] = {
      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 };
 
+#if defined(HAVE_AVX512VBMI) // VBMI strong teddy
+
+#define CONF_CHUNK_64(chunk, bucket, off, reason, pt, conf_fn)              \
+do {                                                                        \
+    if (unlikely(chunk != ones_u64a)) {                                     \
+        chunk = ~chunk;                                                     \
+        conf_fn(&chunk, bucket, off, confBase, reason, a, pt,               \
+                &control, &last_match);                                     \
+        CHECK_HWLM_TERMINATE_MATCHING;                                      \
+    }                                                                       \
+} while(0)
+
+#define CONF_CHUNK_32(chunk, bucket, off, reason, pt, conf_fn)              \
+do {                                                                        \
+    if (unlikely(chunk != ones_u32)) {                                      \
+        chunk = ~chunk;                                                     \
+        conf_fn(&chunk, bucket, off, confBase, reason, a, pt,               \
+                &control, &last_match);                                     \
+        CHECK_HWLM_TERMINATE_MATCHING;                                      \
+    }                                                                       \
+} while(0)
+
+#else
+
 #define CONF_CHUNK_64(chunk, bucket, off, reason, conf_fn)                  \
 do {                                                                        \
     if (unlikely(chunk != ones_u64a)) {                                     \
@@ -94,7 +118,284 @@ do {                                                                        \
     }                                                                       \
 } while(0)
 
-#if defined(HAVE_AVX512) // AVX512 reinforced teddy
+#endif
+
+#if defined(HAVE_AVX512VBMI) // VBMI strong teddy
+
+#ifdef ARCH_64_BIT
+#define CONFIRM_TEDDY(var, bucket, offset, reason, pt, conf_fn)             \
+do {                                                                        \
+    if (unlikely(diff512(var, ones512()))) {                                \
+        m128 p128_0 = extract128from512(var, 0);                            \
+        m128 p128_1 = extract128from512(var, 1);                            \
+        m128 p128_2 = extract128from512(var, 2);                            \
+        m128 p128_3 = extract128from512(var, 3);                            \
+        u64a part1 = movq(p128_0);                                          \
+        u64a part2 = movq(rshiftbyte_m128(p128_0, 8));                      \
+        u64a part3 = movq(p128_1);                                          \
+        u64a part4 = movq(rshiftbyte_m128(p128_1, 8));                      \
+        u64a part5 = movq(p128_2);                                          \
+        u64a part6 = movq(rshiftbyte_m128(p128_2, 8));                      \
+        u64a part7 = movq(p128_3);                                          \
+        u64a part8 = movq(rshiftbyte_m128(p128_3, 8));                      \
+        CONF_CHUNK_64(part1, bucket, offset, reason, pt, conf_fn);          \
+        CONF_CHUNK_64(part2, bucket, offset + 8, reason, pt, conf_fn);      \
+        CONF_CHUNK_64(part3, bucket, offset + 16, reason, pt, conf_fn);     \
+        CONF_CHUNK_64(part4, bucket, offset + 24, reason, pt, conf_fn);     \
+        CONF_CHUNK_64(part5, bucket, offset + 32, reason, pt, conf_fn);     \
+        CONF_CHUNK_64(part6, bucket, offset + 40, reason, pt, conf_fn);     \
+        CONF_CHUNK_64(part7, bucket, offset + 48, reason, pt, conf_fn);     \
+        CONF_CHUNK_64(part8, bucket, offset + 56, reason, pt, conf_fn);     \
+    }                                                                       \
+} while(0)
+#else
+#define CONFIRM_TEDDY(var, bucket, offset, reason, pt, conf_fn)             \
+do {                                                                        \
+    if (unlikely(diff512(var, ones512()))) {                                \
+        m128 p128_0 = extract128from512(var, 0);                            \
+        m128 p128_1 = extract128from512(var, 1);                            \
+        m128 p128_2 = extract128from512(var, 2);                            \
+        m128 p128_3 = extract128from512(var, 3);                            \
+        u32 part1 = movd(p128_0);                                           \
+        u32 part2 = movd(rshiftbyte_m128(p128_0, 4));                       \
+        u32 part3 = movd(rshiftbyte_m128(p128_0, 8));                       \
+        u32 part4 = movd(rshiftbyte_m128(p128_0, 12));                      \
+        u32 part5 = movd(p128_1);                                           \
+        u32 part6 = movd(rshiftbyte_m128(p128_1, 4));                       \
+        u32 part7 = movd(rshiftbyte_m128(p128_1, 8));                       \
+        u32 part8 = movd(rshiftbyte_m128(p128_1, 12));                      \
+        u32 part9 = movd(p128_2);                                           \
+        u32 part10 = movd(rshiftbyte_m128(p128_2, 4));                      \
+        u32 part11 = movd(rshiftbyte_m128(p128_2, 8));                      \
+        u32 part12 = movd(rshiftbyte_m128(p128_2, 12));                     \
+        u32 part13 = movd(p128_3);                                          \
+        u32 part14 = movd(rshiftbyte_m128(p128_3, 4));                      \
+        u32 part15 = movd(rshiftbyte_m128(p128_3, 8));                      \
+        u32 part16 = movd(rshiftbyte_m128(p128_3, 12));                     \
+        CONF_CHUNK_32(part1, bucket, offset, reason, pt, conf_fn);          \
+        CONF_CHUNK_32(part2, bucket, offset + 4, reason, pt, conf_fn);      \
+        CONF_CHUNK_32(part3, bucket, offset + 8, reason, pt, conf_fn);      \
+        CONF_CHUNK_32(part4, bucket, offset + 12, reason, pt, conf_fn);     \
+        CONF_CHUNK_32(part5, bucket, offset + 16, reason, pt, conf_fn);     \
+        CONF_CHUNK_32(part6, bucket, offset + 20, reason, pt, conf_fn);     \
+        CONF_CHUNK_32(part7, bucket, offset + 24, reason, pt, conf_fn);     \
+        CONF_CHUNK_32(part8, bucket, offset + 28, reason, pt, conf_fn);     \
+        CONF_CHUNK_32(part9, bucket, offset + 32, reason, pt, conf_fn);     \
+        CONF_CHUNK_32(part10, bucket, offset + 36, reason, pt, conf_fn);    \
+        CONF_CHUNK_32(part11, bucket, offset + 40, reason, pt, conf_fn);    \
+        CONF_CHUNK_32(part12, bucket, offset + 44, reason, pt, conf_fn);    \
+        CONF_CHUNK_32(part13, bucket, offset + 48, reason, pt, conf_fn);    \
+        CONF_CHUNK_32(part14, bucket, offset + 52, reason, pt, conf_fn);    \
+        CONF_CHUNK_32(part15, bucket, offset + 56, reason, pt, conf_fn);    \
+        CONF_CHUNK_32(part16, bucket, offset + 60, reason, pt, conf_fn);    \
+    }                                                                       \
+} while(0)
+#endif
+
+#define PREP_SHUF_MASK                                                      \
+    m512 lo = and512(val, *lo_mask);                                        \
+    m512 hi = and512(rshift64_m512(val, 4), *lo_mask)
+
+#define TEDDY_VBMI_PSHUFB_OR_M1                              \
+    m512 shuf_or_b0 = or512(pshufb_m512(dup_mask[0], lo),    \
+                            pshufb_m512(dup_mask[1], hi));
+
+#define TEDDY_VBMI_PSHUFB_OR_M2                              \
+    TEDDY_VBMI_PSHUFB_OR_M1                                  \
+    m512 shuf_or_b1 = or512(pshufb_m512(dup_mask[2], lo),    \
+                            pshufb_m512(dup_mask[3], hi));
+
+#define TEDDY_VBMI_PSHUFB_OR_M3                              \
+    TEDDY_VBMI_PSHUFB_OR_M2                                  \
+    m512 shuf_or_b2 = or512(pshufb_m512(dup_mask[4], lo),    \
+                            pshufb_m512(dup_mask[5], hi));
+
+#define TEDDY_VBMI_PSHUFB_OR_M4                              \
+    TEDDY_VBMI_PSHUFB_OR_M3                                  \
+    m512 shuf_or_b3 = or512(pshufb_m512(dup_mask[6], lo),    \
+                            pshufb_m512(dup_mask[7], hi));
+
+#define TEDDY_VBMI_SL1_MASK   0xfffffffffffffffeULL
+#define TEDDY_VBMI_SL2_MASK   0xfffffffffffffffcULL
+#define TEDDY_VBMI_SL3_MASK   0xfffffffffffffff8ULL
+
+#define TEDDY_VBMI_SHIFT_M1
+
+#define TEDDY_VBMI_SHIFT_M2                      \
+    TEDDY_VBMI_SHIFT_M1                          \
+    m512 sl1 = maskz_vpermb512(TEDDY_VBMI_SL1_MASK, sl_msk[0], shuf_or_b1);
+
+#define TEDDY_VBMI_SHIFT_M3                      \
+    TEDDY_VBMI_SHIFT_M2                          \
+    m512 sl2 = maskz_vpermb512(TEDDY_VBMI_SL2_MASK, sl_msk[1], shuf_or_b2);
+
+#define TEDDY_VBMI_SHIFT_M4                      \
+    TEDDY_VBMI_SHIFT_M3                          \
+    m512 sl3 = maskz_vpermb512(TEDDY_VBMI_SL3_MASK, sl_msk[2], shuf_or_b3);
+
+#define SHIFT_OR_M1            \
+    shuf_or_b0
+
+#define SHIFT_OR_M2            \
+    or512(sl1, SHIFT_OR_M1)
+
+#define SHIFT_OR_M3            \
+    or512(sl2, SHIFT_OR_M2)
+
+#define SHIFT_OR_M4            \
+    or512(sl3, SHIFT_OR_M3)
+
+static really_inline
+m512 prep_conf_teddy_m1(const m512 *lo_mask, const m512 *dup_mask,
+                        UNUSED const m512 *sl_msk, const m512 val) {
+    PREP_SHUF_MASK;
+    TEDDY_VBMI_PSHUFB_OR_M1;
+    TEDDY_VBMI_SHIFT_M1;
+    return SHIFT_OR_M1;
+}
+
+static really_inline
+m512 prep_conf_teddy_m2(const m512 *lo_mask, const m512 *dup_mask,
+                        const m512 *sl_msk, const m512 val) {
+    PREP_SHUF_MASK;
+    TEDDY_VBMI_PSHUFB_OR_M2;
+    TEDDY_VBMI_SHIFT_M2;
+    return SHIFT_OR_M2;
+}
+
+static really_inline
+m512 prep_conf_teddy_m3(const m512 *lo_mask, const m512 *dup_mask,
+                        const m512 *sl_msk, const m512 val) {
+    PREP_SHUF_MASK;
+    TEDDY_VBMI_PSHUFB_OR_M3;
+    TEDDY_VBMI_SHIFT_M3;
+    return SHIFT_OR_M3;
+}
+
+static really_inline
+m512 prep_conf_teddy_m4(const m512 *lo_mask, const m512 *dup_mask,
+                        const m512 *sl_msk, const m512 val) {
+    PREP_SHUF_MASK;
+    TEDDY_VBMI_PSHUFB_OR_M4;
+    TEDDY_VBMI_SHIFT_M4;
+    return SHIFT_OR_M4;
+}
+
+#define PREP_CONF_FN(val, n)                                                  \
+    prep_conf_teddy_m##n(&lo_mask, dup_mask, sl_msk, val)
+
+const u8 ALIGN_DIRECTIVE p_sh_mask_arr[80] = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+    0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+    0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+    0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f
+};
+
+#define TEDDY_VBMI_SL1_POS    15
+#define TEDDY_VBMI_SL2_POS    14
+#define TEDDY_VBMI_SL3_POS    13
+
+#define TEDDY_VBMI_LOAD_SHIFT_MASK_M1
+
+#define TEDDY_VBMI_LOAD_SHIFT_MASK_M2    \
+    TEDDY_VBMI_LOAD_SHIFT_MASK_M1        \
+    sl_msk[0] = loadu512(p_sh_mask_arr + TEDDY_VBMI_SL1_POS);
+
+#define TEDDY_VBMI_LOAD_SHIFT_MASK_M3    \
+    TEDDY_VBMI_LOAD_SHIFT_MASK_M2        \
+    sl_msk[1] = loadu512(p_sh_mask_arr + TEDDY_VBMI_SL2_POS);
+
+#define TEDDY_VBMI_LOAD_SHIFT_MASK_M4    \
+    TEDDY_VBMI_LOAD_SHIFT_MASK_M3        \
+    sl_msk[2] = loadu512(p_sh_mask_arr + TEDDY_VBMI_SL3_POS);
+
+#define PREPARE_MASKS_1                                                       \
+    dup_mask[0] = set4x128(maskBase[0]);                                      \
+    dup_mask[1] = set4x128(maskBase[1]);
+
+#define PREPARE_MASKS_2                                                       \
+    PREPARE_MASKS_1                                                           \
+    dup_mask[2] = set4x128(maskBase[2]);                                      \
+    dup_mask[3] = set4x128(maskBase[3]);
+
+#define PREPARE_MASKS_3                                                       \
+    PREPARE_MASKS_2                                                           \
+    dup_mask[4] = set4x128(maskBase[4]);                                      \
+    dup_mask[5] = set4x128(maskBase[5]);
+
+#define PREPARE_MASKS_4                                                       \
+    PREPARE_MASKS_3                                                           \
+    dup_mask[6] = set4x128(maskBase[6]);                                      \
+    dup_mask[7] = set4x128(maskBase[7]);
+
+#define PREPARE_MASKS(n)                                                      \
+    m512 lo_mask = set64x8(0xf);                                              \
+    m512 dup_mask[n * 2];                                                     \
+    m512 sl_msk[n - 1];                                                       \
+    PREPARE_MASKS_##n                                                         \
+    TEDDY_VBMI_LOAD_SHIFT_MASK_M##n
+
+#define TEDDY_VBMI_CONF_MASK_HEAD   (0xffffffffffffffffULL >> n_sh)
+#define TEDDY_VBMI_CONF_MASK_FULL   (0xffffffffffffffffULL << n_sh)
+#define TEDDY_VBMI_CONF_MASK_VAR(n) (0xffffffffffffffffULL >> (64 - n) << overlap)
+#define TEDDY_VBMI_LOAD_MASK_PATCH  (0xffffffffffffffffULL >> (64 - n_sh))
+
+#define FDR_EXEC_TEDDY(fdr, a, control, n_msk, conf_fn)                       \
+do {                                                                          \
+    const u8 *buf_end = a->buf + a->len;                                      \
+    const u8 *ptr = a->buf + a->start_offset;                                 \
+    u32 floodBackoff = FLOOD_BACKOFF_START;                                   \
+    const u8 *tryFloodDetect = a->firstFloodDetect;                           \
+    u32 last_match = ones_u32;                                                \
+    const struct Teddy *teddy = (const struct Teddy *)fdr;                    \
+    const size_t iterBytes = 64;                                              \
+    u32 n_sh = n_msk - 1;                                                     \
+    const size_t loopBytes = 64 - n_sh;                                       \
+    DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",                 \
+                 a->buf, a->len, a->start_offset);                            \
+                                                                              \
+    const m128 *maskBase = getMaskBase(teddy);                                \
+    PREPARE_MASKS(n_msk);                                                     \
+    const u32 *confBase = getConfBase(teddy);                                 \
+                                                                              \
+    u64a k = TEDDY_VBMI_CONF_MASK_FULL;                                       \
+    m512 p_mask = set_mask_m512(~k);                                          \
+    u32 overlap = 0;                                                          \
+    u64a patch = 0;                                                           \
+    if (likely(ptr + loopBytes <= buf_end)) {                                 \
+        m512 p_mask0 = set_mask_m512(~TEDDY_VBMI_CONF_MASK_HEAD);             \
+        m512 r_0 = PREP_CONF_FN(loadu512(ptr), n_msk);                        \
+        r_0 = or512(r_0, p_mask0);                                            \
+        CONFIRM_TEDDY(r_0, 8, 0, VECTORING, ptr, conf_fn);                    \
+        ptr += loopBytes;                                                     \
+        overlap = n_sh;                                                       \
+        patch = TEDDY_VBMI_LOAD_MASK_PATCH;                                   \
+    }                                                                         \
+                                                                              \
+    for (; ptr + loopBytes <= buf_end; ptr += loopBytes) {                    \
+        __builtin_prefetch(ptr - n_sh + (64 * 2));                            \
+        CHECK_FLOOD;                                                          \
+        m512 r_0 = PREP_CONF_FN(loadu512(ptr - n_sh), n_msk);                 \
+        r_0 = or512(r_0, p_mask);                                             \
+        CONFIRM_TEDDY(r_0, 8, 0, NOT_CAUTIOUS, ptr - n_sh, conf_fn);          \
+    }                                                                         \
+                                                                              \
+    assert(ptr + loopBytes > buf_end);                                        \
+    if (ptr < buf_end) {                                                      \
+        u32 left = (u32)(buf_end - ptr);                                      \
+        u64a k1 = TEDDY_VBMI_CONF_MASK_VAR(left);                             \
+        m512 p_mask1 = set_mask_m512(~k1);                                    \
+        m512 val_0 = loadu_maskz_m512(k1 | patch, ptr - overlap);             \
+        m512 r_0 = PREP_CONF_FN(val_0, n_msk);                                \
+        r_0 = or512(r_0, p_mask1);                                            \
+        CONFIRM_TEDDY(r_0, 8, 0, VECTORING, ptr - overlap, conf_fn);          \
+    }                                                                         \
+                                                                              \
+    return HWLM_SUCCESS;                                                      \
+} while(0)
+
+#elif defined(HAVE_AVX512) // AVX512 reinforced teddy
 
 #ifdef ARCH_64_BIT
 #define CONFIRM_TEDDY(var, bucket, offset, reason, conf_fn)                 \

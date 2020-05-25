@@ -29,6 +29,7 @@
 #include "rose_build_impl.h"
 #include "nfa/castlecompile.h"
 #include "nfagraph/ng_repeat.h"
+#include "smallwrite/smallwrite_build.h"
 #include "util/compile_context.h"
 #include "util/boundary_reports.h"
 #include "util/make_unique.h"
@@ -157,6 +158,10 @@ RoseDedupeAuxImpl::RoseDedupeAuxImpl(const RoseBuildImpl &build_in)
             puff_map[puff.report].insert(&puff);
             live_reports.insert(puff.report);
         }
+    }
+
+    for (const auto &report_id : build.smwr.all_reports()) {
+        live_reports.insert(report_id);
     }
 
     // Collect live reports from boundary reports.

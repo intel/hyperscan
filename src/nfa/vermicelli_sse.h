@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -31,6 +31,8 @@
  *
  * (users should include vermicelli.h)
  */
+
+#if !defined(HAVE_AVX512)
 
 #define VERM_BOUNDARY 16
 #define VERM_TYPE m128
@@ -391,3 +393,497 @@ const u8 *rdvermPreconditionNocase(m128 chars1, m128 chars2, const u8 *buf) {
 
     return NULL;
 }
+
+#else // HAVE_AVX512
+
+#define VERM_BOUNDARY 64
+#define VERM_TYPE m512
+#define VERM_SET_FN set64x8
+
+static really_inline
+const u8 *vermMini(m512 chars, const u8 *buf, const u8 *buf_end, char negate) {
+    uintptr_t len = buf_end - buf;
+    __mmask64 mask = (~0ULL) >> (64 - len);
+    m512 data = loadu_maskz_m512(mask, buf);
+
+    u64a z = eq512mask(chars, data);
+
+    if (negate) {
+        z = ~z & mask;
+    }
+    z &= mask;
+    if (unlikely(z)) {
+        return buf + ctz64(z);
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *vermMiniNocase(m512 chars, const u8 *buf, const u8 *buf_end,
+                         char negate) {
+    uintptr_t len = buf_end - buf;
+    __mmask64 mask = (~0ULL) >> (64 - len);
+    m512 data = loadu_maskz_m512(mask, buf);
+    m512 casemask = set64x8(CASE_CLEAR);
+    m512 v = and512(casemask, data);
+
+    u64a z = eq512mask(chars, v);
+
+    if (negate) {
+        z = ~z & mask;
+    }
+    z &= mask;
+    if (unlikely(z)) {
+        return buf + ctz64(z);
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *vermSearchAligned(m512 chars, const u8 *buf, const u8 *buf_end,
+                            char negate) {
+    assert((size_t)buf % 64 == 0);
+    for (; buf + 63 < buf_end; buf += 64) {
+        m512 data = load512(buf);
+        u64a z = eq512mask(chars, data);
+        if (negate) {
+            z = ~z & ~0ULL;
+        }
+        if (unlikely(z)) {
+            u64a pos = ctz64(z);
+            return buf + pos;
+        }
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *vermSearchAlignedNocase(m512 chars, const u8 *buf,
+                                  const u8 *buf_end, char negate) {
+    assert((size_t)buf % 64 == 0);
+    m512 casemask = set64x8(CASE_CLEAR);
+
+    for (; buf + 63 < buf_end; buf += 64) {
+        m512 data = load512(buf);
+        u64a z = eq512mask(chars, and512(casemask, data));
+        if (negate) {
+            z = ~z & ~0ULL;
+        }
+        if (unlikely(z)) {
+            u64a pos = ctz64(z);
+            return buf + pos;
+        }
+    }
+    return NULL;
+}
+
+// returns NULL if not found
+static really_inline
+const u8 *vermUnalign(m512 chars, const u8 *buf, char negate) {
+    m512 data = loadu512(buf); // unaligned
+    u64a z = eq512mask(chars, data);
+    if (negate) {
+        z = ~z & ~0ULL;
+    }
+    if (unlikely(z)) {
+        return buf + ctz64(z);
+    }
+    return NULL;
+}
+
+// returns NULL if not found
+static really_inline
+const u8 *vermUnalignNocase(m512 chars, const u8 *buf, char negate) {
+    m512 casemask = set64x8(CASE_CLEAR);
+    m512 data = loadu512(buf); // unaligned
+    u64a z = eq512mask(chars, and512(casemask, data));
+    if (negate) {
+        z = ~z & ~0ULL;
+    }
+    if (unlikely(z)) {
+        return buf + ctz64(z);
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *dvermMini(m512 chars1, m512 chars2, const u8 *buf,
+                    const u8 *buf_end) {
+    uintptr_t len = buf_end - buf;
+    __mmask64 mask = (~0ULL) >> (64 - len);
+    m512 data = loadu_maskz_m512(mask, buf);
+
+    u64a z = eq512mask(chars1, data) & (eq512mask(chars2, data) >> 1);
+
+    z &= mask;
+    if (unlikely(z)) {
+        u64a pos = ctz64(z);
+        return buf + pos;
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *dvermMiniNocase(m512 chars1, m512 chars2, const u8 *buf,
+                          const u8 *buf_end) {
+    uintptr_t len = buf_end - buf;
+    __mmask64 mask = (~0ULL) >> (64 - len);
+    m512 data = loadu_maskz_m512(mask, buf);
+    m512 casemask = set64x8(CASE_CLEAR);
+    m512 v = and512(casemask, data);
+
+    u64a z = eq512mask(chars1, v) & (eq512mask(chars2, v) >> 1);
+
+    z &= mask;
+    if (unlikely(z)) {
+        u64a pos = ctz64(z);
+        return buf + pos;
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *dvermMiniMasked(m512 chars1, m512 chars2, m512 mask1, m512 mask2,
+                          const u8 *buf, const u8 *buf_end) {
+    uintptr_t len = buf_end - buf;
+    __mmask64 mask = (~0ULL) >> (64 - len);
+    m512 data = loadu_maskz_m512(mask, buf);
+    m512 v1 = and512(data, mask1);
+    m512 v2 = and512(data, mask2);
+
+    u64a z = eq512mask(chars1, v1) & (eq512mask(chars2, v2) >> 1);
+
+    z &= mask;
+    if (unlikely(z)) {
+        u64a pos = ctz64(z);
+        return buf + pos;
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *dvermSearchAligned(m512 chars1, m512 chars2, u8 c1, u8 c2,
+                             const u8 *buf, const u8 *buf_end) {
+    for (; buf + 64 < buf_end; buf += 64) {
+        m512 data = load512(buf);
+        u64a z = eq512mask(chars1, data) & (eq512mask(chars2, data) >> 1);
+        if (buf[63] == c1 && buf[64] == c2) {
+            z |= (1ULL << 63);
+        }
+        if (unlikely(z)) {
+            u64a pos = ctz64(z);
+            return buf + pos;
+        }
+    }
+
+    return NULL;
+}
+
+static really_inline
+const u8 *dvermSearchAlignedNocase(m512 chars1, m512 chars2, u8 c1, u8 c2,
+                                   const u8 *buf, const u8 *buf_end) {
+    assert((size_t)buf % 64 == 0);
+    m512 casemask = set64x8(CASE_CLEAR);
+
+    for (; buf + 64 < buf_end; buf += 64) {
+        m512 data = load512(buf);
+        m512 v = and512(casemask, data);
+        u64a z = eq512mask(chars1, v) & (eq512mask(chars2, v) >> 1);
+        if ((buf[63] & CASE_CLEAR) == c1 && (buf[64] & CASE_CLEAR) == c2) {
+            z |= (1ULL << 63);
+        }
+        if (unlikely(z)) {
+            u64a pos = ctz64(z);
+            return buf + pos;
+        }
+    }
+
+    return NULL;
+}
+
+static really_inline
+const u8 *dvermSearchAlignedMasked(m512 chars1, m512 chars2,
+                                   m512 mask1, m512 mask2, u8 c1, u8 c2, u8 m1,
+                                   u8 m2, const u8 *buf, const u8 *buf_end) {
+    assert((size_t)buf % 64 == 0);
+
+    for (; buf + 64 < buf_end; buf += 64) {
+        m512 data = load512(buf);
+        m512 v1 = and512(data, mask1);
+        m512 v2 = and512(data, mask2);
+        u64a z = eq512mask(chars1, v1) & (eq512mask(chars2, v2) >> 1);
+
+        if ((buf[63] & m1) == c1 && (buf[64] & m2) == c2) {
+            z |= (1ULL << 63);
+        }
+        if (unlikely(z)) {
+            u64a pos = ctz64(z);
+            return buf + pos;
+        }
+    }
+
+    return NULL;
+}
+
+// returns NULL if not found
+static really_inline
+const u8 *dvermPrecondition(m512 chars1, m512 chars2, const u8 *buf) {
+    m512 data = loadu512(buf); // unaligned
+    u64a z = eq512mask(chars1, data) & (eq512mask(chars2, data) >> 1);
+
+    /* no fixup of the boundary required - the aligned run will pick it up */
+    if (unlikely(z)) {
+        u64a pos = ctz64(z);
+        return buf + pos;
+    }
+    return NULL;
+}
+
+// returns NULL if not found
+static really_inline
+const u8 *dvermPreconditionNocase(m512 chars1, m512 chars2, const u8 *buf) {
+    /* due to laziness, nonalphas and nocase having interesting behaviour */
+    m512 casemask = set64x8(CASE_CLEAR);
+    m512 data = loadu512(buf); // unaligned
+    m512 v = and512(casemask, data);
+    u64a z = eq512mask(chars1, v) & (eq512mask(chars2, v) >> 1);
+
+    /* no fixup of the boundary required - the aligned run will pick it up */
+    if (unlikely(z)) {
+        u64a pos = ctz64(z);
+        return buf + pos;
+    }
+    return NULL;
+}
+
+// returns NULL if not found
+static really_inline
+const u8 *dvermPreconditionMasked(m512 chars1, m512 chars2,
+                                  m512 mask1, m512 mask2, const u8 *buf) {
+    m512 data = loadu512(buf); // unaligned
+    m512 v1 = and512(data, mask1);
+    m512 v2 = and512(data, mask2);
+    u64a z = eq512mask(chars1, v1) & (eq512mask(chars2, v2) >> 1);
+
+    /* no fixup of the boundary required - the aligned run will pick it up */
+    if (unlikely(z)) {
+        u64a pos = ctz64(z);
+        return buf + pos;
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *lastMatchOffset(const u8 *buf_end, u64a z) {
+    assert(z);
+    return buf_end - 64 + 63 - clz64(z);
+}
+
+static really_inline
+const u8 *rvermMini(m512 chars, const u8 *buf, const u8 *buf_end, char negate) {
+    uintptr_t len = buf_end - buf;
+    __mmask64 mask = (~0ULL) >> (64 - len);
+    m512 data = loadu_maskz_m512(mask, buf);
+
+    u64a z = eq512mask(chars, data);
+
+    if (negate) {
+        z = ~z & mask;
+    }
+    z &= mask;
+    if (unlikely(z)) {
+        return lastMatchOffset(buf + 64, z);
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *rvermMiniNocase(m512 chars, const u8 *buf, const u8 *buf_end,
+                          char negate) {
+    uintptr_t len = buf_end - buf;
+    __mmask64 mask = (~0ULL) >> (64 - len);
+    m512 data = loadu_maskz_m512(mask, buf);
+    m512 casemask = set64x8(CASE_CLEAR);
+    m512 v = and512(casemask, data);
+
+    u64a z = eq512mask(chars, v);
+
+    if (negate) {
+        z = ~z & mask;
+    }
+    z &= mask;
+    if (unlikely(z)) {
+        return lastMatchOffset(buf + 64, z);
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *rvermSearchAligned(m512 chars, const u8 *buf, const u8 *buf_end,
+                             char negate) {
+    assert((size_t)buf_end % 64 == 0);
+    for (; buf + 63 < buf_end; buf_end -= 64) {
+        m512 data = load512(buf_end - 64);
+        u64a z = eq512mask(chars, data);
+        if (negate) {
+            z = ~z & ~0ULL;
+        }
+        if (unlikely(z)) {
+            return lastMatchOffset(buf_end, z);
+        }
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *rvermSearchAlignedNocase(m512 chars, const u8 *buf,
+                                   const u8 *buf_end, char negate) {
+    assert((size_t)buf_end % 64 == 0);
+    m512 casemask = set64x8(CASE_CLEAR);
+
+    for (; buf + 63 < buf_end; buf_end -= 64) {
+        m512 data = load512(buf_end - 64);
+        u64a z = eq512mask(chars, and512(casemask, data));
+        if (negate) {
+            z = ~z & ~0ULL;
+        }
+        if (unlikely(z)) {
+            return lastMatchOffset(buf_end, z);
+        }
+    }
+    return NULL;
+}
+
+// returns NULL if not found
+static really_inline
+const u8 *rvermUnalign(m512 chars, const u8 *buf, char negate) {
+    m512 data = loadu512(buf); // unaligned
+    u64a z = eq512mask(chars, data);
+    if (negate) {
+        z = ~z & ~0ULL;
+    }
+    if (unlikely(z)) {
+        return lastMatchOffset(buf + 64, z);
+    }
+    return NULL;
+}
+
+// returns NULL if not found
+static really_inline
+const u8 *rvermUnalignNocase(m512 chars, const u8 *buf, char negate) {
+    m512 casemask = set64x8(CASE_CLEAR);
+    m512 data = loadu512(buf); // unaligned
+    u64a z = eq512mask(chars, and512(casemask, data));
+    if (negate) {
+        z = ~z & ~0ULL;
+    }
+    if (unlikely(z)) {
+        return lastMatchOffset(buf + 64, z);
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *rdvermMini(m512 chars1, m512 chars2, const u8 *buf,
+                    const u8 *buf_end) {
+    uintptr_t len = buf_end - buf;
+    __mmask64 mask = (~0ULL) >> (64 - len);
+    m512 data = loadu_maskz_m512(mask, buf);
+
+    u64a z = eq512mask(chars2, data) & (eq512mask(chars1, data) << 1);
+
+    z &= mask;
+    if (unlikely(z)) {
+        return lastMatchOffset(buf + 64, z);
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *rdvermMiniNocase(m512 chars1, m512 chars2, const u8 *buf,
+                           const u8 *buf_end) {
+    uintptr_t len = buf_end - buf;
+    __mmask64 mask = (~0ULL) >> (64 - len);
+    m512 data = loadu_maskz_m512(mask, buf);
+    m512 casemask = set64x8(CASE_CLEAR);
+    m512 v = and512(casemask, data);
+
+    u64a z = eq512mask(chars2, v) & (eq512mask(chars1, v) << 1);
+
+    z &= mask;
+    if (unlikely(z)) {
+        return lastMatchOffset(buf + 64, z);
+    }
+    return NULL;
+}
+
+static really_inline
+const u8 *rdvermSearchAligned(m512 chars1, m512 chars2, u8 c1, u8 c2,
+                              const u8 *buf, const u8 *buf_end) {
+    assert((size_t)buf_end % 64 == 0);
+
+    for (; buf + 64 < buf_end; buf_end -= 64) {
+        m512 data = load512(buf_end - 64);
+        u64a z = eq512mask(chars2, data) & (eq512mask(chars1, data) << 1);
+        if (buf_end[-65] == c1 && buf_end[-64] == c2) {
+            z |= 1;
+        }
+        if (unlikely(z)) {
+            return lastMatchOffset(buf_end, z);
+        }
+    }
+    return buf_end;
+}
+
+static really_inline
+const u8 *rdvermSearchAlignedNocase(m512 chars1, m512 chars2, u8 c1, u8 c2,
+                                    const u8 *buf, const u8 *buf_end) {
+    assert((size_t)buf_end % 64 == 0);
+    m512 casemask = set64x8(CASE_CLEAR);
+
+    for (; buf + 64 < buf_end; buf_end -= 64) {
+        m512 data = load512(buf_end - 64);
+        m512 v = and512(casemask, data);
+        u64a z = eq512mask(chars2, v) & (eq512mask(chars1, v) << 1);
+        if ((buf_end[-65] & CASE_CLEAR) == c1
+            && (buf_end[-64] & CASE_CLEAR) == c2) {
+            z |= 1;
+        }
+        if (unlikely(z)) {
+            return lastMatchOffset(buf_end, z);
+        }
+    }
+    return buf_end;
+}
+
+// returns NULL if not found
+static really_inline
+const u8 *rdvermPrecondition(m512 chars1, m512 chars2, const u8 *buf) {
+    m512 data = loadu512(buf);
+    u64a z = eq512mask(chars2, data) & (eq512mask(chars1, data) << 1);
+
+    // no fixup of the boundary required - the aligned run will pick it up
+    if (unlikely(z)) {
+        return lastMatchOffset(buf + 64, z);
+    }
+
+    return NULL;
+}
+
+// returns NULL if not found
+static really_inline
+const u8 *rdvermPreconditionNocase(m512 chars1, m512 chars2, const u8 *buf) {
+    // due to laziness, nonalphas and nocase having interesting behaviour
+    m512 casemask = set64x8(CASE_CLEAR);
+    m512 data = loadu512(buf);
+    m512 v = and512(casemask, data);
+    u64a z = eq512mask(chars2, v) & (eq512mask(chars1, v) << 1);
+    // no fixup of the boundary required - the aligned run will pick it up
+    if (unlikely(z)) {
+        return lastMatchOffset(buf + 64, z);
+    }
+
+    return NULL;
+}
+
+#endif // HAVE_AVX512

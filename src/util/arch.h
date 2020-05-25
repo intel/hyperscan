@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Intel Corporation
+ * Copyright (c) 2017-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -55,6 +55,10 @@
 
 #if defined(__AVX512BW__)
 #define HAVE_AVX512
+#endif
+
+#if defined(__AVX512VBMI__)
+#define HAVE_AVX512VBMI
 #endif
 
 /*

@@ -216,8 +216,9 @@ def enchunk_pcap(pcapFN, sqliteFN):
     #
     # Read in the contents of the pcap file, adding stream segments as found
     #
-    pkt_cnt = 0;
-    ip_pkt_cnt = 0;
+    pkt_cnt = 0
+    ip_pkt_cnt = 0
+    ip_pkt_off = 0
     unsupported_ip_protocol_cnt = 0
     pcap_ref = pcap.pcap(pcapFN)
     done = False
@@ -231,16 +232,24 @@ def enchunk_pcap(pcapFN, sqliteFN):
         pkt_cnt += 1
 
         linkLayerType = struct.unpack('!H', packet[(pcap_ref.dloff - 2):pcap_ref.dloff])[0]
-        if linkLayerType != ETHERTYPE_IP:
-            #
-            # We're only interested in IP packets
-            #
+        #
+        # We're only interested in IP packets
+        #
+        if linkLayerType == ETHERTYPE_VLAN:
+            linkLayerType = struct.unpack('!H', packet[(pcap_ref.dloff + 2):(pcap_ref.dloff + 4)])[0]
+            if linkLayerType != ETHERTYPE_IP:
+                continue
+            else:
+                ip_pkt_off = pcap_ref.dloff + 4
+        elif linkLayerType == ETHERTYPE_IP:
+            ip_pkt_off = pcap_ref.dloff
+        else:
             continue
 
         ip_pkt_cnt += 1
 
-        ip_pkt_total_len = struct.unpack('!H', packet[pcap_ref.dloff + 2: pcap_ref.dloff + 4])[0]
-        ip_pkt = packet[pcap_ref.dloff:pcap_ref.dloff + ip_pkt_total_len]
+        ip_pkt_total_len = struct.unpack('!H', packet[ip_pkt_off + 2: ip_pkt_off + 4])[0]
+        ip_pkt = packet[ip_pkt_off:ip_pkt_off + ip_pkt_total_len]
         pkt_protocol = struct.unpack('B', ip_pkt[9])[0]
 
         if (pkt_protocol != IPPROTO_UDP) and (pkt_protocol != IPPROTO_TCP):
