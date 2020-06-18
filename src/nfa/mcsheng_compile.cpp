@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -842,17 +842,20 @@ bytecode_ptr<NFA> mcshengCompile16(dfa_info &info, dstate_id_t sheng_end,
 
     assert(info.getAlphaShift() <= 8);
 
-    u16 total_daddy = 0;
-    for (u32 i = 0; i < info.size(); i++) {
-        find_better_daddy(info, i,
-                          is_cyclic_near(info.raw, info.raw.start_anchored),
-                          grey);
-        total_daddy += info.extra[i].daddytaken;
-    }
+    // Sherman optimization
+    if (info.impl_alpha_size > 16) {
+        u16 total_daddy = 0;
+        for (u32 i = 0; i < info.size(); i++) {
+            find_better_daddy(info, i,
+                              is_cyclic_near(info.raw, info.raw.start_anchored),
+                              grey);
+            total_daddy += info.extra[i].daddytaken;
+        }
 
-    DEBUG_PRINTF("daddy %hu/%zu states=%zu alpha=%hu\n", total_daddy,
-                 info.size() * info.impl_alpha_size, info.size(),
-                 info.impl_alpha_size);
+        DEBUG_PRINTF("daddy %hu/%zu states=%zu alpha=%hu\n", total_daddy,
+                     info.size() * info.impl_alpha_size, info.size(),
+                     info.impl_alpha_size);
+    }
 
     u16 sherman_limit;
     if (!allocateImplId16(info, sheng_end, &sherman_limit)) {
