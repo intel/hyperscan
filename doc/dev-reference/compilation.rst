@@ -55,7 +55,7 @@ Hyperscan provides support for targeting a database at a particular CPU
 platform; see :ref:`instr_specialization` for details.
 
 =====================
-Compile Pure Literals 
+Compile Pure Literals
 =====================
 
 Pure literal is a special case of regular expression. A character sequence is
@@ -75,12 +75,12 @@ characters exist in regular grammer like ``[``, ``]``, ``(``, ``)``, ``{``,
 While in pure literal case, all these meta characters lost extra meanings
 expect for that they are just common ASCII codes.
 
-Hyperscan is initially designed to process common regualr expressions. It is
+Hyperscan is initially designed to process common regular expressions. It is
 hence embedded with a complex parser to do comprehensive regular grammer
 interpretion. Particularly, the identification of above meta characters is the
 basic step for the interpretion of far more complex regular grammers.
 
-However in real cases, patterns may not always be regualr expressions. They
+However in real cases, patterns may not always be regular expressions. They
 could just be pure literals. Problem will come if the pure literals contain
 regular meta characters. Supposing fed directly into traditional Hyperscan
 compile API, all these meta characters will be interpreted in predefined ways,
@@ -98,7 +98,7 @@ In ``v5.2.0``, Hyperscan introduces 2 new compile APIs for pure literal patterns
 #. :c:func:`hs_compile_lit_multi`: compiles an array of pure literals into a
    pattern database. All of the supplied patterns will be scanned for
    concurrently at scan time, with user-supplied identifiers returned when they
-   match. 
+   match.
 
 These 2 APIs are designed for use cases where all patterns contained in the
 target rule set are pure literals. Users can pass the initial pure literal
@@ -110,8 +110,8 @@ Hyperscan needs to locate the end position of the input expression via clearly
 knowing each literal's length, not by simply identifying character ``\0`` of a
 string.
 
-Supported flags: :c:member:`HS_FLAG_CASELESS`, :c:member:`HS_FLAG_MULTILINE`,
-:c:member:`HS_FLAG_SINGLEMATCH`, :c:member:`HS_FLAG_SOM_LEFTMOST`.
+Supported flags: :c:member:`HS_FLAG_CASELESS`, :c:member:`HS_FLAG_SINGLEMATCH`,
+:c:member:`HS_FLAG_SOM_LEFTMOST`.
 
 .. note:: We don't support literal compilation API with :ref:`extparam`. And
           for runtime implementation, traditional runtime APIs can still be

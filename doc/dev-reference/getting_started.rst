@@ -260,7 +260,7 @@ instead of potentially executing illegal instructions. The API function
 :c:func:`hs_valid_platform` can be used by application writers to determine if
 the current platform is supported by Hyperscan.
 
-At of this release, the variants of the runtime that are built, and the CPU
+As of this release, the variants of the runtime that are built, and the CPU
 capability that is required, are the following:
 
 +----------+-------------------------------+---------------------------+

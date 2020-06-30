@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -125,7 +125,7 @@ ParsedLitExpression::ParsedLitExpression(unsigned index_in,
     : expr(index_in, false, flags & HS_FLAG_SINGLEMATCH, false, false,
            SOM_NONE, report, 0, MAX_OFFSET, 0, 0, 0, false) {
     // For pure literal expression, below 'HS_FLAG_'s are unuseful:
-    // DOTALL/ALLOWEMPTY/UTF8/UCP/PREFILTER/COMBINATION/QUIET
+    // DOTALL/ALLOWEMPTY/UTF8/UCP/PREFILTER/COMBINATION/QUIET/MULTILINE
 
     if (flags & ~HS_FLAG_ALL) {
         DEBUG_PRINTF("Unrecognised flag, flags=%u.\n", flags);
@@ -402,19 +402,18 @@ void addLitExpression(NG &ng, unsigned index, const char *expression,
     }
 
     // Ensure that our pattern isn't too long (in characters).
-    if (strlen(expression) > cc.grey.limitPatternLength) {
+    if (expLength > cc.grey.limitPatternLength) {
         throw CompileError("Pattern length exceeds limit.");
     }
 
     // filter out flags not supported by pure literal API.
     u64a not_supported = HS_FLAG_DOTALL | HS_FLAG_ALLOWEMPTY | HS_FLAG_UTF8 |
                          HS_FLAG_UCP | HS_FLAG_PREFILTER | HS_FLAG_COMBINATION |
-                         HS_FLAG_QUIET;
+                         HS_FLAG_QUIET | HS_FLAG_MULTILINE;
 
     if (flags & not_supported) {
-        throw CompileError("Only HS_FLAG_CASELESS, HS_FLAG_MULTILINE, "
-                           "HS_FLAG_SINGLEMATCH and HS_FLAG_SOM_LEFTMOST are "
-                           "supported in literal API.");
+        throw CompileError("Only HS_FLAG_CASELESS, HS_FLAG_SINGLEMATCH and "
+                           "HS_FLAG_SOM_LEFTMOST are supported in literal API.");
     }
 
     // This expression must be a pure literal, we can build ue2_literal

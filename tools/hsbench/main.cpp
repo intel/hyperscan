@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -207,7 +207,9 @@ void usage(const char *error) {
     printf("  -P              Benchmark using PCRE (if supported).\n");
 #endif
 #if defined(HAVE_DECL_PTHREAD_SETAFFINITY_NP) || defined(_WIN32)
-    printf("  -T CPU,CPU,...  Benchmark with threads on these CPUs.\n");
+    printf("  -T CPU,CPU,... or -T CPU-CPU\n");
+    printf("                  Benchmark with threads on specified CPUs or CPU"
+           " range.\n");
 #endif
     printf("  -i DIR          Don't compile, load from files in DIR"
            " instead.\n");
@@ -354,7 +356,8 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
         case 'T':
             if (!strToList(optarg, threadCores)) {
                 usage("Couldn't parse argument to -T flag, should be"
-                      " a list of positive integers.");
+                      " a list of positive integers or 2 integers"
+                      " connected with hyphen.");
                 exit(1);
             }
             break;

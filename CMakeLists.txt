@@ -2,8 +2,8 @@ cmake_minimum_required (VERSION 2.8.11)
 project (hyperscan C CXX)
 
 set (HS_MAJOR_VERSION 5)
-set (HS_MINOR_VERSION 2)
-set (HS_PATCH_VERSION 1)
+set (HS_MINOR_VERSION 3)
+set (HS_PATCH_VERSION 0)
 set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -187,9 +187,9 @@ else()
         set (EXEC_ARGS ${CC_ARG1} -c -Q --help=target -march=native -mtune=native)
         execute_process(COMMAND ${CMAKE_C_COMPILER} ${EXEC_ARGS}
             OUTPUT_VARIABLE _GCC_OUTPUT)
-        string(FIND "${_GCC_OUTPUT}" "Known" POS)
-        string(SUBSTRING "${_GCC_OUTPUT}" 0 ${POS} _GCC_OUTPUT)
-        string(REGEX REPLACE ".*march=[ \t]*([^ \n]*)[ \n].*" "\\1"
+        string(FIND "${_GCC_OUTPUT}" "march" POS)
+        string(SUBSTRING "${_GCC_OUTPUT}" ${POS} -1 _GCC_OUTPUT)
+        string(REGEX REPLACE "march=[ \t]*([^ \n]*)[ \n].*" "\\1"
             GNUCC_ARCH "${_GCC_OUTPUT}")
 
         # test the parsed flag
@@ -326,7 +326,7 @@ if (CMAKE_SYSTEM_NAME MATCHES "Linux")
             set (FAT_RUNTIME_REQUISITES TRUE)
         endif()
     endif()
-    CMAKE_DEPENDENT_OPTION(FAT_RUNTIME "Build a library that supports multiple microarchitecures" ${RELEASE_BUILD} "FAT_RUNTIME_REQUISITES" OFF)
+    CMAKE_DEPENDENT_OPTION(FAT_RUNTIME "Build a library that supports multiple microarchitectures" ${RELEASE_BUILD} "FAT_RUNTIME_REQUISITES" OFF)
 endif ()
 
 include (${CMAKE_MODULE_PATH}/arch.cmake)
@@ -340,7 +340,7 @@ if (NOT WIN32)
 set(C_FLAGS_TO_CHECK
 # Variable length arrays are way bad, most especially at run time
 "-Wvla"
-# Pointer arith on void pointers is doing it wong.
+# Pointer arith on void pointers is doing it wrong.
  "-Wpointer-arith"
 # Build our C code with -Wstrict-prototypes -Wmissing-prototypes
  "-Wstrict-prototypes"
@@ -383,7 +383,7 @@ if (CC_PAREN_EQUALITY)
     set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -Wno-parentheses-equality")
 endif()
 
-# clang compains about unused const vars in our Ragel-generated code.
+# clang complains about unused const vars in our Ragel-generated code.
 CHECK_CXX_COMPILER_FLAG("-Wunused-const-variable" CXX_UNUSED_CONST_VAR)
 if (CXX_UNUSED_CONST_VAR)
     set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-unused-const-variable")
@@ -417,6 +417,12 @@ CHECK_CXX_COMPILER_FLAG("-Wunused-local-typedefs" CXX_UNUSED_LOCAL_TYPEDEFS)
 
 # gcc5 complains about this
 CHECK_CXX_COMPILER_FLAG("-Wunused-variable" CXX_WUNUSED_VARIABLE)
+
+# gcc 10 complains about this
+CHECK_C_COMPILER_FLAG("-Wstringop-overflow" CC_STRINGOP_OVERFLOW)
+if(CC_STRINGOP_OVERFLOW)
+    set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -Wno-stringop-overflow")
+endif()
 
 endif()
 

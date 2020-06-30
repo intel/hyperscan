@@ -40,12 +40,12 @@ using namespace std;
 using namespace ue2;
 
 struct SimpleV {
-    size_t index;
+    size_t index = 0;
     string test_v = "SimpleV";
 };
 
 struct SimpleE {
-    size_t index;
+    size_t index = 0;
     string test_e = "SimpleE";
 };
 
