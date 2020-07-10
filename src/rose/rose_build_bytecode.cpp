@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -635,6 +635,9 @@ bytecode_ptr<NFA> getDfa(raw_dfa &rdfa, bool is_transient,
 #if defined(HAVE_AVX512VBMI)
     if (!dfa) {
         dfa = sheng32Compile(rdfa, cc, rm, false);
+    }
+    if (!dfa) {
+        dfa = sheng64Compile(rdfa, cc, rm, false);
     }
 #endif
     if (!dfa) {

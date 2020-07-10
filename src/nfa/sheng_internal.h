@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -44,6 +44,11 @@
 #define SHENG32_STATE_ACCEL 0x80
 #define SHENG32_STATE_MASK 0x1F
 #define SHENG32_STATE_FLAG_MASK 0xE0
+
+#define SHENG64_STATE_ACCEPT 0x40
+#define SHENG64_STATE_DEAD 0x80
+#define SHENG64_STATE_MASK 0x3F
+#define SHENG64_STATE_FLAG_MASK 0xC0
 #endif
 
 #define SHENG_FLAG_SINGLE_REPORT 0x1
@@ -77,6 +82,19 @@ struct sheng {
 
 #if defined (HAVE_AVX512VBMI)
 struct sheng32 {
+    m512 succ_masks[256];
+    u32 length;
+    u32 aux_offset;
+    u32 report_offset;
+    u32 accel_offset;
+    u8 n_states;
+    u8 anchored;
+    u8 floating;
+    u8 flags;
+    ReportID report;
+};
+
+struct sheng64 {
     m512 succ_masks[256];
     u32 length;
     u32 aux_offset;

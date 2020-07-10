@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -37,36 +37,15 @@ u8 isDeadState(const u8 a) {
     return a & SHENG_STATE_DEAD;
 }
 
-#if defined(HAVE_AVX512VBMI)
-static really_inline
-u8 isDeadState32(const u8 a) {
-    return a & SHENG32_STATE_DEAD;
-}
-#endif
-
 static really_inline
 u8 isAcceptState(const u8 a) {
     return a & SHENG_STATE_ACCEPT;
 }
 
-#if defined(HAVE_AVX512VBMI)
-static really_inline
-u8 isAcceptState32(const u8 a) {
-    return a & SHENG32_STATE_ACCEPT;
-}
-#endif
-
 static really_inline
 u8 isAccelState(const u8 a) {
     return a & SHENG_STATE_ACCEL;
 }
-
-#if defined(HAVE_AVX512VBMI)
-static really_inline
-u8 isAccelState32(const u8 a) {
-    return a & SHENG32_STATE_ACCEL;
-}
-#endif
 
 static really_inline
 u8 hasInterestingStates(const u8 a, const u8 b, const u8 c, const u8 d) {
@@ -75,8 +54,38 @@ u8 hasInterestingStates(const u8 a, const u8 b, const u8 c, const u8 d) {
 
 #if defined(HAVE_AVX512VBMI)
 static really_inline
+u8 isDeadState32(const u8 a) {
+    return a & SHENG32_STATE_DEAD;
+}
+
+static really_inline
+u8 isAcceptState32(const u8 a) {
+    return a & SHENG32_STATE_ACCEPT;
+}
+
+static really_inline
+u8 isAccelState32(const u8 a) {
+    return a & SHENG32_STATE_ACCEL;
+}
+
+static really_inline
 u8 hasInterestingStates32(const u8 a, const u8 b, const u8 c, const u8 d) {
     return (a | b | c | d) & (SHENG32_STATE_FLAG_MASK);
+}
+
+static really_inline
+u8 isDeadState64(const u8 a) {
+    return a & SHENG64_STATE_DEAD;
+}
+
+static really_inline
+u8 isAcceptState64(const u8 a) {
+    return a & SHENG64_STATE_ACCEPT;
+}
+
+static really_inline
+u8 hasInterestingStates64(const u8 a, const u8 b, const u8 c, const u8 d) {
+    return (a | b | c | d) & (SHENG64_STATE_FLAG_MASK);
 }
 #endif
 
@@ -103,6 +112,9 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define SHENG32_IMPL sheng32_cod
 #define DEAD_FUNC32 isDeadState32
 #define ACCEPT_FUNC32 isAcceptState32
+#define SHENG64_IMPL sheng64_cod
+#define DEAD_FUNC64 isDeadState64
+#define ACCEPT_FUNC64 isAcceptState64
 #endif
 #define STOP_AT_MATCH 0
 #include "sheng_impl.h"
@@ -113,6 +125,9 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef SHENG32_IMPL
 #undef DEAD_FUNC32
 #undef ACCEPT_FUNC32
+#undef SHENG64_IMPL
+#undef DEAD_FUNC64
+#undef ACCEPT_FUNC64
 #endif
 #undef STOP_AT_MATCH
 
@@ -124,6 +139,9 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define SHENG32_IMPL sheng32_co
 #define DEAD_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 isAcceptState32
+#define SHENG64_IMPL sheng64_co
+#define DEAD_FUNC64 dummyFunc
+#define ACCEPT_FUNC64 isAcceptState64
 #endif
 #define STOP_AT_MATCH 0
 #include "sheng_impl.h"
@@ -134,6 +152,9 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef SHENG32_IMPL
 #undef DEAD_FUNC32
 #undef ACCEPT_FUNC32
+#undef SHENG64_IMPL
+#undef DEAD_FUNC64
+#undef ACCEPT_FUNC64
 #endif
 #undef STOP_AT_MATCH
 
@@ -145,6 +166,9 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define SHENG32_IMPL sheng32_samd
 #define DEAD_FUNC32 isDeadState32
 #define ACCEPT_FUNC32 isAcceptState32
+#define SHENG64_IMPL sheng64_samd
+#define DEAD_FUNC64 isDeadState64
+#define ACCEPT_FUNC64 isAcceptState64
 #endif
 #define STOP_AT_MATCH 1
 #include "sheng_impl.h"
@@ -155,6 +179,9 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef SHENG32_IMPL
 #undef DEAD_FUNC32
 #undef ACCEPT_FUNC32
+#undef SHENG64_IMPL
+#undef DEAD_FUNC64
+#undef ACCEPT_FUNC64
 #endif
 #undef STOP_AT_MATCH
 
@@ -166,6 +193,9 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define SHENG32_IMPL sheng32_sam
 #define DEAD_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 isAcceptState32
+#define SHENG64_IMPL sheng64_sam
+#define DEAD_FUNC64 dummyFunc
+#define ACCEPT_FUNC64 isAcceptState64
 #endif
 #define STOP_AT_MATCH 1
 #include "sheng_impl.h"
@@ -176,6 +206,9 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef SHENG32_IMPL
 #undef DEAD_FUNC32
 #undef ACCEPT_FUNC32
+#undef SHENG64_IMPL
+#undef DEAD_FUNC64
+#undef ACCEPT_FUNC64
 #endif
 #undef STOP_AT_MATCH
 
@@ -187,6 +220,9 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define SHENG32_IMPL sheng32_nmd
 #define DEAD_FUNC32 isDeadState32
 #define ACCEPT_FUNC32 dummyFunc
+#define SHENG64_IMPL sheng64_nmd
+#define DEAD_FUNC64 isDeadState64
+#define ACCEPT_FUNC64 dummyFunc
 #endif
 #define STOP_AT_MATCH 0
 #include "sheng_impl.h"
@@ -197,6 +233,9 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef SHENG32_IMPL
 #undef DEAD_FUNC32
 #undef ACCEPT_FUNC32
+#undef SHENG64_IMPL
+#undef DEAD_FUNC64
+#undef ACCEPT_FUNC64
 #endif
 #undef STOP_AT_MATCH
 
@@ -208,6 +247,9 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define SHENG32_IMPL sheng32_nm
 #define DEAD_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 dummyFunc
+#define SHENG64_IMPL sheng64_nm
+#define DEAD_FUNC64 dummyFunc
+#define ACCEPT_FUNC64 dummyFunc
 #endif
 #define STOP_AT_MATCH 0
 #include "sheng_impl.h"
@@ -218,6 +260,9 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef SHENG32_IMPL
 #undef DEAD_FUNC32
 #undef ACCEPT_FUNC32
+#undef SHENG64_IMPL
+#undef DEAD_FUNC64
+#undef ACCEPT_FUNC64
 #endif
 #undef STOP_AT_MATCH
 
@@ -240,6 +285,7 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define INNER_ACCEL_FUNC32 isAccelState32
 #define OUTER_ACCEL_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 isAcceptState32
+#define NO_SHENG64_IMPL
 #endif
 #define STOP_AT_MATCH 0
 #include "sheng_impl4.h"
@@ -258,6 +304,7 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef INNER_ACCEL_FUNC32
 #undef OUTER_ACCEL_FUNC32
 #undef ACCEPT_FUNC32
+#undef NO_SHENG64_IMPL
 #endif
 #undef STOP_AT_MATCH
 
@@ -277,6 +324,11 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define INNER_ACCEL_FUNC32 dummyFunc
 #define OUTER_ACCEL_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 isAcceptState32
+#define SHENG64_IMPL sheng64_4_cod
+#define INTERESTING_FUNC64 hasInterestingStates64
+#define INNER_DEAD_FUNC64 isDeadState64
+#define OUTER_DEAD_FUNC64 dummyFunc
+#define ACCEPT_FUNC64 isAcceptState64
 #endif
 #define STOP_AT_MATCH 0
 #include "sheng_impl4.h"
@@ -295,6 +347,11 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef INNER_ACCEL_FUNC32
 #undef OUTER_ACCEL_FUNC32
 #undef ACCEPT_FUNC32
+#undef SHENG64_IMPL
+#undef INTERESTING_FUNC64
+#undef INNER_DEAD_FUNC64
+#undef OUTER_DEAD_FUNC64
+#undef ACCEPT_FUNC64
 #endif
 #undef STOP_AT_MATCH
 
@@ -314,6 +371,7 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define INNER_ACCEL_FUNC32 isAccelState32
 #define OUTER_ACCEL_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 isAcceptState32
+#define NO_SHENG64_IMPL
 #endif
 #define STOP_AT_MATCH 0
 #include "sheng_impl4.h"
@@ -332,6 +390,7 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef INNER_ACCEL_FUNC32
 #undef OUTER_ACCEL_FUNC32
 #undef ACCEPT_FUNC32
+#undef NO_SHENG64_IMPL
 #endif
 #undef STOP_AT_MATCH
 
@@ -351,6 +410,11 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define INNER_ACCEL_FUNC32 dummyFunc
 #define OUTER_ACCEL_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 isAcceptState32
+#define SHENG64_IMPL sheng64_4_co
+#define INTERESTING_FUNC64 hasInterestingStates64
+#define INNER_DEAD_FUNC64 dummyFunc
+#define OUTER_DEAD_FUNC64 dummyFunc
+#define ACCEPT_FUNC64 isAcceptState64
 #endif
 #define STOP_AT_MATCH 0
 #include "sheng_impl4.h"
@@ -369,6 +433,11 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef INNER_ACCEL_FUNC32
 #undef OUTER_ACCEL_FUNC32
 #undef ACCEPT_FUNC32
+#undef SHENG64_IMPL
+#undef INTERESTING_FUNC64
+#undef INNER_DEAD_FUNC64
+#undef OUTER_DEAD_FUNC64
+#undef ACCEPT_FUNC64
 #endif
 #undef STOP_AT_MATCH
 
@@ -388,6 +457,7 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define INNER_ACCEL_FUNC32 isAccelState32
 #define OUTER_ACCEL_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 isAcceptState32
+#define NO_SHENG64_IMPL
 #endif
 #define STOP_AT_MATCH 1
 #include "sheng_impl4.h"
@@ -406,6 +476,7 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef INNER_ACCEL_FUNC32
 #undef OUTER_ACCEL_FUNC32
 #undef ACCEPT_FUNC32
+#undef NO_SHENG64_IMPL
 #endif
 #undef STOP_AT_MATCH
 
@@ -425,6 +496,11 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define INNER_ACCEL_FUNC32 dummyFunc
 #define OUTER_ACCEL_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 isAcceptState32
+#define SHENG64_IMPL sheng64_4_samd
+#define INTERESTING_FUNC64 hasInterestingStates64
+#define INNER_DEAD_FUNC64 isDeadState64
+#define OUTER_DEAD_FUNC64 dummyFunc
+#define ACCEPT_FUNC64 isAcceptState64
 #endif
 #define STOP_AT_MATCH 1
 #include "sheng_impl4.h"
@@ -443,6 +519,11 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef INNER_ACCEL_FUNC32
 #undef OUTER_ACCEL_FUNC32
 #undef ACCEPT_FUNC32
+#undef SHENG64_IMPL
+#undef INTERESTING_FUNC64
+#undef INNER_DEAD_FUNC64
+#undef OUTER_DEAD_FUNC64
+#undef ACCEPT_FUNC64
 #endif
 #undef STOP_AT_MATCH
 
@@ -462,6 +543,7 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define INNER_ACCEL_FUNC32 isAccelState32
 #define OUTER_ACCEL_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 isAcceptState32
+#define NO_SHENG64_IMPL
 #endif
 #define STOP_AT_MATCH 1
 #include "sheng_impl4.h"
@@ -480,6 +562,7 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef INNER_ACCEL_FUNC32
 #undef OUTER_ACCEL_FUNC32
 #undef ACCEPT_FUNC32
+#undef NO_SHENG64_IMPL
 #endif
 #undef STOP_AT_MATCH
 
@@ -499,6 +582,11 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define INNER_ACCEL_FUNC32 dummyFunc
 #define OUTER_ACCEL_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 isAcceptState32
+#define SHENG64_IMPL sheng64_4_sam
+#define INTERESTING_FUNC64 hasInterestingStates64
+#define INNER_DEAD_FUNC64 dummyFunc
+#define OUTER_DEAD_FUNC64 dummyFunc
+#define ACCEPT_FUNC64 isAcceptState64
 #endif
 #define STOP_AT_MATCH 1
 #include "sheng_impl4.h"
@@ -517,6 +605,11 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef INNER_ACCEL_FUNC32
 #undef OUTER_ACCEL_FUNC32
 #undef ACCEPT_FUNC32
+#undef SHENG64_IMPL
+#undef INTERESTING_FUNC64
+#undef INNER_DEAD_FUNC64
+#undef OUTER_DEAD_FUNC64
+#undef ACCEPT_FUNC64
 #endif
 #undef STOP_AT_MATCH
 
@@ -538,6 +631,7 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define INNER_ACCEL_FUNC32 dummyFunc
 #define OUTER_ACCEL_FUNC32 isAccelState32
 #define ACCEPT_FUNC32 dummyFunc
+#define NO_SHENG64_IMPL
 #endif
 #define STOP_AT_MATCH 0
 #include "sheng_impl4.h"
@@ -556,6 +650,7 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef INNER_ACCEL_FUNC32
 #undef OUTER_ACCEL_FUNC32
 #undef ACCEPT_FUNC32
+#undef NO_SHENG64_IMPL
 #endif
 #undef STOP_AT_MATCH
 
@@ -575,6 +670,11 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define INNER_ACCEL_FUNC32 dummyFunc
 #define OUTER_ACCEL_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 dummyFunc
+#define SHENG64_IMPL sheng64_4_nmd
+#define INTERESTING_FUNC64 dummyFunc4
+#define INNER_DEAD_FUNC64 dummyFunc
+#define OUTER_DEAD_FUNC64 isDeadState64
+#define ACCEPT_FUNC64 dummyFunc
 #endif
 #define STOP_AT_MATCH 0
 #include "sheng_impl4.h"
@@ -593,6 +693,11 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef INNER_ACCEL_FUNC32
 #undef OUTER_ACCEL_FUNC32
 #undef ACCEPT_FUNC32
+#undef SHENG64_IMPL
+#undef INTERESTING_FUNC64
+#undef INNER_DEAD_FUNC64
+#undef OUTER_DEAD_FUNC64
+#undef ACCEPT_FUNC64
 #endif
 #undef STOP_AT_MATCH
 
@@ -615,6 +720,11 @@ u8 dummyFunc(UNUSED const u8 a) {
 #define INNER_ACCEL_FUNC32 dummyFunc
 #define OUTER_ACCEL_FUNC32 dummyFunc
 #define ACCEPT_FUNC32 dummyFunc
+#define SHENG64_IMPL sheng64_4_nm
+#define INTERESTING_FUNC64 dummyFunc4
+#define INNER_DEAD_FUNC64 dummyFunc
+#define OUTER_DEAD_FUNC64 dummyFunc
+#define ACCEPT_FUNC64 dummyFunc
 #endif
 #define STOP_AT_MATCH 0
 #include "sheng_impl4.h"
@@ -633,6 +743,11 @@ u8 dummyFunc(UNUSED const u8 a) {
 #undef INNER_ACCEL_FUNC32
 #undef OUTER_ACCEL_FUNC32
 #undef ACCEPT_FUNC32
+#undef SHENG64_IMPL
+#undef INTERESTING_FUNC64
+#undef INNER_DEAD_FUNC64
+#undef OUTER_DEAD_FUNC64
+#undef ACCEPT_FUNC64
 #endif
 #undef STOP_AT_MATCH
 

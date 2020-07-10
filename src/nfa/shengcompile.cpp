@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -312,6 +312,17 @@ void dumpShuffleMask32(const u8 chr, const u8 *buf, unsigned sz) {
     }
     DEBUG_PRINTF("chr %3u: %s\n", chr, o.str().c_str());
 }
+
+static really_inline
+void dumpShuffleMask64(const u8 chr, const u8 *buf, unsigned sz) {
+    stringstream o;
+
+    for (unsigned i = 0; i < sz; i++) {
+        o.width(2);
+        o << (buf[i] & SHENG64_STATE_MASK) << " ";
+    }
+    DEBUG_PRINTF("chr %3u: %s\n", chr, o.str().c_str());
+}
 #endif
 
 static
@@ -358,6 +369,19 @@ u8 getShengState<sheng32>(dstate &state, dfa_info &info,
     }
     if (accelInfo.find(info.raw_id(state.impl_id)) != accelInfo.end()) {
         s |= SHENG32_STATE_ACCEL;
+    }
+    return s;
+}
+
+template <>
+u8 getShengState<sheng64>(dstate &state, dfa_info &info,
+                          UNUSED map<dstate_id_t, AccelScheme> &accelInfo) {
+    u8 s = state.impl_id;
+    if (!state.reports.empty()) {
+        s |= SHENG64_STATE_ACCEPT;
+    }
+    if (info.isDead(state)) {
+        s |= SHENG64_STATE_DEAD;
     }
     return s;
 }
@@ -444,6 +468,31 @@ void populateBasicInfo<sheng32>(struct NFA *n, dfa_info &info,
     s->anchored = getShengState<sheng32>(info.anchored, info, accelInfo);
     s->floating = getShengState<sheng32>(info.floating, info, accelInfo);
 }
+
+template <>
+void populateBasicInfo<sheng64>(struct NFA *n, dfa_info &info,
+                                map<dstate_id_t, AccelScheme> &accelInfo,
+                                u32 aux_offset, u32 report_offset,
+                                u32 accel_offset, u32 total_size,
+                                u32 dfa_size) {
+    n->length = total_size;
+    n->scratchStateSize = 1;
+    n->streamStateSize = 1;
+    n->nPositions = info.size();
+    n->type = SHENG_NFA_64;
+    n->flags |= info.raw.hasEodReports() ? NFA_ACCEPTS_EOD : 0;
+
+    sheng64 *s = (sheng64 *)getMutableImplNfa(n);
+    s->aux_offset = aux_offset;
+    s->report_offset = report_offset;
+    s->accel_offset = accel_offset;
+    s->n_states = info.size();
+    s->length = dfa_size;
+    s->flags |= info.can_die ? SHENG_FLAG_CAN_DIE : 0;
+
+    s->anchored = getShengState<sheng64>(info.anchored, info, accelInfo);
+    s->floating = getShengState<sheng64>(info.floating, info, accelInfo);
+}
 #endif
 
 template <typename T>
@@ -506,12 +555,13 @@ void fillSingleReport(NFA *n, ReportID r_id) {
 
 template <typename T>
 static
-void createShuffleMasks(T *s, dfa_info &info,
+bool createShuffleMasks(T *s, dfa_info &info,
                         map<dstate_id_t, AccelScheme> &accelInfo) {
+    return true;
 }
 
 template <>
-void createShuffleMasks<sheng>(sheng *s, dfa_info &info,
+bool createShuffleMasks<sheng>(sheng *s, dfa_info &info,
                                map<dstate_id_t, AccelScheme> &accelInfo) {
     for (u16 chr = 0; chr < 256; chr++) {
         u8 buf[16] = {0};
@@ -526,11 +576,12 @@ void createShuffleMasks<sheng>(sheng *s, dfa_info &info,
 #endif
         memcpy(&s->shuffle_masks[chr], buf, sizeof(m128));
     }
+    return true;
 }
 
 #if defined(HAVE_AVX512VBMI)
 template <>
-void createShuffleMasks<sheng32>(sheng32 *s, dfa_info &info,
+bool createShuffleMasks<sheng32>(sheng32 *s, dfa_info &info,
                                  map<dstate_id_t, AccelScheme> &accelInfo) {
     for (u16 chr = 0; chr < 256; chr++) {
         u8 buf[64] = {0};
@@ -547,6 +598,31 @@ void createShuffleMasks<sheng32>(sheng32 *s, dfa_info &info,
 #endif
         memcpy(&s->succ_masks[chr], buf, sizeof(m512));
     }
+    return true;
+}
+
+template <>
+bool createShuffleMasks<sheng64>(sheng64 *s, dfa_info &info,
+                                 map<dstate_id_t, AccelScheme> &accelInfo) {
+    for (u16 chr = 0; chr < 256; chr++) {
+        u8 buf[64] = {0};
+
+        assert(info.size() <= 64);
+        for (dstate_id_t idx = 0; idx < info.size(); idx++) {
+            auto &succ_state = info.next(idx, chr);
+
+            if (accelInfo.find(info.raw_id(succ_state.impl_id))
+                != accelInfo.end()) {
+                return false;
+            }
+            buf[idx] = getShengState<sheng64>(succ_state, info, accelInfo);
+        }
+#ifdef DEBUG
+        dumpShuffleMask64(chr, buf, sizeof(buf));
+#endif
+        memcpy(&s->succ_masks[chr], buf, sizeof(m512));
+    }
+    return true;
 }
 #endif
 
@@ -619,7 +695,9 @@ bytecode_ptr<NFA> shengCompile_int(raw_dfa &raw, const CompileContext &cc,
         fillAccelOut(accelInfo, accel_states);
     }
 
-    createShuffleMasks<T>((T *)getMutableImplNfa(nfa.get()), info, accelInfo);
+    if (!createShuffleMasks<T>((T *)getMutableImplNfa(nfa.get()), info, accelInfo)) {
+        return nullptr;
+    }
 
     return nfa;
 }
@@ -676,6 +754,38 @@ bytecode_ptr<NFA> sheng32Compile(raw_dfa &raw, const CompileContext &cc,
     }
 
     return shengCompile_int<sheng32>(raw, cc, accel_states, strat, info);
+}
+
+bytecode_ptr<NFA> sheng64Compile(raw_dfa &raw, const CompileContext &cc,
+                                 const ReportManager &rm, bool only_accel_init,
+                                 set<dstate_id_t> *accel_states) {
+    if (!cc.grey.allowSheng) {
+        DEBUG_PRINTF("Sheng is not allowed!\n");
+        return nullptr;
+    }
+
+    sheng_build_strat strat(raw, rm, only_accel_init);
+    dfa_info info(strat);
+
+    DEBUG_PRINTF("Trying to compile a %zu state Sheng\n", raw.states.size());
+
+    DEBUG_PRINTF("Anchored start state id: %u, floating start state id: %u\n",
+                 raw.start_anchored, raw.start_floating);
+
+    DEBUG_PRINTF("This DFA %s die so effective number of states is %zu\n",
+                 info.can_die ? "can" : "cannot", info.size());
+    assert(info.size() > 32);
+    if (info.size() > 64) {
+        DEBUG_PRINTF("Too many states\n");
+        return nullptr;
+    }
+    vector<dstate> old_states;
+    old_states = info.states;
+    auto nfa = shengCompile_int<sheng64>(raw, cc, accel_states, strat, info);
+    if (!nfa) {
+        info.states = old_states;
+    }
+    return nfa;
 }
 #endif
 

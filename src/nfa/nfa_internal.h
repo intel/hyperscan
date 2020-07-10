@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -73,6 +73,7 @@ enum NFAEngineType {
     MCSHENG_NFA_8,      /**< magic pseudo nfa */
     MCSHENG_NFA_16,     /**< magic pseudo nfa */
     SHENG_NFA_32,       /**< magic pseudo nfa */
+    SHENG_NFA_64,       /**< magic pseudo nfa */
     /** \brief bogus NFA - not used */
     INVALID_NFA
 };
@@ -167,12 +168,17 @@ static really_inline int isSheng16Type(u8 t) {
 static really_inline int isSheng32Type(u8 t) {
     return t == SHENG_NFA_32;
 }
+
+/** \brief True if the given type (from NFA::type) is a Sheng64 DFA. */
+static really_inline int isSheng64Type(u8 t) {
+    return t == SHENG_NFA_64;
+}
 #endif
 
-/** \brief True if the given type (from NFA::type) is a Sheng/Sheng32 DFA. */
+/** \brief True if the given type (from NFA::type) is a Sheng16/32/64 DFA. */
 static really_inline int isShengType(u8 t) {
 #if defined(HAVE_AVX512VBMI)
-    return t == SHENG_NFA || t == SHENG_NFA_32;
+    return t == SHENG_NFA || t == SHENG_NFA_32 || t == SHENG_NFA_64;
 #else
     return t == SHENG_NFA;
 #endif

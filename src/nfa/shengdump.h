@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,6 +39,7 @@ namespace ue2 {
 
 void nfaExecSheng_dump(const struct NFA *nfa, const std::string &base);
 void nfaExecSheng32_dump(const struct NFA *nfa, const std::string &base);
+void nfaExecSheng64_dump(const struct NFA *nfa, const std::string &base);
 
 } // namespace ue2
 

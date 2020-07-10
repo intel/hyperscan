@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -82,7 +82,33 @@ char nfaExecSheng32_reportCurrent(const struct NFA *n, struct mq *q);
 
 char nfaExecSheng32_B(const struct NFA *n, u64a offset, const u8 *buffer,
                       size_t length, NfaCallback cb, void *context);
+
+#define nfaExecSheng64_B_Reverse NFA_API_NO_IMPL
+#define nfaExecSheng64_zombie_status NFA_API_ZOMBIE_NO_IMPL
+
+char nfaExecSheng64_Q(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecSheng64_Q2(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecSheng64_QR(const struct NFA *n, struct mq *q, ReportID report);
+char nfaExecSheng64_inAccept(const struct NFA *n, ReportID report,
+                             struct mq *q);
+char nfaExecSheng64_inAnyAccept(const struct NFA *n, struct mq *q);
+char nfaExecSheng64_queueInitState(const struct NFA *nfa, struct mq *q);
+char nfaExecSheng64_queueCompressState(const struct NFA *nfa,
+                                       const struct mq *q, s64a loc);
+char nfaExecSheng64_expandState(const struct NFA *nfa, void *dest,
+                                const void *src, u64a offset, u8 key);
+char nfaExecSheng64_initCompressedState(const struct NFA *nfa, u64a offset,
+                                        void *state, u8 key);
+char nfaExecSheng64_testEOD(const struct NFA *nfa, const char *state,
+                            const char *streamState, u64a offset,
+                            NfaCallback callback, void *context);
+char nfaExecSheng64_reportCurrent(const struct NFA *n, struct mq *q);
+
+char nfaExecSheng64_B(const struct NFA *n, u64a offset, const u8 *buffer,
+                      size_t length, NfaCallback cb, void *context);
+
 #else // !HAVE_AVX512VBMI
+
 #define nfaExecSheng32_B_Reverse NFA_API_NO_IMPL
 #define nfaExecSheng32_zombie_status NFA_API_ZOMBIE_NO_IMPL
 #define nfaExecSheng32_Q NFA_API_NO_IMPL
@@ -97,6 +123,21 @@ char nfaExecSheng32_B(const struct NFA *n, u64a offset, const u8 *buffer,
 #define nfaExecSheng32_testEOD NFA_API_NO_IMPL
 #define nfaExecSheng32_reportCurrent NFA_API_NO_IMPL
 #define nfaExecSheng32_B NFA_API_NO_IMPL
+
+#define nfaExecSheng64_B_Reverse NFA_API_NO_IMPL
+#define nfaExecSheng64_zombie_status NFA_API_ZOMBIE_NO_IMPL
+#define nfaExecSheng64_Q NFA_API_NO_IMPL
+#define nfaExecSheng64_Q2 NFA_API_NO_IMPL
+#define nfaExecSheng64_QR NFA_API_NO_IMPL
+#define nfaExecSheng64_inAccept NFA_API_NO_IMPL
+#define nfaExecSheng64_inAnyAccept NFA_API_NO_IMPL
+#define nfaExecSheng64_queueInitState NFA_API_NO_IMPL
+#define nfaExecSheng64_queueCompressState NFA_API_NO_IMPL
+#define nfaExecSheng64_expandState NFA_API_NO_IMPL
+#define nfaExecSheng64_initCompressedState NFA_API_NO_IMPL
+#define nfaExecSheng64_testEOD NFA_API_NO_IMPL
+#define nfaExecSheng64_reportCurrent NFA_API_NO_IMPL
+#define nfaExecSheng64_B NFA_API_NO_IMPL
 #endif // end of HAVE_AVX512VBMI
 
 #endif /* SHENG_H_ */

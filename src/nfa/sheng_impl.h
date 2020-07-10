@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -145,6 +145,67 @@ char SHENG32_IMPL(u8 *state, NfaCallback cb, void *ctxt,
                 }
             } else {
                 if (fireReports32(s, cb, ctxt, tmp, match_offset,
+                                  cached_accept_state, cached_accept_id,
+                                  0) == MO_HALT_MATCHING) {
+                    return MO_HALT_MATCHING;
+                }
+            }
+        }
+        cur_buf++;
+    }
+    *state = movd512(cur_state);
+    *scan_end = cur_buf;
+    return MO_CONTINUE_MATCHING;
+}
+
+static really_inline
+char SHENG64_IMPL(u8 *state, NfaCallback cb, void *ctxt,
+                  const struct sheng64 *s,
+                  u8 *const cached_accept_state,
+                  ReportID *const cached_accept_id,
+                  u8 single, u64a base_offset, const u8 *buf, const u8 *start,
+                  const u8 *end, const u8 **scan_end) {
+    DEBUG_PRINTF("Starting DFA execution in state %u\n",
+                 *state & SHENG64_STATE_MASK);
+    const u8 *cur_buf = start;
+    if (DEAD_FUNC64(*state)) {
+        DEBUG_PRINTF("Dead on arrival\n");
+        *scan_end = end;
+        return MO_CONTINUE_MATCHING;
+    }
+    DEBUG_PRINTF("Scanning %lli bytes\n", (s64a)(end - start));
+
+    m512 cur_state = set64x8(*state);
+    const m512 *masks = s->succ_masks;
+
+    while (likely(cur_buf != end)) {
+        const u8 c = *cur_buf;
+        const m512 succ_mask = masks[c];
+        cur_state = vpermb512(cur_state, succ_mask);
+        const u8 tmp = movd512(cur_state);
+
+        DEBUG_PRINTF("c: %02hhx '%c'\n", c, ourisprint(c) ? c : '?');
+        DEBUG_PRINTF("s: %u (flag: %u)\n", tmp & SHENG64_STATE_MASK,
+                     tmp & SHENG64_STATE_FLAG_MASK);
+
+        if (unlikely(ACCEPT_FUNC64(tmp))) {
+            DEBUG_PRINTF("Accept state %u reached\n", tmp & SHENG64_STATE_MASK);
+            u64a match_offset = base_offset + (cur_buf - buf) + 1;
+            DEBUG_PRINTF("Match @ %llu\n", match_offset);
+            if (STOP_AT_MATCH) {
+                DEBUG_PRINTF("Stopping at match @ %lli\n",
+                             (u64a)(cur_buf - start));
+                *state = tmp;
+                *scan_end = cur_buf;
+                return MO_MATCHES_PENDING;
+            }
+            if (single) {
+                if (fireSingleReport(cb, ctxt, s->report, match_offset) ==
+                    MO_HALT_MATCHING) {
+                    return MO_HALT_MATCHING;
+                }
+            } else {
+                if (fireReports64(s, cb, ctxt, tmp, match_offset,
                                   cached_accept_state, cached_accept_id,
                                   0) == MO_HALT_MATCHING) {
                     return MO_HALT_MATCHING;
