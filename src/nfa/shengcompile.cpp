@@ -643,19 +643,40 @@ bytecode_ptr<NFA> shengCompile(raw_dfa &raw, const CompileContext &cc,
     DEBUG_PRINTF("This DFA %s die so effective number of states is %zu\n",
                  info.can_die ? "can" : "cannot", info.size());
     if (info.size() > 16) {
-#if defined(HAVE_AVX512VBMI)
-        if (info.size() > 32) {
-            DEBUG_PRINTF("Too many states\n");
-            return nullptr;
-        }
-        return shengCompile_int<sheng32>(raw, cc, accel_states, strat, info);
-#else
         DEBUG_PRINTF("Too many states\n");
         return nullptr;
-#endif
     }
 
     return shengCompile_int<sheng>(raw, cc, accel_states, strat, info);
 }
+
+#if defined(HAVE_AVX512VBMI)
+bytecode_ptr<NFA> sheng32Compile(raw_dfa &raw, const CompileContext &cc,
+                                 const ReportManager &rm, bool only_accel_init,
+                                 set<dstate_id_t> *accel_states) {
+    if (!cc.grey.allowSheng) {
+        DEBUG_PRINTF("Sheng is not allowed!\n");
+        return nullptr;
+    }
+
+    sheng_build_strat strat(raw, rm, only_accel_init);
+    dfa_info info(strat);
+
+    DEBUG_PRINTF("Trying to compile a %zu state Sheng\n", raw.states.size());
+
+    DEBUG_PRINTF("Anchored start state id: %u, floating start state id: %u\n",
+                 raw.start_anchored, raw.start_floating);
+
+    DEBUG_PRINTF("This DFA %s die so effective number of states is %zu\n",
+                 info.can_die ? "can" : "cannot", info.size());
+    assert(info.size() > 16);
+    if (info.size() > 32) {
+        DEBUG_PRINTF("Too many states\n");
+        return nullptr;
+    }
+
+    return shengCompile_int<sheng32>(raw, cc, accel_states, strat, info);
+}
+#endif
 
 } // namespace ue2

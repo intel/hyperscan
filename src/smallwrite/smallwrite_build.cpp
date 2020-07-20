@@ -793,6 +793,11 @@ bytecode_ptr<NFA> getDfa(raw_dfa &rdfa, const CompileContext &cc,
     bytecode_ptr<NFA> dfa = nullptr;
     if (cc.grey.allowSmallWriteSheng) {
         dfa = shengCompile(rdfa, cc, rm, only_accel_init, &accel_states);
+#if defined(HAVE_AVX512VBMI)
+        if (!dfa) {
+            dfa = sheng32Compile(rdfa, cc, rm, only_accel_init, &accel_states);
+        }
+#endif
     }
     if (!dfa) {
         dfa = mcclellanCompile(rdfa, cc, rm, only_accel_init,
