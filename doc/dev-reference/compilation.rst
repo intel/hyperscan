@@ -165,7 +165,7 @@ The following regex constructs are supported by Hyperscan:
     :regexp:`{n,}` are supported with limitations.
 
     * For arbitrary repeated sub-patterns: *n* and *m* should be either small
-      or infinite, e.g. :regexp:`(a|b}{4}`, :regexp:`(ab?c?d){4,10}` or
+      or infinite, e.g. :regexp:`(a|b){4}`, :regexp:`(ab?c?d){4,10}` or
       :regexp:`(ab(cd)*){6,}`.
 
     * For single-character width sub-patterns such as :regexp:`[^\\a]` or
