@@ -133,6 +133,13 @@ CMAKE_DEPENDENT_OPTION(DISABLE_ASSERTS "Disable assert(); Asserts are enabled in
 option(BUILD_AVX512 "Experimental: support avx512 in the fat runtime"
     OFF)
 
+option(BUILD_AVX512VBMI "Experimental: support avx512vbmi in the fat runtime"
+    OFF)
+
+if (BUILD_AVX512VBMI)
+    set(BUILD_AVX512 ON)
+endif ()
+
 option(WINDOWS_ICC "Use Intel C++ Compiler on Windows, default off, requires ICC to be set in project" OFF)
 
 # TODO: per platform config files?
@@ -277,6 +284,7 @@ else()
         set(SKYLAKE_FLAG "-xCORE-AVX512")
     else ()
         set(SKYLAKE_FLAG "-march=skylake-avx512")
+        set(ICELAKE_FLAG "-march=icelake-server")
     endif ()
 endif()
 
@@ -1224,10 +1232,17 @@ else (FAT_RUNTIME)
        if (BUILD_AVX512)
            add_library(hs_exec_avx512 OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
            list(APPEND RUNTIME_LIBS $<TARGET_OBJECTS:hs_exec_avx512>)
-           set_target_properties(hs_exec_avx512 PROPERTIES
-               COMPILE_FLAGS "${SKYLAKE_FLAG}"
-               RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
-               )
+           if (BUILD_AVX512VBMI)
+               set_target_properties(hs_exec_avx512 PROPERTIES
+                   COMPILE_FLAGS "${ICELAKE_FLAG}"
+                   RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
+                   )
+           else ()
+               set_target_properties(hs_exec_avx512 PROPERTIES
+                   COMPILE_FLAGS "${SKYLAKE_FLAG}"
+                   RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
+                   )
+           endif (BUILD_AVX512VBMI)
        endif (BUILD_AVX512)
 
        add_library(hs_exec_common OBJECT
@@ -1281,11 +1296,19 @@ else (FAT_RUNTIME)
         if (BUILD_AVX512)
             add_library(hs_exec_shared_avx512 OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
             list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_shared_avx512>)
-            set_target_properties(hs_exec_shared_avx512 PROPERTIES
-                COMPILE_FLAGS "${SKYLAKE_FLAG}"
-                POSITION_INDEPENDENT_CODE TRUE
-                RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
-                )
+            if (BUILD_AVX512VBMI)
+                set_target_properties(hs_exec_shared_avx512 PROPERTIES
+                    COMPILE_FLAGS "${ICELAKE_FLAG}"
+                    POSITION_INDEPENDENT_CODE TRUE
+                    RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
+                    )
+            else ()
+                set_target_properties(hs_exec_shared_avx512 PROPERTIES
+                    COMPILE_FLAGS "${SKYLAKE_FLAG}"
+                    POSITION_INDEPENDENT_CODE TRUE
+                    RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
+                    )
+            endif (BUILD_AVX512VBMI)
         endif (BUILD_AVX512)
         add_library(hs_exec_common_shared OBJECT
         ${hs_exec_common_SRCS}
