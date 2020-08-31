@@ -302,6 +302,7 @@ void dumpShuffleMask(const u8 chr, const u8 *buf, unsigned sz) {
     DEBUG_PRINTF("chr %3u: %s\n", chr, o.str().c_str());
 }
 
+#if defined (HAVE_AVX512VBMI)
 static really_inline
 void dumpShuffleMask32(const u8 chr, const u8 *buf, unsigned sz) {
     stringstream o;
@@ -324,6 +325,7 @@ void dumpShuffleMask64(const u8 chr, const u8 *buf, unsigned sz) {
     DEBUG_PRINTF("chr %3u: %s\n", chr, o.str().c_str());
 }
 #endif
+#endif
 
 static
 void fillAccelOut(const map<dstate_id_t, AccelScheme> &accel_escape_info,
@@ -335,8 +337,8 @@ void fillAccelOut(const map<dstate_id_t, AccelScheme> &accel_escape_info,
 
 template <typename T>
 static
-u8 getShengState(dstate &state, dfa_info &info,
-                 map<dstate_id_t, AccelScheme> &accelInfo) {
+u8 getShengState(UNUSED dstate &state, UNUSED dfa_info &info,
+                 UNUSED map<dstate_id_t, AccelScheme> &accelInfo) {
     return 0;
 }
 
@@ -412,10 +414,11 @@ void fillAccelAux(struct NFA *n, dfa_info &info,
 
 template <typename T>
 static
-void populateBasicInfo(struct NFA *n, dfa_info &info,
-                       map<dstate_id_t, AccelScheme> &accelInfo, u32 aux_offset,
-                       u32 report_offset, u32 accel_offset, u32 total_size,
-                       u32 dfa_size) {
+void populateBasicInfo(UNUSED struct NFA *n, UNUSED dfa_info &info,
+                       UNUSED map<dstate_id_t, AccelScheme> &accelInfo,
+                       UNUSED u32 aux_offset, UNUSED u32 report_offset,
+                       UNUSED u32 accel_offset, UNUSED u32 total_size,
+                       UNUSED u32 dfa_size) {
 }
 
 template <>
@@ -555,8 +558,8 @@ void fillSingleReport(NFA *n, ReportID r_id) {
 
 template <typename T>
 static
-bool createShuffleMasks(T *s, dfa_info &info,
-                        map<dstate_id_t, AccelScheme> &accelInfo) {
+bool createShuffleMasks(UNUSED T *s, UNUSED dfa_info &info,
+                        UNUSED map<dstate_id_t, AccelScheme> &accelInfo) {
     return true;
 }
 
