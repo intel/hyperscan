@@ -367,7 +367,8 @@ void dumpDotPreambleDfa(FILE *f) {
 
 template <typename T>
 static
-void describeNode(const NFA *n, const T *s, u16 i, FILE *f) {
+void describeNode(UNUSED const NFA *n, UNUSED const T *s, UNUSED u16 i,
+                  UNUSED FILE *f) {
 }
 
 template <>
