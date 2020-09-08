@@ -478,6 +478,37 @@ const nfa_dispatch_fn NFATraits<SHENG_NFA_64>::has_repeats_other_than_firsts = d
 const char *NFATraits<SHENG_NFA_64>::name = "Sheng 64";
 #endif
 
+template<> struct NFATraits<MCSHENG_64_NFA_8> {
+    UNUSED static const char *name;
+    static const NFACategory category = NFA_OTHER;
+    static const u32 stateAlign = 1;
+    static const bool fast = true;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
+};
+const nfa_dispatch_fn NFATraits<MCSHENG_64_NFA_8>::has_accel = has_accel_mcsheng;
+const nfa_dispatch_fn NFATraits<MCSHENG_64_NFA_8>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<MCSHENG_64_NFA_8>::has_repeats_other_than_firsts = dispatch_false;
+#if defined(DUMP_SUPPORT)
+const char *NFATraits<MCSHENG_64_NFA_8>::name = "Shengy64 McShengFace 8";
+#endif
+
+template<> struct NFATraits<MCSHENG_64_NFA_16> {
+    UNUSED static const char *name;
+    static const NFACategory category = NFA_OTHER;
+    static const u32 stateAlign = 2;
+    static const bool fast = true;
+    static const nfa_dispatch_fn has_accel;
+    static const nfa_dispatch_fn has_repeats;
+    static const nfa_dispatch_fn has_repeats_other_than_firsts;
+};
+const nfa_dispatch_fn NFATraits<MCSHENG_64_NFA_16>::has_accel = has_accel_mcsheng;
+const nfa_dispatch_fn NFATraits<MCSHENG_64_NFA_16>::has_repeats = dispatch_false;
+const nfa_dispatch_fn NFATraits<MCSHENG_64_NFA_16>::has_repeats_other_than_firsts = dispatch_false;
+#if defined(DUMP_SUPPORT)
+const char *NFATraits<MCSHENG_64_NFA_16>::name = "Shengy64 McShengFace 16";
+#endif
 } // namespace
 
 #if defined(DUMP_SUPPORT)

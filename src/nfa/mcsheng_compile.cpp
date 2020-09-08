@@ -64,7 +64,6 @@
 #include <set>
 #include <deque>
 #include <vector>
-
 #include <boost/range/adaptor/map.hpp>
 
 using namespace std;
@@ -244,6 +243,108 @@ void populateBasicInfo(size_t state_size, const dfa_info &info,
     }
 }
 
+#if defined(HAVE_AVX512VBMI)
+static
+mstate_aux *getAux64(NFA *n, dstate_id_t i) {
+    mcsheng64 *m = (mcsheng64 *)getMutableImplNfa(n);
+    mstate_aux *aux_base = (mstate_aux *)((char *)n + m->aux_offset);
+
+    mstate_aux *aux = aux_base + i;
+    assert((const char *)aux < (const char *)n + m->length);
+    return aux;
+}
+
+static
+void createShuffleMasks64(mcsheng64 *m, const dfa_info &info,
+                      dstate_id_t sheng_end,
+                      const map<dstate_id_t, AccelScheme> &accel_escape_info) {
+    DEBUG_PRINTF("using first %hu states for a sheng\n", sheng_end);
+    assert(sheng_end > DEAD_STATE + 1);
+    assert(sheng_end <= sizeof(m512) + 1);
+    vector<array<u8, sizeof(m512)>> masks;
+    masks.resize(info.alpha_size);
+    /* -1 to avoid wasting a slot as we do not include dead state */
+    vector<dstate_id_t> raw_ids;
+    raw_ids.resize(sheng_end - 1);
+    for (dstate_id_t s = DEAD_STATE + 1; s < info.states.size(); s++) {
+        assert(info.implId(s)); /* should not map to DEAD_STATE */
+        if (info.is_sheng(s)) {
+            raw_ids[info.extra[s].sheng_id] = s;
+        }
+    }
+    for (u32 i = 0; i < info.alpha_size; i++) {
+        if (i == info.alpha_remap[TOP]) {
+            continue;
+        }
+        auto &mask = masks[i];
+        assert(sizeof(mask) == sizeof(m512));
+        mask.fill(0);
+
+        for (dstate_id_t sheng_id = 0; sheng_id < sheng_end - 1; sheng_id++) {
+            dstate_id_t raw_id = raw_ids[sheng_id];
+            dstate_id_t next_id = info.implId(info.states[raw_id].next[i]);
+            if (next_id == DEAD_STATE) {
+                next_id = sheng_end - 1;
+            } else if (next_id < sheng_end) {
+                next_id--;
+            }
+            DEBUG_PRINTF("%hu: %u->next %hu\n", sheng_id, i, next_id);
+            mask[sheng_id] = verify_u8(next_id);
+        }
+    }
+    for (u32 i = 0; i < N_CHARS; i++) {
+        assert(info.alpha_remap[i] != info.alpha_remap[TOP]);
+        memcpy((u8 *)&m->sheng_succ_masks[i],
+               (u8 *)masks[info.alpha_remap[i]].data(), sizeof(m512));
+    }
+    m->sheng_end = sheng_end;
+    m->sheng_accel_limit = sheng_end - 1;
+
+    for (dstate_id_t s : raw_ids) {
+        if (contains(accel_escape_info, s)) {
+            LIMIT_TO_AT_MOST(&m->sheng_accel_limit, info.extra[s].sheng_id);
+        }
+    }
+}
+
+static
+void populateBasicInfo64(size_t state_size, const dfa_info &info,
+                         u32 total_size, u32 aux_offset, u32 accel_offset,
+                         u32 accel_count, ReportID arb, bool single, NFA *nfa) {
+    assert(state_size == sizeof(u16) || state_size == sizeof(u8));
+
+    nfa->length = total_size;
+    nfa->nPositions = info.states.size();
+
+    nfa->scratchStateSize = verify_u32(state_size);
+    nfa->streamStateSize = verify_u32(state_size);
+
+    if (state_size == sizeof(u8)) {
+        nfa->type = MCSHENG_64_NFA_8;
+    } else {
+        nfa->type = MCSHENG_64_NFA_16;
+    }
+
+    mcsheng64 *m = (mcsheng64 *)getMutableImplNfa(nfa);
+    for (u32 i = 0; i < 256; i++) {
+        m->remap[i] = verify_u8(info.alpha_remap[i]);
+    }
+    m->alphaShift = info.getAlphaShift();
+    m->length = total_size;
+    m->aux_offset = aux_offset;
+    m->accel_offset = accel_offset;
+    m->arb_report = arb;
+    m->state_count = verify_u16(info.size());
+    m->start_anchored = info.implId(info.raw.start_anchored);
+    m->start_floating = info.implId(info.raw.start_floating);
+    m->has_accel = accel_count ? 1 : 0;
+
+    if (single) {
+        m->flags |= MCSHENG_FLAG_SINGLE;
+    }
+}
+#endif
+
 static
 size_t calcShermanRegionSize(const dfa_info &info) {
     size_t rv = 0;
@@ -272,7 +373,7 @@ void fillInAux(mstate_aux *aux, dstate_id_t i, const dfa_info &info,
 /* returns false on error */
 static
 bool allocateImplId16(dfa_info &info, dstate_id_t sheng_end,
-                     dstate_id_t *sherman_base) {
+                      dstate_id_t *sherman_base) {
     info.states[0].impl_id = 0; /* dead is always 0 */
 
     vector<dstate_id_t> norm;
@@ -382,6 +483,7 @@ CharReach get_edge_reach(dstate_id_t u, dstate_id_t v, const dfa_info &info) {
 }
 
 #define MAX_SHENG_STATES 16
+#define MAX_SHENG64_STATES 64
 #define MAX_SHENG_LEAKINESS 0.05
 
 using LeakinessCache = ue2_unordered_map<pair<RdfaVertex, u32>, double>;
@@ -435,7 +537,8 @@ double leakiness(const RdfaGraph &g, dfa_info &info,
 
 static
 dstate_id_t find_sheng_states(dfa_info &info,
-                             map<dstate_id_t, AccelScheme> &accel_escape_info) {
+                              map<dstate_id_t, AccelScheme> &accel_escape_info,
+                              size_t max_sheng_states) {
     RdfaGraph g(info.raw);
     auto cyclics = find_vertices_in_cycles(g);
 
@@ -470,7 +573,7 @@ dstate_id_t find_sheng_states(dfa_info &info,
     flat_set<dstate_id_t> considered = { DEAD_STATE };
     bool seen_back_edge = false;
     while (!to_consider.empty()
-           && sheng_states.size() < MAX_SHENG_STATES) {
+           && sheng_states.size() < max_sheng_states) {
         auto v = to_consider.front();
         to_consider.pop_front();
         if (!considered.insert(g[v].index).second) {
@@ -615,6 +718,82 @@ void fill_in_succ_table_16(NFA *nfa, const dfa_info &info,
         }
     }
 }
+
+#if defined(HAVE_AVX512VBMI)
+static
+void fill_in_aux_info64(NFA *nfa, const dfa_info &info,
+                        const map<dstate_id_t, AccelScheme> &accel_escape_info,
+                        u32 accel_offset, UNUSED u32 accel_end_offset,
+                        const vector<u32> &reports,
+                        const vector<u32> &reports_eod,
+                        u32 report_base_offset,
+                        const raw_report_info &ri) {
+    mcsheng64 *m = (mcsheng64 *)getMutableImplNfa(nfa);
+
+    vector<u32> reportOffsets;
+
+    ri.fillReportLists(nfa, report_base_offset, reportOffsets);
+
+    for (u32 i = 0; i < info.size(); i++) {
+        u16 impl_id = info.implId(i);
+        mstate_aux *this_aux = getAux64(nfa, impl_id);
+
+        fillInAux(this_aux, i, info, reports, reports_eod, reportOffsets);
+        if (contains(accel_escape_info, i)) {
+            this_aux->accel_offset = accel_offset;
+            accel_offset += info.strat.accelSize();
+            assert(accel_offset <= accel_end_offset);
+            assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
+            info.strat.buildAccel(i, accel_escape_info.at(i),
+                                  (void *)((char *)m + this_aux->accel_offset));
+        }
+    }
+}
+
+static
+u16 get_edge_flags64(NFA *nfa, dstate_id_t target_impl_id) {
+    mstate_aux *aux = getAux64(nfa, target_impl_id);
+    u16 flags = 0;
+
+    if (aux->accept) {
+        flags |= ACCEPT_FLAG;
+    }
+
+    if (aux->accel_offset) {
+        flags |= ACCEL_FLAG;
+    }
+
+    return flags;
+}
+
+static
+void fill_in_succ_table_64_16(NFA *nfa, const dfa_info &info,
+                              dstate_id_t sheng_end,
+                              UNUSED dstate_id_t sherman_base) {
+    u16 *succ_table = (u16 *)((char *)nfa + sizeof(NFA) + sizeof(mcsheng64));
+
+    u8 alphaShift = info.getAlphaShift();
+    assert(alphaShift <= 8);
+
+    for (size_t i = 0; i < info.size(); i++) {
+        if (!info.is_normal(i)) {
+            assert(info.implId(i) < sheng_end || info.is_sherman(i));
+            continue;
+        }
+
+        assert(info.implId(i) < sherman_base);
+        u16 normal_id = verify_u16(info.implId(i) - sheng_end);
+
+        for (size_t s = 0; s < info.impl_alpha_size; s++) {
+            dstate_id_t raw_succ = info.states[i].next[s];
+            u16 &entry = succ_table[((size_t)normal_id << alphaShift) + s];
+
+            entry = info.implId(raw_succ);
+            entry |= get_edge_flags64(nfa, entry);
+        }
+    }
+}
+#endif
 
 #define MAX_SHERMAN_LIST_LEN 8
 
@@ -934,6 +1113,162 @@ void fill_in_succ_table_8(NFA *nfa, const dfa_info &info,
     }
 }
 
+#if defined(HAVE_AVX512VBMI)
+static
+void fill_in_sherman64(NFA *nfa, dfa_info &info, UNUSED u16 sherman_limit) {
+    char *nfa_base = (char *)nfa;
+    mcsheng64 *m = (mcsheng64 *)getMutableImplNfa(nfa);
+    char *sherman_table = nfa_base + m->sherman_offset;
+
+    assert(ISALIGNED_16(sherman_table));
+    for (size_t i = 0; i < info.size(); i++) {
+        if (!info.is_sherman(i)) {
+            continue;
+        }
+        u16 fs = verify_u16(info.implId(i));
+        DEBUG_PRINTF("building sherman %zu impl %hu\n", i, fs);
+
+        assert(fs >= sherman_limit);
+
+        char *curr_sherman_entry
+            = sherman_table + (fs - m->sherman_limit) * SHERMAN_FIXED_SIZE;
+        assert(curr_sherman_entry <= nfa_base + m->length);
+
+        u8 len = verify_u8(info.impl_alpha_size - info.extra[i].daddytaken);
+        assert(len <= 9);
+        dstate_id_t d = info.states[i].daddy;
+
+        *(u8 *)(curr_sherman_entry + SHERMAN_TYPE_OFFSET) = SHERMAN_STATE;
+        *(u8 *)(curr_sherman_entry + SHERMAN_LEN_OFFSET) = len;
+        *(u16 *)(curr_sherman_entry + SHERMAN_DADDY_OFFSET) = info.implId(d);
+        u8 *chars = (u8 *)(curr_sherman_entry + SHERMAN_CHARS_OFFSET);
+
+        for (u16 s = 0; s < info.impl_alpha_size; s++) {
+            if (info.states[i].next[s] != info.states[d].next[s]) {
+                *(chars++) = (u8)s;
+            }
+        }
+
+        u16 *states = (u16 *)(curr_sherman_entry + SHERMAN_STATES_OFFSET(len));
+        for (u16 s = 0; s < info.impl_alpha_size; s++) {
+            if (info.states[i].next[s] != info.states[d].next[s]) {
+                DEBUG_PRINTF("s overrider %hu dad %hu char next %hu\n", fs,
+                             info.implId(d),
+                             info.implId(info.states[i].next[s]));
+                u16 entry_val = info.implId(info.states[i].next[s]);
+                entry_val |= get_edge_flags64(nfa, entry_val);
+                unaligned_store_u16((u8 *)states++, entry_val);
+            }
+        }
+    }
+}
+
+static
+bytecode_ptr<NFA> mcsheng64Compile16(dfa_info&info, dstate_id_t sheng_end,
+                         const map<dstate_id_t, AccelScheme>&accel_escape_info,
+                         const Grey &grey) {
+    DEBUG_PRINTF("building mcsheng 64-16\n");
+
+    vector<u32> reports; /* index in ri for the appropriate report list */
+    vector<u32> reports_eod; /* as above */
+    ReportID arb;
+    u8 single;
+
+    assert(info.getAlphaShift() <= 8);
+
+    // Sherman optimization
+    if (info.impl_alpha_size > 16) {
+        u16 total_daddy = 0;
+        for (u32 i = 0; i < info.size(); i++) {
+            find_better_daddy(info, i,
+                              is_cyclic_near(info.raw, info.raw.start_anchored),
+                              grey);
+            total_daddy += info.extra[i].daddytaken;
+        }
+
+        DEBUG_PRINTF("daddy %hu/%zu states=%zu alpha=%hu\n", total_daddy,
+                     info.size() * info.impl_alpha_size, info.size(),
+                     info.impl_alpha_size);
+    }
+
+    u16 sherman_limit;
+    if (!allocateImplId16(info, sheng_end, &sherman_limit)) {
+        DEBUG_PRINTF("failed to allocate state numbers, %zu states total\n",
+                     info.size());
+        return nullptr;
+    }
+    u16 count_real_states = sherman_limit - sheng_end;
+
+    auto ri = info.strat.gatherReports(reports, reports_eod, &single, &arb);
+
+    size_t tran_size = (1 << info.getAlphaShift()) * sizeof(u16)
+                     * count_real_states;
+
+    size_t aux_size = sizeof(mstate_aux) * info.size();
+
+    size_t aux_offset = ROUNDUP_16(sizeof(NFA) + sizeof(mcsheng64) + tran_size);
+    size_t accel_size = info.strat.accelSize() * accel_escape_info.size();
+    size_t accel_offset = ROUNDUP_N(aux_offset + aux_size
+                                    + ri->getReportListSize(), 32);
+    size_t sherman_offset = ROUNDUP_16(accel_offset + accel_size);
+    size_t sherman_size = calcShermanRegionSize(info);
+
+    size_t total_size = sherman_offset + sherman_size;
+
+    accel_offset -= sizeof(NFA); /* adj accel offset to be relative to m */
+    assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
+
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(total_size);
+    mcsheng64 *m = (mcsheng64 *)getMutableImplNfa(nfa.get());
+
+    populateBasicInfo64(sizeof(u16), info, total_size, aux_offset, accel_offset,
+                        accel_escape_info.size(), arb, single, nfa.get());
+    createShuffleMasks64(m, info, sheng_end, accel_escape_info);
+
+    /* copy in the mc header information */
+    m->sherman_offset = sherman_offset;
+    m->sherman_end = total_size;
+    m->sherman_limit = sherman_limit;
+
+    DEBUG_PRINTF("%hu sheng, %hu norm, %zu total\n", sheng_end,
+                 count_real_states, info.size());
+
+    fill_in_aux_info64(nfa.get(), info, accel_escape_info, accel_offset,
+                       sherman_offset - sizeof(NFA), reports, reports_eod,
+                       aux_offset + aux_size, *ri);
+
+    fill_in_succ_table_64_16(nfa.get(), info, sheng_end, sherman_limit);
+
+    fill_in_sherman64(nfa.get(), info, sherman_limit);
+
+    return nfa;
+}
+
+static
+void fill_in_succ_table_64_8(NFA *nfa, const dfa_info &info,
+                             dstate_id_t sheng_end) {
+    u8 *succ_table = (u8 *)nfa + sizeof(NFA) + sizeof(mcsheng64);
+
+    u8 alphaShift = info.getAlphaShift();
+    assert(alphaShift <= 8);
+
+    for (size_t i = 0; i < info.size(); i++) {
+        assert(!info.is_sherman(i));
+        if (!info.is_normal(i)) {
+            assert(info.implId(i) < sheng_end);
+            continue;
+        }
+        u8 normal_id = verify_u8(info.implId(i) - sheng_end);
+
+        for (size_t s = 0; s < info.impl_alpha_size; s++) {
+            dstate_id_t raw_succ = info.states[i].next[s];
+            succ_table[((size_t)normal_id << alphaShift) + s]
+                = info.implId(raw_succ);
+        }
+    }
+}
+#endif
+
 static
 void allocateImplId8(dfa_info &info, dstate_id_t sheng_end,
                      const map<dstate_id_t, AccelScheme> &accel_escape_info,
@@ -1031,6 +1366,60 @@ bytecode_ptr<NFA> mcshengCompile8(dfa_info &info, dstate_id_t sheng_end,
     return nfa;
 }
 
+#if defined(HAVE_AVX512VBMI)
+static
+bytecode_ptr<NFA> mcsheng64Compile8(dfa_info &info, dstate_id_t sheng_end,
+                      const map<dstate_id_t, AccelScheme> &accel_escape_info) {
+    DEBUG_PRINTF("building mcsheng 64-8\n");
+
+    vector<u32> reports;
+    vector<u32> reports_eod;
+    ReportID arb;
+    u8 single;
+
+    auto ri = info.strat.gatherReports(reports, reports_eod, &single, &arb);
+
+    size_t normal_count = info.size() - sheng_end;
+
+    size_t tran_size = sizeof(u8) * (1 << info.getAlphaShift()) * normal_count;
+    size_t aux_size = sizeof(mstate_aux) * info.size();
+    size_t aux_offset = ROUNDUP_16(sizeof(NFA) + sizeof(mcsheng64) + tran_size);
+    size_t accel_size = info.strat.accelSize() * accel_escape_info.size();
+    size_t accel_offset = ROUNDUP_N(aux_offset + aux_size
+                                    + ri->getReportListSize(), 32);
+    size_t total_size = accel_offset + accel_size;
+
+    DEBUG_PRINTF("aux_size %zu\n", aux_size);
+    DEBUG_PRINTF("aux_offset %zu\n", aux_offset);
+    DEBUG_PRINTF("rl size %u\n", ri->getReportListSize());
+    DEBUG_PRINTF("accel_size %zu\n", accel_size);
+    DEBUG_PRINTF("accel_offset %zu\n", accel_offset);
+    DEBUG_PRINTF("total_size %zu\n", total_size);
+
+    accel_offset -= sizeof(NFA); /* adj accel offset to be relative to m */
+    assert(ISALIGNED_N(accel_offset, alignof(union AccelAux)));
+
+    auto nfa = make_zeroed_bytecode_ptr<NFA>(total_size);
+    mcsheng64 *m = (mcsheng64 *)getMutableImplNfa(nfa.get());
+
+    allocateImplId8(info, sheng_end, accel_escape_info, &m->accel_limit_8,
+                    &m->accept_limit_8);
+
+    populateBasicInfo64(sizeof(u8), info, total_size, aux_offset, accel_offset,
+                        accel_escape_info.size(), arb, single, nfa.get());
+    createShuffleMasks64(m, info, sheng_end, accel_escape_info);
+
+    fill_in_aux_info64(nfa.get(), info, accel_escape_info, accel_offset,
+                       total_size - sizeof(NFA), reports, reports_eod,
+                       aux_offset + aux_size, *ri);
+
+    fill_in_succ_table_64_8(nfa.get(), info, sheng_end);
+    DEBUG_PRINTF("rl size %zu\n", ri->size());
+
+    return nfa;
+}
+#endif
+
 bytecode_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
                                  const ReportManager &rm) {
     if (!cc.grey.allowMcSheng) {
@@ -1050,17 +1439,77 @@ bytecode_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
 
     map<dstate_id_t, AccelScheme> accel_escape_info
         = info.strat.getAccelInfo(cc.grey);
+    auto old_states = info.states;
+    dstate_id_t sheng_end = find_sheng_states(info, accel_escape_info, MAX_SHENG_STATES);
 
-    dstate_id_t sheng_end = find_sheng_states(info, accel_escape_info);
     if (sheng_end <= DEAD_STATE + 1) {
+        info.states = old_states;
         return nullptr;
     }
 
     bytecode_ptr<NFA> nfa;
+
     if (!using8bit) {
         nfa = mcshengCompile16(info, sheng_end, accel_escape_info, cc.grey);
     } else {
         nfa = mcshengCompile8(info, sheng_end, accel_escape_info);
+    }
+
+    if (!nfa) {
+        info.states = old_states;
+        return nfa;
+    }
+
+    if (has_eod_reports) {
+        nfa->flags |= NFA_ACCEPTS_EOD;
+    }
+
+    DEBUG_PRINTF("compile done\n");
+    return nfa;
+}
+
+#if defined(HAVE_AVX512VBMI)
+bytecode_ptr<NFA> mcshengCompile64(raw_dfa &raw, const CompileContext &cc,
+                                   const ReportManager &rm) {
+    if (!cc.grey.allowMcSheng) {
+        return nullptr;
+    }
+
+    mcclellan_build_strat mbs(raw, rm, false);
+    dfa_info info(mbs);
+    bool using8bit = cc.grey.allowMcClellan8 && info.size() <= 256;
+
+    if (!cc.streaming) { /* TODO: work out if we can do the strip in streaming
+                          * mode with our semantics */
+        raw.stripExtraEodReports();
+    }
+
+    bool has_eod_reports = raw.hasEodReports();
+
+    map<dstate_id_t, AccelScheme> accel_escape_info
+        = info.strat.getAccelInfo(cc.grey);
+    bool using64state = false; /*default flag*/
+    dstate_id_t sheng_end64;
+    sheng_end64 = find_sheng_states(info, accel_escape_info, MAX_SHENG64_STATES);
+
+    if (sheng_end64 <= DEAD_STATE + 1) {
+        return nullptr;
+    } else {
+        using64state = true;
+    }
+
+    bytecode_ptr<NFA> nfa;
+
+    if (using64state) {
+        assert((sheng_end64 > 17) && (sheng_end64 <= 65));
+        if (!using8bit) {
+            nfa = mcsheng64Compile16(info, sheng_end64, accel_escape_info, cc.grey);
+        } else {
+            assert(using8bit);
+            nfa = mcsheng64Compile8(info, sheng_end64, accel_escape_info);
+            assert(nfa);
+            assert(nfa->type == MCSHENG_64_NFA_8);
+        }
     }
 
     if (!nfa) {
@@ -1074,6 +1523,7 @@ bytecode_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
     DEBUG_PRINTF("compile done\n");
     return nfa;
 }
+#endif
 
 bool has_accel_mcsheng(const NFA *) {
     return true; /* consider the sheng region as accelerated */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -80,5 +80,78 @@ char nfaExecMcSheng16_expandState(const struct NFA *nfa, void *dest,
 
 #define nfaExecMcSheng16_B_Reverse NFA_API_NO_IMPL
 #define nfaExecMcSheng16_zombie_status NFA_API_ZOMBIE_NO_IMPL
+#if defined(HAVE_AVX512VBMI)
+/* 64-8 bit Sheng-McClellan hybrid  */
+char nfaExecMcSheng64_8_testEOD(const struct NFA *nfa, const char *state,
+                                const char *streamState, u64a offset,
+                                NfaCallback callback, void *context);
+char nfaExecMcSheng64_8_Q(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecMcSheng64_8_Q2(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecMcSheng64_8_QR(const struct NFA *n, struct mq *q, ReportID report);
+char nfaExecMcSheng64_8_reportCurrent(const struct NFA *n, struct mq *q);
+char nfaExecMcSheng64_8_inAccept(const struct NFA *n, ReportID report,
+                                 struct mq *q);
+char nfaExecMcSheng64_8_inAnyAccept(const struct NFA *n, struct mq *q);
+char nfaExecMcSheng64_8_queueInitState(const struct NFA *n, struct mq *q);
+char nfaExecMcSheng64_8_initCompressedState(const struct NFA *n, u64a offset,
+                                            void *state, u8 key);
+char nfaExecMcSheng64_8_queueCompressState(const struct NFA *nfa,
+                                           const struct mq *q, s64a loc);
+char nfaExecMcSheng64_8_expandState(const struct NFA *nfa, void *dest,
+                                    const void *src, u64a offset, u8 key);
+
+#define nfaExecMcSheng64_8_B_Reverse NFA_API_NO_IMPL
+#define nfaExecMcSheng64_8_zombie_status NFA_API_ZOMBIE_NO_IMPL
+
+/* 64-16 bit Sheng-McClellan hybrid  */
+char nfaExecMcSheng64_16_testEOD(const struct NFA *nfa, const char *state,
+                                 const char *streamState, u64a offset,
+                                 NfaCallback callback, void *context);
+char nfaExecMcSheng64_16_Q(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecMcSheng64_16_Q2(const struct NFA *n, struct mq *q, s64a end);
+char nfaExecMcSheng64_16_QR(const struct NFA *n, struct mq *q, ReportID report);
+char nfaExecMcSheng64_16_reportCurrent(const struct NFA *n, struct mq *q);
+char nfaExecMcSheng64_16_inAccept(const struct NFA *n, ReportID report,
+                                  struct mq *q);
+char nfaExecMcSheng64_16_inAnyAccept(const struct NFA *n, struct mq *q);
+char nfaExecMcSheng64_16_queueInitState(const struct NFA *n, struct mq *q);
+char nfaExecMcSheng64_16_initCompressedState(const struct NFA *n, u64a offset,
+                                             void *state, u8 key);
+char nfaExecMcSheng64_16_queueCompressState(const struct NFA *nfa,
+                                            const struct mq *q, s64a loc);
+char nfaExecMcSheng64_16_expandState(const struct NFA *nfa, void *dest,
+                                     const void *src, u64a offset, u8 key);
+#define nfaExecMcSheng64_16_B_Reverse NFA_API_NO_IMPL
+#define nfaExecMcSheng64_16_zombie_status NFA_API_ZOMBIE_NO_IMPL
+#else // !HAVE_AVX512VBMI
+#define nfaExecMcSheng64_8_B_Reverse NFA_API_NO_IMPL
+#define nfaExecMcSheng64_8_zombie_status NFA_API_ZOMBIE_NO_IMPL
+#define nfaExecMcSheng64_8_Q NFA_API_NO_IMPL
+#define nfaExecMcSheng64_8_Q2 NFA_API_NO_IMPL
+#define nfaExecMcSheng64_8_QR NFA_API_NO_IMPL
+#define nfaExecMcSheng64_8_inAccept NFA_API_NO_IMPL
+#define nfaExecMcSheng64_8_inAnyAccept NFA_API_NO_IMPL
+#define nfaExecMcSheng64_8_queueInitState NFA_API_NO_IMPL
+#define nfaExecMcSheng64_8_queueCompressState NFA_API_NO_IMPL
+#define nfaExecMcSheng64_8_expandState NFA_API_NO_IMPL
+#define nfaExecMcSheng64_8_initCompressedState NFA_API_NO_IMPL
+#define nfaExecMcSheng64_8_testEOD NFA_API_NO_IMPL
+#define nfaExecMcSheng64_8_reportCurrent NFA_API_NO_IMPL
+
+#define nfaExecMcSheng64_16_B_Reverse NFA_API_NO_IMPL
+#define nfaExecMcSheng64_16_zombie_status NFA_API_ZOMBIE_NO_IMPL
+#define nfaExecMcSheng64_16_Q NFA_API_NO_IMPL
+#define nfaExecMcSheng64_16_Q2 NFA_API_NO_IMPL
+#define nfaExecMcSheng64_16_QR NFA_API_NO_IMPL
+#define nfaExecMcSheng64_16_inAccept NFA_API_NO_IMPL
+#define nfaExecMcSheng64_16_inAnyAccept NFA_API_NO_IMPL
+#define nfaExecMcSheng64_16_queueInitState NFA_API_NO_IMPL
+#define nfaExecMcSheng64_16_queueCompressState NFA_API_NO_IMPL
+#define nfaExecMcSheng64_16_expandState NFA_API_NO_IMPL
+#define nfaExecMcSheng64_16_initCompressedState NFA_API_NO_IMPL
+#define nfaExecMcSheng64_16_testEOD NFA_API_NO_IMPL
+#define nfaExecMcSheng64_16_reportCurrent NFA_API_NO_IMPL
+
+#endif    //end of HAVE_AVX512VBM
 
 #endif

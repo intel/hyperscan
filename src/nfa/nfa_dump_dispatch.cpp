@@ -83,6 +83,8 @@ namespace ue2 {
         DISPATCH_CASE(MCSHENG_NFA_16, McSheng16, dbnt_func);                   \
         DISPATCH_CASE(SHENG_NFA_32, Sheng32, dbnt_func);                       \
         DISPATCH_CASE(SHENG_NFA_64, Sheng64, dbnt_func);                       \
+        DISPATCH_CASE(MCSHENG_64_NFA_8, McSheng64_8, dbnt_func);               \
+        DISPATCH_CASE(MCSHENG_64_NFA_16, McSheng64_16, dbnt_func);             \
     default:                                                                   \
         assert(0);                                                             \
     }

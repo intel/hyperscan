@@ -74,6 +74,8 @@ enum NFAEngineType {
     MCSHENG_NFA_16,     /**< magic pseudo nfa */
     SHENG_NFA_32,       /**< magic pseudo nfa */
     SHENG_NFA_64,       /**< magic pseudo nfa */
+    MCSHENG_64_NFA_8,   /**< magic pseudo nfa */
+    MCSHENG_64_NFA_16,  /**< magic pseudo nfa */
     /** \brief bogus NFA - not used */
     INVALID_NFA
 };
@@ -150,7 +152,12 @@ static really_inline int isMcClellanType(u8 t) {
 /** \brief True if the given type (from NFA::type) is a Sheng-McClellan hybrid
  * DFA. */
 static really_inline int isShengMcClellanType(u8 t) {
+#if defined(HAVE_AVX512VBMI)
+    return t == MCSHENG_64_NFA_8 || t == MCSHENG_64_NFA_16 || t == MCSHENG_NFA_8 ||
+           t == MCSHENG_NFA_16;
+#else
     return t == MCSHENG_NFA_8 || t == MCSHENG_NFA_16;
+#endif
 }
 
 /** \brief True if the given type (from NFA::type) is a Gough DFA. */

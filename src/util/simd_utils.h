@@ -138,6 +138,12 @@ m128 lshift64_m128(m128 a, unsigned b) {
 #define eq128(a, b)      _mm_cmpeq_epi8((a), (b))
 #define movemask128(a)  ((u32)_mm_movemask_epi8((a)))
 
+#if defined(HAVE_AVX512)
+static really_inline m128 cast512to128(const m512 in) {
+    return _mm512_castsi512_si128(in);
+}
+#endif
+
 static really_inline m128 set16x8(u8 c) {
     return _mm_set1_epi8(c);
 }
@@ -155,6 +161,12 @@ static really_inline u32 movd512(const m512 in) {
     // NOTE: seems gcc doesn't support _mm512_cvtsi512_si32(in),
     //       so we use 2-step convertions to work around.
     return _mm_cvtsi128_si32(_mm512_castsi512_si128(in));
+}
+
+static really_inline u64a movq512(const m512 in) {
+    // NOTE: seems AVX512 doesn't support _mm512_cvtsi512_si64(in),
+    //       so we use 2-step convertions to work around.
+    return _mm_cvtsi128_si64(_mm512_castsi512_si128(in));
 }
 #endif
 
@@ -1001,6 +1013,11 @@ m512 set8x64(u64a a) {
 }
 
 static really_inline
+m512 set16x32(u32 a) {
+    return _mm512_set1_epi32(a);
+}
+
+static really_inline
 m512 set512_64(u64a hi_3, u64a hi_2, u64a hi_1, u64a hi_0,
                u64a lo_3, u64a lo_2, u64a lo_1, u64a lo_0) {
     return _mm512_set_epi64(hi_3, hi_2, hi_1, hi_0,
@@ -1016,6 +1033,26 @@ m512 swap256in512(m512 a) {
 static really_inline
 m512 set4x128(m128 a) {
     return _mm512_broadcast_i32x4(a);
+}
+
+static really_inline
+m512 sadd_u8_m512(m512 a, m512 b) {
+    return _mm512_adds_epu8(a, b);
+}
+
+static really_inline
+m512 max_u8_m512(m512 a, m512 b) {
+    return _mm512_max_epu8(a, b);
+}
+
+static really_inline
+m512 min_u8_m512(m512 a, m512 b) {
+    return _mm512_min_epu8(a, b);
+}
+
+static really_inline
+m512 sub_u8_m512(m512 a, m512 b) {
+    return _mm512_sub_epi8(a, b);
 }
 #endif
 

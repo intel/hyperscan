@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -91,5 +91,36 @@ struct mcsheng {
 /* pext masks for the runtime to access appropriately copies of bytes 1..7
  * representing the data from a u64a. */
 extern const u64a mcsheng_pext_mask[8];
+
+#if defined(HAVE_AVX512VBMI)
+struct mcsheng64 {
+    u16 state_count; /**< total number of states */
+    u32 length; /**< length of dfa in bytes */
+    u16 start_anchored; /**< anchored start state */
+    u16 start_floating; /**< floating start state */
+    u32 aux_offset; /**< offset of the aux structures relative to the start of
+                     *  the nfa structure */
+    u32 sherman_offset; /**< offset of array of sherman state offsets the
+                         * state_info structures relative to the start of the
+                         * nfa structure */
+    u32 sherman_end; /**< offset of the end of the state_info structures
+                      * relative to the start of the nfa structure */
+    u16 sheng_end; /**< first non-sheng state */
+    u16 sheng_accel_limit; /**< first sheng accel state. state given in terms of
+                            * internal sheng ids */
+    u16 accel_limit_8; /**< 8 bit, lowest accelerable state */
+    u16 accept_limit_8; /**< 8 bit, lowest accept state */
+    u16 sherman_limit; /**< lowest sherman state */
+    u8  alphaShift;
+    u8  flags;
+    u8  has_accel; /**< 1 iff there are any accel plans */
+    u8  remap[256]; /**< remaps characters to a smaller alphabet */
+    ReportID arb_report; /**< one of the accepts that this dfa may raise */
+    u32 accel_offset; /**< offset of accel structures from start of McClellan */
+    m512 sheng_succ_masks[N_CHARS];
+};
+
+extern const u64a mcsheng64_pext_mask[8];
+#endif
 
 #endif

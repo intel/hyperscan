@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,3 +41,16 @@ const u64a mcsheng_pext_mask[8] = {
     0x00ff00000000000f,
     0xff0000000000000f,
 };
+#if defined(HAVE_AVX512VBMI)
+const u64a mcsheng64_pext_mask[8] = {
+    0, /* dummy */
+    0x000000000000ff3f,
+    0x0000000000ff003f,
+    0x00000000ff00003f,
+    0x000000ff0000003f,
+    0x0000ff000000003f,
+    0x00ff00000000003f,
+    0xff0000000000003f,
+};
+#endif
+

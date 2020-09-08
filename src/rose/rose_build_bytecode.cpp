@@ -632,12 +632,16 @@ bytecode_ptr<NFA> getDfa(raw_dfa &rdfa, bool is_transient,
          * bytecode and that they are usually run on small blocks */
         dfa = mcshengCompile(rdfa, cc, rm);
     }
+
 #if defined(HAVE_AVX512VBMI)
     if (!dfa) {
         dfa = sheng32Compile(rdfa, cc, rm, false);
     }
     if (!dfa) {
         dfa = sheng64Compile(rdfa, cc, rm, false);
+    }
+    if (!dfa && !is_transient) {
+        dfa = mcshengCompile64(rdfa, cc, rm);
     }
 #endif
     if (!dfa) {

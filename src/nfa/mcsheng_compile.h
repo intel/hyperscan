@@ -42,7 +42,8 @@ struct raw_dfa;
 
 bytecode_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
                                  const ReportManager &rm);
-
+bytecode_ptr<NFA> mcshengCompile64(raw_dfa &raw, const CompileContext &cc,
+                                   const ReportManager &rm);
 bool has_accel_mcsheng(const NFA *nfa);
 
 } // namespace ue2
