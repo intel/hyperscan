@@ -554,7 +554,8 @@ void findFixedDepthTops(const RoseGraph &g, const set<PredTopPair> &triggers,
  */
 static
 bytecode_ptr<NFA> pickImpl(bytecode_ptr<NFA> dfa_impl,
-                           bytecode_ptr<NFA> nfa_impl) {
+                           bytecode_ptr<NFA> nfa_impl,
+                           bool fast_nfa) {
     assert(nfa_impl);
     assert(dfa_impl);
     assert(isDfaType(dfa_impl->type));
@@ -584,7 +585,7 @@ bytecode_ptr<NFA> pickImpl(bytecode_ptr<NFA> dfa_impl,
                 return nfa_impl;
             }
         } else {
-            if (n_accel) {
+            if (n_accel && fast_nfa) {
                 return nfa_impl;
             } else {
                 return dfa_impl;
@@ -687,20 +688,21 @@ buildSuffix(const ReportManager &rm, const SomSlotManager &ssm,
         }
     }
 
+    bool fast_nfa = false;
     auto n = constructNFA(holder, &rm, fixed_depth_tops, triggers,
-                          compress_state, cc);
+                          compress_state, fast_nfa, cc);
     assert(n);
 
     if (oneTop && cc.grey.roseMcClellanSuffix) {
         if (cc.grey.roseMcClellanSuffix == 2 || n->nPositions > 128 ||
-            !has_bounded_repeats_other_than_firsts(*n)) {
+            !has_bounded_repeats_other_than_firsts(*n) || !fast_nfa) {
             auto rdfa = buildMcClellan(holder, &rm, false, triggers.at(0),
                                        cc.grey);
             if (rdfa) {
                 auto d = getDfa(*rdfa, false, cc, rm);
                 assert(d);
                 if (cc.grey.roseMcClellanSuffix != 2) {
-                    n = pickImpl(move(d), move(n));
+                    n = pickImpl(move(d), move(n), fast_nfa);
                 } else {
                     n = move(d);
                 }
@@ -835,23 +837,24 @@ bytecode_ptr<NFA> makeLeftNfa(const RoseBuildImpl &tbi, left_id &left,
         n = constructLBR(*left.graph(), triggers.begin()->second, cc, rm);
     }
 
+    bool fast_nfa = false;
     if (!n && left.graph()) {
         map<u32, vector<vector<CharReach>>> triggers;
         if (left.graph()->kind == NFA_INFIX) {
             findTriggerSequences(tbi, infixTriggers.at(left), &triggers);
         }
         n = constructNFA(*left.graph(), nullptr, fixed_depth_tops, triggers,
-                         compress_state, cc);
+                         compress_state, fast_nfa, cc);
     }
 
     if (cc.grey.roseMcClellanPrefix == 1 && is_prefix && !left.dfa()
         && left.graph()
-        && (!n || !has_bounded_repeats_other_than_firsts(*n) || !is_fast(*n))) {
+        && (!n || !has_bounded_repeats_other_than_firsts(*n) || !fast_nfa)) {
         auto rdfa = buildMcClellan(*left.graph(), nullptr, cc.grey);
         if (rdfa) {
             auto d = getDfa(*rdfa, is_transient, cc, rm);
             assert(d);
-            n = pickImpl(move(d), move(n));
+            n = pickImpl(move(d), move(n), fast_nfa);
         }
     }
 
@@ -1636,17 +1639,18 @@ public:
         const map<u32, u32> fixed_depth_tops; /* no tops */
         const map<u32, vector<vector<CharReach>>> triggers; /* no tops */
         bool compress_state = cc.streaming;
+        bool fast_nfa = false;
         auto n = constructNFA(h, &rm, fixed_depth_tops, triggers,
-                              compress_state, cc);
+                              compress_state, fast_nfa, cc);
 
         // Try for a DFA upgrade.
         if (n && cc.grey.roseMcClellanOutfix &&
-            !has_bounded_repeats_other_than_firsts(*n)) {
+            (!has_bounded_repeats_other_than_firsts(*n) || !fast_nfa)) {
             auto rdfa = buildMcClellan(h, &rm, cc.grey);
             if (rdfa) {
                 auto d = getDfa(*rdfa, false, cc, rm);
                 if (d) {
-                    n = pickImpl(move(d), move(n));
+                    n = pickImpl(move(d), move(n), fast_nfa);
                 }
             }
         }

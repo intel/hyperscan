@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -84,6 +84,18 @@ namespace ue2 {
  * participate in an (NFA/DFA/etc) implementation.
  */
 static constexpr u32 NO_STATE = ~0;
+
+/* Maximum number of states taken as a small NFA */
+static constexpr u32 MAX_SMALL_NFA_STATES = 64;
+
+/* Maximum bounded repeat upper bound to consider as a fast NFA */
+static constexpr u64a MAX_REPEAT_SIZE = 200;
+
+/* Maximum bounded repeat char reach size to consider as a fast NFA */
+static constexpr u32 MAX_REPEAT_CHAR_REACH = 26;
+
+/* Minimum bounded repeat trigger distance to consider as a fast NFA */
+static constexpr u8 MIN_REPEAT_TRIGGER_DISTANCE = 6;
 
 namespace {
 
@@ -2423,6 +2435,68 @@ bool isSane(const NGHolder &h, const map<u32, set<NFAVertex>> &tops,
 #endif // NDEBUG
 
 static
+bool isFast(const build_info &args) {
+    const NGHolder &h = args.h;
+    const u32 num_states = args.num_states;
+
+    if (num_states > MAX_SMALL_NFA_STATES) {
+        return false;
+    }
+
+    unordered_map<NFAVertex, bool> pos_trigger;
+    for (u32 i = 0; i < args.repeats.size(); i++) {
+        const BoundedRepeatData &br = args.repeats[i];
+        assert(!contains(pos_trigger, br.pos_trigger));
+        pos_trigger[br.pos_trigger] = br.repeatMax <= MAX_REPEAT_SIZE;
+    }
+
+    // Small NFA without bounded repeat should be fast.
+    if (pos_trigger.empty()) {
+        return true;
+    }
+
+    vector<NFAVertex> cur;
+    unordered_set<NFAVertex> visited;
+    for (const auto &m : args.tops) {
+        for (NFAVertex v : m.second) {
+            cur.push_back(v);
+            visited.insert(v);
+        }
+    }
+
+    u8 pos_dist = 0;
+    while (!cur.empty()) {
+        vector<NFAVertex> next;
+        for (const auto &v : cur) {
+            if (contains(pos_trigger, v)) {
+                const CharReach &cr = h[v].char_reach;
+                if (!pos_trigger[v] && cr.count() > MAX_REPEAT_CHAR_REACH) {
+                    return false;
+                }
+            }
+            for (const auto &w : adjacent_vertices_range(v, h)) {
+                if (w == v) {
+                    continue;
+                }
+                u32 j = args.state_ids.at(w);
+                if (j == NO_STATE) {
+                    continue;
+                }
+                if (!contains(visited, w)) {
+                    next.push_back(w);
+                    visited.insert(w);
+                }
+            }
+        }
+        if (++pos_dist >= MIN_REPEAT_TRIGGER_DISTANCE) {
+            break;
+        }
+        swap(cur, next);
+    }
+    return true;
+}
+
+static
 u32 max_state(const unordered_map<NFAVertex, u32> &state_ids) {
     u32 rv = 0;
     for (const auto &m : state_ids) {
@@ -2442,7 +2516,7 @@ bytecode_ptr<NFA> generate(NGHolder &h,
                 const unordered_map<NFAVertex, NFAStateSet> &squashMap,
                 const map<u32, set<NFAVertex>> &tops,
                 const set<NFAVertex> &zombies, bool do_accel,
-                bool stateCompression, u32 hint,
+                bool stateCompression, bool &fast, u32 hint,
                 const CompileContext &cc) {
     const u32 num_states = max_state(states) + 1;
     DEBUG_PRINTF("total states: %u\n", num_states);
@@ -2497,6 +2571,7 @@ bytecode_ptr<NFA> generate(NGHolder &h,
         if (nfa) {
             DEBUG_PRINTF("successful build with NFA engine: %s\n",
                          nfa_type_name(limex_model));
+            fast = isFast(arg);
             return nfa;
         }
     }

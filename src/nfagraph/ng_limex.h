@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -100,7 +100,7 @@ bytecode_ptr<NFA>
 constructNFA(const NGHolder &g, const ReportManager *rm,
              const std::map<u32, u32> &fixed_depth_tops,
              const std::map<u32, std::vector<std::vector<CharReach>>> &triggers,
-             bool compress_state, const CompileContext &cc);
+             bool compress_state, bool &fast, const CompileContext &cc);
 
 /**
  * \brief Build a reverse NFA from the graph given, which should have already
@@ -129,7 +129,7 @@ bytecode_ptr<NFA>
 constructNFA(const NGHolder &g, const ReportManager *rm,
              const std::map<u32, u32> &fixed_depth_tops,
              const std::map<u32, std::vector<std::vector<CharReach>>> &triggers,
-             bool compress_state, u32 hint, const CompileContext &cc);
+             bool compress_state, bool &fast, u32 hint, const CompileContext &cc);
 
 /**
  * \brief Build a reverse NFA (with model type hint) from the graph given,

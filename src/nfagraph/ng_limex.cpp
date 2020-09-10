@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -632,8 +632,8 @@ bytecode_ptr<NFA>
 constructNFA(const NGHolder &h_in, const ReportManager *rm,
              const map<u32, u32> &fixed_depth_tops,
              const map<u32, vector<vector<CharReach>>> &triggers,
-             bool compress_state, bool do_accel, bool impl_test_only, u32 hint,
-             const CompileContext &cc) {
+             bool compress_state, bool do_accel, bool impl_test_only,
+             bool &fast, u32 hint, const CompileContext &cc) {
     if (!has_managed_reports(h_in)) {
         rm = nullptr;
     } else {
@@ -684,19 +684,19 @@ constructNFA(const NGHolder &h_in, const ReportManager *rm,
     }
 
     return generate(*h, state_ids, repeats, reportSquashMap, squashMap, tops,
-                    zombies, do_accel, compress_state, hint, cc);
+                    zombies, do_accel, compress_state, fast, hint, cc);
 }
 
 bytecode_ptr<NFA>
 constructNFA(const NGHolder &h_in, const ReportManager *rm,
              const map<u32, u32> &fixed_depth_tops,
              const map<u32, vector<vector<CharReach>>> &triggers,
-             bool compress_state, const CompileContext &cc) {
+             bool compress_state, bool &fast, const CompileContext &cc) {
     const u32 hint = INVALID_NFA;
     const bool do_accel = cc.grey.accelerateNFA;
     const bool impl_test_only = false;
     return constructNFA(h_in, rm, fixed_depth_tops, triggers, compress_state,
-                        do_accel, impl_test_only, hint, cc);
+                        do_accel, impl_test_only, fast, hint, cc);
 }
 
 #ifndef RELEASE_BUILD
@@ -705,11 +705,11 @@ bytecode_ptr<NFA>
 constructNFA(const NGHolder &h_in, const ReportManager *rm,
              const map<u32, u32> &fixed_depth_tops,
              const map<u32, vector<vector<CharReach>>> &triggers,
-             bool compress_state, u32 hint, const CompileContext &cc) {
+             bool compress_state, bool &fast, u32 hint, const CompileContext &cc) {
     const bool do_accel = cc.grey.accelerateNFA;
     const bool impl_test_only = false;
-    return constructNFA(h_in, rm, fixed_depth_tops, triggers,
-                        compress_state, do_accel, impl_test_only, hint, cc);
+    return constructNFA(h_in, rm, fixed_depth_tops, triggers, compress_state,
+                        do_accel, impl_test_only, fast, hint, cc);
 }
 #endif // RELEASE_BUILD
 
@@ -739,9 +739,10 @@ bytecode_ptr<NFA> constructReversedNFA_i(const NGHolder &h_in, u32 hint,
     vector<BoundedRepeatData> repeats;
     unordered_map<NFAVertex, NFAStateSet> reportSquashMap;
     unordered_map<NFAVertex, NFAStateSet> squashMap;
+    UNUSED bool fast = false;
 
     return generate(h, state_ids, repeats, reportSquashMap, squashMap, tops,
-                    zombies, false, false, hint, cc);
+                    zombies, false, false, fast, hint, cc);
 }
 
 bytecode_ptr<NFA> constructReversedNFA(const NGHolder &h_in,
