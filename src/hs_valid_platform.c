@@ -26,9 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
 #include "hs_common.h"
-#include "util/cpuid_flags.h"
-#include "util/cpuid_inline.h"
+#if defined(ARCH_X86_64)
+#include "util/arch/x86/cpuid_inline.h"
+#endif
 
 HS_PUBLIC_API
 hs_error_t HS_CDECL hs_valid_platform(void) {

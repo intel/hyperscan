@@ -30,7 +30,9 @@
 #include "hs_common.h"
 #include "hs_runtime.h"
 #include "ue2common.h"
-#include "util/cpuid_inline.h"
+#if defined(ARCH_X86_64)
+#include "util/arch/x86/cpuid_inline.h"
+#endif
 #include "util/join.h"
 
 #if defined(DISABLE_AVX512_DISPATCH)

@@ -44,8 +44,10 @@
 #include "parser/prefilter.h"
 #include "parser/unsupported.h"
 #include "util/compile_error.h"
-#include "util/cpuid_flags.h"
-#include "util/cpuid_inline.h"
+#if defined(ARCH_X86_64)
+#include "util/arch/x86/cpuid_flags.h"
+#include "util/arch/x86/cpuid_inline.h"
+#endif
 #include "util/depth.h"
 #include "util/popcount.h"
 #include "util/target_info.h"
