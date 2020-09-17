@@ -30,12 +30,67 @@
  * \brief Per-platform architecture definitions
  */
 
-#ifndef UTIL_ARCH_H_
-#define UTIL_ARCH_H_
+#ifndef UTIL_ARCH_X86_H_
+#define UTIL_ARCH_X86_H_
 
-#if defined(__i386__) || defined(__x86_64__)
-#include "util/arch/x86/x86.h"
+#if defined(__SSE2__) || defined(_M_X64) || (_M_IX86_FP >= 2)
+#define HAVE_SSE2
+#define HAVE_SIMD_128_BITS
+#endif
+
+#if defined(__SSE4_1__) || (defined(_WIN32) && defined(__AVX__))
+#define HAVE_SSE41
+#define HAVE_SIMD_128_BITS
+#endif
+
+#if defined(__SSE4_2__) || (defined(_WIN32) && defined(__AVX__))
+#define HAVE_SSE42
+#define HAVE_SIMD_128_BITS
+#endif
+
+#if defined(__AVX__)
+#define HAVE_AVX
+#define HAVE_SIMD_256_BITS
+#endif
+
+#if defined(__AVX2__)
+#define HAVE_AVX2
+#define HAVE_SIMD_256_BITS
+#endif
+
+#if defined(__AVX512BW__)
+#define HAVE_AVX512
+#define HAVE_SIMD_512_BITS
+#endif
+
+#if defined(__AVX512VBMI__)
+#define HAVE_AVX512VBMI
+#endif
+
+/*
+ * ICC and MSVC don't break out POPCNT or BMI/2 as separate pre-def macros
+ */
+#if defined(__POPCNT__) ||                                                     \
+    (defined(__INTEL_COMPILER) && defined(__SSE4_2__)) ||                      \
+    (defined(_WIN32) && defined(__AVX__))
+#define HAVE_POPCOUNT_INSTR
+#endif
+
+#if defined(__BMI__) || (defined(_WIN32) && defined(__AVX2__)) ||              \
+    (defined(__INTEL_COMPILER) && defined(__AVX2__))
+#define HAVE_BMI
+#endif
+
+#if defined(__BMI2__) || (defined(_WIN32) && defined(__AVX2__)) ||             \
+    (defined(__INTEL_COMPILER) && defined(__AVX2__))
+#define HAVE_BMI2
+#endif
+
+/*
+ * MSVC uses a different form of inline asm
+ */
+#if defined(_WIN32) && defined(_MSC_VER)
+#define NO_ASM
 #endif
 
 #endif // UTIL_ARCH_X86_H_
-

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2020, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,16 +26,20 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/** \file
- * \brief Per-platform architecture definitions
- */
+#ifndef SIMD_TYPES_X86_H
+#define SIMD_TYPES_X86_H
 
-#ifndef UTIL_ARCH_H_
-#define UTIL_ARCH_H_
-
-#if defined(__i386__) || defined(__x86_64__)
-#include "util/arch/x86/x86.h"
+#if !defined(m128) && defined(HAVE_SSE2)
+typedef __m128i m128;
 #endif
 
-#endif // UTIL_ARCH_X86_H_
+#if !defined(m128) && defined(HAVE_AVX2)
+typedef __m256i m256;
+#endif
+
+#if !defined(m512) && defined(HAVE_AVX512)
+typedef __m512i m512;
+#endif
+
+#endif /* SIMD_TYPES_H */
 

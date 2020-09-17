@@ -38,10 +38,10 @@
 #endif
 
 #include "config.h"
+#include "util/arch.h"
 #include "ue2common.h"
 #include "simd_types.h"
 #include "unaligned.h"
-#include "util/arch.h"
 #include "util/intrinsics.h"
 
 #include <string.h> // for memcpy
