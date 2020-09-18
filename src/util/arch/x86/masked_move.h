@@ -29,12 +29,12 @@
 #ifndef MASKED_MOVE_H
 #define MASKED_MOVE_H
 
-#include "arch.h"
+#include "x86.h"
 
 #if defined(HAVE_AVX2)
 
-#include "unaligned.h"
-#include "simd_utils.h"
+#include "util/unaligned.h"
+#include "util/simd_utils.h"
 
 #ifdef __cplusplus
 extern "C" {

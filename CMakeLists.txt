@@ -694,7 +694,6 @@ set (hs_exec_SRCS
     src/util/exhaust.h
     src/util/fatbit.h
     src/util/join.h
-    src/util/masked_move.h
     src/util/multibit.h
     src/util/multibit.c
     src/util/multibit_compress.h
@@ -716,7 +715,8 @@ set (hs_exec_SRCS
 
 set (hs_exec_avx2_SRCS
     src/fdr/teddy_avx2.c
-    src/util/masked_move.c
+    src/util/arch/x86/masked_move.c
+    src/util/arch/x86/masked_move.h
 )
 
 

@@ -39,9 +39,12 @@
 #include "util/compare.h"
 #include "util/intrinsics.h"
 #include "util/join.h"
-#include "util/masked_move.h"
 #include "util/partial_store.h"
 #include "util/simd_utils.h"
+
+#if defined(HAVE_AVX2)
+#include "util/arch/x86/masked_move.h"
+#endif
 
 #include <ctype.h>
 #include <stdbool.h>
