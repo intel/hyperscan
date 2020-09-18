@@ -30,7 +30,6 @@
 #include "config.h"
 #include "ue2common.h"
 #include "util/arch.h"
-#include "util/intrinsics.h"
 
 #if !defined(HAVE_SSE42)
 
@@ -579,53 +578,7 @@ u32 crc32c_sb8_64_bit(u32 running_crc, const unsigned char* p_buf,
 }
 
 #else // HAVE_SSE42
-
-#ifdef ARCH_64_BIT
-#define CRC_WORD 8
-#define CRC_TYPE u64a
-#define CRC_FUNC _mm_crc32_u64
-#else
-#define CRC_WORD 4
-#define CRC_TYPE u32
-#define CRC_FUNC _mm_crc32_u32
-#endif
-
-/*
- * Use the crc32 instruction from SSE4.2 to compute our checksum - same
- * polynomial as the above function.
- */
-static really_inline
-u32 crc32c_sse42(u32 running_crc, const unsigned char* p_buf,
-                      const size_t length) {
-    u32 crc = running_crc;
-
-    // Process byte-by-byte until p_buf is aligned
-
-    const unsigned char *aligned_buf = ROUNDUP_PTR(p_buf, CRC_WORD);
-    size_t init_bytes = aligned_buf - p_buf;
-    size_t running_length = ((length - init_bytes)/CRC_WORD)*CRC_WORD;
-    size_t end_bytes = length - init_bytes - running_length;
-
-    while (p_buf < aligned_buf) {
-        crc = _mm_crc32_u8(crc, *p_buf++);
-    }
-
-    // Main aligned loop, processes a word at a time.
-
-    for (size_t li = 0; li < running_length/CRC_WORD; li++) {
-        CRC_TYPE block = *(const CRC_TYPE *)p_buf;
-        crc = CRC_FUNC(crc, block);
-        p_buf += CRC_WORD;
-    }
-
-    // Remaining bytes
-
-    for(size_t li = 0; li < end_bytes; li++) {
-        crc = _mm_crc32_u8(crc, *p_buf++);
-    }
-
-    return crc;
-}
+#include "util/arch/x86/crc32.h"
 #endif
 
 #ifdef VERIFY_ASSERTION
