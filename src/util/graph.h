@@ -170,6 +170,7 @@ find_vertices_in_cycles(const Graph &g) {
         assert(!comp.empty());
         if (comp.size() > 1) {
             insert(&rv, comp);
+            continue;
         }
         vertex_descriptor v = *comp.begin();
         if (hasSelfLoop(v, g)) {
