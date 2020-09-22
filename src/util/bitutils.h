@@ -45,7 +45,7 @@
 #define OCTO_CASE_CLEAR   0xdfdfdfdfdfdfdfdfULL
 
 
-#if defined(_WIN32) || defined(_WIN64) || defined(ARCH_IA32) || defined(ARCH_X86_64)
+#if defined(ARCH_IA32) || defined(ARCH_X86_64)
 #include "util/arch/x86/bitutils.h"
 #endif
 
