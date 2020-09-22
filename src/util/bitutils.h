@@ -33,6 +33,7 @@
 #ifndef BITUTILS_H
 #define BITUTILS_H
 
+#include "config.h"
 #include "ue2common.h"
 #include "popcount.h"
 #include "util/arch.h"
@@ -43,351 +44,88 @@
 #define DOUBLE_CASE_CLEAR 0xdfdf
 #define OCTO_CASE_CLEAR   0xdfdfdfdfdfdfdfdfULL
 
+
+#if defined(_WIN32) || defined(_WIN64) || defined(ARCH_IA32) || defined(ARCH_X86_64)
+#include "util/arch/x86/bitutils.h"
+#endif
+
 static really_inline
 u32 clz32(u32 x) {
     assert(x); // behaviour not defined for x == 0
-#if defined(_WIN32)
-    unsigned long r;
-    _BitScanReverse(&r, x);
-    return 31 - r;
-#else
-    return (u32)__builtin_clz(x);
-#endif
+
+    return clz32_impl(x);
 }
 
 static really_inline
 u32 clz64(u64a x) {
     assert(x); // behaviour not defined for x == 0
-#if defined(_WIN64)
-    unsigned long r;
-    _BitScanReverse64(&r, x);
-    return 63 - r;
-#elif defined(_WIN32)
-    unsigned long x1 = (u32)x;
-    unsigned long x2 = (u32)(x >> 32);
-    unsigned long r;
-    if (x2) {
-        _BitScanReverse(&r, x2);
-        return (u32)(31 - r);
-    }
-    _BitScanReverse(&r, (u32)x1);
-    return (u32)(63 - r);
-#else
-    return (u32)__builtin_clzll(x);
-#endif
+
+    return clz64_impl(x);
 }
 
 // CTZ (count trailing zero) implementations.
 static really_inline
 u32 ctz32(u32 x) {
     assert(x); // behaviour not defined for x == 0
-#if defined(_WIN32)
-    unsigned long r;
-    _BitScanForward(&r, x);
-    return r;
-#else
-    return (u32)__builtin_ctz(x);
-#endif
+
+    return ctz32_impl(x);
 }
 
 static really_inline
 u32 ctz64(u64a x) {
     assert(x); // behaviour not defined for x == 0
-#if defined(_WIN64)
-    unsigned long r;
-    _BitScanForward64(&r, x);
-    return r;
-#elif defined(_WIN32)
-    unsigned long r;
-    if (_BitScanForward(&r, (u32)x)) {
-        return (u32)r;
-    }
-    _BitScanForward(&r, x >> 32);
-    return (u32)(r + 32);
-#else
-    return (u32)__builtin_ctzll(x);
-#endif
+
+    return ctz64_impl(x);
 }
 
 static really_inline
 u32 lg2(u32 x) {
-    if (!x) {
-        return 0;
-    }
-    return 31 - clz32(x);
+    return lg2_impl(x);
 }
 
 static really_inline
 u64a lg2_64(u64a x) {
-    if (!x) {
-        return 0;
-    }
-    return 63 - clz64(x);
+    return lg2_64_impl(x);
 }
 
 static really_inline
 u32 findAndClearLSB_32(u32 *v) {
-    assert(*v != 0); // behaviour not defined in this case
-#ifndef NO_ASM
-    u32 val = *v, offset;
-    __asm__ ("bsf %1, %0\n"
-             "btr %0, %1\n"
-             : "=r" (offset), "=r" (val)
-             : "1" (val));
-    *v = val;
-#else
-    u32 val = *v;
-    u32 offset = ctz32(val);
-    *v = val & (val - 1);
-#endif
-
-    assert(offset < 32);
-    return offset;
+    return findAndClearLSB_32_impl(v);
 }
 
 static really_inline
 u32 findAndClearLSB_64(u64a *v) {
-    assert(*v != 0); // behaviour not defined in this case
-
-#ifdef ARCH_64_BIT
-#if defined(ARCH_X86_64) && !defined(NO_ASM)
-    u64a val = *v, offset;
-    __asm__ ("bsfq %1, %0\n"
-             "btrq %0, %1\n"
-             : "=r" (offset), "=r" (val)
-             : "1" (val));
-    *v = val;
-#else
-    // generic variant using gcc's builtin on 64-bit
-    u64a val = *v, offset;
-    offset = ctz64(val);
-    *v = val & (val - 1);
-#endif // ARCH_X86_64
-#else
-    // fall back to doing things with two 32-bit cases, since gcc-4.1 doesn't
-    // inline calls to __builtin_ctzll
-    u32 v1 = (u32)*v;
-    u32 v2 = (u32)(*v >> 32);
-    u32 offset;
-    if (v1) {
-        offset = findAndClearLSB_32(&v1);
-        *v = (u64a)v1 | ((u64a)v2 << 32);
-    } else {
-        offset = findAndClearLSB_32(&v2) + 32;
-        *v = (u64a)v2 << 32;
-    }
-#endif
-
-    assert(offset < 64);
-    return (u32)offset;
+    return findAndClearLSB_64_impl(v);
 }
 
 static really_inline
 u32 findAndClearMSB_32(u32 *v) {
-    assert(*v != 0); // behaviour not defined in this case
-#ifndef NO_ASM
-    u32 val = *v, offset;
-    __asm__ ("bsr %1, %0\n"
-             "btr %0, %1\n"
-             : "=r" (offset), "=r" (val)
-             : "1" (val));
-    *v = val;
-#else
-    u32 val = *v;
-    u32 offset = 31 - clz32(val);
-    *v = val & ~(1 << offset);
-#endif
-    assert(offset < 32);
-    return offset;
+    return findAndClearMSB_32_impl(v);
 }
 
 static really_inline
 u32 findAndClearMSB_64(u64a *v) {
-    assert(*v != 0); // behaviour not defined in this case
-
-#ifdef ARCH_64_BIT
-#if defined(ARCH_X86_64) && !defined(NO_ASM)
-    u64a val = *v, offset;
-    __asm__ ("bsrq %1, %0\n"
-             "btrq %0, %1\n"
-             : "=r" (offset), "=r" (val)
-             : "1" (val));
-    *v = val;
-#else
-    // generic variant using gcc's builtin on 64-bit
-    u64a val = *v, offset;
-    offset = 63 - clz64(val);
-    *v = val & ~(1ULL << offset);
-#endif // ARCH_X86_64
-#else
-    // fall back to doing things with two 32-bit cases, since gcc-4.1 doesn't
-    // inline calls to __builtin_ctzll
-    u32 v1 = (u32)*v;
-    u32 v2 = (*v >> 32);
-    u32 offset;
-    if (v2) {
-        offset = findAndClearMSB_32(&v2) + 32;
-        *v = ((u64a)v2 << 32) | (u64a)v1;
-    } else {
-        offset = findAndClearMSB_32(&v1);
-        *v = (u64a)v1;
-    }
-#endif
-
-    assert(offset < 64);
-    return (u32)offset;
+    return findAndClearMSB_64_impl(v);
 }
 
 static really_inline
 u32 compress32(u32 x, u32 m) {
-#if defined(HAVE_BMI2)
-    // BMI2 has a single instruction for this operation.
-    return _pext_u32(x, m);
-#else
-
-    // Return zero quickly on trivial cases
-    if ((x & m) == 0) {
-        return 0;
-    }
-
-    u32 mk, mp, mv, t;
-
-    x &= m; // clear irrelevant bits
-
-    mk = ~m << 1; // we will count 0's to right
-    for (u32 i = 0; i < 5; i++) {
-        mp = mk ^ (mk << 1);
-        mp ^= mp << 2;
-        mp ^= mp << 4;
-        mp ^= mp << 8;
-        mp ^= mp << 16;
-
-        mv = mp & m; // bits to move
-        m = (m ^ mv) | (mv >> (1 << i)); // compress m
-        t = x & mv;
-        x = (x ^ t) | (t >> (1 << i)); // compress x
-        mk = mk & ~mp;
-    }
-
-    return x;
-#endif
+    return compress32_impl(x, m);
 }
 
 static really_inline
 u64a compress64(u64a x, u64a m) {
-#if defined(ARCH_X86_64) && defined(HAVE_BMI2)
-    // BMI2 has a single instruction for this operation.
-    return _pext_u64(x, m);
-#else
-
-    // Return zero quickly on trivial cases
-    if ((x & m) == 0) {
-        return 0;
-    }
-
-    u64a mk, mp, mv, t;
-
-    x &= m; // clear irrelevant bits
-
-    mk = ~m << 1; // we will count 0's to right
-    for (u32 i = 0; i < 6; i++) {
-        mp = mk ^ (mk << 1);
-        mp ^= mp << 2;
-        mp ^= mp << 4;
-        mp ^= mp << 8;
-        mp ^= mp << 16;
-        mp ^= mp << 32;
-
-        mv = mp & m; // bits to move
-        m = (m ^ mv) | (mv >> (1 << i)); // compress m
-        t = x & mv;
-        x = (x ^ t) | (t >> (1 << i)); // compress x
-        mk = mk & ~mp;
-    }
-
-    return x;
-#endif
+    return compress64_impl(x, m);
 }
 
 static really_inline
 u32 expand32(u32 x, u32 m) {
-#if defined(HAVE_BMI2)
-    // BMI2 has a single instruction for this operation.
-    return _pdep_u32(x, m);
-#else
-
-    // Return zero quickly on trivial cases
-    if (!x || !m) {
-        return 0;
-    }
-
-    u32 m0, mk, mp, mv, t;
-    u32 array[5];
-
-    m0 = m; // save original mask
-    mk = ~m << 1; // we will count 0's to right
-
-    for (int i = 0; i < 5; i++) {
-        mp = mk ^ (mk << 1); // parallel suffix
-        mp = mp ^ (mp << 2);
-        mp = mp ^ (mp << 4);
-        mp = mp ^ (mp << 8);
-        mp = mp ^ (mp << 16);
-        mv = mp & m; // bits to move
-        array[i] = mv;
-        m = (m ^ mv) | (mv >> (1 << i)); // compress m
-        mk = mk & ~mp;
-    }
-
-    for (int i = 4; i >= 0; i--) {
-        mv = array[i];
-        t = x << (1 << i);
-        x = (x & ~mv) | (t & mv);
-    }
-
-    return x & m0; // clear out extraneous bits
-#endif
+    return expand32_impl(x, m);
 }
 
 static really_inline
 u64a expand64(u64a x, u64a m) {
-#if defined(ARCH_X86_64) && defined(HAVE_BMI2)
-    // BMI2 has a single instruction for this operation.
-    return _pdep_u64(x, m);
-#else
-
-    // Return zero quickly on trivial cases
-    if (!x || !m) {
-        return 0;
-    }
-
-    u64a m0, mk, mp, mv, t;
-    u64a array[6];
-
-    m0 = m; // save original mask
-    mk = ~m << 1; // we will count 0's to right
-
-    for (int i = 0; i < 6; i++) {
-        mp = mk ^ (mk << 1); // parallel suffix
-        mp = mp ^ (mp << 2);
-        mp = mp ^ (mp << 4);
-        mp = mp ^ (mp << 8);
-        mp = mp ^ (mp << 16);
-        mp = mp ^ (mp << 32);
-        mv = mp & m; // bits to move
-        array[i] = mv;
-        m = (m ^ mv) | (mv >> (1 << i)); // compress m
-        mk = mk & ~mp;
-    }
-
-    for (int i = 5; i >= 0; i--) {
-        mv = array[i];
-        t = x << (1 << i);
-        x = (x & ~mv) | (t & mv);
-    }
-
-    return x & m0; // clear out extraneous bits
-#endif
+    return expand64_impl(x, m);
 }
 
 
@@ -396,97 +134,37 @@ u64a expand64(u64a x, u64a m) {
  */
 static really_inline
 u32 bf64_iterate(u64a bitfield, u32 begin) {
-    if (begin != ~0U) {
-        /* switch off all bits at or below begin. Note: not legal to shift by
-         * by size of the datatype or larger. */
-        assert(begin <= 63);
-        bitfield &= ~((2ULL << begin) - 1);
-    }
-
-    if (!bitfield) {
-        return ~0U;
-    }
-
-    return ctz64(bitfield);
+    return bf64_iterate_impl(bitfield, begin);
 }
 
 static really_inline
 char bf64_set(u64a *bitfield, u32 i) {
-    assert(i < 64);
-    u64a mask = 1ULL << i;
-    char was_set = !!(*bitfield & mask);
-    *bitfield |= mask;
-
-    return was_set;
+    return bf64_set_impl(bitfield, i);
 }
 
 static really_inline
 void bf64_unset(u64a *bitfield, u32 i) {
-    assert(i < 64);
-    *bitfield &= ~(1ULL << i);
+    return bf64_unset_impl(bitfield, i);
 }
 
 static really_inline
 u32 rank_in_mask32(u32 mask, u32 bit) {
-    assert(bit < sizeof(u32) * 8);
-    assert(mask & (u32)(1U << bit));
-    mask &= (u32)(1U << bit) - 1;
-    return popcount32(mask);
+    return rank_in_mask32_impl(mask, bit);
 }
 
 static really_inline
 u32 rank_in_mask64(u64a mask, u32 bit) {
-    assert(bit < sizeof(u64a) * 8);
-    assert(mask & (u64a)(1ULL << bit));
-    mask &= (u64a)(1ULL << bit) - 1;
-    return popcount64(mask);
+    return rank_in_mask64_impl(mask, bit);
 }
 
 static really_inline
 u32 pext32(u32 x, u32 mask) {
-#if defined(HAVE_BMI2)
-    // Intel BMI2 can do this operation in one instruction.
-    return _pext_u32(x, mask);
-#else
-
-    u32 result = 0, num = 1;
-    while (mask != 0) {
-        u32 bit = findAndClearLSB_32(&mask);
-        if (x & (1U << bit)) {
-            assert(num != 0); // more than 32 bits!
-            result |= num;
-        }
-        num <<= 1;
-    }
-    return result;
-#endif
+    return pext32_impl(x, mask);
 }
 
 static really_inline
 u64a pext64(u64a x, u64a mask) {
-#if defined(HAVE_BMI2) && defined(ARCH_64_BIT)
-    // Intel BMI2 can do this operation in one instruction.
-    return _pext_u64(x, mask);
-#else
-
-    u32 result = 0, num = 1;
-    while (mask != 0) {
-        u32 bit = findAndClearLSB_64(&mask);
-        if (x & (1ULL << bit)) {
-            assert(num != 0); // more than 32 bits!
-            result |= num;
-        }
-        num <<= 1;
-    }
-    return result;
-#endif
+    return pext64_impl(x, mask);
 }
-
-#if defined(HAVE_BMI2) && defined(ARCH_64_BIT)
-static really_inline
-u64a pdep64(u64a x, u64a mask) {
-    return _pdep_u64(x, mask);
-}
-#endif
 
 #endif // BITUTILS_H
