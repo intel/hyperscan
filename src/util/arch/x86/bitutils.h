@@ -301,4 +301,18 @@ u64a pdep64(u64a x, u64a mask) {
 }
 #endif
 
+/* compilers don't reliably synthesize the 32-bit ANDN instruction here,
+ * so we force its generation.
+ */
+static really_inline
+u64a andn_impl(const u32 a, const u8 *b) {
+#if defined(HAVE_BMI) && !defined(NO_ASM)
+    u64a r;
+    __asm__ ("andn\t%2,%1,%k0" : "=r"(r) : "r"(a), "m"(*(const u32 *)b));
+    return r;
+#else
+    return andn_impl_c(a, b);
+#endif
+}
+
 #endif // BITUTILS_ARCH_X86_H

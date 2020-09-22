@@ -167,4 +167,12 @@ u64a pext64(u64a x, u64a mask) {
     return pext64_impl(x, mask);
 }
 
+/* compilers don't reliably synthesize the 32-bit ANDN instruction here,
+ * so we force its generation.
+ */
+static really_inline
+u64a andn(const u32 a, const u8 *b) {
+    return andn_impl_c(a, b);
+}
+
 #endif // BITUTILS_H

@@ -34,6 +34,7 @@
 #define BITUTILS_ARCH_COMMON_H
 
 #include "util/popcount.h"
+#include "util/unaligned.h"
 
 static really_inline
 u32 clz32_impl_c(u32 x) {
@@ -348,6 +349,14 @@ u64a pext64_impl_c(u64a x, u64a mask) {
         num <<= 1;
     }
     return result;
+}
+
+/* compilers don't reliably synthesize the 32-bit ANDN instruction here,
+ * so we force its generation.
+ */
+static really_inline
+u64a andn_impl_c(const u32 a, const u8 *b) {
+    return unaligned_load_u32(b) & ~a;
 }
 
 #endif // BITUTILS_ARCH_COMMON_H
