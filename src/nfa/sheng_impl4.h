@@ -86,7 +86,7 @@ char SHENG_IMPL(u8 *state, NfaCallback cb, void *ctxt, const struct sheng *s,
         return MO_CONTINUE_MATCHING;
     }
 
-    m128 cur_state = set16x8(*state);
+    m128 cur_state = set1_16x8(*state);
     const m128 *masks = s->shuffle_masks;
 
     while (likely(end - cur_buf >= 4)) {

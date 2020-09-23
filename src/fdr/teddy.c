@@ -311,26 +311,26 @@ const u8 ALIGN_DIRECTIVE p_sh_mask_arr[80] = {
     sl_msk[2] = loadu512(p_sh_mask_arr + TEDDY_VBMI_SL3_POS);
 
 #define PREPARE_MASKS_1                                                       \
-    dup_mask[0] = set4x128(maskBase[0]);                                      \
-    dup_mask[1] = set4x128(maskBase[1]);
+    dup_mask[0] = set1_4x128(maskBase[0]);                                      \
+    dup_mask[1] = set1_4x128(maskBase[1]);
 
 #define PREPARE_MASKS_2                                                       \
     PREPARE_MASKS_1                                                           \
-    dup_mask[2] = set4x128(maskBase[2]);                                      \
-    dup_mask[3] = set4x128(maskBase[3]);
+    dup_mask[2] = set1_4x128(maskBase[2]);                                      \
+    dup_mask[3] = set1_4x128(maskBase[3]);
 
 #define PREPARE_MASKS_3                                                       \
     PREPARE_MASKS_2                                                           \
-    dup_mask[4] = set4x128(maskBase[4]);                                      \
-    dup_mask[5] = set4x128(maskBase[5]);
+    dup_mask[4] = set1_4x128(maskBase[4]);                                      \
+    dup_mask[5] = set1_4x128(maskBase[5]);
 
 #define PREPARE_MASKS_4                                                       \
     PREPARE_MASKS_3                                                           \
-    dup_mask[6] = set4x128(maskBase[6]);                                      \
-    dup_mask[7] = set4x128(maskBase[7]);
+    dup_mask[6] = set1_4x128(maskBase[6]);                                      \
+    dup_mask[7] = set1_4x128(maskBase[7]);
 
 #define PREPARE_MASKS(n)                                                      \
-    m512 lo_mask = set64x8(0xf);                                              \
+    m512 lo_mask = set1_64x8(0xf);                                              \
     m512 dup_mask[n * 2];                                                     \
     m512 sl_msk[n - 1];                                                       \
     PREPARE_MASKS_##n                                                         \
@@ -570,26 +570,26 @@ m512 prep_conf_teddy_m4(const m512 *lo_mask, const m512 *dup_mask,
                          &c_0, &c_16, &c_32, &c_48)
 
 #define PREPARE_MASKS_1                                                       \
-    dup_mask[0] = set4x128(maskBase[0]);                                      \
-    dup_mask[1] = set4x128(maskBase[1]);
+    dup_mask[0] = set1_4x128(maskBase[0]);                                      \
+    dup_mask[1] = set1_4x128(maskBase[1]);
 
 #define PREPARE_MASKS_2                                                       \
     PREPARE_MASKS_1                                                           \
-    dup_mask[2] = set4x128(maskBase[2]);                                      \
-    dup_mask[3] = set4x128(maskBase[3]);
+    dup_mask[2] = set1_4x128(maskBase[2]);                                      \
+    dup_mask[3] = set1_4x128(maskBase[3]);
 
 #define PREPARE_MASKS_3                                                       \
     PREPARE_MASKS_2                                                           \
-    dup_mask[4] = set4x128(maskBase[4]);                                      \
-    dup_mask[5] = set4x128(maskBase[5]);
+    dup_mask[4] = set1_4x128(maskBase[4]);                                      \
+    dup_mask[5] = set1_4x128(maskBase[5]);
 
 #define PREPARE_MASKS_4                                                       \
     PREPARE_MASKS_3                                                           \
-    dup_mask[6] = set4x128(maskBase[6]);                                      \
-    dup_mask[7] = set4x128(maskBase[7]);
+    dup_mask[6] = set1_4x128(maskBase[6]);                                      \
+    dup_mask[7] = set1_4x128(maskBase[7]);
 
 #define PREPARE_MASKS(n)                                                      \
-    m512 lo_mask = set64x8(0xf);                                              \
+    m512 lo_mask = set1_64x8(0xf);                                              \
     m512 dup_mask[n * 2];                                                     \
     PREPARE_MASKS_##n
 
@@ -713,7 +713,7 @@ do {                                                                        \
 #define PREP_SHUF_MASK                                                      \
     PREP_SHUF_MASK_NO_REINFORCEMENT(load256(ptr));                          \
     *c_128 = *(ptr + 15);                                                   \
-    m256 r_msk = set64x4(0ULL, r_msk_base[*c_128], 0ULL, r_msk_base[*c_0]); \
+    m256 r_msk = set4x64(0ULL, r_msk_base[*c_128], 0ULL, r_msk_base[*c_0]); \
     *c_0 = *(ptr + 31)
 
 #define SHIFT_OR_M1                                                         \
@@ -805,26 +805,26 @@ m256 prep_conf_teddy_m4(const m256 *lo_mask, const m256 *dup_mask,
     prep_conf_teddy_m##n(&lo_mask, dup_mask, ptr, r_msk_base, &c_0, &c_128)
 
 #define PREPARE_MASKS_1                                                       \
-    dup_mask[0] = set2x128(maskBase[0]);                                      \
-    dup_mask[1] = set2x128(maskBase[1]);
+    dup_mask[0] = set1_2x128(maskBase[0]);                                      \
+    dup_mask[1] = set1_2x128(maskBase[1]);
 
 #define PREPARE_MASKS_2                                                       \
     PREPARE_MASKS_1                                                           \
-    dup_mask[2] = set2x128(maskBase[2]);                                      \
-    dup_mask[3] = set2x128(maskBase[3]);
+    dup_mask[2] = set1_2x128(maskBase[2]);                                      \
+    dup_mask[3] = set1_2x128(maskBase[3]);
 
 #define PREPARE_MASKS_3                                                       \
     PREPARE_MASKS_2                                                           \
-    dup_mask[4] = set2x128(maskBase[4]);                                      \
-    dup_mask[5] = set2x128(maskBase[5]);
+    dup_mask[4] = set1_2x128(maskBase[4]);                                      \
+    dup_mask[5] = set1_2x128(maskBase[5]);
 
 #define PREPARE_MASKS_4                                                       \
     PREPARE_MASKS_3                                                           \
-    dup_mask[6] = set2x128(maskBase[6]);                                      \
-    dup_mask[7] = set2x128(maskBase[7]);
+    dup_mask[6] = set1_2x128(maskBase[6]);                                      \
+    dup_mask[7] = set1_2x128(maskBase[7]);
 
 #define PREPARE_MASKS(n)                                                      \
-    m256 lo_mask = set32x8(0xf);                                              \
+    m256 lo_mask = set1_32x8(0xf);                                              \
     m256 dup_mask[n * 2];                                                     \
     PREPARE_MASKS_##n
 
@@ -925,7 +925,7 @@ do {                                                                        \
 
 static really_inline
 m128 prep_conf_teddy_m1(const m128 *maskBase, m128 val) {
-    m128 mask = set16x8(0xf);
+    m128 mask = set1_16x8(0xf);
     m128 lo = and128(val, mask);
     m128 hi = and128(rshift64_m128(val, 4), mask);
     return or128(pshufb_m128(maskBase[0 * 2], lo),
@@ -934,7 +934,7 @@ m128 prep_conf_teddy_m1(const m128 *maskBase, m128 val) {
 
 static really_inline
 m128 prep_conf_teddy_m2(const m128 *maskBase, m128 *old_1, m128 val) {
-    m128 mask = set16x8(0xf);
+    m128 mask = set1_16x8(0xf);
     m128 lo = and128(val, mask);
     m128 hi = and128(rshift64_m128(val, 4), mask);
     m128 r = prep_conf_teddy_m1(maskBase, val);
@@ -949,7 +949,7 @@ m128 prep_conf_teddy_m2(const m128 *maskBase, m128 *old_1, m128 val) {
 static really_inline
 m128 prep_conf_teddy_m3(const m128 *maskBase, m128 *old_1, m128 *old_2,
                         m128 val) {
-    m128 mask = set16x8(0xf);
+    m128 mask = set1_16x8(0xf);
     m128 lo = and128(val, mask);
     m128 hi = and128(rshift64_m128(val, 4), mask);
     m128 r = prep_conf_teddy_m2(maskBase, old_1, val);
@@ -964,7 +964,7 @@ m128 prep_conf_teddy_m3(const m128 *maskBase, m128 *old_1, m128 *old_2,
 static really_inline
 m128 prep_conf_teddy_m4(const m128 *maskBase, m128 *old_1, m128 *old_2,
                         m128 *old_3, m128 val) {
-    m128 mask = set16x8(0xf);
+    m128 mask = set1_16x8(0xf);
     m128 lo = and128(val, mask);
     m128 hi = and128(rshift64_m128(val, 4), mask);
     m128 r = prep_conf_teddy_m3(maskBase, old_1, old_2, val);

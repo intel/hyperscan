@@ -52,7 +52,7 @@ char SHENG_IMPL(u8 *state, NfaCallback cb, void *ctxt, const struct sheng *s,
     }
     DEBUG_PRINTF("Scanning %lli bytes\n", (s64a)(end - start));
 
-    m128 cur_state = set16x8(*state);
+    m128 cur_state = set1_16x8(*state);
     const m128 *masks = s->shuffle_masks;
 
     while (likely(cur_buf != end)) {

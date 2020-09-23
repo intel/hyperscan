@@ -59,7 +59,7 @@ u32 doSherman16(const char *sherman_state, u8 cprime, const u16 *succ_table,
 
     if (len) {
         m128 ss_char = load128(sherman_state);
-        m128 cur_char = set16x8(cprime);
+        m128 cur_char = set1_16x8(cprime);
 
         u32 z = movemask128(eq128(ss_char, cur_char));
 

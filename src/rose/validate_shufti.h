@@ -47,7 +47,7 @@ static really_inline
 int validateShuftiMask16x16(const m256 data, const m256 hi_mask,
                             const m256 lo_mask, const m256 and_mask,
                             const u32 neg_mask, const u32 valid_data_mask) {
-    m256 low4bits = set32x8(0xf);
+    m256 low4bits = set1_32x8(0xf);
     m256 c_lo = pshufb_m256(lo_mask, and256(data, low4bits));
     m256 c_hi = pshufb_m256(hi_mask,
                             rshift64_m256(andnot256(low4bits, data), 4));
@@ -78,7 +78,7 @@ int validateShuftiMask16x8(const m128 data, const m256 nib_mask,
                            const m128 and_mask, const u32 neg_mask,
                            const u32 valid_data_mask) {
     m256 data_m256 = combine2x128(rshift64_m128(data, 4), data);
-    m256 low4bits = set32x8(0xf);
+    m256 low4bits = set1_32x8(0xf);
     m256 c_nib = pshufb_m256(nib_mask, and256(data_m256, low4bits));
     m128 t = and128(movdq_hi(c_nib), movdq_lo(c_nib));
     m128 nresult = eq128(and128(t, and_mask), zeroes128());
@@ -101,7 +101,7 @@ static really_inline
 int validateShuftiMask32x8(const m256 data, const m256 hi_mask,
                            const m256 lo_mask, const m256 and_mask,
                            const u32 neg_mask, const u32 valid_data_mask) {
-    m256 low4bits = set32x8(0xf);
+    m256 low4bits = set1_32x8(0xf);
     m256 c_lo = pshufb_m256(lo_mask, and256(data, low4bits));
     m256 c_hi = pshufb_m256(hi_mask,
                             rshift64_m256(andnot256(low4bits, data), 4));
@@ -133,7 +133,7 @@ int validateShuftiMask32x16(const m256 data,
                             const m256 bucket_mask_hi,
                             const m256 bucket_mask_lo, const u32 neg_mask,
                             const u32 valid_data_mask) {
-    m256 low4bits = set32x8(0xf);
+    m256 low4bits = set1_32x8(0xf);
     m256 data_lo = and256(data, low4bits);
     m256 data_hi = and256(rshift64_m256(data, 4), low4bits);
     m256 c_lo_1 = pshufb_m256(lo_mask_1, data_lo);
@@ -201,7 +201,7 @@ int validateMultipathShuftiMask16x8(const m128 data,
                                     const u32 neg_mask,
                                     const u32 valid_path_mask) {
     m256 data_256 = combine2x128(rshift64_m128(data, 4), data);
-    m256 low4bits = set32x8(0xf);
+    m256 low4bits = set1_32x8(0xf);
     m256 c_nib = pshufb_m256(nib_mask, and256(data_256, low4bits));
     m128 t = and128(movdq_hi(c_nib), movdq_lo(c_nib));
     m128 result = and128(t, bucket_select_mask);
@@ -220,7 +220,7 @@ int validateMultipathShuftiMask32x8(const m256 data,
                                     const u32 hi_bits, const u32 lo_bits,
                                     const u32 neg_mask,
                                     const u32 valid_path_mask) {
-    m256 low4bits = set32x8(0xf);
+    m256 low4bits = set1_32x8(0xf);
     m256 data_lo = and256(data, low4bits);
     m256 data_hi = and256(rshift64_m256(data, 4), low4bits);
     m256 c_lo = pshufb_m256(lo_mask, data_lo);
@@ -244,7 +244,7 @@ int validateMultipathShuftiMask32x16(const m256 data,
                                      const u32 hi_bits, const u32 lo_bits,
                                      const u32 neg_mask,
                                      const u32 valid_path_mask) {
-    m256 low4bits = set32x8(0xf);
+    m256 low4bits = set1_32x8(0xf);
     m256 data_lo = and256(data, low4bits);
     m256 data_hi = and256(rshift64_m256(data, 4), low4bits);
     m256 c_lo_1 = pshufb_m256(lo_mask_1, data_lo);
@@ -271,7 +271,7 @@ int validateMultipathShuftiMask64(const m256 data_1, const m256 data_2,
                                   const u64a hi_bits, const u64a lo_bits,
                                   const u64a neg_mask,
                                   const u64a valid_path_mask) {
-    m256 low4bits = set32x8(0xf);
+    m256 low4bits = set1_32x8(0xf);
     m256 c_lo_1 = pshufb_m256(lo_mask, and256(data_1, low4bits));
     m256 c_lo_2 = pshufb_m256(lo_mask, and256(data_2, low4bits));
     m256 c_hi_1 = pshufb_m256(hi_mask,

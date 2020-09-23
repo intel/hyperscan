@@ -30,11 +30,11 @@
 
 static really_inline m128 getMask(u8 c, bool noCase) {
     u8 k = caseClear8(c, noCase);
-    return set16x8(k);
+    return set1_16x8(k);
 }
 
 static really_inline m128 getCaseMask(void) {
-    return set16x8(0xdf);
+    return set1_16x8(0xdf);
 }
 
 static really_inline

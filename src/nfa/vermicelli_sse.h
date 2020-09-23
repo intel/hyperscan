@@ -36,7 +36,7 @@
 
 #define VERM_BOUNDARY 16
 #define VERM_TYPE m128
-#define VERM_SET_FN set16x8
+#define VERM_SET_FN set1_16x8
 
 static really_inline
 const u8 *vermSearchAligned(m128 chars, const u8 *buf, const u8 *buf_end,
@@ -74,7 +74,7 @@ static really_inline
 const u8 *vermSearchAlignedNocase(m128 chars, const u8 *buf,
                                   const u8 *buf_end, char negate) {
     assert((size_t)buf % 16 == 0);
-    m128 casemask = set16x8(CASE_CLEAR);
+    m128 casemask = set1_16x8(CASE_CLEAR);
 
     for (; buf + 31 < buf_end; buf += 32) {
         m128 data = load128(buf);
@@ -122,7 +122,7 @@ const u8 *vermUnalign(m128 chars, const u8 *buf, char negate) {
 // returns NULL if not found
 static really_inline
 const u8 *vermUnalignNocase(m128 chars, const u8 *buf, char negate) {
-    m128 casemask = set16x8(CASE_CLEAR);
+    m128 casemask = set1_16x8(CASE_CLEAR);
     m128 data = loadu128(buf); // unaligned
     u32 z = movemask128(eq128(chars, and128(casemask, data)));
     if (negate) {
@@ -157,7 +157,7 @@ static really_inline
 const u8 *dvermSearchAlignedNocase(m128 chars1, m128 chars2, u8 c1, u8 c2,
                                    const u8 *buf, const u8 *buf_end) {
     assert((size_t)buf % 16 == 0);
-    m128 casemask = set16x8(CASE_CLEAR);
+    m128 casemask = set1_16x8(CASE_CLEAR);
 
     for (; buf + 16 < buf_end; buf += 16) {
         m128 data = load128(buf);
@@ -219,7 +219,7 @@ const u8 *dvermPrecondition(m128 chars1, m128 chars2, const u8 *buf) {
 static really_inline
 const u8 *dvermPreconditionNocase(m128 chars1, m128 chars2, const u8 *buf) {
     /* due to laziness, nonalphas and nocase having interesting behaviour */
-    m128 casemask = set16x8(CASE_CLEAR);
+    m128 casemask = set1_16x8(CASE_CLEAR);
     m128 data = loadu128(buf); // unaligned
     m128 v = and128(casemask, data);
     u32 z = movemask128(and128(eq128(chars1, v),
@@ -277,7 +277,7 @@ static really_inline
 const u8 *rvermSearchAlignedNocase(m128 chars, const u8 *buf,
                                    const u8 *buf_end, char negate) {
     assert((size_t)buf_end % 16 == 0);
-    m128 casemask = set16x8(CASE_CLEAR);
+    m128 casemask = set1_16x8(CASE_CLEAR);
 
     for (; buf + 15 < buf_end; buf_end -= 16) {
         m128 data = load128(buf_end - 16);
@@ -309,7 +309,7 @@ const u8 *rvermUnalign(m128 chars, const u8 *buf, char negate) {
 // returns NULL if not found
 static really_inline
 const u8 *rvermUnalignNocase(m128 chars, const u8 *buf, char negate) {
-    m128 casemask = set16x8(CASE_CLEAR);
+    m128 casemask = set1_16x8(CASE_CLEAR);
     m128 data = loadu128(buf); // unaligned
     u32 z = movemask128(eq128(chars, and128(casemask, data)));
     if (negate) {
@@ -344,7 +344,7 @@ static really_inline
 const u8 *rdvermSearchAlignedNocase(m128 chars1, m128 chars2, u8 c1, u8 c2,
                                     const u8 *buf, const u8 *buf_end) {
     assert((size_t)buf_end % 16 == 0);
-    m128 casemask = set16x8(CASE_CLEAR);
+    m128 casemask = set1_16x8(CASE_CLEAR);
 
     for (; buf + 16 < buf_end; buf_end -= 16) {
         m128 data = load128(buf_end - 16);
@@ -381,7 +381,7 @@ const u8 *rdvermPrecondition(m128 chars1, m128 chars2, const u8 *buf) {
 static really_inline
 const u8 *rdvermPreconditionNocase(m128 chars1, m128 chars2, const u8 *buf) {
     /* due to laziness, nonalphas and nocase having interesting behaviour */
-    m128 casemask = set16x8(CASE_CLEAR);
+    m128 casemask = set1_16x8(CASE_CLEAR);
     m128 data = loadu128(buf);
     m128 v = and128(casemask, data);
     u32 z = movemask128(and128(eq128(chars2, v),
@@ -398,7 +398,7 @@ const u8 *rdvermPreconditionNocase(m128 chars1, m128 chars2, const u8 *buf) {
 
 #define VERM_BOUNDARY 64
 #define VERM_TYPE m512
-#define VERM_SET_FN set64x8
+#define VERM_SET_FN set1_64x8
 
 static really_inline
 const u8 *vermMini(m512 chars, const u8 *buf, const u8 *buf_end, char negate) {

@@ -501,15 +501,15 @@ m256 vectoredLoad2x128(m256 *p_mask, const u8 *ptr, const size_t start_offset,
                        const u8 *buf_history, size_t len_history,
                        const u32 nMasks) {
     m128 p_mask128;
-    m256 ret = set2x128(vectoredLoad128(&p_mask128, ptr, start_offset, lo, hi,
+    m256 ret = set1_2x128(vectoredLoad128(&p_mask128, ptr, start_offset, lo, hi,
                                         buf_history, len_history, nMasks));
-    *p_mask = set2x128(p_mask128);
+    *p_mask = set1_2x128(p_mask128);
     return ret;
 }
 
 static really_inline
 m256 prep_conf_fat_teddy_m1(const m256 *maskBase, m256 val) {
-    m256 mask = set32x8(0xf);
+    m256 mask = set1_32x8(0xf);
     m256 lo = and256(val, mask);
     m256 hi = and256(rshift64_m256(val, 4), mask);
     return or256(pshufb_m256(maskBase[0 * 2], lo),
@@ -518,7 +518,7 @@ m256 prep_conf_fat_teddy_m1(const m256 *maskBase, m256 val) {
 
 static really_inline
 m256 prep_conf_fat_teddy_m2(const m256 *maskBase, m256 *old_1, m256 val) {
-    m256 mask = set32x8(0xf);
+    m256 mask = set1_32x8(0xf);
     m256 lo = and256(val, mask);
     m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 r = prep_conf_fat_teddy_m1(maskBase, val);
@@ -533,7 +533,7 @@ m256 prep_conf_fat_teddy_m2(const m256 *maskBase, m256 *old_1, m256 val) {
 static really_inline
 m256 prep_conf_fat_teddy_m3(const m256 *maskBase, m256 *old_1, m256 *old_2,
                             m256 val) {
-    m256 mask = set32x8(0xf);
+    m256 mask = set1_32x8(0xf);
     m256 lo = and256(val, mask);
     m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 r = prep_conf_fat_teddy_m2(maskBase, old_1, val);
@@ -548,7 +548,7 @@ m256 prep_conf_fat_teddy_m3(const m256 *maskBase, m256 *old_1, m256 *old_2,
 static really_inline
 m256 prep_conf_fat_teddy_m4(const m256 *maskBase, m256 *old_1, m256 *old_2,
                             m256 *old_3, m256 val) {
-    m256 mask = set32x8(0xf);
+    m256 mask = set1_32x8(0xf);
     m256 lo = and256(val, mask);
     m256 hi = and256(rshift64_m256(val, 4), mask);
     m256 r = prep_conf_fat_teddy_m3(maskBase, old_1, old_2, val);

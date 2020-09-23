@@ -72,7 +72,7 @@ u32 doSherman16(const char *sherman_state, u8 cprime, const u16 *succ_table,
 
     if (len) {
         m128 ss_char = load128(sherman_state);
-        m128 cur_char = set16x8(cprime);
+        m128 cur_char = set1_16x8(cprime);
 
         u32 z = movemask128(eq128(ss_char, cur_char));
 
@@ -153,7 +153,7 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
     assert(s_in); /* should not already be dead */
     assert(soft_c_end <= hard_c_end);
     DEBUG_PRINTF("s_in = %u (adjusted %u)\n", s_in, s_in - 1);
-    m128 s = set16x8(s_in - 1);
+    m128 s = set1_16x8(s_in - 1);
     const u8 *c = *c_inout;
     const u8 *c_end = hard_c_end - SHENG_CHUNK + 1;
     if (!do_accel) {
@@ -171,8 +171,8 @@ u32 doSheng(const struct mcsheng *m, const u8 **c_inout, const u8 *soft_c_end,
 
 #if defined(HAVE_BMI2) && defined(ARCH_64_BIT)
     u32 sheng_limit_x4 = sheng_limit * 0x01010101;
-    m128 simd_stop_limit = set4x32(sheng_stop_limit_x4);
-    m128 accel_delta = set16x8(sheng_limit - sheng_stop_limit);
+    m128 simd_stop_limit = set1_4x32(sheng_stop_limit_x4);
+    m128 accel_delta = set1_16x8(sheng_limit - sheng_stop_limit);
     DEBUG_PRINTF("end %hhu, accel %hu --> limit %hhu\n", sheng_limit,
                  m->sheng_accel_limit, sheng_stop_limit);
 #endif
