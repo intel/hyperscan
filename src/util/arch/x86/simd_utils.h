@@ -111,12 +111,16 @@ m128 lshift64_m128(m128 a, unsigned b) {
 #define eq128(a, b)      _mm_cmpeq_epi8((a), (b))
 #define movemask128(a)  ((u32)_mm_movemask_epi8((a)))
 
-static really_inline m128 set16x8(u8 c) {
+static really_inline m128 set1_16x8(u8 c) {
     return _mm_set1_epi8(c);
 }
 
-static really_inline m128 set4x32(u32 c) {
+static really_inline m128 set1_4x32(u32 c) {
     return _mm_set1_epi32(c);
+}
+
+static really_inline m128 set1_2x64(u64a c) {
+    return _mm_set1_epi64x(c);
 }
 
 static really_inline u32 movd(const m128 in) {
@@ -335,7 +339,12 @@ m128 sub_u8_m128(m128 a, m128 b) {
 }
 
 static really_inline
-m128 set64x2(u64a hi, u64a lo) {
+m128 set4x32(u32 x3, u32 x2, u32 x1, u32 x0) {
+    return _mm_set_epi32(x3, x2, x1, x0);
+}
+
+static really_inline
+m128 set2x64(u64a hi, u64a lo) {
     return _mm_set_epi64x(hi, lo);
 }
 
@@ -358,16 +367,15 @@ m256 lshift64_m256(m256 a, unsigned b) {
 
 #define rshift64_m256(a, b) _mm256_srli_epi64((a), (b))
 
-static really_inline
-m256 set32x8(u32 in) {
-    return _mm256_set1_epi8(in);
+static really_inline m256 set1_4x64(u64a c) {
+    return _mm256_set1_epi64x(c);
 }
 
 #define eq256(a, b)     _mm256_cmpeq_epi8((a), (b))
 #define movemask256(a)  ((u32)_mm256_movemask_epi8((a)))
 
 static really_inline
-m256 set2x128(m128 a) {
+m256 set1_2x128(m128 a) {
     return _mm256_broadcastsi128_si256(a);
 }
 
@@ -388,13 +396,6 @@ m256 rshift64_m256(m256 a, int b) {
     rv.hi = rshift64_m128(rv.hi, b);
     return rv;
 }
-static really_inline
-m256 set32x8(u32 in) {
-    m256 rv;
-    rv.lo = set16x8((u8) in);
-    rv.hi = rv.lo;
-    return rv;
-}
 
 static really_inline
 m256 eq256(m256 a, m256 b) {
@@ -412,7 +413,7 @@ u32 movemask256(m256 a) {
 }
 
 static really_inline
-m256 set2x128(m128 a) {
+m256 set1_2x128(m128 a) {
     m256 rv = {a, a};
     return rv;
 }
@@ -557,7 +558,7 @@ static really_inline m256 load256(const void *ptr) {
 // aligned load  of 128-bit value to low and high part of 256-bit value
 static really_inline m256 load2x128(const void *ptr) {
 #if defined(HAVE_AVX2)
-    return set2x128(load128(ptr));
+    return set1_2x128(load128(ptr));
 #else
     assert(ISALIGNED_N(ptr, alignof(m128)));
     m256 rv;
@@ -567,7 +568,7 @@ static really_inline m256 load2x128(const void *ptr) {
 }
 
 static really_inline m256 loadu2x128(const void *ptr) {
-    return set2x128(loadu128(ptr));
+    return set1_2x128(loadu128(ptr));
 }
 
 // aligned store
@@ -626,13 +627,37 @@ m256 mask1bit256(unsigned int n) {
 }
 
 static really_inline
-m256 set64x4(u64a hi_1, u64a hi_0, u64a lo_1, u64a lo_0) {
+m256 set1_32x8(u32 in) {
+#if defined(HAVE_AVX2)
+    return _mm256_set1_epi8(in);
+#else
+    m256 rv;
+    rv.hi = set1_16x8(in);
+    rv.lo = set1_16x8(in);
+    return rv;
+#endif
+}
+
+static really_inline
+m256 set8x32(u32 hi_3, u32 hi_2, u32 hi_1, u32 hi_0, u32 lo_3, u32 lo_2, u32 lo_1, u32 lo_0) {
+#if defined(HAVE_AVX2)
+    return _mm256_set_epi32(hi_3, hi_2, hi_1, hi_0, lo_3, lo_2, lo_1, lo_0);
+#else
+    m256 rv;
+    rv.hi = set4x32(hi_3, hi_2, hi_1, hi_0);
+    rv.lo = set4x32(lo_3, lo_2, lo_1, lo_0);
+    return rv;
+#endif
+}
+
+static really_inline
+m256 set4x64(u64a hi_1, u64a hi_0, u64a lo_1, u64a lo_0) {
 #if defined(HAVE_AVX2)
     return _mm256_set_epi64x(hi_1, hi_0, lo_1, lo_0);
 #else
     m256 rv;
-    rv.hi = set64x2(hi_1, hi_0);
-    rv.lo = set64x2(lo_1, lo_0);
+    rv.hi = set2x64(hi_1, hi_0);
+    rv.lo = set2x64(lo_1, lo_0);
     return rv;
 #endif
 }
@@ -964,17 +989,17 @@ m512 ones512(void) {
 
 #if defined(HAVE_AVX512)
 static really_inline
-m512 set64x8(u8 a) {
+m512 set1_64x8(u8 a) {
     return _mm512_set1_epi8(a);
 }
 
 static really_inline
-m512 set8x64(u64a a) {
+m512 set1_8x64(u64a a) {
     return _mm512_set1_epi64(a);
 }
 
 static really_inline
-m512 set512_64(u64a hi_3, u64a hi_2, u64a hi_1, u64a hi_0,
+m512 set8x64(u64a hi_3, u64a hi_2, u64a hi_1, u64a hi_0,
                u64a lo_3, u64a lo_2, u64a lo_1, u64a lo_0) {
     return _mm512_set_epi64(hi_3, hi_2, hi_1, hi_0,
                             lo_3, lo_2, lo_1, lo_0);
@@ -987,7 +1012,7 @@ m512 swap256in512(m512 a) {
 }
 
 static really_inline
-m512 set4x128(m128 a) {
+m512 set1_4x128(m128 a) {
     return _mm512_broadcast_i32x4(a);
 }
 #endif
