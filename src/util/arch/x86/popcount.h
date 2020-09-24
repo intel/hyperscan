@@ -30,26 +30,38 @@
  * \brief Platform specific popcount functions
  */
 
-#ifndef UTIL_POPCOUNT_H_
-#define UTIL_POPCOUNT_H_
+#ifndef POPCOUNT_ARCH_X86_H
+#define POPCOUNT_ARCH_X86_H
 
-#include "config.h"
 #include "ue2common.h"
 #include "util/arch.h"
+#include "util/intrinsics.h"
 
-#if defined(ARCH_IA32) || defined(ARCH_X86_64)
-#include "util/arch/x86/popcount.h"
+#include "util/arch/common/popcount.h"
+
+static really_inline
+u32 popcount32_impl(u32 x) {
+#if defined(HAVE_POPCOUNT_INSTR)
+    // Single-instruction builtin.
+    return _mm_popcnt_u32(x);
+#else
+    return popcount32_impl_c(x);
 #endif
-
-static really_inline
-u32 popcount32(u32 x) {
-    return popcount32_impl(x);
 }
 
 static really_inline
-u32 popcount64(u32 x) {
-    return popcount64_impl(x);
+u32 popcount64_impl(u64a x) {
+#if defined(ARCH_X86_64)
+# if defined(HAVE_POPCOUNT_INSTR)
+    // Single-instruction builtin.
+    return (u32)_mm_popcnt_u64(x);
+# else
+    return popcount64_impl_c(x);
+# endif
+#else
+    // Synthesise from two 32-bit cases.
+    return popcount32_impl(x >> 32) + popcount32_impl(x);
+#endif
 }
 
-#endif /* UTIL_POPCOUNT_H_ */
-
+#endif // POPCOUNT_ARCH_X86_h

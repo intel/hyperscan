@@ -30,26 +30,31 @@
  * \brief Platform specific popcount functions
  */
 
-#ifndef UTIL_POPCOUNT_H_
-#define UTIL_POPCOUNT_H_
+#ifndef POPCOUNT_ARCH_COMMON_H
+#define POPCOUNT_ARCH_COMMON_H
 
-#include "config.h"
-#include "ue2common.h"
-#include "util/arch.h"
+static really_inline
+u32 popcount32_impl_c(u32 x) {
+    // Fast branch-free version from bit-twiddling hacks as older Intel
+    // processors do not have a POPCNT instruction.
+    x -= (x >> 1) & 0x55555555;
+    x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
+    return (((x + (x >> 4)) & 0xf0f0f0f) * 0x1010101) >> 24;
+}
 
-#if defined(ARCH_IA32) || defined(ARCH_X86_64)
-#include "util/arch/x86/popcount.h"
+static really_inline
+u32 popcount64_impl_c(u64a x) {
+#if defined(ARCH_64_BIT)
+    // Fast branch-free version from bit-twiddling hacks as older Intel
+    // processors do not have a POPCNT instruction.
+    x -= (x >> 1) & 0x5555555555555555;
+    x = (x & 0x3333333333333333) + ((x >> 2) & 0x3333333333333333);
+    x = (x + (x >> 4)) & 0x0f0f0f0f0f0f0f0f;
+    return (x * 0x0101010101010101) >> 56;
+#else
+    // Synthesise from two 32-bit cases.
+    return popcount32_impl(x >> 32) + popcount32_impl(x);
 #endif
-
-static really_inline
-u32 popcount32(u32 x) {
-    return popcount32_impl(x);
 }
 
-static really_inline
-u32 popcount64(u32 x) {
-    return popcount64_impl(x);
-}
-
-#endif /* UTIL_POPCOUNT_H_ */
-
+#endif // POPCOUNT_ARCH_COMMON_H
