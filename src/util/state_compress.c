@@ -150,7 +150,7 @@ m128 loadcompressed128_32bit(const void *ptr, m128 mvec) {
     u32 x[4] = { expand32(v[0], m[0]), expand32(v[1], m[1]),
                  expand32(v[2], m[2]), expand32(v[3], m[3]) };
 
-    return set32x4(x[3], x[2], x[1], x[0]);
+    return set4x32(x[3], x[2], x[1], x[0]);
 }
 #endif
 
@@ -264,10 +264,10 @@ m256 loadcompressed256_32bit(const void *ptr, m256 mvec) {
                  expand32(v[6], m[6]), expand32(v[7], m[7]) };
 
 #if !defined(HAVE_AVX2)
-    m256 xvec = { .lo = set32x4(x[3], x[2], x[1], x[0]),
-                  .hi = set32x4(x[7], x[6], x[5], x[4]) };
+    m256 xvec = { .lo = set4x32(x[3], x[2], x[1], x[0]),
+                  .hi = set4x32(x[7], x[6], x[5], x[4]) };
 #else
-    m256 xvec = set32x8(x[7], x[6], x[5], x[4],
+    m256 xvec = set8x32(x[7], x[6], x[5], x[4],
                         x[3], x[2], x[1], x[0]);
 #endif
     return xvec;
@@ -402,9 +402,9 @@ m384 loadcompressed384_32bit(const void *ptr, m384 mvec) {
                   expand32(v[8], m[8]), expand32(v[9], m[9]),
                   expand32(v[10], m[10]), expand32(v[11], m[11]) };
 
-    m384 xvec = { .lo = set32x4(x[3], x[2], x[1], x[0]),
-                  .mid = set32x4(x[7], x[6], x[5], x[4]),
-                  .hi = set32x4(x[11], x[10], x[9], x[8]) };
+    m384 xvec = { .lo = set4x32(x[3], x[2], x[1], x[0]),
+                  .mid = set4x32(x[7], x[6], x[5], x[4]),
+                  .hi = set4x32(x[11], x[10], x[9], x[8]) };
     return xvec;
 }
 #endif
@@ -553,15 +553,15 @@ m512 loadcompressed512_32bit(const void *ptr, m512 mvec) {
                     x[7], x[6], x[5], x[4],
                     x[3], x[2], x[1], x[0]);
 #elif defined(HAVE_AVX2)
-    xvec.lo = set32x8(x[7], x[6], x[5], x[4],
+    xvec.lo = set8x32(x[7], x[6], x[5], x[4],
                       x[3], x[2], x[1], x[0]);
-    xvec.hi = set32x8(x[15], x[14], x[13], x[12],
+    xvec.hi = set8x32(x[15], x[14], x[13], x[12],
                       x[11], x[10], x[9], x[8]);
 #else
-    xvec.lo.lo = set32x4(x[3], x[2], x[1], x[0]);
-    xvec.lo.hi = set32x4(x[7], x[6], x[5], x[4]);
-    xvec.hi.lo = set32x4(x[11], x[10], x[9], x[8]);
-    xvec.hi.hi = set32x4(x[15], x[14], x[13], x[12]);
+    xvec.lo.lo = set4x32(x[3], x[2], x[1], x[0]);
+    xvec.lo.hi = set4x32(x[7], x[6], x[5], x[4]);
+    xvec.hi.lo = set4x32(x[11], x[10], x[9], x[8]);
+    xvec.hi.hi = set4x32(x[15], x[14], x[13], x[12]);
 #endif
     return xvec;
 }
