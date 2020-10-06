@@ -175,7 +175,7 @@ else()
         string(REGEX REPLACE "-O[^ ]*" "" CMAKE_CXX_FLAGS_${CONFIG} "${CMAKE_CXX_FLAGS_${CONFIG}}")
     endforeach ()
 
-    if (CMAKE_COMPILER_IS_GNUCC)
+    if (ARCH_IA32 OR ARCH_X86_64 AND CMAKE_COMPILER_IS_GNUCC)
         message(STATUS "gcc version ${CMAKE_C_COMPILER_VERSION}")
         # If gcc doesn't recognise the host cpu, then mtune=native becomes
         # generic, which isn't very good in some cases. march=native looks at
@@ -281,10 +281,14 @@ else()
 endif()
 
 CHECK_INCLUDE_FILES(unistd.h HAVE_UNISTD_H)
-CHECK_INCLUDE_FILES(intrin.h HAVE_C_INTRIN_H)
-CHECK_INCLUDE_FILE_CXX(intrin.h HAVE_CXX_INTRIN_H)
-CHECK_INCLUDE_FILES(x86intrin.h HAVE_C_X86INTRIN_H)
-CHECK_INCLUDE_FILE_CXX(x86intrin.h HAVE_CXX_X86INTRIN_H)
+if (ARCH_IA32 OR ARCH_X86_64)
+  CHECK_INCLUDE_FILES(intrin.h HAVE_C_INTRIN_H)
+  CHECK_INCLUDE_FILE_CXX(intrin.h HAVE_CXX_INTRIN_H)
+  CHECK_INCLUDE_FILES(x86intrin.h HAVE_C_X86INTRIN_H)
+  CHECK_INCLUDE_FILE_CXX(x86intrin.h HAVE_CXX_X86INTRIN_H)
+elseif (ARCH_ARM32 OR ARCH_AARCH64)
+  CHECK_INCLUDE_FILE_CXX(arm_neon.h HAVE_C_ARM_NEON_H)
+endif()
 
 CHECK_FUNCTION_EXISTS(posix_memalign HAVE_POSIX_MEMALIGN)
 CHECK_FUNCTION_EXISTS(_aligned_malloc HAVE__ALIGNED_MALLOC)
