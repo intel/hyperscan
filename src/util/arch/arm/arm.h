@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2017-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,32 +26,17 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SIMD_TYPES_H
-#define SIMD_TYPES_H
+/** \file
+ * \brief Per-platform architecture definitions
+ */
 
-#include "config.h"
-#include "util/arch.h"
-#include "util/intrinsics.h"
-#include "ue2common.h"
+#ifndef UTIL_ARCH_ARM_H_
+#define UTIL_ARCH_ARM_H_
 
-#if defined(ARCH_IA32) || defined(ARCH_X86_64)
-#include "util/arch/x86/simd_types.h"
-#elif defined(ARCH_ARM32) || defined(ARCH_AARCH64)
-#include "util/arch/arm/simd_types.h"
+#if defined(__ARM_NEON) && (defined(ARCH_ARM32) || defined(ARCH_AARCH64))
+#define HAVE_NEON
+#define HAVE_SIMD_128_BITS
 #endif
 
-#if !defined(m128) && !defined(HAVE_SIMD_128_BITS)
-typedef struct ALIGN_DIRECTIVE {u64a hi; u64a lo;} m128;
-#endif
-
-#if !defined(m256) && !defined(HAVE_SIMD_256_BITS)
-typedef struct ALIGN_AVX_DIRECTIVE {m128 lo; m128 hi;} m256;
-#endif
-
-typedef struct {m128 lo; m128 mid; m128 hi;} m384;
-#if !defined(m512) && !defined(HAVE_SIMD_512_BITS)
-typedef struct ALIGN_ATTR(64) {m256 lo; m256 hi;} m512;
-#endif
-
-#endif /* SIMD_TYPES_H */
+#endif // UTIL_ARCH_ARM_H_
 

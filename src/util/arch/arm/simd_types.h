@@ -26,32 +26,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SIMD_TYPES_H
-#define SIMD_TYPES_H
+#ifndef SIMD_TYPES_ARM_H
+#define SIMD_TYPES_ARM_H
 
-#include "config.h"
-#include "util/arch.h"
-#include "util/intrinsics.h"
-#include "ue2common.h"
-
-#if defined(ARCH_IA32) || defined(ARCH_X86_64)
-#include "util/arch/x86/simd_types.h"
-#elif defined(ARCH_ARM32) || defined(ARCH_AARCH64)
-#include "util/arch/arm/simd_types.h"
+#if !defined(m128) && defined(HAVE_NEON)
+typedef int32x4_t m128;
 #endif
 
-#if !defined(m128) && !defined(HAVE_SIMD_128_BITS)
-typedef struct ALIGN_DIRECTIVE {u64a hi; u64a lo;} m128;
-#endif
-
-#if !defined(m256) && !defined(HAVE_SIMD_256_BITS)
-typedef struct ALIGN_AVX_DIRECTIVE {m128 lo; m128 hi;} m256;
-#endif
-
-typedef struct {m128 lo; m128 mid; m128 hi;} m384;
-#if !defined(m512) && !defined(HAVE_SIMD_512_BITS)
-typedef struct ALIGN_ATTR(64) {m256 lo; m256 hi;} m512;
-#endif
-
-#endif /* SIMD_TYPES_H */
+#endif /* SIMD_TYPES_ARM_H */
 

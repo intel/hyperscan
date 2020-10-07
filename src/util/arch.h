@@ -33,8 +33,12 @@
 #ifndef UTIL_ARCH_H_
 #define UTIL_ARCH_H_
 
-#if defined(__i386__) || defined(__x86_64__)
+#include "config.h"
+
+#if defined(ARCH_IA32) || defined(ARCH_X86_64)
 #include "util/arch/x86/x86.h"
+#elif defined(ARCH_ARM32) || defined(ARCH_AARCH64)
+#include "util/arch/arm/arm.h"
 #endif
 
 #endif // UTIL_ARCH_X86_H_
