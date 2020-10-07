@@ -41,5 +41,5 @@ typedef __m256i m256;
 typedef __m512i m512;
 #endif
 
-#endif /* SIMD_TYPES_H */
+#endif /* SIMD_TYPES_X86_H */
 
