@@ -53,7 +53,7 @@ u32 popcount64_impl_c(u64a x) {
     return (x * 0x0101010101010101) >> 56;
 #else
     // Synthesise from two 32-bit cases.
-    return popcount32_impl(x >> 32) + popcount32_impl(x);
+    return popcount32_impl_c(x >> 32) + popcount32_impl_c(x);
 #endif
 }
 

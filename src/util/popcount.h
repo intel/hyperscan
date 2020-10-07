@@ -39,6 +39,10 @@
 
 #if defined(ARCH_IA32) || defined(ARCH_X86_64)
 #include "util/arch/x86/popcount.h"
+#else
+#include "util/arch/common/popcount.h"
+#define popcount32_impl(x) popcount32_impl_c(x)
+#define popcount64_impl(x) popcount64_impl_c(x)
 #endif
 
 static really_inline
