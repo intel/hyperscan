@@ -30,151 +30,150 @@
  * \brief Bit-twiddling primitives (ctz, compress etc)
  */
 
-#ifndef BITUTILS_H
-#define BITUTILS_H
+#ifndef BITUTILS_ARCH_ARM_H
+#define BITUTILS_ARCH_ARM_H
 
-#include "config.h"
 #include "ue2common.h"
-#include "popcount.h"
+#include "util/popcount.h"
 #include "util/arch.h"
 #include "util/intrinsics.h"
 
-#define CASE_BIT          0x20
-#define CASE_CLEAR        0xdf
-#define DOUBLE_CASE_CLEAR 0xdfdf
-#define OCTO_CASE_CLEAR   0xdfdfdfdfdfdfdfdfULL
-
-
-#if defined(ARCH_IA32) || defined(ARCH_X86_64)
-#include "util/arch/x86/bitutils.h"
-#elif defined(ARCH_ARM32) || defined(ARCH_AARCH64)
-#include "util/arch/arm/bitutils.h"
-#endif
+#include "util/arch/common/bitutils.h"
 
 static really_inline
-u32 clz32(u32 x) {
-    assert(x); // behaviour not defined for x == 0
-
-    return clz32_impl(x);
+u32 clz32_impl(u32 x) {
+    return clz32_impl_c(x);
 }
 
 static really_inline
-u32 clz64(u64a x) {
-    assert(x); // behaviour not defined for x == 0
-
-    return clz64_impl(x);
-}
-
-// CTZ (count trailing zero) implementations.
-static really_inline
-u32 ctz32(u32 x) {
-    assert(x); // behaviour not defined for x == 0
-
-    return ctz32_impl(x);
+u32 clz64_impl(u64a x) {
+    return clz64_impl_c(x);
 }
 
 static really_inline
-u32 ctz64(u64a x) {
-    assert(x); // behaviour not defined for x == 0
-
-    return ctz64_impl(x);
+u32 ctz32_impl(u32 x) {
+    return ctz32_impl_c(x);
 }
 
 static really_inline
-u32 lg2(u32 x) {
-    return lg2_impl(x);
+u32 ctz64_impl(u64a x) {
+    return ctz64_impl_c(x);
 }
 
 static really_inline
-u64a lg2_64(u64a x) {
-    return lg2_64_impl(x);
+u32 lg2_impl(u32 x) {
+    return lg2_impl_c(x);
 }
 
 static really_inline
-u32 findAndClearLSB_32(u32 *v) {
-    return findAndClearLSB_32_impl(v);
+u64a lg2_64_impl(u64a x) {
+    return lg2_64_impl_c(x);
 }
 
 static really_inline
-u32 findAndClearLSB_64(u64a *v) {
-    return findAndClearLSB_64_impl(v);
+u32 findAndClearLSB_32_impl(u32 *v) {
+    return findAndClearLSB_32_impl_c(v);
 }
 
 static really_inline
-u32 findAndClearMSB_32(u32 *v) {
-    return findAndClearMSB_32_impl(v);
+u32 findAndClearLSB_64_impl(u64a *v) {
+    return findAndClearLSB_64_impl_c(v);
 }
 
 static really_inline
-u32 findAndClearMSB_64(u64a *v) {
-    return findAndClearMSB_64_impl(v);
+u32 findAndClearMSB_32_impl(u32 *v) {
+    u32 val = *v;
+    u32 offset = 31 - clz32_impl(val);
+    *v = val & ~(1 << offset);
+    assert(offset < 32);
+    return offset;
 }
 
 static really_inline
-u32 compress32(u32 x, u32 m) {
-    return compress32_impl(x, m);
+u32 findAndClearMSB_64_impl(u64a *v) {
+    return findAndClearMSB_64_impl_c(v);
 }
 
 static really_inline
-u64a compress64(u64a x, u64a m) {
-    return compress64_impl(x, m);
+u32 compress32_impl(u32 x, u32 m) {
+    return compress32_impl_c(x, m);
 }
 
 static really_inline
-u32 expand32(u32 x, u32 m) {
-    return expand32_impl(x, m);
+u64a compress64_impl(u64a x, u64a m) {
+    return compress64_impl_c(x, m);
 }
 
 static really_inline
-u64a expand64(u64a x, u64a m) {
-    return expand64_impl(x, m);
+u32 expand32_impl(u32 x, u32 m) {
+    return expand32_impl_c(x, m);
 }
 
+static really_inline
+u64a expand64_impl(u64a x, u64a m) {
+    return expand64_impl_c(x, m);
+}
 
 /* returns the first set bit after begin (if not ~0U). If no bit is set after
  * begin returns ~0U
  */
 static really_inline
-u32 bf64_iterate(u64a bitfield, u32 begin) {
-    return bf64_iterate_impl(bitfield, begin);
+u32 bf64_iterate_impl(u64a bitfield, u32 begin) {
+    if (begin != ~0U) {
+        /* switch off all bits at or below begin. Note: not legal to shift by
+         * by size of the datatype or larger. */
+        assert(begin <= 63);
+        bitfield &= ~((2ULL << begin) - 1);
+    }
+
+    if (!bitfield) {
+        return ~0U;
+    }
+
+    return ctz64_impl(bitfield);
 }
 
 static really_inline
-char bf64_set(u64a *bitfield, u32 i) {
-    return bf64_set_impl(bitfield, i);
+char bf64_set_impl(u64a *bitfield, u32 i) {
+    return bf64_set_impl_c(bitfield, i);
 }
 
 static really_inline
-void bf64_unset(u64a *bitfield, u32 i) {
-    return bf64_unset_impl(bitfield, i);
+void bf64_unset_impl(u64a *bitfield, u32 i) {
+    return bf64_unset_impl_c(bitfield, i);
 }
 
 static really_inline
-u32 rank_in_mask32(u32 mask, u32 bit) {
-    return rank_in_mask32_impl(mask, bit);
+u32 rank_in_mask32_impl(u32 mask, u32 bit) {
+    return rank_in_mask32_impl_c(mask, bit);
 }
 
 static really_inline
-u32 rank_in_mask64(u64a mask, u32 bit) {
-    return rank_in_mask64_impl(mask, bit);
+u32 rank_in_mask64_impl(u64a mask, u32 bit) {
+    return rank_in_mask64_impl_c(mask, bit);
 }
 
 static really_inline
-u32 pext32(u32 x, u32 mask) {
-    return pext32_impl(x, mask);
+u32 pext32_impl(u32 x, u32 mask) {
+    return pext32_impl_c(x, mask);
 }
 
 static really_inline
-u64a pext64(u64a x, u64a mask) {
-    return pext64_impl(x, mask);
+u64a pext64_impl(u64a x, u64a mask) {
+    return pext64_impl_c(x, mask);
+}
+
+static really_inline
+u64a pdep64(u64a x, u64a mask) {
+    return pdep64_impl_c(x, mask);
 }
 
 /* compilers don't reliably synthesize the 32-bit ANDN instruction here,
  * so we force its generation.
  */
 static really_inline
-u64a andn(const u32 a, const u8 *b) {
+u64a andn_impl(const u32 a, const u8 *b) {
     return andn_impl_c(a, b);
 }
 
-#endif // BITUTILS_H
+#endif // BITUTILS_ARCH_ARM_H
