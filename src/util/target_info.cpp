@@ -29,8 +29,9 @@
 
 #include "hs_compile.h" // for various hs_platform_info flags
 #include "target_info.h"
-#if defined(ARCH_X86_64)
-#include "util/arch/x86/cpuid_flags.h"
+#include "util/arch/common/cpuid_flags.h"
+#if defined(ARCH_IA32) || defined(ARCH_X86_64)
+#elif defined(ARCH_ARM32) || defined(ARCH_AARCH64)
 #endif
 
 namespace ue2 {
