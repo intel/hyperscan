@@ -351,6 +351,36 @@ u64a pext64_impl_c(u64a x, u64a mask) {
     return result;
 }
 
+static really_inline
+u64a pdep64_impl_c(u64a x, u64a _m) {
+    /* Taken from:
+     * https://gcc.gnu.org/legacy-ml/gcc-patches/2017-06/msg01408.html
+     */
+
+    u64a result = 0x0UL;
+    const u64a mask = 0x8000000000000000UL;
+    u64a m = _m;
+    u64a c, t;
+    u64a p;
+
+    /* The pop-count of the mask gives the number of the bits from
+     source to process.  This is also needed to shift bits from the
+     source into the correct position for the result.  */
+    p = 64 - __builtin_popcountl (_m);
+
+    /* The loop is for the number of '1' bits in the mask and clearing
+     each mask bit as it is processed.  */
+    while (m != 0)
+    {
+        c = __builtin_clzl (m);
+        t = x << (p - c);
+        m ^= (mask >> c);
+        result |= (t & (mask >> c));
+        p++;
+    }
+    return (result);
+}
+
 /* compilers don't reliably synthesize the 32-bit ANDN instruction here,
  * so we force its generation.
  */
