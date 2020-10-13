@@ -63,6 +63,8 @@ extern const char vbs_mask_data[];
 
 #if defined(ARCH_IA32) || defined(ARCH_X86_64)
 #include "util/arch/x86/simd_utils.h"
+#elif defined(ARCH_ARM32) || defined(ARCH_AARCH64)
+#include "util/arch/arm/simd_utils.h"
 #endif
 
 #endif // SIMD_UTILS_H
