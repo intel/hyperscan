@@ -95,7 +95,18 @@ static really_inline m128 eq128(m128 a, m128 b) {
     return (m128) vceqq_s8((int8x16_t)a, (int8x16_t)b);
 }
 
-#define movemask128(a)  ((u32)_mm_movemask_epi8((a)))
+static really_inline u32 movemask128(m128 a) {
+    static const uint8x16_t powers = { 1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128 };
+
+    // Compute the mask from the input
+    uint64x2_t mask= vpaddlq_u32(vpaddlq_u16(vpaddlq_u8(vandq_u8((uint8x16_t)a, powers))));
+
+    // Get the resulting bytes
+    uint16_t output;
+    vst1q_lane_u8((uint8_t*)&output + 0, (uint8x16_t)mask, 0);
+    vst1q_lane_u8((uint8_t*)&output + 1, (uint8x16_t)mask, 8);
+    return output;
+}
 
 static really_inline m128 set1_16x8(u8 c) {
     return (m128) vdupq_n_u8(c);
@@ -229,21 +240,22 @@ void clearbit128(m128 *ptr, unsigned int n) {
 static really_inline
 char testbit128(m128 val, unsigned int n) {
     const m128 mask = mask1bit128(n);
-#if defined(HAVE_SSE41)
-    return !_mm_testz_si128(mask, val);
-#else
+
     return isnonzero128(and128(mask, val));
-#endif
 }
 
-// offset must be an immediate
-#define palignr(r, l, offset) _mm_alignr_epi8(r, l, offset)
+static really_inline
+m128 palignr(m128 r, m128 l, int offset) {
+    return (m128)vextq_s8((int8x16_t)l, (int8x16_t)r, offset);
+}
 
 static really_inline
 m128 pshufb_m128(m128 a, m128 b) {
-    m128 result;
-    result = _mm_shuffle_epi8(a, b);
-    return result;
+    /* On Intel, if bit 0x80 is set, then result is zero, otherwise which the lane it is &0xf.
+       In NEON, if >=16, then the result is zero, otherwise it is that lane.
+       btranslated is the version that is converted from Intel to NEON.  */
+    int8x16_t btranslated = vandq_s8((int8x16_t)b,vdupq_n_s8(0x8f));
+    return (m128)vqtbl1q_s8((int8x16_t)a, (uint8x16_t)btranslated);
 }
 
 static really_inline
