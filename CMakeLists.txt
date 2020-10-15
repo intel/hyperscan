@@ -568,10 +568,21 @@ install(FILES ${hs_HEADERS} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/hs")
 set (hs_exec_common_SRCS
     src/alloc.c
     src/scratch.c
-    src/util/arch/x86/cpuid_flags.c
     src/util/arch/common/cpuid_flags.h
     src/util/multibit.c
     )
+
+if (ARCH_IA32 OR ARCH_X86_64)
+set (hs_exec_common_SRCS
+    ${hs_exec_common_SRCS}
+    src/util/arch/x86/cpuid_flags.c
+    )
+elif (ARCH_ARM32 OR ARCH_AARCH64)
+set (hs_exec_common_SRCS
+    ${hs_exec_common_SRCS}
+    src/util/arch/arm/cpuid_flags.c
+    )
+endif ()
 
 set (hs_exec_SRCS
     ${hs_HEADERS}

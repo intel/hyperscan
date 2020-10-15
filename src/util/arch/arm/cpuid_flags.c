@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2015-2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,23 +26,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "hs_common.h"
+#include "cpuid_flags.h"
 #include "ue2common.h"
-#if defined(ARCH_X86_64)
-#include "util/arch/x86/cpuid_inline.h"
-#endif
+#include "hs_compile.h" // for HS_MODE_ flags
+#include "util/arch.h"
 
-HS_PUBLIC_API
-hs_error_t HS_CDECL hs_valid_platform(void) {
-    /* Hyperscan requires SSSE3, anything else is a bonus */
-#if defined(ARCH_IA32) || defined(ARCH_X86_64)
-    if (check_ssse3()) {
-        return HS_SUCCESS;
-    } else {
-        return HS_ARCH_ERROR;
-    }
-#elif defined(ARCH_ARM32) || defined(ARCH_AARCH64)
-    return HS_SUCCESS;
-#endif
+u64a cpuid_flags(void) {
+     return cap;
+}
+
+u32 cpuid_tune(void) {
+    return HS_TUNE_FAMILY_GENERIC;
 }
