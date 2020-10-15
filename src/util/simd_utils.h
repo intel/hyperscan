@@ -67,4 +67,6 @@ extern const char vbs_mask_data[];
 #include "util/arch/arm/simd_utils.h"
 #endif
 
+#include "util/arch/common/simd_utils.h"
+
 #endif // SIMD_UTILS_H
