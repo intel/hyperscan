@@ -147,10 +147,12 @@ static really_inline int isnonzero256(m256 a) {
 }
 
 /**
- * "Rich" version of diff256(). Takes two vectors a and b and returns an 8-bit
+ * "Rich" version of diff256(). Takes two vectors a and b and returns a 8-bit
  * mask indicating which 32-bit words contain differences.
  */
-static really_inline u32 diffrich256(m256 a, m256 b) {
+static really_inline
+u32 diffrich256(m256 a, m256 b) {
+    return diffrich128(a.lo, b.lo) | (diffrich128(a.hi, b.hi) << 8);
 }
 
 /**
@@ -311,26 +313,6 @@ m256 pshufb_m256(m256 a, m256 b) {
     return rv;
 }
 
-#define cast256to128(a) _mm256_castsi256_si128(a)
-#define cast128to256(a) _mm256_castsi128_si256(a)
-#define swap128in256(a) _mm256_permute4x64_epi64(a, 0x4E)
-#define insert128to256(a, b, imm) _mm256_inserti128_si256(a, b, imm)
-#define rshift128_m256(a, count_immed) _mm256_srli_si256(a, count_immed)
-#define lshift128_m256(a, count_immed) _mm256_slli_si256(a, count_immed)
-#define extract64from256(a, imm) _mm_extract_epi64(_mm256_extracti128_si256(a, imm >> 1), imm % 2)
-#define extract32from256(a, imm) _mm_extract_epi32(_mm256_extracti128_si256(a, imm >> 2), imm % 4)
-#define extractlow64from256(a) _mm_cvtsi128_si64(cast256to128(a))
-#define extractlow32from256(a) movd(cast256to128(a))
-#define interleave256hi(a, b) _mm256_unpackhi_epi8(a, b)
-#define interleave256lo(a, b) _mm256_unpacklo_epi8(a, b)
-#define vpalignr(r, l, offset) _mm256_alignr_epi8(r, l, offset)
-
-#define extract128from512(a, imm) _mm512_extracti32x4_epi32(a, imm)
-#define interleave512hi(a, b) _mm512_unpackhi_epi8(a, b)
-#define interleave512lo(a, b) _mm512_unpacklo_epi8(a, b)
-#define set2x256(a) _mm512_broadcast_i64x4(a)
-#define mask_set2x256(src, k, a) _mm512_mask_broadcast_i64x4(src, k, a)
-
 #endif // HAVE_SIMD_256_BITS
 
 /****
@@ -400,13 +382,6 @@ static really_inline int diff384(m384 a, m384 b) {
 
 static really_inline int isnonzero384(m384 a) {
     return isnonzero128(or128(or128(a.lo, a.mid), a.hi));
-}
-
-/**
- * "Rich" version of diff384(). Takes two vectors a and b and returns a 12-bit
- * mask indicating which 32-bit words contain differences.
- */
-static really_inline u32 diffrich384(m384 a, m384 b) {
 }
 
 /**
@@ -507,9 +482,6 @@ char testbit384(m384 val, unsigned int n) {
  ****/
 
 #if !defined(HAVE_SIMD_512_BITS)
-#define eq512mask(a, b) _mm512_cmpeq_epi8_mask((a), (b))
-#define masked_eq512mask(k, a, b) _mm512_mask_cmpeq_epi8_mask((k), (a), (b))
-#define vpermq512(idx, a) _mm512_permutexvar_epi64(idx, a)
 
 static really_inline
 m512 zeroes512(void) {
@@ -608,12 +580,6 @@ m512 lshift64_m512(m512 a, unsigned b) {
     return rv;
 }
 
-#if defined(HAVE_AVX512)
-#define rshift64_m512(a, b) _mm512_srli_epi64((a), (b))
-#define rshift128_m512(a, count_immed) _mm512_bsrli_epi128(a, count_immed)
-#define lshift128_m512(a, count_immed) _mm512_bslli_epi128(a, count_immed)
-#endif
-
 static really_inline
 int diff512(m512 a, m512 b) {
     return diff256(a.lo, b.lo) || diff256(a.hi, b.hi);
@@ -621,9 +587,9 @@ int diff512(m512 a, m512 b) {
 
 static really_inline
 int isnonzero512(m512 a) {
-    m128 x = or128(a.lo.lo, a.lo.hi);
-    m128 y = or128(a.hi.lo, a.hi.hi);
-    return isnonzero128(or128(x, y));
+    m256 x = or256(a.lo, a.lo);
+    m256 y = or256(a.hi, a.hi);
+    return isnonzero256(or256(x, y));
 }
 
 /**
