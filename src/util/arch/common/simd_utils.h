@@ -152,7 +152,7 @@ static really_inline int isnonzero256(m256 a) {
  */
 static really_inline
 u32 diffrich256(m256 a, m256 b) {
-    return diffrich128(a.lo, b.lo) | (diffrich128(a.hi, b.hi) << 8);
+    return diffrich128(a.lo, b.lo) | (diffrich128(a.hi, b.hi) << 4);
 }
 
 /**
@@ -382,6 +382,15 @@ static really_inline int diff384(m384 a, m384 b) {
 
 static really_inline int isnonzero384(m384 a) {
     return isnonzero128(or128(or128(a.lo, a.mid), a.hi));
+}
+
+/**
+ * "Rich" version of diff384(). Takes two vectors a and b and returns a 12-bit
+ * mask indicating which 32-bit words contain differences.
+ */
+static really_inline
+u32 diffrich384(m384 a, m384 b) {
+    return diffrich128(a.lo, b.lo) | (diffrich128(a.mid, b.mid) << 4) | (diffrich128(a.hi, b.hi) << 8);
 }
 
 /**

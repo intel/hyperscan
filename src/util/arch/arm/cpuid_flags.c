@@ -26,13 +26,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cpuid_flags.h"
+#include "util/arch/common/cpuid_flags.h"
 #include "ue2common.h"
 #include "hs_compile.h" // for HS_MODE_ flags
 #include "util/arch.h"
 
 u64a cpuid_flags(void) {
-     return cap;
+     return 0;
 }
 
 u32 cpuid_tune(void) {
