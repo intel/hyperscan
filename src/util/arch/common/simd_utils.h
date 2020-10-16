@@ -384,6 +384,7 @@ static really_inline int isnonzero384(m384 a) {
     return isnonzero128(or128(or128(a.lo, a.mid), a.hi));
 }
 
+#if defined(HAVE_SIMD_128_BITS) && !defined(ARCH_IA32) && !defined(ARCH_X86_64)
 /**
  * "Rich" version of diff384(). Takes two vectors a and b and returns a 12-bit
  * mask indicating which 32-bit words contain differences.
@@ -392,6 +393,7 @@ static really_inline
 u32 diffrich384(m384 a, m384 b) {
     return diffrich128(a.lo, b.lo) | (diffrich128(a.mid, b.mid) << 4) | (diffrich128(a.hi, b.hi) << 8);
 }
+#endif
 
 /**
  * "Rich" version of diff384(), 64-bit variant. Takes two vectors a and b and
