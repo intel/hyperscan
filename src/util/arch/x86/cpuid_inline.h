@@ -30,7 +30,7 @@
 #define CPUID_INLINE_H_
 
 #include "ue2common.h"
-#include "cpuid_flags.h"
+#include "util/arch/common/cpuid_flags.h"
 
 #if !defined(_WIN32) && !defined(CPUID_H_)
 #include <cpuid.h>

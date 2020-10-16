@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cpuid_flags.h"
+#include "util/arch/common/cpuid_flags.h"
 #include "cpuid_inline.h"
 #include "ue2common.h"
 #include "hs_compile.h" // for HS_MODE_ flags

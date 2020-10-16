@@ -577,7 +577,7 @@ set (hs_exec_common_SRCS
     ${hs_exec_common_SRCS}
     src/util/arch/x86/cpuid_flags.c
     )
-elif (ARCH_ARM32 OR ARCH_AARCH64)
+else (ARCH_ARM32 OR ARCH_AARCH64)
 set (hs_exec_common_SRCS
     ${hs_exec_common_SRCS}
     src/util/arch/arm/cpuid_flags.c
