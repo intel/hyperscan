@@ -1204,6 +1204,22 @@ m512 loadu512(const void *ptr) {
 #endif
 }
 
+// unaligned store
+static really_inline
+void storeu512(void *ptr, m512 a) {
+#if defined(HAVE_AVX512)
+    _mm512_storeu_si512((m512 *)ptr, a);
+#elif defined(HAVE_AVX2)
+    storeu256(ptr, a.lo);
+    storeu256((char *)ptr + 32, a.hi);
+#else
+    storeu128(ptr, a.lo.lo);
+    storeu128((char *)ptr + 16, a.lo.hi);
+    storeu128((char *)ptr + 32, a.hi.lo);
+    storeu128((char *)ptr + 48, a.hi.hi);
+#endif
+}
+
 #if defined(HAVE_AVX512)
 static really_inline
 m512 loadu_maskz_m512(__mmask64 k, const void *ptr) {
@@ -1213,6 +1229,11 @@ m512 loadu_maskz_m512(__mmask64 k, const void *ptr) {
 static really_inline
 m512 loadu_mask_m512(m512 src, __mmask64 k, const void *ptr) {
     return _mm512_mask_loadu_epi8(src, k, ptr);
+}
+
+static really_inline
+void storeu_mask_m512(void *ptr, __mmask64 k, m512 a) {
+    _mm512_mask_storeu_epi8(ptr, k, a);
 }
 
 static really_inline

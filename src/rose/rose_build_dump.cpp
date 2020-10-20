@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -757,13 +757,12 @@ CharReach shufti2cr(const u8 *lo, const u8 *hi, u8 bucket_mask) {
 
 static
 void dumpLookaroundShufti(ofstream &os, u32 len, const u8 *lo, const u8 *hi,
-                          const u8 *bucket_mask, u32 neg_mask, s32 offset) {
-    assert(len == 16 || len == 32);
+                          const u8 *bucket_mask, u64a neg_mask, s32 offset) {
+    assert(len == 16 || len == 32 || len == 64);
     os << "    contents:" << endl;
     for (u32 idx = 0; idx < len; idx++) {
         CharReach cr = shufti2cr(lo, hi, bucket_mask[idx]);
-
-        if (neg_mask & (1U << idx)) {
+        if (neg_mask & (1ULL << idx)) {
             cr.flip();
         }
 
@@ -779,14 +778,13 @@ void dumpLookaroundShufti(ofstream &os, u32 len, const u8 *lo, const u8 *hi,
 static
 void dumpLookaroundShufti(ofstream &os, u32 len, const u8 *lo, const u8 *hi,
                           const u8 *lo_2, const u8 *hi_2, const u8 *bucket_mask,
-                          const u8 *bucket_mask_2, u32 neg_mask, s32 offset) {
-    assert(len == 16 || len == 32);
+                          const u8 *bucket_mask_2, u64a neg_mask, s32 offset) {
+    assert(len == 16 || len == 32 || len == 64);
     os << "    contents:" << endl;
     for (u32 idx = 0; idx < len; idx++) {
         CharReach cr = shufti2cr(lo, hi, bucket_mask[idx]);
         cr |= shufti2cr(lo_2, hi_2, bucket_mask_2[idx]);
-
-        if (neg_mask & (1U << idx)) {
+        if (neg_mask & (1ULL << idx)) {
             cr.flip();
         }
 
@@ -970,6 +968,20 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
             }
             PROGRAM_NEXT_INSTRUCTION
 
+            PROGRAM_CASE(CHECK_MASK_64) {
+                os << "    and_mask "
+                   << dumpStrMask(ri->and_mask, sizeof(ri->and_mask))
+                   << endl;
+                os << "    cmp_mask "
+                   << dumpStrMask(ri->cmp_mask, sizeof(ri->cmp_mask))
+                   << endl;
+                os << "    neg_mask 0x" << std::hex << std::setw(8)
+                   << std::setfill('0') << ri->neg_mask << std::dec << endl;
+                os << "    offset " << ri->offset << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
             PROGRAM_CASE(CHECK_BYTE) {
                 os << "    and_mask 0x" << std::hex << std::setw(2)
                    << std::setfill('0') << u32{ri->and_mask} << std::dec
@@ -1066,6 +1078,60 @@ void dumpProgram(ofstream &os, const RoseEngine *t, const char *pc) {
                 os << "    fail_jump " << offset + ri->fail_jump << endl;
                 dumpLookaroundShufti(os, 32, ri->lo_mask, ri->hi_mask,
                                      ri->lo_mask + 16, ri->hi_mask + 16,
+                                     ri->bucket_select_mask_lo,
+                                     ri->bucket_select_mask_hi,
+                                     ri->neg_mask, ri->offset);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_SHUFTI_64x8) {
+                os << "    hi_mask "
+                   << dumpStrMask(ri->hi_mask, sizeof(ri->hi_mask))
+                   << endl;
+                os << "    lo_mask "
+                   << dumpStrMask(ri->hi_mask, sizeof(ri->hi_mask))
+                   << endl;
+                os << "    bucket_select_mask "
+                   << dumpStrMask(ri->bucket_select_mask,
+                                  sizeof(ri->bucket_select_mask))
+                   << endl;
+                os << "    neg_mask 0x" << std::hex << std::setw(8)
+                   << std::setfill('0') << ri->neg_mask << std::dec << endl;
+                os << "    offset " << ri->offset << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+                dumpLookaroundShufti(os, 64, ri->lo_mask, ri->hi_mask,
+                                     ri->bucket_select_mask, ri->neg_mask,
+                                     ri->offset);
+            }
+            PROGRAM_NEXT_INSTRUCTION
+
+            PROGRAM_CASE(CHECK_SHUFTI_64x16) {
+                os << "    hi_mask_1 "
+                   << dumpStrMask(ri->hi_mask_1, sizeof(ri->hi_mask_1))
+                   << endl;
+                os << "    hi_mask_2 "
+                   << dumpStrMask(ri->hi_mask_2, sizeof(ri->hi_mask_2))
+                   << endl;
+                os << "    lo_mask_1 "
+                   << dumpStrMask(ri->lo_mask_1, sizeof(ri->lo_mask_1))
+                   << endl;
+                os << "    lo_mask_2 "
+                   << dumpStrMask(ri->lo_mask_2, sizeof(ri->lo_mask_2))
+                   << endl;
+                os << "    bucket_select_mask_hi "
+                   << dumpStrMask(ri->bucket_select_mask_hi,
+                                  sizeof(ri->bucket_select_mask_hi))
+                   << endl;
+                os << "    bucket_select_mask_lo "
+                   << dumpStrMask(ri->bucket_select_mask_lo,
+                                  sizeof(ri->bucket_select_mask_lo))
+                   << endl;
+                os << "    neg_mask 0x" << std::hex << std::setw(8)
+                   << std::setfill('0') << ri->neg_mask << std::dec << endl;
+                os << "    offset " << ri->offset << endl;
+                os << "    fail_jump " << offset + ri->fail_jump << endl;
+                dumpLookaroundShufti(os, 64, ri->lo_mask_1, ri->hi_mask_1,
+                                     ri->lo_mask_2, ri->hi_mask_2,
                                      ri->bucket_select_mask_lo,
                                      ri->bucket_select_mask_hi,
                                      ri->neg_mask, ri->offset);

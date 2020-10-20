@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,7 +33,7 @@
 #include "simd_utils.h"
 
 static really_inline
-void copy_upto_32_bytes(u8 *dst, const u8 *src, unsigned int len) {
+void copy_upto_64_bytes(u8 *dst, const u8 *src, unsigned int len) {
     switch (len) {
     case 0:
         break;
@@ -72,14 +72,41 @@ void copy_upto_32_bytes(u8 *dst, const u8 *src, unsigned int len) {
     case 16:
         storeu128(dst, loadu128(src));
         break;
-    case 32:
-        storeu256(dst, loadu256(src));
-        break;
-    default:
-        assert(len < 32);
+    case 17:
+    case 18:
+    case 19:
+    case 20:
+    case 21:
+    case 22:
+    case 23:
+    case 24:
+    case 25:
+    case 26:
+    case 27:
+    case 28:
+    case 29:
+    case 30:
+    case 31:
         storeu128(dst + len - 16, loadu128(src + len - 16));
         storeu128(dst, loadu128(src));
         break;
+    case 32:
+        storeu256(dst, loadu256(src));
+        break;
+#ifdef HAVE_AVX512
+    case 64:
+        storebytes512(dst, loadu512(src), 64);
+        break;
+    default:
+        assert(len < 64);
+        u64a k = (1ULL << len) - 1;
+        storeu_mask_m512(dst, k, loadu_maskz_m512(k, src));
+        break;
+#else
+    default:
+        assert(0);
+        break;
+#endif
     }
 }
 

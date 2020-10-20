@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -174,6 +174,84 @@ int validateShuftiMask32x16(const m256 data,
     u32 cmp_result = (nresult ^ neg_mask) & valid_data_mask;
     return !cmp_result;
 }
+
+#ifdef HAVE_AVX512
+static really_inline
+int validateShuftiMask64x8(const m512 data, const m512 hi_mask,
+                           const m512 lo_mask, const m512 and_mask,
+                           const u64a neg_mask, const u64a valid_data_mask) {
+    m512 low4bits = set64x8(0xf);
+    m512 c_lo = pshufb_m512(lo_mask, and512(data, low4bits));
+    m512 c_hi = pshufb_m512(hi_mask,
+                            rshift64_m512(andnot512(low4bits, data), 4));
+    m512 t = and512(c_lo, c_hi);
+    u64a nresult = eq512mask(and512(t, and_mask), zeroes512());
+#ifdef DEBUG
+    DEBUG_PRINTF("data\n");
+    dumpMask(&data, 64);
+    DEBUG_PRINTF("hi_mask\n");
+    dumpMask(&hi_mask, 64);
+    DEBUG_PRINTF("lo_mask\n");
+    dumpMask(&lo_mask, 64);
+    DEBUG_PRINTF("c_lo\n");
+    dumpMask(&c_lo, 64);
+    DEBUG_PRINTF("c_hi\n");
+    dumpMask(&c_hi, 64);
+    DEBUG_PRINTF("nresult %llx\n", nresult);
+    DEBUG_PRINTF("valid_data_mask %llx\n", valid_data_mask);
+#endif
+    u64a cmp_result = (nresult ^ neg_mask) & valid_data_mask;
+    return !cmp_result;
+}
+
+static really_inline
+int validateShuftiMask64x16(const m512 data,
+                            const m512 hi_mask_1, const m512 hi_mask_2,
+                            const m512 lo_mask_1, const m512 lo_mask_2,
+                            const m512 and_mask_hi, const m512 and_mask_lo,
+                            const u64a neg_mask, const u64a valid_data_mask) {
+    m512 low4bits = set64x8(0xf);
+    m512 data_lo = and512(data, low4bits);
+    m512 data_hi = and512(rshift64_m512(data, 4), low4bits);
+    m512 c_lo_1 = pshufb_m512(lo_mask_1, data_lo);
+    m512 c_lo_2 = pshufb_m512(lo_mask_2, data_lo);
+    m512 c_hi_1 = pshufb_m512(hi_mask_1, data_hi);
+    m512 c_hi_2 = pshufb_m512(hi_mask_2, data_hi);
+    m512 t1 = and512(c_lo_1, c_hi_1);
+    m512 t2 = and512(c_lo_2, c_hi_2);
+    m512 result = or512(and512(t1, and_mask_lo), and512(t2, and_mask_hi));
+    u64a nresult = eq512mask(result, zeroes512());
+#ifdef DEBUG
+    DEBUG_PRINTF("data\n");
+    dumpMask(&data, 64);
+    DEBUG_PRINTF("data_lo\n");
+    dumpMask(&data_lo, 64);
+    DEBUG_PRINTF("data_hi\n");
+    dumpMask(&data_hi, 64);
+    DEBUG_PRINTF("hi_mask_1\n");
+    dumpMask(&hi_mask_1, 64);
+    DEBUG_PRINTF("hi_mask_2\n");
+    dumpMask(&hi_mask_2, 64);
+    DEBUG_PRINTF("lo_mask_1\n");
+    dumpMask(&lo_mask_1, 64);
+    DEBUG_PRINTF("lo_mask_2\n");
+    dumpMask(&lo_mask_2, 64);
+    DEBUG_PRINTF("c_lo_1\n");
+    dumpMask(&c_lo_1, 64);
+    DEBUG_PRINTF("c_lo_2\n");
+    dumpMask(&c_lo_2, 64);
+    DEBUG_PRINTF("c_hi_1\n");
+    dumpMask(&c_hi_1, 64);
+    DEBUG_PRINTF("c_hi_2\n");
+    dumpMask(&c_hi_2, 64);
+    DEBUG_PRINTF("result\n");
+    dumpMask(&result, 64);
+    DEBUG_PRINTF("valid_data_mask %llx\n", valid_data_mask);
+#endif
+    u64a cmp_result = (nresult ^ neg_mask) & valid_data_mask;
+    return !cmp_result;
+}
+#endif
 
 static really_inline
 int checkMultipath32(u32 data, u32 hi_bits, u32 lo_bits) {
