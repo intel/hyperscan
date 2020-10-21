@@ -458,6 +458,9 @@ platform_t target_to_platform(const target_t &target_info) {
     if (!target_info.has_avx512()) {
         p |= HS_PLATFORM_NOAVX512;
     }
+    if (!target_info.has_avx512vbmi()) {
+        p |= HS_PLATFORM_NOAVX512VBMI;
+    }
     return p;
 }
 

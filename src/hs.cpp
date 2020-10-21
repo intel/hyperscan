@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -120,9 +120,10 @@ bool checkMode(unsigned int mode, hs_compile_error **comp_error) {
 
 static
 bool checkPlatform(const hs_platform_info *p, hs_compile_error **comp_error) {
-    static constexpr u32 HS_TUNE_LAST = HS_TUNE_FAMILY_GLM;
+    static constexpr u32 HS_TUNE_LAST = HS_TUNE_FAMILY_ICX;
     static constexpr u32 HS_CPU_FEATURES_ALL =
-        HS_CPU_FEATURES_AVX2 | HS_CPU_FEATURES_AVX512;
+        HS_CPU_FEATURES_AVX2 | HS_CPU_FEATURES_AVX512 |
+        HS_CPU_FEATURES_AVX512VBMI;
 
     if (!p) {
         return true;

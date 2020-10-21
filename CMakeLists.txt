@@ -1205,6 +1205,9 @@ else (FAT_RUNTIME)
     if (NOT BUILD_AVX512)
         set (DISPATCHER_DEFINE "-DDISABLE_AVX512_DISPATCH")
     endif (NOT BUILD_AVX512)
+    if (NOT BUILD_AVX512VBMI)
+        set (DISPATCHER_DEFINE "${DISPATCHER_DEFINE} -DDISABLE_AVX512VBMI_DISPATCH")
+    endif (NOT BUILD_AVX512VBMI)
     set_source_files_properties(src/dispatcher.c PROPERTIES
         COMPILE_FLAGS "-Wno-unused-parameter -Wno-unused-function ${DISPATCHER_DEFINE}")
 
@@ -1232,18 +1235,19 @@ else (FAT_RUNTIME)
        if (BUILD_AVX512)
            add_library(hs_exec_avx512 OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
            list(APPEND RUNTIME_LIBS $<TARGET_OBJECTS:hs_exec_avx512>)
-           if (BUILD_AVX512VBMI)
-               set_target_properties(hs_exec_avx512 PROPERTIES
-                   COMPILE_FLAGS "${ICELAKE_FLAG}"
-                   RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
-                   )
-           else ()
-               set_target_properties(hs_exec_avx512 PROPERTIES
-                   COMPILE_FLAGS "${SKYLAKE_FLAG}"
-                   RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
-                   )
-           endif (BUILD_AVX512VBMI)
+           set_target_properties(hs_exec_avx512 PROPERTIES
+               COMPILE_FLAGS "${SKYLAKE_FLAG}"
+               RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
+               )
        endif (BUILD_AVX512)
+       if (BUILD_AVX512VBMI)
+           add_library(hs_exec_avx512vbmi OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
+           list(APPEND RUNTIME_LIBS $<TARGET_OBJECTS:hs_exec_avx512vbmi>)
+           set_target_properties(hs_exec_avx512vbmi PROPERTIES
+               COMPILE_FLAGS "${ICELAKE_FLAG}"
+               RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512vbmi ${CMAKE_MODULE_PATH}/keep.syms.in"
+               )
+       endif (BUILD_AVX512VBMI)
 
        add_library(hs_exec_common OBJECT
            ${hs_exec_common_SRCS}
@@ -1296,20 +1300,21 @@ else (FAT_RUNTIME)
         if (BUILD_AVX512)
             add_library(hs_exec_shared_avx512 OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
             list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_shared_avx512>)
-            if (BUILD_AVX512VBMI)
-                set_target_properties(hs_exec_shared_avx512 PROPERTIES
-                    COMPILE_FLAGS "${ICELAKE_FLAG}"
-                    POSITION_INDEPENDENT_CODE TRUE
-                    RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
-                    )
-            else ()
-                set_target_properties(hs_exec_shared_avx512 PROPERTIES
-                    COMPILE_FLAGS "${SKYLAKE_FLAG}"
-                    POSITION_INDEPENDENT_CODE TRUE
-                    RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
-                    )
-            endif (BUILD_AVX512VBMI)
+            set_target_properties(hs_exec_shared_avx512 PROPERTIES
+                COMPILE_FLAGS "${SKYLAKE_FLAG}"
+                POSITION_INDEPENDENT_CODE TRUE
+                RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
+                )
         endif (BUILD_AVX512)
+        if (BUILD_AVX512VBMI)
+            add_library(hs_exec_shared_avx512vbmi OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
+            list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_shared_avx512vbmi>)
+            set_target_properties(hs_exec_shared_avx512vbmi PROPERTIES
+                COMPILE_FLAGS "${ICELAKE_FLAG}"
+                POSITION_INDEPENDENT_CODE TRUE
+                RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512vbmi ${CMAKE_MODULE_PATH}/keep.syms.in"
+                )
+        endif (BUILD_AVX512VBMI)
         add_library(hs_exec_common_shared OBJECT
         ${hs_exec_common_SRCS}
         src/dispatcher.c

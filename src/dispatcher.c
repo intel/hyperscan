@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,8 +38,14 @@
 #define check_avx512() (0)
 #endif
 
+#if defined(DISABLE_AVX512VBMI_DISPATCH)
+#define avx512vbmi_ disabled_
+#define check_avx512vbmi() (0)
+#endif
+
 #define CREATE_DISPATCH(RTYPE, NAME, ...)                                      \
     /* create defns */                                                         \
+    RTYPE JOIN(avx512vbmi_, NAME)(__VA_ARGS__);                                \
     RTYPE JOIN(avx512_, NAME)(__VA_ARGS__);                                    \
     RTYPE JOIN(avx2_, NAME)(__VA_ARGS__);                                      \
     RTYPE JOIN(corei7_, NAME)(__VA_ARGS__);                                    \
@@ -52,6 +58,9 @@
                                                                                \
     /* resolver */                                                             \
     static RTYPE (*JOIN(resolve_, NAME)(void))(__VA_ARGS__) {                  \
+        if (check_avx512vbmi()) {                                              \
+            return JOIN(avx512vbmi_, NAME);                                    \
+        }                                                                      \
         if (check_avx512()) {                                                  \
             return JOIN(avx512_, NAME);                                        \
         }                                                                      \

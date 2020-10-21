@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -50,6 +50,10 @@ bool target_t::can_run_on_code_built_for(const target_t &code_target) const {
         return false;
     }
 
+    if (!has_avx512vbmi() && code_target.has_avx512vbmi()) {
+        return false;
+    }
+
     return true;
 }
 
@@ -62,6 +66,10 @@ bool target_t::has_avx2(void) const {
 
 bool target_t::has_avx512(void) const {
     return cpu_features & HS_CPU_FEATURES_AVX512;
+}
+
+bool target_t::has_avx512vbmi(void) const {
+    return cpu_features & HS_CPU_FEATURES_AVX512VBMI;
 }
 
 bool target_t::is_atom_class(void) const {

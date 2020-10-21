@@ -17,6 +17,13 @@ if (BUILD_AVX512)
     endif ()
 endif ()
 
+if (BUILD_AVX512VBMI)
+    CHECK_C_COMPILER_FLAG(${ICELAKE_FLAG} HAS_ARCH_ICELAKE)
+    if (NOT HAS_ARCH_ICELAKE)
+        message (FATAL_ERROR "AVX512VBMI not supported by compiler")
+    endif ()
+endif ()
+
 if (FAT_RUNTIME)
     # test the highest level microarch to make sure everything works
     if (BUILD_AVX512)
