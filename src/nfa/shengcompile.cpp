@@ -302,7 +302,6 @@ void dumpShuffleMask(const u8 chr, const u8 *buf, unsigned sz) {
     DEBUG_PRINTF("chr %3u: %s\n", chr, o.str().c_str());
 }
 
-#if defined (HAVE_AVX512VBMI)
 static really_inline
 void dumpShuffleMask32(const u8 chr, const u8 *buf, unsigned sz) {
     stringstream o;
@@ -324,7 +323,6 @@ void dumpShuffleMask64(const u8 chr, const u8 *buf, unsigned sz) {
     }
     DEBUG_PRINTF("chr %3u: %s\n", chr, o.str().c_str());
 }
-#endif
 #endif
 
 static
@@ -358,7 +356,6 @@ u8 getShengState<sheng>(dstate &state, dfa_info &info,
     return s;
 }
 
-#if defined(HAVE_AVX512VBMI)
 template <>
 u8 getShengState<sheng32>(dstate &state, dfa_info &info,
                           map<dstate_id_t, AccelScheme> &accelInfo) {
@@ -387,7 +384,6 @@ u8 getShengState<sheng64>(dstate &state, dfa_info &info,
     }
     return s;
 }
-#endif
 
 template <typename T>
 static
@@ -446,7 +442,6 @@ void populateBasicInfo<sheng>(struct NFA *n, dfa_info &info,
     s->floating = getShengState<sheng>(info.floating, info, accelInfo);
 }
 
-#if defined(HAVE_AVX512VBMI)
 template <>
 void populateBasicInfo<sheng32>(struct NFA *n, dfa_info &info,
                                 map<dstate_id_t, AccelScheme> &accelInfo,
@@ -496,7 +491,6 @@ void populateBasicInfo<sheng64>(struct NFA *n, dfa_info &info,
     s->anchored = getShengState<sheng64>(info.anchored, info, accelInfo);
     s->floating = getShengState<sheng64>(info.floating, info, accelInfo);
 }
-#endif
 
 template <typename T>
 static
@@ -582,7 +576,6 @@ bool createShuffleMasks<sheng>(sheng *s, dfa_info &info,
     return true;
 }
 
-#if defined(HAVE_AVX512VBMI)
 template <>
 bool createShuffleMasks<sheng32>(sheng32 *s, dfa_info &info,
                                  map<dstate_id_t, AccelScheme> &accelInfo) {
@@ -627,7 +620,6 @@ bool createShuffleMasks<sheng64>(sheng64 *s, dfa_info &info,
     }
     return true;
 }
-#endif
 
 bool has_accel_sheng(const NFA *) {
     return true; /* consider the sheng region as accelerated */
@@ -731,12 +723,16 @@ bytecode_ptr<NFA> shengCompile(raw_dfa &raw, const CompileContext &cc,
     return shengCompile_int<sheng>(raw, cc, accel_states, strat, info);
 }
 
-#if defined(HAVE_AVX512VBMI)
 bytecode_ptr<NFA> sheng32Compile(raw_dfa &raw, const CompileContext &cc,
                                  const ReportManager &rm, bool only_accel_init,
                                  set<dstate_id_t> *accel_states) {
     if (!cc.grey.allowSheng) {
         DEBUG_PRINTF("Sheng is not allowed!\n");
+        return nullptr;
+    }
+
+    if (!cc.target_info.has_avx512vbmi()) {
+        DEBUG_PRINTF("Sheng32 failed, no HS_CPU_FEATURES_AVX512VBMI!\n");
         return nullptr;
     }
 
@@ -767,6 +763,11 @@ bytecode_ptr<NFA> sheng64Compile(raw_dfa &raw, const CompileContext &cc,
         return nullptr;
     }
 
+    if (!cc.target_info.has_avx512vbmi()) {
+        DEBUG_PRINTF("Sheng64 failed, no HS_CPU_FEATURES_AVX512VBMI!\n");
+        return nullptr;
+    }
+
     sheng_build_strat strat(raw, rm, only_accel_init);
     dfa_info info(strat);
 
@@ -790,6 +791,5 @@ bytecode_ptr<NFA> sheng64Compile(raw_dfa &raw, const CompileContext &cc,
     }
     return nfa;
 }
-#endif
 
 } // namespace ue2

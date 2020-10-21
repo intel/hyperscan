@@ -152,6 +152,6 @@ char nfaExecMcSheng64_16_expandState(const struct NFA *nfa, void *dest,
 #define nfaExecMcSheng64_16_testEOD NFA_API_NO_IMPL
 #define nfaExecMcSheng64_16_reportCurrent NFA_API_NO_IMPL
 
-#endif    //end of HAVE_AVX512VBM
+#endif //end of HAVE_AVX512VBMI
 
 #endif

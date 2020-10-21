@@ -152,12 +152,8 @@ static really_inline int isMcClellanType(u8 t) {
 /** \brief True if the given type (from NFA::type) is a Sheng-McClellan hybrid
  * DFA. */
 static really_inline int isShengMcClellanType(u8 t) {
-#if defined(HAVE_AVX512VBMI)
-    return t == MCSHENG_64_NFA_8 || t == MCSHENG_64_NFA_16 || t == MCSHENG_NFA_8 ||
-           t == MCSHENG_NFA_16;
-#else
-    return t == MCSHENG_NFA_8 || t == MCSHENG_NFA_16;
-#endif
+    return t == MCSHENG_NFA_8 || t == MCSHENG_NFA_16 ||
+           t == MCSHENG_64_NFA_8 || t == MCSHENG_64_NFA_16;
 }
 
 /** \brief True if the given type (from NFA::type) is a Gough DFA. */
@@ -170,7 +166,6 @@ static really_inline int isSheng16Type(u8 t) {
     return t == SHENG_NFA;
 }
 
-#if defined(HAVE_AVX512VBMI)
 /** \brief True if the given type (from NFA::type) is a Sheng32 DFA. */
 static really_inline int isSheng32Type(u8 t) {
     return t == SHENG_NFA_32;
@@ -180,15 +175,10 @@ static really_inline int isSheng32Type(u8 t) {
 static really_inline int isSheng64Type(u8 t) {
     return t == SHENG_NFA_64;
 }
-#endif
 
 /** \brief True if the given type (from NFA::type) is a Sheng16/32/64 DFA. */
 static really_inline int isShengType(u8 t) {
-#if defined(HAVE_AVX512VBMI)
     return t == SHENG_NFA || t == SHENG_NFA_32 || t == SHENG_NFA_64;
-#else
-    return t == SHENG_NFA;
-#endif
 }
 
 /**

@@ -243,7 +243,6 @@ void populateBasicInfo(size_t state_size, const dfa_info &info,
     }
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 mstate_aux *getAux64(NFA *n, dstate_id_t i) {
     mcsheng64 *m = (mcsheng64 *)getMutableImplNfa(n);
@@ -343,7 +342,6 @@ void populateBasicInfo64(size_t state_size, const dfa_info &info,
         m->flags |= MCSHENG_FLAG_SINGLE;
     }
 }
-#endif
 
 static
 size_t calcShermanRegionSize(const dfa_info &info) {
@@ -719,7 +717,6 @@ void fill_in_succ_table_16(NFA *nfa, const dfa_info &info,
     }
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 void fill_in_aux_info64(NFA *nfa, const dfa_info &info,
                         const map<dstate_id_t, AccelScheme> &accel_escape_info,
@@ -793,7 +790,6 @@ void fill_in_succ_table_64_16(NFA *nfa, const dfa_info &info,
         }
     }
 }
-#endif
 
 #define MAX_SHERMAN_LIST_LEN 8
 
@@ -1113,7 +1109,6 @@ void fill_in_succ_table_8(NFA *nfa, const dfa_info &info,
     }
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 void fill_in_sherman64(NFA *nfa, dfa_info &info, UNUSED u16 sherman_limit) {
     char *nfa_base = (char *)nfa;
@@ -1267,7 +1262,6 @@ void fill_in_succ_table_64_8(NFA *nfa, const dfa_info &info,
         }
     }
 }
-#endif
 
 static
 void allocateImplId8(dfa_info &info, dstate_id_t sheng_end,
@@ -1366,7 +1360,6 @@ bytecode_ptr<NFA> mcshengCompile8(dfa_info &info, dstate_id_t sheng_end,
     return nfa;
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 bytecode_ptr<NFA> mcsheng64Compile8(dfa_info &info, dstate_id_t sheng_end,
                       const map<dstate_id_t, AccelScheme> &accel_escape_info) {
@@ -1418,7 +1411,6 @@ bytecode_ptr<NFA> mcsheng64Compile8(dfa_info &info, dstate_id_t sheng_end,
 
     return nfa;
 }
-#endif
 
 bytecode_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
                                  const ReportManager &rm) {
@@ -1468,10 +1460,14 @@ bytecode_ptr<NFA> mcshengCompile(raw_dfa &raw, const CompileContext &cc,
     return nfa;
 }
 
-#if defined(HAVE_AVX512VBMI)
 bytecode_ptr<NFA> mcshengCompile64(raw_dfa &raw, const CompileContext &cc,
                                    const ReportManager &rm) {
     if (!cc.grey.allowMcSheng) {
+        return nullptr;
+    }
+
+    if (!cc.target_info.has_avx512vbmi()) {
+        DEBUG_PRINTF("McSheng64 failed, no HS_CPU_FEATURES_AVX512VBMI!\n");
         return nullptr;
     }
 
@@ -1523,7 +1519,6 @@ bytecode_ptr<NFA> mcshengCompile64(raw_dfa &raw, const CompileContext &cc,
     DEBUG_PRINTF("compile done\n");
     return nfa;
 }
-#endif
 
 bool has_accel_mcsheng(const NFA *) {
     return true; /* consider the sheng region as accelerated */

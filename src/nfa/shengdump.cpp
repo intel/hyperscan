@@ -64,7 +64,6 @@ const sstate_aux *get_aux(const NFA *n, dstate_id_t i) {
     return aux;
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 const sstate_aux *get_aux32(const NFA *n, dstate_id_t i) {
     assert(n && isSheng32Type(n->type));
@@ -94,7 +93,6 @@ const sstate_aux *get_aux64(const NFA *n, dstate_id_t i) {
 
     return aux;
 }
-#endif
 
 static
 void dumpHeader(FILE *f, const sheng *s) {
@@ -111,7 +109,6 @@ void dumpHeader(FILE *f, const sheng *s) {
             !!(s->flags & SHENG_FLAG_SINGLE_REPORT));
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 void dumpHeader32(FILE *f, const sheng32 *s) {
     fprintf(f, "number of states: %u, DFA engine size: %u\n", s->n_states,
@@ -141,7 +138,6 @@ void dumpHeader64(FILE *f, const sheng64 *s) {
             !!(s->flags & SHENG_FLAG_CAN_DIE),
             !!(s->flags & SHENG_FLAG_SINGLE_REPORT));
 }
-#endif
 
 static
 void dumpAux(FILE *f, u32 state, const sstate_aux *aux) {
@@ -151,7 +147,6 @@ void dumpAux(FILE *f, u32 state, const sstate_aux *aux) {
             aux->top & SHENG_STATE_MASK);
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 void dumpAux32(FILE *f, u32 state, const sstate_aux *aux) {
     fprintf(f, "state id: %u, reports offset: %u, EOD reports offset: %u, "
@@ -167,7 +162,6 @@ void dumpAux64(FILE *f, u32 state, const sstate_aux *aux) {
             state, aux->accept, aux->accept_eod, aux->accel,
             aux->top & SHENG64_STATE_MASK);
 }
-#endif
 
 static
 void dumpReports(FILE *f, const report_list *rl) {
@@ -197,7 +191,6 @@ void dumpMasks(FILE *f, const sheng *s) {
     }
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 void dumpMasks32(FILE *f, const sheng32 *s) {
     for (u32 chr = 0; chr < 256; chr++) {
@@ -237,7 +230,6 @@ void dumpMasks64(FILE *f, const sheng64 *s) {
         fprintf(f, "\n");
     }
 }
-#endif
 
 static
 void nfaExecSheng_dumpText(const NFA *nfa, FILE *f) {
@@ -277,7 +269,6 @@ void nfaExecSheng_dumpText(const NFA *nfa, FILE *f) {
     fprintf(f, "\n");
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 void nfaExecSheng32_dumpText(const NFA *nfa, FILE *f) {
     assert(nfa->type == SHENG_NFA_32);
@@ -353,7 +344,6 @@ void nfaExecSheng64_dumpText(const NFA *nfa, FILE *f) {
 
     fprintf(f, "\n");
 }
-#endif
 
 static
 void dumpDotPreambleDfa(FILE *f) {
@@ -401,7 +391,6 @@ void describeNode<sheng>(const NFA *n, const sheng *s, u16 i, FILE *f) {
     }
 }
 
-#if defined(HAVE_AVX512VBMI)
 template <>
 void describeNode<sheng32>(const NFA *n, const sheng32 *s, u16 i, FILE *f) {
     const sstate_aux *aux = get_aux32(n, i);
@@ -461,7 +450,6 @@ void describeNode<sheng64>(const NFA *n, const sheng64 *s, u16 i, FILE *f) {
         fprintf(f, "STARTF -> %u [color = red ]\n", i);
     }
 }
-#endif
 
 static
 void describeEdge(FILE *f, const u16 *t, u16 i) {
@@ -514,7 +502,6 @@ void shengGetTransitions(const NFA *n, u16 state, u16 *t) {
     t[TOP] = aux->top & SHENG_STATE_MASK;
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 void sheng32GetTransitions(const NFA *n, u16 state, u16 *t) {
     assert(isSheng32Type(n->type));
@@ -550,7 +537,6 @@ void sheng64GetTransitions(const NFA *n, u16 state, u16 *t) {
 
     t[TOP] = aux->top & SHENG64_STATE_MASK;
 }
-#endif
 
 static
 void nfaExecSheng_dumpDot(const NFA *nfa, FILE *f) {
@@ -572,7 +558,6 @@ void nfaExecSheng_dumpDot(const NFA *nfa, FILE *f) {
     fprintf(f, "}\n");
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 void nfaExecSheng32_dumpDot(const NFA *nfa, FILE *f) {
     assert(nfa->type == SHENG_NFA_32);
@@ -612,7 +597,6 @@ void nfaExecSheng64_dumpDot(const NFA *nfa, FILE *f) {
 
     fprintf(f, "}\n");
 }
-#endif
 
 void nfaExecSheng_dump(const NFA *nfa, const string &base) {
     assert(nfa->type == SHENG_NFA);
@@ -621,19 +605,15 @@ void nfaExecSheng_dump(const NFA *nfa, const string &base) {
 }
 
 void nfaExecSheng32_dump(UNUSED const NFA *nfa, UNUSED const string &base) {
-#if defined(HAVE_AVX512VBMI)
     assert(nfa->type == SHENG_NFA_32);
     nfaExecSheng32_dumpText(nfa, StdioFile(base + ".txt", "w"));
     nfaExecSheng32_dumpDot(nfa, StdioFile(base + ".dot", "w"));
-#endif
 }
 
 void nfaExecSheng64_dump(UNUSED const NFA *nfa, UNUSED const string &base) {
-#if defined(HAVE_AVX512VBMI)
     assert(nfa->type == SHENG_NFA_64);
     nfaExecSheng64_dumpText(nfa, StdioFile(base + ".txt", "w"));
     nfaExecSheng64_dumpDot(nfa, StdioFile(base + ".dot", "w"));
-#endif
 }
 
 } // namespace ue2

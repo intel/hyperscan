@@ -174,7 +174,6 @@ void describeEdge(FILE *f, const mcsheng *m, const u16 *t, u16 i) {
     }
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 const mstate_aux *getAux64(const NFA *n, dstate_id_t i) {
     auto *m = (const mcsheng64 *)getImplNfa(n);
@@ -292,7 +291,6 @@ void describeEdge64(FILE *f, const mcsheng64 *m, const u16 *t, u16 i) {
         fprintf(f, "\" ];\n");
     }
 }
-#endif
 
 static
 void dumpAccelDot(FILE *f, u16 i, const union AccelAux *accel) {
@@ -376,7 +374,6 @@ void describeNode(const NFA *n, const mcsheng *m, u16 i, FILE *f) {
 
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 void describeNode64(const NFA *n, const mcsheng64 *m, u16 i, FILE *f) {
     const mstate_aux *aux = getAux64(n, i);
@@ -436,7 +433,6 @@ void describeNode64(const NFA *n, const mcsheng64 *m, u16 i, FILE *f) {
     }
 
 }
-#endif
 
 static
 void dumpDotPreambleDfa(FILE *f) {
@@ -574,7 +570,6 @@ void dump_text_8(const NFA *nfa, FILE *f) {
     dumpTextReverse(nfa, f);
 }
 
-#if defined(HAVE_AVX512VBMI)
 static
 void dump64_dot_16(const NFA *nfa, FILE *f) {
     auto  *m = (const mcsheng64 *)getImplNfa(nfa);
@@ -699,7 +694,6 @@ void dump64_text_16(const NFA *nfa, FILE *f) {
     fprintf(f, "\n");
     dumpTextReverse(nfa, f);
 }
-#endif
 
 void nfaExecMcSheng16_dump(const NFA *nfa, const string &base) {
     assert(nfa->type == MCSHENG_NFA_16);
@@ -714,19 +708,15 @@ void nfaExecMcSheng8_dump(const NFA *nfa, const string &base) {
 }
 
 void nfaExecMcSheng64_16_dump(UNUSED const NFA *nfa, UNUSED const string &base) {
-#if defined(HAVE_AVX512VBMI)
     assert(nfa->type == MCSHENG_64_NFA_16);
     dump64_text_16(nfa, StdioFile(base + ".txt", "w"));
     dump64_dot_16(nfa, StdioFile(base + ".dot", "w"));
-#endif
 }
 
 void nfaExecMcSheng64_8_dump(UNUSED const NFA *nfa, UNUSED const string &base) {
-#if defined(HAVE_AVX512VBMI)
     assert(nfa->type == MCSHENG_64_NFA_8);
     dump64_text_8(nfa, StdioFile(base + ".txt", "w"));
     dump64_dot_8(nfa, StdioFile(base + ".dot", "w"));
-#endif
 }
 
 } // namespace ue2

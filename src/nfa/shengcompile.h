@@ -71,7 +71,6 @@ bytecode_ptr<NFA> shengCompile(raw_dfa &raw, const CompileContext &cc,
                                const ReportManager &rm, bool only_accel_init,
                                std::set<dstate_id_t> *accel_states = nullptr);
 
-#if defined(HAVE_AVX512VBMI)
 bytecode_ptr<NFA> sheng32Compile(raw_dfa &raw, const CompileContext &cc,
                                  const ReportManager &rm, bool only_accel_init,
                                  std::set<dstate_id_t> *accel_states = nullptr);
@@ -79,7 +78,6 @@ bytecode_ptr<NFA> sheng32Compile(raw_dfa &raw, const CompileContext &cc,
 bytecode_ptr<NFA> sheng64Compile(raw_dfa &raw, const CompileContext &cc,
                                  const ReportManager &rm, bool only_accel_init,
                                  std::set<dstate_id_t> *accel_states = nullptr);
-#endif
 
 struct sheng_escape_info {
     CharReach outs;

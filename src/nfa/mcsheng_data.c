@@ -53,4 +53,3 @@ const u64a mcsheng64_pext_mask[8] = {
     0xff0000000000003f,
 };
 #endif
-

@@ -92,7 +92,6 @@ struct mcsheng {
  * representing the data from a u64a. */
 extern const u64a mcsheng_pext_mask[8];
 
-#if defined(HAVE_AVX512VBMI)
 struct mcsheng64 {
     u16 state_count; /**< total number of states */
     u32 length; /**< length of dfa in bytes */
@@ -121,6 +120,5 @@ struct mcsheng64 {
 };
 
 extern const u64a mcsheng64_pext_mask[8];
-#endif
 
 #endif
