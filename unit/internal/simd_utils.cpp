@@ -658,34 +658,41 @@ TEST(SimdUtilsTest, movq) {
 
     char cmp[sizeof(m128)];
     memset(cmp, 0x80, sizeof(m128));
-    simd = set16x8(0x80);
+    simd = set1_16x8(0x80);
     r = movq(simd);
     ASSERT_EQ(0, memcmp(cmp, &simd, sizeof(simd)));
     ASSERT_EQ(0, memcmp(cmp, &r, sizeof(r)));
 
+#if defined(HAVE_SIMD_128_BITS)
+#if defined(ARCH_IA32) || defined(ARCH_X86_64)
     simd = _mm_set_epi64x(~0LL, 0x123456789abcdef);
+#elif defined(ARCH_ARM32) || defined(ARCH_AARCH64)
+    int64x2_t a = { ~0LL, 0x123456789abcdefLL };
+    simd = vreinterpretq_s64_s8(a);
+#endif
+#endif
     r = movq(simd);
     ASSERT_EQ(r, 0x123456789abcdef);
 }
 
 
-TEST(SimdUtilsTest, set16x8) {
+TEST(SimdUtilsTest, set1_16x8) {
     char cmp[sizeof(m128)];
 
     for (unsigned i = 0; i < 256; i++) {
-        m128 simd = set16x8(i);
+        m128 simd = set1_16x8(i);
         memset(cmp, i, sizeof(simd));
         ASSERT_EQ(0, memcmp(cmp, &simd, sizeof(simd)));
     }
 }
 
-TEST(SimdUtilsTest, set4x32) {
+TEST(SimdUtilsTest, set1_4x32) {
     u32 cmp[4] = { 0x12345678, 0x12345678, 0x12345678, 0x12345678 };
-    m128 simd = set4x32(cmp[0]);
+    m128 simd = set1_4x32(cmp[0]);
     ASSERT_EQ(0, memcmp(cmp, &simd, sizeof(simd)));
 }
 
-#if defined(HAVE_AVX2)
+#if defined(HAVE_SIMD_256_BITS)
 TEST(SimdUtilsTest, set32x8) {
     char cmp[sizeof(m256)];
 
