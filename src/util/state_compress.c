@@ -108,10 +108,10 @@ void storecompressed128_32bit(void *ptr, m128 xvec, m128 mvec) {
 static really_inline
 void storecompressed128_64bit(void *ptr, m128 xvec, m128 mvec) {
     // First, decompose our vectors into 64-bit chunks.
-    u64a x[2];
-    memcpy(x, &xvec, sizeof(xvec));
-    u64a m[2];
-    memcpy(m, &mvec, sizeof(mvec));
+    u64a ALIGN_ATTR(16) x[2];
+    u64a ALIGN_ATTR(16) m[2];
+    store128(x, xvec);
+    store128(m, mvec);
 
     // Count the number of bits of compressed state we're writing out per
     // chunk.
@@ -215,10 +215,10 @@ void storecompressed256_32bit(void *ptr, m256 xvec, m256 mvec) {
 static really_really_inline
 void storecompressed256_64bit(void *ptr, m256 xvec, m256 mvec) {
     // First, decompose our vectors into 64-bit chunks.
-    u64a x[4];
-    memcpy(x, &xvec, sizeof(xvec));
-    u64a m[4];
-    memcpy(m, &mvec, sizeof(mvec));
+    u64a ALIGN_ATTR(32) x[4];
+    u64a ALIGN_ATTR(32) m[4];
+    store256(x, xvec);
+    store256(m, mvec);
 
     // Count the number of bits of compressed state we're writing out per
     // chunk.
