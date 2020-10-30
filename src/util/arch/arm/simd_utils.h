@@ -33,6 +33,8 @@
 #ifndef ARCH_ARM_SIMD_UTILS_H
 #define ARCH_ARM_SIMD_UTILS_H
 
+#include <stdio.h>
+
 #include "ue2common.h"
 #include "util/simd_types.h"
 #include "util/unaligned.h"
@@ -41,7 +43,7 @@
 #include <string.h> // for memcpy
 
 static really_inline m128 ones128(void) {
-    return (m128) vdupq_n_s32(0xFF);
+    return (m128) vdupq_n_s8(0xFF);
 }
 
 static really_inline m128 zeroes128(void) {
@@ -50,13 +52,13 @@ static really_inline m128 zeroes128(void) {
 
 /** \brief Bitwise not for m128*/
 static really_inline m128 not128(m128 a) {
-    return (m128) veorq_s32(a, a);
+    return (m128) vmvnq_s32(a);
 }
 
 /** \brief Return 1 if a and b are different otherwise 0 */
 static really_inline int diff128(m128 a, m128 b) {
-    m128 t = (m128)vceqq_s8((int8x16_t)a, (int8x16_t)b);
-    return (16 != vaddvq_u8((uint8x16_t)t));
+    int res = vaddvq_s8((int8x16_t) vceqq_s32(a, b));
+    return (-16 != res);
 }
 
 static really_inline int isnonzero128(m128 a) {
@@ -69,7 +71,7 @@ static really_inline int isnonzero128(m128 a) {
  */
 static really_inline u32 diffrich128(m128 a, m128 b) {
     static const uint32x4_t movemask = { 1, 2, 4, 8 };
-    return vaddvq_u32(vandq_u32(vceqq_s32((int32x4_t)a, (int32x4_t)b), movemask));
+    return vaddvq_u32(vandq_u32(vmvnq_s32(vceqq_s32((int32x4_t)a, (int32x4_t)b)), movemask));
 }
 
 /**
@@ -77,8 +79,8 @@ static really_inline u32 diffrich128(m128 a, m128 b) {
  * returns a 4-bit mask indicating which 64-bit words contain differences.
  */
 static really_inline u32 diffrich64_128(m128 a, m128 b) {
-    static const uint64x2_t movemask = { 1, 2 };
-    return vaddvq_u64(vandq_u64(vceqq_s64((int64x2_t)a, (int64x2_t)b), movemask));
+    static const uint64x2_t movemask = { 1, 4 };
+    return vaddvq_u64(vandq_u64(vmvnq_s32(vceqq_s64((int64x2_t)a, (int64x2_t)b)), movemask));
 }
 
 static really_really_inline
@@ -125,23 +127,13 @@ static really_inline u32 movd(const m128 in) {
 }
 
 static really_inline u64a movq(const m128 in) {
-    return vgetq_lane_u64((uint64x2_t) in, 0);
+    return vgetq_lane_u64((uint64x2_t) in, 1);
 }
 
 /* another form of movq */
 static really_inline
 m128 load_m128_from_u64a(const u64a *p) {
     return (m128) vdupq_n_u64(*p);
-}
-
-static really_really_inline
-m128 rshiftbyte_m128(m128 a, unsigned b) {
-    return (m128) vshrq_n_s8((int8x16_t)a, b);
-}
-
-static really_really_inline
-m128 lshiftbyte_m128(m128 a, unsigned b) {
-    return (m128) vshlq_n_s8((int8x16_t)a, b);
 }
 
 static really_inline u32 extract32from128(const m128 in, unsigned imm) {
@@ -165,7 +157,7 @@ static really_inline m128 or128(m128 a, m128 b) {
 }
 
 static really_inline m128 andnot128(m128 a, m128 b) {
-    return (m128) vbicq_u32((uint32x4_t)a, (uint32x4_t)b);
+    return (m128) (m128) vandq_s8( vmvnq_s8(a), b);
 }
 
 // aligned load
@@ -207,6 +199,24 @@ m128 loadbytes128(const void *ptr, unsigned int n) {
     memcpy(&a, ptr, n);
     return a;
 }
+
+static really_inline
+m128 variable_byte_shift_m128(m128 in, s32 amount) {
+    assert(amount >= -16 && amount <= 16);
+    m128 shift_mask = loadu128(vbs_mask_data + 16 - amount);
+    return vqtbl1q_s8(in, shift_mask);
+}
+
+static really_really_inline
+m128 rshiftbyte_m128(m128 a, unsigned b) {
+    return variable_byte_shift_m128(a, -b);;
+}
+
+static really_really_inline
+m128 lshiftbyte_m128(m128 a, unsigned b) {
+    return variable_byte_shift_m128(a, b);;
+}
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -259,20 +269,13 @@ m128 pshufb_m128(m128 a, m128 b) {
 }
 
 static really_inline
-m128 variable_byte_shift_m128(m128 in, s32 amount) {
-    assert(amount >= -16 && amount <= 16);
-    m128 shift_mask = loadu128(vbs_mask_data + 16 - amount);
-    return pshufb_m128(in, shift_mask);
-}
-
-static really_inline
 m128 max_u8_m128(m128 a, m128 b) {
-    return (m128) vmaxq_s8((int8x16_t)a, (int8x16_t)b);
+    return (m128) vmaxq_u8((int8x16_t)a, (int8x16_t)b);
 }
 
 static really_inline
 m128 min_u8_m128(m128 a, m128 b) {
-    return (m128) vminq_s8((int8x16_t)a, (int8x16_t)b);
+    return (m128) vminq_u8((int8x16_t)a, (int8x16_t)b);
 }
 
 static really_inline
