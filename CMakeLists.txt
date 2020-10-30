@@ -288,6 +288,8 @@ if (ARCH_IA32 OR ARCH_X86_64)
   CHECK_INCLUDE_FILE_CXX(x86intrin.h HAVE_CXX_X86INTRIN_H)
 elseif (ARCH_ARM32 OR ARCH_AARCH64)
   CHECK_INCLUDE_FILE_CXX(arm_neon.h HAVE_C_ARM_NEON_H)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flax-vector-conversions")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flax-vector-conversions")
 endif()
 
 CHECK_FUNCTION_EXISTS(posix_memalign HAVE_POSIX_MEMALIGN)
