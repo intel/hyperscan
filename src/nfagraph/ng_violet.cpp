@@ -737,7 +737,7 @@ void poisonFromSuccessor(const NGHolder &h, const ue2_literal &succ,
     EdgeSet bad_edges(edge_count);
 
     unordered_map<NFAVertex, EdgeSet> curr;
-    for (const auto &e : in_edges_range(h.accept, h)) {
+    for (const auto e : in_edges_range(h.accept, h)) {
         auto &path_set = curr[source(e, h)];
         if (path_set.empty()) {
             path_set.resize(edge_count);
@@ -757,7 +757,7 @@ void poisonFromSuccessor(const NGHolder &h, const ue2_literal &succ,
                 continue;
             }
             if (overlaps(h[u].char_reach, *it)) {
-                for (const auto &e : in_edges_range(u, h)) {
+                for (const auto e : in_edges_range(u, h)) {
                     auto &new_path_set = next[source(e, h)];
                     if (new_path_set.empty()) {
                         new_path_set.resize(edge_count);
@@ -779,7 +779,7 @@ void poisonFromSuccessor(const NGHolder &h, const ue2_literal &succ,
         DEBUG_PRINTF("poisoning %zu vertices\n", path.second.count());
     }
 
-    for (const auto &e : edges_range(h)) {
+    for (const auto e : edges_range(h)) {
         if (bad_edges.test(h[e].index)) {
             bad.insert(e);
         }
@@ -790,7 +790,7 @@ static
 void poisonForGoodPrefix(const NGHolder &h,
                          const vector<NFAVertexDepth> &depths,
                          flat_set<NFAEdge> &bad, const Grey &grey) {
-    for (const auto &v : vertices_range(h)) {
+    for (const auto v : vertices_range(h)) {
         if (!createsAnchoredLHS(h, {v}, depths, grey)
             && !createsTransientLHS(h, {v}, depths, grey)) {
             insert(&bad, in_edges_range(v, h));
@@ -1503,7 +1503,7 @@ static
 void removeRedundantPrefixes(RoseInGraph &g) {
     STAGE_DEBUG_PRINTF("REMOVING REDUNDANT PREFIXES\n");
 
-    for (const RoseInEdge &e : edges_range(g)) {
+    for (const RoseInEdge e : edges_range(g)) {
         RoseInVertex s = source(e, g);
         RoseInVertex t = target(e, g);
 
@@ -1545,7 +1545,7 @@ void removeRedundantLiteralsFromPrefixes(RoseInGraph &g,
     STAGE_DEBUG_PRINTF("REMOVING LITERALS FROM PREFIXES\n");
 
     vector<RoseInEdge> to_anchor;
-    for (const RoseInEdge &e : edges_range(g)) {
+    for (const RoseInEdge e : edges_range(g)) {
         RoseInVertex s = source(e, g);
         RoseInVertex t = target(e, g);
 
@@ -1755,7 +1755,7 @@ void removeRedundantLiteralsFromInfixes(RoseInGraph &g,
                                         const CompileContext &cc) {
     insertion_ordered_map<NGHolder *, vector<RoseInEdge>> infixes;
 
-    for (const RoseInEdge &e : edges_range(g)) {
+    for (const RoseInEdge e : edges_range(g)) {
         RoseInVertex s = source(e, g);
         RoseInVertex t = target(e, g);
 
@@ -2105,7 +2105,7 @@ void findBetterPrefixes(RoseInGraph &vg, const CompileContext &cc) {
         prefixes.clear();
 
         /* find prefixes */
-        for (const RoseInEdge &e : out_edges_range(start, vg)) {
+        for (const RoseInEdge e : out_edges_range(start, vg)) {
             /* outfixes shouldn't have made it this far */
             assert(vg[target(e, vg)].type == RIV_LITERAL);
             if (vg[e].graph) {
@@ -2167,7 +2167,7 @@ void extractStrongLiterals(RoseInGraph &vg, const CompileContext &cc) {
         changed = false;
 
         edges_by_graph.clear();
-        for (const RoseInEdge &ve : edges_range(vg)) {
+        for (const RoseInEdge ve : edges_range(vg)) {
             if (vg[source(ve, vg)].type != RIV_LITERAL) {
                 continue;
             }
@@ -2247,7 +2247,7 @@ void improveWeakInfixes(RoseInGraph &vg, const CompileContext &cc) {
             continue;
         }
 
-        for (const RoseInEdge &e : out_edges_range(vv, vg)) {
+        for (const RoseInEdge e : out_edges_range(vv, vg)) {
             if (vg[target(e, vg)].type != RIV_LITERAL || !vg[e].graph) {
                 continue;
             }
@@ -2259,7 +2259,7 @@ void improveWeakInfixes(RoseInGraph &vg, const CompileContext &cc) {
     }
 
     insertion_ordered_map<NGHolder *, vector<RoseInEdge>> weak_edges;
-    for (const RoseInEdge &ve : edges_range(vg)) {
+    for (const RoseInEdge ve : edges_range(vg)) {
         NGHolder *h = vg[ve].graph.get();
         if (contains(weak, h)) {
             weak_edges[h].push_back(ve);
@@ -2429,7 +2429,7 @@ void avoidSuffixes(RoseInGraph &vg, const CompileContext &cc) {
     insertion_ordered_map<const NGHolder *, vector<RoseInEdge>> suffixes;
 
     /* find suffixes */
-    for (const RoseInEdge &e : in_edges_range(accept, vg)) {
+    for (const RoseInEdge e : in_edges_range(accept, vg)) {
         /* outfixes shouldn't have made it this far */
         assert(vg[source(e, vg)].type == RIV_LITERAL);
         assert(vg[e].graph); /* non suffix paths should be wired to other
@@ -2527,7 +2527,7 @@ void lookForDoubleCut(RoseInGraph &vg, const CompileContext &cc) {
     }
 
     insertion_ordered_map<const NGHolder *, vector<RoseInEdge>> right_edges;
-    for (const RoseInEdge &ve : edges_range(vg)) {
+    for (const RoseInEdge ve : edges_range(vg)) {
         if (vg[ve].graph && vg[source(ve, vg)].type == RIV_LITERAL) {
             const NGHolder *h = vg[ve].graph.get();
             right_edges[h].push_back(ve);
@@ -2668,7 +2668,7 @@ void decomposeLiteralChains(RoseInGraph &vg, const CompileContext &cc) {
         changed = false;
 
         right_edges.clear();
-        for (const RoseInEdge &ve : edges_range(vg)) {
+        for (const RoseInEdge ve : edges_range(vg)) {
             if (vg[ve].graph && vg[source(ve, vg)].type == RIV_LITERAL) {
                 const NGHolder *h = vg[ve].graph.get();
                 right_edges[h].push_back(ve);
@@ -2718,7 +2718,7 @@ void lookForCleanEarlySplits(RoseInGraph &vg, const CompileContext &cc) {
 
         insertion_ordered_map<const NGHolder *, vector<RoseInEdge>> rightfixes;
         for (RoseInVertex v : curr) {
-            for (const RoseInEdge &e : out_edges_range(v, vg)) {
+            for (const RoseInEdge e : out_edges_range(v, vg)) {
                 if (vg[e].graph) {
                     NGHolder *h = vg[e].graph.get();
                     rightfixes[h].push_back(e);
@@ -2742,7 +2742,7 @@ void rehomeEodSuffixes(RoseInGraph &vg) {
     // Find edges to accept with EOD-anchored graphs that we can move over to
     // acceptEod.
     vector<RoseInEdge> acc_edges;
-    for (const auto &e : edges_range(vg)) {
+    for (const auto e : edges_range(vg)) {
         if (vg[target(e, vg)].type != RIV_ACCEPT) {
             continue;
         }
@@ -2908,7 +2908,7 @@ bool ensureImplementable(RoseBuild &rose, RoseInGraph &vg, bool allow_changes,
         DEBUG_PRINTF("added %u\n", added_count);
         insertion_ordered_map<shared_ptr<NGHolder>,
                               vector<RoseInEdge>> edges_by_graph;
-        for (const RoseInEdge &ve : edges_range(vg)) {
+        for (const RoseInEdge ve : edges_range(vg)) {
             if (vg[ve].graph && !vg[ve].dfa) {
                 auto &h = vg[ve].graph;
                 edges_by_graph[h].push_back(ve);

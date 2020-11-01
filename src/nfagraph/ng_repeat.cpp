@@ -230,7 +230,7 @@ bool hasDifferentTops(const NGHolder &g, const vector<NFAVertex> &verts) {
     const flat_set<u32> *tops = nullptr;
 
     for (auto v : verts) {
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             NFAVertex u = source(e, g);
             if (u != g.start && u != g.startDs) {
                 continue; // Only edges from starts have valid top properties.
@@ -732,7 +732,7 @@ void unpeelNearEnd(NGHolder &g, ReachSubgraph &rsi,
         } else {
             /* Skip edge for the cyclic state; note that we must clone their
              * edge properties as they may include tops. */
-            for (const auto &e : in_edges_range(first, g)) {
+            for (const auto e : in_edges_range(first, g)) {
                 add_edge(source(e, g), d, g[e], g);
             }
         }
@@ -813,7 +813,7 @@ void replaceSubgraphWithSpecial(NGHolder &g, ReachSubgraph &rsi,
         depths[first].fromStartDotStar, depths[last].fromStartDotStar);
 
     // Wire predecessors to positive trigger.
-    for (const auto &e : in_edges_range(first, g)) {
+    for (const auto e : in_edges_range(first, g)) {
         add_edge(source(e, g), pos_trigger, g[e], g);
     }
 
@@ -880,7 +880,7 @@ void replaceSubgraphWithLazySpecial(NGHolder &g, ReachSubgraph &rsi,
         depths[first].fromStartDotStar, depths[last].fromStartDotStar);
 
     // Wire predecessors to positive trigger.
-    for (const auto &e : in_edges_range(first, g)) {
+    for (const auto e : in_edges_range(first, g)) {
         add_edge(source(e, g), pos_trigger, g[e], g);
     }
 
@@ -1159,7 +1159,7 @@ void addTriggers(NGHolder &g,
     vector<NFAEdge> dead;
     map<u32, vector<NFAVertex>> starts_by_top;
 
-    for (const auto &e : out_edges_range(g.start, g)) {
+    for (const auto e : out_edges_range(g.start, g)) {
         const NFAVertex &v = target(e, g);
         if (v == g.startDs) {
             continue;
@@ -1402,7 +1402,7 @@ bool hasSoleEntry(const NGHolder &g, const ReachSubgraph &rsi,
         region_map.emplace(rg_map.at(v), repeat_region);
     }
 
-    for (const auto &v : vertices_range(rg)) {
+    for (const auto v : vertices_range(rg)) {
         if (!contains(region_map, v)) {
             DEBUG_PRINTF("rg vertex %zu in lhs (trigger)\n", rg[v].index);
             region_map.emplace(v, lhs_region);
@@ -2110,7 +2110,7 @@ void populateFixedTopInfo(const map<u32, u32> &fixed_depth_tops,
     unordered_map<NFAVertex, depth> top_depths;
     auto colours = make_small_color_map(g);
 
-    for (const auto &e : out_edges_range(g.start, g)) {
+    for (const auto e : out_edges_range(g.start, g)) {
         NFAVertex v = target(e, g);
         if (v == g.startDs) {
             continue;
@@ -2409,7 +2409,7 @@ void analyseRepeats(NGHolder &g, const ReportManager *rm,
 static
 bool allOneReach(const NGHolder &g) {
     const CharReach *cr = nullptr;
-    for (const auto &v : vertices_range(g)) {
+    for (const auto v : vertices_range(g)) {
         if (is_special(v, g)) {
             continue;
         }

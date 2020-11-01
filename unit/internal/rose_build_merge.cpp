@@ -85,7 +85,7 @@ static
 size_t numUniqueSuffixGraphs(const RoseGraph &g) {
     unordered_set<const NGHolder *> seen;
 
-    for (const auto &v : vertices_range(g)) {
+    for (const auto v : vertices_range(g)) {
         if (g[v].suffix) {
             assert(g[v].suffix.graph);
             seen.insert(g[v].suffix.graph.get());

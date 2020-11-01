@@ -117,7 +117,7 @@ unique_ptr<NGHolder> makeRosePrefix(const ue2_literal &s) {
     unique_ptr<NGHolder> h = ue2::make_unique<NGHolder>(NFA_PREFIX);
 
     NFAVertex u = h->startDs;
-    for (const auto &c : s) {
+    for (const auto c : s) {
         NFAVertex v = addHolderVertex(c, *h);
         add_edge(u, v, *h);
         u = v;
@@ -628,7 +628,7 @@ void convertPrefixToBounds(RoseBuildImpl &tbi) {
 
     /* graphs with prefixes produced by rose are wired to tbi.root */
 
-    for (const auto &e : out_edges_range(tbi.root, g)) {
+    for (const auto e : out_edges_range(tbi.root, g)) {
         RoseVertex v = target(e, g);
 
         if (in_degree(v, g) != 1) {
@@ -673,7 +673,7 @@ void convertPrefixToBounds(RoseBuildImpl &tbi) {
         handleMixedPrefixCliche(h, g, v, e, ar, &to_delete, tbi.cc);
     }
 
-    for (const auto &e : out_edges_range(ar, g)) {
+    for (const auto e : out_edges_range(ar, g)) {
         RoseVertex v = target(e, g);
 
         /* note: vertices that we have rehomed will currently have an in-degree

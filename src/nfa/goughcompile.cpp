@@ -504,7 +504,7 @@ void copy_propagation(GoughGraph &g, const Grey &grey) {
         for (auto v : vertices_range(g)) {
             copy_propagate_update_vars(g[v].vars, &changes);
         }
-        for (const auto &e : edges_range(g)) {
+        for (const auto e : edges_range(g)) {
             copy_propagate_update_vars(g[e].vars, &changes);
         }
     } while(changes);
@@ -562,7 +562,7 @@ void remove_dead(GoughGraph &g) {
             i--;
         }
     }
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         for (u32 i = 0; i < g[e].vars.size(); i++) {
             GoughSSAVar *var = g[e].vars[i].get();
             if (var->seen) {
@@ -896,7 +896,7 @@ static
 void build_blocks(const GoughGraph &g,
                   map<gough_edge_id, vector<gough_ins> > *blocks,
                   u32 base_temp_slot) {
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         if (g[e].vars.empty()) {
             continue;
         }
@@ -946,7 +946,7 @@ void copy_in_blocks(raw_som_dfa &raw, u8 alphaShift, const GoughGraph &cfg,
     assert(top_sym == raw.alpha_size - 1U);
     map<vector<gough_ins>, u32> &processed = *prog_offsets;
 
-    for (const auto &e : edges_range(cfg)) {
+    for (const auto e : edges_range(cfg)) {
         if (!contains(blocks, gough_edge_id(cfg, e))) {
             continue;
         }
@@ -985,7 +985,7 @@ void copy_in_blocks(raw_som_dfa &raw, u8 alphaShift, const GoughGraph &cfg,
 }
 
 bool find_normal_self_loop(GoughVertex v, const GoughGraph &g, GoughEdge *out) {
-    for (const auto &e : out_edges_range(v, g)) {
+    for (const auto e : out_edges_range(v, g)) {
         if (target(e, g) != v) {
             continue;
         }

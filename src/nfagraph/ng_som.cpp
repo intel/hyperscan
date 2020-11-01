@@ -1131,7 +1131,7 @@ void expandGraph(NGHolder &g, unordered_map<NFAVertex, u32> &regions,
         for (const auto &m : orig_to_copy) {
             NFAVertex v = m.first, v2 = m.second;
 
-            for (const auto &e : out_edges_range(v, g)) {
+            for (const auto e : out_edges_range(v, g)) {
                 NFAVertex t = target(e, g);
                 u32 t_region = regions.at(t);
                 if (t_region >= split_region && !is_special(t, g)) {
@@ -1141,7 +1141,7 @@ void expandGraph(NGHolder &g, unordered_map<NFAVertex, u32> &regions,
                 add_edge_if_not_present(v2, t, g[e], g);
             }
 
-            for (const auto &e : in_edges_range(v, g)) {
+            for (const auto e : in_edges_range(v, g)) {
                 NFAVertex u = source(e, g);
                 if (regions.at(u) >= split_region && !is_special(u, g)) {
                     assert(contains(orig_to_copy, u));
@@ -1653,7 +1653,7 @@ void implementSomPlan(NG &ng, const ExpressionInfo &expr, u32 comp_id,
 static
 void anchorStarts(NGHolder &g) {
     vector<NFAEdge> dead;
-    for (const auto &e : out_edges_range(g.startDs, g)) {
+    for (const auto e : out_edges_range(g.startDs, g)) {
         NFAVertex v = target(e, g);
         if (v == g.startDs) {
             continue;
@@ -1716,7 +1716,7 @@ void makeSomRevNfaReports(ReportManager &rm, NGHolder &g, NFAVertex sink,
 static
 void clearProperInEdges(NGHolder &g, const NFAVertex sink) {
     vector<NFAEdge> dead;
-    for (const auto &e : in_edges_range(sink, g)) {
+    for (const auto e : in_edges_range(sink, g)) {
         if (source(e, g) == g.accept) {
             continue;
         }
@@ -2420,7 +2420,7 @@ bool splitOffBestLiteral(const NGHolder &g,
  * EXTERNAL_CALLBACK_SOM_PASS reports.
  */
 void makeReportsSomPass(ReportManager &rm, NGHolder &g) {
-    for (const auto &v : vertices_range(g)) {
+    for (const auto v : vertices_range(g)) {
         const auto &reports = g[v].reports;
         if (reports.empty()) {
             continue;

@@ -173,7 +173,7 @@ bool removeCyclicPathRedundancy(Graph &g, typename Graph::vertex_descriptor v,
 
     flat_set<vertex_descriptor> s;
 
-    for (const auto &e : in_edges_range(v, g)) {
+    for (const auto e : in_edges_range(v, g)) {
         vertex_descriptor u = source(e, g);
         if (u == v) {
             continue;

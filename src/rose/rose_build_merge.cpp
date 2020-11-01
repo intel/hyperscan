@@ -1018,7 +1018,7 @@ bool mergeLeftfixPair(RoseBuildImpl &build, left_id &r1, left_id &r2,
         const shared_ptr<CastleProto> &c = g[verts2.front()].left.castle;
         for (RoseVertex v : verts1) {
             g[v].left.castle = c;
-            for (const auto &e : in_edges_range(v, g)) {
+            for (const auto e : in_edges_range(v, g)) {
                 g[e].rose_top = top_map.at(g[e].rose_top);
             }
         }
@@ -1549,7 +1549,7 @@ private:
 static
 flat_set<pair<size_t, u32>> get_pred_tops(RoseVertex v, const RoseGraph &g) {
     flat_set<pair<size_t, u32>> preds;
-    for (const auto &e : in_edges_range(v, g)) {
+    for (const auto e : in_edges_range(v, g)) {
         preds.emplace(g[source(e, g)].index, g[e].rose_top);
     }
     return preds;
@@ -1683,7 +1683,7 @@ u32 findUnusedTop(const flat_set<u32> &tops) {
 // Replace top 't' on edges with new top 'u'.
 static
 void replaceTops(NGHolder &h, const map<u32, u32> &top_mapping) {
-    for (const auto &e : out_edges_range(h.start, h)) {
+    for (const auto e : out_edges_range(h.start, h)) {
         NFAVertex v = target(e, h);
         if (v == h.startDs) {
             continue;
@@ -1741,7 +1741,7 @@ bool setDistinctRoseTops(RoseGraph &g, NGHolder &h1, const NGHolder &h2,
         DEBUG_PRINTF("vertex %zu\n", g[v].index);
         assert(!g[v].left.haig);
         assert(!g[v].left.dfa);
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             u32 t = g[e].rose_top;
             DEBUG_PRINTF("t=%u\n", t);
             assert(contains(top_mapping, t));
@@ -1843,7 +1843,7 @@ void mergeNfaLeftfixes(RoseBuildImpl &tbi, LeftfixBouquet &roses) {
             // back.
             map<RoseEdge, RoseEdgeProps> edge_props;
             for (auto v : verts2) {
-                for (const auto &e : in_edges_range(v, g)) {
+                for (const auto e : in_edges_range(v, g)) {
                     edge_props[e] = g[e];
                 }
             }
@@ -2009,7 +2009,7 @@ void mergeCastleChunk(RoseBuildImpl &build, vector<left_id> &cands,
             for (auto v : verts_2) {
                 assert(g[v].left.castle.get() == cand_2.castle());
                 g[v].left.castle = winner;
-                for (const auto &e : in_edges_range(v, g)) {
+                for (const auto e : in_edges_range(v, g)) {
                     g[e].rose_top = top_map.at(g[e].rose_top);
                 }
             }

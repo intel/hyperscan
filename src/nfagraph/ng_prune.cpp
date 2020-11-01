@@ -205,7 +205,7 @@ void pruneHighlanderAccepts(NGHolder &g, const ReportManager &rm) {
         }
 
         // We can prune any out-edges that aren't accepts
-        for (const auto &e : out_edges_range(u, g)) {
+        for (const auto e : out_edges_range(u, g)) {
             if (!is_any_accept(target(e, g), g)) {
                 dead.push_back(e);
             }
@@ -304,7 +304,7 @@ void pruneHighlanderDominated(NGHolder &g, const ReportManager &rm) {
     // If a reporter vertex is dominated by another with the same report, we
     // can remove that report; if all reports are removed, we can remove the
     // vertex entirely.
-    for (const auto v : reporters) {
+    for (const auto &v : reporters) {
         const auto reports = g[v].reports; // copy, as we're going to mutate
         for (const auto &report_id : reports) {
             if (!isSimpleExhaustible(rm.getReport(report_id))) {
@@ -329,7 +329,7 @@ void pruneHighlanderDominated(NGHolder &g, const ReportManager &rm) {
     // If a reporter vertex has a self-loop, but otherwise only leads to accept
     // (note: NOT acceptEod) and has simple exhaustible reports, we can delete
     // the self-loop.
-    for (const auto v : reporters) {
+    for (const auto &v : reporters) {
         if (hasOnlySelfLoopAndExhaustibleAccepts(g, rm, v)) {
             remove_edge(v, v, g);
             modified = true;
@@ -353,7 +353,7 @@ void pruneHighlanderDominated(NGHolder &g, const ReportManager &rm) {
 void pruneReport(NGHolder &g, ReportID report) {
     set<NFAEdge> dead;
 
-    for (const auto &e : in_edges_range(g.accept, g)) {
+    for (const auto e : in_edges_range(g.accept, g)) {
         NFAVertex u = source(e, g);
         auto &reports = g[u].reports;
         if (contains(reports, report)) {
@@ -364,7 +364,7 @@ void pruneReport(NGHolder &g, ReportID report) {
         }
     }
 
-    for (const auto &e : in_edges_range(g.acceptEod, g)) {
+    for (const auto e : in_edges_range(g.acceptEod, g)) {
         NFAVertex u = source(e, g);
         if (u == g.accept) {
             continue;
@@ -394,7 +394,7 @@ void pruneReport(NGHolder &g, ReportID report) {
 void pruneAllOtherReports(NGHolder &g, ReportID report) {
     set<NFAEdge> dead;
 
-    for (const auto &e : in_edges_range(g.accept, g)) {
+    for (const auto e : in_edges_range(g.accept, g)) {
         NFAVertex u = source(e, g);
         auto &reports = g[u].reports;
         if (contains(reports, report)) {
@@ -406,7 +406,7 @@ void pruneAllOtherReports(NGHolder &g, ReportID report) {
         }
     }
 
-    for (const auto &e : in_edges_range(g.acceptEod, g)) {
+    for (const auto e : in_edges_range(g.acceptEod, g)) {
         NFAVertex u = source(e, g);
         if (u == g.accept) {
             continue;

@@ -194,11 +194,11 @@ bool sameSuccessors(RoseVertex a, RoseVertex b, const RoseGraph &g) {
 
     set<AliasOutEdge> succs_a, succs_b;
 
-    for (const auto &e : out_edges_range(a, g)) {
+    for (const auto e : out_edges_range(a, g)) {
         succs_a.insert(AliasOutEdge(e, g));
     }
 
-    for (const auto &e : out_edges_range(b, g)) {
+    for (const auto e : out_edges_range(b, g)) {
         succs_b.insert(AliasOutEdge(e, g));
     }
 
@@ -241,11 +241,11 @@ bool samePredecessors(RoseVertex a, RoseVertex b, const RoseGraph &g) {
 
     set<AliasInEdge> preds_a, preds_b;
 
-    for (const auto &e : in_edges_range(a, g)) {
+    for (const auto e : in_edges_range(a, g)) {
         preds_a.insert(AliasInEdge(e, g));
     }
 
-    for (const auto &e : in_edges_range(b, g)) {
+    for (const auto e : in_edges_range(b, g)) {
         preds_b.insert(AliasInEdge(e, g));
     }
 
@@ -258,7 +258,7 @@ bool samePredecessors(RoseVertex a, RoseVertex b, const RoseGraph &g) {
             return false;
         }
 
-        for (const auto &e_a : in_edges_range(a, g)) {
+        for (const auto e_a : in_edges_range(a, g)) {
             RoseEdge e = edge(source(e_a, g), b, g);
             if (!e || g[e].rose_top != g[e_a].rose_top) {
                 DEBUG_PRINTF("bad tops\n");
@@ -273,7 +273,7 @@ bool samePredecessors(RoseVertex a, RoseVertex b, const RoseGraph &g) {
 static
 bool hasCommonSuccWithBadBounds(RoseVertex a, RoseVertex b,
                                 const RoseGraph &g) {
-    for (const auto &e_a : out_edges_range(a, g)) {
+    for (const auto e_a : out_edges_range(a, g)) {
         if (RoseEdge e = edge(b, target(e_a, g), g)) {
             if (g[e_a].maxBound < g[e].minBound
                 || g[e].maxBound < g[e_a].minBound) {
@@ -292,7 +292,7 @@ bool hasCommonSuccWithBadBounds(RoseVertex a, RoseVertex b,
 static
 bool hasCommonPredWithBadBounds(RoseVertex a, RoseVertex b,
                                 const RoseGraph &g) {
-    for (const auto &e_a : in_edges_range(a, g)) {
+    for (const auto e_a : in_edges_range(a, g)) {
         if (RoseEdge e = edge(source(e_a, g), b, g)) {
             if (g[e_a].maxBound < g[e].minBound
                 || g[e].maxBound < g[e_a].minBound) {
@@ -482,7 +482,7 @@ void mergeEdges(RoseVertex a, RoseVertex b, RoseGraph &g) {
     EdgeCache b_edges;
 
     // Cache b's in-edges so we can look them up by source quickly.
-    for (const auto &e : in_edges_range(b, g)) {
+    for (const auto e : in_edges_range(b, g)) {
         RoseVertex u = source(e, g);
         b_edges.emplace(u, e);
     }
@@ -501,7 +501,7 @@ void mergeEdges(RoseVertex a, RoseVertex b, RoseGraph &g) {
 
     // Cache b's out-edges so we can look them up by target quickly.
     b_edges.clear();
-    for (const auto &e : out_edges_range(b, g)) {
+    for (const auto e : out_edges_range(b, g)) {
         RoseVertex v = target(e, g);
         b_edges.emplace(v, e);
     }
@@ -699,7 +699,7 @@ bool hasCommonPredWithDiffRoses(RoseVertex a, RoseVertex b,
 
     const bool equal_roses = hasEqualLeftfixes(a, b, g);
 
-    for (const auto &e_a : in_edges_range(a, g)) {
+    for (const auto e_a : in_edges_range(a, g)) {
         if (RoseEdge e = edge(source(e_a, g), b, g)) {
             DEBUG_PRINTF("common pred, e_r=%d r_t %u,%u\n",
                          (int)equal_roses, g[e].rose_top, g[e_a].rose_top);
@@ -784,7 +784,7 @@ void setReports(CastleProto &castle, ReportID report) {
 
 static
 void updateEdgeTops(RoseGraph &g, RoseVertex v, const map<u32, u32> &top_map) {
-    for (const auto &e : in_edges_range(v, g)) {
+    for (const auto e : in_edges_range(v, g)) {
         g[e].rose_top = top_map.at(g[e].rose_top);
     }
 }
@@ -796,7 +796,7 @@ void pruneUnusedTops(CastleProto &castle, const RoseGraph &g,
     for (auto v : verts) {
         assert(g[v].left.castle.get() == &castle);
 
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             u32 top = g[e].rose_top;
             assert(contains(castle.repeats, top));
             used_tops.insert(top);
@@ -827,14 +827,14 @@ void pruneUnusedTops(NGHolder &h, const RoseGraph &g,
     for (auto v : verts) {
         assert(g[v].left.graph.get() == &h);
 
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             u32 top = g[e].rose_top;
             used_tops.insert(top);
         }
     }
 
     vector<NFAEdge> dead;
-    for (const auto &e : out_edges_range(h.start, h)) {
+    for (const auto e : out_edges_range(h.start, h)) {
         NFAVertex v = target(e, h);
         if (v == h.startDs) {
             continue; // stylised edge, leave it alone.
@@ -1068,7 +1068,7 @@ bool attemptRoseCastleMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
     // Merge in the relevant repeats from b with the new report. Note that
     // we'll have to remap tops appropriately.
     map<u32, u32> b_top_map;
-    for (const auto &e : in_edges_range(b, g)) {
+    for (const auto e : in_edges_range(b, g)) {
         u32 top = g[e].rose_top;
         assert(contains(b_castle.repeats, top));
 
@@ -1288,7 +1288,7 @@ bool attemptRoseGraphMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
     pruneAllOtherReports(victim, new_report);
 
     map<RoseVertex, RoseEdgeProps> a_props;
-    for (const auto &e : in_edges_range(a, g)) {
+    for (const auto e : in_edges_range(a, g)) {
         a_props[source(e, g)] = g[e];
     }
 
@@ -1307,7 +1307,7 @@ bool attemptRoseGraphMerge(RoseBuildImpl &build, bool preds_same, RoseVertex a,
     if (!mergeNfaPair(victim, *b_h, nullptr, build.cc)) {
         DEBUG_PRINTF("merge failed\n");
         // Restore in-edge properties.
-        for (const auto &e : in_edges_range(a, g)) {
+        for (const auto e : in_edges_range(a, g)) {
             g[e] = a_props[source(e, g)];
         }
         assert(roseHasTops(build, a));
@@ -1941,7 +1941,7 @@ static
 bool hasNoDiamondSiblings(const RoseGraph &g, RoseVertex v) {
     if (has_successor(v, g)) {
         bool only_succ = true;
-        for (const auto &w : adjacent_vertices_range(v, g)) {
+        for (const auto w : adjacent_vertices_range(v, g)) {
             if (in_degree(w, g) > 1) {
                 only_succ = false;
                 break;
@@ -1957,7 +1957,7 @@ bool hasNoDiamondSiblings(const RoseGraph &g, RoseVertex v) {
     assert(in_edges(v, g).first != in_edges(v, g).second);
 
     bool only_pred = true;
-    for (const auto &u : inv_adjacent_vertices_range(v, g)) {
+    for (const auto u : inv_adjacent_vertices_range(v, g)) {
         if (out_degree(u, g) > 1) {
             only_pred = false;
             break;
@@ -2066,7 +2066,7 @@ struct DupeLeafKey {
 struct UncalcLeafKey {
     UncalcLeafKey(const RoseGraph &g, RoseVertex v)
         : literals(g[v].literals), rose(g[v].left) {
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
             preds.insert(make_pair(u, g[e]));
         }
@@ -2138,7 +2138,7 @@ void mergeDupeLeaves(RoseBuildImpl &build) {
                      g[t].index);
 
         vector<RoseEdge> deadEdges;
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             RoseVertex u = source(e, g);
             DEBUG_PRINTF("u index=%zu\n", g[u].index);
             if (RoseEdge et = edge(u, t, g)) {

@@ -127,7 +127,7 @@ void replaceAssertVertex(NGHolder &g, NFAVertex t, const ExpressionInfo &expr,
 
     // Wire up all the predecessors to all the successors.
 
-    for (const auto &inEdge : in_edges_range(t, g)) {
+    for (const auto inEdge : in_edges_range(t, g)) {
         NFAVertex u = source(inEdge, g);
         if (u == t) {
             continue; // ignore self-loops
@@ -141,7 +141,7 @@ void replaceAssertVertex(NGHolder &g, NFAVertex t, const ExpressionInfo &expr,
             continue;
         }
 
-        for (const auto &outEdge : out_edges_range(t, g)) {
+        for (const auto outEdge : out_edges_range(t, g)) {
             NFAVertex v = target(outEdge, g);
 
             DEBUG_PRINTF("consider path [%zu,%zu,%zu]\n", g[u].index,
@@ -229,7 +229,7 @@ void checkForMultilineStart(ReportManager &rm, NGHolder &g,
 
         /* we need to interpose a dummy dot vertex between v and accept if
          * required so that ^ doesn't match trailing \n */
-         for (const auto &e : out_edges_range(v, g)) {
+         for (const auto e : out_edges_range(v, g)) {
             if (target(e, g) == g.accept) {
                 dead.push_back(e);
             }
@@ -283,7 +283,7 @@ void removeAssertVertices(ReportManager &rm, NGHolder &g,
 
     // Build a cache of (u, v) vertex pairs to edge descriptors.
     edge_cache_t edge_cache;
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         edge_cache[make_pair(source(e, g), target(e, g))] = e;
     }
 

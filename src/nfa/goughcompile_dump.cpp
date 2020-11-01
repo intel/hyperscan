@@ -85,7 +85,7 @@ void dump_graph(const GoughGraph &g, const string &base, const Grey &grey) {
 
         fprintf(f, "label = \"%u\"];\n", g[v].state_id);
     }
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         GoughVertex s = source(e, g);
         GoughVertex t = target(e, g);
 
@@ -153,7 +153,7 @@ void dump_var_mapping(const GoughGraph &g, const string &base,
             fprintf(f, "\n");
         }
     }
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         set<const GoughSSAVar *> used = uses(g[e]);
         if (g[e].vars.empty() && used.empty()) {
             continue;
@@ -200,7 +200,7 @@ void gather_vars(const GoughGraph &g, vector<const GoughSSAVar *> *vars,
         }
     }
 
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         for (u32 i = 0; i < g[e].vars.size(); i++) {
             const GoughSSAVar *vp = g[e].vars[i].get();
             stringstream ss;

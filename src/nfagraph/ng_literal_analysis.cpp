@@ -119,7 +119,7 @@ void dumpGraph(const char *filename, const LitGraph &lg) {
         fout << endl;
     }
 
-    for (const auto &e : edges_range(lg)) {
+    for (const auto e : edges_range(lg)) {
         LitVertex u = source(e, lg), v = target(e, lg);
         fout << lg[u].index << " -> " << lg[v].index << "[label=\""
              << lg[e].score << "\"]"
@@ -359,7 +359,7 @@ u64a litUniqueness(const string &s) {
 static
 u64a litCountBits(const ue2_literal &lit) {
     u64a n = 0;
-    for (const auto &c : lit) {
+    for (const auto c : lit) {
         n += c.nocase ? 7 : 8;
     }
     return n;
@@ -488,7 +488,7 @@ vector<LitEdge> add_reverse_edges_and_index(LitGraph &lg) {
     const size_t edge_count = num_edges(lg);
     vector<LitEdge> fwd_edges;
     fwd_edges.reserve(edge_count);
-    for (const auto &e : edges_range(lg)) {
+    for (const auto e : edges_range(lg)) {
         fwd_edges.push_back(e);
     }
 
@@ -547,7 +547,7 @@ void findMinCut(LitGraph &lg, vector<LitEdge> &cutset) {
     vector<LitEdge> white_cut, black_cut;
     u64a white_flow = 0, black_flow = 0;
 
-    for (const auto &e : edges_range(lg)) {
+    for (const auto e : edges_range(lg)) {
         const LitVertex u = source(e, lg), v = target(e, lg);
         const auto ucolor = get(colors, u);
         const auto vcolor = get(colors, v);
@@ -694,7 +694,7 @@ set<ue2_literal> getLiteralSet(const NGHolder &g, const NFAVertex &v,
 
     set<ue2_literal> ls;
 
-    for (const auto &e : in_edges_range(v, g)) {
+    for (const auto e : in_edges_range(v, g)) {
         if (source(e, g) == v && only_first_encounter) {
             continue; /* ignore self loop on root vertex as we are interested in
                        * the first time we visit the vertex on the way to
@@ -719,7 +719,7 @@ vector<u64a> scoreEdges(const NGHolder &g, const flat_set<NFAEdge> &known_bad) {
 
     vector<u64a> scores(num_edges(g));
 
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         u32 eidx = g[e].index;
         assert(eidx < scores.size());
         if (contains(known_bad, e)) {

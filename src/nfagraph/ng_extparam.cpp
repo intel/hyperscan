@@ -409,7 +409,7 @@ bool anchorPatternWithBoundedRepeat(NGHolder &g, ReportManager &rm) {
 static
 NFAVertex findSingleCyclic(const NGHolder &g) {
     NFAVertex v = NGHolder::null_vertex();
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         if (source(e, g) == target(e, g)) {
             if (source(e, g) == g.startDs) {
                 continue;
@@ -580,7 +580,7 @@ bool transformMinLengthToRepeat(NGHolder &g, ReportManager &rm) {
 
         // We want to delete the out-edges of each predecessor, but need to
         // make sure we don't delete the startDs self loop.
-        for (const auto &e : out_edges_range(u, g)) {
+        for (const auto e : out_edges_range(u, g)) {
             if (target(e, g) != g.startDs) {
                 dead.push_back(e);
             }
@@ -729,7 +729,7 @@ void pruneExtUnreachable(NGHolder &g, const ReportManager &rm) {
 
     vector<NFAEdge> dead;
 
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         if (isEdgePrunable(g, report, depths, e)) {
             DEBUG_PRINTF("pruning\n");
             dead.push_back(e);
@@ -767,7 +767,7 @@ void pruneVacuousEdges(NGHolder &g, const ReportManager &rm) {
         });
     };
 
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         const NFAVertex u = source(e, g);
         const NFAVertex v = target(e, g);
 
@@ -802,7 +802,7 @@ void pruneUnmatchable(NGHolder &g, const vector<DepthMinMax> &depths,
                       const ReportManager &rm, NFAVertex accept) {
     vector<NFAEdge> dead;
 
-    for (const auto &e : in_edges_range(accept, g)) {
+    for (const auto e : in_edges_range(accept, g)) {
         NFAVertex v = source(e, g);
         if (v == g.accept) {
             assert(accept == g.acceptEod); // stylised edge

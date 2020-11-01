@@ -125,7 +125,7 @@ bool RoseBuildImpl::isNonRootSuccessor(const RoseVertex &v) const {
 }
 
 bool hasAnchHistorySucc(const RoseGraph &g, RoseVertex v) {
-    for (const auto &e : out_edges_range(v, g)) {
+    for (const auto e : out_edges_range(v, g)) {
         if (g[e].history == ROSE_ROLE_HISTORY_ANCH) {
             return true;
         }
@@ -135,7 +135,7 @@ bool hasAnchHistorySucc(const RoseGraph &g, RoseVertex v) {
 }
 
 bool hasLastByteHistorySucc(const RoseGraph &g, RoseVertex v) {
-    for (const auto &e : out_edges_range(v, g)) {
+    for (const auto e : out_edges_range(v, g)) {
         if (g[e].history == ROSE_ROLE_HISTORY_LAST_BYTE) {
             return true;
         }
@@ -338,7 +338,7 @@ void RoseBuildImpl::removeVertices(const vector<RoseVertex> &dead) {
 // those via infixes.
 u32 RoseBuildImpl::calcSuccMaxBound(RoseVertex u) const {
     u32 maxBound = 0;
-    for (const auto &e : out_edges_range(u, g)) {
+    for (const auto e : out_edges_range(u, g)) {
         RoseVertex v = target(e, g);
 
         if (g[v].left) {
@@ -510,7 +510,7 @@ bool roseHasTops(const RoseBuildImpl &build, RoseVertex v) {
 
     set<u32> graph_tops;
     if (!build.isRootSuccessor(v)) {
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             graph_tops.insert(g[e].rose_top);
         }
     }
@@ -1008,7 +1008,7 @@ bool hasOrphanedTops(const RoseBuildImpl &build) {
             set<u32> &tops = leftfixes[g[v].left];
             if (!build.isRootSuccessor(v)) {
                 // Tops for infixes come from the in-edges.
-                for (const auto &e : in_edges_range(v, g)) {
+                for (const auto e : in_edges_range(v, g)) {
                     tops.insert(g[e].rose_top);
                 }
             }

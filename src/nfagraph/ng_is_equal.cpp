@@ -172,10 +172,10 @@ bool is_equal_i(const NGHolder &a, const NGHolder &b,
     vector<pair<u32, flat_set<u32>>> top_a;
     vector<pair<u32, flat_set<u32>>> top_b;
 
-    for (const auto &e : out_edges_range(a.start, a)) {
+    for (const auto e : out_edges_range(a.start, a)) {
         top_a.emplace_back(a[target(e, a)].index, a[e].tops);
     }
-    for (const auto &e : out_edges_range(b.start, b)) {
+    for (const auto e : out_edges_range(b.start, b)) {
         top_b.emplace_back(b[target(e, b)].index, b[e].tops);
     }
 
