@@ -98,8 +98,8 @@ TEST(state_compress, m128_1) {
     char buf[sizeof(m128)] = { 0 };
 
     for (u32 i = 0; i < 16; i++) {
-        char mask_raw[16] = { 0 };
-        char val_raw[16] = { 0 };
+        char ALIGN_ATTR(16) mask_raw[16] = { 0 };
+        char ALIGN_ATTR(16) val_raw[16] = { 0 };
 
         memset(val_raw, (i << 4) + 3, 16);
 
@@ -109,16 +109,31 @@ TEST(state_compress, m128_1) {
         mask_raw[15 - i] = 0xff;
         val_raw[15 - i] = i;
 
-        m128 val;
-        m128 mask;
-
-        memcpy(&val, val_raw, sizeof(val));
-        memcpy(&mask, mask_raw, sizeof(mask));
+        m128 val = load128(val_raw);
+        m128 mask = load128(mask_raw);
 
         storecompressed128(&buf, &val, &mask, 0);
 
         m128 val_out;
         loadcompressed128(&val_out, &buf, &mask, 0);
+
+        int8_t ALIGN_ATTR(16) data[16];
+	store128(data, val);
+	printf("val: ");
+	for (int j=0; j < 16; j++) printf("%02x ", data[j]);
+	printf("\n");
+	store128(data, mask);
+	printf("mask: ");
+	for (int j=0; j < 16; j++) printf("%02x ", data[j]);
+	printf("\n");
+	store128(data, and128(val, mask));
+	printf("and128(val, mask): ");
+	for (int j=0; j < 16; j++) printf("%02x ", data[j]);
+	printf("\n");
+	store128(data, val_out);
+	printf("val_out: ");
+	for (int j=0; j < 16; j++) printf("%02x ", data[j]);
+	printf("\n");
 
         EXPECT_TRUE(!diff128(and128(val, mask), val_out));
 
