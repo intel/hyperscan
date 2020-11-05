@@ -84,6 +84,26 @@ static really_inline u32 diffrich64_128(m128 a, m128 b) {
 }
 
 static really_really_inline
+m128 add_2x64(m128 a, m128 b) {
+    return (m128) vaddq_u64((int64x2_t)a, (int64x2_t)b);
+}
+
+static really_really_inline
+m128 sub_2x64(m128 a, m128 b) {
+    return (m128) vsubq_u64((int64x2_t)a, (int64x2_t)b);
+}
+
+static really_really_inline
+m128 lshift_m128(m128 a, unsigned b) {
+    return (m128) vshlq_n_s32((int64x2_t)a, b);
+}
+
+static really_really_inline
+m128 rshift_m128(m128 a, unsigned b) {
+    return (m128) vshrq_n_s32((int64x2_t)a, b);
+}
+
+static really_really_inline
 m128 lshift64_m128(m128 a, unsigned b) {
     return (m128) vshlq_n_s64((int64x2_t)a, b);
 }
@@ -95,6 +115,10 @@ m128 rshift64_m128(m128 a, unsigned b) {
 
 static really_inline m128 eq128(m128 a, m128 b) {
     return (m128) vceqq_s8((int8x16_t)a, (int8x16_t)b);
+}
+
+static really_inline m128 eq64_m128(m128 a, m128 b) {
+    return (m128) vceqq_u64((int64x2_t)a, (int64x2_t)b);
 }
 
 static really_inline u32 movemask128(m128 a) {
@@ -290,13 +314,13 @@ m128 sub_u8_m128(m128 a, m128 b) {
 
 static really_inline
 m128 set4x32(u32 x3, u32 x2, u32 x1, u32 x0) {
-    uint32_t __attribute__((aligned(16))) data[4] = { x3, x2, x1, x0 };
+    uint32_t __attribute__((aligned(16))) data[4] = { x0, x1, x2, x3 };
     return (m128) vld1q_u32((uint32_t *) data);
 }
 
 static really_inline
 m128 set2x64(u64a hi, u64a lo) {
-    uint64_t __attribute__((aligned(16))) data[2] = { hi, lo };
+    uint64_t __attribute__((aligned(16))) data[2] = { lo, hi };
     return (m128) vld1q_u64((uint64_t *) data);
 }
 
