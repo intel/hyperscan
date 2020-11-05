@@ -215,6 +215,11 @@ u64a compress64_impl(u64a x, u64a m) {
 }
 
 static really_inline
+u64a compress128_impl(m128 x, m128 m) {
+    compress128_impl_c(x, m);
+}
+
+static really_inline
 u32 expand32_impl(u32 x, u32 m) {
 #if defined(HAVE_BMI2)
     // BMI2 has a single instruction for this operation.

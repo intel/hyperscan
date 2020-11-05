@@ -35,6 +35,7 @@
 
 #include "util/popcount.h"
 #include "util/unaligned.h"
+#include "util/simd_utils.h"
 
 static really_inline
 u32 clz32_impl_c(u32 x) {
@@ -177,7 +178,13 @@ u32 compress32_impl_c(u32 x, u32 m) {
 
 static really_inline
 u64a compress64_impl_c(u64a x, u64a m) {
-    // Return zero quickly on trivial cases
+  u64a res = 0;
+  for (u64a bb = 1; m != 0; bb += bb) {
+    if (x & m & -m) { res |= bb; }
+    m &= (m - 1);
+  }
+  return res;
+/*    // Return zero quickly on trivial cases
     if ((x & m) == 0) {
         return 0;
     }
@@ -202,7 +209,20 @@ u64a compress64_impl_c(u64a x, u64a m) {
         mk = mk & ~mp;
     }
 
-    return x;
+    return x;*/
+}
+
+static really_inline
+m128 compress128_impl_c(m128 xvec, m128 mvec) {
+    u64a ALIGN_ATTR(16) x[2];
+    u64a ALIGN_ATTR(16) m[2];
+    store128(x, xvec);
+    store128(m, mvec);
+
+    compress64_impl_c(x[0], m[0]);
+    compress64_impl_c(x[1], m[1]);
+
+    return xvec;
 }
 
 static really_inline
@@ -242,7 +262,13 @@ u32 expand32_impl_c(u32 x, u32 m) {
 static really_inline
 u64a expand64_impl_c(u64a x, u64a m) {
 
-    // Return zero quickly on trivial cases
+  u64a res = 0;
+  for (u64a bb = 1; m != 0; bb += bb) {
+    if (x & bb) { res |= m & (-m); }
+    m &= (m - 1);
+  }
+  return res;
+/*    // Return zero quickly on trivial cases
     if (!x || !m) {
         return 0;
     }
@@ -272,7 +298,7 @@ u64a expand64_impl_c(u64a x, u64a m) {
         x = (x & ~mv) | (t & mv);
     }
 
-    return x & m0; // clear out extraneous bits
+    return x & m0; // clear out extraneous bits*/
 }
 
 
