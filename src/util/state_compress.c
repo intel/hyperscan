@@ -107,21 +107,29 @@ void storecompressed128_32bit(void *ptr, m128 xvec, m128 mvec) {
 #if defined(ARCH_64_BIT)
 static really_inline
 void storecompressed128_64bit(void *ptr, m128 xvec, m128 mvec) {
+    printf("storecompressed128_64bit()\n");
     // First, decompose our vectors into 64-bit chunks.
+/*    u64a x[2];
+    memcpy(x, &xvec, sizeof(xvec));
+    u64a m[2];
+    memcpy(m, &mvec, sizeof(mvec));*/
     u64a ALIGN_ATTR(16) x[2];
     u64a ALIGN_ATTR(16) m[2];
-    store128(x, xvec);
     store128(m, mvec);
+    store128(x, xvec);
 
     // Count the number of bits of compressed state we're writing out per
     // chunk.
-    u32 bits[2] = { popcount64(m[0]), popcount64(m[1]) };
+    u32 ALIGN_ATTR(16) bits[2] = { popcount64(m[0]), popcount64(m[1]) };
+    //m128 vbits = load128(bits);
 
     // Compress each 64-bit chunk individually.
-    u64a v[2] = { compress64(x[0], m[0]), compress64(x[1], m[1]) };
+    //u64a v[2] = { compress64(x[0], m[0]), compress64(x[1], m[1]) };
+    xvec = compress128(xvec, mvec);
+    store128(x, xvec);
 
     // Write packed data out.
-    pack_bits_64(ptr, v, bits, 2);
+    pack_bits_64(ptr, x, bits, 2);
 }
 #endif
 
@@ -157,15 +165,33 @@ m128 loadcompressed128_32bit(const void *ptr, m128 mvec) {
 #if defined(ARCH_64_BIT)
 static really_inline
 m128 loadcompressed128_64bit(const void *ptr, m128 mvec) {
+    printf("loadcompressed128_64bit()\n");
     // First, decompose our vectors into 64-bit chunks.
-    u64a m[2] = { movq(mvec), movq(rshiftbyte_m128(mvec, 8)) };
+    u64a ALIGN_ATTR(16) m[2];
+    store128(m, mvec);
+    printf("m[0] = %0llx\n", m[0]);
+    printf("m[1] = %0llx\n", m[1]);
+
+//    m[0] = movq(mvec);
+//    m[1] = movq(rshiftbyte_m128(mvec, 8));
+    //store128(m, mvec);
+//    printf("m[0] = %0llx\n", m[0]);
+//    printf("m[1] = %0llx\n", m[1]);
 
     u32 bits[2] = { popcount64(m[0]), popcount64(m[1]) };
-    u64a v[2];
+    u64a ALIGN_ATTR(16) v[2];
+
+    printf("bits[0] = %0x\n", bits[0]);
+    printf("bits[1] = %0x\n", bits[1]);
 
     unpack_bits_64(v, (const u8 *)ptr, bits, 2);
+    printf("v[0] = %0llx\n", v[0]);
+    printf("v[1] = %0llx\n", v[1]);
 
     u64a x[2] = { expand64(v[0], m[0]), expand64(v[1], m[1]) };
+    printf("x[0] = %0llx\n", x[0]);
+    printf("x[1] = %0llx\n", x[1]);
+
 
     return set2x64(x[1], x[0]);
 }
