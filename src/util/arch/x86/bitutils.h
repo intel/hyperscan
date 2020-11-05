@@ -239,7 +239,6 @@ u64a expand64_impl(u64a x, u64a m) {
 #endif
 }
 
-
 /* returns the first set bit after begin (if not ~0U). If no bit is set after
  * begin returns ~0U
  */

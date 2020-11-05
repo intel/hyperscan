@@ -107,102 +107,20 @@ u64a compress64_impl(u64a x, u64a m) {
 static really_inline
 m128 compress128_impl(m128 x, m128 m) {
 
-/*    x = and128(x, m); // clear irrelevant bits
-
-    // Return zero quickly on trivial cases
-    if (diff128(x, zeroes128()) == 0) {
-        return zeroes128();
-    }*/
-
-
-    u64a ALIGN_ATTR(16) xv[2];
-    u64a ALIGN_ATTR(16) mv[2];
-    u64a ALIGN_ATTR(16) res[2];
-    u64a ALIGN_ATTR(16) t[2];
-    u64a ALIGN_ATTR(16) bbv[2];
-    store128(xv, x);
-    store128(mv, m);
-    res[0] = 0;
-    res[1] = 0;
-    printf("x[%d] = %0llx\n", 0, xv[0]);
-    printf("x[%d] = %0llx\n", 1, xv[1]);
-
     m128 one = set1_2x64(1);
     m128 bitset = one;
     m128 vres = zeroes128();
-    for (u64a bb = 1; mv[0] | mv[1]; bb <<= 1) {
-        printf("bb = %lld\n", bb);
-	store128(bbv, bitset);
-        printf("bb[%d] = %0lld\n", 0, bbv[0]);
-        printf("bb[%d] = %0lld\n", 1, bbv[1]);
-        printf("m[%d] = %0llx\n", 0, mv[0]);
-        printf("m[%d] = %0llx\n", 1, mv[1]);
-        printf("scalar: -m[%d] = %0llx\n", 0, -mv[0]);
-        printf("scalar: -m[%d] = %0llx\n", 1, -mv[1]);
+    while (isnonzero128(m)) {
 	m128 mm = sub_2x64(zeroes128(), m);
-	store128(t, mm);
-        printf("vector: -m[0] = %0llx\n", t[0]);
-        printf("vector: -m[1] = %0llx\n", t[1]);
 	m128 tv = and128(x, m);
-	store128(t, tv);
-        printf("vector: x[0] & m[0] = %0llx\n", t[0]);
-        printf("vector: x[1] & m[1] = %0llx\n", t[1]);
 	tv = and128(tv, mm);
-	store128(t, tv);
-        printf("vector: x[0] & m[0] & -m[0] = %0llx\n", t[0]);
-        printf("vector: x[1] & m[1] & -m[1] = %0llx\n", t[1]);
-        t[0] = xv[0] & mv[0];
-        t[1] = xv[1] & mv[1];
-        printf("scalar: x[0] & m[0] = %0llx\n", t[0]);
-        printf("scalar: x[1] & m[1] = %0llx\n", t[1]);
-        t[0] = xv[0] & mv[0] & -mv[0];
-        t[1] = xv[1] & mv[1] & -mv[1];
-        printf("scalar: x[0] & m[0] & -m[0] = %0llx\n", t[0]);
-        printf("scalar: x[1] & m[1] & -m[1] = %0llx\n", t[1]);
-        
-        if ( t[0] ) {
-            printf("x & m & -m != 0\n");
-            res[0] |= bb;
-            printf("x[%d] = %0llx\n", 0, xv[0]);
-        }
-        if ( t[1] ) {
-            printf("x & m & -m != 0\n");
-            res[1] |= bb;
-            printf("x[%d] = %0llx\n", 1, xv[1]);
-        }
 
 	m128 mask = not128(eq64_m128(tv, zeroes128()));
-	store128(t, mask);
-        printf("mask: x[0] & m[0] & -m[0] != 0 : %0llx\n", t[0]);
-        printf("mask: x[1] & m[1] & -m[1] != 0 : %0llx\n", t[1]);
-
 	mask = vandq_s64(bitset, mask);
-	store128(t, mask);
-        printf("mask: mask[0] & bitset[1] != 0 : %0llx\n", t[0]);
-        printf("mask: mask[1] & bitset[1] != 0 : %0llx\n", t[1]);
-
         vres = or128(vres, mask);
-	store128(t, vres);
-        printf("res: res[0] != 0 : %0llx\n", t[0]);
-        printf("res: res[1] != 0 : %0llx\n", t[1]);
-	if (t[0] != res[0]) {
-            printf("mismatch: t[0] != res[0]: %0llx != %0llx\n", t[0], res[0]);
-        }
-	if (t[1] != res[1]) {
-            printf("mismatch: t[1] != res[1]: %0llx != %0llx\n", t[1], res[1]);
-        }
-
-        mv[0] &= mv[0] - 1;
-        mv[1] &= mv[1] - 1;
 	m = and128(m, sub_2x64(m, set1_2x64(1)));
-        printf("x[%d] = %0llx\n", 0, xv[0]);
-        printf("x[%d] = %0llx\n", 1, xv[1]);
         bitset = lshift64_m128(bitset, 1);
     }
-    store128(res, vres);
-    printf("final x[%d] = %0llx\n", 0, res[0]);
-    printf("final x[%d] = %0llx\n", 1, res[1]);
-//    x = load128(res);
     return vres;
 }
 
