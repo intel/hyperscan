@@ -96,7 +96,7 @@ bool eligibleForAlwaysOnGroup(const RoseBuildImpl &build, u32 id) {
 static
 bool requires_group_assignment(const rose_literal_id &lit,
                                const rose_literal_info &info) {
-    if (lit.delay) { /* we will check the shadow's master */
+    if (lit.delay) { /* we will check the shadow's leader */
         return false;
     }
 
