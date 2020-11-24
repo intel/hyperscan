@@ -901,8 +901,10 @@ do {                                                                          \
 #define CONFIRM_TEDDY(var, bucket, offset, reason, conf_fn)                 \
 do {                                                                        \
     if (unlikely(diff128(var, ones128()))) {                                \
-        u64a lo = movq(var);                                                \
-        u64a hi = movq(rshiftbyte_m128(var, 8));                            \
+        u64a __attribute__((aligned(16))) vector[2];                        \
+        store128(vector, var);                                              \
+        u64a lo = vector[0];                                                \
+        u64a hi = vector[1];                                                \
         CONF_CHUNK_64(lo, bucket, offset, reason, conf_fn);                 \
         CONF_CHUNK_64(hi, bucket, offset + 8, reason, conf_fn);             \
     }                                                                       \
