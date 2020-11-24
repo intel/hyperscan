@@ -78,6 +78,7 @@ elseif (ARCH_ARM32 OR ARCH_AARCH64)
     CHECK_C_SOURCE_COMPILES("#include <${INTRIN_INC_H}>
 int main() {
     int32x4_t a = vdupq_n_s32(1);
+    (void)a;
 }" HAVE_NEON)
 else ()
     message (FATAL_ERROR "Unsupported architecture")
