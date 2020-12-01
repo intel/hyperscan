@@ -1408,7 +1408,7 @@ if (NOT BUILD_STATIC_LIBS)
     add_library(hs ALIAS hs_shared)
 endif ()
 
-
-if(NOT WIN32)
+option(BUILD_EXAMPLES "Build Hyperscan example code (default TRUE)" TRUE)
+if(NOT WIN32 AND BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
