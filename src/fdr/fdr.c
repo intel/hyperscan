@@ -726,6 +726,7 @@ hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
     assert(ISALIGNED_CL(confBase));
     struct zone zones[ZONE_MAX];
     assert(fdr->domain > 8 && fdr->domain < 16);
+    memset(zones, 0, sizeof(zones));
 
     size_t numZone = prepareZones(a->buf, a->len,
                                   a->buf_history + a->len_history,
