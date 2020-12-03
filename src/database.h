@@ -51,6 +51,7 @@ extern "C"
 // CPU type is the low 6 bits (we can't need more than 64, surely!)
 
 #define HS_PLATFORM_INTEL           1
+#define HS_PLATFORM_ARM             2
 #define HS_PLATFORM_CPU_MASK        0x3F
 
 #define HS_PLATFORM_NOAVX2          (4<<13)
