@@ -80,6 +80,11 @@ static inline void print_m128_2x64(char *label, m128 vector) {
         printf("%016lx ", data[i]);
     printf("\n");
 }
+#else
+#define print_m128_16x8(label, vector) NULL
+#define print_m128_8x16(label, vector) NULL
+#define print_m128_4x32(label, vector) NULL
+#define print_m128_2x64(label, vector) NULL
 #endif
 
 /****
