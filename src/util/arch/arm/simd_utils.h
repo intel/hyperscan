@@ -151,13 +151,13 @@ static really_inline u32 movd(const m128 in) {
 }
 
 static really_inline u64a movq(const m128 in) {
-    return vgetq_lane_u64((uint64x2_t) in, 1);
+    return vgetq_lane_u64((uint64x2_t) in, 0);
 }
 
 /* another form of movq */
 static really_inline
 m128 load_m128_from_u64a(const u64a *p) {
-    return (m128) vdupq_n_u64(*p);
+    return (m128) vsetq_lane_u64(*p, zeroes128(), 0);
 }
 
 static really_inline u32 extract32from128(const m128 in, unsigned imm) {
