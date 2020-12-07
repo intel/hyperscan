@@ -161,7 +161,7 @@ m128 load_m128_from_u64a(const u64a *p) {
 }
 
 static really_inline u32 extract32from128(const m128 in, unsigned imm) {
-#if !defined(DEBUG)
+#if defined(HS_OPTIMIZE)
     return vgetq_lane_u32((uint32x4_t) in, imm);
 #else
     switch (imm) {
@@ -185,7 +185,7 @@ static really_inline u32 extract32from128(const m128 in, unsigned imm) {
 }
 
 static really_inline u64a extract64from128(const m128 in, unsigned imm) {
-#if !defined(DEBUG)
+#if defined(HS_OPTIMIZE)
     return vgetq_lane_u64((uint64x2_t) in, imm);
 #else
     switch (imm) {
@@ -265,14 +265,52 @@ m128 variable_byte_shift_m128(m128 in, s32 amount) {
     return vqtbl1q_s8(in, shift_mask);
 }
 
+#define CASE_ALIGN_VECTORS(a, b, offset)  case offset: return (m128)vextq_s8((int8x16_t)(a), (int8x16_t)(b), (offset)); break;
+
+static really_inline
+m128 palignr(m128 r, m128 l, int offset) {
+#if defined(HS_OPTIMIZE)
+        return (m128)vextq_s8((int8x16_t)l, (int8x16_t)r, offset);
+#else
+    switch (offset) {
+    CASE_ALIGN_VECTORS(l, r, 0);
+    CASE_ALIGN_VECTORS(l, r, 1);
+    CASE_ALIGN_VECTORS(l, r, 2);
+    CASE_ALIGN_VECTORS(l, r, 3);
+    CASE_ALIGN_VECTORS(l, r, 4);
+    CASE_ALIGN_VECTORS(l, r, 5);
+    CASE_ALIGN_VECTORS(l, r, 6);
+    CASE_ALIGN_VECTORS(l, r, 7);
+    CASE_ALIGN_VECTORS(l, r, 8);
+    CASE_ALIGN_VECTORS(l, r, 9);
+    CASE_ALIGN_VECTORS(l, r, 10);
+    CASE_ALIGN_VECTORS(l, r, 11);
+    CASE_ALIGN_VECTORS(l, r, 12);
+    CASE_ALIGN_VECTORS(l, r, 13);
+    CASE_ALIGN_VECTORS(l, r, 14);
+    CASE_ALIGN_VECTORS(l, r, 15);
+    default:
+	return zeroes128();
+	break;
+    }
+#endif
+}
+#undef CASE_ALIGN_VECTORS
+
 static really_really_inline
 m128 rshiftbyte_m128(m128 a, unsigned b) {
-    return variable_byte_shift_m128(a, -b);;
+    if (b)
+        return palignr(zeroes128(), a, b);
+    else
+        return a;
 }
 
 static really_really_inline
 m128 lshiftbyte_m128(m128 a, unsigned b) {
-    return variable_byte_shift_m128(a, b);;
+    if (b)
+        return palignr(a, zeroes128(), 16 - b);
+    else
+        return a;
 }
 
 
@@ -311,38 +349,6 @@ char testbit128(m128 val, unsigned int n) {
 
     return isnonzero128(and128(mask, val));
 }
-
-#define CASE_ALIGN_VECTORS(a, b, offset)  case offset: return (m128)vextq_s8((int8x16_t)(a), (int8x16_t)(b), (offset)); break;
-
-static really_inline
-m128 palignr(m128 r, m128 l, int offset) {
-#if !defined(DEBUG)
-    return (m128)vextq_s8((int8x16_t)l, (int8x16_t)r, offset);
-#else
-    switch (offset) {
-    CASE_ALIGN_VECTORS(l, r, 0);
-    CASE_ALIGN_VECTORS(l, r, 1);
-    CASE_ALIGN_VECTORS(l, r, 2);
-    CASE_ALIGN_VECTORS(l, r, 3);
-    CASE_ALIGN_VECTORS(l, r, 4);
-    CASE_ALIGN_VECTORS(l, r, 5);
-    CASE_ALIGN_VECTORS(l, r, 6);
-    CASE_ALIGN_VECTORS(l, r, 7);
-    CASE_ALIGN_VECTORS(l, r, 8);
-    CASE_ALIGN_VECTORS(l, r, 9);
-    CASE_ALIGN_VECTORS(l, r, 10);
-    CASE_ALIGN_VECTORS(l, r, 11);
-    CASE_ALIGN_VECTORS(l, r, 12);
-    CASE_ALIGN_VECTORS(l, r, 13);
-    CASE_ALIGN_VECTORS(l, r, 14);
-    CASE_ALIGN_VECTORS(l, r, 15);
-    default:
-	return zeroes128();
-	break;
-    }
-#endif
-}
-#undef CASE_ALIGN_VECTORS
 
 static really_inline
 m128 pshufb_m128(m128 a, m128 b) {
