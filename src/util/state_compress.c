@@ -107,7 +107,6 @@ void storecompressed128_32bit(void *ptr, m128 xvec, m128 mvec) {
 #if defined(ARCH_64_BIT)
 static really_inline
 void storecompressed128_64bit(void *ptr, m128 xvec, m128 mvec) {
-    printf("storecompressed128_64bit()\n");
     // First, decompose our vectors into 64-bit chunks.
     u64a ALIGN_ATTR(16) x[2];
     u64a ALIGN_ATTR(16) m[2];
@@ -159,7 +158,6 @@ m128 loadcompressed128_32bit(const void *ptr, m128 mvec) {
 #if defined(ARCH_64_BIT)
 static really_inline
 m128 loadcompressed128_64bit(const void *ptr, m128 mvec) {
-    printf("loadcompressed128_64bit()\n");
     // First, decompose our vectors into 64-bit chunks.
     u64a ALIGN_ATTR(16) m[2];
     store128(m, mvec);
