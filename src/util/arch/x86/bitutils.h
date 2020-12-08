@@ -215,8 +215,8 @@ u64a compress64_impl(u64a x, u64a m) {
 }
 
 static really_inline
-u64a compress128_impl(m128 x, m128 m) {
-    compress128_impl_c(x, m);
+m128 compress128_impl(m128 x, m128 m) {
+    return compress128_impl_c(x, m);
 }
 
 static really_inline

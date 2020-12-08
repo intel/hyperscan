@@ -33,10 +33,7 @@
 #ifndef ARCH_X86_SIMD_UTILS_H
 #define ARCH_X86_SIMD_UTILS_H
 
-#if !defined(_WIN32) && !defined(__SSSE3__)
-#error SSSE3 instructions must be enabled
-#endif
-
+#include "x86.h"
 #include "ue2common.h"
 #include "util/simd_types.h"
 #include "util/unaligned.h"
