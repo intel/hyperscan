@@ -2,6 +2,30 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [5.4.0] 2020-12-31
+- Improvement on literal matcher "Fat Teddy" performance, including
+  support for Intel(R) AVX-512 Vector Byte Manipulation Instructions (Intel(R)
+  AVX-512 VBMI).
+- Introduce a new 32-state shuffle-based DFA engine ("Sheng32"). This improves
+  scanning performance by leveraging AVX-512 VBMI.
+- Introduce a new 64-state shuffle-based DFA engine ("Sheng64"). This improves
+  scanning performance by leveraging AVX-512 VBMI.
+- Introduce a new shuffle-based hybrid DFA engine ("McSheng64"). This improves
+  scanning performance by leveraging AVX-512 VBMI.
+- Improvement on exceptional state handling performance for LimEx NFA, including
+  support for AVX-512 VBMI.
+- Improvement on lookaround performance with new models, including support for
+  AVX-512.
+- Improvement on DFA state space efficiency.
+- Optimization on decision of NFA/DFA generation.
+- hsbench: add CSV dump support for hsbench.
+- Bugfix for cmake error on Icelake under release mode.
+- Bugfix in find_vertices_in_cycles() to avoid self-loop checking in SCC.
+- Bugfix for issue #270: fix return value handling in chimera.
+- Bugfix for issue #284: use correct free function in logical combination.
+- Add BUILD_EXAMPLES cmake option to enable example code compilation. (#260)
+- Some typo fixing. (#242, #259)
+
 ## [5.3.0] 2020-05-15
 - Improvement on literal matcher "Teddy" performance, including support for
   Intel(R) AVX-512 Vector Byte Manipulation Instructions (Intel(R) AVX-512
