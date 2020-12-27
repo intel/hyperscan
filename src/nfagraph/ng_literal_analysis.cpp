@@ -69,14 +69,14 @@ struct LitGraphVertexProps {
     LitGraphVertexProps() = default;
     explicit LitGraphVertexProps(ue2_literal::elem c_in) : c(move(c_in)) {}
     ue2_literal::elem c; // string element (char + bool)
-    size_t index; // managed by ue2_graph
+    size_t index = 0; // managed by ue2_graph
 };
 
 struct LitGraphEdgeProps {
     LitGraphEdgeProps() = default;
     explicit LitGraphEdgeProps(u64a score_in) : score(score_in) {}
     u64a score = NO_LITERAL_AT_EDGE_SCORE;
-    size_t index; // managed by ue2_graph
+    size_t index = 0; // managed by ue2_graph
 };
 
 struct LitGraph

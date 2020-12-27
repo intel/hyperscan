@@ -65,8 +65,8 @@ public:
 class EngineHSStream : public EngineStream {
 public:
     ~EngineHSStream();
-    hs_stream_t *id;
-    EngineHSContext *ctx;
+    hs_stream_t *id = nullptr;
+    EngineHSContext *ctx = nullptr;
 };
 
 /** Hyperscan Engine for scanning data. */

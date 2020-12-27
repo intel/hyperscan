@@ -877,6 +877,7 @@ void displayCsvResults(const vector<unique_ptr<ThreadContext>> &threads,
     printf(",\"%0.3f\"", totalSecs);
     printf(",\"%0.2Lf\"", calc_mbps(totalSecs, totalBytes));
 
+    assert(bytesPerRun);
     double matchRate = ((double)matchesPerRun * 1024) / bytesPerRun;
     printf(",\"%llu\"", matchesPerRun);
     printf(",\"%0.3f\"", matchRate);
