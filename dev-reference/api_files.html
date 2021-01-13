@@ -1,18 +1,18 @@
 
 <!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
   <head>
     <meta charset="utf-8" />
-    <title>API Reference: Files &#8212; Hyperscan 5.3.0 documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>API Reference: Files &#8212; Hyperscan 5.4.0 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
@@ -43,19 +43,19 @@
 <p>This header includes both the Hyperscan compiler and runtime components. See the individual component headers for documentation. </p>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Defines</p>
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_MAJOR">
-<span class="target" id="hs_8h_1a58442be0e18cfb0594fd11e054b7b893"></span><code class="sig-name descname">HS_MAJOR</code><a class="headerlink" href="#c.HS_MAJOR" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs_8h_1a58442be0e18cfb0594fd11e054b7b893"></span><code class="sig-name descname">HS_MAJOR</code><a class="headerlink" href="#c.HS_MAJOR" title="Permalink to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_MINOR">
-<span class="target" id="hs_8h_1a71156368b5340469a20c23635d617d64"></span><code class="sig-name descname">HS_MINOR</code><a class="headerlink" href="#c.HS_MINOR" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs_8h_1a71156368b5340469a20c23635d617d64"></span><code class="sig-name descname">HS_MINOR</code><a class="headerlink" href="#c.HS_MINOR" title="Permalink to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_PATCH">
-<span class="target" id="hs_8h_1ab41a84244d74e912e32aa810c084f240"></span><code class="sig-name descname">HS_PATCH</code><a class="headerlink" href="#c.HS_PATCH" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs_8h_1ab41a84244d74e912e32aa810c084f240"></span><code class="sig-name descname">HS_PATCH</code><a class="headerlink" href="#c.HS_PATCH" title="Permalink to this definition">¶</a><br /></dt>
 <dd></dd></dl>
 
 </div>
@@ -67,71 +67,71 @@
 <p>This header contains functions available to both the Hyperscan compiler and runtime. </p>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Defines</p>
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_SUCCESS">
-<span class="target" id="group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"></span><code class="sig-name descname">HS_SUCCESS</code><a class="headerlink" href="#c.HS_SUCCESS" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"></span><code class="sig-name descname">HS_SUCCESS</code><br /></dt>
 <dd><p>The engine completed normally. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_INVALID">
-<span class="target" id="group__HS__ERROR_1ga90b69de15d46488887c0522c2864bab9"></span><code class="sig-name descname">HS_INVALID</code><a class="headerlink" href="#c.HS_INVALID" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1ga90b69de15d46488887c0522c2864bab9"></span><code class="sig-name descname">HS_INVALID</code><br /></dt>
 <dd><p>A parameter passed to this function was invalid.</p>
 <p>This error is only returned in cases where the function can detect an invalid parameter  it cannot be relied upon to detect (for example) pointers to freed memory or other invalid data. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_NOMEM">
-<span class="target" id="group__HS__ERROR_1ga209e23f064df891f66575950b383832c"></span><code class="sig-name descname">HS_NOMEM</code><a class="headerlink" href="#c.HS_NOMEM" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1ga209e23f064df891f66575950b383832c"></span><code class="sig-name descname">HS_NOMEM</code><br /></dt>
 <dd><p>A memory allocation failed. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_SCAN_TERMINATED">
-<span class="target" id="group__HS__ERROR_1ga122c9eb3b263d14360532e47c647fc16"></span><code class="sig-name descname">HS_SCAN_TERMINATED</code><a class="headerlink" href="#c.HS_SCAN_TERMINATED" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1ga122c9eb3b263d14360532e47c647fc16"></span><code class="sig-name descname">HS_SCAN_TERMINATED</code><br /></dt>
 <dd><p>The engine was terminated by callback.</p>
 <p>This return value indicates that the target buffer was partially scanned, but that the callback function requested that scanning cease after a match was located. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_COMPILER_ERROR">
-<span class="target" id="group__HS__ERROR_1gae73b85ba0cafa46768c9b61f435410ca"></span><code class="sig-name descname">HS_COMPILER_ERROR</code><a class="headerlink" href="#c.HS_COMPILER_ERROR" title="Permalink to this definition">¶</a></dt>
-<dd><p>The pattern compiler failed, and the <a class="reference internal" href="#hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span class="std std-ref">hs_compile_error_t</span></a> should be inspected for more detail. </p>
+<span class="target" id="group__HS__ERROR_1gae73b85ba0cafa46768c9b61f435410ca"></span><code class="sig-name descname">HS_COMPILER_ERROR</code><br /></dt>
+<dd><p>The pattern compiler failed, and the <a class="reference internal" href="#hs__compile_8h_1ab4f83c142ee043433194628ca66e0391"><span class="std std-ref">hs_compile_error_t</span></a> should be inspected for more detail. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_DB_VERSION_ERROR">
-<span class="target" id="group__HS__ERROR_1ga86a4e9b45ad47bbae163888f2ef56fab"></span><code class="sig-name descname">HS_DB_VERSION_ERROR</code><a class="headerlink" href="#c.HS_DB_VERSION_ERROR" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1ga86a4e9b45ad47bbae163888f2ef56fab"></span><code class="sig-name descname">HS_DB_VERSION_ERROR</code><br /></dt>
 <dd><p>The given database was built for a different version of Hyperscan. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_DB_PLATFORM_ERROR">
-<span class="target" id="group__HS__ERROR_1ga818162ba342f880040cad7350ba3f709"></span><code class="sig-name descname">HS_DB_PLATFORM_ERROR</code><a class="headerlink" href="#c.HS_DB_PLATFORM_ERROR" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1ga818162ba342f880040cad7350ba3f709"></span><code class="sig-name descname">HS_DB_PLATFORM_ERROR</code><br /></dt>
 <dd><p>The given database was built for a different platform (i.e., CPU type). </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_DB_MODE_ERROR">
-<span class="target" id="group__HS__ERROR_1ga5473f52d0822ef95125c54a21ee6d463"></span><code class="sig-name descname">HS_DB_MODE_ERROR</code><a class="headerlink" href="#c.HS_DB_MODE_ERROR" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1ga5473f52d0822ef95125c54a21ee6d463"></span><code class="sig-name descname">HS_DB_MODE_ERROR</code><br /></dt>
 <dd><p>The given database was built for a different mode of operation. This error is returned when streaming calls are used with a block or vectored database and vice versa. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_BAD_ALIGN">
-<span class="target" id="group__HS__ERROR_1ga65b0cd2c66f76b4a4a64967052fd34ac"></span><code class="sig-name descname">HS_BAD_ALIGN</code><a class="headerlink" href="#c.HS_BAD_ALIGN" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1ga65b0cd2c66f76b4a4a64967052fd34ac"></span><code class="sig-name descname">HS_BAD_ALIGN</code><br /></dt>
 <dd><p>A parameter passed to this function was not correctly aligned. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_BAD_ALLOC">
-<span class="target" id="group__HS__ERROR_1ga9fd16f0296f0444eb6d7047ecbfddf4e"></span><code class="sig-name descname">HS_BAD_ALLOC</code><a class="headerlink" href="#c.HS_BAD_ALLOC" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1ga9fd16f0296f0444eb6d7047ecbfddf4e"></span><code class="sig-name descname">HS_BAD_ALLOC</code><br /></dt>
 <dd><p>The memory allocator (either malloc() or the allocator set with <a class="reference internal" href="#hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span class="std std-ref">hs_set_allocator()</span></a>) did not correctly return memory suitably aligned for the largest representable data type on this platform. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_SCRATCH_IN_USE">
-<span class="target" id="group__HS__ERROR_1gae8edde7b8d481066abf249741277c8a5"></span><code class="sig-name descname">HS_SCRATCH_IN_USE</code><a class="headerlink" href="#c.HS_SCRATCH_IN_USE" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1gae8edde7b8d481066abf249741277c8a5"></span><code class="sig-name descname">HS_SCRATCH_IN_USE</code><br /></dt>
 <dd><p>The scratch region was already in use.</p>
 <p>This error is returned when Hyperscan is able to detect that the scratch region given is already in use by another Hyperscan API call.</p>
 <p>A separate scratch region, allocated with <a class="reference internal" href="#hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span class="std std-ref">hs_alloc_scratch()</span></a> or <a class="reference internal" href="#hs__runtime_8h_1a5ccab293a24ee56fcb82c715a7dca861"><span class="std std-ref">hs_clone_scratch()</span></a>, is required for every concurrent caller of the Hyperscan API.</p>
@@ -139,25 +139,25 @@
 <p>Note: Not all concurrent uses of scratch regions may be detected. This error is intended as a best-effort debugging tool, not a guarantee. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_ARCH_ERROR">
-<span class="target" id="group__HS__ERROR_1ga6a5a096e8d045791fc7eaa131ab8f1d2"></span><code class="sig-name descname">HS_ARCH_ERROR</code><a class="headerlink" href="#c.HS_ARCH_ERROR" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1ga6a5a096e8d045791fc7eaa131ab8f1d2"></span><code class="sig-name descname">HS_ARCH_ERROR</code><br /></dt>
 <dd><p>Unsupported CPU architecture.</p>
 <p>This error is returned when Hyperscan is able to detect that the current system does not support the required instruction set.</p>
 <p>At a minimum, Hyperscan requires Supplemental Streaming SIMD Extensions 3 (SSSE3). </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_INSUFFICIENT_SPACE">
-<span class="target" id="group__HS__ERROR_1ga5cda332b921d1f8022bdb4454047a815"></span><code class="sig-name descname">HS_INSUFFICIENT_SPACE</code><a class="headerlink" href="#c.HS_INSUFFICIENT_SPACE" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1ga5cda332b921d1f8022bdb4454047a815"></span><code class="sig-name descname">HS_INSUFFICIENT_SPACE</code><br /></dt>
 <dd><p>Provided buffer was too small.</p>
 <p>This error indicates that there was insufficient space in the buffer. The call should be repeated with a larger provided buffer.</p>
 <p>Note: in this situation, it is normal for the amount of space required to be returned in the same manner as the used space would have been returned if the call was successful. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_UNKNOWN_ERROR">
-<span class="target" id="group__HS__ERROR_1ga4af7a75cb97118ed017dbb07c270277c"></span><code class="sig-name descname">HS_UNKNOWN_ERROR</code><a class="headerlink" href="#c.HS_UNKNOWN_ERROR" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__ERROR_1ga4af7a75cb97118ed017dbb07c270277c"></span><code class="sig-name descname">HS_UNKNOWN_ERROR</code><br /></dt>
 <dd><p>Unexpected internal error.</p>
 <p>This error indicates that there was unexpected matching behaviors. This could be related to invalid usage of stream and scratch space or invalid memory operations by users. </p>
 </dd></dl>
@@ -165,9 +165,9 @@
 </div>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Typedefs</p>
-<dl class="typedef">
+<dl class="c type">
 <dt id="c.hs_database_t">
-<span class="target" id="hs__common_8h_1aaabb7a1acc5b6a1efd377af877717b92"></span><em class="property">typedef </em>struct hs_database <code class="sig-name descname">hs_database_t</code><a class="headerlink" href="#c.hs_database_t" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1aaabb7a1acc5b6a1efd377af877717b92"></span><em class="property">typedef </em><em class="property">struct</em> hs_database <code class="sig-name descname">hs_database_t</code><a class="headerlink" href="#c.hs_database_t" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>A Hyperscan pattern database.</p>
 <p>Generated by one of the Hyperscan compiler functions:<ul class="simple">
 <li><p><a class="reference internal" href="#hs__compile_8h_1aeb302c749c316b296e3c3cdaa8508e73"><span class="std std-ref">hs_compile()</span></a></p></li>
@@ -177,15 +177,15 @@
 </p>
 </dd></dl>
 
-<dl class="typedef">
+<dl class="c type">
 <dt id="c.hs_error_t">
-<span class="target" id="hs__common_8h_1abe162d33344545644ac583b4df13a09b"></span><em class="property">typedef </em>int <code class="sig-name descname">hs_error_t</code><a class="headerlink" href="#c.hs_error_t" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1abe162d33344545644ac583b4df13a09b"></span><em class="property">typedef </em>int <code class="sig-name descname">hs_error_t</code><a class="headerlink" href="#c.hs_error_t" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>A type for errors returned by Hyperscan functions. </p>
 </dd></dl>
 
-<dl class="typedef">
+<dl class="c type">
 <dt id="c.hs_alloc_t">
-<span class="target" id="hs__common_8h_1a5685d09578a81bb3a41adc36b27cde1c"></span><em class="property">typedef </em>void*<code class="sig-name descname">( * hs_alloc_t)</code><span class="sig-paren">(</span>size_t<em> size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_alloc_t" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a5685d09578a81bb3a41adc36b27cde1c"></span><em class="property">typedef </em>void *(*<code class="sig-name descname">hs_alloc_t</code>)<span class="sig-paren">(</span>size_t size<span class="sig-paren">)</span><a class="headerlink" href="#c.hs_alloc_t" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The type of the callback function that will be used by Hyperscan to allocate more memory at runtime as required, for example in <a class="reference internal" href="#hs__runtime_8h_1a54bc32490fdcc331d074e60169aeeda7"><span class="std std-ref">hs_open_stream()</span></a> to allocate stream state.</p>
 <p>If Hyperscan is to be used in a multi-threaded, or similarly concurrent environment, the allocation function will need to be re-entrant, or similarly safe for concurrent use.</p>
 <p><dl class="simple">
@@ -199,9 +199,9 @@
 </p>
 </dd></dl>
 
-<dl class="typedef">
+<dl class="c type">
 <dt id="c.hs_free_t">
-<span class="target" id="hs__common_8h_1a4c1f63ec3fb0a04753bfd9a0e4cc63e0"></span><em class="property">typedef </em>void<code class="sig-name descname">( * hs_free_t)</code><span class="sig-paren">(</span>void<em> *ptr</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_free_t" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a4c1f63ec3fb0a04753bfd9a0e4cc63e0"></span><em class="property">typedef </em>void (*<code class="sig-name descname">hs_free_t</code>)<span class="sig-paren">(</span>void *ptr<span class="sig-paren">)</span><a class="headerlink" href="#c.hs_free_t" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The type of the callback function that will be used by Hyperscan to free memory regions previously allocated using the <a class="reference internal" href="#hs__common_8h_1a5685d09578a81bb3a41adc36b27cde1c"><span class="std std-ref">hs_alloc_t</span></a> function.</p>
 <p><dl class="simple">
 <dt><strong>Parameters</strong></dt><dd><ul class="breatheparameterlist simple">
@@ -215,9 +215,9 @@
 </div>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Functions</p>
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_free_database">
-<span class="target" id="hs__common_8h_1a8127f1c24ec8708d0284102d9b7bc082"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_free_database</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  *<em> db</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_free_database" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a8127f1c24ec8708d0284102d9b7bc082"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_free_database</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> *<em>db</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_free_database" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Free a compiled pattern database.</p>
 <p>The free callback set by <a class="reference internal" href="#hs__common_8h_1a0aaadd0fc97838f728fa220024be2509"><span class="std std-ref">hs_set_database_allocator()</span></a> (or <a class="reference internal" href="#hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span class="std std-ref">hs_set_allocator()</span></a>) will be used by this function.</p>
 <p><dl class="simple">
@@ -231,9 +231,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_serialize_database">
-<span class="target" id="hs__common_8h_1accea8a4a5481683e0564058621c9b8de"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_serialize_database</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  *<em> db</em>, char **<em> bytes</em>, size_t *<em> length</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_serialize_database" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1accea8a4a5481683e0564058621c9b8de"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_serialize_database</code><span class="sig-paren">(</span><em class="property">const</em> <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> *<em>db</em>, char **<em>bytes</em>, size_t *<em>length</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_serialize_database" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Serialize a pattern database to a stream of bytes.</p>
 <p>The allocator callback set by <a class="reference internal" href="#hs__common_8h_1a28571486e60e29b54d6b5fcf9ec1e0b1"><span class="std std-ref">hs_set_misc_allocator()</span></a> (or <a class="reference internal" href="#hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span class="std std-ref">hs_set_allocator()</span></a>) will be used by this function.</p>
 <p><dl class="simple">
@@ -249,9 +249,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_deserialize_database">
-<span class="target" id="hs__common_8h_1a87007f735bc81c5d3b5865dbd38ec5b7"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_deserialize_database</code><span class="sig-paren">(</span>const char *<em> bytes</em>, const size_t<em> length</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  **<em> db</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_deserialize_database" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a87007f735bc81c5d3b5865dbd38ec5b7"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_deserialize_database</code><span class="sig-paren">(</span><em class="property">const</em> char *<em>bytes</em>, <em class="property">const</em> size_t <em>length</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> **<em>db</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_deserialize_database" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Reconstruct a pattern database from a stream of bytes previously generated by <a class="reference internal" href="#hs__common_8h_1accea8a4a5481683e0564058621c9b8de"><span class="std std-ref">hs_serialize_database()</span></a>.</p>
 <p>This function will allocate sufficient space for the database using the allocator set with <a class="reference internal" href="#hs__common_8h_1a0aaadd0fc97838f728fa220024be2509"><span class="std std-ref">hs_set_database_allocator()</span></a> (or <a class="reference internal" href="#hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span class="std std-ref">hs_set_allocator()</span></a>); to use a pre-allocated region of memory, use the <a class="reference internal" href="#hs__common_8h_1a597f29547148e5378812be9a19d7f4cd"><span class="std std-ref">hs_deserialize_database_at()</span></a> function.</p>
 <p><dl class="simple">
@@ -267,9 +267,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_deserialize_database_at">
-<span class="target" id="hs__common_8h_1a597f29547148e5378812be9a19d7f4cd"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_deserialize_database_at</code><span class="sig-paren">(</span>const char *<em> bytes</em>, const size_t<em> length</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  *<em> db</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_deserialize_database_at" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a597f29547148e5378812be9a19d7f4cd"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_deserialize_database_at</code><span class="sig-paren">(</span><em class="property">const</em> char *<em>bytes</em>, <em class="property">const</em> size_t <em>length</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> *<em>db</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_deserialize_database_at" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Reconstruct a pattern database from a stream of bytes previously generated by <a class="reference internal" href="#hs__common_8h_1accea8a4a5481683e0564058621c9b8de"><span class="std std-ref">hs_serialize_database()</span></a> at a given memory location.</p>
 <p>This function (unlike <a class="reference internal" href="#hs__common_8h_1a87007f735bc81c5d3b5865dbd38ec5b7"><span class="std std-ref">hs_deserialize_database()</span></a>) will write the reconstructed database to the memory location given in the <code class="docutils literal notranslate"><span class="pre">db</span></code> parameter. The amount of space required at this location can be determined with the <a class="reference internal" href="#hs__common_8h_1a83006d0498780313470c84d67e9181b7"><span class="std std-ref">hs_serialized_database_size()</span></a> function.</p>
 <p><dl class="simple">
@@ -285,9 +285,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_stream_size">
-<span class="target" id="hs__common_8h_1a7cadd0a7ec7c50d8f6d52826635b9451"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_stream_size</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  *<em> database</em>, size_t *<em> stream_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_stream_size" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a7cadd0a7ec7c50d8f6d52826635b9451"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_stream_size</code><span class="sig-paren">(</span><em class="property">const</em> <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> *<em>database</em>, size_t *<em>stream_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_stream_size" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Provides the size of the stream state allocated by a single stream opened against the given database.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p><a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> on success, other values on failure. </p>
@@ -301,9 +301,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_database_size">
-<span class="target" id="hs__common_8h_1a54d7c123674f04578a58b84e625618e2"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_database_size</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  *<em> database</em>, size_t *<em> database_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_database_size" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a54d7c123674f04578a58b84e625618e2"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_database_size</code><span class="sig-paren">(</span><em class="property">const</em> <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> *<em>database</em>, size_t *<em>database_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_database_size" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Provides the size of the given database in bytes.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p><a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> on success, other values on failure. </p>
@@ -317,9 +317,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_serialized_database_size">
-<span class="target" id="hs__common_8h_1a83006d0498780313470c84d67e9181b7"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_serialized_database_size</code><span class="sig-paren">(</span>const char *<em> bytes</em>, const size_t<em> length</em>, size_t *<em> deserialized_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_serialized_database_size" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a83006d0498780313470c84d67e9181b7"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_serialized_database_size</code><span class="sig-paren">(</span><em class="property">const</em> char *<em>bytes</em>, <em class="property">const</em> size_t <em>length</em>, size_t *<em>deserialized_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_serialized_database_size" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Utility function for reporting the size that would be required by a database if it were deserialized.</p>
 <p>This can be used to allocate a shared memory region or other “special” allocation prior to deserializing with the <a class="reference internal" href="#hs__common_8h_1a597f29547148e5378812be9a19d7f4cd"><span class="std std-ref">hs_deserialize_database_at()</span></a> function.</p>
 <p><dl class="simple">
@@ -335,9 +335,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_database_info">
-<span class="target" id="hs__common_8h_1a1a3e15ded02d1731bd761fc71d1a6246"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_database_info</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  *<em> database</em>, char **<em> info</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_database_info" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a1a3e15ded02d1731bd761fc71d1a6246"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_database_info</code><span class="sig-paren">(</span><em class="property">const</em> <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> *<em>database</em>, char **<em>info</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_database_info" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Utility function providing information about a database.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p><a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> on success, other values on failure. </p>
@@ -351,9 +351,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_serialized_database_info">
-<span class="target" id="hs__common_8h_1adb78b881b1526fd85be4492c1d52e478"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_serialized_database_info</code><span class="sig-paren">(</span>const char *<em> bytes</em>, size_t<em> length</em>, char **<em> info</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_serialized_database_info" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1adb78b881b1526fd85be4492c1d52e478"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_serialized_database_info</code><span class="sig-paren">(</span><em class="property">const</em> char *<em>bytes</em>, size_t <em>length</em>, char **<em>info</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_serialized_database_info" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Utility function providing information about a serialized database.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p><a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> on success, other values on failure. </p>
@@ -368,9 +368,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_set_allocator">
-<span class="target" id="hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_set_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_alloc_t" title="hs_alloc_t">hs_alloc_t</a><em> alloc_func</em>, <a class="reference internal" href="#c.hs_free_t" title="hs_free_t">hs_free_t</a><em> free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_set_allocator" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_set_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_alloc_t" title="hs_alloc_t">hs_alloc_t</a> <em>alloc_func</em>, <a class="reference internal" href="#c.hs_free_t" title="hs_free_t">hs_free_t</a> <em>free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_set_allocator" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Set the allocate and free functions used by Hyperscan for allocating memory at runtime for stream state, scratch space, database bytecode, and various other data structure returned by the Hyperscan API.</p>
 <p>The function is equivalent to calling <a class="reference internal" href="#hs__common_8h_1a1815c5493f89e85b7bc0557a4f89179d"><span class="std std-ref">hs_set_stream_allocator()</span></a>, <a class="reference internal" href="#hs__common_8h_1a29e53465b9737c222bda3e7bcb324d61"><span class="std std-ref">hs_set_scratch_allocator()</span></a>, <a class="reference internal" href="#hs__common_8h_1a0aaadd0fc97838f728fa220024be2509"><span class="std std-ref">hs_set_database_allocator()</span></a> and <a class="reference internal" href="#hs__common_8h_1a28571486e60e29b54d6b5fcf9ec1e0b1"><span class="std std-ref">hs_set_misc_allocator()</span></a> with the provided parameters.</p>
 <p>This call will override any previous allocators that have been set.</p>
@@ -387,9 +387,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_set_database_allocator">
-<span class="target" id="hs__common_8h_1a0aaadd0fc97838f728fa220024be2509"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_set_database_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_alloc_t" title="hs_alloc_t">hs_alloc_t</a><em> alloc_func</em>, <a class="reference internal" href="#c.hs_free_t" title="hs_free_t">hs_free_t</a><em> free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_set_database_allocator" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a0aaadd0fc97838f728fa220024be2509"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_set_database_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_alloc_t" title="hs_alloc_t">hs_alloc_t</a> <em>alloc_func</em>, <a class="reference internal" href="#c.hs_free_t" title="hs_free_t">hs_free_t</a> <em>free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_set_database_allocator" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Set the allocate and free functions used by Hyperscan for allocating memory for database bytecode produced by the compile calls (<a class="reference internal" href="#hs__compile_8h_1aeb302c749c316b296e3c3cdaa8508e73"><span class="std std-ref">hs_compile()</span></a>, <a class="reference internal" href="#hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"><span class="std std-ref">hs_compile_multi()</span></a>, <a class="reference internal" href="#hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span class="std std-ref">hs_compile_ext_multi()</span></a>) and by database deserialization (<a class="reference internal" href="#hs__common_8h_1a87007f735bc81c5d3b5865dbd38ec5b7"><span class="std std-ref">hs_deserialize_database()</span></a>).</p>
 <p>If no database allocation functions are set, or if NULL is used in place of both parameters, then memory allocation will default to standard methods (such as the system malloc() and free() calls).</p>
 <p>This call will override any previous database allocators that have been set.</p>
@@ -407,10 +407,10 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_set_misc_allocator">
-<span class="target" id="hs__common_8h_1a28571486e60e29b54d6b5fcf9ec1e0b1"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_set_misc_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_alloc_t" title="hs_alloc_t">hs_alloc_t</a><em> alloc_func</em>, <a class="reference internal" href="#c.hs_free_t" title="hs_free_t">hs_free_t</a><em> free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_set_misc_allocator" title="Permalink to this definition">¶</a></dt>
-<dd><p>Set the allocate and free functions used by Hyperscan for allocating memory for items returned by the Hyperscan API such as <a class="reference internal" href="#hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span class="std std-ref">hs_compile_error_t</span></a>, <a class="reference internal" href="#hs__compile_8h_1ad5498775e1679920539b6bd120dfbbe8"><span class="std std-ref">hs_expr_info_t</span></a> and serialized databases.</p>
+<span class="target" id="hs__common_8h_1a28571486e60e29b54d6b5fcf9ec1e0b1"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_set_misc_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_alloc_t" title="hs_alloc_t">hs_alloc_t</a> <em>alloc_func</em>, <a class="reference internal" href="#c.hs_free_t" title="hs_free_t">hs_free_t</a> <em>free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_set_misc_allocator" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Set the allocate and free functions used by Hyperscan for allocating memory for items returned by the Hyperscan API such as <a class="reference internal" href="#hs__compile_8h_1ab4f83c142ee043433194628ca66e0391"><span class="std std-ref">hs_compile_error_t</span></a>, <a class="reference internal" href="#hs__compile_8h_1ab299ce60736a43eca45e34d2eaf2462f"><span class="std std-ref">hs_expr_info_t</span></a> and serialized databases.</p>
 <p>If no misc allocation functions are set, or if NULL is used in place of both parameters, then memory allocation will default to standard methods (such as the system malloc() and free() calls).</p>
 <p>This call will override any previous misc allocators that have been set.</p>
 <p>Note: the misc allocator may also be set by calling <a class="reference internal" href="#hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span class="std std-ref">hs_set_allocator()</span></a>.</p>
@@ -426,9 +426,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_set_scratch_allocator">
-<span class="target" id="hs__common_8h_1a29e53465b9737c222bda3e7bcb324d61"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_set_scratch_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_alloc_t" title="hs_alloc_t">hs_alloc_t</a><em> alloc_func</em>, <a class="reference internal" href="#c.hs_free_t" title="hs_free_t">hs_free_t</a><em> free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_set_scratch_allocator" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a29e53465b9737c222bda3e7bcb324d61"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_set_scratch_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_alloc_t" title="hs_alloc_t">hs_alloc_t</a> <em>alloc_func</em>, <a class="reference internal" href="#c.hs_free_t" title="hs_free_t">hs_free_t</a> <em>free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_set_scratch_allocator" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Set the allocate and free functions used by Hyperscan for allocating memory for scratch space by <a class="reference internal" href="#hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span class="std std-ref">hs_alloc_scratch()</span></a> and <a class="reference internal" href="#hs__runtime_8h_1a5ccab293a24ee56fcb82c715a7dca861"><span class="std std-ref">hs_clone_scratch()</span></a>.</p>
 <p>If no scratch allocation functions are set, or if NULL is used in place of both parameters, then memory allocation will default to standard methods (such as the system malloc() and free() calls).</p>
 <p>This call will override any previous scratch allocators that have been set.</p>
@@ -445,9 +445,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_set_stream_allocator">
-<span class="target" id="hs__common_8h_1a1815c5493f89e85b7bc0557a4f89179d"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_set_stream_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_alloc_t" title="hs_alloc_t">hs_alloc_t</a><em> alloc_func</em>, <a class="reference internal" href="#c.hs_free_t" title="hs_free_t">hs_free_t</a><em> free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_set_stream_allocator" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a1815c5493f89e85b7bc0557a4f89179d"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_set_stream_allocator</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_alloc_t" title="hs_alloc_t">hs_alloc_t</a> <em>alloc_func</em>, <a class="reference internal" href="#c.hs_free_t" title="hs_free_t">hs_free_t</a> <em>free_func</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_set_stream_allocator" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Set the allocate and free functions used by Hyperscan for allocating memory for stream state by <a class="reference internal" href="#hs__runtime_8h_1a54bc32490fdcc331d074e60169aeeda7"><span class="std std-ref">hs_open_stream()</span></a>.</p>
 <p>If no stream allocation functions are set, or if NULL is used in place of both parameters, then memory allocation will default to standard methods (such as the system malloc() and free() calls).</p>
 <p>This call will override any previous stream allocators that have been set.</p>
@@ -464,9 +464,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_version">
-<span class="target" id="hs__common_8h_1ace8095e448bfcf1ad9d15292b04483eb"></span>const char* <code class="sig-name descname">hs_version</code><span class="sig-paren">(</span>void<span class="sig-paren">)</span><a class="headerlink" href="#c.hs_version" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1ace8095e448bfcf1ad9d15292b04483eb"></span><em class="property">const</em> char *<code class="sig-name descname">hs_version</code><span class="sig-paren">(</span>void<span class="sig-paren">)</span><a class="headerlink" href="#c.hs_version" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Utility function for identifying this release version.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p>A string containing the version number of this release build and the date of the build. It is allocated statically, so it does not need to be freed by the caller. </p>
@@ -475,9 +475,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_valid_platform">
-<span class="target" id="hs__common_8h_1a52ea558e163ea0508fb74b8711089391"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_valid_platform</code><span class="sig-paren">(</span>void<span class="sig-paren">)</span><a class="headerlink" href="#c.hs_valid_platform" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__common_8h_1a52ea558e163ea0508fb74b8711089391"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_valid_platform</code><span class="sig-paren">(</span>void<span class="sig-paren">)</span><a class="headerlink" href="#c.hs_valid_platform" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Utility function to test the current system architecture.</p>
 <p>Hyperscan requires the Supplemental Streaming SIMD Extensions 3 instruction set. This function can be called on any x86 platform to determine if the system provides the required instruction set.</p>
 <p>This function does not test for more advanced features if Hyperscan has been built for a more specific architecture, for example the AVX2 instruction set.</p>
@@ -497,90 +497,90 @@
 <p>This header contains functions for compiling regular expressions into Hyperscan databases that can be used by the Hyperscan runtime. </p>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Defines</p>
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_EXT_FLAG_MIN_OFFSET">
-<span class="target" id="group__HS__EXT__FLAG_1ga8876e1c519442ec4feb47508e03a6c52"></span><code class="sig-name descname">HS_EXT_FLAG_MIN_OFFSET</code><a class="headerlink" href="#c.HS_EXT_FLAG_MIN_OFFSET" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__EXT__FLAG_1ga8876e1c519442ec4feb47508e03a6c52"></span><code class="sig-name descname">HS_EXT_FLAG_MIN_OFFSET</code><br /></dt>
 <dd><p>Flag indicating that the <a class="reference internal" href="#strucths__expr__ext_1a006843974cb05dbf16291da621a72fa9"><span class="std std-ref">hs_expr_ext::min_offset</span></a> field is used. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_EXT_FLAG_MAX_OFFSET">
-<span class="target" id="group__HS__EXT__FLAG_1ga7f68e1f3b5ad7c39165e56f294aab5f8"></span><code class="sig-name descname">HS_EXT_FLAG_MAX_OFFSET</code><a class="headerlink" href="#c.HS_EXT_FLAG_MAX_OFFSET" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__EXT__FLAG_1ga7f68e1f3b5ad7c39165e56f294aab5f8"></span><code class="sig-name descname">HS_EXT_FLAG_MAX_OFFSET</code><br /></dt>
 <dd><p>Flag indicating that the <a class="reference internal" href="#strucths__expr__ext_1a263c613f20c6b8ef30ca01785e0f55fc"><span class="std std-ref">hs_expr_ext::max_offset</span></a> field is used. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_EXT_FLAG_MIN_LENGTH">
-<span class="target" id="group__HS__EXT__FLAG_1ga08b4bfb7f87b2f768c470ede24a724b6"></span><code class="sig-name descname">HS_EXT_FLAG_MIN_LENGTH</code><a class="headerlink" href="#c.HS_EXT_FLAG_MIN_LENGTH" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__EXT__FLAG_1ga08b4bfb7f87b2f768c470ede24a724b6"></span><code class="sig-name descname">HS_EXT_FLAG_MIN_LENGTH</code><br /></dt>
 <dd><p>Flag indicating that the <a class="reference internal" href="#strucths__expr__ext_1a6afdac1e0bb89d9a76d6c91ed86a6fe8"><span class="std std-ref">hs_expr_ext::min_length</span></a> field is used. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_EXT_FLAG_EDIT_DISTANCE">
-<span class="target" id="group__HS__EXT__FLAG_1gac557ac5c1da1649b151ac435ea56d41c"></span><code class="sig-name descname">HS_EXT_FLAG_EDIT_DISTANCE</code><a class="headerlink" href="#c.HS_EXT_FLAG_EDIT_DISTANCE" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__EXT__FLAG_1gac557ac5c1da1649b151ac435ea56d41c"></span><code class="sig-name descname">HS_EXT_FLAG_EDIT_DISTANCE</code><br /></dt>
 <dd><p>Flag indicating that the <a class="reference internal" href="#strucths__expr__ext_1a8b7536c6ca0b01faa975b195e04b3913"><span class="std std-ref">hs_expr_ext::edit_distance</span></a> field is used. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_EXT_FLAG_HAMMING_DISTANCE">
-<span class="target" id="group__HS__EXT__FLAG_1ga0568165f31e3bf0ece0e4466840ca466"></span><code class="sig-name descname">HS_EXT_FLAG_HAMMING_DISTANCE</code><a class="headerlink" href="#c.HS_EXT_FLAG_HAMMING_DISTANCE" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__EXT__FLAG_1ga0568165f31e3bf0ece0e4466840ca466"></span><code class="sig-name descname">HS_EXT_FLAG_HAMMING_DISTANCE</code><br /></dt>
 <dd><p>Flag indicating that the <a class="reference internal" href="#strucths__expr__ext_1a94072afd1400402fad2e59c6dbdb7973"><span class="std std-ref">hs_expr_ext::hamming_distance</span></a> field is used. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_FLAG_CASELESS">
-<span class="target" id="group__HS__PATTERN__FLAG_1gac933fc9be6a6d3ea8eeb5532dd974236"></span><code class="sig-name descname">HS_FLAG_CASELESS</code><a class="headerlink" href="#c.HS_FLAG_CASELESS" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__PATTERN__FLAG_1gac933fc9be6a6d3ea8eeb5532dd974236"></span><code class="sig-name descname">HS_FLAG_CASELESS</code><br /></dt>
 <dd><p>Compile flag: Set case-insensitive matching.</p>
 <p>This flag sets the expression to be matched case-insensitively by default. The expression may still use PCRE tokens (notably <code class="docutils literal notranslate"><span class="pre">(?i)</span></code> and <code class="docutils literal notranslate"><span class="pre">(?-i)</span></code>) to switch case-insensitive matching on and off. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_FLAG_DOTALL">
-<span class="target" id="group__HS__PATTERN__FLAG_1gae7a43d25b9c00e34836ad752ad4eded5"></span><code class="sig-name descname">HS_FLAG_DOTALL</code><a class="headerlink" href="#c.HS_FLAG_DOTALL" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__PATTERN__FLAG_1gae7a43d25b9c00e34836ad752ad4eded5"></span><code class="sig-name descname">HS_FLAG_DOTALL</code><br /></dt>
 <dd><p>Compile flag: Matching a <code class="docutils literal notranslate"><span class="pre">.</span></code> will not exclude newlines.</p>
 <p>This flag sets any instances of the <code class="docutils literal notranslate"><span class="pre">.</span></code> token to match newline characters as well as all other characters. The PCRE specification states that the <code class="docutils literal notranslate"><span class="pre">.</span></code> token does not match newline characters by default, so without this flag the <code class="docutils literal notranslate"><span class="pre">.</span></code> token will not cross line boundaries. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_FLAG_MULTILINE">
-<span class="target" id="group__HS__PATTERN__FLAG_1ga83f3cf5bad826b3fb874d88b0a0b00e8"></span><code class="sig-name descname">HS_FLAG_MULTILINE</code><a class="headerlink" href="#c.HS_FLAG_MULTILINE" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__PATTERN__FLAG_1ga83f3cf5bad826b3fb874d88b0a0b00e8"></span><code class="sig-name descname">HS_FLAG_MULTILINE</code><br /></dt>
 <dd><p>Compile flag: Set multi-line anchoring.</p>
 <p>This flag instructs the expression to make the <code class="docutils literal notranslate"><span class="pre">^</span></code> and <code class="docutils literal notranslate"><span class="pre">$</span></code> tokens match newline characters as well as the start and end of the stream. If this flag is not specified, the <code class="docutils literal notranslate"><span class="pre">^</span></code> token will only ever match at the start of a stream, and the <code class="docutils literal notranslate"><span class="pre">$</span></code> token will only ever match at the end of a stream within the guidelines of the PCRE specification. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_FLAG_SINGLEMATCH">
-<span class="target" id="group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"></span><code class="sig-name descname">HS_FLAG_SINGLEMATCH</code><a class="headerlink" href="#c.HS_FLAG_SINGLEMATCH" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"></span><code class="sig-name descname">HS_FLAG_SINGLEMATCH</code><br /></dt>
 <dd><p>Compile flag: Set single-match only mode.</p>
 <p>This flag sets the expression’s match ID to match at most once. In streaming mode, this means that the expression will return only a single match over the lifetime of the stream, rather than reporting every match as per standard Hyperscan semantics. In block mode or vectored mode, only the first match for each invocation of <a class="reference internal" href="#hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span class="std std-ref">hs_scan()</span></a> or <a class="reference internal" href="#hs__runtime_8h_1ad6b603921a1fd2ddf12230730d6634c6"><span class="std std-ref">hs_scan_vector()</span></a> will be returned.</p>
 <p>If multiple expressions in the database share the same match ID, then they either must all specify <a class="reference internal" href="#group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"><span class="std std-ref">HS_FLAG_SINGLEMATCH</span></a> or none of them specify <a class="reference internal" href="#group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"><span class="std std-ref">HS_FLAG_SINGLEMATCH</span></a>. If a group of expressions sharing a match ID specify the flag, then at most one match with the match ID will be generated per stream.</p>
 <p>Note: The use of this flag in combination with <a class="reference internal" href="#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> is not currently supported. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_FLAG_ALLOWEMPTY">
-<span class="target" id="group__HS__PATTERN__FLAG_1gaf346b64d12d06635d6da22f5be9788be"></span><code class="sig-name descname">HS_FLAG_ALLOWEMPTY</code><a class="headerlink" href="#c.HS_FLAG_ALLOWEMPTY" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__PATTERN__FLAG_1gaf346b64d12d06635d6da22f5be9788be"></span><code class="sig-name descname">HS_FLAG_ALLOWEMPTY</code><br /></dt>
 <dd><p>Compile flag: Allow expressions that can match against empty buffers.</p>
 <p>This flag instructs the compiler to allow expressions that can match against empty buffers, such as <code class="docutils literal notranslate"><span class="pre">.?</span></code>, <code class="docutils literal notranslate"><span class="pre">.*</span></code>, <code class="docutils literal notranslate"><span class="pre">(a|)</span></code>. Since Hyperscan can return every possible match for an expression, such expressions generally execute very slowly; the default behaviour is to return an error when an attempt to compile one is made. Using this flag will force the compiler to allow such an expression. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_FLAG_UTF8">
-<span class="target" id="group__HS__PATTERN__FLAG_1ga8c95741825e963834f8f53dd545132bd"></span><code class="sig-name descname">HS_FLAG_UTF8</code><a class="headerlink" href="#c.HS_FLAG_UTF8" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__PATTERN__FLAG_1ga8c95741825e963834f8f53dd545132bd"></span><code class="sig-name descname">HS_FLAG_UTF8</code><br /></dt>
 <dd><p>Compile flag: Enable UTF-8 mode for this expression.</p>
 <p>This flag instructs Hyperscan to treat the pattern as a sequence of UTF-8 characters. The results of scanning invalid UTF-8 sequences with a Hyperscan library that has been compiled with one or more patterns using this flag are undefined. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_FLAG_UCP">
-<span class="target" id="group__HS__PATTERN__FLAG_1ga5b80baf97382e0a314d6ed424033b27c"></span><code class="sig-name descname">HS_FLAG_UCP</code><a class="headerlink" href="#c.HS_FLAG_UCP" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__PATTERN__FLAG_1ga5b80baf97382e0a314d6ed424033b27c"></span><code class="sig-name descname">HS_FLAG_UCP</code><br /></dt>
 <dd><p>Compile flag: Enable Unicode property support for this expression.</p>
 <p>This flag instructs Hyperscan to use Unicode properties, rather than the default ASCII interpretations, for character mnemonics like <code class="docutils literal notranslate"><span class="pre">\w</span></code> and <code class="docutils literal notranslate"><span class="pre">\s</span></code> as well as the POSIX character classes. It is only meaningful in conjunction with <a class="reference internal" href="#group__HS__PATTERN__FLAG_1ga8c95741825e963834f8f53dd545132bd"><span class="std std-ref">HS_FLAG_UTF8</span></a>. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_FLAG_PREFILTER">
-<span class="target" id="group__HS__PATTERN__FLAG_1gaf22d466addab2cf9f050cc8856baf685"></span><code class="sig-name descname">HS_FLAG_PREFILTER</code><a class="headerlink" href="#c.HS_FLAG_PREFILTER" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__PATTERN__FLAG_1gaf22d466addab2cf9f050cc8856baf685"></span><code class="sig-name descname">HS_FLAG_PREFILTER</code><br /></dt>
 <dd><p>Compile flag: Enable prefiltering mode for this expression.</p>
 <p>This flag instructs Hyperscan to compile an “approximate” version of this pattern for use in a prefiltering application, even if Hyperscan does not support the pattern in normal operation.</p>
 <p>The set of matches returned when this flag is used is guaranteed to be a superset of the matches specified by the non-prefiltering expression.</p>
@@ -590,148 +590,169 @@
 <p>Note: The use of this flag in combination with <a class="reference internal" href="#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> is not currently supported. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_FLAG_SOM_LEFTMOST">
-<span class="target" id="group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"></span><code class="sig-name descname">HS_FLAG_SOM_LEFTMOST</code><a class="headerlink" href="#c.HS_FLAG_SOM_LEFTMOST" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"></span><code class="sig-name descname">HS_FLAG_SOM_LEFTMOST</code><br /></dt>
 <dd><p>Compile flag: Enable leftmost start of match reporting.</p>
 <p>This flag instructs Hyperscan to report the leftmost possible start of match offset when a match is reported for this expression. (By default, no start of match is returned.)</p>
 <p>For all the 3 modes, enabling this behaviour may reduce performance. And particularly, it may increase stream state requirements in streaming mode. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_FLAG_COMBINATION">
-<span class="target" id="group__HS__PATTERN__FLAG_1gae09985fdb55c3347bf2da7b7c2ea9128"></span><code class="sig-name descname">HS_FLAG_COMBINATION</code><a class="headerlink" href="#c.HS_FLAG_COMBINATION" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__PATTERN__FLAG_1gae09985fdb55c3347bf2da7b7c2ea9128"></span><code class="sig-name descname">HS_FLAG_COMBINATION</code><br /></dt>
 <dd><p>Compile flag: Logical combination.</p>
 <p>This flag instructs Hyperscan to parse this expression as logical combination syntax. Logical constraints consist of operands, operators and parentheses. The operands are expression indices, and operators can be ‘!’(NOT), ‘&amp;’(AND) or ‘|’(OR). For example: (101&amp;102&amp;103)|(104&amp;!105) ((301|302)&amp;303)&amp;(304|305) </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_FLAG_QUIET">
-<span class="target" id="group__HS__PATTERN__FLAG_1gaa534c7cc49697159a2c3c1b4f559167a"></span><code class="sig-name descname">HS_FLAG_QUIET</code><a class="headerlink" href="#c.HS_FLAG_QUIET" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__PATTERN__FLAG_1gaa534c7cc49697159a2c3c1b4f559167a"></span><code class="sig-name descname">HS_FLAG_QUIET</code><br /></dt>
 <dd><p>Compile flag: Don’t do any match reporting.</p>
 <p>This flag instructs Hyperscan to ignore match reporting for this expression. It is designed to be used on the sub-expressions in logical combinations. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_CPU_FEATURES_AVX2">
-<span class="target" id="group__HS__CPU__FEATURES__FLAG_1ga1ae675026897399f27c610251b5f14a1"></span><code class="sig-name descname">HS_CPU_FEATURES_AVX2</code><a class="headerlink" href="#c.HS_CPU_FEATURES_AVX2" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__CPU__FEATURES__FLAG_1ga1ae675026897399f27c610251b5f14a1"></span><code class="sig-name descname">HS_CPU_FEATURES_AVX2</code><br /></dt>
 <dd><p>CPU features flag - Intel(R) Advanced Vector Extensions 2 (Intel(R) AVX2)</p>
 <p>Setting this flag indicates that the target platform supports AVX2 instructions. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_CPU_FEATURES_AVX512">
-<span class="target" id="group__HS__CPU__FEATURES__FLAG_1gab4debef714698071ee7ebbbf052a9031"></span><code class="sig-name descname">HS_CPU_FEATURES_AVX512</code><a class="headerlink" href="#c.HS_CPU_FEATURES_AVX512" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__CPU__FEATURES__FLAG_1gab4debef714698071ee7ebbbf052a9031"></span><code class="sig-name descname">HS_CPU_FEATURES_AVX512</code><br /></dt>
 <dd><p>CPU features flag - Intel(R) Advanced Vector Extensions 512 (Intel(R) AVX512)</p>
 <p>Setting this flag indicates that the target platform supports AVX512 instructions, specifically AVX-512BW. Using AVX512 implies the use of AVX2. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
+<dt id="c.HS_CPU_FEATURES_AVX512VBMI">
+<span class="target" id="group__HS__CPU__FEATURES__FLAG_1ga031af10046791354719ad10d70322347"></span><code class="sig-name descname">HS_CPU_FEATURES_AVX512VBMI</code><br /></dt>
+<dd><p>CPU features flag - Intel(R) Advanced Vector Extensions 512 Vector Byte Manipulation Instructions (Intel(R) AVX512VBMI)</p>
+<p>Setting this flag indicates that the target platform supports AVX512VBMI instructions. Using AVX512VBMI implies the use of AVX512. </p>
+</dd></dl>
+
+<dl class="c macro">
 <dt id="c.HS_TUNE_FAMILY_GENERIC">
-<span class="target" id="group__HS__TUNE__FLAG_1ga8432f59942aa4116d0bb89ea469c7f25"></span><code class="sig-name descname">HS_TUNE_FAMILY_GENERIC</code><a class="headerlink" href="#c.HS_TUNE_FAMILY_GENERIC" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__TUNE__FLAG_1ga8432f59942aa4116d0bb89ea469c7f25"></span><code class="sig-name descname">HS_TUNE_FAMILY_GENERIC</code><br /></dt>
 <dd><p>Tuning Parameter - Generic</p>
 <p>This indicates that the compiled database should not be tuned for any particular target platform. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_TUNE_FAMILY_SNB">
-<span class="target" id="group__HS__TUNE__FLAG_1ga03f9adc14171ba88fab2096cf4c85dd1"></span><code class="sig-name descname">HS_TUNE_FAMILY_SNB</code><a class="headerlink" href="#c.HS_TUNE_FAMILY_SNB" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__TUNE__FLAG_1ga03f9adc14171ba88fab2096cf4c85dd1"></span><code class="sig-name descname">HS_TUNE_FAMILY_SNB</code><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Sandy Bridge</p>
 <p>This indicates that the compiled database should be tuned for the Sandy Bridge microarchitecture. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_TUNE_FAMILY_IVB">
-<span class="target" id="group__HS__TUNE__FLAG_1ga4450c117ef6d6e93e17738d104a6d6bf"></span><code class="sig-name descname">HS_TUNE_FAMILY_IVB</code><a class="headerlink" href="#c.HS_TUNE_FAMILY_IVB" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__TUNE__FLAG_1ga4450c117ef6d6e93e17738d104a6d6bf"></span><code class="sig-name descname">HS_TUNE_FAMILY_IVB</code><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Ivy Bridge</p>
 <p>This indicates that the compiled database should be tuned for the Ivy Bridge microarchitecture. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_TUNE_FAMILY_HSW">
-<span class="target" id="group__HS__TUNE__FLAG_1gad0f321a370c54c685face8e280194440"></span><code class="sig-name descname">HS_TUNE_FAMILY_HSW</code><a class="headerlink" href="#c.HS_TUNE_FAMILY_HSW" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__TUNE__FLAG_1gad0f321a370c54c685face8e280194440"></span><code class="sig-name descname">HS_TUNE_FAMILY_HSW</code><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Haswell</p>
 <p>This indicates that the compiled database should be tuned for the Haswell microarchitecture. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_TUNE_FAMILY_SLM">
-<span class="target" id="group__HS__TUNE__FLAG_1ga921644d03211ed07e348d25c4ee4a6d9"></span><code class="sig-name descname">HS_TUNE_FAMILY_SLM</code><a class="headerlink" href="#c.HS_TUNE_FAMILY_SLM" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__TUNE__FLAG_1ga921644d03211ed07e348d25c4ee4a6d9"></span><code class="sig-name descname">HS_TUNE_FAMILY_SLM</code><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Silvermont</p>
 <p>This indicates that the compiled database should be tuned for the Silvermont microarchitecture. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_TUNE_FAMILY_BDW">
-<span class="target" id="group__HS__TUNE__FLAG_1gac36ec4d90f461d6889cbdf5f7713f2ae"></span><code class="sig-name descname">HS_TUNE_FAMILY_BDW</code><a class="headerlink" href="#c.HS_TUNE_FAMILY_BDW" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__TUNE__FLAG_1gac36ec4d90f461d6889cbdf5f7713f2ae"></span><code class="sig-name descname">HS_TUNE_FAMILY_BDW</code><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Broadwell</p>
 <p>This indicates that the compiled database should be tuned for the Broadwell microarchitecture. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_TUNE_FAMILY_SKL">
-<span class="target" id="group__HS__TUNE__FLAG_1gaf432d6ee10507b5ba152e433708bd31a"></span><code class="sig-name descname">HS_TUNE_FAMILY_SKL</code><a class="headerlink" href="#c.HS_TUNE_FAMILY_SKL" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__TUNE__FLAG_1gaf432d6ee10507b5ba152e433708bd31a"></span><code class="sig-name descname">HS_TUNE_FAMILY_SKL</code><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Skylake</p>
 <p>This indicates that the compiled database should be tuned for the Skylake microarchitecture. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_TUNE_FAMILY_SKX">
-<span class="target" id="group__HS__TUNE__FLAG_1ga0b9f49e8d711f3a6e4590ac98be3f1d5"></span><code class="sig-name descname">HS_TUNE_FAMILY_SKX</code><a class="headerlink" href="#c.HS_TUNE_FAMILY_SKX" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__TUNE__FLAG_1ga0b9f49e8d711f3a6e4590ac98be3f1d5"></span><code class="sig-name descname">HS_TUNE_FAMILY_SKX</code><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Skylake Server</p>
 <p>This indicates that the compiled database should be tuned for the Skylake Server microarchitecture. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_TUNE_FAMILY_GLM">
-<span class="target" id="group__HS__TUNE__FLAG_1ga37354d7425dc1fe5b661abe1729596b8"></span><code class="sig-name descname">HS_TUNE_FAMILY_GLM</code><a class="headerlink" href="#c.HS_TUNE_FAMILY_GLM" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__TUNE__FLAG_1ga37354d7425dc1fe5b661abe1729596b8"></span><code class="sig-name descname">HS_TUNE_FAMILY_GLM</code><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Goldmont</p>
 <p>This indicates that the compiled database should be tuned for the Goldmont microarchitecture. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
+<dt id="c.HS_TUNE_FAMILY_ICL">
+<span class="target" id="group__HS__TUNE__FLAG_1ga80464a81816ebbc0368fa2398f800c78"></span><code class="sig-name descname">HS_TUNE_FAMILY_ICL</code><br /></dt>
+<dd><p>Tuning Parameter - Intel(R) microarchitecture code name Icelake</p>
+<p>This indicates that the compiled database should be tuned for the Icelake microarchitecture. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt id="c.HS_TUNE_FAMILY_ICX">
+<span class="target" id="group__HS__TUNE__FLAG_1ga4afb8b2ad81c143f4b6699987d781f50"></span><code class="sig-name descname">HS_TUNE_FAMILY_ICX</code><br /></dt>
+<dd><p>Tuning Parameter - Intel(R) microarchitecture code name Icelake Server</p>
+<p>This indicates that the compiled database should be tuned for the Icelake Server microarchitecture. </p>
+</dd></dl>
+
+<dl class="c macro">
 <dt id="c.HS_MODE_BLOCK">
-<span class="target" id="group__HS__MODE__FLAG_1ga494ea2cf28a49627e4d131e596f489c0"></span><code class="sig-name descname">HS_MODE_BLOCK</code><a class="headerlink" href="#c.HS_MODE_BLOCK" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__MODE__FLAG_1ga494ea2cf28a49627e4d131e596f489c0"></span><code class="sig-name descname">HS_MODE_BLOCK</code><br /></dt>
 <dd><p>Compiler mode flag: Block scan (non-streaming) database. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_MODE_NOSTREAM">
-<span class="target" id="group__HS__MODE__FLAG_1gadb61c31eca1b60fe0dba5b05c457a0ef"></span><code class="sig-name descname">HS_MODE_NOSTREAM</code><a class="headerlink" href="#c.HS_MODE_NOSTREAM" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__MODE__FLAG_1gadb61c31eca1b60fe0dba5b05c457a0ef"></span><code class="sig-name descname">HS_MODE_NOSTREAM</code><br /></dt>
 <dd><p>Compiler mode flag: Alias for <a class="reference internal" href="#group__HS__MODE__FLAG_1ga494ea2cf28a49627e4d131e596f489c0"><span class="std std-ref">HS_MODE_BLOCK</span></a>. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_MODE_STREAM">
-<span class="target" id="group__HS__MODE__FLAG_1ga0a0dddb84ee8a5b7c012fdaf3780ffb0"></span><code class="sig-name descname">HS_MODE_STREAM</code><a class="headerlink" href="#c.HS_MODE_STREAM" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__MODE__FLAG_1ga0a0dddb84ee8a5b7c012fdaf3780ffb0"></span><code class="sig-name descname">HS_MODE_STREAM</code><br /></dt>
 <dd><p>Compiler mode flag: Streaming database. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_MODE_VECTORED">
-<span class="target" id="group__HS__MODE__FLAG_1gaa1e074c5476f9077ed9b9111740e17ce"></span><code class="sig-name descname">HS_MODE_VECTORED</code><a class="headerlink" href="#c.HS_MODE_VECTORED" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__MODE__FLAG_1gaa1e074c5476f9077ed9b9111740e17ce"></span><code class="sig-name descname">HS_MODE_VECTORED</code><br /></dt>
 <dd><p>Compiler mode flag: Vectored scanning database. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_MODE_SOM_HORIZON_LARGE">
-<span class="target" id="group__HS__MODE__FLAG_1gaae54cf9532a990b1ef7bdb4fa51eb3c6"></span><code class="sig-name descname">HS_MODE_SOM_HORIZON_LARGE</code><a class="headerlink" href="#c.HS_MODE_SOM_HORIZON_LARGE" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__MODE__FLAG_1gaae54cf9532a990b1ef7bdb4fa51eb3c6"></span><code class="sig-name descname">HS_MODE_SOM_HORIZON_LARGE</code><br /></dt>
 <dd><p>Compiler mode flag: use full precision to track start of match offsets in stream state.</p>
 <p>This mode will use the most stream state per pattern, but will always return an accurate start of match offset regardless of how far back in the past it was found.</p>
 <p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_MODE_SOM_HORIZON_MEDIUM">
-<span class="target" id="group__HS__MODE__FLAG_1gac96611d51f322cd0b20b536e73f8c5c5"></span><code class="sig-name descname">HS_MODE_SOM_HORIZON_MEDIUM</code><a class="headerlink" href="#c.HS_MODE_SOM_HORIZON_MEDIUM" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__MODE__FLAG_1gac96611d51f322cd0b20b536e73f8c5c5"></span><code class="sig-name descname">HS_MODE_SOM_HORIZON_MEDIUM</code><br /></dt>
 <dd><p>Compiler mode flag: use medium precision to track start of match offsets in stream state.</p>
 <p>This mode will use less stream state than <a class="reference internal" href="#group__HS__MODE__FLAG_1gaae54cf9532a990b1ef7bdb4fa51eb3c6"><span class="std std-ref">HS_MODE_SOM_HORIZON_LARGE</span></a> and will limit start of match accuracy to offsets within 2^32 bytes of the end of match offset reported.</p>
 <p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
 </dd></dl>
 
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_MODE_SOM_HORIZON_SMALL">
-<span class="target" id="group__HS__MODE__FLAG_1gad2e9e62af82d553dc0660f006227dd8f"></span><code class="sig-name descname">HS_MODE_SOM_HORIZON_SMALL</code><a class="headerlink" href="#c.HS_MODE_SOM_HORIZON_SMALL" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="group__HS__MODE__FLAG_1gad2e9e62af82d553dc0660f006227dd8f"></span><code class="sig-name descname">HS_MODE_SOM_HORIZON_SMALL</code><br /></dt>
 <dd><p>Compiler mode flag: use limited precision to track start of match offsets in stream state.</p>
 <p>This mode will use less stream state than <a class="reference internal" href="#group__HS__MODE__FLAG_1gaae54cf9532a990b1ef7bdb4fa51eb3c6"><span class="std std-ref">HS_MODE_SOM_HORIZON_LARGE</span></a> and will limit start of match accuracy to offsets within 2^16 bytes of the end of match offset reported.</p>
 <p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
@@ -740,9 +761,9 @@
 </div>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Typedefs</p>
-<dl class="typedef">
+<dl class="c type">
 <dt id="c.hs_compile_error_t">
-<span class="target" id="hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"></span><em class="property">typedef </em>struct <a class="reference internal" href="#c.hs_compile_error" title="hs_compile_error">hs_compile_error</a>  <code class="sig-name descname">hs_compile_error_t</code><a class="headerlink" href="#c.hs_compile_error_t" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__compile_8h_1ab4f83c142ee043433194628ca66e0391"></span><em class="property">typedef </em><em class="property">struct</em> <a class="reference internal" href="#c.hs_compile_error" title="hs_compile_error">hs_compile_error</a> <code class="sig-name descname">hs_compile_error_t</code><a class="headerlink" href="#c.hs_compile_error_t" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>A type containing error details that is returned by the compile calls (<a class="reference internal" href="#hs__compile_8h_1aeb302c749c316b296e3c3cdaa8508e73"><span class="std std-ref">hs_compile()</span></a>, <a class="reference internal" href="#hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"><span class="std std-ref">hs_compile_multi()</span></a> and <a class="reference internal" href="#hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span class="std std-ref">hs_compile_ext_multi()</span></a>) on failure. The caller may inspect the values returned in this type to determine the cause of failure.</p>
 <p>Common errors generated during the compile process include:</p>
 <p><ul>
@@ -780,22 +801,22 @@
 </p>
 </dd></dl>
 
-<dl class="typedef">
+<dl class="c type">
 <dt id="c.hs_platform_info_t">
-<span class="target" id="hs__compile_8h_1a88f3b5576bfad796918225b9ee90cb99"></span><em class="property">typedef </em>struct <a class="reference internal" href="#c.hs_platform_info" title="hs_platform_info">hs_platform_info</a>  <code class="sig-name descname">hs_platform_info_t</code><a class="headerlink" href="#c.hs_platform_info_t" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__compile_8h_1a395df09d6535a2e80447c6afb0c1f340"></span><em class="property">typedef </em><em class="property">struct</em> <a class="reference internal" href="#c.hs_platform_info" title="hs_platform_info">hs_platform_info</a> <code class="sig-name descname">hs_platform_info_t</code><a class="headerlink" href="#c.hs_platform_info_t" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>A type containing information on the target platform which may optionally be provided to the compile calls (<a class="reference internal" href="#hs__compile_8h_1aeb302c749c316b296e3c3cdaa8508e73"><span class="std std-ref">hs_compile()</span></a>, <a class="reference internal" href="#hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"><span class="std std-ref">hs_compile_multi()</span></a>, <a class="reference internal" href="#hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span class="std std-ref">hs_compile_ext_multi()</span></a>).</p>
 <p>A <a class="reference internal" href="#strucths__platform__info"><span class="std std-ref">hs_platform_info</span></a> structure may be populated for the current platform by using the <a class="reference internal" href="#hs__compile_8h_1a7fba694199df776522bc959a43a0079c"><span class="std std-ref">hs_populate_platform()</span></a> call. </p>
 </dd></dl>
 
-<dl class="typedef">
+<dl class="c type">
 <dt id="c.hs_expr_info_t">
-<span class="target" id="hs__compile_8h_1ad5498775e1679920539b6bd120dfbbe8"></span><em class="property">typedef </em>struct <a class="reference internal" href="#c.hs_expr_info" title="hs_expr_info">hs_expr_info</a>  <code class="sig-name descname">hs_expr_info_t</code><a class="headerlink" href="#c.hs_expr_info_t" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__compile_8h_1ab299ce60736a43eca45e34d2eaf2462f"></span><em class="property">typedef </em><em class="property">struct</em> <a class="reference internal" href="#c.hs_expr_info" title="hs_expr_info">hs_expr_info</a> <code class="sig-name descname">hs_expr_info_t</code><a class="headerlink" href="#c.hs_expr_info_t" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>A type containing information related to an expression that is returned by <a class="reference internal" href="#hs__compile_8h_1a414dfeeb4fee8d2444b531cef4bed0a4"><span class="std std-ref">hs_expression_info()</span></a> or <a class="reference internal" href="#hs__compile_8h_1a007328330e6e0abbb4be5422015384b7"><span class="std std-ref">hs_expression_ext_info</span></a>. </p>
 </dd></dl>
 
-<dl class="typedef">
+<dl class="c type">
 <dt id="c.hs_expr_ext_t">
-<span class="target" id="hs__compile_8h_1a1e03f1d3837c16364ca2e96287b7eb34"></span><em class="property">typedef </em>struct <a class="reference internal" href="#c.hs_expr_ext" title="hs_expr_ext">hs_expr_ext</a>  <code class="sig-name descname">hs_expr_ext_t</code><a class="headerlink" href="#c.hs_expr_ext_t" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__compile_8h_1a5acd00a47f8519536b991df7d2f7be51"></span><em class="property">typedef </em><em class="property">struct</em> <a class="reference internal" href="#c.hs_expr_ext" title="hs_expr_ext">hs_expr_ext</a> <code class="sig-name descname">hs_expr_ext_t</code><a class="headerlink" href="#c.hs_expr_ext_t" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>A structure containing additional parameters related to an expression, passed in at build time to <a class="reference internal" href="#hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span class="std std-ref">hs_compile_ext_multi()</span></a> or <a class="reference internal" href="#hs__compile_8h_1a007328330e6e0abbb4be5422015384b7"><span class="std std-ref">hs_expression_ext_info</span></a>.</p>
 <p>These parameters allow the set of matches produced by a pattern to be constrained at compile time, rather than relying on the application to process unwanted matches at runtime. </p>
 </dd></dl>
@@ -803,9 +824,9 @@
 </div>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Functions</p>
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_compile">
-<span class="target" id="hs__compile_8h_1aeb302c749c316b296e3c3cdaa8508e73"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_compile</code><span class="sig-paren">(</span>const char *<em> expression</em>, unsigned int<em> flags</em>, unsigned int<em> mode</em>, const  <a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a>  *<em> platform</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  **<em> db</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a>  **<em> error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compile" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__compile_8h_1aeb302c749c316b296e3c3cdaa8508e73"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_compile</code><span class="sig-paren">(</span><em class="property">const</em> char *<em>expression</em>, unsigned int <em>flags</em>, unsigned int <em>mode</em>, <em class="property">const</em> <a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a> *<em>platform</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> **<em>db</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a> **<em>error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compile" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The basic regular expression compiler.</p>
 <p>This is the function call with which an expression is compiled into a Hyperscan database which can be passed to the runtime functions (such as <a class="reference internal" href="#hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span class="std std-ref">hs_scan()</span></a>, <a class="reference internal" href="#hs__runtime_8h_1a54bc32490fdcc331d074e60169aeeda7"><span class="std std-ref">hs_open_stream()</span></a>, etc.)</p>
 <p><dl class="simple">
@@ -830,16 +851,16 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">mode</span></code>: Compiler mode flags that affect the database as a whole. One of <a class="reference internal" href="#group__HS__MODE__FLAG_1ga0a0dddb84ee8a5b7c012fdaf3780ffb0"><span class="std std-ref">HS_MODE_STREAM</span></a> or <a class="reference internal" href="#group__HS__MODE__FLAG_1ga494ea2cf28a49627e4d131e596f489c0"><span class="std std-ref">HS_MODE_BLOCK</span></a> or <a class="reference internal" href="#group__HS__MODE__FLAG_1gaa1e074c5476f9077ed9b9111740e17ce"><span class="std std-ref">HS_MODE_VECTORED</span></a> must be supplied, to select between the generation of a streaming, block or vectored database. In addition, other flags (beginning with HS_MODE_) may be supplied to enable specific features. See Compile mode flags for more details.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">platform</span></code>: If not NULL, the platform structure is used to determine the target platform for the database. If NULL, a database suitable for running on the current host platform is produced.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">db</span></code>: On success, a pointer to the generated database will be returned in this parameter, or NULL on failure. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__common_8h_1a8127f1c24ec8708d0284102d9b7bc082"><span class="std std-ref">hs_free_database()</span></a> function.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the compile fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the compile fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1ab4f83c142ee043433194628ca66e0391"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
 </ul>
 </dd>
 </dl>
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_compile_multi">
-<span class="target" id="hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_compile_multi</code><span class="sig-paren">(</span>const char *const *<em> expressions</em>, const unsigned int *<em> flags</em>, const unsigned int *<em> ids</em>, unsigned int<em> elements</em>, unsigned int<em> mode</em>, const  <a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a>  *<em> platform</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  **<em> db</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a>  **<em> error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compile_multi" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_compile_multi</code><span class="sig-paren">(</span><em class="property">const</em> char *<em class="property">const</em> *<em>expressions</em>, <em class="property">const</em> unsigned int *<em>flags</em>, <em class="property">const</em> unsigned int *<em>ids</em>, unsigned int <em>elements</em>, unsigned int <em>mode</em>, <em class="property">const</em> <a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a> *<em>platform</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> **<em>db</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a> **<em>error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compile_multi" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The multiple regular expression compiler.</p>
 <p>This is the function call with which a set of expressions is compiled into a database which can be passed to the runtime functions (such as <a class="reference internal" href="#hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span class="std std-ref">hs_scan()</span></a>, <a class="reference internal" href="#hs__runtime_8h_1a54bc32490fdcc331d074e60169aeeda7"><span class="std std-ref">hs_open_stream()</span></a>, etc.) Each expression can be labelled with a unique integer which is passed into the match callback to identify the pattern that has matched.</p>
 <p><dl class="simple">
@@ -866,18 +887,18 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">mode</span></code>: Compiler mode flags that affect the database as a whole. One of <a class="reference internal" href="#group__HS__MODE__FLAG_1ga0a0dddb84ee8a5b7c012fdaf3780ffb0"><span class="std std-ref">HS_MODE_STREAM</span></a> or <a class="reference internal" href="#group__HS__MODE__FLAG_1ga494ea2cf28a49627e4d131e596f489c0"><span class="std std-ref">HS_MODE_BLOCK</span></a> or <a class="reference internal" href="#group__HS__MODE__FLAG_1gaa1e074c5476f9077ed9b9111740e17ce"><span class="std std-ref">HS_MODE_VECTORED</span></a> must be supplied, to select between the generation of a streaming, block or vectored database. In addition, other flags (beginning with HS_MODE_) may be supplied to enable specific features. See Compile mode flags for more details.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">platform</span></code>: If not NULL, the platform structure is used to determine the target platform for the database. If NULL, a database suitable for running on the current host platform is produced.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">db</span></code>: On success, a pointer to the generated database will be returned in this parameter, or NULL on failure. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__common_8h_1a8127f1c24ec8708d0284102d9b7bc082"><span class="std std-ref">hs_free_database()</span></a> function.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the compile fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the compile fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1ab4f83c142ee043433194628ca66e0391"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
 </ul>
 </dd>
 </dl>
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_compile_ext_multi">
-<span class="target" id="hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_compile_ext_multi</code><span class="sig-paren">(</span>const char *const *<em> expressions</em>, const unsigned int *<em> flags</em>, const unsigned int *<em> ids</em>, const  <a class="reference internal" href="#c.hs_expr_ext_t" title="hs_expr_ext_t">hs_expr_ext_t</a>  *const *<em> ext</em>, unsigned int<em> elements</em>, unsigned int<em> mode</em>, const  <a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a>  *<em> platform</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  **<em> db</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a>  **<em> error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compile_ext_multi" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_compile_ext_multi</code><span class="sig-paren">(</span><em class="property">const</em> char *<em class="property">const</em> *<em>expressions</em>, <em class="property">const</em> unsigned int *<em>flags</em>, <em class="property">const</em> unsigned int *<em>ids</em>, <em class="property">const</em> <a class="reference internal" href="#c.hs_expr_ext_t" title="hs_expr_ext_t">hs_expr_ext_t</a> *<em class="property">const</em> *<em>ext</em>, unsigned int <em>elements</em>, unsigned int <em>mode</em>, <em class="property">const</em> <a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a> *<em>platform</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> **<em>db</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a> **<em>error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compile_ext_multi" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The multiple regular expression compiler with extended parameter support.</p>
-<p>This function call compiles a group of expressions into a database in the same way as <a class="reference internal" href="#hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"><span class="std std-ref">hs_compile_multi()</span></a>, but allows additional parameters to be specified via an <a class="reference internal" href="#hs__compile_8h_1a1e03f1d3837c16364ca2e96287b7eb34"><span class="std std-ref">hs_expr_ext_t</span></a> structure per expression.</p>
+<p>This function call compiles a group of expressions into a database in the same way as <a class="reference internal" href="#hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"><span class="std std-ref">hs_compile_multi()</span></a>, but allows additional parameters to be specified via an <a class="reference internal" href="#hs__compile_8h_1a5acd00a47f8519536b991df7d2f7be51"><span class="std std-ref">hs_expr_ext_t</span></a> structure per expression.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p><a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> is returned on successful compilation; <a class="reference internal" href="#group__HS__ERROR_1gae73b85ba0cafa46768c9b61f435410ca"><span class="std std-ref">HS_COMPILER_ERROR</span></a> on failure, with details provided in the <code class="docutils literal notranslate"><span class="pre">error</span></code> parameter. </p>
 </dd>
@@ -898,21 +919,21 @@
 </ul>
 </p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ids</span></code>: An array of integers specifying the ID number to be associated with the corresponding pattern in the expressions array. Specifying the NULL pointer in place of an array will set the ID value for all patterns to zero.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ext</span></code>: An array of pointers to filled <a class="reference internal" href="#hs__compile_8h_1a1e03f1d3837c16364ca2e96287b7eb34"><span class="std std-ref">hs_expr_ext_t</span></a> structures that define extended behaviour for each pattern. NULL may be specified if no extended behaviour is needed for an individual pattern, or in place of the whole array if it is not needed for any expressions. Memory used by these structures must be both allocated and freed by the caller.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ext</span></code>: An array of pointers to filled <a class="reference internal" href="#hs__compile_8h_1a5acd00a47f8519536b991df7d2f7be51"><span class="std std-ref">hs_expr_ext_t</span></a> structures that define extended behaviour for each pattern. NULL may be specified if no extended behaviour is needed for an individual pattern, or in place of the whole array if it is not needed for any expressions. Memory used by these structures must be both allocated and freed by the caller.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">elements</span></code>: The number of elements in the input arrays.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">mode</span></code>: Compiler mode flags that affect the database as a whole. One of <a class="reference internal" href="#group__HS__MODE__FLAG_1ga0a0dddb84ee8a5b7c012fdaf3780ffb0"><span class="std std-ref">HS_MODE_STREAM</span></a>, <a class="reference internal" href="#group__HS__MODE__FLAG_1ga494ea2cf28a49627e4d131e596f489c0"><span class="std std-ref">HS_MODE_BLOCK</span></a> or <a class="reference internal" href="#group__HS__MODE__FLAG_1gaa1e074c5476f9077ed9b9111740e17ce"><span class="std std-ref">HS_MODE_VECTORED</span></a> must be supplied, to select between the generation of a streaming, block or vectored database. In addition, other flags (beginning with HS_MODE_) may be supplied to enable specific features. See Compile mode flags for more details.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">platform</span></code>: If not NULL, the platform structure is used to determine the target platform for the database. If NULL, a database suitable for running on the current host platform is produced.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">db</span></code>: On success, a pointer to the generated database will be returned in this parameter, or NULL on failure. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__common_8h_1a8127f1c24ec8708d0284102d9b7bc082"><span class="std std-ref">hs_free_database()</span></a> function.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the compile fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the compile fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1ab4f83c142ee043433194628ca66e0391"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
 </ul>
 </dd>
 </dl>
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_compile_lit">
-<span class="target" id="hs__compile_8h_1a8706e8031f537f7f787f43240064288c"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_compile_lit</code><span class="sig-paren">(</span>const char *<em> expression</em>, unsigned<em> flags</em>, const size_t<em> len</em>, unsigned<em> mode</em>, const  <a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a>  *<em> platform</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  **<em> db</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a>  **<em> error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compile_lit" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__compile_8h_1a8706e8031f537f7f787f43240064288c"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_compile_lit</code><span class="sig-paren">(</span><em class="property">const</em> char *<em>expression</em>, unsigned <em>flags</em>, <em class="property">const</em> size_t <em>len</em>, unsigned <em>mode</em>, <em class="property">const</em> <a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a> *<em>platform</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> **<em>db</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a> **<em>error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compile_lit" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The basic pure literal expression compiler.</p>
 <p>This is the function call with which a pure literal expression (not a common regular expression) is compiled into a Hyperscan database which can be passed to the runtime functions (such as <a class="reference internal" href="#hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span class="std std-ref">hs_scan()</span></a>, <a class="reference internal" href="#hs__runtime_8h_1a54bc32490fdcc331d074e60169aeeda7"><span class="std std-ref">hs_open_stream()</span></a>, etc.)</p>
 <p><dl class="simple">
@@ -930,16 +951,16 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">mode</span></code>: Compiler mode flags that affect the database as a whole. One of <a class="reference internal" href="#group__HS__MODE__FLAG_1ga0a0dddb84ee8a5b7c012fdaf3780ffb0"><span class="std std-ref">HS_MODE_STREAM</span></a> or <a class="reference internal" href="#group__HS__MODE__FLAG_1ga494ea2cf28a49627e4d131e596f489c0"><span class="std std-ref">HS_MODE_BLOCK</span></a> or <a class="reference internal" href="#group__HS__MODE__FLAG_1gaa1e074c5476f9077ed9b9111740e17ce"><span class="std std-ref">HS_MODE_VECTORED</span></a> must be supplied, to select between the generation of a streaming, block or vectored database. In addition, other flags (beginning with HS_MODE_) may be supplied to enable specific features. See Compile mode flags for more details.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">platform</span></code>: If not NULL, the platform structure is used to determine the target platform for the database. If NULL, a database suitable for running on the current host platform is produced.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">db</span></code>: On success, a pointer to the generated database will be returned in this parameter, or NULL on failure. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__common_8h_1a8127f1c24ec8708d0284102d9b7bc082"><span class="std std-ref">hs_free_database()</span></a> function.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the compile fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the compile fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1ab4f83c142ee043433194628ca66e0391"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
 </ul>
 </dd>
 </dl>
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_compile_lit_multi">
-<span class="target" id="hs__compile_8h_1a5791968e50a4ae51cbb909b6f3a6f608"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_compile_lit_multi</code><span class="sig-paren">(</span>const char *const *<em> expressions</em>, const unsigned *<em> flags</em>, const unsigned *<em> ids</em>, const size_t *<em> lens</em>, unsigned<em> elements</em>, unsigned<em> mode</em>, const  <a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a>  *<em> platform</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  **<em> db</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a>  **<em> error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compile_lit_multi" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__compile_8h_1a5791968e50a4ae51cbb909b6f3a6f608"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_compile_lit_multi</code><span class="sig-paren">(</span><em class="property">const</em> char *<em class="property">const</em> *<em>expressions</em>, <em class="property">const</em> unsigned *<em>flags</em>, <em class="property">const</em> unsigned *<em>ids</em>, <em class="property">const</em> size_t *<em>lens</em>, unsigned <em>elements</em>, unsigned <em>mode</em>, <em class="property">const</em> <a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a> *<em>platform</em>, <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> **<em>db</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a> **<em>error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compile_lit_multi" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The multiple pure literal expression compiler.</p>
 <p>This is the function call with which a set of pure literal expressions is compiled into a database which can be passed to the runtime functions (such as <a class="reference internal" href="#hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span class="std std-ref">hs_scan()</span></a>, <a class="reference internal" href="#hs__runtime_8h_1a54bc32490fdcc331d074e60169aeeda7"><span class="std std-ref">hs_open_stream()</span></a>, etc.) Each expression can be labelled with a unique integer which is passed into the match callback to identify the pattern that has matched.</p>
 <p><dl class="simple">
@@ -959,34 +980,34 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">mode</span></code>: Compiler mode flags that affect the database as a whole. One of <a class="reference internal" href="#group__HS__MODE__FLAG_1ga0a0dddb84ee8a5b7c012fdaf3780ffb0"><span class="std std-ref">HS_MODE_STREAM</span></a> or <a class="reference internal" href="#group__HS__MODE__FLAG_1ga494ea2cf28a49627e4d131e596f489c0"><span class="std std-ref">HS_MODE_BLOCK</span></a> or <a class="reference internal" href="#group__HS__MODE__FLAG_1gaa1e074c5476f9077ed9b9111740e17ce"><span class="std std-ref">HS_MODE_VECTORED</span></a> must be supplied, to select between the generation of a streaming, block or vectored database. In addition, other flags (beginning with HS_MODE_) may be supplied to enable specific features. See Compile mode flags for more details.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">platform</span></code>: If not NULL, the platform structure is used to determine the target platform for the database. If NULL, a database suitable for running on the current host platform is produced.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">db</span></code>: On success, a pointer to the generated database will be returned in this parameter, or NULL on failure. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__common_8h_1a8127f1c24ec8708d0284102d9b7bc082"><span class="std std-ref">hs_free_database()</span></a> function.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the compile fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the compile fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1ab4f83c142ee043433194628ca66e0391"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
 </ul>
 </dd>
 </dl>
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_free_compile_error">
-<span class="target" id="hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_free_compile_error</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a>  *<em> error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_free_compile_error" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_free_compile_error</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a> *<em>error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_free_compile_error" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Free an error structure generated by <a class="reference internal" href="#hs__compile_8h_1aeb302c749c316b296e3c3cdaa8508e73"><span class="std std-ref">hs_compile()</span></a>, <a class="reference internal" href="#hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"><span class="std std-ref">hs_compile_multi()</span></a> or <a class="reference internal" href="#hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span class="std std-ref">hs_compile_ext_multi()</span></a>.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p><a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> on success, other values on failure. </p>
 </dd>
 <dt><strong>Parameters</strong></dt><dd><ul class="breatheparameterlist simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: The <a class="reference internal" href="#hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span class="std std-ref">hs_compile_error_t</span></a> to be freed. NULL may also be safely provided.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: The <a class="reference internal" href="#hs__compile_8h_1ab4f83c142ee043433194628ca66e0391"><span class="std std-ref">hs_compile_error_t</span></a> to be freed. NULL may also be safely provided.</p></li>
 </ul>
 </dd>
 </dl>
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_expression_info">
-<span class="target" id="hs__compile_8h_1a414dfeeb4fee8d2444b531cef4bed0a4"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_expression_info</code><span class="sig-paren">(</span>const char *<em> expression</em>, unsigned int<em> flags</em>, <a class="reference internal" href="#c.hs_expr_info_t" title="hs_expr_info_t">hs_expr_info_t</a>  **<em> info</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a>  **<em> error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_expression_info" title="Permalink to this definition">¶</a></dt>
-<dd><p>Utility function providing information about a regular expression. The information provided in <a class="reference internal" href="#hs__compile_8h_1ad5498775e1679920539b6bd120dfbbe8"><span class="std std-ref">hs_expr_info_t</span></a> includes the minimum and maximum width of a pattern match.</p>
+<span class="target" id="hs__compile_8h_1a414dfeeb4fee8d2444b531cef4bed0a4"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_expression_info</code><span class="sig-paren">(</span><em class="property">const</em> char *<em>expression</em>, unsigned int <em>flags</em>, <a class="reference internal" href="#c.hs_expr_info_t" title="hs_expr_info_t">hs_expr_info_t</a> **<em>info</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a> **<em>error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_expression_info" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Utility function providing information about a regular expression. The information provided in <a class="reference internal" href="#hs__compile_8h_1ab299ce60736a43eca45e34d2eaf2462f"><span class="std std-ref">hs_expr_info_t</span></a> includes the minimum and maximum width of a pattern match.</p>
 <p>Note: successful analysis of an expression with this function does not imply that compilation of the same expression (via <a class="reference internal" href="#hs__compile_8h_1aeb302c749c316b296e3c3cdaa8508e73"><span class="std std-ref">hs_compile()</span></a>, <a class="reference internal" href="#hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"><span class="std std-ref">hs_compile_multi()</span></a> or <a class="reference internal" href="#hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span class="std std-ref">hs_compile_ext_multi()</span></a>) would succeed. This function may return <a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> for regular expressions that Hyperscan cannot compile.</p>
-<p>Note: some per-pattern flags (such as <a class="reference internal" href="#group__HS__PATTERN__FLAG_1gaf346b64d12d06635d6da22f5be9788be"><span class="std std-ref">HS_FLAG_ALLOWEMPTY</span></a>, <a class="reference internal" href="#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a>) are accepted by this call, but as they do not affect the properties returned in the <a class="reference internal" href="#hs__compile_8h_1ad5498775e1679920539b6bd120dfbbe8"><span class="std std-ref">hs_expr_info_t</span></a> structure, they will not affect the outcome of this function.</p>
+<p>Note: some per-pattern flags (such as <a class="reference internal" href="#group__HS__PATTERN__FLAG_1gaf346b64d12d06635d6da22f5be9788be"><span class="std std-ref">HS_FLAG_ALLOWEMPTY</span></a>, <a class="reference internal" href="#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a>) are accepted by this call, but as they do not affect the properties returned in the <a class="reference internal" href="#hs__compile_8h_1ab299ce60736a43eca45e34d2eaf2462f"><span class="std std-ref">hs_expr_info_t</span></a> structure, they will not affect the outcome of this function.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p><a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> is returned on successful compilation; <a class="reference internal" href="#group__HS__ERROR_1gae73b85ba0cafa46768c9b61f435410ca"><span class="std std-ref">HS_COMPILER_ERROR</span></a> on failure, with details provided in the error parameter. </p>
 </dd>
@@ -1007,19 +1028,19 @@
 </ul>
 </p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">info</span></code>: On success, a pointer to the pattern information will be returned in this parameter, or NULL on failure. This structure is allocated using the allocator supplied in <a class="reference internal" href="#hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span class="std std-ref">hs_set_allocator()</span></a> (or malloc() if no allocator was set) and should be freed by the caller.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the call fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the call fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1ab4f83c142ee043433194628ca66e0391"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
 </ul>
 </dd>
 </dl>
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_expression_ext_info">
-<span class="target" id="hs__compile_8h_1a007328330e6e0abbb4be5422015384b7"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_expression_ext_info</code><span class="sig-paren">(</span>const char *<em> expression</em>, unsigned int<em> flags</em>, const  <a class="reference internal" href="#c.hs_expr_ext_t" title="hs_expr_ext_t">hs_expr_ext_t</a>  *<em> ext</em>, <a class="reference internal" href="#c.hs_expr_info_t" title="hs_expr_info_t">hs_expr_info_t</a>  **<em> info</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a>  **<em> error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_expression_ext_info" title="Permalink to this definition">¶</a></dt>
-<dd><p>Utility function providing information about a regular expression, with extended parameter support. The information provided in <a class="reference internal" href="#hs__compile_8h_1ad5498775e1679920539b6bd120dfbbe8"><span class="std std-ref">hs_expr_info_t</span></a> includes the minimum and maximum width of a pattern match.</p>
+<span class="target" id="hs__compile_8h_1a007328330e6e0abbb4be5422015384b7"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_expression_ext_info</code><span class="sig-paren">(</span><em class="property">const</em> char *<em>expression</em>, unsigned int <em>flags</em>, <em class="property">const</em> <a class="reference internal" href="#c.hs_expr_ext_t" title="hs_expr_ext_t">hs_expr_ext_t</a> *<em>ext</em>, <a class="reference internal" href="#c.hs_expr_info_t" title="hs_expr_info_t">hs_expr_info_t</a> **<em>info</em>, <a class="reference internal" href="#c.hs_compile_error_t" title="hs_compile_error_t">hs_compile_error_t</a> **<em>error</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_expression_ext_info" title="Permalink to this definition">¶</a><br /></dt>
+<dd><p>Utility function providing information about a regular expression, with extended parameter support. The information provided in <a class="reference internal" href="#hs__compile_8h_1ab299ce60736a43eca45e34d2eaf2462f"><span class="std std-ref">hs_expr_info_t</span></a> includes the minimum and maximum width of a pattern match.</p>
 <p>Note: successful analysis of an expression with this function does not imply that compilation of the same expression (via <a class="reference internal" href="#hs__compile_8h_1aeb302c749c316b296e3c3cdaa8508e73"><span class="std std-ref">hs_compile()</span></a>, <a class="reference internal" href="#hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"><span class="std std-ref">hs_compile_multi()</span></a> or <a class="reference internal" href="#hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span class="std std-ref">hs_compile_ext_multi()</span></a>) would succeed. This function may return <a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> for regular expressions that Hyperscan cannot compile.</p>
-<p>Note: some per-pattern flags (such as <a class="reference internal" href="#group__HS__PATTERN__FLAG_1gaf346b64d12d06635d6da22f5be9788be"><span class="std std-ref">HS_FLAG_ALLOWEMPTY</span></a>, <a class="reference internal" href="#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a>) are accepted by this call, but as they do not affect the properties returned in the <a class="reference internal" href="#hs__compile_8h_1ad5498775e1679920539b6bd120dfbbe8"><span class="std std-ref">hs_expr_info_t</span></a> structure, they will not affect the outcome of this function.</p>
+<p>Note: some per-pattern flags (such as <a class="reference internal" href="#group__HS__PATTERN__FLAG_1gaf346b64d12d06635d6da22f5be9788be"><span class="std std-ref">HS_FLAG_ALLOWEMPTY</span></a>, <a class="reference internal" href="#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a>) are accepted by this call, but as they do not affect the properties returned in the <a class="reference internal" href="#hs__compile_8h_1ab299ce60736a43eca45e34d2eaf2462f"><span class="std std-ref">hs_expr_info_t</span></a> structure, they will not affect the outcome of this function.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p><a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> is returned on successful compilation; <a class="reference internal" href="#group__HS__ERROR_1gae73b85ba0cafa46768c9b61f435410ca"><span class="std std-ref">HS_COMPILER_ERROR</span></a> on failure, with details provided in the error parameter. </p>
 </dd>
@@ -1039,18 +1060,18 @@
 <li><p>HS_FLAG_QUIET - Ignore match reporting for this expression. Used for the sub-expressions in logical combinations.</p></li>
 </ul>
 </p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">ext</span></code>: A pointer to a filled <a class="reference internal" href="#hs__compile_8h_1a1e03f1d3837c16364ca2e96287b7eb34"><span class="std std-ref">hs_expr_ext_t</span></a> structure that defines extended behaviour for this pattern. NULL may be specified if no extended parameters are needed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ext</span></code>: A pointer to a filled <a class="reference internal" href="#hs__compile_8h_1a5acd00a47f8519536b991df7d2f7be51"><span class="std std-ref">hs_expr_ext_t</span></a> structure that defines extended behaviour for this pattern. NULL may be specified if no extended parameters are needed.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">info</span></code>: On success, a pointer to the pattern information will be returned in this parameter, or NULL on failure. This structure is allocated using the allocator supplied in <a class="reference internal" href="#hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span class="std std-ref">hs_set_allocator()</span></a> (or malloc() if no allocator was set) and should be freed by the caller.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the call fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1a70478dae6603bdb6c1f46d80829ada8d"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">error</span></code>: If the call fails, a pointer to a <a class="reference internal" href="#hs__compile_8h_1ab4f83c142ee043433194628ca66e0391"><span class="std std-ref">hs_compile_error_t</span></a> will be returned, providing details of the error condition. The caller is responsible for deallocating the buffer using the <a class="reference internal" href="#hs__compile_8h_1ad34e00fe031a7491722661b3defef81f"><span class="std std-ref">hs_free_compile_error()</span></a> function.</p></li>
 </ul>
 </dd>
 </dl>
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_populate_platform">
-<span class="target" id="hs__compile_8h_1a7fba694199df776522bc959a43a0079c"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_populate_platform</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a>  *<em> platform</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_populate_platform" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__compile_8h_1a7fba694199df776522bc959a43a0079c"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_populate_platform</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_platform_info_t" title="hs_platform_info_t">hs_platform_info_t</a> *<em>platform</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_populate_platform" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Populates the platform information based on the current host.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p><a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> on success, other values on failure. </p>
@@ -1064,9 +1085,9 @@
 </dd></dl>
 
 </div>
-<dl class="struct">
+<dl class="c struct">
 <dt id="c.hs_compile_error">
-<span class="target" id="strucths__compile__error"></span><em class="property">struct </em><code class="sig-name descname">hs_compile_error</code><a class="headerlink" href="#c.hs_compile_error" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="strucths__compile__error"></span><em class="property">struct </em><code class="sig-name descname">hs_compile_error</code><a class="headerlink" href="#c.hs_compile_error" title="Permalink to this definition">¶</a><br /></dt>
 <dd><em>#include &lt;hs_compile.h&gt;</em><p>A type containing error details that is returned by the compile calls (<a class="reference internal" href="#hs__compile_8h_1aeb302c749c316b296e3c3cdaa8508e73"><span class="std std-ref">hs_compile()</span></a>, <a class="reference internal" href="#hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"><span class="std std-ref">hs_compile_multi()</span></a> and <a class="reference internal" href="#hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span class="std std-ref">hs_compile_ext_multi()</span></a>) on failure. The caller may inspect the values returned in this type to determine the cause of failure.</p>
 <p>Common errors generated during the compile process include:</p>
 <p><ul>
@@ -1104,139 +1125,139 @@
 </p>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Public Members</p>
-<dl class="variable">
-<dt id="c.hs_compile_error::message">
-<span class="target" id="strucths__compile__error_1a303cf95a1eec5a9fc3edae048cd85fbf"></span>char* <code class="sig-name descname">message</code><a class="headerlink" href="#c.hs_compile_error::message" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_compile_error.message">
+<span class="target" id="strucths__compile__error_1a303cf95a1eec5a9fc3edae048cd85fbf"></span>char *<code class="sig-name descname">message</code><a class="headerlink" href="#c.hs_compile_error.message" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>A human-readable error message describing the error. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_compile_error::expression">
-<span class="target" id="strucths__compile__error_1afd4362e387e24e5328277719383f055a"></span>int <code class="sig-name descname">expression</code><a class="headerlink" href="#c.hs_compile_error::expression" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_compile_error.expression">
+<span class="target" id="strucths__compile__error_1afd4362e387e24e5328277719383f055a"></span>int <code class="sig-name descname">expression</code><a class="headerlink" href="#c.hs_compile_error.expression" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The zero-based number of the expression that caused the error (if this can be determined). If the error is not specific to an expression, then this value will be less than zero. </p>
 </dd></dl>
 
 </div>
 </dd></dl>
 
-<dl class="struct">
+<dl class="c struct">
 <dt id="c.hs_platform_info">
-<span class="target" id="strucths__platform__info"></span><em class="property">struct </em><code class="sig-name descname">hs_platform_info</code><a class="headerlink" href="#c.hs_platform_info" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="strucths__platform__info"></span><em class="property">struct </em><code class="sig-name descname">hs_platform_info</code><a class="headerlink" href="#c.hs_platform_info" title="Permalink to this definition">¶</a><br /></dt>
 <dd><em>#include &lt;hs_compile.h&gt;</em><p>A type containing information on the target platform which may optionally be provided to the compile calls (<a class="reference internal" href="#hs__compile_8h_1aeb302c749c316b296e3c3cdaa8508e73"><span class="std std-ref">hs_compile()</span></a>, <a class="reference internal" href="#hs__compile_8h_1ae61b23042fd72756fb774bb87c581e84"><span class="std std-ref">hs_compile_multi()</span></a>, <a class="reference internal" href="#hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span class="std std-ref">hs_compile_ext_multi()</span></a>).</p>
 <p>A <a class="reference internal" href="#strucths__platform__info"><span class="std std-ref">hs_platform_info</span></a> structure may be populated for the current platform by using the <a class="reference internal" href="#hs__compile_8h_1a7fba694199df776522bc959a43a0079c"><span class="std std-ref">hs_populate_platform()</span></a> call. </p>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Public Members</p>
-<dl class="variable">
-<dt id="c.hs_platform_info::tune">
-<span class="target" id="strucths__platform__info_1a8561393042c07099d545e03fda5512b7"></span>unsigned int <code class="sig-name descname">tune</code><a class="headerlink" href="#c.hs_platform_info::tune" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_platform_info.tune">
+<span class="target" id="strucths__platform__info_1a8561393042c07099d545e03fda5512b7"></span>unsigned int <code class="sig-name descname">tune</code><a class="headerlink" href="#c.hs_platform_info.tune" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Information about the target platform which may be used to guide the optimisation process of the compile.</p>
 <p>Use of this field does not limit the processors that the resulting database can run on, but may impact the performance of the resulting database. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_platform_info::cpu_features">
-<span class="target" id="strucths__platform__info_1a29ad1841b85ee32b720e18c53f37450d"></span>unsigned long long <code class="sig-name descname">cpu_features</code><a class="headerlink" href="#c.hs_platform_info::cpu_features" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_platform_info.cpu_features">
+<span class="target" id="strucths__platform__info_1a29ad1841b85ee32b720e18c53f37450d"></span>unsigned long long <code class="sig-name descname">cpu_features</code><a class="headerlink" href="#c.hs_platform_info.cpu_features" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Relevant CPU features available on the target platform</p>
 <p>This value may be produced by combining HS_CPU_FEATURE_* flags (such as <a class="reference internal" href="#group__HS__CPU__FEATURES__FLAG_1ga1ae675026897399f27c610251b5f14a1"><span class="std std-ref">HS_CPU_FEATURES_AVX2</span></a>). Multiple CPU features may be or’ed together to produce the value. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_platform_info::reserved1">
-<span class="target" id="strucths__platform__info_1a750e5d9803c909ecfa8109eacc1f37a2"></span>unsigned long long <code class="sig-name descname">reserved1</code><a class="headerlink" href="#c.hs_platform_info::reserved1" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_platform_info.reserved1">
+<span class="target" id="strucths__platform__info_1a750e5d9803c909ecfa8109eacc1f37a2"></span>unsigned long long <code class="sig-name descname">reserved1</code><a class="headerlink" href="#c.hs_platform_info.reserved1" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Reserved for future use. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_platform_info::reserved2">
-<span class="target" id="strucths__platform__info_1aec8841304b85f2ca488482ab47eae42b"></span>unsigned long long <code class="sig-name descname">reserved2</code><a class="headerlink" href="#c.hs_platform_info::reserved2" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_platform_info.reserved2">
+<span class="target" id="strucths__platform__info_1aec8841304b85f2ca488482ab47eae42b"></span>unsigned long long <code class="sig-name descname">reserved2</code><a class="headerlink" href="#c.hs_platform_info.reserved2" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Reserved for future use. </p>
 </dd></dl>
 
 </div>
 </dd></dl>
 
-<dl class="struct">
+<dl class="c struct">
 <dt id="c.hs_expr_info">
-<span class="target" id="strucths__expr__info"></span><em class="property">struct </em><code class="sig-name descname">hs_expr_info</code><a class="headerlink" href="#c.hs_expr_info" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="strucths__expr__info"></span><em class="property">struct </em><code class="sig-name descname">hs_expr_info</code><a class="headerlink" href="#c.hs_expr_info" title="Permalink to this definition">¶</a><br /></dt>
 <dd><em>#include &lt;hs_compile.h&gt;</em><p>A type containing information related to an expression that is returned by <a class="reference internal" href="#hs__compile_8h_1a414dfeeb4fee8d2444b531cef4bed0a4"><span class="std std-ref">hs_expression_info()</span></a> or <a class="reference internal" href="#hs__compile_8h_1a007328330e6e0abbb4be5422015384b7"><span class="std std-ref">hs_expression_ext_info</span></a>. </p>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Public Members</p>
-<dl class="variable">
-<dt id="c.hs_expr_info::min_width">
-<span class="target" id="strucths__expr__info_1ae3988283e676fd604d3fd8f4b7f3958c"></span>unsigned int <code class="sig-name descname">min_width</code><a class="headerlink" href="#c.hs_expr_info::min_width" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_expr_info.min_width">
+<span class="target" id="strucths__expr__info_1ae3988283e676fd604d3fd8f4b7f3958c"></span>unsigned int <code class="sig-name descname">min_width</code><a class="headerlink" href="#c.hs_expr_info.min_width" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The minimum length in bytes of a match for the pattern.</p>
 <p>Note: in some cases when using advanced features to suppress matches (such as extended parameters or the <a class="reference internal" href="#group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"><span class="std std-ref">HS_FLAG_SINGLEMATCH</span></a> flag) this may represent a conservative lower bound for the true minimum length of a match. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_expr_info::max_width">
-<span class="target" id="strucths__expr__info_1ae728af1e67caaa6691e6bc4e8954bfec"></span>unsigned int <code class="sig-name descname">max_width</code><a class="headerlink" href="#c.hs_expr_info::max_width" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_expr_info.max_width">
+<span class="target" id="strucths__expr__info_1ae728af1e67caaa6691e6bc4e8954bfec"></span>unsigned int <code class="sig-name descname">max_width</code><a class="headerlink" href="#c.hs_expr_info.max_width" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The maximum length in bytes of a match for the pattern. If the pattern has an unbounded maximum length, this will be set to the maximum value of an unsigned int (UINT_MAX).</p>
 <p>Note: in some cases when using advanced features to suppress matches (such as extended parameters or the <a class="reference internal" href="#group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"><span class="std std-ref">HS_FLAG_SINGLEMATCH</span></a> flag) this may represent a conservative upper bound for the true maximum length of a match. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_expr_info::unordered_matches">
-<span class="target" id="strucths__expr__info_1ac19e2d22f86520ba745259df5fa22ec0"></span>char <code class="sig-name descname">unordered_matches</code><a class="headerlink" href="#c.hs_expr_info::unordered_matches" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_expr_info.unordered_matches">
+<span class="target" id="strucths__expr__info_1ac19e2d22f86520ba745259df5fa22ec0"></span>char <code class="sig-name descname">unordered_matches</code><a class="headerlink" href="#c.hs_expr_info.unordered_matches" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Whether this expression can produce matches that are not returned in order, such as those produced by assertions. Zero if false, non-zero if true. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_expr_info::matches_at_eod">
-<span class="target" id="strucths__expr__info_1a050ce501ddfe9c67af0f271dc1f9a24c"></span>char <code class="sig-name descname">matches_at_eod</code><a class="headerlink" href="#c.hs_expr_info::matches_at_eod" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_expr_info.matches_at_eod">
+<span class="target" id="strucths__expr__info_1a050ce501ddfe9c67af0f271dc1f9a24c"></span>char <code class="sig-name descname">matches_at_eod</code><a class="headerlink" href="#c.hs_expr_info.matches_at_eod" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Whether this expression can produce matches at end of data (EOD). In streaming mode, EOD matches are raised during <a class="reference internal" href="#hs__runtime_8h_1a2471dfb1596b87fb95ea19124fae0940"><span class="std std-ref">hs_close_stream()</span></a>, since it is only when <a class="reference internal" href="#hs__runtime_8h_1a2471dfb1596b87fb95ea19124fae0940"><span class="std std-ref">hs_close_stream()</span></a> is called that the EOD location is known. Zero if false, non-zero if true.</p>
 <p>Note: trailing <code class="docutils literal notranslate"><span class="pre">\b</span></code> word boundary assertions may also result in EOD matches as end-of-data can act as a word boundary. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_expr_info::matches_only_at_eod">
-<span class="target" id="strucths__expr__info_1a063c18ce23ccc7a7c4222e52ad8ad314"></span>char <code class="sig-name descname">matches_only_at_eod</code><a class="headerlink" href="#c.hs_expr_info::matches_only_at_eod" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_expr_info.matches_only_at_eod">
+<span class="target" id="strucths__expr__info_1a063c18ce23ccc7a7c4222e52ad8ad314"></span>char <code class="sig-name descname">matches_only_at_eod</code><a class="headerlink" href="#c.hs_expr_info.matches_only_at_eod" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Whether this expression can <em>only</em> produce matches at end of data (EOD). In streaming mode, all matches for this expression are raised during <a class="reference internal" href="#hs__runtime_8h_1a2471dfb1596b87fb95ea19124fae0940"><span class="std std-ref">hs_close_stream()</span></a>. Zero if false, non-zero if true. </p>
 </dd></dl>
 
 </div>
 </dd></dl>
 
-<dl class="struct">
+<dl class="c struct">
 <dt id="c.hs_expr_ext">
-<span class="target" id="strucths__expr__ext"></span><em class="property">struct </em><code class="sig-name descname">hs_expr_ext</code><a class="headerlink" href="#c.hs_expr_ext" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="strucths__expr__ext"></span><em class="property">struct </em><code class="sig-name descname">hs_expr_ext</code><a class="headerlink" href="#c.hs_expr_ext" title="Permalink to this definition">¶</a><br /></dt>
 <dd><em>#include &lt;hs_compile.h&gt;</em><p>A structure containing additional parameters related to an expression, passed in at build time to <a class="reference internal" href="#hs__compile_8h_1aacc508bea3042f1faba32c3818bfc2a3"><span class="std std-ref">hs_compile_ext_multi()</span></a> or <a class="reference internal" href="#hs__compile_8h_1a007328330e6e0abbb4be5422015384b7"><span class="std std-ref">hs_expression_ext_info</span></a>.</p>
 <p>These parameters allow the set of matches produced by a pattern to be constrained at compile time, rather than relying on the application to process unwanted matches at runtime. </p>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Public Members</p>
-<dl class="variable">
-<dt id="c.hs_expr_ext::flags">
-<span class="target" id="strucths__expr__ext_1a290badd1e9b34fc37a53b93da1ee9c07"></span>unsigned long long <code class="sig-name descname">flags</code><a class="headerlink" href="#c.hs_expr_ext::flags" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_expr_ext.flags">
+<span class="target" id="strucths__expr__ext_1a290badd1e9b34fc37a53b93da1ee9c07"></span>unsigned long long <code class="sig-name descname">flags</code><a class="headerlink" href="#c.hs_expr_ext.flags" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Flags governing which parts of this structure are to be used by the compiler. See hs_expr_ext_t flags. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_expr_ext::min_offset">
-<span class="target" id="strucths__expr__ext_1a006843974cb05dbf16291da621a72fa9"></span>unsigned long long <code class="sig-name descname">min_offset</code><a class="headerlink" href="#c.hs_expr_ext::min_offset" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_expr_ext.min_offset">
+<span class="target" id="strucths__expr__ext_1a006843974cb05dbf16291da621a72fa9"></span>unsigned long long <code class="sig-name descname">min_offset</code><a class="headerlink" href="#c.hs_expr_ext.min_offset" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The minimum end offset in the data stream at which this expression should match successfully. To use this parameter, set the <a class="reference internal" href="#group__HS__EXT__FLAG_1ga8876e1c519442ec4feb47508e03a6c52"><span class="std std-ref">HS_EXT_FLAG_MIN_OFFSET</span></a> flag in the <a class="reference internal" href="#strucths__expr__ext_1a290badd1e9b34fc37a53b93da1ee9c07"><span class="std std-ref">hs_expr_ext::flags</span></a> field. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_expr_ext::max_offset">
-<span class="target" id="strucths__expr__ext_1a263c613f20c6b8ef30ca01785e0f55fc"></span>unsigned long long <code class="sig-name descname">max_offset</code><a class="headerlink" href="#c.hs_expr_ext::max_offset" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_expr_ext.max_offset">
+<span class="target" id="strucths__expr__ext_1a263c613f20c6b8ef30ca01785e0f55fc"></span>unsigned long long <code class="sig-name descname">max_offset</code><a class="headerlink" href="#c.hs_expr_ext.max_offset" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The maximum end offset in the data stream at which this expression should match successfully. To use this parameter, set the <a class="reference internal" href="#group__HS__EXT__FLAG_1ga7f68e1f3b5ad7c39165e56f294aab5f8"><span class="std std-ref">HS_EXT_FLAG_MAX_OFFSET</span></a> flag in the <a class="reference internal" href="#strucths__expr__ext_1a290badd1e9b34fc37a53b93da1ee9c07"><span class="std std-ref">hs_expr_ext::flags</span></a> field. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_expr_ext::min_length">
-<span class="target" id="strucths__expr__ext_1a6afdac1e0bb89d9a76d6c91ed86a6fe8"></span>unsigned long long <code class="sig-name descname">min_length</code><a class="headerlink" href="#c.hs_expr_ext::min_length" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_expr_ext.min_length">
+<span class="target" id="strucths__expr__ext_1a6afdac1e0bb89d9a76d6c91ed86a6fe8"></span>unsigned long long <code class="sig-name descname">min_length</code><a class="headerlink" href="#c.hs_expr_ext.min_length" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The minimum match length (from start to end) required to successfully match this expression. To use this parameter, set the <a class="reference internal" href="#group__HS__EXT__FLAG_1ga08b4bfb7f87b2f768c470ede24a724b6"><span class="std std-ref">HS_EXT_FLAG_MIN_LENGTH</span></a> flag in the <a class="reference internal" href="#strucths__expr__ext_1a290badd1e9b34fc37a53b93da1ee9c07"><span class="std std-ref">hs_expr_ext::flags</span></a> field. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_expr_ext::edit_distance">
-<span class="target" id="strucths__expr__ext_1a8b7536c6ca0b01faa975b195e04b3913"></span>unsigned <code class="sig-name descname">edit_distance</code><a class="headerlink" href="#c.hs_expr_ext::edit_distance" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_expr_ext.edit_distance">
+<span class="target" id="strucths__expr__ext_1a8b7536c6ca0b01faa975b195e04b3913"></span>unsigned <code class="sig-name descname">edit_distance</code><a class="headerlink" href="#c.hs_expr_ext.edit_distance" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Allow patterns to approximately match within this edit distance. To use this parameter, set the <a class="reference internal" href="#group__HS__EXT__FLAG_1gac557ac5c1da1649b151ac435ea56d41c"><span class="std std-ref">HS_EXT_FLAG_EDIT_DISTANCE</span></a> flag in the <a class="reference internal" href="#strucths__expr__ext_1a290badd1e9b34fc37a53b93da1ee9c07"><span class="std std-ref">hs_expr_ext::flags</span></a> field. </p>
 </dd></dl>
 
-<dl class="variable">
-<dt id="c.hs_expr_ext::hamming_distance">
-<span class="target" id="strucths__expr__ext_1a94072afd1400402fad2e59c6dbdb7973"></span>unsigned <code class="sig-name descname">hamming_distance</code><a class="headerlink" href="#c.hs_expr_ext::hamming_distance" title="Permalink to this definition">¶</a></dt>
+<dl class="c var">
+<dt id="c.hs_expr_ext.hamming_distance">
+<span class="target" id="strucths__expr__ext_1a94072afd1400402fad2e59c6dbdb7973"></span>unsigned <code class="sig-name descname">hamming_distance</code><a class="headerlink" href="#c.hs_expr_ext.hamming_distance" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Allow patterns to approximately match within this Hamming distance. To use this parameter, set the <a class="reference internal" href="#group__HS__EXT__FLAG_1ga0568165f31e3bf0ece0e4466840ca466"><span class="std std-ref">HS_EXT_FLAG_HAMMING_DISTANCE</span></a> flag in the <a class="reference internal" href="#strucths__expr__ext_1a290badd1e9b34fc37a53b93da1ee9c07"><span class="std std-ref">hs_expr_ext::flags</span></a> field. </p>
 </dd></dl>
 
@@ -1251,30 +1272,30 @@
 <p>This header contains functions for using compiled Hyperscan databases for scanning data at runtime. </p>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Defines</p>
-<dl class="define">
+<dl class="c macro">
 <dt id="c.HS_OFFSET_PAST_HORIZON">
-<span class="target" id="hs__runtime_8h_1a5a2035b99ba414e593a41b41a5f41a36"></span><code class="sig-name descname">HS_OFFSET_PAST_HORIZON</code><a class="headerlink" href="#c.HS_OFFSET_PAST_HORIZON" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a5a2035b99ba414e593a41b41a5f41a36"></span><code class="sig-name descname">HS_OFFSET_PAST_HORIZON</code><a class="headerlink" href="#c.HS_OFFSET_PAST_HORIZON" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Callback ‘from’ return value, indicating that the start of this match was too early to be tracked with the requested SOM_HORIZON precision. </p>
 </dd></dl>
 
 </div>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Typedefs</p>
-<dl class="typedef">
+<dl class="c type">
 <dt id="c.hs_stream_t">
-<span class="target" id="hs__runtime_8h_1a2ef982d1aaecd7b08c091d355c44e7f3"></span><em class="property">typedef </em>struct hs_stream <code class="sig-name descname">hs_stream_t</code><a class="headerlink" href="#c.hs_stream_t" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a2ef982d1aaecd7b08c091d355c44e7f3"></span><em class="property">typedef </em><em class="property">struct</em> hs_stream <code class="sig-name descname">hs_stream_t</code><a class="headerlink" href="#c.hs_stream_t" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The stream identifier returned by <a class="reference internal" href="#hs__runtime_8h_1a54bc32490fdcc331d074e60169aeeda7"><span class="std std-ref">hs_open_stream()</span></a>. </p>
 </dd></dl>
 
-<dl class="typedef">
+<dl class="c type">
 <dt id="c.hs_scratch_t">
-<span class="target" id="hs__runtime_8h_1af0a89aeb8f5256f35c0bc86e8ca2a19b"></span><em class="property">typedef </em>struct hs_scratch <code class="sig-name descname">hs_scratch_t</code><a class="headerlink" href="#c.hs_scratch_t" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1af0a89aeb8f5256f35c0bc86e8ca2a19b"></span><em class="property">typedef </em><em class="property">struct</em> hs_scratch <code class="sig-name descname">hs_scratch_t</code><a class="headerlink" href="#c.hs_scratch_t" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>A Hyperscan scratch space. </p>
 </dd></dl>
 
-<dl class="typedef">
+<dl class="c type">
 <dt id="c.match_event_handler">
-<span class="target" id="hs__runtime_8h_1a08d3ace9d76281e92d0bab63eef9a98b"></span><em class="property">typedef </em>int<code class="sig-name descname">( * match_event_handler)</code><span class="sig-paren">(</span>unsigned int<em> id</em>, unsigned long long<em> from</em>, unsigned long long<em> to</em>, unsigned int<em> flags</em>, void<em> *context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.match_event_handler" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a08d3ace9d76281e92d0bab63eef9a98b"></span><em class="property">typedef </em>int (*<code class="sig-name descname">match_event_handler</code>)<span class="sig-paren">(</span>unsigned int id, unsigned long long from, unsigned long long to, unsigned int flags, void *context<span class="sig-paren">)</span><a class="headerlink" href="#c.match_event_handler" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Definition of the match event callback function type.</p>
 <p>A callback function matching the defined type must be provided by the application calling the <a class="reference internal" href="#hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span class="std std-ref">hs_scan()</span></a>, <a class="reference internal" href="#hs__runtime_8h_1ad6b603921a1fd2ddf12230730d6634c6"><span class="std std-ref">hs_scan_vector()</span></a> or <a class="reference internal" href="#hs__runtime_8h_1a34d0eb9c280a58bbc29b19e22dead8b3"><span class="std std-ref">hs_scan_stream()</span></a> functions (or other streaming calls which can produce matches).</p>
 <p>This callback function will be invoked whenever a match is located in the target data during the execution of a scan. The details of the match are passed in as parameters to the callback function, and the callback function should return a value indicating whether or not matching should continue on the target data. If no callbacks are desired from a scan call, NULL may be provided in order to suppress match production.</p>
@@ -1302,9 +1323,9 @@
 </div>
 <div class="breathe-sectiondef docutils container">
 <p class="breathe-sectiondef-title rubric">Functions</p>
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_open_stream">
-<span class="target" id="hs__runtime_8h_1a54bc32490fdcc331d074e60169aeeda7"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_open_stream</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  *<em> db</em>, unsigned int<em> flags</em>, <a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  **<em> stream</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_open_stream" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a54bc32490fdcc331d074e60169aeeda7"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_open_stream</code><span class="sig-paren">(</span><em class="property">const</em> <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> *<em>db</em>, unsigned int <em>flags</em>, <a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a> **<em>stream</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_open_stream" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Open and initialise a stream.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p><a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> on success, other values on failure. </p>
@@ -1319,9 +1340,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_scan_stream">
-<span class="target" id="hs__runtime_8h_1a34d0eb9c280a58bbc29b19e22dead8b3"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_scan_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  *<em> id</em>, const char *<em> data</em>, unsigned int<em> length</em>, unsigned int<em> flags</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  *<em> scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a><em> onEvent</em>, void *<em> ctxt</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_scan_stream" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a34d0eb9c280a58bbc29b19e22dead8b3"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_scan_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a> *<em>id</em>, <em class="property">const</em> char *<em>data</em>, unsigned int <em>length</em>, unsigned int <em>flags</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a> *<em>scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a> <em>onEvent</em>, void *<em>ctxt</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_scan_stream" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Write data to be scanned to the opened stream.</p>
 <p>This is the function call in which the actual pattern matching takes place as data is written to the stream. Matches will be returned via the <a class="reference internal" href="#hs__runtime_8h_1a08d3ace9d76281e92d0bab63eef9a98b"><span class="std std-ref">match_event_handler</span></a> callback supplied.</p>
 <p><dl class="simple">
@@ -1341,9 +1362,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_close_stream">
-<span class="target" id="hs__runtime_8h_1a2471dfb1596b87fb95ea19124fae0940"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_close_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  *<em> id</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  *<em> scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a><em> onEvent</em>, void *<em> ctxt</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_close_stream" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a2471dfb1596b87fb95ea19124fae0940"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_close_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a> *<em>id</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a> *<em>scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a> <em>onEvent</em>, void *<em>ctxt</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_close_stream" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Close a stream.</p>
 <p>This function completes matching on the given stream and frees the memory associated with the stream state. After this call, the stream pointed to by <code class="docutils literal notranslate"><span class="pre">id</span></code> is invalid and can no longer be used. To reuse the stream state after completion, rather than closing it, the <a class="reference internal" href="#hs__runtime_8h_1a6d7d40908655b373fe73f872a48cf853"><span class="std std-ref">hs_reset_stream</span></a> function can be used.</p>
 <p>This function must be called for any stream created with <a class="reference internal" href="#hs__runtime_8h_1a54bc32490fdcc331d074e60169aeeda7"><span class="std std-ref">hs_open_stream()</span></a>, even if scanning has been terminated by a non-zero return from the match callback function.</p>
@@ -1363,9 +1384,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_reset_stream">
-<span class="target" id="hs__runtime_8h_1a6d7d40908655b373fe73f872a48cf853"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_reset_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  *<em> id</em>, unsigned int<em> flags</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  *<em> scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a><em> onEvent</em>, void *<em> context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_reset_stream" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a6d7d40908655b373fe73f872a48cf853"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_reset_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a> *<em>id</em>, unsigned int <em>flags</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a> *<em>scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a> <em>onEvent</em>, void *<em>context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_reset_stream" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Reset a stream to an initial state.</p>
 <p>Conceptually, this is equivalent to performing <a class="reference internal" href="#hs__runtime_8h_1a2471dfb1596b87fb95ea19124fae0940"><span class="std std-ref">hs_close_stream()</span></a> on the given stream, followed by a <a class="reference internal" href="#hs__runtime_8h_1a54bc32490fdcc331d074e60169aeeda7"><span class="std std-ref">hs_open_stream()</span></a>. This new stream replaces the original stream in memory, avoiding the overhead of freeing the old stream and allocating the new one.</p>
 <p>Note: This operation may result in matches being returned (via calls to the match event callback) for expressions anchored to the end of the original data stream (for example, via the use of the <code class="docutils literal notranslate"><span class="pre">$</span></code> meta-character). If these matches are not desired, NULL may be provided as the <a class="reference internal" href="#hs__runtime_8h_1a08d3ace9d76281e92d0bab63eef9a98b"><span class="std std-ref">match_event_handler</span></a> callback.</p>
@@ -1385,9 +1406,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_copy_stream">
-<span class="target" id="hs__runtime_8h_1aac55833886321253c531331901f729b1"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_copy_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  **<em> to_id</em>, const  <a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  *<em> from_id</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_copy_stream" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1aac55833886321253c531331901f729b1"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_copy_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a> **<em>to_id</em>, <em class="property">const</em> <a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a> *<em>from_id</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_copy_stream" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Duplicate the given stream. The new stream will have the same state as the original including the current stream offset.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p><a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> on success, other values on failure. </p>
@@ -1401,9 +1422,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_reset_and_copy_stream">
-<span class="target" id="hs__runtime_8h_1a35a1dc0df0262b4b5f7afe0ca5266831"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_reset_and_copy_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  *<em> to_id</em>, const  <a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  *<em> from_id</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  *<em> scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a><em> onEvent</em>, void *<em> context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_reset_and_copy_stream" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a35a1dc0df0262b4b5f7afe0ca5266831"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_reset_and_copy_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a> *<em>to_id</em>, <em class="property">const</em> <a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a> *<em>from_id</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a> *<em>scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a> <em>onEvent</em>, void *<em>context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_reset_and_copy_stream" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Duplicate the given ‘from’ stream state onto the ‘to’ stream. The ‘to’ stream will first be reset (reporting any EOD matches if a non-NULL <code class="docutils literal notranslate"><span class="pre">onEvent</span></code> callback handler is provided).</p>
 <p>Note: the ‘to’ stream and the ‘from’ stream must be open against the same database.</p>
 <p><dl class="simple">
@@ -1421,9 +1442,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_compress_stream">
-<span class="target" id="hs__runtime_8h_1a53160019137a88b32f25031b3f9d445b"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_compress_stream</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  *<em> stream</em>, char *<em> buf</em>, size_t<em> buf_space</em>, size_t *<em> used_space</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compress_stream" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a53160019137a88b32f25031b3f9d445b"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_compress_stream</code><span class="sig-paren">(</span><em class="property">const</em> <a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a> *<em>stream</em>, char *<em>buf</em>, size_t <em>buf_space</em>, size_t *<em>used_space</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_compress_stream" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Creates a compressed representation of the provided stream in the buffer provided. This compressed representation can be converted back into a stream state by using <a class="reference internal" href="#hs__runtime_8h_1a24799338f5ede76df9037b748d9de2ea"><span class="std std-ref">hs_expand_stream()</span></a> or <a class="reference internal" href="#hs__runtime_8h_1a8af7e7c46d929b65f028b2efd444acd7"><span class="std std-ref">hs_reset_and_expand_stream()</span></a>. The size of the compressed representation will be placed into <code class="docutils literal notranslate"><span class="pre">used_space</span></code>.</p>
 <p>If there is not sufficient space in the buffer to hold the compressed representation, <a class="reference internal" href="#group__HS__ERROR_1ga5cda332b921d1f8022bdb4454047a815"><span class="std std-ref">HS_INSUFFICIENT_SPACE</span></a> will be returned and <code class="docutils literal notranslate"><span class="pre">used_space</span></code> will be populated with the amount of space required.</p>
 <p>Note: this function does not close the provided stream, you may continue to use the stream or to free it with <a class="reference internal" href="#hs__runtime_8h_1a2471dfb1596b87fb95ea19124fae0940"><span class="std std-ref">hs_close_stream()</span></a>.</p>
@@ -1441,9 +1462,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_expand_stream">
-<span class="target" id="hs__runtime_8h_1a24799338f5ede76df9037b748d9de2ea"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_expand_stream</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  *<em> db</em>, <a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  **<em> stream</em>, const char *<em> buf</em>, size_t<em> buf_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_expand_stream" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a24799338f5ede76df9037b748d9de2ea"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_expand_stream</code><span class="sig-paren">(</span><em class="property">const</em> <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> *<em>db</em>, <a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a> **<em>stream</em>, <em class="property">const</em> char *<em>buf</em>, size_t <em>buf_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_expand_stream" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Decompresses a compressed representation created by <a class="reference internal" href="#hs__runtime_8h_1a53160019137a88b32f25031b3f9d445b"><span class="std std-ref">hs_compress_stream()</span></a> into a new stream.</p>
 <p>Note: <code class="docutils literal notranslate"><span class="pre">buf</span></code> must correspond to a complete compressed representation created by <a class="reference internal" href="#hs__runtime_8h_1a53160019137a88b32f25031b3f9d445b"><span class="std std-ref">hs_compress_stream()</span></a> of a stream that was opened against <code class="docutils literal notranslate"><span class="pre">db</span></code>. It is not always possible to detect misuse of this API and behaviour is undefined if these properties are not satisfied.</p>
 <p><dl class="simple">
@@ -1460,9 +1481,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_reset_and_expand_stream">
-<span class="target" id="hs__runtime_8h_1a8af7e7c46d929b65f028b2efd444acd7"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_reset_and_expand_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a>  *<em> to_stream</em>, const char *<em> buf</em>, size_t<em> buf_size</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  *<em> scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a><em> onEvent</em>, void *<em> context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_reset_and_expand_stream" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a8af7e7c46d929b65f028b2efd444acd7"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_reset_and_expand_stream</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_stream_t" title="hs_stream_t">hs_stream_t</a> *<em>to_stream</em>, <em class="property">const</em> char *<em>buf</em>, size_t <em>buf_size</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a> *<em>scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a> <em>onEvent</em>, void *<em>context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_reset_and_expand_stream" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Decompresses a compressed representation created by <a class="reference internal" href="#hs__runtime_8h_1a53160019137a88b32f25031b3f9d445b"><span class="std std-ref">hs_compress_stream()</span></a> on top of the ‘to’ stream. The ‘to’ stream will first be reset (reporting any EOD matches if a non-NULL <code class="docutils literal notranslate"><span class="pre">onEvent</span></code> callback handler is provided).</p>
 <p>Note: the ‘to’ stream must be opened against the same database as the compressed stream.</p>
 <p>Note: <code class="docutils literal notranslate"><span class="pre">buf</span></code> must correspond to a complete compressed representation created by <a class="reference internal" href="#hs__runtime_8h_1a53160019137a88b32f25031b3f9d445b"><span class="std std-ref">hs_compress_stream()</span></a> of a stream that was opened against <code class="docutils literal notranslate"><span class="pre">db</span></code>. It is not always possible to detect misuse of this API and behaviour is undefined if these properties are not satisfied.</p>
@@ -1482,9 +1503,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_scan">
-<span class="target" id="hs__runtime_8h_1a261656043947931ad9d826d158119e89"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_scan</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  *<em> db</em>, const char *<em> data</em>, unsigned int<em> length</em>, unsigned int<em> flags</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  *<em> scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a><em> onEvent</em>, void *<em> context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_scan" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a261656043947931ad9d826d158119e89"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_scan</code><span class="sig-paren">(</span><em class="property">const</em> <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> *<em>db</em>, <em class="property">const</em> char *<em>data</em>, unsigned int <em>length</em>, unsigned int <em>flags</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a> *<em>scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a> <em>onEvent</em>, void *<em>context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_scan" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The block (non-streaming) regular expression scanner.</p>
 <p>This is the function call in which the actual pattern matching takes place for block-mode pattern databases.</p>
 <p><dl class="simple">
@@ -1504,9 +1525,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_scan_vector">
-<span class="target" id="hs__runtime_8h_1ad6b603921a1fd2ddf12230730d6634c6"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_scan_vector</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  *<em> db</em>, const char *const *<em> data</em>, const unsigned int *<em> length</em>, unsigned int<em> count</em>, unsigned int<em> flags</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  *<em> scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a><em> onEvent</em>, void *<em> context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_scan_vector" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1ad6b603921a1fd2ddf12230730d6634c6"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_scan_vector</code><span class="sig-paren">(</span><em class="property">const</em> <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> *<em>db</em>, <em class="property">const</em> char *<em class="property">const</em> *<em>data</em>, <em class="property">const</em> unsigned int *<em>length</em>, unsigned int <em>count</em>, unsigned int <em>flags</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a> *<em>scratch</em>, <a class="reference internal" href="#c.match_event_handler" title="match_event_handler">match_event_handler</a> <em>onEvent</em>, void *<em>context</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_scan_vector" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>The vectored regular expression scanner.</p>
 <p>This is the function call in which the actual pattern matching takes place for vectoring-mode pattern databases.</p>
 <p><dl class="simple">
@@ -1527,9 +1548,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_alloc_scratch">
-<span class="target" id="hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_alloc_scratch</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a>  *<em> db</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  **<em> scratch</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_alloc_scratch" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_alloc_scratch</code><span class="sig-paren">(</span><em class="property">const</em> <a class="reference internal" href="#c.hs_database_t" title="hs_database_t">hs_database_t</a> *<em>db</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a> **<em>scratch</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_alloc_scratch" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Allocate a “scratch” space for use by Hyperscan.</p>
 <p>This is required for runtime use, and one scratch space per thread, or concurrent caller, is required. Any allocator callback set by <a class="reference internal" href="#hs__common_8h_1a29e53465b9737c222bda3e7bcb324d61"><span class="std std-ref">hs_set_scratch_allocator()</span></a> or <a class="reference internal" href="#hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span class="std std-ref">hs_set_allocator()</span></a> will be used by this function.</p>
 <p><dl class="simple">
@@ -1544,9 +1565,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_clone_scratch">
-<span class="target" id="hs__runtime_8h_1a5ccab293a24ee56fcb82c715a7dca861"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_clone_scratch</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  *<em> src</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  **<em> dest</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_clone_scratch" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a5ccab293a24ee56fcb82c715a7dca861"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_clone_scratch</code><span class="sig-paren">(</span><em class="property">const</em> <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a> *<em>src</em>, <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a> **<em>dest</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_clone_scratch" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Allocate a scratch space that is a clone of an existing scratch space.</p>
 <p>This is useful when multiple concurrent threads will be using the same set of compiled databases, and another scratch space is required. Any allocator callback set by <a class="reference internal" href="#hs__common_8h_1a29e53465b9737c222bda3e7bcb324d61"><span class="std std-ref">hs_set_scratch_allocator()</span></a> or <a class="reference internal" href="#hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span class="std std-ref">hs_set_allocator()</span></a> will be used by this function.</p>
 <p><dl class="simple">
@@ -1561,9 +1582,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_scratch_size">
-<span class="target" id="hs__runtime_8h_1a3d3b52dd640a76eaf2eb3280be452d78"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_scratch_size</code><span class="sig-paren">(</span>const  <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  *<em> scratch</em>, size_t *<em> scratch_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_scratch_size" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1a3d3b52dd640a76eaf2eb3280be452d78"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_scratch_size</code><span class="sig-paren">(</span><em class="property">const</em> <a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a> *<em>scratch</em>, size_t *<em>scratch_size</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_scratch_size" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Provides the size of the given scratch space.</p>
 <p><dl class="simple">
 <dt><strong>Return</strong></dt><dd><p><a class="reference internal" href="#group__HS__ERROR_1ga2d533509db8628a7e0eb794e2b3e77b0"><span class="std std-ref">HS_SUCCESS</span></a> on success, other values on failure. </p>
@@ -1577,9 +1598,9 @@
 </p>
 </dd></dl>
 
-<dl class="function">
+<dl class="c function">
 <dt id="c.hs_free_scratch">
-<span class="target" id="hs__runtime_8h_1ac662a5057cf5520531775fc2841b8c5b"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_free_scratch</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a>  *<em> scratch</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_free_scratch" title="Permalink to this definition">¶</a></dt>
+<span class="target" id="hs__runtime_8h_1ac662a5057cf5520531775fc2841b8c5b"></span><a class="reference internal" href="#c.hs_error_t" title="hs_error_t">hs_error_t</a> <code class="sig-name descname">hs_free_scratch</code><span class="sig-paren">(</span><a class="reference internal" href="#c.hs_scratch_t" title="hs_scratch_t">hs_scratch_t</a> *<em>scratch</em><span class="sig-paren">)</span><a class="headerlink" href="#c.hs_free_scratch" title="Permalink to this definition">¶</a><br /></dt>
 <dd><p>Free a scratch block previously allocated by <a class="reference internal" href="#hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span class="std std-ref">hs_alloc_scratch()</span></a> or <a class="reference internal" href="#hs__runtime_8h_1a5ccab293a24ee56fcb82c715a7dca861"><span class="std std-ref">hs_clone_scratch()</span></a>.</p>
 <p>The free callback set by <a class="reference internal" href="#hs__common_8h_1a29e53465b9737c222bda3e7bcb324d61"><span class="std std-ref">hs_set_scratch_allocator()</span></a> or <a class="reference internal" href="#hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span class="std std-ref">hs_set_allocator()</span></a> will be used by this function.</p>
 <p><dl class="simple">
@@ -1635,7 +1656,7 @@
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -1644,7 +1665,7 @@
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

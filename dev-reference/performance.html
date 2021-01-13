@@ -1,18 +1,18 @@
 
 <!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
   <head>
     <meta charset="utf-8" />
-    <title>Performance Considerations &#8212; Hyperscan 5.3.0 documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Performance Considerations &#8212; Hyperscan 5.4.0 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
@@ -205,7 +205,7 @@ the buffer, so <code class="regexp docutils literal notranslate"><span class="pr
 constrain where a pattern could match. For example, the pattern
 <code class="regexp docutils literal notranslate"><span class="pre">/foo/</span></code> with a <code class="docutils literal notranslate"><span class="pre">max_offset</span></code> of 10 will only match at offsets less
 than or equal to 10 in the buffer. (This pattern could also be written as
-<code class="regexp docutils literal notranslate"><span class="pre">/^.{0,7}foo/</span></code>, compiled with the <a class="reference internal" href="api_files.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_DOTALL</span></code></a> flag).</p></li>
+<code class="regexp docutils literal notranslate"><span class="pre">/^.{0,7}foo/</span></code>, compiled with the <a class="reference internal" href="api_constants.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_DOTALL</span></code></a> flag).</p></li>
 </ul>
 </div>
 <div class="section" id="matching-everywhere">
@@ -291,7 +291,7 @@ For example, both of the above patterns are stronger and will scan faster than
 <p class="admonition-title">Tip</p>
 <p>Use “dot all” mode where possible.</p>
 </div>
-<p>Not using the <a class="reference internal" href="api_files.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_DOTALL</span></code></a> pattern flag can be expensive, as
+<p>Not using the <a class="reference internal" href="api_constants.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_DOTALL</span></code></a> pattern flag can be expensive, as
 implicitly, it means that patterns of the form <code class="regexp docutils literal notranslate"><span class="pre">/A.*B/</span></code> become
 <code class="regexp docutils literal notranslate"><span class="pre">/A[^\n]*B/</span></code>.</p>
 <p>It is likely that scanning tasks without the DOTALL flag are better done ‘line
@@ -309,7 +309,7 @@ is off but the pattern contains either explicit newlines or constructs such as
 pattern only if possible.</p>
 </div>
 <p>If only one match per pattern is required, use the flag provided to indicate
-this (<a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a>). This flag can allow a number of
+this (<a class="reference internal" href="api_constants.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a>). This flag can allow a number of
 optimizations to be applied, allowing both performance improvements and state
 space reductions when streaming.</p>
 <p>However, there is some overhead associated with tracking whether each pattern in
@@ -324,14 +324,14 @@ see reduced performance when the single-match flag is used.</p>
 </div>
 <p>Start of Match (SOM) information can be expensive to gather and can require
 large amounts of stream state to store in streaming mode. As such, SOM
-information should only be requested with the <a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a>
+information should only be requested with the <a class="reference internal" href="api_constants.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a>
 flag for patterns that require it.</p>
 <p>SOM information is not generally expected to be cheaper (in either performance
 terms or in stream state overhead) than the use of bounded repeats.
 Consequently, <code class="regexp docutils literal notranslate"><span class="pre">/foo.*bar/L</span></code> with a check on start of match values after
 the callback is considerably more expensive and general than
 <code class="regexp docutils literal notranslate"><span class="pre">/foo.{300}bar/</span></code>.</p>
-<p>Similarly, the <a class="reference internal" href="api_files.html#c.hs_expr_ext::min_length" title="hs_expr_ext::min_length"><code class="xref c c-member docutils literal notranslate"><span class="pre">hs_expr_ext::min_length</span></code></a> extended parameter can be
+<p>Similarly, the <code class="xref c c-member docutils literal notranslate"><span class="pre">hs_expr_ext::min_length</span></code> extended parameter can be
 used to specify a lower bound on the length of the matches for a pattern. Using
 this facility may be more lightweight in some circumstances than using the SOM
 flag and post-confirming match length in the calling application.</p>
@@ -396,7 +396,7 @@ depending on the pattern and edit distance.</p>
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -405,7 +405,7 @@ depending on the pattern and edit distance.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

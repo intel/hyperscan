@@ -1,18 +1,18 @@
 
 <!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
   <head>
     <meta charset="utf-8" />
-    <title>Tools &#8212; Hyperscan 5.3.0 documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tools &#8212; Hyperscan 5.4.0 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
@@ -279,47 +279,47 @@ Hyperscan and must be unique.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">i</span></code></p></td>
-<td><p><a class="reference internal" href="api_files.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_CASELESS</span></code></a></p></td>
+<td><p><a class="reference internal" href="api_constants.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_CASELESS</span></code></a></p></td>
 <td><p>Case-insensitive matching</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">s</span></code></p></td>
-<td><p><a class="reference internal" href="api_files.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_DOTALL</span></code></a></p></td>
+<td><p><a class="reference internal" href="api_constants.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_DOTALL</span></code></a></p></td>
 <td><p>Dot (<code class="docutils literal notranslate"><span class="pre">.</span></code>) will match newlines</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">m</span></code></p></td>
-<td><p><a class="reference internal" href="api_files.html#c.HS_FLAG_MULTILINE" title="HS_FLAG_MULTILINE"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_MULTILINE</span></code></a></p></td>
+<td><p><a class="reference internal" href="api_constants.html#c.HS_FLAG_MULTILINE" title="HS_FLAG_MULTILINE"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_MULTILINE</span></code></a></p></td>
 <td><p>Multi-line anchoring</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">H</span></code></p></td>
-<td><p><a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a></p></td>
+<td><p><a class="reference internal" href="api_constants.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a></p></td>
 <td><p>Report match ID at most once</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">V</span></code></p></td>
-<td><p><a class="reference internal" href="api_files.html#c.HS_FLAG_ALLOWEMPTY" title="HS_FLAG_ALLOWEMPTY"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_ALLOWEMPTY</span></code></a></p></td>
+<td><p><a class="reference internal" href="api_constants.html#c.HS_FLAG_ALLOWEMPTY" title="HS_FLAG_ALLOWEMPTY"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_ALLOWEMPTY</span></code></a></p></td>
 <td><p>Allow patterns that can match against empty buffers</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">8</span></code></p></td>
-<td><p><a class="reference internal" href="api_files.html#c.HS_FLAG_UTF8" title="HS_FLAG_UTF8"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_UTF8</span></code></a></p></td>
+<td><p><a class="reference internal" href="api_constants.html#c.HS_FLAG_UTF8" title="HS_FLAG_UTF8"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_UTF8</span></code></a></p></td>
 <td><p>UTF-8 mode</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">W</span></code></p></td>
-<td><p><a class="reference internal" href="api_files.html#c.HS_FLAG_UCP" title="HS_FLAG_UCP"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_UCP</span></code></a></p></td>
+<td><p><a class="reference internal" href="api_constants.html#c.HS_FLAG_UCP" title="HS_FLAG_UCP"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_UCP</span></code></a></p></td>
 <td><p>Unicode property support</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">P</span></code></p></td>
-<td><p><a class="reference internal" href="api_files.html#c.HS_FLAG_PREFILTER" title="HS_FLAG_PREFILTER"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_PREFILTER</span></code></a></p></td>
+<td><p><a class="reference internal" href="api_constants.html#c.HS_FLAG_PREFILTER" title="HS_FLAG_PREFILTER"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_PREFILTER</span></code></a></p></td>
 <td><p>Prefiltering mode</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">L</span></code></p></td>
-<td><p><a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a></p></td>
+<td><p><a class="reference internal" href="api_constants.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a></p></td>
 <td><p>Leftmost start of match reporting</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">C</span></code></p></td>
-<td><p><a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_COMBINATION</span></code></a></p></td>
+<td><p><a class="reference internal" href="api_constants.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_COMBINATION</span></code></a></p></td>
 <td><p>Logical combination of patterns</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Q</span></code></p></td>
-<td><p><a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_QUIET</span></code></a></p></td>
+<td><p><a class="reference internal" href="api_constants.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_QUIET</span></code></a></p></td>
 <td><p>Quiet at matching</p></td>
 </tr>
 </tbody>
@@ -378,7 +378,7 @@ argument.</p>
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -387,7 +387,7 @@ argument.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

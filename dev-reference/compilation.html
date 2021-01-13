@@ -1,18 +1,18 @@
 
 <!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
   <head>
     <meta charset="utf-8" />
-    <title>Compiling Patterns &#8212; Hyperscan 5.3.0 documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Compiling Patterns &#8212; Hyperscan 5.4.0 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
@@ -67,9 +67,9 @@ blocks that are available all at once. As for block mode, no retention of
 state is required.</p></li>
 </ul>
 <p>To compile patterns to be used in streaming mode, the <code class="docutils literal notranslate"><span class="pre">mode</span></code> parameter of
-<a class="reference internal" href="api_files.html#c.hs_compile" title="hs_compile"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile()</span></code></a> must be set to <a class="reference internal" href="api_files.html#c.HS_MODE_STREAM" title="HS_MODE_STREAM"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_MODE_STREAM</span></code></a>; similarly,
-block mode requires the use of <a class="reference internal" href="api_files.html#c.HS_MODE_BLOCK" title="HS_MODE_BLOCK"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_MODE_BLOCK</span></code></a> and vectored mode
-requires the use of <a class="reference internal" href="api_files.html#c.HS_MODE_VECTORED" title="HS_MODE_VECTORED"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_MODE_VECTORED</span></code></a>. A pattern database compiled
+<a class="reference internal" href="api_files.html#c.hs_compile" title="hs_compile"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile()</span></code></a> must be set to <a class="reference internal" href="api_constants.html#c.HS_MODE_STREAM" title="HS_MODE_STREAM"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_MODE_STREAM</span></code></a>; similarly,
+block mode requires the use of <a class="reference internal" href="api_constants.html#c.HS_MODE_BLOCK" title="HS_MODE_BLOCK"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_MODE_BLOCK</span></code></a> and vectored mode
+requires the use of <a class="reference internal" href="api_constants.html#c.HS_MODE_VECTORED" title="HS_MODE_VECTORED"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_MODE_VECTORED</span></code></a>. A pattern database compiled
 for one mode (streaming, block or vectored) can only be used in that mode. The
 version of Hyperscan used to produce a compiled pattern database must match the
 version of Hyperscan used to scan with it.</p>
@@ -82,20 +82,20 @@ regarded as a pure literal if and only if each character is read and
 interpreted independently. No syntax association happens between any adjacent
 characters.</p>
 <p>For example, given an expression written as <code class="regexp docutils literal notranslate"><span class="pre">/bc?/</span></code>. We could say it is
-a regluar expression, with the meaning that character <code class="docutils literal notranslate"><span class="pre">b</span></code> followed by nothing
+a regular expression, with the meaning that character <code class="docutils literal notranslate"><span class="pre">b</span></code> followed by nothing
 or by one character <code class="docutils literal notranslate"><span class="pre">c</span></code>. On the other view, we could also say it is a pure
 literal expression, with the meaning that this is a character sequence of 3-byte
 length, containing characters <code class="docutils literal notranslate"><span class="pre">b</span></code>, <code class="docutils literal notranslate"><span class="pre">c</span></code> and <code class="docutils literal notranslate"><span class="pre">?</span></code>. In regular case, the
 question mark character <code class="docutils literal notranslate"><span class="pre">?</span></code> has a particular syntax role called 0-1 quantifier,
-which has an syntax association with the character ahead of it. Similar
-characters exist in regular grammer like <code class="docutils literal notranslate"><span class="pre">[</span></code>, <code class="docutils literal notranslate"><span class="pre">]</span></code>, <code class="docutils literal notranslate"><span class="pre">(</span></code>, <code class="docutils literal notranslate"><span class="pre">)</span></code>, <code class="docutils literal notranslate"><span class="pre">{</span></code>,
+which has a syntax association with the character ahead of it. Similar
+characters exist in regular grammar like <code class="docutils literal notranslate"><span class="pre">[</span></code>, <code class="docutils literal notranslate"><span class="pre">]</span></code>, <code class="docutils literal notranslate"><span class="pre">(</span></code>, <code class="docutils literal notranslate"><span class="pre">)</span></code>, <code class="docutils literal notranslate"><span class="pre">{</span></code>,
 <code class="docutils literal notranslate"><span class="pre">}</span></code>, <code class="docutils literal notranslate"><span class="pre">-</span></code>, <code class="docutils literal notranslate"><span class="pre">*</span></code>, <code class="docutils literal notranslate"><span class="pre">+</span></code>, <code class="docutils literal notranslate"><span class="pre">\</span></code>, <code class="docutils literal notranslate"><span class="pre">|</span></code>, <code class="docutils literal notranslate"><span class="pre">/</span></code>, <code class="docutils literal notranslate"><span class="pre">:</span></code>, <code class="docutils literal notranslate"><span class="pre">^</span></code>, <code class="docutils literal notranslate"><span class="pre">.</span></code>, <code class="docutils literal notranslate"><span class="pre">$</span></code>.
 While in pure literal case, all these meta characters lost extra meanings
 expect for that they are just common ASCII codes.</p>
 <p>Hyperscan is initially designed to process common regular expressions. It is
-hence embedded with a complex parser to do comprehensive regular grammer
-interpretion. Particularly, the identification of above meta characters is the
-basic step for the interpretion of far more complex regular grammers.</p>
+hence embedded with a complex parser to do comprehensive regular grammar
+interpretation. Particularly, the identification of above meta characters is the
+basic step for the interpretation of far more complex regular grammars.</p>
 <p>However in real cases, patterns may not always be regular expressions. They
 could just be pure literals. Problem will come if the pure literals contain
 regular meta characters. Supposing fed directly into traditional Hyperscan
@@ -122,8 +122,8 @@ characters in their patterns. No preprocessing work is needed any more.</p>
 Hyperscan needs to locate the end position of the input expression via clearly
 knowing each literal’s length, not by simply identifying character <code class="docutils literal notranslate"><span class="pre">\0</span></code> of a
 string.</p>
-<p>Supported flags: <a class="reference internal" href="api_files.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_CASELESS</span></code></a>, <a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a>,
-<a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a>.</p>
+<p>Supported flags: <a class="reference internal" href="api_constants.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_CASELESS</span></code></a>, <a class="reference internal" href="api_constants.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a>,
+<a class="reference internal" href="api_constants.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>We don’t support literal compilation API with <a class="reference internal" href="#extparam"><span class="std std-ref">Extended Parameters</span></a>. And
@@ -171,7 +171,7 @@ when applied to arbitrary supported sub-expressions.</p></li>
 <code class="regexp docutils literal notranslate"><span class="pre">{n,}</span></code> are supported with limitations.</p>
 <ul>
 <li><p>For arbitrary repeated sub-patterns: <em>n</em> and <em>m</em> should be either small
-or infinite, e.g. <code class="regexp docutils literal notranslate"><span class="pre">(a|b}{4}</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">(ab?c?d){4,10}</span></code> or
+or infinite, e.g. <code class="regexp docutils literal notranslate"><span class="pre">(a|b){4}</span></code>, <code class="regexp docutils literal notranslate"><span class="pre">(ab?c?d){4,10}</span></code> or
 <code class="regexp docutils literal notranslate"><span class="pre">(ab(cd)*){6,}</span></code>.</p></li>
 <li><p>For single-character width sub-patterns such as <code class="regexp docutils literal notranslate"><span class="pre">[^\a]</span></code> or
 <code class="regexp docutils literal notranslate"><span class="pre">.</span></code> or <code class="regexp docutils literal notranslate"><span class="pre">x</span></code>, nearly all repeat counts are supported, except
@@ -179,7 +179,7 @@ where repeats are extremely large (maximum bound greater than 32767).
 Stream states may be very large for large bounded repeats, e.g.
 <code class="regexp docutils literal notranslate"><span class="pre">a.{2000}b</span></code>. Note: such sub-patterns may be considerably
 cheaper if at the beginning or end of patterns and especially if the
-<a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> flag is on for that pattern.</p></li>
+<a class="reference internal" href="api_constants.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> flag is on for that pattern.</p></li>
 </ul>
 </li>
 <li><p>Lazy modifiers (<code class="regexp docutils literal notranslate"><span class="pre">?</span></code> appended to another quantifier, e.g.
@@ -198,10 +198,10 @@ non-capturing forms. However, capturing is ignored.</p></li>
 <blockquote>
 <div><ul class="simple">
 <li><p><code class="regexp docutils literal notranslate"><span class="pre">i</span></code>: Case-insensitive matching, as per
-<a class="reference internal" href="api_files.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_CASELESS</span></code></a>.</p></li>
-<li><p><code class="regexp docutils literal notranslate"><span class="pre">m</span></code>: Multi-line matching, as per <a class="reference internal" href="api_files.html#c.HS_FLAG_MULTILINE" title="HS_FLAG_MULTILINE"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_MULTILINE</span></code></a>.</p></li>
+<a class="reference internal" href="api_constants.html#c.HS_FLAG_CASELESS" title="HS_FLAG_CASELESS"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_CASELESS</span></code></a>.</p></li>
+<li><p><code class="regexp docutils literal notranslate"><span class="pre">m</span></code>: Multi-line matching, as per <a class="reference internal" href="api_constants.html#c.HS_FLAG_MULTILINE" title="HS_FLAG_MULTILINE"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_MULTILINE</span></code></a>.</p></li>
 <li><p><code class="regexp docutils literal notranslate"><span class="pre">s</span></code>: Interpret <code class="docutils literal notranslate"><span class="pre">.</span></code> as “any character”, as per
-<a class="reference internal" href="api_files.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_DOTALL</span></code></a>.</p></li>
+<a class="reference internal" href="api_constants.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_DOTALL</span></code></a>.</p></li>
 <li><p><code class="regexp docutils literal notranslate"><span class="pre">x</span></code>: Extended syntax, which will ignore most whitespace in the
 pattern for compatibility with libpcre’s <code class="docutils literal notranslate"><span class="pre">PCRE_EXTENDED</span></code> option.</p></li>
 </ul>
@@ -224,7 +224,7 @@ expressions (e.g. <code class="regexp docutils literal notranslate"><span class=
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>At this time, not all patterns can be successfully compiled with the
-<a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag, which enables per-pattern support for
+<a class="reference internal" href="api_constants.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag, which enables per-pattern support for
 <a class="reference internal" href="#som"><span class="std std-ref">Start of Match</span></a>. The patterns that support this flag are a subset of patterns that
 can be successfully compiled with Hyperscan; notably, many bounded repeat
 forms that can be compiled with Hyperscan without the Start of Match flag
@@ -308,7 +308,7 @@ as in block 3 – which would constitute a better match for the pattern.</p>
 <div class="section" id="start-of-match">
 <span id="som"></span><h3>Start of Match<a class="headerlink" href="#start-of-match" title="Permalink to this headline">¶</a></h3>
 <p>In standard operation, Hyperscan will only provide the end offset of a match
-when the match callback is called. If the <a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag
+when the match callback is called. If the <a class="reference internal" href="api_constants.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag
 is specified for a particular pattern, then the same set of matches is
 returned, but each match will also provide the leftmost possible start offset
 corresponding to its end offset.</p>
@@ -324,9 +324,9 @@ required to match a pattern.</p></li>
 <li><p>Performance overhead: Similarly, there is generally a performance cost
 associated with tracking SOM.</p></li>
 <li><p>Incompatible features: Some other Hyperscan pattern flags (such as
-<a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> and <a class="reference internal" href="api_files.html#c.HS_FLAG_PREFILTER" title="HS_FLAG_PREFILTER"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_PREFILTER</span></code></a>) can not be
+<a class="reference internal" href="api_constants.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> and <a class="reference internal" href="api_constants.html#c.HS_FLAG_PREFILTER" title="HS_FLAG_PREFILTER"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_PREFILTER</span></code></a>) can not be
 used in combination with SOM. Specifying them together with
-<a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> will result in a compilation error.</p></li>
+<a class="reference internal" href="api_constants.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> will result in a compilation error.</p></li>
 </ul>
 <p>In streaming mode, the amount of precision delivered by SOM can be controlled
 with the SOM horizon flags. These instruct Hyperscan to deliver accurate SOM
@@ -382,7 +382,7 @@ section.</p>
 </div>
 <div class="section" id="prefiltering-mode">
 <h3>Prefiltering Mode<a class="headerlink" href="#prefiltering-mode" title="Permalink to this headline">¶</a></h3>
-<p>Hyperscan provides a per-pattern flag, <a class="reference internal" href="api_files.html#c.HS_FLAG_PREFILTER" title="HS_FLAG_PREFILTER"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_PREFILTER</span></code></a>, which can
+<p>Hyperscan provides a per-pattern flag, <a class="reference internal" href="api_constants.html#c.HS_FLAG_PREFILTER" title="HS_FLAG_PREFILTER"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_PREFILTER</span></code></a>, which can
 be used to implement a prefilter for a pattern than Hyperscan would not
 ordinarily support.</p>
 <p>This flag instructs Hyperscan to compile an “approximate” version of this
@@ -407,7 +407,7 @@ matches for the pattern.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>The use of this flag in combination with Start of Match mode (using
-the <a class="reference internal" href="api_files.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag) is not currently supported and
+the <a class="reference internal" href="api_constants.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag) is not currently supported and
 will result in a pattern compilation error.</p>
 </div>
 </div>
@@ -440,7 +440,7 @@ Use of this field does not limit the processors that the resulting database
 can run on, but may impact the performance of the resulting database.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cpu_features</span></code>: This allows the application to specify a mask of CPU
 features that may be used on the target platform. For example,
-<a class="reference internal" href="api_files.html#c.HS_CPU_FEATURES_AVX2" title="HS_CPU_FEATURES_AVX2"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_CPU_FEATURES_AVX2</span></code></a> can be specified for Intel® Advanced
+<a class="reference internal" href="api_constants.html#c.HS_CPU_FEATURES_AVX2" title="HS_CPU_FEATURES_AVX2"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_CPU_FEATURES_AVX2</span></code></a> can be specified for Intel® Advanced
 Vector Extensions 2 (Intel® AVX2) instruction set support. If a flag
 for a particular CPU feature is specified, the database will not be usable on
 a CPU without that feature.</p></li>
@@ -585,13 +585,13 @@ combination described in the previous section would be written as:</p>
 </div></blockquote>
 <p>To use a logical combination expression, it must be passed to one of the
 Hyperscan compile functions (<a class="reference internal" href="api_files.html#c.hs_compile_multi" title="hs_compile_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_multi()</span></code></a>,
-<a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_ext_multi()</span></code></a>) along with the <a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag,
+<a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_ext_multi()</span></code></a>) along with the <a class="reference internal" href="api_constants.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag,
 which identifies the pattern as a logical combination expression. The patterns
 referred to in the logical combination expression must be compiled together in
 the same pattern set as the combination expression.</p>
-<p>When an expression has the <a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag set, it ignores
-all other flags except the <a class="reference internal" href="api_files.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> flag and the
-<a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_QUIET</span></code></a> flag.</p>
+<p>When an expression has the <a class="reference internal" href="api_constants.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag set, it ignores
+all other flags except the <a class="reference internal" href="api_constants.html#c.HS_FLAG_SINGLEMATCH" title="HS_FLAG_SINGLEMATCH"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SINGLEMATCH</span></code></a> flag and the
+<a class="reference internal" href="api_constants.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_QUIET</span></code></a> flag.</p>
 <p>Hyperscan will accept logical combination expressions at compile time that
 evaluate to <em>true</em> when no patterns have matched, and report the match for
 combination at end of data if no patterns have matched; for example:</p>
@@ -603,11 +603,11 @@ combination at end of data if no patterns have matched; for example:</p>
 </div>
 <p>Patterns that are referred to as operands within a logical combination (for
 example, 301 through 305 in the examples above) may also use the
-<a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_QUIET</span></code></a> flag to silence the reporting of individual matches
+<a class="reference internal" href="api_constants.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_QUIET</span></code></a> flag to silence the reporting of individual matches
 for those patterns. In the absence of this flag, all matches (for
 both individual patterns and their logical combinations) will be reported.</p>
-<p>When an expression has both the <a class="reference internal" href="api_files.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag and the
-<a class="reference internal" href="api_files.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_QUIET</span></code></a> flag set, no matches for this logical combination
+<p>When an expression has both the <a class="reference internal" href="api_constants.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag and the
+<a class="reference internal" href="api_constants.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_QUIET</span></code></a> flag set, no matches for this logical combination
 will be reported.</p>
 </div>
 </div>
@@ -652,7 +652,7 @@ will be reported.</p>
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -661,7 +661,7 @@ will be reported.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

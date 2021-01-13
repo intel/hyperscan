@@ -1,18 +1,18 @@
 
 <!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
   <head>
     <meta charset="utf-8" />
-    <title>Scanning for Patterns &#8212; Hyperscan 5.3.0 documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scanning for Patterns &#8212; Hyperscan 5.4.0 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
@@ -44,9 +44,9 @@ of other API functions for managing stream state.</p>
 <p>All of these functions will call a user-supplied callback function when a match
 is found. This function has the following signature:</p>
 <blockquote>
-<div><dl class="typedef">
+<div><dl class="c type">
 <dt>
-<em class="property">typedef </em>int<code class="sig-name descname">( * match_event_handler)</code><span class="sig-paren">(</span>unsigned int<em> id</em>, unsigned long long<em> from</em>, unsigned long long<em> to</em>, unsigned int<em> flags</em>, void<em> *context</em><span class="sig-paren">)</span></dt>
+<em class="property">typedef </em>int (*<code class="sig-name descname">match_event_handler</code>)<span class="sig-paren">(</span>unsigned int id, unsigned long long from, unsigned long long to, unsigned int flags, void *context<span class="sig-paren">)</span><br /></dt>
 <dd></dd></dl>
 
 </div></blockquote>
@@ -77,7 +77,7 @@ application via a function pointer callback.</p>
 data stream by returning a non-zero value. In streaming mode, the result of
 this is that the stream is then left in a state where no more data can be
 scanned, and any subsequent calls to <a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_scan_stream()</span></code></a> for that stream
-will return immediately with <a class="reference internal" href="api_files.html#c.HS_SCAN_TERMINATED" title="HS_SCAN_TERMINATED"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_SCAN_TERMINATED</span></code></a>. The caller must
+will return immediately with <a class="reference internal" href="api_constants.html#c.HS_SCAN_TERMINATED" title="HS_SCAN_TERMINATED"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_SCAN_TERMINATED</span></code></a>. The caller must
 still call <a class="reference internal" href="api_files.html#c.hs_close_stream" title="hs_close_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_close_stream()</span></code></a> to complete the clean-up process for that
 stream.</p>
 <p>Streams exist in the Hyperscan library so that pattern matching state can be
@@ -123,7 +123,7 @@ functionality are:</p>
 <li><p><a class="reference internal" href="api_files.html#c.hs_compress_stream" title="hs_compress_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compress_stream()</span></code></a>: fills the provided buffer with a compressed
 representation of the stream and returns the number of bytes consumed by the
 compressed representation. If the buffer is not large enough to hold the
-compressed representation, <a class="reference internal" href="api_files.html#c.HS_INSUFFICIENT_SPACE" title="HS_INSUFFICIENT_SPACE"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_INSUFFICIENT_SPACE</span></code></a> is returned along
+compressed representation, <a class="reference internal" href="api_constants.html#c.HS_INSUFFICIENT_SPACE" title="HS_INSUFFICIENT_SPACE"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_INSUFFICIENT_SPACE</span></code></a> is returned along
 with the required size. This call does not modify the original stream in any
 way: it may still be written to with <a class="reference internal" href="api_files.html#c.hs_scan_stream" title="hs_scan_stream"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_scan_stream()</span></code></a>, used as part of
 the various reset calls to reinitialise its state, or
@@ -180,7 +180,7 @@ scanning (say, from the match callback function), then an additional scratch
 space is required for that context.</p>
 <p>In the absence of recursive scanning, only one such space is required per thread
 and can (and indeed should) be allocated before data scanning is to commence.</p>
-<p>In a scenario where a set of expressions are compiled by a single “master”
+<p>In a scenario where a set of expressions are compiled by a single “main”
 thread and data will be scanned by multiple “worker” threads, the convenience
 function <a class="reference internal" href="api_files.html#c.hs_clone_scratch" title="hs_clone_scratch"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_clone_scratch()</span></code></a> allows multiple copies of an existing
 scratch space to be made for each thread (rather than forcing the caller to pass
@@ -279,7 +279,7 @@ allocators to the same allocate/free pair.</p>
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -288,7 +288,7 @@ allocators to the same allocate/free pair.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

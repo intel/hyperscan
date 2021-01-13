@@ -1,19 +1,18 @@
 
-
 <!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html>
   <head>
     <meta charset="utf-8" />
-    <title>Index &#8212; Hyperscan 5.3.0 documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Index &#8212; Hyperscan 5.4.0 documentation</title>
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="#" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="copyright" title="Copyright" href="copyright.html" />
@@ -39,6 +38,7 @@
 <div class="genindex-jumpbox">
  <a href="#C"><strong>C</strong></a>
  | <a href="#H"><strong>H</strong></a>
+ | <a href="#M"><strong>M</strong></a>
  
 </div>
 <h2 id="C">C</h2>
@@ -46,29 +46,117 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="chimera.html#c.ch_alloc_scratch">ch_alloc_scratch (C function)</a>
 </li>
+      <li><a href="chimera.html#c.ch_alloc_t">ch_alloc_t (C type)</a>
+</li>
+      <li><a href="chimera.html#c.CH_BAD_ALIGN">CH_BAD_ALIGN (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_BAD_ALLOC">CH_BAD_ALLOC (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_CALLBACK_CONTINUE">CH_CALLBACK_CONTINUE (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_CALLBACK_SKIP_PATTERN">CH_CALLBACK_SKIP_PATTERN (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.ch_callback_t">ch_callback_t (C type)</a>
+</li>
+      <li><a href="chimera.html#c.CH_CALLBACK_TERMINATE">CH_CALLBACK_TERMINATE (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.ch_capture">ch_capture (C struct)</a>
+</li>
+      <li><a href="chimera.html#c.ch_capture.flags">ch_capture.flags (C var)</a>
+</li>
+      <li><a href="chimera.html#c.ch_capture.from">ch_capture.from (C var)</a>
+</li>
+      <li><a href="chimera.html#c.ch_capture.to">ch_capture.to (C var)</a>
+</li>
+      <li><a href="chimera.html#c.CH_CAPTURE_FLAG_ACTIVE">CH_CAPTURE_FLAG_ACTIVE (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_CAPTURE_FLAG_INACTIVE">CH_CAPTURE_FLAG_INACTIVE (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.ch_capture_t">ch_capture_t (C type)</a>
+</li>
       <li><a href="chimera.html#c.ch_clone_scratch">ch_clone_scratch (C function)</a>
 </li>
       <li><a href="chimera.html#c.ch_compile">ch_compile (C function)</a>
+</li>
+      <li><a href="chimera.html#c.ch_compile_error">ch_compile_error (C struct)</a>
+</li>
+      <li><a href="chimera.html#c.ch_compile_error.expression">ch_compile_error.expression (C var)</a>
+</li>
+      <li><a href="chimera.html#c.ch_compile_error.message">ch_compile_error.message (C var)</a>
+</li>
+      <li><a href="chimera.html#c.ch_compile_error_t">ch_compile_error_t (C type)</a>
 </li>
       <li><a href="chimera.html#c.ch_compile_ext_multi">ch_compile_ext_multi (C function)</a>
 </li>
       <li><a href="chimera.html#c.ch_compile_multi">ch_compile_multi (C function)</a>
 </li>
+      <li><a href="chimera.html#c.CH_COMPILER_ERROR">CH_COMPILER_ERROR (C macro)</a>
+</li>
       <li><a href="chimera.html#c.ch_database_info">ch_database_info (C function)</a>
 </li>
       <li><a href="chimera.html#c.ch_database_size">ch_database_size (C function)</a>
 </li>
-      <li><a href="chimera.html#c.ch_free_compile_error">ch_free_compile_error (C function)</a>
+      <li><a href="chimera.html#c.ch_database_t">ch_database_t (C type)</a>
+</li>
+      <li><a href="chimera.html#c.CH_DB_MODE_ERROR">CH_DB_MODE_ERROR (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_DB_PLATFORM_ERROR">CH_DB_PLATFORM_ERROR (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_DB_VERSION_ERROR">CH_DB_VERSION_ERROR (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.ch_error_event_handler">ch_error_event_handler (C type)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="chimera.html#c.ch_error_event_t">ch_error_event_t (C type)</a>
+</li>
+      <li><a href="chimera.html#c.CH_ERROR_MATCHLIMIT">CH_ERROR_MATCHLIMIT (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_ERROR_RECURSIONLIMIT">CH_ERROR_RECURSIONLIMIT (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.ch_error_t">ch_error_t (C type)</a>
+</li>
+      <li><a href="chimera.html#c.CH_FAIL_INTERNAL">CH_FAIL_INTERNAL (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_FLAG_CASELESS">CH_FLAG_CASELESS (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_FLAG_DOTALL">CH_FLAG_DOTALL (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_FLAG_MULTILINE">CH_FLAG_MULTILINE (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_FLAG_SINGLEMATCH">CH_FLAG_SINGLEMATCH (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_FLAG_UCP">CH_FLAG_UCP (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_FLAG_UTF8">CH_FLAG_UTF8 (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.ch_free_compile_error">ch_free_compile_error (C function)</a>
+</li>
       <li><a href="chimera.html#c.ch_free_database">ch_free_database (C function)</a>
 </li>
       <li><a href="chimera.html#c.ch_free_scratch">ch_free_scratch (C function)</a>
 </li>
+      <li><a href="chimera.html#c.ch_free_t">ch_free_t (C type)</a>
+</li>
+      <li><a href="chimera.html#c.CH_INVALID">CH_INVALID (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.ch_match_event_handler">ch_match_event_handler (C type)</a>
+</li>
+      <li><a href="chimera.html#c.CH_MODE_GROUPS">CH_MODE_GROUPS (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_MODE_NOGROUPS">CH_MODE_NOGROUPS (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_NOMEM">CH_NOMEM (C macro)</a>
+</li>
       <li><a href="chimera.html#c.ch_scan">ch_scan (C function)</a>
 </li>
+      <li><a href="chimera.html#c.CH_SCAN_TERMINATED">CH_SCAN_TERMINATED (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_SCRATCH_IN_USE">CH_SCRATCH_IN_USE (C macro)</a>
+</li>
       <li><a href="chimera.html#c.ch_scratch_size">ch_scratch_size (C function)</a>
+</li>
+      <li><a href="chimera.html#c.ch_scratch_t">ch_scratch_t (C type)</a>
 </li>
       <li><a href="chimera.html#c.ch_set_allocator">ch_set_allocator (C function)</a>
 </li>
@@ -77,6 +165,10 @@
       <li><a href="chimera.html#c.ch_set_misc_allocator">ch_set_misc_allocator (C function)</a>
 </li>
       <li><a href="chimera.html#c.ch_set_scratch_allocator">ch_set_scratch_allocator (C function)</a>
+</li>
+      <li><a href="chimera.html#c.CH_SUCCESS">CH_SUCCESS (C macro)</a>
+</li>
+      <li><a href="chimera.html#c.CH_UNKNOWN_HS_ERROR">CH_UNKNOWN_HS_ERROR (C macro)</a>
 </li>
       <li><a href="chimera.html#c.ch_version">ch_version (C function)</a>
 </li>
@@ -88,11 +180,27 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="api_files.html#c.hs_alloc_scratch">hs_alloc_scratch (C function)</a>
 </li>
+      <li><a href="api_files.html#c.hs_alloc_t">hs_alloc_t (C type)</a>
+</li>
+      <li><a href="api_files.html#c.HS_ARCH_ERROR">HS_ARCH_ERROR (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_BAD_ALIGN">HS_BAD_ALIGN (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_BAD_ALLOC">HS_BAD_ALLOC (C macro)</a>
+</li>
       <li><a href="api_files.html#c.hs_clone_scratch">hs_clone_scratch (C function)</a>
 </li>
       <li><a href="api_files.html#c.hs_close_stream">hs_close_stream (C function)</a>
 </li>
       <li><a href="api_files.html#c.hs_compile">hs_compile (C function)</a>
+</li>
+      <li><a href="api_files.html#c.hs_compile_error">hs_compile_error (C struct)</a>
+</li>
+      <li><a href="api_files.html#c.hs_compile_error.expression">hs_compile_error.expression (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_compile_error.message">hs_compile_error.message (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_compile_error_t">hs_compile_error_t (C type)</a>
 </li>
       <li><a href="api_files.html#c.hs_compile_ext_multi">hs_compile_ext_multi (C function)</a>
 </li>
@@ -102,23 +210,105 @@
 </li>
       <li><a href="api_files.html#c.hs_compile_multi">hs_compile_multi (C function)</a>
 </li>
+      <li><a href="api_files.html#c.HS_COMPILER_ERROR">HS_COMPILER_ERROR (C macro)</a>
+</li>
       <li><a href="api_files.html#c.hs_compress_stream">hs_compress_stream (C function)</a>
 </li>
       <li><a href="api_files.html#c.hs_copy_stream">hs_copy_stream (C function)</a>
+</li>
+      <li><a href="api_files.html#c.HS_CPU_FEATURES_AVX2">HS_CPU_FEATURES_AVX2 (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_CPU_FEATURES_AVX512">HS_CPU_FEATURES_AVX512 (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_CPU_FEATURES_AVX512VBMI">HS_CPU_FEATURES_AVX512VBMI (C macro)</a>
 </li>
       <li><a href="api_files.html#c.hs_database_info">hs_database_info (C function)</a>
 </li>
       <li><a href="api_files.html#c.hs_database_size">hs_database_size (C function)</a>
 </li>
+      <li><a href="api_files.html#c.hs_database_t">hs_database_t (C type)</a>
+</li>
+      <li><a href="api_files.html#c.HS_DB_MODE_ERROR">HS_DB_MODE_ERROR (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_DB_PLATFORM_ERROR">HS_DB_PLATFORM_ERROR (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_DB_VERSION_ERROR">HS_DB_VERSION_ERROR (C macro)</a>
+</li>
       <li><a href="api_files.html#c.hs_deserialize_database">hs_deserialize_database (C function)</a>
 </li>
       <li><a href="api_files.html#c.hs_deserialize_database_at">hs_deserialize_database_at (C function)</a>
 </li>
+      <li><a href="api_files.html#c.hs_error_t">hs_error_t (C type)</a>
+</li>
       <li><a href="api_files.html#c.hs_expand_stream">hs_expand_stream (C function)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_ext">hs_expr_ext (C struct)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_ext.edit_distance">hs_expr_ext.edit_distance (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_ext.flags">hs_expr_ext.flags (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_ext.hamming_distance">hs_expr_ext.hamming_distance (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_ext.max_offset">hs_expr_ext.max_offset (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_ext.min_length">hs_expr_ext.min_length (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_ext.min_offset">hs_expr_ext.min_offset (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_ext_t">hs_expr_ext_t (C type)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_info">hs_expr_info (C struct)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_info.matches_at_eod">hs_expr_info.matches_at_eod (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_info.matches_only_at_eod">hs_expr_info.matches_only_at_eod (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_info.max_width">hs_expr_info.max_width (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_info.min_width">hs_expr_info.min_width (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_info.unordered_matches">hs_expr_info.unordered_matches (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_expr_info_t">hs_expr_info_t (C type)</a>
 </li>
       <li><a href="api_files.html#c.hs_expression_ext_info">hs_expression_ext_info (C function)</a>
 </li>
       <li><a href="api_files.html#c.hs_expression_info">hs_expression_info (C function)</a>
+</li>
+      <li><a href="api_files.html#c.HS_EXT_FLAG_EDIT_DISTANCE">HS_EXT_FLAG_EDIT_DISTANCE (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_EXT_FLAG_HAMMING_DISTANCE">HS_EXT_FLAG_HAMMING_DISTANCE (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_EXT_FLAG_MAX_OFFSET">HS_EXT_FLAG_MAX_OFFSET (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_EXT_FLAG_MIN_LENGTH">HS_EXT_FLAG_MIN_LENGTH (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_EXT_FLAG_MIN_OFFSET">HS_EXT_FLAG_MIN_OFFSET (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_FLAG_ALLOWEMPTY">HS_FLAG_ALLOWEMPTY (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_FLAG_CASELESS">HS_FLAG_CASELESS (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_FLAG_COMBINATION">HS_FLAG_COMBINATION (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_FLAG_DOTALL">HS_FLAG_DOTALL (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_FLAG_MULTILINE">HS_FLAG_MULTILINE (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_FLAG_PREFILTER">HS_FLAG_PREFILTER (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_FLAG_QUIET">HS_FLAG_QUIET (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_FLAG_SINGLEMATCH">HS_FLAG_SINGLEMATCH (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_FLAG_SOM_LEFTMOST">HS_FLAG_SOM_LEFTMOST (C macro)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_files.html#c.HS_FLAG_UCP">HS_FLAG_UCP (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_FLAG_UTF8">HS_FLAG_UTF8 (C macro)</a>
 </li>
       <li><a href="api_files.html#c.hs_free_compile_error">hs_free_compile_error (C function)</a>
 </li>
@@ -126,9 +316,49 @@
 </li>
       <li><a href="api_files.html#c.hs_free_scratch">hs_free_scratch (C function)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_files.html#c.hs_free_t">hs_free_t (C type)</a>
+</li>
+      <li><a href="api_files.html#c.HS_INSUFFICIENT_SPACE">HS_INSUFFICIENT_SPACE (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_INVALID">HS_INVALID (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_MAJOR">HS_MAJOR (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_MINOR">HS_MINOR (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_MODE_BLOCK">HS_MODE_BLOCK (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_MODE_NOSTREAM">HS_MODE_NOSTREAM (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_MODE_SOM_HORIZON_LARGE">HS_MODE_SOM_HORIZON_LARGE (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_MODE_SOM_HORIZON_MEDIUM">HS_MODE_SOM_HORIZON_MEDIUM (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_MODE_SOM_HORIZON_SMALL">HS_MODE_SOM_HORIZON_SMALL (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_MODE_STREAM">HS_MODE_STREAM (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_MODE_VECTORED">HS_MODE_VECTORED (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_NOMEM">HS_NOMEM (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_OFFSET_PAST_HORIZON">HS_OFFSET_PAST_HORIZON (C macro)</a>
+</li>
       <li><a href="api_files.html#c.hs_open_stream">hs_open_stream (C function)</a>
+</li>
+      <li><a href="api_files.html#c.HS_PATCH">HS_PATCH (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.hs_platform_info">hs_platform_info (C struct)</a>
+</li>
+      <li><a href="api_files.html#c.hs_platform_info.cpu_features">hs_platform_info.cpu_features (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_platform_info.reserved1">hs_platform_info.reserved1 (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_platform_info.reserved2">hs_platform_info.reserved2 (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_platform_info.tune">hs_platform_info.tune (C var)</a>
+</li>
+      <li><a href="api_files.html#c.hs_platform_info_t">hs_platform_info_t (C type)</a>
 </li>
       <li><a href="api_files.html#c.hs_populate_platform">hs_populate_platform (C function)</a>
 </li>
@@ -142,9 +372,15 @@
 </li>
       <li><a href="api_files.html#c.hs_scan_stream">hs_scan_stream (C function)</a>
 </li>
+      <li><a href="api_files.html#c.HS_SCAN_TERMINATED">HS_SCAN_TERMINATED (C macro)</a>
+</li>
       <li><a href="api_files.html#c.hs_scan_vector">hs_scan_vector (C function)</a>
 </li>
+      <li><a href="api_files.html#c.HS_SCRATCH_IN_USE">HS_SCRATCH_IN_USE (C macro)</a>
+</li>
       <li><a href="api_files.html#c.hs_scratch_size">hs_scratch_size (C function)</a>
+</li>
+      <li><a href="api_files.html#c.hs_scratch_t">hs_scratch_t (C type)</a>
 </li>
       <li><a href="api_files.html#c.hs_serialize_database">hs_serialize_database (C function)</a>
 </li>
@@ -164,9 +400,45 @@
 </li>
       <li><a href="api_files.html#c.hs_stream_size">hs_stream_size (C function)</a>
 </li>
+      <li><a href="api_files.html#c.hs_stream_t">hs_stream_t (C type)</a>
+</li>
+      <li><a href="api_files.html#c.HS_SUCCESS">HS_SUCCESS (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_TUNE_FAMILY_BDW">HS_TUNE_FAMILY_BDW (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_TUNE_FAMILY_GENERIC">HS_TUNE_FAMILY_GENERIC (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_TUNE_FAMILY_GLM">HS_TUNE_FAMILY_GLM (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_TUNE_FAMILY_HSW">HS_TUNE_FAMILY_HSW (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_TUNE_FAMILY_ICL">HS_TUNE_FAMILY_ICL (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_TUNE_FAMILY_ICX">HS_TUNE_FAMILY_ICX (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_TUNE_FAMILY_IVB">HS_TUNE_FAMILY_IVB (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_TUNE_FAMILY_SKL">HS_TUNE_FAMILY_SKL (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_TUNE_FAMILY_SKX">HS_TUNE_FAMILY_SKX (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_TUNE_FAMILY_SLM">HS_TUNE_FAMILY_SLM (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_TUNE_FAMILY_SNB">HS_TUNE_FAMILY_SNB (C macro)</a>
+</li>
+      <li><a href="api_files.html#c.HS_UNKNOWN_ERROR">HS_UNKNOWN_ERROR (C macro)</a>
+</li>
       <li><a href="api_files.html#c.hs_valid_platform">hs_valid_platform (C function)</a>
 </li>
       <li><a href="api_files.html#c.hs_version">hs_version (C function)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="M">M</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="api_files.html#c.match_event_handler">match_event_handler (C type)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -204,7 +476,7 @@
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>$('#searchbox').show(0);</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -213,7 +485,7 @@
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

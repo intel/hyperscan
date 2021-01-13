@@ -212,7 +212,7 @@ space is required for that context.
 In the absence of recursive scanning, only one such space is required per thread
 and can (and indeed should) be allocated before data scanning is to commence.
 
-In a scenario where a set of expressions are compiled by a single "master"
+In a scenario where a set of expressions are compiled by a single "main"
 thread and data will be scanned by multiple "worker" threads, the convenience
 function :c:func:`ch_clone_scratch` allows multiple copies of an existing
 scratch space to be made for each thread (rather than forcing the caller to pass
