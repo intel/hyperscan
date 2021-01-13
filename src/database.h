@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -55,6 +55,7 @@ extern "C"
 
 #define HS_PLATFORM_NOAVX2          (4<<13)
 #define HS_PLATFORM_NOAVX512        (8<<13)
+#define HS_PLATFORM_NOAVX512VBMI    (0x10<<13)
 
 /** \brief Platform features bitmask. */
 typedef u64a platform_t;
@@ -67,6 +68,9 @@ const platform_t hs_current_platform = {
 #if !defined(HAVE_AVX512)
     HS_PLATFORM_NOAVX512 |
 #endif
+#if !defined(HAVE_AVX512VBMI)
+    HS_PLATFORM_NOAVX512VBMI |
+#endif
     0,
 };
 
@@ -74,12 +78,20 @@ static UNUSED
 const platform_t hs_current_platform_no_avx2 = {
     HS_PLATFORM_NOAVX2 |
     HS_PLATFORM_NOAVX512 |
+    HS_PLATFORM_NOAVX512VBMI |
     0,
 };
 
 static UNUSED
 const platform_t hs_current_platform_no_avx512 = {
     HS_PLATFORM_NOAVX512 |
+    HS_PLATFORM_NOAVX512VBMI |
+    0,
+};
+
+static UNUSED
+const platform_t hs_current_platform_no_avx512vbmi = {
+    HS_PLATFORM_NOAVX512VBMI |
     0,
 };
 

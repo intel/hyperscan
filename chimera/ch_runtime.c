@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Intel Corporation
+ * Copyright (c) 2018-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -419,6 +419,7 @@ int HS_CDECL multiCallback(unsigned int id, unsigned long long from,
             DEBUG_PRINTF("user callback told us to skip this pattern\n");
             pd->scanStart = hyctx->length;
             ret = HS_SUCCESS;
+            hyctx->scratch->ret = ret;
         } else if (ret == CH_FAIL_INTERNAL) {
             return ret;
         }
@@ -590,10 +591,23 @@ ch_error_t ch_scan_i(const ch_database_t *hydb,
 
     if (!(db->flags & CHIMERA_FLAG_NO_MULTIMATCH)) {
         ret = scanHyperscan(&hyctx, data, length);
-        if (ret != HS_SUCCESS && scratch->ret != CH_SUCCESS) {
-            DEBUG_PRINTF("Hyperscan returned error %d\n", scratch->ret);
+        // Errors from pcre scan.
+        if (scratch->ret == CH_CALLBACK_TERMINATE) {
+            DEBUG_PRINTF("Pcre terminates scan\n");
+            unmarkScratchInUse(scratch);
+            return CH_SCAN_TERMINATED;
+        } else if (scratch->ret != CH_SUCCESS) {
+            DEBUG_PRINTF("Pcre internal error\n");
             unmarkScratchInUse(scratch);
             return scratch->ret;
+        }
+        // Errors from Hyperscan scan. Note Chimera could terminate
+        // Hyperscan callback on purpose so this is not counted as an error.
+        if (ret != HS_SUCCESS && ret != HS_SCAN_TERMINATED) {
+            assert(scratch->ret == CH_SUCCESS);
+            DEBUG_PRINTF("Hyperscan returned error %d\n", ret);
+            unmarkScratchInUse(scratch);
+            return ret;
         }
     }
 

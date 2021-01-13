@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.8.11)
 project (hyperscan C CXX)
 
 set (HS_MAJOR_VERSION 5)
-set (HS_MINOR_VERSION 3)
+set (HS_MINOR_VERSION 4)
 set (HS_PATCH_VERSION 0)
 set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
 
@@ -132,6 +132,13 @@ CMAKE_DEPENDENT_OPTION(DISABLE_ASSERTS "Disable assert(); Asserts are enabled in
 
 option(BUILD_AVX512 "Experimental: support avx512 in the fat runtime"
     OFF)
+
+option(BUILD_AVX512VBMI "Experimental: support avx512vbmi in the fat runtime"
+    OFF)
+
+if (BUILD_AVX512VBMI)
+    set(BUILD_AVX512 ON)
+endif ()
 
 option(WINDOWS_ICC "Use Intel C++ Compiler on Windows, default off, requires ICC to be set in project" OFF)
 
@@ -277,6 +284,7 @@ else()
         set(SKYLAKE_FLAG "-xCORE-AVX512")
     else ()
         set(SKYLAKE_FLAG "-march=skylake-avx512")
+        set(ICELAKE_FLAG "-march=icelake-server")
     endif ()
 endif()
 
@@ -1197,6 +1205,9 @@ else (FAT_RUNTIME)
     if (NOT BUILD_AVX512)
         set (DISPATCHER_DEFINE "-DDISABLE_AVX512_DISPATCH")
     endif (NOT BUILD_AVX512)
+    if (NOT BUILD_AVX512VBMI)
+        set (DISPATCHER_DEFINE "${DISPATCHER_DEFINE} -DDISABLE_AVX512VBMI_DISPATCH")
+    endif (NOT BUILD_AVX512VBMI)
     set_source_files_properties(src/dispatcher.c PROPERTIES
         COMPILE_FLAGS "-Wno-unused-parameter -Wno-unused-function ${DISPATCHER_DEFINE}")
 
@@ -1229,6 +1240,14 @@ else (FAT_RUNTIME)
                RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
                )
        endif (BUILD_AVX512)
+       if (BUILD_AVX512VBMI)
+           add_library(hs_exec_avx512vbmi OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
+           list(APPEND RUNTIME_LIBS $<TARGET_OBJECTS:hs_exec_avx512vbmi>)
+           set_target_properties(hs_exec_avx512vbmi PROPERTIES
+               COMPILE_FLAGS "${ICELAKE_FLAG}"
+               RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512vbmi ${CMAKE_MODULE_PATH}/keep.syms.in"
+               )
+       endif (BUILD_AVX512VBMI)
 
        add_library(hs_exec_common OBJECT
            ${hs_exec_common_SRCS}
@@ -1287,6 +1306,15 @@ else (FAT_RUNTIME)
                 RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512 ${CMAKE_MODULE_PATH}/keep.syms.in"
                 )
         endif (BUILD_AVX512)
+        if (BUILD_AVX512VBMI)
+            add_library(hs_exec_shared_avx512vbmi OBJECT ${hs_exec_SRCS} ${hs_exec_avx2_SRCS})
+            list(APPEND RUNTIME_SHLIBS $<TARGET_OBJECTS:hs_exec_shared_avx512vbmi>)
+            set_target_properties(hs_exec_shared_avx512vbmi PROPERTIES
+                COMPILE_FLAGS "${ICELAKE_FLAG}"
+                POSITION_INDEPENDENT_CODE TRUE
+                RULE_LAUNCH_COMPILE "${BUILD_WRAPPER} avx512vbmi ${CMAKE_MODULE_PATH}/keep.syms.in"
+                )
+        endif (BUILD_AVX512VBMI)
         add_library(hs_exec_common_shared OBJECT
         ${hs_exec_common_SRCS}
         src/dispatcher.c
@@ -1380,7 +1408,7 @@ if (NOT BUILD_STATIC_LIBS)
     add_library(hs ALIAS hs_shared)
 endif ()
 
-
-if(NOT WIN32)
+option(BUILD_EXAMPLES "Build Hyperscan example code (default TRUE)" TRUE)
+if(NOT WIN32 AND BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()

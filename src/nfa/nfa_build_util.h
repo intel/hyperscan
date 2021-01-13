@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,10 +46,6 @@ std::string describe(const NFA &nfa);
 
 // For a given NFA, retrieve the alignment required by its uncompressed state.
 u32 state_alignment(const NFA &nfa);
-
-/* returns true if the nfa is considered 'fast'. TODO: work out what we mean by
- * fast. */
-bool is_fast(const NFA &n);
 
 bool has_bounded_repeats_other_than_firsts(const NFA &n);
 

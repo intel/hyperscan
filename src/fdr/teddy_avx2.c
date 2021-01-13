@@ -109,6 +109,36 @@ const u8 ALIGN_AVX_DIRECTIVE p_mask_arr256[33][64] = {
      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 };
 
+#if defined(HAVE_AVX512VBMI) // VBMI strong fat teddy
+
+#define CONF_FAT_CHUNK_64(chunk, bucket, off, reason, pt, conf_fn)          \
+do {                                                                        \
+    if (unlikely(chunk != ones_u64a)) {                                     \
+        chunk = ~chunk;                                                     \
+        conf_fn(&chunk, bucket, off, confBase, reason, a, pt,               \
+                &control, &last_match);                                     \
+        CHECK_HWLM_TERMINATE_MATCHING;                                      \
+    }                                                                       \
+} while(0)
+
+#define CONF_FAT_CHUNK_32(chunk, bucket, off, reason, pt, conf_fn)          \
+do {                                                                        \
+    if (unlikely(chunk != ones_u32)) {                                      \
+        chunk = ~chunk;                                                     \
+        conf_fn(&chunk, bucket, off, confBase, reason, a, pt,               \
+                &control, &last_match);                                     \
+        CHECK_HWLM_TERMINATE_MATCHING;                                      \
+    }                                                                       \
+} while(0)
+
+static really_inline
+const m512 *getDupMaskBase(const struct Teddy *teddy, u8 numMask) {
+    return (const m512 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy))
+                          + ROUNDUP_CL(2 * numMask * sizeof(m256)));
+}
+
+#else
+
 #define CONF_FAT_CHUNK_64(chunk, bucket, off, reason, conf_fn)              \
 do {                                                                        \
     if (unlikely(chunk != ones_u64a)) {                                     \
@@ -134,203 +164,200 @@ const m256 *getMaskBase_fat(const struct Teddy *teddy) {
     return (const m256 *)((const u8 *)teddy + ROUNDUP_CL(sizeof(struct Teddy)));
 }
 
-#if defined(HAVE_AVX512_REVERT) // revert to AVX2 Fat Teddy
+#endif
 
-static really_inline
-const u64a *getReinforcedMaskBase_fat(const struct Teddy *teddy, u8 numMask) {
-    return (const u64a *)((const u8 *)getMaskBase_fat(teddy)
-                          + ROUNDUP_CL(2 * numMask * sizeof(m256)));
-}
+#if defined(HAVE_AVX512VBMI) // VBMI strong fat teddy
+
+const u8 ALIGN_AVX_DIRECTIVE p_mask_interleave[64] = {
+    0, 32, 1, 33, 2, 34, 3, 35, 4, 36, 5, 37, 6, 38, 7, 39,
+    8, 40, 9, 41, 10, 42, 11, 43, 12, 44, 13, 45, 14, 46, 15, 47,
+    16, 48, 17, 49, 18, 50, 19, 51, 20, 52, 21, 53, 22, 54, 23, 55,
+    24, 56, 25, 57, 26, 58, 27, 59, 28, 60, 29, 61, 30, 62, 31, 63
+};
 
 #ifdef ARCH_64_BIT
-#define CONFIRM_FAT_TEDDY(var, bucket, offset, reason, conf_fn)             \
+#define CONFIRM_FAT_TEDDY(var, bucket, offset, reason, pt, conf_fn)         \
 do {                                                                        \
     if (unlikely(diff512(var, ones512()))) {                                \
-        m512 swap = swap256in512(var);                                      \
-        m512 r = interleave512lo(var, swap);                                \
+        m512 msk_interleave = load512(p_mask_interleave);                   \
+        m512 r = vpermb512(msk_interleave, var);                            \
         m128 r0 = extract128from512(r, 0);                                  \
         m128 r1 = extract128from512(r, 1);                                  \
+        m128 r2 = extract128from512(r, 2);                                  \
+        m128 r3 = extract128from512(r, 3);                                  \
         u64a part1 = movq(r0);                                              \
         u64a part2 = extract64from128(r0, 1);                               \
-        u64a part5 = movq(r1);                                              \
-        u64a part6 = extract64from128(r1, 1);                               \
-        r = interleave512hi(var, swap);                                     \
-        r0 = extract128from512(r, 0);                                       \
-        r1 = extract128from512(r, 1);                                       \
-        u64a part3 = movq(r0);                                              \
-        u64a part4 = extract64from128(r0, 1);                               \
-        u64a part7 = movq(r1);                                              \
-        u64a part8 = extract64from128(r1, 1);                               \
-        CONF_FAT_CHUNK_64(part1, bucket, offset, reason, conf_fn);          \
-        CONF_FAT_CHUNK_64(part2, bucket, offset + 4, reason, conf_fn);      \
-        CONF_FAT_CHUNK_64(part3, bucket, offset + 8, reason, conf_fn);      \
-        CONF_FAT_CHUNK_64(part4, bucket, offset + 12, reason, conf_fn);     \
-        CONF_FAT_CHUNK_64(part5, bucket, offset + 16, reason, conf_fn);     \
-        CONF_FAT_CHUNK_64(part6, bucket, offset + 20, reason, conf_fn);     \
-        CONF_FAT_CHUNK_64(part7, bucket, offset + 24, reason, conf_fn);     \
-        CONF_FAT_CHUNK_64(part8, bucket, offset + 28, reason, conf_fn);     \
+        u64a part3 = movq(r1);                                              \
+        u64a part4 = extract64from128(r1, 1);                               \
+        u64a part5 = movq(r2);                                              \
+        u64a part6 = extract64from128(r2, 1);                               \
+        u64a part7 = movq(r3);                                              \
+        u64a part8 = extract64from128(r3, 1);                               \
+        CONF_FAT_CHUNK_64(part1, bucket, offset, reason, pt, conf_fn);      \
+        CONF_FAT_CHUNK_64(part2, bucket, offset + 4, reason, pt, conf_fn);  \
+        CONF_FAT_CHUNK_64(part3, bucket, offset + 8, reason, pt, conf_fn);  \
+        CONF_FAT_CHUNK_64(part4, bucket, offset + 12, reason, pt, conf_fn); \
+        CONF_FAT_CHUNK_64(part5, bucket, offset + 16, reason, pt, conf_fn); \
+        CONF_FAT_CHUNK_64(part6, bucket, offset + 20, reason, pt, conf_fn); \
+        CONF_FAT_CHUNK_64(part7, bucket, offset + 24, reason, pt, conf_fn); \
+        CONF_FAT_CHUNK_64(part8, bucket, offset + 28, reason, pt, conf_fn); \
     }                                                                       \
 } while(0)
 #else
-#define CONFIRM_FAT_TEDDY(var, bucket, offset, reason, conf_fn)             \
+#define CONFIRM_FAT_TEDDY(var, bucket, offset, reason, pt, conf_fn)         \
 do {                                                                        \
     if (unlikely(diff512(var, ones512()))) {                                \
-        m512 swap = swap256in512(var);                                      \
-        m512 r = interleave512lo(var, swap);                                \
+        m512 msk_interleave = load512(p_mask_interleave);                   \
+        m512 r = vpermb512(msk_interleave, var);                            \
         m128 r0 = extract128from512(r, 0);                                  \
         m128 r1 = extract128from512(r, 1);                                  \
+        m128 r2 = extract128from512(r, 2);                                  \
+        m128 r3 = extract128from512(r, 3);                                  \
         u32 part1 = movd(r0);                                               \
         u32 part2 = extract32from128(r0, 1);                                \
         u32 part3 = extract32from128(r0, 2);                                \
         u32 part4 = extract32from128(r0, 3);                                \
-        u32 part9 = movd(r1);                                               \
-        u32 part10 = extract32from128(r1, 1);                               \
-        u32 part11 = extract32from128(r1, 2);                               \
-        u32 part12 = extract32from128(r1, 3);                               \
-        r = interleave512hi(var, swap);                                     \
-        r0 = extract128from512(r, 0);                                       \
-        r1 = extract128from512(r, 1);                                       \
-        u32 part5 = movd(r0);                                               \
-        u32 part6 = extract32from128(r0, 1);                                \
-        u32 part7 = extract32from128(r0, 2);                                \
-        u32 part8 = extract32from128(r0, 3);                                \
-        u32 part13 = movd(r1);                                              \
-        u32 part14 = extract32from128(r1, 1);                               \
-        u32 part15 = extract32from128(r1, 2);                               \
-        u32 part16 = extract32from128(r1, 3);                               \
-        CONF_FAT_CHUNK_32(part1, bucket, offset, reason, conf_fn);          \
-        CONF_FAT_CHUNK_32(part2, bucket, offset + 2, reason, conf_fn);      \
-        CONF_FAT_CHUNK_32(part3, bucket, offset + 4, reason, conf_fn);      \
-        CONF_FAT_CHUNK_32(part4, bucket, offset + 6, reason, conf_fn);      \
-        CONF_FAT_CHUNK_32(part5, bucket, offset + 8, reason, conf_fn);      \
-        CONF_FAT_CHUNK_32(part6, bucket, offset + 10, reason, conf_fn);     \
-        CONF_FAT_CHUNK_32(part7, bucket, offset + 12, reason, conf_fn);     \
-        CONF_FAT_CHUNK_32(part8, bucket, offset + 14, reason, conf_fn);     \
-        CONF_FAT_CHUNK_32(part9, bucket, offset + 16, reason, conf_fn);     \
-        CONF_FAT_CHUNK_32(part10, bucket, offset + 18, reason, conf_fn);    \
-        CONF_FAT_CHUNK_32(part11, bucket, offset + 20, reason, conf_fn);    \
-        CONF_FAT_CHUNK_32(part12, bucket, offset + 22, reason, conf_fn);    \
-        CONF_FAT_CHUNK_32(part13, bucket, offset + 24, reason, conf_fn);    \
-        CONF_FAT_CHUNK_32(part14, bucket, offset + 26, reason, conf_fn);    \
-        CONF_FAT_CHUNK_32(part15, bucket, offset + 28, reason, conf_fn);    \
-        CONF_FAT_CHUNK_32(part16, bucket, offset + 30, reason, conf_fn);    \
+        u32 part5 = movd(r1);                                               \
+        u32 part6 = extract32from128(r1, 1);                                \
+        u32 part7 = extract32from128(r1, 2);                                \
+        u32 part8 = extract32from128(r1, 3);                                \
+        u32 part9 = movd(r2);                                               \
+        u32 part10 = extract32from128(r2, 1);                               \
+        u32 part11 = extract32from128(r2, 2);                               \
+        u32 part12 = extract32from128(r2, 3);                               \
+        u32 part13 = movd(r3);                                              \
+        u32 part14 = extract32from128(r3, 1);                               \
+        u32 part15 = extract32from128(r3, 2);                               \
+        u32 part16 = extract32from128(r3, 3);                               \
+        CONF_FAT_CHUNK_32(part1, bucket, offset, reason, pt, conf_fn);      \
+        CONF_FAT_CHUNK_32(part2, bucket, offset + 2, reason, pt, conf_fn);  \
+        CONF_FAT_CHUNK_32(part3, bucket, offset + 4, reason, pt, conf_fn);  \
+        CONF_FAT_CHUNK_32(part4, bucket, offset + 6, reason, pt, conf_fn);  \
+        CONF_FAT_CHUNK_32(part5, bucket, offset + 8, reason, pt, conf_fn);  \
+        CONF_FAT_CHUNK_32(part6, bucket, offset + 10, reason, pt, conf_fn); \
+        CONF_FAT_CHUNK_32(part7, bucket, offset + 12, reason, pt, conf_fn); \
+        CONF_FAT_CHUNK_32(part8, bucket, offset + 14, reason, pt, conf_fn); \
+        CONF_FAT_CHUNK_32(part9, bucket, offset + 16, reason, pt, conf_fn); \
+        CONF_FAT_CHUNK_32(part10, bucket, offset + 18, reason, pt, conf_fn);\
+        CONF_FAT_CHUNK_32(part11, bucket, offset + 20, reason, pt, conf_fn);\
+        CONF_FAT_CHUNK_32(part12, bucket, offset + 22, reason, pt, conf_fn);\
+        CONF_FAT_CHUNK_32(part13, bucket, offset + 24, reason, pt, conf_fn);\
+        CONF_FAT_CHUNK_32(part14, bucket, offset + 26, reason, pt, conf_fn);\
+        CONF_FAT_CHUNK_32(part15, bucket, offset + 28, reason, pt, conf_fn);\
+        CONF_FAT_CHUNK_32(part16, bucket, offset + 30, reason, pt, conf_fn);\
     }                                                                       \
 } while(0)
 #endif
 
-static really_inline
-m512 vectoredLoad2x256(m512 *p_mask, const u8 *ptr, const size_t start_offset,
-                       const u8 *lo, const u8 *hi,
-                       const u8 *buf_history, size_t len_history,
-                       const u32 nMasks) {
-    m256 p_mask256;
-    m512 ret = set2x256(vectoredLoad256(&p_mask256, ptr, start_offset, lo, hi,
-                                        buf_history, len_history, nMasks));
-    *p_mask = set2x256(p_mask256);
-    return ret;
-}
-
-#define PREP_FAT_SHUF_MASK_NO_REINFORCEMENT(val)                            \
+#define PREP_FAT_SHUF_MASK                                                  \
     m512 lo = and512(val, *lo_mask);                                        \
     m512 hi = and512(rshift64_m512(val, 4), *lo_mask)
 
-#define PREP_FAT_SHUF_MASK                                                  \
-    PREP_FAT_SHUF_MASK_NO_REINFORCEMENT(set2x256(load256(ptr)));            \
-    *c_16 = *(ptr + 15);                                                    \
-    m512 r_msk = set512_64(0ULL, r_msk_base_hi[*c_16],                      \
-                           0ULL, r_msk_base_hi[*c_0],                       \
-                           0ULL, r_msk_base_lo[*c_16],                      \
-                           0ULL, r_msk_base_lo[*c_0]);                      \
-    *c_0 = *(ptr + 31)
+#define FAT_TEDDY_VBMI_PSHUFB_OR_M1                          \
+    m512 shuf_or_b0 = or512(pshufb_m512(dup_mask[0], lo),    \
+                            pshufb_m512(dup_mask[1], hi));
 
-#define FAT_SHIFT_OR_M1                                                     \
-    or512(pshufb_m512(dup_mask[0], lo), pshufb_m512(dup_mask[1], hi))
+#define FAT_TEDDY_VBMI_PSHUFB_OR_M2                          \
+    FAT_TEDDY_VBMI_PSHUFB_OR_M1                              \
+    m512 shuf_or_b1 = or512(pshufb_m512(dup_mask[2], lo),    \
+                            pshufb_m512(dup_mask[3], hi));
 
-#define FAT_SHIFT_OR_M2                                                     \
-    or512(lshift128_m512(or512(pshufb_m512(dup_mask[2], lo),                \
-                               pshufb_m512(dup_mask[3], hi)),               \
-                         1), FAT_SHIFT_OR_M1)
+#define FAT_TEDDY_VBMI_PSHUFB_OR_M3                          \
+    FAT_TEDDY_VBMI_PSHUFB_OR_M2                              \
+    m512 shuf_or_b2 = or512(pshufb_m512(dup_mask[4], lo),    \
+                            pshufb_m512(dup_mask[5], hi));
 
-#define FAT_SHIFT_OR_M3                                                     \
-    or512(lshift128_m512(or512(pshufb_m512(dup_mask[4], lo),                \
-                               pshufb_m512(dup_mask[5], hi)),               \
-                         2), FAT_SHIFT_OR_M2)
+#define FAT_TEDDY_VBMI_PSHUFB_OR_M4                          \
+    FAT_TEDDY_VBMI_PSHUFB_OR_M3                              \
+    m512 shuf_or_b3 = or512(pshufb_m512(dup_mask[6], lo),    \
+                            pshufb_m512(dup_mask[7], hi));
 
-#define FAT_SHIFT_OR_M4                                                     \
-    or512(lshift128_m512(or512(pshufb_m512(dup_mask[6], lo),                \
-                               pshufb_m512(dup_mask[7], hi)),               \
-                         3), FAT_SHIFT_OR_M3)
+#define FAT_TEDDY_VBMI_SL1_MASK   0xfffffffefffffffeULL
+#define FAT_TEDDY_VBMI_SL2_MASK   0xfffffffcfffffffcULL
+#define FAT_TEDDY_VBMI_SL3_MASK   0xfffffff8fffffff8ULL
+
+#define FAT_TEDDY_VBMI_SHIFT_M1
+
+#define FAT_TEDDY_VBMI_SHIFT_M2                      \
+    FAT_TEDDY_VBMI_SHIFT_M1                          \
+    m512 sl1 = maskz_vpermb512(FAT_TEDDY_VBMI_SL1_MASK, sl_msk[0], shuf_or_b1);
+
+#define FAT_TEDDY_VBMI_SHIFT_M3                      \
+    FAT_TEDDY_VBMI_SHIFT_M2                          \
+    m512 sl2 = maskz_vpermb512(FAT_TEDDY_VBMI_SL2_MASK, sl_msk[1], shuf_or_b2);
+
+#define FAT_TEDDY_VBMI_SHIFT_M4                      \
+    FAT_TEDDY_VBMI_SHIFT_M3                          \
+    m512 sl3 = maskz_vpermb512(FAT_TEDDY_VBMI_SL3_MASK, sl_msk[2], shuf_or_b3);
+
+#define FAT_SHIFT_OR_M1            \
+    shuf_or_b0
+
+#define FAT_SHIFT_OR_M2            \
+    or512(sl1, FAT_SHIFT_OR_M1)
+
+#define FAT_SHIFT_OR_M3            \
+    or512(sl2, FAT_SHIFT_OR_M2)
+
+#define FAT_SHIFT_OR_M4            \
+    or512(sl3, FAT_SHIFT_OR_M3)
 
 static really_inline
-m512 prep_conf_fat_teddy_no_reinforcement_m1(const m512 *lo_mask,
-                                             const m512 *dup_mask,
-                                             const m512 val) {
-    PREP_FAT_SHUF_MASK_NO_REINFORCEMENT(val);
+m512 prep_conf_fat_teddy_m1(const m512 *lo_mask, const m512 *dup_mask,
+                            UNUSED const m512 *sl_msk, const m512 val) {
+    PREP_FAT_SHUF_MASK;
+    FAT_TEDDY_VBMI_PSHUFB_OR_M1;
+    FAT_TEDDY_VBMI_SHIFT_M1;
     return FAT_SHIFT_OR_M1;
 }
 
 static really_inline
-m512 prep_conf_fat_teddy_no_reinforcement_m2(const m512 *lo_mask,
-                                             const m512 *dup_mask,
-                                             const m512 val) {
-    PREP_FAT_SHUF_MASK_NO_REINFORCEMENT(val);
+m512 prep_conf_fat_teddy_m2(const m512 *lo_mask, const m512 *dup_mask,
+                            const m512 *sl_msk, const m512 val) {
+    PREP_FAT_SHUF_MASK;
+    FAT_TEDDY_VBMI_PSHUFB_OR_M2;
+    FAT_TEDDY_VBMI_SHIFT_M2;
     return FAT_SHIFT_OR_M2;
 }
 
 static really_inline
-m512 prep_conf_fat_teddy_no_reinforcement_m3(const m512 *lo_mask,
-                                             const m512 *dup_mask,
-                                             const m512 val) {
-    PREP_FAT_SHUF_MASK_NO_REINFORCEMENT(val);
+m512 prep_conf_fat_teddy_m3(const m512 *lo_mask, const m512 *dup_mask,
+                            const m512 *sl_msk, const m512 val) {
+    PREP_FAT_SHUF_MASK;
+    FAT_TEDDY_VBMI_PSHUFB_OR_M3;
+    FAT_TEDDY_VBMI_SHIFT_M3;
     return FAT_SHIFT_OR_M3;
 }
 
 static really_inline
-m512 prep_conf_fat_teddy_no_reinforcement_m4(const m512 *lo_mask,
-                                             const m512 *dup_mask,
-                                             const m512 val) {
-    PREP_FAT_SHUF_MASK_NO_REINFORCEMENT(val);
+m512 prep_conf_fat_teddy_m4(const m512 *lo_mask, const m512 *dup_mask,
+                            const m512 *sl_msk, const m512 val) {
+    PREP_FAT_SHUF_MASK;
+    FAT_TEDDY_VBMI_PSHUFB_OR_M4;
+    FAT_TEDDY_VBMI_SHIFT_M4;
     return FAT_SHIFT_OR_M4;
 }
 
-static really_inline
-m512 prep_conf_fat_teddy_m1(const m512 *lo_mask, const m512 *dup_mask,
-                            const u8 *ptr, const u64a *r_msk_base_lo,
-                            const u64a *r_msk_base_hi, u32 *c_0, u32 *c_16) {
-    PREP_FAT_SHUF_MASK;
-    return or512(FAT_SHIFT_OR_M1, r_msk);
-}
+#define PREP_CONF_FAT_FN(val, n)    \
+    prep_conf_fat_teddy_m##n(&lo_mask, dup_mask, sl_msk, val)
 
-static really_inline
-m512 prep_conf_fat_teddy_m2(const m512 *lo_mask, const m512 *dup_mask,
-                            const u8 *ptr, const u64a *r_msk_base_lo,
-                            const u64a *r_msk_base_hi, u32 *c_0, u32 *c_16) {
-    PREP_FAT_SHUF_MASK;
-    return or512(FAT_SHIFT_OR_M2, r_msk);
-}
+#define FAT_TEDDY_VBMI_SL1_POS    15
+#define FAT_TEDDY_VBMI_SL2_POS    14
+#define FAT_TEDDY_VBMI_SL3_POS    13
 
-static really_inline
-m512 prep_conf_fat_teddy_m3(const m512 *lo_mask, const m512 *dup_mask,
-                            const u8 *ptr, const u64a *r_msk_base_lo,
-                            const u64a *r_msk_base_hi, u32 *c_0, u32 *c_16) {
-    PREP_FAT_SHUF_MASK;
-    return or512(FAT_SHIFT_OR_M3, r_msk);
-}
+#define FAT_TEDDY_VBMI_LOAD_SHIFT_MASK_M1
 
-static really_inline
-m512 prep_conf_fat_teddy_m4(const m512 *lo_mask, const m512 *dup_mask,
-                            const u8 *ptr, const u64a *r_msk_base_lo,
-                            const u64a *r_msk_base_hi, u32 *c_0, u32 *c_16) {
-    PREP_FAT_SHUF_MASK;
-    return or512(FAT_SHIFT_OR_M4, r_msk);
-}
+#define FAT_TEDDY_VBMI_LOAD_SHIFT_MASK_M2    \
+    FAT_TEDDY_VBMI_LOAD_SHIFT_MASK_M1        \
+    sl_msk[0] = loadu512(p_sh_mask_arr + FAT_TEDDY_VBMI_SL1_POS);
 
-#define PREP_CONF_FAT_FN_NO_REINFORCEMENT(val, n)                             \
-    prep_conf_fat_teddy_no_reinforcement_m##n(&lo_mask, dup_mask, val)
+#define FAT_TEDDY_VBMI_LOAD_SHIFT_MASK_M3    \
+    FAT_TEDDY_VBMI_LOAD_SHIFT_MASK_M2        \
+    sl_msk[1] = loadu512(p_sh_mask_arr + FAT_TEDDY_VBMI_SL2_POS);
 
-#define PREP_CONF_FAT_FN(ptr, n)                                              \
-    prep_conf_fat_teddy_m##n(&lo_mask, dup_mask, ptr,                         \
-                             r_msk_base_lo, r_msk_base_hi, &c_0, &c_16)
+#define FAT_TEDDY_VBMI_LOAD_SHIFT_MASK_M4    \
+    FAT_TEDDY_VBMI_LOAD_SHIFT_MASK_M3        \
+    sl_msk[2] = loadu512(p_sh_mask_arr + FAT_TEDDY_VBMI_SL3_POS);
 
 /*
  * In FAT teddy, it needs 2 bytes to represent result of each position,
@@ -355,31 +382,15 @@ m512 prep_conf_fat_teddy_m4(const m512 *lo_mask, const m512 *dup_mask,
  * then do pshufb_m512(AABB, XYXY).
  */
 
-#define DUP_FAT_MASK(a) mask_set2x256(set2x256(swap128in256(a)), 0xC3, a)
-
-#define PREPARE_FAT_MASKS_1                                                   \
-    dup_mask[0] = DUP_FAT_MASK(maskBase[0]);                                  \
-    dup_mask[1] = DUP_FAT_MASK(maskBase[1]);
-
-#define PREPARE_FAT_MASKS_2                                                   \
-    PREPARE_FAT_MASKS_1                                                       \
-    dup_mask[2] = DUP_FAT_MASK(maskBase[2]);                                  \
-    dup_mask[3] = DUP_FAT_MASK(maskBase[3]);
-
-#define PREPARE_FAT_MASKS_3                                                   \
-    PREPARE_FAT_MASKS_2                                                       \
-    dup_mask[4] = DUP_FAT_MASK(maskBase[4]);                                  \
-    dup_mask[5] = DUP_FAT_MASK(maskBase[5]);
-
-#define PREPARE_FAT_MASKS_4                                                   \
-    PREPARE_FAT_MASKS_3                                                       \
-    dup_mask[6] = DUP_FAT_MASK(maskBase[6]);                                  \
-    dup_mask[7] = DUP_FAT_MASK(maskBase[7]);
-
 #define PREPARE_FAT_MASKS(n)                                                  \
     m512 lo_mask = set64x8(0xf);                                              \
-    m512 dup_mask[n * 2];                                                     \
-    PREPARE_FAT_MASKS_##n
+    m512 sl_msk[n - 1];                                                       \
+    FAT_TEDDY_VBMI_LOAD_SHIFT_MASK_M##n
+
+#define FAT_TEDDY_VBMI_CONF_MASK_HEAD   (0xffffffffULL >> n_sh)
+#define FAT_TEDDY_VBMI_CONF_MASK_FULL   ((0xffffffffULL << n_sh) & 0xffffffffULL)
+#define FAT_TEDDY_VBMI_CONF_MASK_VAR(n) (0xffffffffULL >> (32 - n) << overlap)
+#define FAT_TEDDY_VBMI_LOAD_MASK_PATCH  (0xffffffffULL >> (32 - n_sh))
 
 #define FDR_EXEC_FAT_TEDDY(fdr, a, control, n_msk, conf_fn)                   \
 do {                                                                          \
@@ -389,67 +400,53 @@ do {                                                                          \
     const u8 *tryFloodDetect = a->firstFloodDetect;                           \
     u32 last_match = ones_u32;                                                \
     const struct Teddy *teddy = (const struct Teddy *)fdr;                    \
-    const size_t iterBytes = 64;                                              \
+    const size_t iterBytes = 32;                                              \
+    u32 n_sh = n_msk - 1;                                                     \
+    const size_t loopBytes = 32 - n_sh;                                       \
     DEBUG_PRINTF("params: buf %p len %zu start_offset %zu\n",                 \
                  a->buf, a->len, a->start_offset);                            \
                                                                               \
-    const m256 *maskBase = getMaskBase_fat(teddy);                            \
+    const m512 *dup_mask = getDupMaskBase(teddy, n_msk);                      \
     PREPARE_FAT_MASKS(n_msk);                                                 \
     const u32 *confBase = getConfBase(teddy);                                 \
                                                                               \
-    const u64a *r_msk_base_lo = getReinforcedMaskBase_fat(teddy, n_msk);      \
-    const u64a *r_msk_base_hi = r_msk_base_lo + (N_CHARS + 1);                \
-    u32 c_0 = 0x100;                                                          \
-    u32 c_16 = 0x100;                                                         \
-    const u8 *mainStart = ROUNDUP_PTR(ptr, 32);                               \
-    DEBUG_PRINTF("derive: ptr: %p mainstart %p\n", ptr, mainStart);           \
-    if (ptr < mainStart) {                                                    \
-        ptr = mainStart - 32;                                                 \
-        m512 p_mask;                                                          \
-        m512 val_0 = vectoredLoad2x256(&p_mask, ptr, a->start_offset,         \
-                                     a->buf, buf_end,                         \
-                                     a->buf_history, a->len_history, n_msk);  \
-        m512 r_0 = PREP_CONF_FAT_FN_NO_REINFORCEMENT(val_0, n_msk);           \
-        r_0 = or512(r_0, p_mask);                                             \
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, conf_fn);                    \
-        ptr += 32;                                                            \
+    u64a k = FAT_TEDDY_VBMI_CONF_MASK_FULL;                                   \
+    m512 p_mask = set_mask_m512(~((k << 32) | k));                            \
+    u32 overlap = 0;                                                          \
+    u64a patch = 0;                                                           \
+    if (likely(ptr + loopBytes <= buf_end)) {                                 \
+        u64a k0 = FAT_TEDDY_VBMI_CONF_MASK_HEAD;                              \
+        m512 p_mask0 = set_mask_m512(~((k0 << 32) | k0));                     \
+        m512 r_0 = PREP_CONF_FAT_FN(set2x256(loadu256(ptr)), n_msk);          \
+        r_0 = or512(r_0, p_mask0);                                            \
+        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, ptr, conf_fn);               \
+        ptr += loopBytes;                                                     \
+        overlap = n_sh;                                                       \
+        patch = FAT_TEDDY_VBMI_LOAD_MASK_PATCH;                               \
     }                                                                         \
                                                                               \
-    if (ptr + 32 <= buf_end) {                                                \
-        m512 r_0 = PREP_CONF_FAT_FN(ptr, n_msk);                              \
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, conf_fn);                    \
-        ptr += 32;                                                            \
-    }                                                                         \
-                                                                              \
-    for (; ptr + iterBytes <= buf_end; ptr += iterBytes) {                    \
-        __builtin_prefetch(ptr + (iterBytes * 4));                            \
+    for (; ptr + loopBytes <= buf_end; ptr += loopBytes) {                    \
         CHECK_FLOOD;                                                          \
-        m512 r_0 = PREP_CONF_FAT_FN(ptr, n_msk);                              \
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, conf_fn);                 \
-        m512 r_1 = PREP_CONF_FAT_FN(ptr + 32, n_msk);                         \
-        CONFIRM_FAT_TEDDY(r_1, 16, 32, NOT_CAUTIOUS, conf_fn);                \
-    }                                                                         \
-                                                                              \
-    if (ptr + 32 <= buf_end) {                                                \
-        m512 r_0 = PREP_CONF_FAT_FN(ptr, n_msk);                              \
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, conf_fn);                 \
-        ptr += 32;                                                            \
-    }                                                                         \
-                                                                              \
-    assert(ptr + 32 > buf_end);                                               \
-    if (ptr < buf_end) {                                                      \
-        m512 p_mask;                                                          \
-        m512 val_0 = vectoredLoad2x256(&p_mask, ptr, 0, ptr, buf_end,         \
-                                     a->buf_history, a->len_history, n_msk);  \
-        m512 r_0 = PREP_CONF_FAT_FN_NO_REINFORCEMENT(val_0, n_msk);           \
+        m512 r_0 = PREP_CONF_FAT_FN(set2x256(loadu256(ptr - n_sh)), n_msk);   \
         r_0 = or512(r_0, p_mask);                                             \
-        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, conf_fn);                    \
+        CONFIRM_FAT_TEDDY(r_0, 16, 0, NOT_CAUTIOUS, ptr - n_sh, conf_fn);     \
+    }                                                                         \
+                                                                              \
+    assert(ptr + loopBytes > buf_end);                                        \
+    if (ptr < buf_end) {                                                      \
+        u32 left = (u32)(buf_end - ptr);                                      \
+        u64a k1 = FAT_TEDDY_VBMI_CONF_MASK_VAR(left);                         \
+        m512 p_mask1 = set_mask_m512(~((k1 << 32) | k1));                     \
+        m512 val_0 = set2x256(loadu_maskz_m256(k1 | patch, ptr - overlap));   \
+        m512 r_0 = PREP_CONF_FAT_FN(val_0, n_msk);                            \
+        r_0 = or512(r_0, p_mask1);                                            \
+        CONFIRM_FAT_TEDDY(r_0, 16, 0, VECTORING, ptr - overlap, conf_fn);     \
     }                                                                         \
                                                                               \
     return HWLM_SUCCESS;                                                      \
 } while(0)
 
-#else // HAVE_AVX512
+#else // !HAVE_AVX512VBMI, AVX2 normal fat teddy
 
 #ifdef ARCH_64_BIT
 #define CONFIRM_FAT_TEDDY(var, bucket, offset, reason, conf_fn)             \
@@ -659,7 +656,7 @@ do {                                                                        \
     return HWLM_SUCCESS;                                                    \
 } while(0)
 
-#endif // HAVE_AVX512
+#endif // HAVE_AVX512VBMI
 
 hwlm_error_t fdr_exec_fat_teddy_msks1(const struct FDR *fdr,
                                       const struct FDR_Runtime_Args *a,

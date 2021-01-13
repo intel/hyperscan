@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Intel Corporation
+ * Copyright (c) 2018-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -344,6 +344,16 @@ ch_error_t HS_CDECL ch_set_scratch_allocator(ch_alloc_t alloc_func,
  * is intended as a best-effort debugging tool, not a guarantee.
  */
 #define CH_SCRATCH_IN_USE       (-10)
+
+/**
+ * Unexpected internal error from Hyperscan.
+ *
+ * This error indicates that there was unexpected matching behaviors from
+ * Hyperscan. This could be related to invalid usage of scratch space or
+ * invalid memory operations by users.
+ *
+ */
+#define CH_UNKNOWN_HS_ERROR     (-13)
 
 /**
  * Returned when pcre_exec (called for some expressions internally from @ref

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -58,7 +58,7 @@ static const u32 MAX_FWD_LEN = 64;
 static const u32 MAX_BACK_LEN = 64;
 
 /** \brief Max lookaround entries for a role. */
-static const u32 MAX_LOOKAROUND_ENTRIES = 16;
+static const u32 MAX_LOOKAROUND_ENTRIES = 32;
 
 /** \brief We would rather have lookarounds with smaller reach than this. */
 static const u32 LOOKAROUND_WIDE_REACH = 200;

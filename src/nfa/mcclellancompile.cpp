@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1477,6 +1477,7 @@ bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
 
     bytecode_ptr<NFA> nfa;
     if (!using8bit) {
+        // Wide state optimization
         if (cc.grey.allowWideStates && strat.getType() == McClellan
             && !is_triggered(raw.kind)) {
             find_wide_state(info);
@@ -1486,19 +1487,22 @@ bytecode_ptr<NFA> mcclellanCompile_i(raw_dfa &raw, accel_dfa_build_strat &strat,
         bool any_cyclic_near_anchored_state
             = is_cyclic_near(raw, raw.start_anchored);
 
-        for (u32 i = 0; i < info.size(); i++) {
-            if (info.is_widestate(i)) {
-                continue;
+        // Sherman optimization
+        if (info.impl_alpha_size > 16) {
+            for (u32 i = 0; i < info.size(); i++) {
+                if (info.is_widestate(i)) {
+                    continue;
+                }
+                find_better_daddy(info, i, using8bit,
+                                  any_cyclic_near_anchored_state,
+                                  trust_daddy_states, cc.grey);
+                total_daddy += info.extra[i].daddytaken;
             }
-            find_better_daddy(info, i, using8bit,
-                              any_cyclic_near_anchored_state,
-                              trust_daddy_states, cc.grey);
-            total_daddy += info.extra[i].daddytaken;
-        }
 
-        DEBUG_PRINTF("daddy %hu/%zu states=%zu alpha=%hu\n", total_daddy,
-                     info.size() * info.impl_alpha_size, info.size(),
-                     info.impl_alpha_size);
+            DEBUG_PRINTF("daddy %hu/%zu states=%zu alpha=%hu\n", total_daddy,
+                         info.size() * info.impl_alpha_size, info.size(),
+                         info.impl_alpha_size);
+        }
 
         nfa = mcclellanCompile16(info, cc, accel_states);
     } else {

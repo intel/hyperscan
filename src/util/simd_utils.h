@@ -138,6 +138,12 @@ m128 lshift64_m128(m128 a, unsigned b) {
 #define eq128(a, b)      _mm_cmpeq_epi8((a), (b))
 #define movemask128(a)  ((u32)_mm_movemask_epi8((a)))
 
+#if defined(HAVE_AVX512)
+static really_inline m128 cast512to128(const m512 in) {
+    return _mm512_castsi512_si128(in);
+}
+#endif
+
 static really_inline m128 set16x8(u8 c) {
     return _mm_set1_epi8(c);
 }
@@ -155,6 +161,12 @@ static really_inline u32 movd512(const m512 in) {
     // NOTE: seems gcc doesn't support _mm512_cvtsi512_si32(in),
     //       so we use 2-step convertions to work around.
     return _mm_cvtsi128_si32(_mm512_castsi512_si128(in));
+}
+
+static really_inline u64a movq512(const m512 in) {
+    // NOTE: seems AVX512 doesn't support _mm512_cvtsi512_si64(in),
+    //       so we use 2-step convertions to work around.
+    return _mm_cvtsi128_si64(_mm512_castsi512_si128(in));
 }
 #endif
 
@@ -210,6 +222,24 @@ static really_inline m128 xor128(m128 a, m128 b) {
 static really_inline m128 or128(m128 a, m128 b) {
     return _mm_or_si128(a,b);
 }
+
+#if defined(HAVE_AVX512VBMI)
+static really_inline m512 expand128(m128 a) {
+    return _mm512_broadcast_i32x4(a);
+}
+
+static really_inline m512 expand256(m256 a) {
+    return _mm512_broadcast_i64x4(a);
+}
+
+static really_inline m512 expand384(m384 a) {
+    u64a *lo = (u64a*)&a.lo;
+    u64a *mid = (u64a*)&a.mid;
+    u64a *hi = (u64a*)&a.hi;
+    return _mm512_set_epi64(0ULL, 0ULL, hi[1], hi[0], mid[1], mid[0],
+                            lo[1], lo[0]);
+}
+#endif
 
 static really_inline m128 andnot128(m128 a, m128 b) {
     return _mm_andnot_si128(a, b);
@@ -1001,6 +1031,11 @@ m512 set8x64(u64a a) {
 }
 
 static really_inline
+m512 set16x32(u32 a) {
+    return _mm512_set1_epi32(a);
+}
+
+static really_inline
 m512 set512_64(u64a hi_3, u64a hi_2, u64a hi_1, u64a hi_0,
                u64a lo_3, u64a lo_2, u64a lo_1, u64a lo_0) {
     return _mm512_set_epi64(hi_3, hi_2, hi_1, hi_0,
@@ -1016,6 +1051,26 @@ m512 swap256in512(m512 a) {
 static really_inline
 m512 set4x128(m128 a) {
     return _mm512_broadcast_i32x4(a);
+}
+
+static really_inline
+m512 sadd_u8_m512(m512 a, m512 b) {
+    return _mm512_adds_epu8(a, b);
+}
+
+static really_inline
+m512 max_u8_m512(m512 a, m512 b) {
+    return _mm512_max_epu8(a, b);
+}
+
+static really_inline
+m512 min_u8_m512(m512 a, m512 b) {
+    return _mm512_min_epu8(a, b);
+}
+
+static really_inline
+m512 sub_u8_m512(m512 a, m512 b) {
+    return _mm512_sub_epi8(a, b);
 }
 #endif
 
@@ -1204,6 +1259,22 @@ m512 loadu512(const void *ptr) {
 #endif
 }
 
+// unaligned store
+static really_inline
+void storeu512(void *ptr, m512 a) {
+#if defined(HAVE_AVX512)
+    _mm512_storeu_si512((m512 *)ptr, a);
+#elif defined(HAVE_AVX2)
+    storeu256(ptr, a.lo);
+    storeu256((char *)ptr + 32, a.hi);
+#else
+    storeu128(ptr, a.lo.lo);
+    storeu128((char *)ptr + 16, a.lo.hi);
+    storeu128((char *)ptr + 32, a.hi.lo);
+    storeu128((char *)ptr + 48, a.hi.hi);
+#endif
+}
+
 #if defined(HAVE_AVX512)
 static really_inline
 m512 loadu_maskz_m512(__mmask64 k, const void *ptr) {
@@ -1216,8 +1287,18 @@ m512 loadu_mask_m512(m512 src, __mmask64 k, const void *ptr) {
 }
 
 static really_inline
+void storeu_mask_m512(void *ptr, __mmask64 k, m512 a) {
+    _mm512_mask_storeu_epi8(ptr, k, a);
+}
+
+static really_inline
 m512 set_mask_m512(__mmask64 k) {
     return _mm512_movm_epi8(k);
+}
+
+static really_inline
+m256 loadu_maskz_m256(__mmask32 k, const void *ptr) {
+    return _mm256_maskz_loadu_epi8(k, ptr);
 }
 #endif
 

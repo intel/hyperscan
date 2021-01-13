@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, Intel Corporation
+ * Copyright (c) 2017-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -74,11 +74,12 @@ void cpuid(unsigned int op, unsigned int leaf, unsigned int *eax,
 #define CPUID_HTT (1 << 28)
 
 // Structured Extended Feature Flags Enumeration Leaf ECX values
+#define CPUID_AVX512VBMI (1 << 1)
+
+// Structured Extended Feature Flags Enumeration Leaf EBX values
 #define CPUID_BMI (1 << 3)
 #define CPUID_AVX2 (1 << 5)
 #define CPUID_BMI2 (1 << 8)
-
-// Structured Extended Feature Flags Enumeration Leaf EBX values
 #define CPUID_AVX512F (1 << 16)
 #define CPUID_AVX512BW (1 << 30)
 
@@ -179,6 +180,51 @@ int check_avx512(void) {
 
     if (ebx & CPUID_AVX512BW) {
         DEBUG_PRINTF("AVX512BW instructions enabled\n");
+        return 1;
+    }
+
+    return 0;
+#endif
+}
+
+static inline
+int check_avx512vbmi(void) {
+#if defined(__INTEL_COMPILER)
+    return _may_i_use_cpu_feature(_FEATURE_AVX512VBMI);
+#else
+    unsigned int eax, ebx, ecx, edx;
+
+    cpuid(1, 0, &eax, &ebx, &ecx, &edx);
+
+    /* check XSAVE is enabled by OS */
+    if (!(ecx & CPUID_XSAVE)) {
+        DEBUG_PRINTF("AVX and XSAVE not supported\n");
+        return 0;
+    }
+
+    /* check that AVX 512 registers are enabled by OS */
+    u64a xcr0 = xgetbv(0);
+    if ((xcr0 & CPUID_XCR0_AVX512) != CPUID_XCR0_AVX512) {
+        DEBUG_PRINTF("AVX512 registers not enabled\n");
+        return 0;
+    }
+
+    /* ECX and EDX contain capability flags */
+    ecx = 0;
+    cpuid(7, 0, &eax, &ebx, &ecx, &edx);
+
+    if (!(ebx & CPUID_AVX512F)) {
+        DEBUG_PRINTF("AVX512F (AVX512 Foundation) instructions not enabled\n");
+        return 0;
+    }
+
+    if (!(ebx & CPUID_AVX512BW)) {
+        DEBUG_PRINTF("AVX512BW instructions not enabled\n");
+        return 0;
+    }
+
+    if (ecx & CPUID_AVX512VBMI) {
+        DEBUG_PRINTF("AVX512VBMI instructions enabled\n");
         return 1;
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -115,7 +115,8 @@ static
 hs_error_t db_check_platform(const u64a p) {
     if (p != hs_current_platform
         && p != (hs_current_platform | hs_current_platform_no_avx2)
-        && p != (hs_current_platform | hs_current_platform_no_avx512)) {
+        && p != (hs_current_platform | hs_current_platform_no_avx512)
+        && p != (hs_current_platform | hs_current_platform_no_avx512vbmi)) {
         return HS_DB_PLATFORM_ERROR;
     }
     // passed all checks
@@ -370,9 +371,11 @@ hs_error_t print_database_string(char **s, u32 version, const platform_t plat,
     u8 minor = (version >> 16) & 0xff;
     u8 major = (version >> 24) & 0xff;
 
-    const char *features = (plat & HS_PLATFORM_NOAVX512)
-                               ? (plat & HS_PLATFORM_NOAVX2) ? "" : "AVX2"
-                               : "AVX512";
+    const char *features = (plat & HS_PLATFORM_NOAVX512VBMI)
+                               ? (plat & HS_PLATFORM_NOAVX512)
+                                   ? (plat & HS_PLATFORM_NOAVX2) ? "" : "AVX2"
+                                   : "AVX512"
+                               : "AVX512VBMI";
 
     const char *mode = NULL;
 

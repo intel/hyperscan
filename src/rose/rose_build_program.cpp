@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1061,6 +1061,49 @@ bool makeRoleMask32(const vector<LookEntry> &look,
     return true;
 }
 
+static
+bool makeRoleMask64(const vector<LookEntry> &look,
+                    RoseProgram &program, const target_t &target) {
+    if (!target.has_avx512()) {
+        return false;
+    }
+
+    if (look.back().offset >= look.front().offset + 64) {
+        return false;
+    }
+    s32 base_offset = verify_s32(look.front().offset);
+    array<u8, 64> and_mask, cmp_mask;
+    and_mask.fill(0);
+    cmp_mask.fill(0);
+    u64a neg_mask = 0;
+    for (const auto &entry : look) {
+        u8 andmask_u8, cmpmask_u8, flip;
+        if (!checkReachWithFlip(entry.reach, andmask_u8, cmpmask_u8, flip)) {
+            return false;
+        }
+        u32 shift = entry.offset - base_offset;
+        assert(shift < 64);
+        and_mask[shift] = andmask_u8;
+        cmp_mask[shift] = cmpmask_u8;
+        if (flip) {
+            neg_mask |= 1ULL << shift;
+        }
+    }
+
+    DEBUG_PRINTF("and_mask %s\n",
+                 convertMaskstoString(and_mask.data(), 64).c_str());
+    DEBUG_PRINTF("cmp_mask %s\n",
+                 convertMaskstoString(cmp_mask.data(), 64).c_str());
+    DEBUG_PRINTF("neg_mask %llx\n", neg_mask);
+    DEBUG_PRINTF("base_offset %d\n", base_offset);
+
+    const auto *end_inst = program.end_instruction();
+    auto ri = make_unique<RoseInstrCheckMask64>(and_mask, cmp_mask, neg_mask,
+                                                base_offset, end_inst);
+    program.add_before_end(move(ri));
+    return true;
+}
+
 // Sorting by the size of every bucket.
 // Used in map<u32, vector<s8>, cmpNibble>.
 struct cmpNibble {
@@ -1084,6 +1127,7 @@ void getAllBuckets(const vector<LookEntry> &look,
         } else {
             neg_mask ^= 1ULL << (entry.offset - base_offset);
         }
+
         map <u16, u16> lo2hi;
         // We treat Ascii Table as a 16x16 grid.
         // Push every row in cr into lo2hi and mark the row number.
@@ -1237,6 +1281,7 @@ makeCheckShufti16x16(u32 offset_range, u8 bucket_idx,
            (hi_mask, lo_mask, bucket_select_mask_32,
             neg_mask & 0xffff, base_offset, end_inst);
 }
+
 static
 unique_ptr<RoseInstruction>
 makeCheckShufti32x16(u32 offset_range, u8 bucket_idx,
@@ -1255,10 +1300,83 @@ makeCheckShufti32x16(u32 offset_range, u8 bucket_idx,
 }
 
 static
-bool makeRoleShufti(const vector<LookEntry> &look, RoseProgram &program) {
+unique_ptr<RoseInstruction>
+makeCheckShufti64x8(u32 offset_range, u8 bucket_idx,
+                    const array<u8, 32> &hi_mask, const array<u8, 32> &lo_mask,
+                    const array<u8, 64> &bucket_select_mask,
+                    u64a neg_mask, s32 base_offset,
+                    const RoseInstruction *end_inst) {
+    if (offset_range > 64 || bucket_idx > 8) {
+        return nullptr;
+    }
 
+    array<u8, 64> hi_mask_64;
+    array<u8, 64> lo_mask_64;
+    copy(hi_mask.begin(), hi_mask.begin() + 16, hi_mask_64.begin());
+    copy(hi_mask.begin(), hi_mask.begin() + 16, hi_mask_64.begin() + 16);
+    copy(hi_mask.begin(), hi_mask.begin() + 16, hi_mask_64.begin() + 32);
+    copy(hi_mask.begin(), hi_mask.begin() + 16, hi_mask_64.begin() + 48);
+    copy(lo_mask.begin(), lo_mask.begin() + 16, lo_mask_64.begin());
+    copy(lo_mask.begin(), lo_mask.begin() + 16, lo_mask_64.begin() + 16);
+    copy(lo_mask.begin(), lo_mask.begin() + 16, lo_mask_64.begin() + 32);
+    copy(lo_mask.begin(), lo_mask.begin() + 16, lo_mask_64.begin() + 48);
+
+    return make_unique<RoseInstrCheckShufti64x8>
+           (hi_mask_64, lo_mask_64, bucket_select_mask,
+            neg_mask, base_offset, end_inst);
+}
+
+static
+unique_ptr<RoseInstruction>
+makeCheckShufti64x16(u32 offset_range, u8 bucket_idx,
+                     const array<u8, 32> &hi_mask, const array<u8, 32> &lo_mask,
+                     const array<u8, 64> &bucket_select_mask_lo,
+                     const array<u8, 64> &bucket_select_mask_hi,
+                     u64a neg_mask, s32 base_offset,
+                     const RoseInstruction *end_inst) {
+    if (offset_range > 64 || bucket_idx > 16) {
+        return nullptr;
+    }
+
+    array<u8, 64> hi_mask_1;
+    array<u8, 64> hi_mask_2;
+    array<u8, 64> lo_mask_1;
+    array<u8, 64> lo_mask_2;
+
+    copy(hi_mask.begin(), hi_mask.begin() + 16, hi_mask_1.begin());
+    copy(hi_mask.begin(), hi_mask.begin() + 16, hi_mask_1.begin() + 16);
+    copy(hi_mask.begin(), hi_mask.begin() + 16, hi_mask_1.begin() + 32);
+    copy(hi_mask.begin(), hi_mask.begin() + 16, hi_mask_1.begin() + 48);
+    copy(hi_mask.begin() + 16, hi_mask.begin() + 32, hi_mask_2.begin());
+    copy(hi_mask.begin() + 16, hi_mask.begin() + 32, hi_mask_2.begin() + 16);
+    copy(hi_mask.begin() + 16, hi_mask.begin() + 32, hi_mask_2.begin() + 32);
+    copy(hi_mask.begin() + 16, hi_mask.begin() + 32, hi_mask_2.begin() + 48);
+
+    copy(lo_mask.begin(), lo_mask.begin() + 16, lo_mask_1.begin());
+    copy(lo_mask.begin(), lo_mask.begin() + 16, lo_mask_1.begin() + 16);
+    copy(lo_mask.begin(), lo_mask.begin() + 16, lo_mask_1.begin() + 32);
+    copy(lo_mask.begin(), lo_mask.begin() + 16, lo_mask_1.begin() + 48);
+    copy(lo_mask.begin() + 16, lo_mask.begin() + 32, lo_mask_2.begin());
+    copy(lo_mask.begin() + 16, lo_mask.begin() + 32, lo_mask_2.begin() + 16);
+    copy(lo_mask.begin() + 16, lo_mask.begin() + 32, lo_mask_2.begin() + 32);
+    copy(lo_mask.begin() + 16, lo_mask.begin() + 32, lo_mask_2.begin() + 48);
+
+    return make_unique<RoseInstrCheckShufti64x16>
+           (hi_mask_1, hi_mask_2, lo_mask_1, lo_mask_2, bucket_select_mask_hi,
+            bucket_select_mask_lo, neg_mask, base_offset, end_inst);
+}
+
+static
+bool makeRoleShufti(const vector<LookEntry> &look, RoseProgram &program,
+                    const target_t &target) {
+    s32 offset_limit;
+    if (target.has_avx512()) {
+        offset_limit = 64;
+    } else {
+        offset_limit = 32;
+    }
     s32 base_offset = verify_s32(look.front().offset);
-    if (look.back().offset >= base_offset + 32) {
+    if (look.back().offset >= base_offset + offset_limit) {
         return false;
     }
 
@@ -1266,17 +1384,40 @@ bool makeRoleShufti(const vector<LookEntry> &look, RoseProgram &program) {
     u64a neg_mask_64;
     array<u8, 32> hi_mask;
     array<u8, 32> lo_mask;
+    array<u8, 64> bucket_select_hi_64; // for AVX512
+    array<u8, 64> bucket_select_lo_64; // for AVX512
     array<u8, 32> bucket_select_hi;
     array<u8, 32> bucket_select_lo;
     hi_mask.fill(0);
     lo_mask.fill(0);
+    bucket_select_hi_64.fill(0);
+    bucket_select_lo_64.fill(0);
     bucket_select_hi.fill(0); // will not be used in 16x8 and 32x8.
     bucket_select_lo.fill(0);
 
-    if (!getShuftiMasks(look, hi_mask, lo_mask, bucket_select_hi.data(),
-                        bucket_select_lo.data(), neg_mask_64, bucket_idx, 32)) {
-        return false;
+    if (target.has_avx512()) {
+        if (!getShuftiMasks(look, hi_mask, lo_mask, bucket_select_hi_64.data(),
+                            bucket_select_lo_64.data(), neg_mask_64, bucket_idx,
+                            32)) {
+            return false;
+        }
+        copy(bucket_select_hi_64.begin(), bucket_select_hi_64.begin() + 32,
+             bucket_select_hi.begin());
+        copy(bucket_select_lo_64.begin(), bucket_select_lo_64.begin() + 32,
+            bucket_select_lo.begin());
+
+        DEBUG_PRINTF("bucket_select_hi_64 %s\n",
+                     convertMaskstoString(bucket_select_hi_64.data(), 64).c_str());
+        DEBUG_PRINTF("bucket_select_lo_64 %s\n",
+                     convertMaskstoString(bucket_select_lo_64.data(), 64).c_str());
+    } else {
+        if (!getShuftiMasks(look, hi_mask, lo_mask, bucket_select_hi.data(),
+                            bucket_select_lo.data(), neg_mask_64, bucket_idx,
+                            32)) {
+            return false;
+        }
     }
+
     u32 neg_mask = (u32)neg_mask_64;
 
     DEBUG_PRINTF("hi_mask %s\n",
@@ -1299,6 +1440,13 @@ bool makeRoleShufti(const vector<LookEntry> &look, RoseProgram &program) {
                                  bucket_select_lo, neg_mask, base_offset,
                                  end_inst);
     }
+    if (target.has_avx512()) {
+        if (!ri) {
+            ri = makeCheckShufti64x8(offset_range, bucket_idx, hi_mask, lo_mask,
+                                     bucket_select_lo_64, neg_mask_64,
+                                     base_offset, end_inst);
+        }
+    }
     if (!ri) {
         ri = makeCheckShufti16x16(offset_range, bucket_idx, hi_mask, lo_mask,
                                   bucket_select_lo, bucket_select_hi,
@@ -1308,6 +1456,13 @@ bool makeRoleShufti(const vector<LookEntry> &look, RoseProgram &program) {
         ri = makeCheckShufti32x16(offset_range, bucket_idx, hi_mask, lo_mask,
                                   bucket_select_lo, bucket_select_hi,
                                   neg_mask, base_offset, end_inst);
+    }
+    if (target.has_avx512()) {
+        if (!ri) {
+            ri = makeCheckShufti64x16(offset_range, bucket_idx, hi_mask, lo_mask,
+                                      bucket_select_lo_64, bucket_select_hi_64,
+                                      neg_mask_64, base_offset, end_inst);
+        }
     }
     assert(ri);
     program.add_before_end(move(ri));
@@ -1321,7 +1476,7 @@ bool makeRoleShufti(const vector<LookEntry> &look, RoseProgram &program) {
  */
 static
 void makeLookaroundInstruction(const vector<LookEntry> &look,
-                               RoseProgram &program) {
+                               RoseProgram &program, const target_t &target) {
     assert(!look.empty());
 
     if (makeRoleByte(look, program)) {
@@ -1345,7 +1500,11 @@ void makeLookaroundInstruction(const vector<LookEntry> &look,
         return;
     }
 
-    if (makeRoleShufti(look, program)) {
+    if (makeRoleMask64(look, program, target)) {
+        return;
+    }
+
+    if (makeRoleShufti(look, program, target)) {
         return;
     }
 
@@ -1386,7 +1545,7 @@ void makeCheckLitMaskInstruction(const RoseBuildImpl &build, u32 lit_id,
         return; // all caseful chars handled by HWLM mask.
     }
 
-    makeLookaroundInstruction(look, program);
+    makeLookaroundInstruction(look, program, build.cc.target_info);
 }
 
 static
@@ -1730,7 +1889,7 @@ void makeRoleLookaround(const RoseBuildImpl &build,
         findLookaroundMasks(build, v, look_more);
         mergeLookaround(look, look_more);
         if (!look.empty()) {
-            makeLookaroundInstruction(look, program);
+            makeLookaroundInstruction(look, program, build.cc.target_info);
         }
         return;
     }

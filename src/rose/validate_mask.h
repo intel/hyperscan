@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,6 +41,17 @@ void validateMask32Print(const u8 *mask) {
     }
     printf("\n");
 }
+
+#ifdef HAVE_AVX512
+static
+void validateMask64Print(const u8 *mask) {
+    int i;
+    for (i = 0; i < 64; i++) {
+        printf("%02x ", mask[i]);
+    }
+    printf("\n");
+}
+#endif
 #endif
 
 // check positive bytes in cmp_result.
@@ -114,5 +125,30 @@ int validateMask32(const m256 data, const u32 valid_data_mask,
         return 0;
     }
 }
+
+#ifdef HAVE_AVX512
+static really_inline
+int validateMask64(const m512 data, const u64a valid_data_mask,
+                   const m512 and_mask, const m512 cmp_mask,
+                   const u64a neg_mask) {
+    u64a cmp_result = ~eq512mask(and512(data, and_mask), cmp_mask);
+#ifdef DEBUG
+    DEBUG_PRINTF("data\n");
+    validateMask64Print((const u8 *)&data);
+    DEBUG_PRINTF("cmp_result\n");
+    validateMask64Print((const u8 *)&cmp_result);
+#endif
+    DEBUG_PRINTF("cmp_result %016llx neg_mask %016llx\n", cmp_result, neg_mask);
+    DEBUG_PRINTF("valid_data_mask %016llx\n", valid_data_mask);
+
+    if ((cmp_result & valid_data_mask) == (neg_mask & valid_data_mask)) {
+        DEBUG_PRINTF("checkCompareResult64 passed\n");
+        return 1;
+    } else {
+        DEBUG_PRINTF("checkCompareResult64 failed\n");
+        return 0;
+    }
+}
+#endif
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -70,6 +70,14 @@ private:
 bytecode_ptr<NFA> shengCompile(raw_dfa &raw, const CompileContext &cc,
                                const ReportManager &rm, bool only_accel_init,
                                std::set<dstate_id_t> *accel_states = nullptr);
+
+bytecode_ptr<NFA> sheng32Compile(raw_dfa &raw, const CompileContext &cc,
+                                 const ReportManager &rm, bool only_accel_init,
+                                 std::set<dstate_id_t> *accel_states = nullptr);
+
+bytecode_ptr<NFA> sheng64Compile(raw_dfa &raw, const CompileContext &cc,
+                                 const ReportManager &rm, bool only_accel_init,
+                                 std::set<dstate_id_t> *accel_states = nullptr);
 
 struct sheng_escape_info {
     CharReach outs;

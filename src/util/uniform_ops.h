@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -100,6 +100,18 @@
 #define or_m256(a, b)       (or256(a, b))
 #define or_m384(a, b)       (or384(a, b))
 #define or_m512(a, b)       (or512(a, b))
+
+#if defined(HAVE_AVX512VBMI)
+#define expand_m128(a)      (expand128(a))
+#define expand_m256(a)      (expand256(a))
+#define expand_m384(a)      (expand384(a))
+#define expand_m512(a)      (a)
+
+#define shuffle_byte_m128(a, b)       (pshufb_m512(b, a))
+#define shuffle_byte_m256(a, b)       (vpermb512(a, b))
+#define shuffle_byte_m384(a, b)       (vpermb512(a, b))
+#define shuffle_byte_m512(a, b)       (vpermb512(a, b))
+#endif
 
 #define and_u8(a, b)        ((a) & (b))
 #define and_u32(a, b)       ((a) & (b))

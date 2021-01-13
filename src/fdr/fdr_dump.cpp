@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -108,6 +108,25 @@ void dumpTeddyReinforced(const u8 *rmsk, const u32 num_tables, FILE *f) {
 }
 
 static
+void dumpTeddyDupMasks(const u8 *dmsk, u32 numMasks, FILE *f) {
+    // dump nibble masks
+    u32 maskWidth = 2;
+    fprintf(f, "    dup nibble masks:\n");
+    for (u32 i = 0; i < numMasks * 2; i++) {
+        fprintf(f, "      -%d%s: ", 1 + i / 2, (i % 2) ? "hi" : "lo");
+        for (u32 j = 0; j < 16 * maskWidth * 2; j++) {
+            u8 val = dmsk[i * 16 * maskWidth * 2 + j];
+            for (u32 k = 0; k < 8; k++) {
+                fprintf(f, "%s", ((val >> k) & 0x1) ? "1" : "0");
+            }
+            fprintf(f, " ");
+        }
+        fprintf(f, "\n");
+    }
+    fprintf(f, "\n");
+}
+
+static
 void dumpTeddyMasks(const u8 *baseMsk, u32 numMasks, u32 maskWidth, FILE *f) {
     // dump nibble masks
     fprintf(f, "    nibble masks:\n");
@@ -146,12 +165,17 @@ void dumpTeddy(const Teddy *teddy, FILE *f) {
 
     u32 maskWidth = des->getNumBuckets() / 8;
     size_t headerSize = sizeof(Teddy);
-    size_t maskLen = des->numMasks * 16 * 2 * maskWidth;
     const u8 *teddy_base = (const u8 *)teddy;
     const u8 *baseMsk = teddy_base + ROUNDUP_CL(headerSize);
-    const u8 *rmsk = baseMsk + ROUNDUP_CL(maskLen);
     dumpTeddyMasks(baseMsk, des->numMasks, maskWidth, f);
-    dumpTeddyReinforced(rmsk, maskWidth, f);
+    size_t maskLen = des->numMasks * 16 * 2 * maskWidth;
+    const u8 *rdmsk = baseMsk + ROUNDUP_CL(maskLen);
+    if (maskWidth == 1) { // reinforcement table in Teddy
+        dumpTeddyReinforced(rdmsk, maskWidth, f);
+    } else { // dup nibble mask table in Fat Teddy
+        assert(maskWidth == 2);
+        dumpTeddyDupMasks(rdmsk, des->numMasks, f);
+    }
     dumpConfirms(teddy, teddy->confOffset, des->getNumBuckets(), f);
 }
 

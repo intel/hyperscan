@@ -201,12 +201,12 @@ const u8 *prepScanBuffer(const struct core_info *ci,
         } else {
             // Copy: first chunk from history buffer.
             assert(overhang <= ci->hlen);
-            copy_upto_32_bytes(tempbuf, ci->hbuf + ci->hlen - overhang,
+            copy_upto_64_bytes(tempbuf, ci->hbuf + ci->hlen - overhang,
                                overhang);
             // Copy: second chunk from current buffer.
             size_t copy_buf_len = LONG_LIT_HASH_LEN - overhang;
             assert(copy_buf_len <= ci->len);
-            copy_upto_32_bytes(tempbuf + overhang, ci->buf, copy_buf_len);
+            copy_upto_64_bytes(tempbuf + overhang, ci->buf, copy_buf_len);
             // Read from our temporary buffer for the hash.
             base = tempbuf;
         }

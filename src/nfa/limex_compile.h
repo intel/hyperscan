@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -78,6 +78,7 @@ bytecode_ptr<NFA> generate(NGHolder &g,
             const std::set<NFAVertex> &zombies,
             bool do_accel,
             bool stateCompression,
+            bool &fast,
             u32 hint,
             const CompileContext &cc);
 

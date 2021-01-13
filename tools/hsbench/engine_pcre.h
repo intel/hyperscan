@@ -62,7 +62,7 @@ public:
 struct PcreDB {
     bool highlander = false;
     bool utf8 = false;
-    u32 id;
+    u32 id = 0;
     pcre *db = nullptr;
     pcre_extra *extra = nullptr;
 };
@@ -96,6 +96,8 @@ public:
                     unsigned int id, ResultEntry &result) const;
 
     void printStats() const;
+
+    void printCsvStats() const;
 
     void sqlStats(SqlDB &db) const;
 

@@ -263,17 +263,19 @@ the current platform is supported by Hyperscan.
 As of this release, the variants of the runtime that are built, and the CPU
 capability that is required, are the following:
 
-+----------+-------------------------------+---------------------------+
-| Variant  | CPU Feature Flag(s) Required  | gcc arch flag             |
-+==========+===============================+===========================+
-| Core 2   | ``SSSE3``                     | ``-march=core2``          |
-+----------+-------------------------------+---------------------------+
-| Core i7  | ``SSE4_2`` and ``POPCNT``     | ``-march=corei7``         |
-+----------+-------------------------------+---------------------------+
-| AVX 2    | ``AVX2``                      | ``-march=core-avx2``      |
-+----------+-------------------------------+---------------------------+
-| AVX 512  | ``AVX512BW`` (see note below) | ``-march=skylake-avx512`` |
-+----------+-------------------------------+---------------------------+
++--------------+---------------------------------+---------------------------+
+| Variant      | CPU Feature Flag(s) Required    | gcc arch flag             |
++==============+=================================+===========================+
+| Core 2       | ``SSSE3``                       | ``-march=core2``          |
++--------------+---------------------------------+---------------------------+
+| Core i7      | ``SSE4_2`` and ``POPCNT``       | ``-march=corei7``         |
++--------------+---------------------------------+---------------------------+
+| AVX 2        | ``AVX2``                        | ``-march=core-avx2``      |
++--------------+---------------------------------+---------------------------+
+| AVX 512      | ``AVX512BW`` (see note below)   | ``-march=skylake-avx512`` |
++--------------+---------------------------------+---------------------------+
+| AVX 512 VBMI | ``AVX512VBMI`` (see note below) | ``-march=icelake-server`` |
++--------------+---------------------------------+---------------------------+
 
 .. note::
 
@@ -286,6 +288,16 @@ capability that is required, are the following:
     example: ::
 
         cmake -DBUILD_AVX512=on <...>
+
+    Hyperscan v5.3 adds support for AVX512VBMI instructions - in particular the
+    ``AVX512VBMI`` instruction set that was introduced on Intel "Icelake" Xeon
+    processors - however the AVX512VBMI runtime variant is **not** enabled by
+    default in fat runtime builds as not all toolchains support AVX512VBMI
+    instruction sets. To build an AVX512VBMI runtime, the CMake variable
+    ``BUILD_AVX512VBMI`` must be enabled manually during configuration. For
+    example: ::
+
+        cmake -DBUILD_AVX512VBMI=on <...>
 
 As the fat runtime requires compiler, libc, and binutils support, at this time
 it will only be enabled for Linux builds where the compiler supports the

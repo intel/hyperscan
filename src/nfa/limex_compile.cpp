@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -84,6 +84,18 @@ namespace ue2 {
  * participate in an (NFA/DFA/etc) implementation.
  */
 static constexpr u32 NO_STATE = ~0;
+
+/* Maximum number of states taken as a small NFA */
+static constexpr u32 MAX_SMALL_NFA_STATES = 64;
+
+/* Maximum bounded repeat upper bound to consider as a fast NFA */
+static constexpr u64a MAX_REPEAT_SIZE = 200;
+
+/* Maximum bounded repeat char reach size to consider as a fast NFA */
+static constexpr u32 MAX_REPEAT_CHAR_REACH = 26;
+
+/* Minimum bounded repeat trigger distance to consider as a fast NFA */
+static constexpr u8 MIN_REPEAT_TRIGGER_DISTANCE = 6;
 
 namespace {
 
@@ -1910,7 +1922,8 @@ struct Factory {
     }
 
     static
-    void writeExceptions(const map<ExceptionProto, vector<u32>> &exceptionMap,
+    void writeExceptions(const build_info &args,
+                         const map<ExceptionProto, vector<u32>> &exceptionMap,
                          const vector<u32> &repeatOffsets, implNFA_t *limex,
                          const u32 exceptionsOffset,
                          const u32 reportListOffset) {
@@ -1962,6 +1975,59 @@ struct Factory {
 
         limex->exceptionOffset = exceptionsOffset;
         limex->exceptionCount = ecount;
+
+        if (args.num_states > 64 && args.cc.target_info.has_avx512vbmi()) {
+            const u8 *exceptionMask = (const u8 *)(&limex->exceptionMask);
+            u8 *shufMask = (u8 *)&limex->exceptionShufMask;
+            u8 *bitMask = (u8 *)&limex->exceptionBitMask;
+            u8 *andMask = (u8 *)&limex->exceptionAndMask;
+
+            u32 tot_cnt = 0;
+            u32 pos = 0;
+            bool valid = true;
+            size_t tot = sizeof(limex->exceptionMask);
+            size_t base = 0;
+
+            // We normally have up to 64 exceptions to handle,
+            // but treat 384 state Limex differently to simplify operations
+            size_t limit = 64;
+            if (args.num_states > 256 && args.num_states <= 384) {
+                limit = 48;
+            }
+
+            for (size_t i = 0; i < tot; i++) {
+                if (!exceptionMask[i]) {
+                    continue;
+                }
+                u32 bit_cnt = popcount32(exceptionMask[i]);
+
+                tot_cnt += bit_cnt;
+                if (tot_cnt > limit) {
+                    valid = false;
+                    break;
+                }
+
+                u32 emsk = exceptionMask[i];
+                while (emsk) {
+                    u32 t = findAndClearLSB_32(&emsk);
+                    bitMask[pos] = 1U << t;
+                    andMask[pos] = 1U << t;
+                    shufMask[pos++] = i + base;
+
+                    if (pos == 32 &&
+                        (args.num_states > 128 && args.num_states <= 256)) {
+                        base += 32;
+                    }
+                }
+            }
+            // Avoid matching unused bytes
+            for (u32 i = pos; i < 64; i++) {
+                bitMask[i] = 0xff;
+            }
+            if (valid) {
+                setLimexFlag(limex, LIMEX_FLAG_EXTRACT_EXP);
+            }
+        }
     }
 
     static
@@ -2287,7 +2353,7 @@ struct Factory {
         writeRepeats(repeats, repeatOffsets, limex, repeatOffsetsOffset,
                      repeatsOffset);
 
-        writeExceptions(exceptionMap, repeatOffsets, limex, exceptionsOffset,
+        writeExceptions(args, exceptionMap, repeatOffsets, limex, exceptionsOffset,
                         reportListOffset);
 
         writeLimexMasks(args, limex);
@@ -2423,6 +2489,68 @@ bool isSane(const NGHolder &h, const map<u32, set<NFAVertex>> &tops,
 #endif // NDEBUG
 
 static
+bool isFast(const build_info &args) {
+    const NGHolder &h = args.h;
+    const u32 num_states = args.num_states;
+
+    if (num_states > MAX_SMALL_NFA_STATES) {
+        return false;
+    }
+
+    unordered_map<NFAVertex, bool> pos_trigger;
+    for (u32 i = 0; i < args.repeats.size(); i++) {
+        const BoundedRepeatData &br = args.repeats[i];
+        assert(!contains(pos_trigger, br.pos_trigger));
+        pos_trigger[br.pos_trigger] = br.repeatMax <= MAX_REPEAT_SIZE;
+    }
+
+    // Small NFA without bounded repeat should be fast.
+    if (pos_trigger.empty()) {
+        return true;
+    }
+
+    vector<NFAVertex> cur;
+    unordered_set<NFAVertex> visited;
+    for (const auto &m : args.tops) {
+        for (NFAVertex v : m.second) {
+            cur.push_back(v);
+            visited.insert(v);
+        }
+    }
+
+    u8 pos_dist = 0;
+    while (!cur.empty()) {
+        vector<NFAVertex> next;
+        for (const auto &v : cur) {
+            if (contains(pos_trigger, v)) {
+                const CharReach &cr = h[v].char_reach;
+                if (!pos_trigger[v] && cr.count() > MAX_REPEAT_CHAR_REACH) {
+                    return false;
+                }
+            }
+            for (const auto &w : adjacent_vertices_range(v, h)) {
+                if (w == v) {
+                    continue;
+                }
+                u32 j = args.state_ids.at(w);
+                if (j == NO_STATE) {
+                    continue;
+                }
+                if (!contains(visited, w)) {
+                    next.push_back(w);
+                    visited.insert(w);
+                }
+            }
+        }
+        if (++pos_dist >= MIN_REPEAT_TRIGGER_DISTANCE) {
+            break;
+        }
+        swap(cur, next);
+    }
+    return true;
+}
+
+static
 u32 max_state(const unordered_map<NFAVertex, u32> &state_ids) {
     u32 rv = 0;
     for (const auto &m : state_ids) {
@@ -2442,7 +2570,7 @@ bytecode_ptr<NFA> generate(NGHolder &h,
                 const unordered_map<NFAVertex, NFAStateSet> &squashMap,
                 const map<u32, set<NFAVertex>> &tops,
                 const set<NFAVertex> &zombies, bool do_accel,
-                bool stateCompression, u32 hint,
+                bool stateCompression, bool &fast, u32 hint,
                 const CompileContext &cc) {
     const u32 num_states = max_state(states) + 1;
     DEBUG_PRINTF("total states: %u\n", num_states);
@@ -2497,6 +2625,7 @@ bytecode_ptr<NFA> generate(NGHolder &h,
         if (nfa) {
             DEBUG_PRINTF("successful build with NFA engine: %s\n",
                          nfa_type_name(limex_model));
+            fast = isFast(arg);
             return nfa;
         }
     }

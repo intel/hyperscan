@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -83,9 +83,10 @@ protected:
         const map<u32, u32> fixed_depth_tops;
         const map<u32, vector<vector<CharReach>>> triggers;
         bool compress_state = false;
+        bool fast_nfa = false;
 
         nfa = constructNFA(*g, &rm, fixed_depth_tops, triggers, compress_state,
-                           type, cc);
+                           fast_nfa, type, cc);
         ASSERT_TRUE(nfa != nullptr);
 
         full_state = make_bytecode_ptr<char>(nfa->scratchStateSize, 64);
@@ -376,9 +377,10 @@ protected:
         const map<u32, u32> fixed_depth_tops;
         const map<u32, vector<vector<CharReach>>> triggers;
         bool compress_state = false;
+        bool fast_nfa = false;
 
         nfa = constructNFA(*g, &rm, fixed_depth_tops, triggers, compress_state,
-                           type, cc);
+                           fast_nfa, type, cc);
         ASSERT_TRUE(nfa != nullptr);
 
         full_state = make_bytecode_ptr<char>(nfa->scratchStateSize, 64);

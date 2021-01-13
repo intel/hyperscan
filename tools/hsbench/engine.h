@@ -88,6 +88,8 @@ public:
 
     virtual void printStats() const = 0;
 
+    virtual void printCsvStats() const = 0;
+
     virtual void sqlStats(SqlDB &db) const = 0;
 };
 
