@@ -5,7 +5,7 @@ endif()
 
 include_directories(${PCRE_INCLUDE_DIRS})
 
-include(${CMAKE_MODULE_PATH}/backtrace.cmake)
+include(backtrace)
 
 # we need static libs - too much deep magic for shared libs
 if (NOT BUILD_STATIC_LIBS)
