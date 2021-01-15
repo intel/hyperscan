@@ -123,6 +123,7 @@
 #include <vector>
 #include <unordered_map>
 
+#include <climits>
 #include <unistd.h>
 
 // We use the BSD primitives throughout as they exist on both BSD and Linux.
@@ -657,6 +658,10 @@ int main(int argc, char **argv) {
             break;
         case 'n':
             repeatCount = atoi(optarg);
+            if (repeatCount <= 0 || repeatCount > UINT_MAX) {
+                cerr << "Invalid repeatCount." << endl;
+                exit(-1);
+            }
             break;
         default:
             usage(argv[0]);

@@ -58,6 +58,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include <climits>
 #include <unistd.h>
 
 // We use the BSD primitives throughout as they exist on both BSD and Linux.
@@ -489,6 +490,10 @@ int main(int argc, char **argv) {
 
     // Streaming mode scans.
     double secsStreamingScan = 0.0, secsStreamingOpenClose = 0.0;
+    if (repeatCount <= 0 || repeatCount > UINT_MAX) {
+        cerr << "Invalid repeatCount." << endl;
+        exit(-1);
+    }
     for (unsigned int i = 0; i < repeatCount; i++) {
         // Open streams.
         clock.start();
