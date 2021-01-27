@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, Intel Corporation
+ * Copyright (c) 2015-2021, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -156,6 +156,16 @@ static really_inline u32 movd(const m128 in) {
     return _mm_cvtsi128_si32(in);
 }
 
+static really_inline u64a movq(const m128 in) {
+#if defined(ARCH_X86_64)
+    return _mm_cvtsi128_si64(in);
+#else // 32-bit - this is horrific
+    u32 lo = movd(in);
+    u32 hi = movd(_mm_srli_epi64(in, 32));
+    return (u64a)hi << 32 | lo;
+#endif
+}
+
 #if defined(HAVE_AVX512)
 static really_inline u32 movd512(const m512 in) {
     // NOTE: seems gcc doesn't support _mm512_cvtsi512_si32(in),
@@ -166,19 +176,9 @@ static really_inline u32 movd512(const m512 in) {
 static really_inline u64a movq512(const m512 in) {
     // NOTE: seems AVX512 doesn't support _mm512_cvtsi512_si64(in),
     //       so we use 2-step convertions to work around.
-    return _mm_cvtsi128_si64(_mm512_castsi512_si128(in));
+    return movq(_mm512_castsi512_si128(in));
 }
 #endif
-
-static really_inline u64a movq(const m128 in) {
-#if defined(ARCH_X86_64)
-    return _mm_cvtsi128_si64(in);
-#else // 32-bit - this is horrific
-    u32 lo = movd(in);
-    u32 hi = movd(_mm_srli_epi64(in, 32));
-    return (u64a)hi << 32 | lo;
-#endif
-}
 
 /* another form of movq */
 static really_inline
@@ -791,7 +791,7 @@ m128 movdq_lo(m256 x) {
 #define lshift128_m256(a, count_immed) _mm256_slli_si256(a, count_immed)
 #define extract64from256(a, imm) _mm_extract_epi64(_mm256_extracti128_si256(a, imm >> 1), imm % 2)
 #define extract32from256(a, imm) _mm_extract_epi32(_mm256_extracti128_si256(a, imm >> 2), imm % 4)
-#define extractlow64from256(a) _mm_cvtsi128_si64(cast256to128(a))
+#define extractlow64from256(a) movq(cast256to128(a))
 #define extractlow32from256(a) movd(cast256to128(a))
 #define interleave256hi(a, b) _mm256_unpackhi_epi8(a, b)
 #define interleave256lo(a, b) _mm256_unpacklo_epi8(a, b)
