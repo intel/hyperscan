@@ -1082,7 +1082,9 @@ void find_better_daddy(dfa_info &info, dstate_id_t curr_id, bool using8bit,
         // Use the daddy already set for this state so long as it isn't already
         // a Sherman state.
         dstate_id_t daddy = currState.daddy;
-        if (!info.is_sherman(daddy) && !info.is_widestate(daddy)) {
+        if (info.is_widestate(daddy)) {
+            return;
+        } else if (!info.is_sherman(daddy)) {
             hinted.insert(currState.daddy);
         } else {
             // Fall back to granddaddy, which has already been processed (due
