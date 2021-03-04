@@ -416,6 +416,10 @@ void addLitExpression(NG &ng, unsigned index, const char *expression,
                            "HS_FLAG_SOM_LEFTMOST are supported in literal API.");
     }
 
+    if (!strcmp(expression, "")) {
+        throw CompileError("Pure literal API doesn't support empty string.");
+    }
+
     // This expression must be a pure literal, we can build ue2_literal
     // directly based on expression text.
     ParsedLitExpression ple(index, expression, expLength, flags, id);
