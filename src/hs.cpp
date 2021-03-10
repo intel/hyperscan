@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, Intel Corporation
+ * Copyright (c) 2015-2021, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -511,6 +511,12 @@ hs_error_t hs_expression_info_int(const char *expression, unsigned int flags,
     if (!expression) {
         *error = generateCompileError("Invalid parameter: expression is NULL",
                                       -1);
+        return HS_COMPILER_ERROR;
+    }
+
+    if (flags & HS_FLAG_COMBINATION) {
+        *error = generateCompileError("Invalid parameter: unsupported "
+                                      "logical combination expression", -1);
         return HS_COMPILER_ERROR;
     }
 
