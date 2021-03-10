@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, Intel Corporation
+ * Copyright (c) 2019-2021, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -80,7 +80,9 @@ extern "C"
                     | HS_FLAG_PREFILTER \
                     | HS_FLAG_SINGLEMATCH \
                     | HS_FLAG_ALLOWEMPTY \
-                    | HS_FLAG_SOM_LEFTMOST)
+                    | HS_FLAG_SOM_LEFTMOST \
+                    | HS_FLAG_COMBINATION \
+                    | HS_FLAG_QUIET)
 
 #ifdef __cplusplus
 } /* extern "C" */
