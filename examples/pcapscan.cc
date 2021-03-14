@@ -51,6 +51,7 @@
 
 #include <cstring>
 #include <chrono>
+#include <climits>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -58,7 +59,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <climits>
 #include <unistd.h>
 
 // We use the BSD primitives throughout as they exist on both BSD and Linux.
