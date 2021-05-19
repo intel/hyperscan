@@ -1088,6 +1088,10 @@ hs_error_t HS_CDECL hs_stream_size(const hs_database_t *db,
 // perusal.
 static UNUSED
 void dumpData(const char *data, size_t len) {
+    if (unlikely(!data)) {
+        DEBUG_PRINTF("data is NULL");
+        return;
+    }
     DEBUG_PRINTF("BUFFER:");
     for (size_t i = 0; i < len; i++) {
         u8 c = data[i];
