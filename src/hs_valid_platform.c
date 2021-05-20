@@ -33,9 +33,16 @@
 HS_PUBLIC_API
 hs_error_t HS_CDECL hs_valid_platform(void) {
     /* Hyperscan requires SSSE3, anything else is a bonus */
+#if defined(__x86_64__)
     if (check_ssse3()) {
         return HS_SUCCESS;
-    } else {
+    }
+#else
+    if (check_altivec()) {
+        return HS_SUCCESS;
+    }
+#endif
+    else {
         return HS_ARCH_ERROR;
     }
 }

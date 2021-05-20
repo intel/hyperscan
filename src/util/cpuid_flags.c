@@ -39,7 +39,7 @@
 
 u64a cpuid_flags(void) {
     u64a cap = 0;
-
+#if defined(__X86_64__)
     if (check_avx2()) {
         DEBUG_PRINTF("AVX2 enabled\n");
         cap |= HS_CPU_FEATURES_AVX2;
@@ -69,6 +69,7 @@ u64a cpuid_flags(void) {
     cap &= ~HS_CPU_FEATURES_AVX512VBMI;
 #endif
 
+#endif
     return cap;
 }
 
@@ -78,6 +79,7 @@ struct family_id {
     u32 tune;
 };
 
+#if defined(__X86_64__)
 /* from table 35-1 of the Intel 64 and IA32 Arch. Software Developer's Manual
  * and "Intel Architecture and Processor Identification With CPUID Model and
  * Family Numbers" */
@@ -121,6 +123,7 @@ static const struct family_id known_microarch[] = {
     { 0x6, 0x6C, HS_TUNE_FAMILY_ICX }, /* Icelake Xeon */
 
 };
+#endif
 
 #ifdef DUMP_SUPPORT
 static UNUSED
@@ -144,6 +147,7 @@ const char *dumpTune(u32 tune) {
 #endif
 
 u32 cpuid_tune(void) {
+#if defined(__X86_64__)
     unsigned int eax, ebx, ecx, edx;
 
     cpuid(1, 0, &eax, &ebx, &ecx, &edx);
@@ -171,6 +175,6 @@ u32 cpuid_tune(void) {
         DEBUG_PRINTF("found tune flag %s\n", dumpTune(tune) );
         return tune;
     }
-
+#endif
     return HS_TUNE_FAMILY_GENERIC;
 }

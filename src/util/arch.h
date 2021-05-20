@@ -61,6 +61,10 @@
 #define HAVE_AVX512VBMI
 #endif
 
+#if defined(__powerpc__)
+#define HAVE_ALTIVEC
+#endif
+
 /*
  * ICC and MSVC don't break out POPCNT or BMI/2 as separate pre-def macros
  */
@@ -86,5 +90,13 @@
 #if defined(_WIN32) && defined(_MSC_VER)
 #define NO_ASM
 #endif
+
+/*
+ * PPC64 uses a different form of inline asm
+ */
+#if defined(__powerpc__)
+#define NO_ASM
+#endif
+
 
 #endif // UTIL_ARCH_H_

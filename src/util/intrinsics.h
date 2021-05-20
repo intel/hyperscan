@@ -55,10 +55,29 @@
 # endif
 #endif
 
+#ifdef __cplusplus
+# if defined(HAVE_CXX_PPC64_ALTIVEC_H)
+#  define USE_PPC64_ALTIVEC_H
+# endif
+#else // C
+# if defined(HAVE_C_PPC64_ALTIVEC_H)
+#  define USE_PPC64_ALTIVEC_H
+# endif
+#endif
+
+
 #if defined(USE_X86INTRIN_H)
 #include <x86intrin.h>
 #elif defined(USE_INTRIN_H)
 #include <intrin.h>
+#elif defined(USE_PPC64_ALTIVEC_H)
+#include "altivec.h"
+#ifdef bool
+#undef bool
+#endif
+#ifdef vector
+#undef vector
+#endif
 #else
 #error no intrinsics file
 #endif

@@ -15,6 +15,9 @@
 /* "Define if building for EM64T" */
 #cmakedefine ARCH_X86_64
 
+/* "Define if building for aarch64" */
+#cmakedefine ARCH_PPC64
+
 /* internal build, switch on dump support. */
 #cmakedefine DUMP_SUPPORT
 
@@ -47,6 +50,12 @@
 
 /* C compiler has intrin.h */
 #cmakedefine HAVE_C_INTRIN_H
+
+/* C++ compiler has altivec.h */
+#cmakedefine HAVE_CXX_PPC64_ALTIVEC_H
+
+/* C compiler has altivec.h */
+#cmakedefine HAVE_C_PPC64_ALTIVEC_H
 
 /* Define to 1 if you have the declaration of `pthread_setaffinity_np', and to
    0 if you don't. */

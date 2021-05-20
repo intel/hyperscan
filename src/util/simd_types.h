@@ -36,6 +36,19 @@
 
 #if defined(HAVE_SSE2)
 typedef __m128i m128;
+#elif defined(HAVE_ALTIVEC)
+#include "altivec.h"
+
+typedef ALIGN_DIRECTIVE __vector unsigned char vec_u8;
+typedef ALIGN_DIRECTIVE __vector unsigned short vec_u16;
+typedef ALIGN_DIRECTIVE __vector unsigned int vec_u32;
+typedef ALIGN_DIRECTIVE __vector unsigned long long vec_u64;
+typedef ALIGN_DIRECTIVE __vector signed char vec_s8;
+typedef ALIGN_DIRECTIVE __vector signed short vec_s16;
+typedef ALIGN_DIRECTIVE __vector signed int vec_s32;
+typedef ALIGN_DIRECTIVE __vector signed long long vec_s64;
+
+typedef ALIGN_DIRECTIVE vec_u8 m128;
 #else
 typedef struct ALIGN_DIRECTIVE {u64a hi; u64a lo;} m128;
 #endif

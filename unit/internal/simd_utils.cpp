@@ -663,7 +663,7 @@ TEST(SimdUtilsTest, movq) {
     ASSERT_EQ(0, memcmp(cmp, &simd, sizeof(simd)));
     ASSERT_EQ(0, memcmp(cmp, &r, sizeof(r)));
 
-    simd = _mm_set_epi64x(~0LL, 0x123456789abcdef);
+    simd = set64x2(~0LL, 0x123456789abcdef);
     r = movq(simd);
     ASSERT_EQ(r, 0x123456789abcdef);
 }

@@ -21,7 +21,13 @@ set_source_files_properties(
     PROPERTIES
     COMPILE_FLAGS "${RAGEL_C_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}")
 
-ragelmaker(ColliderCorporaParser.rl)
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i386")
+    ragelmaker(ColliderCorporaParser.rl)
+endif()
+
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64le")
+    ragelcopyer(ColliderCorporaParser.rl)
+endif()
 
 if (BUILD_CHIMERA)
     add_definitions(-DHS_HYBRID)

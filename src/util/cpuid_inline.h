@@ -32,10 +32,12 @@
 #include "ue2common.h"
 #include "cpuid_flags.h"
 
+#if defined(__x86_64__) || defined(_M_X64)
 #if !defined(_WIN32) && !defined(CPUID_H_)
 #include <cpuid.h>
 /* system header doesn't have a header guard */
 #define CPUID_H_
+#endif
 #endif
 
 #ifdef __cplusplus
@@ -43,6 +45,7 @@ extern "C"
 {
 #endif
 
+#if defined(__x86_64__) || defined(_M_X64)
 static inline
 void cpuid(unsigned int op, unsigned int leaf, unsigned int *eax,
            unsigned int *ebx, unsigned int *ecx, unsigned int *edx) {
@@ -57,6 +60,7 @@ void cpuid(unsigned int op, unsigned int leaf, unsigned int *eax,
     *edx = a[3];
 #endif
 }
+#endif
 
 // ECX
 #define CPUID_SSE3 (1 << 0)
@@ -93,11 +97,12 @@ void cpuid(unsigned int op, unsigned int leaf, unsigned int *eax,
 #define CPUID_XCR0_AVX512                                                      \
     (CPUID_XCR0_OPMASK | CPUID_XCR0_ZMM_Hi256 | CPUID_XCR0_Hi16_ZMM)
 
+#if defined(__x86_64__) 
 static inline
 u64a xgetbv(u32 op) {
 #if defined(_WIN32) || defined(__INTEL_COMPILER)
     return _xgetbv(op);
-#else
+#elif defined(__x86_64__)
     u32 a, d;
     __asm__ volatile (
             "xgetbv\n"
@@ -251,6 +256,16 @@ int check_popcnt(void) {
     unsigned int eax, ebx, ecx, edx;
     cpuid(1, 0, &eax, &ebx, &ecx, &edx);
     return !!(ecx & CPUID_POPCNT);
+}
+#endif  //__x86_64__
+
+static inline
+int check_altivec(void) {
+#if defined(__powerpc__)
+    return 1;
+#else
+    return 0;
+#endif
 }
 
 #ifdef __cplusplus
