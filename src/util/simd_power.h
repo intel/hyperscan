@@ -172,31 +172,19 @@ static really_really_inline m128 eq128(m128 a, m128 b) {
 }
 
 static really_really_inline u32 movemask128(m128 a) {
-    const vec_u8 perm_mask = (vec_u8){0x78, 0x70, 0x68, 0x60, 0x58, 0x50, 0x48, 0x40,
-                                      0x38, 0x30, 0x28, 0x20, 0x18, 0x10, 0x08, 0x00};
+    const vec_u8 perm_mask = (vec_u8){120, 112, 104, 96, 88, 80, 
+    					  72, 64, 56, 48, 40, 32, 24, 16, 8, 0};
     vec_u64 res = (vec_u64)vec_vbpermq((vec_u8)a, perm_mask);
     return res[1];
 }
 
 static really_really_inline m128 rshiftbyte_m128(m128 a, int imm8) {
     assert(0 <= imm8 && imm8 <= 15);
-    vec_u8 res;
-    const vec_u8 zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-    if (imm8 < 16) {
-        if (__builtin_constant_p(imm8)) {
-            /* Would like to use Vector Shift Left Double by Octet
-            Immediate here to use the immediate form and avoid
-            load of imm8 * 8 value into a separate VR.  */
-            res = vec_sld_wrapper(zeros, a, 16 - imm8);
-        } else {
-            vec_u8 shift = vec_splats((unsigned char)(imm8 * 8));
-            res = vec_sro((vec_u8)a, shift);
-        }
-    } else {
-        res = zeros;
+    const vec_u8 zeros = (vec_u8){0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    if (imm8 >= 16) {
+        return zeros;
     }
-    return res;
+    return vec_sld_wrapper(zeros, a, 16 - imm8);
 }
 
 static really_really_inline m128 lshiftbyte_m128(m128 a, int imm8) {
