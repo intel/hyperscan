@@ -1,7 +1,5 @@
 /*
  * Copyright (c) 2015-2017, Intel Corporation
- * 2020.01 - Use the neon instruction to implement the function of 128-bit operation.
- *           Huawei Technologies Co., Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
