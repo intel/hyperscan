@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2021, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,6 +54,10 @@ TEST(DB, flagsToPlatform) {
 
 #if defined(HAVE_AVX512)
     p.cpu_features |= HS_CPU_FEATURES_AVX512;
+#endif
+
+#if defined(HAVE_AVX512VBMI)
+    p.cpu_features |= HS_CPU_FEATURES_AVX512VBMI;
 #endif
 
     platform_t pp = target_to_platform(target_t(p));
