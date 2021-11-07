@@ -58,8 +58,8 @@ public:
     ~LocatedParseError() override;
 
     void locate(size_t offset);
-private:
-    bool finalized = false; //!< true when locate() has been called.
+    bool hasOffset = false; //!< true when locate() has been called.
+    size_t offset;
 };
 
 } // namespace ue2
