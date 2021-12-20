@@ -8,6 +8,8 @@ EXPORTS
    hs_close_stream
    hs_compile
    hs_compile_ext_multi
+   hs_compile_lit
+   hs_compile_lit_multi
    hs_compile_multi
    hs_compress_stream
    hs_copy_stream
