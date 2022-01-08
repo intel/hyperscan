@@ -112,7 +112,7 @@ struct LeftEngInfo {
     }
     size_t hash() const;
     void reset(void);
-    operator bool() const;
+    explicit operator bool() const;
     bool tracksSom() const { return !!haig; }
 };
 
@@ -133,7 +133,7 @@ struct RoseSuffixInfo {
     bool operator<(const RoseSuffixInfo &b) const;
     size_t hash() const;
     void reset(void);
-    operator bool() const { return graph || castle || haig || rdfa || tamarama; }
+    explicit operator bool() const { return graph || castle || haig || rdfa || tamarama; }
 };
 
 /** \brief Properties attached to each Rose graph vertex. */
