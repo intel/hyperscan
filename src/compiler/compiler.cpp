@@ -323,7 +323,8 @@ void addExpression(NG &ng, unsigned index, const char *expression,
     }
 
     // Ensure that our pattern isn't too long (in characters).
-    if (strlen(expression) > cc.grey.limitPatternLength) {
+    size_t maxlen = cc.grey.limitPatternLength + 1;
+    if (strnlen(expression, maxlen) >= maxlen) {
         throw CompileError("Pattern length exceeds limit.");
     }
 
