@@ -477,14 +477,14 @@ void CorpusGeneratorUtf8::generateCorpus(vector<string> &data) {
  * that we've been asked for. */
 unichar CorpusGeneratorUtf8::getRandomChar() {
     u32 range = MAX_UNICODE + 1
-                - (UNICODE_SURROGATE_MAX + UNICODE_SURROGATE_MIN + 1);
+                - (UNICODE_SURROGATE_MAX - UNICODE_SURROGATE_MIN + 1);
     range = min(cProps.alphabetSize, range);
     assert(range);
 
     unichar c = 'a' + cProps.rand(0, range - 1);
 
     if (c >= UNICODE_SURROGATE_MIN) {
-        c =+ UNICODE_SURROGATE_MAX + 1;
+        c += UNICODE_SURROGATE_MAX - UNICODE_SURROGATE_MIN + 1;
     }
 
     return c % (MAX_UNICODE + 1);
