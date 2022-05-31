@@ -58,7 +58,10 @@ void readRow(sqlite3_stmt *statement, vector<DataBlock> &blocks,
     }
     auto internal_stream_index = stream_indices[stream_id];
 
-    assert(blob || bytes > 0);
+    if (!(blob &&  bytes > 0)) {
+        assert(0);
+        throw std::domain_error("Invalid blob or bytes from sqlite3.");
+    }
     blocks.emplace_back(id, stream_id, internal_stream_index,
                         string(blob, blob + bytes));
 }

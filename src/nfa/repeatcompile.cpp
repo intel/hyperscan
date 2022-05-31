@@ -124,6 +124,10 @@ RepeatStateInfo::RepeatStateInfo(enum RepeatType type, const depth &repeatMin,
                                  const depth &repeatMax, u32 minPeriod)
     : stateSize(0), packedCtrlSize(0), horizon(0), patchCount(0),
       patchSize(0), encodingSize(0), patchesOffset(0) {
+    if (type == REPEAT_SPARSE_OPTIMAL_P && minPeriod == 0) {
+        assert(0);
+        throw std::domain_error("SPARSE_OPTIMAL_P must have non-zero minPeriod.");
+    }
     assert(repeatMin <= repeatMax);
     assert(repeatMax.is_reachable());
     assert(minPeriod || type != REPEAT_SPARSE_OPTIMAL_P);

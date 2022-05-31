@@ -140,7 +140,8 @@ void ParsedLogical::validateSubIDs(const unsigned *ids,
         }
         hs_compile_error_t *compile_err = NULL;
         hs_expr_info_t *info = NULL;
-        hs_error_t err = hs_expression_info(expressions[i], flags[i], &info,
+        hs_error_t err = hs_expression_info(expressions[i],
+                                            flags ? flags[i] : 0, &info,
                                             &compile_err);
         if (err != HS_SUCCESS) {
             hs_free_compile_error(compile_err);

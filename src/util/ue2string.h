@@ -133,7 +133,7 @@ public:
             : lit(&lit_in), idx(idx_in) {}
 
         const ue2_literal *lit = nullptr;
-        size_t idx;
+        size_t idx = 0;
     };
 
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;

@@ -1036,6 +1036,11 @@ bool splitRoseEdge(const NGHolder &base_graph, RoseInGraph &vg,
     shared_ptr<NGHolder> lhs = make_shared<NGHolder>();
     shared_ptr<NGHolder> rhs = make_shared<NGHolder>();
 
+    if (!lhs || !rhs) {
+        assert(0);
+        throw std::bad_alloc();
+    }
+
     unordered_map<NFAVertex, NFAVertex> lhs_map;
     unordered_map<NFAVertex, NFAVertex> rhs_map;
 
@@ -1229,6 +1234,10 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
             DEBUG_PRINTF("splitting on pivot %zu\n", h[pivot].index);
             unordered_map<NFAVertex, NFAVertex> temp_map;
             shared_ptr<NGHolder> new_lhs = make_shared<NGHolder>();
+            if (!new_lhs) {
+                assert(0);
+                throw std::bad_alloc();
+            }
             splitLHS(h, pivot, new_lhs.get(), &temp_map);
 
             /* want to cut off paths to pivot from things other than the pivot -
@@ -1310,6 +1319,10 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
             if (!contains(done_rhs, adj)) {
                 unordered_map<NFAVertex, NFAVertex> temp_map;
                 shared_ptr<NGHolder> new_rhs = make_shared<NGHolder>();
+                if (!new_rhs) {
+                    assert(0);
+                    throw std::bad_alloc();
+                }
                 splitRHS(h, adj, new_rhs.get(), &temp_map);
                 remove_edge(new_rhs->start, new_rhs->accept, *new_rhs);
                 remove_edge(new_rhs->start, new_rhs->acceptEod, *new_rhs);
@@ -2281,6 +2294,10 @@ void splitEdgesForSuffix(const NGHolder &base_graph, RoseInGraph &vg,
     assert(!splitters.empty());
 
     shared_ptr<NGHolder> lhs = make_shared<NGHolder>();
+    if (!lhs) {
+        assert(0);
+        throw bad_alloc();
+    }
     unordered_map<NFAVertex, NFAVertex> v_map;
     cloneHolder(*lhs, base_graph, &v_map);
     lhs->kind = NFA_INFIX;

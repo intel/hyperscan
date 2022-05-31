@@ -70,8 +70,8 @@ class undirected_graph_edge_descriptor
     using base_vertex_type = typename base_graph_traits::vertex_descriptor;
 
     base_edge_type underlying_edge;
-    const base_graph_type *g;
-    bool reverse; // if true, reverse vertices in source() and target()
+    const base_graph_type *g = nullptr;
+    bool reverse = false; // if true, reverse vertices in source() and target()
 
     inline std::pair<base_vertex_type, base_vertex_type>
     canonical_edge() const {

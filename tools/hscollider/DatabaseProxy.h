@@ -61,7 +61,7 @@ public:
         std::lock_guard<std::mutex> lock(mutex);
         if (failed) {
             // We have previously failed to compile this database.
-            return nullptr;
+            throw CompileFailed("Unable to compile db previously.");
         }
         if (db) {
             return db;

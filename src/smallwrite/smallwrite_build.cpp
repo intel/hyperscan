@@ -78,7 +78,7 @@ namespace ue2 {
 struct LitTrieVertexProps {
     LitTrieVertexProps() = default;
     explicit LitTrieVertexProps(u8 c_in) : c(c_in) {}
-    size_t index; // managed by ue2_graph
+    size_t index = 0; // managed by ue2_graph
     u8 c = 0; //!< character reached on this vertex
     flat_set<ReportID> reports; //!< managed reports fired on this vertex
 };

@@ -42,7 +42,7 @@ CorpusProperties::CorpusProperties()
     : matchness(100), unmatchness(0), randomness(0), prefixRange(0, 0),
       suffixRange(0, 0), cycleMin(1), cycleMax(1),
       corpusLimit(DEFAULT_CORPUS_GENERATOR_LIMIT), editDistance(0),
-      alphabetSize(~0) {
+      alphabetSize(~0), rngSeed(0) {
     // empty
 }
 
