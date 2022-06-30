@@ -38,7 +38,7 @@
 
 #if defined(HAVE_SIGACTION) || defined(_WIN32)
 #include <signal.h>
-#define STACK_SIZE 8192
+#define STACK_SIZE 8192 // linux kernel default stack size for x86
 #endif
 
 #ifdef HAVE_BACKTRACE
