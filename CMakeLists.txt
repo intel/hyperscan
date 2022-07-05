@@ -427,9 +427,9 @@ CHECK_CXX_COMPILER_FLAG("-Wunused-local-typedefs" CXX_UNUSED_LOCAL_TYPEDEFS)
 CHECK_CXX_COMPILER_FLAG("-Wunused-variable" CXX_WUNUSED_VARIABLE)
 
 # gcc 10 complains about this
-CHECK_C_COMPILER_FLAG("-Wstringop-overflow" CC_STRINGOP_OVERFLOW)
-if(CC_STRINGOP_OVERFLOW)
+if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 10)
     set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -Wno-stringop-overflow")
+    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-stringop-overflow")
 endif()
 
 endif()
