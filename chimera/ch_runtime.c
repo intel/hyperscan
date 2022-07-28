@@ -326,6 +326,10 @@ ch_error_t catchupPcre(struct HybridContext *hyctx, unsigned int id,
         } else if (cbrv == CH_CALLBACK_SKIP_PATTERN) {
             DEBUG_PRINTF("user callback told us to skip this pattern\n");
             pd->scanStart = hyctx->length;
+            if (top_id == id) {
+                break;
+            }
+            continue;
         }
 
         if (top_id == id) {
