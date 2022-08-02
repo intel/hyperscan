@@ -581,7 +581,7 @@ set (hs_exec_common_SRCS
 
 set (hs_exec_SRCS
     ${hs_HEADERS}
-    src/hs_version.h
+    src/hs_version.h.in
     src/ue2common.h
     src/allocator.h
     src/crc32.c
@@ -738,7 +738,7 @@ SET (hs_compile_SRCS
     src/grey.h
     src/hs.cpp
     src/hs_internal.h
-    src/hs_version.h
+    src/hs_version.h.in
     src/scratch.h
     src/state.h
     src/ue2common.h
