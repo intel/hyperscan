@@ -397,6 +397,18 @@ if (CXX_UNUSED_CONST_VAR)
     set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-unused-const-variable")
 endif()
 
+# clang-14 complains about unused-but-set variable.
+CHECK_CXX_COMPILER_FLAG("-Wunused-but-set-variable" CXX_UNUSED_BUT_SET_VAR)
+if (CXX_UNUSED_BUT_SET_VAR)
+    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-unused-but-set-variable")
+endif()
+
+# clang-14 complains about using bitwise operator instead of logical ones.
+CHECK_CXX_COMPILER_FLAG("-Wbitwise-instead-of-logical" CXX_BITWISE_INSTEAD_OF_LOGICAL)
+if (CXX_BITWISE_INSTEAD_OF_LOGICAL)
+    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-bitwise-instead-of-logical")
+endif()
+
 # gcc 6 complains about type attributes that get ignored, like alignment
 CHECK_CXX_COMPILER_FLAG("-Wignored-attributes" CXX_IGNORED_ATTR)
 if (CXX_IGNORED_ATTR)
