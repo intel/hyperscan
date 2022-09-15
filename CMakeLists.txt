@@ -6,6 +6,9 @@ set (HS_MINOR_VERSION 4)
 set (HS_PATCH_VERSION 0)
 set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
 
+option(HYPERSCAN_WASM32 "Enable hyperscan compilation to wasm32" OFF)
+option(HYPERSCAN_EMSCRIPTEN_BOOST "Use boost library that is bundled with emscripten" OFF)
+
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
@@ -40,6 +43,11 @@ endif()
 set(BINDIR "${PROJECT_BINARY_DIR}/bin")
 set(LIBDIR "${PROJECT_BINARY_DIR}/lib")
 
+if (HYPERSCAN_WASM32)
+    string(APPEND CMAKE_C_FLAGS " -msse -msse2 -mssse3 -msimd128")
+    string(APPEND CMAKE_CXX_FLAGS " -msse -msse2 -mssse3 -msimd128 -fwasm-exceptions")
+endif()
+
 set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR})
 
 # First for the generic no-config case
@@ -64,12 +72,21 @@ if (XCODE OR CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-isystem")
 endif ()
 
+if (HYPERSCAN_WASM32)
+    set(CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-Xclang -isystem")
+endif()
+
 set(CMAKE_INCLUDE_CURRENT_DIR 1)
 include_directories(${PROJECT_SOURCE_DIR}/src)
 include_directories(${PROJECT_BINARY_DIR})
 include_directories(SYSTEM include)
 
-include (${CMAKE_MODULE_PATH}/boost.cmake)
+if (HYPERSCAN_EMSCRIPTEN_BOOST)
+    string(APPEND CMAKE_CXX_FLAGS " -sUSE_BOOST_HEADERS")
+else()
+    include (${CMAKE_MODULE_PATH}/boost.cmake)
+endif()
+
 
 # -- make this work? set(python_ADDITIONAL_VERSIONS 2.7 2.6)
 find_package(PythonInterp)
@@ -294,6 +311,11 @@ CHECK_INCLUDE_FILE_CXX(intrin.h HAVE_CXX_INTRIN_H)
 CHECK_INCLUDE_FILES(x86intrin.h HAVE_C_X86INTRIN_H)
 CHECK_INCLUDE_FILE_CXX(x86intrin.h HAVE_CXX_X86INTRIN_H)
 
+if (HYPERSCAN_WASM32)
+    CHECK_INCLUDE_FILES(tmmintrin.h HAVE_C_TMMINTRIN_H)
+    set(HAVE_CXX_TMMINTRIN_H 1)
+endif()
+
 CHECK_FUNCTION_EXISTS(posix_memalign HAVE_POSIX_MEMALIGN)
 CHECK_FUNCTION_EXISTS(_aligned_malloc HAVE__ALIGNED_MALLOC)
 
@@ -482,7 +504,9 @@ if (CORRECT_PCRE_VERSION AND PCRE_BUILD_SOURCE AND BUILD_STATIC_LIBS)
     set(BUILD_CHIMERA TRUE)
 endif()
 
-add_subdirectory(unit)
+if (NOT HYPERSCAN_WASM32)
+    add_subdirectory(unit)
+endif()
 if (EXISTS ${CMAKE_SOURCE_DIR}/tools/CMakeLists.txt)
     add_subdirectory(tools)
 endif()
@@ -1190,6 +1214,12 @@ if (NOT FAT_RUNTIME)
             src/hs_valid_platform.c
             $<TARGET_OBJECTS:hs_exec>
             $<TARGET_OBJECTS:hs_compile>)
+        if (HYPERSCAN_WASM32)
+            target_compile_definitions(hs_exec PRIVATE WASM32)
+            target_compile_definitions(hs_runtime PRIVATE WASM32)
+            target_compile_definitions(hs_compile PRIVATE WASM32)
+            target_compile_definitions(hs PRIVATE WASM32)
+        endif()
     endif (BUILD_STATIC_LIBS)
 
     if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)

@@ -48,6 +48,12 @@
 /* C compiler has intrin.h */
 #cmakedefine HAVE_C_INTRIN_H
 
+/* C++ compiler has tmmintrin.h */
+#cmakedefine HAVE_CXX_TMMINTRIN_H
+
+/* C compiler has tmmintrin.h */
+#cmakedefine HAVE_C_TMMINTRIN_H
+
 /* Define to 1 if you have the declaration of `pthread_setaffinity_np', and to
    0 if you don't. */
 #cmakedefine HAVE_DECL_PTHREAD_SETAFFINITY_NP
