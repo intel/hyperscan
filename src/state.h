@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2022, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -57,6 +57,9 @@ struct hs_stream {
 
     /** \brief The current stream offset. */
     u64a offset;
+
+    /** \brief Identity of hs_stream, for scratch validity check. */
+    u32 crc32;
 };
 
 #define getMultiState(hs_s)      ((char *)(hs_s) + sizeof(*(hs_s)))
