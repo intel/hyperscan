@@ -2655,7 +2655,7 @@ bool lookForTrailingLiteralDotStar(const NGHolder &h,
 
 /* In streaming mode, active engines have to be caught up at stream boundaries
  * and have to be stored in stream state, so we prefer to decompose patterns
- * in to literals with no state between them if possible. */
+ * into literals with no state between them if possible. */
 static
 void decomposeLiteralChains(RoseInGraph &vg, const CompileContext &cc) {
     if (!cc.grey.violetLiteralChains) {
