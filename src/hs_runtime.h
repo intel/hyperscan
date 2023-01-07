@@ -96,7 +96,7 @@ typedef struct hs_scratch hs_scratch_t;
  * @param from
  *      - If a start of match flag is enabled for the current pattern, this
  *        argument will be set to the start of match for the pattern assuming
- *        that that start of match value lies within the current 'start of match
+ *        that the start of match value lies within the current 'start of match
  *        horizon' chosen by one of the SOM_HORIZON mode flags.
 
  *      - If the start of match value lies outside this horizon (possible only
