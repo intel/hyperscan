@@ -170,7 +170,7 @@ databases, only a single scratch region is necessary: in this case, calling
 will ensure that the scratch space is large enough to support scanning against
 any of the given databases.
 
-While the Hyperscan library is re-entrant, the use of scratch spaces is not.
+While the Hyperscan library is reentrant, the use of scratch spaces is not.
 For example, if by design it is deemed necessary to run recursive or nested
 scanning (say, from the match callback function), then an additional scratch
 space is required for that context.

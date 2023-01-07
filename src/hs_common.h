@@ -277,7 +277,7 @@ hs_error_t HS_CDECL hs_serialized_database_info(const char *bytes,
  * allocate stream state.
  *
  * If Hyperscan is to be used in a multi-threaded, or similarly concurrent
- * environment, the allocation function will need to be re-entrant, or
+ * environment, the allocation function will need to be reentrant, or
  * similarly safe for concurrent use.
  *
  * @param size
