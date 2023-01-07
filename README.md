@@ -22,7 +22,7 @@ project repository.
 
 # Versioning
 
-The `master` branch on Github will always contain the most recent release of
+The `master` branch on GitHub will always contain the most recent release of
 Hyperscan. Each version released to `master` goes through QA and testing before
 it is released; if you're a user, rather than a developer, this is the version
 you should be using.
@@ -36,7 +36,7 @@ The official homepage for Hyperscan is at [www.hyperscan.io](https://www.hypersc
 
 If you have questions or comments, we encourage you to [join the mailing
 list](https://lists.01.org/mailman/listinfo/hyperscan). Bugs can be filed by
-sending email to the list, or by creating an issue on Github.
+sending email to the list, or by creating an issue on GitHub.
 
 If you wish to contact the Hyperscan team at Intel directly, without posting
 publicly to the mailing list, send email to
