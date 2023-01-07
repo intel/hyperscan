@@ -316,7 +316,7 @@ see reduced performance when the single-match flag is used.
 Start of Match flag
 ********************
 
-.. tip:: Do not request Start of Match information if it is not not needed.
+.. tip:: Do not request Start of Match information if it is not needed.
 
 Start of Match (SOM) information can be expensive to gather and can require
 large amounts of stream state to store in streaming mode. As such, SOM
