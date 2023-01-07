@@ -62,7 +62,7 @@ enum nfa_zombie_status {
  * to a corresponding compressed stream state (@ref mq::streamState).
  *
  * @param nfa engine the state belongs to
- * @param q queue for the engine. The final compressed stream stream is placed
+ * @param q queue for the engine. The final compressed stream is placed
  *        in the location indicated by @ref mq::streamState
  * @param loc the location corresponding to the engine's current state
  */
