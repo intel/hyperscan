@@ -1304,7 +1304,7 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
 
             vector<NFAVertex> adj;
             insert(&adj, adj.end(), adjacent_vertices(pivot, h));
-            /* we can ignore presence of accept, accepteod in adj as it is best
+            /* we can ignore presence of accept, acceptEod in adj as it is best
                effort */
 
             if (!contains(done_rhs, adj)) {
