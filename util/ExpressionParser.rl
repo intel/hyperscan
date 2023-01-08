@@ -176,7 +176,7 @@ bool HS_CDECL readExpression(const std::string &input, std::string &expr,
                 ( '{' param_spec (',' param_spec)* '}' )?   # list of ext params
                         $^{ return false; };
 
-        # Intialize and execute.
+        # Initialize and execute.
         write init;
         write exec;
     }%%
