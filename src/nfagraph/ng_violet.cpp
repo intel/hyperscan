@@ -2218,7 +2218,7 @@ bool improveInfix(NGHolder &h, RoseInGraph &vg, const vector<RoseInEdge> &ee,
     /* look for netflow cuts which don't produce good prefixes */
     bool rv = doNetflowCut(h, nullptr, vg, ee, false, cc.grey, 8);
 
-    DEBUG_PRINTF("did netfow cut? = %d\n", (int)rv);
+    DEBUG_PRINTF("did netflow cut? = %d\n", (int)rv);
 
     return rv;
 }
