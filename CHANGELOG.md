@@ -47,7 +47,7 @@ This is a list of notable changes to Hyperscan, in reverse chronological order.
 - Bugfix for issue #239: fix hyperscan compile issue under gcc-10.
 - Add VLAN packets processing capability in pcap analysis script. (#214)
 - Avoid extra convert instruction for "Noodle". (#221)
-- Add Hyperscan version marcro in `hs.h`. (#222)
+- Add Hyperscan version macro in `hs.h`. (#222)
 
 ## [5.2.1] 2019-10-13
 - Bugfix for issue #186: fix compile issue when `BUILD_SHARED_LIBS` is on in
