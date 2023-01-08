@@ -742,7 +742,7 @@ void buildSquashMask(vector<hwlmLiteral> &lits, u32 id1, u32 bucket1,
                 return;
             }
             /* if lit2 is a suffix but doesn't pass included checks for
-             * extra info, we give up sqaushing */
+             * extra info, we give up squashing */
             if (includedCheck(lit1, lit2)) {
                 DEBUG_PRINTF("find exceptional suffix %u\n", lit2.id);
                 exception_map[id1].insert(id2);
