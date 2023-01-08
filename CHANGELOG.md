@@ -330,7 +330,7 @@ This is a list of notable changes to Hyperscan, in reverse chronological order.
   line with the behaviour of `hs_close_stream()`.
 - Disallow bounded repeats with a very large minimum repeat but no maximum,
   i.e. {N,} for very large N.
-- Reduce compile memory usage in literal set explansion for some large cases.
+- Reduce compile memory usage in literal set expansion for some large cases.
 
 ## [4.0.0] 2015-10-20
 - Original release of Hyperscan as open-source software.
