@@ -159,13 +159,13 @@ static really_inline u32 movd(const m128 in) {
 #if defined(HAVE_AVX512)
 static really_inline u32 movd512(const m512 in) {
     // NOTE: seems gcc doesn't support _mm512_cvtsi512_si32(in),
-    //       so we use 2-step convertions to work around.
+    //       so we use 2-step conversions to work around.
     return _mm_cvtsi128_si32(_mm512_castsi512_si128(in));
 }
 
 static really_inline u64a movq512(const m512 in) {
     // NOTE: seems AVX512 doesn't support _mm512_cvtsi512_si64(in),
-    //       so we use 2-step convertions to work around.
+    //       so we use 2-step conversions to work around.
     return _mm_cvtsi128_si64(_mm512_castsi512_si128(in));
 }
 #endif
