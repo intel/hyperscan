@@ -334,7 +334,7 @@ hs_compile_lit_multi_int(const char *const *expressions, const unsigned *flags,
 
     if (!checkPlatform(platform, comp_error)) {
         *db = nullptr;
-        assert(*comp_error); // set by checkPlattform.
+        assert(*comp_error); // set by checkPlatform.
         return HS_COMPILER_ERROR;
     }
 
