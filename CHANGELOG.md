@@ -57,7 +57,7 @@ This is a list of notable changes to Hyperscan, in reverse chronological order.
 ## [5.2.0] 2019-07-12
 - Literal API: add new API `hs_compile_lit()` and `hs_compile_lit_multi()` to
   process pure literal rule sets. The 2 literal APIs treat each expression text
-  in a literal sense without recognizing any regular grammers.
+  in a literal sense without recognizing any regular grammars.
 - Logical combination: add support for purely negative combinations, which
   report match at EOD in case of no sub-expressions matched.
 - Windows porting: support shared library (DLL) on Windows with available tools
