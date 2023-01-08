@@ -874,7 +874,7 @@ bool literalIsWholeGraph(const NGHolder &g, const ue2_literal &lit) {
         const CharReach &cr_l = *it;
 
         if (!cr_l.isSubsetOf(cr_g)) {
-            /* running over the prefix is needed to prevent false postives */
+            /* running over the prefix is needed to prevent false positives */
             DEBUG_PRINTF("reach fail\n");
             return false;
         }
