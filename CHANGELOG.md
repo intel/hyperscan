@@ -71,7 +71,7 @@ This is a list of notable changes to Hyperscan, in reverse chronological order.
 
 ## [5.1.1] 2019-04-03
 - Add extra detection and handling when invalid rose programs are triggered.
-- Bugfix for issue #136: fix CMake parsing of CPU architecure for GCC-9.
+- Bugfix for issue #136: fix CMake parsing of CPU architecture for GCC-9.
 - Bugfix for issue #137: avoid file path impact on fat runtime build.
 - Bugfix for issue #141: fix rose literal programs for multi-pattern
   matching when no pattern ids are provided.
