@@ -75,17 +75,17 @@ bool superStrong(const rose_literal_id &lit) {
 
 static
 bool eligibleForAlwaysOnGroup(const RoseBuildImpl &build, u32 id) {
-    auto eligble = [&](RoseVertex v) {
+    auto eligible = [&](RoseVertex v) {
         return build.isRootSuccessor(v)
         && (!build.g[v].left || !isAnchored(build.g[v].left));
     };
 
-    if (any_of_in(build.literal_info[id].vertices, eligble)) {
+    if (any_of_in(build.literal_info[id].vertices, eligible)) {
         return true;
     }
 
     for (u32 delayed_id : build.literal_info[id].delayed_ids) {
-        if (any_of_in(build.literal_info[delayed_id].vertices, eligble)) {
+        if (any_of_in(build.literal_info[delayed_id].vertices, eligible)) {
             return true;
         }
     }

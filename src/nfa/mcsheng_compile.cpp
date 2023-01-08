@@ -546,7 +546,7 @@ dstate_id_t find_sheng_states(dfa_info &info,
             continue;
         }
         DEBUG_PRINTF("considering cyclic %zu\n", g[v].index);
-        /* get an estimate of stickness of the cyclic: assume any edges from
+        /* get an estimate of stickiness of the cyclic: assume any edges from
          * states with larger state ids are back edges */
         CharReach est_back_reach;
         for (const auto &u : inv_adjacent_vertices_range(v, g)) {

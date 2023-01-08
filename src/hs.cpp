@@ -334,7 +334,7 @@ hs_compile_lit_multi_int(const char *const *expressions, const unsigned *flags,
 
     if (!checkPlatform(platform, comp_error)) {
         *db = nullptr;
-        assert(*comp_error); // set by checkPlattform.
+        assert(*comp_error); // set by checkPlatform.
         return HS_COMPILER_ERROR;
     }
 
@@ -399,7 +399,7 @@ hs_compile_lit_multi_int(const char *const *expressions, const unsigned *flags,
         return HS_COMPILER_ERROR;
     }
     catch (...) {
-        assert(!"Internal errror, unexpected exception");
+        assert(!"Internal error, unexpected exception");
         *db = nullptr;
         *comp_error = const_cast<hs_compile_error_t *>(&hs_einternal);
         return HS_COMPILER_ERROR;

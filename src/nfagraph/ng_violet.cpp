@@ -1304,7 +1304,7 @@ void splitEdgesByCut(NGHolder &h, RoseInGraph &vg,
 
             vector<NFAVertex> adj;
             insert(&adj, adj.end(), adjacent_vertices(pivot, h));
-            /* we can ignore presence of accept, accepteod in adj as it is best
+            /* we can ignore presence of accept, acceptEod in adj as it is best
                effort */
 
             if (!contains(done_rhs, adj)) {
@@ -2018,7 +2018,7 @@ bool improvePrefix(NGHolder &h, RoseInGraph &vg, const vector<RoseInEdge> &ee,
         return true;
     }
 
-    /* large back edges may prevent us identifing anchored or transient cases
+    /* large back edges may prevent us identifying anchored or transient cases
      * properly - use a simple walk instead */
 
     if (doNetflowCut(h, &depths, vg, ee, true, cc.grey)) {
@@ -2218,7 +2218,7 @@ bool improveInfix(NGHolder &h, RoseInGraph &vg, const vector<RoseInEdge> &ee,
     /* look for netflow cuts which don't produce good prefixes */
     bool rv = doNetflowCut(h, nullptr, vg, ee, false, cc.grey, 8);
 
-    DEBUG_PRINTF("did netfow cut? = %d\n", (int)rv);
+    DEBUG_PRINTF("did netflow cut? = %d\n", (int)rv);
 
     return rv;
 }
@@ -2655,7 +2655,7 @@ bool lookForTrailingLiteralDotStar(const NGHolder &h,
 
 /* In streaming mode, active engines have to be caught up at stream boundaries
  * and have to be stored in stream state, so we prefer to decompose patterns
- * in to literals with no state between them if possible. */
+ * into literals with no state between them if possible. */
 static
 void decomposeLiteralChains(RoseInGraph &vg, const CompileContext &cc) {
     if (!cc.grey.violetLiteralChains) {

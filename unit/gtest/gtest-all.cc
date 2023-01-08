@@ -912,9 +912,9 @@ class GTEST_API_ UnitTestImpl {
   virtual ~UnitTestImpl();
 
   // There are two different ways to register your own TestPartResultReporter.
-  // You can register your own repoter to listen either only for test results
+  // You can register your own reporter to listen either only for test results
   // from the current thread or for results from all threads.
-  // By default, each per-thread test result repoter just passes a new
+  // By default, each per-thread test result reporter just passes a new
   // TestPartResult to the global test result reporter, which registers the
   // test part result for the currently running test.
 
@@ -1232,7 +1232,7 @@ class GTEST_API_ UnitTestImpl {
       default_per_thread_test_part_result_reporter_;
 
   // Points to (but doesn't own) the global test part result reporter.
-  TestPartResultReporterInterface* global_test_part_result_repoter_;
+  TestPartResultReporterInterface* global_test_part_result_reporter_;
 
   // Protects read and write access to global_test_part_result_reporter_.
   internal::Mutex global_test_part_result_reporter_mutex_;
@@ -1954,7 +1954,7 @@ bool UnitTestOptions::MatchesFilter(
       return false;
     }
 
-    // Skips the pattern separater (the ':' character).
+    // Skips the pattern separator (the ':' character).
     cur_pattern++;
   }
 }
@@ -2166,14 +2166,14 @@ void DefaultPerThreadTestPartResultReporter::ReportTestPartResult(
 TestPartResultReporterInterface*
 UnitTestImpl::GetGlobalTestPartResultReporter() {
   internal::MutexLock lock(&global_test_part_result_reporter_mutex_);
-  return global_test_part_result_repoter_;
+  return global_test_part_result_reporter_;
 }
 
 // Sets the global test part result reporter.
 void UnitTestImpl::SetGlobalTestPartResultReporter(
     TestPartResultReporterInterface* reporter) {
   internal::MutexLock lock(&global_test_part_result_reporter_mutex_);
-  global_test_part_result_repoter_ = reporter;
+  global_test_part_result_reporter_ = reporter;
 }
 
 // Returns the test part result reporter for the current thread.
@@ -2945,7 +2945,7 @@ std::string CodePointToUtf8(UInt32 code_point) {
   return str;
 }
 
-// The following two functions only make sense if the the system
+// The following two functions only make sense if the system
 // uses UTF-16 for wide string encoding. All supported systems
 // with 16 bit wchar_t (Windows, Cygwin, Symbian OS) do use UTF-16.
 
@@ -3220,7 +3220,7 @@ void TestResult::RecordProperty(const std::string& xml_element,
   if (!ValidateTestProperty(xml_element, test_property)) {
     return;
   }
-  internal::MutexLock lock(&test_properites_mutex_);
+  internal::MutexLock lock(&test_properties_mutex_);
   const std::vector<TestProperty>::iterator property_with_matching_key =
       std::find_if(test_properties_.begin(), test_properties_.end(),
                    internal::TestPropertyKeyIs(test_property.key()));
@@ -5488,7 +5488,7 @@ UnitTestImpl::UnitTestImpl(UnitTest* parent)
       default_global_test_part_result_reporter_(this),
       default_per_thread_test_part_result_reporter_(this),
 #endif  // _MSC_VER
-      global_test_part_result_repoter_(
+      global_test_part_result_reporter_(
           &default_global_test_part_result_reporter_),
       per_thread_test_part_result_reporter_(
           &default_per_thread_test_part_result_reporter_),
@@ -6310,7 +6310,7 @@ static const char kColorEncodedHelpMessage[] =
 "  @G--" GTEST_FLAG_PREFIX_ "list_tests@D\n"
 "      List the names of all tests instead of running them. The name of\n"
 "      TEST(Foo, Bar) is \"Foo.Bar\".\n"
-"  @G--" GTEST_FLAG_PREFIX_ "filter=@YPOSTIVE_PATTERNS"
+"  @G--" GTEST_FLAG_PREFIX_ "filter=@YPOSITIVE_PATTERNS"
     "[@G-@YNEGATIVE_PATTERNS]@D\n"
 "      Run only the tests whose name matches one of the positive patterns but\n"
 "      none of the negative patterns. '?' matches any single character; '*'\n"
@@ -9132,7 +9132,7 @@ namespace internal {
 // Depending on the value of a char (or wchar_t), we print it in one
 // of three formats:
 //   - as is if it's a printable ASCII (e.g. 'a', '2', ' '),
-//   - as a hexidecimal escape sequence (e.g. '\x7F'), or
+//   - as a hexadecimal escape sequence (e.g. '\x7F'), or
 //   - as a special escape sequence (e.g. '\r', '\n').
 enum CharFormat {
   kAsIs,
@@ -9236,7 +9236,7 @@ void PrintCharAndCodeTo(Char c, ostream* os) {
     return;
   *os << " (" << static_cast<int>(c);
 
-  // For more convenience, we print c's code again in hexidecimal,
+  // For more convenience, we print c's code again in hexadecimal,
   // unless c was already printed in the form '\x##' or the code is in
   // [1, 9].
   if (format == kHexEscape || (1 <= c && c <= 9)) {

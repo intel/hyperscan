@@ -508,7 +508,7 @@ void mergeClass(vector<unique_ptr<VertexInfo>> &infos, NGHolder &g,
 
     /* For left equivalence, if the members have different reporting behaviour
      * we sometimes require two vertices to be created (one connected to accept
-     * and one to accepteod) */
+     * and one to acceptEod) */
 
     NFAVertex old_v = (*cur_class_vertices.begin())->v;
     NFAVertex new_v = clone_vertex(g, old_v); /* set up new vertex with same

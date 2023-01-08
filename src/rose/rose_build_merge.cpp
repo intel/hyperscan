@@ -531,7 +531,7 @@ bool checkPrefix(const rose_literal_id &ul, const u32 ulag,
     }
 
     size_t min_allowed_delta = vlag - ulag;
-    DEBUG_PRINTF("min allow distace %zu\n", min_allowed_delta);
+    DEBUG_PRINTF("min allow distance %zu\n", min_allowed_delta);
 
     for (size_t i = 0; i < min_allowed_delta; i++) {
         if (stringsCanFinishAtSameSpot(ul.s, vl.s.begin(), vl.s.end() - i)) {

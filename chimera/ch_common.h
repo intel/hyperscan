@@ -129,7 +129,7 @@ ch_error_t HS_CDECL ch_database_info(const ch_database_t *database,
  * more memory at runtime as required.
  *
  * If Chimera is to be used in a multi-threaded, or similarly concurrent
- * environment, the allocation function will need to be re-entrant, or
+ * environment, the allocation function will need to be reentrant, or
  * similarly safe for concurrent use.
  *
  * @param size

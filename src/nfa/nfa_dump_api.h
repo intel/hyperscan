@@ -43,7 +43,7 @@ namespace ue2 {
 
 /**
  * \brief Dump files representing the engine. All files dumped should begin with
- * path/prefix specified by base. Generally a text file and a grpahviz (dot)
+ * path/prefix specified by base. Generally a text file and a graphviz (dot)
  * files should be produced.
  */
 void nfaGenerateDumpFiles(const struct NFA *nfa, const std::string &base);

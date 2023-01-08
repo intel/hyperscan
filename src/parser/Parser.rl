@@ -1549,7 +1549,7 @@ unichar readUtf8CodePoint4c(const char *s) {
               # Oniguruma - either angle braces or single quotes for this one
               ('\\g<' [^>]*? '>'|'\\g\'' [^\']*? '\'') => {
                   ostringstream str;
-                  str << "Onigiruma subroutine call at index " << ts - ptr <<
+                  str << "Oniguruma subroutine call at index " << ts - ptr <<
                          " not supported.";
                   throw ParseError(str.str());
               };

@@ -326,7 +326,7 @@ vector<NFAVertexRevDepth> calcRevDepths(const NGHolder &g) {
     calcAndStoreDepth<RevNFAGraph, NFAVertexRevDepth>(
         rg, g.accept, deadNodes, dMin, dMax, depths,
         &NFAVertexRevDepth::toAccept);
-    DEBUG_PRINTF("doing accepteod\n");
+    DEBUG_PRINTF("doing acceptEod\n");
     deadNodes[NODE_ACCEPT] = true; // Hide accept->acceptEod edge.
     calcAndStoreDepth<RevNFAGraph, NFAVertexRevDepth>(
         rg, g.acceptEod, deadNodes, dMin, dMax, depths,
@@ -367,7 +367,7 @@ vector<NFAVertexBidiDepth> calcBidiDepths(const NGHolder &g) {
     calcAndStoreDepth<RevNFAGraph, NFAVertexBidiDepth>(
         rg, g.accept, deadNodes, dMin, dMax, depths,
         &NFAVertexBidiDepth::toAccept);
-    DEBUG_PRINTF("doing accepteod\n");
+    DEBUG_PRINTF("doing acceptEod\n");
     deadNodes[NODE_ACCEPT] = true; // Hide accept->acceptEod edge.
     calcAndStoreDepth<RevNFAGraph, NFAVertexBidiDepth>(
         rg, g.acceptEod, deadNodes, dMin, dMax, depths,

@@ -200,5 +200,5 @@ char mmbit_decompress(u8 *bits, u32 total_bits, const u8 *comp,
 } // extern "C"
 #endif
 
-#endif // MULTBIT_COMPRESS_H
+#endif // MULTIBIT_COMPRESS_H
 

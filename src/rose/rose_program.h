@@ -307,7 +307,7 @@ struct ROSE_STRUCT_CHECK_BYTE {
     u32 fail_jump; //!< Jump forward this many bytes on failure.
 };
 
-// Since m128 and m256 could be missaligned in the bytecode,
+// Since m128 and m256 could be misaligned in the bytecode,
 // we'll use u8[16] and u8[32] instead in all rose_check_shufti structures.
 struct ROSE_STRUCT_CHECK_SHUFTI_16x8 {
     u8 code; //!< From enum RoseInstructionCode.

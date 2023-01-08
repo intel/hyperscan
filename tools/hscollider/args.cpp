@@ -114,7 +114,7 @@ void usage(const char *name, const char *error) {
     printf("  --no-pcre       Disable PCRE engine.\n");
     printf("  --test-nfa      Disable UE2 engine (test NFA against PCRE).\n");
     printf("  --abort-on-fail Abort, rather than exit, on failure.\n");
-    printf("  --no-signal-handler Do not handle handle signals (to generate "
+    printf("  --no-signal-handler Do not handle signals (to generate "
            "backtraces).\n");
     printf("  --literal-on    Use Hyperscan pure literal matching.\n");
     printf("\n");
