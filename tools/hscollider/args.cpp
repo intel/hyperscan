@@ -503,8 +503,8 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
                 } else if (in_corpora) {
                     corpora->push_back(optarg);
                     in_corpora = 2;
-                    break;
                 }
+                break;
             case 0:
                 break;
             default:

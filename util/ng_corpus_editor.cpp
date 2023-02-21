@@ -268,12 +268,12 @@ void CorpusEditorUtf8::flip_case(vector<unichar> &corpus) {
 unichar CorpusEditorUtf8::chooseCodePoint(void) {
     /* We need to ensure that we don't pick a surrogate cp */
     const u32 range =
-        MAX_UNICODE + 1 - (UNICODE_SURROGATE_MAX + UNICODE_SURROGATE_MIN + 1);
+        MAX_UNICODE + 1 - (UNICODE_SURROGATE_MAX - UNICODE_SURROGATE_MIN + 1);
     unichar raw = props.rand(0, range - 1);
     if (raw < UNICODE_SURROGATE_MIN) {
         return raw;
     } else {
-        return raw + UNICODE_SURROGATE_MAX + 1;
+        return raw + UNICODE_SURROGATE_MAX - UNICODE_SURROGATE_MIN + 1;
     }
 }
 

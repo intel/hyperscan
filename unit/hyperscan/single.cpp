@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2021, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -363,8 +363,9 @@ static const unsigned validModes[] = {
 // Mode bits for switching off various architecture features
 static const unsigned long long featureMask[] = {
     ~0ULL, /* native */
-    ~(HS_CPU_FEATURES_AVX2 | HS_CPU_FEATURES_AVX512), /* no avx2 */
-    ~HS_CPU_FEATURES_AVX512, /* no avx512 */
+    ~(HS_CPU_FEATURES_AVX2 | HS_CPU_FEATURES_AVX512 | HS_CPU_FEATURES_AVX512VBMI), /* no avx2 */
+    ~(HS_CPU_FEATURES_AVX512 | HS_CPU_FEATURES_AVX512VBMI), /* no avx512 */
+    ~HS_CPU_FEATURES_AVX512VBMI, /* no avx512vbmi */
 };
 
 INSTANTIATE_TEST_CASE_P(Single,

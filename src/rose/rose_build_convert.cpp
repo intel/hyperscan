@@ -562,6 +562,10 @@ bool handleMixedPrefixCliche(const NGHolder &h, RoseGraph &g, RoseVertex v,
     DEBUG_PRINTF("woot?\n");
 
     shared_ptr<NGHolder> h_new = make_shared<NGHolder>();
+    if (!h_new) {
+        assert(0);
+        throw std::bad_alloc();
+    }
     unordered_map<NFAVertex, NFAVertex> rhs_map;
     vector<NFAVertex> exits_vec;
     insert(&exits_vec, exits_vec.end(), exits);

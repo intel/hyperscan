@@ -75,6 +75,7 @@ namespace ue2 {
         DISPATCH_CASE(LBR_NFA_VERM, LbrVerm, dbnt_func);                       \
         DISPATCH_CASE(LBR_NFA_NVERM, LbrNVerm, dbnt_func);                     \
         DISPATCH_CASE(LBR_NFA_SHUF, LbrShuf, dbnt_func);                       \
+        DISPATCH_CASE(LBR_NFA_VSHUF, LbrVShuf, dbnt_func);                     \
         DISPATCH_CASE(LBR_NFA_TRUF, LbrTruf, dbnt_func);                       \
         DISPATCH_CASE(CASTLE_NFA, Castle, dbnt_func);                          \
         DISPATCH_CASE(SHENG_NFA, Sheng, dbnt_func);                            \

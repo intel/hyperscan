@@ -98,6 +98,6 @@ void *Thread::runThread(void *thr) {
 }
 
 
-Thread::Thread(size_t num) : thread_id(num) {}
+Thread::Thread(size_t num) : thread_id(num), thread() {}
 
 Thread::~Thread() {}

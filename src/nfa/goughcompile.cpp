@@ -207,6 +207,10 @@ void makeCFG_top_edge(GoughGraph &cfg, const vector<GoughVertex> &vertices,
             assert(contains(src_slots, slot_id));
 
             shared_ptr<GoughSSAVarMin> vmin = make_shared<GoughSSAVarMin>();
+            if (!vmin) {
+                assert(0);
+                throw std::bad_alloc();
+            }
             cfg[e].vars.push_back(vmin);
             final_var = vmin.get();
 
@@ -318,6 +322,10 @@ void makeCFG_edge(GoughGraph &cfg, const map<u32, u32> &som_creators,
             DEBUG_PRINTF("bypassing min on join %u\n", slot_id);
         } else {
             shared_ptr<GoughSSAVarMin> vmin = make_shared<GoughSSAVarMin>();
+            if (!vmin) {
+                assert(0);
+                throw std::bad_alloc();
+            }
             cfg[e].vars.push_back(vmin);
             final_var = vmin.get();
 

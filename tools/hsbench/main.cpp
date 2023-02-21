@@ -760,6 +760,11 @@ u64a byte_size(const vector<DataBlock> &corpus_blocks) {
         total += block.payload.size();
     }
 
+    if (total == 0) {
+        assert(0);
+        throw std::invalid_argument("Empty corpus.");
+    }
+
     return total;
 }
 

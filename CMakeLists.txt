@@ -3,7 +3,7 @@ project (hyperscan C CXX)
 
 set (HS_MAJOR_VERSION 5)
 set (HS_MINOR_VERSION 4)
-set (HS_PATCH_VERSION 0)
+set (HS_PATCH_VERSION 1)
 set (HS_VERSION ${HS_MAJOR_VERSION}.${HS_MINOR_VERSION}.${HS_PATCH_VERSION})
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -397,6 +397,18 @@ if (CXX_UNUSED_CONST_VAR)
     set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-unused-const-variable")
 endif()
 
+# clang-14 complains about unused-but-set variable.
+CHECK_CXX_COMPILER_FLAG("-Wunused-but-set-variable" CXX_UNUSED_BUT_SET_VAR)
+if (CXX_UNUSED_BUT_SET_VAR)
+    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-unused-but-set-variable")
+endif()
+
+# clang-14 complains about using bitwise operator instead of logical ones.
+CHECK_CXX_COMPILER_FLAG("-Wbitwise-instead-of-logical" CXX_BITWISE_INSTEAD_OF_LOGICAL)
+if (CXX_BITWISE_INSTEAD_OF_LOGICAL)
+    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-bitwise-instead-of-logical")
+endif()
+
 # gcc 6 complains about type attributes that get ignored, like alignment
 CHECK_CXX_COMPILER_FLAG("-Wignored-attributes" CXX_IGNORED_ATTR)
 if (CXX_IGNORED_ATTR)
@@ -428,8 +440,10 @@ CHECK_CXX_COMPILER_FLAG("-Wunused-variable" CXX_WUNUSED_VARIABLE)
 
 # gcc 10 complains about this
 CHECK_C_COMPILER_FLAG("-Wstringop-overflow" CC_STRINGOP_OVERFLOW)
-if(CC_STRINGOP_OVERFLOW)
+CHECK_CXX_COMPILER_FLAG("-Wstringop-overflow" CXX_STRINGOP_OVERFLOW)
+if(CC_STRINGOP_OVERFLOW OR CXX_STRINGOP_OVERFLOW)
     set(EXTRA_C_FLAGS "${EXTRA_C_FLAGS} -Wno-stringop-overflow")
+    set(EXTRA_CXX_FLAGS "${EXTRA_CXX_FLAGS} -Wno-stringop-overflow")
 endif()
 
 endif()
@@ -579,7 +593,7 @@ set (hs_exec_common_SRCS
 
 set (hs_exec_SRCS
     ${hs_HEADERS}
-    src/hs_version.h
+    src/hs_version.h.in
     src/ue2common.h
     src/allocator.h
     src/crc32.c
@@ -736,7 +750,7 @@ SET (hs_compile_SRCS
     src/grey.h
     src/hs.cpp
     src/hs_internal.h
-    src/hs_version.h
+    src/hs_version.h.in
     src/scratch.h
     src/state.h
     src/ue2common.h

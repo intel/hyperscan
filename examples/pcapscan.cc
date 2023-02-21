@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, Intel Corporation
+ * Copyright (c) 2015-2021, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,6 +51,7 @@
 
 #include <cstring>
 #include <chrono>
+#include <climits>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -489,6 +490,10 @@ int main(int argc, char **argv) {
 
     // Streaming mode scans.
     double secsStreamingScan = 0.0, secsStreamingOpenClose = 0.0;
+    if (repeatCount <= 0 || repeatCount > UINT_MAX) {
+        cerr << "Invalid repeatCount." << endl;
+        exit(-1);
+    }
     for (unsigned int i = 0; i < repeatCount; i++) {
         // Open streams.
         clock.start();

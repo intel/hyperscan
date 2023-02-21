@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2022, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -72,7 +72,7 @@ bool isValidUtf8(const char *expression, const size_t len) {
     while (i < len) {
         DEBUG_PRINTF("byte %zu: 0x%02x\n", i, s[i]);
         // One octet.
-        if (s[i] < 0x7f) {
+        if (s[i] <= 0x7f) {
             DEBUG_PRINTF("one octet\n");
             i++;
             continue;

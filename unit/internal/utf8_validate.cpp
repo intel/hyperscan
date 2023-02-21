@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017, Intel Corporation
+ * Copyright (c) 2015-2022, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -64,8 +64,8 @@ static ValidUtf8TestInfo valid_utf8_tests[] = {
     {"공동경비구역", true},
     {"জলসাঘর", true},
 
-    // Invalid one-byte caseS.
-    {"\x7f", false},
+    // Valid one-byte caseS.
+    {"\x7f", true}, // \x7f is valid
 
     // These bytes should never appear in a UTF-8 stream.
     {"\xc0", false},

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2020, Intel Corporation
+ * Copyright (c) 2015-2021, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -3110,6 +3110,7 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
 
     const char in_catchup = prog_flags & ROSE_PROG_FLAG_IN_CATCHUP;
     const char from_mpv = prog_flags & ROSE_PROG_FLAG_FROM_MPV;
+    const char skip_mpv_catchup = prog_flags & ROSE_PROG_FLAG_SKIP_MPV_CATCHUP;
 
     const char *pc_base = getByOffset(t, programOffset);
     const char *pc = pc_base;
@@ -3206,10 +3207,30 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
             }
             L_PROGRAM_NEXT_INSTRUCTION
 
+            L_PROGRAM_CASE(CATCH_UP_MPV) {
+                if (from_mpv || skip_mpv_catchup) {
+                    DEBUG_PRINTF("skipping mpv catchup\n");
+                } else if (roseCatchUpMPV(t,
+                                          end - scratch->core_info.buf_offset,
+                                          scratch) == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
             L_PROGRAM_CASE(SOM_FROM_REPORT) {
                 som = handleSomExternal(scratch, &ri->som, end);
                 DEBUG_PRINTF("som from report %u is %llu\n", ri->som.onmatch,
                              som);
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(TRIGGER_SUFFIX) {
+                if (roseTriggerSuffix(t, scratch, ri->queue, ri->event, som,
+                                      end) == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+                work_done = 1;
             }
             L_PROGRAM_NEXT_INSTRUCTION
 

@@ -2446,6 +2446,10 @@ static
 bool doLitHaigSom(NG &ng, NGHolder &g, som_type som) {
     ue2_literal lit;
     shared_ptr<NGHolder> rhs = make_shared<NGHolder>();
+    if (!rhs) {
+        assert(0);
+        throw std::bad_alloc();
+    }
     if (!ng.cc.grey.allowLitHaig) {
         return false;
     }
@@ -2510,6 +2514,11 @@ bool doHaigLitHaigSom(NG &ng, NGHolder &g,
     ue2_literal lit;
     shared_ptr<NGHolder> rhs = make_shared<NGHolder>();
     shared_ptr<NGHolder> lhs = make_shared<NGHolder>();
+    if (!rhs || !lhs) {
+        assert(0);
+        throw std::bad_alloc();
+    }
+
     if (!splitOffBestLiteral(g, regions, &lit, &*lhs, &*rhs, ng.cc)) {
         return false;
     }

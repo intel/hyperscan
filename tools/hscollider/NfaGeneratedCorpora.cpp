@@ -101,7 +101,7 @@ void NfaGeneratedCorpora::generate(unsigned id, vector<Corpus> &data) {
         pl.logicalKeyRenumber();
         const auto &m_lkey = pl.getLkeyMap();
         assert(!m_lkey.empty());
-        u32 a_subid; // arbitrary sub id
+        u32 a_subid = 0; // arbitrary sub id
         unordered_map<u32, vector<Corpus>> m_data;
         for (const auto &it : m_lkey) {
             a_subid = it.first;

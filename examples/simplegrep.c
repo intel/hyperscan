@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2015-2021, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -57,6 +57,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <hs.h>
 
@@ -151,6 +152,15 @@ int main(int argc, char *argv[]) {
 
     char *pattern = argv[1];
     char *inputFN = argv[2];
+
+    if (access(inputFN, F_OK) != 0) {
+        fprintf(stderr, "ERROR: file doesn't exist.\n");
+        return -1;
+    }
+    if (access(inputFN, R_OK) != 0) {
+        fprintf(stderr, "ERROR: can't be read.\n");
+        return -1;
+    }
 
     /* First, we attempt to compile the pattern provided on the command line.
      * We assume 'DOTALL' semantics, meaning that the '.' meta-character will

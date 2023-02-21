@@ -2,6 +2,23 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [5.4.1] 2023-02-20
+- The Intel Hyperscan team is pleased to provide a bug fix release to our open source library.
+  Intel also maintains an upgraded version available through your Intel sales representative.
+- Bugfix for issue #184: fix random char value of UTF-8.
+- Bugfix for issue #291: bypass logical combination flag in hs_expression_info().
+- Bugfix for issue #292: fix build error due to libc symbol parsing.
+- Bugfix for issue #302/304: add empty string check for pure literal API.
+- Bugfix for issue #303: fix unknown instruction error in pure literal API.
+- Bugfix for issue #303: avoid memory leak in stream close stage.
+- Bugfix for issue #305: fix assertion failure in DFA construction.
+- Bugfix for issue #317: fix aligned allocator segment faults.
+- Bugfix for issue #350: add quick validity check for scratch.
+- Bugfix for issue #359: fix glibc-2.34 stack size issue.
+- Bugfix for issue #360: fix SKIP flag issue in chimera.
+- Bugfix for issue #362: fix one cotec check corner issue in UTF-8 validation.
+- Fix other compile issues.
+
 ## [5.4.0] 2020-12-31
 - Improvement on literal matcher "Fat Teddy" performance, including
   support for Intel(R) AVX-512 Vector Byte Manipulation Instructions (Intel(R)

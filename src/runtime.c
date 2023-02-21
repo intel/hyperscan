@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Intel Corporation
+ * Copyright (c) 2015-2022, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -90,7 +90,7 @@ u8 *getHistory(char *state, const struct RoseEngine *t, u64a offset) {
  * callers.
  */
 static really_inline
-char validScratch(const struct RoseEngine *t, const struct hs_scratch *s) {
+char validScratch(const struct hs_scratch *s, u32 crc) {
     if (!ISALIGNED_CL(s)) {
         DEBUG_PRINTF("bad alignment %p\n", s);
         return 0;
@@ -101,17 +101,11 @@ char validScratch(const struct RoseEngine *t, const struct hs_scratch *s) {
         return 0;
     }
 
-    if (t->mode == HS_MODE_BLOCK && t->stateOffsets.end > s->bStateSize) {
-        DEBUG_PRINTF("bad state size\n");
+    /* add quick rose sanity checks by db crc*/
+    if (s->db_crc != crc) {
+        DEBUG_PRINTF("Improper scratch for current db\n");
         return 0;
     }
-
-    if (t->queueCount > s->queueCount) {
-        DEBUG_PRINTF("bad queue count\n");
-        return 0;
-    }
-
-    /* TODO: add quick rose sanity checks */
 
     return 1;
 }
@@ -335,7 +329,7 @@ hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
         return HS_DB_MODE_ERROR;
     }
 
-    if (unlikely(!validScratch(rose, scratch))) {
+    if (unlikely(!validScratch(scratch, db->crc32))) {
         return HS_INVALID;
     }
 
@@ -509,7 +503,7 @@ void maintainHistoryBuffer(const struct RoseEngine *rose, char *state,
 
 static really_inline
 void init_stream(struct hs_stream *s, const struct RoseEngine *rose,
-                 char init_history) {
+                 char init_history, u32 crc) {
     char *state = getMultiState(s);
 
     if (init_history) {
@@ -524,6 +518,7 @@ void init_stream(struct hs_stream *s, const struct RoseEngine *rose,
 
     s->rose = rose;
     s->offset = 0;
+    s->crc32 = crc;
 
     setStreamStatus(state, 0);
     roseInitState(rose, state);
@@ -568,7 +563,7 @@ hs_error_t HS_CDECL hs_open_stream(const hs_database_t *db,
         return HS_NOMEM;
     }
 
-    init_stream(s, rose, 1);
+    init_stream(s, rose, 1, db->crc32);
 
     *stream = s;
     return HS_SUCCESS;
@@ -756,7 +751,7 @@ hs_error_t HS_CDECL hs_reset_and_copy_stream(hs_stream_t *to_id,
     }
 
     if (onEvent) {
-        if (!scratch || !validScratch(to_id->rose, scratch)) {
+        if (!scratch || !validScratch(scratch, to_id->crc32)) {
             return HS_INVALID;
         }
         if (unlikely(markScratchInUse(scratch))) {
@@ -982,7 +977,7 @@ hs_error_t HS_CDECL hs_scan_stream(hs_stream_t *id, const char *data,
                                    hs_scratch_t *scratch,
                                    match_event_handler onEvent, void *context) {
     if (unlikely(!id || !scratch || !data ||
-                 !validScratch(id->rose, scratch))) {
+                 !validScratch(scratch, id->crc32))) {
         return HS_INVALID;
     }
 
@@ -1004,7 +999,7 @@ hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
     }
 
     if (onEvent) {
-        if (!scratch || !validScratch(id->rose, scratch)) {
+        if (!scratch || !validScratch(scratch, id->crc32)) {
             return HS_INVALID;
         }
         if (unlikely(markScratchInUse(scratch))) {
@@ -1013,6 +1008,7 @@ hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
         report_eod_matches(id, scratch, onEvent, context);
         if (unlikely(internal_matching_error(scratch))) {
             unmarkScratchInUse(scratch);
+            hs_stream_free(id);
             return HS_UNKNOWN_ERROR;
         }
         unmarkScratchInUse(scratch);
@@ -1033,7 +1029,7 @@ hs_error_t HS_CDECL hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
     }
 
     if (onEvent) {
-        if (!scratch || !validScratch(id->rose, scratch)) {
+        if (!scratch || !validScratch(scratch, id->crc32)) {
             return HS_INVALID;
         }
         if (unlikely(markScratchInUse(scratch))) {
@@ -1048,7 +1044,7 @@ hs_error_t HS_CDECL hs_reset_stream(hs_stream_t *id, UNUSED unsigned int flags,
     }
 
     // history already initialised
-    init_stream(id, id->rose, 0);
+    init_stream(id, id->rose, 0, id->crc32);
 
     return HS_SUCCESS;
 }
@@ -1127,7 +1123,7 @@ hs_error_t HS_CDECL hs_scan_vector(const hs_database_t *db,
         return HS_DB_MODE_ERROR;
     }
 
-    if (unlikely(!validScratch(rose, scratch))) {
+    if (unlikely(!validScratch(scratch, db->crc32))) {
         return HS_INVALID;
     }
 
@@ -1137,7 +1133,7 @@ hs_error_t HS_CDECL hs_scan_vector(const hs_database_t *db,
 
     hs_stream_t *id = (hs_stream_t *)(scratch->bstate);
 
-    init_stream(id, rose, 1); /* open stream */
+    init_stream(id, rose, 1, db->crc32); /* open stream */
 
     for (u32 i = 0; i < count; i++) {
         DEBUG_PRINTF("block %u/%u offset=%llu len=%u\n", i, count, id->offset,
@@ -1252,7 +1248,7 @@ hs_error_t HS_CDECL hs_reset_and_expand_stream(hs_stream_t *to_stream,
     const struct RoseEngine *rose = to_stream->rose;
 
     if (onEvent) {
-        if (!scratch || !validScratch(to_stream->rose, scratch)) {
+        if (!scratch || !validScratch(scratch, to_stream->crc32)) {
             return HS_INVALID;
         }
         if (unlikely(markScratchInUse(scratch))) {

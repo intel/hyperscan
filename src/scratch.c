@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Intel Corporation
+ * Copyright (c) 2015-2022, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -373,6 +373,7 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
             hs_scratch_free((*scratch)->scratch_alloc);
         }
 
+        proto->db_crc = db->crc32;
         hs_error_t alloc_ret = alloc_scratch(proto, scratch);
         hs_scratch_free(proto_tmp); /* kill off temp used for sizing */
         if (alloc_ret != HS_SUCCESS) {
@@ -380,6 +381,7 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
             return alloc_ret;
         }
     } else {
+        (*scratch)->db_crc = db->crc32;
         hs_scratch_free(proto_tmp); /* kill off temp used for sizing */
         unmarkScratchInUse(*scratch);
     }
