@@ -1,17 +1,19 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tools &#8212; Hyperscan 5.4.0 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Tools &#8212; Hyperscan 5.4.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -34,11 +36,11 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="tools">
-<span id="id1"></span><h1>Tools<a class="headerlink" href="#tools" title="Permalink to this headline">¶</a></h1>
+  <section id="tools">
+<span id="id1"></span><h1>Tools<a class="headerlink" href="#tools" title="Permalink to this heading">¶</a></h1>
 <p>This section describes the set of utilities included with the Hyperscan library.</p>
-<div class="section" id="quick-check-hscheck">
-<h2>Quick Check: hscheck<a class="headerlink" href="#quick-check-hscheck" title="Permalink to this headline">¶</a></h2>
+<section id="quick-check-hscheck">
+<h2>Quick Check: hscheck<a class="headerlink" href="#quick-check-hscheck" title="Permalink to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">hscheck</span></code> tool allows the user to quickly check whether Hyperscan supports
 a group of patterns. If a pattern is rejected by Hyperscan’s compiler, the
 compile error is provided on standard output.</p>
@@ -58,9 +60,9 @@ FAIL (compile): 3:/((foo|bar)/: Missing close parenthesis for group started at i
 SUMMARY: 1 of 3 failed.
 </pre></div>
 </div>
-</div>
-<div class="section" id="benchmarker-hsbench">
-<h2>Benchmarker: hsbench<a class="headerlink" href="#benchmarker-hsbench" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="benchmarker-hsbench">
+<h2>Benchmarker: hsbench<a class="headerlink" href="#benchmarker-hsbench" title="Permalink to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">hsbench</span></code> tool provides an easy way to measure Hyperscan’s performance
 for a particular set of patterns and corpus of data to be scanned.</p>
 <p>Patterns are supplied in the format described below in
@@ -73,8 +75,8 @@ easy control of how a corpus is broken into blocks and streams.</p>
 various input types, such as PCAP network traffic captures or text files, can
 be found in the Hyperscan source tree in <code class="docutils literal notranslate"><span class="pre">tools/hsbench/scripts</span></code>.</p>
 </div>
-<div class="section" id="running-hsbench">
-<h3>Running hsbench<a class="headerlink" href="#running-hsbench" title="Permalink to this headline">¶</a></h3>
+<section id="running-hsbench">
+<h3>Running hsbench<a class="headerlink" href="#running-hsbench" title="Permalink to this heading">¶</a></h3>
 <p>Given a file full of patterns specified with <code class="docutils literal notranslate"><span class="pre">-e</span></code> and a corpus database
 specified with <code class="docutils literal notranslate"><span class="pre">-c</span></code>, <code class="docutils literal notranslate"><span class="pre">hsbench</span></code> will perform a single-threaded benchmark and
 produce output like this:</p>
@@ -112,10 +114,10 @@ to complete all of them.</p>
 using a utility like <code class="docutils literal notranslate"><span class="pre">taskset</span></code> to lock the hsbench process to one core and
 minimize jitter due to the operating system’s scheduler.</p>
 </div>
-</div>
-</div>
-<div class="section" id="correctness-testing-hscollider">
-<h2>Correctness Testing: hscollider<a class="headerlink" href="#correctness-testing-hscollider" title="Permalink to this headline">¶</a></h2>
+</section>
+</section>
+<section id="correctness-testing-hscollider">
+<h2>Correctness Testing: hscollider<a class="headerlink" href="#correctness-testing-hscollider" title="Permalink to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">hscollider</span></code> tool, or Pattern Collider, provides a way to verify
 Hyperscan’s matching behaviour. It does this by compiling and scanning patterns
 (either singly or in groups) against known corpora and comparing the results
@@ -143,8 +145,8 @@ flexibility in controlling the test. These options are described in the help
 <li><p>Synthetic generation of corpora given a pattern set.</p></li>
 </ul>
 </div></blockquote>
-<div class="section" id="using-hscollider-to-debug-a-pattern">
-<h3>Using hscollider to debug a pattern<a class="headerlink" href="#using-hscollider-to-debug-a-pattern" title="Permalink to this headline">¶</a></h3>
+<section id="using-hscollider-to-debug-a-pattern">
+<h3>Using hscollider to debug a pattern<a class="headerlink" href="#using-hscollider-to-debug-a-pattern" title="Permalink to this heading">¶</a></h3>
 <p>One common use-case for <code class="docutils literal notranslate"><span class="pre">hscollider</span></code> is to determine whether Hyperscan will
 match a pattern in the expected location, and whether this accords with PCRE’s
 behaviour for the same case.</p>
@@ -211,9 +213,9 @@ corpus alignment 0, and <code class="docutils literal notranslate"><span class="
 Hyperscan’s automata semantics. The <code class="docutils literal notranslate"><span class="pre">hscollider</span></code> tool uses libpcre’s
 “callout” functionality to match Hyperscan’s semantics.</p>
 </div>
-</div>
-<div class="section" id="running-a-larger-scan-test">
-<h3>Running a larger scan test<a class="headerlink" href="#running-a-larger-scan-test" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="running-a-larger-scan-test">
+<h3>Running a larger scan test<a class="headerlink" href="#running-a-larger-scan-test" title="Permalink to this heading">¶</a></h3>
 <p>A set of patterns for testing purposes are distributed with Hyperscan, and these
 can be tested via <code class="docutils literal notranslate"><span class="pre">hscollider</span></code> on an in-tree build. Two CMake targets are
 provided to do this easily:</p>
@@ -236,19 +238,19 @@ provided to do this easily:</p>
 </tr>
 </tbody>
 </table>
-</div>
-</div>
-<div class="section" id="debugging-hsdump">
-<h2>Debugging: hsdump<a class="headerlink" href="#debugging-hsdump" title="Permalink to this headline">¶</a></h2>
+</section>
+</section>
+<section id="debugging-hsdump">
+<h2>Debugging: hsdump<a class="headerlink" href="#debugging-hsdump" title="Permalink to this heading">¶</a></h2>
 <p>When built in debug mode (using the CMake directive <code class="docutils literal notranslate"><span class="pre">CMAKE_BUILD_TYPE</span></code> set to
 <code class="docutils literal notranslate"><span class="pre">Debug</span></code>), Hyperscan includes support for dumping information about its
 internals during pattern compilation with the <code class="docutils literal notranslate"><span class="pre">hsdump</span></code> tool.</p>
 <p>This information is mostly of use to Hyperscan developers familiar with the
 library’s internal structure, but can be used to diagnose issues with patterns
 and provide more information in bug reports.</p>
-</div>
-<div class="section" id="pattern-format">
-<span id="tools-pattern-format"></span><h2>Pattern Format<a class="headerlink" href="#pattern-format" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="pattern-format">
+<span id="tools-pattern-format"></span><h2>Pattern Format<a class="headerlink" href="#pattern-format" title="Permalink to this heading">¶</a></h2>
 <p>All of the Hyperscan tools accept patterns in the same format, read from plain
 text files with one pattern per line. Each line looks like this:</p>
 <ul class="simple">
@@ -336,8 +338,8 @@ the pattern set are given, all patterns in those files are used.</p>
 <p>To select a subset of the patterns, a single ID can be supplied with the <code class="docutils literal notranslate"><span class="pre">-z</span></code>
 argument, or a file containing a set of IDs can be supplied with the <code class="docutils literal notranslate"><span class="pre">-s</span></code>
 argument.</p>
-</div>
-</div>
+</section>
+</section>
 
 
           </div>
@@ -373,12 +375,12 @@ argument.</p>
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -387,7 +389,7 @@ argument.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.2</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

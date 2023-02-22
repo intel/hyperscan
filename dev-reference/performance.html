@@ -1,17 +1,19 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Performance Considerations &#8212; Hyperscan 5.4.0 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Performance Considerations &#8212; Hyperscan 5.4.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -34,15 +36,15 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="performance-considerations">
-<span id="perf"></span><h1>Performance Considerations<a class="headerlink" href="#performance-considerations" title="Permalink to this headline">¶</a></h1>
+  <section id="performance-considerations">
+<span id="perf"></span><h1>Performance Considerations<a class="headerlink" href="#performance-considerations" title="Permalink to this heading">¶</a></h1>
 <p>Hyperscan supports a wide range of patterns in all three scanning modes. It is
 capable of extremely high levels of performance, but certain patterns can
 reduce performance markedly.</p>
 <p>The following guidelines will help construct patterns and pattern sets that
 will perform better:</p>
-<div class="section" id="regular-expression-constructs">
-<h2>Regular expression constructs<a class="headerlink" href="#regular-expression-constructs" title="Permalink to this headline">¶</a></h2>
+<section id="regular-expression-constructs">
+<h2>Regular expression constructs<a class="headerlink" href="#regular-expression-constructs" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Do not hand-optimize regular expression constructs.</p>
@@ -63,9 +65,9 @@ equivalently written as:</p>
 <li><p><code class="regexp docutils literal notranslate"><span class="pre">/foobarfrotz|foobazfrotz|foobar|foobaz/</span></code></p></li>
 </ul>
 <p>This change will not improve performance or reduce overheads.</p>
-</div>
-<div class="section" id="library-usage">
-<h2>Library usage<a class="headerlink" href="#library-usage" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="library-usage">
+<h2>Library usage<a class="headerlink" href="#library-usage" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Do not hand-optimize library usage.</p>
@@ -86,9 +88,9 @@ control per core; if a database runs at 3.0 Gbps in Hyperscan it means that a
 control, not that it is required to scan 22 3000-bit blocks of data in 22
 microseconds. Thus, it is not usually necessary to buffer data to supply
 Hyperscan with available parallelism.</p>
-</div>
-<div class="section" id="block-based-matching">
-<h2>Block-based matching<a class="headerlink" href="#block-based-matching" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="block-based-matching">
+<h2>Block-based matching<a class="headerlink" href="#block-based-matching" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Prefer block-based matching to streaming matching where possible.</p>
@@ -102,9 +104,9 @@ be applied in Hyperscan and may make some patterns run slower.</p>
 <p>If there is a mixture of ‘block’ and ‘streaming’ mode patterns, these should be
 scanned in separate databases except in the case that the streaming patterns
 vastly outnumber the block mode patterns.</p>
-</div>
-<div class="section" id="unnecessary-databases">
-<h2>Unnecessary databases<a class="headerlink" href="#unnecessary-databases" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="unnecessary-databases">
+<h2>Unnecessary databases<a class="headerlink" href="#unnecessary-databases" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Avoid unnecessary ‘union’ databases.</p>
@@ -120,9 +122,9 @@ signatures. Only if the common subset of the signatures is overwhelmingly large
 that merges all 5 signature sets be considered, and only then if there are no
 performance issues with specific patterns that appear outside the common
 subset.</p>
-</div>
-<div class="section" id="allocate-scratch-ahead-of-time">
-<h2>Allocate scratch ahead of time<a class="headerlink" href="#allocate-scratch-ahead-of-time" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="allocate-scratch-ahead-of-time">
+<h2>Allocate scratch ahead of time<a class="headerlink" href="#allocate-scratch-ahead-of-time" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Do not allocate scratch space for your pattern database just before
@@ -138,9 +140,9 @@ called in the application’s scanning path just before <a class="reference inte
 example).</p>
 <p>Instead, scratch should be allocated immediately after a pattern database is
 compiled or deserialized, then retained for later scanning operations.</p>
-</div>
-<div class="section" id="allocate-one-scratch-space-per-scanning-context">
-<h2>Allocate one scratch space per scanning context<a class="headerlink" href="#allocate-one-scratch-space-per-scanning-context" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="allocate-one-scratch-space-per-scanning-context">
+<h2>Allocate one scratch space per scanning context<a class="headerlink" href="#allocate-one-scratch-space-per-scanning-context" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>A scratch space can be allocated so that it can be used with any one of
@@ -153,35 +155,35 @@ instead of allocating one scratch space for every database used by an
 application, one can call <a class="reference internal" href="api_files.html#c.hs_alloc_scratch" title="hs_alloc_scratch"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_alloc_scratch()</span></code></a> with a pointer to the same
 <a class="reference internal" href="api_files.html#c.hs_scratch_t" title="hs_scratch_t"><code class="xref c c-type docutils literal notranslate"><span class="pre">hs_scratch_t</span></code></a> and it will be sized appropriately for use with any of
 the given databases. For example:</p>
-<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db1</span> <span class="o">=</span> <span class="n">buildDatabaseOne</span><span class="p">();</span>
-<span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db2</span> <span class="o">=</span> <span class="n">buildDatabaseTwo</span><span class="p">();</span>
-<span class="n">hs_database_t</span> <span class="o">*</span><span class="n">db3</span> <span class="o">=</span> <span class="n">buildDatabaseThree</span><span class="p">();</span>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="n">hs_database_t</span><span class="w"> </span><span class="o">*</span><span class="n">db1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">buildDatabaseOne</span><span class="p">();</span><span class="w"></span>
+<span class="n">hs_database_t</span><span class="w"> </span><span class="o">*</span><span class="n">db2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">buildDatabaseTwo</span><span class="p">();</span><span class="w"></span>
+<span class="n">hs_database_t</span><span class="w"> </span><span class="o">*</span><span class="n">db3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">buildDatabaseThree</span><span class="p">();</span><span class="w"></span>
 
-<span class="n">hs_error_t</span> <span class="n">err</span><span class="p">;</span>
-<span class="n">hs_scratch_t</span> <span class="o">*</span><span class="n">scratch</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
-<span class="n">err</span> <span class="o">=</span> <span class="n">hs_alloc_scratch</span><span class="p">(</span><span class="n">db1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">scratch</span><span class="p">);</span>
-<span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">!=</span> <span class="n">HS_SUCCESS</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">printf</span><span class="p">(</span><span class="s">&quot;hs_alloc_scratch failed!&quot;</span><span class="p">);</span>
-    <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="n">err</span> <span class="o">=</span> <span class="n">hs_alloc_scratch</span><span class="p">(</span><span class="n">db2</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">scratch</span><span class="p">);</span>
-<span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">!=</span> <span class="n">HS_SUCCESS</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">printf</span><span class="p">(</span><span class="s">&quot;hs_alloc_scratch failed!&quot;</span><span class="p">);</span>
-    <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
-<span class="p">}</span>
-<span class="n">err</span> <span class="o">=</span> <span class="n">hs_alloc_scratch</span><span class="p">(</span><span class="n">db3</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">scratch</span><span class="p">);</span>
-<span class="k">if</span> <span class="p">(</span><span class="n">err</span> <span class="o">!=</span> <span class="n">HS_SUCCESS</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">printf</span><span class="p">(</span><span class="s">&quot;hs_alloc_scratch failed!&quot;</span><span class="p">);</span>
-    <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
-<span class="p">}</span>
+<span class="n">hs_error_t</span><span class="w"> </span><span class="n">err</span><span class="p">;</span><span class="w"></span>
+<span class="n">hs_scratch_t</span><span class="w"> </span><span class="o">*</span><span class="n">scratch</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">NULL</span><span class="p">;</span><span class="w"></span>
+<span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hs_alloc_scratch</span><span class="p">(</span><span class="n">db1</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">scratch</span><span class="p">);</span><span class="w"></span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">HS_SUCCESS</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;hs_alloc_scratch failed!&quot;</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+<span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hs_alloc_scratch</span><span class="p">(</span><span class="n">db2</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">scratch</span><span class="p">);</span><span class="w"></span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">HS_SUCCESS</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;hs_alloc_scratch failed!&quot;</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+<span class="n">err</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">hs_alloc_scratch</span><span class="p">(</span><span class="n">db3</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">scratch</span><span class="p">);</span><span class="w"></span>
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">err</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">HS_SUCCESS</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="n">printf</span><span class="p">(</span><span class="s">&quot;hs_alloc_scratch failed!&quot;</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
 
 <span class="cm">/* scratch may now be used to scan against any of</span>
-<span class="cm">   the databases db1, db2, db3. */</span>
+<span class="cm">   the databases db1, db2, db3. */</span><span class="w"></span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="anchored-patterns">
-<h2>Anchored patterns<a class="headerlink" href="#anchored-patterns" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="anchored-patterns">
+<h2>Anchored patterns<a class="headerlink" href="#anchored-patterns" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>If a pattern is meant to appear at the start of data, be sure to
@@ -207,9 +209,9 @@ constrain where a pattern could match. For example, the pattern
 than or equal to 10 in the buffer. (This pattern could also be written as
 <code class="regexp docutils literal notranslate"><span class="pre">/^.{0,7}foo/</span></code>, compiled with the <a class="reference internal" href="api_constants.html#c.HS_FLAG_DOTALL" title="HS_FLAG_DOTALL"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_DOTALL</span></code></a> flag).</p></li>
 </ul>
-</div>
-<div class="section" id="matching-everywhere">
-<h2>Matching everywhere<a class="headerlink" href="#matching-everywhere" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="matching-everywhere">
+<h2>Matching everywhere<a class="headerlink" href="#matching-everywhere" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Avoid patterns that match everywhere, and remember that our semantics
@@ -234,9 +236,9 @@ affect the match results.</p>
 <p>For example, input data <code class="docutils literal notranslate"><span class="pre">0123abcdddd</span></code> will match <code class="regexp docutils literal notranslate"><span class="pre">/abc/</span></code> once but
 <code class="regexp docutils literal notranslate"><span class="pre">/abcd*/</span></code> five times (at <code class="docutils literal notranslate"><span class="pre">abc</span></code>, <code class="docutils literal notranslate"><span class="pre">abcd</span></code>, <code class="docutils literal notranslate"><span class="pre">abcdd</span></code>, <code class="docutils literal notranslate"><span class="pre">abcddd</span></code>, and
 <code class="docutils literal notranslate"><span class="pre">abcdddd</span></code>).</p>
-</div>
-<div class="section" id="bounded-repeats-in-streaming-mode">
-<h2>Bounded repeats in streaming mode<a class="headerlink" href="#bounded-repeats-in-streaming-mode" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="bounded-repeats-in-streaming-mode">
+<h2>Bounded repeats in streaming mode<a class="headerlink" href="#bounded-repeats-in-streaming-mode" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Bounded repeats are expensive in streaming mode.</p>
@@ -251,9 +253,9 @@ where other parts of a signature are quite specific. For example, a virus
 signature that matches a virus payload may be sufficient without including a
 prefix that includes, for example, a 2-character Windows executable prefix and
 a bounded repeat beforehand.</p>
-</div>
-<div class="section" id="prefer-literals">
-<h2>Prefer literals<a class="headerlink" href="#prefer-literals" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="prefer-literals">
+<h2>Prefer literals<a class="headerlink" href="#prefer-literals" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Where possible, prefer patterns which ‘require’ literals, especially
@@ -284,9 +286,9 @@ early in the pattern is preferred to one that does not.</p>
 <p>Longer literals anywhere in the pattern are still preferred in streaming mode.
 For example, both of the above patterns are stronger and will scan faster than
 <code class="regexp docutils literal notranslate"><span class="pre">/b\w*fo/</span></code> even in streaming mode.</p>
-</div>
-<div class="section" id="dot-all-mode">
-<h2>“Dot all” mode<a class="headerlink" href="#dot-all-mode" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="dot-all-mode">
+<h2>“Dot all” mode<a class="headerlink" href="#dot-all-mode" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Use “dot all” mode where possible.</p>
@@ -300,9 +302,9 @@ block.</p>
 <p>This will be true in most use-cases (an exception being where the DOTALL flag
 is off but the pattern contains either explicit newlines or constructs such as
 <code class="regexp docutils literal notranslate"><span class="pre">\s</span></code> that implicitly match a newline character).</p>
-</div>
-<div class="section" id="single-match-flag">
-<h2>Single-match flag<a class="headerlink" href="#single-match-flag" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="single-match-flag">
+<h2>Single-match flag<a class="headerlink" href="#single-match-flag" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Consider using the single-match flag to limit matches to one match per
@@ -315,9 +317,9 @@ space reductions when streaming.</p>
 <p>However, there is some overhead associated with tracking whether each pattern in
 the pattern set has matched, and some applications with infrequent matches may
 see reduced performance when the single-match flag is used.</p>
-</div>
-<div class="section" id="start-of-match-flag">
-<h2>Start of Match flag<a class="headerlink" href="#start-of-match-flag" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="start-of-match-flag">
+<h2>Start of Match flag<a class="headerlink" href="#start-of-match-flag" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Do not request Start of Match information if it is not not needed.</p>
@@ -335,9 +337,9 @@ the callback is considerably more expensive and general than
 used to specify a lower bound on the length of the matches for a pattern. Using
 this facility may be more lightweight in some circumstances than using the SOM
 flag and post-confirming match length in the calling application.</p>
-</div>
-<div class="section" id="approximate-matching">
-<h2>Approximate matching<a class="headerlink" href="#approximate-matching" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="approximate-matching">
+<h2>Approximate matching<a class="headerlink" href="#approximate-matching" title="Permalink to this heading">¶</a></h2>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>Approximate matching is an experimental feature.</p>
@@ -345,8 +347,8 @@ flag and post-confirming match length in the calling application.</p>
 <p>There is generally a performance impact associated with approximate matching due
 to the reduced specificity of the matches. This impact may vary significantly
 depending on the pattern and edit distance.</p>
-</div>
-</div>
+</section>
+</section>
 
 
           </div>
@@ -391,12 +393,12 @@ depending on the pattern and edit distance.</p>
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -405,7 +407,7 @@ depending on the pattern and edit distance.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.2</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

@@ -1,17 +1,19 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>API Reference: Constants &#8212; Hyperscan 5.4.0 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>API Reference: Constants &#8212; Hyperscan 5.4.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -34,75 +36,75 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="api-reference-constants">
-<span id="api-constants"></span><h1>API Reference: Constants<a class="headerlink" href="#api-reference-constants" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="error-codes">
-<h2>Error Codes<a class="headerlink" href="#error-codes" title="Permalink to this headline">¶</a></h2>
+  <section id="api-reference-constants">
+<span id="api-constants"></span><h1>API Reference: Constants<a class="headerlink" href="#api-reference-constants" title="Permalink to this heading">¶</a></h1>
+<section id="error-codes">
+<h2>Error Codes<a class="headerlink" href="#error-codes" title="Permalink to this heading">¶</a></h2>
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_SUCCESS</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_SUCCESS</span></span></span><br /></dt>
 <dd><p>The engine completed normally. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_INVALID</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_INVALID</span></span></span><br /></dt>
 <dd><p>A parameter passed to this function was invalid.</p>
 <p>This error is only returned in cases where the function can detect an invalid parameter  it cannot be relied upon to detect (for example) pointers to freed memory or other invalid data. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_NOMEM</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_NOMEM</span></span></span><br /></dt>
 <dd><p>A memory allocation failed. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_SCAN_TERMINATED</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_SCAN_TERMINATED</span></span></span><br /></dt>
 <dd><p>The engine was terminated by callback.</p>
 <p>This return value indicates that the target buffer was partially scanned, but that the callback function requested that scanning cease after a match was located. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_COMPILER_ERROR</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_COMPILER_ERROR</span></span></span><br /></dt>
 <dd><p>The pattern compiler failed, and the <a class="reference internal" href="api_files.html#hs__compile_8h_1ab4f83c142ee043433194628ca66e0391"><span class="std std-ref">hs_compile_error_t</span></a> should be inspected for more detail. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_DB_VERSION_ERROR</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_DB_VERSION_ERROR</span></span></span><br /></dt>
 <dd><p>The given database was built for a different version of Hyperscan. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_DB_PLATFORM_ERROR</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_DB_PLATFORM_ERROR</span></span></span><br /></dt>
 <dd><p>The given database was built for a different platform (i.e., CPU type). </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_DB_MODE_ERROR</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_DB_MODE_ERROR</span></span></span><br /></dt>
 <dd><p>The given database was built for a different mode of operation. This error is returned when streaming calls are used with a block or vectored database and vice versa. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_BAD_ALIGN</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_BAD_ALIGN</span></span></span><br /></dt>
 <dd><p>A parameter passed to this function was not correctly aligned. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_BAD_ALLOC</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_BAD_ALLOC</span></span></span><br /></dt>
 <dd><p>The memory allocator (either malloc() or the allocator set with <a class="reference internal" href="api_files.html#hs__common_8h_1a5ca2c6de1dac5bb462e5cf4ab14de3bb"><span class="std std-ref">hs_set_allocator()</span></a>) did not correctly return memory suitably aligned for the largest representable data type on this platform. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_SCRATCH_IN_USE</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_SCRATCH_IN_USE</span></span></span><br /></dt>
 <dd><p>The scratch region was already in use.</p>
 <p>This error is returned when Hyperscan is able to detect that the scratch region given is already in use by another Hyperscan API call.</p>
 <p>A separate scratch region, allocated with <a class="reference internal" href="api_files.html#hs__runtime_8h_1ac0ddcd0c2a40f445211e415522fa7078"><span class="std std-ref">hs_alloc_scratch()</span></a> or <a class="reference internal" href="api_files.html#hs__runtime_8h_1a5ccab293a24ee56fcb82c715a7dca861"><span class="std std-ref">hs_clone_scratch()</span></a>, is required for every concurrent caller of the Hyperscan API.</p>
@@ -111,88 +113,88 @@
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_ARCH_ERROR</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_ARCH_ERROR</span></span></span><br /></dt>
 <dd><p>Unsupported CPU architecture.</p>
 <p>This error is returned when Hyperscan is able to detect that the current system does not support the required instruction set.</p>
 <p>At a minimum, Hyperscan requires Supplemental Streaming SIMD Extensions 3 (SSSE3). </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_INSUFFICIENT_SPACE</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_INSUFFICIENT_SPACE</span></span></span><br /></dt>
 <dd><p>Provided buffer was too small.</p>
 <p>This error indicates that there was insufficient space in the buffer. The call should be repeated with a larger provided buffer.</p>
 <p>Note: in this situation, it is normal for the amount of space required to be returned in the same manner as the used space would have been returned if the call was successful. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_UNKNOWN_ERROR</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_UNKNOWN_ERROR</span></span></span><br /></dt>
 <dd><p>Unexpected internal error.</p>
 <p>This error indicates that there was unexpected matching behaviors. This could be related to invalid usage of stream and scratch space or invalid memory operations by users. </p>
 </dd></dl>
 
-</div>
-<div class="section" id="hs-expr-ext-flags">
-<h2>hs_expr_ext flags<a class="headerlink" href="#hs-expr-ext-flags" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="hs-expr-ext-flags">
+<h2>hs_expr_ext flags<a class="headerlink" href="#hs-expr-ext-flags" title="Permalink to this heading">¶</a></h2>
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_EXT_FLAG_MIN_OFFSET</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_EXT_FLAG_MIN_OFFSET</span></span></span><br /></dt>
 <dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#strucths__expr__ext_1a006843974cb05dbf16291da621a72fa9"><span class="std std-ref">hs_expr_ext::min_offset</span></a> field is used. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_EXT_FLAG_MAX_OFFSET</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_EXT_FLAG_MAX_OFFSET</span></span></span><br /></dt>
 <dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#strucths__expr__ext_1a263c613f20c6b8ef30ca01785e0f55fc"><span class="std std-ref">hs_expr_ext::max_offset</span></a> field is used. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_EXT_FLAG_MIN_LENGTH</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_EXT_FLAG_MIN_LENGTH</span></span></span><br /></dt>
 <dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#strucths__expr__ext_1a6afdac1e0bb89d9a76d6c91ed86a6fe8"><span class="std std-ref">hs_expr_ext::min_length</span></a> field is used. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_EXT_FLAG_EDIT_DISTANCE</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_EXT_FLAG_EDIT_DISTANCE</span></span></span><br /></dt>
 <dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#strucths__expr__ext_1a8b7536c6ca0b01faa975b195e04b3913"><span class="std std-ref">hs_expr_ext::edit_distance</span></a> field is used. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_EXT_FLAG_HAMMING_DISTANCE</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_EXT_FLAG_HAMMING_DISTANCE</span></span></span><br /></dt>
 <dd><p>Flag indicating that the <a class="reference internal" href="api_files.html#strucths__expr__ext_1a94072afd1400402fad2e59c6dbdb7973"><span class="std std-ref">hs_expr_ext::hamming_distance</span></a> field is used. </p>
 </dd></dl>
 
-</div>
-<div class="section" id="pattern-flags">
-<h2>Pattern flags<a class="headerlink" href="#pattern-flags" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="pattern-flags">
+<h2>Pattern flags<a class="headerlink" href="#pattern-flags" title="Permalink to this heading">¶</a></h2>
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_FLAG_CASELESS</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_FLAG_CASELESS</span></span></span><br /></dt>
 <dd><p>Compile flag: Set case-insensitive matching.</p>
 <p>This flag sets the expression to be matched case-insensitively by default. The expression may still use PCRE tokens (notably <code class="docutils literal notranslate"><span class="pre">(?i)</span></code> and <code class="docutils literal notranslate"><span class="pre">(?-i)</span></code>) to switch case-insensitive matching on and off. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_FLAG_DOTALL</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_FLAG_DOTALL</span></span></span><br /></dt>
 <dd><p>Compile flag: Matching a <code class="docutils literal notranslate"><span class="pre">.</span></code> will not exclude newlines.</p>
 <p>This flag sets any instances of the <code class="docutils literal notranslate"><span class="pre">.</span></code> token to match newline characters as well as all other characters. The PCRE specification states that the <code class="docutils literal notranslate"><span class="pre">.</span></code> token does not match newline characters by default, so without this flag the <code class="docutils literal notranslate"><span class="pre">.</span></code> token will not cross line boundaries. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_FLAG_MULTILINE</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_FLAG_MULTILINE</span></span></span><br /></dt>
 <dd><p>Compile flag: Set multi-line anchoring.</p>
 <p>This flag instructs the expression to make the <code class="docutils literal notranslate"><span class="pre">^</span></code> and <code class="docutils literal notranslate"><span class="pre">$</span></code> tokens match newline characters as well as the start and end of the stream. If this flag is not specified, the <code class="docutils literal notranslate"><span class="pre">^</span></code> token will only ever match at the start of a stream, and the <code class="docutils literal notranslate"><span class="pre">$</span></code> token will only ever match at the end of a stream within the guidelines of the PCRE specification. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_FLAG_SINGLEMATCH</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_FLAG_SINGLEMATCH</span></span></span><br /></dt>
 <dd><p>Compile flag: Set single-match only mode.</p>
 <p>This flag sets the expression’s match ID to match at most once. In streaming mode, this means that the expression will return only a single match over the lifetime of the stream, rather than reporting every match as per standard Hyperscan semantics. In block mode or vectored mode, only the first match for each invocation of <a class="reference internal" href="api_files.html#hs__runtime_8h_1a261656043947931ad9d826d158119e89"><span class="std std-ref">hs_scan()</span></a> or <a class="reference internal" href="api_files.html#hs__runtime_8h_1ad6b603921a1fd2ddf12230730d6634c6"><span class="std std-ref">hs_scan_vector()</span></a> will be returned.</p>
 <p>If multiple expressions in the database share the same match ID, then they either must all specify <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"><span class="std std-ref">HS_FLAG_SINGLEMATCH</span></a> or none of them specify <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1gac987cb424f8e9a89721a3ebf251f017f"><span class="std std-ref">HS_FLAG_SINGLEMATCH</span></a>. If a group of expressions sharing a match ID specify the flag, then at most one match with the match ID will be generated per stream.</p>
@@ -200,29 +202,29 @@
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_FLAG_ALLOWEMPTY</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_FLAG_ALLOWEMPTY</span></span></span><br /></dt>
 <dd><p>Compile flag: Allow expressions that can match against empty buffers.</p>
 <p>This flag instructs the compiler to allow expressions that can match against empty buffers, such as <code class="docutils literal notranslate"><span class="pre">.?</span></code>, <code class="docutils literal notranslate"><span class="pre">.*</span></code>, <code class="docutils literal notranslate"><span class="pre">(a|)</span></code>. Since Hyperscan can return every possible match for an expression, such expressions generally execute very slowly; the default behaviour is to return an error when an attempt to compile one is made. Using this flag will force the compiler to allow such an expression. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_FLAG_UTF8</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_FLAG_UTF8</span></span></span><br /></dt>
 <dd><p>Compile flag: Enable UTF-8 mode for this expression.</p>
 <p>This flag instructs Hyperscan to treat the pattern as a sequence of UTF-8 characters. The results of scanning invalid UTF-8 sequences with a Hyperscan library that has been compiled with one or more patterns using this flag are undefined. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_FLAG_UCP</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_FLAG_UCP</span></span></span><br /></dt>
 <dd><p>Compile flag: Enable Unicode property support for this expression.</p>
 <p>This flag instructs Hyperscan to use Unicode properties, rather than the default ASCII interpretations, for character mnemonics like <code class="docutils literal notranslate"><span class="pre">\w</span></code> and <code class="docutils literal notranslate"><span class="pre">\s</span></code> as well as the POSIX character classes. It is only meaningful in conjunction with <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1ga8c95741825e963834f8f53dd545132bd"><span class="std std-ref">HS_FLAG_UTF8</span></a>. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_FLAG_PREFILTER</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_FLAG_PREFILTER</span></span></span><br /></dt>
 <dd><p>Compile flag: Enable prefiltering mode for this expression.</p>
 <p>This flag instructs Hyperscan to compile an “approximate” version of this pattern for use in a prefiltering application, even if Hyperscan does not support the pattern in normal operation.</p>
 <p>The set of matches returned when this flag is used is guaranteed to be a superset of the matches specified by the non-prefiltering expression.</p>
@@ -233,184 +235,184 @@
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_FLAG_SOM_LEFTMOST</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></span></span><br /></dt>
 <dd><p>Compile flag: Enable leftmost start of match reporting.</p>
 <p>This flag instructs Hyperscan to report the leftmost possible start of match offset when a match is reported for this expression. (By default, no start of match is returned.)</p>
 <p>For all the 3 modes, enabling this behaviour may reduce performance. And particularly, it may increase stream state requirements in streaming mode. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_FLAG_COMBINATION</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_FLAG_COMBINATION</span></span></span><br /></dt>
 <dd><p>Compile flag: Logical combination.</p>
 <p>This flag instructs Hyperscan to parse this expression as logical combination syntax. Logical constraints consist of operands, operators and parentheses. The operands are expression indices, and operators can be ‘!’(NOT), ‘&amp;’(AND) or ‘|’(OR). For example: (101&amp;102&amp;103)|(104&amp;!105) ((301|302)&amp;303)&amp;(304|305) </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_FLAG_QUIET</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_FLAG_QUIET</span></span></span><br /></dt>
 <dd><p>Compile flag: Don’t do any match reporting.</p>
 <p>This flag instructs Hyperscan to ignore match reporting for this expression. It is designed to be used on the sub-expressions in logical combinations. </p>
 </dd></dl>
 
-</div>
-<div class="section" id="cpu-feature-support-flags">
-<h2>CPU feature support flags<a class="headerlink" href="#cpu-feature-support-flags" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="cpu-feature-support-flags">
+<h2>CPU feature support flags<a class="headerlink" href="#cpu-feature-support-flags" title="Permalink to this heading">¶</a></h2>
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_CPU_FEATURES_AVX2</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_CPU_FEATURES_AVX2</span></span></span><br /></dt>
 <dd><p>CPU features flag - Intel(R) Advanced Vector Extensions 2 (Intel(R) AVX2)</p>
 <p>Setting this flag indicates that the target platform supports AVX2 instructions. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_CPU_FEATURES_AVX512</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_CPU_FEATURES_AVX512</span></span></span><br /></dt>
 <dd><p>CPU features flag - Intel(R) Advanced Vector Extensions 512 (Intel(R) AVX512)</p>
 <p>Setting this flag indicates that the target platform supports AVX512 instructions, specifically AVX-512BW. Using AVX512 implies the use of AVX2. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_CPU_FEATURES_AVX512VBMI</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_CPU_FEATURES_AVX512VBMI</span></span></span><br /></dt>
 <dd><p>CPU features flag - Intel(R) Advanced Vector Extensions 512 Vector Byte Manipulation Instructions (Intel(R) AVX512VBMI)</p>
 <p>Setting this flag indicates that the target platform supports AVX512VBMI instructions. Using AVX512VBMI implies the use of AVX512. </p>
 </dd></dl>
 
-</div>
-<div class="section" id="cpu-tuning-flags">
-<h2>CPU tuning flags<a class="headerlink" href="#cpu-tuning-flags" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="cpu-tuning-flags">
+<h2>CPU tuning flags<a class="headerlink" href="#cpu-tuning-flags" title="Permalink to this heading">¶</a></h2>
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_TUNE_FAMILY_GENERIC</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_TUNE_FAMILY_GENERIC</span></span></span><br /></dt>
 <dd><p>Tuning Parameter - Generic</p>
 <p>This indicates that the compiled database should not be tuned for any particular target platform. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_TUNE_FAMILY_SNB</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_TUNE_FAMILY_SNB</span></span></span><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Sandy Bridge</p>
 <p>This indicates that the compiled database should be tuned for the Sandy Bridge microarchitecture. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_TUNE_FAMILY_IVB</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_TUNE_FAMILY_IVB</span></span></span><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Ivy Bridge</p>
 <p>This indicates that the compiled database should be tuned for the Ivy Bridge microarchitecture. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_TUNE_FAMILY_HSW</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_TUNE_FAMILY_HSW</span></span></span><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Haswell</p>
 <p>This indicates that the compiled database should be tuned for the Haswell microarchitecture. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_TUNE_FAMILY_SLM</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_TUNE_FAMILY_SLM</span></span></span><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Silvermont</p>
 <p>This indicates that the compiled database should be tuned for the Silvermont microarchitecture. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_TUNE_FAMILY_BDW</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_TUNE_FAMILY_BDW</span></span></span><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Broadwell</p>
 <p>This indicates that the compiled database should be tuned for the Broadwell microarchitecture. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_TUNE_FAMILY_SKL</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_TUNE_FAMILY_SKL</span></span></span><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Skylake</p>
 <p>This indicates that the compiled database should be tuned for the Skylake microarchitecture. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_TUNE_FAMILY_SKX</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_TUNE_FAMILY_SKX</span></span></span><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Skylake Server</p>
 <p>This indicates that the compiled database should be tuned for the Skylake Server microarchitecture. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_TUNE_FAMILY_GLM</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_TUNE_FAMILY_GLM</span></span></span><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Goldmont</p>
 <p>This indicates that the compiled database should be tuned for the Goldmont microarchitecture. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_TUNE_FAMILY_ICL</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_TUNE_FAMILY_ICL</span></span></span><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Icelake</p>
 <p>This indicates that the compiled database should be tuned for the Icelake microarchitecture. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_TUNE_FAMILY_ICX</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_TUNE_FAMILY_ICX</span></span></span><br /></dt>
 <dd><p>Tuning Parameter - Intel(R) microarchitecture code name Icelake Server</p>
 <p>This indicates that the compiled database should be tuned for the Icelake Server microarchitecture. </p>
 </dd></dl>
 
-</div>
-<div class="section" id="compile-mode-flags">
-<h2>Compile mode flags<a class="headerlink" href="#compile-mode-flags" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="compile-mode-flags">
+<h2>Compile mode flags<a class="headerlink" href="#compile-mode-flags" title="Permalink to this heading">¶</a></h2>
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_MODE_BLOCK</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_MODE_BLOCK</span></span></span><br /></dt>
 <dd><p>Compiler mode flag: Block scan (non-streaming) database. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_MODE_NOSTREAM</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_MODE_NOSTREAM</span></span></span><br /></dt>
 <dd><p>Compiler mode flag: Alias for <a class="reference internal" href="api_files.html#group__HS__MODE__FLAG_1ga494ea2cf28a49627e4d131e596f489c0"><span class="std std-ref">HS_MODE_BLOCK</span></a>. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_MODE_STREAM</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_MODE_STREAM</span></span></span><br /></dt>
 <dd><p>Compiler mode flag: Streaming database. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_MODE_VECTORED</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_MODE_VECTORED</span></span></span><br /></dt>
 <dd><p>Compiler mode flag: Vectored scanning database. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_MODE_SOM_HORIZON_LARGE</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_MODE_SOM_HORIZON_LARGE</span></span></span><br /></dt>
 <dd><p>Compiler mode flag: use full precision to track start of match offsets in stream state.</p>
 <p>This mode will use the most stream state per pattern, but will always return an accurate start of match offset regardless of how far back in the past it was found.</p>
 <p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_MODE_SOM_HORIZON_MEDIUM</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_MODE_SOM_HORIZON_MEDIUM</span></span></span><br /></dt>
 <dd><p>Compiler mode flag: use medium precision to track start of match offsets in stream state.</p>
 <p>This mode will use less stream state than <a class="reference internal" href="api_files.html#group__HS__MODE__FLAG_1gaae54cf9532a990b1ef7bdb4fa51eb3c6"><span class="std std-ref">HS_MODE_SOM_HORIZON_LARGE</span></a> and will limit start of match accuracy to offsets within 2^32 bytes of the end of match offset reported.</p>
 <p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
 </dd></dl>
 
 <dl class="c macro">
-<dt>
-<code class="sig-name descname">HS_MODE_SOM_HORIZON_SMALL</code><br /></dt>
+<dt class="sig sig-object c">
+<span class="sig-name descname"><span class="n"><span class="pre">HS_MODE_SOM_HORIZON_SMALL</span></span></span><br /></dt>
 <dd><p>Compiler mode flag: use limited precision to track start of match offsets in stream state.</p>
 <p>This mode will use less stream state than <a class="reference internal" href="api_files.html#group__HS__MODE__FLAG_1gaae54cf9532a990b1ef7bdb4fa51eb3c6"><span class="std std-ref">HS_MODE_SOM_HORIZON_LARGE</span></a> and will limit start of match accuracy to offsets within 2^16 bytes of the end of match offset reported.</p>
 <p>One of the SOM_HORIZON modes must be selected to use the <a class="reference internal" href="api_files.html#group__HS__PATTERN__FLAG_1ga1cd26b5cd0255380c854e642b11ea476"><span class="std std-ref">HS_FLAG_SOM_LEFTMOST</span></a> expression flag. </p>
 </dd></dl>
 
-</div>
-</div>
+</section>
+</section>
 
 
           </div>
@@ -447,12 +449,12 @@
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -461,7 +463,7 @@
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.2</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

@@ -1,17 +1,19 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Compiling Patterns &#8212; Hyperscan 5.4.0 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Compiling Patterns &#8212; Hyperscan 5.4.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -34,10 +36,10 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="compiling-patterns">
-<span id="compilation"></span><h1>Compiling Patterns<a class="headerlink" href="#compiling-patterns" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="building-a-database">
-<h2>Building a Database<a class="headerlink" href="#building-a-database" title="Permalink to this headline">¶</a></h2>
+  <section id="compiling-patterns">
+<span id="compilation"></span><h1>Compiling Patterns<a class="headerlink" href="#compiling-patterns" title="Permalink to this heading">¶</a></h1>
+<section id="building-a-database">
+<h2>Building a Database<a class="headerlink" href="#building-a-database" title="Permalink to this heading">¶</a></h2>
 <p>The Hyperscan compiler API accepts regular expressions and converts them into a
 compiled pattern database that can then be used to scan data.</p>
 <p>The API provides three functions that compile regular expressions into
@@ -75,8 +77,8 @@ version of Hyperscan used to produce a compiled pattern database must match the
 version of Hyperscan used to scan with it.</p>
 <p>Hyperscan provides support for targeting a database at a particular CPU
 platform; see <a class="reference internal" href="#instr-specialization"><span class="std std-ref">Instruction Set Specialization</span></a> for details.</p>
-<div class="section" id="compile-pure-literals">
-<h3>Compile Pure Literals<a class="headerlink" href="#compile-pure-literals" title="Permalink to this headline">¶</a></h3>
+<section id="compile-pure-literals">
+<h3>Compile Pure Literals<a class="headerlink" href="#compile-pure-literals" title="Permalink to this heading">¶</a></h3>
 <p>Pure literal is a special case of regular expression. A character sequence is
 regarded as a pure literal if and only if each character is read and
 interpreted independently. No syntax association happens between any adjacent
@@ -138,18 +140,18 @@ please use traditional compile APIs <a class="reference internal" href="api_file
 The new literal APIs introduced here are designed for rule sets
 containing only pure literal expressions.</p>
 </div>
-</div>
-</div>
-<div class="section" id="pattern-support">
-<h2>Pattern Support<a class="headerlink" href="#pattern-support" title="Permalink to this headline">¶</a></h2>
+</section>
+</section>
+<section id="pattern-support">
+<h2>Pattern Support<a class="headerlink" href="#pattern-support" title="Permalink to this heading">¶</a></h2>
 <p>Hyperscan supports the pattern syntax used by the PCRE library (“libpcre”),
 described at &lt;<a class="reference external" href="http://www.pcre.org/">http://www.pcre.org/</a>&gt;. However, not all constructs available in
 libpcre are supported. The use of unsupported constructs will result in
 compilation errors.</p>
 <p>The version of PCRE used to validate Hyperscan’s interpretation of this syntax
 is 8.41 or above.</p>
-<div class="section" id="supported-constructs">
-<h3>Supported Constructs<a class="headerlink" href="#supported-constructs" title="Permalink to this headline">¶</a></h3>
+<section id="supported-constructs">
+<h3>Supported Constructs<a class="headerlink" href="#supported-constructs" title="Permalink to this heading">¶</a></h3>
 <p>The following regex constructs are supported by Hyperscan:</p>
 <ul>
 <li><p>Literal characters and strings, with all libpcre quoting and character
@@ -230,9 +232,9 @@ can be successfully compiled with Hyperscan; notably, many bounded repeat
 forms that can be compiled with Hyperscan without the Start of Match flag
 enabled cannot be compiled with the flag enabled.</p>
 </div>
-</div>
-<div class="section" id="unsupported-constructs">
-<h3>Unsupported Constructs<a class="headerlink" href="#unsupported-constructs" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="unsupported-constructs">
+<h3>Unsupported Constructs<a class="headerlink" href="#unsupported-constructs" title="Permalink to this heading">¶</a></h3>
 <p>The following regex constructs are not supported by Hyperscan:</p>
 <ul class="simple">
 <li><p>Backreferences and capturing sub-expressions.</p></li>
@@ -246,10 +248,10 @@ enabled cannot be compiled with the flag enabled.</p>
 <li><p>Callouts and embedded code.</p></li>
 <li><p>Atomic grouping and possessive quantifiers.</p></li>
 </ul>
-</div>
-</div>
-<div class="section" id="semantics">
-<span id="id1"></span><h2>Semantics<a class="headerlink" href="#semantics" title="Permalink to this headline">¶</a></h2>
+</section>
+</section>
+<section id="semantics">
+<span id="id1"></span><h2>Semantics<a class="headerlink" href="#semantics" title="Permalink to this heading">¶</a></h2>
 <p>While Hyperscan follows libpcre syntax, it provides different semantics. The
 major departures from libpcre semantics are motivated by the requirements of
 streaming and multiple simultaneous pattern matching.</p>
@@ -305,8 +307,8 @@ beyond the current block being scanned.</p>
 <p>In this example, the match at offset 9 in the first block is only the correct
 match (under libpcre semantics) if there is no <code class="docutils literal notranslate"><span class="pre">bar</span></code> in a subsequent block –
 as in block 3 – which would constitute a better match for the pattern.</p>
-<div class="section" id="start-of-match">
-<span id="som"></span><h3>Start of Match<a class="headerlink" href="#start-of-match" title="Permalink to this headline">¶</a></h3>
+<section id="start-of-match">
+<span id="som"></span><h3>Start of Match<a class="headerlink" href="#start-of-match" title="Permalink to this heading">¶</a></h3>
 <p>In standard operation, Hyperscan will only provide the end offset of a match
 when the match callback is called. If the <a class="reference internal" href="api_constants.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag
 is specified for a particular pattern, then the same set of matches is
@@ -341,9 +343,9 @@ a point in the stream <em>before</em> the current block being scanned. Hyperscan
 provides no facility for accessing earlier blocks; if the calling application
 needs to inspect historical data, then it must store it itself.</p>
 </div>
-</div>
-<div class="section" id="extended-parameters">
-<span id="extparam"></span><h3>Extended Parameters<a class="headerlink" href="#extended-parameters" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="extended-parameters">
+<span id="extparam"></span><h3>Extended Parameters<a class="headerlink" href="#extended-parameters" title="Permalink to this heading">¶</a></h3>
 <p>In some circumstances, more control over the matching behaviour of a pattern is
 required than can be specified easily using regular expression syntax. For
 these scenarios, Hyperscan provides the <a class="reference internal" href="api_files.html#c.hs_compile_ext_multi" title="hs_compile_ext_multi"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_compile_ext_multi()</span></code></a> function
@@ -379,9 +381,9 @@ it will produce matches when scanned against <code class="docutils literal notra
 <code class="docutils literal notranslate"><span class="pre">f00bar</span></code>, and anything else with at most two characters substituted from the
 original pattern. For more details, see the <a class="reference internal" href="#approximate-matching"><span class="std std-ref">Approximate matching</span></a>
 section.</p>
-</div>
-<div class="section" id="prefiltering-mode">
-<h3>Prefiltering Mode<a class="headerlink" href="#prefiltering-mode" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="prefiltering-mode">
+<h3>Prefiltering Mode<a class="headerlink" href="#prefiltering-mode" title="Permalink to this heading">¶</a></h3>
 <p>Hyperscan provides a per-pattern flag, <a class="reference internal" href="api_constants.html#c.HS_FLAG_PREFILTER" title="HS_FLAG_PREFILTER"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_PREFILTER</span></code></a>, which can
 be used to implement a prefilter for a pattern than Hyperscan would not
 ordinarily support.</p>
@@ -410,10 +412,10 @@ matches for the pattern.</p>
 the <a class="reference internal" href="api_constants.html#c.HS_FLAG_SOM_LEFTMOST" title="HS_FLAG_SOM_LEFTMOST"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_SOM_LEFTMOST</span></code></a> flag) is not currently supported and
 will result in a pattern compilation error.</p>
 </div>
-</div>
-</div>
-<div class="section" id="instruction-set-specialization">
-<span id="instr-specialization"></span><h2>Instruction Set Specialization<a class="headerlink" href="#instruction-set-specialization" title="Permalink to this headline">¶</a></h2>
+</section>
+</section>
+<section id="instruction-set-specialization">
+<span id="instr-specialization"></span><h2>Instruction Set Specialization<a class="headerlink" href="#instruction-set-specialization" title="Permalink to this heading">¶</a></h2>
 <p>Hyperscan is able to make use of several modern instruction set features found
 on x86 processors to provide improvements in scanning performance.</p>
 <p>Some of these features are selected when the library is built; for example,
@@ -448,9 +450,9 @@ a CPU without that feature.</p></li>
 <p>An <a class="reference internal" href="api_files.html#c.hs_platform_info_t" title="hs_platform_info_t"><code class="xref c c-type docutils literal notranslate"><span class="pre">hs_platform_info_t</span></code></a> structure targeted at the current host can be
 built with the <a class="reference internal" href="api_files.html#c.hs_populate_platform" title="hs_populate_platform"><code class="xref c c-func docutils literal notranslate"><span class="pre">hs_populate_platform()</span></code></a> function.</p>
 <p>See <a class="reference internal" href="api_constants.html#api-constants"><span class="std std-ref">API Reference: Constants</span></a> for the full list of CPU tuning and feature flags.</p>
-</div>
-<div class="section" id="approximate-matching">
-<span id="id2"></span><h2>Approximate matching<a class="headerlink" href="#approximate-matching" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="approximate-matching">
+<span id="id2"></span><h2>Approximate matching<a class="headerlink" href="#approximate-matching" title="Permalink to this heading">¶</a></h2>
 <p>Hyperscan provides an experimental approximate matching mode, which will match
 patterns within a given edit distance. The exact matching behavior is defined as
 follows:</p>
@@ -521,9 +523,9 @@ complexity, and due to the fact that it will produce more matches.</p></li>
 </ul>
 <p>Approximate matching is always disabled by default, and can be enabled on a
 per-pattern basis by using an extended parameter described in <a class="reference internal" href="#extparam"><span class="std std-ref">Extended Parameters</span></a>.</p>
-</div>
-<div class="section" id="logical-combinations">
-<span id="id3"></span><h2>Logical Combinations<a class="headerlink" href="#logical-combinations" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="logical-combinations">
+<span id="id3"></span><h2>Logical Combinations<a class="headerlink" href="#logical-combinations" title="Permalink to this heading">¶</a></h2>
 <p>For situations when a user requires behaviour that depends on the presence or
 absence of matches from groups of patterns, Hyperscan provides support for the
 logical combination of patterns in a given pattern set, with three operators:
@@ -609,8 +611,8 @@ both individual patterns and their logical combinations) will be reported.</p>
 <p>When an expression has both the <a class="reference internal" href="api_constants.html#c.HS_FLAG_COMBINATION" title="HS_FLAG_COMBINATION"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_COMBINATION</span></code></a> flag and the
 <a class="reference internal" href="api_constants.html#c.HS_FLAG_QUIET" title="HS_FLAG_QUIET"><code class="xref c c-member docutils literal notranslate"><span class="pre">HS_FLAG_QUIET</span></code></a> flag set, no matches for this logical combination
 will be reported.</p>
-</div>
-</div>
+</section>
+</section>
 
 
           </div>
@@ -647,12 +649,12 @@ will be reported.</p>
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -661,7 +663,7 @@ will be reported.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.2</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

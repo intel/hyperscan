@@ -1,17 +1,19 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Getting Started &#8212; Hyperscan 5.4.0 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Getting Started &#8212; Hyperscan 5.4.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -34,10 +36,10 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="getting-started">
-<h1>Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="very-quick-start">
-<h2>Very Quick Start<a class="headerlink" href="#very-quick-start" title="Permalink to this headline">¶</a></h2>
+  <section id="getting-started">
+<h1>Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this heading">¶</a></h1>
+<section id="very-quick-start">
+<h2>Very Quick Start<a class="headerlink" href="#very-quick-start" title="Permalink to this heading">¶</a></h2>
 <ol class="arabic">
 <li><p>Clone Hyperscan</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="o">&lt;</span><span class="n">where</span><span class="o">-</span><span class="n">you</span><span class="o">-</span><span class="n">want</span><span class="o">-</span><span class="n">hyperscan</span><span class="o">-</span><span class="n">source</span><span class="o">&gt;</span>
@@ -86,11 +88,11 @@ and then:</p>
 </div>
 </li>
 </ol>
-</div>
-<div class="section" id="requirements">
-<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="hardware">
-<span id="id1"></span><h3>Hardware<a class="headerlink" href="#hardware" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this heading">¶</a></h2>
+<section id="hardware">
+<span id="id1"></span><h3>Hardware<a class="headerlink" href="#hardware" title="Permalink to this heading">¶</a></h3>
 <p>Hyperscan will run on x86 processors in 64-bit (Intel® 64 Architecture) and
 32-bit (IA-32 Architecture) modes.</p>
 <p>Hyperscan is a high performance software library that takes advantage of recent
@@ -108,9 +110,9 @@ x86 processor.</p>
 </div></blockquote>
 <p>if present.</p>
 <p>These can be determined at library compile time, see <a class="reference internal" href="#target-arch"><span class="std std-ref">Target Architecture</span></a>.</p>
-</div>
-<div class="section" id="software">
-<span id="id2"></span><h3>Software<a class="headerlink" href="#software" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="software">
+<span id="id2"></span><h3>Software<a class="headerlink" href="#software" title="Permalink to this heading">¶</a></h3>
 <p>As a software library, Hyperscan doesn’t impose any particular runtime
 software requirements, however to build the Hyperscan library we require a
 modern C and C++ compiler – in particular, Hyperscan requires C99 and C++11
@@ -184,8 +186,8 @@ or Visual Studio 2017.</p>
 system (e.g. Debian/Ubuntu/RedHat packages, FreeBSD ports, etc). However,
 ensure that the correct version is present. As for Windows, in order to have
 Ragel, you may use Cygwin to build it from source.</p>
-<div class="section" id="boost-headers">
-<h4>Boost Headers<a class="headerlink" href="#boost-headers" title="Permalink to this headline">¶</a></h4>
+<section id="boost-headers">
+<h4>Boost Headers<a class="headerlink" href="#boost-headers" title="Permalink to this heading">¶</a></h4>
 <p>Compiling Hyperscan depends on a recent version of the Boost C++ header
 library. If the Boost libraries are installed on the build machine in the
 usual paths, CMake will find them. If the Boost libraries are not installed,
@@ -199,10 +201,10 @@ subdirectory in <code class="docutils literal notranslate"><span class="pre">&lt
 </div>
 <p>As Hyperscan uses the header-only parts of Boost, it is not necessary to
 compile the Boost libraries.</p>
-</div>
-</div>
-<div class="section" id="cmake-configuration">
-<h3>CMake Configuration<a class="headerlink" href="#cmake-configuration" title="Permalink to this headline">¶</a></h3>
+</section>
+</section>
+<section id="cmake-configuration">
+<h3>CMake Configuration<a class="headerlink" href="#cmake-configuration" title="Permalink to this heading">¶</a></h3>
 <p>When CMake is invoked, it generates build files using the given options.
 Options are passed to CMake in the form <code class="docutils literal notranslate"><span class="pre">-D&lt;variable</span> <span class="pre">name&gt;=&lt;value&gt;</span></code>.
 Common options for CMake include:</p>
@@ -256,8 +258,8 @@ true on Linux, not available elsewhere.</p></td>
 <span class="n">cmake</span> <span class="o">-</span><span class="n">DCMAKE_BUILD_TYPE</span><span class="o">=</span><span class="n">Debug</span> <span class="o">&lt;</span><span class="n">hyperscan</span><span class="o">-</span><span class="n">source</span><span class="o">-</span><span class="n">path</span><span class="o">&gt;</span>
 </pre></div>
 </div>
-<div class="section" id="build-type">
-<h4>Build Type<a class="headerlink" href="#build-type" title="Permalink to this headline">¶</a></h4>
+<section id="build-type">
+<h4>Build Type<a class="headerlink" href="#build-type" title="Permalink to this heading">¶</a></h4>
 <p>CMake determines a number of features for a build based on the Build Type.
 Hyperscan defaults to <code class="docutils literal notranslate"><span class="pre">RelWithDebInfo</span></code>, i.e. “release with debugging
 information”. This is a performance optimized build without runtime assertions
@@ -273,9 +275,9 @@ some other build features like building internal unit
 tests.</p></li>
 </ul>
 </div></blockquote>
-</div>
-<div class="section" id="target-architecture">
-<span id="target-arch"></span><h4>Target Architecture<a class="headerlink" href="#target-architecture" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="target-architecture">
+<span id="target-arch"></span><h4>Target Architecture<a class="headerlink" href="#target-architecture" title="Permalink to this heading">¶</a></h4>
 <p>Unless using the <a class="reference internal" href="#fat-runtime"><span class="std std-ref">fat runtime</span></a>, by default Hyperscan will be
 compiled to target the instruction set of the processor of the machine that
 being used for compilation. This is done via the use of <code class="docutils literal notranslate"><span class="pre">-march=native</span></code>. The
@@ -290,9 +292,9 @@ example, to set the instruction subsets up to <code class="docutils literal notr
 </pre></div>
 </div>
 <p>For more information, refer to <a class="reference internal" href="compilation.html#instr-specialization"><span class="std std-ref">Instruction Set Specialization</span></a>.</p>
-</div>
-<div class="section" id="fat-runtime">
-<span id="id3"></span><h4>Fat Runtime<a class="headerlink" href="#fat-runtime" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="fat-runtime">
+<span id="id3"></span><h4>Fat Runtime<a class="headerlink" href="#fat-runtime" title="Permalink to this heading">¶</a></h4>
 <p>A feature introduced in Hyperscan v4.4 is the ability for the Hyperscan
 library to dispatch the most appropriate runtime code for the host processor.
 This feature is called the “fat runtime”, as a single Hyperscan library
@@ -383,10 +385,10 @@ it will only be enabled for Linux builds where the compiler supports the
 <p>This attribute should be available on all supported versions of GCC, and
 recent versions of Clang and ICC. There is currently no operating system
 support for this feature on non-Linux systems.</p>
-</div>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
+</section>
 
 
           </div>
@@ -419,12 +421,12 @@ support for this feature on non-Linux systems.</p>
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -433,7 +435,7 @@ support for this feature on non-Linux systems.</p>
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.2</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

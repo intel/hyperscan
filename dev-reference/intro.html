@@ -1,17 +1,19 @@
 
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Introduction &#8212; Hyperscan 5.4.0 documentation</title>
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Introduction &#8212; Hyperscan 5.4.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
     <link rel="stylesheet" type="text/css" href="_static/hyperscan.css" />
-    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -34,14 +36,14 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="introduction">
-<span id="intro"></span><h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h1>
+  <section id="introduction">
+<span id="intro"></span><h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading">¶</a></h1>
 <p>Hyperscan is a software regular expression matching engine designed with
 high performance and flexibility in mind. It is implemented as a library that
 exposes a straightforward C API.</p>
 <p>The Hyperscan API itself is composed of two major components:</p>
-<div class="section" id="compilation">
-<h2>Compilation<a class="headerlink" href="#compilation" title="Permalink to this headline">¶</a></h2>
+<section id="compilation">
+<h2>Compilation<a class="headerlink" href="#compilation" title="Permalink to this heading">¶</a></h2>
 <p>These functions take a group of regular expressions, along with identifiers and
 option flags, and compile them into an immutable database that can be used by
 the Hyperscan scanning API. This compilation process performs considerable
@@ -55,9 +57,9 @@ to disk or moved between hosts. They can also be targeted to particular
 platform features (for example, the use of Intel® Advanced Vector Extensions
 2 (Intel® AVX2) instructions).</p>
 <p>See <a class="reference internal" href="compilation.html#compilation"><span class="std std-ref">Compiling Patterns</span></a> for more detail.</p>
-</div>
-<div class="section" id="scanning">
-<h2>Scanning<a class="headerlink" href="#scanning" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="scanning">
+<h2>Scanning<a class="headerlink" href="#scanning" title="Permalink to this heading">¶</a></h2>
 <p>Once a Hyperscan database has been created, it can be used to scan data in
 memory. Hyperscan provides several scanning modes, depending on whether the
 data to be scanned is available as a single contiguous block, whether it is
@@ -89,18 +91,18 @@ be scanned against any input. There are no internal resource limits or other
 limitations at runtime that could cause a scan call to return an error.</p></li>
 </ul>
 <p>See <a class="reference internal" href="runtime.html#runtime"><span class="std std-ref">Scanning for Patterns</span></a> for more detail.</p>
-</div>
-<div class="section" id="tools">
-<h2>Tools<a class="headerlink" href="#tools" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="tools">
+<h2>Tools<a class="headerlink" href="#tools" title="Permalink to this heading">¶</a></h2>
 <p>Some utilities for testing and benchmarking Hyperscan are included with the
 library. See <a class="reference internal" href="tools.html#tools"><span class="std std-ref">Tools</span></a> for more information.</p>
-</div>
-<div class="section" id="example-code">
-<h2>Example Code<a class="headerlink" href="#example-code" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="example-code">
+<h2>Example Code<a class="headerlink" href="#example-code" title="Permalink to this heading">¶</a></h2>
 <p>Some simple example code demonstrating the use of the Hyperscan API is
 available in the <code class="docutils literal notranslate"><span class="pre">examples/</span></code> subdirectory of the Hyperscan distribution.</p>
-</div>
-</div>
+</section>
+</section>
 
 
           </div>
@@ -135,12 +137,12 @@ available in the <code class="docutils literal notranslate"><span class="pre">ex
   <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script>$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
         </div>
       </div>
       <div class="clearer"></div>
@@ -149,7 +151,7 @@ available in the <code class="docutils literal notranslate"><span class="pre">ex
       &copy;2015-2018, Intel Corporation.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.2</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>
