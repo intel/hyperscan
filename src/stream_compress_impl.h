@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2022, Intel Corporation
+ * Copyright (c) 2017-2023, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -116,7 +116,6 @@ size_t JOIN(sc_, FN_SUFFIX)(const struct RoseEngine *rose,
         = ((STREAM_QUAL char *)stream) + sizeof(struct hs_stream);
 
     COPY_FIELD(stream->offset);
-    COPY_FIELD(stream->crc32);
     ASSIGN(stream->rose, rose);
 
     COPY(stream_body + ROSE_STATE_OFFSET_STATUS_FLAGS, 1);

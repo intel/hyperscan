@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2022, Intel Corporation
+ * Copyright (c) 2015-2023, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -171,7 +171,6 @@ struct match_deduper {
  */
 struct ALIGN_CL_DIRECTIVE hs_scratch {
     u32 magic;
-    u32 db_crc; /**< identity of a scratch space, for validity check */
     u8 in_use; /**< non-zero when being used by an API call. */
     u32 queueCount;
     u32 activeQueueArraySize; /**< size of active queue array fatbit in bytes */
