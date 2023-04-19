@@ -176,12 +176,14 @@ hs_error_t db_decode_header(const char **bytes, const size_t length,
 // Check the CRC on a database
 static
 hs_error_t db_check_crc(const hs_database_t *db) {
+#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
     const char *bytecode = hs_get_bytecode(db);
     u32 crc = Crc32c_ComputeBuf(0, bytecode, db->length);
     if (crc != db->crc32) {
         DEBUG_PRINTF("crc mismatch! 0x%x != 0x%x\n", crc, db->crc32);
         return HS_INVALID;
     }
+#endif
     return HS_SUCCESS;
 }
 
