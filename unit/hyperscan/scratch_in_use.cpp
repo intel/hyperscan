@@ -117,6 +117,39 @@ void runStreamingTest(match_event_handler cb_func) {
     ASSERT_EQ(HS_SUCCESS, err);
 }
 
+// Generic streaming mode test that uses the given scan callback.
+// Externally allocate a streaming object.
+static
+void runStreamingExtAllocTest(match_event_handler cb_func) {
+    auto db = makeDatabase("foo.*bar", 0, HS_MODE_STREAM);
+    ASSERT_NE(nullptr, db.get());
+
+    hs_scratch_t *scratch = nullptr;
+    hs_error_t err = hs_alloc_scratch(db.get(), &scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_TRUE(scratch != nullptr);
+
+    size_t stream_size = hs_stream_size(db.get(), &stream_size);
+    hs_stream_t *stream = (hs_stream_t*) new char[stream_size];
+    ASSERT_TRUE(stream != nullptr);
+    err = hs_open_stream_at(db.get(), 0, stream);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    RescanContext rc(db.get(), scratch);
+    const string data = "___foo___bar_";
+
+    err = hs_scan_stream(stream, data.c_str(), data.length(), 0, scratch,
+                         cb_func, &rc);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_EQ(1, rc.matches);
+
+    // teardown
+    hs_close_stream_nofree(stream, scratch, nullptr, nullptr);
+    delete [] (char*)stream;
+    err = hs_free_scratch(scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+}
+
 // Generic vectored mode test that uses the given scan callback.
 static
 void runVectoredTest(match_event_handler cb_func) {
@@ -193,6 +226,9 @@ int rescan_stream_cb(unsigned, unsigned long long, unsigned long long, unsigned,
 TEST(ScratchInUse, Streaming) {
     runStreamingTest(rescan_stream_cb);
 }
+TEST(ScratchInUseExtAlloc, Streaming) {
+    runStreamingExtAllocTest(rescan_stream_cb);
+}
 
 static
 int rescan_vector_cb(unsigned, unsigned long long, unsigned long long, unsigned,
@@ -241,6 +277,9 @@ TEST(ScratchInUse, ReallocScratchBlock) {
 TEST(ScratchInUse, ReallocScratchStreaming) {
     runStreamingTest(rescan_realloc_cb);
 }
+TEST(ScratchInUseExtAlloc, ReallocScratchStreaming) {
+    runStreamingExtAllocTest(rescan_realloc_cb);
+}
 
 // Attempt to use hs_alloc_scratch on in-use scratch inside callback (vectored
 // scan).
@@ -269,6 +308,9 @@ TEST(ScratchInUse, FreeScratchBlock) {
 // scan).
 TEST(ScratchInUse, FreeScratchStreaming) {
     runStreamingTest(rescan_free_cb);
+}
+TEST(ScratchInUseExtAlloc, FreeScratchStreaming) {
+    runStreamingExtAllocTest(rescan_free_cb);
 }
 
 // Attempt to use hs_free_scratch on in-use scratch inside callback (vectored

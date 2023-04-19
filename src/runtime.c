@@ -575,6 +575,34 @@ hs_error_t HS_CDECL hs_open_stream(const hs_database_t *db,
 }
 
 
+HS_PUBLIC_API
+hs_error_t HS_CDECL hs_open_stream_at(const hs_database_t *db,
+                                   UNUSED unsigned flags,
+                                   hs_stream_t *stream) {
+    if (unlikely(!stream)) {
+        return HS_INVALID;
+    }
+
+    hs_error_t err = validDatabase(db);
+    if (unlikely(err != HS_SUCCESS)) {
+        return err;
+    }
+
+    const struct RoseEngine *rose = hs_get_bytecode(db);
+    if (unlikely(!ISALIGNED_16(rose))) {
+        return HS_INVALID;
+    }
+
+    if (unlikely(rose->mode != HS_MODE_STREAM)) {
+        return HS_DB_MODE_ERROR;
+    }
+
+    init_stream(stream, rose, 1);
+
+    return HS_SUCCESS;
+}
+
+
 static really_inline
 void rawEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
     const struct RoseEngine *rose = id->rose;
@@ -1020,6 +1048,28 @@ hs_error_t HS_CDECL hs_close_stream(hs_stream_t *id, hs_scratch_t *scratch,
     }
 
     hs_stream_free(id);
+
+    return HS_SUCCESS;
+}
+
+HS_PUBLIC_API
+hs_error_t HS_CDECL hs_close_stream_nofree(hs_stream_t *id, hs_scratch_t *scratch,
+                                           match_event_handler onEvent,
+                                           void *context) {
+    if (!id) {
+        return HS_INVALID;
+    }
+
+    if (onEvent) {
+        if (!scratch || !validScratch(id->rose, scratch)) {
+            return HS_INVALID;
+        }
+        if (unlikely(markScratchInUse(scratch))) {
+            return HS_SCRATCH_IN_USE;
+        }
+        report_eod_matches(id, scratch, onEvent, context);
+        unmarkScratchInUse(scratch);
+    }
 
     return HS_SUCCESS;
 }
