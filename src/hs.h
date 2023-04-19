@@ -43,7 +43,7 @@
 
 #define HS_MAJOR      5
 #define HS_MINOR      4
-#define HS_PATCH      1
+#define HS_PATCH      2
 
 #include "hs_compile.h"
 #include "hs_runtime.h"

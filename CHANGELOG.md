@@ -2,6 +2,14 @@
 
 This is a list of notable changes to Hyperscan, in reverse chronological order.
 
+## [5.4.2] 2023-04-19
+- Roll back bugfix for github issue #350: Besides using scratch for
+  corresponding database, Hyperscan also allows user to use larger scratch
+  allocated for another database. Users can leverage this property to achieve
+  safe scratch usage in multi-database scenarios. Behaviors beyond these are
+  discouraged and results are undefined.
+- Fix hsdump issue due to invalid nfa type.
+
 ## [5.4.1] 2023-02-20
 - The Intel Hyperscan team is pleased to provide a bug fix release to our open source library.
   Intel also maintains an upgraded version available through your Intel sales representative.
