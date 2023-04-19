@@ -156,7 +156,7 @@ vector<bool> findLoopReachable(const Graph &g,
     }
 
     for (auto v : reverse(topoOrder)) {
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             if (deadNodes[g[source(e, g)].index]) {
                 deadNodes[g[v].index] = true;
                 break;

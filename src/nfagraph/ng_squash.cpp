@@ -602,7 +602,7 @@ void removeEdgesToAccept(NGHolder &g, NFAVertex v) {
 
     set<NFAEdge> dead;
 
-    for (const auto &e : in_edges_range(g.accept, g)) {
+    for (const auto e : in_edges_range(g.accept, g)) {
         NFAVertex u = source(e, g);
         const auto &r = g[u].reports;
         if (!r.empty() && is_subset_of(r, reports)) {
@@ -611,7 +611,7 @@ void removeEdgesToAccept(NGHolder &g, NFAVertex v) {
         }
     }
 
-    for (const auto &e : in_edges_range(g.acceptEod, g)) {
+    for (const auto e : in_edges_range(g.acceptEod, g)) {
         NFAVertex u = source(e, g);
         const auto &r = g[u].reports;
         if (!r.empty() && is_subset_of(r, reports)) {

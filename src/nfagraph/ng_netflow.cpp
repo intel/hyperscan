@@ -77,7 +77,7 @@ void addReverseEdges(NGHolder &g, vector<NFAEdge> &reverseEdge,
     // To avoid walking the graph for _ages_, we build a temporary map of all
     // edges indexed by vertex pair for existence checks.
     map<pair<size_t, size_t>, NFAEdge> allEdges;
-    for (const auto &e : edges_range(g)) {
+    for (const auto e : edges_range(g)) {
         NFAVertex u = source(e, g), v = target(e, g);
         size_t uidx = g[u].index, vidx = g[v].index;
         allEdges[make_pair(uidx, vidx)] = e;
@@ -177,7 +177,7 @@ vector<NFAEdge> findMinCut(NGHolder &h, const vector<u64a> &scores) {
     u64a observed_black_flow = 0;
     u64a observed_white_flow = 0;
 
-    for (const auto &e : edges_range(h)) {
+    for (const auto e : edges_range(h)) {
         NFAVertex from = source(e, h);
         NFAVertex to = target(e, h);
         u64a ec = scores[h[e].index];

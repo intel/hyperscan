@@ -351,7 +351,7 @@ void checkLargeOutU(const NGHolder &g, NFAVertex u,
         return;
     }
 
-    for (const auto &e : out_edges_range(u, g)) {
+    for (const auto e : out_edges_range(u, g)) {
         const NFAVertex v = target(e, g);
 
         if (is_special(v, g)) {
@@ -364,7 +364,7 @@ void checkLargeOutU(const NGHolder &g, NFAVertex u,
 
         /* Now need check to find any edges which can be removed due to the
          * existence of edge e */
-        for (const auto &e2 : in_edges_range(v, g)) {
+        for (const auto e2 : in_edges_range(v, g)) {
             if (e == e2 || contains(*dead, e2)) {
                 continue;
             }
@@ -386,7 +386,7 @@ void checkSmallOutU(const NGHolder &g, NFAVertex u,
                     const flat_set<NFAVertex> &parents_u,
                     map<NFAVertex, bool> &done,
                     set<NFAEdge> *dead) {
-    for (const auto &e : out_edges_range(u, g)) {
+    for (const auto e : out_edges_range(u, g)) {
         const NFAVertex v = target(e, g);
 
         if (is_special(v, g)) {
@@ -399,7 +399,7 @@ void checkSmallOutU(const NGHolder &g, NFAVertex u,
 
         /* Now need check to find any edges which can be removed due to the
          * existence of edge e */
-        for (const auto &e2 : in_edges_range(v, g)) {
+        for (const auto e2 : in_edges_range(v, g)) {
             if (e == e2 || contains(*dead, e2)) {
                 continue;
             }
@@ -487,7 +487,7 @@ bool removeSiblingsOfStartDotStar(NGHolder &g) {
             continue;
         }
 
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             NFAVertex u = source(e, g);
             if (is_special(u, g)) {
                 continue;
@@ -518,7 +518,7 @@ bool optimiseVirtualStarts(NGHolder &g) {
             continue;
         }
 
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             if (!is_any_start(source(e, g), g)) {
                 dead.push_back(e);
             }

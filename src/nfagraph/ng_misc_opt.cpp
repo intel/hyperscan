@@ -511,7 +511,7 @@ bool mergeCyclicDotStars(NGHolder &g) {
             vector<NFAEdge> deadEdges;
 
             // check if all adjacent vertices have edges from start
-            for (const auto &e : out_edges_range(v, g)) {
+            for (const auto e : out_edges_range(v, g)) {
                 NFAVertex t = target(e, g);
                 // skip self
                 if (t == v) {

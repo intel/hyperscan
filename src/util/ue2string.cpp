@@ -340,7 +340,7 @@ size_t ue2_literal::hash() const {
 void make_nocase(ue2_literal *lit) {
     ue2_literal rv;
 
-    for (const auto &elem: *lit) {
+    for (const auto elem: *lit) {
         rv.push_back(elem.c, ourisalpha(elem.c));
     }
 

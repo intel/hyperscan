@@ -53,7 +53,7 @@ struct RoleChunk {
 static
 CharReach getReachability(const NGHolder &h) {
     CharReach cr;
-    for (const auto &v : vertices_range(h)) {
+    for (const auto v : vertices_range(h)) {
         if (!is_special(v, h)) {
             cr |= h[v].char_reach;
         }

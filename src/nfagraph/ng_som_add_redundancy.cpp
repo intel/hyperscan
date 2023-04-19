@@ -99,7 +99,7 @@ static
 bool forkVertex(NFAVertex v, NGHolder &g, vector<DepthMinMax> &depths,
                 set<NFAVertex> &dead, size_t *numNewVertices) {
     map<depth, vector<NFAEdge>> predGroups;
-    for (const auto &e : in_edges_range(v, g)) {
+    for (const auto e : in_edges_range(v, g)) {
         const DepthMinMax &d = getDepth(source(e, g), g, depths);
         assert(d.min == d.max);
         predGroups[d.min].push_back(e);
@@ -126,7 +126,7 @@ bool forkVertex(NFAVertex v, NGHolder &g, vector<DepthMinMax> &depths,
                      clone_depth.str().c_str());
 
         // Add copies of the out-edges from v.
-        for (const auto &e : out_edges_range(v, g)) {
+        for (const auto e : out_edges_range(v, g)) {
             add_edge(clone, target(e, g), g[e], g);
         }
 

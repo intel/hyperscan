@@ -1239,7 +1239,7 @@ void findMaskedCompressionStates(const build_info &args,
     if (!inspects_states_for_accepts(h)
         && !hasInitDsStates(h, args.state_ids)) {
         NFAStateSet nonleaf(args.num_states);
-        for (const auto &e : edges_range(h)) {
+        for (const auto e : edges_range(h)) {
             u32 from = args.state_ids.at(source(e, h));
             u32 to = args.state_ids.at(target(e, h));
             if (from == NO_STATE) {
@@ -1459,7 +1459,7 @@ u32 buildExceptionMap(const build_info &args, ReportListCache &reports_cache,
         }
 
         // are we a non-limited transition?
-        for (const auto &oe : out_edges_range(v, h)) {
+        for (const auto oe : out_edges_range(v, h)) {
             if (contains(exceptional, oe)) {
                 NFAVertex w = target(oe, h);
                 u32 w_idx = args.state_ids.at(w);
@@ -1550,7 +1550,7 @@ static
 u32 findMaxVarShift(const build_info &args, u32 nShifts) {
     const NGHolder &h = args.h;
     u32 shiftMask = 0;
-    for (const auto &e : edges_range(h)) {
+    for (const auto e : edges_range(h)) {
         u32 from = args.state_ids.at(source(e, h));
         u32 to = args.state_ids.at(target(e, h));
         if (from == NO_STATE || to == NO_STATE) {
@@ -1579,7 +1579,7 @@ int getLimexScore(const build_info &args, u32 nShifts) {
     maxVarShift = findMaxVarShift(args, nShifts);
 
     NFAStateSet exceptionalStates(args.num_states);
-    for (const auto &e : edges_range(h)) {
+    for (const auto e : edges_range(h)) {
         u32 from = args.state_ids.at(source(e, h));
         u32 to = args.state_ids.at(target(e, h));
         if (from == NO_STATE || to == NO_STATE) {
@@ -1870,7 +1870,7 @@ struct Factory {
         u32 shiftMask = 0;
         int shiftMaskIdx = 0;
 
-        for (const auto &e : edges_range(h)) {
+        for (const auto e : edges_range(h)) {
             u32 from = args.state_ids.at(source(e, h));
             u32 to = args.state_ids.at(target(e, h));
             if (from == NO_STATE || to == NO_STATE) {
@@ -1908,7 +1908,7 @@ struct Factory {
                                     u32 maxShift) {
         const NGHolder &h = args.h;
 
-        for (const auto &e : edges_range(h)) {
+        for (const auto e : edges_range(h)) {
             u32 from = args.state_ids.at(source(e, h));
             u32 to = args.state_ids.at(target(e, h));
             if (from == NO_STATE || to == NO_STATE) {

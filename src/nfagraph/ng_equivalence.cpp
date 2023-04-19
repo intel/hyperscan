@@ -243,12 +243,12 @@ bool isIrreducible(const NGHolder &g) {
 #ifndef NDEBUG
 static
 bool hasEdgeAsserts(NFAVertex v, const NGHolder &g) {
-    for (const auto &e : in_edges_range(v, g)) {
+    for (const auto e : in_edges_range(v, g)) {
         if (g[e].assert_flags != 0) {
             return true;
         }
     }
-    for (const auto &e : out_edges_range(v, g)) {
+    for (const auto e : out_edges_range(v, g)) {
         if (g[e].assert_flags != 0) {
             return true;
         }
@@ -280,7 +280,7 @@ vector<unique_ptr<VertexInfo>> getVertexInfos(const NGHolder &g) {
         NFAVertex v = vi->v;
 
         // find predecessors
-        for (const auto &e : in_edges_range(v, g)) {
+        for (const auto e : in_edges_range(v, g)) {
             NFAVertex u = source(e, g);
             VertexInfo *u_vi = vertex_map[g[u].index];
 

@@ -115,7 +115,7 @@ bool isRegionEntry(const Graph &g, NFAVertex v,
                    const std::unordered_map<NFAVertex, u32> &region_map) {
     // Note that some graph types do not have inv_adjacent_vertices, so we must
     // use in_edges here.
-    for (const auto &e : in_edges_range(v, g)) {
+    for (const auto e : in_edges_range(v, g)) {
         if (!inSameRegion(g, v, source(e, g), region_map)) {
             return true;
         }
@@ -141,7 +141,7 @@ bool isRegionExit(const Graph &g, NFAVertex v,
 template <class Graph>
 bool isSingletonRegion(const Graph &g, NFAVertex v,
                        const std::unordered_map<NFAVertex, u32> &region_map) {
-    for (const auto &e : in_edges_range(v, g)) {
+    for (const auto e : in_edges_range(v, g)) {
         auto u = source(e, g);
         if (u != v && inSameRegion(g, v, u, region_map)) {
             return false;
@@ -159,7 +159,7 @@ bool isSingletonRegion(const Graph &g, NFAVertex v,
             return false;
         }
 
-        for (const auto &e : in_edges_range(w, g)) {
+        for (const auto e : in_edges_range(w, g)) {
             auto u = source(e, g);
             if (u != v && inSameRegion(g, v, u, region_map)) {
                 return false;
@@ -193,7 +193,7 @@ bool isOptionalRegion(const Graph &g, NFAVertex v,
     // Optional if v has a predecessor in an earlier region that has a
     // successor in a later one.
 
-    for (const auto &e : in_edges_range(v, g)) {
+    for (const auto e : in_edges_range(v, g)) {
         auto u = source(e, g);
         if (inSameRegion(g, v, u, region_map)) {
             continue;

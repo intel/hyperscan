@@ -493,7 +493,7 @@ bool isNoRunsVertex(const RoseBuildImpl &build, RoseVertex u) {
         return false;
     }
 
-    for (const auto &oe : out_edges_range(u, g)) {
+    for (const auto oe : out_edges_range(u, g)) {
         RoseVertex v = target(oe, g);
         if (g[oe].maxBound != ROSE_BOUND_INF) {
             DEBUG_PRINTF("edge (%zu,%zu) has max bound\n", g[u].index,

@@ -289,7 +289,7 @@ void mergeNfaComponent(NGHolder &dest, const NGHolder &vic, size_t common_len) {
 
     /* add edges */
     DEBUG_PRINTF("common_len=%zu\n", common_len);
-    for (const auto &e : edges_range(vic)) {
+    for (const auto e : edges_range(vic)) {
         NFAVertex u_old = source(e, vic);
         NFAVertex v_old = target(e, vic);
         NFAVertex u = vmap[u_old];

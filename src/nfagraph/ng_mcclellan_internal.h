@@ -98,7 +98,7 @@ void transition_graph(autom &nfa, const std::vector<NFAVertex> &vByStateId,
     for (size_t i = in.find_first(); i != in.npos; i = in.find_next(i)) {
         NFAVertex u = vByStateId[i];
 
-        for (const auto &v : adjacent_vertices_range(u, graph)) {
+        for (const auto v : adjacent_vertices_range(u, graph)) {
             if (contains(unused, v)) {
                 continue;
             }

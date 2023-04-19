@@ -56,7 +56,7 @@ using SimpleVertex = SimpleG::vertex_descriptor;
 template<typename Graph, typename Range>
 vector<size_t> to_indices(const Range &range, const Graph &g) {
     vector<size_t> indices;
-    for (const auto &elem : range) {
+    for (const auto elem : range) {
         indices.push_back(g[elem].index);
     }
     sort(indices.begin(), indices.end());

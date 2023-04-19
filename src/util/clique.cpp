@@ -49,7 +49,7 @@ vector<u32> getNeighborInfo(const CliqueGraph &g,
     u32 id = g[cv].stateId;
     vector<u32> neighbor;
     // find neighbors for cv
-    for (const auto &v : adjacent_vertices_range(cv, g)) {
+    for (const auto v : adjacent_vertices_range(cv, g)) {
         if (g[v].stateId != id && contains(group, g[v].stateId)){
             neighbor.push_back(g[v].stateId);
             DEBUG_PRINTF("Neighbor:%u\n", g[v].stateId);
