@@ -28,8 +28,8 @@ SET(chimera_SRCS
 )
 
 add_library(chimera STATIC ${chimera_SRCS})
-add_dependencies(chimera hs pcre)
-target_link_libraries(chimera hs pcre)
+message(STATUS "PCRE_LINK_LIBRARIES CHECK: ${PCRE_LINK_LIBRARIES}")
+target_link_libraries(chimera hs ${PCRE_LINK_LIBRARIES})
 
 install(TARGETS chimera DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
