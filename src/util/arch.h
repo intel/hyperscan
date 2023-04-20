@@ -83,7 +83,7 @@
 /*
  * MSVC uses a different form of inline asm
  */
-#if defined(_WIN32) && defined(_MSC_VER)
+#if defined(WASM32) || defined(_WIN32) && defined(_MSC_VER)
 #define NO_ASM
 #endif
 

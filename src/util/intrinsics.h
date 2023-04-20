@@ -55,10 +55,22 @@
 # endif
 #endif
 
+#ifdef __cplusplus
+# if defined(HAVE_CXX_TMMINTRIN_H)
+#  define USE_TMMINTRIN_H
+# endif
+#else // C
+# if defined(HAVE_C_TMMINTRIN_H)
+#  define USE_TMMINTRIN_H
+# endif
+#endif
+
 #if defined(USE_X86INTRIN_H)
 #include <x86intrin.h>
 #elif defined(USE_INTRIN_H)
 #include <intrin.h>
+#elif defined(USE_TMMINTRIN_H)
+#include <tmmintrin.h>
 #else
 #error no intrinsics file
 #endif

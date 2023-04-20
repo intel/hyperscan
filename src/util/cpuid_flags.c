@@ -33,7 +33,7 @@
 #include "hs_internal.h"
 #include "util/arch.h"
 
-#if !defined(_WIN32) && !defined(CPUID_H_)
+#if !defined(_WIN32) && !defined(CPUID_H_) && !defined(WASM32)
 #include <cpuid.h>
 #endif
 
