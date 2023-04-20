@@ -43,14 +43,15 @@ ParseError::~ParseError() {}
 
 LocatedParseError::~LocatedParseError() {}
 
-void LocatedParseError::locate(size_t offset) {
-    if (finalized) {
+void LocatedParseError::locate(size_t offset_) {
+    if (hasOffset) {
         return;
     }
     std::ostringstream str;
-    str << reason << " at index " << offset << ".";
+    str << reason << " at index " << offset_ << ".";
     reason = str.str();
-    finalized = true;
+    offset = offset_;
+    hasOffset = true;
 }
 
 }
