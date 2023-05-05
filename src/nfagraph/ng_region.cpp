@@ -100,7 +100,7 @@ void checkAndAddExitCandidate(const AcyclicGraph &g,
 
     if (!open.empty()) {
         DEBUG_PRINTF("exit %zu\n", g[v].index);
-        exits.push_back(move(v_exit));
+        exits.push_back(std::move(v_exit));
     }
 }
 
@@ -210,7 +210,7 @@ void buildInitialCandidate(const AcyclicGraph &g,
 
     if (it != ite) {
         enters.erase(*it);
-        open_jumps = move(enters);
+        open_jumps = std::move(enters);
         DEBUG_PRINTF("oj size = %zu\n", open_jumps.size());
         ++it;
     } else {

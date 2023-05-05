@@ -1189,7 +1189,7 @@ struct CorpusGenUnit {
     CorpusGenUnit(unique_ptr<CNGInfo> cngi_in, unique_ptr<CompiledPcre> pcre_in,
                shared_ptr<DatabaseProxy> ue2_in, unsigned expr_id,
                bool multi_in, bool utf8_in)
-        : cngi(move(cngi_in)), pcre(move(pcre_in)), ue2(ue2_in), id(expr_id),
+        : cngi(std::move(cngi_in)), pcre(std::move(pcre_in)), ue2(ue2_in), id(expr_id),
           multi(multi_in), utf8(utf8_in) {}
 
     unique_ptr<CNGInfo> cngi;
@@ -1221,7 +1221,7 @@ public:
             }
 
             addCorporaToQueue(out, testq, c->id, *corpora, summary,
-                              move(c->pcre), move(c->cngi), c->ue2, c->multi,
+                              std::move(c->pcre), std::move(c->cngi), c->ue2, c->multi,
                               c->utf8);
 
             count++;
@@ -1435,7 +1435,7 @@ unique_ptr<CorpusGenUnit> makeCorpusGenUnit(unsigned id, TestSummary &summary,
     // Caller may already have set the UTF-8 property (in multi cases)
     utf8 |= cpcre ? cpcre->utf8 : cngi->utf8;
 
-    return ue2::make_unique<CorpusGenUnit>(move(cngi), move(cpcre), ue2, id,
+    return ue2::make_unique<CorpusGenUnit>(std::move(cngi), std::move(cpcre), ue2, id,
                                            multi, utf8);
 }
 
@@ -1490,7 +1490,7 @@ void buildSingle(BoundedQueue<CorpusGenUnit> &corpq, TestSummary &summary,
         auto u = makeCorpusGenUnit(id, summary, ground, graph, ultimate, ue2,
                                    multi, utf8);
         if (u) {
-            corpq.push(move(u));
+            corpq.push(std::move(u));
         }
     }
 }
@@ -1548,7 +1548,7 @@ void buildBanded(BoundedQueue<CorpusGenUnit> &corpq, TestSummary &summary,
             auto u = makeCorpusGenUnit(id, summary, ground, graph, ultimate,
                                        ue2, multi, utf8);
             if (u) {
-                corpq.push(move(u));
+                corpq.push(std::move(u));
             }
         }
     }
@@ -1588,7 +1588,7 @@ void buildMulti(BoundedQueue<CorpusGenUnit> &corpq, TestSummary &summary,
         auto u = makeCorpusGenUnit(id, summary, ground, graph, ultimate, ue2,
                                    multi, utf8);
         if (u) {
-            corpq.push(move(u));
+            corpq.push(std::move(u));
         }
     }
 }
@@ -1608,7 +1608,7 @@ void generateTests(CorporaSource &corpora_src, const ExpressionMap &exprMap,
     for (size_t i = 0; i < numGeneratorThreads; i++) {
         auto c = make_unique<CorpusGenThread>(i, testq, corpq, corpora_src);
         c->start();
-        generators.push_back(move(c));
+        generators.push_back(std::move(c));
     }
 
     if (g_ue2CompileAll && multicompile_bands) {
@@ -1831,11 +1831,11 @@ unique_ptr<CorporaSource> buildCorpora(const vector<string> &corporaFiles,
                 exit_with_fail();
             }
         }
-        return move(c); /* move allows unique_ptr<CorporaSource> conversion */
+        return std::move(c); /* move allows unique_ptr<CorporaSource> conversion */
     } else {
         auto c = ue2::make_unique<NfaGeneratedCorpora>(
             exprMap, corpus_gen_prop, force_utf8, force_prefilter);
-        return move(c);
+        return std::move(c);
     }
 }
 
@@ -1888,7 +1888,7 @@ bool runTests(CorporaSource &corpora_source, const ExpressionMap &exprMap,
     for (size_t i = 0; i < numScannerThreads; i++) {
         auto s = ue2::make_unique<ScanThread>(i, testq, exprMap, plat, grey);
         s->start();
-        scanners.push_back(move(s));
+        scanners.push_back(std::move(s));
     }
 
     generateTests(corpora_source, exprMap, summary, plat, grey, testq);

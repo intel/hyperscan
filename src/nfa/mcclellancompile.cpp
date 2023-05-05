@@ -463,7 +463,7 @@ unique_ptr<raw_report_info> mcclellan_build_strat::gatherReports(
         *isSingleReport = 0;
     }
 
-    return move(ri);
+    return std::move(ri);
 }
 
 u32 raw_report_info_impl::getReportListSize() const {

@@ -254,7 +254,7 @@ void findBestInternal(vector<vector<CharReach>>::const_iterator pb,
             DEBUG_PRINTF("worse\n");
             continue;
         }
-        priority_path.push_back(move(as));
+        priority_path.push_back(std::move(as));
     }
 
     sort(priority_path.begin(), priority_path.end());
@@ -422,7 +422,7 @@ void findDoubleBest(vector<vector<CharReach> >::const_iterator pb,
             DEBUG_PRINTF("worse\n");
             continue;
         }
-        priority_path.push_back(move(as));
+        priority_path.push_back(std::move(as));
     }
 
     sort(priority_path.begin(), priority_path.end());
@@ -569,7 +569,7 @@ AccelScheme findBestAccelScheme(vector<vector<CharReach>> paths,
         DAccelScheme da = findBestDoubleAccelScheme(paths, terminating);
         if (da.double_byte.size() <= DOUBLE_SHUFTI_LIMIT) {
             rv.double_byte = std::move(da.double_byte);
-            rv.double_cr = move(da.double_cr);
+            rv.double_cr = std::move(da.double_cr);
             rv.double_offset = da.double_offset;
         }
     }

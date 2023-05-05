@@ -50,7 +50,7 @@ ComponentCondReference::ComponentCondReference(const string &name)
     : kind(CONDITION_NAME), ref_id(0), ref_name(name), hasBothBranches(false) {}
 
 ComponentCondReference::ComponentCondReference(unique_ptr<Component> c)
-    : kind(CONDITION_ASSERTION), ref_id(0), assertion(move(c)),
+    : kind(CONDITION_ASSERTION), ref_id(0), assertion(std::move(c)),
       hasBothBranches(false) {}
 
 ComponentCondReference::~ComponentCondReference() {}

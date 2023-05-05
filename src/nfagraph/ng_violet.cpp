@@ -394,7 +394,7 @@ void getSimpleRoseLiterals(const NGHolder &g, bool seeking_anchored,
 
     lits->reserve(lit_info.size());
     for (auto &m : lit_info) {
-        lits->push_back(move(m.second));
+        lits->push_back(std::move(m.second));
     }
     DEBUG_PRINTF("%zu candidate literal sets\n", lits->size());
 }
@@ -707,11 +707,11 @@ unique_ptr<VertLitInfo> findBestSplit(const NGHolder &g,
     auto cmp = LitComparator(g, seeking_anchored, seeking_transient,
                              last_chance);
 
-    unique_ptr<VertLitInfo> best = move(lits.back());
+    unique_ptr<VertLitInfo> best = std::move(lits.back());
     lits.pop_back();
     while (!lits.empty()) {
         if (cmp(best, lits.back())) {
-            best = move(lits.back());
+            best = std::move(lits.back());
         }
         lits.pop_back();
     }
@@ -1621,7 +1621,7 @@ void removeRedundantLiteralsFromPrefixes(RoseInGraph &g,
         if (delay && delay != MO_INVALID_IDX) {
             DEBUG_PRINTF("setting delay %u on lhs %p\n", delay, h.get());
 
-            g[e].graph = move(h);
+            g[e].graph = std::move(h);
             g[e].graph_lag = delay;
         }
     }

@@ -94,7 +94,7 @@ int onMatchEcho(unsigned int id, unsigned long long, unsigned long long to,
 
 EnginePCRE::EnginePCRE(vector<unique_ptr<PcreDB>> dbs_in, CompilePCREStats cs,
                        int capture_cnt_in)
-    : dbs(move(dbs_in)), compile_stats(move(cs)),
+    : dbs(std::move(dbs_in)), compile_stats(std::move(cs)),
       capture_cnt(capture_cnt_in) {}
 
 EnginePCRE::~EnginePCRE() {
@@ -383,7 +383,7 @@ buildEnginePcre(const ExpressionMap &expressions, const string &name,
         extra->match_limit_recursion = 1500;
 
         pcreDB->extra = extra;
-        dbs.push_back(move(pcreDB));
+        dbs.push_back(std::move(pcreDB));
     }
 
     timer.complete();
@@ -406,5 +406,5 @@ buildEnginePcre(const ExpressionMap &expressions, const string &name,
     cs.compileSecs = compileSecs;
     cs.peakMemorySize = peakMemorySize;
 
-    return ue2::make_unique<EnginePCRE>(move(dbs), move(cs), capture_cnt);
+    return ue2::make_unique<EnginePCRE>(std::move(dbs), std::move(cs), capture_cnt);
 }
