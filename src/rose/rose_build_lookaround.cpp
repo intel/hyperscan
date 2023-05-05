@@ -464,7 +464,7 @@ void findFloodReach(const RoseBuildImpl &tbi, const RoseVertex v,
 namespace {
 struct LookProto {
     LookProto(s32 offset_in, CharReach reach_in)
-        : offset(offset_in), reach(move(reach_in)) {}
+        : offset(offset_in), reach(std::move(reach_in)) {}
     s32 offset;
     CharReach reach;
 };

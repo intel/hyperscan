@@ -96,7 +96,7 @@ int HS_CDECL onMatchEcho(unsigned int id, unsigned long long,
 }
 
 EngineChimera::EngineChimera(ch_database_t *db_in, CompileCHStats cs)
-    : db(db_in), compile_stats(move(cs)) {
+    : db(db_in), compile_stats(std::move(cs)) {
     assert(db);
 }
 
@@ -333,5 +333,5 @@ buildEngineChimera(const ExpressionMap &expressions, const string &name,
     cs.compileSecs = compileSecs;
     cs.peakMemorySize = peakMemorySize;
 
-    return ue2::make_unique<EngineChimera>(db, move(cs));
+    return ue2::make_unique<EngineChimera>(db, std::move(cs));
 }

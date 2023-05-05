@@ -67,7 +67,7 @@ namespace {
 
 struct LitGraphVertexProps {
     LitGraphVertexProps() = default;
-    explicit LitGraphVertexProps(ue2_literal::elem c_in) : c(move(c_in)) {}
+    explicit LitGraphVertexProps(ue2_literal::elem c_in) : c(std::move(c_in)) {}
     ue2_literal::elem c; // string element (char + bool)
     size_t index = 0; // managed by ue2_graph
 };

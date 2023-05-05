@@ -370,7 +370,7 @@ void splitIntoComponents(unique_ptr<NGHolder> g,
         pruneUseless(*gc);
         DEBUG_PRINTF("component %zu has %zu vertices\n", comps.size(),
                      num_vertices(*gc));
-        comps.push_back(move(gc));
+        comps.push_back(std::move(gc));
     }
 
     // Another component to handle the direct shell-to-shell edges.
@@ -386,7 +386,7 @@ void splitIntoComponents(unique_ptr<NGHolder> g,
         pruneUseless(*gc);
         DEBUG_PRINTF("shell edge component %zu has %zu vertices\n",
                      comps.size(), num_vertices(*gc));
-        comps.push_back(move(gc));
+        comps.push_back(std::move(gc));
         *shell_comp = true;
     }
 

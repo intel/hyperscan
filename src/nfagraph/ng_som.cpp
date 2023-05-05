@@ -1734,7 +1734,7 @@ void clearProperInEdges(NGHolder &g, const NFAVertex sink) {
 namespace {
 struct SomRevNfa {
     SomRevNfa(NFAVertex s, ReportID r, bytecode_ptr<NFA> n)
-        : sink(s), report(r), nfa(move(n)) {}
+        : sink(s), report(r), nfa(std::move(n)) {}
     NFAVertex sink;
     ReportID report;
     bytecode_ptr<NFA> nfa;
@@ -1800,7 +1800,7 @@ bool makeSomRevNfa(vector<SomRevNfa> &som_nfas, const NGHolder &g,
         return false;
     }
 
-    som_nfas.emplace_back(sink, report, move(nfa));
+    som_nfas.emplace_back(sink, report, std::move(nfa));
     return true;
 }
 
@@ -1840,7 +1840,7 @@ bool doSomRevNfa(NG &ng, NGHolder &g, const CompileContext &cc) {
         assert(som_nfa.nfa);
 
         // Transfer ownership of the NFA to the SOM slot manager.
-        u32 comp_id = ng.ssm.addRevNfa(move(som_nfa.nfa), maxWidth);
+        u32 comp_id = ng.ssm.addRevNfa(std::move(som_nfa.nfa), maxWidth);
 
         // Replace this report on 'g' with a SOM_REV_NFA report pointing at our
         // new component.
@@ -1873,7 +1873,7 @@ u32 doSomRevNfaPrefix(NG &ng, const ExpressionInfo &expr, NGHolder &g,
                max(cc.grey.maxHistoryAvailable, ng.maxSomRevHistoryAvailable));
     }
 
-    return ng.ssm.addRevNfa(move(nfa), maxWidth);
+    return ng.ssm.addRevNfa(std::move(nfa), maxWidth);
 }
 
 static

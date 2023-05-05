@@ -350,7 +350,7 @@ vector<VertexInfoSet> partitionGraph(vector<unique_ptr<VertexInfo>> &infos,
             unsigned eq_class = classes.size();
             vi->equivalence_class = eq_class;
             classes.push_back({vi.get()});
-            classinfomap.emplace(move(ci), eq_class);
+            classinfomap.emplace(std::move(ci), eq_class);
         } else {
             // vertex is added to an existing class.
             unsigned eq_class = ii->second;
@@ -442,7 +442,7 @@ void equivalence(vector<VertexInfoSet> &classes, WorkQueue &work_queue,
                     classes[cur_class].erase(vi);
                     new_class_vertices.insert(vi);
                 }
-                classes.push_back(move(new_class_vertices));
+                classes.push_back(std::move(new_class_vertices));
 
                 if (contains(tmi->first, cur_class)) {
                     reval_queue.push(new_class);
