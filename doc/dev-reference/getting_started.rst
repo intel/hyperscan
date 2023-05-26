@@ -26,7 +26,7 @@ Very Quick Start
 
    Known working generators:
       * ``Unix Makefiles`` --- make-compatible makefiles (default on Linux/FreeBSD/Mac OS X)
-      * ``Ninja`` --- `Ninja <http://martine.github.io/ninja/>`_ build files.
+      * ``Ninja`` --- `Ninja <https://ninja-build.org/>`_ build files.
       * ``Visual Studio 15 2017`` --- Visual Studio projects
 
    Generators that might work include:
