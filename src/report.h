@@ -192,13 +192,13 @@ void setCombinationActive(const struct RoseEngine *rose, char *cvec, u32 ckey) {
 /** \brief Returns 1 if compliant to all logical combinations. */
 static really_inline
 char isLogicalCombination(const struct RoseEngine *rose, char *lvec,
-                          u32 start, u32 result) {
+                          u32 start, u32 result) {//com 可能是突破点，对组合逻辑进行校验
     const struct LogicalOp *logicalTree = (const struct LogicalOp *)
         ((const char *)rose + rose->logicalTreeOffset);
     assert(start >= rose->lkeyCount);
     assert(start <= result);
     assert(result < rose->lkeyCount + rose->lopCount);
-    for (u32 i = start; i <= result; i++) {
+    for (u32 i = start; i <= result; i++) {//com 猜想是遍历逻辑树中所有节点
         const struct LogicalOp *op = logicalTree + (i - rose->lkeyCount);
         assert(i == op->id);
         assert(op->op <= LAST_LOGICAL_OP);
@@ -299,7 +299,7 @@ void clearCvec(const struct RoseEngine *rose, char *cvec) {
  */
 static really_inline
 int roseDeliverReport(u64a offset, ReportID onmatch, s32 offset_adjust,
-                      struct hs_scratch *scratch, u32 ekey) {
+                      struct hs_scratch *scratch, u32 ekey) {//com 直接调用eventhandler
     assert(scratch);
     assert(scratch->magic == SCRATCH_MAGIC);
 

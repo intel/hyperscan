@@ -2025,13 +2025,13 @@ void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
 
 static rose_inline
 hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
-                                    struct hs_scratch *scratch) {
+                                    struct hs_scratch *scratch) {//com 这里也有min或者max offset的校验,猜想是命中了subid，判断是否激活combinationID
     u8 *cvec = (u8 *)scratch->core_info.combVector;
     if (!mmbit_any(cvec, t->ckeyCount)) {
         return HWLM_CONTINUE_MATCHING;
     }
     u64a end = scratch->tctxt.lastCombMatchOffset;
-    for (u32 i = mmbit_iterate(cvec, t->ckeyCount, MMB_INVALID);
+    for (u32 i = mmbit_iterate(cvec, t->ckeyCount, MMB_INVALID);//com 遍历所有的待激活的combinationID
          i != MMB_INVALID; i = mmbit_iterate(cvec, t->ckeyCount, i)) {
         const struct CombInfo *combInfoMap = (const struct CombInfo *)
             ((const char *)t + t->combInfoMapOffset);
@@ -2063,7 +2063,7 @@ hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
             continue;
         }
 
-        DEBUG_PRINTF("Logical Combination Passed!\n");
+        DEBUG_PRINTF("Logical Combination Passed!\n");// com 重点突破口
         if (roseReportComb(t, scratch, end, ci->id, 0,
                            ci->ekey) == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
@@ -2150,7 +2150,7 @@ hwlmcb_rv_t checkPurelyNegatives(const struct RoseEngine *t,
 
 hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                            struct hs_scratch *scratch, u32 programOffset,
-                           u64a som, u64a end, u8 prog_flags) {
+                           u64a som, u64a end, u8 prog_flags) {//com 直接回调eventhandler,做很多校验，比如是否满足minoffset，感觉可以在这里处理组合逻辑的前后顺序问题
     DEBUG_PRINTF("program=%u, offsets [%llu,%llu], flags=%u\n", programOffset,
                  som, end, prog_flags);
 
@@ -3476,55 +3476,4 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
             L_PROGRAM_NEXT_INSTRUCTION
 
             L_PROGRAM_CASE(FLUSH_COMBINATION) {
-                assert(end >= tctxt->lastCombMatchOffset);
-                if (end > tctxt->lastCombMatchOffset) {
-                    if (flushActiveCombinations(t, scratch)
-                            == HWLM_TERMINATE_MATCHING) {
-                        return HWLM_TERMINATE_MATCHING;
-                    }
-                }
-            }
-            L_PROGRAM_NEXT_INSTRUCTION
-
-            L_PROGRAM_CASE(SET_EXHAUST) {
-                updateSeqPoint(tctxt, end, from_mpv);
-                if (roseSetExhaust(t, scratch, ri->ekey)
-                        == HWLM_TERMINATE_MATCHING) {
-                    return HWLM_TERMINATE_MATCHING;
-                }
-                work_done = 1;
-            }
-            L_PROGRAM_NEXT_INSTRUCTION
-
-            L_PROGRAM_CASE(LAST_FLUSH_COMBINATION) {
-                assert(end >= tctxt->lastCombMatchOffset);
-                if (flushActiveCombinations(t, scratch)
-                        == HWLM_TERMINATE_MATCHING) {
-                    return HWLM_TERMINATE_MATCHING;
-                }
-                if (checkPurelyNegatives(t, scratch, end)
-                        == HWLM_TERMINATE_MATCHING) {
-                    return HWLM_TERMINATE_MATCHING;
-                }
-            }
-            L_PROGRAM_NEXT_INSTRUCTION
-
-            default: {
-                assert(0); // unreachable
-                scratch->core_info.status |= STATUS_ERROR;
-                return HWLM_TERMINATE_MATCHING;
-            }
-        }
-    }
-
-    assert(0); // unreachable
-    return HWLM_CONTINUE_MATCHING;
-}
-
-#undef L_PROGRAM_CASE
-#undef L_PROGRAM_NEXT_INSTRUCTION
-#undef L_PROGRAM_NEXT_INSTRUCTION_JUMP
-
-#undef PROGRAM_CASE
-#undef PROGRAM_NEXT_INSTRUCTION
-#undef PROGRAM_NEXT_INSTRUCTION_JUMP
+                assert(end >= tc

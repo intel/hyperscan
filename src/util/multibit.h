@@ -393,7 +393,7 @@ char mmbit_isset(const u8 *bits, u32 total_bits, u32 key);
 static really_inline
 char mmbit_set(u8 *bits, u32 total_bits, u32 key) {
     MDEBUG_PRINTF("%p total_bits %u key %u\n", bits, total_bits, key);
-    char status = mmbit_set_i(bits, total_bits, key);
+    char status = mmbit_set_i(bits, total_bits, key);//com 卧槽阿 位图bitmap
     MMB_TRACE("SET %u (prev status: %d)\n", key, (int)status);
     assert(mmbit_isset(bits, total_bits, key));
     return status;

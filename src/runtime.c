@@ -411,7 +411,7 @@ hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
             goto done_scan;
         }
     }
-
+//开始匹配
     switch (rose->runtimeImpl) {
     default:
         assert(0);

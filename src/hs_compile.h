@@ -265,6 +265,7 @@ typedef struct hs_expr_ext {
      * hs_expr_ext::flags field.
      */
     unsigned hamming_distance;
+    unsigned max_depth;
 } hs_expr_ext_t;
 
 /**
@@ -290,6 +291,9 @@ typedef struct hs_expr_ext {
 
 /** Flag indicating that the hs_expr_ext::hamming_distance field is used. */
 #define HS_EXT_FLAG_HAMMING_DISTANCE 16ULL
+
+/** Flag indicating that the hs_expr_ext::max_depth field is used. */
+#define HS_EXT_FLAG_MAX_DEPTH    32ULL
 
 /** @} */
 

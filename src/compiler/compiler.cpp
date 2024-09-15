@@ -82,7 +82,8 @@ void validateExt(const hs_expr_ext &ext) {
                                                     HS_EXT_FLAG_MAX_OFFSET |
                                                     HS_EXT_FLAG_MIN_LENGTH |
                                                     HS_EXT_FLAG_EDIT_DISTANCE |
-                                                    HS_EXT_FLAG_HAMMING_DISTANCE;
+                                                    HS_EXT_FLAG_HAMMING_DISTANCE|
+                                                    HS_EXT_FLAG_MAX_DEPTH;
     if (ext.flags & ~ALL_EXT_FLAGS) {
         throw CompileError("Invalid hs_expr_ext flag set.");
     }
@@ -218,6 +219,12 @@ ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
         }
         if (ext->flags & HS_EXT_FLAG_HAMMING_DISTANCE) {
             expr.hamm_distance = ext->hamming_distance;
+        }
+        if (ext->flags & HS_EXT_FLAG_MAX_DEPTH) {
+            if (!(ext->flags & HS_EXT_FLAG_MAX_OFFSET) ||
+                ext->max_depth < expr.max_offset) {
+                expr.max_offset = ext->max_depth;
+            }
         }
     }
 

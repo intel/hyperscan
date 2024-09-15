@@ -424,10 +424,10 @@ u32 doNormal8(const struct mcclellan *m, const u8 **c_inout, const u8 *end,
         u8 cprime = m->remap[*c];
         DEBUG_PRINTF("c: %02hhx '%c' cp:%02hhx\n", *c,
                      ourisprint(*c) ? *c : '?', cprime);
-        s = succ_table[(s << as) + cprime];
+        s = succ_table[(s << as) + cprime];//com 猜想s是状态
 
         DEBUG_PRINTF("s: %u\n", s);
-        c++;
+        c++;//逐个字符读取
         if (do_accel) {
             if (s >= accel_limit) {
                 break;

@@ -61,6 +61,8 @@
 
 #include <hs.h>
 
+#define PATTERN_COUNT 3
+
 /**
  * This is the function that will be called for each match that occurs. @a ctx
  * is to allow you to have some application-specific state that you will get
@@ -150,7 +152,18 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    char *pattern = argv[1];
+    const char *patterns[PATTERN_COUNT] = {"a", "s", "1|2"};
+    unsigned int ids[PATTERN_COUNT] = {1, 2, 3};
+    unsigned int flags[PATTERN_COUNT] = {0,0,HS_FLAG_COMBINATION};
+
+    hs_expr_ext_t e1;
+    e1.flags = HS_EXT_FLAG_MIN_OFFSET|HS_EXT_FLAG_MAX_DEPTH;
+    e1.min_offset = 3;
+    e1.max_depth=10;
+
+    const hs_expr_ext_t **exts= malloc(PATTERN_COUNT * sizeof(hs_expr_ext_t *));
+    exts[0] = &e1;
+
     char *inputFN = argv[2];
 
     if (access(inputFN, F_OK) != 0) {
@@ -161,19 +174,12 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "ERROR: can't be read.\n");
         return -1;
     }
-
-    /* First, we attempt to compile the pattern provided on the command line.
-     * We assume 'DOTALL' semantics, meaning that the '.' meta-character will
-     * match newline characters. The compiler will analyse the given pattern and
-     * either return a compiled Hyperscan database, or an error message
-     * explaining why the pattern didn't compile.
-     */
     hs_database_t *database;
     hs_compile_error_t *compile_err;
-    if (hs_compile(pattern, HS_FLAG_DOTALL, HS_MODE_BLOCK, NULL, &database,
-                   &compile_err) != HS_SUCCESS) {
-        fprintf(stderr, "ERROR: Unable to compile pattern \"%s\": %s\n",
-                pattern, compile_err->message);
+    if (hs_compile_ext_multi(patterns, flags, ids, exts,PATTERN_COUNT, HS_MODE_BLOCK,
+                         NULL, &database, &compile_err) != HS_SUCCESS) {
+        fprintf(stderr, "ERROR: Unable to compile pattern \": %s\n",
+                compile_err->message);
         hs_free_compile_error(compile_err);
         return -1;
     }
@@ -185,23 +191,6 @@ int main(int argc, char *argv[]) {
         hs_free_database(database);
         return -1;
     }
-
-    /* Finally, we issue a call to hs_scan, which will search the input buffer
-     * for the pattern represented in the bytecode. Note that in order to do
-     * this, scratch space needs to be allocated with the hs_alloc_scratch
-     * function. In typical usage, you would reuse this scratch space for many
-     * calls to hs_scan, but as we're only doing one, we'll be allocating it
-     * and deallocating it as soon as our matching is done.
-     *
-     * When matches occur, the specified callback function (eventHandler in
-     * this file) will be called. Note that although it is reminiscent of
-     * asynchronous APIs, Hyperscan operates synchronously: all matches will be
-     * found, and all callbacks issued, *before* hs_scan returns.
-     *
-     * In this example, we provide the input pattern as the context pointer so
-     * that the callback is able to print out the pattern that matched on each
-     * match event.
-     */
     hs_scratch_t *scratch = NULL;
     if (hs_alloc_scratch(database, &scratch) != HS_SUCCESS) {
         fprintf(stderr, "ERROR: Unable to allocate scratch space. Exiting.\n");
@@ -211,9 +200,9 @@ int main(int argc, char *argv[]) {
     }
 
     printf("Scanning %u bytes with Hyperscan\n", length);
-
-    if (hs_scan(database, inputData, length, 0, scratch, eventHandler,
-                pattern) != HS_SUCCESS) {
+    // length =10;
+    if (hs_scan(database, inputData, length, 0, scratch, eventHandler, NULL) !=
+        HS_SUCCESS) {
         fprintf(stderr, "ERROR: Unable to scan input buffer. Exiting.\n");
         hs_free_scratch(scratch);
         free(inputData);

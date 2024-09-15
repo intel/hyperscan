@@ -181,7 +181,7 @@ event_enqueued:
     return HWLM_CONTINUE_MATCHING;
 }
 
-int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx) {
+int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx) {//com 匹配成功
     struct hs_scratch *scratch = ctx;
     assert(scratch && scratch->magic == SCRATCH_MAGIC);
     struct RoseContext *tctxt = &scratch->tctxt;
