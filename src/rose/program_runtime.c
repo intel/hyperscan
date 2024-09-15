@@ -3476,4 +3476,55 @@ hwlmcb_rv_t roseRunProgram_l(const struct RoseEngine *t,
             L_PROGRAM_NEXT_INSTRUCTION
 
             L_PROGRAM_CASE(FLUSH_COMBINATION) {
-                assert(end >= tc
+                assert(end >= tctxt->lastCombMatchOffset);
+                if (end > tctxt->lastCombMatchOffset) {
+                    if (flushActiveCombinations(t, scratch)
+                            == HWLM_TERMINATE_MATCHING) {
+                        return HWLM_TERMINATE_MATCHING;
+                    }
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(SET_EXHAUST) {
+                updateSeqPoint(tctxt, end, from_mpv);
+                if (roseSetExhaust(t, scratch, ri->ekey)
+                        == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+                work_done = 1;
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            L_PROGRAM_CASE(LAST_FLUSH_COMBINATION) {
+                assert(end >= tctxt->lastCombMatchOffset);
+                if (flushActiveCombinations(t, scratch)
+                        == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+                if (checkPurelyNegatives(t, scratch, end)
+                        == HWLM_TERMINATE_MATCHING) {
+                    return HWLM_TERMINATE_MATCHING;
+                }
+            }
+            L_PROGRAM_NEXT_INSTRUCTION
+
+            default: {
+                assert(0); // unreachable
+                scratch->core_info.status |= STATUS_ERROR;
+                return HWLM_TERMINATE_MATCHING;
+            }
+        }
+    }
+
+    assert(0); // unreachable
+    return HWLM_CONTINUE_MATCHING;
+}
+
+#undef L_PROGRAM_CASE
+#undef L_PROGRAM_NEXT_INSTRUCTION
+#undef L_PROGRAM_NEXT_INSTRUCTION_JUMP
+
+#undef PROGRAM_CASE
+#undef PROGRAM_NEXT_INSTRUCTION
+#undef PROGRAM_NEXT_INSTRUCTION_JUMP
