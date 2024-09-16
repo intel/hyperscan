@@ -152,7 +152,7 @@ unsigned getSomPrecision(unsigned mode) {
         return 8;
     }
 
-    if (mode & HS_MODE_SOM_HORIZON_LARGE) {
+    if (mode & HS_MODE_SOM_HORIZON_LARGE) {//大中小跨度
         return 8;
     } else if (mode & HS_MODE_SOM_HORIZON_MEDIUM) {
         return 4;
@@ -227,10 +227,10 @@ hs_compile_multi_int(const char *const *expressions, const unsigned *flags,
     unsigned somPrecision = getSomPrecision(mode);
 
     target_t target_info = platform ? target_t(*platform)
-                                    : get_current_target();
+                                    : get_current_target();//com 获取一些硬件环境信息
 
     try {
-        CompileContext cc(isStreaming, isVectored, target_info, g);
+        CompileContext cc(isStreaming, isVectored, target_info, g);//初始化上下文
         NG ng(cc, elements, somPrecision);
 
         for (unsigned int i = 0; i < elements; i++) {

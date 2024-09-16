@@ -103,3 +103,6 @@ build/
 docs/
 Doxyfile
 data/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
