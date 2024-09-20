@@ -345,8 +345,8 @@ void mmbit_clear(u8 *bits, u32 total_bits) {
 /** \brief Specialisation of \ref mmbit_set for flat models. */
 static really_inline
 char mmbit_set_flat(u8 *bits, u32 total_bits, u32 key) {
-    bits += mmbit_flat_select_byte(key, total_bits);
-    u8 mask = 1U << (key % 8);
+    bits += mmbit_flat_select_byte(key, total_bits);//com 位图bitmap某一个字节
+    u8 mask = 1U << (key % 8);//com 字节内的某一比特位
     char was_set = !!(*bits & mask);
     *bits |= mask;
     return was_set;

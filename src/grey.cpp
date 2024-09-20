@@ -144,7 +144,7 @@ Grey::Grey(void) :
                    allowTamarama(true), // Tamarama engine
                    tamaChunkSize(100),
                    dumpFlags(0xf),
-                   dumpPath("./"),
+                   dumpPath("../log/"),
                    limitPatternCount(8000000), // 8M patterns
                    limitPatternLength(16000),  // 16K bytes
                    limitGraphVertices(500000), // 500K vertices

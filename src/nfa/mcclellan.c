@@ -540,7 +540,7 @@ with_accel:
                 return MO_MATCHES_PENDING;
             }
 
-            u64a loc = (c - 1) - buf + offAdj + 1;
+            u64a loc = (c - 1) - buf + offAdj + 1;//com loc是匹配结束的位置
             if (single) {
                 DEBUG_PRINTF("reporting %u\n", m->arb_report);
                 if (cb(0, loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {

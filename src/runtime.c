@@ -349,7 +349,7 @@ hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
         return HS_SUCCESS;
     }
 
-    prefetch_data(data, length);
+    prefetch_data(data, length);//com 好像啥也没做，宏定义是空的
 
     /* populate core info in scratch */
     populateCoreInfo(scratch, rose, scratch->bstate, onEvent, userCtx, data,

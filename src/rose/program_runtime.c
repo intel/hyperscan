@@ -2027,7 +2027,7 @@ static rose_inline
 hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
                                     struct hs_scratch *scratch) {//com 这里也有min或者max offset的校验,猜想是命中了subid，判断是否激活combinationID
     u8 *cvec = (u8 *)scratch->core_info.combVector;
-    if (!mmbit_any(cvec, t->ckeyCount)) {
+    if (!mmbit_any(cvec, t->ckeyCount)) {//如果没有编译任何com，则ckeycount=0，无需进行后面的检验
         return HWLM_CONTINUE_MATCHING;
     }
     u64a end = scratch->tctxt.lastCombMatchOffset;
@@ -2278,7 +2278,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                     recordAnchoredLiteralMatch(t, scratch, ri->anch_id, end);
 
                     assert(ri->done_jump); // must progress
-                    pc += ri->done_jump;
+                    pc += ri->done_jump;//com pc这么直接相加，是地址，而不是pc的值相加
                     PROGRAM_NEXT_INSTRUCTION_JUMP
                 }
             }
@@ -2690,7 +2690,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                 enum DedupeResult rv =
                     dedupeCatchup(t, scratch, end, som, end + ri->offset_adjust,
                                   ri->dkey, ri->offset_adjust,
-                                  is_external_report, ri->quash_som, do_som);
+                                  is_external_report, ri->quash_som, do_som);//com 猜测：检查去重结果
                 switch (rv) {
                 case DEDUPE_HALT:
                     return HWLM_TERMINATE_MATCHING;

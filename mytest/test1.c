@@ -61,7 +61,7 @@
 
 #include <hs.h>
 
-#define PATTERN_COUNT 3
+#define PATTERN_COUNT 5
 
 /**
  * This is the function that will be called for each match that occurs. @a ctx
@@ -152,14 +152,14 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    const char *patterns[PATTERN_COUNT] = {"a", "s", "1|2"};
-    unsigned int ids[PATTERN_COUNT] = {1, 2, 3};
-    unsigned int flags[PATTERN_COUNT] = {0,0,HS_FLAG_COMBINATION};
+    const char *patterns[PATTERN_COUNT] = {"aaa", "bbb", "1 & 2","ccc","2 & 4"};
+    unsigned int ids[PATTERN_COUNT] = {1, 2, 3,4,5};
+    unsigned int flags[PATTERN_COUNT] = {HS_FLAG_SINGLEMATCH,0,HS_FLAG_COMBINATION,0,HS_FLAG_COMBINATION};
 
     hs_expr_ext_t e1;
     e1.flags = HS_EXT_FLAG_MIN_OFFSET|HS_EXT_FLAG_MAX_DEPTH;
-    e1.min_offset = 3;
-    e1.max_depth=10;
+    e1.min_offset = 0;
+    e1.max_depth=100;
 
     const hs_expr_ext_t **exts= malloc(PATTERN_COUNT * sizeof(hs_expr_ext_t *));
     exts[0] = &e1;
