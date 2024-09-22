@@ -61,7 +61,8 @@
 
 #include <hs.h>
 
-#define PATTERN_COUNT 5
+#define PATTERN_COUNT 6
+    const char *patterns[PATTERN_COUNT] = {"aaa", "bbb", "11 & 12","ccc"," 12 & 14 & 11","ddd"};
 
 /**
  * This is the function that will be called for each match that occurs. @a ctx
@@ -71,9 +72,11 @@
  */
 static int eventHandler(unsigned int id, unsigned long long from,
                         unsigned long long to, unsigned int flags, void *ctx) {
-    printf("Match for pattern \"%s\" at offset %llu\n", (char *)ctx, to);
+    printf("Match for pattern id = %d,expr =%s  at offset %llu\n", id,patterns[id-11], to);
     return 0;
 }
+    unsigned int ids[PATTERN_COUNT] = {11, 12, 13,14,15,16};
+    unsigned int flags[PATTERN_COUNT] = {HS_FLAG_SINGLEMATCH,0,HS_FLAG_COMBINATION,0,HS_FLAG_COMBINATION,0};
 
 /**
  * Fill a data buffer from the given filename, returning it and filling @a
@@ -146,15 +149,12 @@ static char *readInputData(const char *inputFN, unsigned int *length) {
     return inputData;
 }
 
+
 int main(int argc, char *argv[]) {
     if (argc != 3) {
         fprintf(stderr, "Usage: %s <pattern> <input file>\n", argv[0]);
         return -1;
     }
-
-    const char *patterns[PATTERN_COUNT] = {"aaa", "bbb", "1 & 2","ccc","2 & 4"};
-    unsigned int ids[PATTERN_COUNT] = {1, 2, 3,4,5};
-    unsigned int flags[PATTERN_COUNT] = {HS_FLAG_SINGLEMATCH,0,HS_FLAG_COMBINATION,0,HS_FLAG_COMBINATION};
 
     hs_expr_ext_t e1;
     e1.flags = HS_EXT_FLAG_MIN_OFFSET|HS_EXT_FLAG_MAX_DEPTH;

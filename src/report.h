@@ -325,14 +325,14 @@ int roseDeliverReport(u64a offset, ReportID onmatch, s32 offset_adjust,
 
     int halt = ci->userCallback(onmatch, from_offset, to_offset, flags,
                                 ci->userContext);
-    if (halt) {
+    if (halt) {//com 检查回调函数的返回值，判断是否应该退出匹配
         DEBUG_PRINTF("callback requested to terminate matches\n");
         ci->status |= STATUS_TERMINATED;
         return MO_HALT_MATCHING;
     }
 
     if (ekey != INVALID_EKEY) {
-        markAsMatched(ci->rose, ci->exhaustionVector, ekey);
+        markAsMatched(ci->rose, ci->exhaustionVector, ekey);//com 标记ekey，后续再次命中时候检查ekey，如果已经被标记则不触发回调
         return MO_CONTINUE_MATCHING;
     } else {
         return ROSE_CONTINUE_MATCHING_NO_EXHAUST;

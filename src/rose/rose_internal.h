@@ -210,6 +210,8 @@ struct RoseStateOffsets {
     /** size in bytes of logical multibit */
     u32 logicalVec_size;
 
+    u32 hitLog;
+    u32 hitLogSize;
     /** Combination multibit.
      *
      * entry per combination key (used by Logical Combination). */

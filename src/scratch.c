@@ -86,7 +86,8 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     u32 som_attempted_store_size = proto->som_store_count * sizeof(u64a);
     u32 som_now_size = proto->som_fatbit_size;
     u32 som_attempted_size = proto->som_fatbit_size;
-
+    
+    u32 hitLogSize = proto->logicalKeyCount * sizeof(struct hitOffset);
     struct hs_scratch *s;
     struct hs_scratch *s_tmp;
     size_t queue_size = queueCount * sizeof(struct mq);
@@ -98,7 +99,6 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
         anchored_literal_region_len, proto->anchored_literal_fatbit_size);
     size_t delay_region_size =
         fatbit_array_size(DELAY_SLOT_COUNT, proto->delay_fatbit_size);
-
     // the size is all the allocated stuff, not including the struct itself
     size_t size = queue_size + 63
                   + bStateSize + tStateSize
@@ -113,7 +113,7 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
                   + som_store_size
                   + som_now_size
                   + som_attempted_size
-                  + som_attempted_store_size + 15;
+                  + som_attempted_store_size + 15+hitLogSize;
 
     /* the struct plus the allocated stuff plus padding for cacheline
      * alignment */
@@ -138,7 +138,7 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     s->scratch_alloc = (char *)s_tmp;
     s->fdr_conf = NULL;
 
-    // each of these is at an offset from the previous
+    // each of these is at an offset from the previous //com 注意，current指向s的后面
     char *current = (char *)s + sizeof(*s);
 
     // align current so that the following arrays are naturally aligned: this
@@ -227,6 +227,13 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     s->fullStateSize = fullStateSize;
     current += fullStateSize;
 
+    current = ROUNDUP_PTR(current, alignof(struct hitOffset *));
+    s->core_info.hit_log = (struct hitOffset**)current;
+    current += sizeof(struct hitOffset *) *s->logicalKeyCount;
+    for (u32 i = 0; i < s->logicalKeyCount; i++) {
+        s->core_info.hit_log[i] = (struct hitOffset *)current;
+        current += sizeof(struct hitOffset);
+    }
     *scratch = s;
 
     // Don't get too big for your boots
@@ -275,7 +282,7 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
     int resize = 0;
 
     hs_scratch_t *proto;
-    hs_scratch_t *proto_tmp = hs_scratch_alloc(sizeof(struct hs_scratch) + 256);
+    hs_scratch_t *proto_tmp = hs_scratch_alloc(sizeof(struct hs_scratch) + 256);//多分配了256，所以下面找64位对齐的时候，可以分配给proto
     hs_error_t proto_ret = hs_check_alloc(proto_tmp);
     if (proto_ret != HS_SUCCESS) {
         hs_scratch_free(proto_tmp);
@@ -286,7 +293,7 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
         return proto_ret;
     }
 
-    proto = ROUNDUP_PTR(proto_tmp, 64);
+    proto = ROUNDUP_PTR(proto_tmp, 64);//com 向后找一个64位对齐的位置
 
     if (*scratch) {
         *proto = **scratch;
@@ -367,7 +374,9 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
         proto->deduper.dkey_count = rose->dkeyCount;
         proto->deduper.log_size = rose->dkeyLogSize;
     }
-
+    if(rose->lkeyCount>0){
+        proto->logicalKeyCount = rose->lkeyCount;
+    }
     if (resize) {
         if (*scratch) {
             hs_scratch_free((*scratch)->scratch_alloc);

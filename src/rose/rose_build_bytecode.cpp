@@ -383,7 +383,7 @@ void fillStateOffsets(const RoseBuildImpl &build, u32 rolesWithStateCount,
                       u32 anchorStateSize, u32 activeArrayCount,
                       u32 activeLeftCount, u32 laggedRoseCount,
                       u32 longLitStreamStateRequired, u32 historyRequired,
-                      RoseStateOffsets *so) {
+                      RoseStateOffsets *so) {//com 计算scratch需要的分配的bstate大小
     u32 curr_offset = 0;
 
     // First, runtime status (stores per-stream state, like whether we need a

@@ -87,6 +87,10 @@ struct catchup_pq {
 /** \brief Status flag: Unexpected Rose program error. */
 #define STATUS_ERROR        (1U << 3)
 
+struct hitOffset{
+    u64a first;
+    u64a last;
+};
 /** \brief Core information about the current scan, used everywhere. */
 struct core_info {
     void *userContext; /**< user-supplied context */
@@ -107,6 +111,7 @@ struct core_info {
     size_t hlen; /**< length of history buffer in bytes. */
     u64a buf_offset; /**< stream offset, for the base of the buffer */
     u8 status; /**< stream status bitmask, using STATUS_ flags above */
+    struct hitOffset **hit_log;
 };
 
 /** \brief Rose state information. */
@@ -177,10 +182,11 @@ struct ALIGN_CL_DIRECTIVE hs_scratch {
     u32 bStateSize; /**< sizeof block mode states */
     u32 tStateSize; /**< sizeof transient rose states */
     u32 fullStateSize; /**< size of uncompressed nfa state */
+    u32 logicalKeyCount; /**< number of logical keys */
     struct RoseContext tctxt;
     char *bstate; /**< block mode states */
     char *tstate; /**< state for transient roses */
-    char *fullState; /**< uncompressed NFA state */
+char *fullState; /**< uncompressed NFA state */
     struct mq *queues;
     struct fatbit *aqa; /**< active queue array; fatbit of queues that are valid
                          * & active */

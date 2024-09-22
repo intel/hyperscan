@@ -391,7 +391,7 @@ char mmbit_isset(const u8 *bits, u32 total_bits, u32 key);
 /** \brief Sets the given key in the multibit. Returns 0 if the key was NOT
  * already set, 1 otherwise. */
 static really_inline
-char mmbit_set(u8 *bits, u32 total_bits, u32 key) {
+char mmbit_set(u8 *bits, u32 total_bits, u32 key) {//com totalbits<256时，不起作用
     MDEBUG_PRINTF("%p total_bits %u key %u\n", bits, total_bits, key);
     char status = mmbit_set_i(bits, total_bits, key);//com 卧槽阿 位图bitmap
     MMB_TRACE("SET %u (prev status: %d)\n", key, (int)status);

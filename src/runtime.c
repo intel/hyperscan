@@ -404,7 +404,7 @@ hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
 
         // Apply the small write engine if and only if the block (buffer) is
         // small enough. Otherwise, we allow rose &co to deal with it.
-        if (length < smwr->largestBuffer) {
+        if (length < smwr->largestBuffer) {//com buffer长度小于35进这里
             DEBUG_PRINTF("Attempting small write of block %u bytes long.\n",
                          length);
             runSmallWriteEngine(smwr, scratch);

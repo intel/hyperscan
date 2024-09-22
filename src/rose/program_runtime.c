@@ -2027,7 +2027,7 @@ static rose_inline
 hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
                                     struct hs_scratch *scratch) {//com 这里也有min或者max offset的校验,猜想是命中了subid，判断是否激活combinationID
     u8 *cvec = (u8 *)scratch->core_info.combVector;
-    if (!mmbit_any(cvec, t->ckeyCount)) {//如果没有编译任何com，则ckeycount=0，无需进行后面的检验
+    if (!mmbit_any(cvec, t->ckeyCount)) {//如果没有设置任何cvec，直接返回
         return HWLM_CONTINUE_MATCHING;
     }
     u64a end = scratch->tctxt.lastCombMatchOffset;
@@ -3034,7 +3034,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                 assert(ri->ckey != INVALID_CKEY);
                 assert(ri->ckey < t->ckeyCount);
                 char *cvec = scratch->core_info.combVector;
-                setCombinationActive(t, cvec, ri->ckey);
+                setCombinationActive(t, cvec, ri->ckey);// 把有可能触发激活的comid全部设置1
             }
             PROGRAM_NEXT_INSTRUCTION
 
