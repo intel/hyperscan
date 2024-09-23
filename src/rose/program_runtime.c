@@ -3025,6 +3025,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                 assert(ri->lkey < t->lkeyCount);
                 char *lvec = scratch->core_info.logicalVector;
                 setLogicalVal(t, lvec, ri->lkey, 1);
+                setLogicalOffset(scratch, ri->lkey, end + ri->offset_adjust);
                 updateLastCombMatchOffset(tctxt, end + ri->offset_adjust);
             }
             PROGRAM_NEXT_INSTRUCTION

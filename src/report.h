@@ -179,6 +179,14 @@ void setLogicalVal(const struct RoseEngine *rose, char *lvec, u32 lkey,
         break;
     }
 }
+static really_inline void setLogicalOffset(struct hs_scratch *scratch, u32 lkey,
+                                           u64a end) {
+    DEBUG_PRINTF("set hitOffset logical key %u,offset = %u\n", lkey, end);
+    if (scratch->core_info.hit_log[lkey]->first == 0) {
+        scratch->core_info.hit_log[lkey]->first = end;
+    }
+    scratch->core_info.hit_log[lkey]->last = end;
+}
 
 /** \brief Mark key \a ckey on in the combination vector. */
 static really_inline
