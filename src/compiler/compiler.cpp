@@ -321,6 +321,12 @@ void addExpression(NG &ng, unsigned index, const char *expression,
                 if (ext->flags & HS_EXT_FLAG_MAX_OFFSET) {
                     max_offset = ext->max_offset;
                 }
+                if (ext->flags & HS_EXT_FLAG_MAX_DEPTH) {
+                    if (!(ext->flags & HS_EXT_FLAG_MAX_OFFSET) ||
+                        ext->max_depth < max_offset) {
+                        max_offset = ext->max_depth;
+                    }
+                }
             }
             ng.rm.pl.parseLogicalCombination(id, expression, ekey, min_offset,
                                              max_offset);
