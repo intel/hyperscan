@@ -87,10 +87,7 @@ struct catchup_pq {
 /** \brief Status flag: Unexpected Rose program error. */
 #define STATUS_ERROR        (1U << 3)
 
-struct hitOffset{
-    u64a first;
-    u64a last;
-};
+
 /** \brief Core information about the current scan, used everywhere. */
 struct core_info {
     void *userContext; /**< user-supplied context */

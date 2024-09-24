@@ -135,7 +135,7 @@ void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
     s->core_info.hbuf = history;
     s->core_info.hlen = hlen;
     s->core_info.buf_offset = offset;
-
+    s->core_info.hit_log = rose->hit_log;
     /* and some stuff not actually in core info */
     s->som_set_now_offset = ~0ULL;
     s->deduper.current_report_offset = ~0ULL;

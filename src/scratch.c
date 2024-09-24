@@ -87,7 +87,6 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     u32 som_now_size = proto->som_fatbit_size;
     u32 som_attempted_size = proto->som_fatbit_size;
     
-    u32 hitLogSize = proto->logicalKeyCount * sizeof(struct hitOffset);
     struct hs_scratch *s;
     struct hs_scratch *s_tmp;
     size_t queue_size = queueCount * sizeof(struct mq);
@@ -113,7 +112,7 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
                   + som_store_size
                   + som_now_size
                   + som_attempted_size
-                  + som_attempted_store_size + 15+hitLogSize;
+                  + som_attempted_store_size + 15;
 
     /* the struct plus the allocated stuff plus padding for cacheline
      * alignment */
@@ -227,13 +226,6 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     s->fullStateSize = fullStateSize;
     current += fullStateSize;
 
-    current = ROUNDUP_PTR(current, alignof(struct hitOffset *));
-    s->core_info.hit_log = (struct hitOffset**)current;
-    current += sizeof(struct hitOffset *) *s->logicalKeyCount;
-    for (u32 i = 0; i < s->logicalKeyCount; i++) {
-        s->core_info.hit_log[i] = (struct hitOffset *)current;
-        current += sizeof(struct hitOffset);
-    }
     *scratch = s;
 
     // Don't get too big for your boots
@@ -374,9 +366,7 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
         proto->deduper.dkey_count = rose->dkeyCount;
         proto->deduper.log_size = rose->dkeyLogSize;
     }
-    if(rose->lkeyCount>0){
-        proto->logicalKeyCount = rose->lkeyCount;
-    }
+
     if (resize) {
         if (*scratch) {
             hs_scratch_free((*scratch)->scratch_alloc);
