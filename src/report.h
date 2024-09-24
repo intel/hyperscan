@@ -203,9 +203,9 @@ checkCombinationPriority(const struct CombInfo *ci,
         return 1;
     }
     for (u32 i = 0; i < ci->combinationPriorityCount; i++) {
-        u32 frontID = ci->combinationPriority[i].frontID;
-        u32 backID = ci->combinationPriority[i].backID;
-        u32 distance = ci->combinationPriority[i].distance;
+        u32 frontID = ci->combinationPriority[i]->frontID;
+        u32 backID = ci->combinationPriority[i]->backID;
+        u32 distance = ci->combinationPriority[i]->distance;
         if (core_info->hit_log[backID]->last -
                 core_info->hit_log[frontID]->first <
             distance) {

@@ -68,7 +68,7 @@ struct CombInfo {
     u64a min_offset;
     u64a max_offset;
     u32 combinationPriorityCount;
-    hs_combination_subid_priority_t * combinationPriority;
+    hs_combination_subid_priority_t ** combinationPriority;
 };
 
 /** Temporarily use to seperate operations' id from reports' lkey

@@ -343,16 +343,18 @@ void ParsedLogical::addPriority(u32 id, const hs_expr_ext *ext) {
     assert(ckey < combInfoMap.size());
     CombInfo &ci = combInfoMap[ckey];
     ci.combinationPriorityCount = ext->combinationPriorityCount;
-    ci.combinationPriority = (hs_combination_subid_priority_t *)malloc(
+    ci.combinationPriority = (hs_combination_subid_priority_t **)malloc(
         sizeof(hs_combination_subid_priority_t) *
         ext->combinationPriorityCount);
     for (u32 i = 0; i < ext->combinationPriorityCount; i++) {
-        ci.combinationPriority[i].frontID =
-            toLogicalKeyMap.find((ext->combinationPriority[i].frontID))->second;
-        ci.combinationPriority[i].backID =
-            toLogicalKeyMap.find((ext->combinationPriority[i].backID))->second;
-        ci.combinationPriority[i].distance =
-            ext->combinationPriority[i].distance;
+        ci.combinationPriority[i] = (hs_combination_subid_priority_t *)malloc(
+            sizeof(hs_combination_subid_priority_t));
+        ci.combinationPriority[i]->frontID =
+            toLogicalKeyMap.find((ext->combinationPriority[i]->frontID))->second;
+        ci.combinationPriority[i]->backID =
+            toLogicalKeyMap.find((ext->combinationPriority[i]->backID))->second;
+        ci.combinationPriority[i]->distance =
+            ext->combinationPriority[i]->distance;
     }
 }
 

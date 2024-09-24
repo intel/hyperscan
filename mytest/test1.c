@@ -163,15 +163,21 @@ int main(int argc, char *argv[]) {
 
     hs_expr_ext_t e2;
     e2.flags= HS_EXT_FLAG_COMBINATION_PRIORITY;
-    e2.combinationPriorityCount=1;
+    e2.combinationPriorityCount=2;
+    e2.combinationPriority = malloc(sizeof(hs_combination_subid_priority_t) * 2);
     hs_combination_subid_priority_t p1;
     p1.frontID=11;
     p1.backID=12;
     p1.distance=5;
-    e2.combinationPriority[0]=p1;
+    hs_combination_subid_priority_t p2;
+    p2.frontID = 12;
+    p2.backID = 14;
+    p2.distance = 5;
+    e2.combinationPriority[0]=&p1;
+    e2.combinationPriority[1]=&p2;
     const hs_expr_ext_t **exts= malloc(PATTERN_COUNT * sizeof(hs_expr_ext_t *));
     exts[0] = &e1;
-    exts[2] = &e2;
+    exts[4] = &e2;
     char *inputFN = argv[2];
 
     if (access(inputFN, F_OK) != 0) {
@@ -209,6 +215,14 @@ int main(int argc, char *argv[]) {
 
     printf("Scanning %u bytes with Hyperscan\n", length);
     // length =10;
+    if (hs_scan(database, inputData, length, 0, scratch, eventHandler, NULL) !=
+        HS_SUCCESS) {
+        fprintf(stderr, "ERROR: Unable to scan input buffer. Exiting.\n");
+        hs_free_scratch(scratch);
+        free(inputData);
+        hs_free_database(database);
+        return -1;
+    }
     if (hs_scan(database, inputData, length, 0, scratch, eventHandler, NULL) !=
         HS_SUCCESS) {
         fprintf(stderr, "ERROR: Unable to scan input buffer. Exiting.\n");

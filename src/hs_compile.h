@@ -271,7 +271,7 @@ typedef struct hs_expr_ext {
     unsigned hamming_distance;
     unsigned max_depth;
     unsigned  combinationPriorityCount;
-    hs_combination_subid_priority_t *combinationPriority;
+    hs_combination_subid_priority_t **combinationPriority;
 } hs_expr_ext_t;
 
 /**

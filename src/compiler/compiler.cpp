@@ -317,7 +317,9 @@ void addExpression(NG &ng, unsigned index, const char *expression,
                     ~(HS_EXT_FLAG_MIN_OFFSET | HS_EXT_FLAG_MAX_OFFSET |
                       HS_EXT_FLAG_MAX_DEPTH |
                       HS_EXT_FLAG_COMBINATION_PRIORITY)) {
-                    throw CompileError("only HS_EXT_FLAG_MIN_OFFSET and "
+                    throw CompileError("only HS_EXT_FLAG_MIN_OFFSET ,"
+                                        "HS_EXT_FLAG_MAX_DEPTH,"
+                                        "HS_EXT_FLAG_COMBINATION_PRIORITY and "
                                        "HS_EXT_FLAG_MAX_OFFSET extra flags "
                                        "are supported in combination "
                                        "with HS_FLAG_COMBINATION.");
