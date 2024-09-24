@@ -209,13 +209,20 @@ checkCombinationPriority(const struct CombInfo *ci,
         if (core_info->hit_log[backID]->last -
                 core_info->hit_log[frontID]->first <
             distance) {
-            DEBUG_PRINTF("combination priority not match,front lkey = %u,back "
-                         "lkey = %u,expected more than %u,acutal distance is %llu\n",
-                         frontID, backID, distance,
-                         core_info->hit_log[backID]->last -
-                             core_info->hit_log[frontID]->first);
+            DEBUG_PRINTF(
+                "combination priority failed,front lkey = %u,back "
+                "lkey = %u,expected more than %u,acutal distance is %llu\n",
+                frontID, backID, distance,
+                core_info->hit_log[backID]->last -
+                    core_info->hit_log[frontID]->first);
             return 0;
         }
+        DEBUG_PRINTF(
+            "combination priority pass,front lkey = %u,back "
+            "lkey = %u,expected more than %u,acutal distance is %llu\n",
+            frontID, backID, distance,
+            core_info->hit_log[backID]->last -
+                core_info->hit_log[frontID]->first);
     }
     return 1;
 }
