@@ -107,6 +107,8 @@ void ParsedLogical::combinationInfoAdd(UNUSED u32 ckey, u32 id, u32 ekey,
     ci.result = lkey_result;
     ci.min_offset = min_offset;
     ci.max_offset = max_offset;
+    ci.combinationPriority = NULL;
+    ci.combinationPriorityCount = 0;
     combInfoMap.push_back(ci);
 
     DEBUG_PRINTF("ckey %u (id %u) -> lkey %u..%u, ekey=0x%x\n", ckey, ci.id,
@@ -157,7 +159,7 @@ void ParsedLogical::validateSubIDs(const unsigned *ids,
         }
     }
 }
-
+//com 对combInfoMap中的start和result重新编号
 void ParsedLogical::logicalKeyRenumber() {
     // renumber operation lkey in op vector
     for (auto &op : logicalTree) {
@@ -332,6 +334,26 @@ void ParsedLogical::parseLogicalCombination(unsigned id, const char *logical,
     }
     combinationInfoAdd(ckey, id, ekey, lkey_start, lkey_result,
                        min_offset, max_offset);
+}
+void ParsedLogical::addPriority(u32 id, const hs_expr_ext *ext) {
+    assert(ext->flags & HS_EXT_FLAG_COMBINATION_PRIORITY);
+    auto it = toCombKeyMap.find(id);
+    assert(it != toCombKeyMap.end());
+    u32 ckey = it->second;
+    assert(ckey < combInfoMap.size());
+    CombInfo &ci = combInfoMap[ckey];
+    ci.combinationPriorityCount = ext->combinationPriorityCount;
+    ci.combinationPriority = (hs_combination_subid_priority_t *)malloc(
+        sizeof(hs_combination_subid_priority_t) *
+        ext->combinationPriorityCount);
+    for (u32 i = 0; i < ext->combinationPriorityCount; i++) {
+        ci.combinationPriority[i].frontID =
+            toLogicalKeyMap.find((ext->combinationPriority[i].frontID))->second;
+        ci.combinationPriority[i].backID =
+            toLogicalKeyMap.find((ext->combinationPriority[i].backID))->second;
+        ci.combinationPriority[i].distance =
+            ext->combinationPriority[i].distance;
+    }
 }
 
 } // namespace ue2

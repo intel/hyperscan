@@ -83,7 +83,8 @@ void validateExt(const hs_expr_ext &ext) {
                                                     HS_EXT_FLAG_MIN_LENGTH |
                                                     HS_EXT_FLAG_EDIT_DISTANCE |
                                                     HS_EXT_FLAG_HAMMING_DISTANCE|
-                                                    HS_EXT_FLAG_MAX_DEPTH;
+                                                    HS_EXT_FLAG_MAX_DEPTH|
+                                                    HS_EXT_FLAG_COMBINATION_PRIORITY;
     if (ext.flags & ~ALL_EXT_FLAGS) {
         throw CompileError("Invalid hs_expr_ext flag set.");
     }
@@ -160,6 +161,10 @@ ParsedExpression::ParsedExpression(unsigned index_in, const char *expression,
     if ((flags & HS_FLAG_QUIET) && (flags & HS_FLAG_SOM_LEFTMOST)) {
         throw CompileError("HS_FLAG_QUIET is not supported in "
                            "combination with HS_FLAG_SOM_LEFTMOST.");
+    }
+    if (flags & HS_EXT_FLAG_COMBINATION_PRIORITY){
+        throw CompileError("HS_EXT_FLAG_COMBINATION_PRIORITY is just supported in "
+                           "combination with HS_FLAG_COMBINATION.");
     }
     flags &= ~HS_FLAG_QUIET;
     ParseMode mode(flags);
@@ -308,8 +313,10 @@ void addExpression(NG &ng, unsigned index, const char *expression,
             }
             if (ext) {
                 validateExt(*ext);
-                if (ext->flags & ~(HS_EXT_FLAG_MIN_OFFSET |
-                                   HS_EXT_FLAG_MAX_OFFSET)) {
+                if (ext->flags &
+                    ~(HS_EXT_FLAG_MIN_OFFSET | HS_EXT_FLAG_MAX_OFFSET |
+                      HS_EXT_FLAG_MAX_DEPTH |
+                      HS_EXT_FLAG_COMBINATION_PRIORITY)) {
                     throw CompileError("only HS_EXT_FLAG_MIN_OFFSET and "
                                        "HS_EXT_FLAG_MAX_OFFSET extra flags "
                                        "are supported in combination "
@@ -330,6 +337,9 @@ void addExpression(NG &ng, unsigned index, const char *expression,
             }
             ng.rm.pl.parseLogicalCombination(id, expression, ekey, min_offset,
                                              max_offset);
+            if (ext && (ext->flags & HS_EXT_FLAG_COMBINATION_PRIORITY)) {
+                ng.rm.pl.addPriority(id, ext);
+            }
             DEBUG_PRINTF("parsed logical combination expression %u\n", id);
         }
         return;

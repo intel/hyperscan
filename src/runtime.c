@@ -364,6 +364,7 @@ hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
         scratch->tctxt.lastCombMatchOffset = 0;
         clearLvec(rose, scratch->core_info.logicalVector,
                   scratch->core_info.combVector);
+        clearHitLog(scratch);
     }
 
     if (!length) {

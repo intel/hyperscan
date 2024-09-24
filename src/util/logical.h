@@ -34,7 +34,7 @@
 #define LOGICAL_H
 
 #include "ue2common.h"
-
+#include "hs_compile.h"
 /** Index meaning a given logical key is invalid. */
 #define INVALID_LKEY    (~(u32)0)
 #define INVALID_CKEY    INVALID_LKEY
@@ -67,6 +67,8 @@ struct CombInfo {
     u32 result; //!< ckey of logical operation to give final result
     u64a min_offset;
     u64a max_offset;
+    u32 combinationPriorityCount;
+    hs_combination_subid_priority_t * combinationPriority;
 };
 
 /** Temporarily use to seperate operations' id from reports' lkey

@@ -181,7 +181,7 @@ void setLogicalVal(const struct RoseEngine *rose, char *lvec, u32 lkey,
 }
 static really_inline void setLogicalOffset(struct hs_scratch *scratch, u32 lkey,
                                            u64a end) {
-    DEBUG_PRINTF("set hitOffset logical key %u,offset = %u\n", lkey, end);
+    DEBUG_PRINTF("set hitOffset logical key %u,offset = %llu\n", lkey, end);
     if (scratch->core_info.hit_log[lkey]->first == 0) {
         scratch->core_info.hit_log[lkey]->first = end;
     }
@@ -196,7 +196,29 @@ void setCombinationActive(const struct RoseEngine *rose, char *cvec, u32 ckey) {
     assert(ckey < rose->ckeyCount);
     mmbit_set((u8 *)cvec, rose->ckeyCount, ckey);
 }
-
+static really_inline int
+checkCombinationPriority(const struct CombInfo *ci,
+                         const struct core_info *core_info) {
+    if (!ci->combinationPriorityCount) {
+        return 1;
+    }
+    for (u32 i = 0; i < ci->combinationPriorityCount; i++) {
+        u32 frontID = ci->combinationPriority[i].frontID;
+        u32 backID = ci->combinationPriority[i].backID;
+        u32 distance = ci->combinationPriority[i].distance;
+        if (core_info->hit_log[backID]->last -
+                core_info->hit_log[frontID]->first <
+            distance) {
+            DEBUG_PRINTF("combination priority not match,front lkey = %u,back "
+                         "lkey = %u,expected more than %u,acutal distance is %llu\n",
+                         frontID, backID, distance,
+                         core_info->hit_log[backID]->last -
+                             core_info->hit_log[frontID]->first);
+            return 0;
+        }
+    }
+    return 1;
+}
 /** \brief Returns 1 if compliant to all logical combinations. */
 static really_inline
 char isLogicalCombination(const struct RoseEngine *rose, char *lvec,
@@ -290,6 +312,16 @@ void clearLvec(const struct RoseEngine *rose, char *lvec, char *cvec) {
     DEBUG_PRINTF("clearing cvec %p %u\n", cvec, rose->ckeyCount);
     mmbit_clear((u8 *)lvec, rose->lkeyCount + rose->lopCount);
     mmbit_clear((u8 *)cvec, rose->ckeyCount);
+}
+static really_inline
+void clearHitLog(const struct hs_scratch *scratch) {
+
+    DEBUG_PRINTF("clearing hitlog size =  %u\n",
+                 scratch->logicalKeyCount);
+    for (u32 i = 0; i < scratch->logicalKeyCount; i++) {
+        scratch->core_info.hit_log[i]->first = 0;
+        scratch->core_info.hit_log[i]->last = 0;
+    }
 }
 
 /** \brief Clear all keys in the combination vector. */

@@ -2062,8 +2062,12 @@ hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
             DEBUG_PRINTF("Logical Combination Failed!\n");
             continue;
         }
-
+        if (!checkCombinationPriority(ci,&(scratch->core_info))){
+            DEBUG_PRINTF("Combination Priority Failed!\n");
+            continue;
+        }
         DEBUG_PRINTF("Logical Combination Passed!\n");// com 重点突破口
+        //检查ci中的priority是否满足
         if (roseReportComb(t, scratch, end, ci->id, 0,
                            ci->ekey) == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;

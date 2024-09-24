@@ -87,7 +87,7 @@ public:
         assert(ckey < combInfoMap.size());
         return combInfoMap.at(ckey);
     }
-
+    void addPriority(u32 id,const hs_expr_ext_t *);
 private:
     /** \brief Mapping from ckey to combination info. */
     std::vector<CombInfo> combInfoMap;
