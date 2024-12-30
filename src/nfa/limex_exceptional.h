@@ -246,7 +246,7 @@ int PE_FN(STATE_ARG, ESTATE_ARG, UNUSED u32 diffmask, STATE_T *succ,
         u64a word = eq512mask(emask, load_m512(&limex->exceptionBitMask));
 
         do {
-            u32 bit = FIND_AND_CLEAR_FN(&word);
+            u32 bit = findAndClearLSB_64(&word);
             const EXCEPTION_T *e = &exceptions[bit];
 
             if (!RUN_EXCEPTION_FN(e, STATE_ARG_NAME, succ,
