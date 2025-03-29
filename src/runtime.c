@@ -135,7 +135,7 @@ void populateCoreInfo(struct hs_scratch *s, const struct RoseEngine *rose,
     s->core_info.hbuf = history;
     s->core_info.hlen = hlen;
     s->core_info.buf_offset = offset;
-
+    s->core_info.hit_log = rose->hit_log;
     /* and some stuff not actually in core info */
     s->som_set_now_offset = ~0ULL;
     s->deduper.current_report_offset = ~0ULL;
@@ -349,7 +349,7 @@ hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
         return HS_SUCCESS;
     }
 
-    prefetch_data(data, length);
+    prefetch_data(data, length);//com 好像啥也没做，宏定义是空的
 
     /* populate core info in scratch */
     populateCoreInfo(scratch, rose, scratch->bstate, onEvent, userCtx, data,
@@ -364,6 +364,7 @@ hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
         scratch->tctxt.lastCombMatchOffset = 0;
         clearLvec(rose, scratch->core_info.logicalVector,
                   scratch->core_info.combVector);
+        clearHitLog(scratch);
     }
 
     if (!length) {
@@ -404,14 +405,14 @@ hs_error_t HS_CDECL hs_scan(const hs_database_t *db, const char *data,
 
         // Apply the small write engine if and only if the block (buffer) is
         // small enough. Otherwise, we allow rose &co to deal with it.
-        if (length < smwr->largestBuffer) {
+        if (length < smwr->largestBuffer) {//com buffer长度小于35进这里
             DEBUG_PRINTF("Attempting small write of block %u bytes long.\n",
                          length);
             runSmallWriteEngine(smwr, scratch);
             goto done_scan;
         }
     }
-
+//开始匹配
     switch (rose->runtimeImpl) {
     default:
         assert(0);

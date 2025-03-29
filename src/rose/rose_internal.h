@@ -210,6 +210,8 @@ struct RoseStateOffsets {
     /** size in bytes of logical multibit */
     u32 logicalVec_size;
 
+    u32 hitLog;
+    u32 hitLogSize;
     /** Combination multibit.
      *
      * entry per combination key (used by Logical Combination). */
@@ -480,6 +482,7 @@ struct RoseEngine {
     u32 longLitStreamState; // size in bytes
 
     struct scatter_full_plan state_init;
+    struct hitOffset **hit_log;
 };
 
 struct ALIGN_CL_DIRECTIVE anchored_matcher_info {
@@ -554,6 +557,10 @@ struct RoseLongLitHashEntry {
     u32 str_len;
 };
 
+struct hitOffset{
+    u64a first;
+    u64a last;
+};
 static really_inline
 const struct anchored_matcher_info *getALiteralMatcher(
         const struct RoseEngine *t) {

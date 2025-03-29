@@ -383,7 +383,7 @@ void fillStateOffsets(const RoseBuildImpl &build, u32 rolesWithStateCount,
                       u32 anchorStateSize, u32 activeArrayCount,
                       u32 activeLeftCount, u32 laggedRoseCount,
                       u32 longLitStreamStateRequired, u32 historyRequired,
-                      RoseStateOffsets *so) {
+                      RoseStateOffsets *so) {//com 计算scratch需要的分配的bstate大小
     u32 curr_offset = 0;
 
     // First, runtime status (stores per-stream state, like whether we need a
@@ -3605,6 +3605,13 @@ map<left_id, u32> makeLeftQueueMap(const RoseGraph &g,
 
     return lqm;
 }
+static void allocHitLog(RoseEngine &proto){
+    proto.hit_log = (struct hitOffset **)malloc(sizeof(struct hitOffset *) * proto.lkeyCount);
+    for (u32 i = 0; i < proto.lkeyCount; i++) {
+        proto.hit_log[i] = (struct hitOffset *)malloc(sizeof(struct hitOffset));
+        memset(proto.hit_log[i], 0, sizeof(struct hitOffset) );
+    }
+}
 
 bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     // We keep all our offsets, counts etc. in a prototype RoseEngine which we
@@ -3868,7 +3875,7 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
     proto.ematcherRegionSize = ematcher_region_size;
 
     proto.size = currOffset;
-
+    allocHitLog(proto);
     // Time to allocate the real RoseEngine structure, at cacheline alignment.
     auto engine = make_zeroed_bytecode_ptr<RoseEngine>(currOffset, 64);
     assert(engine); // will have thrown bad_alloc otherwise.
@@ -3892,5 +3899,6 @@ bytecode_ptr<RoseEngine> RoseBuildImpl::buildFinalEngine(u32 minWidth) {
 
     return engine;
 }
+
 
 } // namespace ue2
