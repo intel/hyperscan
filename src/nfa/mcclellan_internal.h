@@ -87,7 +87,7 @@ struct mcclellan {
     u32 sherman_end; /**< offset of the end of the state_info structures
                       *  relative to the start of the nfa structure */
     u16 accel_limit_8; /**< 8 bit, lowest accelerable state */
-    u16 accept_limit_8; /**< 8 bit, lowest accept state */
+    u16 accept_limit_8; /**< 8 bit, lowest accept state *///com 最小的可接受状态，超过这个状态的都是可接受状态
     u16 sherman_limit; /**< lowest sherman state */
     u16 wide_limit; /**< 8/16 bit, lowest wide head state */
     u8  alphaShift;

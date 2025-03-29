@@ -170,7 +170,7 @@ private:
     std::unordered_map<ReportID, external_report_info> externalIdMap;
 
     /** \brief Mapping from expression index to exhaustion key. */
-    std::map<s64a, u32> toExhaustibleKeyMap;
+    std::map<s64a, u32> toExhaustibleKeyMap;//com 设置了HS_FLAG_SINGLEMATCH
 
     /** \brief Unallocated expression index, used for \ref
      * getUnassociatedExhaustibleKey.

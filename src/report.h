@@ -179,6 +179,14 @@ void setLogicalVal(const struct RoseEngine *rose, char *lvec, u32 lkey,
         break;
     }
 }
+static really_inline void setLogicalOffset(struct hs_scratch *scratch, u32 lkey,
+                                           u64a end) {
+    DEBUG_PRINTF("set hitOffset logical key %u,offset = %llu\n", lkey, end);
+    if (scratch->core_info.hit_log[lkey]->first == 0) {
+        scratch->core_info.hit_log[lkey]->first = end;
+    }
+    scratch->core_info.hit_log[lkey]->last = end;
+}
 
 /** \brief Mark key \a ckey on in the combination vector. */
 static really_inline
@@ -188,17 +196,46 @@ void setCombinationActive(const struct RoseEngine *rose, char *cvec, u32 ckey) {
     assert(ckey < rose->ckeyCount);
     mmbit_set((u8 *)cvec, rose->ckeyCount, ckey);
 }
-
+static really_inline int
+checkCombinationPriority(const struct CombInfo *ci,
+                         const struct core_info *core_info) {
+    if (!ci->combinationPriorityCount) {
+        return 1;
+    }
+    for (u32 i = 0; i < ci->combinationPriorityCount; i++) {
+        u32 frontID = ci->combinationPriority[i]->frontID;
+        u32 backID = ci->combinationPriority[i]->backID;
+        u32 distance = ci->combinationPriority[i]->distance;
+        if (core_info->hit_log[backID]->last -
+                core_info->hit_log[frontID]->first <
+            distance) {
+            DEBUG_PRINTF(
+                "combination priority failed,front lkey = %u,back "
+                "lkey = %u,expected more than %u,acutal distance is %llu\n",
+                frontID, backID, distance,
+                core_info->hit_log[backID]->last -
+                    core_info->hit_log[frontID]->first);
+            return 0;
+        }
+        DEBUG_PRINTF(
+            "combination priority pass,front lkey = %u,back "
+            "lkey = %u,expected more than %u,acutal distance is %llu\n",
+            frontID, backID, distance,
+            core_info->hit_log[backID]->last -
+                core_info->hit_log[frontID]->first);
+    }
+    return 1;
+}
 /** \brief Returns 1 if compliant to all logical combinations. */
 static really_inline
 char isLogicalCombination(const struct RoseEngine *rose, char *lvec,
-                          u32 start, u32 result) {
+                          u32 start, u32 result) {//com 可能是突破点，对组合逻辑进行校验
     const struct LogicalOp *logicalTree = (const struct LogicalOp *)
         ((const char *)rose + rose->logicalTreeOffset);
     assert(start >= rose->lkeyCount);
     assert(start <= result);
     assert(result < rose->lkeyCount + rose->lopCount);
-    for (u32 i = start; i <= result; i++) {
+    for (u32 i = start; i <= result; i++) {//com 猜想是遍历逻辑树中所有节点
         const struct LogicalOp *op = logicalTree + (i - rose->lkeyCount);
         assert(i == op->id);
         assert(op->op <= LAST_LOGICAL_OP);
@@ -283,6 +320,16 @@ void clearLvec(const struct RoseEngine *rose, char *lvec, char *cvec) {
     mmbit_clear((u8 *)lvec, rose->lkeyCount + rose->lopCount);
     mmbit_clear((u8 *)cvec, rose->ckeyCount);
 }
+static really_inline
+void clearHitLog(const struct hs_scratch *scratch) {
+
+    DEBUG_PRINTF("clearing hitlog size =  %u\n",
+                 scratch->logicalKeyCount);
+    for (u32 i = 0; i < scratch->logicalKeyCount; i++) {
+        scratch->core_info.hit_log[i]->first = 0;
+        scratch->core_info.hit_log[i]->last = 0;
+    }
+}
 
 /** \brief Clear all keys in the combination vector. */
 static really_inline
@@ -299,7 +346,7 @@ void clearCvec(const struct RoseEngine *rose, char *cvec) {
  */
 static really_inline
 int roseDeliverReport(u64a offset, ReportID onmatch, s32 offset_adjust,
-                      struct hs_scratch *scratch, u32 ekey) {
+                      struct hs_scratch *scratch, u32 ekey) {//com 直接调用eventhandler
     assert(scratch);
     assert(scratch->magic == SCRATCH_MAGIC);
 
@@ -325,14 +372,14 @@ int roseDeliverReport(u64a offset, ReportID onmatch, s32 offset_adjust,
 
     int halt = ci->userCallback(onmatch, from_offset, to_offset, flags,
                                 ci->userContext);
-    if (halt) {
+    if (halt) {//com 检查回调函数的返回值，判断是否应该退出匹配
         DEBUG_PRINTF("callback requested to terminate matches\n");
         ci->status |= STATUS_TERMINATED;
         return MO_HALT_MATCHING;
     }
 
     if (ekey != INVALID_EKEY) {
-        markAsMatched(ci->rose, ci->exhaustionVector, ekey);
+        markAsMatched(ci->rose, ci->exhaustionVector, ekey);//com 标记ekey，后续再次命中时候检查ekey，如果已经被标记则不触发回调
         return MO_CONTINUE_MATCHING;
     } else {
         return ROSE_CONTINUE_MATCHING_NO_EXHAUST;

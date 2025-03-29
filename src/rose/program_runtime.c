@@ -2025,13 +2025,13 @@ void updateSeqPoint(struct RoseContext *tctxt, u64a offset,
 
 static rose_inline
 hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
-                                    struct hs_scratch *scratch) {
+                                    struct hs_scratch *scratch) {//com 这里也有min或者max offset的校验,猜想是命中了subid，判断是否激活combinationID
     u8 *cvec = (u8 *)scratch->core_info.combVector;
-    if (!mmbit_any(cvec, t->ckeyCount)) {
+    if (!mmbit_any(cvec, t->ckeyCount)) {//如果没有设置任何cvec，直接返回
         return HWLM_CONTINUE_MATCHING;
     }
     u64a end = scratch->tctxt.lastCombMatchOffset;
-    for (u32 i = mmbit_iterate(cvec, t->ckeyCount, MMB_INVALID);
+    for (u32 i = mmbit_iterate(cvec, t->ckeyCount, MMB_INVALID);//com 遍历所有的待激活的combinationID
          i != MMB_INVALID; i = mmbit_iterate(cvec, t->ckeyCount, i)) {
         const struct CombInfo *combInfoMap = (const struct CombInfo *)
             ((const char *)t + t->combInfoMapOffset);
@@ -2062,8 +2062,12 @@ hwlmcb_rv_t flushActiveCombinations(const struct RoseEngine *t,
             DEBUG_PRINTF("Logical Combination Failed!\n");
             continue;
         }
-
-        DEBUG_PRINTF("Logical Combination Passed!\n");
+        if (!checkCombinationPriority(ci,&(scratch->core_info))){
+            DEBUG_PRINTF("Combination Priority Failed!\n");
+            continue;
+        }
+        DEBUG_PRINTF("Logical Combination Passed!\n");// com 重点突破口
+        //检查ci中的priority是否满足
         if (roseReportComb(t, scratch, end, ci->id, 0,
                            ci->ekey) == HWLM_TERMINATE_MATCHING) {
             return HWLM_TERMINATE_MATCHING;
@@ -2150,7 +2154,7 @@ hwlmcb_rv_t checkPurelyNegatives(const struct RoseEngine *t,
 
 hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                            struct hs_scratch *scratch, u32 programOffset,
-                           u64a som, u64a end, u8 prog_flags) {
+                           u64a som, u64a end, u8 prog_flags) {//com 直接回调eventhandler,做很多校验，比如是否满足minoffset，感觉可以在这里处理组合逻辑的前后顺序问题
     DEBUG_PRINTF("program=%u, offsets [%llu,%llu], flags=%u\n", programOffset,
                  som, end, prog_flags);
 
@@ -2278,7 +2282,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                     recordAnchoredLiteralMatch(t, scratch, ri->anch_id, end);
 
                     assert(ri->done_jump); // must progress
-                    pc += ri->done_jump;
+                    pc += ri->done_jump;//com pc这么直接相加，是地址，而不是pc的值相加
                     PROGRAM_NEXT_INSTRUCTION_JUMP
                 }
             }
@@ -2690,7 +2694,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                 enum DedupeResult rv =
                     dedupeCatchup(t, scratch, end, som, end + ri->offset_adjust,
                                   ri->dkey, ri->offset_adjust,
-                                  is_external_report, ri->quash_som, do_som);
+                                  is_external_report, ri->quash_som, do_som);//com 猜测：检查去重结果
                 switch (rv) {
                 case DEDUPE_HALT:
                     return HWLM_TERMINATE_MATCHING;
@@ -3025,6 +3029,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                 assert(ri->lkey < t->lkeyCount);
                 char *lvec = scratch->core_info.logicalVector;
                 setLogicalVal(t, lvec, ri->lkey, 1);
+                setLogicalOffset(scratch, ri->lkey, end + ri->offset_adjust);
                 updateLastCombMatchOffset(tctxt, end + ri->offset_adjust);
             }
             PROGRAM_NEXT_INSTRUCTION
@@ -3034,7 +3039,7 @@ hwlmcb_rv_t roseRunProgram(const struct RoseEngine *t,
                 assert(ri->ckey != INVALID_CKEY);
                 assert(ri->ckey < t->ckeyCount);
                 char *cvec = scratch->core_info.combVector;
-                setCombinationActive(t, cvec, ri->ckey);
+                setCombinationActive(t, cvec, ri->ckey);// 把有可能触发激活的comid全部设置1
             }
             PROGRAM_NEXT_INSTRUCTION
 
