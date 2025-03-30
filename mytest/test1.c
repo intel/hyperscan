@@ -7,7 +7,6 @@
 
 #include <hs.h>
 
-#define PATTERN_COUNT 6
 static int eventHandler(unsigned int id, unsigned long long from,
                         unsigned long long to, unsigned int flags, void *ctx) {
     printf("Match for pattern id = %d,  at offset %llu\n", id,
@@ -158,10 +157,6 @@ void test_logical_combination_relative_position(void){
     }
 }
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <pattern> <input file>\n", argv[0]);
-        return -1;
-    }
     test_depth();
     test_offset();
     test_logical_combiantaion();
