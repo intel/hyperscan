@@ -72,7 +72,7 @@ This is a list of notable changes to Hyperscan, in reverse chronological order.
 - Bugfix for issue #239: fix hyperscan compile issue under gcc-10.
 - Add VLAN packets processing capability in pcap analysis script. (#214)
 - Avoid extra convert instruction for "Noodle". (#221)
-- Add Hyperscan version marcro in `hs.h`. (#222)
+- Add Hyperscan version macro in `hs.h`. (#222)
 
 ## [5.2.1] 2019-10-13
 - Bugfix for issue #186: fix compile issue when `BUILD_SHARED_LIBS` is on in
@@ -82,7 +82,7 @@ This is a list of notable changes to Hyperscan, in reverse chronological order.
 ## [5.2.0] 2019-07-12
 - Literal API: add new API `hs_compile_lit()` and `hs_compile_lit_multi()` to
   process pure literal rule sets. The 2 literal APIs treat each expression text
-  in a literal sense without recognizing any regular grammers.
+  in a literal sense without recognizing any regular grammars.
 - Logical combination: add support for purely negative combinations, which
   report match at EOD in case of no sub-expressions matched.
 - Windows porting: support shared library (DLL) on Windows with available tools
@@ -96,7 +96,7 @@ This is a list of notable changes to Hyperscan, in reverse chronological order.
 
 ## [5.1.1] 2019-04-03
 - Add extra detection and handling when invalid rose programs are triggered.
-- Bugfix for issue #136: fix CMake parsing of CPU architecure for GCC-9.
+- Bugfix for issue #136: fix CMake parsing of CPU architecture for GCC-9.
 - Bugfix for issue #137: avoid file path impact on fat runtime build.
 - Bugfix for issue #141: fix rose literal programs for multi-pattern
   matching when no pattern ids are provided.
@@ -355,7 +355,7 @@ This is a list of notable changes to Hyperscan, in reverse chronological order.
   line with the behaviour of `hs_close_stream()`.
 - Disallow bounded repeats with a very large minimum repeat but no maximum,
   i.e. {N,} for very large N.
-- Reduce compile memory usage in literal set explansion for some large cases.
+- Reduce compile memory usage in literal set expansion for some large cases.
 
 ## [4.0.0] 2015-10-20
 - Original release of Hyperscan as open-source software.
