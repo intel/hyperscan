@@ -36,7 +36,7 @@
 
 namespace ue2 {
 
-struct Grey {
+struct Grey {//责控制编译和运行时的各种优化、资源限制、以及匹配引擎的使用。
     Grey(void);
 
     bool optimiseComponentTree;

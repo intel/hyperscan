@@ -523,7 +523,7 @@ void addLogicalSetRequired(const Report &report, ReportManager &rm,
 
 static
 void makeReport(const RoseBuildImpl &build, const ReportID id,
-                const bool has_som, RoseProgram &program) {
+                const bool has_som, RoseProgram &program) {//com 猜想是构造状态机的过程
     assert(id < build.rm.numReports());
     const Report &report = build.rm.getReport(id);
 

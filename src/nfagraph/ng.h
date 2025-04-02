@@ -59,7 +59,10 @@ struct ue2_literal;
 class ExpressionInfo;
 class RoseBuild;
 class SmallWriteBuild;
-
+/*
+管理正则表达式的图结构表示（如 NFA 或 DFA）。
+将正则表达式编译为可用于高效匹配的数据结构。
+管理与 SOM 和图优化相关的任务。*/
 class NG : noncopyable {
 public:
     NG(const CompileContext &in_cc, size_t num_patterns,
