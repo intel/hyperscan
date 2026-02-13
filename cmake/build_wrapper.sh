@@ -1,9 +1,15 @@
 #!/bin/sh -e
 # This is used for renaming symbols for the fat runtime, don't call directly
 # TODO: make this a lot less fragile!
+
+set -e
+
 cleanup () {
     rm -f ${SYMSFILE} ${KEEPSYMS}
 }
+
+: ${NM:=nm}
+: ${OBJCOPY:=objcopy}
 
 PREFIX=$1
 KEEPSYMS_IN=$2
@@ -17,12 +23,12 @@ KEEPSYMS=$(mktemp -p /tmp keep.syms.XXXXX)
 LIBC_SO=$("$@" --print-file-name=libc.so.6)
 cp ${KEEPSYMS_IN} ${KEEPSYMS}
 # get all symbols from libc and turn them into patterns
-nm -f p -g -D ${LIBC_SO} | sed -s 's/\([^ @]*\).*/^\1$/' >> ${KEEPSYMS}
+${NM} -f posix -g -D ${LIBC_SO} | sed -s 's/\([^ @]*\).*/^\1$/' >> ${KEEPSYMS}
 # build the object
 "$@"
 # rename the symbols in the object
-nm -f p -g ${OUT} | cut -f1 -d' ' | grep -v -f ${KEEPSYMS} | sed -e "s/\(.*\)/\1\ ${PREFIX}_\1/" >> ${SYMSFILE}
+${NM} -f posix -g ${OUT} | cut -f1 -d' ' | grep -v -f ${KEEPSYMS} | sed -e "s/\(.*\)/\1\ ${PREFIX}_\1/" >> ${SYMSFILE}
 if test -s ${SYMSFILE}
 then
-    objcopy --redefine-syms=${SYMSFILE} ${OUT}
+    ${OBJCOPY} --redefine-syms=${SYMSFILE} ${OUT}
 fi
