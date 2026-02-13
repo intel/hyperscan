@@ -274,7 +274,7 @@ void makeCFG_edge(GoughGraph &cfg, const map<u32, u32> &som_creators,
                 u32 adjust = som_creators.at(input_slot);
 
                 if (vnew && vnew->adjust >= adjust) {
-                    DEBUG_PRINTF("skipping %u as domininated by adj%u\n",
+                    DEBUG_PRINTF("skipping %u as dominated by adj%u\n",
                                  adjust, vnew->adjust);
                     continue; /* deeper starts can be seen to statically
                                  dominate */

@@ -2031,7 +2031,7 @@ bool improvePrefix(NGHolder &h, RoseInGraph &vg, const vector<RoseInEdge> &ee,
         return true;
     }
 
-    /* large back edges may prevent us identifing anchored or transient cases
+    /* large back edges may prevent us identifying anchored or transient cases
      * properly - use a simple walk instead */
 
     if (doNetflowCut(h, &depths, vg, ee, true, cc.grey)) {

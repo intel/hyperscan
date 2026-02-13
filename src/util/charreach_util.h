@@ -45,7 +45,7 @@ void make_caseless(CharReach *cr);
 void fill_bitvector(const CharReach &cr, u8 *bits);
 
 /**
- * \brief Generate and and compare masks for checking the char reach.
+ * \brief Generate and compare masks for checking the char reach.
  *
  * Any character c in cr will be result in (c & and_mask) == cmp_mask being true.
  * Note: characters not in cr may also pass the and/cmp checks.

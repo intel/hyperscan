@@ -30,7 +30,7 @@
 #define PCRE_UTIL_H
 
 /** Translates the given hyperscan flags into pcre flags (where appropriate)
- *  and other bools (for flags which are not directly translateable).
+ *  and other bools (for flags which are not directly translatable).
  *
  * Returns false if an unknown hyperscan flag is encountered.
  */

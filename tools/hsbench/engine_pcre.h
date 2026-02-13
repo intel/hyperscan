@@ -38,7 +38,7 @@
 #include <string>
 #include <vector>
 
-/** Infomation about the database compile */
+/** Information about the database compile */
 struct CompilePCREStats {
     std::string sigs_name;
     std::string signatures;

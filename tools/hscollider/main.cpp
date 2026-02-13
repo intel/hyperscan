@@ -969,7 +969,7 @@ void runTestUnit(ostream &out, GroundTruth &ground, GraphTruth &graph,
     debug_stage = STAGE_UNDEFINED;
 }
 
-/* Used for testing the graph truth agains PCE */
+/* Used for testing the graph truth against PCRE */
 static
 void runGroundCompTestUnit(ostream &out, GroundTruth &ground, GraphTruth &graph,
                            TestUnit &unit, TestSummary &summary,

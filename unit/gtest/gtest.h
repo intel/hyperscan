@@ -8064,7 +8064,7 @@ class NativeArray {
 
 // Implements Boolean test assertions such as EXPECT_TRUE. expression can be
 // either a boolean expression or an AssertionResult. text is a textual
-// represenation of expression as it was passed into the EXPECT_TRUE.
+// representation of expression as it was passed into the EXPECT_TRUE.
 #define GTEST_TEST_BOOLEAN_(expression, text, actual, expected, fail) \
   GTEST_AMBIGUOUS_ELSE_BLOCKER_ \
   if (const ::testing::AssertionResult gtest_ar_ = \
@@ -9941,7 +9941,7 @@ void UniversalTersePrint(const T& value, ::std::ostream* os) {
 // NUL-terminated string.
 template <typename T>
 void UniversalPrint(const T& value, ::std::ostream* os) {
-  // A workarond for the bug in VC++ 7.1 that prevents us from instantiating
+  // A workaround for the bug in VC++ 7.1 that prevents us from instantiating
   // UniversalPrinter with T directly.
   typedef T T1;
   UniversalPrinter<T1>::Print(value, os);

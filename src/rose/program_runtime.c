@@ -1245,7 +1245,7 @@ int roseCheckSingleLookaround(const struct RoseEngine *t,
 }
 
 /**
- * \brief Scan around a literal, checking that that "lookaround" reach masks
+ * \brief Scan around a literal, checking that the "lookaround" reach masks
  * are satisfied.
  */
 static rose_inline

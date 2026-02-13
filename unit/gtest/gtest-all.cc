@@ -1954,7 +1954,7 @@ bool UnitTestOptions::MatchesFilter(
       return false;
     }
 
-    // Skips the pattern separater (the ':' character).
+    // Skips the pattern separator (the ':' character).
     cur_pattern++;
   }
 }
@@ -2945,9 +2945,9 @@ std::string CodePointToUtf8(UInt32 code_point) {
   return str;
 }
 
-// The following two functions only make sense if the the system
-// uses UTF-16 for wide string encoding. All supported systems
-// with 16 bit wchar_t (Windows, Cygwin, Symbian OS) do use UTF-16.
+// The following two functions only make sense if the system uses UTF-16 for
+// wide string encoding. All supported systems with 16 bit wchar_t (Windows,
+// Cygwin, Symbian OS) do use UTF-16.
 
 // Determines if the arguments constitute UTF-16 surrogate pair
 // and thus should be combined into a single Unicode code point
@@ -9132,7 +9132,7 @@ namespace internal {
 // Depending on the value of a char (or wchar_t), we print it in one
 // of three formats:
 //   - as is if it's a printable ASCII (e.g. 'a', '2', ' '),
-//   - as a hexidecimal escape sequence (e.g. '\x7F'), or
+//   - as a hexadecimal escape sequence (e.g. '\x7F'), or
 //   - as a special escape sequence (e.g. '\r', '\n').
 enum CharFormat {
   kAsIs,
@@ -9236,7 +9236,7 @@ void PrintCharAndCodeTo(Char c, ostream* os) {
     return;
   *os << " (" << static_cast<int>(c);
 
-  // For more convenience, we print c's code again in hexidecimal,
+  // For more convenience, we print c's code again in hexadecimal,
   // unless c was already printed in the form '\x##' or the code is in
   // [1, 9].
   if (format == kHexEscape || (1 <= c && c <= 9)) {

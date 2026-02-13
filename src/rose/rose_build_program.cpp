@@ -1646,7 +1646,7 @@ RoseProgram makeLitInitialProgram(const RoseBuildImpl &build,
                                  prog_build.floatingMinLiteralMatchOffset,
                                  program);
 
-    /* Check if we are able to deliever matches from the anchored table now */
+    /* Check if we are able to deliver matches from the anchored table now */
     if (!is_anchored_replay_program) {
         makeAnchoredLiteralDelay(build, prog_build, lit_id, program);
     }

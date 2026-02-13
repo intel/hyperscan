@@ -69,7 +69,7 @@ struct CombInfo {
     u64a max_offset;
 };
 
-/** Temporarily use to seperate operations' id from reports' lkey
+/** Temporarily use to separate operations' id from reports' lkey
   * when building logicalTree in shunting yard algorithm,
   * operations' id will be finally renumbered following reports' lkey. */
 #define LOGICAL_OP_BIT 0x80000000UL

@@ -216,8 +216,8 @@ void reformAnchoredRepeatsComponent(NGHolder &g,
     }
 
     if (!otherV.empty()) {
-        /* We require that the successors of the dot node are are the same
-         * as the start vertex. TODO: remember why.
+        /* We require that the successors of the dot node are the same as the
+         * start vertex. TODO: remember why.
          */
         if (selfLoop) {
             if (otherV.size() != out_degree(dotV, g) - 1) {
