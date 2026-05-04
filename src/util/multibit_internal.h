@@ -74,6 +74,52 @@ struct mmbit_sparse_state {
 /** \brief Maximum number of \ref mmbit_sparse_state that could be needed. */
 #define MAX_SPARSE_ITER_STATES (6 + 1)
 
+/**
+ * \brief Runtime equivalent of mmbit_size() for validation at scan/load time.
+ *
+ * Computes the minimum number of bytes needed for a multibit with
+ * \a total_bits entries, matching the compile-time mmbit_size() from
+ * multibit_build.h.  This function is safe to call from runtime code
+ * (C translation units) that cannot include the compile-time C++ headers.
+ *
+ * The "rt_" prefix avoids collisions with the compile-time mmbit_size()
+ * defined in multibit_build.h / multibit_build.cpp.
+ */
+static really_inline
+u32 rt_mmbit_size(u32 total_bits) {
+    if (total_bits == 0) {
+        return 0;
+    }
+    /* Flat model: simple bit vector. */
+    if (total_bits <= 256) {
+        return (total_bits + 7) / 8;
+    }
+    /* Hierarchical model: sum of all level block counts * 8 bytes. */
+    u64a current_level = 1;
+    u64a total = 0;
+    while (current_level * 64 < total_bits) {
+        total += current_level;
+        current_level <<= 6; /* MMB_KEY_SHIFT */
+    }
+    u64a last_level = ((u64a)total_bits + 63) / 64;
+    total += last_level;
+    return (u32)(total * sizeof(u64a));
+}
+
+/**
+ * \brief Runtime equivalent of fatbit_size() for validation at scan/load time.
+ *
+ * Returns the minimum allocation size (in bytes) for a fatbit that stores
+ * \a total_bits logical entries.  The "rt_" prefix avoids collisions with
+ * the compile-time fatbit_size().
+ */
+static really_inline
+u32 rt_fatbit_size(u32 total_bits) {
+    u32 mmsz = rt_mmbit_size(total_bits);
+    /* sizeof(struct fatbit) is typically 8 on 64-bit */
+    return mmsz > 8 ? mmsz : 8;
+}
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
