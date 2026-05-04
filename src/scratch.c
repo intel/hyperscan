@@ -43,6 +43,58 @@
 #include "nfa/nfa_api_queue.h"
 #include "rose/rose_internal.h"
 #include "util/fatbit.h"
+#include "util/multibit_internal.h"
+
+/**
+ * Validate that fatbit allocation sizes are consistent with their logical
+ * counts (CWE-122 / CWE-20).  This is the illustrative fix from the report
+ * plus additional pairs, applied as defense-in-depth before scratch trusts
+ * any RoseEngine sizing fields.
+ *
+ * Uses rt_fatbit_size() from multibit_internal.h — the shared runtime
+ * equivalent of the compile-time fatbit_size().
+ */
+static
+hs_error_t validate_queue_fatbits(const struct RoseEngine *rose) {
+    if (unlikely(rose->activeQueueArraySize < rt_fatbit_size(rose->queueCount))) {
+        DEBUG_PRINTF("activeQueueArraySize too small for queueCount: "
+                     "%u < %u (count=%u)\n",
+                     rose->activeQueueArraySize,
+                     rt_fatbit_size(rose->queueCount),
+                     rose->queueCount);
+        return HS_INVALID;
+    }
+
+    if (unlikely(rose->handledKeyFatbitSize < rt_fatbit_size(rose->handledKeyCount))) {
+        DEBUG_PRINTF("handledKeyFatbitSize too small for handledKeyCount: "
+                     "%u < %u (count=%u)\n",
+                     rose->handledKeyFatbitSize,
+                     rt_fatbit_size(rose->handledKeyCount),
+                     rose->handledKeyCount);
+        return HS_INVALID;
+    }
+
+    if (unlikely(rose->delay_fatbit_size < rt_fatbit_size(rose->delay_count))) {
+        DEBUG_PRINTF("delay_fatbit_size too small for delay_count: "
+                     "%u < %u (count=%u)\n",
+                     rose->delay_fatbit_size,
+                     rt_fatbit_size(rose->delay_count),
+                     rose->delay_count);
+        return HS_INVALID;
+    }
+
+    if (unlikely(rose->somLocationFatbitSize <
+                 rt_fatbit_size(rose->somLocationCount))) {
+        DEBUG_PRINTF("somLocationFatbitSize too small for somLocationCount: "
+                     "%u < %u (count=%u)\n",
+                     rose->somLocationFatbitSize,
+                     rt_fatbit_size(rose->somLocationCount),
+                     rose->somLocationCount);
+        return HS_INVALID;
+    }
+
+    return HS_SUCCESS;
+}
 
 /**
  * Determine the space required for a correctly aligned array of fatbit
@@ -272,6 +324,16 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
     }
 
     const struct RoseEngine *rose = hs_get_bytecode(db);
+
+    /* Defense-in-depth: reject databases whose fatbit sizes are inconsistent
+     * with their logical counts before we trust them for scratch sizing.
+     * This prevents heap buffer overflow via queueCount / activeQueueArraySize
+     * mismatch (CWE-122). */
+    rv = validate_queue_fatbits(rose);
+    if (rv != HS_SUCCESS) {
+        return rv;
+    }
+
     int resize = 0;
 
     hs_scratch_t *proto;
