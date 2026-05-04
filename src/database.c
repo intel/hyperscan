@@ -350,6 +350,64 @@ hs_error_t dbIsValid(const hs_database_t *db) {
         return rv;
     }
 
+    // Validate bytecode offset is within the expected header region.
+    if (db->bytecode < offsetof(struct hs_database, padding) ||
+        db->bytecode > offsetof(struct hs_database, bytes)) {
+        DEBUG_PRINTF("bad bytecode offset\n");
+        return HS_INVALID;
+    }
+
+    const struct RoseEngine *rose = hs_get_bytecode(db);
+
+    // Validate stream-state stateOffsets layout (CWE-122).
+    // These invariants mirror fillStateOffsets() in rose_build_bytecode.cpp.
+    // Every offset region dereferenced by init_stream() and its helpers
+    // must be bounded by stateOffsets.end.
+    if (rose->mode == HS_MODE_STREAM) {
+        if (unlikely(rose->stateOffsets.end < sizeof(u8))) {
+            DEBUG_PRINTF("stateOffsets.end too small: %u\n",
+                         rose->stateOffsets.end);
+            return HS_INVALID;
+        }
+        if (unlikely(rose->stateOffsets.history > rose->stateOffsets.end)) {
+            DEBUG_PRINTF("stateOffsets.history > end: %u > %u\n",
+                         rose->stateOffsets.history, rose->stateOffsets.end);
+            return HS_INVALID;
+        }
+        if (unlikely(rose->historyRequired >
+            rose->stateOffsets.end - rose->stateOffsets.history)) {
+            DEBUG_PRINTF("historyRequired overflows end: %u > %u\n",
+                         rose->historyRequired,
+                         rose->stateOffsets.end - rose->stateOffsets.history);
+            return HS_INVALID;
+        }
+        if (unlikely(rose->stateOffsets.exhausted > rose->stateOffsets.end)) {
+            DEBUG_PRINTF("stateOffsets.exhausted > end: %u > %u\n",
+                         rose->stateOffsets.exhausted, rose->stateOffsets.end);
+            return HS_INVALID;
+        }
+        if (unlikely(rose->stateOffsets.logicalVec > rose->stateOffsets.end)) {
+            DEBUG_PRINTF("stateOffsets.logicalVec > end: %u > %u\n",
+                         rose->stateOffsets.logicalVec, rose->stateOffsets.end);
+            return HS_INVALID;
+        }
+        if (unlikely(rose->stateOffsets.combVec > rose->stateOffsets.end)) {
+            DEBUG_PRINTF("stateOffsets.combVec > end: %u > %u\n",
+                         rose->stateOffsets.combVec, rose->stateOffsets.end);
+            return HS_INVALID;
+        }
+        if (unlikely(rose->stateOffsets.somValid > rose->stateOffsets.end)) {
+            DEBUG_PRINTF("stateOffsets.somValid > end: %u > %u\n",
+                         rose->stateOffsets.somValid, rose->stateOffsets.end);
+            return HS_INVALID;
+        }
+        if (unlikely(rose->stateOffsets.somWritable > rose->stateOffsets.end)) {
+            DEBUG_PRINTF("stateOffsets.somWritable > end: %u > %u\n",
+                         rose->stateOffsets.somWritable, rose->stateOffsets.end);
+            return HS_INVALID;
+        }
+    }
+
     return HS_SUCCESS;
 }
 

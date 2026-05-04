@@ -553,6 +553,14 @@ hs_error_t HS_CDECL hs_open_stream(const hs_database_t *db,
         return err;
     }
 
+    // Validate bytecode offset is within the expected header region.
+    // db_copy_bytecode() sets it to offsetof(bytes) - shift (shift in 0..63),
+    // so valid offsets lie in [offsetof(padding), offsetof(bytes)].
+    if (unlikely(db->bytecode < offsetof(struct hs_database, padding) ||
+                 db->bytecode > offsetof(struct hs_database, bytes))) {
+        return HS_INVALID;
+    }
+
     const struct RoseEngine *rose = hs_get_bytecode(db);
     if (unlikely(!ISALIGNED_16(rose))) {
         return HS_INVALID;
@@ -560,6 +568,37 @@ hs_error_t HS_CDECL hs_open_stream(const hs_database_t *db,
 
     if (unlikely(rose->mode != HS_MODE_STREAM)) {
         return HS_DB_MODE_ERROR;
+    }
+
+    // Validate stateOffsets layout to prevent heap overflow from forged
+    // databases (CWE-122). These invariants mirror fillStateOffsets() in
+    // rose_build_bytecode.cpp: every offset region used by init_stream()
+    // and its helpers must be bounded by stateOffsets.end.
+    // The status byte at offset 0 is always written, so end must be >= 1.
+    if (unlikely(rose->stateOffsets.end < sizeof(u8))) {
+        return HS_INVALID;
+    }
+    if (unlikely(rose->stateOffsets.history > rose->stateOffsets.end)) {
+        return HS_INVALID;
+    }
+    if (unlikely(rose->historyRequired >
+        rose->stateOffsets.end - rose->stateOffsets.history)) {
+        return HS_INVALID;
+    }
+    if (unlikely(rose->stateOffsets.exhausted > rose->stateOffsets.end)) {
+        return HS_INVALID;
+    }
+    if (unlikely(rose->stateOffsets.logicalVec > rose->stateOffsets.end)) {
+        return HS_INVALID;
+    }
+    if (unlikely(rose->stateOffsets.combVec > rose->stateOffsets.end)) {
+        return HS_INVALID;
+    }
+    if (unlikely(rose->stateOffsets.somValid > rose->stateOffsets.end)) {
+        return HS_INVALID;
+    }
+    if (unlikely(rose->stateOffsets.somWritable > rose->stateOffsets.end)) {
+        return HS_INVALID;
     }
 
     size_t stateSize = rose->stateOffsets.end;
