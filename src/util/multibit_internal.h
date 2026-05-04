@@ -90,6 +90,10 @@ u32 rt_mmbit_size(u32 total_bits) {
     if (total_bits == 0) {
         return 0;
     }
+    /* Reject counts beyond the compile-time limit. */
+    if (total_bits > MMB_MAX_BITS) {
+        return UINT32_MAX;
+    }
     /* Flat model: simple bit vector. */
     if (total_bits <= 256) {
         return (total_bits + 7) / 8;
@@ -103,21 +107,29 @@ u32 rt_mmbit_size(u32 total_bits) {
     }
     u64a last_level = ((u64a)total_bits + 63) / 64;
     total += last_level;
-    return (u32)(total * sizeof(u64a));
+    u64a byte_size = total * sizeof(u64a);
+    /* Saturate to UINT32_MAX on overflow to guarantee validators reject. */
+    if (byte_size > UINT32_MAX) {
+        return UINT32_MAX;
+    }
+    return (u32)byte_size;
 }
 
 /**
  * \brief Runtime equivalent of fatbit_size() for validation at scan/load time.
  *
  * Returns the minimum allocation size (in bytes) for a fatbit that stores
- * \a total_bits logical entries.  The "rt_" prefix avoids collisions with
- * the compile-time fatbit_size().
+ * \a total_bits logical entries.  Uses MIN_FAT_SIZE (== sizeof(struct fatbit))
+ * as the floor, matching the compile-time fatbit_size().  The "rt_" prefix
+ * avoids collisions with the compile-time fatbit_size().
  */
+#ifndef MIN_FAT_SIZE
+#define MIN_FAT_SIZE 32
+#endif
 static really_inline
 u32 rt_fatbit_size(u32 total_bits) {
     u32 mmsz = rt_mmbit_size(total_bits);
-    /* sizeof(struct fatbit) is typically 8 on 64-bit */
-    return mmsz > 8 ? mmsz : 8;
+    return mmsz > MIN_FAT_SIZE ? mmsz : MIN_FAT_SIZE;
 }
 
 #ifdef __cplusplus

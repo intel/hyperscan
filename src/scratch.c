@@ -93,6 +93,25 @@ hs_error_t validate_queue_fatbits(const struct RoseEngine *rose) {
         return HS_INVALID;
     }
 
+    if (unlikely(rose->anchored_fatbit_size <
+                 rt_fatbit_size(rose->anchored_count))) {
+        DEBUG_PRINTF("anchored_fatbit_size too small for anchored_count: "
+                     "%u < %u (count=%u)\n",
+                     rose->anchored_fatbit_size,
+                     rt_fatbit_size(rose->anchored_count),
+                     rose->anchored_count);
+        return HS_INVALID;
+    }
+
+    if (unlikely(rose->dkeyLogSize < rt_fatbit_size(rose->dkeyCount))) {
+        DEBUG_PRINTF("dkeyLogSize too small for dkeyCount: "
+                     "%u < %u (count=%u)\n",
+                     rose->dkeyLogSize,
+                     rt_fatbit_size(rose->dkeyCount),
+                     rose->dkeyCount);
+        return HS_INVALID;
+    }
+
     return HS_SUCCESS;
 }
 
