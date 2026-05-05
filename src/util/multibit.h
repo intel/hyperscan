@@ -85,6 +85,40 @@ extern const u8 mmbit_maxlevel_direct_lut[32];
 extern const u32 mmbit_root_offset_from_level[7];
 extern const u64a mmbit_zero_to_lut[65];
 
+/** \brief Returns multibit storage size in bytes for \a total_bits.
+ *
+ * Runtime C helper only. C++ build code uses ue2::mmbit_size from
+ * multibit_build.{h,cpp}.
+ * Returns UINT32_MAX if \a total_bits exceeds supported limits.
+ */
+#ifndef __cplusplus
+static really_inline
+u32 mmbit_size(u32 total_bits) {
+    if (total_bits > MMB_MAX_BITS) {
+        return UINT32_MAX;
+    }
+
+    if (total_bits <= MMB_FLAT_MAX_BITS) {
+        return ROUNDUP_N(total_bits, 8) / 8;
+    }
+
+    u64a current_level = 1;
+    u64a total = 0;
+    while (current_level * MMB_KEY_BITS < total_bits) {
+        total += current_level;
+        current_level <<= MMB_KEY_SHIFT;
+    }
+
+    u64a last_level = ((u64a)total_bits + MMB_KEY_BITS - 1) / MMB_KEY_BITS;
+    total += last_level;
+
+    if (total * sizeof(MMB_TYPE) > UINT32_MAX) {
+        return UINT32_MAX;
+    }
+    return (u32)(total * sizeof(MMB_TYPE));
+}
+#endif
+
 static really_inline
 MMB_TYPE mmb_load(const u8 * bits) {
     return unaligned_load_u64a(bits);
