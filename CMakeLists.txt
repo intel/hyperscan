@@ -1370,7 +1370,7 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
 endif()
 
 if (BUILD_STATIC_LIBS)
-    add_dependencies(hs ragel_Parser)
+    add_dependencies(hs_compile ragel_Parser)
 endif ()
 
 if (NOT BUILD_SHARED_LIBS)
@@ -1403,7 +1403,7 @@ if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
 
     add_library(hs_shared SHARED ${hs_shared_SRCS} hs.def)
 
-    add_dependencies(hs_shared ragel_Parser)
+    add_dependencies(hs_compile_shared ragel_Parser)
     set_target_properties(hs_shared PROPERTIES
         OUTPUT_NAME hs
         VERSION ${LIB_VERSION}
