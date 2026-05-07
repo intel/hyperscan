@@ -28,6 +28,7 @@
 
 #include "grey.h"
 #include "ue2common.h"
+#include "util/compile_error.h"
 
 #include <algorithm>
 #include <cstdlib> // exit
@@ -137,7 +138,7 @@ Grey::Grey(void) :
                                                 // all blocks larger than this
                                                 // are given to rose &co
                    smallWriteLargestBufferBad(35),
-                   limitSmallWriteOutfixSize(1048576), // 1 MB
+                   limitSmallWriteOutfixSize(MAX_SMALLWRITE_OUTFIX_SIZE),
                    smallWriteMaxPatterns(10000),
                    smallWriteMaxLiterals(10000),
                    smallWriteMergeBatchSize(20),
@@ -151,15 +152,15 @@ Grey::Grey(void) :
                    limitReportCount(4*8000000),
                    limitLiteralCount(8000000), // 8M literals
                    limitLiteralLength(16000),
-                   limitLiteralMatcherChars(1073741824), // 1 GB
-                   limitLiteralMatcherSize(1073741824), // 1 GB
+                   limitLiteralMatcherChars(MAX_LITERAL_MATCHER_SIZE),
+                   limitLiteralMatcherSize(MAX_LITERAL_MATCHER_SIZE),
                    limitRoseRoleCount(4*8000000),
                    limitRoseEngineCount(8000000), // 8M engines
-                   limitRoseAnchoredSize(1073741824), // 1 GB
-                   limitEngineSize(1073741824), // 1 GB
-                   limitDFASize(1073741824), // 1 GB
-                   limitNFASize(1048576), // 1 MB
-                   limitLBRSize(1048576), // 1 MB
+                   limitRoseAnchoredSize(MAX_ROSE_ANCHORED_SIZE),
+                   limitEngineSize(MAX_ENGINE_SIZE),
+                   limitDFASize(MAX_DFA_SIZE),
+                   limitNFASize(MAX_NFA_SIZE),
+                   limitLBRSize(MAX_LBR_SIZE),
                    limitApproxMatchingVertices(5000)
 {
     assert(maxAnchoredRegion < 64); /* a[lm]_log_sum have limited capacity */

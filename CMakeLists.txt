@@ -100,11 +100,16 @@ endif()
 option(OPTIMISE "Turns off compiler optimizations (on by default unless debug output enabled or coverage testing)" TRUE)
 
 option(DEBUG_OUTPUT "Enable debug output (warning: very verbose)" FALSE)
+option(VALIDATE_PATTERN_INPUT "Enable pattern input validation (default FALSE)" FALSE)
 
 if(DEBUG_OUTPUT)
     add_definitions(-DDEBUG)
     set(OPTIMISE FALSE)
 endif(DEBUG_OUTPUT)
+
+if(VALIDATE_PATTERN_INPUT)
+  add_definitions(-DVALIDATE_PATTERN_INPUT)
+endif()
 
 option(BUILD_SHARED_LIBS "Build shared libs instead of static" OFF)
 option(BUILD_STATIC_AND_SHARED "Build shared libs as well as static" OFF)

@@ -357,6 +357,30 @@ hs_compile_lit_multi_int(const char *const *expressions, const unsigned *flags,
         NG ng(cc, elements, somPrecision);
 
         for (unsigned int i = 0; i < elements; i++) {
+            // Validate array element access to prevent heap out-of-bounds read (CWE-125)
+            if (!expressions[i]) {
+                *db = nullptr;
+                *comp_error = generateCompileError(
+                    "Invalid parameter: expressions array element is NULL", i);
+                return HS_COMPILER_ERROR;
+            }
+
+            // Validate lens[i] is within reasonable bounds
+            if (lens[i] == 0) {
+                *db = nullptr;
+                *comp_error = generateCompileError(
+                    "Invalid parameter: expression length is zero", i);
+                return HS_COMPILER_ERROR;
+            }
+
+            // PSIRT PTK0006374: enforce centralized pattern length limit.
+            if (lens[i] > MAX_PATTERN_LENGTH) {
+                *db = nullptr;
+                *comp_error = generateCompileError(
+                    "Invalid parameter: expression length too large", i);
+                return HS_COMPILER_ERROR;
+            }
+
             // Add this expression to the compiler
             try {
                 addLitExpression(ng, i, expressions[i], flags ? flags[i] : 0,

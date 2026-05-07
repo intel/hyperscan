@@ -41,6 +41,7 @@
 #include "database.h"
 #include "crc32.h"
 #include "rose/rose_internal.h"
+#include "util/compile_error.h"
 #include "util/unaligned.h"
 
 static really_inline
@@ -288,8 +289,27 @@ hs_error_t HS_CDECL hs_deserialize_database_at(const char *bytes,
         return ret;
     }
 
-    // Zero new space for safety
+    // Calculate total required size
     size_t dblength = sizeof(struct hs_database) + header.length;
+
+    // Additional overflow check for size calculation
+    if (unlikely(dblength < header.length)) {
+        DEBUG_PRINTF("database size calculation overflow\n");
+        return HS_INVALID;
+    }
+
+    // Validate total deserialized size against centralized defensive limit.
+    if (unlikely(dblength > MAX_DATABASE_SIZE)) {
+        DEBUG_PRINTF("database total size exceeds maximum: %zu > %zu\n",
+                     dblength, (size_t)MAX_DATABASE_SIZE);
+        return HS_INVALID;
+    }
+
+    // SECURITY NOTE: This function cannot verify that the user-provided 'db'
+    // buffer is actually large enough to hold 'dblength' bytes. Users MUST
+    // call hs_serialized_database_size() first to determine required size and
+    // allocate sufficient memory. The checks above only prevent obviously
+    // malicious oversized values to mitigate heap buffer overflow (CWE-122).
     memset(db, 0, dblength);
 
     // Copy the decoded header into place
@@ -336,6 +356,20 @@ hs_error_t HS_CDECL hs_deserialize_database(const char *bytes,
 
     // Allocate space for new database
     size_t dblength = sizeof(struct hs_database) + header.length;
+
+    // Check for overflow in size calculation
+    if (unlikely(dblength < header.length)) {
+        DEBUG_PRINTF("database size calculation overflow\n");
+        return HS_INVALID;
+    }
+
+    // Validate total allocation size against centralized defensive limit.
+    if (unlikely(dblength > MAX_DATABASE_SIZE)) {
+        DEBUG_PRINTF("database total size exceeds maximum: %zu > %zu\n",
+                     dblength, (size_t)MAX_DATABASE_SIZE);
+        return HS_INVALID;
+    }
+
     struct hs_database *tempdb = hs_database_alloc(dblength);
     ret = hs_check_alloc(tempdb);
     if (unlikely(ret != HS_SUCCESS)) {

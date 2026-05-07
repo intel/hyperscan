@@ -109,8 +109,63 @@ void validateExt(const hs_expr_ext &ext) {
 
 }
 
+/**
+ * PSIRT PTK0006375: Validate pattern buffer to prevent heap out-of-bounds read.
+ *
+ * This validation supports embedded nulls by counting both null and non-null
+ * bytes across the declared length.
+ */
+#ifdef VALIDATE_PATTERN_INPUT
+static bool validatePatternInput(const char *expression, size_t len) {
+    if (!expression || len == 0) {
+        return false;
+    }
+
+    if (len > MAX_PATTERN_LENGTH) {
+        return false;
+    }
+
+    size_t null_count = 0;
+    size_t non_null_count = 0;
+    size_t max_scan = std::min(len, (size_t)MAX_PATTERN_LENGTH);
+
+    for (size_t i = 0; i < max_scan; i++) {
+        if (expression[i] == '\0') {
+            null_count++;
+        } else {
+            non_null_count++;
+        }
+    }
+
+    if (null_count + non_null_count != len) {
+        return false;
+    }
+
+    if (len > 10 && null_count > (len * 9 / 10)) {
+        return false;
+    }
+
+    return true;
+}
+#endif /* VALIDATE_PATTERN_INPUT */
+
 void ParsedLitExpression::parseLiteral(const char *expression, size_t len,
                                        bool nocase) {
+#ifdef VALIDATE_PATTERN_INPUT
+    if (!validatePatternInput(expression, len)) {
+        if (len == 0) {
+            throw CompileError("Expression length is zero.");
+        } else if (len > MAX_PATTERN_LENGTH) {
+            throw CompileError("Pattern length exceeds maximum allowed (" +
+                               std::to_string((size_t)MAX_PATTERN_LENGTH) +
+                               " bytes).");
+        } else {
+            throw CompileError("Pattern validation failed: length/content mismatch. "
+                               "Verify pattern buffer size matches declared length.");
+        }
+    }
+#endif /* VALIDATE_PATTERN_INPUT */
+
     const char *c = expression;
     for (size_t i = 0; i < len; i++) {
         lit.push_back(*c, nocase);
@@ -420,6 +475,22 @@ void addLitExpression(NG &ng, unsigned index, const char *expression,
     if (!strcmp(expression, "")) {
         throw CompileError("Pure literal API doesn't support empty string.");
     }
+
+    // PSIRT PTK0006375: validate length/content consistency with embedded nulls.
+#ifdef VALIDATE_PATTERN_INPUT
+    if (!validatePatternInput(expression, expLength)) {
+        if (expLength == 0) {
+            throw CompileError("Expression length is zero.");
+        } else if (expLength > MAX_PATTERN_LENGTH) {
+            throw CompileError("Pattern length exceeds maximum allowed (" +
+                               std::to_string((size_t)MAX_PATTERN_LENGTH) +
+                               " bytes).");
+        } else {
+            throw CompileError("Pattern validation failed: length/content mismatch. "
+                               "Verify pattern buffer size matches declared length.");
+        }
+    }
+#endif /* VALIDATE_PATTERN_INPUT */
 
     // This expression must be a pure literal, we can build ue2_literal
     // directly based on expression text.

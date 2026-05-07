@@ -29,11 +29,28 @@
 #ifndef UTIL_COMPILE_ERROR_H
 #define UTIL_COMPILE_ERROR_H
 
+#include <stddef.h>
+
+#include "ue2common.h"
+
+/* Pattern/literal limits */
+#define MAX_PATTERN_LENGTH 8192U
+
+/* Database/engine defensive size limits */
+#define MAX_DATABASE_SIZE 4294967295ULL
+#define MAX_ENGINE_SIZE (1024ULL * 1024ULL * 1024ULL)
+#define MAX_DFA_SIZE (1024ULL * 1024ULL * 1024ULL)
+#define MAX_NFA_SIZE (1024ULL * 1024ULL)
+#define MAX_LBR_SIZE (1024ULL * 1024ULL)
+#define MAX_LITERAL_MATCHER_SIZE (1024ULL * 1024ULL * 1024ULL)
+#define MAX_ROSE_ANCHORED_SIZE (1024ULL * 1024ULL * 1024ULL)
+#define MAX_SMALLWRITE_OUTFIX_SIZE (1024ULL * 1024ULL)
+
+#ifdef __cplusplus
+
 #include <cassert>
 #include <stdexcept>
 #include <string>
-
-#include "ue2common.h"
 
 namespace ue2 {
 
@@ -64,5 +81,7 @@ public:
 };
 
 } // namespace ue2
+
+#endif // __cplusplus
 
 #endif
