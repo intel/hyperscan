@@ -503,7 +503,7 @@ hs_database_t *dbCreate(const char *in_bytecode, size_t len, u64a platform) {
     // Copy bytecode
     memcpy(bytecode, in_bytecode, len);
 
-    db->crc32 = Crc32c_ComputeBuf(0, bytecode, db->length);
+    db->crc32 = Crc32c_ComputeBuf(HS_DB_CRC_KEY, bytecode, db->length);
     return db;
 }
 

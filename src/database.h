@@ -44,7 +44,31 @@ extern "C"
 #include "util/arch.h"
 
 #define HS_DB_VERSION HS_VERSION_32BIT
+
+/**
+ * Compile-time magic number used to identify a valid Hyperscan database.
+ * Override at build time (e.g. -DHS_DB_MAGIC=0xYOURVALU) to use a
+ * site-specific value.  A database compiled with one magic will be rejected
+ * by a runtime built with a different magic, adding an extra layer of
+ * protection against loading untrusted or mismatched databases.
+ */
+#ifndef HS_DB_MAGIC
 #define HS_DB_MAGIC   (0xdbdbdbdbU)
+#endif
+
+/**
+ * Compile-time seed used to harden the CRC32C integrity check during
+ * serialization and deserialization.  This value is used as the initial
+ * CRC accumulator instead of zero, which provides resistance against
+ * automated or blind database tampering (i.e., an attacker who does not
+ * have access to the Hyperscan binary).
+ *
+ * Override at build time (e.g. -DHS_DB_CRC_KEY=0xYOURVALU) to use a
+ * site-specific value.
+ */
+#ifndef HS_DB_CRC_KEY
+#define HS_DB_CRC_KEY  0xD7C4A1B3U
+#endif
 
 // Values in here cannot (easily) change - add new ones!
 

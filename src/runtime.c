@@ -286,6 +286,10 @@ void pureLiteralBlockExec(const struct RoseEngine *rose,
     assert(scratch);
 
     const struct HWLM *ftable = getFLiteralMatcher(rose);
+    if (unlikely(!ftable)) {
+        scratch->core_info.status |= STATUS_ERROR;
+        return;
+    }
     initSomState(rose, scratch->core_info.state);
     const u8 *buffer = scratch->core_info.buf;
     size_t length = scratch->core_info.len;
@@ -299,9 +303,12 @@ void pureLiteralBlockExec(const struct RoseEngine *rose,
 }
 
 static really_inline
-void initOutfixQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
+int initOutfixQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
                      struct hs_scratch *scratch) {
     const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
+    if (unlikely(!info)) {
+        return 0;
+    }
     q->nfa = getNfaByInfo(t, info);
     q->end = 0;
     q->cur = 0;
@@ -319,6 +326,7 @@ void initOutfixQueue(struct mq *q, u32 qi, const struct RoseEngine *t,
     DEBUG_PRINTF("qi=%u, offset=%llu, fullState=%u, streamState=%u, "
                  "state=%u\n", qi, q->offset, info->fullStateOffset,
                  info->stateOffset, *(u32 *)q->state);
+    return 1;
 }
 
 static never_inline
@@ -334,6 +342,9 @@ void soleOutfixBlockExec(const struct RoseEngine *t,
     assert(!t->fmatcherOffset);
 
     const struct NFA *nfa = getNfaByQueue(t, 0);
+    if (unlikely(!nfa)) {
+        return;
+    }
 
     size_t len = nfaRevAccelCheck(nfa, scratch->core_info.buf,
                                   scratch->core_info.len);
@@ -342,7 +353,9 @@ void soleOutfixBlockExec(const struct RoseEngine *t,
     }
 
     struct mq *q = scratch->queues;
-    initOutfixQueue(q, 0, t, scratch);
+    if (unlikely(!initOutfixQueue(q, 0, t, scratch))) {
+        return;
+    }
     q->length = len; /* adjust for rev_accel */
     nfaQueueInitState(nfa, q);
     pushQueueAt(q, 0, MQE_START, 0);
@@ -734,9 +747,14 @@ void soleOutfixEodExec(hs_stream_t *id, hs_scratch_t *scratch) {
     assert(!t->fmatcherOffset);
 
     const struct NFA *nfa = getNfaByQueue(t, 0);
+    if (unlikely(!nfa)) {
+        return;
+    }
 
     struct mq *q = scratch->queues;
-    initOutfixQueue(q, 0, t, scratch);
+    if (unlikely(!initOutfixQueue(q, 0, t, scratch))) {
+        return;
+    }
     if (!scratch->core_info.buf_offset) {
         DEBUG_PRINTF("buf_offset is zero\n");
         return; /* no vacuous engines */
@@ -966,9 +984,14 @@ void soleOutfixStreamExec(struct hs_stream *stream_state,
     assert(!t->fmatcherOffset);
 
     const struct NFA *nfa = getNfaByQueue(t, 0);
+    if (unlikely(!nfa)) {
+        return;
+    }
 
     struct mq *q = scratch->queues;
-    initOutfixQueue(q, 0, t, scratch);
+    if (unlikely(!initOutfixQueue(q, 0, t, scratch))) {
+        return;
+    }
     if (!scratch->core_info.buf_offset) {
         nfaQueueInitState(nfa, q);
         pushQueueAt(q, 0, MQE_START, 0);

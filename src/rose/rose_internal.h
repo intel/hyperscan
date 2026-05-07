@@ -561,6 +561,12 @@ const struct anchored_matcher_info *getALiteralMatcher(
         return NULL;
     }
 
+    // Defensive bounds check to prevent out-of-bounds access (CWE-125)
+    if (unlikely(t->amatcherOffset >= t->size)) {
+        assert(0 && "amatcherOffset out of bounds");
+        return NULL;
+    }
+
     const char *lt = (const char *)t + t->amatcherOffset;
     assert(ISALIGNED_CL(lt));
     return (const struct anchored_matcher_info *)lt;
@@ -571,6 +577,12 @@ struct HWLM;
 static really_inline
 const struct HWLM *getFLiteralMatcher(const struct RoseEngine *t) {
     if (!t->fmatcherOffset) {
+        return NULL;
+    }
+
+    // Defensive bounds check to prevent out-of-bounds access (CWE-125)
+    if (unlikely(t->fmatcherOffset >= t->size)) {
+        assert(0 && "fmatcherOffset out of bounds");
         return NULL;
     }
 
@@ -585,6 +597,12 @@ const void *getSBLiteralMatcher(const struct RoseEngine *t) {
         return NULL;
     }
 
+    // Defensive bounds check to prevent out-of-bounds access (CWE-125)
+    if (unlikely(t->sbmatcherOffset >= t->size)) {
+        assert(0 && "sbmatcherOffset out of bounds");
+        return NULL;
+    }
+
     const char *matcher = (const char *)t + t->sbmatcherOffset;
     assert(ISALIGNED_N(matcher, 8));
     return matcher;
@@ -592,6 +610,16 @@ const void *getSBLiteralMatcher(const struct RoseEngine *t) {
 
 static really_inline
 const struct LeftNfaInfo *getLeftTable(const struct RoseEngine *t) {
+    if (unlikely(!t->leftOffset)) {
+        return NULL;
+    }
+
+    // Defensive bounds check to prevent out-of-bounds access (CWE-125)
+    if (unlikely(t->leftOffset >= t->size)) {
+        assert(0 && "leftOffset out of bounds");
+        return NULL;
+    }
+
     const struct LeftNfaInfo *r
         = (const struct LeftNfaInfo *)((const char *)t + t->leftOffset);
     assert(ISALIGNED_N(r, 4));
@@ -602,7 +630,16 @@ struct mmbit_sparse_iter; // forward decl
 
 static really_inline
 const struct mmbit_sparse_iter *getActiveLeftIter(const struct RoseEngine *t) {
-    assert(t->activeLeftIterOffset);
+    if (unlikely(!t->activeLeftIterOffset)) {
+        return NULL;
+    }
+
+    // Defensive bounds check to prevent out-of-bounds access (CWE-125)
+    if (unlikely(t->activeLeftIterOffset >= t->size)) {
+        assert(0 && "activeLeftIterOffset out of bounds");
+        return NULL;
+    }
+
     const struct mmbit_sparse_iter *it = (const struct mmbit_sparse_iter *)
             ((const char *)t + t->activeLeftIterOffset);
     assert(ISALIGNED_N(it, 4));
@@ -611,6 +648,10 @@ const struct mmbit_sparse_iter *getActiveLeftIter(const struct RoseEngine *t) {
 
 static really_inline
 const struct NfaInfo *getNfaInfoByQueue(const struct RoseEngine *t, u32 qi) {
+    if (unlikely(!t->nfaInfoOffset || t->nfaInfoOffset >= t->size)) {
+        return NULL;
+    }
+
     const struct NfaInfo *infos
         = (const struct NfaInfo *)((const char *)t + t->nfaInfoOffset);
     assert(ISALIGNED_N(infos, sizeof(u32)));
@@ -621,12 +662,18 @@ const struct NfaInfo *getNfaInfoByQueue(const struct RoseEngine *t, u32 qi) {
 static really_inline
 const struct NFA *getNfaByInfo(const struct RoseEngine *t,
                                const struct NfaInfo *info) {
+    if (unlikely(!info)) {
+        return NULL;
+    }
     return (const struct NFA *)((const char *)t + info->nfaOffset);
 }
 
 static really_inline
 const struct NFA *getNfaByQueue(const struct RoseEngine *t, u32 qi) {
     const struct NfaInfo *info = getNfaInfoByQueue(t, qi);
+    if (unlikely(!info)) {
+        return NULL;
+    }
     return getNfaByInfo(t, info);
 }
 
@@ -640,6 +687,9 @@ static really_inline
 const struct LeftNfaInfo *getLeftInfoByQueue(const struct RoseEngine *t,
                                              u32 qi) {
     const struct LeftNfaInfo *infos = getLeftTable(t);
+    if (unlikely(!infos)) {
+        return NULL;
+    }
     return &infos[queueToLeftIndex(t, qi)];
 }
 
@@ -648,6 +698,12 @@ struct SmallWriteEngine;
 static really_inline
 const struct SmallWriteEngine *getSmallWrite(const struct RoseEngine *t) {
     if (!t->smallWriteOffset) {
+        return NULL;
+    }
+
+    // Defensive bounds check to prevent out-of-bounds access (CWE-125)
+    if (unlikely(t->smallWriteOffset >= t->size)) {
+        assert(0 && "smallWriteOffset out of bounds");
         return NULL;
     }
 
