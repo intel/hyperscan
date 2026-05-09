@@ -1,4 +1,4 @@
-include (${CMAKE_MODULE_PATH}/sqlite3.cmake)
+include (sqlite3)
 if (NOT SQLITE3_FOUND)
     message(STATUS "sqlite3 not found, not building hsbench")
     return()
