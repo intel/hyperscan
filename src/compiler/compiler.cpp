@@ -32,7 +32,8 @@
 #include "allocator.h"
 #include "asserts.h"
 #include "compiler.h"
-#include "crc32.h"
+#include <openssl/hmac.h>
+#include "hs_db_hmac_key.h"
 #include "database.h"
 #include "grey.h"
 #include "hs_internal.h"
@@ -549,9 +550,9 @@ hs_database_t *dbCreate(const char *in_bytecode, size_t len, u64a platform) {
     DEBUG_PRINTF("db size %zu\n", db_len);
     DEBUG_PRINTF("db platform %llx\n", platform);
 
-    struct hs_database *db = (struct hs_database *)hs_database_alloc(db_len);
+    struct hs_database *db = (struct hs_database *)hs_db_alloc(db_len);
     if (hs_check_alloc(db) != HS_SUCCESS) {
-        hs_database_free(db);
+        hs_db_free(db, db_len);
         return nullptr;
     }
 
@@ -574,7 +575,14 @@ hs_database_t *dbCreate(const char *in_bytecode, size_t len, u64a platform) {
     // Copy bytecode
     memcpy(bytecode, in_bytecode, len);
 
-    db->crc32 = Crc32c_ComputeBuf(HS_DB_CRC_KEY, bytecode, db->length);
+    unsigned int hmac_len = 32;
+    if (!HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
+             (const unsigned char *)bytecode, db->length, db->hmac,
+             &hmac_len)) {
+        hs_db_free(db, db_len);
+        return nullptr;
+    }
+    hs_db_protect(db, db_len);
     return db;
 }
 

@@ -56,20 +56,6 @@ extern "C"
 #define HS_DB_MAGIC   (0xdbdbdbdbU)
 #endif
 
-/**
- * Compile-time seed used to harden the CRC32C integrity check during
- * serialization and deserialization.  This value is used as the initial
- * CRC accumulator instead of zero, which provides resistance against
- * automated or blind database tampering (i.e., an attacker who does not
- * have access to the Hyperscan binary).
- *
- * Override at build time (e.g. -DHS_DB_CRC_KEY=0xYOURVALU) to use a
- * site-specific value.
- */
-#ifndef HS_DB_CRC_KEY
-#define HS_DB_CRC_KEY  0xD7C4A1B3U
-#endif
-
 // Values in here cannot (easily) change - add new ones!
 
 // CPU type is the low 6 bits (we can't need more than 64, surely!)
@@ -128,11 +114,9 @@ struct hs_database {
     u32 version;
     u32 length;
     u64a platform;
-    u32 crc32;
-    u32 reserved0;
-    u32 reserved1;
     u32 bytecode;    // offset relative to db start
-    u32 padding[16];
+    u8 hmac[32];     // HMAC-SHA256 digest for integrity validation
+    u32 padding[17]; // extra padding so bytes[] starts at offset 128
     char bytes[];
 };
 
@@ -158,6 +142,18 @@ hs_error_t validDatabase(const hs_database_t *db) {
 }
 
 hs_error_t dbIsValid(const struct hs_database *db);
+
+/** Allocate page-aligned memory for a database via mmap. */
+void *hs_db_alloc(size_t size);
+
+/** Free mmap-allocated database memory. */
+void hs_db_free(void *ptr, size_t size);
+
+/** Mark database memory as read-only (PROT_READ) after HMAC computation. */
+void hs_db_protect(void *ptr, size_t size);
+
+/** Restore database memory to read-write before freeing. */
+void hs_db_unprotect(void *ptr, size_t size);
 
 #ifdef __cplusplus
 } /* extern "C" */

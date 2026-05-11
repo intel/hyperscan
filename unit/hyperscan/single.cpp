@@ -30,6 +30,7 @@
 
 #include "gtest/gtest.h"
 #include "hs.h"
+#include "database.h"
 #include "test_util.h"
 
 #include <string>
@@ -243,8 +244,9 @@ protected:
         size_t origSize;
         err = hs_database_size(db, &origSize);
         ASSERT_EQ(HS_SUCCESS, err);
+        hs_db_unprotect(db, origSize);
         memset(db, 0xff, origSize);
-        free(db); /* hs_free_database not used as it is no longer a valid db */
+        hs_db_free(db, origSize);
 
         // relocate to 16 different alignments, ensuring that we can
         // deserialize from any string

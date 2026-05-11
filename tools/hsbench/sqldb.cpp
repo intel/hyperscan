@@ -69,7 +69,7 @@ sqlite3 *initDB(const string &filename) {
                           "dbInfo TEXT, "
                           "exprCount INTEGER, "
                           "dbSize INTEGER,"
-                          "crc TEXT, "
+                          "hmac TEXT, "
                           "streaming TEXT, "
                           "streamSize INTEGER, "
                           "scratchSize INTEGER, "

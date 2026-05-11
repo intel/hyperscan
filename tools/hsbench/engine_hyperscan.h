@@ -44,7 +44,7 @@ struct CompileHSStats {
     std::string db_info;
     size_t expressionCount = 0;
     size_t compiledSize = 0;
-    uint32_t crc32 = 0;
+    std::string hmac_hex;
     bool streaming;
     size_t streamSize = 0;
     size_t scratchSize = 0;

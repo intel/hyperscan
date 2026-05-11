@@ -30,6 +30,7 @@
 
 #include "gtest/gtest.h"
 #include "hs.h"
+#include "database.h"
 #include "test_util.h"
 
 static char garbage[] = "TEST(HyperscanArgChecks, DatabaseSizeNoDatabase) {" \
@@ -59,6 +60,8 @@ namespace /* anonymous */ {
 // Break the magic number of the given database.
 void breakDatabaseMagic(hs_database *db) {
     // database magic should be 0xdbdb at the start
+    size_t db_len = sizeof(struct hs_database) + db->length;
+    hs_db_unprotect(db, db_len);
     ASSERT_TRUE(memcmp("\xdb\xdb", db, 2) == 0);
     *(char *)db = 0xdc;
 }
@@ -66,19 +69,25 @@ void breakDatabaseMagic(hs_database *db) {
 // Break the version number of the given database.
 void breakDatabaseVersion(hs_database *db) {
     // database version is the second u32
+    size_t db_len = sizeof(struct hs_database) + db->length;
+    hs_db_unprotect(db, db_len);
     *((char *)db + 4) += 1;
 }
 
 // Break the platform data of the given database.
 void breakDatabasePlatform(hs_database *db) {
     // database platform is an aligned u64a 16 bytes in
+    size_t db_len = sizeof(struct hs_database) + db->length;
+    hs_db_unprotect(db, db_len);
     memset((char *)db + 16, 0xff, 8);
 }
 
 // Break the alignment of the bytecode for the given database.
 void breakDatabaseBytecode(hs_database *db) {
-    // bytecode ptr is a u32, 36 bytes in
-    unsigned int *bytecode = (unsigned int *)((char *)db + 36);
+    // bytecode ptr is a u32 at offsetof(hs_database, bytecode)
+    size_t db_len = sizeof(struct hs_database) + db->length;
+    hs_db_unprotect(db, db_len);
+    unsigned int *bytecode = (unsigned int *)((char *)db + offsetof(struct hs_database, bytecode));
     ASSERT_NE(0U, *bytecode);
     ASSERT_EQ(0U, (size_t)((char *)db + *bytecode) % 16U);
     *bytecode += 3;
@@ -907,6 +916,7 @@ TEST(HyperscanArgChecks, ScanBlockBrokenDatabaseMagic) {
     ASSERT_TRUE(scratch != nullptr);
 
     // break the database here, after scratch alloc
+    size_t db_len1 = sizeof(struct hs_database) + db->length;
     breakDatabaseMagic(db);
 
     err = hs_scan(db, "data", 4, 0, scratch, dummy_cb, nullptr);
@@ -915,7 +925,7 @@ TEST(HyperscanArgChecks, ScanBlockBrokenDatabaseMagic) {
     // teardown
     err = hs_free_scratch(scratch);
     ASSERT_EQ(HS_SUCCESS, err);
-    free(db);
+    hs_db_free(db, db_len1);
 }
 
 // hs_scan: Call with a database with broken version
@@ -1110,6 +1120,7 @@ TEST(HyperscanArgChecks, ScanVectorBrokenDatabaseMagic) {
     ASSERT_TRUE(scratch != nullptr);
 
     // break the database here, after scratch alloc
+    size_t db_len2 = sizeof(struct hs_database) + db->length;
     breakDatabaseMagic(db);
 
     const char *data[] = {"data", "data"};
@@ -1120,7 +1131,7 @@ TEST(HyperscanArgChecks, ScanVectorBrokenDatabaseMagic) {
     // teardown
     err = hs_free_scratch(scratch);
     ASSERT_EQ(HS_SUCCESS, err);
-    free(db);
+    hs_db_free(db, db_len2);
 }
 
 // hs_scan_vector: Call with a database with broken version
@@ -1389,6 +1400,7 @@ TEST(HyperscanArgChecks, AllocScratchBadDatabaseMagic) {
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_TRUE(db != nullptr);
 
+    size_t db_len3 = sizeof(struct hs_database) + db->length;
     breakDatabaseMagic(db);
 
     hs_scratch_t *scratch = nullptr;
@@ -1396,7 +1408,7 @@ TEST(HyperscanArgChecks, AllocScratchBadDatabaseMagic) {
     ASSERT_EQ(HS_INVALID, err);
 
     // teardown
-    free(db);
+    hs_db_free(db, db_len3);
 }
 
 // hs_alloc_scratch: Call with broken database version
@@ -1478,6 +1490,7 @@ TEST(HyperscanArgChecks, AllocScratchBadDatabaseCRC) {
     ASSERT_EQ(HS_SUCCESS, err);
 
     // for want of a better case, corrupt the "middle byte" of the database.
+    hs_db_unprotect(db, len);
     char *mid = (char *)db + len/2;
     *mid += 17;
 
@@ -1562,13 +1575,14 @@ TEST(HyperscanArgChecks, StreamSizeBogusDatabase) {
     ASSERT_EQ(HS_SUCCESS, err);
     ASSERT_LT(0U, len);
 
+    hs_db_unprotect(db, len);
     memset(db, 0xf0, len);
 
     size_t sz;
     err = hs_stream_size(db, &sz);
     ASSERT_EQ(HS_INVALID, err);
 
-    free(db);
+    hs_db_free(db, len);
 }
 
 // hs_stream_size: Call with a block-mode database

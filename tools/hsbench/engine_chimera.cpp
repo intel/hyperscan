@@ -175,7 +175,6 @@ void EngineChimera::printStats() const {
     printf("Expression count:  %zu\n", compile_stats.expressionCount);
     printf("Bytecode size:     %zu bytes\n", compile_stats.compiledSize);
 #endif
-    printf("Database CRC:      0x%x\n", compile_stats.crc32);
 #ifndef _WIN32
     printf("Scratch size:      %'zu bytes\n", compile_stats.scratchSize);
     printf("Compile time:      %'0.3Lf seconds\n", compile_stats.compileSecs);
@@ -190,7 +189,6 @@ void EngineChimera::printStats() const {
 void EngineChimera::printCsvStats() const {
     printf(",\"%s\"", compile_stats.signatures.c_str());
     printf(",\"%zu\"", compile_stats.expressionCount);
-    printf(",\"0x%x\"", compile_stats.crc32);
     printf(",\"%zu\"", compile_stats.compiledSize);
     printf(",\"%zu\"", compile_stats.scratchSize);
     printf(",\"%0.3Lf\"", compile_stats.compileSecs);
@@ -198,18 +196,15 @@ void EngineChimera::printCsvStats() const {
 }
 
 void EngineChimera::sqlStats(SqlDB &sqldb) const {
-    ostringstream crc;
-    crc << "0x" << hex << compile_stats.crc32;
-
     static const string Q =
         "INSERT INTO Compile ("
-            "sigsName, signatures, dbInfo, exprCount, dbSize, crc,"
+            "sigsName, signatures, dbInfo, exprCount, dbSize,"
             "scratchSize, compileSecs, peakMemory) "
-        "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
+        "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
 
     sqldb.insert_all(Q, compile_stats.sigs_name, compile_stats.signatures,
                      compile_stats.db_info, compile_stats.expressionCount,
-                     compile_stats.compiledSize, crc.str(),
+                     compile_stats.compiledSize,
                      compile_stats.scratchSize, compile_stats.compileSecs,
                      compile_stats.peakMemorySize);
 }

@@ -36,7 +36,7 @@
 
 #include "ue2common.h"
 #include "common.h"
-#include "crc32.h"
+#include "util/hash_util.h"
 #include "hs.h"
 #include "hs_internal.h"
 #include "util/make_unique.h"
@@ -1289,11 +1289,11 @@ string UltimateTruth::dbSettingsHash(const set<unsigned int> &ids) const {
 
     string info = info_oss.str();
 
-    u32 crc = Crc32c_ComputeBuf(0, info.data(), info.size());
+    u64a hash = fnv1a_64(info.data(), info.size());
 
     // return STL string with printable version of digest
     ostringstream oss;
-    oss << hex << setw(8) << setfill('0') << crc << dec;
+    oss << hex << setw(16) << setfill('0') << hash << dec;
 
     return oss.str();
 }

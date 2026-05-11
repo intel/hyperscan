@@ -587,6 +587,11 @@ hs_error_t HS_CDECL hs_valid_platform(void);
  */
 #define HS_UNKNOWN_ERROR   (-13)
 
+/**
+ * Maximum pattern count limit.
+ */
+#define HS_MAX_PATTERN_COUNT 1000000
+
 /** @} */
 
 #ifdef __cplusplus

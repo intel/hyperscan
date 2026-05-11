@@ -39,10 +39,43 @@
 #include "hs_version.h"
 #include "ue2common.h"
 #include "database.h"
-#include "crc32.h"
+#include <openssl/hmac.h>
+#include <openssl/crypto.h>
+#include "hs_db_hmac_key.h"
+#include "nfa/nfa_internal.h"
+#include "nfa/limex_internal.h"
 #include "rose/rose_internal.h"
 #include "util/compile_error.h"
 #include "util/unaligned.h"
+
+/**
+ * Runtime equivalent of mmbit_size() for deserialization validation.
+ */
+static u32 mmbit_size_rt(u32 total_bits) {
+    if (total_bits == 0) {
+        return 0;
+    }
+    if (total_bits <= 256) {
+        return (total_bits + 7) / 8;
+    }
+    u64a current_level = 1;
+    u64a total = 0;
+    while (current_level * 64 < total_bits) {
+        total += current_level;
+        current_level <<= 6;
+    }
+    u64a last_level = ((u64a)total_bits + 63) / 64;
+    total += last_level;
+    return (u32)(total * sizeof(u64a));
+}
+
+/**
+ * Runtime equivalent of fatbit_size() for deserialization validation.
+ */
+static u32 fatbit_size_rt(u32 total_bits) {
+    u32 mmsz = mmbit_size_rt(total_bits);
+    return mmsz > 8 ? mmsz : 8;
+}
 
 static really_inline
 int db_correctly_aligned(const void *db) {
@@ -54,7 +87,11 @@ hs_error_t HS_CDECL hs_free_database(hs_database_t *db) {
     if (db && unlikely(db->magic != HS_DB_MAGIC)) {
         return HS_INVALID;
     }
-    hs_database_free(db);
+    if (db) {
+        size_t db_len = sizeof(struct hs_database) + db->length;
+        hs_db_unprotect(db, db_len);
+        hs_db_free(db, db_len);
+    }
 
     return HS_SUCCESS;
 }
@@ -95,12 +132,8 @@ hs_error_t HS_CDECL hs_serialize_database(const hs_database_t *db, char **bytes,
     buf++;
     memcpy(buf, &db->platform, sizeof(u64a));
     buf += 2;
-    *buf = db->crc32;
-    buf++;
-    *buf = db->reserved0;
-    buf++;
-    *buf = db->reserved1;
-    buf++;
+    memcpy(buf, db->hmac, 32);
+    buf += (32 / sizeof(u32));
 
     const char *bytecode = hs_get_bytecode(db);
     memcpy(buf, bytecode, db->length);
@@ -165,22 +198,28 @@ hs_error_t db_decode_header(const char **bytes, const size_t length,
 
     header->platform = unaligned_load_u64a(buf);
     buf += 2;
-    header->crc32 = unaligned_load_u32(buf++);
-    header->reserved0 = unaligned_load_u32(buf++);
-    header->reserved1 = unaligned_load_u32(buf++);
+    memcpy(header->hmac, buf, 32);
+    buf += (32 / sizeof(u32));
 
     *bytes = (const char *)buf;
 
     return HS_SUCCESS; // Header checks out
 }
 
-// Check the CRC on a database (seeded with HS_DB_CRC_KEY)
+// Check the integrity of a database using HMAC-SHA256
 static
-hs_error_t db_check_crc(const hs_database_t *db) {
+hs_error_t db_check_integrity(const hs_database_t *db) {
     const char *bytecode = hs_get_bytecode(db);
-    u32 crc = Crc32c_ComputeBuf(HS_DB_CRC_KEY, bytecode, db->length);
-    if (unlikely(crc != db->crc32)) {
-        DEBUG_PRINTF("crc mismatch! 0x%x != 0x%x\n", crc, db->crc32);
+    u8 computed[32];
+    unsigned int hmac_len = 32;
+    if (!HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
+             (const unsigned char *)bytecode, db->length, computed,
+             &hmac_len) || hmac_len != 32) {
+        DEBUG_PRINTF("hmac computation failed!\n");
+        return HS_INVALID;
+    }
+    if (unlikely(CRYPTO_memcmp(computed, db->hmac, 32) != 0)) {
+        DEBUG_PRINTF("hmac mismatch!\n");
         return HS_INVALID;
     }
     return HS_SUCCESS;
@@ -190,6 +229,140 @@ hs_error_t db_check_crc(const hs_database_t *db) {
  * \brief Validate critical RoseEngine offsets to prevent out-of-bounds
  * access (CWE-125) when scanning a deserialized database.
  */
+
+static
+hs_error_t db_validate_limex_repeats(const struct RoseEngine *rose,
+                                     u32 rose_size) {
+    if (!rose->nfaInfoOffset || rose->nfaInfoOffset >= rose_size) {
+        return HS_SUCCESS; /* no NFA engines - nothing to check */
+    }
+
+    const char *rose_base = (const char *)rose;
+    const struct NfaInfo *infos =
+        (const struct NfaInfo *)(rose_base + rose->nfaInfoOffset);
+
+    for (u32 qi = 0; qi < rose->queueCount; qi++) {
+        if (unlikely((const char *)(&infos[qi + 1]) > rose_base + rose_size)) {
+            DEBUG_PRINTF("NfaInfo[%u] out of bounds\n", qi);
+            return HS_INVALID;
+        }
+
+        const struct NfaInfo *ni = &infos[qi];
+        if (!ni->nfaOffset || ni->nfaOffset >= rose_size) {
+            continue;
+        }
+
+        if (unlikely(ni->nfaOffset + sizeof(struct NFA) > rose_size)) {
+            DEBUG_PRINTF("NFA[%u] header out of bounds\n", qi);
+            return HS_INVALID;
+        }
+
+        const struct NFA *nfa =
+            (const struct NFA *)(rose_base + ni->nfaOffset);
+
+        if (!isNfaType(nfa->type)) {
+            continue;
+        }
+
+        if (unlikely(ni->nfaOffset + nfa->length > rose_size)) {
+            DEBUG_PRINTF("NFA[%u] body out of bounds\n", qi);
+            return HS_INVALID;
+        }
+
+        if (unlikely(nfa->length <= sizeof(struct NFA))) {
+            DEBUG_PRINTF("NFA[%u] impossibly small\n", qi);
+            return HS_INVALID;
+        }
+
+        const char *limex_base = (const char *)getImplNfa(nfa);
+        u32 limex_len = nfa->length - (u32)sizeof(struct NFA);
+
+        const u32 prefix_end =
+            (u32)(offsetof(struct LimExNFA32, flags) + sizeof(u32));
+        if (unlikely(limex_len < prefix_end)) {
+            DEBUG_PRINTF("LimEx[%u] smaller than common prefix\n", qi);
+            return HS_INVALID;
+        }
+
+        const struct LimExNFA32 *limex =
+            (const struct LimExNFA32 *)limex_base;
+        const u32 repeatCount = limex->repeatCount;
+        const u32 rep_table_off = limex->repeatOffset;
+        const u32 nfa_state_size = limex->stateSize;
+
+        if (repeatCount == 0) {
+            continue;
+        }
+
+        if (unlikely(repeatCount > limex_len / sizeof(u32))) {
+            DEBUG_PRINTF("LimEx[%u] repeatCount too large: %u\n",
+                         qi, repeatCount);
+            return HS_INVALID;
+        }
+
+        if (unlikely(rep_table_off >= limex_len)) {
+            DEBUG_PRINTF("LimEx[%u] repeatOffset out of bounds\n", qi);
+            return HS_INVALID;
+        }
+
+        u64a table_end =
+            (u64a)rep_table_off + (u64a)repeatCount * sizeof(u32);
+        if (unlikely(table_end > limex_len)) {
+            DEBUG_PRINTF("LimEx[%u] repeat offset table overflows\n", qi);
+            return HS_INVALID;
+        }
+
+        const u32 *rep_offsets =
+            (const u32 *)(limex_base + rep_table_off);
+
+        for (u32 i = 0; i < repeatCount; i++) {
+            u32 info_off = rep_offsets[i];
+
+            if (unlikely(info_off >= limex_len ||
+                         info_off + sizeof(struct NFARepeatInfo) > limex_len)) {
+                DEBUG_PRINTF("LimEx[%u] repeat[%u] info out of bounds\n",
+                             qi, i);
+                return HS_INVALID;
+            }
+
+            const struct NFARepeatInfo *info =
+                (const struct NFARepeatInfo *)(limex_base + info_off);
+
+            u64a ctrl_end = (u64a)nfa_state_size +
+                            (u64a)info->packedCtrlOffset +
+                            (u64a)info->stateSize;
+            if (unlikely(ctrl_end > nfa->streamStateSize)) {
+                DEBUG_PRINTF("LimEx[%u] repeat[%u] packedCtrlOffset+stateSize "
+                             "exceeds streamStateSize\n", qi, i);
+                return HS_INVALID;
+            }
+
+            u64a state_end = (u64a)nfa_state_size +
+                             (u64a)info->stateOffset;
+            if (unlikely(state_end > nfa->streamStateSize)) {
+                DEBUG_PRINTF("LimEx[%u] repeat[%u] stateOffset exceeds "
+                             "streamStateSize\n", qi, i);
+                return HS_INVALID;
+            }
+
+            if (unlikely(info->ctrlIndex >= repeatCount)) {
+                DEBUG_PRINTF("LimEx[%u] repeat[%u] ctrlIndex out of range\n",
+                             qi, i);
+                return HS_INVALID;
+            }
+
+            u64a tug_end = (u64a)info_off + (u64a)info->tugMaskOffset;
+            if (unlikely(tug_end >= limex_len)) {
+                DEBUG_PRINTF("LimEx[%u] repeat[%u] tugMaskOffset "
+                             "out of bounds\n", qi, i);
+                return HS_INVALID;
+            }
+        }
+    }
+
+    return HS_SUCCESS;
+}
+
 static
 hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
     const struct RoseEngine *rose = hs_get_bytecode(db);
@@ -247,6 +420,37 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
     VALIDATE_OFFSET(combInfoMapOffset);
 
 #undef VALIDATE_OFFSET
+
+#define VALIDATE_FATBIT(size_field, count_field)                             \
+    if (rose->count_field > 0) {                                            \
+        if (unlikely(rose->count_field > rose_size)) {                      \
+            DEBUG_PRINTF(#count_field " exceeds rose_size: %u > %u\n",     \
+                         rose->count_field, rose_size);                     \
+            return HS_INVALID;                                              \
+        }                                                                   \
+        if (rose->size_field < fatbit_size_rt(rose->count_field)) {         \
+            DEBUG_PRINTF(#size_field " too small for " #count_field         \
+                         ": %u < %u (count=%u)\n",                         \
+                         rose->size_field,                                  \
+                         fatbit_size_rt(rose->count_field),                 \
+                         rose->count_field);                                \
+            return HS_INVALID;                                              \
+        }                                                                   \
+    }
+
+    VALIDATE_FATBIT(anchored_fatbit_size, anchored_count);
+    VALIDATE_FATBIT(delay_fatbit_size, delay_count);
+    VALIDATE_FATBIT(somLocationFatbitSize, somLocationCount);
+    VALIDATE_FATBIT(handledKeyFatbitSize, handledKeyCount);
+    VALIDATE_FATBIT(activeQueueArraySize, queueCount);
+
+#undef VALIDATE_FATBIT
+
+    /* Validate LimEx NFA repeat metadata (CWE-787). */
+    if (unlikely(db_validate_limex_repeats(rose, rose_size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("LimEx repeat validation failed\n");
+        return HS_INVALID;
+    }
 
     DEBUG_PRINTF("rose offset validation passed\n");
     return HS_SUCCESS;
@@ -318,7 +522,7 @@ hs_error_t HS_CDECL hs_deserialize_database_at(const char *bytes,
     // Copy the bytecode into the correctly-aligned location, set offsets
     db_copy_bytecode(bytes, db);
 
-    if (unlikely(db_check_crc(db) != HS_SUCCESS)) {
+    if (unlikely(db_check_integrity(db) != HS_SUCCESS)) {
         return HS_INVALID;
     }
 
@@ -328,6 +532,7 @@ hs_error_t HS_CDECL hs_deserialize_database_at(const char *bytes,
         return HS_INVALID;
     }
 
+    hs_db_protect(db, sizeof(struct hs_database) + header.length);
     return HS_SUCCESS;
 }
 
@@ -370,10 +575,10 @@ hs_error_t HS_CDECL hs_deserialize_database(const char *bytes,
         return HS_INVALID;
     }
 
-    struct hs_database *tempdb = hs_database_alloc(dblength);
+    struct hs_database *tempdb = (struct hs_database *)hs_db_alloc(dblength);
     ret = hs_check_alloc(tempdb);
     if (unlikely(ret != HS_SUCCESS)) {
-        hs_database_free(tempdb);
+        hs_db_free(tempdb, dblength);
         return ret;
     }
 
@@ -386,18 +591,19 @@ hs_error_t HS_CDECL hs_deserialize_database(const char *bytes,
     // Copy the bytecode into the correctly-aligned location, set offsets
     db_copy_bytecode(bytes, tempdb);
 
-    if (unlikely(db_check_crc(tempdb) != HS_SUCCESS)) {
-        hs_database_free(tempdb);
+    if (unlikely(db_check_integrity(tempdb) != HS_SUCCESS)) {
+        hs_db_free(tempdb, dblength);
         return HS_INVALID;
     }
 
     // Validate RoseEngine offsets to prevent out-of-bounds access (CWE-125)
     if (unlikely(db_validate_rose_offsets(tempdb) != HS_SUCCESS)) {
         DEBUG_PRINTF("rose offset validation failed\n");
-        hs_database_free(tempdb);
+        hs_db_free(tempdb, dblength);
         return HS_INVALID;
     }
 
+    hs_db_protect(tempdb, dblength);
     *db = tempdb;
     return HS_SUCCESS;
 }
@@ -457,9 +663,9 @@ hs_error_t dbIsValid(const hs_database_t *db) {
         return HS_INVALID;
     }
 
-    hs_error_t rv = db_check_crc(db);
+    hs_error_t rv = db_check_integrity(db);
     if (unlikely(rv != HS_SUCCESS)) {
-        DEBUG_PRINTF("bad crc\n");
+        DEBUG_PRINTF("bad integrity check\n");
         return rv;
     }
 

@@ -8,4 +8,8 @@ hs_scratch_alloc
 hs_scratch_free
 hs_database_alloc
 hs_database_free
+hs_db_alloc
+hs_db_free
+hs_db_protect
+hs_db_unprotect
 ^_

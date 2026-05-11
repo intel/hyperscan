@@ -1058,6 +1058,12 @@ int HS_CDECL main(int argc, char *argv[]) {
     ExpressionMap exprMapTemplate;
     loadExpressions(exprPath, exprMapTemplate);
 
+    if (exprMapTemplate.size() > HS_MAX_PATTERN_COUNT) {
+        printf("Error: number of patterns (%zu) exceeds limit (%u).\n",
+               exprMapTemplate.size(), HS_MAX_PATTERN_COUNT);
+        return 1;
+    }
+
     // If we have no signature sets, the user wants us to benchmark all the
     // known expressions together.
     if (sigSets.empty()) {

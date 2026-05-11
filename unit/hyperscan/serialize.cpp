@@ -34,8 +34,15 @@
 #include "gtest/gtest.h"
 #include "hs.h"
 #include "hs_internal.h"
+#include "hs_compile.h"
+#include "database.h"
+#include "hs_db_hmac_key.h"
+#include "rose/rose_internal.h"
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
 #include "test_util.h"
 
+#include <climits>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -568,6 +575,577 @@ TEST(Serialize, DeserializeGarbage) {
     }
 
     free(bytes);
+}
+
+// --- HMAC tamper-detection regression tests ---
+
+// Helper: serialize a simple block-mode database.
+static void makeSerializedDB(char **bytes, size_t *length) {
+    hs_database_t *db = buildDB("hatstand.*teakettle", 0, 1000, HS_MODE_BLOCK);
+    ASSERT_NE(nullptr, db);
+    hs_error_t err = hs_serialize_database(db, bytes, length);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_NE(nullptr, *bytes);
+    ASSERT_LT(sizeof(struct hs_database), *length);
+    hs_free_database(db);
+}
+
+TEST(Serialize, HmacTamperDetectDeserialize) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDB(&bytes, &length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_SUCCESS, err);
+    hs_free_database(db);
+    db = nullptr;
+
+    size_t tamper_offset = sizeof(struct hs_database) + 1;
+    ASSERT_LT(tamper_offset, length);
+    bytes[tamper_offset] ^= 0x01;
+
+    err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err) << "tampered database was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+TEST(Serialize, HmacTamperDetectDeserializeAt) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDB(&bytes, &length);
+
+    size_t db_length = 0;
+    hs_error_t err = hs_serialized_database_size(bytes, length, &db_length);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    char *mem = (char *)malloc(db_length);
+    ASSERT_NE(nullptr, mem);
+    hs_database_t *db = (hs_database_t *)mem;
+
+    err = hs_deserialize_database_at(bytes, length, db);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    size_t tamper_offset = sizeof(struct hs_database) + 1;
+    ASSERT_LT(tamper_offset, length);
+    bytes[tamper_offset] ^= 0x01;
+
+    memset(mem, 0, db_length);
+    err = hs_deserialize_database_at(bytes, length, db);
+    ASSERT_EQ(HS_INVALID, err) << "tampered database was not rejected";
+
+    free(mem);
+    free(bytes);
+}
+
+TEST(Serialize, HmacTamperMultipleOffsets) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDB(&bytes, &length);
+
+    const size_t bytecode_start = 4 + 4 + 4 + 8 + 32;
+    const u32 *len_field = (const u32 *)(bytes + 8);
+    const u32 bc_len = *len_field;
+    ASSERT_GT(bc_len, 2u);
+
+    const size_t offsets[] = {
+        bytecode_start,
+        bytecode_start + bc_len / 2,
+        bytecode_start + bc_len - 1
+    };
+
+    for (size_t off : offsets) {
+        SCOPED_TRACE(off);
+
+        char *copy = (char *)malloc(length);
+        ASSERT_NE(nullptr, copy);
+        memcpy(copy, bytes, length);
+
+        copy[off] ^= 0x80;
+
+        hs_database_t *db = nullptr;
+        hs_error_t err = hs_deserialize_database(copy, length, &db);
+        ASSERT_EQ(HS_INVALID, err)
+            << "tampered byte at offset " << off << " was not rejected";
+        ASSERT_TRUE(db == nullptr);
+
+        free(copy);
+    }
+
+    free(bytes);
+}
+
+TEST(Serialize, HmacFieldCorruption) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDB(&bytes, &length);
+
+    size_t hmac_offset = offsetof(struct hs_database, hmac);
+    ASSERT_LT(hmac_offset + 32, length);
+
+    bytes[hmac_offset] ^= 0x01;
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err) << "corrupted HMAC was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+// --- PSIRT regression tests ---
+
+static const size_t SERIAL_BYTECODE_OFF = 4 + 4 + 4 + 8 + 32;
+
+static void recomputeHMAC(char *bytes, size_t length) {
+    const u32 bc_len = *(const u32 *)(bytes + 8);
+    ASSERT_LE(SERIAL_BYTECODE_OFF + bc_len, length);
+    u8 hmac[32] = {0};
+    unsigned int hmac_len = 32;
+    HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
+         (const unsigned char *)(bytes + SERIAL_BYTECODE_OFF),
+         bc_len, hmac, &hmac_len);
+    memcpy(bytes + 20, hmac, 32);
+}
+
+static void makeSerializedDBPat(const char *pattern, unsigned flags,
+                                unsigned mode, char **bytes, size_t *length) {
+    hs_database_t *db = buildDB(pattern, flags, 1000, mode);
+    ASSERT_NE(nullptr, db);
+    hs_error_t err = hs_serialize_database(db, bytes, length);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_NE(nullptr, *bytes);
+    hs_free_database(db);
+}
+
+static void forgeBytecodeU32(char *bytes, size_t bc_offset, u32 value) {
+    memcpy(bytes + SERIAL_BYTECODE_OFF + bc_offset, &value, sizeof(u32));
+}
+
+static u32 readBytecodeU32(const char *bytes, size_t bc_offset) {
+    u32 v;
+    memcpy(&v, bytes + SERIAL_BYTECODE_OFF + bc_offset, sizeof(u32));
+    return v;
+}
+
+TEST(Serialize, PsirtAnchoredFatbitOverflow) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
+                        &bytes, &length);
+
+    const size_t off_count = offsetof(struct RoseEngine, anchored_count);
+    const size_t off_fbsize = offsetof(struct RoseEngine, anchored_fatbit_size);
+    u32 orig_fbsize = readBytecodeU32(bytes, off_fbsize);
+
+    u32 forged_count = 4160;
+    forgeBytecodeU32(bytes, off_count, forged_count);
+    if (orig_fbsize > 32) {
+        forgeBytecodeU32(bytes, off_fbsize, 32);
+    }
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged anchored_count/fatbit mismatch was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+TEST(Serialize, PsirtNullDerefWalkStrawToCyclicRev) {
+    static const char *patterns[] = {
+        "(?:ab|cd){2,4}[a-z]{1,3}xyz",
+        "([a-z]){3,5}[0-9]foo",
+        "(?:a|b){2,10}(?:c|d){2,10}efgh",
+        "(?:abc|def){1,3}[x-z]{2,5}ghi",
+    };
+
+    for (const char *pat : patterns) {
+        SCOPED_TRACE(pat);
+        hs_database_t *db = nullptr;
+        hs_compile_error_t *comp_error = nullptr;
+        hs_error_t err = hs_compile(pat, 0, HS_MODE_BLOCK, nullptr,
+                                    &db, &comp_error);
+        if (err == HS_SUCCESS) {
+            ASSERT_NE(nullptr, db);
+            hs_free_database(db);
+        } else {
+            if (comp_error) {
+                hs_free_compile_error(comp_error);
+            }
+        }
+    }
+}
+
+TEST(Serialize, PsirtLimExRepeatMetadataForge) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("a{5,10}b", 0,
+                        HS_MODE_STREAM | HS_MODE_SOM_HORIZON_LARGE,
+                        &bytes, &length);
+
+    const size_t off_nfaInfo = offsetof(struct RoseEngine, nfaInfoOffset);
+
+    const size_t off_rose_size = offsetof(struct RoseEngine, size);
+    u32 rose_size = readBytecodeU32(bytes, off_rose_size);
+
+    forgeBytecodeU32(bytes, off_nfaInfo, rose_size + 1000);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged nfaInfoOffset past rose_size was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+TEST(Serialize, PsirtRepeatRangeResumeState) {
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *comp_error = nullptr;
+    hs_error_t err = hs_compile("a{3,7}b", 0, HS_MODE_STREAM,
+                                nullptr, &db, &comp_error);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_NE(nullptr, db);
+
+    hs_scratch_t *scratch = nullptr;
+    err = hs_alloc_scratch(db, &scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    hs_stream_t *stream = nullptr;
+    err = hs_open_stream(db, 0, &stream);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    CallBackContext cb;
+    err = hs_scan_stream(stream, "aaaa", 4, 0, scratch, record_cb, &cb);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    err = hs_scan_stream(stream, "aaab", 4, 0, scratch, record_cb, &cb);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    err = hs_close_stream(stream, scratch, record_cb, &cb);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    ASSERT_FALSE(cb.matches.empty()) << "expected at least one match";
+
+    hs_free_scratch(scratch);
+    hs_free_database(db);
+}
+
+TEST(Serialize, PsirtCompileLitMultiNullExpr) {
+    const char *exprs[] = { nullptr };
+    const unsigned flags[] = { 0 };
+    const unsigned ids[] = { 1 };
+    const size_t lens[] = { 4 };
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *comp_error = nullptr;
+
+    hs_error_t err = hs_compile_lit_multi(exprs, flags, ids, lens, 1,
+                                          HS_MODE_BLOCK, nullptr,
+                                          &db, &comp_error);
+    ASSERT_EQ(HS_COMPILER_ERROR, err);
+    ASSERT_TRUE(db == nullptr);
+    ASSERT_NE(nullptr, comp_error);
+    hs_free_compile_error(comp_error);
+}
+
+TEST(Serialize, PsirtCompileLitMultiZeroLen) {
+    const char *exprs[] = { "test" };
+    const unsigned flags[] = { 0 };
+    const unsigned ids[] = { 1 };
+    const size_t lens[] = { 0 };
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *comp_error = nullptr;
+
+    hs_error_t err = hs_compile_lit_multi(exprs, flags, ids, lens, 1,
+                                          HS_MODE_BLOCK, nullptr,
+                                          &db, &comp_error);
+    ASSERT_EQ(HS_COMPILER_ERROR, err);
+    ASSERT_TRUE(db == nullptr);
+    ASSERT_NE(nullptr, comp_error);
+    hs_free_compile_error(comp_error);
+}
+
+TEST(Serialize, PsirtCompileLitMultiOversizedLen) {
+    const char *exprs[] = { "test" };
+    const unsigned flags[] = { 0 };
+    const unsigned ids[] = { 1 };
+    const size_t lens[] = { 0xFFFFFFFF };
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *comp_error = nullptr;
+
+    hs_error_t err = hs_compile_lit_multi(exprs, flags, ids, lens, 1,
+                                          HS_MODE_BLOCK, nullptr,
+                                          &db, &comp_error);
+    ASSERT_EQ(HS_COMPILER_ERROR, err);
+    ASSERT_TRUE(db == nullptr);
+    ASSERT_NE(nullptr, comp_error);
+    hs_free_compile_error(comp_error);
+}
+
+TEST(Serialize, PsirtCompileLitMultiNullLens) {
+    const char *exprs[] = { "test" };
+    const unsigned flags[] = { 0 };
+    const unsigned ids[] = { 1 };
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *comp_error = nullptr;
+
+    hs_error_t err = hs_compile_lit_multi(exprs, flags, ids, nullptr, 1,
+                                          HS_MODE_BLOCK, nullptr,
+                                          &db, &comp_error);
+    ASSERT_EQ(HS_COMPILER_ERROR, err);
+    ASSERT_TRUE(db == nullptr);
+    ASSERT_NE(nullptr, comp_error);
+    hs_free_compile_error(comp_error);
+}
+
+TEST(Serialize, PsirtCompileLitMultiNullExprs) {
+    const unsigned flags[] = { 0 };
+    const unsigned ids[] = { 1 };
+    const size_t lens[] = { 4 };
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *comp_error = nullptr;
+
+    hs_error_t err = hs_compile_lit_multi(nullptr, flags, ids, lens, 1,
+                                          HS_MODE_BLOCK, nullptr,
+                                          &db, &comp_error);
+    ASSERT_EQ(HS_COMPILER_ERROR, err);
+    ASSERT_TRUE(db == nullptr);
+    ASSERT_NE(nullptr, comp_error);
+    hs_free_compile_error(comp_error);
+}
+
+TEST(Serialize, PsirtRoseOffsetFmatcherOOB) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
+                        &bytes, &length);
+
+    const size_t off_rose_size = offsetof(struct RoseEngine, size);
+    u32 rose_size = readBytecodeU32(bytes, off_rose_size);
+
+    forgeBytecodeU32(bytes, offsetof(struct RoseEngine, fmatcherOffset),
+                     rose_size + 4096);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged fmatcherOffset was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+TEST(Serialize, PsirtRoseOffsetSmallWriteOOB) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
+                        &bytes, &length);
+
+    const size_t off_rose_size = offsetof(struct RoseEngine, size);
+    u32 rose_size = readBytecodeU32(bytes, off_rose_size);
+
+    forgeBytecodeU32(bytes, offsetof(struct RoseEngine, smallWriteOffset),
+                     rose_size + 4096);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged smallWriteOffset was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+TEST(Serialize, PsirtRoseOffsetReportProgramOOB) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
+                        &bytes, &length);
+
+    const size_t off_rose_size = offsetof(struct RoseEngine, size);
+    u32 rose_size = readBytecodeU32(bytes, off_rose_size);
+
+    forgeBytecodeU32(bytes, offsetof(struct RoseEngine, reportProgramOffset),
+                     rose_size + 4096);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "forged reportProgramOffset was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+TEST(Serialize, PsirtRoseSizeTooSmall) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
+                        &bytes, &length);
+
+    forgeBytecodeU32(bytes, offsetof(struct RoseEngine, size), 16);
+    recomputeHMAC(bytes, length);
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_INVALID, err)
+        << "impossibly small rose->size was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+TEST(Serialize, PsirtDeserializeOverflow) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
+                        &bytes, &length);
+
+    u32 forged_length = 0xFFFFFFF0u;
+    memcpy(bytes + 8, &forged_length, sizeof(u32));
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_NE(HS_SUCCESS, err)
+        << "overflowing length field was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    size_t at_buf_len = 4096;
+    char *mem = (char *)malloc(at_buf_len);
+    ASSERT_NE(nullptr, mem);
+    err = hs_deserialize_database_at(bytes, length, (hs_database_t *)mem);
+    ASSERT_NE(HS_SUCCESS, err)
+        << "overflowing length field was not rejected by _at variant";
+    free(mem);
+
+    free(bytes);
+}
+
+TEST(Serialize, PsirtDeserializeMaxSize) {
+    char *bytes = nullptr;
+    size_t length = 0;
+    makeSerializedDBPat("hatstand.*teakettle", 0, HS_MODE_BLOCK,
+                        &bytes, &length);
+
+    u32 forged_length = 0xFFFFF000u;
+    memcpy(bytes + 8, &forged_length, sizeof(u32));
+
+    hs_database_t *db = nullptr;
+    hs_error_t err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_NE(HS_SUCCESS, err)
+        << "length exceeding MAX_DATABASE_SIZE was not rejected";
+    ASSERT_TRUE(db == nullptr);
+
+    free(bytes);
+}
+
+TEST(Serialize, PsirtValidDbRoundTrip) {
+    hs_database_t *db = buildDB("hatstand.*teakettle", 0, 1000,
+                                HS_MODE_BLOCK);
+    ASSERT_NE(nullptr, db);
+
+    char *bytes = nullptr;
+    size_t length = 0;
+    hs_error_t err = hs_serialize_database(db, &bytes, &length);
+    ASSERT_EQ(HS_SUCCESS, err);
+    hs_free_database(db);
+    db = nullptr;
+
+    err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_SUCCESS, err)
+        << "valid database was rejected after PSIRT validation";
+    ASSERT_NE(nullptr, db);
+
+    hs_scratch_t *scratch = nullptr;
+    err = hs_alloc_scratch(db, &scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    CallBackContext cb;
+    const char *data = "hatstand foobar teakettle";
+    err = hs_scan(db, data, (unsigned)strlen(data), 0, scratch,
+                  record_cb, &cb);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_FALSE(cb.matches.empty()) << "no match on valid deserialized DB";
+
+    hs_free_scratch(scratch);
+    hs_free_database(db);
+    free(bytes);
+}
+
+TEST(Serialize, PsirtValidStreamRoundTrip) {
+    hs_database_t *db = buildDB("a{3,7}b", 0, 1000, HS_MODE_STREAM);
+    ASSERT_NE(nullptr, db);
+
+    char *bytes = nullptr;
+    size_t length = 0;
+    hs_error_t err = hs_serialize_database(db, &bytes, &length);
+    ASSERT_EQ(HS_SUCCESS, err);
+    hs_free_database(db);
+    db = nullptr;
+
+    err = hs_deserialize_database(bytes, length, &db);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_NE(nullptr, db);
+
+    hs_scratch_t *scratch = nullptr;
+    err = hs_alloc_scratch(db, &scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    hs_stream_t *stream = nullptr;
+    err = hs_open_stream(db, 0, &stream);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    CallBackContext cb;
+    err = hs_scan_stream(stream, "aaaaa", 5, 0, scratch, record_cb, &cb);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_scan_stream(stream, "b", 1, 0, scratch, record_cb, &cb);
+    ASSERT_EQ(HS_SUCCESS, err);
+    err = hs_close_stream(stream, scratch, record_cb, &cb);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    ASSERT_FALSE(cb.matches.empty()) << "no match on valid streaming DB";
+
+    hs_free_scratch(scratch);
+    hs_free_database(db);
+    free(bytes);
+}
+
+TEST(Serialize, PsirtCompileLitMultiValid) {
+    const char *exprs[] = { "foobar", "bazqux" };
+    const unsigned flags[] = { 0, 0 };
+    const unsigned ids[] = { 1, 2 };
+    const size_t lens[] = { 6, 6 };
+    hs_database_t *db = nullptr;
+    hs_compile_error_t *comp_error = nullptr;
+
+    hs_error_t err = hs_compile_lit_multi(exprs, flags, ids, lens, 2,
+                                          HS_MODE_BLOCK, nullptr,
+                                          &db, &comp_error);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_NE(nullptr, db);
+
+    hs_scratch_t *scratch = nullptr;
+    err = hs_alloc_scratch(db, &scratch);
+    ASSERT_EQ(HS_SUCCESS, err);
+
+    CallBackContext cb;
+    const char *data = "hello foobar world bazqux end";
+    err = hs_scan(db, data, (unsigned)strlen(data), 0, scratch,
+                  record_cb, &cb);
+    ASSERT_EQ(HS_SUCCESS, err);
+    ASSERT_EQ(2u, cb.matches.size()) << "expected 2 matches from lit_multi";
+
+    hs_free_scratch(scratch);
+    hs_free_database(db);
 }
 
 }

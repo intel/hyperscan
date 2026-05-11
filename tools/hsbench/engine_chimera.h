@@ -45,7 +45,6 @@ struct CompileCHStats {
     std::string db_info;
     size_t expressionCount = 0;
     size_t compiledSize = 0;
-    uint32_t crc32 = 0;
     size_t scratchSize = 0;
     long double compileSecs = 0;
     unsigned int peakMemorySize = 0;
