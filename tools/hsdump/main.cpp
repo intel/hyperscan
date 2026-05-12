@@ -1,29 +1,14 @@
 /*
- * Copyright (c) 2015-2019, Intel Corporation
+ * Copyright (C) 2026 Intel Corporation
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * This software and the related documents are Intel copyrighted materials,
+ * and your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise,
+ * you may not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of Intel Corporation nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * This software and the related documents are provided as is, with no express or
+ * implied warranties, other than those that are expressly stated in the License.
  */
 
 /**
@@ -107,6 +92,7 @@ bool force_edit_distance = false;
 u32 edit_distance = 0;
 
 int use_literal_api = 0;
+int use_rliteral_api = 0;
 
 } // namespace
 
@@ -141,7 +127,8 @@ void usage(const char *name, const char *error) {
     printf("  -8              Force UTF8 mode on all patterns.\n");
     printf("  -L              Apply HS_FLAG_SOM_LEFTMOST to all patterns.\n");
     printf(" --prefilter      Apply HS_FLAG_PREFILTER to all patterns.\n");
-    printf(" --literal-on     Use Hyperscan pure literal matching API.\n");
+    printf(" --literal-on     Process in PTL literal API.\n");
+    printf(" --rliteral-on    Process in RCL literal API, only for block mode.\n");
     printf("\n");
     printf("Example:\n");
     printf("$ %s -e pattern.file -s sigfile\n", name);
@@ -167,6 +154,7 @@ void processArgs(int argc, char *argv[], Grey &grey) {
         {"prefilter",           no_argument,        &force_prefilter, 1},
         {"som-width",           required_argument,  nullptr, 'd'},
         {"literal-on",          no_argument,        &use_literal_api, 1},
+        {"rliteral-on",         no_argument,        &use_rliteral_api, 1},
         {nullptr, 0, nullptr, 0}
     };
 
@@ -296,6 +284,16 @@ void processArgs(int argc, char *argv[], Grey &grey) {
         usage(argv[0], "No output directory provided");
         exit(1);
     }
+
+    if (use_literal_api && use_rliteral_api) {
+        usage(argv[0], "PTL and RCL literal API can't be used simutaneously.");
+        exit(1);
+    }
+
+    if (streaming && use_rliteral_api) {
+        usage(argv[0], "RCL literal API only support BLOCK mode now.");
+        exit(1);
+    }
 }
 
 static
@@ -416,7 +414,8 @@ void prepareDumpLoc(string parent, string path, u32 flags, Grey &grey) {
     }
 
     // Append path to parent
-    path = parent.append(path);
+    parent.append(path);
+    path = std::move(parent);
     if (stat(path.c_str(), &st)) {
         // Create dump location if not found
         if (makeDirectory(path) < 0) {
@@ -434,7 +433,7 @@ void prepareDumpLoc(string parent, string path, u32 flags, Grey &grey) {
         path.push_back('/');
     }
 
-    grey.dumpPath = path;
+    grey.dumpPath = std::move(path);
     grey.dumpFlags = flags;
 }
 
@@ -517,6 +516,11 @@ unsigned int dumpDataMulti(const vector<const char *> &patterns,
                                        ids.data(), ext.c_array(), lens.data(),
                                        count, mode, plat_info.get(), &db,
                                        &compile_err, grey);
+    } else if (use_rliteral_api) {
+        err = hs_compile_reglit_multi_int(patterns.data(), flags.data(),
+                                          ids.data(), ext.c_array(), count,
+                                          mode, plat_info.get(), &db,
+                                          &compile_err, grey);
     } else {
         err = hs_compile_multi_int(patterns.data(), flags.data(), ids.data(),
                                    ext.c_array(), count, mode, plat_info.get(),
@@ -613,6 +617,7 @@ unsigned int dumpData(const ExpressionMap &exprMap, Grey &grey) {
 }
 
 int HS_CDECL main(int argc, char *argv[]) {
+    try {
     Grey grey;
     grey.dumpFlags = Grey::DUMP_BASICS;
 
@@ -638,4 +643,8 @@ int HS_CDECL main(int argc, char *argv[]) {
     }
 
     return dumpData(exprMap, grey);
+    } catch (const std::exception &e) {
+        fprintf(stderr, "Error: %s\n", e.what());
+        return 1;
+    }
 }
