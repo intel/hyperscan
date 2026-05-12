@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Intel Corporation
+ * Copyright (c) 2018-2023, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -62,6 +62,10 @@ public:
     // non-streaming scan
     virtual void scan(const char *data, unsigned len, unsigned blockId,
                       ResultEntry &results, EngineContext &ectx) const = 0;
+
+    // non-streaming rlit scan
+    virtual void scan_rlit(const char *data, unsigned len, unsigned blockId,
+                           ResultEntry &results, EngineContext &ectx) const = 0;
 
     // vectoring scan
     virtual void scan_vectored(const char *const *data,

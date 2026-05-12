@@ -1,29 +1,14 @@
 /*
- * Copyright (c) 2016-2019, Intel Corporation
+ * Copyright (C) 2026 Intel Corporation
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * This software and the related documents are Intel copyrighted materials,
+ * and your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise,
+ * you may not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of Intel Corporation nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * This software and the related documents are provided as is, with no express or
+ * implied warranties, other than those that are expressly stated in the License.
  */
 
 #include "config.h"
@@ -44,6 +29,12 @@
 #include "util/database_util.h"
 #include "util/make_unique.h"
 
+#ifdef ENGINE_UPDATE_ON
+#include "hwlm/hwlm_internal.h"
+#include "scratch.h"
+#include "lit_scratch.h"
+#endif
+
 #include <cassert>
 #include <cstring>
 #include <functional>
@@ -56,6 +47,9 @@
 #include <boost/crc.hpp>
 
 using namespace std;
+#ifdef ENGINE_UPDATE_ON
+u32 engineType = 0;
+#endif
 
 EngineHSContext::EngineHSContext(const hs_database_t *db) {
     hs_alloc_scratch(db, &scratch);
@@ -116,8 +110,8 @@ int HS_CDECL onMatchEcho(unsigned int id, unsigned long long,
     return 0;
 }
 
-EngineHyperscan::EngineHyperscan(hs_database_t *db_in, CompileHSStats cs)
-    : db(db_in), compile_stats(std::move(cs)) {
+EngineHyperscan::EngineHyperscan(hs_database_t *db_in, const CompileHSStats &cs)
+    : db(db_in), compile_stats(cs) {
     assert(db);
 }
 
@@ -137,9 +131,32 @@ void EngineHyperscan::scan(const char *data, unsigned int len, unsigned int id,
     ScanHSContext sc(id, result, nullptr);
     auto callback = echo_matches ? onMatchEcho : onMatch;
     hs_error_t rv = hs_scan(db, data, len, 0, ctx.scratch, callback, &sc);
+#ifdef ENGINE_UPDATE_ON
+    result.engineType = ctx.scratch->lit_scratch.engineType;
+#endif
 
     if (rv != HS_SUCCESS) {
         printf("Fatal error: hs_scan returned error %d\n", rv);
+        abort();
+    }
+}
+
+void EngineHyperscan::scan_rlit(const char *data, unsigned int len,
+                                unsigned int id, ResultEntry &result,
+                                EngineContext &ectx) const {
+    assert(data);
+
+    EngineHSContext &ctx = static_cast<EngineHSContext &>(ectx);
+    ScanHSContext sc(id, result, nullptr);
+    auto callback = echo_matches ? onMatchEcho : onMatch;
+    hs_error_t rv = hs_scan_purelit(db, data, len, 0, ctx.scratch, callback,
+                                    &sc);
+#ifdef ENGINE_UPDATE_ON                                    
+    result.engineType = ctx.scratch->lit_scratch.engineType;
+#endif
+
+    if (rv != HS_SUCCESS) {
+        printf("Fatal error: hs_scan_purelit returned error %d\n", rv);
         abort();
     }
 }
@@ -156,6 +173,9 @@ void EngineHyperscan::scan_vectored(const char *const *data,
     auto callback = echo_matches ? onMatchEcho : onMatch;
     hs_error_t rv =
         hs_scan_vector(db, data, len, count, 0, ctx.scratch, callback, &sc);
+#ifdef ENGINE_UPDATE_ON        
+    result.engineType = ctx.scratch->lit_scratch.engineType;
+#endif
 
     if (rv != HS_SUCCESS) {
         printf("Fatal error: hs_scan_vector returned error %d\n", rv);
@@ -175,7 +195,7 @@ unique_ptr<EngineStream> EngineHyperscan::streamOpen(EngineContext &ectx,
         return nullptr;
     }
     stream->sn = streamId;
-    return move(stream);
+    return std::move(stream);
 }
 
 void EngineHyperscan::streamClose(unique_ptr<EngineStream> stream,
@@ -206,6 +226,9 @@ void EngineHyperscan::streamScan(EngineStream &stream, const char *data,
     auto callback = echo_matches ? onMatchEcho : onMatch;
     hs_error_t rv =
         hs_scan_stream(s.id, data, len, 0, ctx.scratch, callback, &sc);
+#ifdef ENGINE_UPDATE_ON
+    result.engineType = ctx.scratch->lit_scratch.engineType;
+#endif
 
     if (rv != HS_SUCCESS) {
         printf("Fatal error: hs_scan_stream returned error %d\n", rv);
@@ -250,30 +273,19 @@ void EngineHyperscan::printStats() const {
     }
     printf("Signatures:        %s\n", compile_stats.signatures.c_str());
     printf("Hyperscan info:    %s\n", compile_stats.db_info.c_str());
-#ifndef _WIN32
-    printf("Expression count:  %'zu\n", compile_stats.expressionCount);
-    printf("Bytecode size:     %'zu bytes\n", compile_stats.compiledSize);
-#else
+
     printf("Expression count:  %zu\n", compile_stats.expressionCount);
     printf("Bytecode size:     %zu bytes\n", compile_stats.compiledSize);
-#endif
+
     printf("Database HMAC:     %s\n", compile_stats.hmac_hex.c_str());
     if (compile_stats.streaming) {
-#ifndef _WIN32
-        printf("Stream state size: %'zu bytes\n", compile_stats.streamSize);
-#else
         printf("Stream state size: %zu bytes\n", compile_stats.streamSize);
-#endif
     }
-#ifndef _WIN32
-    printf("Scratch size:      %'zu bytes\n", compile_stats.scratchSize);
-    printf("Compile time:      %'0.3Lf seconds\n", compile_stats.compileSecs);
-    printf("Peak heap usage:   %'u bytes\n", compile_stats.peakMemorySize);
-#else
+
     printf("Scratch size:      %zu bytes\n", compile_stats.scratchSize);
     printf("Compile time:      %0.3Lf seconds\n", compile_stats.compileSecs);
     printf("Peak heap usage:   %u bytes\n", compile_stats.peakMemorySize);
-#endif
+
 }
 
 void EngineHyperscan::printCsvStats() const {
@@ -369,6 +381,10 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
     hs_database_t *db;
     hs_error_t err;
 
+    hs_platform_info plat_uni = {0, HS_PLATFORM_ALL, 0, 0};
+    hs_platform_info *plat = use_universal_database ? &plat_uni
+                                                    : nullptr;
+
     if (loadDatabases) {
         db = loadDatabase(dbFilename(name, mode).c_str());
         if (!db) {
@@ -402,10 +418,10 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
                 extparam.edit_distance = editDistance;
             }
 
-            exprs.push_back(expr);
+            exprs.push_back(std::move(expr));
             ids.push_back(m.first);
             flags.push_back(f);
-            ext.push_back(extparam);
+            ext.push_back(std::move(extparam));
         }
 
         unsigned full_mode = mode;
@@ -429,7 +445,7 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
         Timer timer;
 
 #ifndef RELEASE_BUILD
-        if (useLiteralApi) {
+        if (use_literal_api) {
             // Pattern length computation should be done before timer start.
             vector<size_t> lens(count);
             for (unsigned int i = 0; i < count; i++) {
@@ -439,18 +455,25 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
             err = hs_compile_lit_multi_int(patterns.data(), flags.data(),
                                            ids.data(), ext_ptr.data(),
                                            lens.data(), count, full_mode,
-                                           nullptr, &db, &compile_err, grey);
+                                           plat, &db, &compile_err, grey);
+            timer.complete();
+        } else if (use_rliteral_api) {
+            timer.start();
+            err = hs_compile_reglit_multi_int(patterns.data(), flags.data(),
+                                              ids.data(), ext_ptr.data(),
+                                              count, full_mode, plat, &db,
+                                              &compile_err, grey);
             timer.complete();
         } else {
             timer.start();
             err = hs_compile_multi_int(patterns.data(), flags.data(),
                                        ids.data(), ext_ptr.data(), count,
-                                       full_mode, nullptr, &db, &compile_err,
+                                       full_mode, plat, &db, &compile_err,
                                        grey);
             timer.complete();
         }
 #else
-        if (useLiteralApi) {
+        if (use_literal_api) {
             // Pattern length computation should be done before timer start.
             vector<size_t> lens(count);
             for (unsigned int i = 0; i < count; i++) {
@@ -459,13 +482,19 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
             timer.start();
             err = hs_compile_lit_multi(patterns.data(), flags.data(),
                                        ids.data(), lens.data(), count,
-                                       full_mode, nullptr, &db, &compile_err);
+                                       full_mode, plat, &db, &compile_err);
+            timer.complete();
+        } else if (use_rliteral_api) {
+            timer.start();
+            err = hs_compile_reglit_multi(patterns.data(), flags.data(),
+                                          ids.data(), count, full_mode, plat,
+                                          &db, &compile_err);
             timer.complete();
         } else {
             timer.start();
             err = hs_compile_ext_multi(patterns.data(), flags.data(),
                                        ids.data(), ext_ptr.data(), count,
-                                       full_mode, nullptr, &db, &compile_err);
+                                       full_mode, plat, &db, &compile_err);
             timer.complete();
         }
 #endif
@@ -485,8 +514,30 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
         }
     }
 
+    if (use_universal_database) {
+        size_t len;
+        char *bytes;
+
+        err = hs_serialize_database(db, &bytes, &len);
+        if (err != HS_SUCCESS) {
+            printf("Failed to serialize database for unidb: %d\n", err);
+            return nullptr;
+        }
+
+        hs_free_database(db);
+        db = nullptr;
+        err = hs_deserialize_database(bytes, len, &db);
+        if (err != HS_SUCCESS) {
+            printf("Failed to deserialize database for unidb: %d\n", err);
+            free(bytes);
+            return nullptr;
+        }
+        free(bytes);
+    }
+
     // copy the db into huge pages (where available) to reduce TLB pressure
     db = get_huge(db);
+
     if (!db) {
         return nullptr;
     }
@@ -521,6 +572,9 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
 
     // Allocate scratch temporarily to find its size: this is a good test
     // anyway.
+    if (!db || db->length == 0) {
+        return nullptr;
+    }
     hs_scratch_t *scratch = nullptr;
     err = hs_alloc_scratch(db, &scratch);
     if (err != HS_SUCCESS) {
@@ -542,7 +596,7 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
     } else {
         cs.signatures = name;
     }
-    cs.db_info = db_info;
+    cs.db_info = std::move(db_info);
     cs.expressionCount = expressions.size();
     cs.compiledSize = compiledSize;
     // Convert HMAC to hex string for display

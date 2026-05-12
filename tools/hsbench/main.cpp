@@ -1,29 +1,14 @@
 /*
- * Copyright (c) 2016-2020, Intel Corporation
+ * Copyright (C) 2026 Intel Corporation
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * This software and the related documents are Intel copyrighted materials,
+ * and your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise,
+ * you may not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of Intel Corporation nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * This software and the related documents are provided as is, with no express or
+ * implied warranties, other than those that are expressly stated in the License.
  */
 
 #include "config.h"
@@ -46,6 +31,10 @@
 #include "hs.h"
 #include "ue2common.h"
 #include "util/make_unique.h"
+
+#ifdef ENGINE_UPDATE_ON
+#include "hwlm/hwlm_internal.h"
+#endif
 
 #include <algorithm>
 #include <clocale>
@@ -87,7 +76,9 @@ unsigned int somPrecisionMode = HS_MODE_SOM_HORIZON_LARGE;
 bool forceEditDistance = false;
 unsigned editDistance = 0;
 bool printCompressSize = false;
-bool useLiteralApi = false;
+bool use_literal_api = false;
+bool use_rliteral_api = false;
+bool use_universal_database = false;
 
 // Globals local to this file.
 static bool compressStream = false;
@@ -118,7 +109,7 @@ public:
                   thread_barrier &tb_in, thread_func_t function_in,
                   vector<DataBlock> corpus_data_in)
         : num(num_in), results(repeats), engine(db_in),
-          enginectx(db_in.makeContext()), corpus_data(move(corpus_data_in)),
+          enginectx(db_in.makeContext()), corpus_data(std::move(corpus_data_in)),
           tb(tb_in), function(function_in) {}
 
     // Start the thread.
@@ -203,6 +194,7 @@ void usage(const char *error) {
            " (default: streaming).\n");
     printf("  -V              Benchmark in vectored mode"
            " (default: streaming).\n");
+    printf("  -U              Use universal database.\n");
 #if defined(HS_HYBRID)
     printf("  -H              Benchmark using Chimera (if supported).\n");
     printf("  -P              Benchmark using PCRE (if supported).\n");
@@ -223,7 +215,8 @@ void usage(const char *error) {
     printf("  --per-scan      Display per-scan Mbit/sec results.\n");
     printf("  --echo-matches  Display all matches that occur during scan.\n");
     printf("  --sql-out FILE  Output sqlite db.\n");
-    printf("  --literal-on    Use Hyperscan pure literal matching.\n");
+    printf("  --literal-on    Process in PTL literal API.\n");
+    printf("  --rliteral-on   Process in RCL literal API, only for block mode.\n");
     printf("  -S NAME         Signature set name (for sqlite db).\n");
     printf("\n\n");
 
@@ -235,7 +228,7 @@ void usage(const char *error) {
 /** Wraps up a name and the set of signature IDs it refers to. */
 struct BenchmarkSigs {
     BenchmarkSigs(string name_in, SignatureSet sigs_in)
-        : name(move(name_in)), sigs(move(sigs_in)) {}
+        : name(std::move(name_in)), sigs(std::move(sigs_in)) {}
     string name;
     SignatureSet sigs;
 };
@@ -244,7 +237,7 @@ struct BenchmarkSigs {
 static
 void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
                  UNUSED unique_ptr<Grey> &grey) {
-    const char options[] = "-b:c:Cd:e:E:G:hHi:n:No:p:PsS:Vw:z:"
+    const char options[] = "-b:c:Cd:e:E:G:hHi:n:No:p:PsS:UVw:z:"
 #if defined(HAVE_DECL_PTHREAD_SETAFFINITY_NP) || defined(_WIN32)
         "T:" // add the thread flag
 #endif
@@ -257,6 +250,7 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
     int do_sql_output = 0;
     int option_index = 0;
     int literalFlag = 0;
+    int rliteralFlag = 0;
     vector<string> sigFiles;
 
     static struct option longopts[] = {
@@ -265,6 +259,7 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
         {"compress-stream", no_argument, &do_compress, 1},
         {"sql-out", required_argument, &do_sql_output, 1},
         {"literal-on", no_argument, &literalFlag, 1},
+        {"rliteral-on", no_argument, &rliteralFlag, 1},
         {nullptr, 0, nullptr, 0}
     };
 
@@ -350,6 +345,9 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
             break;
         case 'N':
             scan_mode = ScanMode::BLOCK;
+            break;
+        case 'U':
+            use_universal_database = true;
             break;
         case 'V':
             scan_mode = ScanMode::VECTORED;
@@ -467,16 +465,32 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
             usage("No extended options are supported in Chimera or PCRE.");
             exit(1);
         }
+
+        if (use_universal_database) {
+            usage("Universal database doesn't support chimera nor pcre.");
+            exit(1);
+        }
     }
 
     // Read in any -s signature sets.
     for (const auto &file : sigFiles) {
         SignatureSet sigs;
         loadSignatureList(file, sigs);
-        sigSets.emplace_back(file, move(sigs));
+        sigSets.emplace_back(file, std::move(sigs));
     }
 
-    useLiteralApi = (bool)literalFlag;
+    if (literalFlag && rliteralFlag) {
+        usage("PTL and RCL literal API can't be used simutaneously.");
+        exit(1);
+    }
+
+    if (scan_mode != ScanMode::BLOCK && rliteralFlag) {
+        usage("RCL literal API only support BLOCK mode now.");
+        exit(1);
+    }
+
+    use_literal_api = (bool)literalFlag;
+    use_rliteral_api = (bool)rliteralFlag;
 }
 
 /** Start the global timer. */
@@ -514,6 +528,36 @@ void benchBlock(void *context) {
         for (const DataBlock &block : ctx->corpus_data) {
             ctx->engine.scan(block.payload.c_str(), block.payload.size(),
                              block.id, r, *ctx->enginectx);
+        }
+
+        ctx->timer.complete();
+        r.seconds = ctx->timer.seconds();
+    }
+
+    // Synchronization point
+    ctx->barrier();
+
+    // Now that all threads are finished, we can stop the clock.
+    stopTotalTimer(ctx);
+}
+
+/** Run a benchmark over a given engine and corpus in block mode with rlit
+  * API. */
+static
+void benchBlockRlit(void *context) {
+    ThreadContext *ctx = (ThreadContext *)context;
+
+    // Synchronization point
+    ctx->barrier();
+
+    startTotalTimer(ctx);
+
+    for (ResultEntry &r : ctx->results) {
+        ctx->timer.start();
+
+        for (const DataBlock &block : ctx->corpus_data) {
+            ctx->engine.scan_rlit(block.payload.c_str(), block.payload.size(),
+                                     block.id, r, *ctx->enginectx);
         }
 
         ctx->timer.complete();
@@ -606,7 +650,7 @@ void benchStreamingInternal(ThreadContext *ctx, vector<StreamInfo> &streams,
 
             // if this was the last block in the stream, close the stream handle
             if (b.id == stream.last_block_id) {
-                e.streamClose(move(stream.eng_handle), r);
+                e.streamClose(std::move(stream.eng_handle), r);
                 stream.eng_handle = nullptr;
             }
         }
@@ -732,11 +776,7 @@ void displayPerScanResults(const vector<unique_ptr<ThreadContext>> &threads,
         for (size_t j = 0; j != results.size(); j++) {
             const auto &r = results[j];
             double mbps = calc_mbps(r.seconds, bytesPerRun);
-#ifndef _WIN32
-            printf("T %2u Scan %2zu: %'0.2f Mbit/sec\n", t->num, j, mbps);
-#else
             printf("T %2u Scan %2zu: %0.2f Mbit/sec\n", t->num, j, mbps);
-#endif
         }
     }
     printf("\n");
@@ -774,6 +814,10 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
                     const vector<DataBlock> &corpus_blocks) {
     u64a bytesPerRun = byte_size(corpus_blocks);
     u64a matchesPerRun = threads[0]->results[0].matches;
+#ifdef ENGINE_UPDATE_ON
+    u32 engineType = threads[0]->results[0].engineType;
+    std::string engine;
+#endif
 
     // Sanity check: all of our results should have the same match count.
     for (const auto &t : threads) {
@@ -786,23 +830,60 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
         }
     }
 
-#ifndef _WIN32
-    printf("Time spent scanning:       %'0.3f seconds\n", totalSecs);
-    printf("Corpus size:               %'llu bytes ", bytesPerRun);
-    switch (scan_mode) {
-    case ScanMode::STREAMING:
-        printf("(%'zu blocks in %'llu streams)\n", corpus_blocks.size(),
-               count_streams(corpus_blocks));
+#ifdef ENGINE_UPDATE_ON
+    switch(engineType) {
+    case HWLM_ENGINE_NOOD:
+        engine = "Noodle";
         break;
-    case ScanMode::VECTORED:
-        printf("(%'zu blocks in %'llu vectors)\n", corpus_blocks.size(),
-               count_streams(corpus_blocks));
+
+    case HWLM_ENGINE_HOOVER:
+        engine = "Hoover";
         break;
-    case ScanMode::BLOCK:
-        printf("(%'zu blocks)\n", corpus_blocks.size());
+
+    case HWLM_ENGINE_TEDDY_AVX512:
+        engine = "Teddy_avx512";
         break;
+
+    case HWLM_ENGINE_TEDDY_AVX2:
+        engine = "Teddy_avx2";
+        break;
+
+    case HWLM_ENGINE_HARRY_VBMI_6B:
+        engine = "Harry_vbmi_6b";
+        break;
+
+    case HWLM_ENGINE_HARRY_VBMI_12B:
+        engine = "Harry_vbmi_12b";
+        break;
+
+    case HWLM_ENGINE_HARRY_AVX2_6B:
+        engine = "Harry_avx2_6b";
+        break;
+
+    case HWLM_ENGINE_HARRY_AVX2_12B:
+        engine = "Harry_avx2_12b";
+        break;
+
+    case HWLM_ENGINE_FDR:
+        engine = "FDR";
+        break;
+
+    case HWLM_ENGINE_CAL_AVX512:
+        engine = "CAL_AVX512";
+        break;
+
+    case HWLM_ENGINE_CAL_AVX2:
+        engine = "CAL_AVX2";
+        break;
+
+    case HWLM_ENGINE_CAL:
+        engine = "CAL";
+        break;
+
+    default:	
+        engine = "No engine found";
     }
-#else
+#endif
     printf("Time spent scanning:       %0.3f seconds\n", totalSecs);
     printf("Corpus size:               %llu bytes ", bytesPerRun);
     switch (scan_mode) {
@@ -818,40 +899,30 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
         printf("(%zu blocks)\n", corpus_blocks.size());
         break;
     }
-#endif
 
     u64a totalBytes = bytesPerRun * repeats * threads.size();
     u64a totalBlocks = corpus_blocks.size() * repeats * threads.size();
 
     double matchRate = ((double)matchesPerRun * 1024) / bytesPerRun;
-#ifndef _WIN32
-    printf("Matches per iteration:     %'llu (%'0.3f matches/kilobyte)\n",
-           matchesPerRun, matchRate);
-#else
     printf("Matches per iteration:     %llu (%0.3f matches/kilobyte)\n",
            matchesPerRun, matchRate);
-#endif
 
     double blockRate = (double)totalBlocks / (double)totalSecs;
-#ifndef _WIN32
-    printf("Overall block rate:        %'0.2f blocks/sec\n", blockRate);
-    printf("Mean throughput (overall): %'0.2Lf Mbit/sec\n",
-           calc_mbps(totalSecs, totalBytes));
 
-#else
     printf("Overall block rate:        %0.2f blocks/sec\n", blockRate);
     printf("Mean throughput (overall): %0.2Lf Mbit/sec\n",
            calc_mbps(totalSecs, totalBytes));
 
-#endif
+
     double lowestScanTime = fastestResult(threads);
-#ifndef _WIN32
-    printf("Max throughput (per core): %'0.2Lf Mbit/sec\n",
-           calc_mbps(lowestScanTime, bytesPerRun));
-#else
+
     printf("Max throughput (per core): %0.2Lf Mbit/sec\n",
            calc_mbps(lowestScanTime, bytesPerRun));
+
+#ifdef ENGINE_UPDATE_ON
+    printf("Engine used:               %s\n", engine.c_str());
 #endif
+
     printf("\n");
 
     if (display_per_scan) {
@@ -859,12 +930,36 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
     }
 }
 
+#if 0
+/** Dump per-scan throughput data to csv. */
+static
+void csvPerScanResults(const vector<unique_ptr<ThreadContext>> &threads,
+                       u64a bytesPerRun) {
+    u32 iters = 0;
+    long double max_mbps = 0;
+    for (const auto &t : threads) {
+        const auto &results = t->results;
+        for (size_t j = 0; j != results.size(); j++) {
+            const auto &r = results[j];
+            long double mbps = calc_mbps(r.seconds, bytesPerRun);
+            max_mbps = max(mbps, max_mbps);
+            iters += 1;
+        }
+    }
+    printf(",\"%0.2Lf\"", max_mbps);
+}
+#endif
+
 /** Dump benchmark results to csv. */
 static
 void displayCsvResults(const vector<unique_ptr<ThreadContext>> &threads,
                        const vector<DataBlock> &corpus_blocks) {
     u64a bytesPerRun = byte_size(corpus_blocks);
     u64a matchesPerRun = threads[0]->results[0].matches;
+#ifdef ENGINE_UPDATE_ON
+    u32 engineType = threads[0]->results[0].engineType;
+    std::string engine;
+#endif
 
     // Sanity check: all of our results should have the same match count.
     for (const auto &t : threads) {
@@ -877,11 +972,71 @@ void displayCsvResults(const vector<unique_ptr<ThreadContext>> &threads,
         }
     }
 
+#ifdef ENGINE_UPDATE_ON
+    switch(engineType) {
+    case HWLM_ENGINE_NOOD:
+        engine = "Noodle";
+        break;
+
+    case HWLM_ENGINE_HOOVER:
+        engine = "Hoover";
+        break;
+
+    case HWLM_ENGINE_TEDDY_AVX512:
+        engine = "Teddy_avx512";
+        break;
+
+    case HWLM_ENGINE_TEDDY_AVX2:
+        engine = "Teddy_avx2";
+        break;
+
+    case HWLM_ENGINE_HARRY_VBMI_6B:
+        engine = "Harry_vbmi_6b";
+        break;
+
+    case HWLM_ENGINE_HARRY_VBMI_12B:
+        engine = "Harry_vbmi_12b";
+        break;
+
+    case HWLM_ENGINE_HARRY_AVX2_6B:
+        engine = "Harry_avx2_6b";
+        break;
+
+    case HWLM_ENGINE_HARRY_AVX2_12B:
+        engine = "Harry_avx2_12b";
+        break;
+
+    case HWLM_ENGINE_FDR:
+        engine = "FDR";
+        break;
+
+    case HWLM_ENGINE_CAL_AVX512:
+        engine = "CAL_AVX512";
+        break;
+
+    case HWLM_ENGINE_CAL_AVX2:
+        engine = "CAL_AVX2";
+        break;
+
+    case HWLM_ENGINE_CAL:
+        engine = "CAL";
+        break;
+
+    default:	
+        engine = "No engine found";
+    }
+#endif
     u64a totalBytes = bytesPerRun * repeats * threads.size();
     u64a totalBlocks = corpus_blocks.size() * repeats * threads.size();
     printf(",\"%0.3f\"", totalSecs);
-    printf(",\"%0.2Lf\"", calc_mbps(totalSecs, totalBytes));
-
+    double lowestScanTime = fastestResult(threads);
+    if (display_per_scan) {
+        //csvPerScanResults(threads, bytesPerRun);
+        printf(",\"%0.2Lf\"", calc_mbps(lowestScanTime, bytesPerRun));
+    }
+    else {
+        printf(",\"%0.2Lf\"", calc_mbps(totalSecs, totalBytes));
+    }
     assert(bytesPerRun);
     double matchRate = ((double)matchesPerRun * 1024) / bytesPerRun;
     printf(",\"%llu\"", matchesPerRun);
@@ -889,6 +1044,9 @@ void displayCsvResults(const vector<unique_ptr<ThreadContext>> &threads,
 
     double blockRate = (double)totalBlocks / (double)totalSecs;
     printf(",\"%0.2f\"", blockRate);
+#ifdef ENGINE_UPDATE_ON
+    printf(",\"%s\"", engine.c_str());
+#endif
     printf("\n");
 }
 
@@ -917,8 +1075,62 @@ void sqlResults(const vector<unique_ptr<ThreadContext>> &threads,
                 const vector<DataBlock> &corpus_blocks) {
     u64a bytesPerRun = byte_size(corpus_blocks);
     u64a matchesPerRun = threads[0]->results[0].matches;
+#ifdef ENGINE_UPDATE_ON
+    u32 engineType = threads[0]->results[0].engineType;
+    std::string engine;
+#endif
 
     u64a scan_id = out_db.lastRowId();
+#ifdef ENGINE_UPDATE_ON
+    switch(engineType) {
+    case HWLM_ENGINE_NOOD:
+        engine = "Noodle";
+        break;
+
+    case HWLM_ENGINE_HOOVER:
+        engine = "Hoover";
+        break;
+
+    case HWLM_ENGINE_TEDDY_AVX512:
+        engine = "Teddy_avx512";
+        break;
+
+    case HWLM_ENGINE_HARRY_VBMI_6B:
+        engine = "Harry_vbmi_6b";
+        break;
+
+    case HWLM_ENGINE_HARRY_VBMI_12B:
+        engine = "Harry_vbmi_12b";
+        break;
+
+    case HWLM_ENGINE_HARRY_AVX2_6B:
+        engine = "Harry_avx2_6b";
+        break;
+
+    case HWLM_ENGINE_HARRY_AVX2_12B:
+        engine = "Harry_avx2_12b";
+        break;
+
+    case HWLM_ENGINE_FDR:
+        engine = "FDR";
+        break;
+
+    case HWLM_ENGINE_CAL_AVX512:
+        engine = "CAL_AVX512";
+        break;
+
+    case HWLM_ENGINE_CAL_AVX2:
+        engine = "CAL_AVX2";
+        break;
+
+    case HWLM_ENGINE_CAL:
+        engine = "CAL";
+        break;
+
+    default: 
+        engine = "No engine found";
+    }
+#endif
 
     // Sanity check: all of our results should have the same match count.
     for (const auto &t : threads) {
@@ -936,7 +1148,19 @@ void sqlResults(const vector<unique_ptr<ThreadContext>> &threads,
 
     const auto pos = corpusFile.find_last_of('/');
     const auto corpus = corpusFile.substr(pos + 1);
+#ifdef ENGINE_UPDATE_ON
+    static const std::string Q =
+        "INSERT INTO Scan (scan_id, corpusFile, totalSecs, "
+            "bytesPerRun, blockSize, blockCount, totalBytes, "
+            "totalBlocks, matchesPerRun, matchRate, overallTput,engType) "
+        "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,?12)";
 
+    out_db.insert_all(
+        Q, scan_id, corpus, totalSecs, bytesPerRun, corpus_blocks.size(),
+        scan_mode == ScanMode::BLOCK ? 1 : count_streams(corpus_blocks),
+        totalBytes, corpus_blocks.size() * repeats * threads.size(),
+        matchesPerRun, matchRate, calc_mbps(totalSecs, totalBytes),engine);
+#else
     static const std::string Q =
         "INSERT INTO Scan (scan_id, corpusFile, totalSecs, "
             "bytesPerRun, blockSize, blockCount, totalBytes, "
@@ -948,7 +1172,7 @@ void sqlResults(const vector<unique_ptr<ThreadContext>> &threads,
         scan_mode == ScanMode::BLOCK ? 1 : count_streams(corpus_blocks),
         totalBytes, corpus_blocks.size() * repeats * threads.size(),
         matchesPerRun, matchRate, calc_mbps(totalSecs, totalBytes));
-
+#endif
     if (display_per_scan) {
         sqlPerScanResults(threads, bytesPerRun, scan_id);
     }
@@ -979,7 +1203,11 @@ unique_ptr<ThreadContext> makeThreadContext(const Engine &db,
         fn = benchVectored;
         break;
     case ScanMode::BLOCK:
-        fn = benchBlock;
+        if (use_rliteral_api) {
+            fn = benchBlockRlit;
+        } else {
+            fn = benchBlock;
+        }
         break;
     }
     assert(fn);
@@ -1018,7 +1246,7 @@ void runBenchmark(const Engine &db,
             printf("Unable to start processing thread %u\n", i);
             exit(1);
         }
-        threads.push_back(move(t));
+        threads.push_back(std::move(t));
     }
 
     // Reap threads.
@@ -1051,39 +1279,41 @@ int HS_CDECL main(int argc, char *argv[]) {
     printf("\nWARNING: DO NOT BENCHMARK A HYPERSCAN BUILD WITH ASSERTIONS\n\n");
 #endif
 
-    vector<BenchmarkSigs> sigSets;
-    processArgs(argc, argv, sigSets, grey);
+    int exit_code = 0;
+    try {
+        vector<BenchmarkSigs> sigSets;
+        processArgs(argc, argv, sigSets, grey);
 
-    // read in and process our expressions
-    ExpressionMap exprMapTemplate;
-    loadExpressions(exprPath, exprMapTemplate);
+        // read in and process our expressions
+        ExpressionMap exprMapTemplate;
+        loadExpressions(exprPath, exprMapTemplate);
 
-    if (exprMapTemplate.size() > HS_MAX_PATTERN_COUNT) {
-        printf("Error: number of patterns (%zu) exceeds limit (%u).\n",
-               exprMapTemplate.size(), HS_MAX_PATTERN_COUNT);
-        return 1;
-    }
+        /*if (exprMapTemplate.size() > HS_MAX_PATTERN_COUNT) {
+            printf("Error: number of patterns (%zu) exceeds limit (%u).\n",
+                   exprMapTemplate.size(), HS_MAX_PATTERN_COUNT);
+            return 1;
+        }*/
 
-    // If we have no signature sets, the user wants us to benchmark all the
-    // known expressions together.
-    if (sigSets.empty()) {
-        SignatureSet sigs;
-        sigs.reserve(exprMapTemplate.size());
-        for (auto i : exprMapTemplate | map_keys) {
-            sigs.push_back(i);
+        // If we have no signature sets, the user wants us to benchmark all the
+        // known expressions together.
+        if (sigSets.empty()) {
+            SignatureSet sigs;
+            sigs.reserve(exprMapTemplate.size());
+            for (auto i : exprMapTemplate | map_keys) {
+                sigs.push_back(i);
+            }
+            sigSets.emplace_back(exprPath, std::move(sigs));
         }
-        sigSets.emplace_back(exprPath, move(sigs));
-    }
 
-    // read in and process our corpus
-    vector<DataBlock> corpus_blocks;
-    try {
-        corpus_blocks = readCorpus(corpusFile);
-    } catch (const DataCorpusError &e) {
-        printf("Corpus data error: %s\n", e.msg.c_str());
-        return 1;
-    }
-    try {
+        // read in and process our corpus
+        vector<DataBlock> corpus_blocks;
+        try {
+            corpus_blocks = readCorpus(corpusFile);
+        } catch (const DataCorpusError &e) {
+            printf("Corpus data error: %s\n", e.msg.c_str());
+            return 1;
+        }
+    
         if (!sqloutFile.empty()) {
             out_db.open(sqloutFile);
         }
@@ -1102,8 +1332,13 @@ int HS_CDECL main(int argc, char *argv[]) {
                 engine = buildEnginePcre(exprMap, s.name, sigName);
 #endif
             } else {
+#if !defined(RELEASE_BUILD)
                 engine = buildEngineHyperscan(exprMap, scan_mode, s.name,
                                               sigName, *grey);
+#else
+                engine = buildEngineHyperscan(exprMap, scan_mode, s.name,
+                                              sigName, Grey());
+#endif
             }
 
             if (!engine) {
@@ -1125,13 +1360,22 @@ int HS_CDECL main(int argc, char *argv[]) {
 
             runBenchmark(*engine, corpus_blocks);
         }
-    } catch (const SqlFailure &f) {
-        cerr << f.message << '\n';
-        return -1;
-    } catch (const std::runtime_error &e) {
-        cerr << "Internal error: " << e.what() << '\n';
-        return -1;
+    } catch (const SqlFailure &err) {
+        std::cerr << err.message << std::endl;
+        exit_code = -1;
+    } catch (const std::invalid_argument &err) {
+        std::cerr << "Invalid argument: " << err.what() << std::endl;
+        exit_code = -1;
+    } catch (const std::domain_error &err) {
+        std::cerr << "Domain error: " << err.what() << std::endl;
+        exit_code = -1;
+    } catch (const std::runtime_error &err) {
+        std::cerr << "Runtime error: " << err.what() << std::endl;
+        exit_code = -1;
+    } catch (...) {
+        std::cerr << "An unexpected error occurred." << std::endl;
+        exit_code = -1;
     }
 
-    return 0;
+    return exit_code;
 }

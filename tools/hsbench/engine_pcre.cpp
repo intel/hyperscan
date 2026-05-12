@@ -1,29 +1,14 @@
 /*
- * Copyright (c) 2018, Intel Corporation
+ * Copyright (C) 2026 Intel Corporation
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * This software and the related documents are Intel copyrighted materials,
+ * and your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise,
+ * you may not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of Intel Corporation nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * This software and the related documents are provided as is, with no express or
+ * implied warranties, other than those that are expressly stated in the License.
  */
 
 #ifdef _WIN32
@@ -92,9 +77,9 @@ int onMatchEcho(unsigned int id, unsigned long long, unsigned long long to,
     return 0;
 }
 
-EnginePCRE::EnginePCRE(vector<unique_ptr<PcreDB>> dbs_in, CompilePCREStats cs,
+EnginePCRE::EnginePCRE(vector<unique_ptr<PcreDB>> dbs_in, const CompilePCREStats &cs,
                        int capture_cnt_in)
-    : dbs(move(dbs_in)), compile_stats(move(cs)),
+    : dbs(std::move(dbs_in)), compile_stats(cs),
       capture_cnt(capture_cnt_in) {}
 
 EnginePCRE::~EnginePCRE() {
@@ -212,19 +197,13 @@ void EnginePCRE::printStats() const {
     }
     printf("Signatures:        %s\n", compile_stats.signatures.c_str());
     printf("PCRE info:         %s\n", compile_stats.db_info.c_str());
-#ifndef _WIN32
-    printf("Expression count:  %'zu\n", compile_stats.expressionCount);
-    printf("Bytecode size:     %'zu bytes\n", compile_stats.compiledSize);
-    printf("Scratch size:      %'zu bytes\n", compile_stats.scratchSize);
-    printf("Compile time:      %'0.3Lf seconds\n", compile_stats.compileSecs);
-    printf("Peak heap usage:   %'u bytes\n", compile_stats.peakMemorySize);
-#else
+
     printf("Expression count:  %zu\n", compile_stats.expressionCount);
     printf("Bytecode size:     %zu bytes\n", compile_stats.compiledSize);
     printf("Scratch size:      %zu bytes\n", compile_stats.scratchSize);
     printf("Compile time:      %0.3Lf seconds\n", compile_stats.compileSecs);
     printf("Peak heap usage:   %u bytes\n", compile_stats.peakMemorySize);
-#endif
+
 }
 
 void EnginePCRE::printCsvStats() const {
@@ -383,7 +362,7 @@ buildEnginePcre(const ExpressionMap &expressions, const string &name,
         extra->match_limit_recursion = 1500;
 
         pcreDB->extra = extra;
-        dbs.push_back(move(pcreDB));
+        dbs.push_back(std::move(pcreDB));
     }
 
     timer.complete();
@@ -399,12 +378,12 @@ buildEnginePcre(const ExpressionMap &expressions, const string &name,
     } else {
         cs.signatures = name;
     }
-    cs.db_info = db_info;
+    cs.db_info = std::move(db_info);
     cs.expressionCount = expressions.size();
     cs.compiledSize = compiledSize;
     cs.scratchSize = (capture_cnt  + 1) * sizeof(int) * 3;
     cs.compileSecs = compileSecs;
     cs.peakMemorySize = peakMemorySize;
 
-    return ue2::make_unique<EnginePCRE>(move(dbs), move(cs), capture_cnt);
+    return ue2::make_unique<EnginePCRE>(std::move(dbs), std::move(cs), capture_cnt);
 }

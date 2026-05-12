@@ -1,29 +1,14 @@
 /*
- * Copyright (c) 2018, Intel Corporation
+ * Copyright (C) 2025 Intel Corporation
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * This software and the related documents are Intel copyrighted materials,
+ * and your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise,
+ * you may not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of Intel Corporation nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * This software and the related documents are provided as is, with no express or
+ * implied warranties, other than those that are expressly stated in the License.
  */
 
 #ifndef ENGINEPCRE_H
@@ -38,7 +23,7 @@
 #include <string>
 #include <vector>
 
-/** Information about the database compile */
+/** Infomation about the database compile */
 struct CompilePCREStats {
     std::string sigs_name;
     std::string signatures;
@@ -56,6 +41,9 @@ public:
     explicit EnginePCREContext(int capture_cnt);
     ~EnginePCREContext();
 
+    EnginePCREContext(const EnginePCREContext &) = delete;
+    EnginePCREContext &operator=(const EnginePCREContext &) = delete;
+
     int *ovec = nullptr;
 };
 
@@ -71,13 +59,21 @@ struct PcreDB {
 class EnginePCRE : public Engine {
 public:
     explicit EnginePCRE(std::vector<std::unique_ptr<PcreDB>> dbs_in,
-                        CompilePCREStats cs, int capture_cnt_in);
+                        const CompilePCREStats &cs, int capture_cnt_in);
     ~EnginePCRE();
+
+    EnginePCRE(const EnginePCRE &) = delete;
+    EnginePCRE &operator=(const EnginePCRE &) = delete;
 
     std::unique_ptr<EngineContext> makeContext() const;
 
     void scan(const char *data, unsigned int len, unsigned int id,
               ResultEntry &result, EngineContext &ectx) const;
+
+    void scan_rlit(const char *data, unsigned int len, unsigned int id,
+                   ResultEntry &result, EngineContext &ectx) const {
+        scan(data, len, id, result, ectx);
+    }
 
     void scan_vectored(const char *const *data, const unsigned int *len,
                        unsigned int count, unsigned int streamId,
