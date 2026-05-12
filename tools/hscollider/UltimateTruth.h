@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, Intel Corporation
+ * Copyright (c) 2015-2023, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -91,6 +91,9 @@ private:
     bool blockScan(const BaseDB &db, const std::string &buffer,
                    size_t align, match_event_handler callback, void *ctx,
                    ResultSet *rs);
+    bool blockRlitScan(const BaseDB &db, const std::string &buffer,
+                       size_t align, match_event_handler callback, void *ctx,
+                       ResultSet *rs);
     bool streamingScan(const BaseDB &db, const std::string &buffer,
                        size_t align, match_event_handler callback, void *ctx,
                        ResultSet *rs);

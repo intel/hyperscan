@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, Intel Corporation
+ * Copyright (c) 2015-2023, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -113,9 +113,9 @@ bool decodeExprPcre(string &expr, unsigned *flags, bool *highlander,
     }
 
     if (use_literal_api) {
-        // filter out flags not supported by pure literal API.
+        // filter out flags not supported by PTL literal API.
         u32 not_supported = HS_FLAG_DOTALL | HS_FLAG_ALLOWEMPTY | HS_FLAG_UTF8 |
-                             HS_FLAG_UCP | HS_FLAG_PREFILTER;
+                            HS_FLAG_UCP | HS_FLAG_PREFILTER;
         hs_flags &= ~not_supported;
         force_utf8 = false;
         force_prefilter = false;
@@ -277,7 +277,7 @@ GroundTruth::compile(unsigned id, bool no_callouts) {
         throw PcreCompileFailure("Unable to decode flags.");
     }
 
-    // When hyperscan literal api is on, transfer the regex string into hex.
+    // When PTL literal API is on, transfer the regex string into hex.
     if (use_literal_api && !combination) {
         unsigned char *pat
             = reinterpret_cast<unsigned char *>(const_cast<char *>(re.c_str()));
@@ -301,6 +301,7 @@ GroundTruth::compile(unsigned id, bool no_callouts) {
         ext.hamming_distance = 0;
     }
     if (ext.flags & ~supported) {
+        assert(!use_rliteral_api);
         // edit distance is a known unsupported flag, so just throw a soft error
         if (ext.flags & HS_EXT_FLAG_EDIT_DISTANCE) {
             throw SoftPcreCompileFailure("Edit distance not supported by PCRE.");

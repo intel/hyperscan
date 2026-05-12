@@ -1,29 +1,14 @@
 /*
- * Copyright (c) 2015-2019, Intel Corporation
+ * Copyright (C) 2026 Intel Corporation
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * This software and the related documents are Intel copyrighted materials,
+ * and your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise,
+ * you may not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of Intel Corporation nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * This software and the related documents are provided as is, with no express or
+ * implied warranties, other than those that are expressly stated in the License.
  */
 
 #include "config.h"
@@ -67,7 +52,7 @@
 #include <string>
 #include <thread>
 #include <vector>
-
+#include <utility>
 #include <errno.h>
 #include <time.h>
 #include <sys/types.h>
@@ -108,7 +93,7 @@ int force_prefilter = 0;
 int no_groups = 0;
 unsigned somPrecisionMode = HS_MODE_SOM_HORIZON_LARGE;
 unsigned limit_matches = 0;
-unsigned randomSeed = 0;
+uint64_t randomSeed = 0;
 bool use_random_alignment = false;
 bool use_PCRE = true;
 bool use_NFA = true;
@@ -119,12 +104,14 @@ bool use_mangle_scratch = false;
 bool use_compress_expand = false;
 bool use_compress_reset_expand = false;
 bool use_literal_api = false;
+bool use_rliteral_api = false;
 int abort_on_failure = 0;
 int no_signal_handler = 0;
 size_t max_scan_queue_len = 25000;
 size_t max_generator_queue_len = 25000;
 bool force_edit_distance = false;
 unsigned edit_distance = 0;
+bool use_universal_database = false;
 CorpusProperties corpus_gen_prop;
 
 // Semi constants
@@ -152,7 +139,7 @@ unsigned countCores() {
 static
 void setDefaults() {
     // Seed random number generator for corpora
-    randomSeed = time(nullptr);
+    randomSeed = static_cast<uint64_t>(time(nullptr));
     // Overcommit since we have generators and scanners running.
     numThreads = countCores() * 2;
 
@@ -264,7 +251,7 @@ struct TestUnit {
              shared_ptr<CompiledPcre> pcre_in, shared_ptr<CNGInfo> cngi_in,
              shared_ptr<DatabaseProxy> ue2_in, bool multi_in, bool utf8_in,
              bool highlander_in, bool prefilter_in, bool som_in)
-        : pcre(pcre_in), cngi(cngi_in), ue2(ue2_in), corpus(c), id(sig_id),
+        : pcre(std::move(pcre_in)), cngi(std::move(cngi_in)), ue2(std::move(ue2_in)), corpus(c), id(sig_id),
           corpus_id(c_id), highlander(highlander_in), prefilter(prefilter_in),
           som(som_in), multi(multi_in), utf8(utf8_in),
           result(TEST_NO_GROUND_TRUTH) {}
@@ -927,8 +914,14 @@ void runTestUnit(ostream &out, GroundTruth &ground, GraphTruth &graph,
 
     // run NFA if PCRE failed (or wasn't run), or if we don't run UE2
     if (unit.cngi && (use_NFA && !gt_done)) {
+        auto it = exprMap.find(unit.id);
+        if (it == exprMap.end()) {
+            std::cerr << "Error: unit.id " << unit.id << " not found in exprMap\n";
+            unit.result = TEST_NO_GROUND_TRUTH;
+            return;
+        }
         gt_done = getGraphTruth(out, *unit.cngi, graph, unit, gt_results,
-                                summary, exprMap.find(unit.id)->second);
+                                summary, it->second);
     }
 
     // both ground truth methods either failed or didn't run
@@ -969,7 +962,7 @@ void runTestUnit(ostream &out, GroundTruth &ground, GraphTruth &graph,
     debug_stage = STAGE_UNDEFINED;
 }
 
-/* Used for testing the graph truth against PCRE */
+/* Used for testing the graph truth agains PCE */
 static
 void runGroundCompTestUnit(ostream &out, GroundTruth &ground, GraphTruth &graph,
                            TestUnit &unit, TestSummary &summary,
@@ -1003,8 +996,13 @@ void runGroundCompTestUnit(ostream &out, GroundTruth &ground, GraphTruth &graph,
     }
 
     if (unit.cngi) {
+        auto it = exprMap.find(unit.id);
+        if (it == exprMap.end()) {
+            std::cerr << "Error: unit.id " << unit.id << " not found in exprMap\n";
+            return;
+        }
         graphResult = getGraphTruth(out, *unit.cngi, graph, unit, ngw_results,
-                                    summary, exprMap.find(unit.id)->second);
+                                    summary, it->second);
     }
 
     // no ground truth found either NFA or PCRE failed
@@ -1131,7 +1129,12 @@ public:
 
             assert(unit);
             assert(exprMap.find(unit->id) != exprMap.end());
-
+            auto it = exprMap.find(unit->id);
+            if (it == exprMap.end()) {
+                std::cerr << "Error: unit->id " << unit->id << " not found in exprMap\n";
+                unit->result = TEST_NO_GROUND_TRUTH;
+                return;
+            }
             // Debug information is stored in TLS and (hopefully) printed out in
             // the event of a crash.
             debug_expr = unit->id;
@@ -1189,7 +1192,7 @@ struct CorpusGenUnit {
     CorpusGenUnit(unique_ptr<CNGInfo> cngi_in, unique_ptr<CompiledPcre> pcre_in,
                shared_ptr<DatabaseProxy> ue2_in, unsigned expr_id,
                bool multi_in, bool utf8_in)
-        : cngi(move(cngi_in)), pcre(move(pcre_in)), ue2(ue2_in), id(expr_id),
+        : cngi(std::move(cngi_in)), pcre(std::move(pcre_in)), ue2(std::move(ue2_in)), id(expr_id),
           multi(multi_in), utf8(utf8_in) {}
 
     unique_ptr<CNGInfo> cngi;
@@ -1221,7 +1224,7 @@ public:
             }
 
             addCorporaToQueue(out, testq, c->id, *corpora, summary,
-                              move(c->pcre), move(c->cngi), c->ue2, c->multi,
+                              std::move(c->pcre), std::move(c->cngi), c->ue2, c->multi,
                               c->utf8);
 
             count++;
@@ -1435,7 +1438,7 @@ unique_ptr<CorpusGenUnit> makeCorpusGenUnit(unsigned id, TestSummary &summary,
     // Caller may already have set the UTF-8 property (in multi cases)
     utf8 |= cpcre ? cpcre->utf8 : cngi->utf8;
 
-    return ue2::make_unique<CorpusGenUnit>(move(cngi), move(cpcre), ue2, id,
+    return ue2::make_unique<CorpusGenUnit>(std::move(cngi), std::move(cpcre), ue2, id,
                                            multi, utf8);
 }
 
@@ -1487,10 +1490,10 @@ void buildSingle(BoundedQueue<CorpusGenUnit> &corpq, TestSummary &summary,
 
         bool multi = false;
         bool utf8 = false;
-        auto u = makeCorpusGenUnit(id, summary, ground, graph, ultimate, ue2,
+        auto u = makeCorpusGenUnit(id, summary, ground, graph, ultimate, std::move(ue2),
                                    multi, utf8);
         if (u) {
-            corpq.push(move(u));
+            corpq.push(std::move(u));
         }
     }
 }
@@ -1548,7 +1551,7 @@ void buildBanded(BoundedQueue<CorpusGenUnit> &corpq, TestSummary &summary,
             auto u = makeCorpusGenUnit(id, summary, ground, graph, ultimate,
                                        ue2, multi, utf8);
             if (u) {
-                corpq.push(move(u));
+                corpq.push(std::move(u));
             }
         }
     }
@@ -1588,7 +1591,7 @@ void buildMulti(BoundedQueue<CorpusGenUnit> &corpq, TestSummary &summary,
         auto u = makeCorpusGenUnit(id, summary, ground, graph, ultimate, ue2,
                                    multi, utf8);
         if (u) {
-            corpq.push(move(u));
+            corpq.push(std::move(u));
         }
     }
 }
@@ -1606,9 +1609,9 @@ void generateTests(CorporaSource &corpora_src, const ExpressionMap &exprMap,
                                       max_generator_queue_len);
     vector<unique_ptr<CorpusGenThread>> generators;
     for (size_t i = 0; i < numGeneratorThreads; i++) {
-        auto c = make_unique<CorpusGenThread>(i, testq, corpq, corpora_src);
+        auto c = std::make_unique<CorpusGenThread>(i, testq, corpq, corpora_src);
         c->start();
-        generators.push_back(move(c));
+        generators.push_back(std::move(c));
     }
 
     if (g_ue2CompileAll && multicompile_bands) {
@@ -1831,11 +1834,11 @@ unique_ptr<CorporaSource> buildCorpora(const vector<string> &corporaFiles,
                 exit_with_fail();
             }
         }
-        return move(c); /* move allows unique_ptr<CorporaSource> conversion */
+        return std::move(c); /* move allows unique_ptr<CorporaSource> conversion */
     } else {
         auto c = ue2::make_unique<NfaGeneratedCorpora>(
             exprMap, corpus_gen_prop, force_utf8, force_prefilter);
-        return move(c);
+        return std::move(c);
     }
 }
 
@@ -1888,7 +1891,7 @@ bool runTests(CorporaSource &corpora_source, const ExpressionMap &exprMap,
     for (size_t i = 0; i < numScannerThreads; i++) {
         auto s = ue2::make_unique<ScanThread>(i, testq, exprMap, plat, grey);
         s->start();
-        scanners.push_back(move(s));
+        scanners.push_back(std::move(s));
     }
 
     generateTests(corpora_source, exprMap, summary, plat, grey, testq);
@@ -1917,97 +1920,108 @@ bool runTests(CorporaSource &corpora_source, const ExpressionMap &exprMap,
 }
 
 int HS_CDECL main(int argc, char *argv[]) {
-    Grey grey;
-    vector<string> corporaFiles;
+    try {
+        Grey grey;
+        vector<string> corporaFiles;
 
-    for (int i = 1; i < argc - 1; i++) {
-        if (!strcmp(argv[i], "-G")) {
-            cout << "Override: " << argv[i + 1] << endl;
-        }
-    }
-
-    setDefaults();
-    storeCmdline(argc, argv);
-    unique_ptr<hs_platform_info> plat;
-    corpus_gen_prop.seed(randomSeed);
-
-    processArgs(argc, argv, corpus_gen_prop, &corporaFiles, &grey, &plat);
-
-    // If the user has asked for a random alignment, we select it here (after
-    // random number seed applied).
-    if (use_random_alignment) {
-        min_ue2_align = corpus_gen_prop.rand(0, 15);
-        max_ue2_align = min_ue2_align + 1;
-    }
-
-    // Limit memory usage, unless the user has specified zero on the command
-    // line or in a config file.
-    if (g_memoryLimit) {
-        setMemoryLimit(g_memoryLimit * numThreads);
-    }
-
-    // Split threads available up amongst scanner and generator threads.
-    numGeneratorThreads = max(1u, static_cast<unsigned int>(numThreads * 0.5));
-    numScannerThreads = max(1u, numThreads - numGeneratorThreads);
-
-    ExpressionMap exprMap;
-    loadExpressions(g_exprPath, exprMap);
-
-    if (!g_allSignatures) {
-        SignatureSet signatures;
-        if (!g_signatureFiles.empty()) {
-            for (string &fname : g_signatureFiles) {
-                loadSignatureList(fname, signatures);
+        for (int i = 1; i < argc - 1; i++) {
+            if (!strcmp(argv[i], "-G")) {
+                cout << "Override: " << argv[i + 1] << endl;
             }
-        } else {
-            signatures.insert(signatures.end(), g_signatures.begin(),
-                              g_signatures.end());
         }
 
-        exprMap = limitToSignatures(exprMap, signatures);
-    }
+        setDefaults();
+        storeCmdline(argc, argv);
+        unique_ptr<hs_platform_info> plat;
+        corpus_gen_prop.seed(randomSeed);
 
-    printSettings(corporaFiles, plat.get());
+        processArgs(argc, argv, corpus_gen_prop, &corporaFiles, &grey, &plat);
 
-    if (exprMap.empty()) {
-        cout << "Warning: no signatures to scan. Exiting." << endl;
-        exit(0);
-    }
+        // If the user has asked for a random alignment, we select it here (after
+        // random number seed applied).
+        if (use_random_alignment) {
+            min_ue2_align = corpus_gen_prop.rand(0, 15);
+            max_ue2_align = min_ue2_align + 1;
+        }
 
-    if (!no_signal_handler) {
-        installSignalHandler();
-    }
+        // Limit memory usage, unless the user has specified zero on the command
+        // line or in a config file.
+        if (g_memoryLimit) {
+            setMemoryLimit(g_memoryLimit * numThreads);
+        }
 
-    if (saveDatabases || loadDatabases) {
-        struct stat st;
-        if (stat(serializePath.c_str(), &st) < 0) {
-            cout << "Unable to stat serialize path '" <<  serializePath
-                 << "': " << strerror(errno) << endl;
+        // Split threads available up amongst scanner and generator threads.
+        numGeneratorThreads = max(1u, static_cast<unsigned int>(numThreads * 0.5));
+        numScannerThreads = max(1u, numThreads - numGeneratorThreads);
+
+        ExpressionMap exprMap;
+        loadExpressions(g_exprPath, exprMap);
+
+        if (!g_allSignatures) {
+            SignatureSet signatures;
+            if (!g_signatureFiles.empty()) {
+                for (string &fname : g_signatureFiles) {
+                    loadSignatureList(fname, signatures);
+                }
+            } else {
+                signatures.insert(signatures.end(), g_signatures.begin(),
+                                  g_signatures.end());
+            }
+
+            exprMap = limitToSignatures(exprMap, signatures);
+        }
+
+        printSettings(corporaFiles, plat.get());
+
+        if (exprMap.empty()) {
+            cout << "Warning: no signatures to scan. Exiting." << endl;
+            exit(0);
+        }
+
+        if (!no_signal_handler) {
+            installSignalHandler();
+        }
+
+        if (saveDatabases || loadDatabases) {
+            struct stat st;
+            if (stat(serializePath.c_str(), &st) < 0) {
+                cout << "Unable to stat serialize path '" <<  serializePath
+                     << "': " << strerror(errno) << endl;
+                exit_with_fail();
+            }
+        }
+
+        // If we're saving corpora out, truncate the output file.
+        if (saveCorpora) {
+            corporaOut = ue2::make_unique<CorpusWriter>(saveCorporaFile);
+        }
+
+        GroundTruth::global_prep();
+
+        auto corpora_source = buildCorpora(corporaFiles, exprMap);
+
+        if (!g_verbose && g_quiet < 2) {
+            cout << "Only failed tests are displayed." << endl;
+        }
+
+        SimpleTimer timer;
+        bool success = runTests(*corpora_source, exprMap, plat.get(), grey);
+        cout << "\nTotal elapsed time: " << timer.elapsed() << " secs." << endl;
+        exprMap.clear();
+
+        if (!success) {
             exit_with_fail();
         }
+
+        return 0;
+    } catch (const NGUnsupportedFailure &e) {
+        std::cerr << "NGUnsupportedFailure: " << e.msg << std::endl;
+        return 1;
+    } catch (const std::exception &e) {
+        std::cerr << "Unhandled exception: " << e.what() << std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr << "Unknown exception occurred." << std::endl;
+        return 1;
     }
-
-    // If we're saving corpora out, truncate the output file.
-    if (saveCorpora) {
-        corporaOut = ue2::make_unique<CorpusWriter>(saveCorporaFile);
-    }
-
-    GroundTruth::global_prep();
-
-    auto corpora_source = buildCorpora(corporaFiles, exprMap);
-
-    if (!g_verbose && g_quiet < 2) {
-        cout << "Only failed tests are displayed." << endl;
-    }
-
-    SimpleTimer timer;
-    bool success = runTests(*corpora_source, exprMap, plat.get(), grey);
-    cout << "\nTotal elapsed time: " << timer.elapsed() << " secs." << endl;
-    exprMap.clear();
-
-    if (!success) {
-        exit_with_fail();
-    }
-
-    return 0;
 }

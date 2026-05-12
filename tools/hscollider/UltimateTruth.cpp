@@ -1,29 +1,14 @@
 /*
- * Copyright (c) 2015-2019, Intel Corporation
+ * Copyright (C) 2026 Intel Corporation
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
+ * This software and the related documents are Intel copyrighted materials,
+ * and your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise,
+ * you may not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
  *
- *  * Redistributions of source code must retain the above copyright notice,
- *    this list of conditions and the following disclaimer.
- *  * Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *  * Neither the name of Intel Corporation nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- * POSSIBILITY OF SUCH DAMAGE.
+ * This software and the related documents are provided as is, with no express or
+ * implied warranties, other than those that are expressly stated in the License.
  */
 
 #include "config.h"
@@ -32,11 +17,12 @@
 #include "UltimateTruth.h"
 #include "util/database_util.h"
 #include "util/ExpressionParser.h"
+#include "util/hash_util.h"
 #include "util/string_util.h"
 
 #include "ue2common.h"
 #include "common.h"
-#include "util/hash_util.h"
+#include "database.h"
 #include "hs.h"
 #include "hs_internal.h"
 #include "util/make_unique.h"
@@ -66,7 +52,6 @@ using boost::ptr_vector;
 
 #ifndef RELEASE_BUILD
 
-#include "database.h"
 #include "state.h"
 
 static
@@ -135,6 +120,10 @@ public:
         : BaseDB(ids_begin, ids_end), db(db_in) {}
 
     ~HybridDB();
+
+    // Delete copy constructor and copy assignment operator
+    HybridDB(const HybridDB &) = delete;
+    HybridDB &operator=(const HybridDB &) = delete;
 
     // Underlying Hyperscan database pointer.
     ch_database_t *db;
@@ -496,6 +485,55 @@ bool UltimateTruth::blockScan(const BaseDB &bdb, const string &buffer,
     return ret == HS_SUCCESS;
 }
 
+bool UltimateTruth::blockRlitScan(const BaseDB &bdb, const string &buffer,
+                                  size_t align, match_event_handler callback,
+                                  void *ctx_in, ResultSet *) {
+    assert(colliderMode == MODE_BLOCK);
+    assert(!m_xcompile);
+
+    const hs_database_t *db = reinterpret_cast<const HyperscanDB &>(bdb).db;
+    assert(db);
+    MultiContext *ctx = (MultiContext *)ctx_in;
+
+    char *realigned = setupScanBuffer(buffer.c_str(), buffer.size(), align);
+    if (!realigned) {
+        return false;
+    }
+
+    if (use_copy_scratch && !cloneScratch()) {
+        return false;
+    }
+
+    ctx->in_scan_call = true;
+    hs_error_t ret =
+        hs_scan_purelit(db, realigned, buffer.size(), 0, scratch, callback,
+                        ctx);
+    ctx->in_scan_call = false;
+
+    if (g_verbose) {
+        out << "Scan call returned " << ret << endl;
+    }
+
+    if (ctx->terminated) {
+        if (g_verbose && ret != HS_SCAN_TERMINATED) {
+            out << "Scan should have returned HS_SCAN_TERMINATED, returned "
+                 << ret << " instead." << endl;
+        }
+        return ret == HS_SCAN_TERMINATED;
+    }
+
+    if (g_verbose && ret != HS_SUCCESS) {
+        out << "Scan should have returned HS_SUCCESS, returned " << ret
+             << " instead." << endl;
+    }
+
+    if (use_mangle_scratch) {
+        mangle_scratch(scratch);
+    }
+
+    return ret == HS_SUCCESS;
+}
+
 static
 vector<char> compressAndCloseStream(hs_stream_t *stream) {
     size_t needed;
@@ -614,6 +652,7 @@ bool UltimateTruth::streamingScan(const BaseDB &bdb, const string &buffer,
         }
         char *realigned = setupScanBuffer(ptr, blockSize, align);
         if (!realigned) {
+            hs_close_stream(stream, nullptr, nullptr, nullptr);
             return false;
         }
         ctx->in_scan_call = true;
@@ -625,15 +664,18 @@ bool UltimateTruth::streamingScan(const BaseDB &bdb, const string &buffer,
 
         if (limit_matches && rs->matches.size() == limit_matches) {
             if (ret != HS_SCAN_TERMINATED) {
+                hs_close_stream(stream, nullptr, nullptr, nullptr);
                 DEBUG_PRINTF("failure to scan %d\n", ret);
                 return false;
             }
         } else if (ret != HS_SUCCESS) {
+            hs_close_stream(stream, nullptr, nullptr, nullptr);
             DEBUG_PRINTF("failure to scan %d\n", ret);
             return false;
         }
 
         if (use_copy_scratch && !cloneScratch()) {
+            hs_close_stream(stream, nullptr, nullptr, nullptr);
             return false;
         }
 
@@ -641,6 +683,7 @@ bool UltimateTruth::streamingScan(const BaseDB &bdb, const string &buffer,
             hs_stream_t *s2;
             ret = hs_copy_stream(&s2, stream);
             if (ret != HS_SUCCESS) {
+                hs_close_stream(stream, nullptr, nullptr, nullptr);
                 DEBUG_PRINTF("failure to copy %d\n", ret);
                 return false;
             }
@@ -655,11 +698,14 @@ bool UltimateTruth::streamingScan(const BaseDB &bdb, const string &buffer,
                 expected = HS_SCAN_TERMINATED;
             }
             if (ret != expected) {
+                hs_close_stream(stream, nullptr, nullptr, nullptr);
+                hs_close_stream(s2, nullptr, nullptr, nullptr);
                 DEBUG_PRINTF("failure to scan %d\n", ret);
                 return false;
             }
             ret = hs_close_stream(stream, nullptr, nullptr, nullptr);
             if (ret != HS_SUCCESS) {
+                hs_close_stream(s2, nullptr, nullptr, nullptr);
                 DEBUG_PRINTF("failure to close %d\n", ret);
                 return false;
             }
@@ -675,6 +721,7 @@ bool UltimateTruth::streamingScan(const BaseDB &bdb, const string &buffer,
                 if (g_verbose) {
                     out << "Compress/Expand failed." << endl;
                 }
+                hs_close_stream(stream, nullptr, nullptr, nullptr);
                 return false;
             } else {
                 stream = rv;
@@ -687,6 +734,7 @@ bool UltimateTruth::streamingScan(const BaseDB &bdb, const string &buffer,
                 if (g_verbose) {
                     out << "Compress/Expand failed." << endl;
                 }
+                hs_close_stream(stream, nullptr, nullptr, nullptr);
                 return false;
             } else {
                 stream = rv;
@@ -871,7 +919,11 @@ bool UltimateTruth::run(unsigned int id, shared_ptr<const BaseDB> bdb,
 
     switch (colliderMode) {
     case MODE_BLOCK:
-        return blockScan(*bdb, buffer, align, callbackMulti, &ctx, &rs);
+        if (use_rliteral_api) {
+            return blockRlitScan(*bdb, buffer, align, callbackMulti, &ctx, &rs);
+        } else {
+            return blockScan(*bdb, buffer, align, callbackMulti, &ctx, &rs);
+        }
     case MODE_STREAMING:
         return streamingScan(*bdb, buffer, align, callbackMulti, &ctx, &rs);
     case MODE_VECTORED:
@@ -936,6 +988,10 @@ compileHyperscan(vector<const char *> &patterns, vector<unsigned> &flags,
         err = hs_compile_lit_multi_int(&patterns[0], &flags[0], &idsvec[0],
                                        ext.c_array(), &lens[0], count, mode,
                                        platform, &db, &compile_err, grey);
+    } else if (use_rliteral_api) {
+        err = hs_compile_reglit_multi_int(&patterns[0], &flags[0], &idsvec[0],
+                                          ext.c_array(), count, mode,
+                                          platform, &db, &compile_err, grey);
     } else {
         err = hs_compile_multi_int(&patterns[0], &flags[0], &idsvec[0],
                                    ext.c_array(), count, mode, platform, &db,
@@ -946,6 +1002,29 @@ compileHyperscan(vector<const char *> &patterns, vector<unsigned> &flags,
         error = compile_err->message;
         hs_free_compile_error(compile_err);
         return nullptr;
+    }
+
+    // Universal database serialize/deserialize right here.
+    // No need to do at runtime.
+    if (use_universal_database) {
+        size_t len;
+        char *bytes;
+
+        err = hs_serialize_database(db, &bytes, &len);
+        if (err != HS_SUCCESS) {
+            printf("Failed to serialize database for unidb: %d\n", err);
+            return nullptr;
+        }
+
+        hs_free_database(db);
+        db = nullptr;
+        err = hs_deserialize_database(bytes, len, &db);
+        if (err != HS_SUCCESS) {
+            printf("Failed to deserialize database for unidb: %d\n", err);
+            free(bytes);
+            return nullptr;
+        }
+        free(bytes);
     }
 
     return ue2::make_unique<HyperscanDB>(db, idsvec.begin(), idsvec.end());
@@ -1080,7 +1159,7 @@ shared_ptr<BaseDB> UltimateTruth::compile(const set<unsigned> &ids,
         }
     }
 
-    return move(db);
+    return std::move(db);
 }
 
 bool UltimateTruth::allocScratch(shared_ptr<const BaseDB> db) {
@@ -1108,7 +1187,7 @@ bool UltimateTruth::allocScratch(shared_ptr<const BaseDB> db) {
         }
     }
 
-    last_db = db;
+    last_db = std::move(db);
     return true;
 }
 
@@ -1289,11 +1368,16 @@ string UltimateTruth::dbSettingsHash(const set<unsigned int> &ids) const {
 
     string info = info_oss.str();
 
-    u64a hash = fnv1a_64(info.data(), info.size());
+    // FNV-1a: deterministic across platforms/builds.
+    uint64_t hash_val = FNV1A_64_OFFSET_BASIS;
+    for (char c : info) {
+        hash_val ^= static_cast<uint64_t>(static_cast<unsigned char>(c));
+        hash_val *= FNV1A_64_PRIME;
+    }
 
-    // return STL string with printable version of digest
+    // return STL string with printable version of hash
     ostringstream oss;
-    oss << hex << setw(16) << setfill('0') << hash << dec;
+    oss << hex << setw(16) << setfill('0') << hash_val << dec;
 
     return oss.str();
 }
