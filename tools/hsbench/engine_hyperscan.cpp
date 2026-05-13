@@ -358,10 +358,6 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
     hs_database_t *db;
     hs_error_t err;
 
-    hs_platform_info plat_uni = {0, HS_PLATFORM_ALL, 0, 0};
-    hs_platform_info *plat = use_universal_database ? &plat_uni
-                                                    : nullptr;
-
     if (loadDatabases) {
         db = loadDatabase(dbFilename(name, mode).c_str());
         if (!db) {
@@ -432,13 +428,13 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
             err = hs_compile_lit_multi_int(patterns.data(), flags.data(),
                                            ids.data(), ext_ptr.data(),
                                            lens.data(), count, full_mode,
-                                           plat, &db, &compile_err, grey);
+                                           nullptr, &db, &compile_err, grey);
             timer.complete();
         } else {
             timer.start();
             err = hs_compile_multi_int(patterns.data(), flags.data(),
                                        ids.data(), ext_ptr.data(), count,
-                                       full_mode, plat, &db, &compile_err,
+                                       full_mode, nullptr, &db, &compile_err,
                                        grey);
             timer.complete();
         }
@@ -452,13 +448,13 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
             timer.start();
             err = hs_compile_lit_multi(patterns.data(), flags.data(),
                                        ids.data(), lens.data(), count,
-                                       full_mode, plat, &db, &compile_err);
+                                       full_mode, nullptr, &db, &compile_err);
             timer.complete();
         } else {
             timer.start();
             err = hs_compile_ext_multi(patterns.data(), flags.data(),
                                        ids.data(), ext_ptr.data(), count,
-                                       full_mode, plat, &db, &compile_err);
+                                       full_mode, nullptr, &db, &compile_err);
             timer.complete();
         }
 #endif
@@ -476,27 +472,6 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
             hs_free_compile_error(compile_err);
             return nullptr;
         }
-    }
-
-    if (use_universal_database) {
-        size_t len;
-        char *bytes;
-
-        err = hs_serialize_database(db, &bytes, &len);
-        if (err != HS_SUCCESS) {
-            printf("Failed to serialize database for unidb: %d\n", err);
-            return nullptr;
-        }
-
-        hs_free_database(db);
-        db = nullptr;
-        err = hs_deserialize_database(bytes, len, &db);
-        if (err != HS_SUCCESS) {
-            printf("Failed to deserialize database for unidb: %d\n", err);
-            free(bytes);
-            return nullptr;
-        }
-        free(bytes);
     }
 
     // copy the db into huge pages (where available) to reduce TLB pressure

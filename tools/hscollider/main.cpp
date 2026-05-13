@@ -125,7 +125,6 @@ size_t max_scan_queue_len = 25000;
 size_t max_generator_queue_len = 25000;
 bool force_edit_distance = false;
 unsigned edit_distance = 0;
-bool use_universal_database = false;
 CorpusProperties corpus_gen_prop;
 
 // Semi constants

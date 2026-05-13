@@ -42,7 +42,6 @@ extern bool forceEditDistance;
 extern unsigned editDistance;
 extern bool printCompressSize;
 extern bool use_literal_api;
-extern bool use_universal_database;
 
 /** Structure for the result of a single complete scan. */
 struct ResultEntry {

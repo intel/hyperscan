@@ -82,7 +82,7 @@ void usage(const char *name, const char *error) {
     printf("  -V NUM          Use vectored mode, split data into ~NUM "
            "blocks.\n");
     printf("  -H              Use hybrid mode.\n");
-    printf("  -U              Use universal database.\n");
+
     printf("  -Z {R or 0-%d}  Only test one alignment, either as given or "
            "'R' for random.\n", MAX_MAX_UE2_ALIGN - 1);
     printf("  -q              Quiet; display only match differences, no other "
@@ -166,7 +166,7 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
                  vector<string> *corpora, UNUSED Grey *grey,
                  unique_ptr<hs_platform_info> *plat_out) {
     static const char options[]
-        = "-ab:cC:d:D:e:E:G:hHi:k:Lm:M:n:o:O:p:P:qr:R:S:s:t:T:UvV:w:x:X:Y:z:Z:8";
+        = "-ab:cC:d:D:e:E:G:hHi:k:Lm:M:n:o:O:p:P:qr:R:S:s:t:T:vV:w:x:X:Y:z:Z:8";
     s32 in_multi = 0;
     s32 in_corpora = 0;
     int pcreFlag = 1;
@@ -421,14 +421,6 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
                     exit(1);
                 }
                 break;
-            case 'U': {
-                use_universal_database = true;
-                hs_platform_info p = {};
-                p.cpu_features = HS_PLATFORM_ALL;
-                p.tune = 0;
-                *plat_out = std::make_unique<hs_platform_info>(p);
-                break;
-            }
             case 'v':
                 if (g_verbose) {
                     echo_matches = true;
@@ -574,11 +566,6 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
 
     if (colliderMode == MODE_HYBRID && !ue2Flag) {
         usage(argv[0], "You cannot disable UE2 engine in Hybrid mode.");
-        exit(1);
-    }
-
-    if (colliderMode == MODE_HYBRID && use_universal_database) {
-        usage(argv[0], "Universal database doesn't support hybrid mode yet.");
         exit(1);
     }
 

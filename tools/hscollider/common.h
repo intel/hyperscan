@@ -88,8 +88,6 @@ extern int abort_on_failure;
 extern int no_signal_handler;
 extern bool force_edit_distance;
 extern unsigned edit_distance;
-extern bool use_universal_database;
-
 // Constants
 static const unsigned long int DEFAULT_PCRE_MATCH_LIMIT = 10*1000*1000;
 static const unsigned long int DEFAULT_PCRE_MATCH_RECURSION_LIMIT = 10000;

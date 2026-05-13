@@ -66,7 +66,6 @@ extern "C"
 #define HS_PLATFORM_NOAVX2          (4<<13)
 #define HS_PLATFORM_NOAVX512        (8<<13)
 #define HS_PLATFORM_NOAVX512VBMI    (0x10<<13)
-#define HS_PLATFORM_ALL             (HS_PLATFORM_NOAVX2 | HS_PLATFORM_NOAVX512 | HS_PLATFORM_NOAVX512VBMI)
 
 /** \brief Platform features bitmask. */
 typedef u64a platform_t;

@@ -962,29 +962,6 @@ compileHyperscan(vector<const char *> &patterns, vector<unsigned> &flags,
         return nullptr;
     }
 
-    // Universal database serialize/deserialize right here.
-    // No need to do at runtime.
-    if (use_universal_database) {
-        size_t len;
-        char *bytes;
-
-        err = hs_serialize_database(db, &bytes, &len);
-        if (err != HS_SUCCESS) {
-            printf("Failed to serialize database for unidb: %d\n", err);
-            return nullptr;
-        }
-
-        hs_free_database(db);
-        db = nullptr;
-        err = hs_deserialize_database(bytes, len, &db);
-        if (err != HS_SUCCESS) {
-            printf("Failed to deserialize database for unidb: %d\n", err);
-            free(bytes);
-            return nullptr;
-        }
-        free(bytes);
-    }
-
     return ue2::make_unique<HyperscanDB>(db, idsvec.begin(), idsvec.end());
 }
 

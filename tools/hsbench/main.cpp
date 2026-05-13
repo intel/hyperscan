@@ -89,7 +89,6 @@ bool forceEditDistance = false;
 unsigned editDistance = 0;
 bool printCompressSize = false;
 bool use_literal_api = false;
-bool use_universal_database = false;
 
 // Globals local to this file.
 static bool compressStream = false;
@@ -205,7 +204,6 @@ void usage(const char *error) {
            " (default: streaming).\n");
     printf("  -V              Benchmark in vectored mode"
            " (default: streaming).\n");
-    printf("  -U              Use universal database.\n");
 #if defined(HS_HYBRID)
     printf("  -H              Benchmark using Chimera (if supported).\n");
     printf("  -P              Benchmark using PCRE (if supported).\n");
@@ -247,7 +245,7 @@ struct BenchmarkSigs {
 static
 void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
                  UNUSED unique_ptr<Grey> &grey) {
-    const char options[] = "-b:c:Cd:e:E:G:hHi:n:No:p:PsS:UVw:z:"
+    const char options[] = "-b:c:Cd:e:E:G:hHi:n:No:p:PsS:Vw:z:"
 #if defined(HAVE_DECL_PTHREAD_SETAFFINITY_NP) || defined(_WIN32)
         "T:" // add the thread flag
 #endif
@@ -353,9 +351,6 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
             break;
         case 'N':
             scan_mode = ScanMode::BLOCK;
-            break;
-        case 'U':
-            use_universal_database = true;
             break;
         case 'V':
             scan_mode = ScanMode::VECTORED;
@@ -474,10 +469,6 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
             exit(1);
         }
 
-        if (use_universal_database) {
-            usage("Universal database doesn't support chimera nor pcre.");
-            exit(1);
-        }
     }
 
     // Read in any -s signature sets.
