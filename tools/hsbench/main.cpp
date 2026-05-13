@@ -1,14 +1,29 @@
 /*
- * Copyright (C) 2026 Intel Corporation
+ * Copyright (c) 2016-2026, Intel Corporation
  *
- * This software and the related documents are Intel copyrighted materials,
- * and your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise,
- * you may not use, modify, copy, publish, distribute, disclose or transmit this
- * software or the related documents without Intel's prior written permission.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * This software and the related documents are provided as is, with no express or
- * implied warranties, other than those that are expressly stated in the License.
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of Intel Corporation nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -32,9 +47,6 @@
 #include "ue2common.h"
 #include "util/make_unique.h"
 
-#ifdef ENGINE_UPDATE_ON
-#include "hwlm/hwlm_internal.h"
-#endif
 
 #include <algorithm>
 #include <clocale>
@@ -77,7 +89,6 @@ bool forceEditDistance = false;
 unsigned editDistance = 0;
 bool printCompressSize = false;
 bool use_literal_api = false;
-bool use_rliteral_api = false;
 bool use_universal_database = false;
 
 // Globals local to this file.
@@ -216,7 +227,6 @@ void usage(const char *error) {
     printf("  --echo-matches  Display all matches that occur during scan.\n");
     printf("  --sql-out FILE  Output sqlite db.\n");
     printf("  --literal-on    Process in PTL literal API.\n");
-    printf("  --rliteral-on   Process in RCL literal API, only for block mode.\n");
     printf("  -S NAME         Signature set name (for sqlite db).\n");
     printf("\n\n");
 
@@ -250,7 +260,6 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
     int do_sql_output = 0;
     int option_index = 0;
     int literalFlag = 0;
-    int rliteralFlag = 0;
     vector<string> sigFiles;
 
     static struct option longopts[] = {
@@ -259,7 +268,6 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
         {"compress-stream", no_argument, &do_compress, 1},
         {"sql-out", required_argument, &do_sql_output, 1},
         {"literal-on", no_argument, &literalFlag, 1},
-        {"rliteral-on", no_argument, &rliteralFlag, 1},
         {nullptr, 0, nullptr, 0}
     };
 
@@ -479,18 +487,7 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
         sigSets.emplace_back(file, std::move(sigs));
     }
 
-    if (literalFlag && rliteralFlag) {
-        usage("PTL and RCL literal API can't be used simutaneously.");
-        exit(1);
-    }
-
-    if (scan_mode != ScanMode::BLOCK && rliteralFlag) {
-        usage("RCL literal API only support BLOCK mode now.");
-        exit(1);
-    }
-
     use_literal_api = (bool)literalFlag;
-    use_rliteral_api = (bool)rliteralFlag;
 }
 
 /** Start the global timer. */
@@ -528,36 +525,6 @@ void benchBlock(void *context) {
         for (const DataBlock &block : ctx->corpus_data) {
             ctx->engine.scan(block.payload.c_str(), block.payload.size(),
                              block.id, r, *ctx->enginectx);
-        }
-
-        ctx->timer.complete();
-        r.seconds = ctx->timer.seconds();
-    }
-
-    // Synchronization point
-    ctx->barrier();
-
-    // Now that all threads are finished, we can stop the clock.
-    stopTotalTimer(ctx);
-}
-
-/** Run a benchmark over a given engine and corpus in block mode with rlit
-  * API. */
-static
-void benchBlockRlit(void *context) {
-    ThreadContext *ctx = (ThreadContext *)context;
-
-    // Synchronization point
-    ctx->barrier();
-
-    startTotalTimer(ctx);
-
-    for (ResultEntry &r : ctx->results) {
-        ctx->timer.start();
-
-        for (const DataBlock &block : ctx->corpus_data) {
-            ctx->engine.scan_rlit(block.payload.c_str(), block.payload.size(),
-                                     block.id, r, *ctx->enginectx);
         }
 
         ctx->timer.complete();
@@ -814,10 +781,6 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
                     const vector<DataBlock> &corpus_blocks) {
     u64a bytesPerRun = byte_size(corpus_blocks);
     u64a matchesPerRun = threads[0]->results[0].matches;
-#ifdef ENGINE_UPDATE_ON
-    u32 engineType = threads[0]->results[0].engineType;
-    std::string engine;
-#endif
 
     // Sanity check: all of our results should have the same match count.
     for (const auto &t : threads) {
@@ -830,60 +793,6 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
         }
     }
 
-#ifdef ENGINE_UPDATE_ON
-    switch(engineType) {
-    case HWLM_ENGINE_NOOD:
-        engine = "Noodle";
-        break;
-
-    case HWLM_ENGINE_HOOVER:
-        engine = "Hoover";
-        break;
-
-    case HWLM_ENGINE_TEDDY_AVX512:
-        engine = "Teddy_avx512";
-        break;
-
-    case HWLM_ENGINE_TEDDY_AVX2:
-        engine = "Teddy_avx2";
-        break;
-
-    case HWLM_ENGINE_HARRY_VBMI_6B:
-        engine = "Harry_vbmi_6b";
-        break;
-
-    case HWLM_ENGINE_HARRY_VBMI_12B:
-        engine = "Harry_vbmi_12b";
-        break;
-
-    case HWLM_ENGINE_HARRY_AVX2_6B:
-        engine = "Harry_avx2_6b";
-        break;
-
-    case HWLM_ENGINE_HARRY_AVX2_12B:
-        engine = "Harry_avx2_12b";
-        break;
-
-    case HWLM_ENGINE_FDR:
-        engine = "FDR";
-        break;
-
-    case HWLM_ENGINE_CAL_AVX512:
-        engine = "CAL_AVX512";
-        break;
-
-    case HWLM_ENGINE_CAL_AVX2:
-        engine = "CAL_AVX2";
-        break;
-
-    case HWLM_ENGINE_CAL:
-        engine = "CAL";
-        break;
-
-    default:	
-        engine = "No engine found";
-    }
-#endif
     printf("Time spent scanning:       %0.3f seconds\n", totalSecs);
     printf("Corpus size:               %llu bytes ", bytesPerRun);
     switch (scan_mode) {
@@ -919,9 +828,6 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
     printf("Max throughput (per core): %0.2Lf Mbit/sec\n",
            calc_mbps(lowestScanTime, bytesPerRun));
 
-#ifdef ENGINE_UPDATE_ON
-    printf("Engine used:               %s\n", engine.c_str());
-#endif
 
     printf("\n");
 
@@ -956,10 +862,6 @@ void displayCsvResults(const vector<unique_ptr<ThreadContext>> &threads,
                        const vector<DataBlock> &corpus_blocks) {
     u64a bytesPerRun = byte_size(corpus_blocks);
     u64a matchesPerRun = threads[0]->results[0].matches;
-#ifdef ENGINE_UPDATE_ON
-    u32 engineType = threads[0]->results[0].engineType;
-    std::string engine;
-#endif
 
     // Sanity check: all of our results should have the same match count.
     for (const auto &t : threads) {
@@ -972,60 +874,6 @@ void displayCsvResults(const vector<unique_ptr<ThreadContext>> &threads,
         }
     }
 
-#ifdef ENGINE_UPDATE_ON
-    switch(engineType) {
-    case HWLM_ENGINE_NOOD:
-        engine = "Noodle";
-        break;
-
-    case HWLM_ENGINE_HOOVER:
-        engine = "Hoover";
-        break;
-
-    case HWLM_ENGINE_TEDDY_AVX512:
-        engine = "Teddy_avx512";
-        break;
-
-    case HWLM_ENGINE_TEDDY_AVX2:
-        engine = "Teddy_avx2";
-        break;
-
-    case HWLM_ENGINE_HARRY_VBMI_6B:
-        engine = "Harry_vbmi_6b";
-        break;
-
-    case HWLM_ENGINE_HARRY_VBMI_12B:
-        engine = "Harry_vbmi_12b";
-        break;
-
-    case HWLM_ENGINE_HARRY_AVX2_6B:
-        engine = "Harry_avx2_6b";
-        break;
-
-    case HWLM_ENGINE_HARRY_AVX2_12B:
-        engine = "Harry_avx2_12b";
-        break;
-
-    case HWLM_ENGINE_FDR:
-        engine = "FDR";
-        break;
-
-    case HWLM_ENGINE_CAL_AVX512:
-        engine = "CAL_AVX512";
-        break;
-
-    case HWLM_ENGINE_CAL_AVX2:
-        engine = "CAL_AVX2";
-        break;
-
-    case HWLM_ENGINE_CAL:
-        engine = "CAL";
-        break;
-
-    default:	
-        engine = "No engine found";
-    }
-#endif
     u64a totalBytes = bytesPerRun * repeats * threads.size();
     u64a totalBlocks = corpus_blocks.size() * repeats * threads.size();
     printf(",\"%0.3f\"", totalSecs);
@@ -1044,9 +892,6 @@ void displayCsvResults(const vector<unique_ptr<ThreadContext>> &threads,
 
     double blockRate = (double)totalBlocks / (double)totalSecs;
     printf(",\"%0.2f\"", blockRate);
-#ifdef ENGINE_UPDATE_ON
-    printf(",\"%s\"", engine.c_str());
-#endif
     printf("\n");
 }
 
@@ -1075,62 +920,8 @@ void sqlResults(const vector<unique_ptr<ThreadContext>> &threads,
                 const vector<DataBlock> &corpus_blocks) {
     u64a bytesPerRun = byte_size(corpus_blocks);
     u64a matchesPerRun = threads[0]->results[0].matches;
-#ifdef ENGINE_UPDATE_ON
-    u32 engineType = threads[0]->results[0].engineType;
-    std::string engine;
-#endif
 
     u64a scan_id = out_db.lastRowId();
-#ifdef ENGINE_UPDATE_ON
-    switch(engineType) {
-    case HWLM_ENGINE_NOOD:
-        engine = "Noodle";
-        break;
-
-    case HWLM_ENGINE_HOOVER:
-        engine = "Hoover";
-        break;
-
-    case HWLM_ENGINE_TEDDY_AVX512:
-        engine = "Teddy_avx512";
-        break;
-
-    case HWLM_ENGINE_HARRY_VBMI_6B:
-        engine = "Harry_vbmi_6b";
-        break;
-
-    case HWLM_ENGINE_HARRY_VBMI_12B:
-        engine = "Harry_vbmi_12b";
-        break;
-
-    case HWLM_ENGINE_HARRY_AVX2_6B:
-        engine = "Harry_avx2_6b";
-        break;
-
-    case HWLM_ENGINE_HARRY_AVX2_12B:
-        engine = "Harry_avx2_12b";
-        break;
-
-    case HWLM_ENGINE_FDR:
-        engine = "FDR";
-        break;
-
-    case HWLM_ENGINE_CAL_AVX512:
-        engine = "CAL_AVX512";
-        break;
-
-    case HWLM_ENGINE_CAL_AVX2:
-        engine = "CAL_AVX2";
-        break;
-
-    case HWLM_ENGINE_CAL:
-        engine = "CAL";
-        break;
-
-    default: 
-        engine = "No engine found";
-    }
-#endif
 
     // Sanity check: all of our results should have the same match count.
     for (const auto &t : threads) {
@@ -1148,19 +939,6 @@ void sqlResults(const vector<unique_ptr<ThreadContext>> &threads,
 
     const auto pos = corpusFile.find_last_of('/');
     const auto corpus = corpusFile.substr(pos + 1);
-#ifdef ENGINE_UPDATE_ON
-    static const std::string Q =
-        "INSERT INTO Scan (scan_id, corpusFile, totalSecs, "
-            "bytesPerRun, blockSize, blockCount, totalBytes, "
-            "totalBlocks, matchesPerRun, matchRate, overallTput,engType) "
-        "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11,?12)";
-
-    out_db.insert_all(
-        Q, scan_id, corpus, totalSecs, bytesPerRun, corpus_blocks.size(),
-        scan_mode == ScanMode::BLOCK ? 1 : count_streams(corpus_blocks),
-        totalBytes, corpus_blocks.size() * repeats * threads.size(),
-        matchesPerRun, matchRate, calc_mbps(totalSecs, totalBytes),engine);
-#else
     static const std::string Q =
         "INSERT INTO Scan (scan_id, corpusFile, totalSecs, "
             "bytesPerRun, blockSize, blockCount, totalBytes, "
@@ -1172,7 +950,6 @@ void sqlResults(const vector<unique_ptr<ThreadContext>> &threads,
         scan_mode == ScanMode::BLOCK ? 1 : count_streams(corpus_blocks),
         totalBytes, corpus_blocks.size() * repeats * threads.size(),
         matchesPerRun, matchRate, calc_mbps(totalSecs, totalBytes));
-#endif
     if (display_per_scan) {
         sqlPerScanResults(threads, bytesPerRun, scan_id);
     }
@@ -1203,11 +980,7 @@ unique_ptr<ThreadContext> makeThreadContext(const Engine &db,
         fn = benchVectored;
         break;
     case ScanMode::BLOCK:
-        if (use_rliteral_api) {
-            fn = benchBlockRlit;
-        } else {
-            fn = benchBlock;
-        }
+        fn = benchBlock;
         break;
     }
     assert(fn);

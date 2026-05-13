@@ -91,9 +91,6 @@ private:
     bool blockScan(const BaseDB &db, const std::string &buffer,
                    size_t align, match_event_handler callback, void *ctx,
                    ResultSet *rs);
-    bool blockRlitScan(const BaseDB &db, const std::string &buffer,
-                       size_t align, match_event_handler callback, void *ctx,
-                       ResultSet *rs);
     bool streamingScan(const BaseDB &db, const std::string &buffer,
                        size_t align, match_event_handler callback, void *ctx,
                        ResultSet *rs);

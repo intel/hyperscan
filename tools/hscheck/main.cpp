@@ -1,14 +1,29 @@
 /*
- * Copyright (C) 2026 Intel Corporation
+ * Copyright (c) 2015-2026, Intel Corporation
  *
- * This software and the related documents are Intel copyrighted materials,
- * and your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise,
- * you may not use, modify, copy, publish, distribute, disclose or transmit this
- * software or the related documents without Intel's prior written permission.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * This software and the related documents are provided as is, with no express or
- * implied warranties, other than those that are expressly stated in the License.
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of Intel Corporation nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 /**
@@ -78,7 +93,6 @@ bool g_forceEditDistance = false;
 bool build_sigs = false;
 bool check_logical = false;
 bool use_literal_api = false;
-bool use_rliteral_api = false;
 unsigned int g_signature;
 unsigned int g_editDistance;
 unsigned int globalFlags = 0;
@@ -314,10 +328,6 @@ void checkExpression(UNUSED void *threadarg) {
                 err = hs_compile_lit_multi_int(&regexp, &flags, nullptr, &extp,
                                                &len, 1, mode, nullptr, &db,
                                                &compile_err, *g_grey);
-            } else if (use_rliteral_api) {
-                err = hs_compile_reglit_multi_int(&regexp, &flags, nullptr,
-                                                  &extp, 1, mode, nullptr, &db,
-                                                  &compile_err, *g_grey);
             } else {
                 err = hs_compile_multi_int(&regexp, &flags, nullptr, &extp, 1,
                                            mode, nullptr, &db, &compile_err,
@@ -328,9 +338,6 @@ void checkExpression(UNUSED void *threadarg) {
                 size_t len = strlen(regexp);
                 err = hs_compile_lit_multi(&regexp, &flags, nullptr, &len, 1,
                                            mode, nullptr, &db, &compile_err);
-            } else if (use_rliteral_api) {
-                err = hs_compile_reglit_multi(&regexp, &flags, nullptr, 1, mode,
-                                              nullptr, &db, &compile_err);
             } else {
                 err = hs_compile_ext_multi(&regexp, &flags, nullptr, &extp, 1,
                                            mode, nullptr, &db, &compile_err);
@@ -389,7 +396,7 @@ void checkLogicalExpression(UNUSED void *threadarg) {
 
     ExprExtMap::const_iterator it;
     while (getNextLogicalExpression(it)) {
-        if (use_literal_api || use_rliteral_api) {
+        if (use_literal_api) {
             recordSuccess(g_exprMap, it->first);
             continue;
         }
@@ -484,7 +491,6 @@ void usage() {
          << "  -B              Build signature set." << endl
          << "  -C              Check logical combinations (default: off)." << endl
          << "  --literal-on    Process in PTL literal API." << endl
-         << "  --rliteral-on   Process in RCL literal API, only for block mode." << endl
          << endl;
 }
 
@@ -493,11 +499,9 @@ void processArgs(int argc, char *argv[], UNUSED unique_ptr<Grey> &grey) {
     const char options[] = "e:E:s:z:hHLNV8G:T:BC";
     bool signatureSet = false;
     int literalFlag = 0;
-    int rliteralFlag = 0;
 
     static struct option longopts[] = {
         {"literal-on", no_argument, &literalFlag, 1},
-        {"rliteral-on", no_argument, &rliteralFlag, 1},
         {nullptr, 0, nullptr, 0}
     };
 
@@ -591,18 +595,7 @@ void processArgs(int argc, char *argv[], UNUSED unique_ptr<Grey> &grey) {
         exit(1);
     }
 
-    if (literalFlag && rliteralFlag) {
-        usage();
-        exit(1);
-    }
-
-    if (g_streaming && rliteralFlag) {
-        usage();
-        exit(1);
-    }
-
     use_literal_api = (bool)literalFlag;
-    use_rliteral_api = (bool)rliteralFlag;
 }
 
 static

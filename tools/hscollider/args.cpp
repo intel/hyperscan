@@ -1,14 +1,29 @@
 /*
- * Copyright (C) 2025 Intel Corporation
+ * Copyright (c) 2015-2026, Intel Corporation
  *
- * This software and the related documents are Intel copyrighted materials,
- * and your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise,
- * you may not use, modify, copy, publish, distribute, disclose or transmit this
- * software or the related documents without Intel's prior written permission.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * This software and the related documents are provided as is, with no express or
- * implied warranties, other than those that are expressly stated in the License.
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of Intel Corporation nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -104,7 +119,6 @@ void usage(const char *name, const char *error) {
     printf("  --no-signal-handler Do not handle handle signals (to generate "
            "backtraces).\n");
     printf("  --literal-on    Process in PTL literal API.\n");
-    printf("  --rliteral-on   Process in RCL literal API, only for block mode.\n");
     printf("\n");
     printf("Memory and resource control options:\n");
     printf("\n");
@@ -164,7 +178,6 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
     int compressFlag = 0;
     int compressResetFlag = 0;
     int literalFlag = 0;
-    int rliteralFlag = 0;
     static const struct option longopts[] = {
         {"copy-scratch", 0, &copyScratch, 1},
         {"copy-stream", 0, &copyStream, 1},
@@ -179,7 +192,6 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
         {"compress-reset-expand", 0, &compressResetFlag, 1},
         {"no-groups", 0, &no_groups, 1},
         {"literal-on", 0, &literalFlag, 1},
-        {"rliteral-on", 0, &rliteralFlag, 1},
         {nullptr, 0, nullptr, 0}};
 
     for (;;) {
@@ -586,16 +598,6 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
         exit(1);
     }
 
-    if (literalFlag && rliteralFlag) {
-        usage(argv[0], "PTL and RCL literal API can't be used simutaneously.");
-        exit(1);
-    }
-
-    if (colliderMode != MODE_BLOCK && rliteralFlag) {
-        usage(argv[0], "RCL literal API only support BLOCK mode now.");
-        exit(1);
-    }
-
     // set booleans appropriately
     use_NFA = (bool) nfaFlag;
     use_PCRE = (bool) pcreFlag;
@@ -606,5 +608,4 @@ void processArgs(int argc, char *argv[], CorpusProperties &corpus_gen_prop,
     use_compress_expand = (bool)compressFlag;
     use_compress_reset_expand = (bool)compressResetFlag;
     use_literal_api = (bool)literalFlag;
-    use_rliteral_api = (bool)rliteralFlag;
 }

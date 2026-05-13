@@ -1,14 +1,29 @@
 /*
- * Copyright (C) 2026 Intel Corporation
+ * Copyright (c) 2016-2026, Intel Corporation
  *
- * This software and the related documents are Intel copyrighted materials,
- * and your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise,
- * you may not use, modify, copy, publish, distribute, disclose or transmit this
- * software or the related documents without Intel's prior written permission.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * This software and the related documents are provided as is, with no express or
- * implied warranties, other than those that are expressly stated in the License.
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of Intel Corporation nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -29,12 +44,6 @@
 #include "util/database_util.h"
 #include "util/make_unique.h"
 
-#ifdef ENGINE_UPDATE_ON
-#include "hwlm/hwlm_internal.h"
-#include "scratch.h"
-#include "lit_scratch.h"
-#endif
-
 #include <cassert>
 #include <cstring>
 #include <functional>
@@ -47,9 +56,6 @@
 #include <boost/crc.hpp>
 
 using namespace std;
-#ifdef ENGINE_UPDATE_ON
-u32 engineType = 0;
-#endif
 
 EngineHSContext::EngineHSContext(const hs_database_t *db) {
     hs_alloc_scratch(db, &scratch);
@@ -131,32 +137,9 @@ void EngineHyperscan::scan(const char *data, unsigned int len, unsigned int id,
     ScanHSContext sc(id, result, nullptr);
     auto callback = echo_matches ? onMatchEcho : onMatch;
     hs_error_t rv = hs_scan(db, data, len, 0, ctx.scratch, callback, &sc);
-#ifdef ENGINE_UPDATE_ON
-    result.engineType = ctx.scratch->lit_scratch.engineType;
-#endif
 
     if (rv != HS_SUCCESS) {
         printf("Fatal error: hs_scan returned error %d\n", rv);
-        abort();
-    }
-}
-
-void EngineHyperscan::scan_rlit(const char *data, unsigned int len,
-                                unsigned int id, ResultEntry &result,
-                                EngineContext &ectx) const {
-    assert(data);
-
-    EngineHSContext &ctx = static_cast<EngineHSContext &>(ectx);
-    ScanHSContext sc(id, result, nullptr);
-    auto callback = echo_matches ? onMatchEcho : onMatch;
-    hs_error_t rv = hs_scan_purelit(db, data, len, 0, ctx.scratch, callback,
-                                    &sc);
-#ifdef ENGINE_UPDATE_ON                                    
-    result.engineType = ctx.scratch->lit_scratch.engineType;
-#endif
-
-    if (rv != HS_SUCCESS) {
-        printf("Fatal error: hs_scan_purelit returned error %d\n", rv);
         abort();
     }
 }
@@ -173,9 +156,6 @@ void EngineHyperscan::scan_vectored(const char *const *data,
     auto callback = echo_matches ? onMatchEcho : onMatch;
     hs_error_t rv =
         hs_scan_vector(db, data, len, count, 0, ctx.scratch, callback, &sc);
-#ifdef ENGINE_UPDATE_ON        
-    result.engineType = ctx.scratch->lit_scratch.engineType;
-#endif
 
     if (rv != HS_SUCCESS) {
         printf("Fatal error: hs_scan_vector returned error %d\n", rv);
@@ -226,9 +206,6 @@ void EngineHyperscan::streamScan(EngineStream &stream, const char *data,
     auto callback = echo_matches ? onMatchEcho : onMatch;
     hs_error_t rv =
         hs_scan_stream(s.id, data, len, 0, ctx.scratch, callback, &sc);
-#ifdef ENGINE_UPDATE_ON
-    result.engineType = ctx.scratch->lit_scratch.engineType;
-#endif
 
     if (rv != HS_SUCCESS) {
         printf("Fatal error: hs_scan_stream returned error %d\n", rv);
@@ -457,13 +434,6 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
                                            lens.data(), count, full_mode,
                                            plat, &db, &compile_err, grey);
             timer.complete();
-        } else if (use_rliteral_api) {
-            timer.start();
-            err = hs_compile_reglit_multi_int(patterns.data(), flags.data(),
-                                              ids.data(), ext_ptr.data(),
-                                              count, full_mode, plat, &db,
-                                              &compile_err, grey);
-            timer.complete();
         } else {
             timer.start();
             err = hs_compile_multi_int(patterns.data(), flags.data(),
@@ -483,12 +453,6 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
             err = hs_compile_lit_multi(patterns.data(), flags.data(),
                                        ids.data(), lens.data(), count,
                                        full_mode, plat, &db, &compile_err);
-            timer.complete();
-        } else if (use_rliteral_api) {
-            timer.start();
-            err = hs_compile_reglit_multi(patterns.data(), flags.data(),
-                                          ids.data(), count, full_mode, plat,
-                                          &db, &compile_err);
             timer.complete();
         } else {
             timer.start();

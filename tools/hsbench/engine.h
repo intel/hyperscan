@@ -63,10 +63,6 @@ public:
     virtual void scan(const char *data, unsigned len, unsigned blockId,
                       ResultEntry &results, EngineContext &ectx) const = 0;
 
-    // non-streaming rlit scan
-    virtual void scan_rlit(const char *data, unsigned len, unsigned blockId,
-                           ResultEntry &results, EngineContext &ectx) const = 0;
-
     // vectoring scan
     virtual void scan_vectored(const char *const *data,
                                const unsigned int *len, unsigned int count,

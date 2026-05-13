@@ -301,7 +301,6 @@ GroundTruth::compile(unsigned id, bool no_callouts) {
         ext.hamming_distance = 0;
     }
     if (ext.flags & ~supported) {
-        assert(!use_rliteral_api);
         // edit distance is a known unsupported flag, so just throw a soft error
         if (ext.flags & HS_EXT_FLAG_EDIT_DISTANCE) {
             throw SoftPcreCompileFailure("Edit distance not supported by PCRE.");

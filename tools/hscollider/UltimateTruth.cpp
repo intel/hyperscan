@@ -1,14 +1,29 @@
 /*
- * Copyright (C) 2026 Intel Corporation
+ * Copyright (c) 2015-2026, Intel Corporation
  *
- * This software and the related documents are Intel copyrighted materials,
- * and your use of them is governed by the express license under which they were
- * provided to you ("License"). Unless the License provides otherwise,
- * you may not use, modify, copy, publish, distribute, disclose or transmit this
- * software or the related documents without Intel's prior written permission.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * This software and the related documents are provided as is, with no express or
- * implied warranties, other than those that are expressly stated in the License.
+ *  * Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *  * Neither the name of Intel Corporation nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -485,55 +500,6 @@ bool UltimateTruth::blockScan(const BaseDB &bdb, const string &buffer,
     return ret == HS_SUCCESS;
 }
 
-bool UltimateTruth::blockRlitScan(const BaseDB &bdb, const string &buffer,
-                                  size_t align, match_event_handler callback,
-                                  void *ctx_in, ResultSet *) {
-    assert(colliderMode == MODE_BLOCK);
-    assert(!m_xcompile);
-
-    const hs_database_t *db = reinterpret_cast<const HyperscanDB &>(bdb).db;
-    assert(db);
-    MultiContext *ctx = (MultiContext *)ctx_in;
-
-    char *realigned = setupScanBuffer(buffer.c_str(), buffer.size(), align);
-    if (!realigned) {
-        return false;
-    }
-
-    if (use_copy_scratch && !cloneScratch()) {
-        return false;
-    }
-
-    ctx->in_scan_call = true;
-    hs_error_t ret =
-        hs_scan_purelit(db, realigned, buffer.size(), 0, scratch, callback,
-                        ctx);
-    ctx->in_scan_call = false;
-
-    if (g_verbose) {
-        out << "Scan call returned " << ret << endl;
-    }
-
-    if (ctx->terminated) {
-        if (g_verbose && ret != HS_SCAN_TERMINATED) {
-            out << "Scan should have returned HS_SCAN_TERMINATED, returned "
-                 << ret << " instead." << endl;
-        }
-        return ret == HS_SCAN_TERMINATED;
-    }
-
-    if (g_verbose && ret != HS_SUCCESS) {
-        out << "Scan should have returned HS_SUCCESS, returned " << ret
-             << " instead." << endl;
-    }
-
-    if (use_mangle_scratch) {
-        mangle_scratch(scratch);
-    }
-
-    return ret == HS_SUCCESS;
-}
-
 static
 vector<char> compressAndCloseStream(hs_stream_t *stream) {
     size_t needed;
@@ -919,11 +885,7 @@ bool UltimateTruth::run(unsigned int id, shared_ptr<const BaseDB> bdb,
 
     switch (colliderMode) {
     case MODE_BLOCK:
-        if (use_rliteral_api) {
-            return blockRlitScan(*bdb, buffer, align, callbackMulti, &ctx, &rs);
-        } else {
-            return blockScan(*bdb, buffer, align, callbackMulti, &ctx, &rs);
-        }
+        return blockScan(*bdb, buffer, align, callbackMulti, &ctx, &rs);
     case MODE_STREAMING:
         return streamingScan(*bdb, buffer, align, callbackMulti, &ctx, &rs);
     case MODE_VECTORED:
@@ -988,10 +950,6 @@ compileHyperscan(vector<const char *> &patterns, vector<unsigned> &flags,
         err = hs_compile_lit_multi_int(&patterns[0], &flags[0], &idsvec[0],
                                        ext.c_array(), &lens[0], count, mode,
                                        platform, &db, &compile_err, grey);
-    } else if (use_rliteral_api) {
-        err = hs_compile_reglit_multi_int(&patterns[0], &flags[0], &idsvec[0],
-                                          ext.c_array(), count, mode,
-                                          platform, &db, &compile_err, grey);
     } else {
         err = hs_compile_multi_int(&patterns[0], &flags[0], &idsvec[0],
                                    ext.c_array(), count, mode, platform, &db,
