@@ -366,12 +366,6 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
     } else {
         const unsigned int count = expressions.size();
 
-        if (count > HS_MAX_PATTERN_COUNT) {
-            printf("Error: number of patterns (%u) exceeds limit (%u).\n",
-                   count, HS_MAX_PATTERN_COUNT);
-            return nullptr;
-        }
-
         vector<string> exprs;
         vector<unsigned int> flags, ids;
         vector<hs_expr_ext> ext;

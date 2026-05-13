@@ -146,7 +146,7 @@ Grey::Grey(void) :
                    allowTamarama(true), // Tamarama engine
                    tamaChunkSize(100),
                    dumpFlags(0),
-                   limitPatternCount(HS_MAX_PATTERN_COUNT),
+                   limitPatternCount(8000000), // 8M patterns
                    limitPatternLength(16000),  // 16K bytes
                    limitGraphVertices(500000), // 500K vertices
                    limitGraphEdges(1000000), // 1M edges
