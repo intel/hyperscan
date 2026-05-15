@@ -118,7 +118,7 @@ void usage(const char *name, const char *error) {
     printf("  --abort-on-fail Abort, rather than exit, on failure.\n");
     printf("  --no-signal-handler Do not handle handle signals (to generate "
            "backtraces).\n");
-    printf("  --literal-on    Process in PTL literal API.\n");
+    printf("  --literal-on    Use Hyperscan pure literal matching.\n");
     printf("\n");
     printf("Memory and resource control options:\n");
     printf("\n");

@@ -1503,7 +1503,7 @@ void buildSingle(BoundedQueue<CorpusGenUnit> &corpq, TestSummary &summary,
 
         bool multi = false;
         bool utf8 = false;
-        auto u = makeCorpusGenUnit(id, summary, ground, graph, ultimate, std::move(ue2),
+        auto u = makeCorpusGenUnit(id, summary, ground, graph, ultimate, ue2,
                                    multi, utf8);
         if (u) {
             corpq.push(move(u));
@@ -1564,7 +1564,7 @@ void buildBanded(BoundedQueue<CorpusGenUnit> &corpq, TestSummary &summary,
             auto u = makeCorpusGenUnit(id, summary, ground, graph, ultimate,
                                        ue2, multi, utf8);
             if (u) {
-                corpq.push(std::move(u));
+                corpq.push(move(u));
             }
         }
     }
@@ -1604,7 +1604,7 @@ void buildMulti(BoundedQueue<CorpusGenUnit> &corpq, TestSummary &summary,
         auto u = makeCorpusGenUnit(id, summary, ground, graph, ultimate, ue2,
                                    multi, utf8);
         if (u) {
-            corpq.push(std::move(u));
+            corpq.push(move(u));
         }
     }
 }
@@ -1622,7 +1622,7 @@ void generateTests(CorporaSource &corpora_src, const ExpressionMap &exprMap,
                                       max_generator_queue_len);
     vector<unique_ptr<CorpusGenThread>> generators;
     for (size_t i = 0; i < numGeneratorThreads; i++) {
-        auto c = std::make_unique<CorpusGenThread>(i, testq, corpq, corpora_src);
+        auto c = make_unique<CorpusGenThread>(i, testq, corpq, corpora_src);
         c->start();
         generators.push_back(move(c));
     }

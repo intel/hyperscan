@@ -113,7 +113,7 @@ bool decodeExprPcre(string &expr, unsigned *flags, bool *highlander,
     }
 
     if (use_literal_api) {
-        // filter out flags not supported by PTL literal API.
+        // filter out flags not supported by pure literal API.
         u32 not_supported = HS_FLAG_DOTALL | HS_FLAG_ALLOWEMPTY | HS_FLAG_UTF8 |
                             HS_FLAG_UCP | HS_FLAG_PREFILTER;
         hs_flags &= ~not_supported;
@@ -277,7 +277,7 @@ GroundTruth::compile(unsigned id, bool no_callouts) {
         throw PcreCompileFailure("Unable to decode flags.");
     }
 
-    // When PTL literal API is on, transfer the regex string into hex.
+    // When hyperscan literal api is on, transfer the regex string into hex.
     if (use_literal_api && !combination) {
         unsigned char *pat
             = reinterpret_cast<unsigned char *>(const_cast<char *>(re.c_str()));

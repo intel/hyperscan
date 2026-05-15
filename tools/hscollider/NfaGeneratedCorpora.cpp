@@ -82,7 +82,7 @@ void NfaGeneratedCorpora::generate(unsigned id, vector<Corpus> &data) {
         throw CorpusFailure("Expression could not be read: " + i->second);
     }
 
-    // When PTL literal API is on, transfer the regex string into hex.
+    // When hyperscan literal api is on, transfer the regex string into hex.
     if (use_literal_api && !(hs_flags & HS_FLAG_COMBINATION)) {
         unsigned char *pat
             = reinterpret_cast<unsigned char *>(const_cast<char *>(re.c_str()));

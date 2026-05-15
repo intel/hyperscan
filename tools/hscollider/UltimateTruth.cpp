@@ -1122,7 +1122,7 @@ bool UltimateTruth::allocScratch(shared_ptr<const BaseDB> db) {
         }
     }
 
-    last_db = std::move(db);
+    last_db = db;
     return true;
 }
 
