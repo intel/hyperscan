@@ -119,9 +119,9 @@ public:
         matches.insert(m);
 
         if (matches_by_block[block].find(m) != matches_by_block[block].end()) {
-            dupe_matches.insert(std::move(m));
+            dupe_matches.insert(m);
         } else {
-            matches_by_block[block].insert(std::move(m));
+            matches_by_block[block].insert(m);
         }
     }
 

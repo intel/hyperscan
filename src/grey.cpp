@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2026, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,7 +28,6 @@
 
 #include "grey.h"
 #include "ue2common.h"
-#include "hs_common.h"
 #include "util/compile_error.h"
 
 #include <algorithm>

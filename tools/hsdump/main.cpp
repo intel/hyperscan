@@ -417,7 +417,7 @@ void prepareDumpLoc(string parent, string path, u32 flags, Grey &grey) {
 
     // Append path to parent
     parent.append(path);
-    path = std::move(parent);
+    path = parent.append(path);
     if (stat(path.c_str(), &st)) {
         // Create dump location if not found
         if (makeDirectory(path) < 0) {
@@ -435,7 +435,7 @@ void prepareDumpLoc(string parent, string path, u32 flags, Grey &grey) {
         path.push_back('/');
     }
 
-    grey.dumpPath = std::move(path);
+    grey.dumpPath = path;
     grey.dumpFlags = flags;
 }
 

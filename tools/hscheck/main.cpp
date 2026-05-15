@@ -102,7 +102,7 @@ unsigned int countFailures = 0;
 class ParsedExpr {
 public:
     ParsedExpr(string regex_in, unsigned int flags_in, hs_expr_ext ext_in)
-        : regex(std::move(regex_in)), flags(flags_in), ext(ext_in) {}
+        : regex(regex_in), flags(flags_in), ext(ext_in) {}
     ~ParsedExpr() {}
     string regex;
     unsigned int flags;

@@ -239,7 +239,7 @@ buildEngineChimera(const ExpressionMap &expressions, const string &name,
                    m.second.c_str(), m.first);
             return nullptr;
         }
-        exprs.push_back(std::move(expr));
+        exprs.push_back(expr);
         ids.push_back(m.first);
         flags.push_back(f);
     }
@@ -312,12 +312,12 @@ buildEngineChimera(const ExpressionMap &expressions, const string &name,
     } else {
         cs.signatures = name;
     }
-    cs.db_info = std::move(db_info);
+    cs.db_info = db_info;
     cs.expressionCount = expressions.size();
     cs.compiledSize = compiledSize;
     cs.scratchSize = scratchSize;
     cs.compileSecs = compileSecs;
     cs.peakMemorySize = peakMemorySize;
 
-    return ue2::make_unique<EngineChimera>(db, std::move(cs));
+    return ue2::make_unique<EngineChimera>(db, move(cs));
 }

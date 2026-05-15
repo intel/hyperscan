@@ -55,7 +55,7 @@ public:
         : ids(expr_ids) {}
 
     explicit DatabaseProxy(std::shared_ptr<BaseDB> built_db)
-        : db(std::move(built_db)) {}
+        : db(built_db) {}
 
     std::shared_ptr<BaseDB> get(const UltimateTruth &ultimate) {
         std::lock_guard<std::mutex> lock(mutex);

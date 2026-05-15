@@ -57,7 +57,7 @@ bool FileCorpora::readLine(const string &line) {
     Corpus c;
     bool rv = parseCorpus(line, c, id);
     if (rv) {
-        corpora_by_pat[id].push_back(std::move(c));
+        corpora_by_pat[id].push_back(c);
         return true;
     } else {
         return false;

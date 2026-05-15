@@ -175,7 +175,7 @@ unique_ptr<EngineStream> EngineHyperscan::streamOpen(EngineContext &ectx,
         return nullptr;
     }
     stream->sn = streamId;
-    return std::move(stream);
+    return move(stream);
 }
 
 void EngineHyperscan::streamClose(unique_ptr<EngineStream> stream,
@@ -385,10 +385,10 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
                 extparam.edit_distance = editDistance;
             }
 
-            exprs.push_back(std::move(expr));
+            exprs.push_back(expr);
             ids.push_back(m.first);
             flags.push_back(f);
-            ext.push_back(std::move(extparam));
+            ext.push_back(extparam);
         }
 
         unsigned full_mode = mode;
@@ -412,7 +412,7 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
         Timer timer;
 
 #ifndef RELEASE_BUILD
-        if (use_literal_api) {
+        if (useLiteralApi) {
             // Pattern length computation should be done before timer start.
             vector<size_t> lens(count);
             for (unsigned int i = 0; i < count; i++) {
@@ -433,7 +433,7 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
             timer.complete();
         }
 #else
-        if (use_literal_api) {
+        if (useLiteralApi) {
             // Pattern length computation should be done before timer start.
             vector<size_t> lens(count);
             for (unsigned int i = 0; i < count; i++) {
@@ -529,7 +529,7 @@ buildEngineHyperscan(const ExpressionMap &expressions, ScanMode scan_mode,
     } else {
         cs.signatures = name;
     }
-    cs.db_info = std::move(db_info);
+    cs.db_info = db_info;
     cs.expressionCount = expressions.size();
     cs.compiledSize = compiledSize;
     // Convert HMAC to hex string for display
