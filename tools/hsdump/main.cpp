@@ -141,7 +141,7 @@ void usage(const char *name, const char *error) {
     printf("  -8              Force UTF8 mode on all patterns.\n");
     printf("  -L              Apply HS_FLAG_SOM_LEFTMOST to all patterns.\n");
     printf(" --prefilter      Apply HS_FLAG_PREFILTER to all patterns.\n");
-    printf(" --literal-on     Process in PTL literal API.\n");
+    printf(" --literal-on     Use Hyperscan pure literal matching API.\n");
     printf("\n");
     printf("Example:\n");
     printf("$ %s -e pattern.file -s sigfile\n", name);

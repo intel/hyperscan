@@ -224,7 +224,7 @@ void usage(const char *error) {
     printf("  --per-scan      Display per-scan Mbit/sec results.\n");
     printf("  --echo-matches  Display all matches that occur during scan.\n");
     printf("  --sql-out FILE  Output sqlite db.\n");
-    printf("  --literal-on    Process in PTL literal API.\n");
+    printf("  --literal-on    Use Hyperscan pure literal matching.\n");
     printf("  -S NAME         Signature set name (for sqlite db).\n");
     printf("\n\n");
 
@@ -827,26 +827,6 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
     }
 }
 
-#if 0
-/** Dump per-scan throughput data to csv. */
-static
-void csvPerScanResults(const vector<unique_ptr<ThreadContext>> &threads,
-                       u64a bytesPerRun) {
-    u32 iters = 0;
-    long double max_mbps = 0;
-    for (const auto &t : threads) {
-        const auto &results = t->results;
-        for (size_t j = 0; j != results.size(); j++) {
-            const auto &r = results[j];
-            long double mbps = calc_mbps(r.seconds, bytesPerRun);
-            max_mbps = max(mbps, max_mbps);
-            iters += 1;
-        }
-    }
-    printf(",\"%0.2Lf\"", max_mbps);
-}
-#endif
-
 /** Dump benchmark results to csv. */
 static
 void displayCsvResults(const vector<unique_ptr<ThreadContext>> &threads,
@@ -868,14 +848,8 @@ void displayCsvResults(const vector<unique_ptr<ThreadContext>> &threads,
     u64a totalBytes = bytesPerRun * repeats * threads.size();
     u64a totalBlocks = corpus_blocks.size() * repeats * threads.size();
     printf(",\"%0.3f\"", totalSecs);
-    double lowestScanTime = fastestResult(threads);
-    if (display_per_scan) {
-        //csvPerScanResults(threads, bytesPerRun);
-        printf(",\"%0.2Lf\"", calc_mbps(lowestScanTime, bytesPerRun));
-    }
-    else {
-        printf(",\"%0.2Lf\"", calc_mbps(totalSecs, totalBytes));
-    }
+    printf(",\"%0.2Lf\"", calc_mbps(totalSecs, totalBytes));
+
     assert(bytesPerRun);
     double matchRate = ((double)matchesPerRun * 1024) / bytesPerRun;
     printf(",\"%llu\"", matchesPerRun);

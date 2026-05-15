@@ -490,7 +490,7 @@ void usage() {
          << "  -h              Display this help." << endl
          << "  -B              Build signature set." << endl
          << "  -C              Check logical combinations (default: off)." << endl
-         << "  --literal-on    Process in PTL literal API." << endl
+         << "  --literal-on    Processing pure literals, no need to check." << endl
          << endl;
 }
 

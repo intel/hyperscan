@@ -163,7 +163,7 @@ public:
     // Dupe matches that we have seen.
     std::set<MatchResult> dupe_matches;
 
-    /* Where these results came from (does not take part in comparisions) */
+    /* Where these results came from (does not take part in comparisons) */
     ResultSource src;
 };
 

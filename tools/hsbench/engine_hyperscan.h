@@ -37,7 +37,7 @@
 #include <string>
 #include <vector>
 
-/** Infomation about the database compile */
+/** Information about the database compile */
 struct CompileHSStats {
     std::string sigs_name;
     std::string signatures;
