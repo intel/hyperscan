@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2026, Intel Corporation
+ * Copyright (c) 2015-2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -93,7 +93,7 @@ public:
     ue2::ParsedLogical pl;
 
     // Combination expression report id.
-    unsigned report = 0;
+    unsigned report;
 
 private:
     // If a PCRE has hit its match recursion limit when scanning a corpus, we

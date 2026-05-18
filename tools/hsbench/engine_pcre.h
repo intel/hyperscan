@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2026, Intel Corporation
+ * Copyright (c) 2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -56,9 +56,6 @@ public:
     explicit EnginePCREContext(int capture_cnt);
     ~EnginePCREContext();
 
-    EnginePCREContext(const EnginePCREContext &) = delete;
-    EnginePCREContext &operator=(const EnginePCREContext &) = delete;
-
     int *ovec = nullptr;
 };
 
@@ -74,11 +71,8 @@ struct PcreDB {
 class EnginePCRE : public Engine {
 public:
     explicit EnginePCRE(std::vector<std::unique_ptr<PcreDB>> dbs_in,
-                        const CompilePCREStats &cs, int capture_cnt_in);
+                        CompilePCREStats cs, int capture_cnt_in);
     ~EnginePCRE();
-
-    EnginePCRE(const EnginePCRE &) = delete;
-    EnginePCRE &operator=(const EnginePCRE &) = delete;
 
     std::unique_ptr<EngineContext> makeContext() const;
 

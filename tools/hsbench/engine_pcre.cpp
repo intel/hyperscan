@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2026, Intel Corporation
+ * Copyright (c) 2018, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -92,7 +92,7 @@ int onMatchEcho(unsigned int id, unsigned long long, unsigned long long to,
     return 0;
 }
 
-EnginePCRE::EnginePCRE(vector<unique_ptr<PcreDB>> dbs_in, const CompilePCREStats &cs,
+EnginePCRE::EnginePCRE(vector<unique_ptr<PcreDB>> dbs_in, CompilePCREStats cs,
                        int capture_cnt_in)
     : dbs(move(dbs_in)), compile_stats(move(cs)),
       capture_cnt(capture_cnt_in) {}
@@ -212,13 +212,19 @@ void EnginePCRE::printStats() const {
     }
     printf("Signatures:        %s\n", compile_stats.signatures.c_str());
     printf("PCRE info:         %s\n", compile_stats.db_info.c_str());
-
+#ifndef _WIN32
+    printf("Expression count:  %'zu\n", compile_stats.expressionCount);
+    printf("Bytecode size:     %'zu bytes\n", compile_stats.compiledSize);
+    printf("Scratch size:      %'zu bytes\n", compile_stats.scratchSize);
+    printf("Compile time:      %'0.3Lf seconds\n", compile_stats.compileSecs);
+    printf("Peak heap usage:   %'u bytes\n", compile_stats.peakMemorySize);
+#else
     printf("Expression count:  %zu\n", compile_stats.expressionCount);
     printf("Bytecode size:     %zu bytes\n", compile_stats.compiledSize);
     printf("Scratch size:      %zu bytes\n", compile_stats.scratchSize);
     printf("Compile time:      %0.3Lf seconds\n", compile_stats.compileSecs);
     printf("Peak heap usage:   %u bytes\n", compile_stats.peakMemorySize);
-
+#endif
 }
 
 void EnginePCRE::printCsvStats() const {

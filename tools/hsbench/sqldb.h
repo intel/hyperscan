@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2026, Intel Corporation
+ * Copyright (c) 2017, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -42,10 +42,6 @@ class SqlDB {
 public:
     SqlDB() : db(nullptr) {};
     ~SqlDB();
-
-    SqlDB(const SqlDB &) = delete;
-    SqlDB &operator=(const SqlDB &) = delete;
-
     void open(const std::string &filename);
     void exec(const std::string &query);
     u64a lastRowId();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2026, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -115,7 +115,7 @@ bool decodeExprPcre(string &expr, unsigned *flags, bool *highlander,
     if (use_literal_api) {
         // filter out flags not supported by pure literal API.
         u32 not_supported = HS_FLAG_DOTALL | HS_FLAG_ALLOWEMPTY | HS_FLAG_UTF8 |
-                            HS_FLAG_UCP | HS_FLAG_PREFILTER;
+                             HS_FLAG_UCP | HS_FLAG_PREFILTER;
         hs_flags &= ~not_supported;
         force_utf8 = false;
         force_prefilter = false;

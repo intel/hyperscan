@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2026, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,7 +38,6 @@
 #include "grey.h"
 #include "ue2common.h"
 #include "hs_compile.h" // for HS_MODE_*
-#include "src/util/make_unique.h"
 
 #include <algorithm>
 #include <cassert>
@@ -82,7 +81,6 @@ void usage(const char *name, const char *error) {
     printf("  -V NUM          Use vectored mode, split data into ~NUM "
            "blocks.\n");
     printf("  -H              Use hybrid mode.\n");
-
     printf("  -Z {R or 0-%d}  Only test one alignment, either as given or "
            "'R' for random.\n", MAX_MAX_UE2_ALIGN - 1);
     printf("  -q              Quiet; display only match differences, no other "

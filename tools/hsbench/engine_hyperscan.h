@@ -58,9 +58,6 @@ public:
     explicit EngineHSContext(const hs_database_t *db);
     ~EngineHSContext();
 
-    EngineHSContext(const EngineHSContext &) = delete;
-    EngineHSContext &operator=(const EngineHSContext &) = delete;
-
     hs_scratch_t *scratch = nullptr;
 };
 
@@ -75,12 +72,9 @@ public:
 /** Hyperscan Engine for scanning data. */
 class EngineHyperscan : public Engine {
 public:
-    explicit EngineHyperscan(hs_database_t *db, const CompileHSStats &cs);
+    explicit EngineHyperscan(hs_database_t *db, CompileHSStats cs);
     ~EngineHyperscan();
 
-    EngineHyperscan(const EngineHyperscan &) = delete;
-    EngineHyperscan &operator=(const EngineHyperscan &) = delete;
-    
     std::unique_ptr<EngineContext> makeContext() const;
 
     void scan(const char *data, unsigned int len, unsigned int id,

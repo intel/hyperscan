@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2026, Intel Corporation
+ * Copyright (c) 2016-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,7 +46,6 @@
 #include "hs.h"
 #include "ue2common.h"
 #include "util/make_unique.h"
-
 
 #include <algorithm>
 #include <clocale>
@@ -468,7 +467,6 @@ void processArgs(int argc, char *argv[], vector<BenchmarkSigs> &sigSets,
             usage("No extended options are supported in Chimera or PCRE.");
             exit(1);
         }
-
     }
 
     // Read in any -s signature sets.
@@ -734,7 +732,11 @@ void displayPerScanResults(const vector<unique_ptr<ThreadContext>> &threads,
         for (size_t j = 0; j != results.size(); j++) {
             const auto &r = results[j];
             double mbps = calc_mbps(r.seconds, bytesPerRun);
+#ifndef _WIN32
+            printf("T %2u Scan %2zu: %'0.2f Mbit/sec\n", t->num, j, mbps);
+#else
             printf("T %2u Scan %2zu: %0.2f Mbit/sec\n", t->num, j, mbps);
+#endif
         }
     }
     printf("\n");
@@ -784,6 +786,23 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
         }
     }
 
+#ifndef _WIN32
+    printf("Time spent scanning:       %'0.3f seconds\n", totalSecs);
+    printf("Corpus size:               %'llu bytes ", bytesPerRun);
+    switch (scan_mode) {
+    case ScanMode::STREAMING:
+        printf("(%'zu blocks in %'llu streams)\n", corpus_blocks.size(),
+               count_streams(corpus_blocks));
+        break;
+    case ScanMode::VECTORED:
+        printf("(%'zu blocks in %'llu vectors)\n", corpus_blocks.size(),
+               count_streams(corpus_blocks));
+        break;
+    case ScanMode::BLOCK:
+        printf("(%'zu blocks)\n", corpus_blocks.size());
+        break;
+    }
+#else
     printf("Time spent scanning:       %0.3f seconds\n", totalSecs);
     printf("Corpus size:               %llu bytes ", bytesPerRun);
     switch (scan_mode) {
@@ -799,27 +818,40 @@ void displayResults(const vector<unique_ptr<ThreadContext>> &threads,
         printf("(%zu blocks)\n", corpus_blocks.size());
         break;
     }
+#endif
 
     u64a totalBytes = bytesPerRun * repeats * threads.size();
     u64a totalBlocks = corpus_blocks.size() * repeats * threads.size();
 
     double matchRate = ((double)matchesPerRun * 1024) / bytesPerRun;
+#ifndef _WIN32
+    printf("Matches per iteration:     %'llu (%'0.3f matches/kilobyte)\n",
+           matchesPerRun, matchRate);
+#else
     printf("Matches per iteration:     %llu (%0.3f matches/kilobyte)\n",
            matchesPerRun, matchRate);
+#endif
 
     double blockRate = (double)totalBlocks / (double)totalSecs;
+#ifndef _WIN32
+    printf("Overall block rate:        %'0.2f blocks/sec\n", blockRate);
+    printf("Mean throughput (overall): %'0.2Lf Mbit/sec\n",
+           calc_mbps(totalSecs, totalBytes));
 
+#else
     printf("Overall block rate:        %0.2f blocks/sec\n", blockRate);
     printf("Mean throughput (overall): %0.2Lf Mbit/sec\n",
            calc_mbps(totalSecs, totalBytes));
 
-
+#endif
     double lowestScanTime = fastestResult(threads);
-
+#ifndef _WIN32
+    printf("Max throughput (per core): %'0.2Lf Mbit/sec\n",
+           calc_mbps(lowestScanTime, bytesPerRun));
+#else
     printf("Max throughput (per core): %0.2Lf Mbit/sec\n",
            calc_mbps(lowestScanTime, bytesPerRun));
-
-
+#endif
     printf("\n");
 
     if (display_per_scan) {
@@ -904,6 +936,7 @@ void sqlResults(const vector<unique_ptr<ThreadContext>> &threads,
 
     const auto pos = corpusFile.find_last_of('/');
     const auto corpus = corpusFile.substr(pos + 1);
+
     static const std::string Q =
         "INSERT INTO Scan (scan_id, corpusFile, totalSecs, "
             "bytesPerRun, blockSize, blockCount, totalBytes, "
@@ -915,6 +948,7 @@ void sqlResults(const vector<unique_ptr<ThreadContext>> &threads,
         scan_mode == ScanMode::BLOCK ? 1 : count_streams(corpus_blocks),
         totalBytes, corpus_blocks.size() * repeats * threads.size(),
         matchesPerRun, matchRate, calc_mbps(totalSecs, totalBytes));
+
     if (display_per_scan) {
         sqlPerScanResults(threads, bytesPerRun, scan_id);
     }
@@ -1017,35 +1051,33 @@ int HS_CDECL main(int argc, char *argv[]) {
     printf("\nWARNING: DO NOT BENCHMARK A HYPERSCAN BUILD WITH ASSERTIONS\n\n");
 #endif
 
-    int exit_code = 0;
+    vector<BenchmarkSigs> sigSets;
+    processArgs(argc, argv, sigSets, grey);
+
+    // read in and process our expressions
+    ExpressionMap exprMapTemplate;
+    loadExpressions(exprPath, exprMapTemplate);
+
+    // If we have no signature sets, the user wants us to benchmark all the
+    // known expressions together.
+    if (sigSets.empty()) {
+        SignatureSet sigs;
+        sigs.reserve(exprMapTemplate.size());
+        for (auto i : exprMapTemplate | map_keys) {
+            sigs.push_back(i);
+        }
+        sigSets.emplace_back(exprPath, move(sigs));
+    }
+
+    // read in and process our corpus
+    vector<DataBlock> corpus_blocks;
     try {
-        vector<BenchmarkSigs> sigSets;
-        processArgs(argc, argv, sigSets, grey);
-
-        // read in and process our expressions
-        ExpressionMap exprMapTemplate;
-        loadExpressions(exprPath, exprMapTemplate);
-
-        // If we have no signature sets, the user wants us to benchmark all the
-        // known expressions together.
-        if (sigSets.empty()) {
-            SignatureSet sigs;
-            sigs.reserve(exprMapTemplate.size());
-            for (auto i : exprMapTemplate | map_keys) {
-                sigs.push_back(i);
-            }
-            sigSets.emplace_back(exprPath, move(sigs));
-        }
-
-        // read in and process our corpus
-        vector<DataBlock> corpus_blocks;
-        try {
-            corpus_blocks = readCorpus(corpusFile);
-        } catch (const DataCorpusError &e) {
-            printf("Corpus data error: %s\n", e.msg.c_str());
-            return 1;
-        }
-    
+        corpus_blocks = readCorpus(corpusFile);
+    } catch (const DataCorpusError &e) {
+        printf("Corpus data error: %s\n", e.msg.c_str());
+        return 1;
+    }
+    try {
         if (!sqloutFile.empty()) {
             out_db.open(sqloutFile);
         }
@@ -1064,13 +1096,8 @@ int HS_CDECL main(int argc, char *argv[]) {
                 engine = buildEnginePcre(exprMap, s.name, sigName);
 #endif
             } else {
-#if !defined(RELEASE_BUILD)
                 engine = buildEngineHyperscan(exprMap, scan_mode, s.name,
                                               sigName, *grey);
-#else
-                engine = buildEngineHyperscan(exprMap, scan_mode, s.name,
-                                              sigName, Grey());
-#endif
             }
 
             if (!engine) {
@@ -1092,22 +1119,13 @@ int HS_CDECL main(int argc, char *argv[]) {
 
             runBenchmark(*engine, corpus_blocks);
         }
-    } catch (const SqlFailure &err) {
-        std::cerr << err.message << std::endl;
-        exit_code = -1;
-    } catch (const std::invalid_argument &err) {
-        std::cerr << "Invalid argument: " << err.what() << std::endl;
-        exit_code = -1;
-    } catch (const std::domain_error &err) {
-        std::cerr << "Domain error: " << err.what() << std::endl;
-        exit_code = -1;
-    } catch (const std::runtime_error &err) {
-        std::cerr << "Runtime error: " << err.what() << std::endl;
-        exit_code = -1;
-    } catch (...) {
-        std::cerr << "An unexpected error occurred." << std::endl;
-        exit_code = -1;
+    } catch (const SqlFailure &f) {
+        cerr << f.message << '\n';
+        return -1;
+    } catch (const std::runtime_error &e) {
+        cerr << "Internal error: " << e.what() << '\n';
+        return -1;
     }
 
-    return exit_code;
+    return 0;
 }

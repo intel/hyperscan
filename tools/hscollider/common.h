@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2026, Intel Corporation
+ * Copyright (c) 2015-2019, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,7 +32,6 @@
 #include <cstddef>
 #include <string>
 #include <vector>
-#include <cstdint>
 
 enum ColliderMode {
     MODE_BLOCK,
@@ -73,7 +72,7 @@ extern int force_prefilter;
 extern int no_groups;
 extern unsigned somPrecisionMode;
 extern unsigned limit_matches;
-extern uint64_t randomSeed;
+extern unsigned randomSeed;
 extern bool use_random_alignment;
 extern bool use_PCRE;
 extern bool use_NFA;
@@ -88,6 +87,7 @@ extern int abort_on_failure;
 extern int no_signal_handler;
 extern bool force_edit_distance;
 extern unsigned edit_distance;
+
 // Constants
 static const unsigned long int DEFAULT_PCRE_MATCH_LIMIT = 10*1000*1000;
 static const unsigned long int DEFAULT_PCRE_MATCH_RECURSION_LIMIT = 10000;

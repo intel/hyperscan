@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2026, Intel Corporation
+ * Copyright (c) 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -184,7 +184,7 @@ long gethugepagesize(void) {
         hpage_size = -1;
     } else {
         /* convert from kb to bytes */
-        hpage_size = (long)1024 * hpage_kb;
+        hpage_size = 1024 * hpage_kb;
     }
 
     return hpage_size;

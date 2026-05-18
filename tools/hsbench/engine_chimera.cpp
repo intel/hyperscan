@@ -95,8 +95,8 @@ int HS_CDECL onMatchEcho(unsigned int id, unsigned long long,
     return 0;
 }
 
-EngineChimera::EngineChimera(ch_database_t *db_in, const CompileCHStats &cs)
-    : db(db_in), compile_stats(cs) {
+EngineChimera::EngineChimera(ch_database_t *db_in, CompileCHStats cs)
+    : db(db_in), compile_stats(move(cs)) {
     assert(db);
 }
 
@@ -168,12 +168,22 @@ void EngineChimera::printStats() const {
     }
     printf("Signatures:        %s\n", compile_stats.signatures.c_str());
     printf("Chimera info:      %s\n", compile_stats.db_info.c_str());
-
+#ifndef _WIN32
+    printf("Expression count:  %'zu\n", compile_stats.expressionCount);
+    printf("Bytecode size:     %'zu bytes\n", compile_stats.compiledSize);
+#else
     printf("Expression count:  %zu\n", compile_stats.expressionCount);
     printf("Bytecode size:     %zu bytes\n", compile_stats.compiledSize);
+#endif
+#ifndef _WIN32
+    printf("Scratch size:      %'zu bytes\n", compile_stats.scratchSize);
+    printf("Compile time:      %'0.3Lf seconds\n", compile_stats.compileSecs);
+    printf("Peak heap usage:   %'u bytes\n", compile_stats.peakMemorySize);
+#else
     printf("Scratch size:      %zu bytes\n", compile_stats.scratchSize);
     printf("Compile time:      %0.3Lf seconds\n", compile_stats.compileSecs);
     printf("Peak heap usage:   %u bytes\n", compile_stats.peakMemorySize);
+#endif
 
 }
 

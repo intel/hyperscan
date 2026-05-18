@@ -56,20 +56,14 @@ public:
     explicit EngineCHContext(const ch_database_t *db);
     ~EngineCHContext();
 
-    EngineCHContext(const EngineCHContext &) = delete;
-    EngineCHContext &operator=(const EngineCHContext &) = delete;
-
     ch_scratch_t *scratch = nullptr;
 };
 
 /** Chimera Engine for scanning data. */
 class EngineChimera : public Engine {
 public:
-    explicit EngineChimera(ch_database_t *db, const CompileCHStats &cs);
+    explicit EngineChimera(ch_database_t *db, CompileCHStats cs);
     ~EngineChimera();
-
-    EngineChimera(const EngineChimera &) = delete;
-    EngineChimera &operator=(const EngineChimera &) = delete;
 
     std::unique_ptr<EngineContext> makeContext() const;
 

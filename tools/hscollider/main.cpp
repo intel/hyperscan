@@ -67,7 +67,7 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <utility>
+
 #include <errno.h>
 #include <time.h>
 #include <sys/types.h>
@@ -108,7 +108,7 @@ int force_prefilter = 0;
 int no_groups = 0;
 unsigned somPrecisionMode = HS_MODE_SOM_HORIZON_LARGE;
 unsigned limit_matches = 0;
-uint64_t randomSeed = 0;
+unsigned randomSeed = 0;
 bool use_random_alignment = false;
 bool use_PCRE = true;
 bool use_NFA = true;
@@ -152,7 +152,7 @@ unsigned countCores() {
 static
 void setDefaults() {
     // Seed random number generator for corpora
-    randomSeed = static_cast<uint64_t>(time(nullptr));
+    randomSeed = time(nullptr);
     // Overcommit since we have generators and scanners running.
     numThreads = countCores() * 2;
 
@@ -1141,20 +1141,20 @@ public:
             }
 
             assert(unit);
-            assert(exprMap.find(unit->id) != exprMap.end());
             auto it = exprMap.find(unit->id);
             if (it == exprMap.end()) {
                 std::cerr << "Error: unit->id " << unit->id << " not found in exprMap\n";
                 unit->result = TEST_NO_GROUND_TRUTH;
                 return;
             }
+
             // Debug information is stored in TLS and (hopefully) printed out in
             // the event of a crash.
             debug_expr = unit->id;
             debug_corpus = unit->corpus_id;
             debug_corpus_ptr = unit->corpus.data.c_str();
             debug_corpus_len = unit->corpus.data.size();
-            debug_expr_ptr = exprMap.find(unit->id)->second.c_str();
+            debug_expr_ptr = it->second.c_str();
 
             if (use_UE2) {
                 runTestUnit(out, ground, graph, ultimate, *unit, summary,
@@ -1934,99 +1934,99 @@ bool runTests(CorporaSource &corpora_source, const ExpressionMap &exprMap,
 
 int HS_CDECL main(int argc, char *argv[]) {
     try {
-        Grey grey;
-        vector<string> corporaFiles;
+    Grey grey;
+    vector<string> corporaFiles;
 
-        for (int i = 1; i < argc - 1; i++) {
-            if (!strcmp(argv[i], "-G")) {
-                cout << "Override: " << argv[i + 1] << endl;
+    for (int i = 1; i < argc - 1; i++) {
+        if (!strcmp(argv[i], "-G")) {
+            cout << "Override: " << argv[i + 1] << endl;
+        }
+    }
+
+    setDefaults();
+    storeCmdline(argc, argv);
+    unique_ptr<hs_platform_info> plat;
+    corpus_gen_prop.seed(randomSeed);
+
+    processArgs(argc, argv, corpus_gen_prop, &corporaFiles, &grey, &plat);
+
+    // If the user has asked for a random alignment, we select it here (after
+    // random number seed applied).
+    if (use_random_alignment) {
+        min_ue2_align = corpus_gen_prop.rand(0, 15);
+        max_ue2_align = min_ue2_align + 1;
+    }
+
+    // Limit memory usage, unless the user has specified zero on the command
+    // line or in a config file.
+    if (g_memoryLimit) {
+        setMemoryLimit(g_memoryLimit * numThreads);
+    }
+
+    // Split threads available up amongst scanner and generator threads.
+    numGeneratorThreads = max(1u, static_cast<unsigned int>(numThreads * 0.5));
+    numScannerThreads = max(1u, numThreads - numGeneratorThreads);
+
+    ExpressionMap exprMap;
+    loadExpressions(g_exprPath, exprMap);
+
+    if (!g_allSignatures) {
+        SignatureSet signatures;
+        if (!g_signatureFiles.empty()) {
+            for (string &fname : g_signatureFiles) {
+                loadSignatureList(fname, signatures);
             }
+        } else {
+            signatures.insert(signatures.end(), g_signatures.begin(),
+                              g_signatures.end());
         }
 
-        setDefaults();
-        storeCmdline(argc, argv);
-        unique_ptr<hs_platform_info> plat;
-        corpus_gen_prop.seed(randomSeed);
+        exprMap = limitToSignatures(exprMap, signatures);
+    }
 
-        processArgs(argc, argv, corpus_gen_prop, &corporaFiles, &grey, &plat);
+    printSettings(corporaFiles, plat.get());
 
-        // If the user has asked for a random alignment, we select it here (after
-        // random number seed applied).
-        if (use_random_alignment) {
-            min_ue2_align = corpus_gen_prop.rand(0, 15);
-            max_ue2_align = min_ue2_align + 1;
-        }
+    if (exprMap.empty()) {
+        cout << "Warning: no signatures to scan. Exiting." << endl;
+        exit(0);
+    }
 
-        // Limit memory usage, unless the user has specified zero on the command
-        // line or in a config file.
-        if (g_memoryLimit) {
-            setMemoryLimit(g_memoryLimit * numThreads);
-        }
+    if (!no_signal_handler) {
+        installSignalHandler();
+    }
 
-        // Split threads available up amongst scanner and generator threads.
-        numGeneratorThreads = max(1u, static_cast<unsigned int>(numThreads * 0.5));
-        numScannerThreads = max(1u, numThreads - numGeneratorThreads);
-
-        ExpressionMap exprMap;
-        loadExpressions(g_exprPath, exprMap);
-
-        if (!g_allSignatures) {
-            SignatureSet signatures;
-            if (!g_signatureFiles.empty()) {
-                for (string &fname : g_signatureFiles) {
-                    loadSignatureList(fname, signatures);
-                }
-            } else {
-                signatures.insert(signatures.end(), g_signatures.begin(),
-                                  g_signatures.end());
-            }
-
-            exprMap = limitToSignatures(exprMap, signatures);
-        }
-
-        printSettings(corporaFiles, plat.get());
-
-        if (exprMap.empty()) {
-            cout << "Warning: no signatures to scan. Exiting." << endl;
-            exit(0);
-        }
-
-        if (!no_signal_handler) {
-            installSignalHandler();
-        }
-
-        if (saveDatabases || loadDatabases) {
-            struct stat st;
-            if (stat(serializePath.c_str(), &st) < 0) {
-                cout << "Unable to stat serialize path '" <<  serializePath
-                     << "': " << strerror(errno) << endl;
-                exit_with_fail();
-            }
-        }
-
-        // If we're saving corpora out, truncate the output file.
-        if (saveCorpora) {
-            corporaOut = ue2::make_unique<CorpusWriter>(saveCorporaFile);
-        }
-
-        GroundTruth::global_prep();
-
-        auto corpora_source = buildCorpora(corporaFiles, exprMap);
-
-        if (!g_verbose && g_quiet < 2) {
-            cout << "Only failed tests are displayed." << endl;
-        }
-
-        SimpleTimer timer;
-        bool success = runTests(*corpora_source, exprMap, plat.get(), grey);
-        cout << "\nTotal elapsed time: " << timer.elapsed() << " secs." << endl;
-        exprMap.clear();
-
-        if (!success) {
+    if (saveDatabases || loadDatabases) {
+        struct stat st;
+        if (stat(serializePath.c_str(), &st) < 0) {
+            cout << "Unable to stat serialize path '" <<  serializePath
+                 << "': " << strerror(errno) << endl;
             exit_with_fail();
         }
+    }
 
-        return 0;
+    // If we're saving corpora out, truncate the output file.
+    if (saveCorpora) {
+        corporaOut = ue2::make_unique<CorpusWriter>(saveCorporaFile);
+    }
+
+    GroundTruth::global_prep();
+
+    auto corpora_source = buildCorpora(corporaFiles, exprMap);
+
+    if (!g_verbose && g_quiet < 2) {
+        cout << "Only failed tests are displayed." << endl;
+    }
+
+    SimpleTimer timer;
+    bool success = runTests(*corpora_source, exprMap, plat.get(), grey);
+    cout << "\nTotal elapsed time: " << timer.elapsed() << " secs." << endl;
+    exprMap.clear();
+
+    if (!success) {
+        exit_with_fail();
+    }
+
+    return 0;
     } catch (const NGUnsupportedFailure &e) {
         std::cerr << "NGUnsupportedFailure: " << e.msg << std::endl;
         return 1;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2026, Intel Corporation
+ * Copyright (c) 2015, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -52,14 +52,12 @@ public:
 
     void wait() {
         std::unique_lock<std::mutex> lock(mtx);
-        unsigned int gen = generation;
         count++;
         if (count >= max) {
             count = 0;
-            generation++;
             condvar.notify_all();
         } else {
-            condvar.wait(lock, [this, gen] { return gen != generation; });
+            condvar.wait(lock);
         }
     }
 
@@ -67,7 +65,6 @@ private:
     std::mutex mtx;
     std::condition_variable condvar;
     unsigned int count = 0;
-    unsigned int generation = 0;
     unsigned int max;
 };
 
