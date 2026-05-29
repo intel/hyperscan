@@ -104,6 +104,9 @@ size_t nfaRevAccel_i(const struct NFA *nfa, const u8 *buffer, size_t length) {
         break;
     case ACCEL_RDEOD:
         DEBUG_PRINTF("ACCEL_RDEOD\n");
+        if (length < nfa->rAccelOffset + 1) {
+            break;
+        }
         if (unaligned_load_u16(buffer + length - nfa->rAccelOffset) !=
                 nfa->rAccelData.dc) {
             return 0;
@@ -111,6 +114,9 @@ size_t nfaRevAccel_i(const struct NFA *nfa, const u8 *buffer, size_t length) {
         break;
     case ACCEL_RDEOD_NOCASE:
         DEBUG_PRINTF("ACCEL_RDEOD_NOCASE\n");
+        if (length < nfa->rAccelOffset + 1) {
+            break;
+        }
         if ((unaligned_load_u16(buffer + length - nfa->rAccelOffset) &
              DOUBLE_CASE_CLEAR) != nfa->rAccelData.dc) {
             return 0;
