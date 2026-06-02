@@ -115,8 +115,9 @@ struct hs_database {
     u32 length;
     u64a platform;
     u32 bytecode;    // offset relative to db start
-    u8 hmac[32];     // HMAC-SHA256 digest for integrity validation
-    u32 padding[17]; // extra padding so bytes[] starts at offset 128
+    u8 hmac[32];     // HMAC-SHA256 over bytecode for content integrity
+    u8 hmac_hdr[32]; // HMAC-SHA256 over header fields [0..23] for length auth
+    u32 padding[9];  // extra padding so bytes[] starts at offset 128
     char bytes[];
 };
 

@@ -32,6 +32,7 @@
 #include "allocator.h"
 #include "asserts.h"
 #include "compiler.h"
+#include <cstddef>
 #include <openssl/hmac.h>
 #include "hs_db_hmac_key.h"
 #include "database.h"
@@ -575,6 +576,7 @@ hs_database_t *dbCreate(const char *in_bytecode, size_t len, u64a platform) {
     // Copy bytecode
     memcpy(bytecode, in_bytecode, len);
 
+    // Compute bytecode HMAC (content integrity)
     unsigned int hmac_len = 32;
     if (!HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
              (const unsigned char *)bytecode, db->length, db->hmac,
@@ -582,6 +584,16 @@ hs_database_t *dbCreate(const char *in_bytecode, size_t len, u64a platform) {
         hs_db_free(db, db_len);
         return nullptr;
     }
+
+    // Compute header HMAC (authenticates db->length for serialize safety)
+    unsigned int hmac_hdr_len = 32;
+    if (!HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
+             (const unsigned char *)db, offsetof(struct hs_database, bytecode),
+             db->hmac_hdr, &hmac_hdr_len)) {
+        hs_db_free(db, db_len);
+        return nullptr;
+    }
+
     hs_db_protect(db, db_len);
     return db;
 }
