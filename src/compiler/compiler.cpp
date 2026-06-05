@@ -580,16 +580,24 @@ hs_database_t *dbCreate(const char *in_bytecode, size_t len, u64a platform) {
     unsigned int hmac_len = 32;
     if (!HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
              (const unsigned char *)bytecode, db->length, db->hmac,
-             &hmac_len)) {
+             &hmac_len) || hmac_len != 32) {
         hs_db_free(db, db_len);
         return nullptr;
     }
 
-    // Compute header HMAC (authenticates db->length for serialize safety)
+    // Compute header HMAC excluding padding bytes
+    // over magic, version, length and platform
+    // to authenticate db->length for serialize safety
+    u8 hdr_buf[4 + 4 + 4 + 8]; // 20 bytes
+    memcpy(hdr_buf, &db->magic, 4);
+    memcpy(hdr_buf + 4, &db->version, 4);
+    memcpy(hdr_buf + 8, &db->length, 4);
+    memcpy(hdr_buf + 12, &db->platform, 8);
+
     unsigned int hmac_hdr_len = 32;
     if (!HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
-             (const unsigned char *)db, offsetof(struct hs_database, bytecode),
-             db->hmac_hdr, &hmac_hdr_len)) {
+             hdr_buf, sizeof(hdr_buf),
+             db->hmac_hdr, &hmac_hdr_len) || hmac_len != 32) {
         hs_db_free(db, db_len);
         return nullptr;
     }

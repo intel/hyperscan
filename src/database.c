@@ -51,15 +51,20 @@
 
 static hs_error_t db_check_integrity(const hs_database_t *db);
 
-// Verify HMAC over fixed-size header fields [0..23].
-// Safe to call even with forged db->length — only reads 24 bytes.
+// Verify HMAC over header fields (magic, version, length, platform)
+// excluding padding bytes
 static
 hs_error_t db_check_header_integrity(const hs_database_t *db) {
+    u8 buf[4 + 4 + 4 + 8]; // magic + version + length + platform = 20 bytes
+    memcpy(buf, &db->magic, 4);
+    memcpy(buf + 4, &db->version, 4);
+    memcpy(buf + 8, &db->length, 4);
+    memcpy(buf + 12, &db->platform, 8);
+
     u8 computed[32];
     unsigned int hmac_len = 32;
     if (!HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
-              (const unsigned char *)db, offsetof(struct hs_database, bytecode),
-              computed, &hmac_len) || hmac_len != 32) {
+              buf, sizeof(buf), computed, &hmac_len) || hmac_len != 32) {
         return HS_INVALID;
     }
     if (CRYPTO_memcmp(computed, db->hmac_hdr, 32) != 0) {
