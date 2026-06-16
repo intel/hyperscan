@@ -65,6 +65,7 @@ set(unit_hyperscan_SOURCES
     hyperscan/stream_op.cpp
     hyperscan/test_util.cpp
     hyperscan/test_util.h
+    hyperscan/leftfix_oob.cpp
     )
 add_executable(unit-hyperscan ${unit_hyperscan_SOURCES})
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
@@ -148,6 +149,7 @@ if (BUILD_CHIMERA)
         chimera/compat.cpp
         chimera/main.cpp
         chimera/scan.cpp
+        chimera/active_size.cpp
         )
     add_executable(unit-chimera ${unit_chimera_SOURCES})
     target_link_libraries(unit-chimera chimera hs pcre)

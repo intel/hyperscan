@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Intel Corporation
+ * Copyright (c) 2018-2026, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -41,6 +41,7 @@
 #include "ch_internal.h"
 #include "ch_scratch.h"
 #include "ch_database.h"
+#include "util/multibit.h"
 
 static
 size_t getPatternDataSize(const ch_scratch_t *s) {
@@ -187,6 +188,24 @@ ch_error_t HS_CDECL ch_alloc_scratch(const ch_database_t *hydb,
     proto->scratch_alloc = (char *)proto_tmp;
 
     const struct ch_bytecode *db = ch_get_bytecode(hydb);
+
+    /* Validate bytecode structural integrity: activeSize must be large enough
+     * to hold patternCount bits. Without this check a forged database could
+     * cause heap-buffer-overflow in mmbit_set() during multiCallback.
+     * mmbit_size() returns UINT32_MAX when patternCount exceeds supported
+     * limits, so treat that as invalid as well. */
+    u32 required_size = mmbit_size(db->patternCount);
+    if (unlikely(required_size == UINT32_MAX ||
+                 db->activeSize < required_size)) {
+        DEBUG_PRINTF("bad activeSize: %u < mmbit_size(%u)\n",
+                     db->activeSize, db->patternCount);
+        ch_scratch_free(proto_tmp);
+        if (*scratch) {
+            ch_scratch_free((*scratch)->scratch_alloc);
+        }
+        *scratch = NULL;
+        return CH_INVALID;
+    }
 
     if (db->maxCaptureGroups > proto->maxCaptureGroups) {
         proto->maxCaptureGroups = db->maxCaptureGroups;

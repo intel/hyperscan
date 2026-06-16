@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2023, Intel Corporation
+ * Copyright (c) 2017-2026, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -50,8 +50,19 @@ size_t COPY_LEFTFIXES(const struct RoseEngine *rose, size_t currOffset,
     const u32 arCount = rose->activeLeftCount;
     const struct LeftNfaInfo *left_table = getLeftTable(rose);
 
+    /* NULL check: getLeftTable returns NULL on invalid offsets. */
+    if (unlikely(!left_table)) {
+        return 0;
+    }
+
     /* We only want to look at non-transient leftfixes */
     const struct mmbit_sparse_iter *it = getActiveLeftIter(rose);
+
+    /* NULL check: getActiveLeftIter returns NULL on invalid offsets. */
+    if (unlikely(!it)) {
+        return 0;
+    }
+
     struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
     u32 dummy;
     u32 ri = mmbit_sparse_iter_begin(ara, arCount, &dummy, it, si_state);
@@ -62,7 +73,26 @@ size_t COPY_LEFTFIXES(const struct RoseEngine *rose, size_t currOffset,
         const struct NfaInfo *nfa_info = getNfaInfoByQueue(rose, qi);
         const struct NFA *nfa = getNfaByInfo(rose, nfa_info);
 
+        /* NULL checks for forged/invalid RoseEngine layouts. */
+        if (unlikely(!nfa_info || !nfa)) {
+            return 0;
+        }
+
+        /* Validate that the NFA stream state fits within the stream body. */
+        if (unlikely(nfa_info->stateOffset > so->end ||
+                    nfa->streamStateSize > so->end - nfa_info->stateOffset)) {
+            return 0; /* invalid: OOB detected */
+        }
+
         COPY(stream_body + nfa_info->stateOffset, nfa->streamStateSize);
+
+        /* Validate lag-byte region: leftfixLagTable + lagIndex must fit
+         * within the stream body (bounded by so->end). */
+        if (unlikely(so->leftfixLagTable >= so->end ||
+                    left->lagIndex >= so->end - so->leftfixLagTable)) {
+            return 0; /* invalid: lag byte OOB */
+        }
+
         /* copy the one whole byte for active leftfixes as well */
         assert(left->lagIndex != ROSE_OFFSET_INVALID);
         COPY(stream_body + so->leftfixLagTable + left->lagIndex, 1);
@@ -165,6 +195,18 @@ size_t JOIN(sc_, FN_SUFFIX)(const struct RoseEngine *rose,
         DEBUG_PRINTF("saving stream state for qi=%u\n", qi);
         const struct NfaInfo *nfa_info = getNfaInfoByQueue(rose, qi);
         const struct NFA *nfa = getNfaByInfo(rose, nfa_info);
+
+        /* NULL checks for forged/invalid RoseEngine layouts. */
+        if (unlikely(!nfa_info || !nfa)) {
+            return 0;
+        }
+
+        /* Validate that the NFA stream state fits within the stream body. */
+        if (unlikely(nfa_info->stateOffset > so->end ||
+                    nfa->streamStateSize > so->end - nfa_info->stateOffset)) {
+            return 0; /* invalid: OOB detected */
+        }
+
         COPY(stream_body + nfa_info->stateOffset, nfa->streamStateSize);
     }
 

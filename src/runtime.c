@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2022, Intel Corporation
+ * Copyright (c) 2015-2026, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1332,6 +1332,12 @@ hs_error_t HS_CDECL hs_compress_stream(const hs_stream_t *stream, char *buf,
     const struct RoseEngine *rose = stream->rose;
 
     size_t stream_size = size_compress_stream(rose, stream);
+
+    /* size_compress_stream returns 0 as a failure sentinel when structural
+     * validation of the bytecode detects an invalid/forged layout. */
+    if (unlikely(!stream_size)) {
+        return HS_INVALID;
+    }
 
     DEBUG_PRINTF("require %zu [orig %zu]\n", stream_size,
                  rose->stateOffsets.end + sizeof(struct hs_stream));
