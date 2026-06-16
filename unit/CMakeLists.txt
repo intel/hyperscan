@@ -65,12 +65,13 @@ set(unit_hyperscan_SOURCES
     hyperscan/stream_op.cpp
     hyperscan/test_util.cpp
     hyperscan/test_util.h
+    hyperscan/som_overflow.cpp
     )
 add_executable(unit-hyperscan ${unit_hyperscan_SOURCES})
 if (BUILD_STATIC_AND_SHARED OR BUILD_SHARED_LIBS)
-target_link_libraries(unit-hyperscan hs_shared expressionutil)
+target_link_libraries(unit-hyperscan hs_shared expressionutil OpenSSL::Crypto)
 else()
-target_link_libraries(unit-hyperscan hs expressionutil)
+target_link_libraries(unit-hyperscan hs expressionutil OpenSSL::Crypto)
 endif()
 
 
