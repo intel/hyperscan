@@ -31,6 +31,7 @@
   */
 
 #include <stdio.h>
+#include <stddef.h>
 #include <string.h>
 
 #include "allocator.h"
@@ -47,6 +48,30 @@
 #include "rose/rose_internal.h"
 #include "util/compile_error.h"
 #include "util/unaligned.h"
+
+static hs_error_t db_check_integrity(const hs_database_t *db);
+
+// Verify HMAC over header fields (magic, version, length, platform)
+// excluding padding bytes
+static
+hs_error_t db_check_header_integrity(const hs_database_t *db) {
+    u8 buf[4 + 4 + 4 + 8]; // magic + version + length + platform = 20 bytes
+    memcpy(buf, &db->magic, 4);
+    memcpy(buf + 4, &db->version, 4);
+    memcpy(buf + 8, &db->length, 4);
+    memcpy(buf + 12, &db->platform, 8);
+
+    u8 computed[32];
+    unsigned int hmac_len = 32;
+    if (!HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
+              buf, sizeof(buf), computed, &hmac_len) || hmac_len != 32) {
+        return HS_INVALID;
+    }
+    if (CRYPTO_memcmp(computed, db->hmac_hdr, 32) != 0) {
+        return HS_INVALID;
+    }
+    return HS_SUCCESS;
+}
 
 /**
  * Runtime equivalent of mmbit_size() for deserialization validation.
@@ -88,6 +113,10 @@ hs_error_t HS_CDECL hs_free_database(hs_database_t *db) {
         return HS_INVALID;
     }
     if (db) {
+        // Verify header HMAC to authenticate db->length before trusting it.
+        if (unlikely(db_check_header_integrity(db) != HS_SUCCESS)) {
+            return HS_INVALID;
+        }
         size_t db_len = sizeof(struct hs_database) + db->length;
         hs_db_unprotect(db, db_len);
         hs_db_free(db, db_len);
@@ -108,6 +137,18 @@ hs_error_t HS_CDECL hs_serialize_database(const hs_database_t *db, char **bytes,
     }
 
     hs_error_t ret = validDatabase(db);
+    if (unlikely(ret != HS_SUCCESS)) {
+        return ret;
+    }
+
+    // Verify header HMAC to authenticate db->length before trusting it.
+    ret = db_check_header_integrity(db);
+    if (unlikely(ret != HS_SUCCESS)) {
+        return ret;
+    }
+
+    // Verify bytecode HMAC after confirming db->length is authentic.
+    ret = db_check_integrity(db);
     if (unlikely(ret != HS_SUCCESS)) {
         return ret;
     }
@@ -133,6 +174,8 @@ hs_error_t HS_CDECL hs_serialize_database(const hs_database_t *db, char **bytes,
     memcpy(buf, &db->platform, sizeof(u64a));
     buf += 2;
     memcpy(buf, db->hmac, 32);
+    buf += (32 / sizeof(u32));
+    memcpy(buf, db->hmac_hdr, 32);
     buf += (32 / sizeof(u32));
 
     const char *bytecode = hs_get_bytecode(db);
@@ -199,6 +242,8 @@ hs_error_t db_decode_header(const char **bytes, const size_t length,
     header->platform = unaligned_load_u64a(buf);
     buf += 2;
     memcpy(header->hmac, buf, 32);
+    buf += (32 / sizeof(u32));
+    memcpy(header->hmac_hdr, buf, 32);
     buf += (32 / sizeof(u32));
 
     *bytes = (const char *)buf;
@@ -522,6 +567,10 @@ hs_error_t HS_CDECL hs_deserialize_database_at(const char *bytes,
     // Copy the bytecode into the correctly-aligned location, set offsets
     db_copy_bytecode(bytes, db);
 
+    if (unlikely(db_check_header_integrity(db) != HS_SUCCESS)) {
+        return HS_INVALID;
+    }
+
     if (unlikely(db_check_integrity(db) != HS_SUCCESS)) {
         return HS_INVALID;
     }
@@ -591,6 +640,11 @@ hs_error_t HS_CDECL hs_deserialize_database(const char *bytes,
     // Copy the bytecode into the correctly-aligned location, set offsets
     db_copy_bytecode(bytes, tempdb);
 
+    if (unlikely(db_check_header_integrity(tempdb) != HS_SUCCESS)) {
+        hs_db_free(tempdb, dblength);
+        return HS_INVALID;
+    }
+
     if (unlikely(db_check_integrity(tempdb) != HS_SUCCESS)) {
         hs_db_free(tempdb, dblength);
         return HS_INVALID;
@@ -615,6 +669,12 @@ hs_error_t HS_CDECL hs_database_size(const hs_database_t *db, size_t *size) {
     }
 
     hs_error_t ret = validDatabase(db);
+    if (unlikely(ret != HS_SUCCESS)) {
+        return ret;
+    }
+
+    // Verify header HMAC to authenticate db->length before trusting it.
+    ret = db_check_header_integrity(db);
     if (unlikely(ret != HS_SUCCESS)) {
         return ret;
     }
@@ -663,7 +723,15 @@ hs_error_t dbIsValid(const hs_database_t *db) {
         return HS_INVALID;
     }
 
-    hs_error_t rv = db_check_integrity(db);
+    // Verify header HMAC to authenticate db->length before trusting it.
+    // Then verify full integrity that reads db->length bytes of bytecode.
+    hs_error_t rv = db_check_header_integrity(db);
+    if (unlikely(rv != HS_SUCCESS)) {
+        DEBUG_PRINTF("bad header integrity check\n");
+        return rv;
+    }
+
+    rv = db_check_integrity(db);
     if (unlikely(rv != HS_SUCCESS)) {
         DEBUG_PRINTF("bad integrity check\n");
         return rv;
@@ -828,6 +896,12 @@ hs_error_t HS_CDECL hs_database_info(const hs_database_t *db, char **info) {
 
     if (!db || !db_correctly_aligned(db) || db->magic != HS_DB_MAGIC) {
         return HS_INVALID;
+    }
+
+    // Verify header HMAC to authenticate db->length before trusting it.
+    hs_error_t ret = db_check_header_integrity(db);
+    if (unlikely(ret != HS_SUCCESS)) {
+        return ret;
     }
 
     platform_t plat;

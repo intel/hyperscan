@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2023, Intel Corporation
+ * Copyright (c) 2015-2026, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "allocator.h"
 #include "hs_internal.h"
@@ -152,6 +153,16 @@ hs_error_t alloc_scratch(const hs_scratch_t *proto, hs_scratch_t **scratch) {
     u32 fullStateSize = proto->fullStateSize;
     u32 anchored_literal_region_len = proto->anchored_literal_region_len;
     u32 anchored_literal_fatbit_size = proto->anchored_literal_fatbit_size;
+
+    /* reject som_store_count values that would overflow u32
+     * when multiplied by sizeof(u64a). Without this check, a forged database
+     * with somLocationCount > UINT32_MAX/sizeof(u64a) causes the product to
+     * wrap, resulting in an undersized scratch allocation and subsequent
+     * heap-buffer-overflow WRITE during hs_scan(). */
+    if (unlikely(proto->som_store_count > UINT32_MAX / sizeof(u64a))) {
+        *scratch = NULL;
+        return HS_INVALID;
+    }
 
     u32 som_store_size = proto->som_store_count * sizeof(u64a);
     u32 som_attempted_store_size = proto->som_store_count * sizeof(u64a);
@@ -403,6 +414,18 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
     }
 
     u32 som_store_count = rose->somLocationCount;
+
+    /* reject somLocationCount that would overflow u32 when
+     * multiplied by sizeof(u64a) in alloc_scratch(). */
+    if (unlikely(som_store_count > UINT32_MAX / sizeof(u64a))) {
+        hs_scratch_free(proto_tmp);
+        if (*scratch) {
+            hs_scratch_free((*scratch)->scratch_alloc);
+        }
+        *scratch = NULL;
+        return HS_INVALID;
+    }
+
     if (som_store_count > proto->som_store_count) {
         resize = 1;
         proto->som_store_count = som_store_count;
