@@ -190,6 +190,15 @@ size_t JOIN(sc_, FN_SUFFIX)(const struct RoseEngine *rose,
      * the stream. */
     const u8 *aa = (const u8 *)(stream_body + so->activeLeafArray);
     u32 aaCount = rose->activeArrayCount;
+
+    /* Validate that activeLeafArray fits within the stream state buffer.
+     * A forged RoseStateOffsets could set activeLeafArray such that
+     * mmbit_iterate reads out of bounds. */
+    if (unlikely(so->activeLeafArray >= so->end ||
+                 mmbit_size(aaCount) > so->end - so->activeLeafArray)) {
+        return 0;
+    }
+
     for (u32 qi = mmbit_iterate(aa, aaCount, MMB_INVALID); qi != MMB_INVALID;
          qi = mmbit_iterate(aa, aaCount, qi)) {
         DEBUG_PRINTF("saving stream state for qi=%u\n", qi);

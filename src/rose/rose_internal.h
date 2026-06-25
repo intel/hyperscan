@@ -34,6 +34,7 @@
 #define ROSE_INTERNAL_H
 
 #include "ue2common.h"
+#include "nfa/nfa_internal.h"
 #include "rose_common.h"
 #include "util/scatter.h"
 
@@ -652,6 +653,18 @@ const struct NfaInfo *getNfaInfoByQueue(const struct RoseEngine *t, u32 qi) {
         return NULL;
     }
 
+    /* Validate qi is within the declared queue count to prevent OOB indexing
+     * into the NfaInfo array. */
+    if (unlikely(qi >= t->queueCount)) {
+        return NULL;
+    }
+
+    /* Ensure the entire NfaInfo entry fits within the engine blob. */
+    u64a info_end = (u64a)t->nfaInfoOffset + ((u64a)qi + 1) * sizeof(struct NfaInfo);
+    if (unlikely(info_end > t->size)) {
+        return NULL;
+    }
+
     const struct NfaInfo *infos
         = (const struct NfaInfo *)((const char *)t + t->nfaInfoOffset);
     assert(ISALIGNED_N(infos, sizeof(u32)));
@@ -665,6 +678,14 @@ const struct NFA *getNfaByInfo(const struct RoseEngine *t,
     if (unlikely(!info)) {
         return NULL;
     }
+
+    /* Validate that nfaOffset points to a complete NFA header within the
+     * engine blob to prevent OOB reads from forged bytecode. */
+    if (unlikely(info->nfaOffset >= t->size ||
+                 info->nfaOffset + sizeof(struct NFA) > t->size)) {
+        return NULL;
+    }
+
     return (const struct NFA *)((const char *)t + info->nfaOffset);
 }
 

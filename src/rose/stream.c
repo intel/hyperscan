@@ -444,6 +444,15 @@ void runEagerPrefixesStream(const struct RoseEngine *t,
     const struct LeftNfaInfo *left_table = getLeftTable(t);
     const struct mmbit_sparse_iter *it = getByOffset(t, t->eagerIterOffset);
 
+    /* Validate activeLeftArray against stateOffsets.end and required mmbit
+     * size before using ara with mmbit_sparse_iter. */
+    const struct RoseStateOffsets *so = &t->stateOffsets;
+    if (unlikely(!left_table || !it ||
+                 so->activeLeftArray >= so->end ||
+                 mmbit_size(arCount) > so->end - so->activeLeftArray)) {
+        return;
+    }
+
     struct mmbit_sparse_state si_state[MAX_SPARSE_ITER_STATES];
 
     u32 idx = 0;
