@@ -597,7 +597,7 @@ hs_database_t *dbCreate(const char *in_bytecode, size_t len, u64a platform) {
     unsigned int hmac_hdr_len = 32;
     if (!HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
              hdr_buf, sizeof(hdr_buf),
-             db->hmac_hdr, &hmac_hdr_len) || hmac_len != 32) {
+             db->hmac_hdr, &hmac_hdr_len) || hmac_hdr_len != 32) {
         hs_db_free(db, db_len);
         return nullptr;
     }
