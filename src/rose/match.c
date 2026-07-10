@@ -181,7 +181,7 @@ event_enqueued:
     return HWLM_CONTINUE_MATCHING;
 }
 
-int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx) {
+int roseAnchoredCallback(u64a start, u64a end, u32 id, void *ctx) {//com 匹配成功
     struct hs_scratch *scratch = ctx;
     assert(scratch && scratch->magic == SCRATCH_MAGIC);
     struct RoseContext *tctxt = &scratch->tctxt;
@@ -617,7 +617,7 @@ int roseReportAdaptor(u64a start, u64a end, ReportID id, void *context) {
     const struct RoseEngine *rose = scratch->core_info.rose;
 
     // Our match ID is the program offset.
-    const u32 program = id;
+    const u32 program = id;//com 决定了调用roserunprogram的初始状态
     const u8 flags = ROSE_PROG_FLAG_SKIP_MPV_CATCHUP;
     hwlmcb_rv_t rv;
     if (rose->pureLiteral) {

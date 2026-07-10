@@ -52,7 +52,7 @@ struct RoseResources;
  */
 class RoseProgram {
 private:
-    std::vector<std::unique_ptr<RoseInstruction>> prog;
+    std::vector<std::unique_ptr<RoseInstruction>> prog;//com 猜想是存储状态机的vector
 
 public:
     RoseProgram();

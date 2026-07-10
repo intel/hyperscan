@@ -424,10 +424,10 @@ u32 doNormal8(const struct mcclellan *m, const u8 **c_inout, const u8 *end,
         u8 cprime = m->remap[*c];
         DEBUG_PRINTF("c: %02hhx '%c' cp:%02hhx\n", *c,
                      ourisprint(*c) ? *c : '?', cprime);
-        s = succ_table[(s << as) + cprime];
+        s = succ_table[(s << as) + cprime];//com 猜想s是状态
 
         DEBUG_PRINTF("s: %u\n", s);
-        c++;
+        c++;//逐个字符读取
         if (do_accel) {
             if (s >= accel_limit) {
                 break;
@@ -540,7 +540,7 @@ with_accel:
                 return MO_MATCHES_PENDING;
             }
 
-            u64a loc = (c - 1) - buf + offAdj + 1;
+            u64a loc = (c - 1) - buf + offAdj + 1;//com loc是匹配结束的位置
             if (single) {
                 DEBUG_PRINTF("reporting %u\n", m->arb_report);
                 if (cb(0, loc, m->arb_report, ctxt) == MO_HALT_MATCHING) {

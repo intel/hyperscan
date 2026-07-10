@@ -129,7 +129,7 @@ hwlm_error_t final(const struct noodTable *n, const u8 *buf, UNUSED size_t len,
 
 match:
     pos -= cbi->offsetAdj;
-    DEBUG_PRINTF("match @ %zu\n", pos + n->key_offset);
+    DEBUG_PRINTF("match @ %zu\n", pos + n->key_offset);//com 确认命中
     hwlmcb_rv_t rv = cbi->cb(pos + n->key_offset - 1, cbi->id, cbi->scratch);
     if (rv == HWLM_TERMINATE_MATCHING) {
         return HWLM_TERMINATED;
@@ -357,7 +357,7 @@ hwlm_error_t scanDouble(const struct noodTable *n, const u8 *buf, size_t len,
 static really_inline
 hwlm_error_t scan(const struct noodTable *n, const u8 *buf, size_t len,
                   size_t start, char single, bool noCase,
-                  const struct cb_info *cbi) {
+                  const struct cb_info *cbi) {//com 扫描入口
     if (len - start < n->msk_len) {
         // can't find string of length keyLen in a shorter buffer
         return HWLM_SUCCESS;
