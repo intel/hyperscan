@@ -117,9 +117,18 @@ char doReports(NfaCallback cb, void *ctxt, const struct mcclellan *m,
     DEBUG_PRINTF("reporting state = %hu, loc=%llu, eod %hhu\n",
                  (u16)(s & STATE_MASK), loc, eod);
 
+    const struct gough_info *gi = get_gough(m);
+    u32 num_som_slots = gi->stream_som_loc_count;
+
     if (!eod && s == *cached_accept_state) {
-        u64a from = *cached_accept_som == INVALID_SLOT ? loc
-                                               : som->slots[*cached_accept_som];
+        u64a from;
+        if (*cached_accept_som == INVALID_SLOT) {
+            from = loc;
+        } else if (*cached_accept_som >= num_som_slots) {
+            return MO_CONTINUE_MATCHING;
+        } else {
+            from = som->slots[*cached_accept_som];
+        }
         if (cb(from, loc, *cached_accept_id, ctxt) == MO_HALT_MATCHING) {
             return MO_HALT_MATCHING; /* termination requested */
         }
@@ -143,8 +152,14 @@ char doReports(NfaCallback cb, void *ctxt, const struct mcclellan *m,
         *cached_accept_id = rl->report[0].r;
         *cached_accept_som = rl->report[0].som;
 
-        u64a from = *cached_accept_som == INVALID_SLOT ? loc
-                                               : som->slots[*cached_accept_som];
+        u64a from;
+        if (*cached_accept_som == INVALID_SLOT) {
+            from = loc;
+        } else if (*cached_accept_som >= num_som_slots) {
+            return MO_CONTINUE_MATCHING;
+        } else {
+            from = som->slots[*cached_accept_som];
+        }
         DEBUG_PRINTF("reporting %u, using som[%u]=%llu\n", rl->report[0].r,
                      *cached_accept_som, from);
         if (cb(from, loc, *cached_accept_id, ctxt) == MO_HALT_MATCHING) {
@@ -156,7 +171,14 @@ char doReports(NfaCallback cb, void *ctxt, const struct mcclellan *m,
 
     for (u32 i = 0; i < count; i++) {
         u32 slot = rl->report[i].som;
-        u64a from = slot == INVALID_SLOT ? loc : som->slots[slot];
+        u64a from;
+        if (slot == INVALID_SLOT) {
+            from = loc;
+        } else if (slot >= num_som_slots) {
+            continue;
+        } else {
+            from = som->slots[slot];
+        }
         DEBUG_PRINTF("reporting %u, using som[%u] = %llu\n",
                      rl->report[i].r, slot, from);
         if (cb(from, loc, rl->report[i].r, ctxt) == MO_HALT_MATCHING) {
