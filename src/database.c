@@ -271,6 +271,84 @@ hs_error_t db_check_integrity(const hs_database_t *db) {
 }
 
 /**
+ * \brief Validate that all LimEx reachMap[] entries are within the bounds of
+ * the reach table (CWE-125). A forged reachMap entry could index past the end
+ * of the reach table during scan-time execution.
+ */
+static
+hs_error_t db_validate_limex_reach_map(const struct RoseEngine *rose,
+                                       u32 rose_size) {
+    if (!rose->nfaInfoOffset || rose->nfaInfoOffset >= rose_size) {
+        return HS_SUCCESS; /* no NFA engines - nothing to check */
+    }
+
+    const char *rose_base = (const char *)rose;
+    const struct NfaInfo *infos =
+        (const struct NfaInfo *)(rose_base + rose->nfaInfoOffset);
+
+    for (u32 qi = 0; qi < rose->queueCount; qi++) {
+        if (unlikely((const char *)(&infos[qi + 1]) > rose_base + rose_size)) {
+            return HS_INVALID;
+        }
+
+        const struct NfaInfo *ni = &infos[qi];
+        if (!ni->nfaOffset || ni->nfaOffset >= rose_size) {
+            continue;
+        }
+
+        if (unlikely(ni->nfaOffset + sizeof(struct NFA) > rose_size)) {
+            return HS_INVALID;
+        }
+
+        const struct NFA *nfa =
+            (const struct NFA *)(rose_base + ni->nfaOffset);
+
+        if (!isNfaType(nfa->type)) {
+            continue;
+        }
+
+        if (unlikely(ni->nfaOffset + nfa->length > rose_size)) {
+            return HS_INVALID;
+        }
+
+        if (unlikely(nfa->length <= sizeof(struct NFA))) {
+            return HS_INVALID;
+        }
+
+        const char *limex_base = (const char *)getImplNfa(nfa);
+        u32 limex_len = nfa->length - (u32)sizeof(struct NFA);
+
+        /* Ensure we can read reachMap[256] and reachSize. */
+        const u32 reach_prefix_end =
+            (u32)(N_CHARS + sizeof(u32)); /* reachMap + reachSize */
+        if (unlikely(limex_len < reach_prefix_end)) {
+            DEBUG_PRINTF("LimEx[%u] too small for reachMap\n", qi);
+            return HS_INVALID;
+        }
+
+        const struct LimExNFA32 *limex =
+            (const struct LimExNFA32 *)limex_base;
+        const u32 reachSize = limex->reachSize;
+
+        if (unlikely(reachSize == 0)) {
+            DEBUG_PRINTF("LimEx[%u] reachSize is zero\n", qi);
+            return HS_INVALID;
+        }
+
+        /* Validate every reachMap entry is within bounds. */
+        for (u32 i = 0; i < N_CHARS; i++) {
+            if (unlikely(limex->reachMap[i] >= reachSize)) {
+                DEBUG_PRINTF("LimEx[%u] reachMap[%u]=%u >= reachSize=%u\n",
+                             qi, i, limex->reachMap[i], reachSize);
+                return HS_INVALID;
+            }
+        }
+    }
+
+    return HS_SUCCESS;
+}
+
+/**
  * \brief Validate critical RoseEngine offsets to prevent out-of-bounds
  * access (CWE-125) when scanning a deserialized database.
  */
@@ -494,6 +572,12 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
     /* Validate LimEx NFA repeat metadata (CWE-787). */
     if (unlikely(db_validate_limex_repeats(rose, rose_size) != HS_SUCCESS)) {
         DEBUG_PRINTF("LimEx repeat validation failed\n");
+        return HS_INVALID;
+    }
+
+    /* Validate LimEx NFA reachMap entries (CWE-125). */
+    if (unlikely(db_validate_limex_reach_map(rose, rose_size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("LimEx reachMap validation failed\n");
         return HS_INVALID;
     }
 
