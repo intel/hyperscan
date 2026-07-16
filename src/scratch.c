@@ -42,6 +42,7 @@
 #include "ue2common.h"
 #include "database.h"
 #include "nfa/nfa_api_queue.h"
+#include "nfa/nfa_internal.h"
 #include "rose/rose_internal.h"
 #include "util/fatbit.h"
 #include "util/multibit_internal.h"
@@ -111,6 +112,62 @@ hs_error_t validate_queue_fatbits(const struct RoseEngine *rose) {
                      rt_fatbit_size(rose->dkeyCount),
                      rose->dkeyCount);
         return HS_INVALID;
+    }
+
+    return HS_SUCCESS;
+}
+
+/**
+ * Validate that every NfaInfo entry has a fullStateOffset (plus the NFA's
+ * scratchStateSize) that fits within the scratch fullState buffer, whose
+ * total size is rose->scratchStateSize.  A forged database can set an
+ * arbitrarily large fullStateOffset, leading to an out-of-bounds write
+ * when nfaQueueInitState() memsets through the derived pointer (CWE-122).
+ */
+static
+hs_error_t validate_nfa_info_offsets(const struct RoseEngine *rose) {
+    if (!rose->nfaInfoOffset || rose->nfaInfoOffset >= rose->size) {
+        /* No NFA info table — nothing to validate. */
+        return HS_SUCCESS;
+    }
+
+    const struct NfaInfo *infos =
+        (const struct NfaInfo *)((const char *)rose + rose->nfaInfoOffset);
+
+    for (u32 qi = 0; qi < rose->queueCount; qi++) {
+        const struct NfaInfo *info = &infos[qi];
+
+        /* Validate that nfaOffset is within the rose bytecode. */
+        if (info->nfaOffset >= rose->size ||
+            info->nfaOffset + sizeof(struct NFA) > rose->size) {
+            DEBUG_PRINTF("qi=%u: nfaOffset %u out of range (size=%u)\n",
+                         qi, info->nfaOffset, rose->size);
+            return HS_INVALID;
+        }
+
+        const struct NFA *nfa =
+            (const struct NFA *)((const char *)rose + info->nfaOffset);
+
+        /* Validate fullStateOffset + scratchStateSize fits in fullState. */
+        if (info->fullStateOffset > rose->scratchStateSize ||
+            nfa->scratchStateSize > rose->scratchStateSize - info->fullStateOffset) {
+            DEBUG_PRINTF("qi=%u: fullStateOffset %u + scratchStateSize %u "
+                         "exceeds scratchStateSize %u\n",
+                         qi, info->fullStateOffset, nfa->scratchStateSize,
+                         rose->scratchStateSize);
+            return HS_INVALID;
+        }
+
+        /* Validate stateOffset + streamStateSize fits in stream state. */
+        if (rose->stateOffsets.end > 0 &&
+            (info->stateOffset > rose->stateOffsets.end ||
+             nfa->streamStateSize > rose->stateOffsets.end - info->stateOffset)) {
+            DEBUG_PRINTF("qi=%u: stateOffset %u + streamStateSize %u "
+                         "exceeds stateOffsets.end %u\n",
+                         qi, info->stateOffset, nfa->streamStateSize,
+                         rose->stateOffsets.end);
+            return HS_INVALID;
+        }
     }
 
     return HS_SUCCESS;
@@ -360,6 +417,13 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
      * This prevents heap buffer overflow via queueCount / activeQueueArraySize
      * mismatch (CWE-122). */
     rv = validate_queue_fatbits(rose);
+    if (rv != HS_SUCCESS) {
+        return rv;
+    }
+
+    /* Reject databases where any NfaInfo.fullStateOffset would cause an
+     * out-of-bounds write into the scratch fullState buffer. */
+    rv = validate_nfa_info_offsets(rose);
     if (rv != HS_SUCCESS) {
         return rv;
     }
