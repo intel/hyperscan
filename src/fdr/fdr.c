@@ -42,6 +42,7 @@
 /** \brief number of bytes processed in each iteration */
 #define ITER_BYTES          16
 
+#if 0 /* FDR engine removed - Teddy-only mode */
 /** \brief total zone buffer size */
 #define ZONE_TOTAL_SIZE     64
 
@@ -788,6 +789,7 @@ hwlm_error_t fdr_engine_exec(const struct FDR *fdr,
 
     return HWLM_SUCCESS;
 }
+#endif /* FDR engine removed */
 
 #if defined(HAVE_AVX2)
 #define ONLY_AVX2(func) func
@@ -800,7 +802,7 @@ typedef hwlm_error_t (*FDRFUNCTYPE)(const struct FDR *fdr,
                                     hwlm_group_t control);
 
 static const FDRFUNCTYPE funcs[] = {
-    fdr_engine_exec,
+    /* fdr_engine_exec, */ NULL, /* FDR removed - Teddy-only mode */
     NULL, /* old: fast teddy */
     NULL, /* old: fast teddy */
     ONLY_AVX2(fdr_exec_fat_teddy_msks1),

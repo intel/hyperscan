@@ -46,7 +46,7 @@ struct HWLM;
 
 namespace ue2 {
 
-class FDREngineDescription;
+/* class FDREngineDescription; */  /* Teddy-only mode: removed */
 class TeddyEngineDescription;
 struct CompileContext;
 struct Grey;
@@ -54,14 +54,14 @@ struct Grey;
 /** \brief Class representing a literal matcher prototype. */
 struct HWLMProto {
     /**
-     * \brief Engine type to distinguish noodle from FDR and Teddy.
+     * \brief Engine type (always HWLM_ENGINE_FDR in teddy-only mode).
      */
     u8 engType;
 
-    /**
-     * \brief FDR engine description.
-     */
+    /*
+    \brief FDR engine description.
     std::unique_ptr<FDREngineDescription> fdrEng;
+    */
 
     /**
      * \brief Teddy engine description.
@@ -74,7 +74,7 @@ struct HWLMProto {
     std::vector<hwlmLiteral> lits;
 
     /**
-     * \brief Bucket assignment info in FDR and Teddy
+     * \brief Bucket assignment info in Teddy
      */
     std::map<u32, std::vector<u32>> bucketToLits;
 
@@ -85,10 +85,12 @@ struct HWLMProto {
 
     HWLMProto(u8 engType_in, std::vector<hwlmLiteral> lits_in);
 
+    /*
     HWLMProto(u8 engType_in, std::unique_ptr<FDREngineDescription> eng_in,
-              std::vector<hwlmLiteral> lits_in,
-              std::map<u32, std::vector<u32>> bucketToLits_in,
-              bool make_small_in);
+          std::vector<hwlmLiteral> lits_in,
+          std::map<u32, std::vector<u32>> bucketToLits_in,
+          bool make_small_in);
+    */
 
     HWLMProto(u8 engType_in, std::unique_ptr<TeddyEngineDescription> eng_in,
               std::vector<hwlmLiteral> lits_in,

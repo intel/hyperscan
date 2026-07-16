@@ -626,9 +626,9 @@ set (hs_exec_SRCS
     src/hwlm/hwlm.c
     src/hwlm/hwlm.h
     src/hwlm/hwlm_internal.h
-    src/hwlm/noodle_engine.c
-    src/hwlm/noodle_engine.h
-    src/hwlm/noodle_internal.h
+    #src/hwlm/noodle_engine.c
+    #src/hwlm/noodle_engine.h
+    #src/hwlm/noodle_internal.h
     src/nfa/accel.c
     src/nfa/accel.h
     src/nfa/castle.c
@@ -771,14 +771,14 @@ SET (hs_compile_SRCS
     src/compiler/expression_info.h
     src/fdr/engine_description.cpp
     src/fdr/engine_description.h
-    src/fdr/fdr_compile.cpp
-    src/fdr/fdr_compile.h
-    src/fdr/fdr_compile_internal.h
+    #src/fdr/fdr_compile.cpp
+    #src/fdr/fdr_compile.h
+    #src/fdr/fdr_compile_internal.h
     src/fdr/fdr_compile_util.cpp
     src/fdr/fdr_confirm_compile.cpp
     src/fdr/fdr_confirm.h
-    src/fdr/fdr_engine_description.cpp
-    src/fdr/fdr_engine_description.h
+    #src/fdr/fdr_engine_description.cpp
+    #src/fdr/fdr_engine_description.h
     src/fdr/fdr_internal.h
     src/fdr/flood_compile.cpp
     src/fdr/teddy_compile.cpp
@@ -791,9 +791,9 @@ SET (hs_compile_SRCS
     src/hwlm/hwlm_internal.h
     src/hwlm/hwlm_literal.cpp
     src/hwlm/hwlm_literal.h
-    src/hwlm/noodle_build.cpp
-    src/hwlm/noodle_build.h
-    src/hwlm/noodle_internal.h
+    #src/hwlm/noodle_build.cpp
+    #src/hwlm/noodle_build.h
+    #src/hwlm/noodle_internal.h
     src/nfa/accel.h
     src/nfa/accel_dfa_build_strat.cpp
     src/nfa/accel_dfa_build_strat.h
@@ -1136,7 +1136,7 @@ SET (hs_compile_SRCS
 set(hs_dump_SRCS
     src/scratch_dump.cpp
     src/scratch_dump.h
-    src/fdr/fdr_dump.cpp
+    #src/fdr/fdr_dump.cpp
     src/hwlm/hwlm_dump.cpp
     src/hwlm/hwlm_dump.h
     src/nfa/accel_dump.cpp
