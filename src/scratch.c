@@ -126,9 +126,33 @@ hs_error_t validate_queue_fatbits(const struct RoseEngine *rose) {
  */
 static
 hs_error_t validate_nfa_info_offsets(const struct RoseEngine *rose) {
-    if (!rose->nfaInfoOffset || rose->nfaInfoOffset >= rose->size) {
+    if (!rose->nfaInfoOffset) {
         /* No NFA info table — nothing to validate. */
         return HS_SUCCESS;
+    }
+
+    if (rose->nfaInfoOffset >= rose->size) {
+        DEBUG_PRINTF("nfaInfoOffset %u out of range (size=%u)\n",
+                     rose->nfaInfoOffset, rose->size);
+        return HS_INVALID;
+    }
+
+    /* The blob must be large enough to hold at least one NFA header */
+    if (rose->size < sizeof(struct NFA)) {
+        DEBUG_PRINTF("rose->size %u too small for an NFA header\n",
+                     rose->size);
+        return HS_INVALID;
+    }
+
+    /* Verify the entire NfaInfo table fits inside the RoseEngine blob. */
+    u64a nfa_info_table_end = (u64a)rose->nfaInfoOffset +
+                              (u64a)rose->queueCount * sizeof(struct NfaInfo);
+    if (nfa_info_table_end > rose->size) {
+        DEBUG_PRINTF("NfaInfo table overflows: nfaInfoOffset=%u, "
+                     "queueCount=%u, table_end=%llu, size=%u\n",
+                     rose->nfaInfoOffset, rose->queueCount,
+                     nfa_info_table_end, rose->size);
+        return HS_INVALID;
     }
 
     const struct NfaInfo *infos =
@@ -137,9 +161,10 @@ hs_error_t validate_nfa_info_offsets(const struct RoseEngine *rose) {
     for (u32 qi = 0; qi < rose->queueCount; qi++) {
         const struct NfaInfo *info = &infos[qi];
 
-        /* Validate that nfaOffset is within the rose bytecode. */
-        if (info->nfaOffset >= rose->size ||
-            info->nfaOffset + sizeof(struct NFA) > rose->size) {
+        /* nfaOffset == 0 would point into the RoseEngine header, which is
+         * never a valid NFA location. */
+        if (info->nfaOffset == 0 ||
+            info->nfaOffset > rose->size - sizeof(struct NFA)) {
             DEBUG_PRINTF("qi=%u: nfaOffset %u out of range (size=%u)\n",
                          qi, info->nfaOffset, rose->size);
             return HS_INVALID;
@@ -159,9 +184,8 @@ hs_error_t validate_nfa_info_offsets(const struct RoseEngine *rose) {
         }
 
         /* Validate stateOffset + streamStateSize fits in stream state. */
-        if (rose->stateOffsets.end > 0 &&
-            (info->stateOffset > rose->stateOffsets.end ||
-             nfa->streamStateSize > rose->stateOffsets.end - info->stateOffset)) {
+        if (info->stateOffset > rose->stateOffsets.end ||
+            nfa->streamStateSize > rose->stateOffsets.end - info->stateOffset) {
             DEBUG_PRINTF("qi=%u: stateOffset %u + streamStateSize %u "
                          "exceeds stateOffsets.end %u\n",
                          qi, info->stateOffset, nfa->streamStateSize,
