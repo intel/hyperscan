@@ -52,22 +52,29 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 
-// HS_PLATFORM_ALL allows the database to run on any platform
-#ifndef HS_PLATFORM_ALL
-#define HS_PLATFORM_ALL (0xabcdef11abcdef00ULL)
-#endif
-
 namespace {
 
 /**
  * Helper: compute HMAC-SHA256 over the bytecode portion of a database,
- * using the same key as Hyperscan's db_check_integrity.
+ * and also the header HMAC, using the same key as Hyperscan's
+ * db_check_integrity / db_check_header_integrity.
  */
 static void compute_db_hmac(hs_database_t *db) {
+    // Bytecode HMAC
     char *bytecode = (char *)db + db->bytecode;
     unsigned int hmac_len = 32;
     HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
          (const unsigned char *)bytecode, db->length, db->hmac, &hmac_len);
+
+    // Header HMAC over (magic, version, length, platform) = 20 bytes
+    u8 buf[4 + 4 + 4 + 8];
+    memcpy(buf, &db->magic, 4);
+    memcpy(buf + 4, &db->version, 4);
+    memcpy(buf + 8, &db->length, 4);
+    memcpy(buf + 12, &db->platform, 8);
+    hmac_len = 32;
+    HMAC(EVP_sha256(), HS_DB_HMAC_KEY, sizeof(HS_DB_HMAC_KEY),
+         buf, sizeof(buf), db->hmac_hdr, &hmac_len);
 }
 
 /**
@@ -101,7 +108,7 @@ static hs_database_t *make_forged_db(u32 som_location_count,
     db->version = HS_DB_VERSION;
     db->length = static_cast<u32>(rose_size);
     db->bytecode = static_cast<u32>(bytecode_offset);
-    db->platform = HS_PLATFORM_ALL;
+    db->platform = hs_current_platform;
     struct RoseEngine *rose =
         reinterpret_cast<struct RoseEngine *>(static_cast<char *>(mem) +
                                               bytecode_offset);
@@ -117,14 +124,18 @@ static hs_database_t *make_forged_db(u32 som_location_count,
     rose->somLocationFatbitSize = rt_fatbit_size(som_location_count);
 
     // Set other fatbit fields to consistent values.
-    // rt_fatbit_size(0) returns 8 (minimum fatbit struct size), so
-    // even with zero counts we must set sizes >= 8 to pass validation.
+    // rt_fatbit_size(0) returns MIN_FAT_SIZE (32), so
+    // even with zero counts we must set sizes >= 32 to pass validation.
     rose->queueCount = 0;
     rose->activeQueueArraySize = rt_fatbit_size(0);
     rose->handledKeyCount = 0;
     rose->handledKeyFatbitSize = rt_fatbit_size(0);
     rose->delay_count = 0;
     rose->delay_fatbit_size = rt_fatbit_size(0);
+    rose->anchored_count = 0;
+    rose->anchored_fatbit_size = rt_fatbit_size(0);
+    rose->dkeyCount = 0;
+    rose->dkeyLogSize = rt_fatbit_size(0);
 
     // Ensure literal matcher offsets are 0 (returns NULL, skips lit path)
     rose->fmatcherOffset = 0;
