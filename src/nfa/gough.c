@@ -212,30 +212,39 @@ void run_prog_i(UNUSED const struct NFA *nfa,
                 const struct gough_ins *pc, u64a som_offset,
                 struct gough_som_info *som) {
     DEBUG_PRINTF("run prog at som_offset of %llu\n", som_offset);
+    u32 num_slots = (nfa->scratchStateSize - 16) / 8;
     while (1) {
         assert((const u8 *)pc >= (const u8 *)nfa);
         assert((const u8 *)pc < (const u8 *)nfa + nfa->length);
         u32 dest = pc->dest;
         u32 src = pc->src;
-        assert(pc->op == GOUGH_INS_END
-               || dest < (nfa->scratchStateSize - 16) / 8);
+        assert(pc->op == GOUGH_INS_END || dest < num_slots);
         DEBUG_PRINTF("%s %u %u\n", dump_op(pc->op), dest, src);
         switch (pc->op) {
         case GOUGH_INS_END:
             return;
         case GOUGH_INS_MOV:
+            if (dest >= num_slots || src >= num_slots) {
+                return;
+            }
             som->slots[dest] = som->slots[src];
             break;
         case GOUGH_INS_NEW:
             /* note: c has already been advanced */
             DEBUG_PRINTF("current offset %llu; adjust %u\n", som_offset,
                          pc->src);
+            if (dest >= num_slots) {
+                return;
+            }
             assert(som_offset >= pc->src);
             som->slots[dest] = som_offset - pc->src;
             break;
         case GOUGH_INS_MIN:
             /* TODO: shift all values along by one so that a normal min works
              */
+            if (dest >= num_slots || src >= num_slots) {
+                return;
+            }
             if (som->slots[src] == GOUGH_SOM_EARLY) {
                 som->slots[dest] = som->slots[src];
             } else if (som->slots[dest] != GOUGH_SOM_EARLY) {
