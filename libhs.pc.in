@@ -3,9 +3,9 @@ exec_prefix=@CMAKE_INSTALL_PREFIX@
 libdir=@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@
 includedir=@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_INCLUDEDIR@
 
-Name: libhs
+Name: @HS_PC_NAME@
 Description: Intel(R) Hyperscan Library
 Version: @HS_VERSION@
-Libs: -L${libdir} -lhs
+Libs: -L${libdir} -l@HS_LIB_BASENAME@
 Libs.private: @PRIVATE_LIBS@
 Cflags: -I${includedir}/hs
