@@ -31,7 +31,9 @@
  */
 #include "hwlm.h"
 #include "hwlm_internal.h"
-//#include "noodle_engine.h"  /* Teddy-only mode: noodle removed */
+#if !defined(HS_TEDDY_ONLY)
+#include "noodle_engine.h"
+#endif
 #include "scratch.h"
 #include "ue2common.h"
 #include "fdr/fdr.h"
@@ -182,14 +184,13 @@ hwlm_error_t hwlmExec(const struct HWLM *t, const u8 *buf, size_t len,
 
     assert(start < len);
 
-    /*
+#if !defined(HS_TEDDY_ONLY)
     if (t->type == HWLM_ENGINE_NOOD) {
         DEBUG_PRINTF("calling noodExec\n");
         return noodExec(HWLM_C_DATA(t), buf, len, start, cb, scratch);
     }
-    */
+#endif
 
-    /* Teddy-only mode: always use fdrExec (dispatches to Teddy) */
     assert(t->type == HWLM_ENGINE_FDR);
     const union AccelAux *aa = &t->accel0;
     if ((groups & ~t->accel1_groups) == 0) {
@@ -197,7 +198,7 @@ hwlm_error_t hwlmExec(const struct HWLM *t, const u8 *buf, size_t len,
         aa = &t->accel1;
     }
     do_accel_block(aa, buf, len, &start);
-    DEBUG_PRINTF("calling teddy via fdrExec (groups=%08llx, start=%zu)\n", groups, start);
+    DEBUG_PRINTF("calling frankie (groups=%08llx, start=%zu)\n", groups, start);
     return fdrExec(HWLM_C_DATA(t), buf, len, start, cb, scratch, groups);
 }
 
@@ -220,7 +221,7 @@ hwlm_error_t hwlmExecStreaming(const struct HWLM *t, size_t len, size_t start,
 
     assert(start < len);
 
-    /*
+#if !defined(HS_TEDDY_ONLY)
     if (t->type == HWLM_ENGINE_NOOD) {
         DEBUG_PRINTF("calling noodExec\n");
         // If we've been handed a start offset, we can use a block mode scan at
@@ -232,9 +233,8 @@ hwlm_error_t hwlmExecStreaming(const struct HWLM *t, size_t len, size_t start,
                                      scratch);
         }
     }
-    */
+#endif
 
-    /* Teddy-only mode: always use fdrExecStreaming (dispatches to Teddy) */
     assert(t->type == HWLM_ENGINE_FDR);
     const union AccelAux *aa = &t->accel0;
     if ((groups & ~t->accel1_groups) == 0) {
@@ -242,7 +242,7 @@ hwlm_error_t hwlmExecStreaming(const struct HWLM *t, size_t len, size_t start,
         aa = &t->accel1;
     }
     do_accel_streaming(aa, hbuf, hlen, buf, len, &start);
-    DEBUG_PRINTF("calling teddy via fdrExecStreaming (groups=%08llx, start=%zu)\n", groups, start);
+    DEBUG_PRINTF("calling frankie (groups=%08llx, start=%zu)\n", groups, start);
     return fdrExecStreaming(HWLM_C_DATA(t), hbuf, hlen, buf, len, start, cb,
                             scratch, groups);
 }

@@ -36,17 +36,17 @@
 #include "hwlm.h"
 #include "hwlm_internal.h"
 #include "hwlm_literal.h"
-//#include "noodle_engine.h"  /* Teddy-only mode: noodle removed */
-//#include "noodle_build.h"   /* Teddy-only mode: noodle removed */
+#include "noodle_engine.h"
+#include "noodle_build.h"
 #include "scratch.h"
 #include "ue2common.h"
-//#include "fdr/fdr_compile.h"  /* Teddy-only mode: FDR compile removed */
-//#include "fdr/fdr_compile_internal.h"  /* Teddy-only mode: FDR compile removed */
-//#include "fdr/fdr_engine_description.h"  /* Teddy-only mode: FDR engine desc removed */
-#include "fdr/fdr.h"
-#include "fdr/fdr_internal.h"  /* for struct FDR and fdr->size */
-#include "fdr/fdr_compile_internal.h"  /* for HINT_INVALID */
+#include "fdr/fdr_internal.h"
+#if defined(HS_TEDDY_ONLY)
 #include "fdr/teddy_compile.h"
+#endif
+#include "fdr/fdr_compile.h"
+#include "fdr/fdr_compile_internal.h"
+#include "fdr/fdr_engine_description.h"
 #include "fdr/teddy_engine_description.h"
 #include "util/compile_context.h"
 #include "util/compile_error.h"
@@ -61,18 +61,20 @@ using namespace std;
 
 namespace ue2 {
 
+#if defined(HS_TEDDY_ONLY)
+static constexpr size_t TEDDY_ONLY_MAX_DECOMPOSED_EXPRESSIONS = 96;
+#endif
+
 HWLMProto::HWLMProto(u8 engType_in, vector<hwlmLiteral> lits_in)
     : engType(engType_in), lits(move(lits_in)) {}
 
-/*
 HWLMProto::HWLMProto(u8 engType_in,
-                                         unique_ptr<FDREngineDescription> eng_in,
-                                         vector<hwlmLiteral> lits_in,
-                                         map<u32, vector<u32>> bucketToLits_in,
-                                         bool make_small_in)
-        : engType(engType_in), fdrEng(move(eng_in)), lits(move(lits_in)),
-            bucketToLits(move(bucketToLits_in)), make_small(make_small_in) {}
-*/
+                     unique_ptr<FDREngineDescription> eng_in,
+                     vector<hwlmLiteral> lits_in,
+                     map<u32, vector<u32>> bucketToLits_in,
+                     bool make_small_in)
+    : engType(engType_in), fdrEng(move(eng_in)), lits(move(lits_in)),
+      bucketToLits(move(bucketToLits_in)), make_small(make_small_in) {}
 
 HWLMProto::HWLMProto(u8 engType_in,
                      unique_ptr<TeddyEngineDescription> eng_in,
@@ -109,7 +111,7 @@ bool everyoneHasGroups(const vector<hwlmLiteral> &lits) {
 }
 #endif
 
-/*
+#if !defined(HS_TEDDY_ONLY)
 static
 bool isNoodleable(const vector<hwlmLiteral> &lits,
                   const CompileContext &cc) {
@@ -124,17 +126,27 @@ bool isNoodleable(const vector<hwlmLiteral> &lits,
 
     return true;
 }
-*/
+#endif
 
 bytecode_ptr<HWLM> hwlmBuild(const HWLMProto &proto, const CompileContext &cc,
                              UNUSED hwlm_group_t expected_groups) {
     size_t engSize = 0;
     shared_ptr<void> eng;
 
+#if defined(HS_TEDDY_ONLY)
     DEBUG_PRINTF("building table with %zu strings\n", proto.lits.size());
-
-    /*
+#else
     const auto &lits = proto.lits;
+    DEBUG_PRINTF("building table with %zu strings\n", lits.size());
+#endif
+
+#if defined(HS_TEDDY_ONLY)
+    auto teddy = teddyBuildTable(proto, cc.grey);
+    if (teddy) {
+        engSize = teddy.size();
+        eng = move(teddy);
+    }
+#else
     if (proto.engType == HWLM_ENGINE_NOOD) {
         DEBUG_PRINTF("build noodle table\n");
         const hwlmLiteral &lit = lits.front();
@@ -151,17 +163,7 @@ bytecode_ptr<HWLM> hwlmBuild(const HWLMProto &proto, const CompileContext &cc,
         }
         eng = move(fdr);
     }
-    */
-
-    /* Teddy-only mode: always build Teddy table */
-    DEBUG_PRINTF("building teddy table (teddy-only mode)\n");
-    if (proto.teddyEng) {
-        auto fdr = teddyBuildTable(proto, cc.grey);
-        if (fdr) {
-            engSize = fdr.size();
-        }
-        eng = move(fdr);
-    }
+#endif
 
     if (!eng) {
         return nullptr;
@@ -186,6 +188,12 @@ hwlmBuildProto(vector<hwlmLiteral> &lits, bool make_small,
                const CompileContext &cc) {
     assert(!lits.empty());
     dumpLits(lits);
+
+#if defined(HS_TEDDY_ONLY)
+    if (lits.size() > TEDDY_ONLY_MAX_DECOMPOSED_EXPRESSIONS) {
+        throw CompileError("Teddy-only build supports at most 96 decomposed expressions.");
+    }
+#endif
 
     // Check that we haven't exceeded the maximum number of literals.
     if (lits.size() > cc.grey.limitLiteralCount) {
@@ -219,7 +227,13 @@ hwlmBuildProto(vector<hwlmLiteral> &lits, bool make_small,
 
     assert(everyoneHasGroups(lits));
 
-    /*
+#if defined(HS_TEDDY_ONLY)
+    proto = teddyBuildProtoHinted(HWLM_ENGINE_FDR, lits, make_small,
+                                  HINT_INVALID, cc.target_info);
+    if (!proto) {
+        throw CompileError("Unable to generate Teddy-only literal matcher proto.");
+    }
+#else
     if (isNoodleable(lits, cc)) {
         DEBUG_PRINTF("build noodle table\n");
         proto = ue2::make_unique<HWLMProto>(HWLM_ENGINE_NOOD, lits);
@@ -231,17 +245,7 @@ hwlmBuildProto(vector<hwlmLiteral> &lits, bool make_small,
             return nullptr;
         }
     }
-    */
-
-    /* Teddy-only mode: always build Teddy */
-    DEBUG_PRINTF("building teddy (teddy-only mode)\n");
-    proto = teddyBuildProtoHinted(HWLM_ENGINE_FDR, lits, make_small,
-                                  HINT_INVALID, cc.target_info);
-    if (!proto) {
-        throw CompileError("Pattern set exceeds Teddy engine capacity "
-                     "(max 96 decomposed literals). Reduce pattern count "
-                     "or avoid large character classes/alternations.");
-    }
+#endif
 
     return proto;
 }
@@ -249,7 +253,11 @@ hwlmBuildProto(vector<hwlmLiteral> &lits, bool make_small,
 size_t hwlmSize(const HWLM *h) {
     size_t engSize = 0;
 
-    /*
+#if defined(HS_TEDDY_ONLY)
+    if (h->type == HWLM_ENGINE_FDR) {
+        engSize = ((const FDR *)HWLM_C_DATA(h))->size;
+    }
+#else
     switch (h->type) {
     case HWLM_ENGINE_NOOD:
         engSize = noodSize((const noodTable *)HWLM_C_DATA(h));
@@ -258,11 +266,7 @@ size_t hwlmSize(const HWLM *h) {
         engSize = fdrSize((const FDR *)HWLM_C_DATA(h));
         break;
     }
-    */
-
-    assert(h->type == HWLM_ENGINE_FDR);
-    const struct FDR *fdr = (const struct FDR *)HWLM_C_DATA(h);
-    engSize = fdr->size;
+#endif
 
     if (!engSize) {
         return 0;
@@ -272,18 +276,15 @@ size_t hwlmSize(const HWLM *h) {
 }
 
 size_t hwlmFloodProneSuffixLen(size_t numLiterals, const CompileContext &cc) {
-    UNUSED const size_t NO_LIMIT = ~(size_t)0;
+    const size_t NO_LIMIT = ~(size_t)0;
 
-    /*
     // NOTE: this function contains a number of magic numbers which are
     // conservative estimates of flood-proneness based on internal details of
     // the various literal engines that fall under the HWLM aegis. If you
     // change those engines, you might need to change this function too.
-    */
 
     DEBUG_PRINTF("%zu literals\n", numLiterals);
 
-    /*
     if (cc.grey.allowNoodle && numLiterals <= 1) {
         DEBUG_PRINTF("noodle\n");
         return NO_LIMIT;
@@ -300,21 +301,10 @@ size_t hwlmFloodProneSuffixLen(size_t numLiterals, const CompileContext &cc) {
         }
     }
 
+    // TODO: we had thought we could push this value up to 9, but it seems that
+    // hurts performance on floods in some FDR models. Super-conservative for
+    // now.
     DEBUG_PRINTF("fdr\n");
-    return 3;
-    */
-
-    /* Teddy-only mode */
-    if (numLiterals <= 48) {
-        DEBUG_PRINTF("teddy\n");
-        return 3;
-    }
-    if (cc.target_info.has_avx2() && numLiterals <= 96) {
-        DEBUG_PRINTF("avx2 teddy\n");
-        return 3;
-    }
-
-    DEBUG_PRINTF("teddy fallback\n");
     return 3;
 }
 

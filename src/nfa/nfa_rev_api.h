@@ -104,22 +104,28 @@ size_t nfaRevAccel_i(const struct NFA *nfa, const u8 *buffer, size_t length) {
         break;
     case ACCEL_RDEOD:
         DEBUG_PRINTF("ACCEL_RDEOD\n");
-        if (length < (size_t)nfa->rAccelOffset + 1) {
+        {
+        const size_t offset = nfa->rAccelOffset;
+        if (length < offset + 1) {
             break;
         }
-        if (unaligned_load_u16(buffer + length - nfa->rAccelOffset) !=
+        if (unaligned_load_u16(buffer + length - offset) !=
                 nfa->rAccelData.dc) {
             return 0;
+        }
         }
         break;
     case ACCEL_RDEOD_NOCASE:
         DEBUG_PRINTF("ACCEL_RDEOD_NOCASE\n");
-        if (length < (size_t)nfa->rAccelOffset + 1) {
+        {
+        const size_t offset = nfa->rAccelOffset;
+        if (length < offset + 1) {
             break;
         }
-        if ((unaligned_load_u16(buffer + length - nfa->rAccelOffset) &
+        if ((unaligned_load_u16(buffer + length - offset) &
              DOUBLE_CASE_CLEAR) != nfa->rAccelData.dc) {
             return 0;
+        }
         }
         break;
     default:

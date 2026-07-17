@@ -47,7 +47,7 @@ TEST_P(IdenticalTest, Block) {
     const PatternInfo &info = GetParam();
 
     std::vector<pattern> patterns;
-    for (unsigned i = 0; i < 96; i++) {
+    for (unsigned i = 0; i < 100; i++) {
         patterns.push_back(pattern(info.expr, info.flags, i));
     }
 
@@ -85,7 +85,7 @@ TEST_P(IdenticalTest, Stream) {
     const PatternInfo &info = GetParam();
 
     std::vector<pattern> patterns;
-    for (unsigned i = 0; i < 96; i++) {
+    for (unsigned i = 0; i < 100; i++) {
         patterns.push_back(pattern(info.expr, info.flags, i));
     }
 
@@ -133,7 +133,7 @@ TEST_P(IdenticalTest, Vectored) {
     const PatternInfo &info = GetParam();
 
     std::vector<pattern> patterns;
-    for (unsigned i = 0; i < 96; i++) {
+    for (unsigned i = 0; i < 100; i++) {
         patterns.push_back(pattern(info.expr, info.flags, i));
     }
 

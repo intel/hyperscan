@@ -107,7 +107,7 @@ set(unit_internal_SOURCES
     internal/nfagraph_repeat.cpp
     internal/nfagraph_util.cpp
     internal/nfagraph_width.cpp
-    #internal/noodle.cpp
+    internal/noodle.cpp
     internal/pack_bits.cpp
     internal/parser.cpp
     internal/partial.cpp
