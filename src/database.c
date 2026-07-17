@@ -45,6 +45,7 @@
 #include "hs_db_hmac_key.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/limex_internal.h"
+#include "nfa/tamarama_internal.h"
 #include "rose/rose_internal.h"
 #include "util/compile_error.h"
 #include "util/unaligned.h"
@@ -267,6 +268,107 @@ hs_error_t db_check_integrity(const hs_database_t *db) {
         DEBUG_PRINTF("hmac mismatch!\n");
         return HS_INVALID;
     }
+    return HS_SUCCESS;
+}
+
+/**
+ * \brief Validate Tamarama subengine offsets to prevent out-of-bounds access
+ * (CWE-125). A forged child-offset can cause getSubEngine() to return a wild
+ * pointer that is then dereferenced by nfaQueueInitState().
+ */
+static
+hs_error_t db_validate_tamarama_offsets(const struct RoseEngine *rose,
+                                        u32 rose_size) {
+    if (!rose->nfaInfoOffset || rose->nfaInfoOffset >= rose_size) {
+        return HS_SUCCESS; /* no NFA engines - nothing to check */
+    }
+
+    const char *rose_base = (const char *)rose;
+    const struct NfaInfo *infos =
+        (const struct NfaInfo *)(rose_base + rose->nfaInfoOffset);
+
+    for (u32 qi = 0; qi < rose->queueCount; qi++) {
+        if (unlikely((const char *)(&infos[qi + 1]) > rose_base + rose_size)) {
+            return HS_INVALID;
+        }
+
+        const struct NfaInfo *ni = &infos[qi];
+        if (!ni->nfaOffset || ni->nfaOffset >= rose_size) {
+            continue;
+        }
+
+        if (unlikely(ni->nfaOffset + sizeof(struct NFA) > rose_size)) {
+            return HS_INVALID;
+        }
+
+        const struct NFA *nfa =
+            (const struct NFA *)(rose_base + ni->nfaOffset);
+
+        if (nfa->type != TAMARAMA_NFA) {
+            continue;
+        }
+
+        if (unlikely(ni->nfaOffset + nfa->length > rose_size)) {
+            return HS_INVALID;
+        }
+
+        if (unlikely(nfa->length <= sizeof(struct NFA))) {
+            return HS_INVALID;
+        }
+
+        const char *tama_base = (const char *)getImplNfa(nfa);
+        u32 tama_len = nfa->length - (u32)sizeof(struct NFA);
+
+        if (unlikely(tama_len < sizeof(struct Tamarama))) {
+            DEBUG_PRINTF("Tamarama[%u] too small for header\n", qi);
+            return HS_INVALID;
+        }
+
+        const struct Tamarama *t = (const struct Tamarama *)tama_base;
+        u32 numSub = t->numSubEngines;
+
+        if (unlikely(numSub == 0)) {
+            DEBUG_PRINTF("Tamarama[%u] has zero subengines\n", qi);
+            return HS_INVALID;
+        }
+
+        /* The layout after the Tamarama header is:
+         *   u32 baseTops[numSub]   — top values
+         *   u32 subOffsets[numSub] — offsets to child NFAs
+         * Both arrays must fit within tama_len. */
+        u64a table_end = (u64a)sizeof(struct Tamarama) +
+                         (u64a)numSub * 2 * sizeof(u32);
+        if (unlikely(table_end > tama_len)) {
+            DEBUG_PRINTF("Tamarama[%u] offset table overflows\n", qi);
+            return HS_INVALID;
+        }
+
+        /* subOffsets array starts after baseTops */
+        const u32 *subOffsets =
+            (const u32 *)(tama_base + sizeof(struct Tamarama) +
+                          numSub * sizeof(u32));
+
+        for (u32 i = 0; i < numSub; i++) {
+            u32 child_off = subOffsets[i];
+
+            if (unlikely(child_off >= tama_len ||
+                         child_off + sizeof(struct NFA) > tama_len)) {
+                DEBUG_PRINTF("Tamarama[%u] sub[%u] offset %u out of bounds "
+                             "(tama_len=%u)\n", qi, i, child_off, tama_len);
+                return HS_INVALID;
+            }
+
+            /* Verify child NFA body fits within the Tamarama image */
+            const struct NFA *child =
+                (const struct NFA *)(tama_base + child_off);
+            if (unlikely(child_off + child->length > tama_len)) {
+                DEBUG_PRINTF("Tamarama[%u] sub[%u] child body overflows\n",
+                             qi, i);
+                return HS_INVALID;
+            }
+        }
+    }
+
     return HS_SUCCESS;
 }
 
@@ -494,6 +596,12 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
     /* Validate LimEx NFA repeat metadata (CWE-787). */
     if (unlikely(db_validate_limex_repeats(rose, rose_size) != HS_SUCCESS)) {
         DEBUG_PRINTF("LimEx repeat validation failed\n");
+        return HS_INVALID;
+    }
+
+    /* Validate Tamarama subengine offsets (CWE-125). */
+    if (unlikely(db_validate_tamarama_offsets(rose, rose_size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("Tamarama subengine offset validation failed\n");
         return HS_INVALID;
     }
 
