@@ -45,6 +45,7 @@
 #include "hs_db_hmac_key.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/limex_internal.h"
+#include "nfa/mcsheng_internal.h"
 #include "rose/rose_internal.h"
 #include "util/compile_error.h"
 #include "util/unaligned.h"
@@ -267,6 +268,151 @@ hs_error_t db_check_integrity(const hs_database_t *db) {
         DEBUG_PRINTF("hmac mismatch!\n");
         return HS_INVALID;
     }
+    return HS_SUCCESS;
+}
+
+/**
+ * \brief Validate mcsheng (8-bit and 16-bit) NFA successor table entries.
+ *
+ * Each entry in the successor table is a next-state value used as an index
+ * into the aux table via get_aux(m, s). A forged value >= state_count causes
+ * an out-of-bounds read (CWE-125). We also check that start states are
+ * in-range and that the aux table fits within the NFA image.
+ *
+ * Crucially, we scan the FULL actual transition table (derived from aux_offset
+ * minus the end of the mcsheng struct), not just entries for declared states,
+ * because the runtime can reach entries for start states that are themselves
+ * outside the declared state_count range.
+ */
+static
+hs_error_t db_validate_mcsheng_succ_table(const struct RoseEngine *rose,
+                                          u32 rose_size) {
+    if (!rose->nfaInfoOffset || rose->nfaInfoOffset >= rose_size) {
+        return HS_SUCCESS; /* no NFA engines */
+    }
+
+    const char *rose_base = (const char *)rose;
+    const struct NfaInfo *infos =
+        (const struct NfaInfo *)(rose_base + rose->nfaInfoOffset);
+
+    for (u32 qi = 0; qi < rose->queueCount; qi++) {
+        if (unlikely((const char *)(&infos[qi + 1]) > rose_base + rose_size)) {
+            return HS_INVALID;
+        }
+
+        const struct NfaInfo *ni = &infos[qi];
+        if (!ni->nfaOffset || ni->nfaOffset >= rose_size) {
+            continue;
+        }
+
+        if (unlikely(ni->nfaOffset + sizeof(struct NFA) > rose_size)) {
+            return HS_INVALID;
+        }
+
+        const struct NFA *nfa =
+            (const struct NFA *)(rose_base + ni->nfaOffset);
+
+        if (nfa->type != MCSHENG_NFA_8 && nfa->type != MCSHENG_NFA_16) {
+            continue;
+        }
+
+        if (unlikely(ni->nfaOffset + nfa->length > rose_size)) {
+            return HS_INVALID;
+        }
+
+        if (unlikely(nfa->length <= sizeof(struct NFA) + sizeof(struct mcsheng))) {
+            return HS_INVALID;
+        }
+
+        const struct mcsheng *m =
+            (const struct mcsheng *)getImplNfa(nfa);
+        u32 nfa_len = nfa->length;
+        u32 state_count = m->state_count;
+
+        if (unlikely(state_count == 0)) {
+            DEBUG_PRINTF("mcsheng[%u] state_count is zero\n", qi);
+            return HS_INVALID;
+        }
+
+        /* Reject if start states are out of bounds. */
+        if (unlikely(m->start_anchored >= state_count ||
+                     m->start_floating >= state_count)) {
+            DEBUG_PRINTF("mcsheng[%u] start state out of bounds "
+                         "(anchored=%u floating=%u state_count=%u)\n",
+                         qi, m->start_anchored, m->start_floating, state_count);
+            return HS_INVALID;
+        }
+
+        /* Validate aux table fits within the NFA image.
+         * aux_offset is relative to the start of the NFA header. */
+        u32 aux_offset = m->aux_offset;
+        u64a aux_end = (u64a)aux_offset +
+                       (u64a)state_count * sizeof(struct mstate_aux);
+        if (unlikely(aux_offset < sizeof(struct NFA) ||
+                     aux_end > nfa_len)) {
+            DEBUG_PRINTF("mcsheng[%u] aux table out of bounds\n", qi);
+            return HS_INVALID;
+        }
+
+        /* Compute the actual transition table byte range from the end of
+         * the mcsheng struct to the start of the aux table. */
+        u32 succ_start = (u32)sizeof(struct NFA) + (u32)sizeof(struct mcsheng);
+        if (unlikely(aux_offset < succ_start)) {
+            DEBUG_PRINTF("mcsheng[%u] aux_offset overlaps mcsheng struct\n", qi);
+            return HS_INVALID;
+        }
+
+        u32 as = m->alphaShift;
+        u32 alpha_size = 1U << as;
+
+        if (nfa->type == MCSHENG_NFA_8) {
+            u32 succ_table_bytes = aux_offset - succ_start;
+            if (unlikely(succ_table_bytes == 0 ||
+                         succ_table_bytes % alpha_size != 0)) {
+                DEBUG_PRINTF("mcsheng[%u] succ table size %u not aligned\n",
+                             qi, succ_table_bytes);
+                return HS_INVALID;
+            }
+            u32 table_states = succ_table_bytes / alpha_size;
+            const u8 *succ_table =
+                (const u8 *)((const char *)m + sizeof(struct mcsheng));
+
+            for (u32 s = 0; s < table_states; s++) {
+                for (u32 a = 0; a < alpha_size; a++) {
+                    u8 next = succ_table[s * alpha_size + a];
+                    if (unlikely(next >= state_count)) {
+                        DEBUG_PRINTF("mcsheng[%u] succ8[%u][%u]=%u >= "
+                                     "state_count=%u\n",
+                                     qi, s, a, next, state_count);
+                        return HS_INVALID;
+                    }
+                }
+            }
+        } else { /* MCSHENG_NFA_16 */
+            u32 entry_bytes = alpha_size * (u32)sizeof(u16);
+            u32 succ_table_bytes = aux_offset - succ_start;
+            if (unlikely(succ_table_bytes == 0 ||
+                         succ_table_bytes % entry_bytes != 0)) {
+                return HS_INVALID;
+            }
+            u32 table_states = succ_table_bytes / entry_bytes;
+            const u16 *succ_table =
+                (const u16 *)((const char *)m + sizeof(struct mcsheng));
+
+            for (u32 s = 0; s < table_states; s++) {
+                for (u32 a = 0; a < alpha_size; a++) {
+                    u16 next = succ_table[s * alpha_size + a];
+                    if (unlikely(next >= state_count)) {
+                        DEBUG_PRINTF("mcsheng[%u] succ16[%u][%u]=%u >= "
+                                     "state_count=%u\n",
+                                     qi, s, a, next, state_count);
+                        return HS_INVALID;
+                    }
+                }
+            }
+        }
+    }
+
     return HS_SUCCESS;
 }
 
@@ -494,6 +640,12 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
     /* Validate LimEx NFA repeat metadata (CWE-787). */
     if (unlikely(db_validate_limex_repeats(rose, rose_size) != HS_SUCCESS)) {
         DEBUG_PRINTF("LimEx repeat validation failed\n");
+        return HS_INVALID;
+    }
+
+    /* Validate mcsheng successor table entries (CWE-125). */
+    if (unlikely(db_validate_mcsheng_succ_table(rose, rose_size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("mcsheng successor table validation failed\n");
         return HS_INVALID;
     }
 
