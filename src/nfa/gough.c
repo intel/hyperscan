@@ -124,7 +124,7 @@ char doReports(NfaCallback cb, void *ctxt, const struct mcclellan *m,
         u64a from;
         if (*cached_accept_som == INVALID_SLOT) {
             from = loc;
-        } else if (*cached_accept_som >= num_som_slots) {
+        } else if (unlikely(*cached_accept_som >= num_som_slots)) {
             return MO_CONTINUE_MATCHING;
         } else {
             from = som->slots[*cached_accept_som];
@@ -155,7 +155,7 @@ char doReports(NfaCallback cb, void *ctxt, const struct mcclellan *m,
         u64a from;
         if (*cached_accept_som == INVALID_SLOT) {
             from = loc;
-        } else if (*cached_accept_som >= num_som_slots) {
+        } else if (unlikely(*cached_accept_som >= num_som_slots)) {
             return MO_CONTINUE_MATCHING;
         } else {
             from = som->slots[*cached_accept_som];
@@ -174,7 +174,7 @@ char doReports(NfaCallback cb, void *ctxt, const struct mcclellan *m,
         u64a from;
         if (slot == INVALID_SLOT) {
             from = loc;
-        } else if (slot >= num_som_slots) {
+        } else if (unlikely(slot >= num_som_slots)) {
             continue;
         } else {
             from = som->slots[slot];
@@ -224,7 +224,7 @@ void run_prog_i(UNUSED const struct NFA *nfa,
         case GOUGH_INS_END:
             return;
         case GOUGH_INS_MOV:
-            if (dest >= num_slots || src >= num_slots) {
+            if (unlikely(dest >= num_slots || src >= num_slots)) {
                 return;
             }
             som->slots[dest] = som->slots[src];
@@ -233,7 +233,7 @@ void run_prog_i(UNUSED const struct NFA *nfa,
             /* note: c has already been advanced */
             DEBUG_PRINTF("current offset %llu; adjust %u\n", som_offset,
                          pc->src);
-            if (dest >= num_slots) {
+            if (unlikely(dest >= num_slots)) {
                 return;
             }
             assert(som_offset >= pc->src);
@@ -242,7 +242,7 @@ void run_prog_i(UNUSED const struct NFA *nfa,
         case GOUGH_INS_MIN:
             /* TODO: shift all values along by one so that a normal min works
              */
-            if (dest >= num_slots || src >= num_slots) {
+            if (unlikely(dest >= num_slots || src >= num_slots)) {
                 return;
             }
             if (som->slots[src] == GOUGH_SOM_EARLY) {
