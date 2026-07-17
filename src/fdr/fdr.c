@@ -877,6 +877,10 @@ hwlm_error_t fdrExecStreaming(const struct FDR *fdr, const u8 *hbuf,
     if (unlikely(a.start_offset >= a.len)) {
         ret = HWLM_SUCCESS;
     } else {
+	assert(fdr->engineID < ARRAY_LENGTH(funcs));
+        if (unlikely(fdr->engineID >= ARRAY_LENGTH(funcs))) {
+            return HWLM_SUCCESS; /* reject: forged engineID */
+        }
         assert(funcs[fdr->engineID]);
         ret = funcs[fdr->engineID](fdr, &a, groups);
     }
