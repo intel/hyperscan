@@ -45,6 +45,9 @@
 #include "hs_db_hmac_key.h"
 #include "nfa/nfa_internal.h"
 #include "nfa/limex_internal.h"
+#include "fdr/fdr.h"
+#include "fdr/fdr_internal.h"
+#include "hwlm/hwlm_internal.h"
 #include "rose/rose_internal.h"
 #include "util/compile_error.h"
 #include "util/unaligned.h"
@@ -267,6 +270,69 @@ hs_error_t db_check_integrity(const hs_database_t *db) {
         DEBUG_PRINTF("hmac mismatch!\n");
         return HS_INVALID;
     }
+    return HS_SUCCESS;
+}
+
+/**
+ * \brief Validate FDR engineID fields in HWLM matchers (CWE-125).
+ *
+ * fdrExec() uses fdr->engineID as an index into a static funcs[] dispatch
+ * table of FDR_ENGINE_COUNT entries. A forged value >= FDR_ENGINE_COUNT
+ * causes a global-buffer-overflow. Reject any database containing such a
+ * value before hs_scan() can reach fdrExec().
+ *
+ * We check every HWLM matcher reachable from the RoseEngine (fmatcherOffset,
+ * ematcherOffset, amatcherOffset, sbmatcherOffset, drmatcherOffset).
+ */
+static
+hs_error_t db_validate_fdr_engine_id(const struct RoseEngine *rose,
+                                     u32 rose_size) {
+    const char *base = (const char *)rose;
+
+    /* All matcher offset fields we need to check */
+    const u32 offsets[] = {
+        rose->fmatcherOffset,
+        rose->ematcherOffset,
+        rose->amatcherOffset,
+        rose->sbmatcherOffset,
+        rose->drmatcherOffset,
+    };
+
+    for (u32 k = 0; k < ARRAY_LENGTH(offsets); k++) {
+        u32 off = offsets[k];
+        if (!off) {
+            continue;
+        }
+
+        if (unlikely(off >= rose_size ||
+                     off + sizeof(struct HWLM) > rose_size)) {
+            DEBUG_PRINTF("HWLM matcher offset %u out of bounds\n", off);
+            return HS_INVALID;
+        }
+
+        const struct HWLM *hwlm = (const struct HWLM *)(base + off);
+
+        if (hwlm->type != HWLM_ENGINE_FDR) {
+            continue; /* only FDR engines have an engineID */
+        }
+
+        /* FDR struct immediately follows the HWLM header (cache-line aligned).
+         * Use the same layout formula as HWLM_C_DATA(). */
+        u32 fdr_rel = (u32)ROUNDUP_CL(sizeof(struct HWLM));
+        if (unlikely((u64a)off + fdr_rel + sizeof(struct FDR) > rose_size)) {
+            DEBUG_PRINTF("FDR struct out of bounds at offset %u\n", off);
+            return HS_INVALID;
+        }
+
+        const struct FDR *fdr = (const struct FDR *)HWLM_C_DATA(hwlm);
+
+        if (unlikely(fdr->engineID >= FDR_ENGINE_COUNT)) {
+            DEBUG_PRINTF("FDR engineID %u >= FDR_ENGINE_COUNT %u\n",
+                         fdr->engineID, FDR_ENGINE_COUNT);
+            return HS_INVALID;
+        }
+    }
+
     return HS_SUCCESS;
 }
 
@@ -494,6 +560,12 @@ hs_error_t db_validate_rose_offsets(const hs_database_t *db) {
     /* Validate LimEx NFA repeat metadata (CWE-787). */
     if (unlikely(db_validate_limex_repeats(rose, rose_size) != HS_SUCCESS)) {
         DEBUG_PRINTF("LimEx repeat validation failed\n");
+        return HS_INVALID;
+    }
+
+    /* Validate FDR engineID (CWE-125). */
+    if (unlikely(db_validate_fdr_engine_id(rose, rose_size) != HS_SUCCESS)) {
+        DEBUG_PRINTF("FDR engineID validation failed\n");
         return HS_INVALID;
     }
 
