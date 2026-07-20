@@ -212,7 +212,9 @@ void run_prog_i(UNUSED const struct NFA *nfa,
                 const struct gough_ins *pc, u64a som_offset,
                 struct gough_som_info *som) {
     DEBUG_PRINTF("run prog at som_offset of %llu\n", som_offset);
-    u32 num_slots = (nfa->scratchStateSize - 16) / 8;
+    u32 num_slots = nfa->scratchStateSize > 16
+                  ? (nfa->scratchStateSize - 16) / sizeof(u64a)
+                  : 0;
     while (1) {
         assert((const u8 *)pc >= (const u8 *)nfa);
         assert((const u8 *)pc < (const u8 *)nfa + nfa->length);
