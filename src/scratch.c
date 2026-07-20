@@ -42,7 +42,6 @@
 #include "ue2common.h"
 #include "database.h"
 #include "nfa/nfa_api_queue.h"
-#include "nfa/nfa_internal.h"
 #include "rose/rose_internal.h"
 #include "util/fatbit.h"
 #include "util/multibit_internal.h"
@@ -112,86 +111,6 @@ hs_error_t validate_queue_fatbits(const struct RoseEngine *rose) {
                      rt_fatbit_size(rose->dkeyCount),
                      rose->dkeyCount);
         return HS_INVALID;
-    }
-
-    return HS_SUCCESS;
-}
-
-/**
- * Validate that every NfaInfo entry has a fullStateOffset (plus the NFA's
- * scratchStateSize) that fits within the scratch fullState buffer, whose
- * total size is rose->scratchStateSize.  A forged database can set an
- * arbitrarily large fullStateOffset, leading to an out-of-bounds write
- * when nfaQueueInitState() memsets through the derived pointer (CWE-122).
- */
-static
-hs_error_t validate_nfa_info_offsets(const struct RoseEngine *rose) {
-    if (!rose->nfaInfoOffset) {
-        /* No NFA info table — nothing to validate. */
-        return HS_SUCCESS;
-    }
-
-    if (rose->nfaInfoOffset >= rose->size) {
-        DEBUG_PRINTF("nfaInfoOffset %u out of range (size=%u)\n",
-                     rose->nfaInfoOffset, rose->size);
-        return HS_INVALID;
-    }
-
-    /* The blob must be large enough to hold at least one NFA header */
-    if (rose->size < sizeof(struct NFA)) {
-        DEBUG_PRINTF("rose->size %u too small for an NFA header\n",
-                     rose->size);
-        return HS_INVALID;
-    }
-
-    /* Verify the entire NfaInfo table fits inside the RoseEngine blob. */
-    u64a nfa_info_table_end = (u64a)rose->nfaInfoOffset +
-                              (u64a)rose->queueCount * sizeof(struct NfaInfo);
-    if (nfa_info_table_end > rose->size) {
-        DEBUG_PRINTF("NfaInfo table overflows: nfaInfoOffset=%u, "
-                     "queueCount=%u, table_end=%llu, size=%u\n",
-                     rose->nfaInfoOffset, rose->queueCount,
-                     nfa_info_table_end, rose->size);
-        return HS_INVALID;
-    }
-
-    const struct NfaInfo *infos =
-        (const struct NfaInfo *)((const char *)rose + rose->nfaInfoOffset);
-
-    for (u32 qi = 0; qi < rose->queueCount; qi++) {
-        const struct NfaInfo *info = &infos[qi];
-
-        /* nfaOffset == 0 would point into the RoseEngine header, which is
-         * never a valid NFA location. */
-        if (info->nfaOffset == 0 ||
-            info->nfaOffset > rose->size - sizeof(struct NFA)) {
-            DEBUG_PRINTF("qi=%u: nfaOffset %u out of range (size=%u)\n",
-                         qi, info->nfaOffset, rose->size);
-            return HS_INVALID;
-        }
-
-        const struct NFA *nfa =
-            (const struct NFA *)((const char *)rose + info->nfaOffset);
-
-        /* Validate fullStateOffset + scratchStateSize fits in fullState. */
-        if (info->fullStateOffset > rose->scratchStateSize ||
-            nfa->scratchStateSize > rose->scratchStateSize - info->fullStateOffset) {
-            DEBUG_PRINTF("qi=%u: fullStateOffset %u + scratchStateSize %u "
-                         "exceeds scratchStateSize %u\n",
-                         qi, info->fullStateOffset, nfa->scratchStateSize,
-                         rose->scratchStateSize);
-            return HS_INVALID;
-        }
-
-        /* Validate stateOffset + streamStateSize fits in stream state. */
-        if (info->stateOffset > rose->stateOffsets.end ||
-            nfa->streamStateSize > rose->stateOffsets.end - info->stateOffset) {
-            DEBUG_PRINTF("qi=%u: stateOffset %u + streamStateSize %u "
-                         "exceeds stateOffsets.end %u\n",
-                         qi, info->stateOffset, nfa->streamStateSize,
-                         rose->stateOffsets.end);
-            return HS_INVALID;
-        }
     }
 
     return HS_SUCCESS;
@@ -441,13 +360,6 @@ hs_error_t HS_CDECL hs_alloc_scratch(const hs_database_t *db,
      * This prevents heap buffer overflow via queueCount / activeQueueArraySize
      * mismatch (CWE-122). */
     rv = validate_queue_fatbits(rose);
-    if (rv != HS_SUCCESS) {
-        return rv;
-    }
-
-    /* Reject databases where any NfaInfo.fullStateOffset would cause an
-     * out-of-bounds write into the scratch fullState buffer. */
-    rv = validate_nfa_info_offsets(rose);
     if (rv != HS_SUCCESS) {
         return rv;
     }

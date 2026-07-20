@@ -795,6 +795,61 @@ hs_error_t dbIsValid(const hs_database_t *db) {
         }
     }
 
+    // Validate NfaInfo entries: ensure every fullStateOffset and stateOffset
+    // is within its respective buffer.  This prevents out-of-bounds writes
+    // via forged NfaInfo fields (CWE-787).
+    if (rose->nfaInfoOffset) {
+        if (unlikely(rose->nfaInfoOffset >= rose->size)) {
+            DEBUG_PRINTF("nfaInfoOffset %u out of range (size=%u)\n",
+                         rose->nfaInfoOffset, rose->size);
+            return HS_INVALID;
+        }
+
+        if (unlikely(rose->size < sizeof(struct NFA))) {
+            DEBUG_PRINTF("rose->size %u too small for NFA header\n",
+                         rose->size);
+            return HS_INVALID;
+        }
+
+        u64a nfa_info_table_end = (u64a)rose->nfaInfoOffset +
+            (u64a)rose->queueCount * sizeof(struct NfaInfo);
+        if (unlikely(nfa_info_table_end > rose->size)) {
+            DEBUG_PRINTF("NfaInfo table overflows blob\n");
+            return HS_INVALID;
+        }
+
+        const struct NfaInfo *infos =
+            (const struct NfaInfo *)((const char *)rose + rose->nfaInfoOffset);
+
+        for (u32 qi = 0; qi < rose->queueCount; qi++) {
+            const struct NfaInfo *info = &infos[qi];
+
+            if (unlikely(info->nfaOffset == 0 ||
+                         info->nfaOffset > rose->size - sizeof(struct NFA))) {
+                DEBUG_PRINTF("qi=%u: nfaOffset %u out of range (size=%u)\n",
+                             qi, info->nfaOffset, rose->size);
+                return HS_INVALID;
+            }
+
+            const struct NFA *nfa =
+                (const struct NFA *)((const char *)rose + info->nfaOffset);
+
+            if (unlikely(info->fullStateOffset > rose->scratchStateSize ||
+                         nfa->scratchStateSize >
+                             rose->scratchStateSize - info->fullStateOffset)) {
+                DEBUG_PRINTF("qi=%u: fullStateOffset OOB\n", qi);
+                return HS_INVALID;
+            }
+
+            if (unlikely(info->stateOffset > rose->stateOffsets.end ||
+                         nfa->streamStateSize >
+                             rose->stateOffsets.end - info->stateOffset)) {
+                DEBUG_PRINTF("qi=%u: stateOffset OOB\n", qi);
+                return HS_INVALID;
+            }
+        }
+    }
+
     return HS_SUCCESS;
 }
 
